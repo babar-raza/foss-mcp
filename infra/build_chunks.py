@@ -74,7 +74,7 @@ from foss_mcp.indexing.authored_examples import (
     AuthoredExamplesError,
     load_authored_examples,
 )
-from foss_mcp.indexing.chunk_builder import build_chunks_from_api_surface
+from foss_mcp.indexing.chunk_builder import build_chunks_from_api_surface, parse_failures_over_threshold
 from foss_mcp.indexing.doc_candidates import extract_doc_sections
 from foss_mcp.indexing.example_candidates import (
     CHAIN_PREFIX_PLATFORMS,
@@ -1181,7 +1181,9 @@ def _extraction_notice_chunks(fixture: dict) -> list[Chunk]:
     """
     unresolved = [entry for entry in fixture.get("unresolved", []) if isinstance(entry, str)]
     syntax_errors = sorted({entry for entry in unresolved if ":syntax-error:" in entry})
-    if not syntax_errors:
+    parse_failures: dict[str, Any] = fixture.get("parse_failures") or {}
+    over_threshold = parse_failures_over_threshold(parse_failures)
+    if not syntax_errors and not over_threshold:
         return []
     files: list[str] = []
     for entry in syntax_errors:
@@ -1198,11 +1200,19 @@ def _extraction_notice_chunks(fixture: dict) -> list[Chunk]:
         - {""}
     )
     repository, commit = fixture["source_repository"], fixture["source_commit"]
-    lines = [
-        f"The source at {repository}@{commit} could not be fully read by the extractor.",
-        "These files do not parse as valid source and were skipped:",
-        *files,
-    ]
+    lines: list[str] = []
+    if over_threshold:
+        # No backtick and no blank line, so the chunker keeps the notice as ONE chunk.
+        examples = [
+            " ".join(str(item).replace("`", "'").split())
+            for item in (parse_failures.get("examples") or [])[:5]
+        ]
+        headline = f"{parse_failures['failed']} of {parse_failures['total']} source files could not be parsed"
+        lines.append(f"{headline} (examples: {', '.join(examples)})." if examples else f"{headline}.")
+    lines.append(f"The source at {repository}@{commit} could not be fully read by the extractor.")
+    if files:
+        lines.append("These files do not parse as valid source and were skipped:")
+        lines.extend(files)
     if names:
         lines.append("Public names that could not be extracted: " + ", ".join(names) + ".")
         lines.append("Lookups for these names will answer not found.")

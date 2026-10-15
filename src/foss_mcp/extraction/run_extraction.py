@@ -11,12 +11,13 @@ from __future__ import annotations
 import argparse
 import ast
 import json
+import math
 import os
 import re
 import shutil
 import subprocess
 import tempfile
-from collections.abc import Iterable
+from collections.abc import Iterable, Mapping
 from pathlib import Path, PurePosixPath
 from typing import Any
 
@@ -46,6 +47,39 @@ _LANGUAGE_BY_PLATFORM = {
     "javascript": "typescript",
     "nodejs": "javascript",
 }
+
+
+# The version of the artifact/fixture data contract this module writes. A fixture without the key
+# is version 1 (before TC-520). Later extraction cards bump it.
+EXTRACTOR_VERSION = 2
+
+# PROPOSAL, consumed by the extraction CLI (``main``) only: the ``--max-types`` each capped pilot
+# should be re-extracted with so the fixture holds its whole public API. Changing the helm
+# ``maxTypes`` / docker-compose ``--max-types`` is a separate data card, never done here. The
+# extraction cap and the ingestion ``--max-types`` must be EQUAL: otherwise the second slice in
+# ``infra/build_chunks.py`` cuts what the first one kept. A higher cap raises ingestion memory
+# (pdf/cpp already needed more than 4 Gi), so the follow-up card must re-measure Job memory and
+# image size.
+RECOMMENDED_MAX_TYPES: dict[str, int] = {
+    "pdf/net": 901,
+    "pdf/java": 1239,
+    "words/net": 618,
+    "pdf/python": 867,
+    "pdf/cpp": 361,
+    "cells/cpp": 346,
+    "slides/cpp": 323,
+    "html/python": 323,
+    "3d/python": 697,
+    "slides/python": 1023,
+    "words/python": 391,
+    "pdf/go": 450,
+    "pdf/typescript": 1250,
+}
+
+# The share of the cap that README-named types may take (after the example-used types).
+README_KEEP_FRACTION = 0.7
+
+_PARSE_EXAMPLE_LIMIT = 5
 
 
 def load_manifest(manifest_path: Path) -> dict[str, Any]:
@@ -246,24 +280,83 @@ def _extract_python_surface(clone_root: Path) -> tuple[list[dict[str, Any]], lis
     return types, list(surface.unresolved)
 
 
+def python_parse_health(clone_root: Path) -> dict[str, Any]:
+    """How many python source files of the package(s) do not parse (stdlib ``ast``).
+
+    Walks every ``*.py`` of each directory ``_python_package_dirs`` returns, with the exclusion
+    ``python_surface`` uses, and parses ALL of them - including modules with a leading underscore
+    and ``__init__.py``, which ``python_surface`` skips (or reaches only through a re-export)
+    before it parses them. ``total`` is 0 when there is no package directory. Examples are the
+    first five ``path:line: message`` strings in sorted path order, paths relative to *clone_root*.
+    """
+    total = 0
+    failed = 0
+    examples: list[str] = []
+    for package_dir in _python_package_dirs(clone_root):
+        package_path = clone_root / package_dir
+        for path in sorted(package_path.rglob("*.py")):
+            if any(
+                part in python_surface._EXCLUDED_PARTS for part in path.relative_to(package_path.parent).parts
+            ):
+                continue
+            total += 1
+            try:
+                ast.parse(path.read_text(encoding="utf-8-sig", errors="replace"))
+            except (SyntaxError, ValueError, RecursionError, MemoryError) as error:
+                failed += 1
+                if len(examples) < _PARSE_EXAMPLE_LIMIT:
+                    line = getattr(error, "lineno", None) or 0
+                    message = getattr(error, "msg", None) or str(error)
+                    examples.append(f"{path.relative_to(clone_root).as_posix()}:{line}: {message}")
+    return {"engine": "ast", "failed": failed, "total": total, "examples": examples}
+
+
+def tree_sitter_parse_health(scout_report: dict[str, Any]) -> dict[str, Any]:
+    """The same health shape for a tree-sitter run, from ``extract_api_surface``'s scout report:
+    ``parse_errors`` (files whose tree has an error node) and ``files_attempted``. Tree-sitter is
+    error tolerant, so a flagged file may still have yielded symbols."""
+    errors = sorted(str(item) for item in (scout_report.get("parse_errors") or []))
+    attempted = scout_report.get("files_attempted")
+    return {
+        "engine": "tree-sitter",
+        "failed": len(errors),
+        "total": attempted if isinstance(attempted, int) and not isinstance(attempted, bool) else 0,
+        "examples": [f"{path}: syntax error" for path in errors[:_PARSE_EXAMPLE_LIMIT]],
+    }
+
+
+def extract_with_health(
+    clone_root: Path, manifest: dict[str, Any]
+) -> tuple[list[dict[str, Any]], list[str], dict[str, Any] | None]:
+    """``extract_from_clone`` plus the extraction's parse health: ``(types, unresolved, health)``.
+
+    *health* is ``python_parse_health`` for a python manifest and ``tree_sitter_parse_health`` of
+    the engine's scout report for every other platform; ``None`` when the engine could not count.
+    """
+    platform = manifest["platform"]
+    if platform == "python":
+        types, unresolved = _extract_python_surface(clone_root)
+        return types, unresolved, python_parse_health(clone_root)
+    language = _LANGUAGE_BY_PLATFORM[platform]
+    pkg_root = package_root.detect_package_root(clone_root, platform)
+    parser = get_parser(language)
+    result = api_surface.extract_api_surface(parser, language, pkg_root, clone_root, manifest["family"])
+    scout = result[4] if len(result) > 4 else None
+    health = tree_sitter_parse_health(scout) if isinstance(scout, dict) else None
+    return result[0], [], health
+
+
 def extract_from_clone(clone_root: Path, manifest: dict[str, Any]) -> tuple[list[dict[str, Any]], list[str]]:
     """Run the engine over an already-cloned checkout, per the manifest's declared platform.
 
     Returns ``(types, unresolved)``. A python manifest never reaches ``_LANGUAGE_BY_PLATFORM``,
     ``get_parser``, or ``api_surface.extract_api_surface`` at all - it is routed to
     ``python_surface.inspect_public_surface`` instead, and ``unresolved`` is always empty for
-    every other, tree-sitter-backed platform (that engine has no equivalent concept).
+    every other, tree-sitter-backed platform (that engine has no equivalent concept). A thin
+    wrapper over ``extract_with_health``.
     """
-    platform = manifest["platform"]
-    if platform == "python":
-        return _extract_python_surface(clone_root)
-    language = _LANGUAGE_BY_PLATFORM[platform]
-    pkg_root = package_root.detect_package_root(clone_root, platform)
-    parser = get_parser(language)
-    types, *_rest = api_surface.extract_api_surface(
-        parser, language, pkg_root, clone_root, manifest["family"]
-    )
-    return types, []
+    types, unresolved, _health = extract_with_health(clone_root, manifest)
+    return types, unresolved
 
 
 def _enum_members_from_class(node: ast.ClassDef) -> list[dict[str, str]]:
@@ -329,6 +422,15 @@ def fill_python_enum_members(types: list[dict[str, Any]], clone_root: Path) -> N
             entry["enum_members"] = _enum_members_from_class(node)
 
 
+def summarize_symbols(types: list[dict[str, Any]]) -> dict[str, int]:
+    """``{"types": N, "functions": M}`` over the non-test entries: ``functions`` counts entries
+    whose ``kind`` is "function" (a Go/Rust/TypeScript free function or a python module function),
+    ``types`` every other entry. The coverage line states the two separately."""
+    entries = [entry for entry in types if not _is_test_entry(entry)]
+    functions = sum(1 for entry in entries if entry.get("kind") == "function")
+    return {"types": len(entries) - functions, "functions": functions}
+
+
 def extract_pinned_repository(manifest_path: Path, *, commit: str | None = None) -> dict[str, Any]:
     """Clone the manifest's pinned repository shallowly, run the engine over it, and return an
     api_surface-equivalent artifact recording the source repository and the exact commit
@@ -344,7 +446,7 @@ def extract_pinned_repository(manifest_path: Path, *, commit: str | None = None)
             commit_sha = clone_shallow(manifest["repository"], workdir)
         else:
             commit_sha = clone_shallow(manifest["repository"], workdir, commit=commit)
-        types, unresolved = extract_from_clone(workdir, manifest)
+        types, unresolved, health = extract_with_health(workdir, manifest)
         platform = manifest["platform"]
         if platform == "python":
             fill_python_enum_members(types, workdir)
@@ -357,7 +459,11 @@ def extract_pinned_repository(manifest_path: Path, *, commit: str | None = None)
             "language": language,
             "type_count": len(types),
             "types": types,
+            "extractor_version": EXTRACTOR_VERSION,
+            "symbol_counts": summarize_symbols(types),
         }
+        if health is not None:
+            artifact["parse_failures"] = health
         if unresolved:
             artifact["unresolved"] = unresolved
         return artifact
@@ -496,47 +602,118 @@ def _group_centrality_scores(types: list[dict[str, Any]], groups: list[list[int]
     return scores
 
 
+_INTERNAL_MARKERS = frozenset(
+    {
+        "internal",
+        "internals",
+        "_internal",
+        "impl",
+        "engine",
+        "generated",
+        "vendor",
+        "vendored",
+        "third_party",
+        "3rdparty",
+        "node_modules",
+        "detail",
+    }
+)
+_PATH_SEPARATORS = re.compile(r"[/\\]")
+_NAME_SEPARATORS = re.compile(r"\.|::|/")
+
+
+def _is_internal_entry(entry: dict[str, Any]) -> bool:
+    """True when *entry* lives in engine internals, generated or vendored code: a path segment of
+    its ``file``, or a segment of its ``class_import`` / ``canonical_namespace``, equals one of
+    ``_INTERNAL_MARKERS`` (case-insensitive), or its file is a ``.d.ts`` declaration file."""
+    file = str(entry.get("file") or "")
+    if file.lower().endswith(".d.ts"):
+        return True
+    segments = [segment.lower() for segment in _PATH_SEPARATORS.split(file)]
+    for key in ("class_import", "canonical_namespace"):
+        segments.extend(segment.lower() for segment in _NAME_SEPARATORS.split(str(entry.get(key) or "")))
+    return any(segment in _INTERNAL_MARKERS for segment in segments)
+
+
+def _is_internal_group(types: list[dict[str, Any]], group: list[int]) -> bool:
+    """True only when EVERY entry of *group* is internal: a python definition whose public
+    re-export shell sits in the package ``__init__.py`` is public."""
+    return all(_is_internal_entry(types[index]) for index in group)
+
+
 def reduce_fixture(
-    artifact: dict[str, Any], *, max_types: int = 300, must_keep: Iterable[str] = frozenset()
+    artifact: dict[str, Any],
+    *,
+    max_types: int = 300,
+    must_keep: Iterable[str] = frozenset(),
+    readme_names: Mapping[str, int] | Iterable[str] | None = None,
 ) -> dict[str, Any]:
     """A representative, deterministic subset of *artifact*, under the fixture size budget.
 
     The point of the fixture is a reproducible offline test, not a data dump. Entries read from
     test sources are dropped first and never scored or counted. The rest are grouped (a python
     re-export shell travels with its definition and the pair costs one slot, see
-    ``_alias_groups``) and the groups chosen by a CENTRALITY SCORE - how many entries outside
-    the group reference its bare name - sorted descending, so a type everything else depends on
-    survives a cut that a pure alphabetical slice would have dropped. The qualified-name key is
-    the deterministic tiebreaker for equal scores, so the same source commit always reduces to
-    the same fixture, and the truncation is recorded rather than hidden.
+    ``_alias_groups``) and the groups ranked by a CENTRALITY SCORE - how many entries outside
+    the group reference its bare name - descending, so a type everything else depends on
+    survives a cut that a pure alphabetical slice would have dropped. Groups that are engine
+    internals, generated or vendored code (``_is_internal_group``) rank after every public
+    group, so they fill only slots nothing else wants. The qualified-name key is the
+    deterministic tiebreaker for equal scores, so the same source commit always reduces to the
+    same fixture, and the truncation is recorded rather than hidden.
 
-    Every group whose type ``name`` is in *must_keep* (the types a pilot's own examples use) is
-    chosen first, in the same order, then the remaining budget is filled by centrality.
-    ``max_types`` still bounds the number of groups. With no *must_keep*, no test entries and no
-    shells the result is identical to selecting the top ``max_types`` by centrality.
+    The order of choice is: (1) every group whose type ``name`` is in *must_keep* (the types a
+    pilot's own examples use); (2) the groups whose name is in *readme_names* (name to mention
+    count, from ``readme_keep_names``), most mentioned first, until ``README_KEEP_FRACTION`` of
+    the cap is chosen; (3) the remaining slots by rank. Documentation beats the internal-code
+    heuristic, so (1) and (2) keep a named group even when it is internal. ``max_types`` still
+    bounds the number of groups. With no *must_keep*, no *readme_names*, no test entries, no
+    shells and no internal groups the result is identical to selecting the top ``max_types`` by
+    centrality.
     """
     keep_names = frozenset(must_keep)
+    mentions: dict[str, int] = {}
+    if readme_names:
+        if isinstance(readme_names, Mapping):
+            mentions = dict(readme_names)
+        else:
+            mentions = dict.fromkeys(readme_names, 1)
     all_types = artifact["types"]
     types = [entry for entry in all_types if not _is_test_entry(entry)]
     groups = _alias_groups(types)
     scores = _group_centrality_scores(types, groups)
+    internal = [_is_internal_group(types, group) for group in groups]
 
-    def key(group_index: int) -> tuple[int, str]:
+    def key(group_index: int) -> tuple[bool, int, str]:
         rep = types[groups[group_index][0]]
-        return (-scores[group_index], rep.get("class_import") or rep.get("name") or "")
+        return (internal[group_index], -scores[group_index], rep.get("class_import") or rep.get("name") or "")
 
     ordered = sorted(range(len(groups)), key=key)
+    rank = {group_index: position for position, group_index in enumerate(ordered)}
+
+    def name_of(group_index: int) -> str:
+        return types[groups[group_index][0]].get("name") or ""
+
     chosen: list[int] = []
     if keep_names:
-        chosen = [g for g in ordered if (types[groups[g][0]].get("name") or "") in keep_names][:max_types]
+        chosen = [g for g in ordered if name_of(g) in keep_names][:max_types]
     chosen_set = set(chosen)
+    if mentions:
+        readme_budget = min(max_types, math.ceil(round(max_types * README_KEEP_FRACTION, 9)))
+        named = sorted(
+            (g for g in ordered if g not in chosen_set and name_of(g) in mentions),
+            key=lambda g: (-mentions[name_of(g)], rank[g]),
+        )
+        for group_index in named:
+            if len(chosen) >= readme_budget:
+                break
+            chosen.append(group_index)
+            chosen_set.add(group_index)
     for group_index in ordered:
         if len(chosen) >= max_types:
             break
         if group_index not in chosen_set:
             chosen.append(group_index)
             chosen_set.add(group_index)
-    rank = {group_index: position for position, group_index in enumerate(ordered)}
     chosen.sort(key=rank.__getitem__)
 
     reduced = [types[index] for group_index in chosen for index in groups[group_index]]
@@ -671,13 +848,55 @@ def names_used_in_examples(page_path: Path | str) -> frozenset[str]:
     return frozenset(found)
 
 
+_IDENTIFIER_RE = re.compile(r"[A-Za-z_][A-Za-z0-9_]{1,}")
+_INLINE_SPAN_RE = re.compile(r"(?<!`)`([^`\n]{1,120})`(?!`)")
+
+
+def readme_keep_names(page_path: Path | str) -> dict[str, int]:
+    """Identifiers a furnished page (the library's README) presents as its API, with a mention count.
+
+    Per identifier, the count is the number of fenced code blocks of a code language (the
+    ``_NON_CODE_FENCE_LANGUAGES`` rule of ``names_used_in_examples``, comments and string
+    literals blanked first) that contain it plus the number of inline code spans (a single
+    backtick span of at most 120 characters on one line, outside fences) that contain it. Only
+    identifiers that occur in at least one code fence, or in at least two spans/fences, are kept:
+    a name mentioned once in passing inside a span is not evidence. Prose words are never counted.
+    Deterministic. ``reduce_fixture`` only keeps names the artifact actually defines.
+    """
+    in_fences: dict[str, int] = {}
+    in_spans: dict[str, int] = {}
+    for text in _page_texts(Path(page_path)):
+        for fence in _FENCE_RE.finditer(text):
+            language = fence.group(1).strip().split()[0].lower() if fence.group(1).strip() else ""
+            if language in _NON_CODE_FENCE_LANGUAGES:
+                continue
+            code = _COMMENT_RE.sub(" ", _STRING_RE.sub('""', fence.group(2)))
+            for name in set(_IDENTIFIER_RE.findall(code)):
+                in_fences[name] = in_fences.get(name, 0) + 1
+        prose = _FENCE_RE.sub(" ", text)
+        for span in _INLINE_SPAN_RE.finditer(prose):
+            for name in set(_IDENTIFIER_RE.findall(span.group(1))):
+                in_spans[name] = in_spans.get(name, 0) + 1
+    counts: dict[str, int] = {}
+    for name in sorted(set(in_fences) | set(in_spans)):
+        fenced, spanned = in_fences.get(name, 0), in_spans.get(name, 0)
+        if fenced >= 1 or fenced + spanned >= 2:
+            counts[name] = fenced + spanned
+    return counts
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("manifest", type=Path, help="product manifest, e.g. config/products/pdf/net.yaml")
     parser.add_argument(
         "output", type=Path, help="fixture path, e.g. tests/fixtures/pdf_net/api_surface.json"
     )
-    parser.add_argument("--max-types", type=int, default=300)
+    parser.add_argument(
+        "--max-types",
+        type=int,
+        default=None,
+        help="cap on kept types; default is RECOMMENDED_MAX_TYPES for the manifest's pilot, else 300",
+    )
     parser.add_argument(
         "--commit", default=None, help="extract at exactly this commit SHA (the pilot's pin), not HEAD"
     )
@@ -686,13 +905,18 @@ def main() -> None:
         type=Path,
         default=None,
         metavar="PAGE",
-        help="furnished page whose example code names types that must survive the cut",
+        help="furnished page whose example code and README-named types must survive the cut",
     )
     args = parser.parse_args()
 
+    manifest = load_manifest(args.manifest)
+    max_types = args.max_types
+    if max_types is None:
+        max_types = RECOMMENDED_MAX_TYPES.get(f"{manifest['family']}/{manifest['platform']}", 300)
     artifact = extract_pinned_repository(args.manifest, commit=args.commit)
     must_keep = names_used_in_examples(args.keep_names_from) if args.keep_names_from else frozenset()
-    fixture = reduce_fixture(artifact, max_types=args.max_types, must_keep=must_keep)
+    readme_names = readme_keep_names(args.keep_names_from) if args.keep_names_from else None
+    fixture = reduce_fixture(artifact, max_types=max_types, must_keep=must_keep, readme_names=readme_names)
     args.output.parent.mkdir(parents=True, exist_ok=True)
     args.output.write_text(json.dumps(fixture, indent=2, sort_keys=True) + "\n", encoding="utf-8")
     print(

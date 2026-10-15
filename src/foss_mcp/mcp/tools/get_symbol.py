@@ -19,6 +19,7 @@ from dataclasses import dataclass
 
 from foss_mcp.indexing.generation_manifest import GenerationManifestStore
 from foss_mcp.mcp.routing import Scope
+from foss_mcp.mcp.tools.coverage_note import coverage_note_from_text
 from foss_mcp.mcp.tools.search_symbols import (
     _NON_SYMBOL_FQN_PREFIXES,
     SOURCE_KIND,
@@ -28,7 +29,6 @@ from foss_mcp.mcp.tools.search_symbols import (
 
 _NOT_FOUND_REASON = "no symbol with this exact FQN is in this index"
 _NO_GENERATION_REASON = "no published generation for this scope"
-_API_COVERAGE_LINE = re.compile(r"^API-Coverage:\s*(\d+)\s+of\s+(\d+)\s+types\b", re.MULTILINE)
 _FQN_LINE = re.compile(r"^FQN:\s*(.+)$", re.MULTILINE)
 _KIND_LINE = re.compile(r"^Kind:\s*(.+)$", re.MULTILINE)
 _BULLET_PREFIX = "  - "
@@ -110,15 +110,10 @@ def _parse_signature(
 
 
 def _coverage_note(text: str) -> str | None:
-    """The partial-coverage caveat a symbol chunk's ``API-Coverage: <P> of <T> types`` line states,
-    or ``None`` when the line is absent or the index holds every type."""
-    match = _API_COVERAGE_LINE.search(text)
-    if match is None:
-        return None
-    indexed, total = int(match.group(1)), int(match.group(2))
-    if indexed >= total:
-        return None
-    return f"the API index holds {indexed} of {total} types; a type missing from it may still exist upstream"
+    """The partial-coverage caveat a symbol chunk's ``API-Coverage:`` line states (types, functions
+    and source files that could not be parsed), or ``None`` when the line is absent or states
+    nothing partial. One helper shared with ``report_index_freshness`` (TC-520)."""
+    return coverage_note_from_text(text)
 
 
 def get_symbol(store: GenerationManifestStore, scope: Scope, fqn: str) -> SymbolSignature | NotFound:

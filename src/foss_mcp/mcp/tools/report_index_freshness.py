@@ -22,12 +22,12 @@ from dataclasses import dataclass
 
 from foss_mcp.indexing.generation_manifest import GenerationManifestStore
 from foss_mcp.mcp.routing import Scope
+from foss_mcp.mcp.tools.coverage_note import coverage_note_from_text, parse_api_coverage
 from foss_mcp.mcp.tools.example_search_mode import example_search_mode
 from foss_mcp.mcp.tools.get_symbol import extract_fqn
 from foss_mcp.mcp.tools.search_symbols import scope_key
 
 _SOURCE_COMMIT_LINE = re.compile(r"^Source-Commit:\s*(\S+)$", re.MULTILINE)
-_API_COVERAGE_LINE = re.compile(r"^API-Coverage:\s*(\d+)\s+of\s+(\d+)\s+types\b", re.MULTILINE)
 
 _EXAMPLE_PREFIX = "Example: "
 _DOCUMENTATION_PREFIX = "Doc: "
@@ -102,6 +102,7 @@ class _Provenance:
     chunks_without_commit: int
     indexed_types: int | None
     total_types: int | None
+    coverage_text: str | None = None
 
 
 def _read_provenance(manifest_payload: dict) -> _Provenance:
@@ -110,14 +111,16 @@ def _read_provenance(manifest_payload: dict) -> _Provenance:
     without_commit = 0
     indexed_types: int | None = None
     total_types: int | None = None
+    coverage_text: str | None = None
     # Sorted by document id so "the first API-Coverage line" does not depend on dict order.
     for _, document in sorted(documents.items()):
         text = document["text"]
         kind = _chunk_kind(text)
         if kind == _SYMBOL and indexed_types is None:
-            coverage = _API_COVERAGE_LINE.search(text)
+            coverage = parse_api_coverage(text)
             if coverage is not None:
-                indexed_types, total_types = int(coverage.group(1)), int(coverage.group(2))
+                indexed_types, total_types = coverage.indexed, coverage.total
+                coverage_text = text
         commit_match = _SOURCE_COMMIT_LINE.search(text)
         if commit_match is None:
             without_commit += 1
@@ -136,7 +139,7 @@ def _read_provenance(manifest_payload: dict) -> _Provenance:
         for commit, counts in per_commit.items()
     ]
     commits.sort(key=lambda entry: (-entry.chunks, entry.commit))
-    return _Provenance(tuple(commits), without_commit, indexed_types, total_types)
+    return _Provenance(tuple(commits), without_commit, indexed_types, total_types, coverage_text)
 
 
 def _indexed_source_commit(commits: tuple[CommitCount, ...]) -> str | None:
@@ -249,17 +252,8 @@ def report_index_freshness(
     indexed_commit = _indexed_source_commit(commits)
     pinned_matches = _pinned_matches_symbols(commits, pinned_library_commit)
 
-    coverage_note: str | None = None
     example_mode, example_reason = example_search_mode(manifest.payload)
-    if (
-        provenance.indexed_types is not None
-        and provenance.total_types is not None
-        and provenance.indexed_types < provenance.total_types
-    ):
-        coverage_note = (
-            f"the API index holds {provenance.indexed_types} of {provenance.total_types} types; "
-            "a type missing from it may still exist upstream"
-        )
+    coverage_note = coverage_note_from_text(provenance.coverage_text) if provenance.coverage_text else None
 
     def build(stale: bool, reason: str) -> FreshnessReport:
         if pinned_matches is False and pinned_library_commit is not None:

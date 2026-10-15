@@ -375,6 +375,76 @@ def _reexport_pairs(entries: Sequence[Mapping[str, object]]) -> dict[int, int]:
     return pairs
 
 
+# TC-520: the share of source files that may fail to parse before the coverage line, the
+# Extraction notice and the freshness report say so. Tree-sitter is error tolerant and flags files
+# whose symbols are still extracted, so its threshold is higher than the stdlib ``ast``'s.
+PARSE_FAILURE_NOTE_THRESHOLD = {"ast": 0.10, "tree-sitter": 0.25}
+
+
+def _is_count(value: object) -> bool:
+    return isinstance(value, int) and not isinstance(value, bool)
+
+
+def parse_failures_over_threshold(parse_failures: object) -> bool:
+    """True only for a ``parse_failures`` dict with integer ``failed`` and ``total``, ``total > 0``
+    and ``failed / total`` strictly greater than the engine's threshold. Anything malformed, or of
+    an unknown engine, is False."""
+    if not isinstance(parse_failures, Mapping):
+        return False
+    threshold = PARSE_FAILURE_NOTE_THRESHOLD.get(str(parse_failures.get("engine")))
+    failed, total = parse_failures.get("failed"), parse_failures.get("total")
+    if threshold is None or not _is_count(failed) or not _is_count(total):
+        return False
+    failed_count, total_count = cast(int, failed), cast(int, total)
+    return total_count > 0 and failed_count / total_count > threshold
+
+
+def _syntax_error_files(fixture: Mapping[str, object]) -> set[str]:
+    """The distinct source files an ``unresolved`` ``:syntax-error:`` entry names (the text between
+    the marker and the next colon)."""
+    files: set[str] = set()
+    unresolved = fixture.get("unresolved")
+    for entry in unresolved if isinstance(unresolved, list) else []:
+        if isinstance(entry, str) and ":syntax-error:" in entry:
+            files.add(entry.partition(":syntax-error:")[2].partition(":")[0])
+    return files
+
+
+def _coverage_line(fixture: Mapping[str, object], entries: Sequence[Mapping[str, object]]) -> str | None:
+    """The ``API-Coverage:`` value of every symbol chunk of *fixture*.
+
+    Legacy rendering (``{kept} of {type_count} types``) when the fixture has none of
+    ``symbol_counts``, ``parse_failures`` and a ``:syntax-error:`` entry. Otherwise one line of
+    clauses joined by "; ", the types clause first: kept types of the types the library has, kept
+    functions of its functions, and how many source files could not be parsed.
+    """
+    type_count = fixture.get("type_count")
+    legacy = f"{len(entries)} of {type_count} types" if _is_count(type_count) else None
+    counts = fixture.get("symbol_counts")
+    failures = fixture.get("parse_failures")
+    syntax_files = _syntax_error_files(fixture)
+    if counts is None and failures is None and not syntax_files:
+        return legacy
+    kept_functions = sum(1 for entry in entries if entry.get("kind") == "function")
+    clauses: list[str] = []
+    if isinstance(counts, Mapping) and _is_count(counts.get("types")):
+        clauses.append(f"{len(entries) - kept_functions} of {counts['types']} types")
+    elif legacy is not None:
+        clauses.append(legacy)
+    else:
+        return None
+    if isinstance(counts, Mapping) and _is_count(counts.get("functions")) and counts["functions"] > 0:
+        clauses.append(f"{kept_functions} of {counts['functions']} functions")
+    if parse_failures_over_threshold(failures):
+        failed_files = cast(Mapping[str, int], failures)
+        clauses.append(
+            f"{failed_files['failed']} of {failed_files['total']} source files could not be parsed"
+        )
+    elif failures is None and syntax_files:
+        clauses.append(f"at least {len(syntax_files)} source files could not be parsed")
+    return "; ".join(clauses)
+
+
 def build_chunks_from_api_surface(
     fixture: Mapping[str, object], *, title: str, max_types: int = 300
 ) -> list[Chunk]:
@@ -389,12 +459,7 @@ def build_chunks_from_api_surface(
     exported_as: dict[int, list[str]] = {}
     for stub_index, definition_index in pairs.items():
         exported_as.setdefault(definition_index, []).append(fqns[stub_index])
-    type_count = fixture.get("type_count")
-    coverage = (
-        f"{len(entries)} of {type_count} types"
-        if isinstance(type_count, int) and not isinstance(type_count, bool)
-        else None
-    )
+    coverage = _coverage_line(fixture, entries)
     sections = []
     for index, entry in enumerate(entries):
         target = pairs.get(index)
