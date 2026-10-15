@@ -402,17 +402,19 @@ def test_generation_unavailable_reason_is_none_for_a_usable_generation(env: Env)
     assert generation_unavailable_reason(env.store().manifest_store, SCOPE_KEY) is None
 
 
-@pytest.mark.parametrize("state", ["empty store", "corrupt pointer", "corrupt generation", "zero documents"])
+@pytest.mark.parametrize(
+    "state", ["corrupt pointer", "corrupt generation", "missing generation", "zero documents"]
+)
 def test_generation_unavailable_reason_names_each_unusable_state(env: Env, state: str) -> None:
-    if state == "empty store":
-        shutil.rmtree(env.scope_dir)
-        expected = "no active generation"
-    elif state == "corrupt pointer":
+    if state == "corrupt pointer":
         env.pointer_path.write_bytes(b"{{{ not json")
         expected = "active pointer is unreadable (JSONDecodeError)"
     elif state == "corrupt generation":
         env.generation_path.write_bytes(b"\x00\xff garbage")
         expected = "generation file is unreadable ("
+    elif state == "missing generation":
+        env.generation_path.unlink()
+        expected = "generation file is unreadable (UnknownGenerationError)"
     else:
         generation = env.load_generation()
         env.lexical_index(generation)["documents"] = {}
@@ -423,6 +425,29 @@ def test_generation_unavailable_reason_names_each_unusable_state(env: Env, state
     assert reason is not None
     assert expected in reason
     assert str(env.tmp_path) not in reason
+
+
+@pytest.mark.parametrize("state", ["empty store", "null pointer"])
+def test_generation_unavailable_reason_is_none_for_a_deployment_that_never_published(
+    env: Env, state: str
+) -> None:
+    """No pointer at all is a fresh, unpopulated deployment, not a broken one: its tools answer
+    with honest misses (the container-session e2e tests pin this). /readyz still says 503."""
+    if state == "empty store":
+        shutil.rmtree(env.scope_dir)
+    else:
+        env.pointer_path.write_text("null", encoding="utf-8")
+    assert generation_unavailable_reason(env.store().manifest_store, SCOPE_KEY) is None
+    assert readiness_report(env.store()).reasons == ("no active generation",)
+
+
+@pytest.mark.parametrize("symbols", [1, 2])
+def test_generation_unavailable_reason_ignores_the_readiness_floors(env: Env, symbols: int) -> None:
+    """A thin but readable generation (below the symbol floor, no documentation) is not
+    unavailable: only /readyz applies the composition floors."""
+    env.keep_kinds(keep_symbols=symbols, drop=("documentation", "example"))
+    assert readiness_report(env.store()).ready is False
+    assert generation_unavailable_reason(env.store().manifest_store, SCOPE_KEY) is None
 
 
 def test_generation_unavailable_reason_works_with_a_duck_typed_store() -> None:
@@ -442,7 +467,7 @@ def test_generation_unavailable_reason_works_with_a_duck_typed_store() -> None:
 
     usable = Duck("a::b::c::v1", {"lexical_index": {"documents": {"d": {}}}})
     assert generation_unavailable_reason(usable, "a::b::c") is None
-    assert generation_unavailable_reason(Duck(None, {}), "a::b::c") == "no active generation"
+    assert generation_unavailable_reason(Duck(None, {}), "a::b::c") is None
     assert generation_unavailable_reason(Duck("", {}), "a::b::c") == "active pointer is malformed"
     assert (
         generation_unavailable_reason(Duck("a::b::c::v1", {"lexical_index": {"documents": {}}}), "a::b::c")

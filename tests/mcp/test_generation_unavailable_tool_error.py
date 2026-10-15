@@ -27,10 +27,12 @@ from foss_mcp.indexing.generation_manifest import GenerationManifestStore
 from foss_mcp.mcp.health import GENERATION_UNAVAILABLE_MESSAGE
 from foss_mcp.mcp.routing import DeploymentConfig
 from foss_mcp.mcp.server import ToolErrorCode, create_server
+from foss_mcp.mcp.tools.relevance import chunk_kind
 from foss_mcp.mcp.tools.search_docs import CONTENT_TYPES
 from foss_mcp.telemetry.usage_recorder import UsageRecorder
 
 sys.path.insert(0, str(Path(__file__).parents[2] / "infra"))
+import serve_http  # noqa: E402
 import serve_stdio  # noqa: E402
 
 REPO_ROOT = Path(__file__).parents[2]
@@ -83,9 +85,43 @@ def _assert_unavailable(result: CallToolResult, tmp_path: Path) -> None:
     assert str(tmp_path) not in json.dumps(result.structured_content)
 
 
+def _dangling_pointer_root(tmp_path: Path) -> Path:
+    """A manifests root whose pdf/go pointer names a generation file that does not exist."""
+    root = tmp_path / "dangling"
+    scope_dir = root / "pdf__go__self_extracted"
+    scope_dir.mkdir(parents=True)
+    (scope_dir / "active_pointer.json").write_text(
+        json.dumps({"generation_id": "pdf::go::self_extracted::20260101T000000Z-deadbeef"}), encoding="utf-8"
+    )
+    return root
+
+
+def _thin_root(tmp_path: Path, symbols: int) -> Path:
+    """A readable generation of the right scope below the readiness floors: *symbols* symbol
+    chunks and no documentation or example chunks."""
+    root, scope_dir = _copy_baked(tmp_path)
+    path = next(scope_dir.glob("generation__*.json"))
+    generation = json.loads(path.read_text(encoding="utf-8"))
+    index = generation["payload"]["lexical_index"]
+    kept: dict[str, Any] = {}
+    for doc_id, document in index["documents"].items():
+        if chunk_kind(document["text"]) == "symbol" and len(kept) < symbols:
+            kept[doc_id] = document
+    index["documents"] = kept
+    counter: dict[str, int] = {}
+    for document in kept.values():
+        for token in set(document["tokens"]):
+            counter[token] = counter.get(token, 0) + 1
+    index["doc_freq"] = counter
+    path.write_text(json.dumps(generation), encoding="utf-8")
+    return root
+
+
 @pytest.mark.parametrize("tool", sorted(GENERATION_TOOLS))
 def test_each_generation_tool_is_an_error_over_an_empty_store(tool: str, tmp_path: Path) -> None:
-    result = _call(_server(tmp_path / "empty"), tool, GENERATION_TOOLS[tool])
+    """The 'empty' state that is broken: the pointer names a generation that cannot be read. (A
+    store that never published at all is NOT an error - see the never-published test below.)"""
+    result = _call(_server(_dangling_pointer_root(tmp_path)), tool, GENERATION_TOOLS[tool])
     _assert_unavailable(result, tmp_path)
     lowered = result.content[0].text.lower()
     assert '"found"' not in lowered
@@ -177,7 +213,7 @@ def test_a_warning_with_reason_and_correlation_id_is_logged(
     tmp_path: Path, caplog: pytest.LogCaptureFixture
 ) -> None:
     recorder = UsageRecorder()
-    server = _server(tmp_path / "empty", usage_recorder=recorder)
+    server = _server(_dangling_pointer_root(tmp_path), usage_recorder=recorder)
     with caplog.at_level(logging.WARNING, logger="foss_mcp.mcp.server"):
         result = _call(server, "lookup", {"query": "Document"})
     warnings = [
@@ -188,7 +224,7 @@ def test_a_warning_with_reason_and_correlation_id_is_logged(
     assert len(warnings) == 1
     message = warnings[0].getMessage()
     assert "lookup" in message
-    assert "no active generation" in message
+    assert "generation file is unreadable (UnknownGenerationError)" in message
     assert result.structured_content["correlation_id"] in message
     assert str(tmp_path) not in message
     assert warnings[0].exc_info is None
@@ -206,8 +242,39 @@ def test_unavailable_is_in_the_closed_code_vocabulary() -> None:
 
 
 def test_stdio_build_gives_the_same_error_for_an_empty_store(tmp_path: Path) -> None:
-    manifests = tmp_path / "stdio-manifests"
-    manifests.mkdir()  # an empty manifests directory: no generation and no sidecars
+    manifests = _dangling_pointer_root(tmp_path)  # a pointer to a generation that cannot be read
     server = serve_stdio.build_stdio_server(CONFIG, manifests_dir=manifests)
     result = _call(server, "search_symbols", {"query": "Document"})
     _assert_unavailable(result, tmp_path)
+
+
+def test_a_never_published_store_lets_every_tool_answer(tmp_path: Path) -> None:
+    """A freshly built, unpopulated container (no pointer at all) answers every tool with a
+    success-typed honest miss, exactly as before this card: the container-session e2e tests pin it.
+    Only /readyz reports it, as 503 "no active generation"."""
+    server = _server(tmp_path / "empty")
+    for tool, arguments in GENERATION_TOOLS.items():
+        result = _call(server, tool, arguments)
+        assert result.is_error is False, tool
+        assert "result" in result.structured_content
+
+
+def test_a_thin_readable_generation_still_lets_every_tool_answer_while_readyz_is_503(
+    tmp_path: Path,
+) -> None:
+    """Two symbols and no documentation is below the readiness floors (/readyz 503) but is a
+    readable generation of the right scope, so no tool may answer 'unavailable'."""
+    from starlette.testclient import TestClient
+
+    root = _thin_root(tmp_path, symbols=2)
+    server = _server(root)
+    for tool, arguments in GENERATION_TOOLS.items():
+        result = _call(server, tool, arguments)
+        assert result.is_error is False, tool
+        assert "result" in result.structured_content
+    with TestClient(
+        serve_http.build_app(CONFIG, manifest_store=GenerationManifestStore(root), allowed_origins=[])
+    ) as client:
+        response = client.get("/readyz")
+    assert response.status_code == 503
+    assert "symbols 2 below the floor 3" in response.json()["reasons"]

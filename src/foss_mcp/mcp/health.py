@@ -223,7 +223,16 @@ def round_trip_check(store: DeploymentGenerationStore) -> bool:
 
 
 def generation_unavailable_reason(manifest_store: Any, scope_key: str) -> str | None:
-    """``None`` when a usable generation exists to search, else a short reason. Never raises.
+    """``None`` when the tools may answer, else a short reason the generation cannot be resolved or
+    read. Never raises.
+
+    A deployment that has NEVER published (no active pointer at all) is not "broken": its tools
+    answer as they always did, with honest misses, and ``report_index_freshness`` says "never
+    published" (the container-session e2e tests pin this for a freshly built, unpopulated
+    container). The error is for a generation that is named but cannot be used: an unreadable or
+    malformed pointer, a missing, corrupt or mismatched generation file, or a generation with no
+    lexical documents. The readiness composition floors (symbols, documentation) are NOT checked
+    here: a thin but readable generation still answers (``/readyz`` alone reports it as 503).
 
     CHEAP by design (it runs before every generation-backed tool call): it reads only the active
     pointer and that generation, and asks only whether the generation has lexical documents. It
@@ -235,7 +244,7 @@ def generation_unavailable_reason(manifest_store: Any, scope_key: str) -> str | 
     except Exception as exc:  # noqa: BLE001 - a reason, never a raise.
         return f"active pointer is unreadable ({type(exc).__name__})"
     if generation_id is None:
-        return "no active generation"
+        return None
     if not isinstance(generation_id, str) or not generation_id:
         return "active pointer is malformed"
     try:
