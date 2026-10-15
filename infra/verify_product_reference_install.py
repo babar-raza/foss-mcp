@@ -39,7 +39,12 @@ import json
 from datetime import UTC, datetime
 from pathlib import Path
 
-from fetch_product_reference import load_manifest_sidecar, sidecar_name
+from fetch_product_reference import (
+    atomic_write_json,
+    is_fetch_failed_placeholder,
+    load_manifest_sidecar,
+    sidecar_name,
+)
 from verify_package_registry import (
     _CHECKERS,
     _SIDECAR_FRESHNESS_SECONDS,
@@ -48,6 +53,15 @@ from verify_package_registry import (
 )
 
 from foss_mcp.mcp.tools.get_product_reference import install_coordinate_for_verification
+
+
+def _holds_fetch_failed_placeholder(path: Path) -> bool:
+    """True when *path* is a readable JSON file that is the typed ``fetch_failed`` placeholder."""
+    try:
+        data = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return False
+    return is_fetch_failed_placeholder(data)
 
 
 def main() -> None:
@@ -64,6 +78,11 @@ def main() -> None:
     args = parser.parse_args()
 
     manifest_sidecar_path = args.manifests_dir / sidecar_name(args.family, args.platform)
+    # G3/TC-511: a failed product-reference fetch leaves a typed placeholder, which
+    # ``load_manifest_sidecar`` would raise on. There is nothing to verify; this is not an error.
+    if _holds_fetch_failed_placeholder(manifest_sidecar_path):
+        print("nothing to verify: the product reference fetch failed")
+        return
     inputs = load_manifest_sidecar(manifest_sidecar_path)
     if inputs is None:
         print(
@@ -95,13 +114,20 @@ def main() -> None:
     # ingestion-job.yaml step that invokes this script is what tolerates that failure, with "|| true".
     verified = checker(coordinate)
 
+    checked_at = datetime.now(UTC).isoformat()
     sidecar = {
         "ecosystem": ecosystem,
         "coordinate": coordinate,
         "verified": verified,
-        "checked_at": datetime.now(UTC).isoformat(),
+        "checked_at": checked_at,
+        # G3/TC-511: provenance, additive; the four keys above are what the loader requires.
+        "family": args.family,
+        "platform": args.platform,
+        "fetched_at": checked_at,
+        "source_repository": inputs.source_repository,
+        "source_ref": inputs.source_ref,
     }
-    output.write_text(json.dumps(sidecar), encoding="utf-8")
+    atomic_write_json(output, sidecar)
     print(f"wrote verification result for {coordinate} ({ecosystem}) -> {output}: verified={verified}")
 
 

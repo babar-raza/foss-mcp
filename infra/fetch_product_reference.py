@@ -35,15 +35,29 @@ agent-guidance names case-insensitively (``Agents.md``, ``agents.md``), records 
 license file as ``license_document`` and, for .NET, its root ``Directory.Build.props`` text as
 ``build_props_text``; ``load_manifest_sidecar`` reads both back (None for a sidecar without them).
 ``--force`` refetches even when the existing sidecar already records the same pin.
+
+G3/TC-511: every write is atomic (``atomic_write_json``: a temp file in the same directory, fsync,
+``os.replace``), so a kill mid-write never leaves a truncated sidecar. A sidecar also records
+``fetched_at`` (UTC), ``family`` and ``platform``. A FAILED fetch is never silent and never an
+absence: ``main`` writes ``<output>.failed``, logs an ``ERROR`` line, exits 1 and - only when no
+good sidecar exists - writes a typed ``fetch_failed`` placeholder (``state`` and ``status`` both
+``fetch_failed``) that serving reports as "could not be fetched". A good sidecar is never
+overwritten by a failure.
 """
 
 from __future__ import annotations
 
 import argparse
+import contextlib
 import json
+import os
 import re
+import sys
+import tempfile
+from datetime import UTC, datetime
 from pathlib import Path
 
+from foss_mcp.extraction.github_http import failure_reason, reset_default_budget
 from foss_mcp.extraction.manifest_reader import fetch_manifest_file
 from foss_mcp.extraction.repo_native_reader import (
     DocumentNotPresent,
@@ -56,6 +70,9 @@ from foss_mcp.extraction.repo_native_reader import (
 from foss_mcp.mcp.tools.get_product_reference import ProductReferenceInputs
 
 _IDENTITY_PART = re.compile(r"[a-z0-9]+")
+_SIDECAR_FILE_NAME = re.compile(r"product_reference_([a-z0-9]+)_([a-z0-9]+)\.json")
+
+FETCH_FAILED_STATUS = "fetch_failed"
 
 # G3/TC-427: root file names a license is kept under, in priority order. Each is matched
 # case-insensitively against the repository's root listing, an exact-case match winning.
@@ -77,6 +94,54 @@ def sidecar_name(family: str, platform: str) -> str:
         if not _IDENTITY_PART.fullmatch(part):
             raise ValueError(f"sidecar identity part {part!r} must be lowercase letters and digits")
     return f"product_reference_{family}_{platform}.json"
+
+
+def atomic_write_json(path: Path, doc: object) -> None:
+    """Write *doc* as JSON to *path* atomically.
+
+    Serialises first (a serialisation error leaves the old file untouched), writes a temp file in
+    the same directory, flushes and fsyncs it, then ``os.replace``s it over *path*. The temp file
+    is removed when anything fails, and no other file is created. A sidecar is read by another
+    container, so the file keeps the existing file's permissions (else 0644), not mkstemp's 0600.
+    """
+    payload = json.dumps(doc)
+    path = Path(path)
+    descriptor, temp_name = tempfile.mkstemp(dir=path.parent, prefix=".tmp-", suffix=".json")
+    try:
+        with os.fdopen(descriptor, "w", encoding="utf-8") as handle:
+            handle.write(payload)
+            handle.flush()
+            os.fsync(handle.fileno())
+        try:
+            mode = path.stat().st_mode & 0o777
+        except OSError:
+            mode = 0o644
+        os.chmod(temp_name, mode)
+        os.replace(temp_name, path)
+    finally:
+        with contextlib.suppress(OSError):
+            os.unlink(temp_name)
+
+
+def is_fetch_failed_placeholder(data: object) -> bool:
+    """True for the typed placeholder a failed fetch leaves: a dict whose ``state`` or ``status``
+    is ``fetch_failed``. A good sidecar, a list, None or any other value is not one."""
+    return isinstance(data, dict) and FETCH_FAILED_STATUS in (data.get("state"), data.get("status"))
+
+
+def _utc_stamp() -> str:
+    return datetime.now(UTC).strftime("%Y-%m-%dT%H:%M:%SZ")
+
+
+def _family_from_output(output: Path) -> str | None:
+    """The family in an ``--output`` file name of the exact form ``product_reference_<family>_<platform>.json``."""
+    match = _SIDECAR_FILE_NAME.fullmatch(output.name)
+    return match.group(1) if match else None
+
+
+def _failed_marker(output: Path) -> Path:
+    """The marker file ``<output>.failed`` that records the last fetch for *output* failed."""
+    return output.with_name(output.name + ".failed")
 
 
 def _serialize_document(document: DocumentResult) -> dict:
@@ -235,7 +300,7 @@ def _existing_sidecar_source(output: Path) -> tuple[str, str] | None:
         data = json.loads(output.read_text(encoding="utf-8"))
     except (OSError, ValueError):
         return None
-    if not isinstance(data, dict):
+    if not isinstance(data, dict) or is_fetch_failed_placeholder(data):
         return None
     source_repository = data.get("source_repository")
     source_ref = data.get("source_ref")
@@ -262,25 +327,92 @@ def main() -> None:
         action="store_true",
         help="fetch even when the existing sidecar already records this exact repository and ref",
     )
+    parser.add_argument(
+        "--family",
+        default=None,
+        help="the family this sidecar is for; default: parsed from an --output file name of the form "
+        "product_reference_<family>_<platform>.json",
+    )
     args = parser.parse_args()
+    # A run starts with a clean request budget, whatever an earlier in-process run left behind.
+    reset_default_budget()
+    family = args.family or _family_from_output(args.output)
+    marker = _failed_marker(args.output)
 
-    if not args.force and _existing_sidecar_source(args.output) == (args.repository, args.ref):
+    # A leftover failure marker means the last fetch failed: never preserve that with the skip.
+    if (
+        not args.force
+        and not marker.exists()
+        and _existing_sidecar_source(args.output) == (args.repository, args.ref)
+    ):
         print(
             f"skipped fetch for {args.repository} ({args.platform}) -> {args.output}: "
             f"pin unchanged (repository={args.repository}, ref={args.ref})"
         )
         return
 
-    sidecar = build_sidecar(
-        repository=args.repository,
-        platform=args.platform,
-        manifest_path=args.manifest_path,
-        contributing_path=args.contributing_path,
-        agent_guidance_path=args.agent_guidance_path,
-        ref=args.ref,
-    )
-    args.output.write_text(json.dumps(sidecar), encoding="utf-8")
+    try:
+        sidecar = build_sidecar(
+            repository=args.repository,
+            platform=args.platform,
+            manifest_path=args.manifest_path,
+            contributing_path=args.contributing_path,
+            agent_guidance_path=args.agent_guidance_path,
+            ref=args.ref,
+        )
+    except Exception as exc:  # noqa: BLE001 - deliberately broad: any failure is recorded as one.
+        _record_failure(args, family, exc)
+        raise SystemExit(1) from None
+
+    sidecar["fetched_at"] = _utc_stamp()
+    sidecar["family"] = family
+    atomic_write_json(args.output, sidecar)
+    marker.unlink(missing_ok=True)
     print(f"wrote product reference inputs for {args.repository} ({args.platform}) -> {args.output}")
+
+
+def _output_holds_good_sidecar(output: Path) -> bool:
+    """True when *output* is a JSON object that is not a ``fetch_failed`` placeholder."""
+    try:
+        data = json.loads(output.read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return False
+    return isinstance(data, dict) and not is_fetch_failed_placeholder(data)
+
+
+def _record_failure(args: argparse.Namespace, family: str | None, exc: BaseException) -> None:
+    """Leave the evidence of a failed fetch: the ``.failed`` marker (class name and UTC time only),
+    a typed placeholder when - and only when - no good sidecar exists, and one ``ERROR`` line on
+    stderr naming the class, the reason, the repository and the outcome. Never a URL, token or message."""
+    output: Path = args.output
+    reason = failure_reason(exc)
+    stamp = _utc_stamp()
+    if _output_holds_good_sidecar(output):
+        outcome = f"kept the existing sidecar {output}"
+    else:
+        placeholder = {
+            "state": FETCH_FAILED_STATUS,
+            "status": FETCH_FAILED_STATUS,
+            "reason": reason,
+            "error_class": type(exc).__name__,
+            "fetched_at": stamp,
+            "family": family,
+            "platform": args.platform,
+            "source_repository": args.repository,
+            "source_ref": args.ref,
+        }
+        try:
+            atomic_write_json(output, placeholder)
+            outcome = f"wrote a {FETCH_FAILED_STATUS} placeholder to {output}"
+        except OSError:
+            outcome = f"could not write a placeholder to {output}"
+    with contextlib.suppress(OSError):
+        _failed_marker(output).write_text(f"{type(exc).__name__} {stamp}\n", encoding="utf-8")
+    print(
+        f"ERROR product reference fetch failed: class={type(exc).__name__} reason={reason} "
+        f"repository={args.repository}; {outcome}",
+        file=sys.stderr,
+    )
 
 
 if __name__ == "__main__":

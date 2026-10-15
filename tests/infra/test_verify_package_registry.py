@@ -52,6 +52,14 @@ from pathlib import Path
 import pytest
 
 import infra.verify_package_registry as verify_package_registry
+from foss_mcp.extraction import github_http
+
+
+@pytest.fixture(autouse=True)
+def _no_real_backoff_sleep(monkeypatch: pytest.MonkeyPatch) -> None:
+    """G3/TC-511: ``resolve_tag_commit`` goes through the shared GitHub helper, which now retries a
+    5xx or a transport failure with a real sleep. Tests that raise those must not wait."""
+    monkeypatch.setattr(github_http, "_sleep", lambda seconds: None)
 
 
 class _FakeResponse:

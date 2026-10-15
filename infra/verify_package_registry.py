@@ -59,8 +59,11 @@ maven, nuget) and wiring any of this into the live ``report_index_freshness`` to
 from __future__ import annotations
 
 import argparse
+import contextlib
 import json
+import os
 import re
+import tempfile
 import time
 import urllib.error
 import urllib.request
@@ -81,6 +84,33 @@ _SIDECAR_FRESHNESS_SECONDS = 24 * 60 * 60
 _REQUEST_TIMEOUT_SECONDS = 10
 
 _REQUIRED_SIDECAR_KEYS = ("ecosystem", "coordinate", "verified", "checked_at")
+
+
+def atomic_write_json(path: Path, doc: object) -> None:
+    """Write *doc* as JSON to *path* atomically.
+
+    Serialises first (a serialisation error leaves the old file untouched), writes a temp file in
+    the same directory, flushes and fsyncs it, then ``os.replace``s it over *path*. The temp file
+    is removed when anything fails, and no other file is created. A sidecar is read by another
+    container, so the file keeps the existing file's permissions (else 0644), not mkstemp's 0600.
+    """
+    payload = json.dumps(doc)
+    path = Path(path)
+    descriptor, temp_name = tempfile.mkstemp(dir=path.parent, prefix=".tmp-", suffix=".json")
+    try:
+        with os.fdopen(descriptor, "w", encoding="utf-8") as handle:
+            handle.write(payload)
+            handle.flush()
+            os.fsync(handle.fileno())
+        try:
+            mode = path.stat().st_mode & 0o777
+        except OSError:
+            mode = 0o644
+        os.chmod(temp_name, mode)
+        os.replace(temp_name, path)
+    finally:
+        with contextlib.suppress(OSError):
+            os.unlink(temp_name)
 
 
 def verify_package_registry_sidecar_name(family: str, platform: str) -> str:
@@ -412,13 +442,18 @@ def main() -> None:
     # exactly as fetch_recent_releases.py's own caller already tolerates its live-fetch failures.
     verified = checker(args.coordinate)
 
+    checked_at = datetime.now(UTC).isoformat()
     sidecar = {
         "ecosystem": args.ecosystem,
         "coordinate": args.coordinate,
         "verified": verified,
-        "checked_at": datetime.now(UTC).isoformat(),
+        "checked_at": checked_at,
+        # G3/TC-511: provenance, additive; the four keys above are what the loader requires.
+        "family": args.family,
+        "platform": args.platform,
+        "fetched_at": checked_at,
     }
-    args.output.write_text(json.dumps(sidecar), encoding="utf-8")
+    atomic_write_json(args.output, sidecar)
     print(
         f"wrote verification result for {args.coordinate} ({args.ecosystem}) -> {args.output}: "
         f"verified={verified}"

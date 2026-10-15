@@ -220,6 +220,12 @@ def test_main_writes_the_real_sidecar_json_matching_build_sidecars_return_value(
         agent_guidance_path="AGENTS.md",
         ref=None,
     )
+    # G3/TC-511: the written sidecar now carries the additive provenance keys (fetched_at, family);
+    # everything else, ``platform`` included (build_sidecar already returns it), is still exactly
+    # build_sidecar's return value.
+    assert isinstance(written["fetched_at"], str) and written["fetched_at"].endswith("Z")
+    for provenance_key in ("fetched_at", "family"):
+        del written[provenance_key]
     assert written == expected
     assert written["contributing"]["content"] == "# Contributing\n"
     assert written["agent_guidance"]["content"] == "# Agents\n"

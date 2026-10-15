@@ -23,6 +23,8 @@ _HEADERS = {"Accept": "application/vnd.github+json", "User-Agent": "foss-mcp-ext
 
 RichnessVerdict = Literal["detailed", "templated", "none"]
 
+_FULL_SHA = re.compile(r"[0-9a-f]{40}")
+
 # GitHub's own "Generate release notes" button emits exactly this skeleton (a "What's Changed"
 # heading, one bullet per merged PR crediting its author, an optional "New Contributors"
 # section, and a "Full Changelog" compare link). A release body that is *only* this skeleton
@@ -110,6 +112,17 @@ class Release:
     # recent "recent" is and where the release lives.
     published_at: str | None = None
     url: str | None = None
+    # G3/TC-511: from the same list-releases answer, with no extra call. ``target_commitish`` is a
+    # branch name or a 40-hex sha (GitHub's own field), ``created_at`` the release's creation time.
+    target_commitish: str | None = None
+    created_at: str | None = None
+
+    @property
+    def target_commit(self) -> str | None:
+        """``target_commitish`` when it is exactly 40 lowercase hex characters, else None. A branch
+        name such as ``main`` is NOT a commit; resolving a tag to its commit is a later card's job."""
+        value = self.target_commitish
+        return value if value is not None and _FULL_SHA.fullmatch(value) else None
 
 
 def _get_json(url: str, *, etag: str | None = None) -> tuple[int, Any, str | None]:
@@ -133,17 +146,28 @@ def _get_json(url: str, *, etag: str | None = None) -> tuple[int, Any, str | Non
         raise
 
 
-def fetch_releases(repository: str, *, per_page: int = 100, etag: str | None = None) -> list[Release]:
+def fetch_releases(
+    repository: str,
+    *,
+    per_page: int = 100,
+    etag: str | None = None,
+    meta: dict[str, Any] | None = None,
+) -> list[Release]:
     """Every release for *repository* ("owner/name"), paginating until a page comes back short.
 
     Unauthenticated; ``etag`` short-circuits to nothing new (304) when the whole listing is
-    unchanged since the caller's last read.
+    unchanged since the caller's last read. When *meta* (a dict) is given, ``meta["etag"]`` is set
+    to page 1's response ETag, and ``meta["not_modified"]`` to True on a 304.
     """
     releases: list[Release] = []
     page = 1
     while True:
         url = f"{_API_ROOT}/repos/{repository}/releases?per_page={per_page}&page={page}"
-        status, batch, _response_etag = _get_json(url, etag=etag if page == 1 else None)
+        status, batch, response_etag = _get_json(url, etag=etag if page == 1 else None)
+        if meta is not None and page == 1:
+            meta["etag"] = response_etag
+            if status == 304:
+                meta["not_modified"] = True
         if status == 304 or not batch:
             break
         for entry in batch:
@@ -155,6 +179,8 @@ def fetch_releases(repository: str, *, per_page: int = 100, etag: str | None = N
                     classify_richness(body),
                     published_at=entry.get("published_at") or None,
                     url=entry.get("html_url") or None,
+                    target_commitish=entry.get("target_commitish") or None,
+                    created_at=entry.get("created_at") or None,
                 )
             )
         if len(batch) < per_page:

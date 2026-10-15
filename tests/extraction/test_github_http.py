@@ -21,6 +21,7 @@ from foss_mcp.extraction import github_http, manifest_reader, repo_native_reader
 from foss_mcp.extraction import github_release_reader as release_reader
 from foss_mcp.extraction.github_http import (
     GITHUB_TOKEN_ENV,
+    RateLimited,
     rate_limit_wait_seconds,
     urlopen_with_backoff,
     with_auth,
@@ -251,7 +252,10 @@ def test_a_wait_that_exceeds_the_budget_re_raises_the_original_error_without_sle
     opener = _Opener([error])
     with pytest.raises(urllib.error.HTTPError) as caught:
         urlopen_with_backoff(_request(), sleep=sleep, now=lambda: _NOW, opener=opener)
-    assert caught.value is error
+    # G3/TC-511: a terminating rate limit is now classified as RateLimited (still an HTTPError);
+    # the original answer is its __cause__ instead of being re-raised as the same object.
+    assert isinstance(caught.value, RateLimited)
+    assert caught.value.__cause__ is error
     assert sleep.delays == []
     assert len(opener.calls) == 1
 
@@ -264,7 +268,9 @@ def test_the_total_wait_budget_is_cumulative_across_attempts() -> None:
     with pytest.raises(urllib.error.HTTPError) as caught:
         urlopen_with_backoff(_request(), max_total_wait=60, sleep=sleep, now=lambda: _NOW, opener=opener)
     # The first wait (51s) fits the 60s budget; the second would bring the total to 102s and is refused.
-    assert caught.value is second
+    # G3/TC-511: the refused wait raises RateLimited, whose __cause__ is the original answer.
+    assert isinstance(caught.value, RateLimited)
+    assert caught.value.__cause__ is second
     assert sleep.delays == [51.0]
 
 
@@ -274,7 +280,9 @@ def test_after_max_attempts_the_last_rate_limit_error_is_raised() -> None:
     opener = _Opener(list(errors))
     with pytest.raises(urllib.error.HTTPError) as caught:
         urlopen_with_backoff(_request(), max_attempts=3, sleep=sleep, now=lambda: _NOW, opener=opener)
-    assert caught.value is errors[-1]
+    # G3/TC-511: running out of attempts on a rate limit raises RateLimited, whose __cause__ is the last answer.
+    assert isinstance(caught.value, RateLimited)
+    assert caught.value.__cause__ is errors[-1]
     assert len(opener.calls) == 3
     assert sleep.delays == [2.0, 2.0]
 
@@ -314,13 +322,16 @@ def test_a_403_without_the_rate_limit_header_is_raised_at_once() -> None:
 
 
 def test_a_500_is_raised_at_once() -> None:
-    error = _http_error(500)
+    # G3/TC-511: this pinned "5xx is never retried". A 5xx is now retried with exponential backoff
+    # (jitter fixed at zero here) and the LAST original error is raised unchanged on exhaustion.
+    errors = [_http_error(500) for _ in range(4)]
     sleep = _Recorder()
-    opener = _Opener([error])
+    opener = _Opener(list(errors))
     with pytest.raises(urllib.error.HTTPError) as caught:
-        urlopen_with_backoff(_request(), sleep=sleep, now=lambda: _NOW, opener=opener)
-    assert caught.value is error
-    assert sleep.delays == []
+        urlopen_with_backoff(_request(), sleep=sleep, now=lambda: _NOW, opener=opener, jitter=lambda: 0.0)
+    assert caught.value is errors[-1]
+    assert len(opener.calls) == 4
+    assert sleep.delays == [1.0, 2.0, 4.0]
 
 
 def test_a_non_http_error_is_not_caught() -> None:

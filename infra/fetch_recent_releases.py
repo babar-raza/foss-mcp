@@ -29,20 +29,36 @@ sidecar untouched, writes ``[]`` only when there is nothing usable (so the Helm 
 wait-for-the-file still ends), and in both cases writes a ``<output>.failed`` marker that makes
 ``_sidecar_is_fresh`` False, so the next run refetches instead of trusting an empty list. A
 successful fetch deletes the marker. ``--force`` skips the freshness check entirely.
+
+G3/TC-511: every write is atomic (``atomic_write_json``, this module's own copy of the one in
+``fetch_product_reference.py``: a temp file in the same directory, fsync, ``os.replace``). The sidecar
+stays a bare JSON list; its provenance lives in a sibling ``<output>.meta.json`` (``fetched_at``,
+``family``, ``platform``, ``source_repository``, ``release_count``, ``etag``). The stored ETag turns a
+refresh of an unchanged list into one conditional request (304: the list bytes are kept, only the file
+mtime and the meta ``fetched_at`` move). A failed fetch also logs an ``ERROR`` line on stderr and, with
+nothing usable on disk, leaves a meta whose ``state`` is ``fetch_failed``; the exit status stays 0.
+Each release records its ``target_commitish`` and ``created_at`` when GitHub supplied them.
 """
 
 from __future__ import annotations
 
 import argparse
+import contextlib
 import json
+import os
 import re
+import sys
+import tempfile
 import time
 from datetime import UTC, datetime
 from pathlib import Path
 
+from foss_mcp.extraction.github_http import failure_reason, reset_default_budget
 from foss_mcp.extraction.github_release_reader import Release, fetch_releases
 
 _IDENTITY_PART = re.compile(r"[a-z0-9]+")
+_SIDECAR_FILE_NAME = re.compile(r"recent_releases_([a-z0-9]+)_([a-z0-9]+)\.json")
+_META_SCHEMA = 1
 
 # A release list can genuinely change (a new tag ships), unlike a pinned commit SHA, so this is a
 # time-based cache, not a permanent skip: a sidecar older than this is always re-fetched live.
@@ -65,21 +81,59 @@ def recent_releases_sidecar_name(family: str, platform: str) -> str:
     return f"recent_releases_{family}_{platform}.json"
 
 
+def atomic_write_json(path: Path, doc: object) -> None:
+    """Write *doc* as JSON to *path* atomically.
+
+    Serialises first (a serialisation error leaves the old file untouched), writes a temp file in
+    the same directory, flushes and fsyncs it, then ``os.replace``s it over *path*. The temp file
+    is removed when anything fails, and no other file is created. A sidecar is read by another
+    container, so the file keeps the existing file's permissions (else 0644), not mkstemp's 0600.
+    """
+    payload = json.dumps(doc)
+    path = Path(path)
+    descriptor, temp_name = tempfile.mkstemp(dir=path.parent, prefix=".tmp-", suffix=".json")
+    try:
+        with os.fdopen(descriptor, "w", encoding="utf-8") as handle:
+            handle.write(payload)
+            handle.flush()
+            os.fsync(handle.fileno())
+        try:
+            mode = path.stat().st_mode & 0o777
+        except OSError:
+            mode = 0o644
+        os.chmod(temp_name, mode)
+        os.replace(temp_name, path)
+    finally:
+        with contextlib.suppress(OSError):
+            os.unlink(temp_name)
+
+
+def releases_meta_path(output: Path) -> Path:
+    """The provenance file ``<output>.meta.json`` that sits beside the releases sidecar *output*."""
+    return output.with_name(output.name + ".meta.json")
+
+
 def _serialize_release(release: Release) -> dict:
     """A ``Release`` as a JSON-serializable dict: its three real fields, verbatim, plus
-    ``published_at`` / ``url`` only when GitHub supplied them (older sidecars have neither).
+    ``published_at`` / ``url`` / ``target_commitish`` / ``created_at`` only when GitHub supplied
+    them (older sidecars have none of them).
     """
     data: dict = {"tag_name": release.tag_name, "body": release.body, "richness": release.richness}
     if release.published_at is not None:
         data["published_at"] = release.published_at
     if release.url is not None:
         data["url"] = release.url
+    if release.target_commitish is not None:
+        data["target_commitish"] = release.target_commitish
+    if release.created_at is not None:
+        data["created_at"] = release.created_at
     return data
 
 
 def _deserialize_release(data: dict) -> Release:
     """The inverse of ``_serialize_release``: rebuild the exact ``Release`` it wrote. The two
-    optional keys may be absent (every sidecar written before TC-388), which loads as None.
+    optional keys may be absent (every sidecar written before TC-388, and the two commit keys of
+    every sidecar written before TC-511), which loads as None.
     """
     return Release(
         tag_name=data["tag_name"],
@@ -87,6 +141,8 @@ def _deserialize_release(data: dict) -> Release:
         richness=data["richness"],
         published_at=data.get("published_at"),
         url=data.get("url"),
+        target_commitish=data.get("target_commitish"),
+        created_at=data.get("created_at"),
     )
 
 
@@ -165,6 +221,84 @@ def _write_failure_marker(output: Path, exc: BaseException) -> None:
     _fetch_failed_marker(output).write_text(f"{type(exc).__name__} {stamp}\n", encoding="utf-8")
 
 
+def _utc_stamp() -> str:
+    return datetime.now(UTC).strftime("%Y-%m-%dT%H:%M:%SZ")
+
+
+def _identity(args: argparse.Namespace) -> tuple[str | None, str | None]:
+    """``(family, platform)``: ``--family``/``--platform`` when given, else parsed from an ``--output``
+    file name of the form ``recent_releases_<family>_<platform>.json``, else None."""
+    match = _SIDECAR_FILE_NAME.fullmatch(args.output.name)
+    family = args.family or (match.group(1) if match else None)
+    platform = args.platform or (match.group(2) if match else None)
+    return family, platform
+
+
+def _read_meta(output: Path) -> dict:
+    """The parsed meta file beside *output*, or an empty dict when absent, unreadable or not an object."""
+    try:
+        data = json.loads(releases_meta_path(output).read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return {}
+    return data if isinstance(data, dict) else {}
+
+
+def _stored_etag(output: Path, repository: str) -> str | None:
+    """The ETag to send as ``If-None-Match``: only when *output* holds a good list and its meta
+    records a successful fetch of this repository together with an ETag."""
+    if not _sidecar_holds_a_list(output):
+        return None
+    meta = _read_meta(output)
+    etag = meta.get("etag")
+    if meta.get("state") != "ok" or meta.get("source_repository") != repository:
+        return None
+    return etag if isinstance(etag, str) and etag else None
+
+
+def _ok_meta(
+    args: argparse.Namespace, release_count: int, etag: str | None, *, previous: dict | None = None
+) -> dict:
+    family, platform = _identity(args)
+    previous = previous or {}
+    return {
+        "schema": _META_SCHEMA,
+        "state": "ok",
+        "fetched_at": _utc_stamp(),
+        "family": family if family is not None else previous.get("family"),
+        "platform": platform if platform is not None else previous.get("platform"),
+        "source_repository": args.repository,
+        "release_count": release_count,
+        "etag": etag,
+    }
+
+
+def _record_failure(args: argparse.Namespace, exc: BaseException) -> str:
+    """Handle a failed fetch and return the outcome phrase. Good data is never replaced; with nothing
+    usable on disk an empty list and a ``fetch_failed`` meta are written. The marker is always written."""
+    output: Path = args.output
+    if _sidecar_holds_a_list(output):
+        outcome = f"kept the existing sidecar {output}"
+    else:
+        family, platform = _identity(args)
+        atomic_write_json(output, [])
+        atomic_write_json(
+            releases_meta_path(output),
+            {
+                "schema": _META_SCHEMA,
+                "state": "fetch_failed",
+                "reason": failure_reason(exc),
+                "error_class": type(exc).__name__,
+                "fetched_at": _utc_stamp(),
+                "family": family,
+                "platform": platform,
+                "source_repository": args.repository,
+            },
+        )
+        outcome = f"wrote an empty placeholder sidecar to {output}"
+    _write_failure_marker(output, exc)
+    return outcome
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--repository", required=True, help="'owner/name'")
@@ -175,7 +309,15 @@ def main() -> None:
         action="store_true",
         help="refetch even when the existing sidecar looks fresh",
     )
+    parser.add_argument(
+        "--family", default=None, help="recorded in the meta file; default: parsed from --output"
+    )
+    parser.add_argument(
+        "--platform", default=None, help="recorded in the meta file; default: parsed from --output"
+    )
     args = parser.parse_args()
+    # A run starts with a clean request budget, whatever an earlier in-process run left behind.
+    reset_default_budget()
 
     if not args.force and _sidecar_is_fresh(args.output):
         print(
@@ -184,30 +326,51 @@ def main() -> None:
         )
         return
 
+    stored_etag = _stored_etag(args.output, args.repository)
+    fetch_meta: dict = {}
     try:
-        releases = fetch_releases(args.repository)[: args.limit]
+        if stored_etag is not None:
+            fetched = fetch_releases(args.repository, etag=stored_etag, meta=fetch_meta)
+        else:
+            fetched = fetch_releases(args.repository, meta=fetch_meta)
+        releases = fetched[: args.limit]
     except Exception as exc:  # noqa: BLE001 - deliberately broad: any failure is recorded as one.
         # A sidecar must always eventually exist once this step runs at all (see module docstring
         # and infra/helm/foss-mcp/templates/deployment.yaml's initContainer, which waits on this
         # file), so when there is nothing usable on disk an empty list is written. But a failure
         # is not an answer: good existing data is never replaced, and the marker makes the next
         # run refetch rather than trust either file.
-        if _sidecar_holds_a_list(args.output):
-            outcome = f"kept the existing sidecar {args.output}"
-        else:
-            args.output.write_text(json.dumps([]), encoding="utf-8")
-            outcome = f"wrote an empty placeholder sidecar to {args.output}"
-        _write_failure_marker(args.output, exc)
+        outcome = _record_failure(args, exc)
         detail = _safe_failure_detail(exc)
         print(
             f"failed to fetch releases for {args.repository}: {type(exc).__name__} -- {outcome}; "
             f"marked {_fetch_failed_marker(args.output)} for a retry"
             + (f" (detail: {detail})" if detail else "")
         )
+        print(
+            f"ERROR releases fetch failed: class={type(exc).__name__} reason={failure_reason(exc)} "
+            f"repository={args.repository}; {outcome}",
+            file=sys.stderr,
+        )
         return
 
-    args.output.write_text(
-        json.dumps([_serialize_release(release) for release in releases]), encoding="utf-8"
+    if stored_etag is not None and fetch_meta.get("not_modified"):
+        # The list is unchanged upstream: keep its bytes, only move the mtime and the meta's fetched_at.
+        os.utime(args.output)
+        previous = _read_meta(args.output)
+        atomic_write_json(
+            releases_meta_path(args.output),
+            _ok_meta(args, int(previous.get("release_count") or 0), stored_etag, previous=previous),
+        )
+        _fetch_failed_marker(args.output).unlink(missing_ok=True)
+        print(f"not modified: {args.repository} -> {args.output}: the existing sidecar is current")
+        return
+
+    atomic_write_json(args.output, [_serialize_release(release) for release in releases])
+    etag = fetch_meta.get("etag")
+    atomic_write_json(
+        releases_meta_path(args.output),
+        _ok_meta(args, len(releases), etag if isinstance(etag, str) else None),
     )
     _fetch_failed_marker(args.output).unlink(missing_ok=True)
     print(f"wrote {len(releases)} recent release(s) for {args.repository} -> {args.output}")
