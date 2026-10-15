@@ -1,0 +1,92 @@
+
+===== CLEAN RUN 1 (host) =====
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-7b182948484d7df9\Scripts\python.exe -m pytest tests/e2e/test_pdf_go_live_content.py tests/e2e/test_pdf_typescript_live_content.py tests/e2e/test_pdf_net_live_content.py tests/e2e/test_pdf_java_live_content.py tests/e2e/test_cells_rust_live_content.py tests/e2e/test_slides_python_live_content.py -k readyz -q -rfE -p no:cacheprovider "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-1ly29z8k\.junit-0.xml"
+--- stdout ---
+......                                                                   [100%]
+
+--- stderr ---
+
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-7b182948484d7df9\Scripts\python.exe -m pytest tests/infra/test_e2e_readyz_contract.py -q -rfE -p no:cacheprovider "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-1ly29z8k\.junit-1.xml"
+--- stdout ---
+................                                                         [100%]
+============================== warnings summary ===============================
+..\venv-7b182948484d7df9\Lib\site-packages\starlette\testclient.py:53
+  E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-7b182948484d7df9\Lib\site-packages\starlette\testclient.py:53: DeprecationWarning: The anyio.abc.BlockingPortal alias is deprecated, use anyio.from_thread.BlockingPortal instead.
+    _PortalFactoryType = Callable[[], AbstractContextManager[anyio.abc.BlockingPortal]]
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+
+--- stderr ---
+
+
+===== CLEAN RUN 2 (host) =====
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-7b182948484d7df9\Scripts\python.exe -m pytest tests/e2e/test_pdf_go_live_content.py tests/e2e/test_pdf_typescript_live_content.py tests/e2e/test_pdf_net_live_content.py tests/e2e/test_pdf_java_live_content.py tests/e2e/test_cells_rust_live_content.py tests/e2e/test_slides_python_live_content.py -k readyz -q -rfE -p no:cacheprovider "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-1ly29z8k\.junit-0.xml"
+--- stdout ---
+......                                                                   [100%]
+
+--- stderr ---
+
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-7b182948484d7df9\Scripts\python.exe -m pytest tests/infra/test_e2e_readyz_contract.py -q -rfE -p no:cacheprovider "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-1ly29z8k\.junit-1.xml"
+--- stdout ---
+................                                                         [100%]
+============================== warnings summary ===============================
+..\venv-7b182948484d7df9\Lib\site-packages\starlette\testclient.py:53
+  E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-7b182948484d7df9\Lib\site-packages\starlette\testclient.py:53: DeprecationWarning: The anyio.abc.BlockingPortal alias is deprecated, use anyio.from_thread.BlockingPortal instead.
+    _PortalFactoryType = Callable[[], AbstractContextManager[anyio.abc.BlockingPortal]]
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+
+--- stderr ---
+
+
+===== NEGATIVE CONTROL (checks MUST now fail) =====
+mutated: M tests/e2e/test_pdf_go_live_content.py, ?? .junit-0.xml, ?? .junit-1.xml
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-7b182948484d7df9\Scripts\python.exe -m pytest tests/e2e/test_pdf_go_live_content.py tests/e2e/test_pdf_typescript_live_content.py tests/e2e/test_pdf_net_live_content.py tests/e2e/test_pdf_java_live_content.py tests/e2e/test_cells_rust_live_content.py tests/e2e/test_slides_python_live_content.py -k readyz -q -rfE -p no:cacheprovider "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-1ly29z8k\.junit-0.xml"
+--- stdout ---
+......                                                                   [100%]
+
+--- stderr ---
+
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-7b182948484d7df9\Scripts\python.exe -m pytest tests/infra/test_e2e_readyz_contract.py -q -rfE -p no:cacheprovider "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-1ly29z8k\.junit-1.xml"
+--- stdout ---
+F.............F.                                                         [100%]
+================================== FAILURES ===================================
+_ test_the_named_e2e_file_does_not_pin_the_plain_text_body[test_pdf_go_live_content.py] _
+
+name = 'test_pdf_go_live_content.py'
+
+    @pytest.mark.parametrize("name", READYZ_E2E_FILES)
+    def test_the_named_e2e_file_does_not_pin_the_plain_text_body(name: str) -> None:
+        text = _text(E2E_DIR / name)
+>       assert RETIRED_DOUBLE not in text
+E       assert '.text == "ready"' not in '"""G2/TC-10...== "ready"\n'
+E         
+E         '.text == "ready"' is contained here:
+E           # response.text == "ready"
+
+tests\infra\test_e2e_readyz_contract.py:53: AssertionError
+________ test_no_e2e_file_reintroduces_the_plain_text_readyz_contract _________
+
+    def test_no_e2e_file_reintroduces_the_plain_text_readyz_contract() -> None:
+        files = sorted(E2E_DIR.glob("*.py"))
+        assert len(files) >= len(READYZ_E2E_FILES)
+        offenders = [path.name for path in files if RETIRED_DOUBLE in _text(path)]
+>       assert offenders == []
+E       AssertionError: assert ['test_pdf_go...e_content.py'] == []
+E         
+E         Left contains one more item: 'test_pdf_go_live_content.py'
+E         Use -v to get more diff
+
+tests\infra\test_e2e_readyz_contract.py:68: AssertionError
+============================== warnings summary ===============================
+..\venv-7b182948484d7df9\Lib\site-packages\starlette\testclient.py:53
+  E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-7b182948484d7df9\Lib\site-packages\starlette\testclient.py:53: DeprecationWarning: The anyio.abc.BlockingPortal alias is deprecated, use anyio.from_thread.BlockingPortal instead.
+    _PortalFactoryType = Callable[[], AbstractContextManager[anyio.abc.BlockingPortal]]
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+=========================== short test summary info ===========================
+FAILED tests/infra/test_e2e_readyz_contract.py::test_the_named_e2e_file_does_not_pin_the_plain_text_body[test_pdf_go_live_content.py]
+FAILED tests/infra/test_e2e_readyz_contract.py::test_no_e2e_file_reintroduces_the_plain_text_readyz_contract
+
+--- stderr ---
+
