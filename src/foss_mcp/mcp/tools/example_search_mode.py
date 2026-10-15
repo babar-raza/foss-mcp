@@ -30,14 +30,17 @@ from foss_mcp.indexing.gateway_embedding_provider import (
     _ENDPOINT_ENV,
 )
 from foss_mcp.indexing.vector_index_writer import EXAMPLE_MARKER
+from foss_mcp.mcp.tools.vector_guard import VectorFallbackGuard, get_guard
 
 EXAMPLE_SEARCH_GATEWAY = "lexical+vector(gateway)"
+EXAMPLE_SEARCH_GATEWAY_DEGRADED = "lexical+vector(gateway) degraded"
 EXAMPLE_SEARCH_LEXICAL_ONLY = "lexical-only"
 
 REASON_NO_EXAMPLE_VECTORS = "no example vectors in this generation"
 REASON_GATEWAY_NOT_CONFIGURED = "embedding gateway not configured"
 REASON_DIMENSION_MISMATCH = "configured embedding dimension does not match the stored vectors"
 REASON_GATEWAY_CONFIGURED = "example vectors present and the embedding gateway is configured"
+REASON_CIRCUIT_OPEN = "embedding gateway circuit open after repeated failures"
 
 
 def _has_example_vector(vector_index: Mapping[str, Any]) -> bool:
@@ -64,13 +67,29 @@ def _configured_dimension(environment: Mapping[str, str]) -> int | None:
     return value if value > 0 else None
 
 
+def _circuit_is_open(guard: VectorFallbackGuard | None) -> bool:
+    """Whether the query-time vector fallback's circuit breaker is open (TC-508). Never raises:
+    a guard that cannot be built (a bad deadline setting) is reported as not open."""
+    try:
+        return (guard if guard is not None else get_guard()).is_open()
+    except Exception:
+        return False
+
+
 def example_search_mode(
-    payload: Mapping[str, Any], environment: Mapping[str, str] | None = None
+    payload: Mapping[str, Any],
+    environment: Mapping[str, str] | None = None,
+    *,
+    guard: VectorFallbackGuard | None = None,
 ) -> tuple[str, str]:
     """``(mode, reason)`` for a generation *payload*: ``EXAMPLE_SEARCH_GATEWAY`` only when the
     generation holds at least one example vector, the gateway endpoint and API key are both set
     and non-blank, and the configured dimension is a positive integer equal to the stored
     vectors' dimension; otherwise ``EXAMPLE_SEARCH_LEXICAL_ONLY`` with the first failing reason.
+
+    TC-508: while the vector fallback's circuit breaker is open (repeated gateway failures), the
+    gateway pair becomes ``(EXAMPLE_SEARCH_GATEWAY_DEGRADED, REASON_CIRCUIT_OPEN)``. *guard*
+    defaults to the process-wide guard.
     """
     env: Mapping[str, str] = os.environ if environment is None else environment
     vector_index = payload.get("vector_index") or {}
@@ -82,4 +101,6 @@ def example_search_mode(
     stored = vector_index.get("dimension")
     if configured is None or isinstance(stored, bool) or configured != stored:
         return EXAMPLE_SEARCH_LEXICAL_ONLY, REASON_DIMENSION_MISMATCH
+    if _circuit_is_open(guard):
+        return EXAMPLE_SEARCH_GATEWAY_DEGRADED, REASON_CIRCUIT_OPEN
     return EXAMPLE_SEARCH_GATEWAY, REASON_GATEWAY_CONFIGURED

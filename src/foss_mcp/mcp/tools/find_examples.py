@@ -34,13 +34,22 @@ existing hit. It is also fully exception-safe: a gateway outage, a missing gatew
 configuration, or any other failure embedding the query degrades this stage back to exactly
 today's ``NoExampleFound`` behavior, mirroring the mission plan's own named risk mitigation
 ("deterministic/lexical fallback always available").
+
+TC-508 bounds that stage, because it runs on the request path: the query embedding is made through
+``vector_guard`` with NO retries (one attempt), a hard overall deadline (2.0 s by default,
+``FOSS_MCP_VECTOR_DEADLINE_SECONDS``) and a circuit breaker (3 consecutive gateway failures or
+timeouts skip the gateway for 60 s, during which the raw query is never handed to the provider).
+When the stage is skipped the tool returns the honest lexical miss it always returned, now with a
+``vector_fallback`` note (``skipped_timeout``, ``skipped_circuit_open`` or ``skipped_error``) and a
+reason saying the semantic fallback was skipped. A normal miss (the stage ran and found nothing)
+carries no note.
 """
 
 from __future__ import annotations
 
 from dataclasses import dataclass
 
-from foss_mcp.indexing.gateway_embedding_provider import GatewayEmbeddingProvider
+from foss_mcp.indexing.gateway_embedding_provider import GatewayEmbeddingProvider, Vector
 from foss_mcp.indexing.generation_manifest import GenerationManifest, GenerationManifestStore
 from foss_mcp.indexing.lexical_index_writer import query_lexical_index_scored
 from foss_mcp.indexing.vector_index_writer import query_vector_index_scored
@@ -48,6 +57,14 @@ from foss_mcp.mcp.routing import Scope
 from foss_mcp.mcp.tools.get_symbol import extract_fqn
 from foss_mcp.mcp.tools.relevance import RELEVANCE_THRESHOLD, coverage, query_terms
 from foss_mcp.mcp.tools.search_symbols import SOURCE_KIND, scope_key
+from foss_mcp.mcp.tools.vector_guard import (
+    QUERY_TIME_MAX_ATTEMPTS,
+    STATUS_OK,
+    STATUS_SKIPPED_CIRCUIT_OPEN,
+    STATUS_SKIPPED_ERROR,
+    STATUS_SKIPPED_TIMEOUT,
+    get_guard,
+)
 
 _EXAMPLE_MARKER = "Example:"
 _EXAMPLE_FQN_PREFIX = "Example: "
@@ -154,12 +171,25 @@ class NoExampleFound:
 
     ``found`` (always ``False``) and ``reason`` are additive (TC-381): the miss shape the tool
     description promises carries a found marker and the reason nothing was returned.
+
+    ``vector_fallback`` (TC-508, additive) is ``None`` when the semantic stage ran normally or was
+    never applicable, and otherwise says why it was skipped: ``skipped_timeout``,
+    ``skipped_circuit_open`` or ``skipped_error``.
     """
 
     scope: Scope
     query: str
     found: bool = False
     reason: str = "no verified example matches this query"
+    vector_fallback: str | None = None
+
+
+_NO_MATCH_REASON = "no verified example matches this query"
+_SKIP_WORDS = {
+    STATUS_SKIPPED_TIMEOUT: "timeout",
+    STATUS_SKIPPED_CIRCUIT_OPEN: "circuit open",
+    STATUS_SKIPPED_ERROR: "error",
+}
 
 
 def find_examples(
@@ -218,10 +248,13 @@ def find_examples(
     scored.sort(key=lambda item: (-item[0], -item[1], item[2]))
     hits = [(doc_id, doc_coverage) for doc_coverage, _score, doc_id in scored[:top_k]]
     if not hits:
-        vector_matches = _vector_fallback(manifest, scope, active_generation_id, query, top_k)
+        vector_matches, note = _vector_fallback(manifest, scope, active_generation_id, query, top_k)
         if vector_matches:
             return vector_matches
-        return NoExampleFound(scope, query, reason="no verified example matches this query")
+        reason = _NO_MATCH_REASON
+        if note in _SKIP_WORDS:
+            reason = f"{reason} (semantic fallback skipped: {_SKIP_WORDS[note]})"
+        return NoExampleFound(scope, query, reason=reason, vector_fallback=note)
 
     matches = []
     for doc_id, doc_coverage in hits:
@@ -242,7 +275,7 @@ def find_examples(
 
 def _vector_fallback(
     manifest: GenerationManifest, scope: Scope, generation_id: str, query: str, top_k: int
-) -> list[ExampleMatch]:
+) -> tuple[list[ExampleMatch], str | None]:
     """TC-331: one more, strictly additive attempt when the lexical fallback above found
     nothing at all - never called otherwise, so it can only ever turn an existing
     ``NoExampleFound`` into a real match, never regress an existing hit.
@@ -256,20 +289,45 @@ def _vector_fallback(
     Fully exception-safe end to end, not only around the embed call itself: a missing vector
     index (an older-shaped generation published before vector indexing existed), a missing
     gateway configuration, a network error, a budget-exceeded error, or any other failure
-    anywhere in this stage returns an empty list instead of raising - ``find_examples()`` then
-    falls through to its existing, unchanged ``NoExampleFound`` return, exactly mirroring the
+    anywhere in this stage returns no matches instead of raising - ``find_examples()`` then
+    falls through to its existing ``NoExampleFound`` return, exactly mirroring the
     mission plan's own named risk mitigation ("deterministic/lexical fallback always
     available").
+
+    Returns ``(matches, note)``. The query embedding runs through the process-wide
+    ``VectorFallbackGuard`` (TC-508): one attempt, a hard deadline, and a circuit breaker. When it
+    is skipped, *note* is the guard's status string (``skipped_timeout``, ``skipped_circuit_open``
+    or ``skipped_error``); otherwise it is ``None``. The query text is only ever handed to the
+    provider inside the guarded function, so with the circuit open the provider is not even
+    constructed.
     """
     vector_payload = manifest.payload.get("vector_index")
     points = (vector_payload or {}).get("points") or []
     if not points:
-        return []
+        return [], None
 
     try:
-        provider = GatewayEmbeddingProvider()
-        query_vector = provider.embed([query])[0]
+        guard = get_guard()
+    except Exception:
+        # An unusable deadline setting must not take the tool down: degrade to the lexical miss.
+        return [], STATUS_SKIPPED_ERROR
 
+    def _embed_query() -> Vector:
+        provider = GatewayEmbeddingProvider()
+        # Query time, not ingestion: one attempt and no longer than the guard's deadline. A stand-in
+        # provider that only has ``embed`` simply skips this.
+        set_limits = getattr(provider, "set_query_time_limits", None)
+        if set_limits is not None:
+            set_limits(max_attempts=QUERY_TIME_MAX_ATTEMPTS, timeout_seconds=guard.deadline_seconds)
+        return provider.embed([query])[0]
+
+    status, query_vector = guard.call(_embed_query)
+    if status != STATUS_OK:
+        return [], status
+    if query_vector is None:
+        return [], STATUS_SKIPPED_ERROR
+
+    try:
         point_by_id = {point["point_id"]: point for point in points}
         ranked = query_vector_index_scored(vector_payload, query_vector, top_k=len(points))
 
@@ -294,6 +352,6 @@ def _vector_fallback(
             )
             if len(matches) >= top_k:
                 break
-        return matches
+        return matches, None
     except Exception:
-        return []
+        return [], None

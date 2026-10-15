@@ -48,6 +48,12 @@ stall ingestion for minutes. A non-transient failure (HTTP 4xx - a bad API key, 
 request) is never retried: it raises immediately, since retrying a request the gateway has
 already rejected as invalid wastes budget on a call that cannot succeed.
 
+Query-time limits (TC-508): the retry and timeout settings above are written for ingestion. A caller
+that embeds one agent query on the request path calls ``set_query_time_limits(max_attempts=...,
+timeout_seconds=...)`` on its own instance to make a single attempt (no backoff sleep) with a socket
+timeout no longer than the one given. The defaults are unchanged, so ingestion still makes up to 3
+attempts with backoff.
+
 Testability: ``__init__`` accepts two optional, keyword-only, underscore-prefixed parameters -
 ``_transport`` and ``_sleep`` - never required ones, so ``infra/ingest.py``'s zero-argument
 calling convention keeps working. ``_transport`` defaults to a real one built on
@@ -189,6 +195,7 @@ class GatewayEmbeddingProvider:
         self._transport = _transport if _transport is not None else _default_transport
         self._sleep = _sleep
         self._requests_made = 0
+        self._max_attempts = _MAX_ATTEMPTS_PER_BATCH
 
         # This read is deliberately the LAST statement in __init__ and the last mention of
         # this env var's own name anywhere in this module: the per-process request budget is
@@ -199,6 +206,17 @@ class GatewayEmbeddingProvider:
         if max_requests <= 0:
             raise ValueError(f"the embedding request budget must be positive, got {max_requests}")
         self._max_requests = max_requests
+
+    def set_query_time_limits(self, *, max_attempts: int, timeout_seconds: float) -> None:
+        """Bound this instance for a request-path call: at most *max_attempts* attempts per batch
+        and a socket timeout of ``min(current, timeout_seconds)`` (never raised above the configured
+        one)."""
+        if max_attempts < 1:
+            raise ValueError(f"max_attempts must be at least 1, got {max_attempts}")
+        if not timeout_seconds > 0:
+            raise ValueError(f"timeout_seconds must be above 0, got {timeout_seconds}")
+        self._max_attempts = max_attempts
+        self._timeout_seconds = min(self._timeout_seconds, timeout_seconds)
 
     def embed(self, texts: Sequence[str]) -> list[Vector]:
         """One vector of length ``self.dimension`` per input text, in the same order."""
@@ -225,14 +243,14 @@ class GatewayEmbeddingProvider:
         }
         delay = _RETRY_BASE_DELAY_SECONDS
         last_error: GatewayTransportError | None = None
-        for attempt in range(1, _MAX_ATTEMPTS_PER_BATCH + 1):
+        for attempt in range(1, self._max_attempts + 1):
             self._reserve_request()
             try:
                 raw_response = self._transport(self._url, payload, headers, self._timeout_seconds)
             except GatewayTransportError as exc:
                 last_error = exc
                 is_transient = exc.status_code is None or exc.status_code >= 500
-                if is_transient and attempt < _MAX_ATTEMPTS_PER_BATCH:
+                if is_transient and attempt < self._max_attempts:
                     self._sleep(delay)
                     delay *= _RETRY_MULTIPLIER
                     continue
