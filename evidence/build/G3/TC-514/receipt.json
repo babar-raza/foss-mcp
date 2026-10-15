@@ -1,0 +1,118 @@
+{
+  "schema_version": 1,
+  "card": "TC-514",
+  "gate": "G3",
+  "generated_by": "gatectl",
+  "generated_at": "2026-10-15T15:04:21Z",
+  "base_rev": "ea9ceae06e1f0a267e4ab51ec4a19704a10481ae",
+  "head_rev": "9f6ff89bdf2de92bc2a4e09bd7e69a6cbafcea60",
+  "card_sha256": "741b1dfac6d3aac28d3fee5c6bd2544f029030cabef1f077d1b0f6f475796222",
+  "fingerprint": {
+    "python": "3.13.2",
+    "platform": "Windows-11-10.0.26200-SP0",
+    "lock_sha256": "7b182948484d7df9614b523f7a8180f795b6c51d55c418728525c1957f3e38ba",
+    "env": {
+      "PYTHONHASHSEED": "0",
+      "PYTHONUTF8": "1",
+      "PYTHONDONTWRITEBYTECODE": "1",
+      "PYTHONIOENCODING": "utf-8",
+      "TZ": "UTC",
+      "LC_ALL": "C.UTF-8",
+      "SOURCE_DATE_EPOCH": "1700000000",
+      "verify_runner": "host"
+    }
+  },
+  "scope": {
+    "ok": true,
+    "changed_paths": [
+      "src/foss_mcp/mcp/identity.py",
+      "src/foss_mcp/mcp/response_envelope.py",
+      "src/foss_mcp/mcp/server.py",
+      "tests/mcp/test_dispatch_offload.py",
+      "tests/mcp/test_handshake_identity.py",
+      "tests/mcp/test_response_envelope.py",
+      "tests/mcp/test_server_identity.py",
+      "tests/mcp/test_sidecar_fetch_failed_server.py",
+      "tests/mcp/test_tool_surface_truthful.py"
+    ],
+    "violations": [],
+    "evaluated": true
+  },
+  "runs": [
+    {
+      "run": 1,
+      "checks": [
+        {
+          "command": "{python} -m pytest tests/mcp/test_handshake_identity.py tests/mcp/test_response_envelope.py -q -rfE -p no:cacheprovider",
+          "exit_code": 0,
+          "duration_s": 7.094,
+          "stdout_sha256": "97f1ba6a9b2d5d12a66908c943b9bd2904171cb86c5b9b7db8fe8e34804dee37",
+          "tests": 158,
+          "skipped": 0,
+          "errors": 0,
+          "failures": 0
+        },
+        {
+          "command": "{python} -m pytest tests/mcp tests/infra/test_serve_http.py tests/infra/test_serve_stdio_parity.py tests/test_unwired_modules.py -q -rfE -p no:cacheprovider",
+          "exit_code": 0,
+          "duration_s": 39.945,
+          "stdout_sha256": "966dc63cb934bedd6e2f2d8118287bb8bebbe1b6f8e0a123e64f1b9d5af98d77",
+          "tests": 1677,
+          "skipped": 0,
+          "errors": 0,
+          "failures": 0
+        }
+      ],
+      "all_passed": true
+    },
+    {
+      "run": 2,
+      "checks": [
+        {
+          "command": "{python} -m pytest tests/mcp/test_handshake_identity.py tests/mcp/test_response_envelope.py -q -rfE -p no:cacheprovider",
+          "exit_code": 0,
+          "duration_s": 3.846,
+          "stdout_sha256": "97f1ba6a9b2d5d12a66908c943b9bd2904171cb86c5b9b7db8fe8e34804dee37",
+          "tests": 158,
+          "skipped": 0,
+          "errors": 0,
+          "failures": 0
+        },
+        {
+          "command": "{python} -m pytest tests/mcp tests/infra/test_serve_http.py tests/infra/test_serve_stdio_parity.py tests/test_unwired_modules.py -q -rfE -p no:cacheprovider",
+          "exit_code": 0,
+          "duration_s": 32.588,
+          "stdout_sha256": "966dc63cb934bedd6e2f2d8118287bb8bebbe1b6f8e0a123e64f1b9d5af98d77",
+          "tests": 1677,
+          "skipped": 0,
+          "errors": 0,
+          "failures": 0
+        }
+      ],
+      "all_passed": true
+    }
+  ],
+  "negative_control": {
+    "kind": "mutate",
+    "patch": "python -X utf8 -c \"import pathlib;p=pathlib.Path('src/foss_mcp/mcp/server.py');s=p.read_text(encoding='utf-8');old='title=deployment_title(scope)';assert s.count(old)==1;p.write_text(s.replace(old,'title=None'),encoding='utf-8')\"\n",
+    "patch_sha256": "37fc0eb978ad7dd9ee895598b11953e58c709e6dc04bb637d5c4cc6ec214f5c2",
+    "applied": true,
+    "patch_applied_failed": true,
+    "exit_codes": [
+      1,
+      1
+    ],
+    "tree_changed": [
+      "M src/foss_mcp/mcp/server.py",
+      "?? .junit-0.xml",
+      "?? .junit-1.xml"
+    ]
+  },
+  "holdout": {
+    "ran": false,
+    "passed": true,
+    "detail": "no holdout for this card"
+  },
+  "accepted": true,
+  "reason": "all gates passed"
+}
