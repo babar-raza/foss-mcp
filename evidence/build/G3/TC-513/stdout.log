@@ -1,0 +1,193 @@
+
+===== CLEAN RUN 1 (host) =====
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-7b182948484d7df9\Scripts\python.exe -m pytest tests/deploy/test_fleet_consistency.py tests/poc/test_proof_client_ids.py tests/poc/test_pilot_workflow_proof_content.py tests/deploy/test_prove_pilots_content.py -q -rfE "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-1piw_pwz\.junit-0.xml"
+--- stdout ---
+........................................................................ [ 22%]
+........................................................................ [ 44%]
+........................................................................ [ 66%]
+........................................................................ [ 88%]
+.....................................                                    [100%]
+
+--- stderr ---
+
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-7b182948484d7df9\Scripts\python.exe -m pytest tests/deploy/test_fleet_consistency.py tests/poc tests/deploy/test_prove_pilots.py tests/deploy/test_prove_pilots_content.py tests/deploy/test_image_workflow_gate.py tests/deploy/test_pilots.py tests/deploy/test_verified_examples_coverage.py tests/deploy/test_demo_manifests_sidecars.py tests/deploy/test_compact_demo_manifests.py -q -rfE -p no:cacheprovider "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-1piw_pwz\.junit-1.xml"
+--- stdout ---
+........................................................................ [  9%]
+........................................................................ [ 18%]
+........................................................................ [ 28%]
+........................................................................ [ 37%]
+........................................................................ [ 47%]
+........................................................................ [ 56%]
+........................................................................ [ 65%]
+........................................................................ [ 75%]
+........................................................................ [ 84%]
+........................................................................ [ 94%]
+............................................                             [100%]
+
+--- stderr ---
+
+
+===== CLEAN RUN 2 (host) =====
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-7b182948484d7df9\Scripts\python.exe -m pytest tests/deploy/test_fleet_consistency.py tests/poc/test_proof_client_ids.py tests/poc/test_pilot_workflow_proof_content.py tests/deploy/test_prove_pilots_content.py -q -rfE "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-1piw_pwz\.junit-0.xml"
+--- stdout ---
+........................................................................ [ 22%]
+........................................................................ [ 44%]
+........................................................................ [ 66%]
+........................................................................ [ 88%]
+.....................................                                    [100%]
+
+--- stderr ---
+
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-7b182948484d7df9\Scripts\python.exe -m pytest tests/deploy/test_fleet_consistency.py tests/poc tests/deploy/test_prove_pilots.py tests/deploy/test_prove_pilots_content.py tests/deploy/test_image_workflow_gate.py tests/deploy/test_pilots.py tests/deploy/test_verified_examples_coverage.py tests/deploy/test_demo_manifests_sidecars.py tests/deploy/test_compact_demo_manifests.py -q -rfE -p no:cacheprovider "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-1piw_pwz\.junit-1.xml"
+--- stdout ---
+........................................................................ [  9%]
+........................................................................ [ 18%]
+........................................................................ [ 28%]
+........................................................................ [ 37%]
+........................................................................ [ 47%]
+........................................................................ [ 56%]
+........................................................................ [ 65%]
+........................................................................ [ 75%]
+........................................................................ [ 84%]
+........................................................................ [ 94%]
+............................................                             [100%]
+
+--- stderr ---
+
+
+===== NEGATIVE CONTROL (checks MUST now fail) =====
+mutated: M tests/e2e/test_cells_rust_live_content.py, ?? .junit-0.xml, ?? .junit-1.xml
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-7b182948484d7df9\Scripts\python.exe -m pytest tests/deploy/test_fleet_consistency.py tests/poc/test_proof_client_ids.py tests/poc/test_pilot_workflow_proof_content.py tests/deploy/test_prove_pilots_content.py -q -rfE "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-1piw_pwz\.junit-0.xml"
+--- stdout ---
+........................................................................ [ 22%]
+........................................................................ [ 44%]
+........................................................................ [ 66%]
+........................................................................ [ 88%]
+.........F.F....F....................                                    [100%]
+================================== FAILURES ===================================
+______ test_call_tool_ids_increase_monotonically_across_calls_and_tools _______
+
+http = <test_proof_client_ids.FakeHttp object at 0x0000017F1FBA81A0>
+
+    def test_call_tool_ids_increase_monotonically_across_calls_and_tools(http: FakeHttp) -> None:
+        http.steps = [http.echo(), http.echo(), http.echo(), http.echo()]
+        session = _session()
+        for tool in ("search_symbols", "lookup", "find_examples", "search_symbols"):
+            session.call_tool(tool, {"query": "x"})
+>       assert http.sent_ids() == [1, 2, 3, 4]
+E       assert [1, 1, 1, 1] == [1, 2, 3, 4]
+E         
+E         At index 1 diff: 1 != 2
+E         Use -v to get more diff
+
+tests\poc\test_proof_client_ids.py:129: AssertionError
+______________ test_a_timed_out_call_cannot_poison_the_next_one _______________
+
+http = <test_proof_client_ids.FakeHttp object at 0x0000017F1FC00690>
+
+    def test_a_timed_out_call_cannot_poison_the_next_one(http: FakeHttp) -> None:
+        session = _session()
+        http.steps = [http.timed_out()]
+        with pytest.raises(e2e.httpx.ReadTimeout):
+            session.call_tool("find_examples", {"query": "x"})
+        # The late answer to call 1 arrives as the answer to call 2: it must be refused, not believed.
+        http.steps = [http.answer_with_id(1)]
+>       with pytest.raises(AssertionError, match="does not answer request id 2"):
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       Failed: DID NOT RAISE AssertionError
+
+tests\poc\test_proof_client_ids.py:147: Failed
+__________ test_live_client_rpc_uses_fresh_ids_and_checks_the_answer __________
+
+http = <test_proof_client_ids.FakeHttp object at 0x0000017F1E0D2250>
+
+    def test_live_client_rpc_uses_fresh_ids_and_checks_the_answer(http: FakeHttp) -> None:
+        client = pwp.LiveMcpClient(e2e, URL)
+        http.steps = [http.echo(), http.echo(["a"]), http.echo()]
+        assert client.list_tools() == [{"name": "lookup", "inputSchema": {}}]
+        assert client.invoke("lookup", {"query": "x"}) == ["a"]
+        client.list_tools()
+>       assert http.sent_ids() == [1, 2, 3]
+E       assert [1, 1, 1] == [1, 2, 3]
+E         
+E         At index 1 diff: 1 != 2
+E         Use -v to get more diff
+
+tests\poc\test_proof_client_ids.py:201: AssertionError
+=========================== short test summary info ===========================
+FAILED tests/poc/test_proof_client_ids.py::test_call_tool_ids_increase_monotonically_across_calls_and_tools
+FAILED tests/poc/test_proof_client_ids.py::test_a_timed_out_call_cannot_poison_the_next_one
+FAILED tests/poc/test_proof_client_ids.py::test_live_client_rpc_uses_fresh_ids_and_checks_the_answer
+
+--- stderr ---
+
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-7b182948484d7df9\Scripts\python.exe -m pytest tests/deploy/test_fleet_consistency.py tests/poc tests/deploy/test_prove_pilots.py tests/deploy/test_prove_pilots_content.py tests/deploy/test_image_workflow_gate.py tests/deploy/test_pilots.py tests/deploy/test_verified_examples_coverage.py tests/deploy/test_demo_manifests_sidecars.py tests/deploy/test_compact_demo_manifests.py -q -rfE -p no:cacheprovider "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-1piw_pwz\.junit-1.xml"
+--- stdout ---
+........................................................................ [  9%]
+........................................................................ [ 18%]
+........................................................................ [ 28%]
+........................................................................ [ 37%]
+.....................................F.F....F........................... [ 47%]
+........................................................................ [ 56%]
+........................................................................ [ 65%]
+........................................................................ [ 75%]
+........................................................................ [ 84%]
+........................................................................ [ 94%]
+............................................                             [100%]
+================================== FAILURES ===================================
+______ test_call_tool_ids_increase_monotonically_across_calls_and_tools _______
+
+http = <test_proof_client_ids.FakeHttp object at 0x0000029926B82660>
+
+    def test_call_tool_ids_increase_monotonically_across_calls_and_tools(http: FakeHttp) -> None:
+        http.steps = [http.echo(), http.echo(), http.echo(), http.echo()]
+        session = _session()
+        for tool in ("search_symbols", "lookup", "find_examples", "search_symbols"):
+            session.call_tool(tool, {"query": "x"})
+>       assert http.sent_ids() == [1, 2, 3, 4]
+E       assert [1, 1, 1, 1] == [1, 2, 3, 4]
+E         
+E         At index 1 diff: 1 != 2
+E         Use -v to get more diff
+
+tests\poc\test_proof_client_ids.py:129: AssertionError
+______________ test_a_timed_out_call_cannot_poison_the_next_one _______________
+
+http = <test_proof_client_ids.FakeHttp object at 0x0000029927C32710>
+
+    def test_a_timed_out_call_cannot_poison_the_next_one(http: FakeHttp) -> None:
+        session = _session()
+        http.steps = [http.timed_out()]
+        with pytest.raises(e2e.httpx.ReadTimeout):
+            session.call_tool("find_examples", {"query": "x"})
+        # The late answer to call 1 arrives as the answer to call 2: it must be refused, not believed.
+        http.steps = [http.answer_with_id(1)]
+>       with pytest.raises(AssertionError, match="does not answer request id 2"):
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       Failed: DID NOT RAISE AssertionError
+
+tests\poc\test_proof_client_ids.py:147: Failed
+__________ test_live_client_rpc_uses_fresh_ids_and_checks_the_answer __________
+
+http = <test_proof_client_ids.FakeHttp object at 0x0000029926AD5F20>
+
+    def test_live_client_rpc_uses_fresh_ids_and_checks_the_answer(http: FakeHttp) -> None:
+        client = pwp.LiveMcpClient(e2e, URL)
+        http.steps = [http.echo(), http.echo(["a"]), http.echo()]
+        assert client.list_tools() == [{"name": "lookup", "inputSchema": {}}]
+        assert client.invoke("lookup", {"query": "x"}) == ["a"]
+        client.list_tools()
+>       assert http.sent_ids() == [1, 2, 3]
+E       assert [1, 1, 1] == [1, 2, 3]
+E         
+E         At index 1 diff: 1 != 2
+E         Use -v to get more diff
+
+tests\poc\test_proof_client_ids.py:201: AssertionError
+=========================== short test summary info ===========================
+FAILED tests/poc/test_proof_client_ids.py::test_call_tool_ids_increase_monotonically_across_calls_and_tools
+FAILED tests/poc/test_proof_client_ids.py::test_a_timed_out_call_cannot_poison_the_next_one
+FAILED tests/poc/test_proof_client_ids.py::test_live_client_rpc_uses_fresh_ids_and_checks_the_answer
+
+--- stderr ---
+
