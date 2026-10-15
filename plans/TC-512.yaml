@@ -1,0 +1,197 @@
+id: TC-512
+gate: G3
+lane: transport-deployment
+purpose: >-
+  REQ-G3-008 (independent pre-production review, findings GRR-02 gate part, GRR-11, FK8S-05 init part, FK8S-08, FK8S-09). CHART LIFECYCLE AND
+  HARDENING. Measured on the live kind cluster (40 pilot releases) and by rendering the chart: (1) the serving pod's init container
+  `wait-for-product-reference-and-recent-releases` (infra/helm/foss-mcp/templates/deployment.yaml) loops `until [ -f A ] && [ -f B ]` with no
+  timeout, tests only that the files EXIST (an empty or truncated file passes), and has no resources block; the reviewer reproduced a failed
+  product-reference fetch leaving a pod in Init:0/1 forever while its Job was Complete (the gate exited 124). TC-511 removes the usual cause (a
+  failed fetch now leaves a typed placeholder file); this card bounds the gate for every other cause. (2) The ingestion Jobs have no
+  `activeDeadlineSeconds` and no `ttlSecondsAfterFinished` (41 completed Jobs were still retained a day later), (3) the serving Deployment has no
+  startupProbe, (4) the manifests PVC has no `helm.sh/resource-policy: keep`, so `helm uninstall` deletes the only copy of a published
+  generation, (5) no pod sets `seccompProfile`, `runAsGroup`, `automountServiceAccountToken: false` or `enableServiceLinks: false` (81 pods mount a
+  service-account token they never use and carry about 280 service-link environment variables; serving reads only FOSS_MCP_* variables, and no code
+  under infra/ or src/ reads KUBERNETES_* or *_SERVICE_HOST), (6) the pdf/cpp ingestion Job was OOMKilled at the 4Gi default (it has no
+  `ingestionMemoryLimit`, the per-pilot key TC-457 added for html/python, page/python, words/net at 8Gi and slides/cpp at 10Gi), and (7)
+  scripts/deploy/install_pilots.py runs `helm upgrade --install --wait`, which does not wait for Jobs: a pilot whose ingestion FAILED while the
+  serving pod kept running the previous generation is reported `installed` with stale content (GRR-11). Verified already satisfied and only
+  locked by a test here: the gateway egress NetworkPolicy (networkpolicy-gateway-egress.yaml) is rendered only when `embeddingGateway.existingSecret`
+  is set, so serving 443 egress is default-deny otherwise (the world-open 443 the reviewer saw on the cluster came from the gateway Secret being
+  configured there). DESIGN DECISION, flagged for the supervisor: the brief asked for a 120 s default gate timeout, but serving reads its sidecars
+  ONCE at process start (G2/TC-251: a pod that starts before the Job wrote them answers list_recent_changes with a permanently wrong empty list), a
+  fresh install's Job (build, example verification, publish, then the sidecar fetches) takes 5 to 40 minutes, and nothing yet re-reads sidecars; a 120 s
+  default would therefore reintroduce TC-251 on every fresh install. The default is `initGate.timeoutSeconds: 3900`, which is the Job deadline
+  (3600) plus 300 s, so the gate is bounded and a hung or failed Job can no longer hold a pod in Init for ever, while a healthy install is unaffected;
+  the value is a chart value, to be lowered to 120 once serving re-reads its sidecars. Behaviour today when a sidecar is missing at start (verified in
+  infra/serve_http.py `_serving_product_reference_inputs` / `_serving_recent_releases`): an ABSENT sidecar is tolerated (product reference answers
+  NotAvailable, releases answer an empty list); only a PRESENT-but-corrupt one raises. So a gate that times out and exits 0 starts the pod degraded, and
+  the honest wording of that degraded state ("fetch failed" versus "not present") is the serving cards' job (TC-507), not this card's. What does NOT
+  change: serving code, any ingestion argument (so docker-compose.yml needs no change: the only chart-versus-compose parity test compares the ingest
+  command and args, which this card does not touch), the NetworkPolicy templates, image tags and digests, replicas, PodDisruptionBudgets.
+depends_on:
+- TC-457
+- TC-455
+- TC-341
+- TC-339
+- TC-347
+- TC-177
+- TC-251
+- TC-499
+- TC-510
+write_paths:
+- infra/helm/foss-mcp/values.yaml
+- infra/helm/foss-mcp/templates/deployment.yaml
+- infra/helm/foss-mcp/templates/ingestion-job.yaml
+- infra/helm/foss-mcp/templates/pvc.yaml
+- infra/helm/foss-mcp/templates/demo-deployment.yaml
+- scripts/deploy/install_pilots.py
+- docs/DEPLOYMENT.md
+- tests/infra/test_helm_lifecycle.py
+- tests/deploy/test_install_wait_for_jobs.py
+- tests/infra/test_helm_ingestion_memory.py
+- tests/infra/test_helm_chart.py
+- tests/infra/test_helm_sidecar_gate.py
+satisfies:
+- REQ-G3-008
+source_refs:
+- file: docs/DECISION_LOG.md
+  anchor: '## 2026-10-15 — Independent pre-production adversarial review of the shipped image; its findings enter the state machine as cards (operator, supervisor)'
+  sha256: d2d82669b8060d5e3a3b9da00e9858e576d5d264d96e32d1aed8034e8d6d9007
+inputs:
+- >-
+  Read, in full: infra/helm/foss-mcp/templates/deployment.yaml, ingestion-job.yaml (the Job metadata/spec block L40-60 and the `$res` block),
+  pvc.yaml, demo-deployment.yaml (L40-60), the `probes`, `podSecurityContext`, `containerSecurityContext`, `ingestion` (L82-110) and
+  `manifests` blocks of infra/helm/foss-mcp/values.yaml, scripts/deploy/install_pilots.py, and the tests that pin them:
+  tests/infra/test_helm_sidecar_gate.py (the gate is asserted through `[ -f <path> ]` substrings, "sleep" and "until" in the script, no "python",
+  exactly three command elements, a read-only `manifests` mount only), tests/infra/test_helm_chart.py, tests/infra/test_helm_ingestion_memory.py
+  (`EXPECTED_MEMORY_LIMITS` and the test "exactly the four pilots carry the key"), tests/deploy/test_install_pilots.py (several tests pin the
+  exact helm argv; the default argv must stay byte for byte identical). helm is on PATH only after `scripts/toolchain/activate.ps1`; a missing helm
+  FAILS the tests, never skips them. Never print or log any environment value; the chart never carries a credential.
+- >-
+  values.yaml: add `initGate: {timeoutSeconds: 3900, intervalSeconds: 2, resources: {requests: {cpu: 10m, memory: 16Mi}, limits: {cpu: 50m,
+  memory: 64Mi}}}` with a comment giving the reasoning above; `probes.startup: {periodSeconds: 5, timeoutSeconds: 3, failureThreshold: 30}`;
+  `pod: {automountServiceAccountToken: false, enableServiceLinks: false}`; extend the EXISTING `podSecurityContext` with `runAsGroup: 10001` and
+  `seccompProfile: {type: RuntimeDefault}` (the existing keys and values stay); `ingestion.activeDeadlineSeconds: 3600` and
+  `ingestion.ttlSecondsAfterFinished: 86400`; `manifests.keepOnUninstall: true`; and on the pdf/cpp pilot (the entry with `family: pdf` and
+  `platform: cpp`) `ingestionMemoryLimit: 10Gi` as a pilot-level key (never inside `library`). 10Gi is the value TC-457 measured for slides/cpp, the same
+  C++ toolchain class; the exact minimum for pdf/cpp is NOT measured (the card cannot run a Job), and the supervisor confirms it on the next cluster
+  re-ingest. Do not touch any other pilot entry.
+- >-
+  deployment.yaml: (1) pod spec gains `automountServiceAccountToken: {{ .Values.pod.automountServiceAccountToken }}` and `enableServiceLinks: {{
+  .Values.pod.enableServiceLinks }}` (booleans, rendered unquoted). (2) The init container script becomes bounded and non-empty-aware: render it with
+  `printf` from values so that the shell text is exactly `waited=0; until [ -f A ] && [ -s A ] && [ -f B ] && [ -s B ]; do if [ "$waited" -ge T ];
+  then echo "<message>" >&2; exit 0; fi; sleep I; waited=$((waited + I)); done` where A and B are the two existing sidecar paths, T is
+  `initGate.timeoutSeconds` and I is `initGate.intervalSeconds` (integers); the literal `exit 0; fi;` must appear exactly once in the template
+  and in no comment (the negative control edits it), the message names the missing files, says the gate timed out after T seconds and that the pod
+  starts WITHOUT them (degraded) and never contains a credential; the command stays the three elements `sh`, `-c`, script, with no `python` in it.
+  (3) The init container gets `resources: {{ toYaml .Values.initGate.resources }}`. (4) The serving container gets a `startupProbe` `httpGet`
+  `/healthz` port 8080 with the three values from `probes.startup` (liveness and readiness are unchanged). Update the long comment above
+  `initContainers` so it no longer claims the wait is unbounded-and-safe: say it is bounded, why the default is the Job deadline plus 300 s, and
+  that a timeout starts the pod degraded.
+- >-
+  ingestion-job.yaml: in the Job `spec`, beside `backoffLimit`, add `activeDeadlineSeconds` and `ttlSecondsAfterFinished` from the two values, each
+  emitted only when the value is a positive integer (a value of 0 or an empty string omits the field, so an operator can turn either off); the pod
+  spec gains the same two `pod.*` fields as deployment.yaml. demo-deployment.yaml: the demo pod spec gains the same two `pod.*` fields (its
+  `podSecurityContext` already comes from values). pvc.yaml: when `manifests.keepOnUninstall` is true add `metadata.annotations: {helm.sh/resource-policy:
+  keep}`; false omits the annotation. Do not change the Job's args, command, env, volumes or the `$res` memory block.
+- >-
+  scripts/deploy/install_pilots.py: add `--wait-for-jobs` (store_true, default off, so the default helm argv and every existing test stay unchanged;
+  document it as the recommended flag for any install that must not report a stale pilot as installed). When given: `helm_install_command(...,
+  wait_for_jobs=True)` (new keyword, default False) inserts `--wait-for-jobs` immediately after `--wait`; after a helm exit code 0, `install_one` runs
+  `job_status_command(namespace, release)` = `["kubectl", "get", "job", "-n", namespace, "-l", "<INSTANCE_LABEL>=<release>,<COMPONENT_LABEL>=ingestion",
+  "-o", "json"]` and records `InstallResult.ingestion` (a new field, default empty string, so the results JSON gains one key) as `succeeded`,
+  `failed`, `running`, `missing` or `unknown` from `classify_job_status(stdout)`: `failed` when any Job has a condition of type `Failed` with status
+  `True` or `status.failed` greater than 0 without `status.succeeded`; `succeeded` when every Job has `status.succeeded` of at least 1; `running`
+  when a Job has `status.active`; `missing` when the list is empty; `unknown` for an unparseable answer, a non-zero kubectl exit or a missing
+  kubectl (OSError). A pilot is failed when `rc != 0` OR `ingestion == "failed"`. The table prints `INGESTION FAILED` (not `installed`) for that
+  case and a one-line explanation (the serving pod is still running the previous generation), the failure diagnostics (pod states and the last 20 log
+  lines of the ingestion Job) are printed as for any failed install, the summary counts it as not installed, and the exit status is 1.
+  `unknown` and `running` print `installed (ingestion unverified)` and do not fail. With the flag absent no kubectl call is added and nothing about
+  the output changes. `--dry-run` prints the `--wait-for-jobs` argv when the flag is given. The module docstring documents the flag.
+- >-
+  docs/DEPLOYMENT.md (also edited by TC-510, which this card depends on: edit only the sections named here and keep TC-510's two new sections intact):
+  rewrite `## What the init container does, and why a pod waits at Init` to describe the bounded gate (timeout and interval values, the non-empty
+  test, that a timeout starts the pod degraded without its sidecars and what that looks like to an agent, and that the cure is a retry of the pilot); in
+  the install section describe `--wait-for-jobs` and what `INGESTION FAILED` means; in `## Uninstalling` replace the sentence saying Helm removes the
+  manifests claim with the new rule (the claim is annotated `helm.sh/resource-policy: keep` and survives `helm uninstall`; delete it deliberately with
+  `kubectl delete pvc -n <namespace> <release-fullname>-manifests` or set `manifests.keepOnUninstall=false`). Keep every phrase tests/deploy/test_runbook.py
+  requires (`Init:0/1`, `never removes` or `never delete`, `uninstall`, the pilot names, `1 Gi`) and put no `install_pilots.py` command line with a flag
+  that install_pilots.py does not define.
+- >-
+  EXISTING TESTS: tests/infra/test_helm_ingestion_memory.py: add `("pdf", "cpp"): "10Gi"` to `EXPECTED_MEMORY_LIMITS` and update the one comment that
+  says four pilots; no other change (the test "exactly the four pilots carry the key" keeps its name and compares the dict). tests/infra/test_helm_chart.py
+  and tests/infra/test_helm_sidecar_gate.py are expected to pass unchanged (the gate still contains `[ -f <path> ]`, `sleep`, `until`, three command
+  elements); run them first and edit one ONLY if it is red for a reason named in this card, changing only the pinned assertion with a comment. Never
+  delete, skip or xfail a test.
+- >-
+  NEW TESTS (offline, deterministic; helm template rendering with the real helm binary parsed by PyYAML; no cluster, no network, no wall-clock
+  assertions, no skipped or xfailed tests). tests/infra/test_helm_lifecycle.py: `test_init_gate_script_is_bounded_by_the_configured_timeout`
+  (render with `--set initGate.timeoutSeconds=77 --set initGate.intervalSeconds=3`: the script contains `-ge 77`, `sleep 3` and `exit 0; fi;` once);
+  `test_default_gate_timeout_is_the_job_deadline_plus_five_minutes`; `test_gate_still_tests_existence_and_non_emptiness_of_both_sidecars`;
+  `test_gate_command_is_three_elements_and_runs_no_python`; parametrised over three cases `test_rendered_gate_script_run_in_a_shell`
+  (render with `--set manifests.mountPath=. --set initGate.timeoutSeconds=2 --set initGate.intervalSeconds=1`, run the rendered script with `sh -c`
+  (or bash if sh is absent; fail if neither exists) with `cwd=tmp_path` and a subprocess timeout of 60 s: (a) empty directory -> exit 0, stderr names
+  both files and says it timed out, and NO file was created; (b) both files present and non-empty -> exit 0 and stderr empty; (c) one file present
+  but zero bytes -> exit 0 after the timeout with the message); `test_init_container_declares_requests_and_limits_from_values`;
+  `test_job_gets_active_deadline_and_ttl_from_values` (defaults 3600 and 86400; overrides; 0 omits the field); `test_serving_has_a_startup_probe_on_healthz`
+  (path, port 8080, values from `probes.startup`, liveness and readiness unchanged); `test_pvc_is_kept_on_uninstall_by_default_and_the_flag_turns_it_off`;
+  parametrised over serving Deployment, one ingestion Job and one demo Deployment (render with `--set demo.enabled=true --set demo.image.tag=t`)
+  `test_every_pod_is_hardened` (pod securityContext has `seccompProfile.type == RuntimeDefault`, `runAsGroup == 10001`, runAsUser 10001 and
+  runAsNonRoot still true; `automountServiceAccountToken is False`; `enableServiceLinks is False`); `test_pod_hardening_can_be_relaxed_by_values`
+  (`--set pod.enableServiceLinks=true` renders true); `test_no_code_reads_kubernetes_service_environment_variables` (grep infra/*.py and src/**/*.py
+  for `KUBERNETES_`, `_SERVICE_HOST`, `_SERVICE_PORT`: none, which is the evidence that disabling service links is safe);
+  `test_pdf_cpp_job_renders_10gi_and_the_other_default_jobs_stay_4gi`; `test_gateway_egress_policy_exists_only_when_a_gateway_secret_is_configured`
+  (default render has no `-gateway-egress` NetworkPolicy and no policy giving a serving pod TCP 443 to 0.0.0.0/0; with
+  `--set embeddingGateway.existingSecret=gw` the policy appears and selects only serving and demo-serving pods); `test_deployment_md_describes_the_bounded_gate_keep_and_wait_for_jobs`
+  (strings `initGate`, `startupProbe` or `startup probe`, `helm.sh/resource-policy`, `--wait-for-jobs`, `INGESTION FAILED`). tests/deploy/test_install_wait_for_jobs.py
+  (the existing tests' `FakeRun` pattern, subprocess monkeypatched): `test_default_helm_argv_has_no_wait_for_jobs`; `test_flag_inserts_wait_for_jobs_right_after_wait`;
+  `test_dry_run_with_the_flag_shows_it`; `test_job_status_command_is_the_exact_scoped_get`; parametrised `test_classify_job_status` over succeeded, failed by
+  condition, failed by count, running, missing, two Jobs one failed, garbage text, empty text; `test_helm_ok_but_failed_ingestion_is_reported_as_not_installed`
+  (table text, exit 1, diagnostics printed, summary counts it out, results JSON `ingestion == "failed"`); `test_helm_ok_and_succeeded_ingestion_is_installed`;
+  `test_unknown_or_running_ingestion_is_installed_but_marked_unverified`; `test_a_missing_kubectl_makes_ingestion_unknown_not_failed`;
+  `test_helm_failure_with_the_flag_is_reported_exactly_as_before`; `test_without_the_flag_no_kubectl_get_job_is_run`.
+- >-
+  Run `{python} -m pytest tests/infra/test_helm_lifecycle.py tests/deploy/test_install_wait_for_jobs.py -q -rfE` first (after `scripts/toolchain/activate.ps1`
+  in the same shell command), then the second check command below. Write commit messages as UTF-8 without a byte-order mark. Preserve each file's line
+  endings and encoding (YAML and Markdown LF). Do not run helm against a cluster, kubectl, docker or any ingestion.
+actions:
+- >-
+  Bound the sidecar init gate (non-empty test, timeout from values, resources), add Job deadline and TTL, a startupProbe, a kept PVC, pod
+  hardening (seccomp, runAsGroup, no token, no service links), and the pdf/cpp memory limit.
+- >-
+  Let install_pilots.py wait for Jobs and report a failed ingestion as not installed; update the runbook; pin everything with offline tests, including a
+  real shell run of the rendered gate.
+checks:
+- command: '{python} -m pytest tests/infra/test_helm_lifecycle.py tests/deploy/test_install_wait_for_jobs.py -q -rfE'
+  expect: exit 0
+  timeout_seconds: 1800
+  junitxml: true
+  proves:
+  - REQ-G3-008
+- command: '{python} -m pytest tests/infra/test_helm_lifecycle.py tests/deploy/test_install_wait_for_jobs.py tests/infra/test_helm_chart.py tests/infra/test_helm_sidecar_gate.py tests/infra/test_helm_ingestion_memory.py tests/infra/test_helm_pilots_match_compose.py tests/infra/test_helm_verifier_fields.py tests/infra/test_helm_embedding_egress.py tests/infra/test_helm_embedding_gateway.py tests/infra/test_helm_github_token.py tests/infra/test_helm_ingestion_embedding.py tests/infra/test_helm_manifest_step.py tests/infra/test_helm_vector_scope_probes.py tests/deploy/test_install_pilots.py tests/deploy/test_pilots.py tests/deploy/test_runbook.py -q -rfE -p no:cacheprovider'
+  expect: exit 0
+  timeout_seconds: 3000
+  junitxml: true
+  proves:
+  - REQ-G3-008
+min_tests: 30
+network: false
+requires:
+- python
+negative_control:
+  mutate: |
+    python -X utf8 -c "import pathlib;p=pathlib.Path('infra/helm/foss-mcp/templates/deployment.yaml');s=p.read_text(encoding='utf-8');old='exit 0; fi;';assert s.count(old)==1;p.write_text(s.replace(old,'fi;'),encoding='utf-8')"
+  rationale: >-
+    Removes the timeout exit from the rendered init gate, so it loops for ever again: the bounded-script assertions fail and the three real shell
+    runs time out. A real break of the card's central claim (a failed or slow sidecar fetch must not hold a serving pod in Init for ever).
+evidence:
+- evidence/build/G3/TC-512/receipt.json
+closeout:
+- >-
+  The serving init gate is bounded, Jobs expire, serving has a startupProbe, the manifests claim survives `helm uninstall`, every pod drops the
+  service-account token and service links and runs under the runtime-default seccomp profile, and `install_pilots.py --wait-for-jobs` reports a failed
+  ingestion as not installed. Supervisor, on the next cluster install: use `--wait-for-jobs`, confirm the pdf/cpp Job finishes within 10Gi (raise it if
+  it is OOMKilled again), and lower `initGate.timeoutSeconds` to 120 only after serving re-reads its sidecars. The existing 40 releases keep their
+  claims; `helm upgrade` applies the new annotations and probes, and the install tool already deletes each release's old Job first.
+recovery: Re-run from a clean tree.

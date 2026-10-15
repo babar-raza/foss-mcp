@@ -1,0 +1,185 @@
+id: TC-508
+gate: G3
+lane: transport-deployment
+purpose: >-
+  REQ-G3-008 (independent pre-production review, findings FK8S-02 and D-10, root cause of FK8S-01). A find_examples lexical MISS makes a synchronous
+  call to the external embedding gateway (`_vector_fallback` in src/foss_mcp/mcp/tools/find_examples.py constructs `GatewayEmbeddingProvider()` and
+  calls `embed`), and that provider was written for ingestion: a 30 second socket timeout, up to 3 attempts per batch and 1 s then 2 s of backoff, about
+  93 s in the worst case. Measured on the cluster (fleet-k8s): 2 to 17.5 seconds per miss, one run over 210 s, and 14 of 40 pilots timed out
+  find_examples at the proof client's 15 s limit (prove_pilots 25 of 40 pass). With a black-holed gateway every lexical miss blocks about 66 s
+  (examples-productref-releases failsim); /healthz stays up because the handler runs in a worker thread, but the agent waits. The call also sends the
+  raw agent query to an external host on every miss, and `lookup` calls find_examples too, so the stall reaches the most-used tool. This card gives
+  the query-time vector fallback a hard overall deadline (default 2.0 s, `FOSS_MCP_VECTOR_DEADLINE_SECONDS`), no retries, and a circuit breaker
+  (3 consecutive gateway failures or timeouts skip the gateway for 60 s, during which the raw query is never sent). On timeout or skip the tool
+  returns the honest lexical miss it returns today, now with a payload note `vector_fallback` saying why (skipped_timeout, skipped_circuit_open or
+  skipped_error), and the example-search mode reported by report_index_freshness and the X-Example-Search header says
+  "lexical+vector(gateway) degraded" while the circuit is open. What does NOT change: ingestion keeps its 3 attempts and backoff (the retry cap is a
+  new, query-time-only setting), the lexical stages and thresholds, every hit and miss when the gateway is healthy, the baked lexical-only
+  behaviour with no gateway configured, and the find_examples tool description (it still says "lexical/semantic search"; that text lives in
+  src/foss_mcp/mcp/server.py, a file this card does not own, so correcting it is left to the handshake and description card TC-512).
+depends_on:
+- TC-505
+- TC-465
+- TC-444
+write_paths:
+- src/foss_mcp/mcp/tools/find_examples.py
+- src/foss_mcp/mcp/tools/vector_guard.py
+- src/foss_mcp/mcp/tools/example_search_mode.py
+- src/foss_mcp/indexing/gateway_embedding_provider.py
+- tests/mcp/tools/test_vector_guard.py
+- tests/mcp/tools/test_find_examples_vector_deadline.py
+- tests/indexing/test_gateway_provider_query_limits.py
+satisfies:
+- REQ-G3-008
+- REQ-G3-007
+source_refs:
+- file: docs/DECISION_LOG.md
+  anchor: '## 2026-10-15 — Independent pre-production adversarial review of the shipped image; its findings enter the state machine as cards (operator, supervisor)'
+  sha256: d2d82669b8060d5e3a3b9da00e9858e576d5d264d96e32d1aed8034e8d6d9007
+inputs:
+- >-
+  Read, in full: src/foss_mcp/mcp/tools/find_examples.py (`find_examples`, `_vector_fallback`, `NoExampleFound`);
+  src/foss_mcp/indexing/gateway_embedding_provider.py (`GatewayEmbeddingProvider.__init__`, `_embed_batch`, `_reserve_request`, the retry constants);
+  src/foss_mcp/mcp/tools/example_search_mode.py; src/foss_mcp/mcp/tools/lookup.py (how it calls find_examples). Read the tests that monkeypatch the
+  provider and must stay green untouched: tests/mcp/tools/test_retrieval_tools.py (`_FakeQueryEmbeddingProvider`, the vector-fallback tests around
+  lines 1040 to 1250), tests/mcp/tools/test_find_examples_verified_only.py (`_use_query_vector` and the autouse refuse fixture),
+  tests/mcp/tools/test_example_search_mode.py, tests/mcp/tools/test_lookup_miss_reason.py, tests/mcp/tools/test_nonsense_queries_miss.py,
+  tests/indexing/test_gateway_embedding_provider.py. They replace `find_examples.GatewayEmbeddingProvider` with zero-argument callables, so
+  `_vector_fallback` must keep calling `GatewayEmbeddingProvider()` with NO arguments and must treat the object it gets back as having only `embed`.
+  Never print or log any environment value, the query text or the gateway endpoint.
+- >-
+  src/foss_mcp/indexing/gateway_embedding_provider.py: add a public method `set_query_time_limits(self, *, max_attempts: int, timeout_seconds:
+  float) -> None` that sets `self._max_attempts` (validated at least 1) and lowers `self._timeout_seconds` to `min(current, timeout_seconds)`
+  (validated above 0). `__init__` initialises `self._max_attempts = _MAX_ATTEMPTS_PER_BATCH`; `_embed_batch` uses `self._max_attempts` instead of the
+  constant in both its loop bound and its retry condition. Defaults are unchanged, so ingestion still makes 3 attempts with backoff and the
+  request-budget logic, the error messages and the zero-argument construction are untouched. Add the new setting to the module docstring.
+- >-
+  NEW src/foss_mcp/mcp/tools/vector_guard.py. Module constants, each on its own line: `DEADLINE_ENV = "FOSS_MCP_VECTOR_DEADLINE_SECONDS"`,
+  `DEFAULT_DEADLINE_SECONDS = 2.0`, `CIRCUIT_FAILURE_THRESHOLD = 3`, `CIRCUIT_OPEN_SECONDS = 60.0`, `QUERY_TIME_MAX_ATTEMPTS = 1`, and the status strings
+  `STATUS_OK = "ok"`, `STATUS_SKIPPED_TIMEOUT = "skipped_timeout"`, `STATUS_SKIPPED_CIRCUIT_OPEN = "skipped_circuit_open"`, `STATUS_SKIPPED_ERROR =
+  "skipped_error"`. Class `VectorFallbackGuard(*, deadline_seconds: float | None = None, failure_threshold: int = CIRCUIT_FAILURE_THRESHOLD,
+  open_seconds: float = CIRCUIT_OPEN_SECONDS, clock: Callable[[], float] = time.monotonic, executor: ThreadPoolExecutor | None = None)`; when
+  `deadline_seconds` is None it is read from `DEADLINE_ENV` at construction (a non-numeric or non-positive value raises `ValueError` that names the
+  variable but never echoes the value). Attributes `deadline_seconds`. Methods: `is_open() -> bool` (true while `clock() < opened_until`) and
+  `call(fn: Callable[[], T]) -> tuple[str, T | None]`. `call`: if the circuit is open return `(STATUS_SKIPPED_CIRCUIT_OPEN, None)` WITHOUT calling `fn`;
+  else submit `fn` to the executor (default: one module-level lazily created `ThreadPoolExecutor(max_workers=4, thread_name_prefix="vector-fallback")`)
+  and wait with `future.result(timeout=self.deadline_seconds)`. A result returns `(STATUS_OK, value)` and resets the consecutive-failure count and the
+  open state. A `concurrent.futures.TimeoutError` records one failure, cancels the future best-effort and returns `(STATUS_SKIPPED_TIMEOUT, None)`. An
+  exception from `fn` that is a `GatewayEmbeddingError`, an `EmbeddingBudgetExceededError`, an `OSError` or a `TimeoutError` records one failure and
+  returns `(STATUS_SKIPPED_ERROR, None)`; ANY OTHER exception (for example the RuntimeError of a missing gateway configuration, or a bug) returns
+  `(STATUS_SKIPPED_ERROR, None)` WITHOUT counting as a failure, so an unconfigured gateway never opens the circuit and existing tests that refuse
+  construction cannot leak circuit state into other tests. When the consecutive-failure count reaches `failure_threshold` the circuit opens until
+  `clock() + open_seconds`; after that time the next call is allowed through as a probe (a success closes it, a failure re-opens it at once because the
+  count is still at the threshold). All state changes happen under a `threading.Lock`. Module-level `get_guard() -> VectorFallbackGuard` returns the one
+  process-wide guard (created on first use) and a private `_set_guard(guard)` lets tests replace it (private, so tests/test_unwired_modules.py does not
+  require a production caller). `get_guard` must be called by production code (find_examples and example_search_mode), not only by tests.
+- >-
+  src/foss_mcp/mcp/tools/find_examples.py. `NoExampleFound` gains a last, defaulted field `vector_fallback: str | None = None` (additive). Replace the
+  body of `_vector_fallback` so it returns `tuple[list[ExampleMatch], str | None]` (matches, note). With no vector index it returns `([], None)`
+  as today. Otherwise it defines an inner function that constructs `GatewayEmbeddingProvider()` (zero arguments), applies
+  `set_query_time_limits(max_attempts=QUERY_TIME_MAX_ATTEMPTS, timeout_seconds=guard.deadline_seconds)` ONLY when the provider has that method
+  (`getattr`), and returns `provider.embed([query])[0]`; it runs that inner function through `get_guard().call(...)`. Status `ok` continues with the
+  existing ranking code unchanged; any other status returns `([], <the status string>)`; the existing broad `except Exception` stays around the ranking
+  code and returns `([], None)`. The query text is only ever passed inside the inner function, so with the circuit open the provider is never even
+  constructed. In `find_examples`, when no hits and the fallback gives no matches, return `NoExampleFound(scope, query, reason=<today's reason>,
+  vector_fallback=note)`; when `note` is one of the skip statuses the reason becomes today's reason plus ` (semantic fallback skipped: <timeout |
+  circuit open | error>)`; when the vector stage ran normally the reason and `vector_fallback` (None) are exactly today's. A lexical hit never reaches
+  the guard. Update the module docstring (no retries, deadline, circuit breaker).
+- >-
+  src/foss_mcp/mcp/tools/example_search_mode.py: new constant `EXAMPLE_SEARCH_GATEWAY_DEGRADED = "lexical+vector(gateway) degraded"` and
+  `REASON_CIRCUIT_OPEN = "embedding gateway circuit open after repeated failures"`. `example_search_mode(payload, environment=None, *, guard=None)` returns
+  `(EXAMPLE_SEARCH_GATEWAY_DEGRADED, REASON_CIRCUIT_OPEN)` instead of the gateway pair when it would return `EXAMPLE_SEARCH_GATEWAY` and
+  `(guard or get_guard()).is_open()`; every other return value and the no-network, no-value-leak properties are unchanged. report_index_freshness and
+  the /readyz header both call this helper, so both report the degraded mode with no change to their files.
+- >-
+  NEW tests/mcp/tools/test_vector_guard.py (offline, deterministic, no skipped tests, no sleeping assertions). Time is injected: `clock` is a list-backed
+  fake the test advances. A call that must time out blocks on a `threading.Event` the test sets in a `finally`, and uses `deadline_seconds=0.05`; the
+  assertion is that `call` RETURNS skipped_timeout while the function is still blocked (the event is unset), never a measured duration. Tests,
+  exact names: test_the_defaults_are_two_seconds_three_failures_and_sixty_seconds; test_the_deadline_env_variable_overrides_the_default;
+  test_an_invalid_deadline_value_raises_and_does_not_echo_it (non-numeric, zero, negative); test_a_fast_call_returns_ok_with_its_value;
+  test_a_blocked_call_returns_skipped_timeout_while_the_function_is_still_running; test_a_timeout_counts_as_a_failure;
+  test_three_consecutive_gateway_failures_open_the_circuit (GatewayEmbeddingError); test_an_open_circuit_never_calls_the_function (a call counter
+  stays at 3); test_the_circuit_closes_after_sixty_seconds_of_injected_time_and_a_good_probe_resets_it;
+  test_a_failed_probe_reopens_the_circuit_at_once; test_a_success_between_failures_resets_the_count;
+  test_a_configuration_error_is_skipped_error_and_never_opens_the_circuit (RuntimeError, 10 calls); test_an_oserror_counts_as_a_failure;
+  test_is_open_follows_the_injected_clock; test_get_guard_returns_one_process_wide_guard_and_set_guard_replaces_it. At least 15 tests.
+- >-
+  NEW tests/mcp/tools/test_find_examples_vector_deadline.py (offline). Reuse the publication helpers of tests/mcp/tools/test_retrieval_tools.py or
+  tests/mcp/tools/test_find_examples_verified_only.py by importing or copying their small builders (a generation holding one verified example and a
+  hand-built vector index, a query that shares no token with it so the lexical stage misses). An autouse fixture installs a fresh
+  `VectorFallbackGuard(deadline_seconds=0.05, clock=<fake>)` through `_set_guard` and restores the previous guard afterwards. Tests, exact names:
+  test_a_hung_provider_returns_the_honest_miss_with_a_skipped_timeout_note (the fake provider's embed blocks on an Event; the result is a
+  NoExampleFound with `vector_fallback == "skipped_timeout"` and a reason that still starts with "no verified example matches this query"; the Event is
+  set in a finally); test_the_note_reaches_the_json_payload (render with `_to_jsonable` and `json.dumps`); test_three_timeouts_open_the_circuit_and_the_fourth_miss_never_constructs_the_provider
+  (a construction counter proves the raw query is never handed to the provider while open, note "skipped_circuit_open");
+  test_the_circuit_closes_after_injected_time_and_a_vector_match_works_again; test_a_configuration_error_gives_skipped_error_without_opening_the_circuit;
+  test_a_lexical_hit_never_touches_the_guard (the guard's call counter is zero); test_a_vector_match_is_unchanged_through_the_guard (the existing fake
+  provider returns a vector, the match has source "vector" and the same coverage as before); test_a_normal_miss_has_no_note (vector stage ran, no match:
+  `vector_fallback is None`, reason exactly today's); test_a_generation_without_a_vector_index_has_no_note;
+  test_lookup_returns_promptly_when_the_gateway_hangs (call `lookup` with a task-style query that misses in the docs; the provider hangs; the result is the
+  normal miss and the provider's Event was still unset when lookup returned); test_example_search_mode_reports_degraded_while_open_and_recovers
+  (gateway variables set through monkeypatch with a matching stored dimension, open the injected guard with three failures, assert
+  `EXAMPLE_SEARCH_GATEWAY_DEGRADED` and `REASON_CIRCUIT_OPEN`, advance the clock 61 s, assert `EXAMPLE_SEARCH_GATEWAY`);
+  test_example_search_mode_is_unchanged_without_the_gateway_variables; test_the_degraded_text_leaks_no_environment_value (canary values in the
+  variables); test_find_examples_makes_exactly_one_real_provider_attempt_per_miss (monkeypatch `find_examples.GatewayEmbeddingProvider` with a lambda
+  that builds the REAL provider with a fake `_transport` that always raises a connection-error GatewayTransportError and a recording `_sleep`, gateway
+  variables set through monkeypatch to dummy values; the result is a NoExampleFound with note "skipped_error", the transport was called exactly once
+  and the sleep recorder is empty: this proves `set_query_time_limits` is really applied by find_examples);
+  test_find_examples_source_calls_get_guard (a grep over find_examples.py and example_search_mode.py for `get_guard(`, the wiring proof
+  AGENTS.md requires). At least 13 tests.
+- >-
+  NEW tests/indexing/test_gateway_provider_query_limits.py (offline, fake `_transport` and `_sleep` as tests/indexing/test_gateway_embedding_provider.py
+  does): test_query_time_limits_make_exactly_one_attempt_and_never_sleep (transport raises a GatewayTransportError with no status; calls == 1, the
+  sleep recorder is empty, a GatewayEmbeddingError is raised); test_query_time_limits_pass_a_short_timeout_to_the_transport (the transport records the
+  timeout it was given: `min(configured, requested)`); test_a_longer_requested_timeout_never_raises_the_configured_one;
+  test_default_ingestion_behaviour_is_unchanged_three_attempts_with_backoff (calls == 3, sleeps [1.0, 2.0]);
+  test_set_query_time_limits_validates_its_arguments (max_attempts 0 and timeout 0 raise ValueError); test_the_request_budget_still_applies_to_the_single_attempt.
+  At least 6 tests.
+- >-
+  Run `{python} -m pytest tests/mcp/tools/test_vector_guard.py tests/mcp/tools/test_find_examples_vector_deadline.py
+  tests/indexing/test_gateway_provider_query_limits.py -q -rfE` until green, then the second check below, which includes every existing test that monkeypatches
+  the provider and must pass UNCHANGED. If one of them pins the old behaviour, report it and stop rather than editing it (none is expected to). Write
+  commit messages as UTF-8 without a byte-order mark, subject `fix(mcp): hard deadline and circuit breaker for the find_examples vector fallback
+  (G3/TC-508)`. Preserve each file's line endings (LF) and encoding. New public functions or classes in src/foss_mcp need a production caller
+  (tests/test_unwired_modules.py). Do not edit src/foss_mcp/mcp/server.py, infra/ or the Helm chart.
+actions:
+- >-
+  Bound the query-time embedding call: hard deadline, no retries, never the raw query once the circuit is open.
+- >-
+  Return the honest lexical miss with a vector_fallback note on timeout or skip and report a degraded example-search mode while the circuit is open.
+- >-
+  Pin it with injected-time and Event-blocked tests that assert the call returns while the provider is still hung.
+checks:
+- command: '{python} -m pytest tests/mcp/tools/test_vector_guard.py tests/mcp/tools/test_find_examples_vector_deadline.py tests/indexing/test_gateway_provider_query_limits.py -q -rfE'
+  expect: exit 0
+  timeout_seconds: 900
+  junitxml: true
+  proves:
+  - REQ-G3-008
+- command: '{python} -m pytest tests/mcp/tools tests/indexing/test_gateway_embedding_provider.py tests/infra/test_serve_example_search_mode.py tests/test_unwired_modules.py -q -rfE -p no:cacheprovider'
+  expect: exit 0
+  timeout_seconds: 1800
+  junitxml: true
+  proves:
+  - REQ-G3-008
+  - REQ-G3-007
+min_tests: 25
+network: true
+requires:
+- python
+negative_control:
+  mutate: |
+    python -X utf8 -c "import pathlib;p=pathlib.Path('src/foss_mcp/mcp/tools/vector_guard.py');s=p.read_text(encoding='utf-8');a='CIRCUIT_FAILURE_THRESHOLD = 3';b='QUERY_TIME_MAX_ATTEMPTS = 1';assert a in s and b in s;p.write_text(s.replace(a,'CIRCUIT_FAILURE_THRESHOLD = 1000000',1).replace(b,'QUERY_TIME_MAX_ATTEMPTS = 3',1),encoding='utf-8')"
+  rationale: >-
+    Raises the circuit threshold so the breaker can never open and restores three query-time attempts, so the tests that assert the circuit opens after
+    three failures, that an open circuit never constructs the provider and that the query-time provider makes exactly one attempt all fail. A real
+    break of the card's central claim (a failing gateway cannot stall or be hammered by find_examples).
+evidence:
+- evidence/build/G3/TC-508/receipt.json
+closeout:
+- >-
+  find_examples and lookup can no longer wait on the embedding gateway for more than the 2 second deadline, retry it, or keep sending it queries after
+  repeated failures, and the tool says when it skipped the semantic stage. Supervisor, after acceptance: on a rebuilt image run a live check with the
+  gateway endpoint black-holed (find_examples on a query that misses must answer in well under 5 s) and re-run prove_pilots on the cluster for the 14
+  find_examples ReadTimeout pilots; the find_examples description wording is TC-512.
+recovery: Re-run from a clean tree.

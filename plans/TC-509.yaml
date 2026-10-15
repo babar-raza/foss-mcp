@@ -1,0 +1,202 @@
+id: TC-509
+gate: G3
+lane: transport-deployment
+purpose: >-
+  REQ-G3-008 (independent pre-production review, findings PS-03, PS-04 and the logging and limits parts of PS-10). Observability of the shipped serving
+  container is close to nil. Measured by the reviewer (protocol-security, ~17,000 soak calls and 770 sampled responses): /metrics is a JSON document with
+  two numbers (`usage_events_queued`, `usage_events_dropped`) and no Prometheus exposition; the usage queue has no production consumer
+  (`UsageRecorder.drain` is never called) so after 1,000 calls it sits at its cap forever, `queued` pinned at 1000 and `dropped` only growing, which
+  carries no information; the per-call log line has the tool name, outcome, latency and a correlation id but no pilot, no error code and no hit or miss,
+  so a 51 percent search_symbols miss rate (agentic review, 231 calls) is invisible to an operator; the client-chosen tool name of an unknown tool is
+  logged unbounded; and the 200-session cap (`infra/serve_http.py` MAX_SESSIONS) is an unauthenticated lever whose 503 "Too many open sessions" has no
+  Retry-After and no counter, so a flood of idle initialises or crashed agents holding slots for 5 minutes is not distinguishable from a healthy pod
+  (the SDK writes its own bare WARNING without the pilot). This card makes the pod observable and changes no tool payload: (1) /metrics answers the
+  Prometheus text exposition when the scraper asks for it (an Accept header naming text/plain or openmetrics, or `?format=prometheus`) and the
+  EXISTING two-field JSON otherwise (several tests pin that exact body), with `foss_mcp_tool_calls_total{family,platform,tool,outcome,code}`,
+  `foss_mcp_tool_misses_total{family,platform,tool}`, the histogram `foss_mcp_tool_latency_seconds`, the gauges `foss_mcp_open_sessions`,
+  `foss_mcp_ready` and `foss_mcp_generation_info{generation_id,source_commit,build_revision}` (value 1) and the counter
+  `foss_mcp_session_rejections_total`; (2) every tool-call log line also carries family, platform, the error code and hit (true, false or null), and the
+  logged tool name is capped; (3) a session-cap rejection is counted, logged once per window at WARNING with the pilot, and answered with a Retry-After
+  header; (4) the production usage recorder drops its OLDEST event when full (a ring buffer) so it can never be pinned at its cap by history. Readiness
+  failure reasons are logged by TC-506 and are not duplicated here. What does NOT change: any tool result, the JSON body of /metrics, the default
+  semantics of `UsageRecorder` (drop-new stays the default for existing callers and tests), the session limits themselves, and the Helm chart (a
+  ServiceMonitor is not part of this card).
+depends_on:
+- TC-507
+- TC-506
+- TC-474
+- TC-443
+- TC-421
+- TC-391
+- TC-389
+- TC-239
+write_paths:
+- infra/serve_http.py
+- src/foss_mcp/mcp/server.py
+- src/foss_mcp/telemetry/metrics.py
+- src/foss_mcp/telemetry/usage_recorder.py
+- tests/telemetry/test_metrics_registry.py
+- tests/telemetry/test_usage_recorder_ring.py
+- tests/infra/test_serve_metrics_prometheus.py
+- tests/infra/test_serve_session_cap_observability.py
+- tests/mcp/test_tool_call_log_fields.py
+satisfies:
+- REQ-G3-008
+- REQ-G3-006
+source_refs:
+- file: docs/DECISION_LOG.md
+  anchor: '## 2026-10-15 — Independent pre-production adversarial review of the shipped image; its findings enter the state machine as cards (operator, supervisor)'
+  sha256: d2d82669b8060d5e3a3b9da00e9858e576d5d264d96e32d1aed8034e8d6d9007
+inputs:
+- >-
+  Read, in full: infra/serve_http.py (`_metrics_route`, `build_app`, the MCP session limits and the middleware stack, plus the TC-506 readiness code and the
+  TC-507 sidecar code now in it); src/foss_mcp/mcp/server.py (`_log_tool_call`, `_build_usage_event`, `_record_usage_safely`, `ToolErrorCode`, `create_server` and
+  `_call_tool` with ALL of its exit paths as TC-506 and TC-507 left them); src/foss_mcp/telemetry/usage_recorder.py and tests/telemetry/test_usage_recorder.py;
+  the SDK's session admission (`mcp/server/streamable_http_manager.py`, `_handle_stateful_request`, `_admit_session`, `_server_instances`) in the installed
+  package. Existing tests that must stay green UNCHANGED: tests/infra/test_serve_http.py (the three /metrics tests assert the exact two-field JSON body),
+  tests/mcp/test_server_wiring.py (`test_metrics_reflects_real_tool_calls_through_the_real_served_transport`, the usage-event tests, the
+  `UsageRecorder(max_queued=1)` drop test), tests/infra/test_serve_http_session_limits.py, tests/infra/test_serve_logging.py. Never print or log any
+  environment value, a query or a file content.
+- >-
+  NEW src/foss_mcp/telemetry/metrics.py (stdlib only, no new dependency: tests/test_serving_dependency_lock.py pins the serving dependencies). Module
+  constants for the metric names, each on its own line, e.g. `TOOL_CALLS_TOTAL = "foss_mcp_tool_calls_total"` (the negative control edits this one),
+  `TOOL_MISSES_TOTAL = "foss_mcp_tool_misses_total"`, `TOOL_LATENCY_SECONDS = "foss_mcp_tool_latency_seconds"`, `OPEN_SESSIONS = "foss_mcp_open_sessions"`,
+  `SESSION_REJECTIONS_TOTAL = "foss_mcp_session_rejections_total"`, `GENERATION_INFO = "foss_mcp_generation_info"`, `READY = "foss_mcp_ready"`,
+  `USAGE_EVENTS_QUEUED = "foss_mcp_usage_events_queued"`, `USAGE_EVENTS_DROPPED_TOTAL = "foss_mcp_usage_events_dropped_total"`, and
+  `LATENCY_BUCKETS = (0.005, 0.01, 0.025, 0.05, 0.1, 0.25, 0.5, 1.0, 2.5, 5.0, 10.0)`; `CONTENT_TYPE = "text/plain; version=0.0.4; charset=utf-8"`. A class
+  `MetricsRegistry(*, family: str, platform: str)` holding a `threading.Lock` and dicts: `observe_tool_call(*, tool: str, outcome: str, code: str,
+  latency_seconds: float, miss: bool)` (increments the calls counter, adds the latency to the histogram, increments the misses counter when `miss`),
+  `count_session_rejection()`, and `render_prometheus(*, open_sessions: int | None, ready: bool | None, generation_info: Mapping[str, str] | None,
+  usage_queued: int, usage_dropped: int) -> str`. The text format is the standard one: a `# HELP` and a `# TYPE` line per metric family, counters as
+  `name{labels} value`, the histogram as cumulative `_bucket{le="..."}` lines ending in `le="+Inf"` plus `_sum` and `_count`, label values escaped
+  (backslash, double quote, newline), series sorted for stable output, `family` and `platform` as constant labels on every series, a gauge omitted when
+  its value is None, and a trailing newline. Label values are bounded by construction: the tool label is a registered tool name or the literal
+  "unknown", the code label one of ok, not_found, invalid_argument, internal, unavailable; never a query or an argument.
+- >-
+  src/foss_mcp/telemetry/usage_recorder.py: `UsageRecorder.__init__(self, max_queued=1000, *, overflow="drop_new")` with `overflow` in
+  {"drop_new", "drop_oldest"} (anything else raises ValueError). "drop_new" is the current behaviour, unchanged and the default. "drop_oldest": when the
+  queue is full, evict the oldest event, append the new one, increment `dropped_count` and return True. Update the class docstring (the production
+  recorder is a ring so the queue always holds the latest events; nothing drains it today). tests/telemetry/test_usage_recorder.py is not edited.
+- >-
+  src/foss_mcp/mcp/server.py. (a) `create_server(..., metrics: MetricsRegistry | None = None)`: default a fresh `MetricsRegistry(family=scope.family,
+  platform=scope.platform)`, so the signature stays backward compatible and `build_app` passes the SAME instance to its `/metrics` route (the same pattern
+  as `usage_recorder`; do not use `or`, a registry is falsy-safe but keep the `is not None` form). (b) Replace the duplicated pairs of
+  `_log_tool_call(...)` and `_record_usage_safely(...)` calls at EVERY exit path of `_call_tool` (unknown tool, validation error, value error, the TC-506
+  unavailable branch, the TC-507 releases branch, the generic exception, success) with one inner function `_finish(...)` that takes the tool name, correlation
+  id, started_at, outcome, code (None on success), result and arguments, and does the log line, the usage event (unchanged fields and the unchanged
+  `_record_usage_safely`) and the metrics observation, in that order, each shielded so a failure in one never prevents the CallToolResult being returned.
+  Keep `_log_tool_call` and `_record_usage_safely` as functions (tests import them) but give `_log_tool_call` the extra keyword arguments `family: str |
+  None = None`, `platform: str | None = None`, `code: str | None = None`, `hit: bool | None = None`; its record keeps the message `tool call: %s (%s)` and the
+  existing extras (`tool`, `correlation_id`, `outcome`, `latency_ms`) and adds `family`, `platform`, `code` ("ok" on success, the ToolErrorCode value
+  otherwise) and `hit`. The logged `tool` extra is the tool name truncated to 64 characters (a client-chosen name is unbounded today), while the metrics
+  tool label is "unknown" for an unregistered name. (c) `hit` is computed by a private `_result_hit(tool_name, result)`: for the six retrieval tools
+  (lookup, search_docs, search_symbols, get_symbol, list_members, find_examples) it is False when `type(result).__name__` is Miss, NotFound or
+  NoExampleFound or `getattr(result, "found", True) is False`, else True; for every other tool and for every error it is None. The metrics `miss` flag is
+  `hit is False`. An empty list from list_recent_changes is NOT a miss. No result, payload, description or schema changes.
+- >-
+  infra/serve_http.py. (a) `_metrics_route(usage_recorder, registry, scrape)` where `scrape` is a small private object or closure set exposing
+  `open_sessions() -> int | None`, `ready() -> bool | None` and `generation_info() -> dict[str, str] | None`, each shielded (an exception gives None and
+  that gauge is omitted). The handler answers Prometheus text (`CONTENT_TYPE`) when `request.query_params.get("format") == "prometheus"`, or when the
+  query parameter is absent and the Accept header contains `text/plain` or `application/openmetrics-text`; the JSON body (exactly the two existing fields)
+  when `format=json` or neither condition holds (a client sending `*/*`, which is what the TestClient and curl send, keeps the JSON). `/metrics` stays
+  exempt from the Origin rejection. (b) The gauges: open sessions is `len(server.session_manager._server_instances)` read through `getattr` with a safe
+  default so an SDK change cannot break the scrape (a test pins the real value against the real SDK, which is the drift guard); ready is
+  `readiness_report(generation_store).ready` from TC-506; generation_info is `{"generation_id": <active id>, "source_commit": <the indexed source commit
+  from report_index_freshness for this scope, or "unknown">, "build_revision": <the part of `server_version()` after the "+", or "unknown">}`, None when no
+  generation is active. (c) Session cap: a small ASGI middleware `SessionCapObserverMiddleware(app, on_reject)` placed INSIDE `ErrorSanitisingMiddleware`
+  (wrapping `inner`): for HTTP requests whose path is not a probe path, when the response start has status 503, append the header `retry-after:
+  5` (module constant `SESSION_CAP_RETRY_AFTER_SECONDS = 5`, one line, the negative control edits it) and call `on_reject()` once. `build_app`'s
+  `on_reject` increments `registry.count_session_rejection()` and logs through `LOG` ONE WARNING "session cap reached, new session refused" with `extra={"family",
+  "platform", "max_sessions", "open_sessions", "suppressed"}`, at most once per `_REJECT_LOG_INTERVAL_SECONDS = 10.0`, using a module-level `_monotonic =
+  time.monotonic` that tests replace; the `suppressed` extra counts the rejections not logged since the previous record. (d) `build_app`: resolve ONE
+  `MetricsRegistry` (a new `metrics: MetricsRegistry | None = None` parameter, default a fresh one) and pass it to both `create_server` and the route; when
+  `usage_recorder` is None create `UsageRecorder(overflow="drop_oldest")`. Update the module and function docstrings.
+- >-
+  NEW tests/telemetry/test_metrics_registry.py (offline, pure, no clock, no network). Exact names: test_the_metric_names_are_the_documented_constants;
+  test_every_series_carries_the_constant_family_and_platform_labels; test_a_success_call_increments_calls_total_with_code_ok;
+  test_an_error_call_increments_calls_total_with_its_code_and_outcome; test_a_miss_increments_misses_total_once;
+  test_a_hit_does_not_increment_misses_total; test_the_histogram_is_cumulative_with_sum_count_and_plus_inf;
+  test_the_histogram_uses_the_documented_bucket_edges; test_session_rejections_counter; test_a_gauge_with_no_value_is_omitted;
+  test_generation_info_is_one_with_exactly_three_labels_plus_the_constants; test_label_values_are_escaped_for_quote_backslash_and_newline;
+  test_ready_is_zero_or_one; test_usage_numbers_render_as_a_gauge_and_a_counter; test_help_and_type_lines_precede_each_family;
+  test_every_non_comment_line_is_a_valid_exposition_sample (regular expression); test_concurrent_observation_is_exact (8 threads times 500 calls);
+  test_render_is_deterministic_for_the_same_state. At least 18 tests.
+- >-
+  NEW tests/telemetry/test_usage_recorder_ring.py (offline): test_the_default_mode_still_drops_the_new_event_when_full;
+  test_drop_oldest_keeps_the_newest_events_in_order; test_drop_oldest_counts_every_eviction; test_drop_oldest_never_exceeds_max_queued;
+  test_drop_oldest_record_returns_true; test_an_unknown_overflow_mode_raises_value_error; test_drain_works_in_ring_mode_and_empties_the_queue. At least 7 tests.
+- >-
+  NEW tests/infra/test_serve_metrics_prometheus.py (offline, TestClient over `serve_http.build_app` with a store built from a tmp copy of
+  infra/demo-manifests/pdf__go__self_extracted; real MCP calls through the in-process session helper the way tests/mcp/test_server_wiring.py `_McpSession` does,
+  copying the few lines it needs rather than importing a test module; infra/ on sys.path). Exact names: test_a_default_scrape_is_still_the_two_field_json;
+  test_accept_text_plain_returns_the_prometheus_exposition_with_its_content_type; test_accept_openmetrics_returns_the_prometheus_exposition;
+  test_the_format_parameter_overrides_the_accept_header_both_ways; test_a_search_symbols_hit_is_counted_with_family_platform_tool_outcome_and_code;
+  test_a_miss_is_counted_in_misses_total_and_a_hit_is_not; test_an_invalid_argument_error_has_the_invalid_argument_code;
+  test_an_unregistered_tool_name_collapses_to_the_unknown_label (a 200-character name never appears in the output);
+  test_the_latency_histogram_count_equals_the_number_of_calls; test_open_sessions_tracks_real_sessions_against_the_real_sdk (0, then 1, then 2 after
+  initialising); test_generation_info_carries_generation_id_source_commit_and_build_revision; test_ready_is_one_for_a_ready_generation_and_zero_for_an_empty_store;
+  test_a_tool_over_an_empty_store_is_counted_with_the_unavailable_code; test_no_series_contains_the_query_text (a canary query);
+  test_the_legacy_usage_numbers_are_also_exposed; test_the_scrape_needs_no_origin_or_protocol_headers;
+  test_build_app_default_recorder_is_a_ring (spy on `serve_http.UsageRecorder`); test_serve_http_and_server_source_wire_the_registry (grep for `MetricsRegistry`
+  in both files, the wiring proof AGENTS.md requires). At least 18 tests.
+- >-
+  NEW tests/infra/test_serve_session_cap_observability.py (offline; `build_app(..., max_session_count=1)`; a second initialise is refused by the real SDK):
+  test_the_503_at_the_cap_carries_retry_after_5; test_the_rejection_counter_increments_for_each_rejection (read from the Prometheus scrape);
+  test_a_warning_with_family_platform_and_limits_is_logged_once (caplog; extras family, platform, max_sessions, open_sessions);
+  test_rejection_warnings_are_rate_limited_and_report_the_suppressed_count (replace `serve_http._monotonic`); test_other_responses_have_no_retry_after (the
+  successful initialise, an unknown-session 404, a 400 rejection); test_the_cap_and_idle_constants_are_unchanged; test_metrics_still_answers_at_the_cap;
+  test_the_retry_after_constant_value. At least 8 tests.
+- >-
+  NEW tests/mcp/test_tool_call_log_fields.py (offline; dispatch through `server.get_request_handler("tools/call")` as tests/mcp/test_dispatch_offload.py `_call`
+  does, over a tmp copy of the baked pdf/go scope; caplog on the logger foss_mcp.mcp.server; a recording `MetricsRegistry` and `UsageRecorder` passed in).
+  Exact names: test_a_hit_logs_family_platform_code_ok_and_hit_true; test_a_miss_logs_hit_false (a nonsense search_symbols query);
+  test_an_invalid_argument_logs_its_code_and_hit_none; test_an_unknown_tool_logs_not_found_with_a_capped_tool_name (a 300-character name is logged as at most
+  64 characters); test_an_unavailable_error_logs_the_unavailable_code (empty store); test_a_non_retrieval_tool_logs_hit_none;
+  test_the_message_and_existing_extras_are_unchanged; test_the_json_formatter_emits_the_new_fields (`serve_http.JsonLogFormatter`);
+  test_metrics_and_log_agree_on_outcome_code_and_miss_for_each_path; test_a_usage_event_is_recorded_on_every_exit_path (one per call, six paths);
+  test_a_failing_metrics_registry_never_changes_the_tool_result. At least 11 tests.
+- >-
+  Run `{python} -m pytest tests/telemetry/test_metrics_registry.py tests/telemetry/test_usage_recorder_ring.py tests/infra/test_serve_metrics_prometheus.py
+  tests/infra/test_serve_session_cap_observability.py tests/mcp/test_tool_call_log_fields.py -q -rfE` until green, then the second check below. New public
+  functions or classes in src/foss_mcp need a production caller (tests/test_unwired_modules.py): `MetricsRegistry` is imported by server.py and serve_http.py.
+  Write commit messages as UTF-8 without a byte-order mark, subject `feat(serving): Prometheus metrics, richer call logs and an observable session cap
+  (G3/TC-509)`. Preserve each file's line endings (LF) and encoding. Do not edit any existing test, the Helm chart or the tool payloads.
+actions:
+- >-
+  Add a stdlib Prometheus exposition (calls, misses, latency, sessions, rejections, readiness, generation info) behind /metrics while keeping the JSON
+  default, and fold the call logging, usage event and metrics into one place in the tool dispatcher.
+- >-
+  Log and count session-cap rejections with a Retry-After header, cap the logged tool name, and make the production usage recorder a ring buffer.
+checks:
+- command: '{python} -m pytest tests/telemetry/test_metrics_registry.py tests/telemetry/test_usage_recorder_ring.py tests/infra/test_serve_metrics_prometheus.py tests/infra/test_serve_session_cap_observability.py tests/mcp/test_tool_call_log_fields.py -q -rfE'
+  expect: exit 0
+  timeout_seconds: 1200
+  junitxml: true
+  proves:
+  - REQ-G3-008
+- command: '{python} -m pytest tests/mcp tests/telemetry tests/infra/test_serve_http.py tests/infra/test_serve_http_session_limits.py tests/infra/test_serve_logging.py tests/infra/test_serve_example_search_mode.py tests/infra/test_serve_stdio_parity.py tests/infra/test_serve_manifests_dir_and_log_hygiene.py tests/test_unwired_modules.py tests/test_serving_dependency_lock.py -q -rfE -p no:cacheprovider'
+  expect: exit 0
+  timeout_seconds: 2400
+  junitxml: true
+  proves:
+  - REQ-G3-008
+  - REQ-G3-006
+min_tests: 45
+network: true
+requires:
+- python
+negative_control:
+  mutate: |
+    python -X utf8 -c "import pathlib;m=pathlib.Path('src/foss_mcp/telemetry/metrics.py');h=pathlib.Path('infra/serve_http.py');a=m.read_text(encoding='utf-8');b=h.read_text(encoding='utf-8');o1='foss_mcp_tool_calls_total';o2='SESSION_CAP_RETRY_AFTER_SECONDS = 5';assert o1 in a and o2 in b;m.write_text(a.replace(o1,'foss_mcp_tool_calls',1),encoding='utf-8');h.write_text(b.replace(o2,'SESSION_CAP_RETRY_AFTER_SECONDS = 0',1),encoding='utf-8')"
+  rationale: >-
+    Renames the tool-call counter and zeroes the Retry-After value, so the tests that read the documented metric name from the exposition and the tests
+    that assert the 503 carries Retry-After: 5 fail. A real break of the card's two central claims (an operator can scrape the documented series, and a
+    refused session is told when to retry).
+evidence:
+- evidence/build/G3/TC-509/receipt.json
+closeout:
+- >-
+  An operator can scrape per-pilot call, miss, latency, session, readiness and generation series, see in the log which pilot, code and hit or miss each
+  call had, and tell a session-cap flood from a healthy pod. Supervisor, after acceptance: scrape /metrics with an Accept text/plain header from a
+  rebuilt container, and decide whether to add a ServiceMonitor or scrape annotation to the Helm chart (not part of this card).
+recovery: Re-run from a clean tree.

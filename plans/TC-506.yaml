@@ -1,0 +1,252 @@
+id: TC-506
+gate: G3
+lane: storage-retrieval
+purpose: >-
+  REQ-G3-008 (independent pre-production review, findings GRR-01, GRR-04 and the readiness part of GRR-10). The reviewer drove the shipped
+  image through 40 doctored store states and found that /readyz answers "some lexical document exists" and nothing more. Measured
+  (generation-readiness-recovery results_deep_ready_scen.txt): a generation of ANOTHER product placed behind this deployment's pointer
+  (jmap/go content under pdf/go, scenarios S20a, S20c, S20d) gives /readyz 200 and the agent is answered under the wrong banner; documents
+  with no tokens, no text or no doc_freq (S07b, S07c, S07d) give 200 although 4 to 6 of the 8 tools then throw KeyError; a generation with
+  zero symbols, one symbol, or no documentation (S08a, S08c, S08d, S08e) gives 200. A pointer file written by Windows PowerShell with a UTF-8
+  byte-order mark (S06b) or an empty pointer (S06h) gives HTTP 500 and one ASGI traceback per probe. When no usable generation exists the
+  tools answer isError false with found false (an agent reads "this API does not exist") or with raw exception text. A prototype of the
+  stronger check (scratchpad review/generation-readiness-recovery/deep_ready_proto.py) passed all 40 baked pilot scopes with zero false
+  positives; the smallest real pilots are imaging/net with 3 symbols and 4 documentation chunks and tex/python with 4 symbols.
+  This card changes readiness, nothing else about serving. (1) src/foss_mcp/mcp/health.py gains `readiness_report`: /readyz is 200 only when
+  the pointer parses (a UTF-8 BOM is tolerated), the pointer and the generation both name THIS deployment's family/platform/source_kind, the
+  lexical index belongs to the active generation, every document has chunk_id, text and tokens under a generation-prefixed id, doc_freq
+  exists, there are at least 3 symbol chunks and at least 1 documentation chunk. Missing examples, a sidecar gap and mixed source commits are
+  WARNINGS only, never a failure. (2) /readyz answers a JSON body with the reasons and the composition, keeps the X-Example-Search header and
+  the 200/503 codes, and logs the failure reasons at WARNING on state transitions only; a corrupt pointer is a clean 503, never a traceback.
+  (3) When no usable generation exists every generation-backed tool answers isError true with one fixed sanitised message and the new code
+  "unavailable" instead of found false or raw exception text. What does NOT change: the tool payload shapes for a usable generation, the
+  publish guard (generation_manifest.publish is another card), the sidecars (TC-507), metrics (TC-509), and the 40 baked generations.
+depends_on:
+- TC-474
+- TC-443
+- TC-421
+- TC-391
+- TC-389
+- TC-253
+- TC-140
+- TC-353
+write_paths:
+- src/foss_mcp/mcp/health.py
+- src/foss_mcp/mcp/server.py
+- src/foss_mcp/indexing/generation_manifest.py
+- infra/serve_http.py
+- tests/mcp/test_health.py
+- tests/mcp/test_server_wiring.py
+- tests/mcp/test_health_readiness_depth.py
+- tests/mcp/test_generation_unavailable_tool_error.py
+- tests/infra/readiness_support.py
+- tests/infra/test_serve_http.py
+- tests/infra/test_serve_example_search_mode.py
+- tests/infra/test_serve_manifests_dir_and_log_hygiene.py
+- tests/infra/test_serve_readyz_depth.py
+- tests/infra/test_readiness_all_baked_scopes.py
+satisfies:
+- REQ-G3-008
+- REQ-G3-001
+source_refs:
+- file: docs/DECISION_LOG.md
+  anchor: '## 2026-10-15 — Independent pre-production adversarial review of the shipped image; its findings enter the state machine as cards (operator, supervisor)'
+  sha256: d2d82669b8060d5e3a3b9da00e9858e576d5d264d96e32d1aed8034e8d6d9007
+inputs:
+- >-
+  Read, in full: src/foss_mcp/mcp/health.py; infra/serve_http.py (`_readyz_route`, `_active_example_search_mode`, `_log_example_search_mode`,
+  `build_app`); src/foss_mcp/mcp/server.py (`ToolErrorCode`, `_GENERIC_ERROR_FALLBACK`, `create_server` and its inner `_call_tool`);
+  src/foss_mcp/indexing/generation_manifest.py (`GenerationKey`, `GenerationManifestStore._read_json`, `read_active`, `read_generation`);
+  src/foss_mcp/mcp/tools/relevance.py (`chunk_kind` returns "symbol", "documentation" or "example"); src/foss_mcp/indexing/lexical_index_writer.py
+  (`doc_id` is `<generation_id>::doc::<chunk_id>`). Read the doctored-state fixtures you will mirror: scratchpad review/generation-readiness-recovery/
+  lib/scen.py (scenarios S02 to S08, S20a to S20d) and deep_ready_proto.py. Read tests/infra/test_demo_manifests.py (how the 40 pilots are
+  derived from infra/helm/foss-mcp/values.yaml ingestion.pilots). Never print or log any environment value.
+- >-
+  src/foss_mcp/indexing/generation_manifest.py: change ONE thing, `GenerationManifestStore._read_json` reads with `encoding="utf-8-sig"` instead
+  of `"utf-8"`, so a pointer or generation file saved with a byte-order mark parses. Nothing else in this file changes (the publish guard,
+  leases and CAS belong to other cards). The new BOM test in tests/mcp/test_health_readiness_depth.py pins it.
+- >-
+  src/foss_mcp/mcp/health.py. Module constants, each on its own line: `READINESS_SYMBOL_FLOOR = 3` and `READINESS_DOCUMENTATION_FLOOR = 1`.
+  A frozen dataclass `ReadinessReport` with fields `ready: bool`, `reasons: tuple[str, ...]`, `warnings: tuple[str, ...]`,
+  `composition: dict[str, int]` with exactly the keys "symbol", "doc", "example" (counts of chunk_kind symbol, documentation, example), and
+  `generation_id: str | None`, plus a method `to_dict()` returning {"ready", "reasons" (list), "composition", "generation_id", "warnings" (list)}.
+  New public function `readiness_report(store: DeploymentGenerationStore) -> ReadinessReport` that NEVER raises (wrap the whole body; an
+  unexpected exception becomes the single reason "readiness check failed (<ExceptionClassName>)"). Order of checks, collecting every reason that
+  applies once the generation is readable: (a) read the pointer through `store.manifest_store.read_active(store.scope_key)`: an exception gives
+  "active pointer is unreadable (<ExceptionClassName>)" and returns; None gives "no active generation" and returns; a non-string or empty value
+  gives "active pointer is malformed" and returns. (b) the pointer must start with `store.scope_key + "::"`, else "active pointer names a
+  generation of another scope". (c) read the generation; an exception gives "generation file is unreadable (<ExceptionClassName>)" and returns.
+  (d) the generation key's (family, platform, source_kind) must equal `tuple(store.scope_key.split("::"))`, else "generation identity does not
+  match this deployment". (e) `payload["lexical_index"]` must be a dict whose "documents" is a non-empty dict, else "generation has no lexical
+  documents" and returns. (f) lexical_index["generation_id"] must equal the active generation id, else "lexical index belongs to a different
+  generation". (g) lexical_index["doc_freq"] must be a dict, else "lexical index has no doc_freq". (h) every document must be a dict with a
+  non-empty chunk_id, a str text and a list tokens, else "<N> documents are malformed (chunk_id, text, tokens)" and the composition floors are
+  skipped. (i) every document id must start with `<generation_id>::doc::`, else "<N> document ids are not under this generation". (j) with
+  well-formed documents compute the composition; "symbols <N> below the floor 3" and "documentation <N> below the floor 1" are reasons.
+  Warnings (never reasons): "no verified examples" when the example count is 0; "generation mixes <N> source commits" when the distinct
+  `Source-Commit: <sha>` lines across document texts number more than one. `ready` is True exactly when there are no reasons. Write the
+  four identity assignments of steps (b), (d), (f) and (i) as single short lines of the exact form
+  `    pointer_in_scope = <expr>`, `    identity_matches = <expr>`, `    index_generation_matches = <expr>` and
+  `    document_ids_in_generation = <expr>` (each at most 110 characters, a boolean used by the following `if not ...:`), because the negative
+  control edits them by text. `round_trip_check(store)` keeps its signature and returns `readiness_report(store).ready` (a real bool). New
+  public function `generation_unavailable_reason(manifest_store, scope_key: str) -> str | None` that never raises and is CHEAP: it calls only
+  `manifest_store.read_active(scope_key)` and `manifest_store.read_generation(scope_key, gid)` and returns None when the pointer is a non-empty
+  string and the generation's `payload["lexical_index"]["documents"]` is a non-empty dict, else a short reason ("no active generation",
+  "active pointer is unreadable (<ExceptionClassName>)", "generation file is unreadable (<ExceptionClassName>)", "generation has no lexical
+  documents"). It must work with the duck-typed stores of tests/mcp/test_tool_surface_truthful.py, which implement only `read_active` and
+  `read_generation` returning an object with a `payload` dict, so it must not touch `.key` or private members. Add the constant
+  `GENERATION_UNAVAILABLE_MESSAGE` = "This deployment's documentation index is temporarily unavailable. Retry later; this is not a statement
+  that the API or documentation does not exist." No reason or message may ever contain a filesystem path or an exception message, only
+  exception class names. Update the module docstring (round_trip_check is no longer the only probe).
+- >-
+  infra/serve_http.py `_readyz_route`: the handler calls `readiness_report(generation_store)` and returns a `JSONResponse` with
+  `report.to_dict()` as the body, status 200 when `report.ready` else 503, and the unchanged `X-Example-Search` header (still computed by
+  `_active_example_search_mode`, still attached to BOTH statuses). Wrap the handler body so no exception can escape. Keep a per-route
+  closure `last` (the previous `(ready, reasons)` pair, initially None). On the first probe and whenever the pair changes: log ONE record
+  through `LOG` with `extra={"ready", "reasons", "generation_id", "family", "platform"}`: level WARNING and message "readiness failed" when
+  not ready, level INFO and message "readiness restored" when ready after a failure, level INFO "readiness ok" for a first ready probe. A
+  repeated identical probe logs nothing. Add a function `_log_startup_readiness(generation_store, deployment_config)` called once from
+  `build_app` next to `_log_example_search_mode`: it calls `round_trip_check(generation_store)` and, when False, logs one WARNING
+  "readiness failed at startup" with the reasons from `readiness_report` (this is also what keeps `round_trip_check` reachable from a
+  production entrypoint, tests/test_unwired_modules.py pins that). Update the module docstring and the `/readyz` docstrings. `/healthz` is
+  unchanged.
+- >-
+  src/foss_mcp/mcp/server.py. Add `UNAVAILABLE = "unavailable"` to `ToolErrorCode`. In `_call_tool`, AFTER input validation and INSIDE the
+  worker thread (so a validation error still reads no generation, which tests/mcp/test_dispatch_offload.py pins with its
+  `generation_reads` fixture), run the handler through a small module-level function that first calls
+  `generation_unavailable_reason(store, scope_key)` for these six tools only: lookup, search_docs, search_symbols, get_symbol, list_members,
+  find_examples (a module-level frozenset `_GENERATION_TOOLS`; `scope_key` is `search_symbols.scope_key(scope, SOURCE_KIND)` exactly as the
+  tools compute it). report_index_freshness (which honestly reports "never published"), get_product_reference and list_recent_changes are NOT
+  gated. When a reason comes back, raise a private exception class `_GenerationUnavailableError` (subclass of RuntimeError, carrying the
+  reason) and handle it in a new `except` branch placed BEFORE the generic `except Exception`: log ONE WARNING through `logger` with the tool
+  name, the reason and the correlation id (the reason is a class name or a fixed phrase, never an exception message), log the call with
+  outcome "error", record the usage event exactly as the other error branches do, and return `CallToolResult(is_error=True, content=[TextContent
+  with GENERATION_UNAVAILABLE_MESSAGE], structured_content={"code": "unavailable", "message": GENERATION_UNAVAILABLE_MESSAGE,
+  "correlation_id": correlation_id})`. Import from foss_mcp.mcp.health only what is used. Do not change any other tool behaviour, the
+  descriptions, or `SERVER_INSTRUCTIONS`.
+- >-
+  Existing tests that pin the old behaviour, to be changed ONLY where stated, never deleted, skipped or xfailed: (1) tests/mcp/test_health.py
+  `_publish_real_generation` publishes five doc-only chunks, which the new floors correctly reject; build its chunks with
+  `ready_chunks` from tests/infra/readiness_support.py instead (the four assertions stay). (2) tests/mcp/test_server_wiring.py: its helper `_store(tmp_path)` returns an EMPTY store and about twenty tests drive tools over it and assert
+  isError false (the nine-tool smoke tests, the tool-call log-record tests at lines 619 to 680, the get_symbol miss test, the internal-error test that
+  patches `foss_mcp.mcp.server.search_symbols`); with no usable generation the six generation tools now correctly answer isError true. Make `_store`
+  publish one ready generation (`ready_chunks` from tests/infra/readiness_support.py through `publish_generation`, as tests/mcp/test_tool_input_hardening.py
+  publishes one) so the honest-miss semantics those tests mean to pin still hold over a tiny real index; change NO assertion and update the comment
+  that says "intentionally empty store". The one assertion that does change: the closed-vocabulary test at line 442 gains "unavailable" in its expected
+  set. The empty-store behaviour is covered by the new tests/mcp/test_generation_unavailable_tool_error.py. (3) tests/infra/test_serve_http.py: `_chunks()` must satisfy the
+  floors, use `ready_chunks(PROVENANCE)`; the 503 tests keep their meaning. (4) tests/infra/test_serve_example_search_mode.py: its generations
+  hold one or two chunks; make `_publish` append the three floor-filler texts from tests/infra/readiness_support.py (two extra symbol chunks
+  and one documentation chunk, none an example) to the texts it is given, adjusting only the one assertion that compares the chunk texts
+  to the texts given; the six assertions `response.text == "ready"` / `"not ready"` / `(503, "not ready")` / `(200, "ready")` become
+  `response.json()["ready"] is True` / `False` (status checks stay); every mode, header and leak assertion stays. (5)
+  tests/infra/test_serve_manifests_dir_and_log_hygiene.py `_publish` uses `ready_chunks(PROVENANCE)`. Run those five files first on the
+  unchanged tree to see the baseline, then change only what the new behaviour forces.
+- >-
+  NEW tests/infra/readiness_support.py (no tests): `ready_chunks(provenance, *, with_example: bool = False) -> list[Chunk]` returning three
+  distinct symbol chunks (text beginning `FQN: Aspose.Pdf.Alpha` / `Beta` / `Gamma`, then `Kind: class_declaration`, a summary line,
+  `Source-Commit: <sha>`), one documentation chunk (`FQN: Doc: Getting started`, `Kind: documentation`) and, when asked, one verified example
+  chunk (`FQN: Example: sign a file`, `Kind: verified_example`, `Example:` then a code line); constants `FLOOR_FILLER_TEXTS` (the
+  two extra symbol texts and the documentation text as plain strings) and a `Chunk` built exactly as tests/infra/test_serve_http.py builds one
+  (`Chunk(title, text, "self_extracted", "api_surface", provenance, "highest", (), NOT_CHECKED)`).
+- >-
+  NEW tests/mcp/test_health_readiness_depth.py (offline, deterministic, no skips). A fixture copies infra/demo-manifests/pdf__go__self_extracted
+  into tmp_path (the pointer and the one generation file) and builds a store over it; helper functions edit the copied JSON in the way
+  scen.py does (load the generation, change it, write it back). Tests, with these exact names: test_a_baked_generation_is_ready;
+  test_composition_counts_match_chunk_kind_computed_in_the_test; test_to_dict_has_exactly_the_documented_keys;
+  test_round_trip_check_returns_the_real_bool_of_the_report; test_s20a_foreign_pointer_and_generation_in_this_scope_directory;
+  test_s20b_foreign_generation_file_under_this_pointer; test_s20c_foreign_content_relabelled_with_this_generation_id;
+  test_s20d_foreign_generation_and_pointer; test_documents_without_tokens_are_not_ready; test_documents_without_text_are_not_ready;
+  test_documents_without_chunk_id_are_not_ready; test_a_generation_without_doc_freq_is_not_ready;
+  test_symbol_count_below_the_floor_is_not_ready (parametrised over 0, 1, 2 symbols by keeping that many symbol chunks, plus the exact floor 3
+  is ready); test_zero_documentation_is_not_ready; test_no_examples_is_ready_with_a_warning; test_mixed_source_commits_is_ready_with_a_warning
+  (rewrite one symbol chunk's `Source-Commit:` line); test_a_bom_prefixed_pointer_is_ready; test_the_store_reads_a_bom_prefixed_pointer;
+  test_pointer_variants_never_raise_and_are_not_ready (parametrised: not JSON, empty file, JSON null, a JSON list, an integer generation_id,
+  a path-traversal generation_id); test_generation_file_problems_are_not_ready (parametrised: garbage bytes, truncated to 40 percent, file
+  removed); test_reasons_carry_no_path_and_no_exception_message (feed a pointer holding the tmp path text and assert no reason contains
+  the tmp path or a quote of the file content); test_generation_unavailable_reason_is_none_for_a_usable_generation;
+  test_generation_unavailable_reason_names_each_unusable_state (parametrised: empty store, corrupt pointer, corrupt generation, zero
+  documents); test_generation_unavailable_reason_works_with_a_duck_typed_store. At least 35 tests after parametrisation.
+- >-
+  NEW tests/mcp/test_generation_unavailable_tool_error.py (offline). Dispatch through `server.get_request_handler("tools/call")` exactly
+  as tests/mcp/test_dispatch_offload.py `_call` does, with `create_server(DeploymentConfig(family="pdf", platform="go"), store)`. Tests:
+  test_each_generation_tool_is_an_error_over_an_empty_store (parametrised over the six tools; asserts is_error true, structured code
+  "unavailable", message equal to GENERATION_UNAVAILABLE_MESSAGE, a correlation_id, and that the text does not contain "found",
+  "does not exist" or a path); test_a_corrupt_generation_gives_the_same_fixed_message (garbage bytes, two tools);
+  test_a_missing_generation_file_gives_the_same_fixed_message; test_no_exception_text_reaches_the_client (a pointer to a path-traversal id);
+  test_report_index_freshness_still_answers_without_a_generation; test_get_product_reference_and_list_recent_changes_do_not_need_a_generation;
+  test_a_usable_generation_is_unaffected (baked pdf/go copy: search_symbols for a symbol that exists returns is_error false and a hit);
+  test_validation_errors_stay_invalid_argument_and_read_no_generation (reuse the `generation_reads` counting idea of test_dispatch_offload.py);
+  test_a_warning_with_reason_and_correlation_id_is_logged (caplog: one WARNING on logger foss_mcp.mcp.server, reason is a fixed phrase or
+  class name, correlation id equals the one returned); test_unavailable_is_in_the_closed_code_vocabulary;
+  test_stdio_build_gives_the_same_error_for_an_empty_store (call `serve_stdio.build_stdio_server` with an empty store and a manifests dir
+  with no sidecars; infra/ on sys.path as tests/infra/test_serve_stdio_parity.py does). At least 14 tests.
+- >-
+  NEW tests/infra/test_serve_readyz_depth.py (offline, TestClient over `serve_http.build_app`, caplog). Tests:
+  test_ready_generation_gives_200_and_a_json_body_with_the_five_keys (keys ready, reasons, composition, generation_id, warnings; composition
+  has symbol, doc, example); test_the_example_search_header_is_kept_on_200_and_503; test_s20a_s20b_s20c_s20d_return_503_and_log_a_warning
+  (ONE parametrised test over the four scenarios with the scenario builders copied from the reviewer's scen.py; asserts 503, a reason that
+  names the mismatch, exactly one WARNING record "readiness failed" with `reasons` and `generation_id` extras); test_partial_documents_return_503
+  (tokens removed, text removed, doc_freq removed); test_zero_and_one_symbol_return_503; test_a_corrupt_pointer_returns_503_not_500_and_logs_no_traceback
+  (no record has exc_info, no record at ERROR level, status 503); test_a_bom_pointer_returns_200; test_repeated_failing_probes_log_one_warning
+  (three probes, one record); test_a_changed_reason_logs_a_new_warning; test_recovery_logs_one_info_record (repair the store between
+  probes: one "readiness restored" INFO); test_startup_logs_a_warning_when_not_ready_and_nothing_when_ready;
+  test_log_records_contain_no_filesystem_path; test_serve_http_source_calls_readiness_report_and_round_trip_check (a grep over
+  infra/serve_http.py for both call sites, the wiring proof AGENTS.md requires). At least 12 tests after parametrisation.
+- >-
+  NEW tests/infra/test_readiness_all_baked_scopes.py (offline, data-driven, no network): read `ingestion.pilots` from
+  infra/helm/foss-mcp/values.yaml (do not hard-code a count or names), assert the number of pilots is at least 40 and that every pilot has a scope
+  directory under infra/demo-manifests, then ONE test per pilot (parametrised, id `family-platform`) builds a `GenerationManifestStore` over
+  infra/demo-manifests and asserts `readiness_report(DeploymentGenerationStore.for_scope(...))` is ready with no reasons, symbol count at least
+  3 and documentation count at least 1; a final test asserts that warnings, if any, are only strings from the two documented warning forms.
+  Reads the committed files only; no copy, no network.
+- >-
+  Run `{python} -m pytest tests/mcp/test_health_readiness_depth.py tests/mcp/test_generation_unavailable_tool_error.py
+  tests/infra/test_serve_readyz_depth.py tests/infra/test_readiness_all_baked_scopes.py tests/mcp/test_health.py -q -rfE` until green, then the second
+  check below (it includes tests/test_unwired_modules.py: every new top-level public function or class in src/foss_mcp needs a caller in a
+  production entrypoint, which is why `generation_unavailable_reason` is called from server.py and `readiness_report` and `round_trip_check` from
+  serve_http.py). Write commit messages as UTF-8 without a byte-order mark, subject
+  `fix(mcp): readiness proves scope, shape and composition; no usable generation is an error (G3/TC-506)`. Preserve each file's line endings
+  (LF) and encoding. Do not touch docker-compose.yml, the Helm chart, plans/, ops/ or any sidecar code.
+actions:
+- >-
+  Replace the one-document readiness test with a deep, never-raising readiness report (scope identity, generation shape, composition floors,
+  BOM tolerance) behind /readyz, with a JSON body and transition-only WARNING logs.
+- >-
+  Make every generation-backed tool answer isError true with one fixed message and the code unavailable when no usable generation exists.
+- >-
+  Pin it with the reviewer's wrong-scope and partial-generation scenarios, a BOM pointer test and a data-driven proof that all baked pilot scopes
+  pass.
+checks:
+- command: '{python} -m pytest tests/mcp/test_health_readiness_depth.py tests/mcp/test_generation_unavailable_tool_error.py tests/infra/test_serve_readyz_depth.py tests/infra/test_readiness_all_baked_scopes.py tests/mcp/test_health.py -q -rfE'
+  expect: exit 0
+  timeout_seconds: 1200
+  junitxml: true
+  proves:
+  - REQ-G3-008
+- command: '{python} -m pytest tests/mcp tests/infra/test_serve_http.py tests/infra/test_serve_example_search_mode.py tests/infra/test_serve_manifests_dir_and_log_hygiene.py tests/infra/test_serve_stdio_parity.py tests/infra/test_serve_logging.py tests/infra/test_serve_startup_errors.py tests/infra/test_demo_manifests.py tests/test_unwired_modules.py -q -rfE -p no:cacheprovider'
+  expect: exit 0
+  timeout_seconds: 2400
+  junitxml: true
+  proves:
+  - REQ-G3-008
+  - REQ-G3-001
+min_tests: 60
+network: true
+requires:
+- python
+negative_control:
+  mutate: |
+    python -X utf8 -c "import pathlib;p=pathlib.Path('src/foss_mcp/mcp/health.py');s=p.read_text(encoding='utf-8');lines=s.split(chr(10));heads=('    pointer_in_scope =','    identity_matches =','    index_generation_matches =','    document_ids_in_generation =');new=[(l.split('=')[0]+'= True') if l.startswith(heads) else l for l in lines];assert new!=lines;p.write_text(chr(10).join(new),encoding='utf-8')"
+  rationale: >-
+    Forces the four scope-identity booleans of readiness_report (pointer prefix, generation identity, lexical-index generation id, document id
+    prefix) to True, so a generation of another product behind the pointer is reported ready again. The reviewer's wrong-scope scenarios S20a to
+    S20d, the unit tests and the HTTP tests then fail. A real break of the card's central claim.
+evidence:
+- evidence/build/G3/TC-506/receipt.json
+closeout:
+- >-
+  /readyz is 200 only for a generation that belongs to this deployment and carries symbols, documentation and well-formed documents; it states why
+  it is not ready, in a JSON body and once per state change in the log, and a corrupt or BOM-prefixed pointer is handled. Every generation tool
+  says "unavailable" instead of "not found" when there is nothing usable to search. Supervisor, after acceptance: run the live smoke on the
+  rebuilt image (AGENTS.md, Integration and liveness) and a real doctored-pointer probe against a container.
+recovery: Re-run from a clean tree.

@@ -1,0 +1,241 @@
+id: TC-507
+gate: G3
+lane: storage-retrieval
+purpose: >-
+  REQ-G3-008 (independent pre-production review, findings D-02, D-03, D-04, GRR-03, GRR-13 and the wording part of AGT-02). The serving
+  entrypoint treats every optional sidecar as all-or-nothing. Measured by the reviewer on the shipped image (examples-productref-releases
+  doctored cases, generation-readiness-recovery S10a to S13): 11 doctored product-reference or releases sidecars (empty file, truncated JSON,
+  `{}`, a JSON list where an object is expected, an unknown document status, a wrong `platform`, a null release body) make the container exit 1
+  at start, so the pod goes CrashLoopBackOff although the generation is perfect (`infra/serve_http.py` `_serving_product_reference_inputs` and
+  `_serving_recent_releases` raise by design); the writers use plain write_text so a crash mid-write produces exactly such a file. A sidecar
+  that belongs to another product is served as this product's: only `platform` is compared, so the cells/go sidecar under the pdf/go name (same
+  platform) is answered as pdf/go (S10g, S10h), and the releases sidecar carries no identity at all (S11g). Worse, a missing or placeholder
+  sidecar is served as AUTHORITATIVE ABSENCE: with the sidecar gone, pdf/go answers "agent_guidance is not present in this repository" and
+  "no packaging manifest was provided", an empty releases list is indistinguishable from a truthful empty list, the `.failed` markers the
+  writers leave are never read, and the get_product_reference tool description tells agents "Treat NotAvailable as authoritative absence, never
+  a transient failure". Formats and limitations have no structured source for any pilot, but the same description sends agents away from them
+  while lookup answers the README "Scope and Limitations" section. This card changes the SERVING side only: (1) every sidecar problem
+  (unreadable, corrupt, truncated, over 8 MiB, wrong shape, wrong type, identity mismatch, a failure placeholder, a failure marker with no data)
+  is caught, logged at WARNING with the sidecar kind and a fixed phrase or exception class name (never file content or an exception message),
+  and degrades that ONE sidecar to the state fetch_failed; the server starts and everything else is served; (2) get_product_reference answers
+  every sidecar-derived section of a fetch_failed product with a distinct NotAvailable reason ("could not be fetched; retry later; this is not
+  a statement that the repository lacks it") and never "is not present in this repository"; (3) list_recent_changes keeps its bare list for a
+  good or truthfully empty sidecar and answers an unavailable error (not an empty list) when the releases fetch failed; (4) a sidecar must
+  match this deployment's family (when the file records one, and by the repository slug otherwise) and platform and, across the two sidecars,
+  the source repository, else it is fetch_failed; (5) the tool descriptions say what is true. What does NOT change: the loader functions in
+  infra/fetch_*.py and infra/verify_package_registry.py (they still raise, their own tests stay green, and the writer-side fixes, atomic
+  writes, failure placeholders and the init gate are other cards), every answer for a good sidecar, the answer for an absent sidecar
+  (unchanged and pinned by three existing tests), and the NotAvailable reason of formats and limitations (pinned by existing tests).
+depends_on:
+- TC-506
+- TC-474
+- TC-443
+- TC-421
+- TC-391
+- TC-389
+- TC-471
+- TC-427
+- TC-388
+- TC-470
+- TC-390
+- TC-245
+write_paths:
+- infra/serve_http.py
+- infra/serve_stdio.py
+- src/foss_mcp/mcp/server.py
+- src/foss_mcp/mcp/sidecar_state.py
+- src/foss_mcp/mcp/tools/get_product_reference.py
+- src/foss_mcp/mcp/tools/list_recent_changes.py
+- tests/infra/test_serve_sidecar_tolerance.py
+- tests/infra/test_serve_sidecar_baked_identity.py
+- tests/mcp/tools/test_product_reference_fetch_failed.py
+- tests/mcp/test_sidecar_fetch_failed_server.py
+satisfies:
+- REQ-G3-008
+- REQ-G3-001
+source_refs:
+- file: docs/DECISION_LOG.md
+  anchor: '## 2026-10-15 — Independent pre-production adversarial review of the shipped image; its findings enter the state machine as cards (operator, supervisor)'
+  sha256: d2d82669b8060d5e3a3b9da00e9858e576d5d264d96e32d1aed8034e8d6d9007
+inputs:
+- >-
+  Read, in full: infra/serve_http.py (`_serving_product_reference_inputs`, `_serving_recent_releases`, `build_app`, the TC-506 readiness code now
+  in it); infra/serve_stdio.py; infra/fetch_product_reference.py (`load_manifest_sidecar`, `_deserialize_document`, `sidecar_name`);
+  infra/fetch_recent_releases.py (`load_recent_releases_sidecar`, `_fetch_failed_marker`, `_write_failure_marker`: the marker file is
+  `<sidecar name>.failed` holding `<ExceptionClass> <UTC stamp>`); infra/verify_package_registry.py (`load_package_registry_sidecar`);
+  src/foss_mcp/mcp/tools/get_product_reference.py (`ProductReferenceInputs`, `_document_section`, `get_product_reference`);
+  src/foss_mcp/mcp/tools/list_recent_changes.py; src/foss_mcp/mcp/server.py (`TOOL_DESCRIPTIONS`, `create_server`, `_call_tool` and the
+  TC-506 unavailable branch and `ToolErrorCode.UNAVAILABLE`). Read the reviewer's doctored cases to mirror them in tmp directories: scratchpad
+  review/examples-productref-releases/doctored.py, doctored2.py, doctored3.py and the doctored/ folder (pr_empty_file, pr_truncated,
+  pr_empty_object, pr_not_object, pr_unknown_doc_status, pr_wrong_platform, pr_other_pilot, rr_dict, rr_empty_file, rr_missing_keys, rr_null_body,
+  pk_malformed, pk_empty_object, pk_verified_string) and generation-readiness-recovery/lib/scen.py (S10a to S13, S10g, S10h, S11e to S11g).
+  Existing pins to keep green: tests/infra/test_serve_http.py (absent sidecar -> `_serving_product_reference_inputs` returns None; registry
+  merge), tests/infra/test_helm_manifest_step.py line 426 (None for an identity with no sidecar), tests/infra/test_serve_manifest_sidecar.py
+  (absent sidecar -> "no packaging manifest was provided"; absent releases -> `()`), tests/infra/test_serve_stdio_parity.py (the same wording
+  over stdio), tests/mcp/tools/test_product_reference_truthful.py (the "is not present in this repository" and "has no data source" reasons for a
+  present sidecar), tests/infra/test_fetch_recent_releases.py and tests/infra/test_verify_package_registry.py (the loaders raise). None of these
+  is edited by this card; no existing test pins a serving-side crash. Never print or log any environment value.
+- >-
+  NEW src/foss_mcp/mcp/sidecar_state.py (small, no logic): constants `SIDECAR_PRESENT = "present"`, `SIDECAR_NOT_PRESENT = "not_present"`,
+  `SIDECAR_FETCH_FAILED = "fetch_failed"` (each on its own line; the negative control edits the third), `FETCH_FAILED_REASON` = "the product
+  reference could not be fetched during ingestion; retry later; this is not a statement that the repository lacks it",
+  `RELEASES_FETCH_FAILED_MESSAGE` = "Release information could not be fetched during ingestion. Retry later; this is not a statement that the
+  product has no releases." and `class SidecarFetchFailedError(RuntimeError)` (not a ValueError, so it is never classified invalid_argument).
+  Every public name here must be used by production code (tests/test_unwired_modules.py).
+- >-
+  src/foss_mcp/mcp/tools/get_product_reference.py: add to `ProductReferenceInputs`, last and defaulted, `sidecar_state: str = SIDECAR_PRESENT` and
+  `sidecar_fetched_at: str | None = None`. In `get_product_reference`, right after the unknown-section check: when
+  `inputs.sidecar_state == SIDECAR_FETCH_FAILED` and the section is neither "formats" nor "limitations" (those two never depend on a sidecar),
+  return `NotAvailable(section, FETCH_FAILED_REASON)` with ` (last attempt <fetched_at>)` appended when `sidecar_fetched_at` is known. Nothing
+  else in this module changes: a present sidecar and the absent-sidecar default produce byte-identical answers to today. Update the module
+  docstring sentence that says formats and limitations "have no data source" only if it becomes untrue (it does not).
+- >-
+  src/foss_mcp/mcp/tools/list_recent_changes.py: `list_recent_changes(releases, *, limit=10, state=SIDECAR_PRESENT)` raises
+  `SidecarFetchFailedError(RELEASES_FETCH_FAILED_MESSAGE)` when `state == SIDECAR_FETCH_FAILED`, else returns exactly what it returns today (a
+  list, so a good list and a truthfully empty list keep the existing shape). DECISION recorded here: the bare list is kept because three
+  existing tests pin it (tests/infra/test_serve_stdio_parity.py `len(structured["result"])`, tests/mcp/test_server_wiring.py text equals
+  structuredContent["result"], tests/mcp/test_dispatch_offload.py exact structuredContent equality) and an agent reads the text channel, where a
+  sibling field would be invisible; therefore the only state an agent must be told about is the failed one, and it is told by an error, never by
+  an empty list. "none_exist" is simply `[]` from a sidecar that loaded.
+- >-
+  infra/serve_http.py. (a) Constants: `_SIDECAR_MAX_BYTES = 8 * 1024 * 1024` (the largest baked sidecar is about 80 KB). (b) Helpers, all
+  private, none raising: `_failure_marker(path)` -> (exists: bool, stamp: str | None) for `path.with_name(path.name + ".failed")`, the stamp being
+  the last whitespace-separated token when it looks like an ISO timestamp; `_read_sidecar_json(path)` -> (state, data) where an absent file gives
+  `SIDECAR_NOT_PRESENT` and a file over `_SIDECAR_MAX_BYTES`, non-UTF-8 bytes, invalid JSON or an OS error gives `SIDECAR_FETCH_FAILED` with a fixed
+  problem phrase or the exception class name; `_family_in_repository(family, repository)` -> True when the lowercased family appears in the
+  repository slug with every character outside a-z and 0-9 removed (all 40 baked pilots satisfy this: the family word is part of the upstream
+  repository name; tests/infra/test_serve_sidecar_baked_identity.py proves it). (c) `_serving_product_reference_inputs(manifests_dir, config)` keeps
+  its signature and returns: None when the file is absent AND no failure marker exists (unchanged); otherwise a `ProductReferenceInputs` with
+  `sidecar_state` set per this table. fetch_failed (built as `ProductReferenceInputs(platform=<deployment platform>,
+  sidecar_state=SIDECAR_FETCH_FAILED, sidecar_fetched_at=<marker stamp or the file's own fetched_at or None>)`) for: file absent but marker present; any
+  `_read_sidecar_json` failure; JSON that is not an object; the loader `load_manifest_sidecar` raising anything; a top-level key
+  "state" equal to "fetch_failed" (this is the failure placeholder the writer-side card is told to emit); `sidecar.platform` different from the
+  deployment platform; a top-level "family" key different from the deployment family; a recorded `source_repository` whose slug does not contain
+  the deployment family. State present otherwise, carrying the optional top-level string "fetched_at" through. A failure marker next to a valid
+  sidecar does NOT degrade it (the writer keeps good data on a failed refresh): log one WARNING "refresh failed, serving the last good sidecar".
+  Every fetch_failed outcome logs exactly ONE WARNING through `LOG` (message "sidecar unusable, degraded to fetch_failed") with `extra={"sidecar":
+  "product_reference", "problem": <fixed phrase or exception class name>, "file": <file name only>, "family", "platform"}`. The raise on a platform
+  mismatch is removed. The registry-verification merge: a missing file is as before; a corrupt or wrong-shaped file, or `verified` that is not a bool,
+  or `coordinate`/`checked_at` that are not strings, is ignored with ONE WARNING (sidecar "package_registry") and the manifest answers stay as if
+  never verified; it never changes the product-reference state. (d) New `_resolve_recent_releases(manifests_dir, config, *, source_repository=None)`
+  -> (tuple[Release, ...], state): absent file with no marker -> ((), SIDECAR_NOT_PRESENT); read/size/JSON failure, not a list, any entry that
+  is not an object with a str tag_name, a str body and a richness in {"detailed", "templated", "none"}, the loader raising, an optional str url or
+  published_at of the wrong type, a release url whose repository slug (the two path segments after github.com) does not contain the deployment
+  family or, when `source_repository` is given, differs from it case-insensitively -> ((), SIDECAR_FETCH_FAILED) with the same WARNING; an empty list WITH
+  a failure marker -> ((), SIDECAR_FETCH_FAILED) (the placeholder the releases writer leaves); a non-empty list with a marker -> present plus the "refresh
+  failed" WARNING; otherwise (releases, SIDECAR_PRESENT). `_serving_recent_releases` keeps its signature and returns `_resolve_recent_releases(...)[0]`.
+  (e) `build_app` resolves the product reference once, passes its `source_repository` to `_resolve_recent_releases`, hands the state to
+  `create_server(..., recent_releases_state=...)`, and never raises for any sidecar content. Update the docstrings that say a malformed sidecar
+  raises.
+- >-
+  infra/serve_stdio.py `build_stdio_server`: call the same resolve helpers as `build_app` (product reference first, then `_resolve_recent_releases`
+  with its source repository) and pass `recent_releases_state` to `create_server`, so stdio and HTTP degrade identically. No other change.
+- >-
+  src/foss_mcp/mcp/server.py. `create_server(..., recent_releases_state: str = SIDECAR_PRESENT)`; `_wrap_list_recent_changes(releases, state)` forwards
+  it to `list_recent_changes`. In `_call_tool` handle `SidecarFetchFailedError` in its own `except` branch placed before the generic
+  `except Exception` and next to the TC-506 unavailable branch (reuse its helper if the code is the same): ONE WARNING log, outcome "error",
+  usage event as the other error branches, and `CallToolResult(is_error=True, content=[TextContent(RELEASES_FETCH_FAILED_MESSAGE)],
+  structured_content={"code": "unavailable", "message": RELEASES_FETCH_FAILED_MESSAGE, "correlation_id": ...})`. Descriptions in `TOOL_DESCRIPTIONS`:
+  in "get_product_reference" delete the sentence "Treat NotAvailable as authoritative absence, never a transient failure - do not retry expecting
+  different content." and the claim that formats and limitations are "currently NotAvailable for every product" as a dead end; say instead, in
+  plain sentences: formats and limitations have no structured source in this index for any product, so use lookup or search_docs (for example
+  query='limitations') to read them from the product documentation; contributing and agent_guidance are NotAvailable with a reason ending in
+  "is not present in this repository" only when the source repository genuinely lacks that file; a NotAvailable whose reason says the data could not
+  be fetched is transient, retry later and do not read it as evidence of absence. In "list_recent_changes" add: an empty list means the product has no
+  GitHub releases; when the release data could not be fetched the call returns an error saying so, retry later, never an empty list. Keep every
+  description distinct and longer than 80 characters. Do NOT put a single-quoted token that has an uppercase first letter or contains a dot inside
+  a description (tests/mcp/test_tool_surface_truthful.py checks such tokens against the pdf/net type names); lower-case quoted words such as
+  'limitations' are fine. Do not touch `SERVER_INSTRUCTIONS`, any other description, or the find_examples description (another card).
+- >-
+  NEW tests/infra/test_serve_sidecar_tolerance.py (offline, deterministic, tmp_path only, caplog; infra/ on sys.path as tests/infra/test_serve_http.py
+  does). A helper copies infra/demo-manifests/product_reference_pdf_go.json, recent_releases_pdf_go.json and package_registry_pdf_go.json into
+  tmp_path; the deployment is DeploymentConfig(family="pdf", platform="go"). Tests, exact names:
+  test_a_bad_product_reference_sidecar_degrades_to_fetch_failed_and_never_raises (parametrised ids: empty_file, truncated, empty_object, json_list,
+  unknown_document_status, non_utf8_bytes, oversized_over_8_mib, wrong_platform, wrong_family_key, other_product_same_platform (the jmap/go sidecar
+  under the pdf_go name), failure_placeholder_state_key; each asserts a ProductReferenceInputs with sidecar_state "fetch_failed", exactly one WARNING
+  record with extras sidecar "product_reference", family "pdf", platform "go" and a problem that is a fixed phrase or a class name, and that no
+  line of caplog.text contains the sidecar's content or the tmp path);
+  test_an_absent_product_reference_sidecar_is_still_none; test_a_failure_marker_without_a_sidecar_is_fetch_failed;
+  test_a_failure_marker_beside_a_good_sidecar_keeps_serving_it_and_warns; test_a_good_sidecar_is_present_and_passes_fetched_at_through;
+  test_the_registry_sidecar_problems_are_ignored_with_a_warning (parametrised: corrupt, empty_object, verified_as_string, truncated; the product
+  reference stays "present" and install_verified stays None); test_a_bad_releases_sidecar_degrades_to_fetch_failed (parametrised: empty_file,
+  json_object, list_of_integers, missing_keys, null_body, oversized, releases_of_another_product (jmap/go releases under the pdf_go name),
+  repository_differs_from_the_product_reference); test_an_empty_list_with_a_failure_marker_is_fetch_failed;
+  test_an_empty_list_without_a_marker_is_present_and_empty; test_a_nonempty_list_with_a_marker_is_present_and_warns;
+  test_an_absent_releases_sidecar_is_not_present_and_empty; test_serving_recent_releases_returns_the_releases_of_resolve;
+  test_build_app_starts_for_every_doctored_combination (parametrised over four combinations of a corrupt product-reference sidecar, a corrupt
+  releases sidecar, both, and a wrong-family pair, over a copy of the baked pdf/go scope: TestClient, /readyz is 200, search_symbols succeeds,
+  get_product_reference install is a NotAvailable whose reason contains "could not be fetched", list_recent_changes is an unavailable error when
+  the releases sidecar is bad); test_build_stdio_server_survives_a_corrupt_sidecar. At least 38 tests after parametrisation.
+- >-
+  NEW tests/infra/test_serve_sidecar_baked_identity.py (offline, data-driven, no copy): pilots from `ingestion.pilots` of infra/helm/foss-mcp/values.yaml
+  (never a hard-coded list; assert at least 40), then per pilot (parametrised, id `family-platform`): `_serving_product_reference_inputs` over
+  infra/demo-manifests is not None, state "present", platform equal; `_resolve_recent_releases` with that source_repository is state "present"
+  (an empty list is fine); the registry sidecar, where the file exists, merges with no WARNING. One more test asserts
+  `_family_in_repository(family, source_repository)` holds for all pilots and fails for a deliberately wrong family. This test is what stops the
+  identity rules from degrading a real pilot.
+- >-
+  NEW tests/mcp/tools/test_product_reference_fetch_failed.py (offline): test_every_sidecar_section_says_could_not_be_fetched (parametrised over
+  install, compatibility, license, support, contributing, agent_guidance); test_formats_and_limitations_keep_their_no_data_source_reason;
+  test_fetch_failed_never_says_not_present_in_this_repository_or_no_packaging_manifest (all eight sections);
+  test_the_reason_says_retry_later_and_not_a_statement_about_the_repository; test_fetched_at_is_appended_when_known;
+  test_default_inputs_and_a_present_sidecar_are_unchanged (state "present", the same answers as before for a baked-style input);
+  test_list_recent_changes_raises_sidecar_fetch_failed_error_on_the_failed_state; test_list_recent_changes_default_state_is_unchanged;
+  test_an_empty_present_list_is_an_empty_list; test_sidecar_fetch_failed_error_is_not_a_value_error. At least 16 tests after parametrisation.
+- >-
+  NEW tests/mcp/test_sidecar_fetch_failed_server.py (offline; dispatch as tests/mcp/test_dispatch_offload.py `_call`):
+  test_list_recent_changes_is_an_unavailable_error_when_the_releases_fetch_failed (is_error true, code "unavailable", the fixed message, a
+  correlation id); test_list_recent_changes_empty_is_a_normal_empty_result; test_get_product_reference_of_a_failed_fetch_is_a_normal_not_available_result
+  (is_error false); test_the_get_product_reference_description_is_true (no "authoritative absence", no "do not retry", mentions lookup, search_docs and
+  that a could-not-be-fetched reason is transient); test_the_list_recent_changes_description_explains_empty_and_failure;
+  test_create_server_default_releases_state_is_present; test_the_quoted_identifier_rule_still_holds_for_the_new_descriptions (apply the same regular
+  expression as tests/mcp/test_tool_surface_truthful.py to the two descriptions and assert no offending token). At least 8 tests.
+- >-
+  Run `{python} -m pytest tests/infra/test_serve_sidecar_tolerance.py tests/infra/test_serve_sidecar_baked_identity.py
+  tests/mcp/tools/test_product_reference_fetch_failed.py tests/mcp/test_sidecar_fetch_failed_server.py -q -rfE` until green, then the second check
+  below. Write commit messages as UTF-8 without a byte-order mark, subject `fix(serving): a bad sidecar degrades to fetch_failed, never a crash or a false
+  absence (G3/TC-507)`. Preserve each file's line endings (LF) and encoding. Do not edit infra/fetch_*.py, infra/verify_*.py, the Helm chart,
+  docker-compose.yml or any existing test.
+actions:
+- >-
+  Make every sidecar problem a logged, per-sidecar fetch_failed degradation instead of a start-up crash, with identity checks on family, platform and
+  source repository.
+- >-
+  Render fetch_failed distinctly in get_product_reference and as an unavailable error in list_recent_changes; never present a placeholder as
+  authoritative absence.
+- >-
+  Correct the get_product_reference and list_recent_changes descriptions and prove the 40 baked sidecars still load as present.
+checks:
+- command: '{python} -m pytest tests/infra/test_serve_sidecar_tolerance.py tests/infra/test_serve_sidecar_baked_identity.py tests/mcp/tools/test_product_reference_fetch_failed.py tests/mcp/test_sidecar_fetch_failed_server.py -q -rfE'
+  expect: exit 0
+  timeout_seconds: 1200
+  junitxml: true
+  proves:
+  - REQ-G3-008
+- command: '{python} -m pytest tests/infra/test_serve_http.py tests/infra/test_serve_manifest_sidecar.py tests/infra/test_serve_stdio_parity.py tests/infra/test_helm_manifest_step.py tests/infra/test_fetch_recent_releases.py tests/infra/test_fetch_recent_releases_failure.py tests/infra/test_fetch_product_reference.py tests/infra/test_verify_package_registry.py tests/mcp tests/deploy/test_demo_manifests_sidecars.py tests/test_unwired_modules.py -q -rfE -p no:cacheprovider'
+  expect: exit 0
+  timeout_seconds: 2400
+  junitxml: true
+  proves:
+  - REQ-G3-008
+  - REQ-G3-001
+min_tests: 70
+network: true
+requires:
+- python
+negative_control:
+  mutate: |
+    python -X utf8 -c "import pathlib;p=pathlib.Path('src/foss_mcp/mcp/sidecar_state.py');s=p.read_text(encoding='utf-8');old='SIDECAR_FETCH_FAILED = ' + chr(34) + 'fetch_failed' + chr(34);assert old in s;p.write_text(s.replace(old,'SIDECAR_FETCH_FAILED = ' + chr(34) + 'present' + chr(34),1),encoding='utf-8')"
+  rationale: >-
+    Makes the fetch_failed state equal to present, so a degraded sidecar is no longer distinguishable from a good one: the doctored-sidecar tests that
+    assert state "fetch_failed", the distinct could-not-be-fetched reason and the unavailable releases error all fail. A real break of the card's
+    central claim (a bad sidecar is a visible, distinct state).
+evidence:
+- evidence/build/G3/TC-507/receipt.json
+closeout:
+- >-
+  A corrupt, truncated or foreign sidecar can no longer crash the server or be served as this product's, and a failed fetch is never reported as an
+  absence. Supervisor, after acceptance: run the doctored-sidecar cases against a rebuilt container (pr_truncated, pr_wrong_platform, rr_dict,
+  pr_other_pilot) and confirm the pod starts and the three tools answer as the tests say. The writer-side cards must emit the placeholder shape this
+  card reads (top-level "state": "fetch_failed", optional "fetched_at" and "family") and write sidecars atomically.
+recovery: Re-run from a clean tree.

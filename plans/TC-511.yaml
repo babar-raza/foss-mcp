@@ -1,0 +1,237 @@
+id: TC-511
+gate: G3
+lane: extraction
+purpose: >-
+  REQ-G3-008 (independent pre-production review, findings D-01 / GRR-02 writer side, D-02/GRR-03 writer side, D-05, D-11 items 2, 5, 6 and 8).
+  SIDECAR WRITERS AND THE GITHUB CLIENT. Measured by the reviewer against the real code with a scripted GitHub fake (failsim.py) and a real 401:
+  (1) infra/fetch_product_reference.py `main` has no try/except and writes NOTHING when any fetch fails (401: the process dies with an uncaught
+  HTTPError and the output file is missing); the Helm Job step is `|| true` and the serving pod's init gate waits for that file forever, so a single
+  failed fetch leaves the pod in Init:0/1 while the Job reports Complete (the gate exited 124 in the reviewer's repro). The releases fetcher already
+  writes an empty `[]` placeholder plus a `.failed` marker, but a bare `[]` is indistinguishable from a truthful empty list (15 pilots really have 0
+  releases) and nothing ever reads the marker. (2) Every sidecar is written with a plain `Path.write_text` (infra/fetch_product_reference.py L282,
+  infra/fetch_recent_releases.py L198 and L209, infra/verify_package_registry.py L421, infra/verify_product_reference_install.py L104), so a kill
+  mid-write leaves a truncated file that crashes serving at start (11 doctored-sidecar cases exit 1). (3) No sidecar records when or for which
+  family it was fetched (`fetched_at`, `family`, `platform` are absent; the releases sidecar is a bare list), so staleness and wrong-family files are
+  undetectable (pdf/go serves release v0.11.0 20 commits ahead of the indexed commit with no marker). (4) src/foss_mcp/extraction/github_http.py
+  retries only HTTP 429 and 403-with-remaining-0 within 120 s: a 401 is not distinguished from any other error, a secondary-limit 403 (`Retry-After`
+  with a non-zero remaining) is treated as a permission error and never waited out, 5xx answers and timeouts are never retried, there is no
+  jitter, and the client never stops before it hits the limit (a cold 40-pilot install needs about 290 REST calls against 60 per hour
+  unauthenticated). (5) fetch_recent_releases.py has the ETag plumbing (`fetch_releases(..., etag=...)`) but `main` never uses it. (6) A release
+  record carries no commit information, so `list_recent_changes` cannot say whether a release is in the index (AGT-04/D-05): GitHub's list-releases
+  answer carries `target_commitish` (a branch name or a 40-hex sha) and `created_at` with no extra call, and neither is kept. This card changes the
+  WRITERS and the CLIENT only: (a) one atomic writer (temp file in the same directory, flush+fsync, `os.replace`) used by all four writers; (b) a
+  typed `fetch_failed` placeholder for the product-reference sidecar, written only when no good file exists, plus a `<output>.failed` marker and a
+  loud `ERROR` log line, never overwriting good data; (c) additive provenance (`fetched_at` UTC, `family`, `platform`, `source_repository`,
+  `source_ref` where known) on every sidecar; the releases sidecar stays a bare JSON list (40 baked files, the loader and about 20 tests depend on
+  it) and its provenance goes in a sibling `<output>.meta.json`; (d) the client classification above with injectable sleep/jitter/clock and a
+  proactive stop below a remaining-request floor of 5; (e) ETag/If-None-Match on the releases refresh; (f) `target_commitish` and `created_at`
+  recorded per release. What does NOT change: serving (infra/serve_http.py, the MCP tools: the tri-state answer, tolerance of corrupt sidecars and
+  the wrong-family check are other cards), the Helm chart and docker-compose.yml (the Job tail keeps `|| true`; the init gate bound is TC-512), the
+  baked demo-manifests, commit-pinned raw.githubusercontent.com reads (D-11 item 4), the Job parallelism, tags-only repositories, relevance. No
+  schema changes: `schemas/` holds only governance schemas and three product-manifest schemas, none describes a sidecar. Dependency note: today the
+  loader `load_manifest_sidecar` indexes `data["manifest_text"]` and would crash serving on a placeholder, so this card makes the loader return None for
+  a `fetch_failed` placeholder (today's "no sidecar" answer, which TC-507 then refines into a distinct state).
+depends_on:
+- TC-220
+- TC-388
+- TC-427
+- TC-332
+- TC-251
+- TC-353
+write_paths:
+- src/foss_mcp/extraction/github_http.py
+- src/foss_mcp/extraction/github_release_reader.py
+- infra/fetch_product_reference.py
+- infra/fetch_recent_releases.py
+- infra/verify_package_registry.py
+- infra/verify_product_reference_install.py
+- tests/extraction/test_github_http.py
+- tests/extraction/test_github_http_classification.py
+- tests/extraction/test_github_release_commit.py
+- tests/infra/test_sidecar_writers.py
+- tests/infra/test_fetch_product_reference.py
+- tests/infra/test_verify_package_registry.py
+satisfies:
+- REQ-G3-008
+source_refs:
+- file: docs/DECISION_LOG.md
+  anchor: '## 2026-10-15 — Independent pre-production adversarial review of the shipped image; its findings enter the state machine as cards (operator, supervisor)'
+  sha256: d2d82669b8060d5e3a3b9da00e9858e576d5d264d96e32d1aed8034e8d6d9007
+inputs:
+- >-
+  Read, in full: src/foss_mcp/extraction/github_http.py, src/foss_mcp/extraction/github_release_reader.py (`Release`, `_get_json`, `fetch_releases`),
+  infra/fetch_product_reference.py (`main`, `build_sidecar`, `load_manifest_sidecar`, `_existing_sidecar_source`), infra/fetch_recent_releases.py
+  (`main`, `_sidecar_is_fresh`, `_sidecar_holds_a_list`, `_write_failure_marker`, `load_recent_releases_sidecar`), the `main` of
+  infra/verify_package_registry.py (L388-425) and infra/verify_product_reference_install.py, and the tests that pin them:
+  tests/extraction/test_github_http.py, tests/infra/test_fetch_product_reference.py, tests/infra/test_fetch_recent_releases.py,
+  tests/infra/test_fetch_recent_releases_failure.py, tests/infra/test_verify_package_registry.py, tests/infra/test_verify_product_reference_install.py.
+  Note the existing fakes of `fetch_releases` all have the shape `(repository, **kwargs)`, so adding keyword arguments to the call in
+  `fetch_recent_releases.main` is safe. Only github_http.urlopen_with_backoff is used by the GitHub readers (verify_package_registry's registry
+  checks call urllib directly, only `resolve_tag_commit` goes through the helper). Never print or log any environment value, URL query or token.
+- >-
+  github_http.py, CLASSIFICATION. Add `class GitHubAuthError(urllib.error.HTTPError)` and `class RateLimited(urllib.error.HTTPError)` (both are
+  HTTPError subclasses so every existing `except urllib.error.HTTPError` and `exc.code == 404` branch keeps working), built from the original error
+  (same url, code, msg, headers, fp) with the original attached as `__cause__`; `RateLimited` also carries `reset_at: float | None` (epoch
+  seconds), `wait_seconds: float | None` and `proactive: bool`. Messages and reprs never contain the Authorization value. In `urlopen_with_backoff`
+  (keep every existing parameter and its default; add `jitter=None`, `budget=None`, `min_remaining=DEFAULT_REMAINING_FLOOR` where
+  `DEFAULT_REMAINING_FLOOR = 5`; make `sleep` and `now` default to None and resolve them at call time through module-level functions `_sleep`
+  and `_now` so tests can monkeypatch them): (1) HTTP 401 raises `GitHubAuthError` at once, no retry, no sleep, classified by the single line
+  `if exc.code == 401:`. (2) A rate-limit answer per `rate_limit_wait_seconds` (extend it: a 403 with a `Retry-After` header and a remaining that
+  is absent or non-zero is a secondary limit and waits `Retry-After`; the existing cases and results are unchanged, 403 without hints is still None)
+  whose wait fits the remaining `max_total_wait` budget (cumulative, as today) sleeps wait + 1 s and retries; a wait that does not fit, or running
+  out of attempts, raises `RateLimited` with `reset_at` from `x-ratelimit-reset` when present and `wait_seconds`. So 403 with remaining 0 waits
+  only when the reset is at most about 120 s away. (3) HTTP 500/502/503/504 and transient transport failures (`TimeoutError`, `ConnectionError`,
+  `http.client.RemoteDisconnected`, and a `urllib.error.URLError` whose `reason` is one of those or `socket.gaierror`; NOT TLS/certificate errors)
+  are retried up to `max_attempts` with `delay = min(30.0, 1.0 * 2 ** (attempt - 1) + jitter())` (jitter() in [0,1), default `random.random`),
+  counted in the same cumulative budget; on exhaustion the LAST original error is re-raised unchanged (identity preserved). 404, 304, 422 and a
+  hint-less 403/429 are raised unchanged on the first attempt exactly as today. (4) PROACTIVE STOP: a small `RateBudget` class (`observe(headers,
+  now)`, `check(now, min_remaining)`) holds the last seen `x-ratelimit-remaining` and `x-ratelimit-reset`; after every successful response the
+  helper observes the headers; before every request it checks, and when the last remaining was below `min_remaining` and the reset is still in the
+  future it raises `RateLimited(proactive=True)` WITHOUT calling the opener; a past reset clears the state; `min_remaining=0` disables it. The
+  default budget is a module-level instance, reset-able through `reset_default_budget()`; tests inject their own. (5) Add `failure_reason(exc) ->
+  str` returning `auth_failed` for GitHubAuthError, `rate_limited` for RateLimited, `http_<code>` for any other HTTPError, `network` for URLError /
+  TimeoutError / ConnectionError / OSError, else `error`; it never includes a message.
+- >-
+  github_release_reader.py. `Release` gains two trailing fields with default None: `target_commitish: str | None` and `created_at: str | None`,
+  filled from the list-releases entry (`entry.get("target_commitish")`, `entry.get("created_at")`, empty string -> None) with NO extra API call, and a
+  read-only property `target_commit` returning `target_commitish` when it is exactly 40 lowercase hex characters, else None (a branch name such as
+  "main" is NOT a commit; a later card resolves tags to commits). `fetch_releases(repository, *, per_page=100, etag=None, meta=None)`: when `meta`
+  (a dict) is given set `meta["etag"]` to page 1's response ETag and `meta["not_modified"] = True` on a 304; return values and the existing
+  behaviour without `meta` are unchanged.
+- >-
+  ATOMIC WRITER. In infra/fetch_product_reference.py add `atomic_write_json(path: Path, doc: object) -> None`: serialise first (a serialisation
+  error must leave the old file untouched), write to a `tempfile.mkstemp(dir=path.parent, prefix=".tmp-", suffix=".json")` file, flush and
+  `os.fsync`, then `os.replace(tmp, path)`; remove the temp file in a `finally` when anything fails; create no other file; keep the compact
+  `json.dumps` separators used today. Replace every `write_text(json.dumps(...))` of a sidecar in infra/fetch_product_reference.py,
+  infra/fetch_recent_releases.py (both L198 and L209, plus the new meta file), infra/verify_package_registry.py and
+  infra/verify_product_reference_install.py with it (the three siblings `from fetch_product_reference import atomic_write_json`, the same
+  sibling-import style infra/verify_product_reference_install.py already uses; both Dockerfiles copy these files together). The `.failed`
+  marker text file may keep `write_text`.
+- >-
+  fetch_product_reference.py, FAILURE AND PROVENANCE. Add the one-line constant `FETCH_FAILED_STATUS = "fetch_failed"`. `main`: wrap
+  `build_sidecar` in `try/except Exception`. On failure: (1) write `<output>.failed` containing `<ExceptionClass> <UTC timestamp>` (class name only,
+  the same convention as the releases marker); (2) only when the existing output is NOT a good sidecar (absent, unparseable, not an object, or itself
+  a placeholder) write `atomic_write_json(output, {"status": FETCH_FAILED_STATUS, "reason": failure_reason(exc), "error_class": type(exc).__name__,
+  "fetched_at": <UTC ISO>, "family", "platform", "source_repository", "source_ref"})`, where unknown values are null; a good existing file (an
+  object without `status`) is left byte for byte untouched; (3) print one line to stderr that starts with `ERROR ` and names the class, the
+  reason, the repository and whether a placeholder was written or a good file kept, never a URL, token or exception message (the existing stdout
+  lines stay); (4) `raise SystemExit(1)` (the Job step's `|| true` still keeps the Job green; the failure is now visible in the log and by the marker).
+  On success: write the sidecar through `atomic_write_json` with the existing keys plus `fetched_at` (UTC, `...Z` seconds precision), `family` and
+  `platform` (identity: `--family` when given, else parsed from an `--output` file name of the exact form `product_reference_<family>_<platform>.json`,
+  else null; `platform` keeps its existing meaning) and delete the `.failed` marker. Add an optional `--family`. `_existing_sidecar_source` returns None
+  for a placeholder and, so the pin-unchanged skip can never preserve a failure, `main` also refuses to skip while a `.failed` marker exists.
+  `load_manifest_sidecar` returns None for a placeholder (`status == FETCH_FAILED_STATUS`) and ignores the additive keys; add
+  `read_sidecar_state(path) -> dict` returning `{"state": "absent" | "ok" | "fetch_failed" | "unreadable", "fetched_at": str | None, "reason":
+  str | None}` for the serving card to use; it never raises.
+- >-
+  fetch_recent_releases.py. The sidecar stays a JSON list. New sibling `<output>.meta.json` (helper `releases_meta_path(output)`), written
+  atomically after the list: `{"schema": 1, "state": "ok", "fetched_at", "family", "platform", "source_repository", "release_count", "etag"}`;
+  `family`/`platform` from optional `--family`/`--platform` else parsed from the `recent_releases_<family>_<platform>.json` file name else null. On a
+  failed fetch with NO usable list: write `[]` as today, the `.failed` marker as today, and a meta with `state: "fetch_failed"`, `reason:
+  failure_reason(exc)`, `error_class`, `fetched_at`; with a good list: change nothing but the marker (the list and its meta are kept), as today. In
+  both cases print an additional stderr line starting `ERROR ` (class, reason, repository, outcome; no URL or token) and keep exit status 0
+  (the existing tests call `main()` and expect no exception). ETag: when the existing list is good, the meta holds an `etag` and the file is merely
+  stale (older than 24 h) or `--force` is given, call `fetch_releases(repository, etag=<stored>, meta=<dict>)`; when `meta["not_modified"]` is
+  set keep the list bytes, refresh the file mtime (`os.utime`) and the meta `fetched_at`, delete the marker, and print `not modified`; otherwise
+  write as usual with the new ETag. A call without a stored ETag is a plain `fetch_releases(repository, meta=<dict>)` so the first fetch stores one.
+  `_serialize_release` writes `target_commitish` and `created_at` only when not None; `_deserialize_release` reads them with `.get`. Add
+  `read_releases_state(output) -> dict`: `{"state": "absent" | "ok" | "fetch_failed", "fetched_at": str | None, "refresh_failed": bool}` (meta state,
+  marker present -> `refresh_failed`); never raises. The freshness cache logic and `load_recent_releases_sidecar` are otherwise unchanged.
+- >-
+  verify_package_registry.py `main` and verify_product_reference_install.py `main`: write through `atomic_write_json` and add `family`, `platform`
+  and `fetched_at` (equal to the existing `checked_at` string) to the sidecar; verify_product_reference_install additionally adds
+  `source_repository` and `source_ref` from the product-reference inputs it just loaded. `load_package_registry_sidecar` and its four required keys
+  are unchanged. A placeholder product-reference sidecar makes verify_product_reference_install print `nothing to verify ...` and exit 0 (it already
+  does when `load_manifest_sidecar` returns None).
+- >-
+  EXISTING TESTS TO RE-PIN (change ONLY the named assertions, say why in a comment, never delete, skip or xfail): tests/extraction/test_github_http.py:
+  `test_a_wait_that_exceeds_the_budget_re_raises_the_original_error_without_sleeping`, `test_the_total_wait_budget_is_cumulative_across_attempts` and
+  `test_after_max_attempts_the_last_rate_limit_error_is_raised` assert `caught.value is <error>`; a terminating rate limit now raises `RateLimited`, so
+  assert `isinstance(caught.value, RateLimited)` and `caught.value.__cause__ is <error>` instead (sleep and call-count assertions stay);
+  `test_a_500_is_raised_at_once` pinned "5xx is never retried": give the call `jitter=lambda: 0.0`, an opener holding four 500 errors, assert the
+  last is raised unchanged, 4 calls and `sleep.delays == [1.0, 2.0, 4.0]`. tests/infra/test_fetch_product_reference.py
+  `test_main_writes_the_real_sidecar_json_matching_build_sidecars_return_value`: `written == expected` now has the additive keys, so compare after
+  removing `fetched_at`, `family` and `platform` from `written` (and assert `fetched_at` is a `...Z` string). tests/infra/test_verify_package_registry.py:
+  add ONE autouse fixture that monkeypatches `github_http._sleep` to a no-op, because tests that raise 5xx/URLError through `resolve_tag_commit` would
+  otherwise sleep for real; no assertion changes there.
+- >-
+  NEW TESTS (all offline and deterministic: injected openers or a monkeypatched `urllib.request.urlopen`, an injected sleep, jitter, clock and budget,
+  `monkeypatch.setenv` for the token with a fake value such as `ghp_FAKE...`; no sockets, no real sleep, no skipped or xfailed test).
+  tests/extraction/test_github_http_classification.py: `test_401_raises_github_auth_error_once_with_no_sleep`; `test_401_error_never_contains_the_token`;
+  `test_403_remaining_zero_with_a_short_reset_waits_then_succeeds`; `test_403_remaining_zero_with_a_reset_over_two_minutes_raises_rate_limited_with_the_reset_time`;
+  `test_rate_limited_is_an_http_error_and_keeps_the_original_as_its_cause`; `test_secondary_403_waits_the_retry_after_then_succeeds`;
+  `test_secondary_403_with_a_long_retry_after_raises_rate_limited`; `test_plain_403_and_hintless_429_are_raised_unchanged`;
+  parametrised over 500, 502, 503, 504 `test_5xx_is_retried_with_exponential_backoff_and_jitter` (jitter fixed at 0.5: sleeps [1.5, 2.5, 4.5]);
+  `test_5xx_exhaustion_re_raises_the_last_error_unchanged`; `test_backoff_counts_against_the_total_wait_budget`;
+  parametrised over `TimeoutError()`, `ConnectionResetError()`, `URLError(TimeoutError())`, `URLError(socket.gaierror())`
+  `test_transient_transport_failures_are_retried_then_succeed`; `test_a_tls_certificate_error_is_not_retried`; `test_404_304_and_422_are_raised_unchanged_with_no_sleep`;
+  `test_proactive_stop_raises_before_calling_the_opener_when_remaining_is_below_the_floor`; `test_remaining_equal_to_the_floor_does_not_stop`;
+  `test_the_default_floor_is_five`; `test_a_past_reset_clears_the_proactive_state`; `test_min_remaining_zero_disables_the_proactive_stop`;
+  `test_independent_budgets_do_not_share_state`; `test_sleep_and_jitter_defaults_are_resolved_at_call_time`;
+  `test_secondary_limit_detection_in_rate_limit_wait_seconds`; parametrised `test_failure_reason_names` (7 inputs).
+  tests/extraction/test_github_release_commit.py: `test_release_keeps_target_commitish_and_created_at`; `test_target_commit_is_only_a_forty_hex_sha`;
+  `test_a_branch_name_is_not_a_commit`; `test_serialisation_omits_the_new_keys_when_none`; `test_an_old_sidecar_entry_loads_with_none`;
+  `test_fetch_releases_fills_the_fields_from_the_list_answer_without_an_extra_call` (fake opener counts calls == 1);
+  `test_fetch_releases_meta_receives_the_etag`; `test_fetch_releases_meta_flags_a_304`.
+  tests/infra/test_sidecar_writers.py: `test_atomic_write_leaves_the_old_file_when_replace_fails_and_no_temp_file_remains`;
+  `test_atomic_write_leaves_the_old_file_when_serialisation_fails`; `test_atomic_write_fsyncs_before_replace` (record os.fsync then os.replace order);
+  parametrised over the four writer files `test_no_writer_uses_a_bare_write_text_for_a_sidecar` (source assertion: `atomic_write_json` is referenced and
+  no `write_text(json.dumps` remains); `test_failed_product_reference_fetch_with_no_file_writes_the_typed_placeholder`;
+  parametrised over 401, 403 with remaining 0 and a one-hour reset, secondary 403 with a long Retry-After, 502, a timeout
+  `test_the_placeholder_reason_matches_the_failure_class` (reasons auth_failed, rate_limited, rate_limited, http_502, network);
+  `test_failed_fetch_never_overwrites_a_good_sidecar` (bytes equal before and after) ; `test_failed_fetch_over_a_malformed_file_writes_the_placeholder`;
+  `test_failed_fetch_exits_one_writes_the_marker_and_logs_an_error_line`; `test_the_placeholder_and_the_log_line_contain_no_url_token_or_message`;
+  `test_a_placeholder_never_triggers_the_pin_unchanged_skip`; `test_a_failed_marker_forces_a_refetch_even_with_an_unchanged_pin`;
+  `test_success_removes_the_marker_and_records_provenance` (fetched_at `...Z`, family and platform parsed from the file name, `--family` override,
+  source_repository, source_ref); `test_load_manifest_sidecar_returns_none_for_the_placeholder`; parametrised `test_read_sidecar_state` (absent, ok,
+  fetch_failed, unreadable); `test_verify_product_reference_install_skips_a_placeholder`; `test_verify_product_reference_install_writes_provenance_atomically`;
+  `test_verify_package_registry_writes_provenance_atomically`; `test_releases_success_writes_the_list_and_a_meta_with_identity_and_etag`;
+  `test_releases_failure_with_nothing_usable_writes_empty_list_marker_and_a_fetch_failed_meta`; `test_releases_failure_keeps_a_good_list_and_logs_an_error_line`;
+  `test_releases_etag_304_keeps_the_bytes_and_refreshes_mtime_and_meta`; `test_releases_without_a_stored_etag_does_a_plain_fetch`;
+  `test_read_releases_state`. min 55 tests in the three new files together.
+- >-
+  Run `{python} -m pytest tests/extraction/test_github_http_classification.py tests/extraction/test_github_release_commit.py
+  tests/infra/test_sidecar_writers.py -q -rfE` first, then the second check command below. Write commit messages as UTF-8 without a byte-order
+  mark. Preserve each file's line endings and encoding. Keep ruff, ruff format and mypy clean. Never run a real fetch against github.com.
+actions:
+- >-
+  Make every sidecar write atomic, add a typed fetch_failed placeholder plus marker and an ERROR log line for the product reference, and record
+  fetched_at/family/platform/source (and per-release target_commitish/created_at, ETag) on every sidecar.
+- >-
+  Classify GitHub failures (401, rate limit with reset time, secondary limit, 5xx/timeouts with backoff and jitter) and stop proactively below a
+  remaining-request floor; pin it all offline.
+checks:
+- command: '{python} -m pytest tests/extraction/test_github_http_classification.py tests/extraction/test_github_release_commit.py tests/infra/test_sidecar_writers.py -q -rfE'
+  expect: exit 0
+  timeout_seconds: 900
+  junitxml: true
+  proves:
+  - REQ-G3-008
+- command: '{python} -m pytest tests/extraction/test_github_http_classification.py tests/extraction/test_github_release_commit.py tests/infra/test_sidecar_writers.py tests/extraction tests/infra/test_fetch_product_reference.py tests/infra/test_fetch_recent_releases.py tests/infra/test_fetch_recent_releases_failure.py tests/infra/test_verify_package_registry.py tests/infra/test_verify_product_reference_install.py tests/infra/test_serve_manifest_sidecar.py tests/infra/test_serve_stdio_parity.py tests/deploy/test_demo_manifests_sidecars.py tests/mcp/tools/test_consumer_tools.py -q -rfE -p no:cacheprovider'
+  expect: exit 0
+  timeout_seconds: 1800
+  junitxml: true
+  proves:
+  - REQ-G3-008
+min_tests: 55
+network: true
+requires:
+- python
+negative_control:
+  mutate: |
+    python -X utf8 -c "import pathlib;p=pathlib.Path('infra/fetch_product_reference.py');s=p.read_text(encoding='utf-8');q=chr(34);old='FETCH_FAILED_STATUS = '+q+'fetch_failed'+q;assert s.count(old)==1;p.write_text(s.replace(old,'FETCH_FAILED_STATUS = '+q+'fetch_broken'+q),encoding='utf-8')"
+  rationale: >-
+    Renames the status value of the typed placeholder, so every test that asserts a failed fetch leaves a `fetch_failed` placeholder (and the loader
+    and state helpers that key on it) fails. A real break of the card's central claim: a failed product-reference fetch must leave a typed,
+    recognisable placeholder instead of nothing.
+evidence:
+- evidence/build/G3/TC-511/receipt.json
+closeout:
+- >-
+  A failed product-reference fetch now leaves a typed placeholder, a marker and an ERROR log line (exit status 1, swallowed by the Job's `|| true`),
+  never overwrites good data, and every sidecar write is atomic and carries fetched_at and identity. The GitHub client stops loudly on 401, reports
+  the reset time of a long rate limit, honours secondary limits, retries 5xx and timeouts with backoff and jitter, and stops before the limit.
+  Follow-ups owned elsewhere: serving must use `read_sidecar_state` / `read_releases_state` to answer fetch_failed distinctly and survive a corrupt
+  sidecar (TC-507); the chart must bound the init gate and may pass `--family`/`--platform` (TC-512); `in_index` for releases needs a tag-to-commit
+  resolution that this card deliberately does not perform.
+recovery: Re-run from a clean tree.
