@@ -190,7 +190,9 @@ def session(real_generation: None) -> _McpSession:
 def test_readyz_is_ready_after_the_real_pdf_cpp_publish(real_generation: None) -> None:
     response = httpx.get(f"{BASE_URL}{READYZ_PATH}", timeout=5)
     assert response.status_code == 200
-    assert response.text == "ready"
+    body = response.json()
+    assert body["ready"] is True
+    assert body["reasons"] == []
 
 
 def test_search_symbols_returns_real_content_from_the_pdf_cpp_fixture(session: _McpSession) -> None:

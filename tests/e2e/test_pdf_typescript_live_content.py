@@ -324,7 +324,9 @@ def test_readyz_is_ready_after_the_real_ingestion_publish(real_generation: None)
     """
     response = httpx.get(f"{BASE_URL}{READYZ_PATH}", timeout=5)
     assert response.status_code == 200
-    assert response.text == "ready"
+    body = response.json()
+    assert body["ready"] is True
+    assert body["reasons"] == []
 
 
 def test_report_index_freshness_reports_the_real_fresh_generation(session: _McpSession) -> None:
