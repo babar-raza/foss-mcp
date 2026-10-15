@@ -1,0 +1,123 @@
+{
+  "schema_version": 1,
+  "card": "TC-506",
+  "gate": "G3",
+  "generated_by": "gatectl",
+  "generated_at": "2026-10-15T11:20:05Z",
+  "base_rev": "9f77c2c5995cfab33d15becb0c91fcf97b2f3959",
+  "head_rev": "ad1c8fa6a13a0c3f5104f88e2b46ee5264304640",
+  "card_sha256": "2340f14370802c1e8e5957ed6391e864bf9ea4050cb02c7a95d646ca48ff7f04",
+  "fingerprint": {
+    "python": "3.13.2",
+    "platform": "Windows-11-10.0.26200-SP0",
+    "lock_sha256": "7b182948484d7df9614b523f7a8180f795b6c51d55c418728525c1957f3e38ba",
+    "env": {
+      "PYTHONHASHSEED": "0",
+      "PYTHONUTF8": "1",
+      "PYTHONDONTWRITEBYTECODE": "1",
+      "PYTHONIOENCODING": "utf-8",
+      "TZ": "UTC",
+      "LC_ALL": "C.UTF-8",
+      "SOURCE_DATE_EPOCH": "1700000000",
+      "verify_runner": "host"
+    }
+  },
+  "scope": {
+    "ok": true,
+    "changed_paths": [
+      "infra/serve_http.py",
+      "src/foss_mcp/indexing/generation_manifest.py",
+      "src/foss_mcp/mcp/health.py",
+      "src/foss_mcp/mcp/server.py",
+      "tests/infra/readiness_support.py",
+      "tests/infra/test_readiness_all_baked_scopes.py",
+      "tests/infra/test_serve_example_search_mode.py",
+      "tests/infra/test_serve_http.py",
+      "tests/infra/test_serve_manifests_dir_and_log_hygiene.py",
+      "tests/infra/test_serve_readyz_depth.py",
+      "tests/mcp/test_generation_unavailable_tool_error.py",
+      "tests/mcp/test_health.py",
+      "tests/mcp/test_health_readiness_depth.py",
+      "tests/mcp/test_server_wiring.py"
+    ],
+    "violations": [],
+    "evaluated": true
+  },
+  "runs": [
+    {
+      "run": 1,
+      "checks": [
+        {
+          "command": "{python} -m pytest tests/mcp/test_health_readiness_depth.py tests/mcp/test_generation_unavailable_tool_error.py tests/infra/test_serve_readyz_depth.py tests/infra/test_readiness_all_baked_scopes.py tests/mcp/test_health.py -q -rfE",
+          "exit_code": 0,
+          "duration_s": 21.925,
+          "stdout_sha256": "5fd42df10faa314e5713f59c80ecaf792b0bd18f6be7236a20568f38b1778d5f",
+          "tests": 130,
+          "skipped": 0,
+          "errors": 0,
+          "failures": 0
+        },
+        {
+          "command": "{python} -m pytest tests/mcp tests/infra/test_serve_http.py tests/infra/test_serve_example_search_mode.py tests/infra/test_serve_manifests_dir_and_log_hygiene.py tests/infra/test_serve_stdio_parity.py tests/infra/test_serve_logging.py tests/infra/test_serve_startup_errors.py tests/infra/test_demo_manifests.py tests/test_unwired_modules.py -q -rfE -p no:cacheprovider",
+          "exit_code": 0,
+          "duration_s": 52.85,
+          "stdout_sha256": "91c8fd13b14a74a607140ab097c573d982f5af642818ea6030a71d163d710e31",
+          "tests": 1518,
+          "skipped": 0,
+          "errors": 0,
+          "failures": 0
+        }
+      ],
+      "all_passed": true
+    },
+    {
+      "run": 2,
+      "checks": [
+        {
+          "command": "{python} -m pytest tests/mcp/test_health_readiness_depth.py tests/mcp/test_generation_unavailable_tool_error.py tests/infra/test_serve_readyz_depth.py tests/infra/test_readiness_all_baked_scopes.py tests/mcp/test_health.py -q -rfE",
+          "exit_code": 0,
+          "duration_s": 7.844,
+          "stdout_sha256": "5fd42df10faa314e5713f59c80ecaf792b0bd18f6be7236a20568f38b1778d5f",
+          "tests": 130,
+          "skipped": 0,
+          "errors": 0,
+          "failures": 0
+        },
+        {
+          "command": "{python} -m pytest tests/mcp tests/infra/test_serve_http.py tests/infra/test_serve_example_search_mode.py tests/infra/test_serve_manifests_dir_and_log_hygiene.py tests/infra/test_serve_stdio_parity.py tests/infra/test_serve_logging.py tests/infra/test_serve_startup_errors.py tests/infra/test_demo_manifests.py tests/test_unwired_modules.py -q -rfE -p no:cacheprovider",
+          "exit_code": 0,
+          "duration_s": 48.002,
+          "stdout_sha256": "91c8fd13b14a74a607140ab097c573d982f5af642818ea6030a71d163d710e31",
+          "tests": 1518,
+          "skipped": 0,
+          "errors": 0,
+          "failures": 0
+        }
+      ],
+      "all_passed": true
+    }
+  ],
+  "negative_control": {
+    "kind": "mutate",
+    "patch": "python -X utf8 -c \"import pathlib;p=pathlib.Path('src/foss_mcp/mcp/health.py');s=p.read_text(encoding='utf-8');lines=s.split(chr(10));heads=('    pointer_in_scope =','    identity_matches =','    index_generation_matches =','    document_ids_in_generation =');new=[(l.split('=')[0]+'= True') if l.startswith(heads) else l for l in lines];assert new!=lines;p.write_text(chr(10).join(new),encoding='utf-8')\"\n",
+    "patch_sha256": "257bb63a30e603d92da31f0c0992ee547b9b6eff2591871d058f894bb2a4d71f",
+    "applied": true,
+    "patch_applied_failed": true,
+    "exit_codes": [
+      1,
+      1
+    ],
+    "tree_changed": [
+      "M src/foss_mcp/mcp/health.py",
+      "?? .junit-0.xml",
+      "?? .junit-1.xml"
+    ]
+  },
+  "holdout": {
+    "ran": false,
+    "passed": true,
+    "detail": "no holdout for this card"
+  },
+  "accepted": true,
+  "reason": "all gates passed"
+}
