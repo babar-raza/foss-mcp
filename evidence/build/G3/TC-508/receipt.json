@@ -1,0 +1,116 @@
+{
+  "schema_version": 1,
+  "card": "TC-508",
+  "gate": "G3",
+  "generated_by": "gatectl",
+  "generated_at": "2026-10-15T09:26:47Z",
+  "base_rev": "14986c5b80d1d42d1cb873a6c0926e957b55021f",
+  "head_rev": "483dd54641218f774e15651bead86d9e1f9a1348",
+  "card_sha256": "3012e643777881e136d19ee198545c8f6a523a6541c36f3e49c23d2b608e8e2d",
+  "fingerprint": {
+    "python": "3.13.2",
+    "platform": "Windows-11-10.0.26200-SP0",
+    "lock_sha256": "7b182948484d7df9614b523f7a8180f795b6c51d55c418728525c1957f3e38ba",
+    "env": {
+      "PYTHONHASHSEED": "0",
+      "PYTHONUTF8": "1",
+      "PYTHONDONTWRITEBYTECODE": "1",
+      "PYTHONIOENCODING": "utf-8",
+      "TZ": "UTC",
+      "LC_ALL": "C.UTF-8",
+      "SOURCE_DATE_EPOCH": "1700000000",
+      "verify_runner": "host"
+    }
+  },
+  "scope": {
+    "ok": true,
+    "changed_paths": [
+      "src/foss_mcp/indexing/gateway_embedding_provider.py",
+      "src/foss_mcp/mcp/tools/example_search_mode.py",
+      "src/foss_mcp/mcp/tools/find_examples.py",
+      "src/foss_mcp/mcp/tools/vector_guard.py",
+      "tests/indexing/test_gateway_provider_query_limits.py",
+      "tests/mcp/tools/test_find_examples_vector_deadline.py",
+      "tests/mcp/tools/test_vector_guard.py"
+    ],
+    "violations": [],
+    "evaluated": true
+  },
+  "runs": [
+    {
+      "run": 1,
+      "checks": [
+        {
+          "command": "{python} -m pytest tests/mcp/tools/test_vector_guard.py tests/mcp/tools/test_find_examples_vector_deadline.py tests/indexing/test_gateway_provider_query_limits.py -q -rfE",
+          "exit_code": 0,
+          "duration_s": 4.943,
+          "stdout_sha256": "2fdbfd8ca4b1f03517583a95c9d797258bdf9116d64cf90fbdaa175b61869611",
+          "tests": 46,
+          "skipped": 0,
+          "errors": 0,
+          "failures": 0
+        },
+        {
+          "command": "{python} -m pytest tests/mcp/tools tests/indexing/test_gateway_embedding_provider.py tests/infra/test_serve_example_search_mode.py tests/test_unwired_modules.py -q -rfE -p no:cacheprovider",
+          "exit_code": 0,
+          "duration_s": 37.374,
+          "stdout_sha256": "e8d61e8813deefa5d231da70a4190afebcbb1b99620924bc710fe378cceeda29",
+          "tests": 1119,
+          "skipped": 0,
+          "errors": 0,
+          "failures": 0
+        }
+      ],
+      "all_passed": true
+    },
+    {
+      "run": 2,
+      "checks": [
+        {
+          "command": "{python} -m pytest tests/mcp/tools/test_vector_guard.py tests/mcp/tools/test_find_examples_vector_deadline.py tests/indexing/test_gateway_provider_query_limits.py -q -rfE",
+          "exit_code": 0,
+          "duration_s": 2.61,
+          "stdout_sha256": "2fdbfd8ca4b1f03517583a95c9d797258bdf9116d64cf90fbdaa175b61869611",
+          "tests": 46,
+          "skipped": 0,
+          "errors": 0,
+          "failures": 0
+        },
+        {
+          "command": "{python} -m pytest tests/mcp/tools tests/indexing/test_gateway_embedding_provider.py tests/infra/test_serve_example_search_mode.py tests/test_unwired_modules.py -q -rfE -p no:cacheprovider",
+          "exit_code": 0,
+          "duration_s": 31.946,
+          "stdout_sha256": "e8d61e8813deefa5d231da70a4190afebcbb1b99620924bc710fe378cceeda29",
+          "tests": 1119,
+          "skipped": 0,
+          "errors": 0,
+          "failures": 0
+        }
+      ],
+      "all_passed": true
+    }
+  ],
+  "negative_control": {
+    "kind": "mutate",
+    "patch": "python -X utf8 -c \"import pathlib;p=pathlib.Path('src/foss_mcp/mcp/tools/vector_guard.py');s=p.read_text(encoding='utf-8');a='CIRCUIT_FAILURE_THRESHOLD = 3';b='QUERY_TIME_MAX_ATTEMPTS = 1';assert a in s and b in s;p.write_text(s.replace(a,'CIRCUIT_FAILURE_THRESHOLD = 1000000',1).replace(b,'QUERY_TIME_MAX_ATTEMPTS = 3',1),encoding='utf-8')\"\n",
+    "patch_sha256": "875719e34c840dad9aba62db178f0502edd0d1219a51f06f2514853ed3ff8499",
+    "applied": true,
+    "patch_applied_failed": true,
+    "exit_codes": [
+      1,
+      1
+    ],
+    "tree_changed": [
+      "M src/foss_mcp/mcp/tools/vector_guard.py",
+      "?? .junit-0.xml",
+      "?? .junit-1.xml"
+    ]
+  },
+  "holdout": {
+    "ran": false,
+    "passed": true,
+    "detail": "no holdout for this card"
+  },
+  "accepted": true,
+  "reason": "all gates passed"
+}
