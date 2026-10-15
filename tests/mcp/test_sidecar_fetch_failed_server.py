@@ -70,7 +70,9 @@ def test_list_recent_changes_failure_does_not_depend_on_the_releases_passed(tmp_
 def test_list_recent_changes_empty_is_a_normal_empty_result(tmp_path: Path) -> None:
     result = _call(_server(tmp_path), "list_recent_changes", {})
     assert result.is_error is False
-    assert result.structured_content == {"result": []}
+    # The response envelope (G3/TC-514) adds a sibling scope beside the unchanged bare list.
+    assert result.structured_content["result"] == []
+    assert "scope" in result.structured_content
     assert result.content[0].text == "[]"  # type: ignore[union-attr]
 
 
