@@ -1,0 +1,1398 @@
+
+===== CLEAN RUN 1 (host) =====
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-7b182948484d7df9\Scripts\python.exe -m pytest tests/infra/test_verification_cache_seed_files.py tests/infra/test_verification_cache_committed.py -q -rfE -p no:cacheprovider "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-ye52d0by\.junit-0.xml"
+--- stdout ---
+........................................................................ [ 34%]
+........................................................................ [ 68%]
+...................................................................      [100%]
+
+--- stderr ---
+
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-7b182948484d7df9\Scripts\python.exe -m pytest tests/infra/test_verification_cache_seed_files.py tests/infra/test_verification_cache_committed.py tests/infra/test_build_chunks_verification_cache.py tests/deploy/test_pull_verification_cache.py -q -rfE -p no:cacheprovider "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-ye52d0by\.junit-1.xml"
+--- stdout ---
+........................................................................ [ 29%]
+........................................................................ [ 58%]
+........................................................................ [ 87%]
+................................                                         [100%]
+
+--- stderr ---
+
+
+===== CLEAN RUN 2 (host) =====
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-7b182948484d7df9\Scripts\python.exe -m pytest tests/infra/test_verification_cache_seed_files.py tests/infra/test_verification_cache_committed.py -q -rfE -p no:cacheprovider "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-ye52d0by\.junit-0.xml"
+--- stdout ---
+........................................................................ [ 34%]
+........................................................................ [ 68%]
+...................................................................      [100%]
+
+--- stderr ---
+
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-7b182948484d7df9\Scripts\python.exe -m pytest tests/infra/test_verification_cache_seed_files.py tests/infra/test_verification_cache_committed.py tests/infra/test_build_chunks_verification_cache.py tests/deploy/test_pull_verification_cache.py -q -rfE -p no:cacheprovider "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-ye52d0by\.junit-1.xml"
+--- stdout ---
+........................................................................ [ 29%]
+........................................................................ [ 58%]
+........................................................................ [ 87%]
+................................                                         [100%]
+
+--- stderr ---
+
+
+===== NEGATIVE CONTROL (checks MUST now fail) =====
+mutated: M tests/infra/test_verification_cache_committed.py, ?? .junit-0.xml, ?? .junit-1.xml
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-7b182948484d7df9\Scripts\python.exe -m pytest tests/infra/test_verification_cache_seed_files.py tests/infra/test_verification_cache_committed.py -q -rfE -p no:cacheprovider "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-ye52d0by\.junit-0.xml"
+--- stdout ---
+........................................................................ [ 34%]
+............FF....FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF.............. [ 68%]
+...................................................................      [100%]
+================================== FAILURES ===================================
+_______ test_contradictions_flags_a_failed_verdict_for_a_served_example _______
+
+    def test_contradictions_flags_a_failed_verdict_for_a_served_example() -> None:
+        entries = [
+            _entry(code_sha256="b" * 64, verified=False),
+            _entry(code_sha256="c" * 64, verified=True),
+        ]
+        examples = [
+            ("readme", "b" * 64, "1" * 40),
+            ("readme", "c" * 64, "1" * 40),
+            ("readme", "d" * 64, "1" * 40),
+        ]
+>       assert contradictions(entries, examples) == [("readme", "b" * 64, "1" * 40)]
+               ^^^^^^^^^^^^^^
+E       NameError: name 'contradictions' is not defined
+
+tests\infra\test_verification_cache_committed.py:137: NameError
+_________ test_contradictions_ignores_other_commits_and_other_hashes __________
+
+    def test_contradictions_ignores_other_commits_and_other_hashes() -> None:
+        entries = [_entry(code_sha256="b" * 64, library_commit="2" * 40, verified=False)]
+>       assert contradictions(entries, [("readme", "b" * 64, "1" * 40)]) == []
+               ^^^^^^^^^^^^^^
+E       NameError: name 'contradictions' is not defined
+
+tests\infra\test_verification_cache_committed.py:142: NameError
+_ test_the_committed_cache_has_no_contradiction_with_the_served_examples[3d_java] _
+
+name = '3d_java.json'
+
+    @pytest.mark.parametrize("name", _cache_cases())
+    def test_the_committed_cache_has_no_contradiction_with_the_served_examples(name: str) -> None:
+        entries = build_chunks.load_verification_cache(CACHE_DIR / name)
+        served = served_examples(name)
+>       assert contradictions(entries, served) == [], (
+               ^^^^^^^^^^^^^^
+            f"{name}: a cache entry says verified=false for an example the pilot serves as verified"
+        )
+E       NameError: name 'contradictions' is not defined
+
+tests\infra\test_verification_cache_committed.py:200: NameError
+_ test_the_committed_cache_has_no_contradiction_with_the_served_examples[3d_net] _
+
+name = '3d_net.json'
+
+    @pytest.mark.parametrize("name", _cache_cases())
+    def test_the_committed_cache_has_no_contradiction_with_the_served_examples(name: str) -> None:
+        entries = build_chunks.load_verification_cache(CACHE_DIR / name)
+        served = served_examples(name)
+>       assert contradictions(entries, served) == [], (
+               ^^^^^^^^^^^^^^
+            f"{name}: a cache entry says verified=false for an example the pilot serves as verified"
+        )
+E       NameError: name 'contradictions' is not defined
+
+tests\infra\test_verification_cache_committed.py:200: NameError
+_ test_the_committed_cache_has_no_contradiction_with_the_served_examples[3d_python] _
+
+name = '3d_python.json'
+
+    @pytest.mark.parametrize("name", _cache_cases())
+    def test_the_committed_cache_has_no_contradiction_with_the_served_examples(name: str) -> None:
+        entries = build_chunks.load_verification_cache(CACHE_DIR / name)
+        served = served_examples(name)
+>       assert contradictions(entries, served) == [], (
+               ^^^^^^^^^^^^^^
+            f"{name}: a cache entry says verified=false for an example the pilot serves as verified"
+        )
+E       NameError: name 'contradictions' is not defined
+
+tests\infra\test_verification_cache_committed.py:200: NameError
+_ test_the_committed_cache_has_no_contradiction_with_the_served_examples[3d_typescript] _
+
+name = '3d_typescript.json'
+
+    @pytest.mark.parametrize("name", _cache_cases())
+    def test_the_committed_cache_has_no_contradiction_with_the_served_examples(name: str) -> None:
+        entries = build_chunks.load_verification_cache(CACHE_DIR / name)
+        served = served_examples(name)
+>       assert contradictions(entries, served) == [], (
+               ^^^^^^^^^^^^^^
+            f"{name}: a cache entry says verified=false for an example the pilot serves as verified"
+        )
+E       NameError: name 'contradictions' is not defined
+
+tests\infra\test_verification_cache_committed.py:200: NameError
+_ test_the_committed_cache_has_no_contradiction_with_the_served_examples[barcode_python] _
+
+name = 'barcode_python.json'
+
+    @pytest.mark.parametrize("name", _cache_cases())
+    def test_the_committed_cache_has_no_contradiction_with_the_served_examples(name: str) -> None:
+        entries = build_chunks.load_verification_cache(CACHE_DIR / name)
+        served = served_examples(name)
+>       assert contradictions(entries, served) == [], (
+               ^^^^^^^^^^^^^^
+            f"{name}: a cache entry says verified=false for an example the pilot serves as verified"
+        )
+E       NameError: name 'contradictions' is not defined
+
+tests\infra\test_verification_cache_committed.py:200: NameError
+_ test_the_committed_cache_has_no_contradiction_with_the_served_examples[cells_cpp] _
+
+name = 'cells_cpp.json'
+
+    @pytest.mark.parametrize("name", _cache_cases())
+    def test_the_committed_cache_has_no_contradiction_with_the_served_examples(name: str) -> None:
+        entries = build_chunks.load_verification_cache(CACHE_DIR / name)
+        served = served_examples(name)
+>       assert contradictions(entries, served) == [], (
+               ^^^^^^^^^^^^^^
+            f"{name}: a cache entry says verified=false for an example the pilot serves as verified"
+        )
+E       NameError: name 'contradictions' is not defined
+
+tests\infra\test_verification_cache_committed.py:200: NameError
+_ test_the_committed_cache_has_no_contradiction_with_the_served_examples[cells_go] _
+
+name = 'cells_go.json'
+
+    @pytest.mark.parametrize("name", _cache_cases())
+    def test_the_committed_cache_has_no_contradiction_with_the_served_examples(name: str) -> None:
+        entries = build_chunks.load_verification_cache(CACHE_DIR / name)
+        served = served_examples(name)
+>       assert contradictions(entries, served) == [], (
+               ^^^^^^^^^^^^^^
+            f"{name}: a cache entry says verified=false for an example the pilot serves as verified"
+        )
+E       NameError: name 'contradictions' is not defined
+
+tests\infra\test_verification_cache_committed.py:200: NameError
+_ test_the_committed_cache_has_no_contradiction_with_the_served_examples[cells_java] _
+
+name = 'cells_java.json'
+
+    @pytest.mark.parametrize("name", _cache_cases())
+    def test_the_committed_cache_has_no_contradiction_with_the_served_examples(name: str) -> None:
+        entries = build_chunks.load_verification_cache(CACHE_DIR / name)
+        served = served_examples(name)
+>       assert contradictions(entries, served) == [], (
+               ^^^^^^^^^^^^^^
+            f"{name}: a cache entry says verified=false for an example the pilot serves as verified"
+        )
+E       NameError: name 'contradictions' is not defined
+
+tests\infra\test_verification_cache_committed.py:200: NameError
+_ test_the_committed_cache_has_no_contradiction_with_the_served_examples[cells_net] _
+
+name = 'cells_net.json'
+
+    @pytest.mark.parametrize("name", _cache_cases())
+    def test_the_committed_cache_has_no_contradiction_with_the_served_examples(name: str) -> None:
+        entries = build_chunks.load_verification_cache(CACHE_DIR / name)
+        served = served_examples(name)
+>       assert contradictions(entries, served) == [], (
+               ^^^^^^^^^^^^^^
+            f"{name}: a cache entry says verified=false for an example the pilot serves as verified"
+        )
+E       NameError: name 'contradictions' is not defined
+
+tests\infra\test_verification_cache_committed.py:200: NameError
+_ test_the_committed_cache_has_no_contradiction_with_the_served_examples[cells_python] _
+
+name = 'cells_python.json'
+
+    @pytest.mark.parametrize("name", _cache_cases())
+    def test_the_committed_cache_has_no_contradiction_with_the_served_examples(name: str) -> None:
+        entries = build_chunks.load_verification_cache(CACHE_DIR / name)
+        served = served_examples(name)
+>       assert contradictions(entries, served) == [], (
+               ^^^^^^^^^^^^^^
+            f"{name}: a cache entry says verified=false for an example the pilot serves as verified"
+        )
+E       NameError: name 'contradictions' is not defined
+
+tests\infra\test_verification_cache_committed.py:200: NameError
+_ test_the_committed_cache_has_no_contradiction_with_the_served_examples[cells_rust] _
+
+name = 'cells_rust.json'
+
+    @pytest.mark.parametrize("name", _cache_cases())
+    def test_the_committed_cache_has_no_contradiction_with_the_served_examples(name: str) -> None:
+        entries = build_chunks.load_verification_cache(CACHE_DIR / name)
+        served = served_examples(name)
+>       assert contradictions(entries, served) == [], (
+               ^^^^^^^^^^^^^^
+            f"{name}: a cache entry says verified=false for an example the pilot serves as verified"
+        )
+E       NameError: name 'contradictions' is not defined
+
+tests\infra\test_verification_cache_committed.py:200: NameError
+_ test_the_committed_cache_has_no_contradiction_with_the_served_examples[cells_typescript] _
+
+name = 'cells_typescript.json'
+
+    @pytest.mark.parametrize("name", _cache_cases())
+    def test_the_committed_cache_has_no_contradiction_with_the_served_examples(name: str) -> None:
+        entries = build_chunks.load_verification_cache(CACHE_DIR / name)
+        served = served_examples(name)
+>       assert contradictions(entries, served) == [], (
+               ^^^^^^^^^^^^^^
+            f"{name}: a cache entry says verified=false for an example the pilot serves as verified"
+        )
+E       NameError: name 'contradictions' is not defined
+
+tests\infra\test_verification_cache_committed.py:200: NameError
+_ test_the_committed_cache_has_no_contradiction_with_the_served_examples[email_cpp] _
+
+name = 'email_cpp.json'
+
+    @pytest.mark.parametrize("name", _cache_cases())
+    def test_the_committed_cache_has_no_contradiction_with_the_served_examples(name: str) -> None:
+        entries = build_chunks.load_verification_cache(CACHE_DIR / name)
+        served = served_examples(name)
+>       assert contradictions(entries, served) == [], (
+               ^^^^^^^^^^^^^^
+            f"{name}: a cache entry says verified=false for an example the pilot serves as verified"
+        )
+E       NameError: name 'contradictions' is not defined
+
+tests\infra\test_verification_cache_committed.py:200: NameError
+_ test_the_committed_cache_has_no_contradiction_with_the_served_examples[email_net] _
+
+name = 'email_net.json'
+
+    @pytest.mark.parametrize("name", _cache_cases())
+    def test_the_committed_cache_has_no_contradiction_with_the_served_examples(name: str) -> None:
+        entries = build_chunks.load_verification_cache(CACHE_DIR / name)
+        served = served_examples(name)
+>       assert contradictions(entries, served) == [], (
+               ^^^^^^^^^^^^^^
+            f"{name}: a cache entry says verified=false for an example the pilot serves as verified"
+        )
+E       NameError: name 'contradictions' is not defined
+
+tests\infra\test_verification_cache_committed.py:200: NameError
+_ test_the_committed_cache_has_no_contradiction_with_the_served_examples[email_python] _
+
+name = 'email_python.json'
+
+    @pytest.mark.parametrize("name", _cache_cases())
+    def test_the_committed_cache_has_no_contradiction_with_the_served_examples(name: str) -> None:
+        entries = build_chunks.load_verification_cache(CACHE_DIR / name)
+        served = served_examples(name)
+>       assert contradictions(entries, served) == [], (
+               ^^^^^^^^^^^^^^
+            f"{name}: a cache entry says verified=false for an example the pilot serves as verified"
+        )
+E       NameError: name 'contradictions' is not defined
+
+tests\infra\test_verification_cache_committed.py:200: NameError
+_ test_the_committed_cache_has_no_contradiction_with_the_served_examples[html_python] _
+
+name = 'html_python.json'
+
+    @pytest.mark.parametrize("name", _cache_cases())
+    def test_the_committed_cache_has_no_contradiction_with_the_served_examples(name: str) -> None:
+        entries = build_chunks.load_verification_cache(CACHE_DIR / name)
+        served = served_examples(name)
+>       assert contradictions(entries, served) == [], (
+               ^^^^^^^^^^^^^^
+            f"{name}: a cache entry says verified=false for an example the pilot serves as verified"
+        )
+E       NameError: name 'contradictions' is not defined
+
+tests\infra\test_verification_cache_committed.py:200: NameError
+_ test_the_committed_cache_has_no_contradiction_with_the_served_examples[imaging_net] _
+
+name = 'imaging_net.json'
+
+    @pytest.mark.parametrize("name", _cache_cases())
+    def test_the_committed_cache_has_no_contradiction_with_the_served_examples(name: str) -> None:
+        entries = build_chunks.load_verification_cache(CACHE_DIR / name)
+        served = served_examples(name)
+>       assert contradictions(entries, served) == [], (
+               ^^^^^^^^^^^^^^
+            f"{name}: a cache entry says verified=false for an example the pilot serves as verified"
+        )
+E       NameError: name 'contradictions' is not defined
+
+tests\infra\test_verification_cache_committed.py:200: NameError
+_ test_the_committed_cache_has_no_contradiction_with_the_served_examples[jmap_cpp] _
+
+name = 'jmap_cpp.json'
+
+    @pytest.mark.parametrize("name", _cache_cases())
+    def test_the_committed_cache_has_no_contradiction_with_the_served_examples(name: str) -> None:
+        entries = build_chunks.load_verification_cache(CACHE_DIR / name)
+        served = served_examples(name)
+>       assert contradictions(entries, served) == [], (
+               ^^^^^^^^^^^^^^
+            f"{name}: a cache entry says verified=false for an example the pilot serves as verified"
+        )
+E       NameError: name 'contradictions' is not defined
+
+tests\infra\test_verification_cache_committed.py:200: NameError
+_ test_the_committed_cache_has_no_contradiction_with_the_served_examples[jmap_go] _
+
+name = 'jmap_go.json'
+
+    @pytest.mark.parametrize("name", _cache_cases())
+    def test_the_committed_cache_has_no_contradiction_with_the_served_examples(name: str) -> None:
+        entries = build_chunks.load_verification_cache(CACHE_DIR / name)
+        served = served_examples(name)
+>       assert contradictions(entries, served) == [], (
+               ^^^^^^^^^^^^^^
+            f"{name}: a cache entry says verified=false for an example the pilot serves as verified"
+        )
+E       NameError: name 'contradictions' is not defined
+
+tests\infra\test_verification_cache_committed.py:200: NameError
+_ test_the_committed_cache_has_no_contradiction_with_the_served_examples[jmap_java] _
+
+name = 'jmap_java.json'
+
+    @pytest.mark.parametrize("name", _cache_cases())
+    def test_the_committed_cache_has_no_contradiction_with_the_served_examples(name: str) -> None:
+        entries = build_chunks.load_verification_cache(CACHE_DIR / name)
+        served = served_examples(name)
+>       assert contradictions(entries, served) == [], (
+               ^^^^^^^^^^^^^^
+            f"{name}: a cache entry says verified=false for an example the pilot serves as verified"
+        )
+E       NameError: name 'contradictions' is not defined
+
+tests\infra\test_verification_cache_committed.py:200: NameError
+_ test_the_committed_cache_has_no_contradiction_with_the_served_examples[jmap_net] _
+
+name = 'jmap_net.json'
+
+    @pytest.mark.parametrize("name", _cache_cases())
+    def test_the_committed_cache_has_no_contradiction_with_the_served_examples(name: str) -> None:
+        entries = build_chunks.load_verification_cache(CACHE_DIR / name)
+        served = served_examples(name)
+>       assert contradictions(entries, served) == [], (
+               ^^^^^^^^^^^^^^
+            f"{name}: a cache entry says verified=false for an example the pilot serves as verified"
+        )
+E       NameError: name 'contradictions' is not defined
+
+tests\infra\test_verification_cache_committed.py:200: NameError
+_ test_the_committed_cache_has_no_contradiction_with_the_served_examples[jmap_nodejs] _
+
+name = 'jmap_nodejs.json'
+
+    @pytest.mark.parametrize("name", _cache_cases())
+    def test_the_committed_cache_has_no_contradiction_with_the_served_examples(name: str) -> None:
+        entries = build_chunks.load_verification_cache(CACHE_DIR / name)
+        served = served_examples(name)
+>       assert contradictions(entries, served) == [], (
+               ^^^^^^^^^^^^^^
+            f"{name}: a cache entry says verified=false for an example the pilot serves as verified"
+        )
+E       NameError: name 'contradictions' is not defined
+
+tests\infra\test_verification_cache_committed.py:200: NameError
+_ test_the_committed_cache_has_no_contradiction_with_the_served_examples[jmap_python] _
+
+name = 'jmap_python.json'
+
+    @pytest.mark.parametrize("name", _cache_cases())
+    def test_the_committed_cache_has_no_contradiction_with_the_served_examples(name: str) -> None:
+        entries = build_chunks.load_verification_cache(CACHE_DIR / name)
+        served = served_examples(name)
+>       assert contradictions(entries, served) == [], (
+               ^^^^^^^^^^^^^^
+            f"{name}: a cache entry says verified=false for an example the pilot serves as verified"
+        )
+E       NameError: name 'contradictions' is not defined
+
+tests\infra\test_verification_cache_committed.py:200: NameError
+_ test_the_committed_cache_has_no_contradiction_with_the_served_examples[jmap_rust] _
+
+name = 'jmap_rust.json'
+
+    @pytest.mark.parametrize("name", _cache_cases())
+    def test_the_committed_cache_has_no_contradiction_with_the_served_examples(name: str) -> None:
+        entries = build_chunks.load_verification_cache(CACHE_DIR / name)
+        served = served_examples(name)
+>       assert contradictions(entries, served) == [], (
+               ^^^^^^^^^^^^^^
+            f"{name}: a cache entry says verified=false for an example the pilot serves as verified"
+        )
+E       NameError: name 'contradictions' is not defined
+
+tests\infra\test_verification_cache_committed.py:200: NameError
+_ test_the_committed_cache_has_no_contradiction_with_the_served_examples[jmap_typescript] _
+
+name = 'jmap_typescript.json'
+
+    @pytest.mark.parametrize("name", _cache_cases())
+    def test_the_committed_cache_has_no_contradiction_with_the_served_examples(name: str) -> None:
+        entries = build_chunks.load_verification_cache(CACHE_DIR / name)
+        served = served_examples(name)
+>       assert contradictions(entries, served) == [], (
+               ^^^^^^^^^^^^^^
+            f"{name}: a cache entry says verified=false for an example the pilot serves as verified"
+        )
+E       NameError: name 'contradictions' is not defined
+
+tests\infra\test_verification_cache_committed.py:200: NameError
+_ test_the_committed_cache_has_no_contradiction_with_the_served_examples[note_python] _
+
+name = 'note_python.json'
+
+    @pytest.mark.parametrize("name", _cache_cases())
+    def test_the_committed_cache_has_no_contradiction_with_the_served_examples(name: str) -> None:
+        entries = build_chunks.load_verification_cache(CACHE_DIR / name)
+        served = served_examples(name)
+>       assert contradictions(entries, served) == [], (
+               ^^^^^^^^^^^^^^
+            f"{name}: a cache entry says verified=false for an example the pilot serves as verified"
+        )
+E       NameError: name 'contradictions' is not defined
+
+tests\infra\test_verification_cache_committed.py:200: NameError
+_ test_the_committed_cache_has_no_contradiction_with_the_served_examples[page_python] _
+
+name = 'page_python.json'
+
+    @pytest.mark.parametrize("name", _cache_cases())
+    def test_the_committed_cache_has_no_contradiction_with_the_served_examples(name: str) -> None:
+        entries = build_chunks.load_verification_cache(CACHE_DIR / name)
+        served = served_examples(name)
+>       assert contradictions(entries, served) == [], (
+               ^^^^^^^^^^^^^^
+            f"{name}: a cache entry says verified=false for an example the pilot serves as verified"
+        )
+E       NameError: name 'contradictions' is not defined
+
+tests\infra\test_verification_cache_committed.py:200: NameError
+_ test_the_committed_cache_has_no_contradiction_with_the_served_examples[pdf_cpp] _
+
+name = 'pdf_cpp.json'
+
+    @pytest.mark.parametrize("name", _cache_cases())
+    def test_the_committed_cache_has_no_contradiction_with_the_served_examples(name: str) -> None:
+        entries = build_chunks.load_verification_cache(CACHE_DIR / name)
+        served = served_examples(name)
+>       assert contradictions(entries, served) == [], (
+               ^^^^^^^^^^^^^^
+            f"{name}: a cache entry says verified=false for an example the pilot serves as verified"
+        )
+E       NameError: name 'contradictions' is not defined
+
+tests\infra\test_verification_cache_committed.py:200: NameError
+_ test_the_committed_cache_has_no_contradiction_with_the_served_examples[pdf_go] _
+
+name = 'pdf_go.json'
+
+    @pytest.mark.parametrize("name", _cache_cases())
+    def test_the_committed_cache_has_no_contradiction_with_the_served_examples(name: str) -> None:
+        entries = build_chunks.load_verification_cache(CACHE_DIR / name)
+        served = served_examples(name)
+>       assert contradictions(entries, served) == [], (
+               ^^^^^^^^^^^^^^
+            f"{name}: a cache entry says verified=false for an example the pilot serves as verified"
+        )
+E       NameError: name 'contradictions' is not defined
+
+tests\infra\test_verification_cache_committed.py:200: NameError
+_ test_the_committed_cache_has_no_contradiction_with_the_served_examples[pdf_java] _
+
+name = 'pdf_java.json'
+
+    @pytest.mark.parametrize("name", _cache_cases())
+    def test_the_committed_cache_has_no_contradiction_with_the_served_examples(name: str) -> None:
+        entries = build_chunks.load_verification_cache(CACHE_DIR / name)
+        served = served_examples(name)
+>       assert contradictions(entries, served) == [], (
+               ^^^^^^^^^^^^^^
+            f"{name}: a cache entry says verified=false for an example the pilot serves as verified"
+        )
+E       NameError: name 'contradictions' is not defined
+
+tests\infra\test_verification_cache_committed.py:200: NameError
+_ test_the_committed_cache_has_no_contradiction_with_the_served_examples[pdf_net] _
+
+name = 'pdf_net.json'
+
+    @pytest.mark.parametrize("name", _cache_cases())
+    def test_the_committed_cache_has_no_contradiction_with_the_served_examples(name: str) -> None:
+        entries = build_chunks.load_verification_cache(CACHE_DIR / name)
+        served = served_examples(name)
+>       assert contradictions(entries, served) == [], (
+               ^^^^^^^^^^^^^^
+            f"{name}: a cache entry says verified=false for an example the pilot serves as verified"
+        )
+E       NameError: name 'contradictions' is not defined
+
+tests\infra\test_verification_cache_committed.py:200: NameError
+_ test_the_committed_cache_has_no_contradiction_with_the_served_examples[pdf_python] _
+
+name = 'pdf_python.json'
+
+    @pytest.mark.parametrize("name", _cache_cases())
+    def test_the_committed_cache_has_no_contradiction_with_the_served_examples(name: str) -> None:
+        entries = build_chunks.load_verification_cache(CACHE_DIR / name)
+        served = served_examples(name)
+>       assert contradictions(entries, served) == [], (
+               ^^^^^^^^^^^^^^
+            f"{name}: a cache entry says verified=false for an example the pilot serves as verified"
+        )
+E       NameError: name 'contradictions' is not defined
+
+tests\infra\test_verification_cache_committed.py:200: NameError
+_ test_the_committed_cache_has_no_contradiction_with_the_served_examples[pdf_typescript] _
+
+name = 'pdf_typescript.json'
+
+    @pytest.mark.parametrize("name", _cache_cases())
+    def test_the_committed_cache_has_no_contradiction_with_the_served_examples(name: str) -> None:
+        entries = build_chunks.load_verification_cache(CACHE_DIR / name)
+        served = served_examples(name)
+>       assert contradictions(entries, served) == [], (
+               ^^^^^^^^^^^^^^
+            f"{name}: a cache entry says verified=false for an example the pilot serves as verified"
+        )
+E       NameError: name 'contradictions' is not defined
+
+tests\infra\test_verification_cache_committed.py:200: NameError
+_ test_the_committed_cache_has_no_contradiction_with_the_served_examples[slides_cpp] _
+
+name = 'slides_cpp.json'
+
+    @pytest.mark.parametrize("name", _cache_cases())
+    def test_the_committed_cache_has_no_contradiction_with_the_served_examples(name: str) -> None:
+        entries = build_chunks.load_verification_cache(CACHE_DIR / name)
+        served = served_examples(name)
+>       assert contradictions(entries, served) == [], (
+               ^^^^^^^^^^^^^^
+            f"{name}: a cache entry says verified=false for an example the pilot serves as verified"
+        )
+E       NameError: name 'contradictions' is not defined
+
+tests\infra\test_verification_cache_committed.py:200: NameError
+_ test_the_committed_cache_has_no_contradiction_with_the_served_examples[slides_java] _
+
+name = 'slides_java.json'
+
+    @pytest.mark.parametrize("name", _cache_cases())
+    def test_the_committed_cache_has_no_contradiction_with_the_served_examples(name: str) -> None:
+        entries = build_chunks.load_verification_cache(CACHE_DIR / name)
+        served = served_examples(name)
+>       assert contradictions(entries, served) == [], (
+               ^^^^^^^^^^^^^^
+            f"{name}: a cache entry says verified=false for an example the pilot serves as verified"
+        )
+E       NameError: name 'contradictions' is not defined
+
+tests\infra\test_verification_cache_committed.py:200: NameError
+_ test_the_committed_cache_has_no_contradiction_with_the_served_examples[slides_net] _
+
+name = 'slides_net.json'
+
+    @pytest.mark.parametrize("name", _cache_cases())
+    def test_the_committed_cache_has_no_contradiction_with_the_served_examples(name: str) -> None:
+        entries = build_chunks.load_verification_cache(CACHE_DIR / name)
+        served = served_examples(name)
+>       assert contradictions(entries, served) == [], (
+               ^^^^^^^^^^^^^^
+            f"{name}: a cache entry says verified=false for an example the pilot serves as verified"
+        )
+E       NameError: name 'contradictions' is not defined
+
+tests\infra\test_verification_cache_committed.py:200: NameError
+_ test_the_committed_cache_has_no_contradiction_with_the_served_examples[slides_python] _
+
+name = 'slides_python.json'
+
+    @pytest.mark.parametrize("name", _cache_cases())
+    def test_the_committed_cache_has_no_contradiction_with_the_served_examples(name: str) -> None:
+        entries = build_chunks.load_verification_cache(CACHE_DIR / name)
+        served = served_examples(name)
+>       assert contradictions(entries, served) == [], (
+               ^^^^^^^^^^^^^^
+            f"{name}: a cache entry says verified=false for an example the pilot serves as verified"
+        )
+E       NameError: name 'contradictions' is not defined
+
+tests\infra\test_verification_cache_committed.py:200: NameError
+_ test_the_committed_cache_has_no_contradiction_with_the_served_examples[tex_python] _
+
+name = 'tex_python.json'
+
+    @pytest.mark.parametrize("name", _cache_cases())
+    def test_the_committed_cache_has_no_contradiction_with_the_served_examples(name: str) -> None:
+        entries = build_chunks.load_verification_cache(CACHE_DIR / name)
+        served = served_examples(name)
+>       assert contradictions(entries, served) == [], (
+               ^^^^^^^^^^^^^^
+            f"{name}: a cache entry says verified=false for an example the pilot serves as verified"
+        )
+E       NameError: name 'contradictions' is not defined
+
+tests\infra\test_verification_cache_committed.py:200: NameError
+_ test_the_committed_cache_has_no_contradiction_with_the_served_examples[words_net] _
+
+name = 'words_net.json'
+
+    @pytest.mark.parametrize("name", _cache_cases())
+    def test_the_committed_cache_has_no_contradiction_with_the_served_examples(name: str) -> None:
+        entries = build_chunks.load_verification_cache(CACHE_DIR / name)
+        served = served_examples(name)
+>       assert contradictions(entries, served) == [], (
+               ^^^^^^^^^^^^^^
+            f"{name}: a cache entry says verified=false for an example the pilot serves as verified"
+        )
+E       NameError: name 'contradictions' is not defined
+
+tests\infra\test_verification_cache_committed.py:200: NameError
+_ test_the_committed_cache_has_no_contradiction_with_the_served_examples[words_python] _
+
+name = 'words_python.json'
+
+    @pytest.mark.parametrize("name", _cache_cases())
+    def test_the_committed_cache_has_no_contradiction_with_the_served_examples(name: str) -> None:
+        entries = build_chunks.load_verification_cache(CACHE_DIR / name)
+        served = served_examples(name)
+>       assert contradictions(entries, served) == [], (
+               ^^^^^^^^^^^^^^
+            f"{name}: a cache entry says verified=false for an example the pilot serves as verified"
+        )
+E       NameError: name 'contradictions' is not defined
+
+tests\infra\test_verification_cache_committed.py:200: NameError
+=========================== short test summary info ===========================
+FAILED tests/infra/test_verification_cache_committed.py::test_contradictions_flags_a_failed_verdict_for_a_served_example
+FAILED tests/infra/test_verification_cache_committed.py::test_contradictions_ignores_other_commits_and_other_hashes
+FAILED tests/infra/test_verification_cache_committed.py::test_the_committed_cache_has_no_contradiction_with_the_served_examples[3d_java]
+FAILED tests/infra/test_verification_cache_committed.py::test_the_committed_cache_has_no_contradiction_with_the_served_examples[3d_net]
+FAILED tests/infra/test_verification_cache_committed.py::test_the_committed_cache_has_no_contradiction_with_the_served_examples[3d_python]
+FAILED tests/infra/test_verification_cache_committed.py::test_the_committed_cache_has_no_contradiction_with_the_served_examples[3d_typescript]
+FAILED tests/infra/test_verification_cache_committed.py::test_the_committed_cache_has_no_contradiction_with_the_served_examples[barcode_python]
+FAILED tests/infra/test_verification_cache_committed.py::test_the_committed_cache_has_no_contradiction_with_the_served_examples[cells_cpp]
+FAILED tests/infra/test_verification_cache_committed.py::test_the_committed_cache_has_no_contradiction_with_the_served_examples[cells_go]
+FAILED tests/infra/test_verification_cache_committed.py::test_the_committed_cache_has_no_contradiction_with_the_served_examples[cells_java]
+FAILED tests/infra/test_verification_cache_committed.py::test_the_committed_cache_has_no_contradiction_with_the_served_examples[cells_net]
+FAILED tests/infra/test_verification_cache_committed.py::test_the_committed_cache_has_no_contradiction_with_the_served_examples[cells_python]
+FAILED tests/infra/test_verification_cache_committed.py::test_the_committed_cache_has_no_contradiction_with_the_served_examples[cells_rust]
+FAILED tests/infra/test_verification_cache_committed.py::test_the_committed_cache_has_no_contradiction_with_the_served_examples[cells_typescript]
+FAILED tests/infra/test_verification_cache_committed.py::test_the_committed_cache_has_no_contradiction_with_the_served_examples[email_cpp]
+FAILED tests/infra/test_verification_cache_committed.py::test_the_committed_cache_has_no_contradiction_with_the_served_examples[email_net]
+FAILED tests/infra/test_verification_cache_committed.py::test_the_committed_cache_has_no_contradiction_with_the_served_examples[email_python]
+FAILED tests/infra/test_verification_cache_committed.py::test_the_committed_cache_has_no_contradiction_with_the_served_examples[html_python]
+FAILED tests/infra/test_verification_cache_committed.py::test_the_committed_cache_has_no_contradiction_with_the_served_examples[imaging_net]
+FAILED tests/infra/test_verification_cache_committed.py::test_the_committed_cache_has_no_contradiction_with_the_served_examples[jmap_cpp]
+FAILED tests/infra/test_verification_cache_committed.py::test_the_committed_cache_has_no_contradiction_with_the_served_examples[jmap_go]
+FAILED tests/infra/test_verification_cache_committed.py::test_the_committed_cache_has_no_contradiction_with_the_served_examples[jmap_java]
+FAILED tests/infra/test_verification_cache_committed.py::test_the_committed_cache_has_no_contradiction_with_the_served_examples[jmap_net]
+FAILED tests/infra/test_verification_cache_committed.py::test_the_committed_cache_has_no_contradiction_with_the_served_examples[jmap_nodejs]
+FAILED tests/infra/test_verification_cache_committed.py::test_the_committed_cache_has_no_contradiction_with_the_served_examples[jmap_python]
+FAILED tests/infra/test_verification_cache_committed.py::test_the_committed_cache_has_no_contradiction_with_the_served_examples[jmap_rust]
+FAILED tests/infra/test_verification_cache_committed.py::test_the_committed_cache_has_no_contradiction_with_the_served_examples[jmap_typescript]
+FAILED tests/infra/test_verification_cache_committed.py::test_the_committed_cache_has_no_contradiction_with_the_served_examples[note_python]
+FAILED tests/infra/test_verification_cache_committed.py::test_the_committed_cache_has_no_contradiction_with_the_served_examples[page_python]
+FAILED tests/infra/test_verification_cache_committed.py::test_the_committed_cache_has_no_contradiction_with_the_served_examples[pdf_cpp]
+FAILED tests/infra/test_verification_cache_committed.py::test_the_committed_cache_has_no_contradiction_with_the_served_examples[pdf_go]
+FAILED tests/infra/test_verification_cache_committed.py::test_the_committed_cache_has_no_contradiction_with_the_served_examples[pdf_java]
+FAILED tests/infra/test_verification_cache_committed.py::test_the_committed_cache_has_no_contradiction_with_the_served_examples[pdf_net]
+FAILED tests/infra/test_verification_cache_committed.py::test_the_committed_cache_has_no_contradiction_with_the_served_examples[pdf_python]
+FAILED tests/infra/test_verification_cache_committed.py::test_the_committed_cache_has_no_contradiction_with_the_served_examples[pdf_typescript]
+FAILED tests/infra/test_verification_cache_committed.py::test_the_committed_cache_has_no_contradiction_with_the_served_examples[slides_cpp]
+FAILED tests/infra/test_verification_cache_committed.py::test_the_committed_cache_has_no_contradiction_with_the_served_examples[slides_java]
+FAILED tests/infra/test_verification_cache_committed.py::test_the_committed_cache_has_no_contradiction_with_the_served_examples[slides_net]
+FAILED tests/infra/test_verification_cache_committed.py::test_the_committed_cache_has_no_contradiction_with_the_served_examples[slides_python]
+FAILED tests/infra/test_verification_cache_committed.py::test_the_committed_cache_has_no_contradiction_with_the_served_examples[tex_python]
+FAILED tests/infra/test_verification_cache_committed.py::test_the_committed_cache_has_no_contradiction_with_the_served_examples[words_net]
+FAILED tests/infra/test_verification_cache_committed.py::test_the_committed_cache_has_no_contradiction_with_the_served_examples[words_python]
+
+--- stderr ---
+
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-7b182948484d7df9\Scripts\python.exe -m pytest tests/infra/test_verification_cache_seed_files.py tests/infra/test_verification_cache_committed.py tests/infra/test_build_chunks_verification_cache.py tests/deploy/test_pull_verification_cache.py -q -rfE -p no:cacheprovider "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-ye52d0by\.junit-1.xml"
+--- stdout ---
+........................................................................ [ 29%]
+............FF....FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF.............. [ 58%]
+........................................................................ [ 87%]
+................................                                         [100%]
+================================== FAILURES ===================================
+_______ test_contradictions_flags_a_failed_verdict_for_a_served_example _______
+
+    def test_contradictions_flags_a_failed_verdict_for_a_served_example() -> None:
+        entries = [
+            _entry(code_sha256="b" * 64, verified=False),
+            _entry(code_sha256="c" * 64, verified=True),
+        ]
+        examples = [
+            ("readme", "b" * 64, "1" * 40),
+            ("readme", "c" * 64, "1" * 40),
+            ("readme", "d" * 64, "1" * 40),
+        ]
+>       assert contradictions(entries, examples) == [("readme", "b" * 64, "1" * 40)]
+               ^^^^^^^^^^^^^^
+E       NameError: name 'contradictions' is not defined
+
+tests\infra\test_verification_cache_committed.py:137: NameError
+_________ test_contradictions_ignores_other_commits_and_other_hashes __________
+
+    def test_contradictions_ignores_other_commits_and_other_hashes() -> None:
+        entries = [_entry(code_sha256="b" * 64, library_commit="2" * 40, verified=False)]
+>       assert contradictions(entries, [("readme", "b" * 64, "1" * 40)]) == []
+               ^^^^^^^^^^^^^^
+E       NameError: name 'contradictions' is not defined
+
+tests\infra\test_verification_cache_committed.py:142: NameError
+_ test_the_committed_cache_has_no_contradiction_with_the_served_examples[3d_java] _
+
+name = '3d_java.json'
+
+    @pytest.mark.parametrize("name", _cache_cases())
+    def test_the_committed_cache_has_no_contradiction_with_the_served_examples(name: str) -> None:
+        entries = build_chunks.load_verification_cache(CACHE_DIR / name)
+        served = served_examples(name)
+>       assert contradictions(entries, served) == [], (
+               ^^^^^^^^^^^^^^
+            f"{name}: a cache entry says verified=false for an example the pilot serves as verified"
+        )
+E       NameError: name 'contradictions' is not defined
+
+tests\infra\test_verification_cache_committed.py:200: NameError
+_ test_the_committed_cache_has_no_contradiction_with_the_served_examples[3d_net] _
+
+name = '3d_net.json'
+
+    @pytest.mark.parametrize("name", _cache_cases())
+    def test_the_committed_cache_has_no_contradiction_with_the_served_examples(name: str) -> None:
+        entries = build_chunks.load_verification_cache(CACHE_DIR / name)
+        served = served_examples(name)
+>       assert contradictions(entries, served) == [], (
+               ^^^^^^^^^^^^^^
+            f"{name}: a cache entry says verified=false for an example the pilot serves as verified"
+        )
+E       NameError: name 'contradictions' is not defined
+
+tests\infra\test_verification_cache_committed.py:200: NameError
+_ test_the_committed_cache_has_no_contradiction_with_the_served_examples[3d_python] _
+
+name = '3d_python.json'
+
+    @pytest.mark.parametrize("name", _cache_cases())
+    def test_the_committed_cache_has_no_contradiction_with_the_served_examples(name: str) -> None:
+        entries = build_chunks.load_verification_cache(CACHE_DIR / name)
+        served = served_examples(name)
+>       assert contradictions(entries, served) == [], (
+               ^^^^^^^^^^^^^^
+            f"{name}: a cache entry says verified=false for an example the pilot serves as verified"
+        )
+E       NameError: name 'contradictions' is not defined
+
+tests\infra\test_verification_cache_committed.py:200: NameError
+_ test_the_committed_cache_has_no_contradiction_with_the_served_examples[3d_typescript] _
+
+name = '3d_typescript.json'
+
+    @pytest.mark.parametrize("name", _cache_cases())
+    def test_the_committed_cache_has_no_contradiction_with_the_served_examples(name: str) -> None:
+        entries = build_chunks.load_verification_cache(CACHE_DIR / name)
+        served = served_examples(name)
+>       assert contradictions(entries, served) == [], (
+               ^^^^^^^^^^^^^^
+            f"{name}: a cache entry says verified=false for an example the pilot serves as verified"
+        )
+E       NameError: name 'contradictions' is not defined
+
+tests\infra\test_verification_cache_committed.py:200: NameError
+_ test_the_committed_cache_has_no_contradiction_with_the_served_examples[barcode_python] _
+
+name = 'barcode_python.json'
+
+    @pytest.mark.parametrize("name", _cache_cases())
+    def test_the_committed_cache_has_no_contradiction_with_the_served_examples(name: str) -> None:
+        entries = build_chunks.load_verification_cache(CACHE_DIR / name)
+        served = served_examples(name)
+>       assert contradictions(entries, served) == [], (
+               ^^^^^^^^^^^^^^
+            f"{name}: a cache entry says verified=false for an example the pilot serves as verified"
+        )
+E       NameError: name 'contradictions' is not defined
+
+tests\infra\test_verification_cache_committed.py:200: NameError
+_ test_the_committed_cache_has_no_contradiction_with_the_served_examples[cells_cpp] _
+
+name = 'cells_cpp.json'
+
+    @pytest.mark.parametrize("name", _cache_cases())
+    def test_the_committed_cache_has_no_contradiction_with_the_served_examples(name: str) -> None:
+        entries = build_chunks.load_verification_cache(CACHE_DIR / name)
+        served = served_examples(name)
+>       assert contradictions(entries, served) == [], (
+               ^^^^^^^^^^^^^^
+            f"{name}: a cache entry says verified=false for an example the pilot serves as verified"
+        )
+E       NameError: name 'contradictions' is not defined
+
+tests\infra\test_verification_cache_committed.py:200: NameError
+_ test_the_committed_cache_has_no_contradiction_with_the_served_examples[cells_go] _
+
+name = 'cells_go.json'
+
+    @pytest.mark.parametrize("name", _cache_cases())
+    def test_the_committed_cache_has_no_contradiction_with_the_served_examples(name: str) -> None:
+        entries = build_chunks.load_verification_cache(CACHE_DIR / name)
+        served = served_examples(name)
+>       assert contradictions(entries, served) == [], (
+               ^^^^^^^^^^^^^^
+            f"{name}: a cache entry says verified=false for an example the pilot serves as verified"
+        )
+E       NameError: name 'contradictions' is not defined
+
+tests\infra\test_verification_cache_committed.py:200: NameError
+_ test_the_committed_cache_has_no_contradiction_with_the_served_examples[cells_java] _
+
+name = 'cells_java.json'
+
+    @pytest.mark.parametrize("name", _cache_cases())
+    def test_the_committed_cache_has_no_contradiction_with_the_served_examples(name: str) -> None:
+        entries = build_chunks.load_verification_cache(CACHE_DIR / name)
+        served = served_examples(name)
+>       assert contradictions(entries, served) == [], (
+               ^^^^^^^^^^^^^^
+            f"{name}: a cache entry says verified=false for an example the pilot serves as verified"
+        )
+E       NameError: name 'contradictions' is not defined
+
+tests\infra\test_verification_cache_committed.py:200: NameError
+_ test_the_committed_cache_has_no_contradiction_with_the_served_examples[cells_net] _
+
+name = 'cells_net.json'
+
+    @pytest.mark.parametrize("name", _cache_cases())
+    def test_the_committed_cache_has_no_contradiction_with_the_served_examples(name: str) -> None:
+        entries = build_chunks.load_verification_cache(CACHE_DIR / name)
+        served = served_examples(name)
+>       assert contradictions(entries, served) == [], (
+               ^^^^^^^^^^^^^^
+            f"{name}: a cache entry says verified=false for an example the pilot serves as verified"
+        )
+E       NameError: name 'contradictions' is not defined
+
+tests\infra\test_verification_cache_committed.py:200: NameError
+_ test_the_committed_cache_has_no_contradiction_with_the_served_examples[cells_python] _
+
+name = 'cells_python.json'
+
+    @pytest.mark.parametrize("name", _cache_cases())
+    def test_the_committed_cache_has_no_contradiction_with_the_served_examples(name: str) -> None:
+        entries = build_chunks.load_verification_cache(CACHE_DIR / name)
+        served = served_examples(name)
+>       assert contradictions(entries, served) == [], (
+               ^^^^^^^^^^^^^^
+            f"{name}: a cache entry says verified=false for an example the pilot serves as verified"
+        )
+E       NameError: name 'contradictions' is not defined
+
+tests\infra\test_verification_cache_committed.py:200: NameError
+_ test_the_committed_cache_has_no_contradiction_with_the_served_examples[cells_rust] _
+
+name = 'cells_rust.json'
+
+    @pytest.mark.parametrize("name", _cache_cases())
+    def test_the_committed_cache_has_no_contradiction_with_the_served_examples(name: str) -> None:
+        entries = build_chunks.load_verification_cache(CACHE_DIR / name)
+        served = served_examples(name)
+>       assert contradictions(entries, served) == [], (
+               ^^^^^^^^^^^^^^
+            f"{name}: a cache entry says verified=false for an example the pilot serves as verified"
+        )
+E       NameError: name 'contradictions' is not defined
+
+tests\infra\test_verification_cache_committed.py:200: NameError
+_ test_the_committed_cache_has_no_contradiction_with_the_served_examples[cells_typescript] _
+
+name = 'cells_typescript.json'
+
+    @pytest.mark.parametrize("name", _cache_cases())
+    def test_the_committed_cache_has_no_contradiction_with_the_served_examples(name: str) -> None:
+        entries = build_chunks.load_verification_cache(CACHE_DIR / name)
+        served = served_examples(name)
+>       assert contradictions(entries, served) == [], (
+               ^^^^^^^^^^^^^^
+            f"{name}: a cache entry says verified=false for an example the pilot serves as verified"
+        )
+E       NameError: name 'contradictions' is not defined
+
+tests\infra\test_verification_cache_committed.py:200: NameError
+_ test_the_committed_cache_has_no_contradiction_with_the_served_examples[email_cpp] _
+
+name = 'email_cpp.json'
+
+    @pytest.mark.parametrize("name", _cache_cases())
+    def test_the_committed_cache_has_no_contradiction_with_the_served_examples(name: str) -> None:
+        entries = build_chunks.load_verification_cache(CACHE_DIR / name)
+        served = served_examples(name)
+>       assert contradictions(entries, served) == [], (
+               ^^^^^^^^^^^^^^
+            f"{name}: a cache entry says verified=false for an example the pilot serves as verified"
+        )
+E       NameError: name 'contradictions' is not defined
+
+tests\infra\test_verification_cache_committed.py:200: NameError
+_ test_the_committed_cache_has_no_contradiction_with_the_served_examples[email_net] _
+
+name = 'email_net.json'
+
+    @pytest.mark.parametrize("name", _cache_cases())
+    def test_the_committed_cache_has_no_contradiction_with_the_served_examples(name: str) -> None:
+        entries = build_chunks.load_verification_cache(CACHE_DIR / name)
+        served = served_examples(name)
+>       assert contradictions(entries, served) == [], (
+               ^^^^^^^^^^^^^^
+            f"{name}: a cache entry says verified=false for an example the pilot serves as verified"
+        )
+E       NameError: name 'contradictions' is not defined
+
+tests\infra\test_verification_cache_committed.py:200: NameError
+_ test_the_committed_cache_has_no_contradiction_with_the_served_examples[email_python] _
+
+name = 'email_python.json'
+
+    @pytest.mark.parametrize("name", _cache_cases())
+    def test_the_committed_cache_has_no_contradiction_with_the_served_examples(name: str) -> None:
+        entries = build_chunks.load_verification_cache(CACHE_DIR / name)
+        served = served_examples(name)
+>       assert contradictions(entries, served) == [], (
+               ^^^^^^^^^^^^^^
+            f"{name}: a cache entry says verified=false for an example the pilot serves as verified"
+        )
+E       NameError: name 'contradictions' is not defined
+
+tests\infra\test_verification_cache_committed.py:200: NameError
+_ test_the_committed_cache_has_no_contradiction_with_the_served_examples[html_python] _
+
+name = 'html_python.json'
+
+    @pytest.mark.parametrize("name", _cache_cases())
+    def test_the_committed_cache_has_no_contradiction_with_the_served_examples(name: str) -> None:
+        entries = build_chunks.load_verification_cache(CACHE_DIR / name)
+        served = served_examples(name)
+>       assert contradictions(entries, served) == [], (
+               ^^^^^^^^^^^^^^
+            f"{name}: a cache entry says verified=false for an example the pilot serves as verified"
+        )
+E       NameError: name 'contradictions' is not defined
+
+tests\infra\test_verification_cache_committed.py:200: NameError
+_ test_the_committed_cache_has_no_contradiction_with_the_served_examples[imaging_net] _
+
+name = 'imaging_net.json'
+
+    @pytest.mark.parametrize("name", _cache_cases())
+    def test_the_committed_cache_has_no_contradiction_with_the_served_examples(name: str) -> None:
+        entries = build_chunks.load_verification_cache(CACHE_DIR / name)
+        served = served_examples(name)
+>       assert contradictions(entries, served) == [], (
+               ^^^^^^^^^^^^^^
+            f"{name}: a cache entry says verified=false for an example the pilot serves as verified"
+        )
+E       NameError: name 'contradictions' is not defined
+
+tests\infra\test_verification_cache_committed.py:200: NameError
+_ test_the_committed_cache_has_no_contradiction_with_the_served_examples[jmap_cpp] _
+
+name = 'jmap_cpp.json'
+
+    @pytest.mark.parametrize("name", _cache_cases())
+    def test_the_committed_cache_has_no_contradiction_with_the_served_examples(name: str) -> None:
+        entries = build_chunks.load_verification_cache(CACHE_DIR / name)
+        served = served_examples(name)
+>       assert contradictions(entries, served) == [], (
+               ^^^^^^^^^^^^^^
+            f"{name}: a cache entry says verified=false for an example the pilot serves as verified"
+        )
+E       NameError: name 'contradictions' is not defined
+
+tests\infra\test_verification_cache_committed.py:200: NameError
+_ test_the_committed_cache_has_no_contradiction_with_the_served_examples[jmap_go] _
+
+name = 'jmap_go.json'
+
+    @pytest.mark.parametrize("name", _cache_cases())
+    def test_the_committed_cache_has_no_contradiction_with_the_served_examples(name: str) -> None:
+        entries = build_chunks.load_verification_cache(CACHE_DIR / name)
+        served = served_examples(name)
+>       assert contradictions(entries, served) == [], (
+               ^^^^^^^^^^^^^^
+            f"{name}: a cache entry says verified=false for an example the pilot serves as verified"
+        )
+E       NameError: name 'contradictions' is not defined
+
+tests\infra\test_verification_cache_committed.py:200: NameError
+_ test_the_committed_cache_has_no_contradiction_with_the_served_examples[jmap_java] _
+
+name = 'jmap_java.json'
+
+    @pytest.mark.parametrize("name", _cache_cases())
+    def test_the_committed_cache_has_no_contradiction_with_the_served_examples(name: str) -> None:
+        entries = build_chunks.load_verification_cache(CACHE_DIR / name)
+        served = served_examples(name)
+>       assert contradictions(entries, served) == [], (
+               ^^^^^^^^^^^^^^
+            f"{name}: a cache entry says verified=false for an example the pilot serves as verified"
+        )
+E       NameError: name 'contradictions' is not defined
+
+tests\infra\test_verification_cache_committed.py:200: NameError
+_ test_the_committed_cache_has_no_contradiction_with_the_served_examples[jmap_net] _
+
+name = 'jmap_net.json'
+
+    @pytest.mark.parametrize("name", _cache_cases())
+    def test_the_committed_cache_has_no_contradiction_with_the_served_examples(name: str) -> None:
+        entries = build_chunks.load_verification_cache(CACHE_DIR / name)
+        served = served_examples(name)
+>       assert contradictions(entries, served) == [], (
+               ^^^^^^^^^^^^^^
+            f"{name}: a cache entry says verified=false for an example the pilot serves as verified"
+        )
+E       NameError: name 'contradictions' is not defined
+
+tests\infra\test_verification_cache_committed.py:200: NameError
+_ test_the_committed_cache_has_no_contradiction_with_the_served_examples[jmap_nodejs] _
+
+name = 'jmap_nodejs.json'
+
+    @pytest.mark.parametrize("name", _cache_cases())
+    def test_the_committed_cache_has_no_contradiction_with_the_served_examples(name: str) -> None:
+        entries = build_chunks.load_verification_cache(CACHE_DIR / name)
+        served = served_examples(name)
+>       assert contradictions(entries, served) == [], (
+               ^^^^^^^^^^^^^^
+            f"{name}: a cache entry says verified=false for an example the pilot serves as verified"
+        )
+E       NameError: name 'contradictions' is not defined
+
+tests\infra\test_verification_cache_committed.py:200: NameError
+_ test_the_committed_cache_has_no_contradiction_with_the_served_examples[jmap_python] _
+
+name = 'jmap_python.json'
+
+    @pytest.mark.parametrize("name", _cache_cases())
+    def test_the_committed_cache_has_no_contradiction_with_the_served_examples(name: str) -> None:
+        entries = build_chunks.load_verification_cache(CACHE_DIR / name)
+        served = served_examples(name)
+>       assert contradictions(entries, served) == [], (
+               ^^^^^^^^^^^^^^
+            f"{name}: a cache entry says verified=false for an example the pilot serves as verified"
+        )
+E       NameError: name 'contradictions' is not defined
+
+tests\infra\test_verification_cache_committed.py:200: NameError
+_ test_the_committed_cache_has_no_contradiction_with_the_served_examples[jmap_rust] _
+
+name = 'jmap_rust.json'
+
+    @pytest.mark.parametrize("name", _cache_cases())
+    def test_the_committed_cache_has_no_contradiction_with_the_served_examples(name: str) -> None:
+        entries = build_chunks.load_verification_cache(CACHE_DIR / name)
+        served = served_examples(name)
+>       assert contradictions(entries, served) == [], (
+               ^^^^^^^^^^^^^^
+            f"{name}: a cache entry says verified=false for an example the pilot serves as verified"
+        )
+E       NameError: name 'contradictions' is not defined
+
+tests\infra\test_verification_cache_committed.py:200: NameError
+_ test_the_committed_cache_has_no_contradiction_with_the_served_examples[jmap_typescript] _
+
+name = 'jmap_typescript.json'
+
+    @pytest.mark.parametrize("name", _cache_cases())
+    def test_the_committed_cache_has_no_contradiction_with_the_served_examples(name: str) -> None:
+        entries = build_chunks.load_verification_cache(CACHE_DIR / name)
+        served = served_examples(name)
+>       assert contradictions(entries, served) == [], (
+               ^^^^^^^^^^^^^^
+            f"{name}: a cache entry says verified=false for an example the pilot serves as verified"
+        )
+E       NameError: name 'contradictions' is not defined
+
+tests\infra\test_verification_cache_committed.py:200: NameError
+_ test_the_committed_cache_has_no_contradiction_with_the_served_examples[note_python] _
+
+name = 'note_python.json'
+
+    @pytest.mark.parametrize("name", _cache_cases())
+    def test_the_committed_cache_has_no_contradiction_with_the_served_examples(name: str) -> None:
+        entries = build_chunks.load_verification_cache(CACHE_DIR / name)
+        served = served_examples(name)
+>       assert contradictions(entries, served) == [], (
+               ^^^^^^^^^^^^^^
+            f"{name}: a cache entry says verified=false for an example the pilot serves as verified"
+        )
+E       NameError: name 'contradictions' is not defined
+
+tests\infra\test_verification_cache_committed.py:200: NameError
+_ test_the_committed_cache_has_no_contradiction_with_the_served_examples[page_python] _
+
+name = 'page_python.json'
+
+    @pytest.mark.parametrize("name", _cache_cases())
+    def test_the_committed_cache_has_no_contradiction_with_the_served_examples(name: str) -> None:
+        entries = build_chunks.load_verification_cache(CACHE_DIR / name)
+        served = served_examples(name)
+>       assert contradictions(entries, served) == [], (
+               ^^^^^^^^^^^^^^
+            f"{name}: a cache entry says verified=false for an example the pilot serves as verified"
+        )
+E       NameError: name 'contradictions' is not defined
+
+tests\infra\test_verification_cache_committed.py:200: NameError
+_ test_the_committed_cache_has_no_contradiction_with_the_served_examples[pdf_cpp] _
+
+name = 'pdf_cpp.json'
+
+    @pytest.mark.parametrize("name", _cache_cases())
+    def test_the_committed_cache_has_no_contradiction_with_the_served_examples(name: str) -> None:
+        entries = build_chunks.load_verification_cache(CACHE_DIR / name)
+        served = served_examples(name)
+>       assert contradictions(entries, served) == [], (
+               ^^^^^^^^^^^^^^
+            f"{name}: a cache entry says verified=false for an example the pilot serves as verified"
+        )
+E       NameError: name 'contradictions' is not defined
+
+tests\infra\test_verification_cache_committed.py:200: NameError
+_ test_the_committed_cache_has_no_contradiction_with_the_served_examples[pdf_go] _
+
+name = 'pdf_go.json'
+
+    @pytest.mark.parametrize("name", _cache_cases())
+    def test_the_committed_cache_has_no_contradiction_with_the_served_examples(name: str) -> None:
+        entries = build_chunks.load_verification_cache(CACHE_DIR / name)
+        served = served_examples(name)
+>       assert contradictions(entries, served) == [], (
+               ^^^^^^^^^^^^^^
+            f"{name}: a cache entry says verified=false for an example the pilot serves as verified"
+        )
+E       NameError: name 'contradictions' is not defined
+
+tests\infra\test_verification_cache_committed.py:200: NameError
+_ test_the_committed_cache_has_no_contradiction_with_the_served_examples[pdf_java] _
+
+name = 'pdf_java.json'
+
+    @pytest.mark.parametrize("name", _cache_cases())
+    def test_the_committed_cache_has_no_contradiction_with_the_served_examples(name: str) -> None:
+        entries = build_chunks.load_verification_cache(CACHE_DIR / name)
+        served = served_examples(name)
+>       assert contradictions(entries, served) == [], (
+               ^^^^^^^^^^^^^^
+            f"{name}: a cache entry says verified=false for an example the pilot serves as verified"
+        )
+E       NameError: name 'contradictions' is not defined
+
+tests\infra\test_verification_cache_committed.py:200: NameError
+_ test_the_committed_cache_has_no_contradiction_with_the_served_examples[pdf_net] _
+
+name = 'pdf_net.json'
+
+    @pytest.mark.parametrize("name", _cache_cases())
+    def test_the_committed_cache_has_no_contradiction_with_the_served_examples(name: str) -> None:
+        entries = build_chunks.load_verification_cache(CACHE_DIR / name)
+        served = served_examples(name)
+>       assert contradictions(entries, served) == [], (
+               ^^^^^^^^^^^^^^
+            f"{name}: a cache entry says verified=false for an example the pilot serves as verified"
+        )
+E       NameError: name 'contradictions' is not defined
+
+tests\infra\test_verification_cache_committed.py:200: NameError
+_ test_the_committed_cache_has_no_contradiction_with_the_served_examples[pdf_python] _
+
+name = 'pdf_python.json'
+
+    @pytest.mark.parametrize("name", _cache_cases())
+    def test_the_committed_cache_has_no_contradiction_with_the_served_examples(name: str) -> None:
+        entries = build_chunks.load_verification_cache(CACHE_DIR / name)
+        served = served_examples(name)
+>       assert contradictions(entries, served) == [], (
+               ^^^^^^^^^^^^^^
+            f"{name}: a cache entry says verified=false for an example the pilot serves as verified"
+        )
+E       NameError: name 'contradictions' is not defined
+
+tests\infra\test_verification_cache_committed.py:200: NameError
+_ test_the_committed_cache_has_no_contradiction_with_the_served_examples[pdf_typescript] _
+
+name = 'pdf_typescript.json'
+
+    @pytest.mark.parametrize("name", _cache_cases())
+    def test_the_committed_cache_has_no_contradiction_with_the_served_examples(name: str) -> None:
+        entries = build_chunks.load_verification_cache(CACHE_DIR / name)
+        served = served_examples(name)
+>       assert contradictions(entries, served) == [], (
+               ^^^^^^^^^^^^^^
+            f"{name}: a cache entry says verified=false for an example the pilot serves as verified"
+        )
+E       NameError: name 'contradictions' is not defined
+
+tests\infra\test_verification_cache_committed.py:200: NameError
+_ test_the_committed_cache_has_no_contradiction_with_the_served_examples[slides_cpp] _
+
+name = 'slides_cpp.json'
+
+    @pytest.mark.parametrize("name", _cache_cases())
+    def test_the_committed_cache_has_no_contradiction_with_the_served_examples(name: str) -> None:
+        entries = build_chunks.load_verification_cache(CACHE_DIR / name)
+        served = served_examples(name)
+>       assert contradictions(entries, served) == [], (
+               ^^^^^^^^^^^^^^
+            f"{name}: a cache entry says verified=false for an example the pilot serves as verified"
+        )
+E       NameError: name 'contradictions' is not defined
+
+tests\infra\test_verification_cache_committed.py:200: NameError
+_ test_the_committed_cache_has_no_contradiction_with_the_served_examples[slides_java] _
+
+name = 'slides_java.json'
+
+    @pytest.mark.parametrize("name", _cache_cases())
+    def test_the_committed_cache_has_no_contradiction_with_the_served_examples(name: str) -> None:
+        entries = build_chunks.load_verification_cache(CACHE_DIR / name)
+        served = served_examples(name)
+>       assert contradictions(entries, served) == [], (
+               ^^^^^^^^^^^^^^
+            f"{name}: a cache entry says verified=false for an example the pilot serves as verified"
+        )
+E       NameError: name 'contradictions' is not defined
+
+tests\infra\test_verification_cache_committed.py:200: NameError
+_ test_the_committed_cache_has_no_contradiction_with_the_served_examples[slides_net] _
+
+name = 'slides_net.json'
+
+    @pytest.mark.parametrize("name", _cache_cases())
+    def test_the_committed_cache_has_no_contradiction_with_the_served_examples(name: str) -> None:
+        entries = build_chunks.load_verification_cache(CACHE_DIR / name)
+        served = served_examples(name)
+>       assert contradictions(entries, served) == [], (
+               ^^^^^^^^^^^^^^
+            f"{name}: a cache entry says verified=false for an example the pilot serves as verified"
+        )
+E       NameError: name 'contradictions' is not defined
+
+tests\infra\test_verification_cache_committed.py:200: NameError
+_ test_the_committed_cache_has_no_contradiction_with_the_served_examples[slides_python] _
+
+name = 'slides_python.json'
+
+    @pytest.mark.parametrize("name", _cache_cases())
+    def test_the_committed_cache_has_no_contradiction_with_the_served_examples(name: str) -> None:
+        entries = build_chunks.load_verification_cache(CACHE_DIR / name)
+        served = served_examples(name)
+>       assert contradictions(entries, served) == [], (
+               ^^^^^^^^^^^^^^
+            f"{name}: a cache entry says verified=false for an example the pilot serves as verified"
+        )
+E       NameError: name 'contradictions' is not defined
+
+tests\infra\test_verification_cache_committed.py:200: NameError
+_ test_the_committed_cache_has_no_contradiction_with_the_served_examples[tex_python] _
+
+name = 'tex_python.json'
+
+    @pytest.mark.parametrize("name", _cache_cases())
+    def test_the_committed_cache_has_no_contradiction_with_the_served_examples(name: str) -> None:
+        entries = build_chunks.load_verification_cache(CACHE_DIR / name)
+        served = served_examples(name)
+>       assert contradictions(entries, served) == [], (
+               ^^^^^^^^^^^^^^
+            f"{name}: a cache entry says verified=false for an example the pilot serves as verified"
+        )
+E       NameError: name 'contradictions' is not defined
+
+tests\infra\test_verification_cache_committed.py:200: NameError
+_ test_the_committed_cache_has_no_contradiction_with_the_served_examples[words_net] _
+
+name = 'words_net.json'
+
+    @pytest.mark.parametrize("name", _cache_cases())
+    def test_the_committed_cache_has_no_contradiction_with_the_served_examples(name: str) -> None:
+        entries = build_chunks.load_verification_cache(CACHE_DIR / name)
+        served = served_examples(name)
+>       assert contradictions(entries, served) == [], (
+               ^^^^^^^^^^^^^^
+            f"{name}: a cache entry says verified=false for an example the pilot serves as verified"
+        )
+E       NameError: name 'contradictions' is not defined
+
+tests\infra\test_verification_cache_committed.py:200: NameError
+_ test_the_committed_cache_has_no_contradiction_with_the_served_examples[words_python] _
+
+name = 'words_python.json'
+
+    @pytest.mark.parametrize("name", _cache_cases())
+    def test_the_committed_cache_has_no_contradiction_with_the_served_examples(name: str) -> None:
+        entries = build_chunks.load_verification_cache(CACHE_DIR / name)
+        served = served_examples(name)
+>       assert contradictions(entries, served) == [], (
+               ^^^^^^^^^^^^^^
+            f"{name}: a cache entry says verified=false for an example the pilot serves as verified"
+        )
+E       NameError: name 'contradictions' is not defined
+
+tests\infra\test_verification_cache_committed.py:200: NameError
+=========================== short test summary info ===========================
+FAILED tests/infra/test_verification_cache_committed.py::test_contradictions_flags_a_failed_verdict_for_a_served_example
+FAILED tests/infra/test_verification_cache_committed.py::test_contradictions_ignores_other_commits_and_other_hashes
+FAILED tests/infra/test_verification_cache_committed.py::test_the_committed_cache_has_no_contradiction_with_the_served_examples[3d_java]
+FAILED tests/infra/test_verification_cache_committed.py::test_the_committed_cache_has_no_contradiction_with_the_served_examples[3d_net]
+FAILED tests/infra/test_verification_cache_committed.py::test_the_committed_cache_has_no_contradiction_with_the_served_examples[3d_python]
+FAILED tests/infra/test_verification_cache_committed.py::test_the_committed_cache_has_no_contradiction_with_the_served_examples[3d_typescript]
+FAILED tests/infra/test_verification_cache_committed.py::test_the_committed_cache_has_no_contradiction_with_the_served_examples[barcode_python]
+FAILED tests/infra/test_verification_cache_committed.py::test_the_committed_cache_has_no_contradiction_with_the_served_examples[cells_cpp]
+FAILED tests/infra/test_verification_cache_committed.py::test_the_committed_cache_has_no_contradiction_with_the_served_examples[cells_go]
+FAILED tests/infra/test_verification_cache_committed.py::test_the_committed_cache_has_no_contradiction_with_the_served_examples[cells_java]
+FAILED tests/infra/test_verification_cache_committed.py::test_the_committed_cache_has_no_contradiction_with_the_served_examples[cells_net]
+FAILED tests/infra/test_verification_cache_committed.py::test_the_committed_cache_has_no_contradiction_with_the_served_examples[cells_python]
+FAILED tests/infra/test_verification_cache_committed.py::test_the_committed_cache_has_no_contradiction_with_the_served_examples[cells_rust]
+FAILED tests/infra/test_verification_cache_committed.py::test_the_committed_cache_has_no_contradiction_with_the_served_examples[cells_typescript]
+FAILED tests/infra/test_verification_cache_committed.py::test_the_committed_cache_has_no_contradiction_with_the_served_examples[email_cpp]
+FAILED tests/infra/test_verification_cache_committed.py::test_the_committed_cache_has_no_contradiction_with_the_served_examples[email_net]
+FAILED tests/infra/test_verification_cache_committed.py::test_the_committed_cache_has_no_contradiction_with_the_served_examples[email_python]
+FAILED tests/infra/test_verification_cache_committed.py::test_the_committed_cache_has_no_contradiction_with_the_served_examples[html_python]
+FAILED tests/infra/test_verification_cache_committed.py::test_the_committed_cache_has_no_contradiction_with_the_served_examples[imaging_net]
+FAILED tests/infra/test_verification_cache_committed.py::test_the_committed_cache_has_no_contradiction_with_the_served_examples[jmap_cpp]
+FAILED tests/infra/test_verification_cache_committed.py::test_the_committed_cache_has_no_contradiction_with_the_served_examples[jmap_go]
+FAILED tests/infra/test_verification_cache_committed.py::test_the_committed_cache_has_no_contradiction_with_the_served_examples[jmap_java]
+FAILED tests/infra/test_verification_cache_committed.py::test_the_committed_cache_has_no_contradiction_with_the_served_examples[jmap_net]
+FAILED tests/infra/test_verification_cache_committed.py::test_the_committed_cache_has_no_contradiction_with_the_served_examples[jmap_nodejs]
+FAILED tests/infra/test_verification_cache_committed.py::test_the_committed_cache_has_no_contradiction_with_the_served_examples[jmap_python]
+FAILED tests/infra/test_verification_cache_committed.py::test_the_committed_cache_has_no_contradiction_with_the_served_examples[jmap_rust]
+FAILED tests/infra/test_verification_cache_committed.py::test_the_committed_cache_has_no_contradiction_with_the_served_examples[jmap_typescript]
+FAILED tests/infra/test_verification_cache_committed.py::test_the_committed_cache_has_no_contradiction_with_the_served_examples[note_python]
+FAILED tests/infra/test_verification_cache_committed.py::test_the_committed_cache_has_no_contradiction_with_the_served_examples[page_python]
+FAILED tests/infra/test_verification_cache_committed.py::test_the_committed_cache_has_no_contradiction_with_the_served_examples[pdf_cpp]
+FAILED tests/infra/test_verification_cache_committed.py::test_the_committed_cache_has_no_contradiction_with_the_served_examples[pdf_go]
+FAILED tests/infra/test_verification_cache_committed.py::test_the_committed_cache_has_no_contradiction_with_the_served_examples[pdf_java]
+FAILED tests/infra/test_verification_cache_committed.py::test_the_committed_cache_has_no_contradiction_with_the_served_examples[pdf_net]
+FAILED tests/infra/test_verification_cache_committed.py::test_the_committed_cache_has_no_contradiction_with_the_served_examples[pdf_python]
+FAILED tests/infra/test_verification_cache_committed.py::test_the_committed_cache_has_no_contradiction_with_the_served_examples[pdf_typescript]
+FAILED tests/infra/test_verification_cache_committed.py::test_the_committed_cache_has_no_contradiction_with_the_served_examples[slides_cpp]
+FAILED tests/infra/test_verification_cache_committed.py::test_the_committed_cache_has_no_contradiction_with_the_served_examples[slides_java]
+FAILED tests/infra/test_verification_cache_committed.py::test_the_committed_cache_has_no_contradiction_with_the_served_examples[slides_net]
+FAILED tests/infra/test_verification_cache_committed.py::test_the_committed_cache_has_no_contradiction_with_the_served_examples[slides_python]
+FAILED tests/infra/test_verification_cache_committed.py::test_the_committed_cache_has_no_contradiction_with_the_served_examples[tex_python]
+FAILED tests/infra/test_verification_cache_committed.py::test_the_committed_cache_has_no_contradiction_with_the_served_examples[words_net]
+FAILED tests/infra/test_verification_cache_committed.py::test_the_committed_cache_has_no_contradiction_with_the_served_examples[words_python]
+
+--- stderr ---
+
