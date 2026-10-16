@@ -328,6 +328,81 @@ Helm removes everything the release created, including its manifests volume clai
 generation is lost with it. To remove all fourteen, list the releases with `helm list -n foss-mcp` and
 uninstall each one. The namespace is left in place.
 
+## Rolling back a generation
+
+A bad publish that was nevertheless accepted is undone by pointing the scope back at an earlier
+generation. The ingestion image already contains `infra/rollback.py`; no new image is needed. A rollback
+travels the same fenced path as a publish (it takes a new lease, so a stale writer cannot overwrite it) and
+needs no restart: the serving pod reads the active pointer on every probe, so `/readyz` and the tools follow
+the pointer on the next call.
+
+The manifests claim is `foss-mcp-<family>-<platform>-manifests`, mounted read-only by the serving pod. It is
+`ReadWriteOnce`, so the rollback Job must run on the same node as the serving pod: find it with
+`kubectl get pod -n <namespace> -o wide` and put it in `nodeName`. Replace `<namespace>`, `<node>`, `<tag>`
+and the family and platform below with the release's own values, and use the chart's ingestion image
+(`ingestion.image.repository`, `foss-mcp-ingestion`, at the same `image.tag` the release was installed with):
+
+```yaml
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: foss-mcp-rollback-pdf-go
+  namespace: <namespace>
+spec:
+  backoffLimit: 0
+  template:
+    spec:
+      restartPolicy: Never
+      nodeName: <node>
+      securityContext:
+        runAsUser: 10001
+        fsGroup: 10001
+      containers:
+        - name: rollback
+          image: foss-mcp-ingestion:<tag>
+          command:
+            - python
+            - /app/infra/rollback.py
+            - --family
+            - pdf
+            - --platform
+            - go
+            - --source-kind
+            - self_extracted
+            - --manifest-store
+            - /data/manifests
+            - --list
+          volumeMounts:
+            - name: manifests
+              mountPath: /data/manifests
+      volumes:
+        - name: manifests
+          persistentVolumeClaim:
+            claimName: foss-mcp-pdf-go-manifests
+```
+
+Exactly one of three arguments ends the command, after `--family pdf --platform go --source-kind
+self_extracted --manifest-store /data/manifests`:
+
+- `--list` prints one line per stored generation, newest first: the generation id, the word `ACTIVE` beside
+  the one being served, and `symbols=N docs=N examples=N total=N`. It takes no lease and writes nothing.
+  Run it first, read the Job's log with `kubectl logs job/foss-mcp-rollback-pdf-go -n <namespace>`, then
+  delete the Job and create the next one.
+- `--previous` rolls back to the generation the last publish (or rollback) replaced.
+- `--target-generation <id>` rolls back to the named generation, copied from the `--list` output.
+
+The target is validated before the pointer moves: it must belong to this scope (a generation id of another
+product is refused even when a file with the same version exists) and its content must have a non-empty
+lexical index whose documents all carry a chunk id, tokens and text. A refused rollback leaves the pointer
+where it was. On success the Job prints `rolled back to <id>`.
+
+Retention keeps the active generation, the previous one and the last three generations by version; an
+ingestion that publishes removes older generation files (never one younger than an hour) and stale
+temporary files. Read `publish_log.jsonl` in the scope's directory to see what happened: a `published`
+line for each accepted publish, a `refused` line for each refusal, a `rollback` line for each rollback
+(with the generation it replaced in `previous_active`), and a `pruned` line listing what retention removed.
+Delete the rollback Job when done.
+
 ## Accepting an intentional shrink
 
 Every ingestion publishes through a production policy. A publish is refused, nothing is activated and the

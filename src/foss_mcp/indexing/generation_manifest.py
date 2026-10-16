@@ -62,7 +62,10 @@ import os
 import re
 import tempfile
 import threading
+import time
 from collections import OrderedDict
+from collections.abc import Iterator
+from contextlib import contextmanager
 from dataclasses import dataclass, field
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
@@ -81,6 +84,15 @@ PRODUCTION_MIN_DOCS = 1
 RETENTION_KEEP_LAST = 3
 MIN_BASELINE_FOR_PERCENT_RULE = 5
 PUBLISH_LOG_NAME = "publish_log.jsonl"
+# TC-529: the pointer and lease-state reads are capped; the exclusive scope lock is this file.
+POINTER_MAX_BYTES = 64 * 1024
+LOCK_NAME = ".publish.lock"
+_GENERATION_FILE_PREFIX = "generation__"
+_TMP_FILE_PREFIX = ".tmp-"
+# A generation file starts `{"family": ..., "generation_id": ...` (keys are written sorted), so the id
+# is found in the first bytes without parsing a payload that can be hundreds of megabytes.
+_GENERATION_HEAD_BYTES = 2048
+_GENERATION_ID_IN_HEAD = re.compile(r'"generation_id":\s*("(?:[^"\\]|\\.)*")')
 # At most this many parsed generation documents are held in process, per store instance.
 _GENERATION_CACHE_MAX_ENTRIES = 8
 
@@ -289,9 +301,11 @@ class GenerationManifestStore:
     written.
     """
 
-    def __init__(self, root: Path) -> None:
+    def __init__(self, root: Path, *, lock_timeout: float = 60.0, lock_stale_seconds: float = 30.0) -> None:
         self.root = Path(root)
         self.root.mkdir(parents=True, exist_ok=True)
+        self.lock_timeout = lock_timeout
+        self.lock_stale_seconds = lock_stale_seconds
         # (resolved path, st_mtime_ns, st_size) -> parsed generation document, least recently used first.
         self._generation_cache: OrderedDict[tuple[str, int, int], dict[str, Any]] = OrderedDict()
         self._generation_cache_lock = threading.Lock()
@@ -344,26 +358,113 @@ class GenerationManifestStore:
         return self._scope_dir(scope) / "lease_state.json"
 
     @staticmethod
-    def _read_json(path: Path) -> dict[str, Any] | None:
-        if not path.exists():
+    def _read_json(path: Path, max_bytes: int | None = None) -> dict[str, Any] | None:
+        """The JSON document at ``path`` (``None`` if absent). A UTF-8 byte-order mark is tolerated.
+        With ``max_bytes``, a file longer than that is refused after reading at most ``max_bytes + 1``
+        bytes of it, without parsing anything."""
+        try:
+            with open(path, "rb") as fh:
+                raw = fh.read() if max_bytes is None else fh.read(max_bytes + 1)
+        except FileNotFoundError:
             return None
-        return json.loads(path.read_text(encoding="utf-8-sig"))
+        if max_bytes is not None and len(raw) > max_bytes:
+            raise GenerationManifestError(f"{path.name} exceeds {max_bytes // 1024} KiB")
+        return json.loads(raw.decode("utf-8-sig"))
+
+    @classmethod
+    def _read_capped_json(cls, path: Path) -> dict[str, Any] | None:
+        """``_read_json`` for the active pointer and the lease state: a file larger than
+        ``POINTER_MAX_BYTES`` is refused from its size, before any byte of it is read."""
+        try:
+            size = path.stat().st_size
+        except FileNotFoundError:
+            return None
+        if size > POINTER_MAX_BYTES:
+            raise GenerationManifestError(f"{path.name} exceeds {POINTER_MAX_BYTES // 1024} KiB")
+        return cls._read_json(path)
+
+    @staticmethod
+    def _fsync_directory(path: Path) -> None:
+        """Make a rename inside ``path`` durable. POSIX only: a directory cannot be opened on
+        Windows, where this does nothing. An OSError (a filesystem that cannot sync a directory)
+        is swallowed."""
+        if os.name != "posix":
+            return
+        try:
+            fd = os.open(path, os.O_RDONLY)
+        except OSError:
+            return
+        try:
+            os.fsync(fd)
+        except OSError:
+            pass
+        finally:
+            os.close(fd)
 
     @staticmethod
     def _atomic_write_json(path: Path, doc: dict[str, Any]) -> None:
         """Write ``doc`` to ``path`` atomically: a reader can only ever
         observe the fully-old or the fully-new content, never a partial
-        write, because the final step is a single filesystem rename."""
+        write, because the final step is a single filesystem rename. The file is fsynced before
+        the rename and the directory after it, so a crash cannot leave the new name pointing at
+        content that never reached the disk."""
         path.parent.mkdir(parents=True, exist_ok=True)
         fd, tmp_name = tempfile.mkstemp(dir=str(path.parent), prefix=".tmp-", suffix=".json")
         try:
             with os.fdopen(fd, "w", encoding="utf-8") as fh:
                 json.dump(doc, fh, indent=2, sort_keys=True)
                 fh.write("\n")
+                fh.flush()
+                os.fsync(fh.fileno())
             os.replace(tmp_name, path)
+            GenerationManifestStore._fsync_directory(path.parent)
         finally:
             if os.path.exists(tmp_name):
                 os.remove(tmp_name)
+
+    # -- exclusive scope lock (TC-529) ---------------------------------------
+
+    @contextmanager
+    def scope_lock(self, scope: str) -> Iterator[None]:
+        """Hold the scope's exclusive ``.publish.lock`` (an O_EXCL file holding the pid and a
+        timestamp) for the duration of the block, and remove it afterwards. A lock file older than
+        ``lock_stale_seconds`` is a crashed holder's and is taken over; a caller that cannot get the
+        lock within ``lock_timeout`` seconds raises :class:`GenerationManifestError`."""
+        scope_dir = self._scope_dir(scope)
+        os.makedirs(scope_dir, exist_ok=True)
+        lock_path = scope_dir / LOCK_NAME
+        deadline = time.monotonic() + self.lock_timeout
+        while True:
+            try:
+                fd = os.open(lock_path, os.O_CREAT | os.O_EXCL | os.O_WRONLY)
+                break
+            except (FileExistsError, PermissionError):
+                self._remove_stale_lock(lock_path)
+                if time.monotonic() >= deadline:
+                    raise GenerationManifestError(
+                        f"could not take the publish lock for scope {scope!r} within {self.lock_timeout:g}s"
+                    ) from None
+                time.sleep(0.005)
+        try:
+            with os.fdopen(fd, "w", encoding="utf-8") as fh:
+                fh.write(json.dumps({"pid": os.getpid(), "ts": _iso_now()}))
+            yield
+        finally:
+            try:
+                os.remove(lock_path)
+            except OSError:
+                pass
+
+    def _remove_stale_lock(self, lock_path: Path) -> None:
+        try:
+            age = time.time() - lock_path.stat().st_mtime
+        except OSError:
+            return
+        if age > self.lock_stale_seconds:
+            try:
+                os.remove(lock_path)
+            except OSError:
+                pass
 
     # -- generations: immutable once written ------------------------------
 
@@ -441,7 +542,7 @@ class GenerationManifestStore:
     def current_fencing_token(self, scope: str) -> int:
         """The latest fencing token issued for ``scope`` (0 if none has
         ever been acquired)."""
-        state = self._read_json(self._lease_state_path(scope))
+        state = self._read_capped_json(self._lease_state_path(scope))
         return int(state["latest_token"]) if state else 0
 
     def acquire_lease(
@@ -461,17 +562,18 @@ class GenerationManifestStore:
         trying to do."""
         acquired_at = acquired_at or _iso_now()
         expires_at = _iso_plus(acquired_at, ttl_seconds)
-        next_token = self.current_fencing_token(scope) + 1
-        self._atomic_write_json(
-            self._lease_state_path(scope),
-            {
-                "latest_token": next_token,
-                "held_by": held_by,
-                "generation_id": generation_id,
-                "acquired_at": acquired_at,
-                "expires_at": expires_at,
-            },
-        )
+        with self.scope_lock(scope):
+            next_token = self.current_fencing_token(scope) + 1
+            self._atomic_write_json(
+                self._lease_state_path(scope),
+                {
+                    "latest_token": next_token,
+                    "held_by": held_by,
+                    "generation_id": generation_id,
+                    "acquired_at": acquired_at,
+                    "expires_at": expires_at,
+                },
+            )
         return Lease(
             held_by=held_by,
             generation_id=generation_id,
@@ -485,7 +587,7 @@ class GenerationManifestStore:
     def read_active(self, scope: str) -> str | None:
         """The generation_id currently active for ``scope``, or ``None``
         if nothing has ever been activated."""
-        doc = self._read_json(self._active_pointer_path(scope))
+        doc = self._read_capped_json(self._active_pointer_path(scope))
         return doc["generation_id"] if doc else None
 
     # -- the one authority path ----------------------------------------------
@@ -504,24 +606,167 @@ class GenerationManifestStore:
              active).
           3. Only if both hold does the pointer get written, and that
              write is atomic (see :meth:`_atomic_write_json`).
+        The whole of it runs under :meth:`scope_lock`, so no lease can be issued between the
+        fencing check and the write.
         """
-        current_token = self.current_fencing_token(scope)
-        if lease.fencing_token != current_token:
-            raise StaleFencingTokenError(
-                f"fencing token {lease.fencing_token} for scope {scope!r} is stale "
-                f"(latest issued token is {current_token})"
-            )
-        actual_active = self.read_active(scope)
-        if actual_active != expected_active:
-            raise ActivePointerConflictError(
-                f"expected active {expected_active!r} for scope {scope!r}, found {actual_active!r}"
-            )
-        self._atomic_write_json(self._active_pointer_path(scope), {"generation_id": generation_id})
+        with self.scope_lock(scope):
+            current_token = self.current_fencing_token(scope)
+            if lease.fencing_token != current_token:
+                raise StaleFencingTokenError(
+                    f"fencing token {lease.fencing_token} for scope {scope!r} is stale "
+                    f"(latest issued token is {current_token})"
+                )
+            actual_active = self.read_active(scope)
+            if actual_active != expected_active:
+                raise ActivePointerConflictError(
+                    f"expected active {expected_active!r} for scope {scope!r}, found {actual_active!r}"
+                )
+            self._atomic_write_json(self._active_pointer_path(scope), {"generation_id": generation_id})
         return generation_id
 
     def generation_exists(self, scope: str, generation_id: str) -> bool:
         """Whether ``generation_id`` was ever written for ``scope``."""
         return self._read_json(self._generation_path_for_id(scope, generation_id)) is not None
+
+    # -- listing and retention (TC-529) ------------------------------------
+
+    @staticmethod
+    def _generation_id_of(path: Path) -> str | None:
+        """The ``generation_id`` a generation file carries, or ``None`` when it has none (an
+        unreadable or malformed file). Reads the first bytes only when they hold the id."""
+        try:
+            with open(path, "rb") as fh:
+                head = fh.read(_GENERATION_HEAD_BYTES).decode("utf-8-sig", errors="replace")
+            match = _GENERATION_ID_IN_HEAD.search(head)
+            if match is not None:
+                value = json.loads(match.group(1))
+            else:
+                doc = GenerationManifestStore._read_json(path)
+                value = doc.get("generation_id") if isinstance(doc, dict) else None
+        except (OSError, ValueError):
+            return None
+        return value if isinstance(value, str) and value else None
+
+    def _generation_files(self, scope: str) -> list[tuple[str, Path]]:
+        """``(generation_id, path)`` for every readable ``generation__*.json`` in the scope
+        directory, newest version first (descending version string)."""
+        scope_dir = self._scope_dir(scope)
+        try:
+            names = sorted(os.listdir(scope_dir))
+        except FileNotFoundError:
+            return []
+        found: list[tuple[str, Path]] = []
+        for name in names:
+            if not (name.startswith(_GENERATION_FILE_PREFIX) and name.endswith(".json")):
+                continue
+            path = scope_dir / name
+            if path.is_symlink() or not path.is_file():
+                continue
+            generation_id = self._generation_id_of(path)
+            if generation_id is not None:
+                found.append((generation_id, path))
+        found.sort(key=lambda item: item[0].rsplit(_SEP, 1)[-1], reverse=True)
+        return found
+
+    def list_generations(self, scope: str) -> list[str]:
+        """The ids of the generations stored for ``scope``, newest version first."""
+        return [generation_id for generation_id, _ in self._generation_files(scope)]
+
+    def _logged_previous(self, scope: str) -> str | None:
+        """The ``previous_active`` of the newest ``published`` or ``rollback`` log entry, when that
+        generation is of this scope and still exists."""
+        for entry in reversed(self.read_publish_log(scope)):
+            if entry.get("event") not in ("published", "rollback"):
+                continue
+            candidate = entry.get("previous_active")
+            if not isinstance(candidate, str) or not candidate:
+                return None
+            try:
+                if candidate.rsplit(_SEP, 1)[0] == scope and self.generation_exists(scope, candidate):
+                    return candidate
+            except GenerationManifestError:
+                pass
+            return None
+        return None
+
+    def previous_generation(self, scope: str) -> str | None:
+        """The generation a one-step rollback goes to: the one the newest publish or rollback
+        replaced when it still exists, else the second newest stored generation, else ``None``."""
+        logged = self._logged_previous(scope)
+        if logged is not None:
+            return logged
+        stored = self.list_generations(scope)
+        return stored[1] if len(stored) > 1 else None
+
+    def prune(
+        self,
+        scope: str,
+        *,
+        keep_last: int = RETENTION_KEEP_LAST,
+        tmp_max_age_seconds: float = 3600.0,
+        generation_min_age_seconds: float = 3600.0,
+        protect: tuple[str | None, ...] = (),
+        now: float | None = None,
+    ) -> list[str]:
+        """Delete orphans and old generations from the scope directory and return the removed file
+        names. Kept always: the active generation, every id in ``protect``, the generation the log
+        says was replaced last, and the ``keep_last`` newest by version. Any other generation file
+        older than ``generation_min_age_seconds`` and every ``.tmp-*`` file older than
+        ``tmp_max_age_seconds`` (by mtime) goes. One ``pruned`` line is appended to the publish log
+        when anything was removed. Only plain files directly inside the contained scope directory
+        are ever removed."""
+        scope_dir = self._scope_dir(scope)
+        current = time.time() if now is None else now
+        files = self._generation_files(scope)
+        keep = {generation_id for generation_id in protect if generation_id}
+        active = self.read_active(scope)
+        if active:
+            keep.add(active)
+        logged = self._logged_previous(scope)
+        if logged:
+            keep.add(logged)
+        keep.update(generation_id for generation_id, _ in files[: max(keep_last, 0)])
+
+        removed: list[str] = []
+        for generation_id, path in files:
+            if generation_id in keep:
+                continue
+            if self._older_than(path, current, generation_min_age_seconds) and self._remove_plain_file(path):
+                removed.append(path.name)
+        try:
+            names = sorted(os.listdir(scope_dir))
+        except FileNotFoundError:
+            names = []
+        for name in names:
+            path = scope_dir / name
+            if (
+                name.startswith(_TMP_FILE_PREFIX)
+                and self._older_than(path, current, tmp_max_age_seconds)
+                and self._remove_plain_file(path)
+            ):
+                removed.append(name)
+        if removed:
+            self.append_publish_log(
+                scope, {"ts": _iso_now(), "event": "pruned", "scope": scope, "removed": removed}
+            )
+        return removed
+
+    @staticmethod
+    def _older_than(path: Path, now: float, seconds: float) -> bool:
+        try:
+            return now - path.stat().st_mtime > seconds
+        except OSError:
+            return False
+
+    @staticmethod
+    def _remove_plain_file(path: Path) -> bool:
+        if path.is_symlink() or not path.is_file():
+            return False
+        try:
+            os.remove(path)
+        except OSError:
+            return False
+        return True
 
     # -- publish log (TC-510) ---------------------------------------------
 
@@ -703,6 +948,8 @@ class PublishPolicy:
     accept_regressions: tuple[tuple[str, int, int], ...] = ()
     reason: str | None = None
     held_by: str = ""
+    prune: bool = True
+    generation_min_age_seconds: float = 3600.0
 
 
 def integrity_refusal_message(duplicate_chunk_ids: int, empty_text_chunks: int) -> str | None:
@@ -901,6 +1148,15 @@ def _publish_with_policy(
             "floors": {"symbols": policy.min_symbols, "docs": policy.min_docs},
         },
     )
+    if policy.prune:
+        try:
+            store.prune(
+                scope,
+                protect=(expected_active,),
+                generation_min_age_seconds=policy.generation_min_age_seconds,
+            )
+        except (OSError, GenerationManifestError):
+            pass  # the new generation is already active: a failed cleanup must not report a failed publish
     return result
 
 
@@ -960,6 +1216,8 @@ def rollback(
     expected_active: str | None,
     target_generation_id: str,
     lease: Lease,
+    *,
+    validate: bool = False,
 ) -> str:
     """Roll back ``scope`` to a PREVIOUSLY-published generation.
 
@@ -971,9 +1229,80 @@ def rollback(
     rollback adds is a sanity check that the target generation actually
     exists — you can only roll back to something that was really
     published.
+
+    TC-529: a target that is not of this scope (its id minus the version is not ``scope``) is
+    refused with :class:`UnknownGenerationError` even if a file with that version exists, and
+    every successful rollback appends a ``rollback`` line to the scope's publish log. With
+    ``validate=True`` the target's content must also pass :func:`check_generation_shape`
+    (:class:`ManifestValidationError` otherwise); the default leaves the legacy contract.
     """
     if not store.generation_exists(scope, target_generation_id):
         raise UnknownGenerationError(
             f"cannot roll back scope {scope!r} to unknown generation {target_generation_id!r}"
         )
-    return store.cas_activate(scope, expected_active, target_generation_id, lease)
+    if target_generation_id.rsplit(_SEP, 1)[0] != scope:
+        raise UnknownGenerationError(
+            f"generation {target_generation_id!r} does not belong to scope {scope!r}"
+        )
+    if validate:
+        try:
+            manifest = store.read_generation(scope, target_generation_id)
+        except (UnknownGenerationError, KeyError, TypeError, ManifestValidationError) as exc:
+            raise ManifestValidationError(
+                f"generation {target_generation_id!r} is not a readable generation of scope {scope!r}"
+            ) from exc
+        problems = check_generation_shape(manifest, target_generation_id)
+        if problems:
+            raise ManifestValidationError(
+                f"generation {target_generation_id!r} failed validation: " + "; ".join(problems)
+            )
+    result = store.cas_activate(scope, expected_active, target_generation_id, lease)
+    store.append_publish_log(
+        scope,
+        {
+            "ts": _iso_now(),
+            "event": "rollback",
+            "scope": scope,
+            "generation_id": target_generation_id,
+            "previous_active": expected_active,
+        },
+    )
+    return result
+
+
+def check_generation_shape(
+    manifest: GenerationManifest, expected_generation_id: str | None = None
+) -> list[str]:
+    """The problems that would make ``manifest`` unusable for serving, ``[]`` when there are none:
+    the lexical index must hold a non-empty dict of documents, each with a string ``chunk_id``, a
+    list of ``tokens`` and a non-empty string ``text``, plus a dict ``doc_freq``; when
+    ``expected_generation_id`` is given the manifest's own id must equal it."""
+    problems: list[str] = []
+    if expected_generation_id is not None and manifest.generation_id != expected_generation_id:
+        problems.append(
+            f"generation_id {manifest.generation_id!r} does not match the requested {expected_generation_id!r}"
+        )
+    lexical = manifest.payload.get("lexical_index")
+    if not isinstance(lexical, dict):
+        return problems + ["payload has no lexical_index object"]
+    documents = lexical.get("documents")
+    if not isinstance(documents, dict) or not documents:
+        problems.append("lexical_index.documents is not a non-empty object")
+    else:
+        for doc_id, document in documents.items():
+            if not isinstance(document, dict):
+                problems.append(f"document {doc_id!r} is not an object")
+                continue
+            if not isinstance(document.get("chunk_id"), str):
+                problems.append(f"document {doc_id!r} has no string chunk_id")
+            if not isinstance(document.get("tokens"), list):
+                problems.append(f"document {doc_id!r} has no tokens list")
+            text = document.get("text")
+            if not isinstance(text, str) or not text:
+                problems.append(f"document {doc_id!r} has no text")
+            if len(problems) >= 10:
+                problems.append("further problems omitted")
+                break
+    if not isinstance(lexical.get("doc_freq"), dict):
+        problems.append("lexical_index.doc_freq is not an object")
+    return problems

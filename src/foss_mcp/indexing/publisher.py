@@ -153,8 +153,11 @@ def rollback_generation(
     expected_active: str | None,
     target_generation_id: str,
     lease: Lease,
+    *,
+    validate: bool = False,
 ) -> str:
     """Roll ``scope`` back to a previously-published generation - the identical authority
-    path ``publish_generation`` uses, per ``generation_manifest.rollback``.
+    path ``publish_generation`` uses, per ``generation_manifest.rollback``. ``validate`` (TC-529)
+    additionally requires the target's content to pass ``check_generation_shape``.
     """
-    return manifest_rollback(store, scope, expected_active, target_generation_id, lease)
+    return manifest_rollback(store, scope, expected_active, target_generation_id, lease, validate=validate)

@@ -21,8 +21,30 @@ from __future__ import annotations
 import argparse
 from pathlib import Path
 
-from foss_mcp.indexing.generation_manifest import GenerationManifestStore
+from foss_mcp.indexing.generation_manifest import (
+    GenerationManifestStore,
+    UnknownGenerationError,
+    payload_stats,
+)
 from foss_mcp.indexing.publisher import rollback_generation
+
+
+def _list_generations(store: GenerationManifestStore, scope: str) -> None:
+    """Print one line per stored generation, newest first. Takes no lease and writes nothing."""
+    active = store.read_active(scope)
+    for generation_id in store.list_generations(scope):
+        manifest = store.read_generation(scope, generation_id)
+        stats = manifest.payload.get("stats")
+        if not (
+            isinstance(stats, dict)
+            and all(kind in stats for kind in ("symbols", "docs", "examples", "total"))
+        ):
+            stats = payload_stats(manifest.payload)
+        marker = "ACTIVE" if generation_id == active else "      "
+        print(
+            f"{generation_id} {marker} symbols={stats['symbols']} docs={stats['docs']} "
+            f"examples={stats['examples']} total={stats['total']}"
+        )
 
 
 def main() -> None:
@@ -32,15 +54,34 @@ def main() -> None:
     parser.add_argument("--source-kind", required=True)
     parser.add_argument("--manifest-store", type=Path, required=True)
     parser.add_argument("--held-by", default="rollback")
-    parser.add_argument(
+    mode = parser.add_mutually_exclusive_group(required=True)
+    mode.add_argument(
         "--target-generation",
-        required=True,
         help="the generation id to roll back to (must already have been published)",
+    )
+    mode.add_argument(
+        "--list",
+        action="store_true",
+        help="list the scope's stored generations, newest first, marking the active one",
+    )
+    mode.add_argument(
+        "--previous",
+        action="store_true",
+        help="roll back to the generation the last publish or rollback replaced",
     )
     args = parser.parse_args()
 
     store = GenerationManifestStore(args.manifest_store)
     scope = "::".join((args.family, args.platform, args.source_kind))
+    if args.list:
+        _list_generations(store, scope)
+        return
+
+    target = args.target_generation
+    if args.previous:
+        target = store.previous_generation(scope)
+        if target is None:
+            raise UnknownGenerationError(f"scope {scope!r} has no previous generation to roll back to")
     expected_active = store.read_active(scope)
     lease = store.acquire_lease(scope, args.held_by, "pending")
 
@@ -48,8 +89,9 @@ def main() -> None:
         store,
         scope,
         expected_active,
-        args.target_generation,
+        target,
         lease,
+        validate=True,
     )
     print(f"rolled back to {generation_id}")
 
