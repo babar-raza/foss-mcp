@@ -22,6 +22,7 @@ write_paths:
 - src/foss_mcp/mcp/tools/find_examples.py
 - tests/infra/test_serve_http_slash_redirect.py
 - tests/mcp/tools/test_find_examples_verification_record.py
+- tests/mcp/tools/test_find_examples_title_anchor.py
 satisfies:
 - REQ-G3-008
 - REQ-G3-001
@@ -49,6 +50,8 @@ inputs:
   encoding (LF, UTF-8, no BOM); commit messages are UTF-8 without a byte-order mark. Do not edit docs/ (the trailing-slash 404 is mentioned by the successor documentation card).
 - >-
   Production wiring: `build_app` is what `main` hands to uvicorn (`uvicorn.run(build_app(config, ...), host="0.0.0.0", ...)`), and the redirect test drives the app `build_app` returns, not a router built by the test; the find_examples fields are filled inside `find_examples`, which `_wrap_find_examples` in src/foss_mcp/mcp/server.py calls, and the tools/call test above goes through that registry.
+- >-
+  SUPERVISOR AMENDMENT (after the first report): tests/mcp/tools/test_find_examples_title_anchor.py (card TC-543, accepted after this card was drafted) has `test_match_basis_is_the_last_field`, which pins `match_basis` as the LAST ExampleMatch field. The three new fields now come after it. Change ONLY that test: it must expect the field names to end with "provenance", "match_basis", "language", "source_commit", "verification" (keep its assertion about the earlier prefix fields and every other test in the file), with a comment naming TC-544. Check 2 covers it through tests/mcp.
 actions:
 - >-
   Stop the server building a redirect URL from the client's Host header: trailing-slash paths become a 404.
