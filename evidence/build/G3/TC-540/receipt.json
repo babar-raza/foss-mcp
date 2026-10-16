@@ -1,0 +1,114 @@
+{
+  "schema_version": 1,
+  "card": "TC-540",
+  "gate": "G3",
+  "generated_by": "gatectl",
+  "generated_at": "2026-10-16T14:17:28Z",
+  "base_rev": "55da74bca2f339539c050b4525d205df2e1b5b7e",
+  "head_rev": "a5866b6517aed9226207cfaf77b2fa10fc9a3bf4",
+  "card_sha256": "a763aeab0188c44b137ede63bf23c3460a571bd93d77462e33ff363e0b13ddd5",
+  "fingerprint": {
+    "python": "3.13.2",
+    "platform": "Windows-11-10.0.26200-SP0",
+    "lock_sha256": "7b182948484d7df9614b523f7a8180f795b6c51d55c418728525c1957f3e38ba",
+    "env": {
+      "PYTHONHASHSEED": "0",
+      "PYTHONUTF8": "1",
+      "PYTHONDONTWRITEBYTECODE": "1",
+      "PYTHONIOENCODING": "utf-8",
+      "TZ": "UTC",
+      "LC_ALL": "C.UTF-8",
+      "SOURCE_DATE_EPOCH": "1700000000",
+      "verify_runner": "host"
+    }
+  },
+  "scope": {
+    "ok": true,
+    "changed_paths": [
+      "src/foss_mcp/mcp/server.py",
+      "src/foss_mcp/mcp/tools/get_symbol.py",
+      "src/foss_mcp/mcp/tools/list_members.py",
+      "tests/mcp/tools/test_member_lookup.py",
+      "tests/mcp/tools/test_member_lookup_baked.py"
+    ],
+    "violations": [],
+    "evaluated": true
+  },
+  "runs": [
+    {
+      "run": 1,
+      "checks": [
+        {
+          "command": "{python} -m pytest tests/mcp/tools/test_member_lookup.py tests/mcp/tools/test_member_lookup_baked.py -q -rfE -p no:cacheprovider",
+          "exit_code": 0,
+          "duration_s": 16.677,
+          "stdout_sha256": "6692934017b7c49d882f90bacacdf46a1fb73798aa5057b4c7edfb9fb4d213af",
+          "tests": 89,
+          "skipped": 0,
+          "errors": 0,
+          "failures": 0
+        },
+        {
+          "command": "{python} -m pytest tests/mcp tests/indexing/test_lookup_doc_fallback_query_safety.py tests/test_unwired_modules.py -q -rfE -p no:cacheprovider",
+          "exit_code": 0,
+          "duration_s": 79.724,
+          "stdout_sha256": "272f04d92549a107ba211cf706b54e8a64227e428cbe52f7d06f6de45a20edc4",
+          "tests": 2522,
+          "skipped": 0,
+          "errors": 0,
+          "failures": 0
+        }
+      ],
+      "all_passed": true
+    },
+    {
+      "run": 2,
+      "checks": [
+        {
+          "command": "{python} -m pytest tests/mcp/tools/test_member_lookup.py tests/mcp/tools/test_member_lookup_baked.py -q -rfE -p no:cacheprovider",
+          "exit_code": 0,
+          "duration_s": 13.493,
+          "stdout_sha256": "6692934017b7c49d882f90bacacdf46a1fb73798aa5057b4c7edfb9fb4d213af",
+          "tests": 89,
+          "skipped": 0,
+          "errors": 0,
+          "failures": 0
+        },
+        {
+          "command": "{python} -m pytest tests/mcp tests/indexing/test_lookup_doc_fallback_query_safety.py tests/test_unwired_modules.py -q -rfE -p no:cacheprovider",
+          "exit_code": 0,
+          "duration_s": 87.262,
+          "stdout_sha256": "272f04d92549a107ba211cf706b54e8a64227e428cbe52f7d06f6de45a20edc4",
+          "tests": 2522,
+          "skipped": 0,
+          "errors": 0,
+          "failures": 0
+        }
+      ],
+      "all_passed": true
+    }
+  ],
+  "negative_control": {
+    "kind": "mutate",
+    "patch": "python -X utf8 -c \"import pathlib;p=pathlib.Path('src/foss_mcp/mcp/tools/get_symbol.py');s=p.read_text(encoding='utf-8');old='if member in declared:';assert s.count(old)==1;p.write_text(s.replace(old,'if False:'),encoding='utf-8')\"\n",
+    "patch_sha256": "9d9186ffdf5b375e8440a2e8fe07554d2ba48710109eb6098a1ce010db09fba4",
+    "applied": true,
+    "patch_applied_failed": true,
+    "exit_codes": [
+      1,
+      1
+    ],
+    "tree_changed": [
+      "M src/foss_mcp/mcp/tools/get_symbol.py",
+      "?? .junit-0.xml",
+      "?? .junit-1.xml"
+    ]
+  },
+  "holdout": {
+    "ran": false,
+    "passed": true,
+    "detail": "no holdout for this card"
+  },
+  "accepted": true,
+  "reason": "all gates passed"
+}
