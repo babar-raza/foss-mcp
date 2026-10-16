@@ -1,0 +1,451 @@
+
+===== CLEAN RUN 1 (host) =====
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-7b182948484d7df9\Scripts\python.exe -m pytest tests/infra/test_helm_lifecycle.py tests/deploy/test_install_wait_for_jobs.py -q -rfE "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-ezdm1y0f\.junit-0.xml"
+--- stdout ---
+...........................................                              [100%]
+
+--- stderr ---
+
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-7b182948484d7df9\Scripts\python.exe -m pytest tests/infra/test_helm_lifecycle.py tests/deploy/test_install_wait_for_jobs.py tests/infra/test_helm_chart.py tests/infra/test_helm_sidecar_gate.py tests/infra/test_helm_ingestion_memory.py tests/infra/test_helm_pilots_match_compose.py tests/infra/test_helm_verifier_fields.py tests/infra/test_helm_embedding_egress.py tests/infra/test_helm_embedding_gateway.py tests/infra/test_helm_github_token.py tests/infra/test_helm_ingestion_embedding.py tests/infra/test_helm_manifest_step.py tests/infra/test_helm_vector_scope_probes.py tests/deploy/test_install_pilots.py tests/deploy/test_pilots.py tests/deploy/test_runbook.py -q -rfE -p no:cacheprovider "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-ezdm1y0f\.junit-1.xml"
+--- stdout ---
+........................................................................ [  6%]
+........................................................................ [ 13%]
+........................................................................ [ 20%]
+........................................................................ [ 27%]
+........................................................................ [ 34%]
+........................................................................ [ 41%]
+........................................................................ [ 47%]
+........................................................................ [ 54%]
+........................................................................ [ 61%]
+........................................................................ [ 68%]
+........................................................................ [ 75%]
+........................................................................ [ 82%]
+........................................................................ [ 88%]
+........................................................................ [ 95%]
+............................................                             [100%]
+
+--- stderr ---
+
+
+===== CLEAN RUN 2 (host) =====
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-7b182948484d7df9\Scripts\python.exe -m pytest tests/infra/test_helm_lifecycle.py tests/deploy/test_install_wait_for_jobs.py -q -rfE "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-ezdm1y0f\.junit-0.xml"
+--- stdout ---
+...........................................                              [100%]
+
+--- stderr ---
+
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-7b182948484d7df9\Scripts\python.exe -m pytest tests/infra/test_helm_lifecycle.py tests/deploy/test_install_wait_for_jobs.py tests/infra/test_helm_chart.py tests/infra/test_helm_sidecar_gate.py tests/infra/test_helm_ingestion_memory.py tests/infra/test_helm_pilots_match_compose.py tests/infra/test_helm_verifier_fields.py tests/infra/test_helm_embedding_egress.py tests/infra/test_helm_embedding_gateway.py tests/infra/test_helm_github_token.py tests/infra/test_helm_ingestion_embedding.py tests/infra/test_helm_manifest_step.py tests/infra/test_helm_vector_scope_probes.py tests/deploy/test_install_pilots.py tests/deploy/test_pilots.py tests/deploy/test_runbook.py -q -rfE -p no:cacheprovider "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-ezdm1y0f\.junit-1.xml"
+--- stdout ---
+........................................................................ [  6%]
+........................................................................ [ 13%]
+........................................................................ [ 20%]
+........................................................................ [ 27%]
+........................................................................ [ 34%]
+........................................................................ [ 41%]
+........................................................................ [ 47%]
+........................................................................ [ 54%]
+........................................................................ [ 61%]
+........................................................................ [ 68%]
+........................................................................ [ 75%]
+........................................................................ [ 82%]
+........................................................................ [ 88%]
+........................................................................ [ 95%]
+............................................                             [100%]
+
+--- stderr ---
+
+
+===== NEGATIVE CONTROL (checks MUST now fail) =====
+mutated: M infra/helm/foss-mcp/templates/deployment.yaml, ?? .junit-0.xml, ?? .junit-1.xml
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-7b182948484d7df9\Scripts\python.exe -m pytest tests/infra/test_helm_lifecycle.py tests/deploy/test_install_wait_for_jobs.py -q -rfE "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-ezdm1y0f\.junit-0.xml"
+--- stdout ---
+F...F.F....................................                              [100%]
+================================== FAILURES ===================================
+_________ test_init_gate_script_is_bounded_by_the_configured_timeout __________
+
+    def test_init_gate_script_is_bounded_by_the_configured_timeout() -> None:
+        script = _script("--set", "initGate.timeoutSeconds=77", "--set", "initGate.intervalSeconds=3")
+        assert "-ge 77" in script
+        assert "sleep 3" in script
+        assert "waited=$((waited + 3))" in script
+>       assert script.count("exit 0; fi;") == 1
+E       assert 0 == 1
+E        +  where 0 = <built-in method count of str object at 0x000002B4F8AD0360>('exit 0; fi;')
+E        +    where <built-in method count of str object at 0x000002B4F8AD0360> = 'waited=0; until [ -f /data/manifests/product_reference_pdf_net.json ] && [ -s /data/manifests/product_reference_pdf_n...nifests/recent_releases_pdf_net.json; starting WITHOUT them (degraded)" >&2; fi; sleep 3; waited=$((waited + 3)); done'.count
+
+tests\infra\test_helm_lifecycle.py:163: AssertionError
+__________ test_rendered_gate_script_run_in_a_shell[empty_directory] __________
+
+tmp_path = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-8887/test_rendered_gate_script_run_0')
+case = 'empty_directory'
+
+    @pytest.mark.parametrize("case", ["empty_directory", "both_present_and_non_empty", "one_file_zero_bytes"])
+    def test_rendered_gate_script_run_in_a_shell(tmp_path: Path, case: str) -> None:
+        script = _script(
+            "--set",
+            "manifests.mountPath=.",
+            "--set",
+            "initGate.timeoutSeconds=2",
+            "--set",
+            "initGate.intervalSeconds=1",
+        )
+        if case == "both_present_and_non_empty":
+            (tmp_path / PRODUCT_REFERENCE).write_text("{}", encoding="utf-8")
+            (tmp_path / RECENT_RELEASES).write_text("[]", encoding="utf-8")
+        elif case == "one_file_zero_bytes":
+            (tmp_path / PRODUCT_REFERENCE).write_text("{}", encoding="utf-8")
+            (tmp_path / RECENT_RELEASES).write_bytes(b"")
+        before = sorted(p.name for p in tmp_path.iterdir())
+>       done = _run_bounded([_shell(), "-c", script], cwd=tmp_path, timeout=20)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests\infra\test_helm_lifecycle.py:212: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+cmd = ['C:\\dev-tools\\foss-mcp\\git\\bin\\sh.EXE', '-c', 'waited=0; until [ -f ./product_reference_pdf_net.json ] && [ -s .... and ./recent_releases_pdf_net.json; starting WITHOUT them (degraded)" >&2; fi; sleep 1; waited=$((waited + 1)); done']
+cwd = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-8887/test_rendered_gate_script_run_0')
+timeout = 20, pids = None
+
+    def _run_bounded(
+        cmd: list[str],
+        *,
+        cwd: Path | None = None,
+        timeout: float = 20.0,
+        pids: list[int] | None = None,
+    ) -> subprocess.CompletedProcess[str]:
+        """Run cmd with output in temp FILES (never pipes), no stdin and a hard deadline.
+    
+        A pipe would stay open while an orphaned grandchild (an `sleep` under a killed shell) holds it, so
+        communicate() would never return. On timeout the whole process tree is killed and the test fails
+        with the captured stderr. pids, when given, receives the pid of the started process.
+        """
+        kwargs: dict[str, Any] = {} if sys.platform == "win32" else {"start_new_session": True}
+        with tempfile.TemporaryFile() as out, tempfile.TemporaryFile() as err:
+            proc = subprocess.Popen(cmd, cwd=cwd, stdin=subprocess.DEVNULL, stdout=out, stderr=err, **kwargs)
+            if pids is not None:
+                pids.append(proc.pid)
+            timed_out = False
+            try:
+                proc.wait(timeout=timeout)
+            except subprocess.TimeoutExpired:
+                timed_out = True
+                _kill_tree(proc)
+            out.seek(0)
+            err.seek(0)
+            stdout = out.read().decode("utf-8", errors="replace")
+            stderr = err.read().decode("utf-8", errors="replace")
+        if timed_out:
+>           pytest.fail(f"{shlex.join(cmd)[:200]} did not exit within {timeout} s; stderr so far:\n{stderr}")
+E           Failed: 'C:\dev-tools\foss-mcp\git\bin\sh.EXE' -c 'waited=0; until [ -f ./product_reference_pdf_net.json ] && [ -s ./product_reference_pdf_net.json ] && [ -f ./recent_releases_pdf_net.json ] && [ -s ./recent_ did not exit within 20 s; stderr so far:
+E           init gate timed out after 2 seconds waiting for non-empty ./product_reference_pdf_net.json and ./recent_releases_pdf_net.json; starting WITHOUT them (degraded)
+E           init gate timed out after 2 seconds waiting for non-empty ./product_reference_pdf_net.json and ./recent_releases_pdf_net.json; starting WITHOUT them (degraded)
+E           init gate timed out after 2 seconds waiting for non-empty ./product_reference_pdf_net.json and ./recent_releases_pdf_net.json; starting WITHOUT them (degraded)
+E           init gate timed out after 2 seconds waiting for non-empty ./product_reference_pdf_net.json and ./recent_releases_pdf_net.json; starting WITHOUT them (degraded)
+E           init gate timed out after 2 seconds waiting for non-empty ./product_reference_pdf_net.json and ./recent_releases_pdf_net.json; starting WITHOUT them (degraded)
+E           init gate timed out after 2 seconds waiting for non-empty ./product_reference_pdf_net.json and ./recent_releases_pdf_net.json; starting WITHOUT them (degraded)
+E           init gate timed out after 2 seconds waiting for non-empty ./product_reference_pdf_net.json and ./recent_releases_pdf_net.json; starting WITHOUT them (degraded)
+E           init gate timed out after 2 seconds waiting for non-empty ./product_reference_pdf_net.json and ./recent_releases_pdf_net.json; starting WITHOUT them (degraded)
+E           init gate timed out after 2 seconds waiting for non-empty ./product_reference_pdf_net.json and ./recent_releases_pdf_net.json; starting WITHOUT them (degraded)
+E           init gate timed out after 2 seconds waiting for non-empty ./product_reference_pdf_net.json and ./recent_releases_pdf_net.json; starting WITHOUT them (degraded)
+E           init gate timed out after 2 seconds waiting for non-empty ./product_reference_pdf_net.json and ./recent_releases_pdf_net.json; starting WITHOUT them (degraded)
+E           init gate timed out after 2 seconds waiting for non-empty ./product_reference_pdf_net.json and ./recent_releases_pdf_net.json; starting WITHOUT them (degraded)
+E           init gate timed out after 2 seconds waiting for non-empty ./product_reference_pdf_net.json and ./recent_releases_pdf_net.json; starting WITHOUT them (degraded)
+E           init gate timed out after 2 seconds waiting for non-empty ./product_reference_pdf_net.json and ./recent_releases_pdf_net.json; starting WITHOUT them (degraded)
+E           init gate timed out after 2 seconds waiting for non-empty ./product_reference_pdf_net.json and ./recent_releases_pdf_net.json; starting WITHOUT them (degraded)
+E           init gate timed out after 2 seconds waiting for non-empty ./product_reference_pdf_net.json and ./recent_releases_pdf_net.json; starting WITHOUT them (degraded)
+E           init gate timed out after 2 seconds waiting for non-empty ./product_reference_pdf_net.json and ./recent_releases_pdf_net.json; starting WITHOUT them (degraded)
+E           init gate timed out after 2 seconds waiting for non-empty ./product_reference_pdf_net.json and ./recent_releases_pdf_net.json; starting WITHOUT them (degraded)
+
+tests\infra\test_helm_lifecycle.py:100: Failed
+________ test_rendered_gate_script_run_in_a_shell[one_file_zero_bytes] ________
+
+tmp_path = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-8887/test_rendered_gate_script_run_2')
+case = 'one_file_zero_bytes'
+
+    @pytest.mark.parametrize("case", ["empty_directory", "both_present_and_non_empty", "one_file_zero_bytes"])
+    def test_rendered_gate_script_run_in_a_shell(tmp_path: Path, case: str) -> None:
+        script = _script(
+            "--set",
+            "manifests.mountPath=.",
+            "--set",
+            "initGate.timeoutSeconds=2",
+            "--set",
+            "initGate.intervalSeconds=1",
+        )
+        if case == "both_present_and_non_empty":
+            (tmp_path / PRODUCT_REFERENCE).write_text("{}", encoding="utf-8")
+            (tmp_path / RECENT_RELEASES).write_text("[]", encoding="utf-8")
+        elif case == "one_file_zero_bytes":
+            (tmp_path / PRODUCT_REFERENCE).write_text("{}", encoding="utf-8")
+            (tmp_path / RECENT_RELEASES).write_bytes(b"")
+        before = sorted(p.name for p in tmp_path.iterdir())
+>       done = _run_bounded([_shell(), "-c", script], cwd=tmp_path, timeout=20)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests\infra\test_helm_lifecycle.py:212: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+cmd = ['C:\\dev-tools\\foss-mcp\\git\\bin\\sh.EXE', '-c', 'waited=0; until [ -f ./product_reference_pdf_net.json ] && [ -s .... and ./recent_releases_pdf_net.json; starting WITHOUT them (degraded)" >&2; fi; sleep 1; waited=$((waited + 1)); done']
+cwd = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-8887/test_rendered_gate_script_run_2')
+timeout = 20, pids = None
+
+    def _run_bounded(
+        cmd: list[str],
+        *,
+        cwd: Path | None = None,
+        timeout: float = 20.0,
+        pids: list[int] | None = None,
+    ) -> subprocess.CompletedProcess[str]:
+        """Run cmd with output in temp FILES (never pipes), no stdin and a hard deadline.
+    
+        A pipe would stay open while an orphaned grandchild (an `sleep` under a killed shell) holds it, so
+        communicate() would never return. On timeout the whole process tree is killed and the test fails
+        with the captured stderr. pids, when given, receives the pid of the started process.
+        """
+        kwargs: dict[str, Any] = {} if sys.platform == "win32" else {"start_new_session": True}
+        with tempfile.TemporaryFile() as out, tempfile.TemporaryFile() as err:
+            proc = subprocess.Popen(cmd, cwd=cwd, stdin=subprocess.DEVNULL, stdout=out, stderr=err, **kwargs)
+            if pids is not None:
+                pids.append(proc.pid)
+            timed_out = False
+            try:
+                proc.wait(timeout=timeout)
+            except subprocess.TimeoutExpired:
+                timed_out = True
+                _kill_tree(proc)
+            out.seek(0)
+            err.seek(0)
+            stdout = out.read().decode("utf-8", errors="replace")
+            stderr = err.read().decode("utf-8", errors="replace")
+        if timed_out:
+>           pytest.fail(f"{shlex.join(cmd)[:200]} did not exit within {timeout} s; stderr so far:\n{stderr}")
+E           Failed: 'C:\dev-tools\foss-mcp\git\bin\sh.EXE' -c 'waited=0; until [ -f ./product_reference_pdf_net.json ] && [ -s ./product_reference_pdf_net.json ] && [ -f ./recent_releases_pdf_net.json ] && [ -s ./recent_ did not exit within 20 s; stderr so far:
+E           init gate timed out after 2 seconds waiting for non-empty ./product_reference_pdf_net.json and ./recent_releases_pdf_net.json; starting WITHOUT them (degraded)
+E           init gate timed out after 2 seconds waiting for non-empty ./product_reference_pdf_net.json and ./recent_releases_pdf_net.json; starting WITHOUT them (degraded)
+E           init gate timed out after 2 seconds waiting for non-empty ./product_reference_pdf_net.json and ./recent_releases_pdf_net.json; starting WITHOUT them (degraded)
+E           init gate timed out after 2 seconds waiting for non-empty ./product_reference_pdf_net.json and ./recent_releases_pdf_net.json; starting WITHOUT them (degraded)
+E           init gate timed out after 2 seconds waiting for non-empty ./product_reference_pdf_net.json and ./recent_releases_pdf_net.json; starting WITHOUT them (degraded)
+E           init gate timed out after 2 seconds waiting for non-empty ./product_reference_pdf_net.json and ./recent_releases_pdf_net.json; starting WITHOUT them (degraded)
+E           init gate timed out after 2 seconds waiting for non-empty ./product_reference_pdf_net.json and ./recent_releases_pdf_net.json; starting WITHOUT them (degraded)
+E           init gate timed out after 2 seconds waiting for non-empty ./product_reference_pdf_net.json and ./recent_releases_pdf_net.json; starting WITHOUT them (degraded)
+E           init gate timed out after 2 seconds waiting for non-empty ./product_reference_pdf_net.json and ./recent_releases_pdf_net.json; starting WITHOUT them (degraded)
+E           init gate timed out after 2 seconds waiting for non-empty ./product_reference_pdf_net.json and ./recent_releases_pdf_net.json; starting WITHOUT them (degraded)
+E           init gate timed out after 2 seconds waiting for non-empty ./product_reference_pdf_net.json and ./recent_releases_pdf_net.json; starting WITHOUT them (degraded)
+E           init gate timed out after 2 seconds waiting for non-empty ./product_reference_pdf_net.json and ./recent_releases_pdf_net.json; starting WITHOUT them (degraded)
+E           init gate timed out after 2 seconds waiting for non-empty ./product_reference_pdf_net.json and ./recent_releases_pdf_net.json; starting WITHOUT them (degraded)
+E           init gate timed out after 2 seconds waiting for non-empty ./product_reference_pdf_net.json and ./recent_releases_pdf_net.json; starting WITHOUT them (degraded)
+E           init gate timed out after 2 seconds waiting for non-empty ./product_reference_pdf_net.json and ./recent_releases_pdf_net.json; starting WITHOUT them (degraded)
+E           init gate timed out after 2 seconds waiting for non-empty ./product_reference_pdf_net.json and ./recent_releases_pdf_net.json; starting WITHOUT them (degraded)
+
+tests\infra\test_helm_lifecycle.py:100: Failed
+=========================== short test summary info ===========================
+FAILED tests/infra/test_helm_lifecycle.py::test_init_gate_script_is_bounded_by_the_configured_timeout
+FAILED tests/infra/test_helm_lifecycle.py::test_rendered_gate_script_run_in_a_shell[empty_directory]
+FAILED tests/infra/test_helm_lifecycle.py::test_rendered_gate_script_run_in_a_shell[one_file_zero_bytes]
+
+--- stderr ---
+
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-7b182948484d7df9\Scripts\python.exe -m pytest tests/infra/test_helm_lifecycle.py tests/deploy/test_install_wait_for_jobs.py tests/infra/test_helm_chart.py tests/infra/test_helm_sidecar_gate.py tests/infra/test_helm_ingestion_memory.py tests/infra/test_helm_pilots_match_compose.py tests/infra/test_helm_verifier_fields.py tests/infra/test_helm_embedding_egress.py tests/infra/test_helm_embedding_gateway.py tests/infra/test_helm_github_token.py tests/infra/test_helm_ingestion_embedding.py tests/infra/test_helm_manifest_step.py tests/infra/test_helm_vector_scope_probes.py tests/deploy/test_install_pilots.py tests/deploy/test_pilots.py tests/deploy/test_runbook.py -q -rfE -p no:cacheprovider "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-ezdm1y0f\.junit-1.xml"
+--- stdout ---
+F...F.F................................................................. [  6%]
+........................................................................ [ 13%]
+........................................................................ [ 20%]
+........................................................................ [ 27%]
+........................................................................ [ 34%]
+........................................................................ [ 41%]
+........................................................................ [ 47%]
+........................................................................ [ 54%]
+........................................................................ [ 61%]
+........................................................................ [ 68%]
+........................................................................ [ 75%]
+........................................................................ [ 82%]
+........................................................................ [ 88%]
+........................................................................ [ 95%]
+............................................                             [100%]
+================================== FAILURES ===================================
+_________ test_init_gate_script_is_bounded_by_the_configured_timeout __________
+
+    def test_init_gate_script_is_bounded_by_the_configured_timeout() -> None:
+        script = _script("--set", "initGate.timeoutSeconds=77", "--set", "initGate.intervalSeconds=3")
+        assert "-ge 77" in script
+        assert "sleep 3" in script
+        assert "waited=$((waited + 3))" in script
+>       assert script.count("exit 0; fi;") == 1
+E       assert 0 == 1
+E        +  where 0 = <built-in method count of str object at 0x00000239E5731CA0>('exit 0; fi;')
+E        +    where <built-in method count of str object at 0x00000239E5731CA0> = 'waited=0; until [ -f /data/manifests/product_reference_pdf_net.json ] && [ -s /data/manifests/product_reference_pdf_n...nifests/recent_releases_pdf_net.json; starting WITHOUT them (degraded)" >&2; fi; sleep 3; waited=$((waited + 3)); done'.count
+
+tests\infra\test_helm_lifecycle.py:163: AssertionError
+__________ test_rendered_gate_script_run_in_a_shell[empty_directory] __________
+
+tmp_path = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-8888/test_rendered_gate_script_run_0')
+case = 'empty_directory'
+
+    @pytest.mark.parametrize("case", ["empty_directory", "both_present_and_non_empty", "one_file_zero_bytes"])
+    def test_rendered_gate_script_run_in_a_shell(tmp_path: Path, case: str) -> None:
+        script = _script(
+            "--set",
+            "manifests.mountPath=.",
+            "--set",
+            "initGate.timeoutSeconds=2",
+            "--set",
+            "initGate.intervalSeconds=1",
+        )
+        if case == "both_present_and_non_empty":
+            (tmp_path / PRODUCT_REFERENCE).write_text("{}", encoding="utf-8")
+            (tmp_path / RECENT_RELEASES).write_text("[]", encoding="utf-8")
+        elif case == "one_file_zero_bytes":
+            (tmp_path / PRODUCT_REFERENCE).write_text("{}", encoding="utf-8")
+            (tmp_path / RECENT_RELEASES).write_bytes(b"")
+        before = sorted(p.name for p in tmp_path.iterdir())
+>       done = _run_bounded([_shell(), "-c", script], cwd=tmp_path, timeout=20)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests\infra\test_helm_lifecycle.py:212: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+cmd = ['C:\\dev-tools\\foss-mcp\\git\\bin\\sh.EXE', '-c', 'waited=0; until [ -f ./product_reference_pdf_net.json ] && [ -s .... and ./recent_releases_pdf_net.json; starting WITHOUT them (degraded)" >&2; fi; sleep 1; waited=$((waited + 1)); done']
+cwd = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-8888/test_rendered_gate_script_run_0')
+timeout = 20, pids = None
+
+    def _run_bounded(
+        cmd: list[str],
+        *,
+        cwd: Path | None = None,
+        timeout: float = 20.0,
+        pids: list[int] | None = None,
+    ) -> subprocess.CompletedProcess[str]:
+        """Run cmd with output in temp FILES (never pipes), no stdin and a hard deadline.
+    
+        A pipe would stay open while an orphaned grandchild (an `sleep` under a killed shell) holds it, so
+        communicate() would never return. On timeout the whole process tree is killed and the test fails
+        with the captured stderr. pids, when given, receives the pid of the started process.
+        """
+        kwargs: dict[str, Any] = {} if sys.platform == "win32" else {"start_new_session": True}
+        with tempfile.TemporaryFile() as out, tempfile.TemporaryFile() as err:
+            proc = subprocess.Popen(cmd, cwd=cwd, stdin=subprocess.DEVNULL, stdout=out, stderr=err, **kwargs)
+            if pids is not None:
+                pids.append(proc.pid)
+            timed_out = False
+            try:
+                proc.wait(timeout=timeout)
+            except subprocess.TimeoutExpired:
+                timed_out = True
+                _kill_tree(proc)
+            out.seek(0)
+            err.seek(0)
+            stdout = out.read().decode("utf-8", errors="replace")
+            stderr = err.read().decode("utf-8", errors="replace")
+        if timed_out:
+>           pytest.fail(f"{shlex.join(cmd)[:200]} did not exit within {timeout} s; stderr so far:\n{stderr}")
+E           Failed: 'C:\dev-tools\foss-mcp\git\bin\sh.EXE' -c 'waited=0; until [ -f ./product_reference_pdf_net.json ] && [ -s ./product_reference_pdf_net.json ] && [ -f ./recent_releases_pdf_net.json ] && [ -s ./recent_ did not exit within 20 s; stderr so far:
+E           init gate timed out after 2 seconds waiting for non-empty ./product_reference_pdf_net.json and ./recent_releases_pdf_net.json; starting WITHOUT them (degraded)
+E           init gate timed out after 2 seconds waiting for non-empty ./product_reference_pdf_net.json and ./recent_releases_pdf_net.json; starting WITHOUT them (degraded)
+E           init gate timed out after 2 seconds waiting for non-empty ./product_reference_pdf_net.json and ./recent_releases_pdf_net.json; starting WITHOUT them (degraded)
+E           init gate timed out after 2 seconds waiting for non-empty ./product_reference_pdf_net.json and ./recent_releases_pdf_net.json; starting WITHOUT them (degraded)
+E           init gate timed out after 2 seconds waiting for non-empty ./product_reference_pdf_net.json and ./recent_releases_pdf_net.json; starting WITHOUT them (degraded)
+E           init gate timed out after 2 seconds waiting for non-empty ./product_reference_pdf_net.json and ./recent_releases_pdf_net.json; starting WITHOUT them (degraded)
+E           init gate timed out after 2 seconds waiting for non-empty ./product_reference_pdf_net.json and ./recent_releases_pdf_net.json; starting WITHOUT them (degraded)
+E           init gate timed out after 2 seconds waiting for non-empty ./product_reference_pdf_net.json and ./recent_releases_pdf_net.json; starting WITHOUT them (degraded)
+E           init gate timed out after 2 seconds waiting for non-empty ./product_reference_pdf_net.json and ./recent_releases_pdf_net.json; starting WITHOUT them (degraded)
+E           init gate timed out after 2 seconds waiting for non-empty ./product_reference_pdf_net.json and ./recent_releases_pdf_net.json; starting WITHOUT them (degraded)
+E           init gate timed out after 2 seconds waiting for non-empty ./product_reference_pdf_net.json and ./recent_releases_pdf_net.json; starting WITHOUT them (degraded)
+E           init gate timed out after 2 seconds waiting for non-empty ./product_reference_pdf_net.json and ./recent_releases_pdf_net.json; starting WITHOUT them (degraded)
+E           init gate timed out after 2 seconds waiting for non-empty ./product_reference_pdf_net.json and ./recent_releases_pdf_net.json; starting WITHOUT them (degraded)
+E           init gate timed out after 2 seconds waiting for non-empty ./product_reference_pdf_net.json and ./recent_releases_pdf_net.json; starting WITHOUT them (degraded)
+E           init gate timed out after 2 seconds waiting for non-empty ./product_reference_pdf_net.json and ./recent_releases_pdf_net.json; starting WITHOUT them (degraded)
+E           init gate timed out after 2 seconds waiting for non-empty ./product_reference_pdf_net.json and ./recent_releases_pdf_net.json; starting WITHOUT them (degraded)
+E           init gate timed out after 2 seconds waiting for non-empty ./product_reference_pdf_net.json and ./recent_releases_pdf_net.json; starting WITHOUT them (degraded)
+E           init gate timed out after 2 seconds waiting for non-empty ./product_reference_pdf_net.json and ./recent_releases_pdf_net.json; starting WITHOUT them (degraded)
+
+tests\infra\test_helm_lifecycle.py:100: Failed
+________ test_rendered_gate_script_run_in_a_shell[one_file_zero_bytes] ________
+
+tmp_path = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-8888/test_rendered_gate_script_run_2')
+case = 'one_file_zero_bytes'
+
+    @pytest.mark.parametrize("case", ["empty_directory", "both_present_and_non_empty", "one_file_zero_bytes"])
+    def test_rendered_gate_script_run_in_a_shell(tmp_path: Path, case: str) -> None:
+        script = _script(
+            "--set",
+            "manifests.mountPath=.",
+            "--set",
+            "initGate.timeoutSeconds=2",
+            "--set",
+            "initGate.intervalSeconds=1",
+        )
+        if case == "both_present_and_non_empty":
+            (tmp_path / PRODUCT_REFERENCE).write_text("{}", encoding="utf-8")
+            (tmp_path / RECENT_RELEASES).write_text("[]", encoding="utf-8")
+        elif case == "one_file_zero_bytes":
+            (tmp_path / PRODUCT_REFERENCE).write_text("{}", encoding="utf-8")
+            (tmp_path / RECENT_RELEASES).write_bytes(b"")
+        before = sorted(p.name for p in tmp_path.iterdir())
+>       done = _run_bounded([_shell(), "-c", script], cwd=tmp_path, timeout=20)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests\infra\test_helm_lifecycle.py:212: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+cmd = ['C:\\dev-tools\\foss-mcp\\git\\bin\\sh.EXE', '-c', 'waited=0; until [ -f ./product_reference_pdf_net.json ] && [ -s .... and ./recent_releases_pdf_net.json; starting WITHOUT them (degraded)" >&2; fi; sleep 1; waited=$((waited + 1)); done']
+cwd = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-8888/test_rendered_gate_script_run_2')
+timeout = 20, pids = None
+
+    def _run_bounded(
+        cmd: list[str],
+        *,
+        cwd: Path | None = None,
+        timeout: float = 20.0,
+        pids: list[int] | None = None,
+    ) -> subprocess.CompletedProcess[str]:
+        """Run cmd with output in temp FILES (never pipes), no stdin and a hard deadline.
+    
+        A pipe would stay open while an orphaned grandchild (an `sleep` under a killed shell) holds it, so
+        communicate() would never return. On timeout the whole process tree is killed and the test fails
+        with the captured stderr. pids, when given, receives the pid of the started process.
+        """
+        kwargs: dict[str, Any] = {} if sys.platform == "win32" else {"start_new_session": True}
+        with tempfile.TemporaryFile() as out, tempfile.TemporaryFile() as err:
+            proc = subprocess.Popen(cmd, cwd=cwd, stdin=subprocess.DEVNULL, stdout=out, stderr=err, **kwargs)
+            if pids is not None:
+                pids.append(proc.pid)
+            timed_out = False
+            try:
+                proc.wait(timeout=timeout)
+            except subprocess.TimeoutExpired:
+                timed_out = True
+                _kill_tree(proc)
+            out.seek(0)
+            err.seek(0)
+            stdout = out.read().decode("utf-8", errors="replace")
+            stderr = err.read().decode("utf-8", errors="replace")
+        if timed_out:
+>           pytest.fail(f"{shlex.join(cmd)[:200]} did not exit within {timeout} s; stderr so far:\n{stderr}")
+E           Failed: 'C:\dev-tools\foss-mcp\git\bin\sh.EXE' -c 'waited=0; until [ -f ./product_reference_pdf_net.json ] && [ -s ./product_reference_pdf_net.json ] && [ -f ./recent_releases_pdf_net.json ] && [ -s ./recent_ did not exit within 20 s; stderr so far:
+E           init gate timed out after 2 seconds waiting for non-empty ./product_reference_pdf_net.json and ./recent_releases_pdf_net.json; starting WITHOUT them (degraded)
+E           init gate timed out after 2 seconds waiting for non-empty ./product_reference_pdf_net.json and ./recent_releases_pdf_net.json; starting WITHOUT them (degraded)
+E           init gate timed out after 2 seconds waiting for non-empty ./product_reference_pdf_net.json and ./recent_releases_pdf_net.json; starting WITHOUT them (degraded)
+E           init gate timed out after 2 seconds waiting for non-empty ./product_reference_pdf_net.json and ./recent_releases_pdf_net.json; starting WITHOUT them (degraded)
+E           init gate timed out after 2 seconds waiting for non-empty ./product_reference_pdf_net.json and ./recent_releases_pdf_net.json; starting WITHOUT them (degraded)
+E           init gate timed out after 2 seconds waiting for non-empty ./product_reference_pdf_net.json and ./recent_releases_pdf_net.json; starting WITHOUT them (degraded)
+E           init gate timed out after 2 seconds waiting for non-empty ./product_reference_pdf_net.json and ./recent_releases_pdf_net.json; starting WITHOUT them (degraded)
+E           init gate timed out after 2 seconds waiting for non-empty ./product_reference_pdf_net.json and ./recent_releases_pdf_net.json; starting WITHOUT them (degraded)
+E           init gate timed out after 2 seconds waiting for non-empty ./product_reference_pdf_net.json and ./recent_releases_pdf_net.json; starting WITHOUT them (degraded)
+E           init gate timed out after 2 seconds waiting for non-empty ./product_reference_pdf_net.json and ./recent_releases_pdf_net.json; starting WITHOUT them (degraded)
+E           init gate timed out after 2 seconds waiting for non-empty ./product_reference_pdf_net.json and ./recent_releases_pdf_net.json; starting WITHOUT them (degraded)
+E           init gate timed out after 2 seconds waiting for non-empty ./product_reference_pdf_net.json and ./recent_releases_pdf_net.json; starting WITHOUT them (degraded)
+E           init gate timed out after 2 seconds waiting for non-empty ./product_reference_pdf_net.json and ./recent_releases_pdf_net.json; starting WITHOUT them (degraded)
+E           init gate timed out after 2 seconds waiting for non-empty ./product_reference_pdf_net.json and ./recent_releases_pdf_net.json; starting WITHOUT them (degraded)
+E           init gate timed out after 2 seconds waiting for non-empty ./product_reference_pdf_net.json and ./recent_releases_pdf_net.json; starting WITHOUT them (degraded)
+E           init gate timed out after 2 seconds waiting for non-empty ./product_reference_pdf_net.json and ./recent_releases_pdf_net.json; starting WITHOUT them (degraded)
+E           init gate timed out after 2 seconds waiting for non-empty ./product_reference_pdf_net.json and ./recent_releases_pdf_net.json; starting WITHOUT them (degraded)
+E           init gate timed out after 2 seconds waiting for non-empty ./product_reference_pdf_net.json and ./recent_releases_pdf_net.json; starting WITHOUT them (degraded)
+
+tests\infra\test_helm_lifecycle.py:100: Failed
+=========================== short test summary info ===========================
+FAILED tests/infra/test_helm_lifecycle.py::test_init_gate_script_is_bounded_by_the_configured_timeout
+FAILED tests/infra/test_helm_lifecycle.py::test_rendered_gate_script_run_in_a_shell[empty_directory]
+FAILED tests/infra/test_helm_lifecycle.py::test_rendered_gate_script_run_in_a_shell[one_file_zero_bytes]
+
+--- stderr ---
+
