@@ -145,7 +145,7 @@ def test_java_compatibility_returns_runtime_min_version_verbatim() -> None:
     inputs = ProductReferenceInputs(manifest_text=POM_XML_TEXT, platform="java")
     result = get_product_reference(inputs, "compatibility")
     assert isinstance(result, ReferenceContent)
-    assert result.text == "17"
+    assert result.text == "Java 17+"  # G3/TC-542: the pom's bare number is said as a Java release
 
 
 def test_typescript_compatibility_returns_engines_node_verbatim() -> None:

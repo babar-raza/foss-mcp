@@ -619,7 +619,8 @@ _CMAKE_322 = "cmake_minimum_required(VERSION 3.22)\nproject(demo)\nset(CMAKE_CXX
     [
         ("python", _PYPROJECT_310, ">=3.10", "Requires Python 3.8 or newer.", "3.8", ">=3.10"),
         ("go", _GO_MOD, "1.21", "Requires Go 1.22.", "1.22", "1.21"),
-        ("java", _POM_17, "17", "Needs JDK 21.", "21", "17"),
+        # G3/TC-542: the answer text is "Java 17+"; the notice still compares the pom's own 17.
+        ("java", _POM_17, "17", "Needs JDK 21.", "21", "Java 17+"),
         ("typescript", _PACKAGE_JSON_18, ">=18", "Node.js 20 is required.", "20", ">=18"),
         ("rust", _CARGO_170, "1.70", "Needs Rust 1.75.", "1.75", "1.70"),
         ("net", _CSPROJ_8, "net8.0", "Requires .NET 6.", "6", "net8.0"),

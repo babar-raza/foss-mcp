@@ -36,6 +36,27 @@ _ORIGIN_METADATA = "index_metadata"
 _TEXT_KEYS = ("text", "snippet", "raw_text", "body", "doc_matches", "example")
 
 
+NOTE_KEY = "note"
+
+# G3/TC-542: an empty release list is a complete answer, but a bare ``[]`` cannot be told from a
+# failed fetch or a missing capability. The list stays a bare list; this sentence rides beside it.
+NO_RELEASES_NOTE = (
+    "This repository has no published GitHub releases, so there is nothing to list. "
+    "An empty list is a complete answer, not a fetch failure (a failed fetch is reported as an error). "
+    "Use search_docs for changelog or upgrade notes in the documentation."
+)
+
+
+def empty_result_note(tool: str, payload: Any) -> str | None:
+    """The explanation that belongs beside an empty answer, or ``None`` when nothing needs saying.
+
+    Only a successful, empty ``list_recent_changes`` answer has one; any other tool and any
+    non-empty or non-list payload gains nothing."""
+    if tool == "list_recent_changes" and isinstance(payload, list) and not payload:
+        return NO_RELEASES_NOTE
+    return None
+
+
 def scope_object(scope: Scope) -> dict[str, str]:
     """The scope a response was answered for, as a plain JSON object."""
     return {"family": scope.family, "platform": scope.platform, "source_kind": scope.source_kind}

@@ -841,6 +841,11 @@ def get_product_reference(
             reason = "manifest does not state requires-python"
         elif platform == "java":
             value = read_java_manifest(inputs.manifest_text).runtime_min_version
+            # G3/TC-542: the pom states a bare number (11, 17, 21), which a reader cannot tell from a
+            # library version; keep it for the disagreement notice and say it is a Java release.
+            java_minimum = value
+            if value and re.fullmatch(r"\d+(?:\.\d+)*", value):
+                value = f"Java {value}+"
             reason = "manifest does not state a compiler target version"
         elif platform in _JS_PLATFORMS:
             value = read_js_manifest(inputs.manifest_text).engines_node
@@ -871,7 +876,12 @@ def get_product_reference(
         # G3/TC-518: show where the manifest and the README / AGENTS.md disagree about the minimum
         # (for C++ the CMake minimum, not the language standard the answer states), and the package
         # version the manifest declares. The answer's text stays the manifest's own value.
-        compared = read_cpp_manifest(inputs.manifest_text).cmake_min_version if platform == "cpp" else value
+        if platform == "cpp":
+            compared = read_cpp_manifest(inputs.manifest_text).cmake_min_version
+        elif platform == "java":
+            compared = java_minimum  # G3/TC-542: the pom's own number, not the "Java N+" answer text
+        else:
+            compared = value
         notice = _join_notice(
             _disagreement_notice(inputs, readme, compared),
             _version_sentence(platform, inputs.manifest_text),

@@ -56,7 +56,13 @@ from foss_mcp.mcp.identity import (
     render_description,
 )
 from foss_mcp.mcp.response_budget import apply_budget
-from foss_mcp.mcp.response_envelope import annotate_result, origin_of, scope_object
+from foss_mcp.mcp.response_envelope import (
+    NOTE_KEY,
+    annotate_result,
+    empty_result_note,
+    origin_of,
+    scope_object,
+)
 from foss_mcp.mcp.routing import DeploymentConfig, Scope, resolve_scope
 from foss_mcp.mcp.sidecar_state import (
     RELEASES_FETCH_FAILED_MESSAGE,
@@ -350,7 +356,7 @@ TOOL_DESCRIPTIONS: dict[str, str] = {
         "labeled as such, never reported the same way as a real migration note. Use this for "
         "'what changed recently' questions; it takes no query, only limit (default 10) - it is "
         "not a search tool, so do not pass a query string here. An empty list means the "
-        "product has no GitHub releases. When the release data could not be fetched, the call "
+        "product has no GitHub releases. An empty list comes with a note that says so. When the release data could not be fetched, the call "
         "returns an error saying so (retry later), never an empty list. Each release states in_index "
         "(true when the indexed API includes it, false when it is newer than the index, null when "
         "unknown) and source ('release' or 'tag')."
@@ -1496,16 +1502,19 @@ def create_server(
             query=validated_arguments.model_dump().get("query"),
             family=scope.family,
         )
-        return CallToolResult(
-            content=[TextContent(type="text", text=render_result_text(payload))],
-            structured_content={
-                "result": payload,
-                "scope": scope_object(scope),
-                "content_origin": origin_of(params.name),
-                "response_budget": budget_notes,
-            },
-            is_error=False,
-        )
+        content: list[Any] = [TextContent(type="text", text=render_result_text(payload))]
+        structured: dict[str, Any] = {
+            "result": payload,
+            "scope": scope_object(scope),
+            "content_origin": origin_of(params.name),
+            "response_budget": budget_notes,
+        }
+        # G3/TC-542: an empty release list stays a bare list and is explained beside it.
+        note = empty_result_note(params.name, payload)
+        if note is not None:
+            content.append(TextContent(type="text", text=note))
+            structured[NOTE_KEY] = note
+        return CallToolResult(content=content, structured_content=structured, is_error=False)
 
     def _instructions() -> str:
         return deployment_instructions(SERVER_INSTRUCTIONS, scope, _facts())
