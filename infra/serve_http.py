@@ -1144,6 +1144,8 @@ def build_app(
             _metrics_route(resolved_usage_recorder, resolved_metrics, scrape),
         ],
     )
+    # A trailing-slash path is a 404, never a redirect built from the client's Host header (TC-544).
+    inner.router.redirect_slashes = False
     return RejectionMiddleware(
         ErrorSanitisingMiddleware(SessionCapObserverMiddleware(inner, on_reject)),
         allowed_origins,

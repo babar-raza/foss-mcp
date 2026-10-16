@@ -58,6 +58,7 @@ calls ``Save`` or ``Open``. A longer query is judged by the coverage floor alone
 
 from __future__ import annotations
 
+import re
 from dataclasses import dataclass
 
 from foss_mcp.indexing.gateway_embedding_provider import GatewayEmbeddingProvider, Vector
@@ -111,6 +112,33 @@ _VERIFIED_KIND_LINE = "Kind: verified_example"
 _AUTHORED_PROVENANCE_LINE = "Provenance: authored"
 _VERIFICATION_PASSED_LINE = "Verification: passed"
 
+# TC-544: the language an example is written in, from the deployment's platform (unknown: empty).
+_PLATFORM_LANGUAGE = {
+    "net": "C#",
+    "python": "Python",
+    "java": "Java",
+    "typescript": "TypeScript",
+    "nodejs": "JavaScript (Node.js)",
+    "go": "Go",
+    "rust": "Rust",
+    "cpp": "C++",
+}
+
+# TC-544: what "verified" means for an example, one fixed sentence per provenance. The chunk holds the
+# snippet and its ``Source-Commit:`` only: the toolchain, the flags and the assembled source the
+# ingestion verifier used live in its verification cache, not in the generation, so none is stated.
+README_VERIFICATION_NOTE = (
+    "Compiled or run by the ingestion verifier against the library at source_commit; the verifier may "
+    "have added the README's own imports or an entry point around this snippet, which are not shown, so "
+    "add the imports and entry point your language needs."
+)
+AUTHORED_VERIFICATION_NOTE = (
+    "Authored for this index and compiled or run by the ingestion verifier against the library at "
+    "source_commit; add the imports and entry point your language needs."
+)
+
+_SOURCE_COMMIT_PATTERN = r"^Source-Commit:[ \t]*(\S+)"
+
 # TC-543: what an ``ExampleMatch.coverage`` number is, per answer (``ExampleMatch.match_basis``).
 MATCH_BASIS_EXACT_TITLE = "exact_title"
 MATCH_BASIS_TITLE_WORD = "title_word_and_example_text"
@@ -141,6 +169,17 @@ def _provenance(text: str) -> str:
     """``authored`` when the chunk has the line ``Provenance: authored``, ``readme`` otherwise."""
     lines = {line.rstrip("\r\n") for line in text.splitlines()}
     return "authored" if _AUTHORED_PROVENANCE_LINE in lines else "readme"
+
+
+def _source_commit(text: str) -> str:
+    """The value of the first line ``Source-Commit: <value>`` of the chunk, empty when there is none."""
+    found = re.search(_SOURCE_COMMIT_PATTERN, text, re.MULTILINE)
+    return found.group(1) if found else ""
+
+
+def _verification_note(text: str) -> str:
+    """The fixed sentence saying what ``verified`` means for the chunk's provenance."""
+    return AUTHORED_VERIFICATION_NOTE if _provenance(text) == "authored" else README_VERIFICATION_NOTE
 
 
 def _find_marker_line(lines: list[str]) -> int | None:
@@ -190,6 +229,14 @@ class ExampleMatch:
 
     A lexical ``coverage`` is not a relevance probability: 1.0 means every query term is present in the
     example, not that the example is about them. It defaults to ``""`` for a hand-built match.
+
+    ``language``, ``source_commit`` and ``verification`` (TC-544, additive, last fields, all default ``""``)
+    say what the generation really holds about the snippet: the language of the deployment's platform
+    (``""`` for an unknown platform), the chunk's ``Source-Commit:`` value (``""`` when the line is
+    absent) and one fixed sentence saying what ``verified`` means for this provenance. That sentence is
+    deliberately short of a full record: the toolchain, flags and assembled source the ingestion verifier
+    used are not in the generation, and the verifier may have added the README's imports or an entry
+    point that the snippet does not show.
     """
 
     scope: Scope
@@ -204,6 +251,10 @@ class ExampleMatch:
     provenance: str = "readme"
     # TC-543: what ``coverage`` is for this answer; one of the MATCH_BASIS_* strings, "" when hand-built.
     match_basis: str = ""
+    # TC-544: language of the deployment's platform, the chunk's pinned source commit, and what verified means.
+    language: str = ""
+    source_commit: str = ""
+    verification: str = ""
 
 
 @dataclass(frozen=True)
@@ -271,6 +322,9 @@ def find_examples(
                         source="exact",
                         provenance=_provenance(text),
                         match_basis=MATCH_BASIS_EXACT_TITLE,
+                        language=_PLATFORM_LANGUAGE.get(scope.platform, ""),
+                        source_commit=_source_commit(text),
+                        verification=_verification_note(text),
                     )
                 ]
 
@@ -323,6 +377,9 @@ def find_examples(
                 source="lexical",
                 provenance=_provenance(text),
                 match_basis=lexical_basis,
+                language=_PLATFORM_LANGUAGE.get(scope.platform, ""),
+                source_commit=_source_commit(text),
+                verification=_verification_note(text),
             )
         )
     return matches
@@ -404,6 +461,9 @@ def _vector_fallback(
                     source="vector",
                     provenance=_provenance(text),
                     match_basis=MATCH_BASIS_EMBEDDING,
+                    language=_PLATFORM_LANGUAGE.get(scope.platform, ""),
+                    source_commit=_source_commit(text),
+                    verification=_verification_note(text),
                 )
             )
             if len(matches) >= top_k:
