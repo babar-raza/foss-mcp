@@ -22,7 +22,17 @@ from dataclasses import dataclass
 from foss_mcp.indexing.generation_manifest import GenerationManifestStore
 from foss_mcp.indexing.lexical_index_writer import query_lexical_index_scored
 from foss_mcp.mcp.routing import Scope
-from foss_mcp.mcp.tools.relevance import DOCUMENTATION, RELEVANCE_THRESHOLD, chunk_kind, coverage, query_terms
+from foss_mcp.mcp.tools.relevance import (
+    DOCUMENTATION,
+    RELEVANCE_THRESHOLD,
+    chunk_kind,
+    distinctive_terms,
+    guarded_coverage,
+    query_terms,
+    required_terms,
+    stem_token,
+    term_weights,
+)
 from foss_mcp.mcp.tools.search_symbols import scope_key
 
 SOURCE_KIND = "self_extracted"
@@ -91,14 +101,36 @@ def _doc_ids_by_content_type(documents: dict[str, dict]) -> dict[str, set[str]]:
     return grouped
 
 
+@dataclass(frozen=True)
+class _Rule:
+    """The relevance rule of one query over one generation (TC-516): its terms, their IDF weights and
+    the identifier-like words every relevant chunk must contain."""
+
+    terms: frozenset[str]
+    weights: dict[str, float]
+    required: frozenset[str]
+
+
+def _rule_for(query: str, family: str, lexical_payload: dict | None) -> _Rule | None:
+    """The rule for *query*, or ``None`` when the query has no distinctive term (it names no topic, so
+    no documentation chunk can answer it). The bare query that IS only the family word keeps
+    ``query_terms``' fallback, as it always has."""
+    terms = query_terms(query, family)
+    if not distinctive_terms(query, family) and terms != frozenset({stem_token(family)}):
+        return None
+    return _Rule(terms, term_weights(terms, lexical_payload or {}), required_terms(query))
+
+
 def _relevant_coverage(
-    documents: dict[str, dict], doc_ids: Iterable[str], terms: frozenset[str]
+    documents: dict[str, dict], doc_ids: Iterable[str], rule: _Rule | None
 ) -> dict[str, float]:
     """doc_id -> query-term coverage, for the chunks of *doc_ids* at or above ``RELEVANCE_THRESHOLD``.
     The one relevance rule both the search and the miss hint use."""
     relevant: dict[str, float] = {}
+    if rule is None:
+        return relevant
     for doc_id in doc_ids:
-        doc_coverage = coverage(terms, documents[doc_id]["tokens"])
+        doc_coverage = guarded_coverage(rule.terms, documents[doc_id]["tokens"], rule.required, rule.weights)
         if doc_coverage >= RELEVANCE_THRESHOLD:
             relevant[doc_id] = doc_coverage
     return relevant
@@ -111,13 +143,13 @@ def _miss_with_hint(
     reason: str,
     documents: dict[str, dict],
     grouped: dict[str, set[str]],
+    rule: _Rule | None,
 ) -> Miss:
     """A miss that also names the other content types holding a chunk relevant to the query."""
-    terms = query_terms(query, scope.family)
     others = tuple(
         other
         for other in CONTENT_TYPES
-        if other != content_type and _relevant_coverage(documents, sorted(grouped[other]), terms)
+        if other != content_type and _relevant_coverage(documents, sorted(grouped[other]), rule)
     )
     hint = (
         f"documentation for this query exists under content_type: {', '.join(others)}; "
@@ -160,6 +192,7 @@ def search_docs(
     # documentation, whatever its words - and the category is derived for those alone.
     grouped = _doc_ids_by_content_type(documents)
     matching_doc_ids = grouped[content_type]
+    rule = _rule_for(query, scope.family, lexical_payload)
     if not matching_doc_ids:
         return _miss_with_hint(
             scope,
@@ -168,19 +201,25 @@ def search_docs(
             f"no documents classified content_type={content_type!r}",
             documents,
             grouped,
+            rule,
         )
 
     # Candidate selection never depends on BM25 having scored the document (a stemmed match such as
     # "install" vs "Installation" has no BM25 score); BM25 only breaks ties between equal coverage.
-    terms = query_terms(query, scope.family)
     bm25 = dict(query_lexical_index_scored(lexical_payload, query, top_k=len(documents)))
-    relevant = _relevant_coverage(documents, matching_doc_ids, terms)
+    relevant = _relevant_coverage(documents, matching_doc_ids, rule)
     scored = [(doc_coverage, bm25.get(doc_id, 0.0), doc_id) for doc_id, doc_coverage in relevant.items()]
     scored.sort(key=lambda item: (-item[0], -item[1], item[2]))
     hits = [doc_id for _coverage, _score, doc_id in scored][:top_k]
     if not hits:
         return _miss_with_hint(
-            scope, query, content_type, f"no {content_type} documents match {query!r}", documents, grouped
+            scope,
+            query,
+            content_type,
+            f"no {content_type} documents match {query!r}",
+            documents,
+            grouped,
+            rule,
         )
 
     return [

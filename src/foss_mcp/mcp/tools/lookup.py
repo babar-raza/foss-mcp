@@ -29,19 +29,40 @@ symbols of this pilot matches ...", because a miss is a verdict about the index,
 repository (12 pilots index at most 300 types). The miss keeps the ``coverage_note`` that
 ``search_symbols`` sets from the generation's ``API-Coverage:`` line, which says how much of the API
 the index holds.
+
+TC-516 (REQ-G3-008): lookup includes the symbol(s) a query NAMES. "how do I use Workbook" used to answer
+with documentation (or a miss) although ``lookup("Workbook")`` returns the symbol: the composed
+``TaskAnswer`` now carries ``symbols`` (at most three), and when there is neither documentation nor an
+example but the query names a type, lookup returns that symbol list instead of a miss. A query names a type
+when ONE of its distinctive words is a type name, or when at least 60 percent (and at least two) are, so a
+generic lowercase word such as "table" only counts when it is (nearly) the whole question and "create a
+pivot table" adds nothing. A documentation answer whose only evidence is table-dominated chunks (an API
+table, a long reference dump) needs at least two distinctive query terms in one such chunk; otherwise those
+chunks are dropped.
 """
 
 from __future__ import annotations
 
+import re
 import string
 from dataclasses import dataclass, replace
 
 from foss_mcp.indexing.generation_manifest import GenerationManifestStore
+from foss_mcp.indexing.lexical_index_writer import tokenize
 from foss_mcp.mcp.routing import Scope
 from foss_mcp.mcp.tools.find_examples import ExampleMatch, find_examples
-from foss_mcp.mcp.tools.relevance import DOCUMENTATION, chunk_kind
+from foss_mcp.mcp.tools.get_symbol import extract_fqn
+from foss_mcp.mcp.tools.relevance import DOCUMENTATION, SYMBOL, chunk_kind, distinctive_terms, present_terms
 from foss_mcp.mcp.tools.search_docs import CONTENT_TYPES, DocMatch, search_docs
-from foss_mcp.mcp.tools.search_symbols import Miss, SymbolMatch, search_symbols
+from foss_mcp.mcp.tools.search_symbols import (
+    SOURCE_KIND,
+    Miss,
+    SymbolMatch,
+    naming_tokens,
+    scope_key,
+    search_symbols,
+    token_forms,
+)
 
 # What lookup's own honest miss says: lookup searched documentation, verified examples and symbols.
 NOTHING_MATCHED_REASON = (
@@ -76,6 +97,15 @@ _QUESTION_OR_AUXILIARY_WORDS = frozenset(
         "shall",
     }
 )
+
+# TC-516: how a query is read as naming a type, and what counts as a table-dominated documentation chunk.
+_MAX_NAMED_SYMBOLS = 3
+_NAMED_SHARE = 0.6
+_TABLE_LINE = re.compile(r"^\s*(?:\||- +`[^`]+`\s*[-:\u2013\u2014])")
+_TABLE_DOMINATED_MIN_SHARE = 0.5
+_TABLE_DOMINATED_MIN_LENGTH = 8000
+_TABLE_EVIDENCE_MIN_TERMS = 2
+_FINAL_SEGMENT = re.compile(r"\.|::")
 
 # A query at or above this many words reads as a sentence, not an identifier - real symbol
 # names (including a namespaced FQN like "PdfDocument.AddWatermarkAnnotation") are always a
@@ -127,6 +157,90 @@ class TaskAnswer:
     scope: Scope
     doc_matches: tuple[DocMatch, ...]
     example: ExampleMatch | None
+    # TC-516: the symbol(s) the query names (at most three), ``()`` when it names none.
+    symbols: tuple[SymbolMatch, ...] = ()
+
+
+def _is_table_dominated(text: str) -> bool:
+    """True when a documentation chunk is a table or reference dump rather than prose: at least half of its
+    non-empty body lines (after the ``FQN:`` line) start with ``|`` or with ``- `` and a backticked
+    identifier and a dash or colon, or the chunk is longer than 8,000 characters."""
+    if len(text) > _TABLE_DOMINATED_MIN_LENGTH:
+        return True
+    lines = text.splitlines()
+    body_start = next((index + 1 for index, line in enumerate(lines) if line.startswith("FQN:")), 0)
+    body = [line for line in lines[body_start:] if line.strip()]
+    if not body:
+        return False
+    table_lines = sum(1 for line in body if _TABLE_LINE.match(line))
+    return table_lines >= _TABLE_DOMINATED_MIN_SHARE * len(body)
+
+
+def _named_symbols(store: GenerationManifestStore, scope: Scope, query: str) -> tuple[SymbolMatch, ...]:
+    """The symbol chunks *query* names, at most three, in query-word order (TC-516).
+
+    A distinctive word names a type when its casefolded, plural-stripped form equals the casefolded final
+    segment (split on "." and "::") of an indexed symbol FQN. The symbols are admitted when exactly ONE
+    distinctive word remains and it names a type, or when at least 60 percent of the distinctive words (and
+    at least two) each name one.
+    """
+    tokens = naming_tokens(query, scope.family)
+    if not tokens:
+        return ()
+    key = scope_key(scope, SOURCE_KIND)
+    generation_id = store.read_active(key)
+    if generation_id is None:
+        return ()
+    payload = store.read_generation(key, generation_id).payload.get("lexical_index") or {}
+    documents = payload.get("documents") or {}
+    by_segment: dict[str, list[str]] = {}
+    for doc_id, document in documents.items():
+        text = document["text"]
+        if chunk_kind(text) != SYMBOL:
+            continue
+        fqn = extract_fqn(text)
+        if fqn is not None:
+            by_segment.setdefault(_FINAL_SEGMENT.split(fqn.strip())[-1].casefold(), []).append(doc_id)
+    named: list[list[str]] = []
+    for token in tokens:
+        doc_ids = next((by_segment[form] for form in sorted(token_forms(token)) if form in by_segment), None)
+        if doc_ids is not None:
+            named.append(doc_ids)
+    if len(tokens) == 1:
+        admitted = bool(named)
+    else:
+        admitted = len(named) >= 2 and len(named) >= _NAMED_SHARE * len(tokens)
+    if not admitted:
+        return ()
+    chosen: list[str] = []
+    for doc_ids in named:
+        for doc_id in doc_ids:
+            if doc_id not in chosen and len(chosen) < _MAX_NAMED_SYMBOLS:
+                chosen.append(doc_id)
+    return tuple(
+        SymbolMatch(
+            scope=scope,
+            generation_id=generation_id,
+            doc_id=doc_id,
+            chunk_id=documents[doc_id]["chunk_id"],
+            text=documents[doc_id]["text"],
+        )
+        for doc_id in chosen
+    )
+
+
+def _without_unsupported_tables(
+    matches: tuple[DocMatch, ...], query: str, family: str
+) -> tuple[DocMatch, ...]:
+    """TC-516: documentation whose only evidence is table-dominated chunks stands only when one such chunk
+    holds at least two distinctive query terms; otherwise those chunks are dropped (``()``)."""
+    if not all(_is_table_dominated(match.text) for match in matches):
+        return matches
+    terms = distinctive_terms(query, family)
+    for match in matches:
+        if len(present_terms(terms, tokenize(match.text))) >= _TABLE_EVIDENCE_MIN_TERMS:
+            return matches
+    return ()
 
 
 def lookup(
@@ -172,6 +286,7 @@ def lookup(
                 # is never offered as documentation (search_docs already guarantees it; this
                 # keeps lookup's own composition honest even if that ever regresses).
                 documentation = tuple(m for m in doc_result if chunk_kind(m.text) == DOCUMENTATION)
+                documentation = _without_unsupported_tables(documentation, query, scope.family)
                 if documentation:
                     doc_matches = documentation
                     break
@@ -181,13 +296,27 @@ def lookup(
 
         if not doc_matches and example is None:
             return None
-        return TaskAnswer(scope=scope, doc_matches=doc_matches, example=example)
+        return TaskAnswer(scope=scope, doc_matches=doc_matches, example=example, symbols=named_symbols())
+
+    named_cache: list[tuple[SymbolMatch, ...]] = []
+
+    def named_symbols() -> tuple[SymbolMatch, ...]:
+        if not named_cache:
+            named_cache.append(_named_symbols(store, scope, query))
+        return named_cache[0]
+
+    def _answer_naming_a_type() -> list[SymbolMatch] | None:
+        symbols = named_symbols()
+        return list(symbols) if symbols else None
 
     if _looks_like_a_task_question(query):
         task_answer = _compose_from_docs()
         if task_answer is not None:
             return task_answer
-        return _lookup_miss(search_symbols(store, scope, query, top_k=top_k), query)
+        symbol_result = search_symbols(store, scope, query, top_k=top_k)
+        if isinstance(symbol_result, list) and symbol_result:
+            return symbol_result
+        return _answer_naming_a_type() or _lookup_miss(symbol_result, query)
 
     symbol_result = search_symbols(store, scope, query, top_k=top_k)
     if isinstance(symbol_result, list) and symbol_result:
@@ -197,4 +326,4 @@ def lookup(
     if task_answer is not None:
         return task_answer
 
-    return _lookup_miss(symbol_result, query)
+    return _answer_naming_a_type() or _lookup_miss(symbol_result, query)

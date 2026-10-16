@@ -43,6 +43,11 @@ When the stage is skipped the tool returns the honest lexical miss it always ret
 ``vector_fallback`` note (``skipped_timeout``, ``skipped_circuit_open`` or ``skipped_error``) and a
 reason saying the semantic fallback was skipped. A normal miss (the stage ran and found nothing)
 carries no note.
+
+TC-516 makes the lexical stage IDF-weighted (``relevance.term_weights``: a query word the whole
+generation has never seen counts most), requires every identifier-like query word (``DataSource``) to be
+present in the chunk, and answers a query with no distinctive term ("Example:", "pdf examples") with the
+honest miss at once. The 0.6 threshold, the exact-title branch and the vector fallback are untouched.
 """
 
 from __future__ import annotations
@@ -55,7 +60,14 @@ from foss_mcp.indexing.lexical_index_writer import query_lexical_index_scored
 from foss_mcp.indexing.vector_index_writer import query_vector_index_scored
 from foss_mcp.mcp.routing import Scope
 from foss_mcp.mcp.tools.get_symbol import extract_fqn
-from foss_mcp.mcp.tools.relevance import RELEVANCE_THRESHOLD, coverage, query_terms
+from foss_mcp.mcp.tools.relevance import (
+    RELEVANCE_THRESHOLD,
+    distinctive_terms,
+    guarded_coverage,
+    query_terms,
+    required_terms,
+    term_weights,
+)
 from foss_mcp.mcp.tools.search_symbols import SOURCE_KIND, scope_key
 from foss_mcp.mcp.tools.vector_guard import (
     QUERY_TIME_MAX_ATTEMPTS,
@@ -238,11 +250,17 @@ def find_examples(
     if not example_doc_ids:
         return NoExampleFound(scope, query, reason="no verified example exists in this generation")
 
+    # TC-516: a query with no distinctive term ("Example:", "pdf examples") names no task, so no example
+    # can answer it; and relevance is IDF-weighted with every identifier-like query word required.
+    if not distinctive_terms(query, scope.family):
+        return NoExampleFound(scope, query)
     terms = query_terms(query, scope.family)
+    weights = term_weights(terms, lexical_payload)
+    required = required_terms(query)
     bm25 = dict(query_lexical_index_scored(lexical_payload, query, top_k=len(documents)))
     scored: list[tuple[float, float, str]] = []
     for doc_id in example_doc_ids:
-        doc_coverage = coverage(terms, documents[doc_id]["tokens"])
+        doc_coverage = guarded_coverage(terms, documents[doc_id]["tokens"], required, weights)
         if doc_coverage >= RELEVANCE_THRESHOLD:
             scored.append((doc_coverage, bm25.get(doc_id, 0.0), doc_id))
     scored.sort(key=lambda item: (-item[0], -item[1], item[2]))

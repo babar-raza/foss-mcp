@@ -72,6 +72,16 @@ This module's own write_paths do not include ``docs/DECISION_LOG.md``; the full 
 record (exact numbers, the real symbols/queries probed in all 3 pilots) is this card's own
 worker report, for the supervisor to fold into the decision log at the gate boundary.
 
+TC-516 (G3/REQ-G3-008): two additions, neither of which touches a tier number, ``_match_tier``, the
+Miss, its ``reason``, ``suggestions`` or ``coverage_note``. (a) Within the member-name tier a type that
+DECLARES the member ranks before the types that merely INHERIT it (``pdf/go`` ``SetPassword``: the six
+field types that inherit it from ``TextBoxField`` no longer outrank ``Document``). (b) A gated per-token
+FALLBACK stage runs only when every stage above admitted nothing AND the query contains whitespace: the
+distinctive tokens of the query (``naming_tokens``) are matched against each type's own name and the
+members it declares, so "Workbook methods", "workbooks" and "send email" find their type while
+"PdfDocument.Rotate" (no whitespace), "Watermar" and "AFRelation" stay honest misses. There is no
+prefix tier: ``tests/mcp/test_search_symbols_honest_miss.py`` pins those partial words as misses.
+
 TC-279 (G2/REQ-G2-043): a SEPARATE defect from TC-278's ranking/threshold fixes above - a false
 NEGATIVE from extraction/matching granularity, not a ranking problem. ``chunk_builder.py``'s
 ``build_chunks_from_api_surface`` publishes one chunk per TYPE, with a single ``FQN:`` line
@@ -109,13 +119,15 @@ every other tier here, so no special-casing was needed or added.
 
 from __future__ import annotations
 
+import math
 import re
+import string
 from collections.abc import Iterable
 from dataclasses import dataclass
 from difflib import get_close_matches
 
 from foss_mcp.indexing.generation_manifest import GenerationManifestStore
-from foss_mcp.indexing.lexical_index_writer import query_lexical_index_scored
+from foss_mcp.indexing.lexical_index_writer import query_lexical_index_scored, tokenize
 from foss_mcp.mcp.routing import Scope
 
 SOURCE_KIND = "self_extracted"
@@ -212,36 +224,105 @@ def _member_name(item: str) -> str:
     return (item[: match.start()] if match is not None else item).strip()
 
 
-def _matches_a_rendered_member(query: str, fqn: str | None, text: str) -> bool:
-    """True when *query* exactly names (case-insensitively) a method or property this chunk's
-    own already-rendered Methods:/Properties: blocks list - by the member's own bare name, or
-    as "Type.Member"/"Type::Member" using *fqn*'s own final segment (TC-279, G2/REQ-G2-043).
+_INHERITED_MARKER = "(inherited from "
 
-    Parses those blocks with get_symbol.py's own existing block-parsing helper rather than
-    reimplementing it - the same convention ``get_symbol``/``list_members`` already parse this
-    exact text with. A partial/truncated member name (e.g. ``SetRotatio``) is never equal to a
-    real member's own full name, so it is never a hit here, honestly mirroring ``_match_tier``'s
-    own partial-word floor.
+
+def _member_declaration(query: str, fqn: str | None, text: str) -> bool | None:
+    """``None`` when *query* names no method or property this chunk's own already-rendered
+    Methods:/Properties: blocks list; otherwise whether the type DECLARES a member that *query* names
+    (``True``) or only INHERITS it (``False``: every matching item carries ``(inherited from ...)``).
+
+    A match is the member's own bare name, or "Type.Member"/"Type::Member" using *fqn*'s own final
+    segment, case-insensitively (TC-279, G2/REQ-G2-043). Parses the blocks with get_symbol.py's own
+    existing block-parsing helper rather than reimplementing it - the same convention
+    ``get_symbol``/``list_members`` already parse this exact text with. A partial/truncated member name
+    (e.g. ``SetRotatio``) is never equal to a real member's own full name, so it is never a hit,
+    honestly mirroring ``_match_tier``'s own partial-word floor.
     """
     from foss_mcp.mcp.tools.get_symbol import _extract_block
 
     needle = query.strip().casefold()
     if not needle:
-        return False
+        return None
     final_segment = _FINAL_SEGMENT.split(fqn.strip())[-1].casefold() if fqn else None
+    declared: bool | None = None
     for header in ("Methods:", "Properties:"):
         for item in _extract_block(text, header):
             member_name = _member_name(item).casefold()
             if not member_name:
                 continue
-            if needle == member_name:
+            named = needle == member_name or (
+                final_segment is not None
+                and needle in (f"{final_segment}.{member_name}", f"{final_segment}::{member_name}")
+            )
+            if not named:
+                continue
+            if _INHERITED_MARKER not in item:
                 return True
-            if final_segment is not None and needle in (
-                f"{final_segment}.{member_name}",
-                f"{final_segment}::{member_name}",
-            ):
-                return True
-    return False
+            declared = False
+    return declared
+
+
+def _matches_a_rendered_member(query: str, fqn: str | None, text: str) -> bool:
+    """True when *query* exactly names (case-insensitively) a method or property this chunk's
+    own already-rendered Methods:/Properties: blocks list (see ``_member_declaration``)."""
+    return _member_declaration(query, fqn, text) is not None
+
+
+# TC-516: words that carry no name of their own when a query is read as "which type is meant".
+_NAMING_NOISE_WORDS = frozenset(
+    {"method", "methods", "class", "classes", "property", "properties", "api", "using", "what", "does"}
+)
+_NAMING_MIN_LENGTH = 3
+_FALLBACK_MIN_SHARE = 0.6
+_QUERY_POSSESSIVE = re.compile(r"['\u2019]s$")
+
+
+def naming_tokens(query: str, family: str) -> list[str]:
+    """The casefolded words of *query* that could name a type or a member, in query order.
+
+    Whitespace-split; surrounding punctuation and a possessive suffix removed; a word is dropped when it
+    is shorter than three characters, a stopword ("how", "do", "I"), one of the noise words ("method",
+    "methods", "class", "classes", "property", "properties", "api", "using", "what", "does"), a generic
+    word ("use", "example") or the scope's own family word. A dotted or scoped word ("PdfDocument.Rotate")
+    stays one token, which names no type, so it never matches by its parts.
+    """
+    from foss_mcp.mcp.tools.relevance import is_common_word  # lazy: get_symbol imports this module
+
+    tokens: list[str] = []
+    for raw in query.split():
+        word = _QUERY_POSSESSIVE.sub("", raw.strip(string.punctuation + "`").casefold())
+        if len(word) < _NAMING_MIN_LENGTH or word in _NAMING_NOISE_WORDS:
+            continue
+        if not tokenize(word) or is_common_word(word, family):
+            continue
+        tokens.append(word)
+    return tokens
+
+
+def token_forms(token: str) -> frozenset[str]:
+    """*token* and its plural-stripped forms ("workbooks" -> "workbook", "classes" -> "class")."""
+    forms = {token}
+    if token.endswith("es") and len(token) > 3:
+        forms.add(token[:-2])
+    if token.endswith("s") and len(token) > 3:
+        forms.add(token[:-1])
+    return frozenset(forms)
+
+
+def _declared_member_names(text: str) -> set[str]:
+    """The casefolded names of the members *text* renders WITHOUT an ``(inherited from ...)`` marker."""
+    from foss_mcp.mcp.tools.get_symbol import _extract_block
+
+    names: set[str] = set()
+    for header in ("Methods:", "Properties:"):
+        for item in _extract_block(text, header):
+            if _INHERITED_MARKER in item:
+                continue
+            name = _member_name(item).casefold()
+            if name:
+                names.add(name)
+    return names
 
 
 def suggest_similar_fqns(known_fqns: Iterable[str], target: str, *, limit: int = 3) -> tuple[str, ...]:
@@ -312,6 +393,53 @@ class Miss:
     coverage_note: str | None = None
 
 
+def _fallback_doc_ids(
+    documents: dict[str, dict],
+    ranked: list[tuple[str, float]],
+    query: str,
+    family: str,
+    top_k: int,
+) -> list[str]:
+    """TC-516: the per-token fallback, for a query that every stage above left without a symbol.
+
+    Runs only when *query* contains whitespace (a dotted or scoped name such as ``PdfDocument.Rotate``
+    therefore stays a miss). Each ``naming_tokens`` token is matched against a symbol chunk's own FQN
+    final segment (case-insensitively, plural-stripped) or a member the type DECLARES; a chunk is admitted
+    when at least 60 percent of the tokens (and at least one) match. Ranked by the number of matched
+    tokens, then by the tokens that match the type's own name (a declaring type before one that merely
+    lists the member by name), then by BM25. There is no prefix matching.
+    """
+    from foss_mcp.mcp.tools.get_symbol import extract_fqn
+
+    if not any(character.isspace() for character in query.strip()):
+        return []
+    tokens = naming_tokens(query, family)
+    if not tokens:
+        return []
+    needed = max(1, math.ceil(_FALLBACK_MIN_SHARE * len(tokens)))
+    bm25 = dict(ranked)
+    candidates: list[tuple[int, int, float, str]] = []
+    for doc_id, document in documents.items():
+        text = document["text"]
+        fqn = extract_fqn(text)
+        if fqn is None or fqn.startswith(_NON_SYMBOL_FQN_PREFIXES):
+            continue
+        segment = _FINAL_SEGMENT.split(fqn.strip())[-1].casefold()
+        members = _declared_member_names(text)
+        by_name = 0
+        by_member = 0
+        for token in tokens:
+            forms = token_forms(token)
+            if segment in forms:
+                by_name += 1
+            elif not forms.isdisjoint(members):
+                by_member += 1
+        if by_name + by_member >= needed:
+            candidates.append((by_name + by_member, by_name, bm25.get(doc_id, 0.0), doc_id))
+    candidates.sort(key=lambda item: (-item[0], -item[1], -item[2], item[3]))
+    return [doc_id for _matched, _named, _score, doc_id in candidates[:top_k]]
+
+
 def search_symbols(
     store: GenerationManifestStore, scope: Scope, query: str, *, top_k: int = 10
 ) -> list[SymbolMatch] | Miss:
@@ -366,27 +494,32 @@ def search_symbols(
 
     documents = lexical_payload["documents"]
     ranked = query_lexical_index_scored(lexical_payload, query, top_k=len(documents))
-    admitted: list[tuple[int, float, str]] = []
+    admitted: list[tuple[int, int, float, str]] = []
     for doc_id, bm25_score in ranked:
         text = documents[doc_id]["text"]
         fqn = extract_fqn(text)
         if fqn is None or fqn.startswith(_NON_SYMBOL_FQN_PREFIXES):
             continue
         class_tier = _match_tier(query, fqn)
-        member_hit = _matches_a_rendered_member(query, fqn, text)
-        if class_tier is None and not member_hit:
+        member_declaration = _member_declaration(query, fqn, text)
+        if class_tier is None and member_declaration is None:
             continue
+        inherits_only = 0
         if class_tier is not None and class_tier < 2:
             tier = class_tier
-        elif member_hit:
+        elif member_declaration is not None:
             tier = 2
+            # TC-516: a type that DECLARES the member ranks before the types that only INHERIT it.
+            inherits_only = 0 if member_declaration else 1
         else:
             tier = 3
-        admitted.append((tier, bm25_score, doc_id))
-    # Strongest evidence first (ascending tier); within a tier, the existing BM25-descending
-    # order is still the right tiebreak - it is never discarded, only demoted to secondary.
-    admitted.sort(key=lambda candidate: (candidate[0], -candidate[1]))
-    doc_ids = [doc_id for _tier, _bm25_score, doc_id in admitted][:top_k]
+        admitted.append((tier, inherits_only, bm25_score, doc_id))
+    # Strongest evidence first (ascending tier); within a tier, declaring types before inheriting ones,
+    # then the existing BM25-descending order - it is never discarded, only demoted to secondary.
+    admitted.sort(key=lambda candidate: (candidate[0], candidate[1], -candidate[2]))
+    doc_ids = [doc_id for _tier, _inherits, _bm25_score, doc_id in admitted][:top_k]
+    if not doc_ids:
+        doc_ids = _fallback_doc_ids(documents, ranked, query, scope.family, top_k)
     if not doc_ids:
         known_fqns = []
         for doc_id in documents:
