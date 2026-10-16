@@ -436,14 +436,22 @@ def test_typescript_language_is_unaffected(tmp_path: Path) -> None:
     types = _extract(root, {"platform": "typescript", "family": "x", "repository": "x/y"})
     widget = next(t for t in types if t["name"] == "Widget")
     assert [m["name"] for m in widget["methods"]] == ["run", "open"]
-    # the parameter output is byte-identical to the output before TC-521
+    # TC-523: the TypeScript parameter reader keeps defaults, optional markers, rest and destructured
+    # patterns (it was byte-identical to the pre-TC-521 output until then); no `destructured` key.
     assert widget["methods"][0]["params"] == [
         {"name": "a", "type": "string"},
-        {"name": "b", "type": "number"},
-        {"name": "c", "type": ""},
+        {"name": "b", "type": "number", "optional": True},
+        {"name": "c", "type": "", "default": "3"},
+        {"name": "...rest", "type": "string[]"},
     ]
-    assert widget["methods"][1]["params"] == [{"name": "z", "type": ""}]
-    assert next(t for t in types if t["name"] == "build")["params"] == [{"name": "c", "type": ""}]
+    assert widget["methods"][1]["params"] == [
+        {"name": "options", "type": "Opts", "default": "{}"},
+        {"name": "z", "type": "", "default": "1"},
+    ]
+    assert next(t for t in types if t["name"] == "build")["params"] == [
+        {"name": "options", "type": "Opts"},
+        {"name": "c", "type": "", "default": "1"},
+    ]
     serialized = json.dumps(types)
     assert '"mixin"' not in serialized
     assert '"destructured"' not in serialized
