@@ -28,15 +28,10 @@ import pytest
 import yaml
 
 import infra.build_chunks as build_chunks
+import infra.ingest as ingest
 from foss_mcp.indexing.doc_candidates import extract_doc_sections
 from foss_mcp.indexing.example_candidates import extract_candidate_supply
 from foss_mcp.indexing.example_verifier import prepare_reference_library, verify_dotnet_example
-from foss_mcp.normalization.citation import (
-    citable_chunks,
-    known_counts_from_fixture,
-    symbol_index_from_api_surface,
-    validate_document,
-)
 
 API_SURFACE = Path("tests/fixtures/pdf_net/api_surface.json")
 FURNISHED_PAGE = Path("tests/fixtures/furnished/pdf_net/pages/_index.md")
@@ -366,12 +361,12 @@ def test_furnished_page_doc_chunks_survive_real_citable_chunks_pass(tmp_path: Pa
     doc_chunks = build_chunks._build_doc_chunks(page, args)
 
     fixture = json.loads(API_SURFACE.read_text(encoding="utf-8"))
-    symbol_index = symbol_index_from_api_surface(fixture["types"])
-    known_counts = known_counts_from_fixture(fixture)
-    validated = validate_document(doc_chunks, symbol_index, known_counts)
-    citable = citable_chunks(validated)
+    # TC-517: filter with the PRODUCTION publish gate. infra/ingest.py publishes through
+    # ``select_publishable_chunks`` (TC-425, lenient for furnished docs); the strict ``citable_chunks`` pass drops a
+    # whole chunk for one unsupported anchor and is not the publish gate, so merged chunks are not judged by it.
+    citable, _report = ingest.select_publishable_chunks(doc_chunks, fixture)
 
-    assert citable, "expected at least one real doc chunk to survive the real citable_chunks pass"
+    assert citable, "expected at least one real doc chunk to be published by select_publishable_chunks"
 
     surviving_origins = {title_to_origin[_marker_title(chunk.text)] for chunk in citable}
     assert "overview" in surviving_origins, (

@@ -2,7 +2,7 @@
 
 Synthetic candidates, offline and deterministic. The behaviour under test: a FAQ question stays with
 its answer, a lead-in ending with a colon stays with its list, small neighbours merge up to about
-3,000 characters but never inside a code fence, anything over 7,600 characters is split at table-row
+2,000 characters but never inside a code fence, anything over 7,600 characters is split at table-row
 or line boundaries (never silently cut), and a candidate with more than one chunk numbers them with
 a trailing ``Part: <i> of <n>`` line. No line is lost or reordered.
 """
@@ -52,7 +52,7 @@ def _paragraph(label: str, length: int) -> str:
 
 
 def test_the_constants_are_the_card_values() -> None:
-    assert (MIN_DOC_CHUNK_CHARS, TARGET_DOC_CHUNK_CHARS, MAX_DOC_CHUNK_CHARS) == (400, 3000, 7600)
+    assert (MIN_DOC_CHUNK_CHARS, TARGET_DOC_CHUNK_CHARS, MAX_DOC_CHUNK_CHARS) == (400, 2000, 7600)
 
 
 def test_a_faq_question_and_answer_are_one_chunk() -> None:
@@ -75,14 +75,28 @@ def test_a_lead_in_ending_with_a_colon_joins_the_list_after_it() -> None:
     assert "- item 7 " in chunks[0].text
 
 
-def test_small_sections_merge_up_to_about_3000_characters() -> None:
+def test_small_sections_merge_up_to_the_target_characters() -> None:
     paragraphs = [_paragraph(f"Paragraph {index}", 500) for index in range(10)]
     chunks = _chunks("\n\n".join(paragraphs))
-    assert len(chunks) == 2
+    assert len(chunks) > 1
     for chunk in chunks:
-        assert len(_body_lines(chunk)) > 1
         assert len("\n".join(_body_lines(chunk))) <= TARGET_DOC_CHUNK_CHARS
-    assert [chunk.text.count("Paragraph ") for chunk in chunks] == [5, 5]
+    counts = [chunk.text.count("Paragraph ") for chunk in chunks]
+    assert sum(counts) == 10
+    # Each chunk but the last takes as many paragraphs as still fit under the target.
+    fits = (TARGET_DOC_CHUNK_CHARS + 2) // (len(paragraphs[0]) + 2)
+    assert counts[:-1] == [fits] * (len(counts) - 1)
+    assert fits > 1
+
+
+def test_a_short_buffer_does_not_swallow_a_section_larger_than_the_target() -> None:
+    intro = "The verified public surface has 516 types."
+    table = _paragraph("Big section", TARGET_DOC_CHUNK_CHARS + 500)
+    chunks = _chunks(f"{intro}\n\n{table}")
+    assert len(chunks) == 2
+    assert chunks[0].text.startswith(intro)
+    assert "Big section" not in chunks[0].text
+    assert "Big section" in chunks[1].text
 
 
 def test_tiny_neighbours_merge_even_below_the_minimum() -> None:

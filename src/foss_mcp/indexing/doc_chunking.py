@@ -26,7 +26,7 @@ from foss_mcp.normalization.chunker import Chunk, chunk_document
 from foss_mcp.normalization.document_schema import Provenance, SourceKind, make_document
 
 MIN_DOC_CHUNK_CHARS = 400
-TARGET_DOC_CHUNK_CHARS = 3000
+TARGET_DOC_CHUNK_CHARS = 2000
 MAX_DOC_CHUNK_CHARS = 7600
 
 _FENCE = "```"
@@ -57,9 +57,12 @@ def _merge(sections: list[str]) -> list[str]:
             buffer = section
             continue
         joined_length = len(buffer) + len(_SECTION_SEPARATOR) + len(section)
+        # A short buffer takes the next section, except one that alone exceeds the target: gluing a few
+        # lines to a 7,000-character table would put them in the blast radius of that table's one bad anchor
+        # or contradicted count (measured on slides/python: the "516 types" sentence took a whole table).
         must_join = (
             _inside_fence(buffer)
-            or len(buffer) < MIN_DOC_CHUNK_CHARS
+            or (len(buffer) < MIN_DOC_CHUNK_CHARS and len(section) <= TARGET_DOC_CHUNK_CHARS)
             or _ends_with_colon(buffer)
             or joined_length <= TARGET_DOC_CHUNK_CHARS
         )
