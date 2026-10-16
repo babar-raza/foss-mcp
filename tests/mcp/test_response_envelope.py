@@ -55,7 +55,10 @@ VALID_ARGUMENTS: dict[str, dict[str, Any]] = {
     "search_symbols": {"query": "Document"},
     "get_symbol": {"fqn": FQN},
     "list_members": {"fqn": FQN},
-    "find_examples": {"query": "Document"},
+    # TC-543: a one-word query is answered only by an example with a title word; the pdf/net generation
+    # has "Add a Watermark Annotation", so this is still a non-empty list of ExampleMatch (the test
+    # asserts the shape, not the title). "Document" used to match any example whose code used the word.
+    "find_examples": {"query": "watermark"},
     "get_product_reference": {"section": "license"},
     "list_recent_changes": {},
     "report_index_freshness": {},

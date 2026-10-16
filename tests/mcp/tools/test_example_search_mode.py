@@ -479,7 +479,10 @@ def test_the_lexical_stage_still_answers_without_the_gateway_in_both_modes(
     monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 ) -> None:
     store = _publish(tmp_path / "m", [SYMBOL_TEXT_WITH_COMMIT, EXAMPLE_CHUNK])
-    query = "certificate signature"
+    # TC-543: "certificate signature" has two distinctive terms and neither is a word of the synthetic
+    # example's title ("sign a file"), so the title rule rejects it. Three distinctive terms are judged
+    # by the coverage floor alone, and the example's code contains all three.
+    query = "sign certificate signature"
     first = find_examples(store, SCOPE, query)
     assert isinstance(first, list)
     assert first[0].source == "lexical"

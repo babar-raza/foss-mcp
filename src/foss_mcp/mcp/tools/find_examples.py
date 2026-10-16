@@ -48,6 +48,12 @@ TC-516 makes the lexical stage IDF-weighted (``relevance.term_weights``: a query
 generation has never seen counts most), requires every identifier-like query word (``DataSource``) to be
 present in the chunk, and answers a query with no distinctive term ("Example:", "pdf examples") with the
 honest miss at once. The 0.6 threshold, the exact-title branch and the vector fallback are untouched.
+
+TC-543 adds one rule to the lexical stage: when the query has at most two distinctive terms
+(``relevance.TITLE_ANCHOR_MAX_TERMS``), an example may answer only if one of them is a word of its
+TITLE (``relevance.title_anchored``). A short query is otherwise satisfied by any example whose code
+calls ``Save`` or ``Open``. A longer query is judged by the coverage floor alone. Every
+``ExampleMatch`` also carries ``match_basis``, which says what its ``coverage`` number is.
 """
 
 from __future__ import annotations
@@ -62,11 +68,13 @@ from foss_mcp.mcp.routing import Scope
 from foss_mcp.mcp.tools.get_symbol import extract_fqn
 from foss_mcp.mcp.tools.relevance import (
     RELEVANCE_THRESHOLD,
+    TITLE_ANCHOR_MAX_TERMS,
     distinctive_terms,
     guarded_coverage,
     query_terms,
     required_terms,
     term_weights,
+    title_anchored,
 )
 from foss_mcp.mcp.tools.search_symbols import SOURCE_KIND, scope_key
 from foss_mcp.mcp.tools.vector_guard import (
@@ -102,6 +110,12 @@ _VECTOR_SIMILARITY_THRESHOLD = 0.45
 _VERIFIED_KIND_LINE = "Kind: verified_example"
 _AUTHORED_PROVENANCE_LINE = "Provenance: authored"
 _VERIFICATION_PASSED_LINE = "Verification: passed"
+
+# TC-543: what an ``ExampleMatch.coverage`` number is, per answer (``ExampleMatch.match_basis``).
+MATCH_BASIS_EXACT_TITLE = "exact_title"
+MATCH_BASIS_TITLE_WORD = "title_word_and_example_text"
+MATCH_BASIS_QUERY_TERMS = "query_terms_in_example_text"
+MATCH_BASIS_EMBEDDING = "embedding_similarity"
 
 
 def is_verified_example_text(text: str) -> bool:
@@ -163,6 +177,19 @@ class ExampleMatch:
     similarity (see ``_VECTOR_SIMILARITY_THRESHOLD``). These two numbers are not
     interchangeable - always check ``source`` before comparing or thresholding ``coverage``
     across matches, rather than assuming it is one fixed kind of number.
+
+    ``match_basis`` (TC-543, additive, last field) says plainly what ``coverage`` is for that answer:
+
+    - ``exact_title``: the query was the example's own title (its ``FQN:`` line); ``coverage`` is 1.0.
+    - ``title_word_and_example_text``: a lexical answer to a short query (at most two distinctive terms)
+      that was anchored on a word of the example's title; ``coverage`` is the weighted share of the
+      query's terms present in the example text, 1.0 meaning all are present.
+    - ``query_terms_in_example_text``: a lexical answer to a longer query, judged by the coverage floor
+      alone; ``coverage`` is the weighted share of the query's terms present in the example text.
+    - ``embedding_similarity``: the vector fallback; ``coverage`` is a cosine similarity.
+
+    A lexical ``coverage`` is not a relevance probability: 1.0 means every query term is present in the
+    example, not that the example is about them. It defaults to ``""`` for a hand-built match.
     """
 
     scope: Scope
@@ -175,6 +202,8 @@ class ExampleMatch:
     # TC-465: "authored" when the chunk has the line ``Provenance: authored`` (an example written
     # for the library and really verified), "readme" for a README example the verifier passed.
     provenance: str = "readme"
+    # TC-543: what ``coverage`` is for this answer; one of the MATCH_BASIS_* strings, "" when hand-built.
+    match_basis: str = ""
 
 
 @dataclass(frozen=True)
@@ -241,6 +270,7 @@ def find_examples(
                         coverage=1.0,
                         source="exact",
                         provenance=_provenance(text),
+                        match_basis=MATCH_BASIS_EXACT_TITLE,
                     )
                 ]
 
@@ -261,7 +291,8 @@ def find_examples(
     scored: list[tuple[float, float, str]] = []
     for doc_id in example_doc_ids:
         doc_coverage = guarded_coverage(terms, documents[doc_id]["tokens"], required, weights)
-        if doc_coverage >= RELEVANCE_THRESHOLD:
+        title = (extract_fqn(documents[doc_id]["text"]) or "")[len(_EXAMPLE_FQN_PREFIX) :]
+        if doc_coverage >= RELEVANCE_THRESHOLD and title_anchored(query, scope.family, title):
             scored.append((doc_coverage, bm25.get(doc_id, 0.0), doc_id))
     scored.sort(key=lambda item: (-item[0], -item[1], item[2]))
     hits = [(doc_id, doc_coverage) for doc_coverage, _score, doc_id in scored[:top_k]]
@@ -274,6 +305,11 @@ def find_examples(
             reason = f"{reason} (semantic fallback skipped: {_SKIP_WORDS[note]})"
         return NoExampleFound(scope, query, reason=reason, vector_fallback=note)
 
+    lexical_basis = (
+        MATCH_BASIS_TITLE_WORD
+        if len(distinctive_terms(query, scope.family)) <= TITLE_ANCHOR_MAX_TERMS
+        else MATCH_BASIS_QUERY_TERMS
+    )
     matches = []
     for doc_id, doc_coverage in hits:
         text = documents[doc_id]["text"]
@@ -286,6 +322,7 @@ def find_examples(
                 coverage=doc_coverage,
                 source="lexical",
                 provenance=_provenance(text),
+                match_basis=lexical_basis,
             )
         )
     return matches
@@ -366,6 +403,7 @@ def _vector_fallback(
                     coverage=score,
                     source="vector",
                     provenance=_provenance(text),
+                    match_basis=MATCH_BASIS_EMBEDDING,
                 )
             )
             if len(matches) >= top_k:

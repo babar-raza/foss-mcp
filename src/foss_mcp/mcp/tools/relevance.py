@@ -23,6 +23,13 @@ the index: a plural acronym ("PDFs") is read as the acronym; a small synonym map
 counts most); ``required_terms`` makes an identifier-like query word ("DataSource") a must-match; and
 ``distinctive_terms`` says whether a query has any term that is neither the family word nor generic.
 
+TC-543 (G3/REQ-G3-008) adds ``title_anchored`` for ``find_examples``: for a query of at most
+``TITLE_ANCHOR_MAX_TERMS`` (2) distinctive terms, an example may answer only if one of those terms (a
+synonym counting) is a word of the example's TITLE. A one- or two-word query is satisfied by any example
+whose CODE merely calls ``Save`` or ``Open``, which is nearly every example, so ``coverage`` of 1.0 said
+nothing; a longer query is judged by the coverage floor alone, as before. ``RELEVANCE_THRESHOLD``, the IDF
+weights and the required identifier terms are untouched.
+
 Pure functions only: no I/O, no clock, no randomness.
 """
 
@@ -180,6 +187,25 @@ def distinctive_terms(query: str, family: str) -> frozenset[str]:
     terms minus the family word and the generic words, so "Example:" and "pdf examples" have none.
     """
     return _stemmed_query_terms(query) - _excluded_terms(family)
+
+
+# TC-543: a query with at most this many distinctive terms must find one of them in an example's title.
+TITLE_ANCHOR_MAX_TERMS = 2
+
+
+def title_anchored(query: str, family: str, title: str) -> bool:
+    """Whether an example titled *title* may answer *query* (TC-543).
+
+    A query with more than ``TITLE_ANCHOR_MAX_TERMS`` distinctive terms is judged by the coverage floor
+    alone, so this is True. Otherwise it is True exactly when at least one distinctive term (stemmed, a
+    synonym counting, as in ``present_terms``) is a word of *title*; the family word and the generic words
+    are not distinctive, so ``pdf`` in a title never anchors ``pdf save``. A query with no distinctive term
+    is answered with the honest miss before this is reached.
+    """
+    terms = distinctive_terms(query, family)
+    if len(terms) > TITLE_ANCHOR_MAX_TERMS:
+        return True
+    return bool(present_terms(terms, tokenize(title)))
 
 
 def required_terms(query: str) -> frozenset[str]:
