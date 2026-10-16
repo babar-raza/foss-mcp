@@ -54,6 +54,17 @@ def _api_surface_fixture() -> dict:
     return json.loads((FIXTURE_ROOT / "pdf_net" / "api_surface.json").read_text(encoding="utf-8"))
 
 
+def _truncated_api_surface_fixture() -> dict:
+    """The committed pdf_net fixture cut to its first 300 entries and marked truncated.
+
+    re-extracted by TC-530: the committed fixture is now the complete surface (901 of 901, not truncated),
+    so its per-kind counts are confident and a claim of "805 classes" is contradicted (unsupported) instead of
+    unverifiable. These tests guard the rule for a REDUCED fixture (OQ-001), so they keep a reduced one.
+    """
+    fixture = _api_surface_fixture()
+    return {**fixture, "truncated": True, "reduced_type_count": 300, "types": fixture["types"][:300]}
+
+
 def _chunk(text: str, provenance: Provenance | None = None) -> Chunk:
     return Chunk(
         section_title="Overview",
@@ -112,7 +123,7 @@ def test_oq_001_the_real_805_classes_claim_has_no_confident_corroborating_count(
     899, unrelated to the TC-252 selection-algorithm fix this fixture regeneration proves;
     TC-400's re-extraction at the pinned commit is why it changed from 971).
     """
-    known_counts = known_counts_from_fixture(_api_surface_fixture())
+    known_counts = known_counts_from_fixture(_truncated_api_surface_fixture())  # re-extracted by TC-530
     assert "classes" not in known_counts
     assert known_counts["types"] == 901
 
@@ -129,7 +140,7 @@ def test_the_805_classes_sentence_is_excluded_or_qualified_as_a_whole_chunk() ->
     """Isolated to the numeric claim alone (no symbol anchors), so this is unambiguously the
     numeric-claim rule doing the work, not an unrelated anchor failure.
     """
-    known_counts = known_counts_from_fixture(_api_surface_fixture())
+    known_counts = known_counts_from_fixture(_truncated_api_surface_fixture())  # re-extracted by TC-530
     chunk = validate_chunk(
         _chunk("The library exposes 805 classes."),
         symbol_index_from_api_surface([]),
@@ -375,7 +386,7 @@ def test_describe_unresolved_anchors_never_reports_a_supported_or_insufficient_e
     with no failing anchor at all), must never appear in describe_unresolved_anchors' output -
     it exists to explain an UNSUPPORTED exclusion, nothing else.
     """
-    fixture = _api_surface_fixture()
+    fixture = _truncated_api_surface_fixture()  # re-extracted by TC-530
     index = symbol_index_from_api_surface(fixture["types"])
     known_counts = known_counts_from_fixture(fixture)
     supported = validate_chunk(_chunk(f"See `{fixture['types'][0]['name']}`."), index, {})

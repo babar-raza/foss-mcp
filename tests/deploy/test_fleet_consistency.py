@@ -84,6 +84,19 @@ COVERAGE_EXCEPTIONS = {
         "API-Coverage line reads '46 of 149 types' for a fixture that is not truncated"
     ),
 }
+# pilot -> why its baked generation is checked against ITS OWN API-Coverage lines and not against the fixture. TRANSITION
+# table: the fixture was re-extracted by a TC-53x card, the baked generation still reflects the previous fixture until the
+# supervisor's re-ingest and snapshot, TC-536 deletes this table.
+STALE_BAKED_PILOTS: dict[str, str] = {
+    "pdf_net": (
+        "re-extracted by TC-530: the fixture holds 901 of 901 types (not truncated), the baked generation still says "
+        "'300 of 901 types' until the supervisor re-ingests"
+    ),
+    "words_net": (
+        "re-extracted by TC-530: the fixture holds 618 of 618 types (not truncated), the baked generation still says "
+        "'300 of 618 types' until the supervisor re-ingests"
+    ),
+}
 # pilot -> why it may sit below the composition floor. Empty: every pilot meets it.
 COMPOSITION_EXCEPTIONS: dict[str, str] = {}
 
@@ -337,6 +350,22 @@ def coverage_problems(fixture: Mapping[str, Any], symbol_texts: Sequence[str]) -
     return problems
 
 
+def baked_self_view(symbol_texts: Sequence[str]) -> dict[str, Any]:
+    """The fixture-shaped view a baked generation states about itself: ``type_count`` is the M of its first
+    API-Coverage line and ``truncated`` is whether the symbol-chunk count N is below it. ``coverage_problems`` on this
+    view flags a generation whose lines disagree with each other or with the symbol-chunk count."""
+    total: int | None = None
+    for text in symbol_texts:
+        for line in _COVERAGE_LINE.findall(text):
+            match = _COVERAGE_VALUE.match(line)
+            if match is not None:
+                total = int(match.group(2))
+                break
+        if total is not None:
+            break
+    return {"type_count": total, "truncated": total is not None and len(symbol_texts) < total}
+
+
 def composition_problems(symbols: int, docs: int) -> list[str]:
     problems: list[str] = []
     if symbols < SYMBOL_FLOOR:
@@ -423,6 +452,11 @@ def test_sidecars_identify_this_pilot(key: str) -> None:
 def test_api_coverage_lines_are_present_and_honest(key: str) -> None:
     symbols = texts_of_kind(chunk_texts(active_generation(key)), SYMBOL)
     assert symbols, f"{key} bakes no symbol chunk"
+    if key in STALE_BAKED_PILOTS:
+        # The fixture was re-extracted; the baked generation is checked against its OWN lines until the re-ingest.
+        problems = coverage_problems(baked_self_view(symbols), symbols)
+        assert not problems, problems
+        return
     problems = coverage_problems(load_fixture(key), symbols)
     if key in COVERAGE_EXCEPTIONS:
         # Asserted, not skipped: only the truncation reading may disagree; N and M must stay honest.
@@ -451,7 +485,13 @@ def test_unresolved_symbols_stay_within_the_documented_table(key: str) -> None:
 
 
 def test_every_exception_names_a_pilot_of_the_chart() -> None:
-    for table in (COMMIT_EXCEPTIONS, UNRESOLVED_EXCEPTIONS, COVERAGE_EXCEPTIONS, COMPOSITION_EXCEPTIONS):
+    for table in (
+        COMMIT_EXCEPTIONS,
+        UNRESOLVED_EXCEPTIONS,
+        COVERAGE_EXCEPTIONS,
+        COMPOSITION_EXCEPTIONS,
+        STALE_BAKED_PILOTS,
+    ):
         unknown = sorted(set(table) - set(PILOT_KEYS))
         assert not unknown, f"exception(s) for pilot(s) the chart does not name: {unknown}"
 
@@ -472,6 +512,19 @@ def test_every_coverage_exception_still_applies() -> None:
         )
 
 
+def test_every_stale_baked_pilot_still_applies() -> None:
+    for key in sorted(STALE_BAKED_PILOTS):
+        symbols = texts_of_kind(chunk_texts(active_generation(key)), SYMBOL)
+        assert coverage_problems(load_fixture(key), symbols), (
+            "the baked generation matches the fixture again; delete the pilot from STALE_BAKED_PILOTS"
+        )
+
+
+def test_stale_baked_pilots_are_disjoint_from_the_coverage_exceptions() -> None:
+    both = sorted(set(STALE_BAKED_PILOTS) & set(COVERAGE_EXCEPTIONS))
+    assert not both, f"pilot(s) in both STALE_BAKED_PILOTS and COVERAGE_EXCEPTIONS: {both}"
+
+
 def test_every_unresolved_exception_still_applies() -> None:
     for key in sorted(UNRESOLVED_EXCEPTIONS):
         assert unresolved_count(key) > 0, (
@@ -489,6 +542,8 @@ def test_every_exception_carries_a_reason() -> None:
     for key, reason in COVERAGE_EXCEPTIONS.items():
         assert isinstance(reason, str) and reason.strip(), f"{key} has no reason"
     for key, reason in COMPOSITION_EXCEPTIONS.items():
+        assert isinstance(reason, str) and reason.strip(), f"{key} has no reason"
+    for key, reason in STALE_BAKED_PILOTS.items():
         assert isinstance(reason, str) and reason.strip(), f"{key} has no reason"
 
 
@@ -664,6 +719,27 @@ def test_coverage_problems_flag_a_missing_line_a_wrong_count_and_a_wrong_total()
         for p in coverage_problems(
             {"type_count": 3, "truncated": True}, [_symbol_text(f"T{i}", 3, 3) for i in range(3)]
         )
+    )
+
+
+def test_baked_self_view_flags_an_inconsistent_generation() -> None:
+    consistent = [_symbol_text(f"T{i}", 3, 5) for i in range(3)]
+    view = baked_self_view(consistent)
+    assert view == {"type_count": 5, "truncated": True}
+    assert coverage_problems(view, consistent) == []
+    complete = [_symbol_text(f"T{i}", 3, 3) for i in range(3)]
+    assert coverage_problems(baked_self_view(complete), complete) == []
+    # Lines that disagree on M: the second chunk says 9 where the first says 5.
+    disagreeing = [consistent[0], _symbol_text("T1", 3, 9), consistent[2]]
+    assert any("M=9" in p for p in coverage_problems(baked_self_view(disagreeing), disagreeing))
+    # An N that is not the symbol-chunk count: every line says N=4 for 3 chunks.
+    wrong_n = [_symbol_text(f"T{i}", 4, 5) for i in range(3)]
+    assert any("N=4" in p for p in coverage_problems(baked_self_view(wrong_n), wrong_n))
+    # A generation without any parsable line has no view and is flagged chunk by chunk.
+    unlabelled = ["FQN: T0\nKind: class", "FQN: T1\nKind: class"]
+    assert baked_self_view(unlabelled) == {"type_count": None, "truncated": False}
+    assert any(
+        "0 API-Coverage lines" in p for p in coverage_problems(baked_self_view(unlabelled), unlabelled)
     )
 
 
