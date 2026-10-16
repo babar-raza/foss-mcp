@@ -69,6 +69,7 @@ from foss_mcp.mcp.tools.get_symbol import get_symbol
 from foss_mcp.mcp.tools.list_members import list_members
 from foss_mcp.mcp.tools.list_recent_changes import list_recent_changes
 from foss_mcp.mcp.tools.lookup import lookup
+from foss_mcp.mcp.tools.readme_sections import ReadmeSections, read_readme_sections
 from foss_mcp.mcp.tools.report_index_freshness import report_index_freshness
 from foss_mcp.mcp.tools.search_docs import CONTENT_TYPES, search_docs
 from foss_mcp.mcp.tools.search_symbols import SOURCE_KIND, scope_key, search_symbols
@@ -171,9 +172,20 @@ def _wrap_find_examples(store: GenerationManifestStore, scope: Scope) -> Callabl
     return find_examples_tool
 
 
-def _wrap_get_product_reference(inputs: ProductReferenceInputs) -> Callable[..., Any]:
+# G3/TC-518: the sections whose answer can use the README sections the deployment's index holds.
+_README_SECTIONS = frozenset({"formats", "limitations", "install", "compatibility"})
+
+
+def _wrap_get_product_reference(
+    inputs: ProductReferenceInputs, store: GenerationManifestStore, scope: Scope
+) -> Callable[..., Any]:
     def get_product_reference_tool(*, section: str) -> Any:
-        return get_product_reference(inputs, section)  # type: ignore[arg-type]
+        # A read of the active generation per call is cheap (the store caches the parsed generation) and
+        # never raises: any failure is the empty ReadmeSections, which answers as before.
+        readme: ReadmeSections | None = (
+            read_readme_sections(store, scope) if section in _README_SECTIONS else None
+        )
+        return get_product_reference(inputs, section, readme=readme)  # type: ignore[arg-type]
 
     return get_product_reference_tool
 
@@ -1098,7 +1110,7 @@ def _build_tool_registry(
         "get_symbol": _wrap_get_symbol(store, scope),
         "list_members": _wrap_list_members(store, scope),
         "find_examples": _wrap_find_examples(store, scope),
-        "get_product_reference": _wrap_get_product_reference(product_reference_inputs),
+        "get_product_reference": _wrap_get_product_reference(product_reference_inputs, store, scope),
         "list_recent_changes": _wrap_list_recent_changes(recent_releases, recent_releases_state),
         "report_index_freshness": _wrap_report_index_freshness(store, scope, product_reference_inputs),
     }
