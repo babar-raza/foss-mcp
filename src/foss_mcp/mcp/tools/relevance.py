@@ -189,6 +189,17 @@ def distinctive_terms(query: str, family: str) -> frozenset[str]:
     return _stemmed_query_terms(query) - _excluded_terms(family)
 
 
+_LANGUAGE_LETTER_RE = re.compile(r"(?<![A-Za-z0-9])[A-Za-z](?=\+\+|#)")
+
+
+def names_language_letter(query: str) -> bool:
+    """True only when *query* contains a single letter directly followed by ``++`` or ``#`` ("C++", "C#"),
+    the one place a one-letter term carries the topic. TC-505 drops one-letter terms and TC-516 turns "no
+    distinctive term" into a miss, which together made the C++ pilots' product title unanswerable.
+    """
+    return _LANGUAGE_LETTER_RE.search(_normalised_query(query)) is not None
+
+
 # TC-543: a query with at most this many distinctive terms must find one of them in an example's title.
 TITLE_ANCHOR_MAX_TERMS = 2
 

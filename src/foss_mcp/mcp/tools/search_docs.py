@@ -29,6 +29,7 @@ from foss_mcp.mcp.tools.relevance import (
     chunk_kind,
     distinctive_terms,
     guarded_coverage,
+    names_language_letter,
     query_terms,
     required_terms,
     stem_token,
@@ -147,9 +148,11 @@ class _Rule:
 def _rule_for(query: str, family: str, lexical_payload: dict | None) -> _Rule | None:
     """The rule for *query*, or ``None`` when the query has no distinctive term (it names no topic, so
     no documentation chunk can answer it). The bare query that IS only the family word keeps
-    ``query_terms``' fallback, as it always has."""
+    ``query_terms``' fallback, as it always has. A query that names the language C++ or C# (a single
+    letter directly followed by ``++`` or ``#``) names a topic even though that letter is not a term."""
     terms = query_terms(query, family)
-    if not distinctive_terms(query, family) and terms != frozenset({stem_token(family)}):
+    names_topic = bool(distinctive_terms(query, family)) or names_language_letter(query)
+    if not names_topic and terms != frozenset({stem_token(family)}):
         return None
     return _Rule(terms, term_weights(terms, lexical_payload or {}), required_terms(query))
 
