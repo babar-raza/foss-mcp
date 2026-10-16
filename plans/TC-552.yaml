@@ -1,0 +1,199 @@
+id: TC-552
+gate: G3
+lane: verification
+purpose: >-
+  REQ-G3-005 and REQ-G3-008 (operator decision 2026-10-16: the eight jmap pilots, i.e. the whole jmap family, are
+  removed from the product everywhere in the shipped repository; git history is untouched; their upstream repositories
+  no longer exist, OWNER-15). THIS CARD IS THE TEXT HALF OF THE REMOVAL; TC-551 removed the pilots, their data and every
+  roster and count. What is left after TC-551 is the family's NAME in places that are neither data nor roster: comments
+  and docstrings of the extraction engine, the example verifier and build_chunks.py that cite the removed libraries as
+  examples, and tests that use the family only as a SYNTHETIC name (a made-up client class, a made-up family of a
+  sidecar test, a made-up third pilot of an entrypoint test). The operator's instruction is that nothing shipped keeps
+  the name, so this card renames those, changes no behaviour, and adds the permanent guard:
+  tests/deploy/test_removed_family_absent.py scans every file git tracks, case-insensitively, and allows the name only
+  in the immutable history (plans/, evidence/, ops/, project/, docs/DECISION_LOG.md, docs/REVIEW_LEDGER.md and
+  scripts/release/build_review_ledger.py, whose finding texts are the source docs/REVIEW_LEDGER.md is generated from
+  byte for byte) and in the one removal sentence of docs/RELEASE.md. Measured by the drafter on main 7af2adb1 with
+  TC-551 applied to a scratch copy: 29 tracked files still name the family outside that allowance - 4 under src/ and
+  infra/ (comments and docstrings only: api_surface.py 19 lines, example_verifier.py 8, python_surface.py 1,
+  infra/build_chunks.py 1; src/foss_mcp/mcp/identity.py is TC-551's), 22 test files and 3 fixture files of
+  tests/fixtures/js_mixin_sample - and every rename below was applied and the named tests were run green on the scratch
+  copy. What this card does NOT change: any behaviour (the code of src/ and infra/ is byte-identical apart from comment
+  and docstring text, proved below), any fixture or manifest of a real pilot, ops/, project/, plans/, evidence/, docs/.
+depends_on:
+- TC-551
+- TC-540
+- TC-162
+- TC-306
+write_paths:
+- infra/build_chunks.py
+- src/foss_mcp/extraction/tree_sitter_engine/api_surface.py
+- src/foss_mcp/extraction/tree_sitter_engine/python_surface.py
+- src/foss_mcp/indexing/example_verifier.py
+- tests/deploy/test_demo_entrypoint.py
+- tests/extraction/docs_identifiers.py
+- tests/extraction/test_cells_typescript_extraction.py
+- tests/extraction/test_email_python_extraction.py
+- tests/extraction/test_reextracted_dotnet.py
+- tests/extraction/test_run_extraction_language_mapping.py
+- tests/extraction/tree_sitter_engine/test_api_surface_javascript.py
+- tests/extraction/tree_sitter_engine/test_js_mixins.py
+- tests/extraction/tree_sitter_engine/test_python_surface_mixins.py
+- tests/fixtures/js_mixin_sample/package.json
+- tests/fixtures/js_mixin_sample/src/client-core.js
+- tests/fixtures/js_mixin_sample/src/index.js
+- tests/indexing/test_chunk_builder_mixin_suffix.py
+- tests/indexing/test_cpp_verifier_consumer.py
+- tests/indexing/test_java_verifier_pilots.py
+- tests/indexing/test_nodejs_verifier.py
+- tests/indexing/test_store_durability.py
+- tests/indexing/test_typescript_verifier_layouts.py
+- tests/infra/test_rollback_cli.py
+- tests/infra/test_sidecar_writers.py
+- tests/infra/test_verify_package_registry.py
+- tests/infra/test_verify_product_reference_install.py
+- tests/mcp/tools/test_member_lookup.py
+- tests/mcp/tools/test_search_symbols_forgiveness.py
+- tests/poc/test_pilot_workflow_proof.py
+- tests/deploy/test_removed_family_absent.py
+satisfies:
+- REQ-G3-005
+- REQ-G3-008
+source_refs:
+- file: docs/DECISION_LOG.md
+  anchor: '## 2026-10-15 — Independent pre-production adversarial review of the shipped image; its findings enter the state machine as cards (operator, supervisor)'
+  sha256: d2d82669b8060d5e3a3b9da00e9858e576d5d264d96e32d1aed8034e8d6d9007
+inputs:
+- >-
+  ORDER AND FRESHNESS. TC-552 runs after TC-551 and after TC-533 (TC-532 to TC-535 own
+  tests/extraction/test_email_python_extraction.py and tests/extraction/test_cells_typescript_extraction.py; the
+  supervisor has already removed every removed-family fixture, test and pin from TC-532 to TC-535, so the files they
+  create name nothing). Everything below was checked against main 7af2adb1 plus TC-551; verify each name against the
+  merged code and list differences in your report. The new test fails if ANY tracked file outside the allowance names
+  the family: if it lists a file that is not in write_paths, stop and report its path (a card that created it must be
+  amended by the supervisor), never edit it. Activate the toolchain (scripts/toolchain/activate.ps1) in the SAME shell
+  command as every python or pytest call. Never print an environment value.
+- >-
+  SOURCE COMMENTS AND DOCSTRINGS (no code change). src/foss_mcp/extraction/tree_sitter_engine/api_surface.py: the
+  comment blocks that quote the removed Node.js and Java libraries as live examples (around lines 4169 to 4174 the
+  `class JmapClient extends CoreClient {}` mixin sketch, 4433 to 4437 the aliased-import example, 5256 to 5258 the
+  nested Builder example, 5376 to 5407 the 'confirmed live on the real pinned repository' notes) become generic wording
+  with a made-up library: `SampleClient`, `CoreClient`, `a plain-JavaScript library`, `a Java library whose nested class
+  Builder was recorded without its enclosing class`; no repository name, no package name of the removed libraries.
+  src/foss_mcp/extraction/tree_sitter_engine/python_surface.py (one docstring line),
+  src/foss_mcp/indexing/example_verifier.py (docstrings and comments at about lines 2086, 2320, 2526, 2660, 2794, 2884
+  (the section header `# --- jmap/nodejs (TC-362) ---` becomes `# --- nodejs ---`), 2895 and 3063: the pilot lists lose
+  the removed family, `(jmap/nodejs)` becomes `(a dependency-free library)`) and infra/build_chunks.py (one comment
+  about a plain ESM JavaScript pilot). PROVE no behaviour changed: before editing, save `ast.dump` of each of the four
+  modules with docstrings stripped (a 10-line script kept outside the repository) and compare after; report `identical`
+  per file. Comments are not in the AST, so also run `git diff -U0` and confirm every changed line of these four files
+  is a comment line, a docstring line or a blank line. The nodejs platform of build_chunks.py / example_verifier.py /
+  the tree-sitter mixin flattening and the C++ header-only INTERFACE-target consumer mode are GENERIC capabilities that
+  no remaining pilot uses; they STAY (removing a capability is a separate product decision: report it, do not do it).
+- >-
+  TESTS THAT USE THE FAMILY ONLY AS A SYNTHETIC NAME (rename, change no assertion, keep every test; the drafter ran each
+  mapping on the scratch tree and the listed files passed). (1) The made-up CLIENT and LIBRARY names: in
+  tests/extraction/tree_sitter_engine/test_api_surface_javascript.py, test_js_mixins.py, test_python_surface_mixins.py,
+  in tests/fixtures/js_mixin_sample (package.json `jmap-sample` -> `mixin-sample`, src/client-core.js, src/index.js), in
+  tests/indexing/test_chunk_builder_mixin_suffix.py, tests/indexing/test_java_verifier_pilots.py (package
+  `com.aspose.jmap` -> `com.aspose.sample`, JMAP_* constants -> SAMPLE_*), tests/indexing/test_nodejs_verifier.py
+  (package `aspose-jmap-foss` -> `aspose-sample-foss`, scoped `@aspose/jmap` -> `@aspose/sample`),
+  tests/indexing/test_cpp_verifier_consumer.py (target `aspose-jmap-foss-cpp` -> `aspose-sample-foss-cpp`, the
+  `jmap/cpp` row -> `sample/cpp`), tests/poc/test_pilot_workflow_proof.py (`jmap::JmapError` -> `sample::SampleError`):
+  JmapClient -> SampleClient, JMAP -> SAMPLE, Jmap -> Sample, jmap -> sample, test names that contain the word are
+  renamed the same way (`test_the_jmap_shape_serves_...` -> `test_the_sample_shape_serves_...`). In
+  tests/indexing/test_typescript_verifier_layouts.py the layout label `jmap` becomes `dist-src` (it names the layout
+  `dist/src/index.d.ts`, not a pilot) in LAYOUTS, the two uses and the parametrisation. (2) The made-up FAMILY of
+  sidecar, registry, rollback, store and entrypoint tests: tests/infra/test_sidecar_writers.py, test_rollback_cli.py,
+  test_verify_package_registry.py, test_verify_product_reference_install.py, tests/indexing/test_store_durability.py and
+  tests/mcp/tools/test_member_lookup.py use `email` (`jmap` -> `email`, `JMAP` -> `EMAIL`, `Jmap` -> `Email`, coordinate
+  `aspose-jmap-foss` -> `aspose-email-foss`, `Aspose.Jmap.JmapClient` -> `Aspose.Email.EmailClient`);
+  tests/deploy/test_demo_entrypoint.py replaces the third pilot `jmap/nodejs` with `email/python` (`jmap_nodejs` ->
+  `email_python`, the family / platform tuple -> `("email", "python")`; its sorted list assertion `["jmap/nodejs",
+  "pdf/go", "pdf/net"]` -> `["email/python", "pdf/go", "pdf/net"]` still sorts the same);
+  tests/mcp/tools/test_search_symbols_forgiveness.py uses `sample` and NOT `email` (`Jmap.Email` -> `Sample.Widget`,
+  scope family `sample`): its query `send email please` would collide with an `email` name. (3) DOCSTRING-ONLY edits
+  (the sentence names the removed library as history; reword it to a generic statement or delete the sentence):
+  tests/extraction/test_reextracted_dotnet.py (the paragraph about the removed .NET pilot not being in PILOTS: delete
+  it), tests/extraction/test_run_extraction_language_mapping.py (`the plain-JavaScript jmap/nodejs repository` -> `a
+  plain-JavaScript repository`), tests/extraction/test_email_python_extraction.py (`(jmap/go, cells/rust, jmap/rust)` ->
+  `(cells/rust)`), tests/extraction/test_cells_typescript_extraction.py (`the cells_rust/jmap_go siblings` -> `the
+  cells_rust sibling`), tests/extraction/docs_identifiers.py (`3 of 5 jmap/nodejs tasks` -> `3 of 5 tasks on one
+  pilot`). If TC-532 to TC-535 changed the text of any of these files, apply the same intent.
+- >-
+  THE NEW TEST FILE tests/deploy/test_removed_family_absent.py (YOU CREATE IT; the drafter wrote and ran it on the
+  scratch copy: 5 tests; offline, deterministic, no skips). It builds the name from two halves (NEEDLE = 'j' + 'map') so
+  that it and tests/deploy/test_pilot_roster.py (TC-551) never contain it. Tests:
+  `test_the_scan_covers_the_whole_tracked_tree` (git ls-files -z over the repository root returns more than 1000 paths,
+  includes README.md and infra/helm/foss-mcp/values.yaml and at least one history path; a repository without git FAILS
+  the test, it does not skip); `test_no_tracked_file_outside_history_names_the_removed_family` (every tracked file whose
+  path is not under plans/, evidence/, ops/, project/ and is not docs/DECISION_LOG.md, docs/REVIEW_LEDGER.md or
+  scripts/release/build_review_ledger.py is read as bytes (a file whose first 8192 bytes hold a NUL is binary and
+  skipped), decoded as UTF-8 with replacement, and no line contains the name case-insensitively; a file whose PATH
+  contains the name is a problem too; docs/RELEASE.md may hold it on exactly one line, the one that contains `upstream
+  GitHub repositories no longer exist`; the failure message lists up to 60 `path:line` entries);
+  `test_the_release_document_names_it_in_exactly_one_line`; and two anti-vacuity tests on a pure `scan(paths, read)`
+  function that takes an injected reader (it flags a name in a line and in a file name, skips history paths, tolerates
+  exactly one removal line and flags a second one). Keep the history allowance list in one constant tuple with a comment
+  per entry; adding to it later needs a card.
+- >-
+  COUNT YOUR OWN TESTS AND COMMIT. The first check runs the new file and the roster file: 5 + 28 tests, min_tests 30
+  leaves room. The second check runs every test file this card edits (a rename changes no count), plus
+  tests/extraction/test_docs_identifiers_resolve.py, tests/extraction/tree_sitter_engine, tests/test_unwired_modules.py
+  and tests/test_layout.py; the drafter measured 664 tests in 28 s for the file list before the additions. Run `ruff
+  format` and `ruff check` on every Python file you changed, without --force-exclude, and mypy as the pre-push gate
+  does. Commit once with the subject `chore(pilots): remove the last mentions of the removed family from source comments
+  and synthetic tests; guard the whole tree (G3/TC-552)` ending with the Co-Authored-By trailer for the model that did
+  the work; UTF-8 without a byte-order mark; preserve each file's line endings. In your report list: per file the
+  replacements you made, the AST comparison result for the four src / infra modules, the output of the new test, and any
+  tracked file the new test reported that is outside write_paths. Do NOT edit ops/, project/, plans/, evidence/,
+  schemas/ or any history file, and do not run an ingestion or `git push`.
+actions:
+- >-
+  Reword the comments and docstrings of the four source modules that cite the removed libraries as examples and prove
+  that no code changed, then rename the synthetic client, library and family names in the test files and mixin-sample
+  fixture files that still carry the removed family's name.
+- >-
+  Create tests/deploy/test_removed_family_absent.py, the permanent whole-tree guard (every tracked file outside the
+  immutable history and the one removal sentence of docs/RELEASE.md is free of the removed family's name), and run both
+  cards' guards together.
+checks:
+- command: '{python} -m pytest tests/deploy/test_removed_family_absent.py tests/deploy/test_pilot_roster.py -q -rfE -p no:cacheprovider'
+  expect: exit 0
+  timeout_seconds: 600
+  junitxml: true
+  proves:
+  - REQ-G3-005
+  - REQ-G3-008
+- command: '{python} -m pytest tests/deploy/test_demo_entrypoint.py tests/extraction/test_cells_typescript_extraction.py tests/extraction/test_email_python_extraction.py tests/extraction/test_reextracted_dotnet.py tests/extraction/test_run_extraction_language_mapping.py tests/extraction/tree_sitter_engine/test_api_surface_javascript.py tests/extraction/tree_sitter_engine/test_js_mixins.py tests/extraction/tree_sitter_engine/test_python_surface_mixins.py tests/indexing/test_chunk_builder_mixin_suffix.py tests/indexing/test_cpp_verifier_consumer.py tests/indexing/test_store_durability.py tests/indexing/test_typescript_verifier_layouts.py tests/infra/test_rollback_cli.py tests/infra/test_sidecar_writers.py tests/infra/test_verify_package_registry.py tests/infra/test_verify_product_reference_install.py tests/mcp/tools/test_member_lookup.py tests/mcp/tools/test_search_symbols_forgiveness.py tests/poc/test_pilot_workflow_proof.py tests/indexing/test_java_verifier_pilots.py tests/indexing/test_nodejs_verifier.py tests/deploy/test_removed_family_absent.py tests/test_unwired_modules.py tests/test_layout.py tests/extraction/test_docs_identifiers_resolve.py tests/extraction/tree_sitter_engine -q -rfE -p no:cacheprovider -k "not live and not github_http and not repo_native"'
+  expect: exit 0
+  timeout_seconds: 1800
+  junitxml: true
+  proves:
+  - REQ-G3-005
+  - REQ-G3-008
+min_tests: 30
+network: true
+requires:
+- python
+- git
+negative_control:
+  mutate: |
+    python -X utf8 -c "import pathlib;p=pathlib.Path('docs/REPOSITORY_LAYOUT.md');p.write_text(p.read_text(encoding='utf-8')+chr(10)+'jmap'+chr(10),encoding='utf-8')"
+  rationale: >-
+    Appends the removed family's name to docs/REPOSITORY_LAYOUT.md, a tracked file outside the history allowance: the new
+    test_no_tracked_file_outside_history_names_the_removed_family fails at once and names
+    `docs/REPOSITORY_LAYOUT.md:<line>`. A real break of the card's central claim (nothing shipped names the removed
+    family, and a later card that reintroduces the name is caught). The mutate needs a git repository, which the verify
+    worktree is.
+evidence:
+- evidence/build/G3/TC-552/receipt.json
+closeout:
+- >-
+  No tracked file outside the immutable history names the removed jmap family, case-insensitively, except the single
+  removal sentence of docs/RELEASE.md; the source modules differ from before only in comment and docstring text (proved
+  by an AST comparison); the synthetic tests use neutral names; and tests/deploy/test_removed_family_absent.py keeps it
+  that way. The ledger tool scripts/release/build_review_ledger.py is on the allowance because docs/REVIEW_LEDGER.md is
+  generated from it byte for byte; if the supervisor decides to rewrite the history rows there, the ledger document must
+  be regenerated in the same card.
+recovery: Re-run from a clean tree.

@@ -1,0 +1,545 @@
+id: TC-551
+gate: G3
+lane: transport-deployment
+purpose: >-
+  REQ-G3-001, REQ-G3-002, REQ-G3-005, REQ-G3-007 and REQ-G3-008 (operator decision 2026-10-16, recorded by the
+  supervisor in docs/DECISION_LOG.md: the eight jmap pilots - jmap/cpp, jmap/go, jmap/java, jmap/net, jmap/nodejs,
+  jmap/python, jmap/rust and jmap/typescript, i.e. the whole jmap FAMILY - are REMOVED FROM THE PRODUCT everywhere in
+  the shipped repository; git history is untouched. Their upstream GitHub repositories no longer exist (owner item
+  OWNER-15, HTTP 404 with and without a token), so they can never be re-extracted, re-ingested or verified again. The
+  shipped standalone image serves 32 pilots in 12 families instead of 40 in 13.) THIS CARD IS THE DATA AND ROSTER HALF
+  OF THE REMOVAL; TC-552 is the text half (comments, docstrings, synthetic test names, the repo-wide zero-occurrence
+  test). Measured by the drafter on main 7af2adb1 (TC-530 accepted, TC-550 and TC-539 in flight) with a scratch copy of
+  the tree to which every edit below was applied and the whole suite run: the removal deletes 83 tracked files (26 under
+  tests/fixtures: 8 api_surface.json, 8 furnished _index.md, 2 authored_examples.yaml, 8 verified_examples caches; 8
+  config/products/jmap manifests; 39 under infra/demo-manifests: 8 pointers, 8 generations, 23 sidecars; 8
+  tests/extraction/test_jmap_*_extraction.py; 2 tests/indexing/test_authored_examples_jmap_*.py), removes 8 entries of
+  ingestion.pilots in infra/helm/foss-mcp/values.yaml, 8 volumes plus 8 ingest and 8 serving services in
+  docker-compose.yml, 8 services in docker-compose.demo.yml and 8 COPY lines in Dockerfile.ingestion, and moves the
+  derived counts: chart pilots 40 -> 32, families 13 -> 12, compose services 80 -> 64, demo services 40 -> 32 (demo host
+  ports 8101..8140 -> 8101..8132 because they follow chart order), baked scope directories 40 -> 32, verification caches
+  40 -> 32, python pilots 12 -> 11, tests collected by the second check 4072. After this card the scratch copy was green
+  in every test directory (deploy, extraction, indexing, infra, mcp, poc, config, top-level, including the docker image
+  build tests) except tests/indexing/test_example_verifier.py (real library builds, not run), tests/test_githooks.py
+  (needs a git index) and three ops tests that need a git checkout, which fail identically on the untouched tree. What
+  this card does NOT change: src/ other than the one family table in src/foss_mcp/mcp/identity.py (comments and
+  docstrings that name the removed family are TC-552's), ops/, project/, plans/, evidence/, docs/DECISION_LOG.md,
+  docs/REVIEW_LEDGER.md and scripts/release/build_review_ledger.py (history; the supervisor owns them), the tests that
+  mention the removed family only as a synthetic name (TC-552), and nothing is re-extracted or re-ingested (the
+  supervisor re-ingests and snapshots after the last re-extraction card; the baked data of the 32 remaining pilots is
+  untouched byte for byte).
+depends_on:
+- TC-303
+- TC-308
+- TC-311
+- TC-312
+- TC-313
+- TC-472
+- TC-539
+- TC-540
+- TC-542
+- TC-544
+- TC-546
+- TC-548
+- TC-549
+- TC-550
+write_paths:
+- config/products/jmap/**
+- tests/fixtures/furnished/jmap_cpp/**
+- tests/fixtures/furnished/jmap_go/**
+- tests/fixtures/furnished/jmap_java/**
+- tests/fixtures/furnished/jmap_net/**
+- tests/fixtures/furnished/jmap_nodejs/**
+- tests/fixtures/furnished/jmap_python/**
+- tests/fixtures/furnished/jmap_rust/**
+- tests/fixtures/furnished/jmap_typescript/**
+- tests/fixtures/jmap_cpp/**
+- tests/fixtures/jmap_go/**
+- tests/fixtures/jmap_java/**
+- tests/fixtures/jmap_net/**
+- tests/fixtures/jmap_nodejs/**
+- tests/fixtures/jmap_python/**
+- tests/fixtures/jmap_rust/**
+- tests/fixtures/jmap_typescript/**
+- infra/demo-manifests/**
+- tests/extraction/test_jmap_cpp_extraction.py
+- tests/extraction/test_jmap_go_extraction.py
+- tests/extraction/test_jmap_java_extraction.py
+- tests/extraction/test_jmap_net_extraction.py
+- tests/extraction/test_jmap_nodejs_extraction.py
+- tests/extraction/test_jmap_python_extraction.py
+- tests/extraction/test_jmap_rust_extraction.py
+- tests/extraction/test_jmap_typescript_extraction.py
+- tests/fixtures/verified_examples/jmap_cpp.json
+- tests/fixtures/verified_examples/jmap_go.json
+- tests/fixtures/verified_examples/jmap_java.json
+- tests/fixtures/verified_examples/jmap_net.json
+- tests/fixtures/verified_examples/jmap_nodejs.json
+- tests/fixtures/verified_examples/jmap_python.json
+- tests/fixtures/verified_examples/jmap_rust.json
+- tests/fixtures/verified_examples/jmap_typescript.json
+- tests/indexing/test_authored_examples_jmap_net.py
+- tests/indexing/test_authored_examples_jmap_python.py
+- Dockerfile.ingestion
+- README.md
+- docker-compose.demo.yml
+- docker-compose.yml
+- docs/DEPLOYMENT.md
+- docs/RELEASE.md
+- infra/helm/foss-mcp/values.yaml
+- scripts/deploy/install_pilots.py
+- scripts/deploy/pilots.py
+- scripts/deploy/prove_pilots.py
+- src/foss_mcp/mcp/identity.py
+- tests/fixtures/readme_identifier_allowlist.json
+- tests/deploy/test_compact_demo_manifests.py
+- tests/deploy/test_demo_compose.py
+- tests/deploy/test_demo_manifests_sidecars.py
+- tests/deploy/test_fleet_consistency.py
+- tests/deploy/test_image_workflow_gate.py
+- tests/deploy/test_install_pilots.py
+- tests/deploy/test_pilots.py
+- tests/deploy/test_prove_pilots.py
+- tests/deploy/test_readme_matches_release.py
+- tests/deploy/test_release_known_limitations.py
+- tests/deploy/test_runbook.py
+- tests/deploy/test_verified_example_vectors.py
+- tests/deploy/test_verified_examples_coverage.py
+- tests/extraction/test_central_classes_dotnet.py
+- tests/extraction/test_central_classes_python.py
+- tests/extraction/test_docs_identifiers_resolve.py
+- tests/extraction/test_nested_class_fqn.py
+- tests/extraction/test_python_fixture_gaps.py
+- tests/extraction/test_ts_fixture_gaps.py
+- tests/indexing/test_chunk_builder_honesty.py
+- tests/indexing/test_chunk_builder_stub_pairing.py
+- tests/indexing/test_cpp_compat_and_page_includes.py
+- tests/indexing/test_dotnet_verifier_assembly.py
+- tests/indexing/test_example_candidates_supply.py
+- tests/indexing/test_go_verifier_assembly.py
+- tests/indexing/test_publish_safety.py
+- tests/indexing/test_rust_verifier_assembly.py
+- tests/infra/test_build_chunks_candidate_chains.py
+- tests/infra/test_docker_compose_multi_instance.py
+- tests/infra/test_furnished_chunk_quality.py
+- tests/infra/test_furnished_chunk_survival.py
+- tests/infra/test_generate_furnished_page.py
+- tests/infra/test_helm_chart.py
+- tests/infra/test_helm_lifecycle.py
+- tests/infra/test_helm_manifest_step.py
+- tests/infra/test_helm_pilots_match_compose.py
+- tests/infra/test_helm_verifier_fields.py
+- tests/infra/test_ingest_symbol_survival.py
+- tests/infra/test_ingestion_image_fixtures.py
+- tests/infra/test_readiness_all_baked_scopes.py
+- tests/infra/test_serve_readyz_depth.py
+- tests/infra/test_serve_sidecar_baked_identity.py
+- tests/infra/test_serve_sidecar_tolerance.py
+- tests/infra/test_verification_cache_committed.py
+- tests/infra/test_verification_cache_seed_files.py
+- tests/infra/test_wave1_python_wiring.py
+- tests/infra/test_wave2_wiring.py
+- tests/infra/test_wave3_wiring.py
+- tests/mcp/test_handshake_identity.py
+- tests/mcp/test_health_readiness_depth.py
+- tests/mcp/tools/test_example_search_mode.py
+- tests/mcp/tools/test_find_examples_title_anchor.py
+- tests/mcp/tools/test_find_examples_verification_record.py
+- tests/mcp/tools/test_find_examples_verified_only.py
+- tests/mcp/tools/test_forgiveness_acceptance.py
+- tests/mcp/tools/test_lookup_miss_reason.py
+- tests/mcp/tools/test_member_lookup_baked.py
+- tests/mcp/tools/test_miss_coverage_note.py
+- tests/mcp/tools/test_nonsense_queries_miss.py
+- tests/mcp/tools/test_product_reference_baked_contract.py
+- tests/mcp/tools/test_product_reference_compatibility_units.py
+- tests/mcp/tools/test_product_reference_install_pin.py
+- tests/mcp/tools/test_product_reference_truthful.py
+- tests/mcp/tools/test_release_index_baked.py
+- tests/mcp/tools/test_search_docs_language_letter.py
+- tests/mcp/tools/test_search_symbols_memberless_last.py
+- tests/test_container_build.py
+- tests/deploy/test_pilot_roster.py
+- tests/extraction/test_reextracted_uncapped.py
+- tests/mcp/tools/test_java_compatibility_unit.py
+satisfies:
+- REQ-G3-001
+- REQ-G3-002
+- REQ-G3-005
+- REQ-G3-007
+- REQ-G3-008
+source_refs:
+- file: docs/DECISION_LOG.md
+  anchor: '## 2026-10-15 — Independent pre-production adversarial review of the shipped image; its findings enter the state machine as cards (operator, supervisor)'
+  sha256: d2d82669b8060d5e3a3b9da00e9858e576d5d264d96e32d1aed8034e8d6d9007
+inputs:
+- >-
+  ORDER AND FRESHNESS. TC-551 runs after TC-550 (it edits the same files: infra/helm/foss-mcp/values.yaml,
+  docker-compose.yml, tests/deploy/test_fleet_consistency.py, tests/fixtures/readme_identifier_allowlist.json,
+  tests/extraction/test_python_fixture_gaps.py, tests/extraction/test_ts_fixture_gaps.py,
+  tests/indexing/test_chunk_builder_honesty.py, tests/infra/test_helm_chart.py,
+  tests/infra/test_ingest_symbol_survival.py and, new in TC-550, tests/extraction/test_reextracted_uncapped.py) and
+  after TC-539 (tests/deploy/test_image_workflow_gate.py). The cards TC-532 to TC-537 (pending) share files with this
+  card and the supervisor makes them depend on TC-551 and removes every jmap fixture, test and pin from them, so start
+  from a clean tree at the commit the supervisor issues and build on what is there. Everything below was checked against
+  main 7af2adb1, i.e. WITHOUT the TC-550 and TC-539 edits: TC-550 changes caps, KNOWN_GAP entries, fixtures and pins in
+  some of the files named here, so apply the INTENT of each edit to the text you find and verify every name (test
+  function, constant, table) against the merged code before you rely on it; if a name differs use the merged name and
+  list the difference in your report. Never print or log any environment value. Activate the toolchain
+  (scripts/toolchain/activate.ps1) in the SAME shell command as every python, helm, docker or pytest call; the helm
+  tests FAIL without helm on PATH. Do not run an ingestion or a cluster command.
+- >-
+  THE REMOVAL SET, derived from the committed tree and never typed from memory: the removed pilots are the eight entries
+  of ingestion.pilots in infra/helm/foss-mcp/values.yaml whose family is jmap (platforms cpp, go, java, net, nodejs,
+  python, rust, typescript). The removed pilot keys are jmap_cpp, jmap_go, jmap_java, jmap_net, jmap_nodejs,
+  jmap_python, jmap_rust, jmap_typescript; the removed scope directories are
+  infra/demo-manifests/jmap__<platform>__self_extracted. The ONLY occurrences of the removed family allowed to remain in
+  the whole repository after TC-551 and TC-552 are the immutable history (plans/, evidence/, ops/, project/,
+  docs/DECISION_LOG.md, docs/REVIEW_LEDGER.md, scripts/release/build_review_ledger.py) and the single removal sentence
+  of docs/RELEASE.md. TC-551 removes every occurrence it can only remove together with the data; TC-552 removes the rest
+  and adds the repo-wide test.
+- >-
+  DELETIONS (git rm; list the deleted paths in your report). (a) tests/fixtures/jmap_<platform>/ for the eight platforms
+  (api_surface.json each). (b) tests/fixtures/furnished/jmap_<platform>/ for the eight platforms (pages/_index.md each,
+  plus authored_examples.yaml for the net and python ones). (c) tests/fixtures/verified_examples/jmap_<platform>.json (8
+  files). (d) config/products/jmap/ (8 manifests). (e) infra/demo-manifests/jmap__<platform>__self_extracted/ (8
+  directories: active_pointer.json and one generation file each) AND the root-level sidecars of the removed pilots:
+  product_reference_jmap_<platform>.json (8), recent_releases_jmap_<platform>.json (8) and
+  package_registry_jmap_<platform>.json (7: the C++ pilot has none by design). No verification_cache_jmap_* file is
+  committed in infra/demo-manifests (the caches live in tests/fixtures/verified_examples), so there is nothing to delete
+  for it. The write path infra/demo-manifests/** is deliberately wide because it replaces 31 exact paths: this card may
+  only DELETE under it. Prove that with `git diff --name-status` before you commit: every entry under
+  infra/demo-manifests must be a D, 39 of them, and no file of the 32 remaining scopes or of the 92 remaining sidecars
+  may be modified, added or renamed; put the output counts in your report. (f)
+  tests/extraction/test_jmap_<platform>_extraction.py (8) and tests/indexing/test_authored_examples_jmap_net.py and
+  test_authored_examples_jmap_python.py (2): they test only the deleted fixtures and sidecars. Total 83 deleted files.
+- >-
+  CHART, COMPOSE, DEMO COMPOSE, DOCKERFILE (targeted edits only; every byte of every other pilot stays as it is,
+  including the maxTypes / --max-types numbers TC-550 sets). (1) infra/helm/foss-mcp/values.yaml: delete the eight `-
+  family: jmap` entries of ingestion.pilots, each from its `- family:` line to the line before the next `- family:`
+  entry or comment block that belongs to the next entry; keep the comment blocks that head a group of later entries.
+  `yaml.safe_load` must give 32 pilots and no other key may change (demo.pilots stays []). (2) docker-compose.yml:
+  delete the eight `manifests-jmap-<platform>:` volumes, the eight `ingest-jmap-<platform>` services and the eight
+  `serving-jmap-<platform>` services, each with the comment lines that head it. Do NOT renumber the host ports of the
+  other serving services: the removed ones were 8092, 8096 and 8109 to 8114 and stay unused; the compose file must parse
+  with 64 services (32 ingest, 31 serving-<family>-<platform> plus the plain `serving` service of pdf/net) and 32
+  volumes. (3) docker-compose.demo.yml is GENERATED: regenerate it with `python
+  scripts/release/generate_demo_compose.py` (never by hand) and prove it with `python
+  scripts/release/generate_demo_compose.py --check`; its header then says 32 services and ports 8101 to 8132. (4)
+  Dockerfile.ingestion: delete the eight `COPY tests/fixtures/jmap_<platform>/api_surface.json
+  ./fixtures/jmap_<platform>/api_surface.json` lines and nothing else (a COPY of a missing file fails the image build;
+  tests/test_container_build.py builds the ingestion image and is part of the second check). The node toolchain stays:
+  pdf/typescript and cells/typescript still need it. (5) tests/infra/test_helm_pilots_match_compose.py and the
+  `two_step_chain` test of tests/infra/test_helm_chart.py compare the rendered chart with compose; they must stay green.
+- >-
+  TOOLS AND TABLES. (1) scripts/deploy/pilots.py: `PILOT_COUNT = 40` -> 32 (no other number; the pilot table itself is
+  the chart). scripts/deploy/install_pilots.py and scripts/deploy/prove_pilots.py: the words `forty` / `(40 today)` in
+  the module docstring and the argparse description become `thirty-two` / `(32 today)`
+  (tests/infra/test_helm_lifecycle.py reads install_pilots.py). No other script under scripts/ hard-codes 40 or the
+  pilot list (scripts/release/image_workflow_gate.py, generate_demo_compose.py, snapshot_demo_from_cluster.py,
+  pull_verification_cache.py, compact_demo_manifests.py all derive from the chart;
+  scripts/release/build_review_ledger.py is history and stays). (2) src/foss_mcp/mcp/identity.py: delete the `"jmap":
+  "JMAP"` row of the family display table (13 -> 12 rows); tests/mcp/test_handshake_identity.py pins the length. The
+  PLATFORM_PROFILE table (8 platforms) stays: the nodejs platform is now used by no pilot but is a generic platform of
+  the product, not removed (report this as a decision for the supervisor).
+- >-
+  DOCUMENTS (the exact wording is the contract of tests/deploy/test_pilot_roster.py and of the re-pinned
+  tests/deploy/test_readme_matches_release.py, test_runbook.py, test_image_workflow_gate.py and
+  test_release_known_limitations.py). README.md: first paragraph says `One image serves 32 pilots (family and platform
+  pairs such as `pdf/net` or `slides/python`) across 12 product families: 3d, barcode, cells, email, html, imaging,
+  note, page, pdf, slides, tex and words.` (the removed family is NOT named in the README); `and `all` starts all 32`;
+  `published on loopback ports 8101 to 8132`. docs/DEPLOYMENT.md: `forty` -> `thirty-two` in the title, section 3 and 4
+  headings, `Forty releases serve forty pilots.` -> `Thirty-two releases serve thirty-two pilots.` plus the sentence `
+  `ingestion.pilots` lists 32 pilots; the pilots that were removed from the chart are described in `docs/RELEASE.md`
+  section 8.`, both `40-of-40` -> `32-of-32`, `To remove all forty` -> `To remove all thirty-two`, and the stale `Known
+  limits` bullet loses its removed pilot: `Eight pilots` -> `Seven pilots`, `six other second-product pilots (...
+  `jmap_rust`)` -> `five other second-product pilots (`words_python`, `words_net`, `slides_java`, `cells_go`,
+  `cells_typescript`)` (that bullet was already stale before this card; do not repair it further). docs/RELEASE.md:
+  section 1 `currently 40` -> `currently 32`; directly under the `## 8. Known limitations` heading add the ONE removal
+  sentence (the only line of the whole repository outside the history files that may name the removed family): `The
+  image serves 32 pilots. The eight jmap pilots (jmap/cpp, jmap/go, jmap/java, jmap/net, jmap/nodejs, jmap/python,
+  jmap/rust and jmap/typescript) were removed from it on 2026-10-16 because their upstream GitHub repositories no longer
+  exist, so they can neither be extracted nor verified; no entry below applies to them.` as ONE physical line. Every
+  other line of docs/RELEASE.md that names the removed family is rewritten WITHOUT the name: L-072 `The four C++ pilots
+  (pdf/cpp, cells/cpp, slides/cpp and email/cpp)` and `exactly these four pilots`; L-090 becomes `Class-expression
+  mixins (an object of functions applied to a class with `Object.assign`) are not flattened by the extractor. The only
+  pilots that were built this way were removed from the image, so no pilot of the image is affected, and the extractor
+  limitation stays accepted with that risk.`; L-109 loses `, and the jmap release notes are templates`; L-122 reads
+  `cells/rust and cells/typescript answer compatibility NotAvailable`; L-133 becomes `The only pilot whose README
+  example verifier added a library directory to the include path so that a quoted `#include` line compiles was removed
+  from the image, so no pilot of the image is affected.`; in section 9 the bullets TC-397, TC-398, TC-402, TC-403,
+  TC-428, TC-475 and TC-526 drop the removed pilots from their `Affected pilots` lists and counts (the four C++ pilots;
+  pdf/go and cells/go; cells/rust; pdf/typescript, cells/typescript and 3d/typescript; `the six Go, Rust and TypeScript
+  fixtures`; `the four C++ fixtures`), TC-475 reads `The only pilot it concerned was removed from the image, so no pilot
+  of the image is affected.`, and TC-526 loses the `the 10 mail methods of ... appear as separate receiver-less function
+  chunks while the type lists 9,` clause; keep every measured number the tests pin (TC-526 `6 of 6`, `34 properties`,
+  `259`, `1,434`; TC-527 `8 of 13`, `1,037`; TC-531 `1,239`, `193`, `33 percent`) and every bold ledger id exactly once
+  (L-090 and L-133 stay: docs/REVIEW_LEDGER.md and the ledger tool's `release_missing` check still expect them). The
+  mcp-gateway sentence reads `... and routes only 14 of the pilots.` (the number 40 appears nowhere in the three
+  documents; DEPLOYMENT.md keeps `5 to 40 minutes`, which is a duration). TC-537 rewrites parts of docs/RELEASE.md later
+  and must keep the removal sentence and the 32.
+- >-
+  THE PINNED-TEST SWEEP. Before you edit any test, apply the deletions and the chart / compose / Dockerfile / docs
+  edits, regenerate docker-compose.demo.yml and the allowlist, then run the second check and keep the list of failures:
+  it must be explained by the table below (the drafter's simulation found exactly these files, plus the files whose
+  helper data they read, and nothing else). For every failing test change ONLY the assertion that pins a removed fact (a
+  count, a roster row, a removed pilot's page, fixture or sidecar), give it a one-line comment `re-pinned by TC-551:
+  <old> -> <new>`, and list every changed assertion in your report. Never delete, skip or xfail a test unless this table
+  says DELETE; never loosen a check that guards a defect; a failing test that is neither in write_paths nor in this
+  table: stop and report its name. Rename tests whose name carries the old count (the old names are referenced only by
+  accepted cards). THE TABLE, file by file:
+- >-
+  tests/deploy/test_pilots.py: PINNED_RELEASES loses its 8 removed rows; every 40 -> 32 (chart pilots, PILOT_COUNT,
+  unique names, unique keys, written values files); the `jmap_rust in keys` assertion becomes `cells_rust in keys`;
+  rename the three tests that say forty (chart_declares_exactly_thirty_two_pilots,
+  release_names_are_the_pinned_thirty_two, select_pilots_without_only_returns_all_thirty_two).
+- >-
+  tests/deploy/test_install_pilots.py: helm calls, results, distinct releases 40 -> 32, `40 of 40 installed` -> `32 of
+  32 installed`, the dry-run line count 80 -> 64 (two lines per pilot). tests/deploy/test_prove_pilots.py: calls, `40 of
+  40 pilots passed every applicable check` -> 32, FakePopen instances, `range(40)` ports and their set -> 32.
+  tests/deploy/test_demo_compose.py: `PILOT_COUNT == 40` -> 32.
+- >-
+  tests/deploy/test_demo_manifests_sidecars.py, test_verified_example_vectors.py, test_verified_examples_coverage.py:
+  EXPECTED_PILOTS 40 -> 32 and the three test names that say forty. tests/deploy/test_fleet_consistency.py:
+  EXPECTED_PILOTS 32, the test name, the docstring; COVERAGE_EXCEPTIONS (its only entry was the removed Go pilot)
+  becomes `{}` with a comment (the table tests loop over it and accept an empty table); STALE_BAKED_PILOTS,
+  UNRESOLVED_EXCEPTIONS and COMMIT_EXCEPTIONS name no removed pilot and stay as TC-550 leaves them.
+- >-
+  tests/deploy/test_compact_demo_manifests.py (RE-MEASURED on the new tree: 32 scopes, total 26,683,080 bytes, median
+  generation file 643,152.5 bytes, largest 2,945,007 bytes): EXPECTED_SCOPES 32, the test name, MEDIAN_FILE_BYTES_BUDGET
+  640_000 -> 710_000 (the median of the remaining 32 generations is higher than the median of 40 because the removed
+  ones were small), TREE_BYTES_BUDGET 29_500_000 -> 28_000_000, LARGEST_FILE_BYTES_BUDGET unchanged; re-measure and keep
+  about 5 to 10 percent headroom. TC-536 re-pins these again after the supervisor's re-ingest.
+- >-
+  tests/deploy/test_image_workflow_gate.py: the runbook assertion `40-of-40` -> `32-of-32`.
+  tests/deploy/test_runbook.py: drop the removed pilot from the Known-limits tuple.
+  tests/deploy/test_release_known_limitations.py: drop the L-133 key phrase from KEY_PHRASES (the ids stay).
+  tests/deploy/test_readme_matches_release.py: `len(chart pilots) == 32`, `len(families) == 12` (rename the test), ports
+  `8101` and `8132`, and the gateway assertion `routes only 14 of the pilots`.
+- >-
+  tests/extraction: test_central_classes_dotnet.py and test_central_classes_python.py drop the removed pilot from
+  PILOTS, _CENTRAL, the exact-set assertions and the explaining comment (the .NET test is renamed
+  ...six_refreshed_pilots); test_python_fixture_gaps.py drops it from PYTHON_PILOTS, REVIEWED and KNOWN_GAP (12 -> 11,
+  rename, docstrings); test_ts_fixture_gaps.py drops both removed pilots from PILOTS and KNOWN_GAP (5 -> 3, rename,
+  docstring); test_docs_identifiers_resolve.py: `len(helper.PILOTS) == 32` (it is derived from the fixture directories,
+  so it follows the deletion; rename the test), the stale-allowlist test uses another real pilot, and
+  `test_jmap_nodejs_mixin_methods_are_a_listed_gap` is DELETED (it pins a gap of a deleted fixture);
+  tests/fixtures/readme_identifier_allowlist.json is regenerated with `python -X utf8 -m
+  tests.extraction.docs_identifiers --write` (only the 8 removed keys leave it; any other change means the allowlist was
+  already stale: stop and report).
+- >-
+  tests/extraction/test_nested_class_fqn.py: its real-data proof read the removed Java fixture; point FIXTURE at
+  tests/fixtures/3d_java/api_surface.json and pin the entry `LocalFileSystem` whose class_import is
+  `com.aspose.threed.FileSystem.LocalFileSystem` (a class nested in `FileSystem`), rewrite the docstring and rename the
+  test (...3d_java_nested_class_fixture_carries_its_enclosing_class). tests/extraction/test_reextracted_uncapped.py
+  (created by TC-550): drop the removed pilot from every table and from any pilot count that still says 40, and reword
+  its docstring lines about OWNER-15 so the removed name no longer appears.
+- >-
+  tests/indexing/test_chunk_builder_honesty.py: delete test_real_jmap_nodejs_has_no_untyped_parameter_remnants (its
+  fixture is gone; the rule - no `: ` remnant of an empty parameter type in a rendered signature - must stay proven: if
+  no synthetic test of this file already covers an empty parameter type, add one);
+  test_real_go_fixtures_publish_no_test_file_symbol loses the removed Go pilot from its loop. IMPORTANT: TC-550
+  regenerates pdf_go without `_test.go` entries and keeps this proof alive only through the removed pilot; if no
+  committed Go fixture holds a `_test.go` entry any more, rewrite the proof on a small SYNTHETIC Go fixture built in the
+  test (a type entry and an entry whose `file` ends in `_test.go`; assert the builder publishes the first and not the
+  second): the filter must stay proven on real or synthetic data, never dropped.
+  tests/indexing/test_chunk_builder_stub_pairing.py: `>= 12` python fixtures -> `>= 11` (rename).
+- >-
+  tests/indexing verifier tests that read the removed furnished pages (port each to an inline SYNTHETIC page or
+  CandidateExample carrying the same block shape with a neutral library name, never the removed one; no assertion may be
+  weakened, and every test below is kept unless its shape is covered by an existing test, in which case say so in the
+  report): test_go_verifier_assembly.py (helpers _jmap and _jmap_library; tests
+  test_unaliased_own_import_is_removed_and_re_emitted_from_the_package_name,
+  test_fragment_without_an_import_takes_it_from_the_page,
+  test_unused_variables_of_a_wrapped_fragment_are_blanked_and_retried,
+  test_older_unused_variable_wording_is_also_retried, test_retry_stops_after_the_maximum_number_of_rebuilds,
+  test_real_error_mixed_with_an_unused_variable_is_never_retried; the shape that matters is a block whose own import is
+  UNALIASED, which cells/go does not have, so use a synthetic module path such as example.org/sample-go),
+  test_rust_verifier_assembly.py (helper _jmap; tests test_quick_start_is_wrapped_with_its_own_use_inside_main,
+  test_bearer_token_block_gets_the_page_use_at_crate_level,
+  test_serde_json_is_declared_at_default_requirement_without_a_library_manifest,
+  test_serde_json_uses_the_library_own_requirement, test_third_block_keeps_its_own_uses_and_adds_no_page_use,
+  test_the_end_of_a_long_output_keeps_the_real_rustc_error,
+  test_a_network_failure_without_a_diagnostic_raises_the_environment_error,
+  test_a_passing_build_is_verified_and_returns_the_original_candidate; cells_rust's page may serve where its blocks have
+  the shape), test_dotnet_verifier_assembly.py (test_assemble_jmap_oauth_block_gains_the_jmap_directive: a fragment that
+  needs a namespace directive taken from the page), test_example_candidates_supply.py
+  (test_jmap_python_second_candidate_takes_the_import_of_the_quick_start: a second block that takes the import of the
+  first; `len(PILOTS) >= 40` -> `>= 32`), test_cpp_compat_and_page_includes.py (JMAP_PAGE and REPOSITORY; COMPAT_PILOTS
+  loses the removed pilot; test_page_cpp_includes_for_the_jmap_page and the two _prepare_cpp tests that pass
+  `furnished_page=JMAP_PAGE` use a synthetic page with a quoted include; the compose parametrisation loses `jmap-cpp`;
+  test_values_give_cpp_compat_to_exactly_cells_email_and_jmap_cpp becomes ..._cells_and_email_cpp; the remaining
+  include-directory tests use a neutral directory name).
+- >-
+  tests/indexing/test_publish_safety.py: the two `>= 40` floors (baked files, baked scopes) -> 32 and the test name that
+  says 40. tests/infra: test_build_chunks_candidate_chains.py (the real wrapped Rust fragment test reads cells_rust's
+  page instead; verified green in the scratch copy), test_docker_compose_multi_instance.py (EXPECTED_PAIRS loses 8 rows,
+  EXPECTED_HOST_PORTS loses 8092, 8096 and 8109 to 8114, service and port counts 40 -> 32),
+  test_furnished_chunk_quality.py and test_furnished_chunk_survival.py (`>= 40` -> 32 in three places),
+  test_generate_furnished_page.py (`len(chart) == 32`), test_helm_chart.py (32 Jobs, the expected Job-name list loses 8
+  names, `kinds.count('Job') == 32`, comments), test_helm_lifecycle.py (the DEPLOYMENT.md / install_pilots.py assertion
+  becomes `thirty-two` or `32`, and `forty` must no longer appear), test_helm_manifest_step.py (the rendered
+  manifest-path test for the removed Java pilot becomes the same literal check for cells/java, `pom.xml`; the
+  distinct-sidecar-name count 40 -> 32), test_helm_pilots_match_compose.py (the pilot tables lose 8 rows each,
+  FORTY_PILOTS is renamed, the 16 per-pilot tests of the removed pilots are DELETED because the pilots no longer exist;
+  the aggregate tests cover the other 32), test_helm_verifier_fields.py (EXPECTED_LIBRARY_FIELDS loses 4 entries;
+  WIRED_PILOTS uses email/cpp and 3d/typescript instead of the removed C++, TypeScript and Node.js pilots; the removed
+  C++/TypeScript/Node.js render tests become email/cpp (target AsposeEmailFoss, compile mode) and 3d/typescript (package
+  @aspose/3d) and the Node.js one is deleted; `assert 'nodejs' in seen_platforms` becomes `{'typescript','java','cpp'}
+  <= seen_platforms`; the test names that count pilots are renamed), test_ingest_symbol_survival.py (PILOTS swaps the
+  removed pilots for cells_rust and cells_typescript; the named-symbol parametrisation loses the removed Python pilot),
+  test_ingestion_image_fixtures.py (EXPECTED_PILOT_COUNT 32, rename), test_readiness_all_baked_scopes.py (MIN_PILOTS 32,
+  rename), test_serve_readyz_depth.py and tests/mcp/test_health_readiness_depth.py (the 'foreign scope' is
+  cells__go__self_extracted instead of the removed Go scope), test_serve_sidecar_baked_identity.py (`>= 32`),
+  test_serve_sidecar_tolerance.py (the two foreign sidecars are cells_go's; the repository/family row uses a neutral
+  Email repository), test_verification_cache_committed.py (EXPECTED_PILOT_COUNT 32; the total-entries test: 261 ->
+  measured 231 for the 32 caches, floor 200 kept, comment and name updated) and test_verification_cache_seed_files.py
+  (32), test_wave1_python_wiring.py, test_wave2_wiring.py and test_wave3_wiring.py (the removed pilots leave the family
+  and pilot lists; docstring counts eleven -> ten, ten -> seven, thirteen -> nine).
+- >-
+  tests/mcp: test_handshake_identity.py (MIN_PILOTS 32; FAMILY_DISPLAY has 12 rows (PLATFORM_PROFILE keeps 8); the
+  Node.js sample pilot of DESCRIPTION_PILOTS and the chosen-pilots lists becomes 3d/typescript),
+  test_health_readiness_depth.py (see above), test_example_search_mode.py, test_find_examples_title_anchor.py,
+  test_find_examples_verified_only.py, test_find_examples_verification_record.py, test_member_lookup_baked.py (pilot
+  counts 40 -> 32 and their test names; sampled-members floor 195 -> 150 (measured 155); DELETE
+  test_an_async_twin_is_suggested_when_the_sync_name_is_asked: it needs a baked type with an `...Async` member without a
+  synchronous twin and only the removed .NET pilot had one; the same suggestion rule is proven on a synthetic generation
+  in tests/mcp/tools/test_member_lookup.py), test_lookup_miss_reason.py, test_miss_coverage_note.py,
+  test_nonsense_queries_miss.py and test_search_docs_language_letter.py (MIN_PILOTS 32; CPP_FAMILIES loses the removed
+  family and the docstring says four of 40... keep the historical sentence about the trial gate but without the removed
+  family), test_release_index_baked.py (`>= 32`, and the unknown-release-history test covers the Go pilots only;
+  rename), test_search_symbols_memberless_last.py (eleven python pilots), test_product_reference_baked_contract.py (drop
+  the removed C++ pilot from the cpp install list, DELETE test_jmap_java_license_is_unchanged, the Rust edition test
+  covers cells_rust only, the limitations floor 30 -> 25 (measured 27) and its name),
+  test_product_reference_compatibility_units.py (python roster `>= 11`; the Rust param loses the removed pilot),
+  test_product_reference_install_pin.py (pinned command answers `>= 20` -> `>= 18`, measured 19),
+  test_product_reference_truthful.py (_JAVA_PILOTS loses the removed Java pilot).
+- >-
+  tests/mcp/tools/test_forgiveness_acceptance.py (TC-516's acceptance tables, RE-MEASURED over the 32 baked pilots): the
+  three verified-absent probe rows that ran on the removed family are deleted (PROBES 14 -> 11 questions, 78 -> 54
+  probes: measured honest misses 38, relevant answers 10, irrelevant answers 6), so `probe_counts.total == 54`,
+  `len(PROBES) == 11`, MIN_HONEST_MISSES 54 -> 37 (68 percent of 54, measured 38), MAX_IRRELEVANT_ANSWERS stays 7
+  (measured 6; do NOT lower it to the measured value, do NOT raise it), MIN_NAMES 300 -> 280 (measured 295 names over 32
+  pilots), the docstring says 11 questions and 54 probes; the example table (26 rows, concise 23 of 26, verbose 14 of
+  26) and the 8 fixed negatives are unchanged. If a re-measurement differs from these numbers, use YOUR measured number
+  and report both; never loosen below them.
+- >-
+  tests/mcp/tools/test_java_compatibility_unit.py (created by TC-542, which this card depends on): TC-542 pins the Java
+  compatibility answers of the five Java pilots (3d, cells, removed, pdf, slides); the pilot list becomes the four
+  remaining Java pilots (3d/java Java 21+, cells/java Java 17+, pdf/java Java 11+, slides/java Java 21+), derived from
+  the chart where the test enumerates pilots and from the committed sidecars where it states the numbers; the comment
+  that states the five answers states four. If the test already derives its pilots from the chart, only its comment and
+  any literal count change.
+- >-
+  tests/test_container_build.py: the demo-image listing assertion `len(listed - {'pdf/net'}) >= 39` -> `>= 31`. The
+  ingestion-image build test proves the Dockerfile COPY lines. Files that mention the removed family only as a SYNTHETIC
+  name are deliberately NOT edited here (TC-552): tests/deploy/test_demo_entrypoint.py,
+  tests/infra/test_sidecar_writers.py, test_rollback_cli.py, test_verify_package_registry.py,
+  test_verify_product_reference_install.py, tests/indexing/test_store_durability.py, test_chunk_builder_mixin_suffix.py,
+  test_java_verifier_pilots.py, test_nodejs_verifier.py, test_cpp_verifier_consumer.py,
+  test_typescript_verifier_layouts.py, tests/mcp/tools/test_member_lookup.py, test_search_symbols_forgiveness.py,
+  tests/poc/test_pilot_workflow_proof.py and the three tree_sitter_engine mixin tests with
+  tests/fixtures/js_mixin_sample. tests/deploy/test_release_record_contract.py keeps its synthetic `pilots_total: 40`
+  record (a schema fixture, not the roster).
+- >-
+  THE NEW TEST FILE tests/deploy/test_pilot_roster.py (YOU CREATE IT; offline, deterministic, no skips, no network). At
+  least 26 tests. It builds the removed family's name from two halves (REMOVED_FAMILY = 'j' + 'map' style) so that this
+  file never contains the name TC-552 forbids anywhere. It reads the chart through yaml and asserts, parametrised or
+  looped so every failure names the offender: the chart lists exactly 32 pilots with unique family_platform keys and 12
+  families, none of them the removed one, and the chart text does not mention it; scripts/deploy/pilots.py PILOT_COUNT
+  == 32 == len(chart); docker-compose.yml: the ingest-<family>-<platform> services, the serving services (the plain
+  `serving` service is pdf/net) and the manifests-<family>-<platform> volumes are exactly the chart's pilots, and every
+  serving service carries the chart's family and platform; docker-compose.demo.yml: its services are the chart's pilots
+  in chart order, 32 of them, and its header says `32 services` and `all 32 pilots`; infra/demo-manifests holds exactly
+  the 32 scope directories of the chart and no root-level file whose sidecar key (product_reference_, recent_releases_,
+  package_registry_, verification_cache_ prefix) is not a chart pilot, and every root-level file is a sidecar of a known
+  kind; tests/fixtures/verified_examples holds exactly 32 caches named after the chart's pilots; the api_surface.json
+  fixtures are exactly the chart's 32 pilots; the furnished directories are chart pilots (plus the existing
+  `sealed_current` directory); no path under tests/fixtures names the removed family; config/products holds exactly the
+  chart's 32 manifests and no directory of the removed family; the COPY lines of Dockerfile.ingestion name only chart
+  pilots; README.md (whitespace-normalised) says `serves 32 pilots`, `across 12 product families`, `all 32`, and
+  contains neither the number 40 nor `forty`; docs/RELEASE.md says `currently 32` and `The image serves 32 pilots.`,
+  names the removed family on exactly ONE line and that line contains `upstream GitHub repositories no longer exist`,
+  and contains neither 40 nor `forty`; docs/DEPLOYMENT.md says `thirty-two` and `32-of-32`, never `forty` or `40-of-40`,
+  and never names the removed family; the three deploy tools (install_pilots.py, prove_pilots.py, pilots.py) never say
+  `forty` and never name it. ANTI-VACUITY helper tests (synthetic, same file, at least 5): the sidecar-key parser reads
+  all four kinds and returns None for other files; the stray-sidecar check flags a sidecar of a pilot that is not in the
+  chart; the removed-family detector is case-insensitive (build the test strings from the two halves, never write the
+  name) and does not flag other families. The drafter wrote this file against the scratch tree: 28 tests, all green, and
+  the negative control below fails exactly `test_the_readme_says_32_pilots_and_12_families_and_no_longer_40`.
+- >-
+  COUNT YOUR OWN TESTS. min_tests of this card is measured per check with `--collect-only` on the scratch tree: the
+  first check collects 780 tests (the new file 28), the second 4,072 (the verifier tests you port may add a few):
+  min_tests 740 leaves room for the tests this card deletes (16 per-pilot compose tests, the async-twin test, the
+  removed-family license / nodejs / mixin tests, test_jmap_nodejs_mixin_methods_are_a_listed_gap). Measured by the
+  drafter on 2026-10-16 with the other agents' work running: the first check 31 s, the second 252 s; the ceilings below
+  are 3x or more. Run `ruff format` and `ruff check` on every Python file you changed, without --force-exclude, and
+  `mypy` as the repository's pre-push gate does. Commit once with the subject `chore(pilots): remove the eight jmap
+  pilots from the chart, compose, baked data, fixtures, manifests, deploy tools and documents (G3/TC-551)` ending with
+  the Co-Authored-By trailer for the model that did the work; UTF-8 without a byte-order mark; preserve each file's line
+  endings (LF in git; a deleted file needs no ending). In your report list: the deleted paths grouped by directory, the
+  `git diff --name-status` counts under infra/demo-manifests, every changed assertion of an existing test with its
+  reason, every test you ported to a synthetic page with the block shape it keeps, every test you deleted with the
+  reason, the re-measured numbers (compact budgets, forgiveness counts, member-lookup floor, limitations floor, install
+  pin), and any name that differed from this card. Do NOT edit ops/, project/, plans/, evidence/, schemas/,
+  docs/DECISION_LOG.md, docs/REVIEW_LEDGER.md or scripts/release/build_review_ledger.py, and do not run an ingestion, a
+  cluster command or `git push`.
+actions:
+- >-
+  Delete every tracked file of the eight removed pilots (fixtures, furnished pages, authored examples, verification
+  caches, product manifests, baked scopes and sidecars, their extraction and authored-example tests) and remove the
+  pilots from the chart, docker-compose.yml, Dockerfile.ingestion and the generated docker-compose.demo.yml, so the
+  product ships 32 pilots in 12 families.
+- >-
+  Move every derived count and roster pin to the 32-pilot tree (pilot-count constants, name lists, port sets, budgets
+  re-measured, KNOWN_GAP and allowlist tables, forgiveness and baked-data floors), port the verifier tests that read the
+  removed pages to inline synthetic pages, rewrite README, DEPLOYMENT and RELEASE for 32 pilots with the one removal
+  sentence, and create tests/deploy/test_pilot_roster.py.
+checks:
+- command: '{python} -m pytest tests/deploy/test_pilot_roster.py tests/deploy/test_pilots.py tests/deploy/test_fleet_consistency.py tests/deploy/test_readme_matches_release.py tests/deploy/test_demo_compose.py tests/deploy/test_demo_manifests_sidecars.py tests/deploy/test_compact_demo_manifests.py tests/deploy/test_verified_examples_coverage.py tests/infra/test_helm_pilots_match_compose.py tests/infra/test_docker_compose_multi_instance.py tests/extraction/test_docs_identifiers_resolve.py -q -rfE -p no:cacheprovider'
+  expect: exit 0
+  timeout_seconds: 900
+  junitxml: true
+  proves:
+  - REQ-G3-001
+  - REQ-G3-002
+  - REQ-G3-005
+  - REQ-G3-007
+  - REQ-G3-008
+- command: '{python} -m pytest tests/deploy/test_compact_demo_manifests.py tests/deploy/test_demo_compose.py tests/deploy/test_demo_manifests_sidecars.py tests/deploy/test_fleet_consistency.py tests/deploy/test_image_workflow_gate.py tests/deploy/test_install_pilots.py tests/deploy/test_pilots.py tests/deploy/test_prove_pilots.py tests/deploy/test_readme_matches_release.py tests/deploy/test_release_known_limitations.py tests/deploy/test_runbook.py tests/deploy/test_verified_example_vectors.py tests/deploy/test_verified_examples_coverage.py tests/extraction/test_central_classes_dotnet.py tests/extraction/test_central_classes_python.py tests/extraction/test_docs_identifiers_resolve.py tests/extraction/test_nested_class_fqn.py tests/extraction/test_python_fixture_gaps.py tests/extraction/test_ts_fixture_gaps.py tests/indexing/test_chunk_builder_honesty.py tests/indexing/test_chunk_builder_stub_pairing.py tests/indexing/test_cpp_compat_and_page_includes.py tests/indexing/test_dotnet_verifier_assembly.py tests/indexing/test_example_candidates_supply.py tests/indexing/test_go_verifier_assembly.py tests/indexing/test_publish_safety.py tests/indexing/test_rust_verifier_assembly.py tests/infra/test_build_chunks_candidate_chains.py tests/infra/test_docker_compose_multi_instance.py tests/infra/test_furnished_chunk_quality.py tests/infra/test_furnished_chunk_survival.py tests/infra/test_generate_furnished_page.py tests/infra/test_helm_chart.py tests/infra/test_helm_lifecycle.py tests/infra/test_helm_manifest_step.py tests/infra/test_helm_pilots_match_compose.py tests/infra/test_helm_verifier_fields.py tests/infra/test_ingest_symbol_survival.py tests/infra/test_ingestion_image_fixtures.py tests/infra/test_readiness_all_baked_scopes.py tests/infra/test_serve_readyz_depth.py tests/infra/test_serve_sidecar_baked_identity.py tests/infra/test_serve_sidecar_tolerance.py tests/infra/test_verification_cache_committed.py tests/infra/test_verification_cache_seed_files.py tests/infra/test_wave1_python_wiring.py tests/infra/test_wave2_wiring.py tests/infra/test_wave3_wiring.py tests/mcp/test_handshake_identity.py tests/mcp/test_health_readiness_depth.py tests/mcp/tools/test_example_search_mode.py tests/mcp/tools/test_find_examples_title_anchor.py tests/mcp/tools/test_find_examples_verification_record.py tests/mcp/tools/test_find_examples_verified_only.py tests/mcp/tools/test_forgiveness_acceptance.py tests/mcp/tools/test_lookup_miss_reason.py tests/mcp/tools/test_member_lookup_baked.py tests/mcp/tools/test_miss_coverage_note.py tests/mcp/tools/test_nonsense_queries_miss.py tests/mcp/tools/test_product_reference_baked_contract.py tests/mcp/tools/test_product_reference_compatibility_units.py tests/mcp/tools/test_product_reference_install_pin.py tests/mcp/tools/test_product_reference_truthful.py tests/mcp/tools/test_release_index_baked.py tests/mcp/tools/test_search_docs_language_letter.py tests/mcp/tools/test_search_symbols_memberless_last.py tests/test_container_build.py tests/deploy/test_pilot_roster.py tests/test_unwired_modules.py tests/test_layout.py tests/extraction/test_reextracted_uncapped.py tests/mcp/tools/test_java_compatibility_unit.py -q -rfE -p no:cacheprovider -k "not live and not github_http and not repo_native"'
+  expect: exit 0
+  timeout_seconds: 3000
+  junitxml: true
+  proves:
+  - REQ-G3-001
+  - REQ-G3-002
+  - REQ-G3-005
+  - REQ-G3-007
+  - REQ-G3-008
+min_tests: 740
+network: true
+requires:
+- python
+- git
+- docker
+negative_control:
+  mutate: |
+    python -X utf8 -c "import pathlib;p=pathlib.Path('README.md');s=p.read_text(encoding='utf-8');old='serves 32 pilots';assert s.count(old)==1;p.write_text(s.replace(old,'serves 40 pilots'),encoding='utf-8')"
+  rationale: >-
+    Rewrites the README's pilot count from 32 back to 40, so the document a peer reads no longer agrees with the chart:
+    the new test_the_readme_says_32_pilots_and_12_families_and_no_longer_40 fails at once (it also requires that the
+    number 40 appears nowhere in the README), and so do test_the_readme_pilot_count_is_the_charts and the pilot-roster
+    consistency tests. A real break of the card's central claim (the roster the product ships is the chart's 32 pilots and
+    every document says so). The drafter ran this mutate against the scratch tree: the named test fails in 0.5 s.
+evidence:
+- evidence/build/G3/TC-551/receipt.json
+closeout:
+- >-
+  The eight removed pilots are gone from the repository's shipped surface: no fixture, furnished page, authored example,
+  verification cache, product manifest, baked scope, sidecar, chart entry, compose service, demo service, Dockerfile
+  COPY line or per-pilot test of them remains, and the roster of every table, count and document is the chart's 32
+  pilots in 12 families, proved by tests/deploy/test_pilot_roster.py. Nothing a peer sees changes for the 32 remaining
+  pilots: their baked data is untouched byte for byte. The image must be rebuilt and re-gated 32 of 32 by the
+  supervisor; the old release candidate record (40 of 40) no longer matches the chart. The text half (comments,
+  docstrings, synthetic names, the repo-wide zero-occurrence test) is TC-552.
+recovery: Re-run from a clean tree.
