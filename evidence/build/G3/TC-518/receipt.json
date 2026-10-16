@@ -1,0 +1,116 @@
+{
+  "schema_version": 1,
+  "card": "TC-518",
+  "gate": "G3",
+  "generated_by": "gatectl",
+  "generated_at": "2026-10-16T11:37:50Z",
+  "base_rev": "b9dd577aedb5daf0db48d7532871d84a84bfc43e",
+  "head_rev": "52ea3ac020e09ac0d0c805283fbc44d4520bfb41",
+  "card_sha256": "b841be35671f73758c9b57458747d79f04190eabfce1f181c46c45035c984c5d",
+  "fingerprint": {
+    "python": "3.13.2",
+    "platform": "Windows-11-10.0.26200-SP0",
+    "lock_sha256": "7b182948484d7df9614b523f7a8180f795b6c51d55c418728525c1957f3e38ba",
+    "env": {
+      "PYTHONHASHSEED": "0",
+      "PYTHONUTF8": "1",
+      "PYTHONDONTWRITEBYTECODE": "1",
+      "PYTHONIOENCODING": "utf-8",
+      "TZ": "UTC",
+      "LC_ALL": "C.UTF-8",
+      "SOURCE_DATE_EPOCH": "1700000000",
+      "verify_runner": "host"
+    }
+  },
+  "scope": {
+    "ok": true,
+    "changed_paths": [
+      "src/foss_mcp/mcp/server.py",
+      "src/foss_mcp/mcp/tools/get_product_reference.py",
+      "src/foss_mcp/mcp/tools/readme_sections.py",
+      "tests/mcp/tools/test_product_reference_baked_contract.py",
+      "tests/mcp/tools/test_product_reference_readme_content.py",
+      "tests/mcp/tools/test_product_reference_truthful.py",
+      "tests/mcp/tools/test_readme_sections.py"
+    ],
+    "violations": [],
+    "evaluated": true
+  },
+  "runs": [
+    {
+      "run": 1,
+      "checks": [
+        {
+          "command": "{python} -m pytest tests/mcp/tools/test_readme_sections.py tests/mcp/tools/test_product_reference_readme_content.py tests/mcp/tools/test_product_reference_baked_contract.py -q -rfE -p no:cacheprovider",
+          "exit_code": 0,
+          "duration_s": 14.042,
+          "stdout_sha256": "56e555fc58be4b345cc206ec18a58e13772bcb5970363b1cc6cb840564680827",
+          "tests": 373,
+          "skipped": 0,
+          "errors": 0,
+          "failures": 0
+        },
+        {
+          "command": "{python} -m pytest tests/mcp tests/infra/test_serve_http.py tests/infra/test_serve_manifest_sidecar.py tests/infra/test_serve_stdio_parity.py tests/test_unwired_modules.py -q -rfE -p no:cacheprovider",
+          "exit_code": 0,
+          "duration_s": 75.761,
+          "stdout_sha256": "b8c954222942bb6a0364cde0c0cfc1f599dcc53222e10864e9fe56af8ce19856",
+          "tests": 2311,
+          "skipped": 0,
+          "errors": 0,
+          "failures": 0
+        }
+      ],
+      "all_passed": true
+    },
+    {
+      "run": 2,
+      "checks": [
+        {
+          "command": "{python} -m pytest tests/mcp/tools/test_readme_sections.py tests/mcp/tools/test_product_reference_readme_content.py tests/mcp/tools/test_product_reference_baked_contract.py -q -rfE -p no:cacheprovider",
+          "exit_code": 0,
+          "duration_s": 4.744,
+          "stdout_sha256": "56e555fc58be4b345cc206ec18a58e13772bcb5970363b1cc6cb840564680827",
+          "tests": 373,
+          "skipped": 0,
+          "errors": 0,
+          "failures": 0
+        },
+        {
+          "command": "{python} -m pytest tests/mcp tests/infra/test_serve_http.py tests/infra/test_serve_manifest_sidecar.py tests/infra/test_serve_stdio_parity.py tests/test_unwired_modules.py -q -rfE -p no:cacheprovider",
+          "exit_code": 0,
+          "duration_s": 63.494,
+          "stdout_sha256": "b8c954222942bb6a0364cde0c0cfc1f599dcc53222e10864e9fe56af8ce19856",
+          "tests": 2311,
+          "skipped": 0,
+          "errors": 0,
+          "failures": 0
+        }
+      ],
+      "all_passed": true
+    }
+  ],
+  "negative_control": {
+    "kind": "mutate",
+    "patch": "python -X utf8 -c \"import pathlib;p=pathlib.Path('src/foss_mcp/mcp/tools/readme_sections.py');s=p.read_text(encoding='utf-8');old='LIMITATIONS_TITLE_PATTERN = ' + chr(34) + 'limitation' + chr(34);assert s.count(old)==1;p.write_text(s.replace(old,'LIMITATIONS_TITLE_PATTERN = ' + chr(34) + 'zzzz' + chr(34)),encoding='utf-8')\"\n",
+    "patch_sha256": "cb5c16db839b76746f070acd6c90c037555f13df672a8bcbfd2bde560ede1d7b",
+    "applied": true,
+    "patch_applied_failed": true,
+    "exit_codes": [
+      1,
+      1
+    ],
+    "tree_changed": [
+      "M src/foss_mcp/mcp/tools/readme_sections.py",
+      "?? .junit-0.xml",
+      "?? .junit-1.xml"
+    ]
+  },
+  "holdout": {
+    "ran": false,
+    "passed": true,
+    "detail": "no holdout for this card"
+  },
+  "accepted": true,
+  "reason": "all gates passed"
+}
