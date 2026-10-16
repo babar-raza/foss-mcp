@@ -16,6 +16,7 @@ derives richness from a release body's own text rather than a metadata field nob
 
 from __future__ import annotations
 
+import re
 from collections.abc import Iterable
 from dataclasses import dataclass
 
@@ -53,13 +54,45 @@ _CONTENT_TYPE_HINTS: dict[str, tuple[str, ...]] = {
 }
 
 
-def classify_content_type(text: str) -> str:
-    """Which of the four documentation categories *text* belongs to, from its own content.
+_DOC_TITLE_PREFIX = "FQN: Doc: "
+_FAQ_BODY_PREFIX = "FAQ:"
+# TC-517: the title rules for a chunk that carries a ``FQN: Doc: <title>`` line, checked in this order.
+_TROUBLESHOOTING_TITLE = re.compile(
+    r"troubleshoot|known issue|limitation|unsupported|error|problem", re.IGNORECASE
+)
+_GETTING_STARTED_TITLE = re.compile(
+    r"install|quick ?start|getting started|prerequisite|setup|dependenc|requirement", re.IGNORECASE
+)
 
-    'developer_guide' is the default: most product documentation IS developer-facing
-    reference material, and the other three are specific, narrower categories a passage
-    names explicitly rather than something every passage must declare.
+
+def _classify_by_title(text: str) -> str | None:
+    """TC-517: the category of a documentation chunk from its section title, or ``None`` when *text*
+    has no ``FQN: Doc: <title>`` first line (the keyword rule then applies)."""
+    first_line, _, rest = text.partition("\n")
+    if not first_line.startswith(_DOC_TITLE_PREFIX):
+        return None
+    title = first_line[len(_DOC_TITLE_PREFIX) :]
+    first_body_line = rest.split("\n", 1)[0]
+    if first_body_line.startswith(_FAQ_BODY_PREFIX):
+        return "faq"
+    if _TROUBLESHOOTING_TITLE.search(title):
+        return "troubleshooting"
+    if _GETTING_STARTED_TITLE.search(title):
+        return "getting_started"
+    return "developer_guide"
+
+
+def classify_content_type(text: str) -> str:
+    """Which of the four documentation categories *text* belongs to.
+
+    A chunk with a ``FQN: Doc: <title>`` first line is categorised by its section title (TC-517; a
+    first body line starting ``FAQ:`` is a faq). Any other text - hand-written chunks - is
+    categorised from its own words. 'developer_guide' is the default: most product documentation
+    IS developer-facing reference material, and the other three are specific, narrower categories.
     """
+    by_title = _classify_by_title(text)
+    if by_title is not None:
+        return by_title
     lowered = text.lower()
     for content_type in ("getting_started", "troubleshooting", "faq"):
         if any(hint in lowered for hint in _CONTENT_TYPE_HINTS[content_type]):

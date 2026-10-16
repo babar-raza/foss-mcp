@@ -313,10 +313,16 @@ def test_every_offline_safe_query_token_is_unique_to_the_troubleshooting_chunk(
     troubleshooting_doc_ids = {
         did for did, ct in offline_replica.doc_id_to_content_type.items() if ct == "troubleshooting"
     }
-    assert len(troubleshooting_doc_ids) == 1, (
-        f"expected exactly one real troubleshooting-classified chunk in this fixture, got {len(troubleshooting_doc_ids)}"
+    # TC-517: a documentation chunk is now categorised by its section title, so EVERY paragraph chunk of
+    # the "Scope and Limitations" block is troubleshooting (this replica still splits at blank lines), not
+    # just the lead-in. What stays true is that the single document carrying the query's tokens is among
+    # the troubleshooting-classified documents and holds REAL_DOC_FRAGMENT.
+    carriers = {did for did, document in documents.items() if set(query_tokens) <= set(document["tokens"])}
+    assert len(carriers) == 1, (
+        f"expected exactly one document carrying every query token, got {len(carriers)}"
     )
-    (troubleshooting_doc_id,) = troubleshooting_doc_ids
+    (troubleshooting_doc_id,) = carriers
+    assert troubleshooting_doc_id in troubleshooting_doc_ids
     assert REAL_DOC_FRAGMENT in documents[troubleshooting_doc_id]["text"]
 
     for token in query_tokens:

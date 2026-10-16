@@ -76,6 +76,7 @@ from foss_mcp.indexing.authored_examples import (
 )
 from foss_mcp.indexing.chunk_builder import build_chunks_from_api_surface, parse_failures_over_threshold
 from foss_mcp.indexing.doc_candidates import extract_doc_sections
+from foss_mcp.indexing.doc_chunking import chunk_doc_candidate
 from foss_mcp.indexing.example_candidates import (
     CHAIN_PREFIX_PLATFORMS,
     IMPORT_ONLY_GUARD_PLATFORMS,
@@ -1149,7 +1150,10 @@ def _build_doc_chunks(page: dict, args: argparse.Namespace) -> list[Chunk]:
 
     doc_chunks: list[Chunk] = []
     for candidate in candidates:
-        doc = make_document(
+        # TC-517: a FAQ keeps its answer, a lead-in keeps its list, tiny neighbours merge and anything
+        # over the size limit is split with a ``Part: i of n`` marker instead of being cut.
+        for chunk in chunk_doc_candidate(
+            candidate,
             source_kind=SourceKind.FURNISHED,
             content_type="doc",
             provenance=Provenance(
@@ -1158,10 +1162,7 @@ def _build_doc_chunks(page: dict, args: argparse.Namespace) -> list[Chunk]:
                 path=str(args.furnished_page),
             ),
             evidence_refs=(f"{args.library_repository}@{args.library_commit}",),
-            title=candidate.title,
-            body=candidate.body,
-        )
-        for chunk in chunk_document(doc):
+        ):
             doc_chunks.append(dataclasses.replace(chunk, text=f"FQN: Doc: {candidate.title}\n{chunk.text}"))
 
     print(f"built {len(doc_chunks)} doc chunks from {len(candidates)} doc candidates")

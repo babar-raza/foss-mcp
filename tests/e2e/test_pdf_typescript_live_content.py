@@ -155,7 +155,9 @@ REAL_TASK_QUERY = "how do I create a new PDF from scratch"
 # Miss for THIS pilot - unlike pdf/net's own "limitations" query, this pilot's real content is
 # different and was never assumed to match it).
 REAL_DOC_QUERY = "install"
-REAL_DOC_CONTENT_TYPE = "getting_started"
+# TC-517: the FAQ answer now sits in ONE chunk with its question and the category follows the "FAQ:" first
+# line, so the chunk carrying REAL_DOC_FRAGMENT is "faq" (replayed offline from the committed furnished page).
+REAL_DOC_CONTENT_TYPE = "faq"
 REAL_DOC_FRAGMENT = "no other runtime dependencies"
 
 # REQ-G2-047 (TC-114): the real, API-naive task question CONFIRMED live, by hand, on 2026-09-29,
@@ -171,7 +173,9 @@ REAL_DOC_FRAGMENT = "no other runtime dependencies"
 # against the real container proved that assumption wrong, so it was removed rather than forced
 # to pass). This is therefore a real, live instance of REQ-G2-049's OTHER documented case: a
 # TaskAnswer composing BOTH a real doc match AND a real verified example for the same query.
-REAL_DOC_TASK_QUERY = "how do I install this library"
+# TC-517: restated. "install" now also reaches the overview (developer_guide, searched before faq), so the
+# old wording stops there; this wording reaches the FAQ answer (offline replay: lookup stops at faq).
+REAL_DOC_TASK_QUERY = "what is the current command for the package"
 
 VALID_HEADERS = {
     "Accept": "application/json, text/event-stream",
@@ -478,11 +482,9 @@ def test_search_docs_returns_real_furnished_content_for_pdf_typescript(session: 
     furnished page - never the "no published generation for this scope"/empty-index Miss every
     content tool call gave before TC-112 wired real doc chunks into ingestion.
 
-    ``getting_started`` is deliberately used, not ``developer_guide``: this pilot's real overview
-    and FAQ-answer prose happen to trip ``classify_content_type``'s own "install " hint word
-    (confirmed live, by hand, against a real temporary manifest store built from this exact
-    fixture) - genuinely bucketing them "getting_started". Every other real doc chunk in this
-    fixture (with no such hint word) lands in "developer_guide", the classifier's own default.
+    ``faq`` is used (TC-517): the FAQ answer to "How do I install ...?" is one chunk with its question,
+    and ``classify_content_type`` categorises a chunk whose first body line starts ``FAQ:`` as ``faq``.
+    This pilot's overview is ``developer_guide`` (its title names no install, error or limitation).
     """
     body = session.call_tool("search_docs", {"query": REAL_DOC_QUERY, "content_type": REAL_DOC_CONTENT_TYPE})
     result = body["result"]["structuredContent"]["result"]

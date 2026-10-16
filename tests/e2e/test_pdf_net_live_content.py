@@ -123,7 +123,10 @@ REAL_ENUM_MEMBER = "FullJustify"
 # content_type="developer_guide" for "limitations" returns exactly these 2 real "FQN: Doc: Scope
 # and Limitations" chunks - never a guess at what a container might return.
 REAL_DOC_QUERY = "limitations"
-REAL_DOC_CONTENT_TYPE = "developer_guide"
+# TC-517: classify_content_type now decides a documentation chunk by its section title, so the
+# "Scope and Limitations" chunks are "troubleshooting" (replayed offline: committed furnished page ->
+# _build_doc_chunks -> in-memory generation -> search_docs; the supervisor re-runs this file at the image build).
+REAL_DOC_CONTENT_TYPE = "troubleshooting"
 REAL_DOC_FRAGMENT = "open-source subset of Aspose.PDF for .NET"
 
 # REQ-G2-047 (TC-113): the real, API-naive task question CONFIRMED live, by hand, on 2026-09-29,
@@ -136,7 +139,10 @@ REAL_DOC_FRAGMENT = "open-source subset of Aspose.PDF for .NET"
 # TC-381: restated. The shared relevance floor (0.6 over the query's meaningful terms, product-family
 # word excluded) needs at least three meaningful terms for a natural question; the previous wording
 # reduced to two and no longer reaches it. The question is still answered by the same real page chunk.
-REAL_DOC_TASK_QUERY = "what is the scope of this open-source subset of the library"
+# TC-517: restated again. The Scope and Limitations chunks are troubleshooting now, and lookup tries developer_guide
+# first, where the larger "Key Capabilities and API Reference" table chunks cover the old wording; this wording
+# names the troubleshooting content itself (offline replay: lookup's search order stops at troubleshooting).
+REAL_DOC_TASK_QUERY = "what are the known issues and unsupported functionality of this open-source subset"
 
 VALID_HEADERS = {
     "Accept": "application/json, text/event-stream",
@@ -410,11 +416,10 @@ def test_search_docs_returns_real_furnished_content_for_pdf_net(session: _McpSes
     (TC-119) - never the "no published generation for this scope"/empty-index Miss every content
     tool call gave before TC-112 wired real doc chunks into ingestion.
 
-    ``developer_guide`` is deliberately used, not ``getting_started``: it is
-    ``classify_content_type``'s own default bucket, and is the category this real furnished
-    page's "Scope and Limitations" content block genuinely lands in (confirmed live - neither of
-    its two real chunks' own text happens to contain a ``getting_started``/``troubleshooting``/
-    ``faq`` hint word).
+    ``troubleshooting`` is used (TC-517): ``classify_content_type`` decides a documentation chunk by
+    its section title, and this real furnished page's "Scope and Limitations" content block is
+    titled for limitations, so it lands in ``troubleshooting`` (it was ``developer_guide`` when the
+    category was derived from the chunk text).
     """
     body = session.call_tool("search_docs", {"query": REAL_DOC_QUERY, "content_type": REAL_DOC_CONTENT_TYPE})
     result = body["result"]["structuredContent"]["result"]
