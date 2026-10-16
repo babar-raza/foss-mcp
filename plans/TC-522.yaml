@@ -42,6 +42,8 @@ write_paths:
 - tests/extraction/test_python_fidelity.py
 - tests/extraction/test_python_fixture_gaps.py
 - tests/indexing/test_chunk_builder_python_signatures.py
+- tests/extraction/tree_sitter_engine/test_python_surface_attributes.py
+- tests/extraction/tree_sitter_engine/test_python_surface_members.py
 satisfies:
 - REQ-G3-008
 - REQ-G3-005
@@ -149,6 +151,13 @@ inputs:
   (expected none changed). Do NOT regenerate any committed fixture and do NOT touch schemas/: the fixture format gains additive keys only (`default`,
   `kind` on params, `modifiers`, `reexport_of`) and no schema in schemas/ describes the api_surface fixture; if the worker finds one that does,
   stop and say so in the report. Write commit messages as UTF-8 without a byte-order mark.
+- >-
+  SUPERVISOR AMENDMENT (after the worker's first report): three existing tests pin the very defect this card fixes (parameter defaults dropped from the extractor output) and fail check 2:
+  tests/extraction/tree_sitter_engine/test_python_surface_attributes.py::test_function_entry_carries_params_and_return_type (expects params [{name:data,type:str},{name:symbology,type:str}]
+  for `def generate(data: str, symbology: str = 'qr')`), ::test_function_signature_is_rendered_not_a_bare_kind (expects the line `  - generate(data: str, symbology: str) -> bytes`), and
+  tests/extraction/tree_sitter_engine/test_python_surface_members.py::test_init_is_a_constructor_with_every_param_through_the_adapter (expects the first two __init__ params without a default).
+  Both files are now in your write_paths: change ONLY those expected values to the corrected output (add the `default` keys, `symbology: str = 'qr'`), nothing else in the two files,
+  and say which tests you changed in the commit message. All your other decisions are accepted (120-character default cut with ... appended, EXTRACTOR_VERSION = 4, explicit reexport_of pairing).
 actions:
 - >-
   Capture Python parameter defaults, keyword-only and positional-only markers and the static/classmethod/async decorators, and render them.
