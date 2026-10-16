@@ -134,6 +134,32 @@ def commit_problem(sha: str) -> str | None:
     return None
 
 
+# What Dockerfile.serving copies into the image. A recorded image whose source commit differs from
+# HEAD in any of these paths does not contain the code and data that HEAD ships (2026-10-16 audit:
+# gate exit would otherwise accept the old pre-remediation image once it was pushed).
+IMAGE_INPUT_PATHS = (
+    "Dockerfile.serving",
+    "requirements-serving.lock",
+    "src",
+    "config",
+    "infra/serve_stdio.py",
+    "infra/serve_http.py",
+    "infra/fetch_product_reference.py",
+    "infra/fetch_recent_releases.py",
+    "infra/verify_package_registry.py",
+    "infra/demo-manifests",
+    "infra/demo_entrypoint.py",
+)
+
+
+def stale_image_paths(sha: str) -> list[str]:
+    """Image-input paths that changed between the image's source commit and HEAD; [] when it is current."""
+    rc, out, _ = G.run(["git", "diff", "--name-only", sha, "HEAD", "--", *IMAGE_INPUT_PATHS])
+    if rc != 0:
+        return ["<git diff failed>"]
+    return [line for line in out.splitlines() if line.strip()]
+
+
 def load_gate_report(path: Path) -> tuple[dict, str]:
     """(normalized fields, sha256 of the file). The report is the TC-345 image workflow gate's summary.json."""
     if not path.is_file():
@@ -380,6 +406,7 @@ def gate_exit_problems(gate: str) -> list[str]:
     expected = expected_pilot_count()
     schema = G.load_schema(SCHEMA)
     invalid = {line.split(": ", 1)[0] for line in problems()}
+    stale_note = ""
     for p, d in load_records():
         if not d or d.get("status") != "PUSHED" or G.schema_errors(schema, d):
             continue
@@ -388,9 +415,16 @@ def gate_exit_problems(gate: str) -> list[str]:
         gr = d["gate_report"]
         if gr["verdict"] == "PASS" and gr["pilots_passed"] == gr["pilots_total"] == expected:
             if commit_problem(d["image"]["source_commit"]) is None:
-                return []
+                stale = stale_image_paths(d["image"]["source_commit"])
+                if not stale:
+                    return []
+                stale_note = (
+                    f" The recorded image {d['image']['source_commit'][:12]} is stale: {len(stale)} image-input "
+                    f"path(s) changed since it was built (first: {stale[0]}). Rebuild, re-gate and re-record it "
+                    "(REQ-G3-008)."
+                )
     return [
         f"no standalone demo image is recorded as PUSHED with a passing {expected}/{expected} workflow gate report "
         "(REQ-G3-001..004): build it, run scripts/release/image_workflow_gate.py, push it with "
-        "scripts/release/push_image.py, then `gatectl release-record`"
+        "scripts/release/push_image.py, then `gatectl release-record`" + stale_note
     ]

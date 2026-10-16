@@ -220,7 +220,8 @@ def test_validate_catches_an_unreadable_record(env):
     assert any("not valid JSON" in p for p in R.problems())
 
 
-def test_g3_cannot_exit_without_a_pushed_gate_tested_image(env):
+def test_g3_cannot_exit_without_a_pushed_gate_tested_image(env, monkeypatch):
+    monkeypatch.setattr(R, "stale_image_paths", lambda sha: [])  # staleness has its own test below
     assert R.gate_exit_problems("G3")
     R.record(REF, report(env))
     assert R.gate_exit_problems("G3"), "a LOCAL_ONLY image does not satisfy the hosting requirement"
@@ -235,6 +236,30 @@ def test_a_pushed_image_whose_commit_left_the_history_no_longer_satisfies_g3(env
         R, "commit_problem", lambda sha: "source commit aaaaaaaaaaaa is not an ancestor of HEAD"
     )
     assert R.gate_exit_problems("G3")
+
+
+def test_a_pushed_image_older_than_the_current_image_inputs_does_not_satisfy_g3(env, monkeypatch):
+    """2026-10-16 audit: gate exit accepted any pushed 40/40 image, so the old pre-remediation image
+    would have satisfied REQ-G3-008 ("rebuilt, re-gated, re-recorded after the last fix")."""
+    R.record(REF, report(env), push_result(env))
+    monkeypatch.setattr(R, "stale_image_paths", lambda sha: ["src/foss_mcp/mcp/tools/get_symbol.py"])
+    problems = R.gate_exit_problems("G3")
+    assert problems
+    assert "stale" in problems[0] and "get_symbol.py" in problems[0]
+    monkeypatch.setattr(R, "stale_image_paths", lambda sha: [])
+    assert R.gate_exit_problems("G3") == []
+
+
+def test_stale_image_paths_names_exactly_the_files_the_dockerfile_copies(tmp_path, monkeypatch):
+    dockerfile = (Path(__file__).resolve().parents[2] / "Dockerfile.serving").read_text(encoding="utf-8")
+    copied = set()
+    for line in dockerfile.splitlines():
+        parts = line.split()
+        if parts[:1] == ["COPY"] and not any(p.startswith("--from") for p in parts):
+            copied.add(parts[1].rstrip("/"))
+    assert copied <= set(R.IMAGE_INPUT_PATHS), (
+        f"Dockerfile.serving copies paths the gate ignores: {copied - set(R.IMAGE_INPUT_PATHS)}"
+    )
 
 
 def test_the_cli_prints_refused_and_fails_and_prints_recorded_on_success(env, capsys):
