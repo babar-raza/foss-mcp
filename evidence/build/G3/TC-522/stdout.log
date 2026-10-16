@@ -1,0 +1,790 @@
+
+===== CLEAN RUN 1 (host) =====
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-7b182948484d7df9\Scripts\python.exe -m pytest tests/extraction/test_python_fidelity.py tests/extraction/test_python_fixture_gaps.py tests/indexing/test_chunk_builder_python_signatures.py -q -rfE "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-n4ayjirb\.junit-0.xml"
+--- stdout ---
+........................................................................ [ 86%]
+...........                                                              [100%]
+
+--- stderr ---
+
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-7b182948484d7df9\Scripts\python.exe -m pytest tests/extraction tests/indexing/test_chunk_builder.py tests/indexing/test_chunk_builder_honesty.py tests/indexing/test_chunk_builder_modifiers.py tests/indexing/test_chunk_builder_coverage_line.py tests/infra/test_build_chunks.py tests/infra/test_build_chunks_extraction_notice.py tests/test_unwired_modules.py -q -rfE -p no:cacheprovider "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-n4ayjirb\.junit-1.xml"
+--- stdout ---
+........................................................................ [  6%]
+........................................................................ [ 12%]
+........................................................................ [ 18%]
+........................................................................ [ 24%]
+........................................................................ [ 30%]
+........................................................................ [ 36%]
+........................................................................ [ 42%]
+........................................................................ [ 48%]
+........................................................................ [ 54%]
+........................................................................ [ 60%]
+........................................................................ [ 66%]
+........................................................................ [ 72%]
+........................................................................ [ 78%]
+........................................................................ [ 84%]
+........................................................................ [ 91%]
+........................................................................ [ 97%]
+..................................                                       [100%]
+1 live test(s) deselected; set FOSS_MCP_NETWORK_TESTS=1 to run them
+
+--- stderr ---
+
+
+===== CLEAN RUN 2 (host) =====
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-7b182948484d7df9\Scripts\python.exe -m pytest tests/extraction/test_python_fidelity.py tests/extraction/test_python_fixture_gaps.py tests/indexing/test_chunk_builder_python_signatures.py -q -rfE "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-n4ayjirb\.junit-0.xml"
+--- stdout ---
+........................................................................ [ 86%]
+...........                                                              [100%]
+
+--- stderr ---
+
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-7b182948484d7df9\Scripts\python.exe -m pytest tests/extraction tests/indexing/test_chunk_builder.py tests/indexing/test_chunk_builder_honesty.py tests/indexing/test_chunk_builder_modifiers.py tests/indexing/test_chunk_builder_coverage_line.py tests/infra/test_build_chunks.py tests/infra/test_build_chunks_extraction_notice.py tests/test_unwired_modules.py -q -rfE -p no:cacheprovider "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-n4ayjirb\.junit-1.xml"
+--- stdout ---
+........................................................................ [  6%]
+........................................................................ [ 12%]
+........................................................................ [ 18%]
+........................................................................ [ 24%]
+........................................................................ [ 30%]
+........................................................................ [ 36%]
+........................................................................ [ 42%]
+........................................................................ [ 48%]
+........................................................................ [ 54%]
+........................................................................ [ 60%]
+........................................................................ [ 66%]
+........................................................................ [ 72%]
+........................................................................ [ 78%]
+........................................................................ [ 84%]
+........................................................................ [ 91%]
+........................................................................ [ 97%]
+..................................                                       [100%]
+1 live test(s) deselected; set FOSS_MCP_NETWORK_TESTS=1 to run them
+
+--- stderr ---
+
+
+===== NEGATIVE CONTROL (checks MUST now fail) =====
+mutated: M src/foss_mcp/extraction/tree_sitter_engine/python_surface.py, ?? .junit-0.xml, ?? .junit-1.xml
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-7b182948484d7df9\Scripts\python.exe -m pytest tests/extraction/test_python_fidelity.py tests/extraction/test_python_fixture_gaps.py tests/indexing/test_chunk_builder_python_signatures.py -q -rfE "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-n4ayjirb\.junit-0.xml"
+--- stdout ---
+FFF..........FFFF.......FFF.FFF..F.F.FFF.FF............................. [ 86%]
+...........                                                              [100%]
+================================== FAILURES ===================================
+__________________ test_defaults_are_captured_as_source_text __________________
+
+types = {'samplepkg.Account': {'name': 'Account', 'kind': 'class', 'file': 'samplepkg/__init__.py', 'line': 3, ...}, 'samplepk....}, 'samplepkg.convert': {'name': 'convert', 'kind': 'function', 'file': 'samplepkg/__init__.py', 'line': 1, ...}, ...}
+
+    def test_defaults_are_captured_as_source_text(types: dict[str, dict[str, Any]]) -> None:
+        close = _method(types["samplepkg.models.Account"], "close")
+>       assert _param(close, "force")["default"] == "False"
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       KeyError: 'default'
+
+tests\extraction\test_python_fidelity.py:192: KeyError
+___________ test_long_default_is_cut_at_the_limit_with_an_ellipsis ____________
+
+types = {'samplepkg.Account': {'name': 'Account', 'kind': 'class', 'file': 'samplepkg/__init__.py', 'line': 3, ...}, 'samplepk....}, 'samplepkg.convert': {'name': 'convert', 'kind': 'function', 'file': 'samplepkg/__init__.py', 'line': 1, ...}, ...}
+
+    def test_long_default_is_cut_at_the_limit_with_an_ellipsis(types: dict[str, dict[str, Any]]) -> None:
+        assert python_surface._DEFAULT_TEXT_LIMIT == 120
+>       text = _param(_method(types["samplepkg.models.Account"], "options"), "text")["default"]
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       KeyError: 'default'
+
+tests\extraction\test_python_fidelity.py:201: KeyError
+________________ test_default_exactly_at_the_limit_is_not_cut _________________
+
+tmp_path = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-8768/test_default_exactly_at_the_li0')
+
+    def test_default_exactly_at_the_limit_is_not_cut(tmp_path: Path) -> None:
+        exact = "b" * (python_surface._DEFAULT_TEXT_LIMIT - 2)  # the quotes make 120 characters
+        (tmp_path / "pkg").mkdir()
+        (tmp_path / "pkg" / "__init__.py").write_text("", encoding="utf-8")
+        (tmp_path / "pkg" / "mod.py").write_text(f"def f(x='{exact}'):\n    pass\n", encoding="utf-8")
+        default = _symbols_of(tmp_path, "pkg")["pkg.mod.f"].param_details[0][2]
+>       assert default == repr(exact) and len(default) == 120
+E       assert ('' == "'bbbbbbbbbbb...bbbbbbbbbbbb'"
+E         
+E         - 'bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb')
+
+tests\extraction\test_python_fidelity.py:212: AssertionError
+___________________ test_constructor_defaults_are_captured ____________________
+
+types = {'samplepkg.Account': {'name': 'Account', 'kind': 'class', 'file': 'samplepkg/__init__.py', 'line': 3, ...}, 'samplepk....}, 'samplepkg.convert': {'name': 'convert', 'kind': 'function', 'file': 'samplepkg/__init__.py', 'line': 1, ...}, ...}
+
+    def test_constructor_defaults_are_captured(types: dict[str, dict[str, Any]]) -> None:
+        init = _method(types["samplepkg.models.Account"], "__init__")
+        assert init["is_constructor"] is True
+>       assert _param(init, "password")["default"] == "None"
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       KeyError: 'default'
+
+tests\extraction\test_python_fidelity.py:303: KeyError
+__________________ test_module_function_defaults_and_kwonly ___________________
+
+types = {'samplepkg.Account': {'name': 'Account', 'kind': 'class', 'file': 'samplepkg/__init__.py', 'line': 3, ...}, 'samplepk....}, 'samplepkg.convert': {'name': 'convert', 'kind': 'function', 'file': 'samplepkg/__init__.py', 'line': 1, ...}, ...}
+
+    def test_module_function_defaults_and_kwonly(types: dict[str, dict[str, Any]]) -> None:
+        load = types["samplepkg.util.load"]
+        assert load["kind"] == "function"
+        assert _param(load, "encoding") == {
+            "name": "encoding",
+            "type": "",
+            "default": "'utf-8'",
+            "kind": "keyword_only",
+        }
+        assert _param(load, "path") == {"name": "path", "type": ""}
+>       assert _param(types["samplepkg.util.combine"], "sep")["default"] == "', '"
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       KeyError: 'default'
+
+tests\extraction\test_python_fidelity.py:318: KeyError
+____________ test_reexported_function_keeps_defaults_and_modifiers ____________
+
+types = {'samplepkg.Account': {'name': 'Account', 'kind': 'class', 'file': 'samplepkg/__init__.py', 'line': 3, ...}, 'samplepk....}, 'samplepkg.convert': {'name': 'convert', 'kind': 'function', 'file': 'samplepkg/__init__.py', 'line': 1, ...}, ...}
+
+    def test_reexported_function_keeps_defaults_and_modifiers(types: dict[str, dict[str, Any]]) -> None:
+        convert = types["samplepkg.convert"]
+        assert convert["kind"] == "function"
+>       assert _param(convert, "dst")["default"] == "None"
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       KeyError: 'default'
+
+tests\extraction\test_python_fidelity.py:325: KeyError
+___________ test_inherited_private_base_methods_keep_their_defaults ___________
+
+types = {'samplepkg.Account': {'name': 'Account', 'kind': 'class', 'file': 'samplepkg/__init__.py', 'line': 3, ...}, 'samplepk....}, 'samplepkg.convert': {'name': 'convert', 'kind': 'function', 'file': 'samplepkg/__init__.py', 'line': 1, ...}, ...}
+
+    def test_inherited_private_base_methods_keep_their_defaults(types: dict[str, dict[str, Any]]) -> None:
+        for fqn in ("samplepkg.facades.Facade", "samplepkg.Facade"):
+            bind = _method(types[fqn], "bind")
+>           assert _param(bind, "path")["default"] == "None"
+                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E           KeyError: 'default'
+
+tests\extraction\test_python_fidelity.py:337: KeyError
+_ test_rendered_signatures_match_the_ast_oracle[samplepkg.models.Account.__init__] _
+
+chunk_texts = {'samplepkg.Account': 'FQN: samplepkg.Account\nKind: class\nDefined-In: samplepkg.models.Account\nAn account.\n\nMetho...e-exported.\n\nMethods:\n  - convert(src, dst, *, fast = False) -> bytes [async]\n\nAPI-Coverage: 11 of 11 types', ...}
+fqn = 'samplepkg.models.Account'
+node = <ast.FunctionDef object at 0x0000021D0B53E310>
+
+    @pytest.mark.parametrize(("fqn", "node"), ORACLE_CASES)
+    def test_rendered_signatures_match_the_ast_oracle(
+        chunk_texts: dict[str, str], fqn: str, node: ast.FunctionDef | ast.AsyncFunctionDef
+    ) -> None:
+>       assert _mismatch(chunk_texts, fqn, node) is None
+E       assert "samplepkg.models.Account.__init__: rendered ('id, password, *, retries = 3', '') expected ('id, password = None, *, retries = 3', '')" is None
+E        +  where "samplepkg.models.Account.__init__: rendered ('id, password, *, retries = 3', '') expected ('id, password = None, *, retries = 3', '')" = _mismatch({'samplepkg.Account': 'FQN: samplepkg.Account\nKind: class\nDefined-In: samplepkg.models.Account\nAn account.\n\nMetho...e-exported.\n\nMethods:\n  - convert(src, dst, *, fast = False) -> bytes [async]\n\nAPI-Coverage: 11 of 11 types', ...}, 'samplepkg.models.Account', <ast.FunctionDef object at 0x0000021D0B53E310>)
+
+tests\extraction\test_python_fidelity.py:592: AssertionError
+_ test_rendered_signatures_match_the_ast_oracle[samplepkg.models.Account.open] _
+
+chunk_texts = {'samplepkg.Account': 'FQN: samplepkg.Account\nKind: class\nDefined-In: samplepkg.models.Account\nAn account.\n\nMetho...e-exported.\n\nMethods:\n  - convert(src, dst, *, fast = False) -> bytes [async]\n\nAPI-Coverage: 11 of 11 types', ...}
+fqn = 'samplepkg.models.Account'
+node = <ast.FunctionDef object at 0x0000021D0B53F210>
+
+    @pytest.mark.parametrize(("fqn", "node"), ORACLE_CASES)
+    def test_rendered_signatures_match_the_ast_oracle(
+        chunk_texts: dict[str, str], fqn: str, node: ast.FunctionDef | ast.AsyncFunctionDef
+    ) -> None:
+>       assert _mismatch(chunk_texts, fqn, node) is None
+E       assert 'samplepkg.models.Account.open: rendered (\'path, /, mode, *args, strict, quiet = False, **extra\', \' [classmethod]\') expected ("path, /, mode = \'r\', *args, strict, quiet = False, **extra", \' [classmethod]\')' is None
+E        +  where 'samplepkg.models.Account.open: rendered (\'path, /, mode, *args, strict, quiet = False, **extra\', \' [classmethod]\') expected ("path, /, mode = \'r\', *args, strict, quiet = False, **extra", \' [classmethod]\')' = _mismatch({'samplepkg.Account': 'FQN: samplepkg.Account\nKind: class\nDefined-In: samplepkg.models.Account\nAn account.\n\nMetho...e-exported.\n\nMethods:\n  - convert(src, dst, *, fast = False) -> bytes [async]\n\nAPI-Coverage: 11 of 11 types', ...}, 'samplepkg.models.Account', <ast.FunctionDef object at 0x0000021D0B53F210>)
+
+tests\extraction\test_python_fidelity.py:592: AssertionError
+_ test_rendered_signatures_match_the_ast_oracle[samplepkg.models.Account.make] _
+
+chunk_texts = {'samplepkg.Account': 'FQN: samplepkg.Account\nKind: class\nDefined-In: samplepkg.models.Account\nAn account.\n\nMetho...e-exported.\n\nMethods:\n  - convert(src, dst, *, fast = False) -> bytes [async]\n\nAPI-Coverage: 11 of 11 types', ...}
+fqn = 'samplepkg.models.Account'
+node = <ast.FunctionDef object at 0x0000021D0B53CE90>
+
+    @pytest.mark.parametrize(("fqn", "node"), ORACLE_CASES)
+    def test_rendered_signatures_match_the_ast_oracle(
+        chunk_texts: dict[str, str], fqn: str, node: ast.FunctionDef | ast.AsyncFunctionDef
+    ) -> None:
+>       assert _mismatch(chunk_texts, fqn, node) is None
+E       assert "samplepkg.models.Account.make: rendered ('a, /, b', ' [static]') expected ('a, /, b = 1', ' [static]')" is None
+E        +  where "samplepkg.models.Account.make: rendered ('a, /, b', ' [static]') expected ('a, /, b = 1', ' [static]')" = _mismatch({'samplepkg.Account': 'FQN: samplepkg.Account\nKind: class\nDefined-In: samplepkg.models.Account\nAn account.\n\nMetho...e-exported.\n\nMethods:\n  - convert(src, dst, *, fast = False) -> bytes [async]\n\nAPI-Coverage: 11 of 11 types', ...}, 'samplepkg.models.Account', <ast.FunctionDef object at 0x0000021D0B53CE90>)
+
+tests\extraction\test_python_fidelity.py:592: AssertionError
+_ test_rendered_signatures_match_the_ast_oracle[samplepkg.models.Account.traced] _
+
+chunk_texts = {'samplepkg.Account': 'FQN: samplepkg.Account\nKind: class\nDefined-In: samplepkg.models.Account\nAn account.\n\nMetho...e-exported.\n\nMethods:\n  - convert(src, dst, *, fast = False) -> bytes [async]\n\nAPI-Coverage: 11 of 11 types', ...}
+fqn = 'samplepkg.models.Account'
+node = <ast.FunctionDef object at 0x0000021D0B53D5D0>
+
+    @pytest.mark.parametrize(("fqn", "node"), ORACLE_CASES)
+    def test_rendered_signatures_match_the_ast_oracle(
+        chunk_texts: dict[str, str], fqn: str, node: ast.FunctionDef | ast.AsyncFunctionDef
+    ) -> None:
+>       assert _mismatch(chunk_texts, fqn, node) is None
+E       assert "samplepkg.models.Account.traced: rendered ('x', ' [static]') expected ('x = 2', ' [static]')" is None
+E        +  where "samplepkg.models.Account.traced: rendered ('x', ' [static]') expected ('x = 2', ' [static]')" = _mismatch({'samplepkg.Account': 'FQN: samplepkg.Account\nKind: class\nDefined-In: samplepkg.models.Account\nAn account.\n\nMetho...e-exported.\n\nMethods:\n  - convert(src, dst, *, fast = False) -> bytes [async]\n\nAPI-Coverage: 11 of 11 types', ...}, 'samplepkg.models.Account', <ast.FunctionDef object at 0x0000021D0B53D5D0>)
+
+tests\extraction\test_python_fidelity.py:592: AssertionError
+_ test_rendered_signatures_match_the_ast_oracle[samplepkg.models.Account.close] _
+
+chunk_texts = {'samplepkg.Account': 'FQN: samplepkg.Account\nKind: class\nDefined-In: samplepkg.models.Account\nAn account.\n\nMetho...e-exported.\n\nMethods:\n  - convert(src, dst, *, fast = False) -> bytes [async]\n\nAPI-Coverage: 11 of 11 types', ...}
+fqn = 'samplepkg.models.Account'
+node = <ast.FunctionDef object at 0x0000021D0B53E0D0>
+
+    @pytest.mark.parametrize(("fqn", "node"), ORACLE_CASES)
+    def test_rendered_signatures_match_the_ast_oracle(
+        chunk_texts: dict[str, str], fqn: str, node: ast.FunctionDef | ast.AsyncFunctionDef
+    ) -> None:
+>       assert _mismatch(chunk_texts, fqn, node) is None
+E       assert "samplepkg.models.Account.close: rendered ('force: bool, *, timeout: float | None = None', '') expected ('force: bool = False, *, timeout: float | None = None', '')" is None
+E        +  where "samplepkg.models.Account.close: rendered ('force: bool, *, timeout: float | None = None', '') expected ('force: bool = False, *, timeout: float | None = None', '')" = _mismatch({'samplepkg.Account': 'FQN: samplepkg.Account\nKind: class\nDefined-In: samplepkg.models.Account\nAn account.\n\nMetho...e-exported.\n\nMethods:\n  - convert(src, dst, *, fast = False) -> bytes [async]\n\nAPI-Coverage: 11 of 11 types', ...}, 'samplepkg.models.Account', <ast.FunctionDef object at 0x0000021D0B53E0D0>)
+
+tests\extraction\test_python_fidelity.py:592: AssertionError
+_ test_rendered_signatures_match_the_ast_oracle[samplepkg.models.Account.options] _
+
+chunk_texts = {'samplepkg.Account': 'FQN: samplepkg.Account\nKind: class\nDefined-In: samplepkg.models.Account\nAn account.\n\nMetho...e-exported.\n\nMethods:\n  - convert(src, dst, *, fast = False) -> bytes [async]\n\nAPI-Coverage: 11 of 11 types', ...}
+fqn = 'samplepkg.models.Account'
+node = <ast.FunctionDef object at 0x0000021D0B53E590>
+
+    @pytest.mark.parametrize(("fqn", "node"), ORACLE_CASES)
+    def test_rendered_signatures_match_the_ast_oracle(
+        chunk_texts: dict[str, str], fqn: str, node: ast.FunctionDef | ast.AsyncFunctionDef
+    ) -> None:
+>       assert _mismatch(chunk_texts, fqn, node) is None
+E       assert 'samplepkg.models.Account.options: rendered (\'spec, text\', \'\') expected ("spec = {\'k\': [1, 2]}, text = \'aaaaaaa...aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa...", \'\')' is None
+E        +  where 'samplepkg.models.Account.options: rendered (\'spec, text\', \'\') expected ("spec = {\'k\': [1, 2]}, text = \'aaaaaaa...aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa...", \'\')' = _mismatch({'samplepkg.Account': 'FQN: samplepkg.Account\nKind: class\nDefined-In: samplepkg.models.Account\nAn account.\n\nMetho...e-exported.\n\nMethods:\n  - convert(src, dst, *, fast = False) -> bytes [async]\n\nAPI-Coverage: 11 of 11 types', ...}, 'samplepkg.models.Account', <ast.FunctionDef object at 0x0000021D0B53E590>)
+
+tests\extraction\test_python_fidelity.py:592: AssertionError
+_ test_rendered_signatures_match_the_ast_oracle[samplepkg.facades.Facade.bind] _
+
+chunk_texts = {'samplepkg.Account': 'FQN: samplepkg.Account\nKind: class\nDefined-In: samplepkg.models.Account\nAn account.\n\nMetho...e-exported.\n\nMethods:\n  - convert(src, dst, *, fast = False) -> bytes [async]\n\nAPI-Coverage: 11 of 11 types', ...}
+fqn = 'samplepkg.facades.Facade'
+node = <ast.FunctionDef object at 0x0000021D0B53D350>
+
+    @pytest.mark.parametrize(("fqn", "node"), ORACLE_CASES)
+    def test_rendered_signatures_match_the_ast_oracle(
+        chunk_texts: dict[str, str], fqn: str, node: ast.FunctionDef | ast.AsyncFunctionDef
+    ) -> None:
+>       assert _mismatch(chunk_texts, fqn, node) is None
+E       assert "samplepkg.facades.Facade.bind: rendered ('path, *, overwrite = False', '') expected ('path = None, *, overwrite = False', '')" is None
+E        +  where "samplepkg.facades.Facade.bind: rendered ('path, *, overwrite = False', '') expected ('path = None, *, overwrite = False', '')" = _mismatch({'samplepkg.Account': 'FQN: samplepkg.Account\nKind: class\nDefined-In: samplepkg.models.Account\nAn account.\n\nMetho...e-exported.\n\nMethods:\n  - convert(src, dst, *, fast = False) -> bytes [async]\n\nAPI-Coverage: 11 of 11 types', ...}, 'samplepkg.facades.Facade', <ast.FunctionDef object at 0x0000021D0B53D350>)
+
+tests\extraction\test_python_fidelity.py:592: AssertionError
+____ test_rendered_signatures_match_the_ast_oracle[samplepkg.Facade.bind] _____
+
+chunk_texts = {'samplepkg.Account': 'FQN: samplepkg.Account\nKind: class\nDefined-In: samplepkg.models.Account\nAn account.\n\nMetho...e-exported.\n\nMethods:\n  - convert(src, dst, *, fast = False) -> bytes [async]\n\nAPI-Coverage: 11 of 11 types', ...}
+fqn = 'samplepkg.Facade', node = <ast.FunctionDef object at 0x0000021D0B53D350>
+
+    @pytest.mark.parametrize(("fqn", "node"), ORACLE_CASES)
+    def test_rendered_signatures_match_the_ast_oracle(
+        chunk_texts: dict[str, str], fqn: str, node: ast.FunctionDef | ast.AsyncFunctionDef
+    ) -> None:
+>       assert _mismatch(chunk_texts, fqn, node) is None
+E       assert "samplepkg.Facade.bind: rendered ('path, *, overwrite = False', '') expected ('path = None, *, overwrite = False', '')" is None
+E        +  where "samplepkg.Facade.bind: rendered ('path, *, overwrite = False', '') expected ('path = None, *, overwrite = False', '')" = _mismatch({'samplepkg.Account': 'FQN: samplepkg.Account\nKind: class\nDefined-In: samplepkg.models.Account\nAn account.\n\nMetho...e-exported.\n\nMethods:\n  - convert(src, dst, *, fast = False) -> bytes [async]\n\nAPI-Coverage: 11 of 11 types', ...}, 'samplepkg.Facade', <ast.FunctionDef object at 0x0000021D0B53D350>)
+
+tests\extraction\test_python_fidelity.py:592: AssertionError
+__ test_rendered_signatures_match_the_ast_oracle[samplepkg.util.fetch.fetch] __
+
+chunk_texts = {'samplepkg.Account': 'FQN: samplepkg.Account\nKind: class\nDefined-In: samplepkg.models.Account\nAn account.\n\nMetho...e-exported.\n\nMethods:\n  - convert(src, dst, *, fast = False) -> bytes [async]\n\nAPI-Coverage: 11 of 11 types', ...}
+fqn = 'samplepkg.util.fetch'
+node = <ast.AsyncFunctionDef object at 0x0000021D0B53D250>
+
+    @pytest.mark.parametrize(("fqn", "node"), ORACLE_CASES)
+    def test_rendered_signatures_match_the_ast_oracle(
+        chunk_texts: dict[str, str], fqn: str, node: ast.FunctionDef | ast.AsyncFunctionDef
+    ) -> None:
+>       assert _mismatch(chunk_texts, fqn, node) is None
+E       assert "samplepkg.util.fetch.fetch: rendered ('url, retries', ' [async]') expected ('url, retries = 3', ' [async]')" is None
+E        +  where "samplepkg.util.fetch.fetch: rendered ('url, retries', ' [async]') expected ('url, retries = 3', ' [async]')" = _mismatch({'samplepkg.Account': 'FQN: samplepkg.Account\nKind: class\nDefined-In: samplepkg.models.Account\nAn account.\n\nMetho...e-exported.\n\nMethods:\n  - convert(src, dst, *, fast = False) -> bytes [async]\n\nAPI-Coverage: 11 of 11 types', ...}, 'samplepkg.util.fetch', <ast.AsyncFunctionDef object at 0x0000021D0B53D250>)
+
+tests\extraction\test_python_fidelity.py:592: AssertionError
+_ test_rendered_signatures_match_the_ast_oracle[samplepkg.util.combine.combine] _
+
+chunk_texts = {'samplepkg.Account': 'FQN: samplepkg.Account\nKind: class\nDefined-In: samplepkg.models.Account\nAn account.\n\nMetho...e-exported.\n\nMethods:\n  - convert(src, dst, *, fast = False) -> bytes [async]\n\nAPI-Coverage: 11 of 11 types', ...}
+fqn = 'samplepkg.util.combine'
+node = <ast.FunctionDef object at 0x0000021D0B53E650>
+
+    @pytest.mark.parametrize(("fqn", "node"), ORACLE_CASES)
+    def test_rendered_signatures_match_the_ast_oracle(
+        chunk_texts: dict[str, str], fqn: str, node: ast.FunctionDef | ast.AsyncFunctionDef
+    ) -> None:
+>       assert _mismatch(chunk_texts, fqn, node) is None
+E       assert 'samplepkg.util.combine.combine: rendered (\'items, sep\', \'\') expected ("items = (), sep = \', \'", \'\')' is None
+E        +  where 'samplepkg.util.combine.combine: rendered (\'items, sep\', \'\') expected ("items = (), sep = \', \'", \'\')' = _mismatch({'samplepkg.Account': 'FQN: samplepkg.Account\nKind: class\nDefined-In: samplepkg.models.Account\nAn account.\n\nMetho...e-exported.\n\nMethods:\n  - convert(src, dst, *, fast = False) -> bytes [async]\n\nAPI-Coverage: 11 of 11 types', ...}, 'samplepkg.util.combine', <ast.FunctionDef object at 0x0000021D0B53E650>)
+
+tests\extraction\test_python_fidelity.py:592: AssertionError
+__ test_rendered_signatures_match_the_ast_oracle[samplepkg.convert.convert] ___
+
+chunk_texts = {'samplepkg.Account': 'FQN: samplepkg.Account\nKind: class\nDefined-In: samplepkg.models.Account\nAn account.\n\nMetho...e-exported.\n\nMethods:\n  - convert(src, dst, *, fast = False) -> bytes [async]\n\nAPI-Coverage: 11 of 11 types', ...}
+fqn = 'samplepkg.convert'
+node = <ast.AsyncFunctionDef object at 0x0000021D0B540E50>
+
+    @pytest.mark.parametrize(("fqn", "node"), ORACLE_CASES)
+    def test_rendered_signatures_match_the_ast_oracle(
+        chunk_texts: dict[str, str], fqn: str, node: ast.FunctionDef | ast.AsyncFunctionDef
+    ) -> None:
+>       assert _mismatch(chunk_texts, fqn, node) is None
+E       assert "samplepkg.convert.convert: rendered ('src, dst, *, fast = False', ' [async]') expected ('src, dst = None, *, fast = False', ' [async]')" is None
+E        +  where "samplepkg.convert.convert: rendered ('src, dst, *, fast = False', ' [async]') expected ('src, dst = None, *, fast = False', ' [async]')" = _mismatch({'samplepkg.Account': 'FQN: samplepkg.Account\nKind: class\nDefined-In: samplepkg.models.Account\nAn account.\n\nMetho...e-exported.\n\nMethods:\n  - convert(src, dst, *, fast = False) -> bytes [async]\n\nAPI-Coverage: 11 of 11 types', ...}, 'samplepkg.convert', <ast.AsyncFunctionDef object at 0x0000021D0B540E50>)
+
+tests\extraction\test_python_fidelity.py:592: AssertionError
+______________________ test_the_oracle_checks_something _______________________
+
+chunk_texts = {'samplepkg.Account': 'FQN: samplepkg.Account\nKind: class\nDefined-In: samplepkg.models.Account\nAn account.\n\nMetho...e-exported.\n\nMethods:\n  - convert(src, dst, *, fast = False) -> bytes [async]\n\nAPI-Coverage: 11 of 11 types', ...}
+
+    def test_the_oracle_checks_something(chunk_texts: dict[str, str]) -> None:
+        assert len(ORACLE_CASES) >= 12
+        params: list[str] = []
+        suffixes: list[str] = []
+        mismatches: list[str] = []
+        for case in ORACLE_CASES:
+            fqn, node = case.values
+            rendered_params, suffix = _rendered_line(chunk_texts[fqn], node.name)
+            params.append(rendered_params)
+            suffixes.append(suffix)
+            problem = _mismatch(chunk_texts, fqn, node)
+            if problem:
+                mismatches.append(problem)
+>       assert mismatches == []
+E       assert ["samplepkg.m..., \'\')', ...] == []
+E         
+E         Left contains 11 more items, first extra item: "samplepkg.models.Account.__init__: rendered ('id, password, *, retries = 3', '') expected ('id, password = None, *, retries = 3', '')"
+E         Use -v to get more diff
+
+tests\extraction\test_python_fidelity.py:608: AssertionError
+____ test_the_paired_facade_shell_chunk_lists_its_definitions_own_methods _____
+
+chunk_texts = {'samplepkg.Account': 'FQN: samplepkg.Account\nKind: class\nDefined-In: samplepkg.models.Account\nAn account.\n\nMetho...e-exported.\n\nMethods:\n  - convert(src, dst, *, fast = False) -> bytes [async]\n\nAPI-Coverage: 11 of 11 types', ...}
+
+    def test_the_paired_facade_shell_chunk_lists_its_definitions_own_methods(chunk_texts: dict[str, str]) -> None:
+        shell = chunk_texts["samplepkg.Facade"]
+        assert "Defined-In: samplepkg.facades.Facade" in shell
+        assert "  - encrypt(user, owner, *, permissions = 0, keysize = 128)" in shell
+>       assert "  - bind(path = None, *, overwrite = False)" in shell
+E       AssertionError: assert '  - bind(path = None, *, overwrite = False)' in 'FQN: samplepkg.Facade\nKind: class\nDefined-In: samplepkg.facades.Facade\nA facade built on a private base.\n\nBases:...e = False)\n  - encrypt(user, owner, *, permissions = 0, keysize = 128)\n  - release()\n\nAPI-Coverage: 11 of 11 types'
+
+tests\extraction\test_python_fidelity.py:621: AssertionError
+=========================== short test summary info ===========================
+FAILED tests/extraction/test_python_fidelity.py::test_defaults_are_captured_as_source_text
+FAILED tests/extraction/test_python_fidelity.py::test_long_default_is_cut_at_the_limit_with_an_ellipsis
+FAILED tests/extraction/test_python_fidelity.py::test_default_exactly_at_the_limit_is_not_cut
+FAILED tests/extraction/test_python_fidelity.py::test_constructor_defaults_are_captured
+FAILED tests/extraction/test_python_fidelity.py::test_module_function_defaults_and_kwonly
+FAILED tests/extraction/test_python_fidelity.py::test_reexported_function_keeps_defaults_and_modifiers
+FAILED tests/extraction/test_python_fidelity.py::test_inherited_private_base_methods_keep_their_defaults
+FAILED tests/extraction/test_python_fidelity.py::test_rendered_signatures_match_the_ast_oracle[samplepkg.models.Account.__init__]
+FAILED tests/extraction/test_python_fidelity.py::test_rendered_signatures_match_the_ast_oracle[samplepkg.models.Account.open]
+FAILED tests/extraction/test_python_fidelity.py::test_rendered_signatures_match_the_ast_oracle[samplepkg.models.Account.make]
+FAILED tests/extraction/test_python_fidelity.py::test_rendered_signatures_match_the_ast_oracle[samplepkg.models.Account.traced]
+FAILED tests/extraction/test_python_fidelity.py::test_rendered_signatures_match_the_ast_oracle[samplepkg.models.Account.close]
+FAILED tests/extraction/test_python_fidelity.py::test_rendered_signatures_match_the_ast_oracle[samplepkg.models.Account.options]
+FAILED tests/extraction/test_python_fidelity.py::test_rendered_signatures_match_the_ast_oracle[samplepkg.facades.Facade.bind]
+FAILED tests/extraction/test_python_fidelity.py::test_rendered_signatures_match_the_ast_oracle[samplepkg.Facade.bind]
+FAILED tests/extraction/test_python_fidelity.py::test_rendered_signatures_match_the_ast_oracle[samplepkg.util.fetch.fetch]
+FAILED tests/extraction/test_python_fidelity.py::test_rendered_signatures_match_the_ast_oracle[samplepkg.util.combine.combine]
+FAILED tests/extraction/test_python_fidelity.py::test_rendered_signatures_match_the_ast_oracle[samplepkg.convert.convert]
+FAILED tests/extraction/test_python_fidelity.py::test_the_oracle_checks_something
+FAILED tests/extraction/test_python_fidelity.py::test_the_paired_facade_shell_chunk_lists_its_definitions_own_methods
+
+--- stderr ---
+
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-7b182948484d7df9\Scripts\python.exe -m pytest tests/extraction tests/indexing/test_chunk_builder.py tests/indexing/test_chunk_builder_honesty.py tests/indexing/test_chunk_builder_modifiers.py tests/indexing/test_chunk_builder_coverage_line.py tests/infra/test_build_chunks.py tests/infra/test_build_chunks_extraction_notice.py tests/test_unwired_modules.py -q -rfE -p no:cacheprovider "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-n4ayjirb\.junit-1.xml"
+--- stdout ---
+........................................................................ [  6%]
+........................................................................ [ 12%]
+........................................................................ [ 18%]
+........................................................................ [ 24%]
+........................................................................ [ 30%]
+........................................................................ [ 36%]
+........................................................................ [ 42%]
+................................FFF..........FFFF.......FFF.FFF..F.F.FFF [ 48%]
+.FF..................................................................... [ 54%]
+........................................................................ [ 60%]
+........................................................................ [ 66%]
+........................................................................ [ 72%]
+........................................................................ [ 78%]
+...............................................................FF....... [ 84%]
+........F............................................................... [ 91%]
+........................................................................ [ 97%]
+..................................                                       [100%]
+================================== FAILURES ===================================
+__________________ test_defaults_are_captured_as_source_text __________________
+
+types = {'samplepkg.Account': {'name': 'Account', 'kind': 'class', 'file': 'samplepkg/__init__.py', 'line': 3, ...}, 'samplepk....}, 'samplepkg.convert': {'name': 'convert', 'kind': 'function', 'file': 'samplepkg/__init__.py', 'line': 1, ...}, ...}
+
+    def test_defaults_are_captured_as_source_text(types: dict[str, dict[str, Any]]) -> None:
+        close = _method(types["samplepkg.models.Account"], "close")
+>       assert _param(close, "force")["default"] == "False"
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       KeyError: 'default'
+
+tests\extraction\test_python_fidelity.py:192: KeyError
+___________ test_long_default_is_cut_at_the_limit_with_an_ellipsis ____________
+
+types = {'samplepkg.Account': {'name': 'Account', 'kind': 'class', 'file': 'samplepkg/__init__.py', 'line': 3, ...}, 'samplepk....}, 'samplepkg.convert': {'name': 'convert', 'kind': 'function', 'file': 'samplepkg/__init__.py', 'line': 1, ...}, ...}
+
+    def test_long_default_is_cut_at_the_limit_with_an_ellipsis(types: dict[str, dict[str, Any]]) -> None:
+        assert python_surface._DEFAULT_TEXT_LIMIT == 120
+>       text = _param(_method(types["samplepkg.models.Account"], "options"), "text")["default"]
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       KeyError: 'default'
+
+tests\extraction\test_python_fidelity.py:201: KeyError
+________________ test_default_exactly_at_the_limit_is_not_cut _________________
+
+tmp_path = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-8769/test_default_exactly_at_the_li0')
+
+    def test_default_exactly_at_the_limit_is_not_cut(tmp_path: Path) -> None:
+        exact = "b" * (python_surface._DEFAULT_TEXT_LIMIT - 2)  # the quotes make 120 characters
+        (tmp_path / "pkg").mkdir()
+        (tmp_path / "pkg" / "__init__.py").write_text("", encoding="utf-8")
+        (tmp_path / "pkg" / "mod.py").write_text(f"def f(x='{exact}'):\n    pass\n", encoding="utf-8")
+        default = _symbols_of(tmp_path, "pkg")["pkg.mod.f"].param_details[0][2]
+>       assert default == repr(exact) and len(default) == 120
+E       assert ('' == "'bbbbbbbbbbb...bbbbbbbbbbbb'"
+E         
+E         - 'bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb')
+
+tests\extraction\test_python_fidelity.py:212: AssertionError
+___________________ test_constructor_defaults_are_captured ____________________
+
+types = {'samplepkg.Account': {'name': 'Account', 'kind': 'class', 'file': 'samplepkg/__init__.py', 'line': 3, ...}, 'samplepk....}, 'samplepkg.convert': {'name': 'convert', 'kind': 'function', 'file': 'samplepkg/__init__.py', 'line': 1, ...}, ...}
+
+    def test_constructor_defaults_are_captured(types: dict[str, dict[str, Any]]) -> None:
+        init = _method(types["samplepkg.models.Account"], "__init__")
+        assert init["is_constructor"] is True
+>       assert _param(init, "password")["default"] == "None"
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       KeyError: 'default'
+
+tests\extraction\test_python_fidelity.py:303: KeyError
+__________________ test_module_function_defaults_and_kwonly ___________________
+
+types = {'samplepkg.Account': {'name': 'Account', 'kind': 'class', 'file': 'samplepkg/__init__.py', 'line': 3, ...}, 'samplepk....}, 'samplepkg.convert': {'name': 'convert', 'kind': 'function', 'file': 'samplepkg/__init__.py', 'line': 1, ...}, ...}
+
+    def test_module_function_defaults_and_kwonly(types: dict[str, dict[str, Any]]) -> None:
+        load = types["samplepkg.util.load"]
+        assert load["kind"] == "function"
+        assert _param(load, "encoding") == {
+            "name": "encoding",
+            "type": "",
+            "default": "'utf-8'",
+            "kind": "keyword_only",
+        }
+        assert _param(load, "path") == {"name": "path", "type": ""}
+>       assert _param(types["samplepkg.util.combine"], "sep")["default"] == "', '"
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       KeyError: 'default'
+
+tests\extraction\test_python_fidelity.py:318: KeyError
+____________ test_reexported_function_keeps_defaults_and_modifiers ____________
+
+types = {'samplepkg.Account': {'name': 'Account', 'kind': 'class', 'file': 'samplepkg/__init__.py', 'line': 3, ...}, 'samplepk....}, 'samplepkg.convert': {'name': 'convert', 'kind': 'function', 'file': 'samplepkg/__init__.py', 'line': 1, ...}, ...}
+
+    def test_reexported_function_keeps_defaults_and_modifiers(types: dict[str, dict[str, Any]]) -> None:
+        convert = types["samplepkg.convert"]
+        assert convert["kind"] == "function"
+>       assert _param(convert, "dst")["default"] == "None"
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       KeyError: 'default'
+
+tests\extraction\test_python_fidelity.py:325: KeyError
+___________ test_inherited_private_base_methods_keep_their_defaults ___________
+
+types = {'samplepkg.Account': {'name': 'Account', 'kind': 'class', 'file': 'samplepkg/__init__.py', 'line': 3, ...}, 'samplepk....}, 'samplepkg.convert': {'name': 'convert', 'kind': 'function', 'file': 'samplepkg/__init__.py', 'line': 1, ...}, ...}
+
+    def test_inherited_private_base_methods_keep_their_defaults(types: dict[str, dict[str, Any]]) -> None:
+        for fqn in ("samplepkg.facades.Facade", "samplepkg.Facade"):
+            bind = _method(types[fqn], "bind")
+>           assert _param(bind, "path")["default"] == "None"
+                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E           KeyError: 'default'
+
+tests\extraction\test_python_fidelity.py:337: KeyError
+_ test_rendered_signatures_match_the_ast_oracle[samplepkg.models.Account.__init__] _
+
+chunk_texts = {'samplepkg.Account': 'FQN: samplepkg.Account\nKind: class\nDefined-In: samplepkg.models.Account\nAn account.\n\nMetho...e-exported.\n\nMethods:\n  - convert(src, dst, *, fast = False) -> bytes [async]\n\nAPI-Coverage: 11 of 11 types', ...}
+fqn = 'samplepkg.models.Account'
+node = <ast.FunctionDef object at 0x0000020B1B6B2C50>
+
+    @pytest.mark.parametrize(("fqn", "node"), ORACLE_CASES)
+    def test_rendered_signatures_match_the_ast_oracle(
+        chunk_texts: dict[str, str], fqn: str, node: ast.FunctionDef | ast.AsyncFunctionDef
+    ) -> None:
+>       assert _mismatch(chunk_texts, fqn, node) is None
+E       assert "samplepkg.models.Account.__init__: rendered ('id, password, *, retries = 3', '') expected ('id, password = None, *, retries = 3', '')" is None
+E        +  where "samplepkg.models.Account.__init__: rendered ('id, password, *, retries = 3', '') expected ('id, password = None, *, retries = 3', '')" = _mismatch({'samplepkg.Account': 'FQN: samplepkg.Account\nKind: class\nDefined-In: samplepkg.models.Account\nAn account.\n\nMetho...e-exported.\n\nMethods:\n  - convert(src, dst, *, fast = False) -> bytes [async]\n\nAPI-Coverage: 11 of 11 types', ...}, 'samplepkg.models.Account', <ast.FunctionDef object at 0x0000020B1B6B2C50>)
+
+tests\extraction\test_python_fidelity.py:592: AssertionError
+_ test_rendered_signatures_match_the_ast_oracle[samplepkg.models.Account.open] _
+
+chunk_texts = {'samplepkg.Account': 'FQN: samplepkg.Account\nKind: class\nDefined-In: samplepkg.models.Account\nAn account.\n\nMetho...e-exported.\n\nMethods:\n  - convert(src, dst, *, fast = False) -> bytes [async]\n\nAPI-Coverage: 11 of 11 types', ...}
+fqn = 'samplepkg.models.Account'
+node = <ast.FunctionDef object at 0x0000020B1B6B1C10>
+
+    @pytest.mark.parametrize(("fqn", "node"), ORACLE_CASES)
+    def test_rendered_signatures_match_the_ast_oracle(
+        chunk_texts: dict[str, str], fqn: str, node: ast.FunctionDef | ast.AsyncFunctionDef
+    ) -> None:
+>       assert _mismatch(chunk_texts, fqn, node) is None
+E       assert 'samplepkg.models.Account.open: rendered (\'path, /, mode, *args, strict, quiet = False, **extra\', \' [classmethod]\') expected ("path, /, mode = \'r\', *args, strict, quiet = False, **extra", \' [classmethod]\')' is None
+E        +  where 'samplepkg.models.Account.open: rendered (\'path, /, mode, *args, strict, quiet = False, **extra\', \' [classmethod]\') expected ("path, /, mode = \'r\', *args, strict, quiet = False, **extra", \' [classmethod]\')' = _mismatch({'samplepkg.Account': 'FQN: samplepkg.Account\nKind: class\nDefined-In: samplepkg.models.Account\nAn account.\n\nMetho...e-exported.\n\nMethods:\n  - convert(src, dst, *, fast = False) -> bytes [async]\n\nAPI-Coverage: 11 of 11 types', ...}, 'samplepkg.models.Account', <ast.FunctionDef object at 0x0000020B1B6B1C10>)
+
+tests\extraction\test_python_fidelity.py:592: AssertionError
+_ test_rendered_signatures_match_the_ast_oracle[samplepkg.models.Account.make] _
+
+chunk_texts = {'samplepkg.Account': 'FQN: samplepkg.Account\nKind: class\nDefined-In: samplepkg.models.Account\nAn account.\n\nMetho...e-exported.\n\nMethods:\n  - convert(src, dst, *, fast = False) -> bytes [async]\n\nAPI-Coverage: 11 of 11 types', ...}
+fqn = 'samplepkg.models.Account'
+node = <ast.FunctionDef object at 0x0000020B1D2A9450>
+
+    @pytest.mark.parametrize(("fqn", "node"), ORACLE_CASES)
+    def test_rendered_signatures_match_the_ast_oracle(
+        chunk_texts: dict[str, str], fqn: str, node: ast.FunctionDef | ast.AsyncFunctionDef
+    ) -> None:
+>       assert _mismatch(chunk_texts, fqn, node) is None
+E       assert "samplepkg.models.Account.make: rendered ('a, /, b', ' [static]') expected ('a, /, b = 1', ' [static]')" is None
+E        +  where "samplepkg.models.Account.make: rendered ('a, /, b', ' [static]') expected ('a, /, b = 1', ' [static]')" = _mismatch({'samplepkg.Account': 'FQN: samplepkg.Account\nKind: class\nDefined-In: samplepkg.models.Account\nAn account.\n\nMetho...e-exported.\n\nMethods:\n  - convert(src, dst, *, fast = False) -> bytes [async]\n\nAPI-Coverage: 11 of 11 types', ...}, 'samplepkg.models.Account', <ast.FunctionDef object at 0x0000020B1D2A9450>)
+
+tests\extraction\test_python_fidelity.py:592: AssertionError
+_ test_rendered_signatures_match_the_ast_oracle[samplepkg.models.Account.traced] _
+
+chunk_texts = {'samplepkg.Account': 'FQN: samplepkg.Account\nKind: class\nDefined-In: samplepkg.models.Account\nAn account.\n\nMetho...e-exported.\n\nMethods:\n  - convert(src, dst, *, fast = False) -> bytes [async]\n\nAPI-Coverage: 11 of 11 types', ...}
+fqn = 'samplepkg.models.Account'
+node = <ast.FunctionDef object at 0x0000020B1D2A9850>
+
+    @pytest.mark.parametrize(("fqn", "node"), ORACLE_CASES)
+    def test_rendered_signatures_match_the_ast_oracle(
+        chunk_texts: dict[str, str], fqn: str, node: ast.FunctionDef | ast.AsyncFunctionDef
+    ) -> None:
+>       assert _mismatch(chunk_texts, fqn, node) is None
+E       assert "samplepkg.models.Account.traced: rendered ('x', ' [static]') expected ('x = 2', ' [static]')" is None
+E        +  where "samplepkg.models.Account.traced: rendered ('x', ' [static]') expected ('x = 2', ' [static]')" = _mismatch({'samplepkg.Account': 'FQN: samplepkg.Account\nKind: class\nDefined-In: samplepkg.models.Account\nAn account.\n\nMetho...e-exported.\n\nMethods:\n  - convert(src, dst, *, fast = False) -> bytes [async]\n\nAPI-Coverage: 11 of 11 types', ...}, 'samplepkg.models.Account', <ast.FunctionDef object at 0x0000020B1D2A9850>)
+
+tests\extraction\test_python_fidelity.py:592: AssertionError
+_ test_rendered_signatures_match_the_ast_oracle[samplepkg.models.Account.close] _
+
+chunk_texts = {'samplepkg.Account': 'FQN: samplepkg.Account\nKind: class\nDefined-In: samplepkg.models.Account\nAn account.\n\nMetho...e-exported.\n\nMethods:\n  - convert(src, dst, *, fast = False) -> bytes [async]\n\nAPI-Coverage: 11 of 11 types', ...}
+fqn = 'samplepkg.models.Account'
+node = <ast.FunctionDef object at 0x0000020B1D2AB9D0>
+
+    @pytest.mark.parametrize(("fqn", "node"), ORACLE_CASES)
+    def test_rendered_signatures_match_the_ast_oracle(
+        chunk_texts: dict[str, str], fqn: str, node: ast.FunctionDef | ast.AsyncFunctionDef
+    ) -> None:
+>       assert _mismatch(chunk_texts, fqn, node) is None
+E       assert "samplepkg.models.Account.close: rendered ('force: bool, *, timeout: float | None = None', '') expected ('force: bool = False, *, timeout: float | None = None', '')" is None
+E        +  where "samplepkg.models.Account.close: rendered ('force: bool, *, timeout: float | None = None', '') expected ('force: bool = False, *, timeout: float | None = None', '')" = _mismatch({'samplepkg.Account': 'FQN: samplepkg.Account\nKind: class\nDefined-In: samplepkg.models.Account\nAn account.\n\nMetho...e-exported.\n\nMethods:\n  - convert(src, dst, *, fast = False) -> bytes [async]\n\nAPI-Coverage: 11 of 11 types', ...}, 'samplepkg.models.Account', <ast.FunctionDef object at 0x0000020B1D2AB9D0>)
+
+tests\extraction\test_python_fidelity.py:592: AssertionError
+_ test_rendered_signatures_match_the_ast_oracle[samplepkg.models.Account.options] _
+
+chunk_texts = {'samplepkg.Account': 'FQN: samplepkg.Account\nKind: class\nDefined-In: samplepkg.models.Account\nAn account.\n\nMetho...e-exported.\n\nMethods:\n  - convert(src, dst, *, fast = False) -> bytes [async]\n\nAPI-Coverage: 11 of 11 types', ...}
+fqn = 'samplepkg.models.Account'
+node = <ast.FunctionDef object at 0x0000020B1D2ABB10>
+
+    @pytest.mark.parametrize(("fqn", "node"), ORACLE_CASES)
+    def test_rendered_signatures_match_the_ast_oracle(
+        chunk_texts: dict[str, str], fqn: str, node: ast.FunctionDef | ast.AsyncFunctionDef
+    ) -> None:
+>       assert _mismatch(chunk_texts, fqn, node) is None
+E       assert 'samplepkg.models.Account.options: rendered (\'spec, text\', \'\') expected ("spec = {\'k\': [1, 2]}, text = \'aaaaaaa...aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa...", \'\')' is None
+E        +  where 'samplepkg.models.Account.options: rendered (\'spec, text\', \'\') expected ("spec = {\'k\': [1, 2]}, text = \'aaaaaaa...aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa...", \'\')' = _mismatch({'samplepkg.Account': 'FQN: samplepkg.Account\nKind: class\nDefined-In: samplepkg.models.Account\nAn account.\n\nMetho...e-exported.\n\nMethods:\n  - convert(src, dst, *, fast = False) -> bytes [async]\n\nAPI-Coverage: 11 of 11 types', ...}, 'samplepkg.models.Account', <ast.FunctionDef object at 0x0000020B1D2ABB10>)
+
+tests\extraction\test_python_fidelity.py:592: AssertionError
+_ test_rendered_signatures_match_the_ast_oracle[samplepkg.facades.Facade.bind] _
+
+chunk_texts = {'samplepkg.Account': 'FQN: samplepkg.Account\nKind: class\nDefined-In: samplepkg.models.Account\nAn account.\n\nMetho...e-exported.\n\nMethods:\n  - convert(src, dst, *, fast = False) -> bytes [async]\n\nAPI-Coverage: 11 of 11 types', ...}
+fqn = 'samplepkg.facades.Facade'
+node = <ast.FunctionDef object at 0x0000020B1B6B0710>
+
+    @pytest.mark.parametrize(("fqn", "node"), ORACLE_CASES)
+    def test_rendered_signatures_match_the_ast_oracle(
+        chunk_texts: dict[str, str], fqn: str, node: ast.FunctionDef | ast.AsyncFunctionDef
+    ) -> None:
+>       assert _mismatch(chunk_texts, fqn, node) is None
+E       assert "samplepkg.facades.Facade.bind: rendered ('path, *, overwrite = False', '') expected ('path = None, *, overwrite = False', '')" is None
+E        +  where "samplepkg.facades.Facade.bind: rendered ('path, *, overwrite = False', '') expected ('path = None, *, overwrite = False', '')" = _mismatch({'samplepkg.Account': 'FQN: samplepkg.Account\nKind: class\nDefined-In: samplepkg.models.Account\nAn account.\n\nMetho...e-exported.\n\nMethods:\n  - convert(src, dst, *, fast = False) -> bytes [async]\n\nAPI-Coverage: 11 of 11 types', ...}, 'samplepkg.facades.Facade', <ast.FunctionDef object at 0x0000020B1B6B0710>)
+
+tests\extraction\test_python_fidelity.py:592: AssertionError
+____ test_rendered_signatures_match_the_ast_oracle[samplepkg.Facade.bind] _____
+
+chunk_texts = {'samplepkg.Account': 'FQN: samplepkg.Account\nKind: class\nDefined-In: samplepkg.models.Account\nAn account.\n\nMetho...e-exported.\n\nMethods:\n  - convert(src, dst, *, fast = False) -> bytes [async]\n\nAPI-Coverage: 11 of 11 types', ...}
+fqn = 'samplepkg.Facade', node = <ast.FunctionDef object at 0x0000020B1B6B0710>
+
+    @pytest.mark.parametrize(("fqn", "node"), ORACLE_CASES)
+    def test_rendered_signatures_match_the_ast_oracle(
+        chunk_texts: dict[str, str], fqn: str, node: ast.FunctionDef | ast.AsyncFunctionDef
+    ) -> None:
+>       assert _mismatch(chunk_texts, fqn, node) is None
+E       assert "samplepkg.Facade.bind: rendered ('path, *, overwrite = False', '') expected ('path = None, *, overwrite = False', '')" is None
+E        +  where "samplepkg.Facade.bind: rendered ('path, *, overwrite = False', '') expected ('path = None, *, overwrite = False', '')" = _mismatch({'samplepkg.Account': 'FQN: samplepkg.Account\nKind: class\nDefined-In: samplepkg.models.Account\nAn account.\n\nMetho...e-exported.\n\nMethods:\n  - convert(src, dst, *, fast = False) -> bytes [async]\n\nAPI-Coverage: 11 of 11 types', ...}, 'samplepkg.Facade', <ast.FunctionDef object at 0x0000020B1B6B0710>)
+
+tests\extraction\test_python_fidelity.py:592: AssertionError
+__ test_rendered_signatures_match_the_ast_oracle[samplepkg.util.fetch.fetch] __
+
+chunk_texts = {'samplepkg.Account': 'FQN: samplepkg.Account\nKind: class\nDefined-In: samplepkg.models.Account\nAn account.\n\nMetho...e-exported.\n\nMethods:\n  - convert(src, dst, *, fast = False) -> bytes [async]\n\nAPI-Coverage: 11 of 11 types', ...}
+fqn = 'samplepkg.util.fetch'
+node = <ast.AsyncFunctionDef object at 0x0000020B1D2A9A10>
+
+    @pytest.mark.parametrize(("fqn", "node"), ORACLE_CASES)
+    def test_rendered_signatures_match_the_ast_oracle(
+        chunk_texts: dict[str, str], fqn: str, node: ast.FunctionDef | ast.AsyncFunctionDef
+    ) -> None:
+>       assert _mismatch(chunk_texts, fqn, node) is None
+E       assert "samplepkg.util.fetch.fetch: rendered ('url, retries', ' [async]') expected ('url, retries = 3', ' [async]')" is None
+E        +  where "samplepkg.util.fetch.fetch: rendered ('url, retries', ' [async]') expected ('url, retries = 3', ' [async]')" = _mismatch({'samplepkg.Account': 'FQN: samplepkg.Account\nKind: class\nDefined-In: samplepkg.models.Account\nAn account.\n\nMetho...e-exported.\n\nMethods:\n  - convert(src, dst, *, fast = False) -> bytes [async]\n\nAPI-Coverage: 11 of 11 types', ...}, 'samplepkg.util.fetch', <ast.AsyncFunctionDef object at 0x0000020B1D2A9A10>)
+
+tests\extraction\test_python_fidelity.py:592: AssertionError
+_ test_rendered_signatures_match_the_ast_oracle[samplepkg.util.combine.combine] _
+
+chunk_texts = {'samplepkg.Account': 'FQN: samplepkg.Account\nKind: class\nDefined-In: samplepkg.models.Account\nAn account.\n\nMetho...e-exported.\n\nMethods:\n  - convert(src, dst, *, fast = False) -> bytes [async]\n\nAPI-Coverage: 11 of 11 types', ...}
+fqn = 'samplepkg.util.combine'
+node = <ast.FunctionDef object at 0x0000020B1D2AA550>
+
+    @pytest.mark.parametrize(("fqn", "node"), ORACLE_CASES)
+    def test_rendered_signatures_match_the_ast_oracle(
+        chunk_texts: dict[str, str], fqn: str, node: ast.FunctionDef | ast.AsyncFunctionDef
+    ) -> None:
+>       assert _mismatch(chunk_texts, fqn, node) is None
+E       assert 'samplepkg.util.combine.combine: rendered (\'items, sep\', \'\') expected ("items = (), sep = \', \'", \'\')' is None
+E        +  where 'samplepkg.util.combine.combine: rendered (\'items, sep\', \'\') expected ("items = (), sep = \', \'", \'\')' = _mismatch({'samplepkg.Account': 'FQN: samplepkg.Account\nKind: class\nDefined-In: samplepkg.models.Account\nAn account.\n\nMetho...e-exported.\n\nMethods:\n  - convert(src, dst, *, fast = False) -> bytes [async]\n\nAPI-Coverage: 11 of 11 types', ...}, 'samplepkg.util.combine', <ast.FunctionDef object at 0x0000020B1D2AA550>)
+
+tests\extraction\test_python_fidelity.py:592: AssertionError
+__ test_rendered_signatures_match_the_ast_oracle[samplepkg.convert.convert] ___
+
+chunk_texts = {'samplepkg.Account': 'FQN: samplepkg.Account\nKind: class\nDefined-In: samplepkg.models.Account\nAn account.\n\nMetho...e-exported.\n\nMethods:\n  - convert(src, dst, *, fast = False) -> bytes [async]\n\nAPI-Coverage: 11 of 11 types', ...}
+fqn = 'samplepkg.convert'
+node = <ast.AsyncFunctionDef object at 0x0000020B1D309B10>
+
+    @pytest.mark.parametrize(("fqn", "node"), ORACLE_CASES)
+    def test_rendered_signatures_match_the_ast_oracle(
+        chunk_texts: dict[str, str], fqn: str, node: ast.FunctionDef | ast.AsyncFunctionDef
+    ) -> None:
+>       assert _mismatch(chunk_texts, fqn, node) is None
+E       assert "samplepkg.convert.convert: rendered ('src, dst, *, fast = False', ' [async]') expected ('src, dst = None, *, fast = False', ' [async]')" is None
+E        +  where "samplepkg.convert.convert: rendered ('src, dst, *, fast = False', ' [async]') expected ('src, dst = None, *, fast = False', ' [async]')" = _mismatch({'samplepkg.Account': 'FQN: samplepkg.Account\nKind: class\nDefined-In: samplepkg.models.Account\nAn account.\n\nMetho...e-exported.\n\nMethods:\n  - convert(src, dst, *, fast = False) -> bytes [async]\n\nAPI-Coverage: 11 of 11 types', ...}, 'samplepkg.convert', <ast.AsyncFunctionDef object at 0x0000020B1D309B10>)
+
+tests\extraction\test_python_fidelity.py:592: AssertionError
+______________________ test_the_oracle_checks_something _______________________
+
+chunk_texts = {'samplepkg.Account': 'FQN: samplepkg.Account\nKind: class\nDefined-In: samplepkg.models.Account\nAn account.\n\nMetho...e-exported.\n\nMethods:\n  - convert(src, dst, *, fast = False) -> bytes [async]\n\nAPI-Coverage: 11 of 11 types', ...}
+
+    def test_the_oracle_checks_something(chunk_texts: dict[str, str]) -> None:
+        assert len(ORACLE_CASES) >= 12
+        params: list[str] = []
+        suffixes: list[str] = []
+        mismatches: list[str] = []
+        for case in ORACLE_CASES:
+            fqn, node = case.values
+            rendered_params, suffix = _rendered_line(chunk_texts[fqn], node.name)
+            params.append(rendered_params)
+            suffixes.append(suffix)
+            problem = _mismatch(chunk_texts, fqn, node)
+            if problem:
+                mismatches.append(problem)
+>       assert mismatches == []
+E       assert ["samplepkg.m..., \'\')', ...] == []
+E         
+E         Left contains 11 more items, first extra item: "samplepkg.models.Account.__init__: rendered ('id, password, *, retries = 3', '') expected ('id, password = None, *, retries = 3', '')"
+E         Use -v to get more diff
+
+tests\extraction\test_python_fidelity.py:608: AssertionError
+____ test_the_paired_facade_shell_chunk_lists_its_definitions_own_methods _____
+
+chunk_texts = {'samplepkg.Account': 'FQN: samplepkg.Account\nKind: class\nDefined-In: samplepkg.models.Account\nAn account.\n\nMetho...e-exported.\n\nMethods:\n  - convert(src, dst, *, fast = False) -> bytes [async]\n\nAPI-Coverage: 11 of 11 types', ...}
+
+    def test_the_paired_facade_shell_chunk_lists_its_definitions_own_methods(chunk_texts: dict[str, str]) -> None:
+        shell = chunk_texts["samplepkg.Facade"]
+        assert "Defined-In: samplepkg.facades.Facade" in shell
+        assert "  - encrypt(user, owner, *, permissions = 0, keysize = 128)" in shell
+>       assert "  - bind(path = None, *, overwrite = False)" in shell
+E       AssertionError: assert '  - bind(path = None, *, overwrite = False)' in 'FQN: samplepkg.Facade\nKind: class\nDefined-In: samplepkg.facades.Facade\nA facade built on a private base.\n\nBases:...e = False)\n  - encrypt(user, owner, *, permissions = 0, keysize = 128)\n  - release()\n\nAPI-Coverage: 11 of 11 types'
+
+tests\extraction\test_python_fidelity.py:621: AssertionError
+_____________ test_function_entry_carries_params_and_return_type ______________
+
+tmp_path = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-8769/test_function_entry_carries_pa0')
+
+    def test_function_entry_carries_params_and_return_type(tmp_path: Path) -> None:
+        _write(tmp_path, "pkg/__init__.py", "")
+        _write(
+            tmp_path, "pkg/mod.py", "def generate(data: str, symbology: str = 'qr') -> bytes:\n    return b''\n"
+        )
+        entry = _types(tmp_path)["generate"]
+        assert entry["kind"] == "function"
+>       assert entry["params"] == [
+            {"name": "data", "type": "str"},
+            {"name": "symbology", "type": "str", "default": "'qr'"},
+        ]
+E       assert [{'name': 'da...type': 'str'}] == [{'name': 'da...ult': "'qr'"}]
+E         
+E         At index 1 diff: {'name': 'symbology', 'type': 'str'} != {'name': 'symbology', 'type': 'str', 'default': "'qr'"}
+E         Use -v to get more diff
+
+tests\extraction\tree_sitter_engine\test_python_surface_attributes.py:58: AssertionError
+_____________ test_function_signature_is_rendered_not_a_bare_kind _____________
+
+tmp_path = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-8769/test_function_signature_is_ren0')
+
+    def test_function_signature_is_rendered_not_a_bare_kind(tmp_path: Path) -> None:
+        _write(tmp_path, "pkg/__init__.py", "")
+        _write(
+            tmp_path, "pkg/mod.py", "def generate(data: str, symbology: str = 'qr') -> bytes:\n    return b''\n"
+        )
+        entry = _types(tmp_path)["generate"]
+        text = chunk_builder._format_type_text(entry, fqn=entry["class_import"])
+        assert "Methods:" in text
+>       assert "  - generate(data: str, symbology: str = 'qr') -> bytes" in text
+E       assert "  - generate(data: str, symbology: str = 'qr') -> bytes" in 'FQN: pkg.mod.generate\nKind: function\n\nMethods:\n  - generate(data: str, symbology: str) -> bytes'
+
+tests\extraction\tree_sitter_engine\test_python_surface_attributes.py:73: AssertionError
+_______ test_init_is_a_constructor_with_every_param_through_the_adapter _______
+
+tmp_path = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-8769/test_init_is_a_constructor_wit0')
+
+    def test_init_is_a_constructor_with_every_param_through_the_adapter(tmp_path: Path) -> None:
+        _write(tmp_path, "pkg/__init__.py", "")
+        _write(tmp_path, "pkg/doc.py", CONSTRUCTED)
+        document = _types(tmp_path)["Document"]
+        methods = {method["name"]: method for method in document["methods"]}
+        init = methods["__init__"]
+        assert init["is_constructor"] is True
+>       assert init["params"] == [
+            {"name": "source", "type": "", "default": "None"},
+            {"name": "load_options", "type": "LoadOptions | None", "default": "None"},
+            {"name": "*args", "type": ""},
+            {"name": "**kwargs", "type": ""},
+        ]
+E       AssertionError: assert [{'name': 'so..., 'type': ''}] == [{'name': 'so..., 'type': ''}]
+E         
+E         At index 0 diff: {'name': 'source', 'type': ''} != {'name': 'source', 'type': '', 'default': 'None'}
+E         Use -v to get more diff
+
+tests\extraction\tree_sitter_engine\test_python_surface_members.py:77: AssertionError
+1 live test(s) deselected; set FOSS_MCP_NETWORK_TESTS=1 to run them
+=========================== short test summary info ===========================
+FAILED tests/extraction/test_python_fidelity.py::test_defaults_are_captured_as_source_text
+FAILED tests/extraction/test_python_fidelity.py::test_long_default_is_cut_at_the_limit_with_an_ellipsis
+FAILED tests/extraction/test_python_fidelity.py::test_default_exactly_at_the_limit_is_not_cut
+FAILED tests/extraction/test_python_fidelity.py::test_constructor_defaults_are_captured
+FAILED tests/extraction/test_python_fidelity.py::test_module_function_defaults_and_kwonly
+FAILED tests/extraction/test_python_fidelity.py::test_reexported_function_keeps_defaults_and_modifiers
+FAILED tests/extraction/test_python_fidelity.py::test_inherited_private_base_methods_keep_their_defaults
+FAILED tests/extraction/test_python_fidelity.py::test_rendered_signatures_match_the_ast_oracle[samplepkg.models.Account.__init__]
+FAILED tests/extraction/test_python_fidelity.py::test_rendered_signatures_match_the_ast_oracle[samplepkg.models.Account.open]
+FAILED tests/extraction/test_python_fidelity.py::test_rendered_signatures_match_the_ast_oracle[samplepkg.models.Account.make]
+FAILED tests/extraction/test_python_fidelity.py::test_rendered_signatures_match_the_ast_oracle[samplepkg.models.Account.traced]
+FAILED tests/extraction/test_python_fidelity.py::test_rendered_signatures_match_the_ast_oracle[samplepkg.models.Account.close]
+FAILED tests/extraction/test_python_fidelity.py::test_rendered_signatures_match_the_ast_oracle[samplepkg.models.Account.options]
+FAILED tests/extraction/test_python_fidelity.py::test_rendered_signatures_match_the_ast_oracle[samplepkg.facades.Facade.bind]
+FAILED tests/extraction/test_python_fidelity.py::test_rendered_signatures_match_the_ast_oracle[samplepkg.Facade.bind]
+FAILED tests/extraction/test_python_fidelity.py::test_rendered_signatures_match_the_ast_oracle[samplepkg.util.fetch.fetch]
+FAILED tests/extraction/test_python_fidelity.py::test_rendered_signatures_match_the_ast_oracle[samplepkg.util.combine.combine]
+FAILED tests/extraction/test_python_fidelity.py::test_rendered_signatures_match_the_ast_oracle[samplepkg.convert.convert]
+FAILED tests/extraction/test_python_fidelity.py::test_the_oracle_checks_something
+FAILED tests/extraction/test_python_fidelity.py::test_the_paired_facade_shell_chunk_lists_its_definitions_own_methods
+FAILED tests/extraction/tree_sitter_engine/test_python_surface_attributes.py::test_function_entry_carries_params_and_return_type
+FAILED tests/extraction/tree_sitter_engine/test_python_surface_attributes.py::test_function_signature_is_rendered_not_a_bare_kind
+FAILED tests/extraction/tree_sitter_engine/test_python_surface_members.py::test_init_is_a_constructor_with_every_param_through_the_adapter
+
+--- stderr ---
+

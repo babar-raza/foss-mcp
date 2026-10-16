@@ -1,0 +1,117 @@
+{
+  "schema_version": 1,
+  "card": "TC-522",
+  "gate": "G3",
+  "generated_by": "gatectl",
+  "generated_at": "2026-10-16T04:51:24Z",
+  "base_rev": "f1f22fcbb85337be05fbae31a19e5857eeacfecc",
+  "head_rev": "950b46da3d136cc044d221d03be339b091ee96b5",
+  "card_sha256": "d6f2d34dd0a55967526f0fb3af91fd4b2a253ed9fb516b82f3d749dad93c0c6b",
+  "fingerprint": {
+    "python": "3.13.2",
+    "platform": "Windows-11-10.0.26200-SP0",
+    "lock_sha256": "7b182948484d7df9614b523f7a8180f795b6c51d55c418728525c1957f3e38ba",
+    "env": {
+      "PYTHONHASHSEED": "0",
+      "PYTHONUTF8": "1",
+      "PYTHONDONTWRITEBYTECODE": "1",
+      "PYTHONIOENCODING": "utf-8",
+      "TZ": "UTC",
+      "LC_ALL": "C.UTF-8",
+      "SOURCE_DATE_EPOCH": "1700000000",
+      "verify_runner": "host"
+    }
+  },
+  "scope": {
+    "ok": true,
+    "changed_paths": [
+      "src/foss_mcp/extraction/run_extraction.py",
+      "src/foss_mcp/extraction/tree_sitter_engine/python_surface.py",
+      "src/foss_mcp/indexing/chunk_builder.py",
+      "tests/extraction/test_python_fidelity.py",
+      "tests/extraction/test_python_fixture_gaps.py",
+      "tests/extraction/tree_sitter_engine/test_python_surface_attributes.py",
+      "tests/extraction/tree_sitter_engine/test_python_surface_members.py",
+      "tests/indexing/test_chunk_builder_python_signatures.py"
+    ],
+    "violations": [],
+    "evaluated": true
+  },
+  "runs": [
+    {
+      "run": 1,
+      "checks": [
+        {
+          "command": "{python} -m pytest tests/extraction/test_python_fidelity.py tests/extraction/test_python_fixture_gaps.py tests/indexing/test_chunk_builder_python_signatures.py -q -rfE",
+          "exit_code": 0,
+          "duration_s": 2.853,
+          "stdout_sha256": "3f384efc38ce43974978e9aced983f1fdf98684d494c5d09e5a1df12f4658741",
+          "tests": 83,
+          "skipped": 0,
+          "errors": 0,
+          "failures": 0
+        },
+        {
+          "command": "{python} -m pytest tests/extraction tests/indexing/test_chunk_builder.py tests/indexing/test_chunk_builder_honesty.py tests/indexing/test_chunk_builder_modifiers.py tests/indexing/test_chunk_builder_coverage_line.py tests/infra/test_build_chunks.py tests/infra/test_build_chunks_extraction_notice.py tests/test_unwired_modules.py -q -rfE -p no:cacheprovider",
+          "exit_code": 0,
+          "duration_s": 189.742,
+          "stdout_sha256": "e2f16bb32302b78c38a323b99dab194ee6b95cc04ca63d7692b3f0f7b64835f4",
+          "tests": 1186,
+          "skipped": 0,
+          "errors": 0,
+          "failures": 0
+        }
+      ],
+      "all_passed": true
+    },
+    {
+      "run": 2,
+      "checks": [
+        {
+          "command": "{python} -m pytest tests/extraction/test_python_fidelity.py tests/extraction/test_python_fixture_gaps.py tests/indexing/test_chunk_builder_python_signatures.py -q -rfE",
+          "exit_code": 0,
+          "duration_s": 2.439,
+          "stdout_sha256": "3f384efc38ce43974978e9aced983f1fdf98684d494c5d09e5a1df12f4658741",
+          "tests": 83,
+          "skipped": 0,
+          "errors": 0,
+          "failures": 0
+        },
+        {
+          "command": "{python} -m pytest tests/extraction tests/indexing/test_chunk_builder.py tests/indexing/test_chunk_builder_honesty.py tests/indexing/test_chunk_builder_modifiers.py tests/indexing/test_chunk_builder_coverage_line.py tests/infra/test_build_chunks.py tests/infra/test_build_chunks_extraction_notice.py tests/test_unwired_modules.py -q -rfE -p no:cacheprovider",
+          "exit_code": 0,
+          "duration_s": 169.313,
+          "stdout_sha256": "e2f16bb32302b78c38a323b99dab194ee6b95cc04ca63d7692b3f0f7b64835f4",
+          "tests": 1186,
+          "skipped": 0,
+          "errors": 0,
+          "failures": 0
+        }
+      ],
+      "all_passed": true
+    }
+  ],
+  "negative_control": {
+    "kind": "mutate",
+    "patch": "python -X utf8 -c \"import pathlib;p=pathlib.Path('src/foss_mcp/extraction/tree_sitter_engine/python_surface.py');s=p.read_text(encoding='utf-8');old='defaults = [None] * (len(positional) - len(args.defaults)) + list(args.defaults)';assert s.count(old)==1;p.write_text(s.replace(old,'defaults = [None] * len(positional)',1),encoding='utf-8')\"\n",
+    "patch_sha256": "32d1a0b77ef9717788aaab6de526aef37a4c26a31faefd9b2bb46bfdf4ae0140",
+    "applied": true,
+    "patch_applied_failed": true,
+    "exit_codes": [
+      1,
+      1
+    ],
+    "tree_changed": [
+      "M src/foss_mcp/extraction/tree_sitter_engine/python_surface.py",
+      "?? .junit-0.xml",
+      "?? .junit-1.xml"
+    ]
+  },
+  "holdout": {
+    "ran": false,
+    "passed": true,
+    "detail": "no holdout for this card"
+  },
+  "accepted": true,
+  "reason": "all gates passed"
+}
