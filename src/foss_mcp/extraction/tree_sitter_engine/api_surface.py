@@ -2232,7 +2232,11 @@ def _cpp_canonical_namespace(cnode) -> str:
 # free functions published only from public headers
 # ---------------------------------------------------------------------------
 
-_CPP_PARAM_NODE_TYPES = ("parameter_declaration", "optional_parameter_declaration", "variadic_parameter_declaration")
+_CPP_PARAM_NODE_TYPES = (
+    "parameter_declaration",
+    "optional_parameter_declaration",
+    "variadic_parameter_declaration",
+)
 # Declarator wrappers followed (in order) from a parameter's ``declarator`` field down to its name.
 _CPP_DECLARATOR_NODE_TYPES = (
     "identifier",
@@ -2379,7 +2383,9 @@ def _cpp_function_name_node(fdecl):
 
 def _cpp_function_name(name_node, fdecl) -> str:
     if name_node.type == "operator_cast":
-        return _cpp_collapse(name_node.text[: fdecl.start_byte - name_node.start_byte].decode("utf-8", "replace"))
+        return _cpp_collapse(
+            name_node.text[: fdecl.start_byte - name_node.start_byte].decode("utf-8", "replace")
+        )
     return node_text(name_node).strip()
 
 
@@ -2455,7 +2461,11 @@ def _extract_cpp_members(cnode, cname: str, rel: str, family: str):
         if member.type == "access_specifier":
             access = node_text(member).strip().rstrip(":")
             continue
-        if access != "public" or member.type not in ("field_declaration", "declaration", "function_definition"):
+        if access != "public" or member.type not in (
+            "field_declaration",
+            "declaration",
+            "function_definition",
+        ):
             continue
         fdecl = _cpp_function_declarator(member)
         if fdecl is not None:
@@ -2583,7 +2593,8 @@ def _extract_cpp_free_functions(root, fpath: Path, pkg_root: Path, rel: str, fam
         if name_node is None or name_node.type not in ("identifier", "operator_name"):
             continue
         if any(
-            (ch.type == "storage_class_specifier" and node_text(ch).strip() == "static") or ch.type == "friend"
+            (ch.type == "storage_class_specifier" and node_text(ch).strip() == "static")
+            or ch.type == "friend"
             for ch in node.children
         ):
             continue
