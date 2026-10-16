@@ -1,0 +1,115 @@
+{
+  "schema_version": 1,
+  "card": "TC-529",
+  "gate": "G3",
+  "generated_by": "gatectl",
+  "generated_at": "2026-10-16T04:39:05Z",
+  "base_rev": "a7f245dc9f6e9b4da2e1339541443a60e7c9544b",
+  "head_rev": "0b986b991d8d3e691797e52f6ec97e12406e5877",
+  "card_sha256": "efe2bed72c94726f4dd36536b5f5a20b377fa67d9171bbef8e0680d8d0a56f33",
+  "fingerprint": {
+    "python": "3.13.2",
+    "platform": "Windows-11-10.0.26200-SP0",
+    "lock_sha256": "7b182948484d7df9614b523f7a8180f795b6c51d55c418728525c1957f3e38ba",
+    "env": {
+      "PYTHONHASHSEED": "0",
+      "PYTHONUTF8": "1",
+      "PYTHONDONTWRITEBYTECODE": "1",
+      "PYTHONIOENCODING": "utf-8",
+      "TZ": "UTC",
+      "LC_ALL": "C.UTF-8",
+      "SOURCE_DATE_EPOCH": "1700000000",
+      "verify_runner": "host"
+    }
+  },
+  "scope": {
+    "ok": true,
+    "changed_paths": [
+      "docs/DEPLOYMENT.md",
+      "infra/rollback.py",
+      "src/foss_mcp/indexing/generation_manifest.py",
+      "src/foss_mcp/indexing/publisher.py",
+      "tests/indexing/test_store_durability.py",
+      "tests/infra/test_rollback_cli.py"
+    ],
+    "violations": [],
+    "evaluated": true
+  },
+  "runs": [
+    {
+      "run": 1,
+      "checks": [
+        {
+          "command": "{python} -m pytest tests/indexing/test_store_durability.py tests/infra/test_rollback_cli.py -q -rfE",
+          "exit_code": 0,
+          "duration_s": 10.611,
+          "stdout_sha256": "4cf2124032e464147e816ec20702b3b32e3647b01af12dd56f695de26cf6f779",
+          "tests": 52,
+          "skipped": 0,
+          "errors": 0,
+          "failures": 0
+        },
+        {
+          "command": "{python} -m pytest tests/indexing/test_store_durability.py tests/infra/test_rollback_cli.py tests/indexing/test_publish_safety.py tests/indexing/test_generation_manifest.py tests/indexing/test_generation_manifest_containment.py tests/indexing/test_generation_read_cache.py tests/indexing/test_publisher.py tests/infra/test_rollback.py tests/infra/test_ingest.py tests/deploy/test_runbook.py tests/test_unwired_modules.py -q -rfE -p no:cacheprovider",
+          "exit_code": 0,
+          "duration_s": 34.508,
+          "stdout_sha256": "eb430034d04485a3a169ac0f1654a83316a678f133388e2380a1195639b34031",
+          "tests": 258,
+          "skipped": 0,
+          "errors": 0,
+          "failures": 0
+        }
+      ],
+      "all_passed": true
+    },
+    {
+      "run": 2,
+      "checks": [
+        {
+          "command": "{python} -m pytest tests/indexing/test_store_durability.py tests/infra/test_rollback_cli.py -q -rfE",
+          "exit_code": 0,
+          "duration_s": 10.641,
+          "stdout_sha256": "4cf2124032e464147e816ec20702b3b32e3647b01af12dd56f695de26cf6f779",
+          "tests": 52,
+          "skipped": 0,
+          "errors": 0,
+          "failures": 0
+        },
+        {
+          "command": "{python} -m pytest tests/indexing/test_store_durability.py tests/infra/test_rollback_cli.py tests/indexing/test_publish_safety.py tests/indexing/test_generation_manifest.py tests/indexing/test_generation_manifest_containment.py tests/indexing/test_generation_read_cache.py tests/indexing/test_publisher.py tests/infra/test_rollback.py tests/infra/test_ingest.py tests/deploy/test_runbook.py tests/test_unwired_modules.py -q -rfE -p no:cacheprovider",
+          "exit_code": 0,
+          "duration_s": 27.186,
+          "stdout_sha256": "eb430034d04485a3a169ac0f1654a83316a678f133388e2380a1195639b34031",
+          "tests": 258,
+          "skipped": 0,
+          "errors": 0,
+          "failures": 0
+        }
+      ],
+      "all_passed": true
+    }
+  ],
+  "negative_control": {
+    "kind": "mutate",
+    "patch": "python -X utf8 -c \"import pathlib;p=pathlib.Path('src/foss_mcp/indexing/generation_manifest.py');s=p.read_text(encoding='utf-8');old='POINTER_MAX_BYTES = 64 * 1024';assert s.count(old)==1;p.write_text(s.replace(old,'POINTER_MAX_BYTES = 64 * 1024 * 1024'),encoding='utf-8')\"\n",
+    "patch_sha256": "5b4ae5390f5ee3517384f1ca934d089ec7b0b955b7bdd290f610dfd90fd7ac81",
+    "applied": true,
+    "patch_applied_failed": true,
+    "exit_codes": [
+      1,
+      1
+    ],
+    "tree_changed": [
+      "M src/foss_mcp/indexing/generation_manifest.py",
+      "?? .junit-0.xml",
+      "?? .junit-1.xml"
+    ]
+  },
+  "holdout": {
+    "ran": false,
+    "passed": true,
+    "detail": "no holdout for this card"
+  },
+  "accepted": true,
+  "reason": "all gates passed"
+}

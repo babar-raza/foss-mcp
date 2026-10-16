@@ -1,0 +1,134 @@
+
+===== CLEAN RUN 1 (host) =====
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-7b182948484d7df9\Scripts\python.exe -m pytest tests/indexing/test_store_durability.py tests/infra/test_rollback_cli.py -q -rfE "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-7p46oyk0\.junit-0.xml"
+--- stdout ---
+....................................................                     [100%]
+
+--- stderr ---
+
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-7b182948484d7df9\Scripts\python.exe -m pytest tests/indexing/test_store_durability.py tests/infra/test_rollback_cli.py tests/indexing/test_publish_safety.py tests/indexing/test_generation_manifest.py tests/indexing/test_generation_manifest_containment.py tests/indexing/test_generation_read_cache.py tests/indexing/test_publisher.py tests/infra/test_rollback.py tests/infra/test_ingest.py tests/deploy/test_runbook.py tests/test_unwired_modules.py -q -rfE -p no:cacheprovider "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-7p46oyk0\.junit-1.xml"
+--- stdout ---
+........................................................................ [ 27%]
+........................................................................ [ 55%]
+........................................................................ [ 83%]
+..........................................                               [100%]
+
+--- stderr ---
+
+
+===== CLEAN RUN 2 (host) =====
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-7b182948484d7df9\Scripts\python.exe -m pytest tests/indexing/test_store_durability.py tests/infra/test_rollback_cli.py -q -rfE "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-7p46oyk0\.junit-0.xml"
+--- stdout ---
+....................................................                     [100%]
+
+--- stderr ---
+
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-7b182948484d7df9\Scripts\python.exe -m pytest tests/indexing/test_store_durability.py tests/infra/test_rollback_cli.py tests/indexing/test_publish_safety.py tests/indexing/test_generation_manifest.py tests/indexing/test_generation_manifest_containment.py tests/indexing/test_generation_read_cache.py tests/indexing/test_publisher.py tests/infra/test_rollback.py tests/infra/test_ingest.py tests/deploy/test_runbook.py tests/test_unwired_modules.py -q -rfE -p no:cacheprovider "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-7p46oyk0\.junit-1.xml"
+--- stdout ---
+........................................................................ [ 27%]
+........................................................................ [ 55%]
+........................................................................ [ 83%]
+..........................................                               [100%]
+
+--- stderr ---
+
+
+===== NEGATIVE CONTROL (checks MUST now fail) =====
+mutated: M src/foss_mcp/indexing/generation_manifest.py, ?? .junit-0.xml, ?? .junit-1.xml
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-7b182948484d7df9\Scripts\python.exe -m pytest tests/indexing/test_store_durability.py tests/infra/test_rollback_cli.py -q -rfE "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-7p46oyk0\.junit-0.xml"
+--- stdout ---
+............FF......................................                     [100%]
+================================== FAILURES ===================================
+____________ test_oversized_pointer_is_rejected_without_parsing_it ____________
+
+store = <foss_mcp.indexing.generation_manifest.GenerationManifestStore object at 0x00000182723936B0>
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x000001827064A390>
+
+    def test_oversized_pointer_is_rejected_without_parsing_it(
+        store: GenerationManifestStore, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        _publish_version(store, "v1")
+        (_scope_dir(store) / "active_pointer.json").write_bytes(_pointer_bytes(POINTER_MAX_BYTES + 1))
+        (_scope_dir(store) / "lease_state.json").write_bytes(_pointer_bytes(POINTER_MAX_BYTES + 1))
+    
+        def parsed(*_args: Any, **_kwargs: Any) -> Any:
+            raise AssertionError("an oversized file must be rejected before it is parsed")
+    
+        monkeypatch.setattr(json, "loads", parsed)
+>       with pytest.raises(GenerationManifestError, match="64 KiB"):
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       AssertionError: Regex pattern did not match.
+E         Expected regex: '64 KiB'
+E         Actual message: 'active_pointer.json exceeds 65536 KiB'
+
+tests\indexing\test_store_durability.py:329: AssertionError
+__________ test_read_json_with_a_cap_reads_at_most_one_byte_over_it ___________
+
+tmp_path = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-8761/test_read_json_with_a_cap_read0')
+
+    def test_read_json_with_a_cap_reads_at_most_one_byte_over_it(tmp_path: Path) -> None:
+        path = tmp_path / "big.json"
+        path.write_bytes(_pointer_bytes(POINTER_MAX_BYTES + 1))
+>       with pytest.raises(GenerationManifestError, match="64 KiB"):
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       AssertionError: Regex pattern did not match.
+E         Expected regex: '64 KiB'
+E         Actual message: 'big.json exceeds 65536 KiB'
+
+tests\indexing\test_store_durability.py:338: AssertionError
+=========================== short test summary info ===========================
+FAILED tests/indexing/test_store_durability.py::test_oversized_pointer_is_rejected_without_parsing_it
+FAILED tests/indexing/test_store_durability.py::test_read_json_with_a_cap_reads_at_most_one_byte_over_it
+
+--- stderr ---
+
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-7b182948484d7df9\Scripts\python.exe -m pytest tests/indexing/test_store_durability.py tests/infra/test_rollback_cli.py tests/indexing/test_publish_safety.py tests/indexing/test_generation_manifest.py tests/indexing/test_generation_manifest_containment.py tests/indexing/test_generation_read_cache.py tests/indexing/test_publisher.py tests/infra/test_rollback.py tests/infra/test_ingest.py tests/deploy/test_runbook.py tests/test_unwired_modules.py -q -rfE -p no:cacheprovider "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-7p46oyk0\.junit-1.xml"
+--- stdout ---
+............FF.......................................................... [ 27%]
+........................................................................ [ 55%]
+........................................................................ [ 83%]
+..........................................                               [100%]
+================================== FAILURES ===================================
+____________ test_oversized_pointer_is_rejected_without_parsing_it ____________
+
+store = <foss_mcp.indexing.generation_manifest.GenerationManifestStore object at 0x000002755AC31F40>
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x000002755C40B350>
+
+    def test_oversized_pointer_is_rejected_without_parsing_it(
+        store: GenerationManifestStore, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        _publish_version(store, "v1")
+        (_scope_dir(store) / "active_pointer.json").write_bytes(_pointer_bytes(POINTER_MAX_BYTES + 1))
+        (_scope_dir(store) / "lease_state.json").write_bytes(_pointer_bytes(POINTER_MAX_BYTES + 1))
+    
+        def parsed(*_args: Any, **_kwargs: Any) -> Any:
+            raise AssertionError("an oversized file must be rejected before it is parsed")
+    
+        monkeypatch.setattr(json, "loads", parsed)
+>       with pytest.raises(GenerationManifestError, match="64 KiB"):
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       AssertionError: Regex pattern did not match.
+E         Expected regex: '64 KiB'
+E         Actual message: 'active_pointer.json exceeds 65536 KiB'
+
+tests\indexing\test_store_durability.py:329: AssertionError
+__________ test_read_json_with_a_cap_reads_at_most_one_byte_over_it ___________
+
+tmp_path = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-8762/test_read_json_with_a_cap_read0')
+
+    def test_read_json_with_a_cap_reads_at_most_one_byte_over_it(tmp_path: Path) -> None:
+        path = tmp_path / "big.json"
+        path.write_bytes(_pointer_bytes(POINTER_MAX_BYTES + 1))
+>       with pytest.raises(GenerationManifestError, match="64 KiB"):
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       AssertionError: Regex pattern did not match.
+E         Expected regex: '64 KiB'
+E         Actual message: 'big.json exceeds 65536 KiB'
+
+tests\indexing\test_store_durability.py:338: AssertionError
+=========================== short test summary info ===========================
+FAILED tests/indexing/test_store_durability.py::test_oversized_pointer_is_rejected_without_parsing_it
+FAILED tests/indexing/test_store_durability.py::test_read_json_with_a_cap_reads_at_most_one_byte_over_it
+
+--- stderr ---
+
