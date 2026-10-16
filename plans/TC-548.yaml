@@ -1,0 +1,83 @@
+id: TC-548
+gate: G3
+lane: verification
+purpose: >-
+  REQ-G3-007 and REQ-G3-008 (delivery audit 2026-10-16: all 40 tests/fixtures/verified_examples/<family>_<platform>.json caches are 43-byte empty documents, so no verification verdict is persisted in the repository and every
+  re-ingest re-runs every verifier; "verified example" was a label, not committed proof). TC-547 (accepted) relaxed the empty-seed tests so real caches can be committed. The supervisor then pulled the real caches with
+  `scripts/release/pull_verification_cache.py --namespace foss-mcp` from the 40 serving pods (261 entries, 3 to 18 per pilot; every document parses with `build_chunks.parse_verification_cache`) and saved them, with LF line
+  endings, under C:\Users\babar\AppData\Local\Temp\claude\e--Users-prora-OneDrive-Documents-GitHub-foss-mcp\7cc50ffe-90e7-4881-a5bf-84f21ce83723\scratchpad\verification_caches\ (40 files, same names as the repository files).
+  Running the TC-547 tests against them found one defect in TC-547's own test: `test_seed_file_exists_and_parses_with_the_project_loader` asserts that each entry's `platform` equals the platform part of the FILE name, but
+  the .NET pilots are named `<family>_net.json` while their entries carry `platform: "dotnet"` (3d_net, email_net, imaging_net, jmap_net, pdf_net, slides_net, words_net and cells_net fail). This card (1) fixes that assertion with
+  an explicit file-name-platform to entry-platform map derived from the repository (not a loosened check), and (2) commits the 40 real caches so the verdicts are persisted and reviewable. What does NOT change: the loader, the
+  merge, the writer, the pull tool, the cache file names, the ingestion flow.
+depends_on:
+- TC-441
+- TC-499
+- TC-547
+write_paths:
+- tests/infra/test_verification_cache_seed_files.py
+- tests/infra/test_verification_cache_committed.py
+- tests/fixtures/verified_examples/**
+satisfies:
+- REQ-G3-008
+- REQ-G3-007
+source_refs:
+- file: docs/DECISION_LOG.md
+  anchor: '## 2026-10-15 — Independent pre-production adversarial review of the shipped image; its findings enter the state machine as cards (operator, supervisor)'
+  sha256: d2d82669b8060d5e3a3b9da00e9858e576d5d264d96e32d1aed8034e8d6d9007
+inputs:
+- >-
+  Read tests/infra/test_verification_cache_seed_files.py (the test `test_seed_file_exists_and_parses_with_the_project_loader`, `_pilot_cases`), tests/infra/test_verification_cache_committed.py, src or infra code that writes the platform
+  field of a cache entry (grep `platform` in infra/build_chunks.py `verification_cache_document`, `merge_verification_cache`, infra/verify_*), and the compose/chart service names. Never print or log environment values.
+- >-
+  Copy the 40 files from the scratchpad directory named in the purpose over the 40 files in tests/fixtures/verified_examples/ (same names; byte-for-byte; they are UTF-8, LF, no BOM, ending with a single newline). If you cannot
+  read that directory, STOP and report it; do not fabricate entries. After copying, `git diff --stat` must show exactly 40 changed files in that directory and nothing else.
+- >-
+  In tests/infra/test_verification_cache_seed_files.py change ONLY the platform assertion of `test_seed_file_exists_and_parses_with_the_project_loader`: replace `entry["platform"] == platform` by a comparison with
+  `CACHE_PLATFORM_FOR_FILE_PLATFORM.get(platform, platform)` where the module constant `CACHE_PLATFORM_FOR_FILE_PLATFORM` maps the file-name platform to the platform value the verifiers write (at least `"net": "dotnet"`;
+  derive every other mapping from the committed data and the verifier code, and add a test `test_the_platform_map_covers_every_cache_platform_present` asserting that the set of entry platforms found in the 40 files is a subset of
+  the map's values plus the identity-mapped names). Keep every other line of every test.
+- >-
+  tests/infra/test_verification_cache_committed.py: add `test_the_forty_committed_caches_hold_261_or_more_entries_in_total` (sum of entries over the 40 files is at least 200; the measured total is 261), and
+  `test_every_committed_cache_entry_is_verified_true_or_a_recorded_failure` (every entry has a bool `verified`; the number of entries with `verified == true` is at least 150). Do not pin exact counts.
+- >-
+  Run `{python} -m pytest tests/infra/test_verification_cache_seed_files.py tests/infra/test_verification_cache_committed.py tests/infra/test_build_chunks_verification_cache.py tests/deploy/test_pull_verification_cache.py -q -rfE -p no:cacheprovider`
+  FIRST on the unchanged tree (after scripts/toolchain/activate.ps1 in the same PowerShell command, repo venv python), then after the copy and the test change; then grep tests/ and scripts/ for any other file that pins the empty seed
+  (`entries == []`, the 43-byte size, `{"entries": []`) and report it if it is outside write_paths. Write commit messages as UTF-8 without a byte-order mark; preserve LF in the fixtures and tests.
+actions:
+- >-
+  Fix the platform assertion of the seed test for the .NET pilots with an explicit, tested map.
+- >-
+  Commit the 40 real verification caches pulled from the serving pods.
+checks:
+- command: '{python} -m pytest tests/infra/test_verification_cache_seed_files.py tests/infra/test_verification_cache_committed.py -q -rfE -p no:cacheprovider'
+  expect: exit 0
+  timeout_seconds: 1800
+  junitxml: true
+  proves:
+  - REQ-G3-008
+  - REQ-G3-007
+- command: '{python} -m pytest tests/infra/test_verification_cache_seed_files.py tests/infra/test_verification_cache_committed.py tests/infra/test_build_chunks_verification_cache.py tests/deploy/test_pull_verification_cache.py -q -rfE -p no:cacheprovider'
+  expect: exit 0
+  timeout_seconds: 2400
+  junitxml: true
+  proves:
+  - REQ-G3-008
+  - REQ-G3-007
+min_tests: 12
+network: false
+requires:
+- python
+negative_control:
+  mutate: |
+    python -X utf8 -c "import pathlib;p=pathlib.Path('tests/fixtures/verified_examples/pdf_net.json');s=p.read_text(encoding='utf-8');p.write_text(s+chr(32),encoding='utf-8')"
+  rationale: >-
+    Appends a stray space to one committed cache, so the canonical-form test (the file must be byte-identical to verification_cache_document of its own entries) fails for pdf-net. A real break of the card's central claim (the
+    committed caches are exactly the deterministic documents the pull tool writes).
+evidence:
+- evidence/build/G3/TC-548/receipt.json
+closeout:
+- >-
+  The 40 real verification caches (about 261 verdicts) are committed and checked, so a re-ingest reuses a verdict whenever the code hash, library commit, platform and toolchain id match, and the "verified example" label is
+  backed by persisted evidence. The supervisor re-runs the pull before the final release build to refresh the caches after the re-ingest.
+recovery: Re-run from a clean tree.
