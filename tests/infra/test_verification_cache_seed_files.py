@@ -9,6 +9,7 @@ chart side is rendered with the real helm binary (a missing helm binary FAILS, i
 
 from __future__ import annotations
 
+import re
 import shlex
 import shutil
 import subprocess
@@ -101,21 +102,61 @@ def test_there_is_one_compose_cache_path_per_pilot() -> None:
     assert len(set(paths.values())) == EXPECTED_PILOT_COUNT
 
 
+_HEX40 = re.compile(r"[0-9a-f]{40}")
+_HEX64 = re.compile(r"[0-9a-f]{64}")
+
+
 @pytest.mark.parametrize(("service", "path"), _pilot_cases())
 def test_seed_file_exists_and_parses_with_the_project_loader(service: str, path: str) -> None:
     seed = SEED_DIR / _seed_name(path)
     assert seed.is_file(), f"{seed} does not exist for {service}"
     entries = build_chunks.load_verification_cache(seed)
-    assert entries == [], f"{seed} is a seed file and must hold zero entries"
+    # TC-547: the file used to be forced to hold zero entries (the TC-499 empty-seed guard), which also forbade the
+    # verdicts the seed exists to receive from the cluster run. A committed cache may hold entries; what it must
+    # always satisfy is the structure below. With an empty file this passes vacuously after the loader check.
+    family, _, platform = seed.name.removesuffix(".json").partition("_")
+    assert family and platform and "_" not in platform, f"{seed.name} is not <family>_<platform>.json"
+    keys = []
+    for entry in entries:
+        assert entry["platform"] == platform, (
+            f"{seed.name}: entry platform {entry['platform']!r} != {platform!r}"
+        )
+        assert isinstance(entry["library_commit"], str) and _HEX40.fullmatch(entry["library_commit"]), (
+            f"{seed.name}: library_commit is not 40 lowercase hex"
+        )
+        assert isinstance(entry["code_sha256"], str) and _HEX64.fullmatch(entry["code_sha256"]), (
+            f"{seed.name}: code_sha256 is not 64 lowercase hex"
+        )
+        assert isinstance(entry["verified"], bool), f"{seed.name}: verified is not a boolean"
+        assert isinstance(entry["toolchain"], str) and entry["toolchain"].strip(), (
+            f"{seed.name}: toolchain is not a non-empty string"
+        )
+        keys.append(
+            (
+                entry["provenance"],
+                entry["code_sha256"],
+                entry["library_commit"],
+                entry["platform"],
+                entry["toolchain"],
+            )
+        )
+    assert len(keys) == len(set(keys)), f"{seed.name}: entries are not unique by the five-field cache key"
+    assert entries == build_chunks.merge_verification_cache([], entries), (
+        f"{seed.name}: entries are not sorted the way merge_verification_cache sorts them"
+    )
 
 
 @pytest.mark.parametrize(("service", "path"), _pilot_cases())
 def test_seed_file_is_the_canonical_deterministic_empty_document(service: str, path: str) -> None:
+    # TC-547: the name is kept (a rename would hide the history), but the test now pins the canonical form of the
+    # pilot's OWN entries, empty or populated: byte-identical to verification_cache_document(entries), so a
+    # pull from the cluster is deterministic and a second pull writes nothing.
     seed = SEED_DIR / _seed_name(path)
     raw = seed.read_bytes()
     assert b"\r" not in raw, f"{seed} must use LF line endings"
-    assert raw == build_chunks.verification_cache_document([]).encode("utf-8"), (
-        f"{seed} is not byte-identical to build_chunks.verification_cache_document([])"
+    entries = build_chunks.load_verification_cache(seed)
+    assert raw == build_chunks.verification_cache_document(entries).encode("utf-8"), (
+        f"{seed} is not byte-identical to build_chunks.verification_cache_document(its own entries)"
     )
 
 
