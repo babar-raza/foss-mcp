@@ -135,6 +135,16 @@ inputs:
   value of at least 1,500 meets the floor, STOP and report the measured table (do not weaken the floor). Then re-pin `test_furnished_page_doc_chunks_survive_real_citable_chunks_pass` to assert the content origin survives
   (it should pass again once the target is right; if it only passes after weakening it, report instead). (3) The e2e `REAL_DOC_TASK_QUERY` constants for pdf_net and pdf_typescript may be re-pinned together with the content
   type, with the replay evidence in the comment (the worker found the old wording stops at the developer_guide overview chunks); no other e2e change. (4) All of these new and re-pinned tests are part of check 2.
+- >-
+  SUPERVISOR AMENDMENT 2 (after rework attempt 2; THIS OVERRIDES items (2) and the survival floor of the first amendment). The worker measured that the strict `citable_chunks` filter cannot reach 0.9 at any target between 1500 and
+  3000, and that production does not use it: `infra/ingest.py` publishes through `select_publishable_chunks` (TC-425, lenient: keeps furnished doc chunks unless a stated count is contradicted, un-backticks unresolved anchors).
+  Decision recorded in docs/DECISION_LOG.md (2026-10-16). So: (a) `TARGET_DOC_CHUNK_CHARS = 2000` (MIN 400 and MAX 7600 unchanged); every mention of "about 3,000" in this card now means 2,000, and the unit test
+  `test_small_sections_merge_up_to_about_3000_characters` is named `test_small_sections_merge_up_to_the_target_characters` and asserts against the module constant, not a literal. (b) tests/infra/test_furnished_chunk_survival.py measures
+  PUBLISHED characters through `infra.ingest.select_publishable_chunks` (the same call `infra/ingest.py` makes with the fixture) for the new chunker versus `_old_chunks`, over every pilot with a committed api_surface.json, and asserts
+  new >= 0.85 * old per pilot plus that at least one content-origin chunk is published; it also contains one test that asserts `infra/ingest.py` source calls `select_publishable_chunks` (so the metric cannot silently stop being
+  the production one). The strict-`citable_chunks` measurement may stay in the file as an informational test that only prints the table (no floor assertion on it). (c) tests/infra/test_build_chunks.py
+  `test_furnished_page_doc_chunks_survive_real_citable_chunks_pass`: keep the test and its name, change its filtering step to the production `select_publishable_chunks` and assert both the overview and the content origin
+  still publish at least one chunk; put a comment saying why (the strict pass is not the publish gate). Report the per-pilot ratios in the commit body. If any pilot is below 0.85 at 2000, STOP and report the table.
 actions:
 - >-
   Chunk documentation candidates so a FAQ answer stays with its question, a lead-in stays with its list, tiny neighbours merge, and anything over 7,600 characters is split at row or line boundaries with a Part marker instead of being cut.
