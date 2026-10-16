@@ -606,6 +606,9 @@ def cmd_dispatch_next(args) -> int:
         instruction=args.instruction
         or (
             f"Execute plans/{card_id}.yaml exactly. Write only inside its write_paths. "
+            "Before you commit, run `ruff format` and `ruff check` on every Python file you changed "
+            "(the review rejects unformatted files), run every check of the card, and kill any process "
+            "you start. Your branch must descend from the commit named in this instruction. "
             "You do not decide whether your card passed."
         ),
         attempt=args.attempt,
