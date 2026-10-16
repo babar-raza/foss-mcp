@@ -165,6 +165,16 @@ inputs:
   Run `{python} -m pytest tests/infra/test_helm_lifecycle.py tests/deploy/test_install_wait_for_jobs.py -q -rfE` first (after `scripts/toolchain/activate.ps1`
   in the same shell command), then the second check command below. Write commit messages as UTF-8 without a byte-order mark. Preserve each file's line
   endings and encoding (YAML and Markdown LF). Do not run helm against a cluster, kubectl, docker or any ingestion.
+- >-
+  SUPERVISOR AMENDMENT (after the first review hung for hours): the negative control removes the gate's `exit 0`, so the rendered script then loops for ever BY
+  DESIGN, and `test_rendered_gate_script_run_in_a_shell` must FAIL, quickly, not hang. On Windows `subprocess.run(..., capture_output=True, timeout=60)` kills only
+  the shell; the orphaned `bash`/`sleep` grandchild keeps the output pipes open, so `communicate()` never returns and the run hangs for ever (proved with
+  faulthandler: the main thread sits in `subprocess.communicate` -> `_readerthread` join). Rewrite the helper that runs the rendered script so that: stdout and
+  stderr go to temporary FILES (not pipes), stdin is `subprocess.DEVNULL`, the timeout is 20 seconds (the script needs about 2), and on timeout the whole process
+  TREE is killed (`taskkill /F /T /PID <pid>` on Windows, `os.killpg` after `start_new_session=True` elsewhere) before the test calls `pytest.fail` with the captured
+  stderr text. Apply the same helper to every test in the two files that starts a shell or helm subprocess. Add `test_a_gate_script_that_never_exits_fails_fast_and_leaves_no_process`:
+  run `sh -c "while true; do sleep 1; done"` through the helper with a 3-second timeout, assert it raises/fails within 15 seconds and that afterwards the shell pid
+  no longer exists. Verify by applying the negative control yourself: the suite must finish (with failures) in under three minutes, then restore the file with `git checkout`.
 actions:
 - >-
   Bound the sidecar init gate (non-empty test, timeout from values, resources), add Job deadline and TTL, a startupProbe, a kept PVC, pod
