@@ -60,6 +60,7 @@ from foss_mcp.mcp.response_envelope import annotate_result, origin_of, scope_obj
 from foss_mcp.mcp.routing import DeploymentConfig, Scope, resolve_scope
 from foss_mcp.mcp.sidecar_state import (
     RELEASES_FETCH_FAILED_MESSAGE,
+    SIDECAR_FETCH_FAILED,
     SIDECAR_PRESENT,
     SidecarFetchFailedError,
 )
@@ -70,7 +71,8 @@ from foss_mcp.mcp.tools.list_members import list_members
 from foss_mcp.mcp.tools.list_recent_changes import list_recent_changes
 from foss_mcp.mcp.tools.lookup import lookup
 from foss_mcp.mcp.tools.readme_sections import ReadmeSections, read_readme_sections
-from foss_mcp.mcp.tools.report_index_freshness import report_index_freshness
+from foss_mcp.mcp.tools.release_alignment import align_releases, package_version
+from foss_mcp.mcp.tools.report_index_freshness import read_indexed_commits, report_index_freshness
 from foss_mcp.mcp.tools.search_docs import CONTENT_TYPES, search_docs
 from foss_mcp.mcp.tools.search_symbols import SOURCE_KIND, scope_key, search_symbols
 from foss_mcp.normalization.document_schema import SourceKind
@@ -191,16 +193,35 @@ def _wrap_get_product_reference(
 
 
 def _wrap_list_recent_changes(
-    releases: Sequence[Release], state: str = SIDECAR_PRESENT
+    releases: Sequence[Release],
+    state: str,
+    store: GenerationManifestStore,
+    scope: Scope,
+    inputs: ProductReferenceInputs,
 ) -> Callable[..., Any]:
     def list_recent_changes_tool(*, limit: int = 10) -> Any:
-        return list_recent_changes(releases, limit=limit, state=state)
+        # G3/TC-519: mark each release as in the index / newer than the index / unknown, computed per
+        # call from the active generation's source commits and the manifest's declared version.
+        # A failed fetch raises inside list_recent_changes; no generation is read for it.
+        alignment = (
+            None
+            if state == SIDECAR_FETCH_FAILED
+            else align_releases(
+                releases,
+                indexed_commits=read_indexed_commits(store, scope),
+                indexed_version=package_version(inputs),
+            )
+        )
+        return list_recent_changes(releases, limit=limit, state=state, alignment=alignment)
 
     return list_recent_changes_tool
 
 
 def _wrap_report_index_freshness(
-    store: GenerationManifestStore, scope: Scope, inputs: ProductReferenceInputs
+    store: GenerationManifestStore,
+    scope: Scope,
+    inputs: ProductReferenceInputs,
+    releases: Sequence[Release],
 ) -> Callable[..., Any]:
     def report_index_freshness_tool(
         *, source_kind: str = "self_extracted", current_source_commit: str | None = None
@@ -211,6 +232,8 @@ def _wrap_report_index_freshness(
             source_kind,
             current_source_commit,
             pinned_library_commit=inputs.source_ref,
+            product_reference=inputs,
+            releases=releases,
         )
 
     return report_index_freshness_tool
@@ -325,7 +348,9 @@ TOOL_DESCRIPTIONS: dict[str, str] = {
         "'what changed recently' questions; it takes no query, only limit (default 10) - it is "
         "not a search tool, so do not pass a query string here. An empty list means the "
         "product has no GitHub releases. When the release data could not be fetched, the call "
-        "returns an error saying so (retry later), never an empty list."
+        "returns an error saying so (retry later), never an empty list. Each release states in_index "
+        "(true when the indexed API includes it, false when it is newer than the index, null when "
+        "unknown) and source ('release' or 'tag')."
     ),
     "report_index_freshness": (
         "Compare the indexed generation's recorded source commit against a "
@@ -339,7 +364,8 @@ TOOL_DESCRIPTIONS: dict[str, str] = {
         "current_source_commit is omitted, staleness cannot be ruled out and the report says "
         "so explicitly rather than assuming freshness - it never guesses. Check this before "
         "relying heavily on search results if you need to know whether the index reflects the "
-        "latest upstream release."
+        "latest upstream release. The report gives freshness_state (fresh, stale or unknown) with its "
+        "basis, and when no commit is supplied it compares against the latest release when it can."
     ),
 }
 
@@ -1111,8 +1137,12 @@ def _build_tool_registry(
         "list_members": _wrap_list_members(store, scope),
         "find_examples": _wrap_find_examples(store, scope),
         "get_product_reference": _wrap_get_product_reference(product_reference_inputs, store, scope),
-        "list_recent_changes": _wrap_list_recent_changes(recent_releases, recent_releases_state),
-        "report_index_freshness": _wrap_report_index_freshness(store, scope, product_reference_inputs),
+        "list_recent_changes": _wrap_list_recent_changes(
+            recent_releases, recent_releases_state, store, scope, product_reference_inputs
+        ),
+        "report_index_freshness": _wrap_report_index_freshness(
+            store, scope, product_reference_inputs, recent_releases
+        ),
     }
 
 

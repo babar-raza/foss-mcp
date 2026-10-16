@@ -38,6 +38,11 @@ refresh of an unchanged list into one conditional request (304: the list bytes a
 mtime and the meta ``fetched_at`` move). A failed fetch also logs an ``ERROR`` line on stderr and, with
 nothing usable on disk, leaves a meta whose ``state`` is ``fetch_failed``; the exit status stays 0.
 Each release records its ``target_commitish`` and ``created_at`` when GitHub supplied them.
+
+G3/TC-519: a sidecar keeps up to 20 releases by default (was 10). When a repository publishes no
+GitHub Releases at all its tags are written instead: a tag entry records ``"source": "tag"``, no notes
+(richness ``none``) and the tagged commit as ``target_commitish`` (the tags API gives the sha with no
+extra call). Tags are fetched only when the releases list came back empty.
 """
 
 from __future__ import annotations
@@ -54,7 +59,7 @@ from datetime import UTC, datetime
 from pathlib import Path
 
 from foss_mcp.extraction.github_http import failure_reason, reset_default_budget
-from foss_mcp.extraction.github_release_reader import Release, fetch_releases
+from foss_mcp.extraction.github_release_reader import Release, fetch_releases, fetch_tags
 
 _IDENTITY_PART = re.compile(r"[a-z0-9]+")
 _SIDECAR_FILE_NAME = re.compile(r"recent_releases_([a-z0-9]+)_([a-z0-9]+)\.json")
@@ -64,8 +69,10 @@ _META_SCHEMA = 1
 # time-based cache, not a permanent skip: a sidecar older than this is always re-fetched live.
 _SIDECAR_FRESHNESS_SECONDS = 24 * 60 * 60
 
-# list_recent_changes' own default (src/foss_mcp/mcp/server.py's list_recent_changes_tool).
-_DEFAULT_LIMIT = 10
+# How many releases a sidecar keeps by default. G3/TC-519 raised it from 10 to 20: a repository such as
+# pdf/go has 12 releases and the extra two were being dropped. `list_recent_changes` still returns
+# 10 by default (its own `limit`), so this only widens what is available to ask for.
+_DEFAULT_LIMIT = 20
 
 
 def recent_releases_sidecar_name(family: str, platform: str) -> str:
@@ -127,6 +134,8 @@ def _serialize_release(release: Release) -> dict:
         data["target_commitish"] = release.target_commitish
     if release.created_at is not None:
         data["created_at"] = release.created_at
+    if release.source != "release":
+        data["source"] = release.source
     return data
 
 
@@ -143,6 +152,7 @@ def _deserialize_release(data: dict) -> Release:
         url=data.get("url"),
         target_commitish=data.get("target_commitish"),
         created_at=data.get("created_at"),
+        source=data.get("source", "release"),
     )
 
 
@@ -243,6 +253,15 @@ def _read_meta(output: Path) -> dict:
     return data if isinstance(data, dict) else {}
 
 
+def _sidecar_holds_tag_entries(output: Path) -> bool:
+    """True when the sidecar *output* is a good list with at least one tag-sourced entry."""
+    try:
+        data = json.loads(output.read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return False
+    return isinstance(data, list) and any(isinstance(e, dict) and e.get("source") == "tag" for e in data)
+
+
 def _stored_etag(output: Path, repository: str) -> str | None:
     """The ETag to send as ``If-None-Match``: only when *output* holds a good list and its meta
     records a successful fetch of this repository together with an ETag."""
@@ -327,12 +346,20 @@ def main() -> None:
         return
 
     stored_etag = _stored_etag(args.output, args.repository)
+    if stored_etag is not None and _sidecar_holds_tag_entries(args.output):
+        # The releases list of a tag-only repository never changes (it is empty), so a 304 would
+        # keep stale tags for ever: send no ETag and re-read the tags instead.
+        stored_etag = None
     fetch_meta: dict = {}
     try:
         if stored_etag is not None:
             fetched = fetch_releases(args.repository, etag=stored_etag, meta=fetch_meta)
         else:
             fetched = fetch_releases(args.repository, meta=fetch_meta)
+        if not fetched and not fetch_meta.get("not_modified"):
+            # G3/TC-519: a repository without GitHub Releases is described by its tags instead. Tags
+            # are fetched ONLY here; a failure follows the same path as a failed releases fetch.
+            fetched = fetch_tags(args.repository)
         releases = fetched[: args.limit]
     except Exception as exc:  # noqa: BLE001 - deliberately broad: any failure is recorded as one.
         # A sidecar must always eventually exist once this step runs at all (see module docstring

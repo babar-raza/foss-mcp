@@ -18,13 +18,17 @@ commit is compared against all of them. Nothing is invented: whatever the chunks
 from __future__ import annotations
 
 import re
+from collections.abc import Sequence
 from dataclasses import dataclass
 
+from foss_mcp.extraction.github_release_reader import Release
 from foss_mcp.indexing.generation_manifest import GenerationManifestStore
 from foss_mcp.mcp.routing import Scope
 from foss_mcp.mcp.tools.coverage_note import coverage_note_from_text, parse_api_coverage
 from foss_mcp.mcp.tools.example_search_mode import example_search_mode
+from foss_mcp.mcp.tools.get_product_reference import ProductReferenceInputs
 from foss_mcp.mcp.tools.get_symbol import extract_fqn
+from foss_mcp.mcp.tools.release_alignment import align_releases, generation_indexed_at, package_version
 from foss_mcp.mcp.tools.search_symbols import scope_key
 
 _SOURCE_COMMIT_LINE = re.compile(r"^Source-Commit:\s*(\S+)$", re.MULTILINE)
@@ -69,6 +73,17 @@ class FreshnessReport:
     coverage_note: str | None = None
     example_search: str = "lexical-only"
     example_search_reason: str = "no active generation"
+    # G3/TC-519. ``stale`` stays True for an unknown verdict (it is ``freshness_state != "fresh"``);
+    # ``freshness_state`` (fresh / stale / unknown) carries the distinction and ``freshness_basis``
+    # (caller_commit, latest_release_tag_commit, latest_release_version, none) says how it was decided.
+    freshness_state: str = "unknown"
+    freshness_basis: str = "none"
+    indexed_at: str | None = None
+    source_repository: str | None = None
+    latest_release_tag: str | None = None
+    latest_release_in_index: bool | None = None
+    warnings: tuple[str, ...] = ()
+    compared_against_commit: str | None = None
 
 
 def _commit_matches(indexed_commit: str, current_commit: str) -> bool:
@@ -216,6 +231,46 @@ def _pinned_matches_symbols(commits: tuple[CommitCount, ...], pinned: str | None
     return all(_commit_matches(entry.commit, pinned) for entry in symbol_commits)
 
 
+_ABBREVIATED_COMMIT_LENGTH = 40
+
+
+def read_indexed_commits(
+    store: GenerationManifestStore, scope: Scope, source_kind: str = "self_extracted"
+) -> tuple[str, ...]:
+    """The distinct source commits of *scope*'s active generation, in the report's order (most chunks
+    first). Empty when nothing is published or no chunk records a commit."""
+    key = scope_key(scope, source_kind)
+    generation_id = store.read_active(key)
+    if generation_id is None:
+        return ()
+    manifest = store.read_generation(key, generation_id)
+    return tuple(entry.commit for entry in _read_provenance(manifest.payload).source_commits)
+
+
+def _commit_verdict(commits: tuple[CommitCount, ...], indexed_commit: str, current: str) -> tuple[str, str]:
+    """``(state, reason)`` of comparing every indexed commit with *current*: fresh only when all match."""
+    if len(commits) > 1:
+        # Fresh only when EVERY distinct indexed commit matches the given commit.
+        if all(_commit_matches(entry.commit, current) for entry in commits):
+            return "fresh", "index matches the current source commit"
+        return "stale", _mixed_reason(commits, current)
+    if not _commit_matches(indexed_commit, current):
+        return "stale", f"indexed {indexed_commit}, current source is {current}"
+    return "fresh", "index matches the current source commit"
+
+
+def _abbreviation_warnings(current_source_commit: str | None) -> tuple[str, ...]:
+    if current_source_commit is None:
+        return ()
+    length = len(current_source_commit.strip())
+    if 0 < length < _ABBREVIATED_COMMIT_LENGTH:
+        return (
+            f"current_source_commit is abbreviated ({length} characters): it is matched as a prefix of "
+            "the indexed commit; pass the full commit for an exact comparison.",
+        )
+    return ()
+
+
 def report_index_freshness(
     store: GenerationManifestStore,
     scope: Scope,
@@ -223,6 +278,8 @@ def report_index_freshness(
     current_source_commit: str | None,
     *,
     pinned_library_commit: str | None = None,
+    product_reference: ProductReferenceInputs | None = None,
+    releases: Sequence[Release] = (),
 ) -> FreshnessReport:
     """Compare every commit ``scope``'s active generation (for *source_kind*) was indexed from
     against *current_source_commit*. Never publishes a generation, never guesses freshness
@@ -231,6 +288,12 @@ def report_index_freshness(
     When *pinned_library_commit* is given, the report also says whether the API symbols were
     extracted at it. When the chunks state how much of the API surface they hold, the report
     carries that share; otherwise it stays unknown.
+
+    G3/TC-519: the verdict is tri-state (``freshness_state`` fresh / stale / unknown; ``stale`` is
+    ``freshness_state != "fresh"``) with its ``freshness_basis``. When *current_source_commit* is
+    omitted, the newest of *releases* is the reference: its tag commit when it has one, else its
+    version against the version the package manifest (*product_reference*) declares; with neither
+    the verdict stays unknown and the legacy reason is kept.
     """
     key = scope_key(scope, source_kind)
     generation_id = store.read_active(key)
@@ -244,6 +307,7 @@ def report_index_freshness(
             True,
             "never published",
             pinned_library_commit=pinned_library_commit,
+            freshness_state="unknown",
         )
 
     manifest = store.read_generation(key, generation_id)
@@ -255,7 +319,14 @@ def report_index_freshness(
     example_mode, example_reason = example_search_mode(manifest.payload)
     coverage_note = coverage_note_from_text(provenance.coverage_text) if provenance.coverage_text else None
 
-    def build(stale: bool, reason: str) -> FreshnessReport:
+    indexed_version = package_version(product_reference)
+    alignment = align_releases(
+        releases, indexed_commits=[entry.commit for entry in commits], indexed_version=indexed_version
+    )
+    latest = releases[0] if releases else None
+    latest_in_index = alignment[latest.tag_name][0] if latest is not None else None
+
+    def build(state: str, reason: str, basis: str, compared_against: str | None = None) -> FreshnessReport:
         if pinned_matches is False and pinned_library_commit is not None:
             reason = (
                 f"{reason}. API symbols were not extracted at the pinned library commit "
@@ -268,7 +339,7 @@ def report_index_freshness(
             generation_id,
             indexed_commit,
             current_source_commit,
-            stale,
+            state != "fresh",
             reason,
             source_commits=commits,
             chunks_without_commit=provenance.chunks_without_commit,
@@ -279,20 +350,36 @@ def report_index_freshness(
             coverage_note=coverage_note,
             example_search=example_mode,
             example_search_reason=example_reason,
+            freshness_state=state,
+            freshness_basis=basis,
+            indexed_at=generation_indexed_at(generation_id),
+            source_repository=product_reference.source_repository if product_reference else None,
+            latest_release_tag=latest.tag_name if latest is not None else None,
+            latest_release_in_index=latest_in_index,
+            warnings=_abbreviation_warnings(current_source_commit),
+            compared_against_commit=compared_against,
         )
 
     if indexed_commit is None:
-        return build(True, "indexed generation does not record its source commit")
-    if len(commits) > 1:
-        # Fresh only when EVERY distinct indexed commit matches the caller's commit.
-        all_match = current_source_commit is not None and all(
-            _commit_matches(entry.commit, current_source_commit) for entry in commits
+        return build("unknown", "indexed generation does not record its source commit", "none")
+    if current_source_commit is not None:
+        state, reason = _commit_verdict(commits, indexed_commit, current_source_commit)
+        return build(state, reason, "caller_commit")
+    if latest is not None and latest.target_commit is not None:
+        state, reason = _commit_verdict(commits, indexed_commit, latest.target_commit)
+        reason += (
+            f"; compared against the latest release tag {latest.tag_name} "
+            f"({latest.target_commit[:_SHORT_COMMIT_LENGTH]}) because no current_source_commit was given"
         )
-        if all_match:
-            return build(False, "index matches the current source commit")
-        return build(True, _mixed_reason(commits, current_source_commit))
-    if current_source_commit is None:
-        return build(True, "current source commit is unknown; staleness cannot be ruled out")
-    if not _commit_matches(indexed_commit, current_source_commit):
-        return build(True, f"indexed {indexed_commit}, current source is {current_source_commit}")
-    return build(False, "index matches the current source commit")
+        return build(state, reason, "latest_release_tag_commit", compared_against=latest.target_commit)
+    if latest is not None and latest_in_index is False and indexed_version is not None:
+        indexed_text = ".".join(str(part) for part in indexed_version)
+        return build(
+            "stale",
+            f"latest release {latest.tag_name} is newer than the indexed package version {indexed_text}; "
+            "no current_source_commit was given",
+            "latest_release_version",
+        )
+    if len(commits) > 1:
+        return build("unknown", _mixed_reason(commits, None), "none")
+    return build("unknown", "current source commit is unknown; staleness cannot be ruled out", "none")

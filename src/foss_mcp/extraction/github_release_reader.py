@@ -116,6 +116,9 @@ class Release:
     # branch name or a 40-hex sha (GitHub's own field), ``created_at`` the release's creation time.
     target_commitish: str | None = None
     created_at: str | None = None
+    # G3/TC-519: "release" for a GitHub Release, "tag" for an entry synthesised from a bare git tag
+    # of a repository that publishes no Releases (no notes: richness "none").
+    source: str = "release"
 
     @property
     def target_commit(self) -> str | None:
@@ -187,3 +190,33 @@ def fetch_releases(
             break
         page += 1
     return releases
+
+
+def fetch_tags(repository: str, *, per_page: int = 100) -> list[Release]:
+    """The newest *per_page* git tags of *repository* ("owner/name") as tag-only ``Release`` entries.
+
+    G3/TC-519: for a repository that publishes no GitHub Releases. One request, no pagination: the
+    tags API lists the newest tag first, and each entry already carries the tagged commit's sha, so
+    no further call is needed. A tag has no notes (richness ``none``, ``source`` ``tag``); an entry
+    without a name is skipped.
+    """
+    url = f"{_API_ROOT}/repos/{repository}/tags?per_page={per_page}"
+    _status, batch, _etag = _get_json(url)
+    tags: list[Release] = []
+    for entry in batch or []:
+        name = entry.get("name")
+        if not name:
+            continue
+        commit = entry.get("commit") or {}
+        tags.append(
+            Release(
+                tag_name=name,
+                body="",
+                richness="none",
+                published_at=None,
+                url=f"https://github.com/{repository}/releases/tag/{name}",
+                target_commitish=commit.get("sha") or None,
+                source="tag",
+            )
+        )
+    return tags
