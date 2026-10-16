@@ -981,8 +981,35 @@ def _extract_go_receiver_type(fnode) -> str:
     Returns the bare type name (without pointer prefix) or "" if none.
     E.g. for ``func (d *Document) Save(...)``, returns ``"Document"``.
     """
-    if fnode.type != "method_declaration":
+    type_node = _go_receiver_type_node(fnode)
+    if type_node is None:
         return ""
+    if type_node.type == "pointer_type":
+        for ppch in type_node.children:
+            if ppch.type == "type_identifier":
+                return node_text(ppch)
+            if ppch.type == "generic_type":
+                return _go_generic_type_name(ppch)
+        return ""
+    if type_node.type == "type_identifier":
+        return node_text(type_node)
+    if type_node.type == "generic_type":
+        return _go_generic_type_name(type_node)
+    return ""
+
+
+def _go_generic_type_name(gnode) -> str:
+    """The bare type name of a Go ``generic_type`` node (``Pair`` for ``Pair[T]``)."""
+    name_node = child_by_field(gnode, "type")
+    if name_node is None:
+        name_node = find_child_by_type(gnode, "type_identifier")
+    return node_text(name_node) if name_node is not None else ""
+
+
+def _go_receiver_type_node(fnode):
+    """The type node of a Go method receiver (``*Document``, ``Document``, ``*Pair[T]``) or None."""
+    if fnode.type != "method_declaration":
+        return None
     # The receiver is the first parameter_list child of the method node.
     # tree-sitter-go field name is "receiver".
     recv_list = child_by_field(fnode, "receiver")
@@ -993,17 +1020,21 @@ def _extract_go_receiver_type(fnode) -> str:
                 recv_list = ch
                 break
     if recv_list is None:
-        return ""
+        return None
     for ch in recv_list.children:
         if ch.type == "parameter_declaration":
             for pch in ch.children:
-                if pch.type == "pointer_type":
-                    for ppch in pch.children:
-                        if ppch.type == "type_identifier":
-                            return node_text(ppch)
-                elif pch.type == "type_identifier":
-                    return node_text(pch)
-    return ""
+                if pch.type in ("pointer_type", "type_identifier", "generic_type"):
+                    return pch
+    return None
+
+
+def _go_receiver_text(fnode) -> str:
+    """The receiver type as written, without the variable name (``*Document``, ``*Pair[T]``)."""
+    type_node = _go_receiver_type_node(fnode)
+    if type_node is None:
+        return ""
+    return " ".join(node_text(type_node).split())
 
 
 # ---------------------------------------------------------------------------
@@ -3060,7 +3091,15 @@ def _associate_go_methods(classes: list[dict]) -> list[dict]:
         if not receiver:
             continue
         recv_name = receiver.lstrip("*").strip()
+        # TC-525: the receiver as written travels on a private key set by the extraction loop.
+        receiver_text = entry.pop("_receiver_text", "") or receiver
         if recv_name not in type_map:
+            if recv_name[:1].isupper():
+                # An exported receiver no extracted type owns: keep the entry, marked as a method.
+                entry["modifiers"] = [f"receiver {receiver_text}"]
+            else:
+                # A method of an unexported type is not public API.
+                to_remove.add(i)
             continue
         parent = classes[type_map[recv_name]]
         method_entry = {
@@ -3079,6 +3118,101 @@ def _associate_go_methods(classes: list[dict]) -> list[dict]:
 
     LOG.debug("SFX-1: moved %d receiver methods into %d Go types", len(to_remove), len(type_map))
     return [e for i, e in enumerate(classes) if i not in to_remove]
+
+
+# ---------------------------------------------------------------------------
+# Go constant groups (TC-525)
+# ---------------------------------------------------------------------------
+
+_GO_IOTA_PLUS = re.compile(r"^iota\s*([+-])\s*(\d+)$")
+_GO_PLUS_IOTA = re.compile(r"^(\d+)\s*\+\s*iota$")
+_GO_SHIFT_IOTA = re.compile(r"^(\d+)\s*<<\s*iota$")
+
+
+def _go_const_value(expr: str, position: int) -> int | str:
+    """A Go constant's value: ``iota`` forms are evaluated at *position*, anything else is its text."""
+    text = expr.strip()
+    if text == "iota":
+        return position
+    match = _GO_IOTA_PLUS.match(text)
+    if match:
+        offset = int(match.group(2))
+        return position + offset if match.group(1) == "+" else position - offset
+    match = _GO_PLUS_IOTA.match(text)
+    if match:
+        return int(match.group(1)) + position
+    match = _GO_SHIFT_IOTA.match(text)
+    if match:
+        return int(match.group(1)) << position
+    return text
+
+
+def _extract_go_const_groups(root) -> list[tuple[str, dict[str, Any]]]:
+    """Exported typed constants of one parsed Go file as ``(type_name, {"name", "value"})`` pairs.
+
+    A ``const (...)`` group is walked in source order. A spec's type is its explicit type; a spec
+    with neither type nor value repeats the previous spec (type and expression), with ``iota``
+    taking the spec's own zero-based position in the group. A spec with its own value and no type
+    is untyped and yields nothing. Unexported names are dropped.
+    """
+    pairs: list[tuple[str, dict[str, Any]]] = []
+    for decl in collect_nodes(root, {"const_declaration"}):
+        prev_type = ""
+        prev_exprs: list[str] = []
+        position = -1
+        for spec in decl.children:
+            if spec.type != "const_spec":
+                continue
+            position += 1
+            names = [node_text(n) for n in spec.children_by_field_name("name") if n.type == "identifier"]
+            type_node = child_by_field(spec, "type")
+            value_node = child_by_field(spec, "value")
+            if value_node is not None:
+                exprs = [node_text(c) for c in value_node.named_children if c.type != "comment"]
+                type_name = node_text(type_node).strip() if type_node is not None else ""
+            else:
+                exprs = prev_exprs
+                type_name = node_text(type_node).strip() if type_node is not None else prev_type
+            prev_exprs = exprs
+            prev_type = type_name
+            if not type_name:
+                continue
+            for index, name in enumerate(names):
+                if not name[:1].isupper():
+                    continue
+                if len(exprs) == len(names):
+                    value: int | str = _go_const_value(exprs[index], position)
+                else:
+                    value = ", ".join(exprs)
+                pairs.append((type_name, {"name": name, "value": value}))
+    return pairs
+
+
+def _go_composite_type_names(root) -> set[str]:
+    """Names of the Go types a file declares as a struct or an interface (they own no constants)."""
+    names: set[str] = set()
+    for spec in collect_nodes(root, {"type_spec"}):
+        body = child_by_field(spec, "type")
+        name_node = child_by_field(spec, "name")
+        if body is not None and name_node is not None and body.type in ("struct_type", "interface_type"):
+            names.add(node_text(name_node))
+    return names
+
+
+def _associate_go_consts(classes: list[dict], pairs: list[tuple[str, dict[str, Any]]]) -> list[dict]:
+    """Set ``enum_members`` on each extracted Go type that owns constants (no duplicates by name)."""
+    type_map = {
+        entry["name"]: entry for entry in classes if entry.get("kind") in ("type_spec", "type_declaration")
+    }
+    for type_name, member in pairs:
+        owner = type_map.get(type_name)
+        if owner is None:
+            continue
+        members = owner.setdefault("enum_members", [])
+        if any(existing["name"] == member["name"] for existing in members):
+            continue
+        members.append(dict(member))
+    return classes
 
 
 # ---------------------------------------------------------------------------
@@ -4475,6 +4609,8 @@ def extract_api_surface(
     js_imports: dict[str, dict[str, dict[str, Any]]] = {}
     js_mixin_defs: dict[str, dict[str, list[dict[str, Any]]]] = {}
     js_mixin_applications: list[dict[str, Any]] = []
+    go_const_pairs: list[tuple[str, dict[str, Any]]] = []
+    go_composite_types: set[str] = set()
 
     for fpath in files:
         rel = str(fpath.relative_to(repo)).replace("\\", "/")
@@ -4544,6 +4680,11 @@ def extract_api_surface(
                 break
 
         class_nodes = collect_nodes(root, class_types)
+
+        # TC-525: Go constant groups (``const ( A T = iota ... )``) belong to their owning type.
+        if language == "go":
+            go_const_pairs.extend(_extract_go_const_groups(root))
+            go_composite_types |= _go_composite_type_names(root)
 
         # S-1: Extract __all__ names for Python visibility tier.
         # Only handles simple top-level assignment (`__all__ = [...]`).
@@ -5394,6 +5535,9 @@ def extract_api_surface(
             }
             if receiver_type:
                 func_entry["receiver_type"] = receiver_type
+                if language == "go":
+                    # Consumed (and removed) by _associate_go_methods.
+                    func_entry["_receiver_text"] = _go_receiver_text(fnode)
             if rust_trait:
                 func_entry["trait_impl"] = rust_trait
             if language in ("typescript", "javascript"):
@@ -5427,6 +5571,9 @@ def extract_api_surface(
     # moves them into the correct type's methods[] list.
     if language == "go":
         classes = _associate_go_methods(classes)
+        classes = _associate_go_consts(
+            classes, [pair for pair in go_const_pairs if pair[0] not in go_composite_types]
+        )
 
     # Rust: same shape as Go â€” impl-block methods are top-level nodes, so
     # relocate them into their owning struct/enum/trait entries.

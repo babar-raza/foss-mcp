@@ -78,6 +78,7 @@ RECOMMENDED_MAX_TYPES: dict[str, int] = {
 
 # The share of the cap that README-named types may take (after the example-used types).
 README_KEEP_FRACTION = 0.7
+GO_FUNCTION_QUOTA_PERCENT = 40
 
 _PARSE_EXAMPLE_LIMIT = 5
 
@@ -453,6 +454,15 @@ def summarize_symbols(types: list[dict[str, Any]]) -> dict[str, int]:
     return {"types": len(entries) - functions, "functions": functions}
 
 
+def api_counts(types: list[dict[str, Any]]) -> dict[str, int]:
+    """``{"types", "functions", "methods"}``: entries whose ``kind`` is not "function", entries whose
+    ``kind`` is "function", and the total length of every entry's ``methods`` list. A method is
+    counted as a method, never as a type."""
+    functions = sum(1 for entry in types if entry.get("kind") == "function")
+    methods = sum(len(entry.get("methods") or []) for entry in types)
+    return {"types": len(types) - functions, "functions": functions, "methods": methods}
+
+
 def extract_pinned_repository(manifest_path: Path, *, commit: str | None = None) -> dict[str, Any]:
     """Clone the manifest's pinned repository shallowly, run the engine over it, and return an
     api_surface-equivalent artifact recording the source repository and the exact commit
@@ -480,6 +490,7 @@ def extract_pinned_repository(manifest_path: Path, *, commit: str | None = None)
             "source_commit": commit_sha,
             "language": language,
             "type_count": len(types),
+            "counts": api_counts(types),
             "types": types,
             "extractor_version": EXTRACTOR_VERSION,
             "symbol_counts": summarize_symbols(types),
@@ -776,6 +787,27 @@ def reduce_fixture(
     if keep_names:
         chosen = [g for g in ordered if name_of(g) in keep_names][:max_types]
     chosen_set = set(chosen)
+    if artifact.get("language") == "go":
+        # TC-525: a Go package function is referenced by no type's signature, so centrality
+        # ranks it last and cuts it. Reserve a bounded share of the budget for them, by source order.
+        group_of = {index: g for g, group in enumerate(groups) for index in group}
+        package_functions = sorted(
+            (
+                index
+                for index, entry in enumerate(types)
+                if entry.get("kind") == "function" and not entry.get("receiver_type")
+            ),
+            key=lambda index: (types[index].get("file") or "", types[index].get("line") or 0, index),
+        )
+        for index in package_functions[
+            : min(len(package_functions), max_types * GO_FUNCTION_QUOTA_PERCENT // 100)
+        ]:
+            group_index = group_of[index]
+            if len(chosen) >= max_types:
+                break
+            if group_index not in chosen_set:
+                chosen.append(group_index)
+                chosen_set.add(group_index)
     if mentions:
         readme_budget = min(max_types, math.ceil(round(max_types * README_KEEP_FRACTION, 9)))
         named = sorted(
