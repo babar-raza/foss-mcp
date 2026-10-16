@@ -1,0 +1,114 @@
+{
+  "schema_version": 1,
+  "card": "TC-544",
+  "gate": "G3",
+  "generated_by": "gatectl",
+  "generated_at": "2026-10-16T13:59:47Z",
+  "base_rev": "2d98987515f75454d1e22852be064fe6ceb01760",
+  "head_rev": "31bced4ec7b901f82fd7e79467ecc4974c9ec929",
+  "card_sha256": "cb7536bca4a84bdd74ba85ec8dece3e36400e6055970f91e3f0ddc928de28735",
+  "fingerprint": {
+    "python": "3.13.2",
+    "platform": "Windows-11-10.0.26200-SP0",
+    "lock_sha256": "7b182948484d7df9614b523f7a8180f795b6c51d55c418728525c1957f3e38ba",
+    "env": {
+      "PYTHONHASHSEED": "0",
+      "PYTHONUTF8": "1",
+      "PYTHONDONTWRITEBYTECODE": "1",
+      "PYTHONIOENCODING": "utf-8",
+      "TZ": "UTC",
+      "LC_ALL": "C.UTF-8",
+      "SOURCE_DATE_EPOCH": "1700000000",
+      "verify_runner": "host"
+    }
+  },
+  "scope": {
+    "ok": true,
+    "changed_paths": [
+      "infra/serve_http.py",
+      "src/foss_mcp/mcp/tools/find_examples.py",
+      "tests/infra/test_serve_http_slash_redirect.py",
+      "tests/mcp/tools/test_find_examples_title_anchor.py",
+      "tests/mcp/tools/test_find_examples_verification_record.py"
+    ],
+    "violations": [],
+    "evaluated": true
+  },
+  "runs": [
+    {
+      "run": 1,
+      "checks": [
+        {
+          "command": "{python} -m pytest tests/infra/test_serve_http_slash_redirect.py tests/mcp/tools/test_find_examples_verification_record.py -q -rfE -p no:cacheprovider",
+          "exit_code": 0,
+          "duration_s": 8.136,
+          "stdout_sha256": "63170f1d3ece7d672f78575beacbc0a64308379cf97e7171c5c5f818776c4ec9",
+          "tests": 39,
+          "skipped": 0,
+          "errors": 0,
+          "failures": 0
+        },
+        {
+          "command": "{python} -m pytest tests/mcp tests/infra/test_serve_http.py tests/infra/test_serve_stdio_parity.py tests/infra/test_serve_readyz_depth.py tests/test_unwired_modules.py -q -rfE -p no:cacheprovider",
+          "exit_code": 0,
+          "duration_s": 87.707,
+          "stdout_sha256": "c210d13cf41a8cfc57d81944773c8887c1dd464e06a34ad7b20e27725a1aa651",
+          "tests": 2499,
+          "skipped": 0,
+          "errors": 0,
+          "failures": 0
+        }
+      ],
+      "all_passed": true
+    },
+    {
+      "run": 2,
+      "checks": [
+        {
+          "command": "{python} -m pytest tests/infra/test_serve_http_slash_redirect.py tests/mcp/tools/test_find_examples_verification_record.py -q -rfE -p no:cacheprovider",
+          "exit_code": 0,
+          "duration_s": 9.292,
+          "stdout_sha256": "63170f1d3ece7d672f78575beacbc0a64308379cf97e7171c5c5f818776c4ec9",
+          "tests": 39,
+          "skipped": 0,
+          "errors": 0,
+          "failures": 0
+        },
+        {
+          "command": "{python} -m pytest tests/mcp tests/infra/test_serve_http.py tests/infra/test_serve_stdio_parity.py tests/infra/test_serve_readyz_depth.py tests/test_unwired_modules.py -q -rfE -p no:cacheprovider",
+          "exit_code": 0,
+          "duration_s": 84.689,
+          "stdout_sha256": "c210d13cf41a8cfc57d81944773c8887c1dd464e06a34ad7b20e27725a1aa651",
+          "tests": 2499,
+          "skipped": 0,
+          "errors": 0,
+          "failures": 0
+        }
+      ],
+      "all_passed": true
+    }
+  ],
+  "negative_control": {
+    "kind": "mutate",
+    "patch": "python -X utf8 -c \"import pathlib;p=pathlib.Path('infra/serve_http.py');s=p.read_text(encoding='utf-8');old='inner.router.redirect_slashes = False';assert s.count(old)==1;p.write_text(s.replace(old,'inner.router.redirect_slashes = True'),encoding='utf-8')\"\n",
+    "patch_sha256": "ac996b8a09d6a5dbdd3d3046202ff45fbe74104086ac9be09fa38ae065c0cd66",
+    "applied": true,
+    "patch_applied_failed": true,
+    "exit_codes": [
+      1,
+      0
+    ],
+    "tree_changed": [
+      "M infra/serve_http.py",
+      "?? .junit-0.xml",
+      "?? .junit-1.xml"
+    ]
+  },
+  "holdout": {
+    "ran": false,
+    "passed": true,
+    "detail": "no holdout for this card"
+  },
+  "accepted": true,
+  "reason": "all gates passed"
+}
