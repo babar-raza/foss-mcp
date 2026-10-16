@@ -1,0 +1,92 @@
+id: TC-549
+gate: G3
+lane: storage-retrieval
+purpose: >-
+  REQ-G3-001 and REQ-G3-008 (release-candidate trial gate, 2026-10-16: the workflow gate run on an image built from main FAILS 5 of 40 pilots, pdf_cpp, cells_cpp, slides_cpp, email_cpp and jmap_cpp, on proof check 5 "search_docs
+  returns a non-empty answer about this pilot, for the furnished page title"; the image built before TC-505/TC-516 passed 40 of 40). ROOT CAUSE (reproduced offline on all 40 committed generations and live on both images by an
+  independent analysis): two accepted changes combine. TC-505 `relevance._stemmed_query_terms` (src/foss_mcp/mcp/tools/relevance.py) drops every one-letter alphabetic query term, so the "c" of "C++" is lost; TC-516
+  `search_docs._rule_for` (src/foss_mcp/mcp/tools/search_docs.py) returns None, an honest miss for every content type, when the query has no distinctive term. For "Aspose.PDF FOSS for C++" the terms are {aspose, pdf, foss}; the
+  family word and generic words leave nothing distinctive, so the documentation of every C++ pilot is unreachable by its own product title. Every other pilot's title carries a distinctive platform word (python, java, net, go,
+  rust, typescript, node, js). Measured: offline harness 35 PASS and 5 FAIL on current code; with the fix below 40 of 40. This card makes the "does this query name a topic" gate language-aware for the two languages whose name
+  is a single letter followed by a symbol, C++ and C#, and nothing else. What does NOT change: RELEVANCE_THRESHOLD, the tokeniser, `_stemmed_query_terms` (TC-505's one-letter drop stays; test_relevance_query_terms.py is untouched),
+  `query_terms`, `distinctive_terms`, the lexical index, term weights, find_examples and lookup behaviour for any query, and the deliberate misses ("pdf examples", "Example:", "how to use samples").
+depends_on:
+- TC-505
+- TC-515
+- TC-516
+- TC-543
+- TC-517
+write_paths:
+- src/foss_mcp/mcp/tools/relevance.py
+- src/foss_mcp/mcp/tools/search_docs.py
+- tests/mcp/tools/test_search_docs_language_letter.py
+satisfies:
+- REQ-G3-001
+- REQ-G3-008
+source_refs:
+- file: docs/DECISION_LOG.md
+  anchor: '## 2026-10-15 — Independent pre-production adversarial review of the shipped image; its findings enter the state machine as cards (operator, supervisor)'
+  sha256: d2d82669b8060d5e3a3b9da00e9858e576d5d264d96e32d1aed8034e8d6d9007
+inputs:
+- >-
+  Read src/foss_mcp/mcp/tools/relevance.py (`_normalised_query`, `_stemmed_query_terms`, `query_terms`, `distinctive_terms`, `title_anchored`), src/foss_mcp/mcp/tools/search_docs.py (`_rule_for`, `_relevant_coverage`),
+  tests/mcp/tools/test_lookup_forgiveness.py (the `_InMemoryStore` / `_doc_chunk` helpers and the deliberate-miss test near line 274), tests/mcp/tools/test_lookup_miss_reason.py lines 80-94 (the `pilot_stores` pattern that copies
+  infra/demo-manifests/<dir> into a temporary `GenerationManifestStore`), tests/mcp/tools/test_relevance_query_terms.py, scripts/poc/pilot_workflow_proof.py `check_5`. Never print or log environment values.
+- >-
+  src/foss_mcp/mcp/tools/relevance.py: add, right after `distinctive_terms`, a compiled module constant `_LANGUAGE_LETTER_RE = re.compile(r"(?<![A-Za-z0-9])[A-Za-z](?=\+\+|#)")` (import `re` if absent) and a public pure function
+  `names_language_letter(query: str) -> bool` whose body is exactly `return _LANGUAGE_LETTER_RE.search(_normalised_query(query)) is not None`, with a docstring saying: true only when the query contains a single letter directly followed by
+  `++` or `#` ("C++", "C#"), the one place a one-letter term carries the topic; TC-505 drops one-letter terms and TC-516 turns "no distinctive term" into a miss, which together made the C++ pilots' product title unanswerable.
+- >-
+  src/foss_mcp/mcp/tools/search_docs.py: import `names_language_letter` from relevance and change `_rule_for` so its gate reads exactly
+  `names_topic = bool(distinctive_terms(query, family)) or names_language_letter(query)` followed by `if not names_topic and terms != frozenset({stem_token(family)}):` / `return None`. Update the docstring to mention the C++/C#
+  case. Change nothing else in the file. Production wiring: `names_language_letter` is imported and called only by `_rule_for`; the test below asserts that by reading the committed source.
+- >-
+  tests/mcp/tools/test_search_docs_language_letter.py (NEW, offline, deterministic, no network, no skip/xfail, at least 25 tests with the parametrised cases): (1) `test_names_language_letter` parametrised: true for "C++", "Aspose.PDF FOSS for C++",
+  "C#", "learn c# basics", "c++ merge pages"; false for "TeX", "element's", "x", "C:\temp", "pdf3", "Cpp", "cpp", "", "a b c"; (2) `test_the_five_cpp_pilots_answer_their_own_product_title` parametrised over pdf, cells, slides, email and jmap
+  C++: copy infra/demo-manifests/<family>__cpp__self_extracted into a temporary store as `pilot_stores` does, read the pilot's title from tests/fixtures/furnished/<family>_cpp/pages/_index.md (the page title the proof uses), call the real
+  `search_docs` for each of the four content types and assert at least one returns a non-empty list whose chunks include one that mentions the family word; (3) `test_every_pilots_product_title_is_answered_for_at_least_one_content_type`
+  parametrised over ALL committed demo-manifest generations (the 40 directories under infra/demo-manifests, at least 40 cases) with the title from the matching furnished page: assert at least one content type is a non-miss. This is the
+  offline copy of the gate's check 5 and is the test that would have caught TC-516; (4) synthetic tests with the in-memory helpers: "Aspose.PDF FOSS for C++" and "Aspose.PDF FOSS for C#" return a list on a scope with a chunk containing
+  aspose, pdf and foss; "pdf examples", "Example:" and "how to use samples" still return the miss; "C:\temp file" and a bare "c" gain no special treatment (same result as before the change, which the test states in its own comment);
+  "Aspose.PDF FOSS for Python" on a Python scope still returns a list; (5) `test_rule_for_is_wired_to_names_language_letter`: the committed text of search_docs.py contains `names_language_letter(query)` inside `_rule_for` and the committed
+  text of relevance.py defines it, so the fix cannot be left unused.
+- >-
+  Run `{python} -m pytest tests/mcp -q -rfE -p no:cacheprovider` FIRST on the unchanged tree (after scripts/toolchain/activate.ps1 in the same PowerShell command, repo venv python); it must be green. No existing test is expected to change. After
+  the change run check 1, then check 2, each twice. Write commit messages as UTF-8 without a byte-order mark; preserve LF.
+actions:
+- >-
+  Make the "query names a topic" gate of search_docs recognise the C++ and C# language names, so the documentation of the five C++ pilots is reachable by their product titles.
+- >-
+  Pin it with a per-pilot offline copy of gate check 5 over all 40 committed generations.
+checks:
+- command: '{python} -m pytest tests/mcp/tools/test_search_docs_language_letter.py -q -rfE -p no:cacheprovider'
+  expect: exit 0
+  timeout_seconds: 1200
+  junitxml: true
+  proves:
+  - REQ-G3-001
+  - REQ-G3-008
+- command: '{python} -m pytest tests/mcp tests/test_unwired_modules.py -q -rfE -p no:cacheprovider'
+  expect: exit 0
+  timeout_seconds: 2400
+  junitxml: true
+  proves:
+  - REQ-G3-001
+  - REQ-G3-008
+min_tests: 25
+network: true
+requires:
+- python
+negative_control:
+  mutate: |
+    python -X utf8 -c "import pathlib;p=pathlib.Path('src/foss_mcp/mcp/tools/search_docs.py');s=p.read_text(encoding='utf-8');old=' or names_language_letter(query)';assert s.count(old)==1;p.write_text(s.replace(old,''),encoding='utf-8')"
+  rationale: >-
+    Removes the language-letter clause from the topic gate, which restores the regression: the C++ pilots' product titles have no distinctive term again, so the five-pilot test and the 40-title test fail with a miss. A real break of the
+    card's central claim (every pilot's documentation is reachable by its own product title).
+evidence:
+- evidence/build/G3/TC-549/receipt.json
+closeout:
+- >-
+  The documentation of the five C++ pilots is reachable by their product titles again and the offline copy of the gate's check 5 runs for all 40 pilots on every test run. The supervisor re-runs the 40-pilot workflow gate on the rebuilt
+  image; 40 of 40 is expected.
+recovery: Re-run from a clean tree.
