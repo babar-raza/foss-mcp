@@ -6,6 +6,10 @@ metadata:
   name: {{ include "foss-mcp.manifestsClaimName" . }}
   labels:
     {{- include "foss-mcp.labels" . | nindent 4 }}
+  {{- if .Values.manifests.keepOnUninstall }}
+  annotations:
+    helm.sh/resource-policy: keep
+  {{- end }}
 spec:
   accessModes:
     {{- toYaml .Values.manifests.accessModes | nindent 4 }}

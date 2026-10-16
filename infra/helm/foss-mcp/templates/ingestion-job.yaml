@@ -44,6 +44,13 @@ metadata:
     app.kubernetes.io/component: ingestion
 spec:
   backoffLimit: {{ $.Values.ingestion.backoffLimit }}
+  {{- /* G3/TC-512: emitted only for a positive integer, so 0 or "" turns either field off. */}}
+  {{- if gt (int $.Values.ingestion.activeDeadlineSeconds) 0 }}
+  activeDeadlineSeconds: {{ int $.Values.ingestion.activeDeadlineSeconds }}
+  {{- end }}
+  {{- if gt (int $.Values.ingestion.ttlSecondsAfterFinished) 0 }}
+  ttlSecondsAfterFinished: {{ int $.Values.ingestion.ttlSecondsAfterFinished }}
+  {{- end }}
   template:
     metadata:
       labels:
@@ -51,6 +58,8 @@ spec:
         app.kubernetes.io/component: ingestion
     spec:
       restartPolicy: Never
+      automountServiceAccountToken: {{ $.Values.pod.automountServiceAccountToken }}
+      enableServiceLinks: {{ $.Values.pod.enableServiceLinks }}
       securityContext:
         {{- toYaml $.Values.podSecurityContext | nindent 8 }}
       containers:
@@ -167,6 +176,19 @@ spec:
                   key: {{ .key | quote }}
                   optional: true
             {{- end }}
+            {{- end }}
+            {{- with $.Values.ingestion.acceptRegression }}
+            {{- /*
+            G3/TC-512: an intentional shrink of this generation (infra/ingest.py, TC-510). Rendered
+            only when the operator listed entries, and then a reason is required.
+            */}}
+            {{- if not $.Values.ingestion.acceptRegressionReason }}
+            {{- fail "ingestion.acceptRegression is set but ingestion.acceptRegressionReason is blank: an accepted shrink needs a reason" }}
+            {{- end }}
+            - name: FOSS_MCP_ACCEPT_REGRESSION
+              value: {{ join ";" . | quote }}
+            - name: FOSS_MCP_ACCEPT_REGRESSION_REASON
+              value: {{ $.Values.ingestion.acceptRegressionReason | quote }}
             {{- end }}
             {{- if $.Values.embeddingGateway.existingSecret }}
             {{- /*

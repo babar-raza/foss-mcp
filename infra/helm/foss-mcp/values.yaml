@@ -37,8 +37,42 @@ probes:
     periodSeconds: 10
     timeoutSeconds: 3
     failureThreshold: 3
+  # The startup probe holds liveness and readiness off until /healthz first answers, so a slow
+  # first start (30 x 5 s = 150 s) is not killed by the liveness probe.
+  startup:
+    periodSeconds: 5
+    timeoutSeconds: 3
+    failureThreshold: 30
 
 terminationGracePeriodSeconds: 30
+
+# The serving init container waits for the two sidecar files the ingestion Job writes after it
+# publishes a generation, and stops waiting after timeoutSeconds. Serving reads its sidecars ONCE,
+# at process start (G2/TC-251), a fresh install's Job (build, example verification, publish, then
+# the sidecar fetches) takes 5 to 40 minutes, and nothing yet re-reads the sidecars; a short
+# timeout (the 120 s that was first asked for) would therefore start the pod before the files exist
+# and reintroduce TC-251 on every fresh install. The default 3900 is the Job deadline
+# (ingestion.activeDeadlineSeconds, 3600) plus 300 s: the gate is bounded, so a hung or failed Job
+# can no longer hold a pod in Init for ever, while a healthy install is unaffected. When the gate
+# times out the pod starts WITHOUT its sidecars (degraded) and says so on stderr. Lower this to 120
+# once serving re-reads its sidecars.
+initGate:
+  timeoutSeconds: 3900
+  intervalSeconds: 2
+  resources:
+    requests:
+      cpu: 10m
+      memory: 16Mi
+    limits:
+      cpu: 50m
+      memory: 64Mi
+
+# Pod-level hardening shared by serving, ingestion and demo pods. No pod talks to the Kubernetes
+# API, and no code under infra/ or src/ reads KUBERNETES_* or *_SERVICE_HOST variables, so the
+# service-account token is not mounted and the service-link environment variables are not injected.
+pod:
+  automountServiceAccountToken: false
+  enableServiceLinks: false
 
 # Serving is a Python ASGI server whose image installs only requirements-serving.lock (mcp and its
 # transitive closure, per Dockerfile.serving). 256Mi covers CPython and that import set with
@@ -62,13 +96,20 @@ manifests:
   accessModes:
     - ReadWriteOnce
   size: 1Gi
+  # When true the claim is annotated helm.sh/resource-policy: keep, so `helm uninstall` leaves the
+  # only copy of a published generation in place. Delete it deliberately (kubectl delete pvc) or
+  # set false to let Helm remove it.
+  keepOnUninstall: true
 
 # uid 10001 is the user both Dockerfiles create (useradd --uid 10001 foss-mcp). fsGroup makes the
 # freshly provisioned claim writable for that uid, which the ingestion Jobs need.
 podSecurityContext:
   runAsNonRoot: true
   runAsUser: 10001
+  runAsGroup: 10001
   fsGroup: 10001
+  seccompProfile:
+    type: RuntimeDefault
 
 # readOnlyRootFilesystem is on, so every path the process must write to is an emptyDir: /tmp for
 # both pods, and the home directory for ingestion (go, maven, npm and dotnet caches).
@@ -85,6 +126,17 @@ ingestion:
   # Each Job runs infra/build_chunks.py then infra/ingest.py, the same two-step chain
   # docker-compose.yml runs. A failed chain retries up to backoffLimit times, then stays failed.
   backoffLimit: 2
+  # A Job that runs longer than this is killed and counted failed (a hung toolchain can no longer
+  # hold a Job for ever); a finished Job is removed this long after it ends. A value of 0 or an
+  # empty string omits the field.
+  activeDeadlineSeconds: 3600
+  ttlSecondsAfterFinished: 86400
+  # An intentional shrink of one pilot's published generation (see docs/DEPLOYMENT.md, "Accepting an
+  # intentional shrink"). Entries look like `symbols:100->46`; they are joined with `;` into
+  # FOSS_MCP_ACCEPT_REGRESSION, and a non-empty list REQUIRES a reason. Remove both again after the
+  # publish. Both are empty by default and then no variable is rendered.
+  acceptRegression: []
+  acceptRegressionReason: ""
   # Optional GitHub token for the reference readers (GITHUB_TOKEN). The token is never a value
   # here and never in the chart: the operator creates the Secret, and the chart only names it. When
   # existingSecret is empty (the default) nothing is emitted and the Jobs run unauthenticated. When
@@ -99,6 +151,8 @@ ingestion:
   # A pilot may carry `ingestionMemoryLimit` (a pilot-level key, not inside `library`), which replaces only
   # limits.memory for that pilot's Job. html/python, page/python, words/net (8Gi) and slides/cpp (10Gi) carry it
   # because each needs more than the 4Gi default to finish; the values are the smallest limits seen to finish.
+  # pdf/cpp (10Gi) was OOMKilled at 4Gi; 10Gi is slides/cpp's measured value (the same C++ toolchain
+  # class), and pdf/cpp's own minimum is not yet measured.
   resources:
     requests:
       cpu: 500m
@@ -204,6 +258,7 @@ ingestion:
       apiSurface: /app/fixtures/pdf_cpp/api_surface.json
       title: pdf/cpp API surface
       maxTypes: 300
+      ingestionMemoryLimit: 10Gi
       furnishedPage: /app/fixtures/furnished/pdf_cpp/pages/_index.md
       manifestPath: CMakeLists.txt
       library:

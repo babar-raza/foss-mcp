@@ -1,4 +1,4 @@
-# Deploying and proving the fourteen pilots
+# Deploying and proving the forty pilots
 
 This is the runbook for an operator who was not in the session that proved the pilots. It covers the
 Helm chart at `infra/helm/foss-mcp`, the three tools that install and prove it, and what to do when a
@@ -6,7 +6,7 @@ step fails. Everything here is taken from the repository; a value this document 
 found in `infra/helm/foss-mcp/values.yaml`, not guessed.
 
 The chart deploys one release per pilot. Each release has one serving pod (`foss-mcp-serving`), one
-ingestion Job per pilot, and its own manifests volume. Fourteen releases serve fourteen pilots.
+ingestion Job per pilot, and its own manifests volume. Forty releases serve forty pilots.
 
 The three tools are `scripts/deploy/install_pilots.py`, `scripts/deploy/prove_pilots.py`, and
 `scripts/deploy/pilots.py`. The last one holds no command: it reads the chart's `ingestion.pilots` from
@@ -56,7 +56,7 @@ override. A remote install therefore needs that override set by hand, and the ch
 `image.pullPolicy` is `IfNotPresent`. The standalone demo image has its own push tool; see "Hosting the
 standalone demo image" below.
 
-## 3. Install the fourteen pilots
+## 3. Install the forty pilots
 
 ```powershell
 python scripts/deploy/install_pilots.py --namespace foss-mcp --image-tag rev-1234567
@@ -74,6 +74,24 @@ What it does:
 - Prints a result table and writes `install-results.json` into `--values-dir`.
 - Exits 0 only if every install succeeded.
 
+`helm --wait` does not wait for Jobs. Without `--wait-for-jobs`, a pilot whose ingestion Job FAILED while
+its serving pod kept running the previous generation is reported `installed` with stale content. For any
+install that must not do that, run with `--wait-for-jobs` (recommended):
+
+```powershell
+python scripts/deploy/install_pilots.py --namespace foss-mcp --image-tag rev-1234567 --wait-for-jobs
+```
+
+The flag adds `--wait-for-jobs` to each helm command, right after `--wait`. After a successful helm exit the
+tool reads that release's ingestion Jobs (`kubectl get job -n <namespace> -l ...,app.kubernetes.io/component=ingestion
+-o json`) and records `succeeded`, `failed`, `running`, `missing` or `unknown` as `ingestion` in
+`install-results.json`. `INGESTION FAILED` in the table means helm succeeded but the pilot's ingestion Job
+failed, so the serving pod is still running the previous generation: the pilot counts as not installed, its
+pod states and the last 20 Job log lines are printed, and the exit status is 1. `installed (ingestion
+unverified)` means the Job was still running or its state could not be read (no `kubectl`, a non-zero
+`kubectl` exit, unparseable output); it does not fail the run, so check that pilot by hand. Without the
+flag no extra `kubectl` call is made and nothing about the output changes.
+
 Useful options:
 
 | Option | Meaning |
@@ -82,6 +100,7 @@ Useful options:
 | `--dry-run` | Print each helm command. Run nothing and write nothing. |
 | `--parallel N` | Installs running at once. Default 2. |
 | `--timeout 45m` | `helm --timeout` for each install. Default 30m. |
+| `--wait-for-jobs` | Also wait for the ingestion Jobs and report a failed ingestion as `INGESTION FAILED` (recommended). Off by default. |
 | `--embedding-gateway-secret NAME` | Name of an operator-created Secret holding the embedding gateway. Adds `--set-string embeddingGateway.existingSecret=NAME` to every install. See the section on passing the Secrets. |
 | `--github-token-secret NAME` | Name of an operator-created Secret holding a GitHub token. Adds `--set-string ingestion.githubToken.existingSecret=NAME` to every install. |
 
@@ -90,7 +109,7 @@ The tool never removes a release or a resource. It runs no uninstall and no dele
 A failed install prints the pod states of that release and the last 20 lines of its ingestion Job log,
 so the cause is on screen.
 
-## 4. Prove the fourteen pilots
+## 4. Prove the forty pilots
 
 ```powershell
 python scripts/deploy/prove_pilots.py --namespace foss-mcp
@@ -225,13 +244,35 @@ never release evidence. Check the commands with `--dry-run` first.
 
 ## What the init container does, and why a pod waits at Init
 
-Each serving pod has an init container, `wait-for-product-reference`. It loops until the file
-`product_reference_<family>_<platform>.json` exists on the manifests volume. That file is the
-packaging-manifest sidecar. The ingestion Job for the same pilot writes it as its last step.
+Each serving pod has an init container, `wait-for-product-reference-and-recent-releases`. It waits until
+BOTH sidecar files for the pilot, `product_reference_<family>_<platform>.json` and
+`recent_releases_<family>_<platform>.json`, exist on the manifests volume AND are non-empty (an empty or
+truncated file does not pass). The ingestion Job for the same pilot writes them as its last steps. The
+serving process reads both once, when it starts, so a pod that started earlier would run without them.
+The container asks for 10m CPU and 16Mi memory and is limited to 50m and 64Mi (`initGate.resources`).
 
-The serving process reads the sidecar once, when it starts. A serving pod that started earlier would
-run without it. So a serving pod stays at `Init:0/1` until its ingestion Job has written the sidecar.
-If the pod stays there, the cause is the Job, not the pod. Read the Job's log first.
+The wait is bounded. The chart value `initGate.timeoutSeconds` (default 3900) is how long the gate waits,
+and `initGate.intervalSeconds` (default 2) is the pause between checks. The default is the Job deadline
+(`ingestion.activeDeadlineSeconds`, 3600 s) plus 300 s: a fresh install's Job (build, example
+verification, publish, then the sidecar fetches) takes 5 to 40 minutes, serving reads its sidecars only
+once, and a shorter gate would start pods before the files exist. Lower it to 120 only once serving
+re-reads its sidecars.
+
+While the Job is healthy the pod shows `Init:0/1` and then starts. If the Job hung or failed, the gate
+gives up when the bound is reached, writes a line to its log naming the missing files (`init gate timed
+out after 3900 seconds waiting for non-empty ... starting WITHOUT them (degraded)`) and exits 0, so the
+pod starts without its sidecars. To an agent that pod answers the product reference as not available and
+`list_recent_changes` with an empty list; the serving cards own the exact wording of that degraded state.
+The cure is a retry of the pilot (see Retrying one pilot); once the retried Job has written the files,
+restart the degraded serving pod so that it reads them. A pod therefore leaves `Init:0/1` after at most
+`initGate.timeoutSeconds`; while it waits, the cause is the Job, so read the Job's log first.
+
+The serving container also has a `startupProbe` on `/healthz` (`probes.startup`: every 5 s, up to 30
+failures), which holds liveness and readiness off until the process first answers. Every ingestion Job is
+killed after `ingestion.activeDeadlineSeconds` (3600 s) and removed `ingestion.ttlSecondsAfterFinished`
+(86400 s) after it ends; set either to 0 to turn it off. No pod mounts a service-account token or receives
+service-link variables (`pod.automountServiceAccountToken`, `pod.enableServiceLinks`), and every pod runs
+with the runtime-default seccomp profile and group 10001.
 
 ## The optional GITHUB_TOKEN secret
 
@@ -324,9 +365,11 @@ The tools do not uninstall. An operator removes a release by hand, one release a
 helm uninstall foss-mcp-pdf-net -n foss-mcp
 ```
 
-Helm removes everything the release created, including its manifests volume claim, so the published
-generation is lost with it. To remove all fourteen, list the releases with `helm list -n foss-mcp` and
-uninstall each one. The namespace is left in place.
+The manifests volume claim is annotated `helm.sh/resource-policy: keep` (`manifests.keepOnUninstall`,
+default true), so it survives `helm uninstall` and the published generation is not lost with the release.
+Delete it deliberately with `kubectl delete pvc -n foss-mcp <release-fullname>-manifests`, or set
+`manifests.keepOnUninstall=false` before the release is installed so Helm removes it. To remove all forty,
+list the releases with `helm list -n foss-mcp` and uninstall each one. The namespace is left in place.
 
 ## Rolling back a generation
 
@@ -437,13 +480,26 @@ variables: `FOSS_MCP_ACCEPT_REGRESSION="symbols:100->46;total:153->58"` and
 `FOSS_MCP_ACCEPT_REGRESSION_REASON`. The chart sets them from the chart value `ingestion.acceptRegression`.
 That value applies to one pilot release and must be removed again after the publish.
 
+The chart values are `ingestion.acceptRegression` (a list of entries such as `symbols:100->46`, joined with
+`;`) and `ingestion.acceptRegressionReason`; a non-empty list with a blank reason makes `helm template`
+fail, and with the defaults (empty) neither variable is rendered. For one pilot release, after deleting
+that release's old ingestion Job by hand (a Job's pod template is immutable):
+
+```powershell
+helm upgrade foss-mcp-pdf-net infra/helm/foss-mcp -n foss-mcp --reuse-values --set-json 'ingestion.acceptRegression=["symbols:100->46","total:153->58"]' --set ingestion.acceptRegressionReason="upstream removed the vendored directory"
+```
+
+Once the Job has published, upgrade again with `--set-json 'ingestion.acceptRegression=[]'` and
+`--set ingestion.acceptRegressionReason=` to remove them.
+
 ## Troubleshooting
 
 | Symptom | Cause | Fix |
 | --- | --- | --- |
 | `FileNotFoundError` for `/app/fixtures/<pilot>/api_surface.json` in an ingestion Job log | The image was built before that pilot's fixture was added to the repository. | Commit, rebuild both images with `build_images.py` (step 1), load or push them, and reinstall with the new tag. |
 | `HTTP 403` and `rate limit exceeded` in an ingestion Job log | GitHub's anonymous rate limit is exhausted. No token is configured (see the GITHUB_TOKEN section and the one on passing the Secrets). | Wait for the limit to reset, then delete that Job and retry the pilot. |
-| A serving pod stuck at `Init:0/1` | Its ingestion Job has not written the product-reference sidecar, usually because the Job failed. | Read that Job's log with `kubectl logs job/<job-name> -n <namespace>`, fix the cause, then retry the pilot. |
+| A serving pod stuck at `Init:0/1` | Its ingestion Job has not written the product-reference and recent-releases sidecars, usually because the Job failed. The gate gives up after `initGate.timeoutSeconds` (3900 s) and starts the pod degraded. | Read that Job's log with `kubectl logs job/<job-name> -n <namespace>`, fix the cause, then retry the pilot. |
+| `INGESTION FAILED` in the `install_pilots.py --wait-for-jobs` table | Helm succeeded but the pilot's ingestion Job failed; the serving pod still runs the previous generation. | Read the printed Job log, fix the cause, then retry the pilot. |
 | `port 8201 already in use`, or a port-forward that exits at once | The local port `prove_pilots.py` chose is taken by another process. | Rerun with `--base-port` set to a free range, for example `--base-port 9401`. |
 | `docker is not on PATH`, or `Cannot connect to the Docker daemon` | Docker is not running, or the toolchain is not activated. | Start Docker Desktop, run `. .\scripts\toolchain\activate.ps1`, and rerun `build_images.py`. |
 

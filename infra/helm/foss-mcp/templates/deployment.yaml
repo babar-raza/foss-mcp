@@ -19,6 +19,8 @@ spec:
       securityContext:
         {{- toYaml .Values.podSecurityContext | nindent 8 }}
       terminationGracePeriodSeconds: {{ .Values.terminationGracePeriodSeconds }}
+      automountServiceAccountToken: {{ .Values.pod.automountServiceAccountToken }}
+      enableServiceLinks: {{ .Values.pod.enableServiceLinks }}
       # serve_http.py reads both its packaging-manifest sidecar AND its recent-releases sidecar
       # exactly once, at process start, with no refresh. The ingestion Job's own shell chain
       # (infra/helm/foss-mcp/templates/ingestion-job.yaml) runs fetch_product_reference.py
@@ -29,18 +31,28 @@ spec:
       # has written BOTH this identity's sidecars (product_reference_<family>_<platform>.json and
       # recent_releases_<family>_<platform>.json, the names sidecar_name and
       # recent_releases_sidecar_name return in infra/fetch_product_reference.py and
-      # infra/fetch_recent_releases.py respectively). This unconditional wait is safe against a
-      # persistent live-fetch failure because fetch_recent_releases.py's main() now always writes
-      # an empty-list sidecar on failure rather than leaving no file at all. The gate is a loop
-      # over two tests; it runs no other command.
+      # infra/fetch_recent_releases.py respectively), and both are non-empty (an empty or truncated
+      # file does not pass). The wait is BOUNDED by initGate.timeoutSeconds: a Job that hung or
+      # failed can no longer hold a pod in Init for ever. The default is the Job deadline
+      # (ingestion.activeDeadlineSeconds, 3600) plus 300 s, not a short 120 s, because a fresh
+      # install's Job takes 5 to 40 minutes and serving reads its sidecars only once, so a shorter
+      # gate would reintroduce TC-251 on every fresh install. When the bound is reached the gate
+      # names the missing files on stderr and the pod starts WITHOUT them (degraded); the cure is a
+      # retry of the pilot. The gate is a loop over four tests; it runs no other command.
       initContainers:
         - name: wait-for-product-reference-and-recent-releases
           image: "{{ .Values.image.repository }}:{{ required "image.tag must be set to a pinned version or digest" .Values.image.tag }}"
           imagePullPolicy: {{ .Values.image.pullPolicy }}
+          {{- $gateA := printf "%s/product_reference_%s_%s.json" .Values.manifests.mountPath .Values.deployment.family .Values.deployment.platform }}
+          {{- $gateB := printf "%s/recent_releases_%s_%s.json" .Values.manifests.mountPath .Values.deployment.family .Values.deployment.platform }}
+          {{- $gateT := int .Values.initGate.timeoutSeconds }}
+          {{- $gateI := int .Values.initGate.intervalSeconds }}
           command:
             - "sh"
             - "-c"
-            - {{ printf "until [ -f %s/product_reference_%s_%s.json ] && [ -f %s/recent_releases_%s_%s.json ]; do sleep 2; done" .Values.manifests.mountPath .Values.deployment.family .Values.deployment.platform .Values.manifests.mountPath .Values.deployment.family .Values.deployment.platform | quote }}
+            - {{ printf "waited=0; until [ -f %s ] && [ -s %s ] && [ -f %s ] && [ -s %s ]; do if [ \"$waited\" -ge %d ]; then echo \"init gate timed out after %d seconds waiting for non-empty %s and %s; starting WITHOUT them (degraded)\" >&2; exit 0; fi; sleep %d; waited=$((waited + %d)); done" $gateA $gateA $gateB $gateB $gateT $gateT $gateA $gateB $gateI $gateI | quote }}
+          resources:
+            {{- toYaml .Values.initGate.resources | nindent 12 }}
           securityContext:
             {{- toYaml .Values.containerSecurityContext | nindent 12 }}
           volumeMounts:
@@ -82,6 +94,13 @@ spec:
             {{- end }}
             - name: FOSS_MCP_SOURCE_KIND
               value: {{ .Values.deployment.sourceKind | quote }}
+          startupProbe:
+            httpGet:
+              path: /healthz
+              port: 8080
+            periodSeconds: {{ .Values.probes.startup.periodSeconds }}
+            timeoutSeconds: {{ .Values.probes.startup.timeoutSeconds }}
+            failureThreshold: {{ .Values.probes.startup.failureThreshold }}
           livenessProbe:
             httpGet:
               path: /healthz

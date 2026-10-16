@@ -3,9 +3,10 @@
 Offline. Renders the chart with the real helm binary (image.tag set) and parses the output with
 PyYAML. A missing helm binary FAILS these tests; it never skips them.
 
-Four pilots need more than the 4Gi default to finish their example verification: html/python,
-page/python and words/net at 8Gi (measured by the 2026-10-11 diagnosis Jobs) and slides/cpp at 10Gi
-(measured by its cluster run). The key lives at the PILOT level, never inside `library`, whose keys
+Five pilots need more than the 4Gi default to finish their example verification: html/python,
+page/python and words/net at 8Gi (measured by the 2026-10-11 diagnosis Jobs), slides/cpp at 10Gi
+(measured by its cluster run) and pdf/cpp at 10Gi (OOMKilled at 4Gi; G3/TC-512 gives it the value of
+the same C++ toolchain class, its own minimum is not yet measured). The key lives at the PILOT level, never inside `library`, whose keys
 are all forwarded to build_chunks.py as flags.
 """
 
@@ -38,6 +39,7 @@ EXPECTED_MEMORY_LIMITS: dict[tuple[str, str], str] = {
     ("page", "python"): "8Gi",
     ("words", "net"): "8Gi",
     ("slides", "cpp"): "10Gi",
+    ("pdf", "cpp"): "10Gi",
 }
 
 DEFAULT_LIMITS: dict[str, Any] = {

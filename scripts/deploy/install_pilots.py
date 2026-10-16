@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Install the fourteen pilot releases of the foss-mcp chart (G2/TC-223).
+"""Install the forty pilot releases of the foss-mcp chart (G2/TC-223).
 
 Usage:
     python scripts/deploy/install_pilots.py --namespace foss-mcp --image-tag rev-1234567
@@ -17,6 +17,16 @@ ingestion Job log.
 This tool never removes a helm release: the only resource it ever removes is that release's own scoped
 ingestion Job, immediately before each upgrade.
 --dry-run prints each pilot's Job removal command and helm command and runs neither, and writes nothing.
+
+--wait-for-jobs (G3/TC-512, off by default, so the default helm command and output are unchanged) is the
+recommended flag for any install that must not report a stale pilot as installed. `helm --wait` does not
+wait for Jobs, so a pilot whose ingestion FAILED while its serving pod kept running the previous
+generation would otherwise be reported `installed`. With the flag, helm gets `--wait-for-jobs` right
+after `--wait`, and after a successful helm exit the tool reads that release's ingestion Jobs
+(classify_job_status) and records succeeded, failed, running, missing or unknown in the results. A pilot
+whose helm exit was 0 but whose ingestion failed prints `INGESTION FAILED`, prints the failure
+diagnostics, counts as not installed and makes the exit status 1; running or unknown prints
+`installed (ingestion unverified)` and does not fail.
 
 Two optional flags name Secrets the operator created (G2/TC-339): --embedding-gateway-secret NAME and
 --github-token-secret NAME. Each appends exactly one `--set-string <chart key>=NAME` pair to every helm
@@ -73,6 +83,8 @@ class InstallResult:
     job_delete_rc: int
     duration_seconds: float
     error: str = ""
+    # G3/TC-512: succeeded, failed, running, missing or unknown; empty when --wait-for-jobs was not given.
+    ingestion: str = ""
 
 
 def secret_set_pairs(args: argparse.Namespace) -> list[str]:
@@ -105,6 +117,7 @@ def helm_install_command(
     timeout: str,
     *,
     extra_sets: Sequence[str] = (),
+    wait_for_jobs: bool = False,
 ) -> list[str]:
     cmd = [
         "helm",
@@ -120,7 +133,10 @@ def helm_install_command(
     for pair in extra_sets:
         # --set-string, never --set: plain --set turns a name such as null, true or 123 into a non-string.
         cmd += ["--set-string", pair]
-    cmd += ["-f", str(values_file), "--wait", "--timeout", timeout]
+    cmd += ["-f", str(values_file), "--wait"]
+    if wait_for_jobs:
+        cmd.append("--wait-for-jobs")
+    cmd += ["--timeout", timeout]
     return cmd
 
 
@@ -132,6 +148,61 @@ def job_delete_command(namespace: str, release: str) -> list[str]:
     """
     selector = f"{INSTANCE_LABEL}={release},{COMPONENT_LABEL}=ingestion"
     return ["kubectl", "delete", "job", "-n", namespace, "-l", selector, "--ignore-not-found"]
+
+
+def job_status_command(namespace: str, release: str) -> list[str]:
+    """List this release's ingestion Jobs as JSON, scoped by the same labels job_delete_command uses."""
+    selector = f"{INSTANCE_LABEL}={release},{COMPONENT_LABEL}=ingestion"
+    return ["kubectl", "get", "job", "-n", namespace, "-l", selector, "-o", "json"]
+
+
+def classify_job_status(stdout: str) -> str:
+    """Reduce `kubectl get job -o json` output to succeeded, failed, running, missing or unknown.
+
+    failed: any Job has a Failed condition with status True, or status.failed > 0 without
+    status.succeeded. running: a Job has status.active (and none failed). succeeded: every Job has
+    status.succeeded of at least 1. missing: the list is empty. unknown: anything unparseable or
+    in none of those states.
+    """
+    try:
+        document = json.loads(stdout)
+    except (ValueError, TypeError):
+        return "unknown"
+    if not isinstance(document, dict):
+        return "unknown"
+    items = document.get("items") if "items" in document else [document] if "status" in document else None
+    if not isinstance(items, list):
+        return "unknown"
+    if not items:
+        return "missing"
+    states: list[str] = []
+    for item in items:
+        status = item.get("status") if isinstance(item, dict) else None
+        if not isinstance(status, dict):
+            states.append("unknown")
+            continue
+        conditions = status.get("conditions")
+        failed_condition = isinstance(conditions, list) and any(
+            isinstance(c, dict) and c.get("type") == "Failed" and str(c.get("status")) == "True"
+            for c in conditions
+        )
+        succeeded = _count(status.get("succeeded"))
+        if failed_condition or (_count(status.get("failed")) > 0 and succeeded < 1):
+            states.append("failed")
+        elif succeeded >= 1:
+            states.append("succeeded")
+        elif _count(status.get("active")) > 0:
+            states.append("running")
+        else:
+            states.append("unknown")
+    for state in ("failed", "running", "unknown"):
+        if state in states:
+            return state
+    return "succeeded"
+
+
+def _count(value: object) -> int:
+    return value if isinstance(value, int) and not isinstance(value, bool) else 0
 
 
 def _run(cmd: list[str]) -> subprocess.CompletedProcess[str]:
@@ -157,6 +228,7 @@ def install_one(
     values_dir: Path,
     timeout: str,
     extra_sets: Sequence[str] = (),
+    wait_for_jobs: bool = False,
 ) -> InstallResult:
     release = pilots.release_name(pilot)
     values_file = values_dir / f"{pilots.pilot_key(pilot)}.yaml"
@@ -164,13 +236,29 @@ def install_one(
         job_delete_rc = _run(job_delete_command(namespace, release)).returncode
     except OSError:  # kubectl is not installed or not on PATH; never gates the helm step
         job_delete_rc = 127
-    cmd = helm_install_command(release, chart, namespace, tag, values_file, timeout, extra_sets=extra_sets)
+    cmd = helm_install_command(
+        release,
+        chart,
+        namespace,
+        tag,
+        values_file,
+        timeout,
+        extra_sets=extra_sets,
+        wait_for_jobs=wait_for_jobs,
+    )
     started = time.monotonic()
     try:
         proc = _run(cmd)
         rc, error = proc.returncode, proc.stderr.strip()
     except OSError as exc:  # helm is not installed or not on PATH
         rc, error = 127, f"{type(exc).__name__}: {exc}"
+    ingestion = ""
+    if wait_for_jobs and rc == 0:
+        try:
+            status = _run(job_status_command(namespace, release))
+            ingestion = classify_job_status(status.stdout) if status.returncode == 0 else "unknown"
+        except OSError:  # kubectl is not installed or not on PATH
+            ingestion = "unknown"
     return InstallResult(
         pilot=pilots.pilot_key(pilot),
         release=release,
@@ -180,6 +268,7 @@ def install_one(
         job_delete_rc=job_delete_rc,
         duration_seconds=round(time.monotonic() - started, 1),
         error=error,
+        ingestion=ingestion,
     )
 
 
@@ -193,11 +282,14 @@ def install_all(
     parallel: int,
     timeout: str,
     extra_sets: Sequence[str] = (),
+    wait_for_jobs: bool = False,
 ) -> list[InstallResult]:
     """Run the installs, at most parallel at a time. Results keep the order of selected."""
     with ThreadPoolExecutor(max_workers=parallel) as pool:
         futures = [
-            pool.submit(install_one, pilot, chart, namespace, tag, values_dir, timeout, extra_sets)
+            pool.submit(
+                install_one, pilot, chart, namespace, tag, values_dir, timeout, extra_sets, wait_for_jobs
+            )
             for pilot in selected
         ]
         return [future.result() for future in futures]
@@ -217,17 +309,29 @@ def diagnostics(namespace: str, release: str) -> str:
     return "\n".join(lines)
 
 
+def is_failed(result: InstallResult) -> bool:
+    """A pilot is failed when helm failed OR its ingestion Job failed (G3/TC-512)."""
+    return result.rc != 0 or result.ingestion == "failed"
+
+
 def format_table(results: list[InstallResult]) -> str:
     width = max([len(r.release) for r in results] + [len("release")])
     rows = [f"{'release':<{width}}  rc   seconds  status"]
     for r in results:
-        status = "installed" if r.rc == 0 else "FAILED"
+        if r.rc != 0:
+            status = "FAILED"
+        elif r.ingestion == "failed":
+            status = "INGESTION FAILED"
+        elif r.ingestion in ("running", "unknown"):
+            status = "installed (ingestion unverified)"
+        else:
+            status = "installed"
         rows.append(f"{r.release:<{width}}  {r.rc:<3}  {r.duration_seconds:>7}  {status}")
     return "\n".join(rows)
 
 
 def parse_args(argv: list[str] | None) -> argparse.Namespace:
-    parser = argparse.ArgumentParser(description="Install the fourteen foss-mcp pilot releases.")
+    parser = argparse.ArgumentParser(description="Install the forty foss-mcp pilot releases.")
     parser.add_argument("--namespace", required=True, help="Kubernetes namespace (created if absent)")
     parser.add_argument("--image-tag", required=True, help="tag of foss-mcp-serving and foss-mcp-ingestion")
     parser.add_argument("--chart", type=Path, default=DEFAULT_CHART, help="chart directory")
@@ -258,6 +362,14 @@ def parse_args(argv: list[str] | None) -> argparse.Namespace:
         metavar="NAME",
         help="name of the operator-created Secret holding the GitHub token (key: token)",
     )
+    parser.add_argument(
+        "--wait-for-jobs",
+        action="store_true",
+        help=(
+            "pass --wait-for-jobs to helm and check each release's ingestion Job afterwards, so a pilot "
+            "whose ingestion failed is reported INGESTION FAILED instead of installed (recommended)"
+        ),
+    )
     parser.add_argument("--dry-run", action="store_true", help="print the helm commands and run nothing")
     args = parser.parse_args(argv)
     if args.parallel < 1:
@@ -287,6 +399,7 @@ def main(argv: list[str] | None = None) -> int:
                 values_file,
                 args.timeout,
                 extra_sets=extra_sets,
+                wait_for_jobs=args.wait_for_jobs,
             )
             print(" ".join(delete_cmd))
             print(" ".join(cmd))
@@ -309,14 +422,21 @@ def main(argv: list[str] | None = None) -> int:
         parallel=args.parallel,
         timeout=args.timeout,
         extra_sets=extra_sets,
+        wait_for_jobs=args.wait_for_jobs,
     )
     results_path = args.values_dir / RESULTS_FILE
     results_path.write_text(json.dumps([asdict(r) for r in results], indent=2) + "\n", encoding="utf-8")
 
     print(format_table(results))
-    failed = [r for r in results if r.rc != 0]
+    failed = [r for r in results if is_failed(r)]
     for r in failed:
-        print(f"\n{r.release} failed with rc {r.rc}: {r.error}")
+        if r.rc != 0:
+            print(f"\n{r.release} failed with rc {r.rc}: {r.error}")
+        else:
+            print(
+                f"\n{r.release}: helm succeeded but its ingestion Job FAILED; "
+                "the serving pod is still running the previous generation"
+            )
         print(diagnostics(args.namespace, r.release))
     print(f"\n{len(results) - len(failed)} of {len(results)} installed; results: {results_path}")
     return 1 if failed else 0
