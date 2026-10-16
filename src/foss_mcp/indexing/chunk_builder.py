@@ -117,9 +117,13 @@ def _is_inherited_constructor_or_destructor(member: Mapping[str, object]) -> boo
 def _param_text(param: Mapping[str, object]) -> str:
     name = str(param.get("name") or "")
     param_type = _clean_type(param.get("type"))
-    text = f"{name}: {param_type}" if param_type else name
     default = param.get("default")
-    if default is None or not str(default).strip():
+    has_default = default is not None and bool(str(default).strip())
+    # TC-523: an optional parameter without a default is ``name?: type``; with a default the default
+    # already says the argument may be left out, so it renders ``name: type = default``.
+    marker = "?" if param.get("optional") is True and not has_default else ""
+    text = f"{name}{marker}: {param_type}" if param_type else f"{name}{marker}"
+    if not has_default:
         return text
     return f"{text} = {str(default).strip()}"
 
@@ -288,6 +292,9 @@ def _format_type_text(
     if defined_in:
         lines.append(f"Defined-In: {defined_in}")
     lines.extend(f"Exported-As: {name}" for name in exported_as)
+    alias_of = " ".join(str(source.get("alias_of") or "").split())
+    if alias_of:
+        lines.append(f"Alias-Of: {alias_of}")  # TC-523: a TypeScript type alias's right-hand side
 
     doc = entry.get("doc") or (source.get("doc") if members_from is not None else "") or ""
     if doc:

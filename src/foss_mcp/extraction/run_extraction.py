@@ -51,7 +51,7 @@ _LANGUAGE_BY_PLATFORM = {
 
 # The version of the artifact/fixture data contract this module writes. A fixture without the key
 # is version 1 (before TC-520). Later extraction cards bump it.
-EXTRACTOR_VERSION = 4
+EXTRACTOR_VERSION = 5
 
 # PROPOSAL, consumed by the extraction CLI (``main``) only: the ``--max-types`` each capped pilot
 # should be re-extracted with so the fixture holds its whole public API. Changing the helm

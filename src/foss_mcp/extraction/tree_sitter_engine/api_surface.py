@@ -372,7 +372,19 @@ def _extract_method_params(node, language: str) -> list[dict[str, Any]]:
 
     js_jsdoc: str | None = None
     js_destructured = 0
+    ts_destructured = 0
     for ch in param_list.children:
+        if language == "typescript" and ch.type in _TS_PARAM_TYPES:
+            # TC-523: defaults, optional markers, rest and destructured TypeScript parameters.
+            ts_param = _ts_param(ch, node)
+            if ts_param is not None:
+                ts_pattern = child_by_field(ch, "pattern")
+                if ts_pattern is not None and ts_pattern.type in ("object_pattern", "array_pattern"):
+                    if ts_destructured:
+                        ts_param["name"] = f"{ts_param['name']}{ts_destructured + 1}"
+                    ts_destructured += 1
+                params.append(ts_param)
+            continue
         if language == "javascript" and ch.type in _JS_PATTERN_PARAM_TYPES:
             # TC-521: defaulted, rest and destructured JavaScript parameters.
             if js_jsdoc is None:
@@ -671,6 +683,98 @@ def _js_pattern_param(ch, jsdoc_raw: str) -> dict[str, Any] | None:
     if left.type == "identifier":
         return {"name": node_text(left), "type": "", "default": _js_clip(node_text(right), _JS_DEFAULT_LIMIT)}
     return None
+
+
+# ---------------------------------------------------------------------------
+# TC-523: TypeScript member marks, type alias values, parameters, @internal members
+# ---------------------------------------------------------------------------
+
+# Parameter node types of a TypeScript ``formal_parameters`` list (a rest parameter is a
+# ``required_parameter`` whose ``pattern`` is a ``rest_pattern``).
+_TS_PARAM_TYPES = ("required_parameter", "optional_parameter")
+_TS_PARAM_DEFAULT_LIMIT = 120
+_TS_ALIAS_TEXT_LIMIT = 300
+_TS_HIDDEN_TAG_RE = re.compile(r"@(internal|hidden|ignore)\b")
+
+
+def _ts_clip(text: str, limit: int) -> str:
+    """*text* on one line (whitespace runs collapsed), at most *limit* characters, ``...`` when cut."""
+    text = " ".join(text.split())
+    return text if len(text) <= limit else text[: limit - 3] + "..."
+
+
+def _ts_member_flags(mnode) -> tuple[bool, bool, bool, bool]:
+    """``(readonly, optional, is_static, is_async)`` of a TypeScript/JavaScript member, read from the
+    ``readonly``, ``?``, ``static`` and ``async`` token children of its node (a ``property_signature``,
+    ``method_signature``, ``public_field_definition`` or ``method_definition``)."""
+    readonly = optional = is_static = is_async = False
+    for child in mnode.children:
+        if child.type == "readonly":
+            readonly = True
+        elif child.type == "?":
+            optional = True
+        elif child.type == "static":
+            is_static = True
+        elif child.type == "async":
+            is_async = True
+    return readonly, optional, is_static, is_async
+
+
+def _ts_alias_text(cnode) -> str:
+    """The right-hand side of a ``type_alias_declaration`` on one line, cut at ``_TS_ALIAS_TEXT_LIMIT``."""
+    value = child_by_field(cnode, "value")
+    return _ts_clip(node_text(value), _TS_ALIAS_TEXT_LIMIT) if value is not None else ""
+
+
+def _ts_is_hidden(node) -> bool:
+    """True when the JSDoc block that precedes *node* carries ``@internal``, ``@hidden`` or ``@ignore``
+    as a whole tag (a word such as ``@internalized`` inside prose is not one)."""
+    return _TS_HIDDEN_TAG_RE.search(_ts_raw_jsdoc_comment(node)) is not None
+
+
+def _ts_param(ch, fn_node) -> dict[str, Any] | None:
+    """The parameter dict of a TypeScript ``required_parameter`` / ``optional_parameter``, or ``None``.
+
+    ``{"name", "type"}`` as ever, plus ``"default"`` (source text, at most 120 characters) only when
+    the parameter has one and ``"optional"`` True only for ``x?: T``. A rest parameter is named
+    ``...name``; an ``object_pattern`` / ``array_pattern`` goes through ``_destructured_param`` with the
+    parameter's own type annotation, when it has one, as its type.
+    """
+    pattern = child_by_field(ch, "pattern")
+    if pattern is None:
+        return None
+    type_node = child_by_field(ch, "type")
+    ptype = node_text(type_node).lstrip(":").strip() if type_node is not None else ""
+    value = child_by_field(ch, "value")
+    param: dict[str, Any]
+    if pattern.type in ("object_pattern", "array_pattern"):
+        param = _destructured_param(pattern, value, _js_function_jsdoc(fn_node))
+        if ptype:
+            param["type"] = " ".join(ptype.split())
+        elif pattern.type == "array_pattern":
+            param["type"] = ""
+        # The per-key list serves the JavaScript constructor-field pass only; a TypeScript parameter is
+        # exactly ``name`` / ``type`` (+ ``default`` / ``optional``).
+        param.pop("destructured", None)
+    else:
+        if pattern.type == "rest_pattern":
+            ident = find_child_by_type(pattern, "identifier")
+            if ident is None:
+                return None
+            name = "..." + node_text(ident)
+        elif pattern.type == "identifier":
+            name = node_text(pattern)
+        else:
+            return None
+        if name in ("self", "this", "cls"):
+            return None
+        param = {"name": name, "type": ptype}
+    if value is not None:
+        default = _ts_clip(node_text(value), _TS_PARAM_DEFAULT_LIMIT)
+        param["default"] = "{}" if re.fullmatch(r"\{\s*\}", default) else default
+    if ch.type == "optional_parameter":
+        param["optional"] = True
+    return param
 
 
 # C# parameter modifiers kept as a prefix of the parameter's type (TC-396).
@@ -4035,6 +4139,10 @@ def extract_api_surface(
             if not cname:
                 continue
 
+            # TC-523: a type whose JSDoc says @internal / @hidden / @ignore is not emitted at all.
+            if language in ("typescript", "javascript") and _ts_is_hidden(cnode):
+                continue
+
             # SYS-PKG-001: exclude Java classes in internal/impl packages.
             # Check uses the file-level java_file_package captured above the loop.
             if (
@@ -4106,6 +4214,10 @@ def extract_api_surface(
                     continue
                 mname = _node_name(mnode, language)
                 if not mname:
+                    continue
+
+                # TC-523: a member whose JSDoc says @internal / @hidden / @ignore is not public API.
+                if language in ("typescript", "javascript") and _ts_is_hidden(mnode):
                     continue
 
                 # FIX-02: Skip methods that belong to nested classes.
@@ -4251,10 +4363,19 @@ def extract_api_surface(
                     # Previously every TS public_field_definition was
                     # hardcoded writable: False regardless of whether it was
                     # actually a plain mutable field.
-                    if language == "typescript" and mnode.type == "public_field_definition":
-                        _ts_is_static = any(ch.type == "static" for ch in mnode.children)
-                        _ts_is_readonly = any(ch.type == "readonly" for ch in mnode.children)
+                    if language in ("typescript", "javascript"):
+                        # TC-523: an interface / object-type member is writable unless ``readonly``;
+                        # ``static`` and ``?`` are the additive ``modifiers``.
+                        _ts_is_readonly, _ts_is_optional, _ts_is_static, _ = _ts_member_flags(mnode)
                         prop_entry["writable"] = not _ts_is_readonly
+                        _ts_prop_modifiers = [
+                            mark
+                            for mark, applies in (("static", _ts_is_static), ("optional", _ts_is_optional))
+                            if applies
+                        ]
+                        if _ts_prop_modifiers:
+                            prop_entry["modifiers"] = _ts_prop_modifiers
+                    if language == "typescript" and mnode.type == "public_field_definition":
                         if _ts_is_static:
                             prop_entry["is_static"] = True
                         _ts_value_node = child_by_field(mnode, "value")
@@ -4310,6 +4431,20 @@ def extract_api_surface(
                     method_modifiers = _csharp_modifiers(mnode)
                     if method_modifiers:
                         method_entry["modifiers"] = method_modifiers
+                if language in ("typescript", "javascript"):
+                    # TC-523: ``static``, ``async`` and an optional interface method (``m?()``).
+                    _, _ts_m_optional, _ts_m_static, _ts_m_async = _ts_member_flags(mnode)
+                    ts_method_modifiers = [
+                        mark
+                        for mark, applies in (
+                            ("static", _ts_m_static),
+                            ("async", _ts_m_async),
+                            ("optional", _ts_m_optional),
+                        )
+                        if applies
+                    ]
+                    if ts_method_modifiers:
+                        method_entry["modifiers"] = ts_method_modifiers
                 if language == "python" and _is_python_stub_any(mnode):
                     method_entry["stub"] = True
                 elif language == "csharp" and _is_csharp_stub(mnode):
@@ -4639,6 +4774,11 @@ def extract_api_surface(
                 cls_record["is_abstract"] = True
             if is_enum:
                 cls_record["enum_members"] = enum_members
+            # TC-523: a TypeScript type alias keeps its right-hand side (one line, cut at the limit).
+            if language == "typescript" and cnode.type == "type_alias_declaration":
+                alias_text = _ts_alias_text(cnode)
+                if alias_text:
+                    cls_record["alias_of"] = alias_text
 
             # FR-15: canonical_namespace (C++, C#) and class_package (Java)
             if language == "cpp":
