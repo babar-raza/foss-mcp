@@ -39,6 +39,7 @@ depends_on:
 - TC-516
 - TC-520
 - TC-538
+- TC-510
 write_paths:
 - src/foss_mcp/indexing/doc_chunking.py
 - infra/build_chunks.py
@@ -53,6 +54,9 @@ write_paths:
 - tests/e2e/test_pdf_java_live_content.py
 - tests/e2e/test_cells_rust_live_content.py
 - tests/e2e/test_slides_python_live_content.py
+- tests/infra/test_build_chunks.py
+- tests/infra/test_ingest_furnished_survival.py
+- tests/infra/test_furnished_chunk_survival.py
 satisfies:
 - REQ-G3-008
 source_refs:
@@ -116,6 +120,21 @@ inputs:
   Every new PUBLIC top-level function or class in src/foss_mcp must have a production caller: tests/test_unwired_modules.py walks the import graph from the real entrypoints (infra/serve_http.py, infra/build_chunks.py, src/foss_mcp/mcp/server.py ...) and is part of the second check. Keep a helper that only tests call private (leading underscore). Run that test before finishing.
 - >-
   SEQUENCING NOTE (supervisor, added at install): TC-520 is ACCEPTED BEFORE this card and already edited infra/build_chunks.py (extraction notice and coverage clauses). Read the merged file on main and keep those changes intact.
+- >-
+  SUPERVISOR AMENDMENT (after the first report; rework attempt 2). The worker's offline run showed the new chunker breaks nine existing pins in two files the draft did not list; both files and a new survival test are now in
+  write_paths. (1) tests/infra/test_ingest_furnished_survival.py: `test_installation_quick_start_and_scope_chunks_are_published_unchanged_but_for_backticks` asserts `"Quick Start" in titles`; merging short neighbours means one
+  chunk now carries one heading. Re-pin it to the content: the Installation text AND the Quick Start text of the page are each present in some published chunk (keep every other assertion). `test_pdf_net_core_api_chunk_is_published`
+  asserted one 70,000+ character chunk titled "Core API"; re-pin it to the new contract: the Core API table's first row and its last row are each in some published chunk, no published chunk of that section is over 8,000
+  characters, and the section's chunks together are not lost. (2) tests/infra/test_build_chunks.py `test_furnished_page_doc_chunks_survive_real_citable_chunks_pass`: this one is NOT merely a pin. `citable_chunks` drops a WHOLE
+  chunk when any single inline-code anchor in it is unsupported (src/foss_mcp/normalization/citation.py `validate_chunk`), so merging sections into 3,000-character chunks widens the blast radius of one bad anchor and can shrink
+  the documentation that is actually published. Therefore: write the new offline test tests/infra/test_furnished_chunk_survival.py. For every shipped pilot whose committed furnished page has a committed `api_surface.json`
+  fixture (find them under tests/fixtures; the tests in test_build_chunks.py show how pdf/net loads one), compute the SURVIVING doc-chunk characters (sum of the text of the chunks `citable_chunks` keeps, using the real
+  `symbol_index_from_api_surface`, `validate_document`, `known_counts_from_fixture`) with the NEW chunker and with the OLD behaviour (the one-chunk-per-section chunker as of `git show dc638072:infra/build_chunks.py`; copy that
+  small old function into the test module as `_old_chunks`, clearly named), and assert new_surviving >= 0.9 * old_surviving for each such pilot and that the content origin still has at least one surviving chunk. If a pilot
+  misses the 0.9 floor, you MAY lower `TARGET_DOC_CHUNK_CHARS` (never below 1,500, never change MIN or MAX) until every pilot meets it, and say in the commit body which value you chose and the measured ratios per pilot. If no
+  value of at least 1,500 meets the floor, STOP and report the measured table (do not weaken the floor). Then re-pin `test_furnished_page_doc_chunks_survive_real_citable_chunks_pass` to assert the content origin survives
+  (it should pass again once the target is right; if it only passes after weakening it, report instead). (3) The e2e `REAL_DOC_TASK_QUERY` constants for pdf_net and pdf_typescript may be re-pinned together with the content
+  type, with the replay evidence in the comment (the worker found the old wording stops at the developer_guide overview chunks); no other e2e change. (4) All of these new and re-pinned tests are part of check 2.
 actions:
 - >-
   Chunk documentation candidates so a FAQ answer stays with its question, a lead-in stays with its list, tiny neighbours merge, and anything over 7,600 characters is split at row or line boundaries with a Part marker instead of being cut.
@@ -130,7 +149,7 @@ checks:
   junitxml: true
   proves:
   - REQ-G3-008
-- command: '{python} -m pytest tests/indexing/test_doc_chunking.py tests/indexing/test_lookup_doc_fallback_query_safety.py tests/indexing/test_doc_candidates.py tests/indexing/test_authored_examples.py tests/infra/test_build_chunks.py tests/infra/test_build_chunks_sanitize.py tests/infra/test_build_chunks_extraction_notice.py tests/infra/test_ingest_furnished_survival.py tests/infra/test_furnished_chunk_quality.py tests/mcp tests/test_unwired_modules.py -q -rfE -p no:cacheprovider'
+- command: '{python} -m pytest tests/indexing/test_doc_chunking.py tests/indexing/test_lookup_doc_fallback_query_safety.py tests/indexing/test_doc_candidates.py tests/indexing/test_authored_examples.py tests/infra/test_build_chunks.py tests/infra/test_build_chunks_sanitize.py tests/infra/test_build_chunks_extraction_notice.py tests/infra/test_ingest_furnished_survival.py tests/infra/test_furnished_chunk_quality.py tests/infra/test_furnished_chunk_survival.py tests/mcp tests/test_unwired_modules.py -q -rfE -p no:cacheprovider'
   expect: exit 0
   timeout_seconds: 3000
   junitxml: true
