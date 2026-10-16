@@ -34,6 +34,9 @@ PublicBy = Literal["name", "__all__", "reexport"]
 
 _EXCLUDED_PARTS = frozenset({"__pycache__", "build", "dist", "tests", "test", "docs", "examples"})
 
+# TC-522: a parameter default longer than this many characters is cut and ends in "...".
+_DEFAULT_TEXT_LIMIT = 120
+
 
 @dataclass(frozen=True)
 class PublicSymbol:
@@ -56,6 +59,13 @@ class PublicSymbol:
     # excluded, ``*args`` as "*name" and ``**kwargs`` as "**name".
     params: tuple[tuple[str, str], ...] = ()
     writable: bool | None = None  # a property only: True with a ``@<name>.setter`` sibling, else False
+    # TC-522: one ``(name, kind, default)`` per entry of ``params``, same order and names. ``kind`` is
+    # positional, positional_only, var_positional, keyword_only or var_keyword; ``default`` is the
+    # source text of the default (cut at ``_DEFAULT_TEXT_LIMIT``), empty when the parameter has none.
+    param_details: tuple[tuple[str, str, str], ...] = ()
+    # TC-522: "static", "classmethod", "async" (in that order) for a function or method; none for a
+    # property getter.
+    modifiers: tuple[str, ...] = ()
 
 
 def _first_docstring_line(node: ast.AST) -> str | None:
@@ -122,6 +132,62 @@ def _declared_params(
     if args.kwarg is not None:
         declared.append((f"**{args.kwarg.arg}", _text(args.kwarg)))
     return tuple(declared)
+
+
+def _default_text(node: ast.expr | None) -> str:
+    """TC-522: the source text of a default value, cut at ``_DEFAULT_TEXT_LIMIT`` characters with a
+    trailing ``...``; empty when the parameter has no default."""
+    if node is None:
+        return ""
+    text = ast.unparse(node)
+    return text if len(text) <= _DEFAULT_TEXT_LIMIT else text[:_DEFAULT_TEXT_LIMIT] + "..."
+
+
+def _declared_param_details(
+    node: ast.FunctionDef | ast.AsyncFunctionDef,
+) -> tuple[tuple[str, str, str], ...]:
+    """TC-522: ``(name, kind, default)`` for every parameter ``_declared_params`` lists, in the same
+    order with the same names (``*args`` / ``**kw`` keep their stars, a leading self/cls is dropped).
+
+    ``kind`` is positional_only, positional, var_positional, keyword_only or var_keyword.
+    ``default`` is the default's source text, empty when there is none.
+    """
+    args = node.args
+    positional = [*args.posonlyargs, *args.args]
+    defaults = [None] * (len(positional) - len(args.defaults)) + list(args.defaults)
+    positional_only = len(args.posonlyargs)
+    skip = 1 if positional and positional[0].arg in ("self", "cls") else 0
+    details: list[tuple[str, str, str]] = []
+    for index, arg in enumerate(positional):
+        if index < skip:
+            continue
+        kind = "positional_only" if index < positional_only else "positional"
+        details.append((arg.arg, kind, _default_text(defaults[index])))
+    if args.vararg is not None:
+        details.append((f"*{args.vararg.arg}", "var_positional", ""))
+    details.extend(
+        (arg.arg, "keyword_only", _default_text(default))
+        for arg, default in zip(args.kwonlyargs, args.kw_defaults, strict=True)
+    )
+    if args.kwarg is not None:
+        details.append((f"**{args.kwarg.arg}", "var_keyword", ""))
+    return tuple(details)
+
+
+def _function_modifiers(node: ast.FunctionDef | ast.AsyncFunctionDef) -> tuple[str, ...]:
+    """TC-522: ``static`` / ``classmethod`` / ``async`` (in that order) for *node*, found by decorator
+    name even when other decorators are stacked. A property getter has none."""
+    if _is_property_getter(node):
+        return ()
+    names = {ast.unparse(decorator) for decorator in node.decorator_list}
+    found: list[str] = []
+    if names & {"staticmethod", "builtins.staticmethod"}:
+        found.append("static")
+    if names & {"classmethod", "builtins.classmethod"}:
+        found.append("classmethod")
+    if isinstance(node, ast.AsyncFunctionDef):
+        found.append("async")
+    return tuple(found)
 
 
 def _class_kind(node: ast.ClassDef) -> SymbolKind:
@@ -238,6 +304,8 @@ def _module_symbols(
                         return_type=return_type,
                         param_types=param_types,
                         params=() if isinstance(node, ast.ClassDef) else _declared_params(node),
+                        param_details=() if isinstance(node, ast.ClassDef) else _declared_param_details(node),
+                        modifiers=() if isinstance(node, ast.ClassDef) else _function_modifiers(node),
                     )
                 )
                 if isinstance(node, ast.ClassDef):
@@ -326,6 +394,8 @@ def _methods(node: ast.ClassDef, module: str, relative: str, public_by: PublicBy
                 param_types=param_types,
                 params=_declared_params(item),
                 writable=(item.name in setters) if is_property else None,
+                param_details=_declared_param_details(item),
+                modifiers=_function_modifiers(item),
             )
         )
     if _class_kind(node) != "enum":
@@ -433,6 +503,8 @@ class _OriginDefinition:
     param_types: tuple[tuple[str, str], ...]
     methods: tuple[PublicSymbol, ...] = ()  # the origin ClassDef's own public methods, via _methods()
     params: tuple[tuple[str, str], ...] = ()  # TC-393: every declared parameter (functions only)
+    param_details: tuple[tuple[str, str, str], ...] = ()  # TC-522: (name, kind, default) per param
+    modifiers: tuple[str, ...] = ()  # TC-522: static / classmethod / async (functions only)
 
 
 def _origin_definition(
@@ -485,6 +557,8 @@ def _origin_definition(
                 param_types,
                 methods,
                 params=() if isinstance(found, ast.ClassDef) else _declared_params(found),
+                param_details=() if isinstance(found, ast.ClassDef) else _declared_param_details(found),
+                modifiers=() if isinstance(found, ast.ClassDef) else _function_modifiers(found),
             )
         if forwarded is None or forwarded in seen or forwarded == origin:
             return None
@@ -810,6 +884,12 @@ def inspect_public_surface(repository_root: Path, package_dirs: Sequence[str]) -
                     if origin is not None
                     else (definition.param_types if definition else ()),
                     params=origin.params if origin is not None else (definition.params if definition else ()),
+                    param_details=origin.param_details
+                    if origin is not None
+                    else (definition.param_details if definition else ()),
+                    modifiers=origin.modifiers
+                    if origin is not None
+                    else (definition.modifiers if definition else ()),
                 )
                 symbols[name] = resolved
                 # An underscore-origin class's own methods are never otherwise scanned (see

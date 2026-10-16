@@ -148,8 +148,31 @@ def _mixin_suffix(entry: Mapping[str, object]) -> str:
     return f"  (mixin {mixin}, {file})" if file else f"  (mixin {mixin})"
 
 
+def _param_list_text(params: Sequence[Mapping[str, object]]) -> str:
+    """TC-522: the comma-joined parameter list. A parameter that carries ``kind`` (a python extraction)
+    adds the bare ``*`` marker before the first keyword-only parameter, unless an earlier ``*name``
+    already ends the positional ones, and the bare ``/`` marker right after the last positional-only
+    parameter. A marker is a plain token of the list, never a parameter. Without ``kind`` the list is
+    exactly the parameters' own texts."""
+    kinds = [str(param.get("kind") or "") for param in params]
+    last_positional_only = max((i for i, kind in enumerate(kinds) if kind == "positional_only"), default=-1)
+    parts: list[str] = []
+    star_seen = False
+    for index, param in enumerate(params):
+        name = str(param.get("name") or "")
+        if kinds[index] == "var_positional" or (name.startswith("*") and not name.startswith("**")):
+            star_seen = True
+        if kinds[index] == "keyword_only" and not star_seen:
+            parts.append("*")
+            star_seen = True
+        parts.append(_param_text(param))
+        if index == last_positional_only:
+            parts.append("/")
+    return ", ".join(parts)
+
+
 def _method_line(method: Mapping[str, object]) -> str:
-    params = ", ".join(_param_text(param) for param in _items(method.get("params")))
+    params = _param_list_text(_items(method.get("params")))
     return_type = _clean_type(method.get("return_type"))
     arrow = f" -> {return_type}" if return_type else ""
     return (
@@ -362,16 +385,66 @@ def _unique_fqns(entries: Sequence[Mapping[str, object]]) -> list[str]:
     return result
 
 
-def _reexport_pairs(entries: Sequence[Mapping[str, object]]) -> dict[int, int]:
-    """TC-382 (rule 8): ``{stub index: definition index}`` for each Python re-export stub - an
-    entry from a package ``__init__.py`` with no members, for which exactly one other entry of the
-    same name, under the stub's package, has members.
+_REEXPORT_CHAIN_LIMIT = 5
+
+
+def _explicit_reexport_pairs(entries: Sequence[Mapping[str, object]]) -> dict[int, int]:
+    """TC-522: ``{shell index: definition index}`` for each entry whose ``reexport_of`` names another
+    entry (the first entry whose ``class_import`` equals it), whatever members the shell has.
+
+    A target that is itself a re-export is followed, up to ``_REEXPORT_CHAIN_LIMIT`` hops, and the
+    entry reached is the definition. A chain that loops, an entry that names itself and a target that
+    is not an entry (a private origin) are not paired here.
     """
+    by_import: dict[str, int] = {}
+    for index, entry in enumerate(entries):
+        key = entry.get("class_import")
+        if key:
+            by_import.setdefault(str(key), index)
+
+    def follow(start: int) -> int | None:
+        visited = {start}
+        current = start
+        for _ in range(_REEXPORT_CHAIN_LIMIT):
+            target_name = entries[current].get("reexport_of")
+            target = by_import.get(str(target_name)) if target_name else None
+            if target is None:
+                break
+            if target in visited:
+                return None
+            visited.add(target)
+            current = target
+        return current if current != start else None
+
     pairs: dict[int, int] = {}
+    for index, entry in enumerate(entries):
+        if entry.get("reexport_of"):
+            definition = follow(index)
+            if definition is not None:
+                pairs[index] = definition
+    for shell, definition in list(pairs.items()):
+        seen = {shell}
+        while definition in pairs and definition not in seen:
+            seen.add(definition)
+            definition = pairs[definition]
+        pairs[shell] = definition
+    return pairs
+
+
+def _reexport_pairs(entries: Sequence[Mapping[str, object]]) -> dict[int, int]:
+    """``{shell index: definition index}`` for each Python re-export shell.
+
+    TC-522: an entry with ``reexport_of`` whose target is another entry pairs with it first, whatever
+    members it has (``_explicit_reexport_pairs``). TC-382 (rule 8), the fallback for the other
+    entries: a stub from a package ``__init__.py`` with no members, for which exactly one other
+    entry of the same name, under the stub's package, has members (an entry paired explicitly is
+    never that definition).
+    """
+    pairs = _explicit_reexport_pairs(entries)
     for index, entry in enumerate(entries):
         file = str(entry.get("file") or "")
         class_import = entry.get("class_import")
-        if not file.endswith("__init__.py") or not class_import or _has_members(entry):
+        if index in pairs or not file.endswith("__init__.py") or not class_import or _has_members(entry):
             continue
         package = str(class_import).rpartition(".")[0]
         if not package:
@@ -381,6 +454,7 @@ def _reexport_pairs(entries: Sequence[Mapping[str, object]]) -> dict[int, int]:
             other_index
             for other_index, other in enumerate(entries)
             if other_index != index
+            and other_index not in pairs
             and other.get("name") == entry.get("name")
             and str(other.get("class_import") or "").startswith(prefix)
             and _has_members(other)
@@ -388,6 +462,20 @@ def _reexport_pairs(entries: Sequence[Mapping[str, object]]) -> dict[int, int]:
         if len(candidates) == 1:
             pairs[index] = candidates[0]
     return pairs
+
+
+def _slot_units(pairs: Mapping[int, int], count: int) -> list[int]:
+    """The unit (slot) each of *count* entries belongs to: a definition with its paired shells is one
+    unit, named by the earliest member's index; any other entry is a unit of its own."""
+    members: dict[int, list[int]] = {}
+    for shell, definition in pairs.items():
+        members.setdefault(definition, [definition]).append(shell)
+    unit = list(range(count))
+    for group in members.values():
+        first = min(group)
+        for index in group:
+            unit[index] = first
+    return unit
 
 
 # TC-520: the share of source files that may fail to parse before the coverage line, the
@@ -465,12 +553,31 @@ def build_chunks_from_api_surface(
 ) -> list[Chunk]:
     """A real, bounded slice of an ``api_surface.json`` extraction, normalized and chunked
     through TC-014's own pipeline - the first real content a generation publishes for a pilot.
+
+    TC-522: ``max_types`` counts SLOTS. A python re-export shell and its definition are one slot
+    (``_reexport_pairs`` is computed over every non-test entry before anything is cut), so the cap
+    never separates a pair: the first ``max_types`` slots are kept with every member, in fixture
+    order, and a shell that ranks first pulls its definition in. The ``API-Coverage:`` line still
+    counts entries, so it can show more kept entries than ``max_types``. A fixture without python
+    shells is cut exactly as before.
     """
-    entries = [entry for entry in _items(fixture["types"]) if not _is_test_source(entry.get("file"))][
-        :max_types
-    ]
+    candidates = [entry for entry in _items(fixture["types"]) if not _is_test_source(entry.get("file"))]
+    candidate_pairs = _reexport_pairs(candidates)
+    unit_of = _slot_units(candidate_pairs, len(candidates))
+    kept_units: set[int] = set()
+    for unit in unit_of:
+        if len(kept_units) >= max_types:
+            break
+        kept_units.add(unit)
+    kept = [index for index, unit in enumerate(unit_of) if unit in kept_units]
+    position = {index: place for place, index in enumerate(kept)}
+    entries = [candidates[index] for index in kept]
+    pairs = {
+        position[shell]: position[definition]
+        for shell, definition in candidate_pairs.items()
+        if shell in position
+    }
     fqns = _unique_fqns(entries)
-    pairs = _reexport_pairs(entries)
     exported_as: dict[int, list[str]] = {}
     for stub_index, definition_index in pairs.items():
         exported_as.setdefault(definition_index, []).append(fqns[stub_index])

@@ -51,7 +51,7 @@ _LANGUAGE_BY_PLATFORM = {
 
 # The version of the artifact/fixture data contract this module writes. A fixture without the key
 # is version 1 (before TC-520). Later extraction cards bump it.
-EXTRACTOR_VERSION = 3
+EXTRACTOR_VERSION = 4
 
 # PROPOSAL, consumed by the extraction CLI (``main``) only: the ``--max-types`` each capped pilot
 # should be re-extracted with so the fixture holds its whole public API. Changing the helm
@@ -175,6 +175,23 @@ def _python_package_dirs(clone_root: Path) -> list[str]:
     return [] if relative == "." else [relative]
 
 
+def _python_param_dicts(symbol: python_surface.PublicSymbol) -> list[dict[str, Any]]:
+    """TC-522: the ``params`` list of a python function or method: ``{"name", "type"}`` per declared
+    parameter, plus ``"default"`` (the default's source text) only when it has one and ``"kind"`` only
+    for a positional-only or keyword-only parameter (``*args`` / ``**kw`` are visible from their stars)."""
+    details = {name: (kind, default) for name, kind, default in symbol.param_details}
+    params: list[dict[str, Any]] = []
+    for name, annotation in symbol.params or symbol.param_types:
+        param: dict[str, Any] = {"name": name, "type": annotation}
+        kind, default = details.get(name, ("", ""))
+        if default:
+            param["default"] = default
+        if kind in ("positional_only", "keyword_only"):
+            param["kind"] = kind
+        params.append(param)
+    return params
+
+
 def _python_types_from_surface(surface: python_surface.PublicSurface) -> list[dict[str, Any]]:
     """Adapt ``python_surface``'s ``PublicSymbol`` stream into the exact dict shape
     ``extract_api_surface`` produces (see tests/fixtures/pdf_net/api_surface.json), so
@@ -214,8 +231,14 @@ def _python_types_from_surface(surface: python_surface.PublicSurface) -> list[di
         entry["bases"] = list(symbol.bases)  # TC-265: real bases
         if symbol.kind == "function":
             # TC-473: a module function carries its signature, as a method does.
-            entry["params"] = [{"name": n, "type": t} for n, t in (symbol.params or symbol.param_types)]
+            entry["params"] = _python_param_dicts(symbol)
             entry["return_type"] = symbol.return_type or ""
+            if symbol.modifiers:
+                entry["modifiers"] = list(symbol.modifiers)
+        elif symbol.public_by == "reexport" and symbol.reexported_from:
+            # TC-522: a class/enum re-export names the definition it re-exports, so a shell that
+            # carries members of its own (inherited from a private base) still travels with it.
+            entry["reexport_of"] = symbol.reexported_from
         if symbol.kind == "enum":
             entry["enum_members"] = []
         entries[symbol.qualified_name] = entry
@@ -242,21 +265,20 @@ def _python_types_from_surface(surface: python_surface.PublicSurface) -> list[di
         # Every declared parameter (TC-393), an unannotated one with type "" - _reference_strings()
         # reads `or ""`, so an empty type never pollutes centrality. A symbol built without
         # `params` falls back to its annotated `param_types`, as before.
-        declared = symbol.params or symbol.param_types
-        params = [{"name": arg_name, "type": arg_type} for arg_name, arg_type in declared]
-        owner["methods"].append(
-            {
-                "name": symbol.name,
-                "doc": symbol.docstring or "",
-                "file": symbol.source_path,
-                "line": symbol.line,
-                "params": params,
-                "return_type": symbol.return_type or "",  # TC-265: real return_type
-                "deprecated": False,
-                "deprecated_reason": "",
-                "is_constructor": symbol.name == "__init__",
-            }
-        )
+        method: dict[str, Any] = {
+            "name": symbol.name,
+            "doc": symbol.docstring or "",
+            "file": symbol.source_path,
+            "line": symbol.line,
+            "params": _python_param_dicts(symbol),
+            "return_type": symbol.return_type or "",  # TC-265: real return_type
+            "deprecated": False,
+            "deprecated_reason": "",
+            "is_constructor": symbol.name == "__init__",
+        }
+        if symbol.modifiers and symbol.name != "__init__":
+            method["modifiers"] = list(symbol.modifiers)  # TC-522: static / classmethod / async
+        owner["methods"].append(method)
 
     return [entries[key] for key in order]
 
@@ -537,10 +559,65 @@ def _package_of(entry: dict[str, Any]) -> str:
     return qualified.rsplit(".", 1)[0] if "." in qualified else ""
 
 
+_REEXPORT_CHAIN_LIMIT = 5
+
+
+def _explicit_shell_owners(types: list[dict[str, Any]]) -> dict[int, int]:
+    """TC-522: ``{shell index: definition index}`` for every entry that names its definition in
+    ``reexport_of``, whatever members the shell has.
+
+    The target is the entry whose ``class_import`` equals ``reexport_of`` (the first one in artifact
+    order). A target that is itself a re-export is followed, up to ``_REEXPORT_CHAIN_LIMIT`` hops; the
+    entry reached is the definition. A chain that loops back on itself, an entry that names itself and a
+    target that is not an entry of *types* (a private origin) leave the entry out, to be paired by the
+    member-less heuristic instead.
+    """
+    by_import: dict[str, int] = {}
+    for index, entry in enumerate(types):
+        key = entry.get("class_import")
+        if key:
+            by_import.setdefault(str(key), index)
+
+    def follow(start: int) -> int | None:
+        visited = {start}
+        current = start
+        for _ in range(_REEXPORT_CHAIN_LIMIT):
+            target_name = types[current].get("reexport_of")
+            if not target_name:
+                break
+            target = by_import.get(str(target_name))
+            if target is None:
+                break
+            if target in visited:
+                return None
+            visited.add(target)
+            current = target
+        return current if current != start else None
+
+    owner: dict[int, int] = {}
+    for index, entry in enumerate(types):
+        if entry.get("reexport_of"):
+            definition = follow(index)
+            if definition is not None:
+                owner[index] = definition
+    # A chain cut at the hop limit can end at an entry that is a shell itself: settle on its definition.
+    for shell, definition in list(owner.items()):
+        seen = {shell}
+        while definition in owner and definition not in seen:
+            seen.add(definition)
+            definition = owner[definition]
+        owner[shell] = definition
+    return owner
+
+
 def _alias_groups(types: list[dict[str, Any]]) -> list[list[int]]:
     """Partition the indices of *types* into selection groups.
 
-    A python class that carries no members but shares its ``name`` with one that does is a
+    An entry that names its definition in ``reexport_of`` joins that definition's group as a shell
+    (``_explicit_shell_owners``), even when the shell has members of its own - the methods a private
+    base class gave it - and such a shell is never offered as a definition below.
+
+    Otherwise a python class that carries no members but shares its ``name`` with one that does is a
     re-export shell of it (an ``__init__.py`` stub, or any other member-less alias): it joins its
     definition's group, so the definition and every shell are kept or dropped together and the
     group costs one slot. The definition is the member-bearing same-name class under the shell's
@@ -549,17 +626,19 @@ def _alias_groups(types: list[dict[str, Any]]) -> list[list[int]]:
     group. Each group lists its definition first, then its shells in artifact order; groups are
     ordered by their first member's artifact index.
     """
+    owner = _explicit_shell_owners(types)
     definitions: dict[str, list[int]] = {}
     for index, entry in enumerate(types):
+        if index in owner:
+            continue
         if _is_python_type(entry) and _has_members(entry) and entry.get("name"):
             definitions.setdefault(entry["name"], []).append(index)
 
     def class_import(index: int) -> str:
         return types[index].get("class_import") or ""
 
-    owner: dict[int, int] = {}
     for index, entry in enumerate(types):
-        if not _is_python_type(entry) or _has_members(entry):
+        if index in owner or not _is_python_type(entry) or _has_members(entry):
             continue
         candidates = definitions.get(entry.get("name") or "")
         if not candidates:
@@ -569,7 +648,7 @@ def _alias_groups(types: list[dict[str, Any]]) -> list[list[int]]:
         owner[index] = min(under or candidates, key=lambda c: (class_import(c), c))
 
     members: dict[int, list[int]] = {}
-    for shell, definition in owner.items():
+    for shell, definition in sorted(owner.items()):
         members.setdefault(definition, []).append(shell)
 
     groups: list[list[int]] = []
