@@ -66,6 +66,7 @@ write_paths:
 - infra/helm/foss-mcp/values.yaml
 - docker-compose.yml
 - src/foss_mcp/extraction/run_extraction.py
+- tests/extraction/test_run_extraction_alias_groups.py
 - tests/fixtures/readme_identifier_allowlist.json
 - tests/extraction/test_reextracted_uncapped.py
 - tests/deploy/test_fleet_consistency.py
@@ -279,6 +280,13 @@ inputs:
   MEMBER_FLOOR, OVERSIZE_CHUNK_CEILING), every changed assertion of an existing test with its reason, the identifiers still on the allowlist that look like API, the pilots you added to STALE_BAKED_PILOTS, the new
   UNRESOLVED_EXCEPTIONS values, and every seed you replaced. Do NOT edit any src/ file other than the values and comment of RECOMMENDED_MAX_TYPES, any furnished page, plans/, project/, ops/, evidence/, schemas/ or
   docs/, and do not run an ingestion, docker or a cluster command.
+- >-
+  SUPERVISOR AMENDMENT (after the first report; rework attempt 2). The first run re-extracted ten of the eleven pilots (WIP commit 743a3b85 on your branch stays; the totals you measured are the totals the caps use: pdf_typescript 4393,
+  pdf_go 357, pdf_cpp 359, slides_cpp 355, cells_cpp 200 (below 300, so its three caps stay at 300), pdf_java 1239, pdf_python 867, slides_python 1023, html_python 323, words_python 391) and stopped on 3d_python: the CLI wrote 690 of 697 types. Root cause (yours, measured): in
+  `src/foss_mcp/extraction/run_extraction.py` `_alias_groups`, seven re-export shell entries of `aspose/threed/formats/__init__.py` (FbxLoadOptions, GltfLoadOptions, GltfSaveOptions, ObjLoadOptions, ObjSaveOptions, StlLoadOptions, StlSaveOptions) each name, via `reexport_of`, a
+  member-less module entry; the name-matching second loop then pairs that module entry as a shell of the member-bearing definition (for example index 311 -> 312 -> 393), so entry 311 hangs off an index that is itself a shell and its group is never emitted. THAT FILE IS IN YOUR write_paths. You MAY (and
+  for this one defect must) fix it, changing only `_alias_groups`: resolve explicit shell owners transitively (follow `reexport_of` and the name-matched pairing to the final member-bearing definition) or skip name-matching for an entry that already is an explicit-shell owner, whichever is the smaller change, with
+  NO change to any group that is emitted correctly today. Add the new test file tests/extraction/test_run_extraction_alias_groups.py (at least 8 tests, offline, synthetic): the exact chain shape (shell A reexport_of module entry B, B a member-less name twin of member-bearing C) emits A, B and C in one group and loses no entry; the groups of every other committed Python fixture that already extracts completely are unchanged (re-run `_alias_groups` on the committed fixtures' source entries if the function takes them, or pin the counts of kept == total for the other Python pilots); an entry that is not a shell is untouched; a cycle in `reexport_of` terminates. Then re-extract 3d_python (kept must equal 697, truncated false), and finish the rest of the card from the step after the extraction (caps, allowlist, new test file, re-pins, checks, negative control). The sentence above that says src/ is not yours beyond RECOMMENDED_MAX_TYPES is relaxed exactly for `_alias_groups`.
 actions:
 - >-
   Regenerate the eleven truncated fixtures (3d_python, cells_cpp, html_python, pdf_cpp, pdf_go, pdf_java, pdf_python, pdf_typescript, slides_cpp, slides_python, words_python) at their chart-pinned commits with the merged
