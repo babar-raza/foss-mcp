@@ -1,0 +1,119 @@
+{
+  "schema_version": 1,
+  "card": "TC-515",
+  "gate": "G3",
+  "generated_by": "gatectl",
+  "generated_at": "2026-10-16T04:28:32Z",
+  "base_rev": "68becb128a84ed6a32412662670513e250065b98",
+  "head_rev": "ab3d1b93c927fd9e6685a6e0a7ec8f694531fb39",
+  "card_sha256": "06d6e588ee8ccf8e8914939d795b1620c742b48c1c7a678c6defdf36193727f3",
+  "fingerprint": {
+    "python": "3.13.2",
+    "platform": "Windows-11-10.0.26200-SP0",
+    "lock_sha256": "7b182948484d7df9614b523f7a8180f795b6c51d55c418728525c1957f3e38ba",
+    "env": {
+      "PYTHONHASHSEED": "0",
+      "PYTHONUTF8": "1",
+      "PYTHONDONTWRITEBYTECODE": "1",
+      "PYTHONIOENCODING": "utf-8",
+      "TZ": "UTC",
+      "LC_ALL": "C.UTF-8",
+      "SOURCE_DATE_EPOCH": "1700000000",
+      "verify_runner": "host"
+    }
+  },
+  "scope": {
+    "ok": true,
+    "changed_paths": [
+      "src/foss_mcp/mcp/response_budget.py",
+      "src/foss_mcp/mcp/server.py",
+      "src/foss_mcp/mcp/tools/get_symbol.py",
+      "src/foss_mcp/mcp/tools/lookup.py",
+      "src/foss_mcp/mcp/tools/search_docs.py",
+      "src/foss_mcp/mcp/tools/search_symbols.py",
+      "tests/mcp/test_response_budget.py",
+      "tests/mcp/test_response_envelope.py",
+      "tests/mcp/tools/test_lookup_miss_reason.py",
+      "tests/mcp/tools/test_miss_coverage_note.py"
+    ],
+    "violations": [],
+    "evaluated": true
+  },
+  "runs": [
+    {
+      "run": 1,
+      "checks": [
+        {
+          "command": "{python} -m pytest tests/mcp/test_response_budget.py tests/mcp/tools/test_miss_coverage_note.py -q -rfE -p no:cacheprovider",
+          "exit_code": 0,
+          "duration_s": 27.223,
+          "stdout_sha256": "3ca63df1dde3ba9e2d2084a8facf905367fe65246c76bc33b3d06e0024ecdfa9",
+          "tests": 140,
+          "skipped": 0,
+          "errors": 0,
+          "failures": 0
+        },
+        {
+          "command": "{python} -m pytest tests/mcp tests/infra/test_serve_stdio_parity.py tests/infra/test_serve_http.py tests/test_unwired_modules.py -q -rfE -p no:cacheprovider",
+          "exit_code": 0,
+          "duration_s": 61.546,
+          "stdout_sha256": "e6d3a3992ef61fd3c3859c34fed0a0d5cde1efd782dec00a77b5e5c7fc40c8ca",
+          "tests": 1817,
+          "skipped": 0,
+          "errors": 0,
+          "failures": 0
+        }
+      ],
+      "all_passed": true
+    },
+    {
+      "run": 2,
+      "checks": [
+        {
+          "command": "{python} -m pytest tests/mcp/test_response_budget.py tests/mcp/tools/test_miss_coverage_note.py -q -rfE -p no:cacheprovider",
+          "exit_code": 0,
+          "duration_s": 7.011,
+          "stdout_sha256": "3ca63df1dde3ba9e2d2084a8facf905367fe65246c76bc33b3d06e0024ecdfa9",
+          "tests": 140,
+          "skipped": 0,
+          "errors": 0,
+          "failures": 0
+        },
+        {
+          "command": "{python} -m pytest tests/mcp tests/infra/test_serve_stdio_parity.py tests/infra/test_serve_http.py tests/test_unwired_modules.py -q -rfE -p no:cacheprovider",
+          "exit_code": 0,
+          "duration_s": 49.359,
+          "stdout_sha256": "e6d3a3992ef61fd3c3859c34fed0a0d5cde1efd782dec00a77b5e5c7fc40c8ca",
+          "tests": 1817,
+          "skipped": 0,
+          "errors": 0,
+          "failures": 0
+        }
+      ],
+      "all_passed": true
+    }
+  ],
+  "negative_control": {
+    "kind": "mutate",
+    "patch": "python -X utf8 -c \"import pathlib;p=pathlib.Path('src/foss_mcp/mcp/response_budget.py');s=p.read_text(encoding='utf-8');old='TOTAL_CAP_BYTES = 24576';assert s.count(old)==1;p.write_text(s.replace(old,'TOTAL_CAP_BYTES = 10**9'),encoding='utf-8')\"\n",
+    "patch_sha256": "5107a6426bc23858f80998a8287ac1da18056bf1ad8b9489f6918b5b9f55dee8",
+    "applied": true,
+    "patch_applied_failed": true,
+    "exit_codes": [
+      1,
+      1
+    ],
+    "tree_changed": [
+      "M src/foss_mcp/mcp/response_budget.py",
+      "?? .junit-0.xml",
+      "?? .junit-1.xml"
+    ]
+  },
+  "holdout": {
+    "ran": false,
+    "passed": true,
+    "detail": "no holdout for this card"
+  },
+  "accepted": true,
+  "reason": "all gates passed"
+}
