@@ -625,7 +625,8 @@ def test_real_l054_and_l080_carry_a_section_8_acceptance_and_no_gap(fid: str) ->
 
 def test_real_l054_acceptance_states_the_one_word_rule() -> None:
     reason = _real("L-054").accepted.reason  # type: ignore[union-attr]
-    assert "one-word query" in reason
+    # TC-543 changed the rule (a one- or two-word query needs a title word); TC-546 re-pinned the reason.
+    assert "title" in reason
     assert "60%" in reason
 
 

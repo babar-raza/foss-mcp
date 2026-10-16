@@ -655,9 +655,10 @@ FINDINGS: list[Finding] = [
         sources="audit B B-009; audit C C-005 (B-6); raw R3 C5; rv1 M5; rv2 M10; rv4 M6; QA 4",
         note='the family word no longer counts: pdf/net "split a pdf into pages" now answers NoExampleFound',
         accepted=A8(
-            "a one-word query is fully covered by any verified example that uses the word, which is kept "
-            "because a one-word query such as watermark is a normal way to ask for an example; the family "
-            "word no longer counts and longer questions need 60% of their other words"
+            "a query of one or two distinctive words is answered only by an example whose title contains one "
+            "of them, so a word that code merely calls no longer returns that example; a longer question "
+            "needs 60% of its other words in the example, the family word never counts, and match_basis "
+            "states what each coverage number means"
         ),
     ),
     F(

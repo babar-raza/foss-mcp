@@ -7,6 +7,14 @@ and none should appear in this file, in a command line you commit, or in a recor
 
 The rule the whole page serves: **an image without a passing gate report for that exact image id is not hosted.**
 
+Status of this image: it is a release candidate for peer testing, not a final release. The independent
+pre-production review (REQ-G3-008) is not closed by this page, and nothing here claims that it is. Two kinds of
+limitation apply and a peer should read them first. The index of the largest libraries is partial (for example
+pdf/java holds 300 of 1,239 types), and the server says so: symbol chunks carry an `API-Coverage:` line and misses
+carry a `coverage_note` (section 9, "What tells an agent"). Several extractor and documentation improvements were
+cut from this release and are described in section 9. The accepted findings are in section 8 and in
+`docs/REVIEW_LEDGER.md`.
+
 ## 1. What the standalone demo image is
 
 The demo image is the `demo` stage of `Dockerfile.serving`. It bakes in the ingested data of every pilot in the
@@ -45,13 +53,13 @@ lean (next section) and why the gate measures memory per container.
 
    ```powershell
    $sha = git rev-parse HEAD
-   docker build --target demo --label org.opencontainers.image.revision=$sha -t foss-mcp-serving:demo-$($sha.Substring(0,7)) .
+   docker build -f Dockerfile.serving --target demo --label org.opencontainers.image.revision=$sha -t foss-mcp-serving:demo-$($sha.Substring(0,7)) .
    ```
 
    `scripts/release/build_images.py` builds the same labelled images from a `git archive` export of `HEAD`, which
    guarantees that nothing outside the commit reaches the build. It builds the `runtime` stage of the serving image
    (not `demo`) and the ingestion image, so it does not produce the demo image on its own. Use it for those two;
-   use the `docker build --target demo` command above, with a clean tree, for the demo image.
+   use the `docker build -f Dockerfile.serving --target demo` command above, with a clean tree, for the demo image.
 
 ## 3. The pre-deployment gate
 
@@ -197,11 +205,11 @@ says so.
 - **L-022** A request whose `MCP-Protocol-Version` header is `2026-07-28` is rejected. The server accepts only the
   protocol revisions a client reaches through the `initialize` handshake, and 2026-07-28 is the stateless revision,
   which has no handshake. A client that starts with `initialize`, as the MCP SDK clients do, is not affected.
-- **L-054** A one-word `find_examples` query returns any verified example whose text uses that word, because one word
-  is fully covered by it: pdf/net "page" returns "Add a Watermark Annotation". This is kept, because a one-word query
-  such as "watermark" is a normal way to ask for a specific example and a committed live test pins that answer. The
-  product-family word no longer counts, and a longer question needs 60% of its other words in the example, so "split
-  a pdf into pages" or "bake a cake" get an honest miss. Ask with a few words to get a specific example.
+- **L-054** A `find_examples` query of one or two distinctive words is answered only by an example whose title
+  contains one of them, so `save` no longer returns every example whose code calls Save. A longer question needs 60%
+  of its other words in the example, so "split a pdf into pages" or "bake a cake" get an honest miss. The
+  product-family word never counts. Every example states in `match_basis` what its coverage number means. Ask with a
+  few specific words to get a specific example.
 - **L-071** `get_product_reference` answers NotAvailable for the `formats` and `limitations` sections on every pilot.
   No data source reaches these two sections, so the answer says so instead of inventing content; slides/python's
   unsupported PDF export, for example, is not listed there. A peer has to read the README for supported formats.
@@ -344,3 +352,15 @@ These extractor improvements were planned and are not in this release. The full 
 - **TC-403** Would have re-extracted the ten Go, Rust and TypeScript fixtures at their pinned library commits. Affected pilots are pdf/go, jmap/go, cells/go, cells/rust, jmap/rust, pdf/typescript, cells/typescript, jmap/typescript, 3d/typescript and jmap/nodejs. A peer will see the earlier fixtures unchanged, and for these pilots the 300-type extraction cap may still hide central types.
 - **TC-428** Would have fixed Go struct fields whose tag was published as their type. Affected pilots are the Go pilots pdf/go, cells/go and jmap/go. A peer may see a field type shown as a tag such as `json:"id,omitempty"` instead of the Go type.
 - **TC-475** Would have filled empty JavaScript parameter and return types from the JSDoc tags. The affected pilot is jmap/nodejs, whose fixture has empty parameter types. A peer may see JavaScript parameter types that are empty even though the upstream JSDoc states them.
+- **TC-526** Would have fixed Java and Rust signature fidelity. Java (3d/java, cells/java, jmap/java, pdf/java, slides/java): a varargs parameter is dropped (`setPages(int... pages)` is served `setPages()`, 6 of 6 cases measured), generic bounds and `throws` clauses are not shown, public fields are not listed (34 properties of 3d/java such as the Quaternion `x`, `y`, `z`, `w`), no method is marked `static` (none of the 71, 76 and 159 static methods counted in three Java pilots), and a getter such as `isIdentity()` is also listed as a property `identity` that reads like a field. Rust (cells/rust, jmap/rust): no method records its receiver, so cells/rust's 259 associated functions look like its 1,434 methods, the 10 mail methods of jmap/rust's `JmapClient` appear as separate receiver-less function chunks while the type lists 9, and 6 cells/rust chunks are derive boilerplate. The `API-Coverage` line counts types, so no response marks these gaps.
+- **TC-527** Would have served member documentation for Java and C# (13 pilots: the five Java and the eight .NET pilots). The first sentence of each member's comment is already in the fixtures (pdf/net 3,887 of 4,887 members of the first 300 types, cells/java 2,199 of 2,677, words/net 3,363 of 3,506) but no symbol chunk renders it, and the Javadoc `@param`, `@return`, `@throws` and C# `<param>`, `<returns>`, `<exception>` text is dropped. In 65 blind coding tasks on 13 pilots the served signatures were never wrong (0 in 1,037 calls), but 8 of 13 option, error and format tasks forced a guess and none of the 13 was fully answered. A peer gets signatures without parameter meaning, units, index base or exceptions.
+- **TC-528** Would have served the same member documentation for Python (12 pilots), TypeScript and Node.js (5), Go (3), Rust (2) and C++ (5). Docstring Args, Returns and Raises, TSDoc, godoc, rustdoc and Doxygen text is not served. For example, the second `Document.save` call of pdf/python raises `FileExistsError` because `overwrite` defaults to False, which its docstring states and the index does not. A Python summary wrapped over two lines is served cut mid-sentence, and a sentence containing `e.g.` is cut there (cells/go `Cells`).
+- **TC-531** Would have re-extracted the five Java fixtures at their pinned commits with the fidelity and documentation work, and raised pdf/java from 300 to its whole 1,239 types. The shipped pdf/java index holds 300 of 1,239 types, 193 of those 300 are engine internals (`org.aspose.pdf.engine.xfa.*`, `engine.script.js.interp.*`), and only a third of the type names its README uses can be found (top-3 recall 33 percent). A prototype extraction kept 1,239 of 1,239 types and left 4 of 914 README identifiers unresolved. A peer sees the earlier Java data, and for pdf/java a type the README names may be missing.
+
+### What tells an agent
+
+The coverage caveats that already exist are the only signal. Every symbol chunk of a partially indexed pilot carries an `API-Coverage:` line (for pdf/java `300 of 1239 types`). `get_symbol` misses carry a `coverage_note`, and `search_symbols` and `lookup` misses carry it too (TC-515, TC-520). `report_index_freshness` returns `indexed_types`, `total_types` and the same note. Nothing marks a missing member, a dropped varargs parameter, a missing static mark or missing parameter documentation, so a peer must read the library's source or README for those.
+
+### Not part of this release
+
+`mcp-gateway`, the nginx reverse proxy of the development cluster, is not part of the release. It exists only in the cluster, is not in git, and routes 14 of the 40 pilots. Neither is anything in the Kubernetes chart's cluster install beyond what section 8 already lists under the chart. The standalone image is the release.

@@ -1,16 +1,49 @@
 # foss-mcp
 
-MCP (Model Context Protocol) servers for Aspose's open-source ("FOSS") product line —
-independently-addressable endpoints, one per product family/platform combination (e.g.
-`pdf/net`, `slides/python`), so an AI coding assistant can look up real API surface,
-documentation, and verified examples for the specific FOSS library a developer is using.
+MCP (Model Context Protocol) servers for Aspose's open-source ("FOSS") product line, so an AI coding assistant can
+look up real API surface, documentation and verified examples for the specific FOSS library a developer is using.
+One image serves 40 pilots (family and platform pairs such as `pdf/net` or `slides/python`) across 13 product
+families: 3d, barcode, cells, email, html, imaging, jmap, note, page, pdf, slides, tex and words.
 
-This is a from-scratch design, not a fork of Aspose's internal commercial-product retrieval
-system ("ADCS"). ADCS was audited first; every one of its confirmed defects (scope widening on
-a miss, client-controlled tenant headers, generation identity that doesn't survive rollback,
-promotional content mixed into technical answers) has a corresponding design rule here that
-does the opposite. See `docs/DECISION_LOG.md` for dated decisions and
+This is a from-scratch design, not a fork of Aspose's internal commercial-product retrieval system ("ADCS"). ADCS was
+audited first; every one of its confirmed defects (scope widening on a miss, client-controlled tenant headers,
+generation identity that doesn't survive rollback, promotional content mixed into technical answers) has a
+corresponding design rule here that does the opposite. See `docs/DECISION_LOG.md` for dated decisions and
 `docs/REPOSITORY_LAYOUT.md` for where things live.
+
+## Run it
+
+The standalone image bakes in the data of every pilot, so you need only Docker. One container serves exactly one
+pilot. The commands below are from `docs/RELEASE.md` section 7; the registry host is a placeholder.
+
+```bash
+docker pull registry.example.internal:5000/foss-mcp/foss-mcp-serving@sha256:<digest>
+docker run --rm <image> --list
+docker run -d --rm --read-only --tmpfs /tmp --memory 256m --cpus 0.5 -p 127.0.0.1:8080:8080 -e FOSS_MCP_PILOT=pdf/net <image>
+```
+
+`--list` prints the pilots baked into the image; pick one for `FOSS_MCP_PILOT` (`family/platform`). Wait for
+`http://127.0.0.1:8080/readyz` to answer 200, then point an MCP client at `http://127.0.0.1:8080/mcp` (Streamable
+HTTP). `/healthz` answers liveness and `/metrics` answers Prometheus text. Start one container per pilot you need,
+each on its own host port.
+
+To start a whole family, use `docker-compose.demo.yml`. Set `FOSS_MCP_DEMO_IMAGE` to the image, then start services
+by name or by profile (every family has one, and `all` starts all 40):
+
+```bash
+export FOSS_MCP_DEMO_IMAGE=<image>
+docker compose -f docker-compose.demo.yml up -d pdf-net slides-python
+docker compose -f docker-compose.demo.yml --profile pdf up -d
+```
+
+There is one service per pilot, published on loopback ports 8101 to 8140; the header of the compose file lists which
+pilot has which port.
+
+## Security
+
+The server has no authentication and no TLS. It speaks plain HTTP, so keep it on a loopback address or a trusted
+network. Browser Origins are rejected unless they are listed in `FOSS_MCP_ALLOWED_ORIGINS`. Put a reverse proxy in
+front of it if you need TLS or authentication.
 
 ## How it works
 
@@ -48,118 +81,50 @@ silently substitutes a different scope, symbol, or generation for the one that w
 | Repo-native | Packaging manifest, `AGENTS.md`, `CONTRIBUTING.md`, GitHub Releases | High for manifests; explicitly typed richness for release notes |
 | Furnished content | Task-oriented prose/FAQ, sourced from `repository-presenter`'s locally-sealed README candidates (not a live `aspose.org` fetch — see `docs/DECISION_LOG.md`) | Medium — independently cross-checked against self-extracted symbols before a citation is trusted |
 
-## MCP tools
+## The nine tools
 
-Every deployment exposes the same nine tools regardless of how much data backs a given
-product — thin or missing data surfaces as an honest empty result or explicit
-`NotAvailable`/`NotFound`, never a fabricated answer or a widened search.
+Every pilot exposes the same nine tools. Thin or missing data surfaces as an honest empty result or an explicit
+`NotAvailable` or `NotFound`, never as a fabricated answer or a widened search.
 
 | Tool | Purpose |
 |---|---|
-| `lookup` | Forgiving entry point — dispatches to `search_symbols`/`search_docs`/`find_examples` for a query that isn't known to be one or the other |
-| `search_docs` | Prose search filtered by `content_type` (`getting_started` \| `developer_guide` \| `troubleshooting` \| `faq`) |
-| `search_symbols` | Search the self-extracted API surface by name/purpose |
-| `get_symbol` | Exact signature/params/returns for one fully-qualified name, or an explicit 404 |
-| `list_members` | Every method/property/enum value a class or namespace declares |
-| `find_examples` | Verified snippets only — exact match first, then a semantic fallback; nothing is ever executed by the tool itself |
-| `get_product_reference` | `section`-selected: `install`, `formats`, `limitations`, `compatibility`, `license`, `support`, `contributing`, `agent_guidance` |
-| `list_recent_changes` | Recent GitHub releases, each carrying an honest `richness: detailed \| templated \| none` verdict |
-| `report_index_freshness` | The indexed generation's source revision against the current upstream revision |
+| `lookup` | Forgiving entry point: tries documentation, symbols and verified examples for a question that is not known to be one or the other |
+| `search_docs` | Prose search inside one documentation category (`getting_started`, `developer_guide`, `troubleshooting` or `faq`) |
+| `search_symbols` | Search the self-extracted API surface by type name or fragment, or by the name of a member |
+| `get_symbol` | Exact signature, parameters and returns for one fully-qualified name, or an explicit miss |
+| `list_members` | Every method, property and enum value that a class or namespace declares |
+| `find_examples` | Verified examples only; nothing is ever executed by the tool itself |
+| `get_product_reference` | One section per call: install, formats, limitations, compatibility, license, support, contributing or agent_guidance |
+| `list_recent_changes` | Recent GitHub releases, each with an honest `richness` verdict |
+| `report_index_freshness` | The indexed commit against upstream, how many types are indexed, and the example search mode |
 
-## Current status
+## What to know before relying on it
 
-Tracked in `project/state.yaml` (derived, never hand-authored — `ops/gatectl.py` is the only
-writer). As of this writing:
+This image is a release candidate for peer testing. The independent review of it is not complete.
 
-- **G0** (foundation/contracts) and **G1** (first vertical slice, `pdf/net` end-to-end) —
-  **accepted**.
-- **G2** (the remaining six pilots) — **in progress**. All seven pilots have a product
-  manifest under `config/products/` and a `serving-*` container in `docker-compose.yml`; six
-  (`pdf/net`, `pdf/typescript`, `pdf/java`, `pdf/go`, `slides/python`, `cells/rust`) also have a
-  working one-shot `ingest-*` job that builds real chunks from committed fixtures and publishes
-  them through the real citation-validating pipeline. `pdf/cpp` has a serving container defined
-  but no ingestion job wired yet.
-- The `search_docs` furnished-content pipeline is being re-pointed from placeholder,
-  aspose.org-copied fixtures to real README-derived content sourced from
-  `repository-presenter`'s sealed candidates (in progress; not yet dispatched to all pilots).
-- **Known integration gap**: `get_product_reference` and `list_recent_changes` are implemented
-  and tested, but `infra/serve_http.py`/`infra/serve_stdio.py` don't yet pass real
-  `ProductReferenceInputs`/release data into `create_server` — both tools currently answer
-  `NotAvailable`/empty on every live deployment until that wiring lands, even though the six
-  live pilots' symbol/doc/example tools are backed by real, published content.
-
-## What's planned
-
-- **G3** — recovery/rollback drills, cross-instance leakage proof across all 7×6 directed
-  pilot pairs, security checks, and a real metrics→dashboard→alert pipeline.
-- **G4** — a clean self-hosted setup from generated distribution artifacts with zero
-  company-only credentials, plus green hosted CI on the pushed revision.
-- **G5** — production Kubernetes hosting, DNS, and per-family repo publication (requires
-  authority items not yet resolved — see `project/state.yaml`'s `owner_items`).
-- **Post-pilot**: portfolio expansion beyond the 7 pilot product/platform combos (32 usable
-  combos identified across 13 families), and a separate, deliberately isolated
-  cross-instance catalog service ("which FOSS product handles X") that aggregates only coarse
-  public metadata — never full API surface or citation-backed retrieval, to keep per-product
-  isolation structural rather than policy.
-- **Explicitly deferred, not planned**: known-issue/bug search (26/32 repos have zero GitHub
-  issues ever filed — too thin to build on) and repo popularity/stars (no backing data, closer
-  to a vanity metric than a developer need).
+- The index of the largest libraries is partial: pdf/java, for example, holds 300 of 1,239 types. Symbol chunks of a
+  partially indexed pilot carry an `API-Coverage:` line, and misses carry a `coverage_note`; a miss does not prove a
+  type is absent upstream.
+- Several extractor and documentation improvements were deferred. Missing members, dropped varargs parameters, missing
+  `static` marks and missing parameter documentation are not flagged by any response, so read the library's source or
+  README for those.
+- `docs/RELEASE.md` section 8 lists every accepted limitation, section 9 lists the deferred work and what a peer will
+  notice, and `docs/REVIEW_LEDGER.md` is the full ledger of review findings.
+- `mcp-gateway` and the Kubernetes install are not part of the release. `docs/DEPLOYMENT.md` is the cluster runbook.
 
 ## Repository layout
 
 See `docs/REPOSITORY_LAYOUT.md` for the authoritative description. Summary:
 
-- `src/foss_mcp/` — the product package (`mcp`, `extraction`, `normalization`,
-  `furnished_content`, `indexing`, `retrieval`, `telemetry`, `config`). Never imports from `ops/`.
-- `infra/` — container entrypoints (`serve_stdio.py`, `serve_http.py`, `ingest.py`,
-  `build_chunks.py`).
-- `config/products/<family>/<platform>.yaml` — one manifest per onboarded product.
-- `ops/` — this repository's own governed-development tooling (`gatectl`), never imported by
-  `src/`.
-- `plans/TC-NNN.yaml` — taskcards, each a worker's complete contract for one unit of work.
-- `schemas/` — JSON Schemas for every governance artifact.
+- `src/foss_mcp/` - the product package (`mcp`, `extraction`, `normalization`, `furnished_content`, `indexing`,
+  `retrieval`, `telemetry`, `config`). Never imports from `ops/`.
+- `infra/` - container entrypoints and the Helm chart.
+- `config/products/<family>/<platform>.yaml` - one manifest per onboarded product.
+- `ops/` - this repository's own governed-development tooling (`gatectl`), never imported by `src/`.
+- `plans/TC-NNN.yaml` - taskcards, each a worker's complete contract for one unit of work.
+- `schemas/` - JSON Schemas for every governance artifact.
 
-## Getting started
-
-Requires Python 3.13+.
-
-```bash
-python -m venv .venv
-.venv/Scripts/python -m pip install -r requirements.lock   # .venv/bin/python on Linux/macOS
-
-# Local CI-equivalent: lint, format check, mypy (ops/), pytest, gatectl validate
-scripts/ci_check.sh
-```
-
-### Run a pilot locally
-
-```bash
-docker compose up --build ingest-pdf-net        # one-shot: build chunks, publish the generation
-docker compose up --build serving               # then serve it (no `depends_on` — run in order)
-```
-
-Each pilot's serving container listens on its own host port (container port is always 8080
-internally):
-
-| Pilot | Port |
-|---|---|
-| `pdf/net` | 8080 |
-| `pdf/typescript` | 8081 |
-| `pdf/cpp` | 8082 (serving only — no ingestion job yet) |
-| `pdf/java` | 8083 |
-| `pdf/go` | 8084 |
-| `slides/python` | 8085 |
-| `cells/rust` | 8086 |
-
-`GET /readyz` reports 200 only once that deployment's own scope has a real active generation
-published — never bare process reachability.
-
-### Connect an MCP client
-
-- **stdio**: `python infra/serve_stdio.py` (reads `FOSS_MCP_FAMILY`/`FOSS_MCP_PLATFORM`/
-  `FOSS_MCP_SOURCE_KIND` from the environment; defaults to `pdf`/`net`/`self_extracted`).
-- **HTTP (Streamable HTTP)**: point a client at `http://localhost:<port>/mcp` for a running
-  `serving-*` container above.
+Development needs Python 3.13+: create a venv, install `requirements.lock`, and run `scripts/ci_check.sh`.
 
 ## Governance and contributing
 

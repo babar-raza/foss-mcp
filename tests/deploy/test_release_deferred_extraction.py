@@ -1,6 +1,6 @@
 """G3/TC-490: docs/RELEASE.md publishes the deferred extractor improvements (REQ-G3-007).
 
-Six extractor cards were cut from the Monday release. A peer reads docs/RELEASE.md, so section 9 names each
+Six extractor cards were cut from the Monday release, and TC-546 records four more as accepted limitations. A peer reads docs/RELEASE.md, so section 9 names each
 one and what the peer will notice. This module pins that list so the deferral stays a recorded, visible
 decision. It reads only committed files.
 """
@@ -19,7 +19,19 @@ PLANS_DIR = REPO_ROOT / "plans"
 SECTION_8_PREFIX = "## 8. "
 SECTION_9_HEADING = "## 9. Deferred extraction improvements"
 
-DEFERRED_CARD_IDS = ("TC-397", "TC-398", "TC-402", "TC-403", "TC-428", "TC-475")
+DEFERRED_CARD_IDS = (
+    "TC-397",
+    "TC-398",
+    "TC-402",
+    "TC-403",
+    "TC-428",
+    "TC-475",
+    # Cut from the release and recorded as accepted limitations by TC-546.
+    "TC-526",
+    "TC-527",
+    "TC-528",
+    "TC-531",
+)
 
 SECTION_HEADINGS_1_TO_8 = (
     "# Releasing the standalone demo image",
@@ -53,10 +65,21 @@ def _section_9() -> str:
     return rest if match is None else rest[: match.start()]
 
 
-def test_deferred_card_ids_are_exactly_the_six() -> None:
-    assert len(DEFERRED_CARD_IDS) == 6
-    assert len(set(DEFERRED_CARD_IDS)) == 6
-    assert set(DEFERRED_CARD_IDS) == {"TC-397", "TC-398", "TC-402", "TC-403", "TC-428", "TC-475"}
+def test_deferred_card_ids_are_exactly_the_ten() -> None:
+    assert len(DEFERRED_CARD_IDS) == 10
+    assert len(set(DEFERRED_CARD_IDS)) == 10
+    assert set(DEFERRED_CARD_IDS) == {
+        "TC-397",
+        "TC-398",
+        "TC-402",
+        "TC-403",
+        "TC-428",
+        "TC-475",
+        "TC-526",
+        "TC-527",
+        "TC-528",
+        "TC-531",
+    }
 
 
 def test_section_9_heading_appears_exactly_once() -> None:
@@ -87,7 +110,7 @@ def test_section_9_opens_with_two_plain_sentences_before_the_bullets() -> None:
     assert "**" not in intro
 
 
-def test_section_9_has_exactly_six_bullets() -> None:
+def test_section_9_has_exactly_ten_bullets() -> None:
     bullets = [line for line in _section_9().splitlines() if line.startswith("- ")]
     assert len(bullets) == len(DEFERRED_CARD_IDS)
 
