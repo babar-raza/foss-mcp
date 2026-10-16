@@ -40,6 +40,7 @@ write_paths:
 - tests/extraction/test_ts_fixture_gaps.py
 - tests/indexing/test_chunk_builder_typescript_marks.py
 - tests/fixtures/ts_sample/**
+- tests/extraction/tree_sitter_engine/test_js_mixins.py
 satisfies:
 - REQ-G3-008
 - REQ-G3-005
@@ -135,6 +136,13 @@ inputs:
   Run the first check command, then the second; list every existing test you had to touch (expected none). Do NOT regenerate any committed fixture,
   do NOT edit docs-identifiers allowlist (TC-521 owns it; the re-extraction card regenerates it), do NOT touch schemas/. Write commit messages as UTF-8
   without a byte-order mark.
+- >-
+  SUPERVISOR AMENDMENT (after the worker's first report): tests/extraction/tree_sitter_engine/test_js_mixins.py (TC-521) has `test_typescript_language_is_unaffected` (about lines 421-450)
+  which pins the PRE-TC-523 TypeScript parameter shapes: `run(a: string, b?: number, c = 3, ...rest: string[])` as [{a,string},{b,number},{c,""}], `open({x,y}: Opts = {}, z = 1)` as
+  [{z,""}] and `build({a,b}: Opts, c = 1)` as [{c,""}]. This card deliberately changes exactly those shapes (defaults, optional, rest, destructured). The file is now in your write_paths:
+  change ONLY the expected parameter lists in that one test (lines about 440-446) to the new output, keep the three `not in serialized` assertions for `mixin`, `destructured` and
+  `base_imports`, keep every other test in the file, and name the test in the commit message. Everything else you decided is accepted (the `...` cut within the limit, dropping the
+  helper's `destructured` key from TypeScript params, array_pattern type empty, hiding scope).
 actions:
 - >-
   Read readonly, optional, static and async from TypeScript member tokens; keep type alias values; keep parameter defaults, optional markers, rest and
