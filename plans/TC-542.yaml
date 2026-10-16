@@ -1,0 +1,93 @@
+id: TC-542
+gate: G3
+lane: storage-retrieval
+purpose: >-
+  REQ-G3-008 (independent pre-production review findings PS-05 empty-list ambiguity, FK8S-11 and D-12 Java unit, QA finding "an empty release list is unexplained"; process audit defect: an answer whose emptiness can mean two things must say which). EMPTY RELEASE HISTORY EXPLAINED AND THE JAVA VERSION
+  UNIT. (1) `list_recent_changes` answers a bare `[]` for 15 of the 40 pilots (the committed sidecars infra/demo-manifests/recent_releases_*.json that hold `[]`: 3d/net, 3d/python, 3d/typescript, barcode/python, cells/typescript, email/cpp, email/net, email/python, html/python, imaging/net, page/python, pdf/python, pdf/typescript, tex/python, words/python;
+  the reviewers verified against GitHub that these 15 repositories publish no release). The tool description says "An empty list means the product has no GitHub releases", but the answer itself is only `[]`, which an agent cannot tell from a failed fetch (a failed fetch is already an `unavailable` error since TC-507) or a missing capability. The supervisor decided (docs/DECISION_LOG.md, recorded by the supervisor, not by this card) that the
+  result STAYS a bare list - TC-507 and TC-519 pin that shape - so this card adds the explanation BESIDE it: for a successful, empty `list_recent_changes` answer the server's tool response gains a `note` key in `structuredContent` and a second text block in `content`, both carrying one fixed sentence (`This repository has no published GitHub releases, so there is nothing to list. An empty
+  list is a complete answer, not a fetch failure (a failed fetch is reported as an error). Use search_docs for changelog or upgrade notes in the documentation.`); the first text block, `structuredContent.result` and every other key are unchanged, and a non-empty answer, an error and every other tool gain nothing. (2) `get_product_reference(section="compatibility")` for the five Java pilots answers the bare number the pom states, `11`, `17` or `21` (3d/java 21, cells/java 17, jmap/java 17, pdf/java 11,
+  slides/java 21; measured on the committed sidecars at main d7b594fd), which a reader cannot tell from a library version; the C++ answers already read `C++17` (TC-471). It becomes `Java 11+`, `Java 17+`, `Java 21+` (a dotted old-style value such as `1.8` becomes `Java 1.8+`; a value that is not a number is left as it is). Decision recorded: Go (`1.24.5`) has the same defect but TC-518 owns the Go
+  reading and its disagreement notice; this card changes Java only and reports Go as an open question. What does NOT change: the result shape of every tool, the sidecars, the install answers, the registry verification, the NotAvailable reasons, the raw version the comparison logic of TC-518 reads.
+depends_on:
+- TC-427
+- TC-471
+- TC-507
+- TC-514
+- TC-515
+- TC-518
+- TC-519
+- TC-540
+write_paths:
+- src/foss_mcp/mcp/response_envelope.py
+- src/foss_mcp/mcp/server.py
+- src/foss_mcp/mcp/tools/get_product_reference.py
+- tests/mcp/test_empty_release_note.py
+- tests/mcp/tools/test_java_compatibility_unit.py
+- tests/mcp/tools/test_get_product_reference_platforms.py
+- tests/mcp/tools/test_product_reference_readme_content.py
+satisfies:
+- REQ-G3-008
+- REQ-G3-001
+source_refs:
+- file: docs/DECISION_LOG.md
+  anchor: '## 2026-10-15 — Independent pre-production adversarial review of the shipped image; its findings enter the state machine as cards (operator, supervisor)'
+  sha256: d2d82669b8060d5e3a3b9da00e9858e576d5d264d96e32d1aed8034e8d6d9007
+inputs:
+- >-
+  Read, in full: src/foss_mcp/mcp/response_envelope.py (`annotate_result`, `origin_of`, `scope_object`), src/foss_mcp/mcp/server.py (`_call_tool`: the success tail builds `CallToolResult(content=[TextContent(...)], structured_content={"result", "scope", "content_origin", "response_budget"}, is_error=False)` after `annotate_result` and `apply_budget`; `TOOL_DESCRIPTIONS["list_recent_changes"]`),
+  src/foss_mcp/mcp/tools/list_recent_changes.py and sidecar_state.py (the `fetch_failed` error path), src/foss_mcp/mcp/tools/get_product_reference.py as MERGED by TC-518 (the `compatibility` branch: `platform == "java"` reads `read_java_manifest(inputs.manifest_text).runtime_min_version`; TC-518 added `_disagreement_notice`, `_manifest_minimum`, `_first_number` and `_minimum_platform`), and the pins: tests/mcp/test_response_envelope.py (`test_every_tool_response_carries_a_sibling_scope` asserts `set(structured) == {"result", "scope", "content_origin", "response_budget"}` for a non-empty `list_recent_changes`; `test_text_channel_equals_structured_result`), tests/mcp/test_sidecar_fetch_failed_server.py, tests/mcp/tools/test_get_product_reference_platforms.py
+  (`test_java_compatibility_returns_runtime_min_version_verbatim` asserts `"17"`), tests/mcp/tools/test_product_reference_compatibility_units.py. Never print or log any environment value.
+- >-
+  response_envelope.py: add `NOTE_KEY = "note"`, `NO_RELEASES_NOTE` (the sentence in the purpose, exactly) and `empty_result_note(tool: str, payload: Any) -> str | None`, which returns `NO_RELEASES_NOTE` only when `tool == "list_recent_changes"` and the jsonable payload is an empty list; the deciding line must read exactly `if tool == "list_recent_changes" and isinstance(payload, list) and not payload:` and appear once (the negative control edits it). server.py: import the two names and, in the success tail of `_call_tool`
+  after the budget is applied, build `content = [TextContent(type="text", text=render_result_text(payload))]` and `structured` as today, then `note = empty_result_note(params.name, payload)`; when it is not None append `TextContent(type="text", text=note)` and set `structured[NOTE_KEY] = note`. Nothing else in `_call_tool` changes; the error paths gain no note. Add one sentence to the `list_recent_changes` description: `An empty list comes with a note that says so.` (keep every existing sentence and keep the nine descriptions distinct).
+- >-
+  get_product_reference.py (compatibility, java branch only), as merged by TC-518 (accepted): the branch `elif platform == "java":` reads `value = read_java_manifest(inputs.manifest_text).runtime_min_version`. Directly after that assignment, mirroring the C++ branch just below it (which answers `C++20` while its notice compares the CMake minimum), keep the number the pom states in a local `java_minimum` and set `value = f"Java {value}+"` when `value` fully matches `\d+(?:\.\d+)*`; a value that is not a number is left as it is and an empty value stays
+  NotAvailable with the unchanged reason `manifest does not state a compiler target version`. In the shared tail, `compared = read_cpp_manifest(...).cmake_min_version if platform == "cpp" else value` becomes a three-way choice that uses `java_minimum` for java, so `_disagreement_notice` keeps reading the pom's own number and the notice still says `the packaging manifest says 17` (an answer `text` of `Java 17+` and a notice that says `17` is exactly how the C++ answer behaves). No other platform and no other section changes.
+- >-
+  Tests (offline, deterministic, no skip/xfail/sleep/network/wall-clock; at least 30 tests with the parametrised cases). tests/mcp/test_empty_release_note.py (NEW): `test_the_note_is_said_only_for_an_empty_list_recent_changes` (parametrised over tool x payload: list_recent_changes with `[]` -> the sentence; with one entry -> None; list_members `()`/`[]` -> None; search_symbols `[]` -> None; a dict -> None),
+  `test_the_note_names_search_docs_and_is_under_400_characters`, `test_an_empty_list_through_the_real_tools_call_handler_keeps_the_bare_list_and_adds_the_note` (server over a COPY of a committed scope directory such as pdf/python with `recent_releases=()`, handler driven as tests/mcp/test_response_budget.py `_call` does: `structured_content["result"] == []`, `structured_content["note"]` equals the sentence, `len(content) == 2`, `content[0].text == "[]"`,
+  `content[1].text` equals the sentence, the other four keys are as today), `test_a_non_empty_answer_has_no_note_and_one_text_block`, `test_a_fetch_failed_sidecar_is_still_an_unavailable_error_without_a_note`, `test_other_tools_gain_no_note`, `test_the_tool_description_mentions_the_note_and_the_nine_stay_distinct`, `test_server_source_calls_empty_result_note_in_call_tool` (ast), and over the 40 baked pilots `test_the_served_note_is_present_exactly_for_the_pilots_whose_sidecar_is_empty`
+  (read `infra/demo-manifests/recent_releases_<family>_<platform>.json` as plain JSON; build `Release(tag_name, body, richness, published_at, url)` from each entry as tests/mcp/test_response_budget.py does; assert the note appears for exactly the pilots whose list is empty - 15 on main d7b594fd; the count is stated in a comment and only required to be at least 1, because the side-file refetch of card TC-519 turns some of them into tag lists - and that the other pilots' answers are unchanged lists). tests/mcp/tools/test_java_compatibility_unit.py (NEW): `test_a_pom_release_17_is_java_17_plus`, `test_a_dotted_old_style_value_keeps_its_dots`,
+  `test_a_non_numeric_value_is_returned_as_it_is`, `test_no_compiler_target_is_not_available_with_the_unchanged_reason`, `test_other_platforms_compatibility_is_unchanged` (python, go, cpp, net, typescript), parametrised over the five Java pilots `test_the_committed_java_sidecars_answer_java_n_plus` (the expected text is derived at test time as `Java <read_java_manifest(manifest_text).runtime_min_version>+`; the manifests come from `infra/demo-manifests/product_reference_<family>_java.json`'s `manifest_text`; on main d7b594fd the five answers are 3d `Java 21+`, cells `Java 17+`, jmap `Java 17+`, pdf `Java 11+`, slides `Java 21+`, stated in a comment),
+  `test_the_install_coordinate_for_verification_is_unchanged_for_java`, and `test_the_disagreement_notice_still_compares_the_java_minimum` (`get_product_reference(inputs, "compatibility", readme=ReadmeSections(...))` built as tests/mcp/tools/test_product_reference_readme_content.py builds it: an install section saying `Java 17` against a pom release 17 gives text `Java 17+` and no "Sources disagree" notice, and one saying `Java 11` gives the same text and the notice `Sources disagree: the packaging manifest says 17; the README says 11.`).
+  Re-pin exactly two existing assertions, each with a one-line comment naming TC-542 and keeping the test name: tests/mcp/tools/test_get_product_reference_platforms.py `test_java_compatibility_returns_runtime_min_version_verbatim` from `result.text == "17"` to `result.text == "Java 17+"`; and in tests/mcp/tools/test_product_reference_readme_content.py `test_disagreement_is_detected_for_every_platform` the java row `("java", _POM_17, "17", "Needs JDK 21.", "21", "17")` changes only its LAST element (the answer `text`) to `"Java 17+"` (the cpp row beside it is the model). Run `{python} -m pytest tests/mcp -q -rfE -p no:cacheprovider` FIRST. The drafter ran it against a prototype of both halves on main f192600a (TC-518 merged): exactly four assertions turned red (the two named above and two that belong to the find_examples card TC-543); if anything else is red, change ONLY that assertion for a reason this card names, with a comment.
+- >-
+  Never delete, skip or xfail a test; tests/mcp/tools/test_product_reference_baked_contract.py belongs to TC-518 and is not edited here. Every new public name in src/foss_mcp needs a production caller (tests/test_unwired_modules.py is in the second check): `empty_result_note` and `NOTE_KEY` are called by server.py. Preserve line endings and encoding (LF, UTF-8, no BOM); commit messages are UTF-8 without a byte-order mark.
+- >-
+  Production wiring: `_call_tool` in src/foss_mcp/mcp/server.py is the single place every tool response is built; the through-the-handler test and the 40-pilot test above are the proof that the real entrypoint adds the note. A unit test of `empty_result_note` alone is not evidence.
+actions:
+- >-
+  Say, beside a bare empty release list, that the repository publishes no GitHub releases and that this is not a fetch failure, in structuredContent and as a second text block.
+- >-
+  Render the Java compatibility answer as `Java N+` and pin both over the committed sidecars of the five Java pilots and the 15 empty-release pilots.
+checks:
+- command: '{python} -m pytest tests/mcp/test_empty_release_note.py tests/mcp/tools/test_java_compatibility_unit.py tests/mcp/tools/test_get_product_reference_platforms.py tests/mcp/tools/test_product_reference_readme_content.py -q -rfE -p no:cacheprovider'
+  expect: exit 0
+  timeout_seconds: 1800
+  junitxml: true
+  proves:
+  - REQ-G3-008
+  - REQ-G3-001
+- command: '{python} -m pytest tests/mcp tests/infra/test_serve_http.py tests/infra/test_serve_manifest_sidecar.py tests/test_unwired_modules.py -q -rfE -p no:cacheprovider'
+  expect: exit 0
+  timeout_seconds: 3000
+  junitxml: true
+  proves:
+  - REQ-G3-008
+  - REQ-G3-001
+min_tests: 30
+network: true
+requires:
+- python
+negative_control:
+  mutate: |
+    python -X utf8 -c "import pathlib;p=pathlib.Path('src/foss_mcp/mcp/response_envelope.py');s=p.read_text(encoding='utf-8');q=chr(34);old='if tool == '+q+'list_recent_changes'+q+' and isinstance(payload, list) and not payload:';assert s.count(old)==1;p.write_text(s.replace(old,'if False:'),encoding='utf-8')"
+  rationale: >-
+    Stops the server explaining an empty release list, so the bare `[]` is back with no note: the note-through-the-real-handler test and the 40-pilot test (the note must appear for exactly the pilots whose sidecar is empty) fail. A real break of the card's central claim (an empty release history is explained).
+evidence:
+- evidence/build/G3/TC-542/receipt.json
+closeout:
+- >-
+  An empty `list_recent_changes` answer is still a bare list and now carries a note, in `structuredContent` and as a second text block, that the repository publishes no GitHub releases and that this is not a fetch failure; the Java compatibility answer reads `Java N+`. The image must be rebuilt for this to reach a pilot.
+recovery: Re-run from a clean tree.

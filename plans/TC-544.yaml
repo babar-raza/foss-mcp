@@ -1,0 +1,86 @@
+id: TC-544
+gate: G3
+lane: transport-deployment
+purpose: >-
+  REQ-G3-008 (independent pre-production review findings ISOPROV-05 and D-09; process audit defect: two small review findings had no card, and a finding with no card is a finding nobody owns). SMALL SERVING HARDENING, two independent parts. (1) ISOPROV-05: `POST /mcp/` (and `GET /mcp/`, `/healthz/`) is answered `307` with `Location: http://<the client's Host header>/mcp`, because the Starlette router the MCP SDK builds has
+  `redirect_slashes` on and builds the redirect from the request's Host header; the reviewer reproduced `Location: http://evil.example/mcp`. The drafter reproduced it on main d7b594fd with `infra.serve_http.build_app` over the baked pdf/go scope: `POST /mcp/` -> 307 `http://evil.example/mcp`, `GET /mcp/` -> 307, `GET /healthz/` -> 307 `http://evil.example/healthz`, `POST /mcp` -> 400 (the canonical path is served). The fix is one line in
+  `build_app` after `server.streamable_http_app(...)`: `inner.router.redirect_slashes = False`, so the trailing-slash paths answer 404 and the server never builds a URL from a client header; the canonical paths, the Origin and protocol-version rejection and the probes are unchanged. (2) D-09: a `find_examples` answer says only that a snippet is `verified` (and, since TC-465, its `provenance`), while the verification the ingestion
+  verifier ran compiles or runs the snippet together with the README's page-level imports and an entry point it adds around it (the reviewer: pdf/java `Create a Document with Widget Annotation` fails to compile without the README imports; 13 of 16 Go examples have no import block; 8 of 16 no `func main`; cells/cpp needs compiler flags), none of which the answer states. The chunk the server reads holds only `Source-Commit:` and the code (no
+  toolchain, no flags: those live in the verification cache, not in the generation), so this card cannot invent them; it adds three ADDITIVE fields to `ExampleMatch`, filled from what the generation really holds: `language` (from the deployment's platform: net C#, python Python, java Java, typescript TypeScript, nodejs JavaScript (Node.js), go Go, rust Rust, cpp C++; unknown platform empty), `source_commit` (the chunk's `Source-Commit:` value, empty when the
+  line is absent) and `verification` (one fixed sentence per provenance: for a README example `Compiled or run by the ingestion verifier against the library at source_commit; the verifier may have added the README's own imports or an entry point around this snippet, which are not shown, so add the imports and entry point your language needs.`; for an authored example `Authored for this index and compiled or run by the ingestion verifier against the library at source_commit; add the
+  imports and entry point your language needs.`). Decisions recorded: the verification record that a full answer (toolchain, flags, assembled source) would need is a data change in the generation (a later release), not this card; the sentence is true for every example the generation serves. What does NOT change: the result shape (new keys last, defaults empty), the lexical and vector stages, TC-543's rule, the other tools.
+depends_on:
+- TC-465
+- TC-506
+- TC-507
+- TC-508
+- TC-509
+- TC-516
+- TC-543
+write_paths:
+- infra/serve_http.py
+- src/foss_mcp/mcp/tools/find_examples.py
+- tests/infra/test_serve_http_slash_redirect.py
+- tests/mcp/tools/test_find_examples_verification_record.py
+satisfies:
+- REQ-G3-008
+- REQ-G3-001
+source_refs:
+- file: docs/DECISION_LOG.md
+  anchor: '## 2026-10-15 — Independent pre-production adversarial review of the shipped image; its findings enter the state machine as cards (operator, supervisor)'
+  sha256: d2d82669b8060d5e3a3b9da00e9858e576d5d264d96e32d1aed8034e8d6d9007
+inputs:
+- >-
+  Read, in full: infra/serve_http.py (`build_app`: `inner = server.streamable_http_app(session_idle_timeout=..., max_sessions=..., transport_security=..., custom_starlette_routes=[...])`, the `RejectionMiddleware(ErrorSanitisingMiddleware(SessionCapObserverMiddleware(inner, on_reject)), allowed_origins, exempt_paths=...)` that wraps it, `main`), tests/infra/test_serve_http.py (how it builds the app over a COPY of a committed scope directory and drives it with `starlette.testclient.TestClient`
+  used as a context manager so the lifespan runs), src/foss_mcp/mcp/tools/find_examples.py as merged by TC-543 (`ExampleMatch` with `provenance` and `match_basis`, `_provenance`, `_AUTHORED_PROVENANCE_LINE`, the three construction sites and `_vector_fallback`), and the pins on find_examples results: tests/mcp/tools/test_find_examples_verified_only.py (`ExampleMatch(PDF_NET, "g", "Example: x", "code()", coverage=1.0, source="exact")` is built with five arguments, so the new fields MUST default), test_relevance_floor.py,
+  test_example_search_mode.py, tests/mcp/test_dispatch_offload.py (compares a tools/call result with a direct call). Never print or log any environment value.
+- >-
+  infra/serve_http.py: directly after the `inner = server.streamable_http_app(...)` statement add the line `inner.router.redirect_slashes = False` (exactly once, with a comment: a trailing-slash path is a 404, never a redirect built from the client's Host header) and nothing else. find_examples.py: add `_PLATFORM_LANGUAGE` (the eight platforms above), `README_VERIFICATION_NOTE` and `AUTHORED_VERIFICATION_NOTE` (the two sentences in the purpose, exactly), a private
+  `_source_commit(text) -> str` (the value of the first line `Source-Commit: <value>`, else empty; read it with `re.search(pattern_string, text, re.MULTILINE)` - NEVER build the pattern with `re.compile(`: tests/mcp/tools/test_symbol_tools.py `test_no_snippet_is_ever_executed_at_query_time` scans the whole source of find_examples.py and fails on the text `eval(`, `exec(`, `compile(`, `subprocess.`, `import subprocess` or `os.system(`, also inside comments and docstrings - the drafter's prototype hit exactly this), and the LAST defaulted `ExampleMatch` fields `language: str = ""`, `source_commit: str = ""`, `verification: str = ""`; fill them at all three construction sites (exact, lexical, vector) from the chunk text and `scope.platform`; `verification` is the authored sentence when `_provenance(text) == "authored"`, else the README sentence. Extend the `ExampleMatch` docstring.
+- >-
+  Tests (offline, deterministic, no skip/xfail/sleep/network/wall-clock; at least 25 tests with the parametrised cases). tests/infra/test_serve_http_slash_redirect.py (NEW; the app over a COPY of the committed pdf/go scope directory, `TestClient(app, follow_redirects=False)` as a context manager, requests sent with `Host: evil.example`): parametrised over POST and GET and over `/mcp/`, `/healthz/`, `/readyz/`, `/metrics/`
+  `test_a_trailing_slash_path_is_a_404_with_no_location_header` (status 404, no `location` header, the body does not contain `evil.example`), `test_the_canonical_paths_are_unchanged` (`GET /healthz` 200, `GET /readyz` 200 on the committed generation, `GET /metrics` 200, `POST /mcp` with a valid initialize body and the accept headers answers 200 and a body that does not mention `evil.example`),
+  `test_the_origin_rejection_still_runs_before_routing` (a request with a disallowed `Origin` header is rejected exactly as tests/infra/test_serve_http.py pins), `test_build_app_sets_redirect_slashes_false_exactly_once` (the source of infra/serve_http.py contains `inner.router.redirect_slashes = False` once and `redirect_slashes = True` never), `test_main_serves_build_app` (ast: `main` passes a `build_app(...)` call to `uvicorn.run`).
+  tests/mcp/tools/test_find_examples_verification_record.py (NEW): `test_language_follows_the_platform` (parametrised over the eight platforms and one unknown), `test_source_commit_is_the_chunks_source_commit_line_and_empty_without_one`, `test_a_readme_example_carries_the_readme_verification_sentence_and_an_authored_one_the_authored_sentence` (exact, lexical and vector branches, with the stub provider of tests/mcp/tools/test_example_search_mode.py),
+  `test_the_sentences_name_the_commit_field_and_never_promise_what_the_chunk_does_not_hold` (neither mentions a compiler version, a toolchain or a flag), `test_an_example_match_built_by_hand_still_defaults_the_new_fields_to_empty`, `test_the_new_fields_reach_the_tools_call_json` (the real `tools/call` handler over a COPY of pdf/net, key names present, values as expected), and over a COPY of the committed generations of the 40 pilots
+  `test_every_served_example_of_every_pilot_carries_language_commit_and_verification` (query each example by its exact `Example: <title>` FQN; `language` non-empty, `source_commit` a hex string of at least 7 characters, or empty only if the chunk has no `Source-Commit:` line, `verification` equals the sentence for its provenance; at least 80 examples seen, the two per pilot that card TC-440 requires; 183 on main d7b594fd).
+- >-
+  Run `{python} -m pytest tests/infra/test_serve_http.py tests/mcp/tools/test_find_examples_verified_only.py -q -rfE -p no:cacheprovider` FIRST to see them green. The drafter applied both changes to a prototype and ran tests/mcp, tests/infra, tests/deploy, tests/poc and tests/indexing (not the network Rust-verifier tests, not tests/e2e which needs docker): no existing assertion turned red from the redirect line. Change an existing assertion ONLY if it is red for a reason named in this card, with a comment, never delete, skip or xfail a test. Preserve line endings and
+  encoding (LF, UTF-8, no BOM); commit messages are UTF-8 without a byte-order mark. Do not edit docs/ (the trailing-slash 404 is mentioned by the successor documentation card).
+- >-
+  Production wiring: `build_app` is what `main` hands to uvicorn (`uvicorn.run(build_app(config, ...), host="0.0.0.0", ...)`), and the redirect test drives the app `build_app` returns, not a router built by the test; the find_examples fields are filled inside `find_examples`, which `_wrap_find_examples` in src/foss_mcp/mcp/server.py calls, and the tools/call test above goes through that registry.
+actions:
+- >-
+  Stop the server building a redirect URL from the client's Host header: trailing-slash paths become a 404.
+- >-
+  Tell the reader of a find_examples answer the language, the pinned commit and what verified means, from fields the generation really holds.
+checks:
+- command: '{python} -m pytest tests/infra/test_serve_http_slash_redirect.py tests/mcp/tools/test_find_examples_verification_record.py -q -rfE -p no:cacheprovider'
+  expect: exit 0
+  timeout_seconds: 1800
+  junitxml: true
+  proves:
+  - REQ-G3-008
+  - REQ-G3-001
+- command: '{python} -m pytest tests/mcp tests/infra/test_serve_http.py tests/infra/test_serve_stdio_parity.py tests/infra/test_serve_readyz_depth.py tests/test_unwired_modules.py -q -rfE -p no:cacheprovider'
+  expect: exit 0
+  timeout_seconds: 3000
+  junitxml: true
+  proves:
+  - REQ-G3-008
+  - REQ-G3-001
+min_tests: 25
+network: true
+requires:
+- python
+negative_control:
+  mutate: |
+    python -X utf8 -c "import pathlib;p=pathlib.Path('infra/serve_http.py');s=p.read_text(encoding='utf-8');old='inner.router.redirect_slashes = False';assert s.count(old)==1;p.write_text(s.replace(old,'inner.router.redirect_slashes = True'),encoding='utf-8')"
+  rationale: >-
+    Turns the slash redirect back on, so `/mcp/` answers 307 with a Location built from the client's Host header again: the trailing-slash tests (404, no location header) and the source assertion fail. A real break of the card's central claim (the server never builds a URL from a client header).
+evidence:
+- evidence/build/G3/TC-544/receipt.json
+closeout:
+- >-
+  A trailing-slash path is a 404 and no response carries a Location built from the Host header; every find_examples answer carries its language, its pinned source commit and a sentence saying what verified means and that the verifier may have added imports or an entry point that the snippet does not show. The image must be rebuilt for this to reach a pilot.
+recovery: Re-run from a clean tree.

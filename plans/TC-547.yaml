@@ -1,0 +1,74 @@
+id: TC-547
+gate: G3
+lane: verification
+purpose: >-
+  REQ-G3-008 and REQ-G3-007 (process audit defect: a guard written to protect an empty seed also forbids the data the seed exists to receive). VERIFICATION CACHES MAY BE POPULATED. The 40 files tests/fixtures/verified_examples/<family>_<platform>.json are empty seed documents (43 bytes each: `{"entries": [], "schema_version": 1}`); docker-compose.yml and the Helm chart pass them to `infra/build_chunks.py --verification-cache`, and Dockerfile.ingestion bakes
+  tests/fixtures/ into the ingestion image, so every re-ingest of a pilot re-runs every verifier (docker, compilers, interpreters) because no verdict is cached. The data cannot be derived offline: infra/demo-manifests holds the verified examples but no verdict, toolchain id or output, and no evidence log holds them. The only source is the cluster. Measured by the drafter, read-only, on the kind cluster (namespace foss-mcp, 40 serving pods): every pod holds `/data/manifests/verification_cache_<family>_<platform>.json` of 1,074 to 19,109 bytes,
+  261 entries in all (3 to 18 per pilot), and every one of the 40 documents is accepted by `build_chunks.parse_verification_cache` (exactly the eight documented fields per entry); 139 of the 183 verified examples in the baked generations have a verified entry with the same normalised code hash and the SAME library commit as the chunk's `Source-Commit:` (0 commit mismatches; the other 44 were verified by earlier runs whose verdicts this cache does not hold), and no entry text looks like a credential. The existing tool
+  `scripts/release/pull_verification_cache.py --namespace foss-mcp` (tested by tests/deploy/test_pull_verification_cache.py) pulls and merges them; running it is a supervisor step (it needs kubectl and the live cluster, so a reviewer cannot reproduce it) with the exact commands in the closeout. But committing the result is blocked by exactly two assertions of tests/infra/test_verification_cache_seed_files.py (card TC-499): `assert entries == []` ("a seed file and must hold zero
+  entries") and the byte-identity of each file with `verification_cache_document([])`. This card relaxes those two assertions to what a committed cache must always satisfy and adds the checks that make a populated cache verifiable offline: (1) each file parses with the project loader, every entry's `platform` equals the pilot's platform (from the file name), `library_commit` is 40 lowercase hex, `code_sha256` is 64 lowercase hex, `verified` is a boolean, `toolchain` is a non-empty string, the entries are unique by the five-field
+  key and sorted exactly as `merge_verification_cache([], entries)` sorts them, and the file is byte-identical to `verification_cache_document(entries)` (so a pull is deterministic and a second pull writes nothing); (2) a consistency check against the baked generations: for every verified example the pilot serves, a cache entry with the same provenance, normalised code hash and library commit must not say `verified: false`; (3) size and content guards (each file under 100,000 bytes, none containing a credential shape). With empty files (today) all of it passes
+  vacuously except the structure checks, which is the point: the guard keeps protecting and stops forbidding. What does NOT change: the loader, the merge, the writer, the pull tool, the seed file NAMES (test_seed_files_equal_the_cache_paths_named_in_docker_compose and the chart variant stay as they are), any chart or compose value.
+depends_on:
+- TC-441
+- TC-499
+write_paths:
+- tests/infra/test_verification_cache_seed_files.py
+- tests/infra/test_verification_cache_committed.py
+satisfies:
+- REQ-G3-008
+- REQ-G3-007
+source_refs:
+- file: docs/DECISION_LOG.md
+  anchor: '## 2026-10-15 — Independent pre-production adversarial review of the shipped image; its findings enter the state machine as cards (operator, supervisor)'
+  sha256: d2d82669b8060d5e3a3b9da00e9858e576d5d264d96e32d1aed8034e8d6d9007
+inputs:
+- >-
+  Read, in full: tests/infra/test_verification_cache_seed_files.py (`_compose_cache_paths`, `_chart_cache_paths`, `_pilot_cases`, the two parametrised tests `test_seed_file_exists_and_parses_with_the_project_loader` and `test_seed_file_is_the_canonical_deterministic_empty_document`, and the three name-equality tests that must stay unchanged), infra/build_chunks.py (`parse_verification_cache`, `load_verification_cache`, `merge_verification_cache`,
+  `verification_cache_document`, `normalised_code_sha256`, `_CACHE_ENTRY_FIELDS`), scripts/release/pull_verification_cache.py, tests/infra/test_build_chunks_verification_cache.py (`test_every_committed_verified_examples_fixture_parses_and_is_named_after_a_pilot`), src/foss_mcp/mcp/tools/find_examples.py (`is_verified_example_text`, `_extract_example`, `_provenance`), and one committed generation (infra/demo-manifests/pdf__net__self_extracted). Never print or log any environment value.
+- >-
+  tests/infra/test_verification_cache_seed_files.py: change ONLY these two tests. `test_seed_file_exists_and_parses_with_the_project_loader` keeps the existence and loader assertions, drops `assert entries == []` and instead asserts for every entry the structural rules (1) of the purpose, with the pilot's platform taken from the file name `<family>_<platform>.json` (neither part contains an underscore; use `name.removesuffix(".json").partition("_")`).
+  `test_seed_file_is_the_canonical_deterministic_empty_document` keeps its name (a rename would hide the history; update its docstring/comment: it now pins the canonical form of the pilot's OWN entries) and asserts `raw == build_chunks.verification_cache_document(entries).encode("utf-8")` with no carriage return. Add a comment on each naming TC-547 and why. Both stay parametrised over the 40 services, so the pass count does not drop.
+- >-
+  tests/infra/test_verification_cache_committed.py (NEW; offline, deterministic, no skip/xfail/sleep/network; at least 12 tests with the parametrised cases): a helper `contradictions(entries, examples)` returns the examples (provenance, code hash, commit) for which an entry with the same triple has `verified` false; `test_contradictions_flags_a_failed_verdict_for_a_served_example` (synthetic entries and examples), `test_contradictions_ignores_other_commits_and_other_hashes`, `test_the_size_guard_flags_a_100001_byte_document`, `test_the_credential_guard_flags_a_token_shape` (a synthetic entry whose output holds `ghp_` followed by 20 letters, an `AKIA` key shape and `-----BEGIN` is flagged; plain compiler output is not), `test_a_populated_synthetic_cache_round_trips_through_merge_and_document_deterministically`,
+  parametrised over the 40 pilots (the file names in the directory, at least 40) `test_the_committed_cache_has_no_contradiction_with_the_served_examples` (the served verified examples are read from the pilot's committed generation in infra/demo-manifests with `is_verified_example_text`, `_extract_example`, `normalised_code_sha256` and the chunk's `Source-Commit:` line; provenance from `_provenance`), `test_the_committed_cache_is_small_and_credential_free`, and `test_the_committed_cache_is_canonical_and_sorted` (entries equal `merge_verification_cache([], entries)`). A last test `test_the_cache_coverage_is_reported_not_asserted` prints how many served examples have a verified entry (0 of 183 today, 139 of 183 after the supervisor's pull) and asserts only that the count is between 0 and 183, so the figure shows up in the report without a
+  threshold nobody has measured on committed data.
+- >-
+  Run `{python} -m pytest tests/infra/test_verification_cache_seed_files.py tests/infra/test_build_chunks_verification_cache.py tests/deploy/test_pull_verification_cache.py -q -rfE -p no:cacheprovider` FIRST (after scripts/toolchain/activate.ps1 in the same shell command; helm must be on PATH or the chart tests fail, they never skip). Never delete, skip or xfail a test. Do NOT run the pull tool, do not run kubectl, do not write any file under tests/fixtures/verified_examples/: populating the files is the supervisor's step after this card is accepted. Preserve line endings and encoding (LF, UTF-8, no BOM); commit messages are UTF-8 without a byte-order mark.
+actions:
+- >-
+  Relax the two empty-seed assertions of TC-499 to the canonical-form and structure rules that every committed verification cache must satisfy, so the files can be populated.
+- >-
+  Add offline checks that a populated cache never contradicts the generation it caches for, stays small and holds no credential.
+checks:
+- command: '{python} -m pytest tests/infra/test_verification_cache_seed_files.py tests/infra/test_verification_cache_committed.py -q -rfE -p no:cacheprovider'
+  expect: exit 0
+  timeout_seconds: 1800
+  junitxml: true
+  proves:
+  - REQ-G3-008
+  - REQ-G3-007
+- command: '{python} -m pytest tests/infra/test_verification_cache_seed_files.py tests/infra/test_verification_cache_committed.py tests/infra/test_build_chunks_verification_cache.py tests/deploy/test_pull_verification_cache.py -q -rfE -p no:cacheprovider'
+  expect: exit 0
+  timeout_seconds: 2400
+  junitxml: true
+  proves:
+  - REQ-G3-008
+  - REQ-G3-007
+min_tests: 12
+network: false
+requires:
+- python
+negative_control:
+  mutate: |
+    python -X utf8 -c "import pathlib;p=pathlib.Path('tests/infra/test_verification_cache_committed.py');s=p.read_text(encoding='utf-8');old='def contradictions(';assert s.count(old)==1;p.write_text(s.replace(old,'def contradictions_disabled(',1),encoding='utf-8')"
+  rationale: >-
+    Renames the contradiction helper, so every test that calls it fails with a NameError: the synthetic-contradiction tests and the 40 per-pilot consistency tests. A real break of the card's central claim (a populated cache is checked against the generation it caches for).
+evidence:
+- evidence/build/G3/TC-547/receipt.json
+closeout:
+- >-
+  Committed verification caches are checked for structure, canonical form, size, credentials and consistency with the served examples instead of being forced empty. SUPERVISOR STEP after this card is accepted (exact commands, from the repository root in PowerShell): `. .\scripts\toolchain\activate.ps1` then `.\.venv\Scripts\python.exe scripts\release\pull_verification_cache.py --namespace foss-mcp --dry-run` (expect 40 lines ending `written`), then the same command without `--dry-run`, then `git diff --stat tests/fixtures/verified_examples`
+  (expect 40 files changed, about 261 entries), then `.\.venv\Scripts\python.exe -m pytest tests/infra/test_verification_cache_seed_files.py tests/infra/test_verification_cache_committed.py tests/infra/test_build_chunks_verification_cache.py tests/deploy/test_pull_verification_cache.py -q -p no:cacheprovider`, the repository's secret scan and the local pre-push gate, and commit `chore(data): seed the 40 verification caches from the cluster run (supervisor)`. Do it BEFORE the final re-ingest and rebuild the ingestion image afterwards (Dockerfile.ingestion copies tests/fixtures/verified_examples/),
+  otherwise the re-ingest re-verifies everything. A cache entry is reused only when the code hash, library commit, platform and toolchain id all match, so a re-ingest with a different toolchain image still re-verifies those pilots.
+recovery: Re-run from a clean tree.

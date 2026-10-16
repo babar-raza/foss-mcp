@@ -1,0 +1,99 @@
+id: TC-541
+gate: G3
+lane: storage-retrieval
+purpose: >-
+  REQ-G3-008 (independent pre-production review findings RST-15 shells and the Python alias half of ISOPROV-06; process audit defect: a fix proven on a handful of classes was not proven on the whole fleet, so empty shells survived the cards that
+  fixed shells). EMPTY PYTHON SHELLS AND ALIASES. A Python library re-exports its classes from several modules, and the extractor lists every spelling as its own entry; the entries that carry no member are empty shells that answer an agent with a class
+  that has no methods. Card TC-522 paired a shell with its definition only when the shell is a member-less stub in a package `__init__.py` AND the definition lives under that package, or when the shell names a `reexport_of`. Measured by the drafter on the 12
+  committed Python fixtures at main d7b594fd, with the production builder's own `_reexport_pairs`: 654 member-less entries stay unpaired, and of the member-less CLASS or ENUM entries 56 have exactly one member-bearing entry of the same name and kind elsewhere
+  in the same fixture (pdf/python 31 of which 7 are `__init__.py` stubs under a different package such as `aspose_pdf.annotations.InkAnnotation` for `aspose_pdf.InkAnnotation` and 24 are stub modules such as `aspose_pdf.generated.document.Document` for `aspose_pdf.document.Document`; 3d/python 8; slides/python 6;
+  words/python 5; note/python 4; jmap/python 2) and 10 more names (3d/python 5, pdf/python 4, words/python 1) have two definitions and stay ambiguous. `search_symbols("Document")` on the committed pdf/python and words/python generations puts an empty chunk first: of 59 names that have both an empty and a real chunk in the
+  12 committed Python generations the FIRST result has members for only 27 (46 percent; 3d/python 3 of 10, pdf/python 16 of 33, slides/python 0 of 4, words/python 4 of 6, note/python 2 of 4); with the tie-break below it is 59 of 59. This card (a) extends `chunk_builder._reexport_pairs`
+  with one more rule applied after the existing ones: a member-less entry of kind class or enum whose file ends in `.py`, not paired by an earlier rule, pairs with the ONE entry of the same name and kind and a `.py` file that has members (a definition already used by another pair counts; a shell never counts as a
+  definition), wherever it lives in the fixture; two or more such definitions leave it unpaired; a paired shell is rendered with the definition's members and a `Defined-In:` line and the definition lists it under `Exported-As:` exactly as TC-522 does, and the pair is ONE slot of the `max_types` cap; (b) makes `search_symbols` rank, within one match tier, a chunk that lists at least one member before a
+  chunk that lists none, with the existing declaring-before-inheriting and BM25 keys unchanged behind it, so the committed data (which is only re-ingested later) already answers with the real class first. Decision recorded here for the class-level constants half of the supervisor's brief: they are NOT folded into this card; the drafter measured them (card TC-545 extracts them). What does NOT change: tier numbers and
+  `_match_tier`, the Miss text, any other language's pairing (the new rule applies only to `.py` entries), the extraction, the committed fixtures and generations (the supervisor re-ingests them in the data refresh after this card, which is when the 56 pairs reach the baked data).
+depends_on:
+- TC-382
+- TC-515
+- TC-516
+- TC-520
+- TC-521
+- TC-522
+- TC-523
+- TC-524
+write_paths:
+- src/foss_mcp/indexing/chunk_builder.py
+- src/foss_mcp/mcp/tools/search_symbols.py
+- tests/indexing/test_chunk_builder_stub_pairing.py
+- tests/mcp/tools/test_search_symbols_memberless_last.py
+satisfies:
+- REQ-G3-008
+- REQ-G3-001
+source_refs:
+- file: docs/DECISION_LOG.md
+  anchor: '## 2026-10-15 — Independent pre-production adversarial review of the shipped image; its findings enter the state machine as cards (operator, supervisor)'
+  sha256: d2d82669b8060d5e3a3b9da00e9858e576d5d264d96e32d1aed8034e8d6d9007
+inputs:
+- >-
+  Read, in full: src/foss_mcp/indexing/chunk_builder.py (`_has_members`, `_explicit_reexport_pairs`, `_reexport_pairs` and its docstring, `_slot_units`, `build_chunks_from_api_surface` - the pairing is computed over every non-test entry BEFORE the cap, `_format_type_text` with `members_from=`, `defined_in=`, `exported_as=`), as left by TC-522 and TC-523 and
+  by TC-524 (card TC-524 also edits this file: read the merged version on main first), src/foss_mcp/mcp/tools/search_symbols.py (`search_symbols`: its admitted tuples are `(tier, inherits_only, bm25, doc_id)` sorted by `(candidate[0], candidate[1], -candidate[2])`; `_member_declaration`), get_symbol.py `_extract_block`, and the pins: tests/indexing/test_chunk_builder_python_signatures.py,
+  tests/indexing/test_chunk_builder_honesty.py, tests/extraction/test_python_fixture_gaps.py, tests/mcp/test_search_symbols_honest_miss.py, tests/mcp/tools/test_search_symbols_forgiveness.py, tests/mcp/tools/test_retrieval_tools.py. The drafter ran tests/mcp, tests/indexing (all but the three Rust-verifier tests that need network), tests/infra, tests/deploy, tests/poc (tests/e2e needs docker and was not run),
+  tests/extraction/test_python_fidelity.py, test_python_fixture_gaps.py, test_run_extraction_python.py, tests/infra/test_build_chunks.py, test_build_chunks_extraction_notice.py and tests/test_unwired_modules.py against a prototype of both changes: no existing assertion changes. Never print or log any environment value.
+- >-
+  chunk_builder.py. At the end of `_reexport_pairs`, before `return pairs`, add the rule described in the purpose. Build `definitions: dict[tuple[str, str], list[int]]` keyed by `(name, kind)` over the entries that have members, are not themselves a shell in `pairs` and whose `file` ends with `.py`; then for each unpaired, member-less entry of kind `class` or `enum` with a `.py` file, look its key up: exactly one definition and that
+  definition is not the entry itself -> `pairs[index] = definition_index`; the deciding line must read exactly `if len(found) == 1 and found[0] != index:` and appear once in the module (the negative control edits it). Extend the docstring of `_reexport_pairs` with a third paragraph that says so. No other function changes; `build_chunks_from_api_surface` already treats every pair as one slot.
+- >-
+  search_symbols.py. Add a private helper `_has_listed_members(text: str) -> bool` (True when `_extract_block` finds an item under `Methods:`, `Properties:` or `Members:`; import `_extract_block` lazily from get_symbol as the neighbouring helpers do) and put a `memberless` flag (0 when it lists members, 1 when it lists none) SECOND in the admitted tuple and in the sort key: `(tier, memberless, inherits_only, -bm25)`. The fallback stage
+  `_fallback_doc_ids` and the Miss are unchanged. Extend the module docstring with a TC-541 paragraph.
+- >-
+  Tests (offline, deterministic, no skip/xfail/sleep/network/wall-clock; at least 25 tests with the parametrised cases). tests/indexing/test_chunk_builder_stub_pairing.py (NEW; synthetic fixtures built by hand with the fields `name`, `kind`, `class_import`, `file`, `methods`, `properties`, `enum_members`, plus `build_chunks_from_api_surface(fixture, title="t")`):
+  `test_a_stub_in_another_package_pairs_with_the_one_definition` (shell `pkg.annotations.InkAnnotation` in `pkg/annotations/__init__.py`, definition `pkg.InkAnnotation`: the shell chunk has `Defined-In: pkg.InkAnnotation` and the definition's `Methods:`; the definition chunk has `Exported-As: pkg.annotations.InkAnnotation`),
+  `test_a_stub_module_class_pairs_with_the_definition` (shell in `pkg/generated/document.py`), `test_two_definitions_of_the_same_name_leave_the_shell_unpaired`, `test_a_definition_of_another_kind_does_not_pair`, `test_a_member_less_function_never_pairs`, `test_non_python_entries_never_pair` (two `.cs` entries), `test_an_explicit_reexport_of_pair_wins_over_the_new_rule`,
+  `test_a_shell_is_never_used_as_a_definition`, `test_the_pair_is_one_slot_of_the_cap` (max_types=2 with a shell, its definition and two other types keeps both halves), `test_an_enum_shell_pairs_with_an_enum_definition_and_renders_its_members`, parametrised over the 12 Python fixtures discovered from tests/fixtures (names ending `_python`, at least 12)
+  `test_no_member_less_class_or_enum_chunk_has_a_unique_member_bearing_twin_after_the_build` (rebuild with `max_types=len(types)`; a chunk of kind class or enum that lists no member and carries no `Defined-In:` line must not share its final FQN segment with exactly one chunk that lists members). (The drafter measured the rule on main d7b594fd: 762 shell-and-definition pairs over the 12 Python fixtures before and 818 after, 56 new; that figure is NOT pinned, because the Python re-extraction card TC-532 changes the fixtures.)
+  tests/mcp/tools/test_search_symbols_memberless_last.py (NEW; in-memory generations as tests/mcp/test_tool_surface_truthful.py `_InMemoryStore` builds them, plus the committed data): `test_a_chunk_with_members_ranks_before_an_empty_chunk_of_the_same_name_even_when_the_empty_one_scores_higher_bm25`, `test_the_tier_still_decides_first` (an empty exact-FQN chunk stays ahead of a real chunk matched only by final segment),
+  `test_declaring_before_inheriting_is_unchanged_behind_the_new_key`, `test_a_miss_is_unchanged`, `test_the_helper_counts_properties_and_enum_members_as_members`, and over a COPY of the committed generations of the 12 Python pilots (as tests/mcp/tools/test_forgiveness_acceptance.py copies a scope directory) `test_the_first_result_has_members_for_every_name_that_has_both_an_empty_and_a_real_chunk`
+  (for each final segment that occurs on at least one chunk with members and at least one without, `search_symbols(name)` has members in its first result: 59 of 59 names on the committed data of main d7b594fd; the test asserts the property for however many such names exist and states the 59 in a comment, because after the data refresh pairs the shells there will be none, and the synthetic tests above carry the guard against a vacuous pass), `test_search_symbols_document_on_pdf_python_and_words_python_answers_with_the_real_class`.
+- >-
+  Existing tests: run `{python} -m pytest tests/mcp tests/indexing/test_chunk_builder.py tests/indexing/test_chunk_builder_python_signatures.py tests/indexing/test_chunk_builder_honesty.py tests/indexing/test_chunk_builder_coverage_line.py tests/indexing/test_chunk_builder_modifiers.py tests/indexing/test_chunk_builder_typescript_marks.py tests/indexing/test_chunk_builder_mixin_suffix.py tests/indexing/test_chunk_builder_cpp_signatures.py tests/indexing/test_index_writers.py tests/indexing/test_publisher.py tests/indexing/test_lookup_doc_fallback_query_safety.py tests/test_unwired_modules.py -q -rfE -p no:cacheprovider` FIRST (not the whole tests/indexing directory: tests/indexing/test_example_verifier.py clones and builds a pinned Rust library and errors without network). Change an existing assertion ONLY if it is red for a reason named in this card, with a comment saying why; never delete, skip or xfail a test; tests/indexing/test_chunk_builder_honesty.py and tests/indexing/test_lookup_doc_fallback_query_safety.py are owned by pending
+  cards (TC-531, TC-530) and must not be edited. Every new public name in src/foss_mcp needs a production caller; both helpers are private. Preserve line endings and encoding (LF, UTF-8, no BOM); commit messages are UTF-8 without a byte-order mark.
+- >-
+  Production wiring: `_reexport_pairs` is called by `build_chunks_from_api_surface`, which infra/build_chunks.py (the ingestion entrypoint) calls (`chunks = build_chunks_from_api_surface(fixture, title=args.title, max_types=args.max_types)`); the fixture-driven test above goes through that function, and `search_symbols` is the registry tool `_wrap_search_symbols` in src/foss_mcp/mcp/server.py calls.
+  A grep assertion `build_chunks_from_api_surface(` in infra/build_chunks.py is part of the first test file.
+actions:
+- >-
+  Pair a member-less Python class or enum with its unique member-bearing same-name definition anywhere in the fixture, as one slot, so the empty alias stops answering for the class.
+- >-
+  Rank a chunk that lists members before one that lists none within a match tier in search_symbols, so the committed data already answers with the real class first, and pin both on all 12 Python fixtures and generations.
+checks:
+- command: '{python} -m pytest tests/indexing/test_chunk_builder_stub_pairing.py tests/mcp/tools/test_search_symbols_memberless_last.py -q -rfE -p no:cacheprovider'
+  expect: exit 0
+  timeout_seconds: 1800
+  junitxml: true
+  proves:
+  - REQ-G3-008
+  - REQ-G3-001
+- command: '{python} -m pytest tests/mcp tests/indexing/test_chunk_builder.py tests/indexing/test_chunk_builder_python_signatures.py tests/indexing/test_chunk_builder_honesty.py tests/indexing/test_chunk_builder_coverage_line.py tests/indexing/test_chunk_builder_modifiers.py tests/indexing/test_chunk_builder_typescript_marks.py tests/indexing/test_chunk_builder_mixin_suffix.py tests/indexing/test_chunk_builder_cpp_signatures.py tests/indexing/test_index_writers.py tests/indexing/test_publisher.py tests/indexing/test_lookup_doc_fallback_query_safety.py tests/infra/test_build_chunks.py tests/infra/test_build_chunks_extraction_notice.py tests/extraction/test_python_fidelity.py tests/extraction/test_python_fixture_gaps.py tests/extraction/test_run_extraction_python.py tests/test_unwired_modules.py -q -rfE -p no:cacheprovider'
+  expect: exit 0
+  timeout_seconds: 3000
+  junitxml: true
+  proves:
+  - REQ-G3-008
+  - REQ-G3-001
+min_tests: 25
+network: true
+requires:
+- python
+negative_control:
+  mutate: |
+    python -X utf8 -c "import pathlib;p=pathlib.Path('src/foss_mcp/indexing/chunk_builder.py');s=p.read_text(encoding='utf-8');old='if len(found) == 1 and found[0] != index:';assert s.count(old)==1;p.write_text(s.replace(old,'if False:'),encoding='utf-8')"
+  rationale: >-
+    Disables the new pairing rule, so a stub in another package or a stub module stays an empty chunk: the pairing tests and the per-fixture "no residual shell" tests fail. A real break of the card's central claim (a member-less alias of a Python class is rendered with the class's members).
+evidence:
+- evidence/build/G3/TC-541/receipt.json
+closeout:
+- >-
+  A member-less Python class or enum with exactly one member-bearing definition of the same name in its fixture is rendered with that definition's members as one slot, and `search_symbols` answers with the chunk that lists members before one that lists none: 59 of 59 contested names on the committed data (46 percent before). The 56 new pairs reach the baked data only with the data refresh
+  after this card; the supervisor schedules it after TC-545 and the Python re-extraction.
+recovery: Re-run from a clean tree.

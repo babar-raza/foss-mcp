@@ -1,0 +1,118 @@
+id: TC-540
+gate: G3
+lane: storage-retrieval
+purpose: >-
+  REQ-G3-008 (independent pre-production review finding RST-17 and the QA finding that `get_symbol("Aspose.Pdf.Document.Save")` is a miss; process audit defect: a miss that does not say what it was
+  looking for sends an agent into a guess loop). MEMBER-LEVEL LOOKUP. An agent that has read an example calls `get_symbol` with the name it saw, `Document.Save` or `Workbook.add_worksheet`, and gets
+  `NotFound` although the member exists: `get_symbol` and `list_members` match a chunk's `FQN:` line exactly and a method or property has no FQN of its own (src/foss_mcp/mcp/tools/get_symbol.py `get_symbol`
+  compares `document_fqn == fqn`; the tool descriptions in src/foss_mcp/mcp/server.py say "a method or property has no FQN of its own"). Measured by the drafter with a prototype on the 40 baked
+  generations at main d7b594fd (every declared member, 40 pilots, 30 sampled per pilot): `<TypeFQN>.<member>` resolves for 1,163 of 1,163 samples and `<UniqueShortType>.<member>` for 1,131 of 1,163
+  (97.2 percent); the other 32 are 30 cases where the short name is genuinely shared by two or more types (pdf/python 55 of 200 sampled names, pdf/java 36, note/python 23, pdf/net 20 in the earlier
+  200-per-pilot survey) and 2 jmap/nodejs cases where an exact-named `JmapClient` shadows `client-core.JmapClient`; 2,400 resolutions through the store took 4.3 s and 210 of 210 through the real `tools/call` handler were correct in 2.1 s. Three pilots show why the miss text matters: jmap/net declares `ListMailboxesAsync` on the extension class `Aspose.Jmap.JmapClientMailExtensions`, not on `JmapClient`, so
+  `JmapClient.ListMailboxes` should answer that the type was found, that it declares no member of that name, and that `Aspose.Jmap.JmapClientMailExtensions.ListMailboxesAsync` is the nearest; pdf/net
+  `Aspose.Pdf.Document.Save` has 10 overload lines an agent needs all of; cells/python `Workbook.add_worksheet` is declared by a re-export shell and its definition at once. This card adds an ADDITIVE resolution
+  step AFTER the exact match: (1) the whole name read as a type (the one indexed FQN that ends with it at a dot or `::` boundary, a Python re-export shell and its definition counting as one type) resolves with `member` empty; (2) the text after the last dot or
+  `::` read as a member of the type the text before it names resolves to the OWNING type's signature plus every rendered line of that member (all overloads); (3) a name shared by several types, a member the found
+  type does not declare, and an unknown owner are explicit `NotFound` answers - the first lists the full names, the second says "<Type> is in this index, but it declares no member named '<m>'" and lists did-you-mean
+  member names (a case-insensitive match or the `Async` twin, then other types that declare the name or its twin, then the nearest spellings), the third is today's answer unchanged. `list_members("<Type>.<member>")`
+  returns just that member's lines. The exact-FQN path, its JSON, the NotFound reason for an unknown name and every existing test are unchanged; an exact hit stays a plain `SymbolSignature`. What does NOT change: matching is still
+  by names, never a substring or fuzzy match for a hit; the response budget; the other tools; the index.
+depends_on:
+- TC-143
+- TC-386
+- TC-514
+- TC-515
+- TC-520
+- TC-518
+- TC-519
+write_paths:
+- src/foss_mcp/mcp/tools/get_symbol.py
+- src/foss_mcp/mcp/tools/list_members.py
+- src/foss_mcp/mcp/server.py
+- tests/mcp/tools/test_member_lookup.py
+- tests/mcp/tools/test_member_lookup_baked.py
+satisfies:
+- REQ-G3-008
+- REQ-G3-001
+source_refs:
+- file: docs/DECISION_LOG.md
+  anchor: '## 2026-10-15 — Independent pre-production adversarial review of the shipped image; its findings enter the state machine as cards (operator, supervisor)'
+  sha256: d2d82669b8060d5e3a3b9da00e9858e576d5d264d96e32d1aed8034e8d6d9007
+inputs:
+- >-
+  Read, in full: src/foss_mcp/mcp/tools/get_symbol.py (`extract_fqn`, `_extract_block`, `_parse_signature`, `SymbolSignature`, `NotFound`, `generation_coverage_note`, `get_symbol`), list_members.py, the rendering of a type chunk in
+  src/foss_mcp/indexing/chunk_builder.py (`_format_type_text`: `FQN:`, `Kind:`, optional `Defined-In:` / `Exported-As:` lines, then `Methods:`, `Properties:` and `Members:` blocks whose items are `  - name(params) -> R`, `  - Name: T (writable)` and
+  `  - Name = value`), search_symbols.py (`_member_name`, `suggest_similar_fqns`, `_NON_SYMBOL_FQN_PREFIXES`), server.py (`_wrap_get_symbol`, `_wrap_list_members`, `TOOL_DESCRIPTIONS` for get_symbol and list_members and search_symbols, `_FIELD_DESCRIPTIONS["fqn"]`,
+  `_TOOL_FIELD_DESCRIPTIONS["get_symbol"]` and `["list_members"]`, `_call_tool` which JSON-serialises the result with `_to_jsonable`), and the pins: tests/mcp/test_tool_surface_truthful.py (`test_get_symbol_and_list_members_say_only_types_have_an_fqn` needs the phrase
+  "no FQN of its own" or "has none of its own" in BOTH descriptions; `test_every_quoted_identifier_in_a_description_is_a_pdf_net_type` checks single-quoted identifier-shaped tokens; `Document.save` must not appear in any description), tests/mcp/tools/test_symbol_tools.py,
+  tests/mcp/tools/test_retrieval_tools.py (`test_get_symbol_not_found_suggests_a_real_close_fqn_from_this_same_generation`), tests/mcp/test_response_budget.py. Never print or log any environment value.
+- >-
+  get_symbol.py. (1) New frozen dataclass `ResolvedSignature(SymbolSignature)` with LAST, defaulted fields `resolved_from: str = ""` (the name asked for), `member: str = ""` (empty for a bare type) and `member_lines: tuple[str, ...] = ()` (every rendered line of the member, all overloads, in
+  chunk order); its `fqn` is the OWNING type's real FQN. An exact FQN hit stays a plain `SymbolSignature`, so its JSON gains no key. (2) In `get_symbol`, collect the symbol chunks as you walk them (`doc_id`, `chunk_id`, `fqn`, `text`; pseudo-symbol FQNs `Example: ` and `Doc: ` excluded exactly as
+  today) and, when no FQN equals the request, call a new private `_resolve_name(scope, generation_id, symbols, requested)` BEFORE building today's NotFound; it returns a `ResolvedSignature`, an explicit `NotFound`, or `None` (then today's NotFound with `suggest_similar_fqns` is returned unchanged; every NotFound it
+  returns keeps `coverage_note=generation_coverage_note(documents)`). (3) `_declared_members(text) -> dict[str, list[str]]`: member name to its lines over the `Methods:`, `Properties:` and `Members:` blocks (`_extract_block`); a method or property name is `search_symbols._member_name(item)` cut at the first whitespace or `[`; an enum member name is the
+  text before ` = `. (4) `_owners(symbols, owner_text)`: the chunk whose FQN equals `owner_text`, else every chunk whose FQN ends with `"." + owner_text` or `"::" + owner_text`; chunks whose declared members are identical (a Python re-export shell and its definition) collapse to one, keeping the one without a `Defined-In:` line. (5) Order of
+  `_resolve_name`: the whole name as a type (one owner -> `ResolvedSignature(member="")`; several -> NotFound whose reason is `'<name>' names <n> different types in this index; use one of the full names listed` and whose `suggestions` are their FQNs, sorted, at most five); else split at the LAST `.` or `::`
+  into owner text and member (both non-empty, else `None`); no owner -> `None`; several owners -> NotFound with the same kind of reason and the suggestions `<ownerFQN><sep><member>` for the owners that declare the member (all of them when none does); one owner that declares the exact, case-sensitive member name -> `ResolvedSignature` with `member` and
+  `member_lines`; one owner that does not -> NotFound with reason `<ownerFQN> is in this index, but it declares no member named '<member>'`. `<sep>` is `::` when the owner FQN contains `::`, else `.`. (6) Did-you-mean members, at most five, deduplicated, in this order: the owner's own members whose casefolded name equals the casefolded request or its `Async` twin
+  (add or remove a trailing `async`), then every other indexed type (FQN order) that declares such a name, then `difflib.get_close_matches(member, names, n=3, cutoff=0.6)` over the owner's names. The exact line that decides a member hit must be `if member in declared:` (the negative control edits it).
+- >-
+  list_members.py: when `get_symbol` returns a `ResolvedSignature` whose `member` is non-empty, return its `member_lines` (a tuple); a bare-type resolution and every exact hit return `methods + properties + members` as today; a NotFound is returned as it is.
+- >-
+  server.py descriptions (no code path changes there). Rewrite these five strings, keeping every other sentence, keeping the two tool descriptions distinct from the others, adding NO single-quoted identifier-shaped token and not the text `Document.save`, and keeping the phrase "no FQN of its own" (list_members, shared `fqn`, per-tool field
+  descriptions) or "has none of its own" (get_symbol) so the existing pin passes. Wording verified by the drafter against tests/mcp: get_symbol - replace "a method or property has none of its own, so find one with search_symbols by its member name and read it in the owning type's signature. Matching is exact string equality against the indexed FQN, never a substring or
+  fuzzy match, and example or documentation entries are never symbols." by "a method or property has none of its own, but <Type>.<member> (the full type name or its short name, then a dot or '::', then the member name) resolves to the owning type's signature, with every overload line of that member in member_lines, and a short type name that ends exactly one indexed FQN resolves too. A name shared by several types, or a member the type does not declare, is an explicit NotFound that lists the full names or the nearest member names. Matching is by exact names, never a substring or fuzzy match, and example or documentation entries are never symbols.";
+  list_members - replace "A method or property has no FQN of its own, so it cannot be passed here." by "A method or property has no FQN of its own, but <Type>.<member> returns just that member's lines (all its overloads)."; `_FIELD_DESCRIPTIONS["fqn"]` - "A method or property has no FQN of its own; <Type>.<member> is accepted."; `_TOOL_FIELD_DESCRIPTIONS["get_symbol"]["fqn"]` - "...has no FQN of its own, but <Type>.<member> is accepted. Verify it with search_symbols if unsure."; `_TOOL_FIELD_DESCRIPTIONS["list_members"]["fqn"]` - "...has no FQN of its own, but <Type>.<member> returns that member's lines. Verify it with search_symbols if unsure."
+- >-
+  Tests (offline, deterministic, no skip/xfail/sleep/network/wall-clock; at least 40 tests with the parametrised cases). tests/mcp/tools/test_member_lookup.py (NEW; in-memory generations built as tests/mcp/test_tool_surface_truthful.py `_InMemoryStore` does, with type chunks written by hand): `test_an_exact_fqn_is_still_a_plain_symbol_signature_without_extra_json_keys`,
+  `test_type_fqn_dot_member_resolves_to_the_owner_with_every_overload_line`, `test_short_type_dot_member_resolves_when_one_fqn_ends_with_it`, `test_double_colon_separators_resolve`, `test_a_partially_qualified_owner_resolves`, `test_a_property_and_an_enum_member_resolve`,
+  `test_member_matching_is_case_sensitive_and_a_miss_suggests_the_cased_name`, `test_a_missing_member_says_the_type_was_found_and_lists_did_you_mean_members`, `test_async_twin_is_suggested_in_both_directions`, `test_a_member_declared_by_another_type_is_suggested_with_its_full_name`,
+  `test_a_short_name_shared_by_two_types_is_an_explicit_notfound_listing_the_full_names`, `test_a_python_reexport_shell_and_its_definition_count_as_one_type`, `test_a_bare_unique_short_type_name_resolves_with_an_empty_member`, `test_a_bare_shared_short_name_is_a_notfound_listing_the_types`,
+  `test_pseudo_symbols_never_resolve_as_an_owner`, `test_list_members_of_type_dot_member_returns_only_that_members_lines`, `test_list_members_of_an_exact_fqn_and_of_a_bare_short_type_are_unchanged`, `test_every_member_miss_keeps_the_coverage_note`, `test_an_unknown_owner_keeps_todays_notfound_reason_and_suggestions`,
+  `test_a_trailing_or_leading_dot_is_todays_notfound`, `test_resolved_signature_json_adds_exactly_three_keys`, `test_get_symbol_and_list_members_descriptions_and_fqn_fields_name_type_dot_member_and_keep_the_old_phrase`, `test_the_member_hit_is_decided_by_the_exact_name_test` (the line `if member in declared:` appears exactly once in the module source).
+  tests/mcp/tools/test_member_lookup_baked.py (NEW; over a COPY of the committed scope directories of infra/demo-manifests, as tests/mcp/test_response_budget.py `_server` does it, embedding gateway variables removed; every call goes through the real `tools/call` handler `server.get_request_handler("tools/call").handler(None, CallToolRequestParams(...))`):
+  `test_sampled_member_names_resolve_in_both_forms_through_call_tool` (for each of the 40 baked pilots take five declared members with `random.Random(540)` over the pilot's symbol chunks - 195 in all, because tex/python declares no member; assert at least 195 were sampled; the `<TypeFQN>.<member>` (or `::`) form must come back not-an-error with `member` equal to the member, `fqn` equal to the type FQN and at least one `member_lines`; the `<FinalSegment>.<member>` form must resolve OR be a
+  NotFound whose `suggestions` contain the type FQN with the member; at least 90 percent of the short forms resolve and none is a silent miss), `test_the_member_with_the_most_overloads_returns_all_its_lines_in_both_forms` (derived at test time from the committed generations, no name hard-coded: the (type, member) with the most overload lines over the 40 pilots - 10 for `Aspose.Pdf.Document.Save` today - answers `member_lines` equal to the chunk's own lines for its full-FQN form and its short-type form, and `list_members` returns the same tuple), `test_an_async_twin_is_suggested_when_the_sync_name_is_asked` (derived: a type that declares a member whose name ends in `Async` while the type does not declare the name without it - jmap/net's `JmapClientMailExtensions.ListMailboxesAsync` is one; assert at least one such case exists in the fleet, and that asking `<Type>.<name without Async>` is a NotFound whose reason names the type and whose suggestions contain `<Type>.<memberAsync>`; and the synthetic extension-class case `JmapClient.ListMailboxes` -> `Aspose.Jmap.JmapClientMailExtensions.ListMailboxesAsync` lives in tests/mcp/tools/test_member_lookup.py), `test_a_python_reexport_shell_and_its_definition_resolve_by_short_name` (derived: a Python pilot type name carried by two chunks whose member lists are identical - cells/python `Workbook` today - resolves with `<Name>.<member>` and is not reported as ambiguous), parametrised over the 40 pilots `test_the_first_declared_member_of_every_pilot_resolves_by_its_full_name`.
+- >-
+  Existing tests: run `{python} -m pytest tests/mcp tests/indexing/test_lookup_doc_fallback_query_safety.py tests/test_unwired_modules.py -q -rfE -p no:cacheprovider` FIRST; the drafter ran the same suites against a prototype of this change (tests/mcp, tests/infra, tests/deploy, tests/poc and tests/indexing except the Rust-verifier tests that need network; tests/e2e needs docker and was not run): zero existing assertion changed. Change an existing assertion ONLY if it
+  is red for a reason named in this card, with a comment saying why; never delete, skip or xfail a test, and do not edit tests/mcp/test_tool_surface_truthful.py or tests/mcp/tools/test_symbol_tools.py (card TC-530 owns them). Every new public function or class in src/foss_mcp needs a production caller (tests/test_unwired_modules.py is in the second check): `ResolvedSignature` is used by get_symbol and list_members; keep the helpers private.
+  Preserve line endings and encoding (LF, UTF-8, no BOM); commit messages are UTF-8 without a byte-order mark.
+- >-
+  Production wiring: the resolution lives inside `get_symbol`, which `_wrap_get_symbol` in src/foss_mcp/mcp/server.py (the real entrypoint registry `_build_tool_registry`) calls, and `list_members` calls `get_symbol`; the baked test above goes through the real `tools/call` handler, which is the proof the entrypoint reaches it. A unit test of `_resolve_name` alone is not evidence.
+actions:
+- >-
+  Resolve `<Type>.<member>`, `<ShortType>.<member>` and a unique short type name in `get_symbol` to the owning type plus all overload lines, and make `list_members` return just that member's lines.
+- >-
+  Make every miss say what it was looking for, with did-you-mean member names including the Async twin and the extension class, and update the five descriptions.
+checks:
+- command: '{python} -m pytest tests/mcp/tools/test_member_lookup.py tests/mcp/tools/test_member_lookup_baked.py -q -rfE -p no:cacheprovider'
+  expect: exit 0
+  timeout_seconds: 1800
+  junitxml: true
+  proves:
+  - REQ-G3-008
+  - REQ-G3-001
+- command: '{python} -m pytest tests/mcp tests/indexing/test_lookup_doc_fallback_query_safety.py tests/test_unwired_modules.py -q -rfE -p no:cacheprovider'
+  expect: exit 0
+  timeout_seconds: 2400
+  junitxml: true
+  proves:
+  - REQ-G3-008
+  - REQ-G3-001
+min_tests: 40
+network: true
+requires:
+- python
+negative_control:
+  mutate: |
+    python -X utf8 -c "import pathlib;p=pathlib.Path('src/foss_mcp/mcp/tools/get_symbol.py');s=p.read_text(encoding='utf-8');old='if member in declared:';assert s.count(old)==1;p.write_text(s.replace(old,'if False:'),encoding='utf-8')"
+  rationale: >-
+    Makes every member name look undeclared, so `Type.member` answers the "declares no member" NotFound again: the resolution tests, the 195-sample data-driven test through `tools/call` and the per-pilot parametrised test fail.
+    A real break of the card's central claim (a member name an agent has read resolves to its type and overload lines).
+evidence:
+- evidence/build/G3/TC-540/receipt.json
+closeout:
+- >-
+  `get_symbol` and `list_members` accept `<TypeFQN>.<member>`, `<ShortType>.<member>` and a unique short type name, answering with the owning type's signature and all overload lines; a miss says which type it found, what it was looking for and the nearest member names including the Async twin; exact FQN behaviour and JSON are
+  unchanged. 195 of 195 sampled baked members resolve by their full name through the real `tools/call` handler. The image must be rebuilt for this to reach a pilot.
+recovery: Re-run from a clean tree.

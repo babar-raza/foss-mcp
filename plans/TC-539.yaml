@@ -1,0 +1,144 @@
+id: TC-539
+gate: G3
+lane: verification
+purpose: >-
+  REQ-G3-008 and REQ-G3-001 (process audit defect: a gate that asks the server about itself cannot notice that the server is not the thing that was committed; 65 percent of
+  rework came from card defects, this card removes one class of silent false pass). SERVED-VERSUS-COMMITTED PROVENANCE GATE. An independent QA run audited a stale cluster
+  generation and nobody noticed: every probe of the existing proof (scripts/poc/pilot_workflow_proof.py, run by scripts/release/image_workflow_gate.py for the exact image that
+  would ship) takes its expected values from the same fixture the generation was built from, trusts the scope the server reports, and compares the freshness report's generation
+  id only with the id `search_symbols` returned in the same session (check 8), so a container serving an older generation than the one committed under
+  infra/demo-manifests passes 11 of 11 checks. The gate never reads infra/demo-manifests/<family>__<platform>__self_extracted/active_pointer.json and never compares one served
+  signature with the extractor output. Measured by the drafter at main d7b594fd on the 40 pilots: the committed pointer ids are `<family>::<platform>::self_extracted::<UTC
+  stamp>-<hash>` (pdf/net: pdf::net::self_extracted::20261014T131352217893Z-c8c1dcd9) and are exactly what `report_index_freshness.indexed_generation_id` returns for a
+  container started from them; rendering each tests/fixtures/<pilot>/api_surface.json with the production builder
+  (`build_chunks_from_api_surface(fixture, title=..., max_types=<the chart's maxTypes>)`) gives 55,122 `Methods:` lines over the 40 pilots, and 30 evenly spread lines per pilot
+  served through the real `get_symbol` and `list_members` equal the rendered line for 28 of 28 non-Python pilots (0 mismatches in 815 samples, 4.3 s for all 40 builds and 1,145 samples) and fail for
+  23 of 330 samples on four Python pilots (slides/python 8 of 30, 3d/python 13, words/python 1, pdf/python 1) because their committed generations pre-date the TC-522 slot cap and
+  re-export pairing: the probe is correct to flag them, and they are the data the pending re-extraction and re-ingest cards (TC-530 to TC-535 and the final snapshot) refresh. Driven through the real `tools/call` handler over a copy of each committed scope directory (the card's test path), P1 passes for 40 of 40 pilots in 19 s and P2 passes for 33 pilots, is not applicable for tex/python (it renders no method line) and fails for the Python pilots whose committed generation lags the builder (4 at main d7b594fd; 6 once card TC-541 pairs 56 more shells, jmap/python and note/python one differing sample each), which is why the committed-data test below allows a Python pilot to fail P2 and no other. This card
+  adds two probes to the gate as new per-pilot entries P1 and P2 beside W1 to W3: P1 asserts the served generation id equals the committed active_pointer.json, P2 samples 30
+  (type, method) pairs from the fixture through the production builder and compares each sampled signature line (so the parameter count and the return type, which the line carries)
+  with what the live `get_symbol` and `list_members` return. A new module scripts/release/served_provenance.py holds both probes as pure functions over any MCP client and also runs
+  as a command line against one running endpoint (for a cluster port-forward). What does NOT change: the eleven proof checks, W1 to W3, the summary.json keys that
+  `gatectl release-record` reads (pilot-level status and counts only), the gate's command-line flags (so docs/DEPLOYMENT.md needs no edit), the tool contracts, the data.
+depends_on:
+- TC-345
+- TC-513
+write_paths:
+- scripts/release/served_provenance.py
+- scripts/release/image_workflow_gate.py
+- tests/deploy/test_served_provenance.py
+- tests/deploy/test_image_workflow_gate.py
+satisfies:
+- REQ-G3-008
+- REQ-G3-001
+source_refs:
+- file: docs/DECISION_LOG.md
+  anchor: '## 2026-10-15 — Independent pre-production adversarial review of the shipped image; its findings enter the state machine as cards (operator, supervisor)'
+  sha256: d2d82669b8060d5e3a3b9da00e9858e576d5d264d96e32d1aed8034e8d6d9007
+inputs:
+- >-
+  Read, in full: scripts/release/image_workflow_gate.py (`_load_proof_module`, `Deps`, `Context` and `Context.run_proof`, `WORKFLOW_TITLES`, `_entry`, `run_workflow`, `unrunnable_workflow`, `PilotRun`,
+  `_drive` - the block under `with ctx.session_lock:`, `finalize`, `main`), scripts/deploy/pilots.py (`load_pilots`, `pilot_key`; a chart entry carries `family`, `platform` and `maxTypes`),
+  src/foss_mcp/indexing/chunk_builder.py (`build_chunks_from_api_surface`, `_method_line`, `_method_lines`: a method renders as `  - name(p1: T, p2: T = d) -> R` plus optional ` [static]`, ` (inherited from X)`
+  suffixes, and `Methods:` is a block of such lines), src/foss_mcp/mcp/tools/get_symbol.py (`extract_fqn`, `_extract_block`, `SymbolSignature.methods`, `NotFound`), list_members.py,
+  report_index_freshness.py (`FreshnessReport.indexed_generation_id`), src/foss_mcp/mcp/server.py (`create_server`, and how tests/mcp/test_response_budget.py `_server` and `_call` drive the
+  real `tools/call` handler: `server.get_request_handler("tools/call").handler(None, CallToolRequestParams(name=..., arguments=...))`, result in `result.structured_content["result"]`),
+  tests/deploy/test_image_workflow_gate.py (`World`, `FakeClient`, `World.deps`, `run_gate`, the tests that build `gate.Deps`), scripts/poc/pilot_workflow_proof.py (`open_live_client`, the client
+  contract `invoke(name, arguments)` returning the tool result as plain JSON). Never print or log any environment value.
+- >-
+  scripts/release/served_provenance.py (NEW; stdlib plus the repo's own src/, whose directory the module puts on sys.path as scripts/release/pull_verification_cache.py does for infra/ and src/; `foss_mcp` is imported lazily inside `sample_method_pairs`, so importing the module costs nothing).
+  Public names: `PROVENANCE_TITLES = {"P1": "the generation the container serves is the one committed under infra/demo-manifests (report_index_freshness.indexed_generation_id equals active_pointer.json)",
+  "P2": "30 sampled (type, method) signatures served by get_symbol and list_members equal the committed fixture rendered by the production chunk builder"}`; `SAMPLE_SIZE = 30`;
+  `committed_generation_id(manifests_dir: Path, family: str, platform: str) -> str` (reads `<family>__<platform>__self_extracted/active_pointer.json` with utf-8-sig, returns its `generation_id`, raises FileNotFoundError or
+  ValueError with a message naming the file); `describe_line(line: str) -> dict` returning `{"name", "arity", "return_type"}` for a rendered method line (arity = the number of top-level comma-separated items of the first
+  balanced parenthesis group, not counting the bare markers `*` and `/`, brackets and angle brackets nesting; return_type = the text after the `) -> ` that closes that group up to the first suffix ` [`, `  (` or end, or "" when
+  there is no arrow); `sample_method_pairs(fixture: Mapping, *, max_types: int, count: int = SAMPLE_SIZE) -> list[tuple[str, str]]` (renders the fixture with `build_chunks_from_api_surface(fixture, title="probe",
+  max_types=max_types)`, collects `(fqn, line)` for every line of every chunk's `Methods:` block whose chunk FQN does not start `Example: ` or `Doc: `, in chunk order, and returns all of them when there are at most `count`,
+  otherwise the pairs at the indexes `(k * len(pairs)) // count` for k in range(count) - no randomness, so the sample is the same on every run); `probe_generation(client, family, platform, manifests_dir) -> dict`
+  (P1: calls `client.invoke("report_index_freshness", {})`; the line that decides is exactly `if served_id != committed_id:` with `served_id = report.get("indexed_generation_id")`; a pass records both ids in `evidence`;
+  a fail reason names both ids, or says the report carries none, or the committed pointer is missing); `probe_signatures(client, key, entry, fixtures: Path) -> dict` (P2: loads `fixtures/<key>/api_surface.json`, samples with
+  `max_types=int(entry.get("maxTypes", 300))`, and for each sampled pair calls `get_symbol` (once per distinct FQN) and `list_members`; a sampled pair passes when the served `methods` of get_symbol AND the list_members list both contain
+  the expected line exactly; a get_symbol answer with `found` false is a failure "not served"; the status is `pass` when every sampled pair passes, `fail` otherwise with `evidence` holding `sampled`, `failed` and at most the first five
+  failures each as `{fqn, expected, expected_arity, served_arity, expected_return_type, served_return_type, problem}` using `describe_line` on the expected and the nearest served line of the same method name; and `not_applicable`
+  with a reason when the fixture renders no method line at all - never a pass); `run_probes(client, key, entry, *, fixtures: Path, manifests_dir: Path) -> list[dict]` (returns [P1, P2]; an exception inside a probe becomes a `fail`
+  entry whose reason is `could not run: <ExceptionType>: <message>`, never a crash); `make_entry(number, status, evidence=None, reason=None) -> dict` with keys `id`, `name` (from PROVENANCE_TITLES), `status`, `evidence`, `reason`
+  (the shape `image_workflow_gate._entry` returns); and `main(argv=None, client_factory=None) -> int` with `--url`, `--pilot` (family_platform), `--fixtures` (default tests/fixtures), `--manifests` (default infra/demo-manifests)
+  and `--report` (optional JSON path), which opens a client with scripts/poc/pilot_workflow_proof.py `open_live_client` (loaded by file path) unless `client_factory` is given, prints one line per entry, and exits 0 only when
+  neither entry is `fail` and at least one is `pass`. The chart entry for `--pilot` comes from scripts/deploy/pilots.py.
+- >-
+  scripts/release/image_workflow_gate.py. (1) `import served_provenance` after the existing `import pilots as chart` block (put scripts/release, the directory of this file, on sys.path if absent, the way scripts/deploy is). (2) `Deps` gains
+  a last field `provenance_runner: Callable[[Any, str, dict[str, Any]], list[dict[str, Any]]] | None = None` ((client, pilot key, chart entry) -> entries). (3) `Context` gains a last field `manifests_dir: Path = DEFAULT_MANIFESTS`
+  (`DEFAULT_MANIFESTS = REPO_ROOT / "infra" / "demo-manifests"`, beside DEFAULT_FIXTURES) and a method `run_provenance(self, client, key, entry)` that calls `self.deps.provenance_runner` when set and otherwise
+  `served_provenance.run_probes(client, key, entry, fixtures=self.fixtures, manifests_dir=self.manifests_dir)`. (4) `_entry` looks the title up in `{**WORKFLOW_TITLES, **served_provenance.PROVENANCE_TITLES}`; `WORKFLOW_TITLES` and
+  `unrunnable_workflow` stay exactly as they are. (5) In `_drive`, inside the `with ctx.session_lock:` block's `else:` branch, directly after `run.workflow = run_workflow(client, pilot, run.checks)` add
+  `run.workflow += ctx.run_provenance(client, run.key, entry)` - a P entry that fails therefore fails the pilot through `finalize`, which already turns every failed workflow entry into the reason `workflow <id> failed: <reason>`.
+  (6) Extend the module docstring: step 3 now also runs P1 and P2, and a pilot fails when the container serves a generation other than the committed one. Add NO command-line flag (tests/deploy/test_image_workflow_gate.py
+  requires every flag to be documented in docs/DEPLOYMENT.md, which this card does not edit).
+- >-
+  Tests (offline, deterministic, no skip/xfail/sleep/network/wall-clock). tests/deploy/test_served_provenance.py (NEW, at least 30 tests with the parametrised cases): unit tests with a scripted fake client:
+  `test_committed_generation_id_reads_the_pointer_and_tolerates_a_bom`, `test_committed_generation_id_names_a_missing_file`, `test_p1_passes_when_the_served_id_equals_the_committed_pointer`,
+  `test_p1_fails_naming_both_ids_when_they_differ`, `test_p1_fails_when_the_report_carries_no_generation_id`, `test_p1_fails_when_the_client_raises`, `test_p1_fails_when_the_committed_pointer_is_missing`,
+  parametrised `test_describe_line` over at least eight lines (no parameters, one, a default `p: T = d`, nested generics `Map<string, List<int>>` and `std::map<K, V>` and Go `[]*Row`, python `*` and `/` markers not counted, a
+  ` [static]` suffix, an ` (inherited from X)` suffix, no arrow), `test_sampling_is_deterministic_and_spread` (twice the same list; count at most 30; the first pair is the first rendered pair; the last sampled index is in the last 30 percent
+  of the pairs), `test_sampling_returns_everything_when_there_are_at_most_30`, `test_sampling_skips_example_and_doc_chunks`, `test_p2_passes_when_the_client_serves_the_rendered_lines`,
+  `test_p2_fails_when_a_served_line_has_one_parameter_less_and_reports_both_arities`, `test_p2_fails_when_a_served_return_type_differs_and_reports_both`, `test_p2_fails_when_get_symbol_says_not_found`,
+  `test_p2_fails_when_list_members_lacks_a_line_that_get_symbol_has`, `test_p2_is_not_applicable_for_a_fixture_without_methods_and_never_a_pass`, `test_run_probes_turns_an_exception_into_a_fail_entry`,
+  `test_main_exits_0_on_pass_1_on_fail` (a client_factory fake, a tmp_path fixtures directory and manifests directory). Real-tool differential tests: a helper builds, per pilot, a server with
+  `create_server(DeploymentConfig(family, platform), GenerationManifestStore(tmp))` over a COPY of the committed scope directory (tests/mcp/test_response_budget.py `_server`, embedding gateway variables removed from the environment)
+  and a client whose `invoke(name, arguments)` runs the real `tools/call` handler and returns `result.structured_content["result"]` (raising on `is_error`). `test_p1_and_p2_over_the_committed_data_of_every_pilot` parametrised
+  over the 40 pilots discovered from infra/demo-manifests (assert the count is at least 40): P1 is `pass` for every pilot; P2 is `pass` for every pilot whose platform is not python (28 of 28 today) and for the python pilots it is `pass`,
+  `fail` or `not_applicable` but never raises (a committed Python generation may pre-date the builder until the final re-ingest; the failing pilots are listed in the assertion message and nothing is skipped); tex/python is the only
+  `not_applicable`. `test_p1_fails_against_a_container_serving_another_generation` (copy pdf/net, change the committed pointer's id in a second manifests directory, P1 fails), `test_p2_fails_when_a_served_generation_was_edited_after_the_fact`
+  (copy cells/net, rewrite one sampled method line in the COPY's generation JSON - the text of the chunk whose FQN is the first sampled pair - to drop its last parameter while keeping the pointer: P1 passes, P2 fails and names that FQN).
+  tests/deploy/test_image_workflow_gate.py: `World.deps` gains the default `"provenance_runner": lambda client, key, entry: []` BEFORE `values.update(overrides)` (so every existing test keeps its fake workflow and nothing else in the file changes), and
+  these new tests are added: `test_the_gate_calls_the_provenance_runner_once_per_pilot_with_its_chart_entry` (a recording runner; two pilots; called with the client, the pilot key and the chart entry whose `maxTypes` is present),
+  `test_provenance_entries_are_recorded_beside_w1_to_w3_in_the_pilot_report`, `test_a_failing_provenance_entry_fails_the_pilot_with_its_reason` (reason contains `workflow P1 failed`), `test_a_passing_provenance_entry_is_counted_as_a_pass`,
+  `test_the_default_runner_is_served_provenance_run_probes` (monkeypatch `gate.served_provenance.run_probes` with a recorder, do not pass `provenance_runner`: called with `fixtures=` the gate's --fixtures path and `manifests_dir=` the default),
+  `test_gate_source_imports_and_calls_the_provenance_module` (ast.parse of scripts/release/image_workflow_gate.py: an `import served_provenance` and an attribute call `served_provenance.run_probes`; and of
+  scripts/release/served_provenance.py: `run_probes` calls both `probe_generation` and `probe_signatures`), `test_the_gate_adds_no_command_line_flag` (the set of `add_argument("--...")` flags in the gate source equals the seven-plus-three flags the existing runbook test names).
+- >-
+  Run `{python} -m pytest tests/deploy/test_image_workflow_gate.py -q -rfE -p no:cacheprovider` FIRST (after scripts/toolchain/activate.ps1 in the same shell command) to see it green, then write the code. The only existing-file test
+  edit is the `World.deps` default; if any other existing assertion turns red, change ONLY that assertion with a comment saying why, never delete, skip or xfail a test. Preserve line endings and encoding (LF, UTF-8, no BOM); commit
+  messages are UTF-8 without a byte-order mark. Do not start docker, do not run the gate against an image, do not edit docs/ (the supervisor mentions the new entries in the release runbook when the successor docs card lands).
+- >-
+  Production wiring and liveness (AGENTS.md "Integration and liveness"): the call site must exist in the real entrypoint file. `scripts/release/image_workflow_gate.py` is the entrypoint of the release gate; the AST test
+  above is the proof that it calls `served_provenance.run_probes`, and the other AST assertion proves `run_probes` calls both probes. A passing unit test of a probe in isolation is NOT evidence of wiring.
+actions:
+- >-
+  Add served_provenance.py with the generation-id probe P1, the sampled-signature probe P2, a run_probes entry point and a command line for one running endpoint.
+- >-
+  Call both probes from the image gate for every pilot, so a container that serves anything other than the committed generation fails the gate, and pin everything offline over the real tool path for all 40 pilots.
+checks:
+- command: '{python} -m pytest tests/deploy/test_served_provenance.py -q -rfE -p no:cacheprovider'
+  expect: exit 0
+  timeout_seconds: 1800
+  junitxml: true
+  proves:
+  - REQ-G3-008
+  - REQ-G3-001
+- command: '{python} -m pytest tests/deploy/test_served_provenance.py tests/deploy/test_image_workflow_gate.py tests/deploy/test_runbook.py tests/deploy/test_release_record_contract.py -q -rfE -p no:cacheprovider'
+  expect: exit 0
+  timeout_seconds: 2400
+  junitxml: true
+  proves:
+  - REQ-G3-008
+  - REQ-G3-001
+min_tests: 30
+network: true
+requires:
+- python
+negative_control:
+  mutate: |
+    python -X utf8 -c "import pathlib;p=pathlib.Path('scripts/release/served_provenance.py');s=p.read_text(encoding='utf-8');old='if served_id != committed_id:';assert s.count(old)==1;p.write_text(s.replace(old,'if False:'),encoding='utf-8')"
+  rationale: >-
+    Makes the generation-id probe accept any served id, so a container that serves an older generation than the committed pointer passes again: the P1 mismatch tests, the copied-pointer test over the real tool path and the gate-level failing-entry test fail.
+    A real break of the card's central claim (the gate must notice that what is served is not what was committed).
+evidence:
+- evidence/build/G3/TC-539/receipt.json
+closeout:
+- >-
+  The release gate now fails a pilot whose container serves another generation than infra/demo-manifests commits, or whose served signatures differ from the committed fixture rendered by the production builder; over the committed
+  data P1 passes for 40 of 40 pilots and P2 for every non-Python pilot, and the Python pilots whose committed generation pre-dates the builder are named by the test message until the final re-ingest. The image must be
+  rebuilt and the gate re-run from the commit the image was built from for this to be evidence; use the command line (`python scripts/release/served_provenance.py --url http://127.0.0.1:<port> --pilot <family>_<platform>`) against
+  a cluster port-forward to audit a deployed generation.
+recovery: Re-run from a clean tree.

@@ -1,0 +1,89 @@
+id: TC-543
+gate: G3
+lane: storage-retrieval
+purpose: >-
+  REQ-G3-008 (independent pre-production review findings D-08 residual and D-07, QA finding "find_examples returns three examples at coverage 1.0 for the query save"; process audit defect: TC-516 pinned the 3-to-5-word queries and left the 1-and-2-word queries, the ones an agent types first, as an accepted limitation, L-054). FIND_EXAMPLES RELEVANCE FOR SHORT QUERIES.
+  `find_examples` ranks lexically by `coverage`, the share of the query's distinctive terms that occur among the tokens of the example chunk, and keeps every example at or above 0.6. For a query of one or two terms that is satisfied by any example whose CODE uses the word: the examples are 3 to 6 per pilot and nearly all call `Save`, `Open`, `Create` or touch a page. Measured by the drafter on the 40 committed generations (183
+  verified examples, median 3 per pilot) with the real `find_examples`: `save` returns at least one example on 27 of 40 pilots, 102 examples in all, and only 7 of those 27 pilots have an example whose TITLE contains the word (pdf/go answers with 5 examples at coverage 1.0 -- Split and Merge PDFs, Installation, Encrypt with Permissions, Create Hierarchical Bookmarks, Fill AcroForm Fields -- none of them about saving); `page` 65 examples on 21 pilots, `add` 70, `text` 48,
+  `document` 58, `open` 36, `create` 36, `load` 28 (443 examples for these eight words) and the reported figure `coverage: 1.0` reads as a perfect match. This card adds ONE rule to the lexical stage: when the query has at most two distinctive terms (`relevance.distinctive_terms`, which already drops the family word and the generic words example, sample, use, how), an example may answer only if at least one of those terms (a synonym
+  counts) is a word of its TITLE (`Example: <title>` on its `FQN:` line); a longer query is judged by the coverage floor alone, as today. Rule measured with the real function over the same 40 pilots: the eight generic words return 64 examples instead of 443 (`save` 17 instead of 102, all of them title matches; `page` 6, `open` 2, `font` 2) and `set password` 0 instead of 7; the TC-516 acceptance tables keep their counts (concise queries 23 hits of 26 and 0 wrong, verbose 14 hits and 0 wrong), and the two answers the live (docker) tests pin stay: pdf/net `watermark` -> Add a Watermark Annotation, pdf/java `page dimensions` -> Inspect Document Page Dimensions. The `coverage` field is documented, not renamed (renaming breaks every client): `ExampleMatch` gains a LAST additive field `match_basis` that says what `coverage` is for that answer: `exact_title` (the query was the
+  example's title), `title_word_and_example_text` (lexical, a short query anchored on its title), `query_terms_in_example_text` (lexical, a longer query: coverage is the weighted share of query terms present), `embedding_similarity` (the vector fallback: a cosine). Two existing assertions pinned the old behaviour and are re-pinned (listed below). What does NOT change: RELEVANCE_THRESHOLD (0.6), the IDF weights, the required identifier terms, the
+  exact-title branch, the vector fallback and its deadline, the NoExampleFound reasons, the tool input schema. The RELEASE.md section 8 bullet and the ledger acceptance reason for L-054 describe the old one-word behaviour; the successor documentation card TC-546 rewrites them.
+depends_on:
+- TC-381
+- TC-465
+- TC-505
+- TC-508
+- TC-514
+- TC-515
+- TC-516
+write_paths:
+- src/foss_mcp/mcp/tools/relevance.py
+- src/foss_mcp/mcp/tools/find_examples.py
+- tests/mcp/tools/test_find_examples_title_anchor.py
+- tests/mcp/test_response_envelope.py
+- tests/mcp/tools/test_example_search_mode.py
+satisfies:
+- REQ-G3-008
+- REQ-G3-001
+source_refs:
+- file: docs/DECISION_LOG.md
+  anchor: '## 2026-10-15 — Independent pre-production adversarial review of the shipped image; its findings enter the state machine as cards (operator, supervisor)'
+  sha256: d2d82669b8060d5e3a3b9da00e9858e576d5d264d96e32d1aed8034e8d6d9007
+inputs:
+- >-
+  Read, in full: src/foss_mcp/mcp/tools/relevance.py (`distinctive_terms`, `query_terms`, `present_terms`, `guarded_coverage`, `term_weights`, `RELEVANCE_THRESHOLD`, `_GENERIC_WORDS`, `SYNONYM_GROUPS`, `stem_token`, `tokenize` imported from lexical_index_writer), src/foss_mcp/mcp/tools/find_examples.py (`find_examples`: the exact branch, the lexical stage `for doc_id in example_doc_ids:` computing `doc_coverage = guarded_coverage(...)` and
+  `if doc_coverage >= RELEVANCE_THRESHOLD:`, the three `ExampleMatch(...)` constructions, `_vector_fallback`; the `ExampleMatch` docstring on what `coverage` means per `source`), and the pins: tests/mcp/tools/test_relevance_floor.py, test_relevance_query_terms.py, test_find_examples_verified_only.py, test_find_examples_vector_deadline.py, test_nonsense_queries_miss.py, test_forgiveness_acceptance.py (the 26-row `EXAMPLE_ROWS` table, `MIN_CONCISE_HITS = 23`, `MIN_VERBOSE_HITS = 14`; MUST pass unchanged),
+  tests/mcp/tools/test_retrieval_tools.py (the find_examples tests), tests/mcp/test_response_envelope.py (`VALID_ARGUMENTS["find_examples"] = {"query": "Document"}`), tests/mcp/tools/test_example_search_mode.py (`test_the_lexical_stage_still_answers_without_the_gateway_in_both_modes` uses the query "certificate signature" against the synthetic example titled `sign a file`), and the two live pins tests/e2e/test_pdf_net_live_content.py (`watermark`) and test_pdf_java_live_content.py
+  (`page dimensions`), which need docker and are NOT run here. Never print or log any environment value.
+- >-
+  relevance.py: add `TITLE_ANCHOR_MAX_TERMS = 2` and a public pure function `title_anchored(query: str, family: str, title: str) -> bool`: `terms = distinctive_terms(query, family)`; when `len(terms) > TITLE_ANCHOR_MAX_TERMS` return True; otherwise return True iff `present_terms(terms, tokenize(title))` is non-empty (the stemming and the synonym groups of `present_terms` apply, so `export` anchors on a title that says `Save`). A query with NO distinctive term never reaches this function (find_examples already answers it with the
+  honest miss). Extend the module docstring with a TC-543 paragraph. find_examples.py: import it, compute `title = (extract_fqn(documents[doc_id]["text"]) or "")[len(_EXAMPLE_FQN_PREFIX):]` for each example document and change the lexical condition to exactly `if doc_coverage >= RELEVANCE_THRESHOLD and title_anchored(query, scope.family, title):` (the negative control edits this line; it must appear once). Add the LAST dataclass field `match_basis: str = ""` to `ExampleMatch`, set it at each construction: `exact_title`
+  in the exact branch; in the lexical branch `title_word_and_example_text` when `len(distinctive_terms(query, scope.family)) <= TITLE_ANCHOR_MAX_TERMS` else `query_terms_in_example_text`; `embedding_similarity` in `_vector_fallback`. Rewrite the `ExampleMatch` docstring so that it says plainly what `coverage` is per `match_basis` (the lexical value is the weighted share of the query's terms present in the example text, 1.0 meaning all are present, not a relevance probability), and keep every existing sentence true.
+- >-
+  Tests (offline, deterministic, no skip/xfail/sleep/network/wall-clock; at least 25 tests with the parametrised cases). tests/mcp/tools/test_find_examples_title_anchor.py (NEW): parametrised `test_title_anchored` (`save` with `Create, Save, and Reload a Workbook` True; `save` with `Fill AcroForm Fields` False; `page dimensions` with `Inspect Document Page Dimensions` True; a two-word query whose second word only is in the title True; `export` with `Save as PDF` True by synonym;
+  `pdf examples` with any title - no distinctive term - the function is not reached, test through `find_examples`; a three-term query with an unrelated title True; the family word `pdf` in a title does not anchor `pdf save`), `test_a_short_query_needs_a_title_word_in_a_synthetic_generation` (examples `Add a Watermark Annotation` and `Extract Text Fragments from a Page` whose code both contain the words save, page, text and watermark, so only the title rule can tell them apart: `save` is a NoExampleFound, `watermark` returns the first only, `page` returns the second only,
+  `text` returns the second only), `test_a_longer_query_is_judged_by_the_coverage_floor_alone` (a 3-term query that matches the code but no title still returns), `test_the_exact_title_branch_is_unchanged`, `test_the_vector_fallback_is_unchanged_and_runs_for_a_short_query_that_the_title_rule_rejected` (a stub provider as tests/mcp/tools/test_example_search_mode.py builds), `test_match_basis_is_set_per_branch` (exact_title, title_word_and_example_text, query_terms_in_example_text,
+  embedding_similarity), `test_match_basis_defaults_to_empty_for_a_hand_built_match`, `test_the_coverage_docstring_names_every_match_basis` (the four strings occur in the ExampleMatch docstring), over a COPY of the committed generations of the 40 pilots (as tests/mcp/tools/test_forgiveness_acceptance.py `_Stores` copies a scope directory, embedding provider replaced by one whose `embed` raises)
+  `test_generic_one_word_queries_return_only_title_anchored_examples` parametrised over the eight words `save open create page add text document load` (every returned match passes `title_anchored`, and the word returns at least one example on at least one pilot so the test cannot turn vacuous) (the totals - 443 examples before the rule and 64 after on main d7b594fd - are stated in a comment and not asserted, because the data refresh changes the examples), `test_pdf_net_watermark_and_pdf_java_page_dimensions_still_answer_as_the_live_tests_pin` (titles `Add a Watermark Annotation` and
+  `Inspect Document Page Dimensions` among the first results), `test_the_tc516_example_tables_are_unchanged` (import `EXAMPLE_ROWS` from tests/mcp/tools/test_forgiveness_acceptance.py by path or re-run its helper `_example_counts` on both columns: concise hits at least 23 and wrong 0, verbose hits at least 14 and wrong at most 2), `test_set_password_returns_only_examples_with_a_title_word` (`set password` returned 7 examples over the 40 pilots before the rule, none of them about passwords; every example it returns now has `set` or `password` in its title; the pilots whose example is titled Password-Protect are not returned for it before or after, because their code never says `set`: that is documented in the test).
+  Re-pin exactly two existing assertions, each with a comment naming TC-543 and why: tests/mcp/test_response_envelope.py `VALID_ARGUMENTS["find_examples"]` from `{"query": "Document"}` to `{"query": "watermark"}` (pdf/net has the example titled Add a Watermark Annotation, so the answer is still a non-empty list of `ExampleMatch`; the test asserts the shape, not the title); and tests/mcp/tools/test_example_search_mode.py `test_the_lexical_stage_still_answers_without_the_gateway_in_both_modes`
+  `query = "certificate signature"` to `query = "sign certificate signature"` (three distinctive terms, so the coverage floor alone applies; the synthetic example's code contains all three). Run `{python} -m pytest tests/mcp -q -rfE -p no:cacheprovider` FIRST: the drafter ran it against a prototype and exactly these two assertions (plus the Java one that belongs to TC-542) were red; if anything else is red change it only for a reason this card names, with a comment, and never delete, skip or xfail a test.
+- >-
+  Every new public name in src/foss_mcp needs a production caller (tests/test_unwired_modules.py is in the second check): `title_anchored` is called by find_examples. Preserve line endings and encoding (LF, UTF-8, no BOM); commit messages are UTF-8 without a byte-order mark. Production wiring: `find_examples` is `_wrap_find_examples` in src/foss_mcp/mcp/server.py and is also the example half of `lookup` (`_compose_from_docs`); the baked-data tests above go through `find_examples` itself, and the two re-pinned tests go through the real `tools/call` handler and the real store, so the entrypoint reaches the rule.
+actions:
+- >-
+  Require, for a query of at most two distinctive terms, that one of them is a word of the example's title, and document what coverage means with a match_basis field on every example.
+- >-
+  Pin the effect over the 40 committed generations (every example returned for a generic word has a title word; 443 examples for eight generic words became 64 when measured), keep the TC-516 tables and the two live pins true, and re-pin the two assertions that relied on code-only matches.
+checks:
+- command: '{python} -m pytest tests/mcp/tools/test_find_examples_title_anchor.py -q -rfE -p no:cacheprovider'
+  expect: exit 0
+  timeout_seconds: 1800
+  junitxml: true
+  proves:
+  - REQ-G3-008
+  - REQ-G3-001
+- command: '{python} -m pytest tests/mcp tests/indexing/test_lookup_doc_fallback_query_safety.py tests/test_unwired_modules.py -q -rfE -p no:cacheprovider'
+  expect: exit 0
+  timeout_seconds: 3000
+  junitxml: true
+  proves:
+  - REQ-G3-008
+  - REQ-G3-001
+min_tests: 20
+network: true
+requires:
+- python
+negative_control:
+  mutate: |
+    python -X utf8 -c "import pathlib;p=pathlib.Path('src/foss_mcp/mcp/tools/find_examples.py');s=p.read_text(encoding='utf-8');old='if doc_coverage >= RELEVANCE_THRESHOLD and title_anchored(query, scope.family, title):';assert s.count(old)==1;p.write_text(s.replace(old,'if doc_coverage >= RELEVANCE_THRESHOLD:'),encoding='utf-8')"
+  rationale: >-
+    Removes the title requirement, so `save` again returns every example whose code calls Save: the synthetic short-query tests, the eight per-word "only title-anchored examples" tests over the 40 pilots and the `set password` test fail. A real break of the card's central claim (a short query is answered only by an example about it).
+evidence:
+- evidence/build/G3/TC-543/receipt.json
+closeout:
+- >-
+  A one- or two-term find_examples query is answered only by an example whose title contains one of its terms: eight generic words return 64 examples over the 40 pilots instead of 443, the TC-516 tables keep 23 of 26 concise and 14 of 26 verbose hits with no wrong example, and every example says what its coverage number means in `match_basis`. The review ledger row L-054 and the RELEASE.md bullet for it are
+  rewritten by TC-546. The image must be rebuilt for this to reach a pilot.
+recovery: Re-run from a clean tree.

@@ -1,0 +1,81 @@
+id: TC-545
+gate: G3
+lane: extraction
+purpose: >-
+  REQ-G3-008 (independent pre-production review finding AGT-07 Python part and the class-level-constants half of the supervisor's stub-and-alias brief; process audit defect: the enum-like classes of a library are its most-used names and the extractor drops all of them silently). PYTHON CLASS-LEVEL CONSTANTS. The pure-`ast` Python reader (src/foss_mcp/extraction/tree_sitter_engine/python_surface.py, `_attribute_members`) publishes annotated class-body fields
+  (`x: int = 0`) and `self.x` assignments in `__init__` (TC-473), but never a plain class-body assignment, so a class whose body is `X_AXIS = None` yields no member at all. 3d/python writes every enum this way: `class Axis:` with one `NAME = None` line and a docstring per constant, the constants assigned real values after the class (`Axis.X_AXIS = Axis()`). Measured by the drafter with the stdlib `ast` over the pinned
+  clones (3d/python at 65b1f577c0f1, pdf/python, cells/python and jmap/python at the commits the committed fixtures record) against the committed fixtures: of 259 3d/python classes found in the fixture 37 have public class-level constants and 22 of them have NO member in the fixture (Axis, CoordinateSystem, PropertyFlags, BoneLinkMode, BooleanOperation, CurveDimension, MappingMode, NurbsType and 14 more), so `get_symbol("aspose.threed.Axis.Axis")` answers a
+  class with no X_AXIS, Y_AXIS or Z_AXIS and an agent cannot discover the name it must pass to the API; pdf/python has 8 such classes (the annotation subclasses PolygonAnnotation, PolyLineAnnotation, InkAnnotation, RedactAnnotation, TextAnnotation, StampAnnotation, FileAttachmentAnnotation, PopupAnnotation: `vertices`, `line_endings`, `ink_list`, `icon`, `is_open`); cells/python has 0 of 129 and jmap/python 0 of 35 (their constants already sit beside methods). Decision recorded
+  (the supervisor asked to decide with evidence): EXTRACT them. The rule: a public class-body assignment with ONE `Name` target (no underscore prefix, so no dunder) whose value is a literal (`ast.literal_eval` succeeds: numbers, strings, bytes, booleans, `None`, tuples, lists, dicts and sets of literals, negative numbers) becomes a `property` symbol with `writable=False` and the Python type name of the literal as its type (`int`, `float`, `str`, `bool`, `bytes`, the container
+  name; empty for `None`); a call, a name, an attribute or a chained or tuple target is not a constant and is skipped; an Enum subclass keeps its existing `enum_members` path and gets none of this; a name already taken by a method, a property getter, an annotated field or an `__init__` attribute is not repeated; `ClassVar` annotated fields stay excluded as TC-473 decided. Effect measured with the real `inspect_public_surface` and `run_extraction._python_types_from_surface` on the same clones: 3d/python
+  properties 676 -> 963 (+287) and classes with no method or property 420 -> 382, `Axis.Axis` now lists NEGATIVE_X_AXIS, NEGATIVE_Y_AXIS, NEGATIVE_Z_AXIS, X_AXIS, Y_AXIS, Z_AXIS and `MappingMode` its five constants; pdf/python 1,101 -> 1,113, cells/python 602 -> 649, jmap/python unchanged (161). A chunk renders each as `  - X_AXIS (read-only)` or `  - MAX: int (read-only)`. The committed fixtures are NOT changed by this card: the Python re-extraction
+  card (TC-532) must run AFTER it, and card TC-541 then pairs the empty `aspose.threed.entities.MappingMode` stub with this class. What does NOT change: the tree-sitter reader of every other language, enum members, methods, `__init__` attributes, the property getters, run_extraction.py, chunk_builder.py, the fixtures and the baked data.
+depends_on:
+- TC-420
+- TC-426
+- TC-429
+- TC-473
+- TC-522
+write_paths:
+- src/foss_mcp/extraction/tree_sitter_engine/python_surface.py
+- tests/extraction/tree_sitter_engine/test_python_surface_class_constants.py
+satisfies:
+- REQ-G3-008
+- REQ-G3-005
+source_refs:
+- file: docs/DECISION_LOG.md
+  anchor: '## 2026-10-15 — Independent pre-production adversarial review of the shipped image; its findings enter the state machine as cards (operator, supervisor)'
+  sha256: d2d82669b8060d5e3a3b9da00e9858e576d5d264d96e32d1aed8034e8d6d9007
+inputs:
+- >-
+  Read, in full: src/foss_mcp/extraction/tree_sitter_engine/python_surface.py (`PublicSymbol`, `_class_kind`, `_methods` - it calls `_attribute_members(node, module, relative, public_by, seen)` only when `_class_kind(node) != "enum"`, `_attribute_symbol`, `_init_attribute_targets`, `_attribute_members`), src/foss_mcp/extraction/run_extraction.py (`_python_types_from_surface`: a `property` symbol becomes an entry in its owner's `properties` as `{name, type, writable, doc, file, line}` with `type` from `symbol.return_type` and `writable` from `bool(symbol.writable)`; `fill_python_enum_members` and
+  `_enum_members_from_class` for the Enum path), src/foss_mcp/indexing/chunk_builder.py (`_property_line`: `  - NAME: type (read-only)` or `  - NAME (read-only)` when the type is empty), and the tests: tests/extraction/tree_sitter_engine/test_python_surface_attributes.py (the pattern: synthetic packages in tmp_path, `inspect_public_surface(root, ["pkg"])`, `run_extraction._python_types_from_surface`; `DATACLASS` with a `ClassVar` field, `test_enum_class_gets_no_attribute_properties`), test_python_surface.py, test_python_surface_members.py, test_python_surface_mixins.py,
+  tests/extraction/test_run_extraction_python.py, test_python_fidelity.py, test_python_fixture_gaps.py. Never print or log any environment value.
+- >-
+  python_surface.py. Give `_attribute_symbol` a keyword-only parameter `writable: bool = True` (the symbol's `writable` field) so existing callers are unchanged. Add a private `_constant_type_text(value: ast.expr) -> str | None`: `ast.literal_eval(value)`, `None` when it raises (`ValueError`, `TypeError`, `SyntaxError`, `MemoryError`, `RecursionError`), `""` for the literal `None`, otherwise the name from a small closed map (`int`, `float`, `str`, `bool`, `bytes`, `complex`) or `type(literal).__name__` for a container. In `_attribute_members`, extend the FIRST loop over `node.body` (so the symbols come in source order beside the annotated fields) with an `elif` branch: `isinstance(item, ast.Assign)`, exactly one target and it is an `ast.Name` whose id does not start with an underscore, and the value's constant type (the deciding line must read exactly `constant_type = _constant_type_text(item.value)` and appear once; the negative control edits it) is not None -> append `(name, type_text, item.lineno)` to the candidates and remember the name in a `constants` set; at the end create the symbol with `writable=name not in constants`. The existing `seen` set, the `ClassVar` skip, the `__init__` attribute collection and the `_class_kind(node) != "enum"` guard are untouched. Update the docstring of
+  `_attribute_members` to say so.
+- >-
+  Tests (offline, deterministic, no skip/xfail/sleep/network/wall-clock; at least 20 tests with the parametrised cases). tests/extraction/tree_sitter_engine/test_python_surface_class_constants.py (NEW; synthetic packages as test_python_surface_attributes.py writes them): `test_a_none_constant_is_a_read_only_property_without_a_type` (the upstream 3d/python file text of `Axis`, 6 constants with a docstring after each and `Axis.X_AXIS = Axis()` after the class, copied into the test as a literal), `test_the_upstream_mapping_mode_file_lists_its_five_constants`, parametrised `test_literal_constants_carry_their_type`
+  (`MAX = 5` int, `RATIO = 0.5` float, `NAME = "x"` str, `FLAG = True` bool, `RAW = b"x"` bytes, `PAIR = (1, 2)` tuple, `ITEMS = [1]` list, `MAP = {"a": 1}` dict, `NEG = -1` int), `test_private_and_dunder_names_are_not_constants` (`_HIDDEN = 1`, `__slots__ = ()`), `test_a_call_a_name_and_an_attribute_are_not_constants` (`DEFAULT = Foo()`, `ALIAS = other`, `MODE = os.sep`), `test_chained_and_tuple_targets_are_not_constants` (`A = B = 1`, `C, D = 1, 2`), `test_an_enum_subclass_gets_no_constant_properties_and_keeps_its_members`,
+  `test_a_constant_named_like_a_method_or_a_property_getter_is_not_repeated`, `test_a_class_with_methods_lists_its_constants_in_source_order_before_init_attributes`, `test_an_annotated_field_keeps_its_annotation_and_stays_writable`, `test_classvar_stays_excluded`, `test_constants_reach_the_fixture_dict_as_read_only_properties_with_their_type`, `test_the_chunk_renders_a_constant_as_a_read_only_property_line` (through `chunk_builder._format_type_text`: `  - X_AXIS (read-only)` and `  - MAX: int (read-only)`),
+  `test_a_class_that_had_no_member_now_has_properties_and_so_is_not_member_less` (the `Properties:` block is in the rendered text), `test_nested_classes_do_not_leak_constants_into_the_outer_class`, `test_run_extraction_reaches_the_new_code` (source assertion: `run_extraction._extract_python_surface` calls `python_surface.inspect_public_surface`, and `_methods` calls `_attribute_members`).
+- >-
+  Run `{python} -m pytest tests/extraction/tree_sitter_engine tests/extraction/test_run_extraction_python.py tests/extraction/test_python_fidelity.py tests/extraction/test_python_fixture_gaps.py tests/infra/test_build_chunks_extraction_notice.py tests/test_unwired_modules.py -q -rfE -p no:cacheprovider` FIRST. The drafter ran the 24 test files that mention `python_surface` or are named `*_python_extraction.py` against a prototype of the change: zero existing assertion turned red. Change an existing assertion ONLY if it is red for a reason this card names, with a comment saying why; never delete, skip or xfail a test.
+  Every new public name in src/foss_mcp needs a production caller; both helpers are private. Preserve line endings and encoding (LF, UTF-8, no BOM); commit messages are UTF-8 without a byte-order mark. Do not edit the fixtures under tests/fixtures/ or infra/demo-manifests.
+- >-
+  Production wiring: `_attribute_members` is called by `_methods`, which `inspect_public_surface` uses for every class, and `run_extraction._extract_python_surface` calls `inspect_public_surface` for every Python pilot (infra/ingest.py and the extraction entrypoint reach it); the tests above drive `inspect_public_surface` and `_python_types_from_surface`, not a copy of the logic, and the last test greps the call sites.
+actions:
+- >-
+  Publish public literal class-body assignments of a Python class as read-only properties typed by their literal, so enum-like classes such as 3d/python's Axis list their constants.
+- >-
+  Pin it on the upstream Axis and MappingMode files and on synthetic packages, through the extraction adapter and the chunk renderer.
+checks:
+- command: '{python} -m pytest tests/extraction/tree_sitter_engine/test_python_surface_class_constants.py -q -rfE -p no:cacheprovider'
+  expect: exit 0
+  timeout_seconds: 900
+  junitxml: true
+  proves:
+  - REQ-G3-008
+  - REQ-G3-005
+- command: '{python} -m pytest tests/extraction/tree_sitter_engine tests/extraction/test_run_extraction_python.py tests/extraction/test_python_fidelity.py tests/extraction/test_python_fixture_gaps.py tests/infra/test_build_chunks_extraction_notice.py tests/test_unwired_modules.py -q -rfE -p no:cacheprovider'
+  expect: exit 0
+  timeout_seconds: 1800
+  junitxml: true
+  proves:
+  - REQ-G3-008
+  - REQ-G3-005
+min_tests: 20
+network: false
+requires:
+- python
+negative_control:
+  mutate: |
+    python -X utf8 -c "import pathlib;p=pathlib.Path('src/foss_mcp/extraction/tree_sitter_engine/python_surface.py');s=p.read_text(encoding='utf-8');old='constant_type = _constant_type_text(item.value)';assert s.count(old)==1;p.write_text(s.replace(old,'constant_type = None'),encoding='utf-8')"
+  rationale: >-
+    Makes every class-body assignment look like a non-constant, so `Axis` has no member again: the Axis and MappingMode tests, the literal-type tests and the chunk-rendering test fail. A real break of the card's central claim (an enum-like Python class lists its constants).
+evidence:
+- evidence/build/G3/TC-545/receipt.json
+closeout:
+- >-
+  A public literal class-body constant of a Python class is published as a read-only property typed by its literal; on the pinned clones 3d/python gains 287 properties and 38 classes stop being empty (`Axis` lists its six axes). The committed fixtures and the baked data are unchanged: the Python re-extraction card TC-532 must be ordered after this card (the supervisor adds the dependency), and TC-541 pairs the empty stubs with the new definitions.
+recovery: Re-run from a clean tree.
