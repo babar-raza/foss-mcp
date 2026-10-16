@@ -32,7 +32,7 @@ PILOTS: list[dict[str, Any]] = [
         "heldBy": "ingestion-pdf-net",
         "apiSurface": "/app/fixtures/pdf_net/api_surface.json",
         "title": "pdf/net API surface",
-        "maxTypes": 300,
+        "maxTypes": 901,  # re-extracted by TC-530: 300 -> 901 (copied from docker-compose.yml)
         "furnishedPage": "/app/fixtures/furnished/pdf_net/pages/_index.md",
         "manifestPath": "src/Aspose.Pdf.Foss.csproj",
         "library": {
