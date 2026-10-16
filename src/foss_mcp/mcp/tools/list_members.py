@@ -10,7 +10,7 @@ from __future__ import annotations
 
 from foss_mcp.indexing.generation_manifest import GenerationManifestStore
 from foss_mcp.mcp.routing import Scope
-from foss_mcp.mcp.tools.get_symbol import NotFound, get_symbol
+from foss_mcp.mcp.tools.get_symbol import NotFound, ResolvedSignature, get_symbol
 
 
 def list_members(store: GenerationManifestStore, scope: Scope, fqn: str) -> tuple[str, ...] | NotFound:
@@ -22,4 +22,7 @@ def list_members(store: GenerationManifestStore, scope: Scope, fqn: str) -> tupl
     signature = get_symbol(store, scope, fqn)
     if isinstance(signature, NotFound):
         return signature
+    if isinstance(signature, ResolvedSignature) and signature.member:
+        # TC-540: "<Type>.<member>" returns just that member's lines (all its overloads).
+        return signature.member_lines
     return signature.methods + signature.properties + signature.members

@@ -290,10 +290,13 @@ TOOL_DESCRIPTIONS: dict[str, str] = {
     "get_symbol": (
         "Return the exact signature - kind, bases, methods, properties, members - for ONE "
         "fully-qualified TYPE name, e.g. fqn='{example_fqn}'. Only a "
-        "type has an FQN: a method or property has none of its own, so find one with "
-        "search_symbols by its member name and read it in the owning type's signature. Matching "
-        "is exact string equality against the indexed FQN, never a substring or fuzzy match, "
-        "and example or documentation entries are never symbols. Verify the exact FQN via "
+        "type has an FQN: a method or property has none of its own, but <Type>.<member> "
+        "(the full type name or its short name, then a dot or '::', then the member name) resolves "
+        "to the owning type's signature, with every overload line of that member in member_lines, "
+        "and a short type name that ends exactly one indexed FQN resolves too. A name shared by "
+        "several types, or a member the type does not declare, is an explicit NotFound that lists "
+        "the full names or the nearest member names. Matching is by exact names, never a substring "
+        "or fuzzy match, and example or documentation entries are never symbols. Verify the exact FQN via "
         "search_symbols first if you are not certain of it - do not guess it, since a "
         "near-miss returns an explicit NotFound (found false, with a reason and any "
         "did-you-mean suggestions) rather than the closest thing this index happens to "
@@ -307,8 +310,8 @@ TOOL_DESCRIPTIONS: dict[str, str] = {
         "(methods first, then properties, then enum members) - the same exact type-FQN lookup "
         "get_symbol uses under the hood, e.g. fqn='{example_fqn}'. "
         "Call this instead of get_symbol when you only want the member names for a known type, "
-        "not its full signature block. A method or property has no FQN of its own, so it "
-        "cannot be passed here. Base types are NOT included - a base class is not a member of "
+        "not its full signature block. A method or property has no FQN of its own, but "
+        "<Type>.<member> returns just that member's lines (all its overloads). Base types are NOT included - a base class is not a member of "
         "its subclass; call get_symbol and read its own bases field for that. Returns the "
         "identical NotFound get_symbol would for an FQN that does not exist - verify the exact "
         "FQN via search_symbols first if unsure, do not guess it."
@@ -403,8 +406,8 @@ _FIELD_DESCRIPTIONS: dict[str, str] = {
     "fqn": (
         "The exact, fully-qualified TYPE name to match verbatim, e.g. '{example_fqn}' "
         "- case-sensitive exact match only, never a substring or fuzzy "
-        "match. A method or property has no FQN of its own. Verify the exact FQN via "
-        "search_symbols first if you are not certain of it - do not guess it."
+        "match. A method or property has no FQN of its own; <Type>.<member> is accepted. Verify "
+        "the exact FQN via search_symbols first if you are not certain of it - do not guess it."
     ),
     "section": (
         "Which product-reference section to fetch: one of 'install', 'formats', "
@@ -669,15 +672,16 @@ _TOOL_FIELD_DESCRIPTIONS: dict[str, dict[str, str]] = {
     "get_symbol": {
         "fqn": (
             "The exact, fully-qualified TYPE name, e.g. '{example_fqn}'. "
-            "Case-sensitive; a method or property has no FQN of its own. Verify it "
-            "with search_symbols if unsure."
+            "Case-sensitive; a method or property has no FQN of its own, but <Type>.<member> "
+            "is accepted. Verify it with search_symbols if unsure."
         ),
     },
     "list_members": {
         "fqn": (
             "The exact, fully-qualified TYPE name whose members to list, e.g. "
             "'{example_fqn}'. Case-sensitive; a method or property "
-            "has no FQN of its own. Verify it with search_symbols if unsure."
+            "has no FQN of its own, but <Type>.<member> returns that member's lines. Verify it "
+            "with search_symbols if unsure."
         ),
     },
     "find_examples": {

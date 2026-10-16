@@ -14,8 +14,9 @@ simply never matches anything, honestly.
 
 from __future__ import annotations
 
+import difflib
 import re
-from collections.abc import Mapping
+from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 
 from foss_mcp.indexing.generation_manifest import GenerationManifestStore
@@ -24,6 +25,7 @@ from foss_mcp.mcp.tools.coverage_note import coverage_note_from_text
 from foss_mcp.mcp.tools.search_symbols import (
     _NON_SYMBOL_FQN_PREFIXES,
     SOURCE_KIND,
+    _member_name,
     scope_key,
     suggest_similar_fqns,
 )
@@ -33,6 +35,12 @@ _NO_GENERATION_REASON = "no published generation for this scope"
 _FQN_LINE = re.compile(r"^FQN:\s*(.+)$", re.MULTILINE)
 _KIND_LINE = re.compile(r"^Kind:\s*(.+)$", re.MULTILINE)
 _BULLET_PREFIX = "  - "
+_DEFINED_IN_LINE = re.compile(r"^Defined-In:\s*\S", re.MULTILINE)
+_MEMBER_BLOCKS = ("Methods:", "Properties:", "Members:")
+_ENUM_VALUE_SEPARATOR = " = "
+_NAME_END = re.compile(r"[\s\[]")
+_ASYNC_SUFFIX = "async"
+_SUGGESTION_LIMIT = 5
 
 
 @dataclass(frozen=True)
@@ -49,6 +57,21 @@ class SymbolSignature:
     members: tuple[str, ...]
     raw_text: str
     found: bool = True
+
+
+@dataclass(frozen=True)
+class ResolvedSignature(SymbolSignature):
+    """A name that is not an indexed FQN but resolves to one (TC-540, G3/REQ-G3-008).
+
+    ``fqn`` is the OWNING type's real FQN. ``resolved_from`` is the name asked for; ``member`` is the
+    member name read off it (empty when the whole name was a type); ``member_lines`` is every rendered
+    line of that member, all overloads, in chunk order. An exact FQN hit stays a plain
+    ``SymbolSignature``, so its JSON gains none of these keys.
+    """
+
+    resolved_from: str = ""
+    member: str = ""
+    member_lines: tuple[str, ...] = ()
 
 
 @dataclass(frozen=True)
@@ -136,7 +159,193 @@ def generation_coverage_note(documents: Mapping[str, Mapping[str, str]]) -> str 
     return None
 
 
-def get_symbol(store: GenerationManifestStore, scope: Scope, fqn: str) -> SymbolSignature | NotFound:
+@dataclass(frozen=True)
+class _SymbolChunk:
+    doc_id: str
+    chunk_id: str
+    fqn: str
+    text: str
+
+    @property
+    def is_reexport_shell(self) -> bool:
+        return _DEFINED_IN_LINE.search(self.text) is not None
+
+
+def _declared_members(text: str) -> dict[str, list[str]]:
+    """Member name -> its rendered lines (every overload) over the ``Methods:``, ``Properties:`` and
+    ``Members:`` blocks of one type chunk, in chunk order."""
+    declared: dict[str, list[str]] = {}
+    for header in _MEMBER_BLOCKS:
+        for item in _extract_block(text, header):
+            if header == "Members:":
+                name = item.split(_ENUM_VALUE_SEPARATOR, 1)[0].strip()
+            else:
+                name = _NAME_END.split(_member_name(item), maxsplit=1)[0]
+            if name:
+                declared.setdefault(name, []).append(item)
+    return declared
+
+
+def _separator(fqn: str) -> str:
+    return "::" if "::" in fqn else "."
+
+
+def _owners(
+    symbols: Sequence[_SymbolChunk], owner_text: str
+) -> tuple[list[_SymbolChunk], list[_SymbolChunk]]:
+    """``(owners, matched)``: the type chunks *owner_text* names, and every chunk that matched before
+    collapsing.
+
+    The chunk whose FQN equals *owner_text* is the owner; otherwise every chunk whose FQN ends with it
+    at a dot or ``::`` boundary. Chunks with identical declared members (a Python re-export shell and
+    its definition) count as one type, kept as the one without a ``Defined-In:`` line.
+    """
+    matched = [chunk for chunk in symbols if chunk.fqn == owner_text] or [
+        chunk for chunk in symbols if chunk.fqn.endswith(("." + owner_text, "::" + owner_text))
+    ]
+    owners: list[_SymbolChunk] = []
+    owner_members: list[dict[str, list[str]]] = []
+    for chunk in matched:
+        members = _declared_members(chunk.text)
+        twin = next(
+            (
+                index
+                for index, other in enumerate(owner_members)
+                # Two memberless types sharing a short name are two types, unless one is a re-export shell.
+                if other == members
+                and (members or chunk.is_reexport_shell or owners[index].is_reexport_shell)
+            ),
+            None,
+        )
+        if twin is None:
+            owners.append(chunk)
+            owner_members.append(members)
+        elif owners[twin].is_reexport_shell and not chunk.is_reexport_shell:
+            owners[twin] = chunk
+    return owners, matched
+
+
+def _signature_of(
+    scope: Scope, generation_id: str, chunk: _SymbolChunk, requested: str, member: str
+) -> ResolvedSignature:
+    base = _parse_signature(scope, generation_id, chunk.doc_id, chunk.chunk_id, chunk.text)
+    return ResolvedSignature(
+        scope=base.scope,
+        generation_id=base.generation_id,
+        doc_id=base.doc_id,
+        chunk_id=base.chunk_id,
+        fqn=base.fqn,
+        kind=base.kind,
+        bases=base.bases,
+        methods=base.methods,
+        properties=base.properties,
+        members=base.members,
+        raw_text=base.raw_text,
+        resolved_from=requested,
+        member=member,
+        member_lines=tuple(_declared_members(chunk.text).get(member, ())) if member else (),
+    )
+
+
+def _async_twin(name: str) -> str:
+    folded = name.casefold()
+    if folded.endswith(_ASYNC_SUFFIX):
+        return folded[: -len(_ASYNC_SUFFIX)]
+    return folded + _ASYNC_SUFFIX
+
+
+def _did_you_mean_members(
+    owner: _SymbolChunk,
+    matched: Sequence[_SymbolChunk],
+    symbols: Sequence[_SymbolChunk],
+    member: str,
+) -> tuple[str, ...]:
+    """At most five ``<TypeFQN><sep><member>`` names: the owner's own case-insensitive or ``Async``
+    twin match, then other indexed types (FQN order) declaring such a name, then the nearest
+    spellings among the owner's own member names."""
+    wanted = {member.casefold(), _async_twin(member)} - {""}
+    found: list[str] = []
+
+    def add(type_fqn: str, name: str) -> None:
+        candidate = f"{type_fqn}{_separator(type_fqn)}{name}"
+        if candidate not in found:
+            found.append(candidate)
+
+    own = _declared_members(owner.text)
+    for name in own:
+        if name.casefold() in wanted:
+            add(owner.fqn, name)
+    skipped = {id(chunk) for chunk in matched}
+    for chunk in sorted(symbols, key=lambda candidate: candidate.fqn):
+        if id(chunk) in skipped:
+            continue
+        for name in _declared_members(chunk.text):
+            if name.casefold() in wanted:
+                add(chunk.fqn, name)
+    for name in difflib.get_close_matches(member, list(own), n=3, cutoff=0.6):
+        add(owner.fqn, name)
+    return tuple(found[:_SUGGESTION_LIMIT])
+
+
+def _resolve_name(
+    scope: Scope,
+    generation_id: str,
+    symbols: Sequence[_SymbolChunk],
+    requested: str,
+    coverage_note: str | None,
+) -> ResolvedSignature | NotFound | None:
+    """Resolve a name that is not an indexed FQN (TC-540): the whole name read as a type, else
+    ``<owner>.<member>`` / ``<owner>::<member>``. ``None`` means nothing to add to today's NotFound.
+    Matching is by names only - never a substring or fuzzy match for a hit."""
+
+    def shared(name: str, owners: Sequence[_SymbolChunk], suggestions: Sequence[str]) -> NotFound:
+        return NotFound(
+            scope,
+            requested,
+            suggestions=tuple(suggestions[:_SUGGESTION_LIMIT]),
+            reason=f"'{name}' names {len(owners)} different types in this index; use one of the full names listed",
+            coverage_note=coverage_note,
+        )
+
+    owners, _matched = _owners(symbols, requested)
+    if len(owners) == 1:
+        return _signature_of(scope, generation_id, owners[0], requested, "")
+    if len(owners) > 1:
+        return shared(requested, owners, sorted(chunk.fqn for chunk in owners))
+
+    cut = max(requested.rfind("."), requested.rfind("::"))
+    if cut < 0:
+        return None
+    width = 2 if requested.startswith("::", cut) else 1
+    owner_text, member = requested[:cut], requested[cut + width :]
+    if not owner_text or not member:
+        return None
+    owners, matched = _owners(symbols, owner_text)
+    if not owners:
+        return None
+    if len(owners) > 1:
+        declaring = [chunk for chunk in owners if member in _declared_members(chunk.text)] or owners
+        return shared(
+            owner_text,
+            owners,
+            sorted(f"{chunk.fqn}{_separator(chunk.fqn)}{member}" for chunk in declaring),
+        )
+    owner = owners[0]
+    declared = _declared_members(owner.text)
+    if member in declared:
+        return _signature_of(scope, generation_id, owner, requested, member)
+    return NotFound(
+        scope,
+        requested,
+        suggestions=_did_you_mean_members(owner, matched, symbols, member),
+        reason=f"{owner.fqn} is in this index, but it declares no member named '{member}'",
+        coverage_note=coverage_note,
+    )
+
+
+def get_symbol(
+    store: GenerationManifestStore, scope: Scope, fqn: str
+) -> SymbolSignature | ResolvedSignature | NotFound:
     """The exact signature published for *fqn* in ``scope``'s currently active generation.
 
     Matching is EXACT string equality against each chunk's own ``FQN:`` line - never a
@@ -152,6 +361,7 @@ def get_symbol(store: GenerationManifestStore, scope: Scope, fqn: str) -> Symbol
     manifest = store.read_generation(key, active_generation_id)
     documents = (manifest.payload.get("lexical_index") or {}).get("documents") or {}
     known_fqns = []
+    symbols: list[_SymbolChunk] = []
     for doc_id, document in documents.items():
         document_fqn = extract_fqn(document["text"])
         if document_fqn is None or document_fqn.startswith(_NON_SYMBOL_FQN_PREFIXES):
@@ -161,9 +371,16 @@ def get_symbol(store: GenerationManifestStore, scope: Scope, fqn: str) -> Symbol
                 scope, active_generation_id, doc_id, document["chunk_id"], document["text"]
             )
         known_fqns.append(document_fqn)
+        symbols.append(_SymbolChunk(doc_id, document["chunk_id"], document_fqn, document["text"]))
+    coverage_note = generation_coverage_note(documents)
+    # TC-540: an ADDITIVE step after the exact match - a member-level or short type name resolves to
+    # its owning type, and a miss says what it was looking for.
+    resolved = _resolve_name(scope, active_generation_id, symbols, fqn, coverage_note)
+    if resolved is not None:
+        return resolved
     return NotFound(
         scope,
         fqn,
         suggestions=suggest_similar_fqns(known_fqns, fqn),
-        coverage_note=generation_coverage_note(documents),
+        coverage_note=coverage_note,
     )
