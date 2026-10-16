@@ -342,96 +342,40 @@ def cells_cpp_free_functions(cells_cpp_checkout: Path) -> list[dict[str, Any]]:
 def test_real_cells_cpp_isnullorwhitespace_no_longer_collapsed(
     cells_cpp_free_functions: list[dict[str, Any]],
 ) -> None:
-    """The card's own worst-case example, verified against real data: before
-    this fix, cells/cpp's real `IsNullOrWhiteSpace` -- independently defined
-    as a file-local `static` helper in 10 different real .cpp files -- was
-    collapsed 10 -> 1 by category 6's fallback merge (confirmed by direct
-    instrumentation). After this fix it must survive as multiple (>= 5, per
-    the card), distinct, different-file entries.
+    """TC-524 corrected invariant. The card's own worst-case example used to assert that the real
+    `IsNullOrWhiteSpace` -- independently defined as a file-local `static` helper in 10 different real .cpp
+    files -- survives as >= 5 distinct-file entries. Every one of those entries was a file-static helper that
+    only a `.cpp` file defines, which the independent pre-production review (RST-06) showed `get_symbol` was
+    serving as public API. A free function is now published only when it is declared or defined inline in a
+    PUBLIC header, so the helper must not be published at all, and every free-function entry that does survive
+    in the vendored snapshot comes from a `.h` or `.hpp` file, never from a `.cpp`.
     """
-    is_null_or_whitespace = [f for f in cells_cpp_free_functions if f.get("name") == "IsNullOrWhiteSpace"]
-    distinct_files = {f.get("file") for f in is_null_or_whitespace}
-    assert len(distinct_files) >= 5, (
-        "expected IsNullOrWhiteSpace to survive as >= 5 distinct-file entries, "
-        f"got {len(distinct_files)} distinct file(s): {sorted(distinct_files)}"
-    )
+    assert not [f for f in cells_cpp_free_functions if f.get("name") == "IsNullOrWhiteSpace"]
+    from_sources = [
+        f for f in cells_cpp_free_functions if not str(f.get("file", "")).endswith((".h", ".hpp"))
+    ]
+    assert not from_sources, f"free functions published from a non-header file: {from_sources[:3]}"
 
 
 def test_real_cells_cpp_free_function_count_increases_substantially(
     cells_cpp_free_functions: list[dict[str, Any]],
 ) -> None:
-    """Real end-to-end regression against the vendored, pinned cells/cpp
-    snapshot (no network needed): before TC-092's fix, 353 raw free functions
-    collapsed to 192 by the cross-file-collision bug that card fixed
-    (confirmed by direct instrumentation). This asserts the surviving count
-    stays well above that pre-TC-092 baseline.
+    """TC-524 corrected invariant (this test keeps its historical name; its history is below).
 
-    HISTORY -- TC-092 (verified 2026-09-28 against the exact pinned commit):
-    the card's own inputs field estimated ">= 300" as the post-fix count,
-    hedged as "allowing for legitimate same-file dedup". Real measurement
-    against this exact commit gave 262 surviving free functions with
-    TC-092's fix applied (verified independently: raw pre-consolidate count
-    is exactly 353, matching the card's own figure; IsNullOrWhiteSpace's raw
-    count is exactly 10, also matching).
-
-    TC-092 root-caused the 262-vs-300 gap rather than shrugging it off: 91
-    entries were discarded as "same file" duplicates, but roughly 50 of
-    those same-name/same-file groups were NOT genuine free-function
-    duplicates at all -- they were a SEPARATE defect. Real source inspection
-    (e.g. cells/cpp's FormatCondition.cpp lines 163-210) showed entries like
-    5 distinct methods -- `Color FormatCondition::GetMinColor() const
-    noexcept`, `Color FormatCondition::GetMidColor() const noexcept`,
-    `Color FormatCondition::GetMaxColor() const noexcept`, etc. -- which are
-    genuine, DIFFERENT, real out-of-line class-method definitions, but the
-    top-level free-function scan did not recognize a qualified
-    (`ClassName::MethodName`) out-of-line definition as a class member, and
-    `_node_name` mis-extracted the RETURN TYPE ("Color") as the entry's
-    `name` instead of the real qualified method name. This fabricated
-    spurious same-name, same-file "phantom duplicate" entries for genuinely
-    distinct methods, which TC-092's new by-file dedupe then correctly (per
-    its own, exact, load-bearing spec: "within any file-group containing
-    MORE than one entry ... discard all but one") collapsed -- correctly
-    for what it was told, on data that was already wrong for an unrelated
-    reason. TC-092 explicitly named this "a real, distinct, pre-existing
-    defect ... not fixed here ... consider it for a follow-up taskcard."
-
-    RECALIBRATION -- TC-276 (2026-10-09) is that follow-up: it closes the
-    out-of-line qualified-member gap at its root, in `_cpp_is_free_function`
-    itself, by recognizing a `qualified_identifier` function_declarator name
-    (the `ClassName::Method` shape) and excluding it from the free-function
-    path entirely -- so entries like the fabricated "Color" phantom above
-    are never created in the first place, rather than being created and
-    then collapsed together by this file's dedupe. Measured independently
-    (three separate fresh runs of the real extraction engine against this
-    exact vendored snapshot, outside pytest, after TC-276's fix) gives a
-    stable 146 surviving free-function entries -- NOT a regression: the
-    ~116 entries that TC-276 removes relative to TC-092's 262 were never
-    genuine free functions, they were exactly the phantom
-    out-of-line-member entries TC-092's own docstring above named and
-    deferred. This is a direct, intended consequence of closing that gap,
-    not a weakening of this check's intent -- the check still proves real
-    free functions are found and counted; it simply no longer counts
-    phantoms as though they were free functions. The threshold below is
-    recalibrated to this new, real, measured value with the same kind of
-    margin TC-092 used (262 observed -> 250 threshold is a ~5% margin; 146
-    observed -> 140 threshold mirrors that).
+    The vendored, checksummed cells/cpp snapshot declares NO free function in a public header (its headers
+    hold classes and enums only), and every one of the 146 free-function entries the extractor used to
+    return was a file-static helper defined in a `.cpp` file (TC-092 counted 262 before TC-276 removed the
+    out-of-line members, then 146). Publishing a free function only from a public header makes the surviving
+    count exactly the integer MEASURED on this snapshot after the change: 0. It was measured by running
+    `extract_api_surface(get_parser("cpp"), "cpp", detect_package_root(<snapshot>, "cpp"), <snapshot>,
+    "cells")` and counting the `kind == "function"` entries; a separate walk of every `.h` file in
+    the snapshot with the extractor's own candidate walker found 0 namespace-scope function nodes as well, so
+    the number is the snapshot's true public-header free-function count and not an extraction gap. The
+    snapshot is checksummed, so the integer is stable.
     """
-    assert len(cells_cpp_free_functions) >= 140, (
-        f"expected a large increase over the pre-TC-092 baseline of 192, got {len(cells_cpp_free_functions)}"
+    assert len(cells_cpp_free_functions) == 0, (
+        f"expected the measured 0 public-header free functions, got {len(cells_cpp_free_functions)}"
     )
-    # NOTE (TC-276): this test used to also assert
-    # `len(cells_cpp_free_functions) > 192` as an "always a genuine
-    # improvement over the pre-TC-092 baseline, regardless of the separate
-    # [out-of-line-member] defect" invariant. That invariant assumed the
-    # deferred defect would only ever change WHICH entries get merged
-    # together, never the true count of real free functions. It does not
-    # survive TC-276 actually fixing that deferred defect: 192 was itself a
-    # collision-collapsed number from BEFORE TC-092's fix, already an
-    # unknown mix of genuine functions, genuine duplicates, and uncounted
-    # out-of-line-member phantoms -- never a clean measurement of real free
-    # functions, so it is not a valid floor to compare the now-phantom-free
-    # count against. The single recalibrated threshold above is the
-    # intended, honest replacement for both of this test's old assertions.
 
 
 # --- vendored snapshot integrity (TC-215) -----------------------------------

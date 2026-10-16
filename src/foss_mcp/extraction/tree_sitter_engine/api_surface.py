@@ -370,6 +370,10 @@ def _extract_method_params(node, language: str) -> list[dict[str, Any]]:
     if language == "csharp":
         return _extract_csharp_params(param_list)
 
+    if language == "cpp":
+        # TC-524: a C++ parameter keeps its full declarator text (references, pointers, const, defaults).
+        return _cpp_declarator_params(param_list)
+
     js_jsdoc: str | None = None
     js_destructured = 0
     ts_destructured = 0
@@ -1137,6 +1141,12 @@ def _extract_doc_comment(node, language: str) -> str:
         return ""
 
     txt = node_text(prev)
+    # TC-524: a C++ ``///`` comment (including ``/// <summary>`` blocks) documents like a C# XML doc comment;
+    # ``///<`` is a trailing comment on the member before, never a doc of the next one.
+    if language == "cpp" and txt.strip().startswith("///"):
+        if txt.strip().startswith("///<"):
+            return ""
+        style = "xml_doc"
     if style == "javadoc" or style == "jsdoc":
         if txt.startswith("/**"):
             cleaned = re.sub(r"/\*\*|\*/|\n\s*\*\s?", " ", txt).strip()
@@ -2007,6 +2017,14 @@ def _synthesize_cpp_properties(
         # Skip setters (they are not independent properties)
         if name.startswith("set_"):
             continue
+        # TC-524: a constructor, destructor, operator or static method is never a property
+        if (
+            m.get("is_constructor")
+            or name.startswith("~")
+            or name.startswith("operator")
+            or "static" in (m.get("modifiers") or [])
+        ):
+            continue
         # Must have 0 parameters and a non-empty, non-void return type
         if len(params) != 0:
             continue
@@ -2207,6 +2225,406 @@ def _cpp_canonical_namespace(cnode) -> str:
         parent = parent.parent
     parts.reverse()
     return "::".join(parts)
+
+
+# ---------------------------------------------------------------------------
+# TC-524: C++ fidelity -- full declarator text, constructors, operators, modifiers and
+# free functions published only from public headers
+# ---------------------------------------------------------------------------
+
+_CPP_PARAM_NODE_TYPES = ("parameter_declaration", "optional_parameter_declaration", "variadic_parameter_declaration")
+# Declarator wrappers followed (in order) from a parameter's ``declarator`` field down to its name.
+_CPP_DECLARATOR_NODE_TYPES = (
+    "identifier",
+    "field_identifier",
+    "pointer_declarator",
+    "reference_declarator",
+    "array_declarator",
+    "parenthesized_declarator",
+    "function_declarator",
+    "variadic_declarator",
+)
+_CPP_FUNCTION_NAME_NODE_TYPES = ("identifier", "field_identifier", "destructor_name", "operator_name")
+# A leading run of specifier words and attributes that is not part of a return type.
+_CPP_LEADING_SPECIFIER_RE = re.compile(
+    r"^(?:(?:static|virtual|inline|explicit|constexpr|consteval|friend|extern)\b(?:\s*\([^)]*\))?\s*|\[\[.*?\]\]\s*)+"
+)
+_CPP_MODIFIER_ORDER = (
+    "static",
+    "virtual",
+    "explicit",
+    "constexpr",
+    "const",
+    "noexcept",
+    "override",
+    "final",
+    "pure",
+    "deleted",
+    "defaulted",
+)
+# A free function declared in a header under one of these directories is implementation detail.
+_CPP_PRIVATE_DIRECTORY_NAMES = frozenset({"internal", "detail", "details", "impl", "private", "src"})
+_CPP_HIDDEN_NAMESPACE_NAMES = frozenset({"detail", "internal"})
+_CPP_SCOPE_CONTAINER_TYPES = (
+    "preproc_if",
+    "preproc_ifdef",
+    "preproc_else",
+    "preproc_elif",
+    "preproc_elifdef",
+    "linkage_specification",
+    "declaration_list",
+)
+
+
+def _cpp_collapse(text: str) -> str:
+    return " ".join(text.split())
+
+
+def _cpp_declarator_name_node(decl):
+    """The identifier at the end of a C++ declarator chain (``* & name``, ``(*name)(int)``, ``name[3]``),
+    or ``None`` when the declarator is abstract (an unnamed parameter)."""
+    cur = decl
+    for _ in range(16):
+        if cur is None:
+            return None
+        if cur.type in ("identifier", "field_identifier"):
+            return cur
+        nxt = child_by_field(cur, "declarator")
+        if nxt is None:
+            nxt = next((c for c in cur.children if c.type in _CPP_DECLARATOR_NODE_TYPES), None)
+        cur = nxt
+    return None
+
+
+def _cpp_param_type_text(param, name_node, default_node) -> str:
+    """The full type text of one C++ parameter: the source from the start of the parameter to the start of
+    its name (so ``const std::vector<int>& data`` gives ``const std::vector<int>&`` and ``const char*
+    password = nullptr`` gives ``const char*``), plus any array or function-pointer suffix that follows the
+    name. An unnamed parameter's type is its source up to the default value or the end."""
+    raw = param.text
+    base = param.start_byte
+    decl = child_by_field(param, "declarator")
+    if name_node is not None and decl is not None:
+        before = raw[: name_node.start_byte - base].decode("utf-8", errors="replace")
+        after = raw[name_node.end_byte - base : decl.end_byte - base].decode("utf-8", errors="replace")
+        return _cpp_collapse(before) + _cpp_collapse(after)
+    end = default_node.start_byte - base if default_node is not None else len(raw)
+    text = _cpp_collapse(raw[:end].decode("utf-8", errors="replace"))
+    if default_node is not None and text.endswith("="):
+        text = text[:-1].rstrip()
+    return text
+
+
+def _cpp_declarator_params(param_list) -> list[dict[str, Any]]:
+    """The parameters of a C++ ``parameter_list`` as ``{"name", "type"[, "default"]}``. An unnamed
+    parameter is kept with an empty name; a C varargs ``...`` is kept as an unnamed ``...``; a parameter
+    list that is exactly ``(void)`` has no parameters."""
+    params: list[dict[str, Any]] = []
+    for ch in param_list.children:
+        if ch.type == "...":
+            params.append({"name": "", "type": "..."})
+            continue
+        if ch.type not in _CPP_PARAM_NODE_TYPES:
+            continue
+        decl = child_by_field(ch, "declarator")
+        default_node = child_by_field(ch, "default_value")
+        name_node = _cpp_declarator_name_node(decl) if decl is not None else None
+        entry: dict[str, Any] = {
+            "name": node_text(name_node) if name_node is not None else "",
+            "type": _cpp_param_type_text(ch, name_node, default_node),
+        }
+        if default_node is not None:
+            entry["default"] = _cpp_collapse(node_text(default_node))
+        params.append(entry)
+    if len(params) == 1 and not params[0]["name"] and params[0]["type"] == "void":
+        return []
+    return params
+
+
+def _cpp_function_declarator(member):
+    """The ``function_declarator`` of a C++ member or free-function node, looking through the reference and
+    pointer declarators that wrap it for a reference or pointer return type. A conversion operator
+    (``operator bool() const``) has an ``abstract_function_declarator`` inside an ``operator_cast`` instead.
+    ``None`` when the node declares no function."""
+    cur = member
+    for _ in range(8):
+        direct = find_child_by_type(cur, "function_declarator")
+        if direct is not None:
+            return direct
+        cast = find_child_by_type(cur, "operator_cast")
+        if cast is not None:
+            return find_child_by_type(cast, "abstract_function_declarator")
+        wrapper = None
+        for wrapper_type in ("reference_declarator", "pointer_declarator"):
+            wrapper = find_child_by_type(cur, wrapper_type)
+            if wrapper is not None:
+                break
+        if wrapper is None:
+            return None
+        cur = wrapper
+    return None
+
+
+def _cpp_function_name_node(fdecl):
+    """The node that names the function *fdecl* declares (identifier, field_identifier, destructor_name,
+    operator_name, or the ``operator_cast`` of a conversion operator); ``None`` for a qualified name
+    (an out-of-line member) or a function-pointer declarator."""
+    if fdecl.type == "abstract_function_declarator":
+        return fdecl.parent
+    name_node = child_by_field(fdecl, "declarator")
+    if name_node is not None and name_node.type in _CPP_FUNCTION_NAME_NODE_TYPES:
+        return name_node
+    return None
+
+
+def _cpp_function_name(name_node, fdecl) -> str:
+    if name_node.type == "operator_cast":
+        return _cpp_collapse(name_node.text[: fdecl.start_byte - name_node.start_byte].decode("utf-8", "replace"))
+    return node_text(name_node).strip()
+
+
+def _cpp_return_type_text(member, fdecl) -> str:
+    """The return type of a C++ function, reference or pointer and leading ``const`` included: the source
+    text from the start of the member to the start of the function name, whitespace-collapsed, with a leading
+    run of ``static``/``virtual``/``inline``/``explicit``/``constexpr``/``consteval``/``friend``/``extern`` and
+    ``[[...]]`` attributes removed. Empty for a constructor, destructor or conversion operator."""
+    name_node = _cpp_function_name_node(fdecl)
+    if name_node is None:
+        return ""
+    trailing = find_child_by_type(fdecl, "trailing_return_type")
+    if trailing is not None:
+        text = node_text(trailing).strip()
+        return _cpp_collapse(text[2:] if text.startswith("->") else text)
+    head = member.text[: name_node.start_byte - member.start_byte].decode("utf-8", errors="replace")
+    return _CPP_LEADING_SPECIFIER_RE.sub("", _cpp_collapse(head)).strip()
+
+
+def _cpp_member_modifiers(member, fdecl) -> list[str]:
+    """The modifiers of a C++ function that apply, in the fixed order of ``_CPP_MODIFIER_ORDER``."""
+    found: set[str] = set()
+    for ch in member.children:
+        text = node_text(ch).strip()
+        if ch.type == "storage_class_specifier" and text == "static":
+            found.add("static")
+        elif ch.type == "virtual":
+            found.add("virtual")
+        elif ch.type == "explicit_function_specifier":
+            found.add("explicit")
+        elif ch.type == "type_qualifier" and text == "constexpr":
+            found.add("constexpr")
+        elif ch.type == "delete_method_clause":
+            found.add("deleted")
+        elif ch.type == "default_method_clause":
+            found.add("defaulted")
+    for ch in fdecl.children:
+        text = node_text(ch).strip()
+        if ch.type == "type_qualifier" and text == "const":
+            found.add("const")
+        elif ch.type == "noexcept" and "false" not in text:
+            found.add("noexcept")
+        elif ch.type == "virtual_specifier" and text in ("override", "final"):
+            found.add(text)
+    default_value = child_by_field(member, "default_value")
+    if default_value is not None and node_text(default_value).strip() == "0":
+        found.add("pure")
+    return [name for name in _CPP_MODIFIER_ORDER if name in found]
+
+
+def _cpp_signature_claim_names(params: list[dict[str, Any]]) -> str:
+    return ", ".join(p["name"] or p["type"] for p in params)
+
+
+def _extract_cpp_members(cnode, cname: str, rel: str, family: str):
+    """The public members of the C++ class or struct *cnode*, as ``(methods, properties, claims)``.
+
+    Walks the class body tracking ``access_specifier`` (a ``class`` starts private, a ``struct`` public).
+    Methods come from a ``field_declaration`` with a function declarator, a ``declaration`` with a function
+    declarator (constructors, destructors, explicit constructors) and a ``function_definition`` (inline
+    methods and the deleted or defaulted special members); a ``field_declaration`` without a function
+    declarator is a public data member. A member named like the class is a constructor (``is_constructor``);
+    ``~Name`` is a destructor and is not. Nested types and templates are not collected.
+    """
+    methods: list[dict[str, Any]] = []
+    properties: list[dict[str, Any]] = []
+    claims: list[dict] = []
+    body = find_child_by_type(cnode, "field_declaration_list")
+    if body is None:
+        return methods, properties, claims
+    access = "public" if cnode.type == "struct_specifier" else "private"
+    for member in body.children:
+        if member.type == "access_specifier":
+            access = node_text(member).strip().rstrip(":")
+            continue
+        if access != "public" or member.type not in ("field_declaration", "declaration", "function_definition"):
+            continue
+        fdecl = _cpp_function_declarator(member)
+        if fdecl is not None:
+            name_node = _cpp_function_name_node(fdecl)
+            if name_node is None:
+                continue
+            mname = _cpp_function_name(name_node, fdecl)
+            if not mname:
+                continue
+            if member.type == "function_definition" and mname.startswith("_"):
+                continue
+            params = _extract_method_params(fdecl, "cpp")
+            ret = _cpp_return_type_text(member, fdecl)
+            modifiers = _cpp_member_modifiers(member, fdecl)
+            method: dict[str, Any] = {
+                "name": mname,
+                "params": params,
+                "return_type": ret,
+                "doc": _extract_doc_comment(member, "cpp"),
+                "line": member.start_point[0] + 1,
+                "is_constructor": mname == cname,
+            }
+            if modifiers:
+                method["modifiers"] = modifiers
+            methods.append(method)
+            claims.append(
+                _make_claim(
+                    family,
+                    "api_method",
+                    f"{cname}.{mname}({_cpp_signature_claim_names(params)}) -> {ret}",
+                    rel,
+                    member.start_point[0] + 1,
+                )
+            )
+        elif member.type == "field_declaration":
+            # Public data member (e.g., std::string name;)
+            fname = ""
+            for ch in member.children:
+                if ch.type in ("identifier", "field_identifier"):
+                    fname = node_text(ch)
+                    break
+            if not fname or fname.startswith("_"):
+                continue
+            ftype = ""
+            type_node = child_by_field(member, "type")
+            if type_node:
+                ftype = node_text(type_node)
+            properties.append(
+                {
+                    "name": fname,
+                    "type": ftype,
+                    "doc": _extract_doc_comment(member, "cpp"),
+                    "line": member.start_point[0] + 1,
+                    "writable": True,  # public data members are read-write
+                }
+            )
+            claims.append(
+                _make_claim(
+                    family,
+                    "api_method",
+                    f"{cname}.{fname} data member of type {ftype}",
+                    rel,
+                    member.start_point[0] + 1,
+                )
+            )
+    return methods, properties, claims
+
+
+def _cpp_is_public_header(fpath: Path, pkg_root: Path) -> bool:
+    """True when *fpath* is a ``.h``/``.hpp`` file outside every ``internal``/``detail``/``details``/``impl``/
+    ``private``/``src`` (or ``internal*``) directory below *pkg_root*."""
+    if fpath.suffix.lower() not in (".h", ".hpp"):
+        return False
+    try:
+        parts = fpath.relative_to(pkg_root).parts
+    except ValueError:
+        parts = fpath.parts[-1:]
+    for part in parts[:-1]:
+        low = part.lower()
+        if low in _CPP_PRIVATE_DIRECTORY_NAMES or low.startswith("internal"):
+            return False
+    return not parts[-1].lower().startswith("internal")
+
+
+def _cpp_free_function_candidates(container) -> list:
+    """The ``declaration`` and ``function_definition`` nodes at namespace or global scope below *container*,
+    descending named namespaces (never an anonymous one or one named ``detail``/``internal``), preprocessor
+    conditionals (include guards wrap whole headers) and linkage blocks."""
+    found: list = []
+    for node in container.children:
+        if node.type in ("declaration", "function_definition"):
+            found.append(node)
+        elif node.type == "namespace_definition":
+            name_node = child_by_field(node, "name")
+            if name_node is None:
+                continue
+            if any(seg.strip() in _CPP_HIDDEN_NAMESPACE_NAMES for seg in node_text(name_node).split("::")):
+                continue
+            body = child_by_field(node, "body")
+            if body is not None:
+                found.extend(_cpp_free_function_candidates(body))
+        elif node.type in _CPP_SCOPE_CONTAINER_TYPES:
+            found.extend(_cpp_free_function_candidates(node))
+    return found
+
+
+def _extract_cpp_free_functions(root, fpath: Path, pkg_root: Path, rel: str, family: str, reachable):
+    """The free functions of one C++ file as ``(entries, claims)``.
+
+    A function is published only when it is declared or defined inline in a PUBLIC header: a ``.cpp`` file
+    contributes none, and neither does a header under an ``internal``/``detail`` directory. Excluded: a
+    ``static`` function, anything in an anonymous or ``detail``/``internal`` namespace, an out-of-line member
+    definition (a qualified name), a template, a friend declaration and anything without a return type.
+    *reachable* is the extraction's ``(name, path, rel) -> bool`` reachability callback.
+    """
+    entries: list[dict[str, Any]] = []
+    claims: list[dict] = []
+    if not _cpp_is_public_header(fpath, pkg_root):
+        return entries, claims
+    for node in _cpp_free_function_candidates(root):
+        fdecl = _cpp_function_declarator(node)
+        if fdecl is None or fdecl.type != "function_declarator":
+            continue
+        name_node = _cpp_function_name_node(fdecl)
+        if name_node is None or name_node.type not in ("identifier", "operator_name"):
+            continue
+        if any(
+            (ch.type == "storage_class_specifier" and node_text(ch).strip() == "static") or ch.type == "friend"
+            for ch in node.children
+        ):
+            continue
+        fname = node_text(name_node).strip()
+        ret = _cpp_return_type_text(node, fdecl)
+        if not fname or not ret:
+            continue
+        params = _extract_method_params(fdecl, "cpp")
+        entry: dict[str, Any] = {
+            "name": fname,
+            "kind": "function",
+            "doc": _extract_doc_comment(node, "cpp"),
+            "file": rel,
+            "line": node.start_point[0] + 1,
+            "bases": [],
+            "methods": [],
+            "properties": [],
+            "params": params,
+            "return_type": ret,
+            "reachable": reachable(fname, fpath, rel),
+        }
+        modifiers = _cpp_member_modifiers(node, fdecl)
+        if modifiers:
+            entry["modifiers"] = modifiers
+        canonical_ns = _cpp_canonical_namespace(node)
+        if canonical_ns:
+            entry["canonical_namespace"] = canonical_ns
+            entry["class_import"] = f"{canonical_ns}::{fname}"
+        else:
+            entry["class_import"] = fname
+        entries.append(entry)
+        claims.append(
+            _make_claim(
+                family,
+                "api_method",
+                f"Function {fname}({_cpp_signature_claim_names(params)}) -> {ret}",
+                rel,
+                node.start_point[0] + 1,
+            )
+        )
+    return entries, claims
 
 
 def _ts_namespace_chain(cnode) -> str:
@@ -2739,9 +3157,12 @@ def _dedupe_same_name_functions_by_file(ns_entries: list[dict], ns_indices: list
     """
     from collections import defaultdict
 
-    by_file: dict[str, list[int]] = defaultdict(list)
+    # TC-524: two overloads declared in one header (``ToString(int)`` and ``ToString(double)``) are distinct
+    # symbols; entries are duplicates only when the file AND the parameter type list are equal.
+    by_file: dict[tuple[str, tuple[str, ...]], list[int]] = defaultdict(list)
     for idx, e in zip(ns_indices, ns_entries):
-        by_file[e.get("file", "")].append(idx)
+        signature = tuple(str(p.get("type", "")) for p in (e.get("params") or []))
+        by_file[(e.get("file", ""), signature)].append(idx)
 
     discard: set[int] = set()
     for file_indices in by_file.values():
@@ -4542,128 +4963,13 @@ def extract_api_surface(
                 properties.extend(extra_props)
                 claims.extend(extra_claims)
 
-            # C++ field_declaration: method declarations (no body) AND public data members
+            # C++ members: constructors, destructors, operators, methods (with full declarator text and
+            # modifiers) AND public data members (TC-524)
             if language == "cpp":
-                body = find_child_by_type(cnode, "field_declaration_list")
-                if body:
-                    access = "public" if cnode.type == "struct_specifier" else "private"
-                    for member in body.children:
-                        if member.type == "access_specifier":
-                            access = node_text(member).strip().rstrip(":")
-                        elif member.type == "function_definition" and access == "public":
-                            # Inline method definition (has body): void SetBold(bool v) { ... }
-                            fdecl = find_child_by_type(member, "function_declarator")
-                            if fdecl is None:
-                                for _wrapper_type in ("reference_declarator", "pointer_declarator"):
-                                    _wrapper = find_child_by_type(member, _wrapper_type)
-                                    if _wrapper:
-                                        fdecl = find_child_by_type(_wrapper, "function_declarator")
-                                        if fdecl:
-                                            break
-                            if fdecl is not None:
-                                mname = ""
-                                for ch in fdecl.children:
-                                    if ch.type in ("identifier", "field_identifier", "destructor_name"):
-                                        mname = node_text(ch)
-                                        break
-                                if mname and not mname.startswith("_"):
-                                    params = _extract_method_params(fdecl, language)
-                                    ret = _extract_return_type(member, language)
-                                    mdoc = _extract_doc_comment(member, language)
-                                    methods.append(
-                                        {
-                                            "name": mname,
-                                            "params": params,
-                                            "return_type": ret,
-                                            "doc": mdoc,
-                                            "line": member.start_point[0] + 1,
-                                            "is_constructor": False,
-                                        }
-                                    )
-                                    claims.append(
-                                        _make_claim(
-                                            family,
-                                            "api_method",
-                                            f"{cname}.{mname}({', '.join(p['name'] for p in params)}) -> {ret}",
-                                            rel,
-                                            member.start_point[0] + 1,
-                                        )
-                                    )
-                        elif member.type == "field_declaration" and access == "public":
-                            fdecl = find_child_by_type(member, "function_declarator")
-                            # Support reference/pointer return types: T& GetFoo() or T* GetFoo()
-                            # tree-sitter wraps function_declarator inside reference_declarator
-                            # or pointer_declarator in these cases, so direct search misses them.
-                            if fdecl is None:
-                                for _wrapper_type in ("reference_declarator", "pointer_declarator"):
-                                    _wrapper = find_child_by_type(member, _wrapper_type)
-                                    if _wrapper:
-                                        fdecl = find_child_by_type(_wrapper, "function_declarator")
-                                        if fdecl:
-                                            break
-                            if fdecl is not None:
-                                # Method declaration (no body) â€” common in header files
-                                mname = ""
-                                for ch in fdecl.children:
-                                    if ch.type in ("identifier", "field_identifier"):
-                                        mname = node_text(ch)
-                                        break
-                                if not mname:
-                                    continue
-                                params = _extract_method_params(fdecl, language)
-                                ret = _extract_return_type(member, language)
-                                mdoc = _extract_doc_comment(member, language)
-                                methods.append(
-                                    {
-                                        "name": mname,
-                                        "params": params,
-                                        "return_type": ret,
-                                        "doc": mdoc,
-                                        "line": member.start_point[0] + 1,
-                                        "is_constructor": False,
-                                    }
-                                )
-                                claims.append(
-                                    _make_claim(
-                                        family,
-                                        "api_method",
-                                        f"{cname}.{mname}({', '.join(p['name'] for p in params)}) -> {ret}",
-                                        rel,
-                                        member.start_point[0] + 1,
-                                    )
-                                )
-                            else:
-                                # Public data member (e.g., std::string name;)
-                                fname = ""
-                                for ch in member.children:
-                                    if ch.type in ("identifier", "field_identifier"):
-                                        fname = node_text(ch)
-                                        break
-                                if not fname or fname.startswith("_"):
-                                    continue
-                                ftype = ""
-                                type_node = child_by_field(member, "type")
-                                if type_node:
-                                    ftype = node_text(type_node)
-                                mdoc = _extract_doc_comment(member, language)
-                                properties.append(
-                                    {
-                                        "name": fname,
-                                        "type": ftype,
-                                        "doc": mdoc,
-                                        "line": member.start_point[0] + 1,
-                                        "writable": True,  # public data members are read-write
-                                    }
-                                )
-                                claims.append(
-                                    _make_claim(
-                                        family,
-                                        "api_method",
-                                        f"{cname}.{fname} data member of type {ftype}",
-                                        rel,
-                                        member.start_point[0] + 1,
-                                    )
-                                )
+                cpp_methods, cpp_properties, cpp_claims = _extract_cpp_members(cnode, cname, rel, family)
+                methods.extend(cpp_methods)
+                properties.extend(cpp_properties)
+                claims.extend(cpp_claims)
 
             # Go exported struct fields (e.g. RenderOptions.DPI, Rectangle.LLX)
             if language == "go":
@@ -5006,7 +5312,15 @@ def extract_api_surface(
             )
 
         # top-level functions (not inside classes)
-        top_funcs = collect_nodes(root, func_types)
+        # TC-524: C++ free functions come from public headers only (declared or defined inline), never from
+        # the generic loop below, which would publish every file-static helper a .cpp file defines.
+        if language == "cpp":
+            cpp_funcs, cpp_func_claims = _extract_cpp_free_functions(
+                root, fpath, pkg_root, rel, family, _compute_reachable
+            )
+            classes.extend(cpp_funcs)
+            claims.extend(cpp_func_claims)
+        top_funcs = [] if language == "cpp" else collect_nodes(root, func_types)
         for fnode in top_funcs:
             # skip if nested inside a class
             parent = fnode.parent

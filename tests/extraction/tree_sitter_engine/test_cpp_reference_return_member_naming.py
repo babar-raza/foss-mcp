@@ -95,10 +95,10 @@ const Matrix& Identity() {
 """
 
 
-def _extract(tmp_path: Path, source: str, family: str):
+def _extract(tmp_path: Path, source: str, family: str, filename: str = "widget.cpp"):
     package = tmp_path / "src"
     package.mkdir()
-    (package / "widget.cpp").write_text(source, encoding="utf-8")
+    (package / filename).write_text(source, encoding="utf-8")
     types, *_ = api_surface.extract_api_surface(get_parser("cpp"), "cpp", package, tmp_path, family)
     return types
 
@@ -134,7 +134,7 @@ def test_cpp_member_with_reference_return_type_is_never_named_after_its_return_t
 
 
 def test_cpp_free_function_with_reference_return_type_is_unaffected(tmp_path: Path) -> None:
-    types = _extract(tmp_path, CPP_FREE_FUNCTION_REFERENCE_RETURN, "identity_test")
+    types = _extract(tmp_path, CPP_FREE_FUNCTION_REFERENCE_RETURN, "identity_test", "widget.h")
     by_name = {t["name"]: t for t in types}
 
     # The free function resolves to its real name, not its return type.
@@ -290,7 +290,7 @@ def test_cpp_out_of_line_member_fix_does_not_disturb_tc259_inline_and_free_funct
         + CPP_FREE_FUNCTION_REFERENCE_RETURN
         + CPP_OUT_OF_LINE_REFERENCE_RETURN_MEMBER
     )
-    types = _extract(tmp_path, combined, "combined_test")
+    types = _extract(tmp_path, combined, "combined_test", "widget.h")
     by_name = {t["name"]: t for t in types}
 
     # TC-259's inline-member case: still correctly extracted, still never

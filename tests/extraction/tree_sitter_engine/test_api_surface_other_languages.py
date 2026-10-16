@@ -155,7 +155,7 @@ public:
 def test_cpp_free_function_at_namespace_scope_is_extracted_as_function(tmp_path: Path) -> None:
     package = tmp_path / "src"
     package.mkdir()
-    (package / "widget.cpp").write_text(CPP, encoding="utf-8")
+    (package / "widget.h").write_text(CPP, encoding="utf-8")
     types, *_ = api_surface.extract_api_surface(get_parser("cpp"), "cpp", package, tmp_path, "widget")
     by_name = {t["name"]: t for t in types}
 
@@ -220,7 +220,7 @@ def test_cpp_free_function_returning_bare_user_type_by_value_is_named_correctly(
 ) -> None:
     package = tmp_path / "src"
     package.mkdir()
-    (package / "widget.cpp").write_text(CPP_FREE_FUNCTION_BARE_RETURN_TYPE, encoding="utf-8")
+    (package / "widget.h").write_text(CPP_FREE_FUNCTION_BARE_RETURN_TYPE, encoding="utf-8")
     types, *_ = api_surface.extract_api_surface(get_parser("cpp"), "cpp", package, tmp_path, "widget")
     by_name = {t["name"]: t for t in types}
 
@@ -268,7 +268,7 @@ def test_cpp_free_function_operator_overload_is_named_correctly(
 ) -> None:
     package = tmp_path / "src"
     package.mkdir()
-    (package / "widget.cpp").write_text(CPP_FREE_FUNCTION_OPERATOR_OVERLOAD, encoding="utf-8")
+    (package / "widget.h").write_text(CPP_FREE_FUNCTION_OPERATOR_OVERLOAD, encoding="utf-8")
     types, *_ = api_surface.extract_api_surface(get_parser("cpp"), "cpp", package, tmp_path, "widget")
     by_name = {t["name"]: t for t in types}
 

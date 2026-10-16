@@ -122,7 +122,11 @@ def _param_text(param: Mapping[str, object]) -> str:
     # TC-523: an optional parameter without a default is ``name?: type``; with a default the default
     # already says the argument may be left out, so it renders ``name: type = default``.
     marker = "?" if param.get("optional") is True and not has_default else ""
-    text = f"{name}{marker}: {param_type}" if param_type else f"{name}{marker}"
+    if not name:
+        # TC-524: an unnamed C++ parameter (``Workbook(const Workbook&)``) renders as its type alone.
+        text = param_type
+    else:
+        text = f"{name}{marker}: {param_type}" if param_type else f"{name}{marker}"
     if not has_default:
         return text
     return f"{text} = {str(default).strip()}"
