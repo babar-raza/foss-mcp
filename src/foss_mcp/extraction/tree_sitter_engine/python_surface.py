@@ -404,7 +404,15 @@ def _methods(node: ast.ClassDef, module: str, relative: str, public_by: PublicBy
 
 
 def _attribute_symbol(
-    node: ast.ClassDef, module: str, relative: str, public_by: PublicBy, name: str, type_text: str, line: int
+    node: ast.ClassDef,
+    module: str,
+    relative: str,
+    public_by: PublicBy,
+    name: str,
+    type_text: str,
+    line: int,
+    *,
+    writable: bool = True,
 ) -> PublicSymbol:
     return PublicSymbol(
         f"{module}.{node.name}.{name}",
@@ -416,7 +424,7 @@ def _attribute_symbol(
         public_by,
         docstring=None,
         return_type=type_text or None,
-        writable=True,
+        writable=writable,
     )
 
 
@@ -457,18 +465,58 @@ def _init_attribute_targets(statements: Sequence[ast.stmt]) -> list[tuple[str, s
     return found
 
 
+_CONSTANT_TYPE_NAMES = {
+    int: "int",
+    float: "float",
+    str: "str",
+    bool: "bool",
+    bytes: "bytes",
+    complex: "complex",
+}
+
+
+def _constant_type_text(value: ast.expr) -> str | None:
+    """TC-545: the Python type name of a literal class-body value, ``""`` for the literal ``None``,
+    and ``None`` when *value* is not a literal (a call, a name, an attribute and so on)."""
+    try:
+        literal = ast.literal_eval(value)
+    except (ValueError, TypeError, SyntaxError, MemoryError, RecursionError):
+        return None
+    if literal is None:
+        return ""
+    return _CONSTANT_TYPE_NAMES.get(type(literal)) or type(literal).__name__
+
+
 def _attribute_members(
     node: ast.ClassDef, module: str, relative: str, public_by: PublicBy, seen: set[str]
 ) -> list[PublicSymbol]:
     """TC-473: public attribute members - class-body annotated fields and ``__init__`` ``self.<name>``
-    assignments - as writable ``property`` symbols, each name once and never one already in *seen*."""
+    assignments - as writable ``property`` symbols, each name once and never one already in *seen*.
+
+    TC-545: a public class-body assignment with one plain ``Name`` target and a literal value
+    (``X_AXIS = None``, ``MAX = 5``) is a constant: a read-only ``property`` typed by its literal
+    (empty for ``None``), in source order beside the annotated fields. A call, a name, an attribute,
+    a chained or tuple target, or an underscore-prefixed name is not a constant and is skipped."""
     candidates: list[tuple[str, str, int]] = []
+    constants: set[str] = set()
     for item in node.body:
         if isinstance(item, ast.AnnAssign) and isinstance(item.target, ast.Name):
             type_text = ast.unparse(item.annotation)
             if type_text.startswith("ClassVar") or type_text.startswith(("typing.ClassVar", "t.ClassVar")):
                 continue
             candidates.append((item.target.id, type_text, item.lineno))
+        elif (
+            isinstance(item, ast.Assign)
+            and len(item.targets) == 1
+            and isinstance(item.targets[0], ast.Name)
+            and not item.targets[0].id.startswith("_")
+        ):
+            constant_type = _constant_type_text(item.value)
+            if constant_type is not None:
+                name = item.targets[0].id
+                if name not in {known for known, _, _ in candidates}:
+                    constants.add(name)
+                candidates.append((name, constant_type, item.lineno))
     for item in node.body:
         if isinstance(item, ast.FunctionDef | ast.AsyncFunctionDef) and item.name == "__init__":
             candidates.extend(_init_attribute_targets(item.body))
@@ -478,7 +526,11 @@ def _attribute_members(
         if name.startswith("_") or name in seen:
             continue
         seen.add(name)
-        found.append(_attribute_symbol(node, module, relative, public_by, name, type_text, line))
+        found.append(
+            _attribute_symbol(
+                node, module, relative, public_by, name, type_text, line, writable=name not in constants
+            )
+        )
     return found
 
 
