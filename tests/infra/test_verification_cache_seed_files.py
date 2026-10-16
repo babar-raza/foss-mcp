@@ -28,6 +28,10 @@ VALUES = CHART / "values.yaml"
 SEED_DIR = REPO_ROOT / "tests" / "fixtures" / "verified_examples"
 IMAGE_DIR = "/app/fixtures/verified_examples/"
 EXPECTED_PILOT_COUNT = 40
+# TC-548: the platform in the FILE name (<family>_<platform>.json, the compose/chart service name) versus the platform
+# value the verifiers write into a cache entry (infra/build_chunks.py keys its toolchains by "dotnet"). Only the .NET
+# pilots differ; every other file-name platform is written as itself.
+CACHE_PLATFORM_FOR_FILE_PLATFORM = {"net": "dotnet"}
 
 
 def _flag_value(tokens: list[str], flag: str) -> str | None:
@@ -118,8 +122,9 @@ def test_seed_file_exists_and_parses_with_the_project_loader(service: str, path:
     assert family and platform and "_" not in platform, f"{seed.name} is not <family>_<platform>.json"
     keys = []
     for entry in entries:
-        assert entry["platform"] == platform, (
-            f"{seed.name}: entry platform {entry['platform']!r} != {platform!r}"
+        expected_platform = CACHE_PLATFORM_FOR_FILE_PLATFORM.get(platform, platform)
+        assert entry["platform"] == expected_platform, (
+            f"{seed.name}: entry platform {entry['platform']!r} != {expected_platform!r}"
         )
         assert isinstance(entry["library_commit"], str) and _HEX40.fullmatch(entry["library_commit"]), (
             f"{seed.name}: library_commit is not 40 lowercase hex"
@@ -144,6 +149,21 @@ def test_seed_file_exists_and_parses_with_the_project_loader(service: str, path:
     assert entries == build_chunks.merge_verification_cache([], entries), (
         f"{seed.name}: entries are not sorted the way merge_verification_cache sorts them"
     )
+
+
+def test_the_platform_map_covers_every_cache_platform_present() -> None:
+    file_platforms = {
+        Path(path).name.removesuffix(".json").partition("_")[2] for path in _compose_cache_paths().values()
+    }
+    allowed = set(CACHE_PLATFORM_FOR_FILE_PLATFORM.values()) | (
+        file_platforms - set(CACHE_PLATFORM_FOR_FILE_PLATFORM)
+    )
+    present = {
+        entry["platform"]
+        for seed in SEED_DIR.glob("*.json")
+        for entry in build_chunks.load_verification_cache(seed)
+    }
+    assert present <= allowed, sorted(present - allowed)
 
 
 @pytest.mark.parametrize(("service", "path"), _pilot_cases())

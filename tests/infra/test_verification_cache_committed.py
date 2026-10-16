@@ -233,3 +233,18 @@ def test_the_cache_coverage_is_reported_not_asserted() -> None:
         covered += sum(1 for example in served if example in verified)
     print(f"verification cache coverage: {covered} of {total} served verified examples have a verified entry")
     assert 0 <= covered <= total
+
+
+def test_the_forty_committed_caches_hold_261_or_more_entries_in_total() -> None:
+    # TC-548: the measured total pulled from the 40 serving pods was 261; the floor leaves room for a refresh.
+    total = sum(len(build_chunks.load_verification_cache(CACHE_DIR / name)) for name in _cache_names())
+    assert total >= 200, f"only {total} entries across {len(_cache_names())} committed caches"
+
+
+def test_every_committed_cache_entry_is_verified_true_or_a_recorded_failure() -> None:
+    verified = 0
+    for name in _cache_names():
+        for entry in build_chunks.load_verification_cache(CACHE_DIR / name):
+            assert isinstance(entry["verified"], bool), f"{name}: verified is not a boolean"
+            verified += entry["verified"] is True
+    assert verified >= 150, f"only {verified} entries are verified=true"
