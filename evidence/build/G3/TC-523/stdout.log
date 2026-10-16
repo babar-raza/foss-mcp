@@ -1,0 +1,387 @@
+
+===== CLEAN RUN 1 (host) =====
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-7b182948484d7df9\Scripts\python.exe -m pytest tests/extraction/tree_sitter_engine/test_ts_fidelity.py tests/extraction/test_ts_fixture_gaps.py tests/indexing/test_chunk_builder_typescript_marks.py -q -rfE "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-4tmym_6h\.junit-0.xml"
+--- stdout ---
+................................................................         [100%]
+
+--- stderr ---
+
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-7b182948484d7df9\Scripts\python.exe -m pytest tests/extraction tests/indexing/test_chunk_builder.py tests/indexing/test_chunk_builder_honesty.py tests/indexing/test_chunk_builder_modifiers.py tests/indexing/test_chunk_builder_coverage_line.py tests/indexing/test_chunk_builder_python_signatures.py tests/mcp/tools/test_symbol_tools.py tests/test_unwired_modules.py -q -rfE -p no:cacheprovider "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-4tmym_6h\.junit-1.xml"
+--- stdout ---
+........................................................................ [  5%]
+........................................................................ [ 11%]
+........................................................................ [ 17%]
+........................................................................ [ 23%]
+........................................................................ [ 28%]
+........................................................................ [ 34%]
+........................................................................ [ 40%]
+........................................................................ [ 46%]
+........................................................................ [ 52%]
+........................................................................ [ 57%]
+........................................................................ [ 63%]
+........................................................................ [ 69%]
+........................................................................ [ 75%]
+........................................................................ [ 81%]
+........................................................................ [ 86%]
+........................................................................ [ 92%]
+........................................................................ [ 98%]
+....................                                                     [100%]
+1 live test(s) deselected; set FOSS_MCP_NETWORK_TESTS=1 to run them
+
+--- stderr ---
+
+
+===== CLEAN RUN 2 (host) =====
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-7b182948484d7df9\Scripts\python.exe -m pytest tests/extraction/tree_sitter_engine/test_ts_fidelity.py tests/extraction/test_ts_fixture_gaps.py tests/indexing/test_chunk_builder_typescript_marks.py -q -rfE "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-4tmym_6h\.junit-0.xml"
+--- stdout ---
+................................................................         [100%]
+
+--- stderr ---
+
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-7b182948484d7df9\Scripts\python.exe -m pytest tests/extraction tests/indexing/test_chunk_builder.py tests/indexing/test_chunk_builder_honesty.py tests/indexing/test_chunk_builder_modifiers.py tests/indexing/test_chunk_builder_coverage_line.py tests/indexing/test_chunk_builder_python_signatures.py tests/mcp/tools/test_symbol_tools.py tests/test_unwired_modules.py -q -rfE -p no:cacheprovider "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-4tmym_6h\.junit-1.xml"
+--- stdout ---
+........................................................................ [  5%]
+........................................................................ [ 11%]
+........................................................................ [ 17%]
+........................................................................ [ 23%]
+........................................................................ [ 28%]
+........................................................................ [ 34%]
+........................................................................ [ 40%]
+........................................................................ [ 46%]
+........................................................................ [ 52%]
+........................................................................ [ 57%]
+........................................................................ [ 63%]
+........................................................................ [ 69%]
+........................................................................ [ 75%]
+........................................................................ [ 81%]
+........................................................................ [ 86%]
+........................................................................ [ 92%]
+........................................................................ [ 98%]
+....................                                                     [100%]
+1 live test(s) deselected; set FOSS_MCP_NETWORK_TESTS=1 to run them
+
+--- stderr ---
+
+
+===== NEGATIVE CONTROL (checks MUST now fail) =====
+mutated: M src/foss_mcp/extraction/tree_sitter_engine/api_surface.py, ?? .junit-0.xml, ?? .junit-1.xml
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-7b182948484d7df9\Scripts\python.exe -m pytest tests/extraction/tree_sitter_engine/test_ts_fidelity.py tests/extraction/test_ts_fixture_gaps.py tests/indexing/test_chunk_builder_typescript_marks.py -q -rfE "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-4tmym_6h\.junit-0.xml"
+--- stdout ---
+F.FF....FFF...................F....FFF..........................         [100%]
+================================== FAILURES ===================================
+____________________ test_interface_optional_and_readonly _____________________
+
+sample_types = [{'name': 'A', 'kind': 'interface_declaration', 'doc': 'A small interface.', 'file': 'src/index.ts', ...}, {'name': 'T.../index.ts', ...}, {'name': 'Document', 'kind': 'class_declaration', 'doc': 'A document.', 'file': 'src/index.ts', ...}]
+
+    def test_interface_optional_and_readonly(sample_types: list[dict[str, Any]]) -> None:
+        props = _props(_type(sample_types, "A"))
+        assert props["x"]["writable"] is True
+>       assert props["x"]["modifiers"] == ["optional"]
+               ^^^^^^^^^^^^^^^^^^^^^^^
+E       KeyError: 'modifiers'
+
+tests\extraction\tree_sitter_engine\test_ts_fidelity.py:79: KeyError
+_________________ test_static_async_method_with_default_param _________________
+
+sample_types = [{'name': 'A', 'kind': 'interface_declaration', 'doc': 'A small interface.', 'file': 'src/index.ts', ...}, {'name': 'T.../index.ts', ...}, {'name': 'Document', 'kind': 'class_declaration', 'doc': 'A document.', 'file': 'src/index.ts', ...}]
+
+    def test_static_async_method_with_default_param(sample_types: list[dict[str, Any]]) -> None:
+        open_method = _methods(_type(sample_types, "Document"))["open"]
+>       assert open_method["modifiers"] == ["static", "async"]
+               ^^^^^^^^^^^^^^^^^^^^^^^^
+E       KeyError: 'modifiers'
+
+tests\extraction\tree_sitter_engine\test_ts_fidelity.py:92: KeyError
+_______________ test_object_alias_keeps_properties_and_alias_of _______________
+
+sample_types = [{'name': 'A', 'kind': 'interface_declaration', 'doc': 'A small interface.', 'file': 'src/index.ts', ...}, {'name': 'T.../index.ts', ...}, {'name': 'Document', 'kind': 'class_declaration', 'doc': 'A document.', 'file': 'src/index.ts', ...}]
+
+    def test_object_alias_keeps_properties_and_alias_of(sample_types: list[dict[str, Any]]) -> None:
+        opts = _type(sample_types, "Opts")
+        assert opts["alias_of"] == "{ depth: number; name?: string }"
+        props = _props(opts)
+        assert set(props) == {"depth", "name"}
+        assert props["depth"]["writable"] is True
+>       assert props["name"]["modifiers"] == ["optional"]
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       KeyError: 'modifiers'
+
+tests\extraction\tree_sitter_engine\test_ts_fidelity.py:105: KeyError
+________________ test_interface_method_optional_is_a_modifier _________________
+
+sample_types = [{'name': 'A', 'kind': 'interface_declaration', 'doc': 'A small interface.', 'file': 'src/index.ts', ...}, {'name': 'T.../index.ts', ...}, {'name': 'Document', 'kind': 'class_declaration', 'doc': 'A document.', 'file': 'src/index.ts', ...}]
+
+    def test_interface_method_optional_is_a_modifier(sample_types: list[dict[str, Any]]) -> None:
+        method = _methods(_type(sample_types, "A"))["m"]
+>       assert method["modifiers"] == ["optional"]
+               ^^^^^^^^^^^^^^^^^^^
+E       KeyError: 'modifiers'
+
+tests\extraction\tree_sitter_engine\test_ts_fidelity.py:139: KeyError
+_______________ test_class_field_optional_and_static_modifiers ________________
+
+sample_types = [{'name': 'A', 'kind': 'interface_declaration', 'doc': 'A small interface.', 'file': 'src/index.ts', ...}, {'name': 'T.../index.ts', ...}, {'name': 'Document', 'kind': 'class_declaration', 'doc': 'A document.', 'file': 'src/index.ts', ...}]
+
+    def test_class_field_optional_and_static_modifiers(sample_types: list[dict[str, Any]]) -> None:
+        props = _props(_type(sample_types, "Document"))
+>       assert props["title"]["modifiers"] == ["optional"]
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       KeyError: 'modifiers'
+
+tests\extraction\tree_sitter_engine\test_ts_fidelity.py:145: KeyError
+__________________ test_readonly_class_field_is_not_writable __________________
+
+sample_types = [{'name': 'A', 'kind': 'interface_declaration', 'doc': 'A small interface.', 'file': 'src/index.ts', ...}, {'name': 'T.../index.ts', ...}, {'name': 'Document', 'kind': 'class_declaration', 'doc': 'A document.', 'file': 'src/index.ts', ...}]
+
+    def test_readonly_class_field_is_not_writable(sample_types: list[dict[str, Any]]) -> None:
+        props = _props(_type(sample_types, "Document"))
+>       assert props["VERSION"]["writable"] is False
+E       assert True is False
+
+tests\extraction\tree_sitter_engine\test_ts_fidelity.py:153: AssertionError
+______________ test_javascript_class_static_and_async_are_marked ______________
+
+tmp_path = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-8829/test_javascript_class_static_a0')
+
+    def test_javascript_class_static_and_async_are_marked(tmp_path: Path) -> None:
+        client = _type(_extract_js(tmp_path), "Client")
+        methods = _methods(client)
+>       assert methods["open"]["modifiers"] == ["static", "async"]
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       KeyError: 'modifiers'
+
+tests\extraction\tree_sitter_engine\test_ts_fidelity.py:339: KeyError
+__________________ test_member_flags_helper_reads_the_tokens __________________
+
+    def test_member_flags_helper_reads_the_tokens() -> None:
+        source = b"interface A { readonly a?: number; m?(): void }\nclass C { static async f() {} }\n"
+        tree = get_parser("typescript").parse(source)
+    
+        def first(node: Any, kind: str) -> Any:
+            if node.type == kind:
+                return node
+            for child in node.children:
+                found = first(child, kind)
+                if found is not None:
+                    return found
+            return None
+    
+>       assert api_surface._ts_member_flags(first(tree.root_node, "property_signature")) == (
+            True,
+            True,
+            False,
+            False,
+        )
+E       assert (False, False, False, False) == (True, True, False, False)
+E         
+E         At index 0 diff: False != True
+E         Use -v to get more diff
+
+tests\extraction\tree_sitter_engine\test_ts_fidelity.py:433: AssertionError
+______________________ test_member_flags_helper_is_wired ______________________
+
+    def test_member_flags_helper_is_wired() -> None:
+        source = Path(api_surface.__file__).read_text(encoding="utf-8")
+>       assert len(re.findall(r"^    return readonly, optional, is_static, is_async$", source, re.M)) == 1
+E       AssertionError: assert 0 == 1
+E        +  where 0 = len([])
+E        +    where [] = <function findall at 0x000001DED37477E0>('^    return readonly, optional, is_static, is_async$', '# Ported from repository-presenter at commit 16d75e95d4 (src/repository_presenter/components/readme/extractors/surfac...aims = _stabilize_scout_claim_ids(claims, family)\n    return classes, claims, scanned_files, packages, scout_report\n', re.MULTILINE)
+E        +      where <function findall at 0x000001DED37477E0> = re.findall
+E        +      and   re.MULTILINE = re.M
+
+tests\extraction\tree_sitter_engine\test_ts_fidelity.py:455: AssertionError
+____________________ test_rendered_sample_shows_every_mark ____________________
+
+sample_types = [{'name': 'A', 'kind': 'interface_declaration', 'doc': 'A small interface.', 'file': 'src/index.ts', ...}, {'name': 'T.../index.ts', ...}, {'name': 'Document', 'kind': 'class_declaration', 'doc': 'A document.', 'file': 'src/index.ts', ...}]
+
+    def test_rendered_sample_shows_every_mark(sample_types: list[dict[str, Any]]) -> None:
+        fixture = {"source_repository": "org/repo", "source_commit": "c0ffee", "types": sample_types}
+        text = "\n".join(c.text for c in build_chunks_from_api_surface(fixture, title="t", max_types=10_000))
+        lines = text.splitlines()
+>       assert "  - x: number [optional] (writable)" in lines
+E       AssertionError: assert '  - x: number [optional] (writable)' in ['FQN: A', 'Kind: interface_declaration', 'A small interface.', '', 'Methods:', '  - m(a: number) -> void', ...]
+
+tests\extraction\tree_sitter_engine\test_ts_fidelity.py:475: AssertionError
+=========================== short test summary info ===========================
+FAILED tests/extraction/tree_sitter_engine/test_ts_fidelity.py::test_interface_optional_and_readonly
+FAILED tests/extraction/tree_sitter_engine/test_ts_fidelity.py::test_static_async_method_with_default_param
+FAILED tests/extraction/tree_sitter_engine/test_ts_fidelity.py::test_object_alias_keeps_properties_and_alias_of
+FAILED tests/extraction/tree_sitter_engine/test_ts_fidelity.py::test_interface_method_optional_is_a_modifier
+FAILED tests/extraction/tree_sitter_engine/test_ts_fidelity.py::test_class_field_optional_and_static_modifiers
+FAILED tests/extraction/tree_sitter_engine/test_ts_fidelity.py::test_readonly_class_field_is_not_writable
+FAILED tests/extraction/tree_sitter_engine/test_ts_fidelity.py::test_javascript_class_static_and_async_are_marked
+FAILED tests/extraction/tree_sitter_engine/test_ts_fidelity.py::test_member_flags_helper_reads_the_tokens
+FAILED tests/extraction/tree_sitter_engine/test_ts_fidelity.py::test_member_flags_helper_is_wired
+FAILED tests/extraction/tree_sitter_engine/test_ts_fidelity.py::test_rendered_sample_shows_every_mark
+
+--- stderr ---
+
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-7b182948484d7df9\Scripts\python.exe -m pytest tests/extraction tests/indexing/test_chunk_builder.py tests/indexing/test_chunk_builder_honesty.py tests/indexing/test_chunk_builder_modifiers.py tests/indexing/test_chunk_builder_coverage_line.py tests/indexing/test_chunk_builder_python_signatures.py tests/mcp/tools/test_symbol_tools.py tests/test_unwired_modules.py -q -rfE -p no:cacheprovider "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-4tmym_6h\.junit-1.xml"
+--- stdout ---
+........................................................................ [  5%]
+........................................................................ [ 11%]
+........................................................................ [ 17%]
+........................................................................ [ 23%]
+........................................................................ [ 28%]
+........................................................................ [ 34%]
+........................................................................ [ 40%]
+........................................................................ [ 46%]
+........................................................................ [ 52%]
+........................................................................ [ 57%]
+........................................................................ [ 63%]
+........................................................................ [ 69%]
+........................................................................ [ 75%]
+........................................................................ [ 81%]
+..............................................................F.FF....FF [ 86%]
+F...................F....FFF............................................ [ 92%]
+........................................................................ [ 98%]
+....................                                                     [100%]
+================================== FAILURES ===================================
+____________________ test_interface_optional_and_readonly _____________________
+
+sample_types = [{'name': 'A', 'kind': 'interface_declaration', 'doc': 'A small interface.', 'file': 'src/index.ts', ...}, {'name': 'T.../index.ts', ...}, {'name': 'Document', 'kind': 'class_declaration', 'doc': 'A document.', 'file': 'src/index.ts', ...}]
+
+    def test_interface_optional_and_readonly(sample_types: list[dict[str, Any]]) -> None:
+        props = _props(_type(sample_types, "A"))
+        assert props["x"]["writable"] is True
+>       assert props["x"]["modifiers"] == ["optional"]
+               ^^^^^^^^^^^^^^^^^^^^^^^
+E       KeyError: 'modifiers'
+
+tests\extraction\tree_sitter_engine\test_ts_fidelity.py:79: KeyError
+_________________ test_static_async_method_with_default_param _________________
+
+sample_types = [{'name': 'A', 'kind': 'interface_declaration', 'doc': 'A small interface.', 'file': 'src/index.ts', ...}, {'name': 'T.../index.ts', ...}, {'name': 'Document', 'kind': 'class_declaration', 'doc': 'A document.', 'file': 'src/index.ts', ...}]
+
+    def test_static_async_method_with_default_param(sample_types: list[dict[str, Any]]) -> None:
+        open_method = _methods(_type(sample_types, "Document"))["open"]
+>       assert open_method["modifiers"] == ["static", "async"]
+               ^^^^^^^^^^^^^^^^^^^^^^^^
+E       KeyError: 'modifiers'
+
+tests\extraction\tree_sitter_engine\test_ts_fidelity.py:92: KeyError
+_______________ test_object_alias_keeps_properties_and_alias_of _______________
+
+sample_types = [{'name': 'A', 'kind': 'interface_declaration', 'doc': 'A small interface.', 'file': 'src/index.ts', ...}, {'name': 'T.../index.ts', ...}, {'name': 'Document', 'kind': 'class_declaration', 'doc': 'A document.', 'file': 'src/index.ts', ...}]
+
+    def test_object_alias_keeps_properties_and_alias_of(sample_types: list[dict[str, Any]]) -> None:
+        opts = _type(sample_types, "Opts")
+        assert opts["alias_of"] == "{ depth: number; name?: string }"
+        props = _props(opts)
+        assert set(props) == {"depth", "name"}
+        assert props["depth"]["writable"] is True
+>       assert props["name"]["modifiers"] == ["optional"]
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       KeyError: 'modifiers'
+
+tests\extraction\tree_sitter_engine\test_ts_fidelity.py:105: KeyError
+________________ test_interface_method_optional_is_a_modifier _________________
+
+sample_types = [{'name': 'A', 'kind': 'interface_declaration', 'doc': 'A small interface.', 'file': 'src/index.ts', ...}, {'name': 'T.../index.ts', ...}, {'name': 'Document', 'kind': 'class_declaration', 'doc': 'A document.', 'file': 'src/index.ts', ...}]
+
+    def test_interface_method_optional_is_a_modifier(sample_types: list[dict[str, Any]]) -> None:
+        method = _methods(_type(sample_types, "A"))["m"]
+>       assert method["modifiers"] == ["optional"]
+               ^^^^^^^^^^^^^^^^^^^
+E       KeyError: 'modifiers'
+
+tests\extraction\tree_sitter_engine\test_ts_fidelity.py:139: KeyError
+_______________ test_class_field_optional_and_static_modifiers ________________
+
+sample_types = [{'name': 'A', 'kind': 'interface_declaration', 'doc': 'A small interface.', 'file': 'src/index.ts', ...}, {'name': 'T.../index.ts', ...}, {'name': 'Document', 'kind': 'class_declaration', 'doc': 'A document.', 'file': 'src/index.ts', ...}]
+
+    def test_class_field_optional_and_static_modifiers(sample_types: list[dict[str, Any]]) -> None:
+        props = _props(_type(sample_types, "Document"))
+>       assert props["title"]["modifiers"] == ["optional"]
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       KeyError: 'modifiers'
+
+tests\extraction\tree_sitter_engine\test_ts_fidelity.py:145: KeyError
+__________________ test_readonly_class_field_is_not_writable __________________
+
+sample_types = [{'name': 'A', 'kind': 'interface_declaration', 'doc': 'A small interface.', 'file': 'src/index.ts', ...}, {'name': 'T.../index.ts', ...}, {'name': 'Document', 'kind': 'class_declaration', 'doc': 'A document.', 'file': 'src/index.ts', ...}]
+
+    def test_readonly_class_field_is_not_writable(sample_types: list[dict[str, Any]]) -> None:
+        props = _props(_type(sample_types, "Document"))
+>       assert props["VERSION"]["writable"] is False
+E       assert True is False
+
+tests\extraction\tree_sitter_engine\test_ts_fidelity.py:153: AssertionError
+______________ test_javascript_class_static_and_async_are_marked ______________
+
+tmp_path = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-8830/test_javascript_class_static_a0')
+
+    def test_javascript_class_static_and_async_are_marked(tmp_path: Path) -> None:
+        client = _type(_extract_js(tmp_path), "Client")
+        methods = _methods(client)
+>       assert methods["open"]["modifiers"] == ["static", "async"]
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       KeyError: 'modifiers'
+
+tests\extraction\tree_sitter_engine\test_ts_fidelity.py:339: KeyError
+__________________ test_member_flags_helper_reads_the_tokens __________________
+
+    def test_member_flags_helper_reads_the_tokens() -> None:
+        source = b"interface A { readonly a?: number; m?(): void }\nclass C { static async f() {} }\n"
+        tree = get_parser("typescript").parse(source)
+    
+        def first(node: Any, kind: str) -> Any:
+            if node.type == kind:
+                return node
+            for child in node.children:
+                found = first(child, kind)
+                if found is not None:
+                    return found
+            return None
+    
+>       assert api_surface._ts_member_flags(first(tree.root_node, "property_signature")) == (
+            True,
+            True,
+            False,
+            False,
+        )
+E       assert (False, False, False, False) == (True, True, False, False)
+E         
+E         At index 0 diff: False != True
+E         Use -v to get more diff
+
+tests\extraction\tree_sitter_engine\test_ts_fidelity.py:433: AssertionError
+______________________ test_member_flags_helper_is_wired ______________________
+
+    def test_member_flags_helper_is_wired() -> None:
+        source = Path(api_surface.__file__).read_text(encoding="utf-8")
+>       assert len(re.findall(r"^    return readonly, optional, is_static, is_async$", source, re.M)) == 1
+E       AssertionError: assert 0 == 1
+E        +  where 0 = len([])
+E        +    where [] = <function findall at 0x00000267045077E0>('^    return readonly, optional, is_static, is_async$', '# Ported from repository-presenter at commit 16d75e95d4 (src/repository_presenter/components/readme/extractors/surfac...aims = _stabilize_scout_claim_ids(claims, family)\n    return classes, claims, scanned_files, packages, scout_report\n', re.MULTILINE)
+E        +      where <function findall at 0x00000267045077E0> = re.findall
+E        +      and   re.MULTILINE = re.M
+
+tests\extraction\tree_sitter_engine\test_ts_fidelity.py:455: AssertionError
+____________________ test_rendered_sample_shows_every_mark ____________________
+
+sample_types = [{'name': 'A', 'kind': 'interface_declaration', 'doc': 'A small interface.', 'file': 'src/index.ts', ...}, {'name': 'T.../index.ts', ...}, {'name': 'Document', 'kind': 'class_declaration', 'doc': 'A document.', 'file': 'src/index.ts', ...}]
+
+    def test_rendered_sample_shows_every_mark(sample_types: list[dict[str, Any]]) -> None:
+        fixture = {"source_repository": "org/repo", "source_commit": "c0ffee", "types": sample_types}
+        text = "\n".join(c.text for c in build_chunks_from_api_surface(fixture, title="t", max_types=10_000))
+        lines = text.splitlines()
+>       assert "  - x: number [optional] (writable)" in lines
+E       AssertionError: assert '  - x: number [optional] (writable)' in ['FQN: A', 'Kind: interface_declaration', 'A small interface.', '', 'Methods:', '  - m(a: number) -> void', ...]
+
+tests\extraction\tree_sitter_engine\test_ts_fidelity.py:475: AssertionError
+1 live test(s) deselected; set FOSS_MCP_NETWORK_TESTS=1 to run them
+=========================== short test summary info ===========================
+FAILED tests/extraction/tree_sitter_engine/test_ts_fidelity.py::test_interface_optional_and_readonly
+FAILED tests/extraction/tree_sitter_engine/test_ts_fidelity.py::test_static_async_method_with_default_param
+FAILED tests/extraction/tree_sitter_engine/test_ts_fidelity.py::test_object_alias_keeps_properties_and_alias_of
+FAILED tests/extraction/tree_sitter_engine/test_ts_fidelity.py::test_interface_method_optional_is_a_modifier
+FAILED tests/extraction/tree_sitter_engine/test_ts_fidelity.py::test_class_field_optional_and_static_modifiers
+FAILED tests/extraction/tree_sitter_engine/test_ts_fidelity.py::test_readonly_class_field_is_not_writable
+FAILED tests/extraction/tree_sitter_engine/test_ts_fidelity.py::test_javascript_class_static_and_async_are_marked
+FAILED tests/extraction/tree_sitter_engine/test_ts_fidelity.py::test_member_flags_helper_reads_the_tokens
+FAILED tests/extraction/tree_sitter_engine/test_ts_fidelity.py::test_member_flags_helper_is_wired
+FAILED tests/extraction/tree_sitter_engine/test_ts_fidelity.py::test_rendered_sample_shows_every_mark
+
+--- stderr ---
+

@@ -1,0 +1,118 @@
+{
+  "schema_version": 1,
+  "card": "TC-523",
+  "gate": "G3",
+  "generated_by": "gatectl",
+  "generated_at": "2026-10-16T08:41:01Z",
+  "base_rev": "72f71545b4037f5eca5049342695548f5efb0986",
+  "head_rev": "acf76c715b6b3dfbfbc06c5707ce76126d3171aa",
+  "card_sha256": "b1d4ecb611af832605fec65011d6b446c8de1cfb60502c7935cd34635c2dc210",
+  "fingerprint": {
+    "python": "3.13.2",
+    "platform": "Windows-11-10.0.26200-SP0",
+    "lock_sha256": "7b182948484d7df9614b523f7a8180f795b6c51d55c418728525c1957f3e38ba",
+    "env": {
+      "PYTHONHASHSEED": "0",
+      "PYTHONUTF8": "1",
+      "PYTHONDONTWRITEBYTECODE": "1",
+      "PYTHONIOENCODING": "utf-8",
+      "TZ": "UTC",
+      "LC_ALL": "C.UTF-8",
+      "SOURCE_DATE_EPOCH": "1700000000",
+      "verify_runner": "host"
+    }
+  },
+  "scope": {
+    "ok": true,
+    "changed_paths": [
+      "src/foss_mcp/extraction/run_extraction.py",
+      "src/foss_mcp/extraction/tree_sitter_engine/api_surface.py",
+      "src/foss_mcp/indexing/chunk_builder.py",
+      "tests/extraction/test_ts_fixture_gaps.py",
+      "tests/extraction/tree_sitter_engine/test_js_mixins.py",
+      "tests/extraction/tree_sitter_engine/test_ts_fidelity.py",
+      "tests/fixtures/ts_sample/package.json",
+      "tests/fixtures/ts_sample/src/index.ts",
+      "tests/indexing/test_chunk_builder_typescript_marks.py"
+    ],
+    "violations": [],
+    "evaluated": true
+  },
+  "runs": [
+    {
+      "run": 1,
+      "checks": [
+        {
+          "command": "{python} -m pytest tests/extraction/tree_sitter_engine/test_ts_fidelity.py tests/extraction/test_ts_fixture_gaps.py tests/indexing/test_chunk_builder_typescript_marks.py -q -rfE",
+          "exit_code": 0,
+          "duration_s": 2.136,
+          "stdout_sha256": "6e88d7552c7d0f69ef9dd94f2f03455134c26c337f91efc46162eecf0ee3a909",
+          "tests": 64,
+          "skipped": 0,
+          "errors": 0,
+          "failures": 0
+        },
+        {
+          "command": "{python} -m pytest tests/extraction tests/indexing/test_chunk_builder.py tests/indexing/test_chunk_builder_honesty.py tests/indexing/test_chunk_builder_modifiers.py tests/indexing/test_chunk_builder_coverage_line.py tests/indexing/test_chunk_builder_python_signatures.py tests/mcp/tools/test_symbol_tools.py tests/test_unwired_modules.py -q -rfE -p no:cacheprovider",
+          "exit_code": 0,
+          "duration_s": 45.839,
+          "stdout_sha256": "8b64b16d4f97b3305f5b8c2bf8e77e8d1796ad03533adb3cde8203622cf40598",
+          "tests": 1244,
+          "skipped": 0,
+          "errors": 0,
+          "failures": 0
+        }
+      ],
+      "all_passed": true
+    },
+    {
+      "run": 2,
+      "checks": [
+        {
+          "command": "{python} -m pytest tests/extraction/tree_sitter_engine/test_ts_fidelity.py tests/extraction/test_ts_fixture_gaps.py tests/indexing/test_chunk_builder_typescript_marks.py -q -rfE",
+          "exit_code": 0,
+          "duration_s": 1.207,
+          "stdout_sha256": "6e88d7552c7d0f69ef9dd94f2f03455134c26c337f91efc46162eecf0ee3a909",
+          "tests": 64,
+          "skipped": 0,
+          "errors": 0,
+          "failures": 0
+        },
+        {
+          "command": "{python} -m pytest tests/extraction tests/indexing/test_chunk_builder.py tests/indexing/test_chunk_builder_honesty.py tests/indexing/test_chunk_builder_modifiers.py tests/indexing/test_chunk_builder_coverage_line.py tests/indexing/test_chunk_builder_python_signatures.py tests/mcp/tools/test_symbol_tools.py tests/test_unwired_modules.py -q -rfE -p no:cacheprovider",
+          "exit_code": 0,
+          "duration_s": 31.447,
+          "stdout_sha256": "8b64b16d4f97b3305f5b8c2bf8e77e8d1796ad03533adb3cde8203622cf40598",
+          "tests": 1244,
+          "skipped": 0,
+          "errors": 0,
+          "failures": 0
+        }
+      ],
+      "all_passed": true
+    }
+  ],
+  "negative_control": {
+    "kind": "mutate",
+    "patch": "python -X utf8 -c \"import pathlib;p=pathlib.Path('src/foss_mcp/extraction/tree_sitter_engine/api_surface.py');s=p.read_text(encoding='utf-8');old='return readonly, optional, is_static, is_async';assert s.count(old)==1;p.write_text(s.replace(old,'return False, False, False, False',1),encoding='utf-8')\"\n",
+    "patch_sha256": "be943caec21f38f67dc36553707f9164ed1144ae0666cd774096423e42670848",
+    "applied": true,
+    "patch_applied_failed": true,
+    "exit_codes": [
+      1,
+      1
+    ],
+    "tree_changed": [
+      "M src/foss_mcp/extraction/tree_sitter_engine/api_surface.py",
+      "?? .junit-0.xml",
+      "?? .junit-1.xml"
+    ]
+  },
+  "holdout": {
+    "ran": false,
+    "passed": true,
+    "detail": "no holdout for this card"
+  },
+  "accepted": true,
+  "reason": "all gates passed"
+}
