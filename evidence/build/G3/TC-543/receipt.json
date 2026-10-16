@@ -1,0 +1,114 @@
+{
+  "schema_version": 1,
+  "card": "TC-543",
+  "gate": "G3",
+  "generated_by": "gatectl",
+  "generated_at": "2026-10-16T12:34:03Z",
+  "base_rev": "31022d8eada7cab8ede5ce450b4e98e9968a8ba7",
+  "head_rev": "22c382e86eff16a7fbf4d5baba8c2e4956b4e5eb",
+  "card_sha256": "c4f7ae8533b720dc676c9fde5a3f450ea64f3738ec8c7019de6d3c35085d1ef1",
+  "fingerprint": {
+    "python": "3.13.2",
+    "platform": "Windows-11-10.0.26200-SP0",
+    "lock_sha256": "7b182948484d7df9614b523f7a8180f795b6c51d55c418728525c1957f3e38ba",
+    "env": {
+      "PYTHONHASHSEED": "0",
+      "PYTHONUTF8": "1",
+      "PYTHONDONTWRITEBYTECODE": "1",
+      "PYTHONIOENCODING": "utf-8",
+      "TZ": "UTC",
+      "LC_ALL": "C.UTF-8",
+      "SOURCE_DATE_EPOCH": "1700000000",
+      "verify_runner": "host"
+    }
+  },
+  "scope": {
+    "ok": true,
+    "changed_paths": [
+      "src/foss_mcp/mcp/tools/find_examples.py",
+      "src/foss_mcp/mcp/tools/relevance.py",
+      "tests/mcp/test_response_envelope.py",
+      "tests/mcp/tools/test_example_search_mode.py",
+      "tests/mcp/tools/test_find_examples_title_anchor.py"
+    ],
+    "violations": [],
+    "evaluated": true
+  },
+  "runs": [
+    {
+      "run": 1,
+      "checks": [
+        {
+          "command": "{python} -m pytest tests/mcp/tools/test_find_examples_title_anchor.py -q -rfE -p no:cacheprovider",
+          "exit_code": 0,
+          "duration_s": 11.526,
+          "stdout_sha256": "07c2eef926162e0090994bc913805aa08a8b2cbb5b21d2c933b937a10300713f",
+          "tests": 39,
+          "skipped": 0,
+          "errors": 0,
+          "failures": 0
+        },
+        {
+          "command": "{python} -m pytest tests/mcp tests/indexing/test_lookup_doc_fallback_query_safety.py tests/test_unwired_modules.py -q -rfE -p no:cacheprovider",
+          "exit_code": 0,
+          "duration_s": 135.477,
+          "stdout_sha256": "f15a64f5d21e7cb9da820ce16db3a28cf44d8aa7c123eb30d375d52715b21b43",
+          "tests": 2321,
+          "skipped": 0,
+          "errors": 0,
+          "failures": 0
+        }
+      ],
+      "all_passed": true
+    },
+    {
+      "run": 2,
+      "checks": [
+        {
+          "command": "{python} -m pytest tests/mcp/tools/test_find_examples_title_anchor.py -q -rfE -p no:cacheprovider",
+          "exit_code": 0,
+          "duration_s": 6.102,
+          "stdout_sha256": "07c2eef926162e0090994bc913805aa08a8b2cbb5b21d2c933b937a10300713f",
+          "tests": 39,
+          "skipped": 0,
+          "errors": 0,
+          "failures": 0
+        },
+        {
+          "command": "{python} -m pytest tests/mcp tests/indexing/test_lookup_doc_fallback_query_safety.py tests/test_unwired_modules.py -q -rfE -p no:cacheprovider",
+          "exit_code": 0,
+          "duration_s": 80.082,
+          "stdout_sha256": "f15a64f5d21e7cb9da820ce16db3a28cf44d8aa7c123eb30d375d52715b21b43",
+          "tests": 2321,
+          "skipped": 0,
+          "errors": 0,
+          "failures": 0
+        }
+      ],
+      "all_passed": true
+    }
+  ],
+  "negative_control": {
+    "kind": "mutate",
+    "patch": "python -X utf8 -c \"import pathlib;p=pathlib.Path('src/foss_mcp/mcp/tools/find_examples.py');s=p.read_text(encoding='utf-8');old='if doc_coverage >= RELEVANCE_THRESHOLD and title_anchored(query, scope.family, title):';assert s.count(old)==1;p.write_text(s.replace(old,'if doc_coverage >= RELEVANCE_THRESHOLD:'),encoding='utf-8')\"\n",
+    "patch_sha256": "d65788b23354b00468cdc7a0db4bf4a9b6638b5dd04be9158d37dbf2e8f7e2b1",
+    "applied": true,
+    "patch_applied_failed": true,
+    "exit_codes": [
+      1,
+      1
+    ],
+    "tree_changed": [
+      "M src/foss_mcp/mcp/tools/find_examples.py",
+      "?? .junit-0.xml",
+      "?? .junit-1.xml"
+    ]
+  },
+  "holdout": {
+    "ran": false,
+    "passed": true,
+    "detail": "no holdout for this card"
+  },
+  "accepted": true,
+  "reason": "all gates passed"
+}
