@@ -307,6 +307,9 @@ class Miss:
     query: str
     reason: str
     suggestions: tuple[str, ...] = ()
+    # TC-515: the API-coverage caveat, set on a miss from a generation that exists when its symbol
+    # chunks state that the index holds fewer types than the library has (``None`` otherwise).
+    coverage_note: str | None = None
 
 
 def search_symbols(
@@ -344,7 +347,7 @@ def search_symbols(
     A query with no match returns an explicit ``Miss`` - never a widened search, never a
     fallback to a different generation or scope.
     """
-    from foss_mcp.mcp.tools.get_symbol import extract_fqn
+    from foss_mcp.mcp.tools.get_symbol import extract_fqn, generation_coverage_note
 
     key = scope_key(scope, SOURCE_KIND)
     active_generation_id = store.read_active(key)
@@ -354,7 +357,12 @@ def search_symbols(
     manifest = store.read_generation(key, active_generation_id)
     lexical_payload = manifest.payload.get("lexical_index")
     if not lexical_payload or not lexical_payload.get("documents"):
-        return Miss(scope, query, "published generation has no symbol index")
+        return Miss(
+            scope,
+            query,
+            "published generation has no symbol index",
+            coverage_note=generation_coverage_note((lexical_payload or {}).get("documents") or {}),
+        )
 
     documents = lexical_payload["documents"]
     ranked = query_lexical_index_scored(lexical_payload, query, top_k=len(documents))
@@ -390,6 +398,7 @@ def search_symbols(
             query,
             f"no symbol matches {query!r}",
             suggestions=suggest_similar_fqns(known_fqns, query),
+            coverage_note=generation_coverage_note(documents),
         )
 
     return [

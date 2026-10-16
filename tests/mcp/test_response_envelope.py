@@ -120,7 +120,8 @@ def test_every_tool_response_carries_a_sibling_scope(server: Any, tool: str) -> 
     assert structured["scope"] == SCOPE_JSON
     assert structured["content_origin"] == origin_of(tool)
     assert type(structured["result"]) is EXPECTED_TYPE[tool]
-    assert set(structured) == {"result", "scope", "content_origin"}
+    # TC-515 adds the sibling "response_budget" notes beside the result.
+    assert set(structured) == {"result", "scope", "content_origin", "response_budget"}
 
 
 def test_dict_results_without_scope_gain_one_in_band(server: Any) -> None:

@@ -23,6 +23,12 @@ TC-493 (REQ-G3-005, honest answers): when lookup finds nothing it has searched t
 the verified examples AND the symbols, so its own miss says that (``NOTHING_MATCHED_REASON``)
 instead of repeating the symbol search's narrower "no symbol matches ..." wording. The ``Miss``
 type, its scope, query and did-you-mean suggestions are kept; ``search_symbols`` itself is untouched.
+
+TC-515 (REQ-G3-008): the miss now says "nothing in the INDEXED documentation, verified examples or
+symbols of this pilot matches ...", because a miss is a verdict about the index, not about the
+repository (12 pilots index at most 300 types). The miss keeps the ``coverage_note`` that
+``search_symbols`` sets from the generation's ``API-Coverage:`` line, which says how much of the API
+the index holds.
 """
 
 from __future__ import annotations
@@ -39,7 +45,7 @@ from foss_mcp.mcp.tools.search_symbols import Miss, SymbolMatch, search_symbols
 
 # What lookup's own honest miss says: lookup searched documentation, verified examples and symbols.
 NOTHING_MATCHED_REASON = (
-    "nothing in the documentation, verified examples or symbols of this pilot matches {query!r}"
+    "nothing in the indexed documentation, verified examples or symbols of this pilot matches {query!r}"
 )
 
 # A leading question/auxiliary word that marks a query as a natural-language question rather

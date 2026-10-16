@@ -55,6 +55,7 @@ from foss_mcp.mcp.identity import (
     read_deployment_facts,
     render_description,
 )
+from foss_mcp.mcp.response_budget import apply_budget
 from foss_mcp.mcp.response_envelope import annotate_result, origin_of, scope_object
 from foss_mcp.mcp.routing import DeploymentConfig, Scope, resolve_scope
 from foss_mcp.mcp.sidecar_state import (
@@ -1441,12 +1442,21 @@ def create_server(
         # The envelope is additive (G3/TC-514): the result keeps its shape, a dict without a scope
         # gains one, repository text is marked untrusted, and the scope also rides beside the result.
         payload = annotate_result(params.name, _to_jsonable(result), scope)
+        # G3/TC-515: the response is bounded BEFORE it is serialised, so the text channel and
+        # structuredContent.result keep carrying the identical (budgeted) object.
+        payload, budget_notes = apply_budget(
+            params.name,
+            payload,
+            query=validated_arguments.model_dump().get("query"),
+            family=scope.family,
+        )
         return CallToolResult(
             content=[TextContent(type="text", text=render_result_text(payload))],
             structured_content={
                 "result": payload,
                 "scope": scope_object(scope),
                 "content_origin": origin_of(params.name),
+                "response_budget": budget_notes,
             },
             is_error=False,
         )

@@ -15,6 +15,7 @@ simply never matches anything, honestly.
 from __future__ import annotations
 
 import re
+from collections.abc import Mapping
 from dataclasses import dataclass
 
 from foss_mcp.indexing.generation_manifest import GenerationManifestStore
@@ -116,6 +117,25 @@ def _coverage_note(text: str) -> str | None:
     return coverage_note_from_text(text)
 
 
+def generation_coverage_note(documents: Mapping[str, Mapping[str, str]]) -> str | None:
+    """The partial-coverage caveat a generation's symbol chunks state, or ``None``.
+
+    Iterates *documents* in order, skips a chunk with no FQN and a ``Doc: ``/``Example: `` pseudo-FQN
+    chunk, and returns the note of the first remaining chunk whose ``API-Coverage:`` line states one
+    (TC-515: ``get_symbol``'s own miss, ``search_symbols``' and ``lookup``'s misses all say it through
+    this one function, which is a thin wrapper over ``coverage_note.coverage_note_from_text``).
+    """
+    for document in documents.values():
+        text = document["text"]
+        document_fqn = extract_fqn(text)
+        if document_fqn is None or document_fqn.startswith(_NON_SYMBOL_FQN_PREFIXES):
+            continue
+        note = _coverage_note(text)
+        if note is not None:
+            return note
+    return None
+
+
 def get_symbol(store: GenerationManifestStore, scope: Scope, fqn: str) -> SymbolSignature | NotFound:
     """The exact signature published for *fqn* in ``scope``'s currently active generation.
 
@@ -132,7 +152,6 @@ def get_symbol(store: GenerationManifestStore, scope: Scope, fqn: str) -> Symbol
     manifest = store.read_generation(key, active_generation_id)
     documents = (manifest.payload.get("lexical_index") or {}).get("documents") or {}
     known_fqns = []
-    coverage_note: str | None = None
     for doc_id, document in documents.items():
         document_fqn = extract_fqn(document["text"])
         if document_fqn is None or document_fqn.startswith(_NON_SYMBOL_FQN_PREFIXES):
@@ -142,8 +161,9 @@ def get_symbol(store: GenerationManifestStore, scope: Scope, fqn: str) -> Symbol
                 scope, active_generation_id, doc_id, document["chunk_id"], document["text"]
             )
         known_fqns.append(document_fqn)
-        if coverage_note is None:
-            coverage_note = _coverage_note(document["text"])
     return NotFound(
-        scope, fqn, suggestions=suggest_similar_fqns(known_fqns, fqn), coverage_note=coverage_note
+        scope,
+        fqn,
+        suggestions=suggest_similar_fqns(known_fqns, fqn),
+        coverage_note=generation_coverage_note(documents),
     )

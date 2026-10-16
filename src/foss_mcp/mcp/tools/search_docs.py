@@ -16,6 +16,7 @@ derives richness from a release body's own text rather than a metadata field nob
 
 from __future__ import annotations
 
+from collections.abc import Iterable
 from dataclasses import dataclass
 
 from foss_mcp.indexing.generation_manifest import GenerationManifestStore
@@ -74,6 +75,57 @@ class Miss:
     query: str
     content_type: str
     reason: str
+    # TC-515: on a miss from a readable generation, the OTHER content types that hold a documentation
+    # chunk clearing the same relevance rule, and a sentence naming them (``()`` / ``None`` otherwise).
+    other_content_types: tuple[str, ...] = ()
+    hint: str | None = None
+
+
+def _doc_ids_by_content_type(documents: dict[str, dict]) -> dict[str, set[str]]:
+    """The documentation chunks of *documents* (never a symbol or example chunk, TC-381) grouped by
+    the content type ``classify_content_type`` derives from their own text."""
+    grouped: dict[str, set[str]] = {content_type: set() for content_type in CONTENT_TYPES}
+    for doc_id, document in documents.items():
+        if chunk_kind(document["text"]) == DOCUMENTATION:
+            grouped[classify_content_type(document["text"])].add(doc_id)
+    return grouped
+
+
+def _relevant_coverage(
+    documents: dict[str, dict], doc_ids: Iterable[str], terms: frozenset[str]
+) -> dict[str, float]:
+    """doc_id -> query-term coverage, for the chunks of *doc_ids* at or above ``RELEVANCE_THRESHOLD``.
+    The one relevance rule both the search and the miss hint use."""
+    relevant: dict[str, float] = {}
+    for doc_id in doc_ids:
+        doc_coverage = coverage(terms, documents[doc_id]["tokens"])
+        if doc_coverage >= RELEVANCE_THRESHOLD:
+            relevant[doc_id] = doc_coverage
+    return relevant
+
+
+def _miss_with_hint(
+    scope: Scope,
+    query: str,
+    content_type: str,
+    reason: str,
+    documents: dict[str, dict],
+    grouped: dict[str, set[str]],
+) -> Miss:
+    """A miss that also names the other content types holding a chunk relevant to the query."""
+    terms = query_terms(query, scope.family)
+    others = tuple(
+        other
+        for other in CONTENT_TYPES
+        if other != content_type and _relevant_coverage(documents, sorted(grouped[other]), terms)
+    )
+    hint = (
+        f"documentation for this query exists under content_type: {', '.join(others)}; "
+        "call again with one of them, or use lookup, which tries all four"
+        if others
+        else None
+    )
+    return Miss(scope, query, content_type, reason, other_content_types=others, hint=hint)
 
 
 def search_docs(
@@ -106,28 +158,30 @@ def search_docs(
 
     # TC-381: only ``documentation`` chunks are candidates - an API-symbol or example chunk is never
     # documentation, whatever its words - and the category is derived for those alone.
-    matching_doc_ids = {
-        doc_id
-        for doc_id, document in documents.items()
-        if chunk_kind(document["text"]) == DOCUMENTATION
-        and classify_content_type(document["text"]) == content_type
-    }
+    grouped = _doc_ids_by_content_type(documents)
+    matching_doc_ids = grouped[content_type]
     if not matching_doc_ids:
-        return Miss(scope, query, content_type, f"no documents classified content_type={content_type!r}")
+        return _miss_with_hint(
+            scope,
+            query,
+            content_type,
+            f"no documents classified content_type={content_type!r}",
+            documents,
+            grouped,
+        )
 
     # Candidate selection never depends on BM25 having scored the document (a stemmed match such as
     # "install" vs "Installation" has no BM25 score); BM25 only breaks ties between equal coverage.
     terms = query_terms(query, scope.family)
     bm25 = dict(query_lexical_index_scored(lexical_payload, query, top_k=len(documents)))
-    scored: list[tuple[float, float, str]] = []
-    for doc_id in matching_doc_ids:
-        doc_coverage = coverage(terms, documents[doc_id]["tokens"])
-        if doc_coverage >= RELEVANCE_THRESHOLD:
-            scored.append((doc_coverage, bm25.get(doc_id, 0.0), doc_id))
+    relevant = _relevant_coverage(documents, matching_doc_ids, terms)
+    scored = [(doc_coverage, bm25.get(doc_id, 0.0), doc_id) for doc_id, doc_coverage in relevant.items()]
     scored.sort(key=lambda item: (-item[0], -item[1], item[2]))
     hits = [doc_id for _coverage, _score, doc_id in scored][:top_k]
     if not hits:
-        return Miss(scope, query, content_type, f"no {content_type} documents match {query!r}")
+        return _miss_with_hint(
+            scope, query, content_type, f"no {content_type} documents match {query!r}", documents, grouped
+        )
 
     return [
         DocMatch(

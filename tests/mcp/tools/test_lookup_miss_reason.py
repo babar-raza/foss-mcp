@@ -2,7 +2,8 @@
 
 Review finding L-059: ``lookup`` also searches the documentation and the verified examples, yet its
 miss repeated the symbol search's narrower "no symbol matches '<query>'". lookup's miss now reads
-"nothing in the documentation, verified examples or symbols of this pilot matches '<query>'", with the
+"nothing in the indexed documentation, verified examples or symbols of this pilot matches '<query>'"
+(TC-515 added "indexed"), with the
 same ``Miss`` type, scope, query and did-you-mean suggestions; ``search_symbols`` is unchanged.
 
 Offline and deterministic: every pilot's committed scope directory is COPIED into a temporary
@@ -38,7 +39,10 @@ UNANSWERABLE_TASK_QUERY = "how do I send a fax via modem"
 
 def _expected_reason(query: str) -> str:
     """The literal expected text, written out here and never imported from lookup.py."""
-    return "nothing in the documentation, verified examples or symbols of this pilot matches " + repr(query)
+    # TC-515: the miss no longer speaks for the repository, only for the index.
+    return "nothing in the indexed documentation, verified examples or symbols of this pilot matches " + repr(
+        query
+    )
 
 
 def _discover_pilots() -> list[str]:
