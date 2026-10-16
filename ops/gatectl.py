@@ -120,12 +120,17 @@ def run(cmd, cwd=None, env=None, timeout=None, text=True):
     if env:
         e.update(env)
     try:
-        p = subprocess.run(
+        # Popen, not subprocess.run: run() kills only the direct child on timeout, and on Windows an
+        # orphaned grandchild (a looping `bash` behind the `sh.exe` launcher) keeps the output pipes
+        # open, so communicate() never returned and a 1800 s check hung a review for 3h25m
+        # (2026-10-16, TC-512's negative control). The whole process tree is killed on timeout.
+        p = subprocess.Popen(
             cmd,
             cwd=str(cwd or REPO),
             env=e,
-            timeout=timeout,
-            capture_output=True,
+            stdin=subprocess.DEVNULL,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
             text=text,
             # Decode as UTF-8, never the locale codec. On this Windows host the
             # default is cp1252, which has no mapping for byte 0x9D (the second
@@ -134,12 +139,46 @@ def run(cmd, cwd=None, env=None, timeout=None, text=True):
             encoding="utf-8" if text else None,
             errors="replace" if text else None,
             shell=isinstance(cmd, str),
+            start_new_session=os.name != "nt",
         )
-        return p.returncode, (p.stdout or ""), (p.stderr or "")
-    except subprocess.TimeoutExpired:
-        return 124, "", f"TIMEOUT after {timeout}s"
     except Exception as exc:  # noqa: BLE001 - a launch failure is a real verdict
         return 125, "", f"LAUNCH-FAILED: {exc}"
+    try:
+        out, err = p.communicate(timeout=timeout)
+        return p.returncode, (out or ""), (err or "")
+    except subprocess.TimeoutExpired:
+        kill_process_tree(p)
+        try:
+            p.communicate(timeout=10)
+        except Exception:  # noqa: BLE001 - the tree is dead; never wait on a pipe a stray holds
+            pass
+        return 124, "", f"TIMEOUT after {timeout}s"
+    except Exception as exc:  # noqa: BLE001 - a launch failure is a real verdict
+        kill_process_tree(p)
+        return 125, "", f"LAUNCH-FAILED: {exc}"
+
+
+def kill_process_tree(p):
+    """Kill `p` and every descendant; best effort, never raises."""
+    try:
+        if os.name == "nt":
+            subprocess.run(
+                ["taskkill", "/F", "/T", "/PID", str(p.pid)],
+                stdin=subprocess.DEVNULL,
+                capture_output=True,
+                timeout=30,
+                check=False,
+            )
+        else:
+            import signal
+
+            os.killpg(p.pid, signal.SIGKILL)
+    except Exception:  # noqa: BLE001
+        pass
+    try:
+        p.kill()
+    except Exception:  # noqa: BLE001
+        pass
 
 
 def git(*args, cwd=None):
