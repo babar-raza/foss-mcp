@@ -19,6 +19,7 @@ import argparse
 import contextlib
 import io
 import json
+import re
 import sys
 from functools import cache
 from pathlib import Path
@@ -28,6 +29,7 @@ import pytest
 import infra.build_chunks as build_chunks
 import infra.ingest as ingest
 from foss_mcp.extraction.claim_id_bridge import SymbolIndex
+from foss_mcp.indexing.doc_candidates import extract_doc_sections
 from foss_mcp.indexing.generation_manifest import GenerationManifestStore
 from foss_mcp.normalization.chunker import Chunk
 from foss_mcp.normalization.citation import (
@@ -141,6 +143,29 @@ def test_at_least_ninety_percent_of_the_furnished_text_is_published(pilot: str) 
 # --- (2) Installation, Quick Start and Scope and Limitations are published verbatim ------------
 
 
+def _page_section_lines(pilot: str, heading: str) -> list[str]:
+    """The non-empty lines under the markdown heading *heading* of the pilot's furnished content blocks
+    (up to the next heading), backticks removed."""
+    page = build_chunks._load_furnished_page(FIXTURES / "furnished" / pilot / "pages" / "_index.md")
+    pattern = re.compile(rf"^#{{1,6}}[ \t]+{re.escape(heading)}[ \t]*$", re.MULTILINE)
+    lines: list[str] = []
+    for candidate in extract_doc_sections(page):
+        match = pattern.search(candidate.body)
+        if match is None:
+            continue
+        rest = candidate.body[match.end() :]
+        following = re.search(r"^#{1,6}[ \t]+\S", rest, re.MULTILINE)
+        section = rest[: following.start()] if following else rest
+        lines.extend(_strip(line).strip() for line in section.split("\n") if line.strip())
+    return lines
+
+
+def _lines_in_published(lines: list[str], published: tuple[Chunk, ...]) -> bool:
+    """Every line of *lines* is a line of some published chunk (backticks removed on both sides)."""
+    present = {_strip(line).strip() for chunk in published for line in chunk.text.split("\n")}
+    return all(line in present for line in lines)
+
+
 @pytest.mark.parametrize("pilot", PILOTS)
 def test_installation_quick_start_and_scope_chunks_are_published_unchanged_but_for_backticks(
     pilot: str,
@@ -153,8 +178,17 @@ def test_installation_quick_start_and_scope_chunks_are_published_unchanged_but_f
     titles = {chunk.section_title for chunk in key_inputs}
     first_lines = {chunk.text.split("\n", 1)[0] for chunk in key_inputs}
     assert "Installation" in titles
+    installation_lines = _page_section_lines(pilot, "Installation")
+    assert installation_lines, f"{pilot}: the furnished page has no Installation section"
+    assert _lines_in_published(installation_lines, published), f"{pilot}: Installation text was not published"
     if pilot != "words_net":
-        assert "Quick Start" in titles
+        # TC-517: neighbouring short sections merge into one chunk, which carries one heading, so the
+        # Quick Start section is pinned by its TEXT being present in a published chunk, not by a title.
+        quick_start_lines = _page_section_lines(pilot, "Quick Start")
+        assert quick_start_lines, f"{pilot}: the furnished page has no Quick Start section"
+        assert _lines_in_published(quick_start_lines, published), (
+            f"{pilot}: Quick Start text was not published"
+        )
         assert "FQN: Doc: Scope and Limitations" in first_lines
     else:
         assert "Quick Start" not in titles
@@ -187,12 +221,25 @@ def test_pdf_net_resolvable_and_non_symbol_anchors_keep_their_backticks(anchor: 
 
 
 def test_pdf_net_core_api_chunk_is_published() -> None:
-    inputs = [chunk for chunk in _real_doc_chunks("pdf_net") if chunk.section_title == "Core API"]
-    published = [chunk for chunk in _real_selection("pdf_net")[0] if chunk.section_title == "Core API"]
-    assert len(inputs) == 1
-    assert len(inputs[0].text) > 70000
-    assert len(published) == 1
-    assert len(_strip(published[0].text)) == len(_strip(inputs[0].text))
+    """TC-517: the Core API table was one 70,000+ character chunk; it is now split into parts of at most
+    8,000 characters, and every part must still be published (first and last row included)."""
+    page = build_chunks._load_furnished_page(FIXTURES / "furnished" / "pdf_net" / "pages" / "_index.md")
+    candidate = next(c for c in extract_doc_sections(page) if "### Core API" in c.body)
+    after_heading = candidate.body.split("### Core API", 1)[1]
+    rows = [line.strip() for line in after_heading.split("\n") if line.lstrip().startswith("|")]
+    assert len(rows) > 500, "the Core API table is no longer the long table this test pins"
+
+    marker = f"FQN: Doc: {candidate.title}"
+    published, _ = _real_selection("pdf_net")
+    section = [chunk for chunk in published if chunk.text.split("\n", 1)[0] == marker]
+    assert len(section) > 1
+    assert all(len(chunk.text) <= 8000 for chunk in section)
+    section_lines = {_strip(line).strip() for chunk in section for line in chunk.text.split("\n")}
+    assert _strip(rows[0]).strip() in section_lines, "the first Core API row was not published"
+    assert _strip(rows[-1]).strip() in section_lines, "the last Core API row was not published"
+    inputs = [chunk for chunk in _real_doc_chunks("pdf_net") if chunk.text.split("\n", 1)[0] == marker]
+    published_chars = sum(len(_strip(chunk.text)) for chunk in section)
+    assert published_chars >= 0.9 * sum(len(_strip(chunk.text)) for chunk in inputs)
 
 
 # --- classify_anchor ---------------------------------------------------------------------------
