@@ -410,10 +410,15 @@ def test_recommended_max_types_are_valid() -> None:
     for key, cap in run_extraction.RECOMMENDED_MAX_TYPES.items():
         family, platform = key.split("/")
         assert (family, platform) in pilots, key
-        assert 300 <= cap <= 1250, key
+        # re-extracted by TC-550: `300 <= cap <= 1250` and `cap <= type_count` -> the cap is the measured total
+        # (300 when the total is below the default), and every one of the 13 fixtures is complete.
+        assert cap >= 300, key
         fixture_dir = Path(pilots[(family, platform)]["apiSurface"]).parent.name
         fixture = json.loads((FIXTURES / fixture_dir / "api_surface.json").read_text(encoding="utf-8"))
-        assert cap <= fixture["type_count"], f"{key}: {cap} above the {fixture['type_count']} types upstream"
+        assert cap == max(fixture["type_count"], 300), (
+            f"{key}: cap {cap}, {fixture['type_count']} types upstream"
+        )
+        assert fixture["truncated"] is False, key
 
 
 def test_main_resolves_the_recommended_cap_and_feeds_readme_names() -> None:

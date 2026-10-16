@@ -118,6 +118,9 @@ _NEVER_LIBRARY_DEFINED = frozenset(
         "Iterator",
         "Sequence",
         "Mapping",
+        # re-extracted by TC-550: pdf_python now keeps InvalidOperationException(RuntimeError), so the builtin
+        # base is referenced by a kept entry; it is a Python builtin, never defined by the library.
+        "RuntimeError",
     }
 )
 

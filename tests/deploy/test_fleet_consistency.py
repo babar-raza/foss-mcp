@@ -56,8 +56,8 @@ NO_REGISTRY_PLATFORM = "cpp"
 # FAILS while a listed pilot is consistent, so the exception cannot be forgotten.
 COMMIT_EXCEPTIONS = {
     "pdf_typescript": (
-        "mixed commits: fixture and 300 symbol chunks at c672b39, chart pin, 23 doc and 4 example chunks and sidecar at "
-        "155bfc7 (FK8S-07 / ISOPROV-03); the card that re-pins the pilot must delete this entry"
+        "fixture re-extracted at the chart pin 155bfc7 by TC-550; the 300 baked symbol chunks are still at c672b39 until "
+        "the supervisor re-ingests; the re-ingest card must delete this entry"
     ),
 }
 # pilot -> the allowed MAXIMUM of the fixture's ``unresolved`` list. The entry is removed once the count reaches 0.
@@ -95,6 +95,50 @@ STALE_BAKED_PILOTS: dict[str, str] = {
     "words_net": (
         "re-extracted by TC-530: the fixture holds 618 of 618 types (not truncated), the baked generation still says "
         "'300 of 618 types' until the supervisor re-ingests"
+    ),
+    "3d_python": (
+        "re-extracted by TC-550: the fixture holds 697 of 697 types (not truncated), the baked generation still says "
+        "'300 of 697 types' until the supervisor re-ingests"
+    ),
+    "cells_cpp": (
+        "re-extracted by TC-550: the fixture holds 200 of 200 types (not truncated), the baked generation still says "
+        "'300 of 346 types' until the supervisor re-ingests"
+    ),
+    "html_python": (
+        "re-extracted by TC-550: the fixture holds 323 of 323 types (not truncated), the baked generation still says "
+        "'300 of 323 types' until the supervisor re-ingests"
+    ),
+    "pdf_cpp": (
+        "re-extracted by TC-550: the fixture holds 359 of 359 types (not truncated), the baked generation still says "
+        "'300 of 361 types' until the supervisor re-ingests"
+    ),
+    "pdf_go": (
+        "re-extracted by TC-550: the fixture holds 357 of 357 types (not truncated), the baked generation still says "
+        "'261 of 2313 types' until the supervisor re-ingests"
+    ),
+    "pdf_java": (
+        "re-extracted by TC-550: the fixture holds 1239 of 1239 types (not truncated), the baked generation still says "
+        "'300 of 1239 types' until the supervisor re-ingests"
+    ),
+    "pdf_python": (
+        "re-extracted by TC-550: the fixture holds 867 of 867 types (not truncated), the baked generation still says "
+        "'300 of 867 types' until the supervisor re-ingests"
+    ),
+    "pdf_typescript": (
+        "re-extracted by TC-550: the fixture holds 4393 of 4393 types (not truncated), the baked generation still says "
+        "'300 of 5342 types' until the supervisor re-ingests"
+    ),
+    "slides_cpp": (
+        "re-extracted by TC-550: the fixture holds 355 of 355 types (not truncated), the baked generation still says "
+        "'300 of 323 types' until the supervisor re-ingests"
+    ),
+    "slides_python": (
+        "re-extracted by TC-550: the fixture holds 1023 of 1023 types (not truncated), the baked generation still says "
+        "'300 of 1023 types' until the supervisor re-ingests"
+    ),
+    "words_python": (
+        "re-extracted by TC-550: the fixture holds 391 of 391 types (not truncated), the baked generation still says "
+        "'300 of 391 types' until the supervisor re-ingests"
     ),
 }
 # pilot -> why it may sit below the composition floor. Empty: every pilot meets it.

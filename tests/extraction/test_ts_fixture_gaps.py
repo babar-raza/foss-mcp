@@ -1,7 +1,7 @@
 """TC-523: which committed TypeScript and JavaScript fixtures predate the fidelity fix, and proof the gap is real.
 
-The five committed TypeScript / JavaScript fixtures were produced before TC-523 (``extractor_version``
-absent, i.e. 1): every interface property is ``writable`` False (so every one is served "read-only"), no
+Four of the five committed TypeScript / JavaScript fixtures were produced before TC-523 (``extractor_version``
+absent, i.e. 1; pdf_typescript was re-extracted by TC-550 at version 5 and left ``KNOWN_GAP``): every interface property is ``writable`` False (so every one is served "read-only"), no
 type alias carries its right-hand side, and no method has a ``static`` / ``async`` / ``optional`` mark.
 ``KNOWN_GAP`` documents that, one line per pilot, and the tests make the documentation self-checking in
 both directions:
@@ -38,7 +38,6 @@ PILOTS = (
 
 KNOWN_GAP: dict[str, str] = {
     "cells_typescript": "reviewer RST-07: 649 of 657 interface properties served read-only (upstream has 0 readonly), 25 type aliases without a right-hand side, static and optional marks missing",
-    "pdf_typescript": "reviewer RST-07: 944 of 948 interface properties served read-only, 84 type aliases without a right-hand side, Document.Open/New/OpenFile served as instance methods, @internal members served as public API",
     "3d_typescript": "version-1 fixture: interface properties all read-only, optional/static/async marks and parameter defaults were not extracted",
     "jmap_typescript": "version-1 fixture: interface properties all read-only, type aliases without a right-hand side, 3 @internal members served as public API",
     "jmap_nodejs": "version-1 fixture: static and async marks of class methods were not extracted",
@@ -118,8 +117,10 @@ def test_known_gap_names_the_five_fixtures_with_one_line_reasons() -> None:
     assert len(PILOTS) == 5
     for name, reason in KNOWN_GAP.items():
         assert reason.strip() and "\n" not in reason, name
+    # re-extracted by TC-550: pdf_typescript left KNOWN_GAP (version 5), so only the names still listed are checked
     for name in ("cells_typescript", "pdf_typescript"):
-        assert "reviewer" in KNOWN_GAP[name]
+        if name in KNOWN_GAP:
+            assert "reviewer" in KNOWN_GAP[name]
 
 
 def test_every_pilot_fixture_exists_on_disk() -> None:

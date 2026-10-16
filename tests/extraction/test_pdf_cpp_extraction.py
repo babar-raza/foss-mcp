@@ -133,16 +133,15 @@ def test_the_fixture_records_the_exact_source_commit_and_repository() -> None:
     assert data["source_repository"] == manifest["repository"]
 
 
-def test_the_fixture_is_non_empty_and_records_real_truncation() -> None:
+def test_the_fixture_is_non_empty_and_complete() -> None:
     data = _load_fixture()
     assert len(data["types"]) > 0
     assert data["reduced_type_count"] == len(data["types"])
-    # The real repository has 361 public types. This fixture was regenerated (TC-258) with the
-    # project's real default --max-types 300, using the fixed, centrality-ranked reduce_fixture
-    # (TC-252) - no smaller cap chosen by hand.
-    assert data["type_count"] == 361
-    assert data["reduced_type_count"] == 300
-    assert data["truncated"] is True
+    # re-extracted by TC-550: the real repository has 359 public types (the extractor no longer lists
+    # the internal headers), all kept: the fixture was regenerated with a cap above the total.
+    assert data["type_count"] == 359  # re-extracted by TC-550: 361 -> 359
+    assert data["reduced_type_count"] == data["type_count"]  # re-extracted by TC-550: 300 -> 359
+    assert data["truncated"] is False  # re-extracted by TC-550: True -> False
 
 
 def test_the_fixture_contains_real_cpp_type_names() -> None:
@@ -201,14 +200,19 @@ def test_a_real_free_function_and_real_inheritance_are_present() -> None:
     data = _load_fixture()
     by_name = {entry["name"]: entry for entry in data["types"]}
 
-    # Observed directly in the live run: Identity() is a genuine free function in
-    # include/internal/transform.hpp that returns a Matrix by value - not a method of Matrix
-    # (TC-058's regression target: the return-type-matches-a-class-name fallback used to fire
-    # before the free-function branch).
-    identity = by_name["Identity"]
+    # re-extracted by TC-550: Identity() lived in include/internal/transform.hpp, which the extractor
+    # no longer lists. The guard (TC-058: a free function returning a class name by value stays a free
+    # function) now reads the free operator~ of annotation_flags.hpp, which returns AnnotationFlags
+    # by value - not a method of AnnotationFlags.
+    identity = next(
+        e
+        for e in data["types"]
+        if e["name"] == "operator~" and e["file"] == "include/aspose/pdf/annotations/annotation_flags.hpp"
+    )
     assert identity["kind"] == "function"
-    assert identity["return_type"] == "Matrix"
+    assert identity["return_type"] == "AnnotationFlags"
     assert identity["bases"] == []
+    assert "AnnotationFlags" in by_name
 
     # Observed directly in the live run: Annotation is a real class that inherits from
     # Aspose::Pdf::BaseParagraph and has a real GetRectangle() accessor.

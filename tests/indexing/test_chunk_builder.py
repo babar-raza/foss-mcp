@@ -469,10 +469,11 @@ def test_real_free_functions_get_real_signatures_across_the_three_affected_pilot
     # confirmed directly against the committed, TC-255-regenerated fixture. ("AES_WRAP_OID", the
     # constant this assertion previously used, no longer survives TC-252's centrality-ranked
     # selection.)
-    assert (
-        "Value: string = 'http://schemas.openxmlformats.org/officeDocument/2006/math'" in pdf_typescript_text
-    )
-    assert "openxmlformats.org/officeDocument/2006/math" in pdf_typescript_text
+    # re-extracted by TC-550: `M` (src/wmlns.ts) does not exist at the chart pin 155bfc7; the same guard (a
+    # constant carries its real value) now reads AP_FONT_KEY of src/annotdraw.ts: type string, value 'F0'.
+    constant_chunks = [c.text for c in pdf_typescript_chunks if c.text.startswith("FQN: AP_FONT_KEY\n")]
+    assert len(constant_chunks) == 1
+    assert "Value: string = 'F0'" in constant_chunks[0]
 
 
 def test_default_max_types_includes_a_type_sorting_after_position_20() -> None:

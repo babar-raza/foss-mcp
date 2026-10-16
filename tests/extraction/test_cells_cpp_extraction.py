@@ -15,9 +15,9 @@ function) that recurs verbatim across 7 distinct real source files in this repos
 
 "cpp" goes through the ordinary tree-sitter path (grammar name literally ``"cpp"``) via
 ``tree_sitter_engine.api_surface``. Its ``language`` field reads literally ``"cpp"``, and
-the observed ``kind`` vocabulary in the committed (reduced, ``--max-types 300``-capped)
+the observed ``kind`` vocabulary in the committed (complete, re-extracted by TC-550)
 fixture is the tree-sitter C++ grammar's own node-type names:
-``{"function", "class_specifier", "enum_specifier", "struct_specifier"}``.
+``{"class_specifier", "enum_specifier", "struct_specifier"}``.
 
 Known, non-blocking quirk (confirmed by research ahead of this card, not fixed here):
 this repository's real ``include``/``src`` layout is nested one level down under
@@ -88,14 +88,12 @@ def test_the_fixture_is_non_empty() -> None:
     assert len(data["types"]) > 0
     assert data["reduced_type_count"] == len(data["types"])
     assert data["type_count"] >= data["reduced_type_count"]
-    # The real repository has 346 raw public types (post-TC-276; before TC-276 fixed the
-    # out-of-line qualified-member fabrication, this same live run produced a false 462 --
-    # 116 of them phantom entries, see the module docstring) - over the CLI's default
-    # --max-types 300 cap, so this fixture is a genuine, deterministic REDUCED subset,
-    # not the full surface (unlike cells/rust's 219-type fixture, which fit uncapped).
-    assert data["type_count"] == 346
-    assert data["reduced_type_count"] == 300
-    assert data["truncated"] is True
+    # re-extracted by TC-550: the C++ extractor (TC-524) no longer lists implementation-file
+    # helpers, so the real repository has 200 public types (was 346, reduced to 300), below the
+    # default cap of 300: the fixture is the COMPLETE surface.
+    assert data["type_count"] == 200  # re-extracted by TC-550: 346 -> 200
+    assert data["reduced_type_count"] == data["type_count"]  # re-extracted by TC-550: 300 -> 200
+    assert data["truncated"] is False  # re-extracted by TC-550: True -> False
 
 
 def test_the_fixture_contains_real_cpp_type_names() -> None:
@@ -115,7 +113,9 @@ def test_every_entry_is_a_real_cpp_surface_kind() -> None:
     kinds = {entry["kind"] for entry in data["types"]}
     # Observed directly from the live tree-sitter C++ grammar's own node-type vocabulary
     # for this repository, not guessed or invented.
-    assert kinds == {"function", "class_specifier", "enum_specifier", "struct_specifier"}
+    # re-extracted by TC-550: {function, class, enum, struct} -> {class, enum, struct}: the .cpp-only
+    # helper functions (EqualsIgnoreCase and the like) are not public API and are no longer listed.
+    assert kinds == {"class_specifier", "enum_specifier", "struct_specifier"}
 
 
 def test_common_fields_are_present_on_every_entry() -> None:
@@ -146,16 +146,19 @@ def test_a_real_cross_file_free_function_survives_consolidation() -> None:
     or ``Border``) that recurs verbatim, spot-checked directly from this fixture's own
     committed content, across 7 distinct real source files in the live run.
     """
-    data = _load_fixture()
+    # re-extracted by TC-550: the cells/cpp fixture holds no free function any more (its helpers lived in
+    # .cpp files and are not public API), so this guard now reads the pdf/cpp fixture, whose public
+    # headers repeat the same free operator overloads across files: EqualsIgnoreCase -> operator|.
+    data = json.loads((FIXTURE.parents[1] / "pdf_cpp" / "api_surface.json").read_text(encoding="utf-8"))
     functions_by_name: dict[str, set[str]] = defaultdict(set)
     for entry in data["types"]:
         if entry["kind"] == "function":
             functions_by_name[entry["name"]].add(entry["file"])
 
-    files = functions_by_name.get("EqualsIgnoreCase", set())
+    files = functions_by_name.get("operator|", set())
     assert len(files) >= 2, files
-    assert "Aspose.Cells.Foss.Cpp/src/aspose/cells_foss/XlsxDocumentProperties.cpp" in files
-    assert "Aspose.Cells.Foss.Cpp/src/aspose/cells_foss/XlsxWorkbookSerializer.cpp" in files
+    assert "include/aspose/pdf/annotations/annotation_flags.hpp" in files
+    assert "include/aspose/pdf/permissions.hpp" in files
 
     # Not an isolated one-off: several other genuinely repeated free-function/constructor
     # names also survive as multiple distinct entries across this real fixture.
@@ -215,16 +218,20 @@ def test_no_member_is_fabricated_from_its_own_return_type() -> None:
     # Inline-bodied members (TC-259 shape) - real reference-returning accessors, named
     # correctly, not after their own return type.
     borders_methods = methods_of("Borders")
-    assert borders_methods.get("GetLeft") == "Border"
+    # re-extracted by TC-550: the return type now keeps its qualifiers ("Border" -> "const Border&").
+    assert borders_methods.get("GetLeft") == "const Border&"
     assert "Border" not in borders_methods  # would be the fabricated name, not a real method
 
     border_methods = methods_of("Border")
-    assert border_methods.get("GetColor") == "Color"
+    assert (
+        border_methods.get("GetColor") == "const Color&"
+    )  # re-extracted by TC-550: "Color" -> "const Color&"
 
     # Out-of-line, qualified member definitions (TC-276 shape) - the exact real-world
     # reproduction found in TC-271's own first attempt.
     worksheet_methods = methods_of("Worksheet")
-    assert worksheet_methods.get("GetWorkbook") == "Workbook"
+    # re-extracted by TC-550: "Workbook" -> "const Workbook&"
+    assert worksheet_methods.get("GetWorkbook") == "const Workbook&"
 
     class_or_enum_names = {
         entry["name"]

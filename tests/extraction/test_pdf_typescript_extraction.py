@@ -60,6 +60,13 @@ TC-316's own worker cited (``FileAttachmentOptions``/``PopupOptions``/``LineMark
 this run's top-300 centrality cut - the live repository grew again and the cut shifted - but
 this chain did, and demonstrates the identical fix: before TC-316 landed, every one of these
 four real relationships extracted as ``bases: []``.
+
+TC-550 re-extracted this fixture at the CHART PIN ``155bfc7a33f0ba23fb4252b6ba201828b02a5b9d`` (one
+consistent commit wins over freshness: the furnished page, the compile-verified examples and the sidecar
+are all at that commit) with the cap raised to the total, so it is the COMPLETE 4393-entry surface
+(``truncated`` false). The facts above that named c672b39-only symbols (``storeValue``, the constant
+``M``) now read their equivalents at the pin; the five central types and the four-level interface chain
+are unchanged.
 """
 
 from __future__ import annotations
@@ -95,21 +102,22 @@ def test_the_fixture_records_the_exact_source_commit_and_repository() -> None:
     # run, because the repository has moved on since). Re-verify by hand with
     # `git ls-remote https://github.com/aspose-pdf-foss/Aspose.PDF-FOSS-for-TypeScript` if this
     # ever needs re-pinning; do not change it to make a test pass.
-    assert data["source_commit"] == "c672b3918318ccd0c13bc9dc619620cac2674c9e"
+    # re-extracted by TC-550: c672b3918318ccd0c13bc9dc619620cac2674c9e -> the chart pin 155bfc7a33f0 (the
+    # four compile-verified examples, the furnished page and the sidecar are all at that commit).
+    assert data["source_commit"] == "155bfc7a33f0ba23fb4252b6ba201828b02a5b9d"
     manifest = yaml.safe_load(MANIFEST.read_text(encoding="utf-8"))
     assert data["source_repository"] == manifest["repository"]
 
 
-def test_the_fixture_is_non_empty_and_records_real_truncation() -> None:
+def test_the_fixture_is_non_empty_and_complete() -> None:
     data = _load_fixture()
     assert len(data["types"]) > 0
     assert data["reduced_type_count"] == len(data["types"])
-    # The real repository now has 5342 public types (grown again since TC-285's 5274) - far
-    # over the CLI's real default --max-types 300 cap, which this run used unmodified (no
-    # --max-types override, per this card's own instructions).
-    assert data["type_count"] == 5342
-    assert data["reduced_type_count"] == 300
-    assert data["truncated"] is True
+    # re-extracted by TC-550 at the chart pin 155bfc7: the public surface there is 4393 entries
+    # (was 5342 at c672b39), all kept - the cap was raised to the total.
+    assert data["type_count"] == 4393  # re-extracted by TC-550: 5342 -> 4393
+    assert data["reduced_type_count"] == data["type_count"]  # re-extracted by TC-550: 300 -> 4393
+    assert data["truncated"] is False  # re-extracted by TC-550: True -> False
 
 
 def test_the_fixture_contains_real_typescript_names() -> None:
@@ -137,6 +145,7 @@ def test_every_entry_is_a_real_typescript_surface_kind() -> None:
         "abstract_class_declaration",
         "interface_declaration",
         "type_alias_declaration",
+        "enum_declaration",  # re-extracted by TC-550: the whole surface holds enums too
         "function",
         "constant",
     }
@@ -202,12 +211,11 @@ def test_a_real_function_and_a_real_constant_are_present_with_real_fields() -> N
     assert param_names == ["data", "options"]
     assert func["reachable"] is True
 
-    # `M` is a real, internal (non-reachable) top-level exported constant in src/wmlns.ts -
-    # confirmed in this fixture to carry `type == "string"`, a real XML-namespace URI value,
-    # and never re-exported from the package's own index.
-    const = by_name["M"]
+    # re-extracted by TC-550: `M` (src/wmlns.ts) does not exist at the chart pin 155bfc7; the same guard
+    # (an internal, non-reachable top-level constant typed `string`) now reads `AP_FONT_KEY`.
+    const = by_name["AP_FONT_KEY"]
     assert const["kind"] == "constant"
-    assert const["file"] == "src/wmlns.ts"
+    assert const["file"] == "src/annotdraw.ts"
     assert const["type"] == "string"
     assert const["reachable"] is False
 
@@ -236,18 +244,18 @@ def test_a_real_inherited_member_carries_the_correct_inherited_from_tag() -> Non
     field = by_import["formfield.Field"]
     assert field["bases"] == []
 
-    # `storeValue` is copied from `Field` into `ButtonField` by `_flatten_inheritance` and must
-    # be rooted to `Field`'s own class_import - the real declaring ancestor, confirmed directly
-    # from this fixture, not guessed.
+    # re-extracted by TC-550: `storeValue` does not exist at the chart pin 155bfc7; the same guard reads
+    # `SetActions`, copied from `Field` into `ButtonField` by `_flatten_inheritance` and rooted to
+    # `Field`'s own class_import - the real declaring ancestor, read from the regenerated fixture.
     button_field_methods = {m["name"]: m for m in button_field["methods"]}
-    copied = button_field_methods["storeValue"]
+    copied = button_field_methods["SetActions"]
     assert copied["inherited_from"] == "formfield.Field"
-    assert copied["params"][0]["type"] == "string | string[] | boolean"
+    assert copied["params"][0]["type"] == "FieldActionsUpdate"
 
-    # `Field`'s own `storeValue` is the genuine, locally-declared original: it must carry no
+    # `Field`'s own `SetActions` is the genuine, locally-declared original: it must carry no
     # `inherited_from` key at all.
     field_methods = {m["name"]: m for m in field["methods"]}
-    original = field_methods["storeValue"]
+    original = field_methods["SetActions"]
     assert "inherited_from" not in original
 
 

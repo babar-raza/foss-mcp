@@ -1,7 +1,8 @@
 """TC-522: which committed Python fixtures predate the fidelity fix, and proof the gap is real.
 
-The twelve committed python fixtures were produced before TC-522 (``extractor_version`` absent, i.e. 1):
-none of their method parameters has a ``default``, none of their methods a ``static`` / ``classmethod``
+Of the twelve committed python fixtures, seven were produced before TC-522 (``extractor_version`` absent, i.e. 1;
+3d_python, html_python, pdf_python, slides_python and words_python were re-extracted by TC-550 at version 5 and
+left ``KNOWN_GAP``): none of their method parameters has a ``default``, none of their methods a ``static`` / ``classmethod``
 modifier, and none of their re-export shells a ``reexport_of``. ``KNOWN_GAP`` documents that, one line per
 pilot, and the tests make the documentation self-checking in both directions:
 
@@ -45,18 +46,13 @@ PYTHON_PILOTS = (
 REVIEWED = ("cells_python", "jmap_python", "pdf_python")
 
 KNOWN_GAP: dict[str, str] = {
-    "3d_python": "version-1 fixture: parameter defaults, keyword-only markers and static/classmethod marks were not extracted",
     "barcode_python": "version-1 fixture: parameter defaults, keyword-only markers and static/classmethod marks were not extracted",
     "cells_python": "reviewer RST-05: 420 upstream parameters with a default served as required, 51 static/classmethods unmarked, Workbook.__init__ password shown required",
     "email_python": "version-1 fixture: parameter defaults, keyword-only markers and static/classmethod marks were not extracted",
-    "html_python": "version-1 fixture: parameter defaults, keyword-only markers and static/classmethod marks were not extracted",
     "jmap_python": "reviewer RST-05: 8 upstream parameters with a default served as required, 45 static/classmethods unmarked",
     "note_python": "version-1 fixture: parameter defaults, keyword-only markers and static/classmethod marks were not extracted",
     "page_python": "version-1 fixture: parameter defaults, keyword-only markers and static/classmethod marks were not extracted",
-    "pdf_python": "reviewer RST-05: 1235 upstream defaults served as required (338 of 757 methods, 251 keyword-only without the * marker), 45 static/classmethods unmarked, 8 facade classes (PdfFileSecurity, PdfBookmarkEditor, ...) served with only the methods of their private base",
-    "slides_python": "version-1 fixture: parameter defaults, keyword-only markers and static/classmethod marks were not extracted",
     "tex_python": "version-1 fixture: parameter defaults, keyword-only markers and static/classmethod marks were not extracted",
-    "words_python": "version-1 fixture: parameter defaults, keyword-only markers and static/classmethod marks were not extracted",
 }
 
 
@@ -130,8 +126,10 @@ def test_known_gap_names_the_twelve_python_fixtures_with_one_line_reasons() -> N
     assert on_disk == set(PYTHON_PILOTS)
     for name, reason in KNOWN_GAP.items():
         assert reason.strip() and "\n" not in reason, name
+    # re-extracted by TC-550: pdf_python left KNOWN_GAP, so only the REVIEWED names still listed carry a reviewer note
     for name in REVIEWED:
-        assert "reviewer" in KNOWN_GAP[name]
+        if name in KNOWN_GAP:
+            assert "reviewer" in KNOWN_GAP[name]
 
 
 def test_required_version_is_the_extractor_version_that_fixes_the_gap() -> None:

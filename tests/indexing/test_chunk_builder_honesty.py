@@ -528,7 +528,13 @@ def test_real_pdf_cpp_does_not_list_a_base_destructor_as_inherited() -> None:
 
 
 def test_real_go_fixtures_publish_no_test_file_symbol() -> None:
-    for pilot in ("pdf_go", "jmap_go"):
+    # re-extracted by TC-550: the regenerated pdf_go holds no _test.go entry by design (TC-392 removed them
+    # from the engine), so for it every fixture entry is published; jmap_go keeps the original proof that
+    # the filter is exercised on a real fixture.
+    pdf_go = _real("pdf_go")
+    assert [e for e in pdf_go["types"] if str(e.get("file", "")).endswith("_test.go")] == []
+    assert len({_fqn(t) for t in _real_texts("pdf_go")}) == len(pdf_go["types"])
+    for pilot in ("jmap_go",):
         fixture = _real(pilot)
         test_entries = [e for e in fixture["types"] if str(e.get("file", "")).endswith("_test.go")]
         assert test_entries, pilot
@@ -540,9 +546,15 @@ def test_real_pdf_go_and_pdf_typescript_fqns_are_unique() -> None:
     for pilot in ("pdf_go", "pdf_typescript"):
         fqns = [_fqn(t) for t in _real_texts(pilot)]
         assert len(fqns) == len(set(fqns)), pilot
+    # re-extracted by TC-550: pdf_go now holds a single `Color` (the old second one, `color.Color`, was read
+    # from a non-library directory), so no qualification is needed there; the same-bare-name guard now reads
+    # pdf_typescript, whose `Field` of formfield.ts and structattr.ts must stay two distinct FQNs.
     go_fqns = {_fqn(t) for t in _real_texts("pdf_go")}
-    assert "Color" not in go_fqns
-    assert "color.Color" in go_fqns
+    assert "Color" in go_fqns
+    assert "color.Color" not in go_fqns
+    ts_fqns = {_fqn(t) for t in _real_texts("pdf_typescript")}
+    assert {"formfield.Field", "structattr.Field"} <= ts_fqns
+    assert "Field" not in ts_fqns
 
 
 def test_real_slides_python_reexport_lists_the_definitions_methods() -> None:

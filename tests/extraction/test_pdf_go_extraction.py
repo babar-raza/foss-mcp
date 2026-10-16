@@ -14,10 +14,8 @@ class/struct/enum/trait keywords of its own, so every named type declaration (st
 or defined type) surfaces as ``type_spec`` and every func declaration (free function or method
 with a receiver) surfaces as ``function``.
 
-Unlike cells/rust (219 real types, under the CLI's default ``--max-types 300`` cap so the
-fixture is the full surface), this real repository has 2192 public types - far over the cap -
-so the committed fixture is a genuinely REDUCED, deterministic (sorted-by-name) subset of 300,
-and ``truncated`` is ``True`` here, not ``False``.
+The committed fixture is the COMPLETE exported surface (re-extracted by TC-550 with the cap raised
+to the total, 357 entries): ``truncated`` is ``False``.
 """
 
 from __future__ import annotations
@@ -59,18 +57,16 @@ def test_the_fixture_records_the_exact_source_commit_and_repository() -> None:
     assert data["source_repository"] == manifest["repository"]
 
 
-def test_the_fixture_is_non_empty_and_records_real_truncation() -> None:
+def test_the_fixture_is_non_empty_and_complete() -> None:
     data = _load_fixture()
     assert len(data["types"]) > 0
     assert data["reduced_type_count"] == len(data["types"])
-    # The real repository has 2313 public types (re-measured under TC-262's live
-    # re-extraction; the repository moved forward since the old, pre-TC-252 pin) - far over
-    # the CLI's default --max-types 300 cap - so this fixture is a genuinely reduced subset,
-    # unlike cells/rust's untruncated one. Selection is centrality-ranked (TC-252), not
-    # alphabetical.
-    assert data["type_count"] == 2313
-    assert data["reduced_type_count"] == 300
-    assert data["truncated"] is True
+    # re-extracted by TC-550: the Go extractor (TC-525) drops the methods of unexported receivers and the
+    # _test.go files, so the exported surface at the pin is 357 entries (259 types and 98 package
+    # functions), all kept: the fixture is complete (was 300 of 2313).
+    assert data["type_count"] == 357  # re-extracted by TC-550: 2313 -> 357
+    assert data["reduced_type_count"] == data["type_count"]  # re-extracted by TC-550: 300 -> 357
+    assert data["truncated"] is False  # re-extracted by TC-550: True -> False
 
 
 def test_the_fixture_contains_real_go_type_names() -> None:

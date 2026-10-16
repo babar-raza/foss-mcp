@@ -94,7 +94,9 @@ def test_every_entry_is_a_real_python_surface_kind() -> None:
     kinds = {entry["kind"] for entry in data["types"]}
     # Observed directly from the live pure-ast reader's output for this repository - not
     # a tree-sitter grammar's node-type vocabulary, and not guessed.
-    assert kinds == {"class", "enum"}
+    # re-extracted by TC-550: {class, enum} -> {class, enum, function}: the whole surface includes the
+    # one module-level function of the package.
+    assert kinds == {"class", "enum", "function"}
 
 
 def test_the_highest_centrality_type_survives_the_cut() -> None:

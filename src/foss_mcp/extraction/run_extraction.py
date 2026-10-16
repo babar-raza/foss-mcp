@@ -53,27 +53,27 @@ _LANGUAGE_BY_PLATFORM = {
 # is version 1 (before TC-520). Later extraction cards bump it.
 EXTRACTOR_VERSION = 5
 
-# PROPOSAL, consumed by the extraction CLI (``main``) only: the ``--max-types`` each capped pilot
-# should be re-extracted with so the fixture holds its whole public API. Changing the helm
-# ``maxTypes`` / docker-compose ``--max-types`` is a separate data card, never done here. The
-# extraction cap and the ingestion ``--max-types`` must be EQUAL: otherwise the second slice in
-# ``infra/build_chunks.py`` cuts what the first one kept. A higher cap raises ingestion memory
-# (pdf/cpp already needed more than 4 Gi), so the follow-up card must re-measure Job memory and
-# image size.
+# The ``--max-types`` each pilot was re-extracted with so its committed fixture holds its WHOLE public API
+# (kept == total, ``truncated`` false): the values are the totals the committed fixtures were extracted
+# with (TC-530, TC-550), consumed by the extraction CLI (``main``) when no ``--max-types`` is given. The
+# helm ``maxTypes`` and the docker-compose ``--max-types`` carry the same numbers. The extraction cap and
+# the ingestion ``--max-types`` must be EQUAL: otherwise the second slice in ``infra/build_chunks.py``
+# cuts what the first one kept. A pilot whose total is below the default of 300 keeps 300.
+# A higher cap raises ingestion memory, so a re-ingest must re-measure Job memory and image size.
 RECOMMENDED_MAX_TYPES: dict[str, int] = {
     "pdf/net": 901,
     "pdf/java": 1239,
     "words/net": 618,
     "pdf/python": 867,
-    "pdf/cpp": 361,
-    "cells/cpp": 346,
-    "slides/cpp": 323,
+    "pdf/cpp": 359,
+    "cells/cpp": 300,
+    "slides/cpp": 355,
     "html/python": 323,
     "3d/python": 697,
     "slides/python": 1023,
     "words/python": 391,
-    "pdf/go": 450,
-    "pdf/typescript": 1250,
+    "pdf/go": 357,
+    "pdf/typescript": 4393,
 }
 
 # The share of the cap that README-named types may take (after the example-used types).
@@ -657,6 +657,16 @@ def _alias_groups(types: list[dict[str, Any]]) -> list[list[int]]:
         package = _package_of(entry)
         under = [c for c in candidates if package and class_import(c).startswith(package + ".")]
         owner[index] = min(under or candidates, key=lambda c: (class_import(c), c))
+
+    # TC-550: a member-less definition an explicit shell names can itself have been paired as a shell
+    # just above (a name twin of a member-bearing class). The explicit shell then hung off an index that
+    # is no group head and its group was never emitted: settle every owner on its final definition.
+    for shell, definition in list(owner.items()):
+        seen = {shell}
+        while definition in owner and definition not in seen:
+            seen.add(definition)
+            definition = owner[definition]
+        owner[shell] = definition
 
     members: dict[int, list[int]] = {}
     for shell, definition in sorted(owner.items()):

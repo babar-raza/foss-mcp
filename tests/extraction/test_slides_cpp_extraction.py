@@ -78,12 +78,12 @@ def test_the_fixture_is_non_empty() -> None:
     assert len(data["types"]) > 0
     assert data["reduced_type_count"] == len(data["types"])
     assert data["type_count"] >= data["reduced_type_count"]
-    # The real repository (at this fixture's pinned commit, TC-272) has 323 raw public
-    # types - over the CLI's default --max-types 300 cap, so this fixture is a genuine,
-    # deterministic REDUCED subset, not the full surface.
-    assert data["type_count"] == 323
-    assert data["reduced_type_count"] == 300
-    assert data["truncated"] is True
+    # re-extracted by TC-550: at this fixture's pinned commit the real repository has 355 public
+    # types (264 types and 91 free functions), all kept - the cap was raised to the total, so the
+    # fixture is the COMPLETE surface.
+    assert data["type_count"] == 355  # re-extracted by TC-550: 323 -> 355
+    assert data["reduced_type_count"] == data["type_count"]  # re-extracted by TC-550: 300 -> 355
+    assert data["truncated"] is False  # re-extracted by TC-550: True -> False
 
 
 def test_the_fixture_contains_real_cpp_type_names() -> None:
@@ -137,10 +137,12 @@ def test_reference_and_pointer_returning_accessors_are_named_after_themselves_no
         entry = by_name[type_name]
         return {m["name"] for m in entry["methods"] if m["return_type"] == return_type}
 
-    assert "line_format" in method_names_for("IPortionFormat", "LineFormat")
-    assert "fill_format" in method_names_for("IPortionFormat", "FillFormat")
-    assert "presentation" in method_names_for("IBaseSlide", "IPresentation")
-    assert {"frame", "raw_frame"} <= method_names_for("Shape", "ShapeFrame")
+    # re-extracted by TC-550: the return type keeps its qualifiers and declarator (LineFormat ->
+    # LineFormat&, IPresentation -> IPresentation*, ShapeFrame -> const ShapeFrame&).
+    assert "line_format" in method_names_for("IPortionFormat", "LineFormat&")
+    assert "fill_format" in method_names_for("IPortionFormat", "FillFormat&")
+    assert "presentation" in method_names_for("IBaseSlide", "IPresentation*")
+    assert {"frame", "raw_frame"} <= method_names_for("Shape", "const ShapeFrame&")
 
     # The fabrication bug's own signature: a method literally named after its return
     # type (e.g. a method called "LineFormat" that returns "LineFormat"). None may exist
