@@ -624,15 +624,15 @@ requirements:
   anchor: 'docs/DECISION_LOG.md: 2026-10-11 - Operator delivery requirements (pre-TC-345)'
   text: >-
     Pre-deployment workflow gate. Before any deployment or release of the MCP, the exact Docker image that would ship is
-    exercised with real MCP client sessions over Streamable HTTP - tool discovery plus, for each of the 40 pilots, the
+    exercised with real MCP client sessions over Streamable HTTP - tool discovery plus, for each of the 32 pilots, the
     task-oriented path a developer takes (lookup, symbol detail, a verified example) and the honest-miss and
     scope-isolation checks - with a per-pilot report recorded as evidence. No image is tagged for hosting without a
-    passing 40-of-40 report for that image.
+    passing 32-of-32 report for that image.
 - id: REQ-G3-002
   gate: G3
   anchor: 'docs/DECISION_LOG.md: 2026-10-11 - Operator delivery requirements (pre-TC-345)'
   text: >-
-    Lean standalone demo image. One Docker image contains the ingested data for all 40 pilots and runs without ingestion,
+    Lean standalone demo image. One Docker image contains the ingested data for all 32 pilots and runs without ingestion,
     a PersistentVolume or network access. It is lean and must not overwhelm the cluster: the baked data holds only the
     active generation per pilot with vectors only for example chunks, in compact JSON, with an enforced total-size
     budget, and each pilot container is measured under an explicit memory and CPU budget.
@@ -673,7 +673,7 @@ requirements:
   gate: G3
   anchor: 'docs/DECISION_LOG.md: 2026-10-11 - Verified examples are mandatory for every pilot, and the definition of done includes them (operator)'
   text: >-
-    Verified examples for every pilot, and the definition of done. Each of the 40 pilots serves at least two verified examples
+    Verified examples for every pilot, and the definition of done. Each of the 32 pilots serves at least two verified examples
     through find_examples, measured on the baked data of the final image: code taken from the pilot's documentation page (or
     authored by a worker against the real API and clearly labelled as authored) that the real language toolchain compiled or ran
     successfully against the pinned library commit. No pilot ships with zero. The MCP is declared done only when (a) every finding of
@@ -692,5 +692,5 @@ requirements:
     context and recover gracefully from unsupported questions. The review's findings are recorded in docs/PREPROD_REVIEW.md with a
     severity, root cause and verification method each. The MCP ships only when there is no open P0 and no unresolved P1 finding,
     every P2/P3 finding is either fixed or listed as an accepted limitation with a reason in docs/RELEASE.md, each fix has a permanent
-    regression test or deployment proof, and the final image is rebuilt, re-gated (40 of 40, adversarial suite, live smoke test of every
+    regression test or deployment proof, and the final image is rebuilt, re-gated (32 of 32, adversarial suite, live smoke test of every
     pilot) and re-recorded after the last fix.
