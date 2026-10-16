@@ -1,0 +1,118 @@
+{
+  "schema_version": 1,
+  "card": "TC-516",
+  "gate": "G3",
+  "generated_by": "gatectl",
+  "generated_at": "2026-10-16T08:49:32Z",
+  "base_rev": "cb54d5946951d1c29d41ce5716abf8157cc58344",
+  "head_rev": "41e5bcdfac13fecbc79f3d0c890d6773a9ce11b7",
+  "card_sha256": "b83c43af122d7bec3226a6c257802960b9f4ecd3b310e362a93265aa6ea55ce4",
+  "fingerprint": {
+    "python": "3.13.2",
+    "platform": "Windows-11-10.0.26200-SP0",
+    "lock_sha256": "7b182948484d7df9614b523f7a8180f795b6c51d55c418728525c1957f3e38ba",
+    "env": {
+      "PYTHONHASHSEED": "0",
+      "PYTHONUTF8": "1",
+      "PYTHONDONTWRITEBYTECODE": "1",
+      "PYTHONIOENCODING": "utf-8",
+      "TZ": "UTC",
+      "LC_ALL": "C.UTF-8",
+      "SOURCE_DATE_EPOCH": "1700000000",
+      "verify_runner": "host"
+    }
+  },
+  "scope": {
+    "ok": true,
+    "changed_paths": [
+      "src/foss_mcp/mcp/tools/find_examples.py",
+      "src/foss_mcp/mcp/tools/lookup.py",
+      "src/foss_mcp/mcp/tools/relevance.py",
+      "src/foss_mcp/mcp/tools/search_docs.py",
+      "src/foss_mcp/mcp/tools/search_symbols.py",
+      "tests/mcp/tools/test_forgiveness_acceptance.py",
+      "tests/mcp/tools/test_lookup_forgiveness.py",
+      "tests/mcp/tools/test_relevance_idf_synonyms.py",
+      "tests/mcp/tools/test_search_symbols_forgiveness.py"
+    ],
+    "violations": [],
+    "evaluated": true
+  },
+  "runs": [
+    {
+      "run": 1,
+      "checks": [
+        {
+          "command": "{python} -m pytest tests/mcp/tools/test_relevance_idf_synonyms.py tests/mcp/tools/test_lookup_forgiveness.py tests/mcp/tools/test_search_symbols_forgiveness.py tests/mcp/tools/test_forgiveness_acceptance.py -q -rfE -p no:cacheprovider",
+          "exit_code": 0,
+          "duration_s": 16.346,
+          "stdout_sha256": "31d4f6ed061187bd4bcaecd24059371e79ed220f567109eaef744423f52fcf35",
+          "tests": 88,
+          "skipped": 0,
+          "errors": 0,
+          "failures": 0
+        },
+        {
+          "command": "{python} -m pytest tests/mcp tests/indexing/test_lookup_doc_fallback_query_safety.py tests/test_unwired_modules.py -q -rfE -p no:cacheprovider",
+          "exit_code": 0,
+          "duration_s": 60.452,
+          "stdout_sha256": "5263ed45f29497bbc1193a3158fd44bc84d7ddb60c7604f4b69e20c84a794c24",
+          "tests": 1884,
+          "skipped": 0,
+          "errors": 0,
+          "failures": 0
+        }
+      ],
+      "all_passed": true
+    },
+    {
+      "run": 2,
+      "checks": [
+        {
+          "command": "{python} -m pytest tests/mcp/tools/test_relevance_idf_synonyms.py tests/mcp/tools/test_lookup_forgiveness.py tests/mcp/tools/test_search_symbols_forgiveness.py tests/mcp/tools/test_forgiveness_acceptance.py -q -rfE -p no:cacheprovider",
+          "exit_code": 0,
+          "duration_s": 15.429,
+          "stdout_sha256": "31d4f6ed061187bd4bcaecd24059371e79ed220f567109eaef744423f52fcf35",
+          "tests": 88,
+          "skipped": 0,
+          "errors": 0,
+          "failures": 0
+        },
+        {
+          "command": "{python} -m pytest tests/mcp tests/indexing/test_lookup_doc_fallback_query_safety.py tests/test_unwired_modules.py -q -rfE -p no:cacheprovider",
+          "exit_code": 0,
+          "duration_s": 53.161,
+          "stdout_sha256": "5263ed45f29497bbc1193a3158fd44bc84d7ddb60c7604f4b69e20c84a794c24",
+          "tests": 1884,
+          "skipped": 0,
+          "errors": 0,
+          "failures": 0
+        }
+      ],
+      "all_passed": true
+    }
+  ],
+  "negative_control": {
+    "kind": "mutate",
+    "patch": "python -X utf8 -c \"import pathlib;p=pathlib.Path('src/foss_mcp/mcp/tools/relevance.py');s=p.read_text(encoding='utf-8');old='RELEVANCE_THRESHOLD = 0.6';assert s.count(old)==1;p.write_text(s.replace(old,'RELEVANCE_THRESHOLD = 0.3'),encoding='utf-8')\"\n",
+    "patch_sha256": "2b8c780063b5afc6d3682c8204a601e5937b459bdc5e7df2827cb0dacc69d4b2",
+    "applied": true,
+    "patch_applied_failed": true,
+    "exit_codes": [
+      1,
+      1
+    ],
+    "tree_changed": [
+      "M src/foss_mcp/mcp/tools/relevance.py",
+      "?? .junit-0.xml",
+      "?? .junit-1.xml"
+    ]
+  },
+  "holdout": {
+    "ran": false,
+    "passed": true,
+    "detail": "no holdout for this card"
+  },
+  "accepted": true,
+  "reason": "all gates passed"
+}
