@@ -19,13 +19,18 @@ second list) the gate:
   2. finds the host port with ``docker port`` and polls ``/readyz`` until it answers 200 or --ready-timeout runs out;
   3. runs the eleven-check proof of scripts/poc/pilot_workflow_proof.py over a real MCP session, then a short
      task-oriented workflow recorded as its own entries (W1 tools/list, W2 a natural question to lookup, W3
-     find_examples with a verified example's title, which is not_applicable when the proof found none);
+     find_examples with a verified example's title, which is not_applicable when the proof found none), then the
+     two provenance probes of scripts/release/served_provenance.py (TC-539): P1 the generation the container
+     serves equals the one committed under infra/demo-manifests, P2 30 sampled signatures served by get_symbol
+     and list_members equal the committed fixture rendered by the production chunk builder;
   4. samples ``docker stats --no-stream`` memory before and after and keeps the larger;
   5. ALWAYS ``docker rm -f`` the container, on success, failure, timeout or Ctrl-C.
 
 A pilot fails when any applicable check or workflow entry fails, when its container never became ready, when it was
 OOM-killed or used more memory than the budget, when its memory could not be measured, or when ``docker run`` itself
-failed. A not_applicable entry is never counted as a pass, and a pilot with no passing entry does not pass.
+failed. A pilot also fails when its container serves a generation other than the committed one (P1) or signatures
+other than the committed fixture's (P2). A not_applicable entry is never counted as a pass, and a pilot with no
+passing entry does not pass.
 
 Report: ``<pilot_key>.json`` per pilot plus ``summary.json`` in --report-dir (default: a temporary directory, so
 nothing lands in the repository unless asked). summary.json is the file ``gatectl release-record --gate-report``
@@ -65,13 +70,18 @@ REPO_ROOT = Path(__file__).resolve().parents[2]
 _DEPLOY_DIR = REPO_ROOT / "scripts" / "deploy"
 PROOF_SCRIPT = REPO_ROOT / "scripts" / "poc" / "pilot_workflow_proof.py"
 DEFAULT_FIXTURES = REPO_ROOT / "tests" / "fixtures"
+DEFAULT_MANIFESTS = REPO_ROOT / "infra" / "demo-manifests"
 DEFAULT_REPORT_DIR = Path(tempfile.gettempdir()) / "foss-mcp-image-workflow-gate"
 
 if str(_DEPLOY_DIR) not in sys.path:
     # scripts/deploy is not a package; its pilots module owns reading the chart's pilot list.
     sys.path.insert(0, str(_DEPLOY_DIR))
+if str(Path(__file__).resolve().parent) not in sys.path:
+    # scripts/release is not a package either; served_provenance sits beside this file.
+    sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 import pilots as chart  # noqa: E402
+import served_provenance  # noqa: E402
 
 SCHEMA_VERSION = 1
 SUMMARY_NAME = "summary.json"
@@ -193,6 +203,8 @@ class Deps:
     clock: Callable[[], float] | None = None
     environ: Mapping[str, str] | None = None
     run_id: str | None = None
+    # (client, pilot key, chart entry) -> the provenance entries P1 and P2 (served_provenance.run_probes)
+    provenance_runner: Callable[[Any, str, dict[str, Any]], list[dict[str, Any]]] | None = None
 
 
 def http_status(url: str, timeout: float) -> int | None:
@@ -531,6 +543,7 @@ class Context:
     # pilot's requests to another pilot's container. Containers start in parallel; sessions never overlap.
     session_lock: threading.Lock = field(default_factory=threading.Lock)
     print_lock: threading.Lock = field(default_factory=threading.Lock)
+    manifests_dir: Path = DEFAULT_MANIFESTS
 
     def clock(self) -> float:
         return (self.deps.clock or time.monotonic)()
@@ -552,6 +565,14 @@ class Context:
     def run_proof(self, client: Any, pilot: Any) -> list[dict[str, Any]]:
         runner = self.deps.proof_runner or self.proof.run_checks
         return runner(client, pilot)
+
+    def run_provenance(self, client: Any, key: str, entry: dict[str, Any]) -> list[dict[str, Any]]:
+        """P1 and P2: what the container serves against what infra/demo-manifests and the fixtures commit."""
+        if self.deps.provenance_runner is not None:
+            return self.deps.provenance_runner(client, key, entry)
+        return served_provenance.run_probes(
+            client, key, entry, fixtures=self.fixtures, manifests_dir=self.manifests_dir
+        )
 
 
 # ---------------------------------------------------------------------------------------------------------------
@@ -630,7 +651,7 @@ def _entry(
 ) -> dict[str, Any]:
     return {
         "id": number,
-        "name": WORKFLOW_TITLES[number],
+        "name": {**WORKFLOW_TITLES, **served_provenance.PROVENANCE_TITLES}[number],
         "status": status,
         "evidence": evidence or {},
         "reason": reason,
@@ -867,6 +888,7 @@ def _drive(entry: dict[str, Any], ctx: Context, run: PilotRun) -> None:
         else:
             run.checks = ctx.run_proof(client, pilot)
             run.workflow = run_workflow(client, pilot, run.checks)
+            run.workflow += ctx.run_provenance(client, run.key, entry)
 
     after = sample_memory(ctx, run.container)
     if after is not None:

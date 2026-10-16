@@ -309,6 +309,8 @@ class World:
             "clock": self.clock,
             "environ": {},
             "run_id": RUN_ID,
+            # TC-539: the provenance probes need a committed generation, which the fake world does not have.
+            "provenance_runner": lambda client, key, entry: [],
         }
         values.update(overrides)
         return gate.Deps(**values)
@@ -1129,3 +1131,121 @@ def test_every_flag_the_runbook_shows_with_the_gate_is_one_it_accepts():
     for line in lines:
         for flag in re.findall(r"--[a-z][a-z-]*", line):
             assert f'"{flag}"' in source, f"the runbook uses {flag} with the gate, which does not accept it"
+
+
+# --- TC-539: the served-versus-committed provenance probes -------------------------------------------------------
+
+
+def provenance_entries(p1: str = "pass", p2: str = "pass") -> list[dict[str, Any]]:
+    return [
+        gate._entry("P1", p1, {"served_generation_id": "g"}, "differs" if p1 == "fail" else None),
+        gate._entry("P2", p2, {"sampled": 30}, "signature differs" if p2 == "fail" else None),
+    ]
+
+
+def test_the_gate_calls_the_provenance_runner_once_per_pilot_with_its_chart_entry(world, tmp_path):
+    calls: list[tuple[Any, str, dict[str, Any]]] = []
+
+    def runner(client, key, entry):
+        calls.append((client, key, entry))
+        return []
+
+    assert run_gate(world, tmp_path, only=(FIRST, SECOND), provenance_runner=runner) == 0
+    assert [key for _client, key, _entry in calls] == [FIRST, SECOND]
+    for client, key, entry in calls:
+        assert isinstance(client, FakeClient)
+        assert entry == entry_of(key)
+        assert "maxTypes" in entry
+
+
+def test_provenance_entries_are_recorded_beside_w1_to_w3_in_the_pilot_report(world, tmp_path):
+    assert run_gate(world, tmp_path, provenance_runner=lambda c, k, e: provenance_entries()) == 0
+    report = pilot_report(tmp_path, FIRST)
+    assert [entry["id"] for entry in report["workflow"]] == ["W1", "W2", "W3", "P1", "P2"]
+    by_id = {entry["id"]: entry for entry in report["workflow"]}
+    for number, title in gate.served_provenance.PROVENANCE_TITLES.items():
+        assert by_id[number]["name"] == title
+    assert by_id["P2"]["evidence"] == {"sampled": 30}
+    assert set(summary_of(tmp_path)["pilots"][0]) == PILOT_KEYS, (
+        "the summary keys gatectl reads do not change"
+    )
+
+
+def test_a_failing_provenance_entry_fails_the_pilot_with_its_reason(world, tmp_path):
+    assert run_gate(world, tmp_path, provenance_runner=lambda c, k, e: provenance_entries(p1="fail")) == 1
+    pilot = summary_of(tmp_path)["pilots"][0]
+    assert pilot["status"] == "fail"
+    assert any("workflow P1 failed" in reason and "differs" in reason for reason in pilot["reasons"])
+    assert ["docker", "rm", "-f", name_of(FIRST)] in world.calls
+
+
+def test_a_passing_provenance_entry_is_counted_as_a_pass(world, tmp_path):
+    assert run_gate(world, tmp_path, provenance_runner=lambda c, k, e: provenance_entries()) == 0
+    # 11 proof checks, W1 to W3, then P1 and P2.
+    assert summary_of(tmp_path)["pilots"][0]["checks"] == {"pass": 11 + 3 + 2, "fail": 0, "not_applicable": 0}
+
+
+def test_the_default_runner_is_served_provenance_run_probes(world, tmp_path, monkeypatch):
+    seen: list[dict[str, Any]] = []
+
+    def recorder(client, key, entry, *, fixtures, manifests_dir):
+        seen.append({"key": key, "entry": entry, "fixtures": fixtures, "manifests_dir": manifests_dir})
+        return provenance_entries()
+
+    monkeypatch.setattr(gate.served_provenance, "run_probes", recorder)
+    fixtures = tmp_path / "fixtures"
+    assert run_gate(world, tmp_path, "--fixtures", str(fixtures), provenance_runner=None) == 0
+    assert seen == [
+        {
+            "key": FIRST,
+            "entry": entry_of(FIRST),
+            "fixtures": fixtures,
+            "manifests_dir": gate.DEFAULT_MANIFESTS,
+        }
+    ]
+    assert gate.DEFAULT_MANIFESTS == REPO_ROOT / "infra" / "demo-manifests"
+    assert [e["id"] for e in pilot_report(tmp_path, FIRST)["workflow"]] == ["W1", "W2", "W3", "P1", "P2"]
+
+
+def _calls_of(tree: ast.AST) -> list[ast.Call]:
+    return [node for node in ast.walk(tree) if isinstance(node, ast.Call)]
+
+
+def test_gate_source_imports_and_calls_the_provenance_module():
+    gate_tree = ast.parse(GATE_SOURCE.read_text(encoding="utf-8"))
+    imported = [
+        alias.name for node in ast.walk(gate_tree) if isinstance(node, ast.Import) for alias in node.names
+    ]
+    assert "served_provenance" in imported
+    attribute_calls = [
+        (call.func.value.id, call.func.attr)
+        for call in _calls_of(gate_tree)
+        if isinstance(call.func, ast.Attribute) and isinstance(call.func.value, ast.Name)
+    ]
+    assert ("served_provenance", "run_probes") in attribute_calls
+
+    probe_tree = ast.parse((RELEASE_DIR / "served_provenance.py").read_text(encoding="utf-8"))
+    (run_probes,) = [
+        node
+        for node in ast.walk(probe_tree)
+        if isinstance(node, ast.FunctionDef) and node.name == "run_probes"
+    ]
+    called = {call.func.id for call in _calls_of(run_probes) if isinstance(call.func, ast.Name)}
+    assert {"probe_generation", "probe_signatures"} <= called
+
+
+def test_the_gate_adds_no_command_line_flag():
+    source = GATE_SOURCE.read_text(encoding="utf-8")
+    flags = set(re.findall(r'add_argument\(\s*"(--[a-z][a-z-]*)"', source))
+    assert flags == {
+        "--image",
+        "--only",
+        "--fixtures",
+        "--report-dir",
+        "--memory",
+        "--cpus",
+        "--ready-timeout",
+        "--parallel",
+        "--with-embedding-gateway",
+        "--dry-run",
+    }
