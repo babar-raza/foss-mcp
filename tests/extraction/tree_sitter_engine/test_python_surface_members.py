@@ -75,8 +75,8 @@ def test_init_is_a_constructor_with_every_param_through_the_adapter(tmp_path: Pa
     init = methods["__init__"]
     assert init["is_constructor"] is True
     assert init["params"] == [
-        {"name": "source", "type": ""},
-        {"name": "load_options", "type": "LoadOptions | None"},
+        {"name": "source", "type": "", "default": "None"},
+        {"name": "load_options", "type": "LoadOptions | None", "default": "None"},
         {"name": "*args", "type": ""},
         {"name": "**kwargs", "type": ""},
     ]

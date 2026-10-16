@@ -55,7 +55,10 @@ def test_function_entry_carries_params_and_return_type(tmp_path: Path) -> None:
     )
     entry = _types(tmp_path)["generate"]
     assert entry["kind"] == "function"
-    assert entry["params"] == [{"name": "data", "type": "str"}, {"name": "symbology", "type": "str"}]
+    assert entry["params"] == [
+        {"name": "data", "type": "str"},
+        {"name": "symbology", "type": "str", "default": "'qr'"},
+    ]
     assert entry["return_type"] == "bytes"
 
 
@@ -67,7 +70,7 @@ def test_function_signature_is_rendered_not_a_bare_kind(tmp_path: Path) -> None:
     entry = _types(tmp_path)["generate"]
     text = chunk_builder._format_type_text(entry, fqn=entry["class_import"])
     assert "Methods:" in text
-    assert "  - generate(data: str, symbology: str) -> bytes" in text
+    assert "  - generate(data: str, symbology: str = 'qr') -> bytes" in text
 
 
 def test_unannotated_function_has_untyped_params_and_empty_return(tmp_path: Path) -> None:
