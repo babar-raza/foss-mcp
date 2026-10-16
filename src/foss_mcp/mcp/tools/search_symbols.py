@@ -115,6 +115,12 @@ pdf/net fixture rather than assumed: "Dispose" is genuinely declared on 9 distin
 admits ALL of them, exactly like TC-278's own bag-of-words tier already admits every one of
 "Annotation"'s 8 real subclasses side by side - BM25 sorts among tied-tier candidates, same as
 every other tier here, so no special-casing was needed or added.
+
+TC-541 (G3/REQ-G3-008): within one match tier a chunk that lists at least one method, property or
+enum member ranks before a chunk that lists none (``_has_listed_members``), so an empty alias of a
+Python class (a re-export shell the data refresh has not yet paired with its definition) never answers
+before the real class. The key sits second, behind the tier and ahead of declaring-before-inheriting and
+BM25, which are unchanged; no tier number, ``_match_tier``, the Miss or the fallback stage changes.
 """
 
 from __future__ import annotations
@@ -261,6 +267,14 @@ def _member_declaration(query: str, fqn: str | None, text: str) -> bool | None:
                 return True
             declared = False
     return declared
+
+
+def _has_listed_members(text: str) -> bool:
+    """True when the chunk *text* lists at least one item under ``Methods:``, ``Properties:`` or ``Members:``
+    (TC-541)."""
+    from foss_mcp.mcp.tools.get_symbol import _extract_block
+
+    return any(_extract_block(text, header) for header in ("Methods:", "Properties:", "Members:"))
 
 
 def _matches_a_rendered_member(query: str, fqn: str | None, text: str) -> bool:
@@ -494,7 +508,7 @@ def search_symbols(
 
     documents = lexical_payload["documents"]
     ranked = query_lexical_index_scored(lexical_payload, query, top_k=len(documents))
-    admitted: list[tuple[int, int, float, str]] = []
+    admitted: list[tuple[int, int, int, float, str]] = []
     for doc_id, bm25_score in ranked:
         text = documents[doc_id]["text"]
         fqn = extract_fqn(text)
@@ -513,11 +527,14 @@ def search_symbols(
             inherits_only = 0 if member_declaration else 1
         else:
             tier = 3
-        admitted.append((tier, inherits_only, bm25_score, doc_id))
-    # Strongest evidence first (ascending tier); within a tier, declaring types before inheriting ones,
-    # then the existing BM25-descending order - it is never discarded, only demoted to secondary.
-    admitted.sort(key=lambda candidate: (candidate[0], candidate[1], -candidate[2]))
-    doc_ids = [doc_id for _tier, _inherits, _bm25_score, doc_id in admitted][:top_k]
+        # TC-541: a chunk that lists members (0) before one that lists none (1) within the tier.
+        memberless = 0 if _has_listed_members(text) else 1
+        admitted.append((tier, memberless, inherits_only, bm25_score, doc_id))
+    # Strongest evidence first (ascending tier); within a tier, a chunk that lists members before an empty
+    # one (TC-541), declaring types before inheriting ones, then the existing BM25-descending order - it
+    # is never discarded, only demoted to secondary.
+    admitted.sort(key=lambda candidate: (candidate[0], candidate[1], candidate[2], -candidate[3]))
+    doc_ids = [doc_id for _tier, _memberless, _inherits, _bm25_score, doc_id in admitted][:top_k]
     if not doc_ids:
         doc_ids = _fallback_doc_ids(documents, ranked, query, scope.family, top_k)
     if not doc_ids:

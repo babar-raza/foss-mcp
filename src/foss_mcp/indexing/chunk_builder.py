@@ -450,6 +450,12 @@ def _reexport_pairs(entries: Sequence[Mapping[str, object]]) -> dict[int, int]:
     entries: a stub from a package ``__init__.py`` with no members, for which exactly one other
     entry of the same name, under the stub's package, has members (an entry paired explicitly is
     never that definition).
+
+    TC-541, applied last: a member-less ``class`` or ``enum`` entry of a ``.py`` file that no earlier rule
+    paired pairs with the ONE ``.py`` entry of the same name and kind that has members, wherever it lives
+    (a stub in another package, a stub module such as ``pkg/generated/document.py``). A definition that
+    another pair already uses still counts; a shell never counts as a definition; two or more definitions
+    leave the entry unpaired. Entries of other languages are never paired by this rule.
     """
     pairs = _explicit_reexport_pairs(entries)
     for index, entry in enumerate(entries):
@@ -472,6 +478,19 @@ def _reexport_pairs(entries: Sequence[Mapping[str, object]]) -> dict[int, int]:
         ]
         if len(candidates) == 1:
             pairs[index] = candidates[0]
+    definitions: dict[tuple[str, str], list[int]] = {}
+    for index, entry in enumerate(entries):
+        if index in pairs or not _has_members(entry) or not str(entry.get("file") or "").endswith(".py"):
+            continue
+        definitions.setdefault((str(entry.get("name")), str(entry.get("kind"))), []).append(index)
+    for index, entry in enumerate(entries):
+        if index in pairs or entry.get("kind") not in ("class", "enum") or _has_members(entry):
+            continue
+        if not str(entry.get("file") or "").endswith(".py"):
+            continue
+        found = definitions.get((str(entry.get("name")), str(entry.get("kind"))), [])
+        if len(found) == 1 and found[0] != index:
+            pairs[index] = found[0]
     return pairs
 
 
