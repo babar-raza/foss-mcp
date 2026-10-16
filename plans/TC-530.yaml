@@ -204,6 +204,8 @@ write_paths:
 - tests/indexing/test_build_chunks_verification_report.py
 - tests/indexing/test_chunk_builder.py
 - tests/indexing/test_chunk_builder_honesty.py
+- tests/indexing/test_chunk_builder_coverage_line.py
+- tests/infra/test_helm_chart.py
 - tests/indexing/test_dotnet_lfs_pull.py
 - tests/indexing/test_dotnet_verifier_assembly.py
 - tests/indexing/test_index_writers.py
@@ -395,6 +397,16 @@ inputs:
   pinned, every changed assertion of an existing test with its reason, the identifiers still on the allowlist that look like API, and the pilots you
   added to STALE_BAKED_PILOTS. Do NOT edit any src/ file, any furnished page, plans/, project/, ops/, evidence/ or schemas/, and do not run an
   ingestion, docker or a cluster command.
+- >-
+  SUPERVISOR AMENDMENT (after the first report; rework attempt 2). Three decisions, recorded in docs/DECISION_LOG.md. (1) jmap_net is OUT of this card: owner item OWNER-15 (the jmap upstream
+  repositories return 404 with and without the token on 2026-10-16, the aspose-email-foss organisation lists only three repositories). Keep the seven fixtures already re-extracted
+  (pdf_net, words_net, cells_net, email_net, imaging_net, 3d_net, slides_net) and leave jmap_net untouched, as the worker did; every place the card says eight pilots now means seven, and jmap_net stays out of PILOTS with the
+  docstring reason. (2) Card TC-527 is cut and superseded (limitation, docs only): the three tests that depend on its output (`test_no_description_is_cut_at_an_abbreviation`,
+  `test_cells_net_worksheet_methods_carry_return_docs`, `test_dotnet_parameter_text_comes_from_param_elements`) are NOT required; PARAM_DOC_FLOOR stays at the measured 0; the helper `abbreviation_cut_docs` and its
+  synthetic tests stay. The new test file may hold fewer tests than the card says; the per-check `min_tests` of this card is lowered to what the two checks collect. (3) Two tests outside the original write_paths pin the old
+  facts and are now in write_paths: change ONLY `tests/indexing/test_chunk_builder_coverage_line.py::test_committed_pdf_net_fixture_still_renders_300_of_901_types` (it must now expect the single coverage line
+  `API-Coverage: 901 of 901 types`; keep the name or rename it to say 901, with a comment naming TC-530) and the hard-coded `PILOTS` list of `tests/infra/test_helm_chart.py::test_each_ingestion_job_runs_the_same_two_step_chain_as_docker_compose`
+  (pdf/net maxTypes 300 to 901, words/net 300 to 618, matching the chart and compose you already changed). Never loosen or skip anything else.
 actions:
 - >-
   Regenerate the eight .NET fixtures at their pinned commits with the merged extractor, raise pdf_net to 901 and words_net to 618 in the extractor
@@ -417,7 +429,7 @@ checks:
   proves:
   - REQ-G3-008
   - REQ-G3-005
-min_tests: 420
+min_tests: 380
 network: true
 requires:
 - python
