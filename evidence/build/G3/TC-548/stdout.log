@@ -1,0 +1,98 @@
+
+===== CLEAN RUN 1 (host) =====
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-7b182948484d7df9\Scripts\python.exe -m pytest tests/infra/test_verification_cache_seed_files.py tests/infra/test_verification_cache_committed.py -q -rfE -p no:cacheprovider "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-lqxaoip1\.junit-0.xml"
+--- stdout ---
+........................................................................ [ 33%]
+........................................................................ [ 67%]
+......................................................................   [100%]
+
+--- stderr ---
+
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-7b182948484d7df9\Scripts\python.exe -m pytest tests/infra/test_verification_cache_seed_files.py tests/infra/test_verification_cache_committed.py tests/infra/test_build_chunks_verification_cache.py tests/deploy/test_pull_verification_cache.py -q -rfE -p no:cacheprovider "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-lqxaoip1\.junit-1.xml"
+--- stdout ---
+........................................................................ [ 28%]
+........................................................................ [ 57%]
+........................................................................ [ 86%]
+...................................                                      [100%]
+
+--- stderr ---
+
+
+===== CLEAN RUN 2 (host) =====
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-7b182948484d7df9\Scripts\python.exe -m pytest tests/infra/test_verification_cache_seed_files.py tests/infra/test_verification_cache_committed.py -q -rfE -p no:cacheprovider "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-lqxaoip1\.junit-0.xml"
+--- stdout ---
+........................................................................ [ 33%]
+........................................................................ [ 67%]
+......................................................................   [100%]
+
+--- stderr ---
+
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-7b182948484d7df9\Scripts\python.exe -m pytest tests/infra/test_verification_cache_seed_files.py tests/infra/test_verification_cache_committed.py tests/infra/test_build_chunks_verification_cache.py tests/deploy/test_pull_verification_cache.py -q -rfE -p no:cacheprovider "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-lqxaoip1\.junit-1.xml"
+--- stdout ---
+........................................................................ [ 28%]
+........................................................................ [ 57%]
+........................................................................ [ 86%]
+...................................                                      [100%]
+
+--- stderr ---
+
+
+===== NEGATIVE CONTROL (checks MUST now fail) =====
+mutated: M tests/fixtures/verified_examples/pdf_net.json, ?? .junit-0.xml, ?? .junit-1.xml
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-7b182948484d7df9\Scripts\python.exe -m pytest tests/infra/test_verification_cache_seed_files.py tests/infra/test_verification_cache_committed.py -q -rfE -p no:cacheprovider "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-lqxaoip1\.junit-0.xml"
+--- stdout ---
+........................................................................ [ 33%]
+F....................................................................... [ 67%]
+......................................................................   [100%]
+================================== FAILURES ===================================
+____ test_seed_file_is_the_canonical_deterministic_empty_document[pdf-net] ____
+
+service = 'ingest-pdf-net'
+path = '/app/fixtures/verified_examples/pdf_net.json'
+
+    @pytest.mark.parametrize(("service", "path"), _pilot_cases())
+    def test_seed_file_is_the_canonical_deterministic_empty_document(service: str, path: str) -> None:
+        # TC-547: the name is kept (a rename would hide the history), but the test now pins the canonical form of the
+        # pilot's OWN entries, empty or populated: byte-identical to verification_cache_document(entries), so a
+        # pull from the cluster is deterministic and a second pull writes nothing.
+        seed = SEED_DIR / _seed_name(path)
+        raw = seed.read_bytes()
+>       assert b"\r" not in raw, f"{seed} must use LF line endings"
+E       AssertionError: E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-lqxaoip1\tests\fixtures\verified_examples\pdf_net.json must use LF line endings
+E       assert b'\r' not in b'{\r\n  "entries": [\r\n    {\r\n      "code_sha256": "f5cfce55bdb7c394eabea86d3a71168ccd56f3cb092f44846b5059048c5065...ave",\r\n      "toolchain": "10.0.401",\r\n      "verified": false\r\n    }\r\n  ],\r\n  "schema_version": 1\r\n}\r\n '
+
+tests\infra\test_verification_cache_seed_files.py:176: AssertionError
+=========================== short test summary info ===========================
+FAILED tests/infra/test_verification_cache_seed_files.py::test_seed_file_is_the_canonical_deterministic_empty_document[pdf-net]
+
+--- stderr ---
+
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-7b182948484d7df9\Scripts\python.exe -m pytest tests/infra/test_verification_cache_seed_files.py tests/infra/test_verification_cache_committed.py tests/infra/test_build_chunks_verification_cache.py tests/deploy/test_pull_verification_cache.py -q -rfE -p no:cacheprovider "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-lqxaoip1\.junit-1.xml"
+--- stdout ---
+........................................................................ [ 28%]
+F....................................................................... [ 57%]
+........................................................................ [ 86%]
+...................................                                      [100%]
+================================== FAILURES ===================================
+____ test_seed_file_is_the_canonical_deterministic_empty_document[pdf-net] ____
+
+service = 'ingest-pdf-net'
+path = '/app/fixtures/verified_examples/pdf_net.json'
+
+    @pytest.mark.parametrize(("service", "path"), _pilot_cases())
+    def test_seed_file_is_the_canonical_deterministic_empty_document(service: str, path: str) -> None:
+        # TC-547: the name is kept (a rename would hide the history), but the test now pins the canonical form of the
+        # pilot's OWN entries, empty or populated: byte-identical to verification_cache_document(entries), so a
+        # pull from the cluster is deterministic and a second pull writes nothing.
+        seed = SEED_DIR / _seed_name(path)
+        raw = seed.read_bytes()
+>       assert b"\r" not in raw, f"{seed} must use LF line endings"
+E       AssertionError: E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-lqxaoip1\tests\fixtures\verified_examples\pdf_net.json must use LF line endings
+E       assert b'\r' not in b'{\r\n  "entries": [\r\n    {\r\n      "code_sha256": "f5cfce55bdb7c394eabea86d3a71168ccd56f3cb092f44846b5059048c5065...ave",\r\n      "toolchain": "10.0.401",\r\n      "verified": false\r\n    }\r\n  ],\r\n  "schema_version": 1\r\n}\r\n '
+
+tests\infra\test_verification_cache_seed_files.py:176: AssertionError
+=========================== short test summary info ===========================
+FAILED tests/infra/test_verification_cache_seed_files.py::test_seed_file_is_the_canonical_deterministic_empty_document[pdf-net]
+
+--- stderr ---
+
