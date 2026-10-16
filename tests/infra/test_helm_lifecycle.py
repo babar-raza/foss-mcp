@@ -9,10 +9,15 @@ network and no wall-clock assertions.
 
 from __future__ import annotations
 
+import os
 import re
 import shlex
 import shutil
+import signal
 import subprocess
+import sys
+import tempfile
+import time
 from pathlib import Path
 from typing import Any
 
@@ -40,9 +45,65 @@ def _helm() -> str:
     return helm
 
 
+def _kill_tree(proc: subprocess.Popen[bytes]) -> None:
+    """Kill the process and every descendant. A plain kill() ends only the shell on Windows."""
+    if sys.platform == "win32":
+        subprocess.run(
+            ["taskkill", "/F", "/T", "/PID", str(proc.pid)],
+            stdin=subprocess.DEVNULL,
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+            timeout=30,
+            check=False,
+        )
+    else:
+        try:
+            os.killpg(os.getpgid(proc.pid), signal.SIGKILL)
+        except ProcessLookupError:
+            pass
+    try:
+        proc.kill()
+    except OSError:
+        pass
+    proc.wait(timeout=15)
+
+
+def _run_bounded(
+    cmd: list[str],
+    *,
+    cwd: Path | None = None,
+    timeout: float = 20.0,
+    pids: list[int] | None = None,
+) -> subprocess.CompletedProcess[str]:
+    """Run cmd with output in temp FILES (never pipes), no stdin and a hard deadline.
+
+    A pipe would stay open while an orphaned grandchild (an `sleep` under a killed shell) holds it, so
+    communicate() would never return. On timeout the whole process tree is killed and the test fails
+    with the captured stderr. pids, when given, receives the pid of the started process.
+    """
+    kwargs: dict[str, Any] = {} if sys.platform == "win32" else {"start_new_session": True}
+    with tempfile.TemporaryFile() as out, tempfile.TemporaryFile() as err:
+        proc = subprocess.Popen(cmd, cwd=cwd, stdin=subprocess.DEVNULL, stdout=out, stderr=err, **kwargs)
+        if pids is not None:
+            pids.append(proc.pid)
+        timed_out = False
+        try:
+            proc.wait(timeout=timeout)
+        except subprocess.TimeoutExpired:
+            timed_out = True
+            _kill_tree(proc)
+        out.seek(0)
+        err.seek(0)
+        stdout = out.read().decode("utf-8", errors="replace")
+        stderr = err.read().decode("utf-8", errors="replace")
+    if timed_out:
+        pytest.fail(f"{shlex.join(cmd)[:200]} did not exit within {timeout} s; stderr so far:\n{stderr}")
+    return subprocess.CompletedProcess(cmd, proc.returncode, stdout, stderr)
+
+
 def _helm_template(*extra: str) -> subprocess.CompletedProcess[str]:
     cmd = [_helm(), "template", "foss-mcp", str(CHART), "--set", f"image.tag={TAG}", *extra]
-    return subprocess.run(cmd, capture_output=True, text=True, encoding="utf-8", check=False)
+    return _run_bounded(cmd, timeout=120)
 
 
 def _render(*extra: str) -> list[dict[str, Any]]:
@@ -148,9 +209,7 @@ def test_rendered_gate_script_run_in_a_shell(tmp_path: Path, case: str) -> None:
         (tmp_path / PRODUCT_REFERENCE).write_text("{}", encoding="utf-8")
         (tmp_path / RECENT_RELEASES).write_bytes(b"")
     before = sorted(p.name for p in tmp_path.iterdir())
-    done = subprocess.run(
-        [_shell(), "-c", script], cwd=tmp_path, capture_output=True, text=True, timeout=60, check=False
-    )
+    done = _run_bounded([_shell(), "-c", script], cwd=tmp_path, timeout=20)
     assert done.returncode == 0, done.stderr
     assert sorted(p.name for p in tmp_path.iterdir()) == before, "the gate must not create or remove a file"
     if case == "both_present_and_non_empty":
@@ -161,6 +220,34 @@ def test_rendered_gate_script_run_in_a_shell(tmp_path: Path, case: str) -> None:
         assert "WITHOUT" in done.stderr
     if case == "empty_directory":
         assert before == []
+
+
+def _pid_is_alive(pid: int) -> bool:
+    if sys.platform == "win32":
+        listing = subprocess.run(
+            ["tasklist", "/FI", f"PID eq {pid}", "/NH"],
+            stdin=subprocess.DEVNULL,
+            capture_output=True,
+            text=True,
+            timeout=30,
+            check=False,
+        )
+        return str(pid) in listing.stdout
+    try:
+        os.kill(pid, 0)
+    except ProcessLookupError:
+        return False
+    return True
+
+
+def test_a_gate_script_that_never_exits_fails_fast_and_leaves_no_process() -> None:
+    pids: list[int] = []
+    started = time.monotonic()
+    with pytest.raises(pytest.fail.Exception, match="did not exit within 3"):
+        _run_bounded([_shell(), "-c", "while true; do sleep 1; done"], timeout=3, pids=pids)
+    assert time.monotonic() - started < 15
+    assert len(pids) == 1
+    assert not _pid_is_alive(pids[0]), "the shell must be gone after the timeout"
 
 
 def test_init_container_declares_requests_and_limits_from_values() -> None:
