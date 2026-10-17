@@ -1,0 +1,110 @@
+id: TC-554
+gate: G3
+lane: verification
+purpose: >-
+  REQ-G3-008 and REQ-G3-005 (operator decision 2026-10-16: every pilot indexes its WHOLE public surface; final QA round 2026-10-17, group C, finding P1-2). A MEMBER LINE MUST BE ONE LINE. src/foss_mcp/indexing/chunk_builder.py
+  renders each method as `  - name(params) -> ret` and each property as `  - name: type`, and the serving tools (get_symbol `_extract_block`, list_members, search_symbols, `Type.member` resolution) read
+  a `Methods:` / `Properties:` block as the run of consecutive lines that start with `  - `. A parameter type or default that the extraction recorded over several lines (a TypeScript object-literal type
+  with comments and line breaks) is rendered with its raw newlines, so the block ends at the first continuation line and every later member is invisible. Measured on the shipped image foss-mcp-serving:demo-trial4
+  (pdf/typescript): `Document.AddMarkdown` has the parameter type `MarkdownFlowOptions & FlowOptions & {\n      /** Document title ... */\n      title?: string;\n    }`, the block stops there, so 23 of
+  the 111 methods of `document.Document` (Merge, Append, Redact, RedactText, ApplyRedactions, ReplaceText, FlattenForm, AddWatermark, Booklet, NUp, RemovePage ...) and 20 of the 62 methods of `page.Page`
+  (AddImage, AddTable, AddTOC, AddBarcode, AddHtml, ToSvg, ToImage, ToDocx, Redact ...) are missing from `methods`, `list_members` and `get_symbol document.Document.Merge` answers a false `declares no member
+  named 'Merge'`. Measured on the committed fixtures: 33 members in 4 pilots carry a newline in a parameter type, return type or property type (pdf_typescript 21, cells_typescript 10, 3d_typescript 1, pdf_cpp
+  1). THE FIX is at the one place the line is made: collapse every run of whitespace (newlines included) in a rendered type and in a rendered default to one space. What does NOT change: the extraction fixtures,
+  the serving tools, any manifest or baked data (the supervisor re-ingests the four pilots after this card), the chunk text of any member whose type has no newline.
+depends_on:
+- TC-523
+- TC-524
+- TC-545
+- TC-550
+- TC-553
+write_paths:
+- src/foss_mcp/indexing/chunk_builder.py
+- tests/indexing/test_chunk_builder_single_line_members.py
+- tests/indexing/test_chunk_builder.py
+- tests/indexing/test_chunk_builder_honesty.py
+- tests/indexing/test_chunk_builder_typescript_marks.py
+- tests/indexing/test_chunk_builder_cpp_signatures.py
+- tests/indexing/test_chunk_builder_modifiers.py
+- tests/indexing/test_chunk_builder_python_signatures.py
+- tests/indexing/test_chunk_builder_go_members.py
+- tests/indexing/test_chunk_builder_stub_pairing.py
+- tests/indexing/test_chunk_builder_coverage_line.py
+- tests/indexing/test_chunk_builder_mixin_suffix.py
+satisfies:
+- REQ-G3-008
+- REQ-G3-005
+source_refs:
+- file: docs/DECISION_LOG.md
+  anchor: >-
+    ## 2026-10-15 — Independent pre-production adversarial review of the shipped image; its findings enter the state machine as cards (operator, supervisor)
+  sha256: d2d82669b8060d5e3a3b9da00e9858e576d5d264d96e32d1aed8034e8d6d9007
+inputs:
+- >-
+  READ FIRST (read only unless it is in write_paths): src/foss_mcp/indexing/chunk_builder.py (`_clean_type`, `_param_text`, `_param_list_text`, `_method_line`, `_property_line`, `_format_type_text`), src/foss_mcp/mcp/tools/get_symbol.py
+  (`_extract_block`: a block is the consecutive lines that start with `  - `; do NOT change it), tests/indexing/test_chunk_builder_typescript_marks.py (the template of a test that builds chunks from a real
+  fixture), tests/fixtures/pdf_typescript/api_surface.json (entry `Document` of file src/document.ts, method `AddMarkdown`, param `options`). Activate the toolchain (scripts/toolchain/activate.ps1) in the
+  SAME shell command as every python or pytest call. Never print an environment value. Verify every name against the merged code and list differences in your report.
+- >-
+  THE CODE CHANGE (chunk_builder.py only, nothing else in src/). (1) In `_clean_type` the text is whitespace-collapsed: after the existing `strip()` and the leading-colon removal, the function contains
+  EXACTLY the line `    text = " ".join(text.split())` before its `return text` (the negative control mutates that exact line, keep its spelling and indentation). (2) In `_param_text` the default is collapsed
+  the same way: `str(default).strip()` is replaced by `" ".join(str(default).split())` in the `has_default` test and in the rendered default. (3) Nothing else: names, modifiers, docstrings and the doc text
+  before `Methods:` are untouched (the doc is free text before the first block header; `_extract_block` only reads from a header on). A type or default with no whitespace run renders byte-identically to
+  today.
+- >-
+  THE NEW TEST FILE tests/indexing/test_chunk_builder_single_line_members.py (YOU CREATE IT; offline, deterministic, no skips, no network, no wall clock; at least 14 tests). Synthetic: a method whose parameter
+  type contains a newline and comment (`MarkdownFlowOptions & {\n  /** t */\n  title?: string;\n}`) renders ONE line; a following method is still in the block (`_extract_block(text, 'Methods:')` length
+  equals the number of methods); a return type with a newline; a property type with a newline; a default with a newline; a tab and a carriage return are collapsed; a type without whitespace runs is byte-identical
+  to the old rendering (a plain `string | string[]`, a `Callable[[int], str]`); a type with a double space inside a TypeScript string literal is collapsed too (documented, deliberate). REAL FIXTURES, parametrised
+  over pdf_typescript, cells_typescript, 3d_typescript and pdf_cpp: build the chunks with `build_chunks_from_api_surface(fixture, title=key, max_types=<the fixture's type_count>)` and for EVERY symbol chunk
+  assert (a) no line between a `Methods:` / `Properties:` / `Members:` header and the next blank line fails to start with `  - ` (no continuation line), and (b) `len(get_symbol._extract_block(text, 'Methods:'))`
+  equals the count of `  - ` lines under that header. Single tests: `document.Document` of pdf_typescript has all its methods in the block (the count equals the number of distinct rendered method lines
+  of the fixture entry, at least 111 minus the inherited constructors; compute it from the fixture, never type 111), `Merge`, `Append`, `Redact`, `RemovePage` and `AddMarkdown` are all declared members
+  of that chunk (use `get_symbol._declared_members`), and the same for `page.Page` with `AddImage`, `AddTable`, `ToSvg`, `Redact`. Compute every expected number from the fixture.
+- >-
+  Existing tests: run `tests/indexing` first and keep the failures. If a test pins a rendered line that contained a newline or a run of spaces, change ONLY that expectation to the collapsed line with the
+  comment `TC-554: one-line member`. Never delete, skip or xfail a test, never loosen a check. If a failing test is outside write_paths, stop and report its name. Run `ruff format` and `ruff check` on every
+  Python file you changed, without --force-exclude. Commit once with the subject `fix(indexing): render every member as one line so a multi-line type no longer ends the member block (G3/TC-554)` ending
+  with the Co-Authored-By trailer for the model that did the work; UTF-8 without a byte-order mark; LF. Do NOT edit plans/, project/, ops/, evidence/, schemas/, docs/, infra/ or any fixture, and do not
+  run docker or a cluster command.
+actions:
+- >-
+  Collapse whitespace in every rendered member type and default so a member is one line and the Methods/Properties block is never ended early.
+- >-
+  Add tests/indexing/test_chunk_builder_single_line_members.py (synthetic cases and the four real fixtures that carry a multi-line type) and re-pin only the expectations that legitimately changed.
+checks:
+- command: >-
+    {python} -m pytest tests/indexing/test_chunk_builder_single_line_members.py tests/indexing/test_chunk_builder.py tests/indexing/test_chunk_builder_honesty.py tests/indexing/test_chunk_builder_typescript_marks.py
+    tests/indexing/test_chunk_builder_cpp_signatures.py -q -rfE -p no:cacheprovider
+  expect: exit 0
+  timeout_seconds: 900
+  junitxml: true
+  proves:
+  - REQ-G3-008
+  - REQ-G3-005
+- command: >-
+    {python} -m pytest tests/indexing tests/mcp/tools/test_symbol_tools.py tests/infra/test_build_chunks.py tests/extraction/test_central_classes_indexed.py -q -rfE -p no:cacheprovider -k "not live and
+    not github_http and not repo_native"
+  expect: exit 0
+  timeout_seconds: 1800
+  junitxml: true
+  proves:
+  - REQ-G3-008
+  - REQ-G3-005
+min_tests: 300
+network: true
+requires:
+- python
+negative_control:
+  mutate: |
+    python -X utf8 -c "import pathlib;p=pathlib.Path('src/foss_mcp/indexing/chunk_builder.py');s=p.read_text(encoding='utf-8');q=chr(34);n=chr(10);old='    text = '+q+' '+q+'.join(text.split())'+n;assert s.count(old)==1;p.write_text(s.replace(old,'    text = text'+n),encoding='utf-8')"
+  rationale: >-
+    Removes the whitespace collapse of `_clean_type`, so a TypeScript parameter type with a newline is rendered with a raw newline again, the Methods block of pdf_typescript Document ends at AddMarkdown,
+    and the new real-fixture tests (no continuation line; block length equals the number of member lines; Document has Merge) fail. A real break of the card's central claim.
+evidence:
+- evidence/build/G3/TC-554/receipt.json
+closeout:
+- >-
+  A member of a symbol chunk is always one line: a multi-line parameter type, return type, property type or default is collapsed to single spaces, so the Methods and Properties blocks of pdf/typescript,
+  cells/typescript, 3d/typescript and pdf/cpp are complete. Nothing a peer sees changes until the supervisor re-ingests those four pilots.
+recovery: Re-run from a clean tree.

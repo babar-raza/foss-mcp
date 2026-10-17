@@ -1,0 +1,145 @@
+id: TC-555
+gate: G3
+lane: extraction
+purpose: >-
+  REQ-G3-008 and REQ-G3-005 (operator decision 2026-10-16: no pilot is partial; final QA round 2026-10-17, group C, finding P1-1). TEX/PYTHON INDEXES 4 OF ITS 15 PUBLIC NAMES. At the pinned commit 181015d2ee
+  (which is also the upstream HEAD) two files of aspose-tex-foss/Aspose.TeX-FOSS-for-Python are not valid Python AS WRITTEN: src/aspose_tex/_input/reader.py and src/aspose_tex/presentation/__init__.py have
+  lost their indentation (every indented line has exactly ONE leading space, a `def` is followed by its docstring at the same column, an `if` by its body at the same column). `ast.parse` refuses them (`expected
+  an indented block after function definition on line 52`), the extractor (`_module_symbols` of src/foss_mcp/extraction/tree_sitter_engine/python_surface.py) records two `syntax-error` entries in `unresolved`
+  and drops the two modules, so TeXJob, TeXOptions, OutputFormat, PdfDevice, DviDevice, SvgDevice, OutputDevice, InputSource, FileInputSource, StringInputSource and create_input_source (the names the README
+  builds on) are absent and only the four exception classes are indexed. The declarations themselves are intact: class and def lines, decorators, signatures, annotations, class-level fields. THIS CARD makes
+  the extractor RECOVER THE DECLARATIONS of such a file instead of dropping it: when `ast.parse` fails with an indentation-collapse error, the source is repaired TEXTUALLY by closing every compound-statement
+  header whose body is missing with ` pass`, and parsed again; function bodies are lost (they are not API), signatures are kept. Prototype by the supervisor on the real files: reader.py -> 42 repairs, classes
+  SourceLocation, InputSource, FileInputSource, StringInputSource, InputReader (+ private ones) with their methods; presentation/__init__.py -> 36 repairs, OutputFormat, TeXOptions, OutputDevice, DviDevice,
+  PdfDevice, SvgDevice, TeXJob, create_input_source. The repair is DISCLOSED, never silent: each repaired file adds one entry `<module>:<line>:repaired-syntax:<file>:<n> header lines closed with pass` to
+  `unresolved` (so UNRESOLVED_EXCEPTIONS and the extraction notice say it), and a file that still does not parse after the bounded repair keeps today's `syntax-error` entry. Then tex_python is re-extracted
+  at its chart pin, re-pinned, and the supervisor re-ingests it. What does NOT change: any other pilot's fixture (the repair only runs on a file that already fails to parse, and every other committed fixture
+  has no `syntax-error` entry), the tree-sitter engine, serving, manifests.
+depends_on:
+- TC-522
+- TC-545
+- TC-550
+- TC-553
+- TC-554
+write_paths:
+- src/foss_mcp/extraction/tree_sitter_engine/python_surface.py
+- tests/extraction/tree_sitter_engine/test_python_surface_repair.py
+- tests/extraction/test_tex_python_extraction.py
+- tests/fixtures/tex_python/api_surface.json
+- tests/fixtures/readme_identifier_allowlist.json
+- tests/extraction/test_python_fixture_gaps.py
+- tests/extraction/test_docs_identifiers_resolve.py
+- tests/extraction/test_central_classes_python.py
+- tests/deploy/test_fleet_consistency.py
+- tests/deploy/test_served_provenance.py
+- tests/indexing/test_chunk_builder_coverage_line.py
+- tests/infra/test_build_chunks_extraction_notice.py
+- tests/infra/test_build_chunks_parse_failures_notice.py
+- tests/mcp/tools/test_coverage_note.py
+- infra/build_chunks.py
+satisfies:
+- REQ-G3-008
+- REQ-G3-005
+source_refs:
+- file: docs/DECISION_LOG.md
+  anchor: >-
+    ## 2026-10-15 — Independent pre-production adversarial review of the shipped image; its findings enter the state machine as cards (operator, supervisor)
+  sha256: d2d82669b8060d5e3a3b9da00e9858e576d5d264d96e32d1aed8034e8d6d9007
+inputs:
+- >-
+  READ FIRST: src/foss_mcp/extraction/tree_sitter_engine/python_surface.py (`_module_symbols`: the `ast.parse(...)` in a `try/except SyntaxError` that returns `[], ["<module>:<line>:syntax-error:<file>:<msg>"]`;
+  and `_find_class`, which parses a module again to follow a re-export and returns None on SyntaxError), tests/extraction/test_tex_python_extraction.py (its docstring explains the current limitation and
+  pins it), the `unresolved` list of tests/fixtures/tex_python/api_surface.json (2 `syntax-error` and 12 `unresolved-reexport` entries today), infra/build_chunks.py (how `unresolved` entries become the
+  `Extraction notice` document: look for `syntax-error`), tests/infra/test_build_chunks_extraction_notice.py, tests/infra/test_build_chunks_parse_failures_notice.py, tests/deploy/test_fleet_consistency.py
+  (`UNRESOLVED_EXCEPTIONS`, `STALE_BAKED_PILOTS`, `COVERAGE_EXCEPTIONS`), tests/extraction/test_docs_identifiers_resolve.py and tests/fixtures/readme_identifier_allowlist.json, tests/extraction/reextraction_checks.py
+  (read only; helper functions), and the TC-550 card plans/TC-550.yaml for the re-extraction command and the chart-pin rule. Activate the toolchain (scripts/toolchain/activate.ps1) in the SAME shell command
+  as every python or pytest call, set PYTHONPATH=src. Never print an environment value. Verify every name against the merged code; list the differences in your report.
+- >-
+  THE REPAIR (python_surface.py; the only src/ file you edit apart from infra/build_chunks.py below). Add a module-private helper `_parse_repairing_collapsed_indentation(text: str, filename: str) -> tuple[ast.Module,
+  int]` that returns the parsed tree and the number of repairs (0 when the text parses as written) or raises the ORIGINAL SyntaxError when it cannot recover. Algorithm (prototyped by the supervisor; reproduce
+  its behaviour): split the text into lines; up to `_MAX_REPAIRS = 2000` times: try `ast.parse`; on a SyntaxError whose `msg` starts with `expected an indented block` the header is the nearest non-blank
+  line BEFORE `lineno` and, if its stripped text ends with `:`, the repair appends ` pass` to it (a header whose last line does not end with `:` re-raises the original error); on `expected 'except' or 'finally'
+  block` the offending header is the `try:` line reported by the error (the nearest `try:` line at or before `lineno`), and it is replaced by `<indent>if True: pass`; after ANY `try:` repair, every line
+  whose stripped text is `except ...:` or `finally:` is replaced by `<indent>if False: pass` (a collapsed ladder cannot be a ladder); on a plain `invalid syntax` error whose line is `else:` or starts with
+  `elif ` (an else whose `if` was neutralised) replace that line by `<indent>if False: pass`. Any other SyntaxError re-raises the original. The two literal strings are module constants and the file contains
+  EXACTLY the line `_REPAIR_TRY = "if True: pass"` (the negative control mutates it; keep its spelling) used for the `try:` replacement. Line numbers never change (the repair only edits lines in place),
+  so `lineno` of every kept declaration is the real one. `_module_symbols` and `_find_class` call the helper instead of `ast.parse`; when the count is > 0, `_module_symbols` adds the entry `<module>:<first
+  repaired line>:repaired-syntax:<relative file>:<count> header lines closed with pass` to its unresolved list in addition to the symbols it now returns. Never repair a file that parses; never change the
+  symbols of a file that parses.
+- >-
+  infra/build_chunks.py and its tests: the `Extraction notice` today lists `syntax-error` entries as files that could not be parsed. Make a `repaired-syntax` entry produce an honest sentence of the notice
+  (the file parsed only after its indentation was repaired; declarations and signatures are indexed, function bodies and docstrings of its functions are not), without changing the notice of any pilot that
+  has none. If the notice needs no change because it prints every unresolved entry verbatim, say so in the report and add the test that proves it.
+- >-
+  THE NEW TEST FILE tests/extraction/tree_sitter_engine/test_python_surface_repair.py (YOU CREATE IT; offline, deterministic, no network, at least 16 tests). Synthetic collapsed sources (write them inline):
+  a class with a method and a docstring at the def's column is recovered with the class and the method; a function with `if/else` bodies; a `try/except/finally` ladder; a `for`, `while`, `with`; a decorator
+  stack kept; a multi-line signature `def f(\n a,\n b) -> int:`; annotated class fields kept (a dataclass-like body); a file that parses as written is returned with 0 repairs and the SAME tree; a file with
+  a real unrelated syntax error (`def f(:`) still raises and yields the `syntax-error` entry; the repair count is reported; line numbers of declarations equal their real lines; `_module_symbols` on a temp
+  package with a collapsed `__init__.py` re-exporting a collapsed module resolves the re-export (no `unresolved-reexport`), returns the public classes and adds exactly one `repaired-syntax` entry per repaired
+  file. Also an anchored test on the real repository text is NOT possible offline; instead pin the two shapes of the real files as inline excerpts (the reader.py `_expand_caret_caret` if/else ladder and
+  the presentation `OutputDevice.__init__` docstring).
+- >-
+  RE-EXTRACT tex_python (needs the network; one command, bounded: if the clone is refused or rate limited do NOT retry in a loop, record BLOCKED_EXTERNAL with the resume predicate `git fetch of aspose-tex-foss/Aspose.TeX-FOSS-for-Python@181015d2ee
+  succeeds`). With the toolchain activated and PYTHONPATH=src, from the repository root: `python -X utf8 -m foss_mcp.extraction.run_extraction config/products/tex/python.yaml tests/fixtures/tex_python/api_surface.json
+  --commit <ingestion.pilots tex/python library.commit of infra/helm/foss-mcp/values.yaml> --keep-names-from tests/fixtures/furnished/tex_python/pages/_index.md --max-types 100000` (confirm the manifest
+  path and the furnished page path in the repository first). The printed `<kept>/<total> types` must be equal and the commit must equal the pin. The fixture must now contain TeXJob, TeXOptions, OutputFormat,
+  PdfDevice, DviDevice, SvgDevice, OutputDevice, InputSource, FileInputSource, StringInputSource, create_input_source (the functions count toward `symbol_counts.functions`), the four exception classes,
+  and its `unresolved` list must hold the two `repaired-syntax` entries and NO `syntax-error` and NO `unresolved-reexport`. If any `unresolved-reexport` remains, find its cause in the clone and report it
+  (an extractor defect is stopped as FAILED_INTERNAL, never allowlisted). The CLI writes the platform line ending; .gitattributes normalises to LF: confirm `git diff --stat` shows a content change, not
+  a whole-file rewrite. The chart/compose `maxTypes` of tex/python stays 300 unless the measured total exceeds 300 (then the three-place rule of TC-550 applies, and RECOMMENDED_MAX_TYPES is not in your
+  write_paths: stop and report).
+- >-
+  RE-PIN what the old fixture pinned (only after the re-extraction; list every change with its reason in the report, comment `TC-555: <old> -> <new>`): tests/extraction/test_tex_python_extraction.py (rewrite
+  its docstring and tests to the recovered surface: the 15 public names are present with their members; the bases of the exception classes unchanged; the two `repaired-syntax` entries are the ONLY unresolved
+  entries; keep every old guard that is still true); tests/fixtures/readme_identifier_allowlist.json with the helper only (`python -X utf8 -m tests.extraction.docs_identifiers --write`, then read `git diff`:
+  only the tex_python key may change); tests/deploy/test_fleet_consistency.py: tex_python's UNRESOLVED_EXCEPTIONS entry becomes `2` with a reason naming the two repaired files (or the entry's wording is
+  updated to the new kind), and tex_python joins STALE_BAKED_PILOTS with the TC-550 wording because the baked generation still says `4 of 4 types` until the supervisor re-ingests; tests/extraction/test_python_fixture_gaps.py,
+  tests/extraction/test_central_classes_python.py, tests/deploy/test_served_provenance.py, tests/indexing/test_chunk_builder_coverage_line.py, tests/infra/test_build_chunks_extraction_notice.py, tests/infra/test_build_chunks_parse_failures_notice.py
+  and tests/mcp/tools/test_coverage_note.py only where the second check shows that they pin the old tex facts. Never delete, skip or xfail a test and never loosen a check; if a failing test is outside write_paths,
+  stop and report its name and the pinned fact. A README-named identifier of tex that stays unresolved and looks like an API symbol is reported (not allowlisted silently). Run `ruff format` and `ruff check`
+  on every Python file you changed, without --force-exclude. Commit once with the subject `fix(extraction): recover the declarations of a Python file whose indentation is collapsed and re-extract tex/python
+  complete (G3/TC-555)` ending with the Co-Authored-By trailer for the model that did the work; UTF-8 without a byte-order mark; LF. Do NOT edit plans/, project/, ops/, evidence/, schemas/, docs/, infra/demo-manifests,
+  any other fixture, and do not run docker or a cluster command.
+actions:
+- >-
+  Recover the declarations of a Python file whose indentation is collapsed (disclosed as a `repaired-syntax` unresolved entry) and re-extract tex_python at its chart pin so its whole public surface is indexed.
+- >-
+  Add tests/extraction/tree_sitter_engine/test_python_surface_repair.py and re-pin the tex_python tests, the README-identifier allowlist and the fleet-consistency tables.
+checks:
+- command: >-
+    {python} -m pytest tests/extraction/tree_sitter_engine/test_python_surface_repair.py tests/extraction/test_tex_python_extraction.py tests/extraction/test_python_fixture_gaps.py tests/extraction/test_docs_identifiers_resolve.py
+    tests/deploy/test_fleet_consistency.py tests/infra/test_build_chunks_extraction_notice.py tests/infra/test_build_chunks_parse_failures_notice.py -q -rfE -p no:cacheprovider
+  expect: exit 0
+  timeout_seconds: 1200
+  junitxml: true
+  proves:
+  - REQ-G3-008
+  - REQ-G3-005
+- command: >-
+    {python} -m pytest tests/extraction tests/infra/test_build_chunks.py tests/infra/test_build_chunks_sanitize.py tests/indexing/test_chunk_builder_coverage_line.py tests/mcp/tools/test_coverage_note.py
+    tests/deploy/test_served_provenance.py tests/deploy/test_fleet_consistency.py -q -rfE -p no:cacheprovider -k "not live and not github_http and not repo_native"
+  expect: exit 0
+  timeout_seconds: 3000
+  junitxml: true
+  proves:
+  - REQ-G3-008
+  - REQ-G3-005
+min_tests: 500
+network: true
+requires:
+- python
+- git
+negative_control:
+  mutate: |
+    python -X utf8 -c "import pathlib;p=pathlib.Path('src/foss_mcp/extraction/tree_sitter_engine/python_surface.py');s=p.read_text(encoding='utf-8');q=chr(34);old='_REPAIR_TRY = '+q+'if True: pass'+q;assert s.count(old)==1;p.write_text(s.replace(old,'_REPAIR_TRY = '+q+'try: pass'+q),encoding='utf-8')"
+  rationale: >-
+    Replaces the neutral replacement of a collapsed `try:` header by another `try:` header, so a collapsed try/except ladder can no longer be repaired: the synthetic ladder test and the reader.py excerpt
+    test fail (the file is dropped again), exactly the way the real reader.py was dropped before this card. A real break of the card's central claim.
+evidence:
+- evidence/build/G3/TC-555/receipt.json
+closeout:
+- >-
+  A Python file whose indentation was collapsed upstream no longer disappears from the index: its declarations are recovered by a bounded textual repair and disclosed as a `repaired-syntax` unresolved entry;
+  tex_python is re-extracted at its chart pin and holds TeXJob, TeXOptions, OutputFormat, the devices, the input sources and the four exception classes. Nothing a peer sees changes until the supervisor
+  re-ingests tex/python.
+recovery: Re-run from a clean tree.
