@@ -1,0 +1,116 @@
+{
+  "schema_version": 1,
+  "card": "TC-542",
+  "gate": "G3",
+  "generated_by": "gatectl",
+  "generated_at": "2026-10-17T04:21:05Z",
+  "base_rev": "64a15cd2bee73b053445618c4a3d7cbdb3fa6d79",
+  "head_rev": "5d7f8edeab90f867c59e842c7472e4ecbda411c7",
+  "card_sha256": "c00b55366205590390a09ebc087db6cf15913799e1a6608096eb752259d3ad9f",
+  "fingerprint": {
+    "python": "3.13.2",
+    "platform": "Windows-11-10.0.26200-SP0",
+    "lock_sha256": "7b182948484d7df9614b523f7a8180f795b6c51d55c418728525c1957f3e38ba",
+    "env": {
+      "PYTHONHASHSEED": "0",
+      "PYTHONUTF8": "1",
+      "PYTHONDONTWRITEBYTECODE": "1",
+      "PYTHONIOENCODING": "utf-8",
+      "TZ": "UTC",
+      "LC_ALL": "C.UTF-8",
+      "SOURCE_DATE_EPOCH": "1700000000",
+      "verify_runner": "host"
+    }
+  },
+  "scope": {
+    "ok": true,
+    "changed_paths": [
+      "src/foss_mcp/mcp/response_envelope.py",
+      "src/foss_mcp/mcp/server.py",
+      "src/foss_mcp/mcp/tools/get_product_reference.py",
+      "tests/mcp/test_empty_release_note.py",
+      "tests/mcp/tools/test_get_product_reference_platforms.py",
+      "tests/mcp/tools/test_java_compatibility_unit.py",
+      "tests/mcp/tools/test_product_reference_readme_content.py"
+    ],
+    "violations": [],
+    "evaluated": true
+  },
+  "runs": [
+    {
+      "run": 1,
+      "checks": [
+        {
+          "command": "{python} -m pytest tests/mcp/test_empty_release_note.py tests/mcp/tools/test_java_compatibility_unit.py tests/mcp/tools/test_get_product_reference_platforms.py tests/mcp/tools/test_product_reference_readme_content.py -q -rfE -p no:cacheprovider",
+          "exit_code": 0,
+          "duration_s": 7.242,
+          "stdout_sha256": "5cc94952df5ebb59eb97cea35eedefefc9bc8ee09bf43ecf7e857f24779709bc",
+          "tests": 301,
+          "skipped": 0,
+          "errors": 0,
+          "failures": 0
+        },
+        {
+          "command": "{python} -m pytest tests/mcp tests/infra/test_serve_http.py tests/infra/test_serve_manifest_sidecar.py tests/test_unwired_modules.py -q -rfE -p no:cacheprovider",
+          "exit_code": 0,
+          "duration_s": 77.861,
+          "stdout_sha256": "b98dd250c5ef06e1e17dce56a36390a47082f333a5e94dc45ac6b0b13f90c1a3",
+          "tests": 2717,
+          "skipped": 0,
+          "errors": 0,
+          "failures": 0
+        }
+      ],
+      "all_passed": true
+    },
+    {
+      "run": 2,
+      "checks": [
+        {
+          "command": "{python} -m pytest tests/mcp/test_empty_release_note.py tests/mcp/tools/test_java_compatibility_unit.py tests/mcp/tools/test_get_product_reference_platforms.py tests/mcp/tools/test_product_reference_readme_content.py -q -rfE -p no:cacheprovider",
+          "exit_code": 0,
+          "duration_s": 1.964,
+          "stdout_sha256": "5cc94952df5ebb59eb97cea35eedefefc9bc8ee09bf43ecf7e857f24779709bc",
+          "tests": 301,
+          "skipped": 0,
+          "errors": 0,
+          "failures": 0
+        },
+        {
+          "command": "{python} -m pytest tests/mcp tests/infra/test_serve_http.py tests/infra/test_serve_manifest_sidecar.py tests/test_unwired_modules.py -q -rfE -p no:cacheprovider",
+          "exit_code": 0,
+          "duration_s": 65.934,
+          "stdout_sha256": "b98dd250c5ef06e1e17dce56a36390a47082f333a5e94dc45ac6b0b13f90c1a3",
+          "tests": 2717,
+          "skipped": 0,
+          "errors": 0,
+          "failures": 0
+        }
+      ],
+      "all_passed": true
+    }
+  ],
+  "negative_control": {
+    "kind": "mutate",
+    "patch": "python -X utf8 -c \"import pathlib;p=pathlib.Path('src/foss_mcp/mcp/response_envelope.py');s=p.read_text(encoding='utf-8');q=chr(34);old='if tool == '+q+'list_recent_changes'+q+' and isinstance(payload, list) and not payload:';assert s.count(old)==1;p.write_text(s.replace(old,'if False:'),encoding='utf-8')\"\n",
+    "patch_sha256": "481286e3945aed569e2a11fcb0684787eae2d78a232d5bc8e74b74561c231e37",
+    "applied": true,
+    "patch_applied_failed": true,
+    "exit_codes": [
+      1,
+      1
+    ],
+    "tree_changed": [
+      "M src/foss_mcp/mcp/response_envelope.py",
+      "?? .junit-0.xml",
+      "?? .junit-1.xml"
+    ]
+  },
+  "holdout": {
+    "ran": false,
+    "passed": true,
+    "detail": "no holdout for this card"
+  },
+  "accepted": true,
+  "reason": "all gates passed"
+}
