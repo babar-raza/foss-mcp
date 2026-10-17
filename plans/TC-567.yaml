@@ -1,0 +1,79 @@
+id: TC-567
+gate: G3
+lane: verification
+purpose: >-
+  REQ-G3-009 row RD3-151 and the operator's order to make the local CI gate green before the push (2026-10-17). THE PDF/TYPESCRIPT LIVE-CONTENT E2E TEST STILL PINS THE OLD MIXED GENERATION. tests/e2e/test_pdf_typescript_live_content.py
+  was written when the pdf/typescript index was mixed by construction: API symbols at the fixture commit REAL_SOURCE_COMMIT = c672b3918318 and documentation and examples at the compile-verified pin REAL_EXAMPLE_SOURCE_COMMIT
+  = 155bfc7a33f0. Card TC-550 re-extracted the fixture at the chart pin 155bfc7a33f0 (one consistent commit wins over freshness; docs/DECISION_LOG.md 2026-10-15) and the supervisor's re-ingest baked a generation
+  whose every chunk records 155bfc7a33f0. At HEAD scripts/ci_check.sh fails exactly one test of this file: test_report_index_freshness_reports_the_real_fresh_generation asserts `set(recorded) == {REAL_SOURCE_COMMIT,
+  REAL_EXAMPLE_SOURCE_COMMIT}` and got only {155bfc7a33f0}. THIS CARD re-pins the file to the single-commit reality and nothing else: the test must now prove what the TC-550 decision promises (ONE recorded
+  commit equal to the chart pin on every kind of chunk, fresh against that commit, stale and honest against any other) instead of the retired mixed shape. What does NOT change: any src/, infra/, fixture,
+  baked data or other test; no assertion is deleted, skipped or xfailed; a test that guarded a defect keeps its guard.
+depends_on:
+- TC-550
+- TC-553
+- TC-554
+- TC-555
+- TC-556
+write_paths:
+- tests/e2e/test_pdf_typescript_live_content.py
+satisfies:
+- REQ-G3-009
+- REQ-G3-008
+source_refs:
+- file: docs/DECISION_LOG.md
+  anchor: >-
+    ## 2026-10-17 — Round-3 independent review of the shipped image: 82 findings registered, nothing executed (operator, supervisor)
+  sha256: 79a36f6c8885f87bffc9a79b6d6fdedadecd7b4860735bdd1723072caa4f3970
+inputs:
+- >-
+  Start from the commit the supervisor issues. Activate the toolchain (scripts/toolchain/activate.ps1) in the SAME shell command as every python or pytest call. Never print an environment value. READ FIRST:
+  tests/e2e/test_pdf_typescript_live_content.py (the module docstring, the pins REAL_SOURCE_COMMIT and REAL_EXAMPLE_SOURCE_COMMIT around lines 89-128, the session fixture, and `test_report_index_freshness_reports_the_real_fresh_generation`
+  around lines 335-380), tests/fixtures/pdf_typescript/api_surface.json (its `source_commit`), infra/helm/foss-mcp/values.yaml (the pdf/typescript pin), tests/deploy/test_e2e_pins_match_shipped_data.py
+  (what it pins about this file).
+- >-
+  THE CHANGE. (1) Make the two pins one: `REAL_SOURCE_COMMIT = "155bfc7a33f0ba23fb4252b6ba201828b02a5b9d"` (write this exact line, the negative control mutates it) and `REAL_EXAMPLE_SOURCE_COMMIT = REAL_SOURCE_COMMIT`,
+  with a comment `TC-567: one commit since TC-550 re-extracted at the chart pin (was c672b39 for symbols)`; rewrite the comments and docstrings that describe the mixed index so they are true. (2) Rewrite
+  `test_report_index_freshness_reports_the_real_fresh_generation` for a single-commit index: the report names a real generation id (`pdf::typescript::self_extracted::...`), `source_commits` has exactly
+  ONE entry whose commit is the pin and which counts symbol chunks (at least 300 and, if the live data allows, equal to the fixture's type_count), documentation chunks and example chunks all greater than
+  zero; `current_source_commit` = the pin is fresh with no mismatch reason; a different but well-formed commit is reported stale and the reason lists the real indexed commit. Keep the behaviours the old
+  test proved that still hold (never a bare 'never published'; both commits listed when they differ is replaced by the one-commit statement). (3) Every other test of the file keeps its assertions; if another
+  test fails for the same stale pin, change only its pinned commit, with the comment `TC-567`. (4) If tests/deploy/test_e2e_pins_match_shipped_data.py (outside write_paths) fails because of the new pins,
+  stop and report its assertion; do not edit it.
+- >-
+  THE LIVE SERVICE. The e2e tests talk to the compose service at http://127.0.0.1:8081 that the session fixture starts (docker compose with the ingest and serving services of docker-compose.yml). Check
+  how the fixture starts it, run the file's tests as they run in scripts/ci_check.sh (the repository default `pytest` run), and clean up anything you start (docker compose down) before you report. If Docker
+  or the network is unavailable report BLOCKED_ENV with the exact error; do not weaken a test to pass.
+- >-
+  Run ruff format and ruff check on the file. Commit once with the subject `test(e2e): pin the pdf/typescript live-content test to the single re-extracted commit (G3/TC-567)` ending with the Co-Authored-By
+  trailer for the model that did the work; LF, UTF-8 without BOM. Do not edit plans/, project/, ops/, evidence/, schemas/, docs/, src/, infra/ or any fixture.
+actions:
+- >-
+  Re-pin tests/e2e/test_pdf_typescript_live_content.py to the single commit 155bfc7a33f0 and rewrite the freshness test for a single-commit index.
+checks:
+- command: >-
+    {python} -m pytest tests/e2e/test_pdf_typescript_live_content.py tests/deploy/test_e2e_pins_match_shipped_data.py -q -rfE -p no:cacheprovider
+  expect: exit 0
+  timeout_seconds: 2400
+  junitxml: true
+  proves:
+  - REQ-G3-009
+  - REQ-G3-008
+min_tests: 10
+network: true
+requires:
+- python
+- git
+- docker
+negative_control:
+  mutate: |
+    python -X utf8 -c "import pathlib;p=pathlib.Path('tests/e2e/test_pdf_typescript_live_content.py');s=p.read_text(encoding='utf-8');q=chr(34);old='REAL_SOURCE_COMMIT = '+q+'155bfc7a33f0ba23fb4252b6ba201828b02a5b9d'+q;assert s.count(old)==1;p.write_text(s.replace(old,'REAL_SOURCE_COMMIT = '+q+'155bfc7a33f0ba23fb4252b6ba201828b02a5b9e'+q),encoding='utf-8')"
+  rationale: >-
+    Changes the last character of the pinned commit, so the live freshness report (which records the real 155bfc7a33f0ba23fb4252b6ba201828b02a5b9d) no longer equals the pin and the rewritten freshness test
+    fails at once. A real break of the card's claim (the test proves the single commit the index really carries).
+evidence:
+- evidence/build/G3/TC-567/receipt.json
+closeout:
+- >-
+  The pdf/typescript live-content e2e test describes and proves the single-commit index that TC-550 and the re-ingest produced; the local CI gate no longer fails on the retired mixed-generation pin.
+recovery: Re-run from a clean tree.
