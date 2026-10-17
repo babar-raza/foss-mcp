@@ -713,6 +713,31 @@ def _worker_commit_guard(card: str) -> int:
     return G.EXIT_OK
 
 
+# The baked demo data and the verification caches are refreshed by the supervisor from the validated
+# cluster after each content wave (docs/DECISION_LOG.md 2026-10-11 and 2026-10-17). They are data, not
+# product code. A path under them can only be an in-flight worker's work if an OPEN card lists it in its
+# write_paths; otherwise it cannot be swept by mistake, and refusing the commit only forces the supervisor
+# to wait for an unrelated worker (2026-10-17: the second data refresh was blocked by TC-553).
+SUPERVISOR_DATA_PREFIXES = ("infra/demo-manifests/", "tests/fixtures/verified_examples/")
+
+
+def supervisor_data_not_owned_by_open_card(path: str, open_dispatches: list) -> bool:
+    """True when *path* is supervisor-owned data and no open dispatch's card (as issued) may write it.
+
+    Strict on any doubt: a card that cannot be read counts as owning the path.
+    """
+    if not path.startswith(SUPERVISOR_DATA_PREFIXES):
+        return False
+    for ins in open_dispatches:
+        try:
+            card, _ = G.load_card_at_rev(ins["target_card"], ins["issue_rev"])
+        except SystemExit:
+            return False
+        if G.matches_any(path, card.get("write_paths", []) or []):
+            return False
+    return True
+
+
 def cmd_commit_guard(args) -> int:
     """Refuse to let the supervisor sweep a worker's uncommitted work into its own commit.
 
@@ -751,8 +776,10 @@ def cmd_commit_guard(args) -> int:
     # G.git() strips its output, which eats the leading space of porcelain's
     # first line and makes fixed-width slicing lose a character. Use the raw
     # runner so "XY<space>PATH" stays intact.
-    _, out, _ = G.run(["git", "status", "--porcelain"])
+    # -uall: list every untracked file, not a collapsed directory, so each path can be judged on its own.
+    _, out, _ = G.run(["git", "status", "--porcelain", "-uall"])
     product = []
+    open_dispatches = _all_open_dispatches()
     for line in out.splitlines():
         if len(line) < 4:
             continue
@@ -764,6 +791,8 @@ def cmd_commit_guard(args) -> int:
             continue
         if G.matches_any(path, G.GLOBAL_DENY) or path.startswith("docs/"):
             continue  # supervisor-owned or shared documentation
+        if supervisor_data_not_owned_by_open_card(path, open_dispatches):
+            continue  # supervisor-owned baked data that no open card is allowed to write
         product.append(path)
 
     if product:

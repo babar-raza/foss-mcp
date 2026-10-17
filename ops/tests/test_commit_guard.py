@@ -141,6 +141,67 @@ def test_a_rework_dispatch_at_a_new_attempt_reopens_the_guard(repo):
     assert run_guard() == G.EXIT_OK
 
 
+def _commit_card(repo, card, write_paths):
+    plans = repo / "plans"
+    plans.mkdir(exist_ok=True)
+    body = f"id: {card}\nwrite_paths:\n" + "".join(f"- {p}\n" for p in write_paths)
+    (plans / f"{card}.yaml").write_text(body, encoding="utf-8")
+    sh(repo, "add", "-A")
+    sh(repo, "-c", "user.email=t@example.com", "-c", "user.name=t", "commit", "-q", "-m", f"card {card}")
+    return sh(repo, "rev-parse", "HEAD")
+
+
+def _dispatch_at(repo, card, rev):
+    line = {
+        "ts": "2026-10-17T00:00:00Z",
+        "target_card": card,
+        "kind": "dispatch",
+        "instruction": "go",
+        "card_sha256": "0" * 64,
+        "issue_rev": rev,
+        "attempt": 1,
+    }
+    with G.INSTRUCTIONS_JSONL.open("a", encoding="utf-8") as fh:
+        fh.write(json.dumps(line) + "\n")
+
+
+def test_baked_data_no_open_card_may_write_is_not_blocked_while_a_dispatch_is_open(repo):
+    """2026-10-17: the supervisor's data refresh was refused because an unrelated card was in flight."""
+    rev = _commit_card(repo, "TC-998", ["src/other.py"])
+    _dispatch_at(repo, "TC-998", rev)
+    data = repo / "infra" / "demo-manifests" / "pdf__net__self_extracted"
+    data.mkdir(parents=True)
+    (data / "active_pointer.json").write_text("{}\n", encoding="utf-8")
+    assert run_guard() == G.EXIT_OK
+
+
+def test_baked_data_an_open_card_lists_is_still_blocked(repo):
+    rev = _commit_card(repo, "TC-998", ["infra/demo-manifests/**"])
+    _dispatch_at(repo, "TC-998", rev)
+    data = repo / "infra" / "demo-manifests" / "pdf__net__self_extracted"
+    data.mkdir(parents=True)
+    (data / "active_pointer.json").write_text("{}\n", encoding="utf-8")
+    assert run_guard() == G.EXIT_FAIL
+
+
+def test_baked_data_with_an_unreadable_card_is_blocked(repo):
+    dispatch(repo, card="TC-998")  # issue_rev is not a commit: the card cannot be read
+    data = repo / "infra" / "demo-manifests" / "pdf__net__self_extracted"
+    data.mkdir(parents=True)
+    (data / "active_pointer.json").write_text("{}\n", encoding="utf-8")
+    assert run_guard() == G.EXIT_FAIL
+
+
+def test_other_product_paths_are_still_blocked_next_to_exempt_data(repo):
+    rev = _commit_card(repo, "TC-998", ["src/other.py"])
+    _dispatch_at(repo, "TC-998", rev)
+    data = repo / "infra" / "demo-manifests" / "pdf__net__self_extracted"
+    data.mkdir(parents=True)
+    (data / "active_pointer.json").write_text("{}\n", encoding="utf-8")
+    (repo / "src_module.py").write_text("x = 1\n", encoding="utf-8")
+    assert run_guard() == G.EXIT_FAIL
+
+
 def test_governance_paths_are_never_blocked_even_with_a_dispatch_open(repo):
     """GLOBAL_DENY/docs stay exempt regardless of dispatch state - a supervisor
     editing its own governance files is never mistaken for swept worker work."""
