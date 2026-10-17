@@ -102,9 +102,10 @@ Every pilot exposes the same nine tools. Thin or missing data surfaces as an hon
 
 This image is a release candidate for peer testing. The independent review of it is not complete.
 
-- The index of the largest libraries is partial: pdf/java, for example, holds 300 of 1,239 types. Symbol chunks of a
-  partially indexed pilot carry an `API-Coverage:` line, and misses carry a `coverage_note`; a miss does not prove a
-  type is absent upstream.
+- Every pilot indexes the whole public surface the extractor found at its pinned commit: pdf/java, for example, holds
+  1,239 of 1,239 types, and pdf/typescript 1,333 of 1,333 types and 3,060 of 3,060 functions. Symbol chunks carry an
+  `API-Coverage:` line that states it, and a miss carries a `coverage_note` only when an index is partial. The index
+  holds the public surface only, so a miss does not prove a symbol is absent upstream.
 - Several extractor and documentation improvements were deferred. Missing members, dropped varargs parameters, missing
   `static` marks and missing parameter documentation are not flagged by any response, so read the library's source or
   README for those.

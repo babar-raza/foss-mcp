@@ -10,6 +10,7 @@ Offline and deterministic.
 from __future__ import annotations
 
 import importlib.util
+import json
 import re
 import sys
 from pathlib import Path
@@ -27,6 +28,7 @@ SERVER = REPO_ROOT / "src" / "foss_mcp" / "mcp" / "server.py"
 LEDGER_TOOL = REPO_ROOT / "scripts" / "release" / "build_review_ledger.py"
 PLANS_DIR = REPO_ROOT / "plans"
 
+FIXTURES = REPO_ROOT / "tests" / "fixtures"
 SECTION_9_HEADING = "## 9. Deferred extraction improvements"
 WHAT_TELLS_HEADING = "### What tells an agent"
 NOT_PART_HEADING = "### Not part of this release"
@@ -35,7 +37,8 @@ CUT_CARD_NUMBERS = {
     "TC-526": ("6 of 6", "34 properties", "259", "1,434"),
     "TC-527": ("8 of 13", "1,037"),
     "TC-528": ("FileExistsError", "e.g."),
-    "TC-531": ("1,239", "193", "33 percent"),
+    # re-pinned by TC-553: ("1,239", "193", "33 percent") -> ("1,239",) (the 193 and 33 percent facts of the 300-type index are gone)
+    "TC-531": ("1,239",),
 }
 
 STALE_PHRASES = (
@@ -102,6 +105,10 @@ def _bullet(section: str, ident: str) -> str:
             break
         out.append(line)
     return " ".join(part.strip() for part in out)
+
+
+def _fixture(key: str) -> dict[str, object]:
+    return dict(json.loads((FIXTURES / key / "api_surface.json").read_text(encoding="utf-8")))
 
 
 def _docker_run_line(text: str) -> str:
@@ -236,8 +243,14 @@ def test_the_readme_says_this_is_a_release_candidate_with_an_incomplete_review()
     flat = " ".join(_readme().split())
     assert "release candidate" in flat
     assert "review of it is not complete" in flat
-    assert "300 of 1,239 types" in flat
+    # re-pinned by TC-553: "300 of 1,239 types" in the README -> not in it; the numbers it states are the committed fixtures'
+    assert "300 of 1,239" not in flat
     assert "coverage_note" in flat
+    java = _fixture("pdf_java")["type_count"]
+    counts = _fixture("pdf_typescript")["symbol_counts"]
+    assert f"{java:,} of {java:,} types" in flat
+    assert f"{counts['types']:,} of {counts['types']:,} types" in flat
+    assert f"{counts['functions']:,} of {counts['functions']:,} functions" in flat
 
 
 def test_the_readme_keeps_its_true_sections() -> None:
@@ -285,7 +298,15 @@ def test_release_section_9_has_the_two_subsections_without_bullets() -> None:
 def test_release_section_9_what_tells_an_agent_names_the_coverage_signals() -> None:
     body = _section_9()
     block = " ".join(body[body.index(WHAT_TELLS_HEADING) : body.index(NOT_PART_HEADING)].split())
-    for needle in ("API-Coverage:", "coverage_note", "indexed_types", "total_types", "300 of 1239 types"):
+    # re-pinned by TC-553: "300 of 1239 types" -> the pdf/java line derived from the committed fixture ("1239 of 1239 types")
+    java = _fixture("pdf_java")["type_count"]
+    for needle in (
+        "API-Coverage:",
+        "coverage_note",
+        "indexed_types",
+        "total_types",
+        f"{java} of {java} types",
+    ):
         assert needle in block, needle
 
 
@@ -348,3 +369,19 @@ def test_the_committed_ledger_row_for_l054_states_the_title_rule() -> None:
     assert "title" in rows[0]
     assert "60%" in rows[0]
     assert "one-word query" not in rows[0]
+
+
+def test_no_document_calls_an_index_partial_while_every_fixture_is_complete() -> None:
+    for name, text in (("README.md", _readme()), ("docs/RELEASE.md", _release())):
+        flat = " ".join(text.split())
+        assert "300 of 1,239" not in flat, name
+        assert "300-type" not in flat, name
+        assert "MIXED index" not in flat, name
+    fixtures = sorted(FIXTURES.glob("*/api_surface.json"))
+    assert len(fixtures) >= 32
+    truncated = [
+        path.parent.name
+        for path in fixtures
+        if json.loads(path.read_text(encoding="utf-8")).get("truncated") is not False
+    ]
+    assert truncated == []

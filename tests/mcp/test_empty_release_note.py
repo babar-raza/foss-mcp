@@ -279,8 +279,9 @@ def test_the_deciding_line_in_the_envelope_appears_once() -> None:
 # --- the 40 baked pilots through the real handler -------------------------------------------------
 
 
-def test_the_baked_pilots_are_forty() -> None:
-    assert len(_pilots()) == 40
+# re-pinned by TC-553: test_the_baked_pilots_are_forty -> test_the_baked_pilots_are_thirty_two (40 -> 32; TC-551 missed this pin)
+def test_the_baked_pilots_are_thirty_two() -> None:
+    assert len(_pilots()) == 32
 
 
 def test_the_served_note_is_present_exactly_for_the_pilots_whose_sidecar_is_empty(tmp_path: Path) -> None:

@@ -563,7 +563,8 @@ PILOTS = committed_pilots()
 
 
 def test_the_committed_data_covers_every_pilot_of_the_chart():
-    assert len(PILOTS) >= 40
+    # re-pinned by TC-553: 40 -> 32 (the eight removed pilots left the chart and the committed data; TC-551 missed this pin)
+    assert len(PILOTS) >= 32
     assert {f"{family}_{platform}" for family, platform in PILOTS} == set(CHART)
 
 

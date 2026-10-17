@@ -7,6 +7,7 @@ through the real GenerationManifestStore and still carries real, non-empty lexic
 
 from __future__ import annotations
 
+import importlib
 import json
 import statistics
 import subprocess
@@ -35,12 +36,25 @@ from foss_mcp.indexing.vector_index_writer import EXAMPLE_MARKER  # noqa: E402
 EXPECTED_SCOPES = 32
 # Re-pinned 2026-10-14 (TC-503, rev-b487453): the final re-ingest grew the tree to 28_069_555 bytes total, median 577_817, largest 2_944_920
 # (the largest-file budget above still holds), because of complete API extraction plus quantised vectors for verified-example chunks.
-# re-pinned by TC-551: 29_500_000 -> 28_000_000
-TREE_BYTES_BUDGET = 28_000_000
-LARGEST_FILE_BYTES_BUDGET = 2_950_000
+# Re-measured 2026-10-17 on the supervisor data commit 58ba5861 (cluster re-ingest of all 32 pilots on rev-e4a6ada): tree 41,687,973 bytes over 32 scopes,
+# median generation file 762,806, largest 5,098,150 (pdf/java), then pdf/typescript 4,767,300, pdf/net 3,430,234, html/python 3,052,169.
+# The tree grew because thirteen pilots now hold their WHOLE public surface (pdf/java 1,239 types, pdf/typescript 1,333 types and 3,060
+# functions, pdf/net 901 types) instead of a 300-type cap. Each budget is the measurement x 1.05 rounded up to the next 10,000.
+# re-pinned by TC-553: 28_000_000 -> 43_780_000
+TREE_BYTES_BUDGET = 43_780_000
+# re-pinned by TC-553: 2_950_000 -> 5_360_000
+LARGEST_FILE_BYTES_BUDGET = 5_360_000
 # TC-503: median re-measured at 577_817 bytes on 2026-10-14 (rev-b487453), see the note above TREE_BYTES_BUDGET.
-# re-pinned by TC-551: 640_000 -> 710_000
-MEDIAN_FILE_BYTES_BUDGET = 710_000
+# re-pinned by TC-553: 710_000 -> 810_000
+MEDIAN_FILE_BYTES_BUDGET = 810_000
+# The lean standalone image was agreed with the operator at 45 MB for the baked tree. Only the operator moves it; a worker never does.
+LEAN_CEILING_BYTES = 45_000_000
+
+
+def budget_is_within_the_lean_ceiling(budget: int, ceiling: int = LEAN_CEILING_BYTES) -> bool:
+    """True when a tree-size budget does not exceed the operator-agreed lean ceiling."""
+    return budget <= ceiling
+
 
 FAMILY, PLATFORM, SOURCE_KIND = "pdf", "go", "self_extracted"
 SCOPE_DIR_NAME = f"{FAMILY}__{PLATFORM}__{SOURCE_KIND}"
@@ -333,6 +347,32 @@ def test_real_tree_is_within_the_lean_budget() -> None:
         statistics.median(sizes),
         MEDIAN_FILE_BYTES_BUDGET,
     )
+
+
+def test_the_tree_budgets_stay_under_the_agreed_lean_ceiling() -> None:
+    # lazy: the sidecars test module imports this one
+    sidecars_test = importlib.import_module("tests.deploy.test_demo_manifests_sidecars")
+
+    assert budget_is_within_the_lean_ceiling(TREE_BYTES_BUDGET), (TREE_BYTES_BUDGET, LEAN_CEILING_BYTES)
+    assert budget_is_within_the_lean_ceiling(sidecars_test.TREE_BYTES_BUDGET), (
+        sidecars_test.TREE_BYTES_BUDGET,
+        LEAN_CEILING_BYTES,
+    )
+    assert LEAN_CEILING_BYTES == 45_000_000
+
+
+def test_the_ceiling_helper_rejects_a_budget_above_the_ceiling() -> None:
+    assert budget_is_within_the_lean_ceiling(45_000_000)
+    assert not budget_is_within_the_lean_ceiling(45_000_001)
+    assert not budget_is_within_the_lean_ceiling(60_000_000)
+    assert budget_is_within_the_lean_ceiling(1_000, ceiling=1_000)
+    assert not budget_is_within_the_lean_ceiling(1_001, ceiling=1_000)
+
+
+def test_release_md_names_the_lean_ceiling_and_this_test_file() -> None:
+    text = " ".join((REPO_ROOT / "docs" / "RELEASE.md").read_text(encoding="utf-8").split())
+    assert "45 MB" in text
+    assert "test_compact_demo_manifests.py" in text
 
 
 def test_real_tree_check_exits_0_so_the_committed_tree_is_already_compact(

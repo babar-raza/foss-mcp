@@ -30,6 +30,11 @@ sys.path.insert(0, str(RELEASE_DIR))
 import compact_demo_manifests as compact  # noqa: E402
 import snapshot_demo_from_cluster as snapshot  # noqa: E402
 
+from tests.deploy.test_compact_demo_manifests import (  # noqa: E402
+    LEAN_CEILING_BYTES,
+    budget_is_within_the_lean_ceiling,
+)
+
 # re-pinned by TC-551: 40 -> 32
 EXPECTED_PILOTS = 32
 # The platform key (as the chart names it) of the pilots that have no package-registry sidecar.
@@ -38,7 +43,11 @@ NO_REGISTRY_PLATFORM = "cpp"
 # (586,028 bytes) plus 40 pointers. The bound carries about 25% headroom.
 # Re-pinned 2026-10-14 (TC-503, rev-b487453): total 28_069_555 bytes (median generation 577_817, largest 2_944_920), grown by complete
 # API extraction plus quantised vectors for verified-example chunks. The bound carries about 5% headroom.
-TREE_BYTES_BUDGET = 29_500_000
+# Re-measured 2026-10-17 on the supervisor data commit 58ba5861 (cluster re-ingest of all 32 pilots on rev-e4a6ada): 41,687,973 bytes over 32 scopes. The tree grew
+# because thirteen pilots now hold their WHOLE public surface (pdf/java 1,239 types, pdf/typescript 1,333 types and 3,060 functions, pdf/net 901
+# types) instead of a 300-type cap. Measurement x 1.05 rounded up to the next 10,000, the same value as test_compact_demo_manifests.py.
+# re-pinned by TC-553: 29_500_000 -> 43_780_000
+TREE_BYTES_BUDGET = 43_780_000
 
 # The same credential shapes ops/secretscan.py refuses in a commit.
 CREDENTIAL_SHAPES: dict[str, re.Pattern[str]] = {
@@ -175,3 +184,7 @@ def test_no_credential_shaped_value_appears_anywhere_in_the_tree() -> None:
 def test_the_whole_tree_is_within_the_size_budget() -> None:
     total = sum(p.stat().st_size for p in DEMO_MANIFESTS.rglob("*") if p.is_file())
     assert total <= TREE_BYTES_BUDGET, (total, TREE_BYTES_BUDGET)
+
+
+def test_the_tree_budgets_stay_under_the_agreed_lean_ceiling() -> None:
+    assert budget_is_within_the_lean_ceiling(TREE_BYTES_BUDGET), (TREE_BYTES_BUDGET, LEAN_CEILING_BYTES)

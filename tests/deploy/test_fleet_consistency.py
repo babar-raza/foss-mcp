@@ -26,7 +26,7 @@ import json
 import re
 from collections.abc import Iterable, Mapping, Sequence
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
 import pytest
 import yaml
@@ -55,12 +55,8 @@ NO_REGISTRY_PLATFORM = "cpp"
 
 # pilot -> why its commits are not one. An entry is deleted by the card that re-pins the pilot; the test of the table
 # FAILS while a listed pilot is consistent, so the exception cannot be forgotten.
-COMMIT_EXCEPTIONS = {
-    "pdf_typescript": (
-        "fixture re-extracted at the chart pin 155bfc7 by TC-550; the 300 baked symbol chunks are still at c672b39 until "
-        "the supervisor re-ingests; the re-ingest card must delete this entry"
-    ),
-}
+# re-pinned by TC-553: {pdf_typescript: ...} -> {} (the baked pdf/typescript generation is ONE commit, 155bfc7, everywhere)
+COMMIT_EXCEPTIONS: dict[str, str] = {}
 # pilot -> the allowed MAXIMUM of the fixture's ``unresolved`` list. The entry is removed once the count reaches 0.
 UNRESOLVED_EXCEPTIONS = {
     # tex/python: the pinned upstream library does not parse, so its extraction leaves 13 references unresolved (ISOPROV-01).
@@ -78,63 +74,11 @@ UNRESOLVED_EXCEPTIONS = {
 # fixture counted Go functions that are never chunked) left the product with the pilots removed by TC-551. A new entry needs a
 # reason, and the test of the table fails while the listed pilot is consistent.
 COVERAGE_EXCEPTIONS: dict[str, str] = {}
-# pilot -> why its baked generation is checked against ITS OWN API-Coverage lines and not against the fixture. TRANSITION
-# table: the fixture was re-extracted by a TC-53x card, the baked generation still reflects the previous fixture until the
-# supervisor's re-ingest and snapshot, TC-536 deletes this table.
-STALE_BAKED_PILOTS: dict[str, str] = {
-    "pdf_net": (
-        "re-extracted by TC-530: the fixture holds 901 of 901 types (not truncated), the baked generation still says "
-        "'300 of 901 types' until the supervisor re-ingests"
-    ),
-    "words_net": (
-        "re-extracted by TC-530: the fixture holds 618 of 618 types (not truncated), the baked generation still says "
-        "'300 of 618 types' until the supervisor re-ingests"
-    ),
-    "3d_python": (
-        "re-extracted by TC-550: the fixture holds 697 of 697 types (not truncated), the baked generation still says "
-        "'300 of 697 types' until the supervisor re-ingests"
-    ),
-    "cells_cpp": (
-        "re-extracted by TC-550: the fixture holds 200 of 200 types (not truncated), the baked generation still says "
-        "'300 of 346 types' until the supervisor re-ingests"
-    ),
-    "html_python": (
-        "re-extracted by TC-550: the fixture holds 323 of 323 types (not truncated), the baked generation still says "
-        "'300 of 323 types' until the supervisor re-ingests"
-    ),
-    "pdf_cpp": (
-        "re-extracted by TC-550: the fixture holds 359 of 359 types (not truncated), the baked generation still says "
-        "'300 of 361 types' until the supervisor re-ingests"
-    ),
-    "pdf_go": (
-        "re-extracted by TC-550: the fixture holds 357 of 357 types (not truncated), the baked generation still says "
-        "'261 of 2313 types' until the supervisor re-ingests"
-    ),
-    "pdf_java": (
-        "re-extracted by TC-550: the fixture holds 1239 of 1239 types (not truncated), the baked generation still says "
-        "'300 of 1239 types' until the supervisor re-ingests"
-    ),
-    "pdf_python": (
-        "re-extracted by TC-550: the fixture holds 867 of 867 types (not truncated), the baked generation still says "
-        "'300 of 867 types' until the supervisor re-ingests"
-    ),
-    "pdf_typescript": (
-        "re-extracted by TC-550: the fixture holds 4393 of 4393 types (not truncated), the baked generation still says "
-        "'300 of 5342 types' until the supervisor re-ingests"
-    ),
-    "slides_cpp": (
-        "re-extracted by TC-550: the fixture holds 355 of 355 types (not truncated), the baked generation still says "
-        "'300 of 323 types' until the supervisor re-ingests"
-    ),
-    "slides_python": (
-        "re-extracted by TC-550: the fixture holds 1023 of 1023 types (not truncated), the baked generation still says "
-        "'300 of 1023 types' until the supervisor re-ingests"
-    ),
-    "words_python": (
-        "re-extracted by TC-550: the fixture holds 391 of 391 types (not truncated), the baked generation still says "
-        "'300 of 391 types' until the supervisor re-ingests"
-    ),
-}
+# pilot -> why its baked generation is checked against ITS OWN API-Coverage lines and not against the fixture.
+# transition table: a pilot whose fixture was re-extracted before the supervisor re-ingests it is listed
+# here with a reason; empty after TC-553; TC-536 deletes the mechanism
+# re-pinned by TC-553: 13 entries -> {} (the thirteen pilots were re-ingested; their baked generations are fresh)
+STALE_BAKED_PILOTS: dict[str, str] = {}
 # pilot -> why it may sit below the composition floor. Empty: every pilot meets it.
 COMPOSITION_EXCEPTIONS: dict[str, str] = {}
 
@@ -142,7 +86,14 @@ _ID_SEP = "::"
 TRUNCATION_MARKER = "disagrees with the fixture's truncated"
 _FQN_LINE = re.compile(r"^FQN:\s*(.+)$", re.MULTILINE)
 _COVERAGE_LINE = re.compile(r"^API-Coverage:.*$", re.MULTILINE)
-_COVERAGE_VALUE = re.compile(r"^API-Coverage: (\d+) of (\d+) types$")
+# The grammar chunk_builder._coverage_line writes: ``Nt of Mt types`` + optional ``; Nf of Mf functions`` + optional
+# ``; X of Y source files could not be parsed`` or ``; at least K source files could not be parsed``.
+# re-pinned by TC-553: ``N of M types`` only -> the full grammar (a pilot with functions states a functions clause)
+_COVERAGE_VALUE = re.compile(
+    r"^API-Coverage: (\d+) of (\d+) types"
+    r"(?:; (\d+) of (\d+) functions)?"
+    r"(?:; (?:(\d+) of (\d+) source files could not be parsed|at least (\d+) source files could not be parsed))?$"
+)
 _SOURCE_COMMIT_LINE = re.compile(r"^Source-Commit:[ \t]*(\S*)[ \t]*$", re.MULTILINE)
 
 SYMBOL = "symbol"
@@ -359,13 +310,33 @@ def sidecar_problems(
     return problems
 
 
+def _is_count(value: object) -> bool:
+    return isinstance(value, int) and not isinstance(value, bool)
+
+
+def _is_function_chunk(text: str) -> bool:
+    """A function chunk is one whose SECOND line is ``Kind: function`` (the layout ``_format_type_text`` writes)."""
+    lines = text.split("\n")
+    return len(lines) > 1 and lines[1].strip() == "Kind: function"
+
+
 def coverage_problems(fixture: Mapping[str, Any], symbol_texts: Sequence[str]) -> list[str]:
-    """Every symbol chunk states ``API-Coverage: N of M types`` with N the symbol-chunk count and M the fixture's type_count."""
+    """Every symbol chunk states the one shared ``API-Coverage:`` line, and the line is honest about the fixture.
+
+    A fixture with ``symbol_counts`` (an integer ``types``) is read by kind: ``Nt`` is the number of non-function
+    symbol chunks and ``Mt`` is ``symbol_counts.types``; with ``symbol_counts.functions > 0`` the line carries a
+    functions clause whose ``Nf`` is the number of ``Kind: function`` chunks and whose ``Mf`` is
+    ``symbol_counts.functions``; with 0 functions neither a clause nor a function chunk is allowed. A fixture without
+    ``symbol_counts`` keeps the old rule: N is every symbol chunk, M the fixture's ``type_count``, and a functions
+    clause is a problem. In both, the shortfall must equal the fixture's ``truncated`` flag, and a parse-failure
+    clause must agree with a ``parse_failures`` mapping when the fixture has one."""
     problems: list[str] = []
-    expected_n = len(symbol_texts)
-    expected_m = fixture.get("type_count")
     truncated = bool(fixture.get("truncated"))
-    seen: set[tuple[int, int]] = set()
+    counts = fixture.get("symbol_counts")
+    by_kind = isinstance(counts, Mapping) and _is_count(counts.get("types"))
+    function_chunks = sum(1 for text in symbol_texts if _is_function_chunk(text))
+    type_chunks = len(symbol_texts) - function_chunks
+    seen: set[tuple[Any, ...]] = set()
     for text in symbol_texts:
         lines = _COVERAGE_LINE.findall(text)
         if len(lines) != 1:
@@ -377,31 +348,87 @@ def coverage_problems(fixture: Mapping[str, Any], symbol_texts: Sequence[str]) -
         if match is None:
             problems.append(f"malformed API-Coverage line {lines[0]!r}")
             continue
-        seen.add((int(match.group(1)), int(match.group(2))))
-    for n, m in sorted(seen):
-        if n != expected_n:
-            problems.append(f"API-Coverage says N={n}, the generation holds {expected_n} symbol chunks")
-        if m != expected_m:
-            problems.append(f"API-Coverage says M={m}, the fixture's type_count is {expected_m}")
-        if (n < m) != truncated:
-            problems.append(f"API-Coverage {n} of {m} {TRUNCATION_MARKER}={truncated}")
+        seen.add(tuple(None if group is None else int(group) for group in match.groups()))
+    parse_failures = fixture.get("parse_failures")
+    for nt, mt, nf, mf, failed, total, _at_least in sorted(seen, key=repr):
+        if by_kind:
+            counts_map = cast(Mapping[str, Any], counts)
+            want_types = counts_map["types"]
+            want_functions = counts_map["functions"] if _is_count(counts_map.get("functions")) else 0
+            if nt != type_chunks:
+                problems.append(f"API-Coverage says N={nt}, the generation holds {type_chunks} type chunks")
+            if mt != want_types:
+                problems.append(
+                    f"API-Coverage says M={mt}, the fixture's symbol_counts.types is {want_types}"
+                )
+            if want_functions > 0:
+                if nf is None:
+                    problems.append(
+                        f"API-Coverage has no functions clause, the fixture has {want_functions} functions"
+                    )
+                else:
+                    if nf != function_chunks:
+                        problems.append(
+                            f"API-Coverage says Nf={nf}, the generation holds {function_chunks} function chunks"
+                        )
+                    if mf != want_functions:
+                        problems.append(
+                            f"API-Coverage says Mf={mf}, the fixture's symbol_counts.functions is {want_functions}"
+                        )
+            else:
+                if nf is not None:
+                    problems.append("API-Coverage has a functions clause, the fixture has no functions")
+                if function_chunks:
+                    problems.append(f"{function_chunks} function chunk(s), the fixture has no functions")
+            shortfall = nt < mt or (nf is not None and mf is not None and nf < mf)
+            readout = f"{nt} of {mt}" + ("" if nf is None else f"; {nf} of {mf} functions")
+        else:
+            expected_m = fixture.get("type_count")
+            if nf is not None:
+                problems.append("API-Coverage has a functions clause, the fixture has no symbol_counts")
+            if nt != len(symbol_texts):
+                problems.append(
+                    f"API-Coverage says N={nt}, the generation holds {len(symbol_texts)} symbol chunks"
+                )
+            if mt != expected_m:
+                problems.append(f"API-Coverage says M={mt}, the fixture's type_count is {expected_m}")
+            shortfall = nt < mt
+            readout = f"{nt} of {mt}"
+        if shortfall != truncated:
+            problems.append(f"API-Coverage {readout} {TRUNCATION_MARKER}={truncated}")
+        if failed is not None and isinstance(parse_failures, Mapping):
+            if (failed, total) != (parse_failures.get("failed"), parse_failures.get("total")):
+                problems.append(
+                    f"API-Coverage says {failed} of {total} source files could not be parsed, the fixture's "
+                    f"parse_failures say {parse_failures.get('failed')} of {parse_failures.get('total')}"
+                )
     return problems
 
 
 def baked_self_view(symbol_texts: Sequence[str]) -> dict[str, Any]:
-    """The fixture-shaped view a baked generation states about itself: ``type_count`` is the M of its first
-    API-Coverage line and ``truncated`` is whether the symbol-chunk count N is below it. ``coverage_problems`` on this
-    view flags a generation whose lines disagree with each other or with the symbol-chunk count."""
-    total: int | None = None
+    """The fixture-shaped view a baked generation states about itself.
+
+    A first line WITHOUT a functions clause gives ``type_count`` = its M and ``truncated`` = whether the symbol-chunk
+    count N is below it (the old view). A first line WITH one gives ``symbol_counts`` {types: Mt, functions: Mf},
+    ``type_count`` = Mt + Mf and ``truncated`` from the two comparisons (non-function chunks below Mt, or function
+    chunks below Mf). ``coverage_problems`` on this view flags a generation whose lines disagree with each other or
+    with the symbol-chunk count."""
     for text in symbol_texts:
         for line in _COVERAGE_LINE.findall(text):
             match = _COVERAGE_VALUE.match(line)
-            if match is not None:
-                total = int(match.group(2))
-                break
-        if total is not None:
-            break
-    return {"type_count": total, "truncated": total is not None and len(symbol_texts) < total}
+            if match is None:
+                continue
+            mt = int(match.group(2))
+            if match.group(4) is None:
+                return {"type_count": mt, "truncated": len(symbol_texts) < mt}
+            mf = int(match.group(4))
+            function_chunks = sum(1 for t in symbol_texts if _is_function_chunk(t))
+            return {
+                "symbol_counts": {"types": mt, "functions": mf},
+                "type_count": mt + mf,
+                "truncated": len(symbol_texts) - function_chunks < mt or function_chunks < mf,
+            }
+    return {"type_count": None, "truncated": False}
 
 
 def composition_problems(symbols: int, docs: int) -> list[str]:
@@ -798,3 +825,148 @@ def test_unresolved_problems_flag_growth_over_the_table_and_any_unlisted_pilot()
     assert any("not listed" in p for p in unresolved_problems("pdf_net", 1, table))
     assert unresolved_problems("pdf_net", 0, table) == []
     assert any("unresolved" in p for p in unresolved_problems("pdf_net", 1, {}))
+
+
+# -- synthetic tests of the API-Coverage grammar with a functions clause (TC-553) ----------------------------------------------
+
+
+def _kind_text(name: str, kind: str, line: str) -> str:
+    return f"FQN: {name}\nKind: {kind}\nAPI-Coverage: {line}\nSource-Commit: {A}"
+
+
+def _mixed(types: int, functions: int, line: str) -> list[str]:
+    """``types`` class chunks and ``functions`` function chunks, every one stating *line*."""
+    return [_kind_text(f"T{i}", "class", line) for i in range(types)] + [
+        _kind_text(f"f{i}", "function", line) for i in range(functions)
+    ]
+
+
+_COUNTED = {"type_count": 5, "symbol_counts": {"types": 3, "functions": 2}, "truncated": False}
+
+
+def test_coverage_grammar_accepts_the_types_only_line() -> None:
+    fixture = {"type_count": 3, "symbol_counts": {"types": 3, "functions": 0}, "truncated": False}
+    assert coverage_problems(fixture, _mixed(3, 0, "3 of 3 types")) == []
+    # The old reading is untouched: a fixture with only type_count and a plain line.
+    assert coverage_problems({"type_count": 3, "truncated": False}, _mixed(3, 0, "3 of 3 types")) == []
+
+
+def test_coverage_grammar_accepts_a_functions_clause() -> None:
+    assert coverage_problems(_COUNTED, _mixed(3, 2, "3 of 3 types; 2 of 2 functions")) == []
+    match = _COVERAGE_VALUE.match("API-Coverage: 259 of 259 types; 98 of 98 functions")
+    assert match is not None and match.group(3) == "98" and match.group(4) == "98"
+
+
+def test_coverage_grammar_accepts_a_parse_failure_clause() -> None:
+    clause = "3 of 3 types; 2 of 2 functions; 7 of 259 source files could not be parsed"
+    fixture = {**_COUNTED, "parse_failures": {"engine": "tree-sitter", "failed": 7, "total": 259}}
+    assert coverage_problems(fixture, _mixed(3, 2, clause)) == []
+    # The "at least" form and a types-only line with a parse clause are part of the grammar.
+    assert _COVERAGE_VALUE.match("API-Coverage: 3 of 3 types; at least 4 source files could not be parsed")
+    assert _COVERAGE_VALUE.match("API-Coverage: 3 of 3 types; 7 of 259 source files could not be parsed")
+    at_least = "3 of 3 types; 2 of 2 functions; at least 4 source files could not be parsed"
+    assert coverage_problems(_COUNTED, _mixed(3, 2, at_least)) == []
+    # A fixture whose parse_failures disagree with the numbers of the clause is flagged.
+    wrong = {**_COUNTED, "parse_failures": {"engine": "tree-sitter", "failed": 8, "total": 259}}
+    assert any("could not be parsed" in p for p in coverage_problems(wrong, _mixed(3, 2, clause)))
+
+
+def test_coverage_grammar_rejects_a_functions_clause_that_disagrees_with_the_fixture() -> None:
+    problems = coverage_problems(_COUNTED, _mixed(3, 2, "3 of 3 types; 2 of 9 functions"))
+    assert any("Mf=9" in p for p in problems)
+    problems = coverage_problems(_COUNTED, _mixed(3, 2, "3 of 3 types; 5 of 2 functions"))
+    assert any("Nf=5" in p for p in problems)
+    # The clause is missing although the fixture has functions.
+    assert any("no functions clause" in p for p in coverage_problems(_COUNTED, _mixed(3, 2, "3 of 3 types")))
+
+
+def test_coverage_grammar_rejects_a_wrong_types_count() -> None:
+    assert any(
+        "N=4" in p for p in coverage_problems(_COUNTED, _mixed(3, 2, "4 of 3 types; 2 of 2 functions"))
+    )
+    assert any(
+        "M=9" in p for p in coverage_problems(_COUNTED, _mixed(3, 2, "3 of 9 types; 2 of 2 functions"))
+    )
+
+
+def test_coverage_grammar_rejects_two_lines() -> None:
+    texts = _mixed(3, 2, "3 of 3 types; 2 of 2 functions")
+    texts[0] += "\nAPI-Coverage: 3 of 3 types; 2 of 2 functions"
+    assert any("2 API-Coverage lines" in p for p in coverage_problems(_COUNTED, texts))
+
+
+def test_coverage_grammar_rejects_a_missing_line() -> None:
+    texts = _mixed(3, 2, "3 of 3 types; 2 of 2 functions")
+    texts[4] = "FQN: f1\nKind: function"
+    assert any("0 API-Coverage lines" in p for p in coverage_problems(_COUNTED, texts))
+    assert any(
+        "malformed" in p for p in coverage_problems(_COUNTED, [_kind_text("T", "class", "3 of 3 functions")])
+    )
+
+
+def test_truncated_reading_is_unchanged() -> None:
+    line = "2 of 3 types; 2 of 2 functions"
+    truncated_fixture = {**_COUNTED, "truncated": True}
+    assert coverage_problems(truncated_fixture, _mixed(2, 2, line)) == []
+    assert any(TRUNCATION_MARKER in p for p in coverage_problems(_COUNTED, _mixed(2, 2, line)))
+    # A shortfall in the functions alone is a truncation too.
+    short_functions = "3 of 3 types; 1 of 2 functions"
+    assert coverage_problems(truncated_fixture, _mixed(3, 1, short_functions)) == []
+    assert any(TRUNCATION_MARKER in p for p in coverage_problems(_COUNTED, _mixed(3, 1, short_functions)))
+    # A complete line with a fixture that says it is truncated.
+    assert any(
+        TRUNCATION_MARKER in p
+        for p in coverage_problems(truncated_fixture, _mixed(3, 2, "3 of 3 types; 2 of 2 functions"))
+    )
+
+
+def test_coverage_grammar_rejects_a_functions_clause_on_a_fixture_without_symbol_counts() -> None:
+    old_fixture = {"type_count": 5, "truncated": False}
+    problems = coverage_problems(old_fixture, _mixed(3, 2, "5 of 5 types; 2 of 2 functions"))
+    assert any("no symbol_counts" in p for p in problems)
+    # Without symbol_counts a function chunk is simply a symbol chunk: N counts all five.
+    assert coverage_problems(old_fixture, _mixed(3, 2, "5 of 5 types")) == []
+
+
+def test_coverage_grammar_rejects_a_function_chunk_counted_as_a_type() -> None:
+    # The fixture has 3 types and 2 functions; the line counts all five chunks as types.
+    problems = coverage_problems(_COUNTED, _mixed(3, 2, "5 of 3 types; 2 of 2 functions"))
+    assert any("N=5" in p for p in problems)
+    zero_functions = {"type_count": 3, "symbol_counts": {"types": 3, "functions": 0}, "truncated": False}
+    assert any("function chunk" in p for p in coverage_problems(zero_functions, _mixed(3, 1, "3 of 3 types")))
+    assert any(
+        "has a functions clause" in p
+        for p in coverage_problems(zero_functions, _mixed(3, 0, "3 of 3 types; 0 of 0 functions"))
+    )
+
+
+def test_coverage_grammar_rejects_a_missing_function_chunk_while_the_fixture_has_functions() -> None:
+    # The line promises 2 of 2 functions but only one function chunk is served.
+    problems = coverage_problems(_COUNTED, _mixed(3, 1, "3 of 3 types; 2 of 2 functions"))
+    assert any("Nf=2" in p for p in problems)
+
+
+def test_baked_self_view_of_a_line_without_the_functions_clause() -> None:
+    texts = _mixed(3, 0, "3 of 5 types")
+    assert baked_self_view(texts) == {"type_count": 5, "truncated": True}
+    assert coverage_problems(baked_self_view(texts), texts) == []
+
+
+def test_baked_self_view_of_a_line_with_the_functions_clause() -> None:
+    line = "3 of 3 types; 2 of 2 functions"
+    texts = _mixed(3, 2, line)
+    view = baked_self_view(texts)
+    assert view == {"symbol_counts": {"types": 3, "functions": 2}, "type_count": 5, "truncated": False}
+    assert coverage_problems(view, texts) == []
+    # A generation that lost a function chunk after its line was written is truncated by its own account.
+    partial = _mixed(3, 1, line)
+    partial_view = baked_self_view(partial)
+    assert partial_view["truncated"] is True
+    assert coverage_problems(partial_view, partial) != []
+
+
+def test_the_stale_branch_reads_a_functions_line_against_its_own_chunks() -> None:
+    texts = _mixed(3, 2, "3 of 3 types; 2 of 2 functions")
+    assert coverage_problems(baked_self_view(texts), texts) == []
+    # ... and flags a generation that lost a function chunk after the line was written.
+    assert coverage_problems(baked_self_view(texts), texts[:-1]) != []

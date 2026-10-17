@@ -180,6 +180,8 @@ class Pilot:
     furnished_page: Path | None
     furnished_title: str | None
     probe_error: str | None
+    # The number of TYPES the fixture declares: symbol_counts.types when the fixture has it (type_count there counts types PLUS
+    # functions, while report_index_freshness states the types clause of the API-Coverage line), else type_count (TC-553).
     type_count: int | None = None
     unresolved_count: int = 0
 
@@ -287,6 +289,13 @@ def load_pilot(name: str, fixtures: Path, *, chart_values: Path | None = None) -
     type_count = (
         raw_type_count if isinstance(raw_type_count, int) and not isinstance(raw_type_count, bool) else None
     )
+    # TC-553: a fixture with symbol_counts declares its TYPES there; type_count counts types plus functions, and the served
+    # total_types is the types clause of the API-Coverage line.
+    symbol_counts = api_surface.get("symbol_counts")
+    if isinstance(symbol_counts, dict):
+        raw_types = symbol_counts.get("types")
+        if isinstance(raw_types, int) and not isinstance(raw_types, bool):
+            type_count = raw_types
     unresolved = api_surface.get("unresolved")
     other = other_pilot_symbol(fixtures, name, own_names)
     page = fixtures / "furnished" / name / "pages" / "_index.md"
@@ -670,7 +679,7 @@ def check_12(run: _Run) -> dict[str, Any]:
         )
     if pilot.type_count is not None and total != pilot.type_count:
         raise CheckFailed(
-            f"report_index_freshness reports total_types {total!r}, the fixture declares {pilot.type_count}",
+            f"report_index_freshness reports total_types {total!r}, the fixture declares {pilot.type_count} types",
             evidence,
         )
     if pilot.furnished_page is None or not pilot.furnished_title:

@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import importlib.util
 import json
+import re
 import sys
 from pathlib import Path
 from typing import Any
@@ -34,7 +35,12 @@ TYPE_COUNT = 42
 
 
 def _fixtures(
-    root: Path, *, furnished: bool = True, type_count: int | None = TYPE_COUNT, unresolved: int | None = None
+    root: Path,
+    *,
+    furnished: bool = True,
+    type_count: int | None = TYPE_COUNT,
+    unresolved: int | None = None,
+    symbol_counts: Any = None,
 ) -> None:
     base._write_fixtures(root, furnished=furnished)
     path = root / PILOT / "api_surface.json"
@@ -43,6 +49,8 @@ def _fixtures(
         surface["type_count"] = type_count
     if unresolved is not None:
         surface["unresolved"] = [{"name": f"Missing{index}"} for index in range(unresolved)]
+    if symbol_counts is not None:
+        surface["symbol_counts"] = symbol_counts
     path.write_text(json.dumps(surface), encoding="utf-8")
 
 
@@ -220,3 +228,110 @@ def test_load_pilot_reads_type_count_and_unresolved_count(tmp_path: Path) -> Non
     bare = pwp.load_pilot(PILOT, tmp_path / "without")
     assert bare.type_count is None
     assert bare.unresolved_count == 0
+
+
+# -- TC-553: check 12 compares the served total with the fixture's TYPE count -----------------------------------------------
+
+
+def test_check_12_compares_with_the_types_of_symbol_counts_and_not_with_type_count(tmp_path: Path) -> None:
+    _fixtures(tmp_path, type_count=42, symbol_counts={"types": 30, "functions": 12})
+    passing = _check(_run(tmp_path, _answers(total=30)), 12)
+    assert passing["status"] == "pass", passing["reason"]
+    assert passing["evidence"]["total_types"] == 30
+    failing = _check(_run(tmp_path, _answers(total=42)), 12)
+    assert failing["status"] == "fail"
+    assert "total_types 42" in failing["reason"]
+    assert "fixture declares 30 types" in failing["reason"]
+
+
+def test_check_12_with_zero_functions_compares_with_the_types(tmp_path: Path) -> None:
+    _fixtures(tmp_path, type_count=30, symbol_counts={"types": 30, "functions": 0})
+    assert _check(_run(tmp_path, _answers(total=30)), 12)["status"] == "pass"
+    failing = _check(_run(tmp_path, _answers(total=31)), 12)
+    assert failing["status"] == "fail"
+    assert "fixture declares 30 types" in failing["reason"]
+
+
+def test_check_12_without_symbol_counts_keeps_the_old_behaviour(tmp_path: Path) -> None:
+    _fixtures(tmp_path, type_count=42)
+    assert pwp.load_pilot(PILOT, tmp_path).type_count == 42
+    assert _check(_run(tmp_path, _answers(total=42)), 12)["status"] == "pass"
+    assert _check(_run(tmp_path, _answers(total=30)), 12)["status"] == "fail"
+
+
+@pytest.mark.parametrize("bad_types", ["30", True, 3.5, None])
+def test_a_non_integer_or_boolean_symbol_counts_types_falls_back_to_type_count(
+    tmp_path: Path, bad_types: Any
+) -> None:
+    _fixtures(tmp_path, type_count=42, symbol_counts={"types": bad_types, "functions": 12})
+    assert pwp.load_pilot(PILOT, tmp_path).type_count == 42
+    assert _check(_run(tmp_path, _answers(total=42)), 12)["status"] == "pass"
+
+
+def test_a_symbol_counts_that_is_not_a_mapping_falls_back_to_type_count(tmp_path: Path) -> None:
+    _fixtures(tmp_path, type_count=42, symbol_counts=[30, 12])
+    assert pwp.load_pilot(PILOT, tmp_path).type_count == 42
+
+
+def test_load_pilot_reads_both_values(tmp_path: Path) -> None:
+    _fixtures(tmp_path, type_count=42, symbol_counts={"types": 30, "functions": 12}, unresolved=2)
+    pilot = pwp.load_pilot(PILOT, tmp_path)
+    assert pilot.type_count == 30
+    assert pilot.unresolved_count == 2
+
+
+def test_symbol_counts_without_a_type_count_still_gives_the_types(tmp_path: Path) -> None:
+    _fixtures(tmp_path, type_count=None, symbol_counts={"types": 30, "functions": 12})
+    surface_path = tmp_path / PILOT / "api_surface.json"
+    surface = json.loads(surface_path.read_text(encoding="utf-8"))
+    assert "type_count" not in surface
+    assert pwp.load_pilot(PILOT, tmp_path).type_count == 30
+
+
+# -- the same, proven against the REAL committed data without a server ------------------------------------------------------
+
+REPO_ROOT = Path(__file__).resolve().parents[2]
+REAL_FIXTURES = REPO_ROOT / "tests" / "fixtures"
+DEMO_MANIFESTS = REPO_ROOT / "infra" / "demo-manifests"
+_TYPES_CLAUSE = re.compile(r"^API-Coverage: (\d+) of (\d+) types", re.MULTILINE)
+
+
+def _pilots_with_functions() -> list[str]:
+    found = []
+    for path in sorted(REAL_FIXTURES.glob("*/api_surface.json")):
+        counts = json.loads(path.read_text(encoding="utf-8")).get("symbol_counts")
+        if isinstance(counts, dict) and isinstance(counts.get("functions"), int) and counts["functions"] > 0:
+            found.append(path.parent.name)
+    return found
+
+
+def _served_total_types(pilot: str) -> int:
+    """Mt of the API-Coverage line of the pilot's baked generation: the value report_index_freshness serves."""
+    family, _, platform = pilot.partition("_")
+    scope_dir = DEMO_MANIFESTS / f"{family}__{platform}__self_extracted"
+    generation = json.loads(next(scope_dir.glob("generation__*.json")).read_text(encoding="utf-8"))
+    totals = set()
+    for document in generation["payload"]["lexical_index"]["documents"].values():
+        text = str(document["text"])
+        first = text.split("\n", 1)[0]
+        if first.startswith("FQN:") and not first.startswith(("FQN: Doc: ", "FQN: Example: ")):
+            match = _TYPES_CLAUSE.search(text)
+            assert match is not None, (pilot, first)
+            totals.add(int(match.group(2)))
+    assert len(totals) == 1, (pilot, totals)
+    return totals.pop()
+
+
+def test_at_least_eight_pilots_have_functions_in_the_committed_fixtures() -> None:
+    assert len(_pilots_with_functions()) >= 8
+
+
+def test_load_pilot_type_count_equals_the_served_total_types_for_every_pilot_with_functions() -> None:
+    pilots = _pilots_with_functions()
+    assert pilots
+    for pilot in pilots:
+        loaded = pwp.load_pilot(pilot, REAL_FIXTURES)
+        assert loaded.type_count == _served_total_types(pilot), pilot
+        # ... and it is NOT the fixture's type_count, which also counts the functions.
+        surface = json.loads((REAL_FIXTURES / pilot / "api_surface.json").read_text(encoding="utf-8"))
+        assert loaded.type_count == surface["symbol_counts"]["types"] != surface["type_count"], pilot

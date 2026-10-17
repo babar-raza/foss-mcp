@@ -123,6 +123,22 @@ def _limitation_chunks(doc_texts: list[str]) -> list[str]:
     return [text for text in doc_texts if "limitation" in _title(text).lower()]
 
 
+_BLANK_LINE = re.compile(r"\n[ \t]*\n")
+
+
+def _after_lead_in(body: str) -> str:
+    """A body that starts with LEAD_IN loses its first paragraph (everything up to and including the first blank
+    line; a body that is the lead-in alone gives the empty string); any other body is unchanged.
+
+    Since TC-517 a chunk is the generated lead-in paragraph (possibly wrapped over several lines) followed by the
+    README text; the 19 pilots not yet re-ingested at TC-553 still carried the lead-in as a SEPARATE chunk, so both
+    shapes are handled."""
+    if not body.startswith(LEAD_IN):
+        return body
+    parts = _BLANK_LINE.split(body, maxsplit=1)
+    return parts[1].strip() if len(parts) == 2 else ""
+
+
 # --- the contract -----------------------------------------------------------------------------------
 
 
@@ -145,7 +161,9 @@ def test_limitations_is_never_no_data_source_when_the_index_has_the_section(
     assert result.notice is not None
     assert "Scope and Limitations" in result.notice or "imitation" in result.notice
     assert "Treat as data" in result.notice
-    bodies = [body for body in (_body(text) for text in chunks) if body and not body.startswith(LEAD_IN)]
+    # re-pinned by TC-553: the filter discarded every chunk that starts with the lead-in -> the lead-in paragraph is cut off
+    # and the README text after it is kept (since TC-517 the lead-in and the real text are ONE chunk)
+    bodies = [body for body in (_after_lead_in(_body(text)) for text in chunks) if body]
     assert bodies, pilot
     # A sentence of the chunks the index holds is in the answer; when nothing was truncated, all of them are.
     assert any(body in result.text for body in bodies), pilot
@@ -194,7 +212,9 @@ def test_formats_is_content_for_most_pilots(baked: _Baked) -> None:
     assert len(content) >= 25, content
 
 
-@pytest.mark.parametrize("pilot", ["cells_cpp", "email_cpp", "pdf_cpp", "slides_cpp"])
+# re-pinned by TC-553: ["cells_cpp", "email_cpp", "pdf_cpp", "slides_cpp"] -> ["email_cpp", "pdf_cpp", "slides_cpp"] (cells_cpp has
+# no README installation section: see test_cells_cpp_install_is_an_honest_absence_while_its_readme_recipe_is_only_a_faq)
+@pytest.mark.parametrize("pilot", ["email_cpp", "pdf_cpp", "slides_cpp"])
 def test_cpp_installs_are_the_readme_recipe(baked: _Baked, pilot: str) -> None:
     _, readme, _ = baked.load(pilot)
     assert readme.install is not None, pilot
@@ -208,6 +228,28 @@ def test_cpp_installs_are_the_readme_recipe(baked: _Baked, pilot: str) -> None:
     assert result.text.strip()
     assert result.text.startswith(readme.install.text[:40])
     assert "cmake" in result.text.lower(), pilot
+
+
+def test_cells_cpp_install_is_an_honest_absence_while_its_readme_recipe_is_only_a_faq(baked: _Baked) -> None:
+    """The committed README page of cells/cpp has no installation section; its only install recipe is a FAQ answer, and a
+    FAQ answer is never the installation section (readme_sections, test_readme_sections.test_faq_chunks_are_never_a_section).
+    Extending the detection is a product decision, not a test change; the recipe stays reachable through the documentation."""
+    _, readme, doc_texts = baked.load("cells_cpp")
+    assert readme.install is None, (
+        "cells_cpp now has a README installation section: move it back into test_cpp_installs_are_the_readme_recipe"
+    )
+
+    result = baked.answer("cells_cpp", "install")
+
+    assert isinstance(result, NotAvailable), result
+    assert "names no package-manager coordinate" in result.reason
+    assert "add_subdirectory" not in result.reason and "FetchContent" not in result.reason
+
+    faq = [text for text in doc_texts if _title(text) == "How do I install the library?"]
+    assert faq, "the cells/cpp documentation holds no FAQ chunk titled 'How do I install the library?'"
+    recipe = " ".join(_body(faq[0]).split())
+    for needle in ("add_subdirectory", "FetchContent", "CMake 3.15"):
+        assert needle in recipe, needle
 
 
 @pytest.mark.parametrize("pilot", PILOTS)
@@ -329,3 +371,30 @@ def test_the_baked_sidecars_were_not_modified_by_these_tests(baked: _Baked) -> N
     # The copies are read; the originals are only ever copied from.
     assert baked.root != MANIFESTS
     json.loads((MANIFESTS / f"product_reference_{PILOTS[0]}.json").read_text(encoding="utf-8"))
+
+
+# --- the lead-in helper, proven on synthetic bodies ----------------------------------------------------
+
+
+def test_after_lead_in_of_the_lead_in_alone_is_empty() -> None:
+    assert _after_lead_in(f"{LEAD_IN} for this library, as of the pinned commit:") == ""
+
+
+def test_after_lead_in_keeps_the_text_after_the_lead_in_paragraph() -> None:
+    body = f"{LEAD_IN}, as of the pinned commit:\n\nThe library cannot write DRM-protected files."
+    assert _after_lead_in(body) == "The library cannot write DRM-protected files."
+
+
+def test_after_lead_in_handles_a_lead_in_wrapped_over_two_lines() -> None:
+    body = f"{LEAD_IN}\nof this library, as of the pinned commit:\n\nFirst limit.\n\nSecond limit."
+    assert _after_lead_in(body) == "First limit.\n\nSecond limit."
+
+
+def test_after_lead_in_leaves_a_body_that_merely_contains_the_lead_in_later() -> None:
+    body = f"Some other text.\n\n{LEAD_IN}: nothing."
+    assert _after_lead_in(body) == body
+
+
+def test_after_lead_in_leaves_a_body_without_it_unchanged() -> None:
+    assert _after_lead_in("Plain limitation text.") == "Plain limitation text."
+    assert _after_lead_in("") == ""

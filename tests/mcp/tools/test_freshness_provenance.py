@@ -2,16 +2,18 @@
 
 Offline. Synthetic generations are published through the real ``publish_generation`` (the same
 helper the consumer-tools tests use); the real-data tests copy committed demo generations:
-pdf/typescript genuinely mixes two commits (300 API-symbol chunks at one commit, the documentation
-and example chunks at the library's pinned commit) and pdf/net records exactly one.
+pdf/net and pdf/typescript each record exactly one commit, the library's pin (the mixed two-commit
+behaviour is proven by the synthetic generations only, since TC-553: no pilot is mixed).
 """
 
 from __future__ import annotations
 
+import json
 import shutil
 from pathlib import Path
 
 import pytest
+import yaml
 
 from foss_mcp.indexing.generation_manifest import GenerationManifestStore
 from foss_mcp.indexing.publisher import publish_generation
@@ -384,9 +386,8 @@ def test_api_coverage_on_a_documentation_chunk_is_ignored(tmp_path: Path) -> Non
 # --- real data ------------------------------------------------------------------------------
 
 
-# The refreshed (2026-10-14) committed pilots: pdf/net was rebuilt from ONE source commit, and pdf/typescript
-# is the committed generation that still genuinely mixes two (API symbols at one commit, documentation and
-# examples at the library's pinned commit). Both are read from the committed generations, never retyped.
+# The committed pilots: pdf/net and (since the TC-553 refresh) pdf/typescript are each built from ONE source commit, the
+# library's pin. TS_SYMBOL_COMMIT is the OLD commit pdf/typescript's symbols were indexed at; it is no longer served.
 PDF_NET_COMMIT = "b7172877651413cff57a8bfe41fb8a8befb2406b"
 TS_SYMBOL_COMMIT = "c672b3918318ccd0c13bc9dc619620cac2674c9e"
 TS_PINNED_COMMIT = "155bfc7a33f0ba23fb4252b6ba201828b02a5b9d"
@@ -414,32 +415,44 @@ def test_real_pdf_net_generation_reports_its_one_commit(tmp_path: Path) -> None:
     assert _report(store, SYMBOL_COMMIT).stale is True
 
 
-def test_real_pdf_typescript_generation_reports_both_commits(tmp_path: Path) -> None:
+# re-pinned by TC-553: test_real_pdf_typescript_generation_reports_both_commits -> ..._reports_its_one_commit_at_the_chart_pin
+# (the baked pdf/typescript generation was re-ingested at the chart pin and is ONE commit now). The MIXED two-commit behaviour
+# of report_index_freshness stays proven by the synthetic tests above (test_two_commits_split_by_kind_with_exact_counts and the
+# others); no pilot is mixed, so that branch has no real-data test any more.
+def test_real_pdf_typescript_generation_reports_its_one_commit_at_the_chart_pin(tmp_path: Path) -> None:
     store = _real_store(tmp_path, "pdf__typescript__self_extracted")
     ts_scope = Scope(family="pdf", platform="typescript")
+    chart = yaml.safe_load(
+        (REPO_ROOT / "infra" / "helm" / "foss-mcp" / "values.yaml").read_text(encoding="utf-8")
+    )
+    pin = next(
+        p["library"]["commit"]
+        for p in chart["ingestion"]["pilots"]
+        if (p["family"], p["platform"]) == ("pdf", "typescript")
+    )
+    assert pin == TS_PINNED_COMMIT
+    fixture = json.loads(
+        (REPO_ROOT / "tests" / "fixtures" / "pdf_typescript" / "api_surface.json").read_text(encoding="utf-8")
+    )
 
     def report(current: str | None, pinned_library_commit: str | None = None) -> FreshnessReport:
         return report_index_freshness(
             store, ts_scope, "self_extracted", current, pinned_library_commit=pinned_library_commit
         )
 
-    by_symbols = report(TS_SYMBOL_COMMIT)
-    by_pinned = report(TS_PINNED_COMMIT)
+    at_pin = report(pin)
 
-    commits = {entry.commit: entry for entry in by_symbols.source_commits}
-    assert set(commits) == {TS_SYMBOL_COMMIT, TS_PINNED_COMMIT}
-    assert commits[TS_SYMBOL_COMMIT].symbol_chunks >= 300
-    assert commits[TS_SYMBOL_COMMIT].documentation_chunks == 0
-    assert commits[TS_PINNED_COMMIT].symbol_chunks == 0
-    assert commits[TS_PINNED_COMMIT].documentation_chunks + commits[TS_PINNED_COMMIT].example_chunks >= 1
-    assert by_symbols.indexed_source_commit == TS_SYMBOL_COMMIT
-    for item in (by_symbols, by_pinned):
-        assert item.stale is True
-        assert "index is mixed" in item.reason
-        assert TS_SYMBOL_COMMIT[:12] in item.reason
-        assert TS_PINNED_COMMIT[:12] in item.reason
-    assert f"current {TS_PINNED_COMMIT[:12]} matches documentation and examples only" in by_pinned.reason
-    assert f"current {TS_SYMBOL_COMMIT[:12]} matches API symbols only" in by_symbols.reason
+    commits = {entry.commit: entry for entry in at_pin.source_commits}
+    assert set(commits) == {pin}
+    assert (
+        commits[pin].symbol_chunks == fixture["type_count"]
+    )  # 4393 on 2026-10-17: 1333 types plus 3060 functions
+    assert commits[pin].documentation_chunks + commits[pin].example_chunks >= 1
+    assert at_pin.indexed_source_commit == pin
+    assert at_pin.chunks_without_commit == 0
+    assert at_pin.stale is False
+    assert "index is mixed" not in at_pin.reason
 
-    pinned = report(TS_PINNED_COMMIT, pinned_library_commit=TS_PINNED_COMMIT)
-    assert pinned.pinned_matches_symbols is False
+    # The commit the symbols used to be indexed at is not served any more: it is stale now.
+    assert report(TS_SYMBOL_COMMIT).stale is True
+    assert report(pin, pinned_library_commit=pin).pinned_matches_symbols is True

@@ -9,10 +9,11 @@ The rule the whole page serves: **an image without a passing gate report for tha
 
 Status of this image: it is a release candidate for peer testing, not a final release. The independent
 pre-production review (REQ-G3-008) is not closed by this page, and nothing here claims that it is. Two kinds of
-limitation apply and a peer should read them first. The index of the largest libraries is partial (for example
-pdf/java holds 300 of 1,239 types), and the server says so: symbol chunks carry an `API-Coverage:` line and misses
-carry a `coverage_note` (section 9, "What tells an agent"). Several extractor and documentation improvements were
-cut from this release and are described in section 9. The accepted findings are in section 8 and in
+limitation apply and a peer should read them first: the review is open, and several extractor and documentation
+improvements were cut from this release (section 9). No pilot index is partial: every pilot indexes the whole public
+surface the extractor found at its pinned commit (for example pdf/java holds 1,239 of 1,239 types). The server still says
+how much it holds: symbol chunks carry an `API-Coverage:` line and a miss carries a `coverage_note` only when an index
+is partial (section 9, "What tells an agent"). The accepted findings are in section 8 and in
 `docs/REVIEW_LEDGER.md`.
 
 ## 1. What the standalone demo image is
@@ -46,6 +47,7 @@ lean (next section) and why the gate measures memory per container.
 
    The tool is offline and idempotent. Per scope it keeps only the active generation file and only the vector
    points that carry the example marker. Commit the result: the image is built from committed bytes.
+   The committed tree stays under 45 MB (the lean ceiling); the exact budgets are pinned in tests/deploy/test_compact_demo_manifests.py.
 
 2. Build the `demo` stage from a clean tree at the commit you want to ship, with an explicit tag that is not
    `latest`, and label it with the full commit id. The label is mandatory: `gatectl release-record` reads
@@ -307,10 +309,6 @@ says so.
   66, so no example that imports `aspose_tex` can run and none can be verified. The rest of the tex/python content is
   documentation and API symbols. The fix is upstream; the acceptance test holds this one pilot to its measured count
   and requires every other pilot to serve at least two.
-- **pdf/typescript** has a MIXED index, by design of the cut of card TC-403: its API symbols come from commit
-  c672b3918318, and its documentation and examples come from 155bfc7a33f0. `report_index_freshness` says so and reports
-  the index stale against either single commit. The symbol re-extraction at the newer commit is deferred; see the
-  TC-403 entry in section 9.
 
 ### Kubernetes chart (not part of the standalone release)
 
@@ -345,18 +343,18 @@ These extractor improvements were planned and are not in this release. The full 
 
 - **TC-397** Would have fixed C++ extraction: parameters read from the declarator, out-of-line member definitions attached to their class, free functions published only from public headers, header-only constructors captured. Affected pilots are the four C++ pilots: pdf/cpp, cells/cpp, slides/cpp and email/cpp. A peer may see C++ parameter types without qualifiers or defaults, constructors missing, some free functions defined in headers missing, and functions defined only in `.cpp` files still listed.
 - **TC-398** Would have made Go, Rust and TypeScript publish only their public API, with methods attached to their receiver type and import paths for symbol names. Affected pilots are pdf/go and cells/go (Go), cells/rust (Rust), and pdf/typescript, cells/typescript and 3d/typescript (TypeScript). A peer will see Go and Rust symbol names that are not import paths, and non-exported helpers or trait boilerplate listed as top-level functions.
-- **TC-402** Would have re-extracted the four C++ fixtures at their pinned library commits with the corrected C++ extractor. Affected pilots are pdf/cpp, cells/cpp, slides/cpp and email/cpp. A peer will see the earlier C++ signatures unchanged, and the 300-type extraction cap may still hide central types.
-- **TC-403** Would have re-extracted the six Go, Rust and TypeScript fixtures at their pinned library commits. Affected pilots are pdf/go, cells/go, cells/rust, pdf/typescript, cells/typescript and 3d/typescript. A peer will see the earlier fixtures unchanged, and for these pilots the 300-type extraction cap may still hide central types.
+- **TC-402** Would have re-extracted the four C++ fixtures at their pinned library commits with the corrected C++ extractor. Affected pilots are pdf/cpp, cells/cpp, slides/cpp and email/cpp. A peer will see the earlier C++ signatures unchanged.
+- **TC-403** Would have re-extracted the six Go, Rust and TypeScript fixtures at their pinned library commits. Affected pilots are pdf/go, cells/go, cells/rust, pdf/typescript, cells/typescript and 3d/typescript. A peer will see the earlier fixtures unchanged.
 - **TC-428** Would have fixed Go struct fields whose tag was published as their type. Affected pilots are the Go pilots pdf/go and cells/go. A peer may see a field type shown as a tag such as `json:"id,omitempty"` instead of the Go type.
 - **TC-475** Would have filled empty JavaScript parameter and return types from the JSDoc tags. The only pilot it concerned was removed from the image, so no pilot of the image is affected.
 - **TC-526** Would have fixed Java and Rust signature fidelity. Java (3d/java, cells/java, pdf/java, slides/java): a varargs parameter is dropped (`setPages(int... pages)` is served `setPages()`, 6 of 6 cases measured), generic bounds and `throws` clauses are not shown, public fields are not listed (34 properties of 3d/java such as the Quaternion `x`, `y`, `z`, `w`), no method is marked `static` (none of the 71, 76 and 159 static methods counted in three Java pilots), and a getter such as `isIdentity()` is also listed as a property `identity` that reads like a field. Rust (cells/rust): no method records its receiver, so cells/rust's 259 associated functions look like its 1,434 methods, and 6 cells/rust chunks are derive boilerplate. The `API-Coverage` line counts types, so no response marks these gaps.
 - **TC-527** Would have served member documentation for Java and C# (13 pilots: the five Java and the eight .NET pilots). The first sentence of each member's comment is already in the fixtures (pdf/net 3,887 of 4,887 members of the first 300 types, cells/java 2,199 of 2,677, words/net 3,363 of 3,506) but no symbol chunk renders it, and the Javadoc `@param`, `@return`, `@throws` and C# `<param>`, `<returns>`, `<exception>` text is dropped. In 65 blind coding tasks on 13 pilots the served signatures were never wrong (0 in 1,037 calls), but 8 of 13 option, error and format tasks forced a guess and none of the 13 was fully answered. A peer gets signatures without parameter meaning, units, index base or exceptions.
 - **TC-528** Would have served the same member documentation for Python (12 pilots), TypeScript and Node.js (5), Go (3), Rust (2) and C++ (5). Docstring Args, Returns and Raises, TSDoc, godoc, rustdoc and Doxygen text is not served. For example, the second `Document.save` call of pdf/python raises `FileExistsError` because `overwrite` defaults to False, which its docstring states and the index does not. A Python summary wrapped over two lines is served cut mid-sentence, and a sentence containing `e.g.` is cut there (cells/go `Cells`).
-- **TC-531** Would have re-extracted the five Java fixtures at their pinned commits with the fidelity and documentation work, and raised pdf/java from 300 to its whole 1,239 types. The shipped pdf/java index holds 300 of 1,239 types, 193 of those 300 are engine internals (`org.aspose.pdf.engine.xfa.*`, `engine.script.js.interp.*`), and only a third of the type names its README uses can be found (top-3 recall 33 percent). A prototype extraction kept 1,239 of 1,239 types and left 4 of 914 README identifiers unresolved. A peer sees the earlier Java data, and for pdf/java a type the README names may be missing.
+- **TC-531** Would have re-extracted the five Java fixtures at their pinned commits with the fidelity and documentation work, and raised pdf/java from 300 to its whole 1,239 types. The whole pdf/java surface (1,239 types) is indexed since TC-550, but the fidelity and documentation work still was not done: a peer sees the earlier Java signatures and documentation.
 
 ### What tells an agent
 
-The coverage caveats that already exist are the only signal. Every symbol chunk of a partially indexed pilot carries an `API-Coverage:` line (for pdf/java `300 of 1239 types`). `get_symbol` misses carry a `coverage_note`, and `search_symbols` and `lookup` misses carry it too (TC-515, TC-520). `report_index_freshness` returns `indexed_types`, `total_types` and the same note. Nothing marks a missing member, a dropped varargs parameter, a missing static mark or missing parameter documentation, so a peer must read the library's source or README for those.
+The coverage caveats that already exist are the only signal. Every symbol chunk carries an `API-Coverage:` line, for pdf/java `1239 of 1239 types`, and a pilot with functions adds a functions clause. `get_symbol` misses carry a `coverage_note`, and `search_symbols` and `lookup` misses carry it too (TC-515, TC-520). `report_index_freshness` returns `indexed_types`, `total_types` and the same note. Nothing marks a missing member, a dropped varargs parameter, a missing static mark or missing parameter documentation, so a peer must read the library's source or README for those.
 
 ### Not part of this release
 

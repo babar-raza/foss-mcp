@@ -243,13 +243,15 @@ def test_release_md_names_the_excepted_pilot_as_a_known_limitation() -> None:
     assert "one verified example" in section
 
 
-def test_release_md_names_the_mixed_pdf_typescript_index_as_a_known_limitation() -> None:
+# re-pinned by TC-553: test_release_md_names_the_mixed_pdf_typescript_index_as_a_known_limitation asserted "MIXED" in section 8 -> the baked
+# pdf/typescript index is ONE commit (the chart pin) since the re-ingest, so section 8 must no longer call it mixed.
+def test_release_md_no_longer_calls_the_pdf_typescript_index_mixed() -> None:
     text = RELEASE_DOC.read_text(encoding="utf-8")
     start = text.index("## 8. Known limitations")
     end = text.index("\n## 9.", start)
     section = " ".join(text[start:end].split())
-    assert "pdf/typescript" in section
-    assert "MIXED" in section
+    assert "MIXED" not in section
+    assert "mixed index" not in section.lower()
 
 
 # -- the review ledger -----------------------------------------------------------------------------------------------------
