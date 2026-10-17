@@ -1,0 +1,61 @@
+id: TC-556
+gate: G3
+lane: verification
+purpose: >-
+  REQ-G3-008 and REQ-G3-005. TC-555 re-extracted tex_python and, because the baked tex generation was still the 4-type one, pinned that interim state in two tables: tex_python is in STALE_BAKED_PILOTS of
+  tests/deploy/test_fleet_consistency.py and tests/deploy/test_served_provenance.py carries a P2 line for tex_python that says `fail` ('not served'). The supervisor has now re-ingested tex/python on the
+  merged code and committed the new baked generation (21 types, 2 functions, 15 public names, `API-Coverage: 21 of 21 types; 2 of 2 functions; 11 of 45 source files could not be parsed`), so both interim
+  pins are now wrong and their own tests demand their deletion (`delete it from the table`). THIS CARD deletes them and nothing else. What does NOT change: any src/ file, any fixture, any baked data, any
+  other pilot's row.
+depends_on:
+- TC-555
+write_paths:
+- tests/deploy/test_fleet_consistency.py
+- tests/deploy/test_served_provenance.py
+satisfies:
+- REQ-G3-008
+- REQ-G3-005
+source_refs:
+- file: docs/DECISION_LOG.md
+  anchor: >-
+    ## 2026-10-15 — Independent pre-production adversarial review of the shipped image; its findings enter the state machine as cards (operator, supervisor)
+  sha256: d2d82669b8060d5e3a3b9da00e9858e576d5d264d96e32d1aed8034e8d6d9007
+inputs:
+- >-
+  Start from the commit the supervisor issues. Activate the toolchain (scripts/toolchain/activate.ps1) in the SAME shell command as every python or pytest call. Never print an environment value. Run `{python}
+  -m pytest tests/deploy/test_fleet_consistency.py tests/deploy/test_served_provenance.py tests/deploy/test_served_coverage_matches_fixtures.py -q -rfE -p no:cacheprovider` FIRST: it fails now on (a) `test_every_stale_baked_entry_still_applies`
+  or the like for tex_python (the entry is no longer stale) and (b) the P2 line of tex_python in test_served_provenance.py. Make ONLY these edits: remove the tex_python entry from STALE_BAKED_PILOTS; and
+  in test_served_provenance.py restore the tex_python P2 expectation to what it is for every other pilot with served symbols (read how the other pilots are written and what the test requires: no pilot may
+  be `not_applicable`; tex_python must now be whatever the served data proves, `pass` if the served symbols satisfy P2, derived from the data and not guessed). UNRESOLVED_EXCEPTIONS for tex_python (2, the
+  two repaired-syntax entries) STAYS. If any other test of the check fails, STOP and report its name and assertion; do not edit it.
+- >-
+  Run `ruff format` and `ruff check` on both files without --force-exclude. Commit once with the subject `test(deploy): delete the interim tex_python pins now that the new generation is baked (G3/TC-556)`
+  ending with the Co-Authored-By trailer for the model that did the work; LF, UTF-8 without BOM. Do not edit plans/, project/, ops/, evidence/, schemas/, docs/, src/, infra/ or any fixture; no docker, no
+  cluster.
+actions:
+- >-
+  Delete the interim tex_python entries (STALE_BAKED_PILOTS and the P2 `fail`) that TC-555 pinned before the new generation was baked.
+checks:
+- command: >-
+    {python} -m pytest tests/deploy/test_fleet_consistency.py tests/deploy/test_served_provenance.py tests/deploy/test_served_coverage_matches_fixtures.py -q -rfE -p no:cacheprovider
+  expect: exit 0
+  timeout_seconds: 900
+  junitxml: true
+  proves:
+  - REQ-G3-008
+  - REQ-G3-005
+min_tests: 100
+network: false
+requires:
+- python
+negative_control:
+  mutate: |
+    python -X utf8 -c "import pathlib;p=pathlib.Path('tests/deploy/test_fleet_consistency.py');s=p.read_text(encoding='utf-8');q=chr(34);old='STALE_BAKED_PILOTS';assert old in s;p.write_text(s.replace(old,'STALE_BAKED_PILOTS_X',1),encoding='utf-8')"
+  rationale: >-
+    Renames the first occurrence of the stale-pilot table (its definition), so every test that reads the table fails at import or lookup: the pins of the fleet-consistency file cannot be silently removed.
+evidence:
+- evidence/build/G3/TC-556/receipt.json
+closeout:
+- >-
+  The two interim tex_python pins are gone; the fleet-consistency and served-provenance tests describe the baked tex generation as it is.
+recovery: Re-run from a clean tree.
