@@ -238,10 +238,10 @@ def test_foreign_prefix_target_is_refused_and_the_pointer_is_unchanged(
     _publish(store, "v1", _chunks(4, 1, 0))
     active = _publish(store, "v2", _chunks(4, 1, 0))
     foreign_path = store.write_generation(
-        build_manifest("jmap", PLATFORM, SOURCE_KIND, "v2", {"lexical_index": {"documents": {}}})
+        build_manifest("email", PLATFORM, SOURCE_KIND, "v2", {"lexical_index": {"documents": {}}})
     )
     shutil.copyfile(foreign_path, store_path / SCOPE_DIR_NAME / "generation__v3.json")
-    foreign_id = f"jmap::{PLATFORM}::{SOURCE_KIND}::v3"
+    foreign_id = f"email::{PLATFORM}::{SOURCE_KIND}::v3"
     assert store.generation_exists(SCOPE, foreign_id) is True
 
     with pytest.raises(UnknownGenerationError):

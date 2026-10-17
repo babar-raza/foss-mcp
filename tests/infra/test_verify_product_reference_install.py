@@ -38,7 +38,7 @@ import verify_product_reference_install  # noqa: E402
 
 PYPROJECT_TEXT = """
 [project]
-name = "aspose-jmap-foss"
+name = "aspose-email-foss"
 version = "26.9.0"
 """
 
@@ -62,7 +62,7 @@ def _write_manifest_sidecar(manifests_dir: Path, family: str, platform: str, *, 
     return path
 
 
-def _set_argv(monkeypatch, manifests_dir: Path, *, family: str = "jmap", platform: str = "python") -> None:
+def _set_argv(monkeypatch, manifests_dir: Path, *, family: str = "email", platform: str = "python") -> None:
     argv = [
         "verify_product_reference_install.py",
         "--family",
@@ -85,42 +85,42 @@ def _registry_output_path(manifests_dir: Path, family: str, platform: str) -> Pa
 def test_main_writes_the_expected_sidecar_shape_when_a_coordinate_exists(
     tmp_path: Path, monkeypatch, capsys
 ) -> None:
-    _write_manifest_sidecar(tmp_path, "jmap", "python", manifest_text=PYPROJECT_TEXT)
+    _write_manifest_sidecar(tmp_path, "email", "python", manifest_text=PYPROJECT_TEXT)
     monkeypatch.setitem(verify_package_registry._CHECKERS, "pypi", lambda coordinate: True)
     _set_argv(monkeypatch, tmp_path)
 
     verify_product_reference_install.main()
 
-    written = json.loads(_registry_output_path(tmp_path, "jmap", "python").read_text(encoding="utf-8"))
+    written = json.loads(_registry_output_path(tmp_path, "email", "python").read_text(encoding="utf-8"))
     assert written["ecosystem"] == "pypi"
-    assert written["coordinate"] == "aspose-jmap-foss"
+    assert written["coordinate"] == "aspose-email-foss"
     assert written["verified"] is True
     assert isinstance(written["checked_at"], str) and written["checked_at"]
 
 
 def test_main_writes_verified_false_when_the_checker_confirms_absence(tmp_path: Path, monkeypatch) -> None:
-    _write_manifest_sidecar(tmp_path, "jmap", "python", manifest_text=PYPROJECT_TEXT)
+    _write_manifest_sidecar(tmp_path, "email", "python", manifest_text=PYPROJECT_TEXT)
     monkeypatch.setitem(verify_package_registry._CHECKERS, "pypi", lambda coordinate: False)
     _set_argv(monkeypatch, tmp_path)
 
     verify_product_reference_install.main()
 
-    written = json.loads(_registry_output_path(tmp_path, "jmap", "python").read_text(encoding="utf-8"))
+    written = json.loads(_registry_output_path(tmp_path, "email", "python").read_text(encoding="utf-8"))
     assert written["verified"] is False
 
 
 def test_main_round_trips_through_load_package_registry_sidecar(tmp_path: Path, monkeypatch) -> None:
-    _write_manifest_sidecar(tmp_path, "jmap", "python", manifest_text=PYPROJECT_TEXT)
+    _write_manifest_sidecar(tmp_path, "email", "python", manifest_text=PYPROJECT_TEXT)
     monkeypatch.setitem(verify_package_registry._CHECKERS, "pypi", lambda coordinate: True)
     _set_argv(monkeypatch, tmp_path)
 
     verify_product_reference_install.main()
 
     loaded = verify_package_registry.load_package_registry_sidecar(
-        _registry_output_path(tmp_path, "jmap", "python")
+        _registry_output_path(tmp_path, "email", "python")
     )
     assert loaded is not None
-    assert loaded["coordinate"] == "aspose-jmap-foss"
+    assert loaded["coordinate"] == "aspose-email-foss"
 
 
 # --- writes nothing and exits 0 when there is nothing to verify ---------------------------------
@@ -152,14 +152,14 @@ def test_main_writes_nothing_when_the_manifest_has_no_install_coordinate_cpp(
 def test_main_writes_nothing_when_the_manifest_is_missing_the_install_field(
     tmp_path: Path, monkeypatch, capsys
 ) -> None:
-    _write_manifest_sidecar(tmp_path, "jmap", "python", manifest_text=PYPROJECT_WITH_NO_NAME_TEXT)
+    _write_manifest_sidecar(tmp_path, "email", "python", manifest_text=PYPROJECT_WITH_NO_NAME_TEXT)
     _set_argv(monkeypatch, tmp_path)
 
     verify_product_reference_install.main()
 
     out = capsys.readouterr().out
     assert "nothing to verify" in out
-    assert not _registry_output_path(tmp_path, "jmap", "python").exists()
+    assert not _registry_output_path(tmp_path, "email", "python").exists()
 
 
 # --- respects verify_package_registry.py's own freshness cache ----------------------------------
@@ -168,11 +168,11 @@ def test_main_writes_nothing_when_the_manifest_is_missing_the_install_field(
 def test_main_skips_the_check_when_the_existing_registry_sidecar_is_within_the_freshness_window(
     tmp_path: Path, monkeypatch, capsys
 ) -> None:
-    _write_manifest_sidecar(tmp_path, "jmap", "python", manifest_text=PYPROJECT_TEXT)
-    output_path = _registry_output_path(tmp_path, "jmap", "python")
+    _write_manifest_sidecar(tmp_path, "email", "python", manifest_text=PYPROJECT_TEXT)
+    output_path = _registry_output_path(tmp_path, "email", "python")
     existing = {
         "ecosystem": "pypi",
-        "coordinate": "aspose-jmap-foss",
+        "coordinate": "aspose-email-foss",
         "verified": False,
         "checked_at": "2026-01-01T00:00:00+00:00",
     }
@@ -194,13 +194,13 @@ def test_main_skips_the_check_when_the_existing_registry_sidecar_is_within_the_f
 def test_main_checks_again_when_the_existing_registry_sidecar_is_older_than_the_freshness_window(
     tmp_path: Path, monkeypatch
 ) -> None:
-    _write_manifest_sidecar(tmp_path, "jmap", "python", manifest_text=PYPROJECT_TEXT)
-    output_path = _registry_output_path(tmp_path, "jmap", "python")
+    _write_manifest_sidecar(tmp_path, "email", "python", manifest_text=PYPROJECT_TEXT)
+    output_path = _registry_output_path(tmp_path, "email", "python")
     output_path.write_text(
         json.dumps(
             {
                 "ecosystem": "pypi",
-                "coordinate": "aspose-jmap-foss",
+                "coordinate": "aspose-email-foss",
                 "verified": False,
                 "checked_at": "2020-01-01T00:00:00+00:00",
             }
@@ -221,7 +221,7 @@ def test_main_checks_again_when_the_existing_registry_sidecar_is_older_than_the_
 
     verify_product_reference_install.main()
 
-    assert calls == ["aspose-jmap-foss"]
+    assert calls == ["aspose-email-foss"]
     written = json.loads(output_path.read_text(encoding="utf-8"))
     assert written["verified"] is True
 
@@ -232,7 +232,7 @@ def test_main_checks_again_when_the_existing_registry_sidecar_is_older_than_the_
 def test_main_lets_a_checker_transport_failure_propagate_without_writing_a_sidecar(
     tmp_path: Path, monkeypatch
 ) -> None:
-    _write_manifest_sidecar(tmp_path, "jmap", "python", manifest_text=PYPROJECT_TEXT)
+    _write_manifest_sidecar(tmp_path, "email", "python", manifest_text=PYPROJECT_TEXT)
 
     def _checker_that_fails(coordinate: str) -> bool:
         raise urllib.error.URLError("boom: simulated registry outage")
@@ -243,4 +243,4 @@ def test_main_lets_a_checker_transport_failure_propagate_without_writing_a_sidec
     with pytest.raises(urllib.error.URLError):
         verify_product_reference_install.main()
 
-    assert not _registry_output_path(tmp_path, "jmap", "python").exists()
+    assert not _registry_output_path(tmp_path, "email", "python").exists()

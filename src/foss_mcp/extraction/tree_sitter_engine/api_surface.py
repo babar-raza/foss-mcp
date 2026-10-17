@@ -4166,13 +4166,13 @@ def _resolve_python_shim_collisions(classes: list[dict], source_files: list[Path
 # A JavaScript library may compose a class from object-literal "mixins":
 #
 #     export const MailClientMixin = { async listMailboxes(accountId) { ... } };
-#     class JmapClient extends CoreClient {}
-#     Object.assign(JmapClient.prototype, MailClientMixin);
+#     class SampleClient extends CoreClient {}
+#     Object.assign(SampleClient.prototype, MailClientMixin);
 #
 # The class model above only sees ``class`` declarations, and an object-literal method fails
-# ``is_public`` (its parent is an ``object``, not a ``class_body``), so the 13 public methods of
-# the real jmap/nodejs client were invisible. Per file the extractor now records the mixin
-# constants, the ``Object.assign(<Class>.prototype, ...)`` applications and the relative named
+# ``is_public`` (its parent is an ``object``, not a ``class_body``), so the public methods of
+# such a plain-JavaScript library's client were invisible. Per file the extractor now records the
+# mixin constants, the ``Object.assign(<Class>.prototype, ...)`` applications and the relative named
 # imports; after the file loop ``_attach_js_mixins`` gives each applying class the methods.
 
 _JS_MIXIN_ASSIGN_CALLEE = "Object.assign"
@@ -4430,11 +4430,11 @@ def _resolve_js_alias_bases(
 ) -> None:
     """Resolve an aliased import base to the class it names (in place).
 
-    ``import { JmapClient as CoreClient } from "./client-core.js"`` followed by
-    ``class JmapClient extends CoreClient {}`` leaves the base ``CoreClient``, which no class
+    ``import { SampleClient as CoreClient } from "./client-core.js"`` followed by
+    ``class SampleClient extends CoreClient {}`` leaves the base ``CoreClient``, which no class
     carries. When the import's module path plus its original name equals the ``class_import`` of a
-    known class (``client-core.JmapClient``) the class gains the additive
-    ``"base_imports": {"CoreClient": "client-core.JmapClient"}``, which ``_flatten_inheritance``
+    known class (``client-core.SampleClient``) the class gains the additive
+    ``"base_imports": {"CoreClient": "client-core.SampleClient"}``, which ``_flatten_inheritance``
     follows so the wrapper inherits the core class's members. ``bases`` keeps the name as written
     (TC-315 pins ``["CoreClient"]``); a base that does not resolve gets no ``base_imports`` entry.
     """
@@ -5252,10 +5252,11 @@ def extract_api_surface(
                 # TC-241: a nested class (declared inside another
                 # class/interface/enum/record/annotation-type) must carry its
                 # enclosing type in class_import/canonical_namespace -- Java
-                # previously had no ancestor walk at all here, so e.g.
-                # jmap/java's real JmapClientOptions.Builder recorded
-                # class_import="com.aspose.jmap.Builder", silently dropping
-                # "JmapClientOptions" and producing a non-importable name.
+                # previously had no ancestor walk at all here, so e.g. a Java
+                # library whose nested class Builder was recorded without its
+                # enclosing class got class_import="com.example.Builder",
+                # silently dropping the enclosing class and producing a
+                # non-importable name.
                 # _java_enclosing_class_chain() mirrors the C++/C#
                 # ancestor-walk fix above and returns "" for the overwhelming
                 # non-nested case, so behavior there is completely unchanged.
@@ -5373,19 +5374,18 @@ def extract_api_surface(
                 # class_import, nothing -- exactly the same gap TC-DUPIDX-06
                 # already closed for typescript above, but javascript is the
                 # language this project's own "nodejs" pilots actually
-                # extract under (confirmed live: a fresh jmap/nodejs
-                # extraction reports `"language": "javascript"`), not
+                # extract under (an extraction of a plain-JavaScript library
+                # reports `"language": "javascript"`), not
                 # typescript, so the gap was never actually closed for any
                 # real nodejs pilot. Without a namespace signal, two
                 # same-bare-name classes from different files collide into
                 # one consolidate_classes() dedup group as if they were the
-                # same type -- live-confirmed on the real, pinned jmap/nodejs
-                # repository (aspose-email-foss/Aspose.JMAP-FOSS-for-Node.js):
-                # src/client-core.js declares the real, full `JmapClient`
+                # same type -- seen in a plain-JavaScript library:
+                # src/client-core.js declares the real, full `SampleClient`
                 # (bases=[]), and src/index.js separately declares a
-                # near-empty wrapper also named `JmapClient`
-                # (`class JmapClient extends CoreClient {}` via
-                # `import { JmapClient as CoreClient } from "./client-core.js"`,
+                # near-empty wrapper also named `SampleClient`
+                # (`class SampleClient extends CoreClient {}` via
+                # `import { SampleClient as CoreClient } from "./client-core.js"`,
                 # an alias that defeats consolidate_classes' own Category 3
                 # shim-detection, which only matches a base literally named
                 # after the dropped duplicate). Both landed in the same ns=""
@@ -5402,10 +5402,8 @@ def extract_api_surface(
                 # not exist in a JS parse tree at all, so that call is
                 # deliberately omitted here).
                 #
-                # Extension handling: live-checked against this project's one
-                # real nodejs pilot (jmap/nodejs, pinned to
-                # aspose-email-foss/Aspose.JMAP-FOSS-for-Node.js) -- its
-                # entire src/ tree uses only `.js`, never `.mjs`/`.cjs`/
+                # Extension handling: checked against a real plain-JavaScript
+                # library whose entire src/ tree uses only `.js`, never `.mjs`/`.cjs`/
                 # `.jsx`. Only `.js` is stripped here rather than guessing the
                 # full set blindly; revisit if a future nodejs pilot is
                 # pinned to a repository that actually uses one of the

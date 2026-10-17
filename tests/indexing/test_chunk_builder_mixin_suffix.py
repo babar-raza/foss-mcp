@@ -17,7 +17,7 @@ def _lines(methods: list[dict[str, object]]) -> list[str]:
     fixture: Mapping[str, object] = {
         "source_repository": "org/repo",
         "source_commit": "c0ffee",
-        "types": [{"name": "JmapClient", "kind": "class_declaration", "methods": methods}],
+        "types": [{"name": "SampleClient", "kind": "class_declaration", "methods": methods}],
     }
     chunks = build_chunks_from_api_surface(fixture, title="t", max_types=10_000)
     return "\n".join(chunk.text for chunk in chunks).splitlines()
@@ -41,10 +41,10 @@ def test_the_suffix_text_and_position() -> None:
 
 
 def test_the_suffix_precedes_the_inherited_and_deprecated_suffixes() -> None:
-    method = {**MIXIN_METHOD, "inherited_from": "client-core.JmapClient", "deprecated": True}
+    method = {**MIXIN_METHOD, "inherited_from": "client-core.SampleClient", "deprecated": True}
     line = next(line for line in _lines([method]) if "listMailboxes" in line)
     assert line.endswith(
-        "[async]  (mixin MailClientMixin, src/client-mail.js)  (inherited from client-core.JmapClient) (deprecated)"
+        "[async]  (mixin MailClientMixin, src/client-mail.js)  (inherited from client-core.SampleClient) (deprecated)"
     )
 
 

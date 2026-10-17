@@ -2083,7 +2083,7 @@ def _wrap_go_fragment_if_needed(
     package name, then from the legacy ``pdf`` alias of pdf/go, then from a table of common
     standard-library packages. An import is emitted only for a qualifier the body uses, because Go
     rejects an unused import. Library imports are written aliased with the qualifier, so the
-    library's real package name (``cells_foss``, ``jmap``) never has to match the module path.
+    library's real package name (for example ``cells_foss``) never has to match the module path.
 
     A body with its own top-level ``func main(`` is not wrapped again: it becomes
     ``package main`` + imports + the body. Any other body is indented inside ``func main() {``,
@@ -2317,7 +2317,7 @@ def _java_wrapper_source(
     With no page imports the text is identical to the wrapper used before page imports were
     honoured.
 
-    A tuple for ``base_packages`` selects pilot mode (slides, cells, jmap, 3d): the header is
+    A tuple for ``base_packages`` selects pilot mode (slides, cells, 3d): the header is
     ``import <package>.*;`` for each package in order, ``import java.io.*;``, ``import java.util.*;``,
     then the imports hoisted from the top of the candidate itself (de-duplicated, order kept). The
     page's imports are not added in this mode: a README page collects the imports of every code
@@ -2523,7 +2523,7 @@ def verify_java_example(
     public class is compiled as-is, named after that class, with no page
     imports added.
 
-    ``java_packages`` selects the opt-in pilot mode (slides, cells, jmap, 3d): the wrapper imports
+    ``java_packages`` selects the opt-in pilot mode (slides, cells, 3d): the wrapper imports
     those packages instead of ``org.aspose.pdf``, hoists the candidate's own import lines above the
     class, and ignores ``page_imports``. The classpath is ``library_jar`` plus any dependency jars
     ``prepare_java_library`` copied beside it.
@@ -2657,7 +2657,7 @@ def prepare_typescript_library(
     tsconfig.build.json`` when that file exists (pdf/typescript, unchanged); else no
     build at all when the package entry (``_typescript_types_entry``) is an existing
     ``.ts`` source file (cells/typescript, ``main`` is ``index.ts``); else ``npx tsc
-    -p tsconfig.json`` when that exists (jmap/typescript, 3d/typescript). After a
+    -p tsconfig.json`` when that exists (3d/typescript). After a
     build, the ``.d.ts`` file package.json declares must exist, else ``dist/`` must be
     non-empty.
 
@@ -2791,7 +2791,7 @@ def verify_typescript_example(
 
     A minimal throwaway ``tsconfig.json`` maps ``package_name`` straight
     at the package entry (``_typescript_types_entry``: ``dist/index`` for
-    pdf/typescript, ``dist/src/index`` for jmap, ``index`` for cells) via ``paths``
+    pdf/typescript, ``dist/src/index`` for a dist/src layout, ``index`` for cells) via ``paths``
     (``moduleResolution: "bundler"``), so no second ``npm install`` is needed per
     candidate. Compiling is done with the reference library's own
     already-installed TypeScript compiler (``library_dir/node_modules/typescript``),
@@ -2881,7 +2881,7 @@ def verify_typescript_example(
     return VerificationResult(candidate=candidate, verified=verified, output=output)
 
 
-# --- jmap/nodejs (TC-362) ----------------------------------------------------
+# --- nodejs (TC-362) ---------------------------------------------------------
 
 _NODEJS_CANDIDATE_FILENAME = "candidate.mjs"
 _NODEJS_LINK_CHECK_FILENAME = "__foss_mcp_link_check__.mjs"
@@ -2892,7 +2892,7 @@ def prepare_nodejs_library(repository: str, commit: str, workdir: Path) -> Path:
 
     ``node`` must be on PATH (``ExampleEnvironmentError`` otherwise: a missing runtime is an
     environment failure, never a verdict). ``npm install --omit=dev`` runs only when package.json
-    has a non-empty ``dependencies`` object, so a dependency-free library (jmap/nodejs) runs no npm
+    has a non-empty ``dependencies`` object, so a dependency-free library runs no npm
     at all. Raises ``RuntimeError`` on a clone or install failure.
     """
     _require_linux_tool("node")
@@ -3059,8 +3059,8 @@ def _require_linux_tool(tool: str) -> None:
         )
 
 
-# TC-361 (REQ-G3-005): opt-in consumer-project mode. cells/cpp, slides/cpp, email/cpp and
-# jmap/cpp are not one archive named like pdf/cpp's: their CMake targets differ, one is
+# TC-361 (REQ-G3-005): opt-in consumer-project mode. cells/cpp, slides/cpp and email/cpp
+# are not one archive named like pdf/cpp's: their CMake targets differ, one is
 # header-only (INTERFACE, no archive), and slides/cpp pulls its own dependencies in with
 # FetchContent. A tiny CMake project that add_subdirectory()s the library and links a
 # candidate executable to the library's target lets CMake supply includes, dependencies and

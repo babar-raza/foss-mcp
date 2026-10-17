@@ -1,7 +1,7 @@
 /**
  * Core client that opens a session and sends raw requests.
  */
-export class JmapClient {
+export class SampleClient {
   /**
    * Create a client.
    * @param {object} options

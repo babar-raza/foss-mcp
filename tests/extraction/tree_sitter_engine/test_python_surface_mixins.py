@@ -1,6 +1,6 @@
 """TC-429: a public Python class gains the public methods of its private mixin bases.
 
-``JmapClient`` is built from ``_CoreClientMixin``, ``_MailClientMixin`` and
+``SampleClient`` is built from ``_CoreClientMixin``, ``_MailClientMixin`` and
 ``_SubmissionClientMixin``; the mixins are private so never public symbols, and nothing
 flattened inheritance, so the client was served with no methods. Offline: synthetic packages
 in ``tmp_path``, no clone.
@@ -27,15 +27,15 @@ def _symbols(root: Path) -> dict[str, PublicSymbol]:
     return {symbol.qualified_name: symbol for symbol in inspect_public_surface(root, ["pkg"]).symbols}
 
 
-def _jmap(root: Path) -> None:
+def _sample(root: Path) -> None:
     _write(
         root,
         "pkg/__init__.py",
         "from .client_core import _CoreClientMixin\n"
         "from .client_mail import _MailClientMixin\n"
         "from .client_submission import _SubmissionClientMixin\n\n\n"
-        "class JmapClient(_CoreClientMixin, _MailClientMixin, _SubmissionClientMixin):\n"
-        "    '''The JMAP client.'''\n",
+        "class SampleClient(_CoreClientMixin, _MailClientMixin, _SubmissionClientMixin):\n"
+        "    '''The SAMPLE client.'''\n",
     )
     _write(
         root,
@@ -61,32 +61,36 @@ def _jmap(root: Path) -> None:
     )
 
 
-def test_the_jmap_shape_serves_the_mail_core_and_submission_methods(tmp_path: Path) -> None:
-    _jmap(tmp_path)
+def test_the_sample_shape_serves_the_mail_core_and_submission_methods(tmp_path: Path) -> None:
+    _sample(tmp_path)
     symbols = _symbols(tmp_path)
     for name in ("list_mailboxes", "get_mailbox", "create_mailbox", "connect", "submit"):
-        assert f"pkg.JmapClient.{name}" in symbols, name
+        assert f"pkg.SampleClient.{name}" in symbols, name
 
 
 def test_a_contributed_method_keeps_kind_signature_and_params_from_the_mixin(tmp_path: Path) -> None:
-    _jmap(tmp_path)
+    _sample(tmp_path)
     symbols = _symbols(tmp_path)
-    listed = symbols["pkg.JmapClient.list_mailboxes"]
+    listed = symbols["pkg.SampleClient.list_mailboxes"]
     assert listed.kind == "method"
     assert listed.signature == "def list_mailboxes(self, account_id: str) -> list"
     assert listed.return_type == "list"
     assert listed.param_types == (("account_id", "str"),)
     assert listed.docstring == "List mailboxes."
-    assert symbols["pkg.JmapClient.get_mailbox"].signature == "async def get_mailbox(self, mailbox_id: str)"
-    assert symbols["pkg.JmapClient.create_mailbox"].params == (("name", ""), ("parent", ""), ("**extra", ""))
-    assert symbols["pkg.JmapClient.inbox"].kind == "property"
+    assert symbols["pkg.SampleClient.get_mailbox"].signature == "async def get_mailbox(self, mailbox_id: str)"
+    assert symbols["pkg.SampleClient.create_mailbox"].params == (
+        ("name", ""),
+        ("parent", ""),
+        ("**extra", ""),
+    )
+    assert symbols["pkg.SampleClient.inbox"].kind == "property"
 
 
 def test_a_contributed_method_is_rehomed_to_the_subclass_location(tmp_path: Path) -> None:
-    _jmap(tmp_path)
+    _sample(tmp_path)
     symbols = _symbols(tmp_path)
-    client = symbols["pkg.JmapClient"]
-    method = symbols["pkg.JmapClient.list_mailboxes"]
+    client = symbols["pkg.SampleClient"]
+    method = symbols["pkg.SampleClient.list_mailboxes"]
     assert method.module == "pkg"
     assert method.source_path == "pkg/__init__.py"
     assert method.line == client.line
@@ -95,16 +99,16 @@ def test_a_contributed_method_is_rehomed_to_the_subclass_location(tmp_path: Path
 
 
 def test_the_mixins_themselves_stay_private_symbols(tmp_path: Path) -> None:
-    _jmap(tmp_path)
+    _sample(tmp_path)
     names = set(_symbols(tmp_path))
     assert not any("_MailClientMixin" in name and name.endswith(".list_mailboxes") for name in names)
 
 
 def test_a_mixins_underscore_methods_are_not_copied(tmp_path: Path) -> None:
-    _jmap(tmp_path)
+    _sample(tmp_path)
     symbols = _symbols(tmp_path)
-    assert "pkg.JmapClient._secret" not in symbols
-    assert "pkg.JmapClient._helper" not in symbols
+    assert "pkg.SampleClient._secret" not in symbols
+    assert "pkg.SampleClient._helper" not in symbols
 
 
 def test_a_mixin_constructor_is_copied_only_when_the_subclass_has_none(tmp_path: Path) -> None:
@@ -234,26 +238,26 @@ def test_a_class_whose_bases_are_all_public_produces_todays_symbols(tmp_path: Pa
 
 
 def test_a_class_reached_through_a_reexport_gains_its_private_mixins_methods(tmp_path: Path) -> None:
-    _write(tmp_path, "pkg/__init__.py", "from ._client import JmapClient\n")
+    _write(tmp_path, "pkg/__init__.py", "from ._client import SampleClient\n")
     _write(
         tmp_path,
         "pkg/_client.py",
         "from ._mail import _MailMixin\n\n\n"
-        "class JmapClient(_MailMixin):\n    def own(self):\n        pass\n",
+        "class SampleClient(_MailMixin):\n    def own(self):\n        pass\n",
     )
     _write(tmp_path, "pkg/_mail.py", "class _MailMixin:\n    def list_mailboxes(self):\n        pass\n")
     symbols = _symbols(tmp_path)
-    assert symbols["pkg.JmapClient"].public_by == "reexport"
-    assert "pkg.JmapClient.own" in symbols
-    method = symbols["pkg.JmapClient.list_mailboxes"]
+    assert symbols["pkg.SampleClient"].public_by == "reexport"
+    assert "pkg.SampleClient.own" in symbols
+    method = symbols["pkg.SampleClient.list_mailboxes"]
     assert method.module == "pkg"
     assert method.source_path == "pkg/__init__.py"
 
 
 def test_contributed_methods_attach_to_the_class_in_the_extracted_types(tmp_path: Path) -> None:
-    _jmap(tmp_path)
+    _sample(tmp_path)
     surface = inspect_public_surface(tmp_path, ["pkg"])
     types = {entry["name"]: entry for entry in run_extraction._python_types_from_surface(surface)}
-    client = next(entry for name, entry in types.items() if name.endswith("JmapClient"))
+    client = next(entry for name, entry in types.items() if name.endswith("SampleClient"))
     method_names = {method["name"] for method in client.get("methods", [])}
     assert {"list_mailboxes", "get_mailbox", "create_mailbox", "connect", "submit"} <= method_names

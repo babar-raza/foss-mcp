@@ -4,9 +4,7 @@ The fixtures are regenerated at their chart pins by the merged extractor (README
 pdf/net and words/net caps). These tests pin what the regeneration achieved and give the later re-extraction cards of
 the chain (TC-531 to TC-535) a proven helper, ``tests/extraction/reextraction_checks.py``.
 
-jmap_net is NOT in ``PILOTS``: its upstream repository (aspose-email-foss/Aspose.JMAP-FOSS-for-.NET) answers 404 at the
-pinned commit, so the committed fixture could not be regenerated (BLOCKED_EXTERNAL, resume predicate: a git fetch of
-that repository at the chart pin succeeds). The member-documentation floors pin the first-sentence text the extractor
+The member-documentation floors pin the first-sentence text the extractor
 keeps today: the extractor does not yet capture ``<param>``, ``<returns>`` or ``<exception>`` text (TC-527 was cut).
 """
 

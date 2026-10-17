@@ -26,7 +26,7 @@ REPO_ROOT = Path(__file__).resolve().parents[3]
 DEMO_MANIFESTS = REPO_ROOT / "infra" / "demo-manifests"
 PDF_GO = Scope(family="pdf", platform="go")
 CELLS_NET = Scope(family="cells", platform="net")
-SYNTHETIC_SCOPE = Scope(family="jmap", platform="python")
+SYNTHETIC_SCOPE = Scope(family="sample", platform="python")
 _GENERATION_ID = "gen-tc516-symbols"
 
 DECLARING = {"TextBoxField", "Document"}
@@ -129,15 +129,15 @@ def test_workbook_methods_finds_workbook_by_token(cells_net_store: GenerationMan
 
 def test_send_email_finds_the_type_that_declares_the_member() -> None:
     store = _InMemoryStore(
-        _type_chunk("Jmap.Email", "Send()"),
-        _type_chunk("Jmap.Mailbox", "Open()"),
+        _type_chunk("Sample.Email", "Send()"),
+        _type_chunk("Sample.Mailbox", "Open()"),
     )
 
     assert _names(_search(store, "send email")) == ["Email"]
 
 
 def test_most_tokens_must_match_for_the_fallback_to_admit_a_type() -> None:
-    store = _InMemoryStore(_type_chunk("Jmap.Email", "Send()"))
+    store = _InMemoryStore(_type_chunk("Sample.Email", "Send()"))
 
     assert isinstance(_search(store, "send email teleport sandwich"), Miss)
     assert _names(_search(store, "send email please")) == ["Email"]

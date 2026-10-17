@@ -801,7 +801,7 @@ def _inherited_private_base_methods(
 ) -> list[PublicSymbol]:
     """TC-429: the public methods a public class inherits from its NON-PUBLIC base classes.
 
-    A public class built from private mixins (``class JmapClient(_CoreClientMixin,
+    A public class built from private mixins (``class SampleClient(_CoreClientMixin,
     _MailClientMixin)``) was served with no methods: the mixins are private, so never a public
     symbol, and nothing flattened inheritance. For every public class symbol, each ``Name``
     base is resolved in the module holding the class body (a class in the same module, or an

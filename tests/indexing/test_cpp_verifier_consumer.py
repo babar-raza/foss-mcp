@@ -1,7 +1,7 @@
 """TC-361 (REQ-G3-005): the opt-in consumer-project mode of the Linux C++ verifier.
 
-cells/cpp, slides/cpp, email/cpp and jmap/cpp each keep their CMake project and target under
-different names (jmap/cpp is a header-only INTERFACE target with no archive at all), so the
+cells/cpp, slides/cpp, email/cpp and sample/cpp each keep their CMake project and target under
+different names (sample/cpp is a header-only INTERFACE target with no archive at all), so the
 verifier can opt in to a tiny generated CMake project that add_subdirectory()s the library and
 links a candidate executable to the pilot's target. These tests are offline: every subprocess,
 every tool lookup and the git clone are replaced, so no g++, cmake, git or network is used.
@@ -30,7 +30,7 @@ PILOTS = [
     ("cells/cpp", "Aspose.Cells.Foss.Cpp", "aspose_cells_foss"),
     ("slides/cpp", None, "AsposeSlidesFoss"),
     ("email/cpp", None, "AsposeEmailFoss"),
-    ("jmap/cpp", None, "aspose-jmap-foss-cpp"),
+    ("sample/cpp", None, "aspose-sample-foss-cpp"),
 ]
 
 SLIDES_FRAGMENT = """#include <Aspose/Slides/Foss/presentation.hpp>
@@ -157,16 +157,16 @@ def test_consumer_cmakelists_for_email_cpp_names_its_target(tmp_path: Path) -> N
     assert "target_link_libraries(foss_mcp_candidate PRIVATE AsposeEmailFoss)" in text
 
 
-def test_consumer_cmakelists_for_jmap_cpp_links_the_interface_target_and_expects_no_archive(
+def test_consumer_cmakelists_for_sample_cpp_links_the_interface_target_and_expects_no_archive(
     tmp_path: Path,
 ) -> None:
     source = tmp_path / "lib"
     source.mkdir()
 
-    ev._write_cpp_consumer_project(tmp_path / "consumer", source, "aspose-jmap-foss-cpp", False)
+    ev._write_cpp_consumer_project(tmp_path / "consumer", source, "aspose-sample-foss-cpp", False)
 
     text = (tmp_path / "consumer" / "CMakeLists.txt").read_text(encoding="utf-8")
-    assert "target_link_libraries(foss_mcp_candidate PRIVATE aspose-jmap-foss-cpp)" in text
+    assert "target_link_libraries(foss_mcp_candidate PRIVATE aspose-sample-foss-cpp)" in text
     assert "libaspose" not in text
     assert "link_directories" not in text
     assert "find_library" not in text
@@ -236,7 +236,7 @@ def test_prepare_consumer_mode_for_the_header_only_target_demands_no_archive(
 ) -> None:
     _script_prepare(monkeypatch, source_subdir=None)
 
-    build_dir = _prepare(tmp_path / "reference", None, "aspose-jmap-foss-cpp")
+    build_dir = _prepare(tmp_path / "reference", None, "aspose-sample-foss-cpp")
 
     assert build_dir.name == "_build"
     assert list((tmp_path / "reference").rglob("*.a")) == []

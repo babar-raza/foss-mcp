@@ -3,7 +3,7 @@
 TC-232's worker found, by reading the real source, that ``_LANGUAGE_BY_PLATFORM`` mapped
 platform "nodejs" to the literal language string "typescript" for both ``get_parser()`` and
 ``extract_api_surface()``'s language argument - so ``_collect_source_files`` only looked for
-``.ts`` files, and every real ``.js`` file in the plain-JavaScript jmap/nodejs repository was
+``.ts`` files, and every real ``.js`` file in a plain-JavaScript repository was
 silently filtered out, producing 0/0 types. tree_helpers.py's own ``PLATFORM_TO_LANG`` already
 mapped "nodejs" to "javascript" correctly; run_extraction.py just never used it. This test pins
 the one-line fix (TC-233) against regressing, and confirms the real TypeScript platform itself

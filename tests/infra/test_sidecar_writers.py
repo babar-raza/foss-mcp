@@ -485,11 +485,11 @@ def test_serving_reads_the_placeholder_as_fetch_failed(
 
 # --- the verification steps ------------------------------------------------------------------
 
-_PYPROJECT = '[project]\nname = "aspose-jmap-foss"\nversion = "26.9.0"\n'
+_PYPROJECT = '[project]\nname = "aspose-email-foss"\nversion = "26.9.0"\n'
 
 
 def _write_manifest_sidecar(directory: Path, **overrides: object) -> Path:
-    path = directory / fpr.sidecar_name("jmap", "python")
+    path = directory / fpr.sidecar_name("email", "python")
     sidecar = {
         "manifest_text": _PYPROJECT,
         "platform": "python",
@@ -508,7 +508,7 @@ def _verify_argv(monkeypatch: pytest.MonkeyPatch, directory: Path) -> None:
         [
             "verify_product_reference_install.py",
             "--family",
-            "jmap",
+            "email",
             "--platform",
             "python",
             "--manifests-dir",
@@ -520,7 +520,7 @@ def _verify_argv(monkeypatch: pytest.MonkeyPatch, directory: Path) -> None:
 def test_verify_product_reference_install_skips_a_placeholder_without_calling_the_loader(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
 ) -> None:
-    path = tmp_path / fpr.sidecar_name("jmap", "python")
+    path = tmp_path / fpr.sidecar_name("email", "python")
     path.write_text(
         json.dumps({"state": "fetch_failed", "status": "fetch_failed", "reason": "auth_failed"}),
         encoding="utf-8",
@@ -551,12 +551,12 @@ def test_verify_product_reference_install_writes_provenance_atomically(
     monkeypatch.setattr(vpri, "atomic_write_json", spy)
     _verify_argv(monkeypatch, tmp_path)
     vpri.main()
-    output = tmp_path / vpr.verify_package_registry_sidecar_name("jmap", "python")
+    output = tmp_path / vpr.verify_package_registry_sidecar_name("email", "python")
     assert writes == [output]
     written = json.loads(output.read_text(encoding="utf-8"))
-    assert written["ecosystem"] == "pypi" and written["coordinate"] == "aspose-jmap-foss"
+    assert written["ecosystem"] == "pypi" and written["coordinate"] == "aspose-email-foss"
     assert written["verified"] is True
-    assert written["family"] == "jmap" and written["platform"] == "python"
+    assert written["family"] == "email" and written["platform"] == "python"
     assert written["fetched_at"] == written["checked_at"]
     assert written["source_repository"] == _REPOSITORY and written["source_ref"] == _REF
     assert vpr.load_package_registry_sidecar(output) is not None
@@ -566,7 +566,7 @@ def test_verify_product_reference_install_writes_provenance_atomically(
 def test_verify_package_registry_writes_provenance_atomically(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    output = tmp_path / vpr.verify_package_registry_sidecar_name("jmap", "python")
+    output = tmp_path / vpr.verify_package_registry_sidecar_name("email", "python")
     monkeypatch.setitem(vpr._CHECKERS, "pypi", lambda coordinate: False)
     writes: list[Path] = []
     real_write = vpr.atomic_write_json
@@ -582,13 +582,13 @@ def test_verify_package_registry_writes_provenance_atomically(
         [
             "verify_package_registry.py",
             "--family",
-            "jmap",
+            "email",
             "--platform",
             "python",
             "--ecosystem",
             "pypi",
             "--coordinate",
-            "aspose-jmap-foss",
+            "aspose-email-foss",
             "--output",
             str(output),
         ],
@@ -597,7 +597,7 @@ def test_verify_package_registry_writes_provenance_atomically(
     assert writes == [output]
     written = json.loads(output.read_text(encoding="utf-8"))
     assert written["verified"] is False
-    assert written["family"] == "jmap" and written["platform"] == "python"
+    assert written["family"] == "email" and written["platform"] == "python"
     assert written["fetched_at"] == written["checked_at"]
     assert vpr.load_package_registry_sidecar(output) is not None
     assert _names(tmp_path) == [output.name]

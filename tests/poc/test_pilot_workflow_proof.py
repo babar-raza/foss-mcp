@@ -359,7 +359,7 @@ def test_a_non_cpp_pilot_gets_no_compatibility_fallback_in_check_7(tmp_path: Pat
 
 def test_a_scope_separated_fqn_is_an_exact_hit_for_its_short_name() -> None:
     assert pwp.is_exact_hit("Aspose::Pdf::AFRelationship", "AFRelationship")
-    assert pwp.is_exact_hit("jmap::JmapError", "JmapError")
+    assert pwp.is_exact_hit("sample::SampleError", "SampleError")
     assert pwp.is_exact_hit("Aspose.Pdf.AFRelationship", "AFRelationship")
 
 

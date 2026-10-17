@@ -192,7 +192,7 @@ def test_check_maven_true_on_200_and_replaces_dots_with_slashes_in_the_group_id(
 
 def test_check_maven_false_on_404(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(verify_package_registry.urllib.request, "urlopen", _urlopen_raising(_http_error(404)))
-    assert verify_package_registry.check_maven("com.aspose:aspose-jmap-foss") is False
+    assert verify_package_registry.check_maven("com.aspose:aspose-email-foss") is False
 
 
 def test_check_maven_rejects_a_coordinate_without_a_colon() -> None:
@@ -654,10 +654,10 @@ def _set_argv(
     monkeypatch: pytest.MonkeyPatch,
     output_path: Path,
     *,
-    family: str = "jmap",
+    family: str = "email",
     platform: str = "python",
     ecosystem: str = "pypi",
-    coordinate: str = "aspose-jmap-foss",
+    coordinate: str = "aspose-email-foss",
 ) -> None:
     argv = [
         "verify_package_registry.py",
@@ -684,7 +684,7 @@ def test_main_writes_the_real_shaped_json_on_success(tmp_path: Path, monkeypatch
 
     written = json.loads(output_path.read_text(encoding="utf-8"))
     assert written["ecosystem"] == "pypi"
-    assert written["coordinate"] == "aspose-jmap-foss"
+    assert written["coordinate"] == "aspose-email-foss"
     assert written["verified"] is True
     assert isinstance(written["checked_at"], str) and written["checked_at"]
 
@@ -724,7 +724,7 @@ def test_main_skips_the_check_when_the_existing_output_is_within_the_freshness_w
     output_path = tmp_path / "package_registry.json"
     existing = {
         "ecosystem": "pypi",
-        "coordinate": "aspose-jmap-foss",
+        "coordinate": "aspose-email-foss",
         "verified": False,
         "checked_at": "2026-01-01T00:00:00+00:00",
     }
@@ -752,7 +752,7 @@ def test_main_checks_again_when_the_existing_output_is_older_than_the_freshness_
         json.dumps(
             {
                 "ecosystem": "pypi",
-                "coordinate": "aspose-jmap-foss",
+                "coordinate": "aspose-email-foss",
                 "verified": False,
                 "checked_at": "2020-01-01T00:00:00+00:00",
             }
@@ -773,7 +773,7 @@ def test_main_checks_again_when_the_existing_output_is_older_than_the_freshness_
 
     verify_package_registry.main()
 
-    assert calls == ["aspose-jmap-foss"]
+    assert calls == ["aspose-email-foss"]
     written = json.loads(output_path.read_text(encoding="utf-8"))
     assert written["verified"] is True
 
@@ -795,7 +795,7 @@ def test_main_treats_a_malformed_existing_output_as_absent_and_checks_live_witho
 
     verify_package_registry.main()  # must not raise
 
-    assert calls == ["aspose-jmap-foss"]
+    assert calls == ["aspose-email-foss"]
     written = json.loads(output_path.read_text(encoding="utf-8"))
     assert written["verified"] is True
 
@@ -808,7 +808,7 @@ def test_main_rejects_an_uppercase_family_before_doing_any_network_work(
 
     monkeypatch.setitem(verify_package_registry._CHECKERS, "pypi", _must_not_be_called)
     output_path = tmp_path / "package_registry.json"
-    _set_argv(monkeypatch, output_path, family="JMAP")
+    _set_argv(monkeypatch, output_path, family="EMAIL")
 
     with pytest.raises(ValueError):
         verify_package_registry.main()
@@ -830,7 +830,7 @@ def test_load_package_registry_sidecar_round_trips_what_main_wrote(
     loaded = verify_package_registry.load_package_registry_sidecar(output_path)
     assert loaded is not None
     assert loaded["ecosystem"] == "pypi"
-    assert loaded["coordinate"] == "aspose-jmap-foss"
+    assert loaded["coordinate"] == "aspose-email-foss"
     assert loaded["verified"] is True
 
 
@@ -855,7 +855,7 @@ def test_load_package_registry_sidecar_raises_on_a_present_but_malformed_file(tm
 def test_load_package_registry_sidecar_raises_when_a_required_key_is_missing(tmp_path: Path) -> None:
     path = tmp_path / "package_registry.json"
     path.write_text(
-        json.dumps({"ecosystem": "pypi", "coordinate": "aspose-jmap-foss", "verified": False}),
+        json.dumps({"ecosystem": "pypi", "coordinate": "aspose-email-foss", "verified": False}),
         encoding="utf-8",
     )
     with pytest.raises(ValueError):

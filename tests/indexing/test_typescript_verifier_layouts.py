@@ -1,6 +1,6 @@
 """TC-362 (REQ-G3-005): the TypeScript verifier takes its build and entry point from the library.
 
-pdf/typescript builds with tsconfig.build.json into dist/ and exports dist/index.d.ts. jmap/typescript
+pdf/typescript builds with tsconfig.build.json into dist/ and exports dist/index.d.ts. A dist/src layout
 builds with tsconfig.json into dist/src/, 3d/typescript builds with tsconfig.json into dist/, and
 cells/typescript has no build at all (package.json main is index.ts). README blocks for cells and 3d
 import by a relative path from the repository root, which a ``paths`` mapping can never resolve, so
@@ -36,7 +36,7 @@ LAYOUTS: dict[str, dict] = {
         "build": ["tsc", "-p", "tsconfig.build.json"],
         "outputs": ["dist/index.js", "dist/index.d.ts"],
     },
-    "jmap": {
+    "dist-src": {
         "package": {"main": "dist/src/index.js", "types": "dist/src/index.d.ts"},
         "files": ["tsconfig.json", "src/index.ts"],
         "entry": "dist/src/index",
@@ -120,7 +120,7 @@ def _tsc_writes(outputs: list[str]) -> Callable[[list[str], Path], object]:
 
 @pytest.mark.parametrize("layout", sorted(LAYOUTS))
 def test_types_entry_for_each_pilot_layout(tmp_path: Path, layout: str) -> None:
-    """pdf (dist/index.d.ts), jmap (dist/src/index.d.ts), 3d (dist/index.d.ts) and cells (main
+    """pdf (dist/index.d.ts), dist-src (dist/src/index.d.ts), 3d (dist/index.d.ts) and cells (main
     index.ts, no types key) each resolve to the extensionless entry their own package.json names."""
     spec = LAYOUTS[layout]
     _write_tree(tmp_path, spec["package"], [])
@@ -223,7 +223,7 @@ def test_prepare_cells_with_a_tsconfig_still_does_no_build(toolchain: FakeToolch
 def test_prepare_raises_when_the_build_leaves_the_declared_types_file_missing(
     toolchain: FakeToolchain, tmp_path: Path
 ) -> None:
-    spec = LAYOUTS["jmap"]
+    spec = LAYOUTS["dist-src"]
     repo = tmp_path / "work" / "repo"
     _write_tree(repo, spec["package"], spec["files"])
     (repo / "dist").mkdir()
@@ -336,7 +336,7 @@ def test_verify_without_package_json_keeps_the_dist_index_path(
 
 
 @pytest.mark.parametrize(
-    ("layout", "entry"), [("jmap", "dist/src/index"), ("3d", "dist/index"), ("cells", "index")]
+    ("layout", "entry"), [("dist-src", "dist/src/index"), ("3d", "dist/index"), ("cells", "index")]
 )
 def test_verify_maps_the_package_to_each_librarys_own_entry(
     toolchain: FakeToolchain, tmp_path: Path, layout: str, entry: str

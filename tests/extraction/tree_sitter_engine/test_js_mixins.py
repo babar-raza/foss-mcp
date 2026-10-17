@@ -1,8 +1,8 @@
 """TC-521: JavaScript object-literal mixins, aliased bases, destructured parameters and class docs.
 
-The jmap/nodejs pilot composes its client from ``export const MailClientMixin = { async listMailboxes()
-{...} }`` objects applied with ``Object.assign(JmapClient.prototype, MailClientMixin)`` onto ``class
-JmapClient extends CoreClient {}`` (``CoreClient`` is the import alias of the core client). Every test
+The sample/nodejs pilot composes its client from ``export const MailClientMixin = { async listMailboxes()
+{...} }`` objects applied with ``Object.assign(SampleClient.prototype, MailClientMixin)`` onto ``class
+SampleClient extends CoreClient {}`` (``CoreClient`` is the import alias of the core client). Every test
 runs ``run_extraction.extract_from_clone`` on a COPY of the committed sample tree (or on a small tree
 written here), offline.
 """
@@ -23,7 +23,7 @@ from foss_mcp.extraction.tree_sitter_engine import api_surface
 from foss_mcp.indexing.chunk_builder import build_chunks_from_api_surface
 
 SAMPLE = Path(__file__).resolve().parents[2] / "fixtures" / "js_mixin_sample"
-MANIFEST = {"platform": "nodejs", "family": "jmap", "repository": "x/y"}
+MANIFEST = {"platform": "nodejs", "family": "sample", "repository": "x/y"}
 
 MAIL_METHODS = ["listMailboxes", "getMailbox", "createMailbox", "deleteMailbox"]
 SUBMISSION_METHODS = ["send", "cancelSend"]
@@ -62,7 +62,7 @@ def _methods(entry: dict[str, Any]) -> dict[str, dict[str, Any]]:
 
 
 def _wrapper(types: list[dict[str, Any]]) -> dict[str, Any]:
-    return _by_file(types, "JmapClient", "src/index.js")
+    return _by_file(types, "SampleClient", "src/index.js")
 
 
 def test_wrapper_class_gets_the_mixin_methods(sample_types: list[dict[str, Any]]) -> None:
@@ -209,11 +209,11 @@ def test_application_resolves_through_an_aliased_import(tmp_path: Path) -> None:
 
 def test_alias_base_is_resolved_to_the_core_class(sample_types: list[dict[str, Any]]) -> None:
     wrapper = _wrapper(sample_types)
-    core = _by_file(sample_types, "JmapClient", "src/client-core.js")
-    assert core["class_import"] == "client-core.JmapClient"
+    core = _by_file(sample_types, "SampleClient", "src/client-core.js")
+    assert core["class_import"] == "client-core.SampleClient"
     # the base stays as written (TC-315 pins it); the alias is resolved beside it
     assert wrapper["bases"] == ["CoreClient"]
-    assert wrapper["base_imports"] == {"CoreClient": "client-core.JmapClient"}
+    assert wrapper["base_imports"] == {"CoreClient": "client-core.SampleClient"}
     assert "base_imports" not in core
 
 
@@ -221,7 +221,7 @@ def test_wrapper_inherits_core_methods_with_inherited_from(sample_types: list[di
     wrapper = _wrapper(sample_types)
     inherited = {m["name"]: m for m in wrapper["methods"] if m.get("inherited_from")}
     assert set(inherited) == {"connect", "close", "sendRequest"}
-    assert all(m["inherited_from"] == "client-core.JmapClient" for m in inherited.values())
+    assert all(m["inherited_from"] == "client-core.SampleClient" for m in inherited.values())
     # constructors are never inherited, and the private member never reached the core entry
     assert "constructor" not in _methods(wrapper)
     assert len(wrapper["methods"]) == 4 + 1 + 2 + 3  # mail + arrow member + submission + inherited
@@ -319,7 +319,7 @@ def test_destructured_constructor_does_not_duplicate_a_declared_property(tmp_pat
 def test_positional_params_are_unchanged(sample_types: list[dict[str, Any]]) -> None:
     describe = _methods(_by_file(sample_types, "Mailbox", "src/models/Mailbox.js"))["describe"]
     assert describe["params"] == [{"name": "prefix", "type": ""}]
-    core = _methods(_by_file(sample_types, "JmapClient", "src/client-core.js"))
+    core = _methods(_by_file(sample_types, "SampleClient", "src/client-core.js"))
     assert core["constructor"]["params"] == [{"name": "options", "type": ""}]
     assert core["sendRequest"]["params"] == [{"name": "request", "type": ""}]
     assert "destructured" not in json.dumps(core)
@@ -330,7 +330,7 @@ def test_exported_js_class_keeps_its_first_sentence(sample_types: list[dict[str,
         _by_file(sample_types, "Mailbox", "src/models/Mailbox.js")["doc"]
         == "Represents a named set of Emails."
     )
-    assert _by_file(sample_types, "JmapClient", "src/client-core.js")["doc"].startswith(
+    assert _by_file(sample_types, "SampleClient", "src/client-core.js")["doc"].startswith(
         "Core client that opens"
     )
     assert _by_file(sample_types, "Hub", "src/multi.js")["doc"] == "A hub composed from several mixins."
@@ -483,15 +483,15 @@ def test_mixin_claims_are_emitted(tmp_path: Path) -> None:
     from tree_sitter_language_pack import get_parser
 
     result = api_surface.extract_api_surface(
-        get_parser("javascript"), "javascript", root / "src", root, "jmap"
+        get_parser("javascript"), "javascript", root / "src", root, "sample"
     )
     texts = [claim["text"] for claim in result[1]]
-    assert any(text.startswith("JmapClient.listMailboxes(accountId, ids, properties)") for text in texts)
+    assert any(text.startswith("SampleClient.listMailboxes(accountId, ids, properties)") for text in texts)
     assert any(text == "Mailbox.parentId property of type string | null" for text in texts)
 
 
 def test_list_members_of_the_owner_is_not_empty(sample_types: list[dict[str, Any]]) -> None:
-    """The exact failure of the committed jmap_nodejs fixture is gone for the sample: the wrapper's
+    """The exact failure of the committed sample_nodejs fixture is gone for the sample: the wrapper's
     ``Methods:`` block lists the mixin methods and the inherited core methods."""
     fixture = {
         "source_repository": "x/y",
@@ -500,7 +500,7 @@ def test_list_members_of_the_owner_is_not_empty(sample_types: list[dict[str, Any
         "types": sample_types,
     }
     chunks = build_chunks_from_api_surface(fixture, title="sample", max_types=10_000)
-    owner = next(chunk for chunk in chunks if chunk.text.splitlines()[0] == "FQN: JmapClient")
+    owner = next(chunk for chunk in chunks if chunk.text.splitlines()[0] == "FQN: SampleClient")
     lines = owner.text.splitlines()
     methods_block: list[str] = []
     for line in lines[lines.index("Methods:") + 1 :]:

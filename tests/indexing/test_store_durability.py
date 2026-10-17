@@ -522,11 +522,11 @@ def test_rollback_refuses_a_foreign_prefix_id_even_if_the_version_exists(
     store: GenerationManifestStore,
 ) -> None:
     _publish_version(store, "v1")
-    foreign = build_manifest("jmap", "go", "self_extracted", "v2", _payload())
+    foreign = build_manifest("email", "go", "self_extracted", "v2", _payload())
     foreign_store_path = store.write_generation(foreign)
     planted = _scope_dir(store) / "generation__v2.json"
     shutil.copyfile(foreign_store_path, planted)
-    foreign_id = "jmap::go::self_extracted::v2"
+    foreign_id = "email::go::self_extracted::v2"
     assert store.generation_exists(SCOPE, foreign_id) is True
 
     lease = store.acquire_lease(SCOPE, "rollback", "pending")
@@ -648,7 +648,7 @@ def test_list_generations_and_previous_generation(store: GenerationManifestStore
     store.append_publish_log(SCOPE, {"event": "rollback", "previous_active": _gid("v9")})
     assert store.previous_generation(SCOPE) == _gid("v2")  # the logged one no longer exists
 
-    store.append_publish_log(SCOPE, {"event": "rollback", "previous_active": "jmap::go::self_extracted::v2"})
+    store.append_publish_log(SCOPE, {"event": "rollback", "previous_active": "email::go::self_extracted::v2"})
     assert store.previous_generation(SCOPE) == _gid("v2")  # a foreign id is never offered
 
 

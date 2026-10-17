@@ -40,7 +40,7 @@ TC-306's own regeneration history (two live re-runs, same pinned commit
 originally pinned (TC-162) predated both TC-252 (centrality-ranked ``reduce_fixture``) and
 TC-261 (``inherited_from`` provenance tagging). A first re-run under TC-252+TC-261 picked up
 the centrality reorder but still showed zero ``inherited_from`` tags anywhere - NOT because
-this repository is genuinely flat (unlike the cells_rust/jmap_go siblings), but because a
+this repository is genuinely flat (unlike the cells_rust sibling), but because a
 real, separate engine defect (TC-316, fixed on main after this card's first pass: tree-sitter
 TypeScript's real ``interface X extends Y`` node is ``extends_type_clause``, which
 ``_extract_bases`` never recognized) was silently dropping every TS interface-to-interface

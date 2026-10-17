@@ -49,7 +49,7 @@ shell TC-293's short-name-collision fix resolves against, once as the real submo
 definition), but ``IntEnum``/``Exception`` are never themselves entries in this fixture's
 ``types`` list for ``_flatten_inheritance()`` to copy members from. That is accurate
 extraction of this repository's real shape, not evidence of a stale or broken pipeline -
-mirroring the TC-301/TC-303/TC-312 precedent (jmap/go, cells/rust, jmap/rust) of a
+mirroring the TC-301/TC-303/TC-312 precedent (cells/rust) of a
 genuine, hand-verified absence of cross-type inheritance.
 """
 

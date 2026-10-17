@@ -1,8 +1,8 @@
 """Offline checks of the opt-in pilot mode of the Java verifier (REQ-G3-005, TC-360).
 
 pdf/java compiles a bare statement block inside a wrapper that imports ``org.aspose.pdf``. The
-slides, cells, jmap and 3d pilots have other packages, README code blocks that start with their own
-``import`` lines, and (jmap) a compile-scope dependency. These tests pin both modes without running
+slides, cells, sample and 3d pilots have other packages, README code blocks that start with their own
+``import`` lines, and (sample) a compile-scope dependency. These tests pin both modes without running
 javac or Maven: the one subprocess seam, ``_run``, and the Maven lookup are replaced by recorders,
 and the pom.xml and jar files are synthetic files written into ``tmp_path``.
 """
@@ -25,7 +25,7 @@ REPOSITORY = "owner/pilot-java"
 COMMIT = "0123456789abcdef0123456789abcdef01234567"
 
 SLIDES_PACKAGE = "org.aspose.slides.foss"
-JMAP_PACKAGE = "com.aspose.jmap"
+SAMPLE_PACKAGE = "com.aspose.sample"
 THREED_PACKAGE = "com.aspose.threed"
 
 SLIDES_README_BLOCK = """\
@@ -37,8 +37,8 @@ try (Presentation presentation = new Presentation()) {
 }
 """
 
-JMAP_README_BLOCK = """\
-import com.aspose.jmap.Mapper;
+SAMPLE_README_BLOCK = """\
+import com.aspose.sample.Mapper;
 
 Mapper mapper = new Mapper();
 System.out.println(mapper);
@@ -293,14 +293,14 @@ def test_slides_shape_gets_the_package_wildcard_java_imports_and_hoisted_imports
     assert source.index("public class Candidate") > source.index("import org.aspose.slides.foss.SaveFormat;")
 
 
-def test_jmap_shape_is_wrapped_with_the_jmap_package() -> None:
-    source = ev._java_wrapper_source(JMAP_README_BLOCK, "Candidate", (), base_packages=(JMAP_PACKAGE,))
+def test_sample_shape_is_wrapped_with_the_sample_package() -> None:
+    source = ev._java_wrapper_source(SAMPLE_README_BLOCK, "Candidate", (), base_packages=(SAMPLE_PACKAGE,))
 
     assert source.splitlines()[:4] == [
-        "import com.aspose.jmap.*;",
+        "import com.aspose.sample.*;",
         "import java.io.*;",
         "import java.util.*;",
-        "import com.aspose.jmap.Mapper;",
+        "import com.aspose.sample.Mapper;",
     ]
     assert "        Mapper mapper = new Mapper();" in source
     assert "import " not in source[source.index("public static void main") :]
@@ -321,24 +321,24 @@ def test_threed_shape_keeps_import_static_and_drops_the_comment_above_the_import
 
 
 def test_pilot_mode_ignores_page_imports_and_deduplicates_hoisted_imports() -> None:
-    code = "import java.util.*;\nimport com.aspose.jmap.Mapper;\nimport com.aspose.jmap.Mapper;\nint x = 1;\n"
+    code = "import java.util.*;\nimport com.aspose.sample.Mapper;\nimport com.aspose.sample.Mapper;\nint x = 1;\n"
 
     source = ev._java_wrapper_source(
         code,
         "Candidate",
         ("import other.pkg.Mapper;",),
-        base_packages=(JMAP_PACKAGE, "com.aspose.extra"),
+        base_packages=(SAMPLE_PACKAGE, "com.aspose.extra"),
     )
 
     assert "other.pkg" not in source
-    assert source.count("import com.aspose.jmap.Mapper;") == 1
+    assert source.count("import com.aspose.sample.Mapper;") == 1
     assert source.count("import java.util.*;") == 1
     assert source.splitlines()[:5] == [
-        "import com.aspose.jmap.*;",
+        "import com.aspose.sample.*;",
         "import com.aspose.extra.*;",
         "import java.io.*;",
         "import java.util.*;",
-        "import com.aspose.jmap.Mapper;",
+        "import com.aspose.sample.Mapper;",
     ]
 
 
@@ -397,10 +397,10 @@ def test_a_failing_compile_is_reported_as_not_verified(
     monkeypatch.setattr(ev, "_run", failing_run)
 
     result = ev.verify_java_example(
-        _candidate(JMAP_README_BLOCK),
+        _candidate(SAMPLE_README_BLOCK),
         library_jar=tmp_path / "lib.jar",
         workdir=tmp_path,
-        java_packages=(JMAP_PACKAGE,),
+        java_packages=(SAMPLE_PACKAGE,),
     )
 
     assert result.verified is False
@@ -503,10 +503,10 @@ def test_javac_gets_the_jar_plus_the_copied_dependency_jars_in_sorted_order(
     jar = ev.prepare_java_library(REPOSITORY, COMMIT, tmp_path / "work")
 
     ev.verify_java_example(
-        _candidate(JMAP_README_BLOCK),
+        _candidate(SAMPLE_README_BLOCK),
         library_jar=jar,
         workdir=tmp_path / "candidate",
-        java_packages=(JMAP_PACKAGE,),
+        java_packages=(SAMPLE_PACKAGE,),
     )
 
     deps = jar.parent / "foss-mcp-deps"
@@ -619,9 +619,9 @@ def test_the_flag_is_not_a_required_platform_flag() -> None:
 
 
 def test_java_packages_argument_splits_a_comma_separated_list_in_order() -> None:
-    assert build_chunks._java_packages_argument("org.aspose.slides.foss, com.aspose.jmap") == (
+    assert build_chunks._java_packages_argument("org.aspose.slides.foss, com.aspose.sample") == (
         "org.aspose.slides.foss",
-        "com.aspose.jmap",
+        "com.aspose.sample",
     )
 
 

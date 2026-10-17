@@ -4,15 +4,15 @@ TC-315: the per-language ``canonical_namespace``/``class_import`` derivation (ad
 incrementally for cpp, java, csharp, python, typescript, and rust) had no branch at all
 for ``javascript`` -- the language this project's own "nodejs" pilots actually extract
 under (``run_extraction._LANGUAGE_BY_PLATFORM["nodejs"] == "javascript"``, confirmed live
-against the real, pinned jmap/nodejs repository). Without a namespace signal, two
+against the real, pinned sample/nodejs repository). Without a namespace signal, two
 genuinely distinct same-bare-name classes from different files collided into one
 ``consolidate_classes()`` dedup group as if they were the same type, and the "stub vs
 full" heuristic (Category 2: a class with ``bases`` is assumed more complete than one
 without) then discarded the real, full implementation in favor of a near-empty wrapper
--- exactly the shape of the real jmap/nodejs repository's ``JmapClient``:
+-- exactly the shape of the real sample/nodejs repository's ``SampleClient``:
 ``src/client-core.js`` declares the real, full implementation (``bases=[]``), and
-``src/index.js`` separately declares ``class JmapClient extends CoreClient {}`` via an
-aliased import (``import { JmapClient as CoreClient } from "./client-core.js"``), which
+``src/index.js`` separately declares ``class SampleClient extends CoreClient {}`` via an
+aliased import (``import { SampleClient as CoreClient } from "./client-core.js"``), which
 defeats ``consolidate_classes``' own Category 3 shim-detection (it only matches a base
 literally named after the dropped duplicate).
 
@@ -30,11 +30,11 @@ from tree_sitter_language_pack import get_parser
 
 from foss_mcp.extraction.tree_sitter_engine import api_surface
 
-# Mirrors the real jmap/nodejs shape: a real, full implementation in one file, and a
+# Mirrors the real sample/nodejs shape: a real, full implementation in one file, and a
 # near-empty wrapper sharing the same bare class name in another, linked via an aliased
 # import that defeats the shim-detection heuristic.
 JS_CLIENT_CORE = """
-export class JmapClient {
+export class SampleClient {
   constructor(options) {
     this.options = options;
   }
@@ -62,14 +62,14 @@ export class JmapClient {
 """
 
 JS_INDEX_WRAPPER = """
-import { JmapClient as CoreClient } from "./client-core.js";
+import { SampleClient as CoreClient } from "./client-core.js";
 
-export class JmapClient extends CoreClient {}
+export class SampleClient extends CoreClient {}
 """
 
 
-def _write_jmap_nodejs_fixture(tmp_path: Path) -> Path:
-    (tmp_path / "package.json").write_text('{"name": "jmap"}\n', encoding="utf-8")
+def _write_sample_nodejs_fixture(tmp_path: Path) -> Path:
+    (tmp_path / "package.json").write_text('{"name": "sample"}\n', encoding="utf-8")
     package = tmp_path / "src"
     package.mkdir()
     (package / "client-core.js").write_text(JS_CLIENT_CORE, encoding="utf-8")
@@ -80,21 +80,21 @@ def _write_jmap_nodejs_fixture(tmp_path: Path) -> Path:
 def test_javascript_same_name_classes_in_different_files_derive_distinct_namespaces(
     tmp_path: Path,
 ) -> None:
-    package = _write_jmap_nodejs_fixture(tmp_path)
+    package = _write_sample_nodejs_fixture(tmp_path)
     types, *_ = api_surface.extract_api_surface(
-        get_parser("javascript"), "javascript", package, tmp_path, "jmap"
+        get_parser("javascript"), "javascript", package, tmp_path, "sample"
     )
 
-    jmap_clients = [t for t in types if t.get("name") == "JmapClient"]
+    sample_clients = [t for t in types if t.get("name") == "SampleClient"]
 
-    # The exact TC-315 bug: before the fix, only one `JmapClient` entry survived
+    # The exact TC-315 bug: before the fix, only one `SampleClient` entry survived
     # `consolidate_classes()` -- the near-empty wrapper -- because neither entry had a
     # namespace signal, so both landed in the same dedup group and the "has bases = more
     # complete" heuristic kept the wrapper (bases=["CoreClient"]) and discarded the real
     # implementation (bases=[]).
-    assert len(jmap_clients) == 2
+    assert len(sample_clients) == 2
 
-    by_file = {c["file"]: c for c in jmap_clients}
+    by_file = {c["file"]: c for c in sample_clients}
     core = by_file["src/client-core.js"]
     index = by_file["src/index.js"]
 
@@ -106,7 +106,7 @@ def test_javascript_same_name_classes_in_different_files_derive_distinct_namespa
     # The file-path-derived module path for client-core.js is NOT collapsed (it is not
     # named "index"), mirroring the typescript branch's own convention exactly.
     assert core.get("canonical_namespace") == "client-core"
-    assert core.get("class_import") == "client-core.JmapClient"
+    assert core.get("class_import") == "client-core.SampleClient"
 
     # The real, full implementation (with its real methods) survives extraction rather
     # than being discarded.

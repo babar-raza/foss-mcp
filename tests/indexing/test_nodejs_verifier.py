@@ -1,6 +1,6 @@
 """TC-362 (REQ-G3-005): the Node.js (plain ESM JavaScript) verifier and its nodejs dispatch entry.
 
-jmap/nodejs is plain ESM JavaScript (package aspose-jmap-foss, entry src/index.js, no dependencies),
+sample/nodejs is plain ESM JavaScript (package aspose-sample-foss, entry src/index.js, no dependencies),
 so there is nothing to compile. The verifier is a weaker bar than compilation: ``node --check`` for
 syntax, then a generated module holding only the candidate's imports of the package, run so that a
 named import the library does not export fails at link time without running the candidate.
@@ -27,7 +27,7 @@ from foss_mcp.indexing.example_verifier import ExampleEnvironmentError, verify_n
 
 REPOSITORY = "example-org/reference-js"
 COMMIT = "0123456789abcdef0123456789abcdef01234567"
-PACKAGE_NAME = "aspose-jmap-foss"
+PACKAGE_NAME = "aspose-sample-foss"
 
 
 def _completed(args: list[str], returncode: int = 0, stdout: str = "", stderr: str = "") -> object:
@@ -62,7 +62,7 @@ def toolchain(monkeypatch: pytest.MonkeyPatch) -> FakeToolchain:
 def library(tmp_path: Path) -> Path:
     root = tmp_path / "library"
     (root / "src").mkdir(parents=True)
-    (root / "src" / "index.js").write_text("export const JmapClient = class {};\n", encoding="utf-8")
+    (root / "src" / "index.js").write_text("export const SampleClient = class {};\n", encoding="utf-8")
     (root / "package.json").write_text(
         json.dumps({"name": PACKAGE_NAME, "type": "module", "main": "src/index.js"}), encoding="utf-8"
     )
@@ -186,7 +186,7 @@ def _verify(
 
 
 GOOD_CANDIDATE = (
-    f'import {{ JmapClient }} from "{PACKAGE_NAME}";\nconst c = new JmapClient();\nconsole.log(c);\n'
+    f'import {{ SampleClient }} from "{PACKAGE_NAME}";\nconst c = new SampleClient();\nconsole.log(c);\n'
 )
 
 
@@ -212,15 +212,15 @@ def test_link_check_holds_only_the_package_import_single_line(
     _sym_ok(monkeypatch)
     code = (
         'import fs from "node:fs";\n'
-        f'import {{ JmapClient, Mailbox }} from "{PACKAGE_NAME}";\n'
+        f'import {{ SampleClient, Mailbox }} from "{PACKAGE_NAME}";\n'
         'import other from "other-package";\n'
-        "const c = new JmapClient(fs, other, Mailbox);\n"
+        "const c = new SampleClient(fs, other, Mailbox);\n"
         "c.connect();\n"
     )
 
     _, seen, _ = _verify(toolchain, tmp_path, library, code)
 
-    assert seen["link_check"] == f'import {{ JmapClient, Mailbox }} from "{PACKAGE_NAME}";\n'
+    assert seen["link_check"] == f'import {{ SampleClient, Mailbox }} from "{PACKAGE_NAME}";\n'
 
 
 def test_link_check_holds_only_the_package_import_multi_line(
@@ -229,17 +229,17 @@ def test_link_check_holds_only_the_package_import_multi_line(
     _sym_ok(monkeypatch)
     code = (
         "import {\n"
-        "  JmapClient,\n"
+        "  SampleClient,\n"
         "  Mailbox,\n"
         f'}} from "{PACKAGE_NAME}";\n'
-        "const c = new JmapClient();\n"
+        "const c = new SampleClient();\n"
         "console.log(c, Mailbox);\n"
     )
 
     _, seen, _ = _verify(toolchain, tmp_path, library, code)
 
     assert seen["link_check"].startswith("import {")
-    assert "JmapClient," in seen["link_check"]
+    assert "SampleClient," in seen["link_check"]
     assert "Mailbox," in seen["link_check"]
     assert seen["link_check"].rstrip().endswith(f'}} from "{PACKAGE_NAME}";')
     assert "const c" not in seen["link_check"]
@@ -305,7 +305,7 @@ def test_a_candidate_with_no_package_import_is_not_verified_and_says_so(
     toolchain: FakeToolchain, monkeypatch: pytest.MonkeyPatch, tmp_path: Path, library: Path
 ) -> None:
     _sym_ok(monkeypatch)
-    code = 'import fs from "node:fs";\nconst c = new JmapClient();\nconsole.log(c, fs);\n'
+    code = 'import fs from "node:fs";\nconst c = new SampleClient();\nconsole.log(c, fs);\n'
 
     result, seen, project = _verify(toolchain, tmp_path, library, code, codes=(0,))
 
@@ -342,13 +342,13 @@ def test_a_scoped_package_name_links_below_its_scope_directory(
     toolchain: FakeToolchain, monkeypatch: pytest.MonkeyPatch, tmp_path: Path, library: Path
 ) -> None:
     made = _sym_ok(monkeypatch)
-    code = 'import { JmapClient } from "@aspose/jmap";\nconsole.log(JmapClient);\n'
+    code = 'import { SampleClient } from "@aspose/sample";\nconsole.log(SampleClient);\n'
 
-    result, seen, project = _verify(toolchain, tmp_path, library, code, package_name="@aspose/jmap")
+    result, seen, project = _verify(toolchain, tmp_path, library, code, package_name="@aspose/sample")
 
-    assert made[0][1] == project / "node_modules" / "@aspose" / "jmap"
+    assert made[0][1] == project / "node_modules" / "@aspose" / "sample"
     assert (project / "node_modules" / "@aspose").is_dir()
-    assert seen["link_check"] == 'import { JmapClient } from "@aspose/jmap";\n'
+    assert seen["link_check"] == 'import { SampleClient } from "@aspose/sample";\n'
     assert result.verified is True
 
 

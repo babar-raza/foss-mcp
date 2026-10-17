@@ -3,7 +3,7 @@
 A pilot's README (the furnished ``_index.md`` page) names the API an agent is told to use. If a
 name the README presents in backticks is absent from the pilot's committed ``api_surface.json``,
 an agent that follows the README cannot find it with ``search_symbols`` / ``get_symbol`` - the
-65-task blind run found 3 of 5 jmap/nodejs tasks undiscoverable for exactly this reason.
+65-task blind run found 3 of 5 tasks on one pilot undiscoverable for exactly this reason.
 
 This module is a helper, not a test module (nothing here is collected). The permanent test is
 ``tests/extraction/test_docs_identifiers_resolve.py``; later re-extraction cards import the

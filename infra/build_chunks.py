@@ -241,7 +241,7 @@ _PLATFORM_DISPATCH = {
         },
         "shared_page_workdir": False,
     },
-    # TC-362: jmap/nodejs is plain ESM JavaScript; the verifier checks syntax and export bindings.
+    # TC-362: a plain ESM JavaScript pilot: the verifier checks syntax and export bindings.
     "nodejs": {
         "prepare": lambda args, workdir: prepare_nodejs_library(
             args.library_repository, args.library_commit, workdir

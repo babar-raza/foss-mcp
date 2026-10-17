@@ -137,12 +137,12 @@ def execv(monkeypatch: pytest.MonkeyPatch) -> ExecRecorder:
 
 @pytest.fixture
 def baked(tmp_path: Path) -> Path:
-    """A small baked tree: pdf/go (3 documents, one sidecar), pdf/net (5), jmap/nodejs (1)."""
+    """A small baked tree: pdf/go (3 documents, one sidecar), pdf/net (5), email/python (1)."""
     root = tmp_path / "manifests"
     root.mkdir()
     make_scope(root, "pdf", "go", documents=3)
     make_scope(root, "pdf", "net", documents=5)
-    make_scope(root, "jmap", "nodejs", documents=1)
+    make_scope(root, "email", "python", documents=1)
     add_sidecar(root, "product_reference", "pdf", "go")
     return root
 
@@ -207,12 +207,12 @@ def test_selection_by_env_accepts_both_spellings(
     assert capsys.readouterr().out == ""
 
 
-@pytest.mark.parametrize("spelling", ["jmap/nodejs", "jmap_nodejs"])
+@pytest.mark.parametrize("spelling", ["email/python", "email_python"])
 def test_selection_by_flag_accepts_both_spellings(spelling: str, baked: Path, execv: ExecRecorder) -> None:
     env = env_for(baked)
     assert entry.main(["--pilot", spelling], environ=env) == 0
     assert len(execv.calls) == 1
-    assert (env[entry.FAMILY_ENV], env[entry.PLATFORM_ENV]) == ("jmap", "nodejs")
+    assert (env[entry.FAMILY_ENV], env[entry.PLATFORM_ENV]) == ("email", "python")
 
 
 def test_the_flag_wins_over_the_environment_variable(baked: Path, execv: ExecRecorder) -> None:
@@ -244,7 +244,7 @@ def test_list_prints_one_line_per_baked_pilot_and_exits_zero(
     assert entry.main(["--list"], environ=env_for(baked)) == 0
     captured = capsys.readouterr()
     lines = captured.out.splitlines()
-    assert [parse_list_line(line)[0] for line in lines] == ["jmap/nodejs", "pdf/go", "pdf/net"]
+    assert [parse_list_line(line)[0] for line in lines] == ["email/python", "pdf/go", "pdf/net"]
     by_name = dict(parse_list_line(line) for line in lines)
     assert by_name["pdf/go"] == {
         "source_kind": "self_extracted",
@@ -254,7 +254,7 @@ def test_list_prints_one_line_per_baked_pilot_and_exits_zero(
         "package_registry": "no",
     }
     assert by_name["pdf/net"]["documents"] == "5"
-    assert by_name["jmap/nodejs"]["documents"] == "1"
+    assert by_name["email/python"]["documents"] == "1"
     assert execv.calls == []
 
 
@@ -317,7 +317,7 @@ def test_no_pilot_prints_usage_and_the_list_to_stderr_and_exits_two(
     assert captured.out == ""
     assert "usage:" in captured.err
     assert entry.PILOT_ENV in captured.err
-    for name in ("pdf/go", "pdf/net", "jmap/nodejs"):
+    for name in ("pdf/go", "pdf/net", "email/python"):
         assert name in captured.err
     assert "documents=3" in captured.err
     assert execv.calls == []
@@ -356,7 +356,7 @@ def test_an_unknown_pilot_exits_two_and_names_the_baked_ones(
     err = capsys.readouterr().err
     assert "unknown pilot" in err
     assert "pdf/rust" in err
-    for name in ("pdf/go", "pdf/net", "jmap/nodejs"):
+    for name in ("pdf/go", "pdf/net", "email/python"):
         assert name in err
     assert execv.calls == []
     assert entry.FAMILY_ENV not in env
@@ -597,7 +597,7 @@ def test_a_real_process_without_a_pilot_lists_the_pilots_on_stderr(baked: Path) 
     )
     assert result.returncode == 2
     assert result.stdout == ""
-    for name in ("pdf/go", "pdf/net", "jmap/nodejs"):
+    for name in ("pdf/go", "pdf/net", "email/python"):
         assert name in result.stderr
 
 

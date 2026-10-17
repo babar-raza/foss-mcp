@@ -94,10 +94,10 @@ def _bodies(coverage: str | None = None) -> tuple[str, ...]:
         _type("Aspose.Pdf.Facades.Page", methods=("Bind(path: string) -> void",), coverage=coverage),
         _type("Aspose.Pdf.Stamp", methods=("Apply(page: Page) -> void",), coverage=coverage),
         _type("Aspose.Pdf.SaveFormat", kind="enum", members=("Pdf = 0", "Html = 1"), coverage=coverage),
-        _type("Aspose.Jmap.JmapClient", methods=("Connect() -> void",), coverage=coverage),
+        _type("Aspose.Email.EmailClient", methods=("Connect() -> void",), coverage=coverage),
         _type(
-            "Aspose.Jmap.JmapClientMailExtensions",
-            methods=("ListMailboxesAsync(client: JmapClient) -> Task",),
+            "Aspose.Email.EmailClientMailExtensions",
+            methods=("ListMailboxesAsync(client: EmailClient) -> Task",),
             coverage=coverage,
         ),
         _type("Gfx::Widget", methods=("Draw(canvas: Canvas) -> void", "Draw() -> void"), coverage=coverage),
@@ -143,8 +143,8 @@ def test_an_unknown_owner_keeps_todays_notfound_reason_and_suggestions(store: _I
         "Aspose.Pdf.Facades.Page",
         "Aspose.Pdf.Stamp",
         "Aspose.Pdf.SaveFormat",
-        "Aspose.Jmap.JmapClient",
-        "Aspose.Jmap.JmapClientMailExtensions",
+        "Aspose.Email.EmailClient",
+        "Aspose.Email.EmailClientMailExtensions",
         "Gfx::Widget",
     ]
     for name in ("Nothing.Save", "Aspose.Pdf.Nothing", "CompletelyUnrelatedXyzzyWombatTerm"):
@@ -199,7 +199,7 @@ def test_list_members_of_an_exact_fqn_and_of_a_bare_short_type_are_unchanged(sto
         ("Aspose.Pdf.Document.Close", "Close", ("Close() -> void",)),
         ("Aspose.Pdf.Page.Rotate", "Rotate", ("Rotate(degrees: int) -> void",)),
         ("Aspose.Pdf.Facades.Page.Bind", "Bind", ("Bind(path: string) -> void",)),
-        ("Aspose.Jmap.JmapClient.Connect", "Connect", ("Connect() -> void",)),
+        ("Aspose.Email.EmailClient.Connect", "Connect", ("Connect() -> void",)),
     ],
 )
 def test_type_fqn_dot_member_resolves_to_the_owner_with_every_overload_line(
@@ -220,10 +220,10 @@ def test_type_fqn_dot_member_resolves_to_the_owner_with_every_overload_line(
     [
         ("Document.Save", "Aspose.Pdf.Document", "Save"),
         ("Stamp.Apply", "Aspose.Pdf.Stamp", "Apply"),
-        ("JmapClient.Connect", "Aspose.Jmap.JmapClient", "Connect"),
+        ("EmailClient.Connect", "Aspose.Email.EmailClient", "Connect"),
         (
-            "JmapClientMailExtensions.ListMailboxesAsync",
-            "Aspose.Jmap.JmapClientMailExtensions",
+            "EmailClientMailExtensions.ListMailboxesAsync",
+            "Aspose.Email.EmailClientMailExtensions",
             "ListMailboxesAsync",
         ),
     ],
@@ -335,11 +335,11 @@ def test_a_member_declared_by_another_type_is_suggested_with_its_full_name(store
     assert result.reason == "Aspose.Pdf.Stamp is in this index, but it declares no member named 'Save'"
     assert result.suggestions[0] == "Aspose.Pdf.Document.Save"
     # An extension class that declares the Async twin is the nearest, with its full name.
-    extension = _missed(get_symbol(store, SCOPE, "JmapClient.ListMailboxes"))  # type: ignore[arg-type]
+    extension = _missed(get_symbol(store, SCOPE, "EmailClient.ListMailboxes"))  # type: ignore[arg-type]
     assert extension.reason == (
-        "Aspose.Jmap.JmapClient is in this index, but it declares no member named 'ListMailboxes'"
+        "Aspose.Email.EmailClient is in this index, but it declares no member named 'ListMailboxes'"
     )
-    assert extension.suggestions[0] == "Aspose.Jmap.JmapClientMailExtensions.ListMailboxesAsync"
+    assert extension.suggestions[0] == "Aspose.Email.EmailClientMailExtensions.ListMailboxesAsync"
 
 
 def test_a_short_name_shared_by_two_types_is_an_explicit_notfound_listing_the_full_names(
