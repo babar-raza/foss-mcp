@@ -15,7 +15,7 @@ from typing import Any
 
 from foss_mcp.extraction import run_extraction
 
-BROKEN = "def broken():\nreturn 1\n"  # IndentationError at line 2
+BROKEN = "def broken():\n    x = = 1\n"  # TC-555: was a collapsed indentation, which the repair now reads; invalid at line 2
 
 
 def _package(root: Path, files: dict[str, str]) -> None:
