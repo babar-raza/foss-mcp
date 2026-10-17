@@ -817,6 +817,12 @@ def related_offline_tests(write_paths: list[str], tests: dict[str, str]) -> list
     stems = {Path(p).stem for p in write_paths if not p.startswith("tests/") and len(Path(p).stem) >= 5}
     out = []
     for name, text in sorted(tests.items()):
+        # A helper module under tests/ (reextraction_checks.py) is imported by tests, never collected: named on
+        # the pytest command line it is collected anyway and its `test_*` helper functions error for missing fixtures
+        # (TC-553 review, 2026-10-17). Only files pytest itself would collect belong here.
+        base = Path(name).name
+        if not (base.startswith("test_") or base.endswith("_test.py")):
+            continue
         if not any(s in text for s in stems):
             continue
         if any(h in text for h in CL.NETWORK_HINTS) or any(h in text for h in CL.CI_HINTS):

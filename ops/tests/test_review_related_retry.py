@@ -42,6 +42,21 @@ def test_a_failure_twice_is_rejected_with_both_outputs():
     assert "first failure" in out and "second failure" in out
 
 
+def test_a_helper_module_under_tests_is_not_selected_but_a_test_module_is():
+    """TC-553 review 2026-10-17: reextraction_checks.py (a helper whose `test_file_entries` is a plain function) was
+    named on the pytest command line and errored at setup; only files pytest collects by itself are selected."""
+    tests = {
+        "tests/extraction/reextraction_checks.py": "import run_extraction",
+        "tests/extraction/conftest.py": "import run_extraction",
+        "tests/extraction/test_run_extraction_x.py": "import run_extraction",
+        "tests/extraction/other_test.py": "import run_extraction",
+    }
+    assert C.related_offline_tests(["src/foss_mcp/extraction/run_extraction.py"], tests) == [
+        "tests/extraction/other_test.py",
+        "tests/extraction/test_run_extraction_x.py",
+    ]
+
+
 def test_the_review_uses_the_retrying_runner():
     source = open(C.__file__, encoding="utf-8").read()
     assert "related_with_one_retry(lambda: _run_related_once(related, head)" in source
