@@ -1,0 +1,92 @@
+id: TC-565
+gate: G3
+lane: storage-retrieval
+purpose: >-
+  REQ-G3-009 (rows RD3-140, RD3-141, RD3-U03, RD3-U04). EXAMPLE TRUTH. find_examples labels furnished examples 'Compiled or run by the ingestion verifier', but a compile-only pass is enough: 3d/net `scene.Save("o.obj",
+  FileFormat.WavefrontOBJ)` (the README's own example) throws NotImplementedException; 3d/java 'Build a Scene From a Primitive' writes an empty 35-byte STL (a Box attached directly) and 'Quick Start (2)'
+  (`save("output.stl", new StlSaveOptions())`) throws IOException; the same example is returned twice at two coverage scores. pdf/cpp's own encrypt-then-open example pair produces text extraction that throws.
+  FIX: the verifier runs every self-contained example (not only compiles it) in a sandbox temp directory and records `compiled`, `ran`, `exit_code` and `produced_output` separately; an example that compiles
+  but fails or produces an empty/invalid artefact is not served as verified (it is served, if at all, labelled 'compiles, fails at runtime' with the error) or is replaced by an authored working example;
+  the label text states exactly what was proven; duplicate example chunks are collapsed; examples whose output file is empty are rejected for pilots where the scope documentation says the format is not
+  implemented. REGISTERED AS A DRAFT on 2026-10-17 from docs/ROUND3_REVIEW.md: before dispatch the supervisor re-reads this card against the merged code, calibrates min_tests (it applies to EACH check),
+  replaces the placeholder negative control with a real falsifier that has no backslash, and verifies every file named in write_paths (Supervisor rule 5). Nothing here has been executed.
+depends_on:
+- TC-550
+- TC-553
+- TC-554
+- TC-555
+- TC-556
+- TC-561
+- TC-562
+write_paths:
+- src/foss_mcp/indexing/example_verifier.py
+- src/foss_mcp/indexing/example_candidates.py
+- src/foss_mcp/indexing/authored_examples.py
+- src/foss_mcp/indexing/example_fixtures.py
+- src/foss_mcp/mcp/tools/find_examples.py
+- infra/build_chunks.py
+- tests/fixtures/verified_examples/3d_net.json
+- tests/fixtures/verified_examples/3d_java.json
+- tests/fixtures/verified_examples/pdf_cpp.json
+- tests/indexing/test_round3_example_runtime_truth.py
+- tests/mcp/tools/test_round3_example_labels.py
+satisfies:
+- REQ-G3-009
+- REQ-G3-008
+source_refs:
+- file: docs/DECISION_LOG.md
+  anchor: >-
+    ## 2026-10-17 — Round-3 independent review of the shipped image: 82 findings registered, nothing executed (operator, supervisor)
+  sha256: 79a36f6c8885f87bffc9a79b6d6fdedadecd7b4860735bdd1723072caa4f3970
+inputs:
+- >-
+  READ FIRST: docs/ROUND3_REVIEW.md (the rows this card closes, with the investigators' evidence ids; the evidence itself is kept by the supervisor outside the repository and can be requested), then the
+  code named in write_paths. Activate the toolchain (scripts/toolchain/activate.ps1) in the SAME shell command as every python or pytest call. Never print an environment value. Verify every name against
+  the merged code and list differences in your report. Run ruff format and ruff check on every Python file you change. Source truth wins over fixtures: every new regression test must take its expectation
+  from an INDEPENDENT oracle (the upstream source at the pinned commit read with the language's own parser or compiler, a compiled library's reflection, or a hand-written upstream-shaped snippet), never
+  from the extractor's own output or a committed fixture alone. A re-extraction of a fixture is regenerated with the CLI at the chart-pinned commit exactly as card TC-550 describes; the extraction needs
+  the network, and a refused clone is BLOCKED_EXTERNAL, not a reason to retry in a loop. Do not edit plans/, project/, ops/, evidence/, schemas/, docs/ (except where write_paths names a docs file), do not
+  run docker or a cluster command.
+- >-
+  ACCEPTANCE: the verifier distinguishes compile from run on a synthetic example set (a compiling program that throws, a compiling program that writes an empty file, a working program); the three real pins
+  (3d/net WavefrontOBJ Save, 3d/java primitive STL and StlSaveOptions, pdf/cpp encrypt then extract) are classified correctly when the verifier is re-run offline against the committed verdict cache; find_examples
+  labels 'compiled and ran, produced N bytes' versus 'compiles; fails at runtime: <error>'; no served example is returned twice for one query; 3d/net and 3d/java serve at least two examples that ran and
+  produced a non-empty valid artefact (authored by the worker against the real API and labelled as authored, per REQ-G3-007). INDEPENDENT ORACLE: the example's own output file checked by a format reader
+  in the test (STL header and facet count, glTF JSON) rather than by the verifier's exit code. The real toolchain runs need the network and are declared in `requires`.
+actions:
+- Make example verification run-based and its labels exact; replace the failing 3d examples.
+checks:
+- command: >-
+    {python} -m pytest tests/indexing/test_round3_example_runtime_truth.py tests/mcp/tools/test_round3_example_labels.py -q -rfE -p no:cacheprovider
+  expect: exit 0
+  timeout_seconds: 1800
+  junitxml: true
+  proves:
+  - REQ-G3-009
+  - REQ-G3-008
+- command: >-
+    {python} -m pytest tests/indexing tests/mcp/tools tests/deploy/test_verified_examples_coverage.py -q -rfE -p no:cacheprovider -k "not live and not github_http and not repo_native and not test_prepare_rust_library
+    and not test_rust_known"
+  expect: exit 0
+  timeout_seconds: 3000
+  junitxml: true
+  proves:
+  - REQ-G3-009
+  - REQ-G3-008
+min_tests: 8
+network: true
+requires:
+- python
+- git
+negative_control:
+  mutate: |
+    python -X utf8 -c "print('negative control to be authored before dispatch')"
+  rationale: >-
+    PLACEHOLDER written at registration. The supervisor replaces it, before dispatch, with a falsifier that breaks the card's central claim in the code the worker writes (a mandated constant or function
+    name) so that a named new test fails.
+evidence:
+- evidence/build/G3/TC-565/receipt.json
+closeout:
+- >-
+  A served example is labelled with exactly what was proven (compiled, ran, produced output); examples that fail at runtime are not served as verified; 3d/net and 3d/java serve working examples.
+recovery: Re-run from a clean tree.

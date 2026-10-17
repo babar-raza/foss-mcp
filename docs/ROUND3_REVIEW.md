@@ -1,0 +1,281 @@
+# Round-3 independent review of the shipped image (2026-10-17)
+
+This file is the register of every failure, gap and lead that the third independent review found against
+`foss-mcp-serving:demo-91dcf9b` (image id `sha256:1eca007c463f`, built from commit `91dcf9bd`, 32 pilots, gate 32 of 32,
+local only, NOT pushed). It is the source of truth for what must be closed before an image is uploaded.
+
+- Requirement: `REQ-G3-009` (ops/requirements.yaml). Decision: docs/DECISION_LOG.md, entry "Round-3 independent review ...".
+- Work: the cards named in the "Card" column (plans/TC-5xx.yaml). Nothing in this file is executed work: every row is OPEN.
+- Closure rule (REQ-G3-009 and REQ-G3-008): a row is CLOSED only when its card is accepted with a permanent regression test or
+  deployment proof, or when the row is moved to "Accepted or upstream" below with a written reason in docs/RELEASE.md.
+- Evidence root (outside the repository, kept by the supervisor): the round-3 audit folder, one sub-folder per investigator
+  R1..R12 (`R6/rt/...` runtime programs, `R7/out/...` reflection dumps, `R5/oracle/...`, ...) and its digest file. Paths in the
+  Evidence column are relative to that root. Finding ids in "Src" are the investigators' own ids (qrN-xx, RN-xx, R9-Tn, qr2-D/H/L/R, qr1-N, qr4-xx, qr7-xx, qr12-D).
+
+## 1. Method (what "independent" meant)
+
+Twelve read-only investigators attacked the image and the repository with these rules: no repo edits, no state changes, no cluster
+changes, mutation experiments only on copies of the baked data in throwaway containers; fixtures and the project's extractor were
+never used as the oracle (upstream source, compiled libraries, reflection, the real package registries and real toolchains were);
+no reproduction means no defect; severity follows evidence. Slices:
+
+| Id | Slice | Result file |
+|---|---|---|
+| R1 | baseline, change map, the 85 pre-production register rows | reports in the evidence root |
+| R2 | the 133 ledger rows, automated suites, test-weakening audit, blind spots, 19-fixture upstream audit, reproducibility | |
+| R3 | protocol (4 SDK clients), 32-pilot transport, 9,725 security probes, concurrency, soak, cancellation, NetworkPolicy | |
+| R4 | list_recent_changes sequencing, rollback, publish policy, storage corruption, product reference, cold path | |
+| R5 | Python differential, 11 pilots, whole surface | |
+| R6 | TypeScript, Go, Rust, C++ differential, 10 pilots, runtime programs | |
+| R7 | .NET and Java differential, 11 pilots, whole surface, reflection oracles | |
+| R8 | retrieval and discovery, 32 pilots, 444 natural-language tasks | |
+| R9 | agentic workflows, Python and Node pilots | |
+| R10 | agentic workflows, .NET and Java pilots | |
+| R11 | agentic workflows, C++, Go, Rust pilots | |
+| R12 | install truth, registry and package drift, recent changes, product reference, deprecation, 32 pilots | |
+
+## 2. Headline
+
+Verdict NOT_READY for "primary development-context service for every intended product": 1 pilot READY, 19 READY_WITH_ACCEPTED_LIMITATION,
+11 NOT_READY, 1 BLOCKED_BY_UPSTREAM (tex/python). Solid and re-verified: protocol (the original lockout is gone; Python SDK 2.2.0 and 1.13.1,
+TypeScript SDK 1.17.4 and 1.32.1), isolation (0 leaks in 9,725 probes), honesty (0 fabrications in 1,150+ queries), type coverage,
+publish safety, pointer-flip consistency, readiness refusals. Not solid: member-level fidelity of the older extractions, install and
+package truth, drift detection, retrieval from user wording, shipped recovery tooling.
+
+NOT_READY pilots: 3d/net, 3d/python, 3d/typescript, barcode/python, cells/cpp, cells/python, cells/rust, cells/typescript,
+email/python, note/python, page/python. BLOCKED_BY_UPSTREAM: tex/python. READY: cells/net. All other pilots are
+READY_WITH_ACCEPTED_LIMITATION with the gaps listed below.
+
+## 3. Findings register
+
+Severity: P1 can make an agent write failing or wrong code from served information, or block first use; P2 materially degrades
+correctness or discoverability; P3 hardening or disclosure. "Type": NEW, REG (regression of a supervisor fix), STILL (a prior finding that
+is still present), LEAD (not proven, needs an experiment first). Status of every row: OPEN.
+
+### 3.1 Python extraction (card TC-532)
+
+| Id | Sev | Type | Pilots | Finding | Src | Evidence |
+|---|---|---|---|---|---|---|
+| RD3-001 | P1 | REG | cells/python, barcode/python, email/python, note/python, page/python | Fixtures predate the defaults, keyword-only `*` and static/classmethod work (15 of 32 fixtures carry no extractor_version): defaults, `*` and marks lost. barcode 26 of 27 sampled methods lost defaults and 34 the `*`; cells 177 of 1,342 defaults and 53 static marks; email 51 of 239 and 40 classmethod marks; note 48 of 145; page 66 of 923 and 24 static. Runtime proof: `generate("code128","HELLO123",None,None)` and email `from_bytes(...)` with 4 positional arguments raise TypeError. | qr5-1, qr1-N1, qr2 L-026, R9-T4 | R5/oracle, R5/exec_tests.py, R1/up |
+| RD3-002 | P1 | STILL | barcode/python (8 enums, 36 members), html/python (TokenizerState, 80, P3) | Enum members built with `auto()` are dropped, so legal option values are undiscoverable. | qr5-3, qr2-D2, R9-T5 | R5/oracle, R2/dataaudit* |
+| RD3-003 | P1 | NEW | 3d/python | Two classes of the same name (the real one and an empty stub that the package re-imports last) are merged: `FbxLoadOptions`, `ObjLoadOptions`, `ObjSaveOptions`, `StlLoadOptions`, `StlSaveOptions`, `GltfLoadOptions`, `GltfSaveOptions` are empty at runtime (`FbxLoadOptions(fmt)` -> TypeError) but are served with members and constructors, and the first search hit is the broken one (`AttributeError: create_save_options`). | qr5-2, R9-T2 | R5/exec_tests.py, R9/3d-python |
+| RD3-004 | P2 | NEW | 3d/python (41), slides/python (75) | A method defined twice in a class body is served with the first, shadowed definition; keyword calls fail (`remove_property(property=...)`). | qr5-5 | R5/oracle |
+| RD3-005 | P2 | NEW | pdf/python, slides/python | Annotation classes are empty or partial: the underscore-prefixed base is not followed (18 classes, 877 inherited members missing) and factory-built properties are invisible (58). 8 re-exported pdf types and about 10 slides alias types are served with no members (QA round C). | qr5-4, QA-C P2-2/P2-3 | R5/oracle |
+| RD3-006 | P3 | NEW | page, tex, email, barcode | Dataclass `__init__` is not synthesised and class-level and instance attributes are absent: `ImageSaveOptions(...)` fails with a missing required `format` the MCP never shows. | qr5-7, R9-T4 | R9/page-python |
+| RD3-007 | P3 | NEW | pdf (18), slides (85) | An overriding method shows the base-class signature. | qr5-8 | R5/oracle |
+| RD3-008 | P3 | STILL | 3d, pdf | Properties assigned as `x = property(getter)` or by factory are missing (`Matrix4.identity`, `Annotation.color`). | qr2 L-027 | R2/fixtures_A |
+| RD3-009 | P3 | LEAD | barcode, words, slides | barcode public return types not indexed (7 of 42); words class-constant "enums" carry no values; slides `Presentation.__init__(*args, **kwargs)`. | qr5-9, qr5-10, qr2-L2 | R5 |
+
+### 3.2 TypeScript extraction (card TC-533)
+
+| Id | Sev | Type | Pilots | Finding | Src | Evidence |
+|---|---|---|---|---|---|---|
+| RD3-010 | P1 | STILL | cells/typescript | 84% of compared members disagree with upstream: every interface property is shown read-only (724 vs 0), type-alias bodies dropped (25 of 25), 768 property types carry a leading colon, 22 static flags, 28 optional parameters and 8 defaults lost, `this`/iterator returns empty, and `Workbook` lists about 12 of 21 properties that belong to private-method return types. The `password` save option is a silent no-op while the signature advertises it. | qr1-N2, qr2-D4, R9-T4, R9-T5, R9-T8 | R2/fixtures_B, R9/cells-typescript |
+| RD3-011 | P1 | NEW | 3d/typescript | static 0 of 56 and optional 0 of 51 marked (91 static methods, 114 static properties, 72 defaults, 69 optionals, 20 rest parameters lost): `scene.fromFile("m.obj")` fails `tsc` (TS2576); `Mesh.createPolygon(...args)` is served as `createPolygon()`. | R6-TS-1, qr2-D4, R9-T4 | R6/rt/ts3d, R6/exp |
+| RD3-012 | P2 | STILL | pdf/typescript | 3,060 `function` chunks of which 1,941 are not exported (532 public exports in total) and 189 phantom inline-object properties: nearly two thirds of symbol results are internals. | qr2-D3, R6-TS-2, qr1-N3 | R6/ts_pdf.json, R2 |
+| RD3-013 | P3 | NEW | pdf/typescript | Generic utility-type bases split at the comma (`Omit<StampOptions, 'align'|'rotate'>`). | qr2-D6 | R2 |
+
+### 3.3 C++ extraction (card TC-534)
+
+| Id | Sev | Type | Pilots | Finding | Src | Evidence |
+|---|---|---|---|---|---|---|
+| RD3-020 | P2 | NEW | slides/cpp (286 Color constants), pdf/cpp (56), cells/cpp (14 missing) | `static const` / `static constexpr` data members lose their qualifiers and are served writable. | qr2-D5 | R2/fixtures_B |
+| RD3-021 | P2 | NEW | pdf/cpp (14 to 21), slides/cpp (8 to 10) | Public nested types missing though public signatures reference them (`PdfFileEditor::ContentsResizeParameters`, collection iterators). | R6-CPP-2, qr2-D5 | R6/cpp_*.json |
+| RD3-022 | P2 | STILL | slides/cpp (55 `Internal::*`, 28 labelled public), cells/cpp (8 `.cpp`-local classes) | Implementation types served as API. | R6-CPP-1, qr2 L-033 | R6, R2 |
+| RD3-023 | P3 | LEAD | all 4 C++ pilots | Member-level compile verification was not completed by the review (type-level only); the new fidelity gate must cover it. | R6 scope | R6 |
+
+### 3.4 Go and Rust extraction (card TC-535)
+
+| Id | Sev | Type | Pilots | Finding | Src | Evidence |
+|---|---|---|---|---|---|---|
+| RD3-025 | P1 | NEW | pdf/go | The `ai` sub-package (31 names: `NewChatCopilot`, `OpenAIClient`, `APIError`, ...) is served as the root package with no import path; `pdf.NewChatCopilot` -> `undefined`. | R6-GO-1, R11-G1 | R6/rt/go_pdf |
+| RD3-026 | P2 | NEW | pdf/go (26), cells/go (20) | Untyped package constants and vars not indexed (`PageFormatA4`, `FontHelvetica`, `ErrEncrypted`, `AlignCenter`, ...). | R6-GO-2 | R6/go_*.json |
+| RD3-027 | P3 | STILL | cells/go, pdf/go | Phantom functions (`Close`, `ReadAt` of unexported types), struct-tag text served as the field type (`Cell.XMLName`, 5 fields), `RowCallback` has no signature; 424 promoted/embedded members of pdf/go differ from upstream (20.6%). | R6-GO-3, qr2 L-036 | R2/fixtures_B |
+| RD3-030 | P1 | NEW | cells/rust | 106 of 221 symbols are not importable (private modules, trait-impl functions `eq`/`fmt`/`hash`), so `use aspose_cells_foss_rust::WorkbookModel` fails E0432; the coverage line overstates the public surface. | R6-RS-1 | R6/rt/rust_b, R6/rs_leak.json |
+| RD3-031 | P2 | STILL | cells/rust | Method receivers (`&self`, `&mut self`, `self`) and generic bounds are not rendered (0 of 1,430): an MCP-literal program fails E0596. | R6-RS-2, RST-11 | R6/rt/rust_a |
+| RD3-032 | P2 | NEW | cells/rust | Data-carrying enum payloads are lost (`CellValue`, `CellsError`, `CellObjectValue`). | R6-RS-4 | R6 |
+| RD3-033 | P3 | NEW | cells/rust | Type aliases not indexed (`Style`, `WorksheetCollection`, ...) while signatures return them; "Bases" lists derive traits. | R6-RS-3, qr2 L-124 | R6 |
+
+### 3.5 Java extraction (card TC-557)
+
+| Id | Sev | Type | Pilots | Finding | Src | Evidence |
+|---|---|---|---|---|---|---|
+| RD3-040 | P2 | STILL | 3d/java, pdf/java (9 of 9) | Varargs parameters dropped (`Line.fromPoints(Vector3...)` served `fromPoints()`): empty object at runtime. | qr7-01, RST-10 | R7/proof/threed_java |
+| RD3-041 | P2 | STILL | all Java | `throws` never rendered (0 of 609): an MCP-only program fails `unreported exception IOException`. | qr7-02 | R7/proof |
+| RD3-042 | P2 | STILL | all Java | `static` never marked (0 of 799). | qr7-03, R10-7, qr2-D6 | R7, R10 |
+| RD3-043 | P2 | STILL | Java and .NET | Public mutable instance fields never served (3d/java 55, pdf/java 133, slides/java 10, 3d/net 56, pdf/net 81 incl. 23 `HtmlSaveOptions` options). | qr7-04 | R7/fields.py |
+| RD3-044 | P2 | NEW | Java 14, .NET 9 | Generic method type parameters and bounds dropped (`Node.GetEntity<T>()` served `GetEntity() -> T`: CS0411). | qr7-06 | R7/generics.py |
+| RD3-045 | P3 | NEW | pdf/java (about 21), cells/java (6) | Methods of anonymous inner classes attributed to the outer type (phantom `Page.add(Artifact)`, `OptionCollection.hasNext()`). | qr7-12, qr2-D6 | R7 |
+| RD3-046 | P3 | NEW | slides/java, email/net | Record members lost (canonical constructor, accessors, `Deconstruct`, equality). | qr7-14 | R7 |
+| RD3-047 | P3 | NEW | all Java and .NET | Implicit default constructors not rendered (pdf/net 139, words/net 134, pdf/java 84, ...); an agent cannot tell "no public constructor" from "implicit default". | qr7-13 | R7/summary.txt |
+
+### 3.6 .NET extraction (card TC-558)
+
+| Id | Sev | Type | Pilots | Finding | Src | Evidence |
+|---|---|---|---|---|---|---|
+| RD3-050 | P2 | NEW | 3d/net (67), pdf/net (17), email/net (4), slides/net (4) | Operators and conversions never served (0 of 92). | qr7-05 | R7 |
+| RD3-051 | P2 | NEW | words/net, pdf/net | `using` aliases served unresolved, sometimes per target framework: words/net `Image = SkiaSharp.SKBitmap` (CS1503), pdf/net `SdiImageFormat` in 14 overloads (CS0103). | qr7-08 | R7/proof/words_net |
+| RD3-052 | P3 | NEW | 3d/net | `TriMesh` and `TriMesh<T>` merged in one chunk (`TriMesh.FromMesh(mesh)` CS1501). | qr7-07 | R7 |
+| RD3-053 | P3 | NEW | pdf/net 8, words/net 4, pdf/java 6 | Generic base lists cut at the comma (`['IDictionary<string','XmpValue>']`). | qr7-11 | R7 |
+| RD3-054 | P3 | NEW | pdf/net (14 delegates, 7 events), 3d/net (3 delegates) | Delegates and events not indexed. | qr7-15 | R7 |
+| RD3-055 | P3 | NEW | words/net | 3 types inside `#if CPLUSPLUS public #else internal` treated as public. | qr2-D6 | R2 |
+
+### 3.7 Unsupported and stub capability markers (card TC-559)
+
+| Id | Sev | Type | Pilots | Finding | Src | Evidence |
+|---|---|---|---|---|---|---|
+| RD3-060 | P2 | NEW | 3d/python (734 of 3,743 members are `NotImplementedError`/`pass` stubs), 3d/net (`Scene.Render`, `PolygonModifier`, `PdfFormat`), pdf/python (`HtmlLoadOptions`, `SvgLoadOptions`), slides/cpp and slides/java (`SaveFormat` lists PDF/XPS/TIFF/HTML but save throws or silently writes a PPTX named .pdf), cells/cpp (`Save("out.csv")` writes XLSX), words/net (PDF/HTML/EPUB throw) | Unsupported or stub symbols are served as normal API; the scope documentation says they throw (symbol found, docs say unsupported). | R8-03, qr5-6, R10-3, R11-S2, R11-C3 | R8/deep6.py, R10, R11 |
+| RD3-061 | P3 | NEW | slides/net, words/net, slides/java | Negative knowledge is not reachable through `lookup` (limitations "no data source"; "save presentation as PDF" returns the quick start). | R10-4 | R10 |
+
+### 3.8 Freshness and drift (card TC-560)
+
+| Id | Sev | Type | Pilots | Finding | Src | Evidence |
+|---|---|---|---|---|---|---|
+| RD3-070 | P2 | NEW | slides/python, 3d/java, 3d/net, slides/java | The index is ahead of the published package and nothing says so: slides/python documents `hyperlink_click` (AttributeError on 26.8.0), 3d/java 65 source types absent from the jar (`ImageRenderOptions`: javac cannot find symbol), 3d/net 103 documented types absent from NuGet 26.1.0 (196 vs 293; documented `FileFormat` names do not compile), slides/java 45 commits ahead. Freshness reports `unknown`, `in_index: true`. | qr12-D1, R10-1, qr7-10 | R12/exp, R7/proof/threed_net_pkg |
+| RD3-071 | P2 | NEW | pdf/go, pdf/net | The package is ahead of the index and it is not detected for Go (v0.11.0 `HiddenDataSanitizationOptions` absent from the index; `go get` resolves it); pdf/net 26.10.0 is detected only by version string. | qr12-D2, qr7-10 | R12/exp/gopdf |
+| RD3-072 | P3 | NEW | note/python, cells/go | `list_recent_changes` ignores tags newer than the latest GitHub release (v26.9.0, v26.7.1) though it falls back to tags when there are no releases. | qr12-D4 | R12/truth |
+| RD3-073 | P3 | NEW | email/python, page/python | `stale` is reported in the wrong direction for tag-only repositories (the index is ahead of the tag). | qr12-D7 | R12 |
+
+### 3.9 Install guidance, product reference and tex (card TC-561)
+
+| Id | Sev | Type | Pilots | Finding | Src | Evidence |
+|---|---|---|---|---|---|---|
+| RD3-080 | P1 | REG | cells/cpp | The install section gives no repository URL, commit, `SOURCE_SUBDIR Aspose.Cells.Foss.Cpp` or CMake target (`aspose_cells_foss`) and does not mention the NuGet package `Aspose.Cells.Cpp.FOSS`; plain FetchContent adds nothing. TC-518 had made it serve the README recipe; the re-ingest lost it and the test was rewritten to accept the loss. | R11-C1, qr12-D5, qr2-R1, qr4-09 | R11/cellscpp, R2/weakening |
+| RD3-081 | P2 | NEW | slides/cpp | Install snippet names a CMake target that does not exist (`aspose_slides_foss`; real `AsposeSlidesFoss::AsposeSlidesFoss`, named in the same section). | R11-S1 | R11/slidescpp |
+| RD3-082 | P2 | NEW | pdf/cpp | The documented `add_subdirectory` route is broken upstream (`${CMAKE_SOURCE_DIR}`); the working route is a standalone build, `cmake --install`, `find_package`. | R11-P1 | R11/pdfcpp |
+| RD3-083 | P3 | NEW | email/cpp | No repository URL anywhere. | R11-E1 | R11 |
+| RD3-084 | P3 | NEW | imaging/net | Says "not found on NuGet" and then quotes `dotnet add package Aspose.Imaging.Foss` verbatim. | qr12-D6 | R12 |
+| RD3-085 | P2 | NEW | words/python | `pip install aspose-words-foss` fails on Python 3.13 (`Requires-Python <3.13`); the install section is silent, only the compatibility section has the bound. | R9-T3, qr12-L3 | R9/words-python |
+| RD3-086 | P2 | NEW | pdf/typescript | Install section empty and no getting_started documents: build steps (`npm install`, `npm run build`, `dist/index.js`) needed the upstream README. | R9-T6 | R9/pdf-typescript |
+| RD3-087 | P3 | NEW | 4 Java pilots | Maven coordinate without a version; slides/java pom 26.8.0 vs Central 26.7.0. | R10-8 | R10 |
+| RD3-088 | P3 | NEW | 3d/net | Compatibility `net10.0` taken from the converter project; the package targets net6/8/10. | qr12-D8 | R12 |
+| RD3-089 | P2 | STILL | cells/cpp, pdf/typescript, imaging/net, words/net, barcode, tex, slides/net | formats/limitations answer "no data source" though the README has the section; agent_guidance NotAvailable for pdf/go though CLAUDE.md exists upstream (fill rates: formats 27/32, limitations 27/32, agent_guidance 19/32). | qr4-09, AGT-02, D-12 | R4/out_prodref |
+| RD3-090 | P3 | NEW | 3d/python, 3d/typescript | agent_guidance is a contributor porting prompt ("implement a python module called ..."). | qr12-H1 | R12 |
+| RD3-091 | P3 | NEW | pdf/java, words/python | Deprecation partly lost (replacement not named; `DeprecationWarning` kwargs unmarked). | qr12-D9 | R12/depr.py |
+| RD3-092 | P1 | NEW | tex/python | `import aspose_tex` raises IndentationError at the pinned commit (35 of 45 files fail `ast.parse`); the MCP serves the repaired API and quick start as usable and its notice says "11 of 45 source files could not be parsed". | R9-T1, qr5 tex note | R9/tex-python |
+
+### 3.10 Retrieval and discovery (card TC-562)
+
+| Id | Sev | Type | Pilots | Finding | Src | Evidence |
+|---|---|---|---|---|---|---|
+| RD3-100 | P2 | NEW | all (cells family weakest, lookup MRR .27 to .44) | Natural-language queries with function words miss ("merge cells" hits, "merge cells together" misses; no stop-word list, small synonym list, no plural handling in `search_symbols`; lookup hit@10 .61 over 444 tasks). | R8-01 | R8/analysis.json |
+| RD3-101 | P2 | NEW | words/net, words/python, slides/net, slides/python, pdf/python, pdf/typescript | Wrong-but-plausible answers with the correct type absent ("make text bold" -> `TextPath`; "add a slide" -> paragraph collections; "merge pdfs" -> `DssMaterial`); 6% of lookup tasks return a non-empty wrong answer. | R8-02 | R8/deep5.py |
+| RD3-102 | P3 | STILL | pdf/net, 30 of 32 pilots, pdf/cpp, pdf/go, words/net, pdf/net+pdf/java | `lookup` returns unrelated table chunks instead of an honest miss ("merge pdf files", "colour"); "getting started" misses on 30 of 32; `search_symbols('Do')` returns nothing; "watermark" misses `AddTextWatermark`; "save a document as PDF" returns a class table. | qr1-N5, qr1-N6, qr7-16, qr7-17, R11-G2 | R1/out, R7 |
+| RD3-103 | P3 | NEW | 29 of 32 | Gibberish (`a.b.c::d`) returns documentation and examples. | R8-06 | R8/deep1.py |
+| RD3-104 | P3 | NEW | html/python and large results | No pagination: `search_symbols top_k=100` returns about 12 items; `omitted_items` only inside `response_budget`. | R8-05 | R8/deep3.py |
+| RD3-105 | P3 | NEW | all | No Unicode folding (full-width, non-Latin queries are plain misses). | R8-07 | R8 |
+| RD3-106 | P3 | NEW | 32 of 32 | A `find_examples` miss says "semantic fallback skipped: error" / `vector_fallback: skipped_error` in the by-design lexical-only mode. | R3-02, qr1-N7, R8-07 | R3 |
+| RD3-107 | P3 | NEW | all | `search_docs` requires `content_type` while `lookup` does not. | qr2-H3 | R2 |
+| RD3-108 | P3 | LEAD | barcode (97%), 3d/python, note, pdf/python, words/python | Alias duplicates (3% of chunks) and internal helpers may dilute the top 10. | R8-08 | R8 |
+
+### 3.11 Documentation excerpts (card TC-563)
+
+| Id | Sev | Type | Pilots | Finding | Src | Evidence |
+|---|---|---|---|---|---|---|
+| RD3-110 | P2 | REG | all (58% of doc chunks; 64% of pdf/python hits) | The PS-02 response budget cuts every documentation item to 1,536 characters even when the response is tiny; 11 chunks are cut inside a code fence; the marker says "narrow the query" but a narrowed query returns the same cut chunk (no way to fetch the rest). | R3-01, R8-04 | R3/trunc.py |
+
+### 3.12 Serving robustness and operations (card TC-564)
+
+| Id | Sev | Type | Pilots | Finding | Src | Evidence |
+|---|---|---|---|---|---|---|
+| RD3-120 | P2 | REG | all (not reachable in the baked image) | Sidecars are read once at boot; an absent sidecar makes `list_recent_changes` return `[]` with the note "An empty list is a complete answer, not a fetch failure" (pdf/go really has 12 releases), `/readyz` stays 200 with no warning and nothing is logged; sidecars added later are ignored until restart. | qr4-01 | R4/out_sidecar |
+| RD3-121 | P2 | NEW | Kubernetes | `infra/rollback.py` is in no shipped image, though docs/DEPLOYMENT.md says it is: the documented rollback runbook cannot run. | qr4-02 | R4/tools |
+| RD3-122 | P3 | NEW | all | Rollback validates shape only (accepts a 1-chunk, 0-symbol, 60%-regressed, different-repository or different-commit target; no post-flip readiness probe or auto-revert); sidecars are not rolled back (install notice keeps the newer commit); `--list` crashes on a corrupt generation file; fenced publishers leave orphan generation files. | qr4-03, qr4-04, qr4-08 | R4/out_rollback |
+| RD3-123 | P3 | NEW | all | A corrupt pointer or generation makes `list_recent_changes` and `report_index_freshness` return `invalid_argument`/`internal` with raw exception text; a vanished pointer file gives non-error `found:false`. | qr4-05, qr4-06 | R4/out_corrupt |
+| RD3-124 | P3 | NEW | all | Observability: the default `/metrics` body is two counters (Prometheus on request only), `serverInfo.version` is `0.1.0+unknown`, call logs lack generation id and source commit, success responses carry no correlation id, transport rejections are logged without reason; `ClientDisconnect` is an ERROR with a traceback and no ids. | R3-03, R3-04, qr4-10, qr2-H4 | R3, R4 |
+| RD3-125 | P3 | STILL | all | 200 abandoned sessions lock every new client out (503) until the 5-minute idle sweep; sessions are lost on restart (`Session not found`, no recovery); no read timeout for stalled connections; Host not validated; invalid request ids get an empty 202; two error envelope shapes. | R3-05, R3-06, R3-07, R3-10, R3-11, qr2-H1 | R3 |
+| RD3-126 | P3 | NEW | all | `/data/manifests` is owned by the server user, so sidecars can be removed when a peer runs without `--read-only`. | qr2-H2 | R2 |
+
+### 3.13 Example truth (card TC-565)
+
+| Id | Sev | Type | Pilots | Finding | Src | Evidence |
+|---|---|---|---|---|---|---|
+| RD3-140 | P2 | NEW | 3d/net, 3d/java | Furnished examples labelled "Compiled or run by the ingestion verifier" are compile-only and fail or produce nothing at runtime: 3d/net `Save("o.obj", FileFormat.WavefrontOBJ)` throws NotImplementedException; 3d/java "Build a Scene From a Primitive" writes an empty 35-byte STL, "Quick Start (2)" throws IOException; the same example is returned twice at two scores. | R10-2, qr4-07 | R4/out_cold, R10 |
+| RD3-141 | P3 | STILL | all | Examples exist only for README paths (1 to 14 per pilot; "add a digital signature" misses on 32 of 32). | AGT-06 | R1 |
+
+### 3.14 Permanent verification (card TC-566) and release hygiene (cards TC-536, TC-537)
+
+| Id | Sev | Type | Pilots | Finding | Src | Evidence |
+|---|---|---|---|---|---|---|
+| RD3-150 | P1 | STILL | fleet | No independent oracle: the shipped data is a pure function of the committed fixtures (14,347 of 14,348 chunks rebuild byte-identically), so every image-vs-fixture test proves self-consistency only. An upstream audit of 19 fixtures found 0 to 2% disagreement for the newest extractor and 6% to 84% for older ones. | qr2 L-095, area 48/49 | R2/fixtures_A, R2/fixtures_B |
+| RD3-151 | P3 | NEW | fleet | Live container tests cover 7 of 32 pilots and rot: the pdf/typescript e2e test still pins the old two-commit mixed generation and fails at HEAD. | qr2-D1 | R2 |
+| RD3-152 | P3 | NEW | environment | `tests/test_githooks.py` expects `core.hooksPath` to be the relative `.githooks`; this clone stores an absolute path. | ci_check.log | |
+| RD3-153 | P3 | NEW | environment | A Windows application-control policy intermittently blocks real Rust builds in tests (os error 4551): the 3 real-Rust tests error in some runs and pass in others. | ci_check.log, R2 | |
+| RD3-154 | P3 | NEW | process | Weakened or rewritten-to-match assertions to revisit: W2 `test_cpp_installs_are_the_readme_recipe` (cells/cpp dropped; reverse after RD3-080), W5 `EXTRACTOR_VERSION == 2` relaxed to `>=`, W3 data ceiling raised to 45 MB, W4 related-tests retry, W6 TC-554 deselects 3 Rust tests, W1 positive guard on cells/cpp free functions removed. | qr2 weakening audit | R2/weakening |
+| RD3-155 | P3 | NEW | docs | docs/RELEASE.md sections 8 and 9 are stale in 8 places (L-071, L-080, L-097, L-100, L-102, L-107, L-128, TC-397/402); promote L-095, L-121, L-125; close stale rows; PREPROD_REVIEW.md (TC-537) must include this register. | qr1-N4 | R1 |
+
+## 4. Accepted or upstream (disclose, no product code change)
+
+Each needs a sentence in docs/RELEASE.md or the pilot's limitations text (cards TC-561, TC-565, TC-537).
+
+| Id | Pilot | Fact | Disposition |
+|---|---|---|---|
+| RD3-U01 | cells/cpp | Upstream does not build with GCC 16.2 (`-Werror`, trigraph in NumberFormat.cpp, missing `<limits>`). | BLOCKED_BY_UPSTREAM, disclose |
+| RD3-U02 | cells/rust | `Workbook::load_xlsx` maps every failure (corrupt, missing, openpyxl-made file) to `Unsupported("xlsx load")`; lead: `apply_number_format` on a formula cell reads back General. | upstream, disclose |
+| RD3-U03 | pdf/cpp | `TextAbsorber` fails on `/Filter` arrays (common reportlab output); the MCP's own encrypt-then-open example pair produces unreadable text (`flate: bad zlib header check`). | upstream, disclose |
+| RD3-U04 | 3d/net, 3d/python, 3d/java | Format save paths throw NotImplemented or write empty files; only STL via `Save(path)` works; OBJ export bug in 3d/python. | upstream, covered by RD3-060/140 |
+| RD3-U05 | slides/java, slides/cpp, words/net | Unsupported export formats are silent (PPTX named .pdf) or throw (`NotSupportedException("FOSS")`, 0-byte files). | upstream, covered by RD3-060 |
+| RD3-U06 | imaging/net | TIFF bit depth read as 134; truncated PNG returns Height 0. README install names a package that is not on NuGet. | upstream |
+| RD3-U07 | email/cpp | Library-written .msg rejected by `extract_msg` (lead; Outlook not tested). | upstream lead |
+| RD3-U08 | tex/python | 35 of 45 files unparseable upstream, library not importable; no upstream fix at HEAD. | BLOCKED_BY_UPSTREAM, RD3-092 |
+| RD3-U09 | pdf/go, cells/go | Index is at an older commit than `go get` resolves (snapshot age). | covered by RD3-071 |
+| RD3-U10 | cluster | The cluster runs `rev-e4a6ada` (27), `rev-ae713e4` (4), `rev-tex-a06079c` (1), not the shipped image; stale namespaces poc14b and poc14c; serving pods in the dev cluster have 443 egress; image tags without digests, one replica, no PDB; RollingUpdate on a single-writer claim. | not part of the release (docs/RELEASE.md section 9: the cluster is not the release); disclose |
+| RD3-U11 | all | Example search is keyword-only (no embedding gateway in the image); natural-language class discovery is weak (L-121); no member documentation (TC-526/527/528 cut). | accepted limitations, keep |
+
+## 5. Pilot verdicts at registration
+
+| Verdict | Pilots |
+|---|---|
+| READY | cells/net |
+| NOT_READY (11) | 3d/net (RD3-070, 050, 051, 052, 140), 3d/python (003, 004, 060), 3d/typescript (011), barcode/python (001, 002), cells/cpp (080, 022), cells/python (001), cells/rust (030, 031, 032), cells/typescript (010), email/python (001), note/python (001), page/python (001, 006) |
+| BLOCKED_BY_UPSTREAM | tex/python (092) |
+| READY_WITH_ACCEPTED_LIMITATION (19) | 3d/java, cells/go, cells/java, email/cpp, email/net, html/python, imaging/net, pdf/cpp, pdf/go, pdf/java, pdf/net, pdf/python, pdf/typescript, slides/cpp, slides/java, slides/net, slides/python, words/net, words/python |
+
+A pilot moves to READY only after its cards are accepted and an independent QA pass on the rebuilt image finds none of its rows
+reproducing.
+
+## 6. Work plan, order and time estimate
+
+Nothing below has been started. Tracks run in parallel; reviews are serial (one `gatectl review` at a time).
+
+| Track | Cards in order | Why this order |
+|---|---|---|
+| A, extraction chain (shared extractor, chunk builder and fleet tests, so strictly serial) | TC-532 Python, TC-533 TypeScript, TC-534 C++, TC-535 Go and Rust, TC-557 Java, TC-558 .NET, TC-559 unsupported markers, then TC-566 | each card re-extracts its fixtures and repins the fleet tests |
+| B, serving chain | TC-563 documentation excerpts, TC-562 retrieval, TC-564 serving and operations | share the tool and budget code |
+| C, freshness and install chain | TC-560 freshness, TC-561 install and product reference (includes the tex warning) | share the product-reference and releases code |
+| D | TC-565 example truth | independent files |
+| Closing (after A to D) | supervisor re-ingest of all 32 pilots, snapshot, TC-536 budgets and e2e pins, TC-537 closure documents, rebuild, gate 32 of 32, attack suite, independent QA round, release record, local CI | the data and image are rebuilt once, after the last fix |
+
+Estimate (wall-clock, continuous operation; per card one worker 30 to 75 minutes plus one review 20 to 30 minutes; about 35% of
+cards needed one rework round in this program; a rework adds 60 to 80 minutes):
+
+| Item | Likely | Range |
+|---|---|---|
+| Track A, 8 cards in series (about 80 minutes each, 2 expected reworks) | 10.5 h | 8 to 15 h |
+| Tracks B, C, D in parallel with A (reviews interleave into A's worker time) | absorbed | +0 to 2 h if reviews queue |
+| Closing: re-ingest 32 pilots about 45 min, snapshot and apply 20 min, TC-536 and TC-537 about 1.5 h, rebuild, gate and attack suite 20 min, independent QA round 75 min, release record and full local CI 45 min | 3.5 h | 3 to 5 h |
+| Total to a re-recorded, QA-verified image | about 14 h | 11 to 22 h |
+
+Tiering if the operator wants a faster partial path (each tier still ends with the closing steps, about 3.5 h):
+Tier 1, the ship blockers (rows P1 plus the drift and install rows of NOT_READY pilots): TC-532, TC-533, TC-535 (Rust and Go),
+TC-558 and TC-557 (the 3d/net and Java correctness rows), TC-560, TC-561 about 9 h. Tier 2 adds TC-534, TC-559, TC-562, TC-563,
+TC-564, TC-565 about 5 h more. Tier 3 is TC-566, TC-536, TC-537, documentation, about 3 h more (TC-566 is the permanent gate that
+prevents recurrence and should not be dropped).
+
+Assumptions that move the estimate: host load (other repositories' test runs slowed one review by 2x today), the intermittent
+application-control policy (retry once), GitHub rate limits during re-extraction clones (the extraction needs the network),
+and card defects found at dispatch (65% of past rework was a card defect: every card here is registered as a DRAFT and must have its
+inputs, numbers and negative control finalised by the supervisor before dispatch, Supervisor rule 5).
+
+## 7. Resume instructions
+
+1. `python ops/gatectl.py validate`, then `python ops/gatectl.py next` names the lowest READY card (TC-532 until the chain starts).
+2. Before dispatching any card: re-read its card text, replace its placeholder negative control with a real falsifier, calibrate
+   `min_tests` (it applies to EACH check), and check its `write_paths` against the files it must touch (a card that needs a file outside
+   them is a card defect).
+3. Dispatch per AGENTS.md (one fresh worker per card in a worktree, FOSS_MCP_WORKER=<card> for its commit); review one at a time; kill
+   leftover review processes after each receipt; `gatectl integrate`.
+4. After the last card of tracks A to D: re-ingest, snapshot, TC-536, TC-537, rebuild `demo-<sha>`, gate, attack suite, QA round,
+   `gatectl release-record`, local `scripts/ci_check.sh` green, then ask the operator for the registry host and their own `docker login`.
+5. Local CI at registration (HEAD 8e3a3de1): lint, format, mypy and `gatectl validate` pass; pytest has exactly three items:
+   the stale pdf/typescript e2e pin (RD3-151, TC-536), `core.hooksPath` (RD3-152, TC-566) and the intermittent Rust build error (RD3-153).

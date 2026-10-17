@@ -1,0 +1,105 @@
+id: TC-558
+gate: G3
+lane: extraction
+purpose: >-
+  REQ-G3-009 (rows RD3-043, RD3-044, RD3-047, RD3-050 to RD3-055). .NET EXTRACTION FIDELITY for 3d/net, cells/net, email/net, imaging/net, pdf/net, slides/net, words/net. Measured against the compiled assemblies
+  (MetadataLoadContext reflection) at the indexed commits: operators and conversions never served (0 of 92: 3d/net 67, pdf/net 17), public mutable fields never served (3d/net 56, pdf/net 81 incl. the 23
+  HtmlSaveOptions options; `search_symbols FontSavingMode` misses), generic method type parameters dropped (9; `Node.GetEntity<T>()` served `GetEntity() -> T`, CS0411), `using` aliases served unresolved
+  (words/net `Image = SkiaSharp.SKBitmap` per target framework, CS1503; pdf/net `SdiImageFormat` in 14 overloads, CS0103), a generic and a non-generic type with the same name merged (3d/net TriMesh and
+  TriMesh<T>, CS1501), generic base lists cut at the comma (pdf/net 8, words/net 4), delegates (pdf/net 14, 3d/net 3) and events (pdf/net 7) not indexed, three words/net types in `#if CPLUSPLUS public #else
+  internal` treated as public, implicit default constructors not rendered (pdf/net 139, words/net 134, slides/net 70, cells/net 8), email/net record members lost (34). Verified faithful and to be preserved:
+  return types, static/abstract/override/virtual flags, ref/out/params, default values, indexers, overload sets (Scene.Open 9, PdfConverter.GetNextImage 22), inheritance (0 chain violations). REGISTERED
+  AS A DRAFT on 2026-10-17 from docs/ROUND3_REVIEW.md: before dispatch the supervisor re-reads this card against the merged code, calibrates min_tests (it applies to EACH check), replaces the placeholder
+  negative control with a real falsifier that has no backslash, and verifies every file named in write_paths (Supervisor rule 5). Nothing here has been executed.
+depends_on:
+- TC-550
+- TC-553
+- TC-554
+- TC-555
+- TC-556
+- TC-557
+write_paths:
+- src/foss_mcp/extraction/tree_sitter_engine/lang/csharp.py
+- src/foss_mcp/extraction/tree_sitter_engine/api_surface.py
+- src/foss_mcp/extraction/run_extraction.py
+- src/foss_mcp/indexing/chunk_builder.py
+- tests/fixtures/3d_net/api_surface.json
+- tests/fixtures/cells_net/api_surface.json
+- tests/fixtures/email_net/api_surface.json
+- tests/fixtures/imaging_net/api_surface.json
+- tests/fixtures/pdf_net/api_surface.json
+- tests/fixtures/slides_net/api_surface.json
+- tests/fixtures/words_net/api_surface.json
+- tests/fixtures/readme_identifier_allowlist.json
+- tests/extraction/test_round3_dotnet_fidelity.py
+- tests/indexing/test_chunk_builder_round3_dotnet.py
+- tests/extraction/test_reextracted_dotnet.py
+- tests/extraction/test_reextracted_uncapped.py
+- tests/deploy/test_fleet_consistency.py
+satisfies:
+- REQ-G3-009
+- REQ-G3-008
+source_refs:
+- file: docs/DECISION_LOG.md
+  anchor: >-
+    ## 2026-10-17 — Round-3 independent review of the shipped image: 82 findings registered, nothing executed (operator, supervisor)
+  sha256: 79a36f6c8885f87bffc9a79b6d6fdedadecd7b4860735bdd1723072caa4f3970
+inputs:
+- >-
+  READ FIRST: docs/ROUND3_REVIEW.md (the rows this card closes, with the investigators' evidence ids; the evidence itself is kept by the supervisor outside the repository and can be requested), then the
+  code named in write_paths. Activate the toolchain (scripts/toolchain/activate.ps1) in the SAME shell command as every python or pytest call. Never print an environment value. Verify every name against
+  the merged code and list differences in your report. Run ruff format and ruff check on every Python file you change. Source truth wins over fixtures: every new regression test must take its expectation
+  from an INDEPENDENT oracle (the upstream source at the pinned commit read with the language's own parser or compiler, a compiled library's reflection, or a hand-written upstream-shaped snippet), never
+  from the extractor's own output or a committed fixture alone. A re-extraction of a fixture is regenerated with the CLI at the chart-pinned commit exactly as card TC-550 describes; the extraction needs
+  the network, and a refused clone is BLOCKED_EXTERNAL, not a reason to retry in a loop. Do not edit plans/, project/, ops/, evidence/, schemas/, docs/ (except where write_paths names a docs file), do not
+  run docker or a cluster command.
+- >-
+  ACCEPTANCE: the regenerated fixtures and rendered chunks (a) list operators and explicit/implicit conversions with their operand and return types, (b) list public non-readonly and readonly fields, (c)
+  render method type parameters and constraints and type-level constraints, (d) resolve a file-level `using X = T;` alias to its target in every signature that uses it, and where the alias is conditional
+  per target framework serve the target for the framework the packaged library is built for (or the alias name plus an explicit marker), (e) keep `Foo` and `Foo<T>` as two symbols with distinct FQNs (`Foo`
+  and `Foo<T>`), (f) split generic base lists at top-level commas only, (g) index delegate types and events, (h) treat a type declared only under a non-default preprocessor branch as not public, (i) render
+  implicit default constructors for non-static, non-abstract classes without a declared constructor, (j) list record positional properties, constructor and Deconstruct. INDEPENDENT ORACLE: in the tests,
+  compile tiny C# sources with the repository's pinned .NET SDK (dotnet build in a temp dir) or, where the SDK is unavailable offline, use hand-written upstream-shaped snippets run through the extractor
+  and compare with expectations written from the C# language rules; the real pins listed in the purpose (TriMesh, SdiImageFormat, Image alias, HtmlSaveOptions.FontSavingMode, Vector3 operator+) are asserted
+  on the regenerated real fixtures.
+- >-
+  RE-PINS as in TC-557 (comment `TC-558: <old> -> <new>`, STALE_BAKED_PILOTS entries until the supervisor re-ingests).
+actions:
+- >-
+  Regenerate the seven .NET fixtures with the fixed extractor and renderer; add the .NET fidelity tests.
+checks:
+- command: >-
+    {python} -m pytest tests/extraction/test_round3_dotnet_fidelity.py tests/indexing/test_chunk_builder_round3_dotnet.py tests/extraction/test_reextracted_dotnet.py -q -rfE -p no:cacheprovider
+  expect: exit 0
+  timeout_seconds: 1800
+  junitxml: true
+  proves:
+  - REQ-G3-009
+  - REQ-G3-008
+- command: >-
+    {python} -m pytest tests/extraction tests/indexing/test_chunk_builder.py tests/indexing/test_chunk_builder_honesty.py tests/deploy/test_fleet_consistency.py tests/deploy/test_served_coverage_matches_fixtures.py
+    tests/deploy/test_compact_demo_manifests.py -q -rfE -p no:cacheprovider -k "not live and not github_http and not repo_native and not test_prepare_rust_library and not test_rust_known"
+  expect: exit 0
+  timeout_seconds: 3000
+  junitxml: true
+  proves:
+  - REQ-G3-009
+  - REQ-G3-008
+min_tests: 8
+network: true
+requires:
+- python
+- git
+negative_control:
+  mutate: |
+    python -X utf8 -c "print('negative control to be authored before dispatch')"
+  rationale: >-
+    PLACEHOLDER written at registration. The supervisor replaces it, before dispatch, with a falsifier that breaks the card's central claim in the code the worker writes (a mandated constant or function
+    name) so that a named new test fails.
+evidence:
+- evidence/build/G3/TC-558/receipt.json
+closeout:
+- >-
+  The seven .NET pilots serve operators, fields, generic parameters, resolved aliases, distinct generic/non-generic types, split base lists, delegates, events and implicit constructors faithfully; nothing
+  a peer sees changes until the supervisor re-ingests.
+recovery: Re-run from a clean tree.

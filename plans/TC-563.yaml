@@ -1,0 +1,80 @@
+id: TC-563
+gate: G3
+lane: storage-retrieval
+purpose: >-
+  REQ-G3-009 (row RD3-110, a regression of the PS-02 response-budget fix). DOCUMENTATION EXCERPT RECOVERY. response_budget.py caps every item text at 1,536 characters (ITEM_TEXT_CAP) even when the whole
+  response is tiny; 58% of served documentation chunks are cut (64% of pdf/python hits; a 7,604-character developer-guide chunk is returned as 1,525), 11 are cut inside a code fence, and the marker says
+  'narrow the query or call search_docs for the passages not shown' although a narrowed query returns the same chunk cut at the same offset. FIX: size the per-item cap from the remaining total budget (the
+  24,576-byte total cap stays), never cut inside a code fence, and add a documented way to fetch the rest of a truncated documentation chunk (a chunk_id plus offset or part parameter on search_docs, listed
+  in the tool schema and in the marker text). REGISTERED AS A DRAFT on 2026-10-17 from docs/ROUND3_REVIEW.md: before dispatch the supervisor re-reads this card against the merged code, calibrates min_tests
+  (it applies to EACH check), replaces the placeholder negative control with a real falsifier that has no backslash, and verifies every file named in write_paths (Supervisor rule 5). Nothing here has been
+  executed.
+depends_on:
+- TC-550
+- TC-553
+- TC-554
+- TC-555
+- TC-556
+write_paths:
+- src/foss_mcp/mcp/response_budget.py
+- src/foss_mcp/mcp/response_envelope.py
+- src/foss_mcp/mcp/tools/search_docs.py
+- src/foss_mcp/mcp/server.py
+- tests/mcp/test_round3_doc_excerpt.py
+satisfies:
+- REQ-G3-009
+- REQ-G3-008
+source_refs:
+- file: docs/DECISION_LOG.md
+  anchor: >-
+    ## 2026-10-17 — Round-3 independent review of the shipped image: 82 findings registered, nothing executed (operator, supervisor)
+  sha256: 79a36f6c8885f87bffc9a79b6d6fdedadecd7b4860735bdd1723072caa4f3970
+inputs:
+- >-
+  READ FIRST: docs/ROUND3_REVIEW.md (the rows this card closes, with the investigators' evidence ids; the evidence itself is kept by the supervisor outside the repository and can be requested), then the
+  code named in write_paths. Activate the toolchain (scripts/toolchain/activate.ps1) in the SAME shell command as every python or pytest call. Never print an environment value. Verify every name against
+  the merged code and list differences in your report. Run ruff format and ruff check on every Python file you change. Source truth wins over fixtures: every new regression test must take its expectation
+  from an INDEPENDENT oracle (the upstream source at the pinned commit read with the language's own parser or compiler, a compiled library's reflection, or a hand-written upstream-shaped snippet), never
+  from the extractor's own output or a committed fixture alone. A re-extraction of a fixture is regenerated with the CLI at the chart-pinned commit exactly as card TC-550 describes; the extraction needs
+  the network, and a refused clone is BLOCKED_EXTERNAL, not a reason to retry in a loop. Do not edit plans/, project/, ops/, evidence/, schemas/, docs/ (except where write_paths names a docs file), do not
+  run docker or a cluster command.
+- >-
+  ACCEPTANCE: a documentation chunk larger than 1.5 KB in a response that is otherwise under the total cap is returned in full up to the cap; when truncation is unavoidable the cut falls on a paragraph
+  or line boundary outside a code fence, the marker names the exact call that returns the rest, and that call returns the remainder on the real baked pdf/python data (34 of 53 hits previously cut, 0 after);
+  the total response cap and every existing budget test still hold; the tool schema documents the new argument. INDEPENDENT ORACLE: the chunk text is read from the baked generation JSON, not from a tool
+  response.
+actions:
+- Make the per-item cap adaptive, fence-aware and recoverable.
+checks:
+- command: >-
+    {python} -m pytest tests/mcp/test_round3_doc_excerpt.py tests/mcp/tools/test_consumer_tools.py -q -rfE -p no:cacheprovider
+  expect: exit 0
+  timeout_seconds: 1800
+  junitxml: true
+  proves:
+  - REQ-G3-009
+  - REQ-G3-008
+- command: >-
+    {python} -m pytest tests/mcp -q -rfE -p no:cacheprovider -k "not live and not github_http and not repo_native"
+  expect: exit 0
+  timeout_seconds: 2400
+  junitxml: true
+  proves:
+  - REQ-G3-009
+  - REQ-G3-008
+min_tests: 8
+network: true
+requires:
+- python
+negative_control:
+  mutate: |
+    python -X utf8 -c "print('negative control to be authored before dispatch')"
+  rationale: >-
+    PLACEHOLDER written at registration. The supervisor replaces it, before dispatch, with a falsifier that breaks the card's central claim in the code the worker writes (a mandated constant or function
+    name) so that a named new test fails.
+evidence:
+- evidence/build/G3/TC-563/receipt.json
+closeout:
+- >-
+  Documentation excerpts are as long as the budget allows, never cut inside a code fence, and the rest of a cut chunk can be fetched.
+recovery: Re-run from a clean tree.

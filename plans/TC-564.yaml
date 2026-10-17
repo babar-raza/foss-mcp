@@ -1,0 +1,115 @@
+id: TC-564
+gate: G3
+lane: transport-deployment
+purpose: >-
+  REQ-G3-009 (rows RD3-120 to RD3-126). SERVING ROBUSTNESS, OBSERVABILITY AND SHIPPED RECOVERY TOOLING. (1) An ABSENT sidecar makes list_recent_changes answer `[]` with the note 'An empty list is a complete
+  answer, not a fetch failure' (pdf/go really has 12 releases), /readyz stays 200 with no warning, nothing is logged, and a sidecar added later is ignored until restart (sidecars are read once in infra/serve_http.py
+  build_app). (2) infra/rollback.py is in no shipped image although docs/DEPLOYMENT.md says it is, so the documented recovery cannot run; rollback validates shape only (accepts a 1-chunk, 0-symbol, 60%-regressed,
+  different-repository or different-commit target; no post-flip readiness probe or revert), does not roll sidecars back, crashes on `--list` with a corrupt generation file, and fenced publishers leave orphan
+  generation files. (3) A corrupt pointer or generation makes list_recent_changes and report_index_freshness return invalid_argument/internal with raw exception text; a vanished pointer gives a non-error
+  found:false. (4) Default /metrics is two counters (Prometheus only on request), serverInfo.version is 0.1.0+unknown, call logs lack generation id and source commit, success responses carry no correlation
+  id, transport rejections are logged without a reason, ClientDisconnect is logged as an ERROR with a traceback and no ids. (5) 200 abandoned sessions lock out new clients (503) until the 5-minute sweep,
+  sessions are lost on restart, stalled connections have no read timeout, Host is not validated, a request with an invalid id gets an empty 202, transport rejections use a different error envelope. (6)
+  /data/manifests is owned by the server user, so sidecars can be deleted when a peer runs without --read-only. FIX each item; keep every verified-good behaviour (readiness reasons, sanitised errors, correlation
+  ids on errors, fencing tokens). REGISTERED AS A DRAFT on 2026-10-17 from docs/ROUND3_REVIEW.md: before dispatch the supervisor re-reads this card against the merged code, calibrates min_tests (it applies
+  to EACH check), replaces the placeholder negative control with a real falsifier that has no backslash, and verifies every file named in write_paths (Supervisor rule 5). Nothing here has been executed.
+depends_on:
+- TC-550
+- TC-553
+- TC-554
+- TC-555
+- TC-556
+- TC-563
+- TC-562
+- TC-560
+- TC-246
+- TC-250
+write_paths:
+- infra/serve_http.py
+- infra/rollback.py
+- infra/demo_entrypoint.py
+- Dockerfile.serving
+- Dockerfile.ingestion
+- src/foss_mcp/mcp/sidecar_state.py
+- src/foss_mcp/mcp/health.py
+- src/foss_mcp/mcp/identity.py
+- src/foss_mcp/mcp/server.py
+- src/foss_mcp/mcp/transport_security.py
+- src/foss_mcp/mcp/response_envelope.py
+- src/foss_mcp/mcp/tools/list_recent_changes.py
+- src/foss_mcp/mcp/tools/report_index_freshness.py
+- src/foss_mcp/indexing/generation_manifest.py
+- docs/DEPLOYMENT.md
+- tests/infra/test_round3_serving_robustness.py
+- tests/infra/test_round3_rollback_hardening.py
+- tests/mcp/test_round3_error_classification.py
+- tests/test_container_build.py
+satisfies:
+- REQ-G3-009
+- REQ-G3-008
+source_refs:
+- file: docs/DECISION_LOG.md
+  anchor: >-
+    ## 2026-10-17 — Round-3 independent review of the shipped image: 82 findings registered, nothing executed (operator, supervisor)
+  sha256: 79a36f6c8885f87bffc9a79b6d6fdedadecd7b4860735bdd1723072caa4f3970
+inputs:
+- >-
+  READ FIRST: docs/ROUND3_REVIEW.md (the rows this card closes, with the investigators' evidence ids; the evidence itself is kept by the supervisor outside the repository and can be requested), then the
+  code named in write_paths. Activate the toolchain (scripts/toolchain/activate.ps1) in the SAME shell command as every python or pytest call. Never print an environment value. Verify every name against
+  the merged code and list differences in your report. Run ruff format and ruff check on every Python file you change. Source truth wins over fixtures: every new regression test must take its expectation
+  from an INDEPENDENT oracle (the upstream source at the pinned commit read with the language's own parser or compiler, a compiled library's reflection, or a hand-written upstream-shaped snippet), never
+  from the extractor's own output or a committed fixture alone. A re-extraction of a fixture is regenerated with the CLI at the chart-pinned commit exactly as card TC-550 describes; the extraction needs
+  the network, and a refused clone is BLOCKED_EXTERNAL, not a reason to retry in a loop. Do not edit plans/, project/, ops/, evidence/, schemas/, docs/ (except where write_paths names a docs file), do not
+  run docker or a cluster command.
+- >-
+  ACCEPTANCE (each asserted by a test that starts the real server in-process or the real CLI on a temp copy of baked data): (a) boot without a sidecar logs a WARNING naming the file, `/readyz` carries a
+  `warnings` entry, a metric counts sidecar states, and list_recent_changes returns a typed `unavailable` error or an explicit 'not loaded' note, never the 'complete answer' note; a sidecar that appears
+  later is picked up on the next request (mtime check) or the server states it needs a restart; (b) both Dockerfiles copy infra/rollback.py and a build-time test proves `python /app/infra/rollback.py --list`
+  runs; rollback applies the publish floors, the repository-identity check and the regression limit unless `--force` is given, runs the readiness probe after the flip and reverts on failure, `--list` skips
+  and names a corrupt file, sidecar identity is re-checked and the install notice uses the active generation's commit; (c) corrupt storage gives the sanitised `unavailable` code on every tool including
+  list_recent_changes and report_index_freshness, and a vanished pointer is an error not a miss; (d) /metrics is Prometheus text by default (the JSON form stays under an explicit format), serverInfo.version
+  and build_revision come from the image label or an env var set at build, call log lines carry generation id and source commit, success responses carry a correlation id field, rejections are logged with
+  their reason, ClientDisconnect is a DEBUG line; (e) the oldest idle session is evicted when the cap is reached, a stalled header read times out, Host is validated against an allow-list defaulting to loopback
+  and the container name, invalid ids get a JSON-RPC error, rejection bodies share one envelope; (f) /data/manifests and its contents are root-owned and read-only to the server user. INDEPENDENT ORACLE:
+  raw HTTP and JSON-RPC bytes in the tests, plus the R3/R4 reproductions rewritten as tests (cancel, cap, restart, 21 corruption cases, sidecar matrix).
+- >-
+  REVERSE W6/W4 notes: record in the report which environment-sensitive tests this card needs (the real-Rust builds stay deselected only in checks that do not touch them).
+actions:
+- >-
+  Fix sidecar state reporting, ship and harden rollback, classify storage errors, complete observability, session and transport hardening, ownership.
+checks:
+- command: >-
+    {python} -m pytest tests/infra/test_round3_serving_robustness.py tests/infra/test_round3_rollback_hardening.py tests/mcp/test_round3_error_classification.py tests/test_container_build.py -q -rfE -p
+    no:cacheprovider
+  expect: exit 0
+  timeout_seconds: 1800
+  junitxml: true
+  proves:
+  - REQ-G3-009
+  - REQ-G3-008
+- command: >-
+    {python} -m pytest tests/mcp tests/infra tests/deploy/test_runbook.py -q -rfE -p no:cacheprovider -k "not live and not github_http and not repo_native and not test_prepare_rust_library and not test_rust_known"
+  expect: exit 0
+  timeout_seconds: 3000
+  junitxml: true
+  proves:
+  - REQ-G3-009
+  - REQ-G3-008
+min_tests: 8
+network: true
+requires:
+- python
+- git
+negative_control:
+  mutate: |
+    python -X utf8 -c "print('negative control to be authored before dispatch')"
+  rationale: >-
+    PLACEHOLDER written at registration. The supervisor replaces it, before dispatch, with a falsifier that breaks the card's central claim in the code the worker writes (a mandated constant or function
+    name) so that a named new test fails.
+evidence:
+- evidence/build/G3/TC-564/receipt.json
+closeout:
+- >-
+  A missing sidecar is reported honestly, the shipped images contain the rollback tool and it validates what it flips, storage faults are classified and sanitised, observability identifies pilot, generation,
+  commit and request, and the session and transport edge cases are closed.
+recovery: Re-run from a clean tree.

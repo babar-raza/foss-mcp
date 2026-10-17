@@ -1,0 +1,93 @@
+id: TC-562
+gate: G3
+lane: storage-retrieval
+purpose: >-
+  REQ-G3-009 (rows RD3-100 to RD3-109). RETRIEVAL RELEVANCE FROM USER WORDING. Over 444 natural-language tasks lookup answered 61% (hit@10), search_symbols 5%, and 6% of lookup answers were non-empty and
+  wrong; the cells family has MRR .27 to .44. Causes seen: no stop-word list and a four-group synonym list (`merge cells` hits, `merge cells together` misses), no plural or verb handling in search_symbols
+  (plural of a CamelCase name 0.00 hit, `add X` 0.00), wrong-but-plausible answers with the correct type absent (`make text bold` -> TextPath on words/net, `add a slide` -> paragraph collections, `merge
+  pdfs` -> DssMaterial, `render page to image` -> SignatureAppearance), unrelated table chunks returned instead of an honest miss (`merge pdf files`, `colour`), `getting started` missing on 30 of 32 pilots,
+  `search_symbols('Do')` empty (stop word), gibberish (`a.b.c::d`) returning documentation on 29 of 32 pilots, no pagination (search_symbols top_k=100 returns about 12; omitted_items only inside response_budget),
+  no Unicode folding, the `find_examples` miss text 'semantic fallback skipped: error' on 32 of 32 pilots in the by-design lexical-only mode, `search_docs` requiring content_type while lookup does not,
+  alias duplicates in the top 10. FIX (all in the relevance layer, no embeddings): stop words and a larger synonym map applied to the query, light verb/plural normalisation in search_symbols, a partial-match
+  fallback that returns the best partial hits clearly labelled as partial, a relevance floor for table chunks, a minimum-evidence rule for single-letter and punctuation-only queries, honest `vector_fallback:
+  not_configured` wording, content_type optional in search_docs (all categories), a visible `omitted` count and a way to request the next page, NFKC folding of queries. REGISTERED AS A DRAFT on 2026-10-17
+  from docs/ROUND3_REVIEW.md: before dispatch the supervisor re-reads this card against the merged code, calibrates min_tests (it applies to EACH check), replaces the placeholder negative control with a
+  real falsifier that has no backslash, and verifies every file named in write_paths (Supervisor rule 5). Nothing here has been executed.
+depends_on:
+- TC-550
+- TC-553
+- TC-554
+- TC-555
+- TC-556
+- TC-563
+write_paths:
+- src/foss_mcp/mcp/tools/relevance.py
+- src/foss_mcp/mcp/tools/lookup.py
+- src/foss_mcp/mcp/tools/search_symbols.py
+- src/foss_mcp/mcp/tools/search_docs.py
+- src/foss_mcp/mcp/tools/find_examples.py
+- src/foss_mcp/mcp/tools/example_search_mode.py
+- src/foss_mcp/mcp/server.py
+- tests/mcp/tools/test_round3_retrieval.py
+- tests/mcp/tools/test_round3_retrieval_corpus.py
+satisfies:
+- REQ-G3-009
+- REQ-G3-008
+source_refs:
+- file: docs/DECISION_LOG.md
+  anchor: >-
+    ## 2026-10-17 — Round-3 independent review of the shipped image: 82 findings registered, nothing executed (operator, supervisor)
+  sha256: 79a36f6c8885f87bffc9a79b6d6fdedadecd7b4860735bdd1723072caa4f3970
+inputs:
+- >-
+  READ FIRST: docs/ROUND3_REVIEW.md (the rows this card closes, with the investigators' evidence ids; the evidence itself is kept by the supervisor outside the repository and can be requested), then the
+  code named in write_paths. Activate the toolchain (scripts/toolchain/activate.ps1) in the SAME shell command as every python or pytest call. Never print an environment value. Verify every name against
+  the merged code and list differences in your report. Run ruff format and ruff check on every Python file you change. Source truth wins over fixtures: every new regression test must take its expectation
+  from an INDEPENDENT oracle (the upstream source at the pinned commit read with the language's own parser or compiler, a compiled library's reflection, or a hand-written upstream-shaped snippet), never
+  from the extractor's own output or a committed fixture alone. A re-extraction of a fixture is regenerated with the CLI at the chart-pinned commit exactly as card TC-550 describes; the extraction needs
+  the network, and a refused clone is BLOCKED_EXTERNAL, not a reason to retry in a loop. Do not edit plans/, project/, ops/, evidence/, schemas/, docs/ (except where write_paths names a docs file), do not
+  run docker or a cluster command.
+- >-
+  ACCEPTANCE: a committed retrieval corpus of at least 20 user-wording tasks per family (cells, pdf, slides, words, 3d, email, barcode/tex/html/note/page/imaging) with the intended API written from upstream
+  source, run against the real baked manifests in the test (no network, no container): hit@3 for lookup at least 0.85 overall and at least 0.70 per family, non-empty-wrong answers at most 2%, every case
+  of the purpose's wrong-but-plausible list ranks the correct type in the top 3 or gives an honest miss, search_symbols results carry the fixed 'not implemented in this build' phrase of TC-559 when the
+  chunk has it, lookup for 'save presentation as PDF' on slides/java and slides/net, 'export to PDF' on slides/cpp and words/net and 'render a scene' on 3d/net returns the limitation chunk first, `getting
+  started` hits on every pilot that has a getting_started document, `Do` finds Operators.Do on pdf/net and pdf/java, `a.b.c::d` is an honest miss, full-width `Workbook` hits, no exact-name or camel-split
+  query regresses (hit@1 stays 1.00 on the R8 exact-name set), typo queries still give did-you-mean. INDEPENDENT ORACLE: the intended-API column of the corpus is written from the upstream sources (not from
+  MCP output) and is reviewed in the card report.
+actions:
+- >-
+  Improve query normalisation, synonyms, partial matches, floors, pagination marker and wording in the relevance layer; add the retrieval corpus test.
+checks:
+- command: >-
+    {python} -m pytest tests/mcp/tools/test_round3_retrieval.py tests/mcp/tools/test_round3_retrieval_corpus.py -q -rfE -p no:cacheprovider
+  expect: exit 0
+  timeout_seconds: 1800
+  junitxml: true
+  proves:
+  - REQ-G3-009
+  - REQ-G3-008
+- command: >-
+    {python} -m pytest tests/mcp -q -rfE -p no:cacheprovider -k "not live and not github_http and not repo_native"
+  expect: exit 0
+  timeout_seconds: 2400
+  junitxml: true
+  proves:
+  - REQ-G3-009
+  - REQ-G3-008
+min_tests: 8
+network: true
+requires:
+- python
+negative_control:
+  mutate: |
+    python -X utf8 -c "print('negative control to be authored before dispatch')"
+  rationale: >-
+    PLACEHOLDER written at registration. The supervisor replaces it, before dispatch, with a falsifier that breaks the card's central claim in the code the worker writes (a mandated constant or function
+    name) so that a named new test fails.
+evidence:
+- evidence/build/G3/TC-562/receipt.json
+closeout:
+- >-
+  Natural-language tasks reach the right API with measured hit rates; wrong-but-plausible answers and gibberish matches are gone; miss wording and pagination are honest.
+recovery: Re-run from a clean tree.

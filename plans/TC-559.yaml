@@ -1,0 +1,92 @@
+id: TC-559
+gate: G3
+lane: storage-retrieval
+purpose: >-
+  REQ-G3-009 (rows RD3-060, RD3-061; decision OQ-014). UNSUPPORTED AND STUB CAPABILITY MARKERS. The round-3 review found symbols served as normal API that the library cannot honour: 3d/python 734 of 3,743
+  public members are `raise NotImplementedError` or `pass` bodies; 3d/net Scene.Render, PolygonModifier and PdfFormat throw NotImplementedException; pdf/python HtmlLoadOptions and SvgLoadOptions are rejected
+  as load sources; slides/cpp and slides/java SaveFormat lists PDF, XPS, TIFF, HTML, GIF and MD but save throws or silently writes a PPTX named .pdf; cells/cpp Save("out.csv") silently writes an XLSX; words/net
+  PDF/HTML/EPUB save throws NotSupportedException("FOSS") and leaves 0-byte files. The scope documentation states every one of these, but only the documentation path finds it ('symbol found but docs say
+  unsupported'). FIX: derive an unsupported/not-implemented marker at extraction time (stub bodies: only `raise NotImplementedError(...)`, `pass`, `throw new NotImplementedException()`, `throw new UnsupportedOperationException()`
+  and equivalent; enum members and options named by the pilot's scope documentation as unsupported), render it on the member/symbol line and in get_symbol and list_members results (TC-562 carries the same
+  fixed phrase into search_symbols results and makes lookup surface the limitation chunk when the query names a capability the scope documentation lists as unsupported). Remove nothing from the index. REGISTERED
+  AS A DRAFT on 2026-10-17 from docs/ROUND3_REVIEW.md: before dispatch the supervisor re-reads this card against the merged code, calibrates min_tests (it applies to EACH check), replaces the placeholder
+  negative control with a real falsifier that has no backslash, and verifies every file named in write_paths (Supervisor rule 5). Nothing here has been executed.
+depends_on:
+- TC-550
+- TC-553
+- TC-554
+- TC-555
+- TC-556
+- TC-558
+write_paths:
+- src/foss_mcp/extraction/run_extraction.py
+- src/foss_mcp/extraction/tree_sitter_engine/python_surface.py
+- src/foss_mcp/extraction/tree_sitter_engine/api_surface.py
+- src/foss_mcp/indexing/chunk_builder.py
+- src/foss_mcp/mcp/tools/get_symbol.py
+- src/foss_mcp/mcp/tools/list_members.py
+- tests/indexing/test_round3_unsupported_markers.py
+- tests/mcp/tools/test_round3_unsupported_markers.py
+- tests/extraction/test_round3_stub_detection.py
+- tests/deploy/test_fleet_consistency.py
+satisfies:
+- REQ-G3-009
+- REQ-G3-008
+source_refs:
+- file: docs/DECISION_LOG.md
+  anchor: >-
+    ## 2026-10-17 — Round-3 independent review of the shipped image: 82 findings registered, nothing executed (operator, supervisor)
+  sha256: 79a36f6c8885f87bffc9a79b6d6fdedadecd7b4860735bdd1723072caa4f3970
+inputs:
+- >-
+  READ FIRST: docs/ROUND3_REVIEW.md (the rows this card closes, with the investigators' evidence ids; the evidence itself is kept by the supervisor outside the repository and can be requested), then the
+  code named in write_paths. Activate the toolchain (scripts/toolchain/activate.ps1) in the SAME shell command as every python or pytest call. Never print an environment value. Verify every name against
+  the merged code and list differences in your report. Run ruff format and ruff check on every Python file you change. Source truth wins over fixtures: every new regression test must take its expectation
+  from an INDEPENDENT oracle (the upstream source at the pinned commit read with the language's own parser or compiler, a compiled library's reflection, or a hand-written upstream-shaped snippet), never
+  from the extractor's own output or a committed fixture alone. A re-extraction of a fixture is regenerated with the CLI at the chart-pinned commit exactly as card TC-550 describes; the extraction needs
+  the network, and a refused clone is BLOCKED_EXTERNAL, not a reason to retry in a loop. Do not edit plans/, project/, ops/, evidence/, schemas/, docs/ (except where write_paths names a docs file), do not
+  run docker or a cluster command.
+- >-
+  ACCEPTANCE: (a) the extractor flags a member whose entire body is a not-implemented raise/throw or an empty stub in Python, C#, Java, C++ (`throw std::logic_error("not implemented")`) and TypeScript (`throw
+  new Error('not implemented')`); (b) the marker text is one fixed phrase ('not implemented in this build') so tests and agents can rely on it; (c) a symbol whose pilot scope document names it unsupported
+  carries the marker (match by name from the documentation chunk, conservative: exact identifier match only); (d) the fixed phrase is the contract with TC-562, which surfaces it in search_symbols and applies
+  the limitation-first rule in lookup; (e) no symbol is removed and no currently correct line changes. INDEPENDENT ORACLE: hand-written source snippets per language for the stub detector; the real pins
+  (3d/python 734 stubs counted from the upstream source by ast, 3d/net Scene.Render, PolygonModifier) asserted on regenerated data.
+actions:
+- >-
+  Add the unsupported/stub marker to extraction, chunk rendering and the three symbol tools, and the limitation-first rule to lookup.
+checks:
+- command: >-
+    {python} -m pytest tests/indexing/test_round3_unsupported_markers.py tests/mcp/tools/test_round3_unsupported_markers.py tests/extraction/test_round3_stub_detection.py -q -rfE -p no:cacheprovider
+  expect: exit 0
+  timeout_seconds: 1800
+  junitxml: true
+  proves:
+  - REQ-G3-009
+  - REQ-G3-008
+- command: >-
+    {python} -m pytest tests/mcp tests/indexing/test_chunk_builder.py tests/deploy/test_fleet_consistency.py tests/deploy/test_served_coverage_matches_fixtures.py tests/deploy/test_compact_demo_manifests.py
+    -q -rfE -p no:cacheprovider -k "not live and not github_http and not repo_native and not test_prepare_rust_library and not test_rust_known"
+  expect: exit 0
+  timeout_seconds: 3000
+  junitxml: true
+  proves:
+  - REQ-G3-009
+  - REQ-G3-008
+min_tests: 8
+network: true
+requires:
+- python
+- git
+negative_control:
+  mutate: |
+    python -X utf8 -c "print('negative control to be authored before dispatch')"
+  rationale: >-
+    PLACEHOLDER written at registration. The supervisor replaces it, before dispatch, with a falsifier that breaks the card's central claim in the code the worker writes (a mandated constant or function
+    name) so that a named new test fails.
+evidence:
+- evidence/build/G3/TC-559/receipt.json
+closeout:
+- >-
+  Stub, not-implemented and documented-unsupported symbols are marked wherever they are served, and a question about an unsupported capability finds the limitation first.
+recovery: Re-run from a clean tree.
