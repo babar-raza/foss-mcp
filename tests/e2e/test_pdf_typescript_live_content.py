@@ -13,7 +13,9 @@ content comes back.
 Every value below is this pilot's OWN real, distinctive data - never copied from pdf/net's:
 
 - ``REAL_SYMBOL``/``REAL_SOURCE_COMMIT`` come from the real, committed
-  ``tests/fixtures/pdf_typescript/api_surface.json`` fixture. TC-252 fixed ``reduce_fixture`` to
+  ``tests/fixtures/pdf_typescript/api_surface.json`` fixture (TC-567: since TC-550 re-extracted it
+  at the chart pin ``155bfc7a33f0``, the whole index records that ONE commit; the paragraph below
+  is the fixture's history up to TC-317, kept for the symbol choice, not for its old commit). TC-252 fixed ``reduce_fixture`` to
   rank by a centrality score (replacing TC-050's original, stale, pre-TC-238 alphabetical
   150-of-4211 cut); TC-255 first re-ran the extraction against that fix, but TC-261 (the C3 fix
   adding explicit ``inherited_from`` provenance tagging to every copied inherited
@@ -41,9 +43,9 @@ Every value below is this pilot's OWN real, distinctive data - never copied from
   for a ``kind == "class_declaration"`` entry; there is no comparable ``REAL_ENUM_FQN``/
   ``REAL_ENUM_MEMBER`` pair for this pilot).
 - ``REAL_EXAMPLE_SYMBOL``/``REAL_TASK_QUERY``/``REAL_EXAMPLE_SOURCE_COMMIT`` come from the real,
-  committed ``tests/fixtures/furnished/pdf_typescript/pages/_index.md`` furnished content - a
-  SEPARATE pin from the api_surface fixture's own ``REAL_SOURCE_COMMIT`` above, never touched by
-  TC-255, TC-285, or TC-317 (tracked separately as OQ-003). Unlike pdf/net's furnished page
+  committed ``tests/fixtures/furnished/pdf_typescript/pages/_index.md`` furnished content (TC-567:
+  historically a SEPARATE pin from the api_surface fixture's, now the same single commit as
+  ``REAL_SOURCE_COMMIT``). Unlike pdf/net's furnished page
   (where only 1 of 3 candidates actually compiled against the pinned reference commit), all 4
   of this pilot's real candidates compile-verify successfully against the pinned commit
   ``155bfc7a33f0ba23fb4252b6ba201828b02a5b9d`` - ``docker-compose.yml``'s own
@@ -86,20 +88,13 @@ POLL_INTERVAL_SECONDS = 2
 
 PROTOCOL_VERSION = "2025-06-18"
 
-# TC-317's own real, regenerated pdf/typescript fixture
-# (tests/fixtures/pdf_typescript/api_surface.json): its real ``source_commit`` is
-# "c672b3918318ccd0c13bc9dc619620cac2674c9e" (re-pinned from TC-285's prior
-# "e0f4fe99c48e44690686df559a488bfc3623e995" - the manifest pins only a repository, never a
-# commit, so TC-317's re-run against TC-316's extends_type_clause fix naturally re-pinned this
-# to whatever the live repository's HEAD genuinely was at that run; verified directly by
-# reading this fixture's own committed "source_commit" field, not assumed, and confirmed stable
-# across two independent runs minutes apart), and its real ``class_import`` "page.Page" (a
-# genuine class in src/page.ts, still present in the real 300-of-5342-type reduced surface -
-# independently confirmed by TC-317's own live extraction run) is the real, distinctive symbol
-# used here. A real query response containing this exact string is genuine, falsifiable proof
-# of real content, never a guess.
+# The real, distinctive symbol: ``class_import`` "page.Page" (a genuine class in src/page.ts, still
+# present in the real fixture - tests/fixtures/pdf_typescript/api_surface.json). A real query response
+# containing this exact string is genuine, falsifiable proof of real content, never a guess.
 REAL_SYMBOL = "page.Page"
-REAL_SOURCE_COMMIT = "c672b3918318ccd0c13bc9dc619620cac2674c9e"
+# TC-567: one commit since TC-550 re-extracted at the chart pin (was c672b39 for symbols). Every chunk of
+# the baked generation - API symbols, documentation and examples - records this one commit.
+REAL_SOURCE_COMMIT = "155bfc7a33f0ba23fb4252b6ba201828b02a5b9d"
 
 # "page.Page" is a real "class_declaration" entry, not a constant - chunk_builder emits a
 # "Methods:" section (never "Value:") for it. "RemoveAnnotation" is a real method genuinely
@@ -118,14 +113,9 @@ REAL_METHOD_FRAGMENT = "  - RemoveAnnotation(a: Annotation | PdfDict) -> void"
 # from Scratch" candidate's real code uses - never a guess at what a container might return.
 REAL_EXAMPLE_SYMBOL = "AddText"
 
-# The furnished example's own compile-verification commit is a SEPARATE pin from the api_surface
-# fixture's source_commit above: docker-compose.yml's ingest-pdf-typescript service passes this
-# exact value as its own ``--library-commit`` flag (never re-derived from the live extraction),
-# so it stays "155bfc7a..." - none of TC-255, TC-285, or TC-317 (each of which regenerated
-# tests/fixtures/pdf_typescript/api_surface.json, and therefore REAL_SOURCE_COMMIT above) ever
-# touched docker-compose.yml or the furnished content pipeline (tracked separately as OQ-003),
-# and this value must not be confused with it.
-REAL_EXAMPLE_SOURCE_COMMIT = "155bfc7a33f0ba23fb4252b6ba201828b02a5b9d"
+# The furnished examples are compile-verified at the chart pin, which is also the fixture's commit since
+# TC-550 (TC-567: no longer a separate pin).
+REAL_EXAMPLE_SOURCE_COMMIT = REAL_SOURCE_COMMIT
 
 # REQ-G2-050 (TC-080/TC-089 pattern): the exact literal, API-naive task question CONFIRMED
 # today, by a real local run of the full build_chunks.py + ingest.py + lookup() pipeline against
@@ -334,44 +324,44 @@ def test_readyz_is_ready_after_the_real_ingestion_publish(real_generation: None)
 
 
 def test_report_index_freshness_reports_the_real_fresh_generation(session: _McpSession) -> None:
-    """A real generation id, and a freshness report that states exactly the commits the generation
-    really records (the ``Source-Commit:`` line ``infra/build_chunks.py`` appends to each chunk's
-    text).
+    """A real generation id, and a freshness report that states the ONE commit the generation really
+    records (the ``Source-Commit:`` line ``infra/build_chunks.py`` appends to each chunk's text).
 
-    TC-504: this index is MIXED by construction (TC-383) - the API symbols come from the api_surface
-    fixture's commit (``REAL_SOURCE_COMMIT``) while the documentation and examples are compile-verified
-    at the pinned library commit (``REAL_EXAMPLE_SOURCE_COMMIT``) - and a mixed index is fresh only when
-    EVERY recorded commit matches the caller's one commit, which two different commits never can. So
-    the report is stale against either commit, says which kinds of chunk that commit matches, and lists
-    both real commits; it is never a bare "never published" or an unqualified fresh/stale answer.
+    TC-567: since TC-550 re-extracted the fixture at the chart pin, the index is single-commit - API
+    symbols, documentation and examples all record ``REAL_SOURCE_COMMIT``. So the report lists exactly
+    that one commit with every kind of chunk counted under it, is fresh against it with no mismatch
+    reason, and against any other well-formed commit is stale and names the real indexed commit; it is
+    never a bare "never published".
     """
     body = session.call_tool("report_index_freshness", {"current_source_commit": REAL_SOURCE_COMMIT})
     result = body["result"]["structuredContent"]["result"]
     assert result["indexed_generation_id"] is not None
     assert result["indexed_generation_id"].startswith("pdf::typescript::self_extracted::")
-    recorded = {entry["commit"]: entry for entry in result["source_commits"]}
-    assert set(recorded) == {REAL_SOURCE_COMMIT, REAL_EXAMPLE_SOURCE_COMMIT}, result
-    assert recorded[REAL_SOURCE_COMMIT]["symbol_chunks"] >= 300, result
-    assert recorded[REAL_EXAMPLE_SOURCE_COMMIT]["symbol_chunks"] == 0, result
-    assert (
-        recorded[REAL_EXAMPLE_SOURCE_COMMIT]["documentation_chunks"]
-        + recorded[REAL_EXAMPLE_SOURCE_COMMIT]["example_chunks"]
-        >= 1
-    ), result
+    assert len(result["source_commits"]) == 1, result
+    only = result["source_commits"][0]
+    assert only["commit"] == REAL_SOURCE_COMMIT, result
+    assert only["symbol_chunks"] >= 300, result
+    fixture = json.loads(
+        (REPO_ROOT / "tests/fixtures/pdf_typescript/api_surface.json").read_text(encoding="utf-8")
+    )
+    assert only["symbol_chunks"] == fixture["type_count"], (only, fixture["type_count"])
+    assert only["documentation_chunks"] > 0, result
+    assert only["example_chunks"] > 0, result
     assert result["indexed_source_commit"] == REAL_SOURCE_COMMIT, result
     assert result["chunks_without_commit"] == 0, result
-    assert result["stale"] is True, result["reason"]
-    assert "index is mixed" in result["reason"], result["reason"]
-    assert f"current {REAL_SOURCE_COMMIT[:12]} matches API symbols only" in result["reason"], result["reason"]
+    assert result["stale"] is False, result["reason"]
+    assert result["freshness_state"] == "fresh", result
+    assert "mixed" not in result["reason"], result["reason"]
+    assert "indexed " not in result["reason"], result["reason"]
 
-    pinned = session.call_tool(
-        "report_index_freshness", {"current_source_commit": REAL_EXAMPLE_SOURCE_COMMIT}, request_id=2
-    )["result"]["structuredContent"]["result"]
-    assert pinned["stale"] is True, pinned["reason"]
-    assert (
-        f"current {REAL_EXAMPLE_SOURCE_COMMIT[:12]} matches documentation and examples only"
-        in pinned["reason"]
-    ), pinned["reason"]
+    other = "0" * 40
+    stale = session.call_tool("report_index_freshness", {"current_source_commit": other}, request_id=2)[
+        "result"
+    ]["structuredContent"]["result"]
+    assert stale["stale"] is True, stale["reason"]
+    assert REAL_SOURCE_COMMIT in stale["reason"], stale["reason"]
+    assert other in stale["reason"], stale["reason"]
+    assert stale["indexed_source_commit"] == REAL_SOURCE_COMMIT, stale
 
 
 def test_search_symbols_returns_real_content_from_the_real_fixture(session: _McpSession) -> None:
@@ -432,7 +422,7 @@ def test_lookup_composes_the_real_task_answer_for_the_new_pdf_question(
     troubleshooting/faq content has ever been published for this pilot) plus the same real,
     compile-verified ``AddText`` example ``find_examples`` itself proves above, carrying the
     furnished example's own pinned compile-verification commit (``REAL_EXAMPLE_SOURCE_COMMIT`` -
-    docker-compose.yml's own ``--library-commit``, a separate pin from the api_surface fixture's
+    docker-compose.yml's own ``--library-commit``, TC-567: the same single commit as
     ``REAL_SOURCE_COMMIT``) that ``infra/build_chunks.py`` appends to every real chunk's text.
     """
     body = session.call_tool("lookup", {"query": REAL_TASK_QUERY})
