@@ -38,6 +38,7 @@ write_paths:
 - infra/build_chunks.py
 - src/foss_mcp/extraction/run_extraction.py
 - tests/extraction/test_run_extraction_python_repair.py
+- tests/extraction/test_run_extraction_parse_failures.py
 satisfies:
 - REQ-G3-008
 - REQ-G3-005
@@ -115,6 +116,11 @@ inputs:
   file counts 0 failures in the health count while a real syntax error counts 1; the health result for a mixed tree; the real OutputFormat members of the committed fixture are non-empty and equal the enum's
   upstream members (read them from the fixture, assert at least 2, name them in your report). The negative control of the card is unchanged and must still fail its named tests. Re-run both check commands
   twice. Commit ON TOP of your first commit with the subject `fix(extraction): fill enum members and count parse health through the indentation repair (G3/TC-555)`; the review takes the head of your branch.
+- >-
+  SUPERVISOR AMENDMENT (rework attempt 3, your blocker). tests/extraction/test_run_extraction_parse_failures.py is added to your write_paths. Change ONLY its BROKEN constant to a genuinely invalid source
+  that still errors at line 2 (for example `def broken():\n    x = = 1\n`), keeping every assertion including the `:2:` regex, with a one-line comment `TC-555: the old BROKEN text is now repairable`. Your
+  decision to leave the trailing-comment header rule as specified is accepted: the 11 unrepaired files are private engine files, the coverage line states them honestly. Run both checks twice again (check
+  2 must now exit 0), keep the negative control, and add ONE more commit on top of decc7f0b with the subject `test(extraction): use a really invalid source where a test needs a syntax error (G3/TC-555)`.
 actions:
 - >-
   Recover the declarations of a Python file whose indentation is collapsed (disclosed as a `repaired-syntax` unresolved entry) and re-extract tex_python at its chart pin so its whole public surface is indexed.
