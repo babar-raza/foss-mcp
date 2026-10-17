@@ -811,16 +811,50 @@ def _review_related_tests(card: str, head: str, issue: str) -> tuple[bool, str]:
     related = related_offline_tests(data.get("write_paths", []), texts)
     if not related:
         return True, "no related offline tests"
+    # 2026-10-17: three reviews (TC-549, TC-530, TC-550) were rejected here with failures that matched the
+    # card's own negative control (a mutated value such as `cap 9357`) although the head was clean, and two
+    # of them passed unchanged on a solo rerun; each false rejection cost about 45 minutes. The cause was
+    # not found, so this step now proves its tree is the head with no local change and, on a failure,
+    # repeats once in a FRESH worktree. A genuine failure fails twice and is still rejected.
+    return related_with_one_retry(lambda: _run_related_once(related, head), len(related))
+
+
+def related_with_one_retry(run_once, count: int) -> tuple[bool, str]:
+    """(passed, output) of `run_once()`, repeated once after a failure. Pure, so the rule is testable."""
+    ok, first_out = run_once()
+    if ok:
+        return True, first_out
+    ok, out = run_once()
+    if ok:
+        return True, (
+            f"{count} related files passed on the second attempt (first attempt failed; tail follows)\n"
+            f"{first_out[-600:]}"
+        )
+    return False, (
+        "related tests failed on both attempts; first attempt tail:\n" + first_out[-1200:] + "\n---\n" + out
+    )[-3000:]
+
+
+def _run_related_once(related: list[str], head: str) -> tuple[bool, str]:
+    """One run of the related tests in a throwaway worktree that must be exactly `head`."""
     tmp = Path(tempfile.mkdtemp(prefix="review_related_"))
     try:
         G.run(["git", "worktree", "add", "--detach", str(tmp), head])
-        proc = subprocess.run(
+        rc, rev, _ = G.run(["git", "rev-parse", "HEAD"], cwd=tmp)
+        _, dirty, _ = G.run(["git", "status", "--porcelain"], cwd=tmp)
+        want_rc, want, _ = G.run(["git", "rev-parse", f"{head}^{{commit}}"])
+        if rc != 0 or want_rc != 0 or rev.strip() != want.strip() or dirty.strip():
+            return (
+                False,
+                f"related-tests worktree is not a clean checkout of {head[:12]}: HEAD {rev.strip()[:12]}, dirty {dirty.strip()[:200]!r}",
+            )
+        # G.run kills the whole process tree on a timeout (d7f5e846), so a hung related test cannot hang a review.
+        prc, pout, perr = G.run(
             [str(G.venv_python()), "-m", "pytest", *related, "-q", "-p", "no:cacheprovider"],
             cwd=tmp,
-            capture_output=True,
-            text=True,
+            timeout=3000,
         )
-        return proc.returncode == 0, (proc.stdout + proc.stderr)[-3000:]
+        return prc == 0, (pout + perr)[-3000:]
     finally:
         G.run(["git", "worktree", "remove", "--force", str(tmp)])
 
