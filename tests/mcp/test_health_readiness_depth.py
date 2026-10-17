@@ -167,7 +167,8 @@ def test_round_trip_check_returns_the_real_bool_of_the_report(env: Env) -> None:
 
 
 def test_s20a_foreign_pointer_and_generation_in_this_scope_directory(env: Env) -> None:
-    _replace_scope_dir_contents(env, _foreign_scope_dir("jmap__go__self_extracted"))
+    # re-pinned by TC-551: <removed pilot> -> cells__go__self_extracted
+    _replace_scope_dir_contents(env, _foreign_scope_dir("cells__go__self_extracted"))
     report = readiness_report(env.store())
     assert report.ready is False
     assert "active pointer names a generation of another scope" in report.reasons
@@ -175,7 +176,8 @@ def test_s20a_foreign_pointer_and_generation_in_this_scope_directory(env: Env) -
 
 def test_s20b_foreign_generation_file_under_this_pointer(env: Env) -> None:
     foreign = json.loads(
-        next(_foreign_scope_dir("jmap__go__self_extracted").glob("generation__*.json")).read_text(
+        # re-pinned by TC-551: <removed pilot> -> cells__go__self_extracted
+        next(_foreign_scope_dir("cells__go__self_extracted").glob("generation__*.json")).read_text(
             encoding="utf-8"
         )
     )

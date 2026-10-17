@@ -27,7 +27,8 @@ CHART = REPO_ROOT / "infra" / "helm" / "foss-mcp"
 VALUES = CHART / "values.yaml"
 SEED_DIR = REPO_ROOT / "tests" / "fixtures" / "verified_examples"
 IMAGE_DIR = "/app/fixtures/verified_examples/"
-EXPECTED_PILOT_COUNT = 40
+# re-pinned by TC-551: 40 -> 32
+EXPECTED_PILOT_COUNT = 32
 # TC-548: the platform in the FILE name (<family>_<platform>.json, the compose/chart service name) versus the platform
 # value the verifiers write into a cache entry (infra/build_chunks.py keys its toolchains by "dotnet"). Only the .NET
 # pilots differ; every other file-name platform is written as itself.

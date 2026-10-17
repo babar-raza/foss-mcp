@@ -104,8 +104,10 @@ def test_every_pilot_passing_every_check_exits_zero(tmp_path, monkeypatch, capsy
     rc = prove.main(["--namespace", "ns", "--report-dir", str(tmp_path)])
     out = capsys.readouterr().out
     assert rc == 0
-    assert len(calls) == 40
-    assert "40 of 40 pilots passed every applicable check" in out
+    # re-pinned by TC-551: 40 -> 32
+    assert len(calls) == 32
+    # re-pinned by TC-551: 40; 40 -> 32; 32
+    assert "32 of 32 pilots passed every applicable check" in out
     assert all(p.terminated for p in FakePopen.instances)
 
 
@@ -155,7 +157,8 @@ def test_port_forward_is_stopped_when_a_proof_raises_on_every_pilot(tmp_path, mo
     monkeypatch.setattr(subprocess, "run", raising)
     rc = prove.main(["--namespace", "ns", "--report-dir", str(tmp_path)])
     assert rc == 1
-    assert len(FakePopen.instances) == 40
+    # re-pinned by TC-551: 40 -> 32
+    assert len(FakePopen.instances) == 32
     assert all(p.terminated for p in FakePopen.instances)
 
 
@@ -196,8 +199,10 @@ def test_each_pilot_gets_its_own_local_port_from_the_base(tmp_path, monkeypatch)
     monkeypatch.setattr(subprocess, "run", fake_run)
     prove.main(["--namespace", "ns", "--base-port", "9000", "--report-dir", str(tmp_path)])
     ports = [p.args[-1] for p in FakePopen.instances]
-    assert ports == [f"{9000 + i}:80" for i in range(40)]
-    assert len(set(ports)) == 40
+    # re-pinned by TC-551: 40 -> 32
+    assert ports == [f"{9000 + i}:80" for i in range(32)]
+    # re-pinned by TC-551: 40 -> 32
+    assert len(set(ports)) == 32
 
 
 def test_port_forward_targets_the_release_service_in_the_namespace(tmp_path, monkeypatch):

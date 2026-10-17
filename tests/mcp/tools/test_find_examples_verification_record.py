@@ -345,7 +345,8 @@ def test_every_served_example_of_every_pilot_carries_language_commit_and_verific
     tmp_path: Path,
 ) -> None:
     pilots = _pilots()
-    assert len(pilots) == 40
+    # re-pinned by TC-551: 40 -> 32
+    assert len(pilots) == 32
     root = tmp_path / "manifests"
     for family, platform in pilots:
         name = f"{family}__{platform}__self_extracted"

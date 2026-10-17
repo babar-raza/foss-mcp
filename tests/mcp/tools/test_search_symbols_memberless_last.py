@@ -218,8 +218,9 @@ def _final_segment(fqn: str) -> str:
     return fqn.replace("::", ".").rsplit(".", 1)[-1]
 
 
-def test_the_twelve_python_pilots_are_present() -> None:
-    assert len(PYTHON_PILOTS) >= 12
+def test_the_eleven_python_pilots_are_present() -> None:
+    # re-pinned by TC-551: 12 -> 11
+    assert len(PYTHON_PILOTS) >= 11
 
 
 def test_the_first_result_has_members_for_every_name_that_has_both_an_empty_and_a_real_chunk(

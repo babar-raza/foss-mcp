@@ -47,7 +47,8 @@ sys.path.insert(0, str(RELEASE_DIR))
 
 import compact_demo_manifests as compact  # noqa: E402
 
-EXPECTED_PILOTS = 40
+# re-pinned by TC-551: 40 -> 32
+EXPECTED_PILOTS = 32
 VERIFIED_KIND_LINE = "Kind: verified_example"
 # Measured on 15 real 4096-dimension points: 34,100-34,396 bytes each when rounded to 5 decimals
 # (87,928 bytes on average unrounded); the bound carries about 16% headroom.
@@ -121,11 +122,11 @@ def all_real_points() -> list[tuple[str, dict[str, Any]]]:
 
 
 # ---------------------------------------------------------------------------------------------------
-# the chart names the forty pilots
+# the chart names the thirty-two pilots
 # ---------------------------------------------------------------------------------------------------
 
 
-def test_the_chart_names_forty_pilots_and_each_has_a_committed_scope() -> None:
+def test_the_chart_names_thirty_two_pilots_and_each_has_a_committed_scope() -> None:
     assert len(PILOTS) == EXPECTED_PILOTS
     assert len(set(PILOT_IDS)) == EXPECTED_PILOTS
     for pilot in PILOTS:

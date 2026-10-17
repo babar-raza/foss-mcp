@@ -277,14 +277,15 @@ def test_one_ingestion_job_is_rendered_per_listed_pilot_all_on_the_same_claim(tm
 
 def test_default_values_render_exactly_one_ingestion_job_for_the_deployment_identity() -> None:
     # TC-195 amendment: the chart runs one ingestion Job per entry of ingestion.pilots, and the
-    # POC lists forty pilots (TC-226 grew it from fourteen to twenty; TC-231 grew it from twenty
+    # POC lists thirty-two pilots (TC-226 grew it from fourteen to twenty; TC-231 grew it from twenty
     # to twenty-eight; TC-235 grew it from twenty-eight to thirty-five; TC-236 grew it from
-    # thirty-five to forty). The original assertion, exactly one Job, predates the POC. The
+    # thirty-five to forty; TC-551 removed eight pilots). The original assertion, exactly one Job, predates the POC. The
     # expected names are written out here, not derived from values.yaml, so the set is pinned.
     pilots = yaml.safe_load((CHART / "values.yaml").read_text(encoding="utf-8"))["ingestion"]["pilots"]
     jobs = _by_kind(_render(), "Job")
     names = sorted(job["metadata"]["name"] for job in jobs)
-    assert len(jobs) == len(pilots) == 40
+    # re-pinned by TC-551: 40 -> 32
+    assert len(jobs) == len(pilots) == 32
     assert names == sorted(
         [
             "foss-mcp-pdf-net-ingest-pdf-net",
@@ -299,11 +300,9 @@ def test_default_values_render_exactly_one_ingestion_job_for_the_deployment_iden
             "foss-mcp-pdf-net-ingest-slides-java",
             "foss-mcp-pdf-net-ingest-cells-go",
             "foss-mcp-pdf-net-ingest-cells-typescript",
-            "foss-mcp-pdf-net-ingest-jmap-rust",
             "foss-mcp-pdf-net-ingest-cells-cpp",
             "foss-mcp-pdf-net-ingest-cells-net",
             "foss-mcp-pdf-net-ingest-cells-python",
-            "foss-mcp-pdf-net-ingest-jmap-python",
             "foss-mcp-pdf-net-ingest-pdf-python",
             "foss-mcp-pdf-net-ingest-slides-cpp",
             "foss-mcp-pdf-net-ingest-slides-net",
@@ -316,12 +315,6 @@ def test_default_values_render_exactly_one_ingestion_job_for_the_deployment_iden
             "foss-mcp-pdf-net-ingest-page-python",
             "foss-mcp-pdf-net-ingest-imaging-net",
             "foss-mcp-pdf-net-ingest-cells-java",
-            "foss-mcp-pdf-net-ingest-jmap-typescript",
-            "foss-mcp-pdf-net-ingest-jmap-go",
-            "foss-mcp-pdf-net-ingest-jmap-net",
-            "foss-mcp-pdf-net-ingest-jmap-cpp",
-            "foss-mcp-pdf-net-ingest-jmap-java",
-            "foss-mcp-pdf-net-ingest-jmap-nodejs",
             "foss-mcp-pdf-net-ingest-3d-python",
             "foss-mcp-pdf-net-ingest-3d-typescript",
             "foss-mcp-pdf-net-ingest-3d-net",
@@ -504,13 +497,14 @@ def _render_demo(*extra: str) -> list[dict[str, Any]]:
 
 def test_demo_mode_is_off_by_default_and_changes_nothing() -> None:
     # Byte-for-byte the same resource set as before demo mode existed: 1 Deployment, 1 Service,
-    # 40 Jobs, 1 PVC, 2 NetworkPolicies, 0 Ingress. Proves the new templates are truly additive.
+    # 32 Jobs, 1 PVC, 2 NetworkPolicies, 0 Ingress. Proves the new templates are truly additive.
     docs = _render()
     kinds = sorted(doc["kind"] for doc in docs)
     assert kinds.count("Deployment") == 1
     assert kinds.count("Service") == 1
     assert kinds.count("Ingress") == 0
-    assert kinds.count("Job") == 40
+    # re-pinned by TC-551: 40 -> 32
+    assert kinds.count("Job") == 32
 
 
 def test_demo_mode_renders_one_deployment_and_service_per_pilot() -> None:
@@ -591,4 +585,5 @@ def test_demo_mode_can_be_narrowed_to_a_smaller_pilot_list() -> None:
         for d in _by_kind(docs, "Deployment")
         if d["spec"]["template"]["metadata"]["labels"].get("app.kubernetes.io/component") == "demo-serving"
     ]
-    assert len(demo_deployments) == 1, "a narrowed demo.pilots list must not fall back to the full 40"
+    # re-pinned by TC-551: 40 -> 32
+    assert len(demo_deployments) == 1, "a narrowed demo.pilots list must not fall back to the full 32"

@@ -3,8 +3,7 @@
 Before this card, ``infra.ingest --api-surface`` ran citation validation over EVERY loaded
 chunk, so a symbol chunk whose upstream docstring held an inline code span that did not
 resolve (or resolved ambiguously) was excluded as a whole - 142 real symbols across eight
-pilots (words/python ``SaveFormat`` and ``LoadFormat``, jmap/python ``Email`` and
-``MethodError`` among them) - and the only trace was a per-anchor "excluded:" line.
+pilots (words/python ``SaveFormat`` and ``LoadFormat`` among them) - and the only trace was a per-anchor "excluded:" line.
 
 ``select_publishable_chunks`` keeps every API-symbol chunk (its text IS the extraction, its
 docstring is upstream's own words) and still validates and filters every other chunk. These
@@ -28,13 +27,14 @@ from foss_mcp.normalization.document_schema import Provenance
 
 FIXTURES = Path(__file__).resolve().parent.parent / "fixtures"
 PILOTS = (
-    "jmap_python",
     "words_python",
     "pdf_python",
     "pdf_typescript",
     "html_python",
-    "jmap_rust",
-    "jmap_typescript",
+    # re-pinned by TC-551: <removed pilot> -> cells_rust
+    "cells_rust",
+    # re-pinned by TC-551: <removed pilot> -> cells_typescript
+    "cells_typescript",
     "page_python",
 )
 EMBEDDING_PROVIDER_SPEC = "tests.indexing.test_index_writers:DeterministicEmbeddingProvider"
@@ -110,7 +110,6 @@ def test_every_api_symbol_chunk_of_a_real_fixture_is_published(pilot: str) -> No
     ("pilot", "names"),
     [
         ("words_python", ("SaveFormat", "LoadFormat")),
-        ("jmap_python", ("Email", "MethodError")),
     ],
 )
 def test_named_symbols_that_used_to_be_dropped_are_published(pilot: str, names: tuple[str, ...]) -> None:

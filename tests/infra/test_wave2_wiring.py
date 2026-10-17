@@ -1,7 +1,7 @@
-"""TC-371: the ten wave-2 .NET, Go and Rust documentation pages are wired into the chart and compose.
+"""TC-371: the seven wave-2 .NET, Go and Rust documentation pages are wired into the chart and compose.
 
 Offline. Reads infra/helm/foss-mcp/values.yaml, docker-compose.yml and the committed furnished pages
-only; no helm, no docker, no network. For each of the ten pilots it checks that the chart names the
+only; no helm, no docker, no network. For each of the seven pilots it checks that the chart names the
 page, the page exists with front matter pinned to the pilot's own library commit, and that compose
 passes the same page and library flags to build_chunks.py, before ``--out``. Expected values are read
 from values.yaml, never hard-coded.
@@ -29,11 +29,8 @@ WAVE2_PILOTS = [
     ("slides", "net"),
     ("email", "net"),
     ("imaging", "net"),
-    ("jmap", "net"),
     ("3d", "net"),
     ("cells", "go"),
-    ("jmap", "go"),
-    ("jmap", "rust"),
 ]
 
 # Pilots that had a furnishedPage before this card. With WAVE2_PILOTS these must all still carry one;
@@ -47,7 +44,6 @@ PRE_EXISTING_PAGES = {
     ("cells", "rust"),
     ("words", "python"),
     ("cells", "python"),
-    ("jmap", "python"),
     ("pdf", "python"),
     ("email", "python"),
     ("barcode", "python"),

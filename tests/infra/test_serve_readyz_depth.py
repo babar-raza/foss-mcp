@@ -3,7 +3,7 @@
 Offline and deterministic: ``serve_http.build_app`` over a COPY of the committed ``pdf/go`` baked scope under
 ``tmp_path`` (the pointer and the one generation file), driven through Starlette's in-process ``TestClient``.
 The wrong-scope scenarios (S20a to S20d) are the independent reviewer's doctored states, rebuilt here from the
-committed ``jmap/go`` and ``pdf/java`` scopes. Nothing opens a socket or starts a container.
+committed ``cells/go`` and ``pdf/java`` scopes. Nothing opens a socket or starts a container.
 """
 
 from __future__ import annotations
@@ -83,16 +83,18 @@ def _foreign_generation(name: str) -> tuple[Path, dict[str, Any]]:
 
 
 def _s20a(scope: Scope) -> None:
-    """jmap/go pointer and generation copied into this deployment's scope directory."""
+    """cells/go pointer and generation copied into this deployment's scope directory."""
     for child in scope.dir.iterdir():
         child.unlink()
-    for child in (DEMO_MANIFESTS / "jmap__go__self_extracted").iterdir():
+    # re-pinned by TC-551: <removed pilot> -> cells__go__self_extracted
+    for child in (DEMO_MANIFESTS / "cells__go__self_extracted").iterdir():
         shutil.copy(child, scope.dir / child.name)
 
 
 def _s20b(scope: Scope) -> None:
-    """The jmap/go generation file renamed to the version this deployment's pointer names."""
-    _, foreign = _foreign_generation("jmap__go__self_extracted")
+    """The cells/go generation file renamed to the version this deployment's pointer names."""
+    # re-pinned by TC-551: <removed pilot> -> cells__go__self_extracted
+    _, foreign = _foreign_generation("cells__go__self_extracted")
     version = json.loads(scope.pointer.read_text(encoding="utf-8"))["generation_id"].rsplit("::", 1)[-1]
     scope.generation.unlink()
     (scope.dir / f"generation__{version}.json").write_text(json.dumps(foreign), encoding="utf-8")

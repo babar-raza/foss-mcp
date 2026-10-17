@@ -55,7 +55,8 @@ DEMO_MANIFESTS = REPO_ROOT / "infra" / "demo-manifests"
 VALUES = REPO_ROOT / "infra" / "helm" / "foss-mcp" / "values.yaml"
 SERVER_SOURCE = REPO_ROOT / "src" / "foss_mcp" / "mcp" / "server.py"
 
-MIN_PILOTS = 40
+# re-pinned by TC-551: 40 -> 32
+MIN_PILOTS = 32
 
 LEGACY_TEXTS = (
     "Aspose.Pdf.Document",
@@ -75,7 +76,14 @@ def _pilots() -> list[tuple[str, str]]:
 
 PILOTS = _pilots()
 PILOT_IDS = [f"{family}/{platform}" for family, platform in PILOTS]
-DESCRIPTION_PILOTS = [("pdf", "net"), ("pdf", "go"), ("cells", "rust"), ("words", "net"), ("jmap", "nodejs")]
+# re-pinned by TC-551: <removed pilot>; nodejs -> 3d; typescript
+DESCRIPTION_PILOTS = [
+    ("pdf", "net"),
+    ("pdf", "go"),
+    ("cells", "rust"),
+    ("words", "net"),
+    ("3d", "typescript"),
+]
 
 
 @pytest.fixture(autouse=True)
@@ -189,7 +197,8 @@ def test_every_shipped_pilot_family_and_platform_has_a_display_entry() -> None:
     assert len(PILOTS) == MIN_PILOTS
     assert {family for family, _ in PILOTS} <= set(FAMILY_DISPLAY)
     assert {platform for _, platform in PILOTS} <= set(PLATFORM_PROFILE)
-    assert len(FAMILY_DISPLAY) == 13 and len(PLATFORM_PROFILE) == 8
+    # re-pinned by TC-551: 13 -> 12
+    assert len(FAMILY_DISPLAY) == 12 and len(PLATFORM_PROFILE) == 8
     for language, ecosystem, fqn_style in PLATFORM_PROFILE.values():
         assert language and ecosystem and fqn_style
 
@@ -227,7 +236,8 @@ def test_the_title_reads_as_the_documented_example() -> None:
 def test_initialize_options_differ_and_name_their_own_family_and_platform(
     pilot_stores: dict[str, GenerationManifestStore], tmp_path_factory: pytest.TempPathFactory
 ) -> None:
-    chosen = [("pdf", "net"), ("cells", "rust"), ("jmap", "nodejs")]
+    # re-pinned by TC-551: <removed pilot>; nodejs -> 3d; typescript
+    chosen = [("pdf", "net"), ("cells", "rust"), ("3d", "typescript")]
     options = {}
     for family, platform in chosen:
         store = _store(pilot_stores, tmp_path_factory, family, platform)
@@ -293,8 +303,10 @@ def test_instructions_are_rendered_when_the_handshake_is_built_not_when_the_serv
 
 @pytest.mark.parametrize(
     ("family", "platform"),
-    [("pdf", "net"), ("pdf", "go"), ("cells", "rust"), ("jmap", "nodejs"), ("tex", "python")],
-    ids=["pdf/net", "pdf/go", "cells/rust", "jmap/nodejs", "tex/python"],
+    # re-pinned by TC-551: <removed pilot>; nodejs -> 3d; typescript
+    [("pdf", "net"), ("pdf", "go"), ("cells", "rust"), ("3d", "typescript"), ("tex", "python")],
+    # re-pinned by TC-551: <removed pilot>; nodejs -> 3d; typescript
+    ids=["pdf/net", "pdf/go", "cells/rust", "3d/typescript", "tex/python"],
 )
 def test_the_example_symbol_is_a_real_indexed_fqn(
     pilot_stores: dict[str, GenerationManifestStore],

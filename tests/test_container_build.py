@@ -179,7 +179,8 @@ def test_a_real_docker_build_of_the_demo_target_with_no_pilot_lists_the_baked_pi
         assert run_result.returncode == 2, f"exit {run_result.returncode}: {output[-2000:]}"
         listed = set(re.findall(r"^\s*(\S+/\S+) source_kind=", output, re.MULTILINE))
         assert "pdf/net" in listed, output[-2000:]
-        assert len(listed - {"pdf/net"}) >= 39, f"only {len(listed)} pilots listed: {sorted(listed)}"
+        # re-pinned by TC-551: 39 -> 31
+        assert len(listed - {"pdf/net"}) >= 31, f"only {len(listed)} pilots listed: {sorted(listed)}"
     finally:
         subprocess.run(["docker", "rmi", "-f", image_tag], capture_output=True, text=True)
 

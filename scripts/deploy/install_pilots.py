@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Install the forty pilot releases of the foss-mcp chart (G2/TC-223).
+"""Install the thirty-two pilot releases of the foss-mcp chart (G2/TC-223).
 
 Usage:
     python scripts/deploy/install_pilots.py --namespace foss-mcp --image-tag rev-1234567
@@ -331,7 +331,7 @@ def format_table(results: list[InstallResult]) -> str:
 
 
 def parse_args(argv: list[str] | None) -> argparse.Namespace:
-    parser = argparse.ArgumentParser(description="Install the forty foss-mcp pilot releases.")
+    parser = argparse.ArgumentParser(description="Install the thirty-two foss-mcp pilot releases.")
     parser.add_argument("--namespace", required=True, help="Kubernetes namespace (created if absent)")
     parser.add_argument("--image-tag", required=True, help="tag of foss-mcp-serving and foss-mcp-ingestion")
     parser.add_argument("--chart", type=Path, default=DEFAULT_CHART, help="chart directory")

@@ -30,7 +30,8 @@ from foss_mcp.mcp.tools.search_symbols import Miss
 REPO_ROOT = Path(__file__).resolve().parents[3]
 DEMO_MANIFESTS = REPO_ROOT / "infra" / "demo-manifests"
 
-MIN_PILOTS = 40
+# re-pinned by TC-551: 40 -> 32
+MIN_PILOTS = 32
 
 NONSENSE_QUERIES = (
     "send a fax via modem",

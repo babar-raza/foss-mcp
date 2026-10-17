@@ -887,7 +887,8 @@ def test_a_page_is_generated_for_a_real_chart_pilot_pinned_to_its_chart_commit(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     chart = gen._load_chart_pilots(_REPO_ROOT)
-    assert len(chart) == 40
+    # re-pinned by TC-551: 40 -> 32
+    assert len(chart) == 32
     for key, pilot in chart.items():
         family, platform, repository, commit = gen._pilot_identity(pilot)
         assert key == f"{family}_{platform}"

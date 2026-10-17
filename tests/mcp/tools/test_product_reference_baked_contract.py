@@ -156,13 +156,14 @@ def test_limitations_is_never_no_data_source_when_the_index_has_the_section(
         assert marker not in result.text
 
 
-def test_at_least_thirty_pilots_have_a_limitations_chunk_and_are_answered(baked: _Baked) -> None:
+def test_at_least_twenty_five_pilots_have_a_limitations_chunk_and_are_answered(baked: _Baked) -> None:
     with_chunk = [pilot for pilot in PILOTS if _limitation_chunks(baked.load(pilot)[2])]
     answered = [
         pilot for pilot in with_chunk if isinstance(baked.answer(pilot, "limitations"), ReferenceContent)
     ]
 
-    assert len(with_chunk) >= 30, with_chunk
+    # re-pinned by TC-551: 30 -> 25
+    assert len(with_chunk) >= 25, with_chunk
     assert answered == with_chunk
 
 
@@ -193,7 +194,7 @@ def test_formats_is_content_for_most_pilots(baked: _Baked) -> None:
     assert len(content) >= 25, content
 
 
-@pytest.mark.parametrize("pilot", ["cells_cpp", "email_cpp", "jmap_cpp", "pdf_cpp", "slides_cpp"])
+@pytest.mark.parametrize("pilot", ["cells_cpp", "email_cpp", "pdf_cpp", "slides_cpp"])
 def test_cpp_installs_are_the_readme_recipe(baked: _Baked, pilot: str) -> None:
     _, readme, _ = baked.load(pilot)
     assert readme.install is not None, pilot
@@ -241,10 +242,6 @@ def test_the_four_java_pilots_license_is_mit_with_a_normalisation_notice(baked: 
     assert result == ReferenceContent("license", "MIT", notice=MIT_NORMALISED)
 
 
-def test_jmap_java_license_is_unchanged(baked: _Baked) -> None:
-    assert baked.answer("jmap_java", "license") == ReferenceContent("license", "MIT")
-
-
 def test_note_python_license_conflict_is_surfaced(baked: _Baked) -> None:
     result = baked.answer("note_python", "license")
 
@@ -269,9 +266,8 @@ def test_cells_typescript_compatibility_comes_from_the_readme_and_3d_typescript_
     assert three_d.reason.startswith("manifest does not state an engines.node range")
 
 
-@pytest.mark.parametrize("pilot", ["cells_rust", "jmap_rust"])
-def test_cells_rust_and_jmap_rust_compatibility_state_the_edition(baked: _Baked, pilot: str) -> None:
-    result = baked.answer(pilot, "compatibility")
+def test_cells_rust_compatibility_states_the_edition(baked: _Baked) -> None:
+    result = baked.answer("cells_rust", "compatibility")
 
     assert isinstance(result, ReferenceContent)
     assert result.text == "Rust edition 2021 (rust-version not stated)"

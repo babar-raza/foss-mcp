@@ -42,7 +42,6 @@ PILOTS = [
     "cells_python",
     "email_python",
     "html_python",
-    "jmap_python",
     "note_python",
     "page_python",
     "pdf_python",
@@ -64,7 +63,6 @@ _CENTRAL: dict[str, tuple[str, ...]] = {
     "cells_python": ("Workbook",),
     "email_python": ("MapiMessage",),
     "html_python": ("Document",),
-    "jmap_python": ("JmapClient", "Email"),
     "note_python": ("Document",),
     "pdf_python": ("Document",),
     "words_python": ("Document",),
@@ -156,7 +154,7 @@ def test_the_pilot_list_covers_the_eleven_refreshed_pilots() -> None:
         "cells_python",
         "email_python",
         "html_python",
-        "jmap_python",
+        # re-pinned by TC-551: <removed pilot> -> note_python
         "note_python",
         "page_python",
         "pdf_python",
@@ -190,11 +188,7 @@ def test_every_class_the_examples_use_is_in_the_fixture(pilot: str) -> None:
 
 @pytest.mark.parametrize("pilot,central", _CENTRAL_PAIRS)
 def test_the_central_class_is_present_and_has_members(pilot: str, central: str) -> None:
-    # The card's own requirement (2): present among the fixture's type names. "Email" (unlike
-    # "JmapClient") is never written as a code reference in jmap_python's furnished page - it
-    # only appears in prose and inside JMAP method-name string literals ("Email/query"), which
-    # names_used_in_examples() correctly blanks before scanning - so this does not also require
-    # central in names_used_in_examples(), unlike the sibling slides/words_net check.
+    # The card's own requirement (2): present among the fixture's type names.
     entries = [entry for entry in _fixture(pilot)["types"] if entry["name"] == central]
     assert entries, f"{pilot}: {central} is not in the committed fixture"
     assert any(_has_members(entry) for entry in entries), f"{pilot}: {central} carries no members"

@@ -126,7 +126,8 @@ def test_normalised_hash_changes_with_a_changed_statement_or_inner_blank_line() 
 
 
 def test_the_pilot_list_comes_from_the_helm_values() -> None:
-    assert len(PILOTS) >= 40
+    # re-pinned by TC-551: 40 -> 32
+    assert len(PILOTS) >= 32
     for name, platform in PILOTS:
         assert (FURNISHED / name / "pages" / "_index.md").is_file()
         assert platform in PLATFORM_FENCE_TAGS
@@ -246,11 +247,31 @@ def test_slides_net_examples_block_is_import_only_and_its_usings_prefix_the_cont
         assert candidate.import_prefix == units
 
 
-def test_jmap_python_second_candidate_takes_the_import_of_the_quick_start() -> None:
-    candidates = extract_candidate_supply(_load_page("jmap_python"), "python").candidates
+def test_python_second_candidate_takes_the_import_of_the_quick_start() -> None:
+    # re-pinned by TC-551: the page shape (a quick start with the page's only import, then a block that has none) was
+    # read from a removed pilot's page; it is now built inline with a neutral library name.
+    page = _single_page(
+        (
+            "Quick Start",
+            _fenced(
+                "python",
+                "from sample_pkg import SampleClient, SampleOptions\n\n"
+                'options = SampleOptions(session_url="https://sample.example.test/session", username="user")\n'
+                "with SampleClient(options) as client:\n    client.connect()",
+            ),
+        ),
+        (
+            "Bearer token authentication",
+            _fenced(
+                "python",
+                'options = SampleOptions(session_url="https://sample.example.test/session", bearer_token="t")',
+            ),
+        ),
+    )
+    candidates = extract_candidate_supply(page, "python").candidates
     assert candidates[0].starts_example
     assert not candidates[1].starts_example
-    assert candidates[1].import_prefix == ("from aspose_jmap_foss import JmapClient, JmapClientOptions",)
+    assert candidates[1].import_prefix == ("from sample_pkg import SampleClient, SampleOptions",)
 
 
 def test_cells_go_first_candidate_is_import_only() -> None:

@@ -138,7 +138,8 @@ def measure_strict(pilot: str) -> Survival:
 
 
 def test_the_survival_check_covers_every_pilot_with_a_fixture() -> None:
-    assert len(PILOTS) >= 40
+    # re-pinned by TC-551: 40 -> 32
+    assert len(PILOTS) >= 32
     assert "pdf_net" in PILOTS
 
 
@@ -174,4 +175,5 @@ def test_strict_citation_survival_table_is_printed_for_information() -> None:
             f"strict {pilot}: old={result.old_chars} new={result.new_chars} ratio={result.ratio:.3f} "
             f"content old/new={result.old_content}/{result.new_content}"
         )
-    assert len(PILOTS) >= 40
+    # re-pinned by TC-551: 40 -> 32
+    assert len(PILOTS) >= 32

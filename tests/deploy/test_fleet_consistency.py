@@ -1,4 +1,4 @@
-"""G3/TC-513: the 40 shipped pilots are consistent with their own fixtures, chart pin and baked generations (REQ-G3-008).
+"""G3/TC-513: the 32 shipped pilots are consistent with their own fixtures, chart pin and baked generations (REQ-G3-008).
 
 The live workflow proof takes the symbol, commit and title from the very fixtures the generation was built from, so it
 cannot see a pilot whose data is mixed, thin, or carries unresolved symbols. This test closes that gap offline and
@@ -36,7 +36,8 @@ VALUES = REPO_ROOT / "infra" / "helm" / "foss-mcp" / "values.yaml"
 DEMO_MANIFESTS = REPO_ROOT / "infra" / "demo-manifests"
 FIXTURES = REPO_ROOT / "tests" / "fixtures"
 
-EXPECTED_PILOTS = 40
+# re-pinned by TC-551: 40 -> 32
+EXPECTED_PILOTS = 32
 # The same floors TC-510 and TC-506 enforce on the shipped data.
 SYMBOL_FLOOR = 3
 DOC_FLOOR = 1
@@ -73,17 +74,10 @@ UNRESOLVED_EXCEPTIONS = {
     # html/python: 1 unresolved reference.
     "html_python": 1,
 }
-# pilot -> why its API-Coverage line disagrees with the fixture's ``truncated`` flag. FOUND BY THIS TEST (TC-513), not
-# listed by the card: jmap/go's fixture is not truncated (149 of 149) but declares 99 ``function`` entries beside its 50
-# ``type_spec`` entries, and only the type specs become symbol chunks, so the generation says "46 of 149 types" (a count that
-# reads as truncation). N and M are still honest; only the truncation reading is not. The card that makes the builder chunk or
-# exclude Go functions must delete this entry (the test of the table fails while jmap_go is consistent).
-COVERAGE_EXCEPTIONS = {
-    "jmap_go": (
-        "fixture type_count 149 counts 99 Go functions that are never chunked; 46 symbol chunks are served and the "
-        "API-Coverage line reads '46 of 149 types' for a fixture that is not truncated"
-    ),
-}
+# pilot -> why its API-Coverage line disagrees with the fixture's ``truncated`` flag. Empty: its only entry (a Go pilot whose
+# fixture counted Go functions that are never chunked) left the product with the pilots removed by TC-551. A new entry needs a
+# reason, and the test of the table fails while the listed pilot is consistent.
+COVERAGE_EXCEPTIONS: dict[str, str] = {}
 # pilot -> why its baked generation is checked against ITS OWN API-Coverage lines and not against the fixture. TRANSITION
 # table: the fixture was re-extracted by a TC-53x card, the baked generation still reflects the previous fixture until the
 # supervisor's re-ingest and snapshot, TC-536 deletes this table.
@@ -450,7 +444,7 @@ def unresolved_count(key: str) -> int:
 # -- the chart ----------------------------------------------------------------------------------------------------------
 
 
-def test_the_chart_names_forty_pilots() -> None:
+def test_the_chart_names_thirty_two_pilots() -> None:
     assert len(PILOTS) == EXPECTED_PILOTS
     assert len(set(PILOT_KEYS)) == EXPECTED_PILOTS
 

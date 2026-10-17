@@ -1,4 +1,4 @@
-"""TC-364: the eleven wave-1 Python documentation pages are wired into the chart and compose.
+"""TC-364: the ten wave-1 Python documentation pages are wired into the chart and compose.
 
 Offline. Reads infra/helm/foss-mcp/values.yaml, docker-compose.yml and the committed furnished pages
 as files. No helm, no docker, no network. For each wave-1 pilot it pins that the chart references the
@@ -23,7 +23,6 @@ FURNISHED = REPO_ROOT / "tests" / "fixtures" / "furnished"
 WAVE1_FAMILIES = [
     "words",
     "cells",
-    "jmap",
     "pdf",
     "email",
     "barcode",

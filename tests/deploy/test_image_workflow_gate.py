@@ -1119,7 +1119,8 @@ def test_the_runbook_documents_the_gate_and_every_flag_it_accepts():
     assert {"--parallel", "--dry-run", "--with-embedding-gateway"} <= set(flags)
     for flag in flags:
         assert flag in text, f"the runbook does not document {flag}"
-    assert "summary.json" in text and "40-of-40" in text
+    # re-pinned by TC-551: 40; 40 -> 32; 32
+    assert "summary.json" in text and "32-of-32" in text
     assert "--gate-report" in text
 
 

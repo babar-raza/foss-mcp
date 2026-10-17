@@ -16,10 +16,11 @@ import yaml
 
 COMPOSE_PATH = pathlib.Path(__file__).resolve().parents[2] / "docker-compose.yml"
 
-# The 40 pilots and their exact (family, platform) pairs, pinned by the taskcard (TC-205 grew the
+# The 32 pilots and their exact (family, platform) pairs, pinned by the taskcard (TC-205 grew the
 # original 7 to 14; TC-226 grew 14 to 20; TC-231 grew 20 to 28; TC-235 grew 28 to 35; TC-236 grew
-# 35 to 40).
-# pdf/net keeps host port 8080 (pre-existing); the other 39 get 8081-8119 in this order.
+# 35 to 40; TC-551 removed eight pilots, 40 to 32).
+# pdf/net keeps host port 8080 (pre-existing); the other 39 got 8081-8119 in this order, and the eight ports of the
+# removed pilots 8092, 8096 and 8109-8114 are left unused (the ports of the remaining services are not renumbered).
 EXPECTED_PAIRS = [
     ("pdf", "net"),
     ("pdf", "typescript"),
@@ -33,11 +34,9 @@ EXPECTED_PAIRS = [
     ("slides", "java"),
     ("cells", "go"),
     ("cells", "typescript"),
-    ("jmap", "rust"),
     ("cells", "cpp"),
     ("cells", "net"),
     ("cells", "python"),
-    ("jmap", "python"),
     ("pdf", "python"),
     ("slides", "cpp"),
     ("slides", "net"),
@@ -50,12 +49,6 @@ EXPECTED_PAIRS = [
     ("page", "python"),
     ("imaging", "net"),
     ("cells", "java"),
-    ("jmap", "typescript"),
-    ("jmap", "go"),
-    ("jmap", "net"),
-    ("jmap", "cpp"),
-    ("jmap", "java"),
-    ("jmap", "nodejs"),
     ("3d", "python"),
     ("3d", "typescript"),
     ("3d", "net"),
@@ -76,11 +69,9 @@ EXPECTED_HOST_PORTS = {
     8089,
     8090,
     8091,
-    8092,
     8093,
     8094,
     8095,
-    8096,
     8097,
     8098,
     8099,
@@ -93,12 +84,6 @@ EXPECTED_HOST_PORTS = {
     8106,
     8107,
     8108,
-    8109,
-    8110,
-    8111,
-    8112,
-    8113,
-    8114,
     8115,
     8116,
     8117,
@@ -125,8 +110,10 @@ def _port_mapping(service: dict) -> tuple[str, str]:
 
 def test_exactly_seven_services():
     services = _load_services()
-    assert len(services) == 40, (
-        f"expected exactly 40 services (one per G2 pilot), found {len(services)}: {sorted(services)}"
+    # re-pinned by TC-551: 40 -> 32
+    assert len(services) == 32, (
+        # re-pinned by TC-551: 40 -> 32
+        f"expected exactly 32 services (one per G2 pilot), found {len(services)}: {sorted(services)}"
     )
 
 
@@ -138,15 +125,17 @@ def test_family_platform_pairs_match_pinned_list_exactly():
         found_pairs.append((env["FOSS_MCP_FAMILY"], env["FOSS_MCP_PLATFORM"]))
     assert sorted(found_pairs) == sorted(EXPECTED_PAIRS), (
         f"service family/platform pairs {sorted(found_pairs)} do not match the pinned "
-        f"40-pilot list {sorted(EXPECTED_PAIRS)}"
+        f"32-pilot list {sorted(EXPECTED_PAIRS)}"
     )
 
 
 def test_all_host_ports_are_distinct():
     services = _load_services()
     host_ports = [int(_port_mapping(svc)[0]) for svc in services.values()]
-    assert len(host_ports) == 40
-    assert len(set(host_ports)) == 40, f"host ports are not all distinct: {host_ports}"
+    # re-pinned by TC-551: 40 -> 32
+    assert len(host_ports) == 32
+    # re-pinned by TC-551: 40 -> 32
+    assert len(set(host_ports)) == 32, f"host ports are not all distinct: {host_ports}"
 
 
 def test_host_ports_are_exactly_8080_through_8086():

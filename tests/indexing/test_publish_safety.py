@@ -144,7 +144,8 @@ def _baked_generation_files() -> list[Path]:
 def test_classification_agrees_with_relevance_chunk_kind_on_every_baked_document() -> None:
     expected = {SYMBOL: "symbol", EXAMPLE: "example", DOCUMENTATION: "doc"}
     files = _baked_generation_files()
-    assert len(files) >= 40
+    # re-pinned by TC-551: 40 -> 32
+    assert len(files) >= 32
     checked = 0
     for path in files:
         doc = json.loads(path.read_text(encoding="utf-8-sig"))
@@ -548,10 +549,11 @@ def test_the_publish_log_round_trips_and_skips_a_malformed_line(store: Generatio
         store.read_publish_log("only::two")
 
 
-def test_the_40_baked_generations_satisfy_the_production_floors() -> None:
+def test_the_32_baked_generations_satisfy_the_production_floors() -> None:
     files = _baked_generation_files()
     scopes = {path.parent.name for path in files}
-    assert len(scopes) >= 40
+    # re-pinned by TC-551: 40 -> 32
+    assert len(scopes) >= 32
     for path in files:
         doc = json.loads(path.read_text(encoding="utf-8-sig"))
         stats = payload_stats(doc["payload"])

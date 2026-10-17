@@ -3,10 +3,10 @@
 An independent product-readiness audit (2026-10-07) found that a class declared
 inside another class/interface/struct/enum silently dropped its enclosing type
 from ``class_import``/``canonical_namespace`` in Java, C++, and C# extraction --
-confirmed in the committed ``tests/fixtures/jmap_java/api_surface.json`` fixture,
-whose real ``JmapClientOptions.Builder`` was recorded as
-``class_import="com.aspose.jmap.Builder"``, dropping ``JmapClientOptions``
-entirely and producing a non-importable name.
+confirmed on a real Java fixture: a class nested in another class was recorded with
+only its own name, dropping the enclosing class entirely and producing a
+non-importable name. The real-data test below pins the committed
+``tests/fixtures/3d_java/api_surface.json`` entry ``FileSystem.LocalFileSystem``.
 
 Two kinds of test:
 
@@ -20,8 +20,8 @@ Two kinds of test:
     the overwhelmingly common non-nested case.
 
 (b) Real-data, offline -- reads the REGENERATED
-    ``tests/fixtures/jmap_java/api_surface.json`` directly (no network) and
-    pins the real fixture's own corrected ``Builder`` entry, making the
+    ``tests/fixtures/3d_java/api_surface.json`` directly (no network) and
+    pins the real fixture's own corrected ``LocalFileSystem`` entry, making the
     negative control non-vacuous: it checks the real enclosing-class name this
     exact bug dropped, not just a synthetic snippet.
 """
@@ -41,7 +41,8 @@ from foss_mcp.extraction.tree_sitter_engine.tree_helpers import (
     node_text,
 )
 
-FIXTURE = Path(__file__).parents[1] / "fixtures" / "jmap_java" / "api_surface.json"
+# re-pinned by TC-551: <removed pilot> -> 3d_java
+FIXTURE = Path(__file__).parents[1] / "fixtures" / "3d_java" / "api_surface.json"
 
 # ---------------------------------------------------------------------------
 # (a) Synthetic, offline snippets
@@ -199,13 +200,16 @@ def test_a_non_nested_csharp_class_in_the_same_file_is_unaffected(tmp_path: Path
 
 
 # ---------------------------------------------------------------------------
-# (b) Real-data, offline: pin the regenerated jmap/java fixture's own real
-# enclosing-class name for Builder (the exact bug the audit found).
+# (b) Real-data, offline: pin the committed 3d/java fixture's own real
+# enclosing-class name for LocalFileSystem (the exact bug the audit found).
 # ---------------------------------------------------------------------------
 
 
-def test_the_real_jmap_java_builder_fixture_now_carries_its_enclosing_class() -> None:
+def test_the_real_3d_java_nested_class_fixture_carries_its_enclosing_class() -> None:
     data = json.loads(FIXTURE.read_text(encoding="utf-8"))
-    builder = next(t for t in data["types"] if t["name"] == "Builder")
-    assert "JmapClientOptions" in builder["class_import"]
-    assert builder["class_import"] == "com.aspose.jmap.JmapClientOptions.Builder"
+    # re-pinned by TC-551: builder; Builder -> nested; LocalFileSystem
+    nested = next(t for t in data["types"] if t["name"] == "LocalFileSystem")
+    # re-pinned by TC-551: <removed pilot>; builder -> FileSystem; nested
+    assert "FileSystem" in nested["class_import"]
+    # re-pinned by TC-551: builder; <removed pilot>; <removed pilot>; Builder -> nested; threed; FileSystem; LocalFileSystem
+    assert nested["class_import"] == "com.aspose.threed.FileSystem.LocalFileSystem"

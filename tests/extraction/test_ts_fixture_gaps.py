@@ -1,6 +1,6 @@
 """TC-523: which committed TypeScript and JavaScript fixtures predate the fidelity fix, and proof the gap is real.
 
-Four of the five committed TypeScript / JavaScript fixtures were produced before TC-523 (``extractor_version``
+Two of the three committed TypeScript fixtures were produced before TC-523 (``extractor_version``
 absent, i.e. 1; pdf_typescript was re-extracted by TC-550 at version 5 and left ``KNOWN_GAP``): every interface property is ``writable`` False (so every one is served "read-only"), no
 type alias carries its right-hand side, and no method has a ``static`` / ``async`` / ``optional`` mark.
 ``KNOWN_GAP`` documents that, one line per pilot, and the tests make the documentation self-checking in
@@ -32,15 +32,11 @@ PILOTS = (
     "cells_typescript",
     "pdf_typescript",
     "3d_typescript",
-    "jmap_typescript",
-    "jmap_nodejs",
 )
 
 KNOWN_GAP: dict[str, str] = {
     "cells_typescript": "reviewer RST-07: 649 of 657 interface properties served read-only (upstream has 0 readonly), 25 type aliases without a right-hand side, static and optional marks missing",
     "3d_typescript": "version-1 fixture: interface properties all read-only, optional/static/async marks and parameter defaults were not extracted",
-    "jmap_typescript": "version-1 fixture: interface properties all read-only, type aliases without a right-hand side, 3 @internal members served as public API",
-    "jmap_nodejs": "version-1 fixture: static and async marks of class methods were not extracted",
 }
 
 _INTERNAL_TAG = re.compile(r"@internal\b")
@@ -112,9 +108,10 @@ def test_known_gap_is_exactly_the_old_fixtures() -> None:
     assert set(KNOWN_GAP) == old
 
 
-def test_known_gap_names_the_five_fixtures_with_one_line_reasons() -> None:
+def test_known_gap_names_the_three_fixtures_with_one_line_reasons() -> None:
     assert set(KNOWN_GAP) <= set(PILOTS)
-    assert len(PILOTS) == 5
+    # re-pinned by TC-551: 5 -> 3
+    assert len(PILOTS) == 3
     for name, reason in KNOWN_GAP.items():
         assert reason.strip() and "\n" not in reason, name
     # re-extracted by TC-550: pdf_typescript left KNOWN_GAP (version 5), so only the names still listed are checked

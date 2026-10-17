@@ -28,7 +28,8 @@ REPO_ROOT = Path(__file__).resolve().parents[2]
 VALUES = REPO_ROOT / "infra" / "helm" / "foss-mcp" / "values.yaml"
 DEMO_MANIFESTS = REPO_ROOT / "infra" / "demo-manifests"
 
-MIN_PILOTS = 40
+# re-pinned by TC-551: 40 -> 32
+MIN_PILOTS = 32
 WARNING_FORMS = (
     re.compile(r"^no verified examples$"),
     re.compile(r"^generation mixes \d+ source commits$"),
@@ -55,7 +56,7 @@ def _store_for(pilot: dict[str, Any]) -> DeploymentGenerationStore:
     )
 
 
-def test_there_are_at_least_forty_pilots_each_with_a_baked_scope_directory() -> None:
+def test_there_are_at_least_thirty_two_pilots_each_with_a_baked_scope_directory() -> None:
     assert len(PILOTS) >= MIN_PILOTS
     missing = [
         _scope_dir_name(pilot) for pilot in PILOTS if not (DEMO_MANIFESTS / _scope_dir_name(pilot)).is_dir()

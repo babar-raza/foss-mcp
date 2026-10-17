@@ -74,7 +74,8 @@ def test_the_compose_file_parses_and_names_its_project() -> None:
 
 def test_there_is_exactly_one_service_per_chart_pilot_in_chart_order() -> None:
     expected = [f"{pilot['family']}-{pilot['platform']}" for pilot in chart_list()]
-    assert len(expected) == len(set(expected)) == chart_pilots.PILOT_COUNT == 40
+    # re-pinned by TC-551: 40 -> 32
+    assert len(expected) == len(set(expected)) == chart_pilots.PILOT_COUNT == 32
     assert list(services()) == expected
 
 

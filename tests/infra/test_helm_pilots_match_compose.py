@@ -25,7 +25,8 @@ COMPOSE = REPO_ROOT / "docker-compose.yml"
 # TC-235: seven more self-extracted pilots, growing the set from twenty-eight to thirty-five.
 # TC-236: the last five self-extracted pilots, growing the set from thirty-five to forty - every
 # combo of the real forty-combo portfolio is now a live pilot.
-FORTY_PILOTS = {
+# re-pinned by TC-551: FORTY_PILOTS -> THIRTY_TWO_PILOTS
+THIRTY_TWO_PILOTS = {
     ("pdf", "net"),
     ("slides", "python"),
     ("pdf", "typescript"),
@@ -38,11 +39,9 @@ FORTY_PILOTS = {
     ("slides", "java"),
     ("cells", "go"),
     ("cells", "typescript"),
-    ("jmap", "rust"),
     ("cells", "cpp"),
     ("cells", "net"),
     ("cells", "python"),
-    ("jmap", "python"),
     ("pdf", "python"),
     ("slides", "cpp"),
     ("slides", "net"),
@@ -55,12 +54,6 @@ FORTY_PILOTS = {
     ("page", "python"),
     ("imaging", "net"),
     ("cells", "java"),
-    ("jmap", "typescript"),
-    ("jmap", "go"),
-    ("jmap", "net"),
-    ("jmap", "cpp"),
-    ("jmap", "java"),
-    ("jmap", "nodejs"),
     ("3d", "python"),
     ("3d", "typescript"),
     ("3d", "net"),
@@ -95,11 +88,9 @@ FIXTURE_CHECKED_PILOTS = {
     ("slides", "java"),
     ("cells", "go"),
     ("cells", "typescript"),
-    ("jmap", "rust"),
     ("cells", "cpp"),
     ("cells", "net"),
     ("cells", "python"),
-    ("jmap", "python"),
     ("pdf", "python"),
     ("slides", "cpp"),
     ("slides", "net"),
@@ -112,12 +103,6 @@ FIXTURE_CHECKED_PILOTS = {
     ("page", "python"),
     ("imaging", "net"),
     ("cells", "java"),
-    ("jmap", "typescript"),
-    ("jmap", "go"),
-    ("jmap", "net"),
-    ("jmap", "cpp"),
-    ("jmap", "java"),
-    ("jmap", "nodejs"),
     ("3d", "python"),
     ("3d", "typescript"),
     ("3d", "net"),
@@ -202,7 +187,7 @@ def _find_segment(family: str, platform: str, script_filename: str) -> list[str]
 # the chart's own argument shape, so the pair documented in TC-327's own closeout (docker-compose.yml
 # now matching the production Job template for every manifestPath pilot) can never silently drift
 # again - the whole reason this card exists: it had been wired into the Job template but not here,
-# for any of the 40 pilots, until this card.
+# for any of the 32 pilots, until this card.
 def _assert_install_verification_matches_manifest_path(family: str, platform: str) -> None:
     pilot = _pilot(family, platform)
     manifest_path = pilot.get("manifestPath")
@@ -243,11 +228,12 @@ def _assert_install_verification_matches_manifest_path(family: str, platform: st
 
 
 def test_every_pilot_s_install_verification_wiring_matches_its_manifest_path() -> None:
-    """Covers all 40 pilots in one sweep, including any pilot not named below - the aggregate
+    """Covers all 32 pilots in one sweep, including any pilot not named below - the aggregate
     counterpart to the per-pilot tests, so a future pilot added without a dedicated test function
     still gets this parity enforced.
     """
-    for family, platform in sorted(FORTY_PILOTS):
+    # re-pinned by TC-551: FORTY_PILOTS -> THIRTY_TWO_PILOTS
+    for family, platform in sorted(THIRTY_TWO_PILOTS):
         _assert_install_verification_matches_manifest_path(family, platform)
 
 
@@ -299,10 +285,6 @@ def test_cells_typescript_pilot_has_install_verification_wiring() -> None:
     _assert_install_verification_matches_manifest_path("cells", "typescript")
 
 
-def test_jmap_rust_pilot_has_install_verification_wiring() -> None:
-    _assert_install_verification_matches_manifest_path("jmap", "rust")
-
-
 def test_cells_cpp_pilot_has_install_verification_wiring() -> None:
     _assert_install_verification_matches_manifest_path("cells", "cpp")
 
@@ -313,10 +295,6 @@ def test_cells_net_pilot_has_install_verification_wiring() -> None:
 
 def test_cells_python_pilot_has_install_verification_wiring() -> None:
     _assert_install_verification_matches_manifest_path("cells", "python")
-
-
-def test_jmap_python_pilot_has_install_verification_wiring() -> None:
-    _assert_install_verification_matches_manifest_path("jmap", "python")
 
 
 def test_pdf_python_pilot_has_install_verification_wiring() -> None:
@@ -365,30 +343,6 @@ def test_imaging_net_pilot_has_install_verification_wiring() -> None:
 
 def test_cells_java_pilot_has_install_verification_wiring() -> None:
     _assert_install_verification_matches_manifest_path("cells", "java")
-
-
-def test_jmap_typescript_pilot_has_install_verification_wiring() -> None:
-    _assert_install_verification_matches_manifest_path("jmap", "typescript")
-
-
-def test_jmap_go_pilot_has_install_verification_wiring() -> None:
-    _assert_install_verification_matches_manifest_path("jmap", "go")
-
-
-def test_jmap_net_pilot_has_install_verification_wiring() -> None:
-    _assert_install_verification_matches_manifest_path("jmap", "net")
-
-
-def test_jmap_cpp_pilot_has_install_verification_wiring() -> None:
-    _assert_install_verification_matches_manifest_path("jmap", "cpp")
-
-
-def test_jmap_java_pilot_has_install_verification_wiring() -> None:
-    _assert_install_verification_matches_manifest_path("jmap", "java")
-
-
-def test_jmap_nodejs_pilot_has_install_verification_wiring() -> None:
-    _assert_install_verification_matches_manifest_path("jmap", "nodejs")
 
 
 def test_3d_python_pilot_has_install_verification_wiring() -> None:
@@ -496,10 +450,6 @@ def test_cells_typescript_pilot_matches_compose() -> None:
     _assert_pilot_matches_compose("cells", "typescript")
 
 
-def test_jmap_rust_pilot_matches_compose() -> None:
-    _assert_pilot_matches_compose("jmap", "rust")
-
-
 def test_cells_cpp_pilot_matches_compose() -> None:
     _assert_pilot_matches_compose("cells", "cpp")
 
@@ -510,10 +460,6 @@ def test_cells_net_pilot_matches_compose() -> None:
 
 def test_cells_python_pilot_matches_compose() -> None:
     _assert_pilot_matches_compose("cells", "python")
-
-
-def test_jmap_python_pilot_matches_compose() -> None:
-    _assert_pilot_matches_compose("jmap", "python")
 
 
 def test_pdf_python_pilot_matches_compose() -> None:
@@ -564,30 +510,6 @@ def test_cells_java_pilot_matches_compose() -> None:
     _assert_pilot_matches_compose("cells", "java")
 
 
-def test_jmap_typescript_pilot_matches_compose() -> None:
-    _assert_pilot_matches_compose("jmap", "typescript")
-
-
-def test_jmap_go_pilot_matches_compose() -> None:
-    _assert_pilot_matches_compose("jmap", "go")
-
-
-def test_jmap_net_pilot_matches_compose() -> None:
-    _assert_pilot_matches_compose("jmap", "net")
-
-
-def test_jmap_cpp_pilot_matches_compose() -> None:
-    _assert_pilot_matches_compose("jmap", "cpp")
-
-
-def test_jmap_java_pilot_matches_compose() -> None:
-    _assert_pilot_matches_compose("jmap", "java")
-
-
-def test_jmap_nodejs_pilot_matches_compose() -> None:
-    _assert_pilot_matches_compose("jmap", "nodejs")
-
-
 def test_3d_python_pilot_matches_compose() -> None:
     _assert_pilot_matches_compose("3d", "python")
 
@@ -615,20 +537,24 @@ def _serving_name(family: str, platform: str) -> str:
 
 def test_every_pilot_has_a_serving_service_with_its_identity() -> None:
     services = yaml.safe_load(COMPOSE.read_text(encoding="utf-8"))["services"]
-    for family, platform in sorted(FORTY_PILOTS):
+    # re-pinned by TC-551: FORTY_PILOTS -> THIRTY_TWO_PILOTS
+    for family, platform in sorted(THIRTY_TWO_PILOTS):
         serving = services[_serving_name(family, platform)]
         assert serving["environment"]["FOSS_MCP_FAMILY"] == family, (family, platform)
         assert serving["environment"]["FOSS_MCP_PLATFORM"] == platform, (family, platform)
         assert serving["environment"]["FOSS_MCP_SOURCE_KIND"] == _pilot(family, platform)["sourceKind"]
     host_ports = [
         services[_serving_name(family, platform)]["ports"][0].split(":")[0]
-        for family, platform in sorted(FORTY_PILOTS)
+        # re-pinned by TC-551: FORTY_PILOTS -> THIRTY_TWO_PILOTS
+        for family, platform in sorted(THIRTY_TWO_PILOTS)
     ]
     assert len(set(host_ports)) == len(host_ports), host_ports
 
 
 def test_chart_has_exactly_six_pilots_one_per_platform() -> None:
     keys = [(p["family"], p["platform"]) for p in _pilots()]
-    assert len(keys) == 40, keys
+    # re-pinned by TC-551: 40 -> 32
+    assert len(keys) == 32, keys
     assert len(set(keys)) == len(keys), f"duplicate pilot platform: {keys}"
-    assert set(keys) == FORTY_PILOTS, keys
+    # re-pinned by TC-551: FORTY_PILOTS -> THIRTY_TWO_PILOTS
+    assert set(keys) == THIRTY_TWO_PILOTS, keys

@@ -1,6 +1,6 @@
 """TC-455 (REQ-G3-007): per-pilot C++ compatibility switches and the page's own includes.
 
-email/cpp, jmap/cpp and cells/cpp fail verification for verifier reasons (a GCC 14 warning, a
+email/cpp and cells/cpp fail verification for verifier reasons (a GCC 14 warning, a
 missing ``<limits>``, an include directory that is one level too deep, an ``#include`` that sits in
 an earlier block of the page). ``--library-cpp-compat`` opts a pilot in to four named switches.
 These tests are offline: every subprocess, tool lookup and clone is replaced, so no g++, cmake, git
@@ -31,13 +31,42 @@ VALUES = REPO_ROOT / "infra" / "helm" / "foss-mcp" / "values.yaml"
 COMPOSE = REPO_ROOT / "docker-compose.yml"
 TEMPLATE = REPO_ROOT / "infra" / "helm" / "foss-mcp" / "templates" / "ingestion-job.yaml"
 BUILD_CHUNKS = REPO_ROOT / "infra" / "build_chunks.py"
-JMAP_PAGE = REPO_ROOT / "tests" / "fixtures" / "furnished" / "jmap_cpp" / "pages" / "_index.md"
 EMAIL_PAGE = REPO_ROOT / "tests" / "fixtures" / "furnished" / "email_cpp" / "pages" / "_index.md"
 
-REPOSITORY = "aspose-email-foss/Aspose.JMAP-FOSS-for-Cpp"
+REPOSITORY = "example-org/Sample-FOSS-for-Cpp"
 COMMIT = "0123456789abcdef0123456789abcdef01234567"
 COMPAT_VALUE = "no-changes-meaning,include-limits,include-subdirs,page-includes"
-COMPAT_PILOTS = [("cells", "cpp"), ("email", "cpp"), ("jmap", "cpp")]
+# re-pinned by TC-551: three pilots -> two (the third C++ pilot with compat switches was removed from the product)
+COMPAT_PILOTS = [("cells", "cpp"), ("email", "cpp")]
+SAMPLE_INCLUDE = '#include "SampleClient.hpp"'
+# A synthetic furnished page whose only #include line is a quoted one in its first block (the shape of the removed
+# real page this file used to read): the page's includes must carry exactly that line.
+SAMPLE_PAGE_TEXT = (
+    "---\n"
+    "single:\n"
+    "  block:\n"
+    "  - title: Quick Start\n"
+    "    content: |\n"
+    "      ```cpp\n"
+    '      #include "SampleClient.hpp"\n'
+    "      auto client = aspose_sample::SampleClient();\n"
+    "      ```\n"
+    "  - title: Second block\n"
+    "    content: |\n"
+    "      A later block with no include of its own:\n"
+    "\n"
+    "      ```cpp\n"
+    "      auto options = aspose_sample::ClientOptions();\n"
+    "      ```\n"
+    "---\n"
+)
+
+
+def _sample_page(tmp_path: Path) -> Path:
+    page = tmp_path / "pages" / "_index.md"
+    page.parent.mkdir(parents=True, exist_ok=True)
+    page.write_text(SAMPLE_PAGE_TEXT, encoding="utf-8")
+    return page
 
 
 def _candidate(code: str) -> CandidateExample:
@@ -142,7 +171,7 @@ def test_default_consumer_project_equals_today_exactly(tmp_path: Path) -> None:
 def test_include_subdirs_writes_one_sorted_private_line_after_add_executable(tmp_path: Path) -> None:
     library = tmp_path / "lib"
     (library / "include" / "other").mkdir(parents=True)
-    (library / "include" / "aspose_jmap").mkdir(parents=True)
+    (library / "include" / "alpha_pkg").mkdir(parents=True)
     (library / "include" / "loose.hpp").write_text("", encoding="utf-8")
 
     lines = _write(tmp_path, library, include_subdirs=True)
@@ -150,7 +179,7 @@ def test_include_subdirs_writes_one_sorted_private_line_after_add_executable(tmp
     exe = lines.index("add_executable(foss_mcp_candidate candidate.cpp)")
     expected = (
         "target_include_directories(foss_mcp_candidate PRIVATE "
-        f'"{(library / "include" / "aspose_jmap").as_posix()}" "{(library / "include" / "other").as_posix()}")'
+        f'"{(library / "include" / "alpha_pkg").as_posix()}" "{(library / "include" / "other").as_posix()}")'
     )
     assert lines[exe + 1] == expected
     assert sum(line.startswith("target_include_directories(") for line in lines) == 1
@@ -167,7 +196,7 @@ def test_include_subdirs_writes_nothing_without_an_include_directory(tmp_path: P
 
 def test_include_subdirs_false_writes_nothing_even_with_an_include_directory(tmp_path: Path) -> None:
     library = tmp_path / "lib"
-    (library / "include" / "aspose_jmap").mkdir(parents=True)
+    (library / "include" / "alpha_pkg").mkdir(parents=True)
 
     lines = _write(tmp_path, library, include_subdirs=False)
 
@@ -212,9 +241,9 @@ def test_a_missing_page_include_is_prefixed_to_the_written_candidate(
     _script_verify(monkeypatch)
     candidate = _candidate("#include <iostream>\nint main() { return 0; }\n")
 
-    result, written = _verify(tmp_path, candidate, page_includes=('#include "JmapClient.hpp"',))
+    result, written = _verify(tmp_path, candidate, page_includes=('#include "SampleClient.hpp"',))
 
-    assert written.splitlines()[0] == '#include "JmapClient.hpp"'
+    assert written.splitlines()[0] == '#include "SampleClient.hpp"'
     assert "#include <iostream>" in written
     assert result.verified is True
 
@@ -223,12 +252,12 @@ def test_an_include_already_in_the_candidate_is_not_duplicated(
     monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 ) -> None:
     _script_verify(monkeypatch)
-    code = '#include "JmapClient.hpp"\nint main() { return 0; }\n'
+    code = '#include "SampleClient.hpp"\nint main() { return 0; }\n'
 
-    result, written = _verify(tmp_path, _candidate(code), page_includes=('#include "JmapClient.hpp"',))
+    result, written = _verify(tmp_path, _candidate(code), page_includes=('#include "SampleClient.hpp"',))
 
     assert written == code
-    assert written.count('#include "JmapClient.hpp"') == 1
+    assert written.count('#include "SampleClient.hpp"') == 1
     assert not result.output.startswith("page includes prefixed:")
 
 
@@ -236,15 +265,15 @@ def test_prefixed_includes_sit_above_main_for_a_fragment(
     monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 ) -> None:
     _script_verify(monkeypatch)
-    fragment = "auto client = aspose_jmap::JmapClient();\n"
+    fragment = "auto client = aspose_sample::SampleClient();\n"
 
     _, written = _verify(
-        tmp_path, _candidate(fragment), page_includes=('#include "JmapClient.hpp"', "#include <string>")
+        tmp_path, _candidate(fragment), page_includes=('#include "SampleClient.hpp"', "#include <string>")
     )
 
-    assert written.index('#include "JmapClient.hpp"') < written.index("#include <string>")
+    assert written.index('#include "SampleClient.hpp"') < written.index("#include <string>")
     assert written.index("#include <string>") < written.index("int main()")
-    assert written.index("int main()") < written.index("aspose_jmap::JmapClient")
+    assert written.index("int main()") < written.index("aspose_sample::SampleClient")
 
 
 def test_the_result_carries_the_original_candidate_and_names_the_prefixed_lines(
@@ -254,13 +283,15 @@ def test_the_result_carries_the_original_candidate_and_names_the_prefixed_lines(
     candidate = _candidate("int main() { return 0; }\n")
     original_code = candidate.code
 
-    result, _ = _verify(tmp_path, candidate, page_includes=('#include "JmapClient.hpp"', "#include <string>"))
+    result, _ = _verify(
+        tmp_path, candidate, page_includes=('#include "SampleClient.hpp"', "#include <string>")
+    )
 
     assert result.candidate is candidate
     assert result.candidate.code == original_code
     assert (
         result.output.splitlines()[0]
-        == 'page includes prefixed: #include "JmapClient.hpp" | #include <string>'
+        == 'page includes prefixed: #include "SampleClient.hpp" | #include <string>'
     )
 
 
@@ -279,8 +310,8 @@ def test_verify_without_page_includes_writes_exactly_what_it_writes_today(
 # --- the page's includes -------------------------------------------------------------------
 
 
-def test_page_cpp_includes_for_the_jmap_page() -> None:
-    assert build_chunks._page_cpp_includes(JMAP_PAGE) == ('#include "JmapClient.hpp"',)
+def test_page_cpp_includes_for_a_page_with_a_quoted_include(tmp_path: Path) -> None:
+    assert build_chunks._page_cpp_includes(_sample_page(tmp_path)) == (SAMPLE_INCLUDE,)
 
 
 def test_page_cpp_includes_for_the_email_page_are_ordered_and_unique() -> None:
@@ -399,9 +430,11 @@ def test_prepare_cpp_without_compat_passes_exactly_todays_keywords(
     ]
 
 
-def test_verify_kwargs_with_page_includes_carry_the_pages_includes() -> None:
+def test_verify_kwargs_with_page_includes_carry_the_pages_includes(tmp_path: Path) -> None:
     build_dir = Path("workdir") / "_build"
-    args = _cpp_args(library_cpp_compat=("include-limits", "page-includes"), furnished_page=JMAP_PAGE)
+    args = _cpp_args(
+        library_cpp_compat=("include-limits", "page-includes"), furnished_page=_sample_page(tmp_path)
+    )
 
     kwargs = build_chunks._PLATFORM_DISPATCH["cpp"]["verify_kwargs"](build_dir, args)
 
@@ -409,17 +442,17 @@ def test_verify_kwargs_with_page_includes_carry_the_pages_includes() -> None:
         "library_dir": build_dir,
         "include_dir": Path("workdir") / "include",
         "consumer": True,
-        "page_includes": ('#include "JmapClient.hpp"',),
+        "page_includes": ('#include "SampleClient.hpp"',),
     }
 
 
-def test_verify_kwargs_without_page_includes_are_todays_dict() -> None:
+def test_verify_kwargs_without_page_includes_are_todays_dict(tmp_path: Path) -> None:
     build_dir = Path("workdir") / "_build"
     expected = {"library_dir": build_dir, "include_dir": Path("workdir") / "include", "consumer": True}
 
     without_compat = build_chunks._PLATFORM_DISPATCH["cpp"]["verify_kwargs"](build_dir, _cpp_args())
     other_compat = build_chunks._PLATFORM_DISPATCH["cpp"]["verify_kwargs"](
-        build_dir, _cpp_args(library_cpp_compat=("include-limits",), furnished_page=JMAP_PAGE)
+        build_dir, _cpp_args(library_cpp_compat=("include-limits",), furnished_page=_sample_page(tmp_path))
     )
 
     assert without_compat == expected
@@ -433,7 +466,7 @@ def _pilots() -> list[dict]:
     return yaml.safe_load(VALUES.read_text(encoding="utf-8"))["ingestion"]["pilots"]
 
 
-def test_values_give_cpp_compat_to_exactly_cells_email_and_jmap_cpp() -> None:
+def test_values_give_cpp_compat_to_exactly_cells_and_email_cpp() -> None:
     holders = {
         (pilot["family"], pilot["platform"]): pilot["library"]["cppCompat"]
         for pilot in _pilots()

@@ -128,9 +128,11 @@ def _load_ledger_tool() -> ModuleType:
 # -- the README against the chart, the compose file and the tool registry -------------------------------------
 
 
-def test_the_chart_has_forty_pilots_and_thirteen_families() -> None:
-    assert len(_chart_pilots()) == 40
-    assert len(_chart_families()) == 13
+def test_the_chart_has_thirty_two_pilots_and_twelve_families() -> None:
+    # re-pinned by TC-551: 40 -> 32
+    assert len(_chart_pilots()) == 32
+    # re-pinned by TC-551: 13 -> 12
+    assert len(_chart_families()) == 12
 
 
 def test_the_readme_pilot_count_is_the_charts() -> None:
@@ -203,7 +205,8 @@ def test_the_readme_compose_facts_match_the_compose_header() -> None:
     readme = _readme()
     assert "FOSS_MCP_DEMO_IMAGE" in readme
     assert "FOSS_MCP_DEMO_IMAGE" in header
-    for port in ("8101", "8140"):
+    # re-pinned by TC-551: 8140 -> 8132
+    for port in ("8101", "8132"):
         assert port in readme, f"README does not name port {port}"
         assert port in header, f"compose header does not name port {port}"
 
@@ -264,7 +267,8 @@ def test_release_section_9_names_mcp_gateway_as_not_part_of_the_release() -> Non
     flat = " ".join(after.split())
     assert "`mcp-gateway`" in flat
     assert "is not part of the release" in flat
-    assert "14 of the 40 pilots" in flat
+    # re-pinned by TC-551: (none); 40 -> routes only; (none)
+    assert "routes only 14 of the pilots" in flat
 
 
 def test_release_section_9_has_the_two_subsections_without_bullets() -> None:

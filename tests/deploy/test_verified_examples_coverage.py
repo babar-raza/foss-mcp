@@ -28,7 +28,8 @@ DEMO_MANIFESTS = REPO_ROOT / "infra" / "demo-manifests"
 LEDGER = REPO_ROOT / "docs" / "REVIEW_LEDGER.md"
 RELEASE_DOC = REPO_ROOT / "docs" / "RELEASE.md"
 
-EXPECTED_PILOTS = 40
+# re-pinned by TC-551: 40 -> 32
+EXPECTED_PILOTS = 32
 MIN_VERIFIED_EXAMPLES = 2
 # pilot -> the minimum that pilot must still reach (its measured count on 2026-10-14). An entry is removed as soon as it
 # no longer lowers anything.
@@ -111,7 +112,7 @@ def required_minimum(key: str) -> int:
 # -- the coverage assertions on the shipped data --------------------------------------------------------------------------
 
 
-def test_the_chart_names_forty_pilots() -> None:
+def test_the_chart_names_thirty_two_pilots() -> None:
     assert len(PILOTS) == EXPECTED_PILOTS
     assert len(set(PILOT_KEYS)) == EXPECTED_PILOTS
 

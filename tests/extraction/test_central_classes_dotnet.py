@@ -23,7 +23,8 @@ import yaml
 
 from foss_mcp.extraction.run_extraction import _is_test_entry, names_used_in_examples
 
-PILOTS = ["3d_net", "cells_net", "email_net", "imaging_net", "jmap_net", "pdf_net", "slides_net"]
+# re-pinned by TC-551: PILOTS = ["3d_net", "cells_net", "email_net", "imaging_ne... -> PILOTS = ["3d_net", "cells_net", "email_net", "imaging_ne...
+PILOTS = ["3d_net", "cells_net", "email_net", "imaging_net", "pdf_net", "slides_net"]
 
 _ROOT = Path(__file__).parents[2]
 _FIXTURES = _ROOT / "tests" / "fixtures"
@@ -37,7 +38,6 @@ _CENTRAL: dict[str, list[str]] = {
     "cells_net": ["Workbook"],
     "slides_net": ["Presentation"],
     "3d_net": ["Scene"],
-    "jmap_net": ["JmapClient", "Session"],
 }
 
 
@@ -92,10 +92,9 @@ def _example_classes_the_full_extraction_defines(pilot: str) -> set[str]:
     return _bare_words(referenced) & used
 
 
-def test_the_pilot_list_covers_the_seven_refreshed_pilots() -> None:
-    assert {"3d_net", "cells_net", "email_net", "imaging_net", "jmap_net", "pdf_net", "slides_net"} == set(
-        PILOTS
-    )
+def test_the_pilot_list_covers_the_six_refreshed_pilots() -> None:
+    # re-pinned by TC-551: assert {"3d_net", "cells_net", "email_net", "imaging_net"... -> assert {"3d_net", "cells_net", "email_net", "imaging_net"...
+    assert {"3d_net", "cells_net", "email_net", "imaging_net", "pdf_net", "slides_net"} == set(PILOTS)
 
 
 @pytest.mark.parametrize("pilot", PILOTS)

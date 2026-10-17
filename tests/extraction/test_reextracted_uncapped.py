@@ -5,8 +5,8 @@ at its chart pin by the merged extractor with a cap above its total, so the fixt
 (kept == total, ``truncated`` false), and the extractor constant, the chart ``maxTypes`` and the compose ``--max-types``
 are one number. TC-530 did the same for pdf_net and words_net (``tests/extraction/test_reextracted_dotnet.py``).
 
-The nine jmap pilots are NOT here: their upstream repositories answer HTTP 404 (owner item OWNER-15), so they cannot be
-re-extracted; none of them is truncated anyway. Every number in the tables below is MEASURED on the regenerated fixtures
+The pilots whose upstream repositories answer HTTP 404 (owner item OWNER-15) were removed from the product by TC-551, so
+they are not here and cannot be re-extracted. Every number in the tables below is MEASURED on the regenerated fixtures
 and is a ratchet: a later extraction may raise it, never lower it.
 """
 
@@ -504,7 +504,10 @@ def test_the_eleven_fixtures_together_are_below_the_total_ceiling() -> None:
 
 def test_pilots_are_the_eleven_in_a_fixed_order() -> None:
     assert len(PILOTS) == len(set(PILOTS)) == 11
-    assert not any(key.startswith("jmap_") for key in PILOTS)
+    # re-pinned by TC-551: "no removed-family key in PILOTS" -> every key of PILOTS is a pilot of the chart
+    assert all(
+        rc.chart_pilot(key) for key in PILOTS
+    )  # chart_pilot raises KeyError for a key the chart does not list
     assert set(PILOTS) | {"pdf_net", "words_net"} <= set(docs_identifiers.PILOTS)
 
 

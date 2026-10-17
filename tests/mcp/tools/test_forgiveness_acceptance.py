@@ -7,8 +7,8 @@ gateway:
 1. SYMBOL PHRASES - for every pilot, the first ten type names that occur as a whole word in one of the
    pilot's own documentation or example chunks; ``lookup("how do I use <Name>")`` and
    ``lookup("<Name> methods")`` must carry that type in its first three symbols (0 percent before).
-2. VERIFIED-ABSENT PROBES - 14 questions about features the libraries do not have, asked on every pilot of
-   the families that have them (78 probes): forgiveness must not buy irrelevant answers.
+2. VERIFIED-ABSENT PROBES - 11 questions about features the libraries do not have, asked on every pilot of
+   the families that have them (54 probes): forgiveness must not buy irrelevant answers.
 3. EXAMPLE QUERIES - 26 (pilot, target example) pairs asked concisely and verbosely.
 4. FIXED NEGATIVES - identifier-like and empty-identifier example queries that used to match anything.
 """
@@ -34,9 +34,11 @@ from foss_mcp.mcp.tools.search_symbols import Miss, SymbolMatch, scope_key
 REPO_ROOT = Path(__file__).resolve().parents[3]
 DEMO_MANIFESTS = REPO_ROOT / "infra" / "demo-manifests"
 
-MIN_NAMES = 300
+# re-pinned by TC-551: 300 -> 280
+MIN_NAMES = 280
 MIN_FOUND_PERCENT = 90.0
-MIN_HONEST_MISSES = 54
+# re-pinned by TC-551: 54 -> 37
+MIN_HONEST_MISSES = 37
 MAX_IRRELEVANT_ANSWERS = 7
 MIN_CONCISE_HITS = 23
 MIN_VERBOSE_HITS = 14
@@ -54,9 +56,6 @@ PROBES: tuple[tuple[str, str, tuple[str, ...]], ...] = (
     ("OCR a scanned pdf", r"ocr", ("pdf",)),
     ("convert pdf to docx", r"docx", ("pdf",)),
     ("convert pdf to powerpoint", r"pptx|powerpoint", ("pdf",)),
-    ("connect over IMAP", r"imap", ("jmap",)),
-    ("send via SMTP", r"smtp", ("jmap",)),
-    ("parse an EML file", r"eml", ("jmap",)),
     ("use BibTeX bibliography", r"bibtex", ("tex",)),
     ("run TikZ drawing", r"tikz", ("tex",)),
     ("render image of a 3d scene", r"render", ("3d",)),
@@ -419,7 +418,8 @@ def test_verified_absent_probes_keep_honest_misses_and_cap_irrelevant_answers(
         f"{probe_counts.total} probes: honest misses {probe_counts.honest}, "
         f"relevant answers {probe_counts.relevant}, irrelevant answers {probe_counts.irrelevant}"
     )
-    assert probe_counts.total == 78, message
+    # re-pinned by TC-551: 78 -> 54
+    assert probe_counts.total == 54, message
     assert probe_counts.honest >= MIN_HONEST_MISSES, message
     assert probe_counts.irrelevant <= MAX_IRRELEVANT_ANSWERS, message
 
@@ -447,7 +447,8 @@ def _example_counts(stores: _Stores, column: int) -> dict[str, int]:
 
 def test_the_example_table_has_26_rows() -> None:
     assert len(EXAMPLE_ROWS) == 26
-    assert len(PROBES) == 14
+    # re-pinned by TC-551: 14 -> 11
+    assert len(PROBES) == 11
     assert len(FIXED_NEGATIVES) == 8
 
 

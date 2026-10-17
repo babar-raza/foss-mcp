@@ -1,4 +1,4 @@
-# Deploying and proving the forty pilots
+# Deploying and proving the thirty-two pilots
 
 This is the runbook for an operator who was not in the session that proved the pilots. It covers the
 Helm chart at `infra/helm/foss-mcp`, the three tools that install and prove it, and what to do when a
@@ -6,7 +6,8 @@ step fails. Everything here is taken from the repository; a value this document 
 found in `infra/helm/foss-mcp/values.yaml`, not guessed.
 
 The chart deploys one release per pilot. Each release has one serving pod (`foss-mcp-serving`), one
-ingestion Job per pilot, and its own manifests volume. Forty releases serve forty pilots.
+ingestion Job per pilot, and its own manifests volume. Thirty-two releases serve thirty-two pilots. `ingestion.pilots` lists 32 pilots; the pilots that were
+removed from the chart are described in `docs/RELEASE.md` section 8.
 
 The three tools are `scripts/deploy/install_pilots.py`, `scripts/deploy/prove_pilots.py`, and
 `scripts/deploy/pilots.py`. The last one holds no command: it reads the chart's `ingestion.pilots` from
@@ -56,7 +57,7 @@ override. A remote install therefore needs that override set by hand, and the ch
 `image.pullPolicy` is `IfNotPresent`. The standalone demo image has its own push tool; see "Hosting the
 standalone demo image" below.
 
-## 3. Install the forty pilots
+## 3. Install the thirty-two pilots
 
 ```powershell
 python scripts/deploy/install_pilots.py --namespace foss-mcp --image-tag rev-1234567
@@ -109,7 +110,7 @@ The tool never removes a release or a resource. It runs no uninstall and no dele
 A failed install prints the pod states of that release and the last 20 lines of its ingestion Job log,
 so the cause is on screen.
 
-## 4. Prove the forty pilots
+## 4. Prove the thirty-two pilots
 
 ```powershell
 python scripts/deploy/prove_pilots.py --namespace foss-mcp
@@ -144,7 +145,7 @@ operator's to supply; every host below is a placeholder, so substitute your own.
    ```
 
 2. Run the pre-deployment workflow gate on that exact image (see "The pre-deployment workflow gate"
-   below). An image without a passing 40-of-40 `summary.json` is not tagged for hosting and is not pushed.
+   below). An image without a passing 32-of-32 `summary.json` is not tagged for hosting and is not pushed.
 3. Log in to the internal registry yourself, in your own terminal:
    `docker login registry.example.internal:5000`. The push tool never takes, reads or stores a credential,
    and it has no option for one.
@@ -238,7 +239,7 @@ machine reads: `gatectl release-record --gate-report` needs `schema_version`, `i
 `verdict` (exactly `PASS` or `FAIL`), `pilots_total`, `pilots_passed` and `pilots`, one object per pilot with
 `key`, `status`, `checks` (`pass`, `fail`, `not_applicable`), `peak_memory_mb`, `startup_seconds` and `reasons`.
 
-The rule: an image without a passing 40-of-40 `summary.json` (`verdict` `PASS`, every pilot in the chart passed,
+The rule: an image without a passing 32-of-32 `summary.json` (`verdict` `PASS`, every pilot in the chart passed,
 on the image id being hosted) is not tagged for hosting and is not pushed. A gate run with `--only` is a diagnostic,
 never release evidence. Check the commands with `--dry-run` first.
 
@@ -368,7 +369,7 @@ helm uninstall foss-mcp-pdf-net -n foss-mcp
 The manifests volume claim is annotated `helm.sh/resource-policy: keep` (`manifests.keepOnUninstall`,
 default true), so it survives `helm uninstall` and the published generation is not lost with the release.
 Delete it deliberately with `kubectl delete pvc -n foss-mcp <release-fullname>-manifests`, or set
-`manifests.keepOnUninstall=false` before the release is installed so Helm removes it. To remove all forty,
+`manifests.keepOnUninstall=false` before the release is installed so Helm removes it. To remove all thirty-two,
 list the releases with `helm list -n foss-mcp` and uninstall each one. The namespace is left in place.
 
 ## Rolling back a generation
@@ -505,9 +506,9 @@ Once the Job has published, upgrade again with `--set-json 'ingestion.acceptRegr
 
 ## Known limits
 
-- **Eight pilots have no documentation search or verified examples.** These are the two C++ pilots
-  (`pdf_cpp`, `cells_cpp`) and six other second-product pilots (`words_python`, `words_net`,
-  `slides_java`, `cells_go`, `cells_typescript`, `jmap_rust`). They have no furnished page in the
+- **Seven pilots have no documentation search or verified examples.** These are the two C++ pilots
+  (`pdf_cpp`, `cells_cpp`) and five other second-product pilots (`words_python`, `words_net`,
+  `slides_java`, `cells_go`, `cells_typescript`). They have no furnished page in the
   chart, so their proof reports check 5 (`search_docs`) and check 6 (`find_examples`) as not
   applicable. They do prove symbols, lookup, members, product reference, freshness, honest miss and
   isolation. The other six pilots have furnished pages and run every check.

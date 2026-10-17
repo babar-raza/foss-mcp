@@ -331,7 +331,7 @@ def test_the_coverage_docstring_names_every_match_basis(basis: str) -> None:
     assert basis in (ExampleMatch.__doc__ or "")
 
 
-# --- over a copy of the committed generations of the 40 pilots -----------------------------------
+# --- over a copy of the committed generations of the 32 pilots -----------------------------------
 
 
 class _Stores:
@@ -354,7 +354,7 @@ def stores(tmp_path_factory: pytest.TempPathFactory) -> _Stores:
 
 
 def _answers(stores_: _Stores, query: str) -> list[tuple[str, ExampleMatch]]:
-    """Every (pilot, match) the real find_examples returns for *query* over the 40 pilots."""
+    """Every (pilot, match) the real find_examples returns for *query* over the 32 pilots."""
     found: list[tuple[str, ExampleMatch]] = []
     for directory in PILOTS:  # PILOTS are the committed scope directories, e.g. pdf__net__self_extracted
         result = find_examples(stores_.of(directory), _scope_of(directory), query, top_k=50)
@@ -376,8 +376,9 @@ def generic_word_answers(stores: _Stores) -> dict[str, list[tuple[str, ExampleMa
         _set_guard(None)
 
 
-def test_there_are_forty_pilots() -> None:
-    assert len(PILOTS) == 40
+def test_there_are_thirty_two_pilots() -> None:
+    # re-pinned by TC-551: 40 -> 32
+    assert len(PILOTS) == 32
 
 
 @pytest.mark.parametrize("word", GENERIC_WORDS)

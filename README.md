@@ -2,8 +2,8 @@
 
 MCP (Model Context Protocol) servers for Aspose's open-source ("FOSS") product line, so an AI coding assistant can
 look up real API surface, documentation and verified examples for the specific FOSS library a developer is using.
-One image serves 40 pilots (family and platform pairs such as `pdf/net` or `slides/python`) across 13 product
-families: 3d, barcode, cells, email, html, imaging, jmap, note, page, pdf, slides, tex and words.
+One image serves 32 pilots (family and platform pairs such as `pdf/net` or `slides/python`) across 12 product
+families: 3d, barcode, cells, email, html, imaging, note, page, pdf, slides, tex and words.
 
 This is a from-scratch design, not a fork of Aspose's internal commercial-product retrieval system ("ADCS"). ADCS was
 audited first; every one of its confirmed defects (scope widening on a miss, client-controlled tenant headers,
@@ -28,7 +28,7 @@ HTTP). `/healthz` answers liveness and `/metrics` answers Prometheus text. Start
 each on its own host port.
 
 To start a whole family, use `docker-compose.demo.yml`. Set `FOSS_MCP_DEMO_IMAGE` to the image, then start services
-by name or by profile (every family has one, and `all` starts all 40):
+by name or by profile (every family has one, and `all` starts all 32):
 
 ```bash
 export FOSS_MCP_DEMO_IMAGE=<image>
@@ -36,7 +36,7 @@ docker compose -f docker-compose.demo.yml up -d pdf-net slides-python
 docker compose -f docker-compose.demo.yml --profile pdf up -d
 ```
 
-There is one service per pilot, published on loopback ports 8101 to 8140; the header of the compose file lists which
+There is one service per pilot, published on loopback ports 8101 to 8132; the header of the compose file lists which
 pilot has which port.
 
 ## Security

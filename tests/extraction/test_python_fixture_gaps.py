@@ -1,14 +1,14 @@
 """TC-522: which committed Python fixtures predate the fidelity fix, and proof the gap is real.
 
-Of the twelve committed python fixtures, seven were produced before TC-522 (``extractor_version`` absent, i.e. 1;
+Of the eleven committed python fixtures, six were produced before TC-522 (``extractor_version`` absent, i.e. 1;
 3d_python, html_python, pdf_python, slides_python and words_python were re-extracted by TC-550 at version 5 and
 left ``KNOWN_GAP``): none of their method parameters has a ``default``, none of their methods a ``static`` / ``classmethod``
 modifier, and none of their re-export shells a ``reexport_of``. ``KNOWN_GAP`` documents that, one line per
 pilot, and the tests make the documentation self-checking in both directions:
 
-* a fixture below ``REQUIRED_VERSION`` MUST be listed in ``KNOWN_GAP`` (and for the three pilots the
+* a fixture below ``REQUIRED_VERSION`` MUST be listed in ``KNOWN_GAP`` (and for the two pilots the
   reviewer measured, the documented gap must still be real);
-* a fixture at or above ``REQUIRED_VERSION`` must NOT be listed, and for those three pilots it must show
+* a fixture at or above ``REQUIRED_VERSION`` must NOT be listed, and for those two pilots it must show
   defaults, modifiers and resolvable ``reexport_of`` keys.
 
 The re-extraction card regenerates the fixtures and deletes the matching ``KNOWN_GAP`` entries; that is the
@@ -33,7 +33,6 @@ PYTHON_PILOTS = (
     "cells_python",
     "email_python",
     "html_python",
-    "jmap_python",
     "note_python",
     "page_python",
     "pdf_python",
@@ -43,13 +42,13 @@ PYTHON_PILOTS = (
 )
 
 # The pilots whose gap the independent review measured against the upstream sources.
-REVIEWED = ("cells_python", "jmap_python", "pdf_python")
+# re-pinned by TC-551: REVIEWED = ("cells_python", "<removed pilot>", "pdf_python") -> REVIEWED = ("cells_python", "pdf_python")
+REVIEWED = ("cells_python", "pdf_python")
 
 KNOWN_GAP: dict[str, str] = {
     "barcode_python": "version-1 fixture: parameter defaults, keyword-only markers and static/classmethod marks were not extracted",
     "cells_python": "reviewer RST-05: 420 upstream parameters with a default served as required, 51 static/classmethods unmarked, Workbook.__init__ password shown required",
     "email_python": "version-1 fixture: parameter defaults, keyword-only markers and static/classmethod marks were not extracted",
-    "jmap_python": "reviewer RST-05: 8 upstream parameters with a default served as required, 45 static/classmethods unmarked",
     "note_python": "version-1 fixture: parameter defaults, keyword-only markers and static/classmethod marks were not extracted",
     "page_python": "version-1 fixture: parameter defaults, keyword-only markers and static/classmethod marks were not extracted",
     "tex_python": "version-1 fixture: parameter defaults, keyword-only markers and static/classmethod marks were not extracted",
@@ -119,9 +118,10 @@ def test_known_gap_is_exactly_the_old_fixtures() -> None:
     assert set(KNOWN_GAP) == old
 
 
-def test_known_gap_names_the_twelve_python_fixtures_with_one_line_reasons() -> None:
+def test_known_gap_names_the_eleven_python_fixtures_with_one_line_reasons() -> None:
     assert set(KNOWN_GAP) <= set(PYTHON_PILOTS)
-    assert len(PYTHON_PILOTS) == 12
+    # re-pinned by TC-551: 12 -> 11
+    assert len(PYTHON_PILOTS) == 11
     on_disk = {path.parent.name for path in FIXTURES.glob("*_python/api_surface.json")}
     assert on_disk == set(PYTHON_PILOTS)
     for name, reason in KNOWN_GAP.items():

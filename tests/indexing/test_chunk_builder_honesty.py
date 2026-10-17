@@ -1,7 +1,7 @@
 """TC-382 (REQ-G3-005): the symbol chunks state only what the extraction stated.
 
 One focused test per rendering rule on small synthetic fixtures, plus tests against the real
-committed fixtures (pdf_net, pdf_go, pdf_typescript, pdf_cpp, pdf_java, jmap_go, jmap_nodejs,
+committed fixtures (pdf_net, pdf_go, pdf_typescript, pdf_cpp, pdf_java,
 slides_python). Fully offline.
 """
 
@@ -488,8 +488,31 @@ def test_real_pdf_net_has_no_invented_void_and_keeps_the_genuine_ones() -> None:
         assert line.split("(")[0].strip("- ").strip() in real_void_names, line
 
 
-def test_real_jmap_nodejs_has_no_untyped_parameter_remnants() -> None:
-    text = "\n".join(_real_texts("jmap_nodejs"))
+def test_a_parameter_with_an_empty_type_leaves_no_colon_remnant_in_the_signature() -> None:
+    # re-pinned by TC-551: the proof read the removed Node.js fixture; the rule (an empty parameter type renders as
+    # the bare name, never ``name: `` or a dangling colon) is now proven on a synthetic JavaScript-shaped entry.
+    fixture = _fixture(
+        [
+            {
+                "name": "Client",
+                "kind": "class",
+                "methods": [
+                    {
+                        "name": "send",
+                        "params": [
+                            {"name": "payload", "type": ""},
+                            {"name": "flag", "type": None},
+                            {"name": "retries", "type": "number"},
+                            {"name": "last", "type": "  "},
+                        ],
+                        "return_type": "void",
+                    }
+                ],
+            }
+        ]
+    )
+    text = _text(fixture)
+    assert "send(payload, flag, retries: number, last)" in text
     assert re.search(r": [,)]", text) is None
     assert re.search(r": $", text, re.MULTILINE) is None
 
@@ -529,17 +552,27 @@ def test_real_pdf_cpp_does_not_list_a_base_destructor_as_inherited() -> None:
 
 def test_real_go_fixtures_publish_no_test_file_symbol() -> None:
     # re-extracted by TC-550: the regenerated pdf_go holds no _test.go entry by design (TC-392 removed them
-    # from the engine), so for it every fixture entry is published; jmap_go keeps the original proof that
-    # the filter is exercised on a real fixture.
+    # from the engine), so for it every fixture entry is published. The only fixture that still held test-file
+    # entries (and so exercised the filter on real data) was removed by TC-551; the filter itself is proven on a
+    # synthetic Go fixture in the next test.
     pdf_go = _real("pdf_go")
     assert [e for e in pdf_go["types"] if str(e.get("file", "")).endswith("_test.go")] == []
     assert len({_fqn(t) for t in _real_texts("pdf_go")}) == len(pdf_go["types"])
-    for pilot in ("jmap_go",):
-        fixture = _real(pilot)
-        test_entries = [e for e in fixture["types"] if str(e.get("file", "")).endswith("_test.go")]
-        assert test_entries, pilot
-        published = {_fqn(t) for t in _real_texts(pilot)}
-        assert len(published) == len(fixture["types"]) - len(test_entries), pilot
+
+
+def test_a_synthetic_go_fixture_publishes_its_type_and_not_its_test_file_entry() -> None:
+    # re-pinned by TC-551: the filter was proven on a removed real Go fixture; it is proven here on a small synthetic one.
+    fixture = _fixture(
+        [
+            {"name": "Reader", "kind": "type_spec", "file": "reader.go", "line": 3},
+            {"name": "TestReader", "kind": "type_spec", "file": "reader_test.go", "line": 9},
+            {"name": "fakeReader", "kind": "type_spec", "file": "internal/fake_test.go", "line": 4},
+        ],
+        language="go",
+        type_count=3,
+    )
+    published = {_fqn(t) for t in _texts(fixture)}
+    assert published == {"Reader"}
 
 
 def test_real_pdf_go_and_pdf_typescript_fqns_are_unique() -> None:

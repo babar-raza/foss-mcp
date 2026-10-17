@@ -377,10 +377,11 @@ def test_a_dotnet_import_only_block_is_passed_to_the_verifier_which_rejects_it(
     ]
 
 
-def test_the_real_jmap_rust_wrapped_fragment_is_published_as_the_assembled_rust_program(
+def test_the_real_cells_rust_wrapped_fragment_is_published_as_the_assembled_rust_program(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    page_path = FURNISHED / "jmap_rust/pages/_index.md"
+    # re-pinned by TC-551: <removed pilot> -> cells_rust
+    page_path = FURNISHED / "cells_rust/pages/_index.md"
     harness = Harness(monkeypatch, "rust")
 
     _build(monkeypatch, tmp_path, page_path, "rust")

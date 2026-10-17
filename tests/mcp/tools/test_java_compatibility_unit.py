@@ -106,9 +106,9 @@ def test_other_platforms_compatibility_is_unchanged(platform: str, manifest: str
     assert not result.text.startswith("Java ")
 
 
-# On main d7b594fd the five answers are 3d "Java 21+", cells "Java 17+", jmap "Java 17+", pdf "Java 11+" and
-# slides "Java 21+".
-JAVA_PILOTS = ["3d", "cells", "jmap", "pdf", "slides"]
+# On main d7b594fd the answers of the four remaining Java pilots are 3d "Java 21+", cells "Java 17+", pdf "Java 11+" and
+# slides "Java 21+" (re-pinned by TC-551: five -> four, the fifth Java pilot was removed from the product).
+JAVA_PILOTS = ["3d", "cells", "pdf", "slides"]
 
 
 def _sidecar_manifest(family: str) -> str:

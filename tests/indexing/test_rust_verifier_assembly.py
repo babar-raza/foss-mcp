@@ -8,7 +8,9 @@ declarations; bounds the cargo subprocess; and records every assembly step in th
 
 Nothing here runs a real toolchain: ``_run_cargo`` is replaced by a fake with the real
 ``(args, *, cwd)`` signature that snapshots ``src/main.rs`` and ``Cargo.toml`` at call time. The
-page is the real committed jmap/rust furnished page.
+page is a small synthetic furnished page that keeps the block shapes of a real README (re-pinned by TC-551: the
+tests read a removed pilot's committed page before): a quick start that carries its own ``use``, a fragment that
+needs that ``use`` from the page, and a block that declares its own ``use`` of other items and names ``serde_json``.
 """
 
 from __future__ import annotations
@@ -22,18 +24,83 @@ import infra.build_chunks as build_chunks
 from foss_mcp.indexing import example_verifier as ev
 from foss_mcp.indexing.example_candidates import CandidateExample, extract_candidate_examples
 
-REPO_ROOT = Path(__file__).resolve().parents[2]
-PAGE = REPO_ROOT / "tests/fixtures/furnished/jmap_rust/pages/_index.md"
-CRATE = "aspose-jmap-foss"
+CRATE = "sample-client-foss"
 HEADER = "fn main() -> Result<(), Box<dyn std::error::Error>> {"
-OWN_USE = "use aspose_jmap_foss::{JmapClient, ClientOptions};"
+OWN_USE = "use sample_client_foss::{SampleClient, ClientOptions};"
+
+_QUICK_START = """```rust
+use sample_client_foss::{SampleClient, ClientOptions};
+
+let options = ClientOptions {
+    session_url: "https://sample.example.test/.well-known/session".to_string(),
+    username: "user@example.test".to_string(),
+    password: "secret".to_string(),
+    bearer_token: None,
+};
+let mut client = SampleClient::new(options);
+let session = client.connect()?;
+```
+"""
+_BEARER = """Set `bearer_token` to authenticate every request with `Authorization: Bearer <token>` instead of HTTP Basic:
+
+```rust
+let options = ClientOptions {
+    session_url: "https://sample.example.test/.well-known/session".to_string(),
+    username: String::new(),
+    password: String::new(),
+    bearer_token: Some("my-oauth-access-token".to_string()),
+};
+let mut client = SampleClient::new(options);
+let session = client.connect()?;
+```
+"""
+_BATCH = """Several calls can be batched into one round trip, chaining a later call to an earlier one's result:
+
+```rust
+use sample_client_foss::{Invocation, ResultReference};
+use serde_json::json;
+use std::collections::HashMap;
+
+let query = Invocation {
+    name: "Item/query".to_string(),
+    arguments: HashMap::from([("accountId".to_string(), json!(account_id))]),
+    method_call_id: "c1".to_string(),
+};
+let get = Invocation {
+    name: "Item/get".to_string(),
+    arguments: HashMap::from([
+        ("accountId".to_string(), json!(account_id)),
+        (
+            "#ids".to_string(),
+            serde_json::to_value(ResultReference {
+                result_of: "c1".to_string(),
+                name: "Item/query".to_string(),
+                path: "/ids".to_string(),
+            })
+            .unwrap(),
+        ),
+    ]),
+    method_call_id: "c2".to_string(),
+};
+let resp = client.send_request(vec![query, get], vec!["urn:example:items".to_string()])?;
+```
+"""
+PAGE: dict[str, object] = {
+    "single": {
+        "block": [
+            {"title": "Quick Start", "content": _QUICK_START},
+            {"title": "Bearer token authentication", "content": _BEARER},
+            {"title": "Bearer token authentication (2)", "content": _BATCH},
+        ]
+    }
+}
 
 
 def _candidates() -> list[CandidateExample]:
-    return extract_candidate_examples(build_chunks._load_furnished_page(PAGE))
+    return extract_candidate_examples(PAGE)
 
 
-def _jmap(title: str) -> CandidateExample:
+def _sample(title: str) -> CandidateExample:
     matches = [candidate for candidate in _candidates() if candidate.title == title]
     assert len(matches) == 1, f"expected exactly one candidate titled {title!r}"
     return matches[0]
@@ -84,7 +151,7 @@ def _block(code: str, page_code: tuple[str, ...] = ()) -> CandidateExample:
 def test_quick_start_is_wrapped_with_its_own_use_inside_main(
     monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 ) -> None:
-    candidate = _jmap("Quick Start")
+    candidate = _sample("Quick Start")
 
     result, cargo = _verify(monkeypatch, tmp_path, candidate)
 
@@ -101,7 +168,7 @@ def test_quick_start_is_wrapped_with_its_own_use_inside_main(
 def test_bearer_token_block_gets_the_page_use_at_crate_level(
     monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 ) -> None:
-    candidate = _jmap("OAuth 2.0 bearer token authentication")
+    candidate = _sample("Bearer token authentication")
 
     result, cargo = _verify(monkeypatch, tmp_path, candidate)
 
@@ -115,7 +182,7 @@ def test_bearer_token_block_gets_the_page_use_at_crate_level(
 def test_serde_json_is_declared_at_default_requirement_without_a_library_manifest(
     monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 ) -> None:
-    candidate = _jmap("OAuth 2.0 bearer token authentication (2)")
+    candidate = _sample("Bearer token authentication (2)")
 
     result, cargo = _verify(monkeypatch, tmp_path, candidate)
 
@@ -131,7 +198,7 @@ def test_serde_json_uses_the_library_own_requirement(monkeypatch: pytest.MonkeyP
         encoding="utf-8",
     )
 
-    _, cargo = _verify(monkeypatch, tmp_path, _jmap("OAuth 2.0 bearer token authentication (2)"))
+    _, cargo = _verify(monkeypatch, tmp_path, _sample("Bearer token authentication (2)"))
 
     assert 'serde_json = "1.0.100"' in cargo.cargo_toml[0].splitlines()
 
@@ -139,11 +206,11 @@ def test_serde_json_uses_the_library_own_requirement(monkeypatch: pytest.MonkeyP
 def test_third_block_keeps_its_own_uses_and_adds_no_page_use(
     monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 ) -> None:
-    candidate = _jmap("OAuth 2.0 bearer token authentication (2)")
+    candidate = _sample("Bearer token authentication (2)")
 
     result, cargo = _verify(monkeypatch, tmp_path, candidate)
 
-    assert cargo.main_rs[0].startswith(f"{HEADER}\nuse aspose_jmap_foss::{{Invocation, ResultReference}};")
+    assert cargo.main_rs[0].startswith(f"{HEADER}\nuse sample_client_foss::{{Invocation, ResultReference}};")
     assert "page-uses-added=none;" in result.output.splitlines()[0]
 
 
@@ -226,7 +293,7 @@ def test_the_end_of_a_long_output_keeps_the_real_rustc_error(
     error = "error[E0425]: cannot find value 'account_id' in this scope"
     stderr = "   Compiling lib v0.1.0\n" * 1000 + error + "\n"
     assert len(stderr) > 20000
-    candidate = _jmap("OAuth 2.0 bearer token authentication (2)")
+    candidate = _sample("Bearer token authentication (2)")
 
     result, _ = _verify(monkeypatch, tmp_path, candidate, FakeCargo(_completed(101, stderr=stderr)))
 
@@ -241,13 +308,13 @@ def test_a_network_failure_without_a_diagnostic_raises_the_environment_error(
     cargo = FakeCargo(_completed(101, stderr="warning: spurious network error (3 tries remaining)"))
 
     with pytest.raises(ev.ExampleEnvironmentError):
-        _verify(monkeypatch, tmp_path, _jmap("Quick Start"), cargo)
+        _verify(monkeypatch, tmp_path, _sample("Quick Start"), cargo)
 
 
 def test_a_passing_build_is_verified_and_returns_the_original_candidate(
     monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 ) -> None:
-    candidate = _jmap("Quick Start")
+    candidate = _sample("Quick Start")
 
     result, _ = _verify(monkeypatch, tmp_path, candidate)
 

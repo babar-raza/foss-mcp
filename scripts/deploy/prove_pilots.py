@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Prove the pilot releases of the foss-mcp chart (40 today) (G2/TC-223).
+"""Prove the pilot releases of the foss-mcp chart (32 today) (G2/TC-223).
 
 Usage:
     python scripts/deploy/prove_pilots.py --namespace foss-mcp [--base-port 8401] [--only pdf_net]
@@ -199,7 +199,7 @@ def format_table(rows: list[ProofRow]) -> str:
 
 
 def parse_args(argv: list[str] | None) -> argparse.Namespace:
-    parser = argparse.ArgumentParser(description="Prove the pilot releases of the foss-mcp chart (40 today).")
+    parser = argparse.ArgumentParser(description="Prove the pilot releases of the foss-mcp chart (32 today).")
     parser.add_argument("--namespace", required=True, help="Kubernetes namespace of the releases")
     parser.add_argument(
         "--base-port", type=int, default=DEFAULT_BASE_PORT, help="first local port for the port-forwards"

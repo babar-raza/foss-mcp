@@ -30,7 +30,8 @@ REPO_ROOT = Path(__file__).resolve().parents[3]
 DEMO_MANIFESTS = REPO_ROOT / "infra" / "demo-manifests"
 SERVER_SOURCE = REPO_ROOT / "src" / "foss_mcp" / "mcp" / "server.py"
 
-MIN_PILOTS = 40
+# re-pinned by TC-551: 40 -> 32
+MIN_PILOTS = 32
 
 NONSENSE_QUERY = "send a fax via modem"
 TASK_QUERY = "how do I set a password on a presentation"

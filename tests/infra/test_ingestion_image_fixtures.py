@@ -26,7 +26,8 @@ VALUES = ROOT / "infra" / "helm" / "foss-mcp" / "values.yaml"
 COMPOSE = ROOT / "docker-compose.yml"
 DOCKERFILE = ROOT / "Dockerfile.ingestion"
 
-EXPECTED_PILOT_COUNT = 40
+# re-pinned by TC-551: 40 -> 32
+EXPECTED_PILOT_COUNT = 32
 APP_PREFIX = "/app/"
 FIXTURES_PREFIX = "fixtures/"
 FURNISHED_SOURCE = "tests/fixtures/furnished/"
@@ -109,7 +110,7 @@ def _assert_in_the_image(path: str) -> None:
     )
 
 
-def test_chart_has_forty_pilots() -> None:
+def test_chart_has_thirty_two_pilots() -> None:
     ids = [_pilot_id(p) for p in _pilots()]
     assert len(ids) == EXPECTED_PILOT_COUNT, ids
     assert len(set(ids)) == EXPECTED_PILOT_COUNT, ids

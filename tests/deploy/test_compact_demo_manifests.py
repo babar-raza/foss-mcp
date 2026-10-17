@@ -31,13 +31,16 @@ from foss_mcp.indexing.vector_index_writer import EXAMPLE_MARKER  # noqa: E402
 # Measured after compaction on the committed tree (TC-346): 40 scopes, total 17,505,012 bytes (16.7 MiB),
 # median generation file 209,084 bytes, largest 2,344,171 bytes (before: 967.6 MiB, up to 45 MB per file).
 # Each bound carries about 25% headroom over its measurement.
-EXPECTED_SCOPES = 40
+# re-pinned by TC-551: 40 -> 32
+EXPECTED_SCOPES = 32
 # Re-pinned 2026-10-14 (TC-503, rev-b487453): the final re-ingest grew the tree to 28_069_555 bytes total, median 577_817, largest 2_944_920
 # (the largest-file budget above still holds), because of complete API extraction plus quantised vectors for verified-example chunks.
-TREE_BYTES_BUDGET = 29_500_000
+# re-pinned by TC-551: 29_500_000 -> 28_000_000
+TREE_BYTES_BUDGET = 28_000_000
 LARGEST_FILE_BYTES_BUDGET = 2_950_000
 # TC-503: median re-measured at 577_817 bytes on 2026-10-14 (rev-b487453), see the note above TREE_BYTES_BUDGET.
-MEDIAN_FILE_BYTES_BUDGET = 640_000
+# re-pinned by TC-551: 640_000 -> 710_000
+MEDIAN_FILE_BYTES_BUDGET = 710_000
 
 FAMILY, PLATFORM, SOURCE_KIND = "pdf", "go", "self_extracted"
 SCOPE_DIR_NAME = f"{FAMILY}__{PLATFORM}__{SOURCE_KIND}"
@@ -310,7 +313,7 @@ def test_the_tool_runs_as_a_standalone_script_and_imports_the_marker_instead_of_
 # ---------------------------------------------------------------------------------------------------
 
 
-def test_real_tree_has_forty_scopes_each_with_one_generation_file_and_its_pointer() -> None:
+def test_real_tree_has_thirty_two_scopes_each_with_one_generation_file_and_its_pointer() -> None:
     scopes = real_scope_dirs()
     assert len(scopes) == EXPECTED_SCOPES
     for scope_dir in scopes:

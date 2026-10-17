@@ -8,7 +8,8 @@ compile error is an unused variable. Every assembly step is the first line of th
 
 Nothing here runs a real toolchain: ``_run`` is replaced by a scripted fake with the real
 ``(args, *, cwd)`` signature that answers per argv in order, records each argv and snapshots
-``main.go`` at each build. The pages are the real committed furnished pages.
+``main.go`` at each build. The cells pages are the real committed furnished page; the page with an UNALIASED own
+import (which no committed page has any more, re-pinned by TC-551) is a small synthetic page with the same block shapes.
 """
 
 from __future__ import annotations
@@ -27,7 +28,63 @@ FURNISHED = REPO_ROOT / "tests/fixtures/furnished"
 
 CELLS_MODULE = "github.com/aspose-cells-foss/Aspose.Cells-FOSS-for-Go/v26"
 CELLS_IMPORT = f"{CELLS_MODULE}/aspose/cells_foss"
-JMAP_MODULE = "github.com/aspose-email-foss/Aspose.JMAP-FOSS-for-Go"
+SAMPLE_MODULE = "example.org/sample-go"
+
+# A synthetic furnished page with the block shapes the removed real page had: a quick start whose own import is
+# UNALIASED (``import "<module>"``, which the verifier must remove and re-emit from the package name), a fragment
+# with no import (taken from the page), and a fragment that uses undefined names of the page's package.
+SAMPLE_PAGE: dict[str, object] = {
+    "single": {
+        "block": [
+            {
+                "title": "Quick Start",
+                "content": (
+                    "```go\n"
+                    'import "example.org/sample-go"\n\n'
+                    "options := sample.ClientOptions{\n"
+                    '    SessionURL: "https://sample.example.test/.well-known/session",\n'
+                    '    Username:   "user@example.test",\n'
+                    '    Password:   "secret",\n'
+                    "}\n"
+                    "client := sample.NewClient(options)\n"
+                    "session, err := client.Connect()\n"
+                    "```\n"
+                ),
+            },
+            {
+                "title": "Bearer token authentication",
+                "content": (
+                    "Authenticate with a bearer token by setting `BearerToken`:\n\n"
+                    "```go\n"
+                    "options := sample.ClientOptions{\n"
+                    '    SessionURL:  "https://sample.example.test/.well-known/session",\n'
+                    '    BearerToken: "access-token",\n'
+                    "}\n"
+                    "client := sample.NewClient(options)\n"
+                    "session, err := client.Connect()\n"
+                    "```\n"
+                ),
+            },
+            {
+                "title": "Bearer token authentication (2)",
+                "content": (
+                    "Several calls can be batched into one round trip:\n\n"
+                    "```go\n"
+                    'query := sample.Invocation{Name: "Item/query", Arguments: map[string]interface{}{"accountId": accountId}}\n'
+                    "get := sample.Invocation{\n"
+                    '    Name: "Item/get",\n'
+                    "    Arguments: map[string]interface{}{\n"
+                    '        "accountId": accountId,\n'
+                    '        "#ids":      sample.ResultReference{ResultOf: "c1", Name: "Item/query", Path: "/ids"},\n'
+                    "    },\n"
+                    "}\n"
+                    'resp, err := client.SendRequest([]sample.Invocation{query, get}, []string{"urn:example:items"})\n'
+                    "```\n"
+                ),
+            },
+        ]
+    }
+}
 
 BUILD = ["go", "build", "./..."]
 VET = ["go", "vet", "./..."]
@@ -49,8 +106,8 @@ def _cells(title: str) -> CandidateExample:
     return _by_title(_candidates("cells_go"), title)
 
 
-def _jmap(title: str) -> CandidateExample:
-    return _by_title(_candidates("jmap_go"), title)
+def _sample(title: str) -> CandidateExample:
+    return _by_title(extract_candidate_examples(SAMPLE_PAGE), title)
 
 
 def _completed(
@@ -102,8 +159,8 @@ def _cells_library(tmp_path: Path) -> Path:
     return _library(tmp_path, {"aspose/cells_foss/x.go": "package cells_foss\n\nfunc NewWorkbook() {}\n"})
 
 
-def _jmap_library(tmp_path: Path) -> Path:
-    return _library(tmp_path, {"jmap.go": "package jmap\n\ntype ClientOptions struct{}\n"})
+def _sample_library(tmp_path: Path) -> Path:
+    return _library(tmp_path, {"sample.go": "package sample\n\ntype ClientOptions struct{}\n"})
 
 
 def _verify(
@@ -229,15 +286,15 @@ def test_unaliased_own_import_is_removed_and_re_emitted_from_the_package_name(
     monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 ) -> None:
     fake = _install(monkeypatch)
-    candidate = _jmap("Quick Start")
-    assert candidate.code.startswith(f'import "{JMAP_MODULE}"')
+    candidate = _sample("Quick Start")
+    assert candidate.code.startswith(f'import "{SAMPLE_MODULE}"')
 
-    result = _verify(candidate, JMAP_MODULE, _jmap_library(tmp_path), tmp_path)
+    result = _verify(candidate, SAMPLE_MODULE, _sample_library(tmp_path), tmp_path)
 
     assert result.verified is True, result.output
     (main_go,) = fake.main_go_at_build
-    assert f'import "{JMAP_MODULE}"' not in main_go
-    assert f'\tjmap "{JMAP_MODULE}"\n' in main_go
+    assert f'import "{SAMPLE_MODULE}"' not in main_go
+    assert f'\tsample "{SAMPLE_MODULE}"\n' in main_go
     assert main_go.count("import") == 1
     assert main_go.count("func main(") == 1
 
@@ -246,15 +303,15 @@ def test_fragment_without_an_import_takes_it_from_the_page(
     monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 ) -> None:
     fake = _install(monkeypatch)
-    candidate = _jmap("OAuth 2.0 bearer token authentication")
+    candidate = _sample("Bearer token authentication")
     assert "import" not in candidate.code
 
-    result = _verify(candidate, JMAP_MODULE, _jmap_library(tmp_path), tmp_path)
+    result = _verify(candidate, SAMPLE_MODULE, _sample_library(tmp_path), tmp_path)
 
     assert result.verified is True, result.output
     (main_go,) = fake.main_go_at_build
-    assert f'\tjmap "{JMAP_MODULE}"\n' in main_go
-    assert "jmap=" + JMAP_MODULE in _assembly_line(result)
+    assert f'\tsample "{SAMPLE_MODULE}"\n' in main_go
+    assert "sample=" + SAMPLE_MODULE in _assembly_line(result)
 
 
 def test_page_import_the_block_does_not_use_is_not_imported() -> None:
@@ -353,7 +410,7 @@ def test_package_name_comes_from_the_first_sorted_non_test_file(tmp_path: Path) 
 def test_unused_variables_of_a_wrapped_fragment_are_blanked_and_retried(
     monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 ) -> None:
-    candidate = _jmap("Quick Start")
+    candidate = _sample("Quick Start")
     failing = _completed(
         BUILD,
         1,
@@ -368,7 +425,7 @@ def test_unused_variables_of_a_wrapped_fragment_are_blanked_and_retried(
         {tuple(BUILD): [failing, _completed(BUILD)], tuple(VET): [_completed(VET)]},
     )
 
-    result = _verify(candidate, JMAP_MODULE, _jmap_library(tmp_path), tmp_path)
+    result = _verify(candidate, SAMPLE_MODULE, _sample_library(tmp_path), tmp_path)
 
     assert result.verified is True, result.output
     assert fake.calls == [BUILD, BUILD, VET]
@@ -390,7 +447,7 @@ def test_older_unused_variable_wording_is_also_retried(
         {tuple(BUILD): [failing, _completed(BUILD)], tuple(VET): [_completed(VET)]},
     )
 
-    result = _verify(_jmap("Quick Start"), JMAP_MODULE, _jmap_library(tmp_path), tmp_path)
+    result = _verify(_sample("Quick Start"), SAMPLE_MODULE, _sample_library(tmp_path), tmp_path)
 
     assert result.verified is True, result.output
     assert "\t_ = client" in fake.main_go_at_build[1]
@@ -403,7 +460,7 @@ def test_retry_stops_after_the_maximum_number_of_rebuilds(
     builds = [_completed(BUILD, 1, stderr=f"./main.go:5:1: declared and not used: v{i}\n") for i in range(5)]
     fake = _install(monkeypatch, {tuple(BUILD): builds})
 
-    result = _verify(_jmap("Quick Start"), JMAP_MODULE, _jmap_library(tmp_path), tmp_path)
+    result = _verify(_sample("Quick Start"), SAMPLE_MODULE, _sample_library(tmp_path), tmp_path)
 
     assert result.verified is False
     assert fake.calls == [BUILD, BUILD, BUILD]
@@ -413,7 +470,7 @@ def test_retry_stops_after_the_maximum_number_of_rebuilds(
 def test_real_error_mixed_with_an_unused_variable_is_never_retried(
     monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 ) -> None:
-    candidate = _jmap("OAuth 2.0 bearer token authentication (2)")
+    candidate = _sample("Bearer token authentication (2)")
     failing = _completed(
         BUILD,
         1,
@@ -423,7 +480,7 @@ def test_real_error_mixed_with_an_unused_variable_is_never_retried(
     )
     fake = _install(monkeypatch, {tuple(BUILD): [failing]})
 
-    result = _verify(candidate, JMAP_MODULE, _jmap_library(tmp_path), tmp_path)
+    result = _verify(candidate, SAMPLE_MODULE, _sample_library(tmp_path), tmp_path)
 
     assert result.verified is False
     assert fake.calls == [BUILD]

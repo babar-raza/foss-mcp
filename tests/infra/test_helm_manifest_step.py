@@ -159,13 +159,16 @@ def test_the_rendered_email_python_fetch_step_passes_its_manifest_path_pyproject
     assert _flag_after(fetch, 0, "--manifest-path") == "pyproject.toml"
 
 
-def test_the_rendered_jmap_java_fetch_step_passes_its_manifest_path_pom_xml() -> None:
+def test_the_rendered_cells_java_fetch_step_passes_its_manifest_path_pom_xml() -> None:
     # The expected value is a literal, not read from values.yaml. Editing manifestPath in values.yaml
     # changes the rendered command and the value together, so the per-pilot equality above cannot
-    # catch it; this literal does. Matched on family AND platform: cells/java also has
-    # platform == "java", so platform alone would not identify this pilot.
+    # catch it; this literal does. Matched on family AND platform: pdf/java, slides/java and
+    # 3d/java also have platform == "java", so platform alone would not identify this pilot.
     pilot = next(
-        p for p in _values()["ingestion"]["pilots"] if p["family"] == "jmap" and p["platform"] == "java"
+        # re-pinned by TC-551: <removed pilot> -> cells
+        p
+        for p in _values()["ingestion"]["pilots"]
+        if p["family"] == "cells" and p["platform"] == "java"
     )
     docs = _render()
     fetch = _fetch_tokens(_job_tokens(_job(docs, pilot)))
@@ -302,7 +305,8 @@ def test_each_pilot_sidecar_name_is_distinct_and_is_the_name_its_own_pilot_write
     names = []
     for pilot in _pilots_with_a_manifest_path():
         names.append(fetch_product_reference.sidecar_name(pilot["family"], pilot["platform"]))
-    assert len(names) == len(set(names)) == len(_pilots_with_a_manifest_path()) == 40, names
+    # re-pinned by TC-551: 40 -> 32
+    assert len(names) == len(set(names)) == len(_pilots_with_a_manifest_path()) == 32, names
     assert "product_reference_pdf_net.json" in names
     assert "product_reference_pdf_java.json" in names
 

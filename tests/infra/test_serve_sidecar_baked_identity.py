@@ -41,7 +41,8 @@ PILOT_IDS = [f"{pilot['family']}-{pilot['platform']}" for pilot in PILOTS]
 
 
 def test_the_pilot_list_is_read_from_the_chart_and_is_not_trivially_small() -> None:
-    assert len(PILOTS) >= 40
+    # re-pinned by TC-551: 40 -> 32
+    assert len(PILOTS) >= 32
     assert len(set(PILOT_IDS)) == len(PILOT_IDS)
 
 

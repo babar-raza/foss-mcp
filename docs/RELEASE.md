@@ -18,7 +18,7 @@ cut from this release and are described in section 9. The accepted findings are 
 ## 1. What the standalone demo image is
 
 The demo image is the `demo` stage of `Dockerfile.serving`. It bakes in the ingested data of every pilot in the
-Helm chart (`ingestion.pilots` in `infra/helm/foss-mcp/values.yaml`, currently 40), so a peer needs nothing but
+Helm chart (`ingestion.pilots` in `infra/helm/foss-mcp/values.yaml`, currently 32), so a peer needs nothing but
 Docker: no cluster, no PersistentVolumeClaim, no ingestion Job and no start-up wait.
 
 One image, one container per pilot. A container serves exactly one pilot, chosen at start by
@@ -170,6 +170,8 @@ are the budget the image was gated under, not a minimum.
 
 ## 8. Known limitations
 
+The image serves 32 pilots. The eight jmap pilots (jmap/cpp, jmap/go, jmap/java, jmap/net, jmap/nodejs, jmap/python, jmap/rust and jmap/typescript) were removed from it on 2026-10-16 because their upstream GitHub repositories no longer exist, so they can neither be extracted nor verified; no entry below applies to them.
+
 These are findings of the independent adversarial reviews that this release accepts rather than fixes. The full
 ledger is `docs/REVIEW_LEDGER.md`; each entry below repeats one accepted finding with its reason.
 
@@ -213,10 +215,10 @@ says so.
 - **L-071** `get_product_reference` answers NotAvailable for the `formats` and `limitations` sections on every pilot.
   No data source reaches these two sections, so the answer says so instead of inventing content; slides/python's
   unsupported PDF export, for example, is not listed there. A peer has to read the README for supported formats.
-- **L-072** The five C++ pilots (pdf/cpp, cells/cpp, slides/cpp, email/cpp and jmap/cpp) have no package-registry
+- **L-072** The four C++ pilots (pdf/cpp, cells/cpp, slides/cpp and email/cpp) have no package-registry
   check, because C++ has no package-manager coordinate to check. Their install answer says there is no
   package-manager install command and points to where the distribution notes are. A committed test requires the
-  registry file to be absent for exactly these five pilots, so the gap cannot hide another one.
+  registry file to be absent for exactly these four pilots, so the gap cannot hide another one.
 - **L-080** `/readyz` needs no authentication, like any container probe, and answers only `ready` or `not ready`. It
   reports ready when the pilot's documents are servable and does not judge how much content a pilot has: tex/python
   is ready with 4 classes, and its extraction notice says why. The probe reads a cached result instead of parsing the
@@ -227,11 +229,9 @@ says so.
   install answer carries a notice naming the indexed commit, and Go answers give `go get <module>@<commit>`. The server
   does not compute the difference, because that needs network access at ingestion and a new data file per pilot; it is
   planned after the pilot.
-- **L-090** jmap/nodejs and jmap/typescript build their client from mixin functions
-  (`SubmissionClientMixin(MailClientMixin(...))`), and the extractor does not flatten class-expression mixins. A peer
-  asking for `getMailboxes` on these two pilots gets a miss, because `JmapClient` lists no mail methods. The other jmap
-  platforms are not affected. The fix is a medium-sized change to a shared extractor file that already has four fixes
-  queued for this release, so it is accepted with that risk.
+- **L-090** Class-expression mixins (an object of functions applied to a class with `Object.assign`) are not flattened by
+  the extractor. The only pilots that were built this way were removed from the image, so no pilot of the image is
+  affected, and the extractor limitation stays accepted with that risk.
 - **L-091** Go and Rust symbol names are package-relative (`Cells`, `session::Session`) and are not import paths. The
   tool descriptions say so, and for Go the install answer gives the module path, which is the import root. A peer still
   has to read the README for sub-package or crate paths.
@@ -267,7 +267,7 @@ says so.
   `excel-cells` does not exist today, so its install answer already says not found, but it would be served as installable
   if someone registered the name. Checking the registry's repository URL is planned after the pilot.
 - **L-109** Some upstream packages are themselves defective: the 3d/net package does not work, 3d/python OBJ export is
-  buggy, cells/typescript ships a demo-only entry point, and the jmap release notes are templates. These are upstream
+  buggy and cells/typescript ships a demo-only entry point. These are upstream
   defects. The MCP reports the packages as they are, and `list_recent_changes` labels templated notes.
 - **L-110** One item (B08) of the second independent audit was never specified, and no text for it exists anywhere. The
   third and fourth review rounds re-verified every earlier finding and found nothing unmapped. It is retired as
@@ -282,7 +282,7 @@ says so.
   standalone image bakes one generation and never re-ingests, so this cannot happen there.
 - **L-121** Task-to-API coverage (about 59% of sampled tasks resolved to the right API) was measured in review round 4,
   before the G3 fixes, and was not re-measured on the final image.
-- **L-122** cells/rust, jmap/rust and cells/typescript answer compatibility NotAvailable, because their manifests state
+- **L-122** cells/rust and cells/typescript answer compatibility NotAvailable, because their manifests state
   no rust-version or engines. The server does not infer one.
 - **L-123** The image healthcheck probes every 30 s, so `docker ps` can show "starting" for up to about 30 s after the
   server is ready. The server answers as soon as it starts. A shorter start interval needs Docker Engine 25 or later.
@@ -300,11 +300,8 @@ says so.
   Search results can therefore show the same title more than once.
 - **L-129** A repeated `initialize` on an open HTTP session is accepted and replaces that session's client information
   (MCP SDK behaviour). It does not affect other sessions.
-- **L-133** To compile jmap/cpp's README examples, the example verifier adds the library's `include/aspose_jmap`
-  directory to the include path, so the README's `#include "JmapClient.hpp"` compiles. A reader who builds with the
-  library's documented CMake target must write `#include <aspose_jmap/JmapClient.hpp>` instead. The example still
-  compiles and links against the real pinned library, and nothing but the page's own `#include` lines is ever added
-  to it.
+- **L-133** The only pilot whose README example verifier added a library directory to the include path so that a quoted
+  `#include` line compiles was removed from the image, so no pilot of the image is affected.
 - **tex/python** serves one verified example, not two. The pinned upstream library (aspose-tex-foss, commit 181015d2,
   which is also the upstream head) does not import: `src/aspose_tex/_input/catcode.py` has an IndentationError at line
   66, so no example that imports `aspose_tex` can run and none can be verified. The rest of the tex/python content is
@@ -346,13 +343,13 @@ finding has a published answer.
 
 These extractor improvements were planned and are not in this release. The full list of review findings is in `docs/REVIEW_LEDGER.md`.
 
-- **TC-397** Would have fixed C++ extraction: parameters read from the declarator, out-of-line member definitions attached to their class, free functions published only from public headers, header-only constructors captured. Affected pilots are the five C++ pilots: pdf/cpp, cells/cpp, slides/cpp, email/cpp and jmap/cpp. A peer may see C++ parameter types without qualifiers or defaults, constructors missing, some free functions defined in headers missing, and functions defined only in `.cpp` files still listed.
-- **TC-398** Would have made Go, Rust and TypeScript publish only their public API, with methods attached to their receiver type and import paths for symbol names. Affected pilots are pdf/go, cells/go and jmap/go (Go), cells/rust and jmap/rust (Rust), and pdf/typescript, cells/typescript, jmap/typescript, 3d/typescript and jmap/nodejs (TypeScript and Node). A peer will see Go and Rust symbol names that are not import paths, and non-exported helpers or trait boilerplate listed as top-level functions.
-- **TC-402** Would have re-extracted the five C++ fixtures at their pinned library commits with the corrected C++ extractor. Affected pilots are pdf/cpp, cells/cpp, slides/cpp, email/cpp and jmap/cpp. A peer will see the earlier C++ signatures unchanged, and the 300-type extraction cap may still hide central types.
-- **TC-403** Would have re-extracted the ten Go, Rust and TypeScript fixtures at their pinned library commits. Affected pilots are pdf/go, jmap/go, cells/go, cells/rust, jmap/rust, pdf/typescript, cells/typescript, jmap/typescript, 3d/typescript and jmap/nodejs. A peer will see the earlier fixtures unchanged, and for these pilots the 300-type extraction cap may still hide central types.
-- **TC-428** Would have fixed Go struct fields whose tag was published as their type. Affected pilots are the Go pilots pdf/go, cells/go and jmap/go. A peer may see a field type shown as a tag such as `json:"id,omitempty"` instead of the Go type.
-- **TC-475** Would have filled empty JavaScript parameter and return types from the JSDoc tags. The affected pilot is jmap/nodejs, whose fixture has empty parameter types. A peer may see JavaScript parameter types that are empty even though the upstream JSDoc states them.
-- **TC-526** Would have fixed Java and Rust signature fidelity. Java (3d/java, cells/java, jmap/java, pdf/java, slides/java): a varargs parameter is dropped (`setPages(int... pages)` is served `setPages()`, 6 of 6 cases measured), generic bounds and `throws` clauses are not shown, public fields are not listed (34 properties of 3d/java such as the Quaternion `x`, `y`, `z`, `w`), no method is marked `static` (none of the 71, 76 and 159 static methods counted in three Java pilots), and a getter such as `isIdentity()` is also listed as a property `identity` that reads like a field. Rust (cells/rust, jmap/rust): no method records its receiver, so cells/rust's 259 associated functions look like its 1,434 methods, the 10 mail methods of jmap/rust's `JmapClient` appear as separate receiver-less function chunks while the type lists 9, and 6 cells/rust chunks are derive boilerplate. The `API-Coverage` line counts types, so no response marks these gaps.
+- **TC-397** Would have fixed C++ extraction: parameters read from the declarator, out-of-line member definitions attached to their class, free functions published only from public headers, header-only constructors captured. Affected pilots are the four C++ pilots: pdf/cpp, cells/cpp, slides/cpp and email/cpp. A peer may see C++ parameter types without qualifiers or defaults, constructors missing, some free functions defined in headers missing, and functions defined only in `.cpp` files still listed.
+- **TC-398** Would have made Go, Rust and TypeScript publish only their public API, with methods attached to their receiver type and import paths for symbol names. Affected pilots are pdf/go and cells/go (Go), cells/rust (Rust), and pdf/typescript, cells/typescript and 3d/typescript (TypeScript). A peer will see Go and Rust symbol names that are not import paths, and non-exported helpers or trait boilerplate listed as top-level functions.
+- **TC-402** Would have re-extracted the four C++ fixtures at their pinned library commits with the corrected C++ extractor. Affected pilots are pdf/cpp, cells/cpp, slides/cpp and email/cpp. A peer will see the earlier C++ signatures unchanged, and the 300-type extraction cap may still hide central types.
+- **TC-403** Would have re-extracted the six Go, Rust and TypeScript fixtures at their pinned library commits. Affected pilots are pdf/go, cells/go, cells/rust, pdf/typescript, cells/typescript and 3d/typescript. A peer will see the earlier fixtures unchanged, and for these pilots the 300-type extraction cap may still hide central types.
+- **TC-428** Would have fixed Go struct fields whose tag was published as their type. Affected pilots are the Go pilots pdf/go and cells/go. A peer may see a field type shown as a tag such as `json:"id,omitempty"` instead of the Go type.
+- **TC-475** Would have filled empty JavaScript parameter and return types from the JSDoc tags. The only pilot it concerned was removed from the image, so no pilot of the image is affected.
+- **TC-526** Would have fixed Java and Rust signature fidelity. Java (3d/java, cells/java, pdf/java, slides/java): a varargs parameter is dropped (`setPages(int... pages)` is served `setPages()`, 6 of 6 cases measured), generic bounds and `throws` clauses are not shown, public fields are not listed (34 properties of 3d/java such as the Quaternion `x`, `y`, `z`, `w`), no method is marked `static` (none of the 71, 76 and 159 static methods counted in three Java pilots), and a getter such as `isIdentity()` is also listed as a property `identity` that reads like a field. Rust (cells/rust): no method records its receiver, so cells/rust's 259 associated functions look like its 1,434 methods, and 6 cells/rust chunks are derive boilerplate. The `API-Coverage` line counts types, so no response marks these gaps.
 - **TC-527** Would have served member documentation for Java and C# (13 pilots: the five Java and the eight .NET pilots). The first sentence of each member's comment is already in the fixtures (pdf/net 3,887 of 4,887 members of the first 300 types, cells/java 2,199 of 2,677, words/net 3,363 of 3,506) but no symbol chunk renders it, and the Javadoc `@param`, `@return`, `@throws` and C# `<param>`, `<returns>`, `<exception>` text is dropped. In 65 blind coding tasks on 13 pilots the served signatures were never wrong (0 in 1,037 calls), but 8 of 13 option, error and format tasks forced a guess and none of the 13 was fully answered. A peer gets signatures without parameter meaning, units, index base or exceptions.
 - **TC-528** Would have served the same member documentation for Python (12 pilots), TypeScript and Node.js (5), Go (3), Rust (2) and C++ (5). Docstring Args, Returns and Raises, TSDoc, godoc, rustdoc and Doxygen text is not served. For example, the second `Document.save` call of pdf/python raises `FileExistsError` because `overwrite` defaults to False, which its docstring states and the index does not. A Python summary wrapped over two lines is served cut mid-sentence, and a sentence containing `e.g.` is cut there (cells/go `Cells`).
 - **TC-531** Would have re-extracted the five Java fixtures at their pinned commits with the fidelity and documentation work, and raised pdf/java from 300 to its whole 1,239 types. The shipped pdf/java index holds 300 of 1,239 types, 193 of those 300 are engine internals (`org.aspose.pdf.engine.xfa.*`, `engine.script.js.interp.*`), and only a third of the type names its README uses can be found (top-3 recall 33 percent). A prototype extraction kept 1,239 of 1,239 types and left 4 of 914 README identifiers unresolved. A peer sees the earlier Java data, and for pdf/java a type the README names may be missing.
@@ -363,4 +360,4 @@ The coverage caveats that already exist are the only signal. Every symbol chunk 
 
 ### Not part of this release
 
-`mcp-gateway`, the nginx reverse proxy of the development cluster, is not part of the release. It exists only in the cluster, is not in git, and routes 14 of the 40 pilots. Neither is anything in the Kubernetes chart's cluster install beyond what section 8 already lists under the chart. The standalone image is the release.
+`mcp-gateway`, the nginx reverse proxy of the development cluster, is not part of the release. It exists only in the cluster, is not in git, and routes only 14 of the pilots. Neither is anything in the Kubernetes chart's cluster install beyond what section 8 already lists under the chart. The standalone image is the release.

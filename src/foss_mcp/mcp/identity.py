@@ -39,7 +39,6 @@ FAMILY_DISPLAY: dict[str, str] = {
     "email": "Email",
     "html": "HTML",
     "imaging": "Imaging",
-    "jmap": "JMAP",
     "note": "Note",
     "page": "Page",
     "pdf": "PDF",

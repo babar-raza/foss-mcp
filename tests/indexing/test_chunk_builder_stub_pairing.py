@@ -264,8 +264,9 @@ def test_the_ingestion_entrypoint_calls_the_builder() -> None:
 # --------------------------------------------------------------- the 12 committed Python fixtures
 
 
-def test_the_twelve_python_fixtures_are_discovered() -> None:
-    assert len(PYTHON_FIXTURES) >= 12
+def test_the_eleven_python_fixtures_are_discovered() -> None:
+    # re-pinned by TC-551: 12 -> 11
+    assert len(PYTHON_FIXTURES) >= 11
 
 
 def _final_segment(fqn: str) -> str:

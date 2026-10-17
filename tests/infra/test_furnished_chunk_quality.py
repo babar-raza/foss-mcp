@@ -88,7 +88,8 @@ def _chunks_titled(built: Built, title: str) -> list[Chunk]:
 
 
 def test_every_shipped_pilot_has_a_furnished_page() -> None:
-    assert len(PILOTS) >= 40
+    # re-pinned by TC-551: 40 -> 32
+    assert len(PILOTS) >= 32
     for pilot in PILOTS:
         assert (FURNISHED / pilot / "pages" / "_index.md").is_file(), pilot
         assert _built(pilot).chunks, f"{pilot}: the furnished page produced no documentation chunk"

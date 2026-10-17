@@ -580,7 +580,7 @@ def test_the_helper_reads_the_same_variable_names_as_the_gateway_provider() -> N
     assert helper._DEFAULT_DIMENSION == provider._DEFAULT_DIMENSION == 4096
 
 
-# --- the 40 committed pilots --------------------------------------------------------------------
+# --- the 32 committed pilots --------------------------------------------------------------------
 
 
 def _pilots() -> list[tuple[str, str, str]]:
@@ -605,9 +605,11 @@ def _example_point_count(payload: dict) -> int:
     return sum("Example:" in point["text"] for point in points)
 
 
-def test_there_are_forty_pilots() -> None:
-    assert len(PILOTS) == 40
-    assert len(set(PILOTS)) == 40
+def test_there_are_thirty_two_pilots() -> None:
+    # re-pinned by TC-551: 40 -> 32
+    assert len(PILOTS) == 32
+    # re-pinned by TC-551: 40 -> 32
+    assert len(set(PILOTS)) == 32
 
 
 def test_the_committed_demo_generations_include_pilots_with_and_without_example_points() -> None:

@@ -245,11 +245,18 @@ def test_assemble_quick_start_adds_only_the_drawing_directive() -> None:
     assert source == "using Aspose.Slides.Foss.Drawing;\n" + candidate.code
 
 
-def test_assemble_jmap_oauth_block_gains_the_jmap_directive() -> None:
-    candidate = _by_title(_candidates("jmap_net"), "OAuth 2.0 bearer token authentication")
-    source, added = example_verifier._assemble_dotnet_source(candidate.code, candidate.page_code)
-    assert added == ("using Aspose.Jmap;",)
-    assert source.startswith("using Aspose.Jmap;\n")
+def test_assemble_a_fragment_that_needs_a_namespace_gains_the_directive_of_the_page() -> None:
+    # re-pinned by TC-551: the block shape (a later fragment with no ``using`` of its own, a quick start that holds
+    # the page's only directive) was read from a removed pilot's page; it is now built inline with neutral names.
+    quick_start = (
+        'using Sample.Client;\n\nvar options = new ClientOptions { UserName = "user" };\n'
+        "using var client = new SampleClient(options);\nawait client.ConnectAsync();"
+    )
+    fragment = 'var options = new ClientOptions\n{\n    BearerToken = "token", // from an OAuth 2.0 flow\n};'
+    source, added = example_verifier._assemble_dotnet_source(fragment, (quick_start, fragment))
+    assert added == ("using Sample.Client;",)
+    assert source.startswith("using Sample.Client;\n")
+    assert source == "using Sample.Client;\n" + fragment
 
 
 def test_assemble_compares_directives_with_whitespace_collapsed() -> None:

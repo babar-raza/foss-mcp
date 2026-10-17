@@ -4,16 +4,16 @@
 # and verify with
 #     python scripts/release/generate_demo_compose.py --check
 #
-# Standalone demo: 40 services, one per pilot, all running the same image (FOSS_MCP_DEMO_IMAGE, required).
+# Standalone demo: 32 services, one per pilot, all running the same image (FOSS_MCP_DEMO_IMAGE, required).
 # Each service differs only in FOSS_MCP_PILOT, which the image's entrypoint turns into the server's
 # identity. Start only the pilots you want:
 #
 #     export FOSS_MCP_DEMO_IMAGE=<registry>/foss-mcp-serving:<demo tag>
 #     docker compose -f docker-compose.demo.yml up -d pdf-net slides-python
 #     docker compose -f docker-compose.demo.yml --profile pdf up -d     # a whole family
-#     docker compose -f docker-compose.demo.yml --profile all up -d     # all 40 pilots
+#     docker compose -f docker-compose.demo.yml --profile all up -d     # all 32 pilots
 #
-# Profiles: each service is in its family's profile (3d, barcode, cells, email, html, imaging, jmap, note, page, pdf, slides, tex, words) and in 'all'.
+# Profiles: each service is in its family's profile (3d, barcode, cells, email, html, imaging, note, page, pdf, slides, tex, words) and in 'all'.
 # Limits per container: mem_limit 192m, cpus 0.25, pids_limit 256, read-only root
 # filesystem with a /tmp tmpfs, cap_drop ALL, no-new-privileges. Healthcheck: /readyz.
 #
@@ -33,34 +33,26 @@
 #   8110  slides/java  (service slides-java)
 #   8111  cells/go  (service cells-go)
 #   8112  cells/typescript  (service cells-typescript)
-#   8113  jmap/rust  (service jmap-rust)
-#   8114  cells/cpp  (service cells-cpp)
-#   8115  cells/net  (service cells-net)
-#   8116  cells/python  (service cells-python)
-#   8117  jmap/python  (service jmap-python)
-#   8118  pdf/python  (service pdf-python)
-#   8119  slides/cpp  (service slides-cpp)
-#   8120  slides/net  (service slides-net)
-#   8121  email/python  (service email-python)
-#   8122  email/cpp  (service email-cpp)
-#   8123  email/net  (service email-net)
-#   8124  barcode/python  (service barcode-python)
-#   8125  note/python  (service note-python)
-#   8126  html/python  (service html-python)
-#   8127  page/python  (service page-python)
-#   8128  imaging/net  (service imaging-net)
-#   8129  cells/java  (service cells-java)
-#   8130  jmap/typescript  (service jmap-typescript)
-#   8131  jmap/go  (service jmap-go)
-#   8132  jmap/net  (service jmap-net)
-#   8133  jmap/cpp  (service jmap-cpp)
-#   8134  jmap/java  (service jmap-java)
-#   8135  jmap/nodejs  (service jmap-nodejs)
-#   8136  3d/python  (service 3d-python)
-#   8137  3d/typescript  (service 3d-typescript)
-#   8138  3d/net  (service 3d-net)
-#   8139  3d/java  (service 3d-java)
-#   8140  tex/python  (service tex-python)
+#   8113  cells/cpp  (service cells-cpp)
+#   8114  cells/net  (service cells-net)
+#   8115  cells/python  (service cells-python)
+#   8116  pdf/python  (service pdf-python)
+#   8117  slides/cpp  (service slides-cpp)
+#   8118  slides/net  (service slides-net)
+#   8119  email/python  (service email-python)
+#   8120  email/cpp  (service email-cpp)
+#   8121  email/net  (service email-net)
+#   8122  barcode/python  (service barcode-python)
+#   8123  note/python  (service note-python)
+#   8124  html/python  (service html-python)
+#   8125  page/python  (service page-python)
+#   8126  imaging/net  (service imaging-net)
+#   8127  cells/java  (service cells-java)
+#   8128  3d/python  (service 3d-python)
+#   8129  3d/typescript  (service 3d-typescript)
+#   8130  3d/net  (service 3d-net)
+#   8131  3d/java  (service 3d-java)
+#   8132  tex/python  (service tex-python)
 
 name: foss-mcp-demo
 
@@ -365,37 +357,12 @@ services:
       start_period: 10s
       retries: 3
 
-  jmap-rust:
-    image: "${FOSS_MCP_DEMO_IMAGE:?set FOSS_MCP_DEMO_IMAGE to the demo image reference}"
-    environment:
-      FOSS_MCP_PILOT: jmap/rust
-    ports:
-      - "127.0.0.1:${FOSS_MCP_DEMO_PORT_JMAP_RUST:-8113}:8080"
-    profiles: [jmap, all]
-    mem_limit: 192m
-    cpus: 0.25
-    pids_limit: 256
-    read_only: true
-    tmpfs:
-      - /tmp
-    cap_drop:
-      - ALL
-    security_opt:
-      - no-new-privileges:true
-    restart: unless-stopped
-    healthcheck:
-      test: ["CMD", "python", "-c", "import urllib.request,sys; sys.exit(0 if urllib.request.urlopen('http://localhost:8080/readyz', timeout=3).status==200 else 1)"]
-      interval: 30s
-      timeout: 5s
-      start_period: 10s
-      retries: 3
-
   cells-cpp:
     image: "${FOSS_MCP_DEMO_IMAGE:?set FOSS_MCP_DEMO_IMAGE to the demo image reference}"
     environment:
       FOSS_MCP_PILOT: cells/cpp
     ports:
-      - "127.0.0.1:${FOSS_MCP_DEMO_PORT_CELLS_CPP:-8114}:8080"
+      - "127.0.0.1:${FOSS_MCP_DEMO_PORT_CELLS_CPP:-8113}:8080"
     profiles: [cells, all]
     mem_limit: 192m
     cpus: 0.25
@@ -420,7 +387,7 @@ services:
     environment:
       FOSS_MCP_PILOT: cells/net
     ports:
-      - "127.0.0.1:${FOSS_MCP_DEMO_PORT_CELLS_NET:-8115}:8080"
+      - "127.0.0.1:${FOSS_MCP_DEMO_PORT_CELLS_NET:-8114}:8080"
     profiles: [cells, all]
     mem_limit: 192m
     cpus: 0.25
@@ -445,33 +412,8 @@ services:
     environment:
       FOSS_MCP_PILOT: cells/python
     ports:
-      - "127.0.0.1:${FOSS_MCP_DEMO_PORT_CELLS_PYTHON:-8116}:8080"
+      - "127.0.0.1:${FOSS_MCP_DEMO_PORT_CELLS_PYTHON:-8115}:8080"
     profiles: [cells, all]
-    mem_limit: 192m
-    cpus: 0.25
-    pids_limit: 256
-    read_only: true
-    tmpfs:
-      - /tmp
-    cap_drop:
-      - ALL
-    security_opt:
-      - no-new-privileges:true
-    restart: unless-stopped
-    healthcheck:
-      test: ["CMD", "python", "-c", "import urllib.request,sys; sys.exit(0 if urllib.request.urlopen('http://localhost:8080/readyz', timeout=3).status==200 else 1)"]
-      interval: 30s
-      timeout: 5s
-      start_period: 10s
-      retries: 3
-
-  jmap-python:
-    image: "${FOSS_MCP_DEMO_IMAGE:?set FOSS_MCP_DEMO_IMAGE to the demo image reference}"
-    environment:
-      FOSS_MCP_PILOT: jmap/python
-    ports:
-      - "127.0.0.1:${FOSS_MCP_DEMO_PORT_JMAP_PYTHON:-8117}:8080"
-    profiles: [jmap, all]
     mem_limit: 192m
     cpus: 0.25
     pids_limit: 256
@@ -495,7 +437,7 @@ services:
     environment:
       FOSS_MCP_PILOT: pdf/python
     ports:
-      - "127.0.0.1:${FOSS_MCP_DEMO_PORT_PDF_PYTHON:-8118}:8080"
+      - "127.0.0.1:${FOSS_MCP_DEMO_PORT_PDF_PYTHON:-8116}:8080"
     profiles: [pdf, all]
     mem_limit: 192m
     cpus: 0.25
@@ -520,7 +462,7 @@ services:
     environment:
       FOSS_MCP_PILOT: slides/cpp
     ports:
-      - "127.0.0.1:${FOSS_MCP_DEMO_PORT_SLIDES_CPP:-8119}:8080"
+      - "127.0.0.1:${FOSS_MCP_DEMO_PORT_SLIDES_CPP:-8117}:8080"
     profiles: [slides, all]
     mem_limit: 192m
     cpus: 0.25
@@ -545,7 +487,7 @@ services:
     environment:
       FOSS_MCP_PILOT: slides/net
     ports:
-      - "127.0.0.1:${FOSS_MCP_DEMO_PORT_SLIDES_NET:-8120}:8080"
+      - "127.0.0.1:${FOSS_MCP_DEMO_PORT_SLIDES_NET:-8118}:8080"
     profiles: [slides, all]
     mem_limit: 192m
     cpus: 0.25
@@ -570,7 +512,7 @@ services:
     environment:
       FOSS_MCP_PILOT: email/python
     ports:
-      - "127.0.0.1:${FOSS_MCP_DEMO_PORT_EMAIL_PYTHON:-8121}:8080"
+      - "127.0.0.1:${FOSS_MCP_DEMO_PORT_EMAIL_PYTHON:-8119}:8080"
     profiles: [email, all]
     mem_limit: 192m
     cpus: 0.25
@@ -595,7 +537,7 @@ services:
     environment:
       FOSS_MCP_PILOT: email/cpp
     ports:
-      - "127.0.0.1:${FOSS_MCP_DEMO_PORT_EMAIL_CPP:-8122}:8080"
+      - "127.0.0.1:${FOSS_MCP_DEMO_PORT_EMAIL_CPP:-8120}:8080"
     profiles: [email, all]
     mem_limit: 192m
     cpus: 0.25
@@ -620,7 +562,7 @@ services:
     environment:
       FOSS_MCP_PILOT: email/net
     ports:
-      - "127.0.0.1:${FOSS_MCP_DEMO_PORT_EMAIL_NET:-8123}:8080"
+      - "127.0.0.1:${FOSS_MCP_DEMO_PORT_EMAIL_NET:-8121}:8080"
     profiles: [email, all]
     mem_limit: 192m
     cpus: 0.25
@@ -645,7 +587,7 @@ services:
     environment:
       FOSS_MCP_PILOT: barcode/python
     ports:
-      - "127.0.0.1:${FOSS_MCP_DEMO_PORT_BARCODE_PYTHON:-8124}:8080"
+      - "127.0.0.1:${FOSS_MCP_DEMO_PORT_BARCODE_PYTHON:-8122}:8080"
     profiles: [barcode, all]
     mem_limit: 192m
     cpus: 0.25
@@ -670,7 +612,7 @@ services:
     environment:
       FOSS_MCP_PILOT: note/python
     ports:
-      - "127.0.0.1:${FOSS_MCP_DEMO_PORT_NOTE_PYTHON:-8125}:8080"
+      - "127.0.0.1:${FOSS_MCP_DEMO_PORT_NOTE_PYTHON:-8123}:8080"
     profiles: [note, all]
     mem_limit: 192m
     cpus: 0.25
@@ -695,7 +637,7 @@ services:
     environment:
       FOSS_MCP_PILOT: html/python
     ports:
-      - "127.0.0.1:${FOSS_MCP_DEMO_PORT_HTML_PYTHON:-8126}:8080"
+      - "127.0.0.1:${FOSS_MCP_DEMO_PORT_HTML_PYTHON:-8124}:8080"
     profiles: [html, all]
     mem_limit: 192m
     cpus: 0.25
@@ -720,7 +662,7 @@ services:
     environment:
       FOSS_MCP_PILOT: page/python
     ports:
-      - "127.0.0.1:${FOSS_MCP_DEMO_PORT_PAGE_PYTHON:-8127}:8080"
+      - "127.0.0.1:${FOSS_MCP_DEMO_PORT_PAGE_PYTHON:-8125}:8080"
     profiles: [page, all]
     mem_limit: 192m
     cpus: 0.25
@@ -745,7 +687,7 @@ services:
     environment:
       FOSS_MCP_PILOT: imaging/net
     ports:
-      - "127.0.0.1:${FOSS_MCP_DEMO_PORT_IMAGING_NET:-8128}:8080"
+      - "127.0.0.1:${FOSS_MCP_DEMO_PORT_IMAGING_NET:-8126}:8080"
     profiles: [imaging, all]
     mem_limit: 192m
     cpus: 0.25
@@ -770,158 +712,8 @@ services:
     environment:
       FOSS_MCP_PILOT: cells/java
     ports:
-      - "127.0.0.1:${FOSS_MCP_DEMO_PORT_CELLS_JAVA:-8129}:8080"
+      - "127.0.0.1:${FOSS_MCP_DEMO_PORT_CELLS_JAVA:-8127}:8080"
     profiles: [cells, all]
-    mem_limit: 192m
-    cpus: 0.25
-    pids_limit: 256
-    read_only: true
-    tmpfs:
-      - /tmp
-    cap_drop:
-      - ALL
-    security_opt:
-      - no-new-privileges:true
-    restart: unless-stopped
-    healthcheck:
-      test: ["CMD", "python", "-c", "import urllib.request,sys; sys.exit(0 if urllib.request.urlopen('http://localhost:8080/readyz', timeout=3).status==200 else 1)"]
-      interval: 30s
-      timeout: 5s
-      start_period: 10s
-      retries: 3
-
-  jmap-typescript:
-    image: "${FOSS_MCP_DEMO_IMAGE:?set FOSS_MCP_DEMO_IMAGE to the demo image reference}"
-    environment:
-      FOSS_MCP_PILOT: jmap/typescript
-    ports:
-      - "127.0.0.1:${FOSS_MCP_DEMO_PORT_JMAP_TYPESCRIPT:-8130}:8080"
-    profiles: [jmap, all]
-    mem_limit: 192m
-    cpus: 0.25
-    pids_limit: 256
-    read_only: true
-    tmpfs:
-      - /tmp
-    cap_drop:
-      - ALL
-    security_opt:
-      - no-new-privileges:true
-    restart: unless-stopped
-    healthcheck:
-      test: ["CMD", "python", "-c", "import urllib.request,sys; sys.exit(0 if urllib.request.urlopen('http://localhost:8080/readyz', timeout=3).status==200 else 1)"]
-      interval: 30s
-      timeout: 5s
-      start_period: 10s
-      retries: 3
-
-  jmap-go:
-    image: "${FOSS_MCP_DEMO_IMAGE:?set FOSS_MCP_DEMO_IMAGE to the demo image reference}"
-    environment:
-      FOSS_MCP_PILOT: jmap/go
-    ports:
-      - "127.0.0.1:${FOSS_MCP_DEMO_PORT_JMAP_GO:-8131}:8080"
-    profiles: [jmap, all]
-    mem_limit: 192m
-    cpus: 0.25
-    pids_limit: 256
-    read_only: true
-    tmpfs:
-      - /tmp
-    cap_drop:
-      - ALL
-    security_opt:
-      - no-new-privileges:true
-    restart: unless-stopped
-    healthcheck:
-      test: ["CMD", "python", "-c", "import urllib.request,sys; sys.exit(0 if urllib.request.urlopen('http://localhost:8080/readyz', timeout=3).status==200 else 1)"]
-      interval: 30s
-      timeout: 5s
-      start_period: 10s
-      retries: 3
-
-  jmap-net:
-    image: "${FOSS_MCP_DEMO_IMAGE:?set FOSS_MCP_DEMO_IMAGE to the demo image reference}"
-    environment:
-      FOSS_MCP_PILOT: jmap/net
-    ports:
-      - "127.0.0.1:${FOSS_MCP_DEMO_PORT_JMAP_NET:-8132}:8080"
-    profiles: [jmap, all]
-    mem_limit: 192m
-    cpus: 0.25
-    pids_limit: 256
-    read_only: true
-    tmpfs:
-      - /tmp
-    cap_drop:
-      - ALL
-    security_opt:
-      - no-new-privileges:true
-    restart: unless-stopped
-    healthcheck:
-      test: ["CMD", "python", "-c", "import urllib.request,sys; sys.exit(0 if urllib.request.urlopen('http://localhost:8080/readyz', timeout=3).status==200 else 1)"]
-      interval: 30s
-      timeout: 5s
-      start_period: 10s
-      retries: 3
-
-  jmap-cpp:
-    image: "${FOSS_MCP_DEMO_IMAGE:?set FOSS_MCP_DEMO_IMAGE to the demo image reference}"
-    environment:
-      FOSS_MCP_PILOT: jmap/cpp
-    ports:
-      - "127.0.0.1:${FOSS_MCP_DEMO_PORT_JMAP_CPP:-8133}:8080"
-    profiles: [jmap, all]
-    mem_limit: 192m
-    cpus: 0.25
-    pids_limit: 256
-    read_only: true
-    tmpfs:
-      - /tmp
-    cap_drop:
-      - ALL
-    security_opt:
-      - no-new-privileges:true
-    restart: unless-stopped
-    healthcheck:
-      test: ["CMD", "python", "-c", "import urllib.request,sys; sys.exit(0 if urllib.request.urlopen('http://localhost:8080/readyz', timeout=3).status==200 else 1)"]
-      interval: 30s
-      timeout: 5s
-      start_period: 10s
-      retries: 3
-
-  jmap-java:
-    image: "${FOSS_MCP_DEMO_IMAGE:?set FOSS_MCP_DEMO_IMAGE to the demo image reference}"
-    environment:
-      FOSS_MCP_PILOT: jmap/java
-    ports:
-      - "127.0.0.1:${FOSS_MCP_DEMO_PORT_JMAP_JAVA:-8134}:8080"
-    profiles: [jmap, all]
-    mem_limit: 192m
-    cpus: 0.25
-    pids_limit: 256
-    read_only: true
-    tmpfs:
-      - /tmp
-    cap_drop:
-      - ALL
-    security_opt:
-      - no-new-privileges:true
-    restart: unless-stopped
-    healthcheck:
-      test: ["CMD", "python", "-c", "import urllib.request,sys; sys.exit(0 if urllib.request.urlopen('http://localhost:8080/readyz', timeout=3).status==200 else 1)"]
-      interval: 30s
-      timeout: 5s
-      start_period: 10s
-      retries: 3
-
-  jmap-nodejs:
-    image: "${FOSS_MCP_DEMO_IMAGE:?set FOSS_MCP_DEMO_IMAGE to the demo image reference}"
-    environment:
-      FOSS_MCP_PILOT: jmap/nodejs
-    ports:
-      - "127.0.0.1:${FOSS_MCP_DEMO_PORT_JMAP_NODEJS:-8135}:8080"
-    profiles: [jmap, all]
     mem_limit: 192m
     cpus: 0.25
     pids_limit: 256
@@ -945,7 +737,7 @@ services:
     environment:
       FOSS_MCP_PILOT: 3d/python
     ports:
-      - "127.0.0.1:${FOSS_MCP_DEMO_PORT_3D_PYTHON:-8136}:8080"
+      - "127.0.0.1:${FOSS_MCP_DEMO_PORT_3D_PYTHON:-8128}:8080"
     profiles: [3d, all]
     mem_limit: 192m
     cpus: 0.25
@@ -970,7 +762,7 @@ services:
     environment:
       FOSS_MCP_PILOT: 3d/typescript
     ports:
-      - "127.0.0.1:${FOSS_MCP_DEMO_PORT_3D_TYPESCRIPT:-8137}:8080"
+      - "127.0.0.1:${FOSS_MCP_DEMO_PORT_3D_TYPESCRIPT:-8129}:8080"
     profiles: [3d, all]
     mem_limit: 192m
     cpus: 0.25
@@ -995,7 +787,7 @@ services:
     environment:
       FOSS_MCP_PILOT: 3d/net
     ports:
-      - "127.0.0.1:${FOSS_MCP_DEMO_PORT_3D_NET:-8138}:8080"
+      - "127.0.0.1:${FOSS_MCP_DEMO_PORT_3D_NET:-8130}:8080"
     profiles: [3d, all]
     mem_limit: 192m
     cpus: 0.25
@@ -1020,7 +812,7 @@ services:
     environment:
       FOSS_MCP_PILOT: 3d/java
     ports:
-      - "127.0.0.1:${FOSS_MCP_DEMO_PORT_3D_JAVA:-8139}:8080"
+      - "127.0.0.1:${FOSS_MCP_DEMO_PORT_3D_JAVA:-8131}:8080"
     profiles: [3d, all]
     mem_limit: 192m
     cpus: 0.25
@@ -1045,7 +837,7 @@ services:
     environment:
       FOSS_MCP_PILOT: tex/python
     ports:
-      - "127.0.0.1:${FOSS_MCP_DEMO_PORT_TEX_PYTHON:-8140}:8080"
+      - "127.0.0.1:${FOSS_MCP_DEMO_PORT_TEX_PYTHON:-8132}:8080"
     profiles: [tex, all]
     mem_limit: 192m
     cpus: 0.25

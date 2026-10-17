@@ -1,7 +1,7 @@
-"""TC-375: the thirteen wave-3 Java, C++, TypeScript and Node.js documentation pages are wired into the chart and compose.
+"""TC-375: the nine wave-3 Java, C++ and TypeScript documentation pages are wired into the chart and compose.
 
 Offline. Reads infra/helm/foss-mcp/values.yaml, docker-compose.yml and the committed furnished pages
-only; no helm, no docker, no network. For each of the thirteen pilots it checks that the chart names
+only; no helm, no docker, no network. For each of the nine pilots it checks that the chart names
 the page, the page exists (with front matter pinned to the pilot's own library commit), and that compose
 passes the same page and every library flag the chart would pass to build_chunks.py, before ``--out``.
 Expected values are read from values.yaml; the library-key to flag mapping is LIBRARY_FLAGS from
@@ -28,17 +28,13 @@ IMAGE_FIXTURES = "/app/fixtures/"
 WAVE3_PILOTS = [
     ("slides", "java"),
     ("cells", "java"),
-    ("jmap", "java"),
     ("3d", "java"),
     ("pdf", "cpp"),
     ("cells", "cpp"),
     ("slides", "cpp"),
     ("email", "cpp"),
-    ("jmap", "cpp"),
     ("cells", "typescript"),
-    ("jmap", "typescript"),
     ("3d", "typescript"),
-    ("jmap", "nodejs"),
 ]
 
 # cells/cpp's page is an original sealed-candidate page: it carries no doc_source front matter.
@@ -137,7 +133,7 @@ def test_compose_passes_no_library_flag_the_chart_would_not(family: str, platfor
 
 def test_every_furnished_page_exists_and_the_wired_sets_have_one() -> None:
     """Forward-compatible: every pilot with a furnishedPage points at an existing file, and the set of
-    pilots with one contains the thirteen. Later waves may add more.
+    pilots with one contains the nine. Later waves may add more.
     """
     with_page: dict[tuple[str, str], str] = {}
     for pilot in _pilots():

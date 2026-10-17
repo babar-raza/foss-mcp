@@ -110,12 +110,11 @@ def test_cells_net_and_pdf_cpp_latest_releases_are_in_the_index(tmp_path: Path) 
     assert pdf_cpp["v1.0.1"] == (True, "version_not_newer")
 
 
-def test_jmap_pilots_and_pdf_go_are_unknown(tmp_path: Path) -> None:
-    jmap = [pilot for pilot in PILOTS if pilot[0] == "jmap"]
-    assert len(jmap) == 8
+def test_go_pilots_are_unknown(tmp_path: Path) -> None:
     go_pilots = [pilot for pilot in PILOTS if pilot[1] == "go"]
     assert ("pdf", "go") in go_pilots
-    for index, (family, platform) in enumerate([*jmap, *go_pilots]):
+    # re-pinned by TC-551: for index, (family, platform) in enumerate([*<removed pil... -> for index, (family, platform) in enumerate(go_pilots):...
+    for index, (family, platform) in enumerate(go_pilots):
         releases = _releases(family, platform)
         aligned = _aligned(_store(tmp_path / str(index), family, platform), family, platform)
         assert aligned == {release.tag_name: (None, "unknown") for release in releases}, (family, platform)
@@ -137,8 +136,9 @@ def test_every_baked_pilot_aligns_without_raising(tmp_path: Path, family: str, p
     assert report.indexed_at is not None
 
 
-def test_there_are_at_least_40_baked_pilots() -> None:
-    assert len(PILOTS) >= 40
+def test_there_are_at_least_32_baked_pilots() -> None:
+    # re-pinned by TC-551: 40 -> 32
+    assert len(PILOTS) >= 32
 
 
 @pytest.mark.parametrize(

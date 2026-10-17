@@ -48,7 +48,6 @@ VERIFIER_KEYS = {
 EXPECTED_LIBRARY_FIELDS: dict[tuple[str, str], dict[str, str]] = {
     ("slides", "java"): {"javaPackages": "org.aspose.slides.foss"},
     ("cells", "java"): {"javaPackages": "org.aspose.cells_foss"},
-    ("jmap", "java"): {"javaPackages": "com.aspose.jmap"},
     ("3d", "java"): {"javaPackages": "com.aspose.threed"},
     ("cells", "cpp"): {
         "cppSourceDir": "Aspose.Cells.Foss.Cpp",
@@ -62,24 +61,17 @@ EXPECTED_LIBRARY_FIELDS: dict[tuple[str, str], dict[str, str]] = {
         "cppVerifyMode": "compile",
         "cppCompat": "no-changes-meaning,include-limits,include-subdirs,page-includes",
     },
-    ("jmap", "cpp"): {
-        "cppTarget": "aspose-jmap-foss-cpp",
-        "cppVerifyMode": "compile",
-        "cppCompat": "no-changes-meaning,include-limits,include-subdirs,page-includes",
-    },
     ("cells", "typescript"): {"packageName": "excel-cells"},
-    ("jmap", "typescript"): {"packageName": "aspose-jmap-foss-ts"},
     ("3d", "typescript"): {"packageName": "@aspose/3d"},
-    ("jmap", "nodejs"): {"packageName": "aspose-jmap-foss"},
 }
 
 # The pilots that get a furnishedPage in the override render of test 3.
 WIRED_PILOTS = [
     ("slides", "java"),
     ("cells", "cpp"),
-    ("jmap", "cpp"),
-    ("jmap", "typescript"),
-    ("jmap", "nodejs"),
+    # re-pinned by TC-551: <removed pilot> -> email
+    ("email", "cpp"),
+    ("3d", "typescript"),
 ]
 
 
@@ -210,7 +202,7 @@ def _help_choices(flag: str) -> set[str]:
 # (1) values.yaml holds exactly the card's values, and no other pilot holds a verifier key.
 
 
-def test_the_twelve_pilots_hold_exactly_the_recorded_library_fields() -> None:
+def test_the_eight_pilots_hold_exactly_the_recorded_library_fields() -> None:
     values = _values()
     verifier_keys = set(VERIFIER_KEYS)
     for (family, platform), expected in EXPECTED_LIBRARY_FIELDS.items():
@@ -230,13 +222,11 @@ def test_no_other_pilot_holds_a_verifier_key() -> None:
         assert not held, f"{pilot['family']}/{pilot['platform']} unexpectedly holds {sorted(held)}"
 
 
-def test_the_typescript_and_nodejs_pilots_each_hold_a_package_name() -> None:
+def test_the_typescript_pilots_each_hold_a_package_name() -> None:
     values = _values()
     for family, platform in [
         ("cells", "typescript"),
-        ("jmap", "typescript"),
         ("3d", "typescript"),
-        ("jmap", "nodejs"),
     ]:
         library = _pilot(values, family, platform)["library"]
         assert library["packageName"] == EXPECTED_LIBRARY_FIELDS[(family, platform)]["packageName"]
@@ -317,31 +307,24 @@ def test_cells_cpp_renders_its_three_cpp_flags_and_no_verify_mode(
     assert "--library-java-packages" not in flags
 
 
-def test_jmap_cpp_renders_target_and_compile_mode_only(
+def test_email_cpp_renders_target_and_compile_mode_only(
     wired_jobs: dict[tuple[str, str], dict[str, Any]],
 ) -> None:
-    flags = _flags(_build_chunks_tokens(wired_jobs[("jmap", "cpp")]))
-    assert flags["--library-cpp-target"] == "aspose-jmap-foss-cpp"
+    # re-pinned by TC-551: <removed pilot> -> email
+    flags = _flags(_build_chunks_tokens(wired_jobs[("email", "cpp")]))
+    # re-pinned by TC-551: assert flags["--library-cpp-target"] == "aspose-<removed ... -> assert flags["--library-cpp-target"] == "AsposeEmailFoss"...
+    assert flags["--library-cpp-target"] == "AsposeEmailFoss"
     assert flags["--library-cpp-verify-mode"] == "compile"
     assert "--library-cpp-source-dir" not in flags
     assert "--library-cpp-warnings" not in flags
 
 
-def test_jmap_typescript_renders_its_package_name(wired_jobs: dict[tuple[str, str], dict[str, Any]]) -> None:
-    flags = _flags(_build_chunks_tokens(wired_jobs[("jmap", "typescript")]))
+def test_3d_typescript_renders_its_package_name(wired_jobs: dict[tuple[str, str], dict[str, Any]]) -> None:
+    # re-pinned by TC-551: <removed pilot> -> 3d
+    flags = _flags(_build_chunks_tokens(wired_jobs[("3d", "typescript")]))
     assert flags["--library-platform"] == "typescript"
-    assert flags["--library-package-name"] == "aspose-jmap-foss-ts"
-
-
-def test_jmap_nodejs_renders_the_nodejs_platform_with_its_package_name(
-    wired_jobs: dict[tuple[str, str], dict[str, Any]],
-) -> None:
-    tokens = _build_chunks_tokens(wired_jobs[("jmap", "nodejs")])
-    flags = _flags(tokens)
-    assert flags["--library-platform"] == "nodejs"
-    assert flags["--library-package-name"] == "aspose-jmap-foss"
-    joined = " ".join(tokens)
-    assert "--library-platform nodejs --library-package-name aspose-jmap-foss" in joined
+    # re-pinned by TC-551: assert flags["--library-package-name"] == "aspose-<remove... -> assert flags["--library-package-name"] == "@aspose/3d"...
+    assert flags["--library-package-name"] == "@aspose/3d"
 
 
 def test_the_furnished_page_guard_withholds_every_verifier_flag(tmp_path: Path) -> None:
@@ -391,5 +374,6 @@ def test_every_rendered_platform_and_cpp_choice_is_one_build_chunks_accepts(
         if "--library-cpp-verify-mode" in flags:
             assert flags["--library-cpp-verify-mode"] in verify_modes, f"{family}/{platform}"
         seen_verifier_flags |= set(VERIFIER_KEYS.values()) & set(flags)
-    assert "nodejs" in seen_platforms
+    # TC-551: no pilot uses the nodejs platform any more; build_chunks still accepts it.
+    assert {"typescript", "java", "cpp"} <= seen_platforms
     assert seen_verifier_flags == set(VERIFIER_KEYS.values())

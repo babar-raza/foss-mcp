@@ -2,7 +2,7 @@
 
 Offline: reads only the committed tree and the chart's values.yaml. No cluster, no docker, no network.
 
-The standalone demo image bakes this tree in, so it must hold what the validated 40-pilot cluster serves: per
+The standalone demo image bakes this tree in, so it must hold what the validated 32-pilot cluster serves: per
 pilot the pointer, ONE generation the pointer names (with real lexical content), and the sidecars the server
 reads from the manifests root. A C++ pilot has no package-registry sidecar by design (there is no registry
 coordinate to verify, and the cluster never writes one), so that one sidecar is required for every other pilot
@@ -30,7 +30,8 @@ sys.path.insert(0, str(RELEASE_DIR))
 import compact_demo_manifests as compact  # noqa: E402
 import snapshot_demo_from_cluster as snapshot  # noqa: E402
 
-EXPECTED_PILOTS = 40
+# re-pinned by TC-551: 40 -> 32
+EXPECTED_PILOTS = 32
 # The platform key (as the chart names it) of the pilots that have no package-registry sidecar.
 NO_REGISTRY_PLATFORM = "cpp"
 # Measured 18,091,213 bytes (17.3 MiB) at TC-354: 40 generations (17,501,743 bytes) plus 115 sidecars
@@ -75,7 +76,7 @@ PILOTS = chart_pilots()
 PILOT_IDS = [snapshot.pilots.pilot_key(p) for p in PILOTS]
 
 
-def test_the_chart_names_forty_pilots_and_some_have_no_registry_sidecar() -> None:
+def test_the_chart_names_thirty_two_pilots_and_some_have_no_registry_sidecar() -> None:
     assert len(PILOTS) == EXPECTED_PILOTS
     assert len(set(PILOT_IDS)) == EXPECTED_PILOTS
     # The absence assertions below are only meaningful while at least one pilot is a cpp pilot.

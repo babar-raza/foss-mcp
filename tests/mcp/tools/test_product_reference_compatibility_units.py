@@ -135,7 +135,8 @@ def test_setup_py_keyword_without_a_quoted_value_stays_not_available() -> None:
 
 def test_the_roster_has_cpp_and_python_pilots() -> None:
     assert _pilots_on("cpp"), "values.yaml names no cpp pilot"
-    assert len(_pilots_on("python")) >= 12, _pilots_on("python")
+    # re-pinned by TC-551: 12 -> 11
+    assert len(_pilots_on("python")) >= 11, _pilots_on("python")
 
 
 @pytest.mark.parametrize("family", sorted(family for family, _ in _pilots_on("cpp")))
@@ -167,8 +168,10 @@ def test_every_other_python_pilot_answers_what_the_reader_gives(family: str) -> 
 
 @pytest.mark.parametrize(
     ("family", "platform"),
-    [("cells", "rust"), ("jmap", "rust"), ("cells", "typescript")],
-    ids=["cells-rust", "jmap-rust", "cells-typescript"],
+    # re-pinned by TC-551: [("cells", "rust"), ("<removed pilot>", "rust"), ("cells"... -> [("cells", "rust"), ("cells", "typescript")],...
+    [("cells", "rust"), ("cells", "typescript")],
+    # re-pinned by TC-551: ids=["cells-rust", "<removed pilot>-rust", "cells-typescr... -> ids=["cells-rust", "cells-typescript"],...
+    ids=["cells-rust", "cells-typescript"],
 )
 def test_pilots_whose_manifest_states_nothing_stay_not_available(family: str, platform: str) -> None:
     assert (family, platform) in _pilots()

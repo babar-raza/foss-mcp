@@ -26,7 +26,8 @@ REPO_ROOT = Path(__file__).resolve().parents[2]
 CACHE_DIR = REPO_ROOT / "tests" / "fixtures" / "verified_examples"
 MANIFESTS = REPO_ROOT / "infra" / "demo-manifests"
 MAX_CACHE_BYTES = 100_000
-EXPECTED_PILOT_COUNT = 40
+# re-pinned by TC-551: 40 -> 32
+EXPECTED_PILOT_COUNT = 32
 
 # The shapes of a credential that must never be committed in a cache entry's compiler/interpreter output.
 _CREDENTIAL_SHAPES: dict[str, re.Pattern[str]] = {
@@ -235,8 +236,8 @@ def test_the_cache_coverage_is_reported_not_asserted() -> None:
     assert 0 <= covered <= total
 
 
-def test_the_forty_committed_caches_hold_261_or_more_entries_in_total() -> None:
-    # TC-548: the measured total pulled from the 40 serving pods was 261; the floor leaves room for a refresh.
+def test_the_thirty_two_committed_caches_hold_200_or_more_entries_in_total() -> None:
+    # TC-548: the total pulled from the 40 serving pods was 261; TC-551 removed eight caches (231 entries remain); the floor leaves room for a refresh.
     total = sum(len(build_chunks.load_verification_cache(CACHE_DIR / name)) for name in _cache_names())
     assert total >= 200, f"only {total} entries across {len(_cache_names())} committed caches"
 

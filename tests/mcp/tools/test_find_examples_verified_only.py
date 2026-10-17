@@ -293,8 +293,9 @@ def test_the_vector_path_no_longer_serves_the_draco_point(
 # ---- (c) real data: all pilots ----------------------------------------------------------------
 
 
-def test_the_pilot_list_is_the_forty_committed_pilots() -> None:
-    assert len(PILOTS) == 40
+def test_the_pilot_list_is_the_thirty_two_committed_pilots() -> None:
+    # re-pinned by TC-551: 40 -> 32
+    assert len(PILOTS) == 32
     for family, platform, source_kind in PILOTS:
         assert (DEMO_MANIFESTS / f"{family}__{platform}__{source_kind}").is_dir(), (family, platform)
 

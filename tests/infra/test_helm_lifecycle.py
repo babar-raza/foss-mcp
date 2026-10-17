@@ -521,4 +521,6 @@ def test_deployment_md_and_install_pilots_no_longer_say_fourteen() -> None:
     for path in (DEPLOYMENT_MD, INSTALL_PILOTS):
         text = path.read_text(encoding="utf-8")
         assert "fourteen" not in text.lower(), path.name
-        assert "forty" in text.lower() or "40" in text, path.name
+        # re-pinned by TC-551: assert "forty" in text.lower() or "40" in text, path.name... -> assert "thirty-two" in text.lower() or "32" in text, path...
+        assert "thirty-two" in text.lower() or "32" in text, path.name
+        assert "forty" not in text.lower(), path.name

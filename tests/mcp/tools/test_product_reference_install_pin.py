@@ -350,7 +350,7 @@ def test_a_real_command_answer_names_the_pilots_indexed_commit(pilot: dict) -> N
         assert isinstance(result, NotAvailable)
 
 
-def test_at_least_twenty_pilots_serve_a_command_answer_with_the_pinned_commit() -> None:
+def test_at_least_eighteen_pilots_serve_a_command_answer_with_the_pinned_commit() -> None:
     assert len(PILOTS) >= 20
     pinned = 0
     for pilot in PILOTS:
@@ -360,7 +360,8 @@ def test_at_least_twenty_pilots_serve_a_command_answer_with_the_pinned_commit() 
             assert result.notice is not None
             assert pilot["library"]["commit"] in result.notice
             pinned += 1
-    assert pinned >= 20
+    # re-pinned by TC-551: 20 -> 18
+    assert pinned >= 18
 
 
 def test_pdf_go_notice_carries_the_indexed_commit_and_the_exact_commit_command() -> None:

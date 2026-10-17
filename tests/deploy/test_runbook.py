@@ -68,7 +68,6 @@ def test_runbook_states_the_known_limits_plainly():
         "slides_java",
         "cells_go",
         "cells_typescript",
-        "jmap_rust",
     ):
         assert pilot in text, f"known limits do not name {pilot}"
     assert "1 Gi" in text

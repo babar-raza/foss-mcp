@@ -108,7 +108,8 @@ BAD_PRODUCT_REFERENCES: dict[str, bytes] = {
     "oversized_over_8_mib": b" " * (MAX_BYTES + 1),
     "wrong_platform": _dumps(WRONG_PLATFORM),
     "wrong_family_key": _dumps(WRONG_FAMILY_KEY),
-    "other_product_same_platform": _good("product_reference_jmap_go.json"),
+    # re-pinned by TC-551: <removed pilot> -> product_reference_cells_go
+    "other_product_same_platform": _good("product_reference_cells_go.json"),
     "failure_placeholder_state_key": _dumps({"state": "fetch_failed", "fetched_at": GOOD_FETCHED_AT}),
 }
 
@@ -276,7 +277,8 @@ BAD_RELEASES: dict[str, bytes] = {
     "missing_keys": _dumps([{"tag_name": "v1.0.0"}]),
     "null_body": _dumps([{**GOOD_RELEASES[0], "body": None}]),
     "oversized": b" " * (MAX_BYTES + 1),
-    "releases_of_another_product": _good("recent_releases_jmap_go.json"),
+    # re-pinned by TC-551: <removed pilot> -> recent_releases_cells_go
+    "releases_of_another_product": _good("recent_releases_cells_go.json"),
     "repository_differs_from_the_product_reference": _dumps(
         [
             {
@@ -431,7 +433,8 @@ def test_no_marker_is_reported_as_none(tmp_path: Path) -> None:
     ("family", "repository", "expected"),
     [
         ("pdf", "aspose-pdf-foss/Aspose-PDF-FOSS-for-Go", True),
-        ("jmap", "aspose-email-foss/Aspose.JMAP-FOSS-for-Node.js", True),
+        # re-pinned by TC-551: <removed pilot>; <removed pilot> -> email; Email
+        ("email", "aspose-email-foss/Aspose.Email-FOSS-for-Node.js", True),
         ("3d", "aspose-3d-foss/Aspose.3D-FOSS-for-.NET", True),
         ("pdf", "https://github.com/aspose-pdf-foss/Aspose.PDF-FOSS-for-.NET.git", True),
         ("pdf", "aspose-cells-foss/Aspose.Cells-FOSS-for-Go", False),
@@ -511,8 +514,10 @@ COMBINATIONS: dict[str, tuple[bytes | None, bytes | None]] = {
     "corrupt_releases": (None, BAD_RELEASES["json_object"]),
     "both_corrupt": (BAD_PRODUCT_REFERENCES["empty_object"], BAD_RELEASES["empty_file"]),
     "wrong_family_pair": (
-        _good("product_reference_jmap_go.json"),
-        _good("recent_releases_jmap_go.json"),
+        # re-pinned by TC-551: <removed pilot> -> product_reference_cells_go
+        _good("product_reference_cells_go.json"),
+        # re-pinned by TC-551: <removed pilot> -> recent_releases_cells_go
+        _good("recent_releases_cells_go.json"),
     ),
 }
 
