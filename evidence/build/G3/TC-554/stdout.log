@@ -1,0 +1,821 @@
+
+===== CLEAN RUN 1 (host) =====
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-7b182948484d7df9\Scripts\python.exe -m pytest tests/indexing/test_chunk_builder_single_line_members.py tests/indexing/test_chunk_builder.py tests/indexing/test_chunk_builder_honesty.py tests/indexing/test_chunk_builder_typescript_marks.py tests/indexing/test_chunk_builder_cpp_signatures.py -q -rfE -p no:cacheprovider "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-xahocru1\.junit-0.xml"
+--- stdout ---
+........................................................................ [ 75%]
+........................                                                 [100%]
+
+--- stderr ---
+
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-7b182948484d7df9\Scripts\python.exe -m pytest tests/indexing tests/mcp/tools/test_symbol_tools.py tests/infra/test_build_chunks.py tests/extraction/test_central_classes_indexed.py -q -rfE -p no:cacheprovider -k "not live and not github_http and not repo_native and not test_prepare_rust_library and not test_rust_known" "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-xahocru1\.junit-1.xml"
+--- stdout ---
+........................................................................ [  4%]
+........................................................................ [  8%]
+........................................................................ [ 13%]
+........................................................................ [ 17%]
+........................................................................ [ 22%]
+........................................................................ [ 26%]
+........................................................................ [ 31%]
+........................................................................ [ 35%]
+........................................................................ [ 40%]
+........................................................................ [ 44%]
+........................................................................ [ 49%]
+........................................................................ [ 53%]
+........................................................................ [ 58%]
+........................................................................ [ 62%]
+........................................................................ [ 67%]
+........................................................................ [ 71%]
+........................................................................ [ 76%]
+........................................................................ [ 80%]
+........................................................................ [ 85%]
+........................................................................ [ 89%]
+........................................................................ [ 94%]
+........................................................................ [ 98%]
+.................                                                        [100%]
+1 live test(s) deselected; set FOSS_MCP_NETWORK_TESTS=1 to run them
+
+--- stderr ---
+
+
+===== CLEAN RUN 2 (host) =====
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-7b182948484d7df9\Scripts\python.exe -m pytest tests/indexing/test_chunk_builder_single_line_members.py tests/indexing/test_chunk_builder.py tests/indexing/test_chunk_builder_honesty.py tests/indexing/test_chunk_builder_typescript_marks.py tests/indexing/test_chunk_builder_cpp_signatures.py -q -rfE -p no:cacheprovider "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-xahocru1\.junit-0.xml"
+--- stdout ---
+........................................................................ [ 75%]
+........................                                                 [100%]
+
+--- stderr ---
+
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-7b182948484d7df9\Scripts\python.exe -m pytest tests/indexing tests/mcp/tools/test_symbol_tools.py tests/infra/test_build_chunks.py tests/extraction/test_central_classes_indexed.py -q -rfE -p no:cacheprovider -k "not live and not github_http and not repo_native and not test_prepare_rust_library and not test_rust_known" "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-xahocru1\.junit-1.xml"
+--- stdout ---
+........................................................................ [  4%]
+........................................................................ [  8%]
+........................................................................ [ 13%]
+........................................................................ [ 17%]
+........................................................................ [ 22%]
+........................................................................ [ 26%]
+........................................................................ [ 31%]
+........................................................................ [ 35%]
+........................................................................ [ 40%]
+........................................................................ [ 44%]
+........................................................................ [ 49%]
+........................................................................ [ 53%]
+........................................................................ [ 58%]
+........................................................................ [ 62%]
+........................................................................ [ 67%]
+........................................................................ [ 71%]
+........................................................................ [ 76%]
+........................................................................ [ 80%]
+........................................................................ [ 85%]
+........................................................................ [ 89%]
+........................................................................ [ 94%]
+........................................................................ [ 98%]
+.................                                                        [100%]
+1 live test(s) deselected; set FOSS_MCP_NETWORK_TESTS=1 to run them
+
+--- stderr ---
+
+
+===== NEGATIVE CONTROL (checks MUST now fail) =====
+mutated: M src/foss_mcp/indexing/chunk_builder.py, ?? .junit-0.xml, ?? .junit-1.xml
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-7b182948484d7df9\Scripts\python.exe -m pytest tests/indexing/test_chunk_builder_single_line_members.py tests/indexing/test_chunk_builder.py tests/indexing/test_chunk_builder_honesty.py tests/indexing/test_chunk_builder_typescript_marks.py tests/indexing/test_chunk_builder_cpp_signatures.py -q -rfE -p no:cacheprovider "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-xahocru1\.junit-0.xml"
+--- stdout ---
+FFFF..FF....F.FFFFFFF.....FFFF.......................................... [ 75%]
+........................                                                 [100%]
+================================== FAILURES ===================================
+_____ test_a_parameter_type_with_a_newline_and_a_comment_renders_one_line _____
+
+    def test_a_parameter_type_with_a_newline_and_a_comment_renders_one_line() -> None:
+        lines = _chunk_text([_klass([_method("AddMarkdown", _MULTILINE_TYPE)])]).splitlines()
+        # TC-554: one-line member
+>       assert f"  - AddMarkdown(options: {_COLLAPSED_TYPE}) -> void" in lines
+E       AssertionError: assert '  - AddMarkdown(options: MarkdownFlowOptions & { /** t */ title?: string; }) -> void' in ['FQN: Doc', 'Kind: class_declaration', '', 'Methods:', '  - AddMarkdown(options: MarkdownFlowOptions & {', '  /** t */', ...]
+
+tests\indexing\test_chunk_builder_single_line_members.py:49: AssertionError
+____ test_a_member_after_a_multi_line_parameter_type_is_still_in_the_block ____
+
+    def test_a_member_after_a_multi_line_parameter_type_is_still_in_the_block() -> None:
+        text = _chunk_text(
+            [_klass([_method("AddMarkdown", _MULTILINE_TYPE), _method("Merge"), _method("Append")])]
+        )
+>       assert len(_extract_block(text, "Methods:")) == 3
+E       AssertionError: assert 1 == 3
+E        +  where 1 = len(('AddMarkdown(options: MarkdownFlowOptions & {',))
+E        +    where ('AddMarkdown(options: MarkdownFlowOptions & {',) = _extract_block('FQN: Doc\nKind: class_declaration\n\nMethods:\n  - AddMarkdown(options: MarkdownFlowOptions & {\n  /** t */\n  title?: string;\n}) -> void\n  - Merge(options: string) -> void\n  - Append(options: string) -> void', 'Methods:')
+
+tests\indexing\test_chunk_builder_single_line_members.py:56: AssertionError
+_____________ test_a_return_type_with_a_newline_renders_one_line ______________
+
+    def test_a_return_type_with_a_newline_renders_one_line() -> None:
+        ret = "Promise<{\n  ok: boolean;\n  reason?: string;\n}>"
+        text = _chunk_text([_klass([_method("Save", ret=ret), _method("Close")])])
+>       assert "  - Save(options: string) -> Promise<{ ok: boolean; reason?: string; }>" in text.splitlines()
+E       AssertionError: assert '  - Save(options: string) -> Promise<{ ok: boolean; reason?: string; }>' in ['FQN: Doc', 'Kind: class_declaration', '', 'Methods:', '  - Save(options: string) -> Promise<{', '  ok: boolean;', ...]
+E        +  where ['FQN: Doc', 'Kind: class_declaration', '', 'Methods:', '  - Save(options: string) -> Promise<{', '  ok: boolean;', ...] = <built-in method splitlines of str object at 0x000001C5D6A30AC0>()
+E        +    where <built-in method splitlines of str object at 0x000001C5D6A30AC0> = 'FQN: Doc\nKind: class_declaration\n\nMethods:\n  - Save(options: string) -> Promise<{\n  ok: boolean;\n  reason?: string;\n}>\n  - Close(options: string) -> void'.splitlines
+
+tests\indexing\test_chunk_builder_single_line_members.py:63: AssertionError
+____________ test_a_property_type_with_a_newline_renders_one_line _____________
+
+    def test_a_property_type_with_a_newline_renders_one_line() -> None:
+        props = [
+            {"name": "style", "type": ": {\n  bold?: boolean;\n  italic?: boolean;\n}", "writable": True},
+            {"name": "after", "type": ": number", "writable": True},
+        ]
+        text = _chunk_text([_klass([], props)])
+>       assert "  - style: { bold?: boolean; italic?: boolean; } (writable)" in text.splitlines()
+E       AssertionError: assert '  - style: { bold?: boolean; italic?: boolean; } (writable)' in ['FQN: Doc', 'Kind: class_declaration', '', 'Properties:', '  - style: {', '  bold?: boolean;', ...]
+E        +  where ['FQN: Doc', 'Kind: class_declaration', '', 'Properties:', '  - style: {', '  bold?: boolean;', ...] = <built-in method splitlines of str object at 0x000001C5D67CB7B0>()
+E        +    where <built-in method splitlines of str object at 0x000001C5D67CB7B0> = 'FQN: Doc\nKind: class_declaration\n\nProperties:\n  - style: {\n  bold?: boolean;\n  italic?: boolean;\n} (writable)\n  - after: number (writable)'.splitlines
+
+tests\indexing\test_chunk_builder_single_line_members.py:73: AssertionError
+____________________ test_a_tab_is_collapsed_to_one_space _____________________
+
+    def test_a_tab_is_collapsed_to_one_space() -> None:
+        text = _chunk_text([_klass([_method("M", "A\t&\tB")])])
+>       assert "  - M(options: A & B) -> void" in text.splitlines()
+E       AssertionError: assert '  - M(options: A & B) -> void' in ['FQN: Doc', 'Kind: class_declaration', '', 'Methods:', '  - M(options: A\t&\tB) -> void']
+E        +  where ['FQN: Doc', 'Kind: class_declaration', '', 'Methods:', '  - M(options: A\t&\tB) -> void'] = <built-in method splitlines of str object at 0x000001C5D68A9CB0>()
+E        +    where <built-in method splitlines of str object at 0x000001C5D68A9CB0> = 'FQN: Doc\nKind: class_declaration\n\nMethods:\n  - M(options: A\t&\tB) -> void'.splitlines
+
+tests\indexing\test_chunk_builder_single_line_members.py:92: AssertionError
+_________ test_a_carriage_return_line_break_is_collapsed_to_one_space _________
+
+    def test_a_carriage_return_line_break_is_collapsed_to_one_space() -> None:
+        text = _chunk_text([_klass([_method("M", "A &\r\n  B"), _method("N")])])
+>       assert "  - M(options: A & B) -> void" in text.splitlines()
+E       AssertionError: assert '  - M(options: A & B) -> void' in ['FQN: Doc', 'Kind: class_declaration', '', 'Methods:', '  - M(options: A &', '  B) -> void', ...]
+E        +  where ['FQN: Doc', 'Kind: class_declaration', '', 'Methods:', '  - M(options: A &', '  B) -> void', ...] = <built-in method splitlines of str object at 0x000001C5D680AD30>()
+E        +    where <built-in method splitlines of str object at 0x000001C5D680AD30> = 'FQN: Doc\nKind: class_declaration\n\nMethods:\n  - M(options: A &\r\n  B) -> void\n  - N(options: string) -> void'.splitlines
+
+tests\indexing\test_chunk_builder_single_line_members.py:97: AssertionError
+______ test_a_double_space_inside_a_string_literal_type_is_collapsed_too ______
+
+    def test_a_double_space_inside_a_string_literal_type_is_collapsed_too() -> None:
+        # Deliberate: a rendered type is a display line, not a value, so every whitespace run is one space.
+        text = _chunk_text([_klass([_method("M", "'a  b' | 'c'")])])
+>       assert "  - M(options: 'a b' | 'c') -> void" in text.splitlines()
+E       assert "  - M(options: 'a b' | 'c') -> void" in ['FQN: Doc', 'Kind: class_declaration', '', 'Methods:', "  - M(options: 'a  b' | 'c') -> void"]
+E        +  where ['FQN: Doc', 'Kind: class_declaration', '', 'Methods:', "  - M(options: 'a  b' | 'c') -> void"] = <built-in method splitlines of str object at 0x000001C5D68A8B30>()
+E        +    where <built-in method splitlines of str object at 0x000001C5D68A8B30> = "FQN: Doc\nKind: class_declaration\n\nMethods:\n  - M(options: 'a  b' | 'c') -> void".splitlines
+
+tests\indexing\test_chunk_builder_single_line_members.py:125: AssertionError
+_ test_every_member_block_of_a_real_fixture_has_no_continuation_line[pdf_typescript] _
+
+fixture = 'pdf_typescript'
+
+    @pytest.mark.parametrize("fixture", _FIXTURE_NAMES)
+    def test_every_member_block_of_a_real_fixture_has_no_continuation_line(fixture: str) -> None:
+        broken: list[str] = []
+        checked = 0
+        for chunk in _chunks(fixture):
+            lines = chunk.text.splitlines()
+            for header in _HEADERS:
+                if header not in lines:
+                    continue
+                checked += 1
+                _, stopper = _block_after(lines, header)
+                if stopper not in (None, ""):
+                    broken.append(f"{header} stopped at {stopper!r}")
+        assert checked > 0
+>       assert broken == []
+E       assert ['Methods: st...table)"', ...] == []
+E         
+E         Left contains 17 more items, first extra item: 'Methods: stopped at "      /** Document title. Non-empty. Default: the document\'s title is untouched. */"'
+E         Use -v to get more diff
+
+tests\indexing\test_chunk_builder_single_line_members.py:177: AssertionError
+_ test_every_member_block_of_a_real_fixture_has_no_continuation_line[cells_typescript] _
+
+fixture = 'cells_typescript'
+
+    @pytest.mark.parametrize("fixture", _FIXTURE_NAMES)
+    def test_every_member_block_of_a_real_fixture_has_no_continuation_line(fixture: str) -> None:
+        broken: list[str] = []
+        checked = 0
+        for chunk in _chunks(fixture):
+            lines = chunk.text.splitlines()
+            for header in _HEADERS:
+                if header not in lines:
+                    continue
+                checked += 1
+                _, stopper = _block_after(lines, header)
+                if stopper not in (None, ""):
+                    broken.append(f"{header} stopped at {stopper!r}")
+        assert checked > 0
+>       assert broken == []
+E       assert ["Properties:...hole"\'', ...] == []
+E         
+E         Left contains 8 more items, first extra item: "Properties: stopped at '    position: number;'"
+E         Use -v to get more diff
+
+tests\indexing\test_chunk_builder_single_line_members.py:177: AssertionError
+_ test_every_member_block_of_a_real_fixture_has_no_continuation_line[3d_typescript] _
+
+fixture = '3d_typescript'
+
+    @pytest.mark.parametrize("fixture", _FIXTURE_NAMES)
+    def test_every_member_block_of_a_real_fixture_has_no_continuation_line(fixture: str) -> None:
+        broken: list[str] = []
+        checked = 0
+        for chunk in _chunks(fixture):
+            lines = chunk.text.splitlines()
+            for header in _HEADERS:
+                if header not in lines:
+                    continue
+                checked += 1
+                _, stopper = _block_after(lines, header)
+                if stopper not in (None, ""):
+                    broken.append(f"{header} stopped at {stopper!r}")
+        assert checked > 0
+>       assert broken == []
+E       assert ["Properties:...: number[];'"] == []
+E         
+E         Left contains one more item: "Properties: stopped at '        baseColorFactor?: number[];'"
+E         Use -v to get more diff
+
+tests\indexing\test_chunk_builder_single_line_members.py:177: AssertionError
+_ test_every_member_block_of_a_real_fixture_has_no_continuation_line[pdf_cpp] _
+
+fixture = 'pdf_cpp'
+
+    @pytest.mark.parametrize("fixture", _FIXTURE_NAMES)
+    def test_every_member_block_of_a_real_fixture_has_no_continuation_line(fixture: str) -> None:
+        broken: list[str] = []
+        checked = 0
+        for chunk in _chunks(fixture):
+            lines = chunk.text.splitlines()
+            for header in _HEADERS:
+                if header not in lines:
+                    continue
+                checked += 1
+                _, stopper = _block_after(lines, header)
+                if stopper not in (None, ""):
+                    broken.append(f"{header} stopped at {stopper!r}")
+        assert checked > 0
+>       assert broken == []
+E       assert ["Properties:...:monostate,'"] == []
+E         
+E         Left contains one more item: "Properties: stopped at '        std::monostate,'"
+E         Use -v to get more diff
+
+tests\indexing\test_chunk_builder_single_line_members.py:177: AssertionError
+_ test_extract_block_length_equals_the_member_lines_of_every_real_chunk[pdf_typescript] _
+
+fixture = 'pdf_typescript'
+
+    @pytest.mark.parametrize("fixture", _FIXTURE_NAMES)
+    def test_extract_block_length_equals_the_member_lines_of_every_real_chunk(fixture: str) -> None:
+        mismatched: list[str] = []
+        for chunk in _chunks(fixture):
+            lines = chunk.text.splitlines()
+            for header in _HEADERS:
+                if header not in lines:
+                    continue
+                start = lines.index(header) + 1
+                blank = lines.index("", start) if "" in lines[start:] else len(lines)
+                under_header = [line for line in lines[start:blank] if line.startswith(_BULLET)]
+                if len(_extract_block(chunk.text, header)) != len(under_header):
+                    mismatched.append(f"{header}: {chunk.text.splitlines()[0]}")
+>       assert mismatched == []
+E       AssertionError: assert ['Methods:: F...wnStyle', ...] == []
+E         
+E         Left contains 8 more items, first extra item: 'Methods:: FQN: document.Document'
+E         Use -v to get more diff
+
+tests\indexing\test_chunk_builder_single_line_members.py:193: AssertionError
+_ test_extract_block_length_equals_the_member_lines_of_every_real_chunk[cells_typescript] _
+
+fixture = 'cells_typescript'
+
+    @pytest.mark.parametrize("fixture", _FIXTURE_NAMES)
+    def test_extract_block_length_equals_the_member_lines_of_every_real_chunk(fixture: str) -> None:
+        mismatched: list[str] = []
+        for chunk in _chunks(fixture):
+            lines = chunk.text.splitlines()
+            for header in _HEADERS:
+                if header not in lines:
+                    continue
+                start = lines.index(header) + 1
+                blank = lines.index("", start) if "" in lines[start:] else len(lines)
+                under_header = [line for line in lines[start:blank] if line.startswith(_BULLET)]
+                if len(_extract_block(chunk.text, header)) != len(under_header):
+                    mismatched.append(f"{header}: {chunk.text.splitlines()[0]}")
+>       assert mismatched == []
+E       AssertionError: assert ['Properties:...idation', ...] == []
+E         
+E         Left contains 8 more items, first extra item: 'Properties:: FQN: aspose_cells.types.ShapeFill'
+E         Use -v to get more diff
+
+tests\indexing\test_chunk_builder_single_line_members.py:193: AssertionError
+_ test_extract_block_length_equals_the_member_lines_of_every_real_chunk[3d_typescript] _
+
+fixture = '3d_typescript'
+
+    @pytest.mark.parametrize("fixture", _FIXTURE_NAMES)
+    def test_extract_block_length_equals_the_member_lines_of_every_real_chunk(fixture: str) -> None:
+        mismatched: list[str] = []
+        for chunk in _chunks(fixture):
+            lines = chunk.text.splitlines()
+            for header in _HEADERS:
+                if header not in lines:
+                    continue
+                start = lines.index(header) + 1
+                blank = lines.index("", start) if "" in lines[start:] else len(lines)
+                under_header = [line for line in lines[start:blank] if line.startswith(_BULLET)]
+                if len(_extract_block(chunk.text, header)) != len(under_header):
+                    mismatched.append(f"{header}: {chunk.text.splitlines()[0]}")
+>       assert mismatched == []
+E       AssertionError: assert ['Properties:...GltfMaterial'] == []
+E         
+E         Left contains one more item: 'Properties:: FQN: aspose.threed.formats.gltf.GltfExporter.GltfMaterial'
+E         Use -v to get more diff
+
+tests\indexing\test_chunk_builder_single_line_members.py:193: AssertionError
+_ test_the_central_pdf_typescript_classes_declare_their_late_members[document.Document-members0] _
+
+class_import = 'document.Document'
+members = ('Merge', 'Append', 'Redact', 'RemovePage', 'AddMarkdown')
+
+    @pytest.mark.parametrize(
+        ("class_import", "members"),
+        [
+            ("document.Document", ("Merge", "Append", "Redact", "RemovePage", "AddMarkdown")),
+            ("page.Page", ("AddImage", "AddTable", "ToSvg", "Redact")),
+        ],
+    )
+    def test_the_central_pdf_typescript_classes_declare_their_late_members(
+        class_import: str, members: tuple[str, ...]
+    ) -> None:
+        _, text = _entry_and_chunk("pdf_typescript", class_import)
+        declared = _declared_members(text)
+>       assert [name for name in members if name not in declared] == []
+E       AssertionError: assert ['Merge', 'Ap... 'RemovePage'] == []
+E         
+E         Left contains 4 more items, first extra item: 'Merge'
+E         Use -v to get more diff
+
+tests\indexing\test_chunk_builder_single_line_members.py:227: AssertionError
+_ test_the_central_pdf_typescript_classes_declare_their_late_members[page.Page-members1] _
+
+class_import = 'page.Page'
+members = ('AddImage', 'AddTable', 'ToSvg', 'Redact')
+
+    @pytest.mark.parametrize(
+        ("class_import", "members"),
+        [
+            ("document.Document", ("Merge", "Append", "Redact", "RemovePage", "AddMarkdown")),
+            ("page.Page", ("AddImage", "AddTable", "ToSvg", "Redact")),
+        ],
+    )
+    def test_the_central_pdf_typescript_classes_declare_their_late_members(
+        class_import: str, members: tuple[str, ...]
+    ) -> None:
+        _, text = _entry_and_chunk("pdf_typescript", class_import)
+        declared = _declared_members(text)
+>       assert [name for name in members if name not in declared] == []
+E       AssertionError: assert ['AddImage', ...vg', 'Redact'] == []
+E         
+E         Left contains 4 more items, first extra item: 'AddImage'
+E         Use -v to get more diff
+
+tests\indexing\test_chunk_builder_single_line_members.py:227: AssertionError
+_ test_the_whole_method_list_of_a_central_class_is_in_the_block[document.Document] _
+
+class_import = 'document.Document'
+
+    @pytest.mark.parametrize("class_import", ["document.Document", "page.Page"])
+    def test_the_whole_method_list_of_a_central_class_is_in_the_block(class_import: str) -> None:
+        entry, text = _entry_and_chunk("pdf_typescript", class_import)
+        expected = _method_lines(entry["methods"])
+        assert len(expected) > 0
+>       assert list(_extract_block(text, "Methods:")) == [line[len(_BULLET) :].strip() for line in expected]
+E       assert ['GetTables(o...static]', ...] == ['GetTables(o...static]', ...]
+E         
+E         At index 87 diff: 'AddMarkdown(src: string | MdDocument, options: MarkdownFlowOptions & FlowOptions & {' != "AddMarkdown(src: string | MdDocument, options: MarkdownFlowOptions & FlowOptions & {\n      /** Document title. Non-empty. Default: the document's title is untouched. */\n      title?: string;\n    } = {}) -> { pages: Page[]; skipped: string[] }"
+E         Right contains 23 more items, first extra item: 'AddHtml(src: string | HtmlDocument, options: HtmlFlowOptions & FlowOptions & {\n      /** Document title. Non-empty. ...      title?: string;\n    } = {}) -> { pages: Page[...
+E         
+E         ...Full output truncated (2 lines hidden), use '-vv' to show
+
+tests\indexing\test_chunk_builder_single_line_members.py:235: AssertionError
+__ test_the_whole_method_list_of_a_central_class_is_in_the_block[page.Page] ___
+
+class_import = 'page.Page'
+
+    @pytest.mark.parametrize("class_import", ["document.Document", "page.Page"])
+    def test_the_whole_method_list_of_a_central_class_is_in_the_block(class_import: str) -> None:
+        entry, text = _entry_and_chunk("pdf_typescript", class_import)
+        expected = _method_lines(entry["methods"])
+        assert len(expected) > 0
+>       assert list(_extract_block(text, "Methods:")) == [line[len(_BULLET) :].strip() for line in expected]
+E       assert ['constructor...otation', ...] == ['constructor...otation', ...]
+E         
+E         At index 41 diff: 'AddMarkdown(src: string | MdDocument, rect: [number, number, number, number], options: MarkdownFlowOptions & {' != "AddMarkdown(src: string | MdDocument, rect: [number, number, number, number], options: MarkdownFlowOptions & {\n      /** Gap between consecutive blocks, on top of the style's own spacing.\n       *  Default 0. */\n      paragraphSpacing?: number;\n      /** Grouping element the content tags under. Omit for untagged output. */\n      structParent?: StructElement;\n    } = {}) -> AddMarkdownResult"
+E         Right contains 20 more items, first extra...
+E         
+E         ...Full output truncated (2 lines hidden), use '-vv' to show
+
+tests\indexing\test_chunk_builder_single_line_members.py:235: AssertionError
+=========================== short test summary info ===========================
+FAILED tests/indexing/test_chunk_builder_single_line_members.py::test_a_parameter_type_with_a_newline_and_a_comment_renders_one_line
+FAILED tests/indexing/test_chunk_builder_single_line_members.py::test_a_member_after_a_multi_line_parameter_type_is_still_in_the_block
+FAILED tests/indexing/test_chunk_builder_single_line_members.py::test_a_return_type_with_a_newline_renders_one_line
+FAILED tests/indexing/test_chunk_builder_single_line_members.py::test_a_property_type_with_a_newline_renders_one_line
+FAILED tests/indexing/test_chunk_builder_single_line_members.py::test_a_tab_is_collapsed_to_one_space
+FAILED tests/indexing/test_chunk_builder_single_line_members.py::test_a_carriage_return_line_break_is_collapsed_to_one_space
+FAILED tests/indexing/test_chunk_builder_single_line_members.py::test_a_double_space_inside_a_string_literal_type_is_collapsed_too
+FAILED tests/indexing/test_chunk_builder_single_line_members.py::test_every_member_block_of_a_real_fixture_has_no_continuation_line[pdf_typescript]
+FAILED tests/indexing/test_chunk_builder_single_line_members.py::test_every_member_block_of_a_real_fixture_has_no_continuation_line[cells_typescript]
+FAILED tests/indexing/test_chunk_builder_single_line_members.py::test_every_member_block_of_a_real_fixture_has_no_continuation_line[3d_typescript]
+FAILED tests/indexing/test_chunk_builder_single_line_members.py::test_every_member_block_of_a_real_fixture_has_no_continuation_line[pdf_cpp]
+FAILED tests/indexing/test_chunk_builder_single_line_members.py::test_extract_block_length_equals_the_member_lines_of_every_real_chunk[pdf_typescript]
+FAILED tests/indexing/test_chunk_builder_single_line_members.py::test_extract_block_length_equals_the_member_lines_of_every_real_chunk[cells_typescript]
+FAILED tests/indexing/test_chunk_builder_single_line_members.py::test_extract_block_length_equals_the_member_lines_of_every_real_chunk[3d_typescript]
+FAILED tests/indexing/test_chunk_builder_single_line_members.py::test_the_central_pdf_typescript_classes_declare_their_late_members[document.Document-members0]
+FAILED tests/indexing/test_chunk_builder_single_line_members.py::test_the_central_pdf_typescript_classes_declare_their_late_members[page.Page-members1]
+FAILED tests/indexing/test_chunk_builder_single_line_members.py::test_the_whole_method_list_of_a_central_class_is_in_the_block[document.Document]
+FAILED tests/indexing/test_chunk_builder_single_line_members.py::test_the_whole_method_list_of_a_central_class_is_in_the_block[page.Page]
+
+--- stderr ---
+
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-7b182948484d7df9\Scripts\python.exe -m pytest tests/indexing tests/mcp/tools/test_symbol_tools.py tests/infra/test_build_chunks.py tests/extraction/test_central_classes_indexed.py -q -rfE -p no:cacheprovider -k "not live and not github_http and not repo_native and not test_prepare_rust_library and not test_rust_known" "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-xahocru1\.junit-1.xml"
+--- stdout ---
+........................................................................ [  4%]
+........................................................................ [  8%]
+........................................................................ [ 13%]
+........................................................................ [ 17%]
+........................................................................ [ 22%]
+....................FFFF..FF....F.FFFFFFF.....FFFF...................... [ 26%]
+........................................................................ [ 31%]
+........................................................................ [ 35%]
+........................................................................ [ 40%]
+........................................................................ [ 44%]
+........................................................................ [ 49%]
+........................................................................ [ 53%]
+........................................................................ [ 58%]
+........................................................................ [ 62%]
+........................................................................ [ 67%]
+........................................................................ [ 71%]
+........................................................................ [ 76%]
+........................................................................ [ 80%]
+........................................................................ [ 85%]
+........................................................................ [ 89%]
+........................................................................ [ 94%]
+........................................................................ [ 98%]
+.................                                                        [100%]
+================================== FAILURES ===================================
+_____ test_a_parameter_type_with_a_newline_and_a_comment_renders_one_line _____
+
+    def test_a_parameter_type_with_a_newline_and_a_comment_renders_one_line() -> None:
+        lines = _chunk_text([_klass([_method("AddMarkdown", _MULTILINE_TYPE)])]).splitlines()
+        # TC-554: one-line member
+>       assert f"  - AddMarkdown(options: {_COLLAPSED_TYPE}) -> void" in lines
+E       AssertionError: assert '  - AddMarkdown(options: MarkdownFlowOptions & { /** t */ title?: string; }) -> void' in ['FQN: Doc', 'Kind: class_declaration', '', 'Methods:', '  - AddMarkdown(options: MarkdownFlowOptions & {', '  /** t */', ...]
+
+tests\indexing\test_chunk_builder_single_line_members.py:49: AssertionError
+____ test_a_member_after_a_multi_line_parameter_type_is_still_in_the_block ____
+
+    def test_a_member_after_a_multi_line_parameter_type_is_still_in_the_block() -> None:
+        text = _chunk_text(
+            [_klass([_method("AddMarkdown", _MULTILINE_TYPE), _method("Merge"), _method("Append")])]
+        )
+>       assert len(_extract_block(text, "Methods:")) == 3
+E       AssertionError: assert 1 == 3
+E        +  where 1 = len(('AddMarkdown(options: MarkdownFlowOptions & {',))
+E        +    where ('AddMarkdown(options: MarkdownFlowOptions & {',) = _extract_block('FQN: Doc\nKind: class_declaration\n\nMethods:\n  - AddMarkdown(options: MarkdownFlowOptions & {\n  /** t */\n  title?: string;\n}) -> void\n  - Merge(options: string) -> void\n  - Append(options: string) -> void', 'Methods:')
+
+tests\indexing\test_chunk_builder_single_line_members.py:56: AssertionError
+_____________ test_a_return_type_with_a_newline_renders_one_line ______________
+
+    def test_a_return_type_with_a_newline_renders_one_line() -> None:
+        ret = "Promise<{\n  ok: boolean;\n  reason?: string;\n}>"
+        text = _chunk_text([_klass([_method("Save", ret=ret), _method("Close")])])
+>       assert "  - Save(options: string) -> Promise<{ ok: boolean; reason?: string; }>" in text.splitlines()
+E       AssertionError: assert '  - Save(options: string) -> Promise<{ ok: boolean; reason?: string; }>' in ['FQN: Doc', 'Kind: class_declaration', '', 'Methods:', '  - Save(options: string) -> Promise<{', '  ok: boolean;', ...]
+E        +  where ['FQN: Doc', 'Kind: class_declaration', '', 'Methods:', '  - Save(options: string) -> Promise<{', '  ok: boolean;', ...] = <built-in method splitlines of str object at 0x0000018331FFF360>()
+E        +    where <built-in method splitlines of str object at 0x0000018331FFF360> = 'FQN: Doc\nKind: class_declaration\n\nMethods:\n  - Save(options: string) -> Promise<{\n  ok: boolean;\n  reason?: string;\n}>\n  - Close(options: string) -> void'.splitlines
+
+tests\indexing\test_chunk_builder_single_line_members.py:63: AssertionError
+____________ test_a_property_type_with_a_newline_renders_one_line _____________
+
+    def test_a_property_type_with_a_newline_renders_one_line() -> None:
+        props = [
+            {"name": "style", "type": ": {\n  bold?: boolean;\n  italic?: boolean;\n}", "writable": True},
+            {"name": "after", "type": ": number", "writable": True},
+        ]
+        text = _chunk_text([_klass([], props)])
+>       assert "  - style: { bold?: boolean; italic?: boolean; } (writable)" in text.splitlines()
+E       AssertionError: assert '  - style: { bold?: boolean; italic?: boolean; } (writable)' in ['FQN: Doc', 'Kind: class_declaration', '', 'Properties:', '  - style: {', '  bold?: boolean;', ...]
+E        +  where ['FQN: Doc', 'Kind: class_declaration', '', 'Properties:', '  - style: {', '  bold?: boolean;', ...] = <built-in method splitlines of str object at 0x0000018332310270>()
+E        +    where <built-in method splitlines of str object at 0x0000018332310270> = 'FQN: Doc\nKind: class_declaration\n\nProperties:\n  - style: {\n  bold?: boolean;\n  italic?: boolean;\n} (writable)\n  - after: number (writable)'.splitlines
+
+tests\indexing\test_chunk_builder_single_line_members.py:73: AssertionError
+____________________ test_a_tab_is_collapsed_to_one_space _____________________
+
+    def test_a_tab_is_collapsed_to_one_space() -> None:
+        text = _chunk_text([_klass([_method("M", "A\t&\tB")])])
+>       assert "  - M(options: A & B) -> void" in text.splitlines()
+E       AssertionError: assert '  - M(options: A & B) -> void' in ['FQN: Doc', 'Kind: class_declaration', '', 'Methods:', '  - M(options: A\t&\tB) -> void']
+E        +  where ['FQN: Doc', 'Kind: class_declaration', '', 'Methods:', '  - M(options: A\t&\tB) -> void'] = <built-in method splitlines of str object at 0x000001833257C7B0>()
+E        +    where <built-in method splitlines of str object at 0x000001833257C7B0> = 'FQN: Doc\nKind: class_declaration\n\nMethods:\n  - M(options: A\t&\tB) -> void'.splitlines
+
+tests\indexing\test_chunk_builder_single_line_members.py:92: AssertionError
+_________ test_a_carriage_return_line_break_is_collapsed_to_one_space _________
+
+    def test_a_carriage_return_line_break_is_collapsed_to_one_space() -> None:
+        text = _chunk_text([_klass([_method("M", "A &\r\n  B"), _method("N")])])
+>       assert "  - M(options: A & B) -> void" in text.splitlines()
+E       AssertionError: assert '  - M(options: A & B) -> void' in ['FQN: Doc', 'Kind: class_declaration', '', 'Methods:', '  - M(options: A &', '  B) -> void', ...]
+E        +  where ['FQN: Doc', 'Kind: class_declaration', '', 'Methods:', '  - M(options: A &', '  B) -> void', ...] = <built-in method splitlines of str object at 0x00000183322A4170>()
+E        +    where <built-in method splitlines of str object at 0x00000183322A4170> = 'FQN: Doc\nKind: class_declaration\n\nMethods:\n  - M(options: A &\r\n  B) -> void\n  - N(options: string) -> void'.splitlines
+
+tests\indexing\test_chunk_builder_single_line_members.py:97: AssertionError
+______ test_a_double_space_inside_a_string_literal_type_is_collapsed_too ______
+
+    def test_a_double_space_inside_a_string_literal_type_is_collapsed_too() -> None:
+        # Deliberate: a rendered type is a display line, not a value, so every whitespace run is one space.
+        text = _chunk_text([_klass([_method("M", "'a  b' | 'c'")])])
+>       assert "  - M(options: 'a b' | 'c') -> void" in text.splitlines()
+E       assert "  - M(options: 'a b' | 'c') -> void" in ['FQN: Doc', 'Kind: class_declaration', '', 'Methods:', "  - M(options: 'a  b' | 'c') -> void"]
+E        +  where ['FQN: Doc', 'Kind: class_declaration', '', 'Methods:', "  - M(options: 'a  b' | 'c') -> void"] = <built-in method splitlines of str object at 0x0000018333D96FB0>()
+E        +    where <built-in method splitlines of str object at 0x0000018333D96FB0> = "FQN: Doc\nKind: class_declaration\n\nMethods:\n  - M(options: 'a  b' | 'c') -> void".splitlines
+
+tests\indexing\test_chunk_builder_single_line_members.py:125: AssertionError
+_ test_every_member_block_of_a_real_fixture_has_no_continuation_line[pdf_typescript] _
+
+fixture = 'pdf_typescript'
+
+    @pytest.mark.parametrize("fixture", _FIXTURE_NAMES)
+    def test_every_member_block_of_a_real_fixture_has_no_continuation_line(fixture: str) -> None:
+        broken: list[str] = []
+        checked = 0
+        for chunk in _chunks(fixture):
+            lines = chunk.text.splitlines()
+            for header in _HEADERS:
+                if header not in lines:
+                    continue
+                checked += 1
+                _, stopper = _block_after(lines, header)
+                if stopper not in (None, ""):
+                    broken.append(f"{header} stopped at {stopper!r}")
+        assert checked > 0
+>       assert broken == []
+E       assert ['Methods: st...table)"', ...] == []
+E         
+E         Left contains 17 more items, first extra item: 'Methods: stopped at "      /** Document title. Non-empty. Default: the document\'s title is untouched. */"'
+E         Use -v to get more diff
+
+tests\indexing\test_chunk_builder_single_line_members.py:177: AssertionError
+_ test_every_member_block_of_a_real_fixture_has_no_continuation_line[cells_typescript] _
+
+fixture = 'cells_typescript'
+
+    @pytest.mark.parametrize("fixture", _FIXTURE_NAMES)
+    def test_every_member_block_of_a_real_fixture_has_no_continuation_line(fixture: str) -> None:
+        broken: list[str] = []
+        checked = 0
+        for chunk in _chunks(fixture):
+            lines = chunk.text.splitlines()
+            for header in _HEADERS:
+                if header not in lines:
+                    continue
+                checked += 1
+                _, stopper = _block_after(lines, header)
+                if stopper not in (None, ""):
+                    broken.append(f"{header} stopped at {stopper!r}")
+        assert checked > 0
+>       assert broken == []
+E       assert ["Properties:...hole"\'', ...] == []
+E         
+E         Left contains 8 more items, first extra item: "Properties: stopped at '    position: number;'"
+E         Use -v to get more diff
+
+tests\indexing\test_chunk_builder_single_line_members.py:177: AssertionError
+_ test_every_member_block_of_a_real_fixture_has_no_continuation_line[3d_typescript] _
+
+fixture = '3d_typescript'
+
+    @pytest.mark.parametrize("fixture", _FIXTURE_NAMES)
+    def test_every_member_block_of_a_real_fixture_has_no_continuation_line(fixture: str) -> None:
+        broken: list[str] = []
+        checked = 0
+        for chunk in _chunks(fixture):
+            lines = chunk.text.splitlines()
+            for header in _HEADERS:
+                if header not in lines:
+                    continue
+                checked += 1
+                _, stopper = _block_after(lines, header)
+                if stopper not in (None, ""):
+                    broken.append(f"{header} stopped at {stopper!r}")
+        assert checked > 0
+>       assert broken == []
+E       assert ["Properties:...: number[];'"] == []
+E         
+E         Left contains one more item: "Properties: stopped at '        baseColorFactor?: number[];'"
+E         Use -v to get more diff
+
+tests\indexing\test_chunk_builder_single_line_members.py:177: AssertionError
+_ test_every_member_block_of_a_real_fixture_has_no_continuation_line[pdf_cpp] _
+
+fixture = 'pdf_cpp'
+
+    @pytest.mark.parametrize("fixture", _FIXTURE_NAMES)
+    def test_every_member_block_of_a_real_fixture_has_no_continuation_line(fixture: str) -> None:
+        broken: list[str] = []
+        checked = 0
+        for chunk in _chunks(fixture):
+            lines = chunk.text.splitlines()
+            for header in _HEADERS:
+                if header not in lines:
+                    continue
+                checked += 1
+                _, stopper = _block_after(lines, header)
+                if stopper not in (None, ""):
+                    broken.append(f"{header} stopped at {stopper!r}")
+        assert checked > 0
+>       assert broken == []
+E       assert ["Properties:...:monostate,'"] == []
+E         
+E         Left contains one more item: "Properties: stopped at '        std::monostate,'"
+E         Use -v to get more diff
+
+tests\indexing\test_chunk_builder_single_line_members.py:177: AssertionError
+_ test_extract_block_length_equals_the_member_lines_of_every_real_chunk[pdf_typescript] _
+
+fixture = 'pdf_typescript'
+
+    @pytest.mark.parametrize("fixture", _FIXTURE_NAMES)
+    def test_extract_block_length_equals_the_member_lines_of_every_real_chunk(fixture: str) -> None:
+        mismatched: list[str] = []
+        for chunk in _chunks(fixture):
+            lines = chunk.text.splitlines()
+            for header in _HEADERS:
+                if header not in lines:
+                    continue
+                start = lines.index(header) + 1
+                blank = lines.index("", start) if "" in lines[start:] else len(lines)
+                under_header = [line for line in lines[start:blank] if line.startswith(_BULLET)]
+                if len(_extract_block(chunk.text, header)) != len(under_header):
+                    mismatched.append(f"{header}: {chunk.text.splitlines()[0]}")
+>       assert mismatched == []
+E       AssertionError: assert ['Methods:: F...wnStyle', ...] == []
+E         
+E         Left contains 8 more items, first extra item: 'Methods:: FQN: document.Document'
+E         Use -v to get more diff
+
+tests\indexing\test_chunk_builder_single_line_members.py:193: AssertionError
+_ test_extract_block_length_equals_the_member_lines_of_every_real_chunk[cells_typescript] _
+
+fixture = 'cells_typescript'
+
+    @pytest.mark.parametrize("fixture", _FIXTURE_NAMES)
+    def test_extract_block_length_equals_the_member_lines_of_every_real_chunk(fixture: str) -> None:
+        mismatched: list[str] = []
+        for chunk in _chunks(fixture):
+            lines = chunk.text.splitlines()
+            for header in _HEADERS:
+                if header not in lines:
+                    continue
+                start = lines.index(header) + 1
+                blank = lines.index("", start) if "" in lines[start:] else len(lines)
+                under_header = [line for line in lines[start:blank] if line.startswith(_BULLET)]
+                if len(_extract_block(chunk.text, header)) != len(under_header):
+                    mismatched.append(f"{header}: {chunk.text.splitlines()[0]}")
+>       assert mismatched == []
+E       AssertionError: assert ['Properties:...idation', ...] == []
+E         
+E         Left contains 8 more items, first extra item: 'Properties:: FQN: aspose_cells.types.ShapeFill'
+E         Use -v to get more diff
+
+tests\indexing\test_chunk_builder_single_line_members.py:193: AssertionError
+_ test_extract_block_length_equals_the_member_lines_of_every_real_chunk[3d_typescript] _
+
+fixture = '3d_typescript'
+
+    @pytest.mark.parametrize("fixture", _FIXTURE_NAMES)
+    def test_extract_block_length_equals_the_member_lines_of_every_real_chunk(fixture: str) -> None:
+        mismatched: list[str] = []
+        for chunk in _chunks(fixture):
+            lines = chunk.text.splitlines()
+            for header in _HEADERS:
+                if header not in lines:
+                    continue
+                start = lines.index(header) + 1
+                blank = lines.index("", start) if "" in lines[start:] else len(lines)
+                under_header = [line for line in lines[start:blank] if line.startswith(_BULLET)]
+                if len(_extract_block(chunk.text, header)) != len(under_header):
+                    mismatched.append(f"{header}: {chunk.text.splitlines()[0]}")
+>       assert mismatched == []
+E       AssertionError: assert ['Properties:...GltfMaterial'] == []
+E         
+E         Left contains one more item: 'Properties:: FQN: aspose.threed.formats.gltf.GltfExporter.GltfMaterial'
+E         Use -v to get more diff
+
+tests\indexing\test_chunk_builder_single_line_members.py:193: AssertionError
+_ test_the_central_pdf_typescript_classes_declare_their_late_members[document.Document-members0] _
+
+class_import = 'document.Document'
+members = ('Merge', 'Append', 'Redact', 'RemovePage', 'AddMarkdown')
+
+    @pytest.mark.parametrize(
+        ("class_import", "members"),
+        [
+            ("document.Document", ("Merge", "Append", "Redact", "RemovePage", "AddMarkdown")),
+            ("page.Page", ("AddImage", "AddTable", "ToSvg", "Redact")),
+        ],
+    )
+    def test_the_central_pdf_typescript_classes_declare_their_late_members(
+        class_import: str, members: tuple[str, ...]
+    ) -> None:
+        _, text = _entry_and_chunk("pdf_typescript", class_import)
+        declared = _declared_members(text)
+>       assert [name for name in members if name not in declared] == []
+E       AssertionError: assert ['Merge', 'Ap... 'RemovePage'] == []
+E         
+E         Left contains 4 more items, first extra item: 'Merge'
+E         Use -v to get more diff
+
+tests\indexing\test_chunk_builder_single_line_members.py:227: AssertionError
+_ test_the_central_pdf_typescript_classes_declare_their_late_members[page.Page-members1] _
+
+class_import = 'page.Page'
+members = ('AddImage', 'AddTable', 'ToSvg', 'Redact')
+
+    @pytest.mark.parametrize(
+        ("class_import", "members"),
+        [
+            ("document.Document", ("Merge", "Append", "Redact", "RemovePage", "AddMarkdown")),
+            ("page.Page", ("AddImage", "AddTable", "ToSvg", "Redact")),
+        ],
+    )
+    def test_the_central_pdf_typescript_classes_declare_their_late_members(
+        class_import: str, members: tuple[str, ...]
+    ) -> None:
+        _, text = _entry_and_chunk("pdf_typescript", class_import)
+        declared = _declared_members(text)
+>       assert [name for name in members if name not in declared] == []
+E       AssertionError: assert ['AddImage', ...vg', 'Redact'] == []
+E         
+E         Left contains 4 more items, first extra item: 'AddImage'
+E         Use -v to get more diff
+
+tests\indexing\test_chunk_builder_single_line_members.py:227: AssertionError
+_ test_the_whole_method_list_of_a_central_class_is_in_the_block[document.Document] _
+
+class_import = 'document.Document'
+
+    @pytest.mark.parametrize("class_import", ["document.Document", "page.Page"])
+    def test_the_whole_method_list_of_a_central_class_is_in_the_block(class_import: str) -> None:
+        entry, text = _entry_and_chunk("pdf_typescript", class_import)
+        expected = _method_lines(entry["methods"])
+        assert len(expected) > 0
+>       assert list(_extract_block(text, "Methods:")) == [line[len(_BULLET) :].strip() for line in expected]
+E       assert ['GetTables(o...static]', ...] == ['GetTables(o...static]', ...]
+E         
+E         At index 87 diff: 'AddMarkdown(src: string | MdDocument, options: MarkdownFlowOptions & FlowOptions & {' != "AddMarkdown(src: string | MdDocument, options: MarkdownFlowOptions & FlowOptions & {\n      /** Document title. Non-empty. Default: the document's title is untouched. */\n      title?: string;\n    } = {}) -> { pages: Page[]; skipped: string[] }"
+E         Right contains 23 more items, first extra item: 'AddHtml(src: string | HtmlDocument, options: HtmlFlowOptions & FlowOptions & {\n      /** Document title. Non-empty. ...      title?: string;\n    } = {}) -> { pages: Page[...
+E         
+E         ...Full output truncated (2 lines hidden), use '-vv' to show
+
+tests\indexing\test_chunk_builder_single_line_members.py:235: AssertionError
+__ test_the_whole_method_list_of_a_central_class_is_in_the_block[page.Page] ___
+
+class_import = 'page.Page'
+
+    @pytest.mark.parametrize("class_import", ["document.Document", "page.Page"])
+    def test_the_whole_method_list_of_a_central_class_is_in_the_block(class_import: str) -> None:
+        entry, text = _entry_and_chunk("pdf_typescript", class_import)
+        expected = _method_lines(entry["methods"])
+        assert len(expected) > 0
+>       assert list(_extract_block(text, "Methods:")) == [line[len(_BULLET) :].strip() for line in expected]
+E       assert ['constructor...otation', ...] == ['constructor...otation', ...]
+E         
+E         At index 41 diff: 'AddMarkdown(src: string | MdDocument, rect: [number, number, number, number], options: MarkdownFlowOptions & {' != "AddMarkdown(src: string | MdDocument, rect: [number, number, number, number], options: MarkdownFlowOptions & {\n      /** Gap between consecutive blocks, on top of the style's own spacing.\n       *  Default 0. */\n      paragraphSpacing?: number;\n      /** Grouping element the content tags under. Omit for untagged output. */\n      structParent?: StructElement;\n    } = {}) -> AddMarkdownResult"
+E         Right contains 20 more items, first extra...
+E         
+E         ...Full output truncated (2 lines hidden), use '-vv' to show
+
+tests\indexing\test_chunk_builder_single_line_members.py:235: AssertionError
+1 live test(s) deselected; set FOSS_MCP_NETWORK_TESTS=1 to run them
+=========================== short test summary info ===========================
+FAILED tests/indexing/test_chunk_builder_single_line_members.py::test_a_parameter_type_with_a_newline_and_a_comment_renders_one_line
+FAILED tests/indexing/test_chunk_builder_single_line_members.py::test_a_member_after_a_multi_line_parameter_type_is_still_in_the_block
+FAILED tests/indexing/test_chunk_builder_single_line_members.py::test_a_return_type_with_a_newline_renders_one_line
+FAILED tests/indexing/test_chunk_builder_single_line_members.py::test_a_property_type_with_a_newline_renders_one_line
+FAILED tests/indexing/test_chunk_builder_single_line_members.py::test_a_tab_is_collapsed_to_one_space
+FAILED tests/indexing/test_chunk_builder_single_line_members.py::test_a_carriage_return_line_break_is_collapsed_to_one_space
+FAILED tests/indexing/test_chunk_builder_single_line_members.py::test_a_double_space_inside_a_string_literal_type_is_collapsed_too
+FAILED tests/indexing/test_chunk_builder_single_line_members.py::test_every_member_block_of_a_real_fixture_has_no_continuation_line[pdf_typescript]
+FAILED tests/indexing/test_chunk_builder_single_line_members.py::test_every_member_block_of_a_real_fixture_has_no_continuation_line[cells_typescript]
+FAILED tests/indexing/test_chunk_builder_single_line_members.py::test_every_member_block_of_a_real_fixture_has_no_continuation_line[3d_typescript]
+FAILED tests/indexing/test_chunk_builder_single_line_members.py::test_every_member_block_of_a_real_fixture_has_no_continuation_line[pdf_cpp]
+FAILED tests/indexing/test_chunk_builder_single_line_members.py::test_extract_block_length_equals_the_member_lines_of_every_real_chunk[pdf_typescript]
+FAILED tests/indexing/test_chunk_builder_single_line_members.py::test_extract_block_length_equals_the_member_lines_of_every_real_chunk[cells_typescript]
+FAILED tests/indexing/test_chunk_builder_single_line_members.py::test_extract_block_length_equals_the_member_lines_of_every_real_chunk[3d_typescript]
+FAILED tests/indexing/test_chunk_builder_single_line_members.py::test_the_central_pdf_typescript_classes_declare_their_late_members[document.Document-members0]
+FAILED tests/indexing/test_chunk_builder_single_line_members.py::test_the_central_pdf_typescript_classes_declare_their_late_members[page.Page-members1]
+FAILED tests/indexing/test_chunk_builder_single_line_members.py::test_the_whole_method_list_of_a_central_class_is_in_the_block[document.Document]
+FAILED tests/indexing/test_chunk_builder_single_line_members.py::test_the_whole_method_list_of_a_central_class_is_in_the_block[page.Page]
+
+--- stderr ---
+
