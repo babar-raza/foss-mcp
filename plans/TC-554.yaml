@@ -66,6 +66,11 @@ inputs:
   Python file you changed, without --force-exclude. Commit once with the subject `fix(indexing): render every member as one line so a multi-line type no longer ends the member block (G3/TC-554)` ending
   with the Co-Authored-By trailer for the model that did the work; UTF-8 without a byte-order mark; LF. Do NOT edit plans/, project/, ops/, evidence/, schemas/, docs/, infra/ or any fixture, and do not
   run docker or a cluster command.
+- >-
+  SUPERVISOR AMENDMENT (rework attempt 2, review defect, not a defect of your code). The review's two clean runs disagreed: three tests of tests/indexing build a real pinned Rust crate (test_prepare_rust_library_builds_the_real_pinned_commit,
+  test_rust_known_working_candidate_builds_clean, test_rust_known_broken_candidate_fails_real_compile) and errored in the first run with 'An Application Control policy has blocked this file (os error 4551)'
+  (a Windows host policy on a cargo build script) and passed in the second. They have nothing to do with chunk_builder, so the second check now deselects exactly those names. Your commit is unchanged and
+  stays; you need not edit anything.
 actions:
 - >-
   Collapse whitespace in every rendered member type and default so a member is one line and the Methods/Properties block is never ended early.
@@ -83,7 +88,7 @@ checks:
   - REQ-G3-005
 - command: >-
     {python} -m pytest tests/indexing tests/mcp/tools/test_symbol_tools.py tests/infra/test_build_chunks.py tests/extraction/test_central_classes_indexed.py -q -rfE -p no:cacheprovider -k "not live and
-    not github_http and not repo_native"
+    not github_http and not repo_native and not test_prepare_rust_library and not test_rust_known"
   expect: exit 0
   timeout_seconds: 1800
   junitxml: true
