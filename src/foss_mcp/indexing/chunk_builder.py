@@ -65,6 +65,7 @@ def _clean_type(value: object) -> str:
     text = str(value).strip()
     if text.startswith(":"):
         text = text[1:].strip()
+    text = " ".join(text.split())
     return text
 
 
@@ -118,7 +119,7 @@ def _param_text(param: Mapping[str, object]) -> str:
     name = str(param.get("name") or "")
     param_type = _clean_type(param.get("type"))
     default = param.get("default")
-    has_default = default is not None and bool(str(default).strip())
+    has_default = default is not None and bool(" ".join(str(default).split()))
     # TC-523: an optional parameter without a default is ``name?: type``; with a default the default
     # already says the argument may be left out, so it renders ``name: type = default``.
     marker = "?" if param.get("optional") is True and not has_default else ""
@@ -129,7 +130,7 @@ def _param_text(param: Mapping[str, object]) -> str:
         text = f"{name}{marker}: {param_type}" if param_type else f"{name}{marker}"
     if not has_default:
         return text
-    return f"{text} = {str(default).strip()}"
+    return f"{text} = {' '.join(str(default).split())}"
 
 
 def _modifiers_suffix(entry: Mapping[str, object]) -> str:
