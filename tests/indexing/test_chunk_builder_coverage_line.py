@@ -192,8 +192,10 @@ def test_every_clause_in_order() -> None:
 def test_committed_tex_python_fixture_states_the_unparsed_files_in_every_chunk() -> None:
     fixture = _real("tex_python")
     texts = _texts(fixture)
-    assert len(texts) == 4
-    expected = "API-Coverage: 4 of 4 types; at least 2 source files could not be parsed"
+    # TC-555: 4 chunks -> 23 (21 types, 2 functions) and "at least 2 source files" -> the measured
+    # parse_failures of the committed fixture (the two repaired files parse; 35 of 45 do not as written).
+    assert len(texts) == 23
+    expected = "API-Coverage: 21 of 21 types; 2 of 2 functions; 35 of 45 source files could not be parsed"
     assert all(text.splitlines()[-1] == expected for text in texts)
 
 
@@ -229,4 +231,6 @@ def test_the_line_stays_the_last_line_before_the_source_commit_is_appended() -> 
     fixture = _real("tex_python")
     for text in _texts(fixture):
         appended = f"{text}\nSource-Commit: {fixture['source_commit']}"
-        assert appended.splitlines()[-2].startswith("API-Coverage: 4 of 4 types")
+        assert appended.splitlines()[-2].startswith(
+            "API-Coverage: 21 of 21 types"
+        )  # TC-555: 4 of 4 -> 21 of 21

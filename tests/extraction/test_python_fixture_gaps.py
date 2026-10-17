@@ -1,8 +1,8 @@
 """TC-522: which committed Python fixtures predate the fidelity fix, and proof the gap is real.
 
-Of the eleven committed python fixtures, six were produced before TC-522 (``extractor_version`` absent, i.e. 1;
+Of the eleven committed python fixtures, five were produced before TC-522 (``extractor_version`` absent, i.e. 1;
 3d_python, html_python, pdf_python, slides_python and words_python were re-extracted by TC-550 at version 5 and
-left ``KNOWN_GAP``): none of their method parameters has a ``default``, none of their methods a ``static`` / ``classmethod``
+left ``KNOWN_GAP``, and tex_python by TC-555): none of their method parameters has a ``default``, none of their methods a ``static`` / ``classmethod``
 modifier, and none of their re-export shells a ``reexport_of``. ``KNOWN_GAP`` documents that, one line per
 pilot, and the tests make the documentation self-checking in both directions:
 
@@ -51,7 +51,7 @@ KNOWN_GAP: dict[str, str] = {
     "email_python": "version-1 fixture: parameter defaults, keyword-only markers and static/classmethod marks were not extracted",
     "note_python": "version-1 fixture: parameter defaults, keyword-only markers and static/classmethod marks were not extracted",
     "page_python": "version-1 fixture: parameter defaults, keyword-only markers and static/classmethod marks were not extracted",
-    "tex_python": "version-1 fixture: parameter defaults, keyword-only markers and static/classmethod marks were not extracted",
+    # TC-555: tex_python re-extracted at version 5 -> its entry is removed
 }
 
 

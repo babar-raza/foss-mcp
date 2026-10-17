@@ -23,6 +23,7 @@ from __future__ import annotations
 
 import ast
 import importlib.util
+import re
 from collections.abc import Sequence
 from dataclasses import dataclass, replace
 from pathlib import Path
@@ -36,6 +37,18 @@ _EXCLUDED_PARTS = frozenset({"__pycache__", "build", "dist", "tests", "test", "d
 
 # TC-522: a parameter default longer than this many characters is cut and ends in "...".
 _DEFAULT_TEXT_LIMIT = 120
+
+# TC-555: the bounded textual repair of a file whose indentation was collapsed upstream. At most this
+# many repairs are made before the original ``SyntaxError`` is raised.
+_MAX_REPAIRS = 2000
+_REPAIR_TRY = "if True: pass"
+_REPAIR_INERT = "if False: pass"
+_BARE_TRY = re.compile(r"^(\s*)try:\s*$")
+_LADDER_HEADER = re.compile(r"^(\s*)(?:except\b.*|finally)\s*:\s*$")
+_LEADING_SPACE = re.compile(r"\s*")
+
+# A repaired file, keyed by its path: (first repaired line, number of repairs).
+_RepairLedger = dict[Path, tuple[int, int]]
 
 
 @dataclass(frozen=True)
@@ -258,6 +271,107 @@ def _resolved_relative(module: str, is_package: bool, node: ast.ImportFrom) -> s
         return None
 
 
+def _blank_or_comment(line: str) -> bool:
+    stripped = line.strip()
+    return not stripped or stripped.startswith("#")
+
+
+def _indent_of(line: str) -> str:
+    match = _LEADING_SPACE.match(line)
+    return match.group(0) if match else ""
+
+
+def _parse_repairing_collapsed_indentation(
+    text: str, filename: str, *, repaired_lines: list[int] | None = None
+) -> tuple[ast.Module, int]:
+    """TC-555: parse *text*; a file whose indentation was collapsed is repaired textually first.
+
+    Returns ``(tree, repairs)``: ``repairs`` is 0 when the text parses as written (the tree is then
+    exactly ``ast.parse``'s). A file that lost its indentation (every indented line one space, a
+    ``def`` followed by its docstring at the same column) is not valid Python, yet its declarations
+    are intact. Each ``expected an indented block`` error closes the nearest header before it with
+    `` pass``; a collapsed ``try:`` is neutralised to ``_REPAIR_TRY`` and then every ``except`` /
+    ``finally`` header (a collapsed ladder cannot be a ladder) becomes ``if False: pass``, as does an
+    ``else:`` / ``elif`` left without its ``if``. Lines are edited in place, so every declaration
+    keeps its real line. Function bodies are lost; signatures are kept. Any other error, a header
+    that does not end in a colon, or more than ``_MAX_REPAIRS`` repairs raises the ORIGINAL
+    ``SyntaxError``.
+
+    *repaired_lines*, when given, receives the 1-based line of every header repaired.
+    """
+    lines = text.split("\n")
+    repairs = 0
+    original: SyntaxError | None = None
+    while True:
+        try:
+            return ast.parse("\n".join(lines), filename=filename), repairs
+        except SyntaxError as exc:
+            if original is None:
+                original = exc
+            if repairs >= _MAX_REPAIRS or exc.lineno is None or not 1 <= exc.lineno <= len(lines):
+                raise original from None
+            message = exc.msg or ""
+            at = exc.lineno - 1
+            was_try = False
+            if message == "invalid syntax" and (
+                lines[at].strip() == "else:" or lines[at].strip().startswith("elif ")
+            ):
+                header = at
+                lines[header] = _indent_of(lines[header]) + _REPAIR_INERT
+            elif message.startswith("expected an indented block"):
+                header = at - 1
+                while header >= 0 and _blank_or_comment(lines[header]):
+                    header -= 1
+                if header < 0:
+                    raise original from None
+                bare_try = _BARE_TRY.match(lines[header])
+                if bare_try:
+                    lines[header] = bare_try.group(1) + _REPAIR_TRY
+                    was_try = True
+                elif lines[header].rstrip().endswith(":"):
+                    lines[header] = lines[header].rstrip() + " pass"
+                else:
+                    raise original from None
+            elif message.startswith("expected 'except' or 'finally' block"):
+                header = at
+                while header >= 0 and not lines[header].strip().startswith("try:"):
+                    header -= 1
+                if header < 0:
+                    raise original from None
+                lines[header] = _indent_of(lines[header]) + _REPAIR_TRY
+                was_try = True
+            else:
+                raise original from None
+            repairs += 1
+            if repaired_lines is not None:
+                repaired_lines.append(header + 1)
+            if was_try:
+                for index, line in enumerate(lines):
+                    ladder = _LADDER_HEADER.match(line)
+                    if ladder:
+                        lines[index] = ladder.group(1) + _REPAIR_INERT
+
+
+def _parse_source_file(path: Path, repairs: _RepairLedger | None = None) -> ast.Module:
+    """TC-555: the parsed module at *path*, repaired when its indentation is collapsed.
+
+    A repaired file is recorded in *repairs* (``path -> (first repaired line, repair count)``) so the
+    caller can disclose it. Raises ``SyntaxError`` when the file cannot be recovered.
+    """
+    lines: list[int] = []
+    tree, count = _parse_repairing_collapsed_indentation(
+        path.read_text(encoding="utf-8-sig", errors="replace"), str(path), repaired_lines=lines
+    )
+    if count and repairs is not None:
+        repairs[path] = (min(lines), count)
+    return tree
+
+
+def _repaired_entry(module: str, relative: str, first_line: int, count: int) -> str:
+    """The ``unresolved`` entry that discloses a file parsed only after its repair."""
+    return f"{module}:{first_line}:repaired-syntax:{relative}:{count} header lines closed with pass"
+
+
 def _module_symbols(
     path: Path, source_root: Path, repository_root: Path
 ) -> tuple[list[PublicSymbol], list[str]]:
@@ -265,8 +379,9 @@ def _module_symbols(
     relative = path.relative_to(repository_root).as_posix()
     if not module or any(part.startswith("_") for part in module.split(".")):
         return [], []
+    repairs: _RepairLedger = {}
     try:
-        tree = ast.parse(path.read_text(encoding="utf-8-sig", errors="replace"), filename=str(path))
+        tree = _parse_source_file(path, repairs)
     except SyntaxError as exc:
         return [], [f"{module}:{exc.lineno or 0}:syntax-error:{relative}:{exc.msg}"]
     explicit = _literal_all(tree)
@@ -282,7 +397,9 @@ def _module_symbols(
             docstring=_first_docstring_line(tree),
         )
     ]
-    unresolved: list[str] = []
+    unresolved: list[str] = [
+        _repaired_entry(module, relative, first_line, count) for first_line, count in repairs.values()
+    ]
     for node in tree.body:
         if isinstance(node, ast.ClassDef | ast.FunctionDef | ast.AsyncFunctionDef):
             public, public_by = _public_name(node.name, explicit)
@@ -560,7 +677,10 @@ class _OriginDefinition:
 
 
 def _origin_definition(
-    origin: str, source_root: Path, seen: frozenset[str] = frozenset()
+    origin: str,
+    source_root: Path,
+    seen: frozenset[str] = frozenset(),
+    repairs: _RepairLedger | None = None,
 ) -> _OriginDefinition | None:
     """The full evidence of one re-exported definition, read from its own file; ``None`` if
     absent.
@@ -581,7 +701,7 @@ def _origin_definition(
         if not candidate.is_file():
             continue
         try:
-            tree = ast.parse(candidate.read_text(encoding="utf-8-sig", errors="replace"))
+            tree = _parse_source_file(candidate, repairs)
         except SyntaxError:
             return None
         found: ast.ClassDef | ast.FunctionDef | ast.AsyncFunctionDef | None = None
@@ -614,7 +734,7 @@ def _origin_definition(
             )
         if forwarded is None or forwarded in seen or forwarded == origin:
             return None
-        return _origin_definition(forwarded, source_root, seen | {origin})
+        return _origin_definition(forwarded, source_root, seen | {origin}, repairs)
     return None
 
 
@@ -641,7 +761,7 @@ def _origin_syntax_error(
         if not candidate.is_file():
             continue
         try:
-            tree = ast.parse(candidate.read_text(encoding="utf-8-sig", errors="replace"))
+            tree = _parse_source_file(candidate)
         except SyntaxError as exc:
             relative = candidate.relative_to(repository_root).as_posix()
             return f"{module}:{exc.lineno or 0}:syntax-error:{relative}:{exc.msg}"
@@ -669,6 +789,19 @@ def _origin_kind(origin: str, source_root: Path, seen: frozenset[str] = frozense
     return definition.kind if definition is not None else None
 
 
+def _is_foreign_import(origin: str, source_root: Path) -> bool:
+    """TC-555: whether *origin* names code outside the scanned source tree (the standard library or
+    a third-party package: ``pathlib.Path``, ``typing.TYPE_CHECKING``, ``__future__.annotations``).
+
+    A package ``__init__`` that holds real definitions and also imports ``dataclass`` or ``Path``
+    would otherwise report each as an ``unresolved-reexport``: not a failure of the extractor to
+    read the package, only an import of something the package does not own. Its symbol is kept
+    (it is never a type), only the false ``unresolved`` entry is not recorded.
+    """
+    top = origin.split(".", 1)[0]
+    return not ((source_root / top).is_dir() or (source_root / f"{top}.py").is_file())
+
+
 def _forwarded_origin(node: ast.ImportFrom, module: str, is_package: bool, name: str) -> str | None:
     """Where an ``import from`` statement says ``name`` really comes from, if it names it."""
     for alias in node.names:
@@ -680,7 +813,10 @@ def _forwarded_origin(node: ast.ImportFrom, module: str, is_package: bool, name:
 
 
 def _reexport_kind(
-    symbol: PublicSymbol, symbols: dict[str, PublicSymbol], source_root: Path
+    symbol: PublicSymbol,
+    symbols: dict[str, PublicSymbol],
+    source_root: Path,
+    repairs: _RepairLedger | None = None,
 ) -> tuple[PublicSymbol | None, SymbolKind | None, _OriginDefinition | None]:
     """The definition a re-export ends at and its kind, following every hop of the chain.
 
@@ -710,7 +846,7 @@ def _reexport_kind(
         # system answers what the symbol table cannot (``email_foss.cfb`` re-exporting from
         # ``email_foss.cfb``), and reading the chain instead would end the walk at that symbol.
         if origin is None or origin.qualified_name == current.qualified_name:
-            definition = _origin_definition(target, source_root, frozenset(seen))
+            definition = _origin_definition(target, source_root, frozenset(seen), repairs)
             return None, (definition.kind if definition is not None else None), definition
         if origin.kind != "unknown":
             return origin, origin.kind, None
@@ -750,7 +886,11 @@ def _reexported_methods(definition: _OriginDefinition, symbol: PublicSymbol, nam
 
 
 def _find_class(
-    module: str, name: str, source_root: Path, seen: frozenset[str] = frozenset()
+    module: str,
+    name: str,
+    source_root: Path,
+    seen: frozenset[str] = frozenset(),
+    repairs: _RepairLedger | None = None,
 ) -> tuple[ast.ClassDef, str, bool] | None:
     """TC-429: the ``ClassDef`` that binds *name* in *module*, with the module that holds its body.
 
@@ -768,7 +908,7 @@ def _find_class(
             continue
         is_package = candidate.name == "__init__.py"
         try:
-            tree = ast.parse(candidate.read_text(encoding="utf-8-sig", errors="replace"))
+            tree = _parse_source_file(candidate, repairs)
         except SyntaxError:
             return None
         forwarded: str | None = None
@@ -782,7 +922,7 @@ def _find_class(
         if forwarded is None or "." not in forwarded:
             return None
         next_module, next_name = forwarded.rsplit(".", 1)
-        return _find_class(next_module, next_name, source_root, seen | {key})
+        return _find_class(next_module, next_name, source_root, seen | {key}, repairs)
     return None
 
 
@@ -797,7 +937,7 @@ def _is_non_public_base(written: str, node: ast.ClassDef, module: str) -> bool:
 
 
 def _inherited_private_base_methods(
-    symbols: dict[str, PublicSymbol], source_root: Path
+    symbols: dict[str, PublicSymbol], source_root: Path, repairs: _RepairLedger | None = None
 ) -> list[PublicSymbol]:
     """TC-429: the public methods a public class inherits from its NON-PUBLIC base classes.
 
@@ -825,7 +965,7 @@ def _inherited_private_base_methods(
             body_module, body_name = symbol.reexported_from.rsplit(".", 1)
         else:
             body_module, body_name = symbol.module, symbol.name
-        located = _find_class(body_module, body_name, source_root)
+        located = _find_class(body_module, body_name, source_root, repairs=repairs)
         if located is None:
             continue
         own, holder, _ = located
@@ -842,7 +982,7 @@ def _inherited_private_base_methods(
             for base in node.bases:
                 if not isinstance(base, ast.Name):
                     continue
-                base_located = _find_class(node_module, base.id, source_root)
+                base_located = _find_class(node_module, base.id, source_root, repairs=repairs)
                 if base_located is None:
                     continue
                 base_node, base_module, _ = base_located
@@ -881,6 +1021,7 @@ def inspect_public_surface(repository_root: Path, package_dirs: Sequence[str]) -
     for package_dir in _minimal_roots(package_dirs):
         package_path = repository_root / package_dir
         source_root = package_path.parent
+        repairs: _RepairLedger = {}
         for path in sorted(package_path.rglob("*.py")):
             if any(part in _EXCLUDED_PARTS for part in path.relative_to(source_root).parts):
                 continue
@@ -904,7 +1045,9 @@ def inspect_public_surface(repository_root: Path, package_dirs: Sequence[str]) -
         for name, symbol in list(symbols.items()):
             if symbol.reexported_from is None or symbol.kind != "unknown":
                 continue
-            origin, kind, definition = _reexport_kind(symbol, symbols, source_root)
+            if _is_foreign_import(symbol.reexported_from, source_root):
+                continue  # TC-555: an import of another library is not a re-export to resolve
+            origin, kind, definition = _reexport_kind(symbol, symbols, source_root, repairs)
             if kind is None:
                 unresolved.append(
                     f"{symbol.module}:{symbol.line}:unresolved-reexport:{symbol.reexported_from}"
@@ -952,8 +1095,14 @@ def inspect_public_surface(repository_root: Path, package_dirs: Sequence[str]) -
                         if method_symbol.qualified_name not in symbols:
                             symbols[method_symbol.qualified_name] = method_symbol
         # TC-429: a public class built from private mixins gains their public methods.
-        for inherited in _inherited_private_base_methods(symbols, source_root):
+        for inherited in _inherited_private_base_methods(symbols, source_root, repairs):
             symbols.setdefault(inherited.qualified_name, inherited)
+        # TC-555: a file reached only through a re-export or a private mixin was repaired too; the
+        # entry is the same string ``_module_symbols`` makes for a scanned file, so a set merges them.
+        for repaired_path, (first_line, count) in repairs.items():
+            repaired_module, _ = _module_name(repaired_path, source_root)
+            relative = repaired_path.relative_to(repository_root).as_posix()
+            unresolved.append(_repaired_entry(repaired_module, relative, first_line, count))
     return PublicSurface(
         symbols=tuple(symbols[name] for name in sorted(symbols)),
         unresolved=tuple(sorted(set(unresolved))),

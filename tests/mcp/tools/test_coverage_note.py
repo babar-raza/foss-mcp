@@ -152,13 +152,14 @@ def _complete_store() -> _Store:
 
 def test_get_symbol_and_list_members_misses_state_the_unparsed_files() -> None:
     store = _tex_store()
-    miss = get_symbol(store, SCOPE, "aspose_tex.TeXJob")  # type: ignore[arg-type]
+    # TC-555: "aspose_tex.TeXJob" was the missing symbol; it is indexed now, so a name tex never had stands in.
+    miss = get_symbol(store, SCOPE, "aspose_tex.NoSuchClass")  # type: ignore[arg-type]
     assert isinstance(miss, NotFound)
     assert miss.found is False
     assert miss.coverage_note is not None
     assert "could not be parsed" in miss.coverage_note
     assert "Extraction notice" in miss.coverage_note
-    members = list_members(store, SCOPE, "aspose_tex.TeXJob")  # type: ignore[arg-type]
+    members = list_members(store, SCOPE, "aspose_tex.NoSuchClass")  # type: ignore[arg-type]
     assert isinstance(members, NotFound) and members.coverage_note == miss.coverage_note
 
 
@@ -168,14 +169,21 @@ def test_a_real_symbol_of_the_tex_store_is_still_answered() -> None:
     assert signature.fqn == "aspose_tex.exceptions.AsposeTeXError"
 
 
+def test_a_recovered_symbol_of_the_tex_store_is_answered_not_missed() -> None:
+    # TC-555: TeXJob lived in presentation/__init__.py, which did not parse; it is recovered now.
+    signature = get_symbol(_tex_store(), SCOPE, "aspose_tex.TeXJob")  # type: ignore[arg-type]
+    assert isinstance(signature, SymbolSignature)
+    assert signature.fqn == "aspose_tex.TeXJob"
+
+
 def test_report_index_freshness_states_the_same_note() -> None:
     store = _tex_store()
     report = report_index_freshness(store, SCOPE, SOURCE_KIND, _COMMIT)  # type: ignore[arg-type]
-    assert (report.indexed_types, report.total_types) == (4, 4)
+    assert (report.indexed_types, report.total_types) == (21, 21)  # TC-555: (4, 4) -> (21, 21)
     assert report.coverage_note is not None
     assert "could not be parsed" in report.coverage_note
     assert "Extraction notice" in report.coverage_note
-    miss = get_symbol(store, SCOPE, "aspose_tex.TeXJob")  # type: ignore[arg-type]
+    miss = get_symbol(store, SCOPE, "aspose_tex.NoSuchClass")  # type: ignore[arg-type]
     assert isinstance(miss, NotFound) and miss.coverage_note == report.coverage_note
 
 

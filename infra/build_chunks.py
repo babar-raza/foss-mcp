@@ -1179,12 +1179,17 @@ def _extraction_notice_chunks(fixture: dict) -> list[Chunk]:
     segment of each ``unresolved-reexport`` target), and says that lookups for those names will
     answer not found. A fixture with no syntax-error entry yields ``[]``. The text carries no
     backticks and no blank line, so the chunker keeps it as one chunk and no renderer rewrites it.
+
+    TC-555: a ``:repaired-syntax:`` entry means the file parsed only after its collapsed indentation
+    was repaired; the notice says so, and says what that costs (the declarations and signatures are
+    indexed, the function bodies and the docstrings of functions are not).
     """
     unresolved = [entry for entry in fixture.get("unresolved", []) if isinstance(entry, str)]
     syntax_errors = sorted({entry for entry in unresolved if ":syntax-error:" in entry})
+    repaired = sorted({entry for entry in unresolved if ":repaired-syntax:" in entry})
     parse_failures: dict[str, Any] = fixture.get("parse_failures") or {}
     over_threshold = parse_failures_over_threshold(parse_failures)
-    if not syntax_errors and not over_threshold:
+    if not syntax_errors and not repaired and not over_threshold:
         return []
     files: list[str] = []
     for entry in syntax_errors:
@@ -1192,6 +1197,12 @@ def _extraction_notice_chunks(fixture: dict) -> list[Chunk]:
         line = before.rpartition(":")[2]
         path, _, message = after.partition(":")
         files.append(f"{path} line {line}: {message}")
+    repaired_files: list[str] = []
+    for entry in repaired:
+        before, _, after = entry.partition(":repaired-syntax:")
+        line = before.rpartition(":")[2]
+        path, _, detail = after.partition(":")
+        repaired_files.append(f"{path} line {line}: {detail}")
     names = sorted(
         {
             entry.partition(":unresolved-reexport:")[2].rsplit(".", 1)[-1]
@@ -1210,7 +1221,16 @@ def _extraction_notice_chunks(fixture: dict) -> list[Chunk]:
         ]
         headline = f"{parse_failures['failed']} of {parse_failures['total']} source files could not be parsed"
         lines.append(f"{headline} (examples: {', '.join(examples)})." if examples else f"{headline}.")
-    lines.append(f"The source at {repository}@{commit} could not be fully read by the extractor.")
+    if syntax_errors or over_threshold:
+        lines.append(f"The source at {repository}@{commit} could not be fully read by the extractor.")
+    else:
+        lines.append(f"The source at {repository}@{commit} was read by the extractor with a repair.")
+    if repaired_files:
+        lines.append(
+            "These files parsed only after their lost indentation was repaired: the declarations and "
+            "signatures are indexed, the function bodies and the docstrings of functions are not:"
+        )
+        lines.extend(repaired_files)
     if files:
         lines.append("These files do not parse as valid source and were skipped:")
         lines.extend(files)

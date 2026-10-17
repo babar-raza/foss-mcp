@@ -77,10 +77,14 @@ def test_a_tree_sitter_fixture_over_its_higher_threshold_gets_the_notice() -> No
 
 def test_tex_without_parse_failures_is_still_one_chunk_without_a_headline() -> None:
     fixture = json.loads(TEX.read_text(encoding="utf-8"))
+    # TC-555: the committed fixture now carries the measured parse_failures (35 of 45); the old
+    # "without parse_failures" shape is the same fixture with that key removed. Its notice no longer
+    # names a syntax error (line 108) but the repaired file (line 107).
+    fixture.pop("parse_failures")
     chunks = build_chunks._extraction_notice_chunks(fixture)
     assert len(chunks) == 1
     assert "source files could not be parsed" not in chunks[0].text
-    assert "src/aspose_tex/presentation/__init__.py line 108" in chunks[0].text
+    assert "src/aspose_tex/presentation/__init__.py line 107" in chunks[0].text
 
 
 def test_tex_with_parse_failures_keeps_one_chunk_and_leads_with_the_headline() -> None:
@@ -89,7 +93,9 @@ def test_tex_with_parse_failures_keeps_one_chunk_and_leads_with_the_headline() -
     chunks = build_chunks._extraction_notice_chunks(fixture)
     assert len(chunks) == 1
     assert chunks[0].text.splitlines()[1].startswith("35 of 45 source files could not be parsed (examples: ")
-    assert "Public names that could not be extracted" in chunks[0].text
+    # TC-555: "Public names that could not be extracted" -> the repaired files; no name is lost any more.
+    assert "Public names that could not be extracted" not in chunks[0].text
+    assert "src/aspose_tex/presentation/__init__.py line 107" in chunks[0].text
 
 
 def test_main_on_the_committed_tex_fixture_ends_symbol_chunks_with_the_coverage_line(
@@ -105,8 +111,10 @@ def test_main_on_the_committed_tex_fixture_ends_symbol_chunks_with_the_coverage_
     fixture = json.loads(TEX.read_text(encoding="utf-8"))
     chunks = json.loads(out.read_text(encoding="utf-8"))["chunks"]
     symbols = [c for c in chunks if c["text"].startswith("FQN: ") and not c["text"].startswith("FQN: Doc:")]
-    assert len(symbols) == 4
-    expected = "API-Coverage: 4 of 4 types; at least 2 source files could not be parsed"
+    # TC-555: 4 -> 23 symbol chunks (21 types and 2 functions); the line carries the measured
+    # parse_failures of the committed fixture instead of "at least 2 source files".
+    assert len(symbols) == 23
+    expected = "API-Coverage: 21 of 21 types; 2 of 2 functions; 35 of 45 source files could not be parsed"
     for chunk in symbols:
         lines = chunk["text"].splitlines()
         assert lines[-2] == expected

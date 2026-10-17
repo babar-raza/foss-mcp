@@ -59,8 +59,10 @@ NO_REGISTRY_PLATFORM = "cpp"
 COMMIT_EXCEPTIONS: dict[str, str] = {}
 # pilot -> the allowed MAXIMUM of the fixture's ``unresolved`` list. The entry is removed once the count reaches 0.
 UNRESOLVED_EXCEPTIONS = {
-    # tex/python: the pinned upstream library does not parse, so its extraction leaves 13 references unresolved (ISOPROV-01).
-    "tex_python": 13,
+    # tex/python: two modules of the pinned upstream library lost their indentation (reader.py, presentation/__init__.py); the
+    # extractor repairs them and discloses each as one `repaired-syntax` entry (TC-555: 13 -> 2). Both entries are disclosures,
+    # not unresolved references: every public name is extracted.
+    "tex_python": 2,
     # email/python: 38 references to types the extraction could not resolve.
     "email_python": 38,
     # words/python: 10 unresolved references.
@@ -78,7 +80,13 @@ COVERAGE_EXCEPTIONS: dict[str, str] = {}
 # transition table: a pilot whose fixture was re-extracted before the supervisor re-ingests it is listed
 # here with a reason; empty after TC-553; TC-536 deletes the mechanism
 # re-pinned by TC-553: 13 entries -> {} (the thirteen pilots were re-ingested; their baked generations are fresh)
-STALE_BAKED_PILOTS: dict[str, str] = {}
+STALE_BAKED_PILOTS: dict[str, str] = {
+    # TC-555: {} -> {tex_python}, deleted again when the supervisor re-ingests tex/python
+    "tex_python": (
+        "re-extracted by TC-555: the fixture holds 21 of 21 types and 2 of 2 functions (not truncated), the baked "
+        "generation still says '4 of 4 types' until the supervisor re-ingests"
+    ),
+}
 # pilot -> why it may sit below the composition floor. Empty: every pilot meets it.
 COMPOSITION_EXCEPTIONS: dict[str, str] = {}
 
@@ -818,10 +826,10 @@ def test_composition_problems_flag_two_symbols_and_zero_docs() -> None:
 
 
 def test_unresolved_problems_flag_growth_over_the_table_and_any_unlisted_pilot() -> None:
-    table = {"tex_python": 13}
-    assert unresolved_problems("tex_python", 13, table) == []
+    table = {"tex_python": 2}  # TC-555: 13 -> 2
+    assert unresolved_problems("tex_python", 2, table) == []
     assert unresolved_problems("tex_python", 0, table) == []
-    assert any("14 unresolved" in p for p in unresolved_problems("tex_python", 14, table))
+    assert any("3 unresolved" in p for p in unresolved_problems("tex_python", 3, table))
     assert any("not listed" in p for p in unresolved_problems("pdf_net", 1, table))
     assert unresolved_problems("pdf_net", 0, table) == []
     assert any("unresolved" in p for p in unresolved_problems("pdf_net", 1, {}))
