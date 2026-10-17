@@ -36,6 +36,8 @@ write_paths:
 - tests/infra/test_build_chunks_parse_failures_notice.py
 - tests/mcp/tools/test_coverage_note.py
 - infra/build_chunks.py
+- src/foss_mcp/extraction/run_extraction.py
+- tests/extraction/test_run_extraction_python_repair.py
 satisfies:
 - REQ-G3-008
 - REQ-G3-005
@@ -99,6 +101,20 @@ inputs:
   on every Python file you changed, without --force-exclude. Commit once with the subject `fix(extraction): recover the declarations of a Python file whose indentation is collapsed and re-extract tex/python
   complete (G3/TC-555)` ending with the Co-Authored-By trailer for the model that did the work; UTF-8 without a byte-order mark; LF. Do NOT edit plans/, project/, ops/, evidence/, schemas/, docs/, infra/demo-manifests,
   any other fixture, and do not run docker or a cluster command.
+- >-
+  SUPERVISOR AMENDMENT (rework attempt 2, after the first report). Your first report is accepted as the base (commit 5b37857a stays; build on it, do not redo it; your `_is_foreign_import` fix is accepted).
+  Two gaps you reported are IN SCOPE now, and src/foss_mcp/extraction/run_extraction.py plus the new test file tests/extraction/test_run_extraction_python_repair.py are added to your write_paths for them
+  and for nothing else in that file. (1) `fill_python_enum_members` (about line 417) parses with plain `ast.parse` and so fails on a collapsed file: OutputFormat of tex_python has empty `enum_members`.
+  Make it parse through the SAME repair as the surface (import and reuse `_parse_repairing_collapsed_indentation`; if importing a private name across modules is unacceptable, add a public alias `parse_repairing_collapsed_indentation
+  = _parse_repairing_collapsed_indentation` in python_surface.py and use that), so that a file that parses only after repair yields its enum members. (2) `python_parse_health` (about line 306) counts every
+  collapsed file as a failure ('35 of 45 source files could not be parsed'), which is served to peers in the API-Coverage line and the notice and is misleading: count a file as failed only when it STILL
+  does not parse after the repair (a repaired file is not a failure, its repair is already disclosed by the `repaired-syntax` entry). The expected result for tex_python is `failed` equal to the number of
+  files that cannot be repaired (measure it; if it is 0 the key may stay with failed 0 or be omitted exactly as the extractor does for a clean repository; follow the existing rule of `python_parse_health`
+  for a clean tree). Then RE-EXTRACT tex_python again with the same command, re-pin what moves (OutputFormat has its members; the coverage line no longer says `35 of 45 source files could not be parsed`;
+  list every assertion you change with its reason), and add tests (at least 8, offline) in tests/extraction/test_run_extraction_python_repair.py: enum members of a collapsed enum are filled; a collapsed
+  file counts 0 failures in the health count while a real syntax error counts 1; the health result for a mixed tree; the real OutputFormat members of the committed fixture are non-empty and equal the enum's
+  upstream members (read them from the fixture, assert at least 2, name them in your report). The negative control of the card is unchanged and must still fail its named tests. Re-run both check commands
+  twice. Commit ON TOP of your first commit with the subject `fix(extraction): fill enum members and count parse health through the indentation repair (G3/TC-555)`; the review takes the head of your branch.
 actions:
 - >-
   Recover the declarations of a Python file whose indentation is collapsed (disclosed as a `repaired-syntax` unresolved entry) and re-extract tex_python at its chart pin so its whole public surface is indexed.
