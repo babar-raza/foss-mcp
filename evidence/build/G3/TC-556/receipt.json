@@ -1,0 +1,89 @@
+{
+  "schema_version": 1,
+  "card": "TC-556",
+  "gate": "G3",
+  "generated_by": "gatectl",
+  "generated_at": "2026-10-17T10:16:38Z",
+  "base_rev": "e02dac19a3363f0771133fbd5c04f1180f030120",
+  "head_rev": "ab2533992c86db8db3277d48eb7fd8c9802cc9d2",
+  "card_sha256": "cb6522938d720ec738ab72047769ed6c0721ab8a2aa1eb636ea4e30a5540c45c",
+  "fingerprint": {
+    "python": "3.13.2",
+    "platform": "Windows-11-10.0.26200-SP0",
+    "lock_sha256": "7b182948484d7df9614b523f7a8180f795b6c51d55c418728525c1957f3e38ba",
+    "env": {
+      "PYTHONHASHSEED": "0",
+      "PYTHONUTF8": "1",
+      "PYTHONDONTWRITEBYTECODE": "1",
+      "PYTHONIOENCODING": "utf-8",
+      "TZ": "UTC",
+      "LC_ALL": "C.UTF-8",
+      "SOURCE_DATE_EPOCH": "1700000000",
+      "verify_runner": "host"
+    }
+  },
+  "scope": {
+    "ok": true,
+    "changed_paths": [
+      "tests/deploy/test_fleet_consistency.py",
+      "tests/deploy/test_served_provenance.py"
+    ],
+    "violations": [],
+    "evaluated": true
+  },
+  "runs": [
+    {
+      "run": 1,
+      "checks": [
+        {
+          "command": "{python} -m pytest tests/deploy/test_fleet_consistency.py tests/deploy/test_served_provenance.py tests/deploy/test_served_coverage_matches_fixtures.py -q -rfE -p no:cacheprovider",
+          "exit_code": 0,
+          "duration_s": 40.454,
+          "stdout_sha256": "81dea70104e3ccc286c84c3ac805c78da360c5818c511448eae07eaa3f1a1ad9",
+          "tests": 523,
+          "skipped": 0,
+          "errors": 0,
+          "failures": 0
+        }
+      ],
+      "all_passed": true
+    },
+    {
+      "run": 2,
+      "checks": [
+        {
+          "command": "{python} -m pytest tests/deploy/test_fleet_consistency.py tests/deploy/test_served_provenance.py tests/deploy/test_served_coverage_matches_fixtures.py -q -rfE -p no:cacheprovider",
+          "exit_code": 0,
+          "duration_s": 24.581,
+          "stdout_sha256": "81dea70104e3ccc286c84c3ac805c78da360c5818c511448eae07eaa3f1a1ad9",
+          "tests": 523,
+          "skipped": 0,
+          "errors": 0,
+          "failures": 0
+        }
+      ],
+      "all_passed": true
+    }
+  ],
+  "negative_control": {
+    "kind": "mutate",
+    "patch": "python -X utf8 -c \"import pathlib;p=pathlib.Path('tests/deploy/test_fleet_consistency.py');s=p.read_text(encoding='utf-8');q=chr(34);old='STALE_BAKED_PILOTS';assert old in s;p.write_text(s.replace(old,'STALE_BAKED_PILOTS_X',1),encoding='utf-8')\"\n",
+    "patch_sha256": "7eb11c1f5ffe1b462a26f89ca3896edcc14ccaad4ee87afc2bf50555cffd492c",
+    "applied": true,
+    "patch_applied_failed": true,
+    "exit_codes": [
+      1
+    ],
+    "tree_changed": [
+      "M tests/deploy/test_fleet_consistency.py",
+      "?? .junit-0.xml"
+    ]
+  },
+  "holdout": {
+    "ran": false,
+    "passed": true,
+    "detail": "no holdout for this card"
+  },
+  "accepted": true,
+  "reason": "all gates passed"
+}
