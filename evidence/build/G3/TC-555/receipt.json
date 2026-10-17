@@ -1,0 +1,125 @@
+{
+  "schema_version": 1,
+  "card": "TC-555",
+  "gate": "G3",
+  "generated_by": "gatectl",
+  "generated_at": "2026-10-17T10:05:57Z",
+  "base_rev": "d06674042c700228f844fa28c9360772fc41b5e0",
+  "head_rev": "bb89f09711d45bd45497cefccc1e373e76d45ec5",
+  "card_sha256": "8def9d5b39f7be1f140287d35dcffb983ceae4317d49fa13791aec3c929d2d93",
+  "fingerprint": {
+    "python": "3.13.2",
+    "platform": "Windows-11-10.0.26200-SP0",
+    "lock_sha256": "7b182948484d7df9614b523f7a8180f795b6c51d55c418728525c1957f3e38ba",
+    "env": {
+      "PYTHONHASHSEED": "0",
+      "PYTHONUTF8": "1",
+      "PYTHONDONTWRITEBYTECODE": "1",
+      "PYTHONIOENCODING": "utf-8",
+      "TZ": "UTC",
+      "LC_ALL": "C.UTF-8",
+      "SOURCE_DATE_EPOCH": "1700000000",
+      "verify_runner": "host"
+    }
+  },
+  "scope": {
+    "ok": true,
+    "changed_paths": [
+      "infra/build_chunks.py",
+      "src/foss_mcp/extraction/run_extraction.py",
+      "src/foss_mcp/extraction/tree_sitter_engine/python_surface.py",
+      "tests/deploy/test_fleet_consistency.py",
+      "tests/deploy/test_served_provenance.py",
+      "tests/extraction/test_python_fixture_gaps.py",
+      "tests/extraction/test_run_extraction_parse_failures.py",
+      "tests/extraction/test_run_extraction_python_repair.py",
+      "tests/extraction/test_tex_python_extraction.py",
+      "tests/extraction/tree_sitter_engine/test_python_surface_repair.py",
+      "tests/fixtures/readme_identifier_allowlist.json",
+      "tests/fixtures/tex_python/api_surface.json",
+      "tests/indexing/test_chunk_builder_coverage_line.py",
+      "tests/infra/test_build_chunks_extraction_notice.py",
+      "tests/infra/test_build_chunks_parse_failures_notice.py",
+      "tests/mcp/tools/test_coverage_note.py"
+    ],
+    "violations": [],
+    "evaluated": true
+  },
+  "runs": [
+    {
+      "run": 1,
+      "checks": [
+        {
+          "command": "{python} -m pytest tests/extraction/tree_sitter_engine/test_python_surface_repair.py tests/extraction/test_tex_python_extraction.py tests/extraction/test_python_fixture_gaps.py tests/extraction/test_docs_identifiers_resolve.py tests/deploy/test_fleet_consistency.py tests/infra/test_build_chunks_extraction_notice.py tests/infra/test_build_chunks_parse_failures_notice.py -q -rfE -p no:cacheprovider",
+          "exit_code": 0,
+          "duration_s": 51.356,
+          "stdout_sha256": "f549d30cb5b2505912c459791a11342f66807520de4cdafe122682bafc8eb2ae",
+          "tests": 394,
+          "skipped": 0,
+          "errors": 0,
+          "failures": 0
+        },
+        {
+          "command": "{python} -m pytest tests/extraction tests/infra/test_build_chunks.py tests/infra/test_build_chunks_sanitize.py tests/indexing/test_chunk_builder_coverage_line.py tests/mcp/tools/test_coverage_note.py tests/deploy/test_served_provenance.py tests/deploy/test_fleet_consistency.py -q -rfE -p no:cacheprovider -k \"not live and not github_http and not repo_native\"",
+          "exit_code": 0,
+          "duration_s": 295.277,
+          "stdout_sha256": "0f02cc88a89c092cb2f707977d1f10c046c2846eaa0c488b34e2b2d2870e1f7c",
+          "tests": 1803,
+          "skipped": 0,
+          "errors": 0,
+          "failures": 0
+        }
+      ],
+      "all_passed": true
+    },
+    {
+      "run": 2,
+      "checks": [
+        {
+          "command": "{python} -m pytest tests/extraction/tree_sitter_engine/test_python_surface_repair.py tests/extraction/test_tex_python_extraction.py tests/extraction/test_python_fixture_gaps.py tests/extraction/test_docs_identifiers_resolve.py tests/deploy/test_fleet_consistency.py tests/infra/test_build_chunks_extraction_notice.py tests/infra/test_build_chunks_parse_failures_notice.py -q -rfE -p no:cacheprovider",
+          "exit_code": 0,
+          "duration_s": 47.327,
+          "stdout_sha256": "f549d30cb5b2505912c459791a11342f66807520de4cdafe122682bafc8eb2ae",
+          "tests": 394,
+          "skipped": 0,
+          "errors": 0,
+          "failures": 0
+        },
+        {
+          "command": "{python} -m pytest tests/extraction tests/infra/test_build_chunks.py tests/infra/test_build_chunks_sanitize.py tests/indexing/test_chunk_builder_coverage_line.py tests/mcp/tools/test_coverage_note.py tests/deploy/test_served_provenance.py tests/deploy/test_fleet_consistency.py -q -rfE -p no:cacheprovider -k \"not live and not github_http and not repo_native\"",
+          "exit_code": 0,
+          "duration_s": 219.149,
+          "stdout_sha256": "0f02cc88a89c092cb2f707977d1f10c046c2846eaa0c488b34e2b2d2870e1f7c",
+          "tests": 1803,
+          "skipped": 0,
+          "errors": 0,
+          "failures": 0
+        }
+      ],
+      "all_passed": true
+    }
+  ],
+  "negative_control": {
+    "kind": "mutate",
+    "patch": "python -X utf8 -c \"import pathlib;p=pathlib.Path('src/foss_mcp/extraction/tree_sitter_engine/python_surface.py');s=p.read_text(encoding='utf-8');q=chr(34);old='_REPAIR_TRY = '+q+'if True: pass'+q;assert s.count(old)==1;p.write_text(s.replace(old,'_REPAIR_TRY = '+q+'try: pass'+q),encoding='utf-8')\"\n",
+    "patch_sha256": "73074a7f8c347810b3c4e6d20f0cf9236f2dea89b2038ed29c6eabb9b5e62e67",
+    "applied": true,
+    "patch_applied_failed": true,
+    "exit_codes": [
+      1,
+      1
+    ],
+    "tree_changed": [
+      "M src/foss_mcp/extraction/tree_sitter_engine/python_surface.py",
+      "?? .junit-0.xml",
+      "?? .junit-1.xml"
+    ]
+  },
+  "holdout": {
+    "ran": false,
+    "passed": true,
+    "detail": "no holdout for this card"
+  },
+  "accepted": true,
+  "reason": "all gates passed"
+}
