@@ -80,13 +80,8 @@ COVERAGE_EXCEPTIONS: dict[str, str] = {}
 # transition table: a pilot whose fixture was re-extracted before the supervisor re-ingests it is listed
 # here with a reason; empty after TC-553; TC-536 deletes the mechanism
 # re-pinned by TC-553: 13 entries -> {} (the thirteen pilots were re-ingested; their baked generations are fresh)
-STALE_BAKED_PILOTS: dict[str, str] = {
-    # TC-555: {} -> {tex_python}, deleted again when the supervisor re-ingests tex/python
-    "tex_python": (
-        "re-extracted by TC-555: the fixture holds 21 of 21 types and 2 of 2 functions (not truncated), the baked "
-        "generation still says '4 of 4 types' until the supervisor re-ingests"
-    ),
-}
+# re-pinned by TC-556: {tex_python} -> {} (the supervisor re-ingested tex/python; its baked generation matches the fixture)
+STALE_BAKED_PILOTS: dict[str, str] = {}
 # pilot -> why it may sit below the composition floor. Empty: every pilot meets it.
 COMPOSITION_EXCEPTIONS: dict[str, str] = {}
 

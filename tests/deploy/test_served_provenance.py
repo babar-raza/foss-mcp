@@ -582,13 +582,8 @@ def test_p1_and_p2_over_the_committed_data_of_every_pilot(tmp_path, family, plat
         # A committed Python generation may pre-date the TC-522 slot cap and re-export pairing until the final
         # re-ingest. The probe is right to flag it; the pilot is named here, never skipped.
         assert p2_entry["status"] in ("pass", "fail", "not_applicable"), (key, p2_entry["reason"])
-    # TC-555: `not_applicable` only for tex_python (its fixture had no method signature to sample) -> for none: the
-    # fixture now holds 30 sampled signatures and the baked generation (4 types) still serves none of them, so the probe
-    # flags tex_python as `fail` until the supervisor re-ingests it; it is then `pass` and this exception goes.
+    # re-pinned by TC-556: no pilot is `not_applicable` (TC-555 re-extracted tex_python; the supervisor then re-ingested it)
     assert p2_entry["status"] != "not_applicable", (key, p2_entry["status"])
-    if key == "tex_python":
-        assert p2_entry["status"] == "fail", (key, p2_entry["status"])
-        assert "not served" in p2_entry["reason"], p2_entry["reason"]
 
 
 def test_p1_fails_against_a_container_serving_another_generation(tmp_path):
