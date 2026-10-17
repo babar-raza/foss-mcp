@@ -1,0 +1,180 @@
+
+===== CLEAN RUN 1 (host) =====
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-7b182948484d7df9\Scripts\python.exe -m pytest tests/deploy/test_served_provenance.py -q -rfE -p no:cacheprovider "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-sbfgyxn5\.junit-0.xml"
+--- stdout ---
+........................................................................ [ 80%]
+..................                                                       [100%]
+
+--- stderr ---
+
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-7b182948484d7df9\Scripts\python.exe -m pytest tests/deploy/test_served_provenance.py tests/deploy/test_image_workflow_gate.py tests/deploy/test_runbook.py tests/deploy/test_release_record_contract.py -q -rfE -p no:cacheprovider "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-sbfgyxn5\.junit-1.xml"
+--- stdout ---
+........................................................................ [ 36%]
+........................................................................ [ 72%]
+......................................................                   [100%]
+
+--- stderr ---
+
+
+===== CLEAN RUN 2 (host) =====
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-7b182948484d7df9\Scripts\python.exe -m pytest tests/deploy/test_served_provenance.py -q -rfE -p no:cacheprovider "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-sbfgyxn5\.junit-0.xml"
+--- stdout ---
+........................................................................ [ 80%]
+..................                                                       [100%]
+
+--- stderr ---
+
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-7b182948484d7df9\Scripts\python.exe -m pytest tests/deploy/test_served_provenance.py tests/deploy/test_image_workflow_gate.py tests/deploy/test_runbook.py tests/deploy/test_release_record_contract.py -q -rfE -p no:cacheprovider "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-sbfgyxn5\.junit-1.xml"
+--- stdout ---
+........................................................................ [ 36%]
+........................................................................ [ 72%]
+......................................................                   [100%]
+
+--- stderr ---
+
+
+===== NEGATIVE CONTROL (checks MUST now fail) =====
+mutated: M scripts/release/served_provenance.py, ?? .junit-0.xml, ?? .junit-1.xml
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-7b182948484d7df9\Scripts\python.exe -m pytest tests/deploy/test_served_provenance.py -q -rfE -p no:cacheprovider "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-sbfgyxn5\.junit-0.xml"
+--- stdout ---
+.......F....................................F........................... [ 80%]
+................F.                                                       [100%]
+================================== FAILURES ===================================
+_______________ test_p1_fails_naming_both_ids_when_they_differ ________________
+
+tmp_path = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-9455/test_p1_fails_naming_both_ids_0')
+
+    def test_p1_fails_naming_both_ids_when_they_differ(tmp_path):
+        write_pointer(tmp_path, "pdf", "net", "g::committed")
+        entry = sp.probe_generation(
+            ServingClient(small_fixture(), generation_id="g::older"), "pdf", "net", tmp_path
+        )
+>       assert entry["status"] == "fail"
+E       AssertionError: assert 'pass' == 'fail'
+E         
+E         - fail
+E         + pass
+
+tests\deploy\test_served_provenance.py:210: AssertionError
+_____________________ test_main_exits_0_on_pass_1_on_fail _____________________
+
+tmp_path = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-9455/test_main_exits_0_on_pass_1_on0')
+capsys = <_pytest.capture.CaptureFixture object at 0x000002675B606E40>
+
+    def test_main_exits_0_on_pass_1_on_fail(tmp_path, capsys):
+        fixture = small_fixture()
+        write_fixture(tmp_path / "fixtures", KEY, fixture)
+        write_pointer(tmp_path / "manifests", "pdf", "net", "g::1")
+        report = tmp_path / "out" / "report.json"
+        assert run_main(tmp_path, ServingClient(fixture, generation_id="g::1"), "--report", str(report)) == 0
+        out = capsys.readouterr().out
+        assert "P1 PASS" in out and "P2 PASS" in out
+        document = json.loads(report.read_text(encoding="utf-8"))
+        assert [e["status"] for e in document["entries"]] == ["pass", "pass"] and document["pilot"] == KEY
+    
+>       assert run_main(tmp_path, ServingClient(fixture, generation_id="g::other")) == 1
+E       AssertionError: assert 0 == 1
+E        +  where 0 = run_main(WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-9455/test_main_exits_0_on_pass_1_on0'), <tests.deploy.test_served_provenance.ServingClient object at 0x000002675B6AE6D0>)
+E        +    where <tests.deploy.test_served_provenance.ServingClient object at 0x000002675B6AE6D0> = ServingClient({'source_repository': 'example/lib', 'source_commit': '0000000000000000000000000000000000000000', 'type_count': 12, 't...ms': [{...}], 'return_type': 'Result1'}, {'name': 'Op5_2', 'params': [{...}, {...}], 'return_type': 'Result2'}]}, ...]}, generation_id='g::other')
+
+tests\deploy\test_served_provenance.py:492: AssertionError
+---------------------------- Captured stdout call -----------------------------
+P1 PASS
+P2 PASS
+________ test_p1_fails_against_a_container_serving_another_generation _________
+
+tmp_path = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-9455/test_p1_fails_against_a_contai0')
+
+    def test_p1_fails_against_a_container_serving_another_generation(tmp_path):
+        committed = sp.committed_generation_id(DEMO_MANIFESTS, "pdf", "net")
+        other = committed.rsplit("-", 1)[0] + "-00000000"
+        assert other != committed
+        write_pointer(tmp_path / "manifests", "pdf", "net", other)
+        client = real_client(tmp_path / "scopes", "pdf", "net")
+        entry = sp.probe_generation(client, "pdf", "net", tmp_path / "manifests")
+>       assert entry["status"] == "fail"
+E       AssertionError: assert 'pass' == 'fail'
+E         
+E         - fail
+E         + pass
+
+tests\deploy\test_served_provenance.py:594: AssertionError
+=========================== short test summary info ===========================
+FAILED tests/deploy/test_served_provenance.py::test_p1_fails_naming_both_ids_when_they_differ
+FAILED tests/deploy/test_served_provenance.py::test_main_exits_0_on_pass_1_on_fail
+FAILED tests/deploy/test_served_provenance.py::test_p1_fails_against_a_container_serving_another_generation
+
+--- stderr ---
+
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-7b182948484d7df9\Scripts\python.exe -m pytest tests/deploy/test_served_provenance.py tests/deploy/test_image_workflow_gate.py tests/deploy/test_runbook.py tests/deploy/test_release_record_contract.py -q -rfE -p no:cacheprovider "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-sbfgyxn5\.junit-1.xml"
+--- stdout ---
+.......F....................................F........................... [ 36%]
+................F....................................................... [ 72%]
+......................................................                   [100%]
+================================== FAILURES ===================================
+_______________ test_p1_fails_naming_both_ids_when_they_differ ________________
+
+tmp_path = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-9456/test_p1_fails_naming_both_ids_0')
+
+    def test_p1_fails_naming_both_ids_when_they_differ(tmp_path):
+        write_pointer(tmp_path, "pdf", "net", "g::committed")
+        entry = sp.probe_generation(
+            ServingClient(small_fixture(), generation_id="g::older"), "pdf", "net", tmp_path
+        )
+>       assert entry["status"] == "fail"
+E       AssertionError: assert 'pass' == 'fail'
+E         
+E         - fail
+E         + pass
+
+tests\deploy\test_served_provenance.py:210: AssertionError
+_____________________ test_main_exits_0_on_pass_1_on_fail _____________________
+
+tmp_path = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-9456/test_main_exits_0_on_pass_1_on0')
+capsys = <_pytest.capture.CaptureFixture object at 0x000001FDE5BBF380>
+
+    def test_main_exits_0_on_pass_1_on_fail(tmp_path, capsys):
+        fixture = small_fixture()
+        write_fixture(tmp_path / "fixtures", KEY, fixture)
+        write_pointer(tmp_path / "manifests", "pdf", "net", "g::1")
+        report = tmp_path / "out" / "report.json"
+        assert run_main(tmp_path, ServingClient(fixture, generation_id="g::1"), "--report", str(report)) == 0
+        out = capsys.readouterr().out
+        assert "P1 PASS" in out and "P2 PASS" in out
+        document = json.loads(report.read_text(encoding="utf-8"))
+        assert [e["status"] for e in document["entries"]] == ["pass", "pass"] and document["pilot"] == KEY
+    
+>       assert run_main(tmp_path, ServingClient(fixture, generation_id="g::other")) == 1
+E       AssertionError: assert 0 == 1
+E        +  where 0 = run_main(WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-9456/test_main_exits_0_on_pass_1_on0'), <tests.deploy.test_served_provenance.ServingClient object at 0x000001FDE5CBD7F0>)
+E        +    where <tests.deploy.test_served_provenance.ServingClient object at 0x000001FDE5CBD7F0> = ServingClient({'source_repository': 'example/lib', 'source_commit': '0000000000000000000000000000000000000000', 'type_count': 12, 't...ms': [{...}], 'return_type': 'Result1'}, {'name': 'Op5_2', 'params': [{...}, {...}], 'return_type': 'Result2'}]}, ...]}, generation_id='g::other')
+
+tests\deploy\test_served_provenance.py:492: AssertionError
+---------------------------- Captured stdout call -----------------------------
+P1 PASS
+P2 PASS
+________ test_p1_fails_against_a_container_serving_another_generation _________
+
+tmp_path = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-9456/test_p1_fails_against_a_contai0')
+
+    def test_p1_fails_against_a_container_serving_another_generation(tmp_path):
+        committed = sp.committed_generation_id(DEMO_MANIFESTS, "pdf", "net")
+        other = committed.rsplit("-", 1)[0] + "-00000000"
+        assert other != committed
+        write_pointer(tmp_path / "manifests", "pdf", "net", other)
+        client = real_client(tmp_path / "scopes", "pdf", "net")
+        entry = sp.probe_generation(client, "pdf", "net", tmp_path / "manifests")
+>       assert entry["status"] == "fail"
+E       AssertionError: assert 'pass' == 'fail'
+E         
+E         - fail
+E         + pass
+
+tests\deploy\test_served_provenance.py:594: AssertionError
+=========================== short test summary info ===========================
+FAILED tests/deploy/test_served_provenance.py::test_p1_fails_naming_both_ids_when_they_differ
+FAILED tests/deploy/test_served_provenance.py::test_main_exits_0_on_pass_1_on_fail
+FAILED tests/deploy/test_served_provenance.py::test_p1_fails_against_a_container_serving_another_generation
+
+--- stderr ---
+

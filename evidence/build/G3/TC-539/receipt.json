@@ -1,0 +1,113 @@
+{
+  "schema_version": 1,
+  "card": "TC-539",
+  "gate": "G3",
+  "generated_by": "gatectl",
+  "generated_at": "2026-10-17T04:30:48Z",
+  "base_rev": "047e25948cdabf2efe465f7a2cd2043d3b8574c6",
+  "head_rev": "a8dadb9441225f974166c29e6869768e929026b1",
+  "card_sha256": "afb277a8556fae72f52c9bab0d9166295d4741d5bf2039fce232f3b94df6147a",
+  "fingerprint": {
+    "python": "3.13.2",
+    "platform": "Windows-11-10.0.26200-SP0",
+    "lock_sha256": "7b182948484d7df9614b523f7a8180f795b6c51d55c418728525c1957f3e38ba",
+    "env": {
+      "PYTHONHASHSEED": "0",
+      "PYTHONUTF8": "1",
+      "PYTHONDONTWRITEBYTECODE": "1",
+      "PYTHONIOENCODING": "utf-8",
+      "TZ": "UTC",
+      "LC_ALL": "C.UTF-8",
+      "SOURCE_DATE_EPOCH": "1700000000",
+      "verify_runner": "host"
+    }
+  },
+  "scope": {
+    "ok": true,
+    "changed_paths": [
+      "scripts/release/image_workflow_gate.py",
+      "scripts/release/served_provenance.py",
+      "tests/deploy/test_image_workflow_gate.py",
+      "tests/deploy/test_served_provenance.py"
+    ],
+    "violations": [],
+    "evaluated": true
+  },
+  "runs": [
+    {
+      "run": 1,
+      "checks": [
+        {
+          "command": "{python} -m pytest tests/deploy/test_served_provenance.py -q -rfE -p no:cacheprovider",
+          "exit_code": 0,
+          "duration_s": 29.814,
+          "stdout_sha256": "6997ffb705c1c5fa984efec27d8164c9d96401110464c8e386ecce809f88569c",
+          "tests": 90,
+          "skipped": 0,
+          "errors": 0,
+          "failures": 0
+        },
+        {
+          "command": "{python} -m pytest tests/deploy/test_served_provenance.py tests/deploy/test_image_workflow_gate.py tests/deploy/test_runbook.py tests/deploy/test_release_record_contract.py -q -rfE -p no:cacheprovider",
+          "exit_code": 0,
+          "duration_s": 26.306,
+          "stdout_sha256": "40fd26c6f648ab50cb1aab20436b6caafa6fb39bfcc299421b1d40ecf0fb7360",
+          "tests": 198,
+          "skipped": 0,
+          "errors": 0,
+          "failures": 0
+        }
+      ],
+      "all_passed": true
+    },
+    {
+      "run": 2,
+      "checks": [
+        {
+          "command": "{python} -m pytest tests/deploy/test_served_provenance.py -q -rfE -p no:cacheprovider",
+          "exit_code": 0,
+          "duration_s": 19.699,
+          "stdout_sha256": "6997ffb705c1c5fa984efec27d8164c9d96401110464c8e386ecce809f88569c",
+          "tests": 90,
+          "skipped": 0,
+          "errors": 0,
+          "failures": 0
+        },
+        {
+          "command": "{python} -m pytest tests/deploy/test_served_provenance.py tests/deploy/test_image_workflow_gate.py tests/deploy/test_runbook.py tests/deploy/test_release_record_contract.py -q -rfE -p no:cacheprovider",
+          "exit_code": 0,
+          "duration_s": 23.428,
+          "stdout_sha256": "40fd26c6f648ab50cb1aab20436b6caafa6fb39bfcc299421b1d40ecf0fb7360",
+          "tests": 198,
+          "skipped": 0,
+          "errors": 0,
+          "failures": 0
+        }
+      ],
+      "all_passed": true
+    }
+  ],
+  "negative_control": {
+    "kind": "mutate",
+    "patch": "python -X utf8 -c \"import pathlib;p=pathlib.Path('scripts/release/served_provenance.py');s=p.read_text(encoding='utf-8');old='if served_id != committed_id:';assert s.count(old)==1;p.write_text(s.replace(old,'if False:'),encoding='utf-8')\"\n",
+    "patch_sha256": "fbb02b8ae97f15e3ea9679d832647399972c66e66d638f038db3807796a51695",
+    "applied": true,
+    "patch_applied_failed": true,
+    "exit_codes": [
+      1,
+      1
+    ],
+    "tree_changed": [
+      "M scripts/release/served_provenance.py",
+      "?? .junit-0.xml",
+      "?? .junit-1.xml"
+    ]
+  },
+  "holdout": {
+    "ran": false,
+    "passed": true,
+    "detail": "no holdout for this card"
+  },
+  "accepted": true,
+  "reason": "all gates passed"
+}
