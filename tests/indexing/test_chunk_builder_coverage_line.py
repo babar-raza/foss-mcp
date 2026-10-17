@@ -193,9 +193,10 @@ def test_committed_tex_python_fixture_states_the_unparsed_files_in_every_chunk()
     fixture = _real("tex_python")
     texts = _texts(fixture)
     # TC-555: 4 chunks -> 23 (21 types, 2 functions) and "at least 2 source files" -> the measured
-    # parse_failures of the committed fixture (the two repaired files parse; 35 of 45 do not as written).
+    # parse_failures of the committed fixture (the files the indentation repair reads are no failure; the 11
+    # private files it cannot repair are: TC-555 rework 2, 35 of 45 -> 11 of 45).
     assert len(texts) == 23
-    expected = "API-Coverage: 21 of 21 types; 2 of 2 functions; 35 of 45 source files could not be parsed"
+    expected = "API-Coverage: 21 of 21 types; 2 of 2 functions; 11 of 45 source files could not be parsed"
     assert all(text.splitlines()[-1] == expected for text in texts)
 
 

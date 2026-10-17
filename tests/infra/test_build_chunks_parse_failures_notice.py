@@ -77,7 +77,7 @@ def test_a_tree_sitter_fixture_over_its_higher_threshold_gets_the_notice() -> No
 
 def test_tex_without_parse_failures_is_still_one_chunk_without_a_headline() -> None:
     fixture = json.loads(TEX.read_text(encoding="utf-8"))
-    # TC-555: the committed fixture now carries the measured parse_failures (35 of 45); the old
+    # TC-555: the committed fixture now carries the measured parse_failures (11 of 45 after the repair); the old
     # "without parse_failures" shape is the same fixture with that key removed. Its notice no longer
     # names a syntax error (line 108) but the repaired file (line 107).
     fixture.pop("parse_failures")
@@ -114,7 +114,7 @@ def test_main_on_the_committed_tex_fixture_ends_symbol_chunks_with_the_coverage_
     # TC-555: 4 -> 23 symbol chunks (21 types and 2 functions); the line carries the measured
     # parse_failures of the committed fixture instead of "at least 2 source files".
     assert len(symbols) == 23
-    expected = "API-Coverage: 21 of 21 types; 2 of 2 functions; 35 of 45 source files could not be parsed"
+    expected = "API-Coverage: 21 of 21 types; 2 of 2 functions; 11 of 45 source files could not be parsed"
     for chunk in symbols:
         lines = chunk["text"].splitlines()
         assert lines[-2] == expected

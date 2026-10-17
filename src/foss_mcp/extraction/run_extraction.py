@@ -306,6 +306,9 @@ def _extract_python_surface(clone_root: Path) -> tuple[list[dict[str, Any]], lis
 def python_parse_health(clone_root: Path) -> dict[str, Any]:
     """How many python source files of the package(s) do not parse (stdlib ``ast``).
 
+    TC-555: a file counts as failed only if it still does not parse AFTER the bounded indentation
+    repair of ``python_surface`` (a file that lost its indentation is repaired and read).
+
     Walks every ``*.py`` of each directory ``_python_package_dirs`` returns, with the exclusion
     ``python_surface`` uses, and parses ALL of them - including modules with a leading underscore
     and ``__init__.py``, which ``python_surface`` skips (or reaches only through a re-export)
@@ -324,7 +327,9 @@ def python_parse_health(clone_root: Path) -> dict[str, Any]:
                 continue
             total += 1
             try:
-                ast.parse(path.read_text(encoding="utf-8-sig", errors="replace"))
+                # TC-555: a file whose lost indentation the extractor repairs is read, not a failure
+                # (its repair is disclosed by the ``repaired-syntax`` entry of ``unresolved``).
+                python_surface._parse_source_file(path)
             except (SyntaxError, ValueError, RecursionError, MemoryError) as error:
                 failed += 1
                 if len(examples) < _PARSE_EXAMPLE_LIMIT:
@@ -433,7 +438,8 @@ def fill_python_enum_members(types: list[dict[str, Any]], clone_root: Path) -> N
             path = (root / file).resolve()
             if file and path.is_relative_to(root) and path.is_file():
                 try:
-                    tree = ast.parse(path.read_text(encoding="utf-8-sig", errors="replace"))
+                    # TC-555: through the same indentation repair as the surface.
+                    tree = python_surface._parse_source_file(path)
                 except (SyntaxError, ValueError, OSError):
                     tree = None
             parsed[file] = tree
