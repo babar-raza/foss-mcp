@@ -1,0 +1,58 @@
+
+===== CLEAN RUN 1 (host) =====
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-7b182948484d7df9\Scripts\python.exe -m pytest tests/e2e/test_pdf_typescript_live_content.py -q -rfE -p no:cacheprovider "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-hahgx40n\.junit-0.xml"
+--- stdout ---
+.........                                                                [100%]
+
+--- stderr ---
+
+
+===== CLEAN RUN 2 (host) =====
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-7b182948484d7df9\Scripts\python.exe -m pytest tests/e2e/test_pdf_typescript_live_content.py -q -rfE -p no:cacheprovider "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-hahgx40n\.junit-0.xml"
+--- stdout ---
+.........                                                                [100%]
+
+--- stderr ---
+
+
+===== NEGATIVE CONTROL (checks MUST now fail) =====
+mutated: M tests/e2e/test_pdf_typescript_live_content.py, ?? .junit-0.xml
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-7b182948484d7df9\Scripts\python.exe -m pytest tests/e2e/test_pdf_typescript_live_content.py -q -rfE -p no:cacheprovider "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-hahgx40n\.junit-0.xml"
+--- stdout ---
+.F.......                                                                [100%]
+================================== FAILURES ===================================
+________ test_report_index_freshness_reports_the_real_fresh_generation ________
+
+session = <tests.e2e.test_pdf_typescript_live_content._McpSession object at 0x000001B226F31A90>
+
+    def test_report_index_freshness_reports_the_real_fresh_generation(session: _McpSession) -> None:
+        """A real generation id, and a freshness report that states the ONE commit the generation really
+        records (the ``Source-Commit:`` line ``infra/build_chunks.py`` appends to each chunk's text).
+    
+        TC-567: since TC-550 re-extracted the fixture at the chart pin, the index is single-commit - API
+        symbols, documentation and examples all record ``REAL_SOURCE_COMMIT``. So the report lists exactly
+        that one commit with every kind of chunk counted under it, is fresh against it with no mismatch
+        reason, and against any other well-formed commit is stale and names the real indexed commit; it is
+        never a bare "never published".
+        """
+        body = session.call_tool("report_index_freshness", {"current_source_commit": REAL_SOURCE_COMMIT})
+        result = body["result"]["structuredContent"]["result"]
+        assert result["indexed_generation_id"] is not None
+        assert result["indexed_generation_id"].startswith("pdf::typescript::self_extracted::")
+        assert len(result["source_commits"]) == 1, result
+        only = result["source_commits"][0]
+>       assert only["commit"] == REAL_SOURCE_COMMIT, result
+E       AssertionError: {'scope': {'family': 'pdf', 'platform': 'typescript', 'source_kind': 'self_extracted'}, 'source_kind': 'self_extracted..._extracted::20261017T142306037014Z-b910ace1', 'indexed_source_commit': '155bfc7a33f0ba23fb4252b6ba201828b02a5b9d', ...}
+E       assert '155bfc7a33f0...01828b02a5b9d' == '155bfc7a33f0...01828b02a5b9e'
+E         
+E         - 155bfc7a33f0ba23fb4252b6ba201828b02a5b9e
+E         ?                                        ^
+E         + 155bfc7a33f0ba23fb4252b6ba201828b02a5b9d
+E         ?                                        ^
+
+tests\e2e\test_pdf_typescript_live_content.py:342: AssertionError
+=========================== short test summary info ===========================
+FAILED tests/e2e/test_pdf_typescript_live_content.py::test_report_index_freshness_reports_the_real_fresh_generation
+
+--- stderr ---
+
