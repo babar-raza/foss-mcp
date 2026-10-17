@@ -1,0 +1,322 @@
+id: TC-553
+gate: G3
+lane: verification
+purpose: >-
+  REQ-G3-008, REQ-G3-005, REQ-G3-001 and REQ-G3-007 (operator decision 2026-10-16: partial indexes are rejected, the shipped data holds the WHOLE public surface of every
+  pilot). THE TEST AND DOCUMENT HALF OF THE DATA REFRESH. TC-550 and TC-530 re-extracted the thirteen truncated fixtures; the supervisor re-ingested exactly those thirteen
+  pilots on the cluster (pdf_net, words_net, 3d_python, cells_cpp, html_python, pdf_cpp, pdf_go, pdf_java, pdf_python, pdf_typescript, slides_cpp, slides_python,
+  words_python), compacted them and committed the refreshed scope directories and root sidecars of infra/demo-manifests as a supervisor data commit that precedes this card.
+  The 19 other pilots are untouched byte for byte. This card makes every test and document agree with that new baked data, with NO weakening, and adds the repository's proof of
+  FULL COVERAGE of the shipped data. Measured by the drafter on 2026-10-17 on a trial snapshot of the thirteen pilots applied to main da125187 (before TC-551 and TC-552; the
+  tree of the 32 remaining pilots is 41,744,019 bytes, 32 generation files, median 763,927, largest 5,098,150 = pdf_java, then pdf_typescript 4,767,300, pdf_net 3,430,234,
+  html_python 3,052,169; the budgets TC-551 left are tree 28,000,000 in the compact test and 29,500,000 in the sidecars test, median 710,000, largest 2,950,000), by running every offline test of tests/deploy, tests/infra, tests/poc, tests/config,
+  tests/schemas, tests/telemetry, tests/mcp, tests/indexing, tests/extraction and tests/normalization against it (about 10,800 tests in two chunks of about 16 minutes): exactly 10 test
+  functions are red, 24 test ids, and nothing else. They are: tests/deploy/test_compact_demo_manifests.py::test_real_tree_is_within_the_lean_budget and
+  tests/deploy/test_demo_manifests_sidecars.py::test_the_whole_tree_is_within_the_size_budget (the tree grew from 26.9 MB to about 41.7 MB); in
+  tests/deploy/test_fleet_consistency.py test_fixture_commit_equals_the_pin_equals_every_source_commit_line[pdf_typescript], test_every_commit_exception_still_applies,
+  test_every_stale_baked_pilot_still_applies and test_api_coverage_lines_are_present_and_honest for the eight pilots that have functions (slides_python, pdf_typescript, pdf_go,
+  pdf_cpp, words_python, pdf_python, slides_cpp, html_python: the new baked line is `API-Coverage: 259 of 259 types; 98 of 98 functions`, which the test grammar `N of M types`
+  rejects as malformed, and the old comparison counts function chunks as types); tests/mcp/tools/test_freshness_provenance.py::test_real_pdf_typescript_generation_reports_both_commits
+  (the baked pdf/typescript generation is now ONE commit, 155bfc7); tests/mcp/tools/test_miss_coverage_note.py::test_the_lookup_miss_no_longer_speaks_for_the_repository (pins
+  `300 of 901`, pdf/net is now 901 of 901, so the miss carries no note); tests/mcp/tools/test_product_reference_baked_contract.py::
+  test_limitations_is_never_no_data_source_when_the_index_has_the_section for 3d_python, html_python, pdf_cpp, pdf_go, pdf_java, pdf_net, pdf_python and words_python (after TC-517
+  the generated lead-in sentence and the real limitations text are ONE chunk, and the test discards every chunk that starts with the lead-in) and test_cpp_installs_are_the_readme_recipe[cells_cpp].
+  Three facts the tests cannot see are also wrong now and are fixed here: scripts/poc/pilot_workflow_proof.py check_12 compares the served `total_types` with the fixture's
+  `type_count`, which counts types PLUS functions, so the live proof fails check 12 for exactly the eight pilots that have functions (served total_types equals the fixture's
+  symbol_counts.types in every case: pdf_go 259, pdf_typescript 1333, pdf_python 543, slides_cpp 264, slides_python 1022, html_python 305, pdf_cpp 340, words_python 272);
+  README.md and docs/RELEASE.md still tell the peer that the index of the largest libraries is partial and that pdf/java holds 300 of 1,239 types (tests/deploy/test_readme_matches_release.py
+  pins that sentence), that the 300-type cap may still hide central types (TC-402, TC-403) and that pdf/typescript has a MIXED index at two commits; and the lookup-miss coverage
+  note, which was proven only on real PARTIAL data, now has no partial pilot left to be proven on. What this card does NOT change: src/ (it is a test, script and document card;
+  if a test failure proves a product defect, STOP and report it), any fixture, any baked file of infra/demo-manifests, the chart, docker-compose, any furnished page, ops/, project/,
+  plans/, evidence/, schemas/, docs/DECISION_LOG.md, docs/REVIEW_LEDGER.md, scripts/release/build_review_ledger.py and tests/e2e.
+depends_on:
+- TC-503
+- TC-513
+- TC-515
+- TC-517
+- TC-530
+- TC-539
+- TC-546
+- TC-550
+- TC-551
+- TC-552
+write_paths:
+- tests/deploy/test_served_coverage_matches_fixtures.py
+- tests/deploy/test_fleet_consistency.py
+- tests/deploy/test_compact_demo_manifests.py
+- tests/deploy/test_demo_manifests_sidecars.py
+- tests/deploy/test_readme_matches_release.py
+- tests/mcp/tools/test_freshness_provenance.py
+- tests/mcp/tools/test_miss_coverage_note.py
+- tests/mcp/tools/test_product_reference_baked_contract.py
+- tests/poc/test_pilot_workflow_proof_content.py
+- scripts/poc/pilot_workflow_proof.py
+- README.md
+- docs/RELEASE.md
+- tests/deploy/test_demo_compose.py
+- tests/deploy/test_demo_entrypoint.py
+- tests/deploy/test_image_workflow_gate.py
+- tests/deploy/test_release_record_contract.py
+- tests/deploy/test_served_provenance.py
+- tests/deploy/test_snapshot_demo_from_cluster.py
+- tests/deploy/test_verified_example_vectors.py
+- tests/deploy/test_verified_examples_coverage.py
+- tests/indexing/test_publish_safety.py
+- tests/infra/test_demo_manifests.py
+- tests/infra/test_readiness_all_baked_scopes.py
+- tests/infra/test_serve_http_slash_redirect.py
+- tests/infra/test_serve_metrics_prometheus.py
+- tests/infra/test_serve_readyz_depth.py
+- tests/infra/test_serve_session_cap_observability.py
+- tests/infra/test_serve_sidecar_baked_identity.py
+- tests/infra/test_serve_sidecar_tolerance.py
+- tests/infra/test_verification_cache_committed.py
+- tests/mcp/test_dispatch_offload.py
+- tests/mcp/test_empty_release_note.py
+- tests/mcp/test_generation_unavailable_tool_error.py
+- tests/mcp/test_handshake_identity.py
+- tests/mcp/test_health_readiness_depth.py
+- tests/mcp/test_response_budget.py
+- tests/mcp/test_response_envelope.py
+- tests/mcp/test_tool_call_log_fields.py
+- tests/mcp/tools/test_example_search_mode.py
+- tests/mcp/tools/test_find_examples_title_anchor.py
+- tests/mcp/tools/test_find_examples_verification_record.py
+- tests/mcp/tools/test_find_examples_verified_only.py
+- tests/mcp/tools/test_forgiveness_acceptance.py
+- tests/mcp/tools/test_java_compatibility_unit.py
+- tests/mcp/tools/test_lookup_forgiveness.py
+- tests/mcp/tools/test_lookup_miss_reason.py
+- tests/mcp/tools/test_member_lookup_baked.py
+- tests/mcp/tools/test_nonsense_queries_miss.py
+- tests/mcp/tools/test_product_reference_compatibility_units.py
+- tests/mcp/tools/test_product_reference_install_pin.py
+- tests/mcp/tools/test_product_reference_license_support.py
+- tests/mcp/tools/test_product_reference_truthful.py
+- tests/mcp/tools/test_release_index_baked.py
+- tests/mcp/tools/test_relevance_floor.py
+- tests/mcp/tools/test_search_docs_language_letter.py
+- tests/mcp/tools/test_search_symbols_forgiveness.py
+- tests/mcp/tools/test_search_symbols_memberless_last.py
+satisfies:
+- REQ-G3-001
+- REQ-G3-005
+- REQ-G3-007
+- REQ-G3-008
+source_refs:
+- file: docs/DECISION_LOG.md
+  anchor: '## 2026-10-15 — Independent pre-production adversarial review of the shipped image; its findings enter the state machine as cards (operator, supervisor)'
+  sha256: d2d82669b8060d5e3a3b9da00e9858e576d5d264d96e32d1aed8034e8d6d9007
+inputs:
+- >-
+  ORDER, FRESHNESS AND WHAT IS LISTED. TC-553 runs after TC-551 and TC-552 are accepted and after the supervisor's data commit of the refreshed thirteen pilots (the dispatch
+  instruction names that commit). Start from a clean tree at the commit the supervisor issues and build on what is there: TC-551 changed constants, names and roster in several files named
+  below (EXPECTED_PILOTS 32, COVERAGE_EXCEPTIONS emptied, budgets of the 32-pilot tree, the cpp install list without the removed pilot) and TC-552 renamed synthetic names and added
+  tests/deploy/test_removed_family_absent.py. Every file name, test name, constant and line number below was checked against main da125187 plus a trial snapshot; verify each name against the
+  merged code before you rely on it, use the merged name when it differs and list the difference in your report. The measured numbers in this card come from a TRIAL snapshot: the committed
+  tree is the authority, re-measure every number yourself and use YOURS. NEVER print or log any environment value. Activate the toolchain (scripts/toolchain/activate.ps1) in the SAME shell command
+  as every python or pytest call. Do not run an ingestion, a docker command or a cluster command. Do not use the removed pilot family's name anywhere in a file you write (tests/deploy/test_removed_family_absent.py,
+  added by TC-552, scans every tracked file; the only allowed occurrence outside the history files is the one removal sentence of docs/RELEASE.md, which stays byte for byte). The pilot
+  count is 32 in 12 families; derive every pilot list from the chart (infra/helm/foss-mcp/values.yaml ingestion.pilots), never retype it.
+- >-
+  STEP 0, BASELINE (before you edit anything). Run the offline suite on the clean tree in two bounded background chunks and keep the list of failures: chunk A `python -m pytest tests/deploy tests/infra
+  tests/poc tests/config tests/schemas tests/telemetry -q -rfE -p no:cacheprovider -k "not live and not github_http and not repo_native"` (the drafter measured about 16 minutes under load),
+  chunk B `python -m pytest tests/mcp tests/indexing tests/extraction tests/normalization tests/test_layout.py tests/test_unwired_modules.py tests/test_repo_hygiene.py tests/test_live_marker.py
+  tests/test_pilot_export.py tests/test_serving_dependency_lock.py -q -rfE -p no:cacheprovider -k "not live and not github_http and not repo_native"` (about 15 minutes). Start each with a hard
+  `timeout 3000`, redirect to a file in your scratch directory, poll with bounded waits (never a tail -F monitor on process output), and tee the failure lines. Do not run tests/e2e, tests/test_container_build.py
+  (docker) or tests/test_githooks.py. The failures must be the ones named in the purpose and the table below. A failing test that is NOT in the table: if its assertion pins a fact of the
+  pre-refresh baked data (an old count, an old commit, an old coverage line, a 300-type cap, a size) it is yours to re-pin within the rules of this card (it is in write_paths when it reads the baked
+  tree: the write_paths hold every test file that mentions infra/demo-manifests); if it is not in write_paths, or if it fails for any other reason, or if it looks like a PRODUCT defect (a wrong served
+  answer, a chunk that cannot be parsed), STOP, record `gatectl status-append` FAILED_INTERNAL with the test id and the evidence, and report it: never edit src/. Never delete, skip or xfail a test and never
+  loosen a check that guards a defect; a numeric floor may be raised, never lowered, except where this card says a pinned number follows the measured data. For every changed assertion put a one-line
+  comment `re-pinned by TC-553: <old> -> <new>` and list it in your report.
+- >-
+  BUDGETS (tests/deploy/test_compact_demo_manifests.py and tests/deploy/test_demo_manifests_sidecars.py; constants and comments only, plus the one new test below). Measure with the tests' own definitions,
+  in one command, and put all numbers in your report: in test_compact_demo_manifests.py `total` is the sum of every file under infra/demo-manifests (rglob), `sizes` are the single generation file of
+  each scope (`real_generation_file`), the largest is max(sizes) and the median statistics.median(sizes); the drafter measured on the trial snapshot total 41,744,019, 32 scopes, largest 5,098,150
+  (pdf_java), median 763,927. New value of each constant = measured x 1.05 rounded UP to the next multiple of 10,000 (TREE_BYTES_BUDGET in BOTH test files from the tree total, LARGEST_FILE_BYTES_BUDGET from the
+  largest, MEDIAN_FILE_BYTES_BUDGET from the median), so about 43,840,000 / 5,360,000 / 810,000; EXPECTED_SCOPES stays what TC-551 left (32). Put next to each changed constant a comment with the measured value,
+  the date, the data commit named in the dispatch instruction and why the tree grew (the thirteen pilots now hold their whole public surface: pdf/java 1,239 types, pdf/typescript 1,333 types and 3,060
+  functions, pdf/net 901 types). THE CEILING: the lean standalone image was agreed at 45 MB for the baked tree. Add `LEAN_CEILING_BYTES = 45_000_000` to test_compact_demo_manifests.py with a comment that it is the
+  operator-agreed ceiling and a new test `test_the_tree_budgets_stay_under_the_agreed_lean_ceiling` asserting TREE_BYTES_BUDGET <= LEAN_CEILING_BYTES in both test files (import the constant in the sidecars
+  test through the same sys.path mechanism the file already uses, or repeat the literal with the same comment, whichever the file's imports allow) plus a synthetic anti-vacuity test that a budget above the ceiling
+  is rejected by the helper you factor out. STOP RULE: if the measured tree is above 45,000,000 bytes do NOT pin: record FAILED_INTERNAL with the four measured numbers (total, largest, median, scope count)
+  and stop, because the lean ceiling is the operator's decision to move, never a worker's. The largest-file and median budgets have no operator ceiling, but say in the report if the largest exceeds 5.5 MB or the
+  median 850 KB. docs/RELEASE.md has no size ceiling today: add exactly one sentence to section 2 step 1 (after `Commit the result: the image is built from committed bytes.`): `The committed tree stays under 45 MB (the
+  lean ceiling); the exact budgets are pinned in tests/deploy/test_compact_demo_manifests.py.` and a test in test_compact_demo_manifests.py that the document contains `45 MB` and `test_compact_demo_manifests.py`
+  (the document names the ceiling and the test, not the budget, so a later re-pin changes only the test).
+- >-
+  FLEET CONSISTENCY (tests/deploy/test_fleet_consistency.py; this file is shared with the pending cards TC-532 to TC-536, which run after this one and add their pilots to STALE_BAKED_PILOTS, so the transition
+  mechanism MUST survive). (1) STALE_BAKED_PILOTS becomes the EMPTY dict `{}` (all thirteen entries leave: the baked generations are fresh), KEEP the type annotation, the branch in
+  `test_api_coverage_lines_are_present_and_honest` and the three table tests, and reword the comment: `transition table: a pilot whose fixture was re-extracted before the supervisor re-ingests it is listed
+  here with a reason; empty after TC-553; TC-536 deletes the mechanism`. (2) COMMIT_EXCEPTIONS becomes `{}` with its comment (pdf_typescript is one commit, 155bfc7, everywhere:
+  `problems_commit('pdf_typescript')` is empty; verify it); `test_every_commit_exception_still_applies` loops, so an empty table passes. (3) COVERAGE_EXCEPTIONS must be `{}` after TC-551 (verify). (4) UNRESOLVED_EXCEPTIONS:
+  set each maximum to the fixture's real `unresolved` count (measured now: tex_python 13, email_python 38, words_python 10, pdf_python 4, html_python 1, so no change) and delete an entry that reaches 0.
+  (5) THE API-COVERAGE GRAMMAR. The merged builder (src/foss_mcp/indexing/chunk_builder.py `_coverage_line`, read it first) writes `API-Coverage: N of M types` for a fixture without `symbol_counts`/`parse_failures`,
+  and for a fixture that carries them `API-Coverage: Nt of Mt types` + optional `; Nf of Mf functions` (only when symbol_counts.functions > 0) + optional `; X of Y source files could not be parsed` or `; at least K source
+  files could not be parsed`, where Nt counts the NON-function chunks, Nf the `Kind: function` chunks, Mt = symbol_counts.types and Mf = symbol_counts.functions. Change `_COVERAGE_VALUE` and `coverage_problems` to
+  that grammar so that every old guarantee is kept in the form the grammar allows and no line the old test would have rejected for a reason that still applies is accepted: exactly one `API-Coverage:` line per symbol
+  chunk and the same line on every chunk; a chunk is a function chunk when its SECOND line is `Kind: function` (the layout `_format_type_text` writes: line 1 `FQN:`, line 2 `Kind:`); WHEN the fixture has
+  `symbol_counts` with an integer `types`: Nt must equal the number of non-function symbol chunks, Mt must equal symbol_counts.types, and when symbol_counts.functions > 0 the line must carry the functions clause with
+  Nf equal to the function chunks and Mf equal to symbol_counts.functions, while symbol_counts.functions == 0 allows neither a functions clause nor a function chunk; `(Nt < Mt or Nf < Mf)` must equal the fixture's
+  `truncated` (keep the existing marker text `disagrees with the fixture's truncated`); a parse-failure clause is accepted by the grammar and, when the fixture has a `parse_failures` mapping, its numbers must equal
+  `failed` and `total` (no baked pilot has one today: say so). WHEN the fixture has NO `symbol_counts` (14 of the 32 fixtures are older: cells_rust, slides_java, cells_go, cells_typescript, cells_python, email_python,
+  email_cpp, barcode_python, note_python, page_python, cells_java, 3d_typescript, 3d_java, tex_python) the OLD rule stays exactly as it is (N = all symbol chunks, M = type_count, N < M exactly when truncated) and a
+  functions clause on such a fixture is a problem. Extend `baked_self_view` the same way (a first line with a functions clause gives a view with `symbol_counts` {types: Mt, functions: Mf}, `type_count` Mt + Mf and
+  `truncated` from the two comparisons; a line without one gives the old view), because the STALE branch of the next cards will meet baked generations of pilots with functions. Keep EVERY existing synthetic test
+  green unchanged (their texts use `Kind: class` and a fixture with only type_count) and add at least 12 synthetic tests, with these names where they apply: test_coverage_grammar_accepts_the_types_only_line,
+  test_coverage_grammar_accepts_a_functions_clause, test_coverage_grammar_accepts_a_parse_failure_clause, test_coverage_grammar_rejects_a_functions_clause_that_disagrees_with_the_fixture,
+  test_coverage_grammar_rejects_a_wrong_types_count, test_coverage_grammar_rejects_two_lines, test_coverage_grammar_rejects_a_missing_line, test_truncated_reading_is_unchanged, plus a functions clause on a fixture
+  without symbol_counts, a function chunk counted as a type, a function chunk missing while Mf > 0, and baked_self_view of a line with and without the functions clause.
+- >-
+  THE NEW TEST FILE tests/deploy/test_served_coverage_matches_fixtures.py (YOU CREATE IT; offline, deterministic, no skips, no network, no docker, no wall clock; at least 170 tests; keep your own small loaders so
+  the file does not depend on private helpers of other test files, but READ the fleet module's STALE table through `importlib` / a plain import of `tests.deploy.test_fleet_consistency` with
+  `getattr(module, 'STALE_BAKED_PILOTS', {})`, so deleting the table later cannot break this file). THIS IS THE REPOSITORY'S PROOF OF FULL COVERAGE OF THE SHIPPED DATA: for every pilot of the chart it joins the
+  committed fixture (tests/fixtures/<key>/api_surface.json) with the committed baked generation (infra/demo-manifests/<family>__<platform>__<sourceKind>/, the generation the active pointer names, documents under
+  payload.lexical_index.documents) and asserts that what is served is exactly what was extracted. How types and functions are told apart (read src/foss_mcp/indexing/chunk_builder.py `_format_type_text`, `_entry_fqn`,
+  `_unique_fqns`, `_is_test_source`): a symbol chunk is a document whose `FQN:` line does not start with `Example: ` or `Doc: `; its SECOND line is `Kind: <entry kind>`; a FUNCTION chunk is `Kind: function`, every other
+  kind is a TYPE chunk; on the fixture side an entry is a function when `kind == 'function'`. Verified by the drafter on the trial snapshot for all 32 pilots (and the 8 removed ones): the multiset of served
+  (FQN, Kind) pairs equals the multiset of (`_unique_fqns(entries)`, entry kind) over the fixture entries that are not test-source entries, for every pilot; no FQN is served twice; and for the 18 fixtures that carry
+  `symbol_counts` the served type chunks equal symbol_counts.types and the served function chunks equal symbol_counts.functions (pdf_go 259 and 98, pdf_typescript 1333 and 3060, pdf_python 543 and 324, slides_cpp 264 and 91,
+  slides_python 1022 and 1, html_python 305 and 18, pdf_cpp 340 and 19, words_python 272 and 119; every other pilot has 0 functions in symbol_counts), while the 14 older fixtures are compared with their own entries
+  (cells_go 14 and 17, cells_rust 213 and 8, cells_typescript 108 and 22, cells_python 186 and 18, page_python 146 and 98, barcode_python 52 and 18, 3d_typescript 150 and 3, email_python 60 and 3, note_python 74 and 1, the
+  rest 0 functions). Fleet totals: 10,411 type chunks and 3,918 function chunks, 17 pilots with functions. Parametrised over the chart's pilot keys (every id carries the key): `test_fixture_is_complete_and_has_no_test_file_entries`
+  (`truncated` is false, `type_count == len(types)`, no entry is a test-source entry, and for a fixture with symbol_counts `types + functions == type_count` and both equal the recount of the entries by kind),
+  `test_served_type_chunks_equal_the_fixture_types`, `test_served_function_chunks_equal_the_fixture_functions` (the fixture side is symbol_counts when present, else the recount of the entries; the served side is the
+  count of chunks by kind), `test_served_symbol_fqns_are_exactly_the_fixture_entries` (the multiset of served (FQN, Kind) pairs equals the builder's: nothing missing, nothing extra, no duplicate),
+  `test_served_coverage_line_states_the_same_counts` (the one API-Coverage line shared by every symbol chunk states `Nt of Mt types` and, when the fixture has functions in symbol_counts, `Nf of Mf functions`, with
+  every number equal to the served and fixture counts above, and Nt == Mt, Nf == Mf because nothing is partial; for an older fixture the line is `N of N types` with N = all symbol chunks = type_count). STALE
+  PILOTS: for a key in the STALE table (empty today) the fixture comparison is replaced by the baked generation's agreement with its OWN line (served counts by kind equal the numbers the line states) and the test also
+  asserts the pilot is really stale (the line differs from the fixture); this branch is covered by synthetic tests only until a later card lists a pilot. Single tests: `test_every_chart_pilot_is_checked` (>= 32 pilots,
+  unique keys, each has a fixture file and a scope directory with exactly one generation file and an active pointer naming it), `test_the_function_assertions_are_not_vacuous` (floors, deliberately below the
+  measurement because later re-extractions change them: at least 15 pilots have function entries, at least 3,000 function entries and at least 9,000 type entries over the fleet), `test_no_served_symbol_chunk_is_
+  without_a_kind_line` (every symbol chunk's second line starts with `Kind: `). ANTI-VACUITY HELPER TESTS (synthetic, same file, at least 12): the served-count helper counts a function chunk and a type chunk
+  apart and ignores `Doc: ` and `Example: ` chunks; the multiset check flags a missing function chunk, an extra chunk, a duplicated FQN and a type served as a function; the line parser reads the types-only line, the
+  functions clause and the parse-failure clause and flags a malformed line; the stale branch compares with the chunk's own line; the fixture recount ignores nothing it should count. The drafter wrote a prototype of the
+  three core checks against the trial snapshot: 120 tests, 119 green, the one red being a removed pilot's old test-file entries, running in 1.0 s.
+- >-
+  tests/mcp/tools/test_freshness_provenance.py. `test_real_pdf_typescript_generation_reports_both_commits` read a baked generation that mixed c672b39 (symbols) and 155bfc7 (documentation); the baked
+  generation is now ONE commit, 155bfc7a33f0ba23fb4252b6ba201828b02a5b9d (the chart pin). Rename it `test_real_pdf_typescript_generation_reports_its_one_commit_at_the_chart_pin` and assert, derived from the
+  committed fixture and chart where a number is involved: the commits are exactly {the pin}; the pin's symbol_chunks equal the fixture's type_count (4393 on the trial snapshot) and its documentation plus example chunks
+  are at least 1; indexed_source_commit is the pin; the report for the pin is not stale and its reason does not contain `index is mixed`; the report for the OLD commit c672b3918318ccd0c13bc9dc619620cac2674c9e
+  (keep TS_SYMBOL_COMMIT as the old, no longer served commit) is stale; with pinned_library_commit equal to the pin `pinned_matches_symbols` is True. The MIXED two-commit behaviour of report_index_freshness stays
+  proven by the existing synthetic tests of the file (test_two_commits_split_by_kind_with_exact_counts and the others): confirm they all still pass and say in the report that the mixed branch no longer has a
+  real-data test because no pilot is mixed.
+- >-
+  tests/mcp/tools/test_miss_coverage_note.py. (a) `test_the_lookup_miss_no_longer_speaks_for_the_repository` pins `300 of 901`; pdf/net is complete, so the miss reason still starts with `nothing in the indexed
+  documentation` and `coverage_note` is None: assert exactly that, derived with the file's own `_stated_coverage` and `_assert_note` (stated 901 of 901 -> no note), and rename it to say the miss speaks about the index
+  only. (b) THE PARTIAL BRANCH LOST ITS REAL DATA: `_assert_note` and the four per-miss tests expect a note only when the generation states N < M, and no baked pilot does any more, so those parametrised tests now only
+  prove the complete branch. Add synthetic tests on an in-memory generation (the file already has `_InMemoryStore`, `_docs_store`, `_doc_chunk`; extend or add a small symbol-chunk builder) proving that a
+  `search_symbols` miss, a `lookup` miss, a `get_symbol` miss and a `list_members` miss from a generation whose symbol chunks state `API-Coverage: 2 of 5 types` carry a note containing `2 of 5`, that
+  `2 of 5 types; 1 of 4 functions` carries a note naming both, and that `5 of 5 types` carries none. Add `test_no_baked_pilot_states_a_partial_index_any_more` (every pilot's stated coverage has indexed == total, using
+  `_stated_coverage`) so the day a partial pilot returns the real-data branch is exercised on purpose, not by accident. Keep MIN_PILOTS as TC-551 left it.
+- >-
+  tests/mcp/tools/test_product_reference_baked_contract.py. (a) LIMITATIONS: in `test_limitations_is_never_no_data_source_when_the_index_has_the_section` the filter
+  `bodies = [... if body and not body.startswith(LEAD_IN)]` discards the chunk that holds the real text, because since TC-517 a chunk is the lead-in paragraph (`Known issues, ... pinned commit:`, possibly wrapped over
+  several lines, ending at the first blank line) followed by the README text. Factor out a helper `_after_lead_in(body)`: a body that starts with LEAD_IN loses its first paragraph (everything up to and including
+  the first blank line; a body that is the lead-in alone gives the empty string); any other body is unchanged. Use `bodies = [_after_lead_in(_body(text)) for text in chunks]`, keep only the non-empty ones, then keep
+  `assert bodies, pilot` and every following assertion exactly (any body is in the answer text; all bodies are when nothing was truncated; the lead-in, `FQN: Doc:` and `Source-Commit:` never appear in the
+  answer). The drafter ran the equivalent on all 40 pilots of the trial snapshot: the product answer (readme_sections `_strip_lead_in`) already matched, no residual assertion failed. The 19 pilots not yet re-ingested still
+  have the lead-in as a SEPARATE chunk, so the helper must handle both shapes. Add at least 5 synthetic tests of the helper (lead-in alone -> empty; lead-in plus text -> the text; lead-in wrapped over two lines;
+  a body that merely contains the lead-in later is unchanged; a body without it is unchanged). (b) cells_cpp INSTALL, decided with evidence and NOT by weakening: the committed README page of cells/cpp has no
+  installation section; its only install recipe is the FAQ answer `How do I install the library?` (`Clone the repository and use CMake add_subdirectory or FetchContent. Requires a C++17 compiler and CMake 3.15+. No
+  external dependencies.`, 273 characters in one chunk) and the overview paragraph. The old data passed this test only by an accident of the old chunker (the FAQ answer was split from its question and so looked like
+  an installation section); since TC-517 a FAQ answer is chunked under its question with a first body line `FAQ:` and src/foss_mcp/mcp/tools/readme_sections.py documents and tests (tests/mcp/tools/test_readme_sections.py
+  `test_faq_chunks_are_never_a_section`) that a FAQ answer is never the installation section. Extending the detection is a PRODUCT change with side effects (readme.install also feeds the Node and minimum-version
+  compatibility readers; pdf/typescript has a FAQ install chunk that only says `See the install section above`), so it is NOT done here and src/foss_mcp/mcp/tools/readme_sections.py stays untouched (it is deliberately not in write_paths);
+  say so in the report as a decision for the supervisor, who may order a separate card. Remove cells_cpp from the parametrisation of `test_cpp_installs_are_the_readme_recipe` (the assertions and the remaining
+  cpp pilots stay byte for byte as TC-551 left them: email_cpp, pdf_cpp, slides_cpp) and add `test_cells_cpp_install_is_an_honest_absence_while_its_readme_recipe_is_only_a_faq`: `readme.install` is None (with the
+  message `cells_cpp now has a README installation section: move it back into test_cpp_installs_are_the_readme_recipe`), the answer is a NotAvailable whose reason contains `names no package-manager coordinate`, the
+  answer text carries no invented command, and the recipe is still reachable: the pilot's documentation chunks hold the FAQ chunk titled `How do I install the library?` whose text contains `add_subdirectory`,
+  `FetchContent` and `CMake 3.15` (derived from the baked chunk, so a change of the README makes the test say so). In the report print the served cells/cpp install answer.
+- >-
+  THE PROOF (scripts/poc/pilot_workflow_proof.py and tests/poc/test_pilot_workflow_proof_content.py). `load_pilot` stores `type_count` from the fixture's `type_count`, which counts types plus functions, while
+  report_index_freshness states `total_types` = the TYPES clause of the API-Coverage line. Change `load_pilot` so `Pilot.type_count` is `symbol_counts.types` when the fixture has a `symbol_counts` mapping with an
+  integer (non-bool) `types`, else `type_count` as today, and say in the comment of the field and in the failure text of check 12 which one it is (`the fixture declares {n} types`). Keep the evidence key
+  `fixture_type_count`. No other script carries its own type_count (scripts/release/image_workflow_gate.py and scripts/deploy/prove_pilots.py were grepped: none), say so in the report. New tests (at least 6) in
+  test_pilot_workflow_proof_content.py: a fixture with type_count 42 and symbol_counts {types: 30, functions: 12} passes check 12 with total 30 and FAILS with total 42 (reason names 30); a fixture with symbol_counts and
+  functions 0 compares with types; a fixture without symbol_counts keeps the old behaviour (existing tests unchanged); a non-integer or boolean symbol_counts.types falls back to type_count; load_pilot reads both
+  values. Then prove it against REAL data without a server: a test that, for each of the eight pilots with functions in the committed fixtures (derived: symbol_counts.functions > 0), loads the pilot with `load_pilot`
+  and asserts `pilot.type_count` equals the Mt of the API-Coverage line of that pilot's baked generation (the value report_index_freshness serves).
+- >-
+  DOCUMENTS (README.md, docs/RELEASE.md, tests/deploy/test_readme_matches_release.py). They still say the index is partial. Grep the tests for every phrase you are about to change BEFORE editing and keep each
+  other pinned phrase byte for byte. README.md `## What to know before relying on it`, first bullet (`The index of the largest libraries is partial: pdf/java, for example, holds 300 of 1,239 types ...`):
+  replace it by one bullet that says every pilot indexes the whole public surface the extractor found at its pinned commit, gives two examples derived from the fixtures (pdf/java `1,239 of 1,239 types` and
+  pdf/typescript `1,333 of 1,333 types and 3,060 of 3,060 functions`), says that symbol chunks carry the `API-Coverage:` line that states it and that a miss carries a `coverage_note` only when an index is
+  partial, and keeps the honest limit (the index holds the public surface only, so a miss does not prove a symbol is absent upstream). docs/RELEASE.md: (1) section 1, `The index of the largest libraries is partial
+  (for example pdf/java holds 300 of 1,239 types), and the server says so: ...`: rewrite the sentence to the same truth (no pilot index is partial; the `API-Coverage:` line and the `coverage_note` stay described) and fix
+  `Two kinds of limitation apply` so it stays true; (2) section 8, the `pdf/typescript has a MIXED index` bullet is DELETED (the baked index is one commit now; there is no L-id on it); (3) section 9: TC-402 and
+  TC-403 lose `, and the 300-type extraction cap may still hide central types` / `and for these pilots the 300-type extraction cap may still hide central types` (no cap hides a type any more), and TC-531 loses the
+  sentences about the shipped 300-type index (`The shipped pdf/java index holds 300 of 1,239 types, 193 of those 300 are engine internals ... top-3 recall 33 percent`): say instead that the whole pdf/java surface
+  (1,239 types) is indexed since TC-550 and that the fidelity and documentation work still was not done; keep the id TC-531 and the phrase `Would have`; (4) `What tells an agent`: `Every symbol chunk of a partially indexed
+  pilot carries an API-Coverage: line (for pdf/java 300 of 1239 types)` becomes the truth (`Every symbol chunk carries an API-Coverage: line, for pdf/java 1239 of 1239 types, and a pilot with functions adds a
+  functions clause`), keep `coverage_note`, `indexed_types`, `total_types`. Keep the removal sentence of section 8 byte for byte and add nothing that names the removed family. Re-pin
+  tests/deploy/test_readme_matches_release.py: `test_the_readme_says_this_is_a_release_candidate_with_an_incomplete_review` loses `300 of 1,239 types` and instead asserts `300 of 1,239` is NOT in the README and that
+  the pdf/java and pdf/typescript numbers the README states equal the committed fixtures' (read tests/fixtures/pdf_java/api_surface.json type_count and tests/fixtures/pdf_typescript/api_surface.json symbol_counts,
+  format with thousands separators); the `What tells an agent` needle `300 of 1239 types` becomes the pdf/java line derived from the fixture (`1239 of 1239 types`); CUT_CARD_NUMBERS['TC-531'] becomes ('1,239',) (the
+  193 and 33 percent facts are gone); add `test_no_document_calls_an_index_partial_while_every_fixture_is_complete` (README.md and docs/RELEASE.md contain no `300 of 1,239`, no `300-type`, no `MIXED index`, and
+  every committed fixture is not truncated). Do NOT edit docs/REVIEW_LEDGER.md, docs/DECISION_LOG.md or scripts/release/build_review_ledger.py: the ledger rows L-046 (`The 300-type cap silently drops central types`,
+  ACCEPTED) and L-047 still describe the old state; list them in the report for the supervisor and TC-537.
+- >-
+  NOT IN SCOPE, FOR THE REPORT. tests/e2e is not run and not edited here: tests/e2e/test_pdf_typescript_live_content.py pins REAL_SOURCE_COMMIT c672b39 and the other docker end-to-end files pin symbols and
+  fragments of the old data; TC-536 owns them with an offline pin test. docs/REVIEW_LEDGER.md rows L-046 and L-047 are the supervisor's. Memory: pdf/typescript now serves 4,393 symbol chunks and pdf/java a 5.1 MB
+  generation, so the 256 MiB per-container budget must be re-measured on the rebuilt image by the supervisor's gate, not here.
+- >-
+  COUNT YOUR OWN TESTS AND FINISH. min_tests is per check, measured with `--collect-only` on main at 161ebbc5 (TC-551 merged, the new file absent): the first check collects 726 tests without the new file, so at least 896
+  with the 170 or more of the new file, and the second 3,094 (the second check also names tests/deploy/test_removed_family_absent.py, which TC-552 adds and which is not counted here). min_tests 800 leaves room for
+  tests this card has to remove or merge. Measured by the drafter on 2026-10-17: the first check 24 s and the second 135 s on a quiet machine (both on the pre-TC-551 tree); the ceilings below are 6x or more. Run `ruff format` and `ruff check` on every Python file you changed, without --force-exclude, and `mypy` as the repository's
+  pre-push gate does (the new test file is typed). Then repeat STEP 0's two chunks on your result: every test green. Commit once with the subject `test(deploy): pin the full-coverage baked data of the thirteen re-ingested pilots,
+  fix the proof's type count, re-pin budgets and expired exceptions (G3/TC-553)` ending with the Co-Authored-By trailer for the model that did the work; UTF-8 without a byte-order mark; preserve each file's line endings (LF
+  in git). In your report list: the measured budget numbers and the four new constants, every changed assertion of an existing test with its reason, every test you added with its file, the exceptions you emptied, the
+  further pinned tests STEP 0 found beyond the table (name, pinned fact, new value), anything that looked like a product defect, the served cells/cpp install answer, the README and RELEASE.md sentences you replaced, and the
+  difference between the card's names and the merged ones. Do NOT edit src/, ops/, project/, plans/, evidence/, schemas/, infra/, docs/DECISION_LOG.md or docs/REVIEW_LEDGER.md, and do not run an ingestion, docker, a cluster command or `git push`.
+actions:
+- >-
+  Re-pin every test and document that pinned the pre-refresh baked data of the thirteen re-ingested pilots (size budgets with an explicit 45 MB lean ceiling, the fleet consistency tables and the API-Coverage
+  grammar for pilots with functions, the pdf/typescript single-commit generation, the lookup-miss note with a synthetic partial branch, the limitations lead-in shape, the cells/cpp install absence, the
+  README and RELEASE.md sentences that called the index partial) without weakening any check.
+- >-
+  Fix the live proof's check 12 so it compares the served total with the fixture's TYPE count, and create tests/deploy/test_served_coverage_matches_fixtures.py, which proves for every chart pilot that the number
+  and the identity of the served type chunks and function chunks equal the committed fixture.
+checks:
+- command: '{python} -m pytest tests/deploy/test_served_coverage_matches_fixtures.py tests/deploy/test_fleet_consistency.py tests/deploy/test_compact_demo_manifests.py tests/deploy/test_demo_manifests_sidecars.py tests/deploy/test_readme_matches_release.py tests/mcp/tools/test_freshness_provenance.py tests/mcp/tools/test_miss_coverage_note.py tests/mcp/tools/test_product_reference_baked_contract.py tests/poc/test_pilot_workflow_proof_content.py -q -rfE -p no:cacheprovider'
+  expect: exit 0
+  timeout_seconds: 900
+  junitxml: true
+  proves:
+  - REQ-G3-001
+  - REQ-G3-005
+  - REQ-G3-007
+  - REQ-G3-008
+- command: '{python} -m pytest tests/deploy/test_served_coverage_matches_fixtures.py tests/deploy/test_compact_demo_manifests.py tests/deploy/test_demo_compose.py tests/deploy/test_demo_entrypoint.py tests/deploy/test_demo_manifests_sidecars.py tests/deploy/test_fleet_consistency.py tests/deploy/test_image_workflow_gate.py tests/deploy/test_readme_matches_release.py tests/deploy/test_release_record_contract.py tests/deploy/test_served_provenance.py tests/deploy/test_snapshot_demo_from_cluster.py tests/deploy/test_verified_example_vectors.py tests/deploy/test_verified_examples_coverage.py tests/deploy/test_pilot_roster.py tests/deploy/test_removed_family_absent.py tests/indexing/test_publish_safety.py tests/infra/test_demo_manifests.py tests/infra/test_readiness_all_baked_scopes.py tests/infra/test_serve_http_slash_redirect.py tests/infra/test_serve_metrics_prometheus.py tests/infra/test_serve_readyz_depth.py tests/infra/test_serve_session_cap_observability.py tests/infra/test_serve_sidecar_baked_identity.py tests/infra/test_serve_sidecar_tolerance.py tests/infra/test_verification_cache_committed.py tests/mcp/test_dispatch_offload.py tests/mcp/test_empty_release_note.py tests/mcp/test_generation_unavailable_tool_error.py tests/mcp/test_handshake_identity.py tests/mcp/test_health_readiness_depth.py tests/mcp/test_response_budget.py tests/mcp/test_response_envelope.py tests/mcp/test_tool_call_log_fields.py tests/mcp/tools/test_example_search_mode.py tests/mcp/tools/test_find_examples_title_anchor.py tests/mcp/tools/test_find_examples_verification_record.py tests/mcp/tools/test_find_examples_verified_only.py tests/mcp/tools/test_forgiveness_acceptance.py tests/mcp/tools/test_freshness_provenance.py tests/mcp/tools/test_java_compatibility_unit.py tests/mcp/tools/test_lookup_forgiveness.py tests/mcp/tools/test_lookup_miss_reason.py tests/mcp/tools/test_member_lookup_baked.py tests/mcp/tools/test_miss_coverage_note.py tests/mcp/tools/test_nonsense_queries_miss.py tests/mcp/tools/test_product_reference_baked_contract.py tests/mcp/tools/test_product_reference_compatibility_units.py tests/mcp/tools/test_product_reference_install_pin.py tests/mcp/tools/test_product_reference_license_support.py tests/mcp/tools/test_product_reference_truthful.py tests/mcp/tools/test_release_index_baked.py tests/mcp/tools/test_relevance_floor.py tests/mcp/tools/test_search_docs_language_letter.py tests/mcp/tools/test_search_symbols_forgiveness.py tests/mcp/tools/test_search_symbols_memberless_last.py tests/poc tests/test_layout.py tests/test_unwired_modules.py -q -rfE -p no:cacheprovider -k "not live and not github_http and not repo_native"'
+  expect: exit 0
+  timeout_seconds: 900
+  junitxml: true
+  proves:
+  - REQ-G3-001
+  - REQ-G3-005
+  - REQ-G3-007
+  - REQ-G3-008
+min_tests: 800
+network: true
+requires:
+- python
+- git
+negative_control:
+  mutate: |
+    python -X utf8 -c "import json,pathlib,glob;p=pathlib.Path(glob.glob('infra/demo-manifests/pdf__go__self_extracted/generation__*.json')[0]);g=json.loads(p.read_text(encoding='utf-8'));d=g['payload']['lexical_index']['documents'];k=next(i for i,c in d.items() if c['text'].split(chr(10))[1]=='Kind: function');del d[k];p.write_text(json.dumps(g),encoding='utf-8')"
+  rationale: >-
+    Deletes one function chunk (a document whose second line is `Kind: function`) from the baked pdf/go generation, so the shipped index serves 97 of the 98 functions the committed
+    fixture extracted: the new test_served_function_chunks_equal_the_fixture_functions[pdf_go] and test_served_symbol_fqns_are_exactly_the_fixture_entries[pdf_go] fail at once (and so
+    do the fleet and compaction tests). A real break of the card's central claim (what is served is exactly what was extracted, nothing is silently missing). The drafter applied the same
+    mutation to a scratch copy of the trial snapshot with the prototype of the three core checks: two of three fail in 0.15 s.
+evidence:
+- evidence/build/G3/TC-553/receipt.json
+closeout:
+- >-
+  The committed baked data of the thirteen re-ingested pilots is the whole extracted public surface of each of them, and the repository now proves it for all 32 pilots: tests/deploy/test_served_coverage_matches_fixtures.py
+  joins every pilot's committed fixture with its committed baked generation and requires the same number and the same identities of type chunks and function chunks. The size budgets are pinned to the measured
+  tree under an explicit 45 MB lean ceiling, the fleet consistency check reads the API-Coverage grammar the builder writes (functions and parse-failure clauses), the expired transition exceptions are empty
+  (the mechanism stays for TC-532 to TC-535), the live proof's check 12 compares the served total with the fixture's type count, and the README and RELEASE.md no longer call the index partial. The image must be
+  rebuilt and re-gated by the supervisor; the 19 pilots that were not re-ingested are unchanged, and TC-532 to TC-536 still re-extract and re-ingest further pilots.
+recovery: Re-run from a clean tree.
