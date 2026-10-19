@@ -1,7 +1,7 @@
 schema_version: 1
 project: foss-mcp
 generated_by: gatectl
-generated_at: '2026-10-19T06:59:46Z'
+generated_at: '2026-10-19T07:12:44Z'
 current_gate:
   id: G3
   status: IN_PROGRESS
@@ -3686,7 +3686,7 @@ owner_items:
     in the decision log.'
   last_checked_at: '2026-10-04T12:00:00Z'
 - id: OWNER-08
-  status: OPEN
+  status: SATISFIED
   summary: The fetch of product references from GitHub (infra/fetch_product_reference.py
     and the readers in src/foss_mcp/extraction) is rate limited to 60 requests per
     hour without a token. TC-220 makes the readers wait out a limit and use GITHUB_TOKEN
@@ -3712,8 +3712,14 @@ owner_items:
     regardless of token state. That code-side half does not need a credential and
     is fixed via TC-244, which reduces exposure but does not remove the need for this
     token - a token still raises the quota from 60/hr to 5000/hr, which remains the
-    real fix for fleet-wide ingestion at this scale.'
-  last_checked_at: '2026-10-07T20:50:00Z'
+    real fix for fleet-wide ingestion at this scale. SATISFIED 2026-10-19 (supervisor):
+    the Secret foss-mcp-github-token exists in namespace foss-mcp and all 32 ingestion
+    Jobs of the 2026-10-17 install completed (Complete, first attempt), so the rate-limit
+    exposure that kept 12 pilots in Error on 2026-10-07 is gone. Whether the token
+    is still ACCEPTED by GitHub is a separate fact tracked by OWNER-14 (HTTP 401 recorded
+    2026-10-14); that item stays OPEN and gets a status-code-only probe before the
+    closing re-ingest (OQ-015).'
+  last_checked_at: '2026-10-19T10:30:00Z'
 - id: OWNER-09
   status: SATISFIED
   summary: The git credential for https://github.com/babar-raza/foss-mcp.git had expired.
@@ -3797,7 +3803,7 @@ owner_items:
     path.
   last_checked_at: '2026-10-09T06:30:00Z'
 - id: OWNER-12
-  status: OPEN
+  status: SATISFIED
   summary: 'A round-4 independent audit''s C2 finding ("fake install coordinates,
     8/15 pilots still confidently fake") was investigated 2026-10-10 and found to
     be a deployment-state fact, not a code defect: TC-260/TC-275''s verification chain
@@ -3830,12 +3836,20 @@ owner_items:
   consumed_by:
   - NONE
   recorded_at: '2026-10-10T05:30:00Z'
-  note: Not a code defect in this repository - the fix code itself (TC-260/TC-275)
-    is correct and complete. Recorded per AGENTS.md's blocking taxonomy (a live-infrastructure
+  note: 'Not a code defect in this repository - the fix code itself (TC-260/TC-275)
+    is correct and complete. Recorded per AGENTS.md''s blocking taxonomy (a live-infrastructure
     action only an authorized owner with cluster access can perform) rather than guessed
     at with a code change that would not actually address the real cause. The loop
-    continues on everything else in the meantime.
-  last_checked_at: '2026-10-10T05:30:00Z'
+    continues on everything else in the meantime. SATISFIED 2026-10-19 (supervisor,
+    from current evidence): the 2026-10-17 re-ingest recreated the ingestion Job of
+    all 32 current pilots (32 releases deployed, 32 Jobs Complete, read-only kubectl),
+    28 pilots now have a package_registry sidecar (the four C++ pilots have none by
+    design), and the round-3 install-truth audit (R12) checked every pilot''s install
+    claim against the real registries: all eight ''not published'' claims are 404
+    on their registries and every published coordinate resolves. The fake coordinates
+    the audit described no longer exist. The code-level idea to propagate Job-template
+    changes without manual deletion stays unscoped.'
+  last_checked_at: '2026-10-19T10:30:00Z'
 - id: OWNER-13
   status: OPEN
   summary: The operator wants the final standalone 40-pilot demo image hosted on an
