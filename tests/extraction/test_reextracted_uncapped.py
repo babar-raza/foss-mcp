@@ -224,7 +224,7 @@ RECALL_EXCEPTION_REASON = {
 
 # Measured on the regenerated fixtures (LF text, bytes). floor = measured * 0.9 rounded down to a multiple of 10 KB.
 SIZE_FLOOR_BYTES = {
-    # TC-557: 10_127_360 -> 10_311_680 (measured 11,460,755 bytes * 0.9, multiple of 10 KB): the fixed Java extractor serves
+    # TC-557: 10_127_360 -> 10_311_680 (measured 11,461,265 bytes * 0.9, multiple of 10 KB): the fixed Java extractor serves
     # throws clauses, varargs, static marks, 118 public fields, generic parameters and 84 implicit constructors (raised, not lowered)
     "pdf_java": 10_311_680,
     # TC-533: 3_512_320 -> 931_840 (measured 1,036,658 bytes * 0.9, multiple of 10 KB): internal declarations are no longer
@@ -248,9 +248,9 @@ TOTAL_CEILING_BYTES = 120 * 1024 * 1024
 
 # methods + properties over every entry, measured, times 0.95 rounded down.
 MEMBER_FLOOR = {
-    # TC-557: 23_187 -> 23_447 (measured 16,782 methods + 7,900 properties = 24,682 * 0.95): 84 implicit constructors and
+    # TC-557: 23_187 -> 23_448 (measured 16,783 methods + 7,900 properties = 24,683 * 0.95): 84 implicit constructors and
     # the 118 public mutable fields are served, the phantom anonymous-class methods are not (raised, not lowered)
-    "pdf_java": 23_447,
+    "pdf_java": 23_448,
     # TC-533: 5_598 -> 2_276 (measured 2,396 * 0.95): only the package export surface is served, 93 functions instead of 3,060
     "pdf_typescript": 2_276,
     # TC-535: 1_258 -> 1_633 (measured 1,719 * 0.95): 436 promoted methods (370 more than before) and 44 promoted fields

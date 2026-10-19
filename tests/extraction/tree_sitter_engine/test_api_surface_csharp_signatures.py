@@ -262,7 +262,10 @@ def test_a_virtual_indexer_records_its_modifiers(tmp_path: Path) -> None:
 # ---------------------------------------------------------------- other languages are untouched
 
 
-def test_java_output_is_byte_identical_to_before(tmp_path: Path) -> None:
+def test_java_output_carries_the_varargs_parameter_and_the_static_mark(tmp_path: Path) -> None:
+    # TC-557: renamed from test_java_output_is_byte_identical_to_before. The Java output moved on purpose:
+    # ``run`` params [a] -> [a, rest: int...] (RD3-040) and no modifiers -> modifiers ["static"] (RD3-042);
+    # everything else of the two entries is exactly what it was.
     source = (
         "package a.b;\npublic class Widget {\n"
         "    /** Go. */\n"
@@ -276,7 +279,10 @@ def test_java_output_is_byte_identical_to_before(tmp_path: Path) -> None:
     assert widget["methods"] == [
         {
             "name": "run",
-            "params": [{"name": "a", "type": "String"}],
+            "params": [
+                {"name": "a", "type": "String"},
+                {"name": "rest", "type": "int...", "varargs": True},  # TC-557: absent -> int...
+            ],
             "return_type": "String",
             "doc": "Go.",
             "line": 4,
@@ -284,6 +290,7 @@ def test_java_output_is_byte_identical_to_before(tmp_path: Path) -> None:
             "deprecated": False,
             "deprecated_reason": "",
             "file": file,
+            "modifiers": ["static"],  # TC-557: absent -> ["static"]
         },
         {
             "name": "Widget",

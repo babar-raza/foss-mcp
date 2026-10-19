@@ -539,6 +539,80 @@ public class Child extends Parent {
     assert [m["name"] for m in types["Child"]["methods"] if m.get("inherited_from")] == ["run"]
 
 
+# -- interface members are implicitly public (JLS 9.4) -----------------------------------------------------------------------------
+
+
+def test_an_interface_static_or_default_method_is_public_api_and_a_private_one_is_not(tmp_path: Path) -> None:
+    types = _extract(
+        tmp_path,
+        """
+package p;
+public interface Shape {
+    double area();
+    static Shape unit() { return null; }
+    default String label() { return "shape"; }
+    @Deprecated default void old() {}
+    private void helper() {}
+    private static void staticHelper() {}
+}
+""",
+    )
+    shape = types["Shape"]
+    assert sorted(m["name"] for m in shape["methods"]) == ["area", "label", "old", "unit"]
+    assert _methods(shape, "unit")[0]["modifiers"] == ["static"]
+    assert "modifiers" not in _methods(shape, "label")[0]
+
+
+def test_a_package_private_static_method_of_a_class_is_still_not_public_api(tmp_path: Path) -> None:
+    types = _extract(
+        tmp_path,
+        """
+package p;
+public class Util {
+    static int hidden() { return 1; }
+    protected static int guarded() { return 3; }
+    public static int shown() { return 2; }
+}
+public @interface Marker {
+    String value();
+}
+""",
+    )
+    assert [m["name"] for m in types["Util"]["methods"] if not m["is_constructor"]] == ["shown"]
+
+
+def test_a_nested_interface_inside_a_class_gets_the_same_rule(tmp_path: Path) -> None:
+    types = _extract(
+        tmp_path,
+        """
+package p;
+public class Outer {
+    public interface Inner {
+        static Inner make() { return null; }
+        default void run() {}
+    }
+}
+""",
+    )
+    assert sorted(m["name"] for m in types["Inner"]["methods"]) == ["make", "run"]
+
+
+def test_the_interface_rule_does_not_reach_other_languages(tmp_path: Path) -> None:
+    from foss_mcp.extraction.tree_sitter_engine.tree_helpers import is_public
+
+    parser = get_parser("csharp")
+    tree = parser.parse(b"public interface I { static void M() {} }")
+    method = next(n for n in _walk(tree.root_node) if n.type == "method_declaration")
+    # C# keeps its own rule: a ``static`` modifier without ``public`` is not public here (unchanged by TC-557)
+    assert is_public(method, "csharp") is False
+
+
+def _walk(node):
+    yield node
+    for child in node.children:
+        yield from _walk(child)
+
+
 # -- nothing that was faithful changes ---------------------------------------------------------------------------------------------
 
 

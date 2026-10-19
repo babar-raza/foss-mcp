@@ -378,6 +378,19 @@ def test_non_typescript_languages_are_unaffected(tmp_path: Path) -> None:
     types = _extract(java, {"platform": "java", "family": "x", "repository": "x/y"})
     greeter = _type(types, "Greeter")
     assert greeter["methods"] == [
+        # TC-557: absent -> the implicit default constructor of a class that declares none (JLS 8.8.9)
+        {
+            "name": "Greeter",
+            "params": [],
+            "return_type": "",
+            "doc": "",
+            "line": 2,
+            "is_constructor": True,
+            "deprecated": False,
+            "deprecated_reason": "",
+            "modifiers": ["implicit"],
+            "file": "src/main/java/p/Greeter.java",
+        },
         {
             "name": "count",
             "params": [{"name": "a", "type": "int"}, {"name": "b", "type": "String"}],
@@ -387,8 +400,9 @@ def test_non_typescript_languages_are_unaffected(tmp_path: Path) -> None:
             "is_constructor": False,
             "deprecated": False,
             "deprecated_reason": "",
+            "modifiers": ["static"],  # TC-557: absent -> ["static"]
             "file": "src/main/java/p/Greeter.java",
-        }
+        },
     ]
     assert "alias_of" not in greeter
 

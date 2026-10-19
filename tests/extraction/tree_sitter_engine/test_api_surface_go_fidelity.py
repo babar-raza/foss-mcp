@@ -242,6 +242,9 @@ def test_other_languages_are_unchanged(tmp_path: Path) -> None:
     )
     java, *_ = api_surface.extract_api_surface(get_parser("java"), "java", java_root, java_root, "w")
     java_by_name = _by_name(java)
-    assert [method["name"] for method in java_by_name["Widget"]["methods"]] == ["size"]
+    # TC-557: ["size"] -> ["Widget", "size"] (a class that declares no constructor has the implicit default one, JLS 8.8.9)
+    assert [method["name"] for method in java_by_name["Widget"]["methods"]] == ["Widget", "size"]
     assert "enum_members" not in java_by_name["Widget"]
-    assert "modifiers" not in java_by_name["Widget"]["methods"][0]
+    # TC-557: methods[0] -> the declared method (index 0 is now the implicit constructor, which carries ["implicit"])
+    declared_size = next(m for m in java_by_name["Widget"]["methods"] if m["name"] == "size")
+    assert "modifiers" not in declared_size

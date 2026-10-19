@@ -257,14 +257,17 @@ def test_the_committed_pdf_java_chunk_names_getinfo_as_the_replacement() -> None
     )
     document = next(chunk for chunk in chunks if chunk.text.startswith("FQN: org.aspose.pdf.Document\n"))
 
-    assert "getOrCreateInfo() -> DocumentInfo (deprecated: use getInfo())" in document.text
+    # TC-557: "getOrCreateInfo() -> DocumentInfo (deprecated: use getInfo())" -> "... -> DocumentInfo throws IOException
+    # (deprecated: use getInfo())": Document.java line 1060 declares ``throws IOException``, which is now served
+    assert "getOrCreateInfo() -> DocumentInfo throws IOException (deprecated: use getInfo())" in document.text
 
 
 def test_without_the_step_the_same_chunk_only_says_deprecated() -> None:
     chunks = build_chunks_from_api_surface(_fixture(PDF_JAVA), title="pdf java", max_types=1000)
     document = next(chunk for chunk in chunks if chunk.text.startswith("FQN: org.aspose.pdf.Document\n"))
 
-    assert "getOrCreateInfo() -> DocumentInfo (deprecated)" in document.text
+    # TC-557: "-> DocumentInfo (deprecated)" -> "-> DocumentInfo throws IOException (deprecated)" (the throws clause is served)
+    assert "getOrCreateInfo() -> DocumentInfo throws IOException (deprecated)" in document.text
     assert "use getInfo()" not in document.text
 
 
@@ -303,4 +306,5 @@ def test_main_end_to_end_writes_the_statement_and_the_deprecation_reason(
 
     assert STATEMENT in texts["tex"]
     assert "API-Coverage:" in texts["tex"] and "35 of 45 source files could not be parsed" in texts["tex"]
-    assert "getOrCreateInfo() -> DocumentInfo (deprecated: use getInfo())" in texts["java"]
+    # TC-557: "-> DocumentInfo (deprecated: ...)" -> "-> DocumentInfo throws IOException (deprecated: ...)"
+    assert "getOrCreateInfo() -> DocumentInfo throws IOException (deprecated: use getInfo())" in texts["java"]
