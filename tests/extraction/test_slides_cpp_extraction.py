@@ -81,8 +81,11 @@ def test_the_fixture_is_non_empty() -> None:
     # re-extracted by TC-550: at this fixture's pinned commit the real repository has 355 public
     # types (264 types and 91 free functions), all kept - the cap was raised to the total, so the
     # fixture is the COMPLETE surface.
-    assert data["type_count"] == 355  # re-extracted by TC-550: 323 -> 355
-    assert data["reduced_type_count"] == data["type_count"]  # re-extracted by TC-550: 300 -> 355
+    # TC-534: 355 -> 326: the 55 declarations in the Internal namespace (_internal/ headers: 30 types and
+    # 25 functions, 28 of the types labelled public) are implementation and are no longer served; the 8
+    # public nested iterator classes and the 18 iterator aliases are served (+26): 260 types and 66 functions.
+    assert data["type_count"] == 326  # re-extracted by TC-550: 323 -> 355; TC-534: 355 -> 326
+    assert data["reduced_type_count"] == data["type_count"]  # re-extracted by TC-550: 300 -> 355; TC-534: 326
     assert data["truncated"] is False  # re-extracted by TC-550: True -> False
 
 
@@ -161,7 +164,8 @@ def test_every_entry_is_a_real_cpp_surface_kind() -> None:
     kinds = {entry["kind"] for entry in data["types"]}
     # Observed directly from the live tree-sitter C++ grammar's own node-type vocabulary
     # for this repository, not guessed or invented.
-    assert kinds == {"function", "class_specifier", "enum_specifier", "struct_specifier"}
+    # TC-534: + alias_declaration, the `using iterator = ...` aliases of the collections
+    assert kinds == {"function", "class_specifier", "enum_specifier", "struct_specifier", "alias_declaration"}
 
 
 def test_common_fields_are_present_on_every_entry() -> None:

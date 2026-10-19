@@ -66,7 +66,7 @@ PILOTS: list[dict[str, Any]] = [
         "heldBy": "ingestion-pdf-cpp",
         "apiSurface": "/app/fixtures/pdf_cpp/api_surface.json",
         "title": "pdf/cpp API surface",
-        "maxTypes": 359,  # re-extracted by TC-550: 300 -> 359
+        "maxTypes": 300,  # re-extracted by TC-550: 300 -> 359; TC-534: 359 -> 300 (the fixture now holds 282 entries)
         # TC-375: values.yaml's pdf/cpp pilot now has a furnishedPage and docker-compose.yml's
         # ingest-pdf-cpp passes --furnished-page with the library flags, so this synthetic pilot
         # carries the same page and library block, copied verbatim from values.yaml's own

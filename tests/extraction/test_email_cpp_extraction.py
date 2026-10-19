@@ -78,8 +78,10 @@ def test_the_fixture_is_non_empty() -> None:
     # The real repository has only 26 raw public types - well under the CLI's default
     # --max-types 300 cap, so this fixture is the FULL surface, not a capped subset
     # (unlike cells/cpp's 300-of-462 fixture).
-    assert data["type_count"] == 26
-    assert data["reduced_type_count"] == 26
+    # TC-534: 26 -> 27: the fixture is re-extracted with the current extractor (extractor_version 5), which
+    # now serves the public nested enum cfb_node::kind
+    assert data["type_count"] == 27  # TC-534: 26 -> 27
+    assert data["reduced_type_count"] == 27  # TC-534: 26 -> 27
     assert data["truncated"] is False
 
 

@@ -91,7 +91,10 @@ def test_the_fixture_is_non_empty() -> None:
     # re-extracted by TC-550: the C++ extractor (TC-524) no longer lists implementation-file
     # helpers, so the real repository has 200 public types (was 346, reduced to 300), below the
     # default cap of 300: the fixture is the COMPLETE surface.
-    assert data["type_count"] == 200  # re-extracted by TC-550: 346 -> 200
+    # TC-534: 200 -> 196: five classes defined only in .cpp files (BitReader, HuffmanTable, ParsedNumericFormat,
+    # XmlParser, Workbook::Impl) are implementation and are no longer served; the public nested struct
+    # XmlNodeData::Attr is now served (+1)
+    assert data["type_count"] == 196  # re-extracted by TC-550: 346 -> 200; TC-534: 200 -> 196
     assert data["reduced_type_count"] == data["type_count"]  # re-extracted by TC-550: 300 -> 200
     assert data["truncated"] is False  # re-extracted by TC-550: True -> False
 
@@ -102,7 +105,8 @@ def test_the_fixture_contains_real_cpp_type_names() -> None:
     # Real Aspose.Cells-FOSS-for-Cpp types, not placeholders - would not survive an
     # empty or synthetic fixture.
     assert {"Workbook", "Worksheet", "Cell", "AutoFilter", "Color", "CellsException"} <= names
-    assert all(entry["file"].endswith((".h", ".cpp")) for entry in data["types"])
+    # TC-534: .h or .cpp -> .h only: no type declared only in a .cpp file is served any more
+    assert all(entry["file"].endswith(".h") for entry in data["types"])
     # Confirms the nested include/src quirk noted above: every file path retains the
     # repo-relative nested prefix rather than being stripped to a detected package root.
     assert all(entry["file"].startswith("Aspose.Cells.Foss.Cpp/") for entry in data["types"])

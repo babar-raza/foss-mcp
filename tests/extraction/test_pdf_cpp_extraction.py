@@ -139,8 +139,11 @@ def test_the_fixture_is_non_empty_and_complete() -> None:
     assert data["reduced_type_count"] == len(data["types"])
     # re-extracted by TC-550: the real repository has 359 public types (the extractor no longer lists
     # the internal headers), all kept: the fixture was regenerated with a cap above the total.
-    assert data["type_count"] == 359  # re-extracted by TC-550: 361 -> 359
-    assert data["reduced_type_count"] == data["type_count"]  # re-extracted by TC-550: 300 -> 359
+    # TC-534: 359 -> 282: the 91 declarations under include/internal/ are implementation and are no longer
+    # served (they carried visibility "internal"); the 14 public nested types (PdfFileEditor::
+    # ContentsResizeParameters, Document::SignatureInfo, ...) are served (+14); 263 types and 19 functions.
+    assert data["type_count"] == 282  # re-extracted by TC-550: 361 -> 359; TC-534: 359 -> 282
+    assert data["reduced_type_count"] == data["type_count"]  # re-extracted by TC-550: 300 -> 359; TC-534: 282
     assert data["truncated"] is False  # re-extracted by TC-550: True -> False
 
 

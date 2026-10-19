@@ -178,16 +178,21 @@ RECALL_FLOOR = {
     "html_python": 0.85,
     "3d_python": 0.90,
     "pdf_cpp": 0.90,
-    "slides_cpp": 0.89,
-    "cells_cpp": 0.87,
+    # TC-534: 0.89 -> 0.78 (measured 0.786): the README names 23 classes of the Internal namespace (OpcPackage,
+    # PptxExporter, the *Part classes, ...), which are implementation and are no longer served
+    "slides_cpp": 0.78,
+    # TC-534: 0.87 -> 0.83 (measured 0.833): the README names ParsedNumericFormat, a struct defined only in
+    # DisplayTextFormatter.cpp, which is implementation and is no longer served
+    "cells_cpp": 0.83,
     "words_python": 0.90,
 }
 
 RECALL_EXCEPTION_REASON = {
     "cells_cpp": (
-        "the README's three unresolved identifiers are FetchContent and add_subdirectory (CMake commands it tells "
-        "the reader to use) and txt (the file extension of LICENSE.txt): a build tool and a file extension, none an "
-        "API symbol of this library"
+        "the README's four unresolved identifiers are FetchContent and add_subdirectory (CMake commands it tells "
+        "the reader to use), txt (the file extension of LICENSE.txt) and, since TC-534, ParsedNumericFormat (a "
+        "struct defined only in DisplayTextFormatter.cpp, which a user of the library cannot include): a build "
+        "tool, a file extension and an implementation type, none an API symbol of this library"
     ),
     "html_python": (
         "the 35 unresolved identifiers are classes and functions defined in underscore-prefixed (private) modules the "
@@ -199,7 +204,14 @@ RECALL_EXCEPTION_REASON = {
         "build keyword (import, toml) and the builtin NotImplementedError: none is a public symbol of the library"
     ),
     "slides_cpp": (
-        "the 21 unresolved identifiers are build tooling (FetchContent, cmake, find_dependency, PATCH, "
+        "TC-534: 21 -> 44 unresolved identifiers: the 23 classes of the library's Internal namespace that the README "
+        "table lists (AppPropertiesPart, AuthorData, CommentAuthorsPart, CommentData, CommentsPart, ContentTypesManager, "
+        "CorePropertiesPart, CustomPropertiesPart, ExporterBase, ExporterRegistry, HeadingPairData, InMemoryOpcPackage, "
+        "LayoutSlidePart, MasterSlidePart, OpcPackage, ParagraphFormatSource, PortionFormatSource, PptxExporter, "
+        "RelationshipsManager, SlidePart, TextFrameFormatSource, XmlElement, XmlWriter; every one is declared under "
+        "include/Aspose/Slides/Foss/_internal/ in namespace Aspose::Slides::Foss::Internal, implementation that is no "
+        "longer served as API) and the 21 identifiers that were unresolved before TC-534, which are build tooling "
+        "(FetchContent, cmake, find_dependency, PATCH, "
         "SameMinorVersion, target_include_directories, aspose_slides_foss), file extensions and library suffixes "
         "(h, lib, txt), std::invalid_argument, pugi's xml_node, the members the README's 'not in the public API' "
         "section names because they DO NOT EXIST on purpose (add_chart, add_group_shape, set_hyperlink_click, "
@@ -238,7 +250,8 @@ MEMBER_FLOOR = {
     "html_python": 25_419,
     "3d_python": 2_893,
     "pdf_cpp": 6_543,
-    "slides_cpp": 3_733,
+    # TC-534: 3_733 -> 3_430 (measured 3,611 * 0.95): the 55 Internal-namespace declarations are no longer served
+    "slides_cpp": 3_430,
     "cells_cpp": 1_918,
     "words_python": 1_741,
 }
