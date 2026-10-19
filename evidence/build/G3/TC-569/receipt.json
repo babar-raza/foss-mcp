@@ -1,0 +1,111 @@
+{
+  "schema_version": 1,
+  "card": "TC-569",
+  "gate": "G3",
+  "generated_by": "gatectl",
+  "generated_at": "2026-10-19T07:59:33Z",
+  "base_rev": "4ed0b82012d792167b2153d61a8f646b0e120d6e",
+  "head_rev": "96372c41c648a6ebcba705ec75564430c35e0829",
+  "card_sha256": "5ee30af2941fbdbf13b7ffa1663d36807582f187aec2b7b1ac3ae125b2891caa",
+  "fingerprint": {
+    "python": "3.13.2",
+    "platform": "Windows-11-10.0.26200-SP0",
+    "lock_sha256": "7b182948484d7df9614b523f7a8180f795b6c51d55c418728525c1957f3e38ba",
+    "env": {
+      "PYTHONHASHSEED": "0",
+      "PYTHONUTF8": "1",
+      "PYTHONDONTWRITEBYTECODE": "1",
+      "PYTHONIOENCODING": "utf-8",
+      "TZ": "UTC",
+      "LC_ALL": "C.UTF-8",
+      "SOURCE_DATE_EPOCH": "1700000000",
+      "verify_runner": "host"
+    }
+  },
+  "scope": {
+    "ok": true,
+    "changed_paths": [
+      "scripts/release/verify_pushed_image.py",
+      "tests/release/test_verify_pushed_image.py"
+    ],
+    "violations": [],
+    "evaluated": true
+  },
+  "runs": [
+    {
+      "run": 1,
+      "checks": [
+        {
+          "command": "{python} -m pytest tests/release/test_verify_pushed_image.py -q -rfE -p no:cacheprovider",
+          "exit_code": 0,
+          "duration_s": 2.312,
+          "stdout_sha256": "2fdbfd8ca4b1f03517583a95c9d797258bdf9116d64cf90fbdaa175b61869611",
+          "tests": 46,
+          "skipped": 0,
+          "errors": 0,
+          "failures": 0
+        },
+        {
+          "command": "{python} -m pytest tests/release tests/deploy/test_image_workflow_gate.py -q -rfE -p no:cacheprovider -k \"not live and not github_http and not repo_native\"",
+          "exit_code": 0,
+          "duration_s": 3.257,
+          "stdout_sha256": "bcaf32ccf9c0c6ac37fe4c9e8ce86f4ab7c07f1740903baef91d00a0e408a409",
+          "tests": 127,
+          "skipped": 0,
+          "errors": 0,
+          "failures": 0
+        }
+      ],
+      "all_passed": true
+    },
+    {
+      "run": 2,
+      "checks": [
+        {
+          "command": "{python} -m pytest tests/release/test_verify_pushed_image.py -q -rfE -p no:cacheprovider",
+          "exit_code": 0,
+          "duration_s": 0.582,
+          "stdout_sha256": "2fdbfd8ca4b1f03517583a95c9d797258bdf9116d64cf90fbdaa175b61869611",
+          "tests": 46,
+          "skipped": 0,
+          "errors": 0,
+          "failures": 0
+        },
+        {
+          "command": "{python} -m pytest tests/release tests/deploy/test_image_workflow_gate.py -q -rfE -p no:cacheprovider -k \"not live and not github_http and not repo_native\"",
+          "exit_code": 0,
+          "duration_s": 2.149,
+          "stdout_sha256": "bcaf32ccf9c0c6ac37fe4c9e8ce86f4ab7c07f1740903baef91d00a0e408a409",
+          "tests": 127,
+          "skipped": 0,
+          "errors": 0,
+          "failures": 0
+        }
+      ],
+      "all_passed": true
+    }
+  ],
+  "negative_control": {
+    "kind": "mutate",
+    "patch": "python -X utf8 -c \"import pathlib;p=pathlib.Path('scripts/release/verify_pushed_image.py');s=p.read_text(encoding='utf-8');q=chr(34);old='REQUIRE_DIGEST_REFERENCE = True';assert s.count(old)==1;p.write_text(s.replace(old,'REQUIRE_DIGEST_REFERENCE = False'),encoding='utf-8')\"\n",
+    "patch_sha256": "85ecd74251b74141e26f414d800931be7aaf0175046ff462aa0a039837d8e5b2",
+    "applied": true,
+    "patch_applied_failed": true,
+    "exit_codes": [
+      1,
+      1
+    ],
+    "tree_changed": [
+      "M scripts/release/verify_pushed_image.py",
+      "?? .junit-0.xml",
+      "?? .junit-1.xml"
+    ]
+  },
+  "holdout": {
+    "ran": false,
+    "passed": true,
+    "detail": "no holdout for this card"
+  },
+  "accepted": true,
+  "reason": "all gates passed"
+}

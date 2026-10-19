@@ -1,0 +1,230 @@
+
+===== CLEAN RUN 1 (host) =====
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-7b182948484d7df9\Scripts\python.exe -m pytest tests/release/test_verify_pushed_image.py -q -rfE -p no:cacheprovider "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-67yur4vo\.junit-0.xml"
+--- stdout ---
+..............................................                           [100%]
+
+--- stderr ---
+
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-7b182948484d7df9\Scripts\python.exe -m pytest tests/release tests/deploy/test_image_workflow_gate.py -q -rfE -p no:cacheprovider -k "not live and not github_http and not repo_native" "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-67yur4vo\.junit-1.xml"
+--- stdout ---
+........................................................................ [ 56%]
+.......................................................                  [100%]
+
+--- stderr ---
+
+
+===== CLEAN RUN 2 (host) =====
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-7b182948484d7df9\Scripts\python.exe -m pytest tests/release/test_verify_pushed_image.py -q -rfE -p no:cacheprovider "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-67yur4vo\.junit-0.xml"
+--- stdout ---
+..............................................                           [100%]
+
+--- stderr ---
+
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-7b182948484d7df9\Scripts\python.exe -m pytest tests/release tests/deploy/test_image_workflow_gate.py -q -rfE -p no:cacheprovider -k "not live and not github_http and not repo_native" "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-67yur4vo\.junit-1.xml"
+--- stdout ---
+........................................................................ [ 56%]
+.......................................................                  [100%]
+
+--- stderr ---
+
+
+===== NEGATIVE CONTROL (checks MUST now fail) =====
+mutated: M scripts/release/verify_pushed_image.py, ?? .junit-0.xml, ?? .junit-1.xml
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-7b182948484d7df9\Scripts\python.exe -m pytest tests/release/test_verify_pushed_image.py -q -rfE -p no:cacheprovider "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-67yur4vo\.junit-0.xml"
+--- stdout ---
+FF.F......................F.........F.........                           [100%]
+================================== FAILURES ===================================
+__________ test_matching_image_passes_and_gates_the_digest_reference __________
+
+    def test_matching_image_passes_and_gates_the_digest_reference():
+        fake = FakeDeps()
+        report = vpi.verify(PUSH_RESULT, RECORD, fake.deps)
+        assert report.verified is True
+        assert report.failure is None
+        assert [step.status for step in report.steps] == ["pass"] * 7
+>       assert report.reference == EXPECTED_REFERENCE
+E       AssertionError: assert 'registry.exa...g:rev-abc1234' == 'registry.exa...3456789abcdef'
+E         
+E         Skipping 46 identical leading characters in diff, use -v to show
+E         - cp-serving@sha256:0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef
+E         + cp-serving:rev-abc1234
+
+tests\release\test_verify_pushed_image.py:120: AssertionError
+___ test_every_reference_handed_to_docker_and_the_suites_is_the_digest_form ___
+
+    def test_every_reference_handed_to_docker_and_the_suites_is_the_digest_form():
+        fake = FakeDeps()
+        vpi.verify(PUSH_RESULT, RECORD, fake.deps)
+        assert len(fake.calls) == 4
+        for _name, ref in fake.calls:
+>           assert ref == EXPECTED_REFERENCE
+E           AssertionError: assert 'registry.exa...g:rev-abc1234' == 'registry.exa...3456789abcdef'
+E             
+E             Skipping 46 identical leading characters in diff, use -v to show
+E             - cp-serving@sha256:0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef
+E             + cp-serving:rev-abc1234
+
+tests\release\test_verify_pushed_image.py:130: AssertionError
+________ test_require_digest_reference_line_is_committed_exactly_once _________
+
+    def test_require_digest_reference_line_is_committed_exactly_once():
+        lines = SOURCE.read_text(encoding="utf-8").splitlines()
+>       assert lines.count("REQUIRE_DIGEST_REFERENCE = True") == 1
+E       assert 0 == 1
+E        +  where 0 = <built-in method count of list object at 0x0000013790E00DC0>('REQUIRE_DIGEST_REFERENCE = True')
+E        +    where <built-in method count of list object at 0x0000013790E00DC0> = ['#!/usr/bin/env python3', '"""Pull a pushed image back from the registry by digest and prove it is the image that pas...ython scripts/release/verify_pushed_image.py --push-result FILE --record FILE [--report-dir DIR] [--dry-run]', '', ...].count
+
+tests\release\test_verify_pushed_image.py:144: AssertionError
+______________ test_main_exits_zero_and_writes_a_verified_report ______________
+
+tmp_path = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-9836/test_main_exits_zero_and_write0')
+capsys = <_pytest.capture.CaptureFixture object at 0x0000013790A02CF0>
+
+    def test_main_exits_zero_and_writes_a_verified_report(tmp_path, capsys):
+        fake = FakeDeps()
+        assert vpi.main(_write_inputs(tmp_path), fake.deps) == 0
+        report = json.loads((tmp_path / "out" / "verify_pushed_image.json").read_text(encoding="utf-8"))
+        assert report["verified"] is True and report["verdict"] == "PASS"
+>       assert report["reference"] == EXPECTED_REFERENCE
+E       AssertionError: assert 'registry.exa...g:rev-abc1234' == 'registry.exa...3456789abcdef'
+E         
+E         Skipping 46 identical leading characters in diff, use -v to show
+E         - cp-serving@sha256:0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef
+E         + cp-serving:rev-abc1234
+
+tests\release\test_verify_pushed_image.py:300: AssertionError
+---------------------------- Captured stdout call -----------------------------
+verify_pushed_image: VERIFIED registry.example.internal:5000/foss-mcp/foss-mcp-serving:rev-abc1234
+---------------------------- Captured stderr call -----------------------------
+verify_pushed_image: pull: pass pulled registry.example.internal:5000/foss-mcp/foss-mcp-serving:rev-abc1234
+verify_pushed_image: inspect: pass described the pulled image
+verify_pushed_image: manifest: pass manifest digest is sha256:0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef
+verify_pushed_image: image_id: pass image id is sha256:ab12ab12ab12ab12ab12ab12ab12ab12ab12ab12ab12ab12ab12ab12ab12ab12
+verify_pushed_image: revision: pass revision label is aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
+verify_pushed_image: gate: pass workflow gate passed on every pilot
+verify_pushed_image: adversarial: pass adversarial suite passed
+____________ test_dry_run_prints_the_digest_pull_and_runs_nothing _____________
+
+tmp_path = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-9836/test_dry_run_prints_the_digest0')
+capsys = <_pytest.capture.CaptureFixture object at 0x0000013790A17050>
+
+    def test_dry_run_prints_the_digest_pull_and_runs_nothing(tmp_path, capsys):
+        fake = FakeDeps()
+        assert vpi.main([*_write_inputs(tmp_path), "--dry-run"], fake.deps) == 0
+>       assert capsys.readouterr().out.strip() == f"docker pull {EXPECTED_REFERENCE}"
+E       AssertionError: assert 'docker pull ...g:rev-abc1234' == 'docker pull ...3456789abcdef'
+E         
+E         Skipping 58 identical leading characters in diff, use -v to show
+E         - cp-serving@sha256:0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef
+E         + cp-serving:rev-abc1234
+
+tests\release\test_verify_pushed_image.py:350: AssertionError
+=========================== short test summary info ===========================
+FAILED tests/release/test_verify_pushed_image.py::test_matching_image_passes_and_gates_the_digest_reference
+FAILED tests/release/test_verify_pushed_image.py::test_every_reference_handed_to_docker_and_the_suites_is_the_digest_form
+FAILED tests/release/test_verify_pushed_image.py::test_require_digest_reference_line_is_committed_exactly_once
+FAILED tests/release/test_verify_pushed_image.py::test_main_exits_zero_and_writes_a_verified_report
+FAILED tests/release/test_verify_pushed_image.py::test_dry_run_prints_the_digest_pull_and_runs_nothing
+
+--- stderr ---
+
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-7b182948484d7df9\Scripts\python.exe -m pytest tests/release tests/deploy/test_image_workflow_gate.py -q -rfE -p no:cacheprovider -k "not live and not github_http and not repo_native" "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-67yur4vo\.junit-1.xml"
+--- stdout ---
+FF.F......................F.........F................................... [ 56%]
+.......................................................                  [100%]
+================================== FAILURES ===================================
+__________ test_matching_image_passes_and_gates_the_digest_reference __________
+
+    def test_matching_image_passes_and_gates_the_digest_reference():
+        fake = FakeDeps()
+        report = vpi.verify(PUSH_RESULT, RECORD, fake.deps)
+        assert report.verified is True
+        assert report.failure is None
+        assert [step.status for step in report.steps] == ["pass"] * 7
+>       assert report.reference == EXPECTED_REFERENCE
+E       AssertionError: assert 'registry.exa...g:rev-abc1234' == 'registry.exa...3456789abcdef'
+E         
+E         Skipping 46 identical leading characters in diff, use -v to show
+E         - cp-serving@sha256:0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef
+E         + cp-serving:rev-abc1234
+
+tests\release\test_verify_pushed_image.py:120: AssertionError
+___ test_every_reference_handed_to_docker_and_the_suites_is_the_digest_form ___
+
+    def test_every_reference_handed_to_docker_and_the_suites_is_the_digest_form():
+        fake = FakeDeps()
+        vpi.verify(PUSH_RESULT, RECORD, fake.deps)
+        assert len(fake.calls) == 4
+        for _name, ref in fake.calls:
+>           assert ref == EXPECTED_REFERENCE
+E           AssertionError: assert 'registry.exa...g:rev-abc1234' == 'registry.exa...3456789abcdef'
+E             
+E             Skipping 46 identical leading characters in diff, use -v to show
+E             - cp-serving@sha256:0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef
+E             + cp-serving:rev-abc1234
+
+tests\release\test_verify_pushed_image.py:130: AssertionError
+________ test_require_digest_reference_line_is_committed_exactly_once _________
+
+    def test_require_digest_reference_line_is_committed_exactly_once():
+        lines = SOURCE.read_text(encoding="utf-8").splitlines()
+>       assert lines.count("REQUIRE_DIGEST_REFERENCE = True") == 1
+E       assert 0 == 1
+E        +  where 0 = <built-in method count of list object at 0x0000023A8353AAC0>('REQUIRE_DIGEST_REFERENCE = True')
+E        +    where <built-in method count of list object at 0x0000023A8353AAC0> = ['#!/usr/bin/env python3', '"""Pull a pushed image back from the registry by digest and prove it is the image that pas...ython scripts/release/verify_pushed_image.py --push-result FILE --record FILE [--report-dir DIR] [--dry-run]', '', ...].count
+
+tests\release\test_verify_pushed_image.py:144: AssertionError
+______________ test_main_exits_zero_and_writes_a_verified_report ______________
+
+tmp_path = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-9837/test_main_exits_zero_and_write0')
+capsys = <_pytest.capture.CaptureFixture object at 0x0000023A82AE17F0>
+
+    def test_main_exits_zero_and_writes_a_verified_report(tmp_path, capsys):
+        fake = FakeDeps()
+        assert vpi.main(_write_inputs(tmp_path), fake.deps) == 0
+        report = json.loads((tmp_path / "out" / "verify_pushed_image.json").read_text(encoding="utf-8"))
+        assert report["verified"] is True and report["verdict"] == "PASS"
+>       assert report["reference"] == EXPECTED_REFERENCE
+E       AssertionError: assert 'registry.exa...g:rev-abc1234' == 'registry.exa...3456789abcdef'
+E         
+E         Skipping 46 identical leading characters in diff, use -v to show
+E         - cp-serving@sha256:0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef
+E         + cp-serving:rev-abc1234
+
+tests\release\test_verify_pushed_image.py:300: AssertionError
+---------------------------- Captured stdout call -----------------------------
+verify_pushed_image: VERIFIED registry.example.internal:5000/foss-mcp/foss-mcp-serving:rev-abc1234
+---------------------------- Captured stderr call -----------------------------
+verify_pushed_image: pull: pass pulled registry.example.internal:5000/foss-mcp/foss-mcp-serving:rev-abc1234
+verify_pushed_image: inspect: pass described the pulled image
+verify_pushed_image: manifest: pass manifest digest is sha256:0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef
+verify_pushed_image: image_id: pass image id is sha256:ab12ab12ab12ab12ab12ab12ab12ab12ab12ab12ab12ab12ab12ab12ab12ab12
+verify_pushed_image: revision: pass revision label is aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
+verify_pushed_image: gate: pass workflow gate passed on every pilot
+verify_pushed_image: adversarial: pass adversarial suite passed
+____________ test_dry_run_prints_the_digest_pull_and_runs_nothing _____________
+
+tmp_path = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-9837/test_dry_run_prints_the_digest0')
+capsys = <_pytest.capture.CaptureFixture object at 0x0000023A83534450>
+
+    def test_dry_run_prints_the_digest_pull_and_runs_nothing(tmp_path, capsys):
+        fake = FakeDeps()
+        assert vpi.main([*_write_inputs(tmp_path), "--dry-run"], fake.deps) == 0
+>       assert capsys.readouterr().out.strip() == f"docker pull {EXPECTED_REFERENCE}"
+E       AssertionError: assert 'docker pull ...g:rev-abc1234' == 'docker pull ...3456789abcdef'
+E         
+E         Skipping 58 identical leading characters in diff, use -v to show
+E         - cp-serving@sha256:0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef
+E         + cp-serving:rev-abc1234
+
+tests\release\test_verify_pushed_image.py:350: AssertionError
+=========================== short test summary info ===========================
+FAILED tests/release/test_verify_pushed_image.py::test_matching_image_passes_and_gates_the_digest_reference
+FAILED tests/release/test_verify_pushed_image.py::test_every_reference_handed_to_docker_and_the_suites_is_the_digest_form
+FAILED tests/release/test_verify_pushed_image.py::test_require_digest_reference_line_is_committed_exactly_once
+FAILED tests/release/test_verify_pushed_image.py::test_main_exits_zero_and_writes_a_verified_report
+FAILED tests/release/test_verify_pushed_image.py::test_dry_run_prints_the_digest_pull_and_runs_nothing
+
+--- stderr ---
+
