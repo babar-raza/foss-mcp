@@ -540,7 +540,21 @@ def is_public(node, language: str) -> bool:
             elif ch.type == "public":
                 return True
         if found_modifier_node:
-            return "public" in " ".join(modifier_texts)
+            if "public" in " ".join(modifier_texts):
+                return True
+            # TC-557: a Java interface method is implicitly public (JLS 9.4), so one whose modifiers are only
+            # ``static`` / ``default`` (and annotations) is public API; only ``private`` makes it internal.
+            if (
+                language == "java"
+                and node.type == "method_declaration"
+                and node.parent is not None
+                and node.parent.type == "interface_body"
+                and node.parent.parent is not None
+                and node.parent.parent.type == "interface_declaration"
+            ):
+                keywords = {sub.type for ch in node.children if ch.type == "modifiers" for sub in ch.children}
+                return "private" not in keywords
+            return False
         # C# / Java: interface members are implicitly public
         if node.parent and node.parent.type in (
             "interface_declaration",
