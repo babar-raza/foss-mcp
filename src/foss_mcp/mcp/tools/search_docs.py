@@ -16,12 +16,14 @@ derives richness from a release body's own text rather than a metadata field nob
 
 from __future__ import annotations
 
+import json
 import re
 from collections.abc import Iterable
 from dataclasses import dataclass
 
 from foss_mcp.indexing.generation_manifest import GenerationManifestStore
 from foss_mcp.indexing.lexical_index_writer import query_lexical_index_scored
+from foss_mcp.mcp.response_budget import fence_blocks
 from foss_mcp.mcp.routing import Scope
 from foss_mcp.mcp.tools.relevance import (
     DOCUMENTATION,
@@ -111,6 +113,25 @@ class DocMatch:
     text: str
 
 
+# G3/TC-563: the most JSON bytes of chunk text one continuation part carries. The response budget is
+# 24,576 bytes in all; the rest is the part's own fields, the scope and the envelope.
+DOC_PART_BYTES = 20480
+
+
+@dataclass(frozen=True)
+class DocPart(DocMatch):
+    """One contiguous, line-aligned part of a documentation chunk (``search_docs`` with ``chunk_id``).
+
+    ``text`` is exactly ``chunk[offset:offset + len(text)]``. ``next_offset`` is where the next part
+    starts, ``None`` when this part reaches the end of the chunk; ``part_note`` says so in words and,
+    when more follows, names the call that returns it."""
+
+    offset: int
+    total_chars: int
+    next_offset: int | None
+    part_note: str
+
+
 @dataclass(frozen=True)
 class Miss:
     """An explicit miss. This IS the answer - never smoothed over into a widened result."""
@@ -196,6 +217,91 @@ def _miss_with_hint(
     return Miss(scope, query, content_type, reason, other_content_types=others, hint=hint)
 
 
+def _part_end(text: str, offset: int) -> int:
+    """Where the part that starts at *offset* ends: the last line boundary at which the part still fits
+    ``DOC_PART_BYTES`` of JSON text and, when it can, outside a fenced code block. A line too long to fit
+    is cut mid-line, the only cut that is not on a line boundary."""
+    lines = text.split("\n")
+    blocks = fence_blocks(lines)
+    starts = [0]
+    for line in lines[:-1]:
+        starts.append(starts[-1] + len(line) + 1)
+    first = max(index for index, start in enumerate(starts) if start <= offset)
+    used = 0
+    end = offset
+    last_outside = 0
+    for index in range(first, len(lines)):
+        line_end = starts[index] + len(lines[index]) + (1 if index < len(lines) - 1 else 0)
+        segment = text[max(starts[index], offset) : line_end]
+        cost = len(json.dumps(segment).encode("utf-8")) - 2
+        if used + cost > DOC_PART_BYTES:
+            if end == offset:  # not even one line fits: cut inside it
+                for position in range(max(starts[index], offset), line_end):
+                    used += len(json.dumps(text[position]).encode("utf-8")) - 2
+                    if used > DOC_PART_BYTES:
+                        break
+                    end = position + 1
+            elif last_outside > offset:
+                end = last_outside
+            return end
+        used += cost
+        end = line_end
+        block = blocks[index]
+        if block is None or block[1] == index:
+            last_outside = line_end
+    return len(text)
+
+
+def _fetch_part(
+    store: GenerationManifestStore, scope: Scope, query: str, content_type: str, chunk_id: str, offset: int
+) -> list[DocMatch] | Miss:
+    """The part of documentation chunk *chunk_id* that starts at character *offset* of its text (the
+    way to read the rest of an excerpt the response budget cut). The chunk must be a documentation chunk
+    classified *content_type*; anything else is a miss, never a different chunk."""
+    key = scope_key(scope, SOURCE_KIND)
+    active_generation_id = store.read_active(key)
+    if active_generation_id is None:
+        return Miss(scope, query, content_type, "no published generation for this scope")
+    manifest = store.read_generation(key, active_generation_id)
+    documents = (manifest.payload.get("lexical_index") or {}).get("documents") or {}
+    if not documents:
+        return Miss(scope, query, content_type, "published generation has no document index")
+    for doc_id in sorted(documents):
+        document = documents[doc_id]
+        if document["chunk_id"] != chunk_id:
+            continue
+        text = document["text"]
+        if chunk_kind(text) != DOCUMENTATION or classify_content_type(text) != content_type:
+            break
+        if offset >= len(text):
+            raise ValueError(f"offset must be less than the chunk length of {len(text)} characters")
+        end = _part_end(text, offset)
+        more = end < len(text)
+        note = f"characters {offset}-{end} of {len(text)}; " + (
+            f"call search_docs with query=<the same query>, content_type='{content_type}', "
+            f"chunk_id='{chunk_id}' and offset={end} for the next part"
+            if more
+            else "this is the end of the chunk"
+        )
+        return [
+            DocPart(
+                scope=scope,
+                generation_id=active_generation_id,
+                doc_id=doc_id,
+                chunk_id=chunk_id,
+                content_type=content_type,
+                text=text[offset:end],
+                offset=offset,
+                total_chars=len(text),
+                next_offset=end if more else None,
+                part_note=note,
+            )
+        ]
+    return Miss(
+        scope, query, content_type, f"no {content_type} documentation chunk with chunk_id {chunk_id!r}"
+    )
+
+
 def search_docs(
     store: GenerationManifestStore,
     scope: Scope,
@@ -203,15 +309,23 @@ def search_docs(
     content_type: str,
     *,
     top_k: int = 10,
+    chunk_id: str | None = None,
+    offset: int = 0,
 ) -> list[DocMatch] | Miss:
     """Search only documents classified as *content_type*, only in ``scope``'s currently
     active generation.
 
     A query with no match - or a match that exists only under a DIFFERENT content_type -
     returns an explicit ``Miss``, never a widened search across every category.
+
+    With *chunk_id* the call does not search: it returns the part of that one documentation chunk
+    that starts at character *offset* (TC-563), which is how the rest of a chunk the response budget
+    cut is read. *offset* is ignored without a *chunk_id*.
     """
     if content_type not in CONTENT_TYPES:
         raise ValueError(f"content_type must be one of {CONTENT_TYPES}, got {content_type!r}")
+    if chunk_id is not None:
+        return _fetch_part(store, scope, query, content_type, chunk_id, offset)
 
     key = scope_key(scope, SOURCE_KIND)
     active_generation_id = store.read_active(key)

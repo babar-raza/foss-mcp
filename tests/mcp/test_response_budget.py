@@ -27,6 +27,7 @@ from foss_mcp.mcp.response_budget import (
     RAW_TEXT_CAP,
     RELEASE_BODY_CAP,
     TOTAL_CAP_BYTES,
+    _item_cap,
     apply_budget,
 )
 from foss_mcp.mcp.routing import DeploymentConfig
@@ -121,11 +122,12 @@ def test_a_60_kilobyte_documentation_chunk_keeps_the_window_with_the_query_terms
     assert excerpt.startswith("FQN: Doc: Key Capabilities\n")
     assert "PngDevice" in excerpt
     body, _separator, marker = excerpt.rpartition("\n")
-    assert len(body) <= ITEM_TEXT_CAP
-    assert marker == (
-        f"[truncated: showing {len(body)} of {len(text)} characters; narrow the query or call "
-        "search_docs for the passages not shown]"
-    )
+    # G3/TC-563: the cap of a lone documentation chunk is the share of the total budget, not 1,536.
+    assert len(body) <= _item_cap(CAP, 1)
+    assert len(body) > ITEM_TEXT_CAP
+    # The item has no chunk_id/content_type pair, so there is no call to name; the old marker promised
+    # that a narrower query returns the passages not shown, which was never true.
+    assert marker == f"[truncated: showing {len(body)} of {len(text)} characters]"
     assert notes["truncated_fields"] == 1
 
 
@@ -231,7 +233,8 @@ def test_task_answer_doc_matches_and_symbols_lists_are_budgeted_like_lists() -> 
     assert result["response_notes"]
     omitted_on_items = sum(result[key][-1].get("omitted_items", 0) for key in ("doc_matches", "symbols"))
     assert omitted_on_items == notes["omitted_items"]
-    assert all(len(item["text"]) <= ITEM_TEXT_CAP + 300 for item in result["doc_matches"])
+    granted = _item_cap(CAP, len(answer["doc_matches"]))
+    assert all(len(item["text"]) <= granted + 300 for item in result["doc_matches"])
 
 
 # ---------------------------------------------------------------------------------------------

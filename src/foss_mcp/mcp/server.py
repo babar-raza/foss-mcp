@@ -146,8 +146,10 @@ def _wrap_lookup(store: GenerationManifestStore, scope: Scope) -> Callable[..., 
 
 
 def _wrap_search_docs(store: GenerationManifestStore, scope: Scope) -> Callable[..., Any]:
-    def search_docs_tool(*, query: str, content_type: str, top_k: int = 10) -> Any:
-        return search_docs(store, scope, query, content_type, top_k=top_k)
+    def search_docs_tool(
+        *, query: str, content_type: str, top_k: int = 10, chunk_id: str | None = None, offset: int = 0
+    ) -> Any:
+        return search_docs(store, scope, query, content_type, top_k=top_k, chunk_id=chunk_id, offset=offset)
 
     return search_docs_tool
 
@@ -277,7 +279,10 @@ TOOL_DESCRIPTIONS: dict[str, str] = {
         "query='known issues'. A query that matches only under a DIFFERENT "
         "content_type than requested returns an explicit miss, never a widened cross-category "
         "result - do not treat a miss here as proof the topic is undocumented anywhere; retry "
-        "with a different content_type if you are unsure which one applies."
+        "with a different content_type if you are unsure which one applies. A long chunk may come "
+        "back cut; the marker at the end of its text names the exact call that returns the rest - "
+        "this tool again, with the chunk_id and an offset (a character position in the chunk) "
+        "taken from that marker."
     ),
     "search_symbols": (
         "Search this deployment's self-extracted API surface by type name or fragment, e.g. "
@@ -502,11 +507,21 @@ class SearchDocsInput(BaseModel):
     query: str = Field(max_length=_QUERY_MAX_LENGTH)
     content_type: _ContentTypeLiteral
     top_k: int = Field(default=10, gt=0, le=_TOP_K_MAX)
+    # G3/TC-563: read the rest of a documentation chunk the response budget cut.
+    chunk_id: str | None = Field(default=None, max_length=_SHORT_STRING_MAX_LENGTH)
+    offset: int = Field(default=0, ge=0)
 
     @field_validator("query")
     @classmethod
     def _query_clean(cls, value: str) -> str:
         return _clean_text(value, "query", allow_whitespace_controls=True)
+
+    @field_validator("chunk_id")
+    @classmethod
+    def _chunk_id_clean(cls, value: str | None) -> str | None:
+        if value is None:
+            return None
+        return _clean_text(value, "chunk_id", allow_whitespace_controls=False)
 
 
 class SearchSymbolsInput(BaseModel):
@@ -667,6 +682,18 @@ _TOOL_FIELD_DESCRIPTIONS: dict[str, dict[str, str]] = {
             "different category is a miss, not a widened result."
         ),
         "top_k": "Maximum number of documentation matches to return, from 1 to 100 (default 10).",
+        "chunk_id": (
+            "Optional. The chunk_id of a documentation chunk whose text came back cut (the marker at the "
+            "end of the text names it). With it this tool does not search: it returns that one chunk "
+            "from character `offset` on, in a part that fits one response, with `next_offset` when "
+            "more follows. query and content_type are still required; give the same content_type the "
+            "hit had."
+        ),
+        "offset": (
+            "Optional, with chunk_id only: the character position in the chunk where the returned part "
+            "starts (default 0, the start). Use the offset named by the truncation marker, or the "
+            "`next_offset` of the previous part to read the rest of a truncated chunk."
+        ),
     },
     "search_symbols": {
         "query": (
