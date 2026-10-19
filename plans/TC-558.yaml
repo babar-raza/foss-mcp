@@ -56,6 +56,8 @@ write_paths:
 - README.md
 - infra/helm/foss-mcp/values.yaml
 - docker-compose.yml
+- tests/infra/test_helm_chart.py
+- tests/infra/test_helm_pilots_match_compose.py
 satisfies:
 - REQ-G3-009
 - REQ-G3-008
@@ -115,6 +117,9 @@ inputs:
   compares), and infra/helm/foss-mcp/values.yaml, docker-compose.yml and src/foss_mcp/extraction/run_extraction.py RECOMMENDED_MAX_TYPES ONLY if a measured total no longer equals the one cap number (single-line
   replacements; chart, compose and extractor must carry the same number). Run the wider offline suites (tests/indexing, tests/infra, tests/deploy, tests/mcp and the top-level tests/test_*.py, usual -k filter)
   before you report: ALL must be green, and report each file of this paragraph that you changed with its reason.
+- >-
+  Also in write_paths now: tests/infra/test_helm_chart.py (its local PILOTS table pins each pilot's maxTypes) and tests/infra/test_helm_pilots_match_compose.py: re-pin a pilot's maxTypes there only if you
+  changed that pilot's cap in the chart, compose and RECOMMENDED_MAX_TYPES.
 actions:
 - >-
   Regenerate the seven .NET fixtures with the fixed extractor and renderer; add the .NET fidelity tests.
