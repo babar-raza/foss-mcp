@@ -479,7 +479,8 @@ def test_report_index_freshness_has_no_pinned_commit_without_a_sidecar() -> None
 
 
 def test_server_construction_rejects_a_schema_that_disagrees_with_its_wrapper() -> None:
-    def wrapper(*, query: str, top_k: int = 10) -> None:
+    # TC-562: (query, top_k) -> (query, top_k, offset): search_symbols gained the paging argument.
+    def wrapper(*, query: str, top_k: int = 10, offset: int = 0) -> None:
         pass
 
     advertised = tool_input_schema("search_symbols")

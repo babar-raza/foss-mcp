@@ -287,8 +287,9 @@ def _error_message(result: CallToolResult) -> str:
 def test_an_unknown_argument_error_names_the_argument_and_lists_the_valid_ones(server: Any) -> None:
     message = _error_message(_call(server, "search_symbols", {"query": "x", "bogus": 1}))
     assert "unexpected argument 'bogus'" in message
-    assert "query, top_k" in message
-    assert message == "unexpected argument 'bogus'; valid arguments: query, top_k"
+    # TC-562: "query, top_k" -> "query, top_k, offset" (search_symbols pages with offset)
+    assert "query, top_k, offset" in message
+    assert message == "unexpected argument 'bogus'; valid arguments: query, top_k, offset"
 
 
 def test_every_tool_lists_its_own_valid_arguments(server: Any) -> None:

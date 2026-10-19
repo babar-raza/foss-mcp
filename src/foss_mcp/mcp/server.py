@@ -147,7 +147,12 @@ def _wrap_lookup(store: GenerationManifestStore, scope: Scope) -> Callable[..., 
 
 def _wrap_search_docs(store: GenerationManifestStore, scope: Scope) -> Callable[..., Any]:
     def search_docs_tool(
-        *, query: str, content_type: str, top_k: int = 10, chunk_id: str | None = None, offset: int = 0
+        *,
+        query: str,
+        content_type: str | None = None,
+        top_k: int = 10,
+        chunk_id: str | None = None,
+        offset: int = 0,
     ) -> Any:
         return search_docs(store, scope, query, content_type, top_k=top_k, chunk_id=chunk_id, offset=offset)
 
@@ -155,8 +160,8 @@ def _wrap_search_docs(store: GenerationManifestStore, scope: Scope) -> Callable[
 
 
 def _wrap_search_symbols(store: GenerationManifestStore, scope: Scope) -> Callable[..., Any]:
-    def search_symbols_tool(*, query: str, top_k: int = 10) -> Any:
-        return search_symbols(store, scope, query, top_k=top_k)
+    def search_symbols_tool(*, query: str, top_k: int = 10, offset: int = 0) -> Any:
+        return search_symbols(store, scope, query, top_k=top_k, offset=offset)
 
     return search_symbols_tool
 
@@ -271,18 +276,17 @@ TOOL_DESCRIPTIONS: dict[str, str] = {
         "Returns an honest miss, never a fabricated answer, when nothing genuinely matches."
     ),
     "search_docs": (
-        "Search ONLY documentation already classified under one specific content_type - "
-        "'getting_started', 'developer_guide', 'troubleshooting', or 'faq' (content_type is "
-        "REQUIRED here; there is no 'search every category' mode on this tool - use lookup "
-        "with content_type omitted for that). Call this directly instead of lookup when you "
-        "already know which category applies, e.g. content_type='troubleshooting', "
-        "query='known issues'. A query that matches only under a DIFFERENT "
-        "content_type than requested returns an explicit miss, never a widened cross-category "
-        "result - do not treat a miss here as proof the topic is undocumented anywhere; retry "
-        "with a different content_type if you are unsure which one applies. A long chunk may come "
-        "back cut; the marker at the end of its text names the exact call that returns the rest - "
-        "this tool again, with the chunk_id and an offset (a character position in the chunk) "
-        "taken from that marker."
+        "Search the documentation. content_type ('getting_started', 'developer_guide', "
+        "'troubleshooting' or 'faq') is OPTIONAL: omitted, every category is searched together "
+        "and each match says which category it belongs to; given, only that category is searched, "
+        "e.g. content_type='troubleshooting', query='known issues'. A query that is only the name "
+        "of a category ('getting started', 'faq') returns that category's documentation. With a "
+        "content_type, a query that matches only under a DIFFERENT content_type returns an "
+        "explicit miss, never a widened cross-category result - do not treat a miss as proof the "
+        "topic is undocumented anywhere; omit content_type to search them all. A long chunk may "
+        "come back cut; the marker at the end of its text names the exact call that returns the "
+        "rest - this tool again, with the chunk_id and an offset (a character position in the "
+        "chunk) taken from that marker."
     ),
     "search_symbols": (
         "Search this deployment's self-extracted API surface by type name or fragment, e.g. "
@@ -294,7 +298,12 @@ TOOL_DESCRIPTIONS: dict[str, str] = {
         "matches this scope's currently active index; it never falls back to a different "
         "product or platform. Once you know the exact type FQN, call get_symbol instead for the "
         "single exact, deterministic signature - this tool ranks and can return several partial "
-        "matches. Caveat: the API index may hold only part of a library's types, so a miss does "
+        "matches. A sentence in your own words ('merge cells together', 'add a slide') is read as "
+        "a task: the types that explain it come back, each labelled match_quality 'exact' or "
+        "'partial' (a partial one names the words it could not explain in unmatched_terms). Every "
+        "match carries total_matches and next_offset: call again with offset=next_offset for the "
+        "next page; if the response says lower-ranked items were left out, set offset to the "
+        "number of matches you received. Caveat: the API index may hold only part of a library's types, so a miss does "
         "not prove a type is absent upstream; report_index_freshness says how many types the "
         "index holds when that is known."
     ),
@@ -406,9 +415,9 @@ _FIELD_DESCRIPTIONS: dict[str, str] = {
     ),
     "content_type": (
         "One of the four documentation categories: 'getting_started', 'developer_guide', "
-        "'troubleshooting', 'faq'. Required by search_docs; optional on lookup, where "
-        "omitting it lets lookup infer the right source for you instead of you guessing the "
-        "category. Must be non-empty when supplied."
+        "'troubleshooting', 'faq'. Optional on search_docs (omitted, every category is searched) and "
+        "on lookup, where omitting it lets lookup infer the right source for you instead of you "
+        "guessing the category. Must be non-empty when supplied."
     ),
     "top_k": (
         "Maximum number of matches to return. Must be a positive integer, capped at 100; a "
@@ -505,7 +514,8 @@ class SearchDocsInput(BaseModel):
     model_config = _STRICT_CLOSED
 
     query: str = Field(max_length=_QUERY_MAX_LENGTH)
-    content_type: _ContentTypeLiteral
+    # G3/TC-562: optional; omitted, every documentation category is searched.
+    content_type: _ContentTypeLiteral | None = None
     top_k: int = Field(default=10, gt=0, le=_TOP_K_MAX)
     # G3/TC-563: read the rest of a documentation chunk the response budget cut.
     chunk_id: str | None = Field(default=None, max_length=_SHORT_STRING_MAX_LENGTH)
@@ -529,6 +539,8 @@ class SearchSymbolsInput(BaseModel):
 
     query: str = Field(max_length=_QUERY_MAX_LENGTH)
     top_k: int = Field(default=10, gt=0, le=_TOP_K_MAX)
+    # G3/TC-562: page through the ranked symbols (the next page's offset is in every match's ``next_offset``).
+    offset: int = Field(default=0, ge=0)
 
     @field_validator("query")
     @classmethod
@@ -674,20 +686,21 @@ _TOOL_FIELD_DESCRIPTIONS: dict[str, dict[str, str]] = {
     },
     "search_docs": {
         "query": (
-            "Documentation search text (e.g. 'known issues'), matched only "
-            "within the chosen content_type. Must be non-empty."
+            "Documentation search text (e.g. 'known issues'), matched within the chosen "
+            "content_type, or within every category when none is given. Must be non-empty."
         ),
         "content_type": (
-            "Required documentation category to search; a query that matches only under a "
-            "different category is a miss, not a widened result."
+            "Optional documentation category to search; omit it to search every category (each match "
+            "names its own). With one, a query that matches only under a different category is a miss, "
+            "not a widened result."
         ),
         "top_k": "Maximum number of documentation matches to return, from 1 to 100 (default 10).",
         "chunk_id": (
             "Optional. The chunk_id of a documentation chunk whose text came back cut (the marker at the "
             "end of the text names it). With it this tool does not search: it returns that one chunk "
             "from character `offset` on, in a part that fits one response, with `next_offset` when "
-            "more follows. query and content_type are still required; give the same content_type the "
-            "hit had."
+            "more follows. query is still required; give the same content_type the hit had (or none, if "
+            "the search had none)."
         ),
         "offset": (
             "Optional, with chunk_id only: the character position in the chunk where the returned part "
@@ -701,6 +714,10 @@ _TOOL_FIELD_DESCRIPTIONS: dict[str, dict[str, str]] = {
             "of a method or property to find the type that declares it. Must be non-empty."
         ),
         "top_k": "Maximum number of symbol matches to return, from 1 to 100 (default 10).",
+        "offset": (
+            "Optional. How many of the best matches to skip (default 0): pass the `next_offset` of the "
+            "previous page to read the next one."
+        ),
     },
     "get_symbol": {
         "fqn": (

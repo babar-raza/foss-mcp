@@ -494,7 +494,8 @@ def test_the_tool_schema_and_description_document_the_new_arguments() -> None:
     for name in ("chunk_id", "offset"):
         description = properties[name]["description"]
         assert "truncated" in description or "cut" in description
-    assert schema["required"] == ["query", "content_type"]  # the new arguments are optional
+    # TC-562: ["query", "content_type"] -> ["query"] (content_type is optional: omitted, every category is searched)
+    assert schema["required"] == ["query"]  # the new arguments are optional
     assert "chunk_id" in TOOL_DESCRIPTIONS["search_docs"] and "offset" in TOOL_DESCRIPTIONS["search_docs"]
     # every argument named by a marker is an argument the schema advertises
     for argument in ("query", "content_type", "chunk_id", "offset"):

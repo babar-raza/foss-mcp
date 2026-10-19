@@ -13,11 +13,14 @@ import shutil
 from pathlib import Path
 from types import SimpleNamespace
 
+import anyio
 import pytest
+from mcp.types import CallToolRequestParams
 
 from foss_mcp.indexing.gateway_embedding_provider import _API_KEY_ENV, _ENDPOINT_ENV
 from foss_mcp.indexing.lexical_index_writer import build_lexical_index
-from foss_mcp.mcp.routing import Scope
+from foss_mcp.mcp.routing import DeploymentConfig, Scope
+from foss_mcp.mcp.server import create_server, tool_input_schema
 from foss_mcp.mcp.tools import relevance
 from foss_mcp.mcp.tools.find_examples import NoExampleFound, find_examples
 from foss_mcp.mcp.tools.get_symbol import extract_fqn
@@ -302,6 +305,37 @@ def test_search_symbols_pages_with_offset_total_matches_and_next_offset(corpus: 
     assert isinstance(last, list) and len(last) == 1 and last[0].next_offset is None
     past = search_symbols(corpus.store, scope, "element", top_k=5, offset=total)
     assert isinstance(past, Miss) and "past the last" in past.reason
+
+
+def _call(corpus: Corpus, pilot: str, tool: str, arguments: dict[str, object]):
+    scope = _scope(pilot)
+    server = create_server(DeploymentConfig(family=scope.family, platform=scope.platform), corpus.store)
+    entry = server.get_request_handler("tools/call")
+    assert entry is not None
+
+    async def run():
+        with anyio.fail_after(120):
+            return await entry.handler(None, CallToolRequestParams(name=tool, arguments=arguments))
+
+    return anyio.run(run)
+
+
+def test_the_server_advertises_and_accepts_the_offset_argument(corpus: Corpus) -> None:
+    schema = tool_input_schema("search_symbols")
+    assert schema["properties"]["offset"]["minimum"] == 0 and "offset" not in schema.get("required", [])
+    result = _call(corpus, "html__python", "search_symbols", {"query": "element", "top_k": 3, "offset": 3})
+    assert result.is_error is False
+    items = result.structured_content["result"]
+    assert len(items) >= 1 and items[0]["next_offset"] == 6 and items[0]["total_matches"] > 6
+
+
+def test_the_server_treats_content_type_as_optional_on_search_docs(corpus: Corpus) -> None:
+    schema = tool_input_schema("search_docs")
+    assert "content_type" not in schema.get("required", [])
+    assert schema["properties"]["content_type"]["enum"] == list(CONTENT_TYPES)
+    result = _call(corpus, "pdf__net", "search_docs", {"query": "install"})
+    assert result.is_error is False
+    assert result.structured_content["result"]
 
 
 # ---- RD3-105: Unicode folding ------------------------------------------------------------------------------------
