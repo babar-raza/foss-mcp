@@ -6,9 +6,8 @@ purpose: >-
   10.0`), `uv python install 3.12` and the apt packages (openjdk-21-jdk, maven, build-essential, g++, cmake, git, git-lfs): a verified-example verdict, which decides what find_examples may serve as verified,
   depends on the day the image was built (OQ-008 accepted this for the C++ verifier; the review found the rest). FIX: pin each toolchain to the exact version the latest built ingestion image resolves (the
   worker derives them from that image: `dotnet --list-sdks`, `uv python list`, `dpkg-query -W` for the apt packages) using dotnet-install.sh `--version`, a full uv Python version and apt `package=version`
-  pins (or a dated snapshot.debian.org source), and record the resolved versions in the verification report that the example verifier writes so a verdict names its toolchain. REGISTERED AS A DRAFT on 2026-10-19
-  from docs/ROUND3_REVIEW.md section 3.15: before dispatch the supervisor re-reads this card against the merged code, runs the card preflight (SUP-1), calibrates min_tests (it applies to EACH check), replaces
-  the placeholder negative control with a real falsifier that has no backslash, and verifies every file named in write_paths (Supervisor rule 5). Nothing here has been executed.
+  pins (or a dated snapshot.debian.org source), and record the resolved versions in the verification report that the example verifier writes so a verdict names its toolchain. FINALISED for dispatch on 2026-10-19
+  by the supervisor (min_tests calibrated per check, negative control authored, write_paths checked).
 depends_on:
 - TC-550
 - TC-553
@@ -39,6 +38,20 @@ inputs:
   ACCEPTANCE: a test parses Dockerfile.ingestion and fails on any `--channel`, any `uv python install` without a full version, and any `apt-get install` package without a version pin or a dated snapshot
   source (a documented allow-list for the packages Debian cannot pin is empty or justified line by line); the ingestion image builds from the pinned file (the build is the supervisor's step in the closing
   run); the pinned versions equal the versions the previous image resolved so no verdict changes meaning. The test is offline (it reads the Dockerfile).
+- >-
+  FINALISATION NOTES (supervisor, 2026-10-19). (1) EXACT VERSIONS to pin: the supervisor read them on 2026-10-19 from the latest locally built ingestion image (foss-mcp-ingestion:local, Debian 13 trixie)
+  because a worker may not run docker: .NET SDKs 8.0.426 and 10.0.402 (so `dotnet-install.sh --version 8.0.426` and `--version 10.0.402`, replacing both `--channel` flags); uv Python 3.12.15 (`uv python
+  install 3.12.15`; the image also has system Python 3.13.16 which stays as is); apt packages build-essential=12.12, cmake=3.31.6-2, g++=4:14.2.0-1, git=1:2.47.3-0+deb13u1, git-lfs=3.6.1-1+deb13u1, maven=3.9.9-1,
+  openjdk-21-jdk=21.0.12.1+1-1~deb13u1 (each as `package=version` on the apt-get install line). Also resolved in the image and already pinned by hash or digest in the Dockerfile: node v24.13.1, go 1.26.4,
+  rustc 1.98.1, uv 0.13.0 (verify that uv itself is pinned; if it floats, pin it to 0.13.0 and report). Dependencies of those packages stay unpinned (apt resolves them from the same Debian release); say
+  so in a comment. If a pinned apt version is no longer served by the Debian mirror at build time the build fails loudly, which is the intended behaviour: record in the Dockerfile comment that a bump is
+  a deliberate card. (2) Mandated: the Dockerfile contains the exact flag text `--version 8.0.426` (the negative control replaces it). (3) The verification report: the example verifier writes a report (src/foss_mcp/indexing/example_verifier.py
+  is NOT in your write_paths and belongs to TC-565): do not edit it. Record the pinned versions in the Dockerfile as LABEL lines (`LABEL org.foss-mcp.toolchain.dotnet="8.0.426 10.0.402"` and the like) so
+  a verdict can name its toolchain from the image, and state in your report that the verifier-report wiring is TC-565's follow-up (the supervisor records it). (4) The test is offline: it parses Dockerfile.ingestion;
+  it fails on any `--channel`, any `uv python install` without a full x.y.z version, any `apt-get install` package without `=version`, and checks the LABEL lines; the allow-list of unpinnable packages is
+  an empty tuple in the test. The pinned versions equal the versions listed above. Do not run docker. (5) TEST COUNTS: min_tests is 16 for EACH check: the first check collects the 10 existing tests of tests/test_container_build.py
+  plus the at least 6 you add in tests/infra/test_ingestion_toolchain_pins.py; the second check collects well over 1,500. The existing docker-build test of test_container_build.py is environment-gated;
+  do not run it.
 actions:
 - >-
   Pin the .NET, uv-Python and apt toolchain versions in Dockerfile.ingestion and test that nothing floats.
@@ -59,15 +72,16 @@ checks:
   proves:
   - REQ-G3-009
   - REQ-G3-008
-min_tests: 8
+min_tests: 16
 network: true
 requires:
 - python
 negative_control:
   mutate: |
-    python -X utf8 -c "print('negative control to be authored before dispatch')"
+    python -X utf8 -c "import pathlib;p=pathlib.Path('Dockerfile.ingestion');s=p.read_text(encoding='utf-8');old='--version 8.0.426';assert s.count(old)>=1;p.write_text(s.replace(old,'--channel 8.0'),encoding='utf-8')"
   rationale: >-
-    PLACEHOLDER written at registration. The supervisor replaces it, before dispatch, with a falsifier that breaks the card's central claim in a mandated function or constant so that a named new test fails.
+    Puts the floating dotnet-install `--channel 8.0` back in place of the exact SDK version the card pins, so the ingestion image would again resolve whatever 8.0 SDK exists on the build day: the pin test
+    that rejects any `--channel` and requires the exact `--version 8.0.426` fails at once. A real break of the card's claim that a verified-example verdict does not depend on the day the image was built.
 evidence:
 - evidence/build/G3/TC-570/receipt.json
 closeout:

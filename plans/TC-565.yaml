@@ -8,8 +8,7 @@ purpose: >-
   FIX: the verifier runs every self-contained example (not only compiles it) in a sandbox temp directory and records `compiled`, `ran`, `exit_code` and `produced_output` separately; an example that compiles
   but fails or produces an empty/invalid artefact is not served as verified (it is served, if at all, labelled 'compiles, fails at runtime' with the error) or is replaced by an authored working example;
   the label text states exactly what was proven; duplicate example chunks are collapsed; examples whose output file is empty are rejected for pilots where the scope documentation says the format is not
-  implemented. REGISTERED AS A DRAFT on 2026-10-17 from docs/ROUND3_REVIEW.md: before dispatch the supervisor re-reads this card against the merged code, calibrates min_tests (it applies to EACH check),
-  replaces the placeholder negative control with a real falsifier that has no backslash, and verifies every file named in write_paths (Supervisor rule 5). Nothing here has been executed.
+  implemented. FINALISED for dispatch on 2026-10-19 by the supervisor (min_tests calibrated per check, negative control authored, write_paths checked).
 depends_on:
 - TC-550
 - TC-553
@@ -18,6 +17,7 @@ depends_on:
 - TC-556
 - TC-561
 - TC-562
+- TC-343
 write_paths:
 - src/foss_mcp/indexing/example_verifier.py
 - src/foss_mcp/indexing/example_candidates.py
@@ -30,6 +30,10 @@ write_paths:
 - tests/fixtures/verified_examples/pdf_cpp.json
 - tests/indexing/test_round3_example_runtime_truth.py
 - tests/mcp/tools/test_round3_example_labels.py
+- tests/indexing/test_example_verifier.py
+- tests/indexing/test_authored_examples.py
+- tests/infra/test_build_chunks_verification_cache.py
+- tests/deploy/test_verified_examples_coverage.py
 satisfies:
 - REQ-G3-009
 - REQ-G3-008
@@ -53,6 +57,24 @@ inputs:
   labels 'compiled and ran, produced N bytes' versus 'compiles; fails at runtime: <error>'; no served example is returned twice for one query; 3d/net and 3d/java serve at least two examples that ran and
   produced a non-empty valid artefact (authored by the worker against the real API and labelled as authored, per REQ-G3-007). INDEPENDENT ORACLE: the example's own output file checked by a format reader
   in the test (STL header and facet count, glTF JSON) rather than by the verifier's exit code. The real toolchain runs need the network and are declared in `requires`.
+- >-
+  FINALISATION NOTES (supervisor, 2026-10-19). (1) Mandated name: in src/foss_mcp/indexing/example_verifier.py the exact line `RUNTIME_RUN_REQUIRED_FOR_VERIFIED = True`, a real switch: when False an example
+  that compiled counts as verified exactly as before this card. The verifier records `compiled`, `ran`, `exit_code` and `produced_output` (bytes) separately per example in the verdict cache entries; entries
+  of the committed cache written before the card lack `ran` and are read as `ran` unknown (never as verified-ran), so the label for them says `compiled`, not `compiled and ran`. (2) The label wording in
+  src/foss_mcp/mcp/tools/find_examples.py (the string `Compiled or run by the ingestion verifier` is pinned by existing tests; update those tests only with the comment `TC-565: <old> -> <new>`): `compiled
+  and ran, produced N bytes` for ran and non-empty; `compiles; fails at runtime: <error>` for compiled and failed; `compiles; produced no output` for compiled, exit 0, empty artefact; `compiled only (run
+  not verified)` for legacy entries. A runtime-failing or empty example is NOT served as verified: it is served, if at all, with the honest label, ranked after verified ones. Duplicate example chunks for
+  one query are collapsed to the highest-scoring one. Examples whose output file is empty are rejected for pilots whose scope documentation says the format is not implemented. (3) The worker has no docker
+  and no network for the tests: the verdict cache is offline data (tests/fixtures/verified_examples/<pilot>.json, schema_version + entries) and the classification of the three real pins (3d/net WavefrontOBJ
+  Save, 3d/java primitive STL and StlSaveOptions, pdf/cpp encrypt then extract) is asserted against the committed cache entries by reading them with the new fields, after you add the `ran`/`exit_code`/`produced_output`
+  data for those pins that you derive from the recorded verifier output already in the cache (the stderr/exception text); where the cache cannot tell, record them as unknown and say so in your report. Re-running
+  the real toolchain is the supervisor's closing step (it needs docker); your code must implement the run step (sandbox temp directory, timeout, output file check) behind an injected runner so the unit
+  tests use a fake runner. (4) The independent oracle: a format reader in the test (an STL header + facet-count check, glTF JSON check) on synthetic output bytes, not the verifier's exit code. Authored
+  examples (acceptance last sentence): author at least two working examples each for 3d/net and 3d/java in src/foss_mcp/indexing/authored_examples.py against the real API shape quoted by the pilot's README
+  (read from tests/fixtures/furnished or the committed README fixtures), labelled as authored per REQ-G3-007; because they cannot be run offline their cache entries stay `ran` unknown until the supervisor's
+  closing run: say so. (5) Existing tests that pin an old fact (label text, counts) may be changed only with `TC-565: <old> -> <new>`; never delete, skip or loosen; stop and report a failing test outside
+  write_paths. (6) TEST COUNTS: min_tests is 20 for EACH check: the first check names only the two new files, you add at least 20 tests (at least 12 verifier/runner tests in test_round3_example_runtime_truth.py
+  including the synthetic compile-but-throws, compile-but-empty and working programs, at least 8 label/dedup tests in tests/mcp/tools/test_round3_example_labels.py); the second check collects 3,600 or more.
 actions:
 - Make example verification run-based and its labels exact; replace the failing 3d examples.
 checks:
@@ -73,17 +95,18 @@ checks:
   proves:
   - REQ-G3-009
   - REQ-G3-008
-min_tests: 8
+min_tests: 20
 network: true
 requires:
 - python
 - git
 negative_control:
   mutate: |
-    python -X utf8 -c "print('negative control to be authored before dispatch')"
+    python -X utf8 -c "import pathlib;p=pathlib.Path('src/foss_mcp/indexing/example_verifier.py');s=p.read_text(encoding='utf-8');old='RUNTIME_RUN_REQUIRED_FOR_VERIFIED = True';assert s.count(old)==1;p.write_text(s.replace(old,'RUNTIME_RUN_REQUIRED_FOR_VERIFIED = False'),encoding='utf-8')"
   rationale: >-
-    PLACEHOLDER written at registration. The supervisor replaces it, before dispatch, with a falsifier that breaks the card's central claim in the code the worker writes (a mandated constant or function
-    name) so that a named new test fails.
+    Turns off the mandated switch by which an example counts as verified only when it was RUN and produced output, so a program that merely compiles is verified again (3d/net Save to OBJ throws NotImplementedException,
+    3d/java writes an empty 35-byte STL): the synthetic compile-but-throws and compile-but-empty tests and the three real-pin classification tests fail at once. A real break of the card's claim that the
+    label states exactly what was proven.
 evidence:
 - evidence/build/G3/TC-565/receipt.json
 closeout:
