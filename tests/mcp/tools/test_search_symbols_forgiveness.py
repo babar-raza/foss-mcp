@@ -168,8 +168,10 @@ def test_the_fallback_only_runs_for_queries_with_whitespace() -> None:
     store = _InMemoryStore(_type_chunk("Pkg.Widget", "Run()"))
 
     assert _names(_search(store, "Widget methods")) == ["Widget"]
-    # The same single token without whitespace and without an exact name is an honest miss.
-    assert isinstance(_search(store, "Widgets"), Miss)
+    # TC-562: Miss -> Widget. A plural of a whole type name is that type (plural normalisation); a dotted or
+    # underscored token, a partial word and a sentence that explains nothing are still honest misses.
+    assert _names(_search(store, "Widgets")) == ["Widget"]
+    assert isinstance(_search(store, "Widgetz"), Miss)
     assert isinstance(_search(store, "Widget.methods"), Miss)
     assert isinstance(_search(store, "Widget_methods"), Miss)
 

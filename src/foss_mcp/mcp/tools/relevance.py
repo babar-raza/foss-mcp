@@ -30,6 +30,15 @@ whose CODE merely calls ``Save`` or ``Open``, which is nearly every example, so 
 nothing; a longer query is judged by the coverage floor alone, as before. ``RELEVANCE_THRESHOLD``, the IDF
 weights and the required identifier terms are untouched.
 
+TC-562 (G3/REQ-G3-009) makes the QUERY side understand how people phrase a task, still without embeddings:
+``STOP_WORDS`` (function words and conversational filler, never an API noun) are dropped from a query behind
+the switch ``STOP_WORDS_ENABLED``; ``USER_TERM_SYNONYMS`` maps the words a user types to the words an API uses
+("merge" -> merge/concat/append, "link" -> hyperlink) one way, from the query to the index; ``fold_query``
+NFKC-folds a query so a full-width ``Workbook`` is the word ``Workbook``; ``has_minimum_evidence`` refuses a
+query with no word of two characters (``a.b.c::d``); and ``evidence_terms`` turns a task query into the terms
+``search_symbols`` scores a type against (``strong`` terms must be explained, ``weak`` light verbs such as
+"add" and "create" only help). ``RELEVANCE_THRESHOLD``, ``tokenize``, the stored tokens and the index are untouched.
+
 Pure functions only: no I/O, no clock, no randomness.
 """
 
@@ -38,7 +47,9 @@ from __future__ import annotations
 import functools
 import math
 import re
+import unicodedata
 from collections.abc import Collection, Iterable, Mapping
+from dataclasses import dataclass, replace
 
 from foss_mcp.indexing.lexical_index_writer import tokenize
 from foss_mcp.mcp.tools.get_symbol import extract_fqn
@@ -141,10 +152,400 @@ SYNONYM_GROUPS: tuple[frozenset[str], ...] = tuple(
 )
 _SYNONYMS_OF: dict[str, frozenset[str]] = {member: group for group in SYNONYM_GROUPS for member in group}
 
+# ---------------------------------------------------------------------------------------------------
+# TC-562 (G3/REQ-G3-009): how people phrase a task.
+# ---------------------------------------------------------------------------------------------------
+
+# A real switch. True: function words and conversational filler (``STOP_WORDS``) are not query terms. False:
+# the query is tokenised exactly as it was before this card (only the index tokenizer's own stop list applies).
+STOP_WORDS_ENABLED = True
+
+# Function words and filler only. Never a word that is a product or API noun ("page", "document", "table",
+# "image", "save", "open"): those are what the question is about. The index tokenizer already drops its own
+# list of articles, prepositions, pronouns, auxiliaries and question words; these are the ones it lacks.
+STOP_WORDS: frozenset[str] = frozenset(
+    {
+        "actually",
+        "also",
+        "always",
+        "another",
+        "anyone",
+        "anything",
+        "around",
+        "automatically",
+        "basically",
+        "correctly",
+        "easily",
+        "entire",
+        "etc",
+        "even",
+        "ever",
+        "every",
+        "everyone",
+        "everything",
+        "exactly",
+        "help",
+        "helps",
+        "just",
+        "kindly",
+        "let",
+        "lets",
+        "like",
+        "likes",
+        "maybe",
+        "need",
+        "needed",
+        "needs",
+        "never",
+        "now",
+        "often",
+        "onto",
+        "perhaps",
+        "please",
+        "possible",
+        "possibly",
+        "programmatically",
+        "properly",
+        "quickly",
+        "really",
+        "simply",
+        "someone",
+        "something",
+        "sometimes",
+        "somehow",
+        "sure",
+        "thing",
+        "things",
+        "together",
+        "tries",
+        "try",
+        "trying",
+        "upon",
+        "via",
+        "want",
+        "wanted",
+        "wants",
+        "way",
+        "ways",
+        "whole",
+        "wish",
+        "within",
+        "would",
+        "yet",
+        "two",
+        "three",
+        "four",
+        "five",
+        "several",
+        "many",
+        "multiple",
+        "single",
+        "couple",
+    }
+)
+
+# Filler of a task sentence that is not a function word, so it stays a term for documentation and example
+# search (an example may really say "write to disk") but never has to be explained by a symbol.
+_EVIDENCE_FILLER: frozenset[str] = frozenset({"disk", "scratch"})
+
+# Light verbs: they say what kind of request it is, not which API. They only ever help (a member called
+# ``AddEmptySlide`` earns a little for "add"); they are never required to be explained.
+WEAK_TERMS: frozenset[str] = frozenset(
+    {
+        "add",
+        "apply",
+        "build",
+        "call",
+        "change",
+        "create",
+        "edit",
+        "generate",
+        "get",
+        "give",
+        "insert",
+        "make",
+        "modify",
+        "new",
+        "perform",
+        "put",
+        "run",
+        "set",
+        "update",
+        "use",
+    }
+)
+
+# User words -> the words an API uses. ONE WAY (from the query to the index; a document word is never widened)
+# and separate from ``SYNONYM_GROUPS``, which is symmetric and pinned. A key is the word as typed; each value is a
+# word an API member or type name would carry.
+USER_TERM_SYNONYMS: dict[str, tuple[str, ...]] = {
+    # edit / set a value
+    "change": ("put", "set", "value"),
+    "set": ("put", "set", "value"),
+    "edit": ("put", "set", "value"),
+    "modify": ("put", "set", "value"),
+    "update": ("put", "set", "value"),
+    "write": ("write", "save"),
+    "store": ("save", "write"),
+    # combine / split
+    "merge": ("merge", "concat", "concatenate", "append"),
+    "combine": ("merge", "concat", "concatenate", "append"),
+    "join": ("merge", "concat", "join"),
+    "concatenate": ("concat", "merge", "append"),
+    "split": ("split",),
+    "separate": ("split",),
+    "divide": ("split",),
+    # remove
+    "remove": ("remove", "delete"),
+    "delete": ("remove", "delete"),
+    "erase": ("remove", "delete", "clear"),
+    # text
+    "text": ("text", "string"),
+    "string": ("text", "string"),
+    # links
+    "link": ("hyperlink", "link"),
+    "hyperlink": ("hyperlink", "link", "url"),
+    "url": ("hyperlink", "url", "link"),
+    "website": ("hyperlink", "url", "web"),
+    "web": ("hyperlink", "url", "web"),
+    # appearance
+    "bold": ("font", "bold"),
+    "italic": ("font", "italic"),
+    "underline": ("font", "underline"),
+    "strikethrough": ("font", "strikeout"),
+    "typeface": ("font",),
+    "colour": ("color",),
+    "highlight": ("conditional", "format", "condition", "highlight"),
+    "rule": ("condition", "conditional", "format"),
+    "fill": ("fill", "pattern", "color"),
+    "background": ("background", "fill", "pattern", "color"),
+    "shading": ("fill", "pattern"),
+    "center": ("alignment", "horizontal", "center"),
+    "centre": ("alignment", "horizontal", "center"),
+    "align": ("alignment", "horizontal"),
+    "wrap": ("wrap",),
+    "border": ("border", "borders"),
+    "size": ("size", "width", "height"),
+    "resize": ("size", "width", "height", "resize"),
+    # spreadsheet words
+    "spreadsheet": ("workbook", "worksheet"),
+    "excel": ("workbook",),
+    "xlsx": ("workbook",),
+    "dropdown": ("validation", "list"),
+    "validate": ("validation",),
+    "limit": ("validation",),
+    "restrict": ("validation", "protect"),
+    "freeze": ("pane", "freeze"),
+    "formula": ("formula", "calculation"),
+    "calculate": ("formula", "calculation", "calculate"),
+    "calculation": ("formula", "calculation"),
+    "landscape": ("orientation", "landscape"),
+    "portrait": ("orientation", "portrait"),
+    "orientation": ("orientation",),
+    "paper": ("paper", "papersize", "size"),
+    "a4": ("paper", "size"),
+    "print": ("print", "page", "setup"),
+    "margin": ("margin",),
+    # protection
+    "password": ("password", "protect", "protection", "encrypt", "security"),
+    "protect": ("protect", "protection", "password", "encrypt"),
+    "encrypt": ("encrypt", "password", "security"),
+    "lock": ("protect", "protection", "lock"),
+    "secure": ("protect", "security", "encrypt"),
+    "sign": ("sign", "signature", "certificate"),
+    "signature": ("sign", "signature", "certificate"),
+    "digital": ("sign", "signature", "certificate"),
+    # visibility
+    "hide": ("hidden", "hide", "visible", "visibility"),
+    "hidden": ("hidden", "hide", "visible", "visibility"),
+    "unhide": ("hidden", "visible", "visibility"),
+    "visible": ("visibility", "hidden", "visible"),
+    # images and drawing
+    "picture": ("picture", "image"),
+    "photo": ("picture", "image"),
+    "image": ("image", "picture"),
+    "graphic": ("image", "picture", "graphic"),
+    "chart": ("chart",),
+    "graph": ("chart", "graph"),
+    "plot": ("chart",),
+    "thumbnail": ("thumbnail", "image", "render"),
+    "render": ("render", "convert", "save", "draw"),
+    # annotations
+    "comment": ("comment", "note", "annotation"),
+    "note": ("note", "comment"),
+    "sticky": ("annotation", "text"),
+    "watermark": ("watermark", "stamp"),
+    "stamp": ("stamp", "watermark"),
+    # open / save / convert
+    "open": ("open", "load", "read"),
+    "load": ("load", "open", "read"),
+    "read": ("read", "load", "open"),
+    "import": ("load", "open", "import"),
+    "convert": ("convert", "conversion", "save", "export"),
+    "extract": ("extract", "absorber"),
+    # documents
+    "deck": ("presentation",),
+    "speaker": ("notes",),
+    "bookmark": ("bookmark", "outline"),
+    "outline": ("outline", "bookmark"),
+    "transition": ("transition", "animation", "effect"),
+    "animate": ("animation", "effect", "animate"),
+    "track": ("revision", "track"),
+    "tracked": ("revision", "track"),
+    "bulleted": ("list",),
+    "bullet": ("list",),
+    "numbered": ("list",),
+    "heading": ("heading", "style"),
+    "spacing": ("spacing", "line"),
+    "info": ("info", "property", "metadata"),
+    "metadata": ("metadata", "info", "property"),
+    "properties": ("properties", "property", "metadata", "info"),
+    "author": ("author", "creator"),
+    # 3d
+    "cube": ("box", "mesh"),
+    "model": ("scene", "mesh", "model"),
+    "move": ("translate", "translation", "transform", "position"),
+    "rotate": ("rotate", "rotation", "transform"),
+    "scale": ("scale", "scaling", "transform"),
+    "position": ("position", "transform", "translation"),
+    "lamp": ("light",),
+    "triangulate": ("triangulate", "polygon", "modifier"),
+    # mail
+    "email": ("mapi", "message", "msg"),
+    "mail": ("mapi", "message", "msg"),
+    "message": ("mapi", "message", "msg"),
+    "outlook": ("mapi", "message", "msg"),
+    "attach": ("attachment", "attach"),
+    "attachment": ("attachment", "attach"),
+    "sender": ("sender", "from"),
+    "sent": ("delivery", "time", "date"),
+    "received": ("delivery", "time", "date"),
+    "date": ("time", "date", "delivery"),
+    "broken": ("exception", "error", "invalid", "corrupt"),
+    "corrupt": ("exception", "error", "repair", "corrupt"),
+    "corrupted": ("exception", "error", "repair", "corrupt"),
+    "damaged": ("exception", "error", "repair", "corrupt"),
+    "recover": ("repair", "recover", "diagnostics"),
+    "error": ("exception", "error"),
+    "fail": ("exception", "error"),
+    "problem": ("issue", "error", "exception", "validation"),
+    "issue": ("issue", "error", "exception", "validation"),
+    # walking a structure
+    "walk": ("visitor", "iterate", "enumerate"),
+    "traverse": ("visitor", "iterate", "enumerate"),
+    "visit": ("visitor", "iterate"),
+    "iterate": ("iterate", "enumerate", "visitor"),
+    "loop": ("iterate", "enumerate"),
+    "compile": ("compile", "run", "job"),
+    # making a file smaller
+    "compress": ("compress", "optimize", "size"),
+    "shrink": ("compress", "optimize", "size"),
+    "smaller": ("compress", "optimize", "size"),
+    "reduce": ("compress", "optimize", "size"),
+}
+
+_ZERO_WIDTH_RE = re.compile("[​-‏⁠﻿]")
+_CAMEL_PARTS_RE = re.compile(r"[A-Z]+(?=[A-Z][a-z])|[A-Z]?[a-z]+|[A-Z]+|[0-9]+")
+_ALNUM_RUN_RE = re.compile(r"[A-Za-z0-9]+")
+_TWO_CHARACTER_RUN_RE = re.compile(r"[A-Za-z0-9]{2,}")
+
+
+def fold_query(query: str) -> str:
+    """*query* in Unicode compatibility form NFKC with the zero-width characters removed, so a full-width
+    ``Ｗｏｒｋｂｏｏｋ`` is the word ``Workbook``. Anything NFKC cannot map to ASCII (a CJK word) is left as
+    it is: it matches nothing, honestly."""
+    return _ZERO_WIDTH_RE.sub("", unicodedata.normalize("NFKC", query))
+
+
+_IRREGULAR_STEMS = {"children": "child", "indices": "index", "vertices": "vertex", "matrices": "matrix"}
+
+
+def canon(word: str) -> str:
+    """A key under which a word and its inflections meet: ``stem_token``, then a trailing ``e`` removed, so
+    merge/merging/merges and hide/hiding agree. Both sides of every comparison use it; it is never written to an
+    index."""
+    stem = _IRREGULAR_STEMS.get(word.lower()) or stem_token(word)
+    if len(stem) > 5 and stem.endswith("ly"):
+        stem = stem[:-2]
+    if len(stem) > 3 and stem.endswith("e"):
+        stem = stem[:-1]
+    return stem
+
+
+_WEAK_KEYS = frozenset(canon(word) for word in WEAK_TERMS)
+
+# Other names people use for the product itself ("notebook" for OneNote, "latex" for TeX): like the family word
+# they say which library, not which API, so they are not query terms.
+FAMILY_ALIASES: dict[str, frozenset[str]] = {
+    "note": frozenset({"notebook", "notebooks", "onenote"}),
+    "tex": frozenset({"latex"}),
+    "pdf": frozenset({"acrobat"}),
+}
+
+# Verbs for what a user wants done ("save", "export", "convert"). When NO type or member of a generation carries
+# the verb at all, the user is paraphrasing (the library calls it something else) and it is not held against an
+# answer; an unknown NOUN ("pivot") still is.
+ACTION_TERMS: frozenset[str] = frozenset(
+    {
+        "check",
+        "compile",
+        "convert",
+        "display",
+        "download",
+        "export",
+        "fetch",
+        "find",
+        "generate",
+        "handle",
+        "import",
+        "inspect",
+        "list",
+        "load",
+        "open",
+        "output",
+        "parse",
+        "print",
+        "read",
+        "render",
+        "retrieve",
+        "save",
+        "search",
+        "show",
+        "store",
+        "view",
+        "write",
+    }
+)
+ACTION_KEYS: frozenset[str] = frozenset(canon(word) for word in ACTION_TERMS)
+
+
+def _build_user_synonyms() -> dict[str, frozenset[str]]:
+    built: dict[str, set[str]] = {}
+    for key, values in USER_TERM_SYNONYMS.items():
+        built.setdefault(canon(key), set()).update(canon(value) for value in values)
+    for group in SYNONYM_GROUPS:
+        for member in group:
+            built.setdefault(canon(member), set()).update(canon(other) for other in group)
+    return {key: frozenset(values) for key, values in built.items()}
+
+
+_USER_SYNONYMS_OF: dict[str, frozenset[str]] = _build_user_synonyms()
+
 
 def _normalised_query(query: str) -> str:
-    """*query* with a plural acronym reduced to the acronym and every possessive suffix removed."""
-    return _POSSESSIVE_RE.sub("", _ACRONYM_PLURAL_RE.sub(r"\1", query))
+    """*query* in NFKC form (TC-562) with a plural acronym reduced to the acronym and every possessive
+    suffix removed."""
+    return _POSSESSIVE_RE.sub("", _ACRONYM_PLURAL_RE.sub(r"\1", fold_query(query)))
+
+
+def _content_tokens(query: str) -> list[str]:
+    """The index tokenizer's tokens of the normalised *query*, minus ``STOP_WORDS`` while
+    ``STOP_WORDS_ENABLED`` (TC-562). A query made only of such words keeps them: nothing is ever emptied."""
+    tokens = tokenize(_normalised_query(query))
+    if not STOP_WORDS_ENABLED:
+        return tokens
+    content = [token for token in tokens if token not in STOP_WORDS]
+    return content if content else tokens
 
 
 def _stemmed_query_terms(query: str) -> frozenset[str]:
@@ -153,7 +554,7 @@ def _stemmed_query_terms(query: str) -> frozenset[str]:
     be matched meaningfully and only inflates the coverage denominator, so it is dropped unless that
     would empty the set (a one-letter query such as "x" still works).
     """
-    stemmed = frozenset(stem_token(token) for token in tokenize(_normalised_query(query)))
+    stemmed = frozenset(stem_token(token) for token in _content_tokens(query))
     multi_character = frozenset(term for term in stemmed if not (len(term) == 1 and term.isalpha()))
     return multi_character if multi_character else stemmed
 
@@ -326,3 +727,81 @@ def term_weights(terms: Collection[str], lexical_payload: Mapping[str, object]) 
         )
         for term, count in frequency.items()
     }
+
+
+def has_minimum_evidence(query: str) -> bool:
+    """False for a query that cannot name anything (TC-562): no run of two or more letters or digits once
+    folded (``a.b.c::d``, ``???``, ``x``). ``C++`` and ``C#`` are the one place a single letter carries the
+    topic. Such a query is an honest miss for documentation and examples; it cannot be explained by the one-letter
+    fragments of its own punctuation.
+    """
+    folded = fold_query(query)
+    return _TWO_CHARACTER_RUN_RE.search(folded) is not None or names_language_letter(folded)
+
+
+@dataclass(frozen=True)
+class EvidenceTerm:
+    """One word of a task query as ``search_symbols`` scores a type against it (TC-562): its canonical key,
+    every key that counts as the same word (itself, the user-to-API synonyms, the symmetric groups) and whether
+    it is a light term (``weak``: it may help a candidate but never has to be explained)."""
+
+    key: str
+    forms: frozenset[str]
+    weak: bool
+    word: str = ""
+    family_stem: bool = False
+    surface: tuple[str, ...] = ()
+
+
+def evidence_terms(query: str, family: str) -> tuple[EvidenceTerm, ...]:
+    """The terms of *query* for symbol scoring, in query order, without repeats.
+
+    A word is dropped when it is a single letter, one of the index tokenizer's function words, a ``STOP_WORDS``
+    word (while ``STOP_WORDS_ENABLED``), or exactly the scope's family word or a generic word ("use", "example").
+    A word that only STEMS like the family word ("cell" for the family "cells") stays as a light term, because it
+    may be the type's name. When nothing else is left the family and generic words are put back, so "pdf" still
+    works. A camel-case run ("PdfDocument") is read as its words.
+    """
+    excluded = _excluded_terms(family)
+    family_words = (
+        {token for token in tokenize(family)}
+        | {family.casefold()}
+        | FAMILY_ALIASES.get(family.casefold(), frozenset())
+    )
+    generic_stems = {stem_token(word) for word in _GENERIC_WORDS}
+    kept: list[EvidenceTerm] = []
+    common: list[EvidenceTerm] = []
+    seen: set[str] = set()
+    for run in _ALNUM_RUN_RE.findall(_normalised_query(query)):
+        parts = _CAMEL_PARTS_RE.findall(run)
+        for word in (part.lower() for part in (parts if len(parts) > 1 else [run])):
+            if len(word) == 1 and word.isalpha():
+                continue
+            if not tokenize(word):
+                continue
+            if STOP_WORDS_ENABLED and (word in STOP_WORDS or word in _EVIDENCE_FILLER):
+                continue
+            key = canon(word)
+            if key in seen:
+                continue
+            seen.add(key)
+            forms = {key}
+            forms |= _USER_SYNONYMS_OF.get(key, frozenset())
+            forms |= {canon(value) for value in USER_TERM_SYNONYMS.get(word, ())}
+            surface = (word, *USER_TERM_SYNONYMS.get(word, ()))
+            term = EvidenceTerm(
+                key, frozenset(forms), key in _WEAK_KEYS or key in ACTION_KEYS, word, False, surface
+            )
+            if word in family_words:
+                common.append(term)
+                continue
+            if stem_token(word) in excluded:
+                if stem_token(word) in generic_stems:
+                    common.append(term)
+                    continue
+                term = EvidenceTerm(key, frozenset(forms), True, word, True, surface)
+            kept.append(term)
+    if kept and all(term.weak for term in kept) and any(term.family_stem for term in kept):
+        # "add a slide" on the slides pilots: the family-stem word IS the thing asked about, so it counts.
+        kept = [replace(term, weak=False) if term.family_stem else term for term in kept]
+    return tuple(kept) if kept else tuple(common)

@@ -1316,8 +1316,18 @@ def test_search_symbols_honestly_misses_a_scattered_reordered_bag_of_words_query
     for query in ("set pattern color", "set color pattern"):
         result = search_symbols(store, PDF_NET_SCOPE, query)
 
-        assert isinstance(result, SymbolsMiss), f"{query!r} must be an honest Miss, got {result!r}"
-        assert "BasicSetColorAndPatternOperator" not in result.reason
+        # TC-562: Miss -> a LABELLED answer. The words are read as a task ("color" and "pattern" are real words
+        # of real types), so the types that explain them come back, each saying "exact" or "partial". What FIX B
+        # forbids stays forbidden: the internal operator base class is never the confident answer.
+        if isinstance(result, SymbolsMiss):
+            assert "BasicSetColorAndPatternOperator" not in result.reason
+            continue
+        assert result, query
+        assert all(match.match_quality in ("exact", "partial") for match in result), query
+        assert "BasicSetColorAndPatternOperator" not in result[0].text.splitlines()[0], query
+        for match in result:
+            if "BasicSetColorAndPatternOperator" in match.text.splitlines()[0]:
+                assert match.match_quality == "partial", query
 
 
 def test_search_symbols_fix_b_precision_floor_does_not_regress_a_whole_word_true_positive(

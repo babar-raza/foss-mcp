@@ -128,13 +128,18 @@ from __future__ import annotations
 import math
 import re
 import string
-from collections.abc import Iterable
+from collections import OrderedDict
+from collections.abc import Iterable, Mapping
 from dataclasses import dataclass
 from difflib import get_close_matches
+from typing import TYPE_CHECKING
 
 from foss_mcp.indexing.generation_manifest import GenerationManifestStore
 from foss_mcp.indexing.lexical_index_writer import query_lexical_index_scored, tokenize
 from foss_mcp.mcp.routing import Scope
+
+if TYPE_CHECKING:  # relevance imports get_symbol, which imports this module: only the annotation needs it
+    from foss_mcp.mcp.tools.relevance import EvidenceTerm
 
 SOURCE_KIND = "self_extracted"
 
@@ -380,13 +385,45 @@ def scope_key(scope: Scope, source_kind: str) -> str:
     return "::".join((scope.family, scope.platform, source_kind))
 
 
+MATCH_EXACT = "exact"
+MATCH_PARTIAL = "partial"
+
+# TC-559's fixed phrase: a symbol chunk that carries it documents something the FOSS build does not implement.
+NOT_IMPLEMENTED_PHRASE = "not implemented in this build"
+
+
 @dataclass(frozen=True)
 class SymbolMatch:
+    """One symbol chunk. Everything after ``text`` is additive (TC-562) and defaults to "nothing said":
+
+    - ``match_quality``: ``"exact"`` when the query is explained by this type (its name, or the member it
+      declares), ``"partial"`` when only part of the query is (``unmatched_terms`` names the rest), ``""`` for a
+      hand-built match;
+    - ``total_matches`` / ``next_offset``: how many symbols answered the query in all and the ``offset`` that
+      returns the next page (``None`` on the last page; ``total_matches`` 0 when unknown);
+    - ``aliases``: the other FQNs whose chunk is the same type under another name (a re-export), not repeated;
+    - ``limitation``: the line of the chunk that says the symbol is "not implemented in this build", when it does.
+    """
+
     scope: Scope
     generation_id: str
     doc_id: str
     chunk_id: str
     text: str
+    match_quality: str = ""
+    unmatched_terms: tuple[str, ...] = ()
+    total_matches: int = 0
+    next_offset: int | None = None
+    aliases: tuple[str, ...] = ()
+    limitation: str = ""
+
+
+def limitation_line(text: str) -> str:
+    """The first line of a chunk that carries TC-559's phrase ``not implemented in this build``, else ``""``."""
+    for line in text.splitlines():
+        if NOT_IMPLEMENTED_PHRASE in line.lower():
+            return line.strip()
+    return ""
 
 
 @dataclass(frozen=True)
@@ -454,8 +491,386 @@ def _fallback_doc_ids(
     return [doc_id for _matched, _named, _score, doc_id in candidates[:top_k]]
 
 
+# ---------------------------------------------------------------------------------------------------------
+# TC-562 (G3/REQ-G3-009): the evidence stage - a task phrased in the user's words finds the type that does it.
+# ---------------------------------------------------------------------------------------------------------
+
+_CAMEL_PARTS = re.compile(r"[A-Z]+(?=[A-Z][a-z])|[A-Z]?[a-z]+|[A-Z]+|[0-9]+")
+_FIRST_IDENTIFIER = re.compile(r"[A-Za-z_][A-Za-z0-9_]*")
+_LOWER_THEN_CAPITAL = re.compile(r"[a-z][A-Z]")
+_ALNUM_RUN = re.compile(r"[A-Za-z0-9]+")
+_BODY_SKIPPED_PREFIXES = ("FQN:", "Defined-In:", "Exported-As:", "API-Coverage:", "Source-Commit:", "Part:")
+
+TYPE_WORD_WEIGHT = 2.0
+MEMBER_WORD_WEIGHT = 1.5
+SYNONYM_FACTOR = 0.4  # a word the user did not type, only a synonym of it, counts this much of an own word
+BOTH_PLACES_BONUS = 0.5  # the word is in the type's name AND in a member it declares
+LIGHT_TERM_BONUS = 0.5
+TEXT_RELEVANCE_WEIGHT = 2.0  # the chunk's own prose (BM25 over the user's words), scaled to 0..1
+NAME_TYPE_WEIGHT = 3.5
+NAME_MEMBER_WEIGHT = 2.5
+# Words a user adds to say what kind of thing they want ("Workbook methods"), not what it is called.
+_EVIDENCE_NOISE_WORDS = frozenset(
+    {
+        "method",
+        "methods",
+        "class",
+        "classes",
+        "function",
+        "functions",
+        "type",
+        "types",
+        "api",
+        "member",
+        "members",
+    }
+)
+_ENTRY_CACHE_SIZE = 6
+
+
+@dataclass(frozen=True)
+class _Entry:
+    """One symbol chunk as the evidence stage reads it: the canonical words of its type name, of the members
+    it DECLARES (an inherited member is the base type's evidence, not this one's) and of its whole names."""
+
+    doc_id: str
+    fqn: str
+    short: str
+    type_keys: frozenset[str]
+    whole_key: str
+    member_keys: frozenset[str]
+    member_wholes: frozenset[str]
+    has_members: bool
+    body_hash: int
+
+
+# A generation is read once per process; the cache holds the generation's own documents object so an id can never
+# be mistaken for another generation's.
+_entry_cache: OrderedDict[int, tuple[Mapping[str, Mapping[str, str]], list[_Entry]]] = OrderedDict()
+
+
+def _words_of(name: str) -> list[str]:
+    parts: list[str] = []
+    for piece in re.split(r"[_\W]+", name):
+        parts.extend(_CAMEL_PARTS.findall(piece))
+    return [part.lower() for part in parts]
+
+
+def _whole_key(name: str) -> str:
+    from foss_mcp.mcp.tools.relevance import canon
+
+    return canon(re.sub(r"[^a-z0-9]", "", name.lower()))
+
+
+def _entries(documents: Mapping[str, Mapping[str, str]]) -> list[_Entry]:
+    from foss_mcp.mcp.tools.get_symbol import _extract_block, extract_fqn
+    from foss_mcp.mcp.tools.relevance import canon
+
+    cached = _entry_cache.get(id(documents))
+    if cached is not None and cached[0] is documents:
+        _entry_cache.move_to_end(id(documents))
+        return cached[1]
+    entries: list[_Entry] = []
+    for doc_id, document in documents.items():
+        text = document["text"]
+        fqn = extract_fqn(text)
+        if fqn is None or fqn.startswith(_NON_SYMBOL_FQN_PREFIXES):
+            continue
+        short = _FINAL_SEGMENT.split(fqn.strip())[-1]
+        if not short:
+            continue
+        names: list[str] = []
+        for header in ("Methods:", "Properties:", "Members:"):
+            for item in _extract_block(text, header):
+                if _INHERITED_MARKER in item:
+                    continue
+                found = _FIRST_IDENTIFIER.match(item.strip())
+                if found is not None and found.group(0) != "this":
+                    names.append(found.group(0))
+        body = "\n".join(line for line in text.splitlines() if not line.startswith(_BODY_SKIPPED_PREFIXES))
+        entries.append(
+            _Entry(
+                doc_id=doc_id,
+                fqn=fqn.strip(),
+                short=short,
+                type_keys=frozenset(canon(word) for word in _words_of(short)),
+                whole_key=_whole_key(short),
+                member_keys=frozenset(canon(word) for name in names for word in _words_of(name)),
+                member_wholes=frozenset(_whole_key(name) for name in names),
+                has_members=bool(names),
+                body_hash=hash(body),
+            )
+        )
+    _entry_cache[id(documents)] = (documents, entries)
+    while len(_entry_cache) > _ENTRY_CACHE_SIZE:
+        _entry_cache.popitem(last=False)
+    return entries
+
+
+def _plain_words(query: str) -> list[str] | None:
+    """The whitespace-separated words of *query* with surrounding punctuation removed, or ``None`` when any word is
+    dotted, scoped or underscored (an exact-name query: ``PdfDocument.Rotate``, ``Widget_methods``), which the
+    evidence stage never reads as a sentence."""
+    words = [word.strip(string.punctuation + "`") for word in query.split()]
+    words = [word for word in words if word]
+    if not words or any(re.search(r"[._:/\\]", word) for word in words):
+        return None
+    return words
+
+
+def _identifier_names(words: list[str]) -> tuple[list[str], list[str]]:
+    """``(names, rest)``: the identifier-like words (a lower-case letter then a capital: ``PdfDocument``) and the
+    other words. A name is matched whole, never by its parts."""
+    names = [word for word in words if _LOWER_THEN_CAPITAL.search(word) and _ALNUM_RUN.fullmatch(word)]
+    return names, [word for word in words if word not in names]
+
+
+def _inflections(token: str) -> set[str]:
+    """*token* and its plain English inflections stripped (plural, -ing, -ed), for comparison with a whole name."""
+    forms = {token}
+    if len(token) > 3 and token.endswith("ies"):
+        forms.add(token[:-3] + "y")
+    if len(token) > 3 and token.endswith("es"):
+        forms.add(token[:-2])
+    if len(token) > 3 and token.endswith("s") and not token.endswith("ss"):
+        forms.add(token[:-1])
+    if len(token) > 5 and token.endswith("ing"):
+        base = token[:-3]
+        forms.update({base, base + "e"})
+        if len(base) > 2 and base[-1] == base[-2]:
+            forms.add(base[:-1])
+    if len(token) > 4 and token.endswith("ed"):
+        base = token[:-2]
+        forms.update({base, base + "e", token[:-1]})
+    return forms
+
+
+def _inflected_name_ids(documents: Mapping[str, Mapping[str, str]], query: str) -> list[str]:
+    """TC-562: the symbols whose whole name is *query* up to an English inflection (``Widgets`` -> ``Widget``;
+    ``Do``, a word the index tokenizer drops, is found here too). One plain word only: a dotted, scoped or
+    underscored query, a partial word and a sentence never reach it."""
+    words = _plain_words(query)
+    if words is None or len(words) != 1 or not words[0].isalnum():
+        return []
+    wanted = {form.casefold() for form in _inflections(words[0])}
+    return [entry.doc_id for entry in _entries(documents) if entry.short.casefold() in wanted]
+
+
+@dataclass(frozen=True)
+class _Scored:
+    entry: _Entry
+    score: float
+    explained: int
+    unexplained: tuple[str, ...]
+    # How much of the type's own name the question accounts for, whether a member the type declares carried part of
+    # the explanation, and whether the type lives in an internal namespace: they decide ``exact`` or ``partial``.
+    fit: float = 0.0
+    via_member: bool = False
+    internal: bool = False
+    first_asked: int = (
+        0  # position in the question of the first word this type explains (query order on a tie)
+    )
+
+    @property
+    def exact(self) -> bool:
+        """Every strong word explained AND the type is plausibly what was asked for: its name is at least half
+        made of the words asked, or a member it declares explains one, and it is not an internal helper."""
+        return not self.unexplained and (self.fit >= 0.5 or self.via_member) and not self.internal
+
+
+@dataclass(frozen=True)
+class _Concept:
+    """One thing the user asked about: the words they typed for it (``keys``) and every key that counts as it."""
+
+    word: str
+    keys: frozenset[str]
+    forms: frozenset[str]
+    surface: tuple[str, ...]
+
+
+def _concepts(terms: list[EvidenceTerm]) -> list[_Concept]:
+    """Merges terms that are synonyms of each other ("protect" and "password") into one concept, so a type that
+    carries both words is not paid twice for the same idea."""
+    concepts: list[_Concept] = []
+    for term in terms:
+        for index, concept in enumerate(concepts):
+            if term.key in concept.forms or concept.keys & term.forms:
+                concepts[index] = _Concept(
+                    concept.word,
+                    concept.keys | {term.key},
+                    concept.forms | term.forms,
+                    concept.surface + term.surface,
+                )
+                break
+        else:
+            concepts.append(_Concept(term.word, frozenset({term.key}), term.forms, term.surface))
+    return concepts
+
+
+_INTERNAL_NAMESPACE = re.compile(
+    r"[.:]internal[.:]|[.:]core[.:]|[.:]xml[.:]|[.:]engine[.:]|[.:]impl[.:]", re.IGNORECASE
+)
+INTERNAL_PENALTY = 2.0
+INTERFACE_PENALTY = 1.0
+NAME_FIT_WEIGHT = 4.0
+PARTIAL_MIN_FIT = 0.5
+
+
+def _evidence_ranking(
+    documents: Mapping[str, Mapping[str, str]], query: str, family: str, lexical_payload: Mapping[str, object]
+) -> list[_Scored]:
+    """TC-562: the symbol chunks that explain a task query, best first; ``[]`` when none does.
+
+    The query's words become terms (``relevance.evidence_terms``: stop words and function words dropped, each
+    word widened one way to the words an API uses; terms that are synonyms of each other are one concept). A
+    STRONG concept is explained by a type when it is a word of the type's name (3 points) or of a member the type
+    declares (1.5), each scaled by how few types carry the word (IDF) and by 0.6 when only a synonym of the user's
+    own word matched; an identifier-like word of the query (``PdfDocument``) is explained only by that whole name.
+    A light verb ("add", "create") never has to be explained and earns half a point when it is. A type is admitted
+    when it explains at least 60 percent of the strong concepts, or, when every strong concept is known somewhere
+    in the generation (no foreign word such as "pivot" or "teleport"), at least half of them. The score also
+    rewards a type whose name is made of the words asked for (``Workbook`` over ``XlsxWorkbookStylesXml``), the
+    chunk's own prose (BM25 over the words and their synonyms), and demotes an internal namespace and an
+    ``I``-interface that has a class beside it. Ranked by score, then the shorter name, then a type that lists
+    members.
+    """
+    from foss_mcp.mcp.tools.relevance import RELEVANCE_THRESHOLD, evidence_terms
+
+    words = _plain_words(query)
+    if words is None:
+        return []
+    names, rest = _identifier_names(words)
+    terms = [
+        term for term in evidence_terms(" ".join(rest), family) if term.word not in _EVIDENCE_NOISE_WORDS
+    ]
+    concepts = _concepts([term for term in terms if not term.weak])
+    light = [term for term in terms if term.weak]
+    name_keys = [(name, _whole_key(name)) for name in names]
+    entries = _entries(documents)
+    if not entries:
+        return []
+    vocabulary_words: set[str] = set()
+    vocabulary_wholes: set[str] = set()
+    shorts = {entry.short for entry in entries}
+    for entry in entries:
+        vocabulary_words |= entry.type_keys | entry.member_keys
+        vocabulary_wholes |= {entry.whole_key} | entry.member_wholes
+    total = len(concepts) + len(name_keys)
+    if total == 0:
+        return []
+    foreign = sum(1 for concept in concepts if not (concept.forms & vocabulary_words)) + sum(
+        1 for _name, key in name_keys if key not in vocabulary_wholes
+    )
+    needed = max(1, math.ceil(RELEVANCE_THRESHOLD * total))
+    # A word that names half the generation (page, document) says little; a word few types carry says a lot.
+    weights: dict[str, float] = {}
+    for concept in concepts:
+        carrying = sum(1 for entry in entries if concept.keys & (entry.type_keys | entry.member_keys))
+        if carrying == 0:
+            carrying = sum(1 for entry in entries if concept.forms & (entry.type_keys | entry.member_keys))
+        weights[concept.word] = math.log(1 + len(entries) / (1 + carrying)) / math.log(1 + len(entries))
+    expanded = " ".join([*words, *(word for concept in concepts for word in concept.surface)])
+    bm25 = dict(query_lexical_index_scored(lexical_payload, expanded, top_k=len(documents)))  # type: ignore[arg-type]
+    top_bm25 = max(bm25.values(), default=0.0) or 1.0
+    scored: list[_Scored] = []
+    for entry in entries:
+        score = 0.0
+        explained = 0
+        via_member = False
+        first_asked = len(concepts) + len(name_keys)
+        matched_type_words: set[str] = set()
+        missing: list[str] = []
+        for position, concept in enumerate(concepts):
+            weight = weights[concept.word]
+            if concept.forms & entry.type_keys:
+                own = bool(concept.keys & entry.type_keys)
+                score += weight * TYPE_WORD_WEIGHT * (1.0 if own else SYNONYM_FACTOR)
+                if concept.forms & entry.member_keys:
+                    score += weight * BOTH_PLACES_BONUS
+                matched_type_words |= concept.forms & entry.type_keys
+                explained += 1
+                first_asked = min(first_asked, position)
+            elif concept.forms & entry.member_keys:
+                own = bool(concept.keys & entry.member_keys)
+                score += weight * MEMBER_WORD_WEIGHT * (1.0 if own else SYNONYM_FACTOR)
+                explained += 1
+                via_member = True
+                first_asked = min(first_asked, position)
+            else:
+                missing.append(concept.word)
+        for name, key in name_keys:
+            if key == entry.whole_key:
+                score += NAME_TYPE_WEIGHT
+                explained += 1
+                matched_type_words |= entry.type_keys
+            elif key in entry.member_wholes:
+                score += NAME_MEMBER_WEIGHT
+                explained += 1
+                via_member = True
+            else:
+                missing.append(name)
+        if explained == 0:
+            continue
+        for term in light:
+            if term.forms & entry.member_keys:
+                score += LIGHT_TERM_BONUS
+            if term.family_stem and term.forms & entry.type_keys:
+                # only a light NOUN ("cell" on the cells pilots) counts towards the name; a verb does not
+                matched_type_words |= term.forms & entry.type_keys
+        fit = len(matched_type_words) / len(entry.type_keys) if entry.type_keys else 0.0
+        # Admitted when it explains enough of the question - or, with no foreign word in it, half of it AND the
+        # type's name is mostly made of the words asked ("workbook" and "cell value" each name a type; a pivot
+        # table does not become TableStyleType).
+        if explained < needed and not (foreign == 0 and fit >= PARTIAL_MIN_FIT and explained * 2 >= total):
+            continue
+        score += NAME_FIT_WEIGHT * fit
+        internal = _INTERNAL_NAMESPACE.search(entry.fqn) is not None
+        if internal:
+            score -= INTERNAL_PENALTY
+        if re.match(r"I[A-Z]", entry.short) and entry.short[1:] in shorts:
+            score -= INTERFACE_PENALTY
+        score += TEXT_RELEVANCE_WEIGHT * bm25.get(entry.doc_id, 0.0) / top_bm25
+        scored.append(
+            _Scored(entry, score, explained, tuple(missing), fit, via_member, internal, first_asked)
+        )
+    scored.sort(
+        key=lambda item: (
+            -round(item.score, 6),
+            item.first_asked,
+            len(item.entry.type_keys),
+            0 if item.entry.has_members else 1,
+            -bm25.get(item.entry.doc_id, 0.0),
+            item.entry.fqn,
+        )
+    )
+    return scored
+
+
+def _collapse_aliases(
+    entries_by_doc: Mapping[str, _Entry], ordered: list[str]
+) -> tuple[list[str], dict[str, tuple[str, ...]]]:
+    """Drops the later chunks that are the same type under another name (the same short name and body, such as a
+    Python re-export), keeping the first; returns the kept ids and each kept id's alias FQNs."""
+    kept: list[str] = []
+    seen: dict[tuple[str, int], str] = {}
+    aliases: dict[str, list[str]] = {}
+    for doc_id in ordered:
+        entry = entries_by_doc.get(doc_id)
+        if entry is None:
+            kept.append(doc_id)
+            continue
+        key = (entry.short.casefold(), entry.body_hash)
+        first = seen.get(key)
+        if first is None:
+            seen[key] = doc_id
+            kept.append(doc_id)
+        else:
+            aliases.setdefault(first, []).append(entry.fqn)
+    return kept, {doc_id: tuple(names) for doc_id, names in aliases.items()}
+
+
 def search_symbols(
-    store: GenerationManifestStore, scope: Scope, query: str, *, top_k: int = 10
+    store: GenerationManifestStore, scope: Scope, query: str, *, top_k: int = 10, offset: int = 0
 ) -> list[SymbolMatch] | Miss:
     """Search only ``scope``'s currently active generation's self-extracted symbol index.
 
@@ -486,10 +901,20 @@ def search_symbols(
     like every other tier already lets BM25 sort among several same-tier candidates - there is
     no special-casing for this case because none was needed.
 
+    TC-562 (G3/REQ-G3-009): the query is NFKC-folded first (a full-width ``Ｗｏｒｋｂｏｏｋ`` is ``Workbook``). When
+    no tier above admits anything and the per-token fallback finds nothing, two more stages run, in order: (a) a
+    single plain word that is a whole type name up to an English inflection (``Widgets``) or a name the index
+    tokenizer cannot see (``Do``); (b) the evidence stage (``_evidence_ranking``) for a sentence in the user's own
+    words ("merge cells together", "add a slide"). Each result carries ``match_quality`` (``exact``/``partial``);
+    a partial answer names the words it could not explain. ``offset`` pages through the ranked symbols:
+    ``total_matches`` is how many there are and ``next_offset`` the offset of the next page. The chunks that are
+    the same type under another name are collapsed into one result whose ``aliases`` names the rest.
+
     A query with no match returns an explicit ``Miss`` - never a widened search, never a
     fallback to a different generation or scope.
     """
     from foss_mcp.mcp.tools.get_symbol import extract_fqn, generation_coverage_note
+    from foss_mcp.mcp.tools.relevance import fold_query
 
     key = scope_key(scope, SOURCE_KIND)
     active_generation_id = store.read_active(key)
@@ -506,6 +931,8 @@ def search_symbols(
             coverage_note=generation_coverage_note((lexical_payload or {}).get("documents") or {}),
         )
 
+    original_query = query
+    query = fold_query(query)
     documents = lexical_payload["documents"]
     ranked = query_lexical_index_scored(lexical_payload, query, top_k=len(documents))
     admitted: list[tuple[int, int, int, float, str]] = []
@@ -534,10 +961,22 @@ def search_symbols(
     # one (TC-541), declaring types before inheriting ones, then the existing BM25-descending order - it
     # is never discarded, only demoted to secondary.
     admitted.sort(key=lambda candidate: (candidate[0], candidate[1], candidate[2], -candidate[3]))
-    doc_ids = [doc_id for _tier, _memberless, _inherits, _bm25_score, doc_id in admitted][:top_k]
-    if not doc_ids:
-        doc_ids = _fallback_doc_ids(documents, ranked, query, scope.family, top_k)
-    if not doc_ids:
+    ordered = [doc_id for _tier, _memberless, _inherits, _bm25_score, doc_id in admitted]
+    qualities: dict[str, str] = dict.fromkeys(ordered, MATCH_EXACT)
+    unmatched: dict[str, tuple[str, ...]] = {}
+    if not ordered:
+        ordered = _inflected_name_ids(documents, query)
+        qualities = dict.fromkeys(ordered, MATCH_EXACT)
+    if not ordered:
+        scored = _evidence_ranking(documents, query, scope.family, lexical_payload)
+        ordered = [item.entry.doc_id for item in scored]
+        for item in scored:
+            qualities[item.entry.doc_id] = MATCH_EXACT if item.exact else MATCH_PARTIAL
+            unmatched[item.entry.doc_id] = item.unexplained
+    if not ordered:
+        ordered = _fallback_doc_ids(documents, ranked, query, scope.family, len(documents))
+        qualities = dict.fromkeys(ordered, MATCH_EXACT)
+    if not ordered:
         known_fqns = []
         for doc_id in documents:
             fqn = extract_fqn(documents[doc_id]["text"])
@@ -545,12 +984,23 @@ def search_symbols(
                 known_fqns.append(fqn)
         return Miss(
             scope,
-            query,
-            f"no symbol matches {query!r}",
-            suggestions=suggest_similar_fqns(known_fqns, query),
+            original_query,
+            f"no symbol matches {original_query!r}",
+            suggestions=suggest_similar_fqns(known_fqns, original_query),
             coverage_note=generation_coverage_note(documents),
         )
 
+    entries_by_doc = {entry.doc_id: entry for entry in _entries(documents)}
+    ordered, aliases = _collapse_aliases(entries_by_doc, ordered)
+    total = len(ordered)
+    page = ordered[offset : offset + top_k]
+    if not page:
+        return Miss(
+            scope,
+            original_query,
+            f"offset {offset} is past the last of the {total} symbols that match {original_query!r}",
+        )
+    next_offset = offset + top_k if offset + top_k < total else None
     return [
         SymbolMatch(
             scope=scope,
@@ -558,6 +1008,12 @@ def search_symbols(
             doc_id=doc_id,
             chunk_id=documents[doc_id]["chunk_id"],
             text=documents[doc_id]["text"],
+            match_quality=qualities.get(doc_id, MATCH_EXACT),
+            unmatched_terms=unmatched.get(doc_id, ()),
+            total_matches=total,
+            next_offset=next_offset,
+            aliases=aliases.get(doc_id, ()),
+            limitation=limitation_line(documents[doc_id]["text"]),
         )
-        for doc_id in doc_ids
+        for doc_id in page
     ]

@@ -122,7 +122,10 @@ def test_the_bare_name_is_unchanged(cells_net_store: GenerationManifestStore) ->
 def test_a_generic_lowercase_word_alone_adds_no_symbol(cells_net_store: GenerationManifestStore) -> None:
     result = lookup(cells_net_store, CELLS_NET, "create a pivot table")
 
-    assert _symbol_names(result) == []
+    # TC-562: [] -> no table-named type. The question's two words are also the two words of ONE declared member
+    # (``PivotTables``, a protection flag), so the types that declare it may be offered; what must never happen
+    # is that the generic word "table" alone selects a type named for tables.
+    assert not any("Table" in name for name in _symbol_names(result))
 
 
 def test_a_generic_lowercase_word_alone_adds_no_symbol_in_memory() -> None:
@@ -145,11 +148,15 @@ def test_taskanswer_symbols_default_is_empty_and_additive() -> None:
     answer = TaskAnswer(scope=SYNTHETIC_SCOPE, doc_matches=(), example=None)
 
     assert answer.symbols == ()
+    # TC-562: the fields are declared in the order a reader meets them (symbols, example, doc_matches) and the
+    # answer says whether it is "exact" or "partial": ["scope", "doc_matches", "example", "symbols"] -> below.
     assert [field.name for field in dataclasses.fields(TaskAnswer)] == [
         "scope",
-        "doc_matches",
-        "example",
         "symbols",
+        "example",
+        "doc_matches",
+        "match_quality",
+        "unmatched_terms",
     ]
 
 

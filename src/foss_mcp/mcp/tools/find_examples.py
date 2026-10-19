@@ -58,10 +58,19 @@ calls ``Save`` or ``Open``. A longer query is judged by the coverage floor alone
 
 from __future__ import annotations
 
+import os
 import re
 from dataclasses import dataclass
 
-from foss_mcp.indexing.gateway_embedding_provider import GatewayEmbeddingProvider, Vector
+from foss_mcp.indexing.gateway_embedding_provider import (
+    _API_KEY_ENV,
+    _ENDPOINT_ENV,
+    GatewayEmbeddingProvider,
+    Vector,
+)
+from foss_mcp.indexing.gateway_embedding_provider import (
+    GatewayEmbeddingProvider as _RealGatewayEmbeddingProvider,
+)
 from foss_mcp.indexing.generation_manifest import GenerationManifest, GenerationManifestStore
 from foss_mcp.indexing.lexical_index_writer import query_lexical_index_scored
 from foss_mcp.indexing.vector_index_writer import query_vector_index_scored
@@ -71,7 +80,9 @@ from foss_mcp.mcp.tools.relevance import (
     RELEVANCE_THRESHOLD,
     TITLE_ANCHOR_MAX_TERMS,
     distinctive_terms,
+    fold_query,
     guarded_coverage,
+    has_minimum_evidence,
     query_terms,
     required_terms,
     term_weights,
@@ -277,6 +288,13 @@ class NoExampleFound:
 
 
 _NO_MATCH_REASON = "no verified example matches this query"
+
+# TC-562: the by-design lexical-only deployment (no embedding gateway configured) is not a failure.
+STATUS_NOT_CONFIGURED = "not_configured"
+NOT_CONFIGURED_REASON = (
+    "no verified example matches this query (semantic search is not configured in this deployment: "
+    "examples are matched on their words only)"
+)
 _SKIP_WORDS = {
     STATUS_SKIPPED_TIMEOUT: "timeout",
     STATUS_SKIPPED_CIRCUIT_OPEN: "circuit open",
@@ -293,16 +311,18 @@ def find_examples(
     Never executes a snippet, and never returns one when nothing - exact or semantic - has
     one to offer.
     """
+    original_query = query
+    query = fold_query(query)
     key = scope_key(scope, SOURCE_KIND)
     active_generation_id = store.read_active(key)
     if active_generation_id is None:
-        return NoExampleFound(scope, query, reason="no published generation for this scope")
+        return NoExampleFound(scope, original_query, reason="no published generation for this scope")
 
     manifest = store.read_generation(key, active_generation_id)
     lexical_payload = manifest.payload.get("lexical_index")
     documents = (lexical_payload or {}).get("documents") or {}
     if not documents:
-        return NoExampleFound(scope, query, reason="published generation has no document index")
+        return NoExampleFound(scope, original_query, reason="published generation has no document index")
 
     # Exact branch: the query IS an example's pseudo-FQN. Looked up directly over this generation's
     # documents (not through ``get_symbol``), so ``get_symbol`` can stop returning pseudo-symbols
@@ -332,12 +352,12 @@ def find_examples(
         doc_id for doc_id, document in documents.items() if is_verified_example_text(document["text"])
     ]
     if not example_doc_ids:
-        return NoExampleFound(scope, query, reason="no verified example exists in this generation")
+        return NoExampleFound(scope, original_query, reason="no verified example exists in this generation")
 
     # TC-516: a query with no distinctive term ("Example:", "pdf examples") names no task, so no example
     # can answer it; and relevance is IDF-weighted with every identifier-like query word required.
-    if not distinctive_terms(query, scope.family):
-        return NoExampleFound(scope, query)
+    if not distinctive_terms(query, scope.family) or not has_minimum_evidence(query):
+        return NoExampleFound(scope, original_query)
     terms = query_terms(query, scope.family)
     weights = term_weights(terms, lexical_payload)
     required = required_terms(query)
@@ -355,9 +375,11 @@ def find_examples(
         if vector_matches:
             return vector_matches
         reason = _NO_MATCH_REASON
-        if note in _SKIP_WORDS:
+        if note == STATUS_NOT_CONFIGURED:
+            reason = NOT_CONFIGURED_REASON
+        elif note in _SKIP_WORDS:
             reason = f"{reason} (semantic fallback skipped: {_SKIP_WORDS[note]})"
-        return NoExampleFound(scope, query, reason=reason, vector_fallback=note)
+        return NoExampleFound(scope, original_query, reason=reason, vector_fallback=note)
 
     lexical_basis = (
         MATCH_BASIS_TITLE_WORD
@@ -417,6 +439,14 @@ def _vector_fallback(
     points = (vector_payload or {}).get("points") or []
     if not points:
         return [], None
+
+    # TC-562: with the real provider and no gateway endpoint or key set, the deployment is lexical-only BY DESIGN:
+    # say so (``not_configured``) instead of reporting an error, and do not ask the guard, so it can never count
+    # the missing configuration as a gateway failure. A stand-in provider is always asked.
+    if GatewayEmbeddingProvider is _RealGatewayEmbeddingProvider and not (
+        os.environ.get(_ENDPOINT_ENV, "").strip() and os.environ.get(_API_KEY_ENV, "").strip()
+    ):
+        return [], STATUS_NOT_CONFIGURED
 
     try:
         guard = get_guard()

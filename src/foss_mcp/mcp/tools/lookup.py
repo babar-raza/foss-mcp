@@ -39,6 +39,13 @@ generic lowercase word such as "table" only counts when it is (nearly) the whole
 pivot table" adds nothing. A documentation answer whose only evidence is table-dominated chunks (an API
 table, a long reference dump) needs at least two distinctive query terms in one such chunk; otherwise those
 chunks are dropped.
+
+TC-562 (REQ-G3-009): the question is NFKC-folded and a query with no word of two characters (``a.b.c::d``) can
+only name a symbol exactly. A task answer now carries the symbols that EXPLAIN the question in the user's words
+(``search_symbols``' evidence stage: "merge cells together" -> ``Cells.Merge``) next to the symbols it names,
+each labelled ``exact`` or ``partial``; the documentation that says a capability the question names is NOT
+available (a "Scope and Limitations" paragraph, "no PDF export") is placed first; and a query that is only a
+documentation category ("getting started") returns that category's documentation.
 """
 
 from __future__ import annotations
@@ -52,12 +59,35 @@ from foss_mcp.indexing.lexical_index_writer import tokenize
 from foss_mcp.mcp.routing import Scope
 from foss_mcp.mcp.tools.find_examples import ExampleMatch, find_examples
 from foss_mcp.mcp.tools.get_symbol import extract_fqn
-from foss_mcp.mcp.tools.relevance import DOCUMENTATION, SYMBOL, chunk_kind, distinctive_terms, present_terms
-from foss_mcp.mcp.tools.search_docs import CONTENT_TYPES, DocMatch, search_docs
+from foss_mcp.mcp.tools.relevance import (
+    DOCUMENTATION,
+    RELEVANCE_THRESHOLD,
+    SYMBOL,
+    chunk_kind,
+    coverage,
+    distinctive_terms,
+    fold_query,
+    has_minimum_evidence,
+    present_terms,
+    query_terms,
+    term_weights,
+)
+from foss_mcp.mcp.tools.search_docs import (
+    CONTENT_TYPES,
+    DocMatch,
+    _rule_for,
+    category_intent,
+    classify_content_type,
+    passage_coverage,
+    search_docs,
+)
 from foss_mcp.mcp.tools.search_symbols import (
+    MATCH_EXACT,
+    MATCH_PARTIAL,
     SOURCE_KIND,
     Miss,
     SymbolMatch,
+    limitation_line,
     naming_tokens,
     scope_key,
     search_symbols,
@@ -100,6 +130,9 @@ _QUESTION_OR_AUXILIARY_WORDS = frozenset(
 
 # TC-516: how a query is read as naming a type, and what counts as a table-dominated documentation chunk.
 _MAX_NAMED_SYMBOLS = 3
+_FULL_COVERAGE = 0.999
+# TC-562: of those, at most this many are the symbols that EXPLAIN the question (the best two; a third is a guess).
+_MAX_EXPLAINING_SYMBOLS = 2
 _NAMED_SHARE = 0.6
 _TABLE_LINE = re.compile(r"^\s*(?:\||- +`[^`]+`\s*[-:\u2013\u2014])")
 _TABLE_DOMINATED_MIN_SHARE = 0.5
@@ -152,13 +185,23 @@ def _lookup_miss(symbol_result: list[SymbolMatch] | Miss, query: str) -> list[Sy
 class TaskAnswer:
     """A composed answer to a task-oriented query: documentation guidance plus whatever
     verified example genuinely exists for the same query - never a fabricated one.
+
+    TC-562: the fields are declared in the order a reader meets them - the API that does the task (``symbols``:
+    the symbols the query names and the ones that explain it in the user's words, at most three), then the
+    verified ``example``, then the ``doc_matches`` - and the JSON the server emits follows that order.
     """
 
     scope: Scope
-    doc_matches: tuple[DocMatch, ...]
-    example: ExampleMatch | None
-    # TC-516: the symbol(s) the query names (at most three), ``()`` when it names none.
+    # TC-516: the symbol(s) the query names (at most three), ``()`` when it names none. TC-562: and the symbols
+    # that explain the query, each labelled ``exact`` or ``partial``.
     symbols: tuple[SymbolMatch, ...] = ()
+    example: ExampleMatch | None = None
+    doc_matches: tuple[DocMatch, ...] = ()
+    # TC-562: ``"exact"`` when some part of the answer explains every distinctive word of the question (a symbol,
+    # the verified example or one passage of the documentation), ``"partial"`` when it explains only some, and
+    # then ``unmatched_terms`` names the words it could not explain. ``""`` for a hand-built answer.
+    match_quality: str = ""
+    unmatched_terms: tuple[str, ...] = ()
 
 
 def _is_table_dominated(text: str) -> bool:
@@ -224,9 +267,156 @@ def _named_symbols(store: GenerationManifestStore, scope: Scope, query: str) -> 
             doc_id=doc_id,
             chunk_id=documents[doc_id]["chunk_id"],
             text=documents[doc_id]["text"],
+            match_quality=MATCH_EXACT,
+            limitation=limitation_line(documents[doc_id]["text"]),
         )
         for doc_id in chosen
     )
+
+
+# TC-562: the words of a paragraph that says something is NOT available in this build.
+_NEGATION_CUES = (
+    "not supported",
+    "not implemented",
+    "unsupported",
+    "notimplemented",
+    "not available",
+    "not functional",
+    "not modelled",
+    "not modeled",
+    "not in the public api",
+    "no support",
+    "cannot",
+    "can't",
+    "does not",
+    "do not",
+    "doesn't",
+    "don't",
+    "never",
+    "throws",
+    "raises",
+    "refuse",
+    "(no ",
+)
+_PARAGRAPH_BREAK = re.compile(r"\n\s*\n|\n(?=\s*[-*] )")
+_LIMITATION_TITLE = re.compile(r"limitation|unsupported|known issue|scope", re.IGNORECASE)
+_MAX_LIMITATION_DOCS = 2
+_LIMITATION_MIN_TERMS = 2
+
+
+def _says_not_available(paragraph: str) -> bool:
+    lowered = paragraph.lower()
+    return any(cue in lowered for cue in _NEGATION_CUES)
+
+
+def _limitation_coverage(text: str, terms: frozenset[str], weights: dict[str, float]) -> tuple[float, int]:
+    """``(coverage, matched terms)`` of the best paragraph of *text* that says something is not available and
+    mentions the question's terms (IDF-weighted: a word the whole generation never uses counts most);
+    ``(0.0, 0)`` when no paragraph does."""
+    best = (0.0, 0)
+    for paragraph in _PARAGRAPH_BREAK.split(text):
+        if not _says_not_available(paragraph):
+            continue
+        tokens = tokenize(paragraph)
+        found = coverage(terms, tokens, weights=weights)
+        matched = len(present_terms(terms, tokens))
+        if (found, matched) > best:
+            best = (found, matched)
+    return best
+
+
+def _payload_of(store: GenerationManifestStore, scope: Scope) -> tuple[str | None, dict]:
+    key = scope_key(scope, SOURCE_KIND)
+    generation_id = store.read_active(key)
+    if generation_id is None:
+        return None, {}
+    return generation_id, store.read_generation(key, generation_id).payload.get("lexical_index") or {}
+
+
+def _documents_of(store: GenerationManifestStore, scope: Scope) -> tuple[str | None, dict[str, dict]]:
+    generation_id, payload = _payload_of(store, scope)
+    return generation_id, payload.get("documents") or {}
+
+
+def _limitation_docs(store: GenerationManifestStore, scope: Scope, query: str) -> tuple[DocMatch, ...]:
+    """TC-562: the documentation chunks that say a capability the question names is NOT available - a paragraph
+    with a negation cue ("not supported", "not implemented", "no PDF export", "throws") that holds at least two
+    of the question's terms and at least 60 percent of them - best first, a chunk titled as a limitation or scope
+    document ahead of an equal one that is not. At most two. ``()`` when none: nothing is invented."""
+    terms = query_terms(query, scope.family)
+    if (
+        len(distinctive_terms(query, scope.family)) < _LIMITATION_MIN_TERMS
+        and len(terms) < _LIMITATION_MIN_TERMS
+    ):
+        return ()
+    generation_id, payload = _payload_of(store, scope)
+    documents = payload.get("documents") or {}
+    if generation_id is None:
+        return ()
+    weights = term_weights(terms, payload)
+    found: list[tuple[float, int, str, str]] = []
+    for doc_id, document in documents.items():
+        text = document["text"]
+        if chunk_kind(text) != DOCUMENTATION:
+            continue
+        fraction, matched = _limitation_coverage(text, terms, weights)
+        if matched < min(_LIMITATION_MIN_TERMS, len(terms)) or fraction < RELEVANCE_THRESHOLD:
+            continue
+        title = (extract_fqn(text) or "")[len("Doc: ") :]
+        found.append((-fraction, 0 if _LIMITATION_TITLE.search(title) else 1, doc_id, text))
+    found.sort()
+    return tuple(
+        DocMatch(
+            scope=scope,
+            generation_id=generation_id,
+            doc_id=doc_id,
+            chunk_id=documents[doc_id]["chunk_id"],
+            content_type=classify_content_type(text),
+            text=text,
+        )
+        for _fraction, _title_rank, doc_id, text in found[:_MAX_LIMITATION_DOCS]
+    )
+
+
+def _answer_quality(
+    store: GenerationManifestStore,
+    scope: Scope,
+    query: str,
+    symbols: tuple[SymbolMatch, ...],
+    example: ExampleMatch | None,
+    doc_matches: tuple[DocMatch, ...],
+    limitations_first: bool,
+) -> tuple[str, tuple[str, ...]]:
+    """TC-562: ``("exact", ())`` when some part of the answer explains every distinctive word of the question - a
+    symbol labelled exact, the verified example (all its terms present), one passage of a documentation chunk
+    holding all of them, or documentation that states the capability is not available - else ``("partial",
+    <the words the best symbol could not explain>)``."""
+    if limitations_first or category_intent(query) is not None:
+        return MATCH_EXACT, ()
+    if any(match.match_quality == MATCH_EXACT for match in symbols[:1]):
+        return MATCH_EXACT, ()
+    if example is not None and example.coverage >= _FULL_COVERAGE and example.source != "vector":
+        return MATCH_EXACT, ()
+    _generation_id, documents = _documents_of(store, scope)
+    rule = _rule_for(query, scope.family, {"documents": documents})
+    if rule is not None:
+        for match in doc_matches:
+            if passage_coverage(rule, match.text) >= _FULL_COVERAGE:
+                return MATCH_EXACT, ()
+    unmatched = (
+        symbols[0].unmatched_terms if symbols else tuple(sorted(distinctive_terms(query, scope.family)))
+    )
+    return MATCH_PARTIAL, unmatched
+
+
+def _merged_symbols(*groups: tuple[SymbolMatch, ...]) -> tuple[SymbolMatch, ...]:
+    """The symbols of *groups* in order without repeats, at most ``_MAX_NAMED_SYMBOLS``."""
+    chosen: list[SymbolMatch] = []
+    for group in groups:
+        for match in group:
+            if all(match.doc_id != other.doc_id for other in chosen) and len(chosen) < _MAX_NAMED_SYMBOLS:
+                chosen.append(match)
+    return tuple(chosen)
 
 
 def _without_unsupported_tables(
@@ -277,6 +467,8 @@ def lookup(
     if content_type is not None:
         return search_docs(store, scope, query, content_type, top_k=top_k)
 
+    query = fold_query(query)
+
     def _compose_from_docs() -> TaskAnswer | None:
         doc_matches: tuple[DocMatch, ...] = ()
         for candidate_type in CONTENT_TYPES:
@@ -291,12 +483,29 @@ def lookup(
                     doc_matches = documentation
                     break
 
+        # TC-562: documentation that says a capability the question names is NOT available comes first.
+        limitations = _limitation_docs(store, scope, query)
+        if limitations:
+            seen = {match.doc_id for match in limitations}
+            doc_matches = limitations + tuple(match for match in doc_matches if match.doc_id not in seen)
+
         example_result = find_examples(store, scope, query, top_k=1)
         example = example_result[0] if isinstance(example_result, list) and example_result else None
 
         if not doc_matches and example is None:
             return None
-        return TaskAnswer(scope=scope, doc_matches=doc_matches, example=example, symbols=named_symbols())
+        symbols = answer_symbols()
+        quality, unmatched = _answer_quality(
+            store, scope, query, symbols, example, doc_matches, bool(limitations)
+        )
+        return TaskAnswer(
+            scope=scope,
+            doc_matches=doc_matches,
+            example=example,
+            symbols=symbols,
+            match_quality=quality,
+            unmatched_terms=unmatched,
+        )
 
     named_cache: list[tuple[SymbolMatch, ...]] = []
 
@@ -305,9 +514,34 @@ def lookup(
             named_cache.append(_named_symbols(store, scope, query))
         return named_cache[0]
 
+    explained_cache: list[tuple[SymbolMatch, ...]] = []
+
+    def explained_symbols() -> tuple[SymbolMatch, ...]:
+        """TC-562: the symbols that explain the question in the user's words (search_symbols' evidence stage)."""
+        if not explained_cache:
+            result = search_symbols(store, scope, query, top_k=_MAX_EXPLAINING_SYMBOLS)
+            explained_cache.append(tuple(result) if isinstance(result, list) else ())
+        return explained_cache[0]
+
+    def answer_symbols() -> tuple[SymbolMatch, ...]:
+        return _merged_symbols(explained_symbols(), named_symbols())
+
     def _answer_naming_a_type() -> list[SymbolMatch] | None:
-        symbols = named_symbols()
+        symbols = answer_symbols()
         return list(symbols) if symbols else None
+
+    if not has_minimum_evidence(query):
+        # Nothing here can be explained by words: only an exact symbol name (a one-letter type) can answer.
+        exact = search_symbols(store, scope, query, top_k=top_k)
+        if isinstance(exact, list) and exact:
+            return exact
+        return _lookup_miss(exact, query)
+
+    if category_intent(query) is not None:
+        # "getting started", "known issues", "faq": the documentation category itself is the question.
+        category_answer = _compose_from_docs()
+        if category_answer is not None:
+            return category_answer
 
     if _looks_like_a_task_question(query):
         task_answer = _compose_from_docs()
