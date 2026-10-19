@@ -170,6 +170,10 @@ write_paths:
 - tests/indexing/test_chunk_builder_honesty.py
 - tests/infra/test_build_chunks.py
 - tests/infra/test_build_chunks_extraction_notice.py
+- tests/extraction/tree_sitter_engine/test_python_surface.py
+- tests/extraction/test_run_extraction_selection.py
+- tests/indexing/test_chunk_builder_stub_pairing.py
+- tests/extraction/tree_sitter_engine/test_python_surface_class_constants.py
 satisfies:
 - REQ-G3-008
 - REQ-G3-005
@@ -227,6 +231,14 @@ inputs:
 - >-
   TEST COUNTS: min_tests is 440 for EACH check. At the issue revision the first check collects 436 existing tests (test_python_fidelity 7 files listed in the check) plus the at least 24 you add in the two
   new files, and the second check collects well over 2,500.
+- >-
+  REWORK AMENDMENT (supervisor, 2026-10-19). Four existing tests outside the earlier write_paths pin facts the mandated semantics legitimately move; they are now in write_paths: tests/extraction/tree_sitter_engine/test_python_surface.py
+  (the `render` line 2 -> 12, last definition wins), tests/extraction/test_run_extraction_selection.py (enum members `GREEN`, `BLUE` carry the marker value `auto()`), tests/indexing/test_chunk_builder_stub_pairing.py
+  (exempt a member-less chunk that is the `Defined-In` target of a chunk carrying a `Shadows:` line, for every Collada/Fbx/Gltf/Obj/Stl Load/Save option class, so the test reports no residual for the 10
+  deliberately unpaired shadowed placeholders) and the class-constants pin test (tests/extraction/tree_sitter_engine/test_python_surface_class_constants.py). Change only these assertions, each with the
+  comment `TC-532: <old> -> <new>`. ALSO IN SCOPE NOW: render the carried property `value` in chunk text so class-constant 'enums' show their values (RD3-009: `- MAX: int = 5 (read-only)`; a property without
+  a literal value renders as before); the class-constants pin test is updated for exactly that rendering change. The email class in the audit text is MapiAttachment and the 10 (not 7) 3d option classes
+  are the facts: assert those.
 actions:
 - >-
   Fix the Python extractor and renderer for the seven round-3 defect classes and add the synthetic-source and renderer tests.
