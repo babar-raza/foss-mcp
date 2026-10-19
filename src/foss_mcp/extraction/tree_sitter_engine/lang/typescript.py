@@ -508,6 +508,74 @@ def export_surface(repo: Path, pkg_root: Path) -> tuple[set[str] | None, Path | 
 
 
 # ---------------------------------------------------------------------------
+# export_renames (TC-533)
+# ---------------------------------------------------------------------------
+
+_EXPORT_BRACE_FROM_RE = re.compile(
+    r"export\s+(?:type\s+)?\{(?P<names>[^}]*)\}"
+    r"(?:\s*from\s*['\"](?P<spec>[^'\"]*)['\"])?\s*;",
+)
+
+
+def export_renames(repo: Path, pkg_root: Path) -> tuple[list[tuple[str, str, Path | None]], set[str]]:
+    """TC-533: ``(renames, direct)`` of the package's export surface.
+
+    *renames* lists every ``export { Original as Alias } from './file.js'`` found in the entry point and in
+    the files it star-exports (same traversal, same relative-only rule as ``export_surface``), as
+    ``(Original, Alias, file)`` where *file* is the resolved source of the ``from`` clause (None for a local
+    ``export { X as Y }``). *direct* is every name exported under its OWN name there (a braced item without
+    ``as``, a declaration, a default). ``export_surface`` counts both names of a rename as exported; a caller
+    that serves the surface uses this to serve the symbol under the name the package really exports
+    (``describe`` is exported as ``describeNotRendered``; ``import { describe }`` fails).
+
+    Empty when the entry point cannot be resolved or its exports cannot be enumerated (``export_surface``
+    is None), so a package whose surface is unknown keeps everything.
+    """
+    if _export_names_cached(repo, pkg_root) is None:
+        return [], set()
+    entry = resolve_entry_point(repo, pkg_root)
+    if entry is None:
+        return [], set()
+    renames: list[tuple[str, str, Path | None]] = []
+    direct: set[str] = set()
+    visited: set[Path] = set()
+
+    def walk(path: Path, depth: int) -> None:
+        if path in visited or depth > _MAX_TS_BARREL_DEPTH:
+            return
+        visited.add(path)
+        try:
+            text = path.read_text(encoding="utf-8", errors="replace")
+        except OSError:
+            return
+        for match in _EXPORT_BRACE_FROM_RE.finditer(text):
+            spec = match.group("spec")
+            target = _resolve_relative_ts_file(path.parent, spec) if spec and _is_relative_specifier(spec) else None
+            for raw in match.group("names").split(","):
+                item = _strip_inline_type_modifier(raw)
+                if not item:
+                    continue
+                if " as " in item:
+                    original, alias = (part.strip() for part in item.split(" as ", 1))
+                    if original and alias and alias != original and alias != "default":
+                        renames.append((original, alias, target))
+                else:
+                    direct.add(item)
+        for match in _EXPORT_DEFAULT_NAME_RE.finditer(text):
+            direct.add(match.group("name"))
+        for match in _EXPORT_DECL_RE.finditer(text):
+            direct.add(match.group("name"))
+        for match in _EXPORT_STAR_FROM_RE.finditer(text):
+            spec = match.group(1)
+            target = _resolve_relative_ts_file(path.parent, spec) if _is_relative_specifier(spec) else None
+            if target is not None:
+                walk(target, depth + 1)
+
+    walk(entry, 0)
+    return renames, direct
+
+
+# ---------------------------------------------------------------------------
 # export_groups (TC-MT040-43 / D-4 strategy (b) -- OPTIONAL adapter
 # capability, not part of the shared extraction/lang/ contract)
 # ---------------------------------------------------------------------------

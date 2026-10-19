@@ -700,6 +700,103 @@ _TS_PARAM_DEFAULT_LIMIT = 120
 _TS_ALIAS_TEXT_LIMIT = 300
 _TS_HIDDEN_TAG_RE = re.compile(r"@(internal|hidden|ignore)\b")
 
+# TC-533: True means an interface or class property is read-only ONLY when its source carries the
+# ``readonly`` modifier. False restores the behaviour of the version-1 fixtures, where every property was
+# recorded read-only (cells/typescript: 724 interface properties against 0 upstream). A real switch, read
+# at every TypeScript/JavaScript property; the negative control flips it.
+TS_READONLY_ONLY_WHEN_DECLARED = True
+
+# Node types that hold the members of a class, an interface or an object type.
+_TS_MEMBER_BODIES = ("class_body", "interface_body", "object_type")
+# Type constructors a type alias may wrap its object type in without changing whose members they are.
+_TS_ALIAS_WRAPPERS = ("intersection_type", "union_type", "parenthesized_type")
+
+
+def _ts_is_own_member(mnode, owner) -> bool:
+    """TC-533: True when *mnode* is a member declared directly in the body of *owner*.
+
+    ``collect_nodes`` walks the whole subtree, so a ``property_signature`` inside the inline object type
+    of a PRIVATE method's return type, of a parameter (``save(path, options?: { password?: string })``) or
+    of another property's type annotation reached the enclosing class as if it were its property (cells
+    ``Workbook``: 15 of its 21 listed names; the round-3 review counted 189 in pdf/typescript). A member node whose parent is a class body, interface
+    body or object type is own only when that body belongs to *owner* itself (through the wrappers of a
+    type alias's value, ``A & { x: number }``); any other node is left to the callers' own checks.
+    """
+    parent = mnode.parent
+    if parent is None or parent.type not in _TS_MEMBER_BODIES:
+        return True
+    holder = parent.parent
+    while holder is not None and holder.type in _TS_ALIAS_WRAPPERS:
+        holder = holder.parent
+    return holder is not None and holder == owner
+
+
+def _ts_split_top_level(text: str) -> list[str]:
+    """TC-533: *text* split at the commas that are not inside ``<>``, ``()``, ``[]``, ``{}``, a string or
+    a comment (``Base<A, B>, Omit<C, 'x' | 'y'>`` is two items). The parts are stripped; empty ones dropped.
+    The ``>`` of an arrow ``=>`` does not close an angle bracket."""
+    parts: list[str] = []
+    depth = 0
+    quote = ""
+    current: list[str] = []
+    index = 0
+    while index < len(text):
+        char = text[index]
+        pair = text[index : index + 2]
+        if quote:
+            current.append(char)
+            if char == "\\" and index + 1 < len(text):
+                current.append(text[index + 1])
+                index += 1
+            elif char == quote:
+                quote = ""
+        elif pair == "//":
+            newline = text.find("\n", index)
+            index = len(text) if newline < 0 else newline
+            continue
+        elif pair == "/*":
+            end = text.find("*/", index + 2)
+            index = len(text) if end < 0 else end + 2
+            continue
+        elif char in "'\"`":
+            quote = char
+            current.append(char)
+        elif char in "<([{":
+            depth += 1
+            current.append(char)
+        elif char in ")]}" or (char == ">" and not (index > 0 and text[index - 1] == "=")):
+            depth = max(depth - 1, 0)
+            current.append(char)
+        elif char == "," and depth == 0:
+            parts.append("".join(current))
+            current = []
+        else:
+            current.append(char)
+        index += 1
+    parts.append("".join(current))
+    return [" ".join(part.split()) for part in parts if part.strip()]
+
+
+def _ts_bases(cnode) -> list[str]:
+    """TC-533: the base list of a TypeScript/JavaScript class or interface, split at TOP-LEVEL commas only.
+
+    ``class D extends Base<A, B> implements I, J`` is ``Base<A, B>``, ``I`` and ``J``; the shared
+    ``_extract_bases`` splits the clause text at every comma and so cut ``Omit<StampOptions, 'align'>``
+    into ``Omit<StampOptions`` (pdf/typescript). The clauses read are the class's ``extends_clause`` and
+    ``implements_clause`` (inside ``class_heritage``) and an interface's ``extends_type_clause``.
+    """
+    clauses: list[Any] = []
+    for child in cnode.children:
+        if child.type == "class_heritage":
+            clauses.extend(sub for sub in child.children if sub.type in ("extends_clause", "implements_clause"))
+        elif child.type in ("extends_clause", "implements_clause", "extends_type_clause"):
+            clauses.append(child)
+    bases: list[str] = []
+    for clause in clauses:
+        text = re.sub(r"^(extends|implements)\b\s*", "", node_text(clause))
+        bases.extend(_ts_split_top_level(text))
+    return bases
+
 
 def _ts_clip(text: str, limit: int) -> str:
     """*text* on one line (whitespace runs collapsed), at most *limit* characters, ``...`` when cut."""
@@ -722,6 +819,63 @@ def _ts_member_flags(mnode) -> tuple[bool, bool, bool, bool]:
         elif child.type == "async":
             is_async = True
     return readonly, optional, is_static, is_async
+
+
+def _ts_apply_export_renames(
+    classes: list[dict[str, Any]],
+    renames: list[tuple[str, str, Path | None]],
+    direct: set[str],
+    repo: Path,
+) -> None:
+    """TC-533: serve a renamed re-export (``export { describe as describeNotRendered } from './htmlreport.js'``)
+    under the name the package exports, in place, and mark every other entry that only carried the original
+    name as unreachable. The entry read is the one declared in the ``from`` file when that is known, else every
+    entry of that name. When the original is ALSO exported under its own name (*direct*), or is renamed a second
+    time, the renamed entry is a copy. ``name`` and the tail of ``class_import`` change; nothing else does.
+    """
+    renamed_once: dict[str, list[dict[str, Any]]] = {}
+    for original, alias, target in renames:
+        if any(entry.get("name") == alias for entry in classes):
+            continue
+        target_rel = ""
+        if target is not None:
+            try:
+                target_rel = target.relative_to(repo).as_posix()
+            except ValueError:
+                target_rel = ""
+        candidates = [entry for entry in classes if entry.get("name") == original]
+        in_target = [entry for entry in candidates if target_rel and entry.get("file") == target_rel]
+        chosen = in_target or candidates or renamed_once.get(original, [])
+        if not chosen:
+            continue
+        keep_original = original in direct or original in renamed_once
+        chosen_ids = {id(entry) for entry in chosen}
+        made: list[dict[str, Any]] = []
+        for entry in list(chosen):
+            old_name = str(entry.get("name") or original)
+            renamed = copy.deepcopy(entry) if keep_original else entry
+            renamed["name"] = alias
+            class_import = str(renamed.get("class_import") or "")
+            if class_import.endswith("." + old_name):
+                renamed["class_import"] = class_import[: -len(old_name)] + alias
+            renamed["reachable"] = True
+            if renamed is not entry:
+                classes.append(renamed)
+            made.append(renamed)
+        if not keep_original:
+            for entry in candidates:
+                if id(entry) not in chosen_ids:
+                    entry["reachable"] = False
+        renamed_once.setdefault(original, []).extend(made)
+
+
+def _ts_accessor_token(mnode) -> str:
+    """TC-533: ``"get"`` or ``"set"`` when the member node carries that keyword token (before its name), else
+    ``""``. A method NAMED ``get`` has a ``property_identifier`` child, never the token."""
+    for child in mnode.children:
+        if child.type in ("get", "set"):
+            return child.type
+    return ""
 
 
 def _ts_alias_text(cnode) -> str:
@@ -4740,7 +4894,8 @@ def extract_api_surface(
             # not the type_spec itself; doc_anchor() redirects to the parent
             # so this call site no longer needs its own special case).
             cdoc = _extract_doc_comment(cnode, language)
-            bases = _extract_bases(cnode, language)
+            # TC-533: a TypeScript base list is split at top-level commas only (``Omit<A, 'x'>`` is one base).
+            bases = _ts_bases(cnode) if language == "typescript" else _extract_bases(cnode, language)
 
             # Python: detect enums by base class inheritance
             if not is_enum and language == "python":
@@ -4791,6 +4946,11 @@ def extract_api_surface(
 
                 # TC-523: a member whose JSDoc says @internal / @hidden / @ignore is not public API.
                 if language in ("typescript", "javascript") and _ts_is_hidden(mnode):
+                    continue
+
+                # TC-533: only a member declared in this type's own body is its member; the property
+                # signatures of an inline object type (a parameter, a return type, a property's type) are not.
+                if language in ("typescript", "javascript") and not _ts_is_own_member(mnode, cnode):
                     continue
 
                 # FIX-02: Skip methods that belong to nested classes.
@@ -4856,11 +5016,14 @@ def extract_api_surface(
                                 )
                             )
                         continue
-                    # method_definition that begins with 'get ' or 'set '
-                    if mnode.type == "method_definition":
-                        raw_txt = node_text(mnode).lstrip()
-                        is_getter = raw_txt.startswith("get ")
-                        is_setter = raw_txt.startswith("set ")
+                    # A ``get`` / ``set`` accessor. TC-533: read from the ``get`` / ``set`` TOKEN child, so a
+                    # ``static get x()``, ``public get x()`` or ``override get x()`` is an accessor too (the
+                    # text of such a node does not begin with ``get `` and was served as a method: 23 static
+                    # accessors of 3d/typescript, called ``BoundingBox.infinite()`` instead of read).
+                    if mnode.type in ("method_definition", "abstract_method_signature"):
+                        is_getter = _ts_accessor_token(mnode) == "get"
+                        is_setter = _ts_accessor_token(mnode) == "set"
+                        _acc_static = _ts_member_flags(mnode)[2]
                         if is_getter or is_setter:
                             acc_mode = "readonly" if is_getter else "writeonly"
                             ptype = ""
@@ -4874,7 +5037,9 @@ def extract_api_surface(
                                 (
                                     p
                                     for p in properties
-                                    if p.get("name") == mname and p.get("kind") == "property"
+                                    if p.get("name") == mname
+                                    and p.get("kind") == "property"
+                                    and ("static" in (p.get("modifiers") or [])) == _acc_static
                                 ),
                                 None,
                             )
@@ -4883,16 +5048,17 @@ def extract_api_surface(
                                 if is_getter and ptype and not existing_prop.get("type"):
                                     existing_prop["type"] = ptype
                             else:
-                                properties.append(
-                                    {
-                                        "name": mname,
-                                        "type": ptype,
-                                        "kind": "property",
-                                        "access_mode": acc_mode,
-                                        "doc": "",
-                                        "line": mnode.start_point[0] + 1,
-                                    }
-                                )
+                                accessor_prop: dict[str, Any] = {
+                                    "name": mname,
+                                    "type": ptype,
+                                    "kind": "property",
+                                    "access_mode": acc_mode,
+                                    "doc": "",
+                                    "line": mnode.start_point[0] + 1,
+                                }
+                                if _acc_static:
+                                    accessor_prop["modifiers"] = ["static"]
+                                properties.append(accessor_prop)
                                 claims.append(
                                     _make_claim(
                                         family,
@@ -4909,6 +5075,9 @@ def extract_api_surface(
                     type_node = child_by_field(mnode, "type")
                     if type_node:
                         ptype = node_text(type_node)
+                        if language in ("typescript", "javascript"):
+                            # TC-533: a TypeScript ``type_annotation`` node includes its colon (``: Font``).
+                            ptype = ptype.lstrip(":").strip()
                     # Detect setter â€” C# accessor_list with "set" or "init"
                     writable = False
                     acc_list = find_child_by_type(mnode, "accessor_list")
@@ -4940,7 +5109,7 @@ def extract_api_surface(
                         # TC-523: an interface / object-type member is writable unless ``readonly``;
                         # ``static`` and ``?`` are the additive ``modifiers``.
                         _ts_is_readonly, _ts_is_optional, _ts_is_static, _ = _ts_member_flags(mnode)
-                        prop_entry["writable"] = not _ts_is_readonly
+                        prop_entry["writable"] = not _ts_is_readonly if TS_READONLY_ONLY_WHEN_DECLARED else False
                         _ts_prop_modifiers = [
                             mark
                             for mark, applies in (("static", _ts_is_static), ("optional", _ts_is_optional))
@@ -5610,6 +5779,16 @@ def extract_api_surface(
     # so that evaluators can verify inherited member access without walking
     # the inheritance chain at evaluation time.
     _flatten_inheritance(classes)
+
+    # TC-533: a TypeScript package with an entry point serves exactly its export surface. An internal
+    # type or function (pdf/typescript: 2,967 of 3,060 functions, plus every unexported interface and
+    # alias) is not API: nobody can import it. Done AFTER the inheritance flattening above, so a public
+    # class still inherits the members of an unexported base. Without a resolvable entry point whose
+    # exports can be enumerated (``_ts_exports`` is None) nothing is removed.
+    if language == "typescript" and _ts_exports is not None:
+        _ts_renames, _ts_direct = lang.typescript.export_renames(repo, pkg_root)
+        _ts_apply_export_renames(classes, _ts_renames, _ts_direct, repo)
+        classes = [entry for entry in classes if entry.get("reachable", True) is not False]
 
     # PY-INIT-001: Mark classes re-exported via any package __init__.py.__all__.
     # The per-file __all__ extraction (S-1) only fires when __all__ and class
