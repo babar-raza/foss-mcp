@@ -119,6 +119,7 @@ write_paths:
 - src/foss_mcp/extraction/run_extraction.py
 - tests/infra/test_helm_chart.py
 - tests/infra/test_helm_pilots_match_compose.py
+- tests/extraction/tree_sitter_engine/test_api_surface_other_languages.py
 satisfies:
 - REQ-G3-008
 - REQ-G3-005
@@ -188,6 +189,12 @@ inputs:
   FORMAT GATE (supervisor, learned from TC-533): the review runs `ruff format --check` WITHOUT --force-exclude on every file you changed, and the repo config excludes the tree_sitter_engine directory only
   for directory-wide runs. Before you commit, run `ruff format <each changed file, named explicitly>` and `ruff format --check` / `ruff check` on the same explicit list, including src/foss_mcp/extraction/tree_sitter_engine/api_surface.py
   and lang/*.py. If the formatter would rewrite large regions you did not touch, report it instead of committing.
+- >-
+  REWORK AMENDMENT (supervisor, 2026-10-19). tests/extraction/tree_sitter_engine/test_api_surface_other_languages.py is now in write_paths: its two C++ tests (test_cpp_class_with_single_public_base_has_base_in_bases_list
+  and test_cpp_class_with_multiple_bases_and_mixed_access_specifiers_has_all_bases) write the sample to widget.cpp, which the card now rightly does not serve: change the file name to widget.h at those two
+  lines with a TC-534 comment; the shapes under test do not change. Your other decisions are accepted: the lowered RECALL_FLOOR of slides (0.89 -> 0.78) and cells (0.87 -> 0.83) are accepted PROVISIONALLY
+  because the README identifiers that no longer resolve are the 24 implementation types now listed in the allowlist (state this reason in the comment of each floor); friend operators stay unserved (recorded
+  as a limitation, not part of this card). Rebase onto the new issue revision, re-run check 1 and check 2 once more plus tests/extraction, ruff format on the changed file named explicitly, report the head.
 actions:
 - >-
   Fix the C++ extractor and renderer for the four round-3 defect classes and add the synthetic-header and renderer tests.

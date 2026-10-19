@@ -59,6 +59,7 @@ write_paths:
 - docker-compose.yml
 - tests/infra/test_helm_chart.py
 - tests/infra/test_helm_pilots_match_compose.py
+- tests/extraction/tree_sitter_engine/test_api_surface_other_languages.py
 satisfies:
 - REQ-G3-009
 - REQ-G3-008
@@ -119,6 +120,9 @@ inputs:
   FORMAT GATE (supervisor, learned from TC-533): the review runs `ruff format --check` WITHOUT --force-exclude on every file you changed, and the repo config excludes the tree_sitter_engine directory only
   for directory-wide runs. Before you commit, run `ruff format <each changed file, named explicitly>` and `ruff format --check` / `ruff check` on the same explicit list, including src/foss_mcp/extraction/tree_sitter_engine/api_surface.py
   and lang/*.py. If the formatter would rewrite large regions you did not touch, report it instead of committing.
+- >-
+  Also in write_paths: tests/extraction/tree_sitter_engine/test_api_surface_other_languages.py (language-sample tests that write sources under a file name; re-pin only what your extractor change legitimately
+  moves, TC comment, never weaken).
 actions:
 - >-
   Add the unsupported/stub marker to extraction, chunk rendering and the three symbol tools, and the limitation-first rule to lookup.
