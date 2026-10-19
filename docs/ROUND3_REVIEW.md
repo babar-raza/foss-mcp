@@ -224,7 +224,7 @@ reversed by TC-535 and TC-557) were already covered. The rest produced these row
 | RD3-168 | P3 | NEW | hygiene | Untracked `evidence/build/G3/TC-498/` (TC-498 is SUPERSEDED, TC-499 ACCEPTED); 151 agent worktree directories (13.5 GB) under `.claude/worktrees` inside a OneDrive-synced path (excluded by `.git/info/exclude`), 153 registered worktrees, 314 local `worker/*` branches (8 merged), 74 local foss-mcp docker images, stale cluster namespaces poc14b and poc14c. | SUP-5 |
 | RD3-169 | P3 | NEW | reproducibility | `Dockerfile.ingestion` floats the .NET SDK channels (8.0 and 10.0), `uv python install 3.12` and the apt packages (openjdk-21-jdk, maven, g++, cmake, git-lfs): example-verification verdicts depend on the day the image was built (OQ-008 accepted this for the C++ verifier; R2 area 50 found the rest). | TC-570 |
 | RD3-170 | P3 | NEW | environment | `core.hooksPath` is stored as an absolute path and something rewrites it after it is set to `.githooks` (the push script sets it again in the same command). | SUP-5 |
-| RD3-171 | P3 | CONFIRMED | delivery | `.github/workflows/mirror-gitlab.yml` mirrors main to an internal GitLab project (gitlab.recruitize.ai/sialkot/cantt-smallize/aspose-foss-dev-context-mcp, id 1185, internal visibility). Verified 2026-10-19 with the operator-named GITLAB_TOKEN (read-only calls; the token value was never printed or stored): its container registry is ENABLED, image prefix `registry.recruitize.ai/sialkot/cantt-smallize/aspose-foss-dev-context-mcp`; `/v2/` answers with the GitLab Bearer challenge (reachable, 401 without login); one empty repository exists (0 tags, created 2026-10-06); no tag-protection rules; the token is active with read_registry and write_registry scopes and expires 2026-11-12. Still owner-only: the operator confirms this is the intended registry and runs `docker login registry.recruitize.ai`. OWNER-13 records the candidate. | SUP-7 |
+| RD3-171 | P3 | REJECTED | delivery | The internal GitLab project that main is mirrored to has a working container registry (verified read-only on 2026-10-19 with the operator-named GITLAB_TOKEN; nothing printed or stored), but the OPERATOR STATED ON 2026-10-19 THAT IT IS NOT THE DELIVERY REGISTRY. The delivery registry is a different one and the operator will share its access when the logged tasks are done. Do not push to the GitLab registry. | SUP-7 |
 | RD3-172 | P3 | LEAD | publication | The repository is public: review what a push publishes (internal GitLab URL in the mirror workflow, the operator's email in commit metadata, the registry host and image digest once delivered, this register of defects). | SUP-8 |
 
 ## 4. Accepted or upstream (disclose, no product code change)
@@ -296,6 +296,58 @@ application-control policy (retry once), GitHub rate limits during re-extraction
 and card defects found at dispatch (65% of past rework was a card defect: every card here is registered as a DRAFT and must have its
 inputs, numbers and negative control finalised by the supervisor before dispatch, Supervisor rule 5).
 
+## 6.2 Execution sequence (the order in which everything logged will be run; nothing has started)
+
+Rules for the sequence: at most three workers run at once (the host is shared and OneDrive-backed); `gatectl review` runs one at a time; a card is
+dispatched only when its dependencies are accepted and its draft has been finalised (min_tests per check, a real negative control, write_paths checked,
+SUP-1 preflight green); the extraction cards are strictly serial because they share the extractor, the chunk builder and the fleet tests.
+Estimates are wall-clock for the supervisor plus workers in continuous operation.
+
+| Step | What | Depends on | Est. |
+|---|---|---|---|
+| **Phase 0, supervisor preparation** | | | about 1.5 h before the first dispatch, the rest overlaps phase 1 |
+| 0.1 | SUP-5 hygiene, non-destructive first: untracked TC-498 evidence, integrated worktrees and branches (151 directories, 13.5 GB under OneDrive), stale local images, find and stop the `core.hooksPath` rewriter | none | 40 min |
+| 0.2 | SUP-1 card preflight (collected tests vs min_tests per check, check paths, write_paths, negative-control dry run) and run it over every draft card | none | 1.5 h |
+| 0.3 | Finalise the first-wave cards TC-563, TC-560, TC-532 (then TC-568, TC-569) | 0.2 for the preflight; can start by hand | 1 h |
+| 0.4 | SUP-2 owner items re-verified (all but the GitHub token probe), SUP-3 push log, SUP-4 liveness record | none | 1 h, overlaps phase 1 |
+| **Phase 1, first wave** | | | |
+| 1.1 | Dispatch TC-563 (documentation excerpts), TC-560 (drift detection), TC-532 (Python extractor and stale Python fixtures) in parallel | 0.3 | worker 30 to 75 min each |
+| 1.2 | Review and integrate TC-563, then dispatch TC-562 (retrieval) | 1.1 | 25 min review |
+| 1.3 | Review and integrate TC-560, then dispatch TC-561 (install and product-reference truth, tex warning) | 1.1 | 25 min review |
+| 1.4 | Review and integrate TC-532, then dispatch TC-533; fill free worker slots with TC-568 (claims ledger and generation diff) and TC-569 (post-push verification), each reviewed when ready | 1.1 | review about 30 min, rework expected |
+| **Phase 2, serving, install, examples (alongside phase 3)** | | | |
+| 2.1 | TC-562 retrieval relevance | TC-563 | 1 h worker plus review |
+| 2.2 | TC-561 install guidance, product-reference truth, tex not-importable warning | TC-560 | 1 h plus review |
+| 2.3 | TC-564 serving robustness, observability, shipped and hardened rollback tool | TC-560, 562, 563 | 1.2 h plus review |
+| 2.4 | TC-565 example truth (run-based verification, labels, working 3d examples) | TC-561, 562 | 1 h plus review |
+| 2.5 | TC-570 pin the ingestion toolchain | TC-564 | 45 min plus review |
+| **Phase 3, extraction chain, strictly serial** | | | about 10.5 h in total with expected rework |
+| 3.1 | TC-533 TypeScript (cells, 3d, pdf) | TC-532 | 80 min each step: finalise, worker, review, rework, integrate |
+| 3.2 | TC-534 C++ | TC-533 | |
+| 3.3 | TC-535 Go and Rust | TC-534 | |
+| 3.4 | TC-557 Java | TC-535 | |
+| 3.5 | TC-558 .NET | TC-557 | |
+| 3.6 | TC-559 unsupported and stub markers | TC-558 | |
+| 3.7 | TC-566 permanent independent fidelity gate and the stale and environment test repairs | TC-558, TC-567 (done) | |
+| **Phase 4, closing, supervisor** (starts when phases 1 to 3 are all accepted) | | | about 3.5 h |
+| 4.1 | OQ-015: probe the GitHub token (status code only; OWNER-14); if invalid, plan to carry forward the last good sidecars | phase 3 done | 10 min |
+| 4.2 | Build ingestion and serving images at HEAD and import them into the kind node | 4.1 | 10 min |
+| 4.3 | Re-ingest all 32 pilots (acceptRegression only where reasoned), prove, snapshot, apply, compact; review the TC-568 generation diff against the pre-fix tree | 4.2 | 60 min |
+| 4.4 | TC-536 pins, budgets, stale entries, e2e pins, expired exceptions (worker, review) | 4.3 | 1 h |
+| 4.5 | Rebuild the demo image from final HEAD; gate 32 of 32; attack suite; commit the TC-568 claims ledger | 4.4 | 30 min |
+| 4.6 | Independent QA round on the rebuilt image: fresh agents, the 11 NOT_READY pilots and tex/python fully, the TC-566 differential verifier on all 32, agentic workflows | 4.5 | 75 min |
+| 4.7 | TC-537 closure (register statuses, RELEASE.md, PREPROD_REVIEW.md, closure test); SUP-6 claim corrections; SUP-8 exposure review; resolve OQ-012 to OQ-015 | 4.6 | 1 h |
+| 4.8 | `gatectl release-record` (LOCAL_ONLY), full local `scripts/ci_check.sh` green, push main with the push-log row (SUP-3) | 4.7 | 45 min |
+| 4.9 | SUP-7 rehearsal of push, pull-back by digest, gate and release-record against a throw-away local `registry:2` container | 4.8 | 30 min |
+| **Phase 5, delivery (needs the operator)** | | | about 1 h |
+| 5.1 | The operator shares the delivery registry's host, path and access and runs `docker login` | phase 4 done | operator |
+| 5.2 | `push_image.py --dry-run`, then the push, capturing the digest | 5.1 | 15 min |
+| 5.3 | TC-569 pull-back by digest and re-gate against the registry copy | 5.2 | 20 min |
+| 5.4 | `gatectl release-record --push-result`, `gatectl gate-exit G3`, push-log row, final push of main | 5.3 | 15 min |
+
+Totals: about 15.5 h (12 to 24) to the end of phase 4, plus about 1 h for phase 5 once the operator supplies access.
+Tier cut if time forces one (each tier still runs phase 4): tier 1 = TC-532, 533, 535, 557, 558, 560, 561 (about 9 h); tier 2 adds TC-534, 559, 562, 563, 564, 565 (about 5 h); tier 3 adds TC-566, 568, 569, 570 and the closure documents (about 3 h). TC-566 is the permanent gate that prevents recurrence and should not be dropped.
+
 ## 6.1 Supervisor work items (not dispatched to workers: they edit ops/, hosts and the cluster)
 
 Status of every row: OPEN (registered 2026-10-19, nothing executed). TC-537's closure test requires each row marked DONE with an evidence reference
@@ -309,7 +361,7 @@ Status of every row: OPEN (registered 2026-10-19, nothing executed). TC-537's cl
 | SUP-4 | RD3-167 | Liveness record: a committed evidence/liveness.jsonl (one line per supervisor wake or planned pause with the reason) and a decision-log note naming the known gaps as unexplained; no reason is invented. | file present; the 10-18 and 10-19 idle periods recorded as 'waiting for operator' |
 | SUP-5 | RD3-168, RD3-170 | Hygiene, non-destructive first: list, then remove only what is safe: untracked evidence/build/G3/TC-498; agent worktrees whose branch commits are integrated or abandoned (151 directories, 13.5 GB, under a OneDrive path) with `git worktree prune`; worker branches that are integrated; local docker images except the release candidate and the final; cluster namespaces poc14b and poc14c (read-only check first, operator approval before deleting cluster objects). Find what rewrites `core.hooksPath` to an absolute path (IDE git integration, GitHub Desktop or a script) and stop it. | `git worktree list` count, disk freed, `git status` clean, hooksPath stays `.githooks` after a commit |
 | SUP-6 | RD3-164 | Claims audit: append correction notes (no history rewrite) to docs/DECISION_LOG.md for every quoted number that TC-568's ledger does not reproduce (17,000 methods / 0 mismatches, 183 verified examples, 4,445 types, 40 vs 32 pilots in old entries). | each correction cites the TC-568 ledger line |
-| SUP-7 | RD3-160, RD3-171 | Delivery runbook for OWNER-13: the candidate registry is verified (registry.recruitize.ai/sialkot/cantt-smallize/aspose-foss-dev-context-mcp, RD3-171; the GitLab token that proved it expires 2026-11-12) and the operator only confirms it is the intended one and runs `docker login registry.recruitize.ai`; first REHEARSE the whole path against a throw-away local `registry:2` container (push, TC-569 pull-back by digest, gate, release-record) so the real delivery has no first-time step; then: operator `docker login`; `push_image.py --dry-run`; push; TC-569 pull-back verification; `gatectl release-record --push-result`; `gatectl gate-exit G3`; resolve OQ-012..015; record the push-log row. Nothing is pushed before the final image passes the closing steps. | release record state PUSHED; gate-exit reports no problems |
+| SUP-7 | RD3-160, RD3-171 | Delivery runbook for OWNER-13: the operator shares the delivery registry's host, path and access after all other work is done (the GitLab registry that was verified is NOT the target); first REHEARSE the whole path against a throw-away local `registry:2` container (push, TC-569 pull-back by digest, gate, release-record) so the real delivery has no first-time step; then, once the operator has run `docker login` for the real registry: `push_image.py --dry-run`; push; TC-569 pull-back verification; `gatectl release-record --push-result`; `gatectl gate-exit G3`; resolve OQ-012..015; record the push-log row. Nothing is pushed before the final image passes the closing steps. | release record state PUSHED; gate-exit reports no problems |
 | SUP-8 | RD3-172 | Public-repository exposure review before the delivery push: internal GitLab URL, commit-author email, registry host and digest, the ROUND3 register; confirm the secret scan covers docs/ and evidence/. | written review entry in the decision log |
 
 ## 7. Resume instructions
