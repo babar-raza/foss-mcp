@@ -100,6 +100,13 @@ def stale_baked_pilots() -> dict[str, str]:
     return dict(table)
 
 
+def is_really_stale(key: str) -> bool:
+    """True while the baked generation of a listed pilot still differs from its fixture: by its API-Coverage line, or (TC-557, a
+    Java pilot whose counts did not move) by the member lines it renders."""
+    module = importlib.import_module("tests.deploy.test_fleet_consistency")
+    return bool(module.baked_is_stale(key))
+
+
 # -- loading the committed data (each file parsed once) ------------------------------------------------------------------------
 
 
@@ -401,9 +408,7 @@ def test_served_type_chunks_equal_the_fixture_types(key: str) -> None:
         assert not problems, problems
         assert line is not None
         assert served_types == line.types_indexed or line.functions_indexed is None
-        assert coverage_problems(load_fixture(key), active_documents(key)), (
-            f"{key} is not stale: delete it from the table"
-        )
+        assert is_really_stale(key), f"{key} is not stale: delete it from the table"
         return
     fixture_types, _ = fixture_counts(load_fixture(key))
     assert served_types == fixture_types, (
@@ -417,9 +422,7 @@ def test_served_function_chunks_equal_the_fixture_functions(key: str) -> None:
     if key in stale_baked_pilots():
         problems = stale_coverage_problems(active_documents(key))
         assert not problems, problems
-        assert coverage_problems(load_fixture(key), active_documents(key)), (
-            f"{key} is not stale: delete it from the table"
-        )
+        assert is_really_stale(key), f"{key} is not stale: delete it from the table"
         return
     _, fixture_functions = fixture_counts(load_fixture(key))
     assert served_functions == fixture_functions, (
@@ -444,7 +447,7 @@ def test_served_coverage_line_states_the_same_counts(key: str) -> None:
     if key in stale_baked_pilots():
         problems = stale_coverage_problems(texts)
         assert not problems, problems
-        assert coverage_problems(load_fixture(key), texts), f"{key} is not stale: delete it from the table"
+        assert is_really_stale(key), f"{key} is not stale: delete it from the table"
         return
     problems = coverage_problems(load_fixture(key), texts)
     assert not problems, problems

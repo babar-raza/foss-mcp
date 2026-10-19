@@ -60,7 +60,11 @@ def test_a_record_method_is_scoped_to_the_record_not_a_stray_function(tmp_path: 
     package = _package(tmp_path, "Point.java", RECORD)
     types = _extract(package, tmp_path)
     point = next(t for t in types if t["name"] == "Point")
-    assert [m["name"] for m in point["methods"]] == ["sum"]
+    # TC-557: ["sum"] -> ["Point", "sum", "x", "y"]. A record has a canonical constructor and one accessor per
+    # component (JLS 8.10.3, 8.10.4); they are members of the record and are now served. ``sum`` is still the
+    # one method the source declares, and nothing leaks out as a top-level function.
+    assert [m["name"] for m in point["methods"]] == ["Point", "sum", "x", "y"]
+    assert [m["name"] for m in point["methods"] if "implicit" not in m.get("modifiers", [])] == ["sum"]
     stray = [t for t in types if t.get("kind") == "function" and t["name"] == "sum"]
     assert stray == []
 
@@ -70,7 +74,12 @@ def test_ordinary_java_class_interface_and_enum_are_unaffected(tmp_path: Path) -
     types = _extract(package, tmp_path)
     by_name = {t["name"]: t for t in types}
     assert by_name["Box"]["kind"] == "class_declaration"
-    assert [m["name"] for m in by_name["Box"]["methods"]] == ["size"]
+    # TC-557: ["size"] -> ["Box", "size"]. A class that declares no constructor has the implicit default
+    # constructor (JLS 8.8.9), served first and marked ``implicit``; ``size`` is still the one declared method.
+    assert [m["name"] for m in by_name["Box"]["methods"]] == ["Box", "size"]
+    assert [m["name"] for m in by_name["Box"]["methods"] if "implicit" not in m.get("modifiers", [])] == [
+        "size"
+    ]
     assert by_name["Shape"]["kind"] == "interface_declaration"
     assert by_name["Color"]["kind"] == "enum_declaration"
     assert not [t for t in types if t.get("kind") == "function"]
