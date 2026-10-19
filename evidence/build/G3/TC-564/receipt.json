@@ -1,0 +1,142 @@
+{
+  "schema_version": 1,
+  "card": "TC-564",
+  "gate": "G3",
+  "generated_by": "gatectl",
+  "generated_at": "2026-10-19T18:04:02Z",
+  "base_rev": "71784463f24a7cf9ac0384a1000497d81f77e6b4",
+  "head_rev": "4b5dd038c165345f42072bbbdbc38093e1dc60ce",
+  "card_sha256": "ec03dacbee7d4e518a6b8d29f25533595943f1649dd54da35795d1ead20c6866",
+  "fingerprint": {
+    "python": "3.13.2",
+    "platform": "Windows-11-10.0.26200-SP0",
+    "lock_sha256": "7b182948484d7df9614b523f7a8180f795b6c51d55c418728525c1957f3e38ba",
+    "env": {
+      "PYTHONHASHSEED": "0",
+      "PYTHONUTF8": "1",
+      "PYTHONDONTWRITEBYTECODE": "1",
+      "PYTHONIOENCODING": "utf-8",
+      "TZ": "UTC",
+      "LC_ALL": "C.UTF-8",
+      "SOURCE_DATE_EPOCH": "1700000000",
+      "verify_runner": "host"
+    }
+  },
+  "scope": {
+    "ok": true,
+    "changed_paths": [
+      "Dockerfile.ingestion",
+      "Dockerfile.serving",
+      "docs/DEPLOYMENT.md",
+      "infra/rollback.py",
+      "infra/serve_http.py",
+      "src/foss_mcp/indexing/generation_manifest.py",
+      "src/foss_mcp/mcp/health.py",
+      "src/foss_mcp/mcp/server.py",
+      "src/foss_mcp/mcp/sidecar_state.py",
+      "src/foss_mcp/mcp/tools/report_index_freshness.py",
+      "src/foss_mcp/mcp/transport_security.py",
+      "tests/deploy/test_demo_compose.py",
+      "tests/e2e/test_cells_rust_container_session.py",
+      "tests/e2e/test_container_session.py",
+      "tests/e2e/test_pdf_go_container_session.py",
+      "tests/e2e/test_pdf_java_container_session.py",
+      "tests/e2e/test_pdf_typescript_container_session.py",
+      "tests/e2e/test_slides_python_container_session.py",
+      "tests/infra/test_rollback.py",
+      "tests/infra/test_round3_rollback_hardening.py",
+      "tests/infra/test_round3_serving_robustness.py",
+      "tests/infra/test_serve_http.py",
+      "tests/infra/test_serve_http_slash_redirect.py",
+      "tests/infra/test_serve_metrics_prometheus.py",
+      "tests/infra/test_serve_session_cap_observability.py",
+      "tests/infra/test_serve_startup_errors.py",
+      "tests/infra/test_serve_stdio_parity.py",
+      "tests/infra/test_transport_error_sanitising.py",
+      "tests/mcp/test_round3_error_classification.py",
+      "tests/mcp/test_server_wiring.py",
+      "tests/mcp/test_tool_call_log_fields.py",
+      "tests/mcp/test_tool_input_hardening.py",
+      "tests/test_container_build.py"
+    ],
+    "violations": [],
+    "evaluated": true
+  },
+  "runs": [
+    {
+      "run": 1,
+      "checks": [
+        {
+          "command": "{python} -m pytest tests/infra/test_round3_serving_robustness.py tests/infra/test_round3_rollback_hardening.py tests/mcp/test_round3_error_classification.py tests/test_container_build.py -q -rfE -p no:cacheprovider",
+          "exit_code": 0,
+          "duration_s": 178.697,
+          "stdout_sha256": "9df90bc15618c1dffda2a97b4cf0f63c55710c2f5bab236ba1056ab26fc8a03d",
+          "tests": 184,
+          "skipped": 0,
+          "errors": 0,
+          "failures": 0
+        },
+        {
+          "command": "{python} -m pytest tests/mcp tests/infra tests/deploy/test_runbook.py -q -rfE -p no:cacheprovider -k \"not live and not github_http and not repo_native and not test_prepare_rust_library and not test_rust_known\"",
+          "exit_code": 0,
+          "duration_s": 811.489,
+          "stdout_sha256": "d4aca03ca1699aceed59f9f743785bd21fa0d6840a74794076a2ce9389214d37",
+          "tests": 5629,
+          "skipped": 0,
+          "errors": 0,
+          "failures": 0
+        }
+      ],
+      "all_passed": true
+    },
+    {
+      "run": 2,
+      "checks": [
+        {
+          "command": "{python} -m pytest tests/infra/test_round3_serving_robustness.py tests/infra/test_round3_rollback_hardening.py tests/mcp/test_round3_error_classification.py tests/test_container_build.py -q -rfE -p no:cacheprovider",
+          "exit_code": 0,
+          "duration_s": 95.264,
+          "stdout_sha256": "9df90bc15618c1dffda2a97b4cf0f63c55710c2f5bab236ba1056ab26fc8a03d",
+          "tests": 184,
+          "skipped": 0,
+          "errors": 0,
+          "failures": 0
+        },
+        {
+          "command": "{python} -m pytest tests/mcp tests/infra tests/deploy/test_runbook.py -q -rfE -p no:cacheprovider -k \"not live and not github_http and not repo_native and not test_prepare_rust_library and not test_rust_known\"",
+          "exit_code": 0,
+          "duration_s": 651.471,
+          "stdout_sha256": "d4aca03ca1699aceed59f9f743785bd21fa0d6840a74794076a2ce9389214d37",
+          "tests": 5629,
+          "skipped": 0,
+          "errors": 0,
+          "failures": 0
+        }
+      ],
+      "all_passed": true
+    }
+  ],
+  "negative_control": {
+    "kind": "mutate",
+    "patch": "python -X utf8 -c \"import pathlib;p=pathlib.Path('src/foss_mcp/mcp/sidecar_state.py');s=p.read_text(encoding='utf-8');old='SIDECAR_STATE_WARNINGS = True';assert s.count(old)==1;p.write_text(s.replace(old,'SIDECAR_STATE_WARNINGS = False'),encoding='utf-8')\"\n",
+    "patch_sha256": "dd4f18bdaf6e91951188f9225b964ceea3d5575d41a65e5d013a990d309550ff",
+    "applied": true,
+    "patch_applied_failed": true,
+    "exit_codes": [
+      1,
+      1
+    ],
+    "tree_changed": [
+      "M src/foss_mcp/mcp/sidecar_state.py",
+      "?? .junit-0.xml",
+      "?? .junit-1.xml"
+    ]
+  },
+  "holdout": {
+    "ran": false,
+    "passed": true,
+    "detail": "no holdout for this card"
+  },
+  "accepted": true,
+  "reason": "all gates passed"
+}
