@@ -1,0 +1,114 @@
+{
+  "schema_version": 1,
+  "card": "TC-563",
+  "gate": "G3",
+  "generated_by": "gatectl",
+  "generated_at": "2026-10-19T07:24:49Z",
+  "base_rev": "232ec8baf5790c8367b6c519221e8478d2f57f29",
+  "head_rev": "7b371552f50ed05484a382042f69e6f0c69c5101",
+  "card_sha256": "d3255c7523e4b79484cff63b8c26a11cc42e5ca180066b00a9631476d87610cf",
+  "fingerprint": {
+    "python": "3.13.2",
+    "platform": "Windows-11-10.0.26200-SP0",
+    "lock_sha256": "7b182948484d7df9614b523f7a8180f795b6c51d55c418728525c1957f3e38ba",
+    "env": {
+      "PYTHONHASHSEED": "0",
+      "PYTHONUTF8": "1",
+      "PYTHONDONTWRITEBYTECODE": "1",
+      "PYTHONIOENCODING": "utf-8",
+      "TZ": "UTC",
+      "LC_ALL": "C.UTF-8",
+      "SOURCE_DATE_EPOCH": "1700000000",
+      "verify_runner": "host"
+    }
+  },
+  "scope": {
+    "ok": true,
+    "changed_paths": [
+      "src/foss_mcp/mcp/response_budget.py",
+      "src/foss_mcp/mcp/server.py",
+      "src/foss_mcp/mcp/tools/search_docs.py",
+      "tests/mcp/test_response_budget.py",
+      "tests/mcp/test_round3_doc_excerpt.py"
+    ],
+    "violations": [],
+    "evaluated": true
+  },
+  "runs": [
+    {
+      "run": 1,
+      "checks": [
+        {
+          "command": "{python} -m pytest tests/mcp/test_round3_doc_excerpt.py tests/mcp/test_response_budget.py tests/mcp/tools/test_consumer_tools.py -q -rfE -p no:cacheprovider",
+          "exit_code": 0,
+          "duration_s": 9.77,
+          "stdout_sha256": "3a105b429c566a6ab228658f80ae3094d2be8b3cd71c1dc02ddbcc5dceba360f",
+          "tests": 54,
+          "skipped": 0,
+          "errors": 0,
+          "failures": 0
+        },
+        {
+          "command": "{python} -m pytest tests/mcp -q -rfE -p no:cacheprovider -k \"not live and not github_http and not repo_native\"",
+          "exit_code": 0,
+          "duration_s": 98.205,
+          "stdout_sha256": "9e81aa2f1b6dcc8fc2e24aae7c3dd53ac2f184101b8289e028d9812f9d302d24",
+          "tests": 2545,
+          "skipped": 0,
+          "errors": 0,
+          "failures": 0
+        }
+      ],
+      "all_passed": true
+    },
+    {
+      "run": 2,
+      "checks": [
+        {
+          "command": "{python} -m pytest tests/mcp/test_round3_doc_excerpt.py tests/mcp/test_response_budget.py tests/mcp/tools/test_consumer_tools.py -q -rfE -p no:cacheprovider",
+          "exit_code": 0,
+          "duration_s": 4.798,
+          "stdout_sha256": "3a105b429c566a6ab228658f80ae3094d2be8b3cd71c1dc02ddbcc5dceba360f",
+          "tests": 54,
+          "skipped": 0,
+          "errors": 0,
+          "failures": 0
+        },
+        {
+          "command": "{python} -m pytest tests/mcp -q -rfE -p no:cacheprovider -k \"not live and not github_http and not repo_native\"",
+          "exit_code": 0,
+          "duration_s": 103.029,
+          "stdout_sha256": "9e81aa2f1b6dcc8fc2e24aae7c3dd53ac2f184101b8289e028d9812f9d302d24",
+          "tests": 2545,
+          "skipped": 0,
+          "errors": 0,
+          "failures": 0
+        }
+      ],
+      "all_passed": true
+    }
+  ],
+  "negative_control": {
+    "kind": "mutate",
+    "patch": "python -X utf8 -c \"import pathlib;p=pathlib.Path('src/foss_mcp/mcp/response_budget.py');s=p.read_text(encoding='utf-8');old='ADAPTIVE_ITEM_CAP = True';assert s.count(old)==1;p.write_text(s.replace(old,'ADAPTIVE_ITEM_CAP = False'),encoding='utf-8')\"\n",
+    "patch_sha256": "235d68aa4b6172a7bc3288cf6df8812ed70a1e40dcfb08deddc238aff482b0e9",
+    "applied": true,
+    "patch_applied_failed": true,
+    "exit_codes": [
+      1,
+      1
+    ],
+    "tree_changed": [
+      "M src/foss_mcp/mcp/response_budget.py",
+      "?? .junit-0.xml",
+      "?? .junit-1.xml"
+    ]
+  },
+  "holdout": {
+    "ran": false,
+    "passed": true,
+    "detail": "no holdout for this card"
+  },
+  "accepted": true,
+  "reason": "all gates passed"
+}
