@@ -375,9 +375,9 @@ list the releases with `helm list -n foss-mcp` and uninstall each one. The names
 ## Rolling back a generation
 
 A bad publish that was nevertheless accepted is undone by pointing the scope back at an earlier
-generation. Both images contain `/app/infra/rollback.py` (the ingestion image and the serving image, the
-`demo` stage included); no new image is needed. A rollback travels the same fenced path as a publish (it takes a new lease, so a stale writer cannot overwrite it) and
-needs no restart: the serving pod reads the active pointer on every probe, so `/readyz` and the tools follow
+generation. The ingestion image (which the Job below uses) and the standalone `demo` image both contain
+`/app/infra/rollback.py`; no new image is needed. A rollback travels the same fenced path as a publish (it takes
+a new lease, so a stale writer cannot overwrite it) and needs no restart: the serving pod reads the active pointer on every probe, so `/readyz` and the tools follow
 the pointer on the next call.
 
 The manifests claim is `foss-mcp-<family>-<platform>-manifests`, mounted read-only by the serving pod. It is
@@ -524,7 +524,8 @@ Behaviour an operator can see and tune. Every variable is optional; none is a se
 - **Every tool call is traceable.** The call's log line carries `generation_id` and `source_commit` (the commit
   the API symbols were extracted from), and a successful result carries its correlation id in `_meta.correlation_id`
   as an error carries it in `structuredContent.correlation_id`. `serverInfo.version` is `0.1.0+<12 hex of the build
-  commit>`; a plain `docker build` takes it from `--build-arg FOSS_MCP_BUILD_REVISION=<commit>`.
+  commit>`; a plain `docker build` of the `demo` target (or of the ingestion image) takes it from
+  `--build-arg FOSS_MCP_BUILD_REVISION=<commit>`, and the release build writes it into the image itself.
 - **Transport limits.** Host is validated: loopback, IP literals, single-label names (the container, Compose service
   or pod name), the machine host name, `*.svc` and `*.svc.cluster.local` are accepted; any other name needs
   `FOSS_MCP_ALLOWED_HOSTS` (comma separated names, `*.suffix` patterns or `*`) and is answered 421 otherwise.

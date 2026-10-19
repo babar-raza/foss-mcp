@@ -34,19 +34,7 @@ COPY infra/serve_http.py ./infra/serve_http.py
 COPY infra/fetch_product_reference.py ./infra/fetch_product_reference.py
 COPY infra/fetch_recent_releases.py ./infra/fetch_recent_releases.py
 COPY infra/verify_package_registry.py ./infra/verify_package_registry.py
-# The documented recovery tool (docs/DEPLOYMENT.md, "Rolling back a generation") must exist in the image it is
-# run from: `python /app/infra/rollback.py --list` (G3/TC-564). Its only imports are foss_mcp and the standard
-# library, both present here (tests/infra/test_round3_rollback_hardening.py pins that).
-COPY infra/rollback.py ./infra/rollback.py
 ENV PYTHONPATH=/app/src
-
-# The commit this image was built from, for serverInfo.version and the `build_revision` metric label. An image
-# label cannot be read from inside the container, so a build argument is also set as an environment variable
-# (G3/TC-564): `docker build --build-arg FOSS_MCP_BUILD_REVISION=$(git rev-parse HEAD) ...`. Left unset it is
-# empty and the server reports `0.1.0+unknown`, as before. A BUILD_REVISION file written into src/foss_mcp by
-# scripts/release/build_images.py takes precedence.
-ARG FOSS_MCP_BUILD_REVISION=""
-ENV FOSS_MCP_BUILD_REVISION=${FOSS_MCP_BUILD_REVISION}
 
 RUN useradd --create-home --uid 10001 --shell /usr/sbin/nologin foss-mcp \
     && mkdir -p /data/manifests \
@@ -116,8 +104,17 @@ CMD ["python", "/app/infra/serve_stdio.py"]
 # (RD3-126): the DIRECTORIES were not. /data and /data/manifests are created and chowned to the serving user
 # by the runtime stage (a mounted claim must be writable by it), so the user could delete or replace the baked
 # sidecars whenever a peer ran the image without `--read-only`. The demo stage now hands /data and everything
-# under /data/manifests to root, 0755 for directories and 0444 for files (no write bit for anyone), and then
-# returns to the unprivileged user. The Helm chart mounts its own claim over /data/manifests and is unaffected.
+# under /data/manifests to root (directories 0555 there, files 0444: no write bit for anyone) and then returns
+# to the unprivileged user. The Helm chart mounts its own claim over /data/manifests and is unaffected, and
+# the runtime stage above is not touched at all.
+#
+# G3/TC-564: this stage also carries the documented recovery tool, `python /app/infra/rollback.py --list`
+# (docs/DEPLOYMENT.md, "Rolling back a generation"; its only imports are foss_mcp and the standard library,
+# both present here, which tests/infra/test_round3_rollback_hardening.py pins), and the commit the image was
+# built from: an image label cannot be read from inside the container, so the build argument is also set as
+# an environment variable (`docker build --target demo --build-arg FOSS_MCP_BUILD_REVISION=<commit> .`). Left
+# unset it is empty and the server reports `0.1.0+unknown`, as before; a BUILD_REVISION file written into
+# src/foss_mcp by scripts/release/build_images.py takes precedence.
 FROM runtime AS demo
 COPY infra/demo-manifests/ /data/manifests
 USER root
@@ -127,6 +124,9 @@ RUN chown -R root:root /data \
     && find /data/manifests -type f -exec chmod 0444 {} +
 USER foss-mcp
 COPY infra/demo_entrypoint.py ./infra/demo_entrypoint.py
+COPY infra/rollback.py ./infra/rollback.py
+ARG FOSS_MCP_BUILD_REVISION=""
+ENV FOSS_MCP_BUILD_REVISION=${FOSS_MCP_BUILD_REVISION}
 EXPOSE 8080
 ENTRYPOINT ["python", "/app/infra/demo_entrypoint.py"]
 CMD []
