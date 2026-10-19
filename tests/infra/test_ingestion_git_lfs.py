@@ -65,7 +65,8 @@ def _first_source_copy_line() -> int:
 
 def _gpp_cmake_line() -> int:
     for number, instruction in _run_lines_with("apt-get install"):
-        if re.search(r"(?<!\S)g\+\+(?!\S)", instruction) and re.search(r"\bcmake\b", instruction):
+        # TC-570: (?<!\S)g\+\+(?!\S) -> (?<!\S)g\+\+(?:=\S+)?(?!\S) (g++ is now pinned as g++=<version>)
+        if re.search(r"(?<!\S)g\+\+(?:=\S+)?(?!\S)", instruction) and re.search(r"\bcmake\b", instruction):
             return number
     raise AssertionError("Dockerfile.ingestion has no g++/cmake apt-get install instruction")
 
@@ -105,6 +106,10 @@ def test_no_instruction_installs_git_lfs_globally_or_system_wide() -> None:
 
 def test_no_curl_or_wget_download_mentions_git_lfs() -> None:
     for number, instruction in _instructions():
+        # TC-570: every instruction -> every instruction except the LABEL metadata (the toolchain label lists the
+        # pinned apt packages, curl=... and git-lfs=... among them, and downloads nothing)
+        if instruction.startswith("LABEL "):
+            continue
         if re.search(r"\b(curl|wget)\b", instruction):
             assert "git-lfs" not in instruction and "git lfs" not in instruction, (number, instruction)
 

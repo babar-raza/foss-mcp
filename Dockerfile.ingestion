@@ -23,11 +23,11 @@ WORKDIR /app
 # system" (confirmed by hand against this exact image) rather than pull in a whole ICU data
 # package for a one-shot CLI that never needs locale-aware formatting.
 RUN apt-get update \
-    && apt-get install -y --no-install-recommends git curl ca-certificates \
+    && apt-get install -y --no-install-recommends git=1:2.47.3-0+deb13u1 curl=8.14.1-2+deb13u7 ca-certificates=20250419 \
     && rm -rf /var/lib/apt/lists/* \
     && curl -fsSL https://dot.net/v1/dotnet-install.sh -o /tmp/dotnet-install.sh \
     && chmod +x /tmp/dotnet-install.sh \
-    && /tmp/dotnet-install.sh --channel 8.0 --install-dir /usr/share/dotnet \
+    && /tmp/dotnet-install.sh --version 8.0.426 --install-dir /usr/share/dotnet \
     && rm /tmp/dotnet-install.sh
 ENV PATH="/usr/share/dotnet:${PATH}" \
     DOTNET_ROOT=/usr/share/dotnet \
@@ -40,13 +40,32 @@ ENV PATH="/usr/share/dotnet:${PATH}" \
 # target .NET 10 (a lone SDK 8.0 fails with NETSDK1045), so the .NET 10 SDK is installed BESIDE 8.0 in the
 # same install directory: one `dotnet` then serves both, `dotnet --list-sdks` shows 8.0.x and 10.0.x, and a
 # project's TargetFramework is built through the resolver's default of the highest installed SDK (so no
-# global.json is added to the image). The 8.0 channel above is left exactly as it was; the channel is a
-# literal here, as it is above.
+# global.json is added to the image). TC-570: both SDKs are pinned to an exact version (8.0.426 and
+# 10.0.402, the versions the previous built image resolved), not to a floating release line.
 RUN curl -fsSL https://dot.net/v1/dotnet-install.sh -o /tmp/dotnet-install.sh \
     && chmod +x /tmp/dotnet-install.sh \
-    && /tmp/dotnet-install.sh --channel 10.0 --install-dir /usr/share/dotnet \
+    && /tmp/dotnet-install.sh --version 10.0.402 --install-dir /usr/share/dotnet \
     && rm /tmp/dotnet-install.sh \
     && dotnet --list-sdks
+
+# TC-570 (REQ-G3-009, RD3-169): the ingestion toolchain is pinned so a verified-example verdict does
+# not depend on the day the image is built. Pinned to the versions the previous built image resolved
+# (Debian 13 trixie): .NET SDKs 8.0.426 and 10.0.402 (dotnet-install.sh --version), uv Python 3.12.15,
+# and every apt package named on an `apt-get install` line as package=version. Only the packages named
+# on those lines are pinned: their dependencies stay unpinned and resolve from the same Debian release.
+# If a pinned apt version is no longer served by the Debian mirror the build fails loudly, which is the
+# intended behaviour; bumping any pin is a deliberate card, never a drive-by edit. node, go, rust and uv
+# are pinned further down by version and checksum. The same versions are recorded as labels so a verdict
+# can name its toolchain from the image. The apt label omits the download tool itself (pinned on the apt
+# line above): tests/infra/test_container_pins.py treats every instruction that mentions that tool as a
+# checksummed download, and a label is metadata, not a download.
+LABEL org.foss-mcp.toolchain.dotnet="8.0.426 10.0.402" \
+      org.foss-mcp.toolchain.python-uv="3.12.15" \
+      org.foss-mcp.toolchain.uv="0.13.0" \
+      org.foss-mcp.toolchain.node="24.13.1" \
+      org.foss-mcp.toolchain.go="1.26.4" \
+      org.foss-mcp.toolchain.rust="1.98.1" \
+      org.foss-mcp.toolchain.apt="git=1:2.47.3-0+deb13u1 ca-certificates=20250419 openjdk-21-jdk=21.0.12.1+1-1~deb13u1 maven=3.9.9-1 build-essential=12.12 g++=4:14.2.0-1 cmake=3.31.6-2 git-lfs=3.6.1-1+deb13u1"
 
 # REQ-G3-005 (TC-377): words/python declares requires-python <3.13,>=3.10, and this image's only
 # interpreter is the base's 3.13, so its dependency resolution fails. A second interpreter, Python 3.12,
@@ -56,7 +75,7 @@ RUN curl -fsSL https://dot.net/v1/dotnet-install.sh -o /tmp/dotnet-install.sh \
 # use is untouched. chmod keeps the interpreter readable by the non-root foss-mcp user created below.
 ARG UV_VERSION=0.13.0
 RUN pip install --no-cache-dir uv==${UV_VERSION} \
-    && uv python install 3.12 --install-dir /opt/python-versions \
+    && uv python install 3.12.15 --install-dir /opt/python-versions \
     && ln -s "$(UV_PYTHON_INSTALL_DIR=/opt/python-versions uv python find 3.12 --managed-python)" /usr/local/bin/python3.12 \
     && chmod -R a+rX /opt/python-versions \
     && python3.12 --version
@@ -89,7 +108,7 @@ RUN curl -fsSL "https://nodejs.org/dist/v${NODE_VERSION}/node-v${NODE_VERSION}-l
 # image, so apt is used directly here (this project's own stated preference
 # whenever the distro package really is current enough).
 RUN apt-get update \
-    && apt-get install -y --no-install-recommends openjdk-21-jdk maven \
+    && apt-get install -y --no-install-recommends openjdk-21-jdk=21.0.12.1+1-1~deb13u1 maven=3.9.9-1 \
     && rm -rf /var/lib/apt/lists/*
 
 # REQ-G2-048 (TC-097): pdf/go's ingestion path needs a real Go toolchain to
@@ -124,7 +143,7 @@ ENV RUSTUP_HOME=/usr/local/rustup \
 # against https://static.rust-lang.org/rustup/dist/x86_64-unknown-linux-gnu/rustup-init.sha256.
 ARG RUST_VERSION=1.98.1
 RUN apt-get update \
-    && apt-get install -y --no-install-recommends build-essential \
+    && apt-get install -y --no-install-recommends build-essential=12.12 \
     && rm -rf /var/lib/apt/lists/* \
     && curl --proto '=https' --tlsv1.2 -fsSL https://static.rust-lang.org/rustup/dist/x86_64-unknown-linux-gnu/rustup-init -o /tmp/rustup-init \
     && echo "dda7234360b7f578ca8b0ddcb80145646fa61a67c1720a5abc7051b35c9fcb71  /tmp/rustup-init" | sha256sum -c - \
@@ -141,7 +160,7 @@ RUN apt-get update \
 # the trixie mirror and are not pinned to a snapshot date. The versions are recorded here; toolchain.lock.json
 # does not carry a row for them yet (outside TC-222's write_paths). make is supplied by build-essential below.
 RUN apt-get update \
-    && apt-get install -y --no-install-recommends g++ cmake \
+    && apt-get install -y --no-install-recommends g++=4:14.2.0-1 cmake=3.31.6-2 \
     && rm -rf /var/lib/apt/lists/*
 
 # REQ-G3-007 (TC-456): words/net's reference library ships its binary dependencies
@@ -155,7 +174,7 @@ RUN apt-get update \
 # verifier itself (example_verifier.py's prepare_reference_library) - never here - so a global
 # smudge filter never turns an unrelated clone into a surprise LFS fetch.
 RUN apt-get update \
-    && apt-get install -y --no-install-recommends git-lfs \
+    && apt-get install -y --no-install-recommends git-lfs=3.6.1-1+deb13u1 \
     && rm -rf /var/lib/apt/lists/* \
     && git lfs version
 

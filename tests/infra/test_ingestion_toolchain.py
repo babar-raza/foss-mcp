@@ -19,8 +19,9 @@ DOCKERFILE = ROOT / "Dockerfile.ingestion"
 DOTNET_DIR = "/usr/share/dotnet"
 PY_DIR = "/opt/python-versions"
 PINNED_BASE = re.compile(r"^FROM python:3\.13-slim@sha256:[0-9a-f]{64}$")
-CHANNEL = re.compile(r"--channel\s+(\S+)")
-REAL_CHANNEL = re.compile(r"^\d+\.\d+$")
+# TC-570: --channel <major.minor> -> --version <major.minor.patch> (the floating release line is now an exact SDK version)
+DOTNET_VERSION = re.compile(r"--version\s+(\S+)")
+REAL_DOTNET_VERSION = re.compile(r"^\d+\.\d+\.\d+$")
 EXACT_VERSION = re.compile(r"^\d+(\.\d+){1,3}$")
 
 
@@ -55,13 +56,17 @@ def _run_lines_with(needle: str) -> list[tuple[int, str]]:
 
 
 def _dotnet_installs() -> list[tuple[int, str, str]]:
-    """Return (line, channel, install-dir) for every dotnet-install.sh invocation."""
+    """Return (line, version, install-dir) for every dotnet-install.sh invocation.
+
+    TC-570: /tmp/dotnet-install.sh --channel -> /tmp/dotnet-install.sh --version (the second tuple element is
+    now the exact SDK version, not the channel).
+    """
     found: list[tuple[int, str, str]] = []
-    for number, instruction in _run_lines_with("/tmp/dotnet-install.sh --channel"):
-        channel = CHANNEL.search(instruction)
+    for number, instruction in _run_lines_with("/tmp/dotnet-install.sh --version"):
+        version = DOTNET_VERSION.search(instruction)
         install_dir = re.search(r"--install-dir\s+(\S+)", instruction)
-        assert channel and install_dir, f"line {number}: dotnet-install.sh without --channel/--install-dir"
-        found.append((number, channel.group(1), install_dir.group(1)))
+        assert version and install_dir, f"line {number}: dotnet-install.sh without --version/--install-dir"
+        found.append((number, version.group(1), install_dir.group(1)))
     return found
 
 
@@ -81,25 +86,30 @@ def _first_source_copy_line() -> int:
 
 
 def test_the_dotnet_8_install_is_still_present() -> None:
+    # TC-570: channel == "8.0" -> an exact 8.0.x SDK version
     installs = _dotnet_installs()
-    assert any(channel == "8.0" and install_dir == DOTNET_DIR for _, channel, install_dir in installs), (
-        installs
-    )
+    assert any(
+        version.startswith("8.0.") and install_dir == DOTNET_DIR for _, version, install_dir in installs
+    ), installs
 
 
 def test_a_dotnet_10_install_is_present_in_the_same_install_directory() -> None:
+    # TC-570: channel == "10.0" -> an exact 10.0.x SDK version
     installs = _dotnet_installs()
-    ten = [(n, d) for n, channel, d in installs if channel == "10.0"]
-    assert ten, f"no --channel 10.0 install: {installs}"
+    ten = [(n, d) for n, version, d in installs if version.startswith("10.0.")]
+    assert ten, f"no --version 10.0.x install: {installs}"
     assert all(d == DOTNET_DIR for _, d in ten), ten
     # One dotnet serves both SDKs: the 8.0 and 10.0 installs must share a directory.
     assert {d for _, _, d in installs} == {DOTNET_DIR}, installs
 
 
-def test_every_dotnet_channel_is_a_real_channel_string() -> None:
-    for number, channel, _ in _dotnet_installs():
-        assert REAL_CHANNEL.match(channel), f"line {number}: channel {channel!r} is not a numeric channel"
-        assert channel.lower() not in {"latest", "lts", "sts"}
+def test_every_dotnet_version_is_a_real_version_string() -> None:
+    # TC-570: every dotnet channel is a real channel string -> every dotnet version is a real major.minor.patch
+    installs = _dotnet_installs()
+    assert len(installs) == 2, installs
+    for number, version, _ in installs:
+        assert REAL_DOTNET_VERSION.match(version), f"line {number}: version {version!r} is not an exact x.y.z"
+        assert version.lower() not in {"latest", "lts", "sts"}
 
 
 def test_no_global_json_is_added_to_the_image() -> None:
@@ -156,8 +166,9 @@ def test_no_latest_tag_or_unpinned_download_is_introduced() -> None:
 
 
 def test_the_toolchain_layers_follow_the_dotnet_layer_and_precede_the_source_copies() -> None:
-    dotnet_8 = min(n for n, channel, _ in _dotnet_installs() if channel == "8.0")
-    dotnet_10 = min(n for n, channel, _ in _dotnet_installs() if channel == "10.0")
+    # TC-570: channel == "8.0" / "10.0" -> version.startswith("8.0.") / ("10.0.")
+    dotnet_8 = min(n for n, version, _ in _dotnet_installs() if version.startswith("8.0."))
+    dotnet_10 = min(n for n, version, _ in _dotnet_installs() if version.startswith("10.0."))
     python_layer = _run_lines_with("uv python install 3.12")[0][0]
     first_copy = _first_source_copy_line()
     assert dotnet_8 < dotnet_10 < first_copy, (dotnet_8, dotnet_10, first_copy)

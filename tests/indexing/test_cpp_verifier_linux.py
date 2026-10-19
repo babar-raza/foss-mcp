@@ -318,12 +318,11 @@ def test_dockerfile_ingestion_installs_g_plus_plus_and_cmake_through_apt() -> No
     text = DOCKERFILE.read_text(encoding="utf-8")
     install_lines = [line for line in re.sub(r"\\\n", " ", text).splitlines() if "apt-get install" in line]
 
-    assert any(
-        re.search(r"(?:^|\s)g\+\+(?=\s|$)", line) and re.search(r"\bcmake\b", line) for line in install_lines
-    ), install_lines
-    assert "--no-install-recommends" in next(
-        line for line in install_lines if re.search(r"(?:^|\s)g\+\+(?=\s|$)", line)
-    )
+    # TC-570: (?:^|\s)g\+\+(?=\s|$) -> (?:^|\s)g\+\+(?:=\S+)?(?=\s|$) (g++ and cmake are now pinned as package=version)
+    gpp = r"(?:^|\s)g\+\+(?:=\S+)?(?=\s|$)"
+    cmake = r"(?:^|\s)cmake(?:=\S+)?(?=\s|$)"
+    assert any(re.search(gpp, line) and re.search(cmake, line) for line in install_lines), install_lines
+    assert "--no-install-recommends" in next(line for line in install_lines if re.search(gpp, line))
 
 
 @pytest.mark.live
