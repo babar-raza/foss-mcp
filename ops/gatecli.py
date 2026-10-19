@@ -15,6 +15,7 @@ import tempfile
 from pathlib import Path
 
 import cardlint as CL
+import cardpreflight as PF
 import gatectl as G
 import gateverify as V
 import release as R
@@ -593,13 +594,66 @@ def cmd_worker_tick(args) -> int:
     return G.EXIT_OK
 
 
+def _preflight_card(card_id: str) -> tuple[list[str], list[str]]:
+    """Run the card preflight (ops/cardpreflight.py) for one card against the working tree."""
+    card = G.all_cards()[card_id]
+    count = PF.venv_collect_count(G.REPO, str(G.venv_python()), G.run)
+    return PF.preflight(card, G.REPO, count)
+
+
+def cmd_preflight(args) -> int:
+    """Check cards for authoring defects before any worker is dispatched (Round-3 item SUP-1).
+
+    With no argument it checks every card that is not yet accepted or superseded.
+    """
+    cards = G.all_cards()
+    if args.cards:
+        ids = list(args.cards)
+    else:
+        done = {
+            row["id"] for row in V.rebuild_state()["cards"] if row["status"] in ("ACCEPTED", "SUPERSEDED")
+        }
+        ids = sorted(c for c in cards if c not in done)
+    bad = 0
+    for cid in ids:
+        if cid not in cards:
+            print(f"FAIL {cid}: no such card")
+            bad += 1
+            continue
+        problems, warnings = _preflight_card(cid)
+        for p in problems:
+            print(f"FAIL {p}")
+        for w in warnings:
+            print(f"WARN {w}")
+        if problems:
+            bad += 1
+        else:
+            print(f"OK   {cid}: preflight clean" + (f" ({len(warnings)} warning(s))" if warnings else ""))
+    return G.EXIT_FAIL if bad else G.EXIT_OK
+
+
 def cmd_dispatch_next(args) -> int:
-    """Supervisor: dispatch the deterministic next card in one step."""
+    """Supervisor: dispatch the deterministic next card in one step.
+
+    The card must pass the preflight first (a defective card costs a worker round trip and a review). There is no bypass flag:
+    fix the card.
+    """
     state = V.rebuild_state()
     card_id = args.card or V.next_card(state)
     if not card_id:
         print("no READY card to dispatch")
         return G.EXIT_FAIL
+    if getattr(args, "preflight", False):
+        problems, warnings = _preflight_card(card_id)
+        for w in warnings:
+            print(f"WARN {w}")
+        if problems:
+            for p in problems:
+                print(f"FAIL {p}")
+            print(
+                f"DISPATCH REFUSED - {card_id} failed the preflight; fix the card (it has not been dispatched)"
+            )
+            return G.EXIT_FAIL
     ns = argparse.Namespace(
         target=card_id,
         kind=args.kind,
@@ -1574,6 +1628,14 @@ def build_parser():
     sp.add_argument("--kind", default="dispatch")
     sp.add_argument("--instruction")
     sp.add_argument("--attempt", type=int, default=1)
+    sp.set_defaults(preflight=True)
+    sp = sub.add_parser(
+        "preflight",
+        help="check cards for authoring defects before dispatch (min_tests, check paths, negative control)",
+    )
+    sp.add_argument(
+        "cards", nargs="*", help="card ids; default: every card that is not accepted or superseded"
+    )
     sub.add_parser("doctor", help="out-of-repo drift and liveness flags")
     sub.add_parser("resume-brief", help="cold-start brief")
 
@@ -1745,6 +1807,7 @@ HANDLERS = {
     "tick": cmd_tick,
     "worker-tick": cmd_worker_tick,
     "dispatch-next": cmd_dispatch_next,
+    "preflight": cmd_preflight,
     "question-append": cmd_question_append,
     "holdout-check": cmd_holdout_check,
     "commit-guard": cmd_commit_guard,
