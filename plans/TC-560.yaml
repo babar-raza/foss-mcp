@@ -16,6 +16,7 @@ depends_on:
 - TC-554
 - TC-555
 - TC-556
+- TC-466
 write_paths:
 - infra/fetch_recent_releases.py
 - infra/fetch_product_reference.py
@@ -31,6 +32,7 @@ write_paths:
 - tests/mcp/tools/test_release_alignment.py
 - tests/mcp/tools/test_release_index_baked.py
 - tests/infra/test_fetch_recent_releases.py
+- tests/test_unwired_modules.py
 satisfies:
 - REQ-G3-009
 - REQ-G3-008
@@ -65,6 +67,12 @@ inputs:
   (39), test_release_index_baked.py (42, pins the baked sidecars: do not change baked data), tests/infra/test_fetch_recent_releases.py (12). (4) min_tests is 100 for EACH check: check 1 collects at least
   8 new + 23 + 38 + 39 + 12 = 120; check 2 collects 2,500 or more. (5) The live pins named in the acceptance (slides/python 26.8.0, pdf/go v0.11.0, note/python v26.9.0, cells/go v26.7.1) are asserted with
   recorded API responses in tests/infra/test_round3_release_tags.py; the baked-sidecar pins are the closing step's (TC-536).
+- >-
+  REWORK AMENDMENT (supervisor, 2026-10-19). The liveness test tests/test_unwired_modules.py lists the production entrypoints from which it walks the import graph; infra/fetch_recent_releases.py (the container
+  fetch step that calls merge_newer_tags, fetch_drift and order_tags_newest_first of src/foss_mcp/extraction/github_release_reader.py) is not on that list, so the walk reports those three functions as unwired.
+  Add infra/fetch_recent_releases.py to the entrypoint list of that test with a comment `TC-560: the container fetch step that computes the drift record`, and update the module docstring paragraph that
+  enumerates the entrypoints. Do NOT add the three symbols to _KNOWN_UNWIRED: they have a real call site in a production entrypoint, which is exactly what the integration rule requires. tests/test_unwired_modules.py
+  is now in write_paths for this reason only.
 actions:
 - Add ancestry-based drift detection and disclosure, newer-tag merging and the direction fix.
 checks:

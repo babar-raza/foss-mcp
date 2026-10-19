@@ -1,0 +1,118 @@
+{
+  "schema_version": 1,
+  "card": "TC-560",
+  "gate": "G3",
+  "generated_by": "gatectl",
+  "generated_at": "2026-10-19T07:43:43Z",
+  "base_rev": "232ec8baf5790c8367b6c519221e8478d2f57f29",
+  "head_rev": "f9057e588404ee9e3d2c3cb6e727ad13fed27faa",
+  "card_sha256": "6244229ac032b34030b7a9b9fae46e74a2861306c4d4e0d610ea7b8f8b9c7df9",
+  "fingerprint": {
+    "python": "3.13.2",
+    "platform": "Windows-11-10.0.26200-SP0",
+    "lock_sha256": "7b182948484d7df9614b523f7a8180f795b6c51d55c418728525c1957f3e38ba",
+    "env": {
+      "PYTHONHASHSEED": "0",
+      "PYTHONUTF8": "1",
+      "PYTHONDONTWRITEBYTECODE": "1",
+      "PYTHONIOENCODING": "utf-8",
+      "TZ": "UTC",
+      "LC_ALL": "C.UTF-8",
+      "SOURCE_DATE_EPOCH": "1700000000",
+      "verify_runner": "host"
+    }
+  },
+  "scope": {
+    "ok": true,
+    "changed_paths": [
+      "infra/fetch_product_reference.py",
+      "infra/fetch_recent_releases.py",
+      "src/foss_mcp/extraction/github_release_reader.py",
+      "src/foss_mcp/mcp/tools/get_product_reference.py",
+      "src/foss_mcp/mcp/tools/list_recent_changes.py",
+      "src/foss_mcp/mcp/tools/release_alignment.py",
+      "src/foss_mcp/mcp/tools/report_index_freshness.py",
+      "tests/infra/test_round3_release_tags.py",
+      "tests/mcp/tools/test_round3_drift.py"
+    ],
+    "violations": [],
+    "evaluated": true
+  },
+  "runs": [
+    {
+      "run": 1,
+      "checks": [
+        {
+          "command": "{python} -m pytest tests/mcp/tools/test_round3_drift.py tests/infra/test_round3_release_tags.py tests/mcp/tools/test_freshness_tristate.py tests/mcp/tools/test_freshness_provenance.py tests/mcp/tools/test_release_alignment.py tests/infra/test_fetch_recent_releases.py -q -rfE -p no:cacheprovider",
+          "exit_code": 0,
+          "duration_s": 11.457,
+          "stdout_sha256": "38ccef58aa87dcd5f2296783327683f11e8d89d9de0c19a53e8101f64f374e74",
+          "tests": 188,
+          "skipped": 0,
+          "errors": 0,
+          "failures": 0
+        },
+        {
+          "command": "{python} -m pytest tests/mcp tests/infra/test_fetch_recent_releases.py -q -rfE -p no:cacheprovider -k \"not live and not github_http and not repo_native\"",
+          "exit_code": 0,
+          "duration_s": 95.523,
+          "stdout_sha256": "63a9068c68d25f858081c4df95abe3e1d41d5f1dca173c36ff9bebf17b4d507d",
+          "tests": 2561,
+          "skipped": 0,
+          "errors": 0,
+          "failures": 0
+        }
+      ],
+      "all_passed": true
+    },
+    {
+      "run": 2,
+      "checks": [
+        {
+          "command": "{python} -m pytest tests/mcp/tools/test_round3_drift.py tests/infra/test_round3_release_tags.py tests/mcp/tools/test_freshness_tristate.py tests/mcp/tools/test_freshness_provenance.py tests/mcp/tools/test_release_alignment.py tests/infra/test_fetch_recent_releases.py -q -rfE -p no:cacheprovider",
+          "exit_code": 0,
+          "duration_s": 11.253,
+          "stdout_sha256": "38ccef58aa87dcd5f2296783327683f11e8d89d9de0c19a53e8101f64f374e74",
+          "tests": 188,
+          "skipped": 0,
+          "errors": 0,
+          "failures": 0
+        },
+        {
+          "command": "{python} -m pytest tests/mcp tests/infra/test_fetch_recent_releases.py -q -rfE -p no:cacheprovider -k \"not live and not github_http and not repo_native\"",
+          "exit_code": 0,
+          "duration_s": 85.511,
+          "stdout_sha256": "63a9068c68d25f858081c4df95abe3e1d41d5f1dca173c36ff9bebf17b4d507d",
+          "tests": 2561,
+          "skipped": 0,
+          "errors": 0,
+          "failures": 0
+        }
+      ],
+      "all_passed": true
+    }
+  ],
+  "negative_control": {
+    "kind": "mutate",
+    "patch": "python -X utf8 -c \"import pathlib;p=pathlib.Path('src/foss_mcp/mcp/tools/release_alignment.py');s=p.read_text(encoding='utf-8');old='INDEX_AHEAD = chr(34)+chr(105)';q=chr(34);old='INDEX_AHEAD = '+q+'index_ahead_of_package'+q;assert s.count(old)==1;p.write_text(s.replace(old,'INDEX_AHEAD = '+q+'index_ahead_of_pkg'+q),encoding='utf-8')\"\n",
+    "patch_sha256": "c2ce90adba765ab4a8cd1284bea272b39a55212cd89dd5cbd9b32be5f4362350",
+    "applied": true,
+    "patch_applied_failed": true,
+    "exit_codes": [
+      1,
+      1
+    ],
+    "tree_changed": [
+      "M src/foss_mcp/mcp/tools/release_alignment.py",
+      "?? .junit-0.xml",
+      "?? .junit-1.xml"
+    ]
+  },
+  "holdout": {
+    "ran": false,
+    "passed": true,
+    "detail": "no holdout for this card"
+  },
+  "accepted": false,
+  "reason": "offline tests of files this card touches fail at the head: ......................................... [ 80%]"
+}
