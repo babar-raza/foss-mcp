@@ -95,7 +95,10 @@ const Matrix& Identity() {
 """
 
 
-def _extract(tmp_path: Path, source: str, family: str, filename: str = "widget.cpp"):
+# TC-534: ``widget.cpp`` -> ``widget.h``. These sources are header-style class declarations (the out-of-line
+# definitions that follow them are legal in a header too), and a class declared only in a .cpp file is
+# implementation, not API, and is no longer served; the shapes under test are unchanged.
+def _extract(tmp_path: Path, source: str, family: str, filename: str = "widget.h"):
     package = tmp_path / "src"
     package.mkdir()
     (package / filename).write_text(source, encoding="utf-8")

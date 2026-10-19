@@ -2386,7 +2386,7 @@ def _is_cpp_stub(mnode) -> bool:
 # ---------------------------------------------------------------------------
 
 
-def _cpp_canonical_namespace(cnode) -> str:
+def _cpp_canonical_namespace(cnode, include_classes: bool = True) -> str:
     """Walk up the AST from a C++ class node to collect all enclosing namespace
     AND class/struct-type ancestor names (TC-241: a nested class must carry
     its enclosing class in its FQN, not just its enclosing namespace).
@@ -2397,6 +2397,9 @@ def _cpp_canonical_namespace(cnode) -> str:
     class, and the real FQN must reflect that exact order regardless of
     which kind of ancestor each level is.
 
+    TC-534: with ``include_classes=False`` only the namespaces are collected -- a nested type is named
+    ``Outer::Inner`` itself, so its enclosing class must not be in its namespace as well.
+
     Returns names joined with '::' in outermost-to-innermost order.
     Example: class inside 'namespace Aspose { namespace Slides { ... } }' returns
     'Aspose::Slides'. A class 'Builder' nested inside class 'Outer' returns
@@ -2405,7 +2408,7 @@ def _cpp_canonical_namespace(cnode) -> str:
     parts: list[str] = []
     parent = cnode.parent
     while parent is not None:
-        if parent.type == "namespace_definition" or parent.type in _CLASS_TYPES["cpp"]:
+        if parent.type == "namespace_definition" or (include_classes and parent.type in _CLASS_TYPES["cpp"]):
             name_node = child_by_field(parent, "name")
             if name_node:
                 parts.append(node_text(name_node))
@@ -2456,6 +2459,23 @@ _CPP_MODIFIER_ORDER = (
 # A free function declared in a header under one of these directories is implementation detail.
 _CPP_PRIVATE_DIRECTORY_NAMES = frozenset({"internal", "detail", "details", "impl", "private", "src"})
 _CPP_HIDDEN_NAMESPACE_NAMES = frozenset({"detail", "internal"})
+# TC-534 (RD3-020): a C++ data member declared ``static const``, ``static constexpr`` or ``const`` keeps those
+# qualifiers in its ``modifiers`` and is read-only (``writable`` false). Switched off, such a member is
+# recorded as it was before this card: writable, without qualifiers.
+CPP_KEEP_STATIC_CONST_QUALIFIERS = True
+# TC-534 (RD3-022): a namespace or a directory with one of these names (case-insensitive, leading
+# underscores ignored: ``Internal``, ``detail``, ``_internal``) holds implementation, never API.
+_CPP_IMPLEMENTATION_NAMES = frozenset({"internal", "detail"})
+# TC-534 (RD3-022): a type declared in one of these files is not visible to any user of the library.
+_CPP_SOURCE_SUFFIXES = frozenset({".cpp", ".cc", ".cxx", ".c++"})
+# TC-534 (RD3-021): the alias names of a collection's iterator types, extracted as types of the collection.
+_CPP_ITERATOR_ALIAS_NAMES = frozenset(
+    {"iterator", "const_iterator", "reverse_iterator", "const_reverse_iterator"}
+)
+# The specifier words and attributes that start a C++ data member and are not part of its type.
+_CPP_DATA_SPECIFIER_RE = re.compile(
+    r"^(?:(?:static|inline|constexpr|constinit|mutable|thread_local|extern)\b\s*|\[\[.*?\]\]\s*)+"
+)
 _CPP_SCOPE_CONTAINER_TYPES = (
     "preproc_if",
     "preproc_ifdef",
@@ -2640,6 +2660,7 @@ def _extract_cpp_members(cnode, cname: str, rel: str, family: str):
     methods: list[dict[str, Any]] = []
     properties: list[dict[str, Any]] = []
     claims: list[dict] = []
+    short_name = cname.rsplit("::", 1)[-1]  # TC-534: a nested type is named Outer::Inner
     body = find_child_by_type(cnode, "field_declaration_list")
     if body is None:
         return methods, properties, claims
@@ -2673,7 +2694,7 @@ def _extract_cpp_members(cnode, cname: str, rel: str, family: str):
                 "return_type": ret,
                 "doc": _extract_doc_comment(member, "cpp"),
                 "line": member.start_point[0] + 1,
-                "is_constructor": mname == cname,
+                "is_constructor": mname == short_name,
             }
             if modifiers:
                 method["modifiers"] = modifiers
@@ -2689,36 +2710,234 @@ def _extract_cpp_members(cnode, cname: str, rel: str, family: str):
             )
         elif member.type == "field_declaration":
             # Public data member (e.g., std::string name;)
-            fname = ""
-            for ch in member.children:
-                if ch.type in ("identifier", "field_identifier"):
-                    fname = node_text(ch)
-                    break
-            if not fname or fname.startswith("_"):
-                continue
-            ftype = ""
-            type_node = child_by_field(member, "type")
-            if type_node:
-                ftype = node_text(type_node)
-            properties.append(
-                {
-                    "name": fname,
-                    "type": ftype,
-                    "doc": _extract_doc_comment(member, "cpp"),
-                    "line": member.start_point[0] + 1,
-                    "writable": True,  # public data members are read-write
-                }
-            )
-            claims.append(
-                _make_claim(
-                    family,
-                    "api_method",
-                    f"{cname}.{fname} data member of type {ftype}",
-                    rel,
-                    member.start_point[0] + 1,
-                )
-            )
+            data_properties, data_claims = _cpp_data_members(member, cname, rel, family)
+            properties.extend(data_properties)
+            claims.extend(data_claims)
     return methods, properties, claims
+
+
+def _cpp_declarator_chain(decl) -> list:
+    """The declarator wrappers (``* & name[3]``) from *decl* down to, but not including, the name."""
+    chain: list = []
+    cur = decl
+    for _ in range(16):
+        if cur is None or cur.type in ("identifier", "field_identifier"):
+            break
+        chain.append(cur)
+        nxt = child_by_field(cur, "declarator")
+        if nxt is None:
+            nxt = next((c for c in cur.children if c.type in _CPP_DECLARATOR_NODE_TYPES), None)
+        cur = nxt
+    return chain
+
+
+def _cpp_data_members(member, cname: str, rel: str, family: str):
+    """The properties and claims of one C++ ``field_declaration`` that declares data members.
+
+    Every declarator is a member (``int a, *b, c[3];`` is three), whatever wraps its name (pointer,
+    reference, array). The type is the source text of the declaration without its storage specifiers, with
+    each declarator's own ``*``/``&`` prefix and ``[n]`` suffix. TC-534: a member that is ``const`` or
+    ``constexpr`` (a pointer is const only when the ``const`` follows the ``*``) is read-only and is recorded
+    with its ``static``/``constexpr``/``const`` qualifiers (see ``CPP_KEEP_STATIC_CONST_QUALIFIERS``), and
+    so is a ``static`` member.
+    """
+    properties: list[dict[str, Any]] = []
+    claims: list[dict] = []
+    declarators = member.children_by_field_name("declarator")
+    if not declarators:
+        return properties, claims
+    src = member.text
+    offset = member.start_byte
+    head = src[: declarators[0].start_byte - offset].decode("utf-8", errors="replace")
+    base = _CPP_DATA_SPECIFIER_RE.sub("", _cpp_collapse(head)).strip()
+    if not base:
+        type_node = child_by_field(member, "type")
+        base = node_text(type_node) if type_node is not None else ""
+    is_static = any(
+        ch.type == "storage_class_specifier" and node_text(ch).strip() == "static" for ch in member.children
+    )
+    qualifiers = {node_text(ch).strip() for ch in member.children if ch.type == "type_qualifier"}
+    doc = _extract_doc_comment(member, "cpp")
+    line = member.start_point[0] + 1
+    for decl in declarators:
+        name_node = _cpp_declarator_name_node(decl)
+        if name_node is None:
+            continue
+        fname = node_text(name_node).strip()
+        if not fname or fname.startswith("_"):
+            continue
+        chain = _cpp_declarator_chain(decl)
+        is_ref = any(n.type == "reference_declarator" for n in chain)
+        has_pointer = any(n.type == "pointer_declarator" for n in chain)
+        outer_const = bool(chain) and any(
+            c.type == "type_qualifier" and node_text(c).strip() == "const"
+            for c in chain[0].children
+            if chain[0].type == "pointer_declarator"
+        )
+        is_const = (
+            "constexpr" in qualifiers
+            or outer_const
+            or ("const" in qualifiers and not is_ref and not has_pointer)
+        )
+        type_base = base if has_pointer or is_ref else re.sub(r"^const\s+|\s+const$", "", base)
+        prefix = _cpp_collapse(
+            src[decl.start_byte - offset : name_node.start_byte - offset].decode("utf-8", "replace")
+        )
+        suffix = _cpp_collapse(
+            src[name_node.end_byte - offset : decl.end_byte - offset].decode("utf-8", "replace")
+        )
+        ftype = f"{type_base}{prefix}{suffix}".strip()
+        prop: dict[str, Any] = {
+            "name": fname,
+            "type": ftype,
+            "doc": doc,
+            "line": line,
+            "writable": True,  # a public data member is read-write ...
+        }
+        if CPP_KEEP_STATIC_CONST_QUALIFIERS:
+            modifiers = [
+                mod
+                for mod, applies in (
+                    ("static", is_static),
+                    ("constexpr", "constexpr" in qualifiers),
+                    ("const", is_const),
+                )
+                if applies
+            ]
+            if modifiers:
+                prop["modifiers"] = modifiers
+            # ... unless it is const (or a reference to const): then it can be read, never assigned
+            prop["writable"] = not (is_const or (is_ref and "const" in qualifiers))
+        properties.append(prop)
+        claims.append(
+            _make_claim(family, "api_method", f"{cname}.{fname} data member of type {ftype}", rel, line)
+        )
+    return properties, claims
+
+
+def _cpp_in_implementation_scope(node, rel: str) -> bool:
+    """TC-534 (RD3-022): True when the C++ declaration *node*, read from the repository-relative file *rel*,
+    is implementation detail and never API: it is in a ``.cpp`` (or other source) file, under a directory
+    named ``internal`` or ``detail``, or inside an anonymous namespace or one named ``Internal``, ``internal``
+    or ``detail`` (leading underscores and case ignored). ``InternalValidation`` is a different name."""
+    parts = rel.replace("\\", "/").split("/")
+    if Path(parts[-1]).suffix.lower() in _CPP_SOURCE_SUFFIXES:
+        return True
+    if any(part.lstrip("_").lower() in _CPP_IMPLEMENTATION_NAMES for part in parts[:-1]):
+        return True
+    parent = node.parent
+    while parent is not None:
+        if parent.type == "namespace_definition":
+            name_node = child_by_field(parent, "name")
+            if name_node is None:
+                return True
+            if any(
+                seg.strip().lstrip("_").lower() in _CPP_IMPLEMENTATION_NAMES
+                for seg in node_text(name_node).split("::")
+            ):
+                return True
+        parent = parent.parent
+    return False
+
+
+def _cpp_inside_class_body(node) -> bool:
+    """True when *node* is declared (at any depth) in the body of a class or struct."""
+    parent = node.parent
+    while parent is not None:
+        if parent.type == "field_declaration_list":
+            return True
+        parent = parent.parent
+    return False
+
+
+def _cpp_nested_types(cnode, outer_name: str) -> list[dict[str, Any]]:
+    """TC-534 (RD3-021): the public nested types of the class or struct *cnode* (named *outer_name*), nested
+    ones included, in source order. A nested class, struct or enum that has a body, or a ``using``/``typedef``
+    alias named like an iterator, is ``{"node", "name": "Outer::Inner", "alias", "target"}``. Only the
+    ``public`` section is read (a ``class`` starts private, a ``struct`` public); a forward declaration
+    (``class Iterator;``) and an anonymous type are not types of their own."""
+    found: list[dict[str, Any]] = []
+    body = find_child_by_type(cnode, "field_declaration_list")
+    if body is None:
+        return found
+    access = "public" if cnode.type == "struct_specifier" else "private"
+    for member in body.children:
+        if member.type == "access_specifier":
+            access = node_text(member).strip().rstrip(":")
+            continue
+        if access != "public":
+            continue
+        if member.type in ("field_declaration", "declaration"):
+            for ch in member.children:
+                if ch.type not in _CLASS_TYPES["cpp"]:
+                    continue
+                name_node = child_by_field(ch, "name")
+                if name_node is None or name_node.type != "type_identifier":
+                    continue
+                if ch.type == "enum_specifier":
+                    has_body = child_by_field(ch, "body") is not None
+                else:
+                    has_body = find_child_by_type(ch, "field_declaration_list") is not None
+                if not has_body:
+                    continue
+                full = f"{outer_name}::{node_text(name_node).strip()}"
+                found.append({"node": ch, "name": full, "alias": False, "target": ""})
+                if ch.type != "enum_specifier":
+                    found.extend(_cpp_nested_types(ch, full))
+        elif member.type == "alias_declaration":
+            name_node = child_by_field(member, "name")
+            target_node = child_by_field(member, "type")
+            if name_node is not None and node_text(name_node).strip() in _CPP_ITERATOR_ALIAS_NAMES:
+                found.append(
+                    {
+                        "node": member,
+                        "name": f"{outer_name}::{node_text(name_node).strip()}",
+                        "alias": True,
+                        "target": _cpp_collapse(node_text(target_node)) if target_node is not None else "",
+                    }
+                )
+        elif member.type == "type_definition":
+            target_node = child_by_field(member, "type")
+            for decl in member.children_by_field_name("declarator"):
+                if decl.type == "type_identifier" and node_text(decl).strip() in _CPP_ITERATOR_ALIAS_NAMES:
+                    found.append(
+                        {
+                            "node": member,
+                            "name": f"{outer_name}::{node_text(decl).strip()}",
+                            "alias": True,
+                            "target": _cpp_collapse(node_text(target_node))
+                            if target_node is not None
+                            else "",
+                        }
+                    )
+    return found
+
+
+def _cpp_node_key(node) -> tuple[int, int, str]:
+    return (node.start_byte, node.end_byte, node.type)
+
+
+def _cpp_with_nested_types(class_nodes: list) -> tuple[list, dict[tuple[int, int, str], dict[str, Any]]]:
+    """TC-534: *class_nodes* (every class, struct and enum node of a C++ file) without the ones declared in
+    a class body, and with each public type's public nested types (see ``_cpp_nested_types``) following it.
+    Also returns ``{node key: nested info}`` for the nested ones, which ``is_public`` does not accept."""
+    ordered: list = []
+    nested_by_key: dict[tuple[int, int, str], dict[str, Any]] = {}
+    for node in class_nodes:
+        if _cpp_inside_class_body(node):
+            continue
+        ordered.append(node)
+        if node.type == "enum_specifier" or not is_public(node, "cpp"):
+            continue
+        if find_child_by_type(node, "field_declaration_list") is None:
+            continue
+        name = _node_name(node, "cpp")
+        if not name:
+            continue
+        for info in _cpp_nested_types(node, name):
+            nested_by_key[_cpp_node_key(info["node"])] = info
+            ordered.append(info["node"])
+    return ordered, nested_by_key
 
 
 def _cpp_is_public_header(fpath: Path, pkg_root: Path) -> bool:
@@ -2731,7 +2950,7 @@ def _cpp_is_public_header(fpath: Path, pkg_root: Path) -> bool:
     except ValueError:
         parts = fpath.parts[-1:]
     for part in parts[:-1]:
-        low = part.lower()
+        low = part.lower().lstrip("_")  # TC-534: ``_internal`` is an internal directory too
         if low in _CPP_PRIVATE_DIRECTORY_NAMES or low.startswith("internal"):
             return False
     return not parts[-1].lower().startswith("internal")
@@ -2749,8 +2968,11 @@ def _cpp_free_function_candidates(container) -> list:
             name_node = child_by_field(node, "name")
             if name_node is None:
                 continue
-            if any(seg.strip() in _CPP_HIDDEN_NAMESPACE_NAMES for seg in node_text(name_node).split("::")):
-                continue
+            if any(
+                seg.strip().lstrip("_").lower() in _CPP_HIDDEN_NAMESPACE_NAMES
+                for seg in node_text(name_node).split("::")
+            ):
+                continue  # TC-534: ``Internal`` and ``_detail`` hide as ``internal`` and ``detail`` do
             body = child_by_field(node, "body")
             if body is not None:
                 found.extend(_cpp_free_function_candidates(body))
@@ -4836,6 +5058,10 @@ def extract_api_surface(
                 break
 
         class_nodes = collect_nodes(root, class_types)
+        # TC-534 (RD3-021): the public nested types of a C++ type are types of their own (``Outer::Inner``).
+        cpp_nested: dict[tuple[int, int, str], dict[str, Any]] = {}
+        if language == "cpp":
+            class_nodes, cpp_nested = _cpp_with_nested_types(class_nodes)
 
         # TC-525: Go constant groups (``const ( A T = iota ... )``) belong to their owning type.
         if language == "go":
@@ -4861,11 +5087,55 @@ def extract_api_surface(
                         break
 
         for cnode in class_nodes:
-            if not is_public(cnode, language):
+            cpp_nested_info = cpp_nested.get(_cpp_node_key(cnode)) if language == "cpp" else None
+            if cpp_nested_info is None and not is_public(cnode, language):
                 continue
 
-            cname = _node_name(cnode, language)
+            cname = cpp_nested_info["name"] if cpp_nested_info is not None else _node_name(cnode, language)
             if not cname:
+                continue
+
+            # TC-534 (RD3-022): implementation types are not API: a type declared only in a source file, under
+            # an ``internal``/``detail`` directory or namespace, or named ``*_internal`` is not served.
+            if language == "cpp" and (
+                _cpp_in_implementation_scope(cnode, rel)
+                or any(seg.lower().endswith("_internal") for seg in cname.split("::"))
+            ):
+                continue
+
+            # TC-534 (RD3-021): ``using iterator = ...`` / ``typedef ... iterator;`` of a public class.
+            if cpp_nested_info is not None and cpp_nested_info["alias"]:
+                alias_ns = _cpp_canonical_namespace(cnode, include_classes=False)
+                alias_record: dict[str, Any] = {
+                    "name": cname,
+                    "kind": cnode.type,
+                    "doc": _extract_doc_comment(cnode, language),
+                    "file": rel,
+                    "line": cnode.start_point[0] + 1,
+                    "bases": [],
+                    "methods": [],
+                    "properties": [],
+                    "visibility": "public",
+                    "reachable": _compute_reachable(cname, fpath, rel),
+                    "deprecated": False,
+                    "deprecated_reason": "",
+                    "alias_of": cpp_nested_info["target"],
+                }
+                if alias_ns:
+                    alias_record["canonical_namespace"] = alias_ns
+                    alias_record["class_import"] = f"{alias_ns}::{cname}"
+                else:
+                    alias_record["class_import"] = cname
+                classes.append(alias_record)
+                claims.append(
+                    _make_claim(
+                        family,
+                        "api_class",
+                        f"Type alias {cname} defined in {rel}",
+                        rel,
+                        cnode.start_point[0] + 1,
+                    )
+                )
                 continue
 
             # TC-523: a type whose JSDoc says @internal / @hidden / @ignore is not emitted at all.
@@ -5413,7 +5683,7 @@ def extract_api_surface(
 
             # FR-15: canonical_namespace (C++, C#) and class_package (Java)
             if language == "cpp":
-                canonical_ns = _cpp_canonical_namespace(cnode)
+                canonical_ns = _cpp_canonical_namespace(cnode, include_classes=False)
                 if canonical_ns:
                     cls_record["canonical_namespace"] = canonical_ns
                     cls_record["class_import"] = f"{canonical_ns}::{cname}"
