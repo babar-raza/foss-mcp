@@ -49,7 +49,7 @@ PILOTS: list[dict[str, Any]] = [
         "heldBy": "ingestion-pdf-typescript",
         "apiSurface": "/app/fixtures/pdf_typescript/api_surface.json",
         "title": "pdf/typescript API surface",
-        "maxTypes": 4393,  # re-extracted by TC-550: 300 -> 4393
+        "maxTypes": 541,  # re-extracted by TC-550: 300 -> 4393; TC-533: 4393 -> 541 (export surface only)
         "furnishedPage": "/app/fixtures/furnished/pdf_typescript/pages/_index.md",
         "manifestPath": "package.json",
         "library": {
