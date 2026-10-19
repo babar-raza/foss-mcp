@@ -115,7 +115,10 @@ def test_the_fixture_is_non_empty_and_complete() -> None:
     assert data["reduced_type_count"] == len(data["types"])
     # re-extracted by TC-550 at the chart pin 155bfc7: the public surface there is 4393 entries
     # (was 5342 at c672b39), all kept - the cap was raised to the total.
-    assert data["type_count"] == 4393  # re-extracted by TC-550: 5342 -> 4393
+    # TC-533: 4393 -> 541: only the symbols the package entry (src/index.ts) exports are served; the other
+    # internals (2,967 of the 3,060 functions among them) nobody can import. 541 = 530 distinct exported
+    # names + 11 further same-name declarations of 10 of them in other files (the barrel exports by name).
+    assert data["type_count"] == 541
     assert data["reduced_type_count"] == data["type_count"]  # re-extracted by TC-550: 300 -> 4393
     assert data["truncated"] is False  # re-extracted by TC-550: True -> False
 
@@ -128,7 +131,10 @@ def test_the_fixture_contains_real_typescript_names() -> None:
     # shifted slightly from TC-255's run, so this asserts the set, not a fixed order). "Page"
     # in particular is the exact kind of central symbol TC-252's centrality-ranked
     # reduce_fixture fix exists to stop losing to an alphabetical cut.
-    assert {"Page", "Document", "PdfDict", "PdfObject", "StructElement"} <= names
+    # TC-533: {Page, Document, PdfDict, PdfObject, StructElement} -> {Page, Document, StructElement}: PdfDict
+    # and PdfObject are not exported from src/index.ts, so they are no longer served.
+    assert {"Page", "Document", "StructElement"} <= names
+    assert not {"PdfDict", "PdfObject"} & names
     assert all(entry["file"].endswith(".ts") for entry in data["types"])
 
 
@@ -145,7 +151,7 @@ def test_every_entry_is_a_real_typescript_surface_kind() -> None:
         "abstract_class_declaration",
         "interface_declaration",
         "type_alias_declaration",
-        "enum_declaration",  # re-extracted by TC-550: the whole surface holds enums too
+        # TC-533: "enum_declaration" removed: the three enums are internal (not exported from src/index.ts)
         "function",
         "constant",
     }
@@ -186,14 +192,11 @@ def test_a_real_class_and_a_real_type_alias_are_present_with_real_fields() -> No
     method_names = {m["name"] for m in page["methods"]}
     assert {"constructor", "RemoveAnnotation", "AddTextNote"} <= method_names
 
-    # `PdfDict` is a real top-level type alias in src/types.ts - the single most-referenced
-    # bare name in the entire 5274-type surface, yet itself an internal (non-reachable) alias
-    # rather than something re-exported from the package's own index - exactly the kind of
-    # widely-depended-on-but-unexported symbol a pure alphabetical cut has no way to favor.
-    pdf_dict = by_name["PdfDict"]
-    assert pdf_dict["kind"] == "type_alias_declaration"
-    assert pdf_dict["file"] == "src/types.ts"
-    assert pdf_dict["reachable"] is False
+    # `PdfDict` is a real top-level type alias in src/types.ts, an internal alias that the package index
+    # does not re-export. TC-533: reachable False -> not served at all (the fixture holds only the export
+    # surface); `StructElement` (exported from src/index.ts) stands for the exported side.
+    assert "PdfDict" not in by_name
+    assert by_name["StructElement"]["reachable"] is True
 
 
 def test_a_real_function_and_a_real_constant_are_present_with_real_fields() -> None:
@@ -211,13 +214,15 @@ def test_a_real_function_and_a_real_constant_are_present_with_real_fields() -> N
     assert param_names == ["data", "options"]
     assert func["reachable"] is True
 
-    # re-extracted by TC-550: `M` (src/wmlns.ts) does not exist at the chart pin 155bfc7; the same guard
-    # (an internal, non-reachable top-level constant typed `string`) now reads `AP_FONT_KEY`.
-    const = by_name["AP_FONT_KEY"]
+    # re-extracted by TC-550: `M` (src/wmlns.ts) does not exist at the chart pin 155bfc7; the guard read
+    # `AP_FONT_KEY`, an internal constant typed `string`. TC-533: `AP_FONT_KEY` -> `MATHML_NS`
+    # (src/structns.ts, exported from the package index): the internal constant is no longer served.
+    assert "AP_FONT_KEY" not in by_name
+    const = by_name["MATHML_NS"]
     assert const["kind"] == "constant"
-    assert const["file"] == "src/annotdraw.ts"
+    assert const["file"] == "src/structns.ts"
     assert const["type"] == "string"
-    assert const["reachable"] is False
+    assert const["reachable"] is True
 
 
 def test_a_real_inherited_member_carries_the_correct_inherited_from_tag() -> None:

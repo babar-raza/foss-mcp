@@ -12,7 +12,8 @@ both directions:
   properties, a right-hand side on every type alias and no ``@internal`` member.
 
 The re-extraction card regenerates the fixtures and deletes the matching ``KNOWN_GAP`` entries; that is the
-point of the mechanism, not a skipped test.
+point of the mechanism, not a skipped test. TC-533 regenerated cells and 3d: all three fixtures are at
+version 5 and ``KNOWN_GAP`` is empty.
 """
 
 from __future__ import annotations
@@ -34,10 +35,9 @@ PILOTS = (
     "3d_typescript",
 )
 
-KNOWN_GAP: dict[str, str] = {
-    "cells_typescript": "reviewer RST-07: 649 of 657 interface properties served read-only (upstream has 0 readonly), 25 type aliases without a right-hand side, static and optional marks missing",
-    "3d_typescript": "version-1 fixture: interface properties all read-only, optional/static/async marks and parameter defaults were not extracted",
-}
+# TC-533: cells_typescript and 3d_typescript left KNOWN_GAP: both are now at extractor_version 5 (the
+# reviewer's RST-07 gap is closed), so the table is empty. The mechanism stays for the next extractor change.
+KNOWN_GAP: dict[str, str] = {}
 
 _INTERNAL_TAG = re.compile(r"@internal\b")
 

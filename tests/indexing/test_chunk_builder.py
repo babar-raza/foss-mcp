@@ -460,8 +460,12 @@ def test_real_free_functions_get_real_signatures_across_the_three_affected_pilot
         max_types=len(pdf_typescript_fixture["types"]),
     )
     pdf_typescript_text = "\n".join(chunk.text for chunk in pdf_typescript_chunks)
+    # TC-533: `A(a: Float32Array, w, h, x, y) -> number` -> `image(data: Uint8Array, options: FlowImageOptions = {})
+    # -> FlowElement[]`: `A` is an internal function of the package (not exported from src/index.ts), so the
+    # fixture no longer holds it; `image` (src/flow.ts:1199) is exported and is a real free function entry.
     assert (
-        "  - A(a: Float32Array, w: number, h: number, x: number, y: number) -> number" in pdf_typescript_text
+        "  - image(data: Uint8Array, options: FlowImageOptions = {}) -> FlowElement[]"
+        in pdf_typescript_text.splitlines()
     )
 
     # pdf_typescript's real "M" constant (src/wmlns.ts) must also carry its real value now -
@@ -471,9 +475,11 @@ def test_real_free_functions_get_real_signatures_across_the_three_affected_pilot
     # selection.)
     # re-extracted by TC-550: `M` (src/wmlns.ts) does not exist at the chart pin 155bfc7; the same guard (a
     # constant carries its real value) now reads AP_FONT_KEY of src/annotdraw.ts: type string, value 'F0'.
-    constant_chunks = [c.text for c in pdf_typescript_chunks if c.text.startswith("FQN: AP_FONT_KEY\n")]
+    # TC-533: `AP_FONT_KEY` (internal, no longer served) -> `MATHML_NS` of src/structns.ts, exported from the package
+    # index: type string, value 'http://www.w3.org/1998/Math/MathML'.
+    constant_chunks = [c.text for c in pdf_typescript_chunks if c.text.startswith("FQN: MATHML_NS\n")]
     assert len(constant_chunks) == 1
-    assert "Value: string = 'F0'" in constant_chunks[0]
+    assert "Value: string = 'http://www.w3.org/1998/Math/MathML'" in constant_chunks[0]
 
 
 def test_default_max_types_includes_a_type_sorting_after_position_20() -> None:

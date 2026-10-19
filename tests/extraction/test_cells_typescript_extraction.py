@@ -242,9 +242,16 @@ def test_real_inherited_members_carry_the_correct_inherited_from_tag() -> None:
     chart_info = by_import["aspose_cells.types.ChartInfo"]
     assert chart_info["bases"] == ["ShapeInfo"]
     chart_info_props = {p["name"]: p for p in chart_info["properties"]}
-    overridden = {"x", "y", "width", "height", "fromRowOff", "fromColOff", "toRowOff", "toColOff"}
+    # TC-533: {x, y, width, height, fromRowOff, fromColOff, toRowOff, toColOff} -> {fromRowOff, fromColOff,
+    # toRowOff, toColOff}. `x`, `y`, `width` and `height` were never ChartInfo's own: they were the
+    # properties of its `plotArea?: { x; y; width; height }` inline object type (upstream
+    # aspose_cells/types.ts lines 384-389), read as members of ChartInfo before the extractor stopped
+    # harvesting inline object types. ShapeInfo declares them, so ChartInfo inherits them.
+    overridden = {"fromRowOff", "fromColOff", "toRowOff", "toColOff"}
     for own in overridden:
         assert "inherited_from" not in chart_info_props[own]
+    for inherited_geometry in ("x", "y", "width", "height"):
+        assert chart_info_props[inherited_geometry]["inherited_from"] == "aspose_cells.types.ShapeInfo"
     for inherited in shape_info_props - overridden:
         assert chart_info_props[inherited]["inherited_from"] == "aspose_cells.types.ShapeInfo"
 
