@@ -211,7 +211,9 @@ RECALL_EXCEPTION_REASON = {
 # Measured on the regenerated fixtures (LF text, bytes). floor = measured * 0.9 rounded down to a multiple of 10 KB.
 SIZE_FLOOR_BYTES = {
     "pdf_java": 10_127_360,
-    "pdf_typescript": 3_512_320,
+    # TC-533: 3_512_320 -> 931_840 (measured 1,036,658 bytes * 0.9, multiple of 10 KB): internal declarations are no longer
+    # served, 93 exported functions instead of 3,060 and 541 entries instead of 4,393
+    "pdf_typescript": 931_840,
     "pdf_go": 532_480,
     "pdf_python": 1_392_640,
     "slides_python": 1_832_960,
@@ -228,7 +230,8 @@ TOTAL_CEILING_BYTES = 120 * 1024 * 1024
 # methods + properties over every entry, measured, times 0.95 rounded down.
 MEMBER_FLOOR = {
     "pdf_java": 23_187,
-    "pdf_typescript": 5_598,
+    # TC-533: 5_598 -> 2_276 (measured 2,396 * 0.95): only the package export surface is served, 93 functions instead of 3,060
+    "pdf_typescript": 2_276,
     "pdf_go": 1_258,
     "pdf_python": 2_347,
     "slides_python": 3_861,

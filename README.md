@@ -103,7 +103,7 @@ Every pilot exposes the same nine tools. Thin or missing data surfaces as an hon
 This image is a release candidate for peer testing. The independent review of it is not complete.
 
 - Every pilot indexes the whole public surface the extractor found at its pinned commit: pdf/java, for example, holds
-  1,239 of 1,239 types, and pdf/typescript 1,333 of 1,333 types and 3,060 of 3,060 functions. Symbol chunks carry an
+  1,239 of 1,239 types, and pdf/typescript 448 of 448 types and 93 of 93 functions. Symbol chunks carry an
   `API-Coverage:` line that states it, and a miss carries a `coverage_note` only when an index is partial. The index
   holds the public surface only, so a miss does not prove a symbol is absent upstream.
 - Several extractor and documentation improvements were deferred. Missing members, dropped varargs parameters, missing

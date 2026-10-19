@@ -47,7 +47,9 @@ FIXTURES = REPO_ROOT / "tests" / "fixtures"
 # Measured 2026-10-17 on the committed data: 17 pilots with function entries, 3,918 function entries, 10,411 type entries over
 # the fleet. The floors sit well below so a later re-extraction does not need a re-pin; raise them, never lower them.
 MIN_PILOTS_WITH_FUNCTIONS = 15
-MIN_FUNCTION_ENTRIES = 3_000
+# TC-533: 3_000 -> 900. The committed fixtures now hold 953 function entries: pdf/typescript serves only its export surface
+# (93 exported functions instead of 3,060). The floor stays well above zero, below the measured 953.
+MIN_FUNCTION_ENTRIES = 900
 MIN_TYPE_ENTRIES = 9_000
 MIN_PILOTS = 32
 

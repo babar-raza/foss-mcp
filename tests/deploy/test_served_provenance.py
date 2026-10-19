@@ -28,6 +28,7 @@ from foss_mcp.indexing.generation_manifest import GenerationManifestStore
 from foss_mcp.mcp.routing import DeploymentConfig
 from foss_mcp.mcp.server import create_server
 from foss_mcp.mcp.tools.get_symbol import extract_fqn
+from tests.deploy.test_fleet_consistency import STALE_BAKED_PILOTS
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 RELEASE_DIR = REPO_ROOT / "scripts" / "release"
@@ -576,7 +577,12 @@ def test_p1_and_p2_over_the_committed_data_of_every_pilot(tmp_path, family, plat
     p1, p2_entry = entries
     assert (p1["id"], p2_entry["id"]) == ("P1", "P2")
     assert p1["status"] == "pass", (key, p1["reason"])
-    if platform != "python":
+    if key in STALE_BAKED_PILOTS:
+        # TC-533: the fixture was re-extracted and the baked generation is the old one until the supervisor re-ingests
+        # (TC-536 removes the exception), so the sampled signatures may legitimately differ from the fixture. The probe
+        # must still run and still reach a verdict; P1 above (the generation id equals the committed pointer) is asserted.
+        assert p2_entry["status"] in ("pass", "fail"), (key, p2_entry["reason"])
+    elif platform != "python":
         assert p2_entry["status"] == "pass", (key, p2_entry["reason"], p2_entry["evidence"])
     else:
         # A committed Python generation may pre-date the TC-522 slot cap and re-export pairing until the final

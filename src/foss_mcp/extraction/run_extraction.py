@@ -73,7 +73,7 @@ RECOMMENDED_MAX_TYPES: dict[str, int] = {
     "slides/python": 1023,
     "words/python": 391,
     "pdf/go": 357,
-    "pdf/typescript": 4393,
+    "pdf/typescript": 541,
 }
 
 # The share of the cap that README-named types may take (after the example-used types).
