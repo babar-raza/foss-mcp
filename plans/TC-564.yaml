@@ -43,6 +43,24 @@ write_paths:
 - tests/infra/test_round3_rollback_hardening.py
 - tests/mcp/test_round3_error_classification.py
 - tests/test_container_build.py
+- tests/mcp/test_server_wiring.py
+- tests/infra/test_serve_http.py
+- tests/infra/test_serve_metrics_prometheus.py
+- tests/infra/test_serve_session_cap_observability.py
+- tests/infra/test_transport_error_sanitising.py
+- tests/infra/test_serve_http_slash_redirect.py
+- tests/mcp/test_tool_input_hardening.py
+- tests/infra/test_serve_stdio_parity.py
+- tests/mcp/test_tool_call_log_fields.py
+- tests/infra/test_rollback.py
+- tests/infra/test_serve_startup_errors.py
+- tests/deploy/test_demo_compose.py
+- tests/e2e/test_container_session.py
+- tests/e2e/test_pdf_go_container_session.py
+- tests/e2e/test_pdf_java_container_session.py
+- tests/e2e/test_pdf_typescript_container_session.py
+- tests/e2e/test_slides_python_container_session.py
+- tests/e2e/test_cells_rust_container_session.py
 satisfies:
 - REQ-G3-009
 - REQ-G3-008
@@ -81,6 +99,19 @@ inputs:
   and the file is not excluded by .dockerignore) which run without docker. (4) min_tests is 30 for EACH check: the first check collects the 10 existing tests plus at least 20 you add; the second check (tests/mcp,
   tests/infra, runbook) collects 5,122 or more. (5) The real Rust builds stay deselected as written; the tests you add are offline and start the server in-process (httpx/starlette test client or a loopback
   uvicorn on an ephemeral port that the test shuts down).
+- "REWORK AMENDMENT (supervisor, 2026-10-19). The first delivery (commits 94fe198b, 18c8ff36) is accepted in substance; the tests listed in your report that pin a behaviour the card MANDATES (Prometheus\
+  \ /metrics by default, JSON-RPC rejection body, Host validation, unavailable for an absent releases sidecar, correlation id in _meta, rollback refusing a 1-chunk or 0-symbol target without --force, the\
+  \ exact uvicorn kwargs, root-owned read-only /data/manifests) are now in write_paths. Update ONLY the pinned fact in each, with the comment TC-564: <old> -> <new> and the reason in the report; never delete,\
+  \ skip or loosen. Specifics: (a) tests that call /metrics expecting JSON add ?format=json where they test the legacy numbers (and keep a test that the default is Prometheus text); (b) rejection-body tests\
+  \ assert the new JSON-RPC error shape and keep the status code; (c) the tests that send Host: evil.example to prove something else send a loopback Host and a separate test keeps proving the 421; (d) list_recent_changes\
+  \ with an absent sidecar is unavailable in the server-wrapper tests (the stdio-parity and tool-hardening tests assert the new honest answer); the boot WARNING lines are filtered or counted in test_a_suppressed_unsafe_message_warning_log_line...\
+  \ (assert that the line with the correlation id exists, not that it is the only warning); (e) test_a_failing_metrics_registry_never_changes_the_tool_result compares results without the per-call _meta.correlation_id;\
+  \ (f) the three rollback tests that roll back to a single-chunk generation pass --force (they test the mechanics, not the floors; the floors have their own tests in your new file); (g) test_serve_startup_errors\
+  \ pins the uvicorn kwargs: add the http kwarg to the expectation; (h) tests/deploy/test_demo_compose.py: the two tests that forbid chown/USER in the demo stage are replaced by their inverse (baked data\
+  \ is root-owned and read-only to the serving user; the entrypoint still runs as the unprivileged user) with the reason; (i) the docker-only e2e container-session tests assert the old rejection body \b\
+  ody['error']=='rejected': update them to the JSON-RPC shape (you cannot run them; keep the edit minimal and mechanical, and list them in the report as NOT RUN); (j) run the wider suites (tests/mcp, tests/infra,\
+  \ tests/deploy, top-level tests/test_*.py, usual -k filter) and report that ALL are green. The five real-docker-build tests of tests/test_container_build.py stay environment-gated and are run by the supervisor\
+  \ at the closing build. Rebase your two commits onto the new issue revision."
 actions:
 - >-
   Fix sidecar state reporting, ship and harden rollback, classify storage errors, complete observability, session and transport hardening, ownership.
