@@ -52,6 +52,10 @@ inputs:
   an empty tuple in the test. The pinned versions equal the versions listed above. Do not run docker. (5) TEST COUNTS: min_tests is 16 for EACH check: the first check collects the 10 existing tests of tests/test_container_build.py
   plus the at least 6 you add in tests/infra/test_ingestion_toolchain_pins.py; the second check collects well over 1,500. The existing docker-build test of test_container_build.py is environment-gated;
   do not run it.
+- >-
+  FORMAT GATE (supervisor, learned from TC-533): the review runs `ruff format --check` WITHOUT --force-exclude on every file you changed, and the repo config excludes the tree_sitter_engine directory only
+  for directory-wide runs. Before you commit, run `ruff format <each changed file, named explicitly>` and `ruff format --check` / `ruff check` on the same explicit list, including src/foss_mcp/extraction/tree_sitter_engine/api_surface.py
+  and lang/*.py. If the formatter would rewrite large regions you did not touch, report it instead of committing.
 actions:
 - >-
   Pin the .NET, uv-Python and apt toolchain versions in Dockerfile.ingestion and test that nothing floats.

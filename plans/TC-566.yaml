@@ -80,6 +80,10 @@ inputs:
   in source_differential.py initialised to 0.0 for the offline micro-libraries and overridable by a JSON file the supervisor writes at closing time. (5) TEST COUNTS: min_tests is 160 for EACH check. The
   first check (the two new test files, test_githooks.py, test_run_extraction_coverage_policy.py, test_image_workflow_gate.py) collects 138 existing tests plus the at least 22 you add (at least 14 in test_source_differential.py,
   at least 6 in test_fleet_live_smoke.py, at least 2 for the gate switch); the second check collects well over 2,500.
+- >-
+  FORMAT GATE (supervisor, learned from TC-533): the review runs `ruff format --check` WITHOUT --force-exclude on every file you changed, and the repo config excludes the tree_sitter_engine directory only
+  for directory-wide runs. Before you commit, run `ruff format <each changed file, named explicitly>` and `ruff format --check` / `ruff check` on the same explicit list, including src/foss_mcp/extraction/tree_sitter_engine/api_surface.py
+  and lang/*.py. If the formatter would rewrite large regions you did not touch, report it instead of committing.
 actions:
 - >-
   Build the independent differential verifier and the 32-pilot live smoke, wire them into the release gate, repair the stale and environment-sensitive tests.

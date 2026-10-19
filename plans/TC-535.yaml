@@ -206,6 +206,10 @@ inputs:
 - >-
   Also in write_paths now: tests/infra/test_helm_chart.py (its local PILOTS table pins each pilot's maxTypes) and tests/infra/test_helm_pilots_match_compose.py: re-pin a pilot's maxTypes there only if you
   changed that pilot's cap in the chart, compose and RECOMMENDED_MAX_TYPES.
+- >-
+  FORMAT GATE (supervisor, learned from TC-533): the review runs `ruff format --check` WITHOUT --force-exclude on every file you changed, and the repo config excludes the tree_sitter_engine directory only
+  for directory-wide runs. Before you commit, run `ruff format <each changed file, named explicitly>` and `ruff format --check` / `ruff check` on the same explicit list, including src/foss_mcp/extraction/tree_sitter_engine/api_surface.py
+  and lang/*.py. If the formatter would rewrite large regions you did not touch, report it instead of committing.
 actions:
 - >-
   Fix the Go and Rust extractor and renderer for the seven round-3 defect classes and add the synthetic-source and renderer tests.
