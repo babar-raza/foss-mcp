@@ -6,9 +6,7 @@ purpose: >-
   response is tiny; 58% of served documentation chunks are cut (64% of pdf/python hits; a 7,604-character developer-guide chunk is returned as 1,525), 11 are cut inside a code fence, and the marker says
   'narrow the query or call search_docs for the passages not shown' although a narrowed query returns the same chunk cut at the same offset. FIX: size the per-item cap from the remaining total budget (the
   24,576-byte total cap stays), never cut inside a code fence, and add a documented way to fetch the rest of a truncated documentation chunk (a chunk_id plus offset or part parameter on search_docs, listed
-  in the tool schema and in the marker text). REGISTERED AS A DRAFT on 2026-10-17 from docs/ROUND3_REVIEW.md: before dispatch the supervisor re-reads this card against the merged code, calibrates min_tests
-  (it applies to EACH check), replaces the placeholder negative control with a real falsifier that has no backslash, and verifies every file named in write_paths (Supervisor rule 5). Nothing here has been
-  executed.
+  in the tool schema and in the marker text). FINALISED for dispatch on 2026-10-19 by the supervisor (min_tests calibrated per check, negative control authored, write_paths checked).
 depends_on:
 - TC-550
 - TC-553
@@ -21,6 +19,7 @@ write_paths:
 - src/foss_mcp/mcp/tools/search_docs.py
 - src/foss_mcp/mcp/server.py
 - tests/mcp/test_round3_doc_excerpt.py
+- tests/mcp/test_response_budget.py
 satisfies:
 - REQ-G3-009
 - REQ-G3-008
@@ -43,11 +42,19 @@ inputs:
   or line boundary outside a code fence, the marker names the exact call that returns the rest, and that call returns the remainder on the real baked pdf/python data (34 of 53 hits previously cut, 0 after);
   the total response cap and every existing budget test still hold; the tool schema documents the new argument. INDEPENDENT ORACLE: the chunk text is read from the baked generation JSON, not from a tool
   response.
+- >-
+  FINALISATION NOTES (supervisor, 2026-10-19). (1) Mandated names: response_budget.py keeps `ITEM_TEXT_CAP = 1536` as the FLOOR of the per-item cap, defines the exact line `ADAPTIVE_ITEM_CAP = True` (when
+  False the budget behaves exactly as today with the fixed cap, so the flag is a real switch and the negative control can turn it off), and a function `_item_cap(remaining_bytes: int, item_count: int) ->
+  int` that returns max(ITEM_TEXT_CAP, the share of the remaining total budget) when the flag is True. (2) tests/mcp/test_response_budget.py (16 tests today) asserts `len(body) <= ITEM_TEXT_CAP` at lines
+  124, 138 and 234: change ONLY those assertions to the adaptive bound (`<= max cap actually granted` computed from `_item_cap`) and keep every other assertion; list each change with its reason. (3) tests/deploy/test_image_workflow_gate.py
+  mentions the budget text: if it fails because of the new marker text stop and report its assertion (it is not in write_paths). (4) The first check collects 12 (consumer tools) + 16 (budget) + the tests
+  you add (at least 8) = at least 36; min_tests is 32 for each check; the second check (tests/mcp, filtered) collects 2519 at the issue revision. (5) Independent oracle: read the documentation chunk text
+  for the pdf/python case straight from the generation JSON under infra/demo-manifests/pdf__python__self_extracted/ in the test.
 actions:
 - Make the per-item cap adaptive, fence-aware and recoverable.
 checks:
 - command: >-
-    {python} -m pytest tests/mcp/test_round3_doc_excerpt.py tests/mcp/tools/test_consumer_tools.py -q -rfE -p no:cacheprovider
+    {python} -m pytest tests/mcp/test_round3_doc_excerpt.py tests/mcp/test_response_budget.py tests/mcp/tools/test_consumer_tools.py -q -rfE -p no:cacheprovider
   expect: exit 0
   timeout_seconds: 1800
   junitxml: true
@@ -62,16 +69,16 @@ checks:
   proves:
   - REQ-G3-009
   - REQ-G3-008
-min_tests: 8
+min_tests: 32
 network: true
 requires:
 - python
 negative_control:
   mutate: |
-    python -X utf8 -c "print('negative control to be authored before dispatch')"
+    python -X utf8 -c "import pathlib;p=pathlib.Path('src/foss_mcp/mcp/response_budget.py');s=p.read_text(encoding='utf-8');old='ADAPTIVE_ITEM_CAP = True';assert s.count(old)==1;p.write_text(s.replace(old,'ADAPTIVE_ITEM_CAP = False'),encoding='utf-8')"
   rationale: >-
-    PLACEHOLDER written at registration. The supervisor replaces it, before dispatch, with a falsifier that breaks the card's central claim in the code the worker writes (a mandated constant or function
-    name) so that a named new test fails.
+    Turns off the adaptive per-item cap (the mandated module constant ADAPTIVE_ITEM_CAP) so the budget falls back to the fixed legacy cap: the new tests that a 5 KB documentation chunk in an otherwise small
+    response is returned in full, and that the cut never falls inside a code fence, fail at once. A real break of the card's central claim.
 evidence:
 - evidence/build/G3/TC-563/receipt.json
 closeout:
