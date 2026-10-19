@@ -226,6 +226,12 @@ def test_each_tool_is_callable_against_the_real_container(session: _McpSession, 
     assert response.status_code == 200
     body = _sse_json(response.text)
     assert "result" in body, body
+    if tool_name == "list_recent_changes":
+        # TC-564: this compose serving container has an empty manifest store (no recent-releases sidecar); `[]` ->
+        # `unavailable` (a missing file is not "no releases").
+        assert body["result"]["isError"] is True
+        assert body["result"]["structuredContent"]["code"] == "unavailable"
+        return
     assert body["result"]["isError"] is False
 
 
