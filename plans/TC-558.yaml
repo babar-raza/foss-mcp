@@ -8,9 +8,8 @@ purpose: >-
   (words/net `Image = SkiaSharp.SKBitmap` per target framework, CS1503; pdf/net `SdiImageFormat` in 14 overloads, CS0103), a generic and a non-generic type with the same name merged (3d/net TriMesh and
   TriMesh<T>, CS1501), generic base lists cut at the comma (pdf/net 8, words/net 4), delegates (pdf/net 14, 3d/net 3) and events (pdf/net 7) not indexed, three words/net types in `#if CPLUSPLUS public #else
   internal` treated as public, implicit default constructors not rendered (pdf/net 139, words/net 134, slides/net 70, cells/net 8), email/net record members lost (34). Verified faithful and to be preserved:
-  return types, static/abstract/override/virtual flags, ref/out/params, default values, indexers, overload sets (Scene.Open 9, PdfConverter.GetNextImage 22), inheritance (0 chain violations). REGISTERED
-  AS A DRAFT on 2026-10-17 from docs/ROUND3_REVIEW.md: before dispatch the supervisor re-reads this card against the merged code, calibrates min_tests (it applies to EACH check), replaces the placeholder
-  negative control with a real falsifier that has no backslash, and verifies every file named in write_paths (Supervisor rule 5). Nothing here has been executed.
+  return types, static/abstract/override/virtual flags, ref/out/params, default values, indexers, overload sets (Scene.Open 9, PdfConverter.GetNextImage 22), inheritance (0 chain violations). FINALISED
+  for dispatch on 2026-10-19 by the supervisor (min_tests calibrated per check, negative control authored, write_paths checked).
 depends_on:
 - TC-550
 - TC-553
@@ -37,6 +36,19 @@ write_paths:
 - tests/extraction/test_reextracted_dotnet.py
 - tests/extraction/test_reextracted_uncapped.py
 - tests/deploy/test_fleet_consistency.py
+- tests/extraction/test_3d_net_extraction.py
+- tests/extraction/test_cells_net_extraction.py
+- tests/extraction/test_email_net_extraction.py
+- tests/extraction/test_imaging_net_extraction.py
+- tests/extraction/test_pdf_net_extraction.py
+- tests/extraction/test_slides_net_extraction.py
+- tests/extraction/test_words_net_extraction.py
+- tests/extraction/tree_sitter_engine/test_api_surface_csharp.py
+- tests/extraction/tree_sitter_engine/test_api_surface_csharp_signatures.py
+- tests/extraction/test_central_classes_dotnet.py
+- tests/indexing/test_chunk_builder.py
+- tests/indexing/test_chunk_builder_honesty.py
+- tests/infra/test_build_chunks.py
 satisfies:
 - REQ-G3-009
 - REQ-G3-008
@@ -65,12 +77,37 @@ inputs:
   on the regenerated real fixtures.
 - >-
   RE-PINS as in TC-557 (comment `TC-558: <old> -> <new>`, STALE_BAKED_PILOTS entries until the supervisor re-ingests).
+- >-
+  FINALISATION NOTES (supervisor, 2026-10-19). (1) Mandated name: in src/foss_mcp/extraction/tree_sitter_engine/api_surface.py the exact line `CSHARP_INDEX_OPERATORS = True`, a real switch: when False operators
+  and conversions are skipped exactly as before this card. The other acceptance items have their own tests. (2) The acceptance's oracle sentence is replaced: the new tests must NOT run dotnet or any SDK
+  (the SDK is not reliable on this host); the oracle is a hand-written C# source whose answer follows from the C# language rules, written in the test and run through the extractor offline, plus assertions
+  on the committed real fixtures. Real pins to assert on the regenerated fixtures (the round-3 audit read them from the compiled assemblies; verify each against the clone at the chart pin and report any
+  that is wrong): 3d/net `TriMesh` and `TriMesh<T>` are two symbols with distinct FQNs; 3d/net `Vector3` lists `operator +`; the operator/conversion count is about 67 for 3d/net and 17 for pdf/net (count
+  them directly on the cloned source with a regex or tree walk in the test and assert equality or a stated floor); pdf/net `HtmlSaveOptions.FontSavingMode` is served; pdf/net `SdiImageFormat` resolves in
+  the 14 overloads that use it; words/net `Image` alias resolves to the SkiaSharp bitmap type or carries an explicit marker; pdf/net generic base lists (8) and words/net (4) are not cut at the comma; delegates
+  (pdf/net 14, 3d/net 3) and events (pdf/net 7) are indexed; the three words/net types declared under `#if CPLUSPLUS public #else internal` are not served as public; implicit default constructors render
+  for pdf/net, words/net, slides/net and cells/net classes without a declared constructor; email/net record members are listed. (3) RE-EXTRACTION (needs the network; clones over https, no token; a refused
+  clone or rate limit is BLOCKED_EXTERNAL with the resume predicate `git fetch of <repo>@<sha> succeeds`, never a retry loop): for each pilot in 3d, cells, email, imaging, pdf, slides, words run from the
+  repository root `python -X utf8 -m foss_mcp.extraction.run_extraction config/products/<family>/net.yaml tests/fixtures/<family>_net/api_surface.json --commit <pin> --keep-names-from tests/fixtures/furnished/<family>_net/pages/_index.md
+  --max-types 100000` where <pin> is `ingestion.pilots[].library.commit` of infra/helm/foss-mcp/values.yaml for that pilot (never retype a commit). Each prints `wrote <path> (<bytes> bytes); <kept>/<total>
+  types; commit <sha>`: kept must equal total and the commit must equal the pin; normalise CRLF to LF. Every regenerated fixture carries extractor_version 5, symbol_counts, counts and parse_failures. At
+  registration: 3d/net 293 types, cells/net 98, email/net 29, imaging/net 3, pdf/net 901, slides/net 264, words/net 618. words/net alone needs a long clone (about 8 minutes): run it as its own command with
+  a bounded wait. Record old and new counts and byte sizes in the report. The chart and compose are not in write_paths: chart caps are 300 (3d, cells, email, imaging, slides), 901 (pdf), 618 (words); if
+  a measured total exceeds a cap, report it. (4) EXISTING TESTS: the per-pilot .NET tests, test_api_surface_csharp*.py, test_central_classes_dotnet.py, test_chunk_builder.py, test_chunk_builder_honesty.py
+  and test_build_chunks.py may pin an old fact; change only such an assertion with the comment `TC-558: <old> -> <new>`, list each with its reason, never delete, skip or loosen. tests/fixtures/readme_identifier_allowlist.json
+  only with the helper `python -X utf8 -m tests.extraction.docs_identifiers --write`; only keys of these seven pilots may change. If a test outside write_paths fails, stop and report its name and the pinned
+  fact. (5) TEST COUNTS: min_tests is 535 for EACH check. The first check collects 509 existing tests (the thirteen existing files it names; the two new files do not exist yet) plus the at least 26 you
+  add in the two new files (at least 18 extractor tests in test_round3_dotnet_fidelity.py and at least 8 renderer tests in test_chunk_builder_round3_dotnet.py); the second check collects well over 2,500.
 actions:
 - >-
   Regenerate the seven .NET fixtures with the fixed extractor and renderer; add the .NET fidelity tests.
 checks:
 - command: >-
-    {python} -m pytest tests/extraction/test_round3_dotnet_fidelity.py tests/indexing/test_chunk_builder_round3_dotnet.py tests/extraction/test_reextracted_dotnet.py -q -rfE -p no:cacheprovider
+    {python} -m pytest tests/extraction/test_round3_dotnet_fidelity.py tests/indexing/test_chunk_builder_round3_dotnet.py tests/extraction/test_reextracted_dotnet.py tests/extraction/test_3d_net_extraction.py
+    tests/extraction/test_cells_net_extraction.py tests/extraction/test_email_net_extraction.py tests/extraction/test_imaging_net_extraction.py tests/extraction/test_pdf_net_extraction.py tests/extraction/test_slides_net_extraction.py
+    tests/extraction/test_words_net_extraction.py tests/extraction/tree_sitter_engine/test_api_surface_csharp.py tests/extraction/tree_sitter_engine/test_api_surface_csharp_signatures.py tests/extraction/test_central_classes_dotnet.py
+    tests/deploy/test_fleet_consistency.py tests/extraction/test_docs_identifiers_resolve.py -q -rfE -p no:cacheprovider -k "not live and not github_http and not repo_native and not test_prepare_rust_library
+    and not test_rust_known"
   expect: exit 0
   timeout_seconds: 1800
   junitxml: true
@@ -78,7 +115,7 @@ checks:
   - REQ-G3-009
   - REQ-G3-008
 - command: >-
-    {python} -m pytest tests/extraction tests/indexing/test_chunk_builder.py tests/indexing/test_chunk_builder_honesty.py tests/deploy/test_fleet_consistency.py tests/deploy/test_served_coverage_matches_fixtures.py
+    {python} -m pytest tests/extraction tests/mcp tests/indexing/test_chunk_builder.py tests/indexing/test_chunk_builder_honesty.py tests/infra/test_build_chunks.py tests/deploy/test_served_coverage_matches_fixtures.py
     tests/deploy/test_compact_demo_manifests.py -q -rfE -p no:cacheprovider -k "not live and not github_http and not repo_native and not test_prepare_rust_library and not test_rust_known"
   expect: exit 0
   timeout_seconds: 3000
@@ -86,17 +123,17 @@ checks:
   proves:
   - REQ-G3-009
   - REQ-G3-008
-min_tests: 8
+min_tests: 535
 network: true
 requires:
 - python
 - git
 negative_control:
   mutate: |
-    python -X utf8 -c "print('negative control to be authored before dispatch')"
+    python -X utf8 -c "import pathlib;p=pathlib.Path('src/foss_mcp/extraction/tree_sitter_engine/api_surface.py');s=p.read_text(encoding='utf-8');old='CSHARP_INDEX_OPERATORS = True';assert s.count(old)==1;p.write_text(s.replace(old,'CSHARP_INDEX_OPERATORS = False'),encoding='utf-8')"
   rationale: >-
-    PLACEHOLDER written at registration. The supervisor replaces it, before dispatch, with a falsifier that breaks the card's central claim in the code the worker writes (a mandated constant or function
-    name) so that a named new test fails.
+    Turns off the mandated switch by which C# operators and conversions are extracted and served, so `Vector3 operator +` and the other 91 operators and conversions vanish again (0 of 92 served, the defect
+    that makes an MCP-literal `a + b` program unwritable): the synthetic-source operator test and the regenerated-fixture tests (3d/net Vector3 must list operator +) fail at once.
 evidence:
 - evidence/build/G3/TC-558/receipt.json
 closeout:

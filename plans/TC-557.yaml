@@ -7,9 +7,8 @@ purpose: >-
   of 609; an MCP-only program fails javac with 'unreported exception IOException'), `static` never marked (0 of 799), public mutable instance fields never served (3d/java 55, pdf/java 133, slides/java 10),
   generic method type parameters and bounds dropped (14), anonymous-inner-class methods attributed to the outer type (pdf/java about 21, cells/java 6), record members lost (slides/java FontData), implicit
   default constructors not rendered (pdf/java 84, cells/java 55, 3d/java 19, slides/java 9). The cut cards TC-526/527/528/531 never fixed this; the successor TC-546 only documented it. Everything else in
-  these four Java pilots was verified faithful (return types 14,583 of 14,583, inheritance, overloads), so the change must not regress it. REGISTERED AS A DRAFT on 2026-10-17 from docs/ROUND3_REVIEW.md:
-  before dispatch the supervisor re-reads this card against the merged code, calibrates min_tests (it applies to EACH check), replaces the placeholder negative control with a real falsifier that has no
-  backslash, and verifies every file named in write_paths (Supervisor rule 5). Nothing here has been executed.
+  these four Java pilots was verified faithful (return types 14,583 of 14,583, inheritance, overloads), so the change must not regress it. FINALISED for dispatch on 2026-10-19 by the supervisor (min_tests
+  calibrated per check, negative control authored, write_paths checked).
 depends_on:
 - TC-550
 - TC-553
@@ -37,6 +36,12 @@ write_paths:
 - tests/extraction/test_pdf_java_extraction.py
 - tests/extraction/test_reextracted_uncapped.py
 - tests/deploy/test_fleet_consistency.py
+- tests/extraction/test_cells_java_extraction.py
+- tests/extraction/test_slides_java_extraction.py
+- tests/extraction/tree_sitter_engine/test_api_surface_java.py
+- tests/indexing/test_chunk_builder.py
+- tests/indexing/test_chunk_builder_honesty.py
+- tests/infra/test_build_chunks.py
 satisfies:
 - REQ-G3-009
 - REQ-G3-008
@@ -63,13 +68,33 @@ inputs:
 - >-
   RE-PINS: change only the fixture facts the regeneration legitimately moves, with the comment `TC-557: <old> -> <new>`; add the four pilots to STALE_BAKED_PILOTS with the TC-550 wording until the supervisor
   re-ingests (TC-536 deletes the entries). Never loosen a check.
+- >-
+  FINALISATION NOTES (supervisor, 2026-10-19). (1) Mandated name: in src/foss_mcp/indexing/chunk_builder.py the exact line `JAVA_THROWS_RENDERED = True`, a real switch: when False a Java signature renders
+  without any `throws` clause, exactly as before this card; all other items of the acceptance have their own tests. The extractor must record `throws` (a list of type names) per method and constructor in
+  the fixture. (2) The acceptance's javac sentence is replaced: the new tests must NOT call javac, javap or maven (the oracle is a hand-written Java source whose answer follows from the Java language rules,
+  written in the test, run through the extractor offline, plus assertions on the committed real fixtures). Real pins to assert on the regenerated fixtures (the round-3 audit read them from the compiled
+  libraries; verify each against the clone at the chart pin and report any that is wrong): 3d/java `Line.fromPoints(Vector3...)` is varargs; 3d/java `Vector3` has public instance fields x, y, z; slides/java
+  `Color.fromArgb` is static; pdf/java `CompactionOptions.setPages` and the 9 varargs methods of pdf/java render their varargs; pdf/java renders `throws IOException` where the source declares it; slides/java
+  `FontData` is a record with its components. (3) RE-EXTRACTION (needs the network; clones over https, no token; a refused clone or rate limit is BLOCKED_EXTERNAL with the resume predicate `git fetch of
+  <repo>@<sha> succeeds`, never a retry loop): for each pilot in 3d, cells, pdf, slides run from the repository root `python -X utf8 -m foss_mcp.extraction.run_extraction config/products/<family>/java.yaml
+  tests/fixtures/<family>_java/api_surface.json --commit <pin> --keep-names-from tests/fixtures/furnished/<family>_java/pages/_index.md --max-types 100000` where <pin> is `ingestion.pilots[].library.commit`
+  of infra/helm/foss-mcp/values.yaml for that pilot (never retype a commit). Each prints `wrote <path> (<bytes> bytes); <kept>/<total> types; commit <sha>`: kept must equal total and the commit must equal
+  the pin; normalise CRLF to LF. Every regenerated fixture carries extractor_version 5, symbol_counts, counts and parse_failures. At registration: 3d/java 266 types, cells/java 191, slides/java 241 (these
+  three still come from the OLD extractor: no extractor_version), pdf/java 1,239 (version 5). Record old and new type, function and member counts and byte sizes in the report. The chart and compose are
+  not in write_paths: chart caps are 300, 300, 300, 1239; if a measured total exceeds a cap, report it. (4) EXISTING TESTS: the per-pilot Java tests (3d, pdf, cells, slides), test_api_surface_java.py, test_chunk_builder.py,
+  test_chunk_builder_honesty.py and test_build_chunks.py may pin an old fact; change only such an assertion with the comment `TC-557: <old> -> <new>`, list each with its reason, never delete, skip or loosen.
+  test_api_surface_java_live.py is network-gated and not yours. tests/fixtures/readme_identifier_allowlist.json only with the helper `python -X utf8 -m tests.extraction.docs_identifiers --write`; only keys
+  of these four pilots may change. If a test outside write_paths fails, stop and report its name and the pinned fact. (5) TEST COUNTS: min_tests is 370 for EACH check. The first check collects 347 existing
+  tests (the seven existing files it names, the two new files do not exist yet) plus the at least 23 you add in the two new files (at least 16 extractor tests in test_round3_java_fidelity.py and at least
+  7 renderer tests in test_chunk_builder_round3_java.py); the second check collects well over 2,500.
 actions:
 - >-
   Regenerate the four Java fixtures with the fixed extractor and renderer; add the Java fidelity tests with a javac/javap oracle.
 checks:
 - command: >-
     {python} -m pytest tests/extraction/test_round3_java_fidelity.py tests/indexing/test_chunk_builder_round3_java.py tests/extraction/test_3d_java_extraction.py tests/extraction/test_pdf_java_extraction.py
-    -q -rfE -p no:cacheprovider
+    tests/extraction/test_cells_java_extraction.py tests/extraction/test_slides_java_extraction.py tests/extraction/tree_sitter_engine/test_api_surface_java.py tests/deploy/test_fleet_consistency.py tests/extraction/test_docs_identifiers_resolve.py
+    -q -rfE -p no:cacheprovider -k "not live and not github_http and not repo_native and not test_prepare_rust_library and not test_rust_known"
   expect: exit 0
   timeout_seconds: 1800
   junitxml: true
@@ -77,7 +102,7 @@ checks:
   - REQ-G3-009
   - REQ-G3-008
 - command: >-
-    {python} -m pytest tests/extraction tests/indexing/test_chunk_builder.py tests/indexing/test_chunk_builder_honesty.py tests/deploy/test_fleet_consistency.py tests/deploy/test_served_coverage_matches_fixtures.py
+    {python} -m pytest tests/extraction tests/mcp tests/indexing/test_chunk_builder.py tests/indexing/test_chunk_builder_honesty.py tests/infra/test_build_chunks.py tests/deploy/test_served_coverage_matches_fixtures.py
     tests/deploy/test_compact_demo_manifests.py -q -rfE -p no:cacheprovider -k "not live and not github_http and not repo_native and not test_prepare_rust_library and not test_rust_known"
   expect: exit 0
   timeout_seconds: 3000
@@ -85,17 +110,18 @@ checks:
   proves:
   - REQ-G3-009
   - REQ-G3-008
-min_tests: 8
+min_tests: 370
 network: true
 requires:
 - python
 - git
 negative_control:
   mutate: |
-    python -X utf8 -c "print('negative control to be authored before dispatch')"
+    python -X utf8 -c "import pathlib;p=pathlib.Path('src/foss_mcp/indexing/chunk_builder.py');s=p.read_text(encoding='utf-8');old='JAVA_THROWS_RENDERED = True';assert s.count(old)==1;p.write_text(s.replace(old,'JAVA_THROWS_RENDERED = False'),encoding='utf-8')"
   rationale: >-
-    PLACEHOLDER written at registration. The supervisor replaces it, before dispatch, with a falsifier that breaks the card's central claim in the code the worker writes (a mandated constant or function
-    name) so that a named new test fails.
+    Turns off the mandated switch by which a Java method or constructor renders its `throws` clause, so every checked exception disappears from the served signatures again (0 of 609 rendered, the defect
+    that makes an MCP-only program fail javac with 'unreported exception'): the renderer tests and the regenerated-fixture tests (pdf/java CompactionOptions and the other checked-exception pins must show
+    their throws clause) fail at once.
 evidence:
 - evidence/build/G3/TC-557/receipt.json
 closeout:
