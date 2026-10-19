@@ -43,12 +43,23 @@ G3/TC-519: a sidecar keeps up to 20 releases by default (was 10). When a reposit
 GitHub Releases at all its tags are written instead: a tag entry records ``"source": "tag"``, no notes
 (richness ``none``) and the tagged commit as ``target_commitish`` (the tags API gives the sha with no
 extra call). Tags are fetched only when the releases list came back empty.
+
+G3/TC-560: index-versus-package drift. When the commit the index was built from is known (``--indexed-commit``,
+else the ``source_ref`` of the ``product_reference_<family>_<platform>.json`` sidecar beside ``--output``) the
+fetch also (1) reads the repository's tags and puts every versioned tag newer than all releases in front of the
+list (``"source": "tag"``; a tag-only repository's tags are put newest-version first), and (2) asks GitHub's
+compare API ONCE (``compare/<newest tag>...<indexed commit>``: ``ahead_by`` / ``behind_by``) and records the answer
+as an optional ``"drift"`` object on the newest entry of the list - and in the product-reference sidecar, which
+the install notice reads. A failed comparison is recorded as a ``drift`` object with no counts and an ``error``
+class name (``unknown``), never as "no drift"; a failed tags read leaves the list as it was. Without a known
+indexed commit nothing here runs and the output is exactly what it was before. The loaders ignore an absent key.
 """
 
 from __future__ import annotations
 
 import argparse
 import contextlib
+import dataclasses
 import json
 import os
 import re
@@ -59,7 +70,15 @@ from datetime import UTC, datetime
 from pathlib import Path
 
 from foss_mcp.extraction.github_http import failure_reason, reset_default_budget
-from foss_mcp.extraction.github_release_reader import Release, fetch_releases, fetch_tags
+from foss_mcp.extraction.github_release_reader import (
+    DriftRecord,
+    Release,
+    fetch_drift,
+    fetch_releases,
+    fetch_tags,
+    merge_newer_tags,
+    order_tags_newest_first,
+)
 
 _IDENTITY_PART = re.compile(r"[a-z0-9]+")
 _SIDECAR_FILE_NAME = re.compile(r"recent_releases_([a-z0-9]+)_([a-z0-9]+)\.json")
@@ -136,6 +155,8 @@ def _serialize_release(release: Release) -> dict:
         data["created_at"] = release.created_at
     if release.source != "release":
         data["source"] = release.source
+    if release.drift is not None:
+        data["drift"] = release.drift.to_json()
     return data
 
 
@@ -153,6 +174,7 @@ def _deserialize_release(data: dict) -> Release:
         target_commitish=data.get("target_commitish"),
         created_at=data.get("created_at"),
         source=data.get("source", "release"),
+        drift=DriftRecord.from_json(data.get("drift")),
     )
 
 
@@ -318,6 +340,79 @@ def _record_failure(args: argparse.Namespace, exc: BaseException) -> str:
     return outcome
 
 
+def _product_reference_path(args: argparse.Namespace) -> Path | None:
+    """The ``product_reference_<family>_<platform>.json`` sidecar beside ``--output``, when the identity is known."""
+    family, platform = _identity(args)
+    if (
+        family is None
+        or platform is None
+        or not (_IDENTITY_PART.fullmatch(family) and _IDENTITY_PART.fullmatch(platform))
+    ):
+        return None
+    return args.output.with_name(f"product_reference_{family}_{platform}.json")
+
+
+def _read_product_reference(args: argparse.Namespace) -> tuple[Path, dict] | None:
+    """``(path, parsed sidecar)`` of the beside product-reference sidecar when it is a good JSON object
+    (not a ``fetch_failed`` placeholder), else None. Never raises."""
+    path = _product_reference_path(args)
+    if path is None:
+        return None
+    try:
+        data = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return None
+    if not isinstance(data, dict) or "fetch_failed" in (data.get("state"), data.get("status")):
+        return None
+    return path, data
+
+
+def _indexed_commit(args: argparse.Namespace) -> str | None:
+    """The commit the index was built from: ``--indexed-commit``, else the beside product-reference
+    sidecar's ``source_ref``; None when neither is a non-empty string."""
+    if isinstance(args.indexed_commit, str) and args.indexed_commit.strip():
+        return args.indexed_commit.strip()
+    sidecar = _read_product_reference(args)
+    ref = sidecar[1].get("source_ref") if sidecar is not None else None
+    return ref.strip() if isinstance(ref, str) and ref.strip() else None
+
+
+def _with_ancestry(args: argparse.Namespace, fetched: list[Release], indexed_commit: str) -> list[Release]:
+    """G3/TC-560: *fetched* with newer tags merged in, cut to ``--limit``, and the compare answer for the
+    newest entry attached as its ``drift``. A failed tags read leaves the list as it was."""
+    merged = list(fetched)
+    if merged and all(release.source == "tag" for release in merged):
+        merged = order_tags_newest_first(merged)
+    elif merged:
+        try:
+            merged = merge_newer_tags(merged, fetch_tags(args.repository))
+        except Exception as exc:  # noqa: BLE001 - a failed tags read must not fail the releases fetch.
+            print(
+                f"WARNING tags read failed for {args.repository}: class={type(exc).__name__}; "
+                "no newer tags were merged",
+                file=sys.stderr,
+            )
+    merged = merged[: args.limit]
+    if merged:
+        record = fetch_drift(args.repository, merged[0], indexed_commit)
+        merged[0] = dataclasses.replace(merged[0], drift=record)
+    return merged
+
+
+def _record_drift_in_product_reference(args: argparse.Namespace, record: DriftRecord) -> None:
+    """Add *record* as ``drift`` to the beside product-reference sidecar, but only when that sidecar is for
+    the very commit the record was taken at. Atomic; any failure leaves the sidecar as it was."""
+    sidecar = _read_product_reference(args)
+    if sidecar is None:
+        return
+    path, data = sidecar
+    if data.get("source_ref") != record.indexed_commit:
+        return
+    data["drift"] = record.to_json()
+    with contextlib.suppress(OSError):
+        atomic_write_json(path, data)
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--repository", required=True, help="'owner/name'")
@@ -333,6 +428,12 @@ def main() -> None:
     )
     parser.add_argument(
         "--platform", default=None, help="recorded in the meta file; default: parsed from --output"
+    )
+    parser.add_argument(
+        "--indexed-commit",
+        default=None,
+        help="the commit the index was built from (drift detection); default: the source_ref of the "
+        "product_reference sidecar beside --output",
     )
     args = parser.parse_args()
     # A run starts with a clean request budget, whatever an earlier in-process run left behind.
@@ -393,6 +494,9 @@ def main() -> None:
         print(f"not modified: {args.repository} -> {args.output}: the existing sidecar is current")
         return
 
+    indexed_commit = _indexed_commit(args)
+    if indexed_commit is not None:
+        releases = _with_ancestry(args, fetched, indexed_commit)
     atomic_write_json(args.output, [_serialize_release(release) for release in releases])
     etag = fetch_meta.get("etag")
     atomic_write_json(
@@ -401,6 +505,13 @@ def main() -> None:
     )
     _fetch_failed_marker(args.output).unlink(missing_ok=True)
     print(f"wrote {len(releases)} recent release(s) for {args.repository} -> {args.output}")
+    if releases and releases[0].drift is not None:
+        _record_drift_in_product_reference(args, releases[0].drift)
+        drift = releases[0].drift
+        print(
+            f"drift for {args.repository}: tag={drift.tag} ahead_by={drift.ahead_by} "
+            f"behind_by={drift.behind_by}" + (f" error={drift.error}" if drift.error else "")
+        )
 
 
 if __name__ == "__main__":

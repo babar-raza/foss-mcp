@@ -10,10 +10,11 @@ Method (real, structural, ``ast``-based - never a hand-maintained prose list):
    import graph (``import x``, ``from x import y``, ``from pkg import submodule``, relative
    imports, and the implicit edge every submodule import carries to each ancestor package's
    own ``__init__.py``).
-2. BFS that graph from the eight real production entrypoints
+2. BFS that graph from the nine real production entrypoints
    (``infra/serve_http.py``, ``infra/serve_stdio.py``, ``infra/ingest.py``,
    ``infra/build_chunks.py``, ``infra/rollback.py``, ``infra/fetch_product_reference.py``,
-   ``infra/verify_product_reference_install.py``, ``src/foss_mcp/mcp/server.py``) to get every
+   ``infra/verify_product_reference_install.py``, ``infra/fetch_recent_releases.py`` (TC-560: the
+   container fetch step that computes the drift record), ``src/foss_mcp/mcp/server.py``) to get every
    file genuinely on a production import path, and
    separately from every file under ``tests/`` to get every file a test genuinely exercises.
 3. For every top-level public (non-underscore) function or class defined anywhere under
@@ -81,6 +82,8 @@ ENTRYPOINTS: tuple[Path, ...] = (
     INFRA_ROOT / "rollback.py",
     INFRA_ROOT / "fetch_product_reference.py",
     INFRA_ROOT / "verify_product_reference_install.py",
+    # TC-560: the container fetch step that computes the drift record
+    INFRA_ROOT / "fetch_recent_releases.py",
     SRC_FOSS / "mcp" / "server.py",
 )
 

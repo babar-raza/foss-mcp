@@ -18,6 +18,7 @@ from foss_mcp.mcp.sidecar_state import (
     SIDECAR_PRESENT,
     SidecarFetchFailedError,
 )
+from foss_mcp.mcp.tools.release_alignment import drift_from_record
 
 
 @dataclass(frozen=True)
@@ -33,6 +34,16 @@ class ChangeEntry:
     in_index: bool | None = None
     in_index_basis: str = "unknown"
     source: str = "release"
+    # G3/TC-560: the recorded git-ancestry comparison of the indexed commit with THIS entry's tag
+    # (`release_alignment.drift_verdict`): index_ahead_of_package / package_ahead_of_index / diverged /
+    # in_sync, or `unknown` for an entry with no record (every entry but the newest, and every sidecar
+    # written before the card). The counts are commits the index has beyond the tag / the tag has beyond
+    # the index.
+    drift: str = "unknown"
+    commits_index_ahead: int | None = None
+    commits_package_ahead: int | None = None
+    published_version: str | None = None
+    drift_message: str | None = None
 
 
 def list_recent_changes(
@@ -64,7 +75,13 @@ def list_recent_changes(
 
 
 def _entry(release: Release, aligned: tuple[bool | None, str]) -> ChangeEntry:
+    verdict = drift_from_record(release.drift)
     return ChangeEntry(
+        drift=verdict["drift"],
+        commits_index_ahead=verdict["commits_ahead"],
+        commits_package_ahead=verdict["commits_behind"],
+        published_version=verdict["published_version"],
+        drift_message=verdict["message"],
         tag_name=release.tag_name,
         richness=release.richness,
         body=release.body,

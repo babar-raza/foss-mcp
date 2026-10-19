@@ -43,6 +43,10 @@ absence: ``main`` writes ``<output>.failed``, logs an ``ERROR`` line, exits 1 an
 good sidecar exists - writes a typed ``fetch_failed`` placeholder (``state`` and ``status`` both
 ``fetch_failed``) that serving reports as "could not be fetched". A good sidecar is never
 overwritten by a failure.
+
+G3/TC-560: a sidecar may also carry an optional ``drift`` object (the ancestry of ``source_ref`` against the
+latest release/tag commit), added to it by ``infra/fetch_recent_releases.py`` after this module wrote the pin.
+``load_manifest_sidecar`` reads it into ``ProductReferenceInputs.drift``; a sidecar without it loads with None.
 """
 
 from __future__ import annotations
@@ -58,6 +62,7 @@ from datetime import UTC, datetime
 from pathlib import Path
 
 from foss_mcp.extraction.github_http import failure_reason, reset_default_budget
+from foss_mcp.extraction.github_release_reader import DriftRecord
 from foss_mcp.extraction.manifest_reader import fetch_manifest_file
 from foss_mcp.extraction.repo_native_reader import (
     DocumentNotPresent,
@@ -232,6 +237,9 @@ def load_manifest_sidecar(path: Path) -> ProductReferenceInputs | None:
         source_ref=_optional_text(data.get("source_ref")),
         license_document=_optional_document(data.get("license_document")),
         build_props_text=_optional_text(data.get("build_props_text")),
+        # G3/TC-560: written beside the pin by infra/fetch_recent_releases.py; absent (None) in every sidecar
+        # baked before the card, and a malformed value reads as absent rather than failing the load.
+        drift=DriftRecord.from_json(data.get("drift")),
     )
 
 
@@ -309,6 +317,21 @@ def _existing_sidecar_source(output: Path) -> tuple[str, str] | None:
     return (source_repository, source_ref)
 
 
+def _existing_drift_for(output: Path, ref: str | None) -> dict | None:
+    """G3/TC-560: the ``drift`` object of the existing sidecar *output* when it was recorded for the commit
+    *ref* (a forced refetch of an unchanged pin keeps it), else None. Never raises."""
+    if not ref:
+        return None
+    try:
+        data = json.loads(output.read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return None
+    if not isinstance(data, dict) or is_fetch_failed_placeholder(data):
+        return None
+    record = DriftRecord.from_json(data.get("drift"))
+    return record.to_json() if record is not None and record.indexed_commit == ref else None
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--repository", required=True, help="'owner/name'")
@@ -366,6 +389,9 @@ def main() -> None:
 
     sidecar["fetched_at"] = _utc_stamp()
     sidecar["family"] = family
+    kept_drift = _existing_drift_for(args.output, args.ref)
+    if kept_drift is not None:
+        sidecar["drift"] = kept_drift
     atomic_write_json(args.output, sidecar)
     marker.unlink(missing_ok=True)
     print(f"wrote product reference inputs for {args.repository} ({args.platform}) -> {args.output}")

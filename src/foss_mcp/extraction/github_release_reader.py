@@ -15,6 +15,7 @@ import urllib.error
 import urllib.request
 from dataclasses import dataclass
 from typing import Any, Literal
+from urllib.parse import quote
 
 from foss_mcp.extraction.github_http import urlopen_with_backoff, with_auth
 
@@ -103,6 +104,63 @@ def classify_richness(release_body: str | None) -> RichnessVerdict:
 
 
 @dataclass(frozen=True)
+class DriftRecord:
+    """G3/TC-560: how the indexed commit relates, by git ancestry, to the commit of a release tag.
+
+    ``ahead_by`` is the number of commits the indexed commit has that the tag lacks (the index is that
+    far past the published package); ``behind_by`` is the number the tag has that the indexed commit
+    lacks (the published package is that far past the index). Both come from one GitHub compare call
+    (``compare/<tag>...<indexed commit>``). ``None`` for both means the comparison could not be made
+    (``error`` then names the failure's class); that is "unknown", never "in sync".
+    """
+
+    indexed_commit: str
+    tag: str
+    tag_commit: str | None = None
+    ahead_by: int | None = None
+    behind_by: int | None = None
+    status: str | None = None
+    error: str | None = None
+
+    def to_json(self) -> dict[str, Any]:
+        """The sidecar form: only the keys that carry a value, so an unknown record stays small."""
+        data: dict[str, Any] = {"indexed_commit": self.indexed_commit, "tag": self.tag}
+        for key in ("tag_commit", "ahead_by", "behind_by", "status", "error"):
+            value = getattr(self, key)
+            if value is not None:
+                data[key] = value
+        return data
+
+    @classmethod
+    def from_json(cls, data: object) -> DriftRecord | None:
+        """The record a sidecar stored, or None when *data* is absent or not the recorded shape. Never
+        raises: a malformed record is the same as no record (drift is then ``unknown``)."""
+        if not isinstance(data, dict):
+            return None
+        indexed_commit, tag = data.get("indexed_commit"), data.get("tag")
+        if not isinstance(indexed_commit, str) or not indexed_commit or not isinstance(tag, str) or not tag:
+            return None
+
+        def _count(key: str) -> int | None:
+            value = data.get(key)
+            return value if isinstance(value, int) and not isinstance(value, bool) and value >= 0 else None
+
+        def _text(key: str) -> str | None:
+            value = data.get(key)
+            return value if isinstance(value, str) and value else None
+
+        return cls(
+            indexed_commit=indexed_commit,
+            tag=tag,
+            tag_commit=_text("tag_commit"),
+            ahead_by=_count("ahead_by"),
+            behind_by=_count("behind_by"),
+            status=_text("status"),
+            error=_text("error"),
+        )
+
+
+@dataclass(frozen=True)
 class Release:
     tag_name: str
     body: str
@@ -119,6 +177,10 @@ class Release:
     # G3/TC-519: "release" for a GitHub Release, "tag" for an entry synthesised from a bare git tag
     # of a repository that publishes no Releases (no notes: richness "none").
     source: str = "release"
+    # G3/TC-560: ancestry of the indexed commit against THIS entry's tag, written to the sidecar by
+    # ``infra/fetch_recent_releases.py`` on the newest entry only; None for every other entry and for
+    # every sidecar written before the card.
+    drift: DriftRecord | None = None
 
     @property
     def target_commit(self) -> str | None:
@@ -220,3 +282,96 @@ def fetch_tags(repository: str, *, per_page: int = 100) -> list[Release]:
             )
         )
     return tags
+
+
+_TAG_VERSION_RUN = re.compile(r"\d+(?:\.\d+)+")
+
+
+def _tag_version(tag_name: str) -> tuple[int, ...] | None:
+    """The first dotted run of two or more integers in *tag_name* (``v26.9.0`` -> (26, 9, 0)), else
+    None. Trailing zeros are dropped so ``26.9`` and ``26.9.0`` are the same version."""
+    match = _TAG_VERSION_RUN.search(tag_name)
+    if match is None:
+        return None
+    parts = [int(part) for part in match.group(0).split(".")]
+    while len(parts) > 1 and parts[-1] == 0:
+        parts.pop()
+    return tuple(parts)
+
+
+def merge_newer_tags(releases: list[Release], tags: list[Release]) -> list[Release]:
+    """G3/TC-560: *releases* with every tag that is newer than all of them put in front, newest first.
+
+    A tag is merged only when its name carries a version, that version is greater than the greatest
+    version any release carries, and no release already has that version (a ``26.9.0`` tag beside a
+    ``v26.9.0`` release is the same version). Tags that are older, unversioned or duplicates are left
+    out, so the result is still "the newest first" and every added entry has ``source == "tag"``. With
+    no release that carries a version nothing is added (the caller's tag-only path handles that).
+    """
+    release_versions = [version for release in releases if (version := _tag_version(release.tag_name))]
+    if not release_versions:
+        return list(releases)
+    newest = max(release_versions)
+    known = set(release_versions)
+    newer: dict[tuple[int, ...], Release] = {}
+    for tag in tags:
+        version = _tag_version(tag.tag_name)
+        if version is None or version <= newest or version in known or version in newer:
+            continue
+        newer[version] = tag
+    return [newer[version] for version in sorted(newer, reverse=True)] + list(releases)
+
+
+def fetch_drift(repository: str, tag: Release, indexed_commit: str) -> DriftRecord:
+    """G3/TC-560: the ancestry of *indexed_commit* against *tag*'s commit, from ONE compare call.
+
+    ``compare/<base>...<indexed_commit>`` with the tag's commit as base when the entry carries one
+    (a tag-sourced entry does), else the tag name. ``ahead_by`` / ``behind_by`` / ``status`` are
+    GitHub's own and ``base_commit.sha`` is the commit the tag points at. Any failure (no network, a
+    commit GitHub does not know, a rate limit) is returned as a record with no counts and the failure's
+    class name in ``error`` - never raised, so one pilot's drift cannot fail the whole releases fetch.
+    """
+    # A tag entry's commit is the tag's own; a Release's ``target_commitish`` is only where it was cut from.
+    base = (tag.target_commit if tag.source == "tag" else None) or tag.tag_name
+    url = f"{_API_ROOT}/repos/{repository}/compare/{quote(base, safe='/')}...{quote(indexed_commit, safe='')}?per_page=1"
+    try:
+        _status, body, _etag = _get_json(url)
+    except Exception as exc:  # noqa: BLE001 - deliberately broad: any failure is "drift unknown".
+        return DriftRecord(
+            indexed_commit=indexed_commit,
+            tag=tag.tag_name,
+            tag_commit=tag.target_commit,
+            error=type(exc).__name__,
+        )
+
+    def _count(key: str) -> int | None:
+        value = body.get(key) if isinstance(body, dict) else None
+        return value if isinstance(value, int) and not isinstance(value, bool) and value >= 0 else None
+
+    base_commit = body.get("base_commit") if isinstance(body, dict) else None
+    sha = base_commit.get("sha") if isinstance(base_commit, dict) else None
+    status = body.get("status") if isinstance(body, dict) else None
+    ahead, behind = _count("ahead_by"), _count("behind_by")
+    error = None if ahead is not None and behind is not None else "UnexpectedCompareAnswer"
+    return DriftRecord(
+        indexed_commit=indexed_commit,
+        tag=tag.tag_name,
+        tag_commit=sha if isinstance(sha, str) and _FULL_SHA.fullmatch(sha) else None,
+        ahead_by=ahead,
+        behind_by=behind,
+        status=status if isinstance(status, str) and status else None,
+        error=error,
+    )
+
+
+def order_tags_newest_first(tags: list[Release]) -> list[Release]:
+    """*tags* with the highest version first and the unversioned ones last; ties keep their order.
+
+    G3/TC-560: the tags API does not list tags in version order, and a tag-only repository's "latest"
+    is the one the drift comparison is made against, so the order is made explicit here."""
+
+    def _key(tag: Release) -> tuple[bool, tuple[int, ...]]:
+        version = _tag_version(tag.tag_name)
+        return (version is not None, version or ())
+
+    return sorted(tags, key=_key, reverse=True)

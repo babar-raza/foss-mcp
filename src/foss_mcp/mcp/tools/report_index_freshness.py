@@ -28,7 +28,17 @@ from foss_mcp.mcp.tools.coverage_note import coverage_note_from_text, parse_api_
 from foss_mcp.mcp.tools.example_search_mode import example_search_mode
 from foss_mcp.mcp.tools.get_product_reference import ProductReferenceInputs
 from foss_mcp.mcp.tools.get_symbol import extract_fqn
-from foss_mcp.mcp.tools.release_alignment import align_releases, generation_indexed_at, package_version
+from foss_mcp.mcp.tools.release_alignment import (
+    DRIFT_DIVERGED,
+    DRIFT_IN_SYNC,
+    DRIFT_UNKNOWN,
+    INDEX_AHEAD,
+    PACKAGE_AHEAD,
+    align_releases,
+    drift_from_record,
+    generation_indexed_at,
+    package_version,
+)
 from foss_mcp.mcp.tools.search_symbols import scope_key
 
 _SOURCE_COMMIT_LINE = re.compile(r"^Source-Commit:\s*(\S+)$", re.MULTILINE)
@@ -75,7 +85,7 @@ class FreshnessReport:
     example_search_reason: str = "no active generation"
     # G3/TC-519. ``stale`` stays True for an unknown verdict (it is ``freshness_state != "fresh"``);
     # ``freshness_state`` (fresh / stale / unknown) carries the distinction and ``freshness_basis``
-    # (caller_commit, latest_release_tag_commit, latest_release_version, none) says how it was decided.
+    # (caller_commit, git_ancestry, latest_release_tag_commit, latest_release_version, none) says how it was decided.
     freshness_state: str = "unknown"
     freshness_basis: str = "none"
     indexed_at: str | None = None
@@ -84,6 +94,17 @@ class FreshnessReport:
     latest_release_in_index: bool | None = None
     warnings: tuple[str, ...] = ()
     compared_against_commit: str | None = None
+    # G3/TC-560: git-ancestry drift between the indexed commit and the latest release/tag commit, decided
+    # by ``release_alignment.drift_verdict``. ``drift`` is index_ahead_of_package / package_ahead_of_index /
+    # diverged / in_sync / unknown; ``unknown`` (the value for every sidecar written before the card) changes
+    # nothing else in the report. ``drift_commit_distance`` is how far the leading side is ahead and
+    # ``published_version`` the version of the latest release/tag it was measured against.
+    drift: str = DRIFT_UNKNOWN
+    index_ahead_of_package: bool | None = None
+    package_ahead_of_index: bool | None = None
+    drift_commit_distance: int | None = None
+    published_version: str | None = None
+    drift_message: str | None = None
 
 
 def _commit_matches(indexed_commit: str, current_commit: str) -> bool:
@@ -325,6 +346,14 @@ def report_index_freshness(
     )
     latest = releases[0] if releases else None
     latest_in_index = alignment[latest.tag_name][0] if latest is not None else None
+    drift_record = next((release.drift for release in releases if release.drift is not None), None)
+    if drift_record is None and product_reference is not None:
+        drift_record = product_reference.drift
+    drift = drift_from_record(drift_record, indexed_commit=indexed_commit, indexed_version=indexed_version)
+    drift_state = drift["drift"]
+    drift_warnings = (
+        (drift["message"],) if drift_state in (INDEX_AHEAD, PACKAGE_AHEAD, DRIFT_DIVERGED) else ()
+    )
 
     def build(state: str, reason: str, basis: str, compared_against: str | None = None) -> FreshnessReport:
         if pinned_matches is False and pinned_library_commit is not None:
@@ -356,8 +385,14 @@ def report_index_freshness(
             source_repository=product_reference.source_repository if product_reference else None,
             latest_release_tag=latest.tag_name if latest is not None else None,
             latest_release_in_index=latest_in_index,
-            warnings=_abbreviation_warnings(current_source_commit),
+            warnings=_abbreviation_warnings(current_source_commit) + drift_warnings,
             compared_against_commit=compared_against,
+            drift=drift_state,
+            index_ahead_of_package=drift["index_ahead_of_package"],
+            package_ahead_of_index=drift["package_ahead_of_index"],
+            drift_commit_distance=drift["commit_distance"],
+            published_version=drift["published_version"],
+            drift_message=drift["message"],
         )
 
     if indexed_commit is None:
@@ -365,6 +400,14 @@ def report_index_freshness(
     if current_source_commit is not None:
         state, reason = _commit_verdict(commits, indexed_commit, current_source_commit)
         return build(state, reason, "caller_commit")
+    if drift_state != DRIFT_UNKNOWN:
+        # G3/TC-560: the direction comes from git ancestry, not from "the commits differ": an index
+        # that is AHEAD of the latest release tag is not stale, a package that is ahead of the index is.
+        state = "fresh" if drift_state in (INDEX_AHEAD, DRIFT_IN_SYNC) else "stale"
+        reason = f"{drift['message']} No current_source_commit was given."
+        if drift_state == INDEX_AHEAD:
+            reason += " Nothing newer than the index was found."
+        return build(state, reason, "git_ancestry")
     if latest is not None and latest.target_commit is not None:
         state, reason = _commit_verdict(commits, indexed_commit, latest.target_commit)
         reason += (

@@ -12,6 +12,12 @@ with one deterministic rule and a stated basis:
    ``0.1.0`` manifest have different majors and are NOT compared.
 3. ``unknown``: anything else (``None``). Never guessed.
 
+G3/TC-560 adds the drift verdict (``drift_verdict`` / ``drift_from_record``): whether the indexed commit is
+AHEAD of the latest published release/tag (``index_ahead_of_package``), BEHIND it (``package_ahead_of_index``),
+diverged, in sync, or ``unknown``, decided from git ancestry counts that ingestion recorded. Every emitter
+(``report_index_freshness``, the ``get_product_reference`` install notice, ``list_recent_changes``) words the
+fact through this one function.
+
 The module is pure: no I/O, no network.
 """
 
@@ -21,7 +27,7 @@ import re
 from collections.abc import Sequence
 from datetime import datetime
 
-from foss_mcp.extraction.github_release_reader import Release
+from foss_mcp.extraction.github_release_reader import DriftRecord, Release
 from foss_mcp.mcp.tools.get_product_reference import ProductReferenceInputs, _manifest_version
 
 _VERSION_RUN = re.compile(r"\d+(?:\.\d+)+")
@@ -94,6 +100,137 @@ def align_releases(
                 release, indexed_commits=indexed_commits, indexed_version=indexed_version
             )
     return aligned
+
+
+INDEX_AHEAD = "index_ahead_of_package"
+PACKAGE_AHEAD = "package_ahead_of_index"
+DRIFT_IN_SYNC = "in_sync"
+DRIFT_DIVERGED = "diverged"
+DRIFT_UNKNOWN = "unknown"
+
+_SHORT = 12
+
+
+def _plural(count: int, noun: str) -> str:
+    return f"{count} {noun}" if count == 1 else f"{count} {noun}s"
+
+
+def _version_text(version: str | tuple[int, ...] | None) -> str | None:
+    if version is None:
+        return None
+    if isinstance(version, tuple):
+        return ".".join(str(part) for part in version)
+    return version or None
+
+
+def drift_verdict(
+    indexed_commit: str | None,
+    latest_release_tag: str | None,
+    commits_ahead: int | None,
+    commits_behind: int | None,
+    published_version: str | tuple[int, ...] | None,
+    indexed_version: str | tuple[int, ...] | None,
+) -> dict:
+    """G3/TC-560: the one place the index-versus-package drift is decided and worded.
+
+    *commits_ahead* is how many commits the indexed commit has that the latest release tag's commit
+    lacks, *commits_behind* how many the tag's commit has that the indexed commit lacks (git ancestry,
+    GitHub's compare ``ahead_by`` / ``behind_by`` with the tag as base). The verdict is
+    ``index_ahead_of_package`` (ahead only), ``package_ahead_of_index`` (behind only), ``diverged`` (both),
+    ``in_sync`` (neither) or ``unknown`` (a count is missing: absent data is never read as no drift).
+    The result always carries the same keys: ``drift``, ``index_ahead_of_package`` /
+    ``package_ahead_of_index`` (bool, or None when unknown), ``commit_distance`` (the commits the
+    leading side is ahead; None when unknown or diverged), ``commits_ahead``, ``commits_behind``,
+    ``published_version``, ``indexed_version``, ``latest_release_tag``, ``indexed_commit`` and a
+    ``message`` sentence (None when there is nothing to say). Pure: no I/O.
+    """
+    published = _version_text(published_version)
+    declared = _version_text(indexed_version)
+    result: dict = {
+        "drift": DRIFT_UNKNOWN,
+        "index_ahead_of_package": None,
+        "package_ahead_of_index": None,
+        "commit_distance": None,
+        "commits_ahead": commits_ahead,
+        "commits_behind": commits_behind,
+        "published_version": published,
+        "indexed_version": declared,
+        "latest_release_tag": latest_release_tag,
+        "indexed_commit": indexed_commit,
+        "message": None,
+    }
+    if (
+        not isinstance(commits_ahead, int)
+        or isinstance(commits_ahead, bool)
+        or not isinstance(commits_behind, int)
+        or isinstance(commits_behind, bool)
+        or commits_ahead < 0
+        or commits_behind < 0
+    ):
+        result["commits_ahead"] = result["commits_behind"] = None
+        return result
+    release = f"the latest release {latest_release_tag}" if latest_release_tag else "the latest release"
+    if published and published != latest_release_tag:
+        release += f" (version {published})"
+    indexed = f"the indexed commit {indexed_commit[:_SHORT]}" if indexed_commit else "the indexed commit"
+    index_ahead = commits_ahead > 0 and commits_behind == 0
+    package_ahead = commits_behind > 0 and commits_ahead == 0
+    result["index_ahead_of_package"] = index_ahead
+    result["package_ahead_of_index"] = package_ahead
+    if index_ahead:
+        result["drift"] = INDEX_AHEAD
+        result["commit_distance"] = commits_ahead
+        result["message"] = (
+            f"{indexed.capitalize()} is {_plural(commits_ahead, 'commit')} ahead of {release}: the index "
+            "describes source that is not in the published package, which can lack types and members "
+            "documented here."
+        )
+    elif package_ahead:
+        result["drift"] = PACKAGE_AHEAD
+        result["commit_distance"] = commits_behind
+        result["message"] = (
+            f"{release.capitalize()} is {_plural(commits_behind, 'commit')} ahead of {indexed}: the "
+            "published package can have types and members this index does not describe."
+        )
+    elif commits_ahead > 0:
+        result["drift"] = DRIFT_DIVERGED
+        result["message"] = (
+            f"{indexed.capitalize()} and {release} have diverged ({_plural(commits_ahead, 'commit')} only "
+            f"in the index, {_plural(commits_behind, 'commit')} only in the release): the published "
+            "package and this index each have members the other lacks."
+        )
+    else:
+        result["drift"] = DRIFT_IN_SYNC
+        result["commit_distance"] = 0
+        result["message"] = f"{indexed.capitalize()} is the commit of {release}."
+    return result
+
+
+def drift_from_record(
+    record: DriftRecord | None,
+    *,
+    indexed_commit: str | None = None,
+    indexed_version: str | tuple[int, ...] | None = None,
+) -> dict:
+    """``drift_verdict`` for a sidecar's recorded ancestry. No record is ``unknown``; so is a record taken
+    for a different commit than *indexed_commit* (the one the serving index was built from), because
+    counts for another commit say nothing about this index. The published version is the tag's own
+    version number (``v26.8.0`` -> ``26.8.0``), else the tag name."""
+    if record is None:
+        return drift_verdict(indexed_commit, None, None, None, None, indexed_version)
+    if indexed_commit is not None and not _commits_agree(indexed_commit, record.indexed_commit):
+        return drift_verdict(indexed_commit, record.tag, None, None, None, indexed_version)
+    parsed = parse_release_version(record.tag)
+    published = ".".join(str(part) for part in parsed) if parsed else record.tag
+    return drift_verdict(
+        record.indexed_commit, record.tag, record.ahead_by, record.behind_by, published, indexed_version
+    )
+
+
+def _commits_agree(first: str, second: str) -> bool:
+    a, b = first.strip().lower(), second.strip().lower()
+    shortest = min(len(a), len(b))
+    return shortest >= 7 and a[:shortest] == b[:shortest]
 
 
 def generation_indexed_at(generation_id: str | None) -> str | None:
