@@ -12,9 +12,8 @@ purpose: >-
   named (pdf/java getOrCreateInfo). tex/python: the library does not import at the pinned commit (35 of 45 files unparseable) while the notice says 11 of 45. FIX: install sections always carry repository
   URL, commit, subdirectory and exact target for source builds, the python_requires/engine bounds, a verified-working route, and for packages the registry check proves (name, version served); a conflict
   between the README's install line and the registry result suppresses or annotates the README line; formats/limitations/agent_guidance extraction finds the README sections that exist; the tex notice states
-  plainly that the library cannot be imported at this commit and gives the real count of unparseable files; contributor-prompt guidance is labelled. REGISTERED AS A DRAFT on 2026-10-17 from docs/ROUND3_REVIEW.md:
-  before dispatch the supervisor re-reads this card against the merged code, calibrates min_tests (it applies to EACH check), replaces the placeholder negative control with a real falsifier that has no
-  backslash, and verifies every file named in write_paths (Supervisor rule 5). Nothing here has been executed.
+  plainly that the library cannot be imported at this commit and gives the real count of unparseable files; contributor-prompt guidance is labelled. FINALISED for dispatch on 2026-10-19 by the supervisor
+  (min_tests calibrated per check, negative control authored, write_paths checked).
 depends_on:
 - TC-550
 - TC-553
@@ -22,6 +21,7 @@ depends_on:
 - TC-555
 - TC-556
 - TC-560
+- TC-532
 write_paths:
 - infra/fetch_product_reference.py
 - infra/verify_product_reference_install.py
@@ -31,8 +31,22 @@ write_paths:
 - src/foss_mcp/mcp/tools/readme_sections.py
 - tests/mcp/tools/test_round3_install_truth.py
 - tests/infra/test_round3_install_sections.py
-- tests/deploy/test_product_reference_baked_contract.py
 - tests/deploy/test_readme_matches_release.py
+- src/foss_mcp/extraction/run_extraction.py
+- tests/extraction/test_run_extraction_python_repair.py
+- tests/fixtures/round3_readmes/**
+- tests/mcp/tools/test_product_reference_baked_contract.py
+- tests/mcp/tools/test_product_reference_install_pin.py
+- tests/mcp/tools/test_product_reference_readme_content.py
+- tests/mcp/tools/test_product_reference_truthful.py
+- tests/mcp/tools/test_product_reference_fetch_failed.py
+- tests/mcp/tools/test_product_reference_license_support.py
+- tests/mcp/tools/test_get_product_reference_platforms.py
+- tests/mcp/tools/test_readme_sections.py
+- tests/infra/test_verify_package_registry.py
+- tests/infra/test_verify_product_reference_install.py
+- tests/infra/test_fetch_product_reference.py
+- tests/infra/test_sidecar_writers.py
 satisfies:
 - REQ-G3-009
 - REQ-G3-008
@@ -58,12 +72,43 @@ inputs:
   ORACLE: the upstream README and manifest text at the pinned commit fetched in the test fixture (committed snippets of the real files), and the registry answers recorded as committed fixtures.
 - >-
   REVERSE the weakened test: tests/deploy/test_product_reference_baked_contract.py `test_cpp_installs_are_the_readme_recipe` must again cover cells_cpp (RD3-154 W2).
+- "FINALISATION NOTES (supervisor, 2026-10-19). (1) This card now depends on TC-532 (accepted before you start) because run_extraction.py (python_parse_health) is in your write_paths for the tex statement;\
+  \ the test file of TC-555, tests/extraction/test_run_extraction_python_repair.py, is yours to re-pin. (2) The existing contract tests live under tests/mcp/tools/ (the earlier draft named tests/deploy/test_product_reference_baked_contract.py\
+  \ by mistake): tests/mcp/tools/test_product_reference_baked_contract.py (120 tests) holds the weakened `test_cpp_installs_are_the_readme_recipe` (cells_cpp was dropped from its parametrisation by TC-553\
+  \ to accept the install loss): restore cells_cpp, with the recipe asserted as in the acceptance below. (3) Mandated name: in src/foss_mcp/mcp/tools/get_product_reference.py the exact line `README_INSTALL_GUARD\
+  \ = True` guarding the suppress-or-annotate rule. (4) REAL INPUTS: for each pilot named below clone the upstream repository at the chart pin (ingestion.pilots[].library.commit of infra/helm/foss-mcp/values.yaml;\
+  \ network; no token) and commit the README and the manifest/CMake/agent-guidance files that the rule reads, unchanged, under tests/fixtures/round3_readmes/<family>_<platform>/ (keep each file as in the\
+  \ repository; they are test inputs). Pilots and the facts to assert (each was read from the upstream by the round-3 audit; verify against the clone and report any that is wrong): "
+- "cells/cpp: README Installation section documents NuGet package Aspose.Cells.Cpp.FOSS (26.4.0 and 26.4.1 exist) and a find_package snippet; the library lives in the subdirectory Aspose.Cells.Foss.Cpp\
+  \ of the repository (no root CMakeLists), the link target is aspose_cells_foss, repository URL https://github.com/aspose-cells-foss/Aspose.Cells-FOSS-for-Cpp; plain FetchContent adds nothing without SOURCE_SUBDIR. "
+- "slides/cpp: the real targets are AsposeSlidesFoss and AsposeSlidesFoss::AsposeSlidesFoss (the README's FetchContent snippet names aspose_slides_foss, which does not exist). pdf/cpp: the working route\
+  \ is standalone build, `cmake --install`, `find_package(aspose_pdf_foss 1.0 CONFIG)`; add_subdirectory/FetchContent fail because the upstream CMakeLists uses ${CMAKE_SOURCE_DIR}; NuGet package Aspose.PDF.Cpp.FOSS.\
+  \ email/cpp: no URL in the MCP; repository https://github.com/aspose-email-foss/Aspose.Email-FOSS-for-Cpp, target AsposeEmailFoss::AsposeEmailFoss. "
+- "imaging/net: NuGet Aspose.Imaging.Foss does not exist (HTTP 404) yet the README says `dotnet add package Aspose.Imaging.Foss`. words/python: PyPI aspose-words-foss requires Python >=3.10,<3.13; install\
+  \ must say so. pdf/typescript: not on npm; README build steps `npm install`, `npm run build`, entry `dist/index.js`, `import { Document } from '@asposefoss/pdf'`. "
+- "Java pilots (3d, cells, pdf, slides): Maven coordinate org.aspose:aspose-<product>-foss without a version; slides/java pom 26.8.0 while Maven Central serves 26.7.0. 3d/net: the published Aspose.3D.FOSS\
+  \ targets net6.0, net8.0 and net10.0 while the compatibility section reads net10.0 from src/converter/Converter.csproj (PackageId Aspose.3D.Converter). formats and limitations: cells/cpp, pdf/typescript,\
+  \ imaging/net, words/net, barcode/python, tex/python, slides/net have a README section ('Scope and Limitations', 'Supported formats') that the extraction missed. agent_guidance: pdf/go has CLAUDE.md at\
+  \ the pin; 3d/python and 3d/typescript's guidance is a contributor porting prompt ('implement a python module called org.aspose.threed', 'port Aspose.3D for Python FOSS to TypeScript'): label it `contributor\
+  \ guidance for the library's own repository, not instructions for using it`. Deprecation: pdf/java `Document.getOrCreateInfo` is deprecated with the javadoc `use getInfo()`; the replacement must be named. "
+- >-
+  (5) tex/python: add to python_parse_health (run_extraction.py) an `as_written_failed` count (files that do not parse BEFORE the indentation repair) next to the existing post-repair `failed`, and make
+  the install section, report_index_freshness coverage note and the extraction notice state, for a pilot whose `as_written_failed` is more than zero for the package's own files, `N of M source files do
+  not parse as written; the API was recovered by a textual repair of the lost indentation; the library cannot be imported at this commit` with the real N (35 of 45 for tex/python at 181015d2); the data
+  for the baked tex generation changes only at the supervisor's re-ingest. (6) ACCEPTANCE, offline, on the committed real inputs from step (4): the install text of cells/cpp contains the repository URL,
+  the commit, `SOURCE_SUBDIR Aspose.Cells.Foss.Cpp` and the target `aspose_cells_foss`, and names the NuGet package; slides/cpp's text contains `AsposeSlidesFoss::AsposeSlidesFoss` and no `aspose_slides_foss`
+  target; pdf/cpp's text leads with the find_package route; imaging/net's text has no `dotnet add package Aspose.Imaging.Foss` line; words/python contains `<3.13`; pdf/typescript contains the three build
+  steps; the four Java install texts contain a version or the instruction to read the registry's version; 3d/net's compatibility names net6.0, net8.0 and net10.0; formats/limitations are present for the
+  seven pilots; agent_guidance for pdf/go is present and the two 3d guidance texts carry the contributor label; the pdf/java deprecated member names `getInfo()`. (7) min_tests is 380 for EACH check: the
+  first check collects 120 + 28 + 149 + 64 + 9 = 370 existing tests plus the at least 24 you add; the second check collects thousands. The real-clone step is the only network use; the tests themselves are
+  offline.
 actions:
 - >-
   Fix install sections, README-section extraction and the tex not-importable disclosure; restore the cells/cpp install assertion.
 checks:
 - command: >-
-    {python} -m pytest tests/mcp/tools/test_round3_install_truth.py tests/infra/test_round3_install_sections.py tests/deploy/test_product_reference_baked_contract.py -q -rfE -p no:cacheprovider
+    {python} -m pytest tests/mcp/tools/test_round3_install_truth.py tests/infra/test_round3_install_sections.py tests/mcp/tools/test_product_reference_baked_contract.py tests/mcp/tools/test_product_reference_truthful.py
+    tests/mcp/tools/test_product_reference_install_pin.py tests/infra/test_verify_package_registry.py tests/infra/test_verify_product_reference_install.py -q -rfE -p no:cacheprovider
   expect: exit 0
   timeout_seconds: 1800
   junitxml: true
@@ -71,25 +116,25 @@ checks:
   - REQ-G3-009
   - REQ-G3-008
 - command: >-
-    {python} -m pytest tests/mcp tests/infra tests/deploy/test_readme_matches_release.py -q -rfE -p no:cacheprovider -k "not live and not github_http and not repo_native and not test_prepare_rust_library
-    and not test_rust_known"
+    {python} -m pytest tests/mcp tests/infra tests/extraction/test_run_extraction_python_repair.py tests/deploy/test_readme_matches_release.py -q -rfE -p no:cacheprovider -k "not live and not github_http
+    and not repo_native and not test_prepare_rust_library and not test_rust_known"
   expect: exit 0
   timeout_seconds: 3000
   junitxml: true
   proves:
   - REQ-G3-009
   - REQ-G3-008
-min_tests: 8
+min_tests: 380
 network: true
 requires:
 - python
 - git
 negative_control:
   mutate: |
-    python -X utf8 -c "print('negative control to be authored before dispatch')"
+    python -X utf8 -c "import pathlib;p=pathlib.Path('src/foss_mcp/mcp/tools/get_product_reference.py');s=p.read_text(encoding='utf-8');old='README_INSTALL_GUARD = True';assert s.count(old)==1;p.write_text(s.replace(old,'README_INSTALL_GUARD = False'),encoding='utf-8')"
   rationale: >-
-    PLACEHOLDER written at registration. The supervisor replaces it, before dispatch, with a falsifier that breaks the card's central claim in the code the worker writes (a mandated constant or function
-    name) so that a named new test fails.
+    Turns off the mandated guard that suppresses or annotates a README install line naming a package the registry check says does not exist, so imaging/net quotes `dotnet add package Aspose.Imaging.Foss`
+    again next to 'not found on NuGet': the contradiction tests fail at once. A real break of the card's claim that the install text never contradicts the registry.
 evidence:
 - evidence/build/G3/TC-561/receipt.json
 closeout:
