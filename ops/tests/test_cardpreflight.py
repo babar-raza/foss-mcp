@@ -180,3 +180,14 @@ def test_the_real_cli_turns_the_preflight_on_for_dispatch_next():
 
     source = open(C.__file__, encoding="utf-8").read()
     assert "sp.set_defaults(preflight=True)" in source
+
+
+def test_a_check_may_name_a_new_directory_the_card_creates_files_in(tmp_path):
+    repo = repo_with(tmp_path, "src/x.py")
+    c = card(
+        write_paths=["tests/release/test_a.py", "src/x.py"],
+        min_tests=5,
+        checks=[{"command": "{python} -m pytest tests/release -q"}],
+    )
+    problems, _ = P.preflight(c, repo, count_of(0))
+    assert problems == []

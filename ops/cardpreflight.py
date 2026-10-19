@@ -73,6 +73,8 @@ def _covered(path: str, write_paths: Iterable[str]) -> bool:
         w = w.replace("\\", "/")
         if norm == w or fnmatch.fnmatch(norm, w) or (w.endswith("/") and norm.startswith(w)):
             return True
+        if w.startswith(norm.rstrip("/") + "/"):
+            return True  # a directory of files the card creates (a check may name the new directory)
     return False
 
 
