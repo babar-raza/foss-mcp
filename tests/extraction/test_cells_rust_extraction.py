@@ -81,7 +81,11 @@ def test_the_fixture_is_non_empty() -> None:
     assert data["type_count"] >= data["reduced_type_count"]
     # The real repository has exactly 221 public types - well under the CLI's default
     # --max-types 300 cap, so this fixture is the full surface, not a truncated subset.
-    assert data["type_count"] == 221
+    # TC-535: 221 -> 122. The crate serves only what other crates can import (RD3-030): the 122 items reachable
+    # from lib.rs through pub use / pub mod chains (the 124 names its `pub use` lists, two of them renames
+    # of listed ones), 115 types plus 7 `pub type` aliases (RD3-033); the other 110 entries were in private
+    # modules, in files no `mod` declares, or trait-impl functions of private types.
+    assert data["type_count"] == 122
     assert data["truncated"] is False
 
 
@@ -99,7 +103,9 @@ def test_every_entry_is_a_real_rust_surface_kind() -> None:
     kinds = {entry["kind"] for entry in data["types"]}
     # Observed directly from the live tree-sitter Rust grammar's own node-type vocabulary for
     # this repository, not guessed or invented.
-    assert kinds == {"struct_item", "enum_item", "trait_item", "function"}
+    # TC-535: {"struct_item", "enum_item", "trait_item", "function"} -> "function" is gone (no free function of the
+    # crate is importable, RD3-030) and "type_item" is new (the 7 `pub type` aliases, RD3-033).
+    assert kinds == {"struct_item", "enum_item", "trait_item", "type_item"}
 
 
 def test_common_fields_are_present_on_every_entry() -> None:
@@ -120,7 +126,10 @@ def test_the_trait_item_and_free_functions_observed_are_real() -> None:
     # and free-standing functions/trait-impl methods that surfaced as top-level "function"
     # entries (e.g. a real std::fmt::Display impl and two standalone parsing helpers).
     assert trait_items == {"IWarningCallback"}
-    assert {"parse_a1_range", "parse_cell_ref_a1"} <= functions
+    # TC-535: {"parse_a1_range", "parse_cell_ref_a1"} <= functions -> functions == set(). Both are `pub fn` of
+    # modules no `pub use` names (CellArea.rs, Core/CellAddress.rs), so `aspose_cells_foss_rust::parse_a1_range`
+    # does not exist; the trait-impl `fmt` / `eq` / `hash` entries of private types are not API either (RD3-030).
+    assert functions == set()
 
 
 def test_the_provenance_tagging_machinery_is_present_but_finds_nothing_to_tag_here() -> None:

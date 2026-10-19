@@ -63,8 +63,10 @@ def test_the_fixture_is_non_empty_and_records_real_truncation() -> None:
     # The real repository has only 31 public types - far under the CLI's default
     # --max-types 300 cap - so this fixture is the full, untruncated surface, unlike
     # pdf/go's genuinely reduced one.
-    assert data["type_count"] == 31
-    assert data["reduced_type_count"] == 31
+    # TC-535: 31 -> 49. The re-extraction drops the 2 phantom functions of unexported types the old fixture held
+    # (31 -> 29) and serves the 20 untyped package constants (RD3-026), kinds "constant".
+    assert data["type_count"] == 49
+    assert data["reduced_type_count"] == 49
     assert data["truncated"] is False
 
 
@@ -84,7 +86,8 @@ def test_every_entry_is_a_real_go_surface_kind() -> None:
     # this repository, not guessed or invented. Go has no class/struct/enum/trait keywords of
     # its own: every named type declaration surfaces as "type_spec" and every func declaration
     # (free function or method) surfaces as "function".
-    assert kinds == {"type_spec", "function"}
+    # TC-535: {"type_spec", "function"} -> plus "constant" (the 20 untyped constants such as AlignCenter, RD3-026).
+    assert kinds == {"type_spec", "function", "constant"}
 
 
 def test_common_fields_are_present_on_every_entry() -> None:

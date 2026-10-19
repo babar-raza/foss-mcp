@@ -228,7 +228,10 @@ SIZE_FLOOR_BYTES = {
     # TC-533: 3_512_320 -> 931_840 (measured 1,036,658 bytes * 0.9, multiple of 10 KB): internal declarations are no longer
     # served, 93 exported functions instead of 3,060 and 541 entries instead of 4,393
     "pdf_typescript": 931_840,
-    "pdf_go": 532_480,
+    # TC-535: 532_480 -> 757_760 (measured 845,828 bytes * 0.9, multiple of 10 KB): the 26 package constants and variables,
+    # the 370 further methods promoted through embedding and the package/import path of every entry are served (raised,
+    # not lowered)
+    "pdf_go": 757_760,
     "pdf_python": 1_392_640,
     "slides_python": 1_832_960,
     "html_python": 9_379_840,
@@ -246,7 +249,9 @@ MEMBER_FLOOR = {
     "pdf_java": 23_187,
     # TC-533: 5_598 -> 2_276 (measured 2,396 * 0.95): only the package export surface is served, 93 functions instead of 3,060
     "pdf_typescript": 2_276,
-    "pdf_go": 1_258,
+    # TC-535: 1_258 -> 1_633 (measured 1,719 * 0.95): 436 promoted methods (370 more than before) and 44 promoted fields
+    # are served (raised, not lowered)
+    "pdf_go": 1_633,
     "pdf_python": 2_347,
     "slides_python": 3_861,
     "html_python": 25_419,

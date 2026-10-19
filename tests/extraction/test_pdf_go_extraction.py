@@ -64,8 +64,12 @@ def test_the_fixture_is_non_empty_and_complete() -> None:
     # re-extracted by TC-550: the Go extractor (TC-525) drops the methods of unexported receivers and the
     # _test.go files, so the exported surface at the pin is 357 entries (259 types and 98 package
     # functions), all kept: the fixture is complete (was 300 of 2313).
-    assert data["type_count"] == 357  # re-extracted by TC-550: 2313 -> 357
-    assert data["reduced_type_count"] == data["type_count"]  # re-extracted by TC-550: 300 -> 357
+    # TC-535: 357 -> 383: the 26 package-level constants and variables no type owns (PageFormatA4, FontHelvetica,
+    # ErrEncrypted, ...) are served as entries of their own (RD3-026): 285 types (259 + 26) and 98 functions.
+    assert data["type_count"] == 383  # re-extracted by TC-550: 2313 -> 357; TC-535: 357 -> 383
+    assert (
+        data["reduced_type_count"] == data["type_count"]
+    )  # re-extracted by TC-550: 300 -> 357; TC-535: -> 383
     assert data["truncated"] is False  # re-extracted by TC-550: True -> False
 
 
@@ -104,7 +108,9 @@ def test_every_entry_is_a_real_go_surface_kind() -> None:
     # this repository, not guessed or invented. Go has no class/struct/enum/trait keywords of
     # its own: every named type declaration surfaces as "type_spec" and every func declaration
     # (free function or method) surfaces as "function".
-    assert kinds == {"type_spec", "function"}
+    # TC-535: {"type_spec", "function"} -> plus "constant" and "variable" (the 6 untyped constants and the 20
+    # variables of the package, RD3-026).
+    assert kinds == {"type_spec", "function", "constant", "variable"}
 
 
 def test_common_fields_are_present_on_every_entry() -> None:
@@ -153,7 +159,10 @@ def test_a_real_inherited_member_carries_correct_provenance() -> None:
     inherited = {m["name"]: m for m in barcode_field["methods"] if "inherited_from" in m}
     # Real methods declared on TextBoxField (form_fields.go) and inherited by BarcodeField
     # through Go's embedding - observed directly in the live run.
-    assert inherited.keys() == {
+    # TC-535: the 9 methods of TextBoxField -> plus the 9 methods of the UNEXPORTED fieldBase that TextBoxField
+    # embeds: Go promotes them to BarcodeField through two levels (RD3-027), 370 of pdf/go's 1,202 exported
+    # methods were missing before. The 9 of TextBoxField are unchanged.
+    from_text_box = {
         "Value",
         "MaxLen",
         "IsMultiline",
@@ -164,9 +173,24 @@ def test_a_real_inherited_member_carries_correct_provenance() -> None:
         "SetPassword",
         "SetMaxLen",
     }
-    for method in inherited.values():
-        assert method["inherited_from"] == "TextBoxField"
-        assert method["file"] == "form_fields.go"
+    from_field_base = {
+        "Flatten",
+        "PartialName",
+        "FullName",
+        "IsReadOnly",
+        "IsRequired",
+        "PageIndex",
+        "Rect",
+        "SetStyle",
+        "Style",
+    }
+    assert inherited.keys() == from_text_box | from_field_base
+    for name in from_text_box:
+        assert inherited[name]["inherited_from"] == "TextBoxField"
+        assert inherited[name]["file"] == "form_fields.go"
+    for name in from_field_base:
+        assert inherited[name]["inherited_from"] == "fieldBase"
+        assert inherited[name]["promoted_from"] == "fieldBase"
 
     # BarcodeField's own genuinely-declared methods must never carry the key at all.
     own = {m["name"] for m in barcode_field["methods"] if "inherited_from" not in m}

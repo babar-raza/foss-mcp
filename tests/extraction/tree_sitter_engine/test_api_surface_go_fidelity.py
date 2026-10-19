@@ -98,7 +98,12 @@ def test_unexported_constant_is_not_a_member() -> None:
 def test_untyped_constant_is_not_attached(tmp_path: Path) -> None:
     types = _tree(tmp_path, "package p\n\ntype T int\n\nconst Max = 100\n\nconst (\n\tLimit = 5\n)\n")
     assert all("enum_members" not in entry for entry in types)
-    assert "Max" not in _by_name(types)
+    # TC-535: Max not in by_name -> an untyped constant is served as a constant entry of its own (RD3-026); it
+    # is still not attached to any type as a member.
+    by_name = _by_name(types)
+    assert by_name["Max"]["kind"] == "constant"
+    assert by_name["Max"]["value"] == "100"
+    assert by_name["Limit"]["kind"] == "constant"
 
 
 def test_constant_of_an_unextracted_type_is_ignored(tmp_path: Path) -> None:

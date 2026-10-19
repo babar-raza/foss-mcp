@@ -446,7 +446,14 @@ def test_real_free_functions_get_real_signatures_across_the_three_affected_pilot
         cells_rust_fixture, title="cells/rust API surface", max_types=len(cells_rust_fixture["types"])
     )
     cells_rust_text = "\n".join(chunk.text for chunk in cells_rust_chunks)
-    assert "  - fmt(f: &mut Formatter<'_>) -> std::fmt::Result" in cells_rust_text
+    # TC-535: `  - fmt(f: &mut Formatter<'_>) -> std::fmt::Result` (the free function `fmt` of the private CellAddress)
+    # -> `  - fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result [impl Display]`: no free function of cells/rust
+    # is importable (RD3-030), the fixture serves the `Display` impl of CellsError as a method of that type, with its
+    # receiver (RD3-031) and the trait it comes from.
+    assert (
+        "  - fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result [impl Display]"
+        in cells_rust_text.splitlines()
+    )
 
     # pdf_typescript's real "A" free function: {kind: "function", methods: [], params: [{name:
     # "a", type: "Float32Array"}, ...], return_type: "number"} - confirmed directly against the
