@@ -141,6 +141,7 @@ write_paths:
 - README.md
 - tests/infra/test_helm_chart.py
 - tests/infra/test_helm_pilots_match_compose.py
+- tests/poc/test_pilot_workflow_proof_content.py
 satisfies:
 - REQ-G3-008
 - REQ-G3-005
@@ -221,6 +222,12 @@ inputs:
   SECOND REWORK AMENDMENT (supervisor): tests/infra/test_helm_chart.py and tests/infra/test_helm_pilots_match_compose.py are now in write_paths: commit your uncommitted one-line re-pin in test_helm_chart.py
   (PILOTS table maxTypes for pdf/typescript 4393 -> 541, with the TC-533 comment). Rebase onto the new issue revision, re-run both checks once more, ruff format --check, report the head. docs/RELEASE.md
   was a supervisor defect and is fixed on main (the two release-document tests now pass at the new base).
+- "THIRD AMENDMENT (supervisor, 2026-10-19): tests/poc/test_pilot_workflow_proof_content.py is now in write_paths. Its test \test_load_pilot_type_count_equals_the_served_total_types_for_every_pilot_with_functions\
+  \ compares each fixture's type_count with the BAKED served total (_served_total_types); it already fails on main for barcode_python (52 against the baked 70, since TC-532) and it will fail for pdf_typescript,\
+  \ 3d_typescript and cells_typescript after your regeneration, because the baked generation is stale until the supervisor's re-ingest. Fix it once, for every pilot: import STALE_BAKED_PILOTS from tests/deploy/test_fleet_consistency.py\
+  \ and, for a pilot listed there, assert the invariants that do not depend on the baked total (the fixture loads, type_count equals the fixture's own entry count) instead of equality with the baked total;\
+  \ keep the equality for every pilot not listed; comment TC-533: <old> -> <new> with the reason. Never skip, delete or xfail. Also run tests/poc, tests/release and the ops tests (python -m pytest ops/tests\
+  \ -q) in your final verification; ops/release.py IMAGE_INPUT_PATHS was extended by the supervisor (infra/rollback.py) in the new base."
 actions:
 - >-
   Fix the TypeScript extractor and renderer for the five round-3 defect classes and add the synthetic-source and renderer tests.

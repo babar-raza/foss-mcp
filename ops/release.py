@@ -149,6 +149,7 @@ IMAGE_INPUT_PATHS = (
     "infra/verify_package_registry.py",
     "infra/demo-manifests",
     "infra/demo_entrypoint.py",
+    "infra/rollback.py",
 )
 
 

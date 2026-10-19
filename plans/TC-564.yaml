@@ -23,6 +23,7 @@ depends_on:
 - TC-560
 - TC-246
 - TC-250
+- TC-533
 write_paths:
 - infra/serve_http.py
 - infra/rollback.py
@@ -112,6 +113,13 @@ inputs:
   ody['error']=='rejected': update them to the JSON-RPC shape (you cannot run them; keep the edit minimal and mechanical, and list them in the report as NOT RUN); (j) run the wider suites (tests/mcp, tests/infra,\
   \ tests/deploy, top-level tests/test_*.py, usual -k filter) and report that ALL are green. The five real-docker-build tests of tests/test_container_build.py stay environment-gated and are run by the supervisor\
   \ at the closing build. Rebase your two commits onto the new issue revision."
+- "THIRD AMENDMENT (supervisor, 2026-10-19). The review found three groups of failures. (1) ops/tests/test_release_record.py::test_stale_image_paths_names_exactly_the_files_the_dockerfile_copies: fixed\
+  \ by the supervisor in ops/release.py (infra/rollback.py is in IMAGE_INPUT_PATHS on the new base). (2) The five docker-only e2e container-session tests tests/e2e/test_cells_rust_container_session.py,\
+  \ test_pdf_go_container_session.py, test_pdf_java_container_session.py, test_pdf_typescript_container_session.py, test_slides_python_container_session.py fail in \test_each_tool_is_callable_against_the_real_container[list_recent_changes]\
+  \ (they DO run in the review: their compose serving service starts with an EMPTY manifest store, so the tool now answers unavailable): apply exactly the same stanza you applied to tests/e2e/test_container_session.py\
+  \ (list_recent_changes -> isError True, code unavailable, with the TC-564 comment), in each of the five files. (3) tests/poc/test_pilot_workflow_proof_content.py is fixed by TC-533 (accepted before you\
+  \ start; this card now depends on TC-533): re-run tests/poc, tests/release, the ops tests (python -m pytest ops/tests -q) and tests/e2e container-session files that can run offline, and report ALL green.\
+  \ Rebase onto the new issue revision."
 actions:
 - >-
   Fix sidecar state reporting, ship and harden rollback, classify storage errors, complete observability, session and transport hardening, ownership.
