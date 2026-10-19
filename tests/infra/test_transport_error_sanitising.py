@@ -149,7 +149,11 @@ def test_a_transport_rejection_is_not_rewritten(tmp_path: Path) -> None:
     with TestClient(app) as client:
         response = client.post("/mcp", json=INITIALIZE, headers=HEADERS | {"Origin": "https://evil.example"})
     assert response.status_code == 400
-    assert response.json()["error"] == "rejected"
+    # TC-564: {"error": "rejected", "reason": ...} -> a JSON-RPC error body; its message is still the rejection's
+    # own reason, never one of the two fixed sanitising strings.
+    message = response.json()["error"]["message"]
+    assert message.startswith("origin ")
+    assert PARSE_MESSAGE not in message and INVALID_MESSAGE not in message
 
 
 def test_healthz_is_untouched(tmp_path: Path) -> None:

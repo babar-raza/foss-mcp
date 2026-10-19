@@ -332,7 +332,10 @@ def main(argv: list[str] | None = None) -> int:
     if not report.ready:
         reasons = "; ".join(report.reasons)
         if args.force:
-            print(f"warning: the rolled-back generation is not ready ({reasons}); kept because of --force")
+            print(
+                f"warning: the rolled-back generation is not ready ({reasons}); kept because of --force",
+                file=sys.stderr,
+            )
         else:
             reverted = _flip_back(store, scope, args.held_by, generation_id, expected_active)
             print(

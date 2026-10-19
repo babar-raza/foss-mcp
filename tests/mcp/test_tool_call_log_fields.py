@@ -302,7 +302,12 @@ def test_a_failing_metrics_registry_never_changes_the_tool_result(
     ):
         with caplog.at_level(logging.WARNING, logger=LOGGER_NAME):
             expected, actual = _call(healthy, name, arguments), _call(broken, name, arguments)
-        assert actual == expected
+        # TC-564: a success carries a fresh per-call `_meta.correlation_id`, so two calls differ in it alone; the
+        # results are compared without it (and each must carry one).
+        assert (
+            actual.meta and expected.meta and actual.meta["correlation_id"] != expected.meta["correlation_id"]
+        )
+        assert actual.model_copy(update={"meta": None}) == expected.model_copy(update={"meta": None})
     for name, arguments in (("search_symbols", {"query": ""}), ("not_a_tool", {})):
         expected, actual = _call(healthy, name, arguments), _call(broken, name, arguments)
         assert actual.is_error is True

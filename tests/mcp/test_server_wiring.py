@@ -352,6 +352,12 @@ def test_each_tool_is_callable(tmp_path: Path, tool_name: str) -> None:
         assert response.status_code == 200
         body = _sse_json(response.text)
         assert "result" in body, body
+        if tool_name == "list_recent_changes":
+            # TC-564: an absent recent-releases sidecar answered `[]` ("complete answer") -> it is `unavailable`
+            # (this app has no sidecar on disk, and a missing file is not "no releases").
+            assert body["result"]["isError"] is True
+            assert body["result"]["structuredContent"]["code"] == "unavailable"
+            return
         assert body["result"]["isError"] is False
 
 
@@ -390,6 +396,12 @@ def test_each_tool_calls_plain_text_content_is_valid_json_matching_structured_co
         assert response.status_code == 200
         body = _sse_json(response.text)
         result = body["result"]
+        if tool_name == "list_recent_changes":
+            # TC-564: absent sidecar `[]` -> `unavailable`; its text is the fixed message, not a JSON result.
+            assert result["isError"] is True
+            assert result["structuredContent"]["code"] == "unavailable"
+            assert result["content"][0]["text"] == result["structuredContent"]["message"]
+            return
         assert result["isError"] is False
         text = result["content"][0]["text"]
         parsed_text = json.loads(text)  # must be real, parseable JSON - not repr() syntax
@@ -404,8 +416,11 @@ def test_a_bad_origin_is_rejected_at_the_transport_never_reaching_a_tool(tmp_pat
             headers=dict(VALID_HEADERS, Origin="https://evil.example"),
         )
         assert response.status_code == 400
-        assert response.json()["error"] == "rejected"
-        assert "origin" in response.json()["reason"].lower()
+        # TC-564: {"error": "rejected", "reason": ...} -> a JSON-RPC error body (id null, code, message).
+        error = response.json()["error"]
+        assert response.json()["jsonrpc"] == "2.0" and response.json()["id"] is None
+        assert isinstance(error["code"], int)
+        assert "origin" in error["message"].lower()
 
 
 def test_a_missing_protocol_version_is_allowed_through_with_a_real_initialize_response(
@@ -440,7 +455,8 @@ def test_an_invalid_protocol_version_is_rejected_with_400(tmp_path: Path) -> Non
             headers=dict(VALID_HEADERS, **{"MCP-Protocol-Version": "not-a-real-version"}),
         )
         assert response.status_code == 400
-        assert "protocol-version" in response.json()["reason"].lower()
+        # TC-564: body["reason"] -> body["error"]["message"] (JSON-RPC error shape); status unchanged.
+        assert "protocol-version" in response.json()["error"]["message"].lower()
 
 
 def test_a_valid_request_still_passes(tmp_path: Path) -> None:
@@ -790,7 +806,14 @@ def test_a_suppressed_unsafe_message_warning_log_line_carries_the_same_correlati
     body = _sse_json(response.text)
     correlation_id = body["result"]["structuredContent"]["correlation_id"]
 
-    warning_records = [record for record in caplog.records if record.levelno == logging.WARNING]
+    # TC-564: "exactly one WARNING" -> the line with the correlation id exists exactly once; the app has no
+    # sidecars on disk, so it also logs one "sidecar not loaded" WARNING per required sidecar at boot.
+    warning_records = [
+        record
+        for record in caplog.records
+        if record.levelno == logging.WARNING
+        and record.getMessage() != "sidecar not loaded, the file was not found"
+    ]
     assert len(warning_records) == 1
     assert f"correlation_id={correlation_id}" in warning_records[0].getMessage()
 
@@ -941,7 +964,8 @@ def test_metrics_reflects_real_tool_calls_through_the_real_served_transport(tmp_
     """
     with _client(tmp_path) as client:
         session = _McpSession(client)
-        before = client.get("/metrics").json()
+        # TC-564: /metrics defaults to Prometheus text; the legacy two-field JSON is ?format=json.
+        before = client.get("/metrics?format=json").json()
 
         calls = [
             ("search_symbols", {"query": "Widget"}),  # success
@@ -953,7 +977,7 @@ def test_metrics_reflects_real_tool_calls_through_the_real_served_transport(tmp_
             response = session.request("tools/call", {"name": tool_name, "arguments": arguments})
             assert response.status_code == 200
 
-        after = client.get("/metrics").json()
+        after = client.get("/metrics?format=json").json()
 
     assert after["usage_events_queued"] - before["usage_events_queued"] == len(calls)
     assert after["usage_events_dropped"] == before["usage_events_dropped"]
@@ -964,11 +988,16 @@ def test_metrics_is_reachable_with_no_origin_or_protocol_version_headers(tmp_pat
     never be caught by RejectionMiddleware's MCP-transport-only rejection rules (the same
     exemption /healthz and /readyz already rely on)."""
     with _client(tmp_path) as client:
-        response = client.get("/metrics")
+        # TC-564: legacy JSON body is now ?format=json; the bare scrape is Prometheus text (kept below).
+        response = client.get("/metrics?format=json")
         assert response.status_code == 200
         body = response.json()
         assert "usage_events_queued" in body
         assert "usage_events_dropped" in body
+        default = client.get("/metrics")
+        assert default.status_code == 200
+        assert default.headers["content-type"].startswith("text/plain")
+        assert "# TYPE foss_mcp_tool_calls_total counter" in default.text
 
 
 def test_metrics_usage_events_dropped_reflects_a_real_drop_from_real_tool_calls(
@@ -988,7 +1017,7 @@ def test_metrics_usage_events_dropped_reflects_a_real_drop_from_real_tool_calls(
         session = _McpSession(client)
         for _ in range(3):
             session.request("tools/call", {"name": "search_symbols", "arguments": {"query": "Widget"}})
-        body = client.get("/metrics").json()
+        body = client.get("/metrics?format=json").json()  # TC-564: legacy JSON needs ?format=json
 
     assert body["usage_events_queued"] == 1  # capacity 1 - never grows past it
     assert body["usage_events_dropped"] == 2  # the other two real calls were genuinely dropped

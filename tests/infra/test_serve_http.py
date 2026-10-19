@@ -227,7 +227,8 @@ def test_metrics_is_reachable_with_no_origin_or_protocol_version_headers(tmp_pat
     never be caught by RejectionMiddleware's MCP-transport-only rejection rules."""
     store = _store(tmp_path)
     with _client(store) as client:
-        response = client.get("/metrics")
+        # TC-564: the legacy JSON body needs ?format=json (the default is the Prometheus text).
+        response = client.get("/metrics?format=json")
         assert response.status_code == 200
         body = response.json()
         assert body == {"usage_events_queued": 0, "usage_events_dropped": 0}
@@ -264,7 +265,8 @@ def test_metrics_reports_the_same_live_recorder_build_app_was_given(tmp_path: Pa
         usage_recorder=recorder,
     )
     with TestClient(app) as client:
-        response = client.get("/metrics")
+        # TC-564: the legacy JSON body needs ?format=json (the default is the Prometheus text).
+        response = client.get("/metrics?format=json")
     assert response.status_code == 200
     assert response.json() == {"usage_events_queued": 1, "usage_events_dropped": 0}
 
@@ -307,7 +309,8 @@ def test_metrics_reports_a_real_drop_once_the_queue_is_at_capacity(tmp_path: Pat
         usage_recorder=recorder,
     )
     with TestClient(app) as client:
-        response = client.get("/metrics")
+        # TC-564: the legacy JSON body needs ?format=json (the default is the Prometheus text).
+        response = client.get("/metrics?format=json")
     assert response.status_code == 200
     assert response.json() == {"usage_events_queued": 1, "usage_events_dropped": 1}
 

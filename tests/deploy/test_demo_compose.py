@@ -331,15 +331,23 @@ def test_the_demo_stage_builds_on_runtime_and_keeps_its_baked_data() -> None:
 
 
 def test_the_baked_data_is_not_owned_by_the_serving_user() -> None:
+    """TC-564: this test used to forbid any chown/chmod in the demo stage (root ownership came from the COPY alone). The
+    runtime stage chowns /data and /data/manifests to the serving user, so the directories stayed deletable-from by it:
+    the sidecars could be removed by a peer running the image without --read-only. The demo stage now hands the tree
+    to root and removes every write bit; the baked COPY itself is still plain (no --chown/--chmod)."""
     demo = dockerfile_stages()[1]
     baked_copies = [i for i in demo if i.startswith("COPY ") and "infra/demo-manifests/" in i]
     assert baked_copies, "the demo stage must copy infra/demo-manifests/"
-    assert not any("--chown" in i or "--chmod" in i for i in baked_copies), (
-        "the baked data must stay root-owned so the serving user cannot modify it"
-    )
-    assert not any(i.startswith("RUN ") and ("chown" in i or "chmod" in i) for i in demo), (
-        "the demo stage must not re-own or re-mode any file"
-    )
+    assert not any("--chown" in i or "--chmod" in i for i in baked_copies)
+    hand_over = [i for i in demo if i.startswith("RUN ") and "chown" in i]
+    assert len(hand_over) == 1
+    run = hand_over[0]
+    assert "chown -R root:root /data" in run
+    assert "find /data/manifests -type d -exec chmod 0555" in run
+    assert "find /data/manifests -type f -exec chmod 0444" in run
+    # The RUN executes as root, between the baked COPY and the return to the unprivileged user.
+    assert demo.index("USER root") < demo.index(run) < demo.index("USER foss-mcp")
+    assert demo.index(baked_copies[0]) < demo.index("USER root")
 
 
 def test_the_demo_stage_runs_the_entrypoint_and_exposes_the_http_port() -> None:
@@ -349,9 +357,11 @@ def test_the_demo_stage_runs_the_entrypoint_and_exposes_the_http_port() -> None:
     assert demo[-1] == "CMD []", (
         "the demo stage's CMD must be empty so a bare `docker run IMAGE` prints the usage"
     )
-    assert not any(instruction.startswith("USER ") for instruction in demo), (
-        "the demo stage runs as runtime's user"
-    )
+    # TC-564: "the demo stage has no USER instruction" -> the stage briefly uses root for the ownership RUN and ends as
+    # the unprivileged user, so the entrypoint (and the server it execs) still runs as runtime's user.
+    users = [instruction.split()[1] for instruction in demo if instruction.startswith("USER ")]
+    assert users == ["root", "foss-mcp"], "the demo stage must end as runtime's unprivileged user"
+    assert demo.index("USER foss-mcp") < demo.index('ENTRYPOINT ["python", "/app/infra/demo_entrypoint.py"]')
 
 
 def test_the_demo_stage_copies_the_entrypoint_with_the_ownership_of_the_other_infra_files() -> None:

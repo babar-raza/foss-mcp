@@ -235,7 +235,11 @@ def test_force_keeps_a_target_that_is_not_ready_and_says_so(
 
     assert code == 0
     assert raw_pointer(store_path) == target
-    assert "is not ready" in capsys.readouterr().out
+    captured = capsys.readouterr()
+    assert "is not ready" in captured.err
+    assert captured.out.strip() == f"rolled back to {target}", (
+        "the warning is on stderr, stdout stays one line"
+    )
 
 
 def test_nothing_to_flip_back_to_exits_4(

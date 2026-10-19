@@ -234,9 +234,16 @@ def test_a_manifests_directory_without_sidecars_still_serves_and_answers_honestl
     _publish(store)
     over_stdio = _call_over_stdio_server(store, manifests, CALLS)
     over_http = _call_over_http_app(store, manifests, CALLS)
-    assert over_stdio == over_http
+    assert over_stdio[:2] == over_http[:2]
     assert "no packaging manifest was provided" in over_stdio[0]["content"][0]["text"]
-    assert over_stdio[2]["structured"]["result"] == []
+    # TC-564: a missing recent-releases sidecar answered `[]` (a "complete answer") -> the same honest `unavailable`
+    # error over both transports (compared without the per-call correlation id).
+    for answer in (over_stdio[2], over_http[2]):
+        assert answer["is_error"] is True
+        assert answer["structured"]["code"] == "unavailable"
+        assert answer["content"][0]["text"] == answer["structured"]["message"]
+    assert over_stdio[2]["content"] == over_http[2]["content"]
+    assert over_stdio[2]["structured"]["message"] == over_http[2]["structured"]["message"]
 
 
 def test_the_server_stdio_builds_lists_the_same_tools_as_the_http_app_server(

@@ -135,12 +135,19 @@ def _calls(tool: str, outcome: str, code: str) -> str:
     return f'foss_mcp_tool_calls_total{{{CONSTANTS},tool="{tool}",outcome="{outcome}",code="{code}"}}'
 
 
-def test_a_default_scrape_is_still_the_two_field_json(tmp_path: Path) -> None:
+def test_a_default_scrape_is_the_prometheus_text_and_the_two_field_json_needs_format_json(
+    tmp_path: Path,
+) -> None:
+    # TC-564: a default scrape was the two-field JSON -> it is the Prometheus text; the JSON is ?format=json.
     with TestClient(_app(tmp_path, _baked_store(tmp_path))) as client:
         for response in (client.get("/metrics"), client.get("/metrics", headers={"Accept": "*/*"})):
             assert response.status_code == 200
-            assert response.headers["content-type"].startswith("application/json")
-            assert response.json() == {"usage_events_queued": 0, "usage_events_dropped": 0}
+            assert response.headers["content-type"] == CONTENT_TYPE
+            assert "# TYPE foss_mcp_tool_calls_total counter" in response.text
+        legacy = client.get("/metrics?format=json")
+        assert legacy.status_code == 200
+        assert legacy.headers["content-type"].startswith("application/json")
+        assert legacy.json() == {"usage_events_queued": 0, "usage_events_dropped": 0}
 
 
 def test_accept_text_plain_returns_the_prometheus_exposition_with_its_content_type(tmp_path: Path) -> None:
@@ -173,7 +180,8 @@ def test_the_format_parameter_overrides_the_accept_header_both_ways(tmp_path: Pa
     assert forced_json.json() == {"usage_events_queued": 0, "usage_events_dropped": 0}
     assert forced_text.headers["content-type"] == CONTENT_TYPE
     assert forced_text_from_star.headers["content-type"] == CONTENT_TYPE
-    assert unknown_format.headers["content-type"].startswith("application/json")
+    # TC-564: an unknown format value gave the JSON body -> it gives the (new default) Prometheus text.
+    assert unknown_format.headers["content-type"] == CONTENT_TYPE
 
 
 def test_a_search_symbols_hit_is_counted_with_family_platform_tool_outcome_and_code(tmp_path: Path) -> None:
@@ -310,7 +318,7 @@ def test_the_legacy_usage_numbers_are_also_exposed(tmp_path: Path) -> None:
         session = _McpSession(client)
         for _ in range(3):
             session.call("search_symbols", {"query": "Document"})
-        legacy = client.get("/metrics").json()
+        legacy = client.get("/metrics?format=json").json()  # TC-564: ?format=json
         samples = _samples(_scrape(client))
     assert samples[f"foss_mcp_usage_events_queued{{{CONSTANTS}}}"] == legacy["usage_events_queued"] == 3
     assert (

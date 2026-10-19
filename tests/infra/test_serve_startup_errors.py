@@ -133,7 +133,10 @@ def test_valid_values_still_reach_uvicorn_with_the_same_arguments(
         "port": serve_http.DEFAULT_PORT,
         "log_config": None,
         "timeout_graceful_shutdown": 40,
+        # TC-564: the protocol that also closes a connection whose request head never completes.
+        "http": kwargs["http"],
     }
+    assert kwargs["http"].__name__ == "HeaderTimeoutProtocol"
     assert logging.getLogger().level == logging.WARNING
 
 

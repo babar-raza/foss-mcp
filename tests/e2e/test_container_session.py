@@ -199,6 +199,11 @@ def test_each_tool_is_callable_against_the_real_container(session: _McpSession, 
     assert response.status_code == 200
     body = _sse_json(response.text)
     assert "result" in body, body
+    if tool_name == "list_recent_changes":
+        # TC-564: this compose service has no recent-releases sidecar; `[]` -> `unavailable` (NOT RUN: needs docker).
+        assert body["result"]["isError"] is True
+        assert body["result"]["structuredContent"]["code"] == "unavailable"
+        return
     assert body["result"]["isError"] is False
 
 
@@ -216,8 +221,9 @@ def test_an_invalid_origin_is_rejected(running_container: None) -> None:
     )
     assert response.status_code == 400
     body = response.json()
-    assert body["error"] == "rejected"
-    assert "origin" in body["reason"].lower()
+    # TC-564: {"error": "rejected", "reason": ...} -> a JSON-RPC error body (NOT RUN: needs docker).
+    assert body["error"]["code"] == -32600
+    assert "origin" in body["error"]["message"].lower()
 
 
 def _assert_request_is_allowed(response) -> None:
@@ -241,7 +247,8 @@ def test_an_invalid_protocol_version_is_rejected(running_container: None) -> Non
         timeout=10,
     )
     assert response.status_code == 400
-    assert "protocol-version" in response.json()["reason"].lower()
+    # TC-564: body["reason"] -> body["error"]["message"] (JSON-RPC error shape; NOT RUN: needs docker).
+    assert "protocol-version" in response.json()["error"]["message"].lower()
 
 
 def test_protocol_errors_stay_distinguishable_from_tool_domain_errors(session: _McpSession) -> None:
@@ -255,7 +262,8 @@ def test_protocol_errors_stay_distinguishable_from_tool_domain_errors(session: _
         timeout=10,
     )
     assert rejected.status_code == 400
-    assert rejected.json()["error"] == "rejected"
+    # TC-564: {"error": "rejected"} -> a JSON-RPC error body (NOT RUN: needs docker).
+    assert rejected.json()["error"]["code"] == -32600
 
     tool_error = session.request("tools/call", {"name": "not_a_real_tool", "arguments": {}})
     assert tool_error.status_code == 200

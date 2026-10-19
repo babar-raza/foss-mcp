@@ -75,6 +75,10 @@ def _rollback_argv(manifest_store_path: Path, target_generation: str) -> list[st
         str(manifest_store_path),
         "--target-generation",
         target_generation,
+        # TC-564: these tests roll back to a ONE-chunk generation to test the mechanics (the pointer moves, the id is
+        # printed, the lease holder); rollback now refuses such a target without --force (the production floors have
+        # their own tests in test_round3_rollback_hardening.py).
+        "--force",
     ]
 
 

@@ -34,7 +34,12 @@ DEMO_MANIFESTS = REPO_ROOT / "infra" / "demo-manifests"
 SERVE_HTTP_SOURCE = INFRA_DIR / "serve_http.py"
 SCOPE_DIR_NAME = "pdf__go__self_extracted"
 CONFIG = DeploymentConfig(family="pdf", platform="go")
-EVIL = "evil.example"
+# TC-564: the Host header these tests send was `evil.example`; a dotted foreign name is now refused with 421 before routing
+# (proved by test_a_foreign_dotted_host_is_refused_with_421_before_routing below). The tests that prove something else
+# (no redirect is built from a client Host) send a single-label name, which the Host policy admits (a container or
+# service name) and which is still an attacker-chosen value that would show up in a Location header if one were built.
+EVIL = "evil-host"
+FOREIGN_HOST = "evil.example"
 EVIL_HOST = {"Host": EVIL}
 
 INITIALIZE_BODY = {
@@ -80,6 +85,17 @@ def test_a_trailing_slash_path_is_a_404_with_no_location_header(
     assert EVIL not in str(dict(response.headers))
 
 
+@pytest.mark.parametrize("path", ["/mcp", "/mcp/", "/healthz/", "/metrics/"])
+def test_a_foreign_dotted_host_is_refused_with_421_before_routing(tmp_path: Path, path: str) -> None:
+    """TC-564: the pre-card tests sent Host: evil.example and got 404/200; Host is now validated, so it is 421 and
+    the value is never echoed into a Location header (probe paths without the slash are exempt, so not listed)."""
+    with _client(tmp_path) as client:
+        response = client.post(path, json=INITIALIZE_BODY, headers={"Host": FOREIGN_HOST})
+    assert response.status_code == 421
+    assert "location" not in response.headers
+    assert response.json()["error"]["code"] == -32600
+
+
 def test_the_canonical_paths_are_unchanged(tmp_path: Path) -> None:
     with _client(tmp_path) as client:
         healthz = client.get("/healthz", headers=EVIL_HOST)
@@ -105,8 +121,8 @@ def test_the_origin_rejection_still_runs_before_routing(tmp_path: Path) -> None:
             ),
         )
         assert response.status_code == 400
-        assert response.json()["error"] == "rejected"
-        assert "origin" in response.json()["reason"].lower()
+        # TC-564: {"error": "rejected", "reason": ...} -> a JSON-RPC error body.
+        assert "origin" in response.json()["error"]["message"].lower()
         # The rejection also runs ahead of the router for a trailing-slash path: still no redirect.
         slashed = client.post(
             "/mcp/", json=INITIALIZE_BODY, headers=dict(MCP_HEADERS, Origin="https://evil.example")
@@ -121,7 +137,9 @@ def test_an_unsupported_protocol_version_is_still_rejected(tmp_path: Path) -> No
             "/mcp", json=INITIALIZE_BODY, headers=dict(MCP_HEADERS, **{"MCP-Protocol-Version": "not-a-date"})
         )
     assert response.status_code == 400
-    assert response.json()["error"] == "rejected"
+    # TC-564: {"error": "rejected", ...} -> a JSON-RPC error body (code -32600, id null).
+    assert response.json()["error"]["code"] == -32600
+    assert "protocol-version" in response.json()["error"]["message"].lower()
 
 
 def test_build_app_sets_redirect_slashes_false_exactly_once() -> None:

@@ -427,6 +427,11 @@ def test_a_rejected_value_is_not_echoed_over_the_wire(client: _Client) -> None:
 @pytest.mark.parametrize("tool_name", sorted(VALID_ARGUMENTS))
 def test_a_valid_call_of_each_tool_still_succeeds(client: _Client, tool_name: str) -> None:
     result, _ = client.call(tool_name, VALID_ARGUMENTS[tool_name])
+    if tool_name == "list_recent_changes":
+        # TC-564: an absent recent-releases sidecar answered `[]` -> `unavailable` (a missing file is not "no releases").
+        assert result["isError"] is True, result
+        assert result["structuredContent"]["code"] == "unavailable"
+        return
     assert result["isError"] is False, result
     assert "result" in result["structuredContent"]
 

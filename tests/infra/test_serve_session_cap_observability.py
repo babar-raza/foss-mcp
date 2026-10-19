@@ -204,7 +204,8 @@ def test_metrics_still_answers_at_the_cap(tmp_path: Path) -> None:
     client = _full_client(tmp_path)
     try:
         assert _initialize(client).status_code == 503
-        as_json = client.get("/metrics")
+        # TC-564: the legacy JSON body is ?format=json (a bare scrape is the Prometheus text).
+        as_json = client.get("/metrics?format=json")
         as_text = client.get("/metrics", headers={"Accept": "text/plain"})
     finally:
         client.__exit__(None, None, None)
