@@ -52,6 +52,11 @@ write_paths:
 - tests/infra/test_helm_chart.py
 - tests/infra/test_helm_pilots_match_compose.py
 - tests/extraction/tree_sitter_engine/test_api_surface_other_languages.py
+- tests/extraction/tree_sitter_engine/test_api_surface_go_fidelity.py
+- tests/extraction/tree_sitter_engine/test_ts_fidelity.py
+- tests/extraction/tree_sitter_engine/test_api_surface_csharp_signatures.py
+- tests/infra/test_round3_install_sections.py
+- src/foss_mcp/extraction/tree_sitter_engine/tree_helpers.py
 satisfies:
 - REQ-G3-009
 - REQ-G3-008
@@ -117,6 +122,14 @@ inputs:
 - >-
   Also in write_paths: tests/extraction/tree_sitter_engine/test_api_surface_other_languages.py (language-sample tests that write sources under a file name; re-pin only what your extractor change legitimately
   moves, TC comment, never weaken).
+- "REWORK AMENDMENT (supervisor, 2026-10-19). The four blockers of your report are accepted; these files are now in write_paths: tests/extraction/tree_sitter_engine/test_api_surface_csharp_signatures.py\
+  \ (test_java_output_is_byte_identical_to_before: re-pin to params [a, rest: int...] and modifiers [static], name changed to say what it now pins, keep the Python/other assertions), tests/extraction/tree_sitter_engine/test_api_surface_go_fidelity.py\
+  \ (test_other_languages_are_unchanged: Widget methods ['Widget','size'], and the modifiers assertion must look at the declared method, not at index 0), tests/extraction/tree_sitter_engine/test_ts_fidelity.py\
+  \ (test_non_typescript_languages_are_unaffected: [static] modifier and the implicit Greeter() constructor), tests/infra/test_round3_install_sections.py (the getOrCreateInfo line now carries \throws IOException).\
+  \ Each edit has a TC-557: <old> -> <new> comment. IN SCOPE NOW, your own finding: src/foss_mcp/extraction/tree_sitter_engine/tree_helpers.py is_public drops Java interface methods whose only modifier\
+  \ is static or default (implicitly public): fix it (5 methods across the four pilots: 3d byVal, pdf encryptPermissions, slides getShapeType, isEmpty, getPresentation), with a synthetic-source test in\
+  \ your round-3 test file, regenerate the fixtures once more if they change, and keep every other language's behaviour identical. The STALE_BY_MEMBERS mechanism is accepted. Rebase onto the new issue revision,\
+  \ re-run both checks twice, the negative control, the wider suites; ruff format on each changed file named explicitly; report the head."
 actions:
 - >-
   Regenerate the four Java fixtures with the fixed extractor and renderer; add the Java fidelity tests with a javac/javap oracle.
