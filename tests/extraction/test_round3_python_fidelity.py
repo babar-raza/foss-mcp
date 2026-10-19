@@ -431,6 +431,17 @@ def test_tex_reports_the_files_that_do_not_parse() -> None:
 # --------------------------------------------------------------------------- the chunks
 
 
+def test_the_chunk_renders_the_literal_a_python_attribute_is_assigned() -> None:
+    # upstream: light_document_model.py, class Font: all_caps: bool = False; ParagraphFormat.alignment: int = 0
+    data = fixture("words_python")
+    chunks = build_chunks_from_api_surface(data, title="words", max_types=len(data["types"]))
+    font = next(
+        c.text for c in chunks if c.text.startswith("FQN: aspose.words_foss.light_document_model.Font\n")
+    )
+    assert "  - all_caps: bool = False (writable)" in font.splitlines()
+    assert "  - color: str = '' (writable)" in font.splitlines()
+
+
 @pytest.mark.parametrize("pilot", ["barcode_python", "3d_python"])
 def test_the_chunks_state_the_enum_members_and_the_shadowing(pilot: str) -> None:
     data = fixture(pilot)

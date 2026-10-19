@@ -281,8 +281,10 @@ def test_the_chunk_renders_a_constant_as_a_read_only_property_line(tmp_path: Pat
     _package(tmp_path, "mod", "class K:\n    X_AXIS = None\n    MAX = 5\n")
     entry = _types(tmp_path)["K"]
     text = chunk_builder._format_type_text(entry, fqn=entry["class_import"])
-    assert "  - X_AXIS (read-only)" in text.splitlines()
-    assert "  - MAX: int (read-only)" in text.splitlines()
+    # TC-532: the literal is rendered: `X_AXIS (read-only)` -> `X_AXIS = None (read-only)`,
+    # `MAX: int (read-only)` -> `MAX: int = 5 (read-only)`
+    assert "  - X_AXIS = None (read-only)" in text.splitlines()
+    assert "  - MAX: int = 5 (read-only)" in text.splitlines()
 
 
 def test_a_class_that_had_no_member_now_has_properties_and_so_is_not_member_less(tmp_path: Path) -> None:
@@ -292,7 +294,9 @@ def test_a_class_that_had_no_member_now_has_properties_and_so_is_not_member_less
     assert chunk_builder._has_members(entry)
     text = chunk_builder._format_type_text(entry, fqn=entry["class_import"])
     assert "Properties:" in text
-    assert "  - Z_AXIS (read-only)" in text
+    assert (
+        "  - Z_AXIS = None (read-only)" in text
+    )  # TC-532: `Z_AXIS (read-only)` -> `Z_AXIS = None (read-only)`
 
 
 def test_nested_classes_do_not_leak_constants_into_the_outer_class(tmp_path: Path) -> None:

@@ -216,8 +216,11 @@ def _property_line(prop: Mapping[str, object]) -> str:
     suffix = f" ({writability})" if writability is not None else ""
     prop_type = _clean_type(prop.get("type"))
     typed = f": {prop_type}" if prop_type else ""
+    # TC-532: the literal a python attribute is assigned (``MAX: int = 5``); absent for any other property.
+    literal = prop.get("value")
+    valued = f" = {' '.join(str(literal).split())}" if literal is not None and str(literal).strip() else ""
     return (
-        f"  - {prop.get('name', '')}{typed}{_modifiers_suffix(prop)}{suffix}"
+        f"  - {prop.get('name', '')}{typed}{valued}{_modifiers_suffix(prop)}{suffix}"
         f"{_inherited_from_suffix(prop)}{_deprecated_suffix(prop)}"
     )
 

@@ -456,7 +456,7 @@ def test_fill_python_enum_members_reads_the_class_body(tmp_path: Path) -> None:
     assert _members(by_import["paints.colors.Color"]) == [
         ("RED", "1"),
         ("BLUE", "'b'"),
-        ("GREEN", ""),  # auto(): a member, no literal value
+        ("GREEN", "auto()"),  # TC-532: "" -> "auto()" (an auto() member carries the marker value)
         ("MIX", "(1, 2)"),
     ]
     assert _members(by_import["paints.colors.Perm"]) == [("READ", "1"), ("WRITE", "2")]
@@ -576,7 +576,8 @@ def test_extract_pinned_repository_fills_python_enum_members(
     manifest.write_text("platform: python\nfamily: widgets\nrepository: acme/widgets\n", encoding="utf-8")
     artifact = run_extraction.extract_pinned_repository(manifest)
     (color,) = [entry for entry in artifact["types"] if entry["name"] == "Color"]
-    assert _members(color) == [("RED", "1"), ("BLUE", "")]
+    # TC-532: ("BLUE", "") -> ("BLUE", "auto()")
+    assert _members(color) == [("RED", "1"), ("BLUE", "auto()")]
 
 
 def test_main_extracts_at_the_commit_and_keeps_the_names_the_page_uses(

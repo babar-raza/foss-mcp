@@ -155,7 +155,27 @@ def test_a_member_of_a_private_base_is_marked_inherited_and_an_override_is_not()
     assert "  - bind(path = None)  (inherited from pkg.mod._Base)" in lines
 
 
-def test_a_property_literal_does_not_change_the_property_line() -> None:
+def test_a_property_literal_is_rendered_after_its_type() -> None:
     entry = _entry("pkg.mod.K", "pkg/mod.py")
-    entry["properties"] = [{"name": "MAX", "type": "int", "writable": False, "value": "5"}]
-    assert "  - MAX: int (read-only)" in _texts(_fixture(entry))["pkg.mod.K"].splitlines()
+    entry["properties"] = [
+        {"name": "MAX", "type": "int", "writable": False, "value": "5"},
+        {"name": "NAME", "type": "str", "writable": False, "value": "'n'"},
+        {"name": "X_AXIS", "type": "", "writable": False, "value": "None"},
+        {"name": "count", "type": "", "writable": True, "value": "0"},
+    ]
+    lines = _texts(_fixture(entry))["pkg.mod.K"].splitlines()
+    assert "  - MAX: int = 5 (read-only)" in lines
+    assert "  - NAME: str = 'n' (read-only)" in lines
+    assert "  - X_AXIS = None (read-only)" in lines
+    assert "  - count = 0 (writable)" in lines
+
+
+def test_a_property_without_a_literal_renders_as_before() -> None:
+    entry = _entry("pkg.mod.K", "pkg/mod.py")
+    entry["properties"] = [
+        {"name": "size", "type": "int", "writable": True},
+        {"name": "label", "type": "str", "writable": False, "value": ""},
+    ]
+    lines = _texts(_fixture(entry))["pkg.mod.K"].splitlines()
+    assert "  - size: int (writable)" in lines
+    assert "  - label: str (read-only)" in lines

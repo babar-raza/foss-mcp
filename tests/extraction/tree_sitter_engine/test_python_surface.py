@@ -69,7 +69,7 @@ def test_definitions_all_and_reexports_are_inventoried_without_importing(tmp_pat
         "render",
         "method",
         "pkg/widget.py",
-        2,
+        12,  # TC-532: 2 -> 12 (render is defined twice; the last definition wins)
         "name",
         signature="def render(self)",
     )

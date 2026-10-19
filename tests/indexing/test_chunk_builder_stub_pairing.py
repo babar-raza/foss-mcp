@@ -286,6 +286,16 @@ def test_no_member_less_class_or_enum_chunk_has_a_unique_member_bearing_twin_aft
         if _lists_members(text):
             segment = _final_segment(_fqn(text))
             with_members[segment] = with_members.get(segment, 0) + 1
+    # TC-532: an exported name that replaced another class of the same name by a LATER import ("Shadows:") is
+    # deliberately not paired with that class; the empty class it is defined as (its "Defined-In:" target)
+    # is a different class from the member-bearing twin and is not a residual.
+    shadowing_definitions = {
+        line.partition(": ")[2].strip()
+        for text in texts
+        if any(line.startswith("Shadows: ") for line in _lines(text))
+        for line in _lines(text)
+        if line.startswith("Defined-In: ")
+    }
     residual = []
     for text in texts:
         kind = _KIND_LINE.search(text)
@@ -294,6 +304,8 @@ def test_no_member_less_class_or_enum_chunk_has_a_unique_member_bearing_twin_aft
         if _lists_members(text) or any(line.startswith("Defined-In:") for line in _lines(text)):
             continue
         fqn = _fqn(text)
+        if fqn in shadowing_definitions:
+            continue
         if with_members.get(_final_segment(fqn)) == 1:
             residual.append(fqn)
     assert residual == []
