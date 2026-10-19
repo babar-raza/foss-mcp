@@ -72,7 +72,7 @@ RECOMMENDED_MAX_TYPES: dict[str, int] = {
     "3d/python": 697,
     "slides/python": 1023,
     "words/python": 391,
-    "pdf/go": 357,
+    "pdf/go": 383,
     "pdf/typescript": 541,
 }
 

@@ -3183,15 +3183,12 @@ def _extract_go_struct_fields(
     for field_decl in field_list.children:
         if field_decl.type != "field_declaration":
             continue
-        # field_declaration children: field_identifier* type_node
-        field_names: list[str] = []
-        type_node = None
-        for ch in field_decl.children:
-            if ch.type == "field_identifier":
-                field_names.append(node_text(ch))
-            else:
-                # Last non-identifier child is the type
-                type_node = ch
+        # field_declaration: name* type [tag]. TC-535 (RD3-027): the type is the ``type`` field, never the last
+        # child (a struct tag follows the type: ``XMLName xml.Name `xml:"c"``` was served with the tag as its type).
+        field_names: list[str] = [
+            node_text(ch) for ch in field_decl.children_by_field_name("name") if ch.type == "field_identifier"
+        ]
+        type_node = child_by_field(field_decl, "type")
 
         ftype = node_text(type_node) if type_node else ""
         for fname in field_names:
@@ -3390,19 +3387,30 @@ def _associate_rust_impl_methods(classes: list[dict]) -> list[dict]:
     """Post-process Rust entries: move impl-block methods into their type.
 
     Rust methods live in ``impl Type { ... }`` / ``impl Trait for Type { ... }``
-    blocks, which are top-level AST nodes â€” the same shape as Go receiver
+    blocks, which are top-level AST nodes - the same shape as Go receiver
     methods (SFX-1). The main extraction loop records them as
     ``kind="function"`` entries carrying ``receiver_type`` (the impl target
     type) and ``trait_impl`` (the trait name, for trait impls). This pass
-    relocates each such entry into the matching type's ``methods[]`` list and
-    records implemented traits in the type's ``bases``. Functions whose
-    receiver type was not extracted (e.g. an impl for a private type) are
-    left in place, matching the Go behavior.
+    relocates each such entry into the matching type's ``methods[]`` list
+    and records implemented traits in the type's ``bases``.
+
+    TC-535 (RD3-030, RD3-031): the owning type is looked up in the SAME file first, then by name among the
+    types the crate lets others import (two files may declare a type of one name, only one importable). A
+    function that belongs to an impl block whose type is not served (a private type, ``impl Trait for
+    Vec<T>``) is dropped: it is not free API (the 106 unimportable symbols of cells/rust included ``eq``,
+    ``fmt`` and ``hash`` of private types). A method keeps its receiver, generics and ``where`` clause; one
+    without a receiver is an associated function (``static``); one from a trait impl names the trait.
     """
-    type_map: dict[str, int] = {}
+    by_file: dict[tuple[str, str], int] = {}
+    by_name: dict[str, int] = {}
     for i, entry in enumerate(classes):
         if entry.get("kind") in _RUST_TYPE_KINDS:
-            type_map.setdefault(entry["name"], i)
+            by_file.setdefault((entry.get("file", ""), entry["name"]), i)
+            current = by_name.get(entry["name"])
+            if current is None or (
+                classes[current].get("reachable") is False and entry.get("reachable") is not False
+            ):
+                by_name[entry["name"]] = i
 
     to_remove: set[int] = set()
     moved = 0
@@ -3412,11 +3420,14 @@ def _associate_rust_impl_methods(classes: list[dict]) -> list[dict]:
         receiver = entry.get("receiver_type", "")
         if not receiver:
             continue
-        idx = type_map.get(receiver)
+        idx = by_file.get((entry.get("file", ""), receiver))
         if idx is None:
+            idx = by_name.get(receiver)
+        if idx is None:
+            to_remove.add(i)
             continue
         parent = classes[idx]
-        method_entry = {
+        method_entry: dict[str, Any] = {
             "name": entry["name"],
             "doc": entry.get("doc", ""),
             "params": entry.get("params", []),
@@ -3426,16 +3437,26 @@ def _associate_rust_impl_methods(classes: list[dict]) -> list[dict]:
             # Rust convention: `new` is the canonical associated constructor.
             "is_constructor": entry["name"] == "new",
         }
+        for key in ("receiver", "generics", "where"):
+            if entry.get(key):
+                method_entry[key] = entry[key]
+        trait_name = entry.get("trait_impl", "")
+        modifiers = []
+        if not entry.get("receiver"):
+            modifiers.append("static")
+        if trait_name:
+            modifiers.append(f"impl {trait_name}")
+        if modifiers:
+            method_entry["modifiers"] = modifiers
         if not isinstance(parent.get("methods"), list):
             parent["methods"] = []
         parent["methods"].append(method_entry)
-        trait_name = entry.get("trait_impl", "")
         if trait_name and trait_name not in parent.get("bases", []):
             parent.setdefault("bases", []).append(trait_name)
         to_remove.add(i)
         moved += 1
 
-    LOG.debug("Rust impl association: moved %d impl methods into %d types", moved, len(type_map))
+    LOG.debug("Rust impl association: moved %d impl methods into %d types", moved, len(by_name))
     return [e for i, e in enumerate(classes) if i not in to_remove]
 
 
@@ -3444,7 +3465,54 @@ def _associate_rust_impl_methods(classes: list[dict]) -> list[dict]:
 # ---------------------------------------------------------------------------
 
 
-def _associate_go_methods(classes: list[dict]) -> list[dict]:
+def _go_package_key(entry: dict) -> str:
+    """The private package key the Go extraction loop put on *entry* (``""`` in the flat mode)."""
+    return str(entry.get("_go_pkg", ""))
+
+
+def _go_stamp(entry: dict[str, Any], package: str, import_path: str, package_key: str) -> None:
+    """TC-535 (RD3-025): record the package an entry belongs to.
+
+    With ``GO_SUBPACKAGE_IMPORT_PATHS`` the entry carries ``package`` (the name the code is called by,
+    ``ai.NewChatCopilot``), ``import_path`` when the module path is known, and ``canonical_namespace`` (the
+    import path, else the directory), the field the same-name disambiguation reads. The private
+    ``_go_pkg`` key lets the association passes bind a method to a type of the SAME package; it is removed
+    before the entries are returned.
+    """
+    if lang.go.GO_SUBPACKAGE_IMPORT_PATHS:
+        if package:
+            entry["package"] = package
+        if import_path:
+            entry["import_path"] = import_path
+        if package_key:
+            entry["canonical_namespace"] = package_key
+    entry["_go_pkg"] = package_key
+
+
+def _go_value_entry(decl: dict[str, Any]) -> dict[str, Any]:
+    """The entry of a package-level constant or variable (``kind`` ``constant`` / ``variable``)."""
+    entry: dict[str, Any] = {
+        "name": decl["name"],
+        "kind": decl["kind"],
+        "doc": decl["doc"],
+        "file": decl["file"],
+        "line": decl["line"],
+        "bases": [],
+        "methods": [],
+        "properties": [],
+        "visibility": "exported",
+        "reachable": True,
+        "value": decl["value"],
+    }
+    if decl["type"]:
+        entry["type"] = decl["type"]
+    _go_stamp(entry, decl["package"], decl["import_path"], decl["pkg_key"])
+    return entry
+
+
+def _associate_go_methods(
+    classes: list[dict], hidden_methods: dict[tuple[str, str], list[dict]] | None = None
+) -> list[dict]:
     """Post-process Go entries: move receiver methods into their parent type.
 
     In Go, method declarations are top-level AST nodes with a receiver
@@ -3454,12 +3522,18 @@ def _associate_go_methods(classes: list[dict]) -> list[dict]:
     a ``receiver_type`` field.  This pass relocates each such entry into the
     ``methods[]`` list of the matching type entry and removes it from the
     top-level list.
+
+    TC-535: a type is looked up by its PACKAGE as well as its name (the ``ai`` sub-package of pdf/go and
+    the root package may both declare a ``Config``). The exported methods of an UNEXPORTED type are not
+    API of their own and are dropped from the entry list, but they are handed to *hidden_methods*
+    (``{(package key, type name): [method entry, ...]}``): a method an exported type gets by embedding that
+    unexported type is promoted to it (``TextBoxField`` embeds the unexported ``fieldBase``).
     """
-    # Map type name â†’ index in classes list
-    type_map: dict[str, int] = {}
+    # Map (package, type name) → index in classes list
+    type_map: dict[tuple[str, str], int] = {}
     for i, entry in enumerate(classes):
         if entry.get("kind") in ("type_spec", "type_declaration"):
-            type_map[entry["name"]] = i
+            type_map[(_go_package_key(entry), entry["name"])] = i
 
     to_remove: set[int] = set()
     for i, entry in enumerate(classes):
@@ -3471,15 +3545,28 @@ def _associate_go_methods(classes: list[dict]) -> list[dict]:
         recv_name = receiver.lstrip("*").strip()
         # TC-525: the receiver as written travels on a private key set by the extraction loop.
         receiver_text = entry.pop("_receiver_text", "") or receiver
-        if recv_name not in type_map:
+        type_key = (_go_package_key(entry), recv_name)
+        if type_key not in type_map:
             if recv_name[:1].isupper():
                 # An exported receiver no extracted type owns: keep the entry, marked as a method.
                 entry["modifiers"] = [f"receiver {receiver_text}"]
             else:
                 # A method of an unexported type is not public API.
                 to_remove.add(i)
+                if hidden_methods is not None:
+                    hidden_methods.setdefault(type_key, []).append(
+                        {
+                            "name": entry["name"],
+                            "doc": entry.get("doc", ""),
+                            "params": entry.get("params", []),
+                            "return_type": entry.get("return_type", ""),
+                            "line": entry.get("line", 0),
+                            "file": entry.get("file", ""),
+                            "is_constructor": False,
+                        }
+                    )
             continue
-        parent = classes[type_map[recv_name]]
+        parent = classes[type_map[type_key]]
         method_entry = {
             "name": entry["name"],
             "doc": entry.get("doc", ""),
@@ -3525,45 +3612,87 @@ def _go_const_value(expr: str, position: int) -> int | str:
     return text
 
 
-def _extract_go_const_groups(root) -> list[tuple[str, dict[str, Any]]]:
-    """Exported typed constants of one parsed Go file as ``(type_name, {"name", "value"})`` pairs.
+def _go_specs(declaration, spec_type: str):
+    """The ``const_spec`` / ``var_spec`` nodes of one declaration (a ``var (...)`` group nests them in a list)."""
+    for child in declaration.children:
+        if child.type == spec_type:
+            yield child
+        elif child.type == "var_spec_list":
+            for inner in child.children:
+                if inner.type == spec_type:
+                    yield inner
 
-    A ``const (...)`` group is walked in source order. A spec's type is its explicit type; a spec
-    with neither type nor value repeats the previous spec (type and expression), with ``iota``
-    taking the spec's own zero-based position in the group. A spec with its own value and no type
-    is untyped and yields nothing. Unexported names are dropped.
+
+_GO_VALUE_LIMIT = 300
+_GO_PLAIN_TYPE = re.compile(r"^[A-Za-z_]\w*$")
+
+
+def _go_value_decls(root) -> list[dict[str, Any]]:
+    """Every exported package-level ``const`` and ``var`` of one parsed Go file, in source order.
+
+    Only declarations at package level are read (a ``const`` inside a function body is a local, not API).
+    A ``const (...)`` group is walked in source order: a spec's type is its explicit type; a spec with neither
+    type nor value repeats the previous spec (type and expression), with ``iota`` taking the spec's own
+    zero-based position in the group. Each result is ``{"kind": "constant" | "variable", "name", "type", "value",
+    "owner", "node", "group"}``: ``type`` is the effective declared type text (``""`` when untyped), ``value``
+    the constant's value (an ``iota`` form evaluated, anything else as written, one line) or a variable's
+    initialiser, ``owner`` the type name a typed constant belongs to when that type is a plain identifier.
+    Unexported names are dropped.
     """
-    pairs: list[tuple[str, dict[str, Any]]] = []
-    for decl in collect_nodes(root, {"const_declaration"}):
+    found: list[dict[str, Any]] = []
+    for declaration in root.children:
+        if declaration.type == "const_declaration":
+            kind, spec_type = "constant", "const_spec"
+        elif declaration.type == "var_declaration":
+            kind, spec_type = "variable", "var_spec"
+        else:
+            continue
         prev_type = ""
         prev_exprs: list[str] = []
         position = -1
-        for spec in decl.children:
-            if spec.type != "const_spec":
-                continue
+        for spec in _go_specs(declaration, spec_type):
             position += 1
             names = [node_text(n) for n in spec.children_by_field_name("name") if n.type == "identifier"]
             type_node = child_by_field(spec, "type")
             value_node = child_by_field(spec, "value")
+            own_type = " ".join(node_text(type_node).split()) if type_node is not None else ""
             if value_node is not None:
                 exprs = [node_text(c) for c in value_node.named_children if c.type != "comment"]
-                type_name = node_text(type_node).strip() if type_node is not None else ""
+                type_text = own_type
             else:
-                exprs = prev_exprs
-                type_name = node_text(type_node).strip() if type_node is not None else prev_type
-            prev_exprs = exprs
-            prev_type = type_name
-            if not type_name:
-                continue
+                exprs = prev_exprs if kind == "constant" else []
+                type_text = own_type or (prev_type if kind == "constant" else "")
+            if kind == "constant":
+                prev_exprs, prev_type = exprs, type_text
             for index, name in enumerate(names):
                 if not name[:1].isupper():
                     continue
-                if len(exprs) == len(names):
-                    value: int | str = _go_const_value(exprs[index], position)
+                raw: int | str = ""
+                if not exprs:
+                    value = ""
+                elif len(exprs) == len(names):
+                    if kind == "constant":
+                        raw = _go_const_value(exprs[index], position)
+                        value = str(raw)
+                    else:
+                        value = " ".join(exprs[index].split())
                 else:
-                    value = ", ".join(exprs)
-                pairs.append((type_name, {"name": name, "value": value}))
-    return pairs
+                    value = ", ".join(" ".join(expr.split()) for expr in exprs)
+                if kind == "constant" and exprs and len(exprs) != len(names):
+                    raw = ", ".join(exprs)
+                found.append(
+                    {
+                        "kind": kind,
+                        "name": name,
+                        "type": type_text,
+                        "value": value[:_GO_VALUE_LIMIT],
+                        "enum_value": raw,
+                        "owner": type_text if kind == "constant" and _GO_PLAIN_TYPE.match(type_text) else "",
+                        "node": spec,
+                        "group": declaration,
+                    }
+                )
+    return found
 
 
 def _go_composite_type_names(root) -> set[str]:
@@ -3577,20 +3706,85 @@ def _go_composite_type_names(root) -> set[str]:
     return names
 
 
-def _associate_go_consts(classes: list[dict], pairs: list[tuple[str, dict[str, Any]]]) -> list[dict]:
-    """Set ``enum_members`` on each extracted Go type that owns constants (no duplicates by name)."""
+def _associate_go_consts(
+    classes: list[dict], pairs: list[tuple[str, str, dict[str, Any]]]
+) -> tuple[list[dict], set[tuple[str, str]]]:
+    """Set ``enum_members`` on each extracted Go type that owns constants (no duplicates by name).
+
+    *pairs* are ``(package key, type name, {"name", "value"})``. Returns the entries and the
+    ``(package key, constant name)`` of every constant a type took, so the caller can serve the others as
+    entries of their own.
+    """
     type_map = {
-        entry["name"]: entry for entry in classes if entry.get("kind") in ("type_spec", "type_declaration")
+        (_go_package_key(entry), entry["name"]): entry
+        for entry in classes
+        if entry.get("kind") in ("type_spec", "type_declaration")
     }
-    for type_name, member in pairs:
-        owner = type_map.get(type_name)
+    taken: set[tuple[str, str]] = set()
+    for package_key, type_name, member in pairs:
+        owner = type_map.get((package_key, type_name))
         if owner is None:
             continue
+        taken.add((package_key, member["name"]))
         members = owner.setdefault("enum_members", [])
         if any(existing["name"] == member["name"] for existing in members):
             continue
         members.append(dict(member))
-    return classes
+    return classes, taken
+
+
+def _go_promote(
+    classes: list[dict],
+    shapes: dict[tuple[str, str], dict],
+    hidden_methods: dict[tuple[str, str], list[dict]],
+    packages_by_name: dict[str, set[str]],
+) -> None:
+    """TC-535 (RD3-027): give every Go type the exported methods and fields it gets by embedding.
+
+    Go promotes the members of an embedded field to the embedding type, through any depth of embedding and
+    through UNEXPORTED embedded types (pdf/go ``TextBoxField`` embeds the unexported ``fieldBase``, so
+    ``BarcodeField`` has ``PartialName``). The previous pass copied only what an exported, extracted base
+    declared: 370 of the 1,202 exported methods of pdf/go were missing. Each promoted member is a copy of
+    the declaring entry marked ``inherited_from`` and ``promoted_from`` (the declaring type). Computed from
+    the declared members of every type first, then applied, so one promotion never feeds another.
+    """
+    types = {
+        (_go_package_key(entry), entry["name"]): entry
+        for entry in classes
+        if entry.get("kind") in ("type_spec", "type_declaration")
+    }
+    methods_by_type: dict[tuple[str, str], list[dict]] = {key: list(v) for key, v in hidden_methods.items()}
+    for key, entry in types.items():
+        methods_by_type.setdefault(key, []).extend(entry.get("methods") or [])
+    additions: list[tuple[dict, list[dict], list[dict]]] = []
+    for key, entry in types.items():
+        methods, fields = lang.go.promote_members(key, shapes, methods_by_type, packages_by_name)
+        if methods or fields:
+            additions.append((entry, methods, fields))
+    for entry, methods, fields in additions:
+        have = {m["name"] for m in entry.get("methods") or []}
+        for method in methods:
+            if method["name"] not in have:
+                entry.setdefault("methods", []).append(method)
+                have.add(method["name"])
+        props = {p["name"] for p in entry.get("properties") or []}
+        for field in fields:
+            if field["name"] in props:
+                continue
+            entry.setdefault("properties", []).append(
+                {
+                    "name": field["name"],
+                    "type": field["type"],
+                    "kind": "property",
+                    "access_mode": "readwrite",
+                    "doc": "",
+                    "line": field["line"],
+                    "file": field.get("file") or entry.get("file", ""),
+                    "inherited_from": field["inherited_from"],
+                    "promoted_from": field["promoted_from"],
+                }
+            )
+            props.add(field["name"])
 
 
 # ---------------------------------------------------------------------------
@@ -4909,6 +5103,9 @@ def extract_api_surface(
     _python_export_root: Path | None = None
     _python_export_init_rel = ""
     _rust_reexports: set[str] | None = None
+    # TC-535 (RD3-030): the items a crate lets others import, ``{(file, name): path from the crate root}``,
+    # read from the module tree (``pub mod`` / ``pub use`` chains from lib.rs). None without a readable lib.rs.
+    _rust_surface: dict[tuple[str, str], str] | None = None
     # TC-MT040-11: TypeScript/JavaScript reachability signal (real
     # implementation -- was an unconditional (None, None) placeholder from
     # extraction/lang/typescript.py before this card).
@@ -4926,6 +5123,7 @@ def extract_api_surface(
                 _python_export_init_rel = ""
     elif language == "rust":
         _rust_reexports, _ = lang.rust.export_surface(repo, pkg_root)
+        _rust_surface = lang.rust.crate_surface(repo, pkg_root)
     elif language in ("typescript", "javascript"):
         _ts_exports, _ts_entry_point = lang.typescript.export_surface(repo, pkg_root)
         # resolve_entry_point() is called separately (not derived from
@@ -4964,6 +5162,8 @@ def extract_api_surface(
             if item_rel == _python_export_init_rel:
                 return True
             return item_name in _python_exports
+        if language == "rust" and _rust_surface is not None:
+            return (item_rel, item_name) in _rust_surface
         if language == "rust" and _rust_reexports is not None:
             return item_name in _rust_reexports
         if language in ("typescript", "javascript") and _ts_exports is not None:
@@ -4987,8 +5187,15 @@ def extract_api_surface(
     js_imports: dict[str, dict[str, dict[str, Any]]] = {}
     js_mixin_defs: dict[str, dict[str, list[dict[str, Any]]]] = {}
     js_mixin_applications: list[dict[str, Any]] = []
-    go_const_pairs: list[tuple[str, dict[str, Any]]] = []
-    go_composite_types: set[str] = set()
+    go_const_pairs: list[tuple[str, str, dict[str, Any]]] = []
+    go_composite_types: set[tuple[str, str]] = set()
+    # TC-535: package-level values (constants and variables), every type's shape and the module a Go
+    # repository declares. ``go_package_names`` maps a package name to the package keys that declare it.
+    go_value_entries: list[dict[str, Any]] = []
+    go_shapes: dict[tuple[str, str], dict] = {}
+    go_hidden_methods: dict[tuple[str, str], list[dict]] = {}
+    go_package_names: dict[str, set[str]] = {}
+    go_modules: dict[Path, tuple[Path, str]] = {}
 
     for fpath in files:
         rel = str(fpath.relative_to(repo)).replace("\\", "/")
@@ -5048,6 +5255,28 @@ def extract_api_surface(
             if pkg_text:
                 packages.add(pkg_text)
 
+        # TC-535 (RD3-025): the package a Go file belongs to. Its key is the import path (the module path of
+        # go.mod plus the directory), else the directory; a ``package main`` and anything under ``internal/``
+        # cannot be imported and is not served. With GO_SUBPACKAGE_IMPORT_PATHS off the repository is one flat package.
+        go_package = ""
+        go_import = ""
+        go_pkg_key = ""
+        if language == "go":
+            go_package = lang.go.package_name(root)
+            if lang.go.GO_SUBPACKAGE_IMPORT_PATHS:
+                # the module is the one the nearest go.mod declares (a nested module has its own path)
+                go_module_root, go_module = lang.go.find_module(fpath.parent, repo, go_modules)
+                if not go_module:
+                    go_module_root = pkg_root
+                go_dir = os.path.dirname(fpath.relative_to(go_module_root).as_posix())
+                if not lang.go.is_importable(go_dir, go_package):
+                    continue
+                go_import = lang.go.import_path(go_module, go_dir)
+                go_pkg_key = go_import or go_dir
+                go_package_names.setdefault(go_package, set()).add(go_pkg_key)
+            else:
+                go_package = ""
+
         # FR-15: capture Java file-level package declaration once per file
         java_file_package = ""
         if language == "java":
@@ -5064,9 +5293,27 @@ def extract_api_surface(
             class_nodes, cpp_nested = _cpp_with_nested_types(class_nodes)
 
         # TC-525: Go constant groups (``const ( A T = iota ... )``) belong to their owning type.
+        # TC-535 (RD3-026): the package-level constants and variables that no type owns are served as entries of
+        # their own (``AlignCenter``, ``ErrEncrypted``, ``PageFormatA4``).
         if language == "go":
-            go_const_pairs.extend(_extract_go_const_groups(root))
-            go_composite_types |= _go_composite_type_names(root)
+            for value_decl in _go_value_decls(root):
+                spec_doc = _extract_doc_comment(value_decl["node"], "go")
+                value_decl["doc"] = spec_doc or _extract_doc_comment(value_decl["group"], "go")
+                value_decl["pkg_key"] = go_pkg_key
+                value_decl["file"] = rel
+                value_decl["line"] = value_decl["node"].start_point[0] + 1
+                if value_decl["kind"] == "constant" and value_decl["owner"]:
+                    go_const_pairs.append(
+                        (
+                            go_pkg_key,
+                            value_decl["owner"],
+                            {"name": value_decl["name"], "value": value_decl["enum_value"]},
+                        )
+                    )
+                value_decl["package"] = go_package
+                value_decl["import_path"] = go_import
+                go_value_entries.append(value_decl)
+            go_composite_types |= {(go_pkg_key, name) for name in _go_composite_type_names(root)}
 
         # S-1: Extract __all__ names for Python visibility tier.
         # Only handles simple top-level assignment (`__all__ = [...]`).
@@ -5088,6 +5335,24 @@ def extract_api_surface(
 
         for cnode in class_nodes:
             cpp_nested_info = cpp_nested.get(_cpp_node_key(cnode)) if language == "cpp" else None
+            # TC-535: a Go type is a ``type_spec`` declared at package level; its shape (embedded types and
+            # fields, exported or not) is kept for the promotion of members by embedding, and the exported
+            # methods of an unexported INTERFACE are kept for the types that embed it.
+            if language == "go":
+                if cnode.type != "type_spec" or not lang.go.is_top_level_type(cnode):
+                    continue
+                go_name_node = child_by_field(cnode, "name")
+                if go_name_node is not None:
+                    go_shape = lang.go.struct_shape(cnode, rel)
+                    go_shapes[(go_pkg_key, node_text(go_name_node))] = go_shape
+                    if go_shape["kind"] == "interface" and not node_text(go_name_node)[:1].isupper():
+                        hidden_iface_methods, _ = _extract_go_interface_methods(
+                            cnode, node_text(go_name_node), rel, family
+                        )
+                        for hidden_method in hidden_iface_methods:
+                            hidden_method.setdefault("file", rel)
+                        if hidden_iface_methods:
+                            go_hidden_methods[(go_pkg_key, node_text(go_name_node))] = hidden_iface_methods
             if cpp_nested_info is None and not is_public(cnode, language):
                 continue
 
@@ -5168,6 +5433,12 @@ def extract_api_surface(
             cdoc = _extract_doc_comment(cnode, language)
             # TC-533: a TypeScript base list is split at top-level commas only (``Omit<A, 'x'>`` is one base).
             bases = _ts_bases(cnode) if language == "typescript" else _extract_bases(cnode, language)
+            # TC-535 (RD3-033): a Rust item inherits nothing: a derived trait is not a base. The derives are
+            # kept apart (``derives``); the bases are the supertraits of a trait (implemented traits are added later).
+            rust_derives: list[str] = []
+            if language == "rust":
+                rust_derives = lang.rust.derive_traits(cnode)
+                bases = lang.rust.supertraits(cnode) if cnode.type == "trait_item" else []
 
             # Python: detect enums by base class inheritance
             if not is_enum and language == "python":
@@ -5177,6 +5448,12 @@ def extract_api_surface(
             if is_enum:
                 if language == "python":
                     enum_members = _extract_python_enum_members(cnode)
+                elif language == "rust":
+                    # TC-535 (RD3-032): a variant keeps its payload (``Number(f64)``, ``Io { path: String }``).
+                    enum_members = [
+                        {key: value for key, value in member.items() if key != "payload" or value}
+                        for member in lang.rust.enum_variants(cnode)
+                    ]
                 else:
                     enum_members = _extract_enum_members(cnode, language)
             elif language == "python":
@@ -5443,6 +5720,9 @@ def extract_api_surface(
                     "deprecated": m_deprecated,
                     "deprecated_reason": m_deprecated_reason,
                 }
+                if language == "rust":
+                    # TC-535 (RD3-031): the receiver (``&mut self``) and the generic parameters with their bounds.
+                    method_entry.update(lang.rust.fn_details(mnode))
                 if language == "csharp":
                     method_modifiers = _csharp_modifiers(mnode)
                     if method_modifiers:
@@ -5897,12 +6177,78 @@ def extract_api_surface(
                 except ValueError:
                     cls_record["class_import"] = cname
 
+            if language == "rust":
+                cls_record.update(lang.rust.type_details(cnode))
+                if rust_derives:
+                    cls_record["derives"] = rust_derives
+                # TC-535 (RD3-030): the import path is the one the crate's module tree gives, not a guess from the file.
+                rust_import = _rust_surface.get((rel, cname)) if _rust_surface is not None else None
+                if rust_import is not None:
+                    cls_record["class_import"] = rust_import
+                    if "::" in rust_import:
+                        cls_record["canonical_namespace"] = rust_import.rsplit("::", 1)[0]
+                    else:
+                        cls_record.pop("canonical_namespace", None)
+
+            if language == "go":
+                _go_stamp(cls_record, go_package, go_import, go_pkg_key)
+                go_underlying = lang.go.underlying_text(cnode)
+                if go_underlying:
+                    cls_record["underlying"] = go_underlying
+
             classes.append(cls_record)
             claims.append(
                 _make_claim(
                     family, "api_class", f"Class {cname} defined in {rel}", rel, cnode.start_point[0] + 1
                 )
             )
+
+        # TC-535 (RD3-033): a ``pub type`` alias is a name an agent writes (``Style``, ``WorksheetCollection``) and
+        # signatures return it; it is served with its target (``alias_of``).
+        if language == "rust":
+            for alias_node in collect_nodes(root, {"type_item"}):
+                alias_parent = alias_node.parent
+                at_module_level = alias_parent is not None and (
+                    alias_parent.type == "source_file"
+                    or (
+                        alias_parent.type == "declaration_list"
+                        and alias_parent.parent is not None
+                        and alias_parent.parent.type == "mod_item"
+                    )
+                )
+                alias_name = _node_name(alias_node, language)
+                if not at_module_level or not alias_name or not is_public(alias_node, language):
+                    continue
+                alias_entry: dict[str, Any] = {
+                    "name": alias_name,
+                    "kind": "type_item",
+                    "doc": _extract_doc_comment(alias_node, language),
+                    "file": rel,
+                    "line": alias_node.start_point[0] + 1,
+                    "bases": [],
+                    "methods": [],
+                    "properties": [],
+                    "visibility": visibility_tier(alias_node, language),
+                    "reachable": _compute_reachable(alias_name, fpath, rel),
+                    "deprecated": False,
+                    "deprecated_reason": "",
+                    "alias_of": lang.rust.type_alias_target(alias_node),
+                }
+                alias_entry.update(lang.rust.type_details(alias_node))
+                alias_import = _rust_surface.get((rel, alias_name)) if _rust_surface is not None else None
+                alias_entry["class_import"] = alias_import if alias_import is not None else alias_name
+                if alias_import is not None and "::" in alias_import:
+                    alias_entry["canonical_namespace"] = alias_import.rsplit("::", 1)[0]
+                classes.append(alias_entry)
+                claims.append(
+                    _make_claim(
+                        family,
+                        "api_class",
+                        f"Type alias {alias_name} defined in {rel}",
+                        rel,
+                        alias_node.start_point[0] + 1,
+                    )
+                )
 
         # top-level functions (not inside classes)
         # TC-524: C++ free functions come from public headers only (declared or defined inline), never from
@@ -5974,6 +6320,18 @@ def extract_api_surface(
                 # get the same additive signal as classes.
                 "reachable": _compute_reachable(fname, fpath, rel),
             }
+            if language == "rust":
+                func_entry.update(lang.rust.fn_details(fnode))
+                # TC-535 (RD3-030): a free function of a crate is imported by the path the module tree gives it.
+                rust_fn_import = (
+                    _rust_surface.get((rel, fname))
+                    if _rust_surface is not None and not receiver_type
+                    else None
+                )
+                if rust_fn_import is not None:
+                    func_entry["class_import"] = rust_fn_import
+                    if "::" in rust_fn_import:
+                        func_entry["canonical_namespace"] = rust_fn_import.rsplit("::", 1)[0]
             if receiver_type:
                 func_entry["receiver_type"] = receiver_type
                 if language == "go":
@@ -5983,6 +6341,8 @@ def extract_api_surface(
                 func_entry["trait_impl"] = rust_trait
             if language in ("typescript", "javascript"):
                 _apply_ts_tsdoc_enrichment(func_entry, fnode)
+            if language == "go":
+                _go_stamp(func_entry, go_package, go_import, go_pkg_key)
             classes.append(func_entry)
             claims.append(
                 _make_claim(
@@ -6011,15 +6371,38 @@ def extract_api_surface(
     # collect_nodes pass inside the class loop finds 0 methods. This pass
     # moves them into the correct type's methods[] list.
     if language == "go":
-        classes = _associate_go_methods(classes)
-        classes = _associate_go_consts(
-            classes, [pair for pair in go_const_pairs if pair[0] not in go_composite_types]
+        classes = _associate_go_methods(classes, go_hidden_methods)
+        classes, _taken_constants = _associate_go_consts(
+            classes,
+            [pair for pair in go_const_pairs if (pair[0], pair[1]) not in go_composite_types],
         )
+        # TC-535 (RD3-026): every exported package-level constant that is untyped (or typed by a type of another
+        # package) and every variable. A constant typed by a plain type name belongs to that type as one of its
+        # Members (or, when the package does not serve the type, is not served), as before.
+        for value_decl in go_value_entries:
+            if value_decl["kind"] == "constant" and value_decl["owner"]:
+                continue
+            value_entry = _go_value_entry(value_decl)
+            classes.append(value_entry)
+            claims.append(
+                _make_claim(
+                    family,
+                    "api_method",
+                    f"{value_decl['kind'].capitalize()} {value_decl['name']} defined in {value_decl['file']}",
+                    value_decl["file"],
+                    value_decl["line"],
+                )
+            )
 
     # Rust: same shape as Go â€” impl-block methods are top-level nodes, so
     # relocate them into their owning struct/enum/trait entries.
     if language == "rust":
         classes = _associate_rust_impl_methods(classes)
+        # TC-535 (RD3-030): a crate serves exactly what other crates can import. An item in a private module nobody
+        # re-exports, a ``pub(crate)`` item and an item of a file no ``mod`` declares are not API (cells/rust: 106
+        # of 221 symbols). Without a readable lib.rs (``_rust_surface`` is None) nothing is removed.
+        if _rust_surface is not None:
+            classes = [entry for entry in classes if entry.get("reachable", True) is not False]
 
     # Drop abandoned top-level compatibility shims and unreferenced
     # internal duplicates before the generic different-namespace-keeps-both
@@ -6052,7 +6435,14 @@ def extract_api_surface(
     # TC-HCR-001: Flatten inherited methods/properties into child classes
     # so that evaluators can verify inherited member access without walking
     # the inheritance chain at evaluation time.
-    _flatten_inheritance(classes)
+    # TC-535: Go promotes members by the selector rules of embedding (through unexported embedded types
+    # too), resolved by package, instead of copying what a same-named base declares.
+    if language == "go":
+        _go_promote(classes, go_shapes, go_hidden_methods, go_package_names)
+        for go_entry in classes:
+            go_entry.pop("_go_pkg", None)
+    else:
+        _flatten_inheritance(classes)
 
     # TC-533: a TypeScript package with an entry point serves exactly its export surface. An internal
     # type or function (pdf/typescript: 2,967 of 3,060 functions, plus every unexported interface and

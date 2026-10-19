@@ -96,6 +96,10 @@ def _inherited_from_suffix(entry: Mapping[str, object]) -> str:
     rendered line is completely unchanged.
     """
     inherited_from = entry.get("inherited_from")
+    # TC-535 (RD3-027): a Go member an embedding type gets from the embedded type is PROMOTED (it is not inherited).
+    promoted_from = entry.get("promoted_from")
+    if promoted_from:
+        return f"  (promoted from {promoted_from})"
     return f"  (inherited from {inherited_from})" if inherited_from else ""
 
 
@@ -180,13 +184,31 @@ def _param_list_text(params: Sequence[Mapping[str, object]]) -> str:
     return ", ".join(parts)
 
 
+def _generics_text(entry: Mapping[str, object]) -> str:
+    """``<T: Into<String>> where T: Send``: the generic parameters and the ``where`` clause a Rust item declares."""
+    generics = " ".join(str(entry.get("generics") or "").split())
+    where = " ".join(str(entry.get("where") or "").split())
+    return " ".join(part for part in (generics, where) if part)
+
+
+def _generics_suffix(entry: Mapping[str, object]) -> str:
+    """TC-535 (RD3-031): `` [generic <T: Into<String>> where T: Send]``; empty without generics. After the signature,
+    never before the name, so the member's name still ends at the first ``(``."""
+    text = _generics_text(entry)
+    return f"  [generic {text}]" if text else ""
+
+
 def _method_line(method: Mapping[str, object]) -> str:
     params = _param_list_text(_items(method.get("params")))
+    # TC-535 (RD3-031): a Rust method's receiver (``&self``, ``&mut self``, ``self``) leads its parameter list.
+    receiver = " ".join(str(method.get("receiver") or "").split())
+    if receiver:
+        params = f"{receiver}, {params}" if params else receiver
     return_type = _clean_type(method.get("return_type"))
     arrow = f" -> {return_type}" if return_type else ""
     return (
         f"  - {method.get('name', '')}({params}){arrow}"
-        f"{_modifiers_suffix(method)}{_mixin_suffix(method)}"
+        f"{_modifiers_suffix(method)}{_generics_suffix(method)}{_mixin_suffix(method)}"
         f"{_inherited_from_suffix(method)}{_deprecated_suffix(method)}"
     )
 
@@ -227,9 +249,12 @@ def _property_line(prop: Mapping[str, object]) -> str:
 
 def _member_line(member: Mapping[str, object]) -> str:
     value = member.get("value")
+    # TC-535 (RD3-032): the data a Rust enum variant carries, ``Number(f64)`` / ``Io { path: String }``.
+    payload = " ".join(str(member.get("payload") or "").split())
+    name = f"{member.get('name', '')}{' ' if payload.startswith('{') else ''}{payload}"
     if value is None or str(value) == "":
-        return f"  - {member.get('name', '')}"
-    return f"  - {member.get('name', '')} = {value}"
+        return f"  - {name}"
+    return f"  - {name} = {value}"
 
 
 def _method_lines(methods: Sequence[Mapping[str, object]]) -> list[str]:
@@ -267,6 +292,26 @@ def _items(value: object) -> list[Any]:
 
 def _entry_fqn(entry: Mapping[str, object]) -> str:
     return str(entry.get("class_import") or entry.get("name", ""))
+
+
+def _package_lines(entry: Mapping[str, object]) -> list[str]:
+    """TC-535 (RD3-025): the package a Go symbol is called through and imported from.
+
+    ``Package: ai`` / ``Import: github.com/acme/lib/ai`` / ``Qualified: ai.NewChatCopilot``. A symbol of a
+    sub-package carries its OWN import path, so it is never read as a symbol of the root package
+    (``pdf.NewChatCopilot`` is undefined). Empty for an entry without a ``package`` (every other language).
+    """
+    package = " ".join(str(entry.get("package") or "").split())
+    if not package:
+        return []
+    lines = [f"Package: {package}"]
+    import_path = " ".join(str(entry.get("import_path") or "").split())
+    if import_path:
+        lines.append(f"Import: {import_path}")
+    name = str(entry.get("name") or "")
+    if name:
+        lines.append(f"Qualified: {package}.{name}")
+    return lines
 
 
 def _has_members(entry: Mapping[str, object]) -> bool:
@@ -316,6 +361,18 @@ def _format_type_text(
     alias_of = " ".join(str(source.get("alias_of") or "").split())
     if alias_of:
         lines.append(f"Alias-Of: {alias_of}")  # TC-523: a TypeScript type alias's right-hand side
+    lines.extend(_package_lines(entry))
+    generic_text = _generics_text(source)
+    if (
+        generic_text and entry.get("kind") != "function"
+    ):  # a function's own generics ride on its signature line
+        lines.append(f"Generics: {generic_text}")  # TC-535: a Rust type's parameters and bounds
+    derives = [str(item).strip() for item in _items(source.get("derives")) if str(item).strip()]
+    if derives:
+        lines.append(f"Derives: {', '.join(derives)}")  # TC-535: derived traits are not bases
+    underlying = " ".join(str(source.get("underlying") or "").split())
+    if underlying:
+        lines.append(f"Underlying: {underlying}")  # TC-535: a Go function / map / slice type's signature
 
     doc = entry.get("doc") or (source.get("doc") if members_from is not None else "") or ""
     if doc:
@@ -331,7 +388,13 @@ def _format_type_text(
         if len(raw_value) > 200:
             raw_value = raw_value[:200] + "..."
         lines.append("")
-        lines.append(f"Value: {entry.get('type', '')} = {raw_value}")
+        if entry.get("package"):
+            # TC-535: a Go constant or variable states its declared type and its value when it has them.
+            declared = _clean_type(entry.get("type"))
+            valued = f"= {raw_value}" if raw_value else ""
+            lines.append(f"Value: {' '.join(part for part in (declared, valued) if part)}".rstrip())
+        else:
+            lines.append(f"Value: {entry.get('type', '')} = {raw_value}")
 
     bases = _items(source.get("bases"))
     if bases:
