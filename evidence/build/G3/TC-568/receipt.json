@@ -1,0 +1,113 @@
+{
+  "schema_version": 1,
+  "card": "TC-568",
+  "gate": "G3",
+  "generated_by": "gatectl",
+  "generated_at": "2026-10-19T07:57:55Z",
+  "base_rev": "afac60b6d4d9a87ff15fdf97c9e902df592acd37",
+  "head_rev": "788347f9f3ff85e4706fc6a90003d2549216f2e1",
+  "card_sha256": "74e34f1df5e1beb9781471d0621f07e7ff33ef984638e08e6e4b3f4293bd9426",
+  "fingerprint": {
+    "python": "3.13.2",
+    "platform": "Windows-11-10.0.26200-SP0",
+    "lock_sha256": "7b182948484d7df9614b523f7a8180f795b6c51d55c418728525c1957f3e38ba",
+    "env": {
+      "PYTHONHASHSEED": "0",
+      "PYTHONUTF8": "1",
+      "PYTHONDONTWRITEBYTECODE": "1",
+      "PYTHONIOENCODING": "utf-8",
+      "TZ": "UTC",
+      "LC_ALL": "C.UTF-8",
+      "SOURCE_DATE_EPOCH": "1700000000",
+      "verify_runner": "host"
+    }
+  },
+  "scope": {
+    "ok": true,
+    "changed_paths": [
+      "scripts/release/claims_ledger.py",
+      "scripts/release/generation_diff.py",
+      "tests/release/test_claims_ledger.py",
+      "tests/release/test_generation_diff.py"
+    ],
+    "violations": [],
+    "evaluated": true
+  },
+  "runs": [
+    {
+      "run": 1,
+      "checks": [
+        {
+          "command": "{python} -m pytest tests/release/test_claims_ledger.py tests/release/test_generation_diff.py -q -rfE -p no:cacheprovider",
+          "exit_code": 0,
+          "duration_s": 30.907,
+          "stdout_sha256": "8e0dd3e259f68c193f05e3e04acef6407a9ed36e5124438d9f9a04fbd0db33db",
+          "tests": 38,
+          "skipped": 0,
+          "errors": 0,
+          "failures": 0
+        },
+        {
+          "command": "{python} -m pytest tests/release tests/deploy/test_fleet_consistency.py tests/deploy/test_compact_demo_manifests.py -q -rfE -p no:cacheprovider -k \"not live and not github_http and not repo_native and not test_prepare_rust_library and not test_rust_known\"",
+          "exit_code": 0,
+          "duration_s": 32.635,
+          "stdout_sha256": "8fcab20707d1f8a4cb3ea0a03945545d89a827ba422ff235192439b645e992c8",
+          "tests": 316,
+          "skipped": 0,
+          "errors": 0,
+          "failures": 0
+        }
+      ],
+      "all_passed": true
+    },
+    {
+      "run": 2,
+      "checks": [
+        {
+          "command": "{python} -m pytest tests/release/test_claims_ledger.py tests/release/test_generation_diff.py -q -rfE -p no:cacheprovider",
+          "exit_code": 0,
+          "duration_s": 21.048,
+          "stdout_sha256": "8e0dd3e259f68c193f05e3e04acef6407a9ed36e5124438d9f9a04fbd0db33db",
+          "tests": 38,
+          "skipped": 0,
+          "errors": 0,
+          "failures": 0
+        },
+        {
+          "command": "{python} -m pytest tests/release tests/deploy/test_fleet_consistency.py tests/deploy/test_compact_demo_manifests.py -q -rfE -p no:cacheprovider -k \"not live and not github_http and not repo_native and not test_prepare_rust_library and not test_rust_known\"",
+          "exit_code": 0,
+          "duration_s": 26.85,
+          "stdout_sha256": "8fcab20707d1f8a4cb3ea0a03945545d89a827ba422ff235192439b645e992c8",
+          "tests": 316,
+          "skipped": 0,
+          "errors": 0,
+          "failures": 0
+        }
+      ],
+      "all_passed": true
+    }
+  ],
+  "negative_control": {
+    "kind": "mutate",
+    "patch": "python -X utf8 -c \"import pathlib;p=pathlib.Path('scripts/release/claims_ledger.py');s=p.read_text(encoding='utf-8');q=chr(34);old='EXAMPLE_PREFIX = '+q+'FQN: Example: '+q;assert s.count(old)==1;p.write_text(s.replace(old,'EXAMPLE_PREFIX = '+q+'FQN: Exemplar: '+q),encoding='utf-8')\"\n",
+    "patch_sha256": "4d66872faf93424eba8eca85ed893cc718b9d6c7ed279385ab3319dcfb0c072e",
+    "applied": true,
+    "patch_applied_failed": true,
+    "exit_codes": [
+      1,
+      1
+    ],
+    "tree_changed": [
+      "M scripts/release/claims_ledger.py",
+      "?? .junit-0.xml",
+      "?? .junit-1.xml"
+    ]
+  },
+  "holdout": {
+    "ran": false,
+    "passed": true,
+    "detail": "no holdout for this card"
+  },
+  "accepted": true,
+  "reason": "all gates passed"
+}

@@ -1,0 +1,521 @@
+
+===== CLEAN RUN 1 (host) =====
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-7b182948484d7df9\Scripts\python.exe -m pytest tests/release/test_claims_ledger.py tests/release/test_generation_diff.py -q -rfE -p no:cacheprovider "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-1lr3potv\.junit-0.xml"
+--- stdout ---
+......................................                                   [100%]
+
+--- stderr ---
+
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-7b182948484d7df9\Scripts\python.exe -m pytest tests/release tests/deploy/test_fleet_consistency.py tests/deploy/test_compact_demo_manifests.py -q -rfE -p no:cacheprovider -k "not live and not github_http and not repo_native and not test_prepare_rust_library and not test_rust_known" "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-1lr3potv\.junit-1.xml"
+--- stdout ---
+........................................................................ [ 22%]
+........................................................................ [ 45%]
+........................................................................ [ 68%]
+........................................................................ [ 91%]
+............................                                             [100%]
+
+--- stderr ---
+
+
+===== CLEAN RUN 2 (host) =====
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-7b182948484d7df9\Scripts\python.exe -m pytest tests/release/test_claims_ledger.py tests/release/test_generation_diff.py -q -rfE -p no:cacheprovider "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-1lr3potv\.junit-0.xml"
+--- stdout ---
+......................................                                   [100%]
+
+--- stderr ---
+
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-7b182948484d7df9\Scripts\python.exe -m pytest tests/release tests/deploy/test_fleet_consistency.py tests/deploy/test_compact_demo_manifests.py -q -rfE -p no:cacheprovider -k "not live and not github_http and not repo_native and not test_prepare_rust_library and not test_rust_known" "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-1lr3potv\.junit-1.xml"
+--- stdout ---
+........................................................................ [ 22%]
+........................................................................ [ 45%]
+........................................................................ [ 68%]
+........................................................................ [ 91%]
+............................                                             [100%]
+
+--- stderr ---
+
+
+===== NEGATIVE CONTROL (checks MUST now fail) =====
+mutated: M scripts/release/claims_ledger.py, ?? .junit-0.xml, ?? .junit-1.xml
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-7b182948484d7df9\Scripts\python.exe -m pytest tests/release/test_claims_ledger.py tests/release/test_generation_diff.py -q -rfE -p no:cacheprovider "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-1lr3potv\.junit-0.xml"
+--- stdout ---
+FF...F...F.F.FF.FFF...F....F..........                                   [100%]
+================================== FAILURES ===================================
+__________________ test_constants_are_the_mandated_prefixes ___________________
+
+    def test_constants_are_the_mandated_prefixes() -> None:
+        text = TOOL.read_text(encoding="utf-8")
+>       assert 'EXAMPLE_PREFIX = "FQN: Example: "' in text.splitlines()
+E       assert 'EXAMPLE_PREFIX = "FQN: Example: "' in ['#!/usr/bin/env python3', '"""Reproducible claims ledger for the release evidence (TC-568 / REQ-G3-009, rows RD3-164 ...age:', '    python scripts/release/claims_ledger.py [--manifests DIR] [--fixtures DIR] [--check claims.json]', '', ...]
+E        +  where ['#!/usr/bin/env python3', '"""Reproducible claims ledger for the release evidence (TC-568 / REQ-G3-009, rows RD3-164 ...age:', '    python scripts/release/claims_ledger.py [--manifests DIR] [--fixtures DIR] [--check claims.json]', '', ...] = <built-in method splitlines of str object at 0x000002522F3AAA30>()
+E        +    where <built-in method splitlines of str object at 0x000002522F3AAA30> = '#!/usr/bin/env python3\n"""Reproducible claims ledger for the release evidence (TC-568 / REQ-G3-009, rows RD3-164 and...t(render(report))\n    return 1 if report["mismatches"] else 0\n\n\nif __name__ == "__main__":\n    sys.exit(main())\n'.splitlines
+
+tests\release\test_claims_ledger.py:161: AssertionError
+_____________ test_symbol_doc_example_counts_on_a_hand_made_tree ______________
+
+tree = (WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-9826/test_symbol_doc_example_counts0/manifests'), WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-9826/test_symbol_doc_example_counts0/fixtures'))
+
+    def test_symbol_doc_example_counts_on_a_hand_made_tree(tree: tuple[Path, Path]) -> None:
+        manifests, fixtures = tree
+        out = ledger.build_ledger(manifests, fixtures)
+        p = out["pilots"]["pdf/net"]
+>       assert p["symbols"]["total"] == 6
+E       assert 8 == 6
+
+tests\release\test_claims_ledger.py:171: AssertionError
+_____________ test_three_example_figures_are_reported_separately ______________
+
+tree = (WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-9826/test_three_example_figures_are0/manifests'), WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-9826/test_three_example_figures_are0/fixtures'))
+
+    def test_three_example_figures_are_reported_separately(tree: tuple[Path, Path]) -> None:
+        manifests, fixtures = tree
+        ex = ledger.build_ledger(manifests, fixtures)["pilots"]["pdf/net"]["examples"]
+>       assert ex["served_chunks"] == 2  # chunks the generation serves
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       assert 0 == 2
+
+tests\release\test_claims_ledger.py:217: AssertionError
+_________________________ test_totals_sum_the_pilots __________________________
+
+tree = (WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-9826/test_totals_sum_the_pilots0/manifests'), WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-9826/test_totals_sum_the_pilots0/fixtures'))
+
+    def test_totals_sum_the_pilots(tree: tuple[Path, Path]) -> None:
+        manifests, fixtures = tree
+        out = ledger.build_ledger(manifests, fixtures)
+        t = out["totals"]
+        assert t["pilots"] == 2
+>       assert t["symbols"]["total"] == 6 + 1
+E       assert 9 == (6 + 1)
+
+tests\release\test_claims_ledger.py:291: AssertionError
+__________________ test_output_is_byte_identical_on_two_runs __________________
+
+tree = (WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-9826/test_output_is_byte_identical_0/manifests'), WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-9826/test_output_is_byte_identical_0/fixtures'))
+
+    def test_output_is_byte_identical_on_two_runs(tree: tuple[Path, Path]) -> None:
+        manifests, fixtures = tree
+        first = run_cli("--manifests", manifests, "--fixtures", fixtures)
+        second = run_cli("--manifests", manifests, "--fixtures", fixtures)
+        assert first.returncode == 0, first.stderr.decode("utf-8", "replace")
+        assert first.stdout == second.stdout
+        assert first.stdout.endswith(b"\n")
+        doc_out = json.loads(first.stdout)
+>       assert doc_out["totals"]["symbols"]["total"] == 7
+E       assert 9 == 7
+
+tests\release\test_claims_ledger.py:326: AssertionError
+_______________ test_check_lists_exactly_the_claims_that_differ _______________
+
+tree = (WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-9826/test_check_lists_exactly_the_c0/manifests'), WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-9826/test_check_lists_exactly_the_c0/fixtures'))
+tmp_path = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-9826/test_check_lists_exactly_the_c0')
+
+    def test_check_lists_exactly_the_claims_that_differ(tree: tuple[Path, Path], tmp_path: Path) -> None:
+        manifests, fixtures = tree
+        claims = {
+            "claims": [
+                {"claim": "pdf/net symbols", "path": "pilots.pdf/net.symbols.total", "value": 6},
+                {
+                    "claim": "served examples (conflated once)",
+                    "path": "totals.examples.served_chunks",
+                    "value": 183,
+                },
+                {"claim": "verified entries", "path": "totals.examples.verified_entries", "value": 3},
+                {"claim": "typo", "path": "totals.nothing.here", "value": 1},
+            ]
+        }
+        claims_path = tmp_path / "claims.json"
+        claims_path.write_text(json.dumps(claims), encoding="utf-8")
+        res = run_cli("--manifests", manifests, "--fixtures", fixtures, "--check", claims_path)
+        assert res.returncode == 1
+        report = json.loads(res.stdout)
+        assert report["checked"] == 4
+>       assert [m["path"] for m in report["mismatches"]] == [
+            "totals.examples.served_chunks",
+            "totals.nothing.here",
+        ]
+E       AssertionError: assert ['pilots.pdf/...nothing.here'] == ['totals.exam...nothing.here']
+E         
+E         At index 0 diff: 'pilots.pdf/net.symbols.total' != 'totals.examples.served_chunks'
+E         Left contains one more item: 'totals.nothing.here'
+E         Use -v to get more diff
+
+tests\release\test_claims_ledger.py:362: AssertionError
+_____________ test_check_passes_on_a_plain_path_to_value_mapping ______________
+
+tree = (WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-9826/test_check_passes_on_a_plain_p0/manifests'), WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-9826/test_check_passes_on_a_plain_p0/fixtures'))
+tmp_path = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-9826/test_check_passes_on_a_plain_p0')
+
+    def test_check_passes_on_a_plain_path_to_value_mapping(tree: tuple[Path, Path], tmp_path: Path) -> None:
+        manifests, fixtures = tree
+        claims_path = tmp_path / "claims.json"
+        claims_path.write_text(
+            json.dumps({"totals.symbols.total": 7, "pilots.words/python.documentation.total": 1}),
+            encoding="utf-8",
+        )
+        res = run_cli("--manifests", manifests, "--fixtures", fixtures, "--check", claims_path)
+>       assert res.returncode == 0, res.stdout
+E       AssertionError: b'{
+E           "checked": 2,
+E           "mismatches": [
+E             {
+E               "actual": 9,
+E               "claim": "totals.symbols.total",
+E               "claimed": 7,
+E               "path": "totals.symbols.total"
+E             }
+E           ]
+E         }
+E         '
+E       assert 1 == 0
+E        +  where 1 = CompletedProcess(args=['E:\\Users\\prora\\OneDrive\\Documents\\GitHub\\foss-mcp\\.gatectl-worktrees\\venv-7b182948484d...aim": "totals.symbols.total",\n      "claimed": 7,\n      "path": "totals.symbols.total"\n    }\n  ]\n}\n', stderr=b'').returncode
+
+tests\release\test_claims_ledger.py:383: AssertionError
+_______________ test_real_tree_counts_equal_an_independent_read _______________
+
+real_ledger = {'pilots': {'3d/java': {'data_bytes': {'generation': 1413655, 'sidecars': 22268, 'total': 1436006}, 'declared_stats': ..._with_fixture': 32, 'symbol_counts': {'functions': 3732, 'types': 8701}}, ...}, 'unmatched_verified_example_files': []}
+
+    def test_real_tree_counts_equal_an_independent_read(real_ledger: dict[str, Any]) -> None:
+        scopes = sorted(p for p in DEMO_MANIFESTS.iterdir() if p.is_dir())
+        assert len(real_ledger["pilots"]) == len(scopes) > 0
+        for scope in scopes:
+            family, platform, _kind = scope.name.split("__")
+            got = real_ledger["pilots"][f"{family}/{platform}"]
+            want = _independent_count(_active_generation(scope))
+>           assert got["symbols"]["total"] == want["symbols"], scope.name
+E           AssertionError: 3d__java__self_extracted
+E           assert 272 == 266
+
+tests\release\test_claims_ledger.py:432: AssertionError
+___________ test_real_tree_pdf_net_is_pinned_to_the_measured_chunks ___________
+
+real_ledger = {'pilots': {'3d/java': {'data_bytes': {'generation': 1413655, 'sidecars': 22268, 'total': 1436006}, 'declared_stats': ..._with_fixture': 32, 'symbol_counts': {'functions': 3732, 'types': 8701}}, ...}, 'unmatched_verified_example_files': []}
+
+    def test_real_tree_pdf_net_is_pinned_to_the_measured_chunks(real_ledger: dict[str, Any]) -> None:
+        p = real_ledger["pilots"]["pdf/net"]
+        # measured by reading the committed generation directly: 901 symbol, 25 documentation, 3 example chunks
+>       assert p["symbols"]["total"] == 901
+E       assert 904 == 901
+
+tests\release\test_claims_ledger.py:448: AssertionError
+__________ test_real_tree_example_cache_numbers_equal_a_direct_read ___________
+
+real_ledger = {'pilots': {'3d/java': {'data_bytes': {'generation': 1413655, 'sidecars': 22268, 'total': 1436006}, 'declared_stats': ..._with_fixture': 32, 'symbol_counts': {'functions': 3732, 'types': 8701}}, ...}, 'unmatched_verified_example_files': []}
+
+    def test_real_tree_example_cache_numbers_equal_a_direct_read(real_ledger: dict[str, Any]) -> None:
+        entries = verified = failed = 0
+        for path in sorted((FIXTURES / "verified_examples").glob("*.json")):
+            for e in json.loads(path.read_text(encoding="utf-8"))["entries"]:
+                entries += 1
+                if e.get("verified") is True:
+                    verified += 1
+                elif e.get("verified") is False:
+                    failed += 1
+        ex = real_ledger["totals"]["examples"]
+        unmatched = real_ledger["unmatched_verified_example_files"]
+        assert unmatched == []  # every cache file belongs to a pilot, so the totals can be compared whole
+        assert ex["cache_entries"] == entries
+        assert ex["verified_entries"] == verified
+        assert ex["failed_entries"] == failed
+        assert ex["other_entries"] == entries - verified - failed
+>       assert ex["served_chunks"] == sum(
+            _independent_count(_active_generation(s))["examples"] for s in DEMO_MANIFESTS.iterdir() if s.is_dir()
+        )
+E       assert 0 == 162
+E        +  where 162 = sum(<generator object test_real_tree_example_cache_numbers_equal_a_direct_read.<locals>.<genexpr> at 0x000002522FFC7680>)
+
+tests\release\test_claims_ledger.py:470: AssertionError
+_________ test_synthetic_diff_reports_exactly_the_planted_differences _________
+
+tmp_path = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-9826/test_synthetic_diff_reports_ex0')
+
+    def test_synthetic_diff_reports_exactly_the_planted_differences(tmp_path: Path) -> None:
+        old, new = two_trees(tmp_path)
+        report = gd.diff_trees(gd.DirTree(old), gd.DirTree(new))
+        assert report["changed"] is True
+        p = report["pilots"]["pdf/net"]
+        assert p["status"] == "changed"
+        assert p["symbols"]["added"] == ["A.Added"]
+        assert p["symbols"]["removed"] == ["A.Removed"]
+        assert p["symbols"]["changed"] == ["A.Changed"]
+>       assert (p["symbols"]["old_total"], p["symbols"]["new_total"]) == (3, 3)
+E       assert (4, 4) == (3, 3)
+E         
+E         At index 0 diff: 4 != 3
+E         Use -v to get more diff
+
+tests\release\test_generation_diff.py:144: AssertionError
+_________ test_example_chunks_added_and_removed_are_reported_by_title _________
+
+tmp_path = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-9826/test_example_chunks_added_and_0')
+
+    def test_example_chunks_added_and_removed_are_reported_by_title(tmp_path: Path) -> None:
+        old, new = tmp_path / "old", tmp_path / "new"
+        write_scope(old, "pdf", "net", [example("Gone"), example("Same"), doc("D")])
+        write_scope(new, "pdf", "net", [example("Same"), example("Fresh"), example("Fresh two"), doc("D")])
+        e = gd.diff_trees(gd.DirTree(old), gd.DirTree(new))["pilots"]["pdf/net"]["examples"]
+>       assert (e["old_total"], e["new_total"], e["delta"]) == (2, 3, 1)
+E       assert (0, 0, 0) == (2, 3, 1)
+E         
+E         At index 0 diff: 0 != 2
+E         Use -v to get more diff
+
+tests\release\test_generation_diff.py:212: AssertionError
+=========================== short test summary info ===========================
+FAILED tests/release/test_claims_ledger.py::test_constants_are_the_mandated_prefixes
+FAILED tests/release/test_claims_ledger.py::test_symbol_doc_example_counts_on_a_hand_made_tree
+FAILED tests/release/test_claims_ledger.py::test_three_example_figures_are_reported_separately
+FAILED tests/release/test_claims_ledger.py::test_totals_sum_the_pilots - asse...
+FAILED tests/release/test_claims_ledger.py::test_output_is_byte_identical_on_two_runs
+FAILED tests/release/test_claims_ledger.py::test_check_lists_exactly_the_claims_that_differ
+FAILED tests/release/test_claims_ledger.py::test_check_passes_on_a_plain_path_to_value_mapping
+FAILED tests/release/test_claims_ledger.py::test_real_tree_counts_equal_an_independent_read
+FAILED tests/release/test_claims_ledger.py::test_real_tree_pdf_net_is_pinned_to_the_measured_chunks
+FAILED tests/release/test_claims_ledger.py::test_real_tree_example_cache_numbers_equal_a_direct_read
+FAILED tests/release/test_generation_diff.py::test_synthetic_diff_reports_exactly_the_planted_differences
+FAILED tests/release/test_generation_diff.py::test_example_chunks_added_and_removed_are_reported_by_title
+
+--- stderr ---
+
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-7b182948484d7df9\Scripts\python.exe -m pytest tests/release tests/deploy/test_fleet_consistency.py tests/deploy/test_compact_demo_manifests.py -q -rfE -p no:cacheprovider -k "not live and not github_http and not repo_native and not test_prepare_rust_library and not test_rust_known" "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-1lr3potv\.junit-1.xml"
+--- stdout ---
+FF...F...F.F.FF.FFF...F....F............................................ [ 22%]
+........................................................................ [ 45%]
+........................................................................ [ 68%]
+........................................................................ [ 91%]
+............................                                             [100%]
+================================== FAILURES ===================================
+__________________ test_constants_are_the_mandated_prefixes ___________________
+
+    def test_constants_are_the_mandated_prefixes() -> None:
+        text = TOOL.read_text(encoding="utf-8")
+>       assert 'EXAMPLE_PREFIX = "FQN: Example: "' in text.splitlines()
+E       assert 'EXAMPLE_PREFIX = "FQN: Example: "' in ['#!/usr/bin/env python3', '"""Reproducible claims ledger for the release evidence (TC-568 / REQ-G3-009, rows RD3-164 ...age:', '    python scripts/release/claims_ledger.py [--manifests DIR] [--fixtures DIR] [--check claims.json]', '', ...]
+E        +  where ['#!/usr/bin/env python3', '"""Reproducible claims ledger for the release evidence (TC-568 / REQ-G3-009, rows RD3-164 ...age:', '    python scripts/release/claims_ledger.py [--manifests DIR] [--fixtures DIR] [--check claims.json]', '', ...] = <built-in method splitlines of str object at 0x000001ED27BD7F30>()
+E        +    where <built-in method splitlines of str object at 0x000001ED27BD7F30> = '#!/usr/bin/env python3\n"""Reproducible claims ledger for the release evidence (TC-568 / REQ-G3-009, rows RD3-164 and...t(render(report))\n    return 1 if report["mismatches"] else 0\n\n\nif __name__ == "__main__":\n    sys.exit(main())\n'.splitlines
+
+tests\release\test_claims_ledger.py:161: AssertionError
+_____________ test_symbol_doc_example_counts_on_a_hand_made_tree ______________
+
+tree = (WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-9828/test_symbol_doc_example_counts0/manifests'), WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-9828/test_symbol_doc_example_counts0/fixtures'))
+
+    def test_symbol_doc_example_counts_on_a_hand_made_tree(tree: tuple[Path, Path]) -> None:
+        manifests, fixtures = tree
+        out = ledger.build_ledger(manifests, fixtures)
+        p = out["pilots"]["pdf/net"]
+>       assert p["symbols"]["total"] == 6
+E       assert 8 == 6
+
+tests\release\test_claims_ledger.py:171: AssertionError
+_____________ test_three_example_figures_are_reported_separately ______________
+
+tree = (WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-9828/test_three_example_figures_are0/manifests'), WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-9828/test_three_example_figures_are0/fixtures'))
+
+    def test_three_example_figures_are_reported_separately(tree: tuple[Path, Path]) -> None:
+        manifests, fixtures = tree
+        ex = ledger.build_ledger(manifests, fixtures)["pilots"]["pdf/net"]["examples"]
+>       assert ex["served_chunks"] == 2  # chunks the generation serves
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       assert 0 == 2
+
+tests\release\test_claims_ledger.py:217: AssertionError
+_________________________ test_totals_sum_the_pilots __________________________
+
+tree = (WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-9828/test_totals_sum_the_pilots0/manifests'), WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-9828/test_totals_sum_the_pilots0/fixtures'))
+
+    def test_totals_sum_the_pilots(tree: tuple[Path, Path]) -> None:
+        manifests, fixtures = tree
+        out = ledger.build_ledger(manifests, fixtures)
+        t = out["totals"]
+        assert t["pilots"] == 2
+>       assert t["symbols"]["total"] == 6 + 1
+E       assert 9 == (6 + 1)
+
+tests\release\test_claims_ledger.py:291: AssertionError
+__________________ test_output_is_byte_identical_on_two_runs __________________
+
+tree = (WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-9828/test_output_is_byte_identical_0/manifests'), WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-9828/test_output_is_byte_identical_0/fixtures'))
+
+    def test_output_is_byte_identical_on_two_runs(tree: tuple[Path, Path]) -> None:
+        manifests, fixtures = tree
+        first = run_cli("--manifests", manifests, "--fixtures", fixtures)
+        second = run_cli("--manifests", manifests, "--fixtures", fixtures)
+        assert first.returncode == 0, first.stderr.decode("utf-8", "replace")
+        assert first.stdout == second.stdout
+        assert first.stdout.endswith(b"\n")
+        doc_out = json.loads(first.stdout)
+>       assert doc_out["totals"]["symbols"]["total"] == 7
+E       assert 9 == 7
+
+tests\release\test_claims_ledger.py:326: AssertionError
+_______________ test_check_lists_exactly_the_claims_that_differ _______________
+
+tree = (WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-9828/test_check_lists_exactly_the_c0/manifests'), WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-9828/test_check_lists_exactly_the_c0/fixtures'))
+tmp_path = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-9828/test_check_lists_exactly_the_c0')
+
+    def test_check_lists_exactly_the_claims_that_differ(tree: tuple[Path, Path], tmp_path: Path) -> None:
+        manifests, fixtures = tree
+        claims = {
+            "claims": [
+                {"claim": "pdf/net symbols", "path": "pilots.pdf/net.symbols.total", "value": 6},
+                {
+                    "claim": "served examples (conflated once)",
+                    "path": "totals.examples.served_chunks",
+                    "value": 183,
+                },
+                {"claim": "verified entries", "path": "totals.examples.verified_entries", "value": 3},
+                {"claim": "typo", "path": "totals.nothing.here", "value": 1},
+            ]
+        }
+        claims_path = tmp_path / "claims.json"
+        claims_path.write_text(json.dumps(claims), encoding="utf-8")
+        res = run_cli("--manifests", manifests, "--fixtures", fixtures, "--check", claims_path)
+        assert res.returncode == 1
+        report = json.loads(res.stdout)
+        assert report["checked"] == 4
+>       assert [m["path"] for m in report["mismatches"]] == [
+            "totals.examples.served_chunks",
+            "totals.nothing.here",
+        ]
+E       AssertionError: assert ['pilots.pdf/...nothing.here'] == ['totals.exam...nothing.here']
+E         
+E         At index 0 diff: 'pilots.pdf/net.symbols.total' != 'totals.examples.served_chunks'
+E         Left contains one more item: 'totals.nothing.here'
+E         Use -v to get more diff
+
+tests\release\test_claims_ledger.py:362: AssertionError
+_____________ test_check_passes_on_a_plain_path_to_value_mapping ______________
+
+tree = (WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-9828/test_check_passes_on_a_plain_p0/manifests'), WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-9828/test_check_passes_on_a_plain_p0/fixtures'))
+tmp_path = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-9828/test_check_passes_on_a_plain_p0')
+
+    def test_check_passes_on_a_plain_path_to_value_mapping(tree: tuple[Path, Path], tmp_path: Path) -> None:
+        manifests, fixtures = tree
+        claims_path = tmp_path / "claims.json"
+        claims_path.write_text(
+            json.dumps({"totals.symbols.total": 7, "pilots.words/python.documentation.total": 1}),
+            encoding="utf-8",
+        )
+        res = run_cli("--manifests", manifests, "--fixtures", fixtures, "--check", claims_path)
+>       assert res.returncode == 0, res.stdout
+E       AssertionError: b'{
+E           "checked": 2,
+E           "mismatches": [
+E             {
+E               "actual": 9,
+E               "claim": "totals.symbols.total",
+E               "claimed": 7,
+E               "path": "totals.symbols.total"
+E             }
+E           ]
+E         }
+E         '
+E       assert 1 == 0
+E        +  where 1 = CompletedProcess(args=['E:\\Users\\prora\\OneDrive\\Documents\\GitHub\\foss-mcp\\.gatectl-worktrees\\venv-7b182948484d...aim": "totals.symbols.total",\n      "claimed": 7,\n      "path": "totals.symbols.total"\n    }\n  ]\n}\n', stderr=b'').returncode
+
+tests\release\test_claims_ledger.py:383: AssertionError
+_______________ test_real_tree_counts_equal_an_independent_read _______________
+
+real_ledger = {'pilots': {'3d/java': {'data_bytes': {'generation': 1413655, 'sidecars': 22268, 'total': 1436006}, 'declared_stats': ..._with_fixture': 32, 'symbol_counts': {'functions': 3732, 'types': 8701}}, ...}, 'unmatched_verified_example_files': []}
+
+    def test_real_tree_counts_equal_an_independent_read(real_ledger: dict[str, Any]) -> None:
+        scopes = sorted(p for p in DEMO_MANIFESTS.iterdir() if p.is_dir())
+        assert len(real_ledger["pilots"]) == len(scopes) > 0
+        for scope in scopes:
+            family, platform, _kind = scope.name.split("__")
+            got = real_ledger["pilots"][f"{family}/{platform}"]
+            want = _independent_count(_active_generation(scope))
+>           assert got["symbols"]["total"] == want["symbols"], scope.name
+E           AssertionError: 3d__java__self_extracted
+E           assert 272 == 266
+
+tests\release\test_claims_ledger.py:432: AssertionError
+___________ test_real_tree_pdf_net_is_pinned_to_the_measured_chunks ___________
+
+real_ledger = {'pilots': {'3d/java': {'data_bytes': {'generation': 1413655, 'sidecars': 22268, 'total': 1436006}, 'declared_stats': ..._with_fixture': 32, 'symbol_counts': {'functions': 3732, 'types': 8701}}, ...}, 'unmatched_verified_example_files': []}
+
+    def test_real_tree_pdf_net_is_pinned_to_the_measured_chunks(real_ledger: dict[str, Any]) -> None:
+        p = real_ledger["pilots"]["pdf/net"]
+        # measured by reading the committed generation directly: 901 symbol, 25 documentation, 3 example chunks
+>       assert p["symbols"]["total"] == 901
+E       assert 904 == 901
+
+tests\release\test_claims_ledger.py:448: AssertionError
+__________ test_real_tree_example_cache_numbers_equal_a_direct_read ___________
+
+real_ledger = {'pilots': {'3d/java': {'data_bytes': {'generation': 1413655, 'sidecars': 22268, 'total': 1436006}, 'declared_stats': ..._with_fixture': 32, 'symbol_counts': {'functions': 3732, 'types': 8701}}, ...}, 'unmatched_verified_example_files': []}
+
+    def test_real_tree_example_cache_numbers_equal_a_direct_read(real_ledger: dict[str, Any]) -> None:
+        entries = verified = failed = 0
+        for path in sorted((FIXTURES / "verified_examples").glob("*.json")):
+            for e in json.loads(path.read_text(encoding="utf-8"))["entries"]:
+                entries += 1
+                if e.get("verified") is True:
+                    verified += 1
+                elif e.get("verified") is False:
+                    failed += 1
+        ex = real_ledger["totals"]["examples"]
+        unmatched = real_ledger["unmatched_verified_example_files"]
+        assert unmatched == []  # every cache file belongs to a pilot, so the totals can be compared whole
+        assert ex["cache_entries"] == entries
+        assert ex["verified_entries"] == verified
+        assert ex["failed_entries"] == failed
+        assert ex["other_entries"] == entries - verified - failed
+>       assert ex["served_chunks"] == sum(
+            _independent_count(_active_generation(s))["examples"] for s in DEMO_MANIFESTS.iterdir() if s.is_dir()
+        )
+E       assert 0 == 162
+E        +  where 162 = sum(<generator object test_real_tree_example_cache_numbers_equal_a_direct_read.<locals>.<genexpr> at 0x000001ED567EA960>)
+
+tests\release\test_claims_ledger.py:470: AssertionError
+_________ test_synthetic_diff_reports_exactly_the_planted_differences _________
+
+tmp_path = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-9828/test_synthetic_diff_reports_ex0')
+
+    def test_synthetic_diff_reports_exactly_the_planted_differences(tmp_path: Path) -> None:
+        old, new = two_trees(tmp_path)
+        report = gd.diff_trees(gd.DirTree(old), gd.DirTree(new))
+        assert report["changed"] is True
+        p = report["pilots"]["pdf/net"]
+        assert p["status"] == "changed"
+        assert p["symbols"]["added"] == ["A.Added"]
+        assert p["symbols"]["removed"] == ["A.Removed"]
+        assert p["symbols"]["changed"] == ["A.Changed"]
+>       assert (p["symbols"]["old_total"], p["symbols"]["new_total"]) == (3, 3)
+E       assert (4, 4) == (3, 3)
+E         
+E         At index 0 diff: 4 != 3
+E         Use -v to get more diff
+
+tests\release\test_generation_diff.py:144: AssertionError
+_________ test_example_chunks_added_and_removed_are_reported_by_title _________
+
+tmp_path = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-9828/test_example_chunks_added_and_0')
+
+    def test_example_chunks_added_and_removed_are_reported_by_title(tmp_path: Path) -> None:
+        old, new = tmp_path / "old", tmp_path / "new"
+        write_scope(old, "pdf", "net", [example("Gone"), example("Same"), doc("D")])
+        write_scope(new, "pdf", "net", [example("Same"), example("Fresh"), example("Fresh two"), doc("D")])
+        e = gd.diff_trees(gd.DirTree(old), gd.DirTree(new))["pilots"]["pdf/net"]["examples"]
+>       assert (e["old_total"], e["new_total"], e["delta"]) == (2, 3, 1)
+E       assert (0, 0, 0) == (2, 3, 1)
+E         
+E         At index 0 diff: 0 != 2
+E         Use -v to get more diff
+
+tests\release\test_generation_diff.py:212: AssertionError
+=========================== short test summary info ===========================
+FAILED tests/release/test_claims_ledger.py::test_constants_are_the_mandated_prefixes
+FAILED tests/release/test_claims_ledger.py::test_symbol_doc_example_counts_on_a_hand_made_tree
+FAILED tests/release/test_claims_ledger.py::test_three_example_figures_are_reported_separately
+FAILED tests/release/test_claims_ledger.py::test_totals_sum_the_pilots - asse...
+FAILED tests/release/test_claims_ledger.py::test_output_is_byte_identical_on_two_runs
+FAILED tests/release/test_claims_ledger.py::test_check_lists_exactly_the_claims_that_differ
+FAILED tests/release/test_claims_ledger.py::test_check_passes_on_a_plain_path_to_value_mapping
+FAILED tests/release/test_claims_ledger.py::test_real_tree_counts_equal_an_independent_read
+FAILED tests/release/test_claims_ledger.py::test_real_tree_pdf_net_is_pinned_to_the_measured_chunks
+FAILED tests/release/test_claims_ledger.py::test_real_tree_example_cache_numbers_equal_a_direct_read
+FAILED tests/release/test_generation_diff.py::test_synthetic_diff_reports_exactly_the_planted_differences
+FAILED tests/release/test_generation_diff.py::test_example_chunks_added_and_removed_are_reported_by_title
+
+--- stderr ---
+
