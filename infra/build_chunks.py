@@ -73,7 +73,9 @@ from foss_mcp.indexing.authored_examples import (
     AUTHORED_LABEL,
     SIDECAR_NAME,
     AuthoredExamplesError,
+    has_builtin_authored_examples,
     load_authored_examples,
+    load_builtin_authored_examples,
 )
 from foss_mcp.indexing.chunk_builder import build_chunks_from_api_surface, parse_failures_over_threshold
 from foss_mcp.indexing.doc_candidates import extract_doc_sections
@@ -92,11 +94,17 @@ from foss_mcp.indexing.example_candidates import normalised_code_sha256 as _cand
 from foss_mcp.indexing.example_fixtures import input_literals
 from foss_mcp.indexing.example_verifier import (
     CPP_COMPAT_NAMES,
+    RUNTIME_FAILED,
+    RUNTIME_NO_OUTPUT,
+    RUNTIME_RAN_OK,
     ExampleEnvironmentError,
+    RuntimeRecord,
     _assemble_dotnet_source,
     _assemble_rust_source,
     _wrap_cpp_fragment_if_needed,
+    counts_as_verified,
     cpp_compat_compile_options,
+    entry_counts_as_verified,
     prepare_cpp_library_linux,
     prepare_go_library,
     prepare_java_library,
@@ -105,6 +113,10 @@ from foss_mcp.indexing.example_verifier import (
     prepare_reference_library,
     prepare_rust_library,
     prepare_typescript_library,
+    rejected_for_unimplemented_format,
+    run_compiled_candidate,
+    runtime_record_from_entry,
+    scope_unimplemented_formats,
     verify_cpp_example_linux,
     verify_dotnet_example,
     verify_go_example,
@@ -279,6 +291,10 @@ _PLATFORM_DISPATCH = {
     },
 }
 
+# TC-565 (REQ-G3-009): the platforms whose compiled candidate is RUN after the compile verdict, mapped to the
+# real verify function that leaves the compiled project in the candidate workdir.
+_RUNNABLE_VERIFIERS = {"java": verify_java_example, "dotnet": verify_dotnet_example}
+
 # REQ-G2-048 (TC-091): which extra CLI flag (beyond --library-repository/--library-commit) is
 # required for a given --library-platform, and its attribute name on the parsed args - keyed
 # only for platforms that actually need one. python and java need no extra flag: their verify_*
@@ -414,13 +430,23 @@ def _load_authored_candidates(args: argparse.Namespace) -> tuple[CandidateExampl
     if page_path.parent.name != "pages":
         return ()
     sidecar = page_path.parent.parent / SIDECAR_NAME
-    if not sidecar.is_file():
+    builtin_pilot = page_path.parent.parent.name
+    # TC-565: a pilot with no sidecar file may carry its authored examples in authored_examples.py itself.
+    use_builtin = not sidecar.is_file() and has_builtin_authored_examples(builtin_pilot)
+    if not sidecar.is_file() and not use_builtin:
         return ()
     try:
         fixture = json.loads(Path(args.api_surface).read_text(encoding="utf-8"))
         api_types = fixture["types"]
         if not isinstance(api_types, list):
             raise TypeError("the api_surface types entry is not a list")
+        if use_builtin:
+            return load_builtin_authored_examples(
+                builtin_pilot,
+                library_platform=args.library_platform,
+                library_commit=args.library_commit,
+                api_types=api_types,
+            )
         return load_authored_examples(
             sidecar,
             pilot=page_path.parent.parent.name,
@@ -503,6 +529,10 @@ CACHE_SCHEMA_VERSION = 1
 _CACHE_ENTRY_FIELDS = frozenset(
     {"provenance", "title", "code_sha256", "library_commit", "platform", "toolchain", "verified", "output"}
 )
+# TC-565 (REQ-G3-009): the run verdict, recorded separately from the compile verdict. ``verified`` keeps
+# its meaning (the compile verdict), so an entry written before this card stays valid and is read as
+# ``ran`` unknown; an entry written after it may carry these keys, each only when the fact is known.
+_CACHE_RUNTIME_FIELDS = frozenset({"compiled", "ran", "exit_code", "produced_output", "runtime_error"})
 # The last N characters of a verifier's output kept in a cache entry - the FULL output stays in the
 # .verification.json report; the cache is meant to be read by a person skimming a diff, not to
 # reproduce a rejection from scratch.
@@ -606,8 +636,9 @@ def parse_verification_cache(text: str) -> list[dict]:
 
     Raises ``ValueError``, with a one-line message naming what is wrong (never a traceback), for
     anything that is not exactly ``{"schema_version": 1, "entries": [...]}`` with every entry
-    carrying exactly the eight documented fields - an ``"authored"`` key, any other extra top-level
-    key, or a wrong ``schema_version``, included.
+    carrying the eight documented fields and, optionally, the TC-565 run fields (``compiled``, ``ran``,
+    ``exit_code``, ``produced_output``, ``runtime_error``) - an ``"authored"`` key, any other extra
+    top-level key, or a wrong ``schema_version``, included.
     """
     try:
         data = json.loads(text)
@@ -621,7 +652,11 @@ def parse_verification_cache(text: str) -> list[dict]:
     if not isinstance(entries, list):
         raise ValueError("entries is not a list")
     for entry in entries:
-        if not isinstance(entry, dict) or set(entry) != _CACHE_ENTRY_FIELDS:
+        if (
+            not isinstance(entry, dict)
+            or not _CACHE_ENTRY_FIELDS <= set(entry)
+            or not set(entry) <= _CACHE_ENTRY_FIELDS | _CACHE_RUNTIME_FIELDS
+        ):
             raise ValueError("an entry does not have exactly the eight documented fields")
     return entries
 
@@ -797,6 +832,29 @@ def _chunkable_description(description: str) -> str:
     ``FQN:`` and ``Kind: verified_example`` lines, so the example could no longer be recognised. The
     text of each heading is kept; a description with no heading line is returned unchanged."""
     return _MARKDOWN_HEADING_RE.sub("", description)
+
+
+_RUNTIME_ERROR_LINE_CHARS = 300
+
+
+def _runtime_chunk_lines(runtime: RuntimeRecord) -> str:
+    """TC-565: the lines of an example chunk that say what running it proved, directly after ``Kind``.
+
+    ``Runtime-Status`` is ``ran`` (exit 0, produced output), ``failed`` or ``no_output``, with the bytes
+    produced and, for a failure, one line of its error. Nothing is written when the run was never
+    attempted (``ran`` unknown): a chunk without these lines is read as compiled-only, which is all that
+    was proven. ``find_examples`` turns the lines into its label.
+    """
+    status = runtime.status
+    if status not in (RUNTIME_RAN_OK, RUNTIME_FAILED, RUNTIME_NO_OUTPUT):
+        return ""
+    lines = f"Runtime-Status: {status}\n"
+    if runtime.produced_output is not None:
+        lines += f"Runtime-Produced-Bytes: {runtime.produced_output}\n"
+    error = " ".join(runtime.error.split())[:_RUNTIME_ERROR_LINE_CHARS].replace("Example:", "Example :")
+    if status == RUNTIME_FAILED and error:
+        lines += f"Runtime-Error: {error}\n"
+    return lines
 
 
 def _cache_key_text(effective: CandidateExample, program: str, platform: str) -> str:
@@ -978,6 +1036,8 @@ def _build_verified_example_chunks(
     shared_candidate_workdir: Path | None = None
     if platform_dispatch["shared_page_workdir"] and needs_real_verification:
         shared_candidate_workdir = Path(tempfile.mkdtemp(prefix="build_chunks_page_"))
+    # TC-565: the formats the pilot's own Scope and Limitations section says are not implemented.
+    unimplemented_formats = scope_unimplemented_formats(page)
 
     verified_chunks: list[Chunk] = []
     verified_count = 0
@@ -1011,19 +1071,42 @@ def _build_verified_example_chunks(
         hit_entry = hit_entries[index]
         verification_result = None
         if hit_entry is not None:
-            verified = True
+            compiled = True
             output = hit_entry.get("output", "")
             cached = True
             cached_count += 1
+            runtime = runtime_record_from_entry(hit_entry)
         else:
             if shared_candidate_workdir is not None:
                 candidate_workdir = shared_candidate_workdir
             else:
                 candidate_workdir = Path(tempfile.mkdtemp(prefix="build_chunks_candidate_"))
             verification_result = verify(plan.effective, workdir=candidate_workdir, **verify_kwargs)
-            verified = verification_result.verified
+            compiled = verification_result.verified
             output = verification_result.output
             cached = False
+            if compiled and verify is _RUNNABLE_VERIFIERS.get(platform):
+                # TC-565: a compile-only pass proves nothing about the example working. Run what compiled.
+                # Only what the REAL compiler step left in the workdir can be run: a stand-in verifier
+                # (a test double) compiled nothing, so its candidate is recorded as compiled only.
+                runtime = run_compiled_candidate(
+                    platform,
+                    plan.effective,
+                    workdir=candidate_workdir,
+                    library=prepared_library if isinstance(prepared_library, Path) else None,
+                    runner=getattr(args, "runtime_runner", None),
+                )
+            else:
+                runtime = RuntimeRecord(compiled=compiled)
+        # TC-565: verified now means compiled AND (ran with exit 0 and produced output, or run not attempted).
+        verified = (
+            entry_counts_as_verified(hit_entry)
+            if hit_entry is not None
+            else counts_as_verified(runtime.status)
+        )
+        rejected = compiled and rejected_for_unimplemented_format(
+            runtime, candidate.code, unimplemented_formats
+        )
 
         if verification_records is not None:
             record = {
@@ -1034,6 +1117,11 @@ def _build_verified_example_chunks(
                 "index": index,
                 "kind": "authored" if candidate.provenance == "authored" else "candidate",
             }
+            if runtime.ran is not None:
+                record.update(runtime.as_cache_fields())
+                record["runtime_status"] = runtime.status
+            if rejected:
+                record["rejected"] = "output is empty and the format is documented as not implemented"
             if cache_active:
                 record["cached"] = cached
                 record["code_sha256"] = plan.key_candidate.code_sha256
@@ -1056,15 +1144,21 @@ def _build_verified_example_chunks(
                     "library_commit": library_commit,
                     "platform": platform,
                     "toolchain": toolchain,
-                    "verified": verified,
+                    # The compile verdict, unchanged in meaning; the run verdict is the keys below.
+                    "verified": compiled,
                     "output": output[-_CACHE_OUTPUT_TAIL_CHARS:],
+                    **(runtime.as_cache_fields() if runtime.ran is not None else {}),
                 }
             )
 
         if verified:
             verified_count += 1
+        if compiled and not rejected and (verified or candidate.provenance != "authored"):
+            # TC-565: an example that compiled but fails at runtime (or produced nothing) is published
+            # only with its honest runtime lines, never as verified; an authored one only when verified.
             harness_line = f"Harness: {plan.harness}\n" if plan.harness else ""
             authored_lines = ""
+            runtime_lines = _runtime_chunk_lines(runtime)
             if candidate.provenance == "authored":
                 authored_verified += 1
                 # TC-460: a verified authored example says so, in three lines directly after Kind.
@@ -1084,6 +1178,7 @@ def _build_verified_example_chunks(
                     f"FQN: Example: {candidate.title}\n"
                     f"Kind: verified_example\n"
                     f"{authored_lines}"
+                    f"{runtime_lines}"
                     f"{harness_line}"
                     f"{_chunkable_description(candidate.description)}\n\n"
                     f"Example:\n{plan.program}"

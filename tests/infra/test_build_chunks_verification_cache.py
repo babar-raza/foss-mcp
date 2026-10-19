@@ -824,3 +824,72 @@ def test_every_committed_verified_examples_fixture_parses_and_is_named_after_a_p
         entries = build_chunks.parse_verification_cache(path.read_text(encoding="utf-8"))
         assert isinstance(entries, list)
         assert path.stem in known, f"{path.name} is not named after a pilot in values.yaml"
+
+
+# ---------------------------------------------------------------------------------------------------
+# TC-565 (REQ-G3-009): the run verdict is recorded beside the compile verdict
+# ---------------------------------------------------------------------------------------------------
+
+_RUNTIME_KEYS = {"compiled": True, "ran": True, "exit_code": 1, "produced_output": 0, "runtime_error": "boom"}
+
+
+def _runtime_entry(**overrides: object) -> dict:
+    entry = _entry(
+        title="Save a box",
+        code_sha256="b" * 64,
+        library_commit=LIBRARY_COMMIT,
+        platform="java",
+        toolchain="javac 21",
+        verified=True,
+        output="",
+    )
+    entry.update(overrides)
+    return entry
+
+
+def test_tc565_an_entry_may_carry_the_run_verdict_beside_the_compile_verdict() -> None:
+    text = build_chunks.verification_cache_document([_runtime_entry(**_RUNTIME_KEYS)])
+    (entry,) = build_chunks.parse_verification_cache(text)
+    assert {key: entry[key] for key in _RUNTIME_KEYS} == _RUNTIME_KEYS
+    assert entry["verified"] is True, "verified keeps its meaning: the compile verdict"
+
+
+@pytest.mark.parametrize("key", sorted(_RUNTIME_KEYS))
+def test_tc565_each_run_field_is_optional_on_its_own(key: str) -> None:
+    text = build_chunks.verification_cache_document([_runtime_entry(**{key: _RUNTIME_KEYS[key]})])
+    assert build_chunks.parse_verification_cache(text)[0][key] == _RUNTIME_KEYS[key]
+
+
+def test_tc565_a_legacy_entry_without_the_run_fields_is_still_valid() -> None:
+    text = build_chunks.verification_cache_document([_runtime_entry()])
+    (entry,) = build_chunks.parse_verification_cache(text)
+    assert not set(entry) & set(_RUNTIME_KEYS)
+
+
+@pytest.mark.parametrize("extra", ["authored", "stdout", "Ran", "runtime"])
+def test_tc565_a_field_that_is_not_documented_is_still_rejected(extra: str) -> None:
+    text = build_chunks.verification_cache_document([_runtime_entry(**{extra: 1})])
+    with pytest.raises(ValueError, match="eight documented fields"):
+        build_chunks.parse_verification_cache(text)
+
+
+def test_tc565_an_entry_missing_a_required_field_is_still_rejected() -> None:
+    entry = _runtime_entry(**_RUNTIME_KEYS)
+    del entry["toolchain"]
+    with pytest.raises(ValueError, match="eight documented fields"):
+        build_chunks.parse_verification_cache(build_chunks.verification_cache_document([entry]))
+
+
+def test_tc565_a_new_run_verdict_replaces_the_old_entry_with_the_same_key() -> None:
+    legacy = _runtime_entry()
+    rerun = _runtime_entry(**_RUNTIME_KEYS)
+    merged = build_chunks.merge_verification_cache([legacy], [rerun])
+    assert len(merged) == 1 and merged[0]["ran"] is True
+
+
+def test_tc565_a_run_entry_survives_a_write_and_a_read_byte_for_byte(tmp_path: Path) -> None:
+    path = tmp_path / "cache.json"
+    entries = [_runtime_entry(**_RUNTIME_KEYS)]
+    assert build_chunks.write_verification_cache_if_changed(path, entries) is True
+    assert build_chunks.load_verification_cache(path) == entries
+    assert build_chunks.write_verification_cache_if_changed(path, entries) is False

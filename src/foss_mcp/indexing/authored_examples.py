@@ -33,7 +33,10 @@ __all__ = [
     "LANGUAGE_BY_PLATFORM",
     "SIDECAR_NAME",
     "AuthoredExamplesError",
+    "builtin_authored_document",
+    "has_builtin_authored_examples",
     "load_authored_examples",
+    "load_builtin_authored_examples",
     "validate_authored_examples",
 ]
 
@@ -338,7 +341,10 @@ def load_authored_examples(
     )
     if problems:
         raise AuthoredExamplesError("; ".join(problems))
+    return _candidates_from_document(document)
 
+
+def _candidates_from_document(document: Mapping[str, Any]) -> tuple[CandidateExample, ...]:
     candidates: list[CandidateExample] = []
     for example in document["examples"]:
         code = example["code"].strip()
@@ -358,3 +364,159 @@ def load_authored_examples(
             )
         )
     return tuple(candidates)
+
+
+# --- examples carried by this module (TC-565, REQ-G3-009) ---------------------------------------
+#
+# 3d/net and 3d/java have no working example of their own in the upstream README: the README's own
+# ``Save("o.obj", FileFormat.WavefrontOBJ)`` throws NotImplementedException and its "Build a Scene From
+# a Primitive" writes an empty STL (a Box attached directly has no polygons; ``ToMesh``/``toMesh`` makes
+# the polygons STL needs). These two pilots therefore carry authored examples HERE, written against the
+# API shape the pilot's README quotes (``Scene``, ``Node.CreateChildNode``, ``Box.ToMesh``, ``Scene.Save``
+# with a ``.stl`` path or ``FileFormat.STLBinary``/``STLASCII``). They go through exactly the same
+# validation as a sidecar file, are verified by the same verifier (compiled AND RUN, the artefact is read
+# back), and are labelled as authored. Until the supervisor's closing run executes them, their
+# verification-cache entries carry ``ran`` unknown.
+_BUILTIN_PILOTS: Mapping[str, Mapping[str, Any]] = {
+    "3d_net": {
+        "library_repository": "aspose-3d-foss/Aspose.3D-FOSS-for-.NET",
+        "library_commit": "52b0f00ebf28a0b4173921725ff170685ec2c502",
+        "language": "csharp",
+        "examples": (
+            {
+                "title": "Save a box mesh as an STL file",
+                "description": (
+                    "Converts a Box primitive to a mesh with ToMesh, attaches the mesh to a child node of the "
+                    "scene root and saves the scene with Scene.Save to box.stl, the one format that is fully "
+                    "functional in this edition; the file's size is printed."
+                ),
+                "symbols": ["Scene", "Scene.Save", "Box", "Box.ToMesh", "Node.CreateChildNode"],
+                "code": """\
+// Authored example: save a box mesh as an STL file
+using Aspose.ThreeD;
+using Aspose.ThreeD.Entities;
+
+var scene = new Scene();
+Mesh mesh = new Box(2, 2, 2).ToMesh();
+scene.RootNode.CreateChildNode("box", mesh);
+scene.Save("box.stl");
+Console.WriteLine(new FileInfo("box.stl").Length);
+""",
+            },
+            {
+                "title": "Save a cylinder mesh as a binary STL with an explicit format",
+                "description": (
+                    "Converts a Cylinder primitive to a mesh, attaches it to a child node and saves the scene "
+                    "with Scene.Save and FileFormat.STLBinary, so the output format is stated rather than "
+                    "taken from the file extension."
+                ),
+                "symbols": ["Scene", "Scene.Save", "Cylinder", "Cylinder.ToMesh", "FileFormat.STLBinary"],
+                "code": """\
+// Authored example: save a cylinder mesh as a binary STL file
+using Aspose.ThreeD;
+using Aspose.ThreeD.Entities;
+
+var scene = new Scene();
+Mesh mesh = new Cylinder().ToMesh();
+scene.RootNode.CreateChildNode("cylinder", mesh);
+scene.Save("cylinder.stl", FileFormat.STLBinary);
+Console.WriteLine(new FileInfo("cylinder.stl").Length);
+""",
+            },
+        ),
+    },
+    "3d_java": {
+        "library_repository": "aspose-3d-foss/Aspose.3D-FOSS-for-Java",
+        "library_commit": "3d2ed6be91f5abdd1c52ecbcfa192719883cb1b3",
+        "language": "java",
+        "examples": (
+            {
+                "title": "Save a box mesh as an STL file",
+                "description": (
+                    "Converts a Box primitive to a mesh with toMesh, attaches the mesh to a child node of the "
+                    "scene root and saves the scene with Scene.save to box.stl, the one format that is fully "
+                    "functional in this edition. Attaching the Box itself writes an empty file."
+                ),
+                "symbols": ["Scene", "Scene.save", "Box", "Box.toMesh", "Node.createChildNode"],
+                "code": """\
+// Authored example: save a box mesh as an STL file
+import com.aspose.threed.Box;
+import com.aspose.threed.Mesh;
+import com.aspose.threed.Scene;
+
+Scene scene = new Scene();
+Mesh mesh = new Box(2.0, 2.0, 2.0).toMesh();
+scene.getRootNode().createChildNode("box", mesh);
+scene.save("box.stl");
+System.out.println(new File("box.stl").length());
+""",
+            },
+            {
+                "title": "Save a sphere mesh as an ASCII STL file",
+                "description": (
+                    "Converts a Sphere primitive to a mesh with toMesh, attaches it to a child node and saves "
+                    "the scene with Scene.save and FileFormat.STLASCII, so the output is a text STL."
+                ),
+                "symbols": ["Scene", "Scene.save", "Sphere", "Sphere.toMesh", "Node.createChildNode"],
+                "code": """\
+// Authored example: save a sphere mesh as an ASCII STL file
+import com.aspose.threed.FileFormat;
+import com.aspose.threed.Mesh;
+import com.aspose.threed.Scene;
+import com.aspose.threed.Sphere;
+
+Scene scene = new Scene();
+Mesh mesh = new Sphere().toMesh();
+scene.getRootNode().createChildNode("sphere", mesh);
+scene.save("sphere.stl", FileFormat.STLASCII);
+System.out.println(new File("sphere.stl").length());
+""",
+            },
+        ),
+    },
+}
+
+
+def has_builtin_authored_examples(pilot: str) -> bool:
+    """True when this module carries authored examples for the pilot directory named ``pilot``."""
+    return pilot in _BUILTIN_PILOTS
+
+
+def builtin_authored_document(pilot: str) -> dict[str, Any]:
+    """The sidecar-shaped document of the examples this module carries for ``pilot``; the hash of each
+    example is computed from its code. Raises ``KeyError`` for a pilot with none."""
+    spec = _BUILTIN_PILOTS[pilot]
+    return {
+        "schema_version": 1,
+        "pilot": pilot,
+        "library_repository": spec["library_repository"],
+        "library_commit": spec["library_commit"],
+        "language": spec["language"],
+        "examples": [
+            {**example, "code_sha256": normalised_code_sha256(example["code"])}
+            for example in spec["examples"]
+        ],
+    }
+
+
+def load_builtin_authored_examples(
+    pilot: str,
+    *,
+    library_platform: str,
+    library_commit: str,
+    api_types: Sequence[Mapping[str, object]],
+) -> tuple[CandidateExample, ...]:
+    """The authored candidates this module carries for ``pilot``, after the SAME validation a sidecar
+    file gets (``validate_authored_examples``). Raises ``AuthoredExamplesError`` listing every problem,
+    including a ``library_commit`` that is not the one the examples were written against."""
+    document = builtin_authored_document(pilot)
+    problems = validate_authored_examples(
+        document,
+        pilot=pilot,
+        library_platform=library_platform,
+        library_commit=library_commit,
+        api_types=api_types,
+    )
+    if problems:
+        raise AuthoredExamplesError("; ".join(problems))
+    return _candidates_from_document(document)

@@ -10,9 +10,11 @@ is the only reason the card is marked ``network: true``; no test here opens a co
 
 from __future__ import annotations
 
+import argparse
 import copy
 import dataclasses
 import json
+import re
 import shutil
 import sys
 from pathlib import Path
@@ -1184,3 +1186,169 @@ def test_the_schema_document_is_not_mutated_by_validation() -> None:
     before = copy.deepcopy(document)
     _validate(document)
     assert document == before
+
+
+# ---------------------------------------------------------------------------------------------------
+# TC-565 (REQ-G3-009): the authored examples that 3d/net and 3d/java carry in authored_examples.py
+# ---------------------------------------------------------------------------------------------------
+
+BUILTIN_PILOTS = {
+    "3d_net": ("dotnet", "52b0f00ebf28a0b4173921725ff170685ec2c502", "csharp"),
+    "3d_java": ("java", "3d2ed6be91f5abdd1c52ecbcfa192719883cb1b3", "java"),
+}
+
+
+def _surface_types(pilot: str) -> list[dict]:
+    path = REPO_ROOT / "tests" / "fixtures" / pilot / "api_surface.json"
+    return json.loads(path.read_text(encoding="utf-8"))["types"]
+
+
+def _builtin(pilot: str) -> tuple[CandidateExample, ...]:
+    platform, commit, _language = BUILTIN_PILOTS[pilot]
+    return authored_examples.load_builtin_authored_examples(
+        pilot, library_platform=platform, library_commit=commit, api_types=_surface_types(pilot)
+    )
+
+
+@pytest.mark.parametrize("pilot", sorted(BUILTIN_PILOTS))
+def test_tc565_each_3d_pilot_carries_at_least_two_authored_examples(pilot: str) -> None:
+    candidates = _builtin(pilot)
+    assert len(candidates) >= 2
+    assert {c.provenance for c in candidates} == {"authored"}
+    assert len({c.title for c in candidates}) == len(candidates)
+
+
+@pytest.mark.parametrize("pilot", sorted(BUILTIN_PILOTS))
+def test_tc565_the_builtin_document_passes_every_sidecar_rule(pilot: str) -> None:
+    platform, commit, language = BUILTIN_PILOTS[pilot]
+    document = authored_examples.builtin_authored_document(pilot)
+    assert document["language"] == language and document["pilot"] == pilot
+    assert (
+        validate_authored_examples(
+            document,
+            pilot=pilot,
+            library_platform=platform,
+            library_commit=commit,
+            api_types=_surface_types(pilot),
+        )
+        == []
+    )
+
+
+@pytest.mark.parametrize("pilot", sorted(BUILTIN_PILOTS))
+def test_tc565_the_builtin_document_validates_against_the_json_schema(pilot: str) -> None:
+    schema = json.loads(SCHEMA_PATH.read_text(encoding="utf-8"))
+    jsonschema.validate(authored_examples.builtin_authored_document(pilot), schema)
+
+
+@pytest.mark.parametrize("pilot", sorted(BUILTIN_PILOTS))
+def test_tc565_a_builtin_example_never_attaches_a_primitive_directly_or_uses_an_unimplemented_format(
+    pilot: str,
+) -> None:
+    """The two README failures this card closes, checked on the code itself: a primitive must go through
+    ToMesh/toMesh (attached directly it has no polygons and STL is written empty), and the format must be STL
+    (the one format the pilot's scope says works end to end)."""
+    for candidate in _builtin(pilot):
+        assert re.search(r"\.[Tt]oMesh\(\)", candidate.code), candidate.title
+        assert not re.search(r"\.obj\b|WavefrontOBJ", candidate.code, re.IGNORECASE), candidate.title
+        assert ".stl" in candidate.code, candidate.title
+        assert normalised_code_sha256(candidate.code) == candidate.code_sha256
+
+
+@pytest.mark.parametrize("pilot", sorted(BUILTIN_PILOTS))
+def test_tc565_the_builtin_titles_do_not_repeat_a_readme_title(pilot: str) -> None:
+    page = (REPO_ROOT / "tests" / "fixtures" / "furnished" / pilot / "pages" / "_index.md").read_text(
+        encoding="utf-8"
+    )
+    for candidate in _builtin(pilot):
+        assert f"title: {candidate.title}" not in page
+
+
+@pytest.mark.parametrize("pilot", sorted(BUILTIN_PILOTS))
+def test_tc565_a_builtin_example_is_rejected_when_the_commit_is_not_the_one_it_was_written_against(
+    pilot: str,
+) -> None:
+    platform = BUILTIN_PILOTS[pilot][0]
+    with pytest.raises(AuthoredExamplesError, match="rule 3"):
+        authored_examples.load_builtin_authored_examples(
+            pilot, library_platform=platform, library_commit="f" * 40, api_types=_surface_types(pilot)
+        )
+
+
+def test_tc565_a_builtin_example_naming_an_undeclared_symbol_is_rejected() -> None:
+    with pytest.raises(AuthoredExamplesError, match="rule 6"):
+        authored_examples.load_builtin_authored_examples(
+            "3d_java",
+            library_platform="java",
+            library_commit=BUILTIN_PILOTS["3d_java"][1],
+            api_types=[{"name": "Unrelated"}],
+        )
+
+
+def test_tc565_only_the_two_3d_pilots_carry_builtin_examples() -> None:
+    assert authored_examples.has_builtin_authored_examples("3d_net")
+    assert authored_examples.has_builtin_authored_examples("3d_java")
+    assert not authored_examples.has_builtin_authored_examples("pdf_net")
+    assert not authored_examples.has_builtin_authored_examples("3d_python")
+    with pytest.raises(KeyError):
+        authored_examples.builtin_authored_document("pdf_net")
+
+
+@pytest.mark.parametrize("pilot", sorted(BUILTIN_PILOTS))
+def test_tc565_build_chunks_loads_the_builtin_examples_for_a_pilot_without_a_sidecar(pilot: str) -> None:
+    platform, commit, _language = BUILTIN_PILOTS[pilot]
+    pilot_dir = REPO_ROOT / "tests" / "fixtures" / "furnished" / pilot
+    assert not (pilot_dir / SIDECAR_NAME).exists()
+    args = argparse.Namespace(
+        furnished_page=pilot_dir / "pages" / "_index.md",
+        api_surface=REPO_ROOT / "tests" / "fixtures" / pilot / "api_surface.json",
+        library_platform=platform,
+        library_commit=commit,
+    )
+    loaded = build_chunks._load_authored_candidates(args)
+    assert [c.title for c in loaded] == [c.title for c in _builtin(pilot)]
+
+
+def test_tc565_build_chunks_ignores_the_builtin_examples_when_the_commit_has_moved(
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    pilot_dir = REPO_ROOT / "tests" / "fixtures" / "furnished" / "3d_java"
+    args = argparse.Namespace(
+        furnished_page=pilot_dir / "pages" / "_index.md",
+        api_surface=REPO_ROOT / "tests" / "fixtures" / "3d_java" / "api_surface.json",
+        library_platform="java",
+        library_commit="e" * 40,
+    )
+    assert build_chunks._load_authored_candidates(args) == ()
+    assert "authored examples ignored" in capsys.readouterr().out
+
+
+def test_tc565_a_sidecar_file_still_wins_over_the_builtin_examples(tmp_path: Path) -> None:
+    pilot_dir = tmp_path / "3d_java"
+    (pilot_dir / "pages").mkdir(parents=True)
+    (pilot_dir / "pages" / "_index.md").write_text("---\ntitle: x\n---\n", encoding="utf-8")
+    code = '// Authored example: scene\nScene scene = new Scene();\nscene.save("a.stl");\n'
+    document = {
+        "schema_version": 1,
+        "pilot": "3d_java",
+        "library_repository": "aspose-3d-foss/Aspose.3D-FOSS-for-Java",
+        "library_commit": BUILTIN_PILOTS["3d_java"][1],
+        "language": "java",
+        "examples": [
+            {
+                "title": "Own sidecar example",
+                "description": "d",
+                "symbols": ["Scene"],
+                "code": code,
+                "code_sha256": normalised_code_sha256(code),
+            }
+        ],
+    }
+    (pilot_dir / SIDECAR_NAME).write_text(yaml.safe_dump(document), encoding="utf-8")
+    args = argparse.Namespace(
+        furnished_page=pilot_dir / "pages" / "_index.md",
+        api_surface=REPO_ROOT / "tests" / "fixtures" / "3d_java" / "api_surface.json",
+        library_platform="java",
+        library_commit=BUILTIN_PILOTS["3d_java"][1],
+    )
+    assert [c.title for c in build_chunks._load_authored_candidates(args)] == ["Own sidecar example"]

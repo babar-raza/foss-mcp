@@ -35,6 +35,7 @@ import shutil
 import signal
 import subprocess
 import sys
+import tempfile
 import tomllib
 import urllib.request
 import xml.etree.ElementTree as ElementTree
@@ -72,6 +73,15 @@ __all__ = [
     "verify_cpp_example",
     "prepare_cpp_library_linux",
     "verify_cpp_example_linux",
+    "RUNTIME_RUN_REQUIRED_FOR_VERIFIED",
+    "RunOutcome",
+    "RuntimeRecord",
+    "classify_runtime",
+    "counts_as_verified",
+    "entry_counts_as_verified",
+    "execute_in_sandbox",
+    "run_compiled_candidate",
+    "runtime_record_from_entry",
 ]
 
 _OUTPUT_TRUNCATE_CHARS = 8000
@@ -3471,3 +3481,410 @@ def verify_cpp_example_linux(
     return VerificationResult(
         candidate=candidate, verified=verified, output=output, status=status, fixtures=plan.records
     )
+
+
+# --- run-based verification (TC-565, REQ-G3-009) ------------------------------------------------
+#
+# A compile-only pass is not proof that an example works: 3d/net ``scene.Save("o.obj",
+# FileFormat.WavefrontOBJ)`` compiles and throws NotImplementedException, and 3d/java "Build a Scene
+# From a Primitive" compiles and writes a 35-byte STL with no facet in it. After a candidate compiles,
+# the verifier RUNS it in a throwaway sandbox directory, with a timeout, and records four facts
+# separately: ``compiled``, ``ran``, ``exit_code`` and ``produced_output`` (bytes of artefact). The
+# process is started by an injected ``runner`` so every unit test uses a fake one.
+
+# The mandated switch. True: an example counts as verified only when it compiled AND (it ran with exit
+# code 0 and produced output, or its run was never attempted, i.e. ``ran`` is unknown). False: an
+# example that compiled counts as verified exactly as before this card.
+RUNTIME_RUN_REQUIRED_FOR_VERIFIED = True
+
+RUNTIME_NOT_COMPILED = "not_compiled"
+RUNTIME_UNKNOWN = "unknown"
+RUNTIME_RAN_OK = "ran"
+RUNTIME_FAILED = "failed"
+RUNTIME_NO_OUTPUT = "no_output"
+
+_RUNTIME_TIMEOUT_SECONDS = 60
+_RUNTIME_ERROR_CHARS = 300
+_RUNTIME_ERROR_MARKERS = ("Exception", "Error", "error", "terminate", "abort", "panicked", "fatal")
+# Platforms whose compiled candidate this module knows how to start (java: ``java``; dotnet: ``dotnet run``).
+RUNNABLE_PLATFORMS = frozenset({"java", "dotnet"})
+
+
+@dataclass(frozen=True)
+class RunOutcome:
+    """What one started process did: its exit code and the text it wrote."""
+
+    exit_code: int
+    stdout: str = ""
+    stderr: str = ""
+
+
+RuntimeRunner = Callable[[Sequence[str], Path, float], RunOutcome]
+
+
+def default_runtime_runner(argv: Sequence[str], cwd: Path, timeout_seconds: float) -> RunOutcome:
+    """The real runner: ``argv`` in ``cwd``, bounded, the whole process tree killed on a timeout."""
+    completed = _run_bounded(list(argv), cwd=cwd, timeout_seconds=timeout_seconds)
+    return RunOutcome(
+        exit_code=completed.returncode, stdout=completed.stdout or "", stderr=completed.stderr or ""
+    )
+
+
+@dataclass(frozen=True)
+class RuntimeRecord:
+    """The four separately recorded facts about one example (plus the error text and artefact kinds).
+
+    ``ran`` is ``None`` when the run was never attempted (an entry written before TC-565, a platform
+    with no run step): that is unknown, never verified-ran.
+    """
+
+    compiled: bool
+    ran: bool | None = None
+    exit_code: int | None = None
+    produced_output: int | None = None
+    error: str = ""
+    artefact_extensions: tuple[str, ...] = ()
+
+    @property
+    def status(self) -> str:
+        return classify_runtime(self)
+
+    def as_cache_fields(self) -> dict[str, object]:
+        """The runtime keys of a verification-cache entry; a fact that is unknown is left out."""
+        fields: dict[str, object] = {"compiled": self.compiled}
+        if self.ran is not None:
+            fields["ran"] = self.ran
+        if self.exit_code is not None:
+            fields["exit_code"] = self.exit_code
+        if self.produced_output is not None:
+            fields["produced_output"] = self.produced_output
+        if self.error:
+            fields["runtime_error"] = self.error
+        return fields
+
+
+def classify_runtime(record: RuntimeRecord) -> str:
+    """One of the ``RUNTIME_*`` statuses. Independent of ``RUNTIME_RUN_REQUIRED_FOR_VERIFIED``."""
+    if not record.compiled:
+        return RUNTIME_NOT_COMPILED
+    if record.ran is None:
+        return RUNTIME_UNKNOWN
+    if (
+        record.ran is False
+        or record.exit_code not in (None, 0)
+        or (record.exit_code is None and record.error)
+    ):
+        return RUNTIME_FAILED
+    if not record.produced_output:
+        return RUNTIME_NO_OUTPUT
+    return RUNTIME_RAN_OK
+
+
+def counts_as_verified(status: str) -> bool:
+    """Whether an example in ``status`` counts as verified. The switch is read at call time."""
+    if status == RUNTIME_NOT_COMPILED:
+        return False
+    if not RUNTIME_RUN_REQUIRED_FOR_VERIFIED:
+        return True
+    return status in (RUNTIME_RAN_OK, RUNTIME_UNKNOWN)
+
+
+def runtime_record_from_entry(entry: Mapping[str, object]) -> RuntimeRecord:
+    """Read a verification-cache entry. An entry without ``ran`` (written before TC-565) has ``ran``
+    unknown; its ``compiled`` is its ``verified`` (the compile verdict, unchanged in meaning)."""
+    compiled = entry.get("compiled", entry.get("verified"))
+    ran = entry.get("ran")
+    exit_code = entry.get("exit_code")
+    produced = entry.get("produced_output")
+    error = entry.get("runtime_error")
+    return RuntimeRecord(
+        compiled=compiled is True,
+        ran=ran if isinstance(ran, bool) else None,
+        exit_code=exit_code if isinstance(exit_code, int) and not isinstance(exit_code, bool) else None,
+        produced_output=produced if isinstance(produced, int) and not isinstance(produced, bool) else None,
+        error=error if isinstance(error, str) else "",
+    )
+
+
+def entry_counts_as_verified(entry: Mapping[str, object]) -> bool:
+    """Whether a verification-cache entry counts as verified under the current switch."""
+    return counts_as_verified(runtime_record_from_entry(entry).status)
+
+
+# -- format readers: an artefact is judged by its own bytes, never by an exit code ----------------
+
+_STL_HEADER_BYTES = 80
+_STL_FACET_BYTES = 50
+
+
+def stl_facet_count(data: bytes) -> int | None:
+    """The number of facets in an STL file, or ``None`` when ``data`` is not a valid STL.
+
+    Binary: an 80-byte header, a little-endian uint32 count N, then exactly N 50-byte facets. ASCII:
+    ``solid ...`` ... ``endsolid`` with one ``facet normal`` per facet. The size rule is tried first
+    because a binary header may itself start with ``solid``.
+    """
+    if len(data) >= _STL_HEADER_BYTES + 4:
+        declared = int.from_bytes(data[_STL_HEADER_BYTES : _STL_HEADER_BYTES + 4], "little")
+        if _STL_HEADER_BYTES + 4 + _STL_FACET_BYTES * declared == len(data):
+            return declared
+    stripped = data.lstrip()
+    if stripped.startswith(b"solid") and b"endsolid" in data:
+        return data.count(b"facet normal")
+    return None
+
+
+def gltf_is_valid(data: bytes) -> bool:
+    """True for a glTF JSON document with an ``asset.version``, or a GLB container holding one."""
+    payload = data
+    if data[:4] == b"glTF":
+        if len(data) < 20:
+            return False
+        length = int.from_bytes(data[12:16], "little")
+        payload = data[20 : 20 + length]
+    try:
+        document = json.loads(payload.decode("utf-8"))
+    except (ValueError, UnicodeDecodeError):
+        return False
+    asset = document.get("asset") if isinstance(document, dict) else None
+    return isinstance(asset, dict) and bool(asset.get("version"))
+
+
+def obj_vertex_count(data: bytes) -> int:
+    """The number of ``v x y z`` vertex lines of a Wavefront OBJ file."""
+    return sum(1 for line in data.splitlines() if line.startswith(b"v "))
+
+
+def artefact_payload_bytes(name: str, data: bytes) -> int:
+    """The bytes of a produced file that count as output: its size when its own format reader finds
+    content (an STL with a facet, a valid glTF, an OBJ with a vertex, any other non-empty file), else 0.
+    A file the reader judges empty or invalid counts for nothing, whatever its size on disk."""
+    extension = name.rsplit(".", 1)[-1].lower() if "." in name else ""
+    if extension == "stl":
+        return len(data) if (stl_facet_count(data) or 0) > 0 else 0
+    if extension in ("gltf", "glb"):
+        return len(data) if gltf_is_valid(data) else 0
+    if extension == "obj":
+        return len(data) if obj_vertex_count(data) > 0 else 0
+    return len(data)
+
+
+# -- the sandboxed run ----------------------------------------------------------------------------
+
+
+def _runtime_error_text(outcome: RunOutcome) -> str:
+    """One short line naming why a run failed: the first exception-looking line of its stderr (then
+    stdout), else the last non-empty line, whitespace collapsed and cut to a fixed length."""
+    lines = [line.strip() for line in f"{outcome.stderr}\n{outcome.stdout}".splitlines() if line.strip()]
+    chosen = next(
+        (
+            line
+            for line in lines
+            if not line.startswith("at ") and any(marker in line for marker in _RUNTIME_ERROR_MARKERS)
+        ),
+        lines[-1] if lines else "",
+    )
+    return " ".join(chosen.split())[:_RUNTIME_ERROR_CHARS]
+
+
+def _files_below(root: Path) -> dict[str, Path]:
+    return {path.relative_to(root).as_posix(): path for path in sorted(root.rglob("*")) if path.is_file()}
+
+
+def execute_in_sandbox(
+    argv: Sequence[str],
+    *,
+    runner: RuntimeRunner,
+    code: str = "",
+    platform: str = "",
+    timeout_seconds: float = _RUNTIME_TIMEOUT_SECONDS,
+    sandbox_parent: Path | None = None,
+) -> RuntimeRecord:
+    """Run ``argv`` once in a fresh temporary directory and report what happened.
+
+    The input files ``code`` names are staged first (the same fixtures the python verifier supplies).
+    The process runs with the sandbox as its working directory, so a file it writes lands there. After
+    it exits, every NEW file is judged by its own format reader: ``produced_output`` is the byte count of
+    the files that hold content, 0 when files were written but all are empty or invalid, and (when no
+    file was written) the bytes the program printed. The sandbox is removed. ``compiled`` is True: only
+    a compiled candidate is run. A process that cannot be started is ``ran`` False.
+    """
+    sandbox = Path(tempfile.mkdtemp(prefix="foss_mcp_run_", dir=sandbox_parent))
+    try:
+        if code:
+            provide_fixtures(code, platform, run_dir=sandbox, repo_dir=None)
+        before = set(_files_below(sandbox))
+        try:
+            outcome = runner(list(argv), sandbox, timeout_seconds)
+        except OSError as exc:
+            reason = f"could not start {Path(argv[0]).name}: {exc}"
+            return RuntimeRecord(compiled=True, ran=False, error=reason[:_RUNTIME_ERROR_CHARS])
+        written = {name: path for name, path in _files_below(sandbox).items() if name not in before}
+        extensions = tuple(
+            sorted({name.rsplit(".", 1)[-1].lower() for name in written if "." in name.rsplit("/", 1)[-1]})
+        )
+        if written:
+            produced = sum(artefact_payload_bytes(name, path.read_bytes()) for name, path in written.items())
+        else:
+            produced = len(outcome.stdout.encode("utf-8", errors="replace"))
+        error = ""
+        if outcome.exit_code == _TIMEOUT_EXIT_CODE:
+            error = f"timed out after {timeout_seconds:g} seconds"
+        elif outcome.exit_code != 0:
+            error = _runtime_error_text(outcome)
+        return RuntimeRecord(
+            compiled=True,
+            ran=True,
+            exit_code=outcome.exit_code,
+            produced_output=produced,
+            error=error,
+            artefact_extensions=extensions,
+        )
+    finally:
+        shutil.rmtree(sandbox, ignore_errors=True)
+
+
+def runtime_command(
+    platform: str, candidate: CandidateExample, *, workdir: Path, library: Path | None
+) -> list[str] | None:
+    """The argv that starts the already-compiled ``candidate`` (compiled by ``verify_*_example`` in
+    ``workdir``), or ``None`` for a platform this module has no run step for."""
+    project_dir = workdir / "candidate_project"
+    if platform == "java":
+        if library is None:
+            return None
+        match = _JAVA_PUBLIC_CLASS_RE.search(candidate.code)
+        class_name = match.group(1) if match is not None else "Candidate"
+        classpath = os.pathsep.join([str(project_dir), _java_classpath(library)])
+        return ["java", "-cp", classpath, class_name]
+    if platform == "dotnet":
+        return ["dotnet", "run", "--no-build", "--project", str(project_dir / "candidate.csproj")]
+    return None
+
+
+def run_compiled_candidate(
+    platform: str,
+    candidate: CandidateExample,
+    *,
+    workdir: Path,
+    library: Path | None = None,
+    runner: RuntimeRunner | None = None,
+    timeout_seconds: float = _RUNTIME_TIMEOUT_SECONDS,
+) -> RuntimeRecord:
+    """Run a candidate that just compiled, and return its ``RuntimeRecord``.
+
+    A platform with no run step, or ``RUNTIME_RUN_REQUIRED_FOR_VERIFIED`` False, returns a record with
+    ``ran`` unknown: the example is then labelled compiled-only, never ran.
+    """
+    argv = runtime_command(platform, candidate, workdir=workdir, library=library)
+    if argv is None or not RUNTIME_RUN_REQUIRED_FOR_VERIFIED:
+        return RuntimeRecord(compiled=True)
+    return execute_in_sandbox(
+        argv,
+        runner=runner if runner is not None else default_runtime_runner,
+        code=candidate.code,
+        platform=platform,
+        timeout_seconds=timeout_seconds,
+    )
+
+
+# -- formats the pilot's own scope documentation says are not implemented ----------------------------
+
+_FORMAT_WORDS: dict[str, str] = {
+    "obj": "obj",
+    "wavefront": "obj",
+    "fbx": "fbx",
+    "gltf": "gltf",
+    "glb": "gltf",
+    "stl": "stl",
+    "ply": "ply",
+    "collada": "dae",
+    "dae": "dae",
+    "3mf": "3mf",
+    "u3d": "u3d",
+    "draco": "drc",
+    "usd": "usd",
+    "amf": "amf",
+    "rvm": "rvm",
+    "3ds": "3ds",
+}
+_FORMAT_EXTENSION_ALIASES = {"glb": "gltf", "drc": "drc", "usdz": "usd"}
+_NOT_IMPLEMENTED_MARKERS = (
+    "not implemented",
+    "not functional",
+    "no working",
+    "unsupported",
+    "not supported",
+    "no reader/writer",
+    "no wired-up",
+)
+_ONLY_FORMAT_RE = re.compile(
+    r"\b(\w+)\b[^.\n]{0,40}?\bis the only format\b.{0,60}?fully functional", re.DOTALL
+)
+_SENTENCE_SPLIT_RE = re.compile(r"(?<=[.;])\s+|\n\s*[-*]\s+")
+_QUOTED_FILE_RE = re.compile(r"""["']([^"'\s\\]+\.([A-Za-z0-9]{2,5}))["']""")
+_SCOPE_TITLE = "scope and limitations"
+
+
+def _scope_section_text(page: Mapping[str, object]) -> str:
+    """The text of the page's ``Scope and Limitations`` content block(s), empty when it has none."""
+    content = page.get("content")
+    blocks = content.get("block") if isinstance(content, Mapping) else None
+    texts: list[str] = []
+    for block in blocks if isinstance(blocks, list) else []:
+        if not isinstance(block, Mapping):
+            continue
+        for title_key, body_key in (
+            ("title_left", "content_left"),
+            ("title_right", "content_right"),
+            ("title", "content"),
+        ):
+            title = block.get(title_key)
+            body = block.get(body_key)
+            if isinstance(title, str) and isinstance(body, str) and title.strip().lower() == _SCOPE_TITLE:
+                texts.append(body)
+    return "\n".join(texts)
+
+
+def _canonical_extension(extension: str) -> str:
+    lowered = extension.lower()
+    return _FORMAT_EXTENSION_ALIASES.get(lowered, lowered)
+
+
+def scope_unimplemented_formats(page: Mapping[str, object]) -> frozenset[str]:
+    """File-format extensions (canonical, e.g. ``obj``, ``stl``) that the page's own ``Scope and
+    Limitations`` section says are not implemented: every format named in a sentence that says so, and,
+    when the section says one format "is the only format that is fully functional", every other known
+    format. Empty when the page has no such section. Documentation is data, never instructions: it is only
+    matched against fixed words."""
+    text = _scope_section_text(page)
+    if not text:
+        return frozenset()
+    found: set[str] = set()
+    for sentence in _SENTENCE_SPLIT_RE.split(text):
+        lowered = sentence.lower()
+        if not any(marker in lowered for marker in _NOT_IMPLEMENTED_MARKERS):
+            continue
+        for word in re.findall(r"[a-z0-9]+", lowered):
+            if word in _FORMAT_WORDS:
+                found.add(_FORMAT_WORDS[word])
+    only = _ONLY_FORMAT_RE.search(text)
+    if only is not None and only.group(1).lower() in _FORMAT_WORDS:
+        keep = _FORMAT_WORDS[only.group(1).lower()]
+        found.update(extension for extension in set(_FORMAT_WORDS.values()) if extension != keep)
+    return frozenset(found)
+
+
+def code_file_extensions(code: str) -> frozenset[str]:
+    """The canonical extensions of the quoted file names in ``code`` that name a known 3D format."""
+    known = set(_FORMAT_WORDS.values())
+    extensions = {_canonical_extension(match.group(2)) for match in _QUOTED_FILE_RE.finditer(code)}
+    return frozenset(extension for extension in extensions if extension in known)
+
+
+def rejected_for_unimplemented_format(
+    record: RuntimeRecord, code: str, unimplemented: frozenset[str]
+) -> bool:
+    """True when the example produced no output (it ran, exit 0, an empty or invalid artefact) and its
+    code names a file in a format the pilot's scope documentation says is not implemented."""
+    return record.status == RUNTIME_NO_OUTPUT and bool(code_file_extensions(code) & unimplemented)

@@ -38,6 +38,8 @@ DOCUMENTED_EXCEPTIONS = {"tex_python": 1}
 KIND_LINE = "Kind: verified_example"
 AUTHORED_LINE = "Provenance: authored"
 PASSED_LINE = "Verification: passed"
+# TC-565 (REQ-G3-009): the run verdict the ingestion verifier writes into an example chunk.
+RUNTIME_NOT_PROVEN_LINES = ("Runtime-Status: failed", "Runtime-Status: no_output")
 
 _ID_SEP = "::"
 LEDGER_STATUSES = ("FIXED", "ACCEPTED", "OPEN")
@@ -96,6 +98,10 @@ def is_verified_example(chunk: Mapping[str, Any]) -> bool:
     if KIND_LINE not in lines:
         return False
     if AUTHORED_LINE in lines and PASSED_LINE not in lines:
+        return False
+    # TC-565: an example whose run failed or produced nothing is served with its honest label, but it
+    # was not proven to work, so it never counts toward the minimum.
+    if any(line in lines for line in RUNTIME_NOT_PROVEN_LINES):
         return False
     return True
 
@@ -210,6 +216,36 @@ def test_a_documentation_chunk_that_mentions_the_word_verified_does_not_count() 
 
 def test_an_unverified_example_kind_does_not_count() -> None:
     assert count_verified_examples(_generation(_chunk("a", "FQN: Example: a", "Kind: example"))) == 0
+
+
+# -- TC-565: an example that compiled but failed at runtime, or produced nothing, is not a verified example ----------------
+
+
+def _ran(chunk_id: str, status: str) -> dict[str, Any]:
+    return _chunk(
+        chunk_id, f"FQN: Example: {chunk_id}", KIND_LINE, f"Runtime-Status: {status}", "Example:", "print(1)"
+    )
+
+
+def test_tc565_an_example_that_ran_counts() -> None:
+    assert count_verified_examples(_generation(_ran("a", "ran"))) == 1
+
+
+def test_tc565_an_example_that_failed_at_runtime_does_not_count() -> None:
+    assert count_verified_examples(_generation(_ran("a", "failed"))) == 0
+
+
+def test_tc565_an_example_that_produced_no_output_does_not_count() -> None:
+    assert count_verified_examples(_generation(_ran("a", "no_output"))) == 0
+
+
+def test_tc565_a_legacy_chunk_without_a_runtime_line_still_counts() -> None:
+    assert count_verified_examples(_generation(_example("a"))) == 1
+
+
+def test_tc565_two_failing_examples_do_not_reach_the_minimum() -> None:
+    generation = _generation(_ran("a", "failed"), _ran("b", "no_output"), _ran("c", "ran"))
+    assert count_verified_examples(generation) == 1 < MIN_VERIFIED_EXAMPLES
 
 
 # -- the documented exception --------------------------------------------------------------------------------------------

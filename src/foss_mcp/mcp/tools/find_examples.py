@@ -138,15 +138,28 @@ _PLATFORM_LANGUAGE = {
 # TC-544: what "verified" means for an example, one fixed sentence per provenance. The chunk holds the
 # snippet and its ``Source-Commit:`` only: the toolchain, the flags and the assembled source the
 # ingestion verifier used live in its verification cache, not in the generation, so none is stated.
-README_VERIFICATION_NOTE = (
-    "Compiled or run by the ingestion verifier against the library at source_commit; the verifier may "
+#
+# TC-565: the label states exactly what was proven. A chunk written before the verifier ran examples has
+# no ``Runtime-Status`` line and proves compilation only; a chunk with the line says what running it did.
+RUNTIME_LABEL_COMPILED_ONLY = "compiled only (run not verified)"
+RUNTIME_LABEL_NO_OUTPUT = "compiles; produced no output"
+_RUNTIME_STATUS_PREFIX = "Runtime-Status:"
+_RUNTIME_BYTES_PREFIX = "Runtime-Produced-Bytes:"
+_RUNTIME_ERROR_PREFIX = "Runtime-Error:"
+_STATUS_RAN = "ran"
+_STATUS_FAILED = "failed"
+_STATUS_NO_OUTPUT = "no_output"
+README_NOTE_TAIL = (
+    "checked by the ingestion verifier against the library at source_commit; the verifier may "
     "have added the README's own imports or an entry point around this snippet, which are not shown, so "
     "add the imports and entry point your language needs."
 )
-AUTHORED_VERIFICATION_NOTE = (
-    "Authored for this index and compiled or run by the ingestion verifier against the library at "
-    "source_commit; add the imports and entry point your language needs."
+AUTHORED_NOTE_TAIL = (
+    "checked by the ingestion verifier against the library at source_commit; add the imports and entry "
+    "point your language needs."
 )
+README_VERIFICATION_NOTE = f"{RUNTIME_LABEL_COMPILED_ONLY}; {README_NOTE_TAIL}"
+AUTHORED_VERIFICATION_NOTE = f"Authored for this index; {RUNTIME_LABEL_COMPILED_ONLY}; {AUTHORED_NOTE_TAIL}"
 
 _SOURCE_COMMIT_PATTERN = r"^Source-Commit:[ \t]*(\S+)"
 
@@ -188,9 +201,69 @@ def _source_commit(text: str) -> str:
     return found.group(1) if found else ""
 
 
+def _runtime_fields(text: str) -> tuple[str, int | None, str]:
+    """``(status, produced bytes, error)`` read from the chunk's ``Runtime-*`` lines; the status is ``""``
+    for a chunk that has none (written before the verifier ran examples)."""
+    status = ""
+    produced: int | None = None
+    error = ""
+    for line in text.splitlines():
+        stripped = line.rstrip("\r\n")
+        if stripped.startswith(_RUNTIME_STATUS_PREFIX) and not status:
+            status = stripped[len(_RUNTIME_STATUS_PREFIX) :].strip()
+        elif stripped.startswith(_RUNTIME_BYTES_PREFIX) and produced is None:
+            value = stripped[len(_RUNTIME_BYTES_PREFIX) :].strip()
+            produced = int(value) if value.isdigit() else None
+        elif stripped.startswith(_RUNTIME_ERROR_PREFIX) and not error:
+            error = stripped[len(_RUNTIME_ERROR_PREFIX) :].strip()
+    return status, produced, error
+
+
+def runtime_label(text: str) -> str:
+    """What running the chunk's example proved, in the verifier's own words.
+
+    ``compiled and ran, produced N bytes`` (ran, exit 0, an artefact with content); ``compiles; fails at
+    runtime: <error>``; ``compiles; produced no output`` (ran, exit 0, an empty artefact); and, for a
+    chunk with no ``Runtime-Status`` line or one this server does not know, ``compiled only (run not
+    verified)``. A label never claims more than the line says.
+    """
+    status, produced, error = _runtime_fields(text)
+    if status == _STATUS_RAN:
+        return f"compiled and ran, produced {produced if produced is not None else 0} bytes"
+    if status == _STATUS_FAILED:
+        return f"compiles; fails at runtime: {error or 'error not recorded'}"
+    if status == _STATUS_NO_OUTPUT:
+        return RUNTIME_LABEL_NO_OUTPUT
+    return RUNTIME_LABEL_COMPILED_ONLY
+
+
+def _runtime_rank(text: str) -> int:
+    """Sort rank of a chunk: 0 for one that is not known to fail, 1 for one whose run failed or produced
+    nothing. Such an example is served after every other, with its honest label."""
+    status = _runtime_fields(text)[0]
+    return 1 if status in (_STATUS_FAILED, _STATUS_NO_OUTPUT) else 0
+
+
 def _verification_note(text: str) -> str:
-    """The fixed sentence saying what ``verified`` means for the chunk's provenance."""
-    return AUTHORED_VERIFICATION_NOTE if _provenance(text) == "authored" else README_VERIFICATION_NOTE
+    """The fixed sentence saying what ``verified`` means for the chunk: its provenance and exactly what
+    running it proved (``runtime_label``)."""
+    label = runtime_label(text)
+    if _provenance(text) == "authored":
+        return f"Authored for this index; {label}; {AUTHORED_NOTE_TAIL}"
+    return f"{label}; {README_NOTE_TAIL}"
+
+
+def _same_example(seen: set[str], fqn: str) -> bool:
+    """True when an example with this title (the ``FQN:`` line, whitespace collapsed, case folded) was
+    already taken; otherwise remembers it. One example is one answer, however many chunks hold it. Two
+    DIFFERENT titles are two examples even when their code is the same."""
+    key = " ".join(fqn.split()).lower()
+    if not key:
+        return False
+    if key in seen:
+        return True
+    seen.add(key)
+    return False
 
 
 def _find_marker_line(lines: list[str]) -> int | None:
@@ -327,26 +400,31 @@ def find_examples(
     # Exact branch: the query IS an example's pseudo-FQN. Looked up directly over this generation's
     # documents (not through ``get_symbol``), so ``get_symbol`` can stop returning pseudo-symbols
     # without breaking this.
-    for document in documents.values():
-        text = document["text"]
-        if is_verified_example_text(text) and extract_fqn(text) == query:
-            example = _extract_example(text)
-            if example is not None:
-                return [
-                    ExampleMatch(
-                        scope,
-                        active_generation_id,
-                        query,
-                        example,
-                        coverage=1.0,
-                        source="exact",
-                        provenance=_provenance(text),
-                        match_basis=MATCH_BASIS_EXACT_TITLE,
-                        language=_PLATFORM_LANGUAGE.get(scope.platform, ""),
-                        source_commit=_source_commit(text),
-                        verification=_verification_note(text),
-                    )
-                ]
+    exact_texts = [
+        document["text"]
+        for document in documents.values()
+        if is_verified_example_text(document["text"])
+        and extract_fqn(document["text"]) == query
+        and _extract_example(document["text"]) is not None
+    ]
+    if exact_texts:
+        # Two chunks with one title are one example: the one whose run did not fail is the answer (TC-565).
+        text = min(exact_texts, key=_runtime_rank)
+        return [
+            ExampleMatch(
+                scope,
+                active_generation_id,
+                query,
+                _extract_example(text) or "",
+                coverage=1.0,
+                source="exact",
+                provenance=_provenance(text),
+                match_basis=MATCH_BASIS_EXACT_TITLE,
+                language=_PLATFORM_LANGUAGE.get(scope.platform, ""),
+                source_commit=_source_commit(text),
+                verification=_verification_note(text),
+            )
+        ]
 
     example_doc_ids = [
         doc_id for doc_id, document in documents.items() if is_verified_example_text(document["text"])
@@ -368,8 +446,17 @@ def find_examples(
         title = (extract_fqn(documents[doc_id]["text"]) or "")[len(_EXAMPLE_FQN_PREFIX) :]
         if doc_coverage >= RELEVANCE_THRESHOLD and title_anchored(query, scope.family, title):
             scored.append((doc_coverage, bm25.get(doc_id, 0.0), doc_id))
-    scored.sort(key=lambda item: (-item[0], -item[1], item[2]))
-    hits = [(doc_id, doc_coverage) for doc_coverage, _score, doc_id in scored[:top_k]]
+    # TC-565: an example whose run failed or produced nothing is served after every other one, and one
+    # example held by several chunks is answered once, by its highest-scoring chunk.
+    scored.sort(key=lambda item: (_runtime_rank(documents[item[2]]["text"]), -item[0], -item[1], item[2]))
+    hits: list[tuple[str, float]] = []
+    seen_fqns: set[str] = set()
+    for doc_coverage, _score, doc_id in scored:
+        if _same_example(seen_fqns, extract_fqn(documents[doc_id]["text"]) or ""):
+            continue
+        hits.append((doc_id, doc_coverage))
+        if len(hits) >= top_k:
+            break
     if not hits:
         vector_matches, note = _vector_fallback(manifest, scope, active_generation_id, query, top_k)
         if vector_matches:
@@ -473,7 +560,7 @@ def _vector_fallback(
         point_by_id = {point["point_id"]: point for point in points}
         ranked = query_vector_index_scored(vector_payload, query_vector, top_k=len(points))
 
-        matches: list[ExampleMatch] = []
+        candidates: list[tuple[int, ExampleMatch]] = []
         for point_id, score in ranked:
             point = point_by_id[point_id]
             text = point["text"]
@@ -481,21 +568,33 @@ def _vector_fallback(
                 continue
             if score < _VECTOR_SIMILARITY_THRESHOLD:
                 continue
-            matches.append(
-                ExampleMatch(
-                    scope=scope,
-                    generation_id=generation_id,
-                    fqn=extract_fqn(text) or "",
-                    snippet=_extract_example(text) or "",
-                    coverage=score,
-                    source="vector",
-                    provenance=_provenance(text),
-                    match_basis=MATCH_BASIS_EMBEDDING,
-                    language=_PLATFORM_LANGUAGE.get(scope.platform, ""),
-                    source_commit=_source_commit(text),
-                    verification=_verification_note(text),
+            candidates.append(
+                (
+                    _runtime_rank(text),
+                    ExampleMatch(
+                        scope=scope,
+                        generation_id=generation_id,
+                        fqn=extract_fqn(text) or "",
+                        snippet=_extract_example(text) or "",
+                        coverage=score,
+                        source="vector",
+                        provenance=_provenance(text),
+                        match_basis=MATCH_BASIS_EMBEDDING,
+                        language=_PLATFORM_LANGUAGE.get(scope.platform, ""),
+                        source_commit=_source_commit(text),
+                        verification=_verification_note(text),
+                    ),
                 )
             )
+        # TC-565: failing examples after the others (a stable sort keeps the similarity order inside each
+        # rank), and one example held by several chunks is answered once, by its highest-scoring chunk.
+        candidates.sort(key=lambda item: item[0])
+        matches: list[ExampleMatch] = []
+        seen_fqns: set[str] = set()
+        for _rank, match in candidates:
+            if _same_example(seen_fqns, match.fqn):
+                continue
+            matches.append(match)
             if len(matches) >= top_k:
                 break
         return matches, None
