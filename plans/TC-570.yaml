@@ -1,0 +1,76 @@
+id: TC-570
+gate: G3
+lane: transport-deployment
+purpose: >-
+  REQ-G3-009 (row RD3-169; OQ-008). PIN THE INGESTION TOOLCHAIN. Dockerfile.ingestion pins its base image, node, go and rust by hash but floats the .NET SDK (`dotnet-install.sh --channel 8.0` and `--channel
+  10.0`), `uv python install 3.12` and the apt packages (openjdk-21-jdk, maven, build-essential, g++, cmake, git, git-lfs): a verified-example verdict, which decides what find_examples may serve as verified,
+  depends on the day the image was built (OQ-008 accepted this for the C++ verifier; the review found the rest). FIX: pin each toolchain to the exact version the latest built ingestion image resolves (the
+  worker derives them from that image: `dotnet --list-sdks`, `uv python list`, `dpkg-query -W` for the apt packages) using dotnet-install.sh `--version`, a full uv Python version and apt `package=version`
+  pins (or a dated snapshot.debian.org source), and record the resolved versions in the verification report that the example verifier writes so a verdict names its toolchain. REGISTERED AS A DRAFT on 2026-10-19
+  from docs/ROUND3_REVIEW.md section 3.15: before dispatch the supervisor re-reads this card against the merged code, runs the card preflight (SUP-1), calibrates min_tests (it applies to EACH check), replaces
+  the placeholder negative control with a real falsifier that has no backslash, and verifies every file named in write_paths (Supervisor rule 5). Nothing here has been executed.
+depends_on:
+- TC-550
+- TC-553
+- TC-554
+- TC-555
+- TC-556
+- TC-567
+- TC-564
+write_paths:
+- Dockerfile.ingestion
+- tests/infra/test_ingestion_toolchain_pins.py
+- tests/test_container_build.py
+satisfies:
+- REQ-G3-009
+- REQ-G3-008
+source_refs:
+- file: docs/DECISION_LOG.md
+  anchor: >-
+    ## 2026-10-17 — Round-3 independent review of the shipped image: 82 findings registered, nothing executed (operator, supervisor)
+  sha256: c2056b11a13e5b18cda7e522027fb5eb0102edcef2f99f6c7e7ce0ee5c4b4e5b
+inputs:
+- >-
+  READ FIRST: docs/ROUND3_REVIEW.md (the rows this card closes), then the code named in write_paths. Activate the toolchain (scripts/toolchain/activate.ps1) in the SAME shell command as every python or
+  pytest call. Never print an environment value or a credential. Verify every name against the merged code and list differences in your report. Run ruff format and ruff check on every Python file you change.
+  New tests take their expectations from an independent source (hand-written inputs with known answers, or a direct read of the committed files), never from the code under test. Do not edit plans/, project/,
+  ops/, evidence/, schemas/ or docs/ (except a docs file named in write_paths); do not run docker against the cluster.
+- >-
+  ACCEPTANCE: a test parses Dockerfile.ingestion and fails on any `--channel`, any `uv python install` without a full version, and any `apt-get install` package without a version pin or a dated snapshot
+  source (a documented allow-list for the packages Debian cannot pin is empty or justified line by line); the ingestion image builds from the pinned file (the build is the supervisor's step in the closing
+  run); the pinned versions equal the versions the previous image resolved so no verdict changes meaning. The test is offline (it reads the Dockerfile).
+actions:
+- >-
+  Pin the .NET, uv-Python and apt toolchain versions in Dockerfile.ingestion and test that nothing floats.
+checks:
+- command: >-
+    {python} -m pytest tests/infra/test_ingestion_toolchain_pins.py tests/test_container_build.py -q -rfE -p no:cacheprovider
+  expect: exit 0
+  timeout_seconds: 1800
+  junitxml: true
+  proves:
+  - REQ-G3-009
+  - REQ-G3-008
+- command: >-
+    {python} -m pytest tests/infra tests/test_container_build.py -q -rfE -p no:cacheprovider -k "not live and not github_http and not repo_native"
+  expect: exit 0
+  timeout_seconds: 2400
+  junitxml: true
+  proves:
+  - REQ-G3-009
+  - REQ-G3-008
+min_tests: 8
+network: true
+requires:
+- python
+negative_control:
+  mutate: |
+    python -X utf8 -c "print('negative control to be authored before dispatch')"
+  rationale: >-
+    PLACEHOLDER written at registration. The supervisor replaces it, before dispatch, with a falsifier that breaks the card's central claim in a mandated function or constant so that a named new test fails.
+evidence:
+- evidence/build/G3/TC-570/receipt.json
+closeout:
+- >-
+  The ingestion image no longer changes with the day it is built, and a verification verdict names its toolchain.
+recovery: Re-run from a clean tree.

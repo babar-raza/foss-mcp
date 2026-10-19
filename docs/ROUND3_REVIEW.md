@@ -204,6 +204,29 @@ is still present), LEAD (not proven, needs an experiment first). Status of every
 | RD3-154 | P3 | NEW | process | Weakened or rewritten-to-match assertions to revisit: W2 `test_cpp_installs_are_the_readme_recipe` (cells/cpp dropped; reverse after RD3-080), W5 `EXTRACTOR_VERSION == 2` relaxed to `>=`, W3 data ceiling raised to 45 MB, W4 related-tests retry, W6 TC-554 deselects 3 Rust tests, W1 positive guard on cells/cpp free functions removed. | qr2 weakening audit | R2/weakening |
 | RD3-155 | P3 | NEW | docs | docs/RELEASE.md sections 8 and 9 are stale in 8 places (L-071, L-080, L-097, L-100, L-102, L-107, L-128, TC-397/402); promote L-095, L-121, L-125; close stale rows; PREPROD_REVIEW.md (TC-537) must include this register. | qr1-N4 | R1 |
 
+### 3.15 Follow-up risk list reviewed on 2026-10-19 (cards TC-568 to TC-570 and supervisor items SUP-1 to SUP-8)
+
+The operator pasted an eleven-point "risks, gaps and follow-ups" list. Each point was re-checked against the live repository, state and remote
+before anything was registered. Verdicts: points 2 (round-3), 4 (image behind HEAD: the 12 later commits touch no image input, `stale_image_paths` is empty;
+a rebuild after the fixes is already enforced by the gate-exit freshness check) and 9 (accepted limitations: OQ-008 is RESOLVED; the Java/Rust items are now
+reversed by TC-535 and TC-557) were already covered. The rest produced these rows.
+
+| Id | Sev | Type | Scope | Finding (verified on 2026-10-19) | Closes with |
+|---|---|---|---|---|---|
+| RD3-160 | P2 | STILL | delivery | Nothing is delivered: four recorded images (demo-cbbd93e, 4e5804b, 58ba586, 91dcf9b), all LOCAL_ONLY, no push result anywhere, `gatectl gate-exit` problem "no standalone demo image is recorded as PUSHED with a passing 32/32 report" (REQ-G3-001..004). OWNER-13 (registry host and the operator's `docker login`) is the blocker. Seven owner items are OPEN, not one (see RD3-162). | OWNER-13, SUP-7 |
+| RD3-161 | P2 | NEW | delivery | `scripts/release/push_image.py` captures the pushed digest but never pulls the image back from the registry and re-runs the 32 of 32 gate against the registry copy, so a successful push proves nothing about what a peer will pull. | TC-569 |
+| RD3-162 | P3 | NEW | process | OWNER-07 (pdf/java example does not compile upstream), 08 (GitHub rate limit), 10 (docker compose permission denial), 11 (B08 missing audit text), 12 (stale live Jobs, fake install coordinates), 13 (registry), 14 (GitHub token HTTP 401) are OPEN; only OWNER-13 is consumed by a gate; the others were last checked between 10-04 and 10-14 and some are probably satisfied (the 10-17 re-ingest re-ran every Job; workers ran docker compose under TC-567). OWNER-14 matters for the closing re-ingest: with an invalid token the sidecar fetch fails and sidecars degrade to `fetch_failed`. | SUP-2, OQ-015 |
+| RD3-163 | P2 | STILL | process | Card-authoring defects keep happening: 4 in the last 48 hours (TC-554 and TC-555 `min_tests` above the first check's collected count, TC-554 check 2 including host-sensitive tests, TC-567 check naming a file that does not exist); 34 rework and 11 supersede instructions since 10-12 (81 dispatches); the decision log attributes 65% of rework to card defects. There is no preflight. | SUP-1 |
+| RD3-164 | P2 | NEW | evidence | Quoted numbers are not reproducible from committed output: "about 17,000 methods, 0 real mismatches" (this register's source, written from agent reports), "183 verified examples are baked" (decision log 10-15) while the 126 example chunks are served by the image, `tests/fixtures/verified_examples` holds 273 entries of which about 197 read as verified, and the pdf/typescript pin note says about 4,445 types where the fixture holds 4,393. | TC-568, SUP-6 |
+| RD3-165 | P3 | NEW | review | Most of the 1.57M added lines are generated fixtures, baked generations and evidence; a human cannot review them and no tool summarises what a re-ingest changed per pilot (types, functions, members, signatures, docs, examples). | TC-568 |
+| RD3-166 | P3 | NEW | process | `origin/main` equals HEAD although G3 is not accepted (AGENTS.md: the supervisor pushes main once per accepted gate); the 10-17 push was ordered by the operator and earlier pushes happened too. Remote CI for the pushed head IS green (workflows CI and Mirror to GitLab, 2026-10-17 14:59Z, head 0e6eadf4; previous head 11d258a6 also green), but no CI result is recorded in the repository. The repository is public. | SUP-3 |
+| RD3-167 | P3 | NEW | process | No committed liveness record: commit gaps of 21.4 h (10-13 12:01 to 10-14 09:26), 13.3 h, 12.2 h and 9.9 h and no commits on 10-18 and 10-19 have no reason in the repository (10-18 and 10-19 were idle waiting for the operator's go-ahead; the earlier gaps are unexplained). | SUP-4 |
+| RD3-168 | P3 | NEW | hygiene | Untracked `evidence/build/G3/TC-498/` (TC-498 is SUPERSEDED, TC-499 ACCEPTED); 151 agent worktree directories (13.5 GB) under `.claude/worktrees` inside a OneDrive-synced path (excluded by `.git/info/exclude`), 153 registered worktrees, 314 local `worker/*` branches (8 merged), 74 local foss-mcp docker images, stale cluster namespaces poc14b and poc14c. | SUP-5 |
+| RD3-169 | P3 | NEW | reproducibility | `Dockerfile.ingestion` floats the .NET SDK channels (8.0 and 10.0), `uv python install 3.12` and the apt packages (openjdk-21-jdk, maven, g++, cmake, git-lfs): example-verification verdicts depend on the day the image was built (OQ-008 accepted this for the C++ verifier; R2 area 50 found the rest). | TC-570 |
+| RD3-170 | P3 | NEW | environment | `core.hooksPath` is stored as an absolute path and something rewrites it after it is set to `.githooks` (the push script sets it again in the same command). | SUP-5 |
+| RD3-171 | P3 | LEAD | delivery | `.github/workflows/mirror-gitlab.yml` mirrors main to an internal GitLab project (gitlab.recruitize.ai/sialkot/cantt-smallize/aspose-foss-dev-context-mcp); that project may offer a container registry that could serve as the internal registry for OWNER-13. Unverified; the operator confirms. | SUP-7 |
+| RD3-172 | P3 | LEAD | publication | The repository is public: review what a push publishes (internal GitLab URL in the mirror workflow, the operator's email in commit metadata, the registry host and image digest once delivered, this register of defects). | SUP-8 |
+
 ## 4. Accepted or upstream (disclose, no product code change)
 
 Each needs a sentence in docs/RELEASE.md or the pilot's limitations text (cards TC-561, TC-565, TC-537).
@@ -244,7 +267,10 @@ Nothing below has been started. Tracks run in parallel; reviews are serial (one 
 | B, serving chain | TC-563 documentation excerpts, TC-562 retrieval, TC-564 serving and operations | share the tool and budget code |
 | C, freshness and install chain | TC-560 freshness, TC-561 install and product reference (includes the tex warning) | share the product-reference and releases code |
 | D | TC-565 example truth | independent files |
-| Closing (after A to D) | supervisor re-ingest of all 32 pilots, snapshot, TC-536 budgets and e2e pins, TC-537 closure documents, rebuild, gate 32 of 32, attack suite, independent QA round, release record, local CI | the data and image are rebuilt once, after the last fix |
+| E, release tooling (added 2026-10-19) | TC-568 claims ledger and generation diff report, TC-569 post-push verification; TC-570 ingestion toolchain pins after TC-564 (shared Dockerfile.ingestion) | independent scripts and tests; TC-570 chains behind TC-564 |
+| Done | TC-567 (pdf/typescript e2e pin; accepted and pushed 2026-10-17) | local CI green |
+| Supervisor items (not worker cards; they edit ops/, local hosts and the cluster) | SUP-1 to SUP-8 of section 6.1 | TC-537's closure test requires every SUP row to be marked DONE with its evidence reference |
+| Closing (after A to E and the SUP items) | supervisor re-ingest of all 32 pilots, snapshot, TC-536 budgets and e2e pins, TC-537 closure documents, rebuild, gate 32 of 32, attack suite, independent QA round, release record, local CI | the data and image are rebuilt once, after the last fix |
 
 Estimate (wall-clock, continuous operation; per card one worker 30 to 75 minutes plus one review 20 to 30 minutes; about 35% of
 cards needed one rework round in this program; a rework adds 60 to 80 minutes):
@@ -254,7 +280,10 @@ cards needed one rework round in this program; a rework adds 60 to 80 minutes):
 | Track A, 8 cards in series (about 80 minutes each, 2 expected reworks) | 10.5 h | 8 to 15 h |
 | Tracks B, C, D in parallel with A (reviews interleave into A's worker time) | absorbed | +0 to 2 h if reviews queue |
 | Closing: re-ingest 32 pilots about 45 min, snapshot and apply 20 min, TC-536 and TC-537 about 1.5 h, rebuild, gate and attack suite 20 min, independent QA round 75 min, release record and full local CI 45 min | 3.5 h | 3 to 5 h |
-| Total to a re-recorded, QA-verified image | about 14 h | 11 to 22 h |
+| Track E (TC-568, TC-569, TC-570: three more reviews in the serial review queue, about 75 minutes of review time) | +1.5 h | +1 to 2.5 h |
+| Supervisor items SUP-1 to SUP-8 (SUP-1 preflight 1.5 h and SUP-5 hygiene 40 minutes first, the rest while workers run, delivery runbook after the registry answer) | about 3 h, mostly parallel | 2 to 4 h |
+| Total to a re-recorded, QA-verified image, ready for the operator's registry login | about 15.5 h | 12 to 24 h |
+| After the operator supplies the registry host and logs in: push, pull-back verification (TC-569 tool), gate against the registry copy, release record, gate exit | about 1 h | 0.5 to 2 h |
 
 Tiering if the operator wants a faster partial path (each tier still ends with the closing steps, about 3.5 h):
 Tier 1, the ship blockers (rows P1 plus the drift and install rows of NOT_READY pilots): TC-532, TC-533, TC-535 (Rust and Go),
@@ -266,6 +295,22 @@ Assumptions that move the estimate: host load (other repositories' test runs slo
 application-control policy (retry once), GitHub rate limits during re-extraction clones (the extraction needs the network),
 and card defects found at dispatch (65% of past rework was a card defect: every card here is registered as a DRAFT and must have its
 inputs, numbers and negative control finalised by the supervisor before dispatch, Supervisor rule 5).
+
+## 6.1 Supervisor work items (not dispatched to workers: they edit ops/, hosts and the cluster)
+
+Status of every row: OPEN (registered 2026-10-19, nothing executed). TC-537's closure test requires each row marked DONE with an evidence reference
+(a commit id or a file under evidence/release/).
+
+| Id | Rows | Item | Verification when done |
+|---|---|---|---|
+| SUP-1 | RD3-163 | Card preflight in ops (cardlint): run `pytest --collect-only` for each check and compare the collected count with `min_tests`; every path named by a check command exists at the issue revision or is in `write_paths`; every `write_paths` entry exists or is a new test or script; a negative-control `mutate` is applied to a scratch copy and must change a file; warn when a check includes tests that need the network or build real native code without `network: true`; surface the ruff format/check requirement in the dispatch text. Also run it over all draft cards now (TC-532..537, 557..570) before the first dispatch. | `gatectl validate` fails on a card with a wrong min_tests or a missing check file; unit tests in ops/tests |
+| SUP-2 | RD3-162 | Re-verify the seven OPEN owner items (07, 08, 10, 11, 12, 13, 14): update status, last_checked_at and note from current evidence; OWNER-12 and OWNER-10 are probably satisfied; confirm OWNER-14 (GitHub token) with a status-code-only probe BEFORE the closing re-ingest (never print the token). With an invalid token the closing re-ingest carries forward the last good sidecars (OQ-015). | ops/owner_items.yaml diff with evidence per item |
+| SUP-3 | RD3-166 | Record the operator-authorized push before gate acceptance (decision log, done 2026-10-19) and add a push log: after every push, record head sha, the CI and Mirror-to-GitLab results (`gh run list`) in evidence/release/push-log.jsonl. | push-log.jsonl has a row for 0e6eadf4 with both workflows success |
+| SUP-4 | RD3-167 | Liveness record: a committed evidence/liveness.jsonl (one line per supervisor wake or planned pause with the reason) and a decision-log note naming the known gaps as unexplained; no reason is invented. | file present; the 10-18 and 10-19 idle periods recorded as 'waiting for operator' |
+| SUP-5 | RD3-168, RD3-170 | Hygiene, non-destructive first: list, then remove only what is safe: untracked evidence/build/G3/TC-498; agent worktrees whose branch commits are integrated or abandoned (151 directories, 13.5 GB, under a OneDrive path) with `git worktree prune`; worker branches that are integrated; local docker images except the release candidate and the final; cluster namespaces poc14b and poc14c (read-only check first, operator approval before deleting cluster objects). Find what rewrites `core.hooksPath` to an absolute path (IDE git integration, GitHub Desktop or a script) and stop it. | `git worktree list` count, disk freed, `git status` clean, hooksPath stays `.githooks` after a commit |
+| SUP-6 | RD3-164 | Claims audit: append correction notes (no history rewrite) to docs/DECISION_LOG.md for every quoted number that TC-568's ledger does not reproduce (17,000 methods / 0 mismatches, 183 verified examples, 4,445 types, 40 vs 32 pilots in old entries). | each correction cites the TC-568 ledger line |
+| SUP-7 | RD3-160, RD3-171 | Delivery runbook for OWNER-13: ask the operator for the registry host (and whether the internal GitLab project's container registry is the intended one), first REHEARSE the whole path against a throw-away local `registry:2` container (push, TC-569 pull-back by digest, gate, release-record) so the real delivery has no first-time step; then: operator `docker login`; `push_image.py --dry-run`; push; TC-569 pull-back verification; `gatectl release-record --push-result`; `gatectl gate-exit G3`; resolve OQ-012..015; record the push-log row. Nothing is pushed before the final image passes the closing steps. | release record state PUSHED; gate-exit reports no problems |
+| SUP-8 | RD3-172 | Public-repository exposure review before the delivery push: internal GitLab URL, commit-author email, registry host and digest, the ROUND3 register; confirm the secret scan covers docs/ and evidence/. | written review entry in the decision log |
 
 ## 7. Resume instructions
 

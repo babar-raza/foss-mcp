@@ -1,0 +1,75 @@
+id: TC-569
+gate: G3
+lane: transport-deployment
+purpose: >-
+  REQ-G3-009 (row RD3-161; REQ-G3-003). POST-PUSH VERIFICATION. scripts/release/push_image.py tags the image, pushes it and captures the digest, then stops: nothing pulls the image back from the registry
+  and proves that what a peer will pull is the image that passed the gate. NEW SCRIPT scripts/release/verify_pushed_image.py: given the push result (image, pushed_reference, digest) and the release record,
+  it (1) pulls `<pushed_reference>@<digest>` by digest, (2) fails when the pulled image id differs from the recorded local image id or the pulled manifest digest differs from the recorded digest, (3) reads
+  the org.opencontainers.image.revision label and fails when it differs from the release record's source commit, (4) runs scripts/release/image_workflow_gate.py (32 of 32) and the adversarial suite against
+  the pulled reference, (5) writes a report with every step's result. A docker runner is injected so the whole flow is unit-tested without a registry; a rehearsal against a throw-away local `registry:2`
+  container is a supervisor step (SUP-7), not a unit test. REGISTERED AS A DRAFT on 2026-10-19 from docs/ROUND3_REVIEW.md section 3.15: before dispatch the supervisor re-reads this card against the merged
+  code, runs the card preflight (SUP-1), calibrates min_tests (it applies to EACH check), replaces the placeholder negative control with a real falsifier that has no backslash, and verifies every file named
+  in write_paths (Supervisor rule 5). Nothing here has been executed.
+depends_on:
+- TC-550
+- TC-553
+- TC-554
+- TC-555
+- TC-556
+- TC-567
+write_paths:
+- scripts/release/verify_pushed_image.py
+- tests/release/test_verify_pushed_image.py
+satisfies:
+- REQ-G3-009
+- REQ-G3-008
+source_refs:
+- file: docs/DECISION_LOG.md
+  anchor: >-
+    ## 2026-10-17 — Round-3 independent review of the shipped image: 82 findings registered, nothing executed (operator, supervisor)
+  sha256: c2056b11a13e5b18cda7e522027fb5eb0102edcef2f99f6c7e7ce0ee5c4b4e5b
+inputs:
+- >-
+  READ FIRST: docs/ROUND3_REVIEW.md (the rows this card closes), then the code named in write_paths. Activate the toolchain (scripts/toolchain/activate.ps1) in the SAME shell command as every python or
+  pytest call. Never print an environment value or a credential. Verify every name against the merged code and list differences in your report. Run ruff format and ruff check on every Python file you change.
+  New tests take their expectations from an independent source (hand-written inputs with known answers, or a direct read of the committed files), never from the code under test. Do not edit plans/, project/,
+  ops/, evidence/, schemas/ or docs/ (except a docs file named in write_paths); do not run docker against the cluster.
+- >-
+  ACCEPTANCE (all with an injected fake docker runner and fake gate runner): a matching digest, image id and revision passes and runs both suites against the digest reference; a digest mismatch, an image-id
+  mismatch, a revision mismatch, a missing label, a failed pull, a failing gate and a failing adversarial suite each exit non-zero with a distinct message and write no 'verified' report; the reference passed
+  to the gate is the digest form, never a mutable tag; no credential or login state is read, printed or stored by the script; the command line is documented in docs/RELEASE.md section 7 by the supervisor
+  in SUP-7.
+actions:
+- Write verify_pushed_image.py with an injectable docker runner and offline tests.
+checks:
+- command: '{python} -m pytest tests/release/test_verify_pushed_image.py -q -rfE -p no:cacheprovider'
+  expect: exit 0
+  timeout_seconds: 1800
+  junitxml: true
+  proves:
+  - REQ-G3-009
+  - REQ-G3-008
+- command: >-
+    {python} -m pytest tests/release tests/deploy/test_image_workflow_gate.py -q -rfE -p no:cacheprovider -k "not live and not github_http and not repo_native"
+  expect: exit 0
+  timeout_seconds: 1800
+  junitxml: true
+  proves:
+  - REQ-G3-009
+  - REQ-G3-008
+min_tests: 8
+network: true
+requires:
+- python
+- git
+negative_control:
+  mutate: |
+    python -X utf8 -c "print('negative control to be authored before dispatch')"
+  rationale: >-
+    PLACEHOLDER written at registration. The supervisor replaces it, before dispatch, with a falsifier that breaks the card's central claim in a mandated function or constant so that a named new test fails.
+evidence:
+- evidence/build/G3/TC-569/receipt.json
+closeout:
+- >-
+  A pushed image is pulled back by digest and re-gated, and the report states whether the registry copy is the image that passed.
+recovery: Re-run from a clean tree.

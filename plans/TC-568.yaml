@@ -1,0 +1,84 @@
+id: TC-568
+gate: G3
+lane: verification
+purpose: >-
+  REQ-G3-009 (rows RD3-164, RD3-165). RELEASE EVIDENCE TOOLING: A REPRODUCIBLE CLAIMS LEDGER AND A GENERATION DIFF REPORT. The program quotes numbers that the repository cannot reproduce (about 17,000 methods
+  and 0 real mismatches; 183 verified examples baked, while the image serves 126 example chunks, tests/fixtures/verified_examples holds 273 entries of which about 197 read as verified, and the register
+  once said about 4,445 pdf/typescript types where the fixture holds 4,393), and most of the 1.57M added lines are generated fixtures and baked generations that nobody can review by eye. TWO SCRIPTS under
+  scripts/release, deterministic and offline. (1) claims_ledger.py reads infra/demo-manifests (generation JSON, active pointers, the three sidecars), tests/fixtures/<pilot>/api_surface.json and tests/fixtures/verified_examples/*.json
+  and prints one JSON document with, per pilot and in total: source commit, generation id, symbol chunks by kind (types, functions), members, documentation chunks by category, example chunks served, verified-example
+  cache entries by verdict (verified, failed, other), fixture extractor_version and symbol_counts, parse_failures, sidecar states (present, empty, fetch_failed, absent), data bytes; a second mode checks
+  a claims file (`--check claims.json`) and lists every claim whose number differs. (2) generation_diff.py compares two manifest trees (two directories, or the committed tree against a git revision via
+  `git show`) and prints per pilot the symbols added, removed and changed (by FQN), member-count deltas, signature-line changes (counts plus the first N examples), documentation and example deltas, source-commit
+  and generation changes, with optional ceilings (`--max-removed-symbols`, `--max-signature-changes`) that make it exit non-zero; it is the human-reviewable summary of any re-ingest and the guard for the
+  closing re-ingest. REGISTERED AS A DRAFT on 2026-10-19 from docs/ROUND3_REVIEW.md section 3.15: before dispatch the supervisor re-reads this card against the merged code, runs the card preflight (SUP-1),
+  calibrates min_tests (it applies to EACH check), replaces the placeholder negative control with a real falsifier that has no backslash, and verifies every file named in write_paths (Supervisor rule 5).
+  Nothing here has been executed.
+depends_on:
+- TC-550
+- TC-553
+- TC-554
+- TC-555
+- TC-556
+- TC-567
+write_paths:
+- scripts/release/claims_ledger.py
+- scripts/release/generation_diff.py
+- tests/release/test_claims_ledger.py
+- tests/release/test_generation_diff.py
+satisfies:
+- REQ-G3-009
+- REQ-G3-008
+source_refs:
+- file: docs/DECISION_LOG.md
+  anchor: >-
+    ## 2026-10-17 — Round-3 independent review of the shipped image: 82 findings registered, nothing executed (operator, supervisor)
+  sha256: c2056b11a13e5b18cda7e522027fb5eb0102edcef2f99f6c7e7ce0ee5c4b4e5b
+inputs:
+- >-
+  READ FIRST: docs/ROUND3_REVIEW.md (the rows this card closes), then the code named in write_paths. Activate the toolchain (scripts/toolchain/activate.ps1) in the SAME shell command as every python or
+  pytest call. Never print an environment value or a credential. Verify every name against the merged code and list differences in your report. Run ruff format and ruff check on every Python file you change.
+  New tests take their expectations from an independent source (hand-written inputs with known answers, or a direct read of the committed files), never from the code under test. Do not edit plans/, project/,
+  ops/, evidence/, schemas/ or docs/ (except a docs file named in write_paths); do not run docker against the cluster.
+- >-
+  ACCEPTANCE: (a) on the committed tree the ledger's per-pilot symbol, doc and example chunk counts equal an independent count made in the test by reading the generation JSON directly (not through the script's
+  helpers); (b) the example numbers are reported separately as served chunks, cache entries and verified entries so the three figures that were once conflated can never be confused; (c) the output is byte-identical
+  on two runs; (d) generation_diff on a tree against itself reports no change and exits 0; on two synthetic trees built in the test (a symbol removed, one added, one signature changed, a doc added) it reports
+  exactly those and exits non-zero when a ceiling is exceeded; (e) the real-tree test runs the diff between HEAD and HEAD~1 of infra/demo-manifests without error. The supervisor commits the ledger output
+  for the final image under evidence/release/ and SUP-6 corrects the earlier quoted numbers from it.
+actions:
+- >-
+  Write the claims ledger and the generation diff report with offline tests built on hand-made manifests and direct reads of the committed tree.
+checks:
+- command: >-
+    {python} -m pytest tests/release/test_claims_ledger.py tests/release/test_generation_diff.py -q -rfE -p no:cacheprovider
+  expect: exit 0
+  timeout_seconds: 1800
+  junitxml: true
+  proves:
+  - REQ-G3-009
+  - REQ-G3-008
+- command: >-
+    {python} -m pytest tests/release tests/deploy/test_fleet_consistency.py -q -rfE -p no:cacheprovider -k "not live and not github_http and not repo_native and not test_prepare_rust_library and not test_rust_known"
+  expect: exit 0
+  timeout_seconds: 2400
+  junitxml: true
+  proves:
+  - REQ-G3-009
+  - REQ-G3-008
+min_tests: 8
+network: true
+requires:
+- python
+- git
+negative_control:
+  mutate: |
+    python -X utf8 -c "print('negative control to be authored before dispatch')"
+  rationale: >-
+    PLACEHOLDER written at registration. The supervisor replaces it, before dispatch, with a falsifier that breaks the card's central claim in a mandated function or constant so that a named new test fails.
+evidence:
+- evidence/build/G3/TC-568/receipt.json
+closeout:
+- >-
+  Every quoted release number can be recomputed from the committed tree by one script, and any re-ingest produces a per-pilot diff a human can read.
+recovery: Re-run from a clean tree.
