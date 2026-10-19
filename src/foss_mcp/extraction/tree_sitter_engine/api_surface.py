@@ -401,6 +401,12 @@ def _extract_method_params(node, language: str) -> list[dict[str, Any]]:
                     js_destructured += 1
                 params.append(js_param)
             continue
+        if language == "java" and ch.type == "spread_parameter":
+            # TC-557 (RD3-040): a varargs parameter (``Vector3... points``) keeps its ``...``.
+            java_spread = lang.java.spread_param(ch)
+            if java_spread is not None:
+                params.append(java_spread)
+            continue
         if ch.type in (
             "formal_parameter",
             "parameter",
@@ -1880,6 +1886,160 @@ def _synthesize_java_properties(
 
 
 # ---------------------------------------------------------------------------
+# TC-557 (RD3-043, RD3-046, RD3-047): Java members the language declares and the extraction used to drop
+# ---------------------------------------------------------------------------
+
+
+def _java_implicit_method(
+    cname: str, name: str, params: list[dict[str, Any]], return_type: str, line: int, *, constructor: bool
+) -> dict[str, Any]:
+    """A member the Java language declares without source text: an implicit default constructor, a record's
+    canonical constructor or one of its accessors. Marked ``implicit`` among its modifiers."""
+    return {
+        "name": name,
+        "params": params,
+        "return_type": return_type,
+        "doc": "",
+        "line": line,
+        "is_constructor": constructor,
+        "deprecated": False,
+        "deprecated_reason": "",
+        "modifiers": ["implicit"],
+    }
+
+
+def _java_method_claim(family: str, cname: str, entry: dict[str, Any], rel: str) -> dict[str, Any]:
+    names = ", ".join(p["name"] for p in entry["params"])
+    return _make_claim(
+        family,
+        "api_method",
+        f"{cname}.{entry['name']}({names}) -> {entry['return_type']}",
+        rel,
+        entry["line"],
+    )
+
+
+def _java_implicit_members(
+    cnode, cname: str, rel: str, family: str, methods: list[dict[str, Any]]
+) -> tuple[list[dict[str, Any]], list[dict[str, Any]], list[dict[str, Any]], list[dict]]:
+    """``(front methods, tail methods, properties, claims)`` for the members *cnode* has by the language rules.
+
+    A ``class`` that declares no constructor has an implicit default constructor (JLS 8.8.9; RD3-047). A
+    ``record`` has one property per component (read-only), a canonical constructor unless it declares one,
+    and an accessor per component unless it declares one (JLS 8.10.3, 8.10.4; RD3-046). Nothing is added for
+    an interface, an enum or an annotation type, which have none of these.
+    """
+    front: list[dict[str, Any]] = []
+    tail: list[dict[str, Any]] = []
+    properties: list[dict[str, Any]] = []
+    claims: list[dict] = []
+    line = cnode.start_point[0] + 1
+
+    if lang.java.gets_implicit_constructor(cnode):
+        front.append(_java_implicit_method(cname, cname, [], "", line, constructor=True))
+
+    if cnode.type == "record_declaration":
+        components = _extract_method_params(cnode, "java")
+        if not lang.java.declares_canonical_constructor(cnode, [str(c.get("type", "")) for c in components]):
+            canonical = _java_implicit_method(
+                cname, cname, [dict(c) for c in components], "", line, constructor=True
+            )
+            compact = lang.java.compact_constructor(cnode)
+            if compact is not None:
+                # a compact constructor IS the canonical one, written without its parameter list
+                del canonical["modifiers"]
+                canonical["doc"] = _extract_doc_comment(compact, "java")
+                canonical["line"] = compact.start_point[0] + 1
+            front.append(canonical)
+        declared = lang.java.declared_method_arity(cnode)
+        for component in components:
+            ctype = str(component.get("type", ""))
+            properties.append(
+                {
+                    "name": component["name"],
+                    "type": ctype,
+                    "doc": "",
+                    "line": line,
+                    "writable": False,
+                    "kind": "record_component",
+                }
+            )
+            claims.append(
+                _make_claim(
+                    family, "api_method", f"{cname}.{component['name']} property of type {ctype}", rel, line
+                )
+            )
+            if (component["name"], 0) in declared:
+                continue
+            # a varargs component is an array to its accessor
+            accessor_type = ctype[:-3] + "[]" if ctype.endswith("...") else ctype
+            tail.append(
+                _java_implicit_method(cname, component["name"], [], accessor_type, line, constructor=False)
+            )
+
+    for entry in front + tail:
+        claims.append(_java_method_claim(family, cname, entry, rel))
+    return front, tail, properties, claims
+
+
+def _extract_java_mutable_fields(
+    cnode, cname: str, rel: str, family: str
+) -> tuple[list[dict[str, Any]], list[dict]]:
+    """The ``public`` fields of a Java class that are not ``final`` (RD3-043): variables a caller reads and
+    assigns, served as writable properties with their type (``static`` ones carry the ``static`` modifier).
+
+    A field of an interface or an annotation type is implicitly ``static final`` and is never mutable. A
+    ``public final`` field is the business of ``_extract_const_fields``.
+    """
+    fields: list[dict[str, Any]] = []
+    claims: list[dict] = []
+    if cnode.type not in ("class_declaration", "enum_declaration", "record_declaration"):
+        return fields, claims
+    body = child_by_field(cnode, "body")
+    if body is None:
+        return fields, claims
+    if cnode.type == "enum_declaration":
+        body = find_child_by_type(body, "enum_body_declarations") or body
+    for member in body.children:
+        if member.type != "field_declaration":
+            continue
+        keywords = lang.java.modifier_keywords(member)
+        if "public" not in keywords or "final" in keywords:
+            continue
+        type_node = child_by_field(member, "type")
+        ftype = " ".join(node_text(type_node).split()) if type_node is not None else ""
+        for declarator in member.children:
+            if declarator.type != "variable_declarator":
+                continue
+            name_node = child_by_field(declarator, "name")
+            if name_node is None:
+                continue
+            fname = node_text(name_node)
+            full_type = ftype + lang.java.declarator_dimensions(declarator)
+            entry: dict[str, Any] = {
+                "name": fname,
+                "type": full_type,
+                "kind": "field",
+                "doc": _extract_doc_comment(member, "java"),
+                "line": member.start_point[0] + 1,
+                "writable": True,
+            }
+            if "static" in keywords:
+                entry["modifiers"] = ["static"]
+            fields.append(entry)
+            claims.append(
+                _make_claim(
+                    family,
+                    "api_field",
+                    f"{cname}.{fname} field of type {full_type}",
+                    rel,
+                    member.start_point[0] + 1,
+                )
+            )
+    return fields, claims
+
+
+# ---------------------------------------------------------------------------
 # C# / Java const and static-final field extraction (Track A-1)
 # ---------------------------------------------------------------------------
 
@@ -1964,16 +2124,18 @@ def _extract_const_fields(
                     continue
 
                 kind = "constant" if "const" in mods else "static_field"
-                fields.append(
-                    {
-                        "name": fname,
-                        "type": ftype,
-                        "kind": kind,
-                        "doc": _extract_doc_comment(member, language),
-                        "line": member.start_point[0] + 1,
-                        "writable": False,
-                    }
-                )
+                const_entry: dict[str, Any] = {
+                    "name": fname,
+                    "type": ftype,
+                    "kind": kind,
+                    "doc": _extract_doc_comment(member, language),
+                    "line": member.start_point[0] + 1,
+                    "writable": False,
+                }
+                # TC-557 (RD3-042): a Java ``static`` field is marked; a ``public final`` instance field is not.
+                if language == "java" and lang.java.is_static(member):
+                    const_entry["modifiers"] = ["static"]
+                fields.append(const_entry)
                 claims.append(
                     _make_claim(
                         family,
@@ -5517,6 +5679,11 @@ def extract_api_surface(
                     if _in_nested:
                         continue
 
+                # TC-557 (RD3-045): a method of an anonymous class (``new Runnable() { ... }``) or of an enum
+                # constant's body is not a member of the enclosing type.
+                if language == "java" and lang.java.in_anonymous_class(mnode, cnode):
+                    continue
+
                 # Skip Python @property and setter/deleter â€” handled by _extract_python_properties.
                 # Checks the full decorator stack (see _all_decorator_text), not just the
                 # single nearest decorator â€” a bare @abstractmethod check would otherwise
@@ -5727,6 +5894,17 @@ def extract_api_surface(
                     method_modifiers = _csharp_modifiers(mnode)
                     if method_modifiers:
                         method_entry["modifiers"] = method_modifiers
+                if language == "java":
+                    # TC-557: ``static`` (RD3-042), the ``throws`` clause (RD3-041) and the generic type
+                    # parameters with their bounds (RD3-044).
+                    if lang.java.is_static(mnode):
+                        method_entry["modifiers"] = ["static"]
+                    java_throws = lang.java.throws_clause(mnode)
+                    if java_throws:
+                        method_entry["throws"] = java_throws
+                    java_generics = lang.java.type_parameters(mnode)
+                    if java_generics:
+                        method_entry["generics"] = java_generics
                 if language in ("typescript", "javascript"):
                     # TC-523: ``static``, ``async`` and an optional interface method (``m?()``).
                     _, _ts_m_optional, _ts_m_static, _ts_m_async = _ts_member_flags(mnode)
@@ -5771,6 +5949,21 @@ def extract_api_surface(
                         mnode.start_point[0] + 1,
                     )
                 )
+
+            # TC-557: the members the Java language itself declares (the implicit default constructor, a record's
+            # components, canonical constructor and accessors) and the public mutable fields. The fields come
+            # before the getter synthesis below, so a field and a getter of one name keep the field.
+            if language == "java":
+                java_front, java_tail, java_props, java_claims = _java_implicit_members(
+                    cnode, cname, rel, family, methods
+                )
+                methods[0:0] = java_front
+                methods.extend(java_tail)
+                properties.extend(java_props)
+                claims.extend(java_claims)
+                java_field_props, java_field_claims = _extract_java_mutable_fields(cnode, cname, rel, family)
+                properties.extend(java_field_props)
+                claims.extend(java_field_claims)
 
             # TC-521: every destructured constructor key not already a property becomes one.
             property_names = {prop["name"] for prop in properties}

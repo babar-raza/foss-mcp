@@ -198,6 +198,20 @@ def _generics_suffix(entry: Mapping[str, object]) -> str:
     return f"  [generic {text}]" if text else ""
 
 
+# TC-557 (RD3-041): a Java method or constructor renders the checked exceptions it declares (``throws
+# IOException``), because a caller that ignores one does not compile. With this switch off a Java signature
+# renders without any ``throws`` clause, exactly as it did before TC-557.
+JAVA_THROWS_RENDERED = True
+
+
+def _throws_suffix(method: Mapping[str, object]) -> str:
+    """`` throws IOException, SAXException`` from the extraction's ``throws`` list; empty without one."""
+    if not JAVA_THROWS_RENDERED:
+        return ""
+    thrown = [" ".join(str(item).split()) for item in _items(method.get("throws")) if str(item).strip()]
+    return f" throws {', '.join(thrown)}" if thrown else ""
+
+
 def _method_line(method: Mapping[str, object]) -> str:
     params = _param_list_text(_items(method.get("params")))
     # TC-535 (RD3-031): a Rust method's receiver (``&self``, ``&mut self``, ``self``) leads its parameter list.
@@ -207,7 +221,7 @@ def _method_line(method: Mapping[str, object]) -> str:
     return_type = _clean_type(method.get("return_type"))
     arrow = f" -> {return_type}" if return_type else ""
     return (
-        f"  - {method.get('name', '')}({params}){arrow}"
+        f"  - {method.get('name', '')}({params}){arrow}{_throws_suffix(method)}"
         f"{_modifiers_suffix(method)}{_generics_suffix(method)}{_mixin_suffix(method)}"
         f"{_inherited_from_suffix(method)}{_deprecated_suffix(method)}"
     )
