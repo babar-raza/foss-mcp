@@ -418,11 +418,28 @@ def _extract_python_surface(clone_root: Path) -> tuple[list[dict[str, Any]], lis
     return types, list(surface.unresolved)
 
 
+def _parses_as_written(path: Path) -> bool:
+    """TC-561: True when *path* parses with the stdlib ``ast`` exactly as it is written, with no repair.
+
+    This is what ``import`` does with the file, so a file that fails here makes the package unimportable
+    even though ``python_surface`` could read its declarations after the indentation repair."""
+    try:
+        ast.parse(path.read_text(encoding="utf-8-sig", errors="replace"), str(path))
+    except (SyntaxError, ValueError, RecursionError, MemoryError):
+        return False
+    return True
+
+
 def python_parse_health(clone_root: Path) -> dict[str, Any]:
     """How many python source files of the package(s) do not parse (stdlib ``ast``).
 
     TC-555: a file counts as failed only if it still does not parse AFTER the bounded indentation
     repair of ``python_surface`` (a file that lost its indentation is repaired and read).
+
+    TC-561: ``as_written_failed`` counts the files that do not parse BEFORE any repair (the files
+    ``import`` would reject). It is at least ``failed``; when it is more than zero the package cannot be
+    imported at this commit, however much of its API the repair recovered. The key is present only when
+    that count is more than zero (an absent key reads as zero).
 
     Walks every ``*.py`` of each directory ``_python_package_dirs`` returns, with the exclusion
     ``python_surface`` uses, and parses ALL of them - including modules with a leading underscore
@@ -432,6 +449,7 @@ def python_parse_health(clone_root: Path) -> dict[str, Any]:
     """
     total = 0
     failed = 0
+    as_written_failed = 0
     examples: list[str] = []
     for package_dir in _python_package_dirs(clone_root):
         package_path = clone_root / package_dir
@@ -441,6 +459,8 @@ def python_parse_health(clone_root: Path) -> dict[str, Any]:
             ):
                 continue
             total += 1
+            if not _parses_as_written(path):
+                as_written_failed += 1
             try:
                 # TC-555: a file whose lost indentation the extractor repairs is read, not a failure
                 # (its repair is disclosed by the ``repaired-syntax`` entry of ``unresolved``).
@@ -451,7 +471,12 @@ def python_parse_health(clone_root: Path) -> dict[str, Any]:
                     line = getattr(error, "lineno", None) or 0
                     message = getattr(error, "msg", None) or str(error)
                     examples.append(f"{path.relative_to(clone_root).as_posix()}:{line}: {message}")
-    return {"engine": "ast", "failed": failed, "total": total, "examples": examples}
+    health: dict[str, Any] = {"engine": "ast", "failed": failed, "total": total, "examples": examples}
+    if as_written_failed:
+        # Present only when there is something to say: a package whose files all parse as written has the
+        # same health as before the key existed, and a reader treats an absent count as zero.
+        health["as_written_failed"] = as_written_failed
+    return health
 
 
 def tree_sitter_parse_health(scout_report: dict[str, Any]) -> dict[str, Any]:

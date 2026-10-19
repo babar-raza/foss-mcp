@@ -386,6 +386,80 @@ def pypi_published_commit(coordinate: str, repository: str) -> str | None:
     return None
 
 
+def _read_body(url: str) -> bytes | None:
+    """The body of a GET of *url*, or None on a 404; any other failure propagates."""
+    request = urllib.request.Request(url, method="GET")
+    try:
+        with urllib.request.urlopen(request, timeout=_REQUEST_TIMEOUT_SECONDS) as response:
+            return response.read()
+    except urllib.error.HTTPError as exc:
+        if exc.code == 404:
+            return None
+        raise
+
+
+def npm_latest_version(coordinate: str) -> str | None:
+    """G3/TC-561: the version npm serves as ``latest`` for *coordinate* (a scoped name's '/' is %2f-encoded),
+    or None when the package does not exist."""
+    body = _read_body(f"https://registry.npmjs.org/{coordinate.replace('/', '%2f')}/latest")
+    return None if body is None else json.loads(body)["version"]
+
+
+def maven_latest_version(coordinate: str) -> str | None:
+    """G3/TC-561: the release version in the artifact's ``maven-metadata.xml`` on Maven Central
+    (``<release>``, else ``<latest>``, else the last ``<version>``), or None when there is no such artifact.
+    *coordinate* is "groupId:artifactId"."""
+    group_id, separator, artifact_id = coordinate.partition(":")
+    if not separator or not group_id or not artifact_id:
+        raise ValueError(f"maven coordinate {coordinate!r} must be 'groupId:artifactId'")
+    group_path = group_id.replace(".", "/")
+    body = _read_body(f"https://repo1.maven.org/maven2/{group_path}/{artifact_id}/maven-metadata.xml")
+    if body is None:
+        return None
+    text = body.decode("utf-8", errors="replace")
+    for tag in ("release", "latest"):
+        found = re.search(rf"<{tag}>\s*([^<\s]+)\s*</{tag}>", text)
+        if found:
+            return found.group(1)
+    versions = re.findall(r"<version>\s*([^<\s]+)\s*</version>", text)
+    return versions[-1] if versions else None
+
+
+def nuget_latest_version(coordinate: str) -> str | None:
+    """G3/TC-561: the newest stable version in NuGet's flat container index for *coordinate* (the newest
+    version of any kind when there is no stable one), or None when the package does not exist."""
+    body = _read_body(f"https://api.nuget.org/v3-flatcontainer/{coordinate.lower()}/index.json")
+    if body is None:
+        return None
+    versions = [str(item) for item in json.loads(body).get("versions", [])]
+    stable = [item for item in versions if "-" not in item]
+    chosen = stable or versions
+    return chosen[-1] if chosen else None
+
+
+# G3/TC-561: the ecosystems whose registry answers "which version is served now".
+_LATEST_VERSION: dict[str, Callable[[str], str | None]] = {
+    "pypi": pypi_latest_version,
+    "npm": npm_latest_version,
+    "maven": maven_latest_version,
+    "nuget": nuget_latest_version,
+    "go": go_latest_version,
+}
+
+
+def served_version_or_none(ecosystem: str, coordinate: str) -> str | None:
+    """G3/TC-561: the version *ecosystem*'s registry serves for a coordinate already confirmed to exist, or
+    None when the registry cannot say (no endpoint for the ecosystem, or the request failed). The version is
+    an addition to the existence result, so its failure never discards that result."""
+    lookup = _LATEST_VERSION.get(ecosystem)
+    if lookup is None:
+        return None
+    try:
+        return lookup(coordinate)
+    except Exception:  # noqa: BLE001 - best effort: the existence check above already succeeded
+        return None
+
+
 _CHECKERS: dict[str, Callable[[str], bool]] = {
     "pypi": check_pypi,
     "npm": check_npm,
@@ -448,6 +522,8 @@ def main() -> None:
         "coordinate": args.coordinate,
         "verified": verified,
         "checked_at": checked_at,
+        # G3/TC-561: the version the registry serves now, for a coordinate that exists; null otherwise.
+        "served_version": served_version_or_none(args.ecosystem, args.coordinate) if verified else None,
         # G3/TC-511: provenance, additive; the four keys above are what the loader requires.
         "family": args.family,
         "platform": args.platform,

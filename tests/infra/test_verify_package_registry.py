@@ -56,6 +56,15 @@ from foss_mcp.extraction import github_http
 
 
 @pytest.fixture(autouse=True)
+def _no_live_served_version(monkeypatch: pytest.MonkeyPatch, request: pytest.FixtureRequest) -> None:
+    """TC-561: ``main`` also asks the registry which version it serves. These tests are offline, so that lookup
+    answers "cannot say" unless the test is one of the served-version tests, which mock the HTTP layer instead."""
+    if "served_version" in request.node.name:
+        return
+    monkeypatch.setattr(verify_package_registry, "served_version_or_none", lambda ecosystem, coordinate: None)
+
+
+@pytest.fixture(autouse=True)
 def _no_real_backoff_sleep(monkeypatch: pytest.MonkeyPatch) -> None:
     """G3/TC-511: ``resolve_tag_commit`` goes through the shared GitHub helper, which now retries a
     5xx or a transport failure with a real sleep. Tests that raise those must not wait."""
@@ -860,3 +869,155 @@ def test_load_package_registry_sidecar_raises_when_a_required_key_is_missing(tmp
     )
     with pytest.raises(ValueError):
         verify_package_registry.load_package_registry_sidecar(path)
+
+
+# --- G3/TC-561: the version the registry serves ----------------------------------------------------------------------
+
+
+def test_served_version_npm_reads_latest_and_encodes_a_scoped_name(monkeypatch: pytest.MonkeyPatch) -> None:
+    calls: list[str] = []
+    monkeypatch.setattr(
+        verify_package_registry.urllib.request, "urlopen", _urlopen_capturing(calls, b'{"version": "0.4.2"}')
+    )
+
+    assert verify_package_registry.npm_latest_version("@asposefoss/pdf") == "0.4.2"
+    assert calls == ["https://registry.npmjs.org/@asposefoss%2fpdf/latest"]
+
+
+def test_served_version_npm_is_none_for_a_package_that_does_not_exist(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(verify_package_registry.urllib.request, "urlopen", _urlopen_raising(_http_error(404)))
+
+    assert verify_package_registry.npm_latest_version("@asposefoss/pdf") is None
+
+
+_MAVEN_METADATA = (
+    b"<metadata><groupId>org.aspose</groupId><artifactId>aspose-slides-foss</artifactId><versioning>"
+    b"<latest>26.7.0</latest><release>26.7.0</release><versions><version>26.6.0</version>"
+    b"<version>26.7.0</version></versions></versioning></metadata>"
+)
+
+
+def test_served_version_maven_reads_the_release_from_the_metadata_file(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    calls: list[str] = []
+    monkeypatch.setattr(
+        verify_package_registry.urllib.request, "urlopen", _urlopen_capturing(calls, _MAVEN_METADATA)
+    )
+
+    assert verify_package_registry.maven_latest_version("org.aspose:aspose-slides-foss") == "26.7.0"
+    assert calls == ["https://repo1.maven.org/maven2/org/aspose/aspose-slides-foss/maven-metadata.xml"]
+
+
+@pytest.mark.parametrize(
+    ("metadata", "expected"),
+    [
+        pytest.param(
+            b"<metadata><versioning><latest>2.0</latest></versioning></metadata>", "2.0", id="latest"
+        ),
+        pytest.param(
+            b"<metadata><versioning><versions><version>1.0</version><version>1.1</version></versions>"
+            b"</versioning></metadata>",
+            "1.1",
+            id="last-version",
+        ),
+        pytest.param(b"<metadata></metadata>", None, id="none"),
+    ],
+)
+def test_served_version_maven_falls_back_to_latest_then_the_last_listed_version(
+    monkeypatch: pytest.MonkeyPatch, metadata: bytes, expected: str | None
+) -> None:
+    monkeypatch.setattr(verify_package_registry.urllib.request, "urlopen", _urlopen_returning(metadata))
+
+    assert verify_package_registry.maven_latest_version("org.aspose:demo") == expected
+
+
+def test_served_version_maven_is_none_on_404_and_rejects_a_bad_coordinate(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(verify_package_registry.urllib.request, "urlopen", _urlopen_raising(_http_error(404)))
+
+    assert verify_package_registry.maven_latest_version("org.aspose:demo") is None
+    with pytest.raises(ValueError):
+        verify_package_registry.maven_latest_version("no-colon")
+
+
+def test_served_version_nuget_prefers_the_newest_stable_version(monkeypatch: pytest.MonkeyPatch) -> None:
+    calls: list[str] = []
+    body = b'{"versions": ["26.1.0", "26.2.0", "26.3.0-beta.1"]}'
+    monkeypatch.setattr(verify_package_registry.urllib.request, "urlopen", _urlopen_capturing(calls, body))
+
+    assert verify_package_registry.nuget_latest_version("Aspose.3D.FOSS") == "26.2.0"
+    assert calls == ["https://api.nuget.org/v3-flatcontainer/aspose.3d.foss/index.json"]
+
+
+def test_served_version_nuget_takes_a_prerelease_when_there_is_no_stable_one(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(
+        verify_package_registry.urllib.request, "urlopen", _urlopen_returning(b'{"versions": ["1.0.0-rc.1"]}')
+    )
+
+    assert verify_package_registry.nuget_latest_version("Demo") == "1.0.0-rc.1"
+
+
+def test_served_version_or_none_never_raises_and_knows_only_the_ecosystems_with_an_endpoint(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(verify_package_registry.urllib.request, "urlopen", _urlopen_raising(_http_error(500)))
+
+    assert verify_package_registry.served_version_or_none("pypi", "aspose-email-foss") is None
+    assert (
+        verify_package_registry.served_version_or_none("cargo", "aspose-demo") is None
+    )  # no endpoint for it
+
+
+def test_served_version_or_none_returns_what_the_ecosystem_lookup_returns(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setitem(
+        verify_package_registry._LATEST_VERSION, "maven", lambda coordinate: f"{coordinate}@1.2.3"
+    )
+
+    assert (
+        verify_package_registry.served_version_or_none("maven", "org.aspose:demo") == "org.aspose:demo@1.2.3"
+    )
+
+
+def test_main_records_the_served_version_for_a_coordinate_that_exists(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    # (named like the other served-version tests: the autouse offline stub does not apply to it)
+    monkeypatch.setitem(verify_package_registry._CHECKERS, "pypi", lambda coordinate: True)
+    monkeypatch.setattr(
+        verify_package_registry, "served_version_or_none", lambda ecosystem, coordinate: "9.9.9"
+    )
+    output_path = tmp_path / "package_registry.json"
+    _set_argv(monkeypatch, output_path)
+
+    verify_package_registry.main()
+
+    written = json.loads(output_path.read_text(encoding="utf-8"))
+    assert written["verified"] is True and written["served_version"] == "9.9.9"
+    assert verify_package_registry.load_package_registry_sidecar(output_path) is not None
+
+
+def test_main_records_no_served_version_for_an_absent_coordinate_and_asks_nothing(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    asked: list[tuple[str, str]] = []
+    monkeypatch.setitem(verify_package_registry._CHECKERS, "pypi", lambda coordinate: False)
+    monkeypatch.setattr(
+        verify_package_registry,
+        "served_version_or_none",
+        lambda ecosystem, coordinate: asked.append((ecosystem, coordinate)),
+    )
+    output_path = tmp_path / "package_registry.json"
+    _set_argv(monkeypatch, output_path)
+
+    verify_package_registry.main()
+
+    assert json.loads(output_path.read_text(encoding="utf-8"))["served_version"] is None
+    assert asked == []

@@ -495,6 +495,7 @@ def test_agents_md_in_title_case_is_fetched_for_the_agents_md_request(monkeypatc
         {
             "": _listing(("Agents.md", "file"), ("README.md", "file")),
             "Agents.md": _file_body("Agents.md", "# Guidance\n"),
+            "README.md": _file_body("README.md", "# Demo\n"),  # TC-561: the README is fetched whole too
             "CONTRIBUTING.md": 404,
         },
     )
@@ -636,6 +637,7 @@ def test_a_root_license_directory_is_listed_once_more_and_its_license_txt_is_fou
             "": _listing(("LICENSE", "dir"), ("README.md", "file")),
             "LICENSE": _listing(("NOTICE", "file"), ("LICENSE.txt", "file")),
             "LICENSE/LICENSE.txt": _file_body("LICENSE/LICENSE.txt", mit),
+            "README.md": _file_body("README.md", "# Demo\n"),  # TC-561: the README is fetched whole too
             "AGENTS.md": 404,
             "CONTRIBUTING.md": 404,
         },
@@ -652,13 +654,19 @@ def test_a_root_license_directory_is_listed_once_more_and_its_license_txt_is_fou
 def test_a_repository_with_no_license_records_not_present_and_fetches_nothing_for_it(monkeypatch) -> None:
     requested = _serve(
         monkeypatch,
-        {"": _listing(("README.md", "file"), ("docs", "dir")), "AGENTS.md": 404, "CONTRIBUTING.md": 404},
+        {
+            "": _listing(("README.md", "file"), ("docs", "dir")),
+            "README.md": _file_body("README.md", "# Demo\n"),
+            "AGENTS.md": 404,
+            "CONTRIBUTING.md": 404,
+        },
     )
 
     sidecar = _build()
 
     assert sidecar["license_document"] == {"status": "not_present", "path": "LICENSE"}
-    assert sorted(requested) == ["", "AGENTS.md", "CONTRIBUTING.md"]
+    # TC-561: README.md is now fetched too (listed above); nothing is requested for a license that is not there.
+    assert sorted(requested) == ["", "AGENTS.md", "CONTRIBUTING.md", "README.md"]
 
 
 def test_a_license_directory_without_a_license_file_records_not_present(monkeypatch) -> None:
@@ -835,3 +843,95 @@ def test_force_on_a_changed_pin_behaves_like_a_normal_fetch(tmp_path: Path, monk
     written = json.loads(output.read_text(encoding="utf-8"))
     assert written["source_ref"] == _REF
     assert written["license_document"] == {"status": "not_present", "path": "LICENSE"}
+
+
+# --- G3/TC-561: the README, the manifest path and the CLAUDE.md fallback ---------------------------------------
+
+
+def test_the_readme_is_recorded_whole_whatever_its_case_and_extension(monkeypatch) -> None:
+    body = "# Demo\n\n## Installation\n\npip install demo\n"
+    _serve(
+        monkeypatch,
+        {
+            "": _listing(("Readme.MD", "file"), ("docs", "dir")),
+            "Readme.MD": _file_body("Readme.MD", body),
+            "AGENTS.md": 404,
+            "CONTRIBUTING.md": 404,
+        },
+    )
+
+    sidecar = _build()
+
+    assert sidecar["readme_document"]["status"] == "present"
+    assert sidecar["readme_document"]["path"] == "Readme.MD"
+    assert sidecar["readme_document"]["content"] == body
+
+
+def test_a_repository_without_a_readme_records_none_and_requests_none(monkeypatch) -> None:
+    requested = _serve(monkeypatch, {"": _listing(("src", "dir")), "AGENTS.md": 404, "CONTRIBUTING.md": 404})
+
+    sidecar = _build()
+
+    assert sidecar["readme_document"] is None
+    assert not [path for path in requested if path.lower().startswith("readme")]
+
+
+def test_the_manifest_path_is_recorded_as_given(monkeypatch) -> None:
+    _serve(monkeypatch, {"": _listing(), "AGENTS.md": 404, "CONTRIBUTING.md": 404})
+    monkeypatch.setattr(
+        fetch_product_reference,
+        "fetch_manifest_file",
+        lambda repository, path, ref=None: f"manifest of {path}",
+    )
+
+    sidecar = fetch_product_reference.build_sidecar(
+        repository=_REPO,
+        platform="cpp",
+        manifest_path="Lib.Cpp/CMakeLists.txt",
+        contributing_path="CONTRIBUTING.md",
+        agent_guidance_path="AGENTS.md",
+        ref=_REF,
+    )
+
+    assert sidecar["manifest_path"] == "Lib.Cpp/CMakeLists.txt"
+    assert sidecar["manifest_text"] == "manifest of Lib.Cpp/CMakeLists.txt"
+    assert _build()["manifest_path"] is None
+
+
+def test_claude_md_is_the_guidance_when_the_repository_has_no_agents_md(monkeypatch) -> None:
+    _serve(
+        monkeypatch,
+        {
+            "": _listing(("CLAUDE.md", "file")),
+            "AGENTS.md": 404,
+            "CLAUDE.md": _file_body("CLAUDE.md", "# CLAUDE.md\n"),
+            "CONTRIBUTING.md": 404,
+        },
+    )
+
+    sidecar = _build()
+
+    assert sidecar["agent_guidance"]["status"] == "present"
+    assert sidecar["agent_guidance"]["path"] == "CLAUDE.md"
+
+
+def test_agents_md_wins_over_claude_md(monkeypatch) -> None:
+    requested = _serve(
+        monkeypatch,
+        {
+            "": _listing(("CLAUDE.md", "file"), ("AGENTS.md", "file")),
+            "AGENTS.md": _file_body("AGENTS.md", "# agents\n"),
+            "CONTRIBUTING.md": 404,
+        },
+    )
+
+    sidecar = _build()
+
+    assert sidecar["agent_guidance"]["path"] == "AGENTS.md"
+    assert "CLAUDE.md" not in requested
+
+
+def test_neither_guidance_file_is_an_absence_that_names_agents_md(monkeypatch) -> None:
+    _serve(monkeypatch, {"": _listing(), "AGENTS.md": 404, "CONTRIBUTING.md": 404})
+
+    assert _build()["agent_guidance"] == {"status": "not_present", "path": "AGENTS.md"}

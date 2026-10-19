@@ -49,6 +49,7 @@ from verify_package_registry import (
     _CHECKERS,
     _SIDECAR_FRESHNESS_SECONDS,
     _sidecar_is_fresh,
+    served_version_or_none,
     verify_package_registry_sidecar_name,
 )
 
@@ -62,6 +63,36 @@ def _holds_fetch_failed_placeholder(path: Path) -> bool:
     except (OSError, ValueError):
         return False
     return is_fetch_failed_placeholder(data)
+
+
+def _recorded_served_version(registry_sidecar: Path, coordinate: str) -> str | None:
+    """The ``served_version`` an existing registry-verification sidecar records for *coordinate*, or None
+    (absent, unreadable, written for another coordinate, or never recorded)."""
+    try:
+        data = json.loads(registry_sidecar.read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return None
+    if not isinstance(data, dict) or data.get("coordinate") != coordinate:
+        return None
+    version = data.get("served_version")
+    return version if isinstance(version, str) and version else None
+
+
+def _record_served_version(manifest_sidecar: Path, version: str | None) -> None:
+    """Write *version* into the product-reference sidecar as ``install_served_version`` (serving reads it
+    from there: it is the one sidecar the server loads whole), or remove the key when the registry did not
+    serve a version. A sidecar that already says the same thing is not rewritten."""
+    try:
+        data = json.loads(manifest_sidecar.read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return
+    if not isinstance(data, dict) or data.get("install_served_version") == version:
+        return
+    if version is None:
+        data.pop("install_served_version", None)
+    else:
+        data["install_served_version"] = version
+    atomic_write_json(manifest_sidecar, data)
 
 
 def main() -> None:
@@ -102,6 +133,8 @@ def main() -> None:
 
     output = args.manifests_dir / verify_package_registry_sidecar_name(args.family, args.platform)
     if _sidecar_is_fresh(output):
+        # A re-fetched product sidecar has lost the served version; the fresh verification still holds it.
+        _record_served_version(manifest_sidecar_path, _recorded_served_version(output, coordinate))
         print(
             f"skipped verification for {coordinate} ({ecosystem}) -> {output}: "
             f"existing sidecar is less than {_SIDECAR_FRESHNESS_SECONDS} seconds old"
@@ -113,6 +146,8 @@ def main() -> None:
     # rather than being written as a false "verified: false" (see module docstring). The Helm
     # ingestion-job.yaml step that invokes this script is what tolerates that failure, with "|| true".
     verified = checker(coordinate)
+    # G3/TC-561: what the registry serves now, for a coordinate that exists (None when it cannot say).
+    served_version = served_version_or_none(ecosystem, coordinate) if verified else None
 
     checked_at = datetime.now(UTC).isoformat()
     sidecar = {
@@ -120,6 +155,7 @@ def main() -> None:
         "coordinate": coordinate,
         "verified": verified,
         "checked_at": checked_at,
+        "served_version": served_version,
         # G3/TC-511: provenance, additive; the four keys above are what the loader requires.
         "family": args.family,
         "platform": args.platform,
@@ -128,6 +164,7 @@ def main() -> None:
         "source_ref": inputs.source_ref,
     }
     atomic_write_json(output, sidecar)
+    _record_served_version(manifest_sidecar_path, served_version)
     print(f"wrote verification result for {coordinate} ({ecosystem}) -> {output}: verified={verified}")
 
 

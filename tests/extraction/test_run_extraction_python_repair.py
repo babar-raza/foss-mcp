@@ -142,7 +142,57 @@ def test_extract_with_health_reports_a_repaired_file_as_read(tmp_path: Path) -> 
 def test_the_two_readers_go_through_the_one_repair() -> None:
     source = Path(run_extraction.__file__).read_text(encoding="utf-8")
     assert source.count("python_surface._parse_source_file(path)") == 2
-    assert "ast.parse(" not in source
+    # TC-561: was `"ast.parse(" not in source`. The one plain parse is the as-written count of the health
+    # (`_parses_as_written`, what `import` does); nothing else in run_extraction parses a file without the repair.
+    assert source.count("ast.parse(") == 1
+    helper = source[source.index("def _parses_as_written") : source.index("def python_parse_health")]
+    assert "ast.parse(" in helper
+
+
+def test_the_health_counts_the_files_that_do_not_parse_as_written_apart_from_those_that_still_fail(
+    tmp_path: Path,
+) -> None:
+    """TC-561 (RD3-092): tex/python has 35 of 45 files that `import` rejects and 11 the repair cannot read."""
+    _package(
+        tmp_path,
+        {
+            "__init__.py": "",
+            "ok.py": "class A:\n    pass\n",
+            "collapsed.py": COLLAPSED,
+            "collapsed_enum.py": COLLAPSED_ENUM,
+            "broken.py": BROKEN,
+        },
+    )
+    health = run_extraction.python_parse_health(tmp_path)
+    assert (health["failed"], health["as_written_failed"], health["total"]) == (1, 3, 5)
+    assert health["as_written_failed"] >= health["failed"]
+
+
+def test_a_tree_that_parses_as_written_has_no_as_written_failure(tmp_path: Path) -> None:
+    _package(tmp_path, {"__init__.py": "", "a.py": "def f():\n    return 1\n"})
+    # the key is absent (read as zero), so the health of a clean package is exactly what it was before TC-561
+    assert "as_written_failed" not in run_extraction.python_parse_health(tmp_path)
+
+
+def test_the_as_written_count_ignores_the_repair_and_matches_the_stdlib_parser(tmp_path: Path) -> None:
+    import ast
+
+    files = {"__init__.py": "", "a.py": COLLAPSED, "b.py": BROKEN, "c.py": "x = 1\n", "d.py": COLLAPSED_ENUM}
+    _package(tmp_path, files)
+    # the oracle is the stdlib parser applied to the very files, not the extractor's own reading of them
+    expected = 0
+    for text in files.values():
+        try:
+            ast.parse(text)
+        except SyntaxError:
+            expected += 1
+    assert run_extraction.python_parse_health(tmp_path)["as_written_failed"] == expected == 3
+
+
+def test_extract_with_health_carries_the_as_written_count(tmp_path: Path) -> None:
+    _package(tmp_path, {"__init__.py": "from .colors import Color\n", "colors.py": COLLAPSED_ENUM})
+    _, _, health = run_extraction.extract_with_health(tmp_path, MANIFEST)
+    assert health is not None and (health["failed"], health["as_written_failed"]) == (0, 1)
 
 
 def test_the_committed_output_format_has_its_real_members() -> None:

@@ -488,6 +488,14 @@ def test_serving_reads_the_placeholder_as_fetch_failed(
 _PYPROJECT = '[project]\nname = "aspose-email-foss"\nversion = "26.9.0"\n'
 
 
+@pytest.fixture(autouse=True)
+def _no_live_served_version(monkeypatch: pytest.MonkeyPatch) -> None:
+    """TC-561: both verification CLIs also ask the registry which version it serves. These tests are offline,
+    so that lookup answers "cannot say" unless a test installs its own."""
+    monkeypatch.setattr(vpr, "served_version_or_none", lambda ecosystem, coordinate: None)
+    monkeypatch.setattr(vpri, "served_version_or_none", lambda ecosystem, coordinate: None)
+
+
 def _write_manifest_sidecar(directory: Path, **overrides: object) -> Path:
     path = directory / fpr.sidecar_name("email", "python")
     sidecar = {

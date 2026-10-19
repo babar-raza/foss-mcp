@@ -17,6 +17,13 @@ Three facts about those chunks drive the code below.
 * A FAQ answer is chunked under the question as its title ("How do I install ...?"), its first body line
   starts with ``FAQ:``, and it is never the installation section.
 
+G3/TC-561: the same sections are also read from the repository's own README markdown
+(``sections_from_markdown``), which the product-reference sidecar carries. The furnished page the index is
+built from can lack a section the README has (cells/cpp has no installation section, seven pilots lose
+``formats`` or ``limitations``); the README is the source truth, and ``merge_sections`` lets the index win
+wherever it has a section and the README fill the rest. ``import_warning`` is the "cannot be imported at
+this commit" statement of an Extraction notice chunk.
+
 The module is pure apart from ``read_readme_sections``, which touches the generation store and never
 raises: any failure yields the empty ``ReadmeSections``.
 """
@@ -65,6 +72,11 @@ class ReadmeSections:
     limitations: ReadmeSection | None = None
     install: ReadmeSection | None = None
     capabilities: ReadmeSection | None = None
+    # G3/TC-561: a README section whose heading names the supported file formats ("Supported formats").
+    # Read only from the README markdown, never from the index, so the index's answers do not move.
+    formats: ReadmeSection | None = None
+    # G3/TC-561: the sentence group of an Extraction notice chunk that states the library cannot be imported.
+    import_warning: str | None = None
 
 
 @dataclass(frozen=True)
@@ -152,6 +164,24 @@ def _assemble(chunks: list[_Chunk]) -> ReadmeSection | None:
     )
 
 
+_NOTICE_PREFIX = "FQN: Doc: Extraction notice"
+_IMPORT_WARNING = re.compile(
+    r"\d+ of \d+ source files do not parse as written;.*?cannot be imported at this commit\.",
+)
+
+
+def _import_warning(texts: list[str]) -> str | None:
+    """TC-561: the "N of M source files do not parse as written; ...; the library cannot be imported at this
+    commit." statement of the Extraction notice chunk, or None when the index holds no such notice."""
+    for text in texts:
+        if not text.startswith(_NOTICE_PREFIX):
+            continue
+        match = _IMPORT_WARNING.search(" ".join(text.split()))
+        if match is not None:
+            return match.group(0)
+    return None
+
+
 def _documents_text(documents: Mapping[str, Mapping[str, str]]) -> list[str]:
     texts: list[str] = []
     for record in documents.values():
@@ -174,6 +204,7 @@ def sections_from_documents(documents: Mapping[str, Mapping[str, str]]) -> Readm
         limitations=section(LIMITATIONS_TITLE_PATTERN),
         install=section(INSTALL_TITLE_PATTERN),
         capabilities=section(CAPABILITIES_TITLE_PATTERN),
+        import_warning=_import_warning(texts),
     )
 
 
@@ -191,3 +222,106 @@ def read_readme_sections(store: Any, scope: Scope) -> ReadmeSections:
         return sections_from_documents(documents)
     except Exception:  # noqa: BLE001 - README text is a best-effort extra; it must never fail the tool
         return ReadmeSections()
+
+
+# ---------------------------------------------------------------------
+# G3/TC-561: the same sections, read from the repository's own README markdown.
+# ---------------------------------------------------------------------
+
+_MARKDOWN_HEADING = re.compile(r"^(#{1,6})[ \t]+(.+?)[ \t]*#*[ \t]*$")
+_MARKDOWN_FENCE = re.compile(r"^[ \t]*(```|~~~)")
+# Level 2 to 4 headings only: level 1 is the document title.
+_MARKDOWN_LEVELS = range(2, 5)
+_MARKDOWN_PATTERNS: dict[str, re.Pattern[str]] = {
+    "install": re.compile(r"install|getting started", re.IGNORECASE),
+    "limitations": re.compile(
+        r"limitation|cannot do|can't do|not included|not supported|known issues", re.IGNORECASE
+    ),
+    "capabilities": re.compile(r"capabilit|what it can do", re.IGNORECASE),
+    "formats": re.compile(
+        r"\b(?:supported|save|load|input|output|file)\s+(?:file\s+)?formats?\b|\bformats?\s+supported\b|^formats?$",
+        re.IGNORECASE,
+    ),
+}
+
+
+def _markdown_headings(lines: list[str]) -> list[tuple[int, int, str]]:
+    """``(line index, level, title)`` of each ATX heading outside a fenced code block."""
+    headings: list[tuple[int, int, str]] = []
+    in_fence = False
+    for index, line in enumerate(lines):
+        if _MARKDOWN_FENCE.match(line):
+            in_fence = not in_fence
+            continue
+        if in_fence:
+            continue
+        match = _MARKDOWN_HEADING.match(line)
+        if match is not None:
+            headings.append((index, len(match.group(1)), match.group(2).strip()))
+    return headings
+
+
+def _pick_markdown_section(
+    lines: list[str], headings: list[tuple[int, int, str]], pattern: re.Pattern[str], commit: str | None
+) -> ReadmeSection | None:
+    """The README section(s) whose heading matches *pattern*, each running to the next heading of the same or
+    a higher level (its sub-sections included). A matching heading inside an already picked section is part
+    of it; a heading that ends in a question mark is a FAQ question, never a section."""
+    titles: list[str] = []
+    bodies: list[str] = []
+    picked_until = -1
+    for position, (line, level, title) in enumerate(headings):
+        if line < picked_until or level not in _MARKDOWN_LEVELS:
+            continue
+        if title.endswith("?") or pattern.search(title) is None:
+            continue
+        end = len(lines)
+        for next_line, next_level, _ in headings[position + 1 :]:
+            if next_level <= level:
+                end = next_line
+                break
+        body = "\n".join(lines[line + 1 : end]).strip("\n")
+        if not body.strip():
+            continue
+        titles.append(title)
+        bodies.append(body)
+        picked_until = end
+    if not bodies:
+        return None
+    return ReadmeSection(
+        title="; ".join(titles), text="\n\n".join(bodies), commit=commit, ordered=True, parts=len(bodies)
+    )
+
+
+def sections_from_markdown(text: str, *, commit: str | None = None) -> ReadmeSections:
+    """The installation, limitations, capabilities and formats sections of a README's markdown *text*, taken
+    from its headings. Pure. *commit* is the commit the README was fetched at (``Source-Commit`` of the
+    index chunks has no equivalent in a raw README)."""
+    lines = text.splitlines()
+    headings = _markdown_headings(lines)
+
+    def pick(name: str) -> ReadmeSection | None:
+        return _pick_markdown_section(lines, headings, _MARKDOWN_PATTERNS[name], commit)
+
+    return ReadmeSections(
+        limitations=pick("limitations"),
+        install=pick("install"),
+        capabilities=pick("capabilities"),
+        formats=pick("formats"),
+    )
+
+
+def merge_sections(primary: ReadmeSections | None, fallback: ReadmeSections | None) -> ReadmeSections | None:
+    """*primary* with each section it lacks taken from *fallback* (the index wins; the README fills the
+    rest). ``None`` only when both are ``None``."""
+    if fallback is None:
+        return primary
+    if primary is None:
+        return fallback
+    return ReadmeSections(
+        limitations=primary.limitations or fallback.limitations,
+        install=primary.install or fallback.install,
+        capabilities=primary.capabilities or fallback.capabilities,
+        formats=primary.formats or fallback.formats,
+        import_warning=primary.import_warning or fallback.import_warning,
+    )

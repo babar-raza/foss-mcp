@@ -7,6 +7,7 @@ line the builder appends). Offline and deterministic: no network, no wall clock,
 
 from __future__ import annotations
 
+from pathlib import Path
 from types import SimpleNamespace
 from typing import Any
 
@@ -20,8 +21,10 @@ from foss_mcp.mcp.tools.readme_sections import (
     LIMITATIONS_TITLE_PATTERN,
     ReadmeSection,
     ReadmeSections,
+    merge_sections,
     read_readme_sections,
     sections_from_documents,
+    sections_from_markdown,
 )
 
 COMMIT = "0123456789abcdef0123456789abcdef01234567"
@@ -292,3 +295,179 @@ def test_read_readme_sections_never_raises_for_a_scope_it_cannot_read() -> None:
 
 def test_read_readme_sections_is_a_real_function_of_the_module() -> None:
     assert readme_sections.read_readme_sections is read_readme_sections
+
+
+# --- G3/TC-561: the same sections from the repository README's markdown -------------------------------------------------
+
+README = """# Demo FOSS for C++
+
+Intro paragraph.
+
+## Key Capabilities
+
+- Reads .xlsx files.
+
+## Installation
+
+Build from source.
+
+```bash
+# not a heading: a comment inside a fence
+cmake -S . -B build
+```
+
+### Build
+
+Run cmake.
+
+### Install the package
+
+Use nuget.
+
+## Dependencies
+
+None.
+
+## What it cannot do
+
+No charts.
+
+### Save formats
+
+Only xlsx is written.
+
+## Supported formats
+
+| Format | Load |
+|---|---|
+| XLSX | yes |
+
+## How do I install the library?
+
+FAQ answer that must never be the installation section.
+"""
+
+
+def test_markdown_install_runs_to_the_next_heading_of_the_same_level_and_keeps_its_subsections() -> None:
+    install = sections_from_markdown(README, commit=COMMIT).install
+
+    assert install is not None
+    assert install.title == "Installation"
+    assert install.text.startswith("Build from source.")
+    assert "### Build" in install.text and "### Install the package" in install.text
+    assert "# not a heading: a comment inside a fence" in install.text
+    assert "None." not in install.text  # the Dependencies section is the next one
+    assert install.commit == COMMIT and install.ordered is True and install.parts == 1
+
+
+def test_a_faq_question_heading_is_never_the_installation_section() -> None:
+    install = sections_from_markdown(README).install
+
+    assert install is not None and "FAQ answer" not in install.text
+
+
+def test_markdown_limitations_and_formats_are_picked_by_their_headings() -> None:
+    sections = sections_from_markdown(README)
+
+    assert sections.limitations is not None and sections.limitations.title == "What it cannot do"
+    assert "No charts." in sections.limitations.text
+    assert sections.formats is not None and sections.formats.title == "Save formats; Supported formats"
+    assert "Only xlsx is written." in sections.formats.text and "| XLSX | yes |" in sections.formats.text
+    assert sections.capabilities is not None and sections.capabilities.text == "- Reads .xlsx files."
+
+
+@pytest.mark.parametrize(
+    ("heading", "member"),
+    [
+        ("Scope and Limitations", "limitations"),
+        ("What's not included (and where to get it)", "limitations"),
+        ("Known issues", "limitations"),
+        ("Getting started", "install"),
+        ("Install", "install"),
+        ("What it can do", "capabilities"),
+        ("Supported formats", "formats"),
+        ("Load formats", "formats"),
+        ("Format Readers", None),
+        ("Quick Start", None),
+    ],
+)
+def test_the_markdown_headings_that_select_each_section(heading: str, member: str | None) -> None:
+    sections = sections_from_markdown(f"## {heading}\n\nSome text.\n")
+
+    picked = [
+        name for name in ("limitations", "install", "capabilities", "formats") if getattr(sections, name)
+    ]
+    assert picked == ([member] if member else [])
+
+
+def test_a_heading_with_no_body_is_not_a_section() -> None:
+    assert sections_from_markdown("## Installation\n\n## Next\n\ntext\n").install is None
+
+
+def test_a_level_one_heading_is_the_document_title_not_a_section() -> None:
+    assert sections_from_markdown("# Installation\n\ntext\n").install is None
+
+
+def test_two_installation_headings_are_both_collected_in_order() -> None:
+    sections = sections_from_markdown(
+        "## Install\n\nfirst\n\n## Other\n\nx\n\n## Installation notes\n\nsecond\n"
+    )
+
+    assert sections.install is not None
+    assert sections.install.text == "first\n\nsecond" and sections.install.parts == 2
+
+
+def test_markdown_without_headings_yields_the_empty_result() -> None:
+    assert sections_from_markdown("just text\nand more\n") == ReadmeSections()
+    assert sections_from_markdown("") == ReadmeSections()
+
+
+def test_the_index_wins_and_the_readme_fills_what_the_index_lacks() -> None:
+    index = ReadmeSections(
+        limitations=ReadmeSection("L", "from the index", COMMIT, True, 1), import_warning="cannot be imported"
+    )
+    readme = sections_from_markdown(README)
+
+    merged = merge_sections(index, readme)
+
+    assert merged is not None
+    assert merged.limitations is index.limitations
+    assert merged.install is readme.install and merged.formats is readme.formats
+    assert merged.import_warning == "cannot be imported"
+
+
+def test_merging_with_nothing_returns_the_other_side() -> None:
+    sections = sections_from_markdown(README)
+
+    assert merge_sections(None, None) is None
+    assert merge_sections(sections, None) is sections
+    assert merge_sections(None, sections) is sections
+
+
+def test_the_import_warning_is_read_from_an_extraction_notice_chunk_only() -> None:
+    statement = (
+        "35 of 45 source files do not parse as written; the API was recovered by a textual repair of the lost "
+        "indentation; the library cannot be imported at this commit."
+    )
+    notice = _chunk(
+        "Extraction notice", f"{statement}\n11 of 45 source files could not be read.", commit=None
+    )
+    elsewhere = _chunk("Scope and Limitations", statement)
+
+    assert sections_from_documents(_documents(notice)).import_warning == statement
+    assert sections_from_documents(_documents(elsewhere)).import_warning is None
+    assert (
+        sections_from_documents(_documents(_chunk("Extraction notice", "Some other notice."))).import_warning
+        is None
+    )
+
+
+def test_the_slides_net_readme_gives_both_installation_routes() -> None:
+    root = Path(__file__).resolve().parents[3] / "tests" / "fixtures" / "round3_readmes" / "slides_net"
+    sections = sections_from_markdown((root / "README.md").read_text(encoding="utf-8"))
+
+    assert sections.install is not None
+    assert "### Build from source" in sections.install.text
+    assert "### Install the package CI built" in sections.install.text
+    assert sections.limitations is not None and sections.limitations.title == "What it cannot do"
+    assert sections.formats is not None and "Save formats" in sections.formats.title

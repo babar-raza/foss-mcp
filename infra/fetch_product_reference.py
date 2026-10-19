@@ -47,6 +47,12 @@ overwritten by a failure.
 G3/TC-560: a sidecar may also carry an optional ``drift`` object (the ancestry of ``source_ref`` against the
 latest release/tag commit), added to it by ``infra/fetch_recent_releases.py`` after this module wrote the pin.
 ``load_manifest_sidecar`` reads it into ``ProductReferenceInputs.drift``; a sidecar without it loads with None.
+
+G3/TC-561: ``build_sidecar`` also records the repository's README whole (``readme_document``, found in the root
+listing whatever its case), the repository path of the manifest (``manifest_path``: its directory is the CMake
+SOURCE_SUBDIR of a library that lives in a subdirectory) and, when the repository has no AGENTS.md, its CLAUDE.md
+as the agent guidance. ``infra/verify_product_reference_install.py`` later adds ``install_served_version``. A
+sidecar written before the card has none of these and loads with None for each.
 """
 
 from __future__ import annotations
@@ -84,6 +90,10 @@ FETCH_FAILED_STATUS = "fetch_failed"
 _LICENSE_NAMES = ("LICENSE", "LICENSE.md", "LICENSE.txt", "LICENCE", "COPYING")
 _LICENSE_DOCUMENT_PATH = "LICENSE"
 _BUILD_PROPS_NAME = "Directory.Build.props"
+# G3/TC-561: root file names the repository README is kept under (matched case-insensitively), and the
+# guidance file read when the repository has no AGENTS.md.
+_README_NAMES = ("README.md", "README.markdown", "README.rst", "README.txt", "README")
+_AGENT_GUIDANCE_FALLBACK = "CLAUDE.md"
 _DOTNET_PLATFORMS = ("net", "dotnet")
 
 
@@ -240,6 +250,11 @@ def load_manifest_sidecar(path: Path) -> ProductReferenceInputs | None:
         # G3/TC-560: written beside the pin by infra/fetch_recent_releases.py; absent (None) in every sidecar
         # baked before the card, and a malformed value reads as absent rather than failing the load.
         drift=DriftRecord.from_json(data.get("drift")),
+        # G3/TC-561: the repository's README, the manifest's repository path, and the version the registry
+        # serves (written by infra/verify_product_reference_install.py); each None in a sidecar baked before.
+        readme_document=_optional_document(data.get("readme_document")),
+        manifest_path=_optional_text(data.get("manifest_path")),
+        install_served_version=_optional_text(data.get("install_served_version")),
     )
 
 
@@ -270,6 +285,24 @@ def build_sidecar(
     agent_guidance = read_repo_document(
         repository, _resolve_entry(entries, agent_guidance_path, "file") or agent_guidance_path, ref=ref
     )
+    # G3/TC-561: a repository whose guidance file for coding agents is CLAUDE.md (pdf/go) is not one without
+    # guidance. AGENTS.md wins when both exist; the document keeps its real path so the answer can label it.
+    if isinstance(agent_guidance, DocumentNotPresent):
+        fallback_path = _resolve_entry(entries, _AGENT_GUIDANCE_FALLBACK, "file")
+        if fallback_path is not None:
+            fallback = read_repo_document(repository, fallback_path, ref=ref)
+            if isinstance(fallback, DocumentPresent):
+                agent_guidance = fallback
+
+    # G3/TC-561: the README is the authority for the install, formats and limitations prose the index (built
+    # from the furnished page) can lack; it is stored whole and read by get_product_reference.
+    readme_path = next(
+        (found for name in _README_NAMES if (found := _resolve_entry(entries, name, "file")) is not None),
+        None,
+    )
+    readme_document: DocumentResult | None = (
+        read_repo_document(repository, readme_path, ref=ref) if readme_path is not None else None
+    )
 
     license_path = _find_license_path(repository, entries, ref)
     license_document: DocumentResult = (
@@ -295,6 +328,8 @@ def build_sidecar(
         "source_ref": ref,
         "license_document": _serialize_document(license_document),
         "build_props_text": build_props_text,
+        "readme_document": _serialize_document(readme_document) if readme_document is not None else None,
+        "manifest_path": manifest_path,
     }
 
 

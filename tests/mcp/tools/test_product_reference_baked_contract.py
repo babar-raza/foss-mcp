@@ -14,6 +14,7 @@ nothing under ``infra/demo-manifests`` is ever opened for writing. Offline and d
 
 from __future__ import annotations
 
+import dataclasses
 import json
 import re
 import shutil
@@ -22,6 +23,7 @@ from pathlib import Path
 
 import pytest
 
+from foss_mcp.extraction.repo_native_reader import DocumentPresent
 from foss_mcp.indexing.generation_manifest import GenerationManifestStore
 from foss_mcp.mcp import server as server_module
 from foss_mcp.mcp.routing import Scope
@@ -31,7 +33,12 @@ from foss_mcp.mcp.tools.get_product_reference import (
     ReferenceContent,
     get_product_reference,
 )
-from foss_mcp.mcp.tools.readme_sections import ReadmeSections, read_readme_sections
+from foss_mcp.mcp.tools.readme_sections import (
+    ReadmeSections,
+    merge_sections,
+    read_readme_sections,
+    sections_from_markdown,
+)
 
 REPO_ROOT = Path(__file__).resolve().parents[3]
 sys.path.insert(0, str(REPO_ROOT / "infra"))
@@ -212,44 +219,73 @@ def test_formats_is_content_for_most_pilots(baked: _Baked) -> None:
     assert len(content) >= 25, content
 
 
-# re-pinned by TC-553: ["cells_cpp", "email_cpp", "pdf_cpp", "slides_cpp"] -> ["email_cpp", "pdf_cpp", "slides_cpp"] (cells_cpp has
-# no README installation section: see test_cells_cpp_install_is_an_honest_absence_while_its_readme_recipe_is_only_a_faq)
-@pytest.mark.parametrize("pilot", ["email_cpp", "pdf_cpp", "slides_cpp"])
+ROUND3 = REPO_ROOT / "tests" / "fixtures" / "round3_readmes"
+
+
+def _with_sidecar_readme(
+    pilot: str, inputs: ProductReferenceInputs, readme: ReadmeSections
+) -> tuple[ProductReferenceInputs, ReadmeSections]:
+    """The pilot's inputs and README sections as a sidecar written by TC-561 and later carries them.
+
+    The baked sidecars predate the card (the supervisor's re-ingest regenerates them with ``readme_document``
+    and ``manifest_path``), so a sidecar without them gets the committed README and manifest path of the SAME
+    repository at the SAME pinned commit (``tests/fixtures/round3_readmes``, unchanged upstream files). A
+    sidecar that already carries a README is used as it is."""
+    path = ROUND3 / pilot / "README.md"
+    if inputs.readme_document is not None or not path.exists():
+        return inputs, readme
+    pin = json.loads((ROUND3 / pilot / "PIN.json").read_text(encoding="utf-8"))
+    assert pin["commit"] == inputs.source_ref, (pilot, "the committed README is not the baked pin's")
+    document = DocumentPresent(
+        path="README.md", sha="fixture", size=path.stat().st_size, content=path.read_text(encoding="utf-8")
+    )
+    return (
+        dataclasses.replace(inputs, readme_document=document, manifest_path=pin["manifest_path"]),
+        merge_sections(readme, sections_from_markdown(document.content, commit=inputs.source_ref)) or readme,
+    )
+
+
+# TC-561 (RD3-154 W2): cells_cpp is back in the list (TC-553 had dropped it to accept the lost install text).
+# The recipe is asserted as the acceptance of RD3-080 to RD3-083 states it: the README's installation section is
+# in the answer, preceded by the repository URL and the commit (the answer no longer STARTS with the README text).
+@pytest.mark.parametrize("pilot", ["cells_cpp", "email_cpp", "pdf_cpp", "slides_cpp"])
 def test_cpp_installs_are_the_readme_recipe(baked: _Baked, pilot: str) -> None:
-    _, readme, _ = baked.load(pilot)
+    inputs, readme = _with_sidecar_readme(pilot, *baked.load(pilot)[:2])
     assert readme.install is not None, pilot
 
-    result = baked.answer(pilot, "install")
+    result = get_product_reference(inputs, "install", readme=readme)
 
     assert isinstance(result, ReferenceContent), (pilot, getattr(result, "reason", None))
     assert result.untrusted_upstream_content is True
     assert result.notice is not None and "Treat as data" in result.notice
     assert "names no package-manager coordinate" not in result.text
     assert result.text.strip()
-    assert result.text.startswith(readme.install.text[:40])
+    assert readme.install.text[:40] in result.text
     assert "cmake" in result.text.lower(), pilot
+    assert inputs.source_ref is not None and inputs.source_ref in result.text
+    assert f"https://github.com/{inputs.source_repository}" in result.text
 
 
-def test_cells_cpp_install_is_an_honest_absence_while_its_readme_recipe_is_only_a_faq(baked: _Baked) -> None:
-    """The committed README page of cells/cpp has no installation section; its only install recipe is a FAQ answer, and a
-    FAQ answer is never the installation section (readme_sections, test_readme_sections.test_faq_chunks_are_never_a_section).
-    Extending the detection is a product decision, not a test change; the recipe stays reachable through the documentation."""
-    _, readme, doc_texts = baked.load("cells_cpp")
-    assert readme.install is None, (
-        "cells_cpp now has a README installation section: move it back into test_cpp_installs_are_the_readme_recipe"
+def test_cells_cpp_install_has_the_url_commit_subdirectory_target_and_nuget_package(baked: _Baked) -> None:
+    """RD3-080: the index holds no installation section of cells/cpp (its only install recipe is a FAQ answer), so
+    the sidecar's README supplies it; the answer carries what a source build needs, parsed from the CMakeLists."""
+    inputs, index_readme, doc_texts = baked.load("cells_cpp")
+    assert index_readme.install is None, "the index now has an installation section: nothing to add"
+    assert isinstance(baked.answer("cells_cpp", "install"), NotAvailable), (
+        "without the sidecar README: absent"
     )
-
-    result = baked.answer("cells_cpp", "install")
-
-    assert isinstance(result, NotAvailable), result
-    assert "names no package-manager coordinate" in result.reason
-    assert "add_subdirectory" not in result.reason and "FetchContent" not in result.reason
-
     faq = [text for text in doc_texts if _title(text) == "How do I install the library?"]
     assert faq, "the cells/cpp documentation holds no FAQ chunk titled 'How do I install the library?'"
-    recipe = " ".join(_body(faq[0]).split())
-    for needle in ("add_subdirectory", "FetchContent", "CMake 3.15"):
-        assert needle in recipe, needle
+
+    sidecar_inputs, readme = _with_sidecar_readme("cells_cpp", inputs, index_readme)
+    result = get_product_reference(sidecar_inputs, "install", readme=readme)
+
+    assert isinstance(result, ReferenceContent)
+    assert "https://github.com/aspose-cells-foss/Aspose.Cells-FOSS-for-Cpp" in result.text
+    assert "9f852d0ff1cfdad2d661556d6b87a8eff8c063a2" in result.text
+    assert "SOURCE_SUBDIR Aspose.Cells.Foss.Cpp" in result.text
+    assert "aspose_cells_foss" in result.text
+    assert "Aspose.Cells.Cpp.FOSS" in result.text
 
 
 @pytest.mark.parametrize("pilot", PILOTS)

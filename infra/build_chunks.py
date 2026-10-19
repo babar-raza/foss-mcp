@@ -56,13 +56,14 @@ for any pilot, since this project's own inception.
 from __future__ import annotations
 
 import argparse
+import copy
 import dataclasses
 import json
 import re
 import subprocess
 import sys
 import tempfile
-from collections.abc import Iterable
+from collections.abc import Iterable, Mapping
 from pathlib import Path
 from typing import Any
 
@@ -1169,6 +1170,79 @@ def _build_doc_chunks(page: dict, args: argparse.Namespace) -> list[Chunk]:
     return doc_chunks
 
 
+_DEPRECATION_LINK_RE = re.compile(r"\{@link(?:plain)?\s+#?([\w.]+(?:#\w+)?(?:\([^)]*\))?)[^}]*\}")
+_DEPRECATION_USE_RE = re.compile(
+    r"\b(?:use|see|replaced by|replace with|prefer)\s+`?([A-Za-z_][\w.]*(?:\([^)]*\))?)`?", re.IGNORECASE
+)
+
+
+def _deprecation_replacement(doc: object) -> str:
+    """TC-561: the name a deprecated member's doc comment points at (``{@link #getInfo()}``, "Use Bar
+    instead"), or ``""`` when it names none."""
+    if not isinstance(doc, str):
+        return ""
+    for pattern in (_DEPRECATION_LINK_RE, _DEPRECATION_USE_RE):
+        match = pattern.search(doc)
+        if match is not None:
+            return match.group(1)
+    return ""
+
+
+def name_deprecation_replacements(fixture: dict) -> dict:
+    """TC-561 (RD3-091): a deprecated member whose recorded reason is empty gets ``use <name>`` when its doc
+    comment names the replacement (pdf/java ``Document.getOrCreateInfo`` is documented "Deprecated alias for
+    {@link #getInfo()}"), so the chunk says what to call instead of only "(deprecated)". Reasons the extractor
+    already recorded are never touched. Returns *fixture* itself when nothing changes, else a copy."""
+    changed = False
+    result = copy.deepcopy(fixture)
+    for entry in result.get("types") or []:
+        if not isinstance(entry, dict):
+            continue
+        for member in [entry, *(entry.get("methods") or []), *(entry.get("properties") or [])]:
+            if not isinstance(member, dict) or member.get("deprecated") is not True:
+                continue
+            if member.get("deprecated_reason"):
+                continue
+            replacement = _deprecation_replacement(member.get("doc"))
+            if replacement:
+                member["deprecated_reason"] = f"use {replacement}"
+                changed = True
+    return result if changed else fixture
+
+
+def _as_written_failures(fixture: Mapping[str, Any]) -> int:
+    """TC-561: the number of source files that do not parse as written (before the indentation repair),
+    from the fixture's ``parse_failures.as_written_failed``; 0 when it is absent, malformed or zero."""
+    failures = fixture.get("parse_failures")
+    if not isinstance(failures, Mapping):
+        return 0
+    count, total = failures.get("as_written_failed"), failures.get("total")
+    if not isinstance(count, int) or isinstance(count, bool) or count <= 0:
+        return 0
+    if not isinstance(total, int) or isinstance(total, bool) or total <= 0:
+        return 0
+    return count
+
+
+def as_written_import_statement(as_written: int, total: int) -> str:
+    """TC-561: the plain statement that a Python library cannot be imported at the indexed commit, with the
+    real count of files that do not parse as written. One sentence group, no backtick, no blank line."""
+    return (
+        f"{as_written} of {total} source files do not parse as written; the API was recovered by a "
+        "textual repair of the lost indentation; the library cannot be imported at this commit."
+    )
+
+
+def _coverage_fixture(fixture: dict) -> dict:
+    """TC-561: the fixture the symbol chunks' coverage line is computed from. When files do not parse as
+    written, the line counts those (35 of 45 for tex/python), not only the files the repair could not read
+    (11 of 45); every other fixture is passed through unchanged."""
+    as_written = _as_written_failures(fixture)
+    if not as_written:
+        return fixture
+    return {**fixture, "parse_failures": {**fixture["parse_failures"], "failed": as_written}}
+
+
 def _extraction_notice_chunks(fixture: dict) -> list[Chunk]:
     """TC-426 (REQ-G3-005): one explicit, searchable notice when the extractor could not read the source.
 
@@ -1189,7 +1263,8 @@ def _extraction_notice_chunks(fixture: dict) -> list[Chunk]:
     repaired = sorted({entry for entry in unresolved if ":repaired-syntax:" in entry})
     parse_failures: dict[str, Any] = fixture.get("parse_failures") or {}
     over_threshold = parse_failures_over_threshold(parse_failures)
-    if not syntax_errors and not repaired and not over_threshold:
+    as_written = _as_written_failures(fixture)
+    if not syntax_errors and not repaired and not over_threshold and not as_written:
         return []
     files: list[str] = []
     for entry in syntax_errors:
@@ -1213,13 +1288,25 @@ def _extraction_notice_chunks(fixture: dict) -> list[Chunk]:
     )
     repository, commit = fixture["source_repository"], fixture["source_commit"]
     lines: list[str] = []
+    if as_written:
+        # TC-561: the files Python itself rejects, before any repair. The recovered API is real, but the
+        # package cannot be imported, so the notice must not read as "a few files were skipped".
+        lines.append(as_written_import_statement(as_written, parse_failures["total"]))
     if over_threshold:
         # No backtick and no blank line, so the chunker keeps the notice as ONE chunk.
         examples = [
             " ".join(str(item).replace("`", "'").split())
             for item in (parse_failures.get("examples") or [])[:5]
         ]
-        headline = f"{parse_failures['failed']} of {parse_failures['total']} source files could not be parsed"
+        if as_written:
+            headline = (
+                f"{parse_failures['failed']} of {parse_failures['total']} source files could not be read "
+                "even after the repair"
+            )
+        else:
+            headline = (
+                f"{parse_failures['failed']} of {parse_failures['total']} source files could not be parsed"
+            )
         lines.append(f"{headline} (examples: {', '.join(examples)})." if examples else f"{headline}.")
     if syntax_errors or over_threshold:
         lines.append(f"The source at {repository}@{commit} could not be fully read by the extractor.")
@@ -1390,7 +1477,9 @@ def main() -> None:
                 parser.error(f"--library-platform {args.library_platform} requires {flag_name}")
 
     fixture = json.loads(args.api_surface.read_text(encoding="utf-8"))
-    chunks = build_chunks_from_api_surface(fixture, title=args.title, max_types=args.max_types)
+    chunks = build_chunks_from_api_surface(
+        _coverage_fixture(name_deprecation_replacements(fixture)), title=args.title, max_types=args.max_types
+    )
     chunks = chunks + _extraction_notice_chunks(fixture)
 
     verification_records: list[dict] = []

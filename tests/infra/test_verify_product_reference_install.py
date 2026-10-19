@@ -62,6 +62,16 @@ def _write_manifest_sidecar(manifests_dir: Path, family: str, platform: str, *, 
     return path
 
 
+@pytest.fixture(autouse=True)
+def _no_live_served_version(monkeypatch: pytest.MonkeyPatch) -> None:
+    """TC-561: the CLI also asks the registry which version it serves; this file is offline (see the module
+    docstring), so that lookup answers "cannot say" unless a test installs its own."""
+    monkeypatch.setattr(verify_package_registry, "served_version_or_none", lambda ecosystem, coordinate: None)
+    monkeypatch.setattr(
+        verify_product_reference_install, "served_version_or_none", lambda ecosystem, coordinate: None
+    )
+
+
 def _set_argv(monkeypatch, manifests_dir: Path, *, family: str = "email", platform: str = "python") -> None:
     argv = [
         "verify_product_reference_install.py",
@@ -244,3 +254,108 @@ def test_main_lets_a_checker_transport_failure_propagate_without_writing_a_sidec
         verify_product_reference_install.main()
 
     assert not _registry_output_path(tmp_path, "email", "python").exists()
+
+
+# --- G3/TC-561: the version the registry serves reaches the sidecar serving reads --------------------------------
+
+
+def _manifest_sidecar_json(tmp_path: Path, family: str = "email", platform: str = "python") -> dict:
+    path = tmp_path / fetch_product_reference.sidecar_name(family, platform)
+    return json.loads(path.read_text(encoding="utf-8"))
+
+
+def test_main_records_the_served_version_in_both_sidecars(tmp_path: Path, monkeypatch) -> None:
+    _write_manifest_sidecar(tmp_path, "email", "python", manifest_text=PYPROJECT_TEXT)
+    monkeypatch.setitem(verify_package_registry._CHECKERS, "pypi", lambda coordinate: True)
+    monkeypatch.setattr(verify_product_reference_install, "served_version_or_none", lambda e, c: "26.7.0")
+    _set_argv(monkeypatch, tmp_path)
+
+    verify_product_reference_install.main()
+
+    registry = json.loads(_registry_output_path(tmp_path, "email", "python").read_text(encoding="utf-8"))
+    assert registry["served_version"] == "26.7.0"
+    assert _manifest_sidecar_json(tmp_path)["install_served_version"] == "26.7.0"
+    loaded = fetch_product_reference.load_manifest_sidecar(
+        tmp_path / fetch_product_reference.sidecar_name("email", "python")
+    )
+    assert loaded is not None and loaded.install_served_version == "26.7.0"
+
+
+def test_main_asks_for_no_version_when_the_coordinate_is_absent_and_leaves_the_product_sidecar_alone(
+    tmp_path: Path, monkeypatch
+) -> None:
+    _write_manifest_sidecar(tmp_path, "email", "python", manifest_text=PYPROJECT_TEXT)
+    before = _manifest_sidecar_json(tmp_path)
+    asked: list[str] = []
+    monkeypatch.setitem(verify_package_registry._CHECKERS, "pypi", lambda coordinate: False)
+    monkeypatch.setattr(
+        verify_product_reference_install, "served_version_or_none", lambda e, c: asked.append(c) or "1.0"
+    )
+    _set_argv(monkeypatch, tmp_path)
+
+    verify_product_reference_install.main()
+
+    assert asked == []
+    assert _manifest_sidecar_json(tmp_path) == before
+
+
+def test_a_registry_that_cannot_say_removes_a_stale_served_version(tmp_path: Path, monkeypatch) -> None:
+    path = _write_manifest_sidecar(tmp_path, "email", "python", manifest_text=PYPROJECT_TEXT)
+    stale = json.loads(path.read_text(encoding="utf-8"))
+    stale["install_served_version"] = "1.0.0"
+    path.write_text(json.dumps(stale), encoding="utf-8")
+    monkeypatch.setitem(verify_package_registry._CHECKERS, "pypi", lambda coordinate: True)
+    _set_argv(monkeypatch, tmp_path)  # the autouse stub answers "cannot say"
+
+    verify_product_reference_install.main()
+
+    assert "install_served_version" not in _manifest_sidecar_json(tmp_path)
+
+
+def test_a_fresh_registry_sidecar_restores_the_version_a_refetched_product_sidecar_lost(
+    tmp_path: Path, monkeypatch, capsys
+) -> None:
+    _write_manifest_sidecar(tmp_path, "email", "python", manifest_text=PYPROJECT_TEXT)
+    registry = _registry_output_path(tmp_path, "email", "python")
+    registry.write_text(
+        json.dumps(
+            {
+                "ecosystem": "pypi",
+                "coordinate": "aspose-email-foss",
+                "verified": True,
+                "checked_at": "2026-10-19T00:00:00+00:00",
+                "served_version": "26.7.0",
+            }
+        ),
+        encoding="utf-8",
+    )
+    _set_argv(monkeypatch, tmp_path)
+
+    verify_product_reference_install.main()
+
+    assert "skipped verification" in capsys.readouterr().out
+    assert _manifest_sidecar_json(tmp_path)["install_served_version"] == "26.7.0"
+
+
+def test_a_fresh_registry_sidecar_for_another_coordinate_restores_nothing(
+    tmp_path: Path, monkeypatch
+) -> None:
+    _write_manifest_sidecar(tmp_path, "email", "python", manifest_text=PYPROJECT_TEXT)
+    registry = _registry_output_path(tmp_path, "email", "python")
+    registry.write_text(
+        json.dumps(
+            {
+                "ecosystem": "pypi",
+                "coordinate": "some-other-package",
+                "verified": True,
+                "checked_at": "2026-10-19T00:00:00+00:00",
+                "served_version": "3.0.0",
+            }
+        ),
+        encoding="utf-8",
+    )
+    _set_argv(monkeypatch, tmp_path)
+
+    verify_product_reference_install.main()
+
+    assert "install_served_version" not in _manifest_sidecar_json(tmp_path)
