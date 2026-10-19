@@ -180,9 +180,11 @@ RECALL_FLOOR = {
     "pdf_cpp": 0.90,
     # TC-534: 0.89 -> 0.78 (measured 0.786): the README names 23 classes of the Internal namespace (OpcPackage,
     # PptxExporter, the *Part classes, ...), which are implementation and are no longer served
+    # (the README identifiers that no longer resolve are the implementation types now listed in the allowlist)
     "slides_cpp": 0.78,
     # TC-534: 0.87 -> 0.83 (measured 0.833): the README names ParsedNumericFormat, a struct defined only in
     # DisplayTextFormatter.cpp, which is implementation and is no longer served
+    # (the README identifier that no longer resolves is the implementation type now listed in the allowlist)
     "cells_cpp": 0.83,
     "words_python": 0.90,
 }

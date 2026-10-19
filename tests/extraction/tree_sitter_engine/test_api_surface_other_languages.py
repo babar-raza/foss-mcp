@@ -168,7 +168,9 @@ def test_cpp_free_function_at_namespace_scope_is_extracted_as_function(tmp_path:
 def test_cpp_class_with_single_public_base_has_base_in_bases_list(tmp_path: Path) -> None:
     package = tmp_path / "src"
     package.mkdir()
-    (package / "widget.cpp").write_text(CPP, encoding="utf-8")
+    # TC-534: widget.cpp -> widget.h: a class declared only in a .cpp file is implementation, not API, and is no
+    # longer served; the shapes under test (base lists) are unchanged
+    (package / "widget.h").write_text(CPP, encoding="utf-8")
     types, *_ = api_surface.extract_api_surface(get_parser("cpp"), "cpp", package, tmp_path, "widget")
     by_name = {t["name"]: t for t in types}
 
@@ -178,7 +180,9 @@ def test_cpp_class_with_single_public_base_has_base_in_bases_list(tmp_path: Path
 def test_cpp_class_with_multiple_bases_and_mixed_access_specifiers_has_all_bases(tmp_path: Path) -> None:
     package = tmp_path / "src"
     package.mkdir()
-    (package / "widget.cpp").write_text(CPP, encoding="utf-8")
+    # TC-534: widget.cpp -> widget.h: a class declared only in a .cpp file is implementation, not API, and is no
+    # longer served; the shapes under test (base lists) are unchanged
+    (package / "widget.h").write_text(CPP, encoding="utf-8")
     types, *_ = api_surface.extract_api_surface(get_parser("cpp"), "cpp", package, tmp_path, "widget")
     by_name = {t["name"]: t for t in types}
 
