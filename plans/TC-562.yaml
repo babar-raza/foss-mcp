@@ -10,9 +10,8 @@ purpose: >-
   no Unicode folding, the `find_examples` miss text 'semantic fallback skipped: error' on 32 of 32 pilots in the by-design lexical-only mode, `search_docs` requiring content_type while lookup does not,
   alias duplicates in the top 10. FIX (all in the relevance layer, no embeddings): stop words and a larger synonym map applied to the query, light verb/plural normalisation in search_symbols, a partial-match
   fallback that returns the best partial hits clearly labelled as partial, a relevance floor for table chunks, a minimum-evidence rule for single-letter and punctuation-only queries, honest `vector_fallback:
-  not_configured` wording, content_type optional in search_docs (all categories), a visible `omitted` count and a way to request the next page, NFKC folding of queries. REGISTERED AS A DRAFT on 2026-10-17
-  from docs/ROUND3_REVIEW.md: before dispatch the supervisor re-reads this card against the merged code, calibrates min_tests (it applies to EACH check), replaces the placeholder negative control with a
-  real falsifier that has no backslash, and verifies every file named in write_paths (Supervisor rule 5). Nothing here has been executed.
+  not_configured` wording, content_type optional in search_docs (all categories), a visible `omitted` count and a way to request the next page, NFKC folding of queries. FINALISED for dispatch on 2026-10-19
+  by the supervisor (min_tests calibrated per check, negative control authored, write_paths checked).
 depends_on:
 - TC-550
 - TC-553
@@ -30,6 +29,22 @@ write_paths:
 - src/foss_mcp/mcp/server.py
 - tests/mcp/tools/test_round3_retrieval.py
 - tests/mcp/tools/test_round3_retrieval_corpus.py
+- tests/fixtures/retrieval_corpus/*.json
+- tests/mcp/tools/test_relevance_floor.py
+- tests/mcp/tools/test_relevance_idf_synonyms.py
+- tests/mcp/tools/test_relevance_query_terms.py
+- tests/mcp/tools/test_lookup_forgiveness.py
+- tests/mcp/tools/test_lookup_miss_reason.py
+- tests/mcp/tools/test_nonsense_queries_miss.py
+- tests/mcp/tools/test_search_symbols_forgiveness.py
+- tests/mcp/tools/test_forgiveness_acceptance.py
+- tests/mcp/tools/test_search_symbols_memberless_last.py
+- tests/mcp/tools/test_retrieval_tools.py
+- tests/mcp/tools/test_find_examples_title_anchor.py
+- tests/mcp/tools/test_example_search_mode.py
+- tests/mcp/tools/test_search_docs_language_letter.py
+- tests/mcp/tools/test_miss_coverage_note.py
+- tests/mcp/tools/test_symbol_tools.py
 satisfies:
 - REQ-G3-009
 - REQ-G3-008
@@ -55,12 +70,30 @@ inputs:
   started` hits on every pilot that has a getting_started document, `Do` finds Operators.Do on pdf/net and pdf/java, `a.b.c::d` is an honest miss, full-width `Workbook` hits, no exact-name or camel-split
   query regresses (hit@1 stays 1.00 on the R8 exact-name set), typo queries still give did-you-mean. INDEPENDENT ORACLE: the intended-API column of the corpus is written from the upstream sources (not from
   MCP output) and is reviewed in the card report.
+- >-
+  FINALISATION NOTES (supervisor, 2026-10-19). (1) Mandated names in src/foss_mcp/mcp/tools/relevance.py: the exact line `STOP_WORDS_ENABLED = True` (a real switch: when False the query is tokenised exactly
+  as before this card), a module constant `STOP_WORDS: frozenset[str]` (function words only; never a word that is a product or API noun such as 'page', 'document', 'table', 'image', 'save', 'open'), and
+  a synonym map extension `USER_TERM_SYNONYMS` (user words to API words: change/set/edit -> put/set/value; merge -> merge/concat/append; link -> hyperlink; bold -> font; colour -> color; remove/delete ->
+  remove/delete; text -> text/string). (2) Measure the BASELINE FIRST: write the corpus runner, run it on the committed data before any change and record the baseline hit@1, hit@3, hit@10, MRR and non-empty-wrong
+  rate per family in the report; the ratchet is hit@3 >= max(0.75, baseline + 0.15) overall and >= baseline + 0.10 in every family, and non-empty-wrong <= 2 percent. The seeds are the round-3 investigator's
+  444 tasks: tasks are in C:\Users\babar\foss-mcp-review-backup\audit-r3\R8\tasks.py and the README-derived expected answers in oracle.json (read-only, outside the repository; they are SEEDS: verify each
+  intended API against the upstream source or the pilot's own README before you commit it to tests/fixtures/retrieval_corpus/<family>.json; drop a task whose intended answer does not exist in the index,
+  because an honest miss is then the right answer). (3) The corpus test reads the real baked manifests under infra/demo-manifests (no network, no container) and calls the tools in-process. (4) The marker
+  contract with TC-559: search_symbols results carry the phrase `not implemented in this build` from the chunk text when the chunk has it (test with a synthetic chunk; the real data gets it from TC-559),
+  and lookup returns the pilot's limitation documentation first when the query names a capability that documentation lists as unsupported (test with the real slides/java, slides/net, slides/cpp, words/net
+  scope documents: 'save presentation as PDF', 'export to PDF', 'render a scene' on 3d/net). (5) EXISTING TESTS (349 in the first check's relevance files) must stay green; change only an expectation that
+  the new normalisation legitimately moves, with the comment `TC-562: <old> -> <new>` and the reason in the report; tests/mcp/tools/test_nonsense_queries_miss.py (132) guards the honest-miss invariant:
+  it must still pass unchanged (the gibberish rule of this card tightens, never loosens). (6) min_tests is 360 for EACH check: the first check collects 349 existing + at least 20 new = 369 or more; the
+  second check (tests/mcp, filtered) collects 2,500 or more. (7) Do not touch src/foss_mcp/mcp/server.py beyond the tool schema text for search_docs (content_type optional) and the pagination argument;
+  TC-563 (accepted before you start) owns the excerpt code in response_budget.py and search_docs.py's excerpt argument: build on it.
 actions:
 - >-
   Improve query normalisation, synonyms, partial matches, floors, pagination marker and wording in the relevance layer; add the retrieval corpus test.
 checks:
 - command: >-
-    {python} -m pytest tests/mcp/tools/test_round3_retrieval.py tests/mcp/tools/test_round3_retrieval_corpus.py -q -rfE -p no:cacheprovider
+    {python} -m pytest tests/mcp/tools/test_round3_retrieval.py tests/mcp/tools/test_round3_retrieval_corpus.py tests/mcp/tools/test_relevance_floor.py tests/mcp/tools/test_relevance_idf_synonyms.py tests/mcp/tools/test_relevance_query_terms.py
+    tests/mcp/tools/test_lookup_forgiveness.py tests/mcp/tools/test_lookup_miss_reason.py tests/mcp/tools/test_nonsense_queries_miss.py tests/mcp/tools/test_search_symbols_forgiveness.py tests/mcp/tools/test_forgiveness_acceptance.py
+    tests/mcp/tools/test_search_symbols_memberless_last.py -q -rfE -p no:cacheprovider
   expect: exit 0
   timeout_seconds: 1800
   junitxml: true
@@ -75,16 +108,16 @@ checks:
   proves:
   - REQ-G3-009
   - REQ-G3-008
-min_tests: 8
+min_tests: 360
 network: true
 requires:
 - python
 negative_control:
   mutate: |
-    python -X utf8 -c "print('negative control to be authored before dispatch')"
+    python -X utf8 -c "import pathlib;p=pathlib.Path('src/foss_mcp/mcp/tools/relevance.py');s=p.read_text(encoding='utf-8');old='STOP_WORDS_ENABLED = True';assert s.count(old)==1;p.write_text(s.replace(old,'STOP_WORDS_ENABLED = False'),encoding='utf-8')"
   rationale: >-
-    PLACEHOLDER written at registration. The supervisor replaces it, before dispatch, with a falsifier that breaks the card's central claim in the code the worker writes (a mandated constant or function
-    name) so that a named new test fails.
+    Turns off the mandated stop-word switch of the relevance layer, so function words (together, from, my, a, how) count as query terms again: the committed retrieval corpus tests (merge cells together,
+    create a chart from my data, add a hyperlink) fall back to honest misses and the hit-rate ratchet fails at once. A real break of the card's claim that ordinary phrasing reaches the right API.
 evidence:
 - evidence/build/G3/TC-562/receipt.json
 closeout:
