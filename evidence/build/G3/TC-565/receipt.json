@@ -1,0 +1,121 @@
+{
+  "schema_version": 1,
+  "card": "TC-565",
+  "gate": "G3",
+  "generated_by": "gatectl",
+  "generated_at": "2026-10-19T15:46:56Z",
+  "base_rev": "99e74090a484f2cbb4e0276519c5eda5f59559d1",
+  "head_rev": "4475af18ed09b872455fdf7b434992f4b01eeed0",
+  "card_sha256": "c1c9becbc893928f2e7cd895373725e2ab5eab29de479936289586308679d001",
+  "fingerprint": {
+    "python": "3.13.2",
+    "platform": "Windows-11-10.0.26200-SP0",
+    "lock_sha256": "7b182948484d7df9614b523f7a8180f795b6c51d55c418728525c1957f3e38ba",
+    "env": {
+      "PYTHONHASHSEED": "0",
+      "PYTHONUTF8": "1",
+      "PYTHONDONTWRITEBYTECODE": "1",
+      "PYTHONIOENCODING": "utf-8",
+      "TZ": "UTC",
+      "LC_ALL": "C.UTF-8",
+      "SOURCE_DATE_EPOCH": "1700000000",
+      "verify_runner": "host"
+    }
+  },
+  "scope": {
+    "ok": true,
+    "changed_paths": [
+      "infra/build_chunks.py",
+      "src/foss_mcp/indexing/authored_examples.py",
+      "src/foss_mcp/indexing/example_verifier.py",
+      "src/foss_mcp/mcp/tools/find_examples.py",
+      "tests/deploy/test_verified_examples_coverage.py",
+      "tests/fixtures/verified_examples/3d_java.json",
+      "tests/fixtures/verified_examples/3d_net.json",
+      "tests/fixtures/verified_examples/pdf_cpp.json",
+      "tests/indexing/test_authored_examples.py",
+      "tests/indexing/test_round3_example_runtime_truth.py",
+      "tests/infra/test_build_chunks_verification_cache.py",
+      "tests/mcp/tools/test_round3_example_labels.py"
+    ],
+    "violations": [],
+    "evaluated": true
+  },
+  "runs": [
+    {
+      "run": 1,
+      "checks": [
+        {
+          "command": "{python} -m pytest tests/indexing/test_round3_example_runtime_truth.py tests/mcp/tools/test_round3_example_labels.py -q -rfE -p no:cacheprovider",
+          "exit_code": 0,
+          "duration_s": 5.891,
+          "stdout_sha256": "0fad0a991838d695f5b48bbf12bcd6b46118e3a0347be88208246da3c20abc37",
+          "tests": 77,
+          "skipped": 0,
+          "errors": 0,
+          "failures": 0
+        },
+        {
+          "command": "{python} -m pytest tests/indexing tests/mcp/tools tests/deploy/test_verified_examples_coverage.py -q -rfE -p no:cacheprovider -k \"not live and not github_http and not repo_native and not test_prepare_rust_library and not test_rust_known\"",
+          "exit_code": 0,
+          "duration_s": 388.166,
+          "stdout_sha256": "8a511c0cea963f076f95830e800af000bd4a60c6138b5499ffa46d2fb1b07847",
+          "tests": 3973,
+          "skipped": 0,
+          "errors": 0,
+          "failures": 0
+        }
+      ],
+      "all_passed": true
+    },
+    {
+      "run": 2,
+      "checks": [
+        {
+          "command": "{python} -m pytest tests/indexing/test_round3_example_runtime_truth.py tests/mcp/tools/test_round3_example_labels.py -q -rfE -p no:cacheprovider",
+          "exit_code": 0,
+          "duration_s": 4.665,
+          "stdout_sha256": "0fad0a991838d695f5b48bbf12bcd6b46118e3a0347be88208246da3c20abc37",
+          "tests": 77,
+          "skipped": 0,
+          "errors": 0,
+          "failures": 0
+        },
+        {
+          "command": "{python} -m pytest tests/indexing tests/mcp/tools tests/deploy/test_verified_examples_coverage.py -q -rfE -p no:cacheprovider -k \"not live and not github_http and not repo_native and not test_prepare_rust_library and not test_rust_known\"",
+          "exit_code": 0,
+          "duration_s": 398.948,
+          "stdout_sha256": "8a511c0cea963f076f95830e800af000bd4a60c6138b5499ffa46d2fb1b07847",
+          "tests": 3973,
+          "skipped": 0,
+          "errors": 0,
+          "failures": 0
+        }
+      ],
+      "all_passed": true
+    }
+  ],
+  "negative_control": {
+    "kind": "mutate",
+    "patch": "python -X utf8 -c \"import pathlib;p=pathlib.Path('src/foss_mcp/indexing/example_verifier.py');s=p.read_text(encoding='utf-8');old='RUNTIME_RUN_REQUIRED_FOR_VERIFIED = True';assert s.count(old)==1;p.write_text(s.replace(old,'RUNTIME_RUN_REQUIRED_FOR_VERIFIED = False'),encoding='utf-8')\"\n",
+    "patch_sha256": "c854261243aa9168987cc58cbda5caf1371e8e2c076e9f5aa7ebecd78d1f30dd",
+    "applied": true,
+    "patch_applied_failed": true,
+    "exit_codes": [
+      1,
+      1
+    ],
+    "tree_changed": [
+      "M src/foss_mcp/indexing/example_verifier.py",
+      "?? .junit-0.xml",
+      "?? .junit-1.xml"
+    ]
+  },
+  "holdout": {
+    "ran": false,
+    "passed": true,
+    "detail": "no holdout for this card"
+  },
+  "accepted": true,
+  "reason": "all gates passed"
+}
