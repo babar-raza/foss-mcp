@@ -126,6 +126,15 @@ write_paths:
 - tests/indexing/test_publisher.py
 - tests/infra/test_ingest_symbol_survival.py
 - tests/infra/test_build_chunks_candidate_chains.py
+- tests/extraction/test_reextracted_uncapped.py
+- tests/extraction/test_run_extraction_coverage_policy.py
+- tests/deploy/test_served_coverage_matches_fixtures.py
+- tests/deploy/test_served_provenance.py
+- tests/mcp/tools/test_freshness_provenance.py
+- README.md
+- infra/helm/foss-mcp/values.yaml
+- docker-compose.yml
+- src/foss_mcp/extraction/run_extraction.py
 satisfies:
 - REQ-G3-008
 - REQ-G3-005
@@ -182,6 +191,16 @@ inputs:
 - >-
   TEST COUNTS: min_tests is 395 for EACH check. At the issue revision the first check collects 374 existing tests (the nine existing files it names, with the two real-Rust tests deselected) plus the at
   least 21 you add in the three new files; the second check collects well over 2,500.
+- >-
+  PRE-EMPTED OUT-OF-SCOPE PINS (supervisor, 2026-10-19, learned from TC-533, whose worker met eight failures outside its write_paths). A regeneration of your fixtures may legitimately move facts pinned
+  by these files, now in your write_paths: tests/extraction/test_reextracted_uncapped.py (chart cap equality, SIZE_FLOOR_BYTES and MEMBER_FLOOR per pilot: re-measure only the pilots of this card, floor
+  = measured value rounded down to a round number, comment <card>: <old> -> <new> with the reason), tests/extraction/test_run_extraction_coverage_policy.py, tests/deploy/test_served_coverage_matches_fixtures.py
+  (MIN_FUNCTION_ENTRIES and similar non-vacuity floors: set just below the new measured total, still well above zero), tests/deploy/test_served_provenance.py and tests/mcp/tools/test_freshness_provenance.py
+  (these compare the BAKED generation with the fixture; the baked data stays stale until the supervisor re-ingests, so for a pilot listed in STALE_BAKED_PILOTS of tests/deploy/test_fleet_consistency.py
+  do not assert the fixture-dependent comparison, but keep everything that does not depend on the fixture; never skip, delete or xfail), README.md (only the per-pilot type/function figures that tests/deploy/test_readme_matches_release.py
+  compares), and infra/helm/foss-mcp/values.yaml, docker-compose.yml and src/foss_mcp/extraction/run_extraction.py RECOMMENDED_MAX_TYPES ONLY if a measured total no longer equals the one cap number (single-line
+  replacements; chart, compose and extractor must carry the same number). Run the wider offline suites (tests/indexing, tests/infra, tests/deploy, tests/mcp and the top-level tests/test_*.py, usual -k filter)
+  before you report: ALL must be green, and report each file of this paragraph that you changed with its reason.
 actions:
 - >-
   Fix the Go and Rust extractor and renderer for the seven round-3 defect classes and add the synthetic-source and renderer tests.
