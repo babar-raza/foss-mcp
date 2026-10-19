@@ -788,7 +788,9 @@ def _ts_bases(cnode) -> list[str]:
     clauses: list[Any] = []
     for child in cnode.children:
         if child.type == "class_heritage":
-            clauses.extend(sub for sub in child.children if sub.type in ("extends_clause", "implements_clause"))
+            clauses.extend(
+                sub for sub in child.children if sub.type in ("extends_clause", "implements_clause")
+            )
         elif child.type in ("extends_clause", "implements_clause", "extends_type_clause"):
             clauses.append(child)
     bases: list[str] = []
@@ -5109,7 +5111,9 @@ def extract_api_surface(
                         # TC-523: an interface / object-type member is writable unless ``readonly``;
                         # ``static`` and ``?`` are the additive ``modifiers``.
                         _ts_is_readonly, _ts_is_optional, _ts_is_static, _ = _ts_member_flags(mnode)
-                        prop_entry["writable"] = not _ts_is_readonly if TS_READONLY_ONLY_WHEN_DECLARED else False
+                        prop_entry["writable"] = (
+                            not _ts_is_readonly if TS_READONLY_ONLY_WHEN_DECLARED else False
+                        )
                         _ts_prop_modifiers = [
                             mark
                             for mark, applies in (("static", _ts_is_static), ("optional", _ts_is_optional))

@@ -550,7 +550,11 @@ def export_renames(repo: Path, pkg_root: Path) -> tuple[list[tuple[str, str, Pat
             return
         for match in _EXPORT_BRACE_FROM_RE.finditer(text):
             spec = match.group("spec")
-            target = _resolve_relative_ts_file(path.parent, spec) if spec and _is_relative_specifier(spec) else None
+            target = (
+                _resolve_relative_ts_file(path.parent, spec)
+                if spec and _is_relative_specifier(spec)
+                else None
+            )
             for raw in match.group("names").split(","):
                 item = _strip_inline_type_modifier(raw)
                 if not item:
