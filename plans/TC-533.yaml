@@ -104,6 +104,7 @@ depends_on:
 - TC-555
 - TC-556
 - TC-560
+- TC-561
 write_paths:
 - src/foss_mcp/extraction/tree_sitter_engine/api_surface.py
 - src/foss_mcp/extraction/tree_sitter_engine/lang/typescript.py
@@ -129,6 +130,15 @@ write_paths:
 - tests/infra/test_ingest_symbol_survival.py
 - tests/infra/test_build_chunks.py
 - tests/extraction/test_central_classes_indexed.py
+- infra/helm/foss-mcp/values.yaml
+- docker-compose.yml
+- src/foss_mcp/extraction/run_extraction.py
+- tests/extraction/test_reextracted_uncapped.py
+- tests/extraction/test_run_extraction_coverage_policy.py
+- tests/mcp/tools/test_freshness_provenance.py
+- tests/deploy/test_served_coverage_matches_fixtures.py
+- tests/deploy/test_served_provenance.py
+- README.md
 satisfies:
 - REQ-G3-008
 - REQ-G3-005
@@ -188,6 +198,23 @@ inputs:
 - >-
   TEST COUNTS: min_tests is 430 for EACH check. At the issue revision the first check collects 406 existing tests (the nine existing files it names) plus the at least 24 you add in the three new files;
   the second check collects well over 2,500.
+- >-
+  REWORK AMENDMENT (supervisor, 2026-10-19). The first delivery (commits 5bc49116, a330901d) is accepted in substance; eight tests outside the earlier write_paths pin the old pdf/typescript size (4393 entries).
+  They and the three files that carry the cap are now in write_paths. This rework dispatches only after TC-561 is accepted (both edit run_extraction.py): the new issue revision contains TC-561's work. (1)
+  ONE CAP NUMBER: pdf/typescript is now 541 entries. Set `RECOMMENDED_MAX_TYPES['pdf/typescript']` in run_extraction.py (a single-line change; leave TC-561's python_parse_health work untouched), the `maxTypes`
+  of the pdf typescript pilot in infra/helm/foss-mcp/values.yaml and the `--max-types` of its ingest service in docker-compose.yml to 541, with targeted single-line replacements only (tests/infra/test_helm_pilots_match_compose.py
+  and the two_step_chain test of tests/infra/test_helm_chart.py compare them: run both). Do not touch memory limits. (2) tests/extraction/test_reextracted_uncapped.py: re-pin pdf_typescript only: the chart
+  cap equality now follows from (1); SIZE_FLOOR_BYTES and MEMBER_FLOOR for pdf_typescript are re-measured on the regenerated fixture (floors = measured value rounded down to a round number, each with the
+  comment `TC-533: <old> -> <new>` and the reason: internal declarations are no longer served, 93 exported functions instead of 3,060); the other pilots' floors stay. (3) tests/extraction/test_run_extraction_coverage_policy.py:
+  only if it needs a re-pin after (1). (4) tests/deploy/test_served_coverage_matches_fixtures.py: MIN_FUNCTION_ENTRIES (3000) guards that the function assertions are not vacuous; the fleet's function entries
+  are now 953 (pdf/typescript 93 instead of 3,060): set it to a round number just below the measured total of the committed fixtures, with the TC-533 comment and reason; it must still be well above zero.
+  (5) tests/mcp/tools/test_freshness_provenance.py::test_real_pdf_typescript_generation_reports_its_one_commit_at_the_chart_pin and tests/deploy/test_served_provenance.py::test_p1_and_p2_over_the_committed_data_of_every_pilot[3d_typescript,
+  cells_typescript] compare the BAKED generation with the fixture; the baked generation is stale until the supervisor's re-ingest (TC-536 removes the exception). Use the existing STALE_BAKED_PILOTS table
+  of tests/deploy/test_fleet_consistency.py (import it) so that for a pilot listed there the type-count / signature-sample comparison is not asserted against the fixture but the test still asserts everything
+  that does not depend on the fixture (the one commit, the chart pin, the entries exist); never skip, delete or xfail; each change carries a TC-533 comment. (6) README.md: update the pdf/typescript figures
+  at line 106 to `448 of 448 types` and `93 of 93 functions`, nothing else; tests/deploy/test_readme_matches_release.py must pass. (7) Rebase your two commits onto the new issue revision, re-run both checks
+  twice, the negative control, the top-level tests/test_*.py, and the wider tests/indexing, tests/infra, tests/deploy offline suites (the usual -k) and report that ALL of them are green; run ruff format
+  --check and ruff check with the repo config on every changed file.
 actions:
 - >-
   Fix the TypeScript extractor and renderer for the five round-3 defect classes and add the synthetic-source and renderer tests.
