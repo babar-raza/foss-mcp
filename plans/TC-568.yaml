@@ -11,9 +11,7 @@ purpose: >-
   a claims file (`--check claims.json`) and lists every claim whose number differs. (2) generation_diff.py compares two manifest trees (two directories, or the committed tree against a git revision via
   `git show`) and prints per pilot the symbols added, removed and changed (by FQN), member-count deltas, signature-line changes (counts plus the first N examples), documentation and example deltas, source-commit
   and generation changes, with optional ceilings (`--max-removed-symbols`, `--max-signature-changes`) that make it exit non-zero; it is the human-reviewable summary of any re-ingest and the guard for the
-  closing re-ingest. REGISTERED AS A DRAFT on 2026-10-19 from docs/ROUND3_REVIEW.md section 3.15: before dispatch the supervisor re-reads this card against the merged code, runs the card preflight (SUP-1),
-  calibrates min_tests (it applies to EACH check), replaces the placeholder negative control with a real falsifier that has no backslash, and verifies every file named in write_paths (Supervisor rule 5).
-  Nothing here has been executed.
+  closing re-ingest. FINALISED for dispatch on 2026-10-19 by the supervisor (min_tests calibrated per check, negative control authored, write_paths checked).
 depends_on:
 - TC-550
 - TC-553
@@ -46,6 +44,16 @@ inputs:
   on two runs; (d) generation_diff on a tree against itself reports no change and exits 0; on two synthetic trees built in the test (a symbol removed, one added, one signature changed, a doc added) it reports
   exactly those and exits non-zero when a ceiling is exceeded; (e) the real-tree test runs the diff between HEAD and HEAD~1 of infra/demo-manifests without error. The supervisor commits the ledger output
   for the final image under evidence/release/ and SUP-6 corrects the earlier quoted numbers from it.
+- >-
+  FINALISATION NOTES (supervisor, 2026-10-19). (1) Chunk shapes, measured on the committed generation of pdf/net: the lexical index is `g['payload']['lexical_index']['documents']`, a dict of chunk_id ->
+  {chunk_id, text, tokens}; the first line of `text` is `FQN: <fqn>` for a symbol, `FQN: Doc: <title>` for a documentation chunk and `FQN: Example: <title>` for an example chunk (pdf/net holds 901 symbol,
+  25 documentation and 3 example chunks). Mandated: scripts/release/claims_ledger.py defines the exact line `EXAMPLE_PREFIX = "FQN: Example: "` and a `DOC_PREFIX = "FQN: Doc: "` and classifies by them (the
+  negative control mutates EXAMPLE_PREFIX). (2) The generation JSON top-level keys are family, generation_id, payload (lexical_index, stats, vector_index), platform, source_kind, version; the active pointer
+  is `active_pointer.json` in each scope directory under infra/demo-manifests. (3) tests/release does not exist yet: create it with an empty `__init__.py` only if the other test directories have one (check
+  tests/extraction); the first check names the two new files and collects at least 14 new tests (min_tests 14 for EACH check); the second check names the directory tests/release (the new files) plus two
+  existing deploy test files. (4) Three example figures must stay separate in the ledger and its tests: example CHUNKS served by the generation, verified-example CACHE entries in tests/fixtures/verified_examples/<pilot>.json
+  by verdict, and the fixture's own symbol_counts; at registration the committed tree has 126 served example chunks fleet-wide and 273 cache entries (about 197 read as verified) - the worker measures and
+  reports the exact numbers, and does not edit any decision-log text.
 actions:
 - >-
   Write the claims ledger and the generation diff report with offline tests built on hand-made manifests and direct reads of the committed tree.
@@ -59,23 +67,25 @@ checks:
   - REQ-G3-009
   - REQ-G3-008
 - command: >-
-    {python} -m pytest tests/release tests/deploy/test_fleet_consistency.py -q -rfE -p no:cacheprovider -k "not live and not github_http and not repo_native and not test_prepare_rust_library and not test_rust_known"
+    {python} -m pytest tests/release tests/deploy/test_fleet_consistency.py tests/deploy/test_compact_demo_manifests.py -q -rfE -p no:cacheprovider -k "not live and not github_http and not repo_native and
+    not test_prepare_rust_library and not test_rust_known"
   expect: exit 0
   timeout_seconds: 2400
   junitxml: true
   proves:
   - REQ-G3-009
   - REQ-G3-008
-min_tests: 8
+min_tests: 14
 network: true
 requires:
 - python
 - git
 negative_control:
   mutate: |
-    python -X utf8 -c "print('negative control to be authored before dispatch')"
+    python -X utf8 -c "import pathlib;p=pathlib.Path('scripts/release/claims_ledger.py');s=p.read_text(encoding='utf-8');q=chr(34);old='EXAMPLE_PREFIX = '+q+'FQN: Example: '+q;assert s.count(old)==1;p.write_text(s.replace(old,'EXAMPLE_PREFIX = '+q+'FQN: Exemplar: '+q),encoding='utf-8')"
   rationale: >-
-    PLACEHOLDER written at registration. The supervisor replaces it, before dispatch, with a falsifier that breaks the card's central claim in a mandated function or constant so that a named new test fails.
+    Renames the mandated prefix by which the ledger recognises an example chunk, so every example count of the ledger drops to zero and the tests that compare the ledger's served-example numbers with a
+    direct count made in the test (3 example chunks for pdf/net, and the per-pilot total) fail at once. A real break of the card's claim that the example figures are reproducible.
 evidence:
 - evidence/build/G3/TC-568/receipt.json
 closeout:
