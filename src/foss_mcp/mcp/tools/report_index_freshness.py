@@ -268,6 +268,22 @@ def read_indexed_commits(
     return tuple(entry.commit for entry in _read_provenance(manifest.payload).source_commits)
 
 
+def read_generation_commits(
+    store: GenerationManifestStore, scope: Scope, source_kind: str = "self_extracted"
+) -> tuple[str | None, str | None, tuple[str, ...]]:
+    """``(generation_id, indexed_source_commit, every_commit)`` of *scope*'s active generation (G3/TC-564).
+
+    ``indexed_source_commit`` is the commit ``report_index_freshness`` reports as the one the API symbols
+    came from, ``every_commit`` all distinct commits in the report's order. ``(None, None, ())`` when
+    nothing is published. Raises whatever the store raises for a pointer or generation it cannot read."""
+    key = scope_key(scope, source_kind)
+    generation_id = store.read_active(key)
+    if generation_id is None:
+        return None, None, ()
+    commits = _read_provenance(store.read_generation(key, generation_id).payload).source_commits
+    return generation_id, _indexed_source_commit(commits), tuple(entry.commit for entry in commits)
+
+
 def _commit_verdict(commits: tuple[CommitCount, ...], indexed_commit: str, current: str) -> tuple[str, str]:
     """``(state, reason)`` of comparing every indexed commit with *current*: fresh only when all match."""
     if len(commits) > 1:

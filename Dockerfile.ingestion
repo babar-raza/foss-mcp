@@ -189,6 +189,9 @@ COPY infra/fetch_product_reference.py ./infra/fetch_product_reference.py
 COPY infra/fetch_recent_releases.py ./infra/fetch_recent_releases.py
 COPY infra/verify_package_registry.py ./infra/verify_package_registry.py
 COPY infra/verify_product_reference_install.py ./infra/verify_product_reference_install.py
+# The documented recovery tool (docs/DEPLOYMENT.md, "Rolling back a generation"), run as
+# `--entrypoint python IMAGE /app/infra/rollback.py ...` against the same manifests claim (G3/TC-564).
+COPY infra/rollback.py ./infra/rollback.py
 COPY tests/fixtures/pdf_net/api_surface.json ./fixtures/pdf_net/api_surface.json
 # REQ-G2-048 (TC-069) / REQ-G3-005 (TC-352): the furnished-content pages --furnished-page reads from,
 # real inside the container - the same real, committed fixtures TC-068's own host-level test already
@@ -253,6 +256,11 @@ COPY tests/fixtures/3d_net/api_surface.json ./fixtures/3d_net/api_surface.json
 COPY tests/fixtures/3d_java/api_surface.json ./fixtures/3d_java/api_surface.json
 COPY tests/fixtures/tex_python/api_surface.json ./fixtures/tex_python/api_surface.json
 ENV PYTHONPATH=/app/src
+
+# The commit this image was built from (G3/TC-564), as Dockerfile.serving: a build argument also set as an
+# environment variable, because an image label cannot be read from inside the container.
+ARG FOSS_MCP_BUILD_REVISION=""
+ENV FOSS_MCP_BUILD_REVISION=${FOSS_MCP_BUILD_REVISION}
 
 # Same fix as Dockerfile.serving's own /data/manifests (TC-019a): the non-root user below
 # cannot create a top-level /data at runtime, so a volume mounted at /data/manifests for this

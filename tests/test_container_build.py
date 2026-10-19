@@ -10,6 +10,7 @@ local build - nothing is fetched at check time beyond what the build itself need
 
 from __future__ import annotations
 
+import fnmatch
 import os
 import re
 import socket
@@ -271,3 +272,106 @@ def test_a_real_docker_build_of_the_ingestion_image_has_all_pilot_fixtures() -> 
             )
     finally:
         subprocess.run(["docker", "rmi", "-f", image_tag], capture_output=True, text=True)
+
+
+# --- G3/TC-564 (RD3-121, RD3-126, RD3-124): static assertions about the Dockerfiles, which run without docker ---
+
+
+def _dockerfile(name: str) -> str:
+    return (REPO_ROOT / name).read_text(encoding="utf-8")
+
+
+def _stage(text: str, name: str) -> str:
+    """The instructions of the stage ``FROM ... AS <name>``, up to the next FROM."""
+    match = re.search(rf"^FROM\s+\S+\s+AS\s+{re.escape(name)}\s*$", text, re.MULTILINE)
+    assert match is not None, f"no stage named {name}"
+    following = re.search(r"^FROM\s", text[match.end() :], re.MULTILINE)
+    return text[match.end() : match.end() + following.start()] if following else text[match.end() :]
+
+
+def _dockerignore_patterns() -> list[str]:
+    lines = (REPO_ROOT / ".dockerignore").read_text(encoding="utf-8").splitlines()
+    return [line.strip() for line in lines if line.strip() and not line.strip().startswith("#")]
+
+
+def _is_ignored(path: str, patterns: list[str]) -> bool:
+    """Whether ``.dockerignore`` excludes *path* or one of its parent directories. A pattern ending in a slash
+    names a directory; ``**/`` matches at any depth. (Docker's last-match-wins ``!`` re-includes are not used
+    in this file.)"""
+    parts = path.split("/")
+    candidates = ["/".join(parts[: index + 1]) for index in range(len(parts))]
+    for pattern in patterns:
+        if pattern.startswith("!"):
+            continue
+        bare = pattern.rstrip("/")
+        for candidate in candidates:
+            if fnmatch.fnmatch(candidate, bare) or fnmatch.fnmatch(candidate, bare.removeprefix("**/")):
+                return True
+    return False
+
+
+def test_both_images_copy_the_rollback_tool_to_the_path_the_runbook_runs() -> None:
+    """docs/DEPLOYMENT.md tells the operator to run ``python /app/infra/rollback.py``. Round 3 found it in no
+    image, so the documented recovery could not run."""
+    runbook = (REPO_ROOT / "docs" / "DEPLOYMENT.md").read_text(encoding="utf-8")
+    assert "/app/infra/rollback.py" in runbook
+    for name in DOCKERFILES:
+        text = _dockerfile(name)
+        assert re.search(r"^COPY infra/rollback\.py \./infra/rollback\.py$", text, re.MULTILINE), name
+        assert re.search(r"^WORKDIR /app$", text, re.MULTILINE), f"{name}: ./infra resolves under /app"
+        assert re.search(r"^ENV PYTHONPATH=/app/src$", text, re.MULTILINE), f"{name}: foss_mcp must import"
+
+
+def test_the_dockerignore_does_not_exclude_the_rollback_tool_or_anything_it_imports() -> None:
+    patterns = _dockerignore_patterns()
+    assert patterns, "the parser found no patterns"
+    for needed in (
+        "infra/rollback.py",
+        "src/foss_mcp/indexing/generation_manifest.py",
+        "src/foss_mcp/mcp/health.py",
+    ):
+        assert not _is_ignored(needed, patterns), f".dockerignore excludes {needed}"
+    # The matcher itself works: the directories the file excludes are seen as excluded.
+    assert _is_ignored("docs/DEPLOYMENT.md", patterns) and _is_ignored("tests/fixtures/bundles/x", patterns)
+
+
+def test_both_images_take_the_build_revision_from_a_build_argument_and_set_it_in_the_environment() -> None:
+    for name in DOCKERFILES:
+        text = _dockerfile(name)
+        arg = re.search(r'^ARG FOSS_MCP_BUILD_REVISION=""$', text, re.MULTILINE)
+        env = re.search(r"^ENV FOSS_MCP_BUILD_REVISION=\$\{FOSS_MCP_BUILD_REVISION\}$", text, re.MULTILINE)
+        assert arg and env, name
+        assert arg.start() < env.start(), f"{name}: the ARG must precede the ENV that reads it"
+
+
+def test_the_demo_stage_hands_the_baked_data_to_root_and_returns_to_the_unprivileged_user() -> None:
+    """RD3-126: /data and /data/manifests belonged to the serving user, so a peer running the image without
+    ``--read-only`` could delete or replace the baked sidecars."""
+    stage = _stage(_dockerfile("Dockerfile.serving"), "demo")
+    copy_data = stage.index("COPY infra/demo-manifests/ /data/manifests")
+    to_root = stage.index("USER root")
+    chown = stage.index("chown -R root:root /data")
+    chmod_dirs = stage.index("find /data/manifests -type d -exec chmod 0555")
+    chmod_files = stage.index("find /data/manifests -type f -exec chmod 0444")
+    back = stage.rindex("USER foss-mcp")
+    entrypoint = stage.index("ENTRYPOINT")
+    assert copy_data < to_root < chown < chmod_dirs < chmod_files < back < entrypoint
+    users = re.findall(r"^USER\s+(\S+)", stage, re.MULTILINE)
+    assert users == ["root", "foss-mcp"], "the stage ends as the unprivileged user"
+
+
+def test_the_runtime_stage_still_gives_a_mounted_claim_to_the_serving_user() -> None:
+    """The chart mounts a volume at /data/manifests for the runtime stage: it must stay writable by the
+    serving user there (only the baked demo data is handed to root)."""
+    runtime = _stage(_dockerfile("Dockerfile.serving"), "runtime")
+    assert "chown -R foss-mcp:foss-mcp /data" in runtime
+
+
+def test_no_stage_of_either_dockerfile_ends_as_root() -> None:
+    for name in DOCKERFILES:
+        text = _dockerfile(name)
+        stages = re.split(r"^FROM\s", text, flags=re.MULTILINE)[1:]
+        for stage in stages:
+            users = re.findall(r"^USER\s+(\S+)", stage, re.MULTILINE)
+            if users:  # a stage with no USER of its own (the trailing re-anchor) inherits its base's
+                assert users[-1] not in ("root", "0"), f"{name}: a stage ends as root"

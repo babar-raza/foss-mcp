@@ -375,8 +375,8 @@ list the releases with `helm list -n foss-mcp` and uninstall each one. The names
 ## Rolling back a generation
 
 A bad publish that was nevertheless accepted is undone by pointing the scope back at an earlier
-generation. The ingestion image already contains `infra/rollback.py`; no new image is needed. A rollback
-travels the same fenced path as a publish (it takes a new lease, so a stale writer cannot overwrite it) and
+generation. Both images contain `/app/infra/rollback.py` (the ingestion image and the serving image, the
+`demo` stage included); no new image is needed. A rollback travels the same fenced path as a publish (it takes a new lease, so a stale writer cannot overwrite it) and
 needs no restart: the serving pod reads the active pointer on every probe, so `/readyz` and the tools follow
 the pointer on the next call.
 
@@ -440,6 +440,20 @@ product is refused even when a file with the same version exists) and its conten
 lexical index whose documents all carry a chunk id, tokens and text. A refused rollback leaves the pointer
 where it was. On success the Job prints `rolled back to <id>`.
 
+A rollback is also held to what a forward publish is held to, unless `--force` is added: the target must
+have at least 3 symbol chunks and 1 documentation chunk, must have been indexed from the same source
+repository as the generation it replaces, and must not be more than 20 percent smaller in symbols (50 percent
+in documentation, examples and total) than the generation it replaces. The product-reference sidecar for the
+identity is read too: one that names ANOTHER repository refuses the rollback, and one that still records a
+newer commit than the target is reported after the flip (the server's install notice names the active
+generation's own commit, so the sidecar needs no rewrite). After the flip the readiness probe `/readyz` runs
+is applied to the new active generation; if it is not ready the pointer is flipped back to the generation it
+replaced and the Job exits 3 (4 when it could not flip back, and then the operator must act at once). With
+`--force` a failing probe is reported and the target is kept. A refused rollback exits 1 with one line
+naming every reason. `--list` never fails on a damaged store: a corrupt active pointer, a generation file
+that cannot be read in full (listed as `CORRUPT`) and a file with no readable id (named on stderr) are
+reported and skipped.
+
 Retention keeps the active generation, the previous one and the last three generations by version; an
 ingestion that publishes removes older generation files (never one younger than an hour) and stale
 temporary files. Read `publish_log.jsonl` in the scope's directory to see what happened: a `published`
@@ -493,6 +507,40 @@ helm upgrade foss-mcp-pdf-net infra/helm/foss-mcp -n foss-mcp --reuse-values --s
 Once the Job has published, upgrade again with `--set-json 'ingestion.acceptRegression=[]'` and
 `--set ingestion.acceptRegressionReason=` to remove them.
 
+## Operating notes for the serving container
+
+Behaviour an operator can see and tune. Every variable is optional; none is a secret.
+
+- **A missing sidecar is reported, never served as "no data".** The ingestion Job always writes the
+  product-reference and recent-releases files. If either is not in the manifests directory the container logs a
+  WARNING naming the file (`sidecar not loaded, the file was not found`), `/readyz` carries a `warnings` entry
+  (`recent_releases sidecar not loaded: recent_releases_<family>_<platform>.json was not found`; the status
+  stays 200), `/metrics` shows `foss_mcp_sidecar_state{sidecar=...,state=...}` and `foss_mcp_sidecars{state=...}`,
+  and `list_recent_changes` answers an `unavailable` error that says the release data is not loaded instead of
+  an empty list. A file copied in later is picked up on the next request (its size and modification time are
+  compared on every call); no restart is needed.
+- **`/metrics` is the Prometheus text exposition by default.** The two-field JSON form
+  (`usage_events_queued`, `usage_events_dropped`) is `/metrics?format=json`.
+- **Every tool call is traceable.** The call's log line carries `generation_id` and `source_commit` (the commit
+  the API symbols were extracted from), and a successful result carries its correlation id in `_meta.correlation_id`
+  as an error carries it in `structuredContent.correlation_id`. `serverInfo.version` is `0.1.0+<12 hex of the build
+  commit>`; a plain `docker build` takes it from `--build-arg FOSS_MCP_BUILD_REVISION=<commit>`.
+- **Transport limits.** Host is validated: loopback, IP literals, single-label names (the container, Compose service
+  or pod name), the machine host name, `*.svc` and `*.svc.cluster.local` are accepted; any other name needs
+  `FOSS_MCP_ALLOWED_HOSTS` (comma separated names, `*.suffix` patterns or `*`) and is answered 421 otherwise.
+  A rejection (Origin, Host or protocol version) is a JSON-RPC error body with a null id and is logged with its
+  reason. At the session cap (`FOSS_MCP_MAX_SESSIONS`, 200) the oldest session that has been idle for at least
+  `FOSS_MCP_SESSION_EVICT_MIN_IDLE_SECONDS` (10) is evicted to admit a new one; a session used more recently is never
+  evicted and the new client gets the 503 with `Retry-After`. A request head that does not complete within
+  `FOSS_MCP_HEADER_TIMEOUT_SECONDS` (15) closes the connection, and a request body that stalls for
+  `FOSS_MCP_BODY_TIMEOUT_SECONDS` (30) is answered 408. A POST whose JSON-RPC `id` is not a string or an integer is
+  answered 400 `Invalid Request`. A client hanging up mid-request is a DEBUG line, not an ERROR.
+- **Sessions live in the process.** A restart (a rolling update included) forgets them: the next request with an old
+  `Mcp-Session-Id` is a 404 whose message says to send a new `initialize` without the header, which MCP clients do.
+- **The baked demo data cannot be changed from inside the container.** In the `demo` image `/data` and everything
+  under `/data/manifests` belong to root with no write bit, so the serving user cannot delete or replace a sidecar,
+  with or without `--read-only`.
+
 ## Troubleshooting
 
 | Symptom | Cause | Fix |
@@ -501,6 +549,7 @@ Once the Job has published, upgrade again with `--set-json 'ingestion.acceptRegr
 | `HTTP 403` and `rate limit exceeded` in an ingestion Job log | GitHub's anonymous rate limit is exhausted. No token is configured (see the GITHUB_TOKEN section and the one on passing the Secrets). | Wait for the limit to reset, then delete that Job and retry the pilot. |
 | A serving pod stuck at `Init:0/1` | Its ingestion Job has not written the product-reference and recent-releases sidecars, usually because the Job failed. The gate gives up after `initGate.timeoutSeconds` (3900 s) and starts the pod degraded. | Read that Job's log with `kubectl logs job/<job-name> -n <namespace>`, fix the cause, then retry the pilot. |
 | `INGESTION FAILED` in the `install_pilots.py --wait-for-jobs` table | Helm succeeded but the pilot's ingestion Job failed; the serving pod still runs the previous generation. | Read the printed Job log, fix the cause, then retry the pilot. |
+| `list_recent_changes` answers `unavailable` ("Release information is not loaded") and `/readyz` has a `warnings` entry naming `recent_releases_<family>_<platform>.json` | That sidecar is not in the manifests directory. | Re-run the pilot's ingestion Job, or copy the file in; the next request serves it. |
 | `port 8201 already in use`, or a port-forward that exits at once | The local port `prove_pilots.py` chose is taken by another process. | Rerun with `--base-port` set to a free range, for example `--base-port 9401`. |
 | `docker is not on PATH`, or `Cannot connect to the Docker daemon` | Docker is not running, or the toolchain is not activated. | Start Docker Desktop, run `. .\scripts\toolchain\activate.ps1`, and rerun `build_images.py`. |
 

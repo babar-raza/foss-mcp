@@ -222,7 +222,9 @@ def round_trip_check(store: DeploymentGenerationStore) -> bool:
     return readiness_report(store).ready
 
 
-def generation_unavailable_reason(manifest_store: Any, scope_key: str) -> str | None:
+def generation_unavailable_reason(
+    manifest_store: Any, scope_key: str, *, previously_active: str | None = None
+) -> str | None:
     """``None`` when the tools may answer, else a short reason the generation cannot be resolved or
     read. Never raises.
 
@@ -234,6 +236,10 @@ def generation_unavailable_reason(manifest_store: Any, scope_key: str) -> str | 
     lexical documents. The readiness composition floors (symbols, documentation) are NOT checked
     here: a thin but readable generation still answers (``/readyz`` alone reports it as 503).
 
+    G3/TC-564 (RD3-123): *previously_active* is the generation this server last saw active. A pointer
+    that is absent NOW although one was seen before has VANISHED (a deleted file is damage, not "never
+    published"), and answers ``active pointer has vanished`` instead of an honest-looking miss.
+
     CHEAP by design (it runs before every generation-backed tool call): it reads only the active
     pointer and that generation, and asks only whether the generation has lexical documents. It
     uses nothing but ``read_active`` and ``read_generation(...).payload``, so any store that
@@ -244,6 +250,8 @@ def generation_unavailable_reason(manifest_store: Any, scope_key: str) -> str | 
     except Exception as exc:  # noqa: BLE001 - a reason, never a raise.
         return f"active pointer is unreadable ({type(exc).__name__})"
     if generation_id is None:
+        if previously_active is not None:
+            return "active pointer has vanished"
         return None
     if not isinstance(generation_id, str) or not generation_id:
         return "active pointer is malformed"
@@ -256,3 +264,75 @@ def generation_unavailable_reason(manifest_store: Any, scope_key: str) -> str | 
     if not isinstance(documents, dict) or not documents:
         return "generation has no lexical documents"
     return None
+
+
+GENERATION_MALFORMED_DOCUMENTS = "generation has malformed documents"
+GENERATION_MALFORMED_DOC_FREQ = "generation has a malformed doc_freq"
+
+
+def generation_shape_problem(payload: Any) -> str | None:
+    """A fixed phrase for the first structural fault a tool would trip over in *payload*, else ``None``.
+
+    G3/TC-564 (RD3-123): only what every generation-backed tool reads is checked (each lexical document is
+    an object with a string ``text``, and ``doc_freq`` is an object when present), so a generation that is
+    thin or odd but readable still answers. The deep, per-document readiness decision stays
+    ``readiness_report``'s job. O(documents): ``GenerationWatch`` runs it once per parsed payload.
+    """
+    lexical_index = payload.get("lexical_index") if isinstance(payload, dict) else None
+    documents = lexical_index.get("documents") if isinstance(lexical_index, dict) else None
+    if not isinstance(documents, dict):
+        return GENERATION_MALFORMED_DOCUMENTS
+    for document in documents.values():
+        if not (isinstance(document, dict) and isinstance(document.get("text"), str)):
+            return GENERATION_MALFORMED_DOCUMENTS
+    doc_freq = lexical_index.get("doc_freq") if isinstance(lexical_index, dict) else None
+    if doc_freq is not None and not isinstance(doc_freq, dict):
+        return GENERATION_MALFORMED_DOC_FREQ
+    return None
+
+
+class GenerationWatch:
+    """The per-server memory behind the cheap pre-check every generation-reading tool runs (G3/TC-564).
+
+    It remembers the generation it last saw active, so a pointer that disappears afterwards is reported as
+    ``vanished`` instead of as an honest-looking "never published", and it validates each parsed payload's
+    shape once (the store hands back the SAME dict until the file changes). Thread-safe enough for its job:
+    the two attributes are only ever replaced, never mutated in place."""
+
+    def __init__(self, manifest_store: Any, scope_key: str) -> None:
+        self._store = manifest_store
+        self._scope_key = scope_key
+        self._seen_active: str | None = None
+        self._validated_payload: Any = None
+        try:
+            active = manifest_store.read_active(scope_key)
+        except Exception:  # noqa: BLE001 - priming is best effort.
+            active = None
+        if isinstance(active, str) and active:
+            self._seen_active = active
+
+    @property
+    def seen_active(self) -> str | None:
+        return self._seen_active
+
+    def unavailable_reason(self) -> str | None:
+        """``None`` when the tools may answer, else the short, path-free reason. Never raises."""
+        reason = generation_unavailable_reason(
+            self._store, self._scope_key, previously_active=self._seen_active
+        )
+        if reason is not None:
+            return reason
+        try:
+            active = self._store.read_active(self._scope_key)
+            if not isinstance(active, str) or not active:
+                return None
+            payload = self._store.read_generation(self._scope_key, active).payload
+        except Exception as exc:  # noqa: BLE001 - a reason, never a raise.
+            return f"generation file is unreadable ({type(exc).__name__})"
+        if payload is not self._validated_payload:
+            problem = generation_shape_problem(payload)
+            if problem is not None:
+                return problem
+            self._validated_payload = payload
+        self._seen_active = active
+        return None

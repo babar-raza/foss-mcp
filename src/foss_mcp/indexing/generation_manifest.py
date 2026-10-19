@@ -628,6 +628,20 @@ class GenerationManifestStore:
         """Whether ``generation_id`` was ever written for ``scope``."""
         return self._read_json(self._generation_path_for_id(scope, generation_id)) is not None
 
+    def discard_unactivated_generation(self, scope: str, generation_id: str) -> bool:
+        """Delete the generation file ``generation_id`` when nothing points at it (G3/TC-564).
+
+        A publisher that wrote its generation and then lost the CAS (a stale fencing token, a moved
+        pointer) used to leave that file behind for ever. Never removes the ACTIVE generation, never a
+        symlink, and never anything but the one plain file the id names. Returns whether it deleted one."""
+        try:
+            if self.read_active(scope) == generation_id:
+                return False
+            path = self._generation_path_for_id(scope, generation_id)
+        except (GenerationManifestError, OSError, ValueError):
+            return False
+        return self._remove_plain_file(path)
+
     # -- listing and retention (TC-529) ------------------------------------
 
     @staticmethod
@@ -671,6 +685,30 @@ class GenerationManifestStore:
     def list_generations(self, scope: str) -> list[str]:
         """The ids of the generations stored for ``scope``, newest version first."""
         return [generation_id for generation_id, _ in self._generation_files(scope)]
+
+    def unlisted_generation_files(self, scope: str) -> list[tuple[str, str]]:
+        """``(file name, reason)`` for every ``generation__*.json`` in the scope directory that
+        :meth:`list_generations` does NOT list: a symbolic link, something that is not a regular file, or a
+        file with no readable generation id (G3/TC-564, so a listing can name what it skipped). Read only."""
+        scope_dir = self._scope_dir(scope)
+        try:
+            names = sorted(os.listdir(scope_dir))
+        except FileNotFoundError:
+            return []
+        listed = {path.name for _, path in self._generation_files(scope)}
+        skipped: list[tuple[str, str]] = []
+        for name in names:
+            if not (name.startswith(_GENERATION_FILE_PREFIX) and name.endswith(".json")) or name in listed:
+                continue
+            path = scope_dir / name
+            if path.is_symlink():
+                reason = "is a symbolic link"
+            elif not path.is_file():
+                reason = "is not a regular file"
+            else:
+                reason = "holds no readable generation id"
+            skipped.append((name, reason))
+        return skipped
 
     def _logged_previous(self, scope: str) -> str | None:
         """The ``previous_active`` of the newest ``published`` or ``rollback`` log entry, when that
@@ -1016,6 +1054,34 @@ def _baseline(
     return {kind: max((source[kind] for source in sources), default=0) for kind in _KINDS}
 
 
+def _write_and_activate(
+    store: GenerationManifestStore,
+    scope: str,
+    expected_active: str | None,
+    generation: GenerationManifest,
+    lease: Lease,
+) -> str:
+    """Write *generation* and activate it through ``cas_activate``, leaving no orphan behind (G3/TC-564).
+
+    A stale lease is refused BEFORE anything is written (the common fenced-publisher case); a CAS that
+    still fails after the write (the token went stale in between, or the pointer moved) removes the file
+    this call created. A generation that already existed on disk is never removed."""
+    generation_id = generation.generation_id
+    if lease.fencing_token != store.current_fencing_token(scope):
+        raise StaleFencingTokenError(
+            f"fencing token {lease.fencing_token} for scope {scope!r} is stale "
+            f"(latest issued token is {store.current_fencing_token(scope)})"
+        )
+    existed = store.generation_exists(scope, generation_id)
+    store.write_and_validate(generation)
+    try:
+        return store.cas_activate(scope, expected_active, generation_id, lease)
+    except (StaleFencingTokenError, ActivePointerConflictError):
+        if not existed:
+            store.discard_unactivated_generation(scope, generation_id)
+        raise
+
+
 def _publish_with_policy(
     store: GenerationManifestStore,
     scope: str,
@@ -1130,7 +1196,7 @@ def _publish_with_policy(
             + f"; to accept deliberately: {flags} --reason TEXT"
         )
 
-    result = store.cas_activate(scope, expected_active, store.write_and_validate(generation), lease)
+    result = _write_and_activate(store, scope, expected_active, generation, lease)
     overrides = [f"{kind}:{old}->{current}" for kind, old, current in policy.accept_regressions]
     store.append_publish_log(
         scope,
@@ -1205,9 +1271,7 @@ def publish(
 
     assert_publish_is_safe(_document_count(generation.payload), active_document_count)
 
-    generation_id = store.write_and_validate(generation)
-
-    return store.cas_activate(scope, expected_active, generation_id, lease)
+    return _write_and_activate(store, scope, expected_active, generation, lease)
 
 
 def rollback(

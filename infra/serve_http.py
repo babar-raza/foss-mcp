@@ -30,30 +30,44 @@ reasons are logged at WARNING on state transitions only (G3/TC-506). ``build_app
 ``round_trip_check`` once at startup (``_log_startup_readiness``) and logs the reasons when the
 deployment would not be ready.
 
-``/metrics`` answers the Prometheus text exposition (``foss_mcp.telemetry.metrics``) to a scraper that
-asks for it and the original two-field JSON otherwise; a new session refused at the session cap is
-answered with ``Retry-After``, counted and logged with the pilot (G3/TC-509).
+``/metrics`` answers the Prometheus text exposition (``foss_mcp.telemetry.metrics``) by default and the
+original two-field JSON under ``?format=json`` (G3/TC-564; before it the text needed an ``Accept``
+header); a new session refused at the session cap is answered with ``Retry-After``, counted and logged with
+the pilot (G3/TC-509).
+
+G3/TC-564 (REQ-G3-009) added, all wired in ``build_app``: ``SidecarWatcher`` (sidecars re-read when they
+change; a missing required one is logged, warned in ``/readyz`` and counted in ``/metrics``), Host validation
+and one JSON-RPC error body for every rejection (``RejectionMiddleware``), ``SessionEvictionMiddleware``
+(the oldest idle session is evicted at the cap), ``RequestIdMiddleware`` (an invalid JSON-RPC id is an
+error, not an empty 202), ``ReadTimeoutMiddleware`` (a stalled body is a 408), ``ClientDisconnectMiddleware``
+(a client hanging up is a DEBUG line) and, in ``main``, ``header_timeout_protocol`` (a stalled request head
+closes the connection).
 """
 
 from __future__ import annotations
 
+import asyncio
+import contextvars
 import dataclasses
 import json
 import logging
 import os
 import re
+import socket
 import sys
+import threading
 import time
 from collections.abc import Callable, MutableMapping, Sequence
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any, NoReturn
 
+import anyio
 import anyio.to_thread
 from fetch_product_reference import load_manifest_sidecar, sidecar_name
 from fetch_recent_releases import load_recent_releases_sidecar, recent_releases_sidecar_name
 from mcp.server.transport_security import TransportSecuritySettings
-from starlette.requests import Request
+from starlette.requests import ClientDisconnect, Request
 from starlette.responses import JSONResponse, PlainTextResponse, Response
 from starlette.routing import Route
 from starlette.types import ASGIApp, Receive, Send
@@ -63,6 +77,7 @@ from verify_package_registry import load_package_registry_sidecar, verify_packag
 from foss_mcp.extraction.github_release_reader import Release
 from foss_mcp.extraction.repo_native_reader import DocumentNotPresent, DocumentPresent
 from foss_mcp.indexing.generation_manifest import GenerationManifestStore
+from foss_mcp.mcp import sidecar_state
 from foss_mcp.mcp.health import (
     DeploymentGenerationStore,
     ReadinessReport,
@@ -71,7 +86,7 @@ from foss_mcp.mcp.health import (
     round_trip_check,
 )
 from foss_mcp.mcp.routing import DeploymentConfig, resolve_scope
-from foss_mcp.mcp.server import create_server, server_version
+from foss_mcp.mcp.server import SidecarSnapshot, create_server, server_version
 from foss_mcp.mcp.sidecar_state import (
     SIDECAR_FETCH_FAILED,
     SIDECAR_NOT_PRESENT,
@@ -80,7 +95,7 @@ from foss_mcp.mcp.sidecar_state import (
 from foss_mcp.mcp.tools.example_search_mode import EXAMPLE_SEARCH_LEXICAL_ONLY, example_search_mode
 from foss_mcp.mcp.tools.get_product_reference import ProductReferenceInputs
 from foss_mcp.mcp.tools.report_index_freshness import report_index_freshness
-from foss_mcp.mcp.transport_security import reject_request
+from foss_mcp.mcp.transport_security import Rejection, reject_request_detail, rejection_body
 from foss_mcp.telemetry.metrics import CONTENT_TYPE as PROMETHEUS_CONTENT_TYPE
 from foss_mcp.telemetry.metrics import MetricsRegistry
 from foss_mcp.telemetry.usage_recorder import UsageRecorder
@@ -126,6 +141,39 @@ MAX_SESSIONS_ENV = "FOSS_MCP_MAX_SESSIONS"
 SESSION_CAP_RETRY_AFTER_SECONDS = 5
 _REJECT_LOG_INTERVAL_SECONDS = 10.0
 _monotonic = time.monotonic
+# The idle clock of ``SessionEvictionMiddleware``: its own name, so a test that replaces ``_monotonic`` to move
+# the log-rate-limit windows does not also age the sessions.
+_eviction_clock = time.monotonic
+
+# G3/TC-564 (RD3-125). At the session cap the OLDEST session that has been idle for at least this many
+# seconds (no request in flight, none for that long) is evicted to make room, instead of every new client
+# being refused until the idle sweep; a session used within the window is never evicted, so a busy client
+# is never cut off to admit a new one. Overridable; 0 evicts the oldest idle session at once.
+SESSION_EVICT_MIN_IDLE_SECONDS = 10
+SESSION_EVICT_MIN_IDLE_ENV = "FOSS_MCP_SESSION_EVICT_MIN_IDLE_SECONDS"
+# A client that opens a connection and then stalls (the header block or the request body never completes) is
+# disconnected after this long. Both are overridable through the environment.
+HEADER_READ_TIMEOUT_SECONDS = 15
+BODY_READ_TIMEOUT_SECONDS = 30
+HEADER_TIMEOUT_ENV = "FOSS_MCP_HEADER_TIMEOUT_SECONDS"
+BODY_TIMEOUT_ENV = "FOSS_MCP_BODY_TIMEOUT_SECONDS"
+# Host names accepted besides the defaults (loopback, IP literals, single-label names, the machine's own
+# host name, in-cluster service domains): a comma separated list of names, ``*.suffix`` patterns or ``*``.
+ALLOWED_HOSTS_ENV = "FOSS_MCP_ALLOWED_HOSTS"
+CONTAINER_NAME_ENV = "FOSS_MCP_CONTAINER_NAME"
+MCP_PATH = "/mcp"
+SESSION_HEADER = "mcp-session-id"
+_REJECTION_REASON_LOG_MAX = 200
+_LOGGED_PATH_MAX = 100
+_LOGGED_SESSION_ID_MAX = 64
+# The most a JSON-RPC body is read into memory to check its request id (the SDK's own body cap is 4 MiB).
+_ID_CHECK_MAX_BODY_BYTES = 1024 * 1024
+JSONRPC_INVALID_REQUEST_CODE = -32600
+INVALID_ID_MESSAGE = "Invalid Request: a JSON-RPC id must be a string or an integer"
+UNKNOWN_SESSION_MESSAGE = (
+    "Session not found: this server has no session with that id (it was closed, evicted as idle, or the "
+    "server restarted). Send a new initialize request without an Mcp-Session-Id header to start one."
+)
 
 # Attributes every LogRecord carries. Anything else on a record came from ``extra=`` and is
 # emitted as a top-level JSON field.
@@ -218,17 +266,93 @@ def max_sessions() -> int:
     return _positive_int_from_env(MAX_SESSIONS_ENV, MAX_SESSIONS)
 
 
+def _non_negative_int_from_env(name: str, default: int) -> int:
+    """``name`` as a whole number of 0 or more when set and non-empty, else ``default``. Raises
+    ``ValueError`` (never echoing the value) on a non-integer or a negative value."""
+    raw = os.environ.get(name, "").strip()
+    if not raw:
+        return default
+    try:
+        value = int(raw)
+    except ValueError:
+        raise ValueError(f"{name} must be a whole number") from None
+    if value < 0:
+        raise ValueError(f"{name} must be >= 0")
+    return value
+
+
+def session_evict_min_idle_seconds() -> int:
+    """Seconds a session must have been idle to be evicted at the cap: ``FOSS_MCP_SESSION_EVICT_MIN_IDLE_SECONDS``
+    when set and non-empty, else ``SESSION_EVICT_MIN_IDLE_SECONDS``. 0 is allowed."""
+    return _non_negative_int_from_env(SESSION_EVICT_MIN_IDLE_ENV, SESSION_EVICT_MIN_IDLE_SECONDS)
+
+
+def header_timeout_seconds() -> int:
+    """The stalled-header disconnect window: ``FOSS_MCP_HEADER_TIMEOUT_SECONDS`` when set, else 15."""
+    return _positive_int_from_env(HEADER_TIMEOUT_ENV, HEADER_READ_TIMEOUT_SECONDS)
+
+
+def body_timeout_seconds() -> int:
+    """The stalled-body disconnect window: ``FOSS_MCP_BODY_TIMEOUT_SECONDS`` when set, else 30."""
+    return _positive_int_from_env(BODY_TIMEOUT_ENV, BODY_READ_TIMEOUT_SECONDS)
+
+
 def allowed_origins_from_env() -> list[str]:
     raw = os.environ.get("FOSS_MCP_ALLOWED_ORIGINS", "")
     return [origin.strip() for origin in raw.split(",") if origin.strip()]
+
+
+def allowed_hosts_from_env() -> list[str]:
+    """The extra Host names this container answers to (G3/TC-564): ``FOSS_MCP_ALLOWED_HOSTS`` (comma
+    separated), the container name (``FOSS_MCP_CONTAINER_NAME``) and the machine's own host name, which is
+    the container id inside Docker. Loopback, IP literals and single-label names are always accepted by
+    ``transport_security.host_is_allowed``; this list is for dotted names a peer reaches the server by."""
+    hosts = [host.strip() for host in os.environ.get(ALLOWED_HOSTS_ENV, "").split(",") if host.strip()]
+    container = os.environ.get(CONTAINER_NAME_ENV, "").strip()
+    if container:
+        hosts.append(container)
+    try:
+        hosts.append(socket.gethostname())
+    except OSError:
+        pass
+    return hosts
+
+
+class _RateLimitedLog:
+    """WARNING records of one kind, at most ``burst`` per ``interval`` seconds; the records dropped in a window
+    are counted and reported (``suppressed``) on the first record of the next one. Thread safe."""
+
+    def __init__(self, logger: logging.Logger, *, interval: float = 10.0, burst: int = 5) -> None:
+        self._logger = logger
+        self._interval = interval
+        self._burst = burst
+        self._lock = threading.Lock()
+        self._window_start: float | None = None
+        self._emitted = 0
+        self._suppressed = 0
+
+    def warning(self, message: str, extra: dict[str, Any]) -> None:
+        with self._lock:
+            now = _monotonic()
+            carried = 0
+            if self._window_start is None or now - self._window_start >= self._interval:
+                self._window_start = now
+                self._emitted = 0
+                carried, self._suppressed = self._suppressed, 0
+            if self._emitted >= self._burst:
+                self._suppressed += 1
+                return
+            self._emitted += 1
+        self._logger.warning(message, extra={**extra, "suppressed": carried})
 
 
 class RejectionMiddleware:
     """Wraps an ASGI app: every HTTP request is checked against
     ``transport_security.reject_request`` before it can reach the wrapped app at all.
 
-    A rejection is a plain HTTP 400 JSON error - never a JSON-RPC envelope - so it can never
-    be confused with a tool call that ran and reported no match.
+    A rejection is an HTTP 400 (421 for a Host that is not allowed) whose body is a JSON-RPC error with a null
+    id (``transport_security.rejection_body``, the shape the SDK itself answers with, G3/TC-564), so it can
+    never be confused with a tool call that ran and reported no match, which is a 200 ``CallToolResult``.
 
     ``exempt_paths`` (``/healthz`` and ``/readyz``, in practice) never reach ``reject_request``
     at all: the Origin/protocol-version MUSTs are an MCP-transport contract, and a plain
@@ -236,23 +360,53 @@ class RejectionMiddleware:
     """
 
     def __init__(
-        self, app: ASGIApp, allowed_origins: list[str], exempt_paths: frozenset[str] = frozenset()
+        self,
+        app: ASGIApp,
+        allowed_origins: list[str],
+        exempt_paths: frozenset[str] = frozenset(),
+        *,
+        allowed_hosts: Sequence[str] = (),
+        deployment_config: DeploymentConfig | None = None,
     ) -> None:
         self.app = app
         self.allowed_origins = allowed_origins
         self.exempt_paths = exempt_paths
+        self.allowed_hosts = tuple(allowed_hosts)
+        self._deployment_config = deployment_config
+        self._log_limiter = _RateLimitedLog(LOG)
 
     async def __call__(self, scope: ASGIScope, receive: Receive, send: Send) -> None:
         if scope["type"] != "http" or scope.get("path") in self.exempt_paths:
             await self.app(scope, receive, send)
             return
         headers = {key.decode("latin-1"): value.decode("latin-1") for key, value in scope.get("headers", [])}
-        reason = reject_request(headers, allowed_origins=self.allowed_origins)
-        if reason is not None:
-            response = JSONResponse({"error": "rejected", "reason": reason}, status_code=400)
+        rejection = reject_request_detail(
+            headers, allowed_origins=self.allowed_origins, allowed_hosts=self.allowed_hosts
+        )
+        if rejection is not None:
+            self._log_rejection(rejection, scope)
+            # G3/TC-564: the one body shape every transport rejection shares (a JSON-RPC error, id null).
+            response = JSONResponse(rejection_body(rejection.reason), status_code=rejection.status)
             await response(scope, receive, send)
             return
         await self.app(scope, receive, send)
+
+    def _log_rejection(self, rejection: Rejection, scope: ASGIScope) -> None:
+        """One WARNING per rejection, rate limited, with the reason (G3/TC-564). The reason is bounded: it can
+        quote a client-chosen header value."""
+        config = self._deployment_config
+        self._log_limiter.warning(
+            "request rejected",
+            {
+                "reject_kind": rejection.kind,
+                "reason": rejection.reason[:_REJECTION_REASON_LOG_MAX],
+                "status": rejection.status,
+                "method": str(scope.get("method", ""))[:16],
+                "path": str(scope.get("path", ""))[:_LOGGED_PATH_MAX],
+                "family": config.family if config else None,
+                "platform": config.platform if config else None,
+            },
+        )
 
 
 PARSE_ERROR_MESSAGE = "Parse error: the request body is not valid JSON"
@@ -278,6 +432,10 @@ def _sanitised_error_body(body: bytes) -> bytes | None:
         error["message"] = PARSE_ERROR_MESSAGE
     elif message.startswith("Validation error:"):
         error["message"] = INVALID_REQUEST_MESSAGE
+    elif message == "Session not found":
+        # G3/TC-564 (RD3-125): the SDK's bare 404 gives a client that lost its session (a restart, an
+        # idle eviction) nothing to recover with; the MCP rule is to initialize a new session.
+        error["message"] = UNKNOWN_SESSION_MESSAGE
     else:
         return None
     return json.dumps(envelope, separators=(",", ":")).encode("utf-8")
@@ -287,9 +445,10 @@ class ErrorSanitisingMiddleware:
     """Wraps the Streamable HTTP app. The SDK answers a malformed JSON-RPC body with HTTP 400 and
     ``f"Parse error: {e}"`` / ``f"Validation error: {e}"``, i.e. a multi-line pydantic dump with
     union internals and a documentation URL. For exactly those responses the message becomes one
-    of two fixed strings; status, id, code and the rest of the envelope are kept. Every other
+    of two fixed strings; status, id, code and the rest of the envelope are kept. The bare 404
+    "Session not found" gains the recovery instruction (G3/TC-564). Every other
     response, and every streamed (SSE) response, passes through untouched and unbuffered: only a
-    400 whose content type is ``application/json`` is ever held back.
+    400 or 404 whose content type is ``application/json`` is ever held back.
     """
 
     def __init__(self, app: ASGIApp) -> None:
@@ -308,7 +467,7 @@ class ErrorSanitisingMiddleware:
                 content_type = next(
                     (v for k, v in message.get("headers", []) if k.lower() == b"content-type"), b""
                 )
-                if message["status"] == 400 and content_type.lower().startswith(b"application/json"):
+                if message["status"] in (400, 404) and content_type.lower().startswith(b"application/json"):
                     held_start = dict(message)
                     return
                 await send(message)
@@ -373,6 +532,371 @@ class SessionCapObserverMiddleware:
         await self.app(scope, receive, observing_send)
 
 
+def _leaf_exceptions(exc: BaseException) -> list[BaseException]:
+    """The exceptions inside *exc*: itself, or every leaf of a (nested) exception group."""
+    if isinstance(exc, BaseExceptionGroup):
+        leaves: list[BaseException] = []
+        for inner in exc.exceptions:
+            leaves.extend(_leaf_exceptions(inner))
+        return leaves
+    return [exc]
+
+
+def _request_ids(scope: ASGIScope, config: DeploymentConfig | None) -> dict[str, Any]:
+    """The identifiers a transport-level log record carries: the pilot, the method and path, and the MCP
+    session id (bounded and restricted to safe characters, because the client chooses it)."""
+    session_id: str | None = None
+    for key, value in scope.get("headers", []):
+        if key.lower() == SESSION_HEADER.encode("ascii"):
+            session_id = re.sub(r"[^A-Za-z0-9._:\-]", "?", value.decode("latin-1")[:_LOGGED_SESSION_ID_MAX])
+            break
+    return {
+        "family": config.family if config else None,
+        "platform": config.platform if config else None,
+        "method": str(scope.get("method", ""))[:16],
+        "path": str(scope.get("path", ""))[:_LOGGED_PATH_MAX],
+        "session_id": session_id,
+    }
+
+
+# The identifiers of the request the current task is serving, for log records emitted by code that does not
+# know the request (the SDK's own POST handler). Set by ``ClientDisconnectMiddleware``.
+_REQUEST_IDS: contextvars.ContextVar[dict[str, Any] | None] = contextvars.ContextVar(
+    "foss_mcp_request_ids", default=None
+)
+# The loggers that report a client hanging up mid-request as an exception: the SDK's POST handler catches
+# Starlette's ``ClientDisconnect`` itself and logs "Error handling POST request" at ERROR with a traceback;
+# uvicorn logs an escaped one as "Exception in ASGI application".
+_DISCONNECT_LOGGERS = ("mcp.server.streamable_http", "uvicorn.error")
+
+
+class _ClientDisconnectLogFilter(logging.Filter):
+    """Turns a log record whose exception is only ``ClientDisconnect`` into ONE DEBUG line carrying the
+    request's pilot, method, path and session id, with no traceback (G3/TC-564, RD3-124). A client that hangs
+    up is the client's choice, not a server fault. When DEBUG is not enabled the record is dropped."""
+
+    def filter(self, record: logging.LogRecord) -> bool:
+        info = record.exc_info
+        if not (info and info[1] is not None):
+            return True
+        if not all(isinstance(leaf, ClientDisconnect) for leaf in _leaf_exceptions(info[1])):
+            return True
+        if not logging.getLogger(record.name).isEnabledFor(logging.DEBUG):
+            return False
+        record.levelno = logging.DEBUG
+        record.levelname = "DEBUG"
+        record.msg = "client disconnected"
+        record.args = ()
+        record.exc_info = None
+        record.exc_text = None
+        for key, value in (_REQUEST_IDS.get() or {}).items():
+            setattr(record, key, value)
+        return True
+
+
+def install_client_disconnect_log_filter() -> None:
+    """Attach ``_ClientDisconnectLogFilter`` to the loggers in ``_DISCONNECT_LOGGERS`` (once)."""
+    for name in _DISCONNECT_LOGGERS:
+        target = logging.getLogger(name)
+        if not any(isinstance(existing, _ClientDisconnectLogFilter) for existing in target.filters):
+            target.addFilter(_ClientDisconnectLogFilter())
+
+
+class ClientDisconnectMiddleware:
+    """Wraps the Streamable HTTP app. A client that hangs up while the app is still reading its request makes
+    Starlette raise ``ClientDisconnect``, which uvicorn used to log as ``Exception in ASGI application`` at
+    ERROR with a traceback and no ids (and the SDK logs as ``Error handling POST request``). That is the
+    client's choice, not a server fault (G3/TC-564, RD3-124): an exception that escapes is absorbed here and
+    recorded as ONE DEBUG line carrying the pilot, method, path and session id, and the request's ids are
+    published to ``_ClientDisconnectLogFilter`` for the records the SDK logs itself. Any other exception, and
+    any group holding one, propagates untouched."""
+
+    def __init__(self, app: ASGIApp, deployment_config: DeploymentConfig | None = None) -> None:
+        self.app = app
+        self._deployment_config = deployment_config
+
+    async def __call__(self, scope: ASGIScope, receive: Receive, send: Send) -> None:
+        if scope["type"] != "http":
+            await self.app(scope, receive, send)
+            return
+        ids = _request_ids(scope, self._deployment_config)
+        token = _REQUEST_IDS.set(ids)
+        try:
+            await self.app(scope, receive, send)
+        except (ClientDisconnect, BaseExceptionGroup) as exc:
+            if not all(isinstance(leaf, ClientDisconnect) for leaf in _leaf_exceptions(exc)):
+                raise
+            LOG.debug("client disconnected", extra=ids)
+        finally:
+            _REQUEST_IDS.reset(token)
+
+
+class _BodyReadTimeoutError(BaseException):
+    """The request body stopped arriving (raised inside the app, answered 408 by ``ReadTimeoutMiddleware``)."""
+
+
+class ReadTimeoutMiddleware:
+    """Wraps the Streamable HTTP app. While a request body is still being received, each read of the next
+    chunk may take at most ``timeout_seconds``; a client that sends the headers and then stalls is answered
+    408 (a JSON-RPC error, ``Connection: close``) instead of holding the connection and its task for ever.
+    Once the body is complete, reads are untimed: a long-lived GET stream waits on ``receive`` for the
+    client to disconnect and must not be cut off (G3/TC-564, RD3-125)."""
+
+    def __init__(
+        self,
+        app: ASGIApp,
+        timeout_seconds: float = BODY_READ_TIMEOUT_SECONDS,
+        deployment_config: DeploymentConfig | None = None,
+    ) -> None:
+        self.app = app
+        self.timeout_seconds = timeout_seconds
+        self._deployment_config = deployment_config
+        self._log_limiter = _RateLimitedLog(LOG)
+
+    async def __call__(self, scope: ASGIScope, receive: Receive, send: Send) -> None:
+        if scope["type"] != "http":
+            await self.app(scope, receive, send)
+            return
+        body_complete = False
+        response_started = False
+
+        async def timed_receive() -> MutableMapping[str, Any]:
+            nonlocal body_complete
+            if body_complete:
+                return await receive()
+            with anyio.move_on_after(self.timeout_seconds) as timeout:
+                message = await receive()
+            if timeout.cancelled_caught:
+                raise _BodyReadTimeoutError
+            if message["type"] == "http.request" and not message.get("more_body", False):
+                body_complete = True
+            return message
+
+        async def tracking_send(message: MutableMapping[str, Any]) -> None:
+            nonlocal response_started
+            if message["type"] == "http.response.start":
+                response_started = True
+            await send(message)
+
+        try:
+            await self.app(scope, timed_receive, tracking_send)
+        except (_BodyReadTimeoutError, BaseExceptionGroup) as exc:
+            if not all(isinstance(leaf, _BodyReadTimeoutError) for leaf in _leaf_exceptions(exc)):
+                raise
+            self._log_limiter.warning(
+                "request body read timed out",
+                {**_request_ids(scope, self._deployment_config), "timeout_seconds": self.timeout_seconds},
+            )
+            if not response_started:
+                response = JSONResponse(
+                    rejection_body("Request Timeout: the request body did not arrive in time"),
+                    status_code=408,
+                    headers={"connection": "close"},
+                )
+                await response(scope, receive, send)
+
+
+def _id_is_valid(value: object) -> bool:
+    return isinstance(value, str) or (isinstance(value, int) and not isinstance(value, bool))
+
+
+def _invalid_id_present(document: object) -> bool:
+    """True when a decoded JSON-RPC message (or a batch of them) carries an ``id`` that is neither a string
+    nor an integer. A message with no ``id`` at all is a notification and is fine."""
+    messages = document if isinstance(document, list) else [document]
+    return any(isinstance(item, dict) and "id" in item and not _id_is_valid(item["id"]) for item in messages)
+
+
+class RequestIdMiddleware:
+    """Wraps the Streamable HTTP app. The SDK treats a JSON-RPC message whose ``id`` is ``null``, a boolean, a
+    fraction, an array or an object as a NOTIFICATION and answers it with an empty HTTP 202, so a client with
+    a bug gets silence. A POST to the MCP path with such an id is answered 400 with the JSON-RPC "Invalid
+    Request" error (code -32600, id null) instead (G3/TC-564, RD3-125). The body (up to 1 MiB; a larger one
+    is passed through unchecked) is read here and replayed to the app byte for byte."""
+
+    def __init__(
+        self, app: ASGIApp, path: str = MCP_PATH, max_body_bytes: int = _ID_CHECK_MAX_BODY_BYTES
+    ) -> None:
+        self.app = app
+        self.path = path
+        self.max_body_bytes = max_body_bytes
+
+    async def __call__(self, scope: ASGIScope, receive: Receive, send: Send) -> None:
+        if scope["type"] != "http" or scope.get("method") != "POST" or scope.get("path") != self.path:
+            await self.app(scope, receive, send)
+            return
+        buffered: list[MutableMapping[str, Any]] = []
+        total = 0
+        complete = False
+        while True:
+            message = await receive()
+            buffered.append(message)
+            if message["type"] != "http.request":
+                break
+            total += len(message.get("body", b""))
+            if not message.get("more_body", False):
+                complete = True
+                break
+            if total > self.max_body_bytes:
+                break
+        if complete:
+            body = b"".join(item.get("body", b"") for item in buffered)
+            try:
+                document = json.loads(body)
+            except ValueError:
+                document = None  # not JSON: the SDK answers its own parse error
+            if _invalid_id_present(document):
+                response = JSONResponse(
+                    {
+                        "jsonrpc": "2.0",
+                        "id": None,
+                        "error": {"code": JSONRPC_INVALID_REQUEST_CODE, "message": INVALID_ID_MESSAGE},
+                    },
+                    status_code=400,
+                )
+                await response(scope, receive, send)
+                return
+        replay = iter(buffered)
+
+        async def replaying_receive() -> MutableMapping[str, Any]:
+            item = next(replay, None)
+            return item if item is not None else await receive()
+
+        await self.app(scope, replaying_receive, send)
+
+
+class _EvictionCounter:
+    """How many sessions ``SessionEvictionMiddleware`` has evicted (read by the ``/metrics`` route, which is
+    built before Starlette builds the middleware)."""
+
+    def __init__(self) -> None:
+        self.count = 0
+
+    def value(self) -> int:
+        return self.count
+
+
+class SessionEvictionMiddleware:
+    """Wraps the Streamable HTTP app (innermost). At the session cap the SDK refuses every new session until
+    its idle sweep (5 minutes by default), so 200 abandoned sessions lock every new client out. Before a
+    request that would open a session reaches the SDK, this evicts the OLDEST session that has no request in
+    flight and has been idle for at least ``min_idle_seconds`` when the cap is reached; the evicted
+    session's next request is the usual 404 with the recovery instruction. A session used more recently than
+    that is never evicted, so with nothing idle enough the SDK's own 503 (with ``Retry-After``) stands.
+
+    Activity is tracked here, per session id, from the ``Mcp-Session-Id`` header of each request and of each
+    initialize response. The session table itself belongs to the SDK; it is reached through
+    ``get_manager`` (a callable, because the manager exists only after the Starlette app is built)."""
+
+    def __init__(
+        self,
+        app: ASGIApp,
+        get_manager: Callable[[], Any],
+        *,
+        max_sessions: int,
+        min_idle_seconds: float,
+        deployment_config: DeploymentConfig | None = None,
+        path: str = MCP_PATH,
+        counter: _EvictionCounter | None = None,
+    ) -> None:
+        self.app = app
+        self._get_manager = get_manager
+        self._max_sessions = max_sessions
+        self._min_idle_seconds = min_idle_seconds
+        self._deployment_config = deployment_config
+        self._path = path
+        self._last_seen: dict[str, float] = {}
+        self._in_flight: dict[str, int] = {}
+        self._lock = anyio.Lock()
+        self._log_limiter = _RateLimitedLog(LOG)
+        self._counter = counter if counter is not None else _EvictionCounter()
+
+    @staticmethod
+    def _session_id(scope: ASGIScope) -> str | None:
+        for key, value in scope.get("headers", []):
+            if key.lower() == SESSION_HEADER.encode("ascii"):
+                return value.decode("latin-1")
+        return None
+
+    async def __call__(self, scope: ASGIScope, receive: Receive, send: Send) -> None:
+        if scope["type"] != "http" or scope.get("path") != self._path:
+            await self.app(scope, receive, send)
+            return
+        session_id = self._session_id(scope)
+        if session_id is not None:
+            self._last_seen[session_id] = _eviction_clock()
+            self._in_flight[session_id] = self._in_flight.get(session_id, 0) + 1
+            try:
+                await self.app(scope, receive, send)
+            finally:
+                remaining = self._in_flight.get(session_id, 1) - 1
+                if remaining > 0:
+                    self._in_flight[session_id] = remaining
+                else:
+                    self._in_flight.pop(session_id, None)
+                if session_id in self._last_seen:
+                    self._last_seen[session_id] = _eviction_clock()
+            return
+        if scope.get("method") == "POST":
+            await self._make_room()
+
+        async def observing_send(message: MutableMapping[str, Any]) -> None:
+            if message["type"] == "http.response.start" and message["status"] < 400:
+                for key, value in message.get("headers", []):
+                    if key.lower() == SESSION_HEADER.encode("ascii"):
+                        self._last_seen[value.decode("latin-1")] = _eviction_clock()
+            await send(message)
+
+        await self.app(scope, receive, observing_send)
+
+    async def _make_room(self) -> None:
+        """Evict the oldest idle session when the cap is reached. Never raises."""
+        try:
+            manager = self._get_manager()
+            instances = getattr(manager, "_server_instances", None)
+            if instances is None or len(instances) < self._max_sessions:
+                return
+            async with self._lock:
+                if len(instances) < self._max_sessions:
+                    return
+                now = _eviction_clock()
+                live = set(instances)
+                for stale in [sid for sid in self._last_seen if sid not in live]:
+                    del self._last_seen[stale]
+                candidates: list[tuple[float, str]] = []
+                for sid in live:
+                    if self._in_flight.get(sid, 0) > 0:
+                        continue
+                    seen = self._last_seen.setdefault(sid, now)
+                    if now - seen >= self._min_idle_seconds:
+                        candidates.append((seen, sid))
+                if not candidates:
+                    return
+                seen, victim = min(candidates)
+                transport = instances.get(victim)
+                discard = getattr(manager, "_discard_session", None)
+                if transport is None or discard is None:
+                    return
+                open_before = len(instances)
+                await discard(victim, transport)
+                self._last_seen.pop(victim, None)
+                self._counter.count += 1
+                config = self._deployment_config
+                self._log_limiter.warning(
+                    "oldest idle session evicted to admit a new one",
+                    {
+                        "family": config.family if config else None,
+                        "platform": config.platform if config else None,
+                        "idle_seconds": round(now - seen, 1),
+                        "open_sessions": open_before,
+                        "max_sessions": self._max_sessions,
+                        "evictions_total": self._counter.count,
+                    },
+                )
+        except Exception as exc:  # noqa: BLE001 - making room must never fail the request that asked.
+            LOG.warning("session eviction failed", extra={"error": type(exc).__name__})
+
+
 def _healthz_route() -> Route:
     """The ``/healthz`` route: unconditional liveness (``foss_mcp.mcp.health.is_alive``),
     always 200 - matching ``is_alive``'s own documented contract that it never depends on
@@ -389,7 +913,11 @@ def _healthz_route() -> Route:
     return Route(HEALTHZ_PATH, healthz, methods=["GET"])
 
 
-def _readyz_route(deployment_config: DeploymentConfig, manifest_store: GenerationManifestStore) -> Route:
+def _readyz_route(
+    deployment_config: DeploymentConfig,
+    manifest_store: GenerationManifestStore,
+    sidecars: SidecarWatcher | None = None,
+) -> Route:
     """The ``/readyz`` route: 200 only when ``foss_mcp.mcp.health.readiness_report`` says this
     deployment's own scope names a real active generation that belongs to it, is well formed and
     carries symbols and documentation; 503 otherwise - never process reachability, and never
@@ -405,6 +933,9 @@ def _readyz_route(deployment_config: DeploymentConfig, manifest_store: Generatio
     ``build_app`` below) and to the scope this deployment - never a request - resolves to
     (``foss_mcp.mcp.routing.resolve_scope``), so no per-request work decides which generation
     matters.
+
+    G3/TC-564: with *sidecars*, a required sidecar that is not on the server adds a ``warnings`` entry
+    (never a failure: ``ready`` and the status are unchanged).
     """
     scope = resolve_scope(deployment_config, request=None)
     generation_store = DeploymentGenerationStore.for_scope(
@@ -417,6 +948,10 @@ def _readyz_route(deployment_config: DeploymentConfig, manifest_store: Generatio
         nonlocal last
         try:
             report = readiness_report(generation_store)
+            if sidecars is not None:
+                missing = sidecars.warnings()
+                if missing:
+                    report = dataclasses.replace(report, warnings=report.warnings + missing)
             current = (report.ready, report.reasons)
             if current != last:
                 _log_readiness_transition(report, previous=last, deployment_config=deployment_config)
@@ -594,49 +1129,64 @@ class _MetricsScrape:
         return value
 
 
-def _wants_prometheus(request: Request) -> bool:
-    """``?format=prometheus`` always, ``?format=<anything else>`` never; with no ``format`` parameter
-    an Accept header naming ``text/plain`` or ``application/openmetrics-text``. A client sending
-    ``*/*`` (curl, the TestClient) keeps the JSON body."""
-    requested = request.query_params.get("format")
-    if requested is not None:
-        return requested == "prometheus"
-    accept = request.headers.get("accept", "").lower()
-    return "text/plain" in accept or "application/openmetrics-text" in accept
+def _wants_json(request: Request) -> bool:
+    """True only for an explicit ``?format=json``: the two-field JSON body is the legacy form (G3/TC-564).
+    Every other request, a bare ``curl`` and a Prometheus scraper alike, gets the Prometheus text."""
+    return request.query_params.get("format") == "json"
 
 
-def _metrics_route(usage_recorder: UsageRecorder, registry: MetricsRegistry, scrape: _MetricsScrape) -> Route:
+def _metrics_route(
+    usage_recorder: UsageRecorder,
+    registry: MetricsRegistry,
+    scrape: _MetricsScrape,
+    sidecars: SidecarWatcher | None = None,
+    session_evictions: Callable[[], int] | None = None,
+) -> Route:
     """The ``/metrics`` route: real, live counters read from the SAME ``UsageRecorder`` instance
     ``create_server``'s own ``_call_tool`` records every tool call into (TC-142) and the SAME
     ``MetricsRegistry`` it observes every call into (TC-509) - never a separate or mocked one. A metrics
     scrape is not an MCP request, so this is exempted from ``RejectionMiddleware`` for the identical
     reason ``/healthz``/``/readyz`` are (see module docstring).
 
-    Two representations: the Prometheus text exposition (``foss_mcp.telemetry.metrics``) when the
-    scraper asks for it (see ``_wants_prometheus``), and otherwise the EXISTING two-field JSON body
-    (``usage_events_queued``, ``usage_events_dropped``), which tests pin exactly.
+    Two representations. G3/TC-564 (RD3-124): the DEFAULT is the Prometheus text exposition
+    (``foss_mcp.telemetry.metrics``) - until now a bare ``curl`` got two counters and the real metrics
+    needed an ``Accept`` header - followed by the sidecar-state series (``SidecarWatcher``) and the
+    session-eviction counter. The original two-field JSON body (``usage_events_queued``,
+    ``usage_events_dropped``) stays under an explicit ``?format=json``.
     """
 
     def render() -> str:
-        return registry.render_prometheus(
+        text = registry.render_prometheus(
             open_sessions=scrape.open_sessions(),
             ready=scrape.ready(),
             generation_info=scrape.generation_info(),
             usage_queued=len(usage_recorder),
             usage_dropped=usage_recorder.dropped_count,
         )
+        if not text.endswith("\n"):
+            text += "\n"
+        if sidecars is not None:
+            text += sidecars.render_prometheus()
+        if session_evictions is not None:
+            constant = f'family="{registry.family}",platform="{registry.platform}"'
+            text += (
+                "# HELP foss_mcp_session_evictions_total Idle sessions evicted to admit a new one at the cap.\n"
+                "# TYPE foss_mcp_session_evictions_total counter\n"
+                f"foss_mcp_session_evictions_total{{{constant}}} {session_evictions()}\n"
+            )
+        return text
 
     async def metrics(request: Request) -> Response:
-        if _wants_prometheus(request):
-            # Readiness reads the generation from disk, so the scrape runs off the event loop.
-            text = await anyio.to_thread.run_sync(render)
-            return Response(text, media_type=PROMETHEUS_CONTENT_TYPE)
-        return JSONResponse(
-            {
-                "usage_events_queued": len(usage_recorder),
-                "usage_events_dropped": usage_recorder.dropped_count,
-            }
-        )
+        if _wants_json(request):
+            return JSONResponse(
+                {
+                    "usage_events_queued": len(usage_recorder),
+                    "usage_events_dropped": usage_recorder.dropped_count,
+                }
+            )
+        # Readiness reads the generation from disk, so the scrape runs off the event loop.
+        text = await anyio.to_thread.run_sync(render)
+        return Response(text, media_type=PROMETHEUS_CONTENT_TYPE)
 
     return Route(METRICS_PATH, metrics, methods=["GET"])
 
@@ -1007,6 +1557,162 @@ def _serving_recent_releases(
     return _ServedReleases(releases, state)
 
 
+_SIDECAR_STATES = (SIDECAR_PRESENT, SIDECAR_NOT_PRESENT, SIDECAR_FETCH_FAILED)
+# The sidecars whose ABSENCE is a fault: the ingestion Job always writes the product reference and the recent
+# releases (an empty list when there are none), so a missing file means the data never reached this server.
+# The package-registry verification is genuinely optional (not every pilot has a registry package), so it is
+# counted in the metric but never warned about.
+_REQUIRED_SIDECARS = (_KIND_PRODUCT_REFERENCE, _KIND_RECENT_RELEASES)
+
+
+class SidecarWatcher:
+    """The optional sidecars of one deployment, re-read when they change (G3/TC-564, RD3-120).
+
+    ``build_app`` used to read the sidecars once, at boot: a file added later was ignored until a restart,
+    and a file that was simply missing was served as an empty, "complete" answer with no log line and a green
+    ``/readyz``. Now ``snapshot()`` (called on every tool call that reads a sidecar) compares the size and
+    modification time of the three files and their ``.failed`` markers with the last reading and re-resolves
+    them only when something changed, so a sidecar copied in later is served on the NEXT request.
+
+    While ``sidecar_state.SIDECAR_STATE_WARNINGS`` is on, a required sidecar (product reference, recent
+    releases) that is not present is logged at WARNING when first seen (naming the file), appears in
+    ``warnings()`` (``/readyz`` carries it) and is counted by ``render_prometheus()``. With the switch off none
+    of that happens and the server behaves exactly as it did before the card. Thread safe."""
+
+    def __init__(self, manifests_dir: Path, deployment_config: DeploymentConfig) -> None:
+        self._dir = manifests_dir
+        self._config = deployment_config
+        family, platform = deployment_config.family, deployment_config.platform
+        self._paths = {
+            _KIND_PRODUCT_REFERENCE: manifests_dir / sidecar_name(family, platform),
+            _KIND_RECENT_RELEASES: manifests_dir / recent_releases_sidecar_name(family, platform),
+            _KIND_PACKAGE_REGISTRY: manifests_dir / verify_package_registry_sidecar_name(family, platform),
+        }
+        self._lock = threading.Lock()
+        self._signature: tuple[tuple[int, int] | None, ...] | None = None
+        self._snapshot = SidecarSnapshot(ProductReferenceInputs())
+        self._states = dict.fromkeys(self._paths, SIDECAR_NOT_PRESENT)
+        self._reported: dict[str, str] = {}
+        self.snapshot()
+
+    def _signature_of(self) -> tuple[tuple[int, int] | None, ...]:
+        parts: list[tuple[int, int] | None] = []
+        for path in self._paths.values():
+            for candidate in (path, path.with_name(path.name + _FAILURE_MARKER_SUFFIX)):
+                try:
+                    stat = candidate.stat()
+                except OSError:
+                    parts.append(None)
+                else:
+                    parts.append((stat.st_mtime_ns, stat.st_size))
+        return tuple(parts)
+
+    def snapshot(self) -> SidecarSnapshot:
+        """The current sidecar data; the files are re-resolved only when one of them changed."""
+        signature = self._signature_of()
+        with self._lock:
+            if signature != self._signature:
+                self._signature = signature
+                try:
+                    self._reload()
+                except Exception as exc:  # noqa: BLE001 - a bad reload keeps the last good snapshot.
+                    LOG.warning(
+                        "sidecar reload failed, serving the last good sidecars",
+                        extra={
+                            "error": type(exc).__name__,
+                            "family": self._config.family,
+                            "platform": self._config.platform,
+                        },
+                    )
+            return self._snapshot
+
+    def _reload(self) -> None:
+        inputs = _serving_product_reference_inputs(self._dir, self._config)
+        releases, releases_state = _resolve_recent_releases(
+            self._dir,
+            self._config,
+            source_repository=inputs.source_repository if inputs else None,
+        )
+        registry_state, registry_payload = _read_sidecar_json(self._paths[_KIND_PACKAGE_REGISTRY])
+        if registry_state == SIDECAR_PRESENT and not (
+            isinstance(registry_payload, dict)
+            and isinstance(registry_payload.get("verified"), bool)
+            and isinstance(registry_payload.get("coordinate"), str)
+            and isinstance(registry_payload.get("checked_at"), str)
+        ):
+            registry_state = SIDECAR_FETCH_FAILED
+        self._states = {
+            _KIND_PRODUCT_REFERENCE: SIDECAR_NOT_PRESENT if inputs is None else inputs.sidecar_state,
+            _KIND_RECENT_RELEASES: releases_state,
+            _KIND_PACKAGE_REGISTRY: registry_state,
+        }
+        self._snapshot = SidecarSnapshot(inputs or ProductReferenceInputs(), releases, releases_state)
+        self._report_changes()
+
+    def _report_changes(self) -> None:
+        """One WARNING when a required sidecar is first seen missing, one INFO when it appears later."""
+        if not sidecar_state.SIDECAR_STATE_WARNINGS:
+            return
+        for kind in _REQUIRED_SIDECARS:
+            state = self._states[kind]
+            previous = self._reported.get(kind)
+            self._reported[kind] = state
+            extra = {
+                "sidecar": kind,
+                "file": self._paths[kind].name,
+                "family": self._config.family,
+                "platform": self._config.platform,
+            }
+            if state == SIDECAR_NOT_PRESENT and previous != SIDECAR_NOT_PRESENT:
+                LOG.warning("sidecar not loaded, the file was not found", extra=extra)
+            elif previous == SIDECAR_NOT_PRESENT and state != SIDECAR_NOT_PRESENT:
+                LOG.info("sidecar loaded after startup", extra={**extra, "state": state})
+
+    def states(self) -> dict[str, str]:
+        """``{sidecar kind: present | not_present | fetch_failed}`` as last read."""
+        self.snapshot()
+        with self._lock:
+            return dict(self._states)
+
+    def warnings(self) -> tuple[str, ...]:
+        """The ``/readyz`` ``warnings`` entries for required sidecars that are not on the server. Empty while
+        ``SIDECAR_STATE_WARNINGS`` is off."""
+        if not sidecar_state.SIDECAR_STATE_WARNINGS:
+            return ()
+        states = self.states()
+        return tuple(
+            f"{kind} sidecar not loaded: {self._paths[kind].name} was not found"
+            for kind in _REQUIRED_SIDECARS
+            if states[kind] == SIDECAR_NOT_PRESENT
+        )
+
+    def render_prometheus(self) -> str:
+        """The sidecar-state series for ``/metrics``: one 0/1 gauge per sidecar and state, and a count of the
+        sidecars in each state. Empty while ``SIDECAR_STATE_WARNINGS`` is off."""
+        if not sidecar_state.SIDECAR_STATE_WARNINGS:
+            return ""
+        states = self.states()
+        constant = f'family="{self._config.family}",platform="{self._config.platform}"'
+        lines = [
+            "# HELP foss_mcp_sidecar_state Whether each optional sidecar file is in the given state (1) or not (0).",
+            "# TYPE foss_mcp_sidecar_state gauge",
+        ]
+        for kind in self._paths:
+            for state in _SIDECAR_STATES:
+                lines.append(
+                    f'foss_mcp_sidecar_state{{{constant},sidecar="{kind}",state="{state}"}} '
+                    f"{1 if states[kind] == state else 0}"
+                )
+        lines += [
+            "# HELP foss_mcp_sidecars How many optional sidecar files are in each state.",
+            "# TYPE foss_mcp_sidecars gauge",
+        ]
+        for state in _SIDECAR_STATES:
+            count = sum(1 for kind in self._paths if states[kind] == state)
+            lines.append(f'foss_mcp_sidecars{{{constant},state="{state}"}} {count}')
+        return "\n".join(lines) + "\n"
+
+
 def _session_cap_rejection_handler(
     registry: MetricsRegistry,
     deployment_config: DeploymentConfig,
@@ -1053,6 +1759,9 @@ def build_app(
     session_idle_timeout: int | None = None,
     max_session_count: int | None = None,
     metrics: MetricsRegistry | None = None,
+    allowed_hosts: list[str] | None = None,
+    session_evict_min_idle: float | None = None,
+    body_timeout: float | None = None,
 ) -> ASGIApp:
     """The ASGI app this container serves: the same ``create_server`` dispatch core as
     stdio, wrapped in Origin/protocol-version rejection, plus real ``/healthz``, ``/readyz``,
@@ -1085,7 +1794,20 @@ def build_app(
     the pilot (``SessionCapObserverMiddleware``). When ``usage_recorder`` is not given the production
     one is a ring buffer (``overflow="drop_oldest"``): nothing drains it, so it must hold the latest
     events rather than sit pinned at its cap with the first ones.
+
+    G3/TC-564 (RD3-120, 124, 125). The sidecars are read through ONE ``SidecarWatcher`` that re-resolves
+    them when a file changes (a sidecar added later is served on the next request) and reports a missing
+    required one (WARNING at boot, a ``/readyz`` warning, a ``/metrics`` series, an ``unavailable`` answer from
+    ``list_recent_changes``). ``allowed_hosts`` (default: ``FOSS_MCP_ALLOWED_HOSTS``, the container name
+    and the machine host name) extends the Host allow-list of ``transport_security.host_is_allowed``;
+    ``session_evict_min_idle`` (default ``FOSS_MCP_SESSION_EVICT_MIN_IDLE_SECONDS``, else 10) is how long a
+    session must have been idle to be evicted at the cap; ``body_timeout`` (default
+    ``FOSS_MCP_BODY_TIMEOUT_SECONDS``, else 30) bounds each read of a request body. Stack, outermost first:
+    rejection (Origin, Host, protocol version) - error sanitising - cap observer - the SDK's Starlette app,
+    whose own middleware is, outermost first: client-disconnect absorber - body read timeout - request-id
+    check - idle eviction.
     """
+    install_client_disconnect_log_filter()
     resolved_idle_timeout = (
         session_idle_timeout if session_idle_timeout is not None else session_idle_timeout_seconds()
     )
@@ -1107,33 +1829,33 @@ def build_app(
         if metrics is not None
         else MetricsRegistry(family=deployment_config.family, platform=deployment_config.platform)
     )
-    readyz_route = _readyz_route(deployment_config, resolved_store)
+    # Neither sidecar can stop the server starting (G3/TC-507): a bad one degrades to fetch_failed. One
+    # watcher serves them to every tool call and re-reads a file that changes (G3/TC-564).
+    sidecars = SidecarWatcher(resolved_manifests_dir, deployment_config)
+    readyz_route = _readyz_route(deployment_config, resolved_store, sidecars)
     startup_generation_store = DeploymentGenerationStore.for_scope(
         resolved_store, resolve_scope(deployment_config, request=None), deployment_config.source_kind
     )
     _log_example_search_mode(startup_generation_store, deployment_config)
     _log_startup_readiness(startup_generation_store, deployment_config)
-    # Neither sidecar can stop the server starting (G3/TC-507): a bad one degrades to fetch_failed.
-    product_reference_inputs = _serving_product_reference_inputs(resolved_manifests_dir, deployment_config)
-    recent_releases, recent_releases_state = _resolve_recent_releases(
-        resolved_manifests_dir,
-        deployment_config,
-        source_repository=product_reference_inputs.source_repository if product_reference_inputs else None,
-    )
     server = create_server(
         deployment_config,
         resolved_store,
-        product_reference_inputs=product_reference_inputs,
-        recent_releases=recent_releases,
         usage_recorder=resolved_usage_recorder,
-        recent_releases_state=recent_releases_state,
         metrics=resolved_metrics,
+        sidecars=sidecars.snapshot,
     )
     scrape = _MetricsScrape(server, startup_generation_store, deployment_config)
     on_reject = _session_cap_rejection_handler(
         resolved_metrics, deployment_config, scrape, max_sessions=resolved_max_sessions
     )
     allowed_origins = allowed_origins_from_env() if allowed_origins is None else allowed_origins
+    resolved_hosts = allowed_hosts_from_env() if allowed_hosts is None else allowed_hosts
+    resolved_evict_idle = (
+        session_evict_min_idle if session_evict_min_idle is not None else session_evict_min_idle_seconds()
+    )
+    resolved_body_timeout = body_timeout if body_timeout is not None else body_timeout_seconds()
+    evictions = _EvictionCounter()
     inner = server.streamable_http_app(
         session_idle_timeout=resolved_idle_timeout,
         max_sessions=resolved_max_sessions,
@@ -1141,15 +1863,33 @@ def build_app(
         custom_starlette_routes=[
             _healthz_route(),
             readyz_route,
-            _metrics_route(resolved_usage_recorder, resolved_metrics, scrape),
+            _metrics_route(resolved_usage_recorder, resolved_metrics, scrape, sidecars, evictions.value),
         ],
     )
     # A trailing-slash path is a 404, never a redirect built from the client's Host header (TC-544).
     inner.router.redirect_slashes = False
+    # G3/TC-564: the guards run INSIDE the Starlette app (around its router), so they see exactly the requests the
+    # SDK sees and the layers outside it are unchanged. Starlette makes the last one added the outermost:
+    # client-disconnect absorber, body read timeout, request-id check, idle-session eviction, the SDK.
+    inner.add_middleware(
+        SessionEvictionMiddleware,
+        get_manager=lambda: server.session_manager,
+        max_sessions=resolved_max_sessions,
+        min_idle_seconds=resolved_evict_idle,
+        deployment_config=deployment_config,
+        counter=evictions,
+    )
+    inner.add_middleware(RequestIdMiddleware)
+    inner.add_middleware(
+        ReadTimeoutMiddleware, timeout_seconds=resolved_body_timeout, deployment_config=deployment_config
+    )
+    inner.add_middleware(ClientDisconnectMiddleware, deployment_config=deployment_config)
     return RejectionMiddleware(
         ErrorSanitisingMiddleware(SessionCapObserverMiddleware(inner, on_reject)),
         allowed_origins,
         exempt_paths=frozenset({HEALTHZ_PATH, READYZ_PATH, METRICS_PATH}),
+        allowed_hosts=resolved_hosts,
+        deployment_config=deployment_config,
     )
 
 
@@ -1167,6 +1907,92 @@ def _exit_invalid_setting(variable: str, expected: str) -> NoReturn:
     """One line on stderr naming the variable (never its value), then exit 2 - no traceback."""
     print(f"serve_http: {variable} is invalid: {expected}", file=sys.stderr)
     raise SystemExit(2)
+
+
+def header_timeout_protocol(timeout_seconds: float) -> type[Any]:
+    """An uvicorn HTTP protocol class that closes a connection whose request line and headers do not
+    complete within *timeout_seconds* (G3/TC-564, RD3-125).
+
+    uvicorn arms a timer only for an IDLE keep-alive connection, and cancels it at the first received byte, so
+    a client that connects and sends nothing, or one byte every few seconds, held its connection for ever.
+    Here a timer starts when the connection opens (and again after each response, for the next request on a
+    keep-alive connection) and is cancelled only when a complete request head has been parsed. A request that
+    is being processed, a long-lived stream included, is never affected; a stalled BODY is
+    ``ReadTimeoutMiddleware``'s job. Built lazily: it needs uvicorn, which only the server process imports.
+    """
+    from uvicorn.protocols.http.h11_impl import H11Protocol
+
+    class HeaderTimeoutProtocol(H11Protocol):
+        def __init__(self, *args: Any, **kwargs: Any) -> None:
+            super().__init__(*args, **kwargs)
+            self._header_timer: asyncio.TimerHandle | None = None
+            self._header_cycle: Any = None
+
+        def connection_made(self, transport: asyncio.Transport) -> None:  # type: ignore[override]
+            super().connection_made(transport)
+            self._arm_header_timer()
+
+        def connection_lost(self, exc: Exception | None) -> None:
+            self._cancel_header_timer()
+            super().connection_lost(exc)
+
+        def data_received(self, data: bytes) -> None:
+            super().data_received(data)
+            if (
+                self._header_timer is not None
+                and self.cycle is not None
+                and self.cycle is not self._header_cycle
+            ):
+                # A request head arrived whole: the timer's job is done until the next request.
+                self._header_cycle = self.cycle
+                self._cancel_header_timer()
+
+        def on_response_complete(self) -> None:
+            super().on_response_complete()
+            if not self.transport.is_closing():
+                self._arm_header_timer()
+
+        def _arm_header_timer(self) -> None:
+            self._cancel_header_timer()
+            self._header_timer = self.loop.call_later(timeout_seconds, self._header_timeout_expired)
+
+        def _cancel_header_timer(self) -> None:
+            if self._header_timer is not None:
+                self._header_timer.cancel()
+                self._header_timer = None
+
+        def _header_timeout_expired(self) -> None:
+            self._header_timer = None
+            if self.transport.is_closing():
+                return
+            LOG.info("connection closed: the request head did not arrive in time")
+            self.transport.close()
+
+    return HeaderTimeoutProtocol
+
+
+def uvicorn_config(
+    app: ASGIApp,
+    *,
+    host: str,
+    port: int,
+    grace_seconds: int,
+    header_timeout: float,
+) -> Any:
+    """A ``uvicorn.Config`` with the same keyword arguments ``main`` passes to ``uvicorn.run``:
+    ``log_config=None`` (uvicorn must not install its own dictConfig over ``configure_logging()``, or its
+    lines would bypass the JSON formatter), the graceful shutdown window, and the stalled-header protocol
+    (``header_timeout_protocol``). Tests use it to start the real server on an ephemeral port."""
+    import uvicorn
+
+    return uvicorn.Config(
+        app,
+        host=host,
+        port=port,
+        log_config=None,
+        timeout_graceful_shutdown=grace_seconds,
+        http=header_timeout_protocol(header_timeout),
+    )
 
 
 def main() -> None:
@@ -1189,14 +2015,25 @@ def main() -> None:
         session_cap = max_sessions()
     except ValueError:
         _exit_invalid_setting(MAX_SESSIONS_ENV, "expected a whole number of sessions, 1 or more")
+    for variable, resolver, expected in (
+        (SESSION_EVICT_MIN_IDLE_ENV, session_evict_min_idle_seconds, "a whole number of seconds, 0 or more"),
+        (HEADER_TIMEOUT_ENV, header_timeout_seconds, "a whole number of seconds, 1 or more"),
+        (BODY_TIMEOUT_ENV, body_timeout_seconds, "a whole number of seconds, 1 or more"),
+    ):
+        try:
+            resolver()
+        except ValueError:
+            _exit_invalid_setting(variable, f"expected {expected}")
     # log_config=None: uvicorn must not install its own dictConfig over configure_logging(),
     # or its access/error lines would bypass the JSON formatter and go to stderr as plain text.
+    # http=: the protocol that also times out a request head that never completes (G3/TC-564).
     uvicorn.run(
         build_app(config, session_idle_timeout=idle_timeout, max_session_count=session_cap),
         host="0.0.0.0",
         port=DEFAULT_PORT,
         log_config=None,
         timeout_graceful_shutdown=grace,
+        http=header_timeout_protocol(header_timeout_seconds()),
     )
 
 

@@ -22,7 +22,9 @@ import functools
 import inspect
 import json
 import logging
+import os
 import re
+import threading
 import time
 import types
 import typing
@@ -46,8 +48,9 @@ from mcp.types import (
 from pydantic import BaseModel, ConfigDict, Field, ValidationError, field_validator
 
 from foss_mcp.extraction.github_release_reader import Release
-from foss_mcp.indexing.generation_manifest import GenerationManifestStore
-from foss_mcp.mcp.health import GENERATION_UNAVAILABLE_MESSAGE, generation_unavailable_reason
+from foss_mcp.indexing.generation_manifest import GenerationManifestError, GenerationManifestStore
+from foss_mcp.mcp import sidecar_state
+from foss_mcp.mcp.health import GENERATION_UNAVAILABLE_MESSAGE, GenerationWatch
 from foss_mcp.mcp.identity import (
     DeploymentFacts,
     deployment_instructions,
@@ -66,9 +69,12 @@ from foss_mcp.mcp.response_envelope import (
 from foss_mcp.mcp.routing import DeploymentConfig, Scope, resolve_scope
 from foss_mcp.mcp.sidecar_state import (
     RELEASES_FETCH_FAILED_MESSAGE,
+    RELEASES_NOT_LOADED_MESSAGE,
     SIDECAR_FETCH_FAILED,
+    SIDECAR_NOT_PRESENT,
     SIDECAR_PRESENT,
     SidecarFetchFailedError,
+    SidecarNotLoadedError,
 )
 from foss_mcp.mcp.tools.find_examples import find_examples
 from foss_mcp.mcp.tools.get_product_reference import SECTIONS, ProductReferenceInputs, get_product_reference
@@ -78,7 +84,11 @@ from foss_mcp.mcp.tools.list_recent_changes import list_recent_changes
 from foss_mcp.mcp.tools.lookup import lookup
 from foss_mcp.mcp.tools.readme_sections import ReadmeSections, read_readme_sections
 from foss_mcp.mcp.tools.release_alignment import align_releases, package_version
-from foss_mcp.mcp.tools.report_index_freshness import read_indexed_commits, report_index_freshness
+from foss_mcp.mcp.tools.report_index_freshness import (
+    read_generation_commits,
+    read_indexed_commits,
+    report_index_freshness,
+)
 from foss_mcp.mcp.tools.search_docs import CONTENT_TYPES, search_docs
 from foss_mcp.mcp.tools.search_symbols import SOURCE_KIND, scope_key, search_symbols
 from foss_mcp.normalization.document_schema import SourceKind
@@ -95,6 +105,10 @@ SERVER_BASE_VERSION = "0.1.0"
 # The release build (scripts/release/build_images.py) writes the exact commit it built into this
 # file next to the package, because nothing inside a running container can read an image label.
 BUILD_REVISION_FILENAME = "BUILD_REVISION"
+# Set by both Dockerfiles from the FOSS_MCP_BUILD_REVISION build argument (G3/TC-564).
+BUILD_REVISION_ENV = "FOSS_MCP_BUILD_REVISION"
+# The ``_meta`` key a successful tool result carries its correlation id under (G3/TC-564).
+CORRELATION_ID_META_KEY = "correlation_id"
 _REVISION_PATTERN = re.compile(r"(?:[0-9a-f]{40}|[0-9a-f]{64})")
 
 SERVER_INSTRUCTIONS = (
@@ -112,7 +126,12 @@ DEFAULT_MANIFEST_ROOT = Path("/data/manifests")
 def server_version(revision_file: Path | None = None) -> str:
     """``0.1.0+<first 12 characters of the build revision>`` when the BUILD_REVISION file next to
     the package holds a 40- or 64-character lowercase hex string, else ``0.1.0+unknown``. Never
-    raises: a missing, unreadable or malformed file only means the build is unidentified."""
+    raises: a missing, unreadable or malformed file only means the build is unidentified.
+
+    G3/TC-564 (RD3-124): a plain ``docker build`` writes no BUILD_REVISION file, and an image label cannot
+    be read from inside the container, so the default lookup falls back to the ``FOSS_MCP_BUILD_REVISION``
+    environment variable the Dockerfiles set from a build argument (the same 40- or 64-character hex
+    rule). An explicit *revision_file* is read alone, as before."""
     path = (
         revision_file
         if revision_file is not None
@@ -121,7 +140,9 @@ def server_version(revision_file: Path | None = None) -> str:
     try:
         revision = path.read_text(encoding="ascii").strip().lower()
     except (OSError, ValueError):
-        return f"{SERVER_BASE_VERSION}+unknown"
+        revision = ""
+    if _REVISION_PATTERN.fullmatch(revision) is None and revision_file is None:
+        revision = os.environ.get(BUILD_REVISION_ENV, "").strip().lower()
     if _REVISION_PATTERN.fullmatch(revision) is None:
         return f"{SERVER_BASE_VERSION}+unknown"
     return f"{SERVER_BASE_VERSION}+{revision[:12]}"
@@ -191,10 +212,115 @@ def _wrap_find_examples(store: GenerationManifestStore, scope: Scope) -> Callabl
 _README_SECTIONS = frozenset({"formats", "limitations", "install", "compatibility"})
 
 
-def _wrap_get_product_reference(
-    inputs: ProductReferenceInputs, store: GenerationManifestStore, scope: Scope
+@dataclasses.dataclass(frozen=True)
+class SidecarSnapshot:
+    """What the optional sidecars say RIGHT NOW (G3/TC-564): the product-reference inputs, the recent
+    releases and the releases sidecar's state. A server built with a fixed snapshot behaves as before; a
+    serving process passes a provider that re-reads the files when they change, so a sidecar added later
+    is picked up on the next request."""
+
+    product_reference_inputs: ProductReferenceInputs
+    recent_releases: Sequence[Release] = ()
+    recent_releases_state: str = SIDECAR_PRESENT
+
+
+SidecarProvider = Callable[[], SidecarSnapshot]
+
+
+def _hex_prefix_match(commit: str, other: str) -> bool:
+    """True when two commit ids are equal or one is an abbreviation (at least 7 characters) of the other."""
+    first, second = commit.strip().lower(), other.strip().lower()
+    short, long = sorted((first, second), key=len)
+    return bool(short) and (short == long or (len(short) >= 7 and long.startswith(short)))
+
+
+class _ActiveGeneration:
+    """The active generation's id and source commits, read cheaply and cached per generation id (G3/TC-564).
+
+    Used for the tool-call log lines (generation id and source commit on every record) and to keep the
+    install notice truthful after a rollback. Never raises; an unreadable generation is ``(None, None, ())``."""
+
+    def __init__(self, store: GenerationManifestStore, scope: Scope) -> None:
+        self._store = store
+        self._scope = scope
+        self._key = scope_key(scope, SOURCE_KIND)
+        self._lock = threading.Lock()
+        self._cached: tuple[str, str | None, tuple[str, ...]] | None = None
+
+    def peek(self) -> tuple[str | None, str | None]:
+        """``(generation_id, source_commit)`` for the log line of a call that has just finished. Reads only
+        the small pointer file; the commit is the cached one for that generation, ``None`` while it has not
+        been read yet (``read`` fills the cache, in a worker thread, once a tool actually reads the
+        generation). Never raises."""
+        try:
+            active = self._store.read_active(self._key)
+        except Exception:  # noqa: BLE001 - logging identity must never fail a call.
+            return None, None
+        if not isinstance(active, str) or not active:
+            return None, None
+        cached = self._cached
+        if cached is not None and cached[0] == active:
+            return active, cached[1]
+        return active, None
+
+    def read(self) -> tuple[str | None, str | None, tuple[str, ...]]:
+        """``(generation_id, indexed_source_commit, every_commit)`` of the active generation."""
+        try:
+            active = self._store.read_active(self._key)
+            if not isinstance(active, str) or not active:
+                return None, None, ()
+            with self._lock:
+                cached = self._cached
+            if cached is not None and cached[0] == active:
+                return cached
+            generation_id, indexed, commits = read_generation_commits(self._store, self._scope)
+            if generation_id is None:
+                return None, None, ()
+            result = (generation_id, indexed, commits)
+            with self._lock:
+                self._cached = result
+            return result
+        except Exception:  # noqa: BLE001 - logging identity must never fail a call.
+            return None, None, ()
+
+    def install_inputs(self, inputs: ProductReferenceInputs) -> ProductReferenceInputs:
+        """*inputs* with ``source_ref`` replaced by the active generation's own source commit when the sidecar's
+        commit is not one the generation was built from (a rollback leaves the sidecar on the newer commit).
+        The install notice then names the commit the served index really describes."""
+        if not inputs.source_ref:
+            return inputs
+        _, indexed, commits = self.read()
+        if indexed is None or any(_hex_prefix_match(commit, inputs.source_ref) for commit in commits):
+            return inputs
+        return dataclasses.replace(inputs, source_ref=indexed)
+
+
+def _fixed_sidecars(
+    product_reference_inputs: ProductReferenceInputs | None,
+    recent_releases: Sequence[Release],
+    recent_releases_state: str,
+) -> SidecarProvider:
+    """A provider that always returns the same snapshot (the server as it was built before TC-564)."""
+    snapshot = SidecarSnapshot(
+        product_reference_inputs or ProductReferenceInputs(), tuple(recent_releases), recent_releases_state
+    )
+    return lambda: snapshot
+
+
+def _live_get_product_reference(
+    sidecars: SidecarProvider,
+    store: GenerationManifestStore,
+    scope: Scope,
+    active: _ActiveGeneration | None = None,
 ) -> Callable[..., Any]:
+    """``get_product_reference`` reading its inputs from *sidecars* on every call. With *active* the install
+    notice names the commit the ACTIVE generation was built from when the sidecar's commit is not one of
+    its commits (G3/TC-564, after a rollback); without it the sidecar is served as it is."""
+
     def get_product_reference_tool(*, section: str) -> Any:
+        inputs = sidecars().product_reference_inputs
+        if active is not None:
+            inputs = active.install_inputs(inputs)
         # A read of the active generation per call is cheap (the store caches the parsed generation) and
         # never raises: any failure is the empty ReadmeSections, which answers as before.
         readme: ReadmeSections | None = (
@@ -205,14 +331,17 @@ def _wrap_get_product_reference(
     return get_product_reference_tool
 
 
-def _wrap_list_recent_changes(
-    releases: Sequence[Release],
-    state: str,
-    store: GenerationManifestStore,
-    scope: Scope,
-    inputs: ProductReferenceInputs,
+def _live_list_recent_changes(
+    sidecars: SidecarProvider, store: GenerationManifestStore, scope: Scope
 ) -> Callable[..., Any]:
     def list_recent_changes_tool(*, limit: int = 10) -> Any:
+        snapshot = sidecars()
+        releases, state = snapshot.recent_releases, snapshot.recent_releases_state
+        # G3/TC-564 (RD3-120): a releases file that is not on the server at all is not "no releases". The
+        # tool function keeps its contract (an empty or absent list answers as a list); the server, which
+        # alone knows the file is missing, answers ``unavailable`` while SIDECAR_STATE_WARNINGS is on.
+        if state == SIDECAR_NOT_PRESENT and sidecar_state.SIDECAR_STATE_WARNINGS:
+            raise SidecarNotLoadedError(RELEASES_NOT_LOADED_MESSAGE)
         # G3/TC-519: mark each release as in the index / newer than the index / unknown, computed per
         # call from the active generation's source commits and the manifest's declared version.
         # A failed fetch raises inside list_recent_changes; no generation is read for it.
@@ -222,7 +351,7 @@ def _wrap_list_recent_changes(
             else align_releases(
                 releases,
                 indexed_commits=read_indexed_commits(store, scope),
-                indexed_version=package_version(inputs),
+                indexed_version=package_version(snapshot.product_reference_inputs),
             )
         )
         return list_recent_changes(releases, limit=limit, state=state, alignment=alignment)
@@ -230,15 +359,15 @@ def _wrap_list_recent_changes(
     return list_recent_changes_tool
 
 
-def _wrap_report_index_freshness(
-    store: GenerationManifestStore,
-    scope: Scope,
-    inputs: ProductReferenceInputs,
-    releases: Sequence[Release],
+def _live_report_index_freshness(
+    sidecars: SidecarProvider, store: GenerationManifestStore, scope: Scope
 ) -> Callable[..., Any]:
     def report_index_freshness_tool(
         *, source_kind: str = "self_extracted", current_source_commit: str | None = None
     ) -> Any:
+        snapshot = sidecars()
+        inputs = snapshot.product_reference_inputs
+        releases = snapshot.recent_releases
         return report_index_freshness(
             store,
             scope,
@@ -250,6 +379,31 @@ def _wrap_report_index_freshness(
         )
 
     return report_index_freshness_tool
+
+
+def _wrap_get_product_reference(
+    inputs: ProductReferenceInputs, store: GenerationManifestStore, scope: Scope
+) -> Callable[..., Any]:
+    return _live_get_product_reference(_fixed_sidecars(inputs, (), SIDECAR_PRESENT), store, scope)
+
+
+def _wrap_list_recent_changes(
+    releases: Sequence[Release],
+    state: str,
+    store: GenerationManifestStore,
+    scope: Scope,
+    inputs: ProductReferenceInputs,
+) -> Callable[..., Any]:
+    return _live_list_recent_changes(_fixed_sidecars(inputs, releases, state), store, scope)
+
+
+def _wrap_report_index_freshness(
+    store: GenerationManifestStore,
+    scope: Scope,
+    inputs: ProductReferenceInputs,
+    releases: Sequence[Release],
+) -> Callable[..., Any]:
+    return _live_report_index_freshness(_fixed_sidecars(inputs, releases, SIDECAR_PRESENT), store, scope)
 
 
 # ---------------------------------------------------------------------
@@ -936,7 +1090,10 @@ def public_error_message(exc: Exception, *, fallback: str, correlation_id: str |
     without it, the one log line that fires on suppression carried no way to find it again.
     """
     text = str(exc)
-    if _contains_internal_detail(text):
+    # G3/TC-564: the text of a lookup or attribute fault is a field name or a type name from this
+    # server's own code (``'text'``, ``'NoneType' object has no attribute ...``), never a message for a
+    # client, however short and path-free it looks.
+    if isinstance(exc, LookupError | AttributeError | TypeError) or _contains_internal_detail(text):
         logger.warning(
             "suppressed unsafe exception text from an MCP client-facing result: type=%s message=%r "
             "correlation_id=%s",
@@ -1007,6 +1164,11 @@ _GENERIC_ERROR_FALLBACK = "An internal error occurred while handling this tool c
 _GENERATION_TOOLS = frozenset(
     {"lookup", "search_docs", "search_symbols", "get_symbol", "list_members", "find_examples"}
 )
+# G3/TC-564 (RD3-123): the two tools that read the generation without being "generation tools" (the
+# alignment of the releases with the index; the freshness report itself) get the same pre-check, so a
+# corrupt pointer or generation is the sanitised ``unavailable`` on every tool, not raw exception text. A
+# deployment that never published still gets its honest "never published" from report_index_freshness.
+_GENERATION_READING_TOOLS = _GENERATION_TOOLS | {"list_recent_changes", "report_index_freshness"}
 
 
 class _GenerationUnavailableError(RuntimeError):
@@ -1021,18 +1183,26 @@ def _run_tool_handler(
     handler: Callable[..., Any],
     tool_name: str,
     arguments: dict[str, Any],
-    store: GenerationManifestStore,
-    generation_scope_key: str,
+    watch: GenerationWatch,
+    active: Any = None,
 ) -> Any:
-    """Run *handler* in the worker thread, after the cheap generation check for the six
-    generation-backed tools (G3/TC-506). Raises ``_GenerationUnavailableError`` when there is
-    nothing usable to search."""
-    if tool_name in _GENERATION_TOOLS:
-        reason = generation_unavailable_reason(store, generation_scope_key)
+    """Run *handler* in the worker thread, after the cheap generation check for every tool that reads
+    the generation (G3/TC-506, TC-564). Raises ``_GenerationUnavailableError`` when there is nothing
+    usable to read. *active* (an ``_ActiveGeneration``) is warmed here, after the arguments were
+    validated, so the call's log line can name the commit the generation was built from."""
+    if tool_name in _GENERATION_READING_TOOLS:
+        reason = watch.unavailable_reason()
         if reason is not None:
             raise _GenerationUnavailableError(reason)
+        if active is not None:
+            active.read()
     return handler(**arguments)
 
+
+# The exceptions that come from reading the stored generation or pointer rather than from the caller's
+# arguments: a manifest-store error, an OS error, undecodable bytes or invalid JSON. Their text names files
+# and parser positions and is never shown to a client; they are the sanitised ``unavailable`` (G3/TC-564).
+_STORAGE_FAULTS = (GenerationManifestError, OSError, UnicodeDecodeError, json.JSONDecodeError)
 
 # ---------------------------------------------------------------------
 # Tool-call logging: a real, independent review of a working commercial MCP server confirmed
@@ -1079,6 +1249,8 @@ def _log_tool_call(
     platform: str | None = None,
     code: str | None = None,
     hit: bool | None = None,
+    generation_id: str | None = None,
+    source_commit: str | None = None,
 ) -> None:
     """Emit exactly one structured log record for a single tool call.
 
@@ -1086,6 +1258,10 @@ def _log_tool_call(
     (``family``, ``platform``), the error ``code`` (``ok`` on success) and ``hit`` (``True`` or
     ``False`` for a retrieval tool, ``None`` otherwise), so an operator can see which pilot
     misses. The logged ``tool`` is capped at 64 characters: an unknown name is client-chosen.
+
+    G3/TC-564 (RD3-124): ``generation_id`` and ``source_commit`` name the generation that was active for
+    the call and the commit its API symbols were extracted from (``None`` when none is readable), so a
+    line can be tied to the exact index that answered.
     """
     logged_tool = tool_name[:_LOGGED_TOOL_NAME_MAX]
     logger.info(
@@ -1101,6 +1277,8 @@ def _log_tool_call(
             "platform": platform,
             "code": code,
             "hit": hit,
+            "generation_id": generation_id,
+            "source_commit": source_commit,
         },
     )
 
@@ -1179,10 +1357,20 @@ def _record_usage_safely(usage_recorder: UsageRecorder, *, tool_name: str, **eve
 def _build_tool_registry(
     store: GenerationManifestStore,
     scope: Scope,
-    product_reference_inputs: ProductReferenceInputs,
-    recent_releases: Sequence[Release],
+    product_reference_inputs: ProductReferenceInputs | None = None,
+    recent_releases: Sequence[Release] = (),
     recent_releases_state: str = SIDECAR_PRESENT,
+    *,
+    sidecars: SidecarProvider | None = None,
+    active: _ActiveGeneration | None = None,
+    align_install: bool = False,
 ) -> dict[str, Callable[..., Any]]:
+    """The nine client-facing tool wrappers. The sidecar data is either frozen from the three positional
+    arguments or, with *sidecars*, read from the provider on every call (G3/TC-564)."""
+    if sidecars is None:
+        sidecars = _fixed_sidecars(product_reference_inputs, recent_releases, recent_releases_state)
+    if active is None:
+        active = _ActiveGeneration(store, scope)
     return {
         "lookup": _wrap_lookup(store, scope),
         "search_docs": _wrap_search_docs(store, scope),
@@ -1190,13 +1378,11 @@ def _build_tool_registry(
         "get_symbol": _wrap_get_symbol(store, scope),
         "list_members": _wrap_list_members(store, scope),
         "find_examples": _wrap_find_examples(store, scope),
-        "get_product_reference": _wrap_get_product_reference(product_reference_inputs, store, scope),
-        "list_recent_changes": _wrap_list_recent_changes(
-            recent_releases, recent_releases_state, store, scope, product_reference_inputs
+        "get_product_reference": _live_get_product_reference(
+            sidecars, store, scope, active if align_install else None
         ),
-        "report_index_freshness": _wrap_report_index_freshness(
-            store, scope, product_reference_inputs, recent_releases
-        ),
+        "list_recent_changes": _live_list_recent_changes(sidecars, store, scope),
+        "report_index_freshness": _live_report_index_freshness(sidecars, store, scope),
     }
 
 
@@ -1229,8 +1415,14 @@ def create_server(
     usage_recorder: UsageRecorder | None = None,
     recent_releases_state: str = SIDECAR_PRESENT,
     metrics: MetricsRegistry | None = None,
+    sidecars: SidecarProvider | None = None,
 ) -> Server:
     """Bootstrap the MCP server for one deployment, with all nine tools registered.
+
+    ``sidecars`` (G3/TC-564) is a zero-argument callable returning the CURRENT ``SidecarSnapshot``; it is
+    called on every tool call that reads a sidecar, so a serving process can hand in one that re-reads
+    the files when they change. When it is not given the three arguments ``product_reference_inputs``,
+    ``recent_releases`` and ``recent_releases_state`` are frozen into one snapshot, exactly as before.
 
     ``metrics`` (G3/TC-509) is the registry every finished tool call is observed into; it is
     resolved the same way as ``usage_recorder`` (a caller that renders it, ``build_app``'s
@@ -1253,7 +1445,10 @@ def create_server(
     """
     scope = resolve_scope(deployment_config, request=None)
     store = manifest_store or _default_manifest_store()
-    inputs = product_reference_inputs or ProductReferenceInputs()
+    # The install notice follows the active generation's commit only for a live (served) sidecar provider.
+    align_install = sidecars is not None
+    if sidecars is None:
+        sidecars = _fixed_sidecars(product_reference_inputs, recent_releases, recent_releases_state)
     # NOT `usage_recorder or UsageRecorder()`: UsageRecorder defines __len__, so a real, valid,
     # but currently-EMPTY recorder (len 0 - the common case for any freshly constructed one,
     # including the exact recorder build_app passes in here) is falsy, and `or` would silently
@@ -1265,7 +1460,11 @@ def create_server(
     )
     deployment_id = f"{scope.family}::{scope.platform}"
     generation_scope_key = scope_key(scope, SOURCE_KIND)
-    registry = _build_tool_registry(store, scope, inputs, recent_releases, recent_releases_state)
+    active_generation = _ActiveGeneration(store, scope)
+    generation_watch = GenerationWatch(store, generation_scope_key)
+    registry = _build_tool_registry(
+        store, scope, sidecars=sidecars, active=active_generation, align_install=align_install
+    )
     schemas = {name: tool_input_schema(name) for name in registry}
     for name, handler in registry.items():
         _assert_schema_matches_wrapper(name, schemas[name], schema_for(handler))
@@ -1304,6 +1503,7 @@ def create_server(
         latency_ms = (time.monotonic() - started_at) * 1000
         code_value = "ok" if code is None else code.value
         hit = _result_hit(tool_name, result) if code is None else None
+        generation_id, source_commit = active_generation.peek()
         try:
             _log_tool_call(
                 logger,
@@ -1315,6 +1515,8 @@ def create_server(
                 platform=scope.platform,
                 code=code_value,
                 hit=hit,
+                generation_id=generation_id,
+                source_commit=source_commit,
             )
         except Exception:  # noqa: BLE001 - accounting must never change a tool result.
             pass
@@ -1385,8 +1587,8 @@ def create_server(
                     handler,
                     params.name,
                     validated_arguments.model_dump(),
-                    store,
-                    generation_scope_key,
+                    generation_watch,
+                    active_generation,
                 )
             )
         except ValidationError as exc:
@@ -1409,6 +1611,34 @@ def create_server(
                 structured_content={
                     "code": ToolErrorCode.INVALID_ARGUMENT.value,
                     "message": text,
+                    "correlation_id": correlation_id,
+                },
+                is_error=True,
+            )
+        except _STORAGE_FAULTS as exc:
+            # G3/TC-564 (RD3-123): the stored pointer or generation is damaged (invalid JSON is a
+            # ValueError, a vanished file an OSError): the sanitised ``unavailable``, never the parser's
+            # position or a path as ``invalid_argument`` or ``internal``. The class name is logged.
+            logger.warning(
+                "tool '%s' hit a storage fault: %s correlation_id=%s",
+                params.name,
+                type(exc).__name__,
+                correlation_id,
+            )
+            _finish(
+                params.name,
+                correlation_id,
+                started_at,
+                "error",
+                ToolErrorCode.UNAVAILABLE,
+                None,
+                params.arguments or {},
+            )
+            return CallToolResult(
+                content=[TextContent(type="text", text=GENERATION_UNAVAILABLE_MESSAGE)],
+                structured_content={
+                    "code": ToolErrorCode.UNAVAILABLE.value,
+                    "message": GENERATION_UNAVAILABLE_MESSAGE,
                     "correlation_id": correlation_id,
                 },
                 is_error=True,
@@ -1463,6 +1693,32 @@ def create_server(
                 structured_content={
                     "code": ToolErrorCode.UNAVAILABLE.value,
                     "message": GENERATION_UNAVAILABLE_MESSAGE,
+                    "correlation_id": correlation_id,
+                },
+                is_error=True,
+            )
+        except SidecarNotLoadedError:
+            # G3/TC-564 (RD3-120): the releases file is not on this server at all. An ``unavailable``
+            # error that says so, never an empty list that reads as "this product has no releases".
+            logger.warning(
+                "tool '%s' has no release data: the releases sidecar is not loaded correlation_id=%s",
+                params.name,
+                correlation_id,
+            )
+            _finish(
+                params.name,
+                correlation_id,
+                started_at,
+                "error",
+                ToolErrorCode.UNAVAILABLE,
+                None,
+                params.arguments or {},
+            )
+            return CallToolResult(
+                content=[TextContent(type="text", text=RELEASES_NOT_LOADED_MESSAGE)],
+                structured_content={
+                    "code": ToolErrorCode.UNAVAILABLE.value,
+                    "message": RELEASES_NOT_LOADED_MESSAGE,
                     "correlation_id": correlation_id,
                 },
                 is_error=True,
@@ -1558,7 +1814,14 @@ def create_server(
         if note is not None:
             content.append(TextContent(type="text", text=note))
             structured[NOTE_KEY] = note
-        return CallToolResult(content=content, structured_content=structured, is_error=False)
+        # G3/TC-564 (RD3-124): a success carries the same correlation id an error does and the log line
+        # carries, in the result's ``_meta`` so the pinned ``structuredContent`` keys stay exactly as they were.
+        return CallToolResult(
+            content=content,
+            structured_content=structured,
+            is_error=False,
+            meta={CORRELATION_ID_META_KEY: correlation_id},  # type: ignore[call-arg]  # pydantic alias ``_meta``
+        )
 
     def _instructions() -> str:
         return deployment_instructions(SERVER_INSTRUCTIONS, scope, _facts())
