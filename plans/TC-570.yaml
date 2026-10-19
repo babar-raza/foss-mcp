@@ -20,6 +20,9 @@ write_paths:
 - Dockerfile.ingestion
 - tests/infra/test_ingestion_toolchain_pins.py
 - tests/test_container_build.py
+- tests/infra/test_ingestion_toolchain.py
+- tests/indexing/test_cpp_verifier_linux.py
+- tests/infra/test_ingestion_git_lfs.py
 satisfies:
 - REQ-G3-009
 - REQ-G3-008
@@ -56,6 +59,14 @@ inputs:
   FORMAT GATE (supervisor, learned from TC-533): the review runs `ruff format --check` WITHOUT --force-exclude on every file you changed, and the repo config excludes the tree_sitter_engine directory only
   for directory-wide runs. Before you commit, run `ruff format <each changed file, named explicitly>` and `ruff format --check` / `ruff check` on the same explicit list, including src/foss_mcp/extraction/tree_sitter_engine/api_surface.py
   and lang/*.py. If the formatter would rewrite large regions you did not touch, report it instead of committing.
+- >-
+  AMENDMENT (supervisor, 2026-10-19, after the worker stopped correctly). (1) Two more apt packages on the first apt line (line 26: git curl ca-certificates): the versions read from foss-mcp-ingestion:local
+  are curl=8.14.1-2+deb13u7 and ca-certificates=20250419 (git=1:2.47.3-0+deb13u1 as listed above); pin them like the others. (2) Existing tests that pin the floating form are now in write_paths and must
+  be re-written to the pinned form, keeping their INTENT (same layer order, same package set, nothing weakened): tests/infra/test_ingestion_toolchain.py (it searches the literal /tmp/dotnet-install.sh --channel;
+  the intent is that the dotnet 8 and dotnet 10 installs are present in the same install directory, before the toolchain layers and before the source copies, and that each version is a real version string:
+  re-write _dotnet_installs() and the assertions around --version 8.0.426 and --version 10.0.402; the card forbids --channel), tests/indexing/test_cpp_verifier_linux.py::test_dockerfile_ingestion_installs_g_plus_plus_and_cmake_through_apt
+  (its regex g\+\+(?=\s|$) must accept g++=4:14.2.0-1), tests/infra/test_ingestion_git_lfs.py (_gpp_cmake_line() regex (?<!\S)g\+\+(?!\S) must accept the pinned g++=...). Each edit carries the comment TC-570:
+  <old> -> <new>. (3) Run these three files plus the rest of tests/infra and tests/indexing offline suites (usual -k filter) green. Everything else in the card is unchanged.
 actions:
 - >-
   Pin the .NET, uv-Python and apt toolchain versions in Dockerfile.ingestion and test that nothing floats.
