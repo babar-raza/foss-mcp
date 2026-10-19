@@ -12,7 +12,8 @@ pilot, and the tests make the documentation self-checking in both directions:
   defaults, modifiers and resolvable ``reexport_of`` keys.
 
 The re-extraction card regenerates the fixtures and deletes the matching ``KNOWN_GAP`` entries; that is the
-point of the mechanism, not a skipped test.
+point of the mechanism, not a skipped test. TC-532 regenerated the last five (barcode, cells, email, note and
+page): ``KNOWN_GAP`` is empty and every fixture takes the "at or above the required version" branch.
 """
 
 from __future__ import annotations
@@ -45,14 +46,10 @@ PYTHON_PILOTS = (
 # re-pinned by TC-551: REVIEWED = ("cells_python", "<removed pilot>", "pdf_python") -> REVIEWED = ("cells_python", "pdf_python")
 REVIEWED = ("cells_python", "pdf_python")
 
-KNOWN_GAP: dict[str, str] = {
-    "barcode_python": "version-1 fixture: parameter defaults, keyword-only markers and static/classmethod marks were not extracted",
-    "cells_python": "reviewer RST-05: 420 upstream parameters with a default served as required, 51 static/classmethods unmarked, Workbook.__init__ password shown required",
-    "email_python": "version-1 fixture: parameter defaults, keyword-only markers and static/classmethod marks were not extracted",
-    "note_python": "version-1 fixture: parameter defaults, keyword-only markers and static/classmethod marks were not extracted",
-    "page_python": "version-1 fixture: parameter defaults, keyword-only markers and static/classmethod marks were not extracted",
-    # TC-555: tex_python re-extracted at version 5 -> its entry is removed
-}
+# TC-532: all eleven fixtures were regenerated at extractor version 5, so nothing is documented as a gap any more.
+# The mechanism stays: a future fixture below REQUIRED_VERSION must be listed here with a one-line reason, and the
+# tests below fail while a listed fixture is current.
+KNOWN_GAP: dict[str, str] = {}
 
 
 def _load(name: str) -> dict[str, Any]:
@@ -138,22 +135,14 @@ def test_required_version_is_the_extractor_version_that_fixes_the_gap() -> None:
     assert REQUIRED_VERSION <= run_extraction.EXTRACTOR_VERSION
 
 
-def test_pdf_python_facade_gap_is_documented() -> None:
-    """``aspose_pdf.facades.PdfFileSecurity`` is absent from the committed fixture today (its definition
-    was cut by the symbol cap while its re-export shell, listing only inherited methods, was kept). This
-    goes red the day the fixture is regenerated without updating KNOWN_GAP and this test."""
+def test_pdf_python_facade_definition_carries_its_own_methods() -> None:
+    """TC-532 (the positive form of the TC-522 gap test): ``aspose_pdf.facades.PdfFileSecurity`` is in the fixture
+    with its own ``encrypt_file``, ``decrypt_file`` and ``change_password``, and so is ``PdfFileEditor``; the
+    re-export shell no longer stands alone with only the methods of its private base."""
     fixture = _load("pdf_python")
     by_import = {entry.get("class_import"): entry for entry in fixture["types"]}
-    in_gap = "pdf_python" in KNOWN_GAP
-    assert ("aspose_pdf.facades.PdfFileSecurity" in by_import) is (not in_gap)
-    shell = by_import["aspose_pdf.PdfFileSecurity"]
-    own = {method["name"] for method in shell.get("methods") or []}
-    if in_gap:
-        assert "encrypt_file" not in own
-        assert "bind_pdf" in own
-    else:
-        definition = by_import["aspose_pdf.facades.PdfFileSecurity"]
-        assert {"encrypt_file", "decrypt_file", "change_password"} <= {
-            method["name"] for method in definition["methods"]
-        }
-        assert "aspose_pdf.facades.PdfFileEditor" in by_import
+    definition = by_import["aspose_pdf.facades.PdfFileSecurity"]
+    own = {method["name"] for method in definition["methods"] if not method.get("inherited_from")}
+    assert {"encrypt_file", "decrypt_file", "change_password"} <= own
+    assert by_import["aspose_pdf.PdfFileSecurity"]["reexport_of"] == "aspose_pdf.facades.PdfFileSecurity"
+    assert "aspose_pdf.facades.PdfFileEditor" in by_import

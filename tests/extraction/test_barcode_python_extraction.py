@@ -229,11 +229,20 @@ def test_inherited_from_is_genuinely_absent_despite_real_inheritance() -> None:
     """
     data = _load_fixture()
 
+    # TC-532: no tag anywhere -> the only tags are the 28 fields the option subclasses inherit from the PRIVATE
+    # base `_internal.models.options.EncodeOptions` (a private base's public members are listed on the public
+    # subclass and say where they come from); no method of this pilot is inherited.
+    tagged = []
     for entry in data["types"]:
         for method in entry.get("methods", []):
             assert "inherited_from" not in method, (entry["class_import"], method["name"])
         for prop in entry.get("properties", []):
-            assert "inherited_from" not in prop, (entry["class_import"], prop["name"])
+            if "inherited_from" in prop:
+                tagged.append((entry["class_import"], prop["name"], prop["inherited_from"]))
+    assert len(tagged) == 28
+    assert {origin for _, _, origin in tagged} == {
+        "aspose_barcode_foss._internal.models.options.EncodeOptions"
+    }
 
 
 def test_encode_options_subclasses_now_carry_real_dataclass_field_properties() -> None:
@@ -250,7 +259,12 @@ def test_encode_options_subclasses_now_carry_real_dataclass_field_properties() -
     code128 = by_import["aspose_barcode_foss.Code128Options"]
     names = {p["name"] for p in code128["properties"]}
     assert {"eci_assignment_number", "gs1_enabled", "encode_mode"} <= names
-    assert all(p["writable"] for p in code128["properties"])
+    # TC-532: writable -> read-only: the upstream options are `@dataclass(slots=True, frozen=True)`
+    assert not any(p["writable"] for p in code128["properties"])
+    assert {p["name"] for p in code128["properties"] if p.get("inherited_from")} == {
+        "eci_assignment_number",
+        "gs1_enabled",
+    }
 
     # `Renderer`'s own abstract `render` and each subclass's own overriding `render` are
     # real, distinct method entries (not copies) - confirmed by their shared signature

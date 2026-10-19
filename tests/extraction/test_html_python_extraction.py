@@ -143,7 +143,16 @@ def test_html_element_now_carries_real_own_methods() -> None:
     own_property_names = {p["name"] for p in own_properties}
     assert {"title", "tab_index"} <= own_property_names
     # Near-zero before TC-294 (0 observed by TC-289); comfortably non-trivial now.
-    assert len(own_methods) >= 20
+    # TC-532: >= 20 own -> 7 own (__init__, blur, click, focus, hide_popover, show_popover, toggle_popover) and 70
+    # more tagged `inherited_from` the private-module bases (Element 48, Node 19, EventTarget 3): the members of a
+    # private base are listed with the class they come from instead of being passed off as the subclass's own.
+    assert len(own_methods) == 7
+    assert len(html_element["methods"]) >= 20
+    assert {m["inherited_from"] for m in html_element["methods"] if m.get("inherited_from")} == {
+        "aspose_html.dom._element.Element",
+        "aspose_html.dom._node.Node",
+        "aspose_html.dom._event_target.EventTarget",
+    }
 
 
 def test_a_real_subclass_carries_correct_inherited_from_provenance() -> None:
@@ -171,7 +180,8 @@ def test_a_real_subclass_carries_correct_inherited_from_provenance() -> None:
     assert "HTMLElement" in media_element["bases"]
     click_entries = [m for m in media_element["methods"] if m["name"] == "click"]
     assert click_entries, "expected HTMLMediaElement to carry HTMLElement's click"
-    assert "inherited_from" not in click_entries[0]
+    # TC-532: no tag -> inherited from the definition of HTMLElement (a private module, so its members are tagged)
+    assert click_entries[0]["inherited_from"] == "aspose_html.dom._html_element.HTMLElement"
 
     select_element = next(
         entry
@@ -185,9 +195,9 @@ def test_a_real_subclass_carries_correct_inherited_from_provenance() -> None:
     # separately-kept, no-argument "remove()" it inherits from HTMLElement (removing the
     # element itself) - TC-261's own param-type-aware dedup key keeps both as distinct
     # entries rather than conflating them.
-    remove_entries = [m for m in select_element["methods"] if m["name"] == "remove" and not m["params"]]
-    assert remove_entries, "expected HTMLSelectElement to have inherited HTMLElement.remove()"
-    assert remove_entries[0]["inherited_from"] == "aspose_html.dom.HTMLElement"
+    # TC-532: both kept -> only the override. Python binds the name `remove` once: HTMLSelectElement.remove(index)
+    # REPLACES the inherited no-argument remove(), so listing both offered a call that does not exist.
+    assert not [m for m in select_element["methods"] if m["name"] == "remove" and not m["params"]]
     own_remove = [m for m in select_element["methods"] if m["name"] == "remove" and m["params"]]
-    assert own_remove, "expected HTMLSelectElement's own remove(index) to survive alongside it"
+    assert len(own_remove) == 1, "expected exactly HTMLSelectElement's own remove(index)"
     assert "inherited_from" not in own_remove[0]
