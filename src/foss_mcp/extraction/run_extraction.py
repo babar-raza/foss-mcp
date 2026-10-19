@@ -241,7 +241,12 @@ def _python_types_from_surface(surface: python_surface.PublicSurface) -> list[di
             # carries members of its own (inherited from a private base) still travels with it.
             entry["reexport_of"] = symbol.reexported_from
         if symbol.kind == "enum":
-            entry["enum_members"] = []
+            # TC-532: the members come with the symbol (also for an enum reached through a private module).
+            entry["enum_members"] = [{"name": name, "value": value} for name, value in symbol.enum_members]
+        if symbol.shadows:
+            entry["shadows"] = symbol.shadows  # TC-532: this exported name replaced that class
+        if symbol.shadowed_by:
+            entry["shadowed_by"] = symbol.shadowed_by  # TC-532: that exported name replaced this class
         entries[symbol.qualified_name] = entry
         order.append(symbol.qualified_name)
 
@@ -252,16 +257,19 @@ def _python_types_from_surface(surface: python_surface.PublicSurface) -> list[di
         if owner is None:
             continue  # the owning class was itself unresolved/excluded; never guess one up
         if symbol.kind == "property":
-            owner["properties"].append(
-                {
-                    "name": symbol.name,
-                    "type": symbol.return_type or "",
-                    "writable": bool(symbol.writable),
-                    "doc": symbol.docstring or "",
-                    "file": symbol.source_path,
-                    "line": symbol.line,
-                }
-            )
+            prop: dict[str, Any] = {
+                "name": symbol.name,
+                "type": symbol.return_type or "",
+                "writable": bool(symbol.writable),
+                "doc": symbol.docstring or "",
+                "file": symbol.source_path,
+                "line": symbol.line,
+            }
+            if symbol.value is not None:
+                prop["value"] = symbol.value  # TC-532: the literal the attribute is assigned
+            if symbol.inherited_from:
+                prop["inherited_from"] = symbol.inherited_from
+            owner["properties"].append(prop)
             continue
         # Every declared parameter (TC-393), an unannotated one with type "" - _reference_strings()
         # reads `or ""`, so an empty type never pollutes centrality. A symbol built without
@@ -279,9 +287,114 @@ def _python_types_from_surface(surface: python_surface.PublicSurface) -> list[di
         }
         if symbol.modifiers and symbol.name != "__init__":
             method["modifiers"] = list(symbol.modifiers)  # TC-522: static / classmethod / async
+        if symbol.inherited_from:
+            method["inherited_from"] = symbol.inherited_from  # TC-532: a member of a private base
         owner["methods"].append(method)
 
     return [entries[key] for key in order]
+
+
+def _python_base_origins(surface: python_surface.PublicSurface) -> dict[str, dict[str, str]]:
+    """TC-532: ``{class_import: {base as written: qualified name of the class that defines it}}`` for every
+    class symbol of *surface* whose bases the source resolves."""
+    return {
+        symbol.qualified_name: dict(symbol.base_origins)
+        for symbol in surface.symbols
+        if symbol.kind in ("class", "enum") and symbol.base_origins
+    }
+
+
+def _flatten_python_inheritance(types: list[dict[str, Any]], origins: dict[str, dict[str, str]]) -> None:
+    """TC-532: copy inherited members into the python class entries, each base resolved the way the
+    source resolves it, never by its bare name.
+
+    ``api_surface._flatten_inheritance`` looks a base up by its short name, and the short name of a class is
+    shared by its package-level re-export and its definition: it resolved the re-export (often empty) and
+    never visited the definition, so ``GeometryShape(Shape)`` ended with no members. Here every entry is
+    keyed by its ``class_import`` for the call, and every base written in the source is replaced by the
+    qualified name of the class ``origins`` says it is (a class defined in a private module is stood for by
+    the public entry that re-exports it). A base the source does not resolve (``ABC``, ``Exception``)
+    stays as written and links to nothing. ``name`` and ``bases`` are restored afterwards.
+    """
+    classes = [
+        entry for entry in types if entry.get("kind") in ("class", "enum") and entry.get("class_import")
+    ]
+    by_import = {entry["class_import"]: entry for entry in classes}
+    stand_in: dict[str, str] = {}
+    for entry in classes:
+        target = entry.get("reexport_of")
+        hops = 0
+        while target in by_import and by_import[target].get("reexport_of") and hops < 16:
+            target = by_import[target]["reexport_of"]
+            hops += 1
+        if target and target not in by_import:
+            stand_in.setdefault(target, entry["class_import"])
+    by_short: dict[str, list[dict[str, Any]]] = {}
+    for entry in classes:
+        by_short.setdefault(entry["name"], []).append(entry)
+
+    def by_bare_name(base: str) -> str | None:
+        """The entry a base the source does not resolve is taken for: the one class of that name, else the
+        one that is not a re-export, else the first that has members (the rule of the short-name lookup)."""
+        found = by_short.get(base) or []
+        if len(found) > 1:
+            found = [entry for entry in found if not entry.get("reexport_of")] or found
+        if len(found) > 1:
+            found = [entry for entry in found if entry.get("methods") or entry.get("properties")] or found
+        return found[0]["class_import"] if found else None
+
+    saved = [(entry, entry["name"], entry.get("bases")) for entry in classes]
+    for entry in classes:
+        mapping = origins.get(entry["class_import"], {})
+        resolved: list[str] = []
+        for base in entry.get("bases") or []:
+            target = mapping.get(base)
+            if target is not None and target not in by_import:
+                target = stand_in.get(target)
+            if target is None and "." not in base:
+                target = by_bare_name(base)
+            resolved.append(target if target is not None else base)
+        entry["bases"] = resolved
+        entry["name"] = entry["class_import"]
+    try:
+        api_surface._flatten_inheritance(classes)
+    finally:
+        for entry, name, bases in saved:
+            entry["name"] = name
+            if bases is None:
+                entry.pop("bases", None)
+            else:
+                entry["bases"] = bases
+
+
+def _drop_overridden_members(types: list[dict[str, Any]]) -> None:
+    """TC-532: a class that defines a name itself does not also have the base's member of that name: Python
+    binds the name once. ``_flatten_inheritance`` keys a method by its name AND its parameter types, so an
+    override whose parameters differ from the base's was listed twice, its own and the base's, and the
+    base's signature appeared as a second way to call it. Drop every inherited method or property whose
+    name an own method or property of the same class already has."""
+    for entry in types:
+        if entry.get("kind") not in ("class", "enum"):
+            continue
+        own = {
+            member["name"]
+            for key in ("methods", "properties")
+            for member in entry.get(key) or []
+            if not member.get("inherited_from")
+        }
+        inherited_seen: set[str] = set()
+        for key in ("methods", "properties"):
+            members = entry.get(key) or []
+            kept: list[dict[str, Any]] = []
+            for member in members:
+                if member.get("inherited_from"):
+                    # An inherited name is the nearest base's, listed once.
+                    if member["name"] in own or member["name"] in inherited_seen:
+                        continue
+                    inherited_seen.add(member["name"])
+                kept.append(member)
+            if len(kept) != len(members):
+                entry[key] = kept
 
 
 def _extract_python_surface(clone_root: Path) -> tuple[list[dict[str, Any]], list[str]]:
@@ -299,7 +412,9 @@ def _extract_python_surface(clone_root: Path) -> tuple[list[dict[str, Any]], lis
     # routes "python" around api_surface.extract_api_surface() entirely (see its own docstring),
     # the only other call site. Reusing it unmodified here, rather than writing a second
     # Python-specific flattening implementation, closes that gap for every Python pilot.
-    api_surface._flatten_inheritance(types)
+    # TC-532: bases are resolved as the source resolves them, and an override shows its own signature.
+    _flatten_python_inheritance(types, _python_base_origins(surface))
+    _drop_overridden_members(types)
     return types, list(surface.unresolved)
 
 
@@ -390,25 +505,12 @@ def extract_from_clone(clone_root: Path, manifest: dict[str, Any]) -> tuple[list
 def _enum_members_from_class(node: ast.ClassDef) -> list[dict[str, str]]:
     """A python enum class body's members as ``{"name", "value"}`` (the shape the tree-sitter
     reader produces). ``value`` is the source text of the right-hand side when it is a literal
-    (``1``, ``"png"``, ``(1, 2)``) and ``""`` otherwise (``auto()``, a call, a name). Private
-    (``_x``) names and everything that is not a plain assignment are not members."""
-    members: list[dict[str, str]] = []
-    for statement in node.body:
-        if isinstance(statement, ast.Assign):
-            targets, value = statement.targets, statement.value
-        elif isinstance(statement, ast.AnnAssign) and statement.value is not None:
-            targets, value = [statement.target], statement.value
-        else:
-            continue
-        try:
-            ast.literal_eval(value)
-            text = ast.unparse(value)
-        except (ValueError, TypeError, SyntaxError, MemoryError, RecursionError):
-            text = ""
-        for target in targets:
-            if isinstance(target, ast.Name) and not target.id.startswith("_"):
-                members.append({"name": target.id, "value": text})
-    return members
+    (``1``, ``"png"``, ``(1, 2)``), the marker ``auto()`` for an ``auto()`` call and ``""`` otherwise
+    (another call, a name). Private (``_x``) names and everything that is not a plain assignment
+    are not members."""
+    # TC-532: the reading of a class body lives in python_surface (an ``auto()`` member is recorded with the
+    # marker value ``auto()``); this keeps the dict shape the tree-sitter reader produces.
+    return [{"name": name, "value": value} for name, value in python_surface.enum_member_pairs(node)]
 
 
 def _find_class(tree: ast.AST, name: str, line: int | None) -> ast.ClassDef | None:

@@ -297,6 +297,19 @@ def _format_type_text(
     if defined_in:
         lines.append(f"Defined-In: {defined_in}")
     lines.extend(f"Exported-As: {name}" for name in exported_as)
+    # TC-532: a python exported name that replaced another class of the same name by a LATER import
+    # (``Shadows``), and the class it replaced (``Shadowed-By``). The exported class is not given the other
+    # class's members: at runtime it is what it is, and an empty one is said to be a placeholder.
+    shadows = " ".join(str(entry.get("shadows") or "").split())
+    if shadows:
+        lines.append(f"Shadows: {shadows}")
+        if not _has_members(source):
+            lines.append(
+                f"Note: this exported name is an empty placeholder at runtime; the working class is {shadows}"
+            )
+    shadowed_by = " ".join(str(entry.get("shadowed_by") or "").split())
+    if shadowed_by:
+        lines.append(f"Shadowed-By: {shadowed_by}")
     alias_of = " ".join(str(source.get("alias_of") or "").split())
     if alias_of:
         lines.append(f"Alias-Of: {alias_of}")  # TC-523: a TypeScript type alias's right-hand side
@@ -464,6 +477,8 @@ def _reexport_pairs(entries: Sequence[Mapping[str, object]]) -> dict[int, int]:
         class_import = entry.get("class_import")
         if index in pairs or not file.endswith("__init__.py") or not class_import or _has_members(entry):
             continue
+        if entry.get("shadows"):
+            continue  # TC-532: an exported name that replaced another class is not that class
         package = str(class_import).rpartition(".")[0]
         if not package:
             continue
@@ -473,6 +488,7 @@ def _reexport_pairs(entries: Sequence[Mapping[str, object]]) -> dict[int, int]:
             for other_index, other in enumerate(entries)
             if other_index != index
             and other_index not in pairs
+            and not other.get("shadowed_by")
             and other.get("name") == entry.get("name")
             and str(other.get("class_import") or "").startswith(prefix)
             and _has_members(other)
@@ -483,9 +499,13 @@ def _reexport_pairs(entries: Sequence[Mapping[str, object]]) -> dict[int, int]:
     for index, entry in enumerate(entries):
         if index in pairs or not _has_members(entry) or not str(entry.get("file") or "").endswith(".py"):
             continue
+        if entry.get("shadowed_by"):
+            continue  # TC-532: the class an exported name replaced is nobody's definition by name
         definitions.setdefault((str(entry.get("name")), str(entry.get("kind"))), []).append(index)
     for index, entry in enumerate(entries):
         if index in pairs or entry.get("kind") not in ("class", "enum") or _has_members(entry):
+            continue
+        if entry.get("shadows"):
             continue
         if not str(entry.get("file") or "").endswith(".py"):
             continue

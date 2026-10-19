@@ -17,6 +17,14 @@ method the code defines; ``__init__`` is the one public dunder (the constructor)
 ``@property`` getter (annotated or not) is a ``property`` member. A package ``__init__`` re-export is public by the same rule and keeps
 the origin it came from. Star imports, unresolvable relative imports, and syntax errors are
 recorded as unresolved, never guessed.
+
+TC-532 (Round 3): a name bound more than once is its LAST binding, as in Python - the last ``def`` of a
+method or function, the last ``class`` of a name, the last ``from ... import`` of an exported name (the
+class it replaced is marked ``shadowed_by`` and the exported name ``shadows`` it); the members of a
+class include those of its underscore-prefixed bases and of the public ancestors behind them
+(``inherited_from``), attributes built by ``property(...)`` or by a factory function, the ``__init__``
+that ``@dataclass`` / ``NamedTuple`` generate, enum members built with ``auto()`` and the literal values
+of attributes.
 """
 
 from __future__ import annotations
@@ -24,13 +32,20 @@ from __future__ import annotations
 import ast
 import importlib.util
 import re
-from collections.abc import Sequence
-from dataclasses import dataclass, replace
+from collections.abc import Mapping, Sequence
+from dataclasses import dataclass, field, replace
 from pathlib import Path
-from typing import Literal
+from typing import Any, Literal
 
 SymbolKind = Literal["module", "class", "enum", "function", "method", "property", "unknown"]
 _ENUM_BASES = frozenset({"Enum", "IntEnum", "StrEnum", "Flag", "IntFlag", "ReprEnum"})
+# TC-532: the calls that give an enum member its value automatically. Such a member is recorded under
+# the marker value ``auto()``, because the real value is only known when the class is created.
+_ENUM_AUTO_CALLS = ("auto", "enum.auto")
+_ENUM_AUTO_MARKER = "auto()"
+_OVERLOAD_DECORATORS = frozenset({"overload", "typing.overload", "t.overload", "typing_extensions.overload"})
+_DATACLASS_DECORATORS = frozenset({"dataclass", "dataclasses.dataclass"})
+_NAMEDTUPLE_BASES = frozenset({"NamedTuple", "typing.NamedTuple", "t.NamedTuple"})
 PublicBy = Literal["name", "__all__", "reexport"]
 
 _EXCLUDED_PARTS = frozenset({"__pycache__", "build", "dist", "tests", "test", "docs", "examples"})
@@ -49,6 +64,11 @@ _LEADING_SPACE = re.compile(r"\s*")
 
 # A repaired file, keyed by its path: (first repaired line, number of repairs).
 _RepairLedger = dict[Path, tuple[int, int]]
+
+# TC-532: while ``inspect_public_surface`` runs, each source file is parsed once: base-class and
+# re-export resolution look at the same files over and over. Entries are (tree, repairs, first repaired
+# line, the SyntaxError if the file could not be recovered). None outside a scan.
+_PARSE_CACHE: dict[Path, tuple[ast.Module | None, int, int, SyntaxError | None]] | None = None
 
 
 @dataclass(frozen=True)
@@ -79,6 +99,19 @@ class PublicSymbol:
     # TC-522: "static", "classmethod", "async" (in that order) for a function or method; none for a
     # property getter.
     modifiers: tuple[str, ...] = ()
+    # TC-532: the class a member is inherited from (``module.Class``), None for an own member.
+    inherited_from: str | None = None
+    # TC-532: an enum's members, ``(name, value text)`` in source order (``auto()`` for an automatic one).
+    enum_members: tuple[tuple[str, str], ...] = ()
+    # TC-532: the literal a property is assigned (``MAX = 5``, ``self.x = 0``, a dataclass field default).
+    value: str | None = None
+    # TC-532: a class symbol only. ``base_origins`` is ``(base as written, module.Class that defines it)``
+    # for each base the source resolves. ``shadows`` is set on an exported name that replaced, by a LATER
+    # import of the same name, another class: the replaced class's qualified name. ``shadowed_by`` is set
+    # on that replaced class: the exported name that took its place.
+    base_origins: tuple[tuple[str, str], ...] = ()
+    shadows: str | None = None
+    shadowed_by: str | None = None
 
 
 def _first_docstring_line(node: ast.AST) -> str | None:
@@ -209,6 +242,46 @@ def _class_kind(node: ast.ClassDef) -> SymbolKind:
         if name in _ENUM_BASES:
             return "enum"
     return "class"
+
+
+def _enum_member_value(value: ast.expr) -> str:
+    """TC-532: the value text of an enum member: the marker ``auto()`` for a call of ``_ENUM_AUTO_CALLS``,
+    the source of a literal, and ``""`` for any other expression (a call, a name, an attribute)."""
+    if (
+        isinstance(value, ast.Call)
+        and not value.args
+        and not value.keywords
+        and ast.unparse(value.func) in _ENUM_AUTO_CALLS
+    ):
+        return _ENUM_AUTO_MARKER
+    try:
+        ast.literal_eval(value)
+        return ast.unparse(value)
+    except (ValueError, TypeError, SyntaxError, MemoryError, RecursionError):
+        return ""
+
+
+def enum_member_pairs(node: ast.ClassDef) -> tuple[tuple[str, str], ...]:
+    """TC-532: an enum class body's members as ``(name, value text)`` in source order.
+
+    A member is a plain assignment (``A = 1``, ``B: int = 2``, ``C = auto()``) of a public name; an
+    underscore-prefixed name, a method and a nested class are not members. The value is the source of a
+    literal, ``auto()`` for an automatic one, and empty for any other expression."""
+    members: list[tuple[str, str]] = []
+    for statement in node.body:
+        if isinstance(statement, ast.Assign):
+            targets, value = statement.targets, statement.value
+        elif isinstance(statement, ast.AnnAssign) and statement.value is not None:
+            targets, value = [statement.target], statement.value
+        else:
+            continue
+        text = _enum_member_value(value)
+        members.extend(
+            (target.id, text)
+            for target in targets
+            if isinstance(target, ast.Name) and not target.id.startswith("_")
+        )
+    return tuple(members)
 
 
 @dataclass(frozen=True)
@@ -358,12 +431,26 @@ def _parse_source_file(path: Path, repairs: _RepairLedger | None = None) -> ast.
     A repaired file is recorded in *repairs* (``path -> (first repaired line, repair count)``) so the
     caller can disclose it. Raises ``SyntaxError`` when the file cannot be recovered.
     """
-    lines: list[int] = []
-    tree, count = _parse_repairing_collapsed_indentation(
-        path.read_text(encoding="utf-8-sig", errors="replace"), str(path), repaired_lines=lines
-    )
+    cache = _PARSE_CACHE
+    if cache is not None and path in cache:
+        tree, count, first_line, error = cache[path]
+    else:
+        lines: list[int] = []
+        tree, count, error = None, 0, None
+        try:
+            tree, count = _parse_repairing_collapsed_indentation(
+                path.read_text(encoding="utf-8-sig", errors="replace"), str(path), repaired_lines=lines
+            )
+        except SyntaxError as exc:
+            error = exc
+        first_line = min(lines) if lines else 0
+        if cache is not None:
+            cache[path] = (tree, count, first_line, error)
+    if error is not None:
+        raise error
+    assert tree is not None
     if count and repairs is not None:
-        repairs[path] = (min(lines), count)
+        repairs[path] = (first_line, count)
     return tree
 
 
@@ -400,8 +487,17 @@ def _module_symbols(
     unresolved: list[str] = [
         _repaired_entry(module, relative, first_line, count) for first_line, count in repairs.values()
     ]
-    for node in tree.body:
+    context = _Context(module, source_root, _module_functions(tree))
+    # TC-532: a name defined twice at the top level is the LAST definition.
+    last_definition = {
+        node.name: index
+        for index, node in enumerate(tree.body)
+        if isinstance(node, ast.ClassDef | ast.FunctionDef | ast.AsyncFunctionDef)
+    }
+    for index, node in enumerate(tree.body):
         if isinstance(node, ast.ClassDef | ast.FunctionDef | ast.AsyncFunctionDef):
+            if last_definition[node.name] != index:
+                continue
             public, public_by = _public_name(node.name, explicit)
             if public:
                 kind: SymbolKind = _class_kind(node) if isinstance(node, ast.ClassDef) else "function"
@@ -423,10 +519,16 @@ def _module_symbols(
                         params=() if isinstance(node, ast.ClassDef) else _declared_params(node),
                         param_details=() if isinstance(node, ast.ClassDef) else _declared_param_details(node),
                         modifiers=() if isinstance(node, ast.ClassDef) else _function_modifiers(node),
+                        enum_members=enum_member_pairs(node)
+                        if kind == "enum" and isinstance(node, ast.ClassDef)
+                        else (),
+                        base_origins=_base_origins(node, module, source_root)
+                        if isinstance(node, ast.ClassDef)
+                        else (),
                     )
                 )
                 if isinstance(node, ast.ClassDef):
-                    symbols.extend(_methods(node, module, relative, public_by))
+                    symbols.extend(_methods(node, module, relative, public_by, context))
         elif isinstance(node, ast.ImportFrom) and (is_package or explicit is not None):
             origin = _resolved_relative(module, is_package, node)
             if origin is None or any(alias.name == "*" for alias in node.names):
@@ -474,7 +576,220 @@ def _setter_names(node: ast.ClassDef) -> frozenset[str]:
     )
 
 
-def _methods(node: ast.ClassDef, module: str, relative: str, public_by: PublicBy) -> list[PublicSymbol]:
+def _is_overload(item: ast.FunctionDef | ast.AsyncFunctionDef) -> bool:
+    """TC-532: whether *item* is a ``@typing.overload`` stub, which never replaces what follows it."""
+    return any(ast.unparse(decorator) in _OVERLOAD_DECORATORS for decorator in item.decorator_list)
+
+
+def _is_accessor(item: ast.FunctionDef | ast.AsyncFunctionDef) -> bool:
+    """TC-532: whether *item* is ``@<its own name>.setter`` or ``.deleter``: the second half of a property."""
+    return any(
+        isinstance(decorator, ast.Attribute)
+        and decorator.attr in ("setter", "deleter")
+        and isinstance(decorator.value, ast.Name)
+        and decorator.value.id == item.name
+        for decorator in item.decorator_list
+    )
+
+
+def _winning_definition(
+    definitions: Sequence[ast.FunctionDef | ast.AsyncFunctionDef],
+) -> ast.FunctionDef | ast.AsyncFunctionDef:
+    """TC-532: the definition of a name that Python keeps when a class body defines it more than once:
+    the LAST one. ``@overload`` stubs never replace the implementation that follows them (only stubs: the
+    last stub), and ``@x.setter`` / ``@x.deleter`` belong to the property their getter started."""
+    real = [item for item in definitions if not _is_overload(item)] or list(definitions)
+    primary = [item for item in real if not _is_accessor(item)] or real
+    return primary[-1]
+
+
+def _is_shadowed_definition(
+    item: ast.FunctionDef | ast.AsyncFunctionDef, siblings: Sequence[ast.FunctionDef | ast.AsyncFunctionDef]
+) -> bool:
+    """TC-532: whether a later definition of the same name in the same class body replaces *item*."""
+    return _winning_definition(siblings) is not item
+
+
+def _definition_groups(node: ast.ClassDef) -> dict[str, list[ast.FunctionDef | ast.AsyncFunctionDef]]:
+    """The function definitions of a class body grouped by name, names in order of first appearance."""
+    groups: dict[str, list[ast.FunctionDef | ast.AsyncFunctionDef]] = {}
+    for item in node.body:
+        if isinstance(item, ast.FunctionDef | ast.AsyncFunctionDef):
+            groups.setdefault(item.name, []).append(item)
+    return groups
+
+
+@dataclass(frozen=True)
+class _Context:
+    """TC-532: what a class body can be read against: its module, the source root and the module-level
+    functions (the factories behind ``x = _name_property(...)``)."""
+
+    module: str
+    source_root: Path | None = None
+    functions: Mapping[str, ast.FunctionDef | ast.AsyncFunctionDef] = field(default_factory=dict)
+
+    def class_of(self, expression: ast.expr) -> tuple[ast.ClassDef, _Context] | None:
+        """The class a base-class expression names, with the context of the module that defines it."""
+        if self.source_root is None or not isinstance(expression, ast.Name):
+            return None
+        located = _find_class(self.module, expression.id, self.source_root)
+        if located is None:
+            return None
+        node, holder, _ = located
+        return node, _context_for_module(holder, self.source_root)
+
+
+def _module_functions(tree: ast.Module) -> dict[str, ast.FunctionDef | ast.AsyncFunctionDef]:
+    """The module-level functions of *tree*, the last definition of a name winning."""
+    return {item.name: item for item in tree.body if isinstance(item, ast.FunctionDef | ast.AsyncFunctionDef)}
+
+
+def _context_for_module(module: str, source_root: Path | None) -> _Context:
+    """The context of the module *module* under *source_root* (empty functions if it cannot be read)."""
+    if source_root is None:
+        return _Context(module)
+    package_path = source_root / Path(*module.split("."))
+    for candidate in (package_path.with_suffix(".py"), package_path / "__init__.py"):
+        if candidate.is_file():
+            try:
+                return _Context(module, source_root, _module_functions(_parse_source_file(candidate)))
+            except SyntaxError:
+                break
+    return _Context(module, source_root)
+
+
+def _is_true(expression: ast.expr | None) -> bool:
+    return isinstance(expression, ast.Constant) and expression.value is True
+
+
+def _is_false(expression: ast.expr | None) -> bool:
+    return isinstance(expression, ast.Constant) and expression.value is False
+
+
+def _dataclass_options(node: ast.ClassDef) -> dict[str, ast.expr] | None:
+    """TC-532: the keyword arguments of ``@dataclass(...)`` (``{}`` for a bare ``@dataclass``); None when
+    the class is not decorated with a dataclass."""
+    for decorator in node.decorator_list:
+        call = decorator if isinstance(decorator, ast.Call) else None
+        target = call.func if call is not None else decorator
+        if ast.unparse(target) in _DATACLASS_DECORATORS:
+            return {keyword.arg: keyword.value for keyword in call.keywords if keyword.arg} if call else {}
+    return None
+
+
+@dataclass(frozen=True)
+class _InitField:
+    name: str
+    annotation: str
+    default: str  # "" when the argument is required
+    keyword_only: bool
+
+
+def _init_fields(
+    node: ast.ClassDef, context: _Context | None, visiting: frozenset[int] = frozenset()
+) -> list[_InitField] | None:
+    """TC-532: the ``__init__`` arguments the class body implies when it is a ``@dataclass`` or a
+    ``NamedTuple``, base-class dataclass fields first (a redefined field keeps its original place), in
+    the order Python generates them (keyword-only ones last); None when the class is neither or when
+    ``init=False``.
+
+    Honoured: ``field(default=..., default_factory=..., init=False, kw_only=...)``, the ``kw_only=True``
+    decorator argument, the ``KW_ONLY`` sentinel, ``ClassVar`` (not a field) and ``InitVar[T]`` (an
+    argument of type ``T``). A ``default_factory`` is shown as ``<factory>``, as ``inspect.signature``
+    does.
+    """
+    options = _dataclass_options(node)
+    named_tuple = any(ast.unparse(base) in _NAMEDTUPLE_BASES for base in node.bases)
+    if options is None and not named_tuple:
+        return None
+    if options is not None and _is_false(options.get("init")):
+        return None
+    fields: dict[str, _InitField] = {}
+    if options is not None and context is not None:
+        for base in node.bases:
+            located = context.class_of(base)
+            if located is None or id(located[0]) in visiting or located[0] is node:
+                continue
+            for inherited in _init_fields(located[0], located[1], visiting | {id(node)}) or []:
+                fields[inherited.name] = inherited
+    class_keyword_only = options is not None and _is_true(options.get("kw_only"))
+    keyword_only_from_here = False
+    for statement in node.body:
+        if not (isinstance(statement, ast.AnnAssign) and isinstance(statement.target, ast.Name)):
+            continue
+        annotation = ast.unparse(statement.annotation)
+        outer = annotation.partition("[")[0]
+        if outer.rsplit(".", 1)[-1] == "KW_ONLY":
+            keyword_only_from_here = True
+            continue
+        if outer.rsplit(".", 1)[-1] == "ClassVar":
+            continue
+        if outer.rsplit(".", 1)[-1] == "InitVar" and isinstance(statement.annotation, ast.Subscript):
+            annotation = ast.unparse(statement.annotation.slice)
+        default = ""
+        keyword_only = class_keyword_only or keyword_only_from_here
+        value = statement.value
+        if isinstance(value, ast.Call) and ast.unparse(value.func) in ("field", "dataclasses.field"):
+            keywords = {keyword.arg: keyword.value for keyword in value.keywords if keyword.arg}
+            if _is_false(keywords.get("init")):
+                fields.pop(statement.target.id, None)
+                continue
+            if "default" in keywords:
+                default = _default_text(keywords["default"])
+            elif "default_factory" in keywords:
+                default = "<factory>"
+            if _is_true(keywords.get("kw_only")):
+                keyword_only = True
+            elif _is_false(keywords.get("kw_only")):
+                keyword_only = False
+        elif value is not None:
+            default = _default_text(value)
+        fields[statement.target.id] = _InitField(statement.target.id, annotation, default, keyword_only)
+    return list(fields.values())
+
+
+def _synthesized_init(
+    node: ast.ClassDef, module: str, relative: str, public_by: PublicBy, context: _Context | None
+) -> PublicSymbol | None:
+    """TC-532: the ``__init__`` Python generates for a dataclass / NamedTuple without one of its own."""
+    fields = _init_fields(node, context)
+    if fields is None:
+        return None
+    ordered = [f for f in fields if not f.keyword_only] + [f for f in fields if f.keyword_only]
+    parts = ["self"]
+    star_done = False
+    for item in ordered:
+        if item.keyword_only and not star_done:
+            parts.append("*")
+            star_done = True
+        text = f"{item.name}: {item.annotation}" if item.annotation else item.name
+        parts.append(f"{text} = {item.default}" if item.default else text)
+    return PublicSymbol(
+        f"{module}.{node.name}.__init__",
+        module,
+        "__init__",
+        "method",
+        relative,
+        node.lineno,
+        public_by,
+        docstring=None,
+        signature=f"def __init__({', '.join(parts)})",
+        param_types=tuple((item.name, item.annotation) for item in ordered if item.annotation),
+        params=tuple((item.name, item.annotation) for item in ordered),
+        param_details=tuple(
+            (item.name, "keyword_only" if item.keyword_only else "positional", item.default)
+            for item in ordered
+        ),
+    )
+
+
+def _methods(
+    node: ast.ClassDef,
+    module: str,
+    relative: str,
+    public_by: PublicBy,
+    context: _Context | None = None,
+) -> list[PublicSymbol]:
     """The public members a class body defines, each once, in source order.
 
     A method is public when its name has no leading underscore; ``__init__`` (and only that
@@ -482,17 +797,27 @@ def _methods(node: ast.ClassDef, module: str, relative: str, public_by: PublicBy
     ``@cached_property`` getter is a ``property`` member rather than a method, whether or not it
     carries a return annotation (an unannotated one has an empty type), writable only when a
     ``@<name>.setter`` sibling exists.
+
+    TC-532: a name defined more than once is the LAST definition (Python's rule, see
+    ``_winning_definition``); a ``@dataclass`` / ``NamedTuple`` without an ``__init__`` of its own gets
+    the one Python generates for it.
     """
     found: list[PublicSymbol] = []
     seen: set[str] = set()
     setters = _setter_names(node)
-    for item in node.body:
-        if not isinstance(item, ast.FunctionDef | ast.AsyncFunctionDef):
+    groups = _definition_groups(node)
+    synthesized = (
+        None if "__init__" in groups else _synthesized_init(node, module, relative, public_by, context)
+    )
+    if synthesized is not None:
+        found.append(synthesized)
+        seen.add("__init__")
+    for name, definitions in groups.items():
+        published = name == "__init__" or name in PUBLISHED_DUNDERS
+        if name.startswith("_") and not published:
             continue
-        published = item.name == "__init__" or item.name in PUBLISHED_DUNDERS
-        if (item.name.startswith("_") and not published) or item.name in seen:
-            continue
-        seen.add(item.name)
+        item = _winning_definition(definitions)
+        seen.add(name)
         bases, return_type, param_types = _structured_fields(item)
         is_property = _is_property_getter(item)
         found.append(
@@ -516,7 +841,7 @@ def _methods(node: ast.ClassDef, module: str, relative: str, public_by: PublicBy
             )
         )
     if _class_kind(node) != "enum":
-        found.extend(_attribute_members(node, module, relative, public_by, seen))
+        found.extend(_attribute_members(node, module, relative, public_by, seen, context=context))
     return found
 
 
@@ -530,6 +855,8 @@ def _attribute_symbol(
     line: int,
     *,
     writable: bool = True,
+    value: str | None = None,
+    docstring: str | None = None,
 ) -> PublicSymbol:
     return PublicSymbol(
         f"{module}.{node.name}.{name}",
@@ -539,38 +866,48 @@ def _attribute_symbol(
         relative,
         line,
         public_by,
-        docstring=None,
+        docstring=docstring,
         return_type=type_text or None,
         writable=writable,
+        value=value,
     )
 
 
-def _init_attribute_targets(statements: Sequence[ast.stmt]) -> list[tuple[str, str, int]]:
-    """``(name, type text, line)`` for each ``self.<name> = ...`` / ``self.<name>: T = ...`` found in
-    *statements*, nested blocks included, nested function and class definitions excluded."""
-    found: list[tuple[str, str, int]] = []
+def _self_attribute(target: ast.expr) -> str | None:
+    if isinstance(target, ast.Attribute) and isinstance(target.value, ast.Name) and target.value.id == "self":
+        return target.attr
+    return None
 
-    def _self_attr(target: ast.expr) -> str | None:
-        if (
-            isinstance(target, ast.Attribute)
-            and isinstance(target.value, ast.Name)
-            and target.value.id == "self"
-        ):
-            return target.attr
+
+def _literal_text(value: ast.expr | None) -> str | None:
+    """TC-532: the source text of *value* when it is a literal (cut at ``_DEFAULT_TEXT_LIMIT``), else None."""
+    if value is None:
         return None
+    try:
+        ast.literal_eval(value)
+    except (ValueError, TypeError, SyntaxError, MemoryError, RecursionError):
+        return None
+    return _default_text(value)
+
+
+def _init_attribute_targets(statements: Sequence[ast.stmt]) -> list[tuple[str, str, int, str | None]]:
+    """``(name, type text, line, literal text or None)`` for each ``self.<name> = ...`` /
+    ``self.<name>: T = ...`` found in *statements*, nested blocks included, nested function and class
+    definitions excluded. TC-532: a literal right-hand side is carried as the last element."""
+    found: list[tuple[str, str, int, str | None]] = []
 
     for stmt in statements:
         if isinstance(stmt, ast.FunctionDef | ast.AsyncFunctionDef | ast.ClassDef):
             continue
         if isinstance(stmt, ast.Assign):
             for target in stmt.targets:
-                attr = _self_attr(target)
+                attr = _self_attribute(target)
                 if attr is not None:
-                    found.append((attr, "", stmt.lineno))
+                    found.append((attr, "", stmt.lineno, _literal_text(stmt.value)))
         elif isinstance(stmt, ast.AnnAssign):
-            attr = _self_attr(stmt.target)
+            attr = _self_attribute(stmt.target)
             if attr is not None:
-                found.append((attr, ast.unparse(stmt.annotation), stmt.lineno))
+                found.append((attr, ast.unparse(stmt.annotation), stmt.lineno, _literal_text(stmt.value)))
         for field_name in ("body", "orelse", "finalbody"):
             nested = getattr(stmt, field_name, None)
             if isinstance(nested, list):
@@ -604,8 +941,96 @@ def _constant_type_text(value: ast.expr) -> str | None:
     return _CONSTANT_TYPE_NAMES.get(type(literal)) or type(literal).__name__
 
 
+@dataclass(frozen=True)
+class _PropertySpec:
+    type_text: str
+    writable: bool
+    doc: str | None
+
+
+def _return_annotation(function: ast.AST | None) -> str:
+    if isinstance(function, ast.FunctionDef | ast.AsyncFunctionDef) and function.returns is not None:
+        return ast.unparse(function.returns)
+    return ""
+
+
+def _property_call_spec(
+    call: ast.Call,
+    scope: Mapping[str, ast.FunctionDef | ast.AsyncFunctionDef],
+    doc: str | None = None,
+) -> _PropertySpec | None:
+    """TC-532: what ``property(fget, fset, fdel, doc=...)`` makes of a class attribute, with *scope* the
+    functions its ``fget`` may name; None when *call* is not a call of ``property``."""
+    if ast.unparse(call.func) not in ("property", "builtins.property"):
+        return None
+    keywords = {keyword.arg: keyword.value for keyword in call.keywords if keyword.arg}
+    getter = call.args[0] if call.args else keywords.get("fget")
+    setter = call.args[1] if len(call.args) > 1 else keywords.get("fset")
+    writable = setter is not None and not (isinstance(setter, ast.Constant) and setter.value is None)
+    type_text = _return_annotation(scope.get(getter.id)) if isinstance(getter, ast.Name) else ""
+    explicit_doc = keywords.get("doc")
+    if isinstance(explicit_doc, ast.Constant) and isinstance(explicit_doc.value, str):
+        text = explicit_doc.value
+        doc = (text.strip().splitlines() or [""])[0].strip() or doc
+    return _PropertySpec(type_text, writable, doc)
+
+
+def _property_spec(
+    value: ast.expr,
+    class_scope: Mapping[str, ast.FunctionDef | ast.AsyncFunctionDef],
+    context: _Context | None,
+) -> _PropertySpec | None:
+    """TC-532: a class-level assignment that builds a property: ``x = property(get_x, set_x)`` or
+    ``x = _name_property("Name", "doc")`` where the module-level function ``_name_property`` returns
+    ``property(getter, setter, doc=doc)`` (its annotation is ``property``, or its body ends in such a
+    ``return``). The type is the getter's return annotation, writability is the presence of a setter."""
+    if not isinstance(value, ast.Call):
+        return None
+    direct = _property_call_spec(value, class_scope)
+    if direct is not None:
+        return direct
+    if context is None or not isinstance(value.func, ast.Name):
+        return None
+    factory = context.functions.get(value.func.id)
+    if factory is None:
+        return None
+    nested = {
+        item.name: item
+        for item in ast.walk(factory)
+        if isinstance(item, ast.FunctionDef | ast.AsyncFunctionDef)
+    }
+    returned = [
+        statement.value
+        for statement in ast.walk(factory)
+        if isinstance(statement, ast.Return) and isinstance(statement.value, ast.Call)
+    ]
+    for call in returned:
+        spec = _property_call_spec(call, nested)
+        if spec is None:
+            continue
+        # The factory's ``doc`` parameter, bound to the argument of this call, is the property's doc.
+        parameters = [argument.arg for argument in factory.args.args]
+        doc = None
+        if "doc" in parameters:
+            bound = parameters.index("doc")
+            argument = value.args[bound] if bound < len(value.args) else None
+            for keyword in value.keywords:
+                if keyword.arg == "doc":
+                    argument = keyword.value
+            if isinstance(argument, ast.Constant) and isinstance(argument.value, str):
+                doc = (argument.value.strip().splitlines() or [""])[0].strip() or None
+        return _PropertySpec(spec.type_text, spec.writable, doc or spec.doc)
+    return None
+
+
 def _attribute_members(
-    node: ast.ClassDef, module: str, relative: str, public_by: PublicBy, seen: set[str]
+    node: ast.ClassDef,
+    module: str,
+    relative: str,
+    public_by: PublicBy,
+    seen: set[str],
+    *,
+    context: _Context | None = None,
 ) -> list[PublicSymbol]:
     """TC-473: public attribute members - class-body annotated fields and ``__init__`` ``self.<name>``
     assignments - as writable ``property`` symbols, each name once and never one already in *seen*.
@@ -613,39 +1038,81 @@ def _attribute_members(
     TC-545: a public class-body assignment with one plain ``Name`` target and a literal value
     (``X_AXIS = None``, ``MAX = 5``) is a constant: a read-only ``property`` typed by its literal
     (empty for ``None``), in source order beside the annotated fields. A call, a name, an attribute,
-    a chained or tuple target, or an underscore-prefixed name is not a constant and is skipped."""
-    candidates: list[tuple[str, str, int]] = []
+    a chained or tuple target, or an underscore-prefixed name is not a constant and is skipped.
+
+    TC-532: the literal itself is carried (``value``), for a constant, for a dataclass field default and
+    for a literal ``self.x = 0`` in ``__init__``; a class-level ``x = property(get_x)`` or
+    ``x = _name_property(...)`` factory call is a property typed by its getter; the fields of a
+    ``frozen=True`` dataclass are read-only."""
+    candidates: list[tuple[str, str, int, str | None, bool | None, str | None]] = []
     constants: set[str] = set()
+    class_scope = {
+        item.name: item for item in node.body if isinstance(item, ast.FunctionDef | ast.AsyncFunctionDef)
+    }
+    options = _dataclass_options(node)
+    frozen = options is not None and _is_true(options.get("frozen"))
     for item in node.body:
         if isinstance(item, ast.AnnAssign) and isinstance(item.target, ast.Name):
             type_text = ast.unparse(item.annotation)
             if type_text.startswith("ClassVar") or type_text.startswith(("typing.ClassVar", "t.ClassVar")):
                 continue
-            candidates.append((item.target.id, type_text, item.lineno))
+            default = item.value
+            if (
+                isinstance(default, ast.Call)
+                and ast.unparse(default.func) in ("field", "dataclasses.field")
+                and any(keyword.arg == "default" for keyword in default.keywords)
+            ):
+                default = next(keyword.value for keyword in default.keywords if keyword.arg == "default")
+            candidates.append(
+                (
+                    item.target.id,
+                    type_text,
+                    item.lineno,
+                    _literal_text(default),
+                    False if frozen else None,
+                    None,
+                )
+            )
         elif (
             isinstance(item, ast.Assign)
             and len(item.targets) == 1
             and isinstance(item.targets[0], ast.Name)
             and not item.targets[0].id.startswith("_")
         ):
+            name = item.targets[0].id
             constant_type = _constant_type_text(item.value)
             if constant_type is not None:
-                name = item.targets[0].id
-                if name not in {known for known, _, _ in candidates}:
+                if name not in {known for known, *_ in candidates}:
                     constants.add(name)
-                candidates.append((name, constant_type, item.lineno))
+                candidates.append((name, constant_type, item.lineno, _literal_text(item.value), None, None))
+                continue
+            spec = _property_spec(item.value, class_scope, context)
+            if spec is not None:
+                candidates.append((name, spec.type_text, item.lineno, None, spec.writable, spec.doc))
     for item in node.body:
         if isinstance(item, ast.FunctionDef | ast.AsyncFunctionDef) and item.name == "__init__":
-            candidates.extend(_init_attribute_targets(item.body))
+            candidates.extend(
+                (name, type_text, line, literal, None, None)
+                for name, type_text, line, literal in _init_attribute_targets(item.body)
+            )
             break
     found: list[PublicSymbol] = []
-    for name, type_text, line in candidates:
+    for name, type_text, line, literal, writable, doc in candidates:
         if name.startswith("_") or name in seen:
             continue
         seen.add(name)
         found.append(
             _attribute_symbol(
-                node, module, relative, public_by, name, type_text, line, writable=name not in constants
+                node,
+                module,
+                relative,
+                public_by,
+                name,
+                type_text,
+                line,
+                writable=(name not in constants) if writable is None else writable,
+                value=literal,
+                docstring=doc,
             )
         )
     return found
@@ -674,6 +1141,41 @@ class _OriginDefinition:
     params: tuple[tuple[str, str], ...] = ()  # TC-393: every declared parameter (functions only)
     param_details: tuple[tuple[str, str, str], ...] = ()  # TC-522: (name, kind, default) per param
     modifiers: tuple[str, ...] = ()  # TC-522: static / classmethod / async (functions only)
+    enum_members: tuple[tuple[str, str], ...] = ()  # TC-532: an enum origin's members
+    base_origins: tuple[tuple[str, str], ...] = ()  # TC-532: (base as written, defining class)
+
+
+def _last_binding(
+    tree: ast.Module, name: str, module: str, is_package: bool
+) -> tuple[Literal["definition", "import"], Any] | None:
+    """TC-532: what the top level of *tree* finally binds *name* to: ``("definition", node)`` for the
+    last ``class`` / ``def`` of that name, ``("import", origin)`` for the last ``from ... import`` that
+    names it, whichever comes LAST in the file (Python rebinds a name each time it is assigned)."""
+    bound: tuple[Literal["definition", "import"], Any] | None = None
+    for item in tree.body:
+        if isinstance(item, ast.ClassDef | ast.FunctionDef | ast.AsyncFunctionDef) and item.name == name:
+            bound = ("definition", item)
+        elif isinstance(item, ast.ImportFrom):
+            forwarded = _forwarded_origin(item, module, is_package, name)
+            if forwarded is not None:
+                bound = ("import", forwarded)
+    return bound
+
+
+def _base_origins(node: ast.ClassDef, module: str, source_root: Path | None) -> tuple[tuple[str, str], ...]:
+    """TC-532: ``(base as written, module.Class that defines it)`` for each plain-name base of *node* that
+    the source resolves, read in the module that holds *node*'s body."""
+    if source_root is None:
+        return ()
+    found: list[tuple[str, str]] = []
+    for base in node.bases:
+        if not isinstance(base, ast.Name):
+            continue
+        located = _find_class(module, base.id, source_root)
+        if located is None or located[0] is node:
+            continue
+        found.append((base.id, f"{located[1]}.{located[0].name}"))
+    return tuple(found)
 
 
 def _origin_definition(
@@ -704,19 +1206,14 @@ def _origin_definition(
             tree = _parse_source_file(candidate, repairs)
         except SyntaxError:
             return None
-        found: ast.ClassDef | ast.FunctionDef | ast.AsyncFunctionDef | None = None
-        forwarded: str | None = None
-        for item in tree.body:
-            if isinstance(item, ast.ClassDef | ast.FunctionDef | ast.AsyncFunctionDef) and item.name == name:
-                found = item
-                break
-            if isinstance(item, ast.ImportFrom) and forwarded is None:
-                forwarded = _forwarded_origin(item, module, candidate.name == "__init__.py", name)
-        if found is not None:
+        binding = _last_binding(tree, name, module, candidate.name == "__init__.py")
+        if binding is not None and binding[0] == "definition":
+            found = binding[1]
             kind: SymbolKind = _class_kind(found) if isinstance(found, ast.ClassDef) else "function"
             bases, return_type, param_types = _structured_fields(found)
+            context = _Context(module, source_root, _module_functions(tree))
             methods = (
-                tuple(_methods(found, module, candidate.name, "reexport"))
+                tuple(_methods(found, module, candidate.name, "reexport", context))
                 if isinstance(found, ast.ClassDef)
                 else ()
             )
@@ -731,7 +1228,14 @@ def _origin_definition(
                 params=() if isinstance(found, ast.ClassDef) else _declared_params(found),
                 param_details=() if isinstance(found, ast.ClassDef) else _declared_param_details(found),
                 modifiers=() if isinstance(found, ast.ClassDef) else _function_modifiers(found),
+                enum_members=enum_member_pairs(found)
+                if kind == "enum" and isinstance(found, ast.ClassDef)
+                else (),
+                base_origins=_base_origins(found, module, source_root)
+                if isinstance(found, ast.ClassDef)
+                else (),
             )
+        forwarded = binding[1] if binding is not None else None
         if forwarded is None or forwarded in seen or forwarded == origin:
             return None
         return _origin_definition(forwarded, source_root, seen | {origin}, repairs)
@@ -765,12 +1269,10 @@ def _origin_syntax_error(
         except SyntaxError as exc:
             relative = candidate.relative_to(repository_root).as_posix()
             return f"{module}:{exc.lineno or 0}:syntax-error:{relative}:{exc.msg}"
-        forwarded: str | None = None
-        for item in tree.body:
-            if isinstance(item, ast.ClassDef | ast.FunctionDef | ast.AsyncFunctionDef) and item.name == name:
-                return None
-            if isinstance(item, ast.ImportFrom) and forwarded is None:
-                forwarded = _forwarded_origin(item, module, candidate.name == "__init__.py", name)
+        binding = _last_binding(tree, name, module, candidate.name == "__init__.py")
+        if binding is not None and binding[0] == "definition":
+            return None
+        forwarded = binding[1] if binding is not None else None
         if forwarded is None or forwarded in seen or forwarded == origin:
             return None
         return _origin_syntax_error(forwarded, source_root, repository_root, seen | {origin})
@@ -897,7 +1399,8 @@ def _find_class(
     Returns ``(class node, module holding the body, whether that module is a package
     __init__)``. A module that only imports the name is followed to its origin with the same
     rules and cycle guard as ``_origin_definition``; ``None`` when no class definition is
-    reached (absent, not a class, unparsable, or a cycle).
+    reached (absent, not a class, unparsable, or a cycle). TC-532: the LAST top-level binding of the
+    name in a module is the one that counts (``_last_binding``).
     """
     key = f"{module}.{name}"
     if key in seen:
@@ -911,15 +1414,13 @@ def _find_class(
             tree = _parse_source_file(candidate, repairs)
         except SyntaxError:
             return None
-        forwarded: str | None = None
-        for item in tree.body:
-            if isinstance(item, ast.ClassDef) and item.name == name:
-                return item, module, is_package
-            if isinstance(item, ast.FunctionDef | ast.AsyncFunctionDef) and item.name == name:
-                return None
-            if isinstance(item, ast.ImportFrom) and forwarded is None:
-                forwarded = _forwarded_origin(item, module, is_package, name)
-        if forwarded is None or "." not in forwarded:
+        binding = _last_binding(tree, name, module, is_package)
+        if binding is None:
+            return None
+        if binding[0] == "definition":
+            return (binding[1], module, is_package) if isinstance(binding[1], ast.ClassDef) else None
+        forwarded = binding[1]
+        if "." not in forwarded:
             return None
         next_module, next_name = forwarded.rsplit(".", 1)
         return _find_class(next_module, next_name, source_root, seen | {key}, repairs)
@@ -947,9 +1448,15 @@ def _inherited_private_base_methods(
     base is resolved in the module holding the class body (a class in the same module, or an
     ``import from`` binding followed to its definition). A non-public base (underscore name, or
     defined in a module with an underscore path component) contributes its public methods, then
-    its own non-public bases recursively: the subclass's own methods first, then bases in
-    declaration order, depth first, the first definition of a name winning. Public,
-    unresolvable and non-class bases contribute nothing, and a base cycle terminates.
+    its own bases recursively: the subclass's own methods first, then bases in
+    declaration order, depth first, the first definition of a name winning. Unresolvable and
+    non-class bases contribute nothing, and a base cycle terminates.
+
+    TC-532: the walk does not stop at the first public ancestor behind a private base: pdf/python's
+    ``CircleAnnotation(_ShapeAnnotation)`` with ``_ShapeAnnotation(MarkupAnnotation)`` inherits the
+    members of ``MarkupAnnotation`` and ``Annotation`` too, and nothing else would link a public class to
+    them through the private one. Each contributed member (a constructor excepted, which is shown as the
+    class's own as before) records the class it comes from in ``inherited_from``.
 
     Each contributed method keeps its kind, signature and annotations and is rehomed as
     ``_reexported_methods`` does (qualified name under the subclass, the subclass symbol's
@@ -975,6 +1482,7 @@ def _inherited_private_base_methods(
         def visit(
             node: ast.ClassDef,
             node_module: str,
+            through_private: bool,
             symbol: PublicSymbol = symbol,
             taken: set[str] = taken,
             visited: set[tuple[str, str]] = visited,
@@ -986,12 +1494,15 @@ def _inherited_private_base_methods(
                 if base_located is None:
                     continue
                 base_node, base_module, _ = base_located
-                if not _is_non_public_base(base.id, base_node, base_module):
+                private = _is_non_public_base(base.id, base_node, base_module)
+                if not private and not through_private:
                     continue
                 if (base_module, base_node.name) in visited:
                     continue
                 visited.add((base_module, base_node.name))
-                for method in _methods(base_node, base_module, symbol.source_path, symbol.public_by):
+                owner = f"{base_module}.{base_node.name}"
+                context = _context_for_module(base_module, source_root)
+                for method in _methods(base_node, base_module, symbol.source_path, symbol.public_by, context):
                     name = f"{symbol.qualified_name}.{method.name}"
                     if method.name in taken or name in symbols or name in added:
                         continue
@@ -1001,10 +1512,13 @@ def _inherited_private_base_methods(
                         module=symbol.module,
                         source_path=symbol.source_path,
                         line=symbol.line,
+                        inherited_from=None
+                        if method.name == "__init__"
+                        else (method.inherited_from or owner),
                     )
-                visit(base_node, base_module)
+                visit(base_node, base_module, True)
 
-        visit(own, holder)
+        visit(own, holder, False)
     return list(added.values())
 
 
@@ -1014,10 +1528,33 @@ def _minimal_roots(package_dirs: Sequence[str]) -> list[str]:
     return [d for d in ordered if not any(d.startswith(other + "/") for other in ordered)]
 
 
+def _definition_of(origin: str, symbols: dict[str, PublicSymbol]) -> str:
+    """TC-532: the qualified name a chain of re-exports finally ends at (or *origin* when it ends at a
+    name the scan never saw)."""
+    for _ in range(16):
+        target = symbols.get(origin)
+        if target is None or target.reexported_from is None or target.reexported_from == origin:
+            return origin
+        origin = target.reexported_from
+    return origin
+
+
 def inspect_public_surface(repository_root: Path, package_dirs: Sequence[str]) -> PublicSurface:
     """Inspect the packages at ``package_dirs`` (repository-relative) without importing them."""
+    global _PARSE_CACHE
+    previous = _PARSE_CACHE
+    _PARSE_CACHE = {}
+    try:
+        return _inspect_public_surface(repository_root, package_dirs)
+    finally:
+        _PARSE_CACHE = previous
+
+
+def _inspect_public_surface(repository_root: Path, package_dirs: Sequence[str]) -> PublicSurface:
     symbols: dict[str, PublicSymbol] = {}
     unresolved: list[str] = []
+    # TC-532: an exported name imported more than once binds the LAST import; the origin it replaced.
+    replaced: dict[str, str] = {}
     for package_dir in _minimal_roots(package_dirs):
         package_path = repository_root / package_dir
         source_root = package_path.parent
@@ -1029,18 +1566,18 @@ def inspect_public_surface(repository_root: Path, package_dirs: Sequence[str]) -
             unresolved.extend(module_unresolved)
             for symbol in module_symbols:
                 current = symbols.get(symbol.qualified_name)
-                if (
-                    current is None
-                    or (symbol.public_by == "reexport" and current.kind == "module")
-                    or (
-                        # Python binds a name to its last import: a later re-export of the
-                        # same public name replaces the earlier one (a package importing
-                        # ColladaLoadOptions from two modules exposes the second).
-                        symbol.public_by == "reexport"
-                        and current.public_by == "reexport"
-                        and symbol.line > current.line
-                    )
+                if current is None or (symbol.public_by == "reexport" and current.kind == "module"):
+                    symbols[symbol.qualified_name] = symbol
+                elif (
+                    # Python binds a name to its last import: a later re-export of the
+                    # same public name replaces the earlier one (a package importing
+                    # ColladaLoadOptions from two modules exposes the second).
+                    symbol.public_by == "reexport"
+                    and current.public_by == "reexport"
+                    and symbol.line > current.line
                 ):
+                    if current.reexported_from and current.reexported_from != symbol.reexported_from:
+                        replaced[symbol.qualified_name] = current.reexported_from
                     symbols[symbol.qualified_name] = symbol
         for name, symbol in list(symbols.items()):
             if symbol.reexported_from is None or symbol.kind != "unknown":
@@ -1085,6 +1622,15 @@ def inspect_public_surface(repository_root: Path, package_dirs: Sequence[str]) -
                     modifiers=origin.modifiers
                     if origin is not None
                     else (definition.modifiers if definition else ()),
+                    # The members travel with a re-export only when no scanned definition carries them: an
+                    # enum read from a private module (the shell is then its only entry), or a re-export of
+                    # such a shell. A shell of a scanned definition stays empty and is paired with it.
+                    enum_members=definition.enum_members
+                    if definition is not None
+                    else (origin.enum_members if origin is not None and origin.reexported_from else ()),
+                    base_origins=origin.base_origins
+                    if origin is not None
+                    else (definition.base_origins if definition else ()),
                 )
                 symbols[name] = resolved
                 # An underscore-origin class's own methods are never otherwise scanned (see
@@ -1094,6 +1640,20 @@ def inspect_public_surface(repository_root: Path, package_dirs: Sequence[str]) -
                     for method_symbol in _reexported_methods(definition, resolved, name):
                         if method_symbol.qualified_name not in symbols:
                             symbols[method_symbol.qualified_name] = method_symbol
+        # TC-532: an exported class name whose LAST import replaced a different class of the same name
+        # is marked on both sides, so nothing pairs the exported (often empty) class with the other.
+        for exported_name, earlier in replaced.items():
+            exported = symbols.get(exported_name)
+            if exported is None or exported.reexported_from is None or exported.kind not in ("class", "enum"):
+                continue
+            earlier_definition = _definition_of(earlier, symbols)
+            if earlier_definition == _definition_of(exported.reexported_from, symbols):
+                continue
+            replaced_symbol = symbols.get(earlier_definition)
+            if replaced_symbol is None or replaced_symbol.kind not in ("class", "enum"):
+                continue
+            symbols[exported_name] = replace(exported, shadows=earlier_definition)
+            symbols[earlier_definition] = replace(replaced_symbol, shadowed_by=exported_name)
         # TC-429: a public class built from private mixins gains their public methods.
         for inherited in _inherited_private_base_methods(symbols, source_root, repairs):
             symbols.setdefault(inherited.qualified_name, inherited)

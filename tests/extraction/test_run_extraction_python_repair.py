@@ -60,7 +60,8 @@ def test_the_members_of_an_enum_in_a_collapsed_file_are_filled(tmp_path: Path) -
     types, _ = run_extraction.extract_from_clone(tmp_path, MANIFEST)
     by_import = {entry["class_import"]: entry for entry in types}
     assert by_import["pkg.colors.Color"]["kind"] == "enum"
-    assert by_import["pkg.colors.Color"]["enum_members"] == []
+    # TC-532: [] -> the members; python_surface reads them with the class (through the same repair)
+    assert _members(by_import["pkg.colors.Color"]) == [("RED", "'r'"), ("BLUE", "'b'")]
     run_extraction.fill_python_enum_members(types, tmp_path)
     assert _members(by_import["pkg.colors.Color"]) == [("RED", "'r'"), ("BLUE", "'b'")]
 

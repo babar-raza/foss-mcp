@@ -123,7 +123,11 @@ def test_class_kind_doc_and_line_are_correct(tmp_path: Path) -> None:
 
     color = by_import["widgets.core.Color"]
     assert color["kind"] == "enum"
-    assert color["enum_members"] == []
+    # TC-532: [] -> RED = 1, BLUE = 2 (python_surface now reads the members with the class itself)
+    assert [(member["name"], member["value"]) for member in color["enum_members"]] == [
+        ("RED", "1"),
+        ("BLUE", "2"),
+    ]
 
     widget_fn = by_import["widgets.core.make_widget"]
     assert widget_fn["kind"] == "function"

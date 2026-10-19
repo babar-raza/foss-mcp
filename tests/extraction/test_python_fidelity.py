@@ -567,7 +567,11 @@ def _rendered_line(text: str, name: str) -> tuple[str, str]:
     """``(parameter list, modifier suffix)`` of the ``Methods:`` line that defines *name*."""
     block = text.split("Methods:\n", 1)[1]
     for line in block.splitlines():
-        match = re.fullmatch(rf"  - {re.escape(name)}\((.*)\)(?: -> [^\[]*?)?( \[[a-z, ]+\])?", line)
+        # TC-532: a member of a private base ends in "  (inherited from <base>)"
+        match = re.fullmatch(
+            rf"  - {re.escape(name)}\((.*?)\)(?: -> [^\[]*?)?( \[[a-z, ]+\])?(?:  \(inherited from [^)]*\))?",
+            line,
+        )
         if match is not None:
             return match.group(1), match.group(2) or ""
     raise AssertionError(f"no Methods line for {name} in:\n{text}")
