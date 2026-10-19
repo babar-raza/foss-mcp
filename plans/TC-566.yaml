@@ -12,9 +12,7 @@ purpose: >-
   every one of the 32 pilots and asserts a language-appropriate set of symbol facts (a central class, a constructor, an enum, a static) taken from the oracle; (3) fix the stale pdf/typescript e2e pin and
   the githooks test (accept both forms of the hooks path); (4) mark the real-Rust build tests as environment-sensitive with a precise skip reason only when error 4551 is observed, never silently; (5) restore
   the weakened assertions where the cause is fixed (EXTRACTOR_VERSION equality, W2 after TC-561) and record the rest in docs/RELEASE.md; (6) adopt the blind-spot classes C1 to C8 of docs/ROUND3_REVIEW.md
-  as a review checklist in docs/REPOSITORY_LAYOUT.md. REGISTERED AS A DRAFT on 2026-10-17 from docs/ROUND3_REVIEW.md: before dispatch the supervisor re-reads this card against the merged code, calibrates
-  min_tests (it applies to EACH check), replaces the placeholder negative control with a real falsifier that has no backslash, and verifies every file named in write_paths (Supervisor rule 5). Nothing here
-  has been executed.
+  as a review checklist in docs/REPOSITORY_LAYOUT.md. FINALISED for dispatch on 2026-10-19 by the supervisor (min_tests calibrated per check, negative control authored, write_paths checked).
 depends_on:
 - TC-550
 - TC-553
@@ -38,6 +36,7 @@ write_paths:
 - tests/extraction/test_run_extraction_coverage_policy.py
 - tests/indexing/test_example_verifier.py
 - docs/REPOSITORY_LAYOUT.md
+- tests/deploy/test_image_workflow_gate.py
 satisfies:
 - REQ-G3-009
 - REQ-G3-008
@@ -61,12 +60,31 @@ inputs:
   pilot whose fixture lacks extractor_version >= the current schema; (c) the fleet smoke has a dry-run mode for the offline check and a live mode for the closing run; (d) the e2e pin test passes against
   the new single-commit generation; (e) test_githooks passes with either path form; (f) EXTRACTOR_VERSION equality restored. INDEPENDENT ORACLE: by construction this card IS the oracle; its own tests use
   hand-written libraries with known answers.
+- >-
+  FINALISATION NOTES (supervisor, 2026-10-19). (1) Mandated name: in scripts/release/image_workflow_gate.py the exact line `REQUIRE_EXTRACTOR_VERSION = True`, a real switch: when False the gate does not
+  check fixture extractor versions (as before this card). The check reads `extractor_version` of every pilot fixture under tests/fixtures/<family>_<platform>/api_surface.json and compares it with `EXTRACTOR_VERSION`
+  of src/foss_mcp/extraction/run_extraction.py (import it; never retype the number); a fixture below it is a gate failure naming the pilot. Restoring the weakened assertion (acceptance f) means the extractor-version
+  equality test in tests/extraction/test_run_extraction_coverage_policy.py asserts equality with `EXTRACTOR_VERSION` again; find the weakened form with `git log -p -S EXTRACTOR_VERSION -- tests/extraction/test_run_extraction_coverage_policy.py`
+  and report it. (2) scripts/release/source_differential.py and scripts/release/fleet_live_smoke.py are new; tests/release already exists with the tests of TC-568 and TC-569 and has no __init__.py: do not
+  add one (it is not in write_paths) and use unique test file basenames. The verifier takes its enumerators as injected callables per language (copy the injection style of scripts/release/verify_pushed_image.py),
+  so the unit tests never need a compiler or a network; the real per-language tooling is wired in `main` only. The fleet smoke has `--dry-run` (builds the per-pilot plan from the chart pilots and the oracle
+  file without starting a container) and a live mode that the supervisor runs at closing time with the real container; it must not read any environment value other than those the existing gate script already
+  reads. (3) tests/e2e/test_pdf_typescript_live_content.py: its constants REAL_SOURCE_COMMIT and REAL_EXAMPLE_SOURCE_COMMIT pin the old two-commit generation; after TC-533 the fixture is one commit: set
+  both to the chart pin read from values.yaml in the test (not a literal), keeping the test docker-gated. tests/test_githooks.py must accept both the relative `.githooks` and the absolute path of this clone's
+  `.githooks` directory. The three real-Rust build tests (test_prepare_rust_library, test_rust_known...) are marked environment-sensitive with a precise skip reason ONLY when the Windows application-control
+  error 4551 is observed in the process output, never silently and never otherwise. docs/REPOSITORY_LAYOUT.md gets the blind-spot classes C1 to C8 of docs/ROUND3_REVIEW.md as a review checklist (docs/RELEASE.md
+  is NOT in write_paths: list the weakening W1 to W6 residue in your report and the supervisor records it). (4) Offline oracle: hand-written micro-libraries per language (Python, TypeScript, Go, Rust, Java,
+  C#, C++) as strings in the tests with known answers; the verifier reports exact per-category counts (missing, extra, signature, static, default, enum value). Ceilings are constants `LANGUAGE_ERROR_CEILINGS`
+  in source_differential.py initialised to 0.0 for the offline micro-libraries and overridable by a JSON file the supervisor writes at closing time. (5) TEST COUNTS: min_tests is 160 for EACH check. The
+  first check (the two new test files, test_githooks.py, test_run_extraction_coverage_policy.py, test_image_workflow_gate.py) collects 138 existing tests plus the at least 22 you add (at least 14 in test_source_differential.py,
+  at least 6 in test_fleet_live_smoke.py, at least 2 for the gate switch); the second check collects well over 2,500.
 actions:
 - >-
   Build the independent differential verifier and the 32-pilot live smoke, wire them into the release gate, repair the stale and environment-sensitive tests.
 checks:
 - command: >-
-    {python} -m pytest tests/release/test_source_differential.py tests/release/test_fleet_live_smoke.py tests/test_githooks.py tests/extraction/test_run_extraction_coverage_policy.py -q -rfE -p no:cacheprovider
+    {python} -m pytest tests/release/test_source_differential.py tests/release/test_fleet_live_smoke.py tests/test_githooks.py tests/extraction/test_run_extraction_coverage_policy.py tests/deploy/test_image_workflow_gate.py
+    -q -rfE -p no:cacheprovider
   expect: exit 0
   timeout_seconds: 1800
   junitxml: true
@@ -81,17 +99,18 @@ checks:
   proves:
   - REQ-G3-009
   - REQ-G3-008
-min_tests: 8
+min_tests: 160
 network: true
 requires:
 - python
 - git
 negative_control:
   mutate: |
-    python -X utf8 -c "print('negative control to be authored before dispatch')"
+    python -X utf8 -c "import pathlib;p=pathlib.Path('scripts/release/image_workflow_gate.py');s=p.read_text(encoding='utf-8');old='REQUIRE_EXTRACTOR_VERSION = True';assert s.count(old)==1;p.write_text(s.replace(old,'REQUIRE_EXTRACTOR_VERSION = False'),encoding='utf-8')"
   rationale: >-
-    PLACEHOLDER written at registration. The supervisor replaces it, before dispatch, with a falsifier that breaks the card's central claim in the code the worker writes (a mandated constant or function
-    name) so that a named new test fails.
+    Turns off the mandated switch by which the release gate fails a baked pilot whose fixture has no extractor_version at the current schema, so a stale-extractor fixture passes the gate again (the blind
+    spot that let 15 of 32 fixtures ship from an old extractor): the gate tests that feed a fixture without extractor_version and expect a refusal fail at once. A real break of the card's claim that the
+    gate cannot be satisfied by a lossy extractor.
 evidence:
 - evidence/build/G3/TC-566/receipt.json
 closeout:

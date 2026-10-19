@@ -8,9 +8,8 @@ purpose: >-
   PDF/HTML/EPUB save throws NotSupportedException("FOSS") and leaves 0-byte files. The scope documentation states every one of these, but only the documentation path finds it ('symbol found but docs say
   unsupported'). FIX: derive an unsupported/not-implemented marker at extraction time (stub bodies: only `raise NotImplementedError(...)`, `pass`, `throw new NotImplementedException()`, `throw new UnsupportedOperationException()`
   and equivalent; enum members and options named by the pilot's scope documentation as unsupported), render it on the member/symbol line and in get_symbol and list_members results (TC-562 carries the same
-  fixed phrase into search_symbols results and makes lookup surface the limitation chunk when the query names a capability the scope documentation lists as unsupported). Remove nothing from the index. REGISTERED
-  AS A DRAFT on 2026-10-17 from docs/ROUND3_REVIEW.md: before dispatch the supervisor re-reads this card against the merged code, calibrates min_tests (it applies to EACH check), replaces the placeholder
-  negative control with a real falsifier that has no backslash, and verifies every file named in write_paths (Supervisor rule 5). Nothing here has been executed.
+  fixed phrase into search_symbols results and makes lookup surface the limitation chunk when the query names a capability the scope documentation lists as unsupported). Remove nothing from the index. FINALISED
+  for dispatch on 2026-10-19 by the supervisor (min_tests calibrated per check, negative control authored, write_paths checked).
 depends_on:
 - TC-550
 - TC-553
@@ -30,6 +29,26 @@ write_paths:
 - tests/mcp/tools/test_round3_unsupported_markers.py
 - tests/extraction/test_round3_stub_detection.py
 - tests/deploy/test_fleet_consistency.py
+- tests/fixtures/3d_python/api_surface.json
+- tests/fixtures/pdf_python/api_surface.json
+- tests/fixtures/3d_net/api_surface.json
+- tests/fixtures/words_net/api_surface.json
+- tests/fixtures/slides_net/api_surface.json
+- tests/fixtures/slides_cpp/api_surface.json
+- tests/fixtures/slides_java/api_surface.json
+- tests/fixtures/cells_cpp/api_surface.json
+- tests/fixtures/readme_identifier_allowlist.json
+- tests/extraction/test_3d_python_extraction.py
+- tests/extraction/test_pdf_python_extraction.py
+- tests/extraction/test_3d_net_extraction.py
+- tests/extraction/test_words_net_extraction.py
+- tests/extraction/test_slides_net_extraction.py
+- tests/extraction/test_slides_cpp_extraction.py
+- tests/extraction/test_slides_java_extraction.py
+- tests/extraction/test_cells_cpp_extraction.py
+- tests/indexing/test_chunk_builder.py
+- tests/indexing/test_chunk_builder_honesty.py
+- tests/infra/test_build_chunks.py
 satisfies:
 - REQ-G3-009
 - REQ-G3-008
@@ -53,6 +72,26 @@ inputs:
   carries the marker (match by name from the documentation chunk, conservative: exact identifier match only); (d) the fixed phrase is the contract with TC-562, which surfaces it in search_symbols and applies
   the limitation-first rule in lookup; (e) no symbol is removed and no currently correct line changes. INDEPENDENT ORACLE: hand-written source snippets per language for the stub detector; the real pins
   (3d/python 734 stubs counted from the upstream source by ast, 3d/net Scene.Render, PolygonModifier) asserted on regenerated data.
+- >-
+  FINALISATION NOTES (supervisor, 2026-10-19). (1) Mandated names: in src/foss_mcp/extraction/tree_sitter_engine/api_surface.py the exact line `STUB_MARKERS_ENABLED = True` (a real switch: when False no
+  member is flagged, exactly as before this card) and in src/foss_mcp/indexing/chunk_builder.py the exact line `NOT_IMPLEMENTED_PHRASE = "not implemented in this build"` (the contract phrase that TC-562
+  also uses; do not alter its wording). The fixture records a boolean `stub` (with a short `stub_reason`) on a flagged member; the chunk carries the phrase on the member line and in the get_symbol / list_members
+  results. (2) Python stubs live in python_surface.py (the body is only `raise NotImplementedError(...)`, `pass`, `...` or a docstring plus one of those); C#, Java, C++ and TypeScript stubs in api_surface.py
+  (the bodies named in the acceptance); an abstract method, an interface member, a Protocol member, an `@overload` stub and a `@abstractmethod` are NOT stubs. (3) Unsupported-by-documentation (acceptance
+  c): at chunk-build time, read the pilot's furnished scope/limitation page (tests/fixtures/furnished/<family>_<platform>/pages/ - read only, never edit) for identifiers it lists as unsupported or not implemented
+  and mark exactly matching member or enum identifiers; conservative: exact identifier match only, never a substring. (4) RE-EXTRACTION (needs the network; clones over https, no token; a refused clone or
+  rate limit is BLOCKED_EXTERNAL with the resume predicate `git fetch of <repo>@<sha> succeeds`, never a retry loop): the pilots whose upstream has stubs or documented-unsupported members are 3d/python,
+  pdf/python, 3d/net, words/net, slides/net, slides/cpp, slides/java and cells/cpp. For each run from the repository root `python -X utf8 -m foss_mcp.extraction.run_extraction config/products/<family>/<platform>.yaml
+  tests/fixtures/<family>_<platform>/api_surface.json --commit <pin> --keep-names-from tests/fixtures/furnished/<family>_<platform>/pages/_index.md --max-types 100000` where <pin> is `ingestion.pilots[].library.commit`
+  of infra/helm/foss-mcp/values.yaml (never retype a commit); kept must equal total and the commit must equal the pin; normalise CRLF to LF; the earlier extractor cards (TC-532 to TC-558) have already regenerated
+  these fixtures, so the only intended difference is the new `stub` data: show it with `git diff --stat` and report any other change as a defect. words/net needs a long clone: run it as its own command
+  with a bounded wait. (5) Real pins to assert on the regenerated fixtures (read by the round-3 audit; verify each against the clone and report any that is wrong): 3d/python has about 734 of 3,743 public
+  members with stub bodies (count them with `ast` directly on the cloned source in the test and assert equality); 3d/net `Scene.Render`, `PolygonModifier` and `PdfFormat` carry the marker; pdf/python `HtmlLoadOptions`
+  and `SvgLoadOptions` are named unsupported by the scope documentation. (6) Existing tests may pin an old fact: change only such an assertion with the comment `TC-559: <old> -> <new>` and list it with
+  its reason; never delete, skip or loosen. tests/fixtures/readme_identifier_allowlist.json only with the helper `python -X utf8 -m tests.extraction.docs_identifiers --write`. If a test outside write_paths
+  fails, stop and report its name and the pinned fact. No symbol is removed from the index. (7) TEST COUNTS: min_tests is 24 for EACH check. The first check names only the three new files: you add at least
+  24 tests (at least 10 stub-detector tests across the five languages in test_round3_stub_detection.py, at least 8 renderer tests in tests/indexing/test_round3_unsupported_markers.py, at least 6 tool-result
+  tests in tests/mcp/tools/test_round3_unsupported_markers.py); the second check collects well over 2,500.
 actions:
 - >-
   Add the unsupported/stub marker to extraction, chunk rendering and the three symbol tools, and the limitation-first rule to lookup.
@@ -66,25 +105,27 @@ checks:
   - REQ-G3-009
   - REQ-G3-008
 - command: >-
-    {python} -m pytest tests/mcp tests/indexing/test_chunk_builder.py tests/deploy/test_fleet_consistency.py tests/deploy/test_served_coverage_matches_fixtures.py tests/deploy/test_compact_demo_manifests.py
-    -q -rfE -p no:cacheprovider -k "not live and not github_http and not repo_native and not test_prepare_rust_library and not test_rust_known"
+    {python} -m pytest tests/extraction tests/mcp tests/indexing/test_chunk_builder.py tests/indexing/test_chunk_builder_honesty.py tests/infra/test_build_chunks.py tests/deploy/test_fleet_consistency.py
+    tests/deploy/test_served_coverage_matches_fixtures.py tests/deploy/test_compact_demo_manifests.py -q -rfE -p no:cacheprovider -k "not live and not github_http and not repo_native and not test_prepare_rust_library
+    and not test_rust_known"
   expect: exit 0
   timeout_seconds: 3000
   junitxml: true
   proves:
   - REQ-G3-009
   - REQ-G3-008
-min_tests: 8
+min_tests: 24
 network: true
 requires:
 - python
 - git
 negative_control:
   mutate: |
-    python -X utf8 -c "print('negative control to be authored before dispatch')"
+    python -X utf8 -c "import pathlib;p=pathlib.Path('src/foss_mcp/extraction/tree_sitter_engine/api_surface.py');s=p.read_text(encoding='utf-8');old='STUB_MARKERS_ENABLED = True';assert s.count(old)==1;p.write_text(s.replace(old,'STUB_MARKERS_ENABLED = False'),encoding='utf-8')"
   rationale: >-
-    PLACEHOLDER written at registration. The supervisor replaces it, before dispatch, with a falsifier that breaks the card's central claim in the code the worker writes (a mandated constant or function
-    name) so that a named new test fails.
+    Turns off the mandated switch of the stub detector, so a member whose whole body is a not-implemented raise or throw is no longer flagged and no symbol carries the fixed phrase 'not implemented in this
+    build': the per-language stub-detection tests, the renderer tests and the regenerated-fixture tests (3d/net Scene.Render must carry the marker) fail at once. A real break of the card's claim that unsupported
+    capability is marked.
 evidence:
 - evidence/build/G3/TC-559/receipt.json
 closeout:
