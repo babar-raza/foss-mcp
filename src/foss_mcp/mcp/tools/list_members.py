@@ -10,7 +10,12 @@ from __future__ import annotations
 
 from foss_mcp.indexing.generation_manifest import GenerationManifestStore
 from foss_mcp.mcp.routing import Scope
-from foss_mcp.mcp.tools.get_symbol import NotFound, ResolvedSignature, get_symbol
+from foss_mcp.mcp.tools.get_symbol import (
+    _TYPE_LIMITATION_PREFIX,
+    NotFound,
+    ResolvedSignature,
+    get_symbol,
+)
 
 
 def list_members(store: GenerationManifestStore, scope: Scope, fqn: str) -> tuple[str, ...] | NotFound:
@@ -25,4 +30,9 @@ def list_members(store: GenerationManifestStore, scope: Scope, fqn: str) -> tupl
     if isinstance(signature, ResolvedSignature) and signature.member:
         # TC-540: "<Type>.<member>" returns just that member's lines (all its overloads).
         return signature.member_lines
-    return signature.methods + signature.properties + signature.members
+    # TC-559: a type that is not implemented says so first (``Limitation: not implemented in this build ...``);
+    # a member that is not implemented carries the same phrase on its own line. A working type adds nothing.
+    type_limitation = tuple(
+        line for line in signature.limitations if line.startswith(_TYPE_LIMITATION_PREFIX)
+    )
+    return type_limitation + signature.methods + signature.properties + signature.members

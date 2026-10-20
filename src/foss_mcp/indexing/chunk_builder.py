@@ -212,6 +212,32 @@ def _throws_suffix(method: Mapping[str, object]) -> str:
     return f" throws {', '.join(thrown)}" if thrown else ""
 
 
+# TC-559 (REQ-G3-009, RD3-060 / RD3-061): the one fixed phrase that says a symbol is declared but the library
+# does not implement it (a body that only throws, an empty stub, or a name the scope documentation lists as
+# unsupported). It is a contract: ``search_symbols`` surfaces the line carrying it as ``limitation`` (TC-562),
+# and ``get_symbol`` / ``list_members`` return it on the member lines. Do not reword it.
+NOT_IMPLEMENTED_PHRASE = "not implemented in this build"
+_STUB_REASON_LIMIT = 120
+
+
+def _stub_text(entry: Mapping[str, object]) -> str:
+    """``not implemented in this build`` or ``not implemented in this build: throws NotImplementedException``
+    for an entry the extraction flagged ``"stub": true`` (with its short ``stub_reason``); empty otherwise."""
+    if entry.get("stub") is not True:
+        return ""
+    reason = " ".join(str(entry.get("stub_reason") or "").split())
+    if len(reason) > _STUB_REASON_LIMIT:
+        reason = reason[: _STUB_REASON_LIMIT - 3] + "..."
+    return f"{NOT_IMPLEMENTED_PHRASE}: {reason}" if reason else NOT_IMPLEMENTED_PHRASE
+
+
+def _stub_suffix(entry: Mapping[str, object]) -> str:
+    """``  (not implemented in this build: <reason>)`` at the end of a member line; empty for a working member,
+    so every line of a fixture without stubs renders exactly as before."""
+    text = _stub_text(entry)
+    return f"  ({text})" if text else ""
+
+
 def _method_line(method: Mapping[str, object]) -> str:
     params = _param_list_text(_items(method.get("params")))
     # TC-535 (RD3-031): a Rust method's receiver (``&self``, ``&mut self``, ``self``) leads its parameter list.
@@ -223,7 +249,7 @@ def _method_line(method: Mapping[str, object]) -> str:
     return (
         f"  - {method.get('name', '')}({params}){arrow}{_throws_suffix(method)}"
         f"{_modifiers_suffix(method)}{_generics_suffix(method)}{_mixin_suffix(method)}"
-        f"{_inherited_from_suffix(method)}{_deprecated_suffix(method)}"
+        f"{_inherited_from_suffix(method)}{_deprecated_suffix(method)}{_stub_suffix(method)}"
     )
 
 
@@ -257,7 +283,7 @@ def _property_line(prop: Mapping[str, object]) -> str:
     valued = f" = {' '.join(str(literal).split())}" if literal is not None and str(literal).strip() else ""
     return (
         f"  - {prop.get('name', '')}{typed}{valued}{_modifiers_suffix(prop)}{suffix}"
-        f"{_inherited_from_suffix(prop)}{_deprecated_suffix(prop)}"
+        f"{_inherited_from_suffix(prop)}{_deprecated_suffix(prop)}{_stub_suffix(prop)}"
     )
 
 
@@ -266,9 +292,10 @@ def _member_line(member: Mapping[str, object]) -> str:
     # TC-535 (RD3-032): the data a Rust enum variant carries, ``Number(f64)`` / ``Io { path: String }``.
     payload = " ".join(str(member.get("payload") or "").split())
     name = f"{member.get('name', '')}{' ' if payload.startswith('{') else ''}{payload}"
+    stub = _stub_suffix(member)  # TC-559
     if value is None or str(value) == "":
-        return f"  - {name}"
-    return f"  - {name} = {value}"
+        return f"  - {name}{stub}"
+    return f"  - {name} = {value}{stub}"
 
 
 def _method_lines(methods: Sequence[Mapping[str, object]]) -> list[str]:
@@ -356,6 +383,11 @@ def _format_type_text(
     lines = [f"FQN: {fqn if fqn is not None else _entry_fqn(entry)}", f"Kind: {entry.get('kind', '')}"]
     if _is_deprecated(entry):
         lines.append(f"Deprecated: {_reason(entry) or 'yes'}")
+    # TC-559: a type the library declares but does not implement (a name its scope documentation lists as
+    # unsupported). A free function states it on its own signature line below, so it is not said twice.
+    type_limitation = _stub_text(entry) or _stub_text(source)
+    if type_limitation and entry.get("kind") != "function":
+        lines.append(f"Limitation: {type_limitation}")
     if defined_in:
         lines.append(f"Defined-In: {defined_in}")
     lines.extend(f"Exported-As: {name}" for name in exported_as)

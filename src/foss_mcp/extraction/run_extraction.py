@@ -193,6 +193,14 @@ def _python_param_dicts(symbol: python_surface.PublicSymbol) -> list[dict[str, A
     return params
 
 
+def _stub_marks(symbol: python_surface.PublicSymbol) -> dict[str, Any]:
+    """TC-559 (RD3-060): ``{"stub": True, "stub_reason": ...}`` for a python symbol whose body is a stub, else
+    ``{}``; always ``{}`` while ``api_surface.STUB_MARKERS_ENABLED`` is False (the one switch of every language)."""
+    if not api_surface.STUB_MARKERS_ENABLED or not symbol.stub:
+        return {}
+    return {"stub": True, "stub_reason": symbol.stub_reason or python_surface.STUB_RAISES_REASON}
+
+
 def _python_types_from_surface(surface: python_surface.PublicSurface) -> list[dict[str, Any]]:
     """Adapt ``python_surface``'s ``PublicSymbol`` stream into the exact dict shape
     ``extract_api_surface`` produces (see tests/fixtures/pdf_net/api_surface.json), so
@@ -236,6 +244,7 @@ def _python_types_from_surface(surface: python_surface.PublicSurface) -> list[di
             entry["return_type"] = symbol.return_type or ""
             if symbol.modifiers:
                 entry["modifiers"] = list(symbol.modifiers)
+            entry.update(_stub_marks(symbol))
         elif symbol.public_by == "reexport" and symbol.reexported_from:
             # TC-522: a class/enum re-export names the definition it re-exports, so a shell that
             # carries members of its own (inherited from a private base) still travels with it.
@@ -269,6 +278,7 @@ def _python_types_from_surface(surface: python_surface.PublicSurface) -> list[di
                 prop["value"] = symbol.value  # TC-532: the literal the attribute is assigned
             if symbol.inherited_from:
                 prop["inherited_from"] = symbol.inherited_from
+            prop.update(_stub_marks(symbol))
             owner["properties"].append(prop)
             continue
         # Every declared parameter (TC-393), an unannotated one with type "" - _reference_strings()
@@ -289,6 +299,7 @@ def _python_types_from_surface(surface: python_surface.PublicSurface) -> list[di
             method["modifiers"] = list(symbol.modifiers)  # TC-522: static / classmethod / async
         if symbol.inherited_from:
             method["inherited_from"] = symbol.inherited_from  # TC-532: a member of a private base
+        method.update(_stub_marks(symbol))
         owner["methods"].append(method)
 
     return [entries[key] for key in order]
@@ -615,6 +626,8 @@ def extract_pinned_repository(manifest_path: Path, *, commit: str | None = None)
         platform = manifest["platform"]
         if platform == "python":
             fill_python_enum_members(types, workdir)
+        elif platform in ("net", "dotnet"):
+            mark_unsupported_switch_cases(types, workdir)  # TC-559
         # "python" is recorded literally here, never a tree-sitter grammar name, so downstream
         # code can tell which reader produced a given fixture.
         language = "python" if platform == "python" else _LANGUAGE_BY_PLATFORM[platform]
@@ -1139,6 +1152,483 @@ def readme_keep_names(page_path: Path | str) -> dict[str, int]:
     return counts
 
 
+# ---------------------------------------------------------------------------
+# TC-559 (REQ-G3-009, RD3-060 / RD3-061): capabilities the library does not implement.
+#
+# Two sources besides a stub body (see ``api_surface.stub_fields`` and ``python_surface.stub_reason``):
+#   * the pilot's own scope documentation, which names types, members and enum values as unsupported;
+#   * a C# ``switch`` whose ``case E.X:`` labels lead straight to ``throw new NotSupportedException(...)``.
+# A marked entry gets ``"stub": true`` and a ``"stub_reason"``; nothing is ever removed from the artifact.
+# ---------------------------------------------------------------------------
+
+DOC_UNSUPPORTED_REASON = "the scope documentation lists it as not implemented"
+
+_SCOPE_HEADING_RE = re.compile(
+    r"limitation|scope|cannot|can't|unsupported|not (?:supported|implemented)|not in the public api"
+    r"|known (?:issues|defects)|save formats?",
+    re.IGNORECASE,
+)
+_MD_HEADING_RE = re.compile(r"^\s{0,3}(#{1,6})\s+(.+?)\s*$")
+_MD_FENCE_RE = re.compile(r"^\s*(?:```|~~~)")
+_MD_BULLET_RE = re.compile(r"^\s*(?:[-*+]|\d+[.)])\s+")
+_MD_TABLE_SEPARATOR_RE = re.compile(r"^\s*\|?[\s:|-]+\|?\s*$")
+_INLINE_CODE_RE = re.compile(r"`([^`\n]+)`")
+_PLACEHOLDER_RE = re.compile(r"\x00(\d+)\x00")
+_PATH_IDENTIFIER_RE = re.compile(r"^[A-Za-z_]\w*(?:(?:\.|::)[A-Za-z_]\w*)*$")
+_CLAUSE_SPLIT_RE = re.compile(
+    r"(?<=[.!?])\s+(?=[A-Z\x00*])|;\s*|\s[—–]\s|:\s+|\s+(?:but|whose|which|while|however)\s+"
+    r"|,\s+and\s+(?=(?:also\s+)?(?:raises?|throws?|rejects?|refuses?)\b)"
+)
+_NOT_IMPLEMENTED_CUES = (
+    re.compile(r"\bnot\s+(?:yet\s+|currently\s+)?(?:implemented|supported|functional)\b", re.IGNORECASE),
+    re.compile(r"\bunsupported\b|\bunimplemented\b", re.IGNORECASE),
+    re.compile(r"\bno\s+[\w/-]+\s+implementation\b", re.IGNORECASE),
+    re.compile(r"\b(?:is|are)\s+rejected\b|\brejected\s+as\b", re.IGNORECASE),
+    re.compile(r"\bcarr(?:y|ies)\s+no\s+implementation\b", re.IGNORECASE),
+)
+_NOT_IMPLEMENTED_EXCEPTION = r"(?:NotImplemented|NotSupported|UnsupportedOperation|UnsupportedFeature)\w*"
+_THROW_EXCEPTION_CUE = re.compile(
+    rf"\b(?:throws?|raises?|thrown)\s+(?:an?\s+)?(?:\x00(\d+)\x00|({_NOT_IMPLEMENTED_EXCEPTION}))",
+    re.IGNORECASE,
+)
+_FOR_THE_OTHERS_RE = re.compile(
+    r"\bfor\s+(?:the\s+)?(?:other|remaining|rest|following)\b[^()]{0,60}\(([^)]*)\)"
+)
+_EVERY_OTHER_RE = re.compile(
+    r"\b(?:every|all)\s+other\b[^()]*\(([^)]*)\)\s*(?:values?|members?)?\s*"
+    r"(?:throws?|raises?|is rejected|are rejected|fails?)\b",
+    re.IGNORECASE,
+)
+_REFUSED_COLUMN_RE = re.compile(
+    r"refus|reject|unsupported|not supported|not implemented|throws", re.IGNORECASE
+)
+_FILLER_BEFORE_CUE_RE = re.compile(
+    r"^[\s,]*(?:(?:is|are|also|either|both|all|just)\b[\s,]*)*$", re.IGNORECASE
+)
+
+
+class _Claim:
+    """One identifier the scope documentation lists as unsupported: ``owner`` is the type of a dotted name
+    (``Scene.Render``) or None; ``unit_owners`` are the type names the same sentence or section names."""
+
+    __slots__ = ("clause_owners", "name", "owner", "unit_owners")
+
+    def __init__(
+        self,
+        name: str,
+        owner: str | None,
+        unit_owners: tuple[str, ...],
+        clause_owners: tuple[str, ...] = (),
+    ) -> None:
+        self.name = name
+        self.owner = owner
+        self.unit_owners = unit_owners
+        self.clause_owners = clause_owners
+
+    def __repr__(self) -> str:
+        return f"_Claim({self.owner or ''}.{self.name} in {self.clause_owners} / {self.unit_owners})"
+
+
+def _split_span(span: str) -> tuple[str | None, str] | None:
+    """``(owner, name)`` of an inline-code span that is a plain (optionally dotted) identifier, call
+    parentheses and a ``<generic>`` suffix ignored; None for anything else (``a:xfrm``, ``x = 1``, ``dir/``)."""
+    text = re.sub(r"\([^)]*\)$", "", span.strip())
+    text = re.sub(r"<[^>]*>$", "", text).strip()
+    if not _PATH_IDENTIFIER_RE.match(text):
+        return None
+    parts = re.split(r"\.|::", text)
+    return (parts[-2], parts[-1]) if len(parts) > 1 else (None, parts[0])
+
+
+def _scope_blocks(page_path: Path | str) -> list[str]:
+    """The markdown of a furnished page that talks about scope: the content of a front-matter block whose
+    title names limitations or scope, and every section under a heading that does (``Scope and
+    Limitations``, ``What it cannot do``, ``Not in the public API``, ``Save formats``). Deterministic."""
+    text = Path(page_path).read_text(encoding="utf-8")
+    match = re.match(r"\A---\r?\n(.*?)\r?\n---[ \t]*(?:\r?\n|\Z)(.*)\Z", text, re.DOTALL)
+    leaves: list[tuple[str, bool]] = []
+    if match is None:
+        leaves.append((text, False))
+    else:
+        leaves.append((match.group(2), False))
+        try:
+            front = yaml.safe_load(match.group(1))
+        except yaml.YAMLError:
+            front = None
+        stack: list[Any] = [front]
+        while stack:
+            value = stack.pop()
+            if isinstance(value, dict):
+                titled = False
+                for title_key, content_key in (
+                    ("title_left", "content_left"),
+                    ("title_right", "content_right"),
+                    ("title", "content"),
+                ):
+                    title, content = value.get(title_key), value.get(content_key)
+                    if isinstance(title, str) and isinstance(content, str):
+                        titled = titled or bool(_SCOPE_HEADING_RE.search(title))
+                        leaves.append((content, bool(_SCOPE_HEADING_RE.search(title))))
+                for key, item in value.items():
+                    if isinstance(item, str) and not (titled and key in ("content_left", "content_right")):
+                        leaves.append((item, False))
+                    elif isinstance(item, dict | list):
+                        stack.append(item)
+            elif isinstance(value, list):
+                stack.extend(value)
+    blocks: list[str] = []
+    for leaf, whole in leaves:
+        if whole:
+            blocks.append(leaf)
+            continue
+        current: list[str] | None = None
+        level = 0
+        in_fence = False
+        for line in leaf.splitlines():
+            if _MD_FENCE_RE.match(line):
+                in_fence = not in_fence
+                if current is not None:
+                    current.append(line)
+                continue
+            heading = None if in_fence else _MD_HEADING_RE.match(line)
+            if heading is not None:
+                depth = len(heading.group(1))
+                if current is not None and depth <= level:
+                    blocks.append("\n".join(current))
+                    current = None
+                if current is None and _SCOPE_HEADING_RE.search(heading.group(2)):
+                    current, level = [], depth
+                continue
+            if current is not None:
+                current.append(line)
+        if current is not None:
+            blocks.append("\n".join(current))
+    seen: set[str] = set()
+    unique: list[str] = []
+    for block in blocks:
+        if block.strip() and block not in seen:
+            seen.add(block)
+            unique.append(block)
+    return unique
+
+
+def _block_units(block: str) -> tuple[list[str], list[list[str]]]:
+    """``(units, tables)`` of a scope block: each paragraph or list item joined into one line (fenced code
+    dropped), and each markdown table as its list of lines."""
+    units: list[str] = []
+    tables: list[list[str]] = []
+    current: list[str] = []
+    table: list[str] = []
+    in_fence = False
+
+    def flush() -> None:
+        nonlocal current, table
+        if current:
+            units.append(" ".join(part.strip() for part in current))
+        if table:
+            tables.append(table)
+        current, table = [], []
+
+    for line in block.splitlines():
+        if _MD_FENCE_RE.match(line):
+            in_fence = not in_fence
+            flush()
+            continue
+        if in_fence:
+            continue
+        if not line.strip():
+            flush()
+        elif line.lstrip().startswith("|"):
+            if current:
+                units.append(" ".join(part.strip() for part in current))
+                current = []
+            table.append(line)
+        else:
+            if table:
+                tables.append(table)
+                table = []
+            if _MD_BULLET_RE.match(line) and current:
+                units.append(" ".join(part.strip() for part in current))
+                current = []
+            current.append(_MD_BULLET_RE.sub("", line, count=1))
+    flush()
+    return units, tables
+
+
+def _unit_claims(unit: str, section_owners: tuple[str, ...]) -> list[_Claim]:
+    """The identifiers one sentence-sized *unit* lists as not implemented (see ``_scope_blocks``).
+
+    A clause (a sentence cut at ``;``, ``-``, ``:``, ``but``/``whose``/``which`` and ``, and raises``) states a
+    limitation when it holds a cue: ``not implemented`` / ``not supported`` / ``unsupported`` / ``no reader
+    implementation`` / ``is rejected``, or ``throws``/``raises`` one of the not-implemented exceptions
+    (``NotImplementedError``, ``NotSupportedException``, ``UnsupportedOperationException`` ...). The
+    identifiers (inline-code spans) BETWEEN the previous cue and a cue are its subjects; a parenthesis is a
+    subject only when it comes right before the cue, ``X's`` names an owner and never a subject, and a bare
+    exception name never is. Two enumerations are read as written: ``... for the other 22 (A, B)`` after a cue
+    and ``Every other E value (A, B) throws``.
+    """
+    spans: list[str] = []
+
+    def keep(match: re.Match[str]) -> str:
+        spans.append(match.group(1))
+        return f"\x00{len(spans) - 1}\x00"
+
+    text = _INLINE_CODE_RE.sub(keep, unit.replace("**", ""))
+    parsed = [_split_span(span) for span in spans]
+    owners: list[str] = list(section_owners)
+    unit_owner_names: list[str] = []
+    for item in parsed:
+        if item is None:
+            continue
+        owner, name = item
+        candidate = owner if owner is not None else name
+        if candidate and candidate not in unit_owner_names:
+            unit_owner_names.append(candidate)
+    owners_in_unit = tuple(unit_owner_names) or tuple(owners)
+    claims: list[_Claim] = []
+    clause_sequence: list[tuple[int, str]] = []
+
+    def claim_for(index: int) -> None:
+        item = parsed[index]
+        if item is None:
+            return
+        owner, name = item
+        if re.search(_NOT_IMPLEMENTED_EXCEPTION + "$", name):
+            return
+        # A bare member belongs to the nearest type named before it in its clause, then the others.
+        position = next((i for i, (found, _owner) in enumerate(clause_sequence) if found == index), 0)
+        ordered = [candidate for _found, candidate in reversed(clause_sequence[:position])]
+        ordered += [candidate for _found, candidate in clause_sequence[position + 1 :]]
+        nearest = tuple(dict.fromkeys(candidate for candidate in ordered if candidate != name))
+        claims.append(_Claim(name, owner, owners_in_unit, nearest))
+
+    for clause in _CLAUSE_SPLIT_RE.split(text):
+        if (
+            not clause
+            or "\x00" not in clause
+            and not any(cue.search(clause) for cue in _NOT_IMPLEMENTED_CUES)
+        ):
+            continue
+        clause_sequence = []
+        for index in map(int, _PLACEHOLDER_RE.findall(clause)):
+            item = parsed[index]
+            clause_owner = None if item is None else (item[0] if item[0] is not None else item[1])
+            if clause_owner:
+                clause_sequence.append((index, clause_owner))
+        every = _EVERY_OTHER_RE.search(clause)
+        if every is not None:
+            for index in map(int, _PLACEHOLDER_RE.findall(every.group(1))):
+                claim_for(index)
+        cues: list[tuple[int, int]] = []
+        for cue in _NOT_IMPLEMENTED_CUES:
+            cues.extend((hit.start(), hit.end()) for hit in cue.finditer(clause))
+        for hit in _THROW_EXCEPTION_CUE.finditer(clause):
+            if hit.group(1) is None or re.match(
+                _NOT_IMPLEMENTED_EXCEPTION, spans[int(hit.group(1))].strip("()")
+            ):
+                cues.append((hit.start(), hit.end()))
+        if not cues:
+            continue
+        cues.sort()
+        depth_at: list[int] = []
+        depth = 0
+        for char in clause:
+            depth += char == "("
+            depth_at.append(depth)
+            depth -= char == ")"
+        previous_end = 0
+        for start, end in cues:
+            for hit in _PLACEHOLDER_RE.finditer(clause, previous_end, start):
+                if depth_at[hit.start()] > 0:
+                    group_close = clause.find(")", hit.end())
+                    if group_close < 0 or not _FILLER_BEFORE_CUE_RE.match(clause[group_close + 1 : start]):
+                        continue
+                if clause[hit.end() : hit.end() + 2] in ("'s", "’s"):
+                    continue
+                claim_for(int(hit.group(1)))
+            others = _FOR_THE_OTHERS_RE.search(clause, end)
+            if others is not None:
+                for index in map(int, _PLACEHOLDER_RE.findall(others.group(1))):
+                    claim_for(index)
+            previous_end = max(previous_end, end)
+    return claims
+
+
+def _table_claims(table: list[str], section_owners: tuple[str, ...]) -> list[_Claim]:
+    """The identifiers in the ``Refused`` / ``Unsupported`` columns of a scope-section table."""
+    rows = [
+        [cell.strip() for cell in line.strip().strip("|").split("|")]
+        for line in table
+        if not _MD_TABLE_SEPARATOR_RE.match(line)
+    ]
+    if len(rows) < 2:
+        return []
+    columns = [index for index, cell in enumerate(rows[0]) if _REFUSED_COLUMN_RE.search(cell)]
+    claims: list[_Claim] = []
+    for row in rows[1:]:
+        for column in columns:
+            if column >= len(row):
+                continue
+            for span in _INLINE_CODE_RE.findall(row[column]):
+                item = _split_span(span)
+                if item is not None:
+                    claims.append(_Claim(item[1], item[0], section_owners))
+    return claims
+
+
+def documented_unsupported_claims(page_path: Path | str) -> list[_Claim]:
+    """Every ``_Claim`` the scope documentation of the furnished page *page_path* makes (empty for a page
+    without a scope section)."""
+    claims: list[_Claim] = []
+    for block in _scope_blocks(page_path):
+        section_owners: list[str] = []
+        for span in _INLINE_CODE_RE.findall(block):
+            item = _split_span(span)
+            if item is not None and item[0] is None and item[1] not in section_owners:
+                section_owners.append(item[1])
+        owners = tuple(section_owners)
+        units, tables = _block_units(block)
+        for unit in units:
+            claims.extend(_unit_claims(unit, owners))
+        for table in tables:
+            claims.extend(_table_claims(table, owners))
+    return claims
+
+
+def _is_enum_entry(entry: Mapping[str, Any]) -> bool:
+    return "enum" in str(entry.get("kind") or "").lower()
+
+
+def _named(entry: Mapping[str, Any], name: str) -> bool:
+    """Whether *entry* is the type *name*: by its short name, or by the last segment of its qualified name."""
+    qualified = str(entry.get("class_import") or "")
+    return entry.get("name") == name or re.split(r"\.|::", qualified)[-1] == name
+
+
+def _members_named(entry: Mapping[str, Any], name: str) -> list[dict[str, Any]]:
+    """The methods and properties of *entry* named *name*, and its enum member of that exact name; failing
+    that, the one enum member that differs from *name* only by case (``Pdf`` documents ``PDF``)."""
+    found = [
+        member
+        for key in ("methods", "properties")
+        for member in entry.get(key) or []
+        if member.get("name") == name
+    ]
+    enum_members = entry.get("enum_members") or []
+    exact = [member for member in enum_members if member.get("name") == name]
+    if exact:
+        return found + exact
+    folded = [
+        member for member in enum_members if str(member.get("name") or "").casefold() == name.casefold()
+    ]
+    return found + (folded if len(folded) == 1 else [])
+
+
+def _mark(target: dict[str, Any], reason: str) -> bool:
+    if target.get("stub") is True:
+        return False
+    target["stub"] = True
+    target["stub_reason"] = reason
+    return True
+
+
+def mark_documented_unsupported(types: list[dict[str, Any]], page_path: Path | str) -> list[str]:
+    """TC-559 (RD3-061): mark every type, member and enum value of *types* that the scope documentation of
+    *page_path* names, by exact identifier, as not implemented (``"stub": true`` plus ``"stub_reason"``).
+    Nothing is removed. Returns what was marked (``Type`` or ``Type.member``), in order, for the report.
+
+    Only an exact name matches (an enum value may differ by case alone, when that is unambiguous); a name
+    the artifact does not define marks nothing; a type that the documentation names only to qualify a member
+    is not marked; an enum itself is never marked, only its values.
+    """
+    if not api_surface.STUB_MARKERS_ENABLED:
+        return []
+    marked: list[str] = []
+    for claim in documented_unsupported_claims(page_path):
+        hit = False
+        # A dotted name has its owner; a bare name is a member of a type named in its own clause, else of
+        # one named elsewhere in the sentence or section.
+        owner_groups: tuple[tuple[str, ...], ...] = (
+            ((claim.owner,),) if claim.owner is not None else (claim.clause_owners, claim.unit_owners)
+        )
+        for owner_names in owner_groups:
+            for owner_name in owner_names:
+                if claim.owner is None and owner_name == claim.name:
+                    continue
+                for entry in types:
+                    if not _named(entry, owner_name):
+                        continue
+                    for member in _members_named(entry, claim.name):
+                        hit = True
+                        if _mark(member, DOC_UNSUPPORTED_REASON):
+                            marked.append(f"{owner_name}.{member.get('name')}")
+                if hit:
+                    break  # the nearest type that has the member owns it
+            if hit:
+                break
+        if hit or claim.owner is not None:
+            continue
+        for entry in types:
+            if _named(entry, claim.name) and not _is_enum_entry(entry) and entry.get("name") == claim.name:
+                if _mark(entry, DOC_UNSUPPORTED_REASON):
+                    marked.append(str(entry.get("class_import") or entry.get("name")))
+    return marked
+
+
+_SWITCH_THROW_RE = re.compile(
+    r"((?:case\s+[A-Za-z_][\w.]*\.[A-Za-z_]\w*\s*:\s*(?:#[^\n]*\n\s*)*)+)"
+    r"throw\s+new\s+(NotSupportedException|NotImplementedException)\s*\(([^)]*)\)"
+)
+_SWITCH_REFUSAL_MESSAGE_RE = re.compile(r"FOSS|not\s+(?:implemented|supported)|unsupported", re.IGNORECASE)
+_SWITCH_CASE_RE = re.compile(r"case\s+(?:[A-Za-z_][\w.]*\.)?([A-Za-z_]\w*)\.([A-Za-z_]\w*)\s*:")
+
+
+def mark_unsupported_switch_cases(types: list[dict[str, Any]], clone_root: Path) -> list[str]:
+    """TC-559 (RD3-060): a C# ``switch`` whose ``case Enum.Value:`` labels lead straight to ``throw new
+    NotSupportedException(...)`` (``Aspose.Words``' ``WriterFactory``) refuses those values: mark the matching
+    enum value of *types*, whatever the enum's namespace, as not implemented. Returns ``Enum.Value`` names."""
+    if not api_surface.STUB_MARKERS_ENABLED:
+        return []
+    refused: dict[tuple[str, str], str] = {}
+    for path in sorted(clone_root.rglob("*.cs")):
+        # A test project (``Aspose.Words.Tests``, ``Aspose.Words.TestFx``, ``tests``) is not the library.
+        if any("test" in part.lower() for part in path.relative_to(clone_root).parts[:-1]):
+            continue
+        try:
+            source = path.read_text(encoding="utf-8-sig", errors="replace")
+        except OSError:
+            continue
+        labels: dict[str, int] = {}
+        for case in _SWITCH_CASE_RE.finditer(source):
+            labels[case.group(1)] = labels.get(case.group(1), 0) + 1
+        found: dict[tuple[str, str], str] = {}
+        refusing: dict[str, int] = {}
+        for hit in _SWITCH_THROW_RE.finditer(source):
+            message = " ".join(hit.group(3).split())
+            if message and not _SWITCH_REFUSAL_MESSAGE_RE.search(message):
+                continue  # ``"Should not reach this line."`` is no refusal of a value
+            reason = f"a switch case throws {hit.group(2)}({message[:60]})"
+            for case in _SWITCH_CASE_RE.finditer(hit.group(1)):
+                found.setdefault((case.group(1), case.group(2)), reason)
+                refusing[case.group(1)] = refusing.get(case.group(1), 0) + 1
+        for (enum_name, value), reason in found.items():
+            # A file that refuses EVERY value of an enum it switches on is a guard (the digital-signature code
+            # refuses ``LoadFormat.Docx``), not a dispatch that supports some values and refuses the others.
+            if labels.get(enum_name, 0) > refusing.get(enum_name, 0):
+                refused.setdefault((enum_name, value), reason)
+    marked: list[str] = []
+    for entry in types:
+        # Only an enum of formats a SAVE refuses (``SaveFormat``): a switch that refuses a value of another enum
+        # may refuse it for one feature only (``DigitalSignatureUtil`` refuses ``LoadFormat.Docx``, which loads).
+        if not _is_enum_entry(entry) or "save" not in str(entry.get("name") or "").lower():
+            continue
+        for member in entry.get("enum_members") or []:
+            refusal = refused.get((str(entry.get("name")), str(member.get("name"))))
+            if refusal is not None and _mark(member, refusal):
+                marked.append(f"{entry.get('name')}.{member.get('name')}")
+    return marked
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("manifest", type=Path, help="product manifest, e.g. config/products/pdf/net.yaml")
@@ -1168,6 +1658,9 @@ def main() -> None:
     if max_types is None:
         max_types = RECOMMENDED_MAX_TYPES.get(f"{manifest['family']}/{manifest['platform']}", 300)
     artifact = extract_pinned_repository(args.manifest, commit=args.commit)
+    if args.keep_names_from:
+        # TC-559: what the pilot's own scope documentation lists as not implemented is marked, never removed.
+        mark_documented_unsupported(artifact["types"], args.keep_names_from)
     must_keep = names_used_in_examples(args.keep_names_from) if args.keep_names_from else frozenset()
     readme_names = readme_keep_names(args.keep_names_from) if args.keep_names_from else None
     fixture = reduce_fixture(artifact, max_types=max_types, must_keep=must_keep, readme_names=readme_names)

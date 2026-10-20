@@ -112,6 +112,62 @@ class PublicSymbol:
     base_origins: tuple[tuple[str, str], ...] = ()
     shadows: str | None = None
     shadowed_by: str | None = None
+    # TC-559 (RD3-060): a function, method or property getter whose whole body is ``raise NotImplementedError``
+    # (``stub_reason`` "raises NotImplementedError") or an empty ``pass`` / ``...`` ("empty body (pass)").
+    # An annotation about the body, not part of the symbol's identity: two symbols equal in every other field
+    # stay equal (``compare=False``), so a reader that builds the expected symbol by hand is unaffected.
+    stub: bool = field(default=False, compare=False)
+    stub_reason: str = field(default="", compare=False)
+
+
+_ABSTRACT_DECORATORS = frozenset(
+    {"abstractmethod", "abc.abstractmethod", "abstractproperty", "abc.abstractproperty"}
+)
+_PROTOCOL_BASES = frozenset({"Protocol", "typing.Protocol", "typing_extensions.Protocol", "t.Protocol"})
+STUB_RAISES_REASON = "raises NotImplementedError"
+
+
+def stub_reason(item: ast.FunctionDef | ast.AsyncFunctionDef, owner: ast.ClassDef | None = None) -> str:
+    """TC-559: why *item* is a stub, or ``""`` when it is not.
+
+    A stub is a function whose entire body is ``raise NotImplementedError`` (with or without a message), or an
+    empty ``pass`` or ``...``, in either case after an optional docstring. NOT stubs: an ``@abstractmethod``
+    (an abstract method is a contract), an ``@overload`` signature, a member of a ``Protocol`` class, and an
+    ``__init__`` whose body is ``pass`` or ``...`` (a constructor with nothing to initialise is a working
+    constructor). A body of only a docstring has no statement to judge and is not a stub.
+    """
+    decorators = {ast.unparse(decorator) for decorator in item.decorator_list}
+    if decorators & _ABSTRACT_DECORATORS or decorators & _OVERLOAD_DECORATORS:
+        return ""
+    if owner is not None and any(ast.unparse(base) in _PROTOCOL_BASES for base in owner.bases):
+        return ""
+    body = list(item.body)
+    if (
+        body
+        and isinstance(body[0], ast.Expr)
+        and isinstance(body[0].value, ast.Constant)
+        and isinstance(body[0].value.value, str)
+    ):
+        body = body[1:]
+    if len(body) != 1:
+        return ""
+    statement = body[0]
+    if isinstance(statement, ast.Raise) and statement.exc is not None:
+        raised = statement.exc.func if isinstance(statement.exc, ast.Call) else statement.exc
+        if isinstance(raised, ast.Name) and raised.id == "NotImplementedError":
+            return STUB_RAISES_REASON
+        return ""
+    if item.name == "__init__":
+        return ""
+    if isinstance(statement, ast.Pass):
+        return "empty body (pass)"
+    if (
+        isinstance(statement, ast.Expr)
+        and isinstance(statement.value, ast.Constant)
+        and statement.value.value is Ellipsis
+    ):
+        return "empty body (...)"
+    return ""
 
 
 def _first_docstring_line(node: ast.AST) -> str | None:
@@ -502,6 +558,7 @@ def _module_symbols(
             if public:
                 kind: SymbolKind = _class_kind(node) if isinstance(node, ast.ClassDef) else "function"
                 bases, return_type, param_types = _structured_fields(node)
+                function_stub = "" if isinstance(node, ast.ClassDef) else stub_reason(node)
                 symbols.append(
                     PublicSymbol(
                         f"{module}.{node.name}",
@@ -525,6 +582,8 @@ def _module_symbols(
                         base_origins=_base_origins(node, module, source_root)
                         if isinstance(node, ast.ClassDef)
                         else (),
+                        stub=bool(function_stub),
+                        stub_reason=function_stub,
                     )
                 )
                 if isinstance(node, ast.ClassDef):
@@ -820,6 +879,7 @@ def _methods(
         seen.add(name)
         bases, return_type, param_types = _structured_fields(item)
         is_property = _is_property_getter(item)
+        member_stub = stub_reason(item, node)
         found.append(
             PublicSymbol(
                 f"{module}.{node.name}.{item.name}",
@@ -838,6 +898,8 @@ def _methods(
                 writable=(item.name in setters) if is_property else None,
                 param_details=_declared_param_details(item),
                 modifiers=_function_modifiers(item),
+                stub=bool(member_stub),
+                stub_reason=member_stub,
             )
         )
     if _class_kind(node) != "enum":

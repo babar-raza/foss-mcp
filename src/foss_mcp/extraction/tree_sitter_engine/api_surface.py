@@ -2717,6 +2717,56 @@ def _synthesize_cpp_properties(
 # ---------------------------------------------------------------------------
 
 
+# TC-559 (REQ-G3-009, RD3-060): the switch of the stub marking. With it True a member whose whole body is a
+# not-implemented ``throw``/``raise`` (or, in Python, an empty ``pass`` / ``...`` body) is recorded with
+# ``"stub": true`` and a short ``"stub_reason"``; with it False no member of any language is flagged, exactly as
+# before the marking existed. ``python_surface`` records its stubs on the symbol and ``run_extraction`` applies
+# this same switch when it writes them to the fixture.
+STUB_MARKERS_ENABLED = True
+
+STUB_REASON_LIMIT = 120
+_THROWN_TYPE_RE = re.compile(r"\bnew\s+([A-Za-z_][\w.]*)|\bthrow\s+([A-Za-z_][\w:.]*)\s*[({]")
+_THROWN_MESSAGE_RE = re.compile(r'"((?:[^"\\]|\\.)*)"|\'((?:[^\'\\]|\\.)*)\'')
+
+
+def throw_stub_reason(txt: str) -> str:
+    """``throws NotImplementedException: "message"``: what a stub's throw statement *txt* says, clipped to
+    ``STUB_REASON_LIMIT`` characters. The exception type is the one after ``new`` (C#, Java, TypeScript) or
+    after ``throw`` (C++ ``throw std::logic_error(...)``); the message is the first string literal."""
+    typed = _THROWN_TYPE_RE.search(txt)
+    exception = (typed.group(1) or typed.group(2)) if typed else ""
+    quoted = _THROWN_MESSAGE_RE.search(txt)
+    message = " ".join(((quoted.group(1) or quoted.group(2) or "") if quoted else "").split())
+    reason = f"throws {exception}" if exception else "throws"
+    if message:
+        reason = f'{reason}: "{message}"'
+    return reason if len(reason) <= STUB_REASON_LIMIT else reason[: STUB_REASON_LIMIT - 3] + "..."
+
+
+def stub_fields(language: str, mnode) -> dict[str, Any]:
+    """``{"stub": True, "stub_reason": ...}`` when the function or method node *mnode* of *language* is a
+    stub (its whole body is a not-implemented throw or raise), else ``{}``. ``{}`` always while
+    ``STUB_MARKERS_ENABLED`` is False."""
+    if not STUB_MARKERS_ENABLED:
+        return {}
+    if language == "python":
+        if not _is_python_stub_any(mnode):
+            return {}
+        return {"stub": True, "stub_reason": "raises NotImplementedError"}
+    detector = {
+        "csharp": _is_csharp_stub,
+        "java": _is_java_stub,
+        "typescript": _is_typescript_stub,
+        "javascript": _is_typescript_stub,
+        "cpp": _is_cpp_stub,
+    }.get(language)
+    if detector is None or not detector(mnode):
+        return {}
+    text = node_text(mnode)
+    thrown = re.search(r"\bthrow\b", text)
+    return {"stub": True, "stub_reason": throw_stub_reason(text[thrown.start() :] if thrown else text)}
+
+
 def _is_python_stub(mnode) -> bool:
     """Return True if a Python function body is a single raise NotImplementedError."""
     body = child_by_field(mnode, "body") or find_child_by_type(mnode, "block")
@@ -2794,7 +2844,12 @@ def _is_csharp_stub(mnode) -> bool:
     """Return True if a C# method body is a single throw indicating unimplemented."""
     body = find_child_by_type(mnode, "block")
     if body is None:
-        return False
+        # TC-559: an expression body, ``=> throw new NotImplementedException();``.
+        arrow = find_child_by_type(mnode, "arrow_expression_clause")
+        if arrow is None:
+            return False
+        arrow_text = node_text(arrow)
+        return bool(re.match(r"=>\s*throw\b", arrow_text)) and _is_stub_throw(arrow_text)
     stmts = [ch for ch in body.children if ch.type not in ("{", "}", "\n", "comment")]
     if len(stmts) != 1:
         return False
@@ -3169,6 +3224,8 @@ def _extract_cpp_members(cnode, cname: str, rel: str, family: str):
             }
             if modifiers:
                 method["modifiers"] = modifiers
+            if member.type == "function_definition":
+                method.update(stub_fields("cpp", member))  # TC-559: an inline body that only throws
             methods.append(method)
             claims.append(
                 _make_claim(
@@ -3499,6 +3556,8 @@ def _extract_cpp_free_functions(root, fpath: Path, pkg_root: Path, rel: str, fam
         modifiers = _cpp_member_modifiers(node, fdecl)
         if modifiers:
             entry["modifiers"] = modifiers
+        if node.type == "function_definition":
+            entry.update(stub_fields("cpp", node))  # TC-559
         canonical_ns = _cpp_canonical_namespace(node)
         if canonical_ns:
             entry["canonical_namespace"] = canonical_ns
@@ -5288,8 +5347,7 @@ def _js_object_literal_members(obj, mixin: str, rel: str) -> list[dict[str, Any]
         }
         if any(ch.type == "async" for ch in fn.children):
             entry["modifiers"] = ["async"]
-        if _is_typescript_stub(fn):
-            entry["stub"] = True
+        entry.update(stub_fields("typescript", fn))  # TC-559
         _apply_ts_tsdoc_enrichment(entry, member)
         members.append(entry)
     return members
@@ -6244,16 +6302,7 @@ def extract_api_surface(
                     ]
                     if ts_method_modifiers:
                         method_entry["modifiers"] = ts_method_modifiers
-                if language == "python" and _is_python_stub_any(mnode):
-                    method_entry["stub"] = True
-                elif language == "csharp" and _is_csharp_stub(mnode):
-                    method_entry["stub"] = True
-                elif language == "java" and _is_java_stub(mnode):
-                    method_entry["stub"] = True
-                elif language in ("typescript", "javascript") and _is_typescript_stub(mnode):
-                    method_entry["stub"] = True
-                elif language == "cpp" and _is_cpp_stub(mnode):
-                    method_entry["stub"] = True
+                method_entry.update(stub_fields(language, mnode))  # TC-559
 
                 if language in ("typescript", "javascript"):
                     _apply_ts_tsdoc_enrichment(method_entry, mnode)

@@ -24,6 +24,7 @@ from foss_mcp.mcp.routing import Scope
 from foss_mcp.mcp.tools.coverage_note import coverage_note_from_text
 from foss_mcp.mcp.tools.search_symbols import (
     _NON_SYMBOL_FQN_PREFIXES,
+    NOT_IMPLEMENTED_PHRASE,
     SOURCE_KIND,
     _member_name,
     scope_key,
@@ -41,6 +42,10 @@ _ENUM_VALUE_SEPARATOR = " = "
 _NAME_END = re.compile(r"[\s\[]")
 _ASYNC_SUFFIX = "async"
 _SUGGESTION_LIMIT = 5
+# TC-559: the type-level line of a chunk whose type is not implemented, and the member-line marker that follows
+# an enum value (``  - Pdf  (not implemented in this build: ...)``), which is no part of the value's name.
+_TYPE_LIMITATION_PREFIX = "Limitation:"
+_MARKER_START = re.compile(r"\s*\(" + re.escape(NOT_IMPLEMENTED_PHRASE))
 
 
 @dataclass(frozen=True)
@@ -57,6 +62,10 @@ class SymbolSignature:
     members: tuple[str, ...]
     raw_text: str
     found: bool = True
+    # TC-559 (additive): the lines of the chunk that say the symbol is "not implemented in this build" - the
+    # type-level ``Limitation: ...`` line, if any, then each member line that carries the phrase. Empty for a
+    # symbol that works. For a resolved member name only the type-level line and that member's own lines.
+    limitations: tuple[str, ...] = ()
 
 
 @dataclass(frozen=True)
@@ -114,6 +123,20 @@ def _extract_block(text: str, header: str) -> tuple[str, ...]:
     return tuple(items)
 
 
+def limitation_lines(text: str, member_lines: Sequence[str] | None = None) -> tuple[str, ...]:
+    """TC-559: the lines of the chunk *text* that carry ``not implemented in this build``: the type-level
+    ``Limitation:`` line, then the member lines of the ``Methods:`` / ``Properties:`` / ``Members:`` blocks
+    (or only *member_lines*, when a single member was asked for) that carry it."""
+    found: list[str] = []
+    for line in text.splitlines():
+        if line.startswith(_TYPE_LIMITATION_PREFIX) and NOT_IMPLEMENTED_PHRASE in line.lower():
+            found.append(line.strip())
+    if member_lines is None:
+        member_lines = [item for header in _MEMBER_BLOCKS for item in _extract_block(text, header)]
+    found.extend(item for item in member_lines if NOT_IMPLEMENTED_PHRASE in item.lower())
+    return tuple(found)
+
+
 def _parse_signature(
     scope: Scope, generation_id: str, doc_id: str, chunk_id: str, text: str
 ) -> SymbolSignature:
@@ -130,6 +153,7 @@ def _parse_signature(
         properties=_extract_block(text, "Properties:"),
         members=_extract_block(text, "Members:"),
         raw_text=text,
+        limitations=limitation_lines(text),
     )
 
 
@@ -178,7 +202,7 @@ def _declared_members(text: str) -> dict[str, list[str]]:
     for header in _MEMBER_BLOCKS:
         for item in _extract_block(text, header):
             if header == "Members:":
-                name = item.split(_ENUM_VALUE_SEPARATOR, 1)[0].strip()
+                name = _MARKER_START.split(item.split(_ENUM_VALUE_SEPARATOR, 1)[0], maxsplit=1)[0].strip()
             else:
                 name = _NAME_END.split(_member_name(item), maxsplit=1)[0]
             if name:
@@ -229,6 +253,7 @@ def _signature_of(
     scope: Scope, generation_id: str, chunk: _SymbolChunk, requested: str, member: str
 ) -> ResolvedSignature:
     base = _parse_signature(scope, generation_id, chunk.doc_id, chunk.chunk_id, chunk.text)
+    member_lines = tuple(_declared_members(chunk.text).get(member, ())) if member else ()
     return ResolvedSignature(
         scope=base.scope,
         generation_id=base.generation_id,
@@ -241,9 +266,10 @@ def _signature_of(
         properties=base.properties,
         members=base.members,
         raw_text=base.raw_text,
+        limitations=limitation_lines(chunk.text, member_lines if member else None),
         resolved_from=requested,
         member=member,
-        member_lines=tuple(_declared_members(chunk.text).get(member, ())) if member else (),
+        member_lines=member_lines,
     )
 
 
