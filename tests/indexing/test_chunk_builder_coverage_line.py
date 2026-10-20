@@ -99,7 +99,8 @@ def test_legacy_line_is_unchanged_for_fixtures_without_the_new_keys() -> None:
 
 def test_committed_pdf_net_fixture_renders_901_of_901_types() -> None:
     # re-extracted by TC-530: "API-Coverage: 300 of 901 types" -> the complete surface
-    assert _last_lines(_real("pdf_net")) == {"API-Coverage: 901 of 901 types"}
+    # TC-558: 901 of 901 -> 915 of 915 (the 14 delegate types of pdf/net are types of the surface; RD3-054)
+    assert _last_lines(_real("pdf_net")) == {"API-Coverage: 915 of 915 types"}
 
 
 def test_no_coverage_line_without_a_type_count_or_symbol_counts() -> None:

@@ -448,7 +448,9 @@ def test_real_tree_pdf_net_is_pinned_to_the_measured_chunks(real_ledger: dict[st
     assert p["symbols"]["total"] == 901
     assert p["documentation"]["total"] == 25
     assert p["examples"]["served_chunks"] == 3
-    assert p["fixture"]["symbol_counts"] == {"functions": 0, "types": 901}
+    # TC-558: fixture symbol_counts types 901 -> 915 (the fixture was re-extracted; the baked chunk figures above stay
+    # until the re-ingest)
+    assert p["fixture"]["symbol_counts"] == {"functions": 0, "types": 915}
 
 
 def test_real_tree_example_cache_numbers_equal_a_direct_read(real_ledger: dict[str, Any]) -> None:

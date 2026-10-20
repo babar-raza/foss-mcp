@@ -30,13 +30,13 @@ PILOTS = ["pdf_net", "words_net", "cells_net", "email_net", "imaging_net", "3d_n
 # 3d_net 0.79 -> 0.76 (0.7663), slides_net 0.57 -> 0.55 (0.5561), words_net 0.97 -> 0.95 (0.9544, 135 implicit
 # constructors). imaging_net did not move.
 MEMBER_DOC_RATIO_FLOOR = {
-    "pdf_net": 0.77,
-    "words_net": 0.95,
-    "cells_net": 0.93,
-    "email_net": 0.07,
+    "pdf_net": 0.77,  # TC-558: 0.78 -> 0.77 (denominator grew with undocumented members; no documented member lost)
+    "words_net": 0.95,  # TC-558: 0.97 -> 0.95 (denominator grew with undocumented members; no documented member lost)
+    "cells_net": 0.93,  # TC-558: 0.95 -> 0.93 (denominator grew with undocumented members; no documented member lost)
+    "email_net": 0.07,  # TC-558: 0.09 -> 0.07 (denominator grew with undocumented members; no documented member lost)
     "imaging_net": 0.0,
-    "3d_net": 0.76,
-    "slides_net": 0.55,
+    "3d_net": 0.76,  # TC-558: 0.79 -> 0.76 (denominator grew with undocumented members; no documented member lost)
+    "slides_net": 0.55,  # TC-558: 0.57 -> 0.55 (denominator grew with undocumented members; no documented member lost)
 }
 PARAM_DOC_FLOOR = {
     "pdf_net": 0,

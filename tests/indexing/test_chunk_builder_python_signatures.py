@@ -283,7 +283,8 @@ def test_non_python_fixture_is_unchanged() -> None:
     )
     chunks = build_chunks_from_api_surface(fixture, title="pdf/net")
     assert len(chunks) == 300
-    assert all(chunk.text.splitlines()[-1] == "API-Coverage: 300 of 901 types" for chunk in chunks)
+    # TC-558: "300 of 901 types" -> "300 of 915 types" (pdf/net now holds 915 types, 14 of them delegates)
+    assert all(chunk.text.splitlines()[-1] == "API-Coverage: 300 of 915 types" for chunk in chunks)
 
 
 def test_chunk_builder_does_not_import_run_extraction() -> None:
