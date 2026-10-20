@@ -62,6 +62,7 @@ def test_every_entry_is_a_real_csharp_declaration_kind() -> None:
         "struct_declaration",
         "interface_declaration",
         "enum_declaration",
+        "delegate_declaration",  # TC-558 (RD3-054): a delegate type is a type (3d/net serves 3)
     }
     assert kinds
 

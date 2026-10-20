@@ -22,14 +22,21 @@ from tests.extraction import reextraction_checks as rc
 PILOTS = ["pdf_net", "words_net", "cells_net", "email_net", "imaging_net", "3d_net", "slides_net"]
 
 # Ratchets measured on the regenerated fixtures: a later extraction may raise them, never lower them.
+#
+# TC-558 LOWERED six floors, deliberately: the fixtures now serve members that no source comment documents (the
+# implicit constructors and ``Deconstruct``/``==``/``!=`` the C# language declares, the record components, the public
+# fields such as ``Vector3.X``), so the share of documented members fell although no documented member was lost:
+# pdf_net 0.78 -> 0.77 (measured 0.7727), cells_net 0.95 -> 0.93 (0.9394), email_net 0.09 -> 0.07 (0.0756),
+# 3d_net 0.79 -> 0.76 (0.7663), slides_net 0.57 -> 0.55 (0.5561), words_net 0.97 -> 0.95 (0.9544, 135 implicit
+# constructors). imaging_net did not move.
 MEMBER_DOC_RATIO_FLOOR = {
-    "pdf_net": 0.78,
-    "words_net": 0.97,
-    "cells_net": 0.95,
-    "email_net": 0.09,
+    "pdf_net": 0.77,
+    "words_net": 0.95,
+    "cells_net": 0.93,
+    "email_net": 0.07,
     "imaging_net": 0.0,
-    "3d_net": 0.79,
-    "slides_net": 0.57,
+    "3d_net": 0.76,
+    "slides_net": 0.55,
 }
 PARAM_DOC_FLOOR = {
     "pdf_net": 0,
@@ -170,11 +177,13 @@ def _complete(key: str, total: int) -> None:
 
 
 def test_pdf_net_is_the_complete_surface() -> None:
-    _complete("pdf_net", 901)
+    # TC-558: 901 -> 915 (the 14 delegate types of pdf/net are types of the surface now; RD3-054)
+    _complete("pdf_net", 915)
 
 
 def test_words_net_is_the_complete_surface() -> None:
-    _complete("words_net", 618)
+    # TC-558: 618 -> 615 (INodeCollection, DocumentPositionMovement and NodeEnumerator are internal in the packaged library; RD3-055)
+    _complete("words_net", 615)
 
 
 def test_pdf_net_indexes_the_types_the_readme_names() -> None:
@@ -355,10 +364,10 @@ def test_readme_recall_is_the_resolved_share(monkeypatch: pytest.MonkeyPatch) ->
 def test_chart_pin_and_compose_cap_are_read_from_the_committed_tree() -> None:
     assert _HEX40.match(rc.pinned_commit("pdf_net"))
     assert rc.chart_pilot("pdf_net")["family"] == "pdf"
-    assert rc.compose_max_types("words_net") == rc.chart_max_types("words_net") == 618
+    assert rc.compose_max_types("words_net") == rc.chart_max_types("words_net") == 615  # TC-558: 618 -> 615
     assert rc.pilot_key("pdf", "net") == "pdf_net"
     assert rc.recommended_cap("cells_net") == 300
-    assert rc.recommended_cap("pdf_net") == 901
+    assert rc.recommended_cap("pdf_net") == 915  # TC-558: 901 -> 915
 
 
 def test_ingestion_slice_problems_flags_a_slice_that_drops_an_entry(monkeypatch: pytest.MonkeyPatch) -> None:

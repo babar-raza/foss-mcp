@@ -61,8 +61,12 @@ def test_a_public_class_carries_its_doc_and_public_members(tmp_path: Path) -> No
     assert widget["kind"] == "class_declaration"
     assert widget["doc"] == "A widget."
     assert widget["visibility"] == "public"
-    assert [m["name"] for m in widget["methods"]] == ["Save"]
-    assert widget["methods"][0]["params"] == [{"name": "path", "type": "string"}]
+    # TC-558: ['Save'] -> ['Widget', 'Save'] (a class with no declared constructor has the implicit default
+    # constructor, served first and marked ``implicit``; RD3-047).
+    assert [m["name"] for m in widget["methods"]] == ["Widget", "Save"]
+    assert widget["methods"][0]["is_constructor"] is True
+    assert widget["methods"][0]["modifiers"] == ["implicit"]
+    assert widget["methods"][1]["params"] == [{"name": "path", "type": "string"}]
     assert [p["name"] for p in widget["properties"]] == ["Name"]
 
 
