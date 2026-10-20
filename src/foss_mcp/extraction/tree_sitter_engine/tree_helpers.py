@@ -284,8 +284,37 @@ def find_children_by_type(node, type_name: str) -> list:
     return [ch for ch in node.children if ch.type == type_name]
 
 
+CSHARP_OPERATOR_NODE_TYPES = frozenset({"operator_declaration", "conversion_operator_declaration"})
+
+
+def csharp_operator_name(node) -> str:
+    """TC-558 (RD3-050): the name a C# operator or conversion is served under, from the language's own syntax:
+    ``operator +`` for ``public static V operator +(V a, V b)``, ``operator checked +`` for a checked operator,
+    ``implicit operator int`` / ``explicit operator V<T>`` for a conversion (the kind, then the target type).
+    Empty for a node that is not an operator declaration."""
+    if node.type not in CSHARP_OPERATOR_NODE_TYPES:
+        return ""
+    children = list(node.children)
+    start = next((i for i, ch in enumerate(children) if ch.type == "operator"), None)
+    if start is None:
+        return ""
+    if node.type == "conversion_operator_declaration":
+        kind = next((ch.type for ch in children[:start] if ch.type in ("implicit", "explicit")), "")
+        target = child_by_field(node, "type")
+        target_text = " ".join(node_text(target).split()) if target is not None else ""
+        return f"{kind} operator {target_text}".strip() if target_text else ""
+    symbol: list[str] = []
+    for ch in children[start + 1 :]:
+        if ch.type in ("parameter_list", "arrow_expression_clause", "block", ";"):
+            break
+        symbol.append(node_text(ch).strip())
+    return f"operator {' '.join(symbol)}" if symbol else ""
+
+
 def _node_name(node, language: str) -> str:
     """Extract the identifier name from a declaration node."""
+    if language == "csharp" and node.type in CSHARP_OPERATOR_NODE_TYPES:
+        return csharp_operator_name(node)
     name_node = child_by_field(node, "name")
     if name_node:
         return node_text(name_node)
@@ -978,11 +1007,31 @@ def _extract_bases(node, language: str) -> list[str]:
             # line comment before splitting, so only real identifiers remain.
             text = re.sub(r"^\s*#\s*(if|elif|else|endif)\b.*$", "", text, flags=re.MULTILINE)
             text = re.sub(r"//[^\n]*", "", text)
-            for part in text.split(","):
+            # TC-558 (RD3-053): a C# base list is split at top-level commas only (``IDictionary<string, XmpValue>``
+            # is ONE base). Every other language splits as before.
+            for part in split_top_level(text) if language == "csharp" else text.split(","):
                 part = part.strip()
                 if part:
                     bases.append(part)
     return bases
+
+
+def split_top_level(text: str, separator: str = ",") -> list[str]:
+    """*text* split at *separator* outside every ``<...>``, ``(...)`` and ``[...]`` group (a generic argument
+    list, a tuple or an array rank never splits). Parts are returned as written, unstripped."""
+    parts: list[str] = []
+    depth = 0
+    start = 0
+    for index, char in enumerate(text):
+        if char in "<([":
+            depth += 1
+        elif char in ">)]":
+            depth = max(depth - 1, 0)
+        elif char == separator and depth == 0:
+            parts.append(text[start:index])
+            start = index + 1
+    parts.append(text[start:])
+    return parts
 
 
 # ---------------------------------------------------------------------------

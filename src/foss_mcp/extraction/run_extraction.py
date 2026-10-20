@@ -61,9 +61,9 @@ EXTRACTOR_VERSION = 5
 # cuts what the first one kept. A pilot whose total is below the default of 300 keeps 300.
 # A higher cap raises ingestion memory, so a re-ingest must re-measure Job memory and image size.
 RECOMMENDED_MAX_TYPES: dict[str, int] = {
-    "pdf/net": 901,
+    "pdf/net": 915,
     "pdf/java": 1239,
-    "words/net": 618,
+    "words/net": 615,
     "pdf/python": 867,
     "pdf/cpp": 300,
     "cells/cpp": 300,

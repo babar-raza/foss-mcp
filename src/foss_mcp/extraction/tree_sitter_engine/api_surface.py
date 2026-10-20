@@ -44,6 +44,7 @@ from foss_mcp.extraction.tree_sitter_engine.tree_helpers import (
     _HEADER_EXTENSIONS,
     _MODULE_TYPES,
     _PY_ENUM_BASES,
+    CSHARP_OPERATOR_NODE_TYPES,
     _collect_source_files,
     _extract_bases,
     _extract_enum_members,
@@ -57,6 +58,7 @@ from foss_mcp.extraction.tree_sitter_engine.tree_helpers import (
     find_children_by_type,
     is_public,
     node_text,
+    split_top_level,
     synthesize_interface_members,
     visibility_tier,
 )
@@ -1137,6 +1139,307 @@ def _extract_csharp_indexers(
     return props, claims
 
 
+# ---------------------------------------------------------------------------
+# TC-558 (REQ-G3-009): C# members the language declares and the extraction used to drop
+# ---------------------------------------------------------------------------
+
+# RD3-050: a C# operator (``Vector3 operator +(Vector3 a, Vector3 b)``) and a conversion (``implicit operator
+# int(V v)``) are members a caller writes as ``a + b`` and ``(int)v``; without them an agent cannot write such a
+# program. With the switch off they are skipped exactly as before TC-558.
+CSHARP_INDEX_OPERATORS = True
+
+
+def _csharp_func_types(base: set[str]) -> set[str]:
+    """The member node kinds the C# extraction collects: the shared set, plus operators and conversions."""
+    if not CSHARP_INDEX_OPERATORS:
+        return base
+    return base | set(CSHARP_OPERATOR_NODE_TYPES)
+
+
+def _csharp_member_is_public(member, cnode) -> bool:
+    """A member declared ``public``, or any member of an interface (implicitly public)."""
+    return lang.csharp.has_modifier(member, "public") or cnode.type == "interface_declaration"
+
+
+def _csharp_declarators(member) -> tuple[str, list[str]]:
+    """``(type text, [declared names])`` of a ``field_declaration`` / ``event_field_declaration``."""
+    declaration = find_child_by_type(member, "variable_declaration")
+    if declaration is None:
+        return "", []
+    type_node = child_by_field(declaration, "type")
+    type_text = " ".join(node_text(type_node).split()) if type_node is not None else ""
+    names = []
+    for declarator in declaration.children:
+        if declarator.type != "variable_declarator":
+            continue
+        name_node = child_by_field(declarator, "name")
+        if name_node is not None:
+            names.append(node_text(name_node))
+    return type_text, names
+
+
+def _extract_csharp_fields_and_events(
+    cnode, cname: str, rel: str, family: str
+) -> tuple[list[dict[str, Any]], list[dict]]:
+    """TC-558 (RD3-043, RD3-054): the ``public`` fields that are neither ``const`` nor ``readonly`` (variables a caller
+    reads and assigns; ``readonly`` and ``const`` ones are ``_extract_const_fields``') and the events of a type.
+
+    A field is a writable property with its type (``static`` ones carry ``static``). An event
+    (``public event EventHandler Changed;``, with or without accessors) is a property marked ``event`` whose type is
+    its delegate type; it is subscribed to with ``+=``, never assigned.
+    """
+    entries: list[dict[str, Any]] = []
+    claims: list[dict] = []
+    if cnode.type == "interface_declaration":
+        field_types: tuple[str, ...] = ()
+    else:
+        field_types = ("field_declaration",)
+    for member in lang.csharp.member_nodes(cnode):
+        if member.type not in (*field_types, "event_field_declaration", "event_declaration"):
+            continue
+        if _in_excluded_preproc_branch(member, "csharp") or not _csharp_member_is_public(member, cnode):
+            continue
+        if member.type == "field_declaration":
+            if lang.csharp.has_modifier(member, "const") or lang.csharp.has_modifier(member, "readonly"):
+                continue
+            ftype, names = _csharp_declarators(member)
+            kind, marks = "field", [mark for mark in _csharp_modifiers(member) if mark == "static"]
+            writable = True
+        elif member.type == "event_field_declaration":
+            ftype, names = _csharp_declarators(member)
+            kind, marks, writable = "event", ["event", *_csharp_modifiers(member)], False
+        else:
+            type_node = child_by_field(member, "type")
+            name_node = child_by_field(member, "name")
+            ftype = " ".join(node_text(type_node).split()) if type_node is not None else ""
+            names = [node_text(name_node)] if name_node is not None else []
+            kind, marks, writable = "event", ["event", *_csharp_modifiers(member)], False
+        for fname in names:
+            entry: dict[str, Any] = {
+                "name": fname,
+                "type": ftype,
+                "kind": kind,
+                "doc": _extract_doc_comment(member, "csharp"),
+                "line": member.start_point[0] + 1,
+            }
+            if kind == "field":
+                entry["writable"] = writable
+            if marks:
+                entry["modifiers"] = marks
+            entries.append(entry)
+            claims.append(
+                _make_claim(
+                    family,
+                    "api_field",
+                    f"{cname}.{fname} {kind} of type {ftype}",
+                    rel,
+                    member.start_point[0] + 1,
+                )
+            )
+    return entries, claims
+
+
+def _csharp_implicit_method(
+    name: str, params: list[dict[str, Any]], return_type: str, line: int, *, constructor: bool
+) -> dict[str, Any]:
+    """A member the C# language declares without source text (an implicit default constructor, a positional
+    record's primary constructor and ``Deconstruct``); marked ``implicit`` among its modifiers."""
+    return {
+        "name": name,
+        "params": params,
+        "return_type": return_type,
+        "doc": "",
+        "line": line,
+        "is_constructor": constructor,
+        "deprecated": False,
+        "deprecated_reason": "",
+        "modifiers": ["implicit"],
+    }
+
+
+def _csharp_primary_members(
+    cnode, cname: str, rel: str, family: str, methods: list[dict[str, Any]], properties: list[dict[str, Any]]
+) -> tuple[list[dict[str, Any]], list[dict[str, Any]], list[dict[str, Any]], list[dict]]:
+    """TC-558 (RD3-045): ``(front methods, tail methods, properties, claims)`` of a type with a primary constructor.
+
+    A positional ``record R(int A, string B)`` (C# 9) has a public primary constructor, a property per component
+    (``init``-only for a record class and a ``readonly record struct``, settable for a ``record struct``) unless the
+    body declares a member of that name, and ``Deconstruct(out int A, out string B)``. A class or struct with a
+    primary constructor (C# 12) has the constructor only.
+    """
+    front: list[dict[str, Any]] = []
+    tail: list[dict[str, Any]] = []
+    props: list[dict[str, Any]] = []
+    claims: list[dict] = []
+    plist = lang.csharp.primary_parameters(cnode)
+    if plist is None:
+        return front, tail, props, claims
+    params = _extract_csharp_params(plist)
+    line = cnode.start_point[0] + 1
+    front.append(_csharp_implicit_method(cname, [dict(p) for p in params], "", line, constructor=True))
+    if cnode.type == "record_declaration":
+        declared = {p["name"] for p in properties}
+        init_only = lang.csharp.record_properties_are_init_only(cnode)
+        for component in params:
+            if component["name"] in declared:
+                continue
+            prop: dict[str, Any] = {
+                "name": component["name"],
+                "type": component["type"],
+                "doc": "",
+                "line": line,
+                "writable": True,
+                "kind": "record_component",
+            }
+            if init_only:
+                prop["modifiers"] = ["init"]
+            props.append(prop)
+            claims.append(
+                _make_claim(
+                    family,
+                    "api_method",
+                    f"{cname}.{component['name']} property of type {component['type']}",
+                    rel,
+                    line,
+                )
+            )
+        if params and not any(
+            m["name"] == "Deconstruct" and len(m["params"]) == len(params) for m in methods
+        ):
+            outs = [{"name": p["name"], "type": f"out {p['type']}"} for p in params]
+            tail.append(_csharp_implicit_method("Deconstruct", outs, "void", line, constructor=False))
+    for entry in front + tail:
+        names = ", ".join(p["name"] for p in entry["params"])
+        claims.append(
+            _make_claim(
+                family, "api_method", f"{cname}.{entry['name']}({names}) -> {entry['return_type']}", rel, line
+            )
+        )
+    return front, tail, props, claims
+
+
+def _csharp_record_equality_operators(cnode, cname: str) -> list[dict[str, Any]]:
+    """TC-558 (RD3-050): every ``record`` and ``record struct`` has the equality operators ``==`` and ``!=`` the
+    compiler declares (value equality; C# spec, records), so ``a == b`` compiles. Marked ``static`` and ``implicit``."""
+    line = cnode.start_point[0] + 1
+    own = f"{cname}{lang.csharp.type_parameters(cnode)}"
+    operand = own if lang.csharp.record_is_struct(cnode) else f"{own}?"
+    operators = []
+    for symbol in ("==", "!="):
+        entry = _csharp_implicit_method(
+            f"operator {symbol}",
+            [{"name": "left", "type": operand}, {"name": "right", "type": operand}],
+            "bool",
+            line,
+            constructor=False,
+        )
+        entry["modifiers"] = ["static", "implicit"]
+        operators.append(entry)
+    return operators
+
+
+def _csharp_delegate_method(cnode, cname: str, rel: str, family: str) -> tuple[dict[str, Any], dict]:
+    """TC-558 (RD3-054): the ``Invoke`` member every delegate type has: ``public delegate int Handler(string a)`` is
+    a type whose one method is ``Invoke(a: string) -> int``."""
+    params = _extract_method_params(cnode, "csharp")
+    ret = _extract_return_type(cnode, "csharp")
+    entry: dict[str, Any] = {
+        "name": "Invoke",
+        "params": params,
+        "return_type": ret,
+        "doc": "",
+        "line": cnode.start_point[0] + 1,
+        "is_constructor": False,
+        "deprecated": False,
+        "deprecated_reason": "",
+    }
+    claim = _make_claim(
+        family,
+        "api_method",
+        f"{cname}.Invoke({', '.join(p['name'] for p in params)}) -> {ret}",
+        rel,
+        cnode.start_point[0] + 1,
+    )
+    return entry, claim
+
+
+def _csharp_apply_aliases(
+    methods: list[dict[str, Any]],
+    properties: list[dict[str, Any]],
+    bases: list[str],
+    aliases: dict[str, str],
+) -> list[str]:
+    """TC-558 (RD3-051): replace the ``using Alias = Target;`` names of one file by their targets in every type
+    the extraction states (return and parameter types, property and field types, base types). The names of members
+    are never touched; an indexer's name, built from its parameter types, is rebuilt. Returns the resolved bases."""
+    if not aliases:
+        return bases
+    resolve = lang.csharp.resolve_aliases
+    for method in methods:
+        if method.get("return_type"):
+            method["return_type"] = resolve(method["return_type"], aliases)
+        for param in method.get("params") or []:
+            param["type"] = resolve(param.get("type", ""), aliases)
+    for prop in properties:
+        if prop.get("type"):
+            prop["type"] = resolve(prop["type"], aliases)
+        params = prop.get("params")
+        if params:
+            for param in params:
+                param["type"] = resolve(param.get("type", ""), aliases)
+            if str(prop.get("name", "")).startswith("this["):
+                prop["name"] = f"this[{', '.join(p.get('type', '') for p in params)}]"
+    return [resolve(base, aliases) for base in bases]
+
+
+def _csharp_generic_display_name(name: str, generics: str) -> str:
+    """``TriMesh<T>`` / ``Pair<TKey, TValue>`` from a type name and its parameter list (``<in TKey, out TValue>``)."""
+    parts = [part.strip().split()[-1] for part in split_top_level(generics.strip()[1:-1]) if part.strip()]
+    return f"{name}<{', '.join(parts)}>"
+
+
+def _csharp_disambiguate_generic_types(classes: list[dict[str, Any]]) -> None:
+    """TC-558 (RD3-052): ``Foo`` and ``Foo<T>`` are two types. When one namespace declares a name with different
+    generic parameter lists (none, ``<T>``, ``<T, U>``), each generic one is served as ``Foo<T>`` (its name, and the
+    last segment of its FQN) so the consolidation does not merge them and a caller can tell them apart. A generic
+    type whose name is unique keeps its plain name."""
+    groups: dict[tuple[str, str], list[dict[str, Any]]] = {}
+    for entry in classes:
+        if entry.get("kind") == "function" or not entry.get("name"):
+            continue
+        groups.setdefault((entry.get("canonical_namespace", ""), entry["name"]), []).append(entry)
+    for (namespace, name), entries in groups.items():
+        if len({entry.get("generics", "") for entry in entries}) < 2:
+            continue
+        for entry in entries:
+            generics = entry.get("generics", "")
+            if not generics:
+                continue
+            display = _csharp_generic_display_name(name, generics)
+            entry["name"] = display
+            entry["class_import"] = f"{namespace}.{display}" if namespace else display
+
+
+def _csharp_add_implicit_constructors(classes: list[dict[str, Any]]) -> None:
+    """TC-558 (RD3-047): every non-static, non-abstract class that declares no instance constructor of any visibility
+    has the public implicit parameterless one (C# spec 15.11.5), served as a constructor marked ``implicit`` so an
+    agent can tell "no public constructor" from "the implicit default". Runs after the consolidation, which merges
+    the parts of a partial class: a constructor declared in any part means there is no implicit one. The
+    extraction's ``_ctor_declared`` marker is consumed here."""
+    for entry in classes:
+        declared = entry.pop("_ctor_declared", None)
+        if declared is None or declared or entry.get("kind") != "class_declaration":
+            continue
+        if entry.get("is_static") or entry.get("is_abstract"):
+            continue
+        bare = str(entry.get("name", "")).split("<", 1)[0]
+        if any(m.get("is_constructor") for m in entry.get("methods") or []):
+            continue
+        implicit = _csharp_implicit_method(bare, [], "", int(entry.get("line") or 0), constructor=True)
+        implicit["file"] = entry.get("file", "")
+        entry.setdefault("methods", []).insert(0, implicit)
+
+
 def _extract_go_receiver_type(fnode) -> str:
     """Extract the receiver type name from a Go method_declaration node.
 
@@ -2135,6 +2438,12 @@ def _extract_const_fields(
                 # TC-557 (RD3-042): a Java ``static`` field is marked; a ``public final`` instance field is not.
                 if language == "java" and lang.java.is_static(member):
                     const_entry["modifiers"] = ["static"]
+                # TC-558 (RD3-043): a C# ``static readonly`` field is marked ``static``, an instance ``readonly`` one
+                # ``readonly``; a ``const`` (implicitly static) is the ``constant`` kind and carries no mark.
+                if language == "csharp" and "const" not in mods:
+                    csharp_marks = [word for word in ("static", "readonly") if word in mods.split()]
+                    if csharp_marks:
+                        const_entry["modifiers"] = csharp_marks
                 fields.append(const_entry)
                 claims.append(
                     _make_claim(
@@ -4003,6 +4312,9 @@ def _merge_members(target: dict, source: dict) -> None:
     for mod_key in ("is_static", "is_abstract", "is_sealed", "is_partial"):
         if source.get(mod_key):
             target[mod_key] = True
+    # TC-558 (RD3-047): a constructor declared in any part of a partial class means no implicit default one.
+    if source.get("_ctor_declared"):
+        target["_ctor_declared"] = True
 
 
 def _dedupe_same_name_functions_by_file(ns_entries: list[dict], ns_indices: list[int]) -> set[int]:
@@ -5342,6 +5654,10 @@ def extract_api_surface(
 
     class_types = _CLASS_TYPES.get(language, set())
     func_types = _FUNC_TYPES.get(language, set())
+    if language == "csharp":
+        # TC-558: a delegate type is a type of its own (RD3-054); operators and conversions are members (RD3-050).
+        class_types = class_types | {"delegate_declaration"}
+        func_types = _csharp_func_types(func_types)
 
     # TC-521: per-file facts a JavaScript post-pass needs (object-literal mixins, the
     # ``Object.assign(<Class>.prototype, ...)`` applications and the relative named imports).
@@ -5370,12 +5686,19 @@ def extract_api_surface(
             skip_reasons[reason] = skip_reasons.get(reason, 0) + 1
             continue
 
+        if language == "csharp":
+            # TC-558 (RD3-055): ``#if CPLUSPLUS public #else internal #endif`` before a declaration is ``internal``
+            # in the packaged library; both words are modifiers to a parser, so the branch is chosen first.
+            src = lang.csharp.resolve_conditional_modifiers(src)
         tree = parser.parse(src)
         root = tree.root_node
         if root.has_error:
             parse_errors.append(rel)
             LOG.debug("tree-sitter parse error in %s â€” extraction may be incomplete", rel)
         scanned_files.append(rel)
+
+        # TC-558 (RD3-051): the file's ``using Alias = Target;`` directives, resolved for the packaged build.
+        csharp_aliases = lang.csharp.alias_map(root) if language == "csharp" else {}
 
         if language == "javascript":
             js_imports[rel] = _js_collect_imports(root, fpath, js_file_set, repo, pkg_root)
@@ -5894,6 +6217,8 @@ def extract_api_surface(
                     method_modifiers = _csharp_modifiers(mnode)
                     if method_modifiers:
                         method_entry["modifiers"] = method_modifiers
+                    # TC-558 (RD3-044): the generic parameters of a method and their ``where`` constraints.
+                    method_entry.update(lang.csharp.generic_details(mnode))
                 if language == "java":
                     # TC-557: ``static`` (RD3-042), the ``throws`` clause (RD3-041) and the generic type
                     # parameters with their bounds (RD3-044).
@@ -5964,6 +6289,26 @@ def extract_api_surface(
                 java_field_props, java_field_claims = _extract_java_mutable_fields(cnode, cname, rel, family)
                 properties.extend(java_field_props)
                 claims.extend(java_field_claims)
+
+            # TC-558: the members the C# language itself declares (a primary constructor, a positional record's
+            # components and ``Deconstruct``), a delegate's ``Invoke``, the mutable public fields and the events.
+            if language == "csharp":
+                cs_front, cs_tail, cs_props, cs_claims = _csharp_primary_members(
+                    cnode, cname, rel, family, methods, properties
+                )
+                methods[0:0] = cs_front
+                methods.extend(cs_tail)
+                properties.extend(cs_props)
+                claims.extend(cs_claims)
+                if cnode.type == "record_declaration" and CSHARP_INDEX_OPERATORS:
+                    methods.extend(_csharp_record_equality_operators(cnode, cname))
+                if cnode.type == "delegate_declaration":
+                    invoke, invoke_claim = _csharp_delegate_method(cnode, cname, rel, family)
+                    methods.append(invoke)
+                    claims.append(invoke_claim)
+                cs_field_props, cs_field_claims = _extract_csharp_fields_and_events(cnode, cname, rel, family)
+                properties.extend(cs_field_props)
+                claims.extend(cs_field_claims)
 
             # TC-521: every destructured constructor key not already a property becomes one.
             property_names = {prop["name"] for prop in properties}
@@ -6106,6 +6451,10 @@ def extract_api_surface(
             for _p in properties:
                 _p.setdefault("file", rel)
 
+            # TC-558 (RD3-051): this file's ``using Alias = Target;`` names are served as their targets.
+            if language == "csharp" and csharp_aliases:
+                bases = _csharp_apply_aliases(methods, properties, bases, csharp_aliases)
+
             # Extract class-level modifiers (C#/Java: static, abstract, sealed)
             # Uses the same tree-sitter pattern as _extract_const_fields (L664).
             _cls_mods: set[str] = set()
@@ -6140,6 +6489,12 @@ def extract_api_surface(
                 cls_record["is_sealed"] = True
             if "partial" in _cls_mods:
                 cls_record["is_partial"] = True
+            if language == "csharp":
+                # TC-558: the generic parameters and ``where`` constraints of the type (RD3-044), and whether a
+                # class declares an instance constructor (RD3-047; consumed after the partial-class merge).
+                cls_record.update(lang.csharp.generic_details(cnode))
+                if cnode.type == "class_declaration":
+                    cls_record["_ctor_declared"] = lang.csharp.declares_instance_constructor(cnode)
             # TC-MT040-10: TypeScript expresses `abstract` as a distinct
             # grammar-level node type (abstract_class_declaration), not a
             # modifier keyword token the way C#/Java do -- no _cls_mods
@@ -6620,10 +6975,18 @@ def extract_api_surface(
                 )
             )
 
+    # TC-558 (RD3-052): ``Foo`` and ``Foo<T>`` of one namespace are two types and must not be merged.
+    if language == "csharp":
+        _csharp_disambiguate_generic_types(classes)
+
     # Consolidate partial classes, deduplicate enums, disambiguate same-name
     # types in different namespaces.  Must run BEFORE _flatten_inheritance so
     # the by-name dict used for inheritance resolution is correct.
     classes = consolidate_classes(classes, language)
+
+    # TC-558 (RD3-047): the implicit default constructors, once the parts of a partial class are one class.
+    if language == "csharp":
+        _csharp_add_implicit_constructors(classes)
 
     # TC-HCR-001: Flatten inherited methods/properties into child classes
     # so that evaluators can verify inherited member access without walking
