@@ -64,6 +64,9 @@ write_paths:
 - tests/extraction/tree_sitter_engine/test_api_surface_java.py
 - tests/infra/test_round3_install_sections.py
 - src/foss_mcp/extraction/tree_sitter_engine/tree_helpers.py
+- tests/indexing/test_chunk_builder_coverage_line.py
+- tests/indexing/test_chunk_builder_python_signatures.py
+- tests/release/test_claims_ledger.py
 satisfies:
 - REQ-G3-009
 - REQ-G3-008
@@ -136,6 +139,13 @@ inputs:
 - >-
   Also in write_paths (learned from TC-557): the 'other languages are unchanged' extractor tests (test_api_surface_go_fidelity.py, test_ts_fidelity.py, test_api_surface_csharp_signatures.py, test_api_surface_java.py),
   tests/infra/test_round3_install_sections.py (pins rendered chunk lines of pdf/java) and tree_helpers.py. Re-pin only what your change legitimately moves, with a TC comment; never weaken.
+- >-
+  REWORK AMENDMENT (supervisor, 2026-10-20). The three tests of your report are accepted into write_paths: tests/indexing/test_chunk_builder_coverage_line.py (901 -> 915), tests/indexing/test_chunk_builder_python_signatures.py
+  (300 of 901 types -> 300 of 915 types), tests/release/test_claims_ledger.py::test_real_tree_pdf_net_is_pinned_to_the_measured_chunks (fixture symbol_counts types 901 -> 915; the baked chunk figures it
+  also pins stay, they describe the baked data until the re-ingest). Each re-pin carries a TC-558: <old> -> <new> comment. Your other decisions are accepted: the six lowered doc-ratio floors in test_reextracted_dotnet.py
+  are accepted PROVISIONALLY because the denominator grew with members that have no source doc comment and no documented member was lost (put that reason in each floor comment, as you did); the record ==
+  / != members are accepted. Rebase onto the new issue revision, re-run both checks twice, tests/release, the wider suites; ruff format on each changed file named explicitly; normalise any CRLF the negative
+  control left; report the head.
 actions:
 - >-
   Regenerate the seven .NET fixtures with the fixed extractor and renderer; add the .NET fidelity tests.
