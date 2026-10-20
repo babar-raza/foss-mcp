@@ -505,3 +505,29 @@ def test_furnished_page_dispatches_to_real_verify_python_example_for_slides_pyth
     for chunk in example_chunks:
         print("---- example chunk ----")
         print(chunk["text"])
+
+
+def test_the_production_entrypoint_publishes_the_not_implemented_phrase_for_a_stub(tmp_path: Path) -> None:
+    """TC-559 (REQ-G3-009): ``infra/build_chunks.py`` - the entrypoint a real ingestion runs - builds the
+    chunks of the committed 3d/net fixture, and the ``Scene`` chunk it writes carries the fixed phrase on every
+    ``Render`` overload (upstream: each throws ``NotImplementedException``) and on no working member."""
+    out_path = tmp_path / "chunks.json"
+    _run_main(
+        [
+            "--api-surface",
+            "tests/fixtures/3d_net/api_surface.json",
+            "--title",
+            "Aspose.3D FOSS for .NET",
+            "--out",
+            str(out_path),
+        ]
+    )
+    chunks = json.loads(out_path.read_text(encoding="utf-8"))["chunks"]
+    scene = next(c for c in chunks if c["text"].startswith("FQN: Aspose.ThreeD.Scene\n"))
+    lines = scene["text"].splitlines()
+    renders = [line for line in lines if line.startswith("  - Render(")]
+    assert len(renders) == 5
+    assert all("not implemented in this build" in line for line in renders)
+    assert not any("not implemented in this build" in line for line in lines if line.startswith("  - Open("))
+    # the call site is real: the entrypoint file itself calls the chunk builder that renders the phrase
+    assert "build_chunks_from_api_surface(" in Path("infra/build_chunks.py").read_text(encoding="utf-8")
