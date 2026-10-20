@@ -125,7 +125,8 @@ def test_oq_001_the_real_805_classes_claim_has_no_confident_corroborating_count(
     """
     known_counts = known_counts_from_fixture(_truncated_api_surface_fixture())  # re-extracted by TC-530
     assert "classes" not in known_counts
-    assert known_counts["types"] == 901
+    # TC-558: 901 -> 915 (the 14 delegate types of pdf/net are types of the regenerated fixture; RD3-054)
+    assert known_counts["types"] == 915
 
     historical_805_classes_sentence = "The library exposes 805 classes."
 
