@@ -54,6 +54,13 @@ inputs:
   touch it. Commit once (or split code/tests) with the subject `fix(mcp): recognise a promoted Go member as non-declaring in search_symbols ranking (G3/TC-571)` ending with the Co-Authored-By trailer for
   the model that did the work; UTF-8 without a byte-order mark; preserve line endings. Report: the real pdf/go query result before and after the fix (ranks and BM25 scores), every changed assertion with
   its reason, and confirmation that cells/go's promoted members are also now correctly non-declaring.
+- >-
+  AMENDMENT (supervisor, 2026-10-21, after the worker reported 77 real but unrelated check-2 failures). main at the issued revision has the re-ingested data (ad8c2329) but not yet the matching budget/exception
+  re-pins: TC-536 (in flight, separately) deletes STALE_BAKED_PILOTS, re-pins the size budgets and fixes the pdf/cpp/3d runtime-verification-note assertion. Until TC-536 lands, tests/deploy/test_served_coverage_matches_fixtures.py,
+  test_compact_demo_manifests.py, test_fleet_consistency.py, test_demo_manifests_sidecars.py, tests/mcp/tools/test_find_examples_verification_record.py, tests/mcp/tools/test_miss_coverage_note.py and tests/infra/test_round3_serving_robustness.py
+  fail for reasons that have nothing to do with this card (confirmed by the worker: identical failures against the unmodified pre-fix tree). Check 2s command now --ignores exactly those seven files, temporarily,
+  with this comment as the reason; do not investigate them further, they are TC-536s to fix. Verify check 2 is fully green with the ignores and that your own new test_round3_promoted_member_ranking.py plus
+  the two existing search_symbols test files all still pass. Finish the rest of the verification list (negative control, top-level tests, tests/poc, tests/release, ops/tests, format gate), commit, and report.
 actions:
 - >-
   Make search_symbols.py recognise both '(inherited from ' and '(promoted from ' as non-declaring markers, so a promoted Go member never outranks the type that actually declares it.
@@ -66,8 +73,9 @@ checks:
   proves:
   - REQ-G3-009
 - command: >-
-    {python} -m pytest tests/mcp tests/indexing tests/infra tests/deploy -q -rfE -p no:cacheprovider -k "not live and not github_http and not repo_native and not docker and not helm_template and not test_prepare_rust_library
-    and not test_rust_known"
+    {python} -m pytest tests/mcp tests/indexing tests/infra tests/deploy --ignore=tests/deploy/test_served_coverage_matches_fixtures.py --ignore=tests/deploy/test_compact_demo_manifests.py --ignore=tests/deploy/test_fleet_consistency.py
+    --ignore=tests/deploy/test_demo_manifests_sidecars.py --ignore=tests/mcp/tools/test_find_examples_verification_record.py --ignore=tests/mcp/tools/test_miss_coverage_note.py --ignore=tests/infra/test_round3_serving_robustness.py
+    -q -rfE -p no:cacheprovider -k "not live and not github_http and not repo_native and not docker and not helm_template and not test_prepare_rust_library and not test_rust_known"
   expect: exit 0
   timeout_seconds: 3000
   junitxml: true
