@@ -46,8 +46,12 @@ NO_REGISTRY_PLATFORM = "cpp"
 # Re-measured 2026-10-17 on the supervisor data commit 58ba5861 (cluster re-ingest of all 32 pilots on rev-e4a6ada): 41,687,973 bytes over 32 scopes. The tree grew
 # because thirteen pilots now hold their WHOLE public surface (pdf/java 1,239 types, pdf/typescript 1,333 types and 3,060 functions, pdf/net 901
 # types) instead of a 300-type cap. Measurement x 1.05 rounded up to the next 10,000, the same value as test_compact_demo_manifests.py.
-# re-pinned by TC-553: 29_500_000 -> 43_780_000
-TREE_BYTES_BUDGET = 43_780_000
+# Re-measured 2026-10-21 (TC-536) on the committed tree after the supervisor's final re-ingest of all 32 pilots (commit
+# ad8c2329, image revision rev-9993ea85, Round 3 cards TC-557 to TC-566): total 41_732_902 bytes. The tree grew further
+# because Round 3 renders per-member documentation text for every pilot, not only the 13 pilots TC-553 already measured.
+# Same rule (measurement x 1.05 rounded up to the next 10,000) and the same value as test_compact_demo_manifests.py.
+# re-pinned by TC-536: 43_780_000 -> 43_820_000
+TREE_BYTES_BUDGET = 43_820_000
 
 # The same credential shapes ops/secretscan.py refuses in a commit.
 CREDENTIAL_SHAPES: dict[str, re.Pattern[str]] = {

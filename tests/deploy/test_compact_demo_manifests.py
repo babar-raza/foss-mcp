@@ -40,12 +40,18 @@ EXPECTED_SCOPES = 32
 # median generation file 762,806, largest 5,098,150 (pdf/java), then pdf/typescript 4,767,300, pdf/net 3,430,234, html/python 3,052,169.
 # The tree grew because thirteen pilots now hold their WHOLE public surface (pdf/java 1,239 types, pdf/typescript 1,333 types and 3,060
 # functions, pdf/net 901 types) instead of a 300-type cap. Each budget is the measurement x 1.05 rounded up to the next 10,000.
-# re-pinned by TC-553: 28_000_000 -> 43_780_000
-TREE_BYTES_BUDGET = 43_780_000
-# re-pinned by TC-553: 2_950_000 -> 5_360_000
-LARGEST_FILE_BYTES_BUDGET = 5_360_000
-# TC-503: median re-measured at 577_817 bytes on 2026-10-14 (rev-b487453), see the note above TREE_BYTES_BUDGET.
-# re-pinned by TC-553: 710_000 -> 810_000
+# Re-measured 2026-10-21 (TC-536) on the committed tree after the supervisor's final re-ingest of all 32 pilots
+# (commit ad8c2329, image revision rev-9993ea85, Round 3 cards TC-557 to TC-566): total 41_732_902 bytes over 32
+# generation files, largest 5_771_402 (html/python, up from pdf/java), median 763_382.5, smallest 91_465. The tree
+# grew because Round 3 renders per-member documentation text (capped at 300 characters per member by TC-527) for
+# every pilot, not only the 13 pilots TC-553 already measured. Each budget is the measurement x 1.05 rounded up to
+# the next 10,000, same rule as TC-503 and TC-553.
+# re-pinned by TC-536: 43_780_000 -> 43_820_000
+TREE_BYTES_BUDGET = 43_820_000
+# re-pinned by TC-536: 5_360_000 -> 6_060_000 (the largest generation file is now html/python, not pdf/java)
+LARGEST_FILE_BYTES_BUDGET = 6_060_000
+# re-pinned by TC-536: 810_000 -> 810_000 (median re-measured at 763_382.5 bytes; 763_382.5 x 1.05 = 801_551.6,
+# which still rounds up to 810_000, so the pinned number does not move)
 MEDIAN_FILE_BYTES_BUDGET = 810_000
 # The lean standalone image was agreed with the operator at 45 MB for the baked tree. Only the operator moves it; a worker never does.
 LEAN_CEILING_BYTES = 45_000_000
