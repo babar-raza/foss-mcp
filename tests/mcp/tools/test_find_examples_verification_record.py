@@ -34,10 +34,13 @@ from foss_mcp.mcp.tools import find_examples as find_examples_module
 from foss_mcp.mcp.tools.find_examples import (
     AUTHORED_VERIFICATION_NOTE,
     README_VERIFICATION_NOTE,
+    RUNTIME_LABEL_COMPILED_ONLY,
     ExampleMatch,
     _source_commit,
+    _verification_note,
     find_examples,
     is_verified_example_text,
+    runtime_label,
 )
 from foss_mcp.mcp.tools.get_symbol import extract_fqn
 from foss_mcp.mcp.tools.vector_guard import _set_guard
@@ -341,6 +344,28 @@ def _pilots() -> list[tuple[str, str]]:
     return [(pilot["family"], pilot["platform"]) for pilot in values["ingestion"]["pilots"]]
 
 
+VERIFIED_EXAMPLES = REPO_ROOT / "tests" / "fixtures" / "verified_examples"
+
+
+def _recorded_runtime_error(family: str, platform: str, title: str) -> str:
+    """The ``runtime_error`` the ingestion verifier recorded for *title* in the pilot's own
+    ``tests/fixtures/verified_examples/<family>_<platform>.json`` cache, or ``""`` when the cache
+    has no entry for it, the entry was never run, or it ran without error.
+
+    TC-536: this is the ONE case (pdf/cpp's "Open a Password-Protected Document", TC-565's own
+    intended, accepted behaviour) where the cache records ``ran: true`` with a real
+    ``runtime_error``; every other entry of every other pilot has no recorded runtime failure.
+    """
+    path = VERIFIED_EXAMPLES / f"{family}_{platform}.json"
+    if not path.is_file():
+        return ""
+    entries = json.loads(path.read_text(encoding="utf-8")).get("entries") or []
+    for entry in entries:
+        if entry.get("title") == title and entry.get("ran") and entry.get("runtime_error"):
+            return str(entry["runtime_error"])
+    return ""
+
+
 def test_every_served_example_of_every_pilot_carries_language_commit_and_verification(
     tmp_path: Path,
 ) -> None:
@@ -379,11 +404,25 @@ def test_every_served_example_of_every_pilot_carries_language_commit_and_verific
                 commits_present += 1
             else:
                 assert match.source_commit == ""
-            expected = (
-                AUTHORED_VERIFICATION_NOTE
-                if "Provenance: authored" in text.splitlines()
-                else README_VERIFICATION_NOTE
-            )
+            authored = "Provenance: authored" in text.splitlines()
+            # TC-536: this re-ingest is the first where the baked generation actually carries Runtime-*
+            # lines for several examples (pdf/cpp, 3d/net and 3d/java - every real runtime outcome
+            # runtime_label() knows: ran, no_output and failed, not only pdf/cpp's one failing case the
+            # dispatch named), so a bare AUTHORED_VERIFICATION_NOTE/README_VERIFICATION_NOTE guess is no
+            # longer honest for them. The oracle is find_examples.py's own runtime_label()/
+            # _verification_note() read directly off the real chunk text - the same function that
+            # produces match.verification - exactly as this file already does for match.source_commit
+            # (_source_commit(text)) a few lines above and in test_synthetic_* below.
+            expected = _verification_note(text)
+            if runtime_label(text) == RUNTIME_LABEL_COMPILED_ONLY:
+                # The common case (no Runtime-Status line at all) still equals the fixed sentence.
+                assert expected == (AUTHORED_VERIFICATION_NOTE if authored else README_VERIFICATION_NOTE)
+            elif family == "pdf" and platform == "cpp" and "Password-Protected" in fqn:
+                # The one case the dispatch named explicitly: cross-checked against the real recorded
+                # error text in tests/fixtures/verified_examples/pdf_cpp.json, not only against the
+                # production function that also produced `expected` above.
+                cache_error = _recorded_runtime_error("pdf", "cpp", "Open a Password-Protected Document")
+                assert cache_error and cache_error in expected, (expected, cache_error)
             assert match.verification == expected, (family, platform, fqn)
             pilot_seen += 1
         assert pilot_seen >= 1, (family, platform)
