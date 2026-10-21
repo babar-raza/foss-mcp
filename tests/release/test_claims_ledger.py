@@ -444,12 +444,13 @@ def test_real_tree_counts_equal_an_independent_read(real_ledger: dict[str, Any])
 
 def test_real_tree_pdf_net_is_pinned_to_the_measured_chunks(real_ledger: dict[str, Any]) -> None:
     p = real_ledger["pilots"]["pdf/net"]
-    # measured by reading the committed generation directly: 901 symbol, 25 documentation, 3 example chunks
-    assert p["symbols"]["total"] == 901
+    # re-pinned by TC-536: 901 -> 915 (the supervisor's 2026-10-21 re-ingest at rev-9993ea85 bakes TC-558's
+    # regenerated pdf/net fixture; measured by reading the committed generation directly: 915 symbol,
+    # 25 documentation, 3 example chunks)
+    assert p["symbols"]["total"] == 915
     assert p["documentation"]["total"] == 25
     assert p["examples"]["served_chunks"] == 3
-    # TC-558: fixture symbol_counts types 901 -> 915 (the fixture was re-extracted; the baked chunk figures above stay
-    # until the re-ingest)
+    # TC-558: fixture symbol_counts types 901 -> 915; the re-ingest above now makes the baked chunk figures agree.
     assert p["fixture"]["symbol_counts"] == {"functions": 0, "types": 915}
 
 
