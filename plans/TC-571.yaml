@@ -1,0 +1,93 @@
+id: TC-571
+gate: G3
+lane: storage-retrieval
+purpose: >-
+  REQ-G3-009 (reopens RST-14; found by TC-536's worker while re-pinning tests/mcp/tools/test_search_symbols_forgiveness.py against the re-ingested pdf/go data, 2026-10-21). SEARCH_SYMBOLS DOES NOT RECOGNISE
+  A PROMOTED GO MEMBER AS NON-DECLARING. src/foss_mcp/indexing/chunk_builder.py's `_inherited_from_suffix` (TC-535, RD3-027) correctly renders a Go struct-embedding member as `  (promoted from X)` (the
+  Go-correct term; TC-535 kept `(inherited from X)` for every other language's real inheritance). src/foss_mcp/mcp/tools/search_symbols.py never learned the new marker: `_MEMBER_NAME_END` (line 221) and
+  `_INHERITED_MARKER` (line 238, consumed at lines 271, 339 and 585) only match `(inherited from `. A Go struct that only PROMOTES a member through an embedded field (never declares it) is therefore scored
+  as if it DECLARED that member, so `_member_declaration` returns `True` instead of `False`, the declaring/inheriting tier split in `_member_declaration`/`_declared_member_names`/the harvested-identifier
+  list collapses to plain BM25, and a type that merely promotes a member can outrank the type that actually declares it. Measured on the real re-ingested pdf/go data: query `SetPassword` on scope pdf/go
+  ranks `PasswordBoxField` (BM25 10.91, promotes the member from `TextBoxField`) above `Document` (BM25 6.08, the real declaring-adjacent type the forgiveness test names) and above `TextBoxField` itself,
+  index 7 instead of under 2. Affects every Go pilot with promoted struct-embedding members (pdf/go, cells/go). FIX: search_symbols.py must recognise BOTH markers as non-declaring. It does NOT change chunk_builder.py
+  (its rendering is already correct and is the fixture every other test depends on) or any fixture or baked data.
+depends_on:
+- TC-535
+- TC-536
+write_paths:
+- src/foss_mcp/mcp/tools/search_symbols.py
+- tests/mcp/tools/test_search_symbols_forgiveness.py
+- tests/mcp/tools/test_search_symbols_memberless_last.py
+- tests/mcp/tools/test_round3_promoted_member_ranking.py
+satisfies:
+- REQ-G3-009
+source_refs:
+- file: docs/DECISION_LOG.md
+  anchor: >-
+    ## 2026-10-15 — Independent pre-production adversarial review of the shipped image; its findings enter the state machine as cards (operator, supervisor)
+  sha256: d2d82669b8060d5e3a3b9da00e9858e576d5d264d96e32d1aed8034e8d6d9007
+inputs:
+- >-
+  READ FIRST: src/foss_mcp/indexing/chunk_builder.py `_inherited_from_suffix` (do not change it), then src/foss_mcp/mcp/tools/search_symbols.py lines 215-345 and 560-595 (`_MEMBER_NAME_END`, `_INHERITED_MARKER`,
+  `_member_declaration`, `_declared_member_names`, and the identifier-harvesting loop near line 585). Activate the toolchain (scripts/toolchain/activate.ps1) in the SAME shell command as every python or
+  pytest call. Run ruff format and ruff check on every Python file you change. Do not edit plans/, project/, ops/, evidence/, schemas/, docs/, infra/demo-manifests or any fixture; do not run docker or a
+  cluster command.
+- >-
+  THE FIX. Mandated names (the negative control relies on them): the exact line `_NON_DECLARING_MARKERS = ("(inherited from ", "(promoted from ")` replacing `_INHERITED_MARKER`, and a helper `_is_non_declaring_item(item:
+  str) -> bool` returning `any(marker in item for marker in _NON_DECLARING_MARKERS)`. Replace every one of the three `_INHERITED_MARKER in item` call sites (`_member_declaration`, `_declared_member_names`,
+  the identifier-harvesting loop) with `_is_non_declaring_item(item)`. Update `_MEMBER_NAME_END` to `re.compile(r"\(|:| \((?:inherited|promoted) from")` so `_member_name` still strips the suffix correctly
+  for a promoted item. Update the `_member_name` docstring's mention of `` (inherited from`` to name both markers. No other behaviour changes: a type that DECLARES a member (no marker at all) is unaffected;
+  a type that only INHERITS (the original marker) is unaffected; only the new `(promoted from ` case changes from DECLARED to NON-DECLARING.
+- >-
+  ACCEPTANCE: (a) a hand-written synthetic chunk pair in tests/mcp/tools/test_round3_promoted_member_ranking.py (NEW, at least 6 tests) where type A declares `Reset()` and type B only has `Reset()  (promoted
+  from A)`: `_member_declaration('Reset', 'Pkg.B', b_text)` is `False` and `_member_declaration('Reset', 'Pkg.A', a_text)` is `True`; `_declared_member_names` excludes the promoted item; search_symbols
+  ranks the declaring type A above the promoting type B for the query 'Reset' (mirroring test_search_symbols_forgiveness.py's existing '(inherited from)' case exactly, but with '(promoted from)'); the existing
+  '(inherited from)' behaviour (every current test in test_search_symbols_forgiveness.py and test_search_symbols_memberless_last.py) is byte-for-byte unchanged - run both files FIRST and confirm they still
+  pass before touching anything. (b) tests/mcp/tools/test_search_symbols_forgiveness.py's real-data pdf/go case (the one TC-536's worker found and declined to re-pin): re-run the query 'SetPassword' on
+  scope pdf/go against the real re-ingested baked data and assert 'Document' (or the real declaring-adjacent type the test already names - read the test's current assertion before you touch it) ranks ahead
+  of 'PasswordBoxField' and the other promoting types; change ONLY the index/ordering assertion the fix legitimately moves, with a comment `TC-571: <old> -> <new>` naming the real cause (promoted members
+  no longer misclassified as declared). Never loosen an existing assertion for a reason that does not hold after the fix.
+- >-
+  WHAT TO RUN. First check: the new synthetic file plus the two existing search_symbols test files. Second check: the broader retrieval and MCP tool suite, offline. Also run tests/mcp, tests/indexing, tests/infra,
+  tests/deploy with the usual -k filter, and the top-level tests/test_*.py, tests/poc, tests/release, `python -m pytest ops/tests -q` (the one worktree-only failure test_the_channel_is_read_from_the_main_checkout
+  is expected and may be ignored). ALL must be green; a failing test outside write_paths caused by this fix's legitimate new behaviour: report its exact name and pinned fact and stop for amendment, do not
+  touch it. Commit once (or split code/tests) with the subject `fix(mcp): recognise a promoted Go member as non-declaring in search_symbols ranking (G3/TC-571)` ending with the Co-Authored-By trailer for
+  the model that did the work; UTF-8 without a byte-order mark; preserve line endings. Report: the real pdf/go query result before and after the fix (ranks and BM25 scores), every changed assertion with
+  its reason, and confirmation that cells/go's promoted members are also now correctly non-declaring.
+actions:
+- >-
+  Make search_symbols.py recognise both '(inherited from ' and '(promoted from ' as non-declaring markers, so a promoted Go member never outranks the type that actually declares it.
+checks:
+- command: >-
+    {python} -m pytest tests/mcp/tools/test_round3_promoted_member_ranking.py tests/mcp/tools/test_search_symbols_forgiveness.py tests/mcp/tools/test_search_symbols_memberless_last.py -q -rfE -p no:cacheprovider
+  expect: exit 0
+  timeout_seconds: 1800
+  junitxml: true
+  proves:
+  - REQ-G3-009
+- command: >-
+    {python} -m pytest tests/mcp tests/indexing tests/infra tests/deploy -q -rfE -p no:cacheprovider -k "not live and not github_http and not repo_native and not docker and not helm_template and not test_prepare_rust_library
+    and not test_rust_known"
+  expect: exit 0
+  timeout_seconds: 3000
+  junitxml: true
+  proves:
+  - REQ-G3-009
+min_tests: 20
+network: true
+requires:
+- python
+- git
+negative_control:
+  mutate: |
+    python -X utf8 -c "import pathlib;p=pathlib.Path('src/foss_mcp/mcp/tools/search_symbols.py');s=p.read_text(encoding='utf-8');old='_NON_DECLARING_MARKERS = (' + chr(34) + '(inherited from ' + chr(34) + ', ' + chr(34) + '(promoted from ' + chr(34) + ')';assert s.count(old)==1;p.write_text(s.replace(old,'_NON_DECLARING_MARKERS = (' + chr(34) + '(inherited from ' + chr(34) + ',)'),encoding='utf-8')"
+  rationale: >-
+    Drops the promoted-from marker from the mandated tuple, so a Go struct that only promotes a member through embedding is misclassified as declaring it again: the new synthetic promoted-member test and
+    the real pdf/go ranking test fail at once. A real break of the card's central claim (a promoted member is never mistaken for a declared one).
+evidence:
+- evidence/build/G3/TC-571/receipt.json
+closeout:
+- >-
+  search_symbols.py treats a promoted Go struct-embedding member the same as any other inherited member for ranking purposes; the real pdf/go and cells/go data rank declaring types above promoting ones
+  again.
+recovery: Re-run from a clean tree.
