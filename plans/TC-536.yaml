@@ -91,7 +91,7 @@ write_paths:
 - tests/e2e/test_slides_python_live_content.py
 - tests/mcp/tools/test_miss_coverage_note.py
 - tests/release/test_claims_ledger.py
-- tests/mcp/tools/test_search_symbols_forgiveness.py
+- tests/mcp/tools/test_find_examples_verification_record.py
 satisfies:
 - REQ-G3-008
 - REQ-G3-001
@@ -199,6 +199,15 @@ inputs:
   bad zlib header check') - it was not a hard failure in your two check-2 runs; if it is still not reproducibly failing, leave it alone and say so; if it starts failing, it is NOT in write_paths yet - stop
   and report instead of touching it. Rebase onto the new issue revision, re-run both checks twice, the negative control, and the wider suites you already ran; ruff format on each changed file named explicitly;
   report the new head.
+- >-
+  SECOND REWORK AMENDMENT (supervisor, 2026-10-21). tests/mcp/tools/test_search_symbols_forgiveness.py is REMOVED from write_paths: the real fix belongs in src/foss_mcp/mcp/tools/search_symbols.py, which
+  this card may not touch; it is now TC-571 (registered, fixes the promoted-member ranking defect and re-pins that one test on its own). Do not touch that file in this card. tests/mcp/tools/test_find_examples_verification_record.py
+  is ADDED to write_paths: test_every_served_example_of_every_pilot_carries_language_commit_and_verification asserts every non-authored verified example carries exactly README_VERIFICATION_NOTE, but pdf/cpp's
+  'Open a Password-Protected Document' example now genuinely fails at runtime (TC-565's own intended, accepted behaviour: a runtime-failing example gets the 'compiles; fails at runtime: <error>' label from
+  find_examples.py's runtime-status branch instead of the generic compiled-only note), and this is the first re-ingest where the baked data actually carries that field. Make the assertion accept either
+  label: README_VERIFICATION_NOTE for an example whose cache entry has no recorded runtime failure, or the 'compiles; fails at runtime: <error>' form (read src/foss_mcp/mcp/tools/find_examples.py's runtime-label
+  logic and tests/fixtures/verified_examples/pdf_cpp.json for the real recorded error text) for one that does, with a 'TC-536: <old> -> <new>' comment naming the cause. Never loosen the commit/language
+  assertions that still hold. Rebase onto the new issue revision, re-run both checks twice plus the negative control, confirm check 2 fully green, report the head.
 actions:
 - >-
   Measure the re-ingested demo-manifest tree and re-pin the three size budgets of the two tests to the measured values plus 5 percent, with the numbers recorded beside them.
