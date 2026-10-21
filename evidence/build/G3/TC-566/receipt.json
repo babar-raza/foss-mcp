@@ -1,0 +1,120 @@
+{
+  "schema_version": 1,
+  "card": "TC-566",
+  "gate": "G3",
+  "generated_by": "gatectl",
+  "generated_at": "2026-10-21T12:03:44Z",
+  "base_rev": "1e8f878dca46da425a566fca5dde981f4be0814b",
+  "head_rev": "d45b58befc7c0dbc8de500c5603c8298c9f20199",
+  "card_sha256": "e95fd5c7a594ccb722403bb457b3b51ab27283cd2a1536981120f2cfff64208a",
+  "fingerprint": {
+    "python": "3.13.2",
+    "platform": "Windows-11-10.0.26200-SP0",
+    "lock_sha256": "7b182948484d7df9614b523f7a8180f795b6c51d55c418728525c1957f3e38ba",
+    "env": {
+      "PYTHONHASHSEED": "0",
+      "PYTHONUTF8": "1",
+      "PYTHONDONTWRITEBYTECODE": "1",
+      "PYTHONIOENCODING": "utf-8",
+      "TZ": "UTC",
+      "LC_ALL": "C.UTF-8",
+      "SOURCE_DATE_EPOCH": "1700000000",
+      "verify_runner": "host"
+    }
+  },
+  "scope": {
+    "ok": true,
+    "changed_paths": [
+      "docs/REPOSITORY_LAYOUT.md",
+      "scripts/release/fleet_live_smoke.py",
+      "scripts/release/image_workflow_gate.py",
+      "scripts/release/source_differential.py",
+      "tests/deploy/test_image_workflow_gate.py",
+      "tests/e2e/test_pdf_typescript_live_content.py",
+      "tests/extraction/test_run_extraction_coverage_policy.py",
+      "tests/indexing/test_example_verifier.py",
+      "tests/release/test_fleet_live_smoke.py",
+      "tests/release/test_source_differential.py",
+      "tests/test_githooks.py"
+    ],
+    "violations": [],
+    "evaluated": true
+  },
+  "runs": [
+    {
+      "run": 1,
+      "checks": [
+        {
+          "command": "{python} -m pytest tests/release/test_source_differential.py tests/release/test_fleet_live_smoke.py tests/test_githooks.py tests/extraction/test_run_extraction_coverage_policy.py tests/deploy/test_image_workflow_gate.py -q -rfE -p no:cacheprovider",
+          "exit_code": 0,
+          "duration_s": 33.777,
+          "stdout_sha256": "7bc2db295eccd77bc3cffb4a37b126df91f6a772731556e537af54a4cb40fec6",
+          "tests": 225,
+          "skipped": 0,
+          "errors": 0,
+          "failures": 0
+        },
+        {
+          "command": "{python} -m pytest tests/release tests/deploy tests/extraction -q -rfE -p no:cacheprovider -k \"not live and not github_http and not repo_native and not test_prepare_rust_library and not test_rust_known\"",
+          "exit_code": 0,
+          "duration_s": 261.271,
+          "stdout_sha256": "7eca0c46d1d4b8b1d965f1f515baafed2eaefa28a6704e34250a6c1f5d7bc462",
+          "tests": 3959,
+          "skipped": 0,
+          "errors": 0,
+          "failures": 0
+        }
+      ],
+      "all_passed": true
+    },
+    {
+      "run": 2,
+      "checks": [
+        {
+          "command": "{python} -m pytest tests/release/test_source_differential.py tests/release/test_fleet_live_smoke.py tests/test_githooks.py tests/extraction/test_run_extraction_coverage_policy.py tests/deploy/test_image_workflow_gate.py -q -rfE -p no:cacheprovider",
+          "exit_code": 0,
+          "duration_s": 27.971,
+          "stdout_sha256": "7bc2db295eccd77bc3cffb4a37b126df91f6a772731556e537af54a4cb40fec6",
+          "tests": 225,
+          "skipped": 0,
+          "errors": 0,
+          "failures": 0
+        },
+        {
+          "command": "{python} -m pytest tests/release tests/deploy tests/extraction -q -rfE -p no:cacheprovider -k \"not live and not github_http and not repo_native and not test_prepare_rust_library and not test_rust_known\"",
+          "exit_code": 0,
+          "duration_s": 251.478,
+          "stdout_sha256": "7eca0c46d1d4b8b1d965f1f515baafed2eaefa28a6704e34250a6c1f5d7bc462",
+          "tests": 3959,
+          "skipped": 0,
+          "errors": 0,
+          "failures": 0
+        }
+      ],
+      "all_passed": true
+    }
+  ],
+  "negative_control": {
+    "kind": "mutate",
+    "patch": "python -X utf8 -c \"import pathlib;p=pathlib.Path('scripts/release/image_workflow_gate.py');s=p.read_text(encoding='utf-8');old='REQUIRE_EXTRACTOR_VERSION = True';assert s.count(old)==1;p.write_text(s.replace(old,'REQUIRE_EXTRACTOR_VERSION = False'),encoding='utf-8')\"\n",
+    "patch_sha256": "1047e3415e62e94a639659fd0a3631813c3ff5ee970596c20351ca6c5876a3c7",
+    "applied": true,
+    "patch_applied_failed": true,
+    "exit_codes": [
+      1,
+      1
+    ],
+    "tree_changed": [
+      "M scripts/release/image_workflow_gate.py",
+      "?? .junit-0.xml",
+      "?? .junit-1.xml"
+    ]
+  },
+  "holdout": {
+    "ran": false,
+    "passed": true,
+    "detail": "no holdout for this card"
+  },
+  "accepted": true,
+  "reason": "all gates passed"
+}
