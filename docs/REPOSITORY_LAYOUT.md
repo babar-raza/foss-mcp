@@ -112,6 +112,57 @@ Configuration loading, validation, and typed access for the product code. It
 does not perform I/O beyond reading configuration sources, and it does not
 hold runtime state belonging to other packages.
 
+## Round-3 blind-spot review checklist (card TC-566)
+
+docs/ROUND3_REVIEW.md does not itself label any finding "C1" through "C8" (that labelling belongs to
+an earlier, 2026-10-08 recon recorded in docs/DECISION_LOG.md, a different review). This checklist
+instead groups docs/ROUND3_REVIEW.md's own distinct blind-spot MECHANISMS - the kind of gap, not the
+specific pilot it hit - into eight classes, each named by the RD3 row(s) that first proved it real.
+A reviewer checking a new card, fixture regeneration or release gate against this list is checking for
+the MECHANISM recurring somewhere else, not just the one row already closed.
+
+- **C1 - no independent oracle (self-consistency only).** A test whose expected value comes from the
+  project's own extractor output, or from a fixture that output produced, can never see the extractor
+  lose or fabricate data (RD3-150: 14,347 of 14,348 chunks rebuilt byte-identically from the committed
+  fixtures). Every new regression test's expectation must come from an independent source: real
+  upstream source read with the language's own tool, a compiled library's reflection, or a hand-written
+  upstream-shaped snippet - never the extractor's own output.
+- **C2 - live-content coverage gaps and stale pins.** A live container test that exists is not the
+  same as one that still passes (RD3-151: the pdf/typescript e2e pin rotted stale at HEAD) and 7 of 32
+  pilots had live coverage at all. A pin naming a commit, a count, or a generation must be re-derived
+  (ideally read from the chart, not retyped) whenever the thing it pins moves, and every pilot needs
+  its own live assertion, not a sample.
+- **C3 - environment-identity assumptions baked into an exact-match assertion.** Asserting a
+  configuration value's literal on-disk string (RD3-152: `core.hooksPath` assumed relative) breaks the
+  moment a legitimate tool stores an equivalent value differently. Prefer asserting the EFFECT
+  (the hook fires, the same content runs) over one specific spelling, or explicitly enumerate every
+  legitimate spelling.
+- **C4 - environment-sensitive flakiness mistaken for a code defect.** A test that fails only on some
+  hosts or some runs (RD3-153: a Windows Application Control policy intermittently blocks freshly
+  built Rust executables, `os error 4551`) must be named as environment-sensitive with a precise,
+  observed marker before anyone "fixes" the code it never implicated. Never silently skip on ANY
+  failure - only on the one, named, observed condition.
+- **C5 - weakened or rewritten-to-match assertions.** `git log -p -S` on a test file finds the exact
+  commit that loosened a pin to match current behaviour instead of restoring the behaviour the pin
+  demanded (RD3-154: W1 to W6, e.g. `EXTRACTOR_VERSION == 2` relaxed to `>= 2`). Any rework that makes
+  a check easier to pass, rather than fixing what it checks, is a debt entry, not a fix, and must be
+  named in docs/RELEASE.md when it cannot be reversed immediately.
+- **C6 - stale documentation claims.** A quoted number or status in docs/RELEASE.md or the decision
+  log that nothing re-derives (RD3-155, RD3-164: "about 17,000 methods, 0 mismatches" with no
+  reproducible source) decays the moment the data it describes changes. A claim that cannot be
+  regenerated from committed evidence is a liability, not a record.
+- **C7 - unsupported or stub capability served as normal API.** A symbol that exists in the index but
+  throws, is a no-op, or silently writes the wrong thing at runtime (RD3-060: 3d/python's 734
+  `NotImplementedError`/`pass` stubs served as ordinary methods) misleads a caller who has no way to
+  tell "found" from "found and safe to call". Scope/limitations text must name every such gap the
+  extractor can detect (a stub body, a documented "not implemented" note), never leave it to be found
+  by trying.
+- **C8 - drift between the index and the real, currently-published package.** The index can be either
+  ahead or behind what a caller actually installs (RD3-070/RD3-071: `slides/python` documents an
+  attribute absent from the published 26.8.0 wheel; `pdf/go`'s index misses a tag `go get` already
+  resolves) with freshness reporting `unknown`/`in_index: true` regardless. A freshness or drift check
+  must compare against the real, currently-resolvable package truth, not only against what was indexed.
+
 ## The `ops/` rule
 
 `ops/` is supervisor tooling for this repository's own governed development

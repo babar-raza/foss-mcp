@@ -1,0 +1,739 @@
+#!/usr/bin/env python3
+"""Independent source-differential verifier (TC-566 / REQ-G3-009, RD3-150).
+
+Round-3's own headline finding: 14,347 of 14,348 chunks of the shipped image rebuild byte-identically
+from the committed fixtures, so every prior "fidelity" test only proved the extractor agrees with
+itself. This script is the independent oracle that finding demanded: for one pilot's upstream library
+at its pinned commit, it builds the REAL public API with the language's own tooling (never this
+project's own tree-sitter engine, never a committed fixture read as truth) and diffs it against the
+baked ``api_surface.json`` fixture, by category:
+
+    missing     a real, public member the fixture never serves
+    extra       a served member the independent oracle never found (a possible fabrication)
+    signature   a served parameter list or return type that disagrees with the real one
+    static      a served static/instance flag that disagrees with the real one
+    default     a served "this parameter has a default" flag that disagrees with the real one
+    enum_value  a served enum member's value that disagrees with the real one
+
+Usage (the real, network-and-toolchain run the supervisor performs at closing time, never at check
+time -- see ``main``'s docstring below for why):
+
+    python scripts/release/source_differential.py [--fixtures DIR] [--only FAMILY_PLATFORM ...]
+        [--ceilings-file FILE] [--library-root DIR] [--no-require-extractor-version]
+        [--report-dir DIR]
+
+Enumerators (``Enumerator``, ``(repository, commit, library_dir) -> Sequence[OracleSymbol]``) are
+injected through ``Deps.enumerators``, copying ``scripts/release/verify_pushed_image.py``'s own
+injection style, so ``diff_symbol``/``diff_language``/``verify_pilot`` and this module's CLI wiring
+are exercised offline, with hand-written per-language micro-libraries, by every unit test -- no
+compiler, interpreter or network call is ever made by ``tests/release/test_source_differential.py``.
+
+Only ``enumerate_python`` is wired to real tooling here (Python's own ``ast`` module, reading the real
+cloned source -- no network beyond the clone, no external compiler). The other six languages the card
+names (TypeScript, Go, Rust, Java, .NET, C++) each need their own real compiler/reflection/AST tool
+wired and proven against a real pinned repository -- a scope this card's worker could not respect
+responsibly within one dispatch without shipping six untested, falsely-confident readers (exactly the
+"confident, false 'done' claims" AGENTS.md warns against). ``DEFAULT_ENUMERATORS`` maps each of those
+six platforms to ``_unimplemented_enumerator``, which raises a precise, named ``NotImplementedError``
+-- never a silent pass, never a fabricated oracle -- and the ``Deps.enumerators`` injection point is
+exactly where the supervisor wires a real one in, one language at a time, the same way track A's
+extraction fix landed as eight separate per-language cards.
+
+``REQUIRE_EXTRACTOR_VERSION`` mirrors the identically-named switch in ``image_workflow_gate.py``: a
+fixture whose ``extractor_version`` is below the current schema (``run_extraction.EXTRACTOR_VERSION``)
+fails outright, before any diff runs -- the fixture is known-stale on its face.
+"""
+
+from __future__ import annotations
+
+import argparse
+import json
+import subprocess
+import sys
+import tempfile
+from collections.abc import Callable, Mapping, Sequence
+from dataclasses import dataclass, field
+from pathlib import Path
+from typing import Any
+
+REPO_ROOT = Path(__file__).resolve().parents[2]
+_SRC = REPO_ROOT / "src"
+_DEPLOY_DIR = REPO_ROOT / "scripts" / "deploy"
+DEFAULT_FIXTURES = REPO_ROOT / "tests" / "fixtures"
+# Temp directories, never the repository, so a run with no --report-dir/--library-root never leaves
+# output behind in the working tree (matches image_workflow_gate.py's own DEFAULT_REPORT_DIR).
+DEFAULT_REPORT_DIR = Path(tempfile.gettempdir()) / "foss-mcp-source-differential"
+DEFAULT_LIBRARY_ROOT = Path(tempfile.gettempdir()) / "foss-mcp-source-differential-libraries"
+
+if str(_SRC) not in sys.path:
+    sys.path.insert(0, str(_SRC))
+if str(_DEPLOY_DIR) not in sys.path:
+    # scripts/deploy is not a package; its pilots module owns reading the chart's pilot list.
+    sys.path.insert(0, str(_DEPLOY_DIR))
+
+import pilots as chart  # noqa: E402
+
+from foss_mcp.extraction import run_extraction  # noqa: E402
+
+SCHEMA_VERSION = 1
+REPORT_NAME = "source_differential.json"
+EXIT_FAILED = 1
+EXIT_REFUSED = 2
+GIT_FETCH_TIMEOUT_S = 180.0
+
+CATEGORIES: tuple[str, ...] = ("missing", "extra", "signature", "static", "default", "enum_value")
+
+# A fixture type is matched against an oracle symbol of the same bare ``name``. These are the kinds
+# this engine ever emits for a class-like/enum-like container -- see tests/fixtures/*/api_surface.json.
+CLASS_KINDS = frozenset(
+    {
+        "class",
+        "class_declaration",
+        "abstract_class_declaration",
+        "struct_declaration",
+        "struct_item",
+        "struct_specifier",
+        "record_declaration",
+        "type_spec",
+        "interface_declaration",
+        "trait_item",
+    }
+)
+ENUM_KINDS = frozenset({"enum", "enum_declaration", "enum_item", "enum_specifier"})
+
+
+class Refused(Exception):
+    """The request cannot be run as asked. Nothing was diffed; the exit code is 2."""
+
+
+# ---------------------------------------------------------------------------------------------------------------
+# The oracle shape: what an independent enumerator reports about one real symbol.
+# ---------------------------------------------------------------------------------------------------------------
+
+
+@dataclass(frozen=True)
+class OracleParam:
+    name: str
+    has_default: bool = False
+
+
+@dataclass(frozen=True)
+class OracleMember:
+    """One real method, property or enum value, as the independent tool actually read it."""
+
+    name: str
+    kind: str  # "method" | "property" | "enum_value"
+    params: tuple[OracleParam, ...] = ()
+    return_type: str | None = None  # None means "not checked" (the enumerator did not read it)
+    is_static: bool = False
+    enum_value: str | None = None  # None means "not checked"
+
+
+@dataclass(frozen=True)
+class OracleSymbol:
+    """One real class/struct/enum/interface, matched against a baked fixture type by bare name."""
+
+    name: str
+    kind: str
+    members: tuple[OracleMember, ...] = ()
+
+
+# (repository, commit, library_dir) -> every real public symbol the independent tool found. library_dir
+# is where the enumerator may clone/build the pinned commit; it is created if it does not exist.
+Enumerator = Callable[[str, str, Path], Sequence[OracleSymbol]]
+
+
+@dataclass
+class Deps:
+    enumerators: Mapping[str, Enumerator] = field(default_factory=dict)
+    run: Callable[..., Any] | None = None  # subprocess.run, for the real git clone helper
+
+
+# ---------------------------------------------------------------------------------------------------------------
+# The diff engine: pure, offline, the same code path for every language.
+# ---------------------------------------------------------------------------------------------------------------
+
+
+@dataclass
+class DiffCounts:
+    missing: int = 0
+    extra: int = 0
+    signature: int = 0
+    static: int = 0
+    default: int = 0
+    enum_value: int = 0
+    checked: int = 0
+
+    def add(self, other: DiffCounts) -> None:
+        for category in (*CATEGORIES, "checked"):
+            setattr(self, category, getattr(self, category) + getattr(other, category))
+
+    def as_dict(self) -> dict[str, int]:
+        return {category: getattr(self, category) for category in (*CATEGORIES, "checked")}
+
+
+@dataclass
+class Finding:
+    symbol: str
+    member: str
+    category: str
+    detail: str
+
+    def as_dict(self) -> dict[str, str]:
+        return {
+            "symbol": self.symbol,
+            "member": self.member,
+            "category": self.category,
+            "detail": self.detail,
+        }
+
+
+def _baked_is_static(entry: Mapping[str, Any]) -> bool:
+    modifiers = entry.get("modifiers") or []
+    return "static" in modifiers or "classmethod" in modifiers
+
+
+def _baked_params(entry: Mapping[str, Any]) -> list[tuple[str, bool]]:
+    return [(str(param.get("name", "")), "default" in param) for param in entry.get("params") or []]
+
+
+def diff_symbol(oracle: OracleSymbol, baked: Mapping[str, Any] | None) -> tuple[DiffCounts, list[Finding]]:
+    """Compare one real symbol against its baked fixture type (or ``None`` when the fixture has none)."""
+    counts = DiffCounts()
+    findings: list[Finding] = []
+
+    if baked is None:
+        for member in oracle.members:
+            counts.checked += 1
+            counts.missing += 1
+            findings.append(
+                Finding(
+                    oracle.name, member.name, "missing", "the whole symbol is absent from the baked fixture"
+                )
+            )
+        return counts, findings
+
+    baked_methods = {str(m.get("name")): m for m in baked.get("methods") or []}
+    baked_props = {str(p.get("name")): p for p in baked.get("properties") or []}
+    baked_enum = {str(e.get("name")): e for e in baked.get("enum_members") or []}
+
+    oracle_method_names: set[str] = set()
+    oracle_prop_names: set[str] = set()
+    oracle_enum_names: set[str] = set()
+
+    for member in oracle.members:
+        counts.checked += 1
+        if member.kind == "enum_value":
+            oracle_enum_names.add(member.name)
+            entry = baked_enum.get(member.name)
+            if entry is None:
+                counts.missing += 1
+                findings.append(
+                    Finding(oracle.name, member.name, "missing", "enum member absent from the baked fixture")
+                )
+                continue
+            if member.enum_value is not None and str(entry.get("value") or "") != member.enum_value:
+                counts.enum_value += 1
+                findings.append(
+                    Finding(
+                        oracle.name,
+                        member.name,
+                        "enum_value",
+                        f"expected value {member.enum_value!r}, baked {entry.get('value')!r}",
+                    )
+                )
+            continue
+
+        table = baked_methods if member.kind == "method" else baked_props
+        (oracle_method_names if member.kind == "method" else oracle_prop_names).add(member.name)
+        entry = table.get(member.name)
+        if entry is None:
+            counts.missing += 1
+            findings.append(
+                Finding(oracle.name, member.name, "missing", f"{member.kind} absent from the baked fixture")
+            )
+            continue
+
+        if _baked_is_static(entry) != member.is_static:
+            counts.static += 1
+            findings.append(
+                Finding(
+                    oracle.name,
+                    member.name,
+                    "static",
+                    f"expected is_static={member.is_static}, baked modifiers={entry.get('modifiers')!r}",
+                )
+            )
+
+        if member.kind == "method":
+            baked_params = _baked_params(entry)
+            oracle_names = [param.name for param in member.params]
+            baked_names = [name for name, _ in baked_params]
+            if oracle_names != baked_names:
+                counts.signature += 1
+                findings.append(
+                    Finding(
+                        oracle.name,
+                        member.name,
+                        "signature",
+                        f"expected params {oracle_names}, baked {baked_names}",
+                    )
+                )
+            else:
+                oracle_defaults = [param.has_default for param in member.params]
+                baked_defaults = [has_default for _, has_default in baked_params]
+                if oracle_defaults != baked_defaults:
+                    counts.default += 1
+                    findings.append(
+                        Finding(
+                            oracle.name,
+                            member.name,
+                            "default",
+                            f"expected defaults {oracle_defaults}, baked {baked_defaults}",
+                        )
+                    )
+
+            if member.return_type is not None:
+                baked_return = str(entry.get("return_type") or "")
+                if baked_return != member.return_type:
+                    counts.signature += 1
+                    findings.append(
+                        Finding(
+                            oracle.name,
+                            member.name,
+                            "signature",
+                            f"expected return type {member.return_type!r}, baked {baked_return!r}",
+                        )
+                    )
+
+    for name in baked_methods:
+        if name not in oracle_method_names:
+            counts.extra += 1
+            findings.append(
+                Finding(oracle.name, name, "extra", "method served that the independent oracle never found")
+            )
+    for name in baked_props:
+        if name not in oracle_prop_names:
+            counts.extra += 1
+            findings.append(
+                Finding(oracle.name, name, "extra", "property served that the independent oracle never found")
+            )
+    for name in baked_enum:
+        if name not in oracle_enum_names:
+            counts.extra += 1
+            findings.append(
+                Finding(
+                    oracle.name, name, "extra", "enum member served that the independent oracle never found"
+                )
+            )
+
+    return counts, findings
+
+
+def diff_language(
+    symbols: Sequence[OracleSymbol], baked_types: Sequence[Mapping[str, Any]]
+) -> tuple[DiffCounts, list[Finding]]:
+    """Diff every oracle symbol against the baked fixture's types of the same bare name."""
+    baked_by_name: dict[str, Mapping[str, Any]] = {str(t.get("name")): t for t in baked_types}
+    total = DiffCounts()
+    findings: list[Finding] = []
+    for symbol in symbols:
+        counts, found = diff_symbol(symbol, baked_by_name.get(symbol.name))
+        total.add(counts)
+        findings.extend(found)
+    return total, findings
+
+
+# ---------------------------------------------------------------------------------------------------------------
+# The extractor-version gate: a fixture below the current schema fails outright, independent of the diff.
+# ---------------------------------------------------------------------------------------------------------------
+
+
+def check_extractor_version(fixture: Mapping[str, Any], *, current_version: int) -> str | None:
+    """None when the fixture's own ``extractor_version`` is at least ``current_version``; else the reason."""
+    version = fixture.get("extractor_version")
+    if not isinstance(version, int) or isinstance(version, bool) or version < current_version:
+        return f"extractor_version {version!r} is below the current schema {current_version}"
+    return None
+
+
+# ---------------------------------------------------------------------------------------------------------------
+# Ceilings: per-language, per-category, absolute error-count ceilings. 0 by default -- any real
+# disagreement fails -- exactly the bar a hand-written offline micro-library must clear.
+# ---------------------------------------------------------------------------------------------------------------
+
+LANGUAGE_ERROR_CEILINGS: dict[str, dict[str, int]] = {
+    language: {category: 0 for category in CATEGORIES}
+    for language in ("python", "typescript", "javascript", "go", "rust", "java", "net", "dotnet", "cpp")
+}
+
+
+def load_ceilings(path: Path | None) -> dict[str, dict[str, int]]:
+    """``LANGUAGE_ERROR_CEILINGS``, overridden per language/category by ``path`` (a JSON object), when given."""
+    ceilings = {language: dict(rates) for language, rates in LANGUAGE_ERROR_CEILINGS.items()}
+    if path is not None:
+        overrides = json.loads(Path(path).read_text(encoding="utf-8"))
+        if not isinstance(overrides, dict):
+            raise Refused(f"{path} is not a JSON object of language -> {{category: ceiling}}")
+        for language, rates in overrides.items():
+            if not isinstance(rates, dict):
+                raise Refused(f"{path}: {language!r} is not an object of category -> ceiling")
+            bucket = ceilings.setdefault(language, {category: 0 for category in CATEGORIES})
+            bucket.update({str(k): int(v) for k, v in rates.items()})
+    return ceilings
+
+
+def evaluate_ceilings(counts: DiffCounts, ceilings: Mapping[str, int]) -> list[str]:
+    """The reasons ``counts`` exceeds ``ceilings``, or ``[]`` when every category is within its ceiling."""
+    reasons: list[str] = []
+    for category in CATEGORIES:
+        count = getattr(counts, category)
+        ceiling = ceilings.get(category, 0)
+        if count > ceiling:
+            reasons.append(f"{category} count {count} exceeds the ceiling {ceiling}")
+    return reasons
+
+
+# ---------------------------------------------------------------------------------------------------------------
+# One pilot
+# ---------------------------------------------------------------------------------------------------------------
+
+
+@dataclass
+class PilotReport:
+    pilot: str
+    language: str
+    extractor_version_reason: str | None
+    counts: dict[str, int]
+    reasons: list[str]
+    findings: list[dict[str, str]]
+
+    @property
+    def passed(self) -> bool:
+        return self.extractor_version_reason is None and not self.reasons
+
+    def as_dict(self) -> dict[str, Any]:
+        return {
+            "pilot": self.pilot,
+            "language": self.language,
+            "status": "pass" if self.passed else "fail",
+            "extractor_version_reason": self.extractor_version_reason,
+            "counts": self.counts,
+            "reasons": self.reasons,
+            "findings": self.findings,
+        }
+
+
+def verify_pilot(
+    *,
+    pilot: str,
+    language: str,
+    fixture: Mapping[str, Any],
+    symbols: Sequence[OracleSymbol],
+    ceilings: Mapping[str, Mapping[str, int]],
+    require_extractor_version: bool,
+    current_extractor_version: int,
+) -> PilotReport:
+    """Diff ``symbols`` (the independent oracle) against ``fixture`` (the baked data) and gate the result."""
+    version_reason = (
+        check_extractor_version(fixture, current_version=current_extractor_version)
+        if require_extractor_version
+        else None
+    )
+    total, findings = diff_language(symbols, fixture.get("types") or [])
+    reasons = evaluate_ceilings(total, ceilings.get(language, {category: 0 for category in CATEGORIES}))
+    return PilotReport(
+        pilot=pilot,
+        language=language,
+        extractor_version_reason=version_reason,
+        counts=total.as_dict(),
+        reasons=reasons,
+        findings=[finding.as_dict() for finding in findings],
+    )
+
+
+# ---------------------------------------------------------------------------------------------------------------
+# Enumerators. Only Python is real tooling; every other platform is a named, honest refusal (see the
+# module docstring) until a follow-up card wires its own real compiler/reflection/AST reader in.
+# ---------------------------------------------------------------------------------------------------------------
+
+
+def _run_git(
+    args: list[str], *, cwd: Path, run: Callable[..., Any] | None = None
+) -> subprocess.CompletedProcess[str]:
+    runner = run or subprocess.run
+    return runner(
+        args, cwd=cwd, capture_output=True, text=True, encoding="utf-8", errors="replace", check=False
+    )
+
+
+def clone_pinned_commit(
+    repository: str, commit: str, library_dir: Path, *, run: Callable[..., Any] | None = None
+) -> None:
+    """Shallow-fetch exactly one pinned commit of ``repository`` into ``library_dir``.
+
+    Mirrors ``src/foss_mcp/indexing/example_verifier.py``'s own ``_clone_pinned_commit`` git plumbing
+    (init, remote add, fetch --depth 1, checkout) -- that helper is private to its own module, so this
+    is a small, deliberate duplication rather than an import across an unrelated package boundary.
+    """
+    library_dir.mkdir(parents=True, exist_ok=True)
+    repo_url = f"https://github.com/{repository}.git"
+
+    init = _run_git(["git", "init"], cwd=library_dir, run=run)
+    if init.returncode != 0:
+        raise RuntimeError(f"git init failed in {library_dir}:\n{init.stdout}\n{init.stderr}")
+
+    remote = _run_git(["git", "remote", "add", "origin", repo_url], cwd=library_dir, run=run)
+    if remote.returncode != 0:
+        raise RuntimeError(f"git remote add failed for {repo_url}:\n{remote.stdout}\n{remote.stderr}")
+
+    fetch = _run_git(["git", "fetch", "--depth", "1", "origin", commit], cwd=library_dir, run=run)
+    if fetch.returncode != 0:
+        raise RuntimeError(
+            f"git fetch of commit {commit} from {repo_url} failed:\n{fetch.stdout}\n{fetch.stderr}"
+        )
+
+    checkout = _run_git(["git", "checkout", commit], cwd=library_dir, run=run)
+    if checkout.returncode != 0:
+        raise RuntimeError(f"git checkout of commit {commit} failed:\n{checkout.stdout}\n{checkout.stderr}")
+
+
+def _is_public_python_name(name: str) -> bool:
+    return not name.startswith("_") or (name.startswith("__") and name.endswith("__"))
+
+
+def _python_enum_bases(bases: list[Any]) -> bool:
+    import ast as _ast
+
+    names = {node.id for node in bases if isinstance(node, _ast.Name)}
+    names |= {node.attr for node in bases if isinstance(node, _ast.Attribute)}
+    return bool(names & {"Enum", "IntEnum", "Flag", "IntFlag", "StrEnum"})
+
+
+def _python_symbol_from_classdef(node: Any) -> OracleSymbol:
+    import ast as _ast
+
+    is_enum = _python_enum_bases(node.bases)
+    members: list[OracleMember] = []
+    for item in node.body:
+        if is_enum and isinstance(item, _ast.Assign):
+            for target in item.targets:
+                if isinstance(target, _ast.Name) and _is_public_python_name(target.id):
+                    value = None
+                    try:
+                        value = _ast.literal_eval(item.value)
+                    except Exception:
+                        value = None
+                    members.append(
+                        OracleMember(
+                            name=target.id,
+                            kind="enum_value",
+                            enum_value=(str(value) if value is not None else None),
+                        )
+                    )
+            continue
+        if isinstance(item, _ast.FunctionDef | _ast.AsyncFunctionDef) and _is_public_python_name(item.name):
+            decorators = {
+                decorator.id if isinstance(decorator, _ast.Name) else getattr(decorator, "attr", "")
+                for decorator in item.decorator_list
+            }
+            is_static = "staticmethod" in decorators or "classmethod" in decorators
+            params = [arg.arg for arg in item.args.args if arg.arg != "self" and arg.arg != "cls"]
+            defaulted = set(params[len(params) - len(item.args.defaults) :]) if item.args.defaults else set()
+            members.append(
+                OracleMember(
+                    name=item.name,
+                    kind="method",
+                    params=tuple(OracleParam(name=p, has_default=p in defaulted) for p in params),
+                    is_static=is_static,
+                )
+            )
+    return OracleSymbol(name=node.name, kind="enum" if is_enum else "class", members=tuple(members))
+
+
+def enumerate_python(
+    repository: str, commit: str, library_dir: Path, *, run: Callable[..., Any] | None = None
+) -> list[OracleSymbol]:
+    """The real public API of a Python library, read with the standard library's own ``ast`` module.
+
+    Clones ``repository`` at ``commit`` into ``library_dir`` (unless it already looks checked out: a
+    ``.git`` directory already present), then parses every ``*.py`` file under it with ``ast.parse``
+    and collects every public, module-level ``ClassDef`` (and the ``Enum``/``IntEnum``/``Flag``
+    subclasses among them) as one ``OracleSymbol`` each. A file that fails to parse is skipped, never
+    silently merged into another file's symbols.
+    """
+    import ast as _ast
+
+    if not (library_dir / ".git").is_dir():
+        clone_pinned_commit(repository, commit, library_dir, run=run)
+
+    symbols: list[OracleSymbol] = []
+    for path in sorted(library_dir.rglob("*.py")):
+        if any(part in {"tests", "test", "examples", "docs"} for part in path.parts):
+            continue
+        try:
+            tree = _ast.parse(path.read_text(encoding="utf-8", errors="replace"))
+        except (SyntaxError, ValueError, UnicodeDecodeError):
+            continue
+        for node in tree.body:
+            if isinstance(node, _ast.ClassDef) and _is_public_python_name(node.name):
+                symbols.append(_python_symbol_from_classdef(node))
+    return symbols
+
+
+def _unimplemented_enumerator(platform: str) -> Enumerator:
+    def _enumerator(repository: str, commit: str, library_dir: Path) -> list[OracleSymbol]:
+        raise NotImplementedError(
+            f"no real {platform} enumerator is wired yet (TC-566 only wires Python's ast-based reader); "
+            f"supply one via Deps.enumerators[{platform!r}] before verifying a {platform} pilot"
+        )
+
+    return _enumerator
+
+
+DEFAULT_ENUMERATORS: dict[str, Enumerator] = {
+    "python": enumerate_python,
+    **{
+        platform: _unimplemented_enumerator(platform)
+        for platform in ("typescript", "javascript", "nodejs", "go", "rust", "java", "net", "dotnet", "cpp")
+    },
+}
+
+
+# ---------------------------------------------------------------------------------------------------------------
+# Command line
+# ---------------------------------------------------------------------------------------------------------------
+
+
+def parse_args(argv: list[str] | None) -> argparse.Namespace:
+    parser = argparse.ArgumentParser(
+        description="Diff every pilot's baked fixture against an independent, per-language oracle.",
+    )
+    parser.add_argument(
+        "--fixtures", type=Path, default=DEFAULT_FIXTURES, help="fixtures root (default tests/fixtures)"
+    )
+    parser.add_argument(
+        "--only",
+        action="append",
+        default=[],
+        metavar="FAMILY_PLATFORM",
+        help="verify only this pilot (repeatable)",
+    )
+    parser.add_argument(
+        "--ceilings-file", type=Path, default=None, help="a JSON override of LANGUAGE_ERROR_CEILINGS"
+    )
+    parser.add_argument(
+        "--library-root", type=Path, default=DEFAULT_LIBRARY_ROOT, help="where each pilot's library is cloned"
+    )
+    parser.add_argument(
+        "--report-dir", type=Path, default=DEFAULT_REPORT_DIR, help=f"where {REPORT_NAME} is written"
+    )
+    parser.add_argument(
+        "--no-require-extractor-version",
+        dest="require_extractor_version",
+        action="store_false",
+        default=True,
+        help="skip the extractor_version gate (never use this for a real release decision)",
+    )
+    return parser.parse_args(argv)
+
+
+def main(argv: list[str] | None = None, deps: Deps | None = None) -> int:
+    deps = deps or Deps(enumerators=DEFAULT_ENUMERATORS)
+    args = parse_args(argv)
+    try:
+        ceilings = load_ceilings(args.ceilings_file)
+        entries = chart.select_pilots(chart.load_pilots(), args.only)
+    except (Refused, ValueError, OSError) as exc:
+        print(f"source_differential: {exc}", file=sys.stderr)
+        return EXIT_REFUSED
+
+    reports: list[PilotReport] = []
+    for entry in entries:
+        key = chart.pilot_key(entry)
+        platform = str(entry["platform"])
+        fixture_path = args.fixtures / key / "api_surface.json"
+        try:
+            fixture = json.loads(fixture_path.read_text(encoding="utf-8"))
+        except (OSError, ValueError) as exc:
+            reports.append(
+                PilotReport(
+                    pilot=key,
+                    language=platform,
+                    extractor_version_reason=None,
+                    counts=DiffCounts().as_dict(),
+                    reasons=[f"could not read {fixture_path}: {type(exc).__name__}: {exc}"],
+                    findings=[],
+                )
+            )
+            continue
+
+        enumerator = deps.enumerators.get(platform)
+        if enumerator is None:
+            reports.append(
+                PilotReport(
+                    pilot=key,
+                    language=platform,
+                    extractor_version_reason=None,
+                    counts=DiffCounts().as_dict(),
+                    reasons=[f"no enumerator registered for platform {platform!r}"],
+                    findings=[],
+                )
+            )
+            continue
+
+        library = entry.get("library") if isinstance(entry.get("library"), dict) else {}
+        repository = str(library.get("repository", ""))
+        commit = str(library.get("commit", ""))
+        library_dir = args.library_root / key
+        try:
+            symbols = enumerator(repository, commit, library_dir)
+        except NotImplementedError as exc:
+            reports.append(
+                PilotReport(
+                    pilot=key,
+                    language=platform,
+                    extractor_version_reason=None,
+                    counts=DiffCounts().as_dict(),
+                    reasons=[str(exc)],
+                    findings=[],
+                )
+            )
+            continue
+
+        reports.append(
+            verify_pilot(
+                pilot=key,
+                language=platform,
+                fixture=fixture,
+                symbols=symbols,
+                ceilings=ceilings,
+                require_extractor_version=args.require_extractor_version,
+                current_extractor_version=run_extraction.EXTRACTOR_VERSION,
+            )
+        )
+
+    args.report_dir.mkdir(parents=True, exist_ok=True)
+    document = {
+        "schema_version": SCHEMA_VERSION,
+        "verdict": "PASS" if reports and all(report.passed for report in reports) else "FAIL",
+        "pilots": [report.as_dict() for report in reports],
+    }
+    (args.report_dir / REPORT_NAME).write_text(
+        json.dumps(document, indent=2, sort_keys=True) + "\n", encoding="utf-8", newline="\n"
+    )
+    for report in reports:
+        status = "pass" if report.passed else "fail"
+        print(f"source_differential: {report.pilot} ({report.language}): {status}")
+        if report.extractor_version_reason:
+            print(f"    reason: {report.extractor_version_reason}")
+        for reason in report.reasons:
+            print(f"    reason: {reason}")
+    print(
+        f"verdict: {document['verdict']} ({sum(1 for r in reports if r.passed)} of {len(reports)} pilots passed)"
+    )
+    return 0 if document["verdict"] == "PASS" else EXIT_FAILED
+
+
+if __name__ == "__main__":
+    sys.exit(main())

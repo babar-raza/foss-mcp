@@ -430,12 +430,20 @@ def test_main_resolves_the_recommended_cap_and_feeds_readme_names() -> None:
     assert "names_used_in_examples(" in source
 
 
-def test_extractor_version_is_a_defined_integer_of_at_least_two() -> None:
+def test_extractor_version_is_exactly_five() -> None:
+    """RD3-154 W5 (TC-566): restores the exact-value pin this assertion originally made (``== 2``,
+    weakened by TC-521's rework to a loose ``>= 2`` so the test would survive every future bump
+    without anyone noticing a real schema change). The round-3 register is explicit that this must
+    be restored, not left loose: a permanent fidelity gate that cannot tell "the schema changed" from
+    "the schema never changed" is exactly the kind of blind spot this card closes. The literal below
+    is deliberately re-pinned by hand on every EXTRACTOR_VERSION bump, the same way every other
+    exact-number pin in this project's test suite is (e.g. RECOMMENDED_MAX_TYPES, MIN_FUNCTION_ENTRIES).
+    """
     assert isinstance(run_extraction.EXTRACTOR_VERSION, int)
     assert not isinstance(run_extraction.EXTRACTOR_VERSION, bool)
-    assert run_extraction.EXTRACTOR_VERSION >= 2
+    assert run_extraction.EXTRACTOR_VERSION == 5
     text = (REPO_ROOT / "src" / "foss_mcp" / "extraction" / "run_extraction.py").read_text(encoding="utf-8")
-    assert re.search(r"^EXTRACTOR_VERSION = \d+$", text, re.MULTILINE)
+    assert re.search(r"^EXTRACTOR_VERSION = 5$", text, re.MULTILINE)
     assert re.search(r"^README_KEEP_FRACTION = 0\.7$", text, re.MULTILINE)
 
 

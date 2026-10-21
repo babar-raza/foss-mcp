@@ -68,6 +68,7 @@ from typing import Any
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 _DEPLOY_DIR = REPO_ROOT / "scripts" / "deploy"
+_SRC = REPO_ROOT / "src"
 PROOF_SCRIPT = REPO_ROOT / "scripts" / "poc" / "pilot_workflow_proof.py"
 DEFAULT_FIXTURES = REPO_ROOT / "tests" / "fixtures"
 DEFAULT_MANIFESTS = REPO_ROOT / "infra" / "demo-manifests"
@@ -79,9 +80,21 @@ if str(_DEPLOY_DIR) not in sys.path:
 if str(Path(__file__).resolve().parent) not in sys.path:
     # scripts/release is not a package either; served_provenance sits beside this file.
     sys.path.insert(0, str(Path(__file__).resolve().parent))
+if str(_SRC) not in sys.path:
+    # foss_mcp is not an installed package; the gate must also run as a plain script.
+    sys.path.insert(0, str(_SRC))
 
 import pilots as chart  # noqa: E402
 import served_provenance  # noqa: E402
+
+from foss_mcp.extraction.run_extraction import EXTRACTOR_VERSION  # noqa: E402
+
+# TC-566 (RD3-150/RD3-154): a real switch. When True (the mandated default) the gate refuses to pass
+# a pilot whose committed fixture carries an extractor_version below the current schema -- the exact
+# blind spot that let 15 of 32 fixtures ship from a stale extractor undetected. Flipping this to False
+# restores the pre-card behavior (no fixture-version check at all); the card's negative control does
+# exactly that, so the gate tests that feed a fixture without extractor_version must then fail.
+REQUIRE_EXTRACTOR_VERSION = True
 
 SCHEMA_VERSION = 1
 SUMMARY_NAME = "summary.json"
@@ -838,7 +851,35 @@ def count_statuses(entries: list[dict[str, Any]]) -> dict[str, int]:
     }
 
 
+def check_extractor_version(entry: dict[str, Any], fixtures: Path, key: str) -> str | None:
+    """None when the pilot's committed fixture carries ``extractor_version >= EXTRACTOR_VERSION``.
+
+    Reads ``extractor_version`` from ``<fixtures>/<key>/api_surface.json`` directly -- never through
+    the extractor's own code path -- and compares it with ``EXTRACTOR_VERSION``
+    (``src/foss_mcp/extraction/run_extraction.py``, imported, never retyped here). A missing, non-
+    integer or stale value names the pilot and is a gate failure, never a silent pass.
+    """
+    path = fixtures / key / "api_surface.json"
+    try:
+        fixture = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, ValueError) as exc:
+        return f"{key}: could not read {path} to check extractor_version: {type(exc).__name__}: {exc}"
+    version = fixture.get("extractor_version") if isinstance(fixture, dict) else None
+    if not isinstance(version, int) or isinstance(version, bool) or version < EXTRACTOR_VERSION:
+        return (
+            f"{key}: fixture extractor_version {version!r} is below the current schema "
+            f"{EXTRACTOR_VERSION} ({path})"
+        )
+    return None
+
+
 def _drive(entry: dict[str, Any], ctx: Context, run: PilotRun) -> None:
+    if REQUIRE_EXTRACTOR_VERSION:
+        stale = check_extractor_version(entry, ctx.fixtures, run.key)
+        if stale is not None:
+            run.reasons.append(stale)
+            return
+
     try:
         pilot = ctx.load_pilot(run.key)
     except Exception as exc:

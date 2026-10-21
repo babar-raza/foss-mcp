@@ -218,6 +218,15 @@ def test_core_hooks_path_is_configured():
     at it - git otherwise only looks in .git/hooks/, which is untracked and
     per-clone. Nothing else in this repository reports whether that has been
     done, so this is the only place it is asserted.
+
+    RD3-152/RD3-170 (TC-566): the Claude Code harness sets core.hooksPath to an ABSOLUTE path whenever
+    it creates a worker worktree (SUP-5's finding) - and that absolute path may name either this
+    worktree's own ``.githooks`` directory or the main checkout's (worktrees of the same repository
+    share one git history, so an unmodified tracked file is byte-identical in both). Either way git
+    reads and runs the exact same versioned hook content, so this test accepts both forms: the literal
+    relative ``.githooks``, or an absolute path that (a) exists, (b) is literally named ``.githooks``,
+    and (c) holds exactly the same hook files, byte for byte, as this clone's own ``.githooks`` - never
+    a stray directory, a typo, or no value at all.
     """
     result = subprocess.run(
         ["git", "config", "--get", "core.hooksPath"],
@@ -230,9 +239,29 @@ def test_core_hooks_path_is_configured():
         "git config core.hooksPath is not set at all - versioned hooks under "
         f".githooks/ will never run.\nstderr={result.stderr}"
     )
-    assert result.stdout.strip() == ".githooks", (
-        f"core.hooksPath is {result.stdout.strip()!r}, expected '.githooks'"
+    configured = result.stdout.strip()
+    if configured == ".githooks":
+        return
+    configured_path = Path(configured)
+    assert configured_path.is_absolute() and configured_path.is_dir(), (
+        f"core.hooksPath is {configured!r} - expected the relative '.githooks' or an absolute path "
+        "naming an existing directory"
     )
+    assert configured_path.name == ".githooks", (
+        f"core.hooksPath {configured!r} is an absolute path whose last component is not '.githooks'"
+    )
+    own = REPO_ROOT / ".githooks"
+    own_files = sorted(path.name for path in own.iterdir() if path.is_file())
+    configured_files = sorted(path.name for path in configured_path.iterdir() if path.is_file())
+    assert configured_files == own_files, (
+        f"core.hooksPath {configured!r} does not hold the same hook files as this clone's own "
+        f".githooks ({own_files} expected, found {configured_files})"
+    )
+    for name in own_files:
+        assert (configured_path / name).read_bytes() == (own / name).read_bytes(), (
+            f"core.hooksPath {configured!r}'s {name!r} is not byte-identical to this clone's own "
+            f".githooks/{name} - it names a different, stale hooks directory"
+        )
 
 
 def test_gitlab_mirror_remote_is_recognized_as_this_project_not_refused(tmp_path):

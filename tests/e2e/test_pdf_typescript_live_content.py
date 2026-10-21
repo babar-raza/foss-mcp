@@ -65,6 +65,7 @@ from __future__ import annotations
 
 import json
 import subprocess
+import sys
 import time
 from collections.abc import Iterator
 from pathlib import Path
@@ -74,6 +75,23 @@ import pytest
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 COMPOSE_FILE = REPO_ROOT / "docker-compose.yml"
+
+_DEPLOY_DIR = REPO_ROOT / "scripts" / "deploy"
+if str(_DEPLOY_DIR) not in sys.path:
+    # scripts/deploy is not a package; its pilots module owns reading the chart's pilot list, which
+    # is also the one place TC-566 wants this pilot's library commit pin read from - not a literal.
+    sys.path.insert(0, str(_DEPLOY_DIR))
+
+import pilots as _chart  # noqa: E402
+
+
+def _chart_library_commit(family: str, platform: str) -> str:
+    entry = next(
+        pilot for pilot in _chart.load_pilots() if pilot["family"] == family and pilot["platform"] == platform
+    )
+    return str(entry["library"]["commit"])
+
+
 PROJECT_NAME = "foss-mcp-e2e-tc098"
 BASE_URL = "http://127.0.0.1:8081"
 MCP_PATH = "/mcp"
@@ -93,8 +111,10 @@ PROTOCOL_VERSION = "2025-06-18"
 # containing this exact string is genuine, falsifiable proof of real content, never a guess.
 REAL_SYMBOL = "page.Page"
 # TC-567: one commit since TC-550 re-extracted at the chart pin (was c672b39 for symbols). Every chunk of
-# the baked generation - API symbols, documentation and examples - records this one commit.
-REAL_SOURCE_COMMIT = "155bfc7a33f0ba23fb4252b6ba201828b02a5b9d"
+# the baked generation - API symbols, documentation and examples - records this one commit. TC-566: read
+# from the chart (infra/helm/foss-mcp/values.yaml) rather than retyped here, so a future re-pin of the
+# chart's pdf/typescript commit can never silently diverge from what this test expects.
+REAL_SOURCE_COMMIT = _chart_library_commit("pdf", "typescript")
 
 # "page.Page" is a real "class_declaration" entry, not a constant - chunk_builder emits a
 # "Methods:" section (never "Value:") for it. "RemoveAnnotation" is a real method genuinely

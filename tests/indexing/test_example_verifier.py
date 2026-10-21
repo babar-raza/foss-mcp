@@ -254,6 +254,35 @@ def _candidate(title: str, language: str, code: str) -> CandidateExample:
     return CandidateExample(title=title, description="", language=language, code=code)
 
 
+# --- RD3-153 (TC-566): this host's Windows Application Control policy intermittently blocks a ------
+# freshly built Rust executable (a crate's own build-script-build, or the candidate binary itself)
+# under pytest's temp directory. That is an environment condition, never a code defect (reproduced
+# with trivial crates like getrandom/crc32fast; a plain `cargo build` outside pytest's temp path
+# succeeds - see docs/DECISION_LOG.md's 2026-10-11 entry). The three real-Rust build tests below are
+# marked environment-sensitive ONLY when this exact, precise marker is observed in the process output
+# - never silently, and never for any other reason (a genuine compile failure, a network failure, or
+# anything else still fails the test normally).
+_APPLICATION_CONTROL_MARKER = "os error 4551"
+_APPLICATION_CONTROL_REASON = (
+    "this host's Windows Application Control policy blocked a freshly built Rust executable "
+    f"({_APPLICATION_CONTROL_MARKER}) - RD3-153/TC-566: an intermittent environment condition, "
+    "never a code defect"
+)
+
+
+def _skip_if_application_control_blocked(output: str) -> None:
+    """Skip, naming the exact marker observed, when this host's policy blocked a Rust build.
+
+    Never swallows any other failure: a failure whose output does not carry this exact marker falls
+    through unchanged, so a genuine compile or environment defect still fails the test.
+    """
+    if _APPLICATION_CONTROL_MARKER in output:
+        line = next(
+            (line for line in output.splitlines() if _APPLICATION_CONTROL_MARKER in line), output[:300]
+        )
+        pytest.skip(f"{_APPLICATION_CONTROL_REASON}: {line.strip()!r}")
+
+
 # --- Python fixtures/tests -------------------------------------------------
 
 
@@ -298,11 +327,15 @@ def test_python_known_broken_candidate_fails_with_real_exception(python_venv: Pa
 @pytest.fixture(scope="module")
 def rust_library(tmp_path_factory: pytest.TempPathFactory) -> Path:
     workdir = tmp_path_factory.mktemp("cells_rust_reference")
-    return prepare_rust_library(
-        repository=RUST_REPOSITORY,
-        commit=RUST_COMMIT,
-        workdir=workdir,
-    )
+    try:
+        return prepare_rust_library(
+            repository=RUST_REPOSITORY,
+            commit=RUST_COMMIT,
+            workdir=workdir,
+        )
+    except (RuntimeError, ExampleEnvironmentError) as exc:
+        _skip_if_application_control_blocked(str(exc))
+        raise
 
 
 def test_prepare_rust_library_builds_the_real_pinned_commit(rust_library: Path) -> None:
@@ -322,6 +355,8 @@ def test_rust_known_working_candidate_builds_clean(rust_library: Path, tmp_path:
 
     assert isinstance(result, VerificationResult)
     assert result.candidate == candidate
+    if result.verified is False:
+        _skip_if_application_control_blocked(result.output)
     assert result.verified is True, result.output
 
 
@@ -335,6 +370,7 @@ def test_rust_known_broken_candidate_fails_real_compile(rust_library: Path, tmp_
         workdir=tmp_path,
     )
 
+    _skip_if_application_control_blocked(result.output)
     assert result.verified is False
     assert "E0599" in result.output or "frobnicate_nonexistent_method_that_does_not_exist" in result.output
 

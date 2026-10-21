@@ -86,6 +86,19 @@ def entry_of(key: str) -> dict[str, Any]:
     return next(entry for entry in ENTRIES if chart.pilot_key(entry) == key)
 
 
+def _write_fixture(fixtures_root: Path, key: str, **extra: Any) -> None:
+    """A minimal valid ``api_surface.json`` for ``key`` under ``fixtures_root``, carrying a current
+    ``extractor_version`` (TC-566: REQUIRE_EXTRACTOR_VERSION) so a test that points ``--fixtures`` at
+    a throwaway directory is not refused by the mandatory fixture-version check before anything else
+    in the test runs.
+    """
+    directory = fixtures_root / key
+    directory.mkdir(parents=True, exist_ok=True)
+    document: dict[str, Any] = {"extractor_version": gate.EXTRACTOR_VERSION, "types": []}
+    document.update(extra)
+    (directory / "api_surface.json").write_text(json.dumps(document), encoding="utf-8")
+
+
 def name_of(key: str) -> str:
     return gate.container_name(entry_of(key), RUN_ID)
 
@@ -914,6 +927,7 @@ def test_cleanup_runs_when_the_run_is_interrupted(world, tmp_path, capsys):
 
 
 def test_run_pilot_removes_its_container_when_a_keyboard_interrupt_passes_through(world, tmp_path):
+    _write_fixture(tmp_path, FIRST)
     ctx = gate.Context(
         image=IMAGE,
         memory="256m",
@@ -997,6 +1011,7 @@ def test_the_default_wiring_calls_the_real_proof_entry_points(world, tmp_path, m
     monkeypatch.setattr(proof, "run_checks", fake_checks)
     deps = world.deps(client_factory=None, proof_runner=None, pilot_loader=None)
     fixtures = tmp_path / "fixtures"
+    _write_fixture(fixtures, FIRST)
     argv = [
         "--image",
         IMAGE,
@@ -1028,7 +1043,8 @@ def test_the_real_proof_runs_end_to_end_against_a_scripted_server(world, tmp_pat
     for fixture, entries in types.items():
         (root / fixture).mkdir(parents=True)
         (root / fixture / "api_surface.json").write_text(
-            json.dumps({"source_commit": sha, "types": entries}), encoding="utf-8"
+            json.dumps({"source_commit": sha, "extractor_version": gate.EXTRACTOR_VERSION, "types": entries}),
+            encoding="utf-8",
         )
     scope = {"family": "cells", "platform": "rust", "source_kind": "self_extracted"}
     generation = "cells::rust::self_extracted::gen-1"
@@ -1195,6 +1211,7 @@ def test_the_default_runner_is_served_provenance_run_probes(world, tmp_path, mon
 
     monkeypatch.setattr(gate.served_provenance, "run_probes", recorder)
     fixtures = tmp_path / "fixtures"
+    _write_fixture(fixtures, FIRST)
     assert run_gate(world, tmp_path, "--fixtures", str(fixtures), provenance_runner=None) == 0
     assert seen == [
         {
@@ -1233,6 +1250,78 @@ def test_gate_source_imports_and_calls_the_provenance_module():
     ]
     called = {call.func.id for call in _calls_of(run_probes) if isinstance(call.func, ast.Name)}
     assert {"probe_generation", "probe_signatures"} <= called
+
+
+# --- TC-566: the mandated REQUIRE_EXTRACTOR_VERSION switch (RD3-150/RD3-154) ------------------------
+
+
+def test_require_extractor_version_defaults_to_true():
+    assert gate.REQUIRE_EXTRACTOR_VERSION is True
+
+
+def test_check_extractor_version_accepts_the_current_schema(tmp_path):
+    _write_fixture(tmp_path, FIRST, extractor_version=gate.EXTRACTOR_VERSION)
+    assert gate.check_extractor_version(entry_of(FIRST), tmp_path, FIRST) is None
+
+
+def test_check_extractor_version_refuses_a_stale_fixture_and_names_the_pilot(tmp_path):
+    _write_fixture(tmp_path, FIRST, extractor_version=gate.EXTRACTOR_VERSION - 1)
+    reason = gate.check_extractor_version(entry_of(FIRST), tmp_path, FIRST)
+    assert reason is not None
+    assert FIRST in reason
+    assert str(gate.EXTRACTOR_VERSION) in reason
+
+
+def test_check_extractor_version_refuses_a_fixture_with_no_version_key(tmp_path):
+    directory = tmp_path / FIRST
+    directory.mkdir(parents=True)
+    (directory / "api_surface.json").write_text(json.dumps({"types": []}), encoding="utf-8")
+    reason = gate.check_extractor_version(entry_of(FIRST), tmp_path, FIRST)
+    assert reason is not None and FIRST in reason
+
+
+def test_check_extractor_version_refuses_an_unreadable_fixture(tmp_path):
+    reason = gate.check_extractor_version(entry_of(FIRST), tmp_path, FIRST)
+    assert reason is not None and "api_surface.json" in reason
+
+
+def test_a_stale_fixture_fails_the_pilot_before_any_container_starts(world, tmp_path):
+    fixtures = tmp_path / "fixtures"
+    _write_fixture(fixtures, FIRST, extractor_version=1)
+    assert run_gate(world, tmp_path, "--fixtures", str(fixtures)) == 1
+    pilot = summary_of(tmp_path)["pilots"][0]
+    assert pilot["status"] == "fail"
+    assert any("extractor_version" in reason and FIRST in reason for reason in pilot["reasons"])
+    assert world.docker_run_calls() == [], "a stale fixture must never even start a container"
+
+
+def test_a_missing_extractor_version_key_fails_the_pilot(world, tmp_path):
+    fixtures = tmp_path / "fixtures"
+    directory = fixtures / FIRST
+    directory.mkdir(parents=True)
+    (directory / "api_surface.json").write_text(json.dumps({"types": []}), encoding="utf-8")
+    assert run_gate(world, tmp_path, "--fixtures", str(fixtures)) == 1
+    pilot = summary_of(tmp_path)["pilots"][0]
+    assert pilot["status"] == "fail"
+    assert any("extractor_version" in reason for reason in pilot["reasons"])
+
+
+def test_turning_the_switch_off_lets_a_stale_fixture_pass_again(world, tmp_path, monkeypatch):
+    """The negative control's exact falsifier: flipping REQUIRE_EXTRACTOR_VERSION to False must make a
+    stale-extractor fixture pass the gate again -- proving the switch genuinely gates this behavior.
+    """
+    fixtures = tmp_path / "fixtures"
+    _write_fixture(fixtures, FIRST, extractor_version=1)
+    monkeypatch.setattr(gate, "REQUIRE_EXTRACTOR_VERSION", False)
+    assert run_gate(world, tmp_path, "--fixtures", str(fixtures)) == 0
+    assert summary_of(tmp_path)["pilots"][0]["status"] == "pass"
+    assert world.docker_run_calls(), "with the switch off, the pilot's container is started as before"
+
+
+def test_the_extractor_version_is_imported_never_retyped():
+    source = GATE_SOURCE.read_text(encoding="utf-8")
+    assert "from foss_mcp.extraction.run_extraction import EXTRACTOR_VERSION" in source
+    assert "REQUIRE_EXTRACTOR_VERSION = True" in source
 
 
 def test_the_gate_adds_no_command_line_flag():
