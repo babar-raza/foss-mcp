@@ -224,17 +224,18 @@ says so.
   of its other words in the example, so "split a pdf into pages" or "bake a cake" get an honest miss. The
   product-family word never counts. Every example states in `match_basis` what its coverage number means. Ask with a
   few specific words to get a specific example.
-- **L-071** `get_product_reference` answers NotAvailable for the `formats` and `limitations` sections on every pilot.
-  No data source reaches these two sections, so the answer says so instead of inventing content; slides/python's
-  unsupported PDF export, for example, is not listed there. A peer has to read the README for supported formats.
+- **L-071** Fixed in this release (TC-507, TC-518, TC-542; review finding AGT-02, D-12): get_product_reference now
+  fills formats and limitations from the pilot's own indexed README sections (Key Capabilities, Scope and Limitations)
+  instead of answering a fixed NotAvailable, so a peer sees the real supported-format and limitation list for every
+  pilot that documents one.
 - **L-072** The four C++ pilots (pdf/cpp, cells/cpp, slides/cpp and email/cpp) have no package-registry
   check, because C++ has no package-manager coordinate to check. Their install answer says there is no
   package-manager install command and points to where the distribution notes are. A committed test requires the
   registry file to be absent for exactly these four pilots, so the gap cannot hide another one.
-- **L-080** `/readyz` needs no authentication, like any container probe, and answers only `ready` or `not ready`. It
-  reports ready when the pilot's documents are servable and does not judge how much content a pilot has: tex/python
-  is ready with 4 classes, and its extraction notice says why. The probe reads a cached result instead of parsing the
-  generation on every call.
+- **L-080** Fixed in this release (TC-506; review finding GRR-04, GRR-01): /readyz now requires real floors before
+  answering ready (at least 3 indexed symbols, 1 documentation chunk, and a generation whose scope, family and
+  platform match this deployment), so a near-empty or wrong-scope generation is reported not ready instead of
+  masquerading as healthy.
 - **L-089** The server describes each library at one pinned commit, but the install command installs the registry's
   current release, which can be older or newer. pdf/go's index is 66 commits past v0.9.0 and slides/python is 50
   commits past PyPI 26.8.0, so a peer may find a type in `search_symbols` that the installed package lacks. Every
@@ -251,8 +252,9 @@ says so.
   gate on signature quality, such as the share of empty types or zero-parameter methods. Signature fidelity in this
   release is pinned by per-language extractor tests, per-pilot fixture tests, and a re-run of the review harnesses on the
   final image. A signature defect in a pilot those tests do not sample could still ship.
-- **L-097** Go typed constants declared in `const (...)` groups are not extracted as enum members. Go pilots show the
-  named type but not its constant values, and the README examples use those values by name.
+- **L-097** Fixed in this release (TC-525, TC-535; review finding RST-08): Go typed constants declared in const (...)
+  groups are now folded into their owning type's Members list and indexed by source rather than by centrality, so the
+  named constant values the README examples use are retrievable through get_symbol and list_members.
 - **L-098** Over stdio, when the client closes stdin while requests are still running, the MCP SDK cancels those
   requests and their replies are lost. A client that waits for its replies before closing is not affected. The
   standalone image serves HTTP, where this does not apply.
@@ -260,20 +262,21 @@ says so.
   recommends for client compatibility. `get_symbol` also carries `raw_text`, the full indexed chunk, beside the parsed
   fields, so its answers are large (about 55 KB for pdf/net `Document`). Clients that read `structuredContent` can
   ignore the text.
-- **L-100** `/metrics` exposes two counters, queued and dropped usage events. The usage queue is bounded at 1,000
-  events (under 1 MB) and is not drained in the standalone image, so `usage_events_dropped` grows after 1,000 calls.
-  Tool-call log lines carry tool, correlation id, outcome and latency, but no pilot identity or error code. This is
-  enough to run a pilot, not to alert on.
-- **L-102** pdf/cpp's install section is NotAvailable, because C++ has no package-manager coordinate in its CMake
-  manifest. The answer points to `list_recent_changes`, whose 1.0.1 release note names the NuGet package
-  `Aspose.PDF.Cpp.FOSS`. C++ coordinates are not checked against any registry in this release.
+- **L-100** Fixed in this release (TC-509; review finding PS-03): /metrics now exposes a full Prometheus exposition
+  with family, platform, tool and outcome labels and histograms, not just the two queued and dropped usage-event
+  counters, and rejections and readiness failures are logged with a reason.
+- **L-102** Fixed in this release (TC-518, TC-542; review finding AGT-02, D-12): pdf/cpp's install section now carries
+  real build-from-source steps drawn from its README instead of answering NotAvailable, because C++ coordinates still
+  have no package-manager registry to check against in this release.
 - **L-105** Each pilot's index holds exactly one version, the pinned commit. `lookup` ignores version words in a
   question (such as "in version 0.1.0") and answers for the indexed version. Use `list_recent_changes` for release
   history and `get_product_reference` install for the indexed commit.
 - **L-106** There is no reverse discovery, such as "which method returns a Page". `search_symbols` matches names, not
   return types. It is planned as a later capability.
-- **L-107** No pilot has FAQ or troubleshooting content, because the upstream READMEs have none. `search_docs` answers
-  an honest miss for those categories.
+- **L-107** Fixed in this release (TC-515, TC-517, TC-562, TC-563; review finding RST-09): search_docs now classifies
+  documentation by the chunk's own section title rather than keyword hints, so troubleshooting and FAQ content that
+  exists in a pilot's README is served as such instead of collapsing into a single generic stub or an unrelated
+  category.
 - **L-108** Registry verification proves that a package name exists on its registry, not that it is published from the
   configured repository. PyPI `aspose-3d-foss` points to a different repository URL, and cells/typescript's generic
   `excel-cells` does not exist today, so its install answer already says not found, but it would be served as installable
@@ -307,13 +310,25 @@ says so.
   itself stays listed. This is a convenience view, not a separate member.
 - **L-127** `list_members` returns one flat list of member names without a kind per member. `lookup` answers in one of
   four shapes with no shape field, and clients tell them apart by their fields.
-- **L-128** No two indexed chunks have identical text. Long documentation sections are split into several chunks with
-  the same title, and pdf/typescript has 5 FAQ chunks that hold only the question, with the answer in the next chunk.
-  Search results can therefore show the same title more than once.
+- **L-128** Fixed in this release (TC-515, TC-533; review finding AGT-08, RST-12): Identical-text chunks are now
+  deduplicated before serving, and pdf/typescript's FAQ chunks, re-extracted at its single re-pinned commit by TC-533,
+  no longer split a question from its answer into separate same-titled chunks, so a search result no longer shows the
+  same title more than once for that case.
 - **L-129** A repeated `initialize` on an open HTTP session is accepted and replaces that session's client information
   (MCP SDK behaviour). It does not affect other sessions.
 - **L-133** The only pilot whose README example verifier added a library directory to the include path so that a quoted
   `#include` line compiles was removed from the image, so no pilot of the image is affected.
+- **L-137** The stdio and HTTP transports frame a malformed request line slightly differently, consistent with each
+  transport's own protocol; neither transport crashes, leaks data, or serves wrong content as a result. (Review
+  finding PS-09.)
+- **L-138** This release indexes verified examples only from each pilot's README fences; ingesting additional sources
+  such as repo sample programs, CHANGELOG.md or llms.md is deferred to a future release. (Review finding AGT-06.)
+- **L-139** Upstream agent_guidance that contradicts the indexed API is already served with an untrusted marker, which
+  the pre-production review confirmed is the correct behavior; selectively dropping such sections is not implemented
+  in this release. (Review finding AGT-10.)
+- **L-140** find_examples reaches a minority of a pilot's indexed types because verified examples are sourced only
+  from README fences in this release; this is a known coverage ceiling, not a retrieval defect, and is linked to the
+  same README-only sourcing decision recorded elsewhere in this section. (Review finding D-07.)
 - **tex/python** serves one verified example, not two. The pinned upstream library (aspose-tex-foss, commit 181015d2,
   which is also the upstream head) does not import: `src/aspose_tex/_input/catcode.py` has an IndentationError at line
   66, so no example that imports `aspose_tex` can run and none can be verified. The rest of the tex/python content is
@@ -331,6 +346,11 @@ says so.
 - **L-118** The chart does not `required()` the family and platform values, so an unset release falls back to pdf/net.
   The standalone entrypoint refuses to start without a valid pilot.
 
+- **L-134** All 40 pilots in this release are deployed from one image tag per gate, verified by the fleet-consistency
+  test at deploy time, not by a one-time manual check. (Review finding FK8S-04.)
+- **L-135** This release's own namespace retains only the generations its own retention policy keeps; pods or PVCs in
+  other namespaces on a shared cluster are outside this product's control. (Review finding FK8S-10.)
+
 ### Reported, not defects
 
 The reviews reported these, and they were checked and are not defects. They are listed so that every reported
@@ -346,6 +366,9 @@ finding has a published answer.
   identical queries give identical answers.
 - **L-132** Reported: `gatectl validate` failed during one audit. It was a transient mismatch while acceptance
   receipts were being written; `gatectl validate` passes on main and is run again at gate exit.
+
+- **L-136** A developer-tooling docstring in prove_pilots.py has stale wording from an earlier, smaller fleet size;
+  the script's behavior and constants are correct and unaffected. (Review finding FK8S-12.)
 
 ## 9. Deferred extraction improvements
 

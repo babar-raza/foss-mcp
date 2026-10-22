@@ -56,11 +56,15 @@ STANDALONE_IDS = (
     "L-128",
     "L-129",
     "L-133",
+    "L-137",
+    "L-138",
+    "L-139",
+    "L-140",
 )
 # Kubernetes chart only.
-KUBERNETES_IDS = ("L-115", "L-116", "L-117", "L-118")
+KUBERNETES_IDS = ("L-115", "L-116", "L-117", "L-118", "L-134", "L-135")
 # Reported and checked, not a defect.
-NOT_DEFECT_IDS = ("L-104", "L-130", "L-131", "L-132")
+NOT_DEFECT_IDS = ("L-104", "L-130", "L-131", "L-132", "L-136")
 
 ACCEPTED_LEDGER_IDS = STANDALONE_IDS + KUBERNETES_IDS + NOT_DEFECT_IDS
 
