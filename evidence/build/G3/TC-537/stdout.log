@@ -1,0 +1,266 @@
+
+===== CLEAN RUN 1 (host) =====
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-7b182948484d7df9\Scripts\python.exe -m pytest tests/deploy/test_preprod_review_register.py tests/deploy/test_release_known_limitations.py tests/deploy/test_release_deferred_extraction.py tests/deploy/test_removed_family_absent.py tests/deploy/test_pilot_roster.py -q -rfE "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-4u6fiujg\.junit-0.xml"
+--- stdout ---
+........................................................................ [ 13%]
+........................................................................ [ 26%]
+........................................................................ [ 39%]
+........................................................................ [ 52%]
+........................................................................ [ 65%]
+........................................................................ [ 78%]
+........................................................................ [ 91%]
+...............................................                          [100%]
+
+--- stderr ---
+
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-7b182948484d7df9\Scripts\python.exe -m pytest tests/deploy/test_preprod_review_register.py tests/deploy/test_release_known_limitations.py tests/deploy/test_release_deferred_extraction.py tests/deploy/test_verified_examples_coverage.py tests/deploy/test_build_review_ledger.py tests/test_layout.py tests/deploy/test_removed_family_absent.py tests/deploy/test_pilot_roster.py -q -rfE -p no:cacheprovider "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-4u6fiujg\.junit-1.xml"
+--- stdout ---
+........................................................................ [  9%]
+........................................................................ [ 19%]
+........................................................................ [ 29%]
+........................................................................ [ 38%]
+........................................................................ [ 48%]
+........................................................................ [ 58%]
+........................................................................ [ 68%]
+........................................................................ [ 77%]
+........................................................................ [ 87%]
+........................................................................ [ 97%]
+...................                                                      [100%]
+
+--- stderr ---
+
+
+===== CLEAN RUN 2 (host) =====
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-7b182948484d7df9\Scripts\python.exe -m pytest tests/deploy/test_preprod_review_register.py tests/deploy/test_release_known_limitations.py tests/deploy/test_release_deferred_extraction.py tests/deploy/test_removed_family_absent.py tests/deploy/test_pilot_roster.py -q -rfE "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-4u6fiujg\.junit-0.xml"
+--- stdout ---
+........................................................................ [ 13%]
+........................................................................ [ 26%]
+........................................................................ [ 39%]
+........................................................................ [ 52%]
+........................................................................ [ 65%]
+........................................................................ [ 78%]
+........................................................................ [ 91%]
+...............................................                          [100%]
+
+--- stderr ---
+
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-7b182948484d7df9\Scripts\python.exe -m pytest tests/deploy/test_preprod_review_register.py tests/deploy/test_release_known_limitations.py tests/deploy/test_release_deferred_extraction.py tests/deploy/test_verified_examples_coverage.py tests/deploy/test_build_review_ledger.py tests/test_layout.py tests/deploy/test_removed_family_absent.py tests/deploy/test_pilot_roster.py -q -rfE -p no:cacheprovider "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-4u6fiujg\.junit-1.xml"
+--- stdout ---
+........................................................................ [  9%]
+........................................................................ [ 19%]
+........................................................................ [ 29%]
+........................................................................ [ 38%]
+........................................................................ [ 48%]
+........................................................................ [ 58%]
+........................................................................ [ 68%]
+........................................................................ [ 77%]
+........................................................................ [ 87%]
+........................................................................ [ 97%]
+...................                                                      [100%]
+
+--- stderr ---
+
+
+===== NEGATIVE CONTROL (checks MUST now fail) =====
+mutated: M docs/PREPROD_REVIEW.md, ?? .junit-0.xml, ?? .junit-1.xml
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-7b182948484d7df9\Scripts\python.exe -m pytest tests/deploy/test_preprod_review_register.py tests/deploy/test_release_known_limitations.py tests/deploy/test_release_deferred_extraction.py tests/deploy/test_removed_family_absent.py tests/deploy/test_pilot_roster.py -q -rfE "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-4u6fiujg\.junit-0.xml"
+--- stdout ---
+...................FF................................................... [ 13%]
+.................................F...................................... [ 26%]
+..............................................F......................... [ 39%]
+........................................................................ [ 52%]
+........................................................................ [ 65%]
+........................................................................ [ 78%]
+........................................................................ [ 91%]
+...............................................                          [100%]
+================================== FAILURES ===================================
+_____________________________ test_no_row_is_open _____________________________
+
+    def test_no_row_is_open():
+        text = _doc()
+        for row in _gap_table_rows(text):
+            for cell in row:
+>               assert cell.upper() not in ("OPEN", "TODO", ""), f"row {row[0]!r} has an open cell: {row!r}"
+E               AssertionError: row 'GRR-01' has an open cell: ['GRR-01', 'P1', 'OPEN', 'TC-506', '-', 'S20a-d tests assert 503+WARNING on a wrong-scope generation; verified ACCEPTED in project/state.yaml.', "active generation's scope not checked against deployment"]
+E               assert 'OPEN' not in ('OPEN', 'TODO', '')
+E                +  where 'OPEN' = <built-in method upper of str object at 0x00000218D2B44BD0>()
+E                +    where <built-in method upper of str object at 0x00000218D2B44BD0> = 'OPEN'.upper
+
+tests\deploy\test_preprod_review_register.py:366: AssertionError
+_______________________ test_row_is_well_formed[GRR-01] _______________________
+
+finding_id = 'GRR-01'
+
+    @pytest.mark.parametrize("finding_id", EXPECTED_FINDING_IDS)
+    def test_row_is_well_formed(finding_id: str):
+        text = _doc()
+        by_id = _gap_table_by_id(text)
+        assert finding_id in by_id, f"{finding_id} is missing from the register table"
+        row = by_id[finding_id]
+        assert len(row) == 7, f"{finding_id} row has {len(row)} cells, expected 7"
+        _id, severity, status, cards, release, verification, finding = row
+        assert re.fullmatch(r"(GRR|FK8S|PS|ISOPROV|AGT|RST|D)-\d{2}", _id)
+        assert severity in ("P0", "P1", "P2", "P3"), f"{finding_id} severity {severity!r}"
+>       assert status in ("FIXED", "ACCEPTED"), f"{finding_id} status {status!r}"
+E       AssertionError: GRR-01 status 'OPEN'
+E       assert 'OPEN' in ('FIXED', 'ACCEPTED')
+
+tests\deploy\test_preprod_review_register.py:384: AssertionError
+_______ test_fixed_row_names_cards_that_exist_and_are_accepted[GRR-01] ________
+
+finding_id = 'GRR-01'
+
+    @pytest.mark.parametrize("finding_id", EXPECTED_FINDING_IDS)
+    def test_fixed_row_names_cards_that_exist_and_are_accepted(finding_id: str):
+        text = _doc()
+        row = _gap_table_by_id(text)[finding_id]
+        status, cards_cell = row[2], row[3]
+        card_status = _card_status_map()
+        if status == "FIXED":
+            assert cards_cell != "-", f"{finding_id} is FIXED but names no card"
+            cards = [c.strip() for c in cards_cell.split(",")]
+            for card in cards:
+                assert CARD_ID_RE.fullmatch(card), f"{finding_id} names a malformed card id {card!r}"
+                assert (PLANS_DIR / f"{card}.yaml").is_file(), (
+                    f"{finding_id} names {card}, which has no plan file"
+                )
+                assert card_status.get(card) == "ACCEPTED", (
+                    f"{finding_id} names {card}, whose state.yaml status is {card_status.get(card)!r}, not ACCEPTED"
+                )
+        else:
+>           assert status == "ACCEPTED"
+E           AssertionError: assert 'OPEN' == 'ACCEPTED'
+E             
+E             - ACCEPTED
+E             + OPEN
+
+tests\deploy\test_preprod_review_register.py:409: AssertionError
+____________ test_accepted_row_is_published_in_release_md[GRR-01] _____________
+
+finding_id = 'GRR-01'
+
+    @pytest.mark.parametrize("finding_id", EXPECTED_FINDING_IDS)
+    def test_accepted_row_is_published_in_release_md(finding_id: str):
+        text = _doc()
+        row = _gap_table_by_id(text)[finding_id]
+        status, release_cell = row[2], row[4]
+        if status == "FIXED":
+            assert release_cell == "-", f"{finding_id} is FIXED but names a release id {release_cell!r}"
+            return
+>       assert status == "ACCEPTED"
+E       AssertionError: assert 'OPEN' == 'ACCEPTED'
+E         
+E         - ACCEPTED
+E         + OPEN
+
+tests\deploy\test_preprod_review_register.py:425: AssertionError
+=========================== short test summary info ===========================
+FAILED tests/deploy/test_preprod_review_register.py::test_no_row_is_open - As...
+FAILED tests/deploy/test_preprod_review_register.py::test_row_is_well_formed[GRR-01]
+FAILED tests/deploy/test_preprod_review_register.py::test_fixed_row_names_cards_that_exist_and_are_accepted[GRR-01]
+FAILED tests/deploy/test_preprod_review_register.py::test_accepted_row_is_published_in_release_md[GRR-01]
+
+--- stderr ---
+
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-7b182948484d7df9\Scripts\python.exe -m pytest tests/deploy/test_preprod_review_register.py tests/deploy/test_release_known_limitations.py tests/deploy/test_release_deferred_extraction.py tests/deploy/test_verified_examples_coverage.py tests/deploy/test_build_review_ledger.py tests/test_layout.py tests/deploy/test_removed_family_absent.py tests/deploy/test_pilot_roster.py -q -rfE -p no:cacheprovider "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-4u6fiujg\.junit-1.xml"
+--- stdout ---
+...................FF................................................... [  9%]
+.................................F...................................... [ 19%]
+..............................................F......................... [ 29%]
+........................................................................ [ 38%]
+........................................................................ [ 48%]
+........................................................................ [ 58%]
+........................................................................ [ 68%]
+........................................................................ [ 77%]
+........................................................................ [ 87%]
+........................................................................ [ 97%]
+...................                                                      [100%]
+================================== FAILURES ===================================
+_____________________________ test_no_row_is_open _____________________________
+
+    def test_no_row_is_open():
+        text = _doc()
+        for row in _gap_table_rows(text):
+            for cell in row:
+>               assert cell.upper() not in ("OPEN", "TODO", ""), f"row {row[0]!r} has an open cell: {row!r}"
+E               AssertionError: row 'GRR-01' has an open cell: ['GRR-01', 'P1', 'OPEN', 'TC-506', '-', 'S20a-d tests assert 503+WARNING on a wrong-scope generation; verified ACCEPTED in project/state.yaml.', "active generation's scope not checked against deployment"]
+E               assert 'OPEN' not in ('OPEN', 'TODO', '')
+E                +  where 'OPEN' = <built-in method upper of str object at 0x0000028CA45F44E0>()
+E                +    where <built-in method upper of str object at 0x0000028CA45F44E0> = 'OPEN'.upper
+
+tests\deploy\test_preprod_review_register.py:366: AssertionError
+_______________________ test_row_is_well_formed[GRR-01] _______________________
+
+finding_id = 'GRR-01'
+
+    @pytest.mark.parametrize("finding_id", EXPECTED_FINDING_IDS)
+    def test_row_is_well_formed(finding_id: str):
+        text = _doc()
+        by_id = _gap_table_by_id(text)
+        assert finding_id in by_id, f"{finding_id} is missing from the register table"
+        row = by_id[finding_id]
+        assert len(row) == 7, f"{finding_id} row has {len(row)} cells, expected 7"
+        _id, severity, status, cards, release, verification, finding = row
+        assert re.fullmatch(r"(GRR|FK8S|PS|ISOPROV|AGT|RST|D)-\d{2}", _id)
+        assert severity in ("P0", "P1", "P2", "P3"), f"{finding_id} severity {severity!r}"
+>       assert status in ("FIXED", "ACCEPTED"), f"{finding_id} status {status!r}"
+E       AssertionError: GRR-01 status 'OPEN'
+E       assert 'OPEN' in ('FIXED', 'ACCEPTED')
+
+tests\deploy\test_preprod_review_register.py:384: AssertionError
+_______ test_fixed_row_names_cards_that_exist_and_are_accepted[GRR-01] ________
+
+finding_id = 'GRR-01'
+
+    @pytest.mark.parametrize("finding_id", EXPECTED_FINDING_IDS)
+    def test_fixed_row_names_cards_that_exist_and_are_accepted(finding_id: str):
+        text = _doc()
+        row = _gap_table_by_id(text)[finding_id]
+        status, cards_cell = row[2], row[3]
+        card_status = _card_status_map()
+        if status == "FIXED":
+            assert cards_cell != "-", f"{finding_id} is FIXED but names no card"
+            cards = [c.strip() for c in cards_cell.split(",")]
+            for card in cards:
+                assert CARD_ID_RE.fullmatch(card), f"{finding_id} names a malformed card id {card!r}"
+                assert (PLANS_DIR / f"{card}.yaml").is_file(), (
+                    f"{finding_id} names {card}, which has no plan file"
+                )
+                assert card_status.get(card) == "ACCEPTED", (
+                    f"{finding_id} names {card}, whose state.yaml status is {card_status.get(card)!r}, not ACCEPTED"
+                )
+        else:
+>           assert status == "ACCEPTED"
+E           AssertionError: assert 'OPEN' == 'ACCEPTED'
+E             
+E             - ACCEPTED
+E             + OPEN
+
+tests\deploy\test_preprod_review_register.py:409: AssertionError
+____________ test_accepted_row_is_published_in_release_md[GRR-01] _____________
+
+finding_id = 'GRR-01'
+
+    @pytest.mark.parametrize("finding_id", EXPECTED_FINDING_IDS)
+    def test_accepted_row_is_published_in_release_md(finding_id: str):
+        text = _doc()
+        row = _gap_table_by_id(text)[finding_id]
+        status, release_cell = row[2], row[4]
+        if status == "FIXED":
+            assert release_cell == "-", f"{finding_id} is FIXED but names a release id {release_cell!r}"
+            return
+>       assert status == "ACCEPTED"
+E       AssertionError: assert 'OPEN' == 'ACCEPTED'
+E         
+E         - ACCEPTED
+E         + OPEN
+
+tests\deploy\test_preprod_review_register.py:425: AssertionError
+=========================== short test summary info ===========================
+FAILED tests/deploy/test_preprod_review_register.py::test_no_row_is_open - As...
+FAILED tests/deploy/test_preprod_review_register.py::test_row_is_well_formed[GRR-01]
+FAILED tests/deploy/test_preprod_review_register.py::test_fixed_row_names_cards_that_exist_and_are_accepted[GRR-01]
+FAILED tests/deploy/test_preprod_review_register.py::test_accepted_row_is_published_in_release_md[GRR-01]
+
+--- stderr ---
+
