@@ -31,8 +31,9 @@ from tests.extraction.reextraction_checks import (
 REPO_ROOT = Path(__file__).resolve().parents[2]
 VALUES = REPO_ROOT / "infra" / "helm" / "foss-mcp" / "values.yaml"
 
-# Derived from the chart, never retyped. The ROUND-3 amendment voided the jmap family; whatever count values.yaml
-# names today (32, after the jmap removal) is exactly what this file covers - no pilot is skipped or assumed.
+# Derived from the chart, never retyped. TC-551/TC-552 (the ROUND-3 amendment) removed one whole pilot family;
+# whatever count values.yaml names today (32, after that removal) is exactly what this file covers - no pilot
+# is skipped or assumed.
 _CHART_DATA = yaml.safe_load(VALUES.read_text(encoding="utf-8"))
 _CHART_PILOTS: list[dict[str, Any]] = [dict(p) for p in _CHART_DATA["ingestion"]["pilots"]]
 PILOT_KEYS = [pilot_key(p["family"], p["platform"]) for p in _CHART_PILOTS]

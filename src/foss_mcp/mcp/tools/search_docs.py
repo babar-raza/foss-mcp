@@ -253,12 +253,17 @@ PASSAGE_LINES = 10
 
 def passage_coverage(rule: _Rule, text: str) -> float:
     """The best coverage of the rule's terms (IDF-weighted, identifier-like words required) by any window of
-    ``PASSAGE_LINES`` consecutive lines of *text*; the whole chunk when it is no longer than a window."""
+    ``PASSAGE_LINES`` consecutive lines of *text*; the whole chunk when it is no longer than a window.
+
+    G3/TC-572: a chunk's own ``FQN: Doc: <title>`` first line (TC-517) declares that title as the topic
+    of the WHOLE chunk, not just the physical lines near line 0 - so the title's own tokens are folded
+    into every window. A chunk with no such title line is unaffected (``title_tokens`` is empty)."""
     lines = text.splitlines()
     line_tokens = [tokenize(line) for line in lines]
+    title_tokens = tokenize(lines[0]) if lines and lines[0].startswith(_DOC_TITLE_PREFIX) else []
     best = 0.0
     for start in range(max(1, len(lines) - PASSAGE_LINES + 1)):
-        tokens = [token for found in line_tokens[start : start + PASSAGE_LINES] for token in found]
+        tokens = title_tokens + [token for found in line_tokens[start : start + PASSAGE_LINES] for token in found]  # fmt: skip
         best = max(best, guarded_coverage(rule.terms, tokens, rule.required, rule.weights))
         if best >= 1.0:
             break

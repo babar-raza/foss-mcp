@@ -210,7 +210,9 @@ def test_a_sidecar_added_later_is_served_on_the_next_request_and_the_warning_cle
 ) -> None:
     root, _ = make_roots(tmp_path, sidecars=("product_reference",))
     oracle_releases = json.loads((BAKED_ROOT / SIDECAR_NAMES["recent_releases"]).read_text(encoding="utf-8"))
-    assert len(oracle_releases) == 12
+    # G3/TC-572: re-pinned 12 -> 14; the closing re-ingest's real GitHub fetch found two more real tagged
+    # releases published upstream since the old pin (v0.12.0, v0.13.0).
+    assert len(oracle_releases) == 14
     with TestClient(make_app(root)) as client:
         session = open_session(client)
         assert call_tool(client, session, "list_recent_changes")["isError"] is True
