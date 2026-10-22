@@ -204,7 +204,7 @@ def test_the_lookup_miss_speaks_about_the_index_only_and_pdf_net_is_complete(
     store = _store_for(pilot_stores, tmp_path_factory, directory)
     scope = _scope_of(directory)
     stated = _stated_coverage(store, scope)
-    assert stated == (901, 901)  # re-pinned by TC-553: (300, 901) -> (901, 901)
+    assert stated == (915, 915)  # TC-571: (901, 901) -> (915, 915) (pdf/net now serves 14 delegate types)
     answer = lookup(store, scope, NONSENSE_SENTENCE)
     assert isinstance(answer, Miss)
     assert answer.reason.startswith("nothing in the indexed documentation")

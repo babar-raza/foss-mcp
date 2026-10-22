@@ -218,24 +218,35 @@ def _match_tier(query: str, fqn: str | None) -> int | None:
     return None
 
 
-_MEMBER_NAME_END = re.compile(r"\(|:| \(inherited from")
+_MEMBER_NAME_END = re.compile(r"\(|:| \((?:inherited|promoted) from")
 
 
 def _member_name(item: str) -> str:
     """The member's own leading identifier, parsed off one already-stripped item of a rendered
     Methods:/Properties: block (as returned by get_symbol.py's block-parsing helper) - the text
     before its first ``(`` (a method's own parameter list opening), ``:`` (a property's own
-    type), or `` (inherited from`` suffix, whichever comes first. ``chunk_builder.py``'s
-    ``_method_line``/``_property_line`` always render one of ``(`` or ``:`` immediately after
-    the name itself (``"SetRotation(degrees: int) -> void"``, ``"Name: Type (writable)"``), so
-    the `` (inherited from`` alternative is a defensive fallback rather than one these two real
-    conventions currently need.
+    type), or `` (inherited from``/`` (promoted from`` suffix, whichever comes first.
+    ``chunk_builder.py``'s ``_method_line``/``_property_line`` always render one of ``(`` or
+    ``:`` immediately after the name itself (``"SetRotation(degrees: int) -> void"``,
+    ``"Name: Type (writable)"``), so the `` (inherited from``/`` (promoted from`` alternative is
+    a defensive fallback rather than one these two real conventions currently need.
     """
     match = _MEMBER_NAME_END.search(item)
     return (item[: match.start()] if match is not None else item).strip()
 
 
-_INHERITED_MARKER = "(inherited from "
+# TC-571 (REQ-G3-009): a Go struct-embedding member chunk_builder.py renders as
+# "(promoted from X)" never DECLARES the member either - it is PROMOTED through an embedded
+# field, not inherited through a base class, but for ranking purposes it is exactly as
+# non-declaring as the original "(inherited from X)" marker.
+_NON_DECLARING_MARKERS = ("(inherited from ", "(promoted from ")
+
+
+def _is_non_declaring_item(item: str) -> bool:
+    """True when *item* (one already-stripped line of a rendered Methods:/Properties: block)
+    carries either non-declaring marker - the type listing *item* does not itself declare this
+    member; it only inherits or promotes it."""
+    return any(marker in item for marker in _NON_DECLARING_MARKERS)
 
 
 def _member_declaration(query: str, fqn: str | None, text: str) -> bool | None:
@@ -268,7 +279,7 @@ def _member_declaration(query: str, fqn: str | None, text: str) -> bool | None:
             )
             if not named:
                 continue
-            if _INHERITED_MARKER not in item:
+            if not _is_non_declaring_item(item):
                 return True
             declared = False
     return declared
@@ -330,13 +341,14 @@ def token_forms(token: str) -> frozenset[str]:
 
 
 def _declared_member_names(text: str) -> set[str]:
-    """The casefolded names of the members *text* renders WITHOUT an ``(inherited from ...)`` marker."""
+    """The casefolded names of the members *text* renders WITHOUT an ``(inherited from ...)`` or
+    ``(promoted from ...)`` marker."""
     from foss_mcp.mcp.tools.get_symbol import _extract_block
 
     names: set[str] = set()
     for header in ("Methods:", "Properties:"):
         for item in _extract_block(text, header):
-            if _INHERITED_MARKER in item:
+            if _is_non_declaring_item(item):
                 continue
             name = _member_name(item).casefold()
             if name:
@@ -582,7 +594,7 @@ def _entries(documents: Mapping[str, Mapping[str, str]]) -> list[_Entry]:
         names: list[str] = []
         for header in ("Methods:", "Properties:", "Members:"):
             for item in _extract_block(text, header):
-                if _INHERITED_MARKER in item:
+                if _is_non_declaring_item(item):
                     continue
                 found = _FIRST_IDENTIFIER.match(item.strip())
                 if found is not None and found.group(0) != "this":
