@@ -44,6 +44,7 @@ write_paths:
 - tests/deploy/test_release_known_limitations.py
 - tests/deploy/test_round3_closure.py
 - docs/ROUND3_REVIEW.md
+- tests/deploy/test_removed_family_absent.py
 satisfies:
 - REQ-G3-008
 - REQ-G3-009
@@ -121,6 +122,21 @@ inputs:
   card id) or listed in section 4 with its RELEASE.md sentence, (b) any supervisor item SUP-1 to SUP-8 of section 6.1 is not DONE with an evidence reference that exists (a commit reachable from HEAD or
   a file under evidence/), (c) any open question OQ-012 to OQ-015 is still OPEN. This card (not the supervisor) updates the status column of the register at closure from the accepted cards' receipts. Documentation
   accuracy items: the pdf/typescript type count is the fixture's measured 4,393 where the decision log said about 4,445; quoted numbers in docs/RELEASE.md come from the TC-568 ledger.
+- >-
+  REWORK NOTE (2026-10-22, supervisor, after reviewing commit 8c599a9a). Two defects found by gatectl review's offline
+  cross-check of every file this card touches at HEAD, neither inside the card's own two check commands: (1) docs/PREPROD_REVIEW.md
+  legitimately names the family removed by TC-551/TC-552 on 8 lines, all genuine historical findings about it (ISOPROV-02,
+  AGT-01, RST-04, RST-11, the GRR slice scope line, the verified-good paragraph, the capability-matrix line) - add
+  docs/PREPROD_REVIEW.md to tests/deploy/test_removed_family_absent.py's HISTORY_ALLOWANCE tuple, same one-line pattern and
+  byte-provenance-equivalent rationale already used for docs/DECISION_LOG.md and docs/REVIEW_LEDGER.md just above it (a
+  permanent governance record of findings made before a product removal is history, not a live reference to a current
+  product surface); do not reword any of the 8 lines to avoid the name, that would make the document less accurate. (2)
+  The supervisor's own status file had one authoring error, since fixed: FK8S-04's release_text said "All 40 pilots" where
+  the fleet is now 32 after the family removal; re-read the corrected file (same absolute path, same schema, nothing else
+  changed) and republish the one changed bullet. Re-run both of this card's own check commands plus
+  tests/deploy/test_pilot_roster.py and tests/deploy/test_removed_family_absent.py before committing. Everything else
+  about commit 8c599a9a's work (the 85-finding mapping, the Round-3 closure columns, the new test files, the two flagged
+  residual items RD3-154/RD3-155) stands as written - this is additive, not a redo.
 actions:
 - >-
   Write docs/PREPROD_REVIEW.md from the working register and the supervisor's status file, with a gap register whose every row is FIXED by an accepted card or ACCEPTED and published.
@@ -128,7 +144,7 @@ actions:
   Publish every accepted limitation in docs/RELEASE.md section 8, amend the bullets the remediation made false, and add the test that fails on an open row, an unaccepted card or an unpublished acceptance.
 checks:
 - command: >-
-    {python} -m pytest tests/deploy/test_preprod_review_register.py tests/deploy/test_release_known_limitations.py tests/deploy/test_release_deferred_extraction.py -q -rfE
+    {python} -m pytest tests/deploy/test_preprod_review_register.py tests/deploy/test_release_known_limitations.py tests/deploy/test_release_deferred_extraction.py tests/deploy/test_removed_family_absent.py tests/deploy/test_pilot_roster.py -q -rfE
   expect: exit 0
   timeout_seconds: 900
   junitxml: true
@@ -136,7 +152,7 @@ checks:
   - REQ-G3-008
 - command: >-
     {python} -m pytest tests/deploy/test_preprod_review_register.py tests/deploy/test_release_known_limitations.py tests/deploy/test_release_deferred_extraction.py tests/deploy/test_verified_examples_coverage.py
-    tests/deploy/test_build_review_ledger.py tests/test_layout.py -q -rfE -p no:cacheprovider
+    tests/deploy/test_build_review_ledger.py tests/test_layout.py tests/deploy/test_removed_family_absent.py tests/deploy/test_pilot_roster.py -q -rfE -p no:cacheprovider
   expect: exit 0
   timeout_seconds: 1200
   junitxml: true
