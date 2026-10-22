@@ -19,6 +19,7 @@ write_paths:
 - tests/mcp/tools/test_search_symbols_forgiveness.py
 - tests/mcp/tools/test_search_symbols_memberless_last.py
 - tests/mcp/tools/test_round3_promoted_member_ranking.py
+- tests/mcp/tools/test_miss_coverage_note.py
 satisfies:
 - REQ-G3-009
 source_refs:
@@ -61,6 +62,11 @@ inputs:
   fail for reasons that have nothing to do with this card (confirmed by the worker: identical failures against the unmodified pre-fix tree). Check 2s command now --ignores exactly those seven files, temporarily,
   with this comment as the reason; do not investigate them further, they are TC-536s to fix. Verify check 2 is fully green with the ignores and that your own new test_round3_promoted_member_ranking.py plus
   the two existing search_symbols test files all still pass. Finish the rest of the verification list (negative control, top-level tests, tests/poc, tests/release, ops/tests, format gate), commit, and report.
+- >-
+  SECOND AMENDMENT (supervisor, 2026-10-21, after gatectl flagged one related-test failure). tests/mcp/tools/test_miss_coverage_note.py::test_the_lookup_miss_speaks_about_the_index_only_and_pdf_net_is_complete
+  pins pdf/net coverage as (901, 901); the re-ingest makes it (915, 915) (same root cause as the seven ignored files - TC-536, in flight, owns the matching fix in its own branch for this exact file, but
+  has not landed yet). This file is now in write_paths too: re-pin the one tuple (901, 901) -> (915, 915), with a TC-571 comment, and remove it from TC-536s write_paths (the supervisor does this). This
+  is the only remaining related-test failure; nothing else changes.
 actions:
 - >-
   Make search_symbols.py recognise both '(inherited from ' and '(promoted from ' as non-declaring markers, so a promoted Go member never outranks the type that actually declares it.

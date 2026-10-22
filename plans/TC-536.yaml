@@ -89,7 +89,6 @@ write_paths:
 - tests/e2e/test_pdf_net_live_content.py
 - tests/e2e/test_pdf_typescript_live_content.py
 - tests/e2e/test_slides_python_live_content.py
-- tests/mcp/tools/test_miss_coverage_note.py
 - tests/release/test_claims_ledger.py
 - tests/mcp/tools/test_find_examples_verification_record.py
 satisfies:
@@ -208,6 +207,10 @@ inputs:
   label: README_VERIFICATION_NOTE for an example whose cache entry has no recorded runtime failure, or the 'compiles; fails at runtime: <error>' form (read src/foss_mcp/mcp/tools/find_examples.py's runtime-label
   logic and tests/fixtures/verified_examples/pdf_cpp.json for the real recorded error text) for one that does, with a 'TC-536: <old> -> <new>' comment naming the cause. Never loosen the commit/language
   assertions that still hold. Rebase onto the new issue revision, re-run both checks twice plus the negative control, confirm check 2 fully green, report the head.
+- >-
+  THIRD REWORK NOTE (supervisor, 2026-10-21). tests/mcp/tools/test_miss_coverage_note.py is REMOVED from write_paths: TC-571 now owns the pdf/net (901,901)->(915,915) re-pin in that file (it landed before
+  this card could). When you next rebase, your own earlier commit that touched this file will already be present upstream identically; git will likely skip it as a no-op, or you may need to drop that one
+  hunk from your branch - do not reapply or conflict-resolve it into a different value, the (915, 915) value is correct and already merged.
 actions:
 - >-
   Measure the re-ingested demo-manifest tree and re-pin the three size budgets of the two tests to the measured values plus 5 percent, with the numbers recorded beside them.
