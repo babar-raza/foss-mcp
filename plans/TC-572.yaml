@@ -1,0 +1,161 @@
+id: TC-572
+gate: G3
+lane: storage-retrieval
+purpose: >-
+  REQ-G3-008/REQ-G3-009 follow-up. A real regression found by running the FULL local test suite (not a card's own narrower
+  checks) after the closing re-ingest (TC-536, commit ad8c2329). search_docs.py's passage_coverage (TC-562) requires a query's
+  terms to co-occur inside one 10-consecutive-line window of a documentation chunk, to stop a long chunk's unrelated later
+  sections from falsely matching on scattered incidental overlap. But a chunk classified by its own `FQN: Doc: <title>` first
+  line (TC-517) declares that title as the topic of the WHOLE chunk, not just the physical lines near line 0 - so a real,
+  natural query that names both the title's own topic word (e.g. 'dependencies') and a specific item a body list under that
+  title enumerates (e.g. a named dependency 18 lines below the title) can clear whole-chunk coverage easily yet fail every
+  single window, because the title line is outside every window far enough from the matching body line. CONFIRMED live by
+  the TC-536-authored e2e tests: tests/e2e/test_cells_rust_live_content.py::test_lookup_returns_real_doc_matches_for_an_api_naive_query
+  ('what installation dependencies include roxmltree' against cells/rust's real, re-ingested Installation/Dependencies/Quick-Start
+  README chunk: whole-chunk coverage 0.75, every window's passage_coverage capped at 0.5, both well on either side of RELEVANCE_THRESHOLD=0.6)
+  and tests/e2e/test_slides_python_live_content.py::test_lookup_returns_real_doc_matches_for_an_api_naive_query (same shape,
+  a dependency named 'lxml'). FIX: fold the title line's own tokens into EVERY passage window in src/foss_mcp/mcp/tools/search_docs.py's
+  passage_coverage - a chunk with no FQN: Doc: title line is completely unaffected (title_tokens is empty), so this changes
+  nothing for hand-written or non-titled chunks, and does not weaken the window's own protection against two UNRELATED body
+  sections matching by incidental overlap, since only the title (which by construction already describes this one chunk's
+  one topic) gets this special treatment, never a second body window. ALSO (same full-CI run, same session, unrelated root
+  causes, each a one-line fix so they travel together rather than opening three more tiny cards): (a) pyproject.toml's ruff-format
+  exclude list has tests/fixtures/furnished (byte-provenance: reformatting a fixture's embedded code fence changes bytes a
+  checksum test pins) but was never extended to its sibling tests/fixtures/round3_readmes (TC-561's upstream README/AGENTS.md
+  fixtures), which trips `ruff format --check .` on real upstream-style code fences that must stay byte-exact; (b) tests/deploy/test_chart_max_types.py
+  (TC-536) names the product family removed by TC-551/TC-552 in a code comment, tripping tests/deploy/test_removed_family_absent.py's
+  permanent guard (HISTORY_ALLOWANCE does not cover this file, and must not without its own card per that test's own comment)
+  - reword the comment to cite the removal cards instead of the family's name; (c) tests/infra/test_round3_serving_robustness.py
+  (TC-564) pins pdf/go's upstream release count at 12; the closing re-ingest's real GitHub fetch found 2 more real tagged
+  releases (v0.12.0, v0.13.0) published upstream since that pin was written - re-pin to the measured 14, citing the two new
+  tags in a comment.
+depends_on:
+- TC-536
+- TC-562
+- TC-561
+- TC-564
+write_paths:
+- src/foss_mcp/mcp/tools/search_docs.py
+- pyproject.toml
+- tests/deploy/test_chart_max_types.py
+- tests/infra/test_round3_serving_robustness.py
+- tests/mcp/tools/test_search_docs_title_passage_coverage.py
+satisfies:
+- REQ-G3-008
+- REQ-G3-009
+source_refs:
+- file: docs/DECISION_LOG.md
+  anchor: >-
+    ## 2026-10-17 — Round-3 independent review of the shipped image: 82 findings registered, nothing executed (operator, supervisor)
+  sha256: c2056b11a13e5b18cda7e522027fb5eb0102edcef2f99f6c7e7ce0ee5c4b4e5b
+inputs:
+- >-
+  REPRODUCE FIRST, offline, no docker: load GenerationManifestStore(Path('infra/demo-manifests')), call search_docs.passage_coverage
+  via lookup(store, Scope(family='cells', platform='rust', source_kind='self_extracted'), 'what installation dependencies
+  include roxmltree') - on main today this returns lookup's own Miss (NOTHING_MATCHED_REASON), not a TaskAnswer with doc_matches.
+  The chunk is real, baked, committed data (infra/demo-manifests/cells__rust__self_extracted/generation__*.json), not a test-only
+  fixture - this is a real retrieval defect in the shipped standalone image today, found by an e2e test that happens to rebuild
+  its own container from source fixtures rather than reading the baked tree directly, which is why the baked tree itself was
+  never re-checked against this exact query until this card.
+- >-
+  THE FIX (search_docs.py passage_coverage): the function currently splits text into lines, tokenizes each line, and for every
+  start in range(max(1, len(lines) - PASSAGE_LINES + 1)) scores guarded_coverage over line_tokens[start:start+PASSAGE_LINES]
+  flattened. Add: before the loop, compute title_tokens as tokenize(lines[0]) when lines and lines[0].startswith(_DOC_TITLE_PREFIX)
+  else an empty list; inside the loop, score guarded_coverage over title_tokens + the window's own flattened tokens, not the
+  window alone. _DOC_TITLE_PREFIX is already defined earlier in the same module ('FQN: Doc: '). Do not change anything else
+  in the function (PASSAGE_LINES stays 10, the early-exit at best >= 1.0 stays, the whole-chunk-no-longer-than-a-window behavior
+  for short chunks is unaffected since such chunks are their own single window already).
+- >-
+  NEGATIVE CONTROL TARGET: the fix is exactly the two new lines (title_tokens computed, and folded into tokens inside the
+  loop). A correct negative control reverts passage_coverage to not fold title_tokens in (i.e. scores guarded_coverage on
+  the window alone, as today) - this must turn the new regression test file red without touching anything else.
+- >-
+  NEW TEST FILE tests/mcp/tools/test_search_docs_title_passage_coverage.py: offline, deterministic, no docker, no network.
+  Build a synthetic chunk text as a literal multi-line string: first line 'FQN: Doc: Installation, Dependencies, and Quick
+  Start', then >= 12 more lines such that a title word ('dependencies') and a body word appearing only past line 10 ('roxmltree'
+  or an equally distinctive synthetic token) are more than PASSAGE_LINES apart - mirror the real shape above, do not just
+  copy the real pilot text verbatim. Assert passage_coverage(...) for a query naming both words now clears RELEVANCE_THRESHOLD,
+  and that a DIFFERENT query whose two distinctive terms are BOTH outside the title and more than PASSAGE_LINES apart in the
+  body (two genuinely unrelated body sections) still does NOT clear it - this second assertion is the one the negative control
+  does not touch, and it is what proves the fix is additive to the title only, not a general window widening that would quietly
+  defeat TC-562's own original anti-dilution protection. Also assert a chunk with no 'FQN: Doc: ' first line is completely
+  unaffected (same coverage before and after; call the unpatched-equivalent path directly or assert against a known-good baseline
+  value, whichever is simpler to express offline). Also: a live or baked-data regression test reproducing the exact real pilots
+  load GenerationManifestStore against infra/demo-manifests for cells/rust AND slides/python, call lookup with the exact real
+  queries ('what installation dependencies include roxmltree' and the slides/python equivalent naming 'lxml' - read the real
+  current text of both e2e tests' REAL_DOC_TASK_QUERY to get the exact string and family/platform scope), and assert a TaskAnswer
+  with non-empty doc_matches comes back, not a Miss - this is the one true end-to-end proof against the real shipped data,
+  and it runs fast (no docker, no network, reads committed baked JSON).
+- >-
+  THE THREE SMALL FIXES, each exactly as the purpose paragraph above describes: (1) add 'tests/fixtures/round3_readmes' to
+  pyproject.toml's [tool.ruff] exclude list, same comment pattern and byte-provenance rationale as the existing 'tests/fixtures/furnished'
+  entry just above it. (2) reword the two-line comment above _CHART_PILOTS in tests/deploy/test_chart_max_types.py so it does
+  not spell the name of the family TC-551/TC-552 removed (cite the card ids instead); confirm tests/deploy/test_removed_family_absent.py::test_no_tracked_file_outside_history_names_the_removed_family
+  then passes. (3) in tests/infra/test_round3_serving_robustness.py's test_a_sidecar_added_later_is_served_on_the_next_request_and_the_warning_clears,
+  change `assert len(oracle_releases) == 12` to `assert len(oracle_releases) == 14` against the real, current infra/demo-manifests/recent_releases_pdf_go.json
+  (read it yourself and confirm the real count before writing the number - do not simply trust this card's own prose), with
+  a one-line comment naming the two new tags.
+- >-
+  VERIFY offline first (fast), then confirm the two real e2e tests this regression was found in - tests/e2e/test_cells_rust_live_content.py::test_lookup_returns_real_doc_matches_for_an_api_naive_query
+  and tests/e2e/test_slides_python_live_content.py::test_lookup_returns_real_doc_matches_for_an_api_naive_query - now pass
+  (these build and run real docker containers; expect several minutes each, run them but they are NOT part of this card's
+  own gatectl check commands below, since those must stay fast and network-independent per this project's own test-tiering
+  convention; note their real pass/fail in your report regardless).
+- >-
+  Run the whole file; it must stay green. Never weaken RELEVANCE_THRESHOLD or PASSAGE_LINES to make a test pass.
+actions:
+- >-
+  Fold a chunk's own FQN: Doc: <title> tokens into every passage_coverage window, so a query naming both the title's topic
+  and a body item it introduces is not defeated by physical line distance alone.
+- >-
+  Exclude tests/fixtures/round3_readmes from ruff format, reword the family-name comment in test_chart_max_types.py, and re-pin
+  pdf/go's real release count in test_round3_serving_robustness.py.
+checks:
+- command: >-
+    {python} -m pytest tests/mcp/tools/test_search_docs_title_passage_coverage.py tests/deploy/test_removed_family_absent.py
+    tests/infra/test_round3_serving_robustness.py tests/deploy/test_chart_max_types.py -q -rfE
+  expect: exit 0
+  timeout_seconds: 300
+  junitxml: true
+  proves:
+  - REQ-G3-008
+- command: >-
+    {python} -m pytest tests/mcp/tools/test_miss_coverage_note.py tests/mcp/test_tool_input_hardening.py tests/mcp/tools/test_round3_retrieval.py
+    tests/mcp/test_round3_doc_excerpt.py tests/mcp/test_tool_surface_truthful.py tests/mcp/tools/test_round3_retrieval_corpus.py
+    tests/mcp/tools/test_retrieval_tools.py tests/mcp/tools/test_lookup_forgiveness.py tests/mcp/tools/test_search_docs_language_letter.py
+    tests/mcp/tools/test_nonsense_queries_miss.py tests/mcp/tools/test_lookup_miss_reason.py tests/infra/test_generate_furnished_page.py
+    tests/infra/test_furnished_chunk_quality.py tests/mcp/tools/test_doc_classification_by_title.py tests/indexing/test_lookup_doc_fallback_query_safety.py
+    tests/mcp/test_dispatch_offload.py tests/mcp/test_generation_unavailable_tool_error.py tests/mcp/tools/test_relevance_floor.py
+    tests/deploy/test_removed_family_absent.py tests/deploy/test_chart_max_types.py tests/infra/test_round3_serving_robustness.py
+    -q -rfE
+  expect: exit 0
+  timeout_seconds: 900
+  junitxml: true
+  proves:
+  - REQ-G3-008
+  - REQ-G3-009
+min_tests: 20
+network: false
+requires:
+- python
+negative_control:
+  mutate: >-
+    python -X utf8 -c "import pathlib; p = pathlib.Path('src/foss_mcp/mcp/tools/search_docs.py'); s = p.read_text(encoding='utf-8');
+    old = 'tokens = title_tokens + [token for found in line_tokens[start : start + PASSAGE_LINES] for token in found]'; assert
+    old in s, 'fix text not found - card and source have diverged'; new = 'tokens = [token for found in line_tokens[start
+    : start + PASSAGE_LINES] for token in found]'; p.write_text(s.replace(old, new, 1), encoding='utf-8')"
+  rationale: >-
+    Reverts passage_coverage to score each window alone, without the title's tokens folded in - exactly undoing this card's
+    one real fix. The new regression test (both the synthetic title-dilution assertion and the real-baked-data cells/rust
+    and slides/python assertions) must fail; a real break of the card's central claim.
+evidence:
+- evidence/build/G3/TC-572/receipt.json
+closeout:
+- >-
+  A query naming both a documentation chunk's own declared title topic and a specific item a body list under that title enumerates
+  finds that chunk through lookup/search_docs, proven against the real baked data of cells/rust and slides/python and against
+  two independent real e2e tests that rebuild and query real containers. The window's original anti-dilution purpose (stopping
+  two unrelated body sections of a long chunk from matching by incidental overlap) is unweakened and has its own regression
+  test. Three small stale-pin/hygiene defects the same full CI run surfaced are fixed with real, current numbers, not invented
+  ones.
+recovery: Re-run from a clean tree.
