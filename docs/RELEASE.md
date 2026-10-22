@@ -346,7 +346,7 @@ says so.
 - **L-118** The chart does not `required()` the family and platform values, so an unset release falls back to pdf/net.
   The standalone entrypoint refuses to start without a valid pilot.
 
-- **L-134** All 40 pilots in this release are deployed from one image tag per gate, verified by the fleet-consistency
+- **L-134** All of this release's pilots are deployed from one image tag per gate, verified by the fleet-consistency
   test at deploy time, not by a one-time manual check. (Review finding FK8S-04.)
 - **L-135** This release's own namespace retains only the generations its own retention policy keeps; pods or PVCs in
   other namespaces on a shared cluster are outside this product's control. (Review finding FK8S-10.)

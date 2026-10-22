@@ -29,6 +29,7 @@ HISTORY_ALLOWANCE: tuple[str, ...] = (
     "docs/DECISION_LOG.md",  # the append-only record of decisions, including the removal itself
     "docs/REVIEW_LEDGER.md",  # generated from the finding texts of build_review_ledger.py, byte for byte
     "scripts/release/build_review_ledger.py",  # the source of those finding texts
+    "docs/PREPROD_REVIEW.md",  # the committed pre-production review register: its findings predate the removal and are history, not a live reference to current product surface
 )
 
 # The one document that may name the family, on exactly one line: the sentence that records the removal.
