@@ -115,8 +115,12 @@ def run_checks(card, wt: Path, py: Path, log_lines, runner: str = "host"):
     env["GATECTL_PYTHON"] = str(py)
     env["VIRTUAL_ENV"] = str(py.parent.parent)
     if not card.get("network", False):
-        # Blunt but effective offline signal: proxies pointed at a dead port.
+        # Blunt but effective offline signal: proxies pointed at a dead port. NO_PROXY must exclude
+        # loopback, or urllib (which honours HTTP_PROXY/HTTPS_PROXY even for 127.0.0.1 by default)
+        # routes a test's own legitimate local-server connection through the dead port too, failing
+        # an offline card's checks for a reason that has nothing to do with real network access.
         env["HTTP_PROXY"] = env["HTTPS_PROXY"] = "http://127.0.0.1:9"
+        env["NO_PROXY"] = env["no_proxy"] = "127.0.0.1,localhost,::1"
         env["GATECTL_OFFLINE"] = "1"
 
     results, all_passed = [], True

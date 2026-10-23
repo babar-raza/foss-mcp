@@ -89,10 +89,11 @@ requires:
 - python
 negative_control:
   mutate: |
-    python -X utf8 -c "import pathlib;p=pathlib.Path('src/foss_mcp/mcp/tools/lookup.py');s=p.read_text(encoding='utf-8');old='nothing in the documentation, verified examples or symbols of this pilot matches';assert s.count(old)==1;p.write_text(s.replace(old,'no symbol matches'),encoding='utf-8')"
+    python -X utf8 -c "import pathlib;p=pathlib.Path('src/foss_mcp/mcp/tools/lookup.py');s=p.read_text(encoding='utf-8');old='nothing in the indexed documentation, verified examples or symbols of this pilot matches';assert s.count(old)==1;p.write_text(s.replace(old,'no symbol matches'),encoding='utf-8')"
   rationale: >-
-    Turns lookup's miss reason back into the symbol search's wording, so every test that expects the new reason fails on all 40 pilots.
-    A real break of the card's central claim.
+    Turns lookup's miss reason back into the symbol search's wording, so every test that expects the new reason fails on all current pilots.
+    A real break of the card's central claim. (Re-pinned 2026-10-23, supervisor: TC-515 later added the word
+    "indexed" to this wording; the mutate target string is updated to match, the mutation's intent is unchanged.)
 evidence:
 - evidence/build/G3/TC-493/receipt.json
 closeout:
