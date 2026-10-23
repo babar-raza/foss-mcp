@@ -1,0 +1,158 @@
+
+===== CLEAN RUN 1 (host) =====
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-7b182948484d7df9\Scripts\python.exe -m pytest tests/deploy/test_build_review_ledger.py -q -rfE "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-4jezwe9o\.junit-0.xml"
+--- stdout ---
+.............................................................            [100%]
+
+--- stderr ---
+
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-7b182948484d7df9\Scripts\python.exe -m pytest tests/deploy/test_build_review_ledger.py tests/deploy/test_readme_matches_release.py tests/deploy/test_release_known_limitations.py -q -rfE -p no:cacheprovider "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-4jezwe9o\.junit-1.xml"
+--- stdout ---
+........................................................................ [ 23%]
+........................................................................ [ 47%]
+........................................................................ [ 70%]
+........................................................................ [ 94%]
+.................                                                        [100%]
+
+--- stderr ---
+
+
+===== CLEAN RUN 2 (host) =====
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-7b182948484d7df9\Scripts\python.exe -m pytest tests/deploy/test_build_review_ledger.py -q -rfE "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-4jezwe9o\.junit-0.xml"
+--- stdout ---
+.............................................................            [100%]
+
+--- stderr ---
+
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-7b182948484d7df9\Scripts\python.exe -m pytest tests/deploy/test_build_review_ledger.py tests/deploy/test_readme_matches_release.py tests/deploy/test_release_known_limitations.py -q -rfE -p no:cacheprovider "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-4jezwe9o\.junit-1.xml"
+--- stdout ---
+........................................................................ [ 23%]
+........................................................................ [ 47%]
+........................................................................ [ 70%]
+........................................................................ [ 94%]
+.................                                                        [100%]
+
+--- stderr ---
+
+
+===== NEGATIVE CONTROL (checks MUST now fail) =====
+mutated: M scripts/release/build_review_ledger.py, ?? .junit-0.xml, ?? .junit-1.xml
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-7b182948484d7df9\Scripts\python.exe -m pytest tests/deploy/test_build_review_ledger.py -q -rfE "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-4jezwe9o\.junit-0.xml"
+--- stdout ---
+.FF..........................................................            [100%]
+================================== FAILURES ===================================
+______________ test_fixed_when_a_card_is_superseded_not_accepted ______________
+
+tmp_path = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-12286/test_fixed_when_a_card_is_supe0')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x00000234A18CF6F0>
+
+    def test_fixed_when_a_card_is_superseded_not_accepted(
+        tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """G3/TC-576: a SUPERSEDED card's work was fully carried by its accepted successor, exactly the
+        precedent ops/gatecli.py's own `_accepted_or_superseded_cards()` already follows - so a finding
+        whose closing cards are a mix of ACCEPTED and SUPERSEDED resolves as done, not pending."""
+        use_findings(monkeypatch, F("L-001", "Blocker", "a defect", "TC-900, TC-901", check="rv1 C01"))
+        row = one(make_repo(tmp_path, {"TC-900": "ACCEPTED", "TC-901": "SUPERSEDED"}))
+>       assert row.status == "FIXED"
+E       AssertionError: assert 'OPEN' == 'FIXED'
+E         
+E         - FIXED
+E         + OPEN
+
+tests\deploy\test_build_review_ledger.py:113: AssertionError
+_ test_in_progress_card_still_blocks_a_finding_even_alongside_a_superseded_one _
+
+tmp_path = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-12286/test_in_progress_card_still_bl0')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x00000234A1E256D0>
+
+    def test_in_progress_card_still_blocks_a_finding_even_alongside_a_superseded_one(
+        tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """Negative proof for the SUPERSEDED fix above: a card that is merely IN_PROGRESS (neither ACCEPTED
+        nor SUPERSEDED) must still keep the finding OPEN and pending on it - this is the test that would
+        have caught a careless 'treat everything as done' overcorrection."""
+        use_findings(monkeypatch, F("L-001", "Blocker", "a defect", "TC-900, TC-901", check="rv1 C01"))
+        row = one(make_repo(tmp_path, {"TC-900": "IN_PROGRESS", "TC-901": "SUPERSEDED"}))
+        assert row.status == "OPEN"
+>       assert row.pending == [("TC-900", "IN_PROGRESS")]
+E       AssertionError: assert [('TC-900', '...'SUPERSEDED')] == [('TC-900', 'IN_PROGRESS')]
+E         
+E         Left contains one more item: ('TC-901', 'SUPERSEDED')
+E         Use -v to get more diff
+
+tests\deploy\test_build_review_ledger.py:127: AssertionError
+=========================== short test summary info ===========================
+FAILED tests/deploy/test_build_review_ledger.py::test_fixed_when_a_card_is_superseded_not_accepted
+FAILED tests/deploy/test_build_review_ledger.py::test_in_progress_card_still_blocks_a_finding_even_alongside_a_superseded_one
+
+--- stderr ---
+
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-7b182948484d7df9\Scripts\python.exe -m pytest tests/deploy/test_build_review_ledger.py tests/deploy/test_readme_matches_release.py tests/deploy/test_release_known_limitations.py -q -rfE -p no:cacheprovider "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-4jezwe9o\.junit-1.xml"
+--- stdout ---
+.FF..................................................................... [ 23%]
+.......................................................F................ [ 47%]
+........................................................................ [ 70%]
+........................................................................ [ 94%]
+.................                                                        [100%]
+================================== FAILURES ===================================
+______________ test_fixed_when_a_card_is_superseded_not_accepted ______________
+
+tmp_path = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-12287/test_fixed_when_a_card_is_supe0')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x000002AE4E55C3E0>
+
+    def test_fixed_when_a_card_is_superseded_not_accepted(
+        tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """G3/TC-576: a SUPERSEDED card's work was fully carried by its accepted successor, exactly the
+        precedent ops/gatecli.py's own `_accepted_or_superseded_cards()` already follows - so a finding
+        whose closing cards are a mix of ACCEPTED and SUPERSEDED resolves as done, not pending."""
+        use_findings(monkeypatch, F("L-001", "Blocker", "a defect", "TC-900, TC-901", check="rv1 C01"))
+        row = one(make_repo(tmp_path, {"TC-900": "ACCEPTED", "TC-901": "SUPERSEDED"}))
+>       assert row.status == "FIXED"
+E       AssertionError: assert 'OPEN' == 'FIXED'
+E         
+E         - FIXED
+E         + OPEN
+
+tests\deploy\test_build_review_ledger.py:113: AssertionError
+_ test_in_progress_card_still_blocks_a_finding_even_alongside_a_superseded_one _
+
+tmp_path = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-12287/test_in_progress_card_still_bl0')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x000002AE4DF945F0>
+
+    def test_in_progress_card_still_blocks_a_finding_even_alongside_a_superseded_one(
+        tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """Negative proof for the SUPERSEDED fix above: a card that is merely IN_PROGRESS (neither ACCEPTED
+        nor SUPERSEDED) must still keep the finding OPEN and pending on it - this is the test that would
+        have caught a careless 'treat everything as done' overcorrection."""
+        use_findings(monkeypatch, F("L-001", "Blocker", "a defect", "TC-900, TC-901", check="rv1 C01"))
+        row = one(make_repo(tmp_path, {"TC-900": "IN_PROGRESS", "TC-901": "SUPERSEDED"}))
+        assert row.status == "OPEN"
+>       assert row.pending == [("TC-900", "IN_PROGRESS")]
+E       AssertionError: assert [('TC-900', '...'SUPERSEDED')] == [('TC-900', 'IN_PROGRESS')]
+E         
+E         Left contains one more item: ('TC-901', 'SUPERSEDED')
+E         Use -v to get more diff
+
+tests\deploy\test_build_review_ledger.py:127: AssertionError
+_____________________ test_the_real_ledger_check_is_clean _____________________
+
+    def test_the_real_ledger_check_is_clean() -> None:
+        tool = _load_ledger_tool()
+        rows, _meta = tool.compute(REPO_ROOT, False)
+>       assert [r.f.id for r in rows if r.status == "OPEN"] == []
+E       AssertionError: assert ['L-084'] == []
+E         
+E         Left contains one more item: 'L-084'
+E         Use -v to get more diff
+
+tests\deploy\test_readme_matches_release.py:357: AssertionError
+=========================== short test summary info ===========================
+FAILED tests/deploy/test_build_review_ledger.py::test_fixed_when_a_card_is_superseded_not_accepted
+FAILED tests/deploy/test_build_review_ledger.py::test_in_progress_card_still_blocks_a_finding_even_alongside_a_superseded_one
+FAILED tests/deploy/test_readme_matches_release.py::test_the_real_ledger_check_is_clean
+
+--- stderr ---
+
