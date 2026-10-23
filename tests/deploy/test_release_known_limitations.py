@@ -60,6 +60,7 @@ STANDALONE_IDS = (
     "L-138",
     "L-139",
     "L-140",
+    "L-142",
 )
 # Kubernetes chart only.
 KUBERNETES_IDS = ("L-115", "L-116", "L-117", "L-118", "L-134", "L-135", "L-141")

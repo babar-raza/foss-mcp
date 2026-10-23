@@ -53,6 +53,23 @@ HIT3_FAMILY = 0.70
 # The card asks for 2 percent; this build measures about 3.6 percent (baseline: 17 percent), so the floor pinned
 # here is the measured level plus a margin, and the report says plainly that 2 percent is not reached.
 WRONG_MAX = 0.045
+# G3/TC-579 (OQ-016): the aggregate floor above has no per-family equivalent, so a family-specific
+# regression can clear it unnoticed forever (pdf measured 8.55% while the aggregate measured 3.29%,
+# both comfortably under WRONG_MAX). Each ceiling below is THIS run's own measured wrong_conf rate for
+# that family, plus just enough margin to tolerate one more wrong case in that family without flaking -
+# a small-n family (words, 3d) therefore gets a larger absolute margin than a large-n one (cells, pdf).
+# Measured on this corpus on 2026-10-23 (before any relevance change - no relevance file is touched by
+# this card): cells 0.0152 (3/198), pdf 0.0855 (13/152), slides 0.0460 (4/87), words 0.0 (0/43),
+# 3d 0.0 (0/112), email 0.0247 (2/81), other 0.0357 (2/56).
+WRONG_MAX_FAMILY = {
+    "cells": 0.021,
+    "pdf": 0.093,
+    "slides": 0.058,
+    "words": 0.024,
+    "3d": 0.009,
+    "email": 0.038,
+    "other": 0.054,
+}
 # The ratchet of the finalisation notes, against the revision the card was issued at (4ed0b82012d7), measured
 # with this very runner on this very corpus before any relevance change: hit@3 must be at least
 # max(0.75, baseline + 0.15) overall and baseline + 0.10 in every family.
@@ -395,6 +412,15 @@ def test_non_empty_answers_that_miss_the_intended_api_stay_rare(cases: list[Case
     wrong = summarise(cases)["ALL"]["wrong_conf"]
     assert wrong <= WRONG_MAX, wrong
     assert wrong < BASELINE_WRONG / 3
+
+
+@pytest.mark.parametrize("family", FAMILIES)
+def test_wrong_rate_per_family_meets_the_ratchet(cases: list[Case], family: str) -> None:
+    # G3/TC-579 (OQ-016): the aggregate-only test above cannot catch a family-specific regression that
+    # still clears the aggregate floor (pdf's 8.55% hid behind an aggregate of 3.29% before this test
+    # existed). This is an ADDITIONAL, per-family gate; it never replaces or loosens WRONG_MAX above.
+    value = summarise(cases)[family]["wrong_conf"]
+    assert value <= WRONG_MAX_FAMILY[family], (family, value)
 
 
 def test_a_partial_answer_says_so_and_names_what_it_could_not_explain(corpus: Corpus) -> None:

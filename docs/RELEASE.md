@@ -329,6 +329,12 @@ says so.
 - **L-140** find_examples reaches a minority of a pilot's indexed types because verified examples are sourced only
   from README fences in this release; this is a known coverage ceiling, not a retrieval defect, and is linked to the
   same README-only sourcing decision recorded elsewhere in this section. (Review finding D-07.)
+- **L-142** The pdf family's confidently-wrong retrieval rate (a non-empty answer, not labelled partial, that holds
+  none of the intended API in its first ten items) measures higher than every other family's. pdf's platform
+  libraries name the same real-world task under structurally different, unrelated API vocabulary across platforms
+  (merging two PDFs, for example, reaches `PdfFileEditor.Concatenate` on one platform and `Document.Merge` or
+  `Merger` on another), so the miss is spread across many query/API pairs rather than concentrated in one fixable
+  bug. This is a retrieval-coverage ceiling of the fixed corpus, not a defect, and no fix date is set. (G3/TC-579.)
 - **tex/python** serves one verified example, not two. The pinned upstream library (aspose-tex-foss, commit 181015d2,
   which is also the upstream head) does not import: `src/aspose_tex/_input/catcode.py` has an IndentationError at line
   66, so no example that imports `aspose_tex` can run and none can be verified. The rest of the tex/python content is
