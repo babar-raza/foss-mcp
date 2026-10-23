@@ -1,0 +1,110 @@
+{
+  "schema_version": 1,
+  "card": "TC-580",
+  "gate": "G3",
+  "generated_by": "gatectl",
+  "generated_at": "2026-10-23T13:54:16Z",
+  "base_rev": "2545c80c44287bf0171f618a272930196babdc61",
+  "head_rev": "68db49a23135e80730090665f31c761a4cbeb28d",
+  "card_sha256": "52aacf33f5ed31bec780b45e169142243d1773e736bac749991fb6d8bd07c485",
+  "fingerprint": {
+    "python": "3.13.2",
+    "platform": "Windows-11-10.0.26300-SP0",
+    "lock_sha256": "7b182948484d7df9614b523f7a8180f795b6c51d55c418728525c1957f3e38ba",
+    "env": {
+      "PYTHONHASHSEED": "0",
+      "PYTHONUTF8": "1",
+      "PYTHONDONTWRITEBYTECODE": "1",
+      "PYTHONIOENCODING": "utf-8",
+      "TZ": "UTC",
+      "LC_ALL": "C.UTF-8",
+      "SOURCE_DATE_EPOCH": "1700000000",
+      "verify_runner": "host"
+    }
+  },
+  "scope": {
+    "ok": true,
+    "changed_paths": [
+      "docker-compose.yml"
+    ],
+    "violations": [],
+    "evaluated": true
+  },
+  "runs": [
+    {
+      "run": 1,
+      "checks": [
+        {
+          "command": "{python} -m pytest tests/infra/test_helm_chart.py -q -rfE",
+          "exit_code": 0,
+          "duration_s": 10.378,
+          "stdout_sha256": "c6ce8518a2cc113cc5560b3731e234ed6d559e746221ae903ce01599dfe7e797",
+          "tests": 25,
+          "skipped": 0,
+          "errors": 0,
+          "failures": 0
+        },
+        {
+          "command": "{python} -m pytest tests/infra/test_helm_chart.py tests/infra/test_helm_pilots_match_compose.py tests/infra/test_docker_compose_multi_instance.py tests/infra/test_ingest_publish_safety.py -q -rfE -p no:cacheprovider",
+          "exit_code": 0,
+          "duration_s": 37.849,
+          "stdout_sha256": "4e10206c039ed42fed66b2c4800cc80f393ec98b809c7fbb8c91c7b3fefd808b",
+          "tests": 118,
+          "skipped": 0,
+          "errors": 0,
+          "failures": 0
+        }
+      ],
+      "all_passed": true
+    },
+    {
+      "run": 2,
+      "checks": [
+        {
+          "command": "{python} -m pytest tests/infra/test_helm_chart.py -q -rfE",
+          "exit_code": 0,
+          "duration_s": 8.825,
+          "stdout_sha256": "c6ce8518a2cc113cc5560b3731e234ed6d559e746221ae903ce01599dfe7e797",
+          "tests": 25,
+          "skipped": 0,
+          "errors": 0,
+          "failures": 0
+        },
+        {
+          "command": "{python} -m pytest tests/infra/test_helm_chart.py tests/infra/test_helm_pilots_match_compose.py tests/infra/test_docker_compose_multi_instance.py tests/infra/test_ingest_publish_safety.py -q -rfE -p no:cacheprovider",
+          "exit_code": 0,
+          "duration_s": 33.859,
+          "stdout_sha256": "4e10206c039ed42fed66b2c4800cc80f393ec98b809c7fbb8c91c7b3fefd808b",
+          "tests": 118,
+          "skipped": 0,
+          "errors": 0,
+          "failures": 0
+        }
+      ],
+      "all_passed": true
+    }
+  ],
+  "negative_control": {
+    "kind": "mutate",
+    "patch": "python -X utf8 -c \"import pathlib; p = pathlib.Path('docker-compose.yml'); s = p.read_text(encoding='utf-8'); old = 'WARNING: fetch_product_reference.py failed for pdf/net'; assert old in s, 'fix text not found - card and source have diverged'; start = s.index(old); line_start = s.rfind(chr(10), 0, start) + 1; line_end = s.index(chr(10), start); s2 = s[:line_start] + '        || true; }' + s[line_end:]; assert s2 != s; p.write_text(s2, encoding='utf-8')\"",
+    "patch_sha256": "687bcf54f8dbecb6fc220cfaa5a951e3d03a3ad47e94a1f2c6ba1861c63711d9",
+    "applied": true,
+    "patch_applied_failed": true,
+    "exit_codes": [
+      1,
+      1
+    ],
+    "tree_changed": [
+      "M docker-compose.yml",
+      "?? .junit-0.xml",
+      "?? .junit-1.xml"
+    ]
+  },
+  "holdout": {
+    "ran": false,
+    "passed": true,
+    "detail": "no holdout for this card"
+  },
+  "accepted": true,
+  "reason": "all gates passed"
+}

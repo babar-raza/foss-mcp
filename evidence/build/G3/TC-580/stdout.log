@@ -1,0 +1,98 @@
+
+===== CLEAN RUN 1 (host) =====
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-7b182948484d7df9\Scripts\python.exe -m pytest tests/infra/test_helm_chart.py -q -rfE "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-tjhb9_n5\.junit-0.xml"
+--- stdout ---
+.........................                                                [100%]
+
+--- stderr ---
+
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-7b182948484d7df9\Scripts\python.exe -m pytest tests/infra/test_helm_chart.py tests/infra/test_helm_pilots_match_compose.py tests/infra/test_docker_compose_multi_instance.py tests/infra/test_ingest_publish_safety.py -q -rfE -p no:cacheprovider "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-tjhb9_n5\.junit-1.xml"
+--- stdout ---
+........................................................................ [ 61%]
+..............................................                           [100%]
+
+--- stderr ---
+
+
+===== CLEAN RUN 2 (host) =====
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-7b182948484d7df9\Scripts\python.exe -m pytest tests/infra/test_helm_chart.py -q -rfE "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-tjhb9_n5\.junit-0.xml"
+--- stdout ---
+.........................                                                [100%]
+
+--- stderr ---
+
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-7b182948484d7df9\Scripts\python.exe -m pytest tests/infra/test_helm_chart.py tests/infra/test_helm_pilots_match_compose.py tests/infra/test_docker_compose_multi_instance.py tests/infra/test_ingest_publish_safety.py -q -rfE -p no:cacheprovider "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-tjhb9_n5\.junit-1.xml"
+--- stdout ---
+........................................................................ [ 61%]
+..............................................                           [100%]
+
+--- stderr ---
+
+
+===== NEGATIVE CONTROL (checks MUST now fail) =====
+mutated: M docker-compose.yml, ?? .junit-0.xml, ?? .junit-1.xml
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-7b182948484d7df9\Scripts\python.exe -m pytest tests/infra/test_helm_chart.py -q -rfE "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-tjhb9_n5\.junit-0.xml"
+--- stdout ---
+............F............                                                [100%]
+================================== FAILURES ===================================
+___ test_each_ingestion_job_runs_the_same_two_step_chain_as_docker_compose ____
+
+tmp_path = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-12392/test_each_ingestion_job_runs_t0')
+
+    def test_each_ingestion_job_runs_the_same_two_step_chain_as_docker_compose(tmp_path: Path) -> None:
+        compose = yaml.safe_load(COMPOSE.read_text(encoding="utf-8"))["services"]
+        jobs = {
+            job["metadata"]["name"]: job for job in _by_kind(_render("-f", str(_pilot_values(tmp_path))), "Job")
+        }
+        for pilot in PILOTS:
+            service = compose[f"ingest-{pilot['family']}-{pilot['platform']}"]
+            job = jobs[_job_name(pilot)]
+            container = job["spec"]["template"]["spec"]["containers"][0]
+            assert container["command"] == service["entrypoint"], pilot
+>           assert shlex.split(container["args"][0]) == shlex.split(service["command"][0]), pilot
+E           AssertionError: {'family': 'pdf', 'platform': 'net', 'sourceKind': 'self_extracted', 'heldBy': 'ingestion-pdf-net', ...}
+E           assert ['python', '/...surface', ...] == ['python', '/...surface', ...]
+E             
+E             At index 62 diff: 'echo' != 'true;'
+E             Left contains one more item: '}'
+E             Use -v to get more diff
+
+tests\infra\test_helm_chart.py:338: AssertionError
+=========================== short test summary info ===========================
+FAILED tests/infra/test_helm_chart.py::test_each_ingestion_job_runs_the_same_two_step_chain_as_docker_compose
+
+--- stderr ---
+
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-7b182948484d7df9\Scripts\python.exe -m pytest tests/infra/test_helm_chart.py tests/infra/test_helm_pilots_match_compose.py tests/infra/test_docker_compose_multi_instance.py tests/infra/test_ingest_publish_safety.py -q -rfE -p no:cacheprovider "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-tjhb9_n5\.junit-1.xml"
+--- stdout ---
+............F........................................................... [ 61%]
+..............................................                           [100%]
+================================== FAILURES ===================================
+___ test_each_ingestion_job_runs_the_same_two_step_chain_as_docker_compose ____
+
+tmp_path = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-12393/test_each_ingestion_job_runs_t0')
+
+    def test_each_ingestion_job_runs_the_same_two_step_chain_as_docker_compose(tmp_path: Path) -> None:
+        compose = yaml.safe_load(COMPOSE.read_text(encoding="utf-8"))["services"]
+        jobs = {
+            job["metadata"]["name"]: job for job in _by_kind(_render("-f", str(_pilot_values(tmp_path))), "Job")
+        }
+        for pilot in PILOTS:
+            service = compose[f"ingest-{pilot['family']}-{pilot['platform']}"]
+            job = jobs[_job_name(pilot)]
+            container = job["spec"]["template"]["spec"]["containers"][0]
+            assert container["command"] == service["entrypoint"], pilot
+>           assert shlex.split(container["args"][0]) == shlex.split(service["command"][0]), pilot
+E           AssertionError: {'family': 'pdf', 'platform': 'net', 'sourceKind': 'self_extracted', 'heldBy': 'ingestion-pdf-net', ...}
+E           assert ['python', '/...surface', ...] == ['python', '/...surface', ...]
+E             
+E             At index 62 diff: 'echo' != 'true;'
+E             Left contains one more item: '}'
+E             Use -v to get more diff
+
+tests\infra\test_helm_chart.py:338: AssertionError
+=========================== short test summary info ===========================
+FAILED tests/infra/test_helm_chart.py::test_each_ingestion_job_runs_the_same_two_step_chain_as_docker_compose
+
+--- stderr ---
+
