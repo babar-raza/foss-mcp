@@ -1,0 +1,96 @@
+id: TC-576
+gate: G3
+lane: verification
+purpose: >-
+  A real gatectl-review-tool bug found by the supervisor's 2026-10-23 gate-exit re-verification pass. scripts/release/build_review_ledger.py's
+  compute() treats any card status other than the literal string 'ACCEPTED' as pending (line ~1551: `pending = [(c, statuses.get(c,
+  'UNKNOWN')) for c in f.cards if statuses.get(c) != 'ACCEPTED']`), with no allowance for SUPERSEDED - even though ops/gatecli.py's
+  own `_accepted_or_superseded_cards()` (used by the commit-guard and the source-ref-staleness check) already treats ACCEPTED
+  and SUPERSEDED as equally 'done', exactly because a superseded card's work was fully carried by its accepted successor.
+  CONCRETE SYMPTOM: L-084 ('Verified examples exist for only 6-7 pilots...') lists TC-463 and TC-464 among its closing cards;
+  both were superseded (successor TC-551) this gate because their entire subject - jmap/net and jmap/python - no longer exists
+  (TC-551/TC-552 removed the whole jmap family). Every OTHER card in L-084's list is ACCEPTED, so the finding is, in substance,
+  fully resolved for every pilot that still exists - but the ledger tool reports L-084 permanently OPEN because it only recognises
+  the literal ACCEPTED string, never SUPERSEDED. FIX: in compute()'s `pending`/`done` split, treat a card whose status is
+  ACCEPTED or SUPERSEDED as done, exactly matching gatecli.py's own precedent; change nothing else in the function (the rec_ok
+  / data-freshness / awaiting logic is unrelated and untouched).
+depends_on:
+- TC-546
+- TC-551
+write_paths:
+- scripts/release/build_review_ledger.py
+- tests/deploy/test_build_review_ledger.py
+- docs/REVIEW_LEDGER.md
+satisfies:
+- REQ-G3-008
+source_refs:
+- file: docs/DECISION_LOG.md
+  anchor: >-
+    ## 2026-10-17 — Round-3 independent review of the shipped image: 82 findings registered, nothing executed (operator, supervisor)
+  sha256: c2056b11a13e5b18cda7e522027fb5eb0102edcef2f99f6c7e7ce0ee5c4b4e5b
+inputs:
+- >-
+  REPRODUCE FIRST: `.venv\Scripts\python.exe scripts/release/build_review_ledger.py --check` on main today reports L-084 OPEN,
+  pending TC-463 SUPERSEDED, TC-464 SUPERSEDED - the only two non-ACCEPTED entries in that finding's card list, and both are
+  SUPERSEDED, not a real gap.
+- >-
+  THE FIX: change the one list-comprehension condition that decides pending vs done (around line 1551-1552 of scripts/release/build_review_ledger.py)
+  from checking `statuses.get(c) != 'ACCEPTED'` / `== 'ACCEPTED'` to a shared helper or inline check that treats `{'ACCEPTED',
+  'SUPERSEDED'}` as done. Read the whole `compute()` function first so the fix is additive, not a rewrite - `done`'s members
+  still need to render with their own real status in the generated markdown text where that matters (an evidence sentence
+  should say 'ACCEPTED' or 'SUPERSEDED' truthfully for each card, not claim every done card is ACCEPTED when some are SUPERSEDED
+  - check how `done` is rendered a few lines below and adjust the wording there too if it currently assumes ACCEPTED specifically).
+- >-
+  Regenerate docs/REVIEW_LEDGER.md with the fixed tool (it is generated, byte for byte, by this script - do not hand-edit
+  it) and confirm `--check` now reports L-084 among FIXED or ACCEPTED, not OPEN, and the overall OPEN count drops by exactly
+  one row (no other row's status may change as a side effect - diff the full --check output before and after and confirm only
+  L-084 moved).
+- >-
+  tests/deploy/test_build_review_ledger.py: add a synthetic test proving the fix - a finding whose card list is `['TC-X (ACCEPTED)',
+  'TC-Y (SUPERSEDED)']` in a hand-built state fixture now resolves as done, not pending; and a synthetic negative-proof test
+  that a finding naming a card that is merely IN_PROGRESS (not ACCEPTED or SUPERSEDED) still correctly stays pending - this
+  is the test that would have caught a careless 'treat everything as done' overcorrection. Do not remove or weaken any existing
+  test in this file.
+- Run the whole file; it must stay green. Never weaken a check to make it pass.
+actions:
+- >-
+  Treat a SUPERSEDED card as closed, the same as ACCEPTED, when the review ledger decides whether a finding is still pending.
+- Regenerate docs/REVIEW_LEDGER.md with the fixed tool and prove only L-084 changed.
+checks:
+- command: '{python} -m pytest tests/deploy/test_build_review_ledger.py -q -rfE'
+  expect: exit 0
+  timeout_seconds: 300
+  junitxml: true
+  proves:
+  - REQ-G3-008
+- command: >-
+    {python} -m pytest tests/deploy/test_build_review_ledger.py tests/deploy/test_readme_matches_release.py tests/deploy/test_release_known_limitations.py
+    -q -rfE -p no:cacheprovider
+  expect: exit 0
+  timeout_seconds: 600
+  junitxml: true
+  proves:
+  - REQ-G3-008
+min_tests: 55
+network: false
+requires:
+- python
+negative_control:
+  mutate: >-
+    python -X utf8 -c "import pathlib; p = pathlib.Path('scripts/release/build_review_ledger.py'); s = p.read_text(encoding='utf-8');
+    old = 'SUPERSEDED'; assert old in s, 'fix text not found - card and source have diverged'; i = s.rindex(old); p.write_text(s[:i]
+    + 'SUPERSEDEDX' + s[i+len(old):], encoding='utf-8')"
+  rationale: >-
+    Renames the LAST reference to SUPERSEDED in the fixed function (the worker's own new done-status check, since that is
+    necessarily the newest and typically last-appearing use of the word), so a SUPERSEDED card no longer matches it and the
+    new synthetic test (a SUPERSEDED card closing a finding) must fail again. A real break of the card's central claim. If
+    this does not land on the worker's own new code (a review finds it still passes), the supervisor retargets this string
+    at review time - the established pattern for every rindex-based negative control this gate.
+evidence:
+- evidence/build/G3/TC-576/receipt.json
+closeout:
+- >-
+  The review ledger treats a SUPERSEDED card as closed, the same as ACCEPTED, when deciding whether a finding is still pending
+  - L-084 (and any future finding in the same situation) reports its true status instead of staying permanently OPEN because
+  its closing work moved to a successor card.
+recovery: Re-run from a clean tree.
