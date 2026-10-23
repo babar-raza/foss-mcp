@@ -1,0 +1,65 @@
+id: TC-578
+gate: G3
+lane: transport-deployment
+purpose: >-
+  Re-pin a stale real-upstream-data count, same pattern as TC-572's own 12->14 re-pin of this exact assertion. pdf/go's real
+  upstream repository has published one more real tagged release (v0.14.0) since the supervisor's 2026-10-23 re-ingest (commit
+  8e5127af) refreshed infra/demo-manifests/recent_releases_pdf_go.json: the file now genuinely holds 15 entries, not 14. tests/infra/test_round3_serving_robustness.py::test_a_sidecar_added_later_is_served_on_the_next_request_and_the_warning_clears
+  still asserts `len(oracle_releases) == 14`, found failing by a fresh full local CI run. This is pure data drift (a real,
+  external fact changing), not a code regression - confirmed by reading the real file directly before writing this card.
+depends_on:
+- TC-001
+- TC-564
+- TC-572
+write_paths:
+- tests/infra/test_round3_serving_robustness.py
+satisfies:
+- REQ-G3-005
+source_refs:
+- file: docs/DECISION_LOG.md
+  anchor: >-
+    ## 2026-10-17 — Round-3 independent review of the shipped image: 82 findings registered, nothing executed (operator, supervisor)
+  sha256: c2056b11a13e5b18cda7e522027fb5eb0102edcef2f99f6c7e7ce0ee5c4b4e5b
+inputs:
+- >-
+  Read infra/demo-manifests/recent_releases_pdf_go.json yourself and count its entries - do not trust this card's own stated
+  number blindly. At the time of writing it is 15, newest tag v0.14.0. Change exactly the one assertion `assert len(oracle_releases)
+  == 14` in tests/infra/test_round3_serving_robustness.py (the test named in this card's purpose) to the real current count,
+  with a one-line comment naming the new tag, following the exact pattern of the comment already above it (G3/TC-572's own
+  12->14 re-pin). Change nothing else in the file - this is a one-number fix, not a design change.
+- Run the whole file; it must stay green. Never weaken a check to make it pass.
+actions:
+- Re-pin the stale oracle-release count to the real current upstream data.
+checks:
+- command: '{python} -m pytest tests/infra/test_round3_serving_robustness.py -q -rfE'
+  expect: exit 0
+  timeout_seconds: 300
+  junitxml: true
+  proves:
+  - REQ-G3-005
+- command: >-
+    {python} -m pytest tests/infra/test_round3_serving_robustness.py tests/infra/test_serve_sidecar_tolerance.py tests/infra/test_serve_http.py
+    -q -rfE -p no:cacheprovider
+  expect: exit 0
+  timeout_seconds: 400
+  junitxml: true
+  proves:
+  - REQ-G3-005
+min_tests: 30
+network: false
+requires:
+- python
+negative_control:
+  mutate: >-
+    python -X utf8 -c "import pathlib; p = pathlib.Path('tests/infra/test_round3_serving_robustness.py'); s = p.read_text(encoding='utf-8');
+    old = 'assert len(oracle_releases) == 15'; assert old in s, 'fix text not found - card and source have diverged'; p.write_text(s.replace(old,
+    'assert len(oracle_releases) == 14', 1), encoding='utf-8')"
+  rationale: >-
+    Reverts the re-pin back to the stale count, so the test must fail again against the real, current baked data. A real break
+    of the card's central claim.
+evidence:
+- evidence/build/G3/TC-578/receipt.json
+closeout:
+- >-
+  The oracle-release-count assertion matches the real current baked data; the test suite is green again.
+recovery: Re-run from a clean tree.
