@@ -1,1167 +1,646 @@
 
 ===== CLEAN RUN 1 (host) =====
-$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-7b182948484d7df9\Scripts\python.exe -m pytest tests/deploy/test_snapshot_demo_from_cluster.py -q -rfE "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-gfxhf8pi\.junit-0.xml"
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-7b182948484d7df9\Scripts\python.exe -m pytest tests/deploy/test_snapshot_demo_from_cluster.py -q -rfE "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-sheps8yt\.junit-0.xml"
 --- stdout ---
 .......................................................................  [100%]
 
 --- stderr ---
 
-$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-7b182948484d7df9\Scripts\python.exe -m pytest tests/deploy -q -rfE "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-gfxhf8pi\.junit-1.xml"
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-7b182948484d7df9\Scripts\python.exe -m pytest tests/deploy -q -rfE "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-sheps8yt\.junit-1.xml"
 --- stdout ---
-........................................................................ [ 21%]
-........................................................................ [ 43%]
-........................................................................ [ 65%]
-........................................................................ [ 87%]
-.........................................                                [100%]
+............................F........................................... [  2%]
+FFFFFF.FFFFF............................................................ [  5%]
+........................................................................ [  8%]
+........................................................................ [ 11%]
+........................................................................ [ 13%]
+........................................................................ [ 16%]
+........................................................................ [ 19%]
+........................................................................ [ 22%]
+........................................................................ [ 25%]
+........................................................................ [ 27%]
+........................................................................ [ 30%]
+........................................................................ [ 33%]
+........................................................................ [ 36%]
+........................................................................ [ 39%]
+........................................................................ [ 41%]
+........................................................................ [ 44%]
+........................................................................ [ 47%]
+........................................................................ [ 50%]
+........................................................................ [ 52%]
+........................................................................ [ 55%]
+........................................................................ [ 58%]
+........................................................................ [ 61%]
+........................................................................ [ 64%]
+........................................................................ [ 66%]
+........................................................................ [ 69%]
+........................................................................ [ 72%]
+........................................................................ [ 75%]
+........................................................................ [ 78%]
+........................................................................ [ 80%]
+........................................................................ [ 83%]
+........................................................................ [ 86%]
+........................................................................ [ 89%]
+........................................................................ [ 91%]
+........................................................................ [ 94%]
+........................................................................ [ 97%]
+...............................................................          [100%]
+================================== FAILURES ===================================
+____________ test_restart_is_skipped_for_a_url_target_and_says_so _____________
+
+endpoint = <function endpoint.<locals>.make at 0x0000021E6790A5C0>
+
+    def test_restart_is_skipped_for_a_url_target_and_says_so(endpoint) -> None:
+        target = make_target(endpoint())
+        result = suite.run_scenario(target, "restart", suite.scenario_restart)
+>       assert result.status == "skipped"
+E       AssertionError: assert 'fail' == 'skipped'
+E         
+E         - skipped
+E         + fail
+
+tests\deploy\test_adversarial_suite.py:678: AssertionError
+_________________ test_a_well_behaved_image_passes_end_to_end _________________
+
+tmp_path = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-11556/test_a_well_behaved_image_pass0')
+endpoint = <function endpoint.<locals>.make at 0x0000021E677D47C0>
+capsys = <_pytest.capture.CaptureFixture object at 0x0000021E3819DD00>
+
+    def test_a_well_behaved_image_passes_end_to_end(
+        tmp_path: Path, endpoint, capsys: pytest.CaptureFixture[str]
+    ) -> None:
+        fake = endpoint()
+        code, docker, report_dir = run_main(tmp_path, fake)
+        out = capsys.readouterr().out
+>       assert code == 0, out
+E       AssertionError: pdf/net            FAIL  
+E             reason: the container never became ready: /readyz did not answer 200 within 30 s (last answer: no connection); last log lines: serving
+E         verdict: FAIL (0 of 1 pilots passed); reports: C:\Users\babar\AppData\Local\Temp\pytest-of-babar\pytest-11556\test_a_well_behaved_image_pass0\reports
+E         
+E       assert 1 == 0
+
+tests\deploy\test_adversarial_suite.py:1155: AssertionError
+______________ test_the_verdict_is_fail_when_any_scenario_fails _______________
+
+tmp_path = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-11556/test_the_verdict_is_fail_when_0')
+endpoint = <function endpoint.<locals>.make at 0x0000021E677D60C0>
+capsys = <_pytest.capture.CaptureFixture object at 0x0000021E6791F450>
+
+    def test_the_verdict_is_fail_when_any_scenario_fails(
+        tmp_path: Path, endpoint, capsys: pytest.CaptureFixture[str]
+    ) -> None:
+        fake = endpoint(crash_on_invalid_json=True)
+        code, docker, report_dir = run_main(tmp_path, fake)
+        out = capsys.readouterr().out
+        assert code == suite.EXIT_FAILED
+        summary = load(report_dir, "summary.json")
+        assert summary["verdict"] == "FAIL" and summary["pilots_passed"] == 0
+        pilot = load(report_dir, "pdf_net.json")
+>       assert pilot["scenarios"]["protocol"]["status"] == "fail"
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       KeyError: 'protocol'
+
+tests\deploy\test_adversarial_suite.py:1184: KeyError
+_____________ test_a_generation_change_after_restart_is_detected ______________
+
+tmp_path = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-11556/test_a_generation_change_after0')
+endpoint = <function endpoint.<locals>.make at 0x0000021E677C1300>
+
+    def test_a_generation_change_after_restart_is_detected(tmp_path: Path, endpoint) -> None:
+        code, docker, report_dir = run_main(
+            tmp_path, endpoint(generation_after_restart="pdf::net::self_extracted::gen-2")
+        )
+        assert code == suite.EXIT_FAILED
+>       restart = load(report_dir, "pdf_net.json")["scenarios"]["restart"]
+                  ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       KeyError: 'restart'
+
+tests\deploy\test_adversarial_suite.py:1196: KeyError
+---------------------------- Captured stdout call -----------------------------
+pdf/net            FAIL  
+    reason: the container never became ready: /readyz did not answer 200 within 30 s (last answer: no connection); last log lines: serving
+verdict: FAIL (0 of 1 pilots passed); reports: C:\Users\babar\AppData\Local\Temp\pytest-of-babar\pytest-11556\test_a_generation_change_after0\reports
+---------------------------- Captured stderr call -----------------------------
+adversarial_suite: pdf/net finished: fail
+________ test_a_symbol_that_stops_resolving_after_restart_is_detected _________
+
+tmp_path = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-11556/test_a_symbol_that_stops_resol0')
+endpoint = <function endpoint.<locals>.make at 0x0000021E67909E40>
+
+    def test_a_symbol_that_stops_resolving_after_restart_is_detected(tmp_path: Path, endpoint) -> None:
+        code, _, report_dir = run_main(tmp_path, endpoint(forget_symbol_after_restart=True))
+        assert code == suite.EXIT_FAILED
+>       restart = load(report_dir, "pdf_net.json")["scenarios"]["restart"]
+                  ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       KeyError: 'restart'
+
+tests\deploy\test_adversarial_suite.py:1204: KeyError
+---------------------------- Captured stdout call -----------------------------
+pdf/net            FAIL  
+    reason: the container never became ready: /readyz did not answer 200 within 30 s (last answer: no connection); last log lines: serving
+verdict: FAIL (0 of 1 pilots passed); reports: C:\Users\babar\AppData\Local\Temp\pytest-of-babar\pytest-11556\test_a_symbol_that_stops_resol0\reports
+---------------------------- Captured stderr call -----------------------------
+adversarial_suite: pdf/net finished: fail
+______________________ test_a_memory_jump_fails_the_run _______________________
+
+tmp_path = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-11556/test_a_memory_jump_fails_the_r0')
+endpoint = <function endpoint.<locals>.make at 0x0000021E6780B1A0>
+
+    def test_a_memory_jump_fails_the_run(tmp_path: Path, endpoint) -> None:
+        fake = endpoint()
+        code, _, report_dir = run_main(
+            tmp_path, fake, docker=FakeDocker(fake, stats=("40.0MiB / 256MiB", "90.0MiB / 256MiB"))
+        )
+        assert code == suite.EXIT_FAILED
+>       concurrency = load(report_dir, "pdf_net.json")["scenarios"]["concurrency"]
+                      ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       KeyError: 'concurrency'
+
+tests\deploy\test_adversarial_suite.py:1214: KeyError
+---------------------------- Captured stdout call -----------------------------
+pdf/net            FAIL  
+    reason: the container never became ready: /readyz did not answer 200 within 30 s (last answer: no connection); last log lines: serving
+verdict: FAIL (0 of 1 pilots passed); reports: C:\Users\babar\AppData\Local\Temp\pytest-of-babar\pytest-11556\test_a_memory_jump_fails_the_r0\reports
+---------------------------- Captured stderr call -----------------------------
+adversarial_suite: pdf/net finished: fail
+________ test_a_server_that_goes_unready_after_an_attack_fails_the_run ________
+
+tmp_path = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-11556/test_a_server_that_goes_unread0')
+endpoint = <function endpoint.<locals>.make at 0x0000021E6780B880>
+
+    def test_a_server_that_goes_unready_after_an_attack_fails_the_run(tmp_path: Path, endpoint) -> None:
+        fake = endpoint(unready_after_bad_origin=True, accept_bad_origin=True)
+        code, _, report_dir = run_main(tmp_path, fake)
+        assert code == suite.EXIT_FAILED
+        pilot = load(report_dir, "pdf_net.json")
+>       assert any(v["case"] == "readyz" for v in pilot["scenarios"]["protocol"]["violations"])
+                                                  ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       KeyError: 'protocol'
+
+tests\deploy\test_adversarial_suite.py:1223: KeyError
+---------------------------- Captured stdout call -----------------------------
+pdf/net            FAIL  
+    reason: the container never became ready: /readyz did not answer 200 within 30 s (last answer: no connection); last log lines: serving
+verdict: FAIL (0 of 1 pilots passed); reports: C:\Users\babar\AppData\Local\Temp\pytest-of-babar\pytest-11556\test_a_server_that_goes_unread0\reports
+---------------------------- Captured stderr call -----------------------------
+adversarial_suite: pdf/net finished: fail
+____________ test_the_container_is_removed_when_a_scenario_raises _____________
+
+tmp_path = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-11556/test_the_container_is_removed_1')
+endpoint = <function endpoint.<locals>.make at 0x0000021E677C2D40>
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x0000021E36F04FA0>
+
+    def test_the_container_is_removed_when_a_scenario_raises(
+        tmp_path: Path, endpoint, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        def boom(target: suite.Target) -> list[suite.Violation]:
+            raise RuntimeError("scenario exploded")
+    
+        monkeypatch.setattr(suite, "SCENARIOS", (("protocol", boom),))
+        code, docker, report_dir = run_main(tmp_path, endpoint())
+        assert code == suite.EXIT_FAILED
+        assert docker.removed == [f"foss-mcp-adv-pdf-net-{RUN_ID}"]
+>       assert load(report_dir, "pdf_net.json")["scenarios"]["protocol"]["violations"][0]["case"] == "crash"
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       KeyError: 'protocol'
+
+tests\deploy\test_adversarial_suite.py:1244: KeyError
+---------------------------- Captured stdout call -----------------------------
+pdf/net            FAIL  
+    reason: the container never became ready: /readyz did not answer 200 within 30 s (last answer: no connection); last log lines: serving
+verdict: FAIL (0 of 1 pilots passed); reports: C:\Users\babar\AppData\Local\Temp\pytest-of-babar\pytest-11556\test_the_container_is_removed_1\reports
+---------------------------- Captured stderr call -----------------------------
+adversarial_suite: pdf/net finished: fail
+_____________ test_the_container_is_removed_on_keyboard_interrupt _____________
+
+tmp_path = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-11556/test_the_container_is_removed_2')
+endpoint = <function endpoint.<locals>.make at 0x0000021E677D4E00>
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x0000021E67841320>
+
+    def test_the_container_is_removed_on_keyboard_interrupt(
+        tmp_path: Path, endpoint, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        def interrupted(target: suite.Target) -> list[suite.Violation]:
+            raise KeyboardInterrupt
+    
+        monkeypatch.setattr(suite, "SCENARIOS", (("protocol", interrupted),))
+        code, docker, report_dir = run_main(tmp_path, endpoint())
+>       assert code == suite.EXIT_INTERRUPTED
+E       assert 1 == 130
+E        +  where 130 = suite.EXIT_INTERRUPTED
+
+tests\deploy\test_adversarial_suite.py:1255: AssertionError
+---------------------------- Captured stdout call -----------------------------
+pdf/net            FAIL  
+    reason: the container never became ready: /readyz did not answer 200 within 30 s (last answer: no connection); last log lines: serving
+verdict: FAIL (0 of 1 pilots passed); reports: C:\Users\babar\AppData\Local\Temp\pytest-of-babar\pytest-11556\test_the_container_is_removed_2\reports
+---------------------------- Captured stderr call -----------------------------
+adversarial_suite: pdf/net finished: fail
+_________ test_attacking_a_url_starts_no_container_and_skips_restart __________
+
+tmp_path = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-11556/test_attacking_a_url_starts_no0')
+endpoint = <function endpoint.<locals>.make at 0x0000021E6780B420>
+capsys = <_pytest.capture.CaptureFixture object at 0x0000021E6791FB50>
+
+    def test_attacking_a_url_starts_no_container_and_skips_restart(
+        tmp_path: Path, endpoint, capsys: pytest.CaptureFixture[str]
+    ) -> None:
+        fake = endpoint()
+        docker = FakeDocker(fake)
+        deps = make_deps(docker)
+        report_dir = tmp_path / "reports"
+        code = suite.main(["--url", fake.url, "--pilot", "pdf/net", "--report-dir", str(report_dir)], deps, FAST)
+        out = capsys.readouterr().out
+>       assert code == 0, out
+E       AssertionError: pdf/net            FAIL  
+E             reason: /readyz at the given --url did not answer 200 within 120 s (last: None)
+E         verdict: FAIL (0 of 1 pilots passed); reports: C:\Users\babar\AppData\Local\Temp\pytest-of-babar\pytest-11556\test_attacking_a_url_starts_no0\reports
+E         
+E       assert 1 == 0
+
+tests\deploy\test_adversarial_suite.py:1269: AssertionError
+_______________ test_an_empty_endpoint_fails_before_any_attack ________________
+
+tmp_path = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-11556/test_an_empty_endpoint_fails_b0')
+endpoint = <function endpoint.<locals>.make at 0x0000021E67809C60>
+
+    def test_an_empty_endpoint_fails_before_any_attack(tmp_path: Path, endpoint) -> None:
+        code, docker, report_dir = run_main(tmp_path, endpoint(empty_index=True))
+        assert code == suite.EXIT_FAILED
+        pilot = load(report_dir, "pdf_net.json")
+>       assert list(pilot["scenarios"]) == ["baseline"]
+E       AssertionError: assert [] == ['baseline']
+E         
+E         Right contains one more item: 'baseline'
+E         Use -v to get more diff
+
+tests\deploy\test_adversarial_suite.py:1282: AssertionError
+---------------------------- Captured stdout call -----------------------------
+pdf/net            FAIL  
+    reason: the container never became ready: /readyz did not answer 200 within 30 s (last answer: no connection); last log lines: serving
+verdict: FAIL (0 of 1 pilots passed); reports: C:\Users\babar\AppData\Local\Temp\pytest-of-babar\pytest-11556\test_an_empty_endpoint_fails_b0\reports
+---------------------------- Captured stderr call -----------------------------
+adversarial_suite: pdf/net finished: fail
+___________ test_no_environment_value_reaches_any_output_or_report ____________
+
+tmp_path = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-11556/test_no_environment_value_reac0')
+endpoint = <function endpoint.<locals>.make at 0x0000021E677C16C0>
+capsys = <_pytest.capture.CaptureFixture object at 0x0000021E67865A90>
+
+    def test_no_environment_value_reaches_any_output_or_report(
+        tmp_path: Path, endpoint, capsys: pytest.CaptureFixture[str]
+    ) -> None:
+        environ = {
+            "FOSS_MCP_EMBEDDING_GATEWAY_ENDPOINT": PLANTED_ENDPOINT,
+            "FOSS_MCP_EMBEDDING_GATEWAY_API_KEY": PLANTED_KEY,
+        }
+        # The server leaks both a container variable and the gateway key into every error it produces.
+        fake = endpoint(leak_secret=f"{CONTAINER_SECRET} {PLANTED_KEY}")
+        code, docker, report_dir = run_main(tmp_path, fake, environ=environ)
+        captured = capsys.readouterr()
+        assert code == suite.EXIT_FAILED
+        pilot = load(report_dir, "pdf_net.json")
+>       assert any("SECRET_TOKEN" in v["problem"] for v in pilot["scenarios"]["disclosure"]["violations"])
+                                                           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       KeyError: 'disclosure'
+
+tests\deploy\test_adversarial_suite.py:1300: KeyError
+=========================== short test summary info ===========================
+FAILED tests/deploy/test_adversarial_suite.py::test_restart_is_skipped_for_a_url_target_and_says_so
+FAILED tests/deploy/test_adversarial_suite.py::test_a_well_behaved_image_passes_end_to_end
+FAILED tests/deploy/test_adversarial_suite.py::test_the_verdict_is_fail_when_any_scenario_fails
+FAILED tests/deploy/test_adversarial_suite.py::test_a_generation_change_after_restart_is_detected
+FAILED tests/deploy/test_adversarial_suite.py::test_a_symbol_that_stops_resolving_after_restart_is_detected
+FAILED tests/deploy/test_adversarial_suite.py::test_a_memory_jump_fails_the_run
+FAILED tests/deploy/test_adversarial_suite.py::test_a_server_that_goes_unready_after_an_attack_fails_the_run
+FAILED tests/deploy/test_adversarial_suite.py::test_the_container_is_removed_when_a_scenario_raises
+FAILED tests/deploy/test_adversarial_suite.py::test_the_container_is_removed_on_keyboard_interrupt
+FAILED tests/deploy/test_adversarial_suite.py::test_attacking_a_url_starts_no_container_and_skips_restart
+FAILED tests/deploy/test_adversarial_suite.py::test_an_empty_endpoint_fails_before_any_attack
+FAILED tests/deploy/test_adversarial_suite.py::test_no_environment_value_reaches_any_output_or_report
 
 --- stderr ---
 
 
 ===== CLEAN RUN 2 (host) =====
-$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-7b182948484d7df9\Scripts\python.exe -m pytest tests/deploy/test_snapshot_demo_from_cluster.py -q -rfE "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-gfxhf8pi\.junit-0.xml"
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-7b182948484d7df9\Scripts\python.exe -m pytest tests/deploy/test_snapshot_demo_from_cluster.py -q -rfE "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-sheps8yt\.junit-0.xml"
 --- stdout ---
 .......................................................................  [100%]
 
 --- stderr ---
 
-$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-7b182948484d7df9\Scripts\python.exe -m pytest tests/deploy -q -rfE "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-gfxhf8pi\.junit-1.xml"
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-7b182948484d7df9\Scripts\python.exe -m pytest tests/deploy -q -rfE "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-sheps8yt\.junit-1.xml"
 --- stdout ---
-........................................................................ [ 21%]
-........................................................................ [ 43%]
-........................................................................ [ 65%]
-........................................................................ [ 87%]
-.........................................                                [100%]
-
---- stderr ---
-
-
-===== NEGATIVE CONTROL (checks MUST now fail) =====
-mutated: M scripts/release/snapshot_demo_from_cluster.py, ?? .junit-0.xml, ?? .junit-1.xml
-$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-7b182948484d7df9\Scripts\python.exe -m pytest tests/deploy/test_snapshot_demo_from_cluster.py -q -rfE "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-gfxhf8pi\.junit-0.xml"
---- stdout ---
-FFFF.......F.................FFFFFFFFFF.............FFFF.......FFFFFF..  [100%]
+............................F........................................... [  2%]
+FFFFFF.FFFFF............................................................ [  5%]
+........................................................................ [  8%]
+........................................................................ [ 11%]
+........................................................................ [ 13%]
+........................................................................ [ 16%]
+........................................................................ [ 19%]
+........................................................................ [ 22%]
+........................................................................ [ 25%]
+........................................................................ [ 27%]
+........................................................................ [ 30%]
+........................................................................ [ 33%]
+........................................................................ [ 36%]
+........................................................................ [ 39%]
+........................................................................ [ 41%]
+........................................................................ [ 44%]
+........................................................................ [ 47%]
+........................................................................ [ 50%]
+........................................................................ [ 52%]
+........................................................................ [ 55%]
+........................................................................ [ 58%]
+........................................................................ [ 61%]
+........................................................................ [ 64%]
+........................................................................ [ 66%]
+........................................................................ [ 69%]
+........................................................................ [ 72%]
+........................................................................ [ 75%]
+........................................................................ [ 78%]
+........................................................................ [ 80%]
+........................................................................ [ 83%]
+........................................................................ [ 86%]
+........................................................................ [ 89%]
+........................................................................ [ 91%]
+........................................................................ [ 94%]
+........................................................................ [ 97%]
+...............................................................          [100%]
 ================================== FAILURES ===================================
-_____ test_good_pilot_is_written_with_only_pointer_and_active_generation ______
+____________ test_restart_is_skipped_for_a_url_target_and_says_so _____________
 
-cluster = <tests.deploy.test_snapshot_demo_from_cluster.FakeCluster object at 0x0000024A9B499E80>
-root = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-5548/test_good_pilot_is_written_wit0/demo-manifests')
-capsys = <_pytest.capture.CaptureFixture object at 0x0000024A9B499FD0>
+endpoint = <function endpoint.<locals>.make at 0x00000208B01D6840>
 
-    def test_good_pilot_is_written_with_only_pointer_and_active_generation(
-        cluster: FakeCluster, root: Path, capsys: pytest.CaptureFixture[str]
+    def test_restart_is_skipped_for_a_url_target_and_says_so(endpoint) -> None:
+        target = make_target(endpoint())
+        result = suite.run_scenario(target, "restart", suite.scenario_restart)
+>       assert result.status == "skipped"
+E       AssertionError: assert 'fail' == 'skipped'
+E         
+E         - skipped
+E         + fail
+
+tests\deploy\test_adversarial_suite.py:678: AssertionError
+_________________ test_a_well_behaved_image_passes_end_to_end _________________
+
+tmp_path = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-11558/test_a_well_behaved_image_pass0')
+endpoint = <function endpoint.<locals>.make at 0x00000208B00E2FC0>
+capsys = <_pytest.capture.CaptureFixture object at 0x00000208AEB37F00>
+
+    def test_a_well_behaved_image_passes_end_to_end(
+        tmp_path: Path, endpoint, capsys: pytest.CaptureFixture[str]
     ) -> None:
-        cluster.add(PDF_NET)
-    
-        rc, out, err = run_tool(capsys, root, "--only", "pdf_net")
-    
->       assert rc == 0, (out, err)
-E       AssertionError: ("pdf_net: FAILED pdf__net__self_extracted: the generation's lexical index is empty - there is nothing real to serve
-E         ...ers\\babar\\AppData\\Local\\Temp\\pytest-of-babar\\pytest-5548\\test_good_pilot_is_written_wit0\\demo-manifests
-E         ", '')
-E       assert 1 == 0
-
-tests\deploy\test_snapshot_demo_from_cluster.py:307: AssertionError
-_______ test_sidecars_land_at_the_root_with_the_right_names_and_content _______
-
-cluster = <tests.deploy.test_snapshot_demo_from_cluster.FakeCluster object at 0x0000024A9D5F5E50>
-root = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-5548/test_sidecars_land_at_the_root0/demo-manifests')
-capsys = <_pytest.capture.CaptureFixture object at 0x0000024A9D5F5F90>
-
-    def test_sidecars_land_at_the_root_with_the_right_names_and_content(
-        cluster: FakeCluster, root: Path, capsys: pytest.CaptureFixture[str]
-    ) -> None:
-        cluster.add(PDF_NET)
-        cluster.add(SLIDES_PY)
-    
-        rc, out, _ = run_tool(capsys, root, "--only", "pdf_net", "--only", "slides_python")
-    
->       assert rc == 0, out
-E       AssertionError: pdf_net: FAILED pdf__net__self_extracted: the generation's lexical index is empty - there is nothing real to serve
-E         slides_python: FAILED slides__python__self_extracted: the generation's lexical index is empty - there is nothing real to serve
-E         total: 0 of 2 pilot(s) ok, 2 failed; tree 0 bytes in 0 file(s) under C:\Users\babar\AppData\Local\Temp\pytest-of-babar\pytest-5548\test_sidecars_land_at_the_root0\demo-manifests
+        fake = endpoint()
+        code, docker, report_dir = run_main(tmp_path, fake)
+        out = capsys.readouterr().out
+>       assert code == 0, out
+E       AssertionError: pdf/net            FAIL  
+E             reason: the container never became ready: /readyz did not answer 200 within 30 s (last answer: no connection); last log lines: serving
+E         verdict: FAIL (0 of 1 pilots passed); reports: C:\Users\babar\AppData\Local\Temp\pytest-of-babar\pytest-11558\test_a_well_behaved_image_pass0\reports
 E         
 E       assert 1 == 0
 
-tests\deploy\test_snapshot_demo_from_cluster.py:337: AssertionError
-___________________ test_compaction_ran_on_what_was_written ___________________
+tests\deploy\test_adversarial_suite.py:1155: AssertionError
+______________ test_the_verdict_is_fail_when_any_scenario_fails _______________
 
-cluster = <tests.deploy.test_snapshot_demo_from_cluster.FakeCluster object at 0x0000024A9D5F6990>
-root = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-5548/test_compaction_ran_on_what_wa0/demo-manifests')
-capsys = <_pytest.capture.CaptureFixture object at 0x0000024A9D5F6AD0>
+tmp_path = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-11558/test_the_verdict_is_fail_when_0')
+endpoint = <function endpoint.<locals>.make at 0x00000208B00D6200>
+capsys = <_pytest.capture.CaptureFixture object at 0x00000208B02CF850>
 
-    def test_compaction_ran_on_what_was_written(
-        cluster: FakeCluster, root: Path, capsys: pytest.CaptureFixture[str]
+    def test_the_verdict_is_fail_when_any_scenario_fails(
+        tmp_path: Path, endpoint, capsys: pytest.CaptureFixture[str]
     ) -> None:
-        cluster.add(PDF_NET)
+        fake = endpoint(crash_on_invalid_json=True)
+        code, docker, report_dir = run_main(tmp_path, fake)
+        out = capsys.readouterr().out
+        assert code == suite.EXIT_FAILED
+        summary = load(report_dir, "summary.json")
+        assert summary["verdict"] == "FAIL" and summary["pilots_passed"] == 0
+        pilot = load(report_dir, "pdf_net.json")
+>       assert pilot["scenarios"]["protocol"]["status"] == "fail"
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       KeyError: 'protocol'
+
+tests\deploy\test_adversarial_suite.py:1184: KeyError
+_____________ test_a_generation_change_after_restart_is_detected ______________
+
+tmp_path = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-11558/test_a_generation_change_after0')
+endpoint = <function endpoint.<locals>.make at 0x00000208B01F9940>
+
+    def test_a_generation_change_after_restart_is_detected(tmp_path: Path, endpoint) -> None:
+        code, docker, report_dir = run_main(
+            tmp_path, endpoint(generation_after_restart="pdf::net::self_extracted::gen-2")
+        )
+        assert code == suite.EXIT_FAILED
+>       restart = load(report_dir, "pdf_net.json")["scenarios"]["restart"]
+                  ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       KeyError: 'restart'
+
+tests\deploy\test_adversarial_suite.py:1196: KeyError
+---------------------------- Captured stdout call -----------------------------
+pdf/net            FAIL  
+    reason: the container never became ready: /readyz did not answer 200 within 30 s (last answer: no connection); last log lines: serving
+verdict: FAIL (0 of 1 pilots passed); reports: C:\Users\babar\AppData\Local\Temp\pytest-of-babar\pytest-11558\test_a_generation_change_after0\reports
+---------------------------- Captured stderr call -----------------------------
+adversarial_suite: pdf/net finished: fail
+________ test_a_symbol_that_stops_resolving_after_restart_is_detected _________
+
+tmp_path = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-11558/test_a_symbol_that_stops_resol0')
+endpoint = <function endpoint.<locals>.make at 0x00000208B00E2520>
+
+    def test_a_symbol_that_stops_resolving_after_restart_is_detected(tmp_path: Path, endpoint) -> None:
+        code, _, report_dir = run_main(tmp_path, endpoint(forget_symbol_after_restart=True))
+        assert code == suite.EXIT_FAILED
+>       restart = load(report_dir, "pdf_net.json")["scenarios"]["restart"]
+                  ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       KeyError: 'restart'
+
+tests\deploy\test_adversarial_suite.py:1204: KeyError
+---------------------------- Captured stdout call -----------------------------
+pdf/net            FAIL  
+    reason: the container never became ready: /readyz did not answer 200 within 30 s (last answer: no connection); last log lines: serving
+verdict: FAIL (0 of 1 pilots passed); reports: C:\Users\babar\AppData\Local\Temp\pytest-of-babar\pytest-11558\test_a_symbol_that_stops_resol0\reports
+---------------------------- Captured stderr call -----------------------------
+adversarial_suite: pdf/net finished: fail
+______________________ test_a_memory_jump_fails_the_run _______________________
+
+tmp_path = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-11558/test_a_memory_jump_fails_the_r0')
+endpoint = <function endpoint.<locals>.make at 0x00000208B00E14E0>
+
+    def test_a_memory_jump_fails_the_run(tmp_path: Path, endpoint) -> None:
+        fake = endpoint()
+        code, _, report_dir = run_main(
+            tmp_path, fake, docker=FakeDocker(fake, stats=("40.0MiB / 256MiB", "90.0MiB / 256MiB"))
+        )
+        assert code == suite.EXIT_FAILED
+>       concurrency = load(report_dir, "pdf_net.json")["scenarios"]["concurrency"]
+                      ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       KeyError: 'concurrency'
+
+tests\deploy\test_adversarial_suite.py:1214: KeyError
+---------------------------- Captured stdout call -----------------------------
+pdf/net            FAIL  
+    reason: the container never became ready: /readyz did not answer 200 within 30 s (last answer: no connection); last log lines: serving
+verdict: FAIL (0 of 1 pilots passed); reports: C:\Users\babar\AppData\Local\Temp\pytest-of-babar\pytest-11558\test_a_memory_jump_fails_the_r0\reports
+---------------------------- Captured stderr call -----------------------------
+adversarial_suite: pdf/net finished: fail
+________ test_a_server_that_goes_unready_after_an_attack_fails_the_run ________
+
+tmp_path = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-11558/test_a_server_that_goes_unread0')
+endpoint = <function endpoint.<locals>.make at 0x00000208B00E2520>
+
+    def test_a_server_that_goes_unready_after_an_attack_fails_the_run(tmp_path: Path, endpoint) -> None:
+        fake = endpoint(unready_after_bad_origin=True, accept_bad_origin=True)
+        code, _, report_dir = run_main(tmp_path, fake)
+        assert code == suite.EXIT_FAILED
+        pilot = load(report_dir, "pdf_net.json")
+>       assert any(v["case"] == "readyz" for v in pilot["scenarios"]["protocol"]["violations"])
+                                                  ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       KeyError: 'protocol'
+
+tests\deploy\test_adversarial_suite.py:1223: KeyError
+---------------------------- Captured stdout call -----------------------------
+pdf/net            FAIL  
+    reason: the container never became ready: /readyz did not answer 200 within 30 s (last answer: no connection); last log lines: serving
+verdict: FAIL (0 of 1 pilots passed); reports: C:\Users\babar\AppData\Local\Temp\pytest-of-babar\pytest-11558\test_a_server_that_goes_unread0\reports
+---------------------------- Captured stderr call -----------------------------
+adversarial_suite: pdf/net finished: fail
+____________ test_the_container_is_removed_when_a_scenario_raises _____________
+
+tmp_path = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-11558/test_the_container_is_removed_1')
+endpoint = <function endpoint.<locals>.make at 0x00000208B00D5440>
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x00000208B0283380>
+
+    def test_the_container_is_removed_when_a_scenario_raises(
+        tmp_path: Path, endpoint, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        def boom(target: suite.Target) -> list[suite.Violation]:
+            raise RuntimeError("scenario exploded")
     
-        rc, out, _ = run_tool(capsys, root, "--only", "pdf_net")
+        monkeypatch.setattr(suite, "SCENARIOS", (("protocol", boom),))
+        code, docker, report_dir = run_main(tmp_path, endpoint())
+        assert code == suite.EXIT_FAILED
+        assert docker.removed == [f"foss-mcp-adv-pdf-net-{RUN_ID}"]
+>       assert load(report_dir, "pdf_net.json")["scenarios"]["protocol"]["violations"][0]["case"] == "crash"
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       KeyError: 'protocol'
+
+tests\deploy\test_adversarial_suite.py:1244: KeyError
+---------------------------- Captured stdout call -----------------------------
+pdf/net            FAIL  
+    reason: the container never became ready: /readyz did not answer 200 within 30 s (last answer: no connection); last log lines: serving
+verdict: FAIL (0 of 1 pilots passed); reports: C:\Users\babar\AppData\Local\Temp\pytest-of-babar\pytest-11558\test_the_container_is_removed_1\reports
+---------------------------- Captured stderr call -----------------------------
+adversarial_suite: pdf/net finished: fail
+_____________ test_the_container_is_removed_on_keyboard_interrupt _____________
+
+tmp_path = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-11558/test_the_container_is_removed_2')
+endpoint = <function endpoint.<locals>.make at 0x00000208B00D77E0>
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x00000208FC67D2B0>
+
+    def test_the_container_is_removed_on_keyboard_interrupt(
+        tmp_path: Path, endpoint, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        def interrupted(target: suite.Target) -> list[suite.Violation]:
+            raise KeyboardInterrupt
     
->       assert rc == 0, out
-E       AssertionError: pdf_net: FAILED pdf__net__self_extracted: the generation's lexical index is empty - there is nothing real to serve
-E         total: 0 of 1 pilot(s) ok, 1 failed; tree 0 bytes in 0 file(s) under C:\Users\babar\AppData\Local\Temp\pytest-of-babar\pytest-5548\test_compaction_ran_on_what_wa0\demo-manifests
+        monkeypatch.setattr(suite, "SCENARIOS", (("protocol", interrupted),))
+        code, docker, report_dir = run_main(tmp_path, endpoint())
+>       assert code == suite.EXIT_INTERRUPTED
+E       assert 1 == 130
+E        +  where 130 = suite.EXIT_INTERRUPTED
+
+tests\deploy\test_adversarial_suite.py:1255: AssertionError
+---------------------------- Captured stdout call -----------------------------
+pdf/net            FAIL  
+    reason: the container never became ready: /readyz did not answer 200 within 30 s (last answer: no connection); last log lines: serving
+verdict: FAIL (0 of 1 pilots passed); reports: C:\Users\babar\AppData\Local\Temp\pytest-of-babar\pytest-11558\test_the_container_is_removed_2\reports
+---------------------------- Captured stderr call -----------------------------
+adversarial_suite: pdf/net finished: fail
+_________ test_attacking_a_url_starts_no_container_and_skips_restart __________
+
+tmp_path = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-11558/test_attacking_a_url_starts_no0')
+endpoint = <function endpoint.<locals>.make at 0x00000208B00E27A0>
+capsys = <_pytest.capture.CaptureFixture object at 0x00000208B02CE550>
+
+    def test_attacking_a_url_starts_no_container_and_skips_restart(
+        tmp_path: Path, endpoint, capsys: pytest.CaptureFixture[str]
+    ) -> None:
+        fake = endpoint()
+        docker = FakeDocker(fake)
+        deps = make_deps(docker)
+        report_dir = tmp_path / "reports"
+        code = suite.main(["--url", fake.url, "--pilot", "pdf/net", "--report-dir", str(report_dir)], deps, FAST)
+        out = capsys.readouterr().out
+>       assert code == 0, out
+E       AssertionError: pdf/net            FAIL  
+E             reason: /readyz at the given --url did not answer 200 within 120 s (last: None)
+E         verdict: FAIL (0 of 1 pilots passed); reports: C:\Users\babar\AppData\Local\Temp\pytest-of-babar\pytest-11558\test_attacking_a_url_starts_no0\reports
 E         
 E       assert 1 == 0
 
-tests\deploy\test_snapshot_demo_from_cluster.py:357: AssertionError
-__________________ test_only_get_pods_and_exec_tar_ever_run ___________________
+tests\deploy\test_adversarial_suite.py:1269: AssertionError
+_______________ test_an_empty_endpoint_fails_before_any_attack ________________
 
-cluster = <tests.deploy.test_snapshot_demo_from_cluster.FakeCluster object at 0x0000024A9B5D8180>
-root = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-5548/test_only_get_pods_and_exec_ta0/demo-manifests')
-capsys = <_pytest.capture.CaptureFixture object at 0x0000024A9B5D83E0>
+tmp_path = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-11558/test_an_empty_endpoint_fails_b0')
+endpoint = <function endpoint.<locals>.make at 0x00000208B00E0F40>
 
-    def test_only_get_pods_and_exec_tar_ever_run(
-        cluster: FakeCluster, root: Path, capsys: pytest.CaptureFixture[str]
-    ) -> None:
-        cluster.add(PDF_NET)
-    
-        rc, out, _ = run_tool(capsys, root, "--only", "pdf_net")
-    
->       assert rc == 0, out
-E       AssertionError: pdf_net: FAILED pdf__net__self_extracted: the generation's lexical index is empty - there is nothing real to serve
-E         total: 0 of 1 pilot(s) ok, 1 failed; tree 0 bytes in 0 file(s) under C:\Users\babar\AppData\Local\Temp\pytest-of-babar\pytest-5548\test_only_get_pods_and_exec_ta0\demo-manifests
+    def test_an_empty_endpoint_fails_before_any_attack(tmp_path: Path, endpoint) -> None:
+        code, docker, report_dir = run_main(tmp_path, endpoint(empty_index=True))
+        assert code == suite.EXIT_FAILED
+        pilot = load(report_dir, "pdf_net.json")
+>       assert list(pilot["scenarios"]) == ["baseline"]
+E       AssertionError: assert [] == ['baseline']
 E         
-E       assert 1 == 0
+E         Right contains one more item: 'baseline'
+E         Use -v to get more diff
 
-tests\deploy\test_snapshot_demo_from_cluster.py:376: AssertionError
-_______________ test_a_ready_pod_is_chosen_over_an_unready_one ________________
+tests\deploy\test_adversarial_suite.py:1282: AssertionError
+---------------------------- Captured stdout call -----------------------------
+pdf/net            FAIL  
+    reason: the container never became ready: /readyz did not answer 200 within 30 s (last answer: no connection); last log lines: serving
+verdict: FAIL (0 of 1 pilots passed); reports: C:\Users\babar\AppData\Local\Temp\pytest-of-babar\pytest-11558\test_an_empty_endpoint_fails_b0\reports
+---------------------------- Captured stderr call -----------------------------
+adversarial_suite: pdf/net finished: fail
+___________ test_no_environment_value_reaches_any_output_or_report ____________
 
-cluster = <tests.deploy.test_snapshot_demo_from_cluster.FakeCluster object at 0x0000024A9D2ECAA0>
-root = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-5548/test_a_ready_pod_is_chosen_ove0/demo-manifests')
-capsys = <_pytest.capture.CaptureFixture object at 0x0000024A9D2EC7D0>
-monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x0000024A9D27E680>
+tmp_path = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-11558/test_no_environment_value_reac0')
+endpoint = <function endpoint.<locals>.make at 0x00000208B01FAB60>
+capsys = <_pytest.capture.CaptureFixture object at 0x00000208B00E63F0>
 
-    def test_a_ready_pod_is_chosen_over_an_unready_one(
-        cluster: FakeCluster, root: Path, capsys: pytest.CaptureFixture[str], monkeypatch: pytest.MonkeyPatch
+    def test_no_environment_value_reaches_any_output_or_report(
+        tmp_path: Path, endpoint, capsys: pytest.CaptureFixture[str]
     ) -> None:
-        cluster.add(PDF_NET)
-        good = cluster.pods[release_of(PDF_NET)]
-        bad = {
-            "metadata": {"name": "foss-mcp-pdf-net-0-aaaaa"},
-            "status": {"phase": "Pending", "conditions": [{"type": "Ready", "status": "False"}]},
+        environ = {
+            "FOSS_MCP_EMBEDDING_GATEWAY_ENDPOINT": PLANTED_ENDPOINT,
+            "FOSS_MCP_EMBEDDING_GATEWAY_API_KEY": PLANTED_KEY,
         }
-    
-        def two_pods(cmd: list[str], **kwargs: Any) -> subprocess.CompletedProcess[bytes]:
-            if cmd[:3] == ["kubectl", "get", "pods"]:
-                cluster.calls.append(list(cmd))
-                return subprocess.CompletedProcess(cmd, 0, json.dumps({"items": [bad, good]}).encode(), b"")
-            return cluster(cmd, **kwargs)
-    
-        monkeypatch.setattr(snap.subprocess, "run", two_pods)
-        rc, out, _ = run_tool(capsys, root, "--only", "pdf_net")
-    
->       assert rc == 0, out
-E       AssertionError: pdf_net: FAILED pdf__net__self_extracted: the generation's lexical index is empty - there is nothing real to serve
-E         total: 0 of 1 pilot(s) ok, 1 failed; tree 0 bytes in 0 file(s) under C:\Users\babar\AppData\Local\Temp\pytest-of-babar\pytest-5548\test_a_ready_pod_is_chosen_ove0\demo-manifests
-E         
-E       assert 1 == 0
+        # The server leaks both a container variable and the gateway key into every error it produces.
+        fake = endpoint(leak_secret=f"{CONTAINER_SECRET} {PLANTED_KEY}")
+        code, docker, report_dir = run_main(tmp_path, fake, environ=environ)
+        captured = capsys.readouterr()
+        assert code == suite.EXIT_FAILED
+        pilot = load(report_dir, "pdf_net.json")
+>       assert any("SECRET_TOKEN" in v["problem"] for v in pilot["scenarios"]["disclosure"]["violations"])
+                                                           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       KeyError: 'disclosure'
 
-tests\deploy\test_snapshot_demo_from_cluster.py:491: AssertionError
-__ test_each_missing_sidecar_fails_the_pilot_and_is_named[product_reference] __
-
-cluster = <tests.deploy.test_snapshot_demo_from_cluster.FakeCluster object at 0x0000024A9B52F230>
-root = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-5548/test_each_missing_sidecar_fail0/demo-manifests')
-capsys = <_pytest.capture.CaptureFixture object at 0x0000024A9D6122D0>
-label = 'product_reference'
-
-    @pytest.mark.parametrize("label", SIDECAR_LABELS)
-    def test_each_missing_sidecar_fails_the_pilot_and_is_named(
-        cluster: FakeCluster, root: Path, capsys: pytest.CaptureFixture[str], label: str
-    ) -> None:
-        cluster.add(PDF_NET, pilot_tar(PDF_NET, drop_sidecars=(label,)))
-    
-        rc, out, _ = run_tool(capsys, root, "--only", "pdf_net")
-    
-        assert rc == 1
->       assert f"pdf_net: FAILED {scope_of(PDF_NET)}: missing sidecar(s) {sidecar_name_of(label, PDF_NET)}" in out
-E       assert 'pdf_net: FAILED pdf__net__self_extracted: missing sidecar(s) product_reference_pdf_net.json' in "pdf_net: FAILED pdf__net__self_extracted: the generation's lexical index is empty - there is nothing real to serve\nt...:\\Users\\babar\\AppData\\Local\\Temp\\pytest-of-babar\\pytest-5548\\test_each_missing_sidecar_fail0\\demo-manifests\n"
-
-tests\deploy\test_snapshot_demo_from_cluster.py:602: AssertionError
-___ test_each_missing_sidecar_fails_the_pilot_and_is_named[recent_releases] ___
-
-cluster = <tests.deploy.test_snapshot_demo_from_cluster.FakeCluster object at 0x0000024A9B52E4A0>
-root = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-5548/test_each_missing_sidecar_fail1/demo-manifests')
-capsys = <_pytest.capture.CaptureFixture object at 0x0000024A9D6121D0>
-label = 'recent_releases'
-
-    @pytest.mark.parametrize("label", SIDECAR_LABELS)
-    def test_each_missing_sidecar_fails_the_pilot_and_is_named(
-        cluster: FakeCluster, root: Path, capsys: pytest.CaptureFixture[str], label: str
-    ) -> None:
-        cluster.add(PDF_NET, pilot_tar(PDF_NET, drop_sidecars=(label,)))
-    
-        rc, out, _ = run_tool(capsys, root, "--only", "pdf_net")
-    
-        assert rc == 1
->       assert f"pdf_net: FAILED {scope_of(PDF_NET)}: missing sidecar(s) {sidecar_name_of(label, PDF_NET)}" in out
-E       assert 'pdf_net: FAILED pdf__net__self_extracted: missing sidecar(s) recent_releases_pdf_net.json' in "pdf_net: FAILED pdf__net__self_extracted: the generation's lexical index is empty - there is nothing real to serve\nt...:\\Users\\babar\\AppData\\Local\\Temp\\pytest-of-babar\\pytest-5548\\test_each_missing_sidecar_fail1\\demo-manifests\n"
-
-tests\deploy\test_snapshot_demo_from_cluster.py:602: AssertionError
-__ test_each_missing_sidecar_fails_the_pilot_and_is_named[package_registry] ___
-
-cluster = <tests.deploy.test_snapshot_demo_from_cluster.FakeCluster object at 0x0000024A9B52EA50>
-root = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-5548/test_each_missing_sidecar_fail2/demo-manifests')
-capsys = <_pytest.capture.CaptureFixture object at 0x0000024A9D612DD0>
-label = 'package_registry'
-
-    @pytest.mark.parametrize("label", SIDECAR_LABELS)
-    def test_each_missing_sidecar_fails_the_pilot_and_is_named(
-        cluster: FakeCluster, root: Path, capsys: pytest.CaptureFixture[str], label: str
-    ) -> None:
-        cluster.add(PDF_NET, pilot_tar(PDF_NET, drop_sidecars=(label,)))
-    
-        rc, out, _ = run_tool(capsys, root, "--only", "pdf_net")
-    
-        assert rc == 1
->       assert f"pdf_net: FAILED {scope_of(PDF_NET)}: missing sidecar(s) {sidecar_name_of(label, PDF_NET)}" in out
-E       assert 'pdf_net: FAILED pdf__net__self_extracted: missing sidecar(s) package_registry_pdf_net.json' in "pdf_net: FAILED pdf__net__self_extracted: the generation's lexical index is empty - there is nothing real to serve\nt...:\\Users\\babar\\AppData\\Local\\Temp\\pytest-of-babar\\pytest-5548\\test_each_missing_sidecar_fail2\\demo-manifests\n"
-
-tests\deploy\test_snapshot_demo_from_cluster.py:602: AssertionError
-_ test_each_missing_sidecar_passes_with_allow_missing_sidecars_and_is_reported[product_reference] _
-
-cluster = <tests.deploy.test_snapshot_demo_from_cluster.FakeCluster object at 0x0000024A9B52F5B0>
-root = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-5548/test_each_missing_sidecar_pass0/demo-manifests')
-capsys = <_pytest.capture.CaptureFixture object at 0x0000024ACC62CE50>
-label = 'product_reference'
-
-    @pytest.mark.parametrize("label", SIDECAR_LABELS)
-    def test_each_missing_sidecar_passes_with_allow_missing_sidecars_and_is_reported(
-        cluster: FakeCluster, root: Path, capsys: pytest.CaptureFixture[str], label: str
-    ) -> None:
-        cluster.add(PDF_NET, pilot_tar(PDF_NET, drop_sidecars=(label,)))
-    
-        rc, out, _ = run_tool(capsys, root, "--only", "pdf_net", "--allow-missing-sidecars")
-    
->       assert rc == 0, out
-E       AssertionError: pdf_net: FAILED pdf__net__self_extracted: the generation's lexical index is empty - there is nothing real to serve
-E         total: 0 of 1 pilot(s) ok, 1 failed; tree 0 bytes in 0 file(s) under C:\Users\babar\AppData\Local\Temp\pytest-of-babar\pytest-5548\test_each_missing_sidecar_pass0\demo-manifests
-E         
-E       assert 1 == 0
-
-tests\deploy\test_snapshot_demo_from_cluster.py:614: AssertionError
-_ test_each_missing_sidecar_passes_with_allow_missing_sidecars_and_is_reported[recent_releases] _
-
-cluster = <tests.deploy.test_snapshot_demo_from_cluster.FakeCluster object at 0x0000024A9D1709F0>
-root = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-5548/test_each_missing_sidecar_pass1/demo-manifests')
-capsys = <_pytest.capture.CaptureFixture object at 0x0000024A9B641050>
-label = 'recent_releases'
-
-    @pytest.mark.parametrize("label", SIDECAR_LABELS)
-    def test_each_missing_sidecar_passes_with_allow_missing_sidecars_and_is_reported(
-        cluster: FakeCluster, root: Path, capsys: pytest.CaptureFixture[str], label: str
-    ) -> None:
-        cluster.add(PDF_NET, pilot_tar(PDF_NET, drop_sidecars=(label,)))
-    
-        rc, out, _ = run_tool(capsys, root, "--only", "pdf_net", "--allow-missing-sidecars")
-    
->       assert rc == 0, out
-E       AssertionError: pdf_net: FAILED pdf__net__self_extracted: the generation's lexical index is empty - there is nothing real to serve
-E         total: 0 of 1 pilot(s) ok, 1 failed; tree 0 bytes in 0 file(s) under C:\Users\babar\AppData\Local\Temp\pytest-of-babar\pytest-5548\test_each_missing_sidecar_pass1\demo-manifests
-E         
-E       assert 1 == 0
-
-tests\deploy\test_snapshot_demo_from_cluster.py:614: AssertionError
-_ test_each_missing_sidecar_passes_with_allow_missing_sidecars_and_is_reported[package_registry] _
-
-cluster = <tests.deploy.test_snapshot_demo_from_cluster.FakeCluster object at 0x0000024A9B4BC600>
-root = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-5548/test_each_missing_sidecar_pass2/demo-manifests')
-capsys = <_pytest.capture.CaptureFixture object at 0x0000024A9B6420D0>
-label = 'package_registry'
-
-    @pytest.mark.parametrize("label", SIDECAR_LABELS)
-    def test_each_missing_sidecar_passes_with_allow_missing_sidecars_and_is_reported(
-        cluster: FakeCluster, root: Path, capsys: pytest.CaptureFixture[str], label: str
-    ) -> None:
-        cluster.add(PDF_NET, pilot_tar(PDF_NET, drop_sidecars=(label,)))
-    
-        rc, out, _ = run_tool(capsys, root, "--only", "pdf_net", "--allow-missing-sidecars")
-    
->       assert rc == 0, out
-E       AssertionError: pdf_net: FAILED pdf__net__self_extracted: the generation's lexical index is empty - there is nothing real to serve
-E         total: 0 of 1 pilot(s) ok, 1 failed; tree 0 bytes in 0 file(s) under C:\Users\babar\AppData\Local\Temp\pytest-of-babar\pytest-5548\test_each_missing_sidecar_pass2\demo-manifests
-E         
-E       assert 1 == 0
-
-tests\deploy\test_snapshot_demo_from_cluster.py:614: AssertionError
-_____________ test_all_three_missing_sidecars_are_named_together ______________
-
-cluster = <tests.deploy.test_snapshot_demo_from_cluster.FakeCluster object at 0x0000024A9B4427B0>
-root = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-5548/test_all_three_missing_sidecar0/demo-manifests')
-capsys = <_pytest.capture.CaptureFixture object at 0x0000024A9D258CD0>
-
-    def test_all_three_missing_sidecars_are_named_together(
-        cluster: FakeCluster, root: Path, capsys: pytest.CaptureFixture[str]
-    ) -> None:
-        cluster.add(PDF_NET, pilot_tar(PDF_NET, drop_sidecars=SIDECAR_LABELS))
-    
-        rc, out, _ = run_tool(capsys, root, "--only", "pdf_net")
-    
-        assert rc == 1
-        for label in SIDECAR_LABELS:
->           assert sidecar_name_of(label, PDF_NET) in out
-E           assert 'product_reference_pdf_net.json' in "pdf_net: FAILED pdf__net__self_extracted: the generation's lexical index is empty - there is nothing real to serve\nt...:\\Users\\babar\\AppData\\Local\\Temp\\pytest-of-babar\\pytest-5548\\test_all_three_missing_sidecar0\\demo-manifests\n"
-E            +  where 'product_reference_pdf_net.json' = sidecar_name_of('product_reference', {'family': 'pdf', 'platform': 'net', 'sourceKind': 'self_extracted', 'heldBy': 'ingestion-pdf-net', ...})
-
-tests\deploy\test_snapshot_demo_from_cluster.py:631: AssertionError
-________________ test_an_empty_or_unparseable_sidecar_fails[] _________________
-
-cluster = <tests.deploy.test_snapshot_demo_from_cluster.FakeCluster object at 0x0000024A9B52EC10>
-root = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-5548/test_an_empty_or_unparseable_s0/demo-manifests')
-capsys = <_pytest.capture.CaptureFixture object at 0x0000024A9B511450>
-bad = b''
-
-    @pytest.mark.parametrize("bad", [b"", b"not json", b"\xff\xfe"])
-    def test_an_empty_or_unparseable_sidecar_fails(
-        cluster: FakeCluster, root: Path, capsys: pytest.CaptureFixture[str], bad: bytes
-    ) -> None:
-        cluster.add(PDF_NET, pilot_tar(PDF_NET, sidecar_override={"recent_releases": bad}))
-    
-        rc, out, _ = run_tool(capsys, root, "--only", "pdf_net")
-    
-        assert rc == 1
->       assert f"sidecar {sidecar_name_of('recent_releases', PDF_NET)} is not valid JSON" in out
-E       assert 'sidecar recent_releases_pdf_net.json is not valid JSON' in "pdf_net: FAILED pdf__net__self_extracted: the generation's lexical index is empty - there is nothing real to serve\nt...:\\Users\\babar\\AppData\\Local\\Temp\\pytest-of-babar\\pytest-5548\\test_an_empty_or_unparseable_s0\\demo-manifests\n"
-
-tests\deploy\test_snapshot_demo_from_cluster.py:644: AssertionError
-____________ test_an_empty_or_unparseable_sidecar_fails[not json] _____________
-
-cluster = <tests.deploy.test_snapshot_demo_from_cluster.FakeCluster object at 0x0000024A9B443540>
-root = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-5548/test_an_empty_or_unparseable_s1/demo-manifests')
-capsys = <_pytest.capture.CaptureFixture object at 0x0000024A9B512D50>
-bad = b'not json'
-
-    @pytest.mark.parametrize("bad", [b"", b"not json", b"\xff\xfe"])
-    def test_an_empty_or_unparseable_sidecar_fails(
-        cluster: FakeCluster, root: Path, capsys: pytest.CaptureFixture[str], bad: bytes
-    ) -> None:
-        cluster.add(PDF_NET, pilot_tar(PDF_NET, sidecar_override={"recent_releases": bad}))
-    
-        rc, out, _ = run_tool(capsys, root, "--only", "pdf_net")
-    
-        assert rc == 1
->       assert f"sidecar {sidecar_name_of('recent_releases', PDF_NET)} is not valid JSON" in out
-E       assert 'sidecar recent_releases_pdf_net.json is not valid JSON' in "pdf_net: FAILED pdf__net__self_extracted: the generation's lexical index is empty - there is nothing real to serve\nt...:\\Users\\babar\\AppData\\Local\\Temp\\pytest-of-babar\\pytest-5548\\test_an_empty_or_unparseable_s1\\demo-manifests\n"
-
-tests\deploy\test_snapshot_demo_from_cluster.py:644: AssertionError
-____________ test_an_empty_or_unparseable_sidecar_fails[\xff\xfe] _____________
-
-cluster = <tests.deploy.test_snapshot_demo_from_cluster.FakeCluster object at 0x0000024A9B52EDD0>
-root = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-5548/test_an_empty_or_unparseable_s2/demo-manifests')
-capsys = <_pytest.capture.CaptureFixture object at 0x0000024ACC62E0D0>
-bad = b'\xff\xfe'
-
-    @pytest.mark.parametrize("bad", [b"", b"not json", b"\xff\xfe"])
-    def test_an_empty_or_unparseable_sidecar_fails(
-        cluster: FakeCluster, root: Path, capsys: pytest.CaptureFixture[str], bad: bytes
-    ) -> None:
-        cluster.add(PDF_NET, pilot_tar(PDF_NET, sidecar_override={"recent_releases": bad}))
-    
-        rc, out, _ = run_tool(capsys, root, "--only", "pdf_net")
-    
-        assert rc == 1
->       assert f"sidecar {sidecar_name_of('recent_releases', PDF_NET)} is not valid JSON" in out
-E       assert 'sidecar recent_releases_pdf_net.json is not valid JSON' in "pdf_net: FAILED pdf__net__self_extracted: the generation's lexical index is empty - there is nothing real to serve\nt...:\\Users\\babar\\AppData\\Local\\Temp\\pytest-of-babar\\pytest-5548\\test_an_empty_or_unparseable_s2\\demo-manifests\n"
-
-tests\deploy\test_snapshot_demo_from_cluster.py:644: AssertionError
-_ test_a_failed_pilot_keeps_its_previous_files_while_the_others_still_succeed _
-
-cluster = <tests.deploy.test_snapshot_demo_from_cluster.FakeCluster object at 0x0000024A9B52E4A0>
-root = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-5548/test_a_failed_pilot_keeps_its_0/demo-manifests')
-capsys = <_pytest.capture.CaptureFixture object at 0x0000024ACC62D8D0>
-
-    def test_a_failed_pilot_keeps_its_previous_files_while_the_others_still_succeed(
-        cluster: FakeCluster, root: Path, capsys: pytest.CaptureFixture[str]
-    ) -> None:
-        cluster.add(PDF_NET)
-        cluster.add(PDF_GO)
-        rc, out, _ = run_tool(capsys, root, "--only", "pdf_net", "--only", "pdf_go")
->       assert rc == 0, out
-E       AssertionError: pdf_net: FAILED pdf__net__self_extracted: the generation's lexical index is empty - there is nothing real to serve
-E         pdf_go: FAILED pdf__go__self_extracted: the generation's lexical index is empty - there is nothing real to serve
-E         total: 0 of 2 pilot(s) ok, 2 failed; tree 0 bytes in 0 file(s) under C:\Users\babar\AppData\Local\Temp\pytest-of-babar\pytest-5548\test_a_failed_pilot_keeps_its_0\demo-manifests
-E         
-E       assert 1 == 0
-
-tests\deploy\test_snapshot_demo_from_cluster.py:772: AssertionError
-_ test_a_pilot_that_fails_validation_after_a_good_run_leaves_every_file_byte_identical _
-
-cluster = <tests.deploy.test_snapshot_demo_from_cluster.FakeCluster object at 0x0000024A9B443620>
-root = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-5548/test_a_pilot_that_fails_valida0/demo-manifests')
-capsys = <_pytest.capture.CaptureFixture object at 0x0000024A9B5123D0>
-
-    def test_a_pilot_that_fails_validation_after_a_good_run_leaves_every_file_byte_identical(
-        cluster: FakeCluster, root: Path, capsys: pytest.CaptureFixture[str]
-    ) -> None:
-        cluster.add(PDF_NET)
->       assert run_tool(capsys, root, "--only", "pdf_net")[0] == 0
-E       assert 1 == 0
-
-tests\deploy\test_snapshot_demo_from_cluster.py:797: AssertionError
-______________________ test_a_second_run_changes_nothing ______________________
-
-cluster = <tests.deploy.test_snapshot_demo_from_cluster.FakeCluster object at 0x0000024A9B52EAC0>
-root = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-5548/test_a_second_run_changes_noth0/demo-manifests')
-capsys = <_pytest.capture.CaptureFixture object at 0x0000024ACC6F90D0>
-
-    def test_a_second_run_changes_nothing(
-        cluster: FakeCluster, root: Path, capsys: pytest.CaptureFixture[str]
-    ) -> None:
-        cluster.add(PDF_NET)
-        cluster.add(SLIDES_PY)
-        rc, out, _ = run_tool(capsys, root, "--only", "pdf_net", "--only", "slides_python")
->       assert rc == 0, out
-E       AssertionError: pdf_net: FAILED pdf__net__self_extracted: the generation's lexical index is empty - there is nothing real to serve
-E         slides_python: FAILED slides__python__self_extracted: the generation's lexical index is empty - there is nothing real to serve
-E         total: 0 of 2 pilot(s) ok, 2 failed; tree 0 bytes in 0 file(s) under C:\Users\babar\AppData\Local\Temp\pytest-of-babar\pytest-5548\test_a_second_run_changes_noth0\demo-manifests
-E         
-E       assert 1 == 0
-
-tests\deploy\test_snapshot_demo_from_cluster.py:822: AssertionError
-_____________________ test_only_selects_the_named_pilots ______________________
-
-cluster = <tests.deploy.test_snapshot_demo_from_cluster.FakeCluster object at 0x0000024A9B4431C0>
-root = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-5548/test_only_selects_the_named_pi0/demo-manifests')
-capsys = <_pytest.capture.CaptureFixture object at 0x0000024ACC6FA3D0>
-
-    def test_only_selects_the_named_pilots(
-        cluster: FakeCluster, root: Path, capsys: pytest.CaptureFixture[str]
-    ) -> None:
-        for pilot in (PDF_NET, PDF_GO, SLIDES_PY):
-            cluster.add(pilot)
-    
-        rc, out, _ = run_tool(capsys, root, "--only", "pdf_go", "--only", "slides_python")
-    
->       assert rc == 0, out
-E       AssertionError: slides_python: FAILED slides__python__self_extracted: the generation's lexical index is empty - there is nothing real to serve
-E         pdf_go: FAILED pdf__go__self_extracted: the generation's lexical index is empty - there is nothing real to serve
-E         total: 0 of 2 pilot(s) ok, 2 failed; tree 0 bytes in 0 file(s) under C:\Users\babar\AppData\Local\Temp\pytest-of-babar\pytest-5548\test_only_selects_the_named_pi0\demo-manifests
-E         
-E       assert 1 == 0
-
-tests\deploy\test_snapshot_demo_from_cluster.py:842: AssertionError
-_____________ test_dry_run_reads_and_validates_but_writes_nothing _____________
-
-cluster = <tests.deploy.test_snapshot_demo_from_cluster.FakeCluster object at 0x0000024A9B4426D0>
-root = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-5548/test_dry_run_reads_and_validat0/demo-manifests')
-capsys = <_pytest.capture.CaptureFixture object at 0x0000024ACC656DD0>
-
-    def test_dry_run_reads_and_validates_but_writes_nothing(
-        cluster: FakeCluster, root: Path, capsys: pytest.CaptureFixture[str]
-    ) -> None:
-        cluster.add(PDF_NET)
-    
-        rc, out, _ = run_tool(capsys, root, "--only", "pdf_net", "--dry-run")
-    
->       assert rc == 0, out
-E       AssertionError: pdf_net: FAILED pdf__net__self_extracted: the generation's lexical index is empty - there is nothing real to serve
-E         total: 0 of 1 pilot(s) ok, 1 failed; tree 0 bytes in 0 file(s) under C:\Users\babar\AppData\Local\Temp\pytest-of-babar\pytest-5548\test_dry_run_reads_and_validat0\demo-manifests (dry run, nothing written)
-E         
-E       assert 1 == 0
-
-tests\deploy\test_snapshot_demo_from_cluster.py:894: AssertionError
-_________________ test_a_dry_run_still_fails_an_invalid_pilot _________________
-
-cluster = <tests.deploy.test_snapshot_demo_from_cluster.FakeCluster object at 0x0000024A9B5CF460>
-root = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-5548/test_a_dry_run_still_fails_an_0/demo-manifests')
-capsys = <_pytest.capture.CaptureFixture object at 0x0000024ACC657ED0>
-
-    def test_a_dry_run_still_fails_an_invalid_pilot(
-        cluster: FakeCluster, root: Path, capsys: pytest.CaptureFixture[str]
-    ) -> None:
-        cluster.add(PDF_NET, pilot_tar(PDF_NET, drop_sidecars=("recent_releases",)))
-    
-        rc, out, _ = run_tool(capsys, root, "--only", "pdf_net", "--dry-run")
-    
->       assert rc == 1 and sidecar_name_of("recent_releases", PDF_NET) in out
-E       assert (1 == 1 and 'recent_releases_pdf_net.json' in "pdf_net: FAILED pdf__net__self_extracted: the generation's lexical index is empty - there is nothing real to serve\nt...ocal\\Temp\\pytest-of-babar\\pytest-5548\\test_a_dry_run_still_fails_an_0\\demo-manifests (dry run, nothing written)\n")
-E        +  where 'recent_releases_pdf_net.json' = sidecar_name_of('recent_releases', {'family': 'pdf', 'platform': 'net', 'sourceKind': 'self_extracted', 'heldBy': 'ingestion-pdf-net', ...})
-
-tests\deploy\test_snapshot_demo_from_cluster.py:915: AssertionError
-_____________ test_the_final_compaction_runs_over_the_whole_root ______________
-
-cluster = <tests.deploy.test_snapshot_demo_from_cluster.FakeCluster object at 0x0000024A9B52FA10>
-root = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-5548/test_the_final_compaction_runs0/demo-manifests')
-capsys = <_pytest.capture.CaptureFixture object at 0x0000024ACC62EAD0>
-
-    def test_the_final_compaction_runs_over_the_whole_root(
-        cluster: FakeCluster, root: Path, capsys: pytest.CaptureFixture[str]
-    ) -> None:
-        foreign = _write_uncompacted_scope(root, "zzz__lang__self_extracted")
-        cluster.add(PDF_NET)
-    
-        rc, out, _ = run_tool(capsys, root, "--only", "pdf_net")
-    
->       assert rc == 0, out
-E       AssertionError: pdf_net: FAILED pdf__net__self_extracted: the generation's lexical index is empty - there is nothing real to serve
-E         total: 0 of 1 pilot(s) ok, 1 failed; tree 963 bytes in 2 file(s) under C:\Users\babar\AppData\Local\Temp\pytest-of-babar\pytest-5548\test_the_final_compaction_runs0\demo-manifests
-E         
-E       assert 1 == 0
-
-tests\deploy\test_snapshot_demo_from_cluster.py:943: AssertionError
-_ test_a_broken_scope_in_the_root_fails_the_run_after_the_pilots_were_written _
-
-cluster = <tests.deploy.test_snapshot_demo_from_cluster.FakeCluster object at 0x0000024A9B5CFAF0>
-root = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-5548/test_a_broken_scope_in_the_roo0/demo-manifests')
-capsys = <_pytest.capture.CaptureFixture object at 0x0000024ACC655250>
-
-    def test_a_broken_scope_in_the_root_fails_the_run_after_the_pilots_were_written(
-        cluster: FakeCluster, root: Path, capsys: pytest.CaptureFixture[str]
-    ) -> None:
-        (root / "broken__scope__self_extracted").mkdir(parents=True)  # no pointer
-        cluster.add(PDF_NET)
-    
-        rc, out, err = run_tool(capsys, root, "--only", "pdf_net")
-    
-        assert rc == 1
-        assert "compaction failed" in err and "broken__scope__self_extracted" in err
->       assert "pdf_net: ok [written]" in out
-E       assert 'pdf_net: ok [written]' in "pdf_net: FAILED pdf__net__self_extracted: the generation's lexical index is empty - there is nothing real to serve\nt...:\\Users\\babar\\AppData\\Local\\Temp\\pytest-of-babar\\pytest-5548\\test_a_broken_scope_in_the_roo0\\demo-manifests\n"
-
-tests\deploy\test_snapshot_demo_from_cluster.py:959: AssertionError
-________________ test_every_pilot_in_the_chart_is_snapshotted _________________
-
-cluster = <tests.deploy.test_snapshot_demo_from_cluster.FakeCluster object at 0x0000024A9B442740>
-root = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-5548/test_every_pilot_in_the_chart_0/demo-manifests')
-capsys = <_pytest.capture.CaptureFixture object at 0x0000024ACC654B50>
-
-    def test_every_pilot_in_the_chart_is_snapshotted(
-        cluster: FakeCluster, root: Path, capsys: pytest.CaptureFixture[str]
-    ) -> None:
-        chart_pilots = pilots.load_pilots()
-        count = len(chart_pilots)
-        assert count == pilots.PILOT_COUNT
-        for pilot in chart_pilots:
-            cluster.add(pilot)
-    
-        rc, out, err = run_tool(capsys, root)
-    
->       assert rc == 0, (out, err)
-E       AssertionError: ("pdf_net: FAILED pdf__net__self_extracted: the generation's lexical index is empty - there is nothing real to serve
-E         ...ers\\babar\\AppData\\Local\\Temp\\pytest-of-babar\\pytest-5548\\test_every_pilot_in_the_chart_0\\demo-manifests
-E         ", '')
-E       assert 1 == 0
-
-tests\deploy\test_snapshot_demo_from_cluster.py:973: AssertionError
-_______________ test_no_environment_value_appears_in_any_output _______________
-
-cluster = <tests.deploy.test_snapshot_demo_from_cluster.FakeCluster object at 0x0000024A9B5CF540>
-root = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-5548/test_no_environment_value_appe0/demo-manifests')
-capsys = <_pytest.capture.CaptureFixture object at 0x0000024A9B513DD0>
-monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x0000024A9B5CE040>
-
-    def test_no_environment_value_appears_in_any_output(
-        cluster: FakeCluster, root: Path, capsys: pytest.CaptureFixture[str], monkeypatch: pytest.MonkeyPatch
-    ) -> None:
-        secrets = {
-            "KUBECONFIG": "tc349-sentinel-kubeconfig-path",
-            "GITHUB_TOKEN": "tc349-sentinel-github-token",
-            "FOSS_MCP_EMBEDDING_GATEWAY_API_KEY": "tc349-sentinel-api-key",
-            "KUBE_TOKEN": "tc349-sentinel-kube-token",
-        }
-        for name, value in secrets.items():
-            monkeypatch.setenv(name, value)
-        cluster.add(PDF_NET)
-        cluster.add(PDF_GO, phase="Pending", ready=False)
-        cluster.add(SLIDES_PY, pilot_tar(SLIDES_PY, extra=(("sym", "./l", "/etc"),)))
-    
-        rc, out, err = run_tool(capsys, root, "--only", "pdf_net", "--only", "pdf_go", "--only", "slides_python")
-        rc2, out2, err2 = run_tool(capsys, root, "--only", "pdf_net", "--dry-run")
-    
->       assert rc == 1 and rc2 == 0
-E       assert (1 == 1 and 1 == 0)
-
-tests\deploy\test_snapshot_demo_from_cluster.py:1014: AssertionError
+tests\deploy\test_adversarial_suite.py:1300: KeyError
 =========================== short test summary info ===========================
-FAILED tests/deploy/test_snapshot_demo_from_cluster.py::test_good_pilot_is_written_with_only_pointer_and_active_generation
-FAILED tests/deploy/test_snapshot_demo_from_cluster.py::test_sidecars_land_at_the_root_with_the_right_names_and_content
-FAILED tests/deploy/test_snapshot_demo_from_cluster.py::test_compaction_ran_on_what_was_written
-FAILED tests/deploy/test_snapshot_demo_from_cluster.py::test_only_get_pods_and_exec_tar_ever_run
-FAILED tests/deploy/test_snapshot_demo_from_cluster.py::test_a_ready_pod_is_chosen_over_an_unready_one
-FAILED tests/deploy/test_snapshot_demo_from_cluster.py::test_each_missing_sidecar_fails_the_pilot_and_is_named[product_reference]
-FAILED tests/deploy/test_snapshot_demo_from_cluster.py::test_each_missing_sidecar_fails_the_pilot_and_is_named[recent_releases]
-FAILED tests/deploy/test_snapshot_demo_from_cluster.py::test_each_missing_sidecar_fails_the_pilot_and_is_named[package_registry]
-FAILED tests/deploy/test_snapshot_demo_from_cluster.py::test_each_missing_sidecar_passes_with_allow_missing_sidecars_and_is_reported[product_reference]
-FAILED tests/deploy/test_snapshot_demo_from_cluster.py::test_each_missing_sidecar_passes_with_allow_missing_sidecars_and_is_reported[recent_releases]
-FAILED tests/deploy/test_snapshot_demo_from_cluster.py::test_each_missing_sidecar_passes_with_allow_missing_sidecars_and_is_reported[package_registry]
-FAILED tests/deploy/test_snapshot_demo_from_cluster.py::test_all_three_missing_sidecars_are_named_together
-FAILED tests/deploy/test_snapshot_demo_from_cluster.py::test_an_empty_or_unparseable_sidecar_fails[]
-FAILED tests/deploy/test_snapshot_demo_from_cluster.py::test_an_empty_or_unparseable_sidecar_fails[not json]
-FAILED tests/deploy/test_snapshot_demo_from_cluster.py::test_an_empty_or_unparseable_sidecar_fails[\xff\xfe]
-FAILED tests/deploy/test_snapshot_demo_from_cluster.py::test_a_failed_pilot_keeps_its_previous_files_while_the_others_still_succeed
-FAILED tests/deploy/test_snapshot_demo_from_cluster.py::test_a_pilot_that_fails_validation_after_a_good_run_leaves_every_file_byte_identical
-FAILED tests/deploy/test_snapshot_demo_from_cluster.py::test_a_second_run_changes_nothing
-FAILED tests/deploy/test_snapshot_demo_from_cluster.py::test_only_selects_the_named_pilots
-FAILED tests/deploy/test_snapshot_demo_from_cluster.py::test_dry_run_reads_and_validates_but_writes_nothing
-FAILED tests/deploy/test_snapshot_demo_from_cluster.py::test_a_dry_run_still_fails_an_invalid_pilot
-FAILED tests/deploy/test_snapshot_demo_from_cluster.py::test_the_final_compaction_runs_over_the_whole_root
-FAILED tests/deploy/test_snapshot_demo_from_cluster.py::test_a_broken_scope_in_the_root_fails_the_run_after_the_pilots_were_written
-FAILED tests/deploy/test_snapshot_demo_from_cluster.py::test_every_pilot_in_the_chart_is_snapshotted
-FAILED tests/deploy/test_snapshot_demo_from_cluster.py::test_no_environment_value_appears_in_any_output
+FAILED tests/deploy/test_adversarial_suite.py::test_restart_is_skipped_for_a_url_target_and_says_so
+FAILED tests/deploy/test_adversarial_suite.py::test_a_well_behaved_image_passes_end_to_end
+FAILED tests/deploy/test_adversarial_suite.py::test_the_verdict_is_fail_when_any_scenario_fails
+FAILED tests/deploy/test_adversarial_suite.py::test_a_generation_change_after_restart_is_detected
+FAILED tests/deploy/test_adversarial_suite.py::test_a_symbol_that_stops_resolving_after_restart_is_detected
+FAILED tests/deploy/test_adversarial_suite.py::test_a_memory_jump_fails_the_run
+FAILED tests/deploy/test_adversarial_suite.py::test_a_server_that_goes_unready_after_an_attack_fails_the_run
+FAILED tests/deploy/test_adversarial_suite.py::test_the_container_is_removed_when_a_scenario_raises
+FAILED tests/deploy/test_adversarial_suite.py::test_the_container_is_removed_on_keyboard_interrupt
+FAILED tests/deploy/test_adversarial_suite.py::test_attacking_a_url_starts_no_container_and_skips_restart
+FAILED tests/deploy/test_adversarial_suite.py::test_an_empty_endpoint_fails_before_any_attack
+FAILED tests/deploy/test_adversarial_suite.py::test_no_environment_value_reaches_any_output_or_report
 
 --- stderr ---
 
-$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-7b182948484d7df9\Scripts\python.exe -m pytest tests/deploy -q -rfE "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-gfxhf8pi\.junit-1.xml"
---- stdout ---
-........................................................................ [ 21%]
-........................................................................ [ 43%]
-........................................................................ [ 65%]
-..........................................FFFF.......F.................F [ 87%]
-FFFFFFFFF.............FFFF.......FFFFFF..                                [100%]
-================================== FAILURES ===================================
-_____ test_good_pilot_is_written_with_only_pointer_and_active_generation ______
 
-cluster = <tests.deploy.test_snapshot_demo_from_cluster.FakeCluster object at 0x000002C8AE0B7230>
-root = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-5550/test_good_pilot_is_written_wit0/demo-manifests')
-capsys = <_pytest.capture.CaptureFixture object at 0x000002C8AE2BD6D0>
-
-    def test_good_pilot_is_written_with_only_pointer_and_active_generation(
-        cluster: FakeCluster, root: Path, capsys: pytest.CaptureFixture[str]
-    ) -> None:
-        cluster.add(PDF_NET)
-    
-        rc, out, err = run_tool(capsys, root, "--only", "pdf_net")
-    
->       assert rc == 0, (out, err)
-E       AssertionError: ("pdf_net: FAILED pdf__net__self_extracted: the generation's lexical index is empty - there is nothing real to serve
-E         ...ers\\babar\\AppData\\Local\\Temp\\pytest-of-babar\\pytest-5550\\test_good_pilot_is_written_wit0\\demo-manifests
-E         ", '')
-E       assert 1 == 0
-
-tests\deploy\test_snapshot_demo_from_cluster.py:307: AssertionError
-_______ test_sidecars_land_at_the_root_with_the_right_names_and_content _______
-
-cluster = <tests.deploy.test_snapshot_demo_from_cluster.FakeCluster object at 0x000002C8AF599450>
-root = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-5550/test_sidecars_land_at_the_root0/demo-manifests')
-capsys = <_pytest.capture.CaptureFixture object at 0x000002C8AE4F20D0>
-
-    def test_sidecars_land_at_the_root_with_the_right_names_and_content(
-        cluster: FakeCluster, root: Path, capsys: pytest.CaptureFixture[str]
-    ) -> None:
-        cluster.add(PDF_NET)
-        cluster.add(SLIDES_PY)
-    
-        rc, out, _ = run_tool(capsys, root, "--only", "pdf_net", "--only", "slides_python")
-    
->       assert rc == 0, out
-E       AssertionError: pdf_net: FAILED pdf__net__self_extracted: the generation's lexical index is empty - there is nothing real to serve
-E         slides_python: FAILED slides__python__self_extracted: the generation's lexical index is empty - there is nothing real to serve
-E         total: 0 of 2 pilot(s) ok, 2 failed; tree 0 bytes in 0 file(s) under C:\Users\babar\AppData\Local\Temp\pytest-of-babar\pytest-5550\test_sidecars_land_at_the_root0\demo-manifests
-E         
-E       assert 1 == 0
-
-tests\deploy\test_snapshot_demo_from_cluster.py:337: AssertionError
-___________________ test_compaction_ran_on_what_was_written ___________________
-
-cluster = <tests.deploy.test_snapshot_demo_from_cluster.FakeCluster object at 0x000002C8AF599D10>
-root = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-5550/test_compaction_ran_on_what_wa0/demo-manifests')
-capsys = <_pytest.capture.CaptureFixture object at 0x000002C8AF5D9DD0>
-
-    def test_compaction_ran_on_what_was_written(
-        cluster: FakeCluster, root: Path, capsys: pytest.CaptureFixture[str]
-    ) -> None:
-        cluster.add(PDF_NET)
-    
-        rc, out, _ = run_tool(capsys, root, "--only", "pdf_net")
-    
->       assert rc == 0, out
-E       AssertionError: pdf_net: FAILED pdf__net__self_extracted: the generation's lexical index is empty - there is nothing real to serve
-E         total: 0 of 1 pilot(s) ok, 1 failed; tree 0 bytes in 0 file(s) under C:\Users\babar\AppData\Local\Temp\pytest-of-babar\pytest-5550\test_compaction_ran_on_what_wa0\demo-manifests
-E         
-E       assert 1 == 0
-
-tests\deploy\test_snapshot_demo_from_cluster.py:357: AssertionError
-__________________ test_only_get_pods_and_exec_tar_ever_run ___________________
-
-cluster = <tests.deploy.test_snapshot_demo_from_cluster.FakeCluster object at 0x000002C8AE2DC2B0>
-root = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-5550/test_only_get_pods_and_exec_ta0/demo-manifests')
-capsys = <_pytest.capture.CaptureFixture object at 0x000002C8AF5424D0>
-
-    def test_only_get_pods_and_exec_tar_ever_run(
-        cluster: FakeCluster, root: Path, capsys: pytest.CaptureFixture[str]
-    ) -> None:
-        cluster.add(PDF_NET)
-    
-        rc, out, _ = run_tool(capsys, root, "--only", "pdf_net")
-    
->       assert rc == 0, out
-E       AssertionError: pdf_net: FAILED pdf__net__self_extracted: the generation's lexical index is empty - there is nothing real to serve
-E         total: 0 of 1 pilot(s) ok, 1 failed; tree 0 bytes in 0 file(s) under C:\Users\babar\AppData\Local\Temp\pytest-of-babar\pytest-5550\test_only_get_pods_and_exec_ta0\demo-manifests
-E         
-E       assert 1 == 0
-
-tests\deploy\test_snapshot_demo_from_cluster.py:376: AssertionError
-_______________ test_a_ready_pod_is_chosen_over_an_unready_one ________________
-
-cluster = <tests.deploy.test_snapshot_demo_from_cluster.FakeCluster object at 0x000002C8AE343110>
-root = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-5550/test_a_ready_pod_is_chosen_ove0/demo-manifests')
-capsys = <_pytest.capture.CaptureFixture object at 0x000002C8FFEBA750>
-monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x000002C8AE4972A0>
-
-    def test_a_ready_pod_is_chosen_over_an_unready_one(
-        cluster: FakeCluster, root: Path, capsys: pytest.CaptureFixture[str], monkeypatch: pytest.MonkeyPatch
-    ) -> None:
-        cluster.add(PDF_NET)
-        good = cluster.pods[release_of(PDF_NET)]
-        bad = {
-            "metadata": {"name": "foss-mcp-pdf-net-0-aaaaa"},
-            "status": {"phase": "Pending", "conditions": [{"type": "Ready", "status": "False"}]},
-        }
-    
-        def two_pods(cmd: list[str], **kwargs: Any) -> subprocess.CompletedProcess[bytes]:
-            if cmd[:3] == ["kubectl", "get", "pods"]:
-                cluster.calls.append(list(cmd))
-                return subprocess.CompletedProcess(cmd, 0, json.dumps({"items": [bad, good]}).encode(), b"")
-            return cluster(cmd, **kwargs)
-    
-        monkeypatch.setattr(snap.subprocess, "run", two_pods)
-        rc, out, _ = run_tool(capsys, root, "--only", "pdf_net")
-    
->       assert rc == 0, out
-E       AssertionError: pdf_net: FAILED pdf__net__self_extracted: the generation's lexical index is empty - there is nothing real to serve
-E         total: 0 of 1 pilot(s) ok, 1 failed; tree 0 bytes in 0 file(s) under C:\Users\babar\AppData\Local\Temp\pytest-of-babar\pytest-5550\test_a_ready_pod_is_chosen_ove0\demo-manifests
-E         
-E       assert 1 == 0
-
-tests\deploy\test_snapshot_demo_from_cluster.py:491: AssertionError
-__ test_each_missing_sidecar_fails_the_pilot_and_is_named[product_reference] __
-
-cluster = <tests.deploy.test_snapshot_demo_from_cluster.FakeCluster object at 0x000002C8AE226F20>
-root = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-5550/test_each_missing_sidecar_fail0/demo-manifests')
-capsys = <_pytest.capture.CaptureFixture object at 0x000002C8FFE0FA50>
-label = 'product_reference'
-
-    @pytest.mark.parametrize("label", SIDECAR_LABELS)
-    def test_each_missing_sidecar_fails_the_pilot_and_is_named(
-        cluster: FakeCluster, root: Path, capsys: pytest.CaptureFixture[str], label: str
-    ) -> None:
-        cluster.add(PDF_NET, pilot_tar(PDF_NET, drop_sidecars=(label,)))
-    
-        rc, out, _ = run_tool(capsys, root, "--only", "pdf_net")
-    
-        assert rc == 1
->       assert f"pdf_net: FAILED {scope_of(PDF_NET)}: missing sidecar(s) {sidecar_name_of(label, PDF_NET)}" in out
-E       assert 'pdf_net: FAILED pdf__net__self_extracted: missing sidecar(s) product_reference_pdf_net.json' in "pdf_net: FAILED pdf__net__self_extracted: the generation's lexical index is empty - there is nothing real to serve\nt...:\\Users\\babar\\AppData\\Local\\Temp\\pytest-of-babar\\pytest-5550\\test_each_missing_sidecar_fail0\\demo-manifests\n"
-
-tests\deploy\test_snapshot_demo_from_cluster.py:602: AssertionError
-___ test_each_missing_sidecar_fails_the_pilot_and_is_named[recent_releases] ___
-
-cluster = <tests.deploy.test_snapshot_demo_from_cluster.FakeCluster object at 0x000002C8AE224FA0>
-root = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-5550/test_each_missing_sidecar_fail1/demo-manifests')
-capsys = <_pytest.capture.CaptureFixture object at 0x000002C8AF5DA1D0>
-label = 'recent_releases'
-
-    @pytest.mark.parametrize("label", SIDECAR_LABELS)
-    def test_each_missing_sidecar_fails_the_pilot_and_is_named(
-        cluster: FakeCluster, root: Path, capsys: pytest.CaptureFixture[str], label: str
-    ) -> None:
-        cluster.add(PDF_NET, pilot_tar(PDF_NET, drop_sidecars=(label,)))
-    
-        rc, out, _ = run_tool(capsys, root, "--only", "pdf_net")
-    
-        assert rc == 1
->       assert f"pdf_net: FAILED {scope_of(PDF_NET)}: missing sidecar(s) {sidecar_name_of(label, PDF_NET)}" in out
-E       assert 'pdf_net: FAILED pdf__net__self_extracted: missing sidecar(s) recent_releases_pdf_net.json' in "pdf_net: FAILED pdf__net__self_extracted: the generation's lexical index is empty - there is nothing real to serve\nt...:\\Users\\babar\\AppData\\Local\\Temp\\pytest-of-babar\\pytest-5550\\test_each_missing_sidecar_fail1\\demo-manifests\n"
-
-tests\deploy\test_snapshot_demo_from_cluster.py:602: AssertionError
-__ test_each_missing_sidecar_fails_the_pilot_and_is_named[package_registry] ___
-
-cluster = <tests.deploy.test_snapshot_demo_from_cluster.FakeCluster object at 0x000002C8AE2273F0>
-root = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-5550/test_each_missing_sidecar_fail2/demo-manifests')
-capsys = <_pytest.capture.CaptureFixture object at 0x000002C8FFF8E2D0>
-label = 'package_registry'
-
-    @pytest.mark.parametrize("label", SIDECAR_LABELS)
-    def test_each_missing_sidecar_fails_the_pilot_and_is_named(
-        cluster: FakeCluster, root: Path, capsys: pytest.CaptureFixture[str], label: str
-    ) -> None:
-        cluster.add(PDF_NET, pilot_tar(PDF_NET, drop_sidecars=(label,)))
-    
-        rc, out, _ = run_tool(capsys, root, "--only", "pdf_net")
-    
-        assert rc == 1
->       assert f"pdf_net: FAILED {scope_of(PDF_NET)}: missing sidecar(s) {sidecar_name_of(label, PDF_NET)}" in out
-E       assert 'pdf_net: FAILED pdf__net__self_extracted: missing sidecar(s) package_registry_pdf_net.json' in "pdf_net: FAILED pdf__net__self_extracted: the generation's lexical index is empty - there is nothing real to serve\nt...:\\Users\\babar\\AppData\\Local\\Temp\\pytest-of-babar\\pytest-5550\\test_each_missing_sidecar_fail2\\demo-manifests\n"
-
-tests\deploy\test_snapshot_demo_from_cluster.py:602: AssertionError
-_ test_each_missing_sidecar_passes_with_allow_missing_sidecars_and_is_reported[product_reference] _
-
-cluster = <tests.deploy.test_snapshot_demo_from_cluster.FakeCluster object at 0x000002C8AE2277E0>
-root = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-5550/test_each_missing_sidecar_pass0/demo-manifests')
-capsys = <_pytest.capture.CaptureFixture object at 0x000002C8FFF8E8D0>
-label = 'product_reference'
-
-    @pytest.mark.parametrize("label", SIDECAR_LABELS)
-    def test_each_missing_sidecar_passes_with_allow_missing_sidecars_and_is_reported(
-        cluster: FakeCluster, root: Path, capsys: pytest.CaptureFixture[str], label: str
-    ) -> None:
-        cluster.add(PDF_NET, pilot_tar(PDF_NET, drop_sidecars=(label,)))
-    
-        rc, out, _ = run_tool(capsys, root, "--only", "pdf_net", "--allow-missing-sidecars")
-    
->       assert rc == 0, out
-E       AssertionError: pdf_net: FAILED pdf__net__self_extracted: the generation's lexical index is empty - there is nothing real to serve
-E         total: 0 of 1 pilot(s) ok, 1 failed; tree 0 bytes in 0 file(s) under C:\Users\babar\AppData\Local\Temp\pytest-of-babar\pytest-5550\test_each_missing_sidecar_pass0\demo-manifests
-E         
-E       assert 1 == 0
-
-tests\deploy\test_snapshot_demo_from_cluster.py:614: AssertionError
-_ test_each_missing_sidecar_passes_with_allow_missing_sidecars_and_is_reported[recent_releases] _
-
-cluster = <tests.deploy.test_snapshot_demo_from_cluster.FakeCluster object at 0x000002C8AE226DD0>
-root = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-5550/test_each_missing_sidecar_pass1/demo-manifests')
-capsys = <_pytest.capture.CaptureFixture object at 0x000002C8AF5799D0>
-label = 'recent_releases'
-
-    @pytest.mark.parametrize("label", SIDECAR_LABELS)
-    def test_each_missing_sidecar_passes_with_allow_missing_sidecars_and_is_reported(
-        cluster: FakeCluster, root: Path, capsys: pytest.CaptureFixture[str], label: str
-    ) -> None:
-        cluster.add(PDF_NET, pilot_tar(PDF_NET, drop_sidecars=(label,)))
-    
-        rc, out, _ = run_tool(capsys, root, "--only", "pdf_net", "--allow-missing-sidecars")
-    
->       assert rc == 0, out
-E       AssertionError: pdf_net: FAILED pdf__net__self_extracted: the generation's lexical index is empty - there is nothing real to serve
-E         total: 0 of 1 pilot(s) ok, 1 failed; tree 0 bytes in 0 file(s) under C:\Users\babar\AppData\Local\Temp\pytest-of-babar\pytest-5550\test_each_missing_sidecar_pass1\demo-manifests
-E         
-E       assert 1 == 0
-
-tests\deploy\test_snapshot_demo_from_cluster.py:614: AssertionError
-_ test_each_missing_sidecar_passes_with_allow_missing_sidecars_and_is_reported[package_registry] _
-
-cluster = <tests.deploy.test_snapshot_demo_from_cluster.FakeCluster object at 0x000002C8AE226CF0>
-root = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-5550/test_each_missing_sidecar_pass2/demo-manifests')
-capsys = <_pytest.capture.CaptureFixture object at 0x000002C8AF57B0D0>
-label = 'package_registry'
-
-    @pytest.mark.parametrize("label", SIDECAR_LABELS)
-    def test_each_missing_sidecar_passes_with_allow_missing_sidecars_and_is_reported(
-        cluster: FakeCluster, root: Path, capsys: pytest.CaptureFixture[str], label: str
-    ) -> None:
-        cluster.add(PDF_NET, pilot_tar(PDF_NET, drop_sidecars=(label,)))
-    
-        rc, out, _ = run_tool(capsys, root, "--only", "pdf_net", "--allow-missing-sidecars")
-    
->       assert rc == 0, out
-E       AssertionError: pdf_net: FAILED pdf__net__self_extracted: the generation's lexical index is empty - there is nothing real to serve
-E         total: 0 of 1 pilot(s) ok, 1 failed; tree 0 bytes in 0 file(s) under C:\Users\babar\AppData\Local\Temp\pytest-of-babar\pytest-5550\test_each_missing_sidecar_pass2\demo-manifests
-E         
-E       assert 1 == 0
-
-tests\deploy\test_snapshot_demo_from_cluster.py:614: AssertionError
-_____________ test_all_three_missing_sidecars_are_named_together ______________
-
-cluster = <tests.deploy.test_snapshot_demo_from_cluster.FakeCluster object at 0x000002C8AE224BB0>
-root = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-5550/test_all_three_missing_sidecar0/demo-manifests')
-capsys = <_pytest.capture.CaptureFixture object at 0x000002C8AF57A8D0>
-
-    def test_all_three_missing_sidecars_are_named_together(
-        cluster: FakeCluster, root: Path, capsys: pytest.CaptureFixture[str]
-    ) -> None:
-        cluster.add(PDF_NET, pilot_tar(PDF_NET, drop_sidecars=SIDECAR_LABELS))
-    
-        rc, out, _ = run_tool(capsys, root, "--only", "pdf_net")
-    
-        assert rc == 1
-        for label in SIDECAR_LABELS:
->           assert sidecar_name_of(label, PDF_NET) in out
-E           assert 'product_reference_pdf_net.json' in "pdf_net: FAILED pdf__net__self_extracted: the generation's lexical index is empty - there is nothing real to serve\nt...:\\Users\\babar\\AppData\\Local\\Temp\\pytest-of-babar\\pytest-5550\\test_all_three_missing_sidecar0\\demo-manifests\n"
-E            +  where 'product_reference_pdf_net.json' = sidecar_name_of('product_reference', {'family': 'pdf', 'platform': 'net', 'sourceKind': 'self_extracted', 'heldBy': 'ingestion-pdf-net', ...})
-
-tests\deploy\test_snapshot_demo_from_cluster.py:631: AssertionError
-________________ test_an_empty_or_unparseable_sidecar_fails[] _________________
-
-cluster = <tests.deploy.test_snapshot_demo_from_cluster.FakeCluster object at 0x000002C8AE225E10>
-root = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-5550/test_an_empty_or_unparseable_s0/demo-manifests')
-capsys = <_pytest.capture.CaptureFixture object at 0x000002C8AE3116D0>
-bad = b''
-
-    @pytest.mark.parametrize("bad", [b"", b"not json", b"\xff\xfe"])
-    def test_an_empty_or_unparseable_sidecar_fails(
-        cluster: FakeCluster, root: Path, capsys: pytest.CaptureFixture[str], bad: bytes
-    ) -> None:
-        cluster.add(PDF_NET, pilot_tar(PDF_NET, sidecar_override={"recent_releases": bad}))
-    
-        rc, out, _ = run_tool(capsys, root, "--only", "pdf_net")
-    
-        assert rc == 1
->       assert f"sidecar {sidecar_name_of('recent_releases', PDF_NET)} is not valid JSON" in out
-E       assert 'sidecar recent_releases_pdf_net.json is not valid JSON' in "pdf_net: FAILED pdf__net__self_extracted: the generation's lexical index is empty - there is nothing real to serve\nt...:\\Users\\babar\\AppData\\Local\\Temp\\pytest-of-babar\\pytest-5550\\test_an_empty_or_unparseable_s0\\demo-manifests\n"
-
-tests\deploy\test_snapshot_demo_from_cluster.py:644: AssertionError
-____________ test_an_empty_or_unparseable_sidecar_fails[not json] _____________
-
-cluster = <tests.deploy.test_snapshot_demo_from_cluster.FakeCluster object at 0x000002C8AE227380>
-root = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-5550/test_an_empty_or_unparseable_s1/demo-manifests')
-capsys = <_pytest.capture.CaptureFixture object at 0x000002C8AE311AD0>
-bad = b'not json'
-
-    @pytest.mark.parametrize("bad", [b"", b"not json", b"\xff\xfe"])
-    def test_an_empty_or_unparseable_sidecar_fails(
-        cluster: FakeCluster, root: Path, capsys: pytest.CaptureFixture[str], bad: bytes
-    ) -> None:
-        cluster.add(PDF_NET, pilot_tar(PDF_NET, sidecar_override={"recent_releases": bad}))
-    
-        rc, out, _ = run_tool(capsys, root, "--only", "pdf_net")
-    
-        assert rc == 1
->       assert f"sidecar {sidecar_name_of('recent_releases', PDF_NET)} is not valid JSON" in out
-E       assert 'sidecar recent_releases_pdf_net.json is not valid JSON' in "pdf_net: FAILED pdf__net__self_extracted: the generation's lexical index is empty - there is nothing real to serve\nt...:\\Users\\babar\\AppData\\Local\\Temp\\pytest-of-babar\\pytest-5550\\test_an_empty_or_unparseable_s1\\demo-manifests\n"
-
-tests\deploy\test_snapshot_demo_from_cluster.py:644: AssertionError
-____________ test_an_empty_or_unparseable_sidecar_fails[\xff\xfe] _____________
-
-cluster = <tests.deploy.test_snapshot_demo_from_cluster.FakeCluster object at 0x000002C8AE226580>
-root = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-5550/test_an_empty_or_unparseable_s2/demo-manifests')
-capsys = <_pytest.capture.CaptureFixture object at 0x000002C8AE2BF1D0>
-bad = b'\xff\xfe'
-
-    @pytest.mark.parametrize("bad", [b"", b"not json", b"\xff\xfe"])
-    def test_an_empty_or_unparseable_sidecar_fails(
-        cluster: FakeCluster, root: Path, capsys: pytest.CaptureFixture[str], bad: bytes
-    ) -> None:
-        cluster.add(PDF_NET, pilot_tar(PDF_NET, sidecar_override={"recent_releases": bad}))
-    
-        rc, out, _ = run_tool(capsys, root, "--only", "pdf_net")
-    
-        assert rc == 1
->       assert f"sidecar {sidecar_name_of('recent_releases', PDF_NET)} is not valid JSON" in out
-E       assert 'sidecar recent_releases_pdf_net.json is not valid JSON' in "pdf_net: FAILED pdf__net__self_extracted: the generation's lexical index is empty - there is nothing real to serve\nt...:\\Users\\babar\\AppData\\Local\\Temp\\pytest-of-babar\\pytest-5550\\test_an_empty_or_unparseable_s2\\demo-manifests\n"
-
-tests\deploy\test_snapshot_demo_from_cluster.py:644: AssertionError
-_ test_a_failed_pilot_keeps_its_previous_files_while_the_others_still_succeed _
-
-cluster = <tests.deploy.test_snapshot_demo_from_cluster.FakeCluster object at 0x000002C8AE226CF0>
-root = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-5550/test_a_failed_pilot_keeps_its_0/demo-manifests')
-capsys = <_pytest.capture.CaptureFixture object at 0x000002C8FFF8D450>
-
-    def test_a_failed_pilot_keeps_its_previous_files_while_the_others_still_succeed(
-        cluster: FakeCluster, root: Path, capsys: pytest.CaptureFixture[str]
-    ) -> None:
-        cluster.add(PDF_NET)
-        cluster.add(PDF_GO)
-        rc, out, _ = run_tool(capsys, root, "--only", "pdf_net", "--only", "pdf_go")
->       assert rc == 0, out
-E       AssertionError: pdf_net: FAILED pdf__net__self_extracted: the generation's lexical index is empty - there is nothing real to serve
-E         pdf_go: FAILED pdf__go__self_extracted: the generation's lexical index is empty - there is nothing real to serve
-E         total: 0 of 2 pilot(s) ok, 2 failed; tree 0 bytes in 0 file(s) under C:\Users\babar\AppData\Local\Temp\pytest-of-babar\pytest-5550\test_a_failed_pilot_keeps_its_0\demo-manifests
-E         
-E       assert 1 == 0
-
-tests\deploy\test_snapshot_demo_from_cluster.py:772: AssertionError
-_ test_a_pilot_that_fails_validation_after_a_good_run_leaves_every_file_byte_identical _
-
-cluster = <tests.deploy.test_snapshot_demo_from_cluster.FakeCluster object at 0x000002C8AE225A20>
-root = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-5550/test_a_pilot_that_fails_valida0/demo-manifests')
-capsys = <_pytest.capture.CaptureFixture object at 0x000002C8AE0630D0>
-
-    def test_a_pilot_that_fails_validation_after_a_good_run_leaves_every_file_byte_identical(
-        cluster: FakeCluster, root: Path, capsys: pytest.CaptureFixture[str]
-    ) -> None:
-        cluster.add(PDF_NET)
->       assert run_tool(capsys, root, "--only", "pdf_net")[0] == 0
-E       assert 1 == 0
-
-tests\deploy\test_snapshot_demo_from_cluster.py:797: AssertionError
-______________________ test_a_second_run_changes_nothing ______________________
-
-cluster = <tests.deploy.test_snapshot_demo_from_cluster.FakeCluster object at 0x000002C8AE2255C0>
-root = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-5550/test_a_second_run_changes_noth0/demo-manifests')
-capsys = <_pytest.capture.CaptureFixture object at 0x000002C8AF578550>
-
-    def test_a_second_run_changes_nothing(
-        cluster: FakeCluster, root: Path, capsys: pytest.CaptureFixture[str]
-    ) -> None:
-        cluster.add(PDF_NET)
-        cluster.add(SLIDES_PY)
-        rc, out, _ = run_tool(capsys, root, "--only", "pdf_net", "--only", "slides_python")
->       assert rc == 0, out
-E       AssertionError: pdf_net: FAILED pdf__net__self_extracted: the generation's lexical index is empty - there is nothing real to serve
-E         slides_python: FAILED slides__python__self_extracted: the generation's lexical index is empty - there is nothing real to serve
-E         total: 0 of 2 pilot(s) ok, 2 failed; tree 0 bytes in 0 file(s) under C:\Users\babar\AppData\Local\Temp\pytest-of-babar\pytest-5550\test_a_second_run_changes_noth0\demo-manifests
-E         
-E       assert 1 == 0
-
-tests\deploy\test_snapshot_demo_from_cluster.py:822: AssertionError
-_____________________ test_only_selects_the_named_pilots ______________________
-
-cluster = <tests.deploy.test_snapshot_demo_from_cluster.FakeCluster object at 0x000002C8AE227460>
-root = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-5550/test_only_selects_the_named_pi0/demo-manifests')
-capsys = <_pytest.capture.CaptureFixture object at 0x000002C8FFE0C8D0>
-
-    def test_only_selects_the_named_pilots(
-        cluster: FakeCluster, root: Path, capsys: pytest.CaptureFixture[str]
-    ) -> None:
-        for pilot in (PDF_NET, PDF_GO, SLIDES_PY):
-            cluster.add(pilot)
-    
-        rc, out, _ = run_tool(capsys, root, "--only", "pdf_go", "--only", "slides_python")
-    
->       assert rc == 0, out
-E       AssertionError: slides_python: FAILED slides__python__self_extracted: the generation's lexical index is empty - there is nothing real to serve
-E         pdf_go: FAILED pdf__go__self_extracted: the generation's lexical index is empty - there is nothing real to serve
-E         total: 0 of 2 pilot(s) ok, 2 failed; tree 0 bytes in 0 file(s) under C:\Users\babar\AppData\Local\Temp\pytest-of-babar\pytest-5550\test_only_selects_the_named_pi0\demo-manifests
-E         
-E       assert 1 == 0
-
-tests\deploy\test_snapshot_demo_from_cluster.py:842: AssertionError
-_____________ test_dry_run_reads_and_validates_but_writes_nothing _____________
-
-cluster = <tests.deploy.test_snapshot_demo_from_cluster.FakeCluster object at 0x000002C8AE2269E0>
-root = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-5550/test_dry_run_reads_and_validat0/demo-manifests')
-capsys = <_pytest.capture.CaptureFixture object at 0x000002C8AF541BD0>
-
-    def test_dry_run_reads_and_validates_but_writes_nothing(
-        cluster: FakeCluster, root: Path, capsys: pytest.CaptureFixture[str]
-    ) -> None:
-        cluster.add(PDF_NET)
-    
-        rc, out, _ = run_tool(capsys, root, "--only", "pdf_net", "--dry-run")
-    
->       assert rc == 0, out
-E       AssertionError: pdf_net: FAILED pdf__net__self_extracted: the generation's lexical index is empty - there is nothing real to serve
-E         total: 0 of 1 pilot(s) ok, 1 failed; tree 0 bytes in 0 file(s) under C:\Users\babar\AppData\Local\Temp\pytest-of-babar\pytest-5550\test_dry_run_reads_and_validat0\demo-manifests (dry run, nothing written)
-E         
-E       assert 1 == 0
-
-tests\deploy\test_snapshot_demo_from_cluster.py:894: AssertionError
-_________________ test_a_dry_run_still_fails_an_invalid_pilot _________________
-
-cluster = <tests.deploy.test_snapshot_demo_from_cluster.FakeCluster object at 0x000002C8AE4D3B60>
-root = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-5550/test_a_dry_run_still_fails_an_0/demo-manifests')
-capsys = <_pytest.capture.CaptureFixture object at 0x000002C8FFE0DC50>
-
-    def test_a_dry_run_still_fails_an_invalid_pilot(
-        cluster: FakeCluster, root: Path, capsys: pytest.CaptureFixture[str]
-    ) -> None:
-        cluster.add(PDF_NET, pilot_tar(PDF_NET, drop_sidecars=("recent_releases",)))
-    
-        rc, out, _ = run_tool(capsys, root, "--only", "pdf_net", "--dry-run")
-    
->       assert rc == 1 and sidecar_name_of("recent_releases", PDF_NET) in out
-E       assert (1 == 1 and 'recent_releases_pdf_net.json' in "pdf_net: FAILED pdf__net__self_extracted: the generation's lexical index is empty - there is nothing real to serve\nt...ocal\\Temp\\pytest-of-babar\\pytest-5550\\test_a_dry_run_still_fails_an_0\\demo-manifests (dry run, nothing written)\n")
-E        +  where 'recent_releases_pdf_net.json' = sidecar_name_of('recent_releases', {'family': 'pdf', 'platform': 'net', 'sourceKind': 'self_extracted', 'heldBy': 'ingestion-pdf-net', ...})
-
-tests\deploy\test_snapshot_demo_from_cluster.py:915: AssertionError
-_____________ test_the_final_compaction_runs_over_the_whole_root ______________
-
-cluster = <tests.deploy.test_snapshot_demo_from_cluster.FakeCluster object at 0x000002C8AE227A80>
-root = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-5550/test_the_final_compaction_runs0/demo-manifests')
-capsys = <_pytest.capture.CaptureFixture object at 0x000002C8FFE0EDD0>
-
-    def test_the_final_compaction_runs_over_the_whole_root(
-        cluster: FakeCluster, root: Path, capsys: pytest.CaptureFixture[str]
-    ) -> None:
-        foreign = _write_uncompacted_scope(root, "zzz__lang__self_extracted")
-        cluster.add(PDF_NET)
-    
-        rc, out, _ = run_tool(capsys, root, "--only", "pdf_net")
-    
->       assert rc == 0, out
-E       AssertionError: pdf_net: FAILED pdf__net__self_extracted: the generation's lexical index is empty - there is nothing real to serve
-E         total: 0 of 1 pilot(s) ok, 1 failed; tree 963 bytes in 2 file(s) under C:\Users\babar\AppData\Local\Temp\pytest-of-babar\pytest-5550\test_the_final_compaction_runs0\demo-manifests
-E         
-E       assert 1 == 0
-
-tests\deploy\test_snapshot_demo_from_cluster.py:943: AssertionError
-_ test_a_broken_scope_in_the_root_fails_the_run_after_the_pilots_were_written _
-
-cluster = <tests.deploy.test_snapshot_demo_from_cluster.FakeCluster object at 0x000002C8AE4D0C90>
-root = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-5550/test_a_broken_scope_in_the_roo0/demo-manifests')
-capsys = <_pytest.capture.CaptureFixture object at 0x000002C8AE062950>
-
-    def test_a_broken_scope_in_the_root_fails_the_run_after_the_pilots_were_written(
-        cluster: FakeCluster, root: Path, capsys: pytest.CaptureFixture[str]
-    ) -> None:
-        (root / "broken__scope__self_extracted").mkdir(parents=True)  # no pointer
-        cluster.add(PDF_NET)
-    
-        rc, out, err = run_tool(capsys, root, "--only", "pdf_net")
-    
-        assert rc == 1
-        assert "compaction failed" in err and "broken__scope__self_extracted" in err
->       assert "pdf_net: ok [written]" in out
-E       assert 'pdf_net: ok [written]' in "pdf_net: FAILED pdf__net__self_extracted: the generation's lexical index is empty - there is nothing real to serve\nt...:\\Users\\babar\\AppData\\Local\\Temp\\pytest-of-babar\\pytest-5550\\test_a_broken_scope_in_the_roo0\\demo-manifests\n"
-
-tests\deploy\test_snapshot_demo_from_cluster.py:959: AssertionError
-________________ test_every_pilot_in_the_chart_is_snapshotted _________________
-
-cluster = <tests.deploy.test_snapshot_demo_from_cluster.FakeCluster object at 0x000002C8AE226C80>
-root = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-5550/test_every_pilot_in_the_chart_0/demo-manifests')
-capsys = <_pytest.capture.CaptureFixture object at 0x000002C8AE061D50>
-
-    def test_every_pilot_in_the_chart_is_snapshotted(
-        cluster: FakeCluster, root: Path, capsys: pytest.CaptureFixture[str]
-    ) -> None:
-        chart_pilots = pilots.load_pilots()
-        count = len(chart_pilots)
-        assert count == pilots.PILOT_COUNT
-        for pilot in chart_pilots:
-            cluster.add(pilot)
-    
-        rc, out, err = run_tool(capsys, root)
-    
->       assert rc == 0, (out, err)
-E       AssertionError: ("pdf_net: FAILED pdf__net__self_extracted: the generation's lexical index is empty - there is nothing real to serve
-E         ...ers\\babar\\AppData\\Local\\Temp\\pytest-of-babar\\pytest-5550\\test_every_pilot_in_the_chart_0\\demo-manifests
-E         ", '')
-E       assert 1 == 0
-
-tests\deploy\test_snapshot_demo_from_cluster.py:973: AssertionError
-_______________ test_no_environment_value_appears_in_any_output _______________
-
-cluster = <tests.deploy.test_snapshot_demo_from_cluster.FakeCluster object at 0x000002C8AE4D2040>
-root = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-5550/test_no_environment_value_appe0/demo-manifests')
-capsys = <_pytest.capture.CaptureFixture object at 0x000002C8FFE0EAD0>
-monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x000002C8AE4D33F0>
-
-    def test_no_environment_value_appears_in_any_output(
-        cluster: FakeCluster, root: Path, capsys: pytest.CaptureFixture[str], monkeypatch: pytest.MonkeyPatch
-    ) -> None:
-        secrets = {
-            "KUBECONFIG": "tc349-sentinel-kubeconfig-path",
-            "GITHUB_TOKEN": "tc349-sentinel-github-token",
-            "FOSS_MCP_EMBEDDING_GATEWAY_API_KEY": "tc349-sentinel-api-key",
-            "KUBE_TOKEN": "tc349-sentinel-kube-token",
-        }
-        for name, value in secrets.items():
-            monkeypatch.setenv(name, value)
-        cluster.add(PDF_NET)
-        cluster.add(PDF_GO, phase="Pending", ready=False)
-        cluster.add(SLIDES_PY, pilot_tar(SLIDES_PY, extra=(("sym", "./l", "/etc"),)))
-    
-        rc, out, err = run_tool(capsys, root, "--only", "pdf_net", "--only", "pdf_go", "--only", "slides_python")
-        rc2, out2, err2 = run_tool(capsys, root, "--only", "pdf_net", "--dry-run")
-    
->       assert rc == 1 and rc2 == 0
-E       assert (1 == 1 and 1 == 0)
-
-tests\deploy\test_snapshot_demo_from_cluster.py:1014: AssertionError
-=========================== short test summary info ===========================
-FAILED tests/deploy/test_snapshot_demo_from_cluster.py::test_good_pilot_is_written_with_only_pointer_and_active_generation
-FAILED tests/deploy/test_snapshot_demo_from_cluster.py::test_sidecars_land_at_the_root_with_the_right_names_and_content
-FAILED tests/deploy/test_snapshot_demo_from_cluster.py::test_compaction_ran_on_what_was_written
-FAILED tests/deploy/test_snapshot_demo_from_cluster.py::test_only_get_pods_and_exec_tar_ever_run
-FAILED tests/deploy/test_snapshot_demo_from_cluster.py::test_a_ready_pod_is_chosen_over_an_unready_one
-FAILED tests/deploy/test_snapshot_demo_from_cluster.py::test_each_missing_sidecar_fails_the_pilot_and_is_named[product_reference]
-FAILED tests/deploy/test_snapshot_demo_from_cluster.py::test_each_missing_sidecar_fails_the_pilot_and_is_named[recent_releases]
-FAILED tests/deploy/test_snapshot_demo_from_cluster.py::test_each_missing_sidecar_fails_the_pilot_and_is_named[package_registry]
-FAILED tests/deploy/test_snapshot_demo_from_cluster.py::test_each_missing_sidecar_passes_with_allow_missing_sidecars_and_is_reported[product_reference]
-FAILED tests/deploy/test_snapshot_demo_from_cluster.py::test_each_missing_sidecar_passes_with_allow_missing_sidecars_and_is_reported[recent_releases]
-FAILED tests/deploy/test_snapshot_demo_from_cluster.py::test_each_missing_sidecar_passes_with_allow_missing_sidecars_and_is_reported[package_registry]
-FAILED tests/deploy/test_snapshot_demo_from_cluster.py::test_all_three_missing_sidecars_are_named_together
-FAILED tests/deploy/test_snapshot_demo_from_cluster.py::test_an_empty_or_unparseable_sidecar_fails[]
-FAILED tests/deploy/test_snapshot_demo_from_cluster.py::test_an_empty_or_unparseable_sidecar_fails[not json]
-FAILED tests/deploy/test_snapshot_demo_from_cluster.py::test_an_empty_or_unparseable_sidecar_fails[\xff\xfe]
-FAILED tests/deploy/test_snapshot_demo_from_cluster.py::test_a_failed_pilot_keeps_its_previous_files_while_the_others_still_succeed
-FAILED tests/deploy/test_snapshot_demo_from_cluster.py::test_a_pilot_that_fails_validation_after_a_good_run_leaves_every_file_byte_identical
-FAILED tests/deploy/test_snapshot_demo_from_cluster.py::test_a_second_run_changes_nothing
-FAILED tests/deploy/test_snapshot_demo_from_cluster.py::test_only_selects_the_named_pilots
-FAILED tests/deploy/test_snapshot_demo_from_cluster.py::test_dry_run_reads_and_validates_but_writes_nothing
-FAILED tests/deploy/test_snapshot_demo_from_cluster.py::test_a_dry_run_still_fails_an_invalid_pilot
-FAILED tests/deploy/test_snapshot_demo_from_cluster.py::test_the_final_compaction_runs_over_the_whole_root
-FAILED tests/deploy/test_snapshot_demo_from_cluster.py::test_a_broken_scope_in_the_root_fails_the_run_after_the_pilots_were_written
-FAILED tests/deploy/test_snapshot_demo_from_cluster.py::test_every_pilot_in_the_chart_is_snapshotted
-FAILED tests/deploy/test_snapshot_demo_from_cluster.py::test_no_environment_value_appears_in_any_output
-
---- stderr ---
-
+!! clean runs failed; falsifier skipped (it would prove nothing)

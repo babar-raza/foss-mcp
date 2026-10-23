@@ -3,13 +3,13 @@
   "card": "TC-386",
   "gate": "G3",
   "generated_by": "gatectl",
-  "generated_at": "2026-10-11T21:14:35Z",
+  "generated_at": "2026-10-22T15:30:25Z",
   "base_rev": "e2fb3f72f31ed4ed06a48b403a1395f1881380a9",
-  "head_rev": "fa9a7b12ddf6cad98b915d3c4755ebad799fd19d",
+  "head_rev": "46e9e0978893221180c4473bb1238e4fc7bc86ac",
   "card_sha256": "cf82cdd92b713dfaf714dfda7e9209a632e376843279f327458f559c39526315",
   "fingerprint": {
     "python": "3.13.2",
-    "platform": "Windows-11-10.0.26200-SP0",
+    "platform": "Windows-11-10.0.26300-SP0",
     "lock_sha256": "7b182948484d7df9614b523f7a8180f795b6c51d55c418728525c1957f3e38ba",
     "env": {
       "PYTHONHASHSEED": "0",
@@ -24,15 +24,9 @@
   },
   "scope": {
     "ok": true,
-    "changed_paths": [
-      "src/foss_mcp/mcp/server.py",
-      "src/foss_mcp/mcp/tools/get_symbol.py",
-      "src/foss_mcp/mcp/tools/list_members.py",
-      "src/foss_mcp/mcp/tools/search_symbols.py",
-      "tests/mcp/test_tool_surface_truthful.py"
-    ],
+    "changed_paths": [],
     "violations": [],
-    "evaluated": true
+    "evaluated": false
   },
   "runs": [
     {
@@ -41,7 +35,7 @@
         {
           "command": "{python} -m pytest tests/mcp/test_tool_surface_truthful.py -q -rfE",
           "exit_code": 0,
-          "duration_s": 1.894,
+          "duration_s": 2.066,
           "stdout_sha256": "3a3ed778ecbb161232a9a064caf28fab082c2fe632ff7439eec160feb5317278",
           "tests": 55,
           "skipped": 0,
@@ -50,16 +44,12 @@
         },
         {
           "command": "{python} -m pytest tests/mcp tests/infra/test_serve_http.py tests/infra/test_serve_manifest_sidecar.py tests/deploy/test_adversarial_suite.py -q -rfE",
-          "exit_code": 0,
-          "duration_s": 95.5,
-          "stdout_sha256": "370c766b5473e198d81f0b2c1871bd864668eab9e6f633905d3c1f7ca36de596",
-          "tests": 1288,
-          "skipped": 0,
-          "errors": 0,
-          "failures": 0
+          "exit_code": 3221225477,
+          "duration_s": 71.78,
+          "stdout_sha256": "466c9a0ad65763379bad9bba34bbf32f01c3691157d5140953c326c4709db567"
         }
       ],
-      "all_passed": true
+      "all_passed": false
     },
     {
       "run": 2,
@@ -67,7 +57,7 @@
         {
           "command": "{python} -m pytest tests/mcp/test_tool_surface_truthful.py -q -rfE",
           "exit_code": 0,
-          "duration_s": 1.584,
+          "duration_s": 1.405,
           "stdout_sha256": "3a3ed778ecbb161232a9a064caf28fab082c2fe632ff7439eec160feb5317278",
           "tests": 55,
           "skipped": 0,
@@ -77,9 +67,9 @@
         {
           "command": "{python} -m pytest tests/mcp tests/infra/test_serve_http.py tests/infra/test_serve_manifest_sidecar.py tests/deploy/test_adversarial_suite.py -q -rfE",
           "exit_code": 0,
-          "duration_s": 90.475,
-          "stdout_sha256": "370c766b5473e198d81f0b2c1871bd864668eab9e6f633905d3c1f7ca36de596",
-          "tests": 1288,
+          "duration_s": 252.358,
+          "stdout_sha256": "8a3128c1c7ca3ab844a0fda668b84ee90b9f5d39dda51d3046daeee83adb5f60",
+          "tests": 2969,
           "skipped": 0,
           "errors": 0,
           "failures": 0
@@ -91,24 +81,16 @@
   "negative_control": {
     "kind": "mutate",
     "patch": "python -X utf8 -c \"import pathlib;p=pathlib.Path('src/foss_mcp/mcp/server.py');s=p.read_text(encoding='utf-8');old='def tool_input_schema(';assert old in s;p.write_text(s.replace(old,'def tool_input_schemaX(',1),encoding='utf-8')\"\n",
-    "patch_sha256": "56c785cf2c16a21da53522d74384632604117e9ed6168d1fad226edd1c4d7362",
-    "applied": true,
-    "patch_applied_failed": true,
-    "exit_codes": [
-      2,
-      2
-    ],
-    "tree_changed": [
-      "M src/foss_mcp/mcp/server.py",
-      "?? .junit-0.xml",
-      "?? .junit-1.xml"
-    ]
+    "patch_sha256": "0000000000000000000000000000000000000000000000000000000000000000",
+    "applied": false,
+    "patch_applied_failed": false,
+    "exit_codes": []
   },
   "holdout": {
     "ran": false,
     "passed": true,
     "detail": "no holdout for this card"
   },
-  "accepted": true,
-  "reason": "all gates passed"
+  "accepted": false,
+  "reason": "FLAKY: the two clean runs disagreed; negative-control patch did not apply"
 }
