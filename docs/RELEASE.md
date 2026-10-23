@@ -352,6 +352,11 @@ says so.
   test at deploy time, not by a one-time manual check. (Review finding FK8S-04.)
 - **L-135** This release's own namespace retains only the generations its own retention policy keeps; pods or PVCs in
   other namespaces on a shared cluster are outside this product's control. (Review finding FK8S-10.)
+- **L-141** The richer CMake-based install guidance for a pilot whose README documents install via a manifest path
+  or a separate README document depends on a working GitHub token in the cluster's ingestion Job. That token is not
+  currently available, so no pilot's baked product-reference sidecar carries these fields yet; ingestion now logs
+  this fetch's failure visibly instead of swallowing it silently, and the gap closes on its own once the token is
+  replaced, with no further release action needed. (Review finding RD3-080.)
 
 ### Reported, not defects
 

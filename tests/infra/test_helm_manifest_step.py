@@ -345,18 +345,26 @@ def test_the_fetch_step_failure_is_swallowed_but_still_logged() -> None:
     docs = _render()
     tokens = _job_tokens(_job(docs, pilot))
     fetch_index = tokens.index(FETCH_COMMAND)
-    # The fetch step is wrapped in POSIX sh brace-grouping ending in "|| true": its own failure
-    # (e.g. a transient GitHub rate limit) can never fail the Job, because the brace group's exit
-    # status is always 0. Search forward from FETCH_COMMAND for "||" then "true" in order - there
-    # may be intervening flag tokens before "||".
+    # The fetch step is wrapped in POSIX sh brace-grouping ending in "|| echo <WARNING ...>": its
+    # own failure (e.g. a transient GitHub rate limit, or OWNER-14's rejected token) can never
+    # fail the Job, because the brace group's exit status is always 0 - but the failure is now
+    # echoed to the Job's own stdout instead of silently discarded (G3/TC-575). Search forward
+    # from FETCH_COMMAND for "||" - there may be intervening flag tokens before it.
     or_index = tokens.index("||", fetch_index)
-    true_index = or_index + 1
-    assert tokens[true_index].rstrip(";") == "true", tokens[fetch_index:]
-    # "true" is the last relevant token the fetch step's OWN brace group ends on: the group's own
-    # closing "}" follows it, and then (G2/TC-275) the verify-install step's own "&& { python ..."
-    # chain continues, immediately followed (G2/TC-244) by the unconditional recent-releases
-    # step's own "&& { python ..." chain - this fetch step is no longer the last one in the Job's
-    # overall chain, but its own grouping is still exactly self-contained.
+    assert tokens[or_index + 1] == "echo", tokens[fetch_index:]
+    warning_token = tokens[or_index + 2]
+    assert warning_token.startswith("WARNING:") and "fetch_product_reference.py failed" in warning_token, (
+        tokens[fetch_index:]
+    )
+    # The warning message's own trailing ";" (from the brace group's statement separator, stuck
+    # to the closing quote with no space) is the last relevant token the fetch step's OWN brace
+    # group ends on: the group's own closing "}" follows it, and then (G2/TC-275) the
+    # verify-install step's own "&& { python ..." chain continues, immediately followed
+    # (G2/TC-244) by the unconditional recent-releases step's own "&& { python ..." chain - this
+    # fetch step is no longer the last one in the Job's overall chain, but its own grouping is
+    # still exactly self-contained.
+    assert warning_token.endswith(";"), tokens[fetch_index:]
+    true_index = or_index + 2
     assert tokens[true_index + 1] == "}", tokens[fetch_index:]
     assert tokens[true_index + 2 : true_index + 5] == ["&&", "{", "python"], tokens[fetch_index:]
     assert tokens[true_index + 5] == VERIFY_INSTALL_COMMAND, tokens[fetch_index:]

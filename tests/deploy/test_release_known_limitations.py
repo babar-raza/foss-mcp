@@ -62,7 +62,7 @@ STANDALONE_IDS = (
     "L-140",
 )
 # Kubernetes chart only.
-KUBERNETES_IDS = ("L-115", "L-116", "L-117", "L-118", "L-134", "L-135")
+KUBERNETES_IDS = ("L-115", "L-116", "L-117", "L-118", "L-134", "L-135", "L-141")
 # Reported and checked, not a defect.
 NOT_DEFECT_IDS = ("L-104", "L-130", "L-131", "L-132", "L-136")
 
