@@ -1,0 +1,121 @@
+id: TC-577
+gate: G3
+lane: transport-deployment
+purpose: >-
+  A real, deterministic (not flaky) test-isolation bug found by the supervisor's 2026-10-23 gate-exit re-verification. TC-390's
+  own check command (tests/deploy/test_demo_entrypoint.py tests/deploy/test_demo_entrypoint_strays.py tests/infra/test_serve_http.py
+  tests/infra/test_serve_logging.py tests/infra/test_serve_manifest_sidecar.py tests/infra/test_serve_stdio.py tests/infra/test_serve_startup_errors.py
+  tests/infra/test_serve_stdio_parity.py tests/test_unwired_modules.py) fails ONLY under gatectl's own offline-enforcement
+  environment (HTTP_PROXY/HTTPS_PROXY pointed at a dead port for any card declaring network: false, per ops/gateverify.py
+  run_checks), never in a plain venv run - confirmed by reproducing it directly: `$env:HTTP_PROXY='http://127.0.0.1:9'; $env:HTTPS_PROXY=same;
+  $env:GATECTL_OFFLINE='1'; pytest tests/infra/test_serve_manifest_sidecar.py` fails 4 tests with urllib.error.URLError (WinError
+  10061, connection refused), every other invocation passes. ROOT CAUSE TRACED: tests/infra/test_serve_manifest_sidecar.py's
+  `_write_sidecar` helper (~line 42) monkeypatches only `fetch_product_reference.fetch_manifest_file` and `fetch_product_reference.read_repo_document`
+  before calling the real `fetch_product_reference.build_sidecar(...)`. The failing tests then call `get_product_reference(section='compatibility')`
+  through `_serve()`'s real tool registry - and SOMEWHERE in that path (trace it: build_sidecar's own internals, or the compatibility-check
+  logic in src/foss_mcp/mcp/tools/get_product_reference.py around the manifest-minimum-version comparison, or a module import
+  side effect) a REAL network call reaches src/foss_mcp/extraction/manifest_reader.py's `urlopen_with_backoff` against api.github.com,
+  which the two monkeypatches above do not cover. This same code path presumably exists in the real SERVING container too:
+  confirm whether production code already catches a connection failure on this path gracefully (if yes, this is purely a test-mocking
+  gap; if no, this is also a real production robustness gap - a serving pod calling out to GitHub at request time for a compatibility
+  check, with no graceful fallback, is exactly the kind of unbudgeted deploy-time network dependency D-11/OWNER-14 already
+  document for product-reference ingestion, just in a code path nobody had traced to the SERVING side before).
+depends_on:
+- TC-471
+- TC-507
+- TC-518
+- TC-542
+- TC-560
+- TC-561
+- TC-574
+write_paths:
+- tests/infra/test_serve_manifest_sidecar.py
+- src/foss_mcp/mcp/tools/get_product_reference.py
+satisfies:
+- REQ-G3-005
+- REQ-G3-008
+source_refs:
+- file: docs/DECISION_LOG.md
+  anchor: >-
+    ## 2026-10-17 — Round-3 independent review of the shipped image: 82 findings registered, nothing executed (operator, supervisor)
+  sha256: c2056b11a13e5b18cda7e522027fb5eb0102edcef2f99f6c7e7ce0ee5c4b4e5b
+inputs:
+- >-
+  REPRODUCE FIRST, exactly as the supervisor did: in PowerShell, `$env:HTTP_PROXY = 'http://127.0.0.1:9'; $env:HTTPS_PROXY
+  = 'http://127.0.0.1:9'; $env:GATECTL_OFFLINE = '1'; .venv\Scripts\python.exe -m pytest tests/infra/test_serve_manifest_sidecar.py
+  -q -rfE` then unset those three env vars. Four tests fail with urllib.error.URLError; the same command with the env vars
+  unset passes all 8. Get the FULL traceback (not just the last frame) to find exactly which line in the production call chain
+  issues the urlopen that the test's two monkeypatches do not cover.
+- >-
+  TRACE the exact call path from `get_product_reference(section='compatibility')` (called through `_serve()`'s tool registry
+  in the test) down to `src/foss_mcp/extraction/manifest_reader.py`'s `urlopen_with_backoff` call (~line 356). Read `build_sidecar`
+  in `infra/fetch_product_reference.py` in full, and the compatibility branch of `get_product_reference.py` (search for where
+  `manifest_minimum`/package-registry comparison happens, roughly the code the supervisor saw around line 739) to find the
+  real caller.
+- >-
+  FIX, in order of preference: (1) if the network call is genuinely unnecessary at SERVING time (the manifest text and any
+  registry-comparison data should already be fully contained in the sidecar/manifest_text passed in, with no live re-fetch
+  needed for a compatibility answer), remove or guard the call so serving never makes it - this is the best fix, and if true,
+  also means the test's monkeypatches were masking a real wiring bug, not a missing mock. (2) If the call is a genuine, intentional,
+  occasional live check (unlikely for a 'serve from baked data' architecture, but verify), mock it too in `_write_sidecar`
+  the same way the other two are mocked, AND separately confirm (with a new, explicit test) that the real production code
+  path catches a connection failure on this call gracefully (degrades to NotAvailable or the manifest-only answer, never raises
+  uncaught to the MCP client) - if it currently does not, fix that too, since a real deployed pod hitting this same path during
+  a GitHub outage must not crash a tool call. Do not choose option (2) without first ruling out option (1); a removed, unnecessary
+  network call is categorically better than a mocked one.
+- >-
+  Whichever fix you land on, add a regression test proving the compatibility answer for the affected platform(s) is produced
+  with ZERO network access attempted - monkeypatch or assert on socket/urlopen call count being zero for the relevant code
+  path, not just that the test happens to pass today.
+- >-
+  Run tests/infra/test_serve_manifest_sidecar.py, tests/infra/test_serve_http.py and the broader tests/infra/ and tests/mcp/tools/
+  sweeps to confirm no other test relies on the same unmocked path. Also re-run the ORIGINAL reproduction command (HTTP_PROXY
+  set to a dead port) to directly prove the fix - this is the most important verification, since it is the exact condition
+  that caught the bug.
+- Run the whole file; it must stay green. Never weaken a check to make it pass.
+actions:
+- >-
+  Stop (or correctly mock) an unexpected live network call reached from get_product_reference's compatibility-check path during
+  what should be a fully offline serving test.
+- >-
+  If the call is real in production too, make the serving code degrade gracefully on a connection failure instead of raising
+  uncaught.
+checks:
+- command: '{python} -m pytest tests/infra/test_serve_manifest_sidecar.py -q -rfE'
+  expect: exit 0
+  timeout_seconds: 300
+  junitxml: true
+  proves:
+  - REQ-G3-005
+- command: >-
+    {python} -m pytest tests/infra/test_serve_manifest_sidecar.py tests/infra/test_serve_http.py tests/mcp/tools/test_product_reference_baked_contract.py
+    tests/mcp/tools/test_product_reference_compatibility_units.py tests/mcp/tools/test_java_compatibility_unit.py -q -rfE
+    -p no:cacheprovider
+  expect: exit 0
+  timeout_seconds: 600
+  junitxml: true
+  proves:
+  - REQ-G3-005
+  - REQ-G3-008
+min_tests: 25
+network: false
+requires:
+- python
+negative_control:
+  mutate: >-
+    python -X utf8 -c "import pathlib; p = pathlib.Path('tests/infra/test_serve_manifest_sidecar.py'); s = p.read_text(encoding='utf-8');
+    old = 'fetch_manifest_file'; assert old in s; i = s.rindex(old); p.write_text(s[:i] + 'fetch_manifest_fileX' + s[i+len(old):],
+    encoding='utf-8')"
+  rationale: >-
+    Breaks the test file's own monkeypatch wiring for fetch_manifest_file, so the sidecar-building tests can no longer construct
+    their fixture correctly and the new zero-network-access assertion (and the existing compatibility assertions) must fail.
+    A real break of the card's test infrastructure. The supervisor retargets this at review time if the worker's actual fix
+    changes this helper's shape enough that the mutation misses.
+evidence:
+- evidence/build/G3/TC-577/receipt.json
+closeout:
+- >-
+  A fully-offline serving test no longer makes a real network call under any environment, proven both by a direct assertion
+  and by reproducing the exact dead-proxy condition that first caught the bug. If the call was real in production too, it
+  now degrades gracefully instead of raising uncaught on a connection failure.
+recovery: Re-run from a clean tree.
