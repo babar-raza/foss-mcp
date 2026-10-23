@@ -27,6 +27,8 @@ write_paths:
 - src/foss_mcp/mcp/tools/readme_sections.py
 - tests/mcp/tools/test_readme_sections.py
 - tests/mcp/tools/test_cpp_install_faq_fallback.py
+- tests/mcp/tools/test_product_reference_baked_contract.py
+- src/foss_mcp/mcp/tools/get_product_reference.py
 satisfies:
 - REQ-G3-008
 - REQ-G3-009
@@ -72,6 +74,21 @@ inputs:
   case and the LIMITATIONS/CAPABILITIES-pattern-plus-FAQ case (the still-excluded ones), alongside its existing tests. Do
   not remove or weaken any existing test in this file.
 - Run the whole file; it must stay green. Never weaken a check to make it pass.
+- >-
+  REWORK NOTE (2026-10-23, supervisor). tests/mcp/tools/test_product_reference_baked_contract.py's
+  test_cells_cpp_install_has_the_url_commit_subdirectory_target_and_nuget_package asserted
+  `index_readme.install is None` under the OLD (pre-fix) assumption that cells/cpp's install answer could
+  only ever come from a sidecar-supplied README, never the index itself - this card's own fix falsifies
+  that assumption on purpose. The assertion is corrected (now asserts `is not None` and that
+  get_product_reference answers real content from the index alone, with no sidecar present at all), and a
+  second assertion block is added proving the richer, manifest-sourced sidecar path (TC-561/TC-575, once
+  OWNER-14 is resolved) still enriches the answer with CMakeLists-derived facts beyond the FAQ text alone.
+  write_paths and checks below already include this file. A second, related bug found in the same pass:
+  get_product_reference.py's `_cpp_build_guidance` built `package_text = install_text or
+  inputs.readme_document.content` - an either/or that, once `install_text` is the FAQ fallback (now almost
+  always truthy), never falls through to search the fuller sidecar README for the NuGet package mention.
+  Fixed to search both texts, joined, not either/or; src/foss_mcp/mcp/tools/get_product_reference.py added
+  to write_paths.
 actions:
 - >-
   Let an FAQ-titled README chunk count as a valid install section (only for the install pattern), so a C++ pilot whose README
