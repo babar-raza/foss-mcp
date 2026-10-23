@@ -160,52 +160,6 @@ def test_a_bare_faq_question_with_no_answer_is_still_not_install_content() -> No
     assert install is None
 
 
-def test_an_faq_chunk_with_a_real_answer_is_install_content() -> None:
-    """G3/TC-574: a C++ pilot's README may document installation only as an FAQ entry - cells/cpp's real
-    README does exactly this. Unlike a bare FAQ question with no answer (above), one with a real answer
-    behind it is real install guidance, not a question to skip."""
-    documents = _documents(
-        _chunk(
-            "How do I install the library?",
-            "FAQ: How do I install the library?\n\nClone the repository and use CMake add_subdirectory.",
-        )
-    )
-
-    install = sections_from_documents(documents).install
-    assert install is not None
-    assert install.text == "Clone the repository and use CMake add_subdirectory."
-    assert "FAQ:" not in install.text
-    assert install.parts == 1
-
-
-def test_an_faq_chunk_with_a_real_answer_is_still_excluded_from_limitations_and_capabilities() -> None:
-    """The install pattern is the only one TC-574 lets an FAQ answer count for; matched against LIMITATIONS
-    or CAPABILITIES instead, the very same shape of chunk (title and all) is still excluded."""
-    documents = _documents(
-        _chunk(
-            "What are the limitations?",
-            "FAQ: What are the limitations?\n\nCSV is not supported.",
-        ),
-        _chunk(
-            "What capabilities does it have?",
-            "FAQ: What capabilities does it have?\n\nReads and writes XLSX.",
-        ),
-    )
-
-    sections = sections_from_documents(documents)
-    assert sections.limitations is None
-    assert sections.capabilities is None
-
-
-def test_a_bare_faq_question_with_no_answer_is_still_not_install_content() -> None:
-    """Promoting an FAQ answer to install content (TC-574) does not promote a bare, answerless question."""
-    install = sections_from_documents(
-        _documents(_chunk("How do I install the library?", "FAQ: How do I install the library?"))
-    ).install
-
-    assert install is None
-
-
 def test_parts_are_assembled_in_marker_order() -> None:
     # Chunk order inside a generation is by hash: the markers, not the iteration order, give the order.
     documents = _documents(

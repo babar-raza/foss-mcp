@@ -267,15 +267,20 @@ def test_cpp_installs_are_the_readme_recipe(baked: _Baked, pilot: str) -> None:
 
 
 def test_cells_cpp_install_has_the_url_commit_subdirectory_target_and_nuget_package(baked: _Baked) -> None:
-    """RD3-080: the index holds no installation section of cells/cpp (its only install recipe is a FAQ answer), so
-    the sidecar's README supplies it; the answer carries what a source build needs, parsed from the CMakeLists."""
+    """RD3-080/TC-574: cells/cpp's only install recipe in its README is a FAQ answer, which the index itself
+    now recognises as real install content (TC-574) - so the answer is available even with no sidecar README
+    at all. When a richer, manifest-sourced sidecar README is ALSO present (TC-561/TC-575's path, once
+    OWNER-14 is resolved), its CMakeLists-derived facts (subdirectory, target, package name) still enrich
+    the answer beyond what the FAQ text alone carries - that forward-compatible path is proven too."""
     inputs, index_readme, doc_texts = baked.load("cells_cpp")
-    assert index_readme.install is None, "the index now has an installation section: nothing to add"
-    assert isinstance(baked.answer("cells_cpp", "install"), NotAvailable), (
-        "without the sidecar README: absent"
-    )
+    assert index_readme.install is not None, "TC-574's FAQ fallback should populate this from the index alone"
     faq = [text for text in doc_texts if _title(text) == "How do I install the library?"]
     assert faq, "the cells/cpp documentation holds no FAQ chunk titled 'How do I install the library?'"
+
+    index_only = baked.answer("cells_cpp", "install")
+    assert isinstance(index_only, ReferenceContent), "the FAQ fallback must answer with no sidecar at all"
+    assert "clone the repository" in index_only.text.lower()
+    assert "cmake" in index_only.text.lower()
 
     sidecar_inputs, readme = _with_sidecar_readme("cells_cpp", inputs, index_readme)
     result = get_product_reference(sidecar_inputs, "install", readme=readme)

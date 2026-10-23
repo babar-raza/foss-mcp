@@ -1133,8 +1133,15 @@ def _cpp_build_guidance(
                 f"FetchContent adds nothing without SOURCE_SUBDIR {subdir}, because the repository root has no "
                 "CMakeLists.txt."
             )
-    package_text = install_text or (
-        inputs.readme_document.content if isinstance(inputs.readme_document, DocumentPresent) else ""
+    # G3/TC-574: search BOTH, not either/or - install_text may now be a short, indexed FAQ-chunk answer
+    # (TC-574's fallback) that never mentions the NuGet package, while the fuller sidecar README does.
+    package_text = "\n".join(
+        text
+        for text in (
+            install_text,
+            inputs.readme_document.content if isinstance(inputs.readme_document, DocumentPresent) else "",
+        )
+        if text
     )
     nuget = _nuget_package(package_text)
     if nuget is not None:
