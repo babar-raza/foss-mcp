@@ -1,0 +1,479 @@
+
+===== CLEAN RUN 1 (host) =====
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-7b182948484d7df9\Scripts\python.exe -m pytest tests/infra/test_serve_manifest_sidecar.py -q -rfE "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-wcxnz8rr\.junit-0.xml"
+--- stdout ---
+.........                                                                [100%]
+
+--- stderr ---
+
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-7b182948484d7df9\Scripts\python.exe -m pytest tests/infra/test_serve_manifest_sidecar.py tests/infra/test_serve_http.py tests/mcp/tools/test_product_reference_baked_contract.py tests/mcp/tools/test_product_reference_compatibility_units.py tests/mcp/tools/test_java_compatibility_unit.py -q -rfE -p no:cacheprovider "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-wcxnz8rr\.junit-1.xml"
+--- stdout ---
+........................................................................ [ 35%]
+........................................................................ [ 71%]
+..........................................................               [100%]
+============================== warnings summary ===============================
+..\venv-7b182948484d7df9\Lib\site-packages\starlette\testclient.py:53
+  E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-7b182948484d7df9\Lib\site-packages\starlette\testclient.py:53: DeprecationWarning: The anyio.abc.BlockingPortal alias is deprecated, use anyio.from_thread.BlockingPortal instead.
+    _PortalFactoryType = Callable[[], AbstractContextManager[anyio.abc.BlockingPortal]]
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+
+--- stderr ---
+
+
+===== CLEAN RUN 2 (host) =====
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-7b182948484d7df9\Scripts\python.exe -m pytest tests/infra/test_serve_manifest_sidecar.py -q -rfE "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-wcxnz8rr\.junit-0.xml"
+--- stdout ---
+.........                                                                [100%]
+
+--- stderr ---
+
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-7b182948484d7df9\Scripts\python.exe -m pytest tests/infra/test_serve_manifest_sidecar.py tests/infra/test_serve_http.py tests/mcp/tools/test_product_reference_baked_contract.py tests/mcp/tools/test_product_reference_compatibility_units.py tests/mcp/tools/test_java_compatibility_unit.py -q -rfE -p no:cacheprovider "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-wcxnz8rr\.junit-1.xml"
+--- stdout ---
+........................................................................ [ 35%]
+........................................................................ [ 71%]
+..........................................................               [100%]
+============================== warnings summary ===============================
+..\venv-7b182948484d7df9\Lib\site-packages\starlette\testclient.py:53
+  E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-7b182948484d7df9\Lib\site-packages\starlette\testclient.py:53: DeprecationWarning: The anyio.abc.BlockingPortal alias is deprecated, use anyio.from_thread.BlockingPortal instead.
+    _PortalFactoryType = Callable[[], AbstractContextManager[anyio.abc.BlockingPortal]]
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+
+--- stderr ---
+
+
+===== NEGATIVE CONTROL (checks MUST now fail) =====
+mutated: M tests/infra/test_serve_manifest_sidecar.py, ?? .junit-0.xml, ?? .junit-1.xml
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-7b182948484d7df9\Scripts\python.exe -m pytest tests/infra/test_serve_manifest_sidecar.py -q -rfE "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-wcxnz8rr\.junit-0.xml"
+--- stdout ---
+...F.FFFF                                                                [100%]
+================================== FAILURES ===================================
+_______ test_serving_with_a_sidecar_answers_the_exact_target_framework ________
+
+tmp_path = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-12246/test_serving_with_a_sidecar_an0')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x000001FE4C7C09E0>
+
+    def test_serving_with_a_sidecar_answers_the_exact_target_framework(
+        tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+>       manifests = _write_sidecar(tmp_path, monkeypatch, platform="net", manifest_text=PDF_NET_CSPROJ)
+                    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests\infra\test_serve_manifest_sidecar.py:176: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+tmp_path = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-12246/test_serving_with_a_sidecar_an0')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x000001FE4C7C09E0>
+platform = 'net'
+manifest_text = '<Project Sdk="Microsoft.NET.Sdk">\n\n  <PropertyGroup>\n    <TargetFramework>net8.0</TargetFramework>\n    <LangVersi...ysRecompile" BeforeTargets="CoreCompile">\n    <Delete Files="@(IntermediateAssembly)" />\n  </Target>\n\n</Project>\n'
+family = 'pdf'
+
+    def _write_sidecar(
+        tmp_path: Path,
+        monkeypatch: pytest.MonkeyPatch,
+        *,
+        platform: str,
+        manifest_text: str,
+        family: str = "pdf",
+    ) -> Path:
+        """Build the sidecar through the real build_sidecar, with only its network readers faked, and
+        write it to the file name serving reads."""
+>       monkeypatch.setattr(
+            fetch_product_reference, "fetch_manifest_fileX", lambda repository, path, ref=None: manifest_text
+        )
+E       AttributeError: <module 'infra.fetch_product_reference' from 'E:\\Users\\prora\\OneDrive\\Documents\\GitHub\\foss-mcp\\.gatectl-worktrees\\wt-wcxnz8rr\\infra\\fetch_product_reference.py'> has no attribute 'fetch_manifest_fileX'
+
+tests\infra\test_serve_manifest_sidecar.py:62: AttributeError
+_ test_a_typescript_sidecar_reaches_the_engines_node_branch_not_the_dotnet_branch _
+
+tmp_path = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-12246/test_a_typescript_sidecar_reac0')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x000001FE4C78F250>
+
+    def test_a_typescript_sidecar_reaches_the_engines_node_branch_not_the_dotnet_branch(
+        tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+>       manifests = _write_sidecar(
+            tmp_path, monkeypatch, platform="typescript", manifest_text=TYPESCRIPT_PACKAGE_JSON
+        )
+
+tests\infra\test_serve_manifest_sidecar.py:202: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+tmp_path = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-12246/test_a_typescript_sidecar_reac0')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x000001FE4C78F250>
+platform = 'typescript'
+manifest_text = '{"name": "@aspose/pdf-foss", "engines": {"node": ">=18.0.0"}}'
+family = 'pdf'
+
+    def _write_sidecar(
+        tmp_path: Path,
+        monkeypatch: pytest.MonkeyPatch,
+        *,
+        platform: str,
+        manifest_text: str,
+        family: str = "pdf",
+    ) -> Path:
+        """Build the sidecar through the real build_sidecar, with only its network readers faked, and
+        write it to the file name serving reads."""
+>       monkeypatch.setattr(
+            fetch_product_reference, "fetch_manifest_fileX", lambda repository, path, ref=None: manifest_text
+        )
+E       AttributeError: <module 'infra.fetch_product_reference' from 'E:\\Users\\prora\\OneDrive\\Documents\\GitHub\\foss-mcp\\.gatectl-worktrees\\wt-wcxnz8rr\\infra\\fetch_product_reference.py'> has no attribute 'fetch_manifest_fileX'
+
+tests\infra\test_serve_manifest_sidecar.py:62: AttributeError
+_______________ test_the_tool_input_schema_exposes_only_section _______________
+
+tmp_path = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-12246/test_the_tool_input_schema_exp0')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x000001FE4C78F750>
+
+    def test_the_tool_input_schema_exposes_only_section(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+>       manifests = _write_sidecar(tmp_path, monkeypatch, platform="net", manifest_text=PDF_NET_CSPROJ)
+                    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests\infra\test_serve_manifest_sidecar.py:217: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+tmp_path = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-12246/test_the_tool_input_schema_exp0')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x000001FE4C78F750>
+platform = 'net'
+manifest_text = '<Project Sdk="Microsoft.NET.Sdk">\n\n  <PropertyGroup>\n    <TargetFramework>net8.0</TargetFramework>\n    <LangVersi...ysRecompile" BeforeTargets="CoreCompile">\n    <Delete Files="@(IntermediateAssembly)" />\n  </Target>\n\n</Project>\n'
+family = 'pdf'
+
+    def _write_sidecar(
+        tmp_path: Path,
+        monkeypatch: pytest.MonkeyPatch,
+        *,
+        platform: str,
+        manifest_text: str,
+        family: str = "pdf",
+    ) -> Path:
+        """Build the sidecar through the real build_sidecar, with only its network readers faked, and
+        write it to the file name serving reads."""
+>       monkeypatch.setattr(
+            fetch_product_reference, "fetch_manifest_fileX", lambda repository, path, ref=None: manifest_text
+        )
+E       AttributeError: <module 'infra.fetch_product_reference' from 'E:\\Users\\prora\\OneDrive\\Documents\\GitHub\\foss-mcp\\.gatectl-worktrees\\wt-wcxnz8rr\\infra\\fetch_product_reference.py'> has no attribute 'fetch_manifest_fileX'
+
+tests\infra\test_serve_manifest_sidecar.py:62: AttributeError
+________ test_a_present_sidecar_with_the_platform_unset_fails_at_start ________
+
+tmp_path = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-12246/test_a_present_sidecar_with_th0')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x000001FE4C8C9220>
+
+    def test_a_present_sidecar_with_the_platform_unset_fails_at_start(
+        tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+>       _write_sidecar(tmp_path, monkeypatch, platform="net", manifest_text=PDF_NET_CSPROJ)
+
+tests\infra\test_serve_manifest_sidecar.py:229: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+tmp_path = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-12246/test_a_present_sidecar_with_th0')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x000001FE4C8C9220>
+platform = 'net'
+manifest_text = '<Project Sdk="Microsoft.NET.Sdk">\n\n  <PropertyGroup>\n    <TargetFramework>net8.0</TargetFramework>\n    <LangVersi...ysRecompile" BeforeTargets="CoreCompile">\n    <Delete Files="@(IntermediateAssembly)" />\n  </Target>\n\n</Project>\n'
+family = 'pdf'
+
+    def _write_sidecar(
+        tmp_path: Path,
+        monkeypatch: pytest.MonkeyPatch,
+        *,
+        platform: str,
+        manifest_text: str,
+        family: str = "pdf",
+    ) -> Path:
+        """Build the sidecar through the real build_sidecar, with only its network readers faked, and
+        write it to the file name serving reads."""
+>       monkeypatch.setattr(
+            fetch_product_reference, "fetch_manifest_fileX", lambda repository, path, ref=None: manifest_text
+        )
+E       AttributeError: <module 'infra.fetch_product_reference' from 'E:\\Users\\prora\\OneDrive\\Documents\\GitHub\\foss-mcp\\.gatectl-worktrees\\wt-wcxnz8rr\\infra\\fetch_product_reference.py'> has no attribute 'fetch_manifest_fileX'
+
+tests\infra\test_serve_manifest_sidecar.py:62: AttributeError
+_ test_the_compatibility_answer_is_produced_with_zero_network_access_attempted _
+
+tmp_path = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-12246/test_the_compatibility_answer_0')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x000001FE4C8C98B0>
+
+    def test_the_compatibility_answer_is_produced_with_zero_network_access_attempted(
+        tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """G3/TC-577 regression: gatectl's offline-enforcement environment (HTTP_PROXY/HTTPS_PROXY
+        pointed at a dead port, GATECTL_OFFLINE=1) turned this exact test file's own
+        ``_write_sidecar`` helper into 4 failures with ``urllib.error.URLError`` - it quietly relied
+        on a real, unmocked ``api.github.com`` call succeeding, reached from ``build_sidecar``'s
+        G3/TC-427-added ``list_root_entries`` call, which this file's other two monkeypatches never
+        covered. ``_write_sidecar`` now fakes all three network readers (see its own comment), so this
+        asserts that directly: with ``urllib.request.urlopen`` itself replaced by a call counter that
+        raises if invoked, building the sidecar fixture AND serving the real
+        ``get_product_reference(section="compatibility")`` tool-registry entry through it make zero
+        network attempts - not merely that the test happens to pass in an environment where a real
+        network call would have succeeded.
+        """
+        call_count = 0
+    
+        def _forbidden_urlopen(*args: object, **kwargs: object) -> None:
+            nonlocal call_count
+            call_count += 1
+            raise AssertionError("urllib.request.urlopen must not be called while serving from a baked sidecar")
+    
+        monkeypatch.setattr(urllib.request, "urlopen", _forbidden_urlopen)
+    
+>       manifests = _write_sidecar(tmp_path, monkeypatch, platform="net", manifest_text=PDF_NET_CSPROJ)
+                    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests\infra\test_serve_manifest_sidecar.py:261: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+tmp_path = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-12246/test_the_compatibility_answer_0')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x000001FE4C8C98B0>
+platform = 'net'
+manifest_text = '<Project Sdk="Microsoft.NET.Sdk">\n\n  <PropertyGroup>\n    <TargetFramework>net8.0</TargetFramework>\n    <LangVersi...ysRecompile" BeforeTargets="CoreCompile">\n    <Delete Files="@(IntermediateAssembly)" />\n  </Target>\n\n</Project>\n'
+family = 'pdf'
+
+    def _write_sidecar(
+        tmp_path: Path,
+        monkeypatch: pytest.MonkeyPatch,
+        *,
+        platform: str,
+        manifest_text: str,
+        family: str = "pdf",
+    ) -> Path:
+        """Build the sidecar through the real build_sidecar, with only its network readers faked, and
+        write it to the file name serving reads."""
+>       monkeypatch.setattr(
+            fetch_product_reference, "fetch_manifest_fileX", lambda repository, path, ref=None: manifest_text
+        )
+E       AttributeError: <module 'infra.fetch_product_reference' from 'E:\\Users\\prora\\OneDrive\\Documents\\GitHub\\foss-mcp\\.gatectl-worktrees\\wt-wcxnz8rr\\infra\\fetch_product_reference.py'> has no attribute 'fetch_manifest_fileX'
+
+tests\infra\test_serve_manifest_sidecar.py:62: AttributeError
+=========================== short test summary info ===========================
+FAILED tests/infra/test_serve_manifest_sidecar.py::test_serving_with_a_sidecar_answers_the_exact_target_framework
+FAILED tests/infra/test_serve_manifest_sidecar.py::test_a_typescript_sidecar_reaches_the_engines_node_branch_not_the_dotnet_branch
+FAILED tests/infra/test_serve_manifest_sidecar.py::test_the_tool_input_schema_exposes_only_section
+FAILED tests/infra/test_serve_manifest_sidecar.py::test_a_present_sidecar_with_the_platform_unset_fails_at_start
+FAILED tests/infra/test_serve_manifest_sidecar.py::test_the_compatibility_answer_is_produced_with_zero_network_access_attempted
+
+--- stderr ---
+
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-7b182948484d7df9\Scripts\python.exe -m pytest tests/infra/test_serve_manifest_sidecar.py tests/infra/test_serve_http.py tests/mcp/tools/test_product_reference_baked_contract.py tests/mcp/tools/test_product_reference_compatibility_units.py tests/mcp/tools/test_java_compatibility_unit.py -q -rfE -p no:cacheprovider "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-wcxnz8rr\.junit-1.xml"
+--- stdout ---
+...F.FFFF............................................................... [ 35%]
+........................................................................ [ 71%]
+..........................................................               [100%]
+================================== FAILURES ===================================
+_______ test_serving_with_a_sidecar_answers_the_exact_target_framework ________
+
+tmp_path = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-12247/test_serving_with_a_sidecar_an0')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x00000220DCC0E030>
+
+    def test_serving_with_a_sidecar_answers_the_exact_target_framework(
+        tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+>       manifests = _write_sidecar(tmp_path, monkeypatch, platform="net", manifest_text=PDF_NET_CSPROJ)
+                    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests\infra\test_serve_manifest_sidecar.py:176: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+tmp_path = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-12247/test_serving_with_a_sidecar_an0')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x00000220DCC0E030>
+platform = 'net'
+manifest_text = '<Project Sdk="Microsoft.NET.Sdk">\n\n  <PropertyGroup>\n    <TargetFramework>net8.0</TargetFramework>\n    <LangVersi...ysRecompile" BeforeTargets="CoreCompile">\n    <Delete Files="@(IntermediateAssembly)" />\n  </Target>\n\n</Project>\n'
+family = 'pdf'
+
+    def _write_sidecar(
+        tmp_path: Path,
+        monkeypatch: pytest.MonkeyPatch,
+        *,
+        platform: str,
+        manifest_text: str,
+        family: str = "pdf",
+    ) -> Path:
+        """Build the sidecar through the real build_sidecar, with only its network readers faked, and
+        write it to the file name serving reads."""
+>       monkeypatch.setattr(
+            fetch_product_reference, "fetch_manifest_fileX", lambda repository, path, ref=None: manifest_text
+        )
+E       AttributeError: <module 'infra.fetch_product_reference' from 'E:\\Users\\prora\\OneDrive\\Documents\\GitHub\\foss-mcp\\.gatectl-worktrees\\wt-wcxnz8rr\\infra\\fetch_product_reference.py'> has no attribute 'fetch_manifest_fileX'
+
+tests\infra\test_serve_manifest_sidecar.py:62: AttributeError
+_ test_a_typescript_sidecar_reaches_the_engines_node_branch_not_the_dotnet_branch _
+
+tmp_path = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-12247/test_a_typescript_sidecar_reac0')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x00000220DCCD7E50>
+
+    def test_a_typescript_sidecar_reaches_the_engines_node_branch_not_the_dotnet_branch(
+        tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+>       manifests = _write_sidecar(
+            tmp_path, monkeypatch, platform="typescript", manifest_text=TYPESCRIPT_PACKAGE_JSON
+        )
+
+tests\infra\test_serve_manifest_sidecar.py:202: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+tmp_path = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-12247/test_a_typescript_sidecar_reac0')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x00000220DCCD7E50>
+platform = 'typescript'
+manifest_text = '{"name": "@aspose/pdf-foss", "engines": {"node": ">=18.0.0"}}'
+family = 'pdf'
+
+    def _write_sidecar(
+        tmp_path: Path,
+        monkeypatch: pytest.MonkeyPatch,
+        *,
+        platform: str,
+        manifest_text: str,
+        family: str = "pdf",
+    ) -> Path:
+        """Build the sidecar through the real build_sidecar, with only its network readers faked, and
+        write it to the file name serving reads."""
+>       monkeypatch.setattr(
+            fetch_product_reference, "fetch_manifest_fileX", lambda repository, path, ref=None: manifest_text
+        )
+E       AttributeError: <module 'infra.fetch_product_reference' from 'E:\\Users\\prora\\OneDrive\\Documents\\GitHub\\foss-mcp\\.gatectl-worktrees\\wt-wcxnz8rr\\infra\\fetch_product_reference.py'> has no attribute 'fetch_manifest_fileX'
+
+tests\infra\test_serve_manifest_sidecar.py:62: AttributeError
+_______________ test_the_tool_input_schema_exposes_only_section _______________
+
+tmp_path = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-12247/test_the_tool_input_schema_exp0')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x00000220DCE34650>
+
+    def test_the_tool_input_schema_exposes_only_section(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+>       manifests = _write_sidecar(tmp_path, monkeypatch, platform="net", manifest_text=PDF_NET_CSPROJ)
+                    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests\infra\test_serve_manifest_sidecar.py:217: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+tmp_path = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-12247/test_the_tool_input_schema_exp0')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x00000220DCE34650>
+platform = 'net'
+manifest_text = '<Project Sdk="Microsoft.NET.Sdk">\n\n  <PropertyGroup>\n    <TargetFramework>net8.0</TargetFramework>\n    <LangVersi...ysRecompile" BeforeTargets="CoreCompile">\n    <Delete Files="@(IntermediateAssembly)" />\n  </Target>\n\n</Project>\n'
+family = 'pdf'
+
+    def _write_sidecar(
+        tmp_path: Path,
+        monkeypatch: pytest.MonkeyPatch,
+        *,
+        platform: str,
+        manifest_text: str,
+        family: str = "pdf",
+    ) -> Path:
+        """Build the sidecar through the real build_sidecar, with only its network readers faked, and
+        write it to the file name serving reads."""
+>       monkeypatch.setattr(
+            fetch_product_reference, "fetch_manifest_fileX", lambda repository, path, ref=None: manifest_text
+        )
+E       AttributeError: <module 'infra.fetch_product_reference' from 'E:\\Users\\prora\\OneDrive\\Documents\\GitHub\\foss-mcp\\.gatectl-worktrees\\wt-wcxnz8rr\\infra\\fetch_product_reference.py'> has no attribute 'fetch_manifest_fileX'
+
+tests\infra\test_serve_manifest_sidecar.py:62: AttributeError
+________ test_a_present_sidecar_with_the_platform_unset_fails_at_start ________
+
+tmp_path = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-12247/test_a_present_sidecar_with_th0')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x00000220DCC4EB70>
+
+    def test_a_present_sidecar_with_the_platform_unset_fails_at_start(
+        tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+>       _write_sidecar(tmp_path, monkeypatch, platform="net", manifest_text=PDF_NET_CSPROJ)
+
+tests\infra\test_serve_manifest_sidecar.py:229: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+tmp_path = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-12247/test_a_present_sidecar_with_th0')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x00000220DCC4EB70>
+platform = 'net'
+manifest_text = '<Project Sdk="Microsoft.NET.Sdk">\n\n  <PropertyGroup>\n    <TargetFramework>net8.0</TargetFramework>\n    <LangVersi...ysRecompile" BeforeTargets="CoreCompile">\n    <Delete Files="@(IntermediateAssembly)" />\n  </Target>\n\n</Project>\n'
+family = 'pdf'
+
+    def _write_sidecar(
+        tmp_path: Path,
+        monkeypatch: pytest.MonkeyPatch,
+        *,
+        platform: str,
+        manifest_text: str,
+        family: str = "pdf",
+    ) -> Path:
+        """Build the sidecar through the real build_sidecar, with only its network readers faked, and
+        write it to the file name serving reads."""
+>       monkeypatch.setattr(
+            fetch_product_reference, "fetch_manifest_fileX", lambda repository, path, ref=None: manifest_text
+        )
+E       AttributeError: <module 'infra.fetch_product_reference' from 'E:\\Users\\prora\\OneDrive\\Documents\\GitHub\\foss-mcp\\.gatectl-worktrees\\wt-wcxnz8rr\\infra\\fetch_product_reference.py'> has no attribute 'fetch_manifest_fileX'
+
+tests\infra\test_serve_manifest_sidecar.py:62: AttributeError
+_ test_the_compatibility_answer_is_produced_with_zero_network_access_attempted _
+
+tmp_path = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-12247/test_the_compatibility_answer_0')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x00000220DCC4F200>
+
+    def test_the_compatibility_answer_is_produced_with_zero_network_access_attempted(
+        tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """G3/TC-577 regression: gatectl's offline-enforcement environment (HTTP_PROXY/HTTPS_PROXY
+        pointed at a dead port, GATECTL_OFFLINE=1) turned this exact test file's own
+        ``_write_sidecar`` helper into 4 failures with ``urllib.error.URLError`` - it quietly relied
+        on a real, unmocked ``api.github.com`` call succeeding, reached from ``build_sidecar``'s
+        G3/TC-427-added ``list_root_entries`` call, which this file's other two monkeypatches never
+        covered. ``_write_sidecar`` now fakes all three network readers (see its own comment), so this
+        asserts that directly: with ``urllib.request.urlopen`` itself replaced by a call counter that
+        raises if invoked, building the sidecar fixture AND serving the real
+        ``get_product_reference(section="compatibility")`` tool-registry entry through it make zero
+        network attempts - not merely that the test happens to pass in an environment where a real
+        network call would have succeeded.
+        """
+        call_count = 0
+    
+        def _forbidden_urlopen(*args: object, **kwargs: object) -> None:
+            nonlocal call_count
+            call_count += 1
+            raise AssertionError("urllib.request.urlopen must not be called while serving from a baked sidecar")
+    
+        monkeypatch.setattr(urllib.request, "urlopen", _forbidden_urlopen)
+    
+>       manifests = _write_sidecar(tmp_path, monkeypatch, platform="net", manifest_text=PDF_NET_CSPROJ)
+                    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests\infra\test_serve_manifest_sidecar.py:261: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+tmp_path = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-12247/test_the_compatibility_answer_0')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x00000220DCC4F200>
+platform = 'net'
+manifest_text = '<Project Sdk="Microsoft.NET.Sdk">\n\n  <PropertyGroup>\n    <TargetFramework>net8.0</TargetFramework>\n    <LangVersi...ysRecompile" BeforeTargets="CoreCompile">\n    <Delete Files="@(IntermediateAssembly)" />\n  </Target>\n\n</Project>\n'
+family = 'pdf'
+
+    def _write_sidecar(
+        tmp_path: Path,
+        monkeypatch: pytest.MonkeyPatch,
+        *,
+        platform: str,
+        manifest_text: str,
+        family: str = "pdf",
+    ) -> Path:
+        """Build the sidecar through the real build_sidecar, with only its network readers faked, and
+        write it to the file name serving reads."""
+>       monkeypatch.setattr(
+            fetch_product_reference, "fetch_manifest_fileX", lambda repository, path, ref=None: manifest_text
+        )
+E       AttributeError: <module 'infra.fetch_product_reference' from 'E:\\Users\\prora\\OneDrive\\Documents\\GitHub\\foss-mcp\\.gatectl-worktrees\\wt-wcxnz8rr\\infra\\fetch_product_reference.py'> has no attribute 'fetch_manifest_fileX'
+
+tests\infra\test_serve_manifest_sidecar.py:62: AttributeError
+============================== warnings summary ===============================
+..\venv-7b182948484d7df9\Lib\site-packages\starlette\testclient.py:53
+  E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-7b182948484d7df9\Lib\site-packages\starlette\testclient.py:53: DeprecationWarning: The anyio.abc.BlockingPortal alias is deprecated, use anyio.from_thread.BlockingPortal instead.
+    _PortalFactoryType = Callable[[], AbstractContextManager[anyio.abc.BlockingPortal]]
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+=========================== short test summary info ===========================
+FAILED tests/infra/test_serve_manifest_sidecar.py::test_serving_with_a_sidecar_answers_the_exact_target_framework
+FAILED tests/infra/test_serve_manifest_sidecar.py::test_a_typescript_sidecar_reaches_the_engines_node_branch_not_the_dotnet_branch
+FAILED tests/infra/test_serve_manifest_sidecar.py::test_the_tool_input_schema_exposes_only_section
+FAILED tests/infra/test_serve_manifest_sidecar.py::test_a_present_sidecar_with_the_platform_unset_fails_at_start
+FAILED tests/infra/test_serve_manifest_sidecar.py::test_the_compatibility_answer_is_produced_with_zero_network_access_attempted
+
+--- stderr ---
+
