@@ -1,0 +1,114 @@
+id: TC-579
+gate: G3
+lane: storage-retrieval
+purpose: >-
+  Closes OQ-016 (ops/open_questions.jsonl), a real gap TC-562's own closing audit raised and left for a follow-up card: the
+  aggregate confidently-wrong-rate ratchet (WRONG_MAX=0.045 in tests/mcp/tools/test_round3_retrieval_corpus.py) has no per-family
+  equivalent, so a family-specific regression can clear the aggregate test indefinitely without ever being caught. A 2026-10-23
+  re-measurement against the final re-ingested data found pdf at 8.55% confidently-wrong (above the 5% bar OQ-016 itself set)
+  while the aggregate (3.29%) stays comfortably under its own floor - exactly the blind spot the open question names. A supervisor-commissioned
+  read-only investigation of pdf's retrieval code (src/foss_mcp/mcp/tools/relevance.py) found no single missing synonym or
+  stop-word fix: pdf's 6 platform libraries name the same real-world task under structurally unrelated API vocabulary (e.g.
+  'merge two pdfs' reaches PdfFileEditor.Concatenate / Document.Merge / Merger depending on platform), so the wrong-rate is
+  diffuse across dozens of query/API pairs, not a single bug - further tuning against this fixed 729-case corpus risks overfitting
+  it, which is the exact risk OQ-016's own rationale already flagged. FIX, bounded: (1) add the missing per-family wrong_conf
+  ratchet so no family's rate can regress unnoticed again, pinned to each family's own real measured rate plus a small margin
+  (never widened to paper over a real regression); (2) publish pdf's higher confidently-wrong rate as an honestly-disclosed,
+  known retrieval-coverage limitation in docs/RELEASE.md, tied to the real cause (API-naming heterogeneity across platforms),
+  not invented as a promise to fix it later. No relevance/ranking source file is touched by this card - the measured rates
+  are accepted and ratcheted, not chased.
+depends_on:
+- TC-562
+- TC-572
+- TC-537
+- TC-573
+- TC-575
+write_paths:
+- tests/mcp/tools/test_round3_retrieval_corpus.py
+- docs/RELEASE.md
+- tests/deploy/test_release_known_limitations.py
+satisfies:
+- REQ-G3-009
+- REQ-G3-008
+source_refs:
+- file: docs/DECISION_LOG.md
+  anchor: >-
+    ## 2026-10-17 — Round-3 independent review of the shipped image: 82 findings registered, nothing executed (operator, supervisor)
+  sha256: c2056b11a13e5b18cda7e522027fb5eb0102edcef2f99f6c7e7ce0ee5c4b4e5b
+inputs:
+- >-
+  REPRODUCE FIRST: read tests/mcp/tools/test_round3_retrieval_corpus.py in full, specifically WRONG_MAX (line ~55), BASELINE_HIT3
+  (the per-family dict pattern to copy), summarise() (returns wrong_conf per family and 'ALL'), test_hit_at_3_per_family_meets_the_card_and_the_ratchet
+  (the exact parametrize-over-FAMILIES pattern this card's new test must copy), and test_non_empty_answers_that_miss_the_intended_api_stay_rare
+  (the existing aggregate-only wrong_conf test this card does NOT touch or weaken). Then run the corpus yourself (the `cases`/`corpus`
+  fixtures, or a short `python -c` using run_corpus) and print summarise(cases) to get this run's real current per-family
+  wrong_conf numbers - do not trust this card's own quoted numbers blindly, they may have drifted again.
+- >-
+  ADD a module constant `WRONG_MAX_FAMILY`, a dict over every name in FAMILIES, immediately below WRONG_MAX, in the same style
+  as BASELINE_HIT3. Pin each family's ceiling to its own real measured wrong_conf rate from this run, plus a small fixed margin
+  (do not use one blanket margin for every family; a small-n family (words, 3d) needs a slightly larger absolute margin than
+  a large-n one (cells, pdf) to avoid flaking on a single case flipping). At the time of writing, measured values were: cells
+  0.0152, pdf 0.0855, slides 0.0460, words 0.0, 3d 0.0, email 0.0247, other 0.0357 (all n given in FAMILIES). A reasonable
+  pin matching this card's own intent: cells 0.02, pdf 0.09, slides 0.055, words 0.02, 3d 0.02, email 0.035, other 0.05 -
+  but VERIFY against your own fresh measurement first and adjust if the real numbers differ, with a one-line comment stating
+  the measured value each ceiling is pinned against, same convention as BASELINE_HIT3's own comment.
+- >-
+  ADD a new test, parametrized `@pytest.mark.parametrize("family", FAMILIES)` exactly like test_hit_at_3_per_family_meets_the_card_and_the_ratchet,
+  named test_wrong_rate_per_family_meets_the_ratchet, asserting summarise(cases)[family]["wrong_conf"] <= WRONG_MAX_FAMILY[family].
+  Do NOT change test_non_empty_answers_that_miss_the_intended_api_stay_rare or WRONG_MAX - the aggregate ratchet stays exactly
+  as it is; this is an ADDITIONAL, per-family gate, not a replacement.
+- >-
+  docs/RELEASE.md: add one new Standalone-image known-limitation bullet, next available L-id (read the file yourself to confirm
+  the current highest L-NNN in that subsection first - at the time of writing it is L-141, so this bullet is L-142, but confirm),
+  in the same subsection as L-138/L-139/L-140 (README-sourcing and retrieval-coverage limitations). State plainly that the
+  pdf family's confidently-wrong retrieval rate is measurably higher than other families, tie it to the real cause (pdf's
+  platform libraries name the same task under structurally different API vocabulary, not a retrieval defect), and do not promise
+  a fix date. No finding or card id inside the bullet text itself per this project's own convention, only in the closing parenthetical.
+- >-
+  tests/deploy/test_release_known_limitations.py: add the new L-id to STANDALONE_IDS (read the file's existing tuples first,
+  follow its exact format, change nothing else in it).
+- >-
+  Run the whole corpus file and the known-limitations test; both must stay green. Never weaken a check to make it pass.
+actions:
+- >-
+  Add a per-family confidently-wrong-rate ratchet so a family-specific regression cannot hide behind the aggregate.
+- >-
+  Publish pdf's higher confidently-wrong rate as an honestly-disclosed, causally-explained known limitation.
+checks:
+- command: >-
+    {python} -m pytest tests/mcp/tools/test_round3_retrieval_corpus.py tests/deploy/test_release_known_limitations.py -q -rfE
+  expect: exit 0
+  timeout_seconds: 300
+  junitxml: true
+  proves:
+  - REQ-G3-009
+  - REQ-G3-008
+- command: >-
+    {python} -m pytest tests/mcp/tools/test_round3_retrieval_corpus.py tests/deploy/test_release_known_limitations.py tests/deploy/test_readme_matches_release.py
+    tests/deploy/test_round3_closure.py -q -rfE -p no:cacheprovider
+  expect: exit 0
+  timeout_seconds: 400
+  junitxml: true
+  proves:
+  - REQ-G3-009
+  - REQ-G3-008
+min_tests: 15
+network: false
+requires:
+- python
+negative_control:
+  mutate: >-
+    python -X utf8 -c "import pathlib; p = pathlib.Path('tests/mcp/tools/test_round3_retrieval_corpus.py'); s = p.read_text(encoding='utf-8');
+    old = '<= WRONG_MAX_FAMILY[family]'; assert old in s, 'fix text not found - card and source have diverged'; p.write_text(s.replace(old,
+    '<= 1.0', 1), encoding='utf-8')"
+  rationale: >-
+    Widens the new per-family assertion to an always-true ceiling, so the per-family ratchet test can no longer catch anything.
+    A real break of the card's central claim: a family-specific regression would again clear unnoticed.
+evidence:
+- evidence/build/G3/TC-579/receipt.json
+closeout:
+- >-
+  Every family's confidently-wrong rate is now independently ratcheted, closing the exact blind spot OQ-016 named. pdf's higher
+  rate is published as an honestly-disclosed, causally-explained known limitation, not chased by unbounded tuning against
+  a fixed corpus.
+recovery: Re-run from a clean tree.
