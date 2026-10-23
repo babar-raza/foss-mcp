@@ -101,7 +101,11 @@ def _strip_lead_in(lines: list[str]) -> list[str]:
 
 
 def _parse_chunk(text: str, pattern: str) -> _Chunk | None:
-    """The chunk behind *text* when it is a non-FAQ ``Doc:`` chunk whose title contains *pattern*."""
+    """The chunk behind *text* when it is a ``Doc:`` chunk whose title contains *pattern* - a FAQ-titled
+    chunk (its first body line starts with ``FAQ:``) is excluded, EXCEPT when *pattern* is the install
+    pattern: a C++ pilot's README may document installation only as an FAQ entry (G3/TC-574), and that is
+    real install guidance, not too narrow to serve as the whole section the way a LIMITATIONS or
+    CAPABILITIES FAQ answer usually is."""
     lines = text.split("\n")
     if not lines or not lines[0].startswith(_DOC_PREFIX):
         return None
@@ -109,7 +113,8 @@ def _parse_chunk(text: str, pattern: str) -> _Chunk | None:
     if pattern.lower() not in title.lower():
         return None
     body = lines[1:]
-    if body and body[0].startswith(_FAQ_PREFIX):
+    is_faq = bool(body) and body[0].startswith(_FAQ_PREFIX)
+    if is_faq and pattern != INSTALL_TITLE_PATTERN:
         return None
     commit: str | None = None
     part: int | None = None
@@ -129,6 +134,16 @@ def _parse_chunk(text: str, pattern: str) -> _Chunk | None:
         kept.pop()
     if pattern == LIMITATIONS_TITLE_PATTERN:
         kept = _strip_lead_in(kept)
+    elif is_faq:
+        # Drop the "FAQ: <question>" line itself and the blank line after it; the answer (if any) is
+        # the install guidance. A bare FAQ question with no answer at all is not install content,
+        # same as before TC-574 - only a question with a real answer behind it is promoted.
+        if kept and kept[0].startswith(_FAQ_PREFIX):
+            kept = kept[1:]
+        while kept and not kept[0].strip():
+            kept = kept[1:]
+        if not kept:
+            return None
     return _Chunk(title=title, text="\n".join(kept).strip("\n"), commit=commit, part=part)
 
 
