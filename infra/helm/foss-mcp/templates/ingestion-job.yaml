@@ -143,7 +143,7 @@ spec:
               --manifest-path {{ . }}
               --ref {{ $lib.commit | quote }}
               --output {{ $.Values.manifests.mountPath }}/{{ printf "product_reference_%s_%s.json" $p.family $p.platform }}
-              || true; }
+              || echo "WARNING: fetch_product_reference.py failed for {{ $p.family }}/{{ $p.platform }} (exit $?)"; }
               &&
               { python /app/infra/verify_product_reference_install.py
               --family {{ $p.family }}
