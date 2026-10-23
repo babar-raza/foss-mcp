@@ -32,6 +32,8 @@ write_paths:
 - tests/deploy/test_ingestion_job_render.py
 - tests/deploy/test_product_reference_sidecars_are_current.py
 - docs/RELEASE.md
+- tests/deploy/test_release_known_limitations.py
+- tests/infra/test_helm_manifest_step.py
 - docs/ROUND3_REVIEW.md
 satisfies:
 - REQ-G3-008
@@ -90,6 +92,18 @@ inputs:
   naming TC-575 as the card that makes the gap visible and honestly disclosed, without claiming it is fully closed (it cannot
   be, until OWNER-14 is resolved by the operator).
 - Run the whole file; it must stay green. Never weaken a check to make it pass.
+- >-
+  REWORK NOTE (2026-10-23, supervisor, after reviewing commit da4ab49c). OWNER-14's own text now explicitly names the
+  manifest_path/readme_document gap (supervisor edit, commit 92ea9c1e) - that part is done. Two remaining items, both
+  now covered by the write_paths above: (1) add the next-available-L-id known-limitation bullet to docs/RELEASE.md
+  exactly as this card's own inputs describe, AND add that id to the right tuple (STANDALONE_IDS/KUBERNETES_IDS/
+  NOT_DEFECT_IDS, prefer KUBERNETES_IDS per this card's own reasoning) in tests/deploy/test_release_known_limitations.py
+  - read that file's existing tuples and its own tests before editing, change nothing else in it. (2)
+  tests/infra/test_helm_manifest_step.py::test_the_fetch_step_failure_is_swallowed_but_still_logged hardcodes
+  `tokens[true_index].rstrip(";") == "true"` immediately after the fetch step - this is now false by this card's own
+  design (the token is no longer bare "true"); update that one assertion to check for the new visible-failure
+  construct structurally (same style as your own new test_ingestion_job_render.py assertions), without weakening what
+  the test actually proves (the step still logs and the Job still proceeds). Do not touch any other test in that file.
 actions:
 - >-
   Stop silently swallowing the product-reference fetch's failure in the ingestion Job template; make it visibly logged instead,
@@ -113,7 +127,7 @@ checks:
 - command: >-
     {python} -m pytest tests/deploy/test_ingestion_job_render.py tests/deploy/test_product_reference_sidecars_are_current.py
     tests/deploy/test_release_known_limitations.py tests/deploy/test_round3_closure.py tests/deploy/test_preprod_review_register.py
-    tests/mcp/tools/test_product_reference_baked_contract.py -q -rfE -p no:cacheprovider
+    tests/mcp/tools/test_product_reference_baked_contract.py tests/infra/test_helm_manifest_step.py -q -rfE -p no:cacheprovider
   expect: exit 0
   timeout_seconds: 900
   junitxml: true
