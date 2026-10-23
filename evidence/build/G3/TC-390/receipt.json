@@ -3,9 +3,9 @@
   "card": "TC-390",
   "gate": "G3",
   "generated_by": "gatectl",
-  "generated_at": "2026-10-23T08:10:10Z",
-  "base_rev": "cf3040e82434f6a48c51217b9016a21b2e44a507",
-  "head_rev": "cf3040e82434f6a48c51217b9016a21b2e44a507",
+  "generated_at": "2026-10-23T09:28:01Z",
+  "base_rev": "18bcba608bf5b2c1e59ce1b554d7297b830c5850",
+  "head_rev": "18bcba608bf5b2c1e59ce1b554d7297b830c5850",
   "card_sha256": "1afc994bd6e0c0781efc1f319e6d76dcea527b61f56c260ed6a30af3dbfb41ed",
   "fingerprint": {
     "python": "3.13.2",
@@ -35,7 +35,7 @@
         {
           "command": "{python} -m pytest tests/deploy/test_demo_entrypoint_strays.py tests/infra/test_serve_startup_errors.py tests/infra/test_serve_stdio_parity.py -q -rfE",
           "exit_code": 0,
-          "duration_s": 4.483,
+          "duration_s": 2.576,
           "stdout_sha256": "4dff53dd544ebda246706bcae037147082ec68f3d431731463025ec83244affb",
           "tests": 49,
           "skipped": 0,
@@ -44,16 +44,16 @@
         },
         {
           "command": "{python} -m pytest tests/deploy/test_demo_entrypoint.py tests/deploy/test_demo_entrypoint_strays.py tests/infra/test_serve_http.py tests/infra/test_serve_logging.py tests/infra/test_serve_manifest_sidecar.py tests/infra/test_serve_stdio.py tests/infra/test_serve_startup_errors.py tests/infra/test_serve_stdio_parity.py tests/test_unwired_modules.py -q -rfE",
-          "exit_code": 1,
-          "duration_s": 83.187,
-          "stdout_sha256": "bad121c7ccc52367059c47f05613d5edf4f91922da829782bdd3dedff24a8301",
-          "tests": 149,
+          "exit_code": 0,
+          "duration_s": 14.729,
+          "stdout_sha256": "97646fec7db2c98ec23589f490915ea54f09ad8079fbd69740ebe0e2da427e0b",
+          "tests": 150,
           "skipped": 0,
           "errors": 0,
-          "failures": 4
+          "failures": 0
         }
       ],
-      "all_passed": false
+      "all_passed": true
     },
     {
       "run": 2,
@@ -61,7 +61,7 @@
         {
           "command": "{python} -m pytest tests/deploy/test_demo_entrypoint_strays.py tests/infra/test_serve_startup_errors.py tests/infra/test_serve_stdio_parity.py -q -rfE",
           "exit_code": 0,
-          "duration_s": 2.471,
+          "duration_s": 2.987,
           "stdout_sha256": "4dff53dd544ebda246706bcae037147082ec68f3d431731463025ec83244affb",
           "tests": 49,
           "skipped": 0,
@@ -70,31 +70,39 @@
         },
         {
           "command": "{python} -m pytest tests/deploy/test_demo_entrypoint.py tests/deploy/test_demo_entrypoint_strays.py tests/infra/test_serve_http.py tests/infra/test_serve_logging.py tests/infra/test_serve_manifest_sidecar.py tests/infra/test_serve_stdio.py tests/infra/test_serve_startup_errors.py tests/infra/test_serve_stdio_parity.py tests/test_unwired_modules.py -q -rfE",
-          "exit_code": 1,
-          "duration_s": 80.835,
-          "stdout_sha256": "ecace81e52002d9bf925fce1f6ebd370b8e9310cb7c4565d5fcbcaf097d8eb72",
-          "tests": 149,
+          "exit_code": 0,
+          "duration_s": 9.961,
+          "stdout_sha256": "97646fec7db2c98ec23589f490915ea54f09ad8079fbd69740ebe0e2da427e0b",
+          "tests": 150,
           "skipped": 0,
           "errors": 0,
-          "failures": 4
+          "failures": 0
         }
       ],
-      "all_passed": false
+      "all_passed": true
     }
   ],
   "negative_control": {
     "kind": "mutate",
     "patch": "python -X utf8 -c \"import pathlib;p=pathlib.Path('infra/demo_entrypoint.py');s=p.read_text(encoding='utf-8');old='def _is_baked_scope(';assert old in s;p.write_text(s.replace(old,'def _is_baked_scopeX(',1),encoding='utf-8')\"\n",
-    "patch_sha256": "0000000000000000000000000000000000000000000000000000000000000000",
-    "applied": false,
-    "patch_applied_failed": false,
-    "exit_codes": []
+    "patch_sha256": "9eea5d523c9ef0cfd1d27d1ff26cf6a007210feabef9258b6d0fc243885c5468",
+    "applied": true,
+    "patch_applied_failed": true,
+    "exit_codes": [
+      1,
+      1
+    ],
+    "tree_changed": [
+      "M infra/demo_entrypoint.py",
+      "?? .junit-0.xml",
+      "?? .junit-1.xml"
+    ]
   },
   "holdout": {
     "ran": false,
     "passed": true,
     "detail": "no holdout for this card"
   },
-  "accepted": false,
-  "reason": "checks failed: {python} -m pytest tests/deploy/test_demo_entrypoint.py tests/deploy/test_demo_entrypoint_strays.py tests/infra/test_serve_http.py tests/infra/test_serve_logging.py tests/infra/test_serve_manifest_sidecar.py tests/infra/test_serve_stdio.py tests/infra/test_serve_startup_errors.py tests/infra/test_serve_stdio_parity.py tests/test_unwired_modules.py -q -rfE; negative-control patch did not apply"
+  "accepted": true,
+  "reason": "all gates passed"
 }
