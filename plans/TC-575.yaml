@@ -1,0 +1,145 @@
+id: TC-575
+gate: G3
+lane: transport-deployment
+purpose: >-
+  RD3-080 family follow-up, the deeper half TC-574 explicitly scoped out. The 2026-10-23 independent audit found that 0 of
+  32 real product_reference sidecars under infra/demo-manifests carry the `readme_document` or `manifest_path` keys at all
+  - not 'stale', genuinely never written, for any pilot, ever. TRACED: infra/helm/foss-mcp/templates/ingestion-job.yaml lines
+  138-146 wraps the entire fetch_product_reference.py invocation in a brace group ending `|| true;` - so when that command
+  fails (OWNER-14: the cluster's GITHUB_TOKEN is rejected with HTTP 401, confirmed still open in ops/owner_items.yaml), the
+  Job step is silently treated as a no-op success and ingestion proceeds with whatever sidecar already existed (nothing, for
+  a first-ever ingestion). This masking has almost certainly been in effect since before TC-561 shipped the consuming code
+  - TC-561's own acceptance checks exercised build_sidecar()'s logic offline/mocked, never against a real Job run with the
+  real (broken) token, so the gap was never caught: exactly the 'a function proven correct in isolation, never proven to be
+  successfully called in the real deployed pipeline' failure class AGENTS.md names explicitly. FIX, bounded to what is honestly
+  achievable without GitHub access today: (1) stop masking this ONE sub-command's failure - log it at WARNING with the real
+  exit code and stderr tail so a future ingestion run (once OWNER-14 is resolved) makes the gap visible instead of silently
+  repeating it forever; every OTHER `|| true` in this file (sidecar writers that already have their own honest fetch_failed
+  state, per GRR-02/D-01) is untouched - this card touches only the product-reference fetch line. (2) Add a permanent, data-driven
+  test that would have caught this from day one: every baked product_reference sidecar either carries both fields or the deployment's
+  own ops/owner_items.yaml records OWNER-14 as the reason, so a SILENT regression (the fields disappearing again after OWNER-14
+  is eventually fixed, with no one noticing) is caught, while an HONEST, disclosed absence is not treated as a failure. (3)
+  Publish the honest, disclosed limitation in docs/RELEASE.md - not an invented promise about when it will be fixed, since
+  that depends on the operator resolving OWNER-14, outside this project's own control.
+depends_on:
+- TC-561
+- TC-536
+- TC-574
+- TC-537
+- TC-573
+write_paths:
+- infra/helm/foss-mcp/templates/ingestion-job.yaml
+- tests/deploy/test_ingestion_job_render.py
+- tests/deploy/test_product_reference_sidecars_are_current.py
+- docs/RELEASE.md
+- docs/ROUND3_REVIEW.md
+satisfies:
+- REQ-G3-008
+- REQ-G3-009
+source_refs:
+- file: docs/DECISION_LOG.md
+  anchor: >-
+    ## 2026-10-17 — Round-3 independent review of the shipped image: 82 findings registered, nothing executed (operator, supervisor)
+  sha256: c2056b11a13e5b18cda7e522027fb5eb0102edcef2f99f6c7e7ce0ee5c4b4e5b
+inputs:
+- >-
+  REPRODUCE/CONFIRM FIRST: read infra/helm/foss-mcp/templates/ingestion-job.yaml lines ~115-150 in full. Confirm the exact
+  brace-group+`|| true` shape around the fetch_product_reference.py call (NOT the verify_product_reference_install.py call
+  right after it, NOT any other sidecar writer earlier in the same template - read the whole Job template so you know exactly
+  which `|| true` instances exist and which this card means). Render the chart offline (helm template, or read tests/deploy/
+  for an existing offline chart-render harness this project already has) to confirm the real current command text for at least
+  one pilot.
+- >-
+  THE VISIBILITY FIX, exact shape (so the negative control below can pin it precisely): the fetch_product_reference.py sub-command
+  currently ends `|| true; }`. Change exactly that to `|| echo "WARNING: fetch_product_reference.py failed for {{ $p.family
+  }}/{{ $p.platform }} (exit $?)"; }` - same brace-group structure, same fallthrough-on-failure behavior (the Job step as
+  a whole must still continue; that is GRR-02/D-01's own settled design and is NOT changed here), but the failure is now echoed
+  to the Job's own stdout (which the cluster already collects) instead of silently discarded. Do not change fetch_product_reference.py
+  itself, and do not change how any OTHER sidecar writer's own `|| true` in this same template handles its failure - this
+  is a narrow, one-sub-command visibility fix, not a general error-handling rewrite. If the exact Helm variable names ($p.family,
+  $p.platform) differ slightly from what is shown here once you read the real file, use the real names - the shape (echo a
+  WARNING with family/platform/exit code, same brace-group fallthrough) is what matters, not these exact token spellings.
+- >-
+  NEW tests/deploy/test_ingestion_job_render.py (or extend an existing offline chart-render test if this project already has
+  one for this template - check tests/deploy/ for test_*_render*.py or similar before writing a new file; read helm template
+  fixtures already used elsewhere in tests/deploy for the right offline-render pattern, do not invent a new one): render the
+  Job template offline (no cluster, no network) and assert the rendered command for the fetch_product_reference.py sub-step
+  both (a) still falls through to the rest of the Job on failure (ingestion is not blocked) and (b) now contains a visible
+  failure-reporting construct (whatever exact shape you implement - assert its presence structurally, not by matching exact
+  wording that might drift).
+- >-
+  tests/deploy/test_product_reference_sidecars_are_current.py (already exists, written by TC-573's original - now superseded
+  - sidecar-backfill attempt if that card landed first, otherwise write it fresh here): make it pass for the CURRENT honest
+  state too - a sidecar legitimately missing readme_document/manifest_path because the real fetch has never succeeded is NOT
+  a test failure as long as ops/owner_items.yaml's OWNER-14 entry is OPEN and explicitly names this dependency; the test should
+  instead assert that EITHER (a) every sidecar has both fields, OR (b) OWNER-14 is open and its own note/question text accounts
+  for the gap - so this test fails the moment OWNER-14 is marked resolved/satisfied while the fields are STILL missing (a
+  real, caught regression), but does not fail today for an honestly-disclosed, owner-blocked absence. Read ops/owner_items.yaml's
+  OWNER-14 entry first; if its own text does not yet mention manifest_path/readme_document, add one clause to it (ops/ is
+  a supervisor path - note in your report that this one line needs the supervisor's own edit if your write_paths do not cover
+  ops/owner_items.yaml, which they do not; say so plainly rather than silently skipping it or overstepping into ops/).
+- >-
+  docs/RELEASE.md: add one new Standalone-image (or Kubernetes-chart, per release_subsection - this is a chart/deployment-pipeline
+  behavior, so Kubernetes chart is the more honest subsection) known-limitation bullet, next available L-id, describing plainly
+  that manifest_path/readme_document (the richer CMake-based install guidance for pilots whose README documents install via
+  these fields) depend on a working GitHub token in the cluster, which is not currently available (OWNER-14); no finding or
+  card id inside the bullet text itself per this project's own convention, only in the closing parenthetical.
+- >-
+  docs/ROUND3_REVIEW.md: this card is the real closer of the 'manifest_path never populated' half of RD3-080 that TC-574 explicitly
+  scoped out. Add one sentence to RD3-080's row (or its section-4 note, whichever this card's own TC-574 predecessor used)
+  naming TC-575 as the card that makes the gap visible and honestly disclosed, without claiming it is fully closed (it cannot
+  be, until OWNER-14 is resolved by the operator).
+- Run the whole file; it must stay green. Never weaken a check to make it pass.
+actions:
+- >-
+  Stop silently swallowing the product-reference fetch's failure in the ingestion Job template; make it visibly logged instead,
+  without blocking ingestion.
+- >-
+  Add a test that distinguishes an honestly-disclosed, owner-blocked absence of manifest_path/readme_document from a silent
+  regression once the owner item is resolved.
+- >-
+  Publish the honest limitation in docs/RELEASE.md and correct RD3-080's closure record to name what is and is not actually
+  fixed.
+checks:
+- command: >-
+    {python} -m pytest tests/deploy/test_ingestion_job_render.py tests/deploy/test_product_reference_sidecars_are_current.py
+    tests/deploy/test_release_known_limitations.py -q -rfE
+  expect: exit 0
+  timeout_seconds: 600
+  junitxml: true
+  proves:
+  - REQ-G3-008
+  - REQ-G3-009
+- command: >-
+    {python} -m pytest tests/deploy/test_ingestion_job_render.py tests/deploy/test_product_reference_sidecars_are_current.py
+    tests/deploy/test_release_known_limitations.py tests/deploy/test_round3_closure.py tests/deploy/test_preprod_review_register.py
+    tests/mcp/tools/test_product_reference_baked_contract.py -q -rfE -p no:cacheprovider
+  expect: exit 0
+  timeout_seconds: 900
+  junitxml: true
+  proves:
+  - REQ-G3-008
+  - REQ-G3-009
+min_tests: 15
+network: false
+requires:
+- python
+negative_control:
+  mutate: >-
+    python -X utf8 -c "import pathlib; nl = chr(10); p = pathlib.Path('infra/helm/foss-mcp/templates/ingestion-job.yaml');
+    s = p.read_text(encoding='utf-8'); old = 'WARNING: fetch_product_reference.py failed'; assert old in s, 'fix text not
+    found - card and template have diverged'; start = s.index('|| echo'); end = s.index(';', start) + 1; s = s[:start] + '||
+    true;' + s[end:]; p.write_text(s, encoding='utf-8')"
+  rationale: >-
+    Reverts the visibility fix back to the original bare `|| true;`, so the new offline chart-render test's assertion that
+    the rendered Job command contains a visible failure-reporting construct must fail. A real break of the card's central
+    claim.
+evidence:
+- evidence/build/G3/TC-575/receipt.json
+closeout:
+- >-
+  The product-reference fetch's real failure is now visible in ingestion Job logs instead of silently discarded. A permanent
+  test distinguishes an honestly-disclosed, owner-blocked data gap from a silent regression. docs/RELEASE.md and docs/ROUND3_REVIEW.md
+  both state plainly what is and is not fixed, and why - the manifest_path/readme_document gap remains open pending OWNER-14,
+  by design, not by oversight.
+recovery: Re-run from a clean tree.

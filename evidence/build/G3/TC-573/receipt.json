@@ -1,0 +1,110 @@
+{
+  "schema_version": 1,
+  "card": "TC-573",
+  "gate": "G3",
+  "generated_by": "gatectl",
+  "generated_at": "2026-10-23T06:20:30Z",
+  "base_rev": "7ca79932cf4005e6b01bbe285a6753d45c737bfd",
+  "head_rev": "73eadf307617516fb2da78a5026e436cea3e0df3",
+  "card_sha256": "e86d33dde6f9ce1dfbbb945a8758f7842ff322c31b418c4f82fcc98f4899d91a",
+  "fingerprint": {
+    "python": "3.13.2",
+    "platform": "Windows-11-10.0.26300-SP0",
+    "lock_sha256": "7b182948484d7df9614b523f7a8180f795b6c51d55c418728525c1957f3e38ba",
+    "env": {
+      "PYTHONHASHSEED": "0",
+      "PYTHONUTF8": "1",
+      "PYTHONDONTWRITEBYTECODE": "1",
+      "PYTHONIOENCODING": "utf-8",
+      "TZ": "UTC",
+      "LC_ALL": "C.UTF-8",
+      "SOURCE_DATE_EPOCH": "1700000000",
+      "verify_runner": "host"
+    }
+  },
+  "scope": {
+    "ok": true,
+    "changed_paths": [
+      "docs/RELEASE.md"
+    ],
+    "violations": [],
+    "evaluated": true
+  },
+  "runs": [
+    {
+      "run": 1,
+      "checks": [
+        {
+          "command": "{python} -m pytest tests/deploy/test_release_known_limitations.py -q -rfE",
+          "exit_code": 0,
+          "duration_s": 0.859,
+          "stdout_sha256": "b5d111785cd142d6898423f1543d1e9ecdf3fe8ab170cf39e39a55e418d4a43a",
+          "tests": 175,
+          "skipped": 0,
+          "errors": 0,
+          "failures": 0
+        },
+        {
+          "command": "{python} -m pytest tests/deploy/test_release_known_limitations.py tests/deploy/test_release_deferred_extraction.py tests/deploy/test_pilot_roster.py -q -rfE -p no:cacheprovider",
+          "exit_code": 0,
+          "duration_s": 1.271,
+          "stdout_sha256": "2c5bfab55f08606eaf81f575c77d101e340fb6872e601fa06ef28788804acdba",
+          "tests": 250,
+          "skipped": 0,
+          "errors": 0,
+          "failures": 0
+        }
+      ],
+      "all_passed": true
+    },
+    {
+      "run": 2,
+      "checks": [
+        {
+          "command": "{python} -m pytest tests/deploy/test_release_known_limitations.py -q -rfE",
+          "exit_code": 0,
+          "duration_s": 0.743,
+          "stdout_sha256": "b5d111785cd142d6898423f1543d1e9ecdf3fe8ab170cf39e39a55e418d4a43a",
+          "tests": 175,
+          "skipped": 0,
+          "errors": 0,
+          "failures": 0
+        },
+        {
+          "command": "{python} -m pytest tests/deploy/test_release_known_limitations.py tests/deploy/test_release_deferred_extraction.py tests/deploy/test_pilot_roster.py -q -rfE -p no:cacheprovider",
+          "exit_code": 0,
+          "duration_s": 1.2,
+          "stdout_sha256": "2c5bfab55f08606eaf81f575c77d101e340fb6872e601fa06ef28788804acdba",
+          "tests": 250,
+          "skipped": 0,
+          "errors": 0,
+          "failures": 0
+        }
+      ],
+      "all_passed": true
+    }
+  ],
+  "negative_control": {
+    "kind": "mutate",
+    "patch": "python -X utf8 -c \"import pathlib; nl = chr(10); p = pathlib.Path('docs/RELEASE.md'); s = p.read_text(encoding='utf-8'); assert '**L-115**' in s; marker = '**L-115**'; start = s.index(marker); end = s.index(nl + '- **', start); s = s[:start] + '**L-115** The init container waits without a deadline.' + s[end:]; p.write_text(s, encoding='utf-8')\"",
+    "patch_sha256": "b0d171ad8ef8c65adcbd9aaad63c0c34fe41e89fc37a78958aaadefdff8b856d",
+    "applied": true,
+    "patch_applied_failed": true,
+    "exit_codes": [
+      1,
+      1
+    ],
+    "tree_changed": [
+      "M docs/RELEASE.md",
+      "?? .junit-0.xml",
+      "?? .junit-1.xml"
+    ]
+  },
+  "holdout": {
+    "ran": false,
+    "passed": true,
+    "detail": "no holdout for this card"
+  },
+  "accepted": false,
+  "reason": "offline tests of files this card touches fail at the head: ..................................F.............. [ 40%]"
+}

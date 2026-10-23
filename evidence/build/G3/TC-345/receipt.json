@@ -3,13 +3,13 @@
   "card": "TC-345",
   "gate": "G3",
   "generated_by": "gatectl",
-  "generated_at": "2026-10-11T09:33:57Z",
+  "generated_at": "2026-10-23T06:18:24Z",
   "base_rev": "e27188bce5e9d8b6f758c12708a25f8ef9ce3f59",
-  "head_rev": "60fcedaa045176f53731aa4dc106441e2558485e",
+  "head_rev": "03aabc291b854c57f5e6510fd5a27308c51be549",
   "card_sha256": "2990c41bca47586a54f346f90b2846b2bbf5fbc6ed31bb38225b5fca449caf0d",
   "fingerprint": {
     "python": "3.13.2",
-    "platform": "Windows-11-10.0.26200-SP0",
+    "platform": "Windows-11-10.0.26300-SP0",
     "lock_sha256": "7b182948484d7df9614b523f7a8180f795b6c51d55c418728525c1957f3e38ba",
     "env": {
       "PYTHONHASHSEED": "0",
@@ -24,13 +24,9 @@
   },
   "scope": {
     "ok": true,
-    "changed_paths": [
-      "docs/DEPLOYMENT.md",
-      "scripts/release/image_workflow_gate.py",
-      "tests/deploy/test_image_workflow_gate.py"
-    ],
+    "changed_paths": [],
     "violations": [],
-    "evaluated": true
+    "evaluated": false
   },
   "runs": [
     {
@@ -39,25 +35,25 @@
         {
           "command": "{python} -m pytest tests/deploy/test_image_workflow_gate.py tests/deploy/test_runbook.py -q -rfE",
           "exit_code": 0,
-          "duration_s": 7.614,
-          "stdout_sha256": "3d62d17cda0245ac103dacbc19a54714f32a472955ffa1297184c4315837fbd1",
-          "tests": 81,
+          "duration_s": 5.96,
+          "stdout_sha256": "b2cace8d442dfd18f85561da7ba0822d6c7c22d40c04361fb9e32fe98ee722ed",
+          "tests": 97,
           "skipped": 0,
           "errors": 0,
           "failures": 0
         },
         {
           "command": "{python} -m pytest tests/deploy tests/poc -q -rfE",
-          "exit_code": 0,
-          "duration_s": 61.521,
-          "stdout_sha256": "494b705125e84bbe90de1a7c9803f307059dd9644538519c9f94a75dd4d96ca5",
-          "tests": 509,
+          "exit_code": 1,
+          "duration_s": 277.315,
+          "stdout_sha256": "327305f074c3cdc11ade65fb7d9e283e5e091073f66b2cda85e4cc059c78943c",
+          "tests": 2635,
           "skipped": 0,
           "errors": 0,
-          "failures": 0
+          "failures": 1
         }
       ],
-      "all_passed": true
+      "all_passed": false
     },
     {
       "run": 2,
@@ -65,48 +61,40 @@
         {
           "command": "{python} -m pytest tests/deploy/test_image_workflow_gate.py tests/deploy/test_runbook.py -q -rfE",
           "exit_code": 0,
-          "duration_s": 10.481,
-          "stdout_sha256": "3d62d17cda0245ac103dacbc19a54714f32a472955ffa1297184c4315837fbd1",
-          "tests": 81,
+          "duration_s": 4.868,
+          "stdout_sha256": "b2cace8d442dfd18f85561da7ba0822d6c7c22d40c04361fb9e32fe98ee722ed",
+          "tests": 97,
           "skipped": 0,
           "errors": 0,
           "failures": 0
         },
         {
           "command": "{python} -m pytest tests/deploy tests/poc -q -rfE",
-          "exit_code": 0,
-          "duration_s": 54.044,
-          "stdout_sha256": "494b705125e84bbe90de1a7c9803f307059dd9644538519c9f94a75dd4d96ca5",
-          "tests": 509,
+          "exit_code": 1,
+          "duration_s": 252.754,
+          "stdout_sha256": "327305f074c3cdc11ade65fb7d9e283e5e091073f66b2cda85e4cc059c78943c",
+          "tests": 2635,
           "skipped": 0,
           "errors": 0,
-          "failures": 0
+          "failures": 1
         }
       ],
-      "all_passed": true
+      "all_passed": false
     }
   ],
   "negative_control": {
     "kind": "mutate",
     "patch": "python -X utf8 -c \"import pathlib;p=pathlib.Path('scripts/release/image_workflow_gate.py');s=p.read_text(encoding='utf-8');old='readyz';assert old in s;i=s.rindex(old);p.write_text(s[:i]+'readyzX'+s[i+len(old):],encoding='utf-8')\"\n",
-    "patch_sha256": "3d39396db93b6dcd539695ee70ea4a0ec4bf3a81b51a45e8f364cf0cefb3f3d8",
-    "applied": true,
-    "patch_applied_failed": true,
-    "exit_codes": [
-      1,
-      1
-    ],
-    "tree_changed": [
-      "M scripts/release/image_workflow_gate.py",
-      "?? .junit-0.xml",
-      "?? .junit-1.xml"
-    ]
+    "patch_sha256": "0000000000000000000000000000000000000000000000000000000000000000",
+    "applied": false,
+    "patch_applied_failed": false,
+    "exit_codes": []
   },
   "holdout": {
     "ran": false,
     "passed": true,
     "detail": "no holdout for this card"
   },
-  "accepted": true,
-  "reason": "all gates passed"
+  "accepted": false,
+  "reason": "checks failed: {python} -m pytest tests/deploy tests/poc -q -rfE; negative-control patch did not apply"
 }

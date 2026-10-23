@@ -1,16 +1,16 @@
 
 ===== CLEAN RUN 1 (host) =====
-$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-7b182948484d7df9\Scripts\python.exe -m pytest tests/deploy/test_push_image.py tests/deploy/test_runbook.py -q -rfE "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-14h_hkzs\.junit-0.xml"
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-7b182948484d7df9\Scripts\python.exe -m pytest tests/deploy/test_push_image.py tests/deploy/test_runbook.py -q -rfE "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-w21ij1l5\.junit-0.xml"
 --- stdout ---
 ........................................................................ [ 55%]
 .........................................................                [100%]
 
 --- stderr ---
 
-$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-7b182948484d7df9\Scripts\python.exe -m pytest tests/deploy -q -rfE "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-14h_hkzs\.junit-1.xml"
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-7b182948484d7df9\Scripts\python.exe -m pytest tests/deploy -q -rfE "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-w21ij1l5\.junit-1.xml"
 --- stdout ---
-............................F........................................... [  2%]
-FFFFFF.FFFFF............................................................ [  5%]
+........................................................................ [  2%]
+........................................................................ [  5%]
 ........................................................................ [  8%]
 ........................................................................ [ 11%]
 ........................................................................ [ 13%]
@@ -31,7 +31,7 @@ FFFFFF.FFFFF............................................................ [  5%]
 ........................................................................ [ 55%]
 ........................................................................ [ 58%]
 ........................................................................ [ 61%]
-........................................................................ [ 64%]
+..F..................................................................... [ 64%]
 ........................................................................ [ 66%]
 ........................................................................ [ 69%]
 ........................................................................ [ 72%]
@@ -46,294 +46,36 @@ FFFFFF.FFFFF............................................................ [  5%]
 ........................................................................ [ 97%]
 ...............................................................          [100%]
 ================================== FAILURES ===================================
-____________ test_restart_is_skipped_for_a_url_target_and_says_so _____________
+_____________________ test_the_real_ledger_check_is_clean _____________________
 
-endpoint = <function endpoint.<locals>.make at 0x00000245C154B240>
-
-    def test_restart_is_skipped_for_a_url_target_and_says_so(endpoint) -> None:
-        target = make_target(endpoint())
-        result = suite.run_scenario(target, "restart", suite.scenario_restart)
->       assert result.status == "skipped"
-E       AssertionError: assert 'fail' == 'skipped'
+    def test_the_real_ledger_check_is_clean() -> None:
+        tool = _load_ledger_tool()
+        rows, _meta = tool.compute(REPO_ROOT, False)
+>       assert [r.f.id for r in rows if r.status == "OPEN"] == []
+E       AssertionError: assert ['L-002', 'L-... 'L-056', ...] == []
 E         
-E         - skipped
-E         + fail
-
-tests\deploy\test_adversarial_suite.py:678: AssertionError
-_________________ test_a_well_behaved_image_passes_end_to_end _________________
-
-tmp_path = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-11546/test_a_well_behaved_image_pass0')
-endpoint = <function endpoint.<locals>.make at 0x00000245C13E6480>
-capsys = <_pytest.capture.CaptureFixture object at 0x0000024591DD1AE0>
-
-    def test_a_well_behaved_image_passes_end_to_end(
-        tmp_path: Path, endpoint, capsys: pytest.CaptureFixture[str]
-    ) -> None:
-        fake = endpoint()
-        code, docker, report_dir = run_main(tmp_path, fake)
-        out = capsys.readouterr().out
->       assert code == 0, out
-E       AssertionError: pdf/net            FAIL  
-E             reason: the container never became ready: /readyz did not answer 200 within 30 s (last answer: no connection); last log lines: serving
-E         verdict: FAIL (0 of 1 pilots passed); reports: C:\Users\babar\AppData\Local\Temp\pytest-of-babar\pytest-11546\test_a_well_behaved_image_pass0\reports
-E         
-E       assert 1 == 0
-
-tests\deploy\test_adversarial_suite.py:1155: AssertionError
-______________ test_the_verdict_is_fail_when_any_scenario_fails _______________
-
-tmp_path = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-11546/test_the_verdict_is_fail_when_0')
-endpoint = <function endpoint.<locals>.make at 0x00000245C144DBC0>
-capsys = <_pytest.capture.CaptureFixture object at 0x00000245C1562D50>
-
-    def test_the_verdict_is_fail_when_any_scenario_fails(
-        tmp_path: Path, endpoint, capsys: pytest.CaptureFixture[str]
-    ) -> None:
-        fake = endpoint(crash_on_invalid_json=True)
-        code, docker, report_dir = run_main(tmp_path, fake)
-        out = capsys.readouterr().out
-        assert code == suite.EXIT_FAILED
-        summary = load(report_dir, "summary.json")
-        assert summary["verdict"] == "FAIL" and summary["pilots_passed"] == 0
-        pilot = load(report_dir, "pdf_net.json")
->       assert pilot["scenarios"]["protocol"]["status"] == "fail"
-               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-E       KeyError: 'protocol'
-
-tests\deploy\test_adversarial_suite.py:1184: KeyError
-_____________ test_a_generation_change_after_restart_is_detected ______________
-
-tmp_path = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-11546/test_a_generation_change_after0')
-endpoint = <function endpoint.<locals>.make at 0x00000245C13B4F40>
-
-    def test_a_generation_change_after_restart_is_detected(tmp_path: Path, endpoint) -> None:
-        code, docker, report_dir = run_main(
-            tmp_path, endpoint(generation_after_restart="pdf::net::self_extracted::gen-2")
-        )
-        assert code == suite.EXIT_FAILED
->       restart = load(report_dir, "pdf_net.json")["scenarios"]["restart"]
-                  ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-E       KeyError: 'restart'
-
-tests\deploy\test_adversarial_suite.py:1196: KeyError
----------------------------- Captured stdout call -----------------------------
-pdf/net            FAIL  
-    reason: the container never became ready: /readyz did not answer 200 within 30 s (last answer: no connection); last log lines: serving
-verdict: FAIL (0 of 1 pilots passed); reports: C:\Users\babar\AppData\Local\Temp\pytest-of-babar\pytest-11546\test_a_generation_change_after0\reports
----------------------------- Captured stderr call -----------------------------
-adversarial_suite: pdf/net finished: fail
-________ test_a_symbol_that_stops_resolving_after_restart_is_detected _________
-
-tmp_path = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-11546/test_a_symbol_that_stops_resol0')
-endpoint = <function endpoint.<locals>.make at 0x00000245C13E7060>
-
-    def test_a_symbol_that_stops_resolving_after_restart_is_detected(tmp_path: Path, endpoint) -> None:
-        code, _, report_dir = run_main(tmp_path, endpoint(forget_symbol_after_restart=True))
-        assert code == suite.EXIT_FAILED
->       restart = load(report_dir, "pdf_net.json")["scenarios"]["restart"]
-                  ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-E       KeyError: 'restart'
-
-tests\deploy\test_adversarial_suite.py:1204: KeyError
----------------------------- Captured stdout call -----------------------------
-pdf/net            FAIL  
-    reason: the container never became ready: /readyz did not answer 200 within 30 s (last answer: no connection); last log lines: serving
-verdict: FAIL (0 of 1 pilots passed); reports: C:\Users\babar\AppData\Local\Temp\pytest-of-babar\pytest-11546\test_a_symbol_that_stops_resol0\reports
----------------------------- Captured stderr call -----------------------------
-adversarial_suite: pdf/net finished: fail
-______________________ test_a_memory_jump_fails_the_run _______________________
-
-tmp_path = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-11546/test_a_memory_jump_fails_the_r0')
-endpoint = <function endpoint.<locals>.make at 0x00000245C13E4CC0>
-
-    def test_a_memory_jump_fails_the_run(tmp_path: Path, endpoint) -> None:
-        fake = endpoint()
-        code, _, report_dir = run_main(
-            tmp_path, fake, docker=FakeDocker(fake, stats=("40.0MiB / 256MiB", "90.0MiB / 256MiB"))
-        )
-        assert code == suite.EXIT_FAILED
->       concurrency = load(report_dir, "pdf_net.json")["scenarios"]["concurrency"]
-                      ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-E       KeyError: 'concurrency'
-
-tests\deploy\test_adversarial_suite.py:1214: KeyError
----------------------------- Captured stdout call -----------------------------
-pdf/net            FAIL  
-    reason: the container never became ready: /readyz did not answer 200 within 30 s (last answer: no connection); last log lines: serving
-verdict: FAIL (0 of 1 pilots passed); reports: C:\Users\babar\AppData\Local\Temp\pytest-of-babar\pytest-11546\test_a_memory_jump_fails_the_r0\reports
----------------------------- Captured stderr call -----------------------------
-adversarial_suite: pdf/net finished: fail
-________ test_a_server_that_goes_unready_after_an_attack_fails_the_run ________
-
-tmp_path = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-11546/test_a_server_that_goes_unread0')
-endpoint = <function endpoint.<locals>.make at 0x00000245C13E7060>
-
-    def test_a_server_that_goes_unready_after_an_attack_fails_the_run(tmp_path: Path, endpoint) -> None:
-        fake = endpoint(unready_after_bad_origin=True, accept_bad_origin=True)
-        code, _, report_dir = run_main(tmp_path, fake)
-        assert code == suite.EXIT_FAILED
-        pilot = load(report_dir, "pdf_net.json")
->       assert any(v["case"] == "readyz" for v in pilot["scenarios"]["protocol"]["violations"])
-                                                  ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-E       KeyError: 'protocol'
-
-tests\deploy\test_adversarial_suite.py:1223: KeyError
----------------------------- Captured stdout call -----------------------------
-pdf/net            FAIL  
-    reason: the container never became ready: /readyz did not answer 200 within 30 s (last answer: no connection); last log lines: serving
-verdict: FAIL (0 of 1 pilots passed); reports: C:\Users\babar\AppData\Local\Temp\pytest-of-babar\pytest-11546\test_a_server_that_goes_unread0\reports
----------------------------- Captured stderr call -----------------------------
-adversarial_suite: pdf/net finished: fail
-____________ test_the_container_is_removed_when_a_scenario_raises _____________
-
-tmp_path = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-11546/test_the_container_is_removed_1')
-endpoint = <function endpoint.<locals>.make at 0x00000245C144ED40>
-monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x00000245C13AAEB0>
-
-    def test_the_container_is_removed_when_a_scenario_raises(
-        tmp_path: Path, endpoint, monkeypatch: pytest.MonkeyPatch
-    ) -> None:
-        def boom(target: suite.Target) -> list[suite.Violation]:
-            raise RuntimeError("scenario exploded")
-    
-        monkeypatch.setattr(suite, "SCENARIOS", (("protocol", boom),))
-        code, docker, report_dir = run_main(tmp_path, endpoint())
-        assert code == suite.EXIT_FAILED
-        assert docker.removed == [f"foss-mcp-adv-pdf-net-{RUN_ID}"]
->       assert load(report_dir, "pdf_net.json")["scenarios"]["protocol"]["violations"][0]["case"] == "crash"
-               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-E       KeyError: 'protocol'
-
-tests\deploy\test_adversarial_suite.py:1244: KeyError
----------------------------- Captured stdout call -----------------------------
-pdf/net            FAIL  
-    reason: the container never became ready: /readyz did not answer 200 within 30 s (last answer: no connection); last log lines: serving
-verdict: FAIL (0 of 1 pilots passed); reports: C:\Users\babar\AppData\Local\Temp\pytest-of-babar\pytest-11546\test_the_container_is_removed_1\reports
----------------------------- Captured stderr call -----------------------------
-adversarial_suite: pdf/net finished: fail
-_____________ test_the_container_is_removed_on_keyboard_interrupt _____________
-
-tmp_path = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-11546/test_the_container_is_removed_2')
-endpoint = <function endpoint.<locals>.make at 0x00000245C144FEC0>
-monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x000002458E7591D0>
-
-    def test_the_container_is_removed_on_keyboard_interrupt(
-        tmp_path: Path, endpoint, monkeypatch: pytest.MonkeyPatch
-    ) -> None:
-        def interrupted(target: suite.Target) -> list[suite.Violation]:
-            raise KeyboardInterrupt
-    
-        monkeypatch.setattr(suite, "SCENARIOS", (("protocol", interrupted),))
-        code, docker, report_dir = run_main(tmp_path, endpoint())
->       assert code == suite.EXIT_INTERRUPTED
-E       assert 1 == 130
-E        +  where 130 = suite.EXIT_INTERRUPTED
-
-tests\deploy\test_adversarial_suite.py:1255: AssertionError
----------------------------- Captured stdout call -----------------------------
-pdf/net            FAIL  
-    reason: the container never became ready: /readyz did not answer 200 within 30 s (last answer: no connection); last log lines: serving
-verdict: FAIL (0 of 1 pilots passed); reports: C:\Users\babar\AppData\Local\Temp\pytest-of-babar\pytest-11546\test_the_container_is_removed_2\reports
----------------------------- Captured stderr call -----------------------------
-adversarial_suite: pdf/net finished: fail
-_________ test_attacking_a_url_starts_no_container_and_skips_restart __________
-
-tmp_path = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-11546/test_attacking_a_url_starts_no0')
-endpoint = <function endpoint.<locals>.make at 0x00000245C13E4A40>
-capsys = <_pytest.capture.CaptureFixture object at 0x00000245C1563B50>
-
-    def test_attacking_a_url_starts_no_container_and_skips_restart(
-        tmp_path: Path, endpoint, capsys: pytest.CaptureFixture[str]
-    ) -> None:
-        fake = endpoint()
-        docker = FakeDocker(fake)
-        deps = make_deps(docker)
-        report_dir = tmp_path / "reports"
-        code = suite.main(["--url", fake.url, "--pilot", "pdf/net", "--report-dir", str(report_dir)], deps, FAST)
-        out = capsys.readouterr().out
->       assert code == 0, out
-E       AssertionError: pdf/net            FAIL  
-E             reason: /readyz at the given --url did not answer 200 within 120 s (last: None)
-E         verdict: FAIL (0 of 1 pilots passed); reports: C:\Users\babar\AppData\Local\Temp\pytest-of-babar\pytest-11546\test_attacking_a_url_starts_no0\reports
-E         
-E       assert 1 == 0
-
-tests\deploy\test_adversarial_suite.py:1269: AssertionError
-_______________ test_an_empty_endpoint_fails_before_any_attack ________________
-
-tmp_path = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-11546/test_an_empty_endpoint_fails_b0')
-endpoint = <function endpoint.<locals>.make at 0x00000245C13E42C0>
-
-    def test_an_empty_endpoint_fails_before_any_attack(tmp_path: Path, endpoint) -> None:
-        code, docker, report_dir = run_main(tmp_path, endpoint(empty_index=True))
-        assert code == suite.EXIT_FAILED
-        pilot = load(report_dir, "pdf_net.json")
->       assert list(pilot["scenarios"]) == ["baseline"]
-E       AssertionError: assert [] == ['baseline']
-E         
-E         Right contains one more item: 'baseline'
+E         Left contains 15 more items, first extra item: 'L-002'
 E         Use -v to get more diff
 
-tests\deploy\test_adversarial_suite.py:1282: AssertionError
----------------------------- Captured stdout call -----------------------------
-pdf/net            FAIL  
-    reason: the container never became ready: /readyz did not answer 200 within 30 s (last answer: no connection); last log lines: serving
-verdict: FAIL (0 of 1 pilots passed); reports: C:\Users\babar\AppData\Local\Temp\pytest-of-babar\pytest-11546\test_an_empty_endpoint_fails_b0\reports
----------------------------- Captured stderr call -----------------------------
-adversarial_suite: pdf/net finished: fail
-___________ test_no_environment_value_reaches_any_output_or_report ____________
-
-tmp_path = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-11546/test_no_environment_value_reac0')
-endpoint = <function endpoint.<locals>.make at 0x00000245C13B6660>
-capsys = <_pytest.capture.CaptureFixture object at 0x00000245C14CDC70>
-
-    def test_no_environment_value_reaches_any_output_or_report(
-        tmp_path: Path, endpoint, capsys: pytest.CaptureFixture[str]
-    ) -> None:
-        environ = {
-            "FOSS_MCP_EMBEDDING_GATEWAY_ENDPOINT": PLANTED_ENDPOINT,
-            "FOSS_MCP_EMBEDDING_GATEWAY_API_KEY": PLANTED_KEY,
-        }
-        # The server leaks both a container variable and the gateway key into every error it produces.
-        fake = endpoint(leak_secret=f"{CONTAINER_SECRET} {PLANTED_KEY}")
-        code, docker, report_dir = run_main(tmp_path, fake, environ=environ)
-        captured = capsys.readouterr()
-        assert code == suite.EXIT_FAILED
-        pilot = load(report_dir, "pdf_net.json")
->       assert any("SECRET_TOKEN" in v["problem"] for v in pilot["scenarios"]["disclosure"]["violations"])
-                                                           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-E       KeyError: 'disclosure'
-
-tests\deploy\test_adversarial_suite.py:1300: KeyError
+tests\deploy\test_readme_matches_release.py:357: AssertionError
 =========================== short test summary info ===========================
-FAILED tests/deploy/test_adversarial_suite.py::test_restart_is_skipped_for_a_url_target_and_says_so
-FAILED tests/deploy/test_adversarial_suite.py::test_a_well_behaved_image_passes_end_to_end
-FAILED tests/deploy/test_adversarial_suite.py::test_the_verdict_is_fail_when_any_scenario_fails
-FAILED tests/deploy/test_adversarial_suite.py::test_a_generation_change_after_restart_is_detected
-FAILED tests/deploy/test_adversarial_suite.py::test_a_symbol_that_stops_resolving_after_restart_is_detected
-FAILED tests/deploy/test_adversarial_suite.py::test_a_memory_jump_fails_the_run
-FAILED tests/deploy/test_adversarial_suite.py::test_a_server_that_goes_unready_after_an_attack_fails_the_run
-FAILED tests/deploy/test_adversarial_suite.py::test_the_container_is_removed_when_a_scenario_raises
-FAILED tests/deploy/test_adversarial_suite.py::test_the_container_is_removed_on_keyboard_interrupt
-FAILED tests/deploy/test_adversarial_suite.py::test_attacking_a_url_starts_no_container_and_skips_restart
-FAILED tests/deploy/test_adversarial_suite.py::test_an_empty_endpoint_fails_before_any_attack
-FAILED tests/deploy/test_adversarial_suite.py::test_no_environment_value_reaches_any_output_or_report
+FAILED tests/deploy/test_readme_matches_release.py::test_the_real_ledger_check_is_clean
 
 --- stderr ---
 
 
 ===== CLEAN RUN 2 (host) =====
-$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-7b182948484d7df9\Scripts\python.exe -m pytest tests/deploy/test_push_image.py tests/deploy/test_runbook.py -q -rfE "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-14h_hkzs\.junit-0.xml"
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-7b182948484d7df9\Scripts\python.exe -m pytest tests/deploy/test_push_image.py tests/deploy/test_runbook.py -q -rfE "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-w21ij1l5\.junit-0.xml"
 --- stdout ---
 ........................................................................ [ 55%]
 .........................................................                [100%]
 
 --- stderr ---
 
-$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-7b182948484d7df9\Scripts\python.exe -m pytest tests/deploy -q -rfE "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-14h_hkzs\.junit-1.xml"
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-7b182948484d7df9\Scripts\python.exe -m pytest tests/deploy -q -rfE "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-w21ij1l5\.junit-1.xml"
 --- stdout ---
-............................F........................................... [  2%]
-FFFFFF.FFFFF............................................................ [  5%]
+........................................................................ [  2%]
+........................................................................ [  5%]
 ........................................................................ [  8%]
 ........................................................................ [ 11%]
 ........................................................................ [ 13%]
@@ -354,7 +96,7 @@ FFFFFF.FFFFF............................................................ [  5%]
 ........................................................................ [ 55%]
 ........................................................................ [ 58%]
 ........................................................................ [ 61%]
-........................................................................ [ 64%]
+..F..................................................................... [ 64%]
 ........................................................................ [ 66%]
 ........................................................................ [ 69%]
 ........................................................................ [ 72%]
@@ -369,278 +111,20 @@ FFFFFF.FFFFF............................................................ [  5%]
 ........................................................................ [ 97%]
 ...............................................................          [100%]
 ================================== FAILURES ===================================
-____________ test_restart_is_skipped_for_a_url_target_and_says_so _____________
+_____________________ test_the_real_ledger_check_is_clean _____________________
 
-endpoint = <function endpoint.<locals>.make at 0x0000027705182A20>
-
-    def test_restart_is_skipped_for_a_url_target_and_says_so(endpoint) -> None:
-        target = make_target(endpoint())
-        result = suite.run_scenario(target, "restart", suite.scenario_restart)
->       assert result.status == "skipped"
-E       AssertionError: assert 'fail' == 'skipped'
+    def test_the_real_ledger_check_is_clean() -> None:
+        tool = _load_ledger_tool()
+        rows, _meta = tool.compute(REPO_ROOT, False)
+>       assert [r.f.id for r in rows if r.status == "OPEN"] == []
+E       AssertionError: assert ['L-002', 'L-... 'L-056', ...] == []
 E         
-E         - skipped
-E         + fail
-
-tests\deploy\test_adversarial_suite.py:678: AssertionError
-_________________ test_a_well_behaved_image_passes_end_to_end _________________
-
-tmp_path = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-11549/test_a_well_behaved_image_pass0')
-endpoint = <function endpoint.<locals>.make at 0x00000277050BD260>
-capsys = <_pytest.capture.CaptureFixture object at 0x00000277558F9BF0>
-
-    def test_a_well_behaved_image_passes_end_to_end(
-        tmp_path: Path, endpoint, capsys: pytest.CaptureFixture[str]
-    ) -> None:
-        fake = endpoint()
-        code, docker, report_dir = run_main(tmp_path, fake)
-        out = capsys.readouterr().out
->       assert code == 0, out
-E       AssertionError: pdf/net            FAIL  
-E             reason: the container never became ready: /readyz did not answer 200 within 30 s (last answer: no connection); last log lines: serving
-E         verdict: FAIL (0 of 1 pilots passed); reports: C:\Users\babar\AppData\Local\Temp\pytest-of-babar\pytest-11549\test_a_well_behaved_image_pass0\reports
-E         
-E       assert 1 == 0
-
-tests\deploy\test_adversarial_suite.py:1155: AssertionError
-______________ test_the_verdict_is_fail_when_any_scenario_fails _______________
-
-tmp_path = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-11549/test_the_verdict_is_fail_when_0')
-endpoint = <function endpoint.<locals>.make at 0x0000027705001BC0>
-capsys = <_pytest.capture.CaptureFixture object at 0x00000277051F2C50>
-
-    def test_the_verdict_is_fail_when_any_scenario_fails(
-        tmp_path: Path, endpoint, capsys: pytest.CaptureFixture[str]
-    ) -> None:
-        fake = endpoint(crash_on_invalid_json=True)
-        code, docker, report_dir = run_main(tmp_path, fake)
-        out = capsys.readouterr().out
-        assert code == suite.EXIT_FAILED
-        summary = load(report_dir, "summary.json")
-        assert summary["verdict"] == "FAIL" and summary["pilots_passed"] == 0
-        pilot = load(report_dir, "pdf_net.json")
->       assert pilot["scenarios"]["protocol"]["status"] == "fail"
-               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-E       KeyError: 'protocol'
-
-tests\deploy\test_adversarial_suite.py:1184: KeyError
-_____________ test_a_generation_change_after_restart_is_detected ______________
-
-tmp_path = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-11549/test_a_generation_change_after0')
-endpoint = <function endpoint.<locals>.make at 0x0000027705059940>
-
-    def test_a_generation_change_after_restart_is_detected(tmp_path: Path, endpoint) -> None:
-        code, docker, report_dir = run_main(
-            tmp_path, endpoint(generation_after_restart="pdf::net::self_extracted::gen-2")
-        )
-        assert code == suite.EXIT_FAILED
->       restart = load(report_dir, "pdf_net.json")["scenarios"]["restart"]
-                  ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-E       KeyError: 'restart'
-
-tests\deploy\test_adversarial_suite.py:1196: KeyError
----------------------------- Captured stdout call -----------------------------
-pdf/net            FAIL  
-    reason: the container never became ready: /readyz did not answer 200 within 30 s (last answer: no connection); last log lines: serving
-verdict: FAIL (0 of 1 pilots passed); reports: C:\Users\babar\AppData\Local\Temp\pytest-of-babar\pytest-11549\test_a_generation_change_after0\reports
----------------------------- Captured stderr call -----------------------------
-adversarial_suite: pdf/net finished: fail
-________ test_a_symbol_that_stops_resolving_after_restart_is_detected _________
-
-tmp_path = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-11549/test_a_symbol_that_stops_resol0')
-endpoint = <function endpoint.<locals>.make at 0x00000277050BE480>
-
-    def test_a_symbol_that_stops_resolving_after_restart_is_detected(tmp_path: Path, endpoint) -> None:
-        code, _, report_dir = run_main(tmp_path, endpoint(forget_symbol_after_restart=True))
-        assert code == suite.EXIT_FAILED
->       restart = load(report_dir, "pdf_net.json")["scenarios"]["restart"]
-                  ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-E       KeyError: 'restart'
-
-tests\deploy\test_adversarial_suite.py:1204: KeyError
----------------------------- Captured stdout call -----------------------------
-pdf/net            FAIL  
-    reason: the container never became ready: /readyz did not answer 200 within 30 s (last answer: no connection); last log lines: serving
-verdict: FAIL (0 of 1 pilots passed); reports: C:\Users\babar\AppData\Local\Temp\pytest-of-babar\pytest-11549\test_a_symbol_that_stops_resol0\reports
----------------------------- Captured stderr call -----------------------------
-adversarial_suite: pdf/net finished: fail
-______________________ test_a_memory_jump_fails_the_run _______________________
-
-tmp_path = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-11549/test_a_memory_jump_fails_the_r0')
-endpoint = <function endpoint.<locals>.make at 0x00000277050BD4E0>
-
-    def test_a_memory_jump_fails_the_run(tmp_path: Path, endpoint) -> None:
-        fake = endpoint()
-        code, _, report_dir = run_main(
-            tmp_path, fake, docker=FakeDocker(fake, stats=("40.0MiB / 256MiB", "90.0MiB / 256MiB"))
-        )
-        assert code == suite.EXIT_FAILED
->       concurrency = load(report_dir, "pdf_net.json")["scenarios"]["concurrency"]
-                      ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-E       KeyError: 'concurrency'
-
-tests\deploy\test_adversarial_suite.py:1214: KeyError
----------------------------- Captured stdout call -----------------------------
-pdf/net            FAIL  
-    reason: the container never became ready: /readyz did not answer 200 within 30 s (last answer: no connection); last log lines: serving
-verdict: FAIL (0 of 1 pilots passed); reports: C:\Users\babar\AppData\Local\Temp\pytest-of-babar\pytest-11549\test_a_memory_jump_fails_the_r0\reports
----------------------------- Captured stderr call -----------------------------
-adversarial_suite: pdf/net finished: fail
-________ test_a_server_that_goes_unready_after_an_attack_fails_the_run ________
-
-tmp_path = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-11549/test_a_server_that_goes_unread0')
-endpoint = <function endpoint.<locals>.make at 0x00000277050BE480>
-
-    def test_a_server_that_goes_unready_after_an_attack_fails_the_run(tmp_path: Path, endpoint) -> None:
-        fake = endpoint(unready_after_bad_origin=True, accept_bad_origin=True)
-        code, _, report_dir = run_main(tmp_path, fake)
-        assert code == suite.EXIT_FAILED
-        pilot = load(report_dir, "pdf_net.json")
->       assert any(v["case"] == "readyz" for v in pilot["scenarios"]["protocol"]["violations"])
-                                                  ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-E       KeyError: 'protocol'
-
-tests\deploy\test_adversarial_suite.py:1223: KeyError
----------------------------- Captured stdout call -----------------------------
-pdf/net            FAIL  
-    reason: the container never became ready: /readyz did not answer 200 within 30 s (last answer: no connection); last log lines: serving
-verdict: FAIL (0 of 1 pilots passed); reports: C:\Users\babar\AppData\Local\Temp\pytest-of-babar\pytest-11549\test_a_server_that_goes_unread0\reports
----------------------------- Captured stderr call -----------------------------
-adversarial_suite: pdf/net finished: fail
-____________ test_the_container_is_removed_when_a_scenario_raises _____________
-
-tmp_path = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-11549/test_the_container_is_removed_1')
-endpoint = <function endpoint.<locals>.make at 0x0000027705000F40>
-monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x00000277051A3380>
-
-    def test_the_container_is_removed_when_a_scenario_raises(
-        tmp_path: Path, endpoint, monkeypatch: pytest.MonkeyPatch
-    ) -> None:
-        def boom(target: suite.Target) -> list[suite.Violation]:
-            raise RuntimeError("scenario exploded")
-    
-        monkeypatch.setattr(suite, "SCENARIOS", (("protocol", boom),))
-        code, docker, report_dir = run_main(tmp_path, endpoint())
-        assert code == suite.EXIT_FAILED
-        assert docker.removed == [f"foss-mcp-adv-pdf-net-{RUN_ID}"]
->       assert load(report_dir, "pdf_net.json")["scenarios"]["protocol"]["violations"][0]["case"] == "crash"
-               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-E       KeyError: 'protocol'
-
-tests\deploy\test_adversarial_suite.py:1244: KeyError
----------------------------- Captured stdout call -----------------------------
-pdf/net            FAIL  
-    reason: the container never became ready: /readyz did not answer 200 within 30 s (last answer: no connection); last log lines: serving
-verdict: FAIL (0 of 1 pilots passed); reports: C:\Users\babar\AppData\Local\Temp\pytest-of-babar\pytest-11549\test_the_container_is_removed_1\reports
----------------------------- Captured stderr call -----------------------------
-adversarial_suite: pdf/net finished: fail
-_____________ test_the_container_is_removed_on_keyboard_interrupt _____________
-
-tmp_path = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-11549/test_the_container_is_removed_2')
-endpoint = <function endpoint.<locals>.make at 0x00000277050034C0>
-monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x000002775220D2B0>
-
-    def test_the_container_is_removed_on_keyboard_interrupt(
-        tmp_path: Path, endpoint, monkeypatch: pytest.MonkeyPatch
-    ) -> None:
-        def interrupted(target: suite.Target) -> list[suite.Violation]:
-            raise KeyboardInterrupt
-    
-        monkeypatch.setattr(suite, "SCENARIOS", (("protocol", interrupted),))
-        code, docker, report_dir = run_main(tmp_path, endpoint())
->       assert code == suite.EXIT_INTERRUPTED
-E       assert 1 == 130
-E        +  where 130 = suite.EXIT_INTERRUPTED
-
-tests\deploy\test_adversarial_suite.py:1255: AssertionError
----------------------------- Captured stdout call -----------------------------
-pdf/net            FAIL  
-    reason: the container never became ready: /readyz did not answer 200 within 30 s (last answer: no connection); last log lines: serving
-verdict: FAIL (0 of 1 pilots passed); reports: C:\Users\babar\AppData\Local\Temp\pytest-of-babar\pytest-11549\test_the_container_is_removed_2\reports
----------------------------- Captured stderr call -----------------------------
-adversarial_suite: pdf/net finished: fail
-_________ test_attacking_a_url_starts_no_container_and_skips_restart __________
-
-tmp_path = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-11549/test_attacking_a_url_starts_no0')
-endpoint = <function endpoint.<locals>.make at 0x00000277050BE8E0>
-capsys = <_pytest.capture.CaptureFixture object at 0x00000277051F2E50>
-
-    def test_attacking_a_url_starts_no_container_and_skips_restart(
-        tmp_path: Path, endpoint, capsys: pytest.CaptureFixture[str]
-    ) -> None:
-        fake = endpoint()
-        docker = FakeDocker(fake)
-        deps = make_deps(docker)
-        report_dir = tmp_path / "reports"
-        code = suite.main(["--url", fake.url, "--pilot", "pdf/net", "--report-dir", str(report_dir)], deps, FAST)
-        out = capsys.readouterr().out
->       assert code == 0, out
-E       AssertionError: pdf/net            FAIL  
-E             reason: /readyz at the given --url did not answer 200 within 120 s (last: None)
-E         verdict: FAIL (0 of 1 pilots passed); reports: C:\Users\babar\AppData\Local\Temp\pytest-of-babar\pytest-11549\test_attacking_a_url_starts_no0\reports
-E         
-E       assert 1 == 0
-
-tests\deploy\test_adversarial_suite.py:1269: AssertionError
-_______________ test_an_empty_endpoint_fails_before_any_attack ________________
-
-tmp_path = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-11549/test_an_empty_endpoint_fails_b0')
-endpoint = <function endpoint.<locals>.make at 0x00000277050BC0E0>
-
-    def test_an_empty_endpoint_fails_before_any_attack(tmp_path: Path, endpoint) -> None:
-        code, docker, report_dir = run_main(tmp_path, endpoint(empty_index=True))
-        assert code == suite.EXIT_FAILED
-        pilot = load(report_dir, "pdf_net.json")
->       assert list(pilot["scenarios"]) == ["baseline"]
-E       AssertionError: assert [] == ['baseline']
-E         
-E         Right contains one more item: 'baseline'
+E         Left contains 15 more items, first extra item: 'L-002'
 E         Use -v to get more diff
 
-tests\deploy\test_adversarial_suite.py:1282: AssertionError
----------------------------- Captured stdout call -----------------------------
-pdf/net            FAIL  
-    reason: the container never became ready: /readyz did not answer 200 within 30 s (last answer: no connection); last log lines: serving
-verdict: FAIL (0 of 1 pilots passed); reports: C:\Users\babar\AppData\Local\Temp\pytest-of-babar\pytest-11549\test_an_empty_endpoint_fails_b0\reports
----------------------------- Captured stderr call -----------------------------
-adversarial_suite: pdf/net finished: fail
-___________ test_no_environment_value_reaches_any_output_or_report ____________
-
-tmp_path = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-11549/test_no_environment_value_reac0')
-endpoint = <function endpoint.<locals>.make at 0x0000027705058F40>
-capsys = <_pytest.capture.CaptureFixture object at 0x00000277050163F0>
-
-    def test_no_environment_value_reaches_any_output_or_report(
-        tmp_path: Path, endpoint, capsys: pytest.CaptureFixture[str]
-    ) -> None:
-        environ = {
-            "FOSS_MCP_EMBEDDING_GATEWAY_ENDPOINT": PLANTED_ENDPOINT,
-            "FOSS_MCP_EMBEDDING_GATEWAY_API_KEY": PLANTED_KEY,
-        }
-        # The server leaks both a container variable and the gateway key into every error it produces.
-        fake = endpoint(leak_secret=f"{CONTAINER_SECRET} {PLANTED_KEY}")
-        code, docker, report_dir = run_main(tmp_path, fake, environ=environ)
-        captured = capsys.readouterr()
-        assert code == suite.EXIT_FAILED
-        pilot = load(report_dir, "pdf_net.json")
->       assert any("SECRET_TOKEN" in v["problem"] for v in pilot["scenarios"]["disclosure"]["violations"])
-                                                           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-E       KeyError: 'disclosure'
-
-tests\deploy\test_adversarial_suite.py:1300: KeyError
+tests\deploy\test_readme_matches_release.py:357: AssertionError
 =========================== short test summary info ===========================
-FAILED tests/deploy/test_adversarial_suite.py::test_restart_is_skipped_for_a_url_target_and_says_so
-FAILED tests/deploy/test_adversarial_suite.py::test_a_well_behaved_image_passes_end_to_end
-FAILED tests/deploy/test_adversarial_suite.py::test_the_verdict_is_fail_when_any_scenario_fails
-FAILED tests/deploy/test_adversarial_suite.py::test_a_generation_change_after_restart_is_detected
-FAILED tests/deploy/test_adversarial_suite.py::test_a_symbol_that_stops_resolving_after_restart_is_detected
-FAILED tests/deploy/test_adversarial_suite.py::test_a_memory_jump_fails_the_run
-FAILED tests/deploy/test_adversarial_suite.py::test_a_server_that_goes_unready_after_an_attack_fails_the_run
-FAILED tests/deploy/test_adversarial_suite.py::test_the_container_is_removed_when_a_scenario_raises
-FAILED tests/deploy/test_adversarial_suite.py::test_the_container_is_removed_on_keyboard_interrupt
-FAILED tests/deploy/test_adversarial_suite.py::test_attacking_a_url_starts_no_container_and_skips_restart
-FAILED tests/deploy/test_adversarial_suite.py::test_an_empty_endpoint_fails_before_any_attack
-FAILED tests/deploy/test_adversarial_suite.py::test_no_environment_value_reaches_any_output_or_report
+FAILED tests/deploy/test_readme_matches_release.py::test_the_real_ledger_check_is_clean
 
 --- stderr ---
 
