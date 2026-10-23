@@ -1,0 +1,93 @@
+id: TC-580
+gate: G3
+lane: transport-deployment
+purpose: >-
+  A real regression TC-575 left behind, caught by a full local CI run (not by TC-575's own narrow checks, which only exercised
+  the Helm chart): TC-575 changed infra/helm/foss-mcp/templates/ingestion-job.yaml so the fetch_product_reference.py sub-step's
+  swallowed failure is echoed visibly ('|| echo "WARNING: ..."; }' instead of a bare '|| true; }'), but docker-compose.yml's
+  32 matching ingest-<family>-<platform> services (the exact same two-step-plus-sidecars chain, used for local dev and the
+  standalone image's build) were never updated to match. tests/infra/test_helm_chart.py::test_each_ingestion_job_runs_the_same_two_step_chain_as_docker_compose
+  asserts the two are token-identical and now fails ('At index 62 diff: echo != true;'), for every one of the 32 pilots with
+  a manifestPath. This is exactly the failure class AGENTS.md's own 'Integration and liveness' section names: a change proven
+  correct in its own isolated check, never proven to hold at every real integration point that must mirror it. FIX, bounded
+  and mechanical: update each of the 32 matching 'fetch_product_reference.py ... || true; }' blocks in docker-compose.yml
+  to the identical visible-warning construct the Helm template now uses, naming that exact block's own family/platform (read
+  from its own --platform flag and --output filename - do not guess or copy another pilot's wording). No other line in docker-compose.yml
+  changes.
+depends_on:
+- TC-575
+write_paths:
+- docker-compose.yml
+satisfies:
+- REQ-G3-008
+- REQ-G3-009
+source_refs:
+- file: docs/DECISION_LOG.md
+  anchor: >-
+    ## 2026-10-17 — Round-3 independent review of the shipped image: 82 findings registered, nothing executed (operator, supervisor)
+  sha256: c2056b11a13e5b18cda7e522027fb5eb0102edcef2f99f6c7e7ce0ee5c4b4e5b
+inputs:
+- >-
+  REPRODUCE FIRST: run `{python} -m pytest tests/infra/test_helm_chart.py::test_each_ingestion_job_runs_the_same_two_step_chain_as_docker_compose
+  -q -rfE` yourself and read the failure - it names the first pilot (alphabetically or dict-order first) whose compose command
+  still ends the fetch_product_reference.py block in a bare '|| true; }', while the Helm-rendered Job for the same pilot now
+  ends it in the visible-warning construct. Then read infra/helm/foss-mcp/templates/ingestion-job.yaml's own fetch_product_reference.py
+  line (G3/TC-575's fix) to see the exact construct: `|| echo "WARNING: fetch_product_reference.py failed for {{ $p.family
+  }}/{{ $p.platform }} (exit $?)"; }`. docker-compose.yml has no Helm templating, so each of its 32 ingest-<family>-<platform>
+  services needs the literal family/platform baked in, e.g. for ingest-pdf-net: `|| echo "WARNING: fetch_product_reference.py
+  failed for pdf/net (exit $?)"; }`.
+- >-
+  Find every occurrence in docker-compose.yml of a fetch_product_reference.py block (there are exactly 32 - grep the file
+  yourself to confirm the count has not changed) and change ONLY the '|| true; }' line that immediately follows that block's
+  own '--output /data/manifests/product_reference_<family>_<platform>.json' line, to '|| echo "WARNING: fetch_product_reference.py
+  failed for <family>/<platform> (exit $?)"; }', using that exact block's own family and platform (read from its own --platform
+  flag and --output filename, not from the service name alone, in case they ever differ). A small Python script reading the
+  file, finding each '--output /data/manifests/product_reference_(\w+)_(\w+)\.json' match, and replacing the following '||
+  true; }' occurrence is far less error-prone than 32 manual edits - write one if that helps, but it is a one-off tool, not
+  part of the product; do not commit it (or put it outside docker-compose.yml if you do keep it, since write_paths covers
+  only docker-compose.yml).
+- >-
+  Do NOT touch the verify_product_reference_install.py or fetch_recent_releases.py blocks' own '|| true; }' lines in docker-compose.yml
+  - TC-575 left those untouched in the Helm template too, by design (GRR-02/D-01's settled fallthrough behavior); this card
+  mirrors that exactly, touching only the fetch_product_reference.py sub-step's own line, in all 32 places.
+- Run the whole file; it must stay green. Never weaken a check to make it pass.
+actions:
+- >-
+  Mirror TC-575's fetch-failure visibility fix from the Helm chart into docker-compose.yml's 32 matching ingest services.
+checks:
+- command: '{python} -m pytest tests/infra/test_helm_chart.py -q -rfE'
+  expect: exit 0
+  timeout_seconds: 300
+  junitxml: true
+  proves:
+  - REQ-G3-008
+  - REQ-G3-009
+- command: >-
+    {python} -m pytest tests/infra/test_helm_chart.py tests/infra/test_helm_pilots_match_compose.py tests/infra/test_docker_compose_multi_instance.py
+    tests/infra/test_ingest_publish_safety.py -q -rfE -p no:cacheprovider
+  expect: exit 0
+  timeout_seconds: 400
+  junitxml: true
+  proves:
+  - REQ-G3-008
+  - REQ-G3-009
+min_tests: 15
+network: false
+requires:
+- python
+negative_control:
+  mutate: >-
+    python -X utf8 -c "import pathlib; p = pathlib.Path('docker-compose.yml'); s = p.read_text(encoding='utf-8'); old = 'WARNING:
+    fetch_product_reference.py failed for pdf/net'; assert old in s, 'fix text not found - card and source have diverged';
+    start = s.index(old); line_start = s.rfind(chr(10), 0, start) + 1; line_end = s.index(chr(10), start); s2 = s[:line_start]
+    + '        || true; }' + s[line_end:]; assert s2 != s; p.write_text(s2, encoding='utf-8')"
+  rationale: >-
+    Reverts pdf/net's visibility fix back to the bare '|| true; }', so the compose/chart parity test must fail for that one
+    pilot again, exactly as it failed before this card. A real break of the card's central claim.
+evidence:
+- evidence/build/G3/TC-580/receipt.json
+closeout:
+- >-
+  docker-compose.yml's ingest services mirror the Helm chart's fetch-failure visibility fix for all 32 pilots with a manifestPath;
+  the compose/chart parity test is green again.
+recovery: Re-run from a clean tree.
