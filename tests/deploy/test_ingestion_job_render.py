@@ -193,14 +193,37 @@ def test_the_recent_releases_step_is_still_a_bare_or_true(
     )
 
 
-def test_a_pilot_without_a_manifest_path_gets_no_fetch_step(rendered_docs: list[dict[str, Any]]) -> None:
-    all_pilots = _values()["ingestion"]["pilots"]
-    without = [p for p in all_pilots if "manifestPath" not in p]
-    if not without:
-        pytest.skip("every pilot in the chart has a manifestPath today")
-    for pilot in without:
-        tokens = _job_tokens(_job(rendered_docs, pilot))
-        assert FETCH_COMMAND not in tokens, f"{pilot['family']}/{pilot['platform']}"
+def test_a_pilot_without_a_manifest_path_gets_no_fetch_step(tmp_path: Path) -> None:
+    # Every real pilot in the chart currently has a manifestPath, so this invariant cannot be
+    # exercised against the real values.yaml alone - skipping it would hide a real regression if
+    # the fetch step's "with $p.manifestPath" guard were ever dropped. Instead, override
+    # ingestion.pilots with one synthetic pilot that deliberately omits manifestPath (Helm
+    # replaces, not merges, a list value given in an override file), and render that for real.
+    pilot = {
+        "family": "synthetic",
+        "platform": "nomanifest",
+        "sourceKind": "self_extracted",
+        "heldBy": "ingestion-synthetic-nomanifest",
+        "apiSurface": "/app/fixtures/synthetic_nomanifest/api_surface.json",
+        "title": "synthetic/nomanifest API surface (test-only, no manifestPath)",
+        "maxTypes": 1,
+    }
+    override = tmp_path / "no-manifest-pilot.yaml"
+    override.write_text(yaml.dump({"ingestion": {"pilots": [pilot]}}), encoding="utf-8")
+    result = subprocess.run(
+        [_helm(), "template", "foss-mcp", str(CHART), "--set", f"image.tag={TAG}", "--values", str(override)],
+        capture_output=True,
+        text=True,
+        encoding="utf-8",
+        timeout=180,
+        check=False,
+    )
+    assert result.returncode == 0, result.stderr
+    docs = [doc for doc in yaml.safe_load_all(result.stdout) if doc]
+    tokens = _job_tokens(_job(docs, pilot))
+    assert FETCH_COMMAND not in tokens, (
+        "a pilot without manifestPath must get no fetch_product_reference.py step"
+    )
 
 
 def test_at_least_one_pilot_with_a_manifest_path_exists() -> None:
