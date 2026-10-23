@@ -1,0 +1,110 @@
+{
+  "schema_version": 1,
+  "card": "TC-578",
+  "gate": "G3",
+  "generated_by": "gatectl",
+  "generated_at": "2026-10-23T11:06:17Z",
+  "base_rev": "e9b81c8d05337611f6feb981ea57b24b27d06b69",
+  "head_rev": "14a493d65bb8f00d7f78490448034962c99ad1bc",
+  "card_sha256": "a8764fd92f3e26f2843069ffc7fd40b8408781a43e1d707e45105118f5b5e8f5",
+  "fingerprint": {
+    "python": "3.13.2",
+    "platform": "Windows-11-10.0.26300-SP0",
+    "lock_sha256": "7b182948484d7df9614b523f7a8180f795b6c51d55c418728525c1957f3e38ba",
+    "env": {
+      "PYTHONHASHSEED": "0",
+      "PYTHONUTF8": "1",
+      "PYTHONDONTWRITEBYTECODE": "1",
+      "PYTHONIOENCODING": "utf-8",
+      "TZ": "UTC",
+      "LC_ALL": "C.UTF-8",
+      "SOURCE_DATE_EPOCH": "1700000000",
+      "verify_runner": "host"
+    }
+  },
+  "scope": {
+    "ok": true,
+    "changed_paths": [
+      "tests/infra/test_round3_serving_robustness.py"
+    ],
+    "violations": [],
+    "evaluated": true
+  },
+  "runs": [
+    {
+      "run": 1,
+      "checks": [
+        {
+          "command": "{python} -m pytest tests/infra/test_round3_serving_robustness.py -q -rfE",
+          "exit_code": 0,
+          "duration_s": 15.5,
+          "stdout_sha256": "eb6724bb854edc8390805979e650a710c69492b1386dc59a69dc55a2bfb6f270",
+          "tests": 85,
+          "skipped": 0,
+          "errors": 0,
+          "failures": 0
+        },
+        {
+          "command": "{python} -m pytest tests/infra/test_round3_serving_robustness.py tests/infra/test_serve_sidecar_tolerance.py tests/infra/test_serve_http.py -q -rfE -p no:cacheprovider",
+          "exit_code": 0,
+          "duration_s": 17.249,
+          "stdout_sha256": "0c45a57c552c6be01d4e8c3ab090498b3eee63d9c0aa16d5dfc0264c5be513d5",
+          "tests": 158,
+          "skipped": 0,
+          "errors": 0,
+          "failures": 0
+        }
+      ],
+      "all_passed": true
+    },
+    {
+      "run": 2,
+      "checks": [
+        {
+          "command": "{python} -m pytest tests/infra/test_round3_serving_robustness.py -q -rfE",
+          "exit_code": 0,
+          "duration_s": 13.41,
+          "stdout_sha256": "eb6724bb854edc8390805979e650a710c69492b1386dc59a69dc55a2bfb6f270",
+          "tests": 85,
+          "skipped": 0,
+          "errors": 0,
+          "failures": 0
+        },
+        {
+          "command": "{python} -m pytest tests/infra/test_round3_serving_robustness.py tests/infra/test_serve_sidecar_tolerance.py tests/infra/test_serve_http.py -q -rfE -p no:cacheprovider",
+          "exit_code": 0,
+          "duration_s": 16.674,
+          "stdout_sha256": "0c45a57c552c6be01d4e8c3ab090498b3eee63d9c0aa16d5dfc0264c5be513d5",
+          "tests": 158,
+          "skipped": 0,
+          "errors": 0,
+          "failures": 0
+        }
+      ],
+      "all_passed": true
+    }
+  ],
+  "negative_control": {
+    "kind": "mutate",
+    "patch": "python -X utf8 -c \"import pathlib; p = pathlib.Path('tests/infra/test_round3_serving_robustness.py'); s = p.read_text(encoding='utf-8'); old = 'assert len(oracle_releases) == 15'; assert old in s, 'fix text not found - card and source have diverged'; p.write_text(s.replace(old, 'assert len(oracle_releases) == 14', 1), encoding='utf-8')\"",
+    "patch_sha256": "91a82c9d483d8f1d7c8b53e5cf14f9d51c076f4f97f608a3675f15adaa41f0c6",
+    "applied": true,
+    "patch_applied_failed": true,
+    "exit_codes": [
+      1,
+      1
+    ],
+    "tree_changed": [
+      "M tests/infra/test_round3_serving_robustness.py",
+      "?? .junit-0.xml",
+      "?? .junit-1.xml"
+    ]
+  },
+  "holdout": {
+    "ran": false,
+    "passed": true,
+    "detail": "no holdout for this card"
+  },
+  "accepted": true,
+  "reason": "all gates passed"
+}
