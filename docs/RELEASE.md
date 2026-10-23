@@ -337,8 +337,10 @@ says so.
 
 ### Kubernetes chart (not part of the standalone release)
 
-- **L-115** The serving pod's init container waits without a deadline for the side files. A GitHub 403 during
-  ingestion leaves no product-reference file, so the pod stays in Init. The standalone image has no init container.
+- **L-115** The serving pod's init container waits for the product-reference and recent-releases side files
+  with a bounded deadline (`initGate.timeoutSeconds`, default 3900 s). A GitHub 403 during ingestion that holds
+  past that bound no longer leaves the pod stuck in Init: the gate logs which files are missing and exits 0, and
+  the pod starts WITHOUT them (degraded), not stuck. The standalone image has no init container.
 - **L-116** `scripts/deploy/install_pilots.py` runs `helm upgrade --install --wait` without `--atomic`, so a failed
   install is not rolled back automatically. This is an operator tool, not part of the image.
 - **L-117** The chart's NetworkPolicy allows traffic between all pods in the namespace, so pilots can reach each
