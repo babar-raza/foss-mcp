@@ -100,10 +100,12 @@ negative_control:
   mutate: >-
     python -X utf8 -c "import pathlib; p = pathlib.Path('tests/mcp/tools/test_round3_retrieval_corpus.py'); s = p.read_text(encoding='utf-8');
     old = '<= WRONG_MAX_FAMILY[family]'; assert old in s, 'fix text not found - card and source have diverged'; p.write_text(s.replace(old,
-    '<= 1.0', 1), encoding='utf-8')"
+    '<= -1.0', 1), encoding='utf-8')"
   rationale: >-
-    Widens the new per-family assertion to an always-true ceiling, so the per-family ratchet test can no longer catch anything.
-    A real break of the card's central claim: a family-specific regression would again clear unnoticed.
+    wrong_conf is always a fraction in [0, 1], so replacing the ceiling with an unreachably negative bound makes the new
+    per-family test fail for every family (not a tautologically-true bound like 1.0, which would leave the mutated suite
+    green and make the falsifier vacuous). A real break of the card's central claim: a family-specific regression would
+    again clear unnoticed if this test could not be made to fail.
 evidence:
 - evidence/build/G3/TC-579/receipt.json
 closeout:
