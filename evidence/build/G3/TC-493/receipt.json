@@ -3,10 +3,10 @@
   "card": "TC-493",
   "gate": "G3",
   "generated_by": "gatectl",
-  "generated_at": "2026-10-23T07:12:27Z",
+  "generated_at": "2026-10-23T12:21:17Z",
   "base_rev": "16659b2d4a6096ffadc96dc1b30bfe143684e096",
-  "head_rev": "16659b2d4a6096ffadc96dc1b30bfe143684e096",
-  "card_sha256": "c5c8586853e7833f018e16b003fb03084bf4f10f4c23a383424b7b5fdbfc0534",
+  "head_rev": "89d8161f42ac5dba31e675c3eae520a3ef2bf2e1",
+  "card_sha256": "a22edea90f964d5581ae571573061b8fa79848adc7866dbc23a6e8f7d4eb9e53",
   "fingerprint": {
     "python": "3.13.2",
     "platform": "Windows-11-10.0.26300-SP0",
@@ -35,7 +35,7 @@
         {
           "command": "{python} -m pytest tests/mcp/tools/test_lookup_miss_reason.py -q -rfE",
           "exit_code": 0,
-          "duration_s": 9.553,
+          "duration_s": 9.849,
           "stdout_sha256": "70bd93f29a65727e5cc0991aac37bb59b433f6d667824853361ad51e262a38ec",
           "tests": 44,
           "skipped": 0,
@@ -45,7 +45,7 @@
         {
           "command": "{python} -m pytest tests/mcp/tools/test_lookup_miss_reason.py tests/mcp/tools/test_nonsense_queries_miss.py tests/mcp/tools/test_relevance_floor.py tests/mcp/tools/test_retrieval_tools.py tests/mcp/tools/test_find_examples_verified_only.py tests/mcp/test_search_symbols_honest_miss.py -q -rfE",
           "exit_code": 0,
-          "duration_s": 32.428,
+          "duration_s": 31.114,
           "stdout_sha256": "c57cebe4ebce58e304de2d295a11897379a11cf845df726869edae04ea05fdb6",
           "tests": 337,
           "skipped": 0,
@@ -55,7 +55,7 @@
         {
           "command": "{python} -m ruff check src/foss_mcp/mcp/tools/lookup.py tests/mcp/tools/test_lookup_miss_reason.py && {python} -m ruff format --check src/foss_mcp/mcp/tools/lookup.py tests/mcp/tools/test_lookup_miss_reason.py",
           "exit_code": 0,
-          "duration_s": 2.385,
+          "duration_s": 3.446,
           "stdout_sha256": "afa20b27dacc9bf0aba3c1d265964c21e04ab42f6e39e2dd4769718ceded003a"
         }
       ],
@@ -67,7 +67,7 @@
         {
           "command": "{python} -m pytest tests/mcp/tools/test_lookup_miss_reason.py -q -rfE",
           "exit_code": 0,
-          "duration_s": 6.554,
+          "duration_s": 5.138,
           "stdout_sha256": "70bd93f29a65727e5cc0991aac37bb59b433f6d667824853361ad51e262a38ec",
           "tests": 44,
           "skipped": 0,
@@ -77,7 +77,7 @@
         {
           "command": "{python} -m pytest tests/mcp/tools/test_lookup_miss_reason.py tests/mcp/tools/test_nonsense_queries_miss.py tests/mcp/tools/test_relevance_floor.py tests/mcp/tools/test_retrieval_tools.py tests/mcp/tools/test_find_examples_verified_only.py tests/mcp/test_search_symbols_honest_miss.py -q -rfE",
           "exit_code": 0,
-          "duration_s": 26.78,
+          "duration_s": 19.78,
           "stdout_sha256": "c57cebe4ebce58e304de2d295a11897379a11cf845df726869edae04ea05fdb6",
           "tests": 337,
           "skipped": 0,
@@ -87,7 +87,7 @@
         {
           "command": "{python} -m ruff check src/foss_mcp/mcp/tools/lookup.py tests/mcp/tools/test_lookup_miss_reason.py && {python} -m ruff format --check src/foss_mcp/mcp/tools/lookup.py tests/mcp/tools/test_lookup_miss_reason.py",
           "exit_code": 0,
-          "duration_s": 0.294,
+          "duration_s": 0.225,
           "stdout_sha256": "afa20b27dacc9bf0aba3c1d265964c21e04ab42f6e39e2dd4769718ceded003a"
         }
       ],
@@ -96,17 +96,26 @@
   ],
   "negative_control": {
     "kind": "mutate",
-    "patch": "python -X utf8 -c \"import pathlib;p=pathlib.Path('src/foss_mcp/mcp/tools/lookup.py');s=p.read_text(encoding='utf-8');old='nothing in the documentation, verified examples or symbols of this pilot matches';assert s.count(old)==1;p.write_text(s.replace(old,'no symbol matches'),encoding='utf-8')\"\n",
-    "patch_sha256": "e23cfd1266a6c75fd4a845044ff70871ab5001bb7346d1013db326ceb6eef8e8",
-    "applied": false,
-    "patch_applied_failed": false,
-    "exit_codes": []
+    "patch": "python -X utf8 -c \"import pathlib;p=pathlib.Path('src/foss_mcp/mcp/tools/lookup.py');s=p.read_text(encoding='utf-8');old='nothing in the indexed documentation, verified examples or symbols of this pilot matches';assert s.count(old)==1;p.write_text(s.replace(old,'no symbol matches'),encoding='utf-8')\"\n",
+    "patch_sha256": "ffb256989bb175b4feadc4671f16858252034d5bfc6c0293a50b1783766c2a5c",
+    "applied": true,
+    "patch_applied_failed": true,
+    "exit_codes": [
+      1,
+      1,
+      1
+    ],
+    "tree_changed": [
+      "M src/foss_mcp/mcp/tools/lookup.py",
+      "?? .junit-0.xml",
+      "?? .junit-1.xml"
+    ]
   },
   "holdout": {
     "ran": false,
     "passed": true,
     "detail": "no holdout for this card"
   },
-  "accepted": false,
-  "reason": "negative-control patch did not apply"
+  "accepted": true,
+  "reason": "all gates passed"
 }
