@@ -1,0 +1,116 @@
+{
+  "schema_version": 1,
+  "card": "TC-575",
+  "gate": "G3",
+  "generated_by": "gatectl",
+  "generated_at": "2026-10-23T12:51:38Z",
+  "base_rev": "89d8161f42ac5dba31e675c3eae520a3ef2bf2e1",
+  "head_rev": "4e1b905231933d4fa3b0191697646cdd4f12ef8f",
+  "card_sha256": "37070ce04a181cbf330211fefd4150e2431e8ffeb1cc9832f762a11095b9109d",
+  "fingerprint": {
+    "python": "3.13.2",
+    "platform": "Windows-11-10.0.26300-SP0",
+    "lock_sha256": "7b182948484d7df9614b523f7a8180f795b6c51d55c418728525c1957f3e38ba",
+    "env": {
+      "PYTHONHASHSEED": "0",
+      "PYTHONUTF8": "1",
+      "PYTHONDONTWRITEBYTECODE": "1",
+      "PYTHONIOENCODING": "utf-8",
+      "TZ": "UTC",
+      "LC_ALL": "C.UTF-8",
+      "SOURCE_DATE_EPOCH": "1700000000",
+      "verify_runner": "host"
+    }
+  },
+  "scope": {
+    "ok": true,
+    "changed_paths": [
+      "docs/RELEASE.md",
+      "docs/ROUND3_REVIEW.md",
+      "infra/helm/foss-mcp/templates/ingestion-job.yaml",
+      "tests/deploy/test_ingestion_job_render.py",
+      "tests/deploy/test_product_reference_sidecars_are_current.py",
+      "tests/deploy/test_release_known_limitations.py",
+      "tests/infra/test_helm_manifest_step.py"
+    ],
+    "violations": [],
+    "evaluated": true
+  },
+  "runs": [
+    {
+      "run": 1,
+      "checks": [
+        {
+          "command": "{python} -m pytest tests/deploy/test_ingestion_job_render.py tests/deploy/test_product_reference_sidecars_are_current.py tests/deploy/test_release_known_limitations.py -q -rfE",
+          "exit_code": 0,
+          "duration_s": 2.124,
+          "stdout_sha256": "ee9e5814ae4befcc4c62118bae81dc6ae249c850584fac31cfaaac477d2a2936",
+          "tests": 379,
+          "skipped": 0,
+          "errors": 0,
+          "failures": 0
+        },
+        {
+          "command": "{python} -m pytest tests/deploy/test_ingestion_job_render.py tests/deploy/test_product_reference_sidecars_are_current.py tests/deploy/test_release_known_limitations.py tests/deploy/test_round3_closure.py tests/deploy/test_preprod_review_register.py tests/mcp/tools/test_product_reference_baked_contract.py tests/infra/test_helm_manifest_step.py -q -rfE -p no:cacheprovider",
+          "exit_code": 0,
+          "duration_s": 67.047,
+          "stdout_sha256": "410a0d48ad8aa273e014c6c3a23eb9e5b895b320b50167eb0232c7a98b2dd844",
+          "tests": 939,
+          "skipped": 0,
+          "errors": 0,
+          "failures": 0
+        }
+      ],
+      "all_passed": true
+    },
+    {
+      "run": 2,
+      "checks": [
+        {
+          "command": "{python} -m pytest tests/deploy/test_ingestion_job_render.py tests/deploy/test_product_reference_sidecars_are_current.py tests/deploy/test_release_known_limitations.py -q -rfE",
+          "exit_code": 0,
+          "duration_s": 2.77,
+          "stdout_sha256": "ee9e5814ae4befcc4c62118bae81dc6ae249c850584fac31cfaaac477d2a2936",
+          "tests": 379,
+          "skipped": 0,
+          "errors": 0,
+          "failures": 0
+        },
+        {
+          "command": "{python} -m pytest tests/deploy/test_ingestion_job_render.py tests/deploy/test_product_reference_sidecars_are_current.py tests/deploy/test_release_known_limitations.py tests/deploy/test_round3_closure.py tests/deploy/test_preprod_review_register.py tests/mcp/tools/test_product_reference_baked_contract.py tests/infra/test_helm_manifest_step.py -q -rfE -p no:cacheprovider",
+          "exit_code": 0,
+          "duration_s": 60.795,
+          "stdout_sha256": "410a0d48ad8aa273e014c6c3a23eb9e5b895b320b50167eb0232c7a98b2dd844",
+          "tests": 939,
+          "skipped": 0,
+          "errors": 0,
+          "failures": 0
+        }
+      ],
+      "all_passed": true
+    }
+  ],
+  "negative_control": {
+    "kind": "mutate",
+    "patch": "python -X utf8 -c \"import pathlib; nl = chr(10); p = pathlib.Path('infra/helm/foss-mcp/templates/ingestion-job.yaml'); s = p.read_text(encoding='utf-8'); old = 'WARNING: fetch_product_reference.py failed'; assert old in s, 'fix text not found - card and template have diverged'; start = s.index('|| echo'); end = s.index(';', start) + 1; s = s[:start] + '|| true;' + s[end:]; p.write_text(s, encoding='utf-8')\"",
+    "patch_sha256": "f08584c356d696517b0a36f76bc4cf8e5678bba8e13150000949fff710e7fdc3",
+    "applied": true,
+    "patch_applied_failed": true,
+    "exit_codes": [
+      1,
+      1
+    ],
+    "tree_changed": [
+      "M infra/helm/foss-mcp/templates/ingestion-job.yaml",
+      "?? .junit-0.xml",
+      "?? .junit-1.xml"
+    ]
+  },
+  "holdout": {
+    "ran": false,
+    "passed": true,
+    "detail": "no holdout for this card"
+  },
+  "accepted": true,
+  "reason": "all gates passed"
+}
