@@ -98,8 +98,35 @@ def test_fixed_when_every_card_is_accepted(tmp_path: Path, monkeypatch: pytest.M
     use_findings(monkeypatch, F("L-001", "Major", "a defect", "TC-900, TC-901", check="rv1 C01"))
     row = one(make_repo(tmp_path, {"TC-900": "ACCEPTED", "TC-901": "ACCEPTED"}))
     assert row.status == "FIXED"
-    assert "Fixed by TC-900, TC-901 (ACCEPTED)." in row.evidence
+    assert "Fixed by TC-900 (ACCEPTED), TC-901 (ACCEPTED)." in row.evidence
     assert "Check on the final image: rv1 C01." in row.evidence
+
+
+def test_fixed_when_a_card_is_superseded_not_accepted(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """G3/TC-576: a SUPERSEDED card's work was fully carried by its accepted successor, exactly the
+    precedent ops/gatecli.py's own `_accepted_or_superseded_cards()` already follows - so a finding
+    whose closing cards are a mix of ACCEPTED and SUPERSEDED resolves as done, not pending."""
+    use_findings(monkeypatch, F("L-001", "Blocker", "a defect", "TC-900, TC-901", check="rv1 C01"))
+    row = one(make_repo(tmp_path, {"TC-900": "ACCEPTED", "TC-901": "SUPERSEDED"}))
+    assert row.status == "FIXED"
+    assert row.pending == []
+    assert "Fixed by TC-900 (ACCEPTED), TC-901 (SUPERSEDED)." in row.evidence
+
+
+def test_in_progress_card_still_blocks_a_finding_even_alongside_a_superseded_one(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Negative proof for the SUPERSEDED fix above: a card that is merely IN_PROGRESS (neither ACCEPTED
+    nor SUPERSEDED) must still keep the finding OPEN and pending on it - this is the test that would
+    have caught a careless 'treat everything as done' overcorrection."""
+    use_findings(monkeypatch, F("L-001", "Blocker", "a defect", "TC-900, TC-901", check="rv1 C01"))
+    row = one(make_repo(tmp_path, {"TC-900": "IN_PROGRESS", "TC-901": "SUPERSEDED"}))
+    assert row.status == "OPEN"
+    assert row.pending == [("TC-900", "IN_PROGRESS")]
+    assert "Waiting for TC-900 (IN_PROGRESS)." in row.evidence
+    assert "Done: TC-901 (SUPERSEDED)." in row.evidence
 
 
 def test_fixed_without_a_check_names_the_cards_tests(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:

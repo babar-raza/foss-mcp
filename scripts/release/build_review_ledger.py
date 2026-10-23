@@ -3,11 +3,12 @@
 
 The finding table below is DATA. The Status column is computed at run time:
 
-* FIXED    - every fixing card is ACCEPTED in project/state.yaml (and every
-             required record exists). Evidence names the cards and the harness
-             check that must pass on the final image.
+* FIXED    - every fixing card is ACCEPTED or SUPERSEDED in project/state.yaml
+             (a superseded card's work was fully carried by its accepted
+             successor; and every required record exists). Evidence names the
+             cards and the harness check that must pass on the final image.
 * ACCEPTED - the finding carries an explicit accepted decision and every card
-             that fixes part of it is ACCEPTED. The reason is in Evidence. At
+             that fixes part of it is ACCEPTED or SUPERSEDED. The reason is in Evidence. At
              run time the id must appear bold in docs/RELEASE.md section 8
              (``**L-0NN**``), or, for a deferred extractor card, the card id in
              section 9 (``**TC-397**``); a WARNING lists every one that does not.
@@ -1540,6 +1541,13 @@ def card_list(ids, statuses) -> str:
     return ", ".join(f"{c} ({statuses.get(c, 'UNKNOWN')})" for c in ids)
 
 
+# A SUPERSEDED card's work was fully carried by its accepted successor, exactly the precedent
+# ops/gatecli.py's own `_accepted_or_superseded_cards()` already follows for the commit-guard and
+# the source-ref-staleness check. The ledger treats a finding's closing card list the same way: a
+# card in either status is done, never permanently pending just because its own id was superseded.
+CLOSED_STATUSES = frozenset({"ACCEPTED", "SUPERSEDED"})
+
+
 def compute(repo: Path, require_data: bool) -> tuple[list[Row], dict]:
     state = load_state(repo)
     cards = {c["id"]: c for c in state.get("cards", [])}
@@ -1548,8 +1556,8 @@ def compute(repo: Path, require_data: bool) -> tuple[list[Row], dict]:
     data_commits = {k: last_data_commit(repo, k) for k in DATA_PATHS}
     rows: list[Row] = []
     for f in FINDINGS:
-        pending = [(c, statuses.get(c, "UNKNOWN")) for c in f.cards if statuses.get(c) != "ACCEPTED"]
-        done = [c for c in f.cards if statuses.get(c) == "ACCEPTED"]
+        pending = [(c, statuses.get(c, "UNKNOWN")) for c in f.cards if statuses.get(c) not in CLOSED_STATUSES]
+        done = [c for c in f.cards if statuses.get(c) in CLOSED_STATUSES]
         rec_ok = record_ok(repo, f.record) if f.record else True
 
         # Has the baked data been refreshed after every fixing card was accepted?
@@ -1585,7 +1593,7 @@ def compute(repo: Path, require_data: bool) -> tuple[list[Row], dict]:
 
         if status == "FIXED":
             if f.cards:
-                parts.append(f"Fixed by {', '.join(f.cards)} (ACCEPTED)")
+                parts.append(f"Fixed by {card_list(f.cards, statuses)}")
             if f.record:
                 parts.append(f"Fixed by the {f.record.label}")
             if f.note:
@@ -1608,7 +1616,7 @@ def compute(repo: Path, require_data: bool) -> tuple[list[Row], dict]:
             else:
                 parts.append(f"See docs/RELEASE.md section 8 (**{f.id}**)")
             if done:
-                parts.append(f"Fixed part: {', '.join(done)} (ACCEPTED)")
+                parts.append(f"Fixed part: {card_list(done, statuses)}")
                 if awaiting:
                     parts.append(
                         f"The fixed part is not yet in the baked data (infra/demo-manifests last refreshed "
@@ -1622,7 +1630,7 @@ def compute(repo: Path, require_data: bool) -> tuple[list[Row], dict]:
             if pending:
                 parts.append(f"Waiting for {card_list([c for c, _ in pending], statuses)}")
             if done:
-                parts.append(f"Done: {', '.join(done)} (ACCEPTED)")
+                parts.append(f"Done: {card_list(done, statuses)}")
             if not rec_ok and f.record:
                 parts.append(f"Waiting for the {f.record.label}")
             if awaiting and require_data and not pending:
@@ -1679,7 +1687,8 @@ def render(rows: list[Row], meta: dict, date: str, image_revision: str) -> str:
         "This ledger lists every finding of the four raw adversarial review rounds "
         "(`review/raw-adversral-review.md`), the regression audits A, B and C, the four independent re-runs of the "
         "review prompts and the peer QA run, plus one policy limitation a card requires here. "
-        "**FIXED** means every card that fixes the finding is ACCEPTED in `project/state.yaml`; the Evidence names "
+        "**FIXED** means every card that fixes the finding is ACCEPTED, or superseded by one that is (its work "
+        "fully carried by the successor), in `project/state.yaml`; the Evidence names "
         "those cards and the check that must pass on the final image, and says so while a fix that changes baked "
         "data is not yet in `infra/demo-manifests`. **ACCEPTED** means this release knowingly ships the finding; "
         "the reason is in the Evidence and is repeated in `docs/RELEASE.md`, section 8 by ledger id or section 9 "
