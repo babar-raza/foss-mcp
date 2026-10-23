@@ -3,13 +3,13 @@
   "card": "TC-350",
   "gate": "G3",
   "generated_by": "gatectl",
-  "generated_at": "2026-10-11T08:33:47Z",
-  "base_rev": "ddd70a28a295ebfc8b7aae1e5705cede5ccca25f",
-  "head_rev": "1a85fe65d8a857acbd921ad712f36ed0e41ed927",
+  "generated_at": "2026-10-23T07:59:12Z",
+  "base_rev": "16659b2d4a6096ffadc96dc1b30bfe143684e096",
+  "head_rev": "16659b2d4a6096ffadc96dc1b30bfe143684e096",
   "card_sha256": "efe385b099109a1a23aa5606724e71e7f2199b590e213ca6b6f678d0a6acb774",
   "fingerprint": {
     "python": "3.13.2",
-    "platform": "Windows-11-10.0.26200-SP0",
+    "platform": "Windows-11-10.0.26300-SP0",
     "lock_sha256": "7b182948484d7df9614b523f7a8180f795b6c51d55c418728525c1957f3e38ba",
     "env": {
       "PYTHONHASHSEED": "0",
@@ -24,17 +24,9 @@
   },
   "scope": {
     "ok": true,
-    "changed_paths": [
-      "Dockerfile.serving",
-      "docker-compose.demo.yml",
-      "infra/demo_entrypoint.py",
-      "scripts/release/generate_demo_compose.py",
-      "tests/deploy/test_demo_compose.py",
-      "tests/deploy/test_demo_entrypoint.py",
-      "tests/test_container_build.py"
-    ],
+    "changed_paths": [],
     "violations": [],
-    "evaluated": true
+    "evaluated": false
   },
   "runs": [
     {
@@ -43,25 +35,25 @@
         {
           "command": "{python} -m pytest tests/deploy/test_demo_entrypoint.py tests/deploy/test_demo_compose.py -q -rfE",
           "exit_code": 0,
-          "duration_s": 7.701,
-          "stdout_sha256": "6692934017b7c49d882f90bacacdf46a1fb73798aa5057b4c7edfb9fb4d213af",
-          "tests": 89,
+          "duration_s": 4.517,
+          "stdout_sha256": "6997ffb705c1c5fa984efec27d8164c9d96401110464c8e386ecce809f88569c",
+          "tests": 90,
           "skipped": 0,
           "errors": 0,
           "failures": 0
         },
         {
           "command": "{python} -m pytest tests/deploy tests/test_container_build.py -q -rfE -k \"not docker_build and not real_docker\"",
-          "exit_code": 0,
-          "duration_s": 42.117,
-          "stdout_sha256": "a9244f5565c27d34673a1930e1fc54f2e16678c7c41c789fa19afecb1c52133f",
-          "tests": 423,
+          "exit_code": 1,
+          "duration_s": 183.029,
+          "stdout_sha256": "80e22b306bbc04733cb28bbf8f20fa053df73b0f4de40f964fa763a2bc77011f",
+          "tests": 2594,
           "skipped": 0,
           "errors": 0,
-          "failures": 0
+          "failures": 1
         }
       ],
-      "all_passed": true
+      "all_passed": false
     },
     {
       "run": 2,
@@ -69,48 +61,40 @@
         {
           "command": "{python} -m pytest tests/deploy/test_demo_entrypoint.py tests/deploy/test_demo_compose.py -q -rfE",
           "exit_code": 0,
-          "duration_s": 4.907,
-          "stdout_sha256": "6692934017b7c49d882f90bacacdf46a1fb73798aa5057b4c7edfb9fb4d213af",
-          "tests": 89,
+          "duration_s": 5.032,
+          "stdout_sha256": "6997ffb705c1c5fa984efec27d8164c9d96401110464c8e386ecce809f88569c",
+          "tests": 90,
           "skipped": 0,
           "errors": 0,
           "failures": 0
         },
         {
           "command": "{python} -m pytest tests/deploy tests/test_container_build.py -q -rfE -k \"not docker_build and not real_docker\"",
-          "exit_code": 0,
-          "duration_s": 40.696,
-          "stdout_sha256": "a9244f5565c27d34673a1930e1fc54f2e16678c7c41c789fa19afecb1c52133f",
-          "tests": 423,
+          "exit_code": 1,
+          "duration_s": 169.259,
+          "stdout_sha256": "80e22b306bbc04733cb28bbf8f20fa053df73b0f4de40f964fa763a2bc77011f",
+          "tests": 2594,
           "skipped": 0,
           "errors": 0,
-          "failures": 0
+          "failures": 1
         }
       ],
-      "all_passed": true
+      "all_passed": false
     }
   ],
   "negative_control": {
     "kind": "mutate",
     "patch": "python -X utf8 -c \"import pathlib;p=pathlib.Path('infra/demo_entrypoint.py');s=p.read_text(encoding='utf-8');old='serve_http';assert old in s;i=s.rindex(old);p.write_text(s[:i]+'serve_httpx'+s[i+len(old):],encoding='utf-8')\"\n",
-    "patch_sha256": "856cf43b3d85d58a1f59c5edc6fffbf28ea414f861a2351050a20e9f97edf9f3",
-    "applied": true,
-    "patch_applied_failed": true,
-    "exit_codes": [
-      1,
-      1
-    ],
-    "tree_changed": [
-      "M infra/demo_entrypoint.py",
-      "?? .junit-0.xml",
-      "?? .junit-1.xml"
-    ]
+    "patch_sha256": "0000000000000000000000000000000000000000000000000000000000000000",
+    "applied": false,
+    "patch_applied_failed": false,
+    "exit_codes": []
   },
   "holdout": {
     "ran": false,
     "passed": true,
     "detail": "no holdout for this card"
   },
-  "accepted": true,
-  "reason": "all gates passed"
+  "accepted": false,
+  "reason": "checks failed: {python} -m pytest tests/deploy tests/test_container_build.py -q -rfE -k \"not docker_build and not real_docker\"; negative-control patch did not apply"
 }

@@ -3,9 +3,9 @@
   "card": "TC-386",
   "gate": "G3",
   "generated_by": "gatectl",
-  "generated_at": "2026-10-22T15:30:25Z",
-  "base_rev": "e2fb3f72f31ed4ed06a48b403a1395f1881380a9",
-  "head_rev": "46e9e0978893221180c4473bb1238e4fc7bc86ac",
+  "generated_at": "2026-10-23T07:22:54Z",
+  "base_rev": "16659b2d4a6096ffadc96dc1b30bfe143684e096",
+  "head_rev": "16659b2d4a6096ffadc96dc1b30bfe143684e096",
   "card_sha256": "cf82cdd92b713dfaf714dfda7e9209a632e376843279f327458f559c39526315",
   "fingerprint": {
     "python": "3.13.2",
@@ -35,7 +35,7 @@
         {
           "command": "{python} -m pytest tests/mcp/test_tool_surface_truthful.py -q -rfE",
           "exit_code": 0,
-          "duration_s": 2.066,
+          "duration_s": 1.758,
           "stdout_sha256": "3a3ed778ecbb161232a9a064caf28fab082c2fe632ff7439eec160feb5317278",
           "tests": 55,
           "skipped": 0,
@@ -44,12 +44,16 @@
         },
         {
           "command": "{python} -m pytest tests/mcp tests/infra/test_serve_http.py tests/infra/test_serve_manifest_sidecar.py tests/deploy/test_adversarial_suite.py -q -rfE",
-          "exit_code": 3221225477,
-          "duration_s": 71.78,
-          "stdout_sha256": "466c9a0ad65763379bad9bba34bbf32f01c3691157d5140953c326c4709db567"
+          "exit_code": 0,
+          "duration_s": 289.831,
+          "stdout_sha256": "19ba504ba795a320c32b8ea3788b8e511279f0fc8db604d51704fe75247a9309",
+          "tests": 2981,
+          "skipped": 0,
+          "errors": 0,
+          "failures": 0
         }
       ],
-      "all_passed": false
+      "all_passed": true
     },
     {
       "run": 2,
@@ -57,7 +61,7 @@
         {
           "command": "{python} -m pytest tests/mcp/test_tool_surface_truthful.py -q -rfE",
           "exit_code": 0,
-          "duration_s": 1.405,
+          "duration_s": 1.768,
           "stdout_sha256": "3a3ed778ecbb161232a9a064caf28fab082c2fe632ff7439eec160feb5317278",
           "tests": 55,
           "skipped": 0,
@@ -67,9 +71,9 @@
         {
           "command": "{python} -m pytest tests/mcp tests/infra/test_serve_http.py tests/infra/test_serve_manifest_sidecar.py tests/deploy/test_adversarial_suite.py -q -rfE",
           "exit_code": 0,
-          "duration_s": 252.358,
-          "stdout_sha256": "8a3128c1c7ca3ab844a0fda668b84ee90b9f5d39dda51d3046daeee83adb5f60",
-          "tests": 2969,
+          "duration_s": 323.13,
+          "stdout_sha256": "19ba504ba795a320c32b8ea3788b8e511279f0fc8db604d51704fe75247a9309",
+          "tests": 2981,
           "skipped": 0,
           "errors": 0,
           "failures": 0
@@ -81,16 +85,24 @@
   "negative_control": {
     "kind": "mutate",
     "patch": "python -X utf8 -c \"import pathlib;p=pathlib.Path('src/foss_mcp/mcp/server.py');s=p.read_text(encoding='utf-8');old='def tool_input_schema(';assert old in s;p.write_text(s.replace(old,'def tool_input_schemaX(',1),encoding='utf-8')\"\n",
-    "patch_sha256": "0000000000000000000000000000000000000000000000000000000000000000",
-    "applied": false,
-    "patch_applied_failed": false,
-    "exit_codes": []
+    "patch_sha256": "56c785cf2c16a21da53522d74384632604117e9ed6168d1fad226edd1c4d7362",
+    "applied": true,
+    "patch_applied_failed": true,
+    "exit_codes": [
+      2,
+      2
+    ],
+    "tree_changed": [
+      "M src/foss_mcp/mcp/server.py",
+      "?? .junit-0.xml",
+      "?? .junit-1.xml"
+    ]
   },
   "holdout": {
     "ran": false,
     "passed": true,
     "detail": "no holdout for this card"
   },
-  "accepted": false,
-  "reason": "FLAKY: the two clean runs disagreed; negative-control patch did not apply"
+  "accepted": true,
+  "reason": "all gates passed"
 }
