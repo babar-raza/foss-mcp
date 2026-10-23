@@ -2,16 +2,26 @@
 
 The sidecar is built by the real ``fetch_product_reference.build_sidecar`` and written as JSON, then
 read back by the real ``load_manifest_sidecar`` and the real serving path
-(``serve_http._serving_product_reference_inputs``) into ``create_server``. Only the two network
-readers are replaced, with fixture text from ``tests/fixtures/repo_native/``, so every test is
-offline. The tool itself is the same closure ``create_server`` registers, taken from
-``_build_tool_registry``.
+(``serve_http._serving_product_reference_inputs``) into ``create_server``. All three network
+readers ``build_sidecar`` reaches (``fetch_manifest_file``, ``read_repo_document`` and, since
+G3/TC-427, ``list_root_entries``) are replaced, with fixture text from
+``tests/fixtures/repo_native/``, so every test is offline. The tool itself is the same closure
+``create_server`` registers, taken from ``_build_tool_registry``.
+
+G3/TC-577: ``list_root_entries`` went unmocked here for a while after G3/TC-427 added it to
+``build_sidecar`` - a test-fixture gap, not a production one: the real MCP serving path
+(``get_product_reference`` via ``_serve()``) never calls ``build_sidecar``; it only reads the
+sidecar JSON that ingestion already wrote. The gap only bit when something made the environment
+genuinely offline (gatectl's dead-proxy enforcement), because ``_write_sidecar`` quietly fell
+through to a real ``api.github.com`` call that happened to still succeed, or fail silently enough
+not to be noticed, whenever ambient network access is available.
 """
 
 from __future__ import annotations
 
 import json
 import sys
+import urllib.request
 from pathlib import Path
 
 import pytest
@@ -57,6 +67,11 @@ def _write_sidecar(
         "read_repo_document",
         lambda repository, path, ref=None: DocumentNotPresent(path=path),
     )
+    # G3/TC-427 added this third network reader to build_sidecar (one root listing, used to
+    # resolve CONTRIBUTING.md/AGENTS.md/README/LICENSE/Directory.Build.props spelling
+    # case-insensitively); G3/TC-577: it must be faked too, or this fixture-construction helper
+    # reaches the real api.github.com, same as the other two.
+    monkeypatch.setattr(fetch_product_reference, "list_root_entries", lambda repository, ref=None: [])
     sidecar = fetch_product_reference.build_sidecar(
         repository="aspose-pdf-foss/Aspose.PDF-FOSS-for-.NET",
         platform=platform,
@@ -217,3 +232,37 @@ def test_a_present_sidecar_with_the_platform_unset_fails_at_start(
 
     with pytest.raises(RuntimeError, match="FOSS_MCP_PLATFORM"):
         serve_http.deployment_config_from_env()
+
+
+def test_the_compatibility_answer_is_produced_with_zero_network_access_attempted(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """G3/TC-577 regression: gatectl's offline-enforcement environment (HTTP_PROXY/HTTPS_PROXY
+    pointed at a dead port, GATECTL_OFFLINE=1) turned this exact test file's own
+    ``_write_sidecar`` helper into 4 failures with ``urllib.error.URLError`` - it quietly relied
+    on a real, unmocked ``api.github.com`` call succeeding, reached from ``build_sidecar``'s
+    G3/TC-427-added ``list_root_entries`` call, which this file's other two monkeypatches never
+    covered. ``_write_sidecar`` now fakes all three network readers (see its own comment), so this
+    asserts that directly: with ``urllib.request.urlopen`` itself replaced by a call counter that
+    raises if invoked, building the sidecar fixture AND serving the real
+    ``get_product_reference(section="compatibility")`` tool-registry entry through it make zero
+    network attempts - not merely that the test happens to pass in an environment where a real
+    network call would have succeeded.
+    """
+    call_count = 0
+
+    def _forbidden_urlopen(*args: object, **kwargs: object) -> None:
+        nonlocal call_count
+        call_count += 1
+        raise AssertionError("urllib.request.urlopen must not be called while serving from a baked sidecar")
+
+    monkeypatch.setattr(urllib.request, "urlopen", _forbidden_urlopen)
+
+    manifests = _write_sidecar(tmp_path, monkeypatch, platform="net", manifest_text=PDF_NET_CSPROJ)
+
+    registry = _serve(tmp_path, NET_CONFIG, manifests)
+    answer = registry["get_product_reference"](section="compatibility")
+
+    assert isinstance(answer, ReferenceContent), answer
+    assert answer.text == "net8.0"
+    assert call_count == 0
