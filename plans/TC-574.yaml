@@ -1,0 +1,119 @@
+id: TC-574
+gate: G3
+lane: storage-retrieval
+purpose: >-
+  RD3-080 follow-up, root cause found by the 2026-10-23 independent audit. get_product_reference('install') for every C++
+  pilot (cells/cpp, pdf/cpp, slides/cpp, email/cpp) answers NotAvailable in the real shipped data today, even though cells/cpp's
+  own README DOES document how to install it: a 'Doc: How do I install the library?' chunk whose body reads 'FAQ: How do I
+  install the library? / Clone the repository and use CMake add_subdirectory or FetchContent...'. TRACED END TO END: src/foss_mcp/mcp/tools/get_product_reference.py's
+  `_cpp_install` (~line 1148) needs EITHER `inputs.manifest_path` (never populated by any pilot today - confirmed 0 of 32
+  product_reference sidecars in infra/demo-manifests carry this key at all, a separate, pre-existing ingestion-wiring gap
+  not in this card's scope to fix) OR a non-None `readme.install` section to generate a CMake build recipe (`_cpp_build_guidance`'s
+  own precondition at line ~1077: `if inputs.manifest_path is None and install is None: return None`). `readme.install` comes
+  from src/foss_mcp/mcp/tools/readme_sections.py's `_parse_chunk` (~line 103), which explicitly excludes ANY chunk whose body
+  starts with 'FAQ:' by design (`if body and body[0].startswith(_FAQ_PREFIX): return None`) - a deliberate choice for the
+  LIMITATIONS and CAPABILITIES sections (FAQ answers there tend to be too narrow to serve as the whole section), but it also
+  blocks INSTALL guidance for every C++ pilot whose README happens to document installation as an FAQ entry rather than a
+  dedicated heading, which is exactly cells/cpp's real, current README shape. FIX: when parsing specifically for the INSTALL
+  pattern (not limitations, not capabilities), accept an FAQ-titled chunk as a valid install section too - its body (after
+  the 'FAQ:' line) becomes the install text, same as any other matched section. This unblocks `_cpp_build_guidance`'s path
+  (which still requires `facts` to parse successfully from the real CMakeLists.txt, which it already does for cells/cpp: confirmed
+  CmakeFacts(project='aspose_cells_foss_cpp', libraries=('aspose_cells_foss',)) parses cleanly) without weakening the existing
+  LIMITATIONS/CAPABILITIES exclusion at all.
+depends_on:
+- TC-518
+- TC-561
+write_paths:
+- src/foss_mcp/mcp/tools/readme_sections.py
+- tests/mcp/tools/test_readme_sections.py
+- tests/mcp/tools/test_cpp_install_faq_fallback.py
+satisfies:
+- REQ-G3-008
+- REQ-G3-009
+source_refs:
+- file: docs/DECISION_LOG.md
+  anchor: >-
+    ## 2026-10-17 — Round-3 independent review of the shipped image: 82 findings registered, nothing executed (operator, supervisor)
+  sha256: c2056b11a13e5b18cda7e522027fb5eb0102edcef2f99f6c7e7ce0ee5c4b4e5b
+inputs:
+- >-
+  REPRODUCE FIRST, offline: `GenerationManifestStore(Path('infra/demo-manifests'))`, `Scope(family='cells', platform='cpp',
+  source_kind='self_extracted')`, and whatever thin wrapper `server.py` uses to call `get_product_reference` for section='install'
+  (read server.py to find the exact call site and real ProductReferenceInputs construction - do not guess the plumbing, trace
+  it) - on main today this returns NotAvailable. Confirm the real cells/cpp README chunk ('FQN: Doc: How do I install the
+  library?' / 'FAQ: How do I install the library? / Clone the repository and use CMake add_subdirectory or FetchContent...')
+  exists in the baked generation and is the ONLY install-shaped content that pilot's README has.
+- >-
+  THE FIX (readme_sections.py `_parse_chunk`, read the whole function first): change the exact line `if body and body[0].startswith(_FAQ_PREFIX):
+  return None` to `if body and body[0].startswith(_FAQ_PREFIX) and pattern != INSTALL_TITLE_PATTERN: return None` - one line,
+  one added clause. LIMITATIONS and CAPABILITIES keep the exclusion exactly as before (pattern != INSTALL_TITLE_PATTERN is
+  True for them, so nothing changes in their path). For an FAQ-titled chunk matched against the install pattern specifically,
+  the function now falls through past that line and keeps the body (including the 'FAQ: <title>' first line) as the section
+  text, the same as any normal section's body is kept today - if that leading 'FAQ:' line reads awkwardly inside the generated
+  install guidance, strip just that one line before returning (your call on the cleanest way, but do not reuse `_strip_lead_in`,
+  which is LIMITATIONS-specific wording logic).
+- >-
+  NEGATIVE CONTROL TARGET: reverting the pattern check back to an unconditional FAQ exclusion must turn the new regression
+  test red (cells/cpp install goes back to NotAvailable) without touching anything else.
+- >-
+  NEW TEST FILE tests/mcp/tools/test_cpp_install_faq_fallback.py: offline, deterministic, no network. (1) A synthetic FAQ-titled
+  'Doc: How do I install the library?' chunk, parsed with the INSTALL pattern, now yields a non-None ReadmeSection whose text
+  is the real install guidance (not the 'FAQ:' line itself). (2) The SAME synthetic chunk, parsed with the LIMITATIONS or
+  CAPABILITIES pattern (construct one that would also match those patterns' keywords), still returns None - the anti-regression
+  proof that the exclusion still holds for the other two sections. (3) A real, live-data regression test: load GenerationManifestStore
+  against infra/demo-manifests for cells/cpp (and the other 3 C++ pilots: pdf/cpp, slides/cpp, email/cpp - read each one's
+  real README FAQ install chunk if it has one; if a given pilot has no install-shaped content at all, its own test asserts
+  NotAvailable is still correctly honest for IT specifically, don't force a result that doesn't exist) and assert get_product_reference('install')
+  now returns real guidance mentioning CMake, the clone URL and the indexed commit, through whatever real call path server.py
+  uses - not a hand-rolled shortcut around the serving code. (4) A regular (non-FAQ) 'Doc: Installation, Dependencies' chunk
+  for any existing non-C++ pilot still parses exactly as before (no behavior change for the common case).
+- >-
+  tests/mcp/tools/test_readme_sections.py: add whatever unit-level tests exercise `_parse_chunk` directly for the INSTALL-pattern-plus-FAQ
+  case and the LIMITATIONS/CAPABILITIES-pattern-plus-FAQ case (the still-excluded ones), alongside its existing tests. Do
+  not remove or weaken any existing test in this file.
+- Run the whole file; it must stay green. Never weaken a check to make it pass.
+actions:
+- >-
+  Let an FAQ-titled README chunk count as a valid install section (only for the install pattern), so a C++ pilot whose README
+  documents installation as an FAQ entry gets a real CMake build recipe instead of NotAvailable.
+- >-
+  Prove the LIMITATIONS/CAPABILITIES FAQ-exclusion is unchanged, and prove the fix against the real baked data of all 4 C++
+  pilots.
+checks:
+- command: >-
+    {python} -m pytest tests/mcp/tools/test_cpp_install_faq_fallback.py tests/mcp/tools/test_readme_sections.py -q -rfE
+  expect: exit 0
+  timeout_seconds: 600
+  junitxml: true
+  proves:
+  - REQ-G3-008
+- command: >-
+    {python} -m pytest tests/mcp/tools/test_cpp_install_faq_fallback.py tests/mcp/tools/test_readme_sections.py tests/mcp/tools/test_product_reference_baked_contract.py
+    tests/mcp/tools/test_round3_install_truth.py -q -rfE -p no:cacheprovider
+  expect: exit 0
+  timeout_seconds: 900
+  junitxml: true
+  proves:
+  - REQ-G3-008
+  - REQ-G3-009
+min_tests: 20
+network: false
+requires:
+- python
+negative_control:
+  mutate: >-
+    python -X utf8 -c "import pathlib;p=pathlib.Path('src/foss_mcp/mcp/tools/readme_sections.py');s=p.read_text(encoding='utf-8');old='if
+    body and body[0].startswith(_FAQ_PREFIX) and pattern != INSTALL_TITLE_PATTERN:';assert old in s, 'fix text not found -
+    card and source have diverged';new='if body and body[0].startswith(_FAQ_PREFIX):';p.write_text(s.replace(old,new,1),encoding='utf-8')"
+  rationale: >-
+    Reverts the pattern-conditional FAQ exclusion back to the original unconditional one, so an FAQ-titled install chunk is
+    excluded again and cells/cpp's install answer reverts to NotAvailable: the new live-data regression test (and the synthetic
+    install-vs-limitations tests) must fail. A real break of the card's central claim.
+evidence:
+- evidence/build/G3/TC-574/receipt.json
+closeout:
+- >-
+  A C++ pilot whose README documents installation only as an FAQ entry now gets a real CMake build recipe from get_product_reference('install'),
+  proven against the real baked data of cells/cpp and the other 3 C++ pilots, with the LIMITATIONS/CAPABILITIES FAQ-exclusion
+  proven unchanged.
+recovery: Re-run from a clean tree.

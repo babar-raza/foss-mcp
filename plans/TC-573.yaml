@@ -1,146 +1,67 @@
 id: TC-573
 gate: G3
-lane: storage-retrieval
+lane: verification
 purpose: >-
-  REQ-G3-009 follow-up (RD3-080 to RD3-083, reopened). An independent audit found that RD3-080's own CLOSED status (docs/ROUND3_REVIEW.md,
-  closer TC-561) does not match live production behavior: get_product_reference(..., 'install') for cells/cpp still answers
-  NotAvailable today, exactly the defect RD3-080 complains about, even though TC-561's own code (src/foss_mcp/mcp/tools/readme_sections.py,
-  get_product_reference.py, infra/fetch_product_reference.py's readme_document and manifest_path fields) is correctly wired
-  and would answer it if the data existed. ROOT CAUSE: TC-536's closing re-ingest (this gate, commit ad8c2329) ran with a
-  rejected GitHub token (OWNER-14) and carried forward the PREVIOUS snapshot's sidecars for every pilot whose live fetch would
-  have failed, per OQ-015's own accepted decision ('never publish a fetch_failed sidecar over a good one'). That carry-forward
-  was the right call for data safety, but it silently meant these 7 pilots' product_reference sidecars kept their PRE-TC-561
-  shape - missing the readme_document and manifest_path keys entirely (not null: absent) - because TC-561 landed AFTER those
-  sidecars were last successfully fetched, and the carried-forward copy predates it. Confirmed absent in: infra/demo-manifests/product_reference_{cells_cpp,email_cpp,pdf_cpp,slides_cpp,pdf_typescript,imaging_net,words_net}.json.
-  The existing test suite never caught this because tests/mcp/tools/test_product_reference_baked_contract.py's own _with_sidecar_readme()
-  helper KNOWINGLY and INTENTIONALLY substitutes a committed offline fixture (tests/fixtures/round3_readmes/<pilot>/README.md
-  + PIN.json) whenever the real sidecar lacks these fields - by its own docstring, this was meant as a stopgap for 'the baked
-  sidecars predate the card... the supervisor's re-ingest regenerates them', i.e. it was ALWAYS meant to be temporary, pending
-  exactly the re-ingest that then failed to actually deliver it for these 7 pilots. FIX: since GitHub access may still be
-  unavailable (OWNER-14 is unresolved), populate the two missing fields OFFLINE, from the exact same already-committed, same-pinned-commit
-  fixture content the test already trusts and uses as its own fallback - this is not inventing new data, it is finishing what
-  the test's own fallback already proves is correct, written into the real artifact instead of only a test-time substitution.
-  Each pilot's tests/fixtures/round3_readmes/<pilot>/PIN.json already carries exactly the fields needed (repository, commit,
-  manifest_path) and tests/fixtures/round3_readmes/<pilot>/README.md is the exact README content at that pinned commit - the
-  same source the test's own _with_sidecar_readme() already uses and the test itself asserts the commit matches the sidecar's
-  own source_ref.
+  A stale-metadata correction found by the 2026-10-23 independent readiness audit. docs/RELEASE.md's Kubernetes-chart section
+  bullet L-115 says the init container 'waits without a deadline' - this is stale: infra/helm/foss-mcp/templates/deployment.yaml's
+  init-gate wait is bounded by `initGate.timeoutSeconds` and exits 0 (degraded, not stuck) on timeout, confirmed live in the
+  chart today. Correct L-115's text to describe the real, current bounded behavior; keep the bold id and subsection, change
+  only the prose. Do not touch any other RELEASE.md bullet. (TC-399's own stale min_tests, found in the same audit, is a SEPARATE
+  supervisor-only fix - plans/ is globally denied to every worker's write_paths, so it cannot be a card; it is handled directly
+  by the supervisor.)
 depends_on:
-- TC-561
-- TC-536
 - TC-537
+- TC-553
 write_paths:
-- scripts/release/backfill_product_reference_readme.py
-- infra/demo-manifests/product_reference_cells_cpp.json
-- infra/demo-manifests/product_reference_email_cpp.json
-- infra/demo-manifests/product_reference_pdf_cpp.json
-- infra/demo-manifests/product_reference_slides_cpp.json
-- infra/demo-manifests/product_reference_pdf_typescript.json
-- infra/demo-manifests/product_reference_imaging_net.json
-- infra/demo-manifests/product_reference_words_net.json
-- tests/mcp/tools/test_product_reference_baked_contract.py
-- tests/deploy/test_product_reference_sidecars_are_current.py
-- docs/ROUND3_REVIEW.md
+- docs/RELEASE.md
 satisfies:
 - REQ-G3-008
-- REQ-G3-009
 source_refs:
 - file: docs/DECISION_LOG.md
   anchor: >-
-    ## 2026-10-19 — Correction: the GitLab project registry is not the delivery registry; execution sequence recorded (operator,
-    supervisor)
-  sha256: 1176bbdd118f464544830b4a5d5c71ceed223894cad409a69a7adb3e323c4801
+    ## 2026-10-17 — Round-3 independent review of the shipped image: 82 findings registered, nothing executed (operator, supervisor)
+  sha256: c2056b11a13e5b18cda7e522027fb5eb0102edcef2f99f6c7e7ce0ee5c4b4e5b
 inputs:
 - >-
-  WRITE scripts/release/backfill_product_reference_readme.py (new, offline, deterministic, no network): for each of the 7
-  pilots named in write_paths, read tests/fixtures/round3_readmes/<pilot>/PIN.json (repository, commit, manifest_path) and
-  tests/fixtures/round3_readmes/<pilot>/README.md, confirm `pin['commit']` equals the real sidecar's own `source_ref` field
-  (refuse and exit non-zero if it does not - this script must never silently write mismatched provenance), then write into
-  the real infra/demo-manifests/product_reference_<pilot>.json: `readme_document: {status: 'present', path: 'README.md', sha:
-  <sha256 of the content, prefixed 'fixture-sha256:' so it is never mistaken for a real git blob sha>, size: <byte length>,
-  content: <the README text>}` and `manifest_path: <pin['manifest_path']>` - mirror infra/fetch_product_reference.py's _serialize_document()
-  shape exactly (read that function first, match its keys precisely, do not invent a different shape). Preserve every other
-  existing key in the sidecar untouched (a byte-for-byte dict update, not a rewrite). Script takes no arguments, runs over
-  exactly these 7 pilots (a literal list, not a glob - this is a one-time backfill for a named, bounded set, not a general
-  tool), and prints one line per pilot confirming what it wrote. Run it once as part of this card's own work (not as a check
-  command - its effect is verified by the tests below, not by running it again).
+  Read docs/RELEASE.md's Kubernetes-chart section, find the bullet starting `- **L-115**`, and read infra/helm/foss-mcp/templates/deployment.yaml's
+  init-container wait logic yourself to confirm the real current bound (initGate.timeoutSeconds) before rewriting the sentence
+  - keep the bold id and subsection exactly, change only the prose describing the behavior. This is a one-sentence textual
+  correction with zero behavior change.
 - >-
-  tests/mcp/tools/test_product_reference_baked_contract.py: _with_sidecar_readme() now becomes dead code for these 7 pilots
-  (their real sidecars carry the fields directly) but must stay correct for any OTHER pilot that might still lack them - do
-  not delete it, only strengthen the test suite around it. Add a new test, parametrized over exactly the 7 pilots this card
-  fixes, that asserts `baked.load(pilot)[0].readme_document is not None` and `.manifest_path is not None` directly from the
-  REAL sidecar (not through _with_sidecar_readme's substitution) - this is the test that would have caught this exact regression
-  and must never silently pass again. Also add one test asserting NO pilot's real sidecar's `readme_document.sha` starts with
-  'fixture-sha256:' unless that exact pilot is in the known 7 (a literal tuple here) - so a FUTURE stale carry-forward is
-  caught immediately rather than silently inheriting this same gap again.
-- >-
-  NEW tests/deploy/test_product_reference_sidecars_are_current.py: offline, no network. For every `product_reference_*.json`
-  under infra/demo-manifests (data-driven, like the baked-contract test's own PILOTS list - never a hard-coded count), assert
-  the sidecar's JSON has BOTH `readme_document` and `manifest_path` keys present (not necessarily non-null - a pilot whose
-  real repository genuinely has no README, if any, should have `readme_document: null` explicitly, never an absent key) -
-  this is the permanent gate-exit-level guard against exactly this class of silent staleness recurring after a future re-ingest
-  that again falls back to a carried-forward snapshot. Calibrate min_tests to the real pilot count (32).
-- >-
-  docs/ROUND3_REVIEW.md: correct RD3-080's row. It is currently marked CLOSED (TC-561) in error - change its Status to CLOSED
-  (TC-561, TC-573) once this card's fix lands, since TC-561 did the real code wiring and TC-573 is what actually delivered
-  the data for it. Add one sentence to the row's own text (or a footnote immediately below the table, matching the document's
-  existing style) naming the root cause in one clause: carried-forward stale sidecars from the GitHub-token failure during
-  the closing re-ingest, not a code defect. Do not touch any other row. If RD3-081, 082 or 083 cite the SAME 7-pilot sidecar
-  gap (read them to check), correct those the same way; if they cite something unrelated, leave them alone.
-- >-
-  Run the whole file; it must stay green. Confirm live, after your fix, that get_product_reference for cells_cpp's 'install'
-  section now returns a ReferenceContent (not NotAvailable) when called directly against the real infra/demo-manifests data
-  (not through the test's own fixture substitution) - this is the one live assertion that proves the regression is actually
-  gone in the shipped artifact, not just in a test's synthetic path.
+  Run the whole file; it must stay green. There is no test assertion to weaken here, only one sentence to correct to match
+  the chart's real current behavior.
 actions:
 - >-
-  Write a one-time offline backfill script and run it to populate readme_document/manifest_path for the 7 pilots whose sidecar
-  predates TC-561, from the already-committed, pinned-commit fixture content the test suite already trusts.
-- >-
-  Add a permanent, data-driven gate-exit-level test that every baked product-reference sidecar carries both fields, so a future
-  stale carry-forward is caught immediately instead of silently inherited.
-- >-
-  Correct RD3-080's CLOSED status in docs/ROUND3_REVIEW.md to name the real closer and the root cause.
+  Correct docs/RELEASE.md's L-115 bullet to describe the init-gate's real, current bounded-wait behavior.
 checks:
-- command: >-
-    {python} -m pytest tests/mcp/tools/test_product_reference_baked_contract.py tests/deploy/test_product_reference_sidecars_are_current.py
-    -q -rfE
+- command: '{python} -m pytest tests/deploy/test_release_known_limitations.py -q -rfE'
   expect: exit 0
-  timeout_seconds: 300
+  timeout_seconds: 600
   junitxml: true
   proves:
   - REQ-G3-008
-  - REQ-G3-009
 - command: >-
-    {python} -m pytest tests/mcp/tools/test_product_reference_baked_contract.py tests/mcp/tools/test_readme_sections.py tests/mcp/tools/test_round3_install_truth.py
-    tests/mcp/tools/test_doc_classification_by_title.py tests/mcp/test_round3_doc_excerpt.py tests/mcp/test_tool_surface_truthful.py
-    tests/deploy/test_product_reference_sidecars_are_current.py tests/deploy/test_round3_closure.py tests/deploy/test_preprod_review_register.py
+    {python} -m pytest tests/deploy/test_release_known_limitations.py tests/deploy/test_release_deferred_extraction.py tests/deploy/test_pilot_roster.py
     -q -rfE -p no:cacheprovider
   expect: exit 0
   timeout_seconds: 900
   junitxml: true
   proves:
   - REQ-G3-008
-  - REQ-G3-009
-min_tests: 15
+min_tests: 170
 network: false
 requires:
 - python
 negative_control:
   mutate: >-
-    python -X utf8 -c "import pathlib,json; p = pathlib.Path('infra/demo-manifests/product_reference_cells_cpp.json'); d =
-    json.loads(p.read_text(encoding='utf-8')); assert 'readme_document' in d and d['readme_document'] is not None, 'fix not
-    present - card and data have diverged'; d['readme_document'] = None; d.pop('manifest_path', None); p.write_text(json.dumps(d),
-    encoding='utf-8')"
+    python -X utf8 -c "import pathlib; nl = chr(10); p = pathlib.Path('docs/RELEASE.md'); s = p.read_text(encoding='utf-8');
+    assert '**L-115**' in s; marker = '**L-115**'; start = s.index(marker); end = s.index(nl + '- **', start); s = s[:start]
+    + '**L-115** The init container waits without a deadline.' + s[end:]; p.write_text(s, encoding='utf-8')"
   rationale: >-
-    Reverts cells_cpp's sidecar to exactly the pre-fix, absent-fields state this card exists to repair. The new sidecars-are-current
-    test and the baked-contract test's new 7-pilot-parametrized test must both fail - a real break of the card's central claim.
+    Reverts the L-115 bullet text to the stale 'waits without a deadline' claim this card corrects; any test asserting the
+    real bounded-wait wording (or simply the old key phrase's absence) must fail. A real break of the card's claim.
 evidence:
 - evidence/build/G3/TC-573/receipt.json
 closeout:
-- >-
-  All 7 pilots whose product-reference sidecar predated TC-561 now carry readme_document and manifest_path, sourced from the
-  same pinned-commit fixture content the test suite already trusted as a stand-in. get_product_reference('install') for cells/cpp
-  returns real content, not NotAvailable, against the real shipped data. A permanent, data-driven test guards every pilot's
-  sidecar against this exact class of silent staleness recurring. RD3-080's closure record names its real root cause and real
-  closer.
+- L-115 describes the init gate's real current bounded behavior. Nothing else changed.
 recovery: Re-run from a clean tree.
