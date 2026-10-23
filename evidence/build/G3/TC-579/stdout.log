@@ -1,0 +1,309 @@
+
+===== CLEAN RUN 1 (host) =====
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-7b182948484d7df9\Scripts\python.exe -m pytest tests/mcp/tools/test_round3_retrieval_corpus.py tests/deploy/test_release_known_limitations.py -q -rfE "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-w61k23t0\.junit-0.xml"
+--- stdout ---
+........................................................................ [ 33%]
+........................................................................ [ 66%]
+........................................................................ [ 99%]
+.                                                                        [100%]
+
+--- stderr ---
+
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-7b182948484d7df9\Scripts\python.exe -m pytest tests/mcp/tools/test_round3_retrieval_corpus.py tests/deploy/test_release_known_limitations.py tests/deploy/test_readme_matches_release.py tests/deploy/test_round3_closure.py -q -rfE -p no:cacheprovider "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-w61k23t0\.junit-1.xml"
+--- stdout ---
+........................................................................ [ 17%]
+........................................................................ [ 35%]
+........................................................................ [ 53%]
+........................................................................ [ 71%]
+........................................................................ [ 89%]
+...........................................                              [100%]
+
+--- stderr ---
+
+
+===== CLEAN RUN 2 (host) =====
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-7b182948484d7df9\Scripts\python.exe -m pytest tests/mcp/tools/test_round3_retrieval_corpus.py tests/deploy/test_release_known_limitations.py -q -rfE "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-w61k23t0\.junit-0.xml"
+--- stdout ---
+........................................................................ [ 33%]
+........................................................................ [ 66%]
+........................................................................ [ 99%]
+.                                                                        [100%]
+
+--- stderr ---
+
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-7b182948484d7df9\Scripts\python.exe -m pytest tests/mcp/tools/test_round3_retrieval_corpus.py tests/deploy/test_release_known_limitations.py tests/deploy/test_readme_matches_release.py tests/deploy/test_round3_closure.py -q -rfE -p no:cacheprovider "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-w61k23t0\.junit-1.xml"
+--- stdout ---
+........................................................................ [ 17%]
+........................................................................ [ 35%]
+........................................................................ [ 53%]
+........................................................................ [ 71%]
+........................................................................ [ 89%]
+...........................................                              [100%]
+
+--- stderr ---
+
+
+===== NEGATIVE CONTROL (checks MUST now fail) =====
+mutated: M tests/mcp/tools/test_round3_retrieval_corpus.py, ?? .junit-0.xml, ?? .junit-1.xml
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-7b182948484d7df9\Scripts\python.exe -m pytest tests/mcp/tools/test_round3_retrieval_corpus.py tests/deploy/test_release_known_limitations.py -q -rfE "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-w61k23t0\.junit-0.xml"
+--- stdout ---
+...........................FFFFFFF...................................... [ 33%]
+........................................................................ [ 66%]
+........................................................................ [ 99%]
+.                                                                        [100%]
+================================== FAILURES ===================================
+_____________ test_wrong_rate_per_family_meets_the_ratchet[cells] _____________
+
+cases = [Case(pilot='cells__cpp', family='cells', task_id='c01', query='change a workbook cell value', intended=('Cell.PutValu...ll.Value',), rank=3, answered=True, top=('Workbook', 'WorkbookProtection', 'Cell'), holdout=False, partial=False), ...]
+family = 'cells'
+
+    @pytest.mark.parametrize("family", FAMILIES)
+    def test_wrong_rate_per_family_meets_the_ratchet(cases: list[Case], family: str) -> None:
+        # G3/TC-579 (OQ-016): the aggregate-only test above cannot catch a family-specific regression that
+        # still clears the aggregate floor (pdf's 8.55% hid behind an aggregate of 3.29% before this test
+        # existed). This is an ADDITIONAL, per-family gate; it never replaces or loosens WRONG_MAX above.
+        value = summarise(cases)[family]["wrong_conf"]
+>       assert value <= -1.0, (family, value)
+E       AssertionError: ('cells', 0.015151515151515152)
+E       assert 0.015151515151515152 <= -1.0
+
+tests\mcp\tools\test_round3_retrieval_corpus.py:423: AssertionError
+______________ test_wrong_rate_per_family_meets_the_ratchet[pdf] ______________
+
+cases = [Case(pilot='cells__cpp', family='cells', task_id='c01', query='change a workbook cell value', intended=('Cell.PutValu...ll.Value',), rank=3, answered=True, top=('Workbook', 'WorkbookProtection', 'Cell'), holdout=False, partial=False), ...]
+family = 'pdf'
+
+    @pytest.mark.parametrize("family", FAMILIES)
+    def test_wrong_rate_per_family_meets_the_ratchet(cases: list[Case], family: str) -> None:
+        # G3/TC-579 (OQ-016): the aggregate-only test above cannot catch a family-specific regression that
+        # still clears the aggregate floor (pdf's 8.55% hid behind an aggregate of 3.29% before this test
+        # existed). This is an ADDITIONAL, per-family gate; it never replaces or loosens WRONG_MAX above.
+        value = summarise(cases)[family]["wrong_conf"]
+>       assert value <= -1.0, (family, value)
+E       AssertionError: ('pdf', 0.08552631578947369)
+E       assert 0.08552631578947369 <= -1.0
+
+tests\mcp\tools\test_round3_retrieval_corpus.py:423: AssertionError
+____________ test_wrong_rate_per_family_meets_the_ratchet[slides] _____________
+
+cases = [Case(pilot='cells__cpp', family='cells', task_id='c01', query='change a workbook cell value', intended=('Cell.PutValu...ll.Value',), rank=3, answered=True, top=('Workbook', 'WorkbookProtection', 'Cell'), holdout=False, partial=False), ...]
+family = 'slides'
+
+    @pytest.mark.parametrize("family", FAMILIES)
+    def test_wrong_rate_per_family_meets_the_ratchet(cases: list[Case], family: str) -> None:
+        # G3/TC-579 (OQ-016): the aggregate-only test above cannot catch a family-specific regression that
+        # still clears the aggregate floor (pdf's 8.55% hid behind an aggregate of 3.29% before this test
+        # existed). This is an ADDITIONAL, per-family gate; it never replaces or loosens WRONG_MAX above.
+        value = summarise(cases)[family]["wrong_conf"]
+>       assert value <= -1.0, (family, value)
+E       AssertionError: ('slides', 0.04597701149425287)
+E       assert 0.04597701149425287 <= -1.0
+
+tests\mcp\tools\test_round3_retrieval_corpus.py:423: AssertionError
+_____________ test_wrong_rate_per_family_meets_the_ratchet[words] _____________
+
+cases = [Case(pilot='cells__cpp', family='cells', task_id='c01', query='change a workbook cell value', intended=('Cell.PutValu...ll.Value',), rank=3, answered=True, top=('Workbook', 'WorkbookProtection', 'Cell'), holdout=False, partial=False), ...]
+family = 'words'
+
+    @pytest.mark.parametrize("family", FAMILIES)
+    def test_wrong_rate_per_family_meets_the_ratchet(cases: list[Case], family: str) -> None:
+        # G3/TC-579 (OQ-016): the aggregate-only test above cannot catch a family-specific regression that
+        # still clears the aggregate floor (pdf's 8.55% hid behind an aggregate of 3.29% before this test
+        # existed). This is an ADDITIONAL, per-family gate; it never replaces or loosens WRONG_MAX above.
+        value = summarise(cases)[family]["wrong_conf"]
+>       assert value <= -1.0, (family, value)
+E       AssertionError: ('words', 0.0)
+E       assert 0.0 <= -1.0
+
+tests\mcp\tools\test_round3_retrieval_corpus.py:423: AssertionError
+______________ test_wrong_rate_per_family_meets_the_ratchet[3d] _______________
+
+cases = [Case(pilot='cells__cpp', family='cells', task_id='c01', query='change a workbook cell value', intended=('Cell.PutValu...ll.Value',), rank=3, answered=True, top=('Workbook', 'WorkbookProtection', 'Cell'), holdout=False, partial=False), ...]
+family = '3d'
+
+    @pytest.mark.parametrize("family", FAMILIES)
+    def test_wrong_rate_per_family_meets_the_ratchet(cases: list[Case], family: str) -> None:
+        # G3/TC-579 (OQ-016): the aggregate-only test above cannot catch a family-specific regression that
+        # still clears the aggregate floor (pdf's 8.55% hid behind an aggregate of 3.29% before this test
+        # existed). This is an ADDITIONAL, per-family gate; it never replaces or loosens WRONG_MAX above.
+        value = summarise(cases)[family]["wrong_conf"]
+>       assert value <= -1.0, (family, value)
+E       AssertionError: ('3d', 0.0)
+E       assert 0.0 <= -1.0
+
+tests\mcp\tools\test_round3_retrieval_corpus.py:423: AssertionError
+_____________ test_wrong_rate_per_family_meets_the_ratchet[email] _____________
+
+cases = [Case(pilot='cells__cpp', family='cells', task_id='c01', query='change a workbook cell value', intended=('Cell.PutValu...ll.Value',), rank=3, answered=True, top=('Workbook', 'WorkbookProtection', 'Cell'), holdout=False, partial=False), ...]
+family = 'email'
+
+    @pytest.mark.parametrize("family", FAMILIES)
+    def test_wrong_rate_per_family_meets_the_ratchet(cases: list[Case], family: str) -> None:
+        # G3/TC-579 (OQ-016): the aggregate-only test above cannot catch a family-specific regression that
+        # still clears the aggregate floor (pdf's 8.55% hid behind an aggregate of 3.29% before this test
+        # existed). This is an ADDITIONAL, per-family gate; it never replaces or loosens WRONG_MAX above.
+        value = summarise(cases)[family]["wrong_conf"]
+>       assert value <= -1.0, (family, value)
+E       AssertionError: ('email', 0.024691358024691357)
+E       assert 0.024691358024691357 <= -1.0
+
+tests\mcp\tools\test_round3_retrieval_corpus.py:423: AssertionError
+_____________ test_wrong_rate_per_family_meets_the_ratchet[other] _____________
+
+cases = [Case(pilot='cells__cpp', family='cells', task_id='c01', query='change a workbook cell value', intended=('Cell.PutValu...ll.Value',), rank=3, answered=True, top=('Workbook', 'WorkbookProtection', 'Cell'), holdout=False, partial=False), ...]
+family = 'other'
+
+    @pytest.mark.parametrize("family", FAMILIES)
+    def test_wrong_rate_per_family_meets_the_ratchet(cases: list[Case], family: str) -> None:
+        # G3/TC-579 (OQ-016): the aggregate-only test above cannot catch a family-specific regression that
+        # still clears the aggregate floor (pdf's 8.55% hid behind an aggregate of 3.29% before this test
+        # existed). This is an ADDITIONAL, per-family gate; it never replaces or loosens WRONG_MAX above.
+        value = summarise(cases)[family]["wrong_conf"]
+>       assert value <= -1.0, (family, value)
+E       AssertionError: ('other', 0.03571428571428571)
+E       assert 0.03571428571428571 <= -1.0
+
+tests\mcp\tools\test_round3_retrieval_corpus.py:423: AssertionError
+=========================== short test summary info ===========================
+FAILED tests/mcp/tools/test_round3_retrieval_corpus.py::test_wrong_rate_per_family_meets_the_ratchet[cells]
+FAILED tests/mcp/tools/test_round3_retrieval_corpus.py::test_wrong_rate_per_family_meets_the_ratchet[pdf]
+FAILED tests/mcp/tools/test_round3_retrieval_corpus.py::test_wrong_rate_per_family_meets_the_ratchet[slides]
+FAILED tests/mcp/tools/test_round3_retrieval_corpus.py::test_wrong_rate_per_family_meets_the_ratchet[words]
+FAILED tests/mcp/tools/test_round3_retrieval_corpus.py::test_wrong_rate_per_family_meets_the_ratchet[3d]
+FAILED tests/mcp/tools/test_round3_retrieval_corpus.py::test_wrong_rate_per_family_meets_the_ratchet[email]
+FAILED tests/mcp/tools/test_round3_retrieval_corpus.py::test_wrong_rate_per_family_meets_the_ratchet[other]
+
+--- stderr ---
+
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-7b182948484d7df9\Scripts\python.exe -m pytest tests/mcp/tools/test_round3_retrieval_corpus.py tests/deploy/test_release_known_limitations.py tests/deploy/test_readme_matches_release.py tests/deploy/test_round3_closure.py -q -rfE -p no:cacheprovider "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-w61k23t0\.junit-1.xml"
+--- stdout ---
+...........................FFFFFFF...................................... [ 17%]
+........................................................................ [ 35%]
+........................................................................ [ 53%]
+........................................................................ [ 71%]
+........................................................................ [ 89%]
+...........................................                              [100%]
+================================== FAILURES ===================================
+_____________ test_wrong_rate_per_family_meets_the_ratchet[cells] _____________
+
+cases = [Case(pilot='cells__cpp', family='cells', task_id='c01', query='change a workbook cell value', intended=('Cell.PutValu...ll.Value',), rank=3, answered=True, top=('Workbook', 'WorkbookProtection', 'Cell'), holdout=False, partial=False), ...]
+family = 'cells'
+
+    @pytest.mark.parametrize("family", FAMILIES)
+    def test_wrong_rate_per_family_meets_the_ratchet(cases: list[Case], family: str) -> None:
+        # G3/TC-579 (OQ-016): the aggregate-only test above cannot catch a family-specific regression that
+        # still clears the aggregate floor (pdf's 8.55% hid behind an aggregate of 3.29% before this test
+        # existed). This is an ADDITIONAL, per-family gate; it never replaces or loosens WRONG_MAX above.
+        value = summarise(cases)[family]["wrong_conf"]
+>       assert value <= -1.0, (family, value)
+E       AssertionError: ('cells', 0.015151515151515152)
+E       assert 0.015151515151515152 <= -1.0
+
+tests\mcp\tools\test_round3_retrieval_corpus.py:423: AssertionError
+______________ test_wrong_rate_per_family_meets_the_ratchet[pdf] ______________
+
+cases = [Case(pilot='cells__cpp', family='cells', task_id='c01', query='change a workbook cell value', intended=('Cell.PutValu...ll.Value',), rank=3, answered=True, top=('Workbook', 'WorkbookProtection', 'Cell'), holdout=False, partial=False), ...]
+family = 'pdf'
+
+    @pytest.mark.parametrize("family", FAMILIES)
+    def test_wrong_rate_per_family_meets_the_ratchet(cases: list[Case], family: str) -> None:
+        # G3/TC-579 (OQ-016): the aggregate-only test above cannot catch a family-specific regression that
+        # still clears the aggregate floor (pdf's 8.55% hid behind an aggregate of 3.29% before this test
+        # existed). This is an ADDITIONAL, per-family gate; it never replaces or loosens WRONG_MAX above.
+        value = summarise(cases)[family]["wrong_conf"]
+>       assert value <= -1.0, (family, value)
+E       AssertionError: ('pdf', 0.08552631578947369)
+E       assert 0.08552631578947369 <= -1.0
+
+tests\mcp\tools\test_round3_retrieval_corpus.py:423: AssertionError
+____________ test_wrong_rate_per_family_meets_the_ratchet[slides] _____________
+
+cases = [Case(pilot='cells__cpp', family='cells', task_id='c01', query='change a workbook cell value', intended=('Cell.PutValu...ll.Value',), rank=3, answered=True, top=('Workbook', 'WorkbookProtection', 'Cell'), holdout=False, partial=False), ...]
+family = 'slides'
+
+    @pytest.mark.parametrize("family", FAMILIES)
+    def test_wrong_rate_per_family_meets_the_ratchet(cases: list[Case], family: str) -> None:
+        # G3/TC-579 (OQ-016): the aggregate-only test above cannot catch a family-specific regression that
+        # still clears the aggregate floor (pdf's 8.55% hid behind an aggregate of 3.29% before this test
+        # existed). This is an ADDITIONAL, per-family gate; it never replaces or loosens WRONG_MAX above.
+        value = summarise(cases)[family]["wrong_conf"]
+>       assert value <= -1.0, (family, value)
+E       AssertionError: ('slides', 0.04597701149425287)
+E       assert 0.04597701149425287 <= -1.0
+
+tests\mcp\tools\test_round3_retrieval_corpus.py:423: AssertionError
+_____________ test_wrong_rate_per_family_meets_the_ratchet[words] _____________
+
+cases = [Case(pilot='cells__cpp', family='cells', task_id='c01', query='change a workbook cell value', intended=('Cell.PutValu...ll.Value',), rank=3, answered=True, top=('Workbook', 'WorkbookProtection', 'Cell'), holdout=False, partial=False), ...]
+family = 'words'
+
+    @pytest.mark.parametrize("family", FAMILIES)
+    def test_wrong_rate_per_family_meets_the_ratchet(cases: list[Case], family: str) -> None:
+        # G3/TC-579 (OQ-016): the aggregate-only test above cannot catch a family-specific regression that
+        # still clears the aggregate floor (pdf's 8.55% hid behind an aggregate of 3.29% before this test
+        # existed). This is an ADDITIONAL, per-family gate; it never replaces or loosens WRONG_MAX above.
+        value = summarise(cases)[family]["wrong_conf"]
+>       assert value <= -1.0, (family, value)
+E       AssertionError: ('words', 0.0)
+E       assert 0.0 <= -1.0
+
+tests\mcp\tools\test_round3_retrieval_corpus.py:423: AssertionError
+______________ test_wrong_rate_per_family_meets_the_ratchet[3d] _______________
+
+cases = [Case(pilot='cells__cpp', family='cells', task_id='c01', query='change a workbook cell value', intended=('Cell.PutValu...ll.Value',), rank=3, answered=True, top=('Workbook', 'WorkbookProtection', 'Cell'), holdout=False, partial=False), ...]
+family = '3d'
+
+    @pytest.mark.parametrize("family", FAMILIES)
+    def test_wrong_rate_per_family_meets_the_ratchet(cases: list[Case], family: str) -> None:
+        # G3/TC-579 (OQ-016): the aggregate-only test above cannot catch a family-specific regression that
+        # still clears the aggregate floor (pdf's 8.55% hid behind an aggregate of 3.29% before this test
+        # existed). This is an ADDITIONAL, per-family gate; it never replaces or loosens WRONG_MAX above.
+        value = summarise(cases)[family]["wrong_conf"]
+>       assert value <= -1.0, (family, value)
+E       AssertionError: ('3d', 0.0)
+E       assert 0.0 <= -1.0
+
+tests\mcp\tools\test_round3_retrieval_corpus.py:423: AssertionError
+_____________ test_wrong_rate_per_family_meets_the_ratchet[email] _____________
+
+cases = [Case(pilot='cells__cpp', family='cells', task_id='c01', query='change a workbook cell value', intended=('Cell.PutValu...ll.Value',), rank=3, answered=True, top=('Workbook', 'WorkbookProtection', 'Cell'), holdout=False, partial=False), ...]
+family = 'email'
+
+    @pytest.mark.parametrize("family", FAMILIES)
+    def test_wrong_rate_per_family_meets_the_ratchet(cases: list[Case], family: str) -> None:
+        # G3/TC-579 (OQ-016): the aggregate-only test above cannot catch a family-specific regression that
+        # still clears the aggregate floor (pdf's 8.55% hid behind an aggregate of 3.29% before this test
+        # existed). This is an ADDITIONAL, per-family gate; it never replaces or loosens WRONG_MAX above.
+        value = summarise(cases)[family]["wrong_conf"]
+>       assert value <= -1.0, (family, value)
+E       AssertionError: ('email', 0.024691358024691357)
+E       assert 0.024691358024691357 <= -1.0
+
+tests\mcp\tools\test_round3_retrieval_corpus.py:423: AssertionError
+_____________ test_wrong_rate_per_family_meets_the_ratchet[other] _____________
+
+cases = [Case(pilot='cells__cpp', family='cells', task_id='c01', query='change a workbook cell value', intended=('Cell.PutValu...ll.Value',), rank=3, answered=True, top=('Workbook', 'WorkbookProtection', 'Cell'), holdout=False, partial=False), ...]
+family = 'other'
+
+    @pytest.mark.parametrize("family", FAMILIES)
+    def test_wrong_rate_per_family_meets_the_ratchet(cases: list[Case], family: str) -> None:
+        # G3/TC-579 (OQ-016): the aggregate-only test above cannot catch a family-specific regression that
+        # still clears the aggregate floor (pdf's 8.55% hid behind an aggregate of 3.29% before this test
+        # existed). This is an ADDITIONAL, per-family gate; it never replaces or loosens WRONG_MAX above.
+        value = summarise(cases)[family]["wrong_conf"]
+>       assert value <= -1.0, (family, value)
+E       AssertionError: ('other', 0.03571428571428571)
+E       assert 0.03571428571428571 <= -1.0
+
+tests\mcp\tools\test_round3_retrieval_corpus.py:423: AssertionError
+=========================== short test summary info ===========================
+FAILED tests/mcp/tools/test_round3_retrieval_corpus.py::test_wrong_rate_per_family_meets_the_ratchet[cells]
+FAILED tests/mcp/tools/test_round3_retrieval_corpus.py::test_wrong_rate_per_family_meets_the_ratchet[pdf]
+FAILED tests/mcp/tools/test_round3_retrieval_corpus.py::test_wrong_rate_per_family_meets_the_ratchet[slides]
+FAILED tests/mcp/tools/test_round3_retrieval_corpus.py::test_wrong_rate_per_family_meets_the_ratchet[words]
+FAILED tests/mcp/tools/test_round3_retrieval_corpus.py::test_wrong_rate_per_family_meets_the_ratchet[3d]
+FAILED tests/mcp/tools/test_round3_retrieval_corpus.py::test_wrong_rate_per_family_meets_the_ratchet[email]
+FAILED tests/mcp/tools/test_round3_retrieval_corpus.py::test_wrong_rate_per_family_meets_the_ratchet[other]
+
+--- stderr ---
+
