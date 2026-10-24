@@ -1,0 +1,273 @@
+
+===== CLEAN RUN 1 (host) =====
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-7b182948484d7df9\Scripts\python.exe -m pytest tests/infra/test_round3_serving_robustness.py -q -rfE "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-cnxumeca\.junit-0.xml"
+--- stdout ---
+........................................................................ [ 78%]
+....................                                                     [100%]
+============================== warnings summary ===============================
+..\venv-7b182948484d7df9\Lib\site-packages\starlette\testclient.py:53
+  E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-7b182948484d7df9\Lib\site-packages\starlette\testclient.py:53: DeprecationWarning: The anyio.abc.BlockingPortal alias is deprecated, use anyio.from_thread.BlockingPortal instead.
+    _PortalFactoryType = Callable[[], AbstractContextManager[anyio.abc.BlockingPortal]]
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+
+--- stderr ---
+
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-7b182948484d7df9\Scripts\python.exe -m pytest tests/infra/test_round3_serving_robustness.py -q -rfE -p no:cacheprovider "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-cnxumeca\.junit-1.xml"
+--- stdout ---
+........................................................................ [ 78%]
+....................                                                     [100%]
+============================== warnings summary ===============================
+..\venv-7b182948484d7df9\Lib\site-packages\starlette\testclient.py:53
+  E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-7b182948484d7df9\Lib\site-packages\starlette\testclient.py:53: DeprecationWarning: The anyio.abc.BlockingPortal alias is deprecated, use anyio.from_thread.BlockingPortal instead.
+    _PortalFactoryType = Callable[[], AbstractContextManager[anyio.abc.BlockingPortal]]
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+
+--- stderr ---
+
+
+===== CLEAN RUN 2 (host) =====
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-7b182948484d7df9\Scripts\python.exe -m pytest tests/infra/test_round3_serving_robustness.py -q -rfE "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-cnxumeca\.junit-0.xml"
+--- stdout ---
+........................................................................ [ 78%]
+....................                                                     [100%]
+============================== warnings summary ===============================
+..\venv-7b182948484d7df9\Lib\site-packages\starlette\testclient.py:53
+  E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-7b182948484d7df9\Lib\site-packages\starlette\testclient.py:53: DeprecationWarning: The anyio.abc.BlockingPortal alias is deprecated, use anyio.from_thread.BlockingPortal instead.
+    _PortalFactoryType = Callable[[], AbstractContextManager[anyio.abc.BlockingPortal]]
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+
+--- stderr ---
+
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-7b182948484d7df9\Scripts\python.exe -m pytest tests/infra/test_round3_serving_robustness.py -q -rfE -p no:cacheprovider "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-cnxumeca\.junit-1.xml"
+--- stdout ---
+........................................................................ [ 78%]
+....................                                                     [100%]
+============================== warnings summary ===============================
+..\venv-7b182948484d7df9\Lib\site-packages\starlette\testclient.py:53
+  E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-7b182948484d7df9\Lib\site-packages\starlette\testclient.py:53: DeprecationWarning: The anyio.abc.BlockingPortal alias is deprecated, use anyio.from_thread.BlockingPortal instead.
+    _PortalFactoryType = Callable[[], AbstractContextManager[anyio.abc.BlockingPortal]]
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+
+--- stderr ---
+
+
+===== NEGATIVE CONTROL (checks MUST now fail) =====
+mutated: M infra/serve_http.py, ?? .junit-0.xml, ?? .junit-1.xml
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-7b182948484d7df9\Scripts\python.exe -m pytest tests/infra/test_round3_serving_robustness.py -q -rfE "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-cnxumeca\.junit-0.xml"
+--- stdout ---
+........................................................................ [ 78%]
+..........FFF.......                                                     [100%]
+================================== FAILURES ===================================
+_ test_a_body_one_byte_over_the_new_ceiling_is_rejected_with_the_shared_envelope _
+
+    def test_a_body_one_byte_over_the_new_ceiling_is_rejected_with_the_shared_envelope() -> None:
+        body = _padded_body(serve_http._MAX_REQUEST_BODY_BYTES + 1, bad_id=False)
+        status, response_body, _ = _stream_request_id_middleware(
+            _consume_to_completion_and_answer_ok,
+            _chunked(body),
+            max_body_bytes=serve_http._ID_CHECK_MAX_BODY_BYTES,
+            max_request_body_bytes=serve_http._MAX_REQUEST_BODY_BYTES,
+        )
+    
+>       assert status == 400
+E       assert 200 == 400
+
+tests\infra\test_round3_serving_robustness.py:984: AssertionError
+_____________ test_an_oversized_body_never_reaches_the_inner_app ______________
+
+    def test_an_oversized_body_never_reaches_the_inner_app() -> None:
+        """A raw exception (or any call at all) from the inner app would mean the oversized body was
+        handed to it; a clean 400 with nothing else means it never was."""
+        calls = 0
+    
+        async def fail_if_called(scope: Any, receive: Any, send: Any) -> None:
+            nonlocal calls
+            calls += 1
+            raise AssertionError("the inner app must never see a body over the ceiling")
+    
+        total = serve_http._MAX_REQUEST_BODY_BYTES + (10 * 1024 * 1024)
+>       status, _, _ = _stream_request_id_middleware(
+            fail_if_called,
+            _filler_chunks(total),
+            max_body_bytes=serve_http._ID_CHECK_MAX_BODY_BYTES,
+            max_request_body_bytes=serve_http._MAX_REQUEST_BODY_BYTES,
+        )
+
+tests\infra\test_round3_serving_robustness.py:1003: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+tests\infra\test_round3_serving_robustness.py:873: in _stream_request_id_middleware
+    asyncio.run(middleware(scope, receive, send))
+C:\dev-tools\foss-mcp\python313\Lib\asyncio\runners.py:195: in run
+    return runner.run(main)
+           ^^^^^^^^^^^^^^^^
+C:\dev-tools\foss-mcp\python313\Lib\asyncio\runners.py:118: in run
+    return self._loop.run_until_complete(task)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+C:\dev-tools\foss-mcp\python313\Lib\asyncio\base_events.py:725: in run_until_complete
+    return future.result()
+           ^^^^^^^^^^^^^^^
+infra\serve_http.py:820: in __call__
+    await self.app(scope, replaying_receive, send)
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+scope = {'type': 'http', 'method': 'POST', 'path': '/mcp', 'headers': []}
+receive = <function RequestIdMiddleware.__call__.<locals>.replaying_receive at 0x000001EEC8034FE0>
+send = <function _stream_request_id_middleware.<locals>.send at 0x000001EEC8035760>
+
+    async def fail_if_called(scope: Any, receive: Any, send: Any) -> None:
+        nonlocal calls
+        calls += 1
+>       raise AssertionError("the inner app must never see a body over the ceiling")
+E       AssertionError: the inner app must never see a body over the ceiling
+
+tests\infra\test_round3_serving_robustness.py:1000: AssertionError
+___ test_an_oversized_body_stops_buffering_within_one_chunk_of_the_ceiling ____
+
+    def test_an_oversized_body_stops_buffering_within_one_chunk_of_the_ceiling() -> None:
+        """The middleware must not drain the rest of an oversized body first: with a small ceiling and
+        many small chunks, it must stop reading the moment the running total crosses the ceiling -
+        never pulling more than the one chunk that pushed it over."""
+        max_request_body_bytes = 100
+        chunk_size = 10
+        chunks = [bytes([i % 256]) * chunk_size for i in range(50)]  # far more than enough to cross 100
+    
+        status, response_body, pulled = _stream_request_id_middleware(
+            _consume_to_completion_and_answer_ok,
+            chunks,
+            max_body_bytes=max_request_body_bytes,  # id-check threshold irrelevant here; keep it equal
+            max_request_body_bytes=max_request_body_bytes,
+        )
+    
+        expected_crossing_chunk = (max_request_body_bytes // chunk_size) + 1  # total > 100 first at #11
+>       assert pulled == expected_crossing_chunk, (
+            f"pulled {pulled} of {len(chunks)} available chunks; the middleware must stop at the chunk "
+            "that first pushes the running total over the ceiling, never drain the rest"
+        )
+E       AssertionError: pulled 50 of 50 available chunks; the middleware must stop at the chunk that first pushes the running total over the ceiling, never drain the rest
+E       assert 50 == 11
+
+tests\infra\test_round3_serving_robustness.py:1029: AssertionError
+============================== warnings summary ===============================
+..\venv-7b182948484d7df9\Lib\site-packages\starlette\testclient.py:53
+  E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-7b182948484d7df9\Lib\site-packages\starlette\testclient.py:53: DeprecationWarning: The anyio.abc.BlockingPortal alias is deprecated, use anyio.from_thread.BlockingPortal instead.
+    _PortalFactoryType = Callable[[], AbstractContextManager[anyio.abc.BlockingPortal]]
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+=========================== short test summary info ===========================
+FAILED tests/infra/test_round3_serving_robustness.py::test_a_body_one_byte_over_the_new_ceiling_is_rejected_with_the_shared_envelope
+FAILED tests/infra/test_round3_serving_robustness.py::test_an_oversized_body_never_reaches_the_inner_app
+FAILED tests/infra/test_round3_serving_robustness.py::test_an_oversized_body_stops_buffering_within_one_chunk_of_the_ceiling
+
+--- stderr ---
+
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-7b182948484d7df9\Scripts\python.exe -m pytest tests/infra/test_round3_serving_robustness.py -q -rfE -p no:cacheprovider "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-cnxumeca\.junit-1.xml"
+--- stdout ---
+........................................................................ [ 78%]
+..........FFF.......                                                     [100%]
+================================== FAILURES ===================================
+_ test_a_body_one_byte_over_the_new_ceiling_is_rejected_with_the_shared_envelope _
+
+    def test_a_body_one_byte_over_the_new_ceiling_is_rejected_with_the_shared_envelope() -> None:
+        body = _padded_body(serve_http._MAX_REQUEST_BODY_BYTES + 1, bad_id=False)
+        status, response_body, _ = _stream_request_id_middleware(
+            _consume_to_completion_and_answer_ok,
+            _chunked(body),
+            max_body_bytes=serve_http._ID_CHECK_MAX_BODY_BYTES,
+            max_request_body_bytes=serve_http._MAX_REQUEST_BODY_BYTES,
+        )
+    
+>       assert status == 400
+E       assert 200 == 400
+
+tests\infra\test_round3_serving_robustness.py:984: AssertionError
+_____________ test_an_oversized_body_never_reaches_the_inner_app ______________
+
+    def test_an_oversized_body_never_reaches_the_inner_app() -> None:
+        """A raw exception (or any call at all) from the inner app would mean the oversized body was
+        handed to it; a clean 400 with nothing else means it never was."""
+        calls = 0
+    
+        async def fail_if_called(scope: Any, receive: Any, send: Any) -> None:
+            nonlocal calls
+            calls += 1
+            raise AssertionError("the inner app must never see a body over the ceiling")
+    
+        total = serve_http._MAX_REQUEST_BODY_BYTES + (10 * 1024 * 1024)
+>       status, _, _ = _stream_request_id_middleware(
+            fail_if_called,
+            _filler_chunks(total),
+            max_body_bytes=serve_http._ID_CHECK_MAX_BODY_BYTES,
+            max_request_body_bytes=serve_http._MAX_REQUEST_BODY_BYTES,
+        )
+
+tests\infra\test_round3_serving_robustness.py:1003: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+tests\infra\test_round3_serving_robustness.py:873: in _stream_request_id_middleware
+    asyncio.run(middleware(scope, receive, send))
+C:\dev-tools\foss-mcp\python313\Lib\asyncio\runners.py:195: in run
+    return runner.run(main)
+           ^^^^^^^^^^^^^^^^
+C:\dev-tools\foss-mcp\python313\Lib\asyncio\runners.py:118: in run
+    return self._loop.run_until_complete(task)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+C:\dev-tools\foss-mcp\python313\Lib\asyncio\base_events.py:725: in run_until_complete
+    return future.result()
+           ^^^^^^^^^^^^^^^
+infra\serve_http.py:820: in __call__
+    await self.app(scope, replaying_receive, send)
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+scope = {'type': 'http', 'method': 'POST', 'path': '/mcp', 'headers': []}
+receive = <function RequestIdMiddleware.__call__.<locals>.replaying_receive at 0x00000216C0A22DE0>
+send = <function _stream_request_id_middleware.<locals>.send at 0x00000216C0A22B60>
+
+    async def fail_if_called(scope: Any, receive: Any, send: Any) -> None:
+        nonlocal calls
+        calls += 1
+>       raise AssertionError("the inner app must never see a body over the ceiling")
+E       AssertionError: the inner app must never see a body over the ceiling
+
+tests\infra\test_round3_serving_robustness.py:1000: AssertionError
+___ test_an_oversized_body_stops_buffering_within_one_chunk_of_the_ceiling ____
+
+    def test_an_oversized_body_stops_buffering_within_one_chunk_of_the_ceiling() -> None:
+        """The middleware must not drain the rest of an oversized body first: with a small ceiling and
+        many small chunks, it must stop reading the moment the running total crosses the ceiling -
+        never pulling more than the one chunk that pushed it over."""
+        max_request_body_bytes = 100
+        chunk_size = 10
+        chunks = [bytes([i % 256]) * chunk_size for i in range(50)]  # far more than enough to cross 100
+    
+        status, response_body, pulled = _stream_request_id_middleware(
+            _consume_to_completion_and_answer_ok,
+            chunks,
+            max_body_bytes=max_request_body_bytes,  # id-check threshold irrelevant here; keep it equal
+            max_request_body_bytes=max_request_body_bytes,
+        )
+    
+        expected_crossing_chunk = (max_request_body_bytes // chunk_size) + 1  # total > 100 first at #11
+>       assert pulled == expected_crossing_chunk, (
+            f"pulled {pulled} of {len(chunks)} available chunks; the middleware must stop at the chunk "
+            "that first pushes the running total over the ceiling, never drain the rest"
+        )
+E       AssertionError: pulled 50 of 50 available chunks; the middleware must stop at the chunk that first pushes the running total over the ceiling, never drain the rest
+E       assert 50 == 11
+
+tests\infra\test_round3_serving_robustness.py:1029: AssertionError
+============================== warnings summary ===============================
+..\venv-7b182948484d7df9\Lib\site-packages\starlette\testclient.py:53
+  E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-7b182948484d7df9\Lib\site-packages\starlette\testclient.py:53: DeprecationWarning: The anyio.abc.BlockingPortal alias is deprecated, use anyio.from_thread.BlockingPortal instead.
+    _PortalFactoryType = Callable[[], AbstractContextManager[anyio.abc.BlockingPortal]]
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+=========================== short test summary info ===========================
+FAILED tests/infra/test_round3_serving_robustness.py::test_a_body_one_byte_over_the_new_ceiling_is_rejected_with_the_shared_envelope
+FAILED tests/infra/test_round3_serving_robustness.py::test_an_oversized_body_never_reaches_the_inner_app
+FAILED tests/infra/test_round3_serving_robustness.py::test_an_oversized_body_stops_buffering_within_one_chunk_of_the_ceiling
+
+--- stderr ---
+
