@@ -21,3 +21,22 @@ schedule:
   cron: "0 12 * * *"
   timezone: UTC
 storage_topology: embedded
+
+# G3/TC-582: a project-authored, project-verified hazard the upstream repository does not
+# document anywhere (README, docs, source, AGENTS.md all carry zero mentions of thread-safety -
+# a confirmed upstream documentation gap, re-checked 2026-10-24, not a foss-mcp defect). An
+# independent audit reproduced this 5 out of 5 runs. Keep this the LAST top-level key.
+known_hazards:
+  - text: >-
+      Two goroutines that mutate different cells of ONE SHARED Workbook instance crash the
+      process with an unrecoverable Go runtime fatal error ("fatal error: concurrent map read
+      and map write" / "fatal error: concurrent map writes") - this is not a catchable panic;
+      recover() cannot stop it and the whole process exits immediately. The real trigger is
+      exactly the kind of naive parallelism an agent could reach for after reading this
+      library's undocumented API: e.g. two goroutines each filling a different column of the
+      same Workbook concurrently. Reproduced 5 out of 5 runs by an independent audit
+      (2026-10-24). The safe pattern is either (a) one Workbook instance per goroutine, each
+      saved and merged afterwards, or (b) serialize every mutation of one shared Workbook
+      through a single goroutine or a mutex - never mutate one shared Workbook from more than
+      one goroutine at a time.
+    verified_at: "2026-10-24"

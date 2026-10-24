@@ -43,6 +43,27 @@
       "type": "string",
       "minLength": 1,
       "description": "How this product's retrieval index is laid out, e.g. 'single-index', 'sharded', 'federated'."
+    },
+    "known_hazards": {
+      "type": "array",
+      "description": "OPTIONAL (G3/TC-582). Project-authored, project-verified hazards for this product that the upstream repository does not document - e.g. a reproduced crash this project's own audit found. Never upstream content: each entry is written and verified by this project itself, and absent for every product with no such finding. Order is preserved; entries are served in this order.",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["text", "verified_at"],
+        "properties": {
+          "text": {
+            "type": "string",
+            "minLength": 1,
+            "description": "The hazard, stated plainly: the real failure mode, its real trigger, and the safe pattern. Written and verified by this project, not quoted from the upstream repository."
+          },
+          "verified_at": {
+            "type": "string",
+            "pattern": "^\\d{4}-\\d{2}-\\d{2}$",
+            "description": "The date (YYYY-MM-DD) this project itself verified the hazard, e.g. by live reproduction."
+          }
+        }
+      }
     }
   }
 }
