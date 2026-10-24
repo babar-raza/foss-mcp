@@ -1,0 +1,72 @@
+id: TC-583
+gate: G3
+lane: storage-retrieval
+purpose: >-
+  TC-582 (accepted, G3/20b7d56c) added tests/mcp/tools/test_product_reference_known_hazards.py. Its own comment at the top
+  of that file (just above `assert len(ALL_PRODUCT_MANIFEST_PATHS) == 32`) names the removed 'jmap' family: 'cut jmap to
+  32 real manifests'. tests/deploy/test_removed_family_absent.py is a PERMANENT guard (added G3/TC-551-era) scanning the
+  whole tracked tree for that removed family's name outside the one line docs/DECISION_LOG.md is permitted to carry it on
+  - it correctly flags this comment as a regression. This is a pure comment fix: no behavior, no test assertion, no other
+  line in the file changes. FIX, bounded: reword the one comment so it no longer names 'jmap', while still explaining why
+  the count is pinned at 32/31.
+depends_on:
+- TC-582
+write_paths:
+- tests/mcp/tools/test_product_reference_known_hazards.py
+satisfies:
+- REQ-G3-008
+source_refs:
+- file: docs/DECISION_LOG.md
+  anchor: >-
+    ## 2026-10-17 — Round-3 independent review of the shipped image: 82 findings registered, nothing executed (operator, supervisor)
+  sha256: c2056b11a13e5b18cda7e522027fb5eb0102edcef2f99f6c7e7ce0ee5c4b4e5b
+inputs:
+- >-
+  Read tests/mcp/tools/test_product_reference_known_hazards.py's comment immediately above the line
+  `assert len(ALL_PRODUCT_MANIFEST_PATHS) == 32, ALL_PRODUCT_MANIFEST_PATHS`. It currently reads: '# re-pinned if a pilot
+  is ever added or removed (G3/TC-551/TC-552 cut jmap to 32 real manifests).' Reword it so it no longer contains the
+  substring 'jmap' anywhere (case-sensitive match is what the guard scans for) but still explains, in plain English, why
+  the counts 32/31 are pinned and what to do if a pilot is ever added or removed. Do not touch any other line in the file
+  - this card's entire diff should be that one comment line.
+- Run the whole file, plus the permanent guard it regressed, and confirm both stay green.
+actions:
+- Reword the one comment line in tests/mcp/tools/test_product_reference_known_hazards.py so it no longer names the removed 'jmap' family.
+checks:
+- command: >-
+    {python} -m pytest tests/mcp/tools/test_product_reference_known_hazards.py tests/deploy/test_removed_family_absent.py
+    -q -rfE
+  expect: exit 0
+  timeout_seconds: 120
+  junitxml: true
+  proves:
+  - REQ-G3-008
+- command: >-
+    {python} -m pytest tests/mcp/tools/test_product_reference_known_hazards.py tests/deploy/test_removed_family_absent.py
+    -q -rfE -p no:cacheprovider
+  expect: exit 0
+  timeout_seconds: 120
+  junitxml: true
+  proves:
+  - REQ-G3-008
+min_tests: 55
+network: false
+requires:
+- python
+negative_control:
+  mutate: >-
+    python -X utf8 -c "import pathlib; p = pathlib.Path('tests/mcp/tools/test_product_reference_known_hazards.py'); lines
+    = p.read_text(encoding='utf-8').splitlines(); marker = 'ALL_PRODUCT_MANIFEST_PATHS) == 32'; hit = [i for i, line in
+    enumerate(lines) if marker in line]; assert len(hit) == 1, 'fix text not found - card and source have diverged'; i
+    = hit[0] - 1; assert lines[i].lstrip().startswith('#'), 'comment line not found where expected'; lines[i] = lines[i]
+    + ' (jmap)'; p.write_text(chr(10).join(lines) + chr(10), encoding='utf-8')"
+  rationale: >-
+    Re-introduces the literal word 'jmap' into the comment immediately above the pinned-count assertion, whatever this
+    card's worker rewords it to, so tests/deploy/test_removed_family_absent.py's permanent guard must fail again. A real
+    break of the card's central claim.
+evidence:
+- evidence/build/G3/TC-583/receipt.json
+closeout:
+- >-
+  tests/mcp/tools/test_product_reference_known_hazards.py no longer names the removed 'jmap' family anywhere;
+  tests/deploy/test_removed_family_absent.py's permanent guard passes clean.
+recovery: Re-run from a clean tree.
