@@ -19,6 +19,7 @@ actually exercising the same path a live ingest would.
 from __future__ import annotations
 
 import json
+import shutil
 import sys
 from pathlib import Path
 
@@ -28,8 +29,9 @@ from foss_mcp.indexing.generation_manifest import GenerationManifestStore, build
 from foss_mcp.indexing.lexical_index_writer import build_lexical_index
 from foss_mcp.indexing.publisher import content_chunk_id, new_version, publish_generation
 from foss_mcp.indexing.vector_index_writer import build_vector_index
-from foss_mcp.mcp.routing import DeploymentConfig
+from foss_mcp.mcp.routing import DeploymentConfig, Scope
 from foss_mcp.mcp.tools.get_product_reference import NotAvailable, ReferenceContent, get_product_reference
+from foss_mcp.mcp.tools.readme_sections import read_readme_sections
 from foss_mcp.normalization.chunker import Chunk
 from foss_mcp.normalization.document_schema import Provenance
 from foss_mcp.telemetry.usage_recorder import UsageRecorder
@@ -39,11 +41,19 @@ from tests.infra.readiness_support import ready_chunks
 # infra/ is not a package (no __init__.py, matching scripts/ convention) - import its module
 # directly from the path, the same way tests/mcp/test_server_wiring.py and infra's own
 # entrypoints do it.
-sys.path.insert(0, str(Path(__file__).parents[2] / "infra"))
+REPO_ROOT = Path(__file__).parents[2]
+sys.path.insert(0, str(REPO_ROOT / "infra"))
 import serve_http  # noqa: E402
 
 DEPLOYMENT_CONFIG = DeploymentConfig(family="pdf", platform="net")
 PROVENANCE = Provenance(repository="aspose-pdf-foss/Aspose.PDF-FOSS-for-.NET", commit="b717287" * 5)
+
+# G3/TC-582 (rework): the real, already-committed baked pilot output (see Dockerfile.serving's
+# "demo" stage) - used ONLY to prove cells/go's known_hazards disclosure reaches the live
+# "limitations" answer through serve_http's own real code path, never a hand-built
+# ProductReferenceInputs.
+DEMO_MANIFESTS = REPO_ROOT / "infra" / "demo-manifests"
+SOURCE_KIND = "self_extracted"
 
 
 def _store(tmp_path: Path) -> GenerationManifestStore:
@@ -475,6 +485,103 @@ def test_serving_product_reference_inputs_is_none_when_the_manifest_sidecar_is_a
     )
 
     assert serve_http._serving_product_reference_inputs(tmp_path, config) is None
+
+
+# ------------------------------------------------------------------------------- G3/TC-582 (rework)
+# _serving_product_reference_inputs now also merges this deployment's own known_hazards
+# (config/products/<family>/<platform>.yaml, independent local config, never the sidecar) into
+# EVERY path it can return - proving the real live server, not just get_product_reference's own
+# unit tests, now serves cells/go's reproduced concurrency-crash disclosure.
+# ---------------------------------------------------------------------------------------------------
+
+CELLS_GO_CONFIG = DeploymentConfig(family="cells", platform="go")
+KNOWN_HAZARD_LEAD = "Known hazard (verified by this project)"
+
+
+def test_serving_product_reference_inputs_discloses_known_hazard_with_no_sidecar_at_all(
+    tmp_path: Path,
+) -> None:
+    """A pilot that has never successfully ingested (no manifest sidecar at all, so the
+    un-merged function would answer bare None) still gets cells/go's real known_hazards entry:
+    known_hazards is independent local config, not something a missing ingestion should suppress."""
+    result = serve_http._serving_product_reference_inputs(tmp_path, CELLS_GO_CONFIG)
+
+    assert result is not None
+    assert result.manifest_text is None  # unaffected: still exactly what the None case always was
+    assert len(result.known_hazards) == 1
+    hazard = result.known_hazards[0]
+    assert "goroutine" in hazard.text.lower()
+    assert "workbook" in hazard.text.lower()
+    assert hazard.verified_at == "2026-10-24"
+
+
+def test_serving_product_reference_inputs_discloses_known_hazard_with_a_real_sidecar_present(
+    tmp_path: Path,
+) -> None:
+    """The normal case - a real manifest sidecar present and healthy - still gets the merge, and
+    every sidecar-derived field (manifest_text here) is completely unaffected by it."""
+    manifest_text = "module github.com/aspose-cells-foss/Aspose.Cells-FOSS-for-Go/v26\n\ngo 1.24.5\n"
+    _write_manifest_sidecar(tmp_path, "cells", "go", manifest_text)
+
+    result = serve_http._serving_product_reference_inputs(tmp_path, CELLS_GO_CONFIG)
+
+    assert result is not None
+    assert result.manifest_text == manifest_text  # untouched by the known_hazards merge
+    assert len(result.known_hazards) == 1
+    assert "workbook" in result.known_hazards[0].text.lower()
+
+
+def test_serving_product_reference_inputs_unaffected_for_a_pilot_with_no_known_hazards_field(
+    tmp_path: Path,
+) -> None:
+    """A pilot whose manifest carries no known_hazards field (every pilot but cells/go, today) is
+    unaffected either way: known_hazards stays () whether or not a sidecar is present."""
+    config = DeploymentConfig(family="pdf", platform="net")
+
+    assert serve_http._serving_product_reference_inputs(tmp_path, config) is None
+
+    manifest_text = "<Project><PropertyGroup><PackageId>Aspose.PDF-FOSS</PackageId></PropertyGroup></Project>"
+    _write_manifest_sidecar(tmp_path, "pdf", "net", manifest_text)
+    result = serve_http._serving_product_reference_inputs(tmp_path, config)
+
+    assert result is not None
+    assert result.manifest_text == manifest_text
+    assert result.known_hazards == ()
+
+
+def test_cells_go_live_limitations_answer_discloses_the_hazard_via_the_real_serve_http_path(
+    tmp_path: Path,
+) -> None:
+    """cells/go's LIVE limitations answer - built the exact way the real server builds it
+    (serve_http._serving_product_reference_inputs over a real baked sidecar, the real README,
+    never a hand-constructed ProductReferenceInputs) - discloses the reproduced concurrency-crash
+    hazard, distinctly framed, and the README-sourced text is still there too."""
+    scope_dir = f"cells__go__{SOURCE_KIND}"
+    scopes_dir = tmp_path / "scopes"
+    scopes_dir.mkdir()
+    shutil.copytree(DEMO_MANIFESTS / scope_dir, scopes_dir / scope_dir)
+    manifests_dir = tmp_path / "manifests"
+    manifests_dir.mkdir()
+    shutil.copyfile(
+        DEMO_MANIFESTS / "product_reference_cells_go.json",
+        manifests_dir / serve_http.sidecar_name("cells", "go"),
+    )
+
+    inputs = serve_http._serving_product_reference_inputs(manifests_dir, CELLS_GO_CONFIG)
+    assert inputs is not None
+    assert len(inputs.known_hazards) == 1
+
+    store = GenerationManifestStore(scopes_dir)
+    readme = read_readme_sections(store, Scope(family="cells", platform="go"))
+
+    result = get_product_reference(inputs, "limitations", readme=readme)
+
+    assert isinstance(result, ReferenceContent)
+    assert result.section == "limitations"
+    assert KNOWN_HAZARD_LEAD in result.text
+    assert "goroutine" in result.text.lower()
+    assert "workbook" in result.text.lower()
+    assert result.untrusted_upstream_content is False
 
 
 def test_mcp_transport_is_still_reachable_alongside_readyz(tmp_path: Path) -> None:

@@ -93,7 +93,11 @@ from foss_mcp.mcp.sidecar_state import (
     SIDECAR_PRESENT,
 )
 from foss_mcp.mcp.tools.example_search_mode import EXAMPLE_SEARCH_LEXICAL_ONLY, example_search_mode
-from foss_mcp.mcp.tools.get_product_reference import ProductReferenceInputs
+from foss_mcp.mcp.tools.get_product_reference import (
+    KnownHazard,
+    ProductReferenceInputs,
+    known_hazards_from_manifest,
+)
 from foss_mcp.mcp.tools.report_index_freshness import report_index_freshness
 from foss_mcp.mcp.transport_security import Rejection, reject_request_detail, rejection_body
 from foss_mcp.telemetry.metrics import CONTENT_TYPE as PROMETHEUS_CONTENT_TYPE
@@ -109,6 +113,12 @@ PLATFORM_ENV = "FOSS_MCP_PLATFORM"
 # The chart mounts the manifests claim at this path (values.yaml manifests.mountPath).
 MANIFESTS_DIR_ENV = "FOSS_MCP_MANIFESTS_DIR"
 DEFAULT_MANIFESTS_DIR = "/data/manifests"
+# G3/TC-582 (rework): config/products/ is a sibling of infra/ at the repository root, and both are
+# baked verbatim into the serving image at that same relative layout (Dockerfile.serving's
+# `COPY config/ ./config/` and `COPY infra/serve_http.py ./infra/serve_http.py`, both landing under
+# WORKDIR /app) - so this is the real, always-local path to a deployment's own product manifest at
+# serve time, independent of the process's current working directory and needing no network fetch.
+_PRODUCT_MANIFESTS_ROOT = Path(__file__).resolve().parent.parent / "config" / "products"
 HEALTHZ_PATH = "/healthz"
 READYZ_PATH = "/readyz"
 METRICS_PATH = "/metrics"
@@ -1411,7 +1421,7 @@ def _merge_registry_verification(
     )
 
 
-def _serving_product_reference_inputs(
+def _serving_product_reference_inputs_without_known_hazards(
     manifests_dir: Path, deployment_config: DeploymentConfig
 ) -> ProductReferenceInputs | None:
     """The product's own packaging manifest, from the sidecar for this deployment's identity in
@@ -1434,6 +1444,12 @@ def _serving_product_reference_inputs(
     ``verified``/``coordinate``/``checked_at`` fields into the returned ``ProductReferenceInputs``. An
     absent or unusable registry sidecar is never a hard requirement: the answers stay as if never
     verified.
+
+    G3/TC-582 (rework): named "without_known_hazards" because it never reads this deployment's own
+    ``known_hazards`` (config/products/<family>/<platform>.yaml, never the sidecar) - that merge is
+    ``_serving_product_reference_inputs``'s own job, applied uniformly to every path this returns,
+    this function's ``None`` included. Keep reading this docstring at that wrapper, not here, for
+    how ``known_hazards`` actually reaches the answer.
     """
     family = deployment_config.family
     platform = deployment_config.platform
@@ -1471,6 +1487,198 @@ def _serving_product_reference_inputs(
     if isinstance(recorded_at, str):
         sidecar = dataclasses.replace(sidecar, sidecar_fetched_at=recorded_at)
     return _merge_registry_verification(sidecar, manifests_dir, deployment_config)
+
+
+# G3/TC-582 (rework): a dependency-free, deliberately narrow reader for ONLY the OPTIONAL
+# `known_hazards:` top-level block of config/products/<family>/<platform>.yaml
+# (schemas/product/product-manifest.schema.json) - this project's own, already-committed, local
+# identity config, read directly from _PRODUCT_MANIFESTS_ROOT at serve time: no sidecar, no network
+# fetch. PyYAML is dev/ops-only (requirements-serving.in's own comment) and is NOT installed in the
+# serving image this module ships in, so a real YAML parser cannot be imported here. This handles
+# exactly the shape the schema allows for this one field - a block sequence of mappings, each with
+# only a `text` and a `verified_at` string, `text` as a plain/quoted scalar or a `|`/`>` block
+# scalar - and nothing more; it is not a general YAML implementation. Anything it does not
+# recognise (a missing file, a key it cannot parse, a manifest with no such key - every pilot but
+# cells/go, today) answers "no known_hazards" rather than guessing or raising: this merge is a
+# bonus disclosure that must never be able to take serving down over its own config file's shape.
+_KNOWN_HAZARDS_TOP_KEY_RE = re.compile(r"^known_hazards:[ \t]*$")
+_YAML_DASH_ITEM_RE = re.compile(r"^([ \t]*)-[ \t]+(.*)$")
+_YAML_KEY_VALUE_RE = re.compile(r"^([A-Za-z0-9_]+):[ \t]*(.*)$")
+_YAML_BLOCK_SCALAR_HEADER_RE = re.compile(r"^([|>])[+-]?[ \t]*$")
+
+
+def _dequote_yaml_scalar(value: str) -> str:
+    value = value.strip()
+    if len(value) >= 2 and value[0] == value[-1] and value[0] in "'\"":
+        return value[1:-1]
+    return value
+
+
+def _fold_yaml_block_scalar(block_lines: list[str], style: str) -> str:
+    """*block_lines* (the raw, still-indented lines collected under a `|`/`>` block scalar
+    header), dedented from the first non-blank line's own indentation and joined the way a real
+    YAML parser would - `|` (literal) keeps every line break, `>` (folded) joins with a single
+    space. Good enough for the plain hazard prose this narrow reader exists to read; blank lines
+    are not expected inside one hazard's text and are dropped rather than turned into a paragraph
+    break."""
+    content_indent: int | None = None
+    for raw in block_lines:
+        if raw.strip():
+            content_indent = len(raw) - len(raw.lstrip(" "))
+            break
+    if content_indent is None:
+        return ""
+    dedented = [raw[content_indent:] if len(raw) > content_indent else raw.lstrip(" ") for raw in block_lines]
+    if style == "|":
+        return "\n".join(dedented).rstrip("\n")
+    return " ".join(line.strip() for line in dedented if line.strip())
+
+
+def _known_hazard_entries_from_manifest_yaml_text(text: str) -> list[dict[str, str]]:
+    """``[{"text": ..., "verified_at": ...}, ...]`` parsed from *text*'s top-level
+    ``known_hazards:`` block, in file order - or ``[]`` when *text* carries no such key. Feeds
+    ``known_hazards_from_manifest`` (which does the actual validation this function does not
+    duplicate: a missing/blank ``text`` is its job to skip, not this one's)."""
+    lines = text.splitlines()
+    start: int | None = None
+    for index, line in enumerate(lines):
+        if _KNOWN_HAZARDS_TOP_KEY_RE.match(line):
+            start = index + 1
+            break
+    if start is None:
+        return []
+
+    entries: list[dict[str, str]] = []
+    current: dict[str, str] | None = None
+    dash_indent: int | None = None
+    field_indent: int | None = None
+    block_key: str | None = None
+    block_style = ">"
+    block_lines: list[str] = []
+
+    def close_block() -> None:
+        nonlocal block_key, block_lines
+        if block_key is not None and current is not None:
+            current[block_key] = _fold_yaml_block_scalar(block_lines, block_style)
+        block_key = None
+        block_lines = []
+
+    def handle_key_value(key: str, value: str) -> None:
+        nonlocal block_key, block_style, block_lines
+        header = _YAML_BLOCK_SCALAR_HEADER_RE.match(value.strip())
+        if header is not None:
+            block_key = key
+            block_style = header.group(1)
+            block_lines = []
+        elif current is not None:
+            current[key] = _dequote_yaml_scalar(value)
+
+    index = start
+    total = len(lines)
+    while index < total:
+        raw = lines[index]
+        if raw.strip() == "":
+            if block_key is not None:
+                block_lines.append("")
+            index += 1
+            continue
+        indent = len(raw) - len(raw.lstrip(" "))
+
+        if block_key is not None and indent > (field_indent or 0):
+            block_lines.append(raw)
+            index += 1
+            continue
+        if block_key is not None:
+            close_block()
+
+        if indent == 0:
+            break  # the next top-level manifest key - the known_hazards block has ended
+
+        dash_match = _YAML_DASH_ITEM_RE.match(raw)
+        if dash_match is not None and (dash_indent is None or indent <= dash_indent):
+            if current is not None:
+                entries.append(current)
+            current = {}
+            dash_indent = indent
+            field_indent = None
+            rest = dash_match.group(2)
+            key_match = _YAML_KEY_VALUE_RE.match(rest)
+            if key_match is not None:
+                field_indent = len(raw) - len(rest)
+                handle_key_value(key_match.group(1), key_match.group(2))
+            index += 1
+            continue
+
+        key_match = _YAML_KEY_VALUE_RE.match(raw.strip())
+        if key_match is not None and current is not None:
+            if field_indent is None:
+                field_indent = indent
+            if indent == field_indent:
+                handle_key_value(key_match.group(1), key_match.group(2))
+        index += 1
+
+    close_block()
+    if current is not None:
+        entries.append(current)
+    return entries
+
+
+def _known_hazards_for_deployment(deployment_config: DeploymentConfig) -> tuple[KnownHazard, ...]:
+    """This deployment's own ``known_hazards`` (``()`` for every pilot but cells/go, today), read
+    straight from its committed config/products/<family>/<platform>.yaml - independent local data,
+    never the sidecar, never a network fetch. Any problem reading or parsing the file (absent,
+    unreadable, no such key, a shape this narrow reader does not understand) answers ``()``, the
+    same as a manifest that genuinely carries no ``known_hazards`` field; this bonus disclosure
+    must never be able to raise and take serving down over its own config file."""
+    path = _PRODUCT_MANIFESTS_ROOT / deployment_config.family / f"{deployment_config.platform}.yaml"
+    try:
+        text = path.read_text(encoding="utf-8")
+    except OSError:
+        return ()
+    try:
+        entries = _known_hazard_entries_from_manifest_yaml_text(text)
+    except Exception:  # noqa: BLE001 - a narrow, non-general parser; any surprise is "no hazards".
+        LOG.warning(
+            "known_hazards config unreadable, serving without it",
+            extra={"family": deployment_config.family, "platform": deployment_config.platform},
+        )
+        return ()
+    return known_hazards_from_manifest({"known_hazards": entries})
+
+
+def _with_deployment_known_hazards(
+    inputs: ProductReferenceInputs | None, deployment_config: DeploymentConfig
+) -> ProductReferenceInputs | None:
+    """*inputs* with this deployment's own ``known_hazards`` merged in - the ONE place that merge
+    happens, applied uniformly to every path ``_serving_product_reference_inputs`` returns.
+
+    ``known_hazards`` is independent local config, not something a missing or failed sidecar
+    should be able to suppress, so a hazard-bearing deployment's answer is upgraded even where
+    *inputs* is ``None`` (no sidecar, no failure marker) - a fresh ``ProductReferenceInputs``
+    carrying the hazards is returned instead of bare ``None``. A deployment with no
+    ``known_hazards`` (every pilot but cells/go, today) passes *inputs* through completely
+    unchanged - ``None`` stays ``None``, and every existing fetch_failed/success path keeps its
+    exact prior shape - since ``()`` merges to nothing either way."""
+    hazards = _known_hazards_for_deployment(deployment_config)
+    if not hazards:
+        return inputs
+    if inputs is None:
+        return ProductReferenceInputs(platform=deployment_config.platform, known_hazards=hazards)
+    return dataclasses.replace(inputs, known_hazards=hazards)
+
+
+def _serving_product_reference_inputs(
+    manifests_dir: Path, deployment_config: DeploymentConfig
+) -> ProductReferenceInputs | None:
+    """``_serving_product_reference_inputs_without_known_hazards`` (the sidecar-derived answer -
+    see that function's own docstring for the full sidecar contract) with this deployment's own
+    ``known_hazards`` (config/products/<family>/<platform>.yaml) merged into EVERY path it can
+    return, via ``_with_deployment_known_hazards`` (G3/TC-582 rework): the ``None`` case, every
+    ``fetch_failed`` placeholder, and the real sidecar-success case alike. ``known_hazards`` is
+    local, already-committed config, independent of ingestion - it must reach the served
+    "limitations" answer even for a pilot that has never successfully ingested."""
+    raw = _serving_product_reference_inputs_without_known_hazards(manifests_dir, deployment_config)
+    return _with_deployment_known_hazards(raw, deployment_config)
 
 
 def _releases_problem(entries: list[Any], family: str, source_repository: str | None) -> str | None:
