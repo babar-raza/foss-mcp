@@ -75,10 +75,11 @@ requires:
 - python
 negative_control:
   mutate: |
-    python -X utf8 -c "import pathlib;p=pathlib.Path('Dockerfile.ingestion');s=p.read_text(encoding='utf-8');old='--channel 10.0';assert old in s;p.write_text(s.replace(old,'--channel 9.0',1),encoding='utf-8')"
+    python -X utf8 -c "import pathlib;p=pathlib.Path('Dockerfile.ingestion');s=p.read_text(encoding='utf-8');old='--version 10.0.402';assert old in s;p.write_text(s.replace(old,'--version 9.0.100',1),encoding='utf-8')"
   rationale: >-
-    Points the second SDK install at a different channel, so the image would not carry .NET 10 and the toolchain test fails. A real break
-    of the card's central claim.
+    Points the second SDK install at a different, non-.NET-10 version, so the image would not carry .NET 10 and the toolchain test fails.
+    A real break of the card's central claim. (2026-10-24: re-targeted - a later card, TC-570, pinned both SDK installs to an exact
+    --version instead of a floating --channel; the original literal text no longer exists verbatim.)
 closeout:
 - >-
   The ingestion image carries .NET SDK 10 beside 8 and a baked Python 3.12, pinned, so libraries that need them can be built and
