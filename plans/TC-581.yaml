@@ -88,11 +88,13 @@ requires:
 negative_control:
   mutate: >-
     python -X utf8 -c "import pathlib; p = pathlib.Path('infra/serve_http.py'); s = p.read_text(encoding='utf-8'); old = 'if
-    total > self.max_body_bytes:'; assert s.count(old) == 1, 'fix text not found - card and source have diverged'; p.write_text(s.replace(old,
-    'if total > self.max_body_bytes and False:', 1), encoding='utf-8')"
+    total > self.max_request_body_bytes:'; assert s.count(old) == 1, 'fix text not found - card and source have diverged';
+    p.write_text(s.replace(old, 'if total > self.max_request_body_bytes and False:', 1), encoding='utf-8')"
   rationale: >-
     Disables the new size-ceiling check entirely (the condition can never fire), so an oversized request is no longer rejected
-    and the new over-the-ceiling test must fail. A real break of the card's central claim.
+    and the new over-the-ceiling test must fail. A real break of the card's central claim. (2026-10-24: re-targeted to the
+    worker's own `max_request_body_bytes` attribute name - the original guess, `max_body_bytes`, collided with the pre-existing
+    id-check attribute of that name.)
 evidence:
 - evidence/build/G3/TC-581/receipt.json
 closeout:
