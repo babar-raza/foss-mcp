@@ -120,12 +120,13 @@ requires:
 negative_control:
   mutate: >-
     python -X utf8 -c "import pathlib;p=pathlib.Path('src/foss_mcp/mcp/tools/readme_sections.py');s=p.read_text(encoding='utf-8');old='if
-    body and body[0].startswith(_FAQ_PREFIX) and pattern != INSTALL_TITLE_PATTERN:';assert old in s, 'fix text not found -
-    card and source have diverged';new='if body and body[0].startswith(_FAQ_PREFIX):';p.write_text(s.replace(old,new,1),encoding='utf-8')"
+    is_faq and pattern != INSTALL_TITLE_PATTERN:';assert old in s, 'fix text not found - card and source have diverged';new='if
+    is_faq:';p.write_text(s.replace(old,new,1),encoding='utf-8')"
   rationale: >-
     Reverts the pattern-conditional FAQ exclusion back to the original unconditional one, so an FAQ-titled install chunk is
     excluded again and cells/cpp's install answer reverts to NotAvailable: the new live-data regression test (and the synthetic
-    install-vs-limitations tests) must fail. A real break of the card's central claim.
+    install-vs-limitations tests) must fail. A real break of the card's central claim. (2026-10-24: re-targeted to match
+    the worker's own `is_faq` refactor - the original literal condition text no longer exists verbatim in the source.)
 evidence:
 - evidence/build/G3/TC-574/receipt.json
 closeout:
