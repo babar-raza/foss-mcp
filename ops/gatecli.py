@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import re
 import subprocess
 import sys
 import tempfile
@@ -134,6 +135,15 @@ def cmd_validate(args) -> int:
             )
     elif cards:
         problems.append("project/state.yaml is missing (run `gatectl state --write`)")
+
+    # 9b. every commit tagged for a card already on `main` must belong to a card that was
+    # ACCEPTED (or SUPERSEDED, or accepted at some point in main's own history and later
+    # legitimately regressed by a gate-exit re-verification) - see _commit_provenance_problems'
+    # own docstring. TC-574 (2026-10-23): a product-code fix landed directly on a checked-out
+    # main, self-declared "verified" with no gatectl verify/accept ever run; nothing else in
+    # this function would have caught it, and `next` only surfaced it days and six cards later
+    # once it ran out of READY work.
+    problems.extend(_commit_provenance_problems(rebuilt, cards))
 
     # 10. every schema-declared budget checked against the REAL artifact.
     #     A const nothing reads is a lie with a certificate.
@@ -386,6 +396,85 @@ def _git_identity_problems():
             "core.bare=true in this checkout's own config - a real working checkout must "
             "never be bare (see docs/DECISION_LOG.md's 2026-10-10 entry); run "
             "`git config core.bare false`"
+        )
+    return out
+
+
+_CARD_TAG_RE = re.compile(r"\((G[0-5])/(TC-\d{3}[a-z]?)\)\s*$")
+
+
+def _commit_provenance_problems(rebuilt, cards):
+    """Every commit on `main` tagged `(GATE/TC-NNN)` (AGENTS.md Worker Rule 6) must belong to a
+    card that is accepted now, or was accepted at some point in main's own history. The only
+    governed path onto main is `gatectl integrate`, which refuses unless that card's receipt is
+    already accepted (ops/integrate.py) - a commit that reaches main any other way is
+    indistinguishable by eye from a properly integrated one, so this reads git history directly
+    rather than trusting anything derived from it.
+
+    Found by direct reflog comparison (2026-10-24 audit): a properly integrated commit is
+    `cherry-pick: ...`; TC-574's two commits were plain `commit: ...`, with no `worker/TC-574`
+    branch ever created and no `evidence/build/G3/TC-574/` ever written. `cmd_validate`'s step 9
+    (state-rebuild check) does not catch this: an IN_PROGRESS card under the 3-attempt cap is an
+    ordinary, unremarkable status, so nothing else here treats it as a problem, and the only
+    thing that eventually surfaced it was `next` running out of READY cards once enough later
+    cards had been dispatched on top of it.
+
+    A card accepted once and later regressed by a real gate-exit re-verification (confirmed for
+    TC-345/346/347/349/350/377: each has its own `worker/<card>` branch that is NOT an ancestor
+    of main, and a real receipt with a genuine failure reason) is a tracked rework-backlog gap,
+    not a provenance bypass - the "ever accepted in main's own history" clause below exists
+    specifically so this check does not conflate the two and drown the real signal.
+    """
+    out: list[str] = []
+    rc, _, _ = G.run(["git", "rev-parse", "--verify", "main"])
+    if rc != 0:
+        return out
+    status_by_id = {r["id"]: r["status"] for r in rebuilt.get("cards", [])}
+    gate_by_id = {r["id"]: r["gate"] for r in rebuilt.get("cards", [])}
+    _, log, _ = G.run(["git", "log", "main", "--format=%H\x1f%s"])
+    tagged: dict[str, list[str]] = {}
+    for line in log.splitlines():
+        if "\x1f" not in line:
+            continue
+        sha, subject = line.split("\x1f", 1)
+        m = _CARD_TAG_RE.search(subject.strip())
+        if m:
+            tagged.setdefault(m.group(2), []).append(sha)
+    for cid, shas in sorted(tagged.items()):
+        if cid not in cards:
+            continue  # retired, pre-redesign card id; outside this check's jurisdiction
+        if status_by_id.get(cid) in ("ACCEPTED", "SUPERSEDED"):
+            continue
+        gate = gate_by_id.get(cid) or cards[cid].get("gate", "")
+        receipt_path = f"evidence/build/{gate}/{cid}/receipt.json"
+        _, path_log, _ = G.run(["git", "log", "main", "--format=%H", "--", receipt_path])
+        ever_accepted = False
+        for rev in path_log.splitlines():
+            rev = rev.strip()
+            if not rev:
+                continue
+            rc2, blob, _ = G.run(["git", "show", f"{rev}:{receipt_path}"])
+            if rc2 != 0:
+                continue
+            try:
+                if json.loads(blob).get("accepted"):
+                    ever_accepted = True
+                    break
+            except json.JSONDecodeError:
+                continue
+        if ever_accepted:
+            continue
+        out.append(
+            f"UNVERIFIED COMMIT ON main: {cid} has {len(shas)} commit(s) tagged for it already "
+            f"on main (e.g. {shas[0][:12]}) but it has NEVER been accepted (current status "
+            f"{status_by_id.get(cid, 'UNKNOWN')}). A commit for a card may reach main ONLY via "
+            f"`gatectl integrate`, which refuses unless that card's receipt is already accepted "
+            f"- this commit got onto main some other way (a direct commit on a checked-out main "
+            f"is a known failure mode; see TC-574, 2026-10-23, for the precedent). Run `gatectl "
+            f"verify {cid}` and `gatectl accept {cid}` against the commit already on main to "
+            f"close the gap retroactively, or, if it cannot pass, treat it as FAILED_INTERNAL "
+            f"and open a rework/replacement card - never edit project/state.yaml or the card to "
+            f"make this message go away."
         )
     return out
 
@@ -843,7 +932,7 @@ def cmd_commit_guard(args) -> int:
             path = path.split(" -> ", 1)[1].strip().strip('"')
         if not path:
             continue
-        if G.matches_any(path, G.GLOBAL_DENY) or path.startswith("docs/"):
+        if G.matches_any(path, G.GLOBAL_DENY) or path.startswith("docs/") or path == "AGENTS.md":
             continue  # supervisor-owned or shared documentation
         if supervisor_data_not_owned_by_open_card(path, open_dispatches):
             continue  # supervisor-owned baked data that no open card is allowed to write
@@ -1324,12 +1413,19 @@ def cmd_accept(args) -> int:
     # comparing against the current queue would always refuse.
     expected = V.next_card(V.rebuild_state(as_if_unstarted=args.card))
     r = V.load_receipt(_gate_of(args.card), args.card)
+    # Includes args.card itself harmlessly: by the time accept runs, verify has already written
+    # an accepted receipt for it, so rebuild_state() already reads its status as ACCEPTED and
+    # _commit_provenance_problems skips it - this only ever fires for a DIFFERENT card already
+    # sitting unverified on main (the TC-574/TC-575 shape: catches it one card later, at the
+    # next card's own accept, instead of six cards and a stalled dispatcher later).
+    unverified_on_main = _commit_provenance_problems(V.rebuild_state(), G.all_cards())
     conditions = {
         "receipt exists": r is not None,
         "receipt.accepted": bool(r and r.get("accepted")),
         "scope ok": bool(r and r["scope"]["ok"]),
         "negative control failed as required": bool(r and r["negative_control"]["patch_applied_failed"]),
         "card was the deterministic next card": expected == args.card or args.force_order,
+        "no other card sits unaccepted on main": not unverified_on_main,
     }
     for k, v in conditions.items():
         print(f"  [{'x' if v else ' '}] {k}")

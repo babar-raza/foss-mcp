@@ -58,6 +58,15 @@ incentive that produces confident, false "done" claims.
 4. Never hand-write `project/state.yaml`, a receipt, or a timestamp.
 5. Author each card's negative-control patch before dispatching the card.
 6. On rework, send a numbered defect list — never "try again".
+7. Never commit directly against a checked-out `main`, however small the fix —
+   not even "the worker already has it right, just commit it." Every change to
+   a tracked path reaches `main` only through `gatectl verify` → `accept` →
+   `integrate`, on a worker's own branch; a commit that skips this is
+   indistinguishable by eye from a properly integrated one (TC-574, 2026-10-23).
+8. Run `gatectl validate` right after every `accept`/`integrate`, not only
+   before a push. A gap it catches the same minute costs one card to fix; left
+   for a whole gate it costs six more cards accepted on top of an unverified
+   one, found only when `next` runs out of READY work.
 
 ## Decisions: you decide, you never ask
 
