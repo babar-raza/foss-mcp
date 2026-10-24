@@ -1,0 +1,240 @@
+
+===== CLEAN RUN 1 (host) =====
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-7b182948484d7df9\Scripts\python.exe -m pytest tests/mcp/tools/test_cpp_install_faq_fallback.py tests/mcp/tools/test_readme_sections.py -q -rfE "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-rbz8plb6\.junit-0.xml"
+--- stdout ---
+...................................................................      [100%]
+
+--- stderr ---
+
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-7b182948484d7df9\Scripts\python.exe -m pytest tests/mcp/tools/test_cpp_install_faq_fallback.py tests/mcp/tools/test_readme_sections.py tests/mcp/tools/test_product_reference_baked_contract.py tests/mcp/tools/test_round3_install_truth.py -q -rfE -p no:cacheprovider "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-rbz8plb6\.junit-1.xml"
+--- stdout ---
+........................................................................ [ 29%]
+........................................................................ [ 59%]
+........................................................................ [ 89%]
+..........................                                               [100%]
+
+--- stderr ---
+
+
+===== CLEAN RUN 2 (host) =====
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-7b182948484d7df9\Scripts\python.exe -m pytest tests/mcp/tools/test_cpp_install_faq_fallback.py tests/mcp/tools/test_readme_sections.py -q -rfE "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-rbz8plb6\.junit-0.xml"
+--- stdout ---
+...................................................................      [100%]
+
+--- stderr ---
+
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-7b182948484d7df9\Scripts\python.exe -m pytest tests/mcp/tools/test_cpp_install_faq_fallback.py tests/mcp/tools/test_readme_sections.py tests/mcp/tools/test_product_reference_baked_contract.py tests/mcp/tools/test_round3_install_truth.py -q -rfE -p no:cacheprovider "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-rbz8plb6\.junit-1.xml"
+--- stdout ---
+........................................................................ [ 29%]
+........................................................................ [ 59%]
+........................................................................ [ 89%]
+..........................                                               [100%]
+
+--- stderr ---
+
+
+===== NEGATIVE CONTROL (checks MUST now fail) =====
+mutated: M src/foss_mcp/mcp/tools/readme_sections.py, ?? .junit-0.xml, ?? .junit-1.xml
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-7b182948484d7df9\Scripts\python.exe -m pytest tests/mcp/tools/test_cpp_install_faq_fallback.py tests/mcp/tools/test_readme_sections.py -q -rfE "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-rbz8plb6\.junit-0.xml"
+--- stdout ---
+F..F...F...........F...............................................      [100%]
+================================== FAILURES ===================================
+_________ test_a_synthetic_faq_install_chunk_is_real_install_guidance _________
+
+    def test_a_synthetic_faq_install_chunk_is_real_install_guidance() -> None:
+        documents = _documents(
+            _chunk(
+                "How do I install the library?",
+                "FAQ: How do I install the library?\n\nClone the repository and use CMake add_subdirectory "
+                "or FetchContent. Requires a C++17 compiler.",
+            )
+        )
+    
+        install = sections_from_documents(documents).install
+    
+>       assert install is not None
+E       assert None is not None
+
+tests\mcp\tools\test_cpp_install_faq_fallback.py:63: AssertionError
+_ test_cpp_pilots_get_real_install_guidance_from_the_real_baked_data[cells_cpp] _
+
+pilot = 'cells_cpp'
+
+    @pytest.mark.parametrize("pilot", CPP_PILOTS)
+    def test_cpp_pilots_get_real_install_guidance_from_the_real_baked_data(pilot: str) -> None:
+        """The one live proof that matters: no C++ pilot's install answer is a guess, and none that has real
+        install-shaped content in its README is left answering NotAvailable."""
+        family, platform = pilot.split("_", 1)
+        store = GenerationManifestStore(MANIFESTS)
+        key = f"{family}::{platform}::{SOURCE_KIND}"
+        generation_id = store.read_active(key)
+        assert generation_id, pilot
+        documents = store.read_generation(key, generation_id).payload["lexical_index"]["documents"]
+        has_install_chunk = any(
+            "install" in text.split("\n", 1)[0].lower()
+            for text in (d.get("text", "") for d in documents.values())
+            if text.startswith("FQN: Doc: ")
+        )
+    
+        result = _real_install_answer(pilot)
+    
+        if not has_install_chunk:
+            assert isinstance(result, NotAvailable), (pilot, "no install-shaped README content exists for it")
+            return
+>       assert isinstance(result, ReferenceContent), (pilot, getattr(result, "reason", None))
+E       AssertionError: ('cells_cpp', 'the CMake manifest names no package-manager coordinate; list_recent_changes may describe binary distributions for this product')
+E       assert False
+E        +  where False = isinstance(NotAvailable(section='install', reason='the CMake manifest names no package-manager coordinate; list_recent_changes may describe binary distributions for this product'), ReferenceContent)
+
+tests\mcp\tools\test_cpp_install_faq_fallback.py:126: AssertionError
+___________ test_cells_cpp_install_is_the_faq_fallback_specifically ___________
+
+    def test_cells_cpp_install_is_the_faq_fallback_specifically() -> None:
+        """cells/cpp is the pilot RD3-080 names: its only install content is the FAQ answer this card
+        unblocks. Before this fix it answered NotAvailable; now it answers with the real recipe."""
+        result = _real_install_answer("cells_cpp")
+    
+>       assert isinstance(result, ReferenceContent), getattr(result, "reason", None)
+E       AssertionError: the CMake manifest names no package-manager coordinate; list_recent_changes may describe binary distributions for this product
+E       assert False
+E        +  where False = isinstance(NotAvailable(section='install', reason='the CMake manifest names no package-manager coordinate; list_recent_changes may describe binary distributions for this product'), ReferenceContent)
+
+tests\mcp\tools\test_cpp_install_faq_fallback.py:136: AssertionError
+___________ test_an_faq_chunk_with_a_real_answer_is_install_content ___________
+
+    def test_an_faq_chunk_with_a_real_answer_is_install_content() -> None:
+        """G3/TC-574: a C++ pilot's README may document installation only as an FAQ entry - cells/cpp's real
+        README does exactly this. Unlike a bare FAQ question with no answer (above), one with a real answer
+        behind it is real install guidance, not a question to skip."""
+        documents = _documents(
+            _chunk(
+                "How do I install the library?",
+                "FAQ: How do I install the library?\n\nClone the repository and use CMake add_subdirectory.",
+            )
+        )
+    
+        install = sections_from_documents(documents).install
+>       assert install is not None
+E       assert None is not None
+
+tests\mcp\tools\test_readme_sections.py:129: AssertionError
+=========================== short test summary info ===========================
+FAILED tests/mcp/tools/test_cpp_install_faq_fallback.py::test_a_synthetic_faq_install_chunk_is_real_install_guidance
+FAILED tests/mcp/tools/test_cpp_install_faq_fallback.py::test_cpp_pilots_get_real_install_guidance_from_the_real_baked_data[cells_cpp]
+FAILED tests/mcp/tools/test_cpp_install_faq_fallback.py::test_cells_cpp_install_is_the_faq_fallback_specifically
+FAILED tests/mcp/tools/test_readme_sections.py::test_an_faq_chunk_with_a_real_answer_is_install_content
+
+--- stderr ---
+
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-7b182948484d7df9\Scripts\python.exe -m pytest tests/mcp/tools/test_cpp_install_faq_fallback.py tests/mcp/tools/test_readme_sections.py tests/mcp/tools/test_product_reference_baked_contract.py tests/mcp/tools/test_round3_install_truth.py -q -rfE -p no:cacheprovider "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-rbz8plb6\.junit-1.xml"
+--- stdout ---
+F..F...F...........F.................................................... [ 29%]
+.................................................................F...... [ 59%]
+........................................................................ [ 89%]
+..........................                                               [100%]
+================================== FAILURES ===================================
+_________ test_a_synthetic_faq_install_chunk_is_real_install_guidance _________
+
+    def test_a_synthetic_faq_install_chunk_is_real_install_guidance() -> None:
+        documents = _documents(
+            _chunk(
+                "How do I install the library?",
+                "FAQ: How do I install the library?\n\nClone the repository and use CMake add_subdirectory "
+                "or FetchContent. Requires a C++17 compiler.",
+            )
+        )
+    
+        install = sections_from_documents(documents).install
+    
+>       assert install is not None
+E       assert None is not None
+
+tests\mcp\tools\test_cpp_install_faq_fallback.py:63: AssertionError
+_ test_cpp_pilots_get_real_install_guidance_from_the_real_baked_data[cells_cpp] _
+
+pilot = 'cells_cpp'
+
+    @pytest.mark.parametrize("pilot", CPP_PILOTS)
+    def test_cpp_pilots_get_real_install_guidance_from_the_real_baked_data(pilot: str) -> None:
+        """The one live proof that matters: no C++ pilot's install answer is a guess, and none that has real
+        install-shaped content in its README is left answering NotAvailable."""
+        family, platform = pilot.split("_", 1)
+        store = GenerationManifestStore(MANIFESTS)
+        key = f"{family}::{platform}::{SOURCE_KIND}"
+        generation_id = store.read_active(key)
+        assert generation_id, pilot
+        documents = store.read_generation(key, generation_id).payload["lexical_index"]["documents"]
+        has_install_chunk = any(
+            "install" in text.split("\n", 1)[0].lower()
+            for text in (d.get("text", "") for d in documents.values())
+            if text.startswith("FQN: Doc: ")
+        )
+    
+        result = _real_install_answer(pilot)
+    
+        if not has_install_chunk:
+            assert isinstance(result, NotAvailable), (pilot, "no install-shaped README content exists for it")
+            return
+>       assert isinstance(result, ReferenceContent), (pilot, getattr(result, "reason", None))
+E       AssertionError: ('cells_cpp', 'the CMake manifest names no package-manager coordinate; list_recent_changes may describe binary distributions for this product')
+E       assert False
+E        +  where False = isinstance(NotAvailable(section='install', reason='the CMake manifest names no package-manager coordinate; list_recent_changes may describe binary distributions for this product'), ReferenceContent)
+
+tests\mcp\tools\test_cpp_install_faq_fallback.py:126: AssertionError
+___________ test_cells_cpp_install_is_the_faq_fallback_specifically ___________
+
+    def test_cells_cpp_install_is_the_faq_fallback_specifically() -> None:
+        """cells/cpp is the pilot RD3-080 names: its only install content is the FAQ answer this card
+        unblocks. Before this fix it answered NotAvailable; now it answers with the real recipe."""
+        result = _real_install_answer("cells_cpp")
+    
+>       assert isinstance(result, ReferenceContent), getattr(result, "reason", None)
+E       AssertionError: the CMake manifest names no package-manager coordinate; list_recent_changes may describe binary distributions for this product
+E       assert False
+E        +  where False = isinstance(NotAvailable(section='install', reason='the CMake manifest names no package-manager coordinate; list_recent_changes may describe binary distributions for this product'), ReferenceContent)
+
+tests\mcp\tools\test_cpp_install_faq_fallback.py:136: AssertionError
+___________ test_an_faq_chunk_with_a_real_answer_is_install_content ___________
+
+    def test_an_faq_chunk_with_a_real_answer_is_install_content() -> None:
+        """G3/TC-574: a C++ pilot's README may document installation only as an FAQ entry - cells/cpp's real
+        README does exactly this. Unlike a bare FAQ question with no answer (above), one with a real answer
+        behind it is real install guidance, not a question to skip."""
+        documents = _documents(
+            _chunk(
+                "How do I install the library?",
+                "FAQ: How do I install the library?\n\nClone the repository and use CMake add_subdirectory.",
+            )
+        )
+    
+        install = sections_from_documents(documents).install
+>       assert install is not None
+E       assert None is not None
+
+tests\mcp\tools\test_readme_sections.py:129: AssertionError
+_ test_cells_cpp_install_has_the_url_commit_subdirectory_target_and_nuget_package _
+
+baked = <tests.mcp.tools.test_product_reference_baked_contract._Baked object at 0x00000144D88017F0>
+
+    def test_cells_cpp_install_has_the_url_commit_subdirectory_target_and_nuget_package(baked: _Baked) -> None:
+        """RD3-080/TC-574: cells/cpp's only install recipe in its README is a FAQ answer, which the index itself
+        now recognises as real install content (TC-574) - so the answer is available even with no sidecar README
+        at all. When a richer, manifest-sourced sidecar README is ALSO present (TC-561/TC-575's path, once
+        OWNER-14 is resolved), its CMakeLists-derived facts (subdirectory, target, package name) still enrich
+        the answer beyond what the FAQ text alone carries - that forward-compatible path is proven too."""
+        inputs, index_readme, doc_texts = baked.load("cells_cpp")
+>       assert index_readme.install is not None, "TC-574's FAQ fallback should populate this from the index alone"
+E       AssertionError: TC-574's FAQ fallback should populate this from the index alone
+E       assert None is not None
+E        +  where None = ReadmeSections(limitations=None, install=None, capabilities=None, formats=None, import_warning=None).install
+
+tests\mcp\tools\test_product_reference_baked_contract.py:276: AssertionError
+=========================== short test summary info ===========================
+FAILED tests/mcp/tools/test_cpp_install_faq_fallback.py::test_a_synthetic_faq_install_chunk_is_real_install_guidance
+FAILED tests/mcp/tools/test_cpp_install_faq_fallback.py::test_cpp_pilots_get_real_install_guidance_from_the_real_baked_data[cells_cpp]
+FAILED tests/mcp/tools/test_cpp_install_faq_fallback.py::test_cells_cpp_install_is_the_faq_fallback_specifically
+FAILED tests/mcp/tools/test_readme_sections.py::test_an_faq_chunk_with_a_real_answer_is_install_content
+FAILED tests/mcp/tools/test_product_reference_baked_contract.py::test_cells_cpp_install_has_the_url_commit_subdirectory_target_and_nuget_package
+
+--- stderr ---
+

@@ -1,0 +1,108 @@
+{
+  "schema_version": 1,
+  "card": "TC-574",
+  "gate": "G3",
+  "generated_by": "gatectl",
+  "generated_at": "2026-10-24T07:52:49Z",
+  "base_rev": "1f52bf259351128b7fe0b43e8fea80829404656f",
+  "head_rev": "32ea96d00211b5e1788db81a3272ad1dd952b4cf",
+  "card_sha256": "f24e5420a5421145159efdf34b3d61cb1a6e531d00619b0f1739230a1f6956c7",
+  "fingerprint": {
+    "python": "3.13.2",
+    "platform": "Windows-11-10.0.26300-SP0",
+    "lock_sha256": "7b182948484d7df9614b523f7a8180f795b6c51d55c418728525c1957f3e38ba",
+    "env": {
+      "PYTHONHASHSEED": "0",
+      "PYTHONUTF8": "1",
+      "PYTHONDONTWRITEBYTECODE": "1",
+      "PYTHONIOENCODING": "utf-8",
+      "TZ": "UTC",
+      "LC_ALL": "C.UTF-8",
+      "SOURCE_DATE_EPOCH": "1700000000",
+      "verify_runner": "host"
+    }
+  },
+  "scope": {
+    "ok": true,
+    "changed_paths": [],
+    "violations": [],
+    "evaluated": false
+  },
+  "runs": [
+    {
+      "run": 1,
+      "checks": [
+        {
+          "command": "{python} -m pytest tests/mcp/tools/test_cpp_install_faq_fallback.py tests/mcp/tools/test_readme_sections.py -q -rfE",
+          "exit_code": 0,
+          "duration_s": 2.846,
+          "stdout_sha256": "e8ca89320215100aa98af0253237bf6f46c62048fbacd0ca2bf547d0f2ee2c58",
+          "tests": 67,
+          "skipped": 0,
+          "errors": 0,
+          "failures": 0
+        },
+        {
+          "command": "{python} -m pytest tests/mcp/tools/test_cpp_install_faq_fallback.py tests/mcp/tools/test_readme_sections.py tests/mcp/tools/test_product_reference_baked_contract.py tests/mcp/tools/test_round3_install_truth.py -q -rfE -p no:cacheprovider",
+          "exit_code": 0,
+          "duration_s": 8.223,
+          "stdout_sha256": "cccc7697f7243d3526e88b5b7ef2bd8f60eb9ade89dba455e1c4899ea9560d8d",
+          "tests": 242,
+          "skipped": 0,
+          "errors": 0,
+          "failures": 0
+        }
+      ],
+      "all_passed": true
+    },
+    {
+      "run": 2,
+      "checks": [
+        {
+          "command": "{python} -m pytest tests/mcp/tools/test_cpp_install_faq_fallback.py tests/mcp/tools/test_readme_sections.py -q -rfE",
+          "exit_code": 0,
+          "duration_s": 1.416,
+          "stdout_sha256": "e8ca89320215100aa98af0253237bf6f46c62048fbacd0ca2bf547d0f2ee2c58",
+          "tests": 67,
+          "skipped": 0,
+          "errors": 0,
+          "failures": 0
+        },
+        {
+          "command": "{python} -m pytest tests/mcp/tools/test_cpp_install_faq_fallback.py tests/mcp/tools/test_readme_sections.py tests/mcp/tools/test_product_reference_baked_contract.py tests/mcp/tools/test_round3_install_truth.py -q -rfE -p no:cacheprovider",
+          "exit_code": 0,
+          "duration_s": 6.404,
+          "stdout_sha256": "cccc7697f7243d3526e88b5b7ef2bd8f60eb9ade89dba455e1c4899ea9560d8d",
+          "tests": 242,
+          "skipped": 0,
+          "errors": 0,
+          "failures": 0
+        }
+      ],
+      "all_passed": true
+    }
+  ],
+  "negative_control": {
+    "kind": "mutate",
+    "patch": "python -X utf8 -c \"import pathlib;p=pathlib.Path('src/foss_mcp/mcp/tools/readme_sections.py');s=p.read_text(encoding='utf-8');old='if is_faq and pattern != INSTALL_TITLE_PATTERN:';assert old in s, 'fix text not found - card and source have diverged';new='if is_faq:';p.write_text(s.replace(old,new,1),encoding='utf-8')\"",
+    "patch_sha256": "92451c285dd670f9d65713f1945df298380b1b293edb916f44a951e5d3dbdf25",
+    "applied": true,
+    "patch_applied_failed": true,
+    "exit_codes": [
+      1,
+      1
+    ],
+    "tree_changed": [
+      "M src/foss_mcp/mcp/tools/readme_sections.py",
+      "?? .junit-0.xml",
+      "?? .junit-1.xml"
+    ]
+  },
+  "holdout": {
+    "ran": false,
+    "passed": true,
+    "detail": "no holdout for this card"
+  },
+  "accepted": true,
+  "reason": "all gates passed"
+}
