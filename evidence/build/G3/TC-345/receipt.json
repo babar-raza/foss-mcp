@@ -3,9 +3,9 @@
   "card": "TC-345",
   "gate": "G3",
   "generated_by": "gatectl",
-  "generated_at": "2026-10-23T07:30:25Z",
-  "base_rev": "16659b2d4a6096ffadc96dc1b30bfe143684e096",
-  "head_rev": "16659b2d4a6096ffadc96dc1b30bfe143684e096",
+  "generated_at": "2026-10-24T08:20:51Z",
+  "base_rev": "7ca79932cf4005e6b01bbe285a6753d45c737bfd",
+  "head_rev": "042235f06f0cadbc859d9a27e31ef26cd0e80f75",
   "card_sha256": "2990c41bca47586a54f346f90b2846b2bbf5fbc6ed31bb38225b5fca449caf0d",
   "fingerprint": {
     "python": "3.13.2",
@@ -35,7 +35,7 @@
         {
           "command": "{python} -m pytest tests/deploy/test_image_workflow_gate.py tests/deploy/test_runbook.py -q -rfE",
           "exit_code": 0,
-          "duration_s": 5.636,
+          "duration_s": 7.452,
           "stdout_sha256": "b2cace8d442dfd18f85561da7ba0822d6c7c22d40c04361fb9e32fe98ee722ed",
           "tests": 97,
           "skipped": 0,
@@ -44,16 +44,16 @@
         },
         {
           "command": "{python} -m pytest tests/deploy tests/poc -q -rfE",
-          "exit_code": 1,
-          "duration_s": 190.345,
-          "stdout_sha256": "327305f074c3cdc11ade65fb7d9e283e5e091073f66b2cda85e4cc059c78943c",
-          "tests": 2635,
+          "exit_code": 0,
+          "duration_s": 212.292,
+          "stdout_sha256": "208d71c18d9788f1fc778a30f36fa9a514fb2ab381f819d6743b2c58068a411e",
+          "tests": 2844,
           "skipped": 0,
           "errors": 0,
-          "failures": 1
+          "failures": 0
         }
       ],
-      "all_passed": false
+      "all_passed": true
     },
     {
       "run": 2,
@@ -61,7 +61,7 @@
         {
           "command": "{python} -m pytest tests/deploy/test_image_workflow_gate.py tests/deploy/test_runbook.py -q -rfE",
           "exit_code": 0,
-          "duration_s": 4.414,
+          "duration_s": 5.818,
           "stdout_sha256": "b2cace8d442dfd18f85561da7ba0822d6c7c22d40c04361fb9e32fe98ee722ed",
           "tests": 97,
           "skipped": 0,
@@ -70,31 +70,39 @@
         },
         {
           "command": "{python} -m pytest tests/deploy tests/poc -q -rfE",
-          "exit_code": 1,
-          "duration_s": 190.971,
-          "stdout_sha256": "327305f074c3cdc11ade65fb7d9e283e5e091073f66b2cda85e4cc059c78943c",
-          "tests": 2635,
+          "exit_code": 0,
+          "duration_s": 197.906,
+          "stdout_sha256": "208d71c18d9788f1fc778a30f36fa9a514fb2ab381f819d6743b2c58068a411e",
+          "tests": 2844,
           "skipped": 0,
           "errors": 0,
-          "failures": 1
+          "failures": 0
         }
       ],
-      "all_passed": false
+      "all_passed": true
     }
   ],
   "negative_control": {
     "kind": "mutate",
     "patch": "python -X utf8 -c \"import pathlib;p=pathlib.Path('scripts/release/image_workflow_gate.py');s=p.read_text(encoding='utf-8');old='readyz';assert old in s;i=s.rindex(old);p.write_text(s[:i]+'readyzX'+s[i+len(old):],encoding='utf-8')\"\n",
-    "patch_sha256": "0000000000000000000000000000000000000000000000000000000000000000",
-    "applied": false,
-    "patch_applied_failed": false,
-    "exit_codes": []
+    "patch_sha256": "3d39396db93b6dcd539695ee70ea4a0ec4bf3a81b51a45e8f364cf0cefb3f3d8",
+    "applied": true,
+    "patch_applied_failed": true,
+    "exit_codes": [
+      1,
+      1
+    ],
+    "tree_changed": [
+      "M scripts/release/image_workflow_gate.py",
+      "?? .junit-0.xml",
+      "?? .junit-1.xml"
+    ]
   },
   "holdout": {
     "ran": false,
     "passed": true,
     "detail": "no holdout for this card"
   },
-  "accepted": false,
-  "reason": "checks failed: {python} -m pytest tests/deploy tests/poc -q -rfE; negative-control patch did not apply"
+  "accepted": true,
+  "reason": "all gates passed"
 }
