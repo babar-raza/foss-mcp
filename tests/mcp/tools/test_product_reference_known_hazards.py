@@ -54,7 +54,8 @@ ALL_PRODUCT_MANIFEST_PATHS = sorted(CONFIG_PRODUCTS.glob("*/*.yaml"))
 OTHER_PILOT_MANIFEST_PATHS = [
     path for path in ALL_PRODUCT_MANIFEST_PATHS if not (path.parent.name == "cells" and path.stem == "go")
 ]
-# re-pinned if a pilot is ever added or removed (G3/TC-551/TC-552 cut jmap to 32 real manifests).
+# 32 is every real pilot manifest under config/products/; 31 is that count minus cells/go.
+# If a pilot is ever added or removed, re-pin both counts here to match the new total.
 assert len(ALL_PRODUCT_MANIFEST_PATHS) == 32, ALL_PRODUCT_MANIFEST_PATHS
 assert len(OTHER_PILOT_MANIFEST_PATHS) == 31, OTHER_PILOT_MANIFEST_PATHS
 
