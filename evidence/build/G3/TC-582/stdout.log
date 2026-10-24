@@ -1,0 +1,229 @@
+
+===== CLEAN RUN 1 (host) =====
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-7b182948484d7df9\Scripts\python.exe -m pytest tests/mcp/tools/test_product_reference_known_hazards.py tests/schemas/test_product_manifest_schema.py -q -rfE "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-ehtm96ec\.junit-0.xml"
+--- stdout ---
+....................................................                     [100%]
+
+--- stderr ---
+
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-7b182948484d7df9\Scripts\python.exe -m pytest tests/mcp/tools/test_product_reference_known_hazards.py tests/schemas/test_product_manifest_schema.py tests/mcp/tools/test_product_reference_baked_contract.py tests/deploy/test_pilot_roster.py tests/infra/test_serve_http.py -q -rfE -p no:cacheprovider "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-ehtm96ec\.junit-1.xml"
+--- stdout ---
+........................................................................ [ 32%]
+........................................................................ [ 64%]
+........................................................................ [ 97%]
+......                                                                   [100%]
+============================== warnings summary ===============================
+..\venv-7b182948484d7df9\Lib\site-packages\starlette\testclient.py:53
+  E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-7b182948484d7df9\Lib\site-packages\starlette\testclient.py:53: DeprecationWarning: The anyio.abc.BlockingPortal alias is deprecated, use anyio.from_thread.BlockingPortal instead.
+    _PortalFactoryType = Callable[[], AbstractContextManager[anyio.abc.BlockingPortal]]
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+
+--- stderr ---
+
+
+===== CLEAN RUN 2 (host) =====
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-7b182948484d7df9\Scripts\python.exe -m pytest tests/mcp/tools/test_product_reference_known_hazards.py tests/schemas/test_product_manifest_schema.py -q -rfE "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-ehtm96ec\.junit-0.xml"
+--- stdout ---
+....................................................                     [100%]
+
+--- stderr ---
+
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-7b182948484d7df9\Scripts\python.exe -m pytest tests/mcp/tools/test_product_reference_known_hazards.py tests/schemas/test_product_manifest_schema.py tests/mcp/tools/test_product_reference_baked_contract.py tests/deploy/test_pilot_roster.py tests/infra/test_serve_http.py -q -rfE -p no:cacheprovider "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-ehtm96ec\.junit-1.xml"
+--- stdout ---
+........................................................................ [ 32%]
+........................................................................ [ 64%]
+........................................................................ [ 97%]
+......                                                                   [100%]
+============================== warnings summary ===============================
+..\venv-7b182948484d7df9\Lib\site-packages\starlette\testclient.py:53
+  E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-7b182948484d7df9\Lib\site-packages\starlette\testclient.py:53: DeprecationWarning: The anyio.abc.BlockingPortal alias is deprecated, use anyio.from_thread.BlockingPortal instead.
+    _PortalFactoryType = Callable[[], AbstractContextManager[anyio.abc.BlockingPortal]]
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+
+--- stderr ---
+
+
+===== NEGATIVE CONTROL (checks MUST now fail) =====
+mutated: M config/products/cells/go.yaml, ?? .junit-0.xml, ?? .junit-1.xml
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-7b182948484d7df9\Scripts\python.exe -m pytest tests/mcp/tools/test_product_reference_known_hazards.py tests/schemas/test_product_manifest_schema.py -q -rfE "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-ehtm96ec\.junit-0.xml"
+--- stdout ---
+FF..........................................F.......                     [100%]
+================================== FAILURES ===================================
+_ test_cells_go_live_limitations_discloses_the_reproduced_concurrency_hazard __
+
+tmp_path = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-12569/test_cells_go_live_limitations0')
+
+    def test_cells_go_live_limitations_discloses_the_reproduced_concurrency_hazard(tmp_path: Path) -> None:
+        """cells/go's LIVE limitations answer - the real baked sidecar, the real README, and the real
+        config/products/cells/go.yaml's own known_hazards entry - discloses the reproduced
+        concurrent-mutation crash, distinctly framed as this project's own verified finding, and the
+        merged answer is NEVER marked untrusted_upstream_content."""
+        inputs, readme = _load_baked(tmp_path, "cells", "go")
+        manifest = _real_manifest("cells", "go")
+        hazards = known_hazards_from_manifest(manifest)
+>       assert hazards, "config/products/cells/go.yaml must carry at least one known_hazards entry"
+E       AssertionError: config/products/cells/go.yaml must carry at least one known_hazards entry
+E       assert ()
+
+tests\mcp\tools\test_product_reference_known_hazards.py:95: AssertionError
+_ test_cells_go_manifest_known_hazard_states_failure_mode_trigger_and_safe_pattern _
+
+    def test_cells_go_manifest_known_hazard_states_failure_mode_trigger_and_safe_pattern() -> None:
+        """config/products/cells/go.yaml's own entry, read as plainly as an agent would: the real failure
+        mode (unrecoverable, not a catchable panic), the real trigger (two goroutines, one shared
+        Workbook), and the safe pattern (one Workbook per goroutine, or serialize access)."""
+        manifest = _real_manifest("cells", "go")
+        hazards = known_hazards_from_manifest(manifest)
+    
+>       assert len(hazards) == 1
+E       assert 0 == 1
+E        +  where 0 = len(())
+
+tests\mcp\tools\test_product_reference_known_hazards.py:124: AssertionError
+_ test_schema_accepts_config_products_cells_go_yaml_exactly_as_this_card_leaves_it _
+
+    def test_schema_accepts_config_products_cells_go_yaml_exactly_as_this_card_leaves_it():
+        manifest = yaml.safe_load((CONFIG_PRODUCTS / "cells" / "go.yaml").read_text(encoding="utf-8"))
+>       assert "known_hazards" in manifest
+E       AssertionError: assert 'known_hazards' in {'family': 'cells', 'platform': 'go', 'repository': 'aspose-cells-foss/Aspose.Cells-FOSS-for-Go', 'schedule': {'cron': '0 12 * * *', 'timezone': 'UTC'}, ...}
+
+tests\schemas\test_product_manifest_schema.py:70: AssertionError
+=========================== short test summary info ===========================
+FAILED tests/mcp/tools/test_product_reference_known_hazards.py::test_cells_go_live_limitations_discloses_the_reproduced_concurrency_hazard
+FAILED tests/mcp/tools/test_product_reference_known_hazards.py::test_cells_go_manifest_known_hazard_states_failure_mode_trigger_and_safe_pattern
+FAILED tests/schemas/test_product_manifest_schema.py::test_schema_accepts_config_products_cells_go_yaml_exactly_as_this_card_leaves_it
+
+--- stderr ---
+
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-7b182948484d7df9\Scripts\python.exe -m pytest tests/mcp/tools/test_product_reference_known_hazards.py tests/schemas/test_product_manifest_schema.py tests/mcp/tools/test_product_reference_baked_contract.py tests/deploy/test_pilot_roster.py tests/infra/test_serve_http.py -q -rfE -p no:cacheprovider "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-ehtm96ec\.junit-1.xml"
+--- stdout ---
+FF..........................................F........................... [ 32%]
+........................................................................ [ 64%]
+........................................................................ [ 97%]
+.FF.F.                                                                   [100%]
+================================== FAILURES ===================================
+_ test_cells_go_live_limitations_discloses_the_reproduced_concurrency_hazard __
+
+tmp_path = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-12570/test_cells_go_live_limitations0')
+
+    def test_cells_go_live_limitations_discloses_the_reproduced_concurrency_hazard(tmp_path: Path) -> None:
+        """cells/go's LIVE limitations answer - the real baked sidecar, the real README, and the real
+        config/products/cells/go.yaml's own known_hazards entry - discloses the reproduced
+        concurrent-mutation crash, distinctly framed as this project's own verified finding, and the
+        merged answer is NEVER marked untrusted_upstream_content."""
+        inputs, readme = _load_baked(tmp_path, "cells", "go")
+        manifest = _real_manifest("cells", "go")
+        hazards = known_hazards_from_manifest(manifest)
+>       assert hazards, "config/products/cells/go.yaml must carry at least one known_hazards entry"
+E       AssertionError: config/products/cells/go.yaml must carry at least one known_hazards entry
+E       assert ()
+
+tests\mcp\tools\test_product_reference_known_hazards.py:95: AssertionError
+_ test_cells_go_manifest_known_hazard_states_failure_mode_trigger_and_safe_pattern _
+
+    def test_cells_go_manifest_known_hazard_states_failure_mode_trigger_and_safe_pattern() -> None:
+        """config/products/cells/go.yaml's own entry, read as plainly as an agent would: the real failure
+        mode (unrecoverable, not a catchable panic), the real trigger (two goroutines, one shared
+        Workbook), and the safe pattern (one Workbook per goroutine, or serialize access)."""
+        manifest = _real_manifest("cells", "go")
+        hazards = known_hazards_from_manifest(manifest)
+    
+>       assert len(hazards) == 1
+E       assert 0 == 1
+E        +  where 0 = len(())
+
+tests\mcp\tools\test_product_reference_known_hazards.py:124: AssertionError
+_ test_schema_accepts_config_products_cells_go_yaml_exactly_as_this_card_leaves_it _
+
+    def test_schema_accepts_config_products_cells_go_yaml_exactly_as_this_card_leaves_it():
+        manifest = yaml.safe_load((CONFIG_PRODUCTS / "cells" / "go.yaml").read_text(encoding="utf-8"))
+>       assert "known_hazards" in manifest
+E       AssertionError: assert 'known_hazards' in {'family': 'cells', 'platform': 'go', 'repository': 'aspose-cells-foss/Aspose.Cells-FOSS-for-Go', 'schedule': {'cron': '0 12 * * *', 'timezone': 'UTC'}, ...}
+
+tests\schemas\test_product_manifest_schema.py:70: AssertionError
+_ test_serving_product_reference_inputs_discloses_known_hazard_with_no_sidecar_at_all _
+
+tmp_path = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-12570/test_serving_product_reference5')
+
+    def test_serving_product_reference_inputs_discloses_known_hazard_with_no_sidecar_at_all(
+        tmp_path: Path,
+    ) -> None:
+        """A pilot that has never successfully ingested (no manifest sidecar at all, so the
+        un-merged function would answer bare None) still gets cells/go's real known_hazards entry:
+        known_hazards is independent local config, not something a missing ingestion should suppress."""
+        result = serve_http._serving_product_reference_inputs(tmp_path, CELLS_GO_CONFIG)
+    
+>       assert result is not None
+E       assert None is not None
+
+tests\infra\test_serve_http.py:509: AssertionError
+_ test_serving_product_reference_inputs_discloses_known_hazard_with_a_real_sidecar_present _
+
+tmp_path = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-12570/test_serving_product_reference6')
+
+    def test_serving_product_reference_inputs_discloses_known_hazard_with_a_real_sidecar_present(
+        tmp_path: Path,
+    ) -> None:
+        """The normal case - a real manifest sidecar present and healthy - still gets the merge, and
+        every sidecar-derived field (manifest_text here) is completely unaffected by it."""
+        manifest_text = "module github.com/aspose-cells-foss/Aspose.Cells-FOSS-for-Go/v26\n\ngo 1.24.5\n"
+        _write_manifest_sidecar(tmp_path, "cells", "go", manifest_text)
+    
+        result = serve_http._serving_product_reference_inputs(tmp_path, CELLS_GO_CONFIG)
+    
+        assert result is not None
+        assert result.manifest_text == manifest_text  # untouched by the known_hazards merge
+>       assert len(result.known_hazards) == 1
+E       AssertionError: assert 0 == 1
+E        +  where 0 = len(())
+E        +    where () = ProductReferenceInputs(manifest_text='module github.com/aspose-cells-foss/Aspose.Cells-FOSS-for-Go/v26\n\ngo 1.24.5\n'...r_fetched_at=None, drift=None, readme_document=None, manifest_path=None, install_served_version=None, known_hazards=()).known_hazards
+
+tests\infra\test_serve_http.py:530: AssertionError
+_ test_cells_go_live_limitations_answer_discloses_the_hazard_via_the_real_serve_http_path _
+
+tmp_path = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-12570/test_cells_go_live_limitations1')
+
+    def test_cells_go_live_limitations_answer_discloses_the_hazard_via_the_real_serve_http_path(
+        tmp_path: Path,
+    ) -> None:
+        """cells/go's LIVE limitations answer - built the exact way the real server builds it
+        (serve_http._serving_product_reference_inputs over a real baked sidecar, the real README,
+        never a hand-constructed ProductReferenceInputs) - discloses the reproduced concurrency-crash
+        hazard, distinctly framed, and the README-sourced text is still there too."""
+        scope_dir = f"cells__go__{SOURCE_KIND}"
+        scopes_dir = tmp_path / "scopes"
+        scopes_dir.mkdir()
+        shutil.copytree(DEMO_MANIFESTS / scope_dir, scopes_dir / scope_dir)
+        manifests_dir = tmp_path / "manifests"
+        manifests_dir.mkdir()
+        shutil.copyfile(
+            DEMO_MANIFESTS / "product_reference_cells_go.json",
+            manifests_dir / serve_http.sidecar_name("cells", "go"),
+        )
+    
+        inputs = serve_http._serving_product_reference_inputs(manifests_dir, CELLS_GO_CONFIG)
+        assert inputs is not None
+>       assert len(inputs.known_hazards) == 1
+E       AssertionError: assert 0 == 1
+E        +  where 0 = len(())
+E        +    where () = ProductReferenceInputs(manifest_text='module github.com/aspose-cells-foss/Aspose.Cells-FOSS-for-Go/v26\n\ngo 1.24.5\n'...ched_at=None, drift=None, readme_document=None, manifest_path=None, install_served_version='v26.7.1', known_hazards=()).known_hazards
+
+tests\infra\test_serve_http.py:572: AssertionError
+============================== warnings summary ===============================
+..\venv-7b182948484d7df9\Lib\site-packages\starlette\testclient.py:53
+  E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-7b182948484d7df9\Lib\site-packages\starlette\testclient.py:53: DeprecationWarning: The anyio.abc.BlockingPortal alias is deprecated, use anyio.from_thread.BlockingPortal instead.
+    _PortalFactoryType = Callable[[], AbstractContextManager[anyio.abc.BlockingPortal]]
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+=========================== short test summary info ===========================
+FAILED tests/mcp/tools/test_product_reference_known_hazards.py::test_cells_go_live_limitations_discloses_the_reproduced_concurrency_hazard
+FAILED tests/mcp/tools/test_product_reference_known_hazards.py::test_cells_go_manifest_known_hazard_states_failure_mode_trigger_and_safe_pattern
+FAILED tests/schemas/test_product_manifest_schema.py::test_schema_accepts_config_products_cells_go_yaml_exactly_as_this_card_leaves_it
+FAILED tests/infra/test_serve_http.py::test_serving_product_reference_inputs_discloses_known_hazard_with_no_sidecar_at_all
+FAILED tests/infra/test_serve_http.py::test_serving_product_reference_inputs_discloses_known_hazard_with_a_real_sidecar_present
+FAILED tests/infra/test_serve_http.py::test_cells_go_live_limitations_answer_discloses_the_hazard_via_the_real_serve_http_path
+
+--- stderr ---
+
