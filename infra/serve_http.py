@@ -176,10 +176,28 @@ SESSION_HEADER = "mcp-session-id"
 _REJECTION_REASON_LOG_MAX = 200
 _LOGGED_PATH_MAX = 100
 _LOGGED_SESSION_ID_MAX = 64
-# The most a JSON-RPC body is read into memory to check its request id (the SDK's own body cap is 4 MiB).
+# The most a JSON-RPC body is read into memory to check its request id; a larger one skips the id
+# check and is passed through as-is (still subject to ``_MAX_REQUEST_BODY_BYTES`` below).
 _ID_CHECK_MAX_BODY_BYTES = 1024 * 1024
+# The hard ceiling on any ``/mcp`` POST body, enforced independently of whatever the underlying SDK
+# does on its own. Confirmed live in-process (G3/TC-581, 2026-10-24): the installed SDK (``mcp``
+# 2.3.0) does wrap its Streamable HTTP endpoint in its own ``RequestBodyLimitMiddleware`` with a
+# default 4 MiB cap - but that middleware sits INSIDE the Starlette router, strictly behind this
+# one, so a request between the 1 MiB id-check threshold above and that 4 MiB cap was never
+# rejected by anything (live-verified: a 2 MiB POST was fully read, parsed and Pydantic-validated).
+# Worse, when the SDK's own cap does fire it answers a bare ``text/plain`` 413 ("Request body too
+# large"), not this server's one shared JSON-RPC error envelope - relying on it would mean two
+# different error shapes depending on body size. Every real request this server actually serves
+# (a ``tools/call`` with a ``get_symbol``/``search_docs``/``find_examples``-style argument: a
+# handful of short strings - fqn, doc_id, a search query) is well under a few KiB, so 4 MiB is
+# comfortably above any legitimate request while matching the SDK's own ceiling: this check always
+# runs first (this middleware wraps the SDK's app, never the reverse), so an oversized body is
+# always rejected HERE, with this server's own envelope, before the SDK's differently-shaped
+# limiter ever gets a chance to see it.
+_MAX_REQUEST_BODY_BYTES = 4 * 1024 * 1024
 JSONRPC_INVALID_REQUEST_CODE = -32600
 INVALID_ID_MESSAGE = "Invalid Request: a JSON-RPC id must be a string or an integer"
+REQUEST_TOO_LARGE_MESSAGE = "Invalid Request: the request body exceeds this server's maximum size"
 UNKNOWN_SESSION_MESSAGE = (
     "Session not found: this server has no session with that id (it was closed, evicted as idle, or the "
     "server restarted). Send a new initialize request without an Mcp-Session-Id header to start one."
@@ -722,14 +740,30 @@ class RequestIdMiddleware:
     fraction, an array or an object as a NOTIFICATION and answers it with an empty HTTP 202, so a client with
     a bug gets silence. A POST to the MCP path with such an id is answered 400 with the JSON-RPC "Invalid
     Request" error (code -32600, id null) instead (G3/TC-564, RD3-125). The body (up to 1 MiB; a larger one
-    is passed through unchecked) is read here and replayed to the app byte for byte."""
+    is passed through unchecked) is buffered here, in full, and replayed to the app byte for byte.
+
+    A second, independent, always-enforced ceiling (``max_request_body_bytes``, G3/TC-581) bounds that same
+    buffering loop regardless of the id check: the running total is tracked all the way to the body's
+    natural end (never abandoned early just because the id-check threshold was already crossed - that was
+    the original defect, G3/TC-581's audit finding), and the moment it crosses the ceiling, buffering stops
+    for good - no further byte is ever pulled from the client or handed to the app - and the request is
+    rejected with this server's own JSON-RPC error envelope (never the differently-shaped one the SDK's own
+    internal limiter would otherwise answer with, and never left for the SDK to fully buffer and parse
+    first). A body over the id-check threshold but at or under this ceiling is still buffered in full (so
+    the ceiling can actually be enforced against its real size) and still skips the id check, exactly as
+    before - only its internal delivery changed, not its observable outcome."""
 
     def __init__(
-        self, app: ASGIApp, path: str = MCP_PATH, max_body_bytes: int = _ID_CHECK_MAX_BODY_BYTES
+        self,
+        app: ASGIApp,
+        path: str = MCP_PATH,
+        max_body_bytes: int = _ID_CHECK_MAX_BODY_BYTES,
+        max_request_body_bytes: int = _MAX_REQUEST_BODY_BYTES,
     ) -> None:
         self.app = app
         self.path = path
         self.max_body_bytes = max_body_bytes
+        self.max_request_body_bytes = max_request_body_bytes
 
     async def __call__(self, scope: ASGIScope, receive: Receive, send: Send) -> None:
         if scope["type"] != "http" or scope.get("method") != "POST" or scope.get("path") != self.path:
@@ -744,12 +778,23 @@ class RequestIdMiddleware:
             if message["type"] != "http.request":
                 break
             total += len(message.get("body", b""))
+            if total > self.max_request_body_bytes:
+                # The hard ceiling: stop buffering immediately, before reading another byte from the
+                # client or ever calling ``self.app`` - the remainder of the body is never read at all.
+                response = JSONResponse(
+                    {
+                        "jsonrpc": "2.0",
+                        "id": None,
+                        "error": {"code": JSONRPC_INVALID_REQUEST_CODE, "message": REQUEST_TOO_LARGE_MESSAGE},
+                    },
+                    status_code=400,
+                )
+                await response(scope, receive, send)
+                return
             if not message.get("more_body", False):
                 complete = True
                 break
-            if total > self.max_body_bytes:
-                break
-        if complete:
+        if complete and total <= self.max_body_bytes:
             body = b"".join(item.get("body", b"") for item in buffered)
             try:
                 document = json.loads(body)

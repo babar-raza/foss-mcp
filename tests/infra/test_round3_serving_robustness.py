@@ -833,6 +833,207 @@ def test_valid_ids_notifications_and_non_json_bodies_are_left_to_the_sdk(tmp_pat
         assert batch.status_code == 400 and batch.json()["error"]["code"] == -32600
 
 
+# --- (e2) the independent request-body size ceiling (G3/TC-581) ------------------------------------------
+
+
+def _stream_request_id_middleware(
+    inner_app: Any,
+    chunks: list[bytes],
+    *,
+    max_body_bytes: int,
+    max_request_body_bytes: int,
+) -> tuple[int | None, bytes, int]:
+    """Drive ``serve_http.RequestIdMiddleware`` directly with *chunks* delivered ONE AT A TIME via
+    ``more_body=True`` (the last one ``more_body=False``) - matching how a real large POST body
+    actually arrives on the wire, never one giant in-memory bytes object. Returns
+    ``(status_code, response_body, chunks_pulled)``; *chunks_pulled* is how many of *chunks* the
+    middleware's own ``receive()`` actually consumed before it answered, so a test can prove the
+    middleware stopped asking the client for more once it decided to reject - it never drains the
+    rest of an oversized body first."""
+    middleware = serve_http.RequestIdMiddleware(
+        inner_app, max_body_bytes=max_body_bytes, max_request_body_bytes=max_request_body_bytes
+    )
+    scope: dict[str, Any] = {"type": "http", "method": "POST", "path": "/mcp", "headers": []}
+    remaining = list(chunks)
+    pulled = 0
+
+    async def receive() -> dict[str, Any]:
+        nonlocal pulled
+        if not remaining:
+            raise AssertionError("the middleware pulled more chunks than the client ever sent")
+        chunk = remaining.pop(0)
+        pulled += 1
+        return {"type": "http.request", "body": chunk, "more_body": bool(remaining)}
+
+    sent: list[dict[str, Any]] = []
+
+    async def send(message: dict[str, Any]) -> None:
+        sent.append(message)
+
+    asyncio.run(middleware(scope, receive, send))
+    status = next((m["status"] for m in sent if m["type"] == "http.response.start"), None)
+    body = b"".join(m.get("body", b"") for m in sent if m["type"] == "http.response.body")
+    return status, body, pulled
+
+
+async def _consume_to_completion_and_answer_ok(scope: Any, receive: Any, send: Any) -> None:
+    """A stand-in for the SDK app: drains whatever the middleware replays/streams to it, then
+    answers 200. Used to prove a body was (or was not) handed to the inner app at all."""
+    while True:
+        message = await receive()
+        if message["type"] != "http.request" or not message.get("more_body", False):
+            break
+    await send({"type": "http.response.start", "status": 200, "headers": []})
+    await send({"type": "http.response.body", "body": b"ok", "more_body": False})
+
+
+def _chunked(data: bytes, chunk_size: int = 256 * 1024) -> list[bytes]:
+    """*data* split into ``chunk_size`` pieces (the last one shorter), preserving its real
+    content - the middleware parses whatever is reassembled from these, so a test that checks
+    the id check must not replace it with filler."""
+    return [data[i : i + chunk_size] for i in range(0, len(data), chunk_size)] or [b""]
+
+
+def _filler_chunks(total_bytes: int, chunk_size: int = 256 * 1024) -> list[bytes]:
+    """*total_bytes* of arbitrary filler split into ``chunk_size`` pieces - for tests that only
+    care about the running byte total (never parsed as JSON, because the body is rejected, or the
+    test asserts purely on how many chunks were pulled, before any content would matter)."""
+    whole, remainder = divmod(total_bytes, chunk_size)
+    chunks = [b"a" * chunk_size for _ in range(whole)]
+    if remainder:
+        chunks.append(b"a" * remainder)
+    return chunks or [b""]
+
+
+def _padded_body(total_bytes: int, *, bad_id: bool) -> bytes:
+    """A syntactically valid JSON-RPC request padded with an ``extra`` string field to exactly
+    *total_bytes*, with either a valid id (``1``) or an invalid one (``null``)."""
+    id_field = "null" if bad_id else "1"
+    skeleton = f'{{"jsonrpc":"2.0","id":{id_field},"method":"tools/list","params":{{"extra":""}}}}'
+    pad = max(0, total_bytes - len(skeleton))
+    return skeleton.replace('"extra":""', f'"extra":"{"a" * pad}"').encode()
+
+
+def test_the_new_ceiling_matches_the_sdk_s_own_and_is_above_1_mib() -> None:
+    """Sanity check on the constants themselves, so the tests below (which exercise the real
+    defaults) stay meaningful if either constant is ever retuned."""
+    assert serve_http._MAX_REQUEST_BODY_BYTES == 4 * 1024 * 1024
+    assert serve_http._MAX_REQUEST_BODY_BYTES > serve_http._ID_CHECK_MAX_BODY_BYTES == 1024 * 1024
+
+
+def test_a_body_under_the_id_check_threshold_still_gets_its_id_checked() -> None:
+    """Unchanged existing behaviour: a body under the 1 MiB id-check threshold with a bad id is
+    still rejected by the id check, ceiling untouched."""
+    body = _padded_body(2048, bad_id=True)
+    chunks = _chunked(body, chunk_size=512)
+    status, response_body, pulled = _stream_request_id_middleware(
+        _consume_to_completion_and_answer_ok,
+        chunks,
+        max_body_bytes=serve_http._ID_CHECK_MAX_BODY_BYTES,
+        max_request_body_bytes=serve_http._MAX_REQUEST_BODY_BYTES,
+    )
+    assert status == 400
+    assert json.loads(response_body) == {
+        "jsonrpc": "2.0",
+        "id": None,
+        "error": {"code": -32600, "message": serve_http.INVALID_ID_MESSAGE},
+    }
+    assert pulled == len(chunks), "a small body is read to completion"
+
+
+def test_a_body_between_the_id_check_threshold_and_the_new_ceiling_is_still_passed_through_unchecked() -> (
+    None
+):
+    """Exactly today's documented behaviour, unchanged by the new ceiling: a body OVER the 1 MiB
+    id-check threshold but UNDER the new hard ceiling skips the id check entirely - even one
+    carrying an id that would otherwise be rejected - and reaches the inner app."""
+    size = serve_http._ID_CHECK_MAX_BODY_BYTES + (64 * 1024)  # over the id-check threshold
+    assert size < serve_http._MAX_REQUEST_BODY_BYTES  # ... but comfortably under the new ceiling
+    body = _padded_body(size, bad_id=True)  # a bad id that WOULD be rejected if checked
+
+    status, response_body, _ = _stream_request_id_middleware(
+        _consume_to_completion_and_answer_ok,
+        _chunked(body),
+        max_body_bytes=serve_http._ID_CHECK_MAX_BODY_BYTES,
+        max_request_body_bytes=serve_http._MAX_REQUEST_BODY_BYTES,
+    )
+
+    assert status == 200 and response_body == b"ok", "unchecked and passed straight through, as today"
+
+
+def test_a_body_at_the_new_ceiling_is_accepted() -> None:
+    body = _padded_body(serve_http._MAX_REQUEST_BODY_BYTES, bad_id=False)
+    status, response_body, _ = _stream_request_id_middleware(
+        _consume_to_completion_and_answer_ok,
+        _chunked(body),
+        max_body_bytes=serve_http._ID_CHECK_MAX_BODY_BYTES,
+        max_request_body_bytes=serve_http._MAX_REQUEST_BODY_BYTES,
+    )
+    assert status == 200 and response_body == b"ok"
+
+
+def test_a_body_one_byte_over_the_new_ceiling_is_rejected_with_the_shared_envelope() -> None:
+    body = _padded_body(serve_http._MAX_REQUEST_BODY_BYTES + 1, bad_id=False)
+    status, response_body, _ = _stream_request_id_middleware(
+        _consume_to_completion_and_answer_ok,
+        _chunked(body),
+        max_body_bytes=serve_http._ID_CHECK_MAX_BODY_BYTES,
+        max_request_body_bytes=serve_http._MAX_REQUEST_BODY_BYTES,
+    )
+
+    assert status == 400
+    assert json.loads(response_body) == {
+        "jsonrpc": "2.0",
+        "id": None,
+        "error": {"code": -32600, "message": serve_http.REQUEST_TOO_LARGE_MESSAGE},
+    }
+
+
+def test_an_oversized_body_never_reaches_the_inner_app() -> None:
+    """A raw exception (or any call at all) from the inner app would mean the oversized body was
+    handed to it; a clean 400 with nothing else means it never was."""
+    calls = 0
+
+    async def fail_if_called(scope: Any, receive: Any, send: Any) -> None:
+        nonlocal calls
+        calls += 1
+        raise AssertionError("the inner app must never see a body over the ceiling")
+
+    total = serve_http._MAX_REQUEST_BODY_BYTES + (10 * 1024 * 1024)
+    status, _, _ = _stream_request_id_middleware(
+        fail_if_called,
+        _filler_chunks(total),
+        max_body_bytes=serve_http._ID_CHECK_MAX_BODY_BYTES,
+        max_request_body_bytes=serve_http._MAX_REQUEST_BODY_BYTES,
+    )
+
+    assert status == 400 and calls == 0
+
+
+def test_an_oversized_body_stops_buffering_within_one_chunk_of_the_ceiling() -> None:
+    """The middleware must not drain the rest of an oversized body first: with a small ceiling and
+    many small chunks, it must stop reading the moment the running total crosses the ceiling -
+    never pulling more than the one chunk that pushed it over."""
+    max_request_body_bytes = 100
+    chunk_size = 10
+    chunks = [bytes([i % 256]) * chunk_size for i in range(50)]  # far more than enough to cross 100
+
+    status, response_body, pulled = _stream_request_id_middleware(
+        _consume_to_completion_and_answer_ok,
+        chunks,
+        max_body_bytes=max_request_body_bytes,  # id-check threshold irrelevant here; keep it equal
+        max_request_body_bytes=max_request_body_bytes,
+    )
+
+    expected_crossing_chunk = (max_request_body_bytes // chunk_size) + 1  # total > 100 first at #11
+    assert pulled == expected_crossing_chunk, (
+        f"pulled {pulled} of {len(chunks)} available chunks; the middleware must stop at the chunk "
+        "that first pushes the running total over the ceiling, never drain the rest"
+    )
+    assert status == 400
+    assert json.loads(response_body)["error"]["message"] == serve_http.REQUEST_TOO_LARGE_MESSAGE
+
+
 def test_every_rejection_shares_one_envelope(tmp_path: Path) -> None:
     root, _ = make_roots(tmp_path, sidecars=tuple(SIDECAR_NAMES))
     with TestClient(make_app(root)) as client:
