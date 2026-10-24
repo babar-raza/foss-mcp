@@ -1,0 +1,104 @@
+id: TC-581
+gate: G3
+lane: transport-deployment
+purpose: >-
+  A 2026-10-24 independent audit round found and live-verified: infra/serve_http.py has no request-body size ceiling on the
+  /mcp endpoint. RequestIdMiddleware's own docstring already discloses the gap (_ID_CHECK_MAX_BODY_BYTES = 1 MiB, 'a larger
+  one is passed through unchecked'): once its buffering loop sees total > max_body_bytes while more_body is still True, it
+  breaks WITHOUT setting complete=True, so the id-check is skipped and replaying_receive falls through to the original receive()
+  for the remainder - the full body still reaches the inner SDK app and gets fully parsed and Pydantic-validated, with no
+  size-based rejection anywhere in the stack. Live-verified: a 2 MiB JSON-RPC POST was fully read and validated (rejected
+  only on a field-length rule, never on size). Every serving pod shares the same 512Mi memory limit (infra/helm/foss-mcp/values.yaml)
+  and the chart's own demo Ingress ships with empty annotations (no proxy-body-size backstop). This makes a single oversized
+  POST, from any client with network reachability to a pilot's Service - no authentication required - a trivially repeatable
+  way to OOM-kill that pilot's single-replica Deployment, and nothing stops the same request being replayed indefinitely.
+  Identical code path and identical memory limit on all 32 pilots. FIX, bounded: give RequestIdMiddleware (the one place that
+  already intercepts and buffers every /mcp POST) a real, independent hard ceiling - do not rely on any undocumented SDK-level
+  cap; prove directly what the SDK itself does or does not enforce before designing around it - and reject with a clean, structured
+  JSON-RPC error once the ceiling is exceeded, before the remaining bytes are ever handed to the inner app.
+depends_on:
+- TC-564
+- TC-572
+- TC-578
+write_paths:
+- infra/serve_http.py
+- tests/infra/test_round3_serving_robustness.py
+satisfies:
+- REQ-G3-009
+source_refs:
+- file: docs/DECISION_LOG.md
+  anchor: >-
+    ## 2026-10-17 — Round-3 independent review of the shipped image: 82 findings registered, nothing executed (operator, supervisor)
+  sha256: c2056b11a13e5b18cda7e522027fb5eb0102edcef2f99f6c7e7ce0ee5c4b4e5b
+inputs:
+- >-
+  REPRODUCE AND INVESTIGATE FIRST: read infra/serve_http.py's RequestIdMiddleware (class definition and __call__, currently
+  around lines 710-765) and its own docstring in full - it already names the exact gap ('a larger [body] is passed through
+  unchecked'). Confirm live (an in-process ASGI test, or a real local server + client, no live cluster needed) whether the
+  underlying MCP SDK itself enforces ANY body-size cap on its own, and at what size, BEFORE assuming none exists - the prior
+  audit round did not push past 2 MiB to avoid disrupting a shared live pod, and one comment in this file ('the SDK's own
+  body cap is 4 MiB') may or may not reflect real, currently-active behavior for this server's actual configuration. Write
+  down exactly what you find before designing the fix - do not guess from the comment.
+- >-
+  THE FIX: add a real, independent hard ceiling inside RequestIdMiddleware's own buffering loop - the one place that already
+  intercepts and buffers every /mcp POST before any other middleware or the inner app sees it. When the running total exceeds
+  a new, explicit constant (choose a value that is comfortably above any legitimate real request this server serves today
+  - inspect what the largest genuine get_symbol/search_docs/find_examples response payload or request argument actually looks
+  like, so you do not pick an arbitrary number; a few MiB is a reasonable starting point, but justify your choice in the card's
+  own commit message), stop buffering immediately and respond with a clean, structured JSON-RPC error (same shape as INVALID_ID_MESSAGE's
+  own 400 response: {'jsonrpc':'2.0','id':None,'error':{'code':..., 'message':...}}, picking an appropriate JSON-RPC error
+  code - do not invent a new response envelope shape). This must happen BEFORE any remaining bytes are read from the client
+  or replayed to the inner app - do not let the connection continue buffering past the ceiling even internally. Do not change
+  how a body AT OR UNDER the existing 1 MiB id-check threshold is handled - that path stays exactly as it is today.
+- >-
+  Do NOT weaken or remove the existing id-check behavior for bodies under the new ceiling - a body between 1 MiB and the new
+  ceiling must still get its id checked exactly as today; only a body OVER the new ceiling is newly rejected outright.
+- >-
+  NEW/EXTENDED TESTS: a request body comfortably under the new ceiling behaves exactly as it does today (id-check still applies
+  above 1 MiB, normal processing below it). A request body AT the new ceiling is accepted. A request body ONE BYTE over the
+  new ceiling is rejected with the new clean JSON-RPC error, structured and parseable, never a raw exception or a dropped
+  connection. Simulate this with a streaming ASGI test double that sends the body in chunks via more_body=True (matching how
+  a real large POST actually arrives) rather than one giant in-memory bytes object, so the test proves the middleware stops
+  buffering early rather than merely rejecting after the fact. Also add a test proving the middleware does NOT read more bytes
+  from the client than the ceiling plus one chunk - i.e. it genuinely stops early rather than draining the whole oversized
+  body first.
+- Run the whole file; it must stay green. Never weaken a check to make it pass.
+actions:
+- >-
+  Give RequestIdMiddleware a real, independent request-body size ceiling that rejects an oversized POST before it reaches
+  the inner app.
+checks:
+- command: >-
+    {python} -m pytest tests/infra/test_round3_serving_robustness.py -q -rfE -k RequestId or request_id
+  expect: exit 0
+  timeout_seconds: 300
+  junitxml: true
+  proves:
+  - REQ-G3-009
+- command: >-
+    {python} -m pytest tests/infra/test_round3_serving_robustness.py -q -rfE -p no:cacheprovider
+  expect: exit 0
+  timeout_seconds: 600
+  junitxml: true
+  proves:
+  - REQ-G3-009
+min_tests: 5
+network: false
+requires:
+- python
+negative_control:
+  mutate: >-
+    python -X utf8 -c "import pathlib; p = pathlib.Path('infra/serve_http.py'); s = p.read_text(encoding='utf-8'); old = 'if
+    total > self.max_body_bytes:'; assert s.count(old) == 1, 'fix text not found - card and source have diverged'; p.write_text(s.replace(old,
+    'if total > self.max_body_bytes and False:', 1), encoding='utf-8')"
+  rationale: >-
+    Disables the new size-ceiling check entirely (the condition can never fire), so an oversized request is no longer rejected
+    and the new over-the-ceiling test must fail. A real break of the card's central claim.
+evidence:
+- evidence/build/G3/TC-581/receipt.json
+closeout:
+- >-
+  A request body over the new, justified ceiling is rejected with a clean, structured JSON-RPC error before the inner app
+  ever sees the remaining bytes, closing the unauthenticated, fleet-wide memory-exhaustion DoS a 2026-10-24 audit round found
+  and live-verified.
+recovery: Re-run from a clean tree.
