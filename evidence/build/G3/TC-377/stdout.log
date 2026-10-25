@@ -1,12 +1,12 @@
 
 ===== CLEAN RUN 1 (host) =====
-$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-7b182948484d7df9\Scripts\python.exe -m pytest tests/infra/test_ingestion_toolchain.py -q -rfE "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-bnvngjhe\.junit-0.xml"
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-7b182948484d7df9\Scripts\python.exe -m pytest tests/infra/test_ingestion_toolchain.py -q -rfE "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-fxy39gfd\.junit-0.xml"
 --- stdout ---
 ...........                                                              [100%]
 
 --- stderr ---
 
-$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-7b182948484d7df9\Scripts\python.exe -m pytest tests/infra tests/test_container_build.py -q -rfE -k "(ingestion_image or fixtures or pilots_match or container_build or toolchain) and not docker_build and not real_docker" "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-bnvngjhe\.junit-1.xml"
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-7b182948484d7df9\Scripts\python.exe -m pytest tests/infra tests/test_container_build.py -q -rfE -k "(ingestion_image or fixtures or pilots_match or container_build or toolchain) and not docker_build and not real_docker" "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-fxy39gfd\.junit-1.xml"
 --- stdout ---
 ........................................................................ [ 16%]
 ........................................................................ [ 32%]
@@ -27,13 +27,13 @@ $ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-7b18
 
 
 ===== CLEAN RUN 2 (host) =====
-$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-7b182948484d7df9\Scripts\python.exe -m pytest tests/infra/test_ingestion_toolchain.py -q -rfE "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-bnvngjhe\.junit-0.xml"
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-7b182948484d7df9\Scripts\python.exe -m pytest tests/infra/test_ingestion_toolchain.py -q -rfE "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-fxy39gfd\.junit-0.xml"
 --- stdout ---
 ...........                                                              [100%]
 
 --- stderr ---
 
-$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-7b182948484d7df9\Scripts\python.exe -m pytest tests/infra tests/test_container_build.py -q -rfE -k "(ingestion_image or fixtures or pilots_match or container_build or toolchain) and not docker_build and not real_docker" "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-bnvngjhe\.junit-1.xml"
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-7b182948484d7df9\Scripts\python.exe -m pytest tests/infra tests/test_container_build.py -q -rfE -k "(ingestion_image or fixtures or pilots_match or container_build or toolchain) and not docker_build and not real_docker" "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-fxy39gfd\.junit-1.xml"
 --- stdout ---
 ........................................................................ [ 16%]
 ........................................................................ [ 32%]
@@ -53,9 +53,101 @@ $ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-7b18
 --- stderr ---
 
 
-!! falsifier did not apply (mutate): Traceback (most recent call last):
-  File "<string>", line 1, in <module>
-    import pathlib;p=pathlib.Path('Dockerfile.ingestion');s=p.read_text(encoding='utf-8');old='--channel 10.0';assert old in s;p.write_text(s.replace(old,'--channel 9.0',1),encoding='utf-8')
-                                                                                                                      ^^^^^^^^
-AssertionError
+===== NEGATIVE CONTROL (checks MUST now fail) =====
+mutated: M Dockerfile.ingestion, ?? .junit-0.xml, ?? .junit-1.xml
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-7b182948484d7df9\Scripts\python.exe -m pytest tests/infra/test_ingestion_toolchain.py -q -rfE "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-fxy39gfd\.junit-0.xml"
+--- stdout ---
+.F.......F.                                                              [100%]
+================================== FAILURES ===================================
+______ test_a_dotnet_10_install_is_present_in_the_same_install_directory ______
+
+    def test_a_dotnet_10_install_is_present_in_the_same_install_directory() -> None:
+        # TC-570: channel == "10.0" -> an exact 10.0.x SDK version
+        installs = _dotnet_installs()
+        ten = [(n, d) for n, version, d in installs if version.startswith("10.0.")]
+>       assert ten, f"no --version 10.0.x install: {installs}"
+E       AssertionError: no --version 10.0.x install: [(25, '8.0.426', '/usr/share/dotnet'), (45, '9.0.100', '/usr/share/dotnet')]
+E       assert []
+
+tests\infra\test_ingestion_toolchain.py:100: AssertionError
+_ test_the_toolchain_layers_follow_the_dotnet_layer_and_precede_the_source_copies _
+
+    def test_the_toolchain_layers_follow_the_dotnet_layer_and_precede_the_source_copies() -> None:
+        # TC-570: channel == "8.0" / "10.0" -> version.startswith("8.0.") / ("10.0.")
+        dotnet_8 = min(n for n, version, _ in _dotnet_installs() if version.startswith("8.0."))
+>       dotnet_10 = min(n for n, version, _ in _dotnet_installs() if version.startswith("10.0."))
+                    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       ValueError: min() iterable argument is empty
+
+tests\infra\test_ingestion_toolchain.py:171: ValueError
+=========================== short test summary info ===========================
+FAILED tests/infra/test_ingestion_toolchain.py::test_a_dotnet_10_install_is_present_in_the_same_install_directory
+FAILED tests/infra/test_ingestion_toolchain.py::test_the_toolchain_layers_follow_the_dotnet_layer_and_precede_the_source_copies
+
+--- stderr ---
+
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-7b182948484d7df9\Scripts\python.exe -m pytest tests/infra tests/test_container_build.py -q -rfE -k "(ingestion_image or fixtures or pilots_match or container_build or toolchain) and not docker_build and not real_docker" "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-fxy39gfd\.junit-1.xml"
+--- stdout ---
+........................................................................ [ 16%]
+........................................................................ [ 32%]
+........................................................................ [ 48%]
+........................................................................ [ 64%]
+........................................................................ [ 80%]
+........................................................F.......F....... [ 96%]
+F................                                                        [100%]
+================================== FAILURES ===================================
+______ test_a_dotnet_10_install_is_present_in_the_same_install_directory ______
+
+    def test_a_dotnet_10_install_is_present_in_the_same_install_directory() -> None:
+        # TC-570: channel == "10.0" -> an exact 10.0.x SDK version
+        installs = _dotnet_installs()
+        ten = [(n, d) for n, version, d in installs if version.startswith("10.0.")]
+>       assert ten, f"no --version 10.0.x install: {installs}"
+E       AssertionError: no --version 10.0.x install: [(25, '8.0.426', '/usr/share/dotnet'), (45, '9.0.100', '/usr/share/dotnet')]
+E       assert []
+
+tests\infra\test_ingestion_toolchain.py:100: AssertionError
+_ test_the_toolchain_layers_follow_the_dotnet_layer_and_precede_the_source_copies _
+
+    def test_the_toolchain_layers_follow_the_dotnet_layer_and_precede_the_source_copies() -> None:
+        # TC-570: channel == "8.0" / "10.0" -> version.startswith("8.0.") / ("10.0.")
+        dotnet_8 = min(n for n, version, _ in _dotnet_installs() if version.startswith("8.0."))
+>       dotnet_10 = min(n for n, version, _ in _dotnet_installs() if version.startswith("10.0."))
+                    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       ValueError: min() iterable argument is empty
+
+tests\infra\test_ingestion_toolchain.py:171: ValueError
+______ test_the_two_dotnet_sdks_are_installed_by_exact_version_in_order _______
+
+    def test_the_two_dotnet_sdks_are_installed_by_exact_version_in_order() -> None:
+        versions = []
+        for _, instruction in _dockerfile():
+            if (
+                instruction.startswith("RUN ")
+                and "/tmp/dotnet-install.sh" in instruction
+                and "--install-dir" in instruction
+            ):
+                match = re.search(r"/tmp/dotnet-install\.sh\s+--version\s+(\S+)", instruction)
+                assert match, instruction
+                versions.append(match.group(1))
+>       assert tuple(versions) == EXPECTED_DOTNET_VERSIONS
+E       AssertionError: assert ('8.0.426', '9.0.100') == ('8.0.426', '10.0.402')
+E         
+E         At index 1 diff: '9.0.100' != '10.0.402'
+E         Use -v to get more diff
+
+tests\infra\test_ingestion_toolchain_pins.py:166: AssertionError
+============================== warnings summary ===============================
+..\venv-7b182948484d7df9\Lib\site-packages\starlette\testclient.py:53
+  E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-7b182948484d7df9\Lib\site-packages\starlette\testclient.py:53: DeprecationWarning: The anyio.abc.BlockingPortal alias is deprecated, use anyio.from_thread.BlockingPortal instead.
+    _PortalFactoryType = Callable[[], AbstractContextManager[anyio.abc.BlockingPortal]]
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+4 live test(s) deselected; set FOSS_MCP_NETWORK_TESTS=1 to run them
+=========================== short test summary info ===========================
+FAILED tests/infra/test_ingestion_toolchain.py::test_a_dotnet_10_install_is_present_in_the_same_install_directory
+FAILED tests/infra/test_ingestion_toolchain.py::test_the_toolchain_layers_follow_the_dotnet_layer_and_precede_the_source_copies
+FAILED tests/infra/test_ingestion_toolchain_pins.py::test_the_two_dotnet_sdks_are_installed_by_exact_version_in_order
+
+--- stderr ---
 

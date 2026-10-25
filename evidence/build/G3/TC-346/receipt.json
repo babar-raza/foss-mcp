@@ -3,9 +3,9 @@
   "card": "TC-346",
   "gate": "G3",
   "generated_by": "gatectl",
-  "generated_at": "2026-10-23T07:39:32Z",
-  "base_rev": "16659b2d4a6096ffadc96dc1b30bfe143684e096",
-  "head_rev": "16659b2d4a6096ffadc96dc1b30bfe143684e096",
+  "generated_at": "2026-10-24T10:36:18Z",
+  "base_rev": "c60329b16f94d2e6b16aa352f1e2d068664056ad",
+  "head_rev": "1649a873e2f26e92e7d41f0aca628034b433bbb4",
   "card_sha256": "6676f7c787198acb1ff73244574d0fb9a5db7faf592badcfd0453a3cd9780e3a",
   "fingerprint": {
     "python": "3.13.2",
@@ -35,7 +35,7 @@
         {
           "command": "{python} -m pytest tests/deploy/test_compact_demo_manifests.py -q -rfE",
           "exit_code": 0,
-          "duration_s": 6.114,
+          "duration_s": 7.17,
           "stdout_sha256": "c66ef7936b32d2201bf6eb901cf69cbc8e71996669c38afe1f70ad40098e04a3",
           "tests": 20,
           "skipped": 0,
@@ -44,16 +44,16 @@
         },
         {
           "command": "{python} -m pytest tests/deploy tests/mcp/tools/test_retrieval_tools.py tests/test_unwired_modules.py -q -rfE",
-          "exit_code": 1,
-          "duration_s": 240.254,
-          "stdout_sha256": "2c584cb9e7919c8d19c1525a8c6971f2bf4c8c5b14ee87594a00e8fe90c5ca22",
-          "tests": 2624,
+          "exit_code": 0,
+          "duration_s": 201.772,
+          "stdout_sha256": "3bf1a10f1d253a37b438652b2d2dbb929f16f72b1a9d1389f8dba1039e5f1c90",
+          "tests": 2833,
           "skipped": 0,
           "errors": 0,
-          "failures": 1
+          "failures": 0
         }
       ],
-      "all_passed": false
+      "all_passed": true
     },
     {
       "run": 2,
@@ -61,7 +61,7 @@
         {
           "command": "{python} -m pytest tests/deploy/test_compact_demo_manifests.py -q -rfE",
           "exit_code": 0,
-          "duration_s": 5.074,
+          "duration_s": 3.626,
           "stdout_sha256": "c66ef7936b32d2201bf6eb901cf69cbc8e71996669c38afe1f70ad40098e04a3",
           "tests": 20,
           "skipped": 0,
@@ -70,31 +70,39 @@
         },
         {
           "command": "{python} -m pytest tests/deploy tests/mcp/tools/test_retrieval_tools.py tests/test_unwired_modules.py -q -rfE",
-          "exit_code": 1,
-          "duration_s": 292.031,
-          "stdout_sha256": "2c584cb9e7919c8d19c1525a8c6971f2bf4c8c5b14ee87594a00e8fe90c5ca22",
-          "tests": 2624,
+          "exit_code": 0,
+          "duration_s": 179.734,
+          "stdout_sha256": "3bf1a10f1d253a37b438652b2d2dbb929f16f72b1a9d1389f8dba1039e5f1c90",
+          "tests": 2833,
           "skipped": 0,
           "errors": 0,
-          "failures": 1
+          "failures": 0
         }
       ],
-      "all_passed": false
+      "all_passed": true
     }
   ],
   "negative_control": {
     "kind": "mutate",
     "patch": "python -X utf8 -c \"import pathlib;p=pathlib.Path('scripts/release/compact_demo_manifests.py');s=p.read_text(encoding='utf-8');old='EXAMPLE_MARKER';assert old in s;i=s.rindex(old);p.write_text(s[:i]+'EXAMPLE_MARKERX'+s[i+len(old):],encoding='utf-8')\"\n",
-    "patch_sha256": "0000000000000000000000000000000000000000000000000000000000000000",
-    "applied": false,
-    "patch_applied_failed": false,
-    "exit_codes": []
+    "patch_sha256": "f5a4002e28efeadb4b7edec0e449a96ec35fb18e3127a8f45a61f13497d9c622",
+    "applied": true,
+    "patch_applied_failed": true,
+    "exit_codes": [
+      1,
+      1
+    ],
+    "tree_changed": [
+      "M scripts/release/compact_demo_manifests.py",
+      "?? .junit-0.xml",
+      "?? .junit-1.xml"
+    ]
   },
   "holdout": {
     "ran": false,
     "passed": true,
     "detail": "no holdout for this card"
   },
-  "accepted": false,
-  "reason": "checks failed: {python} -m pytest tests/deploy tests/mcp/tools/test_retrieval_tools.py tests/test_unwired_modules.py -q -rfE; negative-control patch did not apply"
+  "accepted": true,
+  "reason": "all gates passed"
 }

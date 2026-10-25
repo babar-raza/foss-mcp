@@ -3,9 +3,9 @@
   "card": "TC-350",
   "gate": "G3",
   "generated_by": "gatectl",
-  "generated_at": "2026-10-23T07:59:12Z",
-  "base_rev": "16659b2d4a6096ffadc96dc1b30bfe143684e096",
-  "head_rev": "16659b2d4a6096ffadc96dc1b30bfe143684e096",
+  "generated_at": "2026-10-24T11:05:09Z",
+  "base_rev": "ddd70a28a295ebfc8b7aae1e5705cede5ccca25f",
+  "head_rev": "1649a873e2f26e92e7d41f0aca628034b433bbb4",
   "card_sha256": "efe385b099109a1a23aa5606724e71e7f2199b590e213ca6b6f678d0a6acb774",
   "fingerprint": {
     "python": "3.13.2",
@@ -35,7 +35,7 @@
         {
           "command": "{python} -m pytest tests/deploy/test_demo_entrypoint.py tests/deploy/test_demo_compose.py -q -rfE",
           "exit_code": 0,
-          "duration_s": 4.517,
+          "duration_s": 4.01,
           "stdout_sha256": "6997ffb705c1c5fa984efec27d8164c9d96401110464c8e386ecce809f88569c",
           "tests": 90,
           "skipped": 0,
@@ -44,16 +44,16 @@
         },
         {
           "command": "{python} -m pytest tests/deploy tests/test_container_build.py -q -rfE -k \"not docker_build and not real_docker\"",
-          "exit_code": 1,
-          "duration_s": 183.029,
-          "stdout_sha256": "80e22b306bbc04733cb28bbf8f20fa053df73b0f4de40f964fa763a2bc77011f",
-          "tests": 2594,
+          "exit_code": 0,
+          "duration_s": 183.584,
+          "stdout_sha256": "7f55ced009ec108a6c26445fe367ce617347d492c62d291a7a5da9836c6e3310",
+          "tests": 2803,
           "skipped": 0,
           "errors": 0,
-          "failures": 1
+          "failures": 0
         }
       ],
-      "all_passed": false
+      "all_passed": true
     },
     {
       "run": 2,
@@ -61,7 +61,7 @@
         {
           "command": "{python} -m pytest tests/deploy/test_demo_entrypoint.py tests/deploy/test_demo_compose.py -q -rfE",
           "exit_code": 0,
-          "duration_s": 5.032,
+          "duration_s": 4.122,
           "stdout_sha256": "6997ffb705c1c5fa984efec27d8164c9d96401110464c8e386ecce809f88569c",
           "tests": 90,
           "skipped": 0,
@@ -70,31 +70,39 @@
         },
         {
           "command": "{python} -m pytest tests/deploy tests/test_container_build.py -q -rfE -k \"not docker_build and not real_docker\"",
-          "exit_code": 1,
-          "duration_s": 169.259,
-          "stdout_sha256": "80e22b306bbc04733cb28bbf8f20fa053df73b0f4de40f964fa763a2bc77011f",
-          "tests": 2594,
+          "exit_code": 0,
+          "duration_s": 182.882,
+          "stdout_sha256": "7f55ced009ec108a6c26445fe367ce617347d492c62d291a7a5da9836c6e3310",
+          "tests": 2803,
           "skipped": 0,
           "errors": 0,
-          "failures": 1
+          "failures": 0
         }
       ],
-      "all_passed": false
+      "all_passed": true
     }
   ],
   "negative_control": {
     "kind": "mutate",
     "patch": "python -X utf8 -c \"import pathlib;p=pathlib.Path('infra/demo_entrypoint.py');s=p.read_text(encoding='utf-8');old='serve_http';assert old in s;i=s.rindex(old);p.write_text(s[:i]+'serve_httpx'+s[i+len(old):],encoding='utf-8')\"\n",
-    "patch_sha256": "0000000000000000000000000000000000000000000000000000000000000000",
-    "applied": false,
-    "patch_applied_failed": false,
-    "exit_codes": []
+    "patch_sha256": "856cf43b3d85d58a1f59c5edc6fffbf28ea414f861a2351050a20e9f97edf9f3",
+    "applied": true,
+    "patch_applied_failed": true,
+    "exit_codes": [
+      1,
+      1
+    ],
+    "tree_changed": [
+      "M infra/demo_entrypoint.py",
+      "?? .junit-0.xml",
+      "?? .junit-1.xml"
+    ]
   },
   "holdout": {
     "ran": false,
     "passed": true,
     "detail": "no holdout for this card"
   },
-  "accepted": false,
-  "reason": "checks failed: {python} -m pytest tests/deploy tests/test_container_build.py -q -rfE -k \"not docker_build and not real_docker\"; negative-control patch did not apply"
+  "accepted": true,
+  "reason": "all gates passed"
 }
