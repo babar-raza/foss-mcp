@@ -81,13 +81,14 @@ requires:
 - python
 negative_control:
   mutate: |
-    python -X utf8 -c "import pathlib; p = pathlib.Path('src/foss_mcp/mcp/tools/relevance.py'); s = p.read_text(encoding='utf-8'); old = 'for word in (part.lower() for part in (parts if len(parts) > 1 else [run])):'; assert s.count(old) == 1, 'fix text not found - card and source have diverged (re-target against the worker real diff if this card changed the loop shape)'; new = 'for word in (part.lower() for part in (parts if len(parts) >= 1 else [run])):'; p.write_text(s.replace(old, new, 1), encoding='utf-8')"
+    python -X utf8 -c "import pathlib; p = pathlib.Path('src/foss_mcp/mcp/tools/relevance.py'); s = p.read_text(encoding='utf-8'); old = 'candidates = [run, *parts] if len(parts) > 1 else [run]'; assert s.count(old) == 1, 'fix text not found - card and source have diverged (re-target 2026-10-26, supervisor)'; p.write_text(s.replace(old, 'candidates = parts if len(parts) > 1 else [run]', 1), encoding='utf-8')"
   rationale: >-
-    Targets the exact pre-fix line (re-target against the worker's real diff if it restructures this loop
-    differently than the card's own suggested shape). The mutate changes the condition so parts-only iteration
-    still happens whenever parts is non-empty, i.e. the whole run is still never added - functionally identical to
-    today's bug - so the new test proving a splitting camelCase run yields the whole run too must fail. A real
-    break of the card's central claim.
+    RE-TARGETED 2026-10-26 (supervisor, after the worker's real commit): the worker's actual fix shape replaced
+    the old line entirely with `candidates = [run, *parts] if len(parts) > 1 else [run]`, so the original
+    mutate (which targeted the pre-fix line verbatim) could never apply against the committed code. This mutate
+    drops the whole run from the candidates list when parts splits, reverting to the old, buggy behavior exactly
+    - functionally identical to today's bug - so the new test proving a splitting camelCase run yields the whole
+    run too must fail. A real break of the card's central claim.
 evidence:
 - evidence/build/G3/TC-587/receipt.json
 closeout:
