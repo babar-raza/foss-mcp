@@ -44,11 +44,14 @@ The ``enumerate_dotnet`` tests (G3/TC-593) really invoke ``dotnet run`` directly
 companion console project, ``scripts/release/oracle_helpers/dotnet_enumerator/``) against
 hand-written, on-disk synthetic ``.cs`` fixtures through the real Roslyn parser
 (``Microsoft.CodeAnalysis.CSharp``, ``CSharpSyntaxTree.ParseText``), SYNTAX/PARSE PHASE ONLY --
-never the real pilot, never a network call, never Docker. ``dotnet run --no-restore`` JIT-compiles
+never the real pilot, never a network call, never Docker. ``dotnet run`` JIT-compiles
 and executes MANAGED IL through the already-trusted ``dotnet`` host (the companion project's own
 ``Microsoft.CodeAnalysis.CSharp`` NuGet dependency was restored once, with network, before these
 tests ever run, exactly like ``cargo vendor``'s one-time network use ahead of ``enumerate_rust``'s
-own ``cargo run --offline``); it never writes a freshly-built, unsigned NATIVE binary to disk, so
+own ``cargo run --offline``; every later implicit restore resolves from that already-warm
+machine-wide NuGet cache, with no further network call -- see ``_run_dotnet_enumerator``'s own
+docstring for why ``--no-restore`` itself is deliberately NOT passed); it never writes a
+freshly-built, unsigned NATIVE binary to disk, so
 the WDAC workaround the Go/Rust enumerators need never applies here either, exactly like
 TypeScript's/Java's own cases -- confirmed directly, not merely assumed, before this card's own
 enumerator was wired in.
@@ -1346,7 +1349,8 @@ def test_run_java_enumerator_raises_with_a_clear_message_on_a_nonzero_java_exit(
 # enumerator's own output read back as the expected value). enumerate_dotnet really invokes the
 # REAL Roslyn parser (Microsoft.CodeAnalysis.CSharp, CSharpSyntaxTree.ParseText, SYNTAX/PARSE
 # PHASE ONLY) through scripts/release/oracle_helpers/dotnet_enumerator/Program.cs, run with
-# `dotnet run --project ... --no-restore` -- the already-trusted host interpreter, no Docker, no
+# `dotnet run --project ...` (implicit restore, from the already-warm global NuGet cache, no
+# `--no-restore`) -- the already-trusted host interpreter, no Docker, no
 # fresh native binary, so none of these tests need the Windows Application Control workaround
 # enumerate_go/enumerate_rust need; G3/TC-593, confirmed directly the same way TC-591/TC-592
 # confirmed it for node/TypeScript and java/Java -- against these files on local disk: real
@@ -1598,7 +1602,9 @@ def test_enumerate_dotnet_an_enum_with_explicit_values_reads_them_exactly(tmp_pa
 
 def test_run_dotnet_enumerator_shells_out_to_dotnet_directly_never_docker(tmp_path):
     """Offline check of the dotnet invocation's own shape (never a real subprocess here): no
-    Docker anywhere in the command, --no-restore present, the companion project's real path, and
+    Docker anywhere in the command, no --no-restore (the implicit restore must run so a fresh
+    worktree without a project-local obj/project.assets.json still builds, reading from the
+    already-warm global NuGet cache -- G3/TC-593 rework), the companion project's real path, and
     the one positional argument it expects."""
     import subprocess as _subprocess
 
@@ -1617,7 +1623,7 @@ def test_run_dotnet_enumerator_shells_out_to_dotnet_directly_never_docker(tmp_pa
     assert args[0] == sd.DOTNET_BINARY == "dotnet"
     assert "docker" not in [str(a).lower() for a in args]
     assert "run" in args
-    assert "--no-restore" in args
+    assert "--no-restore" not in args
     assert str(sd.DOTNET_ENUMERATOR_PROJECT) in args
     assert args[-1] == str(library_dir)
 

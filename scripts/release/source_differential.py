@@ -1056,15 +1056,23 @@ def _run_dotnet_enumerator(
     closing time) runs ``dotnet`` directly against the host, with no container anywhere in the
     invocation below.
 
-    ``--no-restore`` is passed deliberately: the companion project's own
-    ``Microsoft.CodeAnalysis.CSharp`` NuGet dependency must already be restored (once, with
-    network, exactly like ``cargo vendor``'s one-time network use before ``enumerate_rust``'s own
-    ``cargo run --offline`` -- see ``_run_rust_enumerator``'s own docstring) before this function
-    ever runs; this keeps every unit test that exercises it offline, matching this card's own
-    ``network: false`` requirement, without needing a vendored copy of the package itself (unlike
-    Rust's crate registry, NuGet's own restore writes into a machine-wide package cache keyed by
-    exact pinned version, which this function's ``--no-restore`` then reads from directly on
-    every subsequent run, real or test, with no further network call of any kind).
+    ``--no-restore`` is deliberately NOT passed. ``dotnet run``/``dotnet build`` always perform
+    an implicit restore first, and that is exactly what this function relies on: unlike Rust's
+    crate registry, NuGet's restore writes into a machine-wide, version-keyed package cache
+    (``~/.nuget/packages``) that persists across every checkout. Once the companion project's
+    ``Microsoft.CodeAnalysis.CSharp`` dependency has been restored once (with network, exactly
+    like ``cargo vendor``'s one-time network use before ``enumerate_rust``'s own
+    ``cargo run --offline`` -- see ``_run_rust_enumerator``'s own docstring), every subsequent
+    implicit restore -- real or test, in this worktree or a brand-new one -- resolves entirely
+    from that already-warm global cache, with no further network call of any kind and no
+    dependency on a project-local, gitignored ``obj/project.assets.json`` existing already.
+    ``--no-restore`` was tried first (G3/TC-593) and skips even that implicit, cache-only
+    restore -- it instead requires ``obj/project.assets.json`` to already exist on disk, which
+    it only does in a worktree where ``dotnet restore``/``build``/``run`` has personally been
+    run before; a genuinely fresh worktree (every ``gatectl review`` throwaway worktree among
+    them) has no such file and fails outright, even with a warm global cache. Omitting the flag
+    costs a few seconds per invocation (a cache lookup, not a network round trip) in exchange
+    for working correctly in any worktree, which is the whole point.
     """
     runner = run or subprocess.run
     result = runner(
@@ -1073,7 +1081,6 @@ def _run_dotnet_enumerator(
             "run",
             "--project",
             str(project_path),
-            "--no-restore",
             "-c",
             "Release",
             "--",
