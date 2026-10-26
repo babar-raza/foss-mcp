@@ -28,6 +28,17 @@ call, never Docker. ``node`` executing a plain ``.js`` file is the already-trust
 interpreter, not a freshly-built native binary, so the WDAC workaround the Go/Rust enumerators
 need never applies here; this was confirmed directly (not merely assumed) before this card's
 own enumerator was wired in.
+
+The ``enumerate_java`` tests (G3/TC-592) really invoke ``java`` directly (its own single-file
+source-launcher, ``java JavaEnumerator.java <dir>``) against hand-written, on-disk synthetic
+``.java`` fixtures through the real JDK Compiler Tree API
+(``scripts/release/oracle_helpers/JavaEnumerator.java``), PARSE PHASE ONLY -- never the real
+pilot, never a network call, never Docker, and needing no ``--add-exports`` flag at all (this
+was confirmed directly, not merely assumed: ``com.sun.source.*`` is the jdk.compiler module's
+own unconditionally-exported public API, unlike ``com.sun.tools.javac.*``'s internals). ``java``
+compiling and running a plain ``.java`` text file in memory is the already-trusted host
+interpreter, not a freshly-built native binary on disk, so the WDAC workaround the Go/Rust
+enumerators need never applies here either, exactly like TypeScript's own ``node`` case.
 """
 
 from __future__ import annotations
@@ -1052,8 +1063,273 @@ def test_run_typescript_enumerator_raises_a_clear_error_when_the_typescript_pack
         sd._run_typescript_enumerator(tmp_path, typescript_package_dir=tmp_path / "does-not-exist")
 
 
+# --- the JDK Compiler Tree API enumerator: the fifth real, wired tool this card lands ----------------
+# Every fixture below is a hand-written synthetic .java file (never the real pilot, never the
+# enumerator's own output read back as the expected value). enumerate_java really invokes the
+# REAL JDK Compiler Tree API (com.sun.source.tree/com.sun.source.util, PARSE PHASE ONLY, through
+# scripts/release/oracle_helpers/JavaEnumerator.java, run with the JDK's own single-file
+# source-launcher `java JavaEnumerator.java <dir>` -- the already-trusted host interpreter, no
+# Docker, no fresh native binary, so none of these tests need the Windows Application Control
+# workaround enumerate_go/enumerate_rust need; G3/TC-592, confirmed directly the same way TC-591
+# confirmed it for node/TypeScript) against these files on local disk -- real wall-clock time (a
+# real `java` subprocess + a real parse), same as the TypeScript tests above, but no container
+# start and no type resolution at all (parse-phase only, so an unresolvable import never breaks
+# anything -- confirmed directly before this enumerator was written; see JavaEnumerator.java's
+# own module docstring).
+
+
+def test_enumerate_java_reads_a_real_class_with_the_compiler_tree_api_offline(tmp_path):
+    (tmp_path / ".git").mkdir()  # pretend already-cloned, so enumerate_java never shells out to git
+    (tmp_path / "Widget.java").write_text(
+        "public class Widget {\n"
+        "    public String name;\n"
+        "    String packagePrivateField;\n"  # no modifier: package-private, must NOT appear
+        "\n"
+        "    public void build(String name, int count) {\n"
+        "    }\n"
+        "\n"
+        "    private void helper() {\n"
+        "    }\n"  # private: must NOT appear
+        "}\n",
+        encoding="utf-8",
+    )
+    symbols = sd.enumerate_java("acme/widgets", "deadbeef", tmp_path)
+    (widget,) = [s for s in symbols if s.name == "Widget"]
+    assert widget.kind == "class"
+    by_name = {member.name: member for member in widget.members}
+    assert set(by_name) == {"name", "build"}, "packagePrivateField and helper must never appear"
+    assert by_name["name"].kind == "property"
+    assert by_name["build"].kind == "method"
+    assert by_name["build"].params == (OP("name"), OP("count"))
+    assert by_name["build"].is_static is False
+
+
+def test_enumerate_java_reads_an_interface_and_its_methods_offline(tmp_path):
+    (tmp_path / ".git").mkdir()
+    (tmp_path / "Reader.java").write_text(
+        "public interface Reader {\n    String read(String path);\n}\n",
+        encoding="utf-8",
+    )
+    (reader,) = sd.enumerate_java("acme/pdf", "deadbeef", tmp_path)
+    assert reader.name == "Reader"
+    assert reader.kind == "class"  # an interface maps onto OracleSymbol.kind == "class" too
+    (read,) = reader.members
+    assert read.name == "read"
+    assert read.kind == "method"
+    assert read.params == (OP("path"),)
+    assert read.is_static is False
+
+
+def test_enumerate_java_defect_a_protected_method_is_excluded_from_the_result(tmp_path):
+    """Deliberate defect fixture 1 (the card's own named case): a `protected` method must be
+    excluded -- protected is not public, and must never be confused with "not private"."""
+    (tmp_path / ".git").mkdir()
+    (tmp_path / "Document.java").write_text(
+        "public class Document {\n"
+        "    public void save(String path) {\n"  # public: must appear
+        "    }\n"
+        "\n"
+        "    protected void adjust() {\n"  # protected: must NOT appear
+        "    }\n"
+        "}\n",
+        encoding="utf-8",
+    )
+    (document,) = sd.enumerate_java("acme/pdf", "deadbeef", tmp_path)
+    names = {member.name for member in document.members}
+    assert names == {"save"}, "the enumerator must exclude the protected 'adjust' method"
+    assert "adjust" not in names
+
+
+def test_enumerate_java_defect_enum_constructor_arguments_are_read_exactly_not_merely_counted(tmp_path):
+    """Deliberate defect fixture 2: an enum constant's own explicit constructor argument must be
+    read EXACTLY, not merely counted -- a bug that counts constants right but gets a value wrong
+    must fail this. A constant with no constructor argument must report enum_value as None ("not
+    checked"), matching enumerate_rust's own "no explicit discriminant" convention."""
+    (tmp_path / ".git").mkdir()
+    (tmp_path / "Status.java").write_text(
+        "public enum Status {\n"
+        "    OK(0), BAD(2), UNSET(-7);\n"
+        "\n"
+        "    private final int code;\n"  # a genuine field: must NOT be read as a 4th constant
+        "\n"
+        "    Status(int code) {\n"
+        "        this.code = code;\n"
+        "    }\n"
+        "\n"
+        "    public int getCode() {\n"
+        "        return code;\n"
+        "    }\n"
+        "}\n",
+        encoding="utf-8",
+    )
+    (status,) = sd.enumerate_java("acme/widgets", "deadbeef", tmp_path)
+    assert status.kind == "enum"
+    by_name = {member.name: member for member in status.members}
+    assert set(by_name) == {"OK", "BAD", "UNSET", "getCode"}, "the private 'code' field must never appear"
+    assert by_name["OK"].kind == "enum_value"
+    assert by_name["OK"].enum_value == "0"
+    assert by_name["BAD"].enum_value == "2"
+    assert by_name["UNSET"].enum_value == "-7"
+    assert by_name["getCode"].kind == "method"
+
+
+def test_enumerate_java_a_plain_enum_constant_with_no_constructor_args_has_no_enum_value(tmp_path):
+    (tmp_path / ".git").mkdir()
+    (tmp_path / "PlainEnum.java").write_text(
+        "public enum PlainEnum {\n    None, Left, Center, Right\n}\n", encoding="utf-8"
+    )
+    (plain,) = sd.enumerate_java("acme/pdf", "deadbeef", tmp_path)
+    names = {member.name for member in plain.members}
+    assert names == {"None", "Left", "Center", "Right"}
+    assert all(member.enum_value is None for member in plain.members)
+
+
+def test_enumerate_java_an_interface_field_is_always_static_even_without_the_keyword(tmp_path):
+    """JLS 9.3: every interface field is implicitly `public static final`, even though the Tree
+    API itself never synthesises that implicit `static` modifier (confirmed directly)."""
+    (tmp_path / ".git").mkdir()
+    (tmp_path / "Limits.java").write_text(
+        "public interface Limits {\n    int MAX = 100;\n}\n", encoding="utf-8"
+    )
+    (limits,) = sd.enumerate_java("acme/widgets", "deadbeef", tmp_path)
+    (max_field,) = limits.members
+    assert max_field.name == "MAX"
+    assert max_field.kind == "property"
+    assert max_field.is_static is True
+
+
+def test_enumerate_java_marks_a_static_method_is_static(tmp_path):
+    (tmp_path / ".git").mkdir()
+    (tmp_path / "Workbook.java").write_text(
+        "public class Workbook {\n"
+        "    public static Workbook create() {\n"
+        "        return new Workbook();\n"
+        "    }\n"
+        "\n"
+        "    public void save(String path) {\n"
+        "    }\n"
+        "}\n",
+        encoding="utf-8",
+    )
+    (workbook,) = sd.enumerate_java("acme/widgets", "deadbeef", tmp_path)
+    by_name = {member.name: member for member in workbook.members}
+    assert by_name["create"].is_static is True
+    assert by_name["save"].is_static is False
+
+
+def test_enumerate_java_a_file_with_a_syntax_error_does_not_crash_the_enumerator(tmp_path):
+    (tmp_path / ".git").mkdir()
+    (tmp_path / "Broken.java").write_text("public class Broken {\n", encoding="utf-8")
+    (tmp_path / "Fine.java").write_text(
+        "public class Fine {\n    public void ok() {\n    }\n}\n", encoding="utf-8"
+    )
+    symbols = sd.enumerate_java("acme/pdf", "deadbeef", tmp_path)
+    names = {s.name for s in symbols}
+    assert "Fine" in names, "a syntax error in one file must never prevent reading another file's class"
+    assert "Broken" not in names
+
+
+def test_enumerate_java_skips_a_package_private_top_level_class(tmp_path):
+    (tmp_path / ".git").mkdir()
+    (tmp_path / "Internal.java").write_text(
+        "class Internal {\n    public void run() {\n    }\n}\n", encoding="utf-8"
+    )
+    symbols = sd.enumerate_java("acme/widgets", "deadbeef", tmp_path)
+    assert symbols == [], "a package-private top-level class is not part of the public API"
+
+
+def test_enumerate_java_flattens_a_public_nested_enum_into_the_same_symbol_list(tmp_path):
+    """Confirmed necessary directly against the real pinned pdf/java pilot: a top-level-only
+    reading silently produced zero symbol for roughly a fifth of the pilot's own distinct public
+    type names, because they are declared as public static NESTED classes/enums, a routine Java
+    API pattern (e.g. a settings class's own nested status enum). The real extractor's own baked
+    fixture flattens these into the same flat type list by bare name, so this enumerator must
+    too."""
+    (tmp_path / ".git").mkdir()
+    (tmp_path / "Settings.java").write_text(
+        "public class Settings {\n"
+        "    public enum Mode {\n"
+        "        FAST, SLOW\n"
+        "    }\n"
+        "\n"
+        "    public void apply() {\n"
+        "    }\n"
+        "}\n",
+        encoding="utf-8",
+    )
+    symbols = sd.enumerate_java("acme/widgets", "deadbeef", tmp_path)
+    names = {s.name: s for s in symbols}
+    assert set(names) == {"Settings", "Mode"}, "the nested public enum must be flattened in, by its own name"
+    assert names["Mode"].kind == "enum"
+    assert {m.name for m in names["Mode"].members} == {"FAST", "SLOW"}
+
+
+def test_enumerate_java_never_flattens_a_nested_type_of_a_non_public_outer_class(tmp_path):
+    """Real Java accessibility: an outside caller can never name a nested type whose enclosing
+    type it cannot name, so a public nested enum inside a package-private outer class is not
+    part of the real public API and must not be flattened in."""
+    (tmp_path / ".git").mkdir()
+    (tmp_path / "Internal.java").write_text(
+        "class Internal {\n    public enum Mode {\n        FAST, SLOW\n    }\n}\n",
+        encoding="utf-8",
+    )
+    symbols = sd.enumerate_java("acme/widgets", "deadbeef", tmp_path)
+    assert symbols == [], "a nested type of an unreachable (package-private) outer class is not public API"
+
+
+def test_enumerate_java_skips_a_src_test_java_directory(tmp_path):
+    (tmp_path / ".git").mkdir()
+    (tmp_path / "Fine.java").write_text(
+        "public class Fine {\n    public void ok() {\n    }\n}\n", encoding="utf-8"
+    )
+    test_dir = tmp_path / "src" / "test" / "java"
+    test_dir.mkdir(parents=True)
+    (test_dir / "FineTest.java").write_text(
+        "public class FineTest {\n    public void shouldWork() {\n    }\n}\n", encoding="utf-8"
+    )
+    symbols = sd.enumerate_java("acme/widgets", "deadbeef", tmp_path)
+    names = {s.name for s in symbols}
+    assert names == {"Fine"}, "a src/test/java directory must never be read as part of the public API"
+
+
+def test_run_java_enumerator_shells_out_to_java_directly_never_docker(tmp_path):
+    """Offline check of the java invocation's own shape (never a real subprocess here): no
+    Docker anywhere in the command, the companion program's real path, and the one positional
+    argument it expects."""
+    import subprocess as _subprocess
+
+    captured: dict[str, object] = {}
+
+    def fake_run(args, **kwargs):
+        captured["args"] = args
+        captured["kwargs"] = kwargs
+        return _subprocess.CompletedProcess(args=args, returncode=0, stdout="[]", stderr="")
+
+    library_dir = tmp_path / "library"
+    library_dir.mkdir()
+    result = sd._run_java_enumerator(library_dir, run=fake_run)
+    assert result == []
+    args = captured["args"]
+    assert args[0] == sd.JAVA_BINARY == "java"
+    assert "docker" not in [str(a).lower() for a in args]
+    assert args[1] == str(sd.JAVA_ENUMERATOR_SOURCE)
+    assert args[2] == str(library_dir)
+
+
+def test_run_java_enumerator_raises_with_a_clear_message_on_a_nonzero_java_exit(tmp_path):
+    import subprocess as _subprocess
+
+    def failing_run(args, **kwargs):
+        return _subprocess.CompletedProcess(
+            args=args, returncode=1, stdout="", stderr="error: something failed"
+        )
+
+    with pytest.raises(RuntimeError, match="JavaEnumerator.java"):
+        sd._run_java_enumerator(tmp_path, run=failing_run)
+
+
 def test_unimplemented_enumerators_raise_a_named_not_implemented_error():
-    for platform in ("java", "net", "cpp"):
+    for platform in ("net", "cpp"):
         with pytest.raises(NotImplementedError, match=platform):
             sd.DEFAULT_ENUMERATORS[platform]("acme/widgets", "deadbeef", Path("/does/not/matter"))
 
@@ -1063,6 +1339,7 @@ def test_default_enumerators_cover_python_and_every_card_named_platform():
     assert sd.DEFAULT_ENUMERATORS["go"] is sd.enumerate_go
     assert sd.DEFAULT_ENUMERATORS["rust"] is sd.enumerate_rust
     assert sd.DEFAULT_ENUMERATORS["typescript"] is sd.enumerate_typescript
+    assert sd.DEFAULT_ENUMERATORS["java"] is sd.enumerate_java
     assert {"typescript", "javascript", "nodejs", "go", "rust", "java", "net", "dotnet", "cpp"} <= set(
         sd.DEFAULT_ENUMERATORS
     )

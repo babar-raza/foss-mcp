@@ -28,30 +28,33 @@ injection style, so ``diff_symbol``/``diff_language``/``verify_pilot`` and this 
 are exercised offline, with hand-written per-language micro-libraries, by every unit test -- no
 compiler, interpreter or network call is ever made by ``tests/release/test_source_differential.py``.
 
-``enumerate_python``, ``enumerate_go``, ``enumerate_rust`` and ``enumerate_typescript`` are wired
-to real tooling here (Python's own ``ast`` module, Go's own ``go/parser``+``go/ast`` via a small
-companion program, Rust's ``syn`` crate via a small companion crate, and TypeScript's own
-Compiler API -- ``ts.createProgram`` plus its real ``TypeChecker``, never a regex, never this
-project's own tree-sitter grammar, which would make the oracle circular -- via a small companion
-Node script, respectively -- all four reading the real cloned source, no network beyond the
+``enumerate_python``, ``enumerate_go``, ``enumerate_rust``, ``enumerate_typescript`` and
+``enumerate_java`` are wired to real tooling here (Python's own ``ast`` module, Go's own
+``go/parser``+``go/ast`` via a small companion program, Rust's ``syn`` crate via a small
+companion crate, TypeScript's own Compiler API -- ``ts.createProgram`` plus its real
+``TypeChecker``, never a regex, never this project's own tree-sitter grammar, which would make
+the oracle circular -- via a small companion Node script, and the JDK's own Compiler Tree API
+(``com.sun.source.tree``/``com.sun.source.util``) at the PARSE phase only via a small companion
+Java program, respectively -- all five reading the real cloned source, no network beyond the
 clone, no external compiler for Python, a pinned ``golang:1.26.4`` Docker container for Go
 (G3/TC-596), a pinned ``rust:1.98.1`` Docker container for Rust (G3/TC-590) -- both companion
 programs are built AND run entirely inside their own container, never directly on the host,
 because this host's Windows Application Control policy blocks execution of a freshly-built,
 unsigned native .exe; see ``_run_go_enumerator``'s and ``_run_rust_enumerator``'s own docstrings
--- and, for TypeScript, the already-installed ``typescript`` npm package run directly by the
-already-trusted ``node`` host interpreter (G3/TC-591): ``node`` executing a ``.js`` file is
-neither a fresh build nor a native binary, so WDAC never applies and no container is needed; see
-``_run_typescript_enumerator``'s own docstring, which also records why this is confirmed rather
-than merely assumed). The other three languages the card names (Java, .NET, C++) each need their
-own real compiler/reflection/AST tool wired and proven against a real pinned repository -- a
-scope this card's worker could not respect responsibly within one dispatch without shipping
-three more untested, falsely-confident readers (exactly the "confident, false 'done' claims"
-AGENTS.md warns against). ``DEFAULT_ENUMERATORS`` maps each of those three remaining platforms
-to ``_unimplemented_enumerator``, which raises a precise, named ``NotImplementedError`` -- never
-a silent pass, never a fabricated oracle -- and the ``Deps.enumerators`` injection point is
-exactly where the supervisor wires a real one in, one language at a time, the same way track A's
-extraction fix landed as eight separate per-language cards.
+-- and, for TypeScript and Java, the already-installed ``typescript`` npm package / the JDK's own
+single-file source-launcher, both run directly by the already-trusted ``node``/``java`` host
+interpreters (G3/TC-591, G3/TC-592): neither executing a ``.js``/``.java`` text file is a fresh
+build or a native binary, so WDAC never applies and no container is needed; see
+``_run_typescript_enumerator``'s and ``_run_java_enumerator``'s own docstrings, which also record
+why this is confirmed rather than merely assumed). The other two languages the card names (.NET,
+C++) each need their own real compiler/reflection/AST tool wired and proven against a real pinned
+repository -- a scope this card's worker could not respect responsibly within one dispatch
+without shipping two more untested, falsely-confident readers (exactly the "confident, false
+'done' claims" AGENTS.md warns against). ``DEFAULT_ENUMERATORS`` maps each of those two remaining
+platforms to ``_unimplemented_enumerator``, which raises a precise, named ``NotImplementedError``
+-- never a silent pass, never a fabricated oracle -- and the ``Deps.enumerators`` injection point
+is exactly where the supervisor wires a real one in, one language at a time, the same way track
+A's extraction fix landed as eight separate per-language cards.
 
 ``REQUIRE_EXTRACTOR_VERSION`` mirrors the identically-named switch in ``image_workflow_gate.py``: a
 fixture whose ``extractor_version`` is below the current schema (``run_extraction.EXTRACTOR_VERSION``)
@@ -921,6 +924,109 @@ def enumerate_typescript(
     return symbols
 
 
+JAVA_ENUMERATOR_SOURCE = _ORACLE_HELPERS_DIR / "JavaEnumerator.java"
+JAVA_BINARY = "java"
+
+
+def _run_java_enumerator(
+    library_dir: Path, *, run: Callable[..., Any] | None = None, java_binary: str = JAVA_BINARY
+) -> list[dict[str, Any]]:
+    """Run ``JavaEnumerator.java`` (the JDK's own Compiler Tree API,
+    ``scripts/release/oracle_helpers/JavaEnumerator.java``) and parse its JSON stdout.
+
+    Unlike ``_run_go_enumerator``/``_run_rust_enumerator``, this never shells out to Docker.
+    ``java`` running the JDK's own single-file source-launcher (``java
+    JavaEnumerator.java <dir>``, supported since Java 11) compiles the companion program
+    in-memory and runs it with the already-trusted ``java`` host interpreter -- never a
+    freshly-built, unsigned native binary written to disk -- so this host's Windows
+    Application Control policy (which blocks exactly that native-binary case; see the Go/Rust
+    docstrings above) simply does not apply here. This was confirmed directly rather than
+    assumed before this function was written (G3/TC-592), the same way TC-591 confirmed it for
+    ``node``/TypeScript: every test in ``tests/release/test_source_differential.py`` that
+    exercises this function (and the one real, live, network-using run against the pinned
+    pdf/java pilot performed once at this card's own closing time) runs ``java`` directly
+    against the host, with no container anywhere in the invocation below. The companion
+    program's own Compiler Tree API usage (``com.sun.source.tree``/``com.sun.source.util``)
+    needed no ``--add-exports`` flag either -- confirmed directly, see
+    ``JavaEnumerator.java``'s own module docstring.
+    """
+    runner = run or subprocess.run
+    result = runner(
+        [java_binary, str(JAVA_ENUMERATOR_SOURCE), str(library_dir)],
+        cwd=REPO_ROOT,
+        capture_output=True,
+        text=True,
+        encoding="utf-8",
+        errors="replace",
+        check=False,
+    )
+    if result.returncode != 0:
+        raise RuntimeError(
+            f"JavaEnumerator.java failed against {library_dir}:\n{result.stdout}\n{result.stderr}"
+        )
+    try:
+        parsed = json.loads(result.stdout)
+    except ValueError as exc:
+        raise RuntimeError(f"JavaEnumerator.java printed non-JSON stdout: {result.stdout!r}") from exc
+    if not isinstance(parsed, list):
+        raise RuntimeError(f"JavaEnumerator.java printed a non-array JSON document: {result.stdout!r}")
+    return parsed
+
+
+def enumerate_java(
+    repository: str, commit: str, library_dir: Path, *, run: Callable[..., Any] | None = None
+) -> list[OracleSymbol]:
+    """The real public API of a Java library, read with the JDK's own Compiler Tree API at the
+    PARSE phase only (``JavacTask.parse()`` -- never ``.analyze()``/``.generate()``, so a real
+    library's own third-party dependencies, routinely absent from this function's classpath,
+    are never needed) through a small companion program
+    (``scripts/release/oracle_helpers/JavaEnumerator.java``), run directly by the already-
+    trusted ``java`` host interpreter's own single-file source-launcher (no Docker -- see
+    ``_run_java_enumerator``'s own docstring for why that is safe here, unlike
+    ``enumerate_go``/``enumerate_rust``).
+
+    Clones ``repository`` at ``commit`` into ``library_dir`` (unless it already looks checked
+    out: a ``.git`` directory already present), runs the companion program against that
+    directory, and maps its JSON output onto ``OracleSymbol``/``OracleMember``/``OracleParam``.
+    Java has no default parameter values, so every ``OracleParam.has_default`` stays ``False``.
+    Both a Java ``class`` and an ``interface`` map to ``OracleSymbol.kind == "class"`` (an
+    interface's own members become "method"/"property" members using this module's existing
+    class-like convention, matching how ``enumerate_rust``/``enumerate_typescript`` already fold
+    a Rust ``trait``/TypeScript ``interface`` the same way); a Java ``enum`` maps to ``kind ==
+    "enum"`` (its constants as "enum_value" members, each carrying its exact constructor
+    argument literal(s) when the source gives any, never merely a count -- see
+    ``JavaEnumerator.java``'s own "SCOPE" docstring for the one most important rule this
+    enumerator applies: a ``protected`` or package-private class/enum member is NOT public and
+    must be excluded, while an interface member is public unless explicitly ``private``). A
+    public NESTED class/interface/enum (whose own enclosing chain is itself all public) is
+    flattened into the same symbol list by its own simple name, exactly like a top-level one --
+    unlike ``enumerate_go``/``enumerate_rust``, which are top-level-only; this was confirmed
+    necessary, not merely assumed, against the real pinned pdf/java pilot (a top-level-only
+    reading silently produced zero symbol for roughly a fifth of its own distinct public type
+    names).
+    """
+    if not (library_dir / ".git").is_dir():
+        clone_pinned_commit(repository, commit, library_dir, run=run)
+
+    raw_symbols = _run_java_enumerator(library_dir, run=run)
+    symbols: list[OracleSymbol] = []
+    for raw in raw_symbols:
+        members = tuple(
+            OracleMember(
+                name=str(raw_member["name"]),
+                kind=str(raw_member["kind"]),
+                params=tuple(OracleParam(name=str(p["name"])) for p in raw_member.get("params") or []),
+                is_static=bool(raw_member.get("is_static", False)),
+                enum_value=(
+                    str(raw_member["enum_value"]) if raw_member.get("enum_value") is not None else None
+                ),
+            )
+            for raw_member in raw.get("members") or []
+        )
+        symbols.append(OracleSymbol(name=str(raw["name"]), kind=str(raw["kind"]), members=members))
+    return symbols
+
+
 def _unimplemented_enumerator(platform: str) -> Enumerator:
     def _enumerator(repository: str, commit: str, library_dir: Path) -> list[OracleSymbol]:
         raise NotImplementedError(
@@ -936,9 +1042,10 @@ DEFAULT_ENUMERATORS: dict[str, Enumerator] = {
     "go": enumerate_go,
     "rust": enumerate_rust,
     "typescript": enumerate_typescript,
+    "java": enumerate_java,
     **{
         platform: _unimplemented_enumerator(platform)
-        for platform in ("javascript", "nodejs", "java", "net", "dotnet", "cpp")
+        for platform in ("javascript", "nodejs", "net", "dotnet", "cpp")
     },
 }
 
