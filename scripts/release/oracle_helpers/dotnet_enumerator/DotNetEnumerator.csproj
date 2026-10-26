@@ -25,6 +25,18 @@
     <AssemblyName>DotNetEnumerator</AssemblyName>
     <RootNamespace>DotNetEnumerator</RootNamespace>
     <InvariantGlobalization>true</InvariantGlobalization>
+    <!--
+      Disables NuGet's package vulnerability AUDIT feature during restore (G3/TC-594 rework).
+      "dotnet run" always performs an implicit restore (TC-593 removed the no restore flag so
+      fresh worktrees build at all). In a worktree with no prior restore history, that implicit
+      restore also runs the audit check, which tries to reach https://api.nuget.org/v3/index.json;
+      offline or flaky, it fails and prints a "warning NU1900: Error occurred while getting package
+      vulnerability data..." line to STDOUT (not stderr) immediately before or around this
+      program's own JSON output, which _run_dotnet_enumerator's json.loads(result.stdout) cannot
+      parse. This removes the network attempt entirely rather than tolerating its failure,
+      matching this card's own declared network false setting for its checks.
+    -->
+    <NuGetAudit>false</NuGetAudit>
   </PropertyGroup>
 
   <ItemGroup>
