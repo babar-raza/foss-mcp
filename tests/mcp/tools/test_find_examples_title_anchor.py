@@ -310,8 +310,16 @@ def test_match_basis_is_the_last_field() -> None:
     names = list(ExampleMatch.__dataclass_fields__)
     # TC-544 appended three additive fields (language, source_commit, verification) after match_basis,
     # so match_basis is no longer last; it still follows provenance and the earlier fields unchanged.
-    assert names[-5:] == ["provenance", "match_basis", "language", "source_commit", "verification"]
-    assert names[:-4] == [
+    # TC-584 appended one more additive field (confidence) after verification.
+    assert names[-6:] == [
+        "provenance",
+        "match_basis",
+        "language",
+        "source_commit",
+        "verification",
+        "confidence",
+    ]
+    assert names[:-5] == [
         "scope",
         "generation_id",
         "fqn",
