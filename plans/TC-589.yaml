@@ -20,6 +20,7 @@ depends_on:
 write_paths:
 - scripts/release/source_differential.py
 - tests/release/test_source_differential.py
+- scripts/release/oracle_helpers/**
 satisfies:
 - REQ-G3-009
 source_refs:
@@ -28,6 +29,13 @@ source_refs:
     ## 2026-10-17 — Round-3 independent review of the shipped image: 82 findings registered, nothing executed (operator, supervisor)
   sha256: c2056b11a13e5b18cda7e522027fb5eb0102edcef2f99f6c7e7ce0ee5c4b4e5b
 inputs:
+- >-
+  REWORK NOTE (2026-10-26, supervisor, after reviewing the worker's blocked-commit report). write_paths widened
+  above to add scripts/release/oracle_helpers/** - the worker's real, verified companion Go program
+  (scripts/release/oracle_helpers/go_enumerator.go) was correctly refused by the commit-guard because the original
+  two exact-file write_paths entries have no glob and never match a new file in a new subdirectory, by design
+  (gatectl deliberately does not prefix-match). No other change; resume exactly where you left off, re-run both
+  checks once more, and commit.
 - >-
   READ FIRST, in full: scripts/release/source_differential.py's module docstring and its enumerate_python/
   _unimplemented_enumerator/DEFAULT_ENUMERATORS (the exact contract: Enumerator = (repository, commit, library_dir)
