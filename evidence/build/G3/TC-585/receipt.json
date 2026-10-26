@@ -1,0 +1,113 @@
+{
+  "schema_version": 1,
+  "card": "TC-585",
+  "gate": "G3",
+  "generated_by": "gatectl",
+  "generated_at": "2026-10-26T07:11:30Z",
+  "base_rev": "0f16f8107be8c7429740e6c738ca8793136c2b12",
+  "head_rev": "e34473aeecd0e7d29c569448bc2b34255ce47fa3",
+  "card_sha256": "f5005e0fd1b7cbef0bed9b295d9d6a585135cfa763bda48f17d6fdc9989314d2",
+  "fingerprint": {
+    "python": "3.13.2",
+    "platform": "Windows-11-10.0.26300-SP0",
+    "lock_sha256": "5c72e798a73c059a438e752e94a8d4c88c1bdf81a197f6e5c5fcecbc9466a691",
+    "env": {
+      "PYTHONHASHSEED": "0",
+      "PYTHONUTF8": "1",
+      "PYTHONDONTWRITEBYTECODE": "1",
+      "PYTHONIOENCODING": "utf-8",
+      "TZ": "UTC",
+      "LC_ALL": "C.UTF-8",
+      "SOURCE_DATE_EPOCH": "1700000000",
+      "verify_runner": "host"
+    }
+  },
+  "scope": {
+    "ok": true,
+    "changed_paths": [
+      "src/foss_mcp/mcp/tools/relevance.py",
+      "src/foss_mcp/mcp/tools/search_symbols.py",
+      "tests/mcp/tools/test_relevance_idf_synonyms.py",
+      "tests/mcp/tools/test_search_symbols_forgiveness.py"
+    ],
+    "violations": [],
+    "evaluated": true
+  },
+  "runs": [
+    {
+      "run": 1,
+      "checks": [
+        {
+          "command": "{python} -m pytest tests/mcp/tools/test_relevance_idf_synonyms.py tests/mcp/tools/test_search_symbols_forgiveness.py tests/mcp/tools/test_round3_retrieval_corpus.py -q -rfE",
+          "exit_code": 0,
+          "duration_s": 43.771,
+          "stdout_sha256": "4775289cae8c25b492bbdb87259af927358abca51bcd06b2e01d8b9796f79cdc",
+          "tests": 102,
+          "skipped": 0,
+          "errors": 0,
+          "failures": 0
+        },
+        {
+          "command": "{python} -m pytest tests/mcp/tools/test_relevance_idf_synonyms.py tests/mcp/tools/test_search_symbols_forgiveness.py tests/mcp/tools/test_search_symbols_memberless_last.py tests/mcp/tools/test_round3_promoted_member_ranking.py tests/mcp/tools/test_miss_coverage_note.py tests/mcp/tools/test_round3_retrieval_corpus.py tests/mcp/tools/test_member_lookup.py tests/mcp/tools/test_find_examples_title_anchor.py tests/mcp/tools/test_lookup_forgiveness.py tests/test_unwired_modules.py -q -rfE -p no:cacheprovider",
+          "exit_code": 0,
+          "duration_s": 60.547,
+          "stdout_sha256": "74bbb0ecd5fe8714fb1a808476d78dd2a12c891bcd8a6622a3b7b3ba12ecca26",
+          "tests": 347,
+          "skipped": 0,
+          "errors": 0,
+          "failures": 0
+        }
+      ],
+      "all_passed": true
+    },
+    {
+      "run": 2,
+      "checks": [
+        {
+          "command": "{python} -m pytest tests/mcp/tools/test_relevance_idf_synonyms.py tests/mcp/tools/test_search_symbols_forgiveness.py tests/mcp/tools/test_round3_retrieval_corpus.py -q -rfE",
+          "exit_code": 0,
+          "duration_s": 51.18,
+          "stdout_sha256": "4775289cae8c25b492bbdb87259af927358abca51bcd06b2e01d8b9796f79cdc",
+          "tests": 102,
+          "skipped": 0,
+          "errors": 0,
+          "failures": 0
+        },
+        {
+          "command": "{python} -m pytest tests/mcp/tools/test_relevance_idf_synonyms.py tests/mcp/tools/test_search_symbols_forgiveness.py tests/mcp/tools/test_search_symbols_memberless_last.py tests/mcp/tools/test_round3_promoted_member_ranking.py tests/mcp/tools/test_miss_coverage_note.py tests/mcp/tools/test_round3_retrieval_corpus.py tests/mcp/tools/test_member_lookup.py tests/mcp/tools/test_find_examples_title_anchor.py tests/mcp/tools/test_lookup_forgiveness.py tests/test_unwired_modules.py -q -rfE -p no:cacheprovider",
+          "exit_code": 0,
+          "duration_s": 80.386,
+          "stdout_sha256": "74bbb0ecd5fe8714fb1a808476d78dd2a12c891bcd8a6622a3b7b3ba12ecca26",
+          "tests": 347,
+          "skipped": 0,
+          "errors": 0,
+          "failures": 0
+        }
+      ],
+      "all_passed": true
+    }
+  ],
+  "negative_control": {
+    "kind": "mutate",
+    "patch": "python -X utf8 -c \"import pathlib; p = pathlib.Path('src/foss_mcp/mcp/tools/relevance.py'); s = p.read_text(encoding='utf-8'); marker = '_GENERIC_WORDS = frozenset('; assert s.count(marker) == 1, 'fix text not found - card and source have diverged'; i = s.index(marker); j = s.index(')', i); p.write_text(s[:i] + '_GENERIC_WORDS = frozenset()  # TC-585 negative control' + s[j+1:], encoding='utf-8')\"\n",
+    "patch_sha256": "8b29e88d9ea1d1f0fd95a7ddee310e925ce4e7a31e8ea4d2a1752aeb6ed1e85d",
+    "applied": true,
+    "patch_applied_failed": true,
+    "exit_codes": [
+      1,
+      1
+    ],
+    "tree_changed": [
+      "M src/foss_mcp/mcp/tools/relevance.py",
+      "?? .junit-0.xml",
+      "?? .junit-1.xml"
+    ]
+  },
+  "holdout": {
+    "ran": false,
+    "passed": true,
+    "detail": "no holdout for this card"
+  },
+  "accepted": true,
+  "reason": "all gates passed"
+}
