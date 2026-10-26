@@ -28,15 +28,18 @@ injection style, so ``diff_symbol``/``diff_language``/``verify_pilot`` and this 
 are exercised offline, with hand-written per-language micro-libraries, by every unit test -- no
 compiler, interpreter or network call is ever made by ``tests/release/test_source_differential.py``.
 
-Only ``enumerate_python`` is wired to real tooling here (Python's own ``ast`` module, reading the real
-cloned source -- no network beyond the clone, no external compiler). The other six languages the card
-names (TypeScript, Go, Rust, Java, .NET, C++) each need their own real compiler/reflection/AST tool
-wired and proven against a real pinned repository -- a scope this card's worker could not respect
-responsibly within one dispatch without shipping six untested, falsely-confident readers (exactly the
-"confident, false 'done' claims" AGENTS.md warns against). ``DEFAULT_ENUMERATORS`` maps each of those
-six platforms to ``_unimplemented_enumerator``, which raises a precise, named ``NotImplementedError``
--- never a silent pass, never a fabricated oracle -- and the ``Deps.enumerators`` injection point is
-exactly where the supervisor wires a real one in, one language at a time, the same way track A's
+``enumerate_python`` and ``enumerate_go`` are wired to real tooling here (Python's own ``ast``
+module and Go's own ``go/parser``+``go/ast`` via a small companion program, respectively -- both
+reading the real cloned source, no network beyond the clone, no external compiler for Python, and
+only the project's already-pinned ``go`` toolchain for Go, run with ``go run``, never a new
+dependency). The other five languages the card names (TypeScript, Rust, Java, .NET, C++) each need
+their own real compiler/reflection/AST tool wired and proven against a real pinned repository -- a
+scope this card's worker could not respect responsibly within one dispatch without shipping five
+untested, falsely-confident readers (exactly the "confident, false 'done' claims" AGENTS.md warns
+against). ``DEFAULT_ENUMERATORS`` maps each of those five remaining platforms to
+``_unimplemented_enumerator``, which raises a precise, named ``NotImplementedError`` -- never a
+silent pass, never a fabricated oracle -- and the ``Deps.enumerators`` injection point is exactly
+where the supervisor wires a real one in, one language at a time, the same way track A's
 extraction fix landed as eight separate per-language cards.
 
 ``REQUIRE_EXTRACTOR_VERSION`` mirrors the identically-named switch in ``image_workflow_gate.py``: a
@@ -581,6 +584,66 @@ def enumerate_python(
     return symbols
 
 
+_ORACLE_HELPERS_DIR = Path(__file__).resolve().parent / "oracle_helpers"
+GO_ENUMERATOR_SOURCE = _ORACLE_HELPERS_DIR / "go_enumerator.go"
+
+
+def _run_go_enumerator(library_dir: Path, *, run: Callable[..., Any] | None = None) -> list[dict[str, Any]]:
+    """Run ``go_enumerator.go`` (Go's own ``go/parser``+``go/ast``, no new dependency) and parse
+    its JSON stdout. Never a fixture, never this project's own tree-sitter engine."""
+    runner = run or subprocess.run
+    result = runner(
+        ["go", "run", str(GO_ENUMERATOR_SOURCE), str(library_dir)],
+        cwd=REPO_ROOT,
+        capture_output=True,
+        text=True,
+        encoding="utf-8",
+        errors="replace",
+        check=False,
+    )
+    if result.returncode != 0:
+        raise RuntimeError(
+            f"go_enumerator.go failed against {library_dir}:\n{result.stdout}\n{result.stderr}"
+        )
+    parsed = json.loads(result.stdout)
+    if not isinstance(parsed, list):
+        raise RuntimeError(f"go_enumerator.go printed a non-array JSON document: {result.stdout!r}")
+    return parsed
+
+
+def enumerate_go(
+    repository: str, commit: str, library_dir: Path, *, run: Callable[..., Any] | None = None
+) -> list[OracleSymbol]:
+    """The real public API of a Go library, read with Go's own ``go/parser``+``go/ast`` (stdlib,
+    no new dependency) through a small companion program
+    (``scripts/release/oracle_helpers/go_enumerator.go``).
+
+    Clones ``repository`` at ``commit`` into ``library_dir`` (unless it already looks checked out:
+    a ``.git`` directory already present), runs the companion program with ``go run`` against that
+    directory, and maps its JSON output onto ``OracleSymbol``/``OracleMember``/``OracleParam``. Go
+    has no default parameter values, so every ``OracleParam.has_default`` stays ``False``; a Go
+    method always needs a receiver (there is no Go analogue of ``@staticmethod``), so every
+    member's ``is_static`` stays ``False``.
+    """
+    if not (library_dir / ".git").is_dir():
+        clone_pinned_commit(repository, commit, library_dir, run=run)
+
+    raw_symbols = _run_go_enumerator(library_dir, run=run)
+    symbols: list[OracleSymbol] = []
+    for raw in raw_symbols:
+        members = tuple(
+            OracleMember(
+                name=str(raw_member["name"]),
+                kind=str(raw_member["kind"]),
+                params=tuple(OracleParam(name=str(p["name"])) for p in raw_member.get("params") or []),
+                is_static=bool(raw_member.get("is_static", False)),
+            )
+            for raw_member in raw.get("members") or []
+        )
+        symbols.append(OracleSymbol(name=str(raw["name"]), kind=str(raw["kind"]), members=members))
+    return symbols
+
+
 def _unimplemented_enumerator(platform: str) -> Enumerator:
     def _enumerator(repository: str, commit: str, library_dir: Path) -> list[OracleSymbol]:
         raise NotImplementedError(
@@ -593,9 +656,10 @@ def _unimplemented_enumerator(platform: str) -> Enumerator:
 
 DEFAULT_ENUMERATORS: dict[str, Enumerator] = {
     "python": enumerate_python,
+    "go": enumerate_go,
     **{
         platform: _unimplemented_enumerator(platform)
-        for platform in ("typescript", "javascript", "nodejs", "go", "rust", "java", "net", "dotnet", "cpp")
+        for platform in ("typescript", "javascript", "nodejs", "rust", "java", "net", "dotnet", "cpp")
     },
 }
 

@@ -451,14 +451,142 @@ def test_enumerate_python_skips_a_file_that_fails_to_parse(tmp_path):
     assert [s.name for s in symbols] == ["Fine"]
 
 
+# --- the Go go/parser+go/ast enumerator: the second real, wired tool this card lands -----------------
+# Every fixture below is a hand-written synthetic .go file (never the real pilot, never the
+# enumerator's own output read back as the expected value). enumerate_go really invokes the Go
+# toolchain's own go/parser+go/ast (through scripts/release/oracle_helpers/go_enumerator.go, run
+# with `go run`) against these files on local disk -- no network, matching this card's network:
+# false requirement, since the Go toolchain itself is a declared local `requires:` entry, never
+# something reached over the wire.
+
+
+def test_enumerate_go_reads_a_real_struct_with_go_ast_offline(tmp_path):
+    (tmp_path / ".git").mkdir()  # pretend already-cloned, so enumerate_go never shells out to git
+    (tmp_path / "document.go").write_text(
+        "package pdf\n\n"
+        "type Document struct {\n"
+        "\tTitle string\n"
+        "\tpages []int\n"
+        "}\n\n"
+        "func (d *Document) Save(path string, overwrite bool) error { return nil }\n"
+        "func (d Document) pageCount() int { return 0 }\n",
+        encoding="utf-8",
+    )
+    symbols = sd.enumerate_go("acme/pdf", "deadbeef", tmp_path)
+    (document,) = [s for s in symbols if s.name == "Document"]
+    assert document.kind == "struct"
+    by_name = {member.name: member for member in document.members}
+    assert set(by_name) == {"Title", "Save"}  # pageCount is unexported and must not appear
+    assert by_name["Title"].kind == "property"
+    assert by_name["Save"].kind == "method"
+    assert by_name["Save"].params == (OP("path"), OP("overwrite"))
+    assert by_name["Save"].is_static is False
+
+
+def test_enumerate_go_reads_an_interface_and_its_methods_offline(tmp_path):
+    (tmp_path / ".git").mkdir()
+    (tmp_path / "reader.go").write_text(
+        "package pdf\n\n"
+        "type Reader interface {\n"
+        "\tRead(path string) (*Document, error)\n"
+        "\tunexportedProbe()\n"
+        "}\n",
+        encoding="utf-8",
+    )
+    (reader,) = sd.enumerate_go("acme/pdf", "deadbeef", tmp_path)
+    assert reader.kind == "interface"
+    names = {member.name for member in reader.members}
+    assert names == {"Read"}  # unexportedProbe is never public
+    (read,) = [m for m in reader.members if m.name == "Read"]
+    assert read.params == (OP("path"),)
+
+
+def test_enumerate_go_defect_an_unexported_field_is_excluded_from_the_result(tmp_path):
+    """Deliberate defect fixture 1: a struct field that must be absent because it is unexported."""
+    (tmp_path / ".git").mkdir()
+    (tmp_path / "widget.go").write_text(
+        "package widgets\n\n"
+        "type Widget struct {\n"
+        "\tName string\n"  # exported: must appear
+        "\tinternal int\n"  # unexported (lowercase): must NOT appear
+        "}\n",
+        encoding="utf-8",
+    )
+    (widget,) = sd.enumerate_go("acme/widgets", "deadbeef", tmp_path)
+    names = {member.name for member in widget.members}
+    assert names == {"Name"}, "the enumerator must exclude the unexported 'internal' field"
+    assert "internal" not in names
+
+
+def test_enumerate_go_defect_pointer_receiver_params_are_read_exactly(tmp_path):
+    """Deliberate defect fixture 2: a pointer-receiver method's own params, not the receiver
+    itself, must be returned, in order, even when several params share one type."""
+    (tmp_path / ".git").mkdir()
+    (tmp_path / "shape.go").write_text(
+        "package shapes\n\n"
+        "type Shape struct {\n"
+        "\tName string\n"
+        "}\n\n"
+        "func (s *Shape) Resize(width, height int, label string) error { return nil }\n",
+        encoding="utf-8",
+    )
+    (shape,) = sd.enumerate_go("acme/shapes", "deadbeef", tmp_path)
+    (resize,) = [m for m in shape.members if m.name == "Resize"]
+    assert resize.params == (OP("width"), OP("height"), OP("label")), (
+        "a pointer receiver must never leak into the params list, and every real param must survive"
+    )
+
+
+def test_enumerate_go_attaches_methods_declared_in_a_different_file(tmp_path):
+    """A real Go package routinely splits one type's methods across several files; both halves
+    must be attached to the same symbol, and a method for a type that is never declared is
+    dropped rather than fabricating a phantom symbol."""
+    (tmp_path / ".git").mkdir()
+    (tmp_path / "document.go").write_text(
+        "package pdf\n\ntype Document struct {\n\tTitle string\n}\n\n"
+        "func (d *Document) Save(path string) error { return nil }\n",
+        encoding="utf-8",
+    )
+    (tmp_path / "document_io.go").write_text(
+        "package pdf\n\n"
+        "func (d *Document) Close() error { return nil }\n"
+        "func (m *Missing) Run() {}\n",  # Missing is never declared: must not create a symbol
+        encoding="utf-8",
+    )
+    symbols = sd.enumerate_go("acme/pdf", "deadbeef", tmp_path)
+    assert [s.name for s in symbols] == ["Document"]
+    (document,) = symbols
+    names = {member.name for member in document.members}
+    assert names == {"Title", "Save", "Close"}
+
+
+def test_enumerate_go_skips_a_file_that_fails_to_parse(tmp_path):
+    (tmp_path / ".git").mkdir()
+    (tmp_path / "broken.go").write_text("package pdf\n\nfunc broken(:\n", encoding="utf-8")
+    (tmp_path / "good.go").write_text("package pdf\n\ntype Fine struct {\n\tOK bool\n}\n", encoding="utf-8")
+    symbols = sd.enumerate_go("acme/pdf", "deadbeef", tmp_path)
+    assert [s.name for s in symbols] == ["Fine"]
+
+
+def test_enumerate_go_never_enumerates_bare_package_level_functions(tmp_path):
+    (tmp_path / ".git").mkdir()
+    (tmp_path / "helpers.go").write_text(
+        "package pdf\n\nfunc Helper() {}\n\ntype Document struct {\n\tTitle string\n}\n",
+        encoding="utf-8",
+    )
+    (document,) = sd.enumerate_go("acme/pdf", "deadbeef", tmp_path)
+    assert {member.name for member in document.members} == {"Title"}
+
+
 def test_unimplemented_enumerators_raise_a_named_not_implemented_error():
-    for platform in ("typescript", "go", "rust", "java", "net", "cpp"):
+    for platform in ("typescript", "rust", "java", "net", "cpp"):
         with pytest.raises(NotImplementedError, match=platform):
             sd.DEFAULT_ENUMERATORS[platform]("acme/widgets", "deadbeef", Path("/does/not/matter"))
 
 
 def test_default_enumerators_cover_python_and_every_card_named_platform():
     assert sd.DEFAULT_ENUMERATORS["python"] is sd.enumerate_python
+    assert sd.DEFAULT_ENUMERATORS["go"] is sd.enumerate_go
     assert {"typescript", "javascript", "nodejs", "go", "rust", "java", "net", "dotnet", "cpp"} <= set(
         sd.DEFAULT_ENUMERATORS
     )
