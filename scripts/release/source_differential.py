@@ -29,36 +29,40 @@ are exercised offline, with hand-written per-language micro-libraries, by every 
 compiler, interpreter or network call is ever made by ``tests/release/test_source_differential.py``.
 
 ``enumerate_python``, ``enumerate_go``, ``enumerate_rust``, ``enumerate_typescript``,
-``enumerate_java`` and ``enumerate_dotnet`` are wired to real tooling here (Python's own ``ast``
-module, Go's own ``go/parser``+``go/ast`` via a small companion program, Rust's ``syn`` crate via
-a small companion crate, TypeScript's own Compiler API -- ``ts.createProgram`` plus its real
-``TypeChecker``, never a regex, never this project's own tree-sitter grammar, which would make
-the oracle circular -- via a small companion Node script, the JDK's own Compiler Tree API
-(``com.sun.source.tree``/``com.sun.source.util``) at the PARSE phase only via a small companion
-Java program, and Roslyn's own parser (``Microsoft.CodeAnalysis.CSharp``,
-``CSharpSyntaxTree.ParseText``) at the SYNTAX/PARSE phase only via a small companion .NET console
-project, respectively -- all six reading the real cloned source, no network beyond the clone, no
-external compiler for Python, a pinned ``golang:1.26.4`` Docker container for Go (G3/TC-596), a
-pinned ``rust:1.98.1`` Docker container for Rust (G3/TC-590) -- both companion programs are built
-AND run entirely inside their own container, never directly on the host, because this host's
-Windows Application Control policy blocks execution of a freshly-built, unsigned native .exe; see
-``_run_go_enumerator``'s and ``_run_rust_enumerator``'s own docstrings -- and, for TypeScript,
-Java and .NET, the already-installed ``typescript`` npm package / the JDK's own single-file
-source-launcher / the ``dotnet`` host's own ``dotnet run``, all run directly by the already-
-trusted ``node``/``java``/``dotnet`` host interpreters (G3/TC-591, G3/TC-592, G3/TC-593): none of
-executing a ``.js`` text file, a ``.java`` text file, or JIT-running managed IL is a fresh build
-or a native binary, so WDAC never applies and no container is needed; see
-``_run_typescript_enumerator``'s, ``_run_java_enumerator``'s and ``_run_dotnet_enumerator``'s own
-docstrings, which also record why this is confirmed rather than merely assumed). The one remaining
-language the card names (C++) needs its own real compiler/reflection/AST tool wired and proven
-against a real pinned repository -- a scope this card's worker could not respect responsibly
-within one dispatch without shipping one more untested, falsely-confident reader (exactly the
-"confident, false 'done' claims" AGENTS.md warns against). ``DEFAULT_ENUMERATORS`` maps that one
-remaining platform to ``_unimplemented_enumerator``, which raises a precise, named
-``NotImplementedError`` -- never a silent pass, never a fabricated oracle -- and the
-``Deps.enumerators`` injection point is exactly where the supervisor wires a real one in, one
-language at a time, the same way track A's extraction fix landed as eight separate per-language
-cards.
+``enumerate_java``, ``enumerate_dotnet`` and ``enumerate_cpp`` are wired to real tooling here
+(Python's own ``ast`` module, Go's own ``go/parser``+``go/ast`` via a small companion program,
+Rust's ``syn`` crate via a small companion crate, TypeScript's own Compiler API --
+``ts.createProgram`` plus its real ``TypeChecker``, never a regex, never this project's own
+tree-sitter grammar, which would make the oracle circular -- via a small companion Node script,
+the JDK's own Compiler Tree API (``com.sun.source.tree``/``com.sun.source.util``) at the PARSE
+phase only via a small companion Java program, Roslyn's own parser
+(``Microsoft.CodeAnalysis.CSharp``, ``CSharpSyntaxTree.ParseText``) at the SYNTAX/PARSE phase only
+via a small companion .NET console project, and Clang's own AST (``-Xclang -ast-dump=json
+-fsyntax-only``, the PARSE-and-SEMA phase only) via a direct ``clang.exe`` subprocess, respectively
+-- all seven reading the real cloned source, no network beyond the clone, no external compiler for
+Python, a pinned ``golang:1.26.4`` Docker container for Go (G3/TC-596), a pinned ``rust:1.98.1``
+Docker container for Rust (G3/TC-590) -- both companion programs are built AND run entirely inside
+their own container, never directly on the host, because this host's Windows Application Control
+policy blocks execution of a freshly-built, unsigned native .exe; see ``_run_go_enumerator``'s and
+``_run_rust_enumerator``'s own docstrings -- and, for TypeScript, Java, .NET and C++, the
+already-installed ``typescript`` npm package / the JDK's own single-file source-launcher / the
+``dotnet`` host's own ``dotnet run`` / this host's own already-installed LLVM 19.1.7 ``clang.exe``,
+all run directly by the already-trusted ``node``/``java``/``dotnet``/``clang`` host binaries
+(G3/TC-591, G3/TC-592, G3/TC-593, G3/TC-594): none of executing a ``.js`` text file, a ``.java``
+text file, JIT-running managed IL, or running a pre-existing, already-installed native compiler
+binary against a text header is a FRESHLY-BUILT, unsigned native binary, so WDAC never applies
+and no container is needed; see ``_run_typescript_enumerator``'s, ``_run_java_enumerator``'s,
+``_run_dotnet_enumerator``'s and ``_run_clang_ast_dump``'s own docstrings, which also record why
+this is confirmed rather than merely assumed -- ``enumerate_cpp``'s own docstring also records why
+this host's real ``clang.exe`` is used directly rather than the ``libclang`` PyPI binding the
+card that wired it in originally named (that binding's own ``import clang.cindex`` fails in this
+worktree, and a real system clang was found to already exist here, contrary to that card's own
+dispatch-time premise). ``javascript``/``nodejs`` are the only platforms this project's own chart
+never names a pilot for; ``DEFAULT_ENUMERATORS`` still maps them to ``_unimplemented_enumerator``,
+which raises a precise, named ``NotImplementedError`` -- never a silent pass, never a fabricated
+oracle -- and the ``Deps.enumerators`` injection point is exactly where a real one would be wired
+in if a pilot for either platform is ever added, the same way track A's extraction fix landed as
+eight separate per-language cards.
 
 ``REQUIRE_EXTRACTOR_VERSION`` mirrors the identically-named switch in ``image_workflow_gate.py``: a
 fixture whose ``extractor_version`` is below the current schema (``run_extraction.EXTRACTOR_VERSION``)
@@ -1168,6 +1172,422 @@ def enumerate_dotnet(
     return symbols
 
 
+CPP_CLANG_BINARY = Path(
+    r"C:\dev-tools\foss-mcp\rp-toolchains\llvm-19.1.7\clang+llvm-19.1.7-x86_64-pc-windows-msvc\bin\clang.exe"
+)
+# TC-594: this host's own already-installed LLVM 19.1.7 toolchain, confirmed directly (searched
+# C:\dev-tools and PATH) rather than assumed from either the Round-3 audit's design table ("None
+# (already in toolchain)") or this card's own dispatch premise ("no system clang/LLVM install exists
+# anywhere under C:\dev-tools") -- BOTH were wrong for this host: clang.exe/libclang.dll have sat
+# under this exact path since September 2026, well before this card was ever authored. Separately,
+# and regardless of that finding, `import clang.cindex` (the `libclang` PyPI binding this card's own
+# dispatch instructions say the supervisor pinned in requirements.in/requirements.lock before
+# dispatch) fails in this worktree's venv -- the pin is present in requirements.lock
+# (`libclang==18.1.1`) but the package is not actually installed, and this card's own contract
+# forbids trying to fix that ("if `import clang.cindex` fails ... stop and report rather than trying
+# to fix the dependency yourself"). The card's own fallback clause covers exactly this situation
+# ("if a later toolchain update did add a real clang.exe, a bare `clang -Xclang -ast-dump=json
+# -fsyntax-only` invocation ... is simpler and preferred -- use whichever is actually available"), so
+# this module uses the real, already-installed ``clang.exe`` directly via subprocess, never the
+# unavailable Python binding. Pinned the same way TYPESCRIPT_NPM_PACKAGE_DIR/GO_DOCKER_IMAGE/
+# RUST_DOCKER_IMAGE pin this host's own installed tools: a visible, diagnosable error if a future
+# host ever moves it, never a silent wrong answer.
+CPP_STD = "-std=c++20"  # the real pdf/cpp pilot's own public headers use std::span (C++20);
+# confirmed directly against the real pinned commit before picking this flag, not assumed.
+_CPP_PRIVATE_DIR_NAMES = frozenset({"internal", "detail", "details", "impl", "private", "src"})
+_CPP_HIDDEN_NAMESPACE_NAMES = frozenset({"internal", "detail"})
+# CXXConstructorDecl/CXXDestructorDecl/CXXConversionDecl are Clang's own distinct AST node kinds for
+# a constructor, destructor and conversion operator (each derives from CXXMethodDecl in Clang's own
+# class hierarchy, but the -ast-dump=json "kind" string names the concrete subclass, never the base).
+_CPP_METHOD_KINDS = frozenset(
+    {"CXXMethodDecl", "CXXConstructorDecl", "CXXDestructorDecl", "CXXConversionDecl"}
+)
+
+
+def _cpp_is_public_header(path: Path, include_root: Path) -> bool:
+    """True when *path* is a ``.h``/``.hpp`` file outside every ``internal``/``detail``/``details``/
+    ``impl``/``private``/``src`` directory (case-insensitive, leading underscores ignored --
+    ``_internal`` is an internal directory too) below *include_root*, and whose own file name does
+    not itself start with ``internal``. Re-derived independently here from the SAME public/private
+    rule TC-534 already established for this project's own tree-sitter C++ extractor
+    (``api_surface.py``'s ``_cpp_is_public_header``) -- never imported from it, so this stays a
+    genuinely independent oracle even though a correct fixture should agree with it.
+    """
+    if path.suffix.lower() not in (".h", ".hpp"):
+        return False
+    try:
+        parts = path.relative_to(include_root).parts
+    except ValueError:
+        parts = (path.name,)
+    for part in parts[:-1]:
+        low = part.lower().lstrip("_")
+        if low in _CPP_PRIVATE_DIR_NAMES or low.startswith("internal"):
+            return False
+    return not parts[-1].lower().startswith("internal")
+
+
+def _cpp_namespace_is_hidden(name: str | None) -> bool:
+    """True when a C++ namespace named *name* (``None`` for an anonymous namespace) holds
+    implementation detail, never public API: TC-534's own rule (an anonymous namespace, or one
+    named -- any ``::``-separated segment, case-insensitive, leading underscores ignored --
+    ``internal`` or ``detail``) re-derived independently here, never imported from
+    ``api_surface.py``.
+    """
+    if name is None:
+        return True
+    return any(seg.strip().lstrip("_").lower() in _CPP_HIDDEN_NAMESPACE_NAMES for seg in name.split("::"))
+
+
+def _cpp_public_include_dir(library_dir: Path) -> Path:
+    """The library's own public include root: the directory literally named ``include`` directly
+    under *library_dir* when one exists (the layout every ``*-FOSS-for-Cpp`` repository this
+    project ingests already uses), else *library_dir* itself.
+    """
+    candidate = library_dir / "include"
+    return candidate if candidate.is_dir() else library_dir
+
+
+def _cpp_public_headers(include_root: Path) -> list[Path]:
+    return sorted(
+        path
+        for path in include_root.rglob("*")
+        if path.is_file() and _cpp_is_public_header(path, include_root)
+    )
+
+
+def _cpp_resolve_node_files(root: Mapping[str, Any], main_file: str) -> dict[int, str]:
+    """``{id(node): the source file that node is actually declared in}`` for every node under
+    *root* (a ``TranslationUnitDecl``), found by walking the WHOLE tree, unconditionally, in exact
+    document order.
+
+    Clang's own ``-ast-dump=json`` delta-encodes each declaration's own file: a node's ``"loc"``
+    carries an explicit ``"file"`` only when it differs from the one immediately before it (in
+    document order) -- omitted, a declaration is in the SAME file as the one before it, starting
+    from *main_file* itself (the header actually passed on the command line) before any transition
+    is ever seen. Confirmed directly against a real two-file case (a header that ``#include``s
+    ``<string>``): the header's OWN declarations that come after the ``#include`` carry an explicit
+    ``"file"`` again, re-asserting *main_file*, once control returns from the included header's own
+    subtree. Without this, every declaration pulled in transitively from an included system/CRT
+    header (``__crt_locale_data_public`` and thousands like it, confirmed directly against the real
+    pdf/cpp pilot before this function was written) would be walked exactly like one the library's
+    own public header actually declares, wildly inflating "missing" -- this independent oracle must
+    read only what the header being enumerated ACTUALLY declares, nothing an unrelated, transitively
+    included header happens to declare too.
+    """
+    resolved: dict[int, str] = {}
+    current: list[str] = [main_file]
+
+    def walk(node: Any) -> None:
+        if not isinstance(node, dict):
+            return
+        loc = node.get("loc")
+        if isinstance(loc, dict) and "file" in loc:
+            current[0] = str(loc["file"])
+        resolved[id(node)] = current[0]
+        for child in node.get("inner") or []:
+            walk(child)
+
+    walk(root)
+    return resolved
+
+
+def _cpp_explicit_enum_value(node: Mapping[str, Any]) -> str | None:
+    """The explicit literal value of one ``EnumConstantDecl`` *node* (its own ``ConstantExpr``
+    child's folded ``"value"``), or ``None`` when the source gave no initializer -- an implicit,
+    "not checked" value, matching ``enumerate_rust``/``enumerate_java``/``enumerate_dotnet``'s own
+    convention of never reporting a mere position count as a real discriminant.
+    """
+    for child in node.get("inner") or []:
+        if child.get("kind") == "ConstantExpr" and "value" in child:
+            return str(child["value"])
+    return None
+
+
+def _cpp_enum_members(node: Mapping[str, Any]) -> tuple[OracleMember, ...]:
+    members: list[OracleMember] = []
+    for child in node.get("inner") or []:
+        if child.get("kind") != "EnumConstantDecl":
+            continue
+        name = str(child.get("name") or "")
+        if not name:
+            continue
+        members.append(OracleMember(name=name, kind="enum_value", enum_value=_cpp_explicit_enum_value(child)))
+    return tuple(members)
+
+
+def _cpp_method_member(node: Mapping[str, Any]) -> OracleMember | None:
+    name = str(node.get("name") or "")
+    if not name:
+        return None
+    params = tuple(
+        OracleParam(name=str(p.get("name") or ""), has_default="init" in p)
+        for p in node.get("inner") or []
+        if p.get("kind") == "ParmVarDecl"
+    )
+    return OracleMember(
+        name=name, kind="method", params=params, is_static=node.get("storageClass") == "static"
+    )
+
+
+def _cpp_extract_record(
+    node: Mapping[str, Any], qualified_name: str
+) -> tuple[OracleSymbol, list[OracleSymbol]]:
+    """The ``OracleSymbol`` for one ``CXXRecordDecl`` *node* (already confirmed public and complete
+    by the caller), named *qualified_name* (its own simple name, or ``Outer::Inner`` for a nested
+    type -- TC-534's own nested-type naming convention, re-derived independently here from Clang's
+    AST: a public nested class/struct/enum is simply a normal child of its own enclosing record's
+    body, walked the same way any other public member is), plus every public nested class/struct/
+    enum found inside it (recursively, each named ``Outer::Inner``/``Outer::Inner::Innermost`` off
+    of *qualified_name*, never a separate top-level symbol).
+
+    Walks the record body tracking the current ``AccessSpecDecl`` (a ``class`` starts private, a
+    ``struct``/``union`` starts public, matching TC-534's own rule) -- Clang's own ``-ast-dump=json``
+    never annotates a member's effective access on the member itself, only on the
+    ``AccessSpecDecl`` that introduces each section, exactly like a tree-sitter parse of the same
+    source would see. A member with ``"isImplicit": true`` (a compiler-synthesized default/copy/
+    move constructor, destructor or assignment operator never written in the source) is skipped,
+    never fabricated as a "real" public member.
+
+    C++ method overloading is pervasive in these Aspose wrapper APIs (a getter/setter pair sharing
+    one name -- ``bool Margin() const;``/``void Margin(bool value);`` -- is a routine pattern, not
+    an edge case): ``diff_symbol``/``diff_language`` key the baked fixture's own ``methods`` by
+    bare name too (a pre-existing limit of this whole oracle system, not something this card
+    introduces), so an overload set must collapse to exactly one member, deterministically (the
+    first declaration encountered, in source order, wins), never one per overload -- confirmed
+    necessary, not merely assumed, against the real pdf/cpp pilot, and matching
+    ``enumerate_dotnet``'s own identical rule for the same reason (G3/TC-593).
+    """
+    tag_used = node.get("tagUsed")
+    access = "public" if tag_used in ("struct", "union") else "private"
+    members: list[OracleMember] = []
+    nested: list[OracleSymbol] = []
+    seen_method_names: set[str] = set()
+    for child in node.get("inner") or []:
+        kind = child.get("kind")
+        if kind == "AccessSpecDecl":
+            access = str(child.get("access") or access)
+            continue
+        if access != "public" or child.get("isImplicit"):
+            continue
+        if kind in _CPP_METHOD_KINDS:
+            member = _cpp_method_member(child)
+            if member is not None and member.name not in seen_method_names:
+                seen_method_names.add(member.name)
+                members.append(member)
+        elif kind == "FieldDecl":
+            name = str(child.get("name") or "")
+            if name:
+                members.append(OracleMember(name=name, kind="property", is_static=False))
+        elif kind == "VarDecl":
+            # TC-534's own rule, re-derived here: a public static data member (a `static const`/
+            # `static constexpr` class member is a VarDecl, never a FieldDecl, in Clang's own AST)
+            # keeps its static-ness -- never silently folded into an ordinary instance field.
+            name = str(child.get("name") or "")
+            if name:
+                members.append(
+                    OracleMember(name=name, kind="property", is_static=child.get("storageClass") == "static")
+                )
+        elif kind == "CXXRecordDecl" and child.get("completeDefinition"):
+            inner_name = str(child.get("name") or "")
+            if not inner_name:
+                continue
+            full_name = f"{qualified_name}::{inner_name}"
+            nested_symbol, deeper = _cpp_extract_record(child, full_name)
+            nested.append(nested_symbol)
+            nested.extend(deeper)
+        elif kind == "EnumDecl" and child.get("inner"):  # an EnumDecl with no "inner" is a forward
+            # declaration (`enum State : int;`), never a definition -- skipped so it never produces
+            # a phantom duplicate, zero-member symbol alongside the real, later definition.
+            inner_name = str(child.get("name") or "")
+            if not inner_name:
+                continue
+            full_name = f"{qualified_name}::{inner_name}"
+            nested.append(OracleSymbol(name=full_name, kind="enum", members=_cpp_enum_members(child)))
+        # Everything else (a FunctionTemplateDecl/ClassTemplateDecl, UsingDecl, FriendDecl, an
+        # IndirectFieldDecl of an anonymous union, ...) is not a class/struct/enum member this
+        # oracle enumerates -- skipped, never fabricated.
+    return OracleSymbol(name=qualified_name, kind="class", members=tuple(members)), nested
+
+
+def _cpp_walk_container(
+    nodes: Sequence[Mapping[str, Any]], *, file_map: Mapping[int, str], main_file: str
+) -> list[OracleSymbol]:
+    """Every public, top-level-or-namespace-nested (never class-nested -- that is
+    ``_cpp_extract_record``'s own job) class/struct/enum found directly inside *nodes* (a
+    ``TranslationUnitDecl``'s or ``NamespaceDecl``'s own ``"inner"`` list), skipping a namespace
+    that ``_cpp_namespace_is_hidden`` (TC-534's own implementation-namespace rule, re-derived
+    independently here from Clang's AST), skipping any top-level declaration that ``file_map``
+    (``_cpp_resolve_node_files``) says is NOT actually declared in *main_file* itself (a type
+    pulled in transitively from an included system/CRT/other-library header), and descending into
+    an ``extern "C" { ... }`` linkage block transparently (it carries no visibility, and no file
+    boundary, of its own).
+    """
+    found: list[OracleSymbol] = []
+    for node in nodes:
+        kind = node.get("kind")
+        if kind == "NamespaceDecl":
+            if _cpp_namespace_is_hidden(node.get("name")):
+                continue
+            found.extend(_cpp_walk_container(node.get("inner") or [], file_map=file_map, main_file=main_file))
+        elif kind == "LinkageSpecDecl":
+            found.extend(_cpp_walk_container(node.get("inner") or [], file_map=file_map, main_file=main_file))
+        elif kind == "CXXRecordDecl":
+            if node.get("isImplicit") or not node.get("completeDefinition"):
+                continue
+            if file_map.get(id(node)) != main_file:
+                continue  # declared in a transitively-included header, never this one
+            name = str(node.get("name") or "")
+            if not name:
+                continue
+            symbol, nested = _cpp_extract_record(node, name)
+            found.append(symbol)
+            found.extend(nested)
+        elif kind == "EnumDecl" and node.get("inner"):
+            if file_map.get(id(node)) != main_file:
+                continue
+            name = str(node.get("name") or "")
+            if not name:
+                continue
+            found.append(OracleSymbol(name=name, kind="enum", members=_cpp_enum_members(node)))
+    return found
+
+
+def _run_clang_ast_dump(
+    header: Path,
+    include_root: Path,
+    *,
+    run: Callable[..., Any] | None = None,
+    clang_binary: Path = CPP_CLANG_BINARY,
+) -> dict[str, Any]:
+    """Run clang's own ``-Xclang -ast-dump=json -fsyntax-only`` (PARSE-and-SEMA phase only, never a
+    link, never a compiled object) against *header* in isolation and return its parsed JSON AST.
+
+    Raises ``RuntimeError``, naming *header* itself in the message, on a nonzero clang exit -- a
+    missing ``#include``, a macro-heavy header clang cannot parse standalone outside its library's
+    own build system, or any other real resolution failure. ``enumerate_cpp`` catches this per
+    header (never per pilot) so one unresolvable header never silently empties the whole result;
+    see its own docstring for the per-pilot disclosure this card requires.
+    """
+    if not clang_binary.is_file():
+        raise RuntimeError(
+            f"clang.exe was not found at {clang_binary} -- this path is pinned in "
+            "source_differential.py (CPP_CLANG_BINARY); if the toolchain moved, update that "
+            "constant to the real, installed location on this host"
+        )
+    runner = run or subprocess.run
+    result = runner(
+        [
+            str(clang_binary),
+            "-Xclang",
+            "-ast-dump=json",
+            "-fsyntax-only",
+            CPP_STD,
+            "-x",
+            "c++",
+            f"-I{include_root}",
+            str(header),
+        ],
+        cwd=REPO_ROOT,
+        capture_output=True,
+        text=True,
+        encoding="utf-8",
+        errors="replace",
+        check=False,
+    )
+    if result.returncode != 0:
+        # Never include result.stdout here: on a resolution failure clang still dumps whatever
+        # partial AST it built before hitting the fatal error, which is noise, not a reason --
+        # result.stderr alone carries the real diagnostic ("fatal error: 'x.h' file not found").
+        raise RuntimeError(f"clang failed to parse {header}:\n{result.stderr}")
+    try:
+        parsed = json.loads(result.stdout)
+    except ValueError as exc:
+        raise RuntimeError(f"clang printed non-JSON stdout for {header}: {result.stdout!r}") from exc
+    if not isinstance(parsed, dict):
+        raise RuntimeError(f"clang printed a non-object JSON document for {header}: {result.stdout!r}")
+    return parsed
+
+
+def enumerate_cpp(
+    repository: str, commit: str, library_dir: Path, *, run: Callable[..., Any] | None = None
+) -> list[OracleSymbol]:
+    """The real public API of a C++ library, read with Clang's own AST (``-Xclang
+    -ast-dump=json -fsyntax-only``, the PARSE-and-SEMA phase only -- never a link, never generated
+    code) run directly against the already-installed, real ``clang.exe`` on this host (see
+    ``CPP_CLANG_BINARY``'s own module-level comment for why this is a bare subprocess rather than
+    the ``libclang`` pip binding this card's own dispatch instructions named: that binding's
+    ``import clang.cindex`` fails in this worktree, and a real system clang turned out to already
+    exist here -- both confirmed directly, never assumed, before this function was written).
+
+    Clones ``repository`` at ``commit`` into ``library_dir`` (unless it already looks checked out:
+    a ``.git`` directory already present), finds its public include root (``_cpp_public_include_dir``
+    -- the ``include/`` directory directly under the library when one exists, else the library root
+    itself), parses every public header under it (``_cpp_public_headers`` -- ``_cpp_is_public_header``
+    re-derives TC-534's own public/private directory-naming rule independently from Clang's AST,
+    never by importing ``api_surface.py``) ONE HEADER AT A TIME, in isolation -- each header must
+    resolve its own ``#include``s on its own; a header that cannot (a missing include, a macro-heavy
+    header no standalone parse can expand) raises inside ``_run_clang_ast_dump``, is caught here, and
+    is recorded in the raised ``RuntimeError``'s own message naming every such header by path, never
+    silently folded into an empty result for the whole pilot -- the caller (this card's own one real,
+    live run, and ``main``'s per-pilot reporting) must disclose that message, not swallow it.
+
+    Every resolved header's own public class/struct/enum and their own public methods/fields/enum
+    values are collected by ``_cpp_walk_container``/``_cpp_extract_record``, applying the SAME
+    public/private, hidden-namespace and nested-type-naming rules TC-534 already established and
+    tested for this project's own tree-sitter C++ extractor (re-derived independently here from
+    Clang's own AST, never by calling that extractor): a type under an ``internal``/``detail``
+    namespace (or an anonymous one) is excluded entirely; a ``class`` starts private and a
+    ``struct``/``union`` starts public, re-evaluated per ``AccessSpecDecl`` encountered in source
+    order; a public nested type is named ``Outer::Inner`` (``Outer::Inner::Innermost`` for a type
+    nested two levels deep), never given its own top-level symbol; a public ``static const``/
+    ``static constexpr`` data member is read as a property with ``is_static=True`` (a plain ``const``
+    instance member stays ``is_static=False``), never silently folded into an ordinary instance
+    field. A method's ``return_type`` is left ``None`` ("not checked"), matching
+    ``enumerate_go``/``enumerate_rust``/``enumerate_java``/``enumerate_dotnet``'s own convention;
+    a parameter's ``has_default`` is read from Clang's own ``"init"`` marker on its ``ParmVarDecl``,
+    never guessed from the type text. Both a C++ ``class``, ``struct`` and ``union`` map to
+    ``OracleSymbol.kind == "class"``, matching this module's existing class-like convention for
+    every other language's own record-like declaration. C++ method overloading (a getter/setter
+    pair sharing one name) is pervasive in these Aspose wrapper APIs; ``_cpp_extract_record``'s own
+    docstring records the deterministic, first-declaration-wins collapse rule this enumerator
+    applies, matching ``enumerate_dotnet``'s own identical rule for the same pre-existing bare-name
+    keying limit (G3/TC-593).
+
+    Crucially, only a top-level declaration ``_cpp_resolve_node_files`` says is ACTUALLY declared
+    in the header being enumerated is ever turned into a symbol -- confirmed necessary, not merely
+    assumed, against the real pdf/cpp pilot: a header's own ``#include`` pulls in the whole
+    transitive closure of the C++ standard library AND the MSVC CRT's own internal types
+    (``__crt_locale_data_public`` and thousands like it), and Clang's single JSON AST dump for one
+    header mixes every one of those declarations in with the header's own, with no other signal
+    telling them apart.
+    """
+    if not (library_dir / ".git").is_dir():
+        clone_pinned_commit(repository, commit, library_dir, run=run)
+
+    include_root = _cpp_public_include_dir(library_dir)
+    symbols: list[OracleSymbol] = []
+    failures: list[str] = []
+    for header in _cpp_public_headers(include_root):
+        try:
+            ast = _run_clang_ast_dump(header, include_root, run=run)
+        except RuntimeError as exc:
+            failures.append(str(exc))
+            print(f"enumerate_cpp: header did not resolve, skipped: {exc}", file=sys.stderr)
+            continue
+        main_file = str(header)
+        file_map = _cpp_resolve_node_files(ast, main_file)
+        symbols.extend(_cpp_walk_container(ast.get("inner") or [], file_map=file_map, main_file=main_file))
+    if failures:
+        print(
+            f"enumerate_cpp: {len(failures)} of "
+            f"{len(_cpp_public_headers(include_root))} public header(s) under {include_root} did not "
+            "resolve; see the warnings above for each one by name -- this run still used every "
+            "header that DID resolve, never an empty result",
+            file=sys.stderr,
+        )
+    return symbols
+
+
 def _unimplemented_enumerator(platform: str) -> Enumerator:
     def _enumerator(repository: str, commit: str, library_dir: Path) -> list[OracleSymbol]:
         raise NotImplementedError(
@@ -1194,7 +1614,8 @@ DEFAULT_ENUMERATORS: dict[str, Enumerator] = {
     # that dict).
     "net": enumerate_dotnet,
     "dotnet": enumerate_dotnet,
-    **{platform: _unimplemented_enumerator(platform) for platform in ("javascript", "nodejs", "cpp")},
+    "cpp": enumerate_cpp,
+    **{platform: _unimplemented_enumerator(platform) for platform in ("javascript", "nodejs")},
 }
 
 

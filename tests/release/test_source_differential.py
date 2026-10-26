@@ -55,6 +55,24 @@ freshly-built, unsigned NATIVE binary to disk, so
 the WDAC workaround the Go/Rust enumerators need never applies here either, exactly like
 TypeScript's/Java's own cases -- confirmed directly, not merely assumed, before this card's own
 enumerator was wired in.
+
+The ``enumerate_cpp`` tests (G3/TC-594) really invoke ``clang.exe`` directly (``-Xclang
+-ast-dump=json -fsyntax-only``, the PARSE-and-SEMA phase only) against hand-written, on-disk
+synthetic ``.h`` micro-fixtures -- never the real pilot, never a network call, never Docker.
+``clang.exe`` is this host's own already-installed LLVM 19.1.7 toolchain binary (confirmed
+directly under this host's own dev-tools directory, not on PATH but invocable by its own full,
+pinned path --
+``CPP_CLANG_BINARY``), a real, pre-existing binary, never a freshly-built one, so the WDAC
+workaround the Go/Rust enumerators need never applies here either, exactly like
+``node``/``java``/``dotnet``'s own cases above -- confirmed directly (every test below that calls
+``sd.enumerate_cpp``/``sd._run_clang_ast_dump`` actually runs ``clang.exe`` and would fail loudly
+if WDAC blocked it) rather than merely assumed. This enumerator is wired to the real ``clang.exe``
+rather than the ``libclang`` PyPI binding (``clang.cindex``) that the card originally dispatching
+this work named, because ``import clang.cindex`` fails in this worktree (the pin landed in
+``requirements.lock`` but the package itself was never installed) and a real system ``clang.exe``
+turned out to already exist on this host, contrary to that same card's own dispatch-time premise
+-- both confirmed directly; see ``enumerate_cpp``'s and ``CPP_CLANG_BINARY``'s own module-level
+docstrings/comments for the full account.
 """
 
 from __future__ import annotations
@@ -1640,8 +1658,289 @@ def test_run_dotnet_enumerator_raises_with_a_clear_message_on_a_nonzero_exit(tmp
         sd._run_dotnet_enumerator(tmp_path, run=failing_run)
 
 
+# --- the C++ Clang AST enumerator: the sixth real, wired tool this card lands (G3/TC-594) ------------
+# Every fixture below is a hand-written synthetic .h file (never the real pilot, never the
+# enumerator's own output read back as the expected value, never a fixture copied from
+# tree_sitter_engine's own cpp test suite). enumerate_cpp really invokes this host's own
+# already-installed clang.exe (pinned at sd.CPP_CLANG_BINARY, LLVM 19.1.7, confirmed directly
+# under C:\dev-tools -- NOT the libclang PyPI binding this card's own dispatch instructions
+# originally named, because `import clang.cindex` fails in this worktree; see the module
+# docstring above and enumerate_cpp's own docstring for the full account) against these files on
+# local disk through `-Xclang -ast-dump=json -fsyntax-only` -- no network, no Docker, matching
+# this card's network: false requirement.
+
+
+def test_enumerate_cpp_reads_a_real_class_with_clang_ast_offline(tmp_path):
+    """The card's own "correct fixture": one public class, one public method, one private method
+    (must be excluded) and one `static const` member (must keep is_static=True) -- the exact
+    returned shape is asserted, not merely "some members came back"."""
+    (tmp_path / ".git").mkdir()  # pretend already-cloned, so enumerate_cpp never shells out to git
+    include_dir = tmp_path / "include"
+    include_dir.mkdir()
+    (include_dir / "widget.h").write_text(
+        "class Widget {\n"
+        "public:\n"
+        "    void build(int count);\n"
+        "    static const int kMaxCount;\n"
+        "private:\n"
+        "    void internalHelper();\n"  # private: must never appear
+        "};\n",
+        encoding="utf-8",
+    )
+    (widget,) = sd.enumerate_cpp("acme/widgets", "deadbeef", tmp_path)
+    assert widget.name == "Widget"
+    assert widget.kind == "class"
+    by_name = {member.name: member for member in widget.members}
+    assert set(by_name) == {"build", "kMaxCount"}, "internalHelper (private) must never appear"
+    assert by_name["build"].kind == "method"
+    assert by_name["build"].params == (OP("count"),)
+    assert by_name["build"].is_static is False
+    assert by_name["kMaxCount"].kind == "property"
+    assert by_name["kMaxCount"].is_static is True, "a `static const` member must keep its static-ness"
+
+
+def test_enumerate_cpp_defect_a_type_inside_an_internal_namespace_is_excluded(tmp_path):
+    """Deliberate defect fixture 1 (the card's own named case): a type declared inside
+    `namespace internal` is implementation detail, never public API, and must be excluded
+    entirely -- re-derived independently here from Clang's own AST, mirroring TC-534's own rule
+    for this project's tree-sitter C++ extractor (never imported from it)."""
+    (tmp_path / ".git").mkdir()
+    include_dir = tmp_path / "include"
+    include_dir.mkdir()
+    (include_dir / "hidden.h").write_text(
+        "namespace internal {\n"
+        "class Hidden {\n"
+        "public:\n"
+        "    void run();\n"
+        "};\n"
+        "}\n"
+        "\n"
+        "class Visible {\n"
+        "public:\n"
+        "    void go();\n"
+        "};\n",
+        encoding="utf-8",
+    )
+    symbols = sd.enumerate_cpp("acme/widgets", "deadbeef", tmp_path)
+    names = {s.name for s in symbols}
+    assert names == {"Visible"}, "Hidden (namespace internal) must never appear"
+
+
+def test_enumerate_cpp_defect_a_nested_public_type_is_named_outer_colon_colon_inner(tmp_path):
+    """Deliberate defect fixture 2 (the card's own named case): a nested public type
+    (`class Outer { public: struct Inner {}; };`) must appear as `Outer::Inner`, mirroring
+    TC-534's own established nested-type naming convention exactly -- re-derived independently
+    here from Clang's own AST, never imported from the tree-sitter extractor."""
+    (tmp_path / ".git").mkdir()
+    include_dir = tmp_path / "include"
+    include_dir.mkdir()
+    (include_dir / "outer.h").write_text(
+        "class Outer {\n"
+        "public:\n"
+        "    struct Inner {\n"
+        "    public:\n"
+        "        int value;\n"
+        "    };\n"
+        "    void go();\n"
+        "};\n",
+        encoding="utf-8",
+    )
+    symbols = sd.enumerate_cpp("acme/widgets", "deadbeef", tmp_path)
+    names = {s.name: s for s in symbols}
+    assert set(names) == {"Outer", "Outer::Inner"}, "a public nested type must be named Outer::Inner"
+    assert {m.name for m in names["Outer::Inner"].members} == {"value"}
+
+
+def test_enumerate_cpp_a_private_nested_type_is_never_flattened_in(tmp_path):
+    (tmp_path / ".git").mkdir()
+    include_dir = tmp_path / "include"
+    include_dir.mkdir()
+    (include_dir / "outer.h").write_text(
+        "class Outer {\n"
+        "private:\n"
+        "    struct Secret {\n"
+        "    public:\n"
+        "        int value;\n"
+        "    };\n"
+        "public:\n"
+        "    void go();\n"
+        "};\n",
+        encoding="utf-8",
+    )
+    symbols = sd.enumerate_cpp("acme/widgets", "deadbeef", tmp_path)
+    assert {s.name for s in symbols} == {"Outer"}, "a private nested type is not public API"
+
+
+def test_enumerate_cpp_a_struct_defaults_to_public_access_unlike_a_class(tmp_path):
+    (tmp_path / ".git").mkdir()
+    include_dir = tmp_path / "include"
+    include_dir.mkdir()
+    (include_dir / "point.h").write_text("struct Point {\n    int x;\n    int y;\n};\n", encoding="utf-8")
+    (point,) = sd.enumerate_cpp("acme/widgets", "deadbeef", tmp_path)
+    assert {m.name for m in point.members} == {"x", "y"}, (
+        "a struct's members are public by default, with no access_specifier at all"
+    )
+
+
+def test_enumerate_cpp_an_overload_set_collapses_to_one_member_never_duplicated_or_dropped(tmp_path):
+    """REAL FINDING (this card's own live run against the real pdf/cpp pilot): a getter/setter
+    pair sharing one name (`bool Margin() const; void Margin(bool value);`) is pervasive in these
+    Aspose wrapper APIs. diff_symbol/diff_language key the baked fixture's own methods by bare
+    name too (a pre-existing limit of this whole oracle system, matching enumerate_dotnet's own
+    identical rule, G3/TC-593), so this enumerator must collapse an overload set to exactly one
+    member, deterministically (the first declaration encountered wins), never one per signature."""
+    (tmp_path / ".git").mkdir()
+    include_dir = tmp_path / "include"
+    include_dir.mkdir()
+    (include_dir / "widget.h").write_text(
+        "class Widget {\npublic:\n    bool Margin() const;\n    void Margin(bool value);\n};\n",
+        encoding="utf-8",
+    )
+    (widget,) = sd.enumerate_cpp("acme/widgets", "deadbeef", tmp_path)
+    margins = [member for member in widget.members if member.name == "Margin"]
+    assert len(margins) == 1, "an overload set must collapse to exactly one member, never one per signature"
+    assert margins[0].params == (), (
+        "the first declaration encountered (the getter) must win, deterministically"
+    )
+
+
+def test_enumerate_cpp_reads_enum_values_with_explicit_discriminants(tmp_path):
+    (tmp_path / ".git").mkdir()
+    include_dir = tmp_path / "include"
+    include_dir.mkdir()
+    (include_dir / "status.h").write_text(
+        "enum class Status {\n    Ok = 0,\n    Bad = 2,\n    Unset\n};\n",  # Unset: no explicit value
+        encoding="utf-8",
+    )
+    (status,) = sd.enumerate_cpp("acme/widgets", "deadbeef", tmp_path)
+    assert status.kind == "enum"
+    by_name = {member.name: member for member in status.members}
+    assert by_name["Ok"].enum_value == "0"
+    assert by_name["Bad"].enum_value == "2"
+    assert by_name["Unset"].enum_value is None, "no explicit discriminant stays 'not checked' (None)"
+
+
+def test_enumerate_cpp_a_header_that_fails_to_resolve_is_skipped_not_fabricated(tmp_path, capsys):
+    """A missing #include is a real, per-header resolution failure (the card's own named case):
+    it must be disclosed (printed, naming the header) rather than silently emptying the whole
+    pilot's result, and every OTHER header that resolves cleanly must still be read."""
+    (tmp_path / ".git").mkdir()
+    include_dir = tmp_path / "include"
+    include_dir.mkdir()
+    (include_dir / "broken.h").write_text(
+        '#include "does_not_exist_anywhere.h"\nclass Broken {\npublic:\n    void f();\n};\n',
+        encoding="utf-8",
+    )
+    (include_dir / "fine.h").write_text("class Fine {\npublic:\n    void ok();\n};\n", encoding="utf-8")
+    symbols = sd.enumerate_cpp("acme/widgets", "deadbeef", tmp_path)
+    names = {s.name for s in symbols}
+    assert names == {"Fine"}, "Broken's header failed to resolve; Fine must still be read"
+    stderr = capsys.readouterr().err
+    assert "broken.h" in stderr, "the specific failing header must be disclosed by name"
+
+
+def test_enumerate_cpp_never_leaks_a_transitively_included_stdlib_or_crt_declaration(tmp_path):
+    """REAL FINDING (this card's own live run against the actual pdf/cpp pilot, before this test
+    was written): `#include <string>`/`<locale>` pulls in the WHOLE C++ standard library and the
+    MSVC CRT's own internal types (`__crt_locale_data_public` and thousands like it) into the same
+    one-header AST dump; without file-origin filtering every one of those would be walked exactly
+    like a type the header itself declares, inflating "missing" by tens of thousands of phantom
+    entries that have nothing to do with the library being enumerated. Only the header's own
+    declaration must ever come back."""
+    (tmp_path / ".git").mkdir()
+    include_dir = tmp_path / "include"
+    include_dir.mkdir()
+    (include_dir / "thing.h").write_text(
+        "#include <string>\n#include <locale>\nclass Visible {\npublic:\n    void f(std::string s);\n};\n",
+        encoding="utf-8",
+    )
+    symbols = sd.enumerate_cpp("acme/widgets", "deadbeef", tmp_path)
+    assert [s.name for s in symbols] == ["Visible"], (
+        "a declaration transitively pulled in from <string>/<locale> must never be reported"
+    )
+
+
+def test_cpp_resolve_node_files_tracks_clangs_own_delta_encoded_file_transitions(tmp_path):
+    """Unit test of the file-origin tracker itself: a node with no explicit "loc"/"file" inherits
+    the file of the node immediately before it in document order, starting from main_file -- never
+    None, which would wrongly exclude every declaration of a header that includes nothing at all."""
+    tree = {
+        "kind": "TranslationUnitDecl",
+        "inner": [
+            {"kind": "CXXRecordDecl", "name": "Implicit", "loc": {}},  # no "file": inherits main
+            {
+                "kind": "CXXRecordDecl",
+                "name": "FromSystemHeader",
+                "loc": {"file": "C:\\system\\other.h"},
+            },
+            {"kind": "FieldDecl", "name": "stillOther"},  # no "file": inherits other.h
+            {
+                "kind": "CXXRecordDecl",
+                "name": "BackInMainFile",
+                "loc": {"file": "C:\\main.h"},
+            },
+        ],
+    }
+    file_map = sd._cpp_resolve_node_files(tree, "C:\\main.h")
+    implicit, from_other, still_other, back_in_main = tree["inner"]
+    assert file_map[id(implicit)] == "C:\\main.h"
+    assert file_map[id(from_other)] == "C:\\system\\other.h"
+    assert file_map[id(still_other)] == "C:\\system\\other.h"
+    assert file_map[id(back_in_main)] == "C:\\main.h"
+
+
+def test_cpp_is_public_header_excludes_internal_and_detail_directories(tmp_path):
+    root = tmp_path / "include"
+    assert sd._cpp_is_public_header(root / "widget.h", root) is True
+    assert sd._cpp_is_public_header(root / "internal" / "widget.h", root) is False
+    assert sd._cpp_is_public_header(root / "_internal" / "widget.h", root) is False
+    assert sd._cpp_is_public_header(root / "detail" / "widget.h", root) is False
+    assert sd._cpp_is_public_header(root / "internal_widget.h", root) is False
+    assert sd._cpp_is_public_header(root / "widget.cpp", root) is False
+
+
+def test_run_clang_ast_dump_shells_out_to_the_pinned_clang_binary_directly_never_docker(tmp_path):
+    """Offline check of the clang invocation's own shape (never a real subprocess here): the
+    exact pinned clang.exe path, -ast-dump=json -fsyntax-only, the include root passed as -I, and
+    never Docker anywhere in the command (unlike enumerate_go/enumerate_rust)."""
+    import subprocess as _subprocess
+
+    captured: dict[str, object] = {}
+
+    def fake_run(args, **kwargs):
+        captured["args"] = args
+        return _subprocess.CompletedProcess(args=args, returncode=0, stdout="{}", stderr="")
+
+    header = tmp_path / "thing.h"
+    header.write_text("class Thing {};\n", encoding="utf-8")
+    result = sd._run_clang_ast_dump(header, tmp_path, run=fake_run)
+    assert result == {}
+    args = captured["args"]
+    assert args[0] == str(sd.CPP_CLANG_BINARY)
+    assert "-ast-dump=json" in args
+    assert "-fsyntax-only" in args
+    assert f"-I{tmp_path}" in args
+    assert str(header) in args
+    assert "docker" not in [str(a).lower() for a in args]
+
+
+def test_run_clang_ast_dump_raises_with_the_header_name_on_a_nonzero_exit(tmp_path):
+    import subprocess as _subprocess
+
+    def failing_run(args, **kwargs):
+        return _subprocess.CompletedProcess(
+            args=args, returncode=1, stdout="", stderr="fatal error: 'x.h' file not found"
+        )
+
+    header = tmp_path / "broken.h"
+    with pytest.raises(RuntimeError, match="broken.h"):
+        sd._run_clang_ast_dump(header, tmp_path, run=failing_run)
+
+
 def test_unimplemented_enumerators_raise_a_named_not_implemented_error():
-    for platform in ("cpp",):
+    # "javascript"/"nodejs" are the only platforms this project's own chart never names a pilot
+    # for (G3/TC-594 wires the card's own last real platform, "cpp", to sd.enumerate_cpp below).
+    for platform in ("javascript", "nodejs"):
         with pytest.raises(NotImplementedError, match=platform):
             sd.DEFAULT_ENUMERATORS[platform]("acme/widgets", "deadbeef", Path("/does/not/matter"))
 
@@ -1650,6 +1949,7 @@ def test_default_enumerators_cover_python_and_every_card_named_platform():
     assert sd.DEFAULT_ENUMERATORS["python"] is sd.enumerate_python
     assert sd.DEFAULT_ENUMERATORS["go"] is sd.enumerate_go
     assert sd.DEFAULT_ENUMERATORS["rust"] is sd.enumerate_rust
+    assert sd.DEFAULT_ENUMERATORS["cpp"] is sd.enumerate_cpp
     assert sd.DEFAULT_ENUMERATORS["typescript"] is sd.enumerate_typescript
     assert sd.DEFAULT_ENUMERATORS["java"] is sd.enumerate_java
     assert sd.DEFAULT_ENUMERATORS["net"] is sd.enumerate_dotnet
@@ -1744,14 +2044,18 @@ def test_main_names_the_pilot_when_no_enumerator_is_registered_for_its_platform(
     assert any("no enumerator registered" in reason for reason in document["pilots"][0]["reasons"])
 
 
-def test_main_reports_not_implemented_for_an_unwired_platform(tmp_path):
+def test_main_reports_not_implemented_for_an_unwired_platform(tmp_path, monkeypatch):
     fixtures = tmp_path / "fixtures"
-    # "cpp" is the one platform this card's own module docstring still names as unwired -- every
-    # other non-python platform (including "net"/"dotnet", wired by this card) now has a real
-    # enumerator in DEFAULT_ENUMERATORS, so picking any-non-python-pilot (the original rule here)
-    # would otherwise select "net" and make this "offline" test shell out to a real git clone.
-    entry = next(p for p in sd.chart.load_pilots() if p["platform"] == "cpp")
-    key = sd.chart.pilot_key(entry)
+    # Every platform this project's own chart (infra/helm/foss-mcp/values.yaml) actually names a
+    # pilot for now has a real enumerator in DEFAULT_ENUMERATORS ("cpp", wired by this card
+    # G3/TC-594, was the last one). "javascript"/"nodejs" are the only platforms
+    # DEFAULT_ENUMERATORS still maps to _unimplemented_enumerator, and the chart names no pilot
+    # for either, so this test fabricates one via monkeypatch rather than picking a real --only
+    # name, keeping this "offline" test from shelling out to a real clone-over-network call for
+    # any genuinely-wired platform.
+    fake_pilot = {"family": "pdf", "platform": "javascript", "library": {}}
+    monkeypatch.setattr(sd.chart, "load_pilots", lambda *args, **kwargs: [fake_pilot])
+    key = sd.chart.pilot_key(fake_pilot)
     (fixtures / key).mkdir(parents=True)
     (fixtures / key / "api_surface.json").write_text(
         json.dumps({"extractor_version": sd.run_extraction.EXTRACTOR_VERSION, "types": []}), encoding="utf-8"
