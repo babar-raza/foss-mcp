@@ -1,0 +1,115 @@
+{
+  "schema_version": 1,
+  "card": "TC-593",
+  "gate": "G3",
+  "generated_by": "gatectl",
+  "generated_at": "2026-10-26T20:35:34Z",
+  "base_rev": "33a4aae929d2bb3f3cae2f13ff47f88f3bb8bc6e",
+  "head_rev": "82d78981828803969cb8b96e3b8aebb53754df76",
+  "card_sha256": "b2f21ad64b15ca743255016e2c16c3ac798344e405e0a66141d574086c8bfc4e",
+  "fingerprint": {
+    "python": "3.13.2",
+    "platform": "Windows-11-10.0.26300-SP0",
+    "lock_sha256": "5c72e798a73c059a438e752e94a8d4c88c1bdf81a197f6e5c5fcecbc9466a691",
+    "env": {
+      "PYTHONHASHSEED": "0",
+      "PYTHONUTF8": "1",
+      "PYTHONDONTWRITEBYTECODE": "1",
+      "PYTHONIOENCODING": "utf-8",
+      "TZ": "UTC",
+      "LC_ALL": "C.UTF-8",
+      "SOURCE_DATE_EPOCH": "1700000000",
+      "verify_runner": "host"
+    }
+  },
+  "scope": {
+    "ok": true,
+    "changed_paths": [
+      "scripts/release/oracle_helpers/dotnet_enumerator/DotNetEnumerator.csproj",
+      "scripts/release/oracle_helpers/dotnet_enumerator/Program.cs",
+      "scripts/release/source_differential.py",
+      "tests/release/test_source_differential.py"
+    ],
+    "violations": [],
+    "evaluated": true
+  },
+  "runs": [
+    {
+      "run": 1,
+      "checks": [
+        {
+          "command": "{python} -m pytest tests/release/test_source_differential.py -q -rfE",
+          "exit_code": 0,
+          "duration_s": 74.314,
+          "stdout_sha256": "ec055756592c1bb329da72c4e5089f85afc5e27d0c065575c1f11962c207f5b1",
+          "tests": 114,
+          "skipped": 0,
+          "errors": 0,
+          "failures": 0
+        },
+        {
+          "command": "{python} -m pytest tests/release/test_source_differential.py -q -rfE -p no:cacheprovider",
+          "exit_code": 0,
+          "duration_s": 52.881,
+          "stdout_sha256": "ec055756592c1bb329da72c4e5089f85afc5e27d0c065575c1f11962c207f5b1",
+          "tests": 114,
+          "skipped": 0,
+          "errors": 0,
+          "failures": 0
+        }
+      ],
+      "all_passed": true
+    },
+    {
+      "run": 2,
+      "checks": [
+        {
+          "command": "{python} -m pytest tests/release/test_source_differential.py -q -rfE",
+          "exit_code": 0,
+          "duration_s": 52.796,
+          "stdout_sha256": "ec055756592c1bb329da72c4e5089f85afc5e27d0c065575c1f11962c207f5b1",
+          "tests": 114,
+          "skipped": 0,
+          "errors": 0,
+          "failures": 0
+        },
+        {
+          "command": "{python} -m pytest tests/release/test_source_differential.py -q -rfE -p no:cacheprovider",
+          "exit_code": 0,
+          "duration_s": 52.817,
+          "stdout_sha256": "ec055756592c1bb329da72c4e5089f85afc5e27d0c065575c1f11962c207f5b1",
+          "tests": 114,
+          "skipped": 0,
+          "errors": 0,
+          "failures": 0
+        }
+      ],
+      "all_passed": true
+    }
+  ],
+  "negative_control": {
+    "kind": "mutate",
+    "patch": "python -X utf8 -c \"import pathlib; p = pathlib.Path('scripts/release/source_differential.py'); s = p.read_text(encoding='utf-8'); marker = chr(34) + 'net' + chr(34) + ': enumerate_dotnet'; assert s.count(marker) == 1, 'fix text not found - card and source have diverged'; p.write_text(s.replace(marker, chr(34) + 'net' + chr(34) + ': _unimplemented_enumerator(' + chr(34) + 'net' + chr(34) + ')', 1), encoding='utf-8')\"\n",
+    "patch_sha256": "c4954e6c6669f349c71cc43518bd30c77539d994e641417424b85d7db433701c",
+    "applied": true,
+    "patch_applied_failed": true,
+    "exit_codes": [
+      1,
+      1
+    ],
+    "tree_changed": [
+      "M scripts/release/source_differential.py",
+      "?? .junit-0.xml",
+      "?? .junit-1.xml",
+      "?? scripts/release/oracle_helpers/dotnet_enumerator/bin/",
+      "?? scripts/release/oracle_helpers/dotnet_enumerator/obj/"
+    ]
+  },
+  "holdout": {
+    "ran": false,
+    "passed": true,
+    "detail": "no holdout for this card"
+  },
+  "accepted": true,
+  "reason": "all gates passed"
+}
