@@ -28,15 +28,19 @@ injection style, so ``diff_symbol``/``diff_language``/``verify_pilot`` and this 
 are exercised offline, with hand-written per-language micro-libraries, by every unit test -- no
 compiler, interpreter or network call is ever made by ``tests/release/test_source_differential.py``.
 
-``enumerate_python`` and ``enumerate_go`` are wired to real tooling here (Python's own ``ast``
-module and Go's own ``go/parser``+``go/ast`` via a small companion program, respectively -- both
-reading the real cloned source, no network beyond the clone, no external compiler for Python, and
-only the project's already-pinned ``go`` toolchain for Go, run with ``go run``, never a new
-dependency). The other five languages the card names (TypeScript, Rust, Java, .NET, C++) each need
-their own real compiler/reflection/AST tool wired and proven against a real pinned repository -- a
-scope this card's worker could not respect responsibly within one dispatch without shipping five
-untested, falsely-confident readers (exactly the "confident, false 'done' claims" AGENTS.md warns
-against). ``DEFAULT_ENUMERATORS`` maps each of those five remaining platforms to
+``enumerate_python``, ``enumerate_go`` and ``enumerate_rust`` are wired to real tooling here
+(Python's own ``ast`` module, Go's own ``go/parser``+``go/ast`` via a small companion program, and
+Rust's ``syn`` crate via a small companion crate, respectively -- all three reading the real
+cloned source, no network beyond the clone, no external compiler for Python, the project's
+already-pinned ``go`` toolchain for Go run with ``go run``, and a pinned ``rust:1.98.1`` Docker
+container for Rust -- the companion crate is built AND run entirely inside that container, never
+directly on the host, because this host's Windows Application Control policy blocks execution of
+a freshly-built, unsigned native .exe; see ``_run_rust_enumerator``'s own docstring). The other
+four languages the card names (TypeScript, Java, .NET, C++) each need their own real
+compiler/reflection/AST tool wired and proven against a real pinned repository -- a scope this
+card's worker could not respect responsibly within one dispatch without shipping four untested,
+falsely-confident readers (exactly the "confident, false 'done' claims" AGENTS.md warns against).
+``DEFAULT_ENUMERATORS`` maps each of those four remaining platforms to
 ``_unimplemented_enumerator``, which raises a precise, named ``NotImplementedError`` -- never a
 silent pass, never a fabricated oracle -- and the ``Deps.enumerators`` injection point is exactly
 where the supervisor wires a real one in, one language at a time, the same way track A's
@@ -644,6 +648,117 @@ def enumerate_go(
     return symbols
 
 
+RUST_ENUMERATOR_CRATE_DIR = _ORACLE_HELPERS_DIR / "rust_enumerator"
+RUST_DOCKER_IMAGE = "rust:1.98.1"  # matches this host's installed rustc exactly; see plans/TC-590.yaml
+
+
+def _run_rust_enumerator(
+    library_dir: Path, *, run: Callable[..., Any] | None = None, image: str = RUST_DOCKER_IMAGE
+) -> list[dict[str, Any]]:
+    """Run ``rust_enumerator`` (the ``syn`` crate,
+    ``scripts/release/oracle_helpers/rust_enumerator/``) and parse its JSON stdout. Built AND
+    executed entirely inside a pinned Docker container -- never directly on the host.
+
+    This host's Windows Application Control policy blocks execution of a freshly-built, unsigned
+    native ``.exe`` (confirmed via the Code Integrity event log; see plans/TC-590.yaml's REWORK
+    note). WDAC governs native Windows PE execution only -- a Linux binary executed inside Docker
+    Desktop's own Linux VM is completely outside its scope, so the crate's own build (which would
+    otherwise compile and run a transitive dependency's ``build-script-build.exe`` on the host)
+    and its resulting binary both run inside the container instead, eliminating the dependency on
+    the host's own WDAC posture entirely.
+
+    The crate's own ``.cargo/config.toml`` redirects every dependency to its vendored copy next to
+    this file (``cargo vendor``), so ``cargo run --offline`` inside the container never reaches
+    the network either -- this function, and therefore every test that calls ``enumerate_rust``,
+    stays compatible with this card's own ``network: false`` requirement even though it shells
+    out to Docker, because the pinned image and every crate dependency are already cached/vendored
+    locally before the checks ever run.
+    """
+    runner = run or subprocess.run
+    result = runner(
+        [
+            "docker",
+            "run",
+            "--rm",
+            "-v",
+            f"{RUST_ENUMERATOR_CRATE_DIR}:/work",
+            "-v",
+            f"{library_dir}:/library:ro",
+            "-w",
+            "/work",
+            image,
+            "cargo",
+            "run",
+            "--release",
+            "--offline",
+            "--quiet",
+            "--",
+            "/library",
+        ],
+        cwd=REPO_ROOT,
+        capture_output=True,
+        text=True,
+        encoding="utf-8",
+        errors="replace",
+        check=False,
+    )
+    if result.returncode != 0:
+        raise RuntimeError(
+            f"rust_enumerator (Docker image {image}) failed against {library_dir}:\n"
+            f"{result.stdout}\n{result.stderr}"
+        )
+    try:
+        parsed = json.loads(result.stdout)
+    except ValueError as exc:
+        raise RuntimeError(f"rust_enumerator printed non-JSON stdout: {result.stdout!r}") from exc
+    if not isinstance(parsed, list):
+        raise RuntimeError(f"rust_enumerator printed a non-array JSON document: {result.stdout!r}")
+    return parsed
+
+
+def enumerate_rust(
+    repository: str, commit: str, library_dir: Path, *, run: Callable[..., Any] | None = None
+) -> list[OracleSymbol]:
+    """The real public API of a Rust library, read with the ``syn`` crate (real syntax, never
+    macro-expanded output -- the design table's own "Full (macro-expansion-blind, disclosed)"
+    fidelity note, tested by ``tests/release/test_source_differential.py``) through a small
+    companion crate (``scripts/release/oracle_helpers/rust_enumerator/``), built and run entirely
+    inside a pinned Docker container (never directly on the host -- see
+    ``_run_rust_enumerator``'s own docstring for why).
+
+    Clones ``repository`` at ``commit`` into ``library_dir`` (unless it already looks checked
+    out: a ``.git`` directory already present), runs the companion crate against that directory,
+    and maps its JSON output onto ``OracleSymbol``/``OracleMember``/``OracleParam``. Rust has no
+    default parameter values, so every ``OracleParam.has_default`` stays ``False``. A ``pub
+    struct`` and a ``pub trait`` both map to ``OracleSymbol.kind == "class"`` (a trait's own fn
+    items become "method" members, matching this module's existing class-like convention); a
+    ``pub enum`` maps to ``kind == "enum"`` (its variants as "enum_value" members, each carrying
+    its exact explicit discriminant when the source gives one, never merely a count).
+    """
+    if not (library_dir / ".git").is_dir():
+        clone_pinned_commit(repository, commit, library_dir, run=run)
+
+    raw_symbols = _run_rust_enumerator(library_dir, run=run)
+    symbols: list[OracleSymbol] = []
+    for raw in raw_symbols:
+        members = tuple(
+            OracleMember(
+                name=str(raw_member["name"]),
+                kind=str(raw_member["kind"]),
+                params=tuple(OracleParam(name=str(p["name"])) for p in raw_member.get("params") or []),
+                is_static=bool(raw_member.get("is_static", False)),
+                enum_value=(
+                    str(raw_member["enum_value"]) if raw_member.get("enum_value") is not None else None
+                ),
+            )
+            for raw_member in raw.get("members") or []
+        )
+        raw_kind = str(raw["kind"])
+        kind = "enum" if raw_kind == "enum" else "class"  # struct/trait -> class (see docstring)
+        symbols.append(OracleSymbol(name=str(raw["name"]), kind=kind, members=members))
+    return symbols
+
+
 def _unimplemented_enumerator(platform: str) -> Enumerator:
     def _enumerator(repository: str, commit: str, library_dir: Path) -> list[OracleSymbol]:
         raise NotImplementedError(
@@ -657,9 +772,10 @@ def _unimplemented_enumerator(platform: str) -> Enumerator:
 DEFAULT_ENUMERATORS: dict[str, Enumerator] = {
     "python": enumerate_python,
     "go": enumerate_go,
+    "rust": enumerate_rust,
     **{
         platform: _unimplemented_enumerator(platform)
-        for platform in ("typescript", "javascript", "nodejs", "rust", "java", "net", "dotnet", "cpp")
+        for platform in ("typescript", "javascript", "nodejs", "java", "net", "dotnet", "cpp")
     },
 }
 

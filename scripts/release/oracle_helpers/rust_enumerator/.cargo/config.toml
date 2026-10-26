@@ -1,0 +1,10 @@
+# Keeps every container run of this crate fully offline (the card's own `network: false`
+# requirement for checks): `vendor/` next to this file carries the exact source of every
+# transitive dependency `cargo vendor` resolved for the single pinned `syn = "=2.0.90"`
+# dependency in Cargo.toml, so `cargo build`/`cargo run` inside the rust:1.98.1 container never
+# reaches crates.io, even though the container itself has no outbound network configured.
+[source.crates-io]
+replace-with = "vendored-sources"
+
+[source.vendored-sources]
+directory = "vendor"

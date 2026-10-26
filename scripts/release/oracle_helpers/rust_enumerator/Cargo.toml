@@ -1,0 +1,21 @@
+[package]
+name = "rust_enumerator"
+version = "0.1.0"
+edition = "2021"
+publish = false
+
+# A small, dependency-free-but-for-one companion program for source_differential.py's independent
+# Rust oracle (G3/TC-590), mirroring the Go companion's own doc comment. `syn` is the ONE new,
+# pinned dependency the audit's design table already expects, used only for `syn::parse_file`
+# (real Rust syntax, never this project's tree-sitter engine, never a committed fixture).
+[dependencies]
+syn = { version = "=2.0.90", features = ["full"] }
+
+[[bin]]
+name = "rust_enumerator"
+path = "src/main.rs"
+
+[profile.release]
+# Keep the container build fast; this binary runs once per test/live-run, not a production artifact.
+opt-level = 1
+debug = false
