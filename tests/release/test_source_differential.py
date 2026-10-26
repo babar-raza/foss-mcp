@@ -20,6 +20,14 @@ wire mid-check. Both enumerators moved off the host's own toolchain and into a p
 because this host's Windows Application Control policy blocks execution of a freshly-built,
 unsigned native ``.exe`` directly on the host (first observed in TC-590's Rust rework, OWNER-16;
 TC-596 applies the identical fix to Go).
+
+The ``enumerate_typescript`` tests (G3/TC-591) really invoke ``node`` directly against
+hand-written, on-disk synthetic ``.ts`` fixtures through the real TypeScript Compiler API
+(``scripts/release/oracle_helpers/ts_enumerator.js``) -- never the real pilot, never a network
+call, never Docker. ``node`` executing a plain ``.js`` file is the already-trusted host
+interpreter, not a freshly-built native binary, so the WDAC workaround the Go/Rust enumerators
+need never applies here; this was confirmed directly (not merely assumed) before this card's
+own enumerator was wired in.
 """
 
 from __future__ import annotations
@@ -839,8 +847,213 @@ def test_run_rust_enumerator_raises_with_the_image_name_on_a_nonzero_docker_exit
         sd._run_rust_enumerator(tmp_path, run=failing_run)
 
 
+# --- the TypeScript Compiler API enumerator: the fourth real, wired tool this card lands -------------
+# Every fixture below is a hand-written synthetic .ts file (never the real pilot, never the
+# enumerator's own output read back as the expected value). enumerate_typescript really invokes
+# the REAL TypeScript Compiler API (ts.createProgram + its own TypeChecker, through
+# scripts/release/oracle_helpers/ts_enumerator.js, run with `node` -- the already-trusted host
+# interpreter, no Docker, no fresh native binary, so none of these tests need the Windows
+# Application Control workaround enumerate_go/enumerate_rust need; G3/TC-591) against these
+# files on local disk -- real wall-clock time (a real `node` subprocess + a real TypeScript
+# type-check), same as the Go/Rust tests above, but no container start.
+
+
+def test_enumerate_typescript_reads_a_real_class_with_the_compiler_api_offline(tmp_path):
+    (tmp_path / ".git").mkdir()  # pretend already-cloned, so enumerate_typescript never shells out to git
+    (tmp_path / "src").mkdir()
+    (tmp_path / "src" / "widget.ts").write_text(
+        "export class Gadget {\n"
+        "  build(name: string, count: number = 1): string {\n"
+        "    return name;\n"
+        "  }\n"
+        "  private hide(): void {}\n"
+        "}\n",
+        encoding="utf-8",
+    )
+    symbols = sd.enumerate_typescript("acme/widgets", "deadbeef", tmp_path)
+    (gadget,) = [s for s in symbols if s.name == "Gadget"]
+    assert gadget.kind == "class"  # an interface would ALSO read back as "class" -- see the
+    # module's own enumerate_typescript docstring for why
+    by_name = {member.name: member for member in gadget.members}
+    assert set(by_name) == {"build"}  # hide is private and must never appear
+    assert by_name["build"].params == (OP("name"), OP("count", has_default=True))
+    assert by_name["build"].is_static is False
+
+
+def test_enumerate_typescript_reads_an_interface_and_its_methods_offline(tmp_path):
+    (tmp_path / ".git").mkdir()
+    (tmp_path / "src").mkdir()
+    (tmp_path / "src" / "reader.ts").write_text(
+        "export interface Reader {\n  read(path: string): string;\n}\n",
+        encoding="utf-8",
+    )
+    (reader,) = sd.enumerate_typescript("acme/pdf", "deadbeef", tmp_path)
+    assert reader.name == "Reader"
+    assert reader.kind == "class"  # interfaces map onto OracleSymbol.kind == "class" too
+    (read,) = reader.members
+    assert read.name == "read"
+    assert read.kind == "method"
+    assert read.params == (OP("path"),)
+    assert read.is_static is False
+
+
+def test_enumerate_typescript_defect_a_private_property_is_excluded_from_the_result(tmp_path):
+    """Deliberate defect fixture 1: a class property declared `private` that must be absent --
+    the card's own single most important rule (no modifier means public by TypeScript's own
+    default; only an explicit `private` excludes a member)."""
+    (tmp_path / ".git").mkdir()
+    (tmp_path / "src").mkdir()
+    (tmp_path / "src" / "widget.ts").write_text(
+        "export class Widget {\n"
+        '  public name: string = "n";\n'  # exported/public: must appear
+        "  private internal: number = 0;\n"  # private: must NOT appear
+        "}\n",
+        encoding="utf-8",
+    )
+    (widget,) = sd.enumerate_typescript("acme/widgets", "deadbeef", tmp_path)
+    names = {member.name for member in widget.members}
+    assert names == {"name"}, "the enumerator must exclude the private 'internal' property"
+    assert "internal" not in names
+
+
+def test_enumerate_typescript_defect_an_optional_marker_is_never_confused_with_a_default(tmp_path):
+    """Deliberate defect fixture 2: a parameter's `?` optional marker must never be read as
+    `has_default` -- only a real initializer (an actual default VALUE) may set it. The pilot's
+    own baked api_surface.json fixture keeps "optional" and "default" as two separate fields
+    for exactly this reason."""
+    (tmp_path / ".git").mkdir()
+    (tmp_path / "src").mkdir()
+    (tmp_path / "src" / "doc.ts").write_text(
+        'export class Doc {\n  build(label?: string): string {\n    return label || "";\n  }\n}\n',
+        encoding="utf-8",
+    )
+    (doc,) = sd.enumerate_typescript("acme/pdf", "deadbeef", tmp_path)
+    (build,) = doc.members
+    assert build.params == (OP("label", has_default=False),), (
+        "an optional '?' parameter with no initializer must never read as has_default=True"
+    )
+
+
+def test_enumerate_typescript_defect_a_method_overload_set_is_never_duplicated_or_dropped(tmp_path):
+    """Deliberate defect fixture 3: TypeScript allows several signatures for one
+    implementation; the real implementation signature must appear exactly once, never
+    duplicated once per overload and never dropped entirely."""
+    (tmp_path / ".git").mkdir()
+    (tmp_path / "src").mkdir()
+    (tmp_path / "src" / "calc.ts").write_text(
+        "export class Calc {\n"
+        "  add(a: number): number;\n"
+        "  add(a: number, b: number): number;\n"
+        "  add(a: number, b?: number): number {\n"
+        "    return a + (b || 0);\n"
+        "  }\n"
+        "}\n",
+        encoding="utf-8",
+    )
+    (calc,) = sd.enumerate_typescript("acme/widgets", "deadbeef", tmp_path)
+    adds = [member for member in calc.members if member.name == "add"]
+    assert len(adds) == 1, "an overload set must collapse to exactly one member, never one per signature"
+    assert adds[0].params == (OP("a"), OP("b")), "the real, callable implementation signature must win"
+
+
+def test_enumerate_typescript_marks_a_static_method_is_static(tmp_path):
+    (tmp_path / ".git").mkdir()
+    (tmp_path / "src").mkdir()
+    (tmp_path / "src" / "workbook.ts").write_text(
+        "export class Workbook {\n"
+        "  static create(): Workbook {\n"
+        "    return new Workbook();\n"
+        "  }\n"
+        "  save(path: string): void {}\n"
+        "}\n",
+        encoding="utf-8",
+    )
+    (workbook,) = sd.enumerate_typescript("acme/widgets", "deadbeef", tmp_path)
+    by_name = {member.name: member for member in workbook.members}
+    assert by_name["create"].is_static is True
+    assert by_name["save"].is_static is False
+
+
+def test_enumerate_typescript_a_file_with_a_syntax_error_does_not_crash_the_enumerator(tmp_path):
+    (tmp_path / ".git").mkdir()
+    (tmp_path / "src").mkdir()
+    (tmp_path / "src" / "broken.ts").write_text("export class Broken {\n  build(:\n", encoding="utf-8")
+    (tmp_path / "src" / "good.ts").write_text("export class Fine {\n  ok(): void {}\n}\n", encoding="utf-8")
+    symbols = sd.enumerate_typescript("acme/pdf", "deadbeef", tmp_path)
+    names = {s.name for s in symbols}
+    assert "Fine" in names, "a syntax error in one file must never prevent reading another file's class"
+
+
+def test_enumerate_typescript_scopes_to_the_declared_package_entry_point_when_one_exists(tmp_path):
+    """When a package.json with a "types"/"main" entry point exists, only symbols reachable
+    from that entry point are read -- an internal, file-local-only export that the entry point
+    never re-exports must not appear. This is the real pilot's own shape (G3/TC-591's own
+    investigation found the pinned pdf/typescript pilot exports 776 classes/interfaces when
+    read per-file, versus 334 when scoped to its own src/index.ts -- within 3 of the baked
+    fixture's own 337 class/interface/abstract_class types)."""
+    (tmp_path / ".git").mkdir()
+    (tmp_path / "src").mkdir()
+    (tmp_path / "package.json").write_text('{"types": "dist/index.d.ts"}\n', encoding="utf-8")
+    (tmp_path / "src" / "index.ts").write_text("export { Public } from './internal.js';\n", encoding="utf-8")
+    (tmp_path / "src" / "internal.ts").write_text(
+        "export class Public {\n  run(): void {}\n}\n"
+        "export class NeverReexported {\n  hidden(): void {}\n}\n",
+        encoding="utf-8",
+    )
+    symbols = sd.enumerate_typescript("acme/pdf", "deadbeef", tmp_path)
+    names = {s.name for s in symbols}
+    assert names == {"Public"}, "only the entry point's own reachable symbols may appear"
+
+
+def test_run_typescript_enumerator_shells_out_to_node_directly_never_docker(tmp_path):
+    """Offline check of the node invocation's own shape (never a real subprocess here): no
+    Docker anywhere in the command, the companion script's real path, and both positional
+    arguments the script expects."""
+    import subprocess as _subprocess
+
+    captured: dict[str, object] = {}
+
+    def fake_run(args, **kwargs):
+        captured["args"] = args
+        captured["kwargs"] = kwargs
+        return _subprocess.CompletedProcess(args=args, returncode=0, stdout="[]", stderr="")
+
+    library_dir = tmp_path / "library"
+    library_dir.mkdir()
+    ts_package_dir = tmp_path / "typescript"
+    ts_package_dir.mkdir()
+    result = sd._run_typescript_enumerator(library_dir, run=fake_run, typescript_package_dir=ts_package_dir)
+    assert result == []
+    args = captured["args"]
+    assert args[0] == sd.NODE_BINARY == "node"
+    assert "docker" not in [str(a).lower() for a in args]
+    assert args[1] == str(sd.TS_ENUMERATOR_SOURCE)
+    assert args[2] == str(library_dir)
+    assert args[3] == str(ts_package_dir)
+
+
+def test_run_typescript_enumerator_raises_with_a_clear_message_on_a_nonzero_node_exit(tmp_path):
+    import subprocess as _subprocess
+
+    ts_package_dir = tmp_path / "typescript"
+    ts_package_dir.mkdir()
+
+    def failing_run(args, **kwargs):
+        return _subprocess.CompletedProcess(
+            args=args, returncode=1, stdout="", stderr="TSError: something failed"
+        )
+
+    with pytest.raises(RuntimeError, match="ts_enumerator.js"):
+        sd._run_typescript_enumerator(tmp_path, run=failing_run, typescript_package_dir=ts_package_dir)
+
+
+def test_run_typescript_enumerator_raises_a_clear_error_when_the_typescript_package_is_missing(tmp_path):
+    with pytest.raises(RuntimeError, match="typescript npm package"):
+        sd._run_typescript_enumerator(tmp_path, typescript_package_dir=tmp_path / "does-not-exist")
+
+
 def test_unimplemented_enumerators_raise_a_named_not_implemented_error():
-    for platform in ("typescript", "java", "net", "cpp"):
+    for platform in ("java", "net", "cpp"):
         with pytest.raises(NotImplementedError, match=platform):
             sd.DEFAULT_ENUMERATORS[platform]("acme/widgets", "deadbeef", Path("/does/not/matter"))
 
@@ -849,6 +1062,7 @@ def test_default_enumerators_cover_python_and_every_card_named_platform():
     assert sd.DEFAULT_ENUMERATORS["python"] is sd.enumerate_python
     assert sd.DEFAULT_ENUMERATORS["go"] is sd.enumerate_go
     assert sd.DEFAULT_ENUMERATORS["rust"] is sd.enumerate_rust
+    assert sd.DEFAULT_ENUMERATORS["typescript"] is sd.enumerate_typescript
     assert {"typescript", "javascript", "nodejs", "go", "rust", "java", "net", "dotnet", "cpp"} <= set(
         sd.DEFAULT_ENUMERATORS
     )

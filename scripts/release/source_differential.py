@@ -28,23 +28,29 @@ injection style, so ``diff_symbol``/``diff_language``/``verify_pilot`` and this 
 are exercised offline, with hand-written per-language micro-libraries, by every unit test -- no
 compiler, interpreter or network call is ever made by ``tests/release/test_source_differential.py``.
 
-``enumerate_python``, ``enumerate_go`` and ``enumerate_rust`` are wired to real tooling here
-(Python's own ``ast`` module, Go's own ``go/parser``+``go/ast`` via a small companion program, and
-Rust's ``syn`` crate via a small companion crate, respectively -- all three reading the real
-cloned source, no network beyond the clone, no external compiler for Python, and a pinned
-``golang:1.26.4`` Docker container for Go (G3/TC-596) plus a pinned ``rust:1.98.1`` Docker
-container for Rust (G3/TC-590) -- both companion programs are built AND run entirely inside their
-own container, never directly on the host, because this host's Windows Application Control policy
-blocks execution of a freshly-built, unsigned native .exe; see ``_run_go_enumerator``'s and
-``_run_rust_enumerator``'s own docstrings). The other
-four languages the card names (TypeScript, Java, .NET, C++) each need their own real
-compiler/reflection/AST tool wired and proven against a real pinned repository -- a scope this
-card's worker could not respect responsibly within one dispatch without shipping four untested,
-falsely-confident readers (exactly the "confident, false 'done' claims" AGENTS.md warns against).
-``DEFAULT_ENUMERATORS`` maps each of those four remaining platforms to
-``_unimplemented_enumerator``, which raises a precise, named ``NotImplementedError`` -- never a
-silent pass, never a fabricated oracle -- and the ``Deps.enumerators`` injection point is exactly
-where the supervisor wires a real one in, one language at a time, the same way track A's
+``enumerate_python``, ``enumerate_go``, ``enumerate_rust`` and ``enumerate_typescript`` are wired
+to real tooling here (Python's own ``ast`` module, Go's own ``go/parser``+``go/ast`` via a small
+companion program, Rust's ``syn`` crate via a small companion crate, and TypeScript's own
+Compiler API -- ``ts.createProgram`` plus its real ``TypeChecker``, never a regex, never this
+project's own tree-sitter grammar, which would make the oracle circular -- via a small companion
+Node script, respectively -- all four reading the real cloned source, no network beyond the
+clone, no external compiler for Python, a pinned ``golang:1.26.4`` Docker container for Go
+(G3/TC-596), a pinned ``rust:1.98.1`` Docker container for Rust (G3/TC-590) -- both companion
+programs are built AND run entirely inside their own container, never directly on the host,
+because this host's Windows Application Control policy blocks execution of a freshly-built,
+unsigned native .exe; see ``_run_go_enumerator``'s and ``_run_rust_enumerator``'s own docstrings
+-- and, for TypeScript, the already-installed ``typescript`` npm package run directly by the
+already-trusted ``node`` host interpreter (G3/TC-591): ``node`` executing a ``.js`` file is
+neither a fresh build nor a native binary, so WDAC never applies and no container is needed; see
+``_run_typescript_enumerator``'s own docstring, which also records why this is confirmed rather
+than merely assumed). The other three languages the card names (Java, .NET, C++) each need their
+own real compiler/reflection/AST tool wired and proven against a real pinned repository -- a
+scope this card's worker could not respect responsibly within one dispatch without shipping
+three more untested, falsely-confident readers (exactly the "confident, false 'done' claims"
+AGENTS.md warns against). ``DEFAULT_ENUMERATORS`` maps each of those three remaining platforms
+to ``_unimplemented_enumerator``, which raises a precise, named ``NotImplementedError`` -- never
+a silent pass, never a fabricated oracle -- and the ``Deps.enumerators`` injection point is
+exactly where the supervisor wires a real one in, one language at a time, the same way track A's
 extraction fix landed as eight separate per-language cards.
 
 ``REQUIRE_EXTRACTOR_VERSION`` mirrors the identically-named switch in ``image_workflow_gate.py``: a
@@ -801,6 +807,120 @@ def enumerate_rust(
     return symbols
 
 
+TS_ENUMERATOR_SOURCE = _ORACLE_HELPERS_DIR / "ts_enumerator.js"
+NODE_BINARY = "node"
+# The already-installed `typescript` npm package's own directory on this host, confirmed
+# directly (`node -e "console.log(require.resolve('typescript'))"` under the activated
+# toolchain's NODE_PATH) rather than assumed from this card's own purpose text -- see
+# plans/TC-591.yaml. Pinned the same way GO_DOCKER_IMAGE/RUST_DOCKER_IMAGE pin this host's own
+# installed Go/Rust versions: a visible, diagnosable error if a future host ever moves it,
+# never a silent wrong answer.
+TYPESCRIPT_NPM_PACKAGE_DIR = Path(r"C:\dev-tools\foss-mcp\rp-toolchains\npm\prefix\node_modules\typescript")
+
+
+def _run_typescript_enumerator(
+    library_dir: Path,
+    *,
+    run: Callable[..., Any] | None = None,
+    node_binary: str = NODE_BINARY,
+    typescript_package_dir: Path = TYPESCRIPT_NPM_PACKAGE_DIR,
+) -> list[dict[str, Any]]:
+    """Run ``ts_enumerator.js`` (the REAL TypeScript Compiler API --
+    ``scripts/release/oracle_helpers/ts_enumerator.js``) and parse its JSON stdout.
+
+    Unlike ``_run_go_enumerator``/``_run_rust_enumerator``, this never shells out to Docker.
+    TypeScript execution goes through ``node`` running an already-trusted, already-installed
+    interpreter over a plain ``.js`` text file -- never a freshly-built, unsigned native
+    binary -- so this host's Windows Application Control policy (which blocks exactly that
+    native-binary case; see the Go/Rust docstrings above) simply does not apply here. This was
+    confirmed directly rather than assumed before this function was written (G3/TC-591): every
+    test in ``tests/release/test_source_differential.py`` that exercises this function (and the
+    one real, live, network-using run against the pinned pdf/typescript pilot performed once at
+    this card's own closing time) runs ``node`` directly against the host, with no container
+    anywhere in the invocation below.
+
+    ``typescript_package_dir`` must already exist (the package is pre-installed; this function
+    never ``npm install``s anything, keeping this card's own ``network: false`` requirement for
+    every unit test true even though ``enumerate_typescript`` itself clones over the network).
+    """
+    if not typescript_package_dir.is_dir():
+        raise RuntimeError(
+            f"the typescript npm package was not found at {typescript_package_dir} -- this path is "
+            "pinned in source_differential.py (TYPESCRIPT_NPM_PACKAGE_DIR); if the toolchain moved, "
+            "update that constant to the real, installed location on this host"
+        )
+    runner = run or subprocess.run
+    result = runner(
+        [node_binary, str(TS_ENUMERATOR_SOURCE), str(library_dir), str(typescript_package_dir)],
+        cwd=REPO_ROOT,
+        capture_output=True,
+        text=True,
+        encoding="utf-8",
+        errors="replace",
+        check=False,
+    )
+    if result.returncode != 0:
+        raise RuntimeError(
+            f"ts_enumerator.js failed against {library_dir}:\n{result.stdout}\n{result.stderr}"
+        )
+    try:
+        parsed = json.loads(result.stdout)
+    except ValueError as exc:
+        raise RuntimeError(f"ts_enumerator.js printed non-JSON stdout: {result.stdout!r}") from exc
+    if not isinstance(parsed, list):
+        raise RuntimeError(f"ts_enumerator.js printed a non-array JSON document: {result.stdout!r}")
+    return parsed
+
+
+def enumerate_typescript(
+    repository: str, commit: str, library_dir: Path, *, run: Callable[..., Any] | None = None
+) -> list[OracleSymbol]:
+    """The real public API of a TypeScript library, read with the TypeScript Compiler API
+    itself (``ts.createProgram`` plus its real ``TypeChecker`` -- never a regex, never this
+    project's own tree-sitter grammar, which would make the oracle circular) through a small
+    companion Node script (``scripts/release/oracle_helpers/ts_enumerator.js``), run directly
+    by the already-trusted ``node`` host interpreter (no Docker -- see
+    ``_run_typescript_enumerator``'s own docstring for why that is safe here, unlike
+    ``enumerate_go``/``enumerate_rust``).
+
+    Clones ``repository`` at ``commit`` into ``library_dir`` (unless it already looks checked
+    out: a ``.git`` directory already present), runs the companion script against that
+    directory, and maps its JSON output onto ``OracleSymbol``/``OracleMember``/``OracleParam``.
+    Both a TypeScript ``class`` and an ``interface`` map to ``OracleSymbol.kind == "class"``
+    (an interface's own members become "method"/"property" members using this module's
+    existing class-like convention, matching how ``enumerate_rust`` already folds a Rust
+    ``trait`` the same way). A class member's ``is_static`` is read from the Compiler API's own
+    "static side" type, never guessed; a method parameter's ``has_default`` is ``True`` only
+    when its own AST node carries a real initializer, never merely a ``?`` optional marker --
+    see ``ts_enumerator.js``'s own "SCOPE" docstring for the one most important rule this
+    enumerator applies (a class member with no visibility modifier is public by TypeScript's
+    own default; only an explicit ``private`` excludes a member, and TypeScript interfaces
+    cannot declare ``private`` members at all, so every interface member is always public) and
+    for why this enumerator scopes to symbols reachable from the package's own declared entry
+    point rather than merely every file's own ``export`` keyword.
+    """
+    if not (library_dir / ".git").is_dir():
+        clone_pinned_commit(repository, commit, library_dir, run=run)
+
+    raw_symbols = _run_typescript_enumerator(library_dir, run=run)
+    symbols: list[OracleSymbol] = []
+    for raw in raw_symbols:
+        members = tuple(
+            OracleMember(
+                name=str(raw_member["name"]),
+                kind=str(raw_member["kind"]),
+                params=tuple(
+                    OracleParam(name=str(p["name"]), has_default=bool(p.get("has_default", False)))
+                    for p in raw_member.get("params") or []
+                ),
+                is_static=bool(raw_member.get("is_static", False)),
+            )
+            for raw_member in raw.get("members") or []
+        )
+        symbols.append(OracleSymbol(name=str(raw["name"]), kind="class", members=members))
+    return symbols
+
+
 def _unimplemented_enumerator(platform: str) -> Enumerator:
     def _enumerator(repository: str, commit: str, library_dir: Path) -> list[OracleSymbol]:
         raise NotImplementedError(
@@ -815,9 +935,10 @@ DEFAULT_ENUMERATORS: dict[str, Enumerator] = {
     "python": enumerate_python,
     "go": enumerate_go,
     "rust": enumerate_rust,
+    "typescript": enumerate_typescript,
     **{
         platform: _unimplemented_enumerator(platform)
-        for platform in ("typescript", "javascript", "nodejs", "java", "net", "dotnet", "cpp")
+        for platform in ("javascript", "nodejs", "java", "net", "dotnet", "cpp")
     },
 }
 
