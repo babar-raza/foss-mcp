@@ -1,0 +1,129 @@
+
+===== CLEAN RUN 1 (host) =====
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-5c72e798a73c059a\Scripts\python.exe -m pytest tests/mcp/tools/test_find_examples_vector_deadline.py tests/mcp/tools/test_find_examples_verified_only.py tests/mcp/tools/test_round3_retrieval.py -q -rfE "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-s7d100jl\.junit-0.xml"
+--- stdout ---
+........................................................................ [ 44%]
+........................................................................ [ 88%]
+..................                                                       [100%]
+
+--- stderr ---
+
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-5c72e798a73c059a\Scripts\python.exe -m pytest tests/mcp/tools/test_find_examples_vector_deadline.py tests/mcp/tools/test_find_examples_verified_only.py tests/mcp/tools/test_find_examples_title_anchor.py tests/mcp/tools/test_find_examples_verification_record.py tests/mcp/tools/test_round3_retrieval.py tests/mcp/tools/test_round3_retrieval_corpus.py tests/mcp/tools/test_vector_guard.py tests/mcp/tools/test_find_examples_vector_deadline.py tests/mcp/test_response_envelope.py tests/test_unwired_modules.py -q -rfE -p no:cacheprovider "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-s7d100jl\.junit-1.xml"
+--- stdout ---
+........................................................................ [ 22%]
+........................................................................ [ 44%]
+........................................................................ [ 66%]
+........................................................................ [ 89%]
+...................................                                      [100%]
+
+--- stderr ---
+
+
+===== CLEAN RUN 2 (host) =====
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-5c72e798a73c059a\Scripts\python.exe -m pytest tests/mcp/tools/test_find_examples_vector_deadline.py tests/mcp/tools/test_find_examples_verified_only.py tests/mcp/tools/test_round3_retrieval.py -q -rfE "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-s7d100jl\.junit-0.xml"
+--- stdout ---
+........................................................................ [ 44%]
+........................................................................ [ 88%]
+..................                                                       [100%]
+
+--- stderr ---
+
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-5c72e798a73c059a\Scripts\python.exe -m pytest tests/mcp/tools/test_find_examples_vector_deadline.py tests/mcp/tools/test_find_examples_verified_only.py tests/mcp/tools/test_find_examples_title_anchor.py tests/mcp/tools/test_find_examples_verification_record.py tests/mcp/tools/test_round3_retrieval.py tests/mcp/tools/test_round3_retrieval_corpus.py tests/mcp/tools/test_vector_guard.py tests/mcp/tools/test_find_examples_vector_deadline.py tests/mcp/test_response_envelope.py tests/test_unwired_modules.py -q -rfE -p no:cacheprovider "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-s7d100jl\.junit-1.xml"
+--- stdout ---
+........................................................................ [ 22%]
+........................................................................ [ 44%]
+........................................................................ [ 66%]
+........................................................................ [ 89%]
+...................................                                      [100%]
+
+--- stderr ---
+
+
+===== NEGATIVE CONTROL (checks MUST now fail) =====
+mutated: M src/foss_mcp/mcp/tools/find_examples.py, ?? .junit-0.xml, ?? .junit-1.xml
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-5c72e798a73c059a\Scripts\python.exe -m pytest tests/mcp/tools/test_find_examples_vector_deadline.py tests/mcp/tools/test_find_examples_verified_only.py tests/mcp/tools/test_round3_retrieval.py -q -rfE "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-s7d100jl\.junit-0.xml"
+--- stdout ---
+........................................................................ [ 44%]
+...............F........................................................ [ 88%]
+..................                                                       [100%]
+================================== FAILURES ===================================
+_________ test_a_specific_match_outranks_a_higher_scoring_generic_one _________
+
+tmp_path = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-13201/test_a_specific_match_outranks0')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x000002447E631D30>
+
+    def test_a_specific_match_outranks_a_higher_scoring_generic_one(
+        tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """Proves this is NOT simply "sort by raw score": the generic chunk scores HIGHER raw cosine
+        similarity than the specific one, yet the specific one is the accepted top match - and the
+        generic chunk is demoted, not excluded: it still appears, just ranked after."""
+        generic_chunks = _chunks("Quick Start", GENERIC_BODY)
+        specific_chunks = _chunks("Merge Cells In A Worksheet", SPECIFIC_BODY)
+        chunks = generic_chunks + specific_chunks
+        vectors = {
+            generic_chunks[0].text: (1.0, 0.0),  # cosine 1.0 with the query below
+            specific_chunks[0].text: (0.6, 0.8),  # cosine 0.6 - lower, but still clears every floor
+        }
+        store = _publish_with_vectors(tmp_path, chunks, vectors)
+        _use_query_vector(monkeypatch, (1.0, 0.0))
+    
+        result = find_examples(store, PDF_NET, NO_LEXICAL_HIT_QUERY)
+    
+        assert isinstance(result, list) and len(result) == 2
+>       assert result[0].fqn == "Example: Merge Cells In A Worksheet"
+E       AssertionError: assert 'Example: Quick Start' == 'Example: Mer...n A Worksheet'
+E         
+E         - Example: Merge Cells In A Worksheet
+E         + Example: Quick Start
+
+tests\mcp\tools\test_find_examples_verified_only.py:570: AssertionError
+=========================== short test summary info ===========================
+FAILED tests/mcp/tools/test_find_examples_verified_only.py::test_a_specific_match_outranks_a_higher_scoring_generic_one
+
+--- stderr ---
+
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-5c72e798a73c059a\Scripts\python.exe -m pytest tests/mcp/tools/test_find_examples_vector_deadline.py tests/mcp/tools/test_find_examples_verified_only.py tests/mcp/tools/test_find_examples_title_anchor.py tests/mcp/tools/test_find_examples_verification_record.py tests/mcp/tools/test_round3_retrieval.py tests/mcp/tools/test_round3_retrieval_corpus.py tests/mcp/tools/test_vector_guard.py tests/mcp/tools/test_find_examples_vector_deadline.py tests/mcp/test_response_envelope.py tests/test_unwired_modules.py -q -rfE -p no:cacheprovider "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-s7d100jl\.junit-1.xml"
+--- stdout ---
+........................................................................ [ 22%]
+...............F........................................................ [ 44%]
+........................................................................ [ 66%]
+........................................................................ [ 89%]
+...................................                                      [100%]
+================================== FAILURES ===================================
+_________ test_a_specific_match_outranks_a_higher_scoring_generic_one _________
+
+tmp_path = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-13202/test_a_specific_match_outranks0')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x000001BB51CF12B0>
+
+    def test_a_specific_match_outranks_a_higher_scoring_generic_one(
+        tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """Proves this is NOT simply "sort by raw score": the generic chunk scores HIGHER raw cosine
+        similarity than the specific one, yet the specific one is the accepted top match - and the
+        generic chunk is demoted, not excluded: it still appears, just ranked after."""
+        generic_chunks = _chunks("Quick Start", GENERIC_BODY)
+        specific_chunks = _chunks("Merge Cells In A Worksheet", SPECIFIC_BODY)
+        chunks = generic_chunks + specific_chunks
+        vectors = {
+            generic_chunks[0].text: (1.0, 0.0),  # cosine 1.0 with the query below
+            specific_chunks[0].text: (0.6, 0.8),  # cosine 0.6 - lower, but still clears every floor
+        }
+        store = _publish_with_vectors(tmp_path, chunks, vectors)
+        _use_query_vector(monkeypatch, (1.0, 0.0))
+    
+        result = find_examples(store, PDF_NET, NO_LEXICAL_HIT_QUERY)
+    
+        assert isinstance(result, list) and len(result) == 2
+>       assert result[0].fqn == "Example: Merge Cells In A Worksheet"
+E       AssertionError: assert 'Example: Quick Start' == 'Example: Mer...n A Worksheet'
+E         
+E         - Example: Merge Cells In A Worksheet
+E         + Example: Quick Start
+
+tests\mcp\tools\test_find_examples_verified_only.py:570: AssertionError
+=========================== short test summary info ===========================
+FAILED tests/mcp/tools/test_find_examples_verified_only.py::test_a_specific_match_outranks_a_higher_scoring_generic_one
+
+--- stderr ---
+
