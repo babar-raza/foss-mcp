@@ -14,6 +14,15 @@ purpose: >-
   card must also fix). The design table's own fidelity note: "Full (macro-expansion-blind, disclosed)" - syn parses
   syntax, not macro-expanded output, so a type or member produced only by a macro will not appear; disclose this
   limitation plainly in the enumerator's own docstring rather than silently under-reporting.
+  REWORK (2026-10-26, supervisor, OWNER-16): this host's Windows Application Control policy blocks execution of a
+  freshly-built, unsigned native .exe (confirmed directly via the Code Integrity event log - Policy ID
+  {0283AC0F-FFF1-49AE-ADA1-8A933130CAD6}, "Enterprise signing level requirements"). This is a real, persistent,
+  system-level policy, not something an agent can or should work around by modifying security policy, and the
+  operator has declined to touch it. The fix is architectural, not a retry: run the Rust crate's build AND its
+  compiled binary's execution inside a Docker container instead of directly on the Windows host. WDAC governs
+  native Windows PE execution only - a Linux binary executed inside Docker Desktop's own Linux VM is completely
+  outside its scope, and Docker is already a working, core part of this project's toolchain (used all session for
+  the demo image). This eliminates the dependency entirely rather than hoping the policy stays quiet.
 depends_on:
 - TC-566
 - TC-589
@@ -39,13 +48,34 @@ inputs:
   BUILD enumerate_rust(repository, commit, library_dir) -> list[OracleSymbol]: clone the pinned commit with
   clone_pinned_commit (reused) when needed. Create a small companion Rust crate (a new Cargo project, e.g. under
   scripts/release/oracle_helpers/rust_enumerator/, with its own Cargo.toml pinning an exact `syn` version plus
-  whatever `proc-macro2`/`quote` it needs for parsing, and `cargo build --release` or `cargo run` invoked via
-  subprocess from the Python side) that walks every `.rs` file under the cloned library and uses `syn::parse_file`
-  to find every `pub struct`/`pub enum`/`pub trait` and their `pub` methods/fields/variants, emitting JSON on
-  stdout. Map onto OracleSymbol/OracleMember: kind="class" for a struct, "enum" for an enum (enum variants as
-  kind="enum_value" members), "class" for a trait (its methods as kind="method" members); a method's `&self`/`&mut
-  self`/`self`/no-self receiver does not change its OracleMember.params (self is never a param, matching
-  enumerate_python's own `self`/`cls` exclusion).
+  whatever `proc-macro2`/`quote` it needs for parsing) that walks every `.rs` file under the cloned library and
+  uses `syn::parse_file` to find every `pub struct`/`pub enum`/`pub trait` and their `pub` methods/fields/variants,
+  emitting JSON on stdout. Map onto OracleSymbol/OracleMember: kind="class" for a struct, "enum" for an enum (enum
+  variants as kind="enum_value" members), "class" for a trait (its methods as kind="method" members); a method's
+  `&self`/`&mut self`/`self`/no-self receiver does not change its OracleMember.params (self is never a param,
+  matching enumerate_python's own `self`/`cls` exclusion).
+- >-
+  RUN IT IN DOCKER, NEVER DIRECTLY ON THE HOST (the REWORK note above): the Python side invokes
+  `docker run --rm -v <crate_dir_absolute>:/work -w /work rust:<exact-pinned-tag> cargo run --release` (or an
+  equivalent two-step build-then-run if you prefer caching the build across calls - your choice, but never a bare
+  host-side `cargo build`/`cargo run`/execution of the resulting .exe). Pin an exact Rust Docker image tag (never
+  `:latest`, never a bare major version like `:1`) - try `rust:1.98.1` first to match this host's installed
+  `rustc 1.98.1`; if Docker Hub has no exact match, use the closest real published patch tag and say so plainly in
+  your report, the same way this project corrects any other wrong assumption rather than silently working around
+  it. Mount only the crate directory (read-write, so Cargo can write its own target/ and Cargo.lock inside the
+  container - never touch the host's own Rust toolchain or any path outside this one crate directory). Before
+  attempting this, confirm Docker is actually reachable (`docker info` exits 0) - if it is down, that is a clean,
+  distinct BLOCKED_ENV condition (Docker Desktop has silently died at least twice this session already), not the
+  WDAC issue; report which one you hit. Capture the container's stdout exactly as the bare-subprocess design
+  already expected; no other part of the Python-side parsing contract changes.
+- >-
+  CACHING: every offline test that exercises enumerate_rust against a synthetic fixture now also runs its
+  container each time `pytest` runs (not only the one live action run), so this card's checks genuinely need the
+  pinned Rust image already pulled and cached locally before you run them - `docker pull rust:<your pinned tag>`
+  once, up front, as part of your own setup (this needs the network once; the card's own `network: false` still
+  holds for the checks themselves, which only need the Docker daemon reachable and the image already cached
+  locally, not a fresh pull). If you change which tag you pin partway through, re-pull and re-confirm before
+  reporting the checks green.
 - >-
   NEW/EXTENDED TESTS, offline, hand-written Rust micro-fixtures (never the real pilot, never the enumerator's own
   output as the expected value): (a) a correct synthetic .rs file with one pub struct, one pub method with
@@ -56,7 +86,7 @@ inputs:
   real and disclosed (a type produced only inside a `macro_rules!` expansion is correctly absent, not crashed on),
   so the "disclosed" claim in this card's purpose is itself tested, not merely asserted in prose.
 - >-
-  LIVE RUN (action, not a check - needs the network and cargo; run this yourself once, report the real numbers):
+  LIVE RUN (action, not a check - needs the network and Docker; run this yourself once, report the real numbers):
   register enumerate_rust in DEFAULT_ENUMERATORS for "rust" (replacing _unimplemented_enumerator("rust") only), run
   `python scripts/release/source_differential.py --only cells/rust --fixtures tests/fixtures --report-dir <temp
   dir>` for real against the real pinned commit. Report the full diff summary honestly in your closeout, whatever
@@ -85,7 +115,7 @@ min_tests: 15
 network: false
 requires:
 - python
-- rust
+- docker
 negative_control:
   mutate: |
     python -X utf8 -c "import pathlib; p = pathlib.Path('scripts/release/source_differential.py'); s = p.read_text(encoding='utf-8'); marker = chr(34) + 'rust' + chr(34) + ': enumerate_rust'; assert s.count(marker) == 1, 'fix text not found - card and source have diverged'; p.write_text(s.replace(marker, chr(34) + 'rust' + chr(34) + ': _unimplemented_enumerator(' + chr(34) + 'rust' + chr(34) + ')', 1), encoding='utf-8')"
@@ -96,7 +126,9 @@ evidence:
 - evidence/build/G3/TC-590/receipt.json
 closeout:
 - >-
-  source_differential.py's independent oracle now has a real Rust enumerator (the syn crate), proven against
-  synthetic fixtures with deliberate defects and run once live against the real cells/rust pinned commit, with the
-  real diff findings reported, and its macro-expansion-blind limitation disclosed and tested.
+  source_differential.py's independent oracle now has a real Rust enumerator (the syn crate), built and executed
+  inside a pinned Docker container (never directly on the host, eliminating the WDAC/OWNER-16 dependency
+  entirely), proven against synthetic fixtures with deliberate defects and run once live against the real
+  cells/rust pinned commit, with the real diff findings reported and its macro-expansion-blind limitation
+  disclosed and tested.
 recovery: Re-run from a clean tree.
