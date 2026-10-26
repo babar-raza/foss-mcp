@@ -1,0 +1,111 @@
+{
+  "schema_version": 1,
+  "card": "TC-586",
+  "gate": "G3",
+  "generated_by": "gatectl",
+  "generated_at": "2026-10-26T08:11:24Z",
+  "base_rev": "a334e39cc49ef61eed7adfadbcb5790496f95448",
+  "head_rev": "c0d67de4f191e543ea60cc1ace5bec8f7078d42a",
+  "card_sha256": "e17bd8d3434afca9a361ba6779efb2e9d61c7159d7b53dcbf8292c28c17b6086",
+  "fingerprint": {
+    "python": "3.13.2",
+    "platform": "Windows-11-10.0.26300-SP0",
+    "lock_sha256": "5c72e798a73c059a438e752e94a8d4c88c1bdf81a197f6e5c5fcecbc9466a691",
+    "env": {
+      "PYTHONHASHSEED": "0",
+      "PYTHONUTF8": "1",
+      "PYTHONDONTWRITEBYTECODE": "1",
+      "PYTHONIOENCODING": "utf-8",
+      "TZ": "UTC",
+      "LC_ALL": "C.UTF-8",
+      "SOURCE_DATE_EPOCH": "1700000000",
+      "verify_runner": "host"
+    }
+  },
+  "scope": {
+    "ok": true,
+    "changed_paths": [
+      "src/foss_mcp/mcp/tools/relevance.py",
+      "tests/mcp/tools/test_find_examples_title_anchor.py"
+    ],
+    "violations": [],
+    "evaluated": true
+  },
+  "runs": [
+    {
+      "run": 1,
+      "checks": [
+        {
+          "command": "{python} -m pytest tests/mcp/tools/test_find_examples_title_anchor.py tests/mcp/tools/test_round3_retrieval_corpus.py -q -rfE",
+          "exit_code": 0,
+          "duration_s": 56.889,
+          "stdout_sha256": "7aab9d03d5aad3ae7953c0ac55e01a47a25a852128e93ee579eb4dadf81d7df0",
+          "tests": 80,
+          "skipped": 0,
+          "errors": 0,
+          "failures": 0
+        },
+        {
+          "command": "{python} -m pytest tests/mcp/tools/test_find_examples_title_anchor.py tests/mcp/tools/test_round3_retrieval_corpus.py tests/mcp/tools/test_round3_retrieval.py tests/mcp/tools/test_relevance_idf_synonyms.py tests/mcp/tools/test_search_symbols_forgiveness.py tests/test_unwired_modules.py -q -rfE -p no:cacheprovider",
+          "exit_code": 0,
+          "duration_s": 88.593,
+          "stdout_sha256": "6e93b6044c5eb1b46bc19576c0c48175cacfbefad948754cfd8e6c7e6187c6e5",
+          "tests": 221,
+          "skipped": 0,
+          "errors": 0,
+          "failures": 0
+        }
+      ],
+      "all_passed": true
+    },
+    {
+      "run": 2,
+      "checks": [
+        {
+          "command": "{python} -m pytest tests/mcp/tools/test_find_examples_title_anchor.py tests/mcp/tools/test_round3_retrieval_corpus.py -q -rfE",
+          "exit_code": 0,
+          "duration_s": 54.781,
+          "stdout_sha256": "7aab9d03d5aad3ae7953c0ac55e01a47a25a852128e93ee579eb4dadf81d7df0",
+          "tests": 80,
+          "skipped": 0,
+          "errors": 0,
+          "failures": 0
+        },
+        {
+          "command": "{python} -m pytest tests/mcp/tools/test_find_examples_title_anchor.py tests/mcp/tools/test_round3_retrieval_corpus.py tests/mcp/tools/test_round3_retrieval.py tests/mcp/tools/test_relevance_idf_synonyms.py tests/mcp/tools/test_search_symbols_forgiveness.py tests/test_unwired_modules.py -q -rfE -p no:cacheprovider",
+          "exit_code": 0,
+          "duration_s": 93.372,
+          "stdout_sha256": "6e93b6044c5eb1b46bc19576c0c48175cacfbefad948754cfd8e6c7e6187c6e5",
+          "tests": 221,
+          "skipped": 0,
+          "errors": 0,
+          "failures": 0
+        }
+      ],
+      "all_passed": true
+    }
+  ],
+  "negative_control": {
+    "kind": "mutate",
+    "patch": "python -X utf8 -c \"import pathlib; p = pathlib.Path('src/foss_mcp/mcp/tools/relevance.py'); lines = p.read_text(encoding='utf-8').splitlines(); marker = 'def title_anchored('; hit = [i for i, line in enumerate(lines) if marker in line]; assert len(hit) == 1, 'fix text not found - card and source have diverged'; lines.insert(hit[0] + 1, '    return True  # TC-586 negative control'); p.write_text(chr(10).join(lines) + chr(10), encoding='utf-8')\"\n",
+    "patch_sha256": "11eb7c1f3e387ddec855ed2470920ea1521f84421231f338cb55a73659bdefca",
+    "applied": true,
+    "patch_applied_failed": true,
+    "exit_codes": [
+      1,
+      1
+    ],
+    "tree_changed": [
+      "M src/foss_mcp/mcp/tools/relevance.py",
+      "?? .junit-0.xml",
+      "?? .junit-1.xml"
+    ]
+  },
+  "holdout": {
+    "ran": false,
+    "passed": true,
+    "detail": "no holdout for this card"
+  },
+  "accepted": true,
+  "reason": "all gates passed"
+}

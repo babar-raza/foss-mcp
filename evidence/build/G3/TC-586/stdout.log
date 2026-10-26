@@ -1,0 +1,1135 @@
+
+===== CLEAN RUN 1 (host) =====
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-5c72e798a73c059a\Scripts\python.exe -m pytest tests/mcp/tools/test_find_examples_title_anchor.py tests/mcp/tools/test_round3_retrieval_corpus.py -q -rfE "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-50khze_0\.junit-0.xml"
+--- stdout ---
+........................................................................ [ 90%]
+........                                                                 [100%]
+
+--- stderr ---
+
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-5c72e798a73c059a\Scripts\python.exe -m pytest tests/mcp/tools/test_find_examples_title_anchor.py tests/mcp/tools/test_round3_retrieval_corpus.py tests/mcp/tools/test_round3_retrieval.py tests/mcp/tools/test_relevance_idf_synonyms.py tests/mcp/tools/test_search_symbols_forgiveness.py tests/test_unwired_modules.py -q -rfE -p no:cacheprovider "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-50khze_0\.junit-1.xml"
+--- stdout ---
+........................................................................ [ 32%]
+........................................................................ [ 65%]
+........................................................................ [ 97%]
+.....                                                                    [100%]
+
+--- stderr ---
+
+
+===== CLEAN RUN 2 (host) =====
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-5c72e798a73c059a\Scripts\python.exe -m pytest tests/mcp/tools/test_find_examples_title_anchor.py tests/mcp/tools/test_round3_retrieval_corpus.py -q -rfE "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-50khze_0\.junit-0.xml"
+--- stdout ---
+........................................................................ [ 90%]
+........                                                                 [100%]
+
+--- stderr ---
+
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-5c72e798a73c059a\Scripts\python.exe -m pytest tests/mcp/tools/test_find_examples_title_anchor.py tests/mcp/tools/test_round3_retrieval_corpus.py tests/mcp/tools/test_round3_retrieval.py tests/mcp/tools/test_relevance_idf_synonyms.py tests/mcp/tools/test_search_symbols_forgiveness.py tests/test_unwired_modules.py -q -rfE -p no:cacheprovider "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-50khze_0\.junit-1.xml"
+--- stdout ---
+........................................................................ [ 32%]
+........................................................................ [ 65%]
+........................................................................ [ 97%]
+.....                                                                    [100%]
+
+--- stderr ---
+
+
+===== NEGATIVE CONTROL (checks MUST now fail) =====
+mutated: M src/foss_mcp/mcp/tools/relevance.py, ?? .junit-0.xml, ?? .junit-1.xml
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-5c72e798a73c059a\Scripts\python.exe -m pytest tests/mcp/tools/test_find_examples_title_anchor.py tests/mcp/tools/test_round3_retrieval_corpus.py -q -rfE "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-50khze_0\.junit-0.xml"
+--- stdout ---
+.F..F..F.FFF.F.FFF.F.F.F................FF.F............................ [ 90%]
+........                                                                 [100%]
+================================== FAILURES ===================================
+___________________ test_title_anchored[word-only-in-code] ____________________
+
+query = 'save', family = 'pdf', title = 'Fill AcroForm Fields', expected = False
+
+    @pytest.mark.parametrize(
+        ("query", "family", "title", "expected"),
+        [
+            ("save", "cells", "Create, Save, and Reload a Workbook", True),
+            ("save", "pdf", "Fill AcroForm Fields", False),
+            ("page dimensions", "pdf", "Inspect Document Page Dimensions", True),
+            ("convert watermark", "pdf", "Add a Watermark Annotation", True),
+            ("convert watermark", "pdf", "Fill AcroForm Fields", False),
+            ("export", "pdf", "Save as PDF", True),
+            ("pages", "pdf", "Page Dimensions", True),
+            ("pdf save", "pdf", "PDF Basics", False),
+            ("pdf save", "pdf", "Save a Copy", True),
+            # TC-586: above TITLE_ANCHOR_MAX_TERMS (2) the query is still title-checked, now up to
+            # TITLE_ANCHOR_GRADUATED_MAX_TERMS (4) - a three-term query with no title word anywhere in the
+            # generation's titles is rejected, exactly the graduated protection this card adds.
+            ("alpha beta gamma", "pdf", "Unrelated Title", False),
+            ("alpha beta gamma", "pdf", "", False),
+            ("alpha beta gamma delta", "pdf", "Unrelated Title", False),
+            # Five terms is past the graduated ceiling: the coverage floor alone applies again, unchanged.
+            ("alpha beta gamma delta epsilon", "pdf", "Unrelated Title", True),
+            ("save", "pdf", "", False),
+        ],
+        ids=[
+            "word-in-title",
+            "word-only-in-code",
+            "both-words-in-title",
+            "second-word-only-in-title",
+            "neither-word-in-title",
+            "synonym-export-for-save",
+            "plural-stems-to-the-title-word",
+            "family-word-in-title-does-not-anchor",
+            "family-word-ignored-other-word-anchors",
+            "three-terms-unrelated-title-now-anchored",
+            "three-terms-empty-title-now-anchored",
+            "four-terms-at-the-graduated-ceiling-still-anchored",
+            "five-terms-past-the-graduated-ceiling-escapes",
+            "empty-title",
+        ],
+    )
+    def test_title_anchored(query: str, family: str, title: str, expected: bool) -> None:
+>       assert title_anchored(query, family, title) is expected
+E       AssertionError: assert True is False
+E        +  where True = title_anchored('save', 'pdf', 'Fill AcroForm Fields')
+
+tests\mcp\tools\test_find_examples_title_anchor.py:127: AssertionError
+_________________ test_title_anchored[neither-word-in-title] __________________
+
+query = 'convert watermark', family = 'pdf', title = 'Fill AcroForm Fields'
+expected = False
+
+    @pytest.mark.parametrize(
+        ("query", "family", "title", "expected"),
+        [
+            ("save", "cells", "Create, Save, and Reload a Workbook", True),
+            ("save", "pdf", "Fill AcroForm Fields", False),
+            ("page dimensions", "pdf", "Inspect Document Page Dimensions", True),
+            ("convert watermark", "pdf", "Add a Watermark Annotation", True),
+            ("convert watermark", "pdf", "Fill AcroForm Fields", False),
+            ("export", "pdf", "Save as PDF", True),
+            ("pages", "pdf", "Page Dimensions", True),
+            ("pdf save", "pdf", "PDF Basics", False),
+            ("pdf save", "pdf", "Save a Copy", True),
+            # TC-586: above TITLE_ANCHOR_MAX_TERMS (2) the query is still title-checked, now up to
+            # TITLE_ANCHOR_GRADUATED_MAX_TERMS (4) - a three-term query with no title word anywhere in the
+            # generation's titles is rejected, exactly the graduated protection this card adds.
+            ("alpha beta gamma", "pdf", "Unrelated Title", False),
+            ("alpha beta gamma", "pdf", "", False),
+            ("alpha beta gamma delta", "pdf", "Unrelated Title", False),
+            # Five terms is past the graduated ceiling: the coverage floor alone applies again, unchanged.
+            ("alpha beta gamma delta epsilon", "pdf", "Unrelated Title", True),
+            ("save", "pdf", "", False),
+        ],
+        ids=[
+            "word-in-title",
+            "word-only-in-code",
+            "both-words-in-title",
+            "second-word-only-in-title",
+            "neither-word-in-title",
+            "synonym-export-for-save",
+            "plural-stems-to-the-title-word",
+            "family-word-in-title-does-not-anchor",
+            "family-word-ignored-other-word-anchors",
+            "three-terms-unrelated-title-now-anchored",
+            "three-terms-empty-title-now-anchored",
+            "four-terms-at-the-graduated-ceiling-still-anchored",
+            "five-terms-past-the-graduated-ceiling-escapes",
+            "empty-title",
+        ],
+    )
+    def test_title_anchored(query: str, family: str, title: str, expected: bool) -> None:
+>       assert title_anchored(query, family, title) is expected
+E       AssertionError: assert True is False
+E        +  where True = title_anchored('convert watermark', 'pdf', 'Fill AcroForm Fields')
+
+tests\mcp\tools\test_find_examples_title_anchor.py:127: AssertionError
+__________ test_title_anchored[family-word-in-title-does-not-anchor] __________
+
+query = 'pdf save', family = 'pdf', title = 'PDF Basics', expected = False
+
+    @pytest.mark.parametrize(
+        ("query", "family", "title", "expected"),
+        [
+            ("save", "cells", "Create, Save, and Reload a Workbook", True),
+            ("save", "pdf", "Fill AcroForm Fields", False),
+            ("page dimensions", "pdf", "Inspect Document Page Dimensions", True),
+            ("convert watermark", "pdf", "Add a Watermark Annotation", True),
+            ("convert watermark", "pdf", "Fill AcroForm Fields", False),
+            ("export", "pdf", "Save as PDF", True),
+            ("pages", "pdf", "Page Dimensions", True),
+            ("pdf save", "pdf", "PDF Basics", False),
+            ("pdf save", "pdf", "Save a Copy", True),
+            # TC-586: above TITLE_ANCHOR_MAX_TERMS (2) the query is still title-checked, now up to
+            # TITLE_ANCHOR_GRADUATED_MAX_TERMS (4) - a three-term query with no title word anywhere in the
+            # generation's titles is rejected, exactly the graduated protection this card adds.
+            ("alpha beta gamma", "pdf", "Unrelated Title", False),
+            ("alpha beta gamma", "pdf", "", False),
+            ("alpha beta gamma delta", "pdf", "Unrelated Title", False),
+            # Five terms is past the graduated ceiling: the coverage floor alone applies again, unchanged.
+            ("alpha beta gamma delta epsilon", "pdf", "Unrelated Title", True),
+            ("save", "pdf", "", False),
+        ],
+        ids=[
+            "word-in-title",
+            "word-only-in-code",
+            "both-words-in-title",
+            "second-word-only-in-title",
+            "neither-word-in-title",
+            "synonym-export-for-save",
+            "plural-stems-to-the-title-word",
+            "family-word-in-title-does-not-anchor",
+            "family-word-ignored-other-word-anchors",
+            "three-terms-unrelated-title-now-anchored",
+            "three-terms-empty-title-now-anchored",
+            "four-terms-at-the-graduated-ceiling-still-anchored",
+            "five-terms-past-the-graduated-ceiling-escapes",
+            "empty-title",
+        ],
+    )
+    def test_title_anchored(query: str, family: str, title: str, expected: bool) -> None:
+>       assert title_anchored(query, family, title) is expected
+E       AssertionError: assert True is False
+E        +  where True = title_anchored('pdf save', 'pdf', 'PDF Basics')
+
+tests\mcp\tools\test_find_examples_title_anchor.py:127: AssertionError
+________ test_title_anchored[three-terms-unrelated-title-now-anchored] ________
+
+query = 'alpha beta gamma', family = 'pdf', title = 'Unrelated Title'
+expected = False
+
+    @pytest.mark.parametrize(
+        ("query", "family", "title", "expected"),
+        [
+            ("save", "cells", "Create, Save, and Reload a Workbook", True),
+            ("save", "pdf", "Fill AcroForm Fields", False),
+            ("page dimensions", "pdf", "Inspect Document Page Dimensions", True),
+            ("convert watermark", "pdf", "Add a Watermark Annotation", True),
+            ("convert watermark", "pdf", "Fill AcroForm Fields", False),
+            ("export", "pdf", "Save as PDF", True),
+            ("pages", "pdf", "Page Dimensions", True),
+            ("pdf save", "pdf", "PDF Basics", False),
+            ("pdf save", "pdf", "Save a Copy", True),
+            # TC-586: above TITLE_ANCHOR_MAX_TERMS (2) the query is still title-checked, now up to
+            # TITLE_ANCHOR_GRADUATED_MAX_TERMS (4) - a three-term query with no title word anywhere in the
+            # generation's titles is rejected, exactly the graduated protection this card adds.
+            ("alpha beta gamma", "pdf", "Unrelated Title", False),
+            ("alpha beta gamma", "pdf", "", False),
+            ("alpha beta gamma delta", "pdf", "Unrelated Title", False),
+            # Five terms is past the graduated ceiling: the coverage floor alone applies again, unchanged.
+            ("alpha beta gamma delta epsilon", "pdf", "Unrelated Title", True),
+            ("save", "pdf", "", False),
+        ],
+        ids=[
+            "word-in-title",
+            "word-only-in-code",
+            "both-words-in-title",
+            "second-word-only-in-title",
+            "neither-word-in-title",
+            "synonym-export-for-save",
+            "plural-stems-to-the-title-word",
+            "family-word-in-title-does-not-anchor",
+            "family-word-ignored-other-word-anchors",
+            "three-terms-unrelated-title-now-anchored",
+            "three-terms-empty-title-now-anchored",
+            "four-terms-at-the-graduated-ceiling-still-anchored",
+            "five-terms-past-the-graduated-ceiling-escapes",
+            "empty-title",
+        ],
+    )
+    def test_title_anchored(query: str, family: str, title: str, expected: bool) -> None:
+>       assert title_anchored(query, family, title) is expected
+E       AssertionError: assert True is False
+E        +  where True = title_anchored('alpha beta gamma', 'pdf', 'Unrelated Title')
+
+tests\mcp\tools\test_find_examples_title_anchor.py:127: AssertionError
+__________ test_title_anchored[three-terms-empty-title-now-anchored] __________
+
+query = 'alpha beta gamma', family = 'pdf', title = '', expected = False
+
+    @pytest.mark.parametrize(
+        ("query", "family", "title", "expected"),
+        [
+            ("save", "cells", "Create, Save, and Reload a Workbook", True),
+            ("save", "pdf", "Fill AcroForm Fields", False),
+            ("page dimensions", "pdf", "Inspect Document Page Dimensions", True),
+            ("convert watermark", "pdf", "Add a Watermark Annotation", True),
+            ("convert watermark", "pdf", "Fill AcroForm Fields", False),
+            ("export", "pdf", "Save as PDF", True),
+            ("pages", "pdf", "Page Dimensions", True),
+            ("pdf save", "pdf", "PDF Basics", False),
+            ("pdf save", "pdf", "Save a Copy", True),
+            # TC-586: above TITLE_ANCHOR_MAX_TERMS (2) the query is still title-checked, now up to
+            # TITLE_ANCHOR_GRADUATED_MAX_TERMS (4) - a three-term query with no title word anywhere in the
+            # generation's titles is rejected, exactly the graduated protection this card adds.
+            ("alpha beta gamma", "pdf", "Unrelated Title", False),
+            ("alpha beta gamma", "pdf", "", False),
+            ("alpha beta gamma delta", "pdf", "Unrelated Title", False),
+            # Five terms is past the graduated ceiling: the coverage floor alone applies again, unchanged.
+            ("alpha beta gamma delta epsilon", "pdf", "Unrelated Title", True),
+            ("save", "pdf", "", False),
+        ],
+        ids=[
+            "word-in-title",
+            "word-only-in-code",
+            "both-words-in-title",
+            "second-word-only-in-title",
+            "neither-word-in-title",
+            "synonym-export-for-save",
+            "plural-stems-to-the-title-word",
+            "family-word-in-title-does-not-anchor",
+            "family-word-ignored-other-word-anchors",
+            "three-terms-unrelated-title-now-anchored",
+            "three-terms-empty-title-now-anchored",
+            "four-terms-at-the-graduated-ceiling-still-anchored",
+            "five-terms-past-the-graduated-ceiling-escapes",
+            "empty-title",
+        ],
+    )
+    def test_title_anchored(query: str, family: str, title: str, expected: bool) -> None:
+>       assert title_anchored(query, family, title) is expected
+E       AssertionError: assert True is False
+E        +  where True = title_anchored('alpha beta gamma', 'pdf', '')
+
+tests\mcp\tools\test_find_examples_title_anchor.py:127: AssertionError
+___ test_title_anchored[four-terms-at-the-graduated-ceiling-still-anchored] ___
+
+query = 'alpha beta gamma delta', family = 'pdf', title = 'Unrelated Title'
+expected = False
+
+    @pytest.mark.parametrize(
+        ("query", "family", "title", "expected"),
+        [
+            ("save", "cells", "Create, Save, and Reload a Workbook", True),
+            ("save", "pdf", "Fill AcroForm Fields", False),
+            ("page dimensions", "pdf", "Inspect Document Page Dimensions", True),
+            ("convert watermark", "pdf", "Add a Watermark Annotation", True),
+            ("convert watermark", "pdf", "Fill AcroForm Fields", False),
+            ("export", "pdf", "Save as PDF", True),
+            ("pages", "pdf", "Page Dimensions", True),
+            ("pdf save", "pdf", "PDF Basics", False),
+            ("pdf save", "pdf", "Save a Copy", True),
+            # TC-586: above TITLE_ANCHOR_MAX_TERMS (2) the query is still title-checked, now up to
+            # TITLE_ANCHOR_GRADUATED_MAX_TERMS (4) - a three-term query with no title word anywhere in the
+            # generation's titles is rejected, exactly the graduated protection this card adds.
+            ("alpha beta gamma", "pdf", "Unrelated Title", False),
+            ("alpha beta gamma", "pdf", "", False),
+            ("alpha beta gamma delta", "pdf", "Unrelated Title", False),
+            # Five terms is past the graduated ceiling: the coverage floor alone applies again, unchanged.
+            ("alpha beta gamma delta epsilon", "pdf", "Unrelated Title", True),
+            ("save", "pdf", "", False),
+        ],
+        ids=[
+            "word-in-title",
+            "word-only-in-code",
+            "both-words-in-title",
+            "second-word-only-in-title",
+            "neither-word-in-title",
+            "synonym-export-for-save",
+            "plural-stems-to-the-title-word",
+            "family-word-in-title-does-not-anchor",
+            "family-word-ignored-other-word-anchors",
+            "three-terms-unrelated-title-now-anchored",
+            "three-terms-empty-title-now-anchored",
+            "four-terms-at-the-graduated-ceiling-still-anchored",
+            "five-terms-past-the-graduated-ceiling-escapes",
+            "empty-title",
+        ],
+    )
+    def test_title_anchored(query: str, family: str, title: str, expected: bool) -> None:
+>       assert title_anchored(query, family, title) is expected
+E       AssertionError: assert True is False
+E        +  where True = title_anchored('alpha beta gamma delta', 'pdf', 'Unrelated Title')
+
+tests\mcp\tools\test_find_examples_title_anchor.py:127: AssertionError
+______________________ test_title_anchored[empty-title] _______________________
+
+query = 'save', family = 'pdf', title = '', expected = False
+
+    @pytest.mark.parametrize(
+        ("query", "family", "title", "expected"),
+        [
+            ("save", "cells", "Create, Save, and Reload a Workbook", True),
+            ("save", "pdf", "Fill AcroForm Fields", False),
+            ("page dimensions", "pdf", "Inspect Document Page Dimensions", True),
+            ("convert watermark", "pdf", "Add a Watermark Annotation", True),
+            ("convert watermark", "pdf", "Fill AcroForm Fields", False),
+            ("export", "pdf", "Save as PDF", True),
+            ("pages", "pdf", "Page Dimensions", True),
+            ("pdf save", "pdf", "PDF Basics", False),
+            ("pdf save", "pdf", "Save a Copy", True),
+            # TC-586: above TITLE_ANCHOR_MAX_TERMS (2) the query is still title-checked, now up to
+            # TITLE_ANCHOR_GRADUATED_MAX_TERMS (4) - a three-term query with no title word anywhere in the
+            # generation's titles is rejected, exactly the graduated protection this card adds.
+            ("alpha beta gamma", "pdf", "Unrelated Title", False),
+            ("alpha beta gamma", "pdf", "", False),
+            ("alpha beta gamma delta", "pdf", "Unrelated Title", False),
+            # Five terms is past the graduated ceiling: the coverage floor alone applies again, unchanged.
+            ("alpha beta gamma delta epsilon", "pdf", "Unrelated Title", True),
+            ("save", "pdf", "", False),
+        ],
+        ids=[
+            "word-in-title",
+            "word-only-in-code",
+            "both-words-in-title",
+            "second-word-only-in-title",
+            "neither-word-in-title",
+            "synonym-export-for-save",
+            "plural-stems-to-the-title-word",
+            "family-word-in-title-does-not-anchor",
+            "family-word-ignored-other-word-anchors",
+            "three-terms-unrelated-title-now-anchored",
+            "three-terms-empty-title-now-anchored",
+            "four-terms-at-the-graduated-ceiling-still-anchored",
+            "five-terms-past-the-graduated-ceiling-escapes",
+            "empty-title",
+        ],
+    )
+    def test_title_anchored(query: str, family: str, title: str, expected: bool) -> None:
+>       assert title_anchored(query, family, title) is expected
+E       AssertionError: assert True is False
+E        +  where True = title_anchored('save', 'pdf', '')
+
+tests\mcp\tools\test_find_examples_title_anchor.py:127: AssertionError
+_________ test_the_graduated_ceiling_is_double_the_original_threshold _________
+
+    def test_the_graduated_ceiling_is_double_the_original_threshold() -> None:
+        # TC-586: the unconditional escape above TITLE_ANCHOR_MAX_TERMS is gone. A query is still judged
+        # against the title up to TITLE_ANCHOR_GRADUATED_MAX_TERMS distinctive terms; only past that higher
+        # ceiling does the coverage floor alone decide, so a longer query is never LESS protected than a
+        # shorter one - only, past a measured point, protected by a different mechanism.
+        assert TITLE_ANCHOR_GRADUATED_MAX_TERMS == 2 * TITLE_ANCHOR_MAX_TERMS
+>       assert title_anchored("alpha beta", "pdf", "Unrelated") is False
+E       AssertionError: assert True is False
+E        +  where True = title_anchored('alpha beta', 'pdf', 'Unrelated')
+
+tests\mcp\tools\test_find_examples_title_anchor.py:140: AssertionError
+_______ test_a_short_query_needs_a_title_word_in_a_synthetic_generation _______
+
+two_examples = <foss_mcp.indexing.generation_manifest.GenerationManifestStore object at 0x0000022B4DFD1BE0>
+
+    def test_a_short_query_needs_a_title_word_in_a_synthetic_generation(
+        two_examples: GenerationManifestStore,
+    ) -> None:
+        # Every one of these words is in the code of both examples, so only the title rule tells them apart.
+>       assert isinstance(find_examples(two_examples, SCOPE, "save"), NoExampleFound)
+E       assert False
+E        +  where False = isinstance([ExampleMatch(scope=Scope(family='pdf', platform='net', source_kind='self_extracted'), generation_id='pdf::net::self_e...int around this snippet, which are not shown, so add the imports and entry point your language needs.", confidence='')], NoExampleFound)
+E        +    where [ExampleMatch(scope=Scope(family='pdf', platform='net', source_kind='self_extracted'), generation_id='pdf::net::self_e...int around this snippet, which are not shown, so add the imports and entry point your language needs.", confidence='')] = find_examples(<foss_mcp.indexing.generation_manifest.GenerationManifestStore object at 0x0000022B4DFD1BE0>, Scope(family='pdf', platform='net', source_kind='self_extracted'), 'save')
+
+tests\mcp\tools\test_find_examples_title_anchor.py:212: AssertionError
+_________________ test_a_two_word_query_needs_one_title_word __________________
+
+two_examples = <foss_mcp.indexing.generation_manifest.GenerationManifestStore object at 0x0000022B7F3651D0>
+
+    def test_a_two_word_query_needs_one_title_word(two_examples: GenerationManifestStore) -> None:
+>       assert _titles(find_examples(two_examples, SCOPE, "save watermark")) == [WATERMARK_TITLE]
+E       AssertionError: assert ['Add a Water... from a Page'] == ['Add a Watermark Annotation']
+E         
+E         Left contains one more item: 'Extract Text Fragments from a Page'
+E         Use -v to get more diff
+
+tests\mcp\tools\test_find_examples_title_anchor.py:219: AssertionError
+_ test_a_query_past_the_graduated_ceiling_is_judged_by_the_coverage_floor_alone _
+
+tmp_path = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-13330/test_a_query_past_the_graduate0')
+
+    def test_a_query_past_the_graduated_ceiling_is_judged_by_the_coverage_floor_alone(tmp_path: Path) -> None:
+        store = _publish(tmp_path / "m", [SYMBOL_CHUNK, LAYOUT_EXAMPLE])
+        # Two distinctive terms: the title rule applies (unchanged since TC-543) and rejects it.
+>       assert isinstance(find_examples(store, SCOPE, "alpha beta"), NoExampleFound)
+E       assert False
+E        +  where False = isinstance([ExampleMatch(scope=Scope(family='pdf', platform='net', source_kind='self_extracted'), generation_id='pdf::net::self_e...int around this snippet, which are not shown, so add the imports and entry point your language needs.", confidence='')], NoExampleFound)
+E        +    where [ExampleMatch(scope=Scope(family='pdf', platform='net', source_kind='self_extracted'), generation_id='pdf::net::self_e...int around this snippet, which are not shown, so add the imports and entry point your language needs.", confidence='')] = find_examples(<foss_mcp.indexing.generation_manifest.GenerationManifestStore object at 0x0000022B7DF769E0>, Scope(family='pdf', platform='net', source_kind='self_extracted'), 'alpha beta')
+
+tests\mcp\tools\test_find_examples_title_anchor.py:239: AssertionError
+_ test_the_vector_fallback_is_unchanged_and_runs_for_a_short_query_that_the_title_rule_rejected _
+
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x0000022B7DFF2DD0>
+two_examples = <foss_mcp.indexing.generation_manifest.GenerationManifestStore object at 0x0000022B7E067770>
+
+    def test_the_vector_fallback_is_unchanged_and_runs_for_a_short_query_that_the_title_rule_rejected(
+        monkeypatch: pytest.MonkeyPatch, two_examples: GenerationManifestStore
+    ) -> None:
+        seen: list[str] = []
+        vector = _point_vector(two_examples, WATERMARK_TITLE)
+        monkeypatch.setattr(
+            find_examples_module, "GatewayEmbeddingProvider", lambda: _RecordingProvider(vector, seen)
+        )
+        # "save" is in the code of both examples (the old lexical stage would have answered) and in no title.
+        result = find_examples(two_examples, SCOPE, "save")
+>       assert seen == ["save"]
+E       AssertionError: assert [] == ['save']
+E         
+E         Right contains one more item: 'save'
+E         Use -v to get more diff
+
+tests\mcp\tools\test_find_examples_title_anchor.py:290: AssertionError
+_____________________ test_match_basis_is_set_per_branch ______________________
+
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x0000022B7DFF1940>
+two_examples = <foss_mcp.indexing.generation_manifest.GenerationManifestStore object at 0x0000022B7F0778A0>
+tmp_path = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-13330/test_match_basis_is_set_per_br0')
+
+    def test_match_basis_is_set_per_branch(
+        monkeypatch: pytest.MonkeyPatch, two_examples: GenerationManifestStore, tmp_path: Path
+    ) -> None:
+        exact = find_examples(two_examples, SCOPE, f"{EXAMPLE_PREFIX}{WATERMARK_TITLE}")
+        short = find_examples(two_examples, SCOPE, "watermark")
+        longer_store = _publish(tmp_path / "longer", [SYMBOL_CHUNK, LAYOUT_EXAMPLE])
+        # Five distinctive terms: past TITLE_ANCHOR_GRADUATED_MAX_TERMS, so the coverage floor alone applies.
+        longer = find_examples(longer_store, SCOPE, "alpha beta gamma delta epsilon")
+        monkeypatch.setattr(
+            find_examples_module,
+            "GatewayEmbeddingProvider",
+            lambda: _RecordingProvider(_point_vector(two_examples, TEXT_TITLE), []),
+        )
+        vector = find_examples(two_examples, SCOPE, "save")
+        bases = {
+            "exact": exact,
+            "short": short,
+            "longer": longer,
+            "vector": vector,
+        }
+>       assert {name: {m.match_basis for m in result} for name, result in bases.items()} == {  # type: ignore[union-attr]
+            "exact": {"exact_title"},
+            "short": {"title_word_and_example_text"},
+            "longer": {"query_terms_in_example_text"},
+            "vector": {"embedding_similarity"},
+        }
+E       AssertionError: assert {'exact': {'e...xample_text'}} == {'exact': {'e..._similarity'}}
+E         
+E         Omitting 3 identical items, use -vv to show
+E         Differing items:
+E         {'vector': {'title_word_and_example_text'}} != {'vector': {'embedding_similarity'}}
+E         Use -v to get more diff
+
+tests\mcp\tools\test_find_examples_title_anchor.py:330: AssertionError
+___________ test_the_slides_cpp_export_format_reproduction_is_fixed ___________
+
+stores = <tests.mcp.tools.test_find_examples_title_anchor._Stores object at 0x0000022B7F0DECF0>
+
+    def test_the_slides_cpp_export_format_reproduction_is_fixed(stores: _Stores) -> None:
+        """TC-586's real reproduction, re-confirmed against the committed infra/demo-manifests on
+        2026-10-26 (commit 469ce77a07b988c49deb930632b8276c89ec6b66): slides/cpp has exactly two verified
+        examples, "Comments and Replies" and "Document Properties", and BOTH examples' code ends with the
+        same boilerplate call, ``pres.save(..., SaveFormat::PPTX)`` - it has nothing to do with either
+        example's real topic. Before this card, the three-distinctive-term query below (deck, export, pptx)
+        hit title_anchored's unconditional escape (3 > the old TITLE_ANCHOR_MAX_TERMS of 2) and the coverage
+        floor alone answered with BOTH unrelated examples, at coverage 1.0 and 0.67. Neither example answers
+        a question about exporting to a format, so the honest result is a miss.
+        """
+        directory = _directory_of("slides/cpp")
+        scope = _scope_of(directory)
+        query = "export the deck to pptx"
+        assert len(distinctive_terms(query, scope.family)) == 3
+        for title in ("Comments and Replies", "Document Properties"):
+>           assert title_anchored(query, scope.family, title) is False, title
+E           AssertionError: Comments and Replies
+E           assert True is False
+E            +  where True = title_anchored('export the deck to pptx', 'slides', 'Comments and Replies')
+E            +    where 'slides' = Scope(family='slides', platform='cpp', source_kind='self_extracted').family
+
+tests\mcp\tools\test_find_examples_title_anchor.py:467: AssertionError
+______ test_a_synthetic_four_term_query_with_no_title_match_is_excluded _______
+
+tmp_path = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-13330/test_a_synthetic_four_term_que0')
+
+    def test_a_synthetic_four_term_query_with_no_title_match_is_excluded(tmp_path: Path) -> None:
+        """The second half of the card's requirement: a synthetic 4+ term query whose title genuinely
+        contains none of its distinctive terms is correctly excluded by the new graduation, independent of
+        the real slides/cpp data above."""
+        store = _publish(tmp_path / "synthetic", [SYMBOL_CHUNK, LAYOUT_EXAMPLE])
+        query = "alpha beta gamma delta"
+        assert len(distinctive_terms(query, SCOPE.family)) == 4
+>       assert title_anchored(query, SCOPE.family, "Inspect Layout Metrics") is False
+E       AssertionError: assert True is False
+E        +  where True = title_anchored('alpha beta gamma delta', 'pdf', 'Inspect Layout Metrics')
+E        +    where 'pdf' = Scope(family='pdf', platform='net', source_kind='self_extracted').family
+
+tests\mcp\tools\test_find_examples_title_anchor.py:479: AssertionError
+__________ test_set_password_returns_only_examples_with_a_title_word __________
+
+stores = <tests.mcp.tools.test_find_examples_title_anchor._Stores object at 0x0000022B7F0DECF0>
+
+    def test_set_password_returns_only_examples_with_a_title_word(stores: _Stores) -> None:
+        # Before the rule "set password" returned 7 examples over the 40 pilots, none of them about
+        # passwords (their code said "set" and "password" in unrelated places). The pilots whose example is
+        # titled Password-Protect are not returned for it before or after: their code never says "set", so
+        # the two-term coverage floor rejects them already. Every example returned now has set or password in
+        # its title.
+        for pilot, match in _answers(stores, "set password"):
+            title = match.fqn[len(EXAMPLE_PREFIX) :].lower()
+>           assert re.search(r"\b(set|passwords?)\b", title), (pilot, match.fqn)
+E           AssertionError: ('pdf__go__self_extracted', 'Example: Encrypt with Permissions')
+E           assert None
+E            +  where None = <function search at 0x0000022B4C657560>('\\b(set|passwords?)\\b', 'encrypt with permissions')
+E            +    where <function search at 0x0000022B4C657560> = re.search
+
+tests\mcp\tools\test_find_examples_title_anchor.py:499: AssertionError
+=========================== short test summary info ===========================
+FAILED tests/mcp/tools/test_find_examples_title_anchor.py::test_title_anchored[word-only-in-code]
+FAILED tests/mcp/tools/test_find_examples_title_anchor.py::test_title_anchored[neither-word-in-title]
+FAILED tests/mcp/tools/test_find_examples_title_anchor.py::test_title_anchored[family-word-in-title-does-not-anchor]
+FAILED tests/mcp/tools/test_find_examples_title_anchor.py::test_title_anchored[three-terms-unrelated-title-now-anchored]
+FAILED tests/mcp/tools/test_find_examples_title_anchor.py::test_title_anchored[three-terms-empty-title-now-anchored]
+FAILED tests/mcp/tools/test_find_examples_title_anchor.py::test_title_anchored[four-terms-at-the-graduated-ceiling-still-anchored]
+FAILED tests/mcp/tools/test_find_examples_title_anchor.py::test_title_anchored[empty-title]
+FAILED tests/mcp/tools/test_find_examples_title_anchor.py::test_the_graduated_ceiling_is_double_the_original_threshold
+FAILED tests/mcp/tools/test_find_examples_title_anchor.py::test_a_short_query_needs_a_title_word_in_a_synthetic_generation
+FAILED tests/mcp/tools/test_find_examples_title_anchor.py::test_a_two_word_query_needs_one_title_word
+FAILED tests/mcp/tools/test_find_examples_title_anchor.py::test_a_query_past_the_graduated_ceiling_is_judged_by_the_coverage_floor_alone
+FAILED tests/mcp/tools/test_find_examples_title_anchor.py::test_the_vector_fallback_is_unchanged_and_runs_for_a_short_query_that_the_title_rule_rejected
+FAILED tests/mcp/tools/test_find_examples_title_anchor.py::test_match_basis_is_set_per_branch
+FAILED tests/mcp/tools/test_find_examples_title_anchor.py::test_the_slides_cpp_export_format_reproduction_is_fixed
+FAILED tests/mcp/tools/test_find_examples_title_anchor.py::test_a_synthetic_four_term_query_with_no_title_match_is_excluded
+FAILED tests/mcp/tools/test_find_examples_title_anchor.py::test_set_password_returns_only_examples_with_a_title_word
+
+--- stderr ---
+
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-5c72e798a73c059a\Scripts\python.exe -m pytest tests/mcp/tools/test_find_examples_title_anchor.py tests/mcp/tools/test_round3_retrieval_corpus.py tests/mcp/tools/test_round3_retrieval.py tests/mcp/tools/test_relevance_idf_synonyms.py tests/mcp/tools/test_search_symbols_forgiveness.py tests/test_unwired_modules.py -q -rfE -p no:cacheprovider "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-50khze_0\.junit-1.xml"
+--- stdout ---
+.F..F..F.FFF.F.FFF.F.F.F................FF.F............................ [ 32%]
+........................................................................ [ 65%]
+........................................................................ [ 97%]
+.....                                                                    [100%]
+================================== FAILURES ===================================
+___________________ test_title_anchored[word-only-in-code] ____________________
+
+query = 'save', family = 'pdf', title = 'Fill AcroForm Fields', expected = False
+
+    @pytest.mark.parametrize(
+        ("query", "family", "title", "expected"),
+        [
+            ("save", "cells", "Create, Save, and Reload a Workbook", True),
+            ("save", "pdf", "Fill AcroForm Fields", False),
+            ("page dimensions", "pdf", "Inspect Document Page Dimensions", True),
+            ("convert watermark", "pdf", "Add a Watermark Annotation", True),
+            ("convert watermark", "pdf", "Fill AcroForm Fields", False),
+            ("export", "pdf", "Save as PDF", True),
+            ("pages", "pdf", "Page Dimensions", True),
+            ("pdf save", "pdf", "PDF Basics", False),
+            ("pdf save", "pdf", "Save a Copy", True),
+            # TC-586: above TITLE_ANCHOR_MAX_TERMS (2) the query is still title-checked, now up to
+            # TITLE_ANCHOR_GRADUATED_MAX_TERMS (4) - a three-term query with no title word anywhere in the
+            # generation's titles is rejected, exactly the graduated protection this card adds.
+            ("alpha beta gamma", "pdf", "Unrelated Title", False),
+            ("alpha beta gamma", "pdf", "", False),
+            ("alpha beta gamma delta", "pdf", "Unrelated Title", False),
+            # Five terms is past the graduated ceiling: the coverage floor alone applies again, unchanged.
+            ("alpha beta gamma delta epsilon", "pdf", "Unrelated Title", True),
+            ("save", "pdf", "", False),
+        ],
+        ids=[
+            "word-in-title",
+            "word-only-in-code",
+            "both-words-in-title",
+            "second-word-only-in-title",
+            "neither-word-in-title",
+            "synonym-export-for-save",
+            "plural-stems-to-the-title-word",
+            "family-word-in-title-does-not-anchor",
+            "family-word-ignored-other-word-anchors",
+            "three-terms-unrelated-title-now-anchored",
+            "three-terms-empty-title-now-anchored",
+            "four-terms-at-the-graduated-ceiling-still-anchored",
+            "five-terms-past-the-graduated-ceiling-escapes",
+            "empty-title",
+        ],
+    )
+    def test_title_anchored(query: str, family: str, title: str, expected: bool) -> None:
+>       assert title_anchored(query, family, title) is expected
+E       AssertionError: assert True is False
+E        +  where True = title_anchored('save', 'pdf', 'Fill AcroForm Fields')
+
+tests\mcp\tools\test_find_examples_title_anchor.py:127: AssertionError
+_________________ test_title_anchored[neither-word-in-title] __________________
+
+query = 'convert watermark', family = 'pdf', title = 'Fill AcroForm Fields'
+expected = False
+
+    @pytest.mark.parametrize(
+        ("query", "family", "title", "expected"),
+        [
+            ("save", "cells", "Create, Save, and Reload a Workbook", True),
+            ("save", "pdf", "Fill AcroForm Fields", False),
+            ("page dimensions", "pdf", "Inspect Document Page Dimensions", True),
+            ("convert watermark", "pdf", "Add a Watermark Annotation", True),
+            ("convert watermark", "pdf", "Fill AcroForm Fields", False),
+            ("export", "pdf", "Save as PDF", True),
+            ("pages", "pdf", "Page Dimensions", True),
+            ("pdf save", "pdf", "PDF Basics", False),
+            ("pdf save", "pdf", "Save a Copy", True),
+            # TC-586: above TITLE_ANCHOR_MAX_TERMS (2) the query is still title-checked, now up to
+            # TITLE_ANCHOR_GRADUATED_MAX_TERMS (4) - a three-term query with no title word anywhere in the
+            # generation's titles is rejected, exactly the graduated protection this card adds.
+            ("alpha beta gamma", "pdf", "Unrelated Title", False),
+            ("alpha beta gamma", "pdf", "", False),
+            ("alpha beta gamma delta", "pdf", "Unrelated Title", False),
+            # Five terms is past the graduated ceiling: the coverage floor alone applies again, unchanged.
+            ("alpha beta gamma delta epsilon", "pdf", "Unrelated Title", True),
+            ("save", "pdf", "", False),
+        ],
+        ids=[
+            "word-in-title",
+            "word-only-in-code",
+            "both-words-in-title",
+            "second-word-only-in-title",
+            "neither-word-in-title",
+            "synonym-export-for-save",
+            "plural-stems-to-the-title-word",
+            "family-word-in-title-does-not-anchor",
+            "family-word-ignored-other-word-anchors",
+            "three-terms-unrelated-title-now-anchored",
+            "three-terms-empty-title-now-anchored",
+            "four-terms-at-the-graduated-ceiling-still-anchored",
+            "five-terms-past-the-graduated-ceiling-escapes",
+            "empty-title",
+        ],
+    )
+    def test_title_anchored(query: str, family: str, title: str, expected: bool) -> None:
+>       assert title_anchored(query, family, title) is expected
+E       AssertionError: assert True is False
+E        +  where True = title_anchored('convert watermark', 'pdf', 'Fill AcroForm Fields')
+
+tests\mcp\tools\test_find_examples_title_anchor.py:127: AssertionError
+__________ test_title_anchored[family-word-in-title-does-not-anchor] __________
+
+query = 'pdf save', family = 'pdf', title = 'PDF Basics', expected = False
+
+    @pytest.mark.parametrize(
+        ("query", "family", "title", "expected"),
+        [
+            ("save", "cells", "Create, Save, and Reload a Workbook", True),
+            ("save", "pdf", "Fill AcroForm Fields", False),
+            ("page dimensions", "pdf", "Inspect Document Page Dimensions", True),
+            ("convert watermark", "pdf", "Add a Watermark Annotation", True),
+            ("convert watermark", "pdf", "Fill AcroForm Fields", False),
+            ("export", "pdf", "Save as PDF", True),
+            ("pages", "pdf", "Page Dimensions", True),
+            ("pdf save", "pdf", "PDF Basics", False),
+            ("pdf save", "pdf", "Save a Copy", True),
+            # TC-586: above TITLE_ANCHOR_MAX_TERMS (2) the query is still title-checked, now up to
+            # TITLE_ANCHOR_GRADUATED_MAX_TERMS (4) - a three-term query with no title word anywhere in the
+            # generation's titles is rejected, exactly the graduated protection this card adds.
+            ("alpha beta gamma", "pdf", "Unrelated Title", False),
+            ("alpha beta gamma", "pdf", "", False),
+            ("alpha beta gamma delta", "pdf", "Unrelated Title", False),
+            # Five terms is past the graduated ceiling: the coverage floor alone applies again, unchanged.
+            ("alpha beta gamma delta epsilon", "pdf", "Unrelated Title", True),
+            ("save", "pdf", "", False),
+        ],
+        ids=[
+            "word-in-title",
+            "word-only-in-code",
+            "both-words-in-title",
+            "second-word-only-in-title",
+            "neither-word-in-title",
+            "synonym-export-for-save",
+            "plural-stems-to-the-title-word",
+            "family-word-in-title-does-not-anchor",
+            "family-word-ignored-other-word-anchors",
+            "three-terms-unrelated-title-now-anchored",
+            "three-terms-empty-title-now-anchored",
+            "four-terms-at-the-graduated-ceiling-still-anchored",
+            "five-terms-past-the-graduated-ceiling-escapes",
+            "empty-title",
+        ],
+    )
+    def test_title_anchored(query: str, family: str, title: str, expected: bool) -> None:
+>       assert title_anchored(query, family, title) is expected
+E       AssertionError: assert True is False
+E        +  where True = title_anchored('pdf save', 'pdf', 'PDF Basics')
+
+tests\mcp\tools\test_find_examples_title_anchor.py:127: AssertionError
+________ test_title_anchored[three-terms-unrelated-title-now-anchored] ________
+
+query = 'alpha beta gamma', family = 'pdf', title = 'Unrelated Title'
+expected = False
+
+    @pytest.mark.parametrize(
+        ("query", "family", "title", "expected"),
+        [
+            ("save", "cells", "Create, Save, and Reload a Workbook", True),
+            ("save", "pdf", "Fill AcroForm Fields", False),
+            ("page dimensions", "pdf", "Inspect Document Page Dimensions", True),
+            ("convert watermark", "pdf", "Add a Watermark Annotation", True),
+            ("convert watermark", "pdf", "Fill AcroForm Fields", False),
+            ("export", "pdf", "Save as PDF", True),
+            ("pages", "pdf", "Page Dimensions", True),
+            ("pdf save", "pdf", "PDF Basics", False),
+            ("pdf save", "pdf", "Save a Copy", True),
+            # TC-586: above TITLE_ANCHOR_MAX_TERMS (2) the query is still title-checked, now up to
+            # TITLE_ANCHOR_GRADUATED_MAX_TERMS (4) - a three-term query with no title word anywhere in the
+            # generation's titles is rejected, exactly the graduated protection this card adds.
+            ("alpha beta gamma", "pdf", "Unrelated Title", False),
+            ("alpha beta gamma", "pdf", "", False),
+            ("alpha beta gamma delta", "pdf", "Unrelated Title", False),
+            # Five terms is past the graduated ceiling: the coverage floor alone applies again, unchanged.
+            ("alpha beta gamma delta epsilon", "pdf", "Unrelated Title", True),
+            ("save", "pdf", "", False),
+        ],
+        ids=[
+            "word-in-title",
+            "word-only-in-code",
+            "both-words-in-title",
+            "second-word-only-in-title",
+            "neither-word-in-title",
+            "synonym-export-for-save",
+            "plural-stems-to-the-title-word",
+            "family-word-in-title-does-not-anchor",
+            "family-word-ignored-other-word-anchors",
+            "three-terms-unrelated-title-now-anchored",
+            "three-terms-empty-title-now-anchored",
+            "four-terms-at-the-graduated-ceiling-still-anchored",
+            "five-terms-past-the-graduated-ceiling-escapes",
+            "empty-title",
+        ],
+    )
+    def test_title_anchored(query: str, family: str, title: str, expected: bool) -> None:
+>       assert title_anchored(query, family, title) is expected
+E       AssertionError: assert True is False
+E        +  where True = title_anchored('alpha beta gamma', 'pdf', 'Unrelated Title')
+
+tests\mcp\tools\test_find_examples_title_anchor.py:127: AssertionError
+__________ test_title_anchored[three-terms-empty-title-now-anchored] __________
+
+query = 'alpha beta gamma', family = 'pdf', title = '', expected = False
+
+    @pytest.mark.parametrize(
+        ("query", "family", "title", "expected"),
+        [
+            ("save", "cells", "Create, Save, and Reload a Workbook", True),
+            ("save", "pdf", "Fill AcroForm Fields", False),
+            ("page dimensions", "pdf", "Inspect Document Page Dimensions", True),
+            ("convert watermark", "pdf", "Add a Watermark Annotation", True),
+            ("convert watermark", "pdf", "Fill AcroForm Fields", False),
+            ("export", "pdf", "Save as PDF", True),
+            ("pages", "pdf", "Page Dimensions", True),
+            ("pdf save", "pdf", "PDF Basics", False),
+            ("pdf save", "pdf", "Save a Copy", True),
+            # TC-586: above TITLE_ANCHOR_MAX_TERMS (2) the query is still title-checked, now up to
+            # TITLE_ANCHOR_GRADUATED_MAX_TERMS (4) - a three-term query with no title word anywhere in the
+            # generation's titles is rejected, exactly the graduated protection this card adds.
+            ("alpha beta gamma", "pdf", "Unrelated Title", False),
+            ("alpha beta gamma", "pdf", "", False),
+            ("alpha beta gamma delta", "pdf", "Unrelated Title", False),
+            # Five terms is past the graduated ceiling: the coverage floor alone applies again, unchanged.
+            ("alpha beta gamma delta epsilon", "pdf", "Unrelated Title", True),
+            ("save", "pdf", "", False),
+        ],
+        ids=[
+            "word-in-title",
+            "word-only-in-code",
+            "both-words-in-title",
+            "second-word-only-in-title",
+            "neither-word-in-title",
+            "synonym-export-for-save",
+            "plural-stems-to-the-title-word",
+            "family-word-in-title-does-not-anchor",
+            "family-word-ignored-other-word-anchors",
+            "three-terms-unrelated-title-now-anchored",
+            "three-terms-empty-title-now-anchored",
+            "four-terms-at-the-graduated-ceiling-still-anchored",
+            "five-terms-past-the-graduated-ceiling-escapes",
+            "empty-title",
+        ],
+    )
+    def test_title_anchored(query: str, family: str, title: str, expected: bool) -> None:
+>       assert title_anchored(query, family, title) is expected
+E       AssertionError: assert True is False
+E        +  where True = title_anchored('alpha beta gamma', 'pdf', '')
+
+tests\mcp\tools\test_find_examples_title_anchor.py:127: AssertionError
+___ test_title_anchored[four-terms-at-the-graduated-ceiling-still-anchored] ___
+
+query = 'alpha beta gamma delta', family = 'pdf', title = 'Unrelated Title'
+expected = False
+
+    @pytest.mark.parametrize(
+        ("query", "family", "title", "expected"),
+        [
+            ("save", "cells", "Create, Save, and Reload a Workbook", True),
+            ("save", "pdf", "Fill AcroForm Fields", False),
+            ("page dimensions", "pdf", "Inspect Document Page Dimensions", True),
+            ("convert watermark", "pdf", "Add a Watermark Annotation", True),
+            ("convert watermark", "pdf", "Fill AcroForm Fields", False),
+            ("export", "pdf", "Save as PDF", True),
+            ("pages", "pdf", "Page Dimensions", True),
+            ("pdf save", "pdf", "PDF Basics", False),
+            ("pdf save", "pdf", "Save a Copy", True),
+            # TC-586: above TITLE_ANCHOR_MAX_TERMS (2) the query is still title-checked, now up to
+            # TITLE_ANCHOR_GRADUATED_MAX_TERMS (4) - a three-term query with no title word anywhere in the
+            # generation's titles is rejected, exactly the graduated protection this card adds.
+            ("alpha beta gamma", "pdf", "Unrelated Title", False),
+            ("alpha beta gamma", "pdf", "", False),
+            ("alpha beta gamma delta", "pdf", "Unrelated Title", False),
+            # Five terms is past the graduated ceiling: the coverage floor alone applies again, unchanged.
+            ("alpha beta gamma delta epsilon", "pdf", "Unrelated Title", True),
+            ("save", "pdf", "", False),
+        ],
+        ids=[
+            "word-in-title",
+            "word-only-in-code",
+            "both-words-in-title",
+            "second-word-only-in-title",
+            "neither-word-in-title",
+            "synonym-export-for-save",
+            "plural-stems-to-the-title-word",
+            "family-word-in-title-does-not-anchor",
+            "family-word-ignored-other-word-anchors",
+            "three-terms-unrelated-title-now-anchored",
+            "three-terms-empty-title-now-anchored",
+            "four-terms-at-the-graduated-ceiling-still-anchored",
+            "five-terms-past-the-graduated-ceiling-escapes",
+            "empty-title",
+        ],
+    )
+    def test_title_anchored(query: str, family: str, title: str, expected: bool) -> None:
+>       assert title_anchored(query, family, title) is expected
+E       AssertionError: assert True is False
+E        +  where True = title_anchored('alpha beta gamma delta', 'pdf', 'Unrelated Title')
+
+tests\mcp\tools\test_find_examples_title_anchor.py:127: AssertionError
+______________________ test_title_anchored[empty-title] _______________________
+
+query = 'save', family = 'pdf', title = '', expected = False
+
+    @pytest.mark.parametrize(
+        ("query", "family", "title", "expected"),
+        [
+            ("save", "cells", "Create, Save, and Reload a Workbook", True),
+            ("save", "pdf", "Fill AcroForm Fields", False),
+            ("page dimensions", "pdf", "Inspect Document Page Dimensions", True),
+            ("convert watermark", "pdf", "Add a Watermark Annotation", True),
+            ("convert watermark", "pdf", "Fill AcroForm Fields", False),
+            ("export", "pdf", "Save as PDF", True),
+            ("pages", "pdf", "Page Dimensions", True),
+            ("pdf save", "pdf", "PDF Basics", False),
+            ("pdf save", "pdf", "Save a Copy", True),
+            # TC-586: above TITLE_ANCHOR_MAX_TERMS (2) the query is still title-checked, now up to
+            # TITLE_ANCHOR_GRADUATED_MAX_TERMS (4) - a three-term query with no title word anywhere in the
+            # generation's titles is rejected, exactly the graduated protection this card adds.
+            ("alpha beta gamma", "pdf", "Unrelated Title", False),
+            ("alpha beta gamma", "pdf", "", False),
+            ("alpha beta gamma delta", "pdf", "Unrelated Title", False),
+            # Five terms is past the graduated ceiling: the coverage floor alone applies again, unchanged.
+            ("alpha beta gamma delta epsilon", "pdf", "Unrelated Title", True),
+            ("save", "pdf", "", False),
+        ],
+        ids=[
+            "word-in-title",
+            "word-only-in-code",
+            "both-words-in-title",
+            "second-word-only-in-title",
+            "neither-word-in-title",
+            "synonym-export-for-save",
+            "plural-stems-to-the-title-word",
+            "family-word-in-title-does-not-anchor",
+            "family-word-ignored-other-word-anchors",
+            "three-terms-unrelated-title-now-anchored",
+            "three-terms-empty-title-now-anchored",
+            "four-terms-at-the-graduated-ceiling-still-anchored",
+            "five-terms-past-the-graduated-ceiling-escapes",
+            "empty-title",
+        ],
+    )
+    def test_title_anchored(query: str, family: str, title: str, expected: bool) -> None:
+>       assert title_anchored(query, family, title) is expected
+E       AssertionError: assert True is False
+E        +  where True = title_anchored('save', 'pdf', '')
+
+tests\mcp\tools\test_find_examples_title_anchor.py:127: AssertionError
+_________ test_the_graduated_ceiling_is_double_the_original_threshold _________
+
+    def test_the_graduated_ceiling_is_double_the_original_threshold() -> None:
+        # TC-586: the unconditional escape above TITLE_ANCHOR_MAX_TERMS is gone. A query is still judged
+        # against the title up to TITLE_ANCHOR_GRADUATED_MAX_TERMS distinctive terms; only past that higher
+        # ceiling does the coverage floor alone decide, so a longer query is never LESS protected than a
+        # shorter one - only, past a measured point, protected by a different mechanism.
+        assert TITLE_ANCHOR_GRADUATED_MAX_TERMS == 2 * TITLE_ANCHOR_MAX_TERMS
+>       assert title_anchored("alpha beta", "pdf", "Unrelated") is False
+E       AssertionError: assert True is False
+E        +  where True = title_anchored('alpha beta', 'pdf', 'Unrelated')
+
+tests\mcp\tools\test_find_examples_title_anchor.py:140: AssertionError
+_______ test_a_short_query_needs_a_title_word_in_a_synthetic_generation _______
+
+two_examples = <foss_mcp.indexing.generation_manifest.GenerationManifestStore object at 0x00000236E1605550>
+
+    def test_a_short_query_needs_a_title_word_in_a_synthetic_generation(
+        two_examples: GenerationManifestStore,
+    ) -> None:
+        # Every one of these words is in the code of both examples, so only the title rule tells them apart.
+>       assert isinstance(find_examples(two_examples, SCOPE, "save"), NoExampleFound)
+E       assert False
+E        +  where False = isinstance([ExampleMatch(scope=Scope(family='pdf', platform='net', source_kind='self_extracted'), generation_id='pdf::net::self_e...int around this snippet, which are not shown, so add the imports and entry point your language needs.", confidence='')], NoExampleFound)
+E        +    where [ExampleMatch(scope=Scope(family='pdf', platform='net', source_kind='self_extracted'), generation_id='pdf::net::self_e...int around this snippet, which are not shown, so add the imports and entry point your language needs.", confidence='')] = find_examples(<foss_mcp.indexing.generation_manifest.GenerationManifestStore object at 0x00000236E1605550>, Scope(family='pdf', platform='net', source_kind='self_extracted'), 'save')
+
+tests\mcp\tools\test_find_examples_title_anchor.py:212: AssertionError
+_________________ test_a_two_word_query_needs_one_title_word __________________
+
+two_examples = <foss_mcp.indexing.generation_manifest.GenerationManifestStore object at 0x00000236A589C190>
+
+    def test_a_two_word_query_needs_one_title_word(two_examples: GenerationManifestStore) -> None:
+>       assert _titles(find_examples(two_examples, SCOPE, "save watermark")) == [WATERMARK_TITLE]
+E       AssertionError: assert ['Add a Water... from a Page'] == ['Add a Watermark Annotation']
+E         
+E         Left contains one more item: 'Extract Text Fragments from a Page'
+E         Use -v to get more diff
+
+tests\mcp\tools\test_find_examples_title_anchor.py:219: AssertionError
+_ test_a_query_past_the_graduated_ceiling_is_judged_by_the_coverage_floor_alone _
+
+tmp_path = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-13331/test_a_query_past_the_graduate0')
+
+    def test_a_query_past_the_graduated_ceiling_is_judged_by_the_coverage_floor_alone(tmp_path: Path) -> None:
+        store = _publish(tmp_path / "m", [SYMBOL_CHUNK, LAYOUT_EXAMPLE])
+        # Two distinctive terms: the title rule applies (unchanged since TC-543) and rejects it.
+>       assert isinstance(find_examples(store, SCOPE, "alpha beta"), NoExampleFound)
+E       assert False
+E        +  where False = isinstance([ExampleMatch(scope=Scope(family='pdf', platform='net', source_kind='self_extracted'), generation_id='pdf::net::self_e...int around this snippet, which are not shown, so add the imports and entry point your language needs.", confidence='')], NoExampleFound)
+E        +    where [ExampleMatch(scope=Scope(family='pdf', platform='net', source_kind='self_extracted'), generation_id='pdf::net::self_e...int around this snippet, which are not shown, so add the imports and entry point your language needs.", confidence='')] = find_examples(<foss_mcp.indexing.generation_manifest.GenerationManifestStore object at 0x00000236A2729A70>, Scope(family='pdf', platform='net', source_kind='self_extracted'), 'alpha beta')
+
+tests\mcp\tools\test_find_examples_title_anchor.py:239: AssertionError
+_ test_the_vector_fallback_is_unchanged_and_runs_for_a_short_query_that_the_title_rule_rejected _
+
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x00000236A5839FD0>
+two_examples = <foss_mcp.indexing.generation_manifest.GenerationManifestStore object at 0x00000236A57E9A30>
+
+    def test_the_vector_fallback_is_unchanged_and_runs_for_a_short_query_that_the_title_rule_rejected(
+        monkeypatch: pytest.MonkeyPatch, two_examples: GenerationManifestStore
+    ) -> None:
+        seen: list[str] = []
+        vector = _point_vector(two_examples, WATERMARK_TITLE)
+        monkeypatch.setattr(
+            find_examples_module, "GatewayEmbeddingProvider", lambda: _RecordingProvider(vector, seen)
+        )
+        # "save" is in the code of both examples (the old lexical stage would have answered) and in no title.
+        result = find_examples(two_examples, SCOPE, "save")
+>       assert seen == ["save"]
+E       AssertionError: assert [] == ['save']
+E         
+E         Right contains one more item: 'save'
+E         Use -v to get more diff
+
+tests\mcp\tools\test_find_examples_title_anchor.py:290: AssertionError
+_____________________ test_match_basis_is_set_per_branch ______________________
+
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x00000236A583AB30>
+two_examples = <foss_mcp.indexing.generation_manifest.GenerationManifestStore object at 0x00000236A586C6B0>
+tmp_path = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-13331/test_match_basis_is_set_per_br0')
+
+    def test_match_basis_is_set_per_branch(
+        monkeypatch: pytest.MonkeyPatch, two_examples: GenerationManifestStore, tmp_path: Path
+    ) -> None:
+        exact = find_examples(two_examples, SCOPE, f"{EXAMPLE_PREFIX}{WATERMARK_TITLE}")
+        short = find_examples(two_examples, SCOPE, "watermark")
+        longer_store = _publish(tmp_path / "longer", [SYMBOL_CHUNK, LAYOUT_EXAMPLE])
+        # Five distinctive terms: past TITLE_ANCHOR_GRADUATED_MAX_TERMS, so the coverage floor alone applies.
+        longer = find_examples(longer_store, SCOPE, "alpha beta gamma delta epsilon")
+        monkeypatch.setattr(
+            find_examples_module,
+            "GatewayEmbeddingProvider",
+            lambda: _RecordingProvider(_point_vector(two_examples, TEXT_TITLE), []),
+        )
+        vector = find_examples(two_examples, SCOPE, "save")
+        bases = {
+            "exact": exact,
+            "short": short,
+            "longer": longer,
+            "vector": vector,
+        }
+>       assert {name: {m.match_basis for m in result} for name, result in bases.items()} == {  # type: ignore[union-attr]
+            "exact": {"exact_title"},
+            "short": {"title_word_and_example_text"},
+            "longer": {"query_terms_in_example_text"},
+            "vector": {"embedding_similarity"},
+        }
+E       AssertionError: assert {'exact': {'e...xample_text'}} == {'exact': {'e..._similarity'}}
+E         
+E         Omitting 3 identical items, use -vv to show
+E         Differing items:
+E         {'vector': {'title_word_and_example_text'}} != {'vector': {'embedding_similarity'}}
+E         Use -v to get more diff
+
+tests\mcp\tools\test_find_examples_title_anchor.py:330: AssertionError
+___________ test_the_slides_cpp_export_format_reproduction_is_fixed ___________
+
+stores = <tests.mcp.tools.test_find_examples_title_anchor._Stores object at 0x00000236A4D94C20>
+
+    def test_the_slides_cpp_export_format_reproduction_is_fixed(stores: _Stores) -> None:
+        """TC-586's real reproduction, re-confirmed against the committed infra/demo-manifests on
+        2026-10-26 (commit 469ce77a07b988c49deb930632b8276c89ec6b66): slides/cpp has exactly two verified
+        examples, "Comments and Replies" and "Document Properties", and BOTH examples' code ends with the
+        same boilerplate call, ``pres.save(..., SaveFormat::PPTX)`` - it has nothing to do with either
+        example's real topic. Before this card, the three-distinctive-term query below (deck, export, pptx)
+        hit title_anchored's unconditional escape (3 > the old TITLE_ANCHOR_MAX_TERMS of 2) and the coverage
+        floor alone answered with BOTH unrelated examples, at coverage 1.0 and 0.67. Neither example answers
+        a question about exporting to a format, so the honest result is a miss.
+        """
+        directory = _directory_of("slides/cpp")
+        scope = _scope_of(directory)
+        query = "export the deck to pptx"
+        assert len(distinctive_terms(query, scope.family)) == 3
+        for title in ("Comments and Replies", "Document Properties"):
+>           assert title_anchored(query, scope.family, title) is False, title
+E           AssertionError: Comments and Replies
+E           assert True is False
+E            +  where True = title_anchored('export the deck to pptx', 'slides', 'Comments and Replies')
+E            +    where 'slides' = Scope(family='slides', platform='cpp', source_kind='self_extracted').family
+
+tests\mcp\tools\test_find_examples_title_anchor.py:467: AssertionError
+______ test_a_synthetic_four_term_query_with_no_title_match_is_excluded _______
+
+tmp_path = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-13331/test_a_synthetic_four_term_que0')
+
+    def test_a_synthetic_four_term_query_with_no_title_match_is_excluded(tmp_path: Path) -> None:
+        """The second half of the card's requirement: a synthetic 4+ term query whose title genuinely
+        contains none of its distinctive terms is correctly excluded by the new graduation, independent of
+        the real slides/cpp data above."""
+        store = _publish(tmp_path / "synthetic", [SYMBOL_CHUNK, LAYOUT_EXAMPLE])
+        query = "alpha beta gamma delta"
+        assert len(distinctive_terms(query, SCOPE.family)) == 4
+>       assert title_anchored(query, SCOPE.family, "Inspect Layout Metrics") is False
+E       AssertionError: assert True is False
+E        +  where True = title_anchored('alpha beta gamma delta', 'pdf', 'Inspect Layout Metrics')
+E        +    where 'pdf' = Scope(family='pdf', platform='net', source_kind='self_extracted').family
+
+tests\mcp\tools\test_find_examples_title_anchor.py:479: AssertionError
+__________ test_set_password_returns_only_examples_with_a_title_word __________
+
+stores = <tests.mcp.tools.test_find_examples_title_anchor._Stores object at 0x00000236A4D94C20>
+
+    def test_set_password_returns_only_examples_with_a_title_word(stores: _Stores) -> None:
+        # Before the rule "set password" returned 7 examples over the 40 pilots, none of them about
+        # passwords (their code said "set" and "password" in unrelated places). The pilots whose example is
+        # titled Password-Protect are not returned for it before or after: their code never says "set", so
+        # the two-term coverage floor rejects them already. Every example returned now has set or password in
+        # its title.
+        for pilot, match in _answers(stores, "set password"):
+            title = match.fqn[len(EXAMPLE_PREFIX) :].lower()
+>           assert re.search(r"\b(set|passwords?)\b", title), (pilot, match.fqn)
+E           AssertionError: ('pdf__go__self_extracted', 'Example: Encrypt with Permissions')
+E           assert None
+E            +  where None = <function search at 0x00000236DFD27560>('\\b(set|passwords?)\\b', 'encrypt with permissions')
+E            +    where <function search at 0x00000236DFD27560> = re.search
+
+tests\mcp\tools\test_find_examples_title_anchor.py:499: AssertionError
+=========================== short test summary info ===========================
+FAILED tests/mcp/tools/test_find_examples_title_anchor.py::test_title_anchored[word-only-in-code]
+FAILED tests/mcp/tools/test_find_examples_title_anchor.py::test_title_anchored[neither-word-in-title]
+FAILED tests/mcp/tools/test_find_examples_title_anchor.py::test_title_anchored[family-word-in-title-does-not-anchor]
+FAILED tests/mcp/tools/test_find_examples_title_anchor.py::test_title_anchored[three-terms-unrelated-title-now-anchored]
+FAILED tests/mcp/tools/test_find_examples_title_anchor.py::test_title_anchored[three-terms-empty-title-now-anchored]
+FAILED tests/mcp/tools/test_find_examples_title_anchor.py::test_title_anchored[four-terms-at-the-graduated-ceiling-still-anchored]
+FAILED tests/mcp/tools/test_find_examples_title_anchor.py::test_title_anchored[empty-title]
+FAILED tests/mcp/tools/test_find_examples_title_anchor.py::test_the_graduated_ceiling_is_double_the_original_threshold
+FAILED tests/mcp/tools/test_find_examples_title_anchor.py::test_a_short_query_needs_a_title_word_in_a_synthetic_generation
+FAILED tests/mcp/tools/test_find_examples_title_anchor.py::test_a_two_word_query_needs_one_title_word
+FAILED tests/mcp/tools/test_find_examples_title_anchor.py::test_a_query_past_the_graduated_ceiling_is_judged_by_the_coverage_floor_alone
+FAILED tests/mcp/tools/test_find_examples_title_anchor.py::test_the_vector_fallback_is_unchanged_and_runs_for_a_short_query_that_the_title_rule_rejected
+FAILED tests/mcp/tools/test_find_examples_title_anchor.py::test_match_basis_is_set_per_branch
+FAILED tests/mcp/tools/test_find_examples_title_anchor.py::test_the_slides_cpp_export_format_reproduction_is_fixed
+FAILED tests/mcp/tools/test_find_examples_title_anchor.py::test_a_synthetic_four_term_query_with_no_title_match_is_excluded
+FAILED tests/mcp/tools/test_find_examples_title_anchor.py::test_set_password_returns_only_examples_with_a_title_word
+
+--- stderr ---
+
