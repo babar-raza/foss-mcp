@@ -1,0 +1,173 @@
+
+===== CLEAN RUN 1 (host) =====
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-5c72e798a73c059a\Scripts\python.exe -m pytest tests/mcp/tools/test_relevance_idf_synonyms.py tests/mcp/tools/test_round3_retrieval_corpus.py -q -rfE "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-ma5m8c4o\.junit-0.xml"
+--- stdout ---
+........................................................................ [ 79%]
+...................                                                      [100%]
+
+--- stderr ---
+
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-5c72e798a73c059a\Scripts\python.exe -m pytest tests/mcp/tools/test_relevance_idf_synonyms.py tests/mcp/tools/test_round3_retrieval_corpus.py tests/mcp/tools/test_round3_retrieval.py tests/mcp/tools/test_find_examples_title_anchor.py tests/mcp/tools/test_search_symbols_forgiveness.py tests/test_unwired_modules.py -q -rfE -p no:cacheprovider "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-ma5m8c4o\.junit-1.xml"
+--- stdout ---
+........................................................................ [ 32%]
+........................................................................ [ 64%]
+........................................................................ [ 96%]
+.........                                                                [100%]
+
+--- stderr ---
+
+
+===== CLEAN RUN 2 (host) =====
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-5c72e798a73c059a\Scripts\python.exe -m pytest tests/mcp/tools/test_relevance_idf_synonyms.py tests/mcp/tools/test_round3_retrieval_corpus.py -q -rfE "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-ma5m8c4o\.junit-0.xml"
+--- stdout ---
+........................................................................ [ 79%]
+...................                                                      [100%]
+
+--- stderr ---
+
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-5c72e798a73c059a\Scripts\python.exe -m pytest tests/mcp/tools/test_relevance_idf_synonyms.py tests/mcp/tools/test_round3_retrieval_corpus.py tests/mcp/tools/test_round3_retrieval.py tests/mcp/tools/test_find_examples_title_anchor.py tests/mcp/tools/test_search_symbols_forgiveness.py tests/test_unwired_modules.py -q -rfE -p no:cacheprovider "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-ma5m8c4o\.junit-1.xml"
+--- stdout ---
+........................................................................ [ 32%]
+........................................................................ [ 64%]
+........................................................................ [ 96%]
+.........                                                                [100%]
+
+--- stderr ---
+
+
+===== NEGATIVE CONTROL (checks MUST now fail) =====
+mutated: M src/foss_mcp/mcp/tools/relevance.py, ?? .junit-0.xml, ?? .junit-1.xml
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-5c72e798a73c059a\Scripts\python.exe -m pytest tests/mcp/tools/test_relevance_idf_synonyms.py tests/mcp/tools/test_round3_retrieval_corpus.py -q -rfE "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-ma5m8c4o\.junit-0.xml"
+--- stdout ---
+...................................................F.FF................. [ 79%]
+...................                                                      [100%]
+================================== FAILURES ===================================
+_ test_evidence_terms_keeps_the_whole_splitting_camel_run_alongside_its_parts _
+
+    def test_evidence_terms_keeps_the_whole_splitting_camel_run_alongside_its_parts() -> None:
+        # "LaTeXDocument" splits (via the same camel-part regex tokenize() uses) into "La"/"Te"/"X"/"Document".
+        # tokenize() itself would emit the whole run ("latexdocument") PLUS each sub-word ("la", "te", "document";
+        # the single-letter "x" is dropped by both tokenize() and evidence_terms as not meaningful alone). A
+        # neutral family ("pdf") is used so the whole run is not itself a family word/alias that would divert it
+        # to the common-word fallback instead of ``kept`` - this test is about the candidate set evidence_terms
+        # builds, not about the family-alias rescue (a separate, unrelated mechanism).
+        words = {term.word for term in evidence_terms("LaTeXDocument", "pdf")}
+>       assert words == {"latexdocument", "la", "te", "document"}
+E       AssertionError: assert {'document', 'la', 'te'} == {'document', ...cument', 'te'}
+E         
+E         Extra items in the right set:
+E         'latexdocument'
+E         Use -v to get more diff
+
+tests\mcp\tools\test_relevance_idf_synonyms.py:325: AssertionError
+_______ test_evidence_terms_whole_run_matches_tokenizes_own_camel_split _______
+
+    def test_evidence_terms_whole_run_matches_tokenizes_own_camel_split() -> None:
+        # The exact discipline evidence_terms must now mirror, word for word, is lexical_index_writer.tokenize's
+        # own documented behaviour: "emits the whole run lowercased ... PLUS ... each sub-word lowercased too".
+        for run in ("AddWatermarkAnnotation", "LaTeXDocument", "PdfDocument"):
+>           assert set(tokenize(run)) == {term.word for term in evidence_terms(run, "sample")} | (
+                {"x"} if run == "LaTeXDocument" else set()
+            )
+E           AssertionError: assert {'add', 'addw..., 'watermark'} == {'add', 'anno..., 'watermark'}
+E             
+E             Extra items in the left set:
+E             'addwatermarkannotation'
+E             Use -v to get more diff
+
+tests\mcp\tools\test_relevance_idf_synonyms.py:342: AssertionError
+_____ test_tex_python_real_baked_data_reproduction_of_the_whole_run_loss ______
+
+    def test_tex_python_real_baked_data_reproduction_of_the_whole_run_loss() -> None:
+        # Grounds the fix in the real, committed infra/demo-manifests fixture rather than an invented name:
+        # "TeXJob" and "TeXOptions" are real symbol short-names of the tex/python pilot's own active generation.
+        real_fqns = _real_tex_python_fqns()
+        assert "TeXJob" in real_fqns
+        assert "TeXOptions" in real_fqns
+        for short_name in ("TeXJob", "TeXOptions"):
+            words = {term.word for term in evidence_terms(short_name, "tex")}
+            # The whole run - the pilot's own real identifier, lowercased - is now a candidate term. Before this
+            # card's fix it was NOT: only the sub-word fragments ("te", "job"/"options") survived, so a caller
+            # that scored symbols purely by evidence_terms's candidate set (as search_symbols._safe_extra_generic
+            # does over the raw query) never saw the real name as a term in its own right.
+>           assert short_name.lower() in words
+E           AssertionError: assert 'texjob' in {'job', 'te'}
+E            +  where 'texjob' = <built-in method lower of str object at 0x000001F3EB4F6CD0>()
+E            +    where <built-in method lower of str object at 0x000001F3EB4F6CD0> = 'TeXJob'.lower
+
+tests\mcp\tools\test_relevance_idf_synonyms.py:381: AssertionError
+=========================== short test summary info ===========================
+FAILED tests/mcp/tools/test_relevance_idf_synonyms.py::test_evidence_terms_keeps_the_whole_splitting_camel_run_alongside_its_parts
+FAILED tests/mcp/tools/test_relevance_idf_synonyms.py::test_evidence_terms_whole_run_matches_tokenizes_own_camel_split
+FAILED tests/mcp/tools/test_relevance_idf_synonyms.py::test_tex_python_real_baked_data_reproduction_of_the_whole_run_loss
+
+--- stderr ---
+
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-5c72e798a73c059a\Scripts\python.exe -m pytest tests/mcp/tools/test_relevance_idf_synonyms.py tests/mcp/tools/test_round3_retrieval_corpus.py tests/mcp/tools/test_round3_retrieval.py tests/mcp/tools/test_find_examples_title_anchor.py tests/mcp/tools/test_search_symbols_forgiveness.py tests/test_unwired_modules.py -q -rfE -p no:cacheprovider "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-ma5m8c4o\.junit-1.xml"
+--- stdout ---
+...................................................F.FF................. [ 32%]
+........................................................................ [ 64%]
+........................................................................ [ 96%]
+.........                                                                [100%]
+================================== FAILURES ===================================
+_ test_evidence_terms_keeps_the_whole_splitting_camel_run_alongside_its_parts _
+
+    def test_evidence_terms_keeps_the_whole_splitting_camel_run_alongside_its_parts() -> None:
+        # "LaTeXDocument" splits (via the same camel-part regex tokenize() uses) into "La"/"Te"/"X"/"Document".
+        # tokenize() itself would emit the whole run ("latexdocument") PLUS each sub-word ("la", "te", "document";
+        # the single-letter "x" is dropped by both tokenize() and evidence_terms as not meaningful alone). A
+        # neutral family ("pdf") is used so the whole run is not itself a family word/alias that would divert it
+        # to the common-word fallback instead of ``kept`` - this test is about the candidate set evidence_terms
+        # builds, not about the family-alias rescue (a separate, unrelated mechanism).
+        words = {term.word for term in evidence_terms("LaTeXDocument", "pdf")}
+>       assert words == {"latexdocument", "la", "te", "document"}
+E       AssertionError: assert {'document', 'la', 'te'} == {'document', ...cument', 'te'}
+E         
+E         Extra items in the right set:
+E         'latexdocument'
+E         Use -v to get more diff
+
+tests\mcp\tools\test_relevance_idf_synonyms.py:325: AssertionError
+_______ test_evidence_terms_whole_run_matches_tokenizes_own_camel_split _______
+
+    def test_evidence_terms_whole_run_matches_tokenizes_own_camel_split() -> None:
+        # The exact discipline evidence_terms must now mirror, word for word, is lexical_index_writer.tokenize's
+        # own documented behaviour: "emits the whole run lowercased ... PLUS ... each sub-word lowercased too".
+        for run in ("AddWatermarkAnnotation", "LaTeXDocument", "PdfDocument"):
+>           assert set(tokenize(run)) == {term.word for term in evidence_terms(run, "sample")} | (
+                {"x"} if run == "LaTeXDocument" else set()
+            )
+E           AssertionError: assert {'add', 'addw..., 'watermark'} == {'add', 'anno..., 'watermark'}
+E             
+E             Extra items in the left set:
+E             'addwatermarkannotation'
+E             Use -v to get more diff
+
+tests\mcp\tools\test_relevance_idf_synonyms.py:342: AssertionError
+_____ test_tex_python_real_baked_data_reproduction_of_the_whole_run_loss ______
+
+    def test_tex_python_real_baked_data_reproduction_of_the_whole_run_loss() -> None:
+        # Grounds the fix in the real, committed infra/demo-manifests fixture rather than an invented name:
+        # "TeXJob" and "TeXOptions" are real symbol short-names of the tex/python pilot's own active generation.
+        real_fqns = _real_tex_python_fqns()
+        assert "TeXJob" in real_fqns
+        assert "TeXOptions" in real_fqns
+        for short_name in ("TeXJob", "TeXOptions"):
+            words = {term.word for term in evidence_terms(short_name, "tex")}
+            # The whole run - the pilot's own real identifier, lowercased - is now a candidate term. Before this
+            # card's fix it was NOT: only the sub-word fragments ("te", "job"/"options") survived, so a caller
+            # that scored symbols purely by evidence_terms's candidate set (as search_symbols._safe_extra_generic
+            # does over the raw query) never saw the real name as a term in its own right.
+>           assert short_name.lower() in words
+E           AssertionError: assert 'texjob' in {'job', 'te'}
+E            +  where 'texjob' = <built-in method lower of str object at 0x000001E1D6F220A0>()
+E            +    where <built-in method lower of str object at 0x000001E1D6F220A0> = 'TeXJob'.lower
+
+tests\mcp\tools\test_relevance_idf_synonyms.py:381: AssertionError
+=========================== short test summary info ===========================
+FAILED tests/mcp/tools/test_relevance_idf_synonyms.py::test_evidence_terms_keeps_the_whole_splitting_camel_run_alongside_its_parts
+FAILED tests/mcp/tools/test_relevance_idf_synonyms.py::test_evidence_terms_whole_run_matches_tokenizes_own_camel_split
+FAILED tests/mcp/tools/test_relevance_idf_synonyms.py::test_tex_python_real_baked_data_reproduction_of_the_whole_run_loss
+
+--- stderr ---
+
