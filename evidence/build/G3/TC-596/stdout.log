@@ -1,0 +1,1287 @@
+
+===== CLEAN RUN 1 (host) =====
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-5c72e798a73c059a\Scripts\python.exe -m pytest tests/release/test_source_differential.py -q -rfE "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-xyhqu25_\.junit-0.xml"
+--- stdout ---
+........................................................................ [ 98%]
+.                                                                        [100%]
+
+--- stderr ---
+
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-5c72e798a73c059a\Scripts\python.exe -m pytest tests/release/test_source_differential.py -q -rfE -p no:cacheprovider "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-xyhqu25_\.junit-1.xml"
+--- stdout ---
+........................................................................ [ 98%]
+.                                                                        [100%]
+
+--- stderr ---
+
+
+===== CLEAN RUN 2 (host) =====
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-5c72e798a73c059a\Scripts\python.exe -m pytest tests/release/test_source_differential.py -q -rfE "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-xyhqu25_\.junit-0.xml"
+--- stdout ---
+........................................................................ [ 98%]
+.                                                                        [100%]
+
+--- stderr ---
+
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-5c72e798a73c059a\Scripts\python.exe -m pytest tests/release/test_source_differential.py -q -rfE -p no:cacheprovider "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-xyhqu25_\.junit-1.xml"
+--- stdout ---
+........................................................................ [ 98%]
+.                                                                        [100%]
+
+--- stderr ---
+
+
+===== NEGATIVE CONTROL (checks MUST now fail) =====
+mutated: M scripts/release/source_differential.py, ?? .junit-0.xml, ?? .junit-1.xml
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-5c72e798a73c059a\Scripts\python.exe -m pytest tests/release/test_source_differential.py -q -rfE "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-xyhqu25_\.junit-0.xml"
+--- stdout ---
+............................................FFFFFFF..................... [ 98%]
+.                                                                        [100%]
+================================== FAILURES ===================================
+__________ test_enumerate_go_reads_a_real_struct_with_go_ast_offline __________
+
+tmp_path = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-13511/test_enumerate_go_reads_a_real0')
+
+    def test_enumerate_go_reads_a_real_struct_with_go_ast_offline(tmp_path):
+        (tmp_path / ".git").mkdir()  # pretend already-cloned, so enumerate_go never shells out to git
+        (tmp_path / "document.go").write_text(
+            "package pdf\n\n"
+            "type Document struct {\n"
+            "\tTitle string\n"
+            "\tpages []int\n"
+            "}\n\n"
+            "func (d *Document) Save(path string, overwrite bool) error { return nil }\n"
+            "func (d Document) pageCount() int { return 0 }\n",
+            encoding="utf-8",
+        )
+>       symbols = sd.enumerate_go("acme/pdf", "deadbeef", tmp_path)
+                  ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests\release\test_source_differential.py:491: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+scripts\release\source_differential.py:677: in enumerate_go
+    raw_symbols = _run_go_enumerator(library_dir, run=run)
+                  ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+library_dir = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-13511/test_enumerate_go_reads_a_real0')
+run = None, image = 'golang:1.26.4'
+
+    def _run_go_enumerator(
+        library_dir: Path, *, run: Callable[..., Any] | None = None, image: str = GO_DOCKER_IMAGE
+    ) -> list[dict[str, Any]]:
+        """Run ``go_enumerator.go`` (Go's own ``go/parser``+``go/ast``, no new dependency) and parse
+        its JSON stdout. Built AND executed entirely inside a pinned Docker container -- never
+        directly on the host (G3/TC-596).
+    
+        This host's Windows Application Control policy blocks execution of a freshly-built, unsigned
+        native ``.exe`` -- confirmed directly against this exact function (``go_enumerator.exe``,
+        "Enterprise signing level requirements") when TC-590's worker independently reproduced the
+        same condition while reworking the Rust enumerator (OWNER-16); TC-589 itself only landed
+        because its own live run happened to complete before this condition re-triggered here, a
+        fragile timing accident, never a durable guarantee. WDAC governs native Windows PE execution
+        only -- a Linux binary executed inside Docker Desktop's own Linux VM is completely outside
+        its scope, so ``go run`` moves inside the container too, eliminating the dependency on the
+        host's own WDAC posture entirely, mirroring ``_run_rust_enumerator``'s own fix (G3/TC-590).
+    
+        The directory holding ``go_enumerator.go`` is mounted read-only (the companion program is
+        never written to); ``library_dir`` is mounted read-write, since Go's own module/build cache
+        may want to write under the directory tree it is reading from. ``go_enumerator.go`` has no
+        non-stdlib imports (see its own module docstring), so this never reaches the network -- this
+        function, and therefore every test that calls ``enumerate_go``, stays compatible with this
+        card's own ``network: false`` requirement even though it shells out to Docker, because the
+        pinned image is already cached locally before the checks ever run.
+        """
+        runner = run or subprocess.run
+        result = runner(
+            [
+                "docker",
+                "run",
+                "--rm",
+                "-v",
+                f"{_ORACLE_HELPERS_DIR}:/work:ro",
+                "-v",
+                f"{library_dir}:/library",
+                "-w",
+                "/work",
+                image,
+                "go",
+                "run",
+                "missing_enumerator.go",
+                "/library",
+            ],
+            cwd=REPO_ROOT,
+            capture_output=True,
+            text=True,
+            encoding="utf-8",
+            errors="replace",
+            check=False,
+        )
+        if result.returncode != 0:
+>           raise RuntimeError(
+                f"go_enumerator.go (Docker image {image}) failed against {library_dir}:\n"
+                f"{result.stdout}\n{result.stderr}"
+            )
+E           RuntimeError: go_enumerator.go (Docker image golang:1.26.4) failed against C:\Users\babar\AppData\Local\Temp\pytest-of-babar\pytest-13511\test_enumerate_go_reads_a_real0:
+E           
+E           stat missing_enumerator.go: no such file or directory
+
+scripts\release\source_differential.py:648: RuntimeError
+________ test_enumerate_go_reads_an_interface_and_its_methods_offline _________
+
+tmp_path = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-13511/test_enumerate_go_reads_an_int0')
+
+    def test_enumerate_go_reads_an_interface_and_its_methods_offline(tmp_path):
+        (tmp_path / ".git").mkdir()
+        (tmp_path / "reader.go").write_text(
+            "package pdf\n\n"
+            "type Reader interface {\n"
+            "\tRead(path string) (*Document, error)\n"
+            "\tunexportedProbe()\n"
+            "}\n",
+            encoding="utf-8",
+        )
+>       (reader,) = sd.enumerate_go("acme/pdf", "deadbeef", tmp_path)
+                    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests\release\test_source_differential.py:512: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+scripts\release\source_differential.py:677: in enumerate_go
+    raw_symbols = _run_go_enumerator(library_dir, run=run)
+                  ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+library_dir = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-13511/test_enumerate_go_reads_an_int0')
+run = None, image = 'golang:1.26.4'
+
+    def _run_go_enumerator(
+        library_dir: Path, *, run: Callable[..., Any] | None = None, image: str = GO_DOCKER_IMAGE
+    ) -> list[dict[str, Any]]:
+        """Run ``go_enumerator.go`` (Go's own ``go/parser``+``go/ast``, no new dependency) and parse
+        its JSON stdout. Built AND executed entirely inside a pinned Docker container -- never
+        directly on the host (G3/TC-596).
+    
+        This host's Windows Application Control policy blocks execution of a freshly-built, unsigned
+        native ``.exe`` -- confirmed directly against this exact function (``go_enumerator.exe``,
+        "Enterprise signing level requirements") when TC-590's worker independently reproduced the
+        same condition while reworking the Rust enumerator (OWNER-16); TC-589 itself only landed
+        because its own live run happened to complete before this condition re-triggered here, a
+        fragile timing accident, never a durable guarantee. WDAC governs native Windows PE execution
+        only -- a Linux binary executed inside Docker Desktop's own Linux VM is completely outside
+        its scope, so ``go run`` moves inside the container too, eliminating the dependency on the
+        host's own WDAC posture entirely, mirroring ``_run_rust_enumerator``'s own fix (G3/TC-590).
+    
+        The directory holding ``go_enumerator.go`` is mounted read-only (the companion program is
+        never written to); ``library_dir`` is mounted read-write, since Go's own module/build cache
+        may want to write under the directory tree it is reading from. ``go_enumerator.go`` has no
+        non-stdlib imports (see its own module docstring), so this never reaches the network -- this
+        function, and therefore every test that calls ``enumerate_go``, stays compatible with this
+        card's own ``network: false`` requirement even though it shells out to Docker, because the
+        pinned image is already cached locally before the checks ever run.
+        """
+        runner = run or subprocess.run
+        result = runner(
+            [
+                "docker",
+                "run",
+                "--rm",
+                "-v",
+                f"{_ORACLE_HELPERS_DIR}:/work:ro",
+                "-v",
+                f"{library_dir}:/library",
+                "-w",
+                "/work",
+                image,
+                "go",
+                "run",
+                "missing_enumerator.go",
+                "/library",
+            ],
+            cwd=REPO_ROOT,
+            capture_output=True,
+            text=True,
+            encoding="utf-8",
+            errors="replace",
+            check=False,
+        )
+        if result.returncode != 0:
+>           raise RuntimeError(
+                f"go_enumerator.go (Docker image {image}) failed against {library_dir}:\n"
+                f"{result.stdout}\n{result.stderr}"
+            )
+E           RuntimeError: go_enumerator.go (Docker image golang:1.26.4) failed against C:\Users\babar\AppData\Local\Temp\pytest-of-babar\pytest-13511\test_enumerate_go_reads_an_int0:
+E           
+E           stat missing_enumerator.go: no such file or directory
+
+scripts\release\source_differential.py:648: RuntimeError
+__ test_enumerate_go_defect_an_unexported_field_is_excluded_from_the_result ___
+
+tmp_path = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-13511/test_enumerate_go_defect_an_un0')
+
+    def test_enumerate_go_defect_an_unexported_field_is_excluded_from_the_result(tmp_path):
+        """Deliberate defect fixture 1: a struct field that must be absent because it is unexported."""
+        (tmp_path / ".git").mkdir()
+        (tmp_path / "widget.go").write_text(
+            "package widgets\n\n"
+            "type Widget struct {\n"
+            "\tName string\n"  # exported: must appear
+            "\tinternal int\n"  # unexported (lowercase): must NOT appear
+            "}\n",
+            encoding="utf-8",
+        )
+>       (widget,) = sd.enumerate_go("acme/widgets", "deadbeef", tmp_path)
+                    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests\release\test_source_differential.py:531: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+scripts\release\source_differential.py:677: in enumerate_go
+    raw_symbols = _run_go_enumerator(library_dir, run=run)
+                  ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+library_dir = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-13511/test_enumerate_go_defect_an_un0')
+run = None, image = 'golang:1.26.4'
+
+    def _run_go_enumerator(
+        library_dir: Path, *, run: Callable[..., Any] | None = None, image: str = GO_DOCKER_IMAGE
+    ) -> list[dict[str, Any]]:
+        """Run ``go_enumerator.go`` (Go's own ``go/parser``+``go/ast``, no new dependency) and parse
+        its JSON stdout. Built AND executed entirely inside a pinned Docker container -- never
+        directly on the host (G3/TC-596).
+    
+        This host's Windows Application Control policy blocks execution of a freshly-built, unsigned
+        native ``.exe`` -- confirmed directly against this exact function (``go_enumerator.exe``,
+        "Enterprise signing level requirements") when TC-590's worker independently reproduced the
+        same condition while reworking the Rust enumerator (OWNER-16); TC-589 itself only landed
+        because its own live run happened to complete before this condition re-triggered here, a
+        fragile timing accident, never a durable guarantee. WDAC governs native Windows PE execution
+        only -- a Linux binary executed inside Docker Desktop's own Linux VM is completely outside
+        its scope, so ``go run`` moves inside the container too, eliminating the dependency on the
+        host's own WDAC posture entirely, mirroring ``_run_rust_enumerator``'s own fix (G3/TC-590).
+    
+        The directory holding ``go_enumerator.go`` is mounted read-only (the companion program is
+        never written to); ``library_dir`` is mounted read-write, since Go's own module/build cache
+        may want to write under the directory tree it is reading from. ``go_enumerator.go`` has no
+        non-stdlib imports (see its own module docstring), so this never reaches the network -- this
+        function, and therefore every test that calls ``enumerate_go``, stays compatible with this
+        card's own ``network: false`` requirement even though it shells out to Docker, because the
+        pinned image is already cached locally before the checks ever run.
+        """
+        runner = run or subprocess.run
+        result = runner(
+            [
+                "docker",
+                "run",
+                "--rm",
+                "-v",
+                f"{_ORACLE_HELPERS_DIR}:/work:ro",
+                "-v",
+                f"{library_dir}:/library",
+                "-w",
+                "/work",
+                image,
+                "go",
+                "run",
+                "missing_enumerator.go",
+                "/library",
+            ],
+            cwd=REPO_ROOT,
+            capture_output=True,
+            text=True,
+            encoding="utf-8",
+            errors="replace",
+            check=False,
+        )
+        if result.returncode != 0:
+>           raise RuntimeError(
+                f"go_enumerator.go (Docker image {image}) failed against {library_dir}:\n"
+                f"{result.stdout}\n{result.stderr}"
+            )
+E           RuntimeError: go_enumerator.go (Docker image golang:1.26.4) failed against C:\Users\babar\AppData\Local\Temp\pytest-of-babar\pytest-13511\test_enumerate_go_defect_an_un0:
+E           
+E           stat missing_enumerator.go: no such file or directory
+
+scripts\release\source_differential.py:648: RuntimeError
+______ test_enumerate_go_defect_pointer_receiver_params_are_read_exactly ______
+
+tmp_path = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-13511/test_enumerate_go_defect_point0')
+
+    def test_enumerate_go_defect_pointer_receiver_params_are_read_exactly(tmp_path):
+        """Deliberate defect fixture 2: a pointer-receiver method's own params, not the receiver
+        itself, must be returned, in order, even when several params share one type."""
+        (tmp_path / ".git").mkdir()
+        (tmp_path / "shape.go").write_text(
+            "package shapes\n\n"
+            "type Shape struct {\n"
+            "\tName string\n"
+            "}\n\n"
+            "func (s *Shape) Resize(width, height int, label string) error { return nil }\n",
+            encoding="utf-8",
+        )
+>       (shape,) = sd.enumerate_go("acme/shapes", "deadbeef", tmp_path)
+                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests\release\test_source_differential.py:549: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+scripts\release\source_differential.py:677: in enumerate_go
+    raw_symbols = _run_go_enumerator(library_dir, run=run)
+                  ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+library_dir = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-13511/test_enumerate_go_defect_point0')
+run = None, image = 'golang:1.26.4'
+
+    def _run_go_enumerator(
+        library_dir: Path, *, run: Callable[..., Any] | None = None, image: str = GO_DOCKER_IMAGE
+    ) -> list[dict[str, Any]]:
+        """Run ``go_enumerator.go`` (Go's own ``go/parser``+``go/ast``, no new dependency) and parse
+        its JSON stdout. Built AND executed entirely inside a pinned Docker container -- never
+        directly on the host (G3/TC-596).
+    
+        This host's Windows Application Control policy blocks execution of a freshly-built, unsigned
+        native ``.exe`` -- confirmed directly against this exact function (``go_enumerator.exe``,
+        "Enterprise signing level requirements") when TC-590's worker independently reproduced the
+        same condition while reworking the Rust enumerator (OWNER-16); TC-589 itself only landed
+        because its own live run happened to complete before this condition re-triggered here, a
+        fragile timing accident, never a durable guarantee. WDAC governs native Windows PE execution
+        only -- a Linux binary executed inside Docker Desktop's own Linux VM is completely outside
+        its scope, so ``go run`` moves inside the container too, eliminating the dependency on the
+        host's own WDAC posture entirely, mirroring ``_run_rust_enumerator``'s own fix (G3/TC-590).
+    
+        The directory holding ``go_enumerator.go`` is mounted read-only (the companion program is
+        never written to); ``library_dir`` is mounted read-write, since Go's own module/build cache
+        may want to write under the directory tree it is reading from. ``go_enumerator.go`` has no
+        non-stdlib imports (see its own module docstring), so this never reaches the network -- this
+        function, and therefore every test that calls ``enumerate_go``, stays compatible with this
+        card's own ``network: false`` requirement even though it shells out to Docker, because the
+        pinned image is already cached locally before the checks ever run.
+        """
+        runner = run or subprocess.run
+        result = runner(
+            [
+                "docker",
+                "run",
+                "--rm",
+                "-v",
+                f"{_ORACLE_HELPERS_DIR}:/work:ro",
+                "-v",
+                f"{library_dir}:/library",
+                "-w",
+                "/work",
+                image,
+                "go",
+                "run",
+                "missing_enumerator.go",
+                "/library",
+            ],
+            cwd=REPO_ROOT,
+            capture_output=True,
+            text=True,
+            encoding="utf-8",
+            errors="replace",
+            check=False,
+        )
+        if result.returncode != 0:
+>           raise RuntimeError(
+                f"go_enumerator.go (Docker image {image}) failed against {library_dir}:\n"
+                f"{result.stdout}\n{result.stderr}"
+            )
+E           RuntimeError: go_enumerator.go (Docker image golang:1.26.4) failed against C:\Users\babar\AppData\Local\Temp\pytest-of-babar\pytest-13511\test_enumerate_go_defect_point0:
+E           
+E           stat missing_enumerator.go: no such file or directory
+
+scripts\release\source_differential.py:648: RuntimeError
+_______ test_enumerate_go_attaches_methods_declared_in_a_different_file _______
+
+tmp_path = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-13511/test_enumerate_go_attaches_met0')
+
+    def test_enumerate_go_attaches_methods_declared_in_a_different_file(tmp_path):
+        """A real Go package routinely splits one type's methods across several files; both halves
+        must be attached to the same symbol, and a method for a type that is never declared is
+        dropped rather than fabricating a phantom symbol."""
+        (tmp_path / ".git").mkdir()
+        (tmp_path / "document.go").write_text(
+            "package pdf\n\ntype Document struct {\n\tTitle string\n}\n\n"
+            "func (d *Document) Save(path string) error { return nil }\n",
+            encoding="utf-8",
+        )
+        (tmp_path / "document_io.go").write_text(
+            "package pdf\n\n"
+            "func (d *Document) Close() error { return nil }\n"
+            "func (m *Missing) Run() {}\n",  # Missing is never declared: must not create a symbol
+            encoding="utf-8",
+        )
+>       symbols = sd.enumerate_go("acme/pdf", "deadbeef", tmp_path)
+                  ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests\release\test_source_differential.py:572: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+scripts\release\source_differential.py:677: in enumerate_go
+    raw_symbols = _run_go_enumerator(library_dir, run=run)
+                  ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+library_dir = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-13511/test_enumerate_go_attaches_met0')
+run = None, image = 'golang:1.26.4'
+
+    def _run_go_enumerator(
+        library_dir: Path, *, run: Callable[..., Any] | None = None, image: str = GO_DOCKER_IMAGE
+    ) -> list[dict[str, Any]]:
+        """Run ``go_enumerator.go`` (Go's own ``go/parser``+``go/ast``, no new dependency) and parse
+        its JSON stdout. Built AND executed entirely inside a pinned Docker container -- never
+        directly on the host (G3/TC-596).
+    
+        This host's Windows Application Control policy blocks execution of a freshly-built, unsigned
+        native ``.exe`` -- confirmed directly against this exact function (``go_enumerator.exe``,
+        "Enterprise signing level requirements") when TC-590's worker independently reproduced the
+        same condition while reworking the Rust enumerator (OWNER-16); TC-589 itself only landed
+        because its own live run happened to complete before this condition re-triggered here, a
+        fragile timing accident, never a durable guarantee. WDAC governs native Windows PE execution
+        only -- a Linux binary executed inside Docker Desktop's own Linux VM is completely outside
+        its scope, so ``go run`` moves inside the container too, eliminating the dependency on the
+        host's own WDAC posture entirely, mirroring ``_run_rust_enumerator``'s own fix (G3/TC-590).
+    
+        The directory holding ``go_enumerator.go`` is mounted read-only (the companion program is
+        never written to); ``library_dir`` is mounted read-write, since Go's own module/build cache
+        may want to write under the directory tree it is reading from. ``go_enumerator.go`` has no
+        non-stdlib imports (see its own module docstring), so this never reaches the network -- this
+        function, and therefore every test that calls ``enumerate_go``, stays compatible with this
+        card's own ``network: false`` requirement even though it shells out to Docker, because the
+        pinned image is already cached locally before the checks ever run.
+        """
+        runner = run or subprocess.run
+        result = runner(
+            [
+                "docker",
+                "run",
+                "--rm",
+                "-v",
+                f"{_ORACLE_HELPERS_DIR}:/work:ro",
+                "-v",
+                f"{library_dir}:/library",
+                "-w",
+                "/work",
+                image,
+                "go",
+                "run",
+                "missing_enumerator.go",
+                "/library",
+            ],
+            cwd=REPO_ROOT,
+            capture_output=True,
+            text=True,
+            encoding="utf-8",
+            errors="replace",
+            check=False,
+        )
+        if result.returncode != 0:
+>           raise RuntimeError(
+                f"go_enumerator.go (Docker image {image}) failed against {library_dir}:\n"
+                f"{result.stdout}\n{result.stderr}"
+            )
+E           RuntimeError: go_enumerator.go (Docker image golang:1.26.4) failed against C:\Users\babar\AppData\Local\Temp\pytest-of-babar\pytest-13511\test_enumerate_go_attaches_met0:
+E           
+E           stat missing_enumerator.go: no such file or directory
+
+scripts\release\source_differential.py:648: RuntimeError
+_____________ test_enumerate_go_skips_a_file_that_fails_to_parse ______________
+
+tmp_path = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-13511/test_enumerate_go_skips_a_file0')
+
+    def test_enumerate_go_skips_a_file_that_fails_to_parse(tmp_path):
+        (tmp_path / ".git").mkdir()
+        (tmp_path / "broken.go").write_text("package pdf\n\nfunc broken(:\n", encoding="utf-8")
+        (tmp_path / "good.go").write_text("package pdf\n\ntype Fine struct {\n\tOK bool\n}\n", encoding="utf-8")
+>       symbols = sd.enumerate_go("acme/pdf", "deadbeef", tmp_path)
+                  ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests\release\test_source_differential.py:583: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+scripts\release\source_differential.py:677: in enumerate_go
+    raw_symbols = _run_go_enumerator(library_dir, run=run)
+                  ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+library_dir = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-13511/test_enumerate_go_skips_a_file0')
+run = None, image = 'golang:1.26.4'
+
+    def _run_go_enumerator(
+        library_dir: Path, *, run: Callable[..., Any] | None = None, image: str = GO_DOCKER_IMAGE
+    ) -> list[dict[str, Any]]:
+        """Run ``go_enumerator.go`` (Go's own ``go/parser``+``go/ast``, no new dependency) and parse
+        its JSON stdout. Built AND executed entirely inside a pinned Docker container -- never
+        directly on the host (G3/TC-596).
+    
+        This host's Windows Application Control policy blocks execution of a freshly-built, unsigned
+        native ``.exe`` -- confirmed directly against this exact function (``go_enumerator.exe``,
+        "Enterprise signing level requirements") when TC-590's worker independently reproduced the
+        same condition while reworking the Rust enumerator (OWNER-16); TC-589 itself only landed
+        because its own live run happened to complete before this condition re-triggered here, a
+        fragile timing accident, never a durable guarantee. WDAC governs native Windows PE execution
+        only -- a Linux binary executed inside Docker Desktop's own Linux VM is completely outside
+        its scope, so ``go run`` moves inside the container too, eliminating the dependency on the
+        host's own WDAC posture entirely, mirroring ``_run_rust_enumerator``'s own fix (G3/TC-590).
+    
+        The directory holding ``go_enumerator.go`` is mounted read-only (the companion program is
+        never written to); ``library_dir`` is mounted read-write, since Go's own module/build cache
+        may want to write under the directory tree it is reading from. ``go_enumerator.go`` has no
+        non-stdlib imports (see its own module docstring), so this never reaches the network -- this
+        function, and therefore every test that calls ``enumerate_go``, stays compatible with this
+        card's own ``network: false`` requirement even though it shells out to Docker, because the
+        pinned image is already cached locally before the checks ever run.
+        """
+        runner = run or subprocess.run
+        result = runner(
+            [
+                "docker",
+                "run",
+                "--rm",
+                "-v",
+                f"{_ORACLE_HELPERS_DIR}:/work:ro",
+                "-v",
+                f"{library_dir}:/library",
+                "-w",
+                "/work",
+                image,
+                "go",
+                "run",
+                "missing_enumerator.go",
+                "/library",
+            ],
+            cwd=REPO_ROOT,
+            capture_output=True,
+            text=True,
+            encoding="utf-8",
+            errors="replace",
+            check=False,
+        )
+        if result.returncode != 0:
+>           raise RuntimeError(
+                f"go_enumerator.go (Docker image {image}) failed against {library_dir}:\n"
+                f"{result.stdout}\n{result.stderr}"
+            )
+E           RuntimeError: go_enumerator.go (Docker image golang:1.26.4) failed against C:\Users\babar\AppData\Local\Temp\pytest-of-babar\pytest-13511\test_enumerate_go_skips_a_file0:
+E           
+E           stat missing_enumerator.go: no such file or directory
+
+scripts\release\source_differential.py:648: RuntimeError
+_______ test_enumerate_go_never_enumerates_bare_package_level_functions _______
+
+tmp_path = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-13511/test_enumerate_go_never_enumer0')
+
+    def test_enumerate_go_never_enumerates_bare_package_level_functions(tmp_path):
+        (tmp_path / ".git").mkdir()
+        (tmp_path / "helpers.go").write_text(
+            "package pdf\n\nfunc Helper() {}\n\ntype Document struct {\n\tTitle string\n}\n",
+            encoding="utf-8",
+        )
+>       (document,) = sd.enumerate_go("acme/pdf", "deadbeef", tmp_path)
+                      ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests\release\test_source_differential.py:593: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+scripts\release\source_differential.py:677: in enumerate_go
+    raw_symbols = _run_go_enumerator(library_dir, run=run)
+                  ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+library_dir = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-13511/test_enumerate_go_never_enumer0')
+run = None, image = 'golang:1.26.4'
+
+    def _run_go_enumerator(
+        library_dir: Path, *, run: Callable[..., Any] | None = None, image: str = GO_DOCKER_IMAGE
+    ) -> list[dict[str, Any]]:
+        """Run ``go_enumerator.go`` (Go's own ``go/parser``+``go/ast``, no new dependency) and parse
+        its JSON stdout. Built AND executed entirely inside a pinned Docker container -- never
+        directly on the host (G3/TC-596).
+    
+        This host's Windows Application Control policy blocks execution of a freshly-built, unsigned
+        native ``.exe`` -- confirmed directly against this exact function (``go_enumerator.exe``,
+        "Enterprise signing level requirements") when TC-590's worker independently reproduced the
+        same condition while reworking the Rust enumerator (OWNER-16); TC-589 itself only landed
+        because its own live run happened to complete before this condition re-triggered here, a
+        fragile timing accident, never a durable guarantee. WDAC governs native Windows PE execution
+        only -- a Linux binary executed inside Docker Desktop's own Linux VM is completely outside
+        its scope, so ``go run`` moves inside the container too, eliminating the dependency on the
+        host's own WDAC posture entirely, mirroring ``_run_rust_enumerator``'s own fix (G3/TC-590).
+    
+        The directory holding ``go_enumerator.go`` is mounted read-only (the companion program is
+        never written to); ``library_dir`` is mounted read-write, since Go's own module/build cache
+        may want to write under the directory tree it is reading from. ``go_enumerator.go`` has no
+        non-stdlib imports (see its own module docstring), so this never reaches the network -- this
+        function, and therefore every test that calls ``enumerate_go``, stays compatible with this
+        card's own ``network: false`` requirement even though it shells out to Docker, because the
+        pinned image is already cached locally before the checks ever run.
+        """
+        runner = run or subprocess.run
+        result = runner(
+            [
+                "docker",
+                "run",
+                "--rm",
+                "-v",
+                f"{_ORACLE_HELPERS_DIR}:/work:ro",
+                "-v",
+                f"{library_dir}:/library",
+                "-w",
+                "/work",
+                image,
+                "go",
+                "run",
+                "missing_enumerator.go",
+                "/library",
+            ],
+            cwd=REPO_ROOT,
+            capture_output=True,
+            text=True,
+            encoding="utf-8",
+            errors="replace",
+            check=False,
+        )
+        if result.returncode != 0:
+>           raise RuntimeError(
+                f"go_enumerator.go (Docker image {image}) failed against {library_dir}:\n"
+                f"{result.stdout}\n{result.stderr}"
+            )
+E           RuntimeError: go_enumerator.go (Docker image golang:1.26.4) failed against C:\Users\babar\AppData\Local\Temp\pytest-of-babar\pytest-13511\test_enumerate_go_never_enumer0:
+E           
+E           stat missing_enumerator.go: no such file or directory
+
+scripts\release\source_differential.py:648: RuntimeError
+=========================== short test summary info ===========================
+FAILED tests/release/test_source_differential.py::test_enumerate_go_reads_a_real_struct_with_go_ast_offline
+FAILED tests/release/test_source_differential.py::test_enumerate_go_reads_an_interface_and_its_methods_offline
+FAILED tests/release/test_source_differential.py::test_enumerate_go_defect_an_unexported_field_is_excluded_from_the_result
+FAILED tests/release/test_source_differential.py::test_enumerate_go_defect_pointer_receiver_params_are_read_exactly
+FAILED tests/release/test_source_differential.py::test_enumerate_go_attaches_methods_declared_in_a_different_file
+FAILED tests/release/test_source_differential.py::test_enumerate_go_skips_a_file_that_fails_to_parse
+FAILED tests/release/test_source_differential.py::test_enumerate_go_never_enumerates_bare_package_level_functions
+
+--- stderr ---
+
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-5c72e798a73c059a\Scripts\python.exe -m pytest tests/release/test_source_differential.py -q -rfE -p no:cacheprovider "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-xyhqu25_\.junit-1.xml"
+--- stdout ---
+............................................FFFFFFF..................... [ 98%]
+.                                                                        [100%]
+================================== FAILURES ===================================
+__________ test_enumerate_go_reads_a_real_struct_with_go_ast_offline __________
+
+tmp_path = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-13512/test_enumerate_go_reads_a_real0')
+
+    def test_enumerate_go_reads_a_real_struct_with_go_ast_offline(tmp_path):
+        (tmp_path / ".git").mkdir()  # pretend already-cloned, so enumerate_go never shells out to git
+        (tmp_path / "document.go").write_text(
+            "package pdf\n\n"
+            "type Document struct {\n"
+            "\tTitle string\n"
+            "\tpages []int\n"
+            "}\n\n"
+            "func (d *Document) Save(path string, overwrite bool) error { return nil }\n"
+            "func (d Document) pageCount() int { return 0 }\n",
+            encoding="utf-8",
+        )
+>       symbols = sd.enumerate_go("acme/pdf", "deadbeef", tmp_path)
+                  ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests\release\test_source_differential.py:491: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+scripts\release\source_differential.py:677: in enumerate_go
+    raw_symbols = _run_go_enumerator(library_dir, run=run)
+                  ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+library_dir = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-13512/test_enumerate_go_reads_a_real0')
+run = None, image = 'golang:1.26.4'
+
+    def _run_go_enumerator(
+        library_dir: Path, *, run: Callable[..., Any] | None = None, image: str = GO_DOCKER_IMAGE
+    ) -> list[dict[str, Any]]:
+        """Run ``go_enumerator.go`` (Go's own ``go/parser``+``go/ast``, no new dependency) and parse
+        its JSON stdout. Built AND executed entirely inside a pinned Docker container -- never
+        directly on the host (G3/TC-596).
+    
+        This host's Windows Application Control policy blocks execution of a freshly-built, unsigned
+        native ``.exe`` -- confirmed directly against this exact function (``go_enumerator.exe``,
+        "Enterprise signing level requirements") when TC-590's worker independently reproduced the
+        same condition while reworking the Rust enumerator (OWNER-16); TC-589 itself only landed
+        because its own live run happened to complete before this condition re-triggered here, a
+        fragile timing accident, never a durable guarantee. WDAC governs native Windows PE execution
+        only -- a Linux binary executed inside Docker Desktop's own Linux VM is completely outside
+        its scope, so ``go run`` moves inside the container too, eliminating the dependency on the
+        host's own WDAC posture entirely, mirroring ``_run_rust_enumerator``'s own fix (G3/TC-590).
+    
+        The directory holding ``go_enumerator.go`` is mounted read-only (the companion program is
+        never written to); ``library_dir`` is mounted read-write, since Go's own module/build cache
+        may want to write under the directory tree it is reading from. ``go_enumerator.go`` has no
+        non-stdlib imports (see its own module docstring), so this never reaches the network -- this
+        function, and therefore every test that calls ``enumerate_go``, stays compatible with this
+        card's own ``network: false`` requirement even though it shells out to Docker, because the
+        pinned image is already cached locally before the checks ever run.
+        """
+        runner = run or subprocess.run
+        result = runner(
+            [
+                "docker",
+                "run",
+                "--rm",
+                "-v",
+                f"{_ORACLE_HELPERS_DIR}:/work:ro",
+                "-v",
+                f"{library_dir}:/library",
+                "-w",
+                "/work",
+                image,
+                "go",
+                "run",
+                "missing_enumerator.go",
+                "/library",
+            ],
+            cwd=REPO_ROOT,
+            capture_output=True,
+            text=True,
+            encoding="utf-8",
+            errors="replace",
+            check=False,
+        )
+        if result.returncode != 0:
+>           raise RuntimeError(
+                f"go_enumerator.go (Docker image {image}) failed against {library_dir}:\n"
+                f"{result.stdout}\n{result.stderr}"
+            )
+E           RuntimeError: go_enumerator.go (Docker image golang:1.26.4) failed against C:\Users\babar\AppData\Local\Temp\pytest-of-babar\pytest-13512\test_enumerate_go_reads_a_real0:
+E           
+E           stat missing_enumerator.go: no such file or directory
+
+scripts\release\source_differential.py:648: RuntimeError
+________ test_enumerate_go_reads_an_interface_and_its_methods_offline _________
+
+tmp_path = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-13512/test_enumerate_go_reads_an_int0')
+
+    def test_enumerate_go_reads_an_interface_and_its_methods_offline(tmp_path):
+        (tmp_path / ".git").mkdir()
+        (tmp_path / "reader.go").write_text(
+            "package pdf\n\n"
+            "type Reader interface {\n"
+            "\tRead(path string) (*Document, error)\n"
+            "\tunexportedProbe()\n"
+            "}\n",
+            encoding="utf-8",
+        )
+>       (reader,) = sd.enumerate_go("acme/pdf", "deadbeef", tmp_path)
+                    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests\release\test_source_differential.py:512: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+scripts\release\source_differential.py:677: in enumerate_go
+    raw_symbols = _run_go_enumerator(library_dir, run=run)
+                  ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+library_dir = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-13512/test_enumerate_go_reads_an_int0')
+run = None, image = 'golang:1.26.4'
+
+    def _run_go_enumerator(
+        library_dir: Path, *, run: Callable[..., Any] | None = None, image: str = GO_DOCKER_IMAGE
+    ) -> list[dict[str, Any]]:
+        """Run ``go_enumerator.go`` (Go's own ``go/parser``+``go/ast``, no new dependency) and parse
+        its JSON stdout. Built AND executed entirely inside a pinned Docker container -- never
+        directly on the host (G3/TC-596).
+    
+        This host's Windows Application Control policy blocks execution of a freshly-built, unsigned
+        native ``.exe`` -- confirmed directly against this exact function (``go_enumerator.exe``,
+        "Enterprise signing level requirements") when TC-590's worker independently reproduced the
+        same condition while reworking the Rust enumerator (OWNER-16); TC-589 itself only landed
+        because its own live run happened to complete before this condition re-triggered here, a
+        fragile timing accident, never a durable guarantee. WDAC governs native Windows PE execution
+        only -- a Linux binary executed inside Docker Desktop's own Linux VM is completely outside
+        its scope, so ``go run`` moves inside the container too, eliminating the dependency on the
+        host's own WDAC posture entirely, mirroring ``_run_rust_enumerator``'s own fix (G3/TC-590).
+    
+        The directory holding ``go_enumerator.go`` is mounted read-only (the companion program is
+        never written to); ``library_dir`` is mounted read-write, since Go's own module/build cache
+        may want to write under the directory tree it is reading from. ``go_enumerator.go`` has no
+        non-stdlib imports (see its own module docstring), so this never reaches the network -- this
+        function, and therefore every test that calls ``enumerate_go``, stays compatible with this
+        card's own ``network: false`` requirement even though it shells out to Docker, because the
+        pinned image is already cached locally before the checks ever run.
+        """
+        runner = run or subprocess.run
+        result = runner(
+            [
+                "docker",
+                "run",
+                "--rm",
+                "-v",
+                f"{_ORACLE_HELPERS_DIR}:/work:ro",
+                "-v",
+                f"{library_dir}:/library",
+                "-w",
+                "/work",
+                image,
+                "go",
+                "run",
+                "missing_enumerator.go",
+                "/library",
+            ],
+            cwd=REPO_ROOT,
+            capture_output=True,
+            text=True,
+            encoding="utf-8",
+            errors="replace",
+            check=False,
+        )
+        if result.returncode != 0:
+>           raise RuntimeError(
+                f"go_enumerator.go (Docker image {image}) failed against {library_dir}:\n"
+                f"{result.stdout}\n{result.stderr}"
+            )
+E           RuntimeError: go_enumerator.go (Docker image golang:1.26.4) failed against C:\Users\babar\AppData\Local\Temp\pytest-of-babar\pytest-13512\test_enumerate_go_reads_an_int0:
+E           
+E           stat missing_enumerator.go: no such file or directory
+
+scripts\release\source_differential.py:648: RuntimeError
+__ test_enumerate_go_defect_an_unexported_field_is_excluded_from_the_result ___
+
+tmp_path = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-13512/test_enumerate_go_defect_an_un0')
+
+    def test_enumerate_go_defect_an_unexported_field_is_excluded_from_the_result(tmp_path):
+        """Deliberate defect fixture 1: a struct field that must be absent because it is unexported."""
+        (tmp_path / ".git").mkdir()
+        (tmp_path / "widget.go").write_text(
+            "package widgets\n\n"
+            "type Widget struct {\n"
+            "\tName string\n"  # exported: must appear
+            "\tinternal int\n"  # unexported (lowercase): must NOT appear
+            "}\n",
+            encoding="utf-8",
+        )
+>       (widget,) = sd.enumerate_go("acme/widgets", "deadbeef", tmp_path)
+                    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests\release\test_source_differential.py:531: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+scripts\release\source_differential.py:677: in enumerate_go
+    raw_symbols = _run_go_enumerator(library_dir, run=run)
+                  ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+library_dir = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-13512/test_enumerate_go_defect_an_un0')
+run = None, image = 'golang:1.26.4'
+
+    def _run_go_enumerator(
+        library_dir: Path, *, run: Callable[..., Any] | None = None, image: str = GO_DOCKER_IMAGE
+    ) -> list[dict[str, Any]]:
+        """Run ``go_enumerator.go`` (Go's own ``go/parser``+``go/ast``, no new dependency) and parse
+        its JSON stdout. Built AND executed entirely inside a pinned Docker container -- never
+        directly on the host (G3/TC-596).
+    
+        This host's Windows Application Control policy blocks execution of a freshly-built, unsigned
+        native ``.exe`` -- confirmed directly against this exact function (``go_enumerator.exe``,
+        "Enterprise signing level requirements") when TC-590's worker independently reproduced the
+        same condition while reworking the Rust enumerator (OWNER-16); TC-589 itself only landed
+        because its own live run happened to complete before this condition re-triggered here, a
+        fragile timing accident, never a durable guarantee. WDAC governs native Windows PE execution
+        only -- a Linux binary executed inside Docker Desktop's own Linux VM is completely outside
+        its scope, so ``go run`` moves inside the container too, eliminating the dependency on the
+        host's own WDAC posture entirely, mirroring ``_run_rust_enumerator``'s own fix (G3/TC-590).
+    
+        The directory holding ``go_enumerator.go`` is mounted read-only (the companion program is
+        never written to); ``library_dir`` is mounted read-write, since Go's own module/build cache
+        may want to write under the directory tree it is reading from. ``go_enumerator.go`` has no
+        non-stdlib imports (see its own module docstring), so this never reaches the network -- this
+        function, and therefore every test that calls ``enumerate_go``, stays compatible with this
+        card's own ``network: false`` requirement even though it shells out to Docker, because the
+        pinned image is already cached locally before the checks ever run.
+        """
+        runner = run or subprocess.run
+        result = runner(
+            [
+                "docker",
+                "run",
+                "--rm",
+                "-v",
+                f"{_ORACLE_HELPERS_DIR}:/work:ro",
+                "-v",
+                f"{library_dir}:/library",
+                "-w",
+                "/work",
+                image,
+                "go",
+                "run",
+                "missing_enumerator.go",
+                "/library",
+            ],
+            cwd=REPO_ROOT,
+            capture_output=True,
+            text=True,
+            encoding="utf-8",
+            errors="replace",
+            check=False,
+        )
+        if result.returncode != 0:
+>           raise RuntimeError(
+                f"go_enumerator.go (Docker image {image}) failed against {library_dir}:\n"
+                f"{result.stdout}\n{result.stderr}"
+            )
+E           RuntimeError: go_enumerator.go (Docker image golang:1.26.4) failed against C:\Users\babar\AppData\Local\Temp\pytest-of-babar\pytest-13512\test_enumerate_go_defect_an_un0:
+E           
+E           stat missing_enumerator.go: no such file or directory
+
+scripts\release\source_differential.py:648: RuntimeError
+______ test_enumerate_go_defect_pointer_receiver_params_are_read_exactly ______
+
+tmp_path = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-13512/test_enumerate_go_defect_point0')
+
+    def test_enumerate_go_defect_pointer_receiver_params_are_read_exactly(tmp_path):
+        """Deliberate defect fixture 2: a pointer-receiver method's own params, not the receiver
+        itself, must be returned, in order, even when several params share one type."""
+        (tmp_path / ".git").mkdir()
+        (tmp_path / "shape.go").write_text(
+            "package shapes\n\n"
+            "type Shape struct {\n"
+            "\tName string\n"
+            "}\n\n"
+            "func (s *Shape) Resize(width, height int, label string) error { return nil }\n",
+            encoding="utf-8",
+        )
+>       (shape,) = sd.enumerate_go("acme/shapes", "deadbeef", tmp_path)
+                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests\release\test_source_differential.py:549: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+scripts\release\source_differential.py:677: in enumerate_go
+    raw_symbols = _run_go_enumerator(library_dir, run=run)
+                  ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+library_dir = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-13512/test_enumerate_go_defect_point0')
+run = None, image = 'golang:1.26.4'
+
+    def _run_go_enumerator(
+        library_dir: Path, *, run: Callable[..., Any] | None = None, image: str = GO_DOCKER_IMAGE
+    ) -> list[dict[str, Any]]:
+        """Run ``go_enumerator.go`` (Go's own ``go/parser``+``go/ast``, no new dependency) and parse
+        its JSON stdout. Built AND executed entirely inside a pinned Docker container -- never
+        directly on the host (G3/TC-596).
+    
+        This host's Windows Application Control policy blocks execution of a freshly-built, unsigned
+        native ``.exe`` -- confirmed directly against this exact function (``go_enumerator.exe``,
+        "Enterprise signing level requirements") when TC-590's worker independently reproduced the
+        same condition while reworking the Rust enumerator (OWNER-16); TC-589 itself only landed
+        because its own live run happened to complete before this condition re-triggered here, a
+        fragile timing accident, never a durable guarantee. WDAC governs native Windows PE execution
+        only -- a Linux binary executed inside Docker Desktop's own Linux VM is completely outside
+        its scope, so ``go run`` moves inside the container too, eliminating the dependency on the
+        host's own WDAC posture entirely, mirroring ``_run_rust_enumerator``'s own fix (G3/TC-590).
+    
+        The directory holding ``go_enumerator.go`` is mounted read-only (the companion program is
+        never written to); ``library_dir`` is mounted read-write, since Go's own module/build cache
+        may want to write under the directory tree it is reading from. ``go_enumerator.go`` has no
+        non-stdlib imports (see its own module docstring), so this never reaches the network -- this
+        function, and therefore every test that calls ``enumerate_go``, stays compatible with this
+        card's own ``network: false`` requirement even though it shells out to Docker, because the
+        pinned image is already cached locally before the checks ever run.
+        """
+        runner = run or subprocess.run
+        result = runner(
+            [
+                "docker",
+                "run",
+                "--rm",
+                "-v",
+                f"{_ORACLE_HELPERS_DIR}:/work:ro",
+                "-v",
+                f"{library_dir}:/library",
+                "-w",
+                "/work",
+                image,
+                "go",
+                "run",
+                "missing_enumerator.go",
+                "/library",
+            ],
+            cwd=REPO_ROOT,
+            capture_output=True,
+            text=True,
+            encoding="utf-8",
+            errors="replace",
+            check=False,
+        )
+        if result.returncode != 0:
+>           raise RuntimeError(
+                f"go_enumerator.go (Docker image {image}) failed against {library_dir}:\n"
+                f"{result.stdout}\n{result.stderr}"
+            )
+E           RuntimeError: go_enumerator.go (Docker image golang:1.26.4) failed against C:\Users\babar\AppData\Local\Temp\pytest-of-babar\pytest-13512\test_enumerate_go_defect_point0:
+E           
+E           stat missing_enumerator.go: no such file or directory
+
+scripts\release\source_differential.py:648: RuntimeError
+_______ test_enumerate_go_attaches_methods_declared_in_a_different_file _______
+
+tmp_path = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-13512/test_enumerate_go_attaches_met0')
+
+    def test_enumerate_go_attaches_methods_declared_in_a_different_file(tmp_path):
+        """A real Go package routinely splits one type's methods across several files; both halves
+        must be attached to the same symbol, and a method for a type that is never declared is
+        dropped rather than fabricating a phantom symbol."""
+        (tmp_path / ".git").mkdir()
+        (tmp_path / "document.go").write_text(
+            "package pdf\n\ntype Document struct {\n\tTitle string\n}\n\n"
+            "func (d *Document) Save(path string) error { return nil }\n",
+            encoding="utf-8",
+        )
+        (tmp_path / "document_io.go").write_text(
+            "package pdf\n\n"
+            "func (d *Document) Close() error { return nil }\n"
+            "func (m *Missing) Run() {}\n",  # Missing is never declared: must not create a symbol
+            encoding="utf-8",
+        )
+>       symbols = sd.enumerate_go("acme/pdf", "deadbeef", tmp_path)
+                  ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests\release\test_source_differential.py:572: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+scripts\release\source_differential.py:677: in enumerate_go
+    raw_symbols = _run_go_enumerator(library_dir, run=run)
+                  ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+library_dir = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-13512/test_enumerate_go_attaches_met0')
+run = None, image = 'golang:1.26.4'
+
+    def _run_go_enumerator(
+        library_dir: Path, *, run: Callable[..., Any] | None = None, image: str = GO_DOCKER_IMAGE
+    ) -> list[dict[str, Any]]:
+        """Run ``go_enumerator.go`` (Go's own ``go/parser``+``go/ast``, no new dependency) and parse
+        its JSON stdout. Built AND executed entirely inside a pinned Docker container -- never
+        directly on the host (G3/TC-596).
+    
+        This host's Windows Application Control policy blocks execution of a freshly-built, unsigned
+        native ``.exe`` -- confirmed directly against this exact function (``go_enumerator.exe``,
+        "Enterprise signing level requirements") when TC-590's worker independently reproduced the
+        same condition while reworking the Rust enumerator (OWNER-16); TC-589 itself only landed
+        because its own live run happened to complete before this condition re-triggered here, a
+        fragile timing accident, never a durable guarantee. WDAC governs native Windows PE execution
+        only -- a Linux binary executed inside Docker Desktop's own Linux VM is completely outside
+        its scope, so ``go run`` moves inside the container too, eliminating the dependency on the
+        host's own WDAC posture entirely, mirroring ``_run_rust_enumerator``'s own fix (G3/TC-590).
+    
+        The directory holding ``go_enumerator.go`` is mounted read-only (the companion program is
+        never written to); ``library_dir`` is mounted read-write, since Go's own module/build cache
+        may want to write under the directory tree it is reading from. ``go_enumerator.go`` has no
+        non-stdlib imports (see its own module docstring), so this never reaches the network -- this
+        function, and therefore every test that calls ``enumerate_go``, stays compatible with this
+        card's own ``network: false`` requirement even though it shells out to Docker, because the
+        pinned image is already cached locally before the checks ever run.
+        """
+        runner = run or subprocess.run
+        result = runner(
+            [
+                "docker",
+                "run",
+                "--rm",
+                "-v",
+                f"{_ORACLE_HELPERS_DIR}:/work:ro",
+                "-v",
+                f"{library_dir}:/library",
+                "-w",
+                "/work",
+                image,
+                "go",
+                "run",
+                "missing_enumerator.go",
+                "/library",
+            ],
+            cwd=REPO_ROOT,
+            capture_output=True,
+            text=True,
+            encoding="utf-8",
+            errors="replace",
+            check=False,
+        )
+        if result.returncode != 0:
+>           raise RuntimeError(
+                f"go_enumerator.go (Docker image {image}) failed against {library_dir}:\n"
+                f"{result.stdout}\n{result.stderr}"
+            )
+E           RuntimeError: go_enumerator.go (Docker image golang:1.26.4) failed against C:\Users\babar\AppData\Local\Temp\pytest-of-babar\pytest-13512\test_enumerate_go_attaches_met0:
+E           
+E           stat missing_enumerator.go: no such file or directory
+
+scripts\release\source_differential.py:648: RuntimeError
+_____________ test_enumerate_go_skips_a_file_that_fails_to_parse ______________
+
+tmp_path = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-13512/test_enumerate_go_skips_a_file0')
+
+    def test_enumerate_go_skips_a_file_that_fails_to_parse(tmp_path):
+        (tmp_path / ".git").mkdir()
+        (tmp_path / "broken.go").write_text("package pdf\n\nfunc broken(:\n", encoding="utf-8")
+        (tmp_path / "good.go").write_text("package pdf\n\ntype Fine struct {\n\tOK bool\n}\n", encoding="utf-8")
+>       symbols = sd.enumerate_go("acme/pdf", "deadbeef", tmp_path)
+                  ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests\release\test_source_differential.py:583: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+scripts\release\source_differential.py:677: in enumerate_go
+    raw_symbols = _run_go_enumerator(library_dir, run=run)
+                  ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+library_dir = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-13512/test_enumerate_go_skips_a_file0')
+run = None, image = 'golang:1.26.4'
+
+    def _run_go_enumerator(
+        library_dir: Path, *, run: Callable[..., Any] | None = None, image: str = GO_DOCKER_IMAGE
+    ) -> list[dict[str, Any]]:
+        """Run ``go_enumerator.go`` (Go's own ``go/parser``+``go/ast``, no new dependency) and parse
+        its JSON stdout. Built AND executed entirely inside a pinned Docker container -- never
+        directly on the host (G3/TC-596).
+    
+        This host's Windows Application Control policy blocks execution of a freshly-built, unsigned
+        native ``.exe`` -- confirmed directly against this exact function (``go_enumerator.exe``,
+        "Enterprise signing level requirements") when TC-590's worker independently reproduced the
+        same condition while reworking the Rust enumerator (OWNER-16); TC-589 itself only landed
+        because its own live run happened to complete before this condition re-triggered here, a
+        fragile timing accident, never a durable guarantee. WDAC governs native Windows PE execution
+        only -- a Linux binary executed inside Docker Desktop's own Linux VM is completely outside
+        its scope, so ``go run`` moves inside the container too, eliminating the dependency on the
+        host's own WDAC posture entirely, mirroring ``_run_rust_enumerator``'s own fix (G3/TC-590).
+    
+        The directory holding ``go_enumerator.go`` is mounted read-only (the companion program is
+        never written to); ``library_dir`` is mounted read-write, since Go's own module/build cache
+        may want to write under the directory tree it is reading from. ``go_enumerator.go`` has no
+        non-stdlib imports (see its own module docstring), so this never reaches the network -- this
+        function, and therefore every test that calls ``enumerate_go``, stays compatible with this
+        card's own ``network: false`` requirement even though it shells out to Docker, because the
+        pinned image is already cached locally before the checks ever run.
+        """
+        runner = run or subprocess.run
+        result = runner(
+            [
+                "docker",
+                "run",
+                "--rm",
+                "-v",
+                f"{_ORACLE_HELPERS_DIR}:/work:ro",
+                "-v",
+                f"{library_dir}:/library",
+                "-w",
+                "/work",
+                image,
+                "go",
+                "run",
+                "missing_enumerator.go",
+                "/library",
+            ],
+            cwd=REPO_ROOT,
+            capture_output=True,
+            text=True,
+            encoding="utf-8",
+            errors="replace",
+            check=False,
+        )
+        if result.returncode != 0:
+>           raise RuntimeError(
+                f"go_enumerator.go (Docker image {image}) failed against {library_dir}:\n"
+                f"{result.stdout}\n{result.stderr}"
+            )
+E           RuntimeError: go_enumerator.go (Docker image golang:1.26.4) failed against C:\Users\babar\AppData\Local\Temp\pytest-of-babar\pytest-13512\test_enumerate_go_skips_a_file0:
+E           
+E           stat missing_enumerator.go: no such file or directory
+
+scripts\release\source_differential.py:648: RuntimeError
+_______ test_enumerate_go_never_enumerates_bare_package_level_functions _______
+
+tmp_path = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-13512/test_enumerate_go_never_enumer0')
+
+    def test_enumerate_go_never_enumerates_bare_package_level_functions(tmp_path):
+        (tmp_path / ".git").mkdir()
+        (tmp_path / "helpers.go").write_text(
+            "package pdf\n\nfunc Helper() {}\n\ntype Document struct {\n\tTitle string\n}\n",
+            encoding="utf-8",
+        )
+>       (document,) = sd.enumerate_go("acme/pdf", "deadbeef", tmp_path)
+                      ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests\release\test_source_differential.py:593: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+scripts\release\source_differential.py:677: in enumerate_go
+    raw_symbols = _run_go_enumerator(library_dir, run=run)
+                  ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+library_dir = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-13512/test_enumerate_go_never_enumer0')
+run = None, image = 'golang:1.26.4'
+
+    def _run_go_enumerator(
+        library_dir: Path, *, run: Callable[..., Any] | None = None, image: str = GO_DOCKER_IMAGE
+    ) -> list[dict[str, Any]]:
+        """Run ``go_enumerator.go`` (Go's own ``go/parser``+``go/ast``, no new dependency) and parse
+        its JSON stdout. Built AND executed entirely inside a pinned Docker container -- never
+        directly on the host (G3/TC-596).
+    
+        This host's Windows Application Control policy blocks execution of a freshly-built, unsigned
+        native ``.exe`` -- confirmed directly against this exact function (``go_enumerator.exe``,
+        "Enterprise signing level requirements") when TC-590's worker independently reproduced the
+        same condition while reworking the Rust enumerator (OWNER-16); TC-589 itself only landed
+        because its own live run happened to complete before this condition re-triggered here, a
+        fragile timing accident, never a durable guarantee. WDAC governs native Windows PE execution
+        only -- a Linux binary executed inside Docker Desktop's own Linux VM is completely outside
+        its scope, so ``go run`` moves inside the container too, eliminating the dependency on the
+        host's own WDAC posture entirely, mirroring ``_run_rust_enumerator``'s own fix (G3/TC-590).
+    
+        The directory holding ``go_enumerator.go`` is mounted read-only (the companion program is
+        never written to); ``library_dir`` is mounted read-write, since Go's own module/build cache
+        may want to write under the directory tree it is reading from. ``go_enumerator.go`` has no
+        non-stdlib imports (see its own module docstring), so this never reaches the network -- this
+        function, and therefore every test that calls ``enumerate_go``, stays compatible with this
+        card's own ``network: false`` requirement even though it shells out to Docker, because the
+        pinned image is already cached locally before the checks ever run.
+        """
+        runner = run or subprocess.run
+        result = runner(
+            [
+                "docker",
+                "run",
+                "--rm",
+                "-v",
+                f"{_ORACLE_HELPERS_DIR}:/work:ro",
+                "-v",
+                f"{library_dir}:/library",
+                "-w",
+                "/work",
+                image,
+                "go",
+                "run",
+                "missing_enumerator.go",
+                "/library",
+            ],
+            cwd=REPO_ROOT,
+            capture_output=True,
+            text=True,
+            encoding="utf-8",
+            errors="replace",
+            check=False,
+        )
+        if result.returncode != 0:
+>           raise RuntimeError(
+                f"go_enumerator.go (Docker image {image}) failed against {library_dir}:\n"
+                f"{result.stdout}\n{result.stderr}"
+            )
+E           RuntimeError: go_enumerator.go (Docker image golang:1.26.4) failed against C:\Users\babar\AppData\Local\Temp\pytest-of-babar\pytest-13512\test_enumerate_go_never_enumer0:
+E           
+E           stat missing_enumerator.go: no such file or directory
+
+scripts\release\source_differential.py:648: RuntimeError
+=========================== short test summary info ===========================
+FAILED tests/release/test_source_differential.py::test_enumerate_go_reads_a_real_struct_with_go_ast_offline
+FAILED tests/release/test_source_differential.py::test_enumerate_go_reads_an_interface_and_its_methods_offline
+FAILED tests/release/test_source_differential.py::test_enumerate_go_defect_an_unexported_field_is_excluded_from_the_result
+FAILED tests/release/test_source_differential.py::test_enumerate_go_defect_pointer_receiver_params_are_read_exactly
+FAILED tests/release/test_source_differential.py::test_enumerate_go_attaches_methods_declared_in_a_different_file
+FAILED tests/release/test_source_differential.py::test_enumerate_go_skips_a_file_that_fails_to_parse
+FAILED tests/release/test_source_differential.py::test_enumerate_go_never_enumerates_bare_package_level_functions
+
+--- stderr ---
+
