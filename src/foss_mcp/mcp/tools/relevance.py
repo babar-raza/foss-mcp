@@ -30,6 +30,15 @@ whose CODE merely calls ``Save`` or ``Open``, which is nearly every example, so 
 nothing; a longer query is judged by the coverage floor alone, as before. ``RELEVANCE_THRESHOLD``, the IDF
 weights and the required identifier terms are untouched.
 
+TC-586 (G3/REQ-G3-009) makes that escape graduated instead of unconditional: a query of MORE than
+``TITLE_ANCHOR_MAX_TERMS`` carries more real signal, not less, so it was backwards for it to drop title
+protection entirely - reproduced on slides/cpp, whose two verified examples both end with the same
+``.save(..., SaveFormat::PPTX)`` boilerplate, so a 3-term query naming only that boilerplate ("export the
+deck to pptx") answered with both, unrelated. ``title_anchored`` now keeps requiring a title word up to
+``TITLE_ANCHOR_GRADUATED_MAX_TERMS`` (double the original cutoff); only past that higher ceiling does the
+coverage floor alone decide, measured against the full retrieval corpus and the 26-pilot example table so
+the tightening does not cost a real, title-unrelated correct answer its hit.
+
 TC-562 (G3/REQ-G3-009) makes the QUERY side understand how people phrase a task, still without embeddings:
 ``STOP_WORDS`` (function words and conversational filler, never an API noun) are dropped from a query behind
 the switch ``STOP_WORDS_ENABLED``; ``USER_TERM_SYNONYMS`` maps the words a user types to the words an API uses
@@ -726,18 +735,46 @@ def names_language_letter(query: str) -> bool:
 # TC-543: a query with at most this many distinctive terms must find one of them in an example's title.
 TITLE_ANCHOR_MAX_TERMS = 2
 
+# TC-586: above TITLE_ANCHOR_MAX_TERMS the query is no longer judged by the coverage floor alone - it is
+# STILL title-checked up to this many distinctive terms (double the original window), and the coverage
+# floor takes over entirely only beyond it. A query of MORE distinctive terms than the original cutoff
+# carries more real signal, not less, so it must stay at least as protected; dropping the escape for
+# EVERY term count (requiring a title word unconditionally) was measured against the full retrieval
+# corpus (tests/mcp/tools/test_round3_retrieval_corpus.py, 729 cases) and the 26-pilot example table
+# (tests/mcp/tools/test_forgiveness_acceptance.py): it does not regress the corpus floors (hit@3 and
+# wrong_conf both held or improved in every family), but it DOES cost two of the 26 pinned verbose
+# rows their hit - "protect a PDF with user and owner passwords and restrict printing" (6 terms, meant
+# for "Encrypt with Permissions") and "append one docx to another in C#" (3 terms, meant for "Merge Two
+# Documents") - both genuinely correct answers whose title shares not one stemmed or synonym word with
+# the query, so no per-query lexical rule can anchor them; dropping below the pinned floor of 14 is a
+# real regression, not a measurement artifact. Capping the requirement at 4 terms instead of removing it
+# keeps the 6-term "Encrypt with Permissions" case on the escape side (it is judged by the coverage floor
+# alone, exactly as before) while still catching the reproduced slides/cpp bug - "export the deck to
+# pptx" (3 terms) wrongly answered BOTH of slides/cpp's examples at coverage 1.0 and 0.67, because every
+# verified example in that scope ends by calling ``.save(..., SaveFormat::PPTX)``, so "pptx" (and "save",
+# its synonym) is boilerplate shared by every example regardless of topic - the exact failure mode TC-543
+# fixed for one- and two-term queries, now reproduced one bracket higher. The one sacrifice measured is
+# the 3-term "append one docx to another in C#" row, which loses its lucky escape-only hit: the table's
+# verbose-hit count goes from the unfixed baseline's 15/26 to 14/26, exactly meeting the pinned floor
+# (MIN_VERBOSE_HITS = 14) with one loss, not the two losses (13/26, below the floor) the unconditional
+# version measured.
+TITLE_ANCHOR_GRADUATED_MAX_TERMS = 2 * TITLE_ANCHOR_MAX_TERMS
+
 
 def title_anchored(query: str, family: str, title: str) -> bool:
-    """Whether an example titled *title* may answer *query* (TC-543).
+    """Whether an example titled *title* may answer *query* (TC-543, graduated by TC-586).
 
-    A query with more than ``TITLE_ANCHOR_MAX_TERMS`` distinctive terms is judged by the coverage floor
-    alone, so this is True. Otherwise it is True exactly when at least one distinctive term (stemmed, a
-    synonym counting, as in ``present_terms``) is a word of *title*; the family word and the generic words
-    are not distinctive, so ``pdf`` in a title never anchors ``pdf save``. A query with no distinctive term
-    is answered with the honest miss before this is reached.
+    A query of at most ``TITLE_ANCHOR_GRADUATED_MAX_TERMS`` distinctive terms (double
+    ``TITLE_ANCHOR_MAX_TERMS``) is True exactly when at least one distinctive term (stemmed, a synonym
+    counting, as in ``present_terms``) is a word of *title*; the family word and the generic words are not
+    distinctive, so ``pdf`` in a title never anchors ``pdf save``. Only ABOVE that higher cutoff is a
+    query judged by the coverage floor alone (True unconditionally) - a longer query is never LESS
+    protected than a shorter one, only, past a measured point, judged by a different mechanism (the
+    IDF-weighted coverage floor already carries enough of its own signal). A query with no distinctive
+    term is answered with the honest miss before this is reached.
     """
     terms = distinctive_terms(query, family)
-    if len(terms) > TITLE_ANCHOR_MAX_TERMS:
+    if len(terms) > TITLE_ANCHOR_GRADUATED_MAX_TERMS:
         return True
     return bool(present_terms(terms, tokenize(title)))
 

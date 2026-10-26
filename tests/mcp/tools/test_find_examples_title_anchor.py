@@ -28,7 +28,12 @@ from foss_mcp.indexing.publisher import publish_generation
 from foss_mcp.mcp.routing import Scope
 from foss_mcp.mcp.tools import find_examples as find_examples_module
 from foss_mcp.mcp.tools.find_examples import ExampleMatch, NoExampleFound, find_examples
-from foss_mcp.mcp.tools.relevance import TITLE_ANCHOR_MAX_TERMS, title_anchored
+from foss_mcp.mcp.tools.relevance import (
+    TITLE_ANCHOR_GRADUATED_MAX_TERMS,
+    TITLE_ANCHOR_MAX_TERMS,
+    distinctive_terms,
+    title_anchored,
+)
 from foss_mcp.mcp.tools.vector_guard import _set_guard
 from foss_mcp.normalization.chunker import chunk_document
 from foss_mcp.normalization.document_schema import Provenance, SourceKind, make_document
@@ -91,8 +96,14 @@ def _no_embedding_gateway(monkeypatch: pytest.MonkeyPatch) -> object:
         ("pages", "pdf", "Page Dimensions", True),
         ("pdf save", "pdf", "PDF Basics", False),
         ("pdf save", "pdf", "Save a Copy", True),
-        ("alpha beta gamma", "pdf", "Unrelated Title", True),
-        ("alpha beta gamma", "pdf", "", True),
+        # TC-586: above TITLE_ANCHOR_MAX_TERMS (2) the query is still title-checked, now up to
+        # TITLE_ANCHOR_GRADUATED_MAX_TERMS (4) - a three-term query with no title word anywhere in the
+        # generation's titles is rejected, exactly the graduated protection this card adds.
+        ("alpha beta gamma", "pdf", "Unrelated Title", False),
+        ("alpha beta gamma", "pdf", "", False),
+        ("alpha beta gamma delta", "pdf", "Unrelated Title", False),
+        # Five terms is past the graduated ceiling: the coverage floor alone applies again, unchanged.
+        ("alpha beta gamma delta epsilon", "pdf", "Unrelated Title", True),
         ("save", "pdf", "", False),
     ],
     ids=[
@@ -105,8 +116,10 @@ def _no_embedding_gateway(monkeypatch: pytest.MonkeyPatch) -> object:
         "plural-stems-to-the-title-word",
         "family-word-in-title-does-not-anchor",
         "family-word-ignored-other-word-anchors",
-        "three-terms-unrelated-title",
-        "three-terms-empty-title",
+        "three-terms-unrelated-title-now-anchored",
+        "three-terms-empty-title-now-anchored",
+        "four-terms-at-the-graduated-ceiling-still-anchored",
+        "five-terms-past-the-graduated-ceiling-escapes",
         "empty-title",
     ],
 )
@@ -116,8 +129,18 @@ def test_title_anchored(query: str, family: str, title: str, expected: bool) -> 
 
 def test_the_threshold_of_distinctive_terms_is_two() -> None:
     assert TITLE_ANCHOR_MAX_TERMS == 2
+
+
+def test_the_graduated_ceiling_is_double_the_original_threshold() -> None:
+    # TC-586: the unconditional escape above TITLE_ANCHOR_MAX_TERMS is gone. A query is still judged
+    # against the title up to TITLE_ANCHOR_GRADUATED_MAX_TERMS distinctive terms; only past that higher
+    # ceiling does the coverage floor alone decide, so a longer query is never LESS protected than a
+    # shorter one - only, past a measured point, protected by a different mechanism.
+    assert TITLE_ANCHOR_GRADUATED_MAX_TERMS == 2 * TITLE_ANCHOR_MAX_TERMS
     assert title_anchored("alpha beta", "pdf", "Unrelated") is False
-    assert title_anchored("alpha beta gamma", "pdf", "Unrelated") is True
+    assert title_anchored("alpha beta gamma", "pdf", "Unrelated") is False
+    assert title_anchored("alpha beta gamma delta", "pdf", "Unrelated") is False
+    assert title_anchored("alpha beta gamma delta epsilon", "pdf", "Unrelated") is True
 
 
 # --- synthetic generations ----------------------------------------------------------------------
@@ -138,8 +161,10 @@ TEXT_EXAMPLE = _example(
     TEXT_TITLE,
     "page = document.page\ntext = watermark\ndocument.save(text, page, watermark)",
 )
-# A third distinctive word triple that appears in the code of an example whose title says none of it.
-LAYOUT_EXAMPLE = _example("Inspect Layout Metrics", "alpha = beta + gamma")
+# Five distinctive words that appear in the code of an example whose title ("Inspect Layout Metrics")
+# says none of them - used to probe every side of the TC-586 graduated ceiling (TITLE_ANCHOR_MAX_TERMS
+# through TITLE_ANCHOR_GRADUATED_MAX_TERMS and just past it).
+LAYOUT_EXAMPLE = _example("Inspect Layout Metrics", "alpha = beta + gamma\ndelta = epsilon")
 
 
 def _publish(root: Path, texts: list[str]) -> GenerationManifestStore:
@@ -193,7 +218,9 @@ def test_a_short_query_needs_a_title_word_in_a_synthetic_generation(
 def test_a_two_word_query_needs_one_title_word(two_examples: GenerationManifestStore) -> None:
     assert _titles(find_examples(two_examples, SCOPE, "save watermark")) == [WATERMARK_TITLE]
     assert _titles(find_examples(two_examples, SCOPE, "save text")) == [TEXT_TITLE]
-    # Three distinctive terms: the coverage floor alone applies, so both examples answer.
+    # Three distinctive terms, still title-checked under TC-586 (3 <= TITLE_ANCHOR_GRADUATED_MAX_TERMS):
+    # "watermark" anchors WATERMARK_TITLE and "text" anchors TEXT_TITLE, so both answer - not because the
+    # rule has switched off, but because each title genuinely contains one of the three terms.
     assert sorted(_titles(find_examples(two_examples, SCOPE, "save text watermark"))) == sorted(
         [WATERMARK_TITLE, TEXT_TITLE]
     )
@@ -206,13 +233,19 @@ def test_a_query_without_a_distinctive_term_is_the_honest_miss(
         assert isinstance(find_examples(two_examples, SCOPE, query), NoExampleFound), query
 
 
-def test_a_longer_query_is_judged_by_the_coverage_floor_alone(tmp_path: Path) -> None:
+def test_a_query_past_the_graduated_ceiling_is_judged_by_the_coverage_floor_alone(tmp_path: Path) -> None:
     store = _publish(tmp_path / "m", [SYMBOL_CHUNK, LAYOUT_EXAMPLE])
-    # Three distinctive terms, all in the code, none in the title "Inspect Layout Metrics": answered.
-    result = find_examples(store, SCOPE, "alpha beta gamma")
-    assert _titles(result) == ["Inspect Layout Metrics"]
-    # The same example for two of those terms: the title rule applies and rejects it.
+    # Two distinctive terms: the title rule applies (unchanged since TC-543) and rejects it.
     assert isinstance(find_examples(store, SCOPE, "alpha beta"), NoExampleFound)
+    # TC-586: three and four distinctive terms are now STILL title-checked - none of them is a word of
+    # "Inspect Layout Metrics", so where the pre-TC-586 unconditional escape would have answered, the
+    # graduated rule now rejects both, exactly the slides/cpp bug this card fixes reproduced synthetically.
+    assert isinstance(find_examples(store, SCOPE, "alpha beta gamma"), NoExampleFound)
+    assert isinstance(find_examples(store, SCOPE, "alpha beta gamma delta"), NoExampleFound)
+    # Five distinctive terms is past TITLE_ANCHOR_GRADUATED_MAX_TERMS: the coverage floor alone decides
+    # again, exactly as every term count above TITLE_ANCHOR_MAX_TERMS did before this card.
+    result = find_examples(store, SCOPE, "alpha beta gamma delta epsilon")
+    assert _titles(result) == ["Inspect Layout Metrics"]
 
 
 def test_the_exact_title_branch_is_unchanged(two_examples: GenerationManifestStore) -> None:
@@ -280,7 +313,8 @@ def test_match_basis_is_set_per_branch(
     exact = find_examples(two_examples, SCOPE, f"{EXAMPLE_PREFIX}{WATERMARK_TITLE}")
     short = find_examples(two_examples, SCOPE, "watermark")
     longer_store = _publish(tmp_path / "longer", [SYMBOL_CHUNK, LAYOUT_EXAMPLE])
-    longer = find_examples(longer_store, SCOPE, "alpha beta gamma")
+    # Five distinctive terms: past TITLE_ANCHOR_GRADUATED_MAX_TERMS, so the coverage floor alone applies.
+    longer = find_examples(longer_store, SCOPE, "alpha beta gamma delta epsilon")
     monkeypatch.setattr(
         find_examples_module,
         "GatewayEmbeddingProvider",
@@ -413,6 +447,37 @@ def test_pdf_net_watermark_and_pdf_java_page_dimensions_still_answer_as_the_live
     dimensions = find_examples(stores.of(java), _scope_of(java), "page dimensions")
     assert isinstance(dimensions, list)
     assert any("Inspect Document Page Dimensions" in match.fqn for match in dimensions[:3])
+
+
+def test_the_slides_cpp_export_format_reproduction_is_fixed(stores: _Stores) -> None:
+    """TC-586's real reproduction, re-confirmed against the committed infra/demo-manifests on
+    2026-10-26 (commit 469ce77a07b988c49deb930632b8276c89ec6b66): slides/cpp has exactly two verified
+    examples, "Comments and Replies" and "Document Properties", and BOTH examples' code ends with the
+    same boilerplate call, ``pres.save(..., SaveFormat::PPTX)`` - it has nothing to do with either
+    example's real topic. Before this card, the three-distinctive-term query below (deck, export, pptx)
+    hit title_anchored's unconditional escape (3 > the old TITLE_ANCHOR_MAX_TERMS of 2) and the coverage
+    floor alone answered with BOTH unrelated examples, at coverage 1.0 and 0.67. Neither example answers
+    a question about exporting to a format, so the honest result is a miss.
+    """
+    directory = _directory_of("slides/cpp")
+    scope = _scope_of(directory)
+    query = "export the deck to pptx"
+    assert len(distinctive_terms(query, scope.family)) == 3
+    for title in ("Comments and Replies", "Document Properties"):
+        assert title_anchored(query, scope.family, title) is False, title
+    result = find_examples(stores.of(directory), scope, query)
+    assert isinstance(result, NoExampleFound), result
+
+
+def test_a_synthetic_four_term_query_with_no_title_match_is_excluded(tmp_path: Path) -> None:
+    """The second half of the card's requirement: a synthetic 4+ term query whose title genuinely
+    contains none of its distinctive terms is correctly excluded by the new graduation, independent of
+    the real slides/cpp data above."""
+    store = _publish(tmp_path / "synthetic", [SYMBOL_CHUNK, LAYOUT_EXAMPLE])
+    query = "alpha beta gamma delta"
+    assert len(distinctive_terms(query, SCOPE.family)) == 4
+    assert title_anchored(query, SCOPE.family, "Inspect Layout Metrics") is False
+    assert isinstance(find_examples(store, SCOPE, query), NoExampleFound)
 
 
 def test_the_tc516_example_tables_are_unchanged(stores: _Stores) -> None:
