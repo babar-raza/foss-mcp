@@ -1959,6 +1959,32 @@ def test_default_enumerators_cover_python_and_every_card_named_platform():
     )
 
 
+def test_default_enumerators_cover_every_platform_the_chart_actually_uses():
+    """G3/TC-595: the single machine-checkable assertion that closes the 7-card oracle remediation
+    (TC-566, TC-589..TC-594, TC-596). Unlike the hand-maintained platform set in
+    ``test_default_enumerators_cover_python_and_every_card_named_platform`` above, this test reads
+    ``infra/helm/foss-mcp/values.yaml``'s own 32 pilots directly (``sd.chart.load_pilots()``, the
+    same call ``main()`` itself makes) rather than naming platforms by hand, so it can never drift
+    out of sync with the chart and silently stop proving anything. For every platform the chart's
+    pilots actually use, it asserts ``DEFAULT_ENUMERATORS`` resolves to a real, named
+    ``enumerate_*`` function -- never ``_unimplemented_enumerator``'s own inner closure (always
+    named ``_enumerator``, regardless of which platform string was closed over) -- without calling
+    the enumerator itself, so this stays fully offline: no network, no subprocess, no Docker.
+    """
+    platforms_in_use = {str(pilot["platform"]) for pilot in sd.chart.load_pilots()}
+    assert platforms_in_use, "the chart named no pilots at all -- load_pilots() itself is broken"
+    for platform in sorted(platforms_in_use):
+        enumerator = sd.DEFAULT_ENUMERATORS.get(platform)
+        assert enumerator is not None, f"no enumerator at all registered for in-use platform {platform!r}"
+        assert enumerator.__name__ != "_enumerator", (
+            f"platform {platform!r} is used by a real pilot but DEFAULT_ENUMERATORS still maps it to "
+            f"_unimplemented_enumerator's stub -- this is exactly the silent under-delivery TC-595 closes"
+        )
+        assert enumerator.__name__.startswith("enumerate_"), (
+            f"platform {platform!r} resolves to {enumerator.__name__!r}, not a real enumerate_* function"
+        )
+
+
 # --- main(): CLI wiring, offline, injected enumerators ------------------------------------------------
 
 

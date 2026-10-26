@@ -187,6 +187,41 @@ The image serves 32 pilots. The eight jmap pilots (jmap/cpp, jmap/go, jmap/java,
 These are findings of the independent adversarial reviews that this release accepts rather than fixes. The full
 ledger is `docs/REVIEW_LEDGER.md`; each entry below repeats one accepted finding with its reason.
 
+### Independent extraction-fidelity oracle (REQ-G3-009), updated 2026-10-27
+
+Round-3's review (`docs/ROUND3_REVIEW.md`, row RD3-150) found that every prior fidelity test was self-consistency
+only: the shipped data is a pure function of the committed fixtures, so nothing independently verified against the
+real upstream source. TC-566 answered this with `scripts/release/source_differential.py`, an oracle that reads each
+pilot's real source with the *language's own* tooling (never this project's own tree-sitter engine) and diffs it
+against the baked `api_surface.json`. TC-566's own closeout claimed the oracle covers the fleet, but it shipped a
+real enumerator for Python only — every other platform fell back to `_unimplemented_enumerator`, and nothing in this
+repository ever disclosed that gap until now. TC-589 through TC-594 and TC-596 each wired one more real, independent
+enumerator; **as of this entry, every platform this chart's 32 pilots actually use — python, go, rust, typescript,
+java, net/dotnet and cpp — has a real one** (Python's own `ast`, Go's `go/parser`+`go/ast`, Rust's `syn` crate,
+TypeScript's own Compiler API, the JDK's Compiler Tree API, Roslyn's parser, and Clang's own AST, respectively; see
+the module docstring of `source_differential.py` for exactly which tool and why). `javascript`/`nodejs` are the only
+two platforms still mapped to the stub, and the chart names no pilot for either, so that is not a real gap.
+
+With full coverage landed, this card (TC-595) ran the oracle for real against **all 32 pilots in one pass** —
+`python scripts/release/source_differential.py --fixtures tests/fixtures`, no `--only` filter, 32 real upstream
+clones at their pinned commits, the real per-language toolchain against each. The result, measured, not assumed:
+**29 of 32 pilots disagree with the baked fixture in at least one category** (72,648 real members compared
+fleet-wide; 24,565 missing, 59,890 extra, 2,002 signature, 18 static, 2 default, 1,375 enum_value disagreements
+summed across those 29). Only 3 pilots reported zero disagreements, and of those, only one — `cells/go` (79 real
+members checked, 0 disagreements) — is a genuine clean result. The other two are hollow passes, not fidelity
+confirmations, surfaced by this same run: `cells/typescript` compared **zero** real members, because its upstream
+repository's declared package entry point (`package.json`'s `"main": "index.ts"`) is a demo script that imports and
+calls the library rather than a barrel that re-exports it, and this oracle's TypeScript enumerator (by design)
+scopes to symbols reachable from the declared entry point; `tex/python` compared only 7 of its real top-level
+classes, because `src/aspose_tex/presentation/__init__.py` (6 more classes, including `TeXOptions` and
+`OutputDevice`) has a real syntax error at the pinned commit — the same pre-existing upstream corruption TC-555
+already found and the production extractor already works around with a bounded textual repair — and this oracle's
+Python enumerator has no such repair, so `ast.parse` fails for the whole file and it is skipped outright, silently.
+These two findings, and the full per-pilot, per-category breakdown, are in this card's own commit message
+(`docs(release): run the independent oracle fleet-wide and close the Python-only disclosure gap (G3/TC-595)`) and
+are registered for follow-up as open questions, not fixed by this card. This closes the Round-3 disclosure gap: what
+the oracle covers, and the real result of covering it, is now stated here rather than left unstated.
+
 ### Example search without the embedding gateway
 
 `find_examples` searches the verified examples lexically first. Its vector stage needs the embedding gateway at run
