@@ -940,7 +940,8 @@ def evidence_terms(query: str, family: str) -> tuple[EvidenceTerm, ...]:
     seen: set[str] = set()
     for run in _ALNUM_RUN_RE.findall(_normalised_query(query)):
         parts = _CAMEL_PARTS_RE.findall(run)
-        for word in (part.lower() for part in (parts if len(parts) > 1 else [run])):
+        candidates = [run, *parts] if len(parts) > 1 else [run]
+        for word in (candidate.lower() for candidate in candidates):
             if len(word) == 1 and word.isalpha():
                 continue
             if not tokenize(word):

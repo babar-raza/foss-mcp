@@ -8,7 +8,9 @@ that find_examples and search_docs compare with the unchanged 0.6 threshold.
 
 from __future__ import annotations
 
+import json
 import math
+from pathlib import Path
 
 import pytest
 
@@ -20,6 +22,7 @@ from foss_mcp.mcp.tools.relevance import (
     SYNONYM_GROUPS,
     coverage,
     distinctive_terms,
+    evidence_terms,
     family_generic_fraction,
     family_generic_stems,
     guarded_coverage,
@@ -28,6 +31,9 @@ from foss_mcp.mcp.tools.relevance import (
     stem_token,
     term_weights,
 )
+
+REPO_ROOT = Path(__file__).resolve().parents[3]
+TEX_PYTHON_MANIFEST_DIR = REPO_ROOT / "infra" / "demo-manifests" / "tex__python__self_extracted"
 
 
 def _payload(documents: list[list[str]]) -> dict:
@@ -298,3 +304,85 @@ def test_family_generic_fraction_ranks_the_worst_offender_first() -> None:
     payload = _payload([["cell", "workbook"]] * 8 + [["cell"]] * 2)
     ranked = sorted({"cell", "workbook"}, key=lambda stem: -family_generic_fraction(stem, payload))
     assert ranked == ["cell", "workbook"]
+
+
+# ---- G3/TC-587 (REQ-G3-009, RC-7 round-2 audit): evidence_terms must keep a splitting camelCase run's
+# WHOLE word as a candidate ALONGSIDE its sub-word parts, mirroring lexical_index_writer.tokenize's own
+# discipline (the whole run is always a candidate; sub-words are added in addition, never instead). Before
+# this fix, a run that split into more than one sub-word part lost the whole word entirely - only the
+# (often meaningless) fragments survived - which buried an exact-identifier query like "LaTeXDocument"
+# behind "la"/"te"/"document" alone. -------------------------------------------------------------------
+
+
+def test_evidence_terms_keeps_the_whole_splitting_camel_run_alongside_its_parts() -> None:
+    # "LaTeXDocument" splits (via the same camel-part regex tokenize() uses) into "La"/"Te"/"X"/"Document".
+    # tokenize() itself would emit the whole run ("latexdocument") PLUS each sub-word ("la", "te", "document";
+    # the single-letter "x" is dropped by both tokenize() and evidence_terms as not meaningful alone). A
+    # neutral family ("pdf") is used so the whole run is not itself a family word/alias that would divert it
+    # to the common-word fallback instead of ``kept`` - this test is about the candidate set evidence_terms
+    # builds, not about the family-alias rescue (a separate, unrelated mechanism).
+    words = {term.word for term in evidence_terms("LaTeXDocument", "pdf")}
+    assert words == {"latexdocument", "la", "te", "document"}
+    # The whole run and its parts are independent candidates, not a repeat of the same key under ``seen``.
+    keys = {term.key for term in evidence_terms("LaTeXDocument", "pdf")}
+    assert len(keys) == len({"latexdocument", "la", "te", "document"})
+
+
+def test_evidence_terms_still_returns_only_the_run_when_it_does_not_split() -> None:
+    # A run with at most one camel-part (plain lower-case, or PascalCase with a single capitalised word) is
+    # unaffected: the single-element branch of the fix is unchanged from before.
+    assert {term.word for term in evidence_terms("Document", "pdf")} == {"document"}
+    assert {term.word for term in evidence_terms("document", "pdf")} == {"document"}
+
+
+def test_evidence_terms_whole_run_matches_tokenizes_own_camel_split() -> None:
+    # The exact discipline evidence_terms must now mirror, word for word, is lexical_index_writer.tokenize's
+    # own documented behaviour: "emits the whole run lowercased ... PLUS ... each sub-word lowercased too".
+    for run in ("AddWatermarkAnnotation", "LaTeXDocument", "PdfDocument"):
+        assert set(tokenize(run)) == {term.word for term in evidence_terms(run, "sample")} | (
+            {"x"} if run == "LaTeXDocument" else set()
+        )
+
+
+# ---- The real reproduction, against the real baked infra/demo-manifests tex/python generation (RC-7,
+# round 2): the tex family's own product name, "LaTeX", is a camelCase run that splits into "La"/"Te"/"X".
+# Before the fix, evidence_terms("LaTeXDocument", "tex") (mirroring a user naming the product directly,
+# e.g. "LaTeXDocument", "AsposeTeXError") lost the whole run entirely; querying the pilot's OWN real
+# identifiers the same way (drawn straight from the real generation, not invented) shows the same loss on
+# this exact family and the same fix. -------------------------------------------------------------------
+
+
+def _real_tex_python_fqns() -> list[str]:
+    pointer = json.loads((TEX_PYTHON_MANIFEST_DIR / "active_pointer.json").read_text(encoding="utf-8"))
+    suffix = pointer["generation_id"].rsplit("::", 1)[-1]
+    generation_file = TEX_PYTHON_MANIFEST_DIR / f"generation__{suffix}.json"
+    manifest = json.loads(generation_file.read_text(encoding="utf-8"))
+    documents = manifest["payload"]["lexical_index"]["documents"]
+    fqns = []
+    for document in documents.values():
+        first_line = document["text"].split("\n", 1)[0]
+        if first_line.startswith("FQN: ") and "Doc:" not in first_line and "Example:" not in first_line:
+            fqns.append(first_line[len("FQN: ") :].strip().rsplit(".", 1)[-1])
+    return fqns
+
+
+def test_tex_python_real_baked_data_reproduction_of_the_whole_run_loss() -> None:
+    # Grounds the fix in the real, committed infra/demo-manifests fixture rather than an invented name:
+    # "TeXJob" and "TeXOptions" are real symbol short-names of the tex/python pilot's own active generation.
+    real_fqns = _real_tex_python_fqns()
+    assert "TeXJob" in real_fqns
+    assert "TeXOptions" in real_fqns
+    for short_name in ("TeXJob", "TeXOptions"):
+        words = {term.word for term in evidence_terms(short_name, "tex")}
+        # The whole run - the pilot's own real identifier, lowercased - is now a candidate term. Before this
+        # card's fix it was NOT: only the sub-word fragments ("te", "job"/"options") survived, so a caller
+        # that scored symbols purely by evidence_terms's candidate set (as search_symbols._safe_extra_generic
+        # does over the raw query) never saw the real name as a term in its own right.
+        assert short_name.lower() in words
+    # "LaTeX" itself is the one real exception on THIS family: it is a registered FAMILY_ALIASES entry for
+    # "tex" (a product name, not an API term - same footing as the bare family word "tex" itself, deliberately
+    # excluded from being a query TERM by a separate, unrelated mechanism - see evidence_terms's own
+    # docstring and FAMILY_ALIASES). Confirming it does NOT silently reappear as a spurious "kept" term
+    # pins that this card's fix did not disturb that separate rescue.
+    latex_words = {term.word for term in evidence_terms("LaTeX", "tex")}
+    assert "latex" not in latex_words
