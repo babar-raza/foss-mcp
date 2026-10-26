@@ -1,0 +1,34 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    Companion console project for source_differential.py's independent .NET oracle (G3/TC-593).
+    Microsoft.CodeAnalysis.CSharp (Roslyn) is a real, new, pinned NuGet dependency, used for
+    CSharpSyntaxTree.ParseText only (syntax/parse phase, never semantic/symbol resolution against
+    the library's own external references; see Program.cs's own module docstring for the exact
+    scope rules this enumerator applies).
+
+    Run via "dotnet run" with a project/no restore/configuration/library dir argument set (see
+    source_differential.py's _run_dotnet_enumerator for the exact argv): this executes MANAGED IL
+    through the already-trusted dotnet host, which JIT-compiles it in memory, never a
+    freshly-built, unsigned NATIVE .exe written to disk (that is exactly what makes
+    enumerate_go/enumerate_rust need Docker on this host's Windows Application Control policy;
+    see their own docstrings in source_differential.py). Confirmed directly before this project
+    was written: a plain "dotnet build" then "dotnet run" of this exact project on this host
+    completed with no WDAC block of any kind.
+  -->
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net8.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <AssemblyName>DotNetEnumerator</AssemblyName>
+    <RootNamespace>DotNetEnumerator</RootNamespace>
+    <InvariantGlobalization>true</InvariantGlobalization>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.CodeAnalysis.CSharp" Version="4.11.0" />
+  </ItemGroup>
+
+</Project>

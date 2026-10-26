@@ -39,6 +39,19 @@ own unconditionally-exported public API, unlike ``com.sun.tools.javac.*``'s inte
 compiling and running a plain ``.java`` text file in memory is the already-trusted host
 interpreter, not a freshly-built native binary on disk, so the WDAC workaround the Go/Rust
 enumerators need never applies here either, exactly like TypeScript's own ``node`` case.
+
+The ``enumerate_dotnet`` tests (G3/TC-593) really invoke ``dotnet run`` directly (against the
+companion console project, ``scripts/release/oracle_helpers/dotnet_enumerator/``) against
+hand-written, on-disk synthetic ``.cs`` fixtures through the real Roslyn parser
+(``Microsoft.CodeAnalysis.CSharp``, ``CSharpSyntaxTree.ParseText``), SYNTAX/PARSE PHASE ONLY --
+never the real pilot, never a network call, never Docker. ``dotnet run --no-restore`` JIT-compiles
+and executes MANAGED IL through the already-trusted ``dotnet`` host (the companion project's own
+``Microsoft.CodeAnalysis.CSharp`` NuGet dependency was restored once, with network, before these
+tests ever run, exactly like ``cargo vendor``'s one-time network use ahead of ``enumerate_rust``'s
+own ``cargo run --offline``); it never writes a freshly-built, unsigned NATIVE binary to disk, so
+the WDAC workaround the Go/Rust enumerators need never applies here either, exactly like
+TypeScript's/Java's own cases -- confirmed directly, not merely assumed, before this card's own
+enumerator was wired in.
 """
 
 from __future__ import annotations
@@ -1328,8 +1341,301 @@ def test_run_java_enumerator_raises_with_a_clear_message_on_a_nonzero_java_exit(
         sd._run_java_enumerator(tmp_path, run=failing_run)
 
 
+# --- the Roslyn CSharpSyntaxTree.ParseText enumerator: the sixth real, wired tool this card lands ----
+# Every fixture below is a hand-written synthetic .cs file (never the real pilot, never the
+# enumerator's own output read back as the expected value). enumerate_dotnet really invokes the
+# REAL Roslyn parser (Microsoft.CodeAnalysis.CSharp, CSharpSyntaxTree.ParseText, SYNTAX/PARSE
+# PHASE ONLY) through scripts/release/oracle_helpers/dotnet_enumerator/Program.cs, run with
+# `dotnet run --project ... --no-restore` -- the already-trusted host interpreter, no Docker, no
+# fresh native binary, so none of these tests need the Windows Application Control workaround
+# enumerate_go/enumerate_rust need; G3/TC-593, confirmed directly the same way TC-591/TC-592
+# confirmed it for node/TypeScript and java/Java -- against these files on local disk: real
+# wall-clock time (a real `dotnet` subprocess + a real parse), same as the Java/TypeScript tests
+# above, but no container start and no symbol/semantic resolution at all (parse-phase only, so an
+# unresolvable `using` never breaks anything).
+
+
+def test_enumerate_dotnet_reads_a_real_class_with_roslyn_offline(tmp_path):
+    (tmp_path / ".git").mkdir()  # pretend already-cloned, so enumerate_dotnet never shells out to git
+    (tmp_path / "Widget.cs").write_text(
+        "public class Widget {\n"
+        "    public string Name;\n"
+        "    string PackagePrivateField;\n"  # no modifier: implicitly private, must NOT appear
+        "\n"
+        "    public void Build(string name, int count = 3) {\n"
+        "    }\n"
+        "\n"
+        "    private void Helper() {\n"
+        "    }\n"  # private: must NOT appear
+        "}\n",
+        encoding="utf-8",
+    )
+    symbols = sd.enumerate_dotnet("acme/widgets", "deadbeef", tmp_path)
+    (widget,) = [s for s in symbols if s.name == "Widget"]
+    assert widget.kind == "class"
+    by_name = {member.name: member for member in widget.members}
+    assert set(by_name) == {"Name", "Build"}, "PackagePrivateField and Helper must never appear"
+    assert by_name["Name"].kind == "property"
+    assert by_name["Build"].kind == "method"
+    assert by_name["Build"].params == (OP("name"), OP("count", has_default=True))
+    assert by_name["Build"].is_static is False
+
+
+def test_enumerate_dotnet_reads_an_interface_and_its_methods_offline(tmp_path):
+    (tmp_path / ".git").mkdir()
+    (tmp_path / "IReader.cs").write_text(
+        "public interface IReader {\n    string Read(string path);\n}\n",
+        encoding="utf-8",
+    )
+    (reader,) = sd.enumerate_dotnet("acme/pdf", "deadbeef", tmp_path)
+    assert reader.name == "IReader"
+    assert reader.kind == "class"  # an interface maps onto OracleSymbol.kind == "class" too
+    (read,) = reader.members
+    assert read.name == "Read"
+    assert read.kind == "method"
+    assert read.params == (OP("path"),)
+    assert read.is_static is False
+
+
+def test_enumerate_dotnet_defect_a_class_member_with_no_modifier_is_implicitly_private(tmp_path):
+    """Deliberate defect fixture 1 (half of the card's own named case): a class/struct member with
+    no explicit access modifier is implicitly PRIVATE in C# -- the opposite of the interface rule
+    directly below -- and must be excluded."""
+    (tmp_path / ".git").mkdir()
+    (tmp_path / "Document.cs").write_text(
+        "public class Document {\n"
+        "    public void Save(string path) {\n"  # public: must appear
+        "    }\n"
+        "\n"
+        "    void Adjust() {\n"  # no modifier inside a class: implicitly private, must NOT appear
+        "    }\n"
+        "}\n",
+        encoding="utf-8",
+    )
+    (document,) = sd.enumerate_dotnet("acme/pdf", "deadbeef", tmp_path)
+    names = {member.name for member in document.members}
+    assert names == {"Save"}, "a class member with no explicit modifier must be excluded (implicitly private)"
+
+
+def test_enumerate_dotnet_defect_an_interface_member_with_no_modifier_is_implicitly_public(tmp_path):
+    """Deliberate defect fixture 2 (the card's own named case, the easiest place to invert): an
+    interface member with NO explicit modifier is implicitly PUBLIC in C# -- the exact opposite
+    of the class rule directly above -- and must be INCLUDED, never excluded by a buggy "no
+    modifier means private" rule applied uniformly."""
+    (tmp_path / ".git").mkdir()
+    (tmp_path / "IDocument.cs").write_text(
+        "public interface IDocument {\n    void Save(string path);\n}\n",  # no modifier: still public
+        encoding="utf-8",
+    )
+    (idocument,) = sd.enumerate_dotnet("acme/pdf", "deadbeef", tmp_path)
+    names = {member.name for member in idocument.members}
+    assert names == {"Save"}, (
+        "an interface member with no explicit modifier must be included (implicitly public)"
+    )
+
+
+def test_enumerate_dotnet_defect_a_static_method_is_distinguished_from_an_instance_method(tmp_path):
+    """Deliberate defect fixture 3 (the card's own named case): a bug that reports every method
+    as static, or every method as instance, must fail this."""
+    (tmp_path / ".git").mkdir()
+    (tmp_path / "Workbook.cs").write_text(
+        "public class Workbook {\n"
+        "    public static Workbook Create() {\n"
+        "        return new Workbook();\n"
+        "    }\n"
+        "\n"
+        "    public void Save(string path) {\n"
+        "    }\n"
+        "}\n",
+        encoding="utf-8",
+    )
+    (workbook,) = sd.enumerate_dotnet("acme/widgets", "deadbeef", tmp_path)
+    by_name = {member.name: member for member in workbook.members}
+    assert by_name["Create"].is_static is True
+    assert by_name["Save"].is_static is False
+
+
+def test_enumerate_dotnet_a_nullable_marker_is_never_confused_with_a_default_value(tmp_path):
+    """A parameter's has_default must come from the syntax tree's own EqualsValueClause only,
+    never a `?` nullable-reference-type marker, which carries no default value of its own --
+    mirroring enumerate_typescript's own identical optional-marker-vs-default distinction."""
+    (tmp_path / ".git").mkdir()
+    (tmp_path / "Calc.cs").write_text(
+        "public class Calc {\n"
+        "    public int Add(string? label, int count = 0) {\n"
+        "        return count;\n"
+        "    }\n"
+        "}\n",
+        encoding="utf-8",
+    )
+    (calc,) = sd.enumerate_dotnet("acme/widgets", "deadbeef", tmp_path)
+    (add,) = calc.members
+    assert add.params == (OP("label", has_default=False), OP("count", has_default=True))
+
+
+def test_enumerate_dotnet_a_file_with_a_syntax_error_does_not_crash_the_enumerator(tmp_path):
+    (tmp_path / ".git").mkdir()
+    (tmp_path / "Broken.cs").write_text("public class Broken {\n", encoding="utf-8")
+    (tmp_path / "Fine.cs").write_text(
+        "public class Fine {\n    public void Ok() {\n    }\n}\n", encoding="utf-8"
+    )
+    symbols = sd.enumerate_dotnet("acme/pdf", "deadbeef", tmp_path)
+    names = {s.name for s in symbols}
+    assert "Fine" in names, "a syntax error in one file must never prevent reading another file's class"
+    assert "Broken" not in names
+
+
+def test_enumerate_dotnet_skips_a_non_public_top_level_class(tmp_path):
+    (tmp_path / ".git").mkdir()
+    (tmp_path / "Internal.cs").write_text(
+        "internal class Internal {\n    public void Run() {\n    }\n}\n", encoding="utf-8"
+    )
+    symbols = sd.enumerate_dotnet("acme/widgets", "deadbeef", tmp_path)
+    assert symbols == [], "an internal top-level class is not part of the public API"
+
+
+def test_enumerate_dotnet_flattens_a_public_nested_enum_into_the_same_symbol_list(tmp_path):
+    """Matches enumerate_java's own nested-type handling (G3/TC-592): public static nested
+    classes/enums are a routine pattern in these wrapper APIs too."""
+    (tmp_path / ".git").mkdir()
+    (tmp_path / "Settings.cs").write_text(
+        "public class Settings {\n"
+        "    public enum Mode {\n"
+        "        Fast, Slow\n"
+        "    }\n"
+        "\n"
+        "    public void Apply() {\n"
+        "    }\n"
+        "}\n",
+        encoding="utf-8",
+    )
+    symbols = sd.enumerate_dotnet("acme/widgets", "deadbeef", tmp_path)
+    names = {s.name: s for s in symbols}
+    assert set(names) == {"Settings", "Mode"}, "the nested public enum must be flattened in, by its own name"
+    assert names["Mode"].kind == "enum"
+    assert {m.name for m in names["Mode"].members} == {"Fast", "Slow"}
+
+
+def test_enumerate_dotnet_never_flattens_a_nested_type_of_a_non_public_outer_class(tmp_path):
+    (tmp_path / ".git").mkdir()
+    (tmp_path / "Internal.cs").write_text(
+        "internal class Internal {\n    public enum Mode {\n        Fast, Slow\n    }\n}\n",
+        encoding="utf-8",
+    )
+    symbols = sd.enumerate_dotnet("acme/widgets", "deadbeef", tmp_path)
+    assert symbols == [], "a nested type of an unreachable (internal) outer class is not public API"
+
+
+def test_enumerate_dotnet_skips_a_tests_directory_case_insensitively(tmp_path):
+    (tmp_path / ".git").mkdir()
+    (tmp_path / "Fine.cs").write_text(
+        "public class Fine {\n    public void Ok() {\n    }\n}\n", encoding="utf-8"
+    )
+    test_dir = tmp_path / "src" / "Tests"  # capitalised, like a real C# solution's own convention
+    test_dir.mkdir(parents=True)
+    (test_dir / "FineTests.cs").write_text(
+        "public class FineTests {\n    public void ShouldWork() {\n    }\n}\n", encoding="utf-8"
+    )
+    symbols = sd.enumerate_dotnet("acme/widgets", "deadbeef", tmp_path)
+    names = {s.name for s in symbols}
+    assert names == {"Fine"}, "a Tests directory must never be read as part of the public API"
+
+
+def test_enumerate_dotnet_an_overload_set_collapses_to_one_member_never_duplicated_or_dropped(tmp_path):
+    """C# overloading is pervasive in these wrapper APIs; diff_symbol/diff_language key the baked
+    fixture's own methods by bare name too (a pre-existing limit of this whole oracle system, not
+    something this card introduces), so this enumerator must collapse an overload set to exactly
+    one member, deterministically (the first declaration encountered), never one per signature."""
+    (tmp_path / ".git").mkdir()
+    (tmp_path / "Calc.cs").write_text(
+        "public class Calc {\n"
+        "    public int Add(int a) {\n"
+        "        return a;\n"
+        "    }\n"
+        "\n"
+        "    public int Add(int a, int b) {\n"
+        "        return a + b;\n"
+        "    }\n"
+        "}\n",
+        encoding="utf-8",
+    )
+    (calc,) = sd.enumerate_dotnet("acme/widgets", "deadbeef", tmp_path)
+    adds = [member for member in calc.members if member.name == "Add"]
+    assert len(adds) == 1, "an overload set must collapse to exactly one member, never one per signature"
+    assert adds[0].params == (OP("a"),), "the first declaration encountered must win, deterministically"
+
+
+def test_enumerate_dotnet_merges_a_partial_class_declared_across_two_files(tmp_path):
+    """A `partial class` split across several files is a routine C# pattern (often generated
+    code alongside hand-written code); this enumerator must merge both files' own members into
+    one symbol, never report two incomplete "Thing" symbols."""
+    (tmp_path / ".git").mkdir()
+    (tmp_path / "Thing.cs").write_text(
+        "public partial class Thing {\n    public void A() {\n    }\n}\n", encoding="utf-8"
+    )
+    (tmp_path / "Thing.Generated.cs").write_text(
+        "public partial class Thing {\n    public void B() {\n    }\n}\n", encoding="utf-8"
+    )
+    symbols = sd.enumerate_dotnet("acme/widgets", "deadbeef", tmp_path)
+    (thing,) = [s for s in symbols if s.name == "Thing"]
+    assert {m.name for m in thing.members} == {"A", "B"}, (
+        "both files' own members must be merged into one symbol"
+    )
+
+
+def test_enumerate_dotnet_an_enum_with_explicit_values_reads_them_exactly(tmp_path):
+    (tmp_path / ".git").mkdir()
+    (tmp_path / "Status.cs").write_text(
+        "public enum Status {\n    Ok = 0,\n    Bad = 2,\n    Unset = -7\n}\n", encoding="utf-8"
+    )
+    (status,) = sd.enumerate_dotnet("acme/widgets", "deadbeef", tmp_path)
+    assert status.kind == "enum"
+    by_name = {member.name: member for member in status.members}
+    assert by_name["Ok"].enum_value == "0"
+    assert by_name["Bad"].enum_value == "2"
+    assert by_name["Unset"].enum_value == "-7"
+
+
+def test_run_dotnet_enumerator_shells_out_to_dotnet_directly_never_docker(tmp_path):
+    """Offline check of the dotnet invocation's own shape (never a real subprocess here): no
+    Docker anywhere in the command, --no-restore present, the companion project's real path, and
+    the one positional argument it expects."""
+    import subprocess as _subprocess
+
+    captured: dict[str, object] = {}
+
+    def fake_run(args, **kwargs):
+        captured["args"] = args
+        captured["kwargs"] = kwargs
+        return _subprocess.CompletedProcess(args=args, returncode=0, stdout="[]", stderr="")
+
+    library_dir = tmp_path / "library"
+    library_dir.mkdir()
+    result = sd._run_dotnet_enumerator(library_dir, run=fake_run)
+    assert result == []
+    args = captured["args"]
+    assert args[0] == sd.DOTNET_BINARY == "dotnet"
+    assert "docker" not in [str(a).lower() for a in args]
+    assert "run" in args
+    assert "--no-restore" in args
+    assert str(sd.DOTNET_ENUMERATOR_PROJECT) in args
+    assert args[-1] == str(library_dir)
+
+
+def test_run_dotnet_enumerator_raises_with_a_clear_message_on_a_nonzero_exit(tmp_path):
+    import subprocess as _subprocess
+
+    def failing_run(args, **kwargs):
+        return _subprocess.CompletedProcess(
+            args=args, returncode=1, stdout="", stderr="error: something failed"
+        )
+
+    with pytest.raises(RuntimeError, match="DotNetEnumerator"):
+        sd._run_dotnet_enumerator(tmp_path, run=failing_run)
+
+
 def test_unimplemented_enumerators_raise_a_named_not_implemented_error():
-    for platform in ("net", "cpp"):
+    for platform in ("cpp",):
         with pytest.raises(NotImplementedError, match=platform):
             sd.DEFAULT_ENUMERATORS[platform]("acme/widgets", "deadbeef", Path("/does/not/matter"))
 
@@ -1340,6 +1646,8 @@ def test_default_enumerators_cover_python_and_every_card_named_platform():
     assert sd.DEFAULT_ENUMERATORS["rust"] is sd.enumerate_rust
     assert sd.DEFAULT_ENUMERATORS["typescript"] is sd.enumerate_typescript
     assert sd.DEFAULT_ENUMERATORS["java"] is sd.enumerate_java
+    assert sd.DEFAULT_ENUMERATORS["net"] is sd.enumerate_dotnet
+    assert sd.DEFAULT_ENUMERATORS["dotnet"] is sd.enumerate_dotnet
     assert {"typescript", "javascript", "nodejs", "go", "rust", "java", "net", "dotnet", "cpp"} <= set(
         sd.DEFAULT_ENUMERATORS
     )
@@ -1432,7 +1740,11 @@ def test_main_names_the_pilot_when_no_enumerator_is_registered_for_its_platform(
 
 def test_main_reports_not_implemented_for_an_unwired_platform(tmp_path):
     fixtures = tmp_path / "fixtures"
-    entry = next(p for p in sd.chart.load_pilots() if p["platform"] != "python")
+    # "cpp" is the one platform this card's own module docstring still names as unwired -- every
+    # other non-python platform (including "net"/"dotnet", wired by this card) now has a real
+    # enumerator in DEFAULT_ENUMERATORS, so picking any-non-python-pilot (the original rule here)
+    # would otherwise select "net" and make this "offline" test shell out to a real git clone.
+    entry = next(p for p in sd.chart.load_pilots() if p["platform"] == "cpp")
     key = sd.chart.pilot_key(entry)
     (fixtures / key).mkdir(parents=True)
     (fixtures / key / "api_surface.json").write_text(

@@ -28,33 +28,37 @@ injection style, so ``diff_symbol``/``diff_language``/``verify_pilot`` and this 
 are exercised offline, with hand-written per-language micro-libraries, by every unit test -- no
 compiler, interpreter or network call is ever made by ``tests/release/test_source_differential.py``.
 
-``enumerate_python``, ``enumerate_go``, ``enumerate_rust``, ``enumerate_typescript`` and
-``enumerate_java`` are wired to real tooling here (Python's own ``ast`` module, Go's own
-``go/parser``+``go/ast`` via a small companion program, Rust's ``syn`` crate via a small
-companion crate, TypeScript's own Compiler API -- ``ts.createProgram`` plus its real
+``enumerate_python``, ``enumerate_go``, ``enumerate_rust``, ``enumerate_typescript``,
+``enumerate_java`` and ``enumerate_dotnet`` are wired to real tooling here (Python's own ``ast``
+module, Go's own ``go/parser``+``go/ast`` via a small companion program, Rust's ``syn`` crate via
+a small companion crate, TypeScript's own Compiler API -- ``ts.createProgram`` plus its real
 ``TypeChecker``, never a regex, never this project's own tree-sitter grammar, which would make
-the oracle circular -- via a small companion Node script, and the JDK's own Compiler Tree API
+the oracle circular -- via a small companion Node script, the JDK's own Compiler Tree API
 (``com.sun.source.tree``/``com.sun.source.util``) at the PARSE phase only via a small companion
-Java program, respectively -- all five reading the real cloned source, no network beyond the
-clone, no external compiler for Python, a pinned ``golang:1.26.4`` Docker container for Go
-(G3/TC-596), a pinned ``rust:1.98.1`` Docker container for Rust (G3/TC-590) -- both companion
-programs are built AND run entirely inside their own container, never directly on the host,
-because this host's Windows Application Control policy blocks execution of a freshly-built,
-unsigned native .exe; see ``_run_go_enumerator``'s and ``_run_rust_enumerator``'s own docstrings
--- and, for TypeScript and Java, the already-installed ``typescript`` npm package / the JDK's own
-single-file source-launcher, both run directly by the already-trusted ``node``/``java`` host
-interpreters (G3/TC-591, G3/TC-592): neither executing a ``.js``/``.java`` text file is a fresh
-build or a native binary, so WDAC never applies and no container is needed; see
-``_run_typescript_enumerator``'s and ``_run_java_enumerator``'s own docstrings, which also record
-why this is confirmed rather than merely assumed). The other two languages the card names (.NET,
-C++) each need their own real compiler/reflection/AST tool wired and proven against a real pinned
-repository -- a scope this card's worker could not respect responsibly within one dispatch
-without shipping two more untested, falsely-confident readers (exactly the "confident, false
-'done' claims" AGENTS.md warns against). ``DEFAULT_ENUMERATORS`` maps each of those two remaining
-platforms to ``_unimplemented_enumerator``, which raises a precise, named ``NotImplementedError``
--- never a silent pass, never a fabricated oracle -- and the ``Deps.enumerators`` injection point
-is exactly where the supervisor wires a real one in, one language at a time, the same way track
-A's extraction fix landed as eight separate per-language cards.
+Java program, and Roslyn's own parser (``Microsoft.CodeAnalysis.CSharp``,
+``CSharpSyntaxTree.ParseText``) at the SYNTAX/PARSE phase only via a small companion .NET console
+project, respectively -- all six reading the real cloned source, no network beyond the clone, no
+external compiler for Python, a pinned ``golang:1.26.4`` Docker container for Go (G3/TC-596), a
+pinned ``rust:1.98.1`` Docker container for Rust (G3/TC-590) -- both companion programs are built
+AND run entirely inside their own container, never directly on the host, because this host's
+Windows Application Control policy blocks execution of a freshly-built, unsigned native .exe; see
+``_run_go_enumerator``'s and ``_run_rust_enumerator``'s own docstrings -- and, for TypeScript,
+Java and .NET, the already-installed ``typescript`` npm package / the JDK's own single-file
+source-launcher / the ``dotnet`` host's own ``dotnet run``, all run directly by the already-
+trusted ``node``/``java``/``dotnet`` host interpreters (G3/TC-591, G3/TC-592, G3/TC-593): none of
+executing a ``.js`` text file, a ``.java`` text file, or JIT-running managed IL is a fresh build
+or a native binary, so WDAC never applies and no container is needed; see
+``_run_typescript_enumerator``'s, ``_run_java_enumerator``'s and ``_run_dotnet_enumerator``'s own
+docstrings, which also record why this is confirmed rather than merely assumed). The one remaining
+language the card names (C++) needs its own real compiler/reflection/AST tool wired and proven
+against a real pinned repository -- a scope this card's worker could not respect responsibly
+within one dispatch without shipping one more untested, falsely-confident reader (exactly the
+"confident, false 'done' claims" AGENTS.md warns against). ``DEFAULT_ENUMERATORS`` maps that one
+remaining platform to ``_unimplemented_enumerator``, which raises a precise, named
+``NotImplementedError`` -- never a silent pass, never a fabricated oracle -- and the
+``Deps.enumerators`` injection point is exactly where the supervisor wires a real one in, one
+language at a time, the same way track A's extraction fix landed as eight separate per-language
+cards.
 
 ``REQUIRE_EXTRACTOR_VERSION`` mirrors the identically-named switch in ``image_workflow_gate.py``: a
 fixture whose ``extractor_version`` is below the current schema (``run_extraction.EXTRACTOR_VERSION``)
@@ -1027,6 +1031,136 @@ def enumerate_java(
     return symbols
 
 
+DOTNET_ENUMERATOR_PROJECT = _ORACLE_HELPERS_DIR / "dotnet_enumerator" / "DotNetEnumerator.csproj"
+DOTNET_BINARY = "dotnet"
+
+
+def _run_dotnet_enumerator(
+    library_dir: Path,
+    *,
+    run: Callable[..., Any] | None = None,
+    dotnet_binary: str = DOTNET_BINARY,
+    project_path: Path = DOTNET_ENUMERATOR_PROJECT,
+) -> list[dict[str, Any]]:
+    """Run ``DotNetEnumerator`` (Roslyn's own ``CSharpSyntaxTree.ParseText``,
+    ``scripts/release/oracle_helpers/dotnet_enumerator/Program.cs``) and parse its JSON stdout.
+
+    Unlike ``_run_go_enumerator``/``_run_rust_enumerator``, this never shells out to Docker.
+    ``dotnet run`` JIT-compiles and executes MANAGED IL through the already-trusted ``dotnet``
+    host -- it never writes a freshly-built, unsigned NATIVE binary to disk (exactly the case
+    this host's Windows Application Control policy blocks; see the Go/Rust docstrings above).
+    This was confirmed directly rather than assumed before this function was written (G3/TC-593),
+    the same way TC-591/TC-592 confirmed it for ``node``/``java``: every test in
+    ``tests/release/test_source_differential.py`` that exercises this function (and the one real,
+    live, network-using run against the pinned pdf/net pilot performed once at this card's own
+    closing time) runs ``dotnet`` directly against the host, with no container anywhere in the
+    invocation below.
+
+    ``--no-restore`` is passed deliberately: the companion project's own
+    ``Microsoft.CodeAnalysis.CSharp`` NuGet dependency must already be restored (once, with
+    network, exactly like ``cargo vendor``'s one-time network use before ``enumerate_rust``'s own
+    ``cargo run --offline`` -- see ``_run_rust_enumerator``'s own docstring) before this function
+    ever runs; this keeps every unit test that exercises it offline, matching this card's own
+    ``network: false`` requirement, without needing a vendored copy of the package itself (unlike
+    Rust's crate registry, NuGet's own restore writes into a machine-wide package cache keyed by
+    exact pinned version, which this function's ``--no-restore`` then reads from directly on
+    every subsequent run, real or test, with no further network call of any kind).
+    """
+    runner = run or subprocess.run
+    result = runner(
+        [
+            dotnet_binary,
+            "run",
+            "--project",
+            str(project_path),
+            "--no-restore",
+            "-c",
+            "Release",
+            "--",
+            str(library_dir),
+        ],
+        cwd=REPO_ROOT,
+        capture_output=True,
+        text=True,
+        encoding="utf-8",
+        errors="replace",
+        check=False,
+    )
+    if result.returncode != 0:
+        raise RuntimeError(
+            f"DotNetEnumerator failed against {library_dir}:\n{result.stdout}\n{result.stderr}"
+        )
+    try:
+        parsed = json.loads(result.stdout)
+    except ValueError as exc:
+        raise RuntimeError(f"DotNetEnumerator printed non-JSON stdout: {result.stdout!r}") from exc
+    if not isinstance(parsed, list):
+        raise RuntimeError(f"DotNetEnumerator printed a non-array JSON document: {result.stdout!r}")
+    return parsed
+
+
+def enumerate_dotnet(
+    repository: str, commit: str, library_dir: Path, *, run: Callable[..., Any] | None = None
+) -> list[OracleSymbol]:
+    """The real public API of a .NET/C# library, read with Roslyn's own parser
+    (``Microsoft.CodeAnalysis.CSharp``, ``CSharpSyntaxTree.ParseText`` -- SYNTAX/PARSE phase only,
+    never a ``SemanticModel``/``Compilation``, never symbol resolution against the library's own
+    external references) through a small companion console project
+    (``scripts/release/oracle_helpers/dotnet_enumerator/``), run directly by the already-trusted
+    ``dotnet`` host (no Docker -- see ``_run_dotnet_enumerator``'s own docstring for why that is
+    safe here, unlike ``enumerate_go``/``enumerate_rust``).
+
+    Clones ``repository`` at ``commit`` into ``library_dir`` (unless it already looks checked out:
+    a ``.git`` directory already present), runs the companion program against that directory, and
+    maps its JSON output onto ``OracleSymbol``/``OracleMember``/``OracleParam``. A C# ``class``,
+    ``struct``, ``record`` and ``interface`` all map to ``OracleSymbol.kind == "class"`` (an
+    interface's own members become "method"/"property" members using this module's existing
+    class-like convention, matching how ``enumerate_rust``/``enumerate_typescript``/
+    ``enumerate_java`` already fold a Rust ``trait``/TypeScript ``interface``/Java ``interface``
+    the same way); a C# ``enum`` maps to ``kind == "enum"`` (its members as "enum_value" members,
+    carrying an explicit numeric literal when the source gives one, never merely a count -- see
+    ``Program.cs``'s own "SCOPE" docstring for the one most important rule this enumerator
+    applies: a class/struct/record member with no explicit access modifier is implicitly PRIVATE,
+    while an interface member with no explicit modifier is implicitly PUBLIC -- the exact opposite
+    default, and the card's own named defect case). A parameter's ``has_default`` comes straight
+    from the syntax tree's own ``EqualsValueClause``, never a nullable ``?`` marker.
+
+    A public NESTED class/interface/struct/record/enum (whose own enclosing chain is itself all
+    public) is flattened into the same symbol list by its own simple name, exactly like
+    ``enumerate_java``'s own nested-type handling (public static nested types are a routine
+    pattern in these wrapper APIs too). Unlike every other language this module enumerates, C#
+    method/property names are routinely NOT unique within one type (overloading is pervasive in
+    these Aspose wrapper APIs); ``Program.cs``'s own "SCOPE" docstring records the deterministic,
+    first-declaration-wins rule this enumerator applies for both a genuine overload set and a
+    ``partial`` type split across several files -- a pre-existing limitation of this whole oracle
+    system's own bare-name keying (``diff_symbol``/``diff_language`` key the baked fixture's own
+    ``methods``/``properties`` by bare name too), not something this card introduces or must fix.
+    """
+    if not (library_dir / ".git").is_dir():
+        clone_pinned_commit(repository, commit, library_dir, run=run)
+
+    raw_symbols = _run_dotnet_enumerator(library_dir, run=run)
+    symbols: list[OracleSymbol] = []
+    for raw in raw_symbols:
+        members = tuple(
+            OracleMember(
+                name=str(raw_member["name"]),
+                kind=str(raw_member["kind"]),
+                params=tuple(
+                    OracleParam(name=str(p["name"]), has_default=bool(p.get("has_default", False)))
+                    for p in raw_member.get("params") or []
+                ),
+                is_static=bool(raw_member.get("is_static", False)),
+                enum_value=(
+                    str(raw_member["enum_value"]) if raw_member.get("enum_value") is not None else None
+                ),
+            )
+            for raw_member in raw.get("members") or []
+        )
+        symbols.append(OracleSymbol(name=str(raw["name"]), kind=str(raw["kind"]), members=members))
+    return symbols
+
+
 def _unimplemented_enumerator(platform: str) -> Enumerator:
     def _enumerator(repository: str, commit: str, library_dir: Path) -> list[OracleSymbol]:
         raise NotImplementedError(
@@ -1043,10 +1177,17 @@ DEFAULT_ENUMERATORS: dict[str, Enumerator] = {
     "rust": enumerate_rust,
     "typescript": enumerate_typescript,
     "java": enumerate_java,
-    **{
-        platform: _unimplemented_enumerator(platform)
-        for platform in ("javascript", "nodejs", "net", "dotnet", "cpp")
-    },
+    # Both keys are registered to the same real enumerator -- this project's own platform naming
+    # uses both spellings for the identical .NET/C# ecosystem (confirmed directly, not assumed:
+    # the pdf/net pilot's own deployment-identity "platform" field -- this module's main() own
+    # lookup key via chart.pilot_key/entry["platform"] -- is spelled "net", while that exact same
+    # pilot's own library/source-of-truth block spells it "dotnet"; run_extraction.py's own
+    # _LANGUAGE_BY_PLATFORM dict and package_root.detect_package_root already treat "net"/"dotnet"
+    # as the identical case for exactly this reason -- see run_extraction.py's own comment above
+    # that dict).
+    "net": enumerate_dotnet,
+    "dotnet": enumerate_dotnet,
+    **{platform: _unimplemented_enumerator(platform) for platform in ("javascript", "nodejs", "cpp")},
 }
 
 
