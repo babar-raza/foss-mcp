@@ -20,6 +20,7 @@ type or a base class may declare it), or by a documentation or example chunk tha
 from __future__ import annotations
 
 import dataclasses
+import math
 import re
 import shutil
 from collections import defaultdict
@@ -32,6 +33,7 @@ import pytest
 from foss_mcp.indexing.gateway_embedding_provider import _API_KEY_ENV, _ENDPOINT_ENV
 from foss_mcp.indexing.generation_manifest import GenerationManifestStore
 from foss_mcp.mcp.routing import Scope
+from foss_mcp.mcp.tools.find_examples import ExampleMatch, find_examples
 from foss_mcp.mcp.tools.get_symbol import _extract_block, extract_fqn
 from foss_mcp.mcp.tools.lookup import TaskAnswer, lookup
 from foss_mcp.mcp.tools.relevance import DOCUMENTATION, EXAMPLE, SYMBOL, chunk_kind
@@ -69,6 +71,37 @@ WRONG_MAX_FAMILY = {
     "3d": 0.009,
     "email": 0.038,
     "other": 0.054,
+}
+# G3/TC-588 (REQ-G3-009): find_examples is itself a standalone MCP tool - lookup only ever calls it
+# with top_k=1 as one ingredient of a composed TaskAnswer (see lookup.py's ``_compose_from_docs``) -
+# and until this card it had no regression ratchet of its own at all: a change confined to
+# find_examples.py could clear every lookup-side check above while still handing a confidently wrong
+# example to a caller that uses find_examples directly. Measured FRESH on this corpus on 2026-10-26
+# (after TC-584 through TC-587 all landed), calling find_examples directly with its own default
+# top_k=5 for every (pilot, task) pair this file's existence filter already admits: 42 wrong of 729
+# cases, 0.0576. The floor below tolerates exactly one more wrong case (43/729 = 0.0590, rounded up
+# to 3 decimals) - the same "+1 case" margin WRONG_MAX_FAMILY above already uses.
+WRONG_MAX_EXAMPLES = 0.059
+# G3/TC-588 (REQ-G3-009): WRONG_MAX_FAMILY["other"] above is itself one shared aggregate over SIX
+# unrelated single-platform pilots (barcode/python, html/python, imaging/net, note/python,
+# page/python, tex/python); a 2026-10-23 audit found it hiding a bad individual pilot's real rate
+# the same way the pre-TC-579 aggregate-only WRONG_MAX once hid a bad family (html/python measured
+# 18.18% wrong while the aggregate measured only 3.57%). Measured FRESH per pilot on this corpus on
+# 2026-10-26 (after TC-584..587 landed; lookup itself is untouched by this card, but TC-584's
+# find_examples fix changes lookup's own answers too, since lookup composes find_examples into its
+# TaskAnswer): barcode/python 0/13, html/python 1/11 (0.0909), imaging/net 0/4, note/python 0/12,
+# page/python 0/10, tex/python 0/6. Each floor below tolerates exactly one more wrong case in that
+# pilot ALONE (the same "+1 case" margin as WRONG_MAX_FAMILY), rounded up to 3 decimals - tighter,
+# pilot by pilot, than the shared aggregate could ever be (see
+# ``test_the_per_pilot_other_floor_is_tighter_than_the_aggregate_for_html_python`` below for the
+# explicit proof).
+WRONG_MAX_OTHER_PILOT = {
+    "barcode__python": 0.077,
+    "html__python": 0.182,
+    "imaging__net": 0.25,
+    "note__python": 0.084,
+    "page__python": 0.1,
+    "tex__python": 0.167,
 }
 # The ratchet of the finalisation notes, against the revision the card was issued at (4ed0b82012d7), measured
 # with this very runner on this very corpus before any relevance change: hit@3 must be at least
@@ -186,6 +219,11 @@ def flatten(answer: Any) -> list[Item]:
                 found.append(make_item("symbol", match.text))
             elif isinstance(match, DocMatch):
                 found.append(make_item("doc", match.text))
+            elif isinstance(match, ExampleMatch):
+                # G3/TC-588: a direct ``find_examples`` answer is a plain list of ``ExampleMatch``,
+                # never wrapped in a ``TaskAnswer`` - its snippet is read the same way lookup's own
+                # ``TaskAnswer.example`` field already is above.
+                found.append(make_item("example", match.snippet))
         return found
     return []
 
@@ -272,6 +310,41 @@ class Corpus:
             is_partial(answer),
         )
 
+    def run_case_find_examples(
+        self, pilot_name: str, family: str, task: dict[str, Any], intended: list[str]
+    ) -> Case:
+        """G3/TC-588: the same measurement as ``run_case`` above, but calling ``find_examples``
+        directly (its own default ``top_k=5``) instead of going through ``lookup``. find_examples is
+        itself a standalone MCP tool a caller can reach without ever going through lookup, so
+        lookup's own TaskAnswer.example slot (which only ever asks find_examples for ``top_k=1``)
+        cannot stand in as find_examples' own regression ratchet."""
+        pilot = self.pilots[pilot_name]
+        answer = find_examples(self.store, pilot.scope, task["query"], top_k=5)
+
+        def first_rank(items: list[Item]) -> int | None:
+            return next(
+                (
+                    index + 1
+                    for index, item in enumerate(items[:10])
+                    if any(satisfies(item, s) for s in intended)
+                ),
+                None,
+            )
+
+        items = flatten(answer)
+        return Case(
+            pilot_name,
+            family,
+            task["id"],
+            task["query"],
+            tuple(intended),
+            first_rank(items),
+            bool(items),
+            tuple((item.fqn or item.kind)[:60] for item in items[:3]),
+            bool(task.get("holdout")),
+            False,  # find_examples carries no "partial" concept (see ExampleMatch/NoExampleFound).
+        )
+
 
 def load_family(family: str) -> dict[str, Any]:
     return CORPUS_DATA[family]
@@ -300,6 +373,19 @@ def run_corpus(corpus: Corpus) -> list[Case]:
     return cases
 
 
+def run_corpus_find_examples(corpus: Corpus) -> list[Case]:
+    """G3/TC-588: the same universe of (pilot, task) pairs ``run_corpus`` above measures for
+    lookup - every pair this file's own existence filter (``applicable``) admits - measured instead
+    by calling ``find_examples`` directly; see ``Corpus.run_case_find_examples``."""
+    cases: list[Case] = []
+    for family in FAMILIES:
+        doc = load_family(family)
+        for task in doc["tasks"]:
+            for pilot_name, specs in applicable(corpus, doc, task):
+                cases.append(corpus.run_case_find_examples(pilot_name, family, task, specs))
+    return cases
+
+
 def summarise(cases: list[Case]) -> dict[str, dict[str, float]]:
     """Per family and ``"ALL"``: n, hit@1, hit@3, hit@10, MRR and the non-empty-wrong rate."""
     groups: dict[str, list[Case]] = defaultdict(list)
@@ -324,6 +410,25 @@ def summarise(cases: list[Case]) -> dict[str, dict[str, float]]:
     return table
 
 
+def summarise_by_pilot(cases: list[Case], family: str) -> dict[str, dict[str, float]]:
+    """G3/TC-588: like ``summarise`` above, but split by PILOT within one family instead of merged
+    into that family's single aggregate bucket. ``WRONG_MAX_FAMILY["other"]`` hides a bad individual
+    pilot's real rate behind the other, cleaner pilots in the same bucket - this is what lets each
+    single-platform pilot of the "other" family get its own tighter floor (``WRONG_MAX_OTHER_PILOT``)."""
+    groups: dict[str, list[Case]] = defaultdict(list)
+    for case in cases:
+        if case.family == family:
+            groups[case.pilot].append(case)
+    table: dict[str, dict[str, float]] = {}
+    for name, group in groups.items():
+        count = len(group)
+        table[name] = {
+            "n": float(count),
+            "wrong_conf": sum(1 for c in group if c.answered and c.rank is None and not c.partial) / count,
+        }
+    return table
+
+
 @pytest.fixture(autouse=True)
 def _no_embedding_gateway(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.delenv(_ENDPOINT_ENV, raising=False)
@@ -342,6 +447,12 @@ def corpus(tmp_path_factory: pytest.TempPathFactory) -> Corpus:
 @pytest.fixture(scope="module")
 def cases(corpus: Corpus) -> list[Case]:
     return run_corpus(corpus)
+
+
+@pytest.fixture(scope="module")
+def find_examples_cases(corpus: Corpus) -> list[Case]:
+    """G3/TC-588: find_examples' own cases, parallel to ``cases`` above (which measures lookup)."""
+    return run_corpus_find_examples(corpus)
 
 
 # ---- the corpus itself ------------------------------------------------------------------------------------
@@ -414,6 +525,18 @@ def test_non_empty_answers_that_miss_the_intended_api_stay_rare(cases: list[Case
     assert wrong < BASELINE_WRONG / 3
 
 
+def test_find_examples_non_empty_answers_that_miss_the_intended_api_stay_rare(
+    find_examples_cases: list[Case],
+) -> None:
+    """G3/TC-588: find_examples' own regression ratchet, parallel to the lookup-only one above.
+    find_examples is itself a standalone MCP tool - lookup only ever calls it with top_k=1 as one
+    ingredient of a composed TaskAnswer - so a regression confined to find_examples.py could clear
+    every lookup-side check above while still handing a confidently wrong example to a caller that
+    uses find_examples directly. See WRONG_MAX_EXAMPLES' own comment for how this was measured."""
+    wrong = summarise(find_examples_cases)["ALL"]["wrong_conf"]
+    assert wrong <= WRONG_MAX_EXAMPLES, wrong
+
+
 @pytest.mark.parametrize("family", FAMILIES)
 def test_wrong_rate_per_family_meets_the_ratchet(cases: list[Case], family: str) -> None:
     # G3/TC-579 (OQ-016): the aggregate-only test above cannot catch a family-specific regression that
@@ -421,6 +544,41 @@ def test_wrong_rate_per_family_meets_the_ratchet(cases: list[Case], family: str)
     # existed). This is an ADDITIONAL, per-family gate; it never replaces or loosens WRONG_MAX above.
     value = summarise(cases)[family]["wrong_conf"]
     assert value <= WRONG_MAX_FAMILY[family], (family, value)
+
+
+@pytest.mark.parametrize("pilot", sorted(WRONG_MAX_OTHER_PILOT))
+def test_wrong_rate_per_pilot_in_the_other_family_meets_the_ratchet(cases: list[Case], pilot: str) -> None:
+    """G3/TC-588: one floor PER single-platform pilot of the "other" bucket (see WRONG_MAX_OTHER_PILOT's
+    own comment for how each was measured), catching a regression confined to one pilot that the
+    shared aggregate test above (WRONG_MAX_FAMILY["other"]) can average away. This is an ADDITIONAL,
+    per-pilot gate; it never replaces or loosens WRONG_MAX_FAMILY["other"], which may stay as a looser
+    bucket-wide check - see the next test for the explicit proof that this one is strictly tighter."""
+    table = summarise_by_pilot(cases, "other")
+    value = table[pilot]["wrong_conf"]
+    assert value <= WRONG_MAX_OTHER_PILOT[pilot], (pilot, value)
+
+
+def test_the_per_pilot_other_floor_is_tighter_than_the_aggregate_for_html_python(cases: list[Case]) -> None:
+    """G3/TC-588: proves, from this corpus' own real case counts, that the per-pilot floor for
+    html/python actually catches a regression the shared aggregate "other" floor alone would let
+    through - not merely a tighter-looking number that checks nothing new.
+
+    The aggregate floor (WRONG_MAX_FAMILY["other"]) tolerates up to
+    ``floor(WRONG_MAX_FAMILY["other"] * n_other)`` wrong cases ANYWHERE in the six-pilot bucket; if
+    every one of them happened to land inside html/python alone (every other pilot staying perfectly
+    correct), the aggregate would still pass and never notice. The per-pilot floor must tolerate
+    strictly fewer wrong cases inside html/python alone than that ceiling, or it adds nothing the
+    aggregate did not already check."""
+    other_n = summarise(cases)["other"]["n"]
+    html_n = summarise_by_pilot(cases, "other")["html__python"]["n"]
+    max_wrong_aggregate_tolerates_if_concentrated_in_html = math.floor(
+        WRONG_MAX_FAMILY["other"] * other_n + 1e-9
+    )
+    max_wrong_per_pilot_floor_tolerates = math.floor(WRONG_MAX_OTHER_PILOT["html__python"] * html_n + 1e-9)
+    assert max_wrong_per_pilot_floor_tolerates < max_wrong_aggregate_tolerates_if_concentrated_in_html, (
+        max_wrong_per_pilot_floor_tolerates,
+        max_wrong_aggregate_tolerates_if_concentrated_in_html,
+    )
 
 
 def test_a_partial_answer_says_so_and_names_what_it_could_not_explain(corpus: Corpus) -> None:
