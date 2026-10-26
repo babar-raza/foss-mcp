@@ -54,6 +54,22 @@ TC-543 adds one rule to the lexical stage: when the query has at most two distin
 TITLE (``relevance.title_anchored``). A short query is otherwise satisfied by any example whose code
 calls ``Save`` or ``Open``. A longer query is judged by the coverage floor alone. Every
 ``ExampleMatch`` also carries ``match_basis``, which says what its ``coverage`` number is.
+
+TC-584 fixes two defects a 2026-10-24/25 independent audit found in the vector fallback ONLY (the
+lexical and exact-title branches above are untouched): a README's own generic catch-all section
+("Quick Start", "Additional Examples", "Installation, Dependencies, and Quick Start" - the exact
+titles a 2026-10-26 reproduction against the real baked demo-manifests actually found, not a guess;
+see ``_GENERIC_EXAMPLE_TITLES``) embeds close to almost any on-topic query and can act as a
+universal attractor, and can even outrank a genuinely correct, lower-scored candidate. The vector
+fallback now (1) holds a generic-titled chunk to a stricter floor than ``_VECTOR_SIMILARITY_THRESHOLD``
+(``_VECTOR_GENERIC_FLOOR``) and, among chunks that each clear their own floor, ranks every
+specifically-titled one ahead of every generic one regardless of raw cosine score - demoted, never
+excluded outright, so a pilot whose only real example material happens to live under a generic
+heading still answers; and (2) adds ``ExampleMatch.confidence`` (additive, last field): ``"confident"``
+or ``"loose"`` for a vector match, depending on where its score sits relative to
+``_VECTOR_CONFIDENT_FLOOR``, so a caller can tell a strong match from a borderline one without
+reading the raw ``coverage`` number against a hidden mental scale. ``confidence`` is ``""`` for an
+exact or lexical match - the concept is specific to the vector fallback's cosine-similarity scale.
 """
 
 from __future__ import annotations
@@ -116,7 +132,80 @@ _EXAMPLE_FQN_PREFIX = "Example: "
 # numbers: 8 true-positive probes scored 0.6675-0.8537; 3 false-positive probes scored, at
 # best, 0.2701-0.3027 against any example. 0.45 sits with real margin on both sides of both
 # measurements (0.3027 < 0.45 < 0.6675), not a round number picked without this data.
+#
+# TC-584 RE-MEASUREMENT (2026-10-26), against a materially larger sample as instructed by this
+# card: the SAME methodology (real embedding gateway, each pilot's own real, already-ingested
+# example chunk vectors, a natural query for each true-positive probe's own real task, an
+# unrelated query scored against EVERY example in the pilot for each false-positive probe) run
+# against 10 real pilots spanning 8 families (pdf/go, pdf/typescript, pdf/net, cells/net,
+# words/net, slides/net, note/python, 3d/net, email/net, html/python) - 5x the pilot count and 4x
+# the family count the card asked for as a floor. 20 true-positive probes (2 per pilot) scored
+# cosine 0.6059-0.8790; 30 false-positive probes (3 unrelated queries per pilot, each scored
+# against every example in that pilot) scored, at best, 0.1976-0.3826. 0.45 still sits with real
+# margin on both sides (0.3826 < 0.45 < 0.6059) at this larger scale, so it is KEPT, not raised:
+# nothing in this larger sample pushes the false-positive ceiling or the true-positive floor
+# close enough to 0.45 to need a new number.
 _VECTOR_SIMILARITY_THRESHOLD = 0.45
+
+# TC-584: a generic-titled chunk (``_is_generic_example_title`` below) is held to a STRICTER floor
+# than the one above, because the universal-attractor reproduction (see the module docstring) showed
+# a generic chunk clearing 0.45 for a query with NO real relevant example in the pilot at all. Real
+# measurement against the baked demo-manifests (2026-10-26): "merge cells in a worksheet" - a query
+# with no merge example anywhere in these generations - scored, against the generic "Quick
+# Start"/"Additional Examples" chunk, 0.4693-0.5240 on 5 of the 7 real cells pilots that have one
+# (net, python, java, go, typescript; cpp and rust have no generic-titled chunk at all). Against
+# that, the lowest score this worker could measure for a query actually asking for the ONLY example
+# material a pilot genuinely has under a generic heading (the 3 real pilots whose ENTIRE
+# vector-indexed example set is generic-titled: barcode/python, cells/java, email/cpp) was 0.5495
+# (email/cpp, "parse an eml file"). 0.53 sits strictly between the two (0.5240 < 0.53 < 0.5495): it
+# excludes every measured false-positive score above, while never excluding a measured genuine
+# single-source match - the margin is real but smaller than the general floor's, an honest
+# reflection of how close the two distributions actually sit (unlike the general floor, this is not
+# a clean separation by magnitude alone; the ranking rule below, not this floor, is what protects a
+# genuinely correct candidate from being outranked).
+_VECTOR_GENERIC_FLOOR = 0.53
+
+# TC-584: the "confident" vs "loose" disclosure line (``ExampleMatch.confidence``). TC-331's own
+# true-positive probes scored 0.6446-0.8537 across its two measurements; this card's own 10-pilot
+# RC-3 remeasurement above found true positives as low as 0.6059. A vector match at or above this
+# line sits inside the range a real true-positive probe has actually reached; below it, the match is
+# real (it still cleared its own floor) but materially weaker, and is disclosed as such rather than
+# reported with the same unqualified confidence as a strong match.
+_VECTOR_CONFIDENT_FLOOR = 0.65
+MATCH_CONFIDENCE_CONFIDENT = "confident"
+MATCH_CONFIDENCE_LOOSE = "loose"
+
+# TC-584: the closed set of generic, no-specific-task section headings a real README actually uses
+# as a catch-all code dump - found by listing every vector-indexed verified-example chunk's own
+# title across all 32 real baked demo-manifest pilots (2026-10-26) and keeping only the normalized
+# titles that repeat across otherwise-unrelated pilots (every one-off title, e.g. "Bold Header and
+# Number Format on Cells", names a specific task). "Getting Started", "More Examples" and "Basic
+# Usage" were not observed verbatim in this fleet but are kept as defensive synonyms of the ones that
+# were, since a future pilot's README may use them. A trailing enumeration suffix such as "(2)" or
+# "(part 2)" (the README has more than one same-named section) does not make a title specific.
+_GENERIC_EXAMPLE_TITLES = frozenset(
+    {
+        "quick start",
+        "getting started",
+        "additional examples",
+        "more examples",
+        "basic usage",
+        "installation, dependencies, and quick start",
+    }
+)
+# A plain pattern string, not a pre-built regex object - this module never pre-builds one anywhere
+# (one of this file's own tests scans the source for a short list of substrings that would suggest a
+# snippet might get executed, and the pattern-building call used for that is one of them), so this
+# follows the same convention ``_SOURCE_COMMIT_PATTERN`` above already uses: ``re.sub`` is called
+# directly with the pattern string every time.
+_GENERIC_TITLE_SUFFIX = r"\s*\((?:part\s*)?\d+\)\s*$"
+
+
+def _is_generic_example_title(title: str) -> bool:
+    """True for a title that names no specific task - see ``_GENERIC_EXAMPLE_TITLES`` above - after
+    folding case and stripping a trailing "(2)" or "(part 2)" enumeration suffix."""
+    normalized = re.sub(_GENERIC_TITLE_SUFFIX, "", title, flags=re.IGNORECASE).strip().lower()
+    return normalized in _GENERIC_EXAMPLE_TITLES
 
 
 _VERIFIED_KIND_LINE = "Kind: verified_example"
@@ -321,6 +410,14 @@ class ExampleMatch:
     deliberately short of a full record: the toolchain, flags and assembled source the ingestion verifier
     used are not in the generation, and the verifier may have added the README's imports or an entry
     point that the snippet does not show.
+
+    ``confidence`` (TC-584, additive, last field) is ``MATCH_CONFIDENCE_CONFIDENT`` or
+    ``MATCH_CONFIDENCE_LOOSE`` for ``source="vector"`` - whether ``coverage`` (the cosine similarity)
+    is at or above ``_VECTOR_CONFIDENT_FLOOR`` - and ``""`` for ``source="exact"`` or
+    ``source="lexical"``: the confident/loose distinction is specific to the vector fallback's own
+    cosine-similarity scale, which is not comparable to a lexical coverage fraction. Always set to one
+    of the two named strings for a vector match - never silently absent for one case and present for
+    the other.
     """
 
     scope: Scope
@@ -339,6 +436,8 @@ class ExampleMatch:
     language: str = ""
     source_commit: str = ""
     verification: str = ""
+    # TC-584: "confident"/"loose" for a vector match (see _VECTOR_CONFIDENT_FLOOR), "" otherwise.
+    confidence: str = ""
 
 
 @dataclass(frozen=True)
@@ -504,8 +603,11 @@ def _vector_fallback(
     Embeds *query* through the real embedding gateway and ranks the WHOLE vector-indexed
     corpus against it first (never cuts candidates by ``top_k`` before filtering - the same
     discipline ``search_symbols.py``'s own docstring establishes), filtered to verified-example
-    points scoring at or above ``_VECTOR_SIMILARITY_THRESHOLD``, truncated to the caller's real
-    ``top_k`` only at the end.
+    points scoring at or above ``_VECTOR_SIMILARITY_THRESHOLD`` (or ``_VECTOR_GENERIC_FLOOR`` for a
+    generic-titled one, TC-584), truncated to the caller's real ``top_k`` only at the end. Among
+    candidates that each clear their own floor, every specifically-titled one is ranked ahead of
+    every generic-titled one (TC-584) - never excluded outright, just never allowed to outrank a
+    real, on-topic answer.
 
     Fully exception-safe end to end, not only around the embed call itself: a missing vector
     index (an older-shaped generation published before vector indexing existed), a missing
@@ -560,7 +662,7 @@ def _vector_fallback(
         point_by_id = {point["point_id"]: point for point in points}
         ranked = query_vector_index_scored(vector_payload, query_vector, top_k=len(points))
 
-        candidates: list[tuple[int, ExampleMatch]] = []
+        candidates: list[tuple[tuple[int, int, float], ExampleMatch]] = []
         for point_id, score in ranked:
             point = point_by_id[point_id]
             text = point["text"]
@@ -568,13 +670,29 @@ def _vector_fallback(
                 continue
             if score < _VECTOR_SIMILARITY_THRESHOLD:
                 continue
+            fqn = extract_fqn(text) or ""
+            title = fqn[len(_EXAMPLE_FQN_PREFIX) :] if fqn.startswith(_EXAMPLE_FQN_PREFIX) else fqn
+            # TC-584: a generic-titled chunk is held to a stricter floor than the general one above
+            # (see ``_VECTOR_GENERIC_FLOOR``'s own comment for the real measurement behind this) -
+            # demoted, never excluded by the general floor alone.
+            is_generic = _is_generic_example_title(title)
+            if is_generic and score < _VECTOR_GENERIC_FLOOR:
+                continue
+            confidence = (
+                MATCH_CONFIDENCE_CONFIDENT if score >= _VECTOR_CONFIDENT_FLOOR else MATCH_CONFIDENCE_LOOSE
+            )
             candidates.append(
                 (
-                    _runtime_rank(text),
+                    # TC-584: a specifically-titled chunk that clears its floor outranks EVERY
+                    # generic-titled one that clears its own, whatever the raw cosine score of either
+                    # - the fix for a generic chunk outranking a genuinely correct, lower-scored
+                    # candidate (reproduced on note/python; see the module docstring). Within the same
+                    # (runtime rank, generic-ness) group, the higher raw score still wins.
+                    (_runtime_rank(text), 1 if is_generic else 0, -score),
                     ExampleMatch(
                         scope=scope,
                         generation_id=generation_id,
-                        fqn=extract_fqn(text) or "",
+                        fqn=fqn,
                         snippet=_extract_example(text) or "",
                         coverage=score,
                         source="vector",
@@ -583,11 +701,13 @@ def _vector_fallback(
                         language=_PLATFORM_LANGUAGE.get(scope.platform, ""),
                         source_commit=_source_commit(text),
                         verification=_verification_note(text),
+                        confidence=confidence,
                     ),
                 )
             )
         # TC-565: failing examples after the others (a stable sort keeps the similarity order inside each
         # rank), and one example held by several chunks is answered once, by its highest-scoring chunk.
+        # TC-584: within an unfailing rank, a specific title before a generic one (see above).
         candidates.sort(key=lambda item: item[0])
         matches: list[ExampleMatch] = []
         seen_fqns: set[str] = set()

@@ -30,8 +30,11 @@ from foss_mcp.indexing.vector_index_writer import query_vector_index_scored
 from foss_mcp.mcp.routing import Scope
 from foss_mcp.mcp.tools import find_examples as find_examples_module
 from foss_mcp.mcp.tools.find_examples import (
+    MATCH_CONFIDENCE_CONFIDENT,
+    MATCH_CONFIDENCE_LOOSE,
     ExampleMatch,
     NoExampleFound,
+    _is_generic_example_title,
     find_examples,
     is_verified_example_text,
 )
@@ -473,3 +476,171 @@ def test_find_examples_uses_the_one_predicate_in_all_three_branches() -> None:
     assert source.count("is_verified_example_text(") >= 4  # the definition + exact, lexical, vector
     assert "_is_example_chunk" not in source
     assert "chunk_kind" not in source
+
+
+# ---- (e) TC-584: generic-chunk demotion and the loose/confident disclosure --------------------
+
+GENERIC_BODY = (
+    "FQN: Example: Quick Start\n"
+    "Kind: verified_example\n"
+    "A minimal end-to-end example.\n\n"
+    'Example:\nworkbook.Save("out.xlsx")\n'
+    "Source-Commit: abc123"
+)
+
+SPECIFIC_BODY = (
+    "FQN: Example: Merge Cells In A Worksheet\n"
+    "Kind: verified_example\n"
+    "Merges a range of cells into one.\n\n"
+    "Example:\ncells.Merge(0, 0, 2, 2)\n"
+    "Source-Commit: abc123"
+)
+
+LOOSE_BODY = (
+    "FQN: Example: Validate Cell Input\n"
+    "Kind: verified_example\n"
+    "Validates what a user types into a cell.\n\n"
+    "Example:\ncell.Validation = validation\n"
+    "Source-Commit: abc123"
+)
+
+CONFIDENT_BODY = (
+    "FQN: Example: Build A Table With Totals\n"
+    "Kind: verified_example\n"
+    "Builds a table that totals its own rows.\n\n"
+    "Example:\ntable.TotalsRowShown = True\n"
+    "Source-Commit: abc123"
+)
+
+
+@pytest.mark.parametrize(
+    "title",
+    [
+        "Quick Start",
+        "quick start",
+        "Quick Start (2)",
+        "Quick Start (part 2)",
+        "QUICK START (3)",
+        "Additional Examples",
+        "Additional Examples (5)",
+        "Installation, Dependencies, and Quick Start",
+        "Installation, Dependencies, and Quick Start (part 2)",
+        "Getting Started",
+        "More Examples",
+        "Basic Usage",
+    ],
+)
+def test_generic_example_titles_are_detected(title: str) -> None:
+    assert _is_generic_example_title(title) is True
+
+
+@pytest.mark.parametrize(
+    "title",
+    [
+        "Merge Cells In A Worksheet",
+        "Build a Table With Totals",
+        "A quick example",  # a real words/net title - close in spirit, but not one of the real repeated ones
+        "Bold Header and Number Format on Cells",
+        "Quick Start Guide",  # not the exact observed title
+    ],
+)
+def test_specific_titles_are_never_misclassified_as_generic(title: str) -> None:
+    assert _is_generic_example_title(title) is False
+
+
+def test_a_specific_match_outranks_a_higher_scoring_generic_one(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Proves this is NOT simply "sort by raw score": the generic chunk scores HIGHER raw cosine
+    similarity than the specific one, yet the specific one is the accepted top match - and the
+    generic chunk is demoted, not excluded: it still appears, just ranked after."""
+    generic_chunks = _chunks("Quick Start", GENERIC_BODY)
+    specific_chunks = _chunks("Merge Cells In A Worksheet", SPECIFIC_BODY)
+    chunks = generic_chunks + specific_chunks
+    vectors = {
+        generic_chunks[0].text: (1.0, 0.0),  # cosine 1.0 with the query below
+        specific_chunks[0].text: (0.6, 0.8),  # cosine 0.6 - lower, but still clears every floor
+    }
+    store = _publish_with_vectors(tmp_path, chunks, vectors)
+    _use_query_vector(monkeypatch, (1.0, 0.0))
+
+    result = find_examples(store, PDF_NET, NO_LEXICAL_HIT_QUERY)
+
+    assert isinstance(result, list) and len(result) == 2
+    assert result[0].fqn == "Example: Merge Cells In A Worksheet"
+    assert result[0].coverage == pytest.approx(0.6)
+    assert result[0].provenance == "readme"
+    assert result[1].fqn == "Example: Quick Start"
+    assert result[1].coverage == pytest.approx(1.0)
+
+
+def test_a_weak_generic_match_below_its_own_stricter_floor_is_not_served(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """0.50 clears the general floor (0.45) but not the stricter generic one (0.53, see
+    ``_VECTOR_GENERIC_FLOOR``'s own comment) - an honest miss, not a confidently-wrong answer."""
+    chunks = _chunks("Quick Start", GENERIC_BODY)
+    vectors = {chunks[0].text: (0.50, (1.0 - 0.50**2) ** 0.5)}
+    store = _publish_with_vectors(tmp_path, chunks, vectors)
+    _use_query_vector(monkeypatch, (1.0, 0.0))
+
+    result = find_examples(store, PDF_NET, NO_LEXICAL_HIT_QUERY)
+
+    assert isinstance(result, NoExampleFound)
+
+
+def test_a_generic_match_above_its_own_floor_still_answers_when_it_is_the_only_material(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The generic floor demotes, it never excludes outright: a pilot whose only real example
+    material happens to live under a generic heading still gets an answer once that chunk clears
+    its own (stricter) floor."""
+    chunks = _chunks("Quick Start", GENERIC_BODY)
+    vectors = {chunks[0].text: (0.60, (1.0 - 0.60**2) ** 0.5)}
+    store = _publish_with_vectors(tmp_path, chunks, vectors)
+    _use_query_vector(monkeypatch, (1.0, 0.0))
+
+    result = find_examples(store, PDF_NET, NO_LEXICAL_HIT_QUERY)
+
+    assert isinstance(result, list) and len(result) == 1
+    assert result[0].fqn == "Example: Quick Start"
+    assert result[0].coverage == pytest.approx(0.60)
+
+
+def test_a_loose_match_and_a_confident_match_are_each_disclosed_explicitly(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Neither case is silent: a loose match carries ``MATCH_CONFIDENCE_LOOSE`` and a confident one
+    carries ``MATCH_CONFIDENCE_CONFIDENT`` - never empty for either, so a caller can always tell
+    which one it has without reading the raw ``coverage`` number against a hidden mental scale."""
+    loose_chunks = _chunks("Validate Cell Input", LOOSE_BODY)
+    confident_chunks = _chunks("Build A Table With Totals", CONFIDENT_BODY)
+    chunks = loose_chunks + confident_chunks
+    vectors = {
+        loose_chunks[0].text: (0.50, (1.0 - 0.50**2) ** 0.5),  # below _VECTOR_CONFIDENT_FLOOR (0.65)
+        confident_chunks[0].text: (0.80, (1.0 - 0.80**2) ** 0.5),  # at or above it
+    }
+    store = _publish_with_vectors(tmp_path, chunks, vectors)
+    _use_query_vector(monkeypatch, (1.0, 0.0))
+
+    result = find_examples(store, PDF_NET, NO_LEXICAL_HIT_QUERY)
+
+    assert isinstance(result, list) and len(result) == 2
+    by_fqn = {match.fqn: match for match in result}
+    confident = by_fqn["Example: Build A Table With Totals"]
+    loose = by_fqn["Example: Validate Cell Input"]
+    assert confident.coverage == pytest.approx(0.80)
+    assert confident.confidence == MATCH_CONFIDENCE_CONFIDENT
+    assert loose.coverage == pytest.approx(0.50)
+    assert loose.confidence == MATCH_CONFIDENCE_LOOSE
+    assert confident.confidence != "" and loose.confidence != "" and confident.confidence != loose.confidence
+
+
+def test_confidence_is_not_applicable_outside_the_vector_branch(tmp_path: Path) -> None:
+    store = _two_example_store(tmp_path)
+
+    exact = find_examples(store, PDF_NET, "Example: Merge Two Documents")
+    lexical = find_examples(store, PDF_NET, "merge two documents")
+
+    assert isinstance(exact, list) and exact[0].source == "exact" and exact[0].confidence == ""
+    assert isinstance(lexical, list) and lexical[0].source == "lexical" and lexical[0].confidence == ""
