@@ -84,12 +84,15 @@ requires:
 - docker
 negative_control:
   mutate: |
-    python -X utf8 -c "import pathlib; p = pathlib.Path('scripts/release/source_differential.py'); s = p.read_text(encoding='utf-8'); old = chr(34) + 'go' + chr(34) + ', ' + chr(34) + 'run' + chr(34); assert s.count(old) == 1, 'fix text not found - card and source have diverged (re-target against the worker real diff if it restructures the invocation differently)'; p.write_text(s.replace(old, chr(34) + 'go' + chr(34) + ', ' + chr(34) + 'build' + chr(34)), encoding='utf-8')"
+    python -X utf8 -c "import pathlib; p = pathlib.Path('scripts/release/source_differential.py'); s = p.read_text(encoding='utf-8'); old = chr(34) + 'go_enumerator.go' + chr(34) + ','; assert s.count(old) == 1, 'fix text not found - card and source have diverged'; p.write_text(s.replace(old, chr(34) + 'missing_enumerator.go' + chr(34) + ','), encoding='utf-8')"
   rationale: >-
-    Changes the Go subcommand from "run" to "build" inside whatever invocation this card lands on (host or
-    container), so the companion program never actually executes and prints nothing on stdout - the JSON parse
-    must fail and every enumerate_go-dependent test must fail. A real break of the card's central claim. Re-target
-    against the worker's actual committed diff if the invocation shape differs from this guess.
+    RE-TARGETED 2026-10-26 (supervisor, after the worker's real commit): the original guess assumed a one-line
+    ["go", "run", ...] list; the worker's real list spreads each arg on its own line, so "go", "run" never occurs
+    as one contiguous substring (and now also collides with "docker", "run"). Retargeted at the one place
+    "go_enumerator.go" appears as a bare, comma-terminated list argument (confirmed unique - the only other
+    occurrence is in the GO_ENUMERATOR_SOURCE path-join, which has no trailing comma): renaming it to a
+    nonexistent filename makes the container's own `go run` fail to find the file, so it exits non-zero and every
+    enumerate_go-dependent test must fail. A real break of the card's central claim.
 evidence:
 - evidence/build/G3/TC-596/receipt.json
 closeout:
