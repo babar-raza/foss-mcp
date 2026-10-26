@@ -14,10 +14,14 @@ import pytest
 
 from foss_mcp.indexing.lexical_index_writer import tokenize
 from foss_mcp.mcp.tools.relevance import (
+    FAMILY_UBIQUITY_FRACTION,
+    MIN_SCOPE_DOCUMENTS_FOR_UBIQUITY,
     RELEVANCE_THRESHOLD,
     SYNONYM_GROUPS,
     coverage,
     distinctive_terms,
+    family_generic_fraction,
+    family_generic_stems,
     guarded_coverage,
     query_terms,
     required_terms,
@@ -216,3 +220,81 @@ def test_guarded_coverage_without_required_terms_is_just_coverage() -> None:
         {"a1", "b2"}, ["a1"], weights=weights
     )
     assert guarded_coverage({"a1", "b2"}, iter(["a1", "b2"])) == 1.0
+
+
+# ---- TC-585 (G3/REQ-G3-009): the per-family ubiquitous-noun detector ----------------------------------
+#
+# Independent reproduction (RST round-2, RD-5) found that a word merely ubiquitous within ONE family's
+# own data ("file" on pdf, "color" on slides, "cell" on cells) was never excluded by the hand-maintained
+# global ``_GENERIC_WORDS``, so a literal match on it could bury a correct, differently-named answer.
+# ``family_generic_stems`` measures this per SCOPE from the same doc_freq table ``term_weights`` already
+# reads - these tests pin the measurement itself (pure, offline, synthetic payloads), never an answer
+# derived from the function's own prior output.
+
+
+def test_a_word_in_almost_every_document_is_family_generic() -> None:
+    # "common" is in all 20 documents (20/20 = 1.0, far over the floor); "rare" is in one. 20 documents
+    # also clears MIN_SCOPE_DOCUMENTS_FOR_UBIQUITY - below it no claim is measured at all (next test).
+    payload = _payload([["common", "rare" if index == 0 else "filler"] for index in range(20)])
+    assert family_generic_stems({"common", "rare"}, "sample", payload) == frozenset({"common"})
+
+
+def test_the_measured_floor_is_0_12() -> None:
+    assert FAMILY_UBIQUITY_FRACTION == pytest.approx(0.12)
+
+
+def test_the_minimum_scope_size_is_20_documents() -> None:
+    assert MIN_SCOPE_DOCUMENTS_FOR_UBIQUITY == 20
+
+
+def test_too_few_documents_makes_no_claim_however_high_the_fraction() -> None:
+    # 1 of 2 documents is already a 50 percent fraction without meaning anything about real ubiquity -
+    # reproduced directly against this exact shape (TC-585's own worker report): a 2-chunk synthetic
+    # fixture wrongly swept up "create" and "pivot" as "family-generic" before this floor existed.
+    payload = _payload([["common"], ["common", "rare"]])
+    assert family_generic_stems({"common", "rare"}, "sample", payload) == frozenset()
+
+
+def test_a_word_just_under_the_floor_is_not_family_generic() -> None:
+    # 2 documents of 20 carry "rare" (0.10, under 0.12); "common" (0.90) clears it.
+    documents = [["common"]] * 18 + [["common", "rare"]] * 2
+    payload = _payload(documents)
+    assert family_generic_stems({"common", "rare"}, "sample", payload) == frozenset({"common"})
+    assert "rare" not in family_generic_stems({"rare"}, "sample", payload)
+
+
+def test_family_generic_stems_sums_a_stems_raw_token_variants() -> None:
+    # "page" and "pages" both stem to "page" (TC-516's own stemmer); term_weights already sums a stem's
+    # raw tokens the same way, so family_generic_stems must count both forms as the one word they are.
+    documents = [["page"]] * 6 + [["pages"]] * 6 + [["unrelated"]] * 8
+    payload = _payload(documents)
+    assert family_generic_stems({"page"}, "sample", payload) == frozenset({"page"})
+
+
+def test_the_familys_own_stem_is_never_included_however_ubiquitous() -> None:
+    # Every document of a real scope's own namespace carries the family word; it has its OWN, different
+    # treatment (the family-stem light-term rescue) that most of the corpus depends on, so it must never
+    # be swept into the plain generic-discard bucket by this measurement alone.
+    payload = _payload([["pdf", "file"]] * 20)
+    assert family_generic_stems({"pdf", "file"}, "pdf", payload) == frozenset({"file"})
+
+
+def test_no_document_frequency_table_makes_no_claim() -> None:
+    assert family_generic_stems({"anything"}, "sample", None) == frozenset()
+    assert family_generic_stems({"anything"}, "sample", {}) == frozenset()
+    assert family_generic_stems({"anything"}, "sample", {"documents": {}, "doc_freq": {}}) == frozenset()
+
+
+def test_family_generic_fraction_is_the_plain_unclipped_fraction() -> None:
+    payload = _payload([["common"]] * 6 + [["other"]] * 4)
+    assert family_generic_fraction("common", payload) == pytest.approx(0.6)
+    assert family_generic_fraction("absent", payload) == 0.0
+    assert family_generic_fraction("common", None) == 0.0
+
+
+def test_family_generic_fraction_ranks_the_worst_offender_first() -> None:
+    # The same measurement a caller needing to pick ONE word to exclude from several candidates (TC-585's
+    # own worker report: "cell"/"workbook"/"value" on the cells pilots) would rank by.
+    payload = _payload([["cell", "workbook"]] * 8 + [["cell"]] * 2)
+    ranked = sorted({"cell", "workbook"}, key=lambda stem: -family_generic_fraction(stem, payload))
+    assert ranked == ["cell", "workbook"]

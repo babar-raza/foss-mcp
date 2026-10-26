@@ -39,6 +39,17 @@ query with no word of two characters (``a.b.c::d``); and ``evidence_terms`` turn
 ``search_symbols`` scores a type against (``strong`` terms must be explained, ``weak`` light verbs such as
 "add" and "create" only help). ``RELEVANCE_THRESHOLD``, ``tokenize``, the stored tokens and the index are untouched.
 
+TC-585 (G3/REQ-G3-009): ``_GENERIC_WORDS`` is hand-maintained and global, so a word ubiquitous in ONE
+family's own API surface but meaningful in another ("file" on pdf, "color" on slides, "value"/"workbook"
+on cells) was never excluded there, and as a literal match it could crowd out a weaker, token-based
+fallback answer. ``family_generic_stems`` measures this per SCOPE from the same doc_freq table
+``term_weights`` already reads (reused, not duplicated): a word present in at least
+``FAMILY_UBIQUITY_FRACTION`` of that scope's own indexed chunks is a candidate for exclusion from THAT
+family's own ``is_common_word``/``evidence_terms`` ``extra_generic`` - in addition to, never instead of,
+the existing global list. ``search_symbols.py`` owns where this is actually wired in (its own
+``_safe_extra_generic``, and the SEPARATE ``own_explained`` gate on the family-stem rescue), after
+measuring that feeding it into THIS module's own concept admission regressed the retrieval corpus.
+
 Pure functions only: no I/O, no clock, no randomness.
 """
 
@@ -559,16 +570,127 @@ def _stemmed_query_terms(query: str) -> frozenset[str]:
     return multi_character if multi_character else stemmed
 
 
-def _excluded_terms(family: str) -> set[str]:
+def _excluded_terms(family: str, extra_generic: Collection[str] = ()) -> set[str]:
     excluded = {stem_token(token) for token in tokenize(family)}
     excluded.add(stem_token(family))
     excluded.update(stem_token(word) for word in _GENERIC_WORDS)
+    excluded.update(extra_generic)
     return excluded
 
 
-def is_common_word(word: str, family: str) -> bool:
-    """True when *word* is the scope's family word or one of the generic words (after stemming)."""
-    return stem_token(word) in _excluded_terms(family)
+def is_common_word(word: str, family: str, *, extra_generic: Collection[str] = ()) -> bool:
+    """True when *word* is the scope's family word, one of the global generic words, or one of
+    *extra_generic*'s stems (TC-585: a word measured ubiquitous within one family's own data; see
+    ``family_generic_stems``), after stemming.
+    """
+    return stem_token(word) in _excluded_terms(family, extra_generic)
+
+
+# TC-585 (G3/REQ-G3-009, RST round-2 RD-5): a word that is merely ubiquitous within ONE family's own
+# API surface ("file" on pdf, "color" on slides, "cell"/"value"/"workbook" on cells) is not in the
+# hand-maintained global ``_GENERIC_WORDS`` above (it is genuinely distinctive in most OTHER families),
+# yet it is also a literal type-name/member-name match, so a confident but wrong candidate that merely
+# shares the word can crowd out the fallback stage's own weaker, token-based evidence for the real answer.
+# ``family_generic_stems`` below measures, from the SAME doc_freq table ``term_weights`` already reads
+# (reused, not duplicated), the plain fraction of a SCOPE's own indexed chunks that carry each candidate
+# word; a word at or above ``FAMILY_UBIQUITY_FRACTION`` is a candidate for exclusion from that scope's
+# ``search_symbols._fallback_doc_ids`` token-matching stage - never from a different family's, since the
+# same word may be that family's single most distinctive term there.
+#
+# A SEPARATE, independent fix (``search_symbols._evidence_ranking``'s ``own_explained`` gate on the
+# family-stem light-term rescue) addresses the other half of this card's reproduction directly: a type
+# whose name merely STEMS like the family's own word ("Cell"/"Cells" for family "cells") was credited a
+# full NAME_FIT_WEIGHT bonus regardless of whether it explained anything else, letting it outscore a type
+# that genuinely explains the whole question ("Style"/"Alignment" for "wrap text in a cell"). Measuring
+# this card's own fix against the full retrieval corpus (every attempt that let a per-family-generic word
+# ALSO exclude itself as a REQUIRED concept in ``_evidence_ranking``, changing ``needed``/``total``/
+# ``foreign``, regressed unrelated families whose own common, central nouns - "document" on pdf, "page"
+# on pdf, "shape" on slides, "text" on all three - are also their most frequent words) is why the fraction
+# below feeds only the fallback stage and the ``own_explained`` gate, never ``_evidence_ranking``'s own
+# concept admission; this module's worker report records the measured attempts and the full before/after
+# corpus numbers.
+#
+# Measured directly (doc-level fraction) on the real baked ``infra/demo-manifests`` generations the card's
+# own 3 reproduced cases named, every platform of each family: pdf's "file" 0.066-0.248 (6 platforms),
+# slides' "color" 0.106-0.155 (4 platforms), cells' "value" 0.167-0.636 and "workbook" 0.071-0.323 (7
+# platforms). 0.12 sits below "color"'s lowest measured platform and below "file" on net/python/cpp -
+# the platforms this card's own reproduction used - while a genuinely rare, distinctive word on the SAME
+# pilots stays far under it ("watermark" 0.002-0.026, "hyperlink" 0.000-0.192, "stamp" 0.020-0.076 on pdf;
+# "chart" 0.000-0.021 on 3 of slides' 4 platforms; "range" 0.031-0.177 on cells).
+FAMILY_UBIQUITY_FRACTION = 0.12
+
+# Below this many documents, a fraction measurement is too noisy to trust (2 documents: one occurrence
+# is already 50 percent) - see ``family_generic_stems``. Every real baked pilot holds at least 49.
+MIN_SCOPE_DOCUMENTS_FOR_UBIQUITY = 20
+
+
+def _scope_document_fraction(stem: str, lexical_payload: Mapping[str, object]) -> float:
+    """The fraction of *lexical_payload*'s own documents carrying a raw token whose stem is *stem* -
+    the plain (unclipped) fraction behind ``term_weights``'s own doc_freq table, summed over every raw
+    token that stems to it exactly as ``term_weights`` already sums one."""
+    documents = lexical_payload.get("documents") or {}
+    doc_freq = lexical_payload.get("doc_freq") or {}
+    total_documents = len(documents)  # type: ignore[arg-type]
+    if total_documents == 0:
+        return 0.0
+    carrying = sum(
+        count
+        for token, count in doc_freq.items()
+        if stem_token(token) == stem  # type: ignore[attr-defined]
+    )
+    return carrying / total_documents
+
+
+def family_generic_stems(
+    stems: Collection[str], family: str, lexical_payload: Mapping[str, object] | None
+) -> frozenset[str]:
+    """The members of *stems* (already ``stem_token``-stemmed) that are ubiquitous within
+    *lexical_payload*'s own scope (TC-585): present in at least ``FAMILY_UBIQUITY_FRACTION`` of that
+    scope's own indexed chunks. ``frozenset()`` when *lexical_payload* carries no document-frequency
+    table (``None``, or a synthetic fixture built without one) - no scope data means no claim is made.
+    Additive to the existing global ``_GENERIC_WORDS``, never a replacement: pass the result as
+    ``is_common_word``'s or ``evidence_terms``'s ``extra_generic`` for THIS scope only.
+
+    *family*'s OWN stem is never a member of the result, however high its measured fraction (it is
+    always the highest, since the namespace prefix of every type's FQN carries it): that word already
+    has its own, DIFFERENT special treatment (the family-stem light-term rescue in ``evidence_terms`` -
+    "add a slide" on the slides pilots, where the family-stem word IS the thing asked about), which many
+    real queries across the whole corpus depend on; routing it through the plain generic-discard path
+    instead broke far more than the one case ("cell" on the cells pilots) this card's own reproduction
+    targeted, confirmed by running the full retrieval-corpus ratchet (see this card's own worker report).
+
+    ``frozenset()`` for a scope of fewer than ``MIN_SCOPE_DOCUMENTS_FOR_UBIQUITY`` documents: with only a
+    handful of chunks, any word appearing in even one or two of them is already "ubiquitous" by fraction
+    alone (2 documents: one occurrence is 50 percent) without that meaning anything about real ubiquity -
+    found directly by a synthetic 2-chunk fixture ("create a pivot table" wrongly started matching once
+    "create" and "pivot" were each swept up as "ubiquitous" for a corpus of 2). Every real baked pilot
+    this card measured holds at least 49 documents, comfortably above the floor.
+    """
+    if not lexical_payload:
+        return frozenset()
+    documents = lexical_payload.get("documents") or {}
+    if not documents or not lexical_payload.get("doc_freq"):
+        return frozenset()
+    if len(documents) < MIN_SCOPE_DOCUMENTS_FOR_UBIQUITY:  # type: ignore[arg-type]
+        return frozenset()
+    family_stem = stem_token(family)
+    return frozenset(
+        stem
+        for stem in stems
+        if stem != family_stem and _scope_document_fraction(stem, lexical_payload) >= FAMILY_UBIQUITY_FRACTION
+    )
+
+
+def family_generic_fraction(stem: str, lexical_payload: Mapping[str, object] | None) -> float:
+    """The public form of the measurement ``family_generic_stems`` itself uses: ``0.0`` when
+    *lexical_payload* carries no document-frequency table, else *stem*'s real fraction of this scope's
+    own documents (TC-585). A caller that must exclude several ubiquitous words from ONE query but keep
+    at least one real concept alive (``search_symbols._safe_extra_generic``) ranks its candidates by this
+    value, most-ubiquitous-first, rather than guessing an order.
+    """
+    if not lexical_payload or not lexical_payload.get("documents") or not lexical_payload.get("doc_freq"):
+        return 0.0
+    return _scope_document_fraction(stem, lexical_payload)
 
 
 def query_terms(query: str, family: str) -> frozenset[str]:
@@ -761,6 +883,13 @@ def evidence_terms(query: str, family: str) -> tuple[EvidenceTerm, ...]:
     A word that only STEMS like the family word ("cell" for the family "cells") stays as a light term, because it
     may be the type's name. When nothing else is left the family and generic words are put back, so "pdf" still
     works. A camel-case run ("PdfDocument") is read as its words.
+
+    TC-585: a word merely ubiquitous within one family's own data (``relevance.family_generic_stems``) is
+    deliberately NOT excluded here - ``search_symbols._evidence_ranking`` instead gates the family-stem
+    rescue below on ``own_explained`` (a type must explain some STRONG concept literally before collecting
+    it), after measuring that excluding such a word from this function's own concept set - and so from
+    ``needed``/``total``/``foreign`` - regressed the retrieval corpus (many families' own most common words
+    are also their most frequent, genuinely correct answers; see that module's own worker report).
     """
     excluded = _excluded_terms(family)
     family_words = (

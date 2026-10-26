@@ -121,6 +121,14 @@ enum member ranks before a chunk that lists none (``_has_listed_members``), so a
 Python class (a re-export shell the data refresh has not yet paired with its definition) never answers
 before the real class. The key sits second, behind the tier and ahead of declaring-before-inheriting and
 BM25, which are unchanged; no tier number, ``_match_tier``, the Miss or the fallback stage changes.
+
+TC-585 (G3/REQ-G3-009): ``_evidence_ranking`` and ``_fallback_doc_ids`` (via ``naming_tokens``) now also
+exclude a word measured ubiquitous within the SCOPE's own data (``relevance.family_generic_stems``,
+additive to the existing global ``_GENERIC_WORDS``) - independent reproduction found "file" on pdf,
+"color" on slides and "cell" on cells, each a literal type/member-name match common enough across that
+one family's own API surface to bury a correct, differently-named answer that does not happen to share
+the word, exactly the kind of defect ``_match_tier``'s own tiers above are immune to (they require the
+WHOLE query, not one common word of it) but the sentence-level evidence stage was not.
 """
 
 from __future__ import annotations
@@ -129,7 +137,7 @@ import math
 import re
 import string
 from collections import OrderedDict
-from collections.abc import Iterable, Mapping
+from collections.abc import Collection, Iterable, Mapping
 from dataclasses import dataclass
 from difflib import get_close_matches
 from typing import TYPE_CHECKING
@@ -308,14 +316,15 @@ _FALLBACK_MIN_SHARE = 0.6
 _QUERY_POSSESSIVE = re.compile(r"['\u2019]s$")
 
 
-def naming_tokens(query: str, family: str) -> list[str]:
+def naming_tokens(query: str, family: str, *, extra_generic: Collection[str] = ()) -> list[str]:
     """The casefolded words of *query* that could name a type or a member, in query order.
 
     Whitespace-split; surrounding punctuation and a possessive suffix removed; a word is dropped when it
     is shorter than three characters, a stopword ("how", "do", "I"), one of the noise words ("method",
     "methods", "class", "classes", "property", "properties", "api", "using", "what", "does"), a generic
-    word ("use", "example") or the scope's own family word. A dotted or scoped word ("PdfDocument.Rotate")
-    stays one token, which names no type, so it never matches by its parts.
+    word ("use", "example"), one of *extra_generic*'s stems (TC-585: ubiquitous within this one family's
+    own data - see ``relevance.family_generic_stems``) or the scope's own family word. A dotted or scoped
+    word ("PdfDocument.Rotate") stays one token, which names no type, so it never matches by its parts.
     """
     from foss_mcp.mcp.tools.relevance import is_common_word  # lazy: get_symbol imports this module
 
@@ -324,7 +333,7 @@ def naming_tokens(query: str, family: str) -> list[str]:
         word = _QUERY_POSSESSIVE.sub("", raw.strip(string.punctuation + "`").casefold())
         if len(word) < _NAMING_MIN_LENGTH or word in _NAMING_NOISE_WORDS:
             continue
-        if not tokenize(word) or is_common_word(word, family):
+        if not tokenize(word) or is_common_word(word, family, extra_generic=extra_generic):
             continue
         tokens.append(word)
     return tokens
@@ -456,12 +465,76 @@ class Miss:
     coverage_note: str | None = None
 
 
+def _safe_extra_generic(
+    words: list[str], family: str, lexical_payload: Mapping[str, object] | None
+) -> frozenset[str]:
+    """TC-585: ``relevance.family_generic_stems``'s candidates for *words*, restricted to the largest
+    most-ubiquitous-first subset that does not empty *words* of every STRONG term (``evidence_terms``'s
+    own baseline classification, extra_generic-free: not a light/action verb, not a single letter or
+    stopword, not already weak via the family-stem rescue) when at least one such term existed before any
+    per-family exclusion.
+
+    "change a workbook cell value" (cells) has three candidates over ``FAMILY_UBIQUITY_FRACTION``
+    ("cell", "workbook", "value"); excluding all three from the fallback stage's own ``naming_tokens``
+    would leave only the light verb "change" there and turn an already-correct answer into a Miss. "cell"
+    is never itself a STRONG baseline term here (it is the family's own stem, already weak via the
+    family-stem rescue), so excluding it costs nothing; excluding "workbook" and "value" too would cost
+    everything, so the greedy selection stops before the last real one - but only because this query
+    started with TWO strong terms to protect. A query whose only strong term is the lone per-family-generic
+    candidate ("open a pdf file", pdf: "file" is the only one) has nothing left to protect either way, so
+    the full candidate set is returned unrestricted.
+
+    A candidate that is ALSO the bare, whole name of a real type in this exact generation ("Document",
+    "Page", "Shape" are all real pdf/slides types, as common in prose as "file" ever is on pdf) is never
+    excluded regardless of its measured fraction: measured directly against the full retrieval corpus,
+    treating such a word as generic broke "create a new word document" -> ``Document`` and "give a shape
+    a name" -> ``Shape`` on multiple platforms (a real, central type is not the kind of accidental
+    literal-name collision this card's purpose describes), while "file" and "color" are never themselves
+    a bare type's whole name on the pilots this card's own reproduction measured.
+    """
+    from foss_mcp.mcp.tools.get_symbol import extract_fqn
+    from foss_mcp.mcp.tools.relevance import (
+        evidence_terms,
+        family_generic_fraction,
+        family_generic_stems,
+        stem_token,
+    )
+
+    stems = {stem_token(word) for word in words}
+    candidates = family_generic_stems(stems, family, lexical_payload)
+    if not candidates:
+        return frozenset()
+    documents = (lexical_payload or {}).get("documents") or {}
+    real_type_stems: set[str] = set()
+    for document in documents.values():
+        fqn = extract_fqn(document["text"])
+        if fqn is None or fqn.startswith(_NON_SYMBOL_FQN_PREFIXES):
+            continue
+        real_type_stems.add(stem_token(_FINAL_SEGMENT.split(fqn.strip())[-1]))
+    candidates = candidates - real_type_stems
+    if not candidates:
+        return frozenset()
+    baseline_terms = evidence_terms(" ".join(words), family)
+    strong_stems = {stem_token(term.word) for term in baseline_terms if not term.weak}
+    if len(strong_stems) < 2:
+        # Nothing to protect (no strong term at all), or only the one the bug itself turns on - either
+        # way there was never a second, independent strong term whose loss would be a real regression.
+        return candidates
+    ranked = sorted(candidates, key=lambda stem: -family_generic_fraction(stem, lexical_payload))
+    chosen: set[str] = set()
+    for stem in ranked:
+        if strong_stems - (chosen | {stem}):
+            chosen.add(stem)
+    return frozenset(chosen)
+
+
 def _fallback_doc_ids(
     documents: dict[str, dict],
     ranked: list[tuple[str, float]],
     query: str,
     family: str,
     top_k: int,
+    lexical_payload: Mapping[str, object] | None = None,
 ) -> list[str]:
     """TC-516: the per-token fallback, for a query that every stage above left without a symbol.
 
@@ -471,12 +544,18 @@ def _fallback_doc_ids(
     when at least 60 percent of the tokens (and at least one) match. Ranked by the number of matched
     tokens, then by the tokens that match the type's own name (a declaring type before one that merely
     lists the member by name), then by BM25. There is no prefix matching.
+
+    TC-585: *lexical_payload*, when given, measures which of the query's own words are ubiquitous within
+    this one family's own data (``_safe_extra_generic``) and drops them from ``naming_tokens`` too, so a
+    word excluded upstream (``_evidence_ranking``) cannot still gate this later stage's own 60-percent
+    floor on its own account - the same safe subset, never emptying every strong word of the query.
     """
     from foss_mcp.mcp.tools.get_symbol import extract_fqn
 
     if not any(character.isspace() for character in query.strip()):
         return []
-    tokens = naming_tokens(query, family)
+    extra_generic = _safe_extra_generic(query.split(), family, lexical_payload)
+    tokens = naming_tokens(query, family, extra_generic=extra_generic)
     if not tokens:
         return []
     needed = max(1, math.ceil(_FALLBACK_MIN_SHARE * len(tokens)))
@@ -745,6 +824,16 @@ def _evidence_ranking(
     chunk's own prose (BM25 over the words and their synonyms), and demotes an internal namespace and an
     ``I``-interface that has a class beside it. Ranked by score, then the shorter name, then a type that lists
     members.
+
+    TC-585: a type whose own NAME merely stems like the family's own word ("Cell"/"Cells" for family
+    "cells") is rescued into the fit score below by ``evidence_terms``'s family-stem light term - see
+    ``own_explained`` and the family-stem rescue site inside the per-entry loop for the measured gate on
+    that rescue (a type must explain at least one STRONG concept LITERALLY, own not synonym, before it
+    collects this additional credit). Trying the broader fix this card's purpose first suggested - also
+    excluding a per-family-ubiquitous word (``relevance.family_generic_stems``) from being a REQUIRED
+    concept here at all - regressed the full retrieval corpus every time it was tried, because many
+    families' own most common words ("document", "page", "shape", "text") are also their most frequent,
+    genuinely correct answers; this module's worker report records the measured attempts and numbers.
     """
     from foss_mcp.mcp.tools.relevance import RELEVANCE_THRESHOLD, evidence_terms
 
@@ -792,6 +881,7 @@ def _evidence_ranking(
         first_asked = len(concepts) + len(name_keys)
         matched_type_words: set[str] = set()
         missing: list[str] = []
+        own_explained = False
         for position, concept in enumerate(concepts):
             weight = weights[concept.word]
             if concept.forms & entry.type_keys:
@@ -801,11 +891,13 @@ def _evidence_ranking(
                     score += weight * BOTH_PLACES_BONUS
                 matched_type_words |= concept.forms & entry.type_keys
                 explained += 1
+                own_explained = own_explained or own
                 first_asked = min(first_asked, position)
             elif concept.forms & entry.member_keys:
                 own = bool(concept.keys & entry.member_keys)
                 score += weight * MEMBER_WORD_WEIGHT * (1.0 if own else SYNONYM_FACTOR)
                 explained += 1
+                own_explained = own_explained or own
                 via_member = True
                 first_asked = min(first_asked, position)
             else:
@@ -815,9 +907,11 @@ def _evidence_ranking(
                 score += NAME_TYPE_WEIGHT
                 explained += 1
                 matched_type_words |= entry.type_keys
+                own_explained = True
             elif key in entry.member_wholes:
                 score += NAME_MEMBER_WEIGHT
                 explained += 1
+                own_explained = True
                 via_member = True
             else:
                 missing.append(name)
@@ -826,7 +920,17 @@ def _evidence_ranking(
         for term in light:
             if term.forms & entry.member_keys:
                 score += LIGHT_TERM_BONUS
-            if term.family_stem and term.forms & entry.type_keys:
+            # TC-585: the family-stem rescue below credits ANY type merely NAMED after the family's own
+            # stem ("Cell", "Cells" on the cells pilots) with a full NAME_FIT_WEIGHT bonus - reproduced:
+            # for "wrap text in a cell", that bonus alone (``fit`` 0 -> 1.0) was enough to admit ``Cells``
+            # (which explains "text" only through the "string" synonym) as a PARTIAL match ahead of
+            # ``Style``/``Alignment``, the types that genuinely declare ``WrapText`` and explain the whole
+            # question. Gated on ``own_explained``: a type that explains at least one STRONG concept
+            # LITERALLY (own, type or member) earns the rescue same as before ("add a slide" on the
+            # slides pilots: the promotion rule above turns "slide" into a real, non-weak concept there,
+            # explaining ``Slide`` via its own name directly); one whose only explanation is itself a
+            # synonym no longer gets the family name for free on top of it.
+            if term.family_stem and term.forms & entry.type_keys and own_explained:
                 # only a light NOUN ("cell" on the cells pilots) counts towards the name; a verb does not
                 matched_type_words |= term.forms & entry.type_keys
         fit = len(matched_type_words) / len(entry.type_keys) if entry.type_keys else 0.0
@@ -986,7 +1090,7 @@ def search_symbols(
             qualities[item.entry.doc_id] = MATCH_EXACT if item.exact else MATCH_PARTIAL
             unmatched[item.entry.doc_id] = item.unexplained
     if not ordered:
-        ordered = _fallback_doc_ids(documents, ranked, query, scope.family, len(documents))
+        ordered = _fallback_doc_ids(documents, ranked, query, scope.family, len(documents), lexical_payload)
         qualities = dict.fromkeys(ordered, MATCH_EXACT)
     if not ordered:
         known_fqns = []
