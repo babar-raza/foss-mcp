@@ -1,0 +1,100 @@
+id: TC-588
+gate: G3
+lane: verification
+purpose: >-
+  tests/mcp/tools/test_round3_retrieval_corpus.py's WRONG_MAX/WRONG_MAX_FAMILY ratchet (established by TC-562/TC-579)
+  measures only `lookup`; TC-584's find_examples fixes (generic-chunk demotion, disclosure, re-validated threshold)
+  have no equivalent regression ratchet at all, so a future change could silently reintroduce the exact confident-
+  wrong behavior TC-584 just fixed. Separately, the Round-2 audit's own card-ready spec for TC-584..TC-587 (RC-1
+  through RC-7) explicitly calls out that the corpus's shared "other" family bucket (barcode, note, html, page,
+  imaging, tex - every single-platform pilot) hides a per-pilot regression: html/python's own real wrong_conf rate
+  measures 18.18% while the aggregate "other" bucket measures only 3.57%, so html/python could regress to nearly
+  1-in-5 wrong answers with the aggregate ratchet never noticing. FIX: (1) extend the corpus runner/ratchet to also
+  measure find_examples (today lookup-only) with its own WRONG_MAX-equivalent floor, measured fresh on the real
+  corpus after TC-584..TC-587 land; (2) give each single-platform pilot of the "other" bucket its own measured
+  floor instead of one shared aggregate, the same way WRONG_MAX_FAMILY already does per multi-platform family.
+depends_on:
+- TC-562
+- TC-579
+- TC-584
+- TC-585
+- TC-586
+- TC-587
+write_paths:
+- tests/mcp/tools/test_round3_retrieval_corpus.py
+satisfies:
+- REQ-G3-009
+source_refs:
+- file: docs/DECISION_LOG.md
+  anchor: >-
+    ## 2026-10-17 — Round-3 independent review of the shipped image: 82 findings registered, nothing executed (operator, supervisor)
+  sha256: c2056b11a13e5b18cda7e522027fb5eb0102edcef2f99f6c7e7ce0ee5c4b4e5b
+inputs:
+- >-
+  READ FIRST: this file's own CORPUS_DATA, run_corpus, WRONG_MAX/WRONG_MAX_FAMILY/BASELINE_HIT3/BASELINE_WRONG, and
+  the FAMILIES tuple (currently cells/pdf/slides/words/3d/email/other). Confirm TC-584 through TC-587 have all
+  landed on main before you start (their depends_on already requires this; if any is not ACCEPTED, stop and report
+  rather than measuring against an incomplete fix set).
+- >-
+  PART 1 - find_examples ratchet: extend run_corpus (or add a parallel measuring function reusing its machinery) to
+  also call find_examples for each corpus item where an example-shaped intended API applies, and compute its own
+  wrong_conf-equivalent rate (a confident, non-partial answer that does not hold any item of the intended spec) the
+  same way the existing lookup measurement does. Measure the REAL, current (post-TC-584..587) rate on this corpus
+  and pin a WRONG_MAX-equivalent floor at the measured rate plus a small margin, exactly as WRONG_MAX's own comment
+  documents its own derivation - never a round number picked without measuring first. Add the new floor as its own
+  named constant and its own ratchet test, parallel to the existing `test_wrong_conf_rate_is_within_ceiling`-shaped
+  test for lookup (read the exact name/shape of that test first and mirror it).
+- >-
+  PART 2 - per-single-platform floors: split the "other" family bucket's measurement into one floor per pilot
+  (barcode/python, note/python, html/python, page/python, imaging/net, tex/python - confirm this is still the real
+  single-platform pilot list by reading infra/helm/foss-mcp/values.yaml's ingestion.pilots directly, in case it
+  changed since the audit). Measure each pilot's own real wrong_conf rate on this corpus today and pin a
+  per-pilot ceiling the same way WRONG_MAX_FAMILY already does per multi-platform family (measured value plus a
+  small margin, each with the measurement comment TC-588's own date). The aggregate "other"-bucket floor may stay
+  as an additional, looser check if you keep it, but each pilot MUST have its own tighter floor that catches a
+  single-pilot regression the aggregate would hide - prove this explicitly with a test that a per-pilot floor is
+  tighter than (or at least no looser than) what the aggregate alone would have caught for html/python specifically.
+- >-
+  Do not touch CORPUS_DATA's own task/intended-API rows, lookup's existing WRONG_MAX/WRONG_MAX_FAMILY/BASELINE_HIT3
+  values, or any other file - this card is purely an extension of the measurement/ratchet infrastructure in this
+  one file. If a pre-existing lookup-side number needs to move because TC-584..587 changed lookup's own behavior
+  too (they should not have - those cards touch find_examples/relevance.py/search_symbols.py, not lookup directly),
+  stop and report rather than re-pinning it silently.
+- Run the whole file; it must stay green both before and after your additions settle. Never weaken a check to make it pass.
+actions:
+- >-
+  Extend the retrieval corpus ratchet to measure find_examples (not just lookup) and to give each single-platform
+  pilot its own regression floor instead of a shared aggregate bucket.
+checks:
+- command: '{python} -m pytest tests/mcp/tools/test_round3_retrieval_corpus.py -q -rfE'
+  expect: exit 0
+  timeout_seconds: 600
+  junitxml: true
+  proves:
+  - REQ-G3-009
+- command: >-
+    {python} -m pytest tests/mcp/tools/test_round3_retrieval_corpus.py -q -rfE -p no:cacheprovider
+  expect: exit 0
+  timeout_seconds: 600
+  junitxml: true
+  proves:
+  - REQ-G3-009
+min_tests: 15
+network: false
+requires:
+- python
+negative_control:
+  mutate: |
+    python -X utf8 -c "import pathlib; p = pathlib.Path('tests/mcp/tools/test_round3_retrieval_corpus.py'); s = p.read_text(encoding='utf-8'); old = 'WRONG_MAX_FAMILY = {'; assert s.count(old) == 1, 'fix text not found - card and source have diverged'; p.write_text(s.replace(old, 'WRONG_MAX_FAMILY_UNUSED_BY_MISTAKE = {', 1), encoding='utf-8')"
+  rationale: >-
+    Renames the existing per-family ratchet dict so nothing reads it, breaking the established lookup-side
+    per-family gate; since this card's own new per-pilot/find_examples gates are built alongside and exercised by
+    the same test run, this also exposes whether the new tests actually run and assert something real. A real
+    break of the card's central claim.
+evidence:
+- evidence/build/G3/TC-588/receipt.json
+closeout:
+- >-
+  The retrieval corpus ratchet now measures find_examples as well as lookup, and gives each single-platform pilot
+  its own regression floor instead of hiding per-pilot regressions behind a shared "other" aggregate.
+recovery: Re-run from a clean tree.

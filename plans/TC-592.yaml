@@ -1,0 +1,104 @@
+id: TC-592
+gate: G3
+lane: verification
+purpose: >-
+  Card 4 of the 6-language oracle remediation (see TC-589 for full history/context). JAVA ENUMERATOR, bounded to
+  ONE pilot (pdf/java - repository aspose-pdf-foss/Aspose.PDF-FOSS-for-Java, commit
+  736cedaa2922e4952f429364bdb9a4bbb1d97863 per infra/helm/foss-mcp/values.yaml - confirm it has not moved): a real
+  enumerate_java using the JDK's own compiler front end at the PARSE phase only (javac is already in this project's
+  toolchain, confirmed javac 21.0.11; no new external dependency). Parse-phase only means reading the real source's
+  own declared API surface from its syntax tree, never requiring the library to fully compile/resolve (its own
+  third-party dependencies may not be on the classpath) - this bounds scope honestly and matches the design table's
+  own "parse-phase only" column. Proven against synthetic fixtures with deliberate defects, then run once, live,
+  against the real pinned commit, with the real diff findings against tests/fixtures/pdf_java/api_surface.json
+  reported honestly (not required to be clean - a real discrepancy is a NEW finding to report, not something this
+  card must also fix).
+depends_on:
+- TC-566
+- TC-589
+- TC-590
+- TC-591
+write_paths:
+- scripts/release/source_differential.py
+- tests/release/test_source_differential.py
+satisfies:
+- REQ-G3-009
+source_refs:
+- file: docs/DECISION_LOG.md
+  anchor: >-
+    ## 2026-10-17 — Round-3 independent review of the shipped image: 82 findings registered, nothing executed (operator, supervisor)
+  sha256: c2056b11a13e5b18cda7e522027fb5eb0102edcef2f99f6c7e7ce0ee5c4b4e5b
+inputs:
+- >-
+  READ FIRST: scripts/release/source_differential.py's full module docstring, the Enumerator contract, and
+  TC-589..TC-591's now-merged enumerators for the established companion-helper-process pattern. Confirm TC-589,
+  TC-590 and TC-591 have all landed before you start. Newer JDKs (21 included) strongly encapsulate
+  com.sun.tools.javac.* internals - verify directly on this host whether you can use them at all (a small test
+  program with `--add-exports jdk.compiler/com.sun.tools.javac.api=ALL-UNNAMED` or similar module flags, or the
+  public, supported javax.lang.model / javax.tools.JavaCompiler + a custom TaskListener/Processor approach that
+  needs no internal-package access at all). Prefer the fully-public javax.lang.model/Processor API if it gives you
+  everything you need (class/method/field declarations, modifiers, parameter types) without any --add-exports flag
+  - report which approach you used and why.
+- >-
+  BUILD enumerate_java(repository, commit, library_dir) -> list[OracleSymbol]: clone the pinned commit with
+  clone_pinned_commit (reused) when needed. Create a small companion Java program (e.g. under
+  scripts/release/oracle_helpers/JavaEnumerator.java, compiled with `javac` and run with `java`, or run directly
+  with the single-file source-launcher `java JavaEnumerator.java` the JDK supports) that parses every .java file
+  under the cloned library's public source directory (parse phase only - do not attempt to resolve the library's
+  own external dependencies) and finds every public class/interface/enum and their public methods/fields/enum
+  constants, emitting JSON on stdout for the Python side to parse via subprocess. Map onto OracleSymbol/OracleMember
+  exactly as enumerate_python does for the equivalent Python shapes (kind="class"/"enum", methods with their
+  parameter names, fields as kind="property", enum constants as kind="enum_value"). A `protected` or
+  package-private member is NOT public; get this right.
+- >-
+  NEW/EXTENDED TESTS, offline, hand-written Java micro-fixtures (never the real pilot, never the enumerator's own
+  output as the expected value): (a) a correct synthetic .java file with one public class, one public method with
+  parameters, one private method and one package-private field that must NOT appear - assert the exact returned
+  shape. (b) At least 2 INDEPENDENTLY-DELIBERATE DEFECT fixtures: for example a `protected` method that must be
+  excluded (protected is not public); an enum with explicit constructor arguments on its constants, whose
+  enum_value the enumerator must get exactly right rather than merely counting constants.
+- >-
+  LIVE RUN (action, not a check - needs the network and the JDK; run this yourself once, report the real numbers):
+  register enumerate_java in DEFAULT_ENUMERATORS for "java" (replacing _unimplemented_enumerator("java") only), run
+  `python scripts/release/source_differential.py --only pdf/java --fixtures tests/fixtures --report-dir <temp dir>`
+  for real against the real pinned commit. Report the full diff summary honestly in your closeout, whatever it
+  says; a non-empty diff is a separate, new finding (open an ops/open_questions.jsonl entry if it reveals a real
+  extraction defect - this card does not fix extraction code).
+- Run the whole test file; it must stay green. Never weaken a check to make it pass.
+actions:
+- >-
+  Build and wire a real Java enumerator (JDK parse-phase API) for source_differential.py's independent oracle,
+  proven against synthetic fixtures with deliberate defects, and run it once live against the real pdf/java pin.
+checks:
+- command: '{python} -m pytest tests/release/test_source_differential.py -q -rfE'
+  expect: exit 0
+  timeout_seconds: 300
+  junitxml: true
+  proves:
+  - REQ-G3-009
+- command: >-
+    {python} -m pytest tests/release/test_source_differential.py -q -rfE -p no:cacheprovider
+  expect: exit 0
+  timeout_seconds: 300
+  junitxml: true
+  proves:
+  - REQ-G3-009
+min_tests: 15
+network: false
+requires:
+- python
+- java
+negative_control:
+  mutate: |
+    python -X utf8 -c "import pathlib; p = pathlib.Path('scripts/release/source_differential.py'); s = p.read_text(encoding='utf-8'); marker = chr(34) + 'java' + chr(34) + ': enumerate_java'; assert s.count(marker) == 1, 'fix text not found - card and source have diverged'; p.write_text(s.replace(marker, chr(34) + 'java' + chr(34) + ': _unimplemented_enumerator(' + chr(34) + 'java' + chr(34) + ')', 1), encoding='utf-8')"
+  rationale: >-
+    Un-registers the new Java enumerator from DEFAULT_ENUMERATORS, reverting it to the unimplemented stub, so every
+    new Java-specific test exercising the real enumerator must fail. A real break of the card's central claim.
+evidence:
+- evidence/build/G3/TC-592/receipt.json
+closeout:
+- >-
+  source_differential.py's independent oracle now has a real Java enumerator (JDK parse-phase API), proven against
+  synthetic fixtures with deliberate defects and run once live against the real pdf/java pinned commit, with the
+  real diff findings reported.
+recovery: Re-run from a clean tree.

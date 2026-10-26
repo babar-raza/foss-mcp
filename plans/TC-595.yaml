@@ -1,0 +1,111 @@
+id: TC-595
+gate: G3
+lane: verification
+purpose: >-
+  Closing card of the 6-language oracle remediation (TC-589..TC-594, see TC-589 for full history/context). With a
+  real enumerator now wired for all 7 platforms (python from TC-566, go/rust/typescript/java/net+dotnet/cpp from
+  TC-589..TC-594), this card does what no card has done yet: run scripts/release/source_differential.py for real
+  against ALL 32 pilots in one pass, record the complete results as committed evidence, and correct the
+  documentation gap the audit found - "nothing anywhere (no decision-log entry, no open question, no RELEASE.md
+  line) ever disclosed that only Python was wired", the silent under-delivery against TC-566's own accepted
+  closeout claim. This is also the AGENTS.md "Integration and liveness" proof point for the whole oracle: a real,
+  fleet-wide run, not six isolated per-language passes each proving only its own one pilot.
+depends_on:
+- TC-537
+- TC-566
+- TC-573
+- TC-575
+- TC-579
+- TC-589
+- TC-590
+- TC-591
+- TC-592
+- TC-593
+- TC-594
+write_paths:
+- docs/RELEASE.md
+- docs/DECISION_LOG.md
+- tests/release/test_source_differential.py
+satisfies:
+- REQ-G3-009
+source_refs:
+- file: docs/DECISION_LOG.md
+  anchor: >-
+    ## 2026-10-17 — Round-3 independent review of the shipped image: 82 findings registered, nothing executed (operator, supervisor)
+  sha256: c2056b11a13e5b18cda7e522027fb5eb0102edcef2f99f6c7e7ce0ee5c4b4e5b
+inputs:
+- >-
+  Confirm TC-589 through TC-594 have all landed (your depends_on already requires this) and that
+  scripts/release/source_differential.py's DEFAULT_ENUMERATORS now wires a real enumerator for every one of
+  python/go/rust/typescript/javascript/nodejs/java/net/dotnet/cpp used by any of the 32 pilots - read
+  infra/helm/foss-mcp/values.yaml's ingestion.pilots list directly and confirm every platform it names has a real
+  (non-_unimplemented_enumerator) entry; if any platform genuinely still lacks one (a card scoped narrower than
+  expected, or a platform this card-set never covered), say so explicitly and plainly in both the evidence record
+  and docs/RELEASE.md - do not claim full coverage that is not real.
+- >-
+  LIVE RUN (action; needs the network and every language toolchain used by TC-589..TC-594 - run this yourself
+  once, from a clean tree, and report the real numbers, never fabricate them): `python
+  scripts/release/source_differential.py --fixtures tests/fixtures --report-dir <temp dir>` with NO --only filter,
+  against all 32 real pilots for real. This clones all 32 real upstream repositories at their pinned commits - it
+  will take a while and needs real network access throughout; do not interrupt it partway and report a partial run
+  as complete.
+- >-
+  RECORD the complete, real result in full in your own commit message and report (evidence/ is supervisor-owned
+  and outside your write_paths - do not attempt to commit a report there). For every pilot whose real diff is
+  non-empty (missing/extra/signature/static/default/enum_value > 0), that is a genuine, newly-surfaced extraction-
+  fidelity finding - list each one by pilot and category in your report; the supervisor will open an
+  ops/open_questions.jsonl entry for any that looks like a real extraction defect (this card fixes documentation
+  and reports the run; it does not fix extraction code for findings this run surfaces, and does not itself touch
+  ops/ - that is future work, scoped honestly as such, and the supervisor's own follow-up).
+- >-
+  CORRECT THE DOCUMENTATION GAP: add a dated, honest statement to docs/RELEASE.md (near wherever REQ-G3-009/the
+  independent review is already discussed - read the file first to place it sensibly, do not create a disconnected
+  new section) saying plainly which platforms the independent oracle now covers for real, which (if any) it still
+  does not, and summarising the real fleet-run numbers from this card's own live run (pilot-by-pilot or aggregated,
+  your call, but it must be the real numbers you just measured). Add a matching entry to docs/DECISION_LOG.md
+  recording that the 2026-10-17 Round-3 review's finding (TC-566 claimed fleet-wide success while shipping
+  Python-only, undisclosed) is now closed, with the real completion date and this card's id. Never state or imply
+  a level of coverage you did not just prove by running it.
+- >-
+  Run the whole test file plus a quick sanity check that DEFAULT_ENUMERATORS has no remaining
+  _unimplemented_enumerator entry for any platform infra/helm/foss-mcp/values.yaml's pilots actually use (add this
+  as a new, small, offline test if one does not already exist from the prior cards - it is the single assertion
+  that makes this whole 7-card remediation's completion provable by a machine, not merely claimed in a report).
+  Never weaken a check to make it pass.
+actions:
+- >-
+  Run the independent extraction-fidelity oracle for real against all 32 pilots, record the results as committed
+  evidence, and correct RELEASE.md/DECISION_LOG.md's silent non-disclosure of the oracle's prior Python-only scope.
+checks:
+- command: '{python} -m pytest tests/release/test_source_differential.py -q -rfE'
+  expect: exit 0
+  timeout_seconds: 300
+  junitxml: true
+  proves:
+  - REQ-G3-009
+- command: >-
+    {python} -m pytest tests/release/test_source_differential.py -q -rfE -p no:cacheprovider
+  expect: exit 0
+  timeout_seconds: 300
+  junitxml: true
+  proves:
+  - REQ-G3-009
+min_tests: 15
+network: false
+requires:
+- python
+negative_control:
+  mutate: |
+    python -X utf8 -c "import pathlib; p = pathlib.Path('scripts/release/source_differential.py'); s = p.read_text(encoding='utf-8'); marker = chr(34) + 'go' + chr(34) + ': enumerate_go'; assert s.count(marker) == 1, 'fix text not found - card and source have diverged'; p.write_text(s.replace(marker, chr(34) + 'go' + chr(34) + ': _unimplemented_enumerator(' + chr(34) + 'go' + chr(34) + ')', 1), encoding='utf-8')"
+  rationale: >-
+    Reverts the "go" entry (landed by TC-589, stable by this card's time) back to the unimplemented stub, so this
+    card's own new completeness test - asserting every platform the chart's pilots actually use has a real,
+    non-stub enumerator - must fail. A real break of the card's central claim.
+evidence:
+- evidence/build/G3/TC-595/receipt.json
+closeout:
+- >-
+  The independent extraction-fidelity oracle has been run for real against all 32 pilots, with the complete result
+  committed as evidence; RELEASE.md and DECISION_LOG.md now honestly state what the oracle covers, closing the
+  Round-3 finding that TC-566's own closeout claim silently under-delivered.
+recovery: Re-run from a clean tree.

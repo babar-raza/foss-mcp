@@ -1,0 +1,109 @@
+id: TC-589
+gate: G3
+lane: verification
+purpose: >-
+  scripts/release/source_differential.py (TC-566/REQ-G3-009, the independent extraction-fidelity oracle RD3-150
+  demanded) wires a real enumerator for Python only; its own docstring (lines 31-40) names the other six languages
+  (TypeScript, Go, Rust, Java, .NET, C++) as needing their own real compiler/reflection/AST tool, "one language at a
+  time" through the Deps.enumerators injection point, "the same way track A's extraction fix landed as eight
+  separate per-language cards." A 2026-10-24/25 independent audit round found that TC-566's own closeout text had
+  claimed fleet-wide success while silently shipping Python-only - this is card 1 of that 6-language remediation.
+  GO ENUMERATOR, bounded to ONE pilot (cells/go, repository aspose-cells-foss/Aspose.Cells-FOSS-for-Go, commit
+  fa4e890e46c509efd22d09b97411202c2b0b8a67 - infra/helm/foss-mcp/values.yaml's own pin; confirm it has not moved
+  before you rely on it): a real enumerate_go using Go's own stdlib go/parser+go/ast (no new dependency - go is
+  already in this project's toolchain), proven against synthetic fixtures with deliberate defects, then run once,
+  live, against the real pinned commit, with the real diff findings against tests/fixtures/cells_go/api_surface.json
+  reported honestly (not required to be clean - a real discrepancy found here is a NEW finding to report, not
+  something this card must also fix).
+depends_on:
+- TC-566
+write_paths:
+- scripts/release/source_differential.py
+- tests/release/test_source_differential.py
+satisfies:
+- REQ-G3-009
+source_refs:
+- file: docs/DECISION_LOG.md
+  anchor: >-
+    ## 2026-10-17 — Round-3 independent review of the shipped image: 82 findings registered, nothing executed (operator, supervisor)
+  sha256: c2056b11a13e5b18cda7e522027fb5eb0102edcef2f99f6c7e7ce0ee5c4b4e5b
+inputs:
+- >-
+  READ FIRST, in full: scripts/release/source_differential.py's module docstring and its enumerate_python/
+  _unimplemented_enumerator/DEFAULT_ENUMERATORS (the exact contract: Enumerator = (repository, commit, library_dir)
+  -> Sequence[OracleSymbol]; OracleSymbol/OracleMember/OracleParam's exact shape; clone_pinned_commit, already
+  generic and reusable for any language - do not duplicate it), and tests/release/test_source_differential.py (how
+  enumerate_python is exercised offline with hand-written micro-fixtures, no network, no real clone - mirror this
+  exact injection style for enumerate_go).
+- >-
+  BUILD enumerate_go(repository, commit, library_dir) -> list[OracleSymbol]: clone the pinned commit with
+  clone_pinned_commit (reused, not duplicated) when library_dir has no .git yet, same as enumerate_python. Then use
+  Go's OWN stdlib go/parser.ParseFile + go/ast to read every public (exported, i.e. name starts with an uppercase
+  letter) top-level type declaration (struct, interface) and record its public methods (with receiver, so a value-
+  vs-pointer-receiver method is distinguished if the fixture shape needs it) and public fields/properties. This
+  needs a small companion Go program (a new .go source file, e.g. under scripts/release/oracle_helpers/go_enumerator.go
+  or wherever fits this project's own layout convention for a non-Python helper script - check how source_differential.py
+  itself would invoke it: build it once with `go build`, or run it with `go run`, then parse its JSON stdout from
+  the Python side via subprocess). The Go program's own output format is your choice; document it in a comment at
+  the top of the Go file. Map Go's exported struct/interface + method/field shape onto OracleSymbol/OracleMember as
+  faithfully as the existing OracleMember fields allow (kind="class" for a struct, "method" for a function with a
+  receiver, "property" for an exported field; params from a method's parameter list; is_static True for a bare
+  package-level function if you choose to enumerate those too, though the card's own scope is type-level API, same
+  as enumerate_python).
+- >-
+  NEW/EXTENDED TESTS, offline, hand-written Go micro-fixtures (never the real pilot, never the enumerator's own
+  output as the expected value) mirroring enumerate_python's own test style exactly: (a) a correct synthetic Go file
+  with one exported struct, one exported method with parameters, one unexported method (must NOT appear) - assert
+  the exact OracleSymbol/OracleMember shape returned. (b) At least 2 INDEPENDENTLY-DELIBERATE DEFECT fixtures, each
+  a synthetic Go file with one specific, named defect (for example: a struct field that should be public is instead
+  lowercase/unexported and must be absent from the result; a method's parameter list the enumerator must get
+  exactly right even with a pointer receiver) - prove the enumerator reports the CORRECT real answer against each
+  deliberately-tricky case, not merely that it runs without crashing.
+- >-
+  LIVE RUN (action, not a check - needs the network and the Go toolchain; run this yourself once, report the real
+  numbers, never fabricate them): register enumerate_go in DEFAULT_ENUMERATORS for "go" (replacing
+  _unimplemented_enumerator("go") only), then run `python scripts/release/source_differential.py --only cells/go
+  --fixtures tests/fixtures --report-dir <a temp dir>` for real against the real pinned commit. Report the full diff
+  summary (missing/extra/signature/static/default/enum_value counts) in your closeout honestly, whatever it says -
+  a non-empty diff is a real, separate finding to report (open an entry in ops/open_questions.jsonl if it reveals a
+  genuine extraction defect; do not silently fix extraction code in this card, which is scoped to the oracle itself).
+- Run the whole test file; it must stay green. Never weaken a check to make it pass.
+actions:
+- >-
+  Build and wire a real Go enumerator (stdlib go/parser+go/ast) for source_differential.py's independent oracle,
+  prove it against synthetic fixtures with deliberate defects, and run it once live against the real cells/go pin.
+checks:
+- command: '{python} -m pytest tests/release/test_source_differential.py -q -rfE'
+  expect: exit 0
+  timeout_seconds: 300
+  junitxml: true
+  proves:
+  - REQ-G3-009
+- command: >-
+    {python} -m pytest tests/release/test_source_differential.py -q -rfE -p no:cacheprovider
+  expect: exit 0
+  timeout_seconds: 300
+  junitxml: true
+  proves:
+  - REQ-G3-009
+min_tests: 15
+network: false
+requires:
+- python
+- go
+negative_control:
+  mutate: |
+    python -X utf8 -c "import pathlib; p = pathlib.Path('scripts/release/source_differential.py'); s = p.read_text(encoding='utf-8'); marker = chr(34) + 'go' + chr(34) + ': enumerate_go'; assert s.count(marker) == 1, 'fix text not found - card and source have diverged'; p.write_text(s.replace(marker, chr(34) + 'go' + chr(34) + ': _unimplemented_enumerator(' + chr(34) + 'go' + chr(34) + ')', 1), encoding='utf-8')"
+  rationale: >-
+    Un-registers the new Go enumerator from DEFAULT_ENUMERATORS, reverting it to the unimplemented stub, so every
+    new Go-specific test exercising the real enumerator must fail (either by raising NotImplementedError where a
+    real result was expected, or by the test that checks DEFAULT_ENUMERATORS["go"] is not the stub). A real break
+    of the card's central claim.
+evidence:
+- evidence/build/G3/TC-589/receipt.json
+closeout:
+- >-
+  source_differential.py's independent oracle now has a real Go enumerator (stdlib go/parser+go/ast), proven
+  against synthetic fixtures with deliberate defects and run once live against the real cells/go pinned commit, with
+  the real diff findings reported.
+recovery: Re-run from a clean tree.

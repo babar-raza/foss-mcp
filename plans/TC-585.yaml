@@ -1,0 +1,106 @@
+id: TC-585
+gate: G3
+lane: storage-retrieval
+purpose: >-
+  A 2026-10-24/25 independent audit round (Round 2, RC-5) found search_symbols.py's _evidence_ranking weights a
+  literal type-name match at TYPE_WORD_WEIGHT=2.0 but a synonym-mediated match at only SYNONYM_FACTOR=0.4 of an own
+  word's weight (lines ~516-518) - a 5x gap. relevance.py's own hand-maintained _GENERIC_WORDS list (line 72, ten
+  words: aspose/foss/library/api/example/examples/sample/samples/use/how) is global, not per-family, so a word that
+  is ubiquitous in ONE family's own API surface but meaningful in another (reproduced: "file" on pdf, "color" vs.
+  FillFormat on slides, container types burying member-declaring types on cells, across 3+ platforms each) is never
+  excluded, and because it is also a literal type-name match it gets the full 2.0 weight and buries the
+  semantically-correct, differently-named answer. FIX, bounded to relevance.py/search_symbols.py's scoring constants
+  and _GENERIC_WORDS: either (a) replace or augment the hand-maintained global _GENERIC_WORDS with a per-family
+  ubiquitous-noun detector built from the project's own existing IDF/document-frequency machinery (a word that
+  appears in a very high fraction of a family's own indexed chunks is generic FOR THAT FAMILY, computed from real
+  index data, not guessed), or (b) narrow the TYPE_WORD_WEIGHT/SYNONYM_FACTOR gap with a measured justification -
+  choose whichever actually fixes the three reproduced cases without regressing the existing retrieval corpus, and
+  say in your report which you chose and why the other was not enough on its own.
+depends_on:
+- TC-505
+- TC-516
+- TC-562
+- TC-571
+- TC-583
+write_paths:
+- src/foss_mcp/mcp/tools/relevance.py
+- src/foss_mcp/mcp/tools/search_symbols.py
+- tests/mcp/tools/test_relevance_idf_synonyms.py
+- tests/mcp/tools/test_search_symbols_forgiveness.py
+satisfies:
+- REQ-G3-009
+source_refs:
+- file: docs/DECISION_LOG.md
+  anchor: >-
+    ## 2026-10-17 — Round-3 independent review of the shipped image: 82 findings registered, nothing executed (operator, supervisor)
+  sha256: c2056b11a13e5b18cda7e522027fb5eb0102edcef2f99f6c7e7ce0ee5c4b4e5b
+inputs:
+- >-
+  REPRODUCE FIRST against the real baked infra/demo-manifests: search_symbols (or the lookup/evidence path that
+  reaches _evidence_ranking) on pdf with a query containing "file", on slides with a query containing "color" where
+  FillFormat is the real intended answer, and on cells with a query whose correct answer is a member-declaring type
+  buried by a container type. Confirm the mechanism (a ubiquitous word scored as a strong literal match) is still
+  real today; code has changed since the audit, so re-confirm rather than assume.
+- >-
+  BUILD THE FIX from what you find. If you take route (a): relevance.py already has IDF/term-weight machinery
+  (term_weights, used by find_examples.py's lexical stage) built from the lexical index's document-frequency table -
+  reuse it, do not duplicate it. A per-family generic-noun detector: for the family being scored, a word present in
+  at least some high fraction of that family's own indexed documents (measure and justify the fraction with real
+  index data, the same way RELEVANCE_THRESHOLD's own measurement is justified elsewhere in this module) is treated
+  as generic for THAT family's scoring, in addition to (never instead of) the existing global _GENERIC_WORDS list -
+  a word generic everywhere stays excluded everywhere; a word generic only in one family is excluded only there. If
+  you take route (b) instead: narrow the TYPE_WORD_WEIGHT/SYNONYM_FACTOR gap (e.g. raise SYNONYM_FACTOR or lower
+  TYPE_WORD_WEIGHT) by a measured amount that flips the three reproduced cases without flipping the existing
+  retrieval corpus's own currently-correct rankings - prove this with a real before/after measurement in your report,
+  not a guess.
+- >-
+  NEW/EXTENDED TESTS, offline, against committed fixtures: a synthetic case mirroring each of the three reproduced
+  patterns (a ubiquitous-in-one-family word scored as a weak/generic match for that family but a normal match
+  elsewhere; a synonym-mediated match no longer buried by a ubiquitous literal match) with the expected ranking
+  asserted directly, never derived from the function's own prior output. Re-run the existing retrieval corpus
+  (tests/mcp/tools/test_round3_retrieval_corpus.py, read-only - it is NOT in your write_paths, do not edit it) and
+  confirm hit@3 does not regress below its current pinned floors; report the numbers.
+- Run tests/mcp/tools, tests/indexing and tests/test_unwired_modules.py; everything must stay green. Never weaken a check to make it pass.
+actions:
+- >-
+  Fix the generic-word/synonym-weighting gap that lets a ubiquitous literal type-name word bury a semantically
+  correct, differently-named answer.
+checks:
+- command: >-
+    {python} -m pytest tests/mcp/tools/test_relevance_idf_synonyms.py tests/mcp/tools/test_search_symbols_forgiveness.py
+    tests/mcp/tools/test_round3_retrieval_corpus.py -q -rfE
+  expect: exit 0
+  timeout_seconds: 300
+  junitxml: true
+  proves:
+  - REQ-G3-009
+- command: >-
+    {python} -m pytest tests/mcp/tools/test_relevance_idf_synonyms.py tests/mcp/tools/test_search_symbols_forgiveness.py
+    tests/mcp/tools/test_search_symbols_memberless_last.py tests/mcp/tools/test_round3_promoted_member_ranking.py
+    tests/mcp/tools/test_miss_coverage_note.py tests/mcp/tools/test_round3_retrieval_corpus.py tests/mcp/tools/test_member_lookup.py
+    tests/mcp/tools/test_find_examples_title_anchor.py tests/mcp/tools/test_lookup_forgiveness.py tests/test_unwired_modules.py
+    -q -rfE -p no:cacheprovider
+  expect: exit 0
+  timeout_seconds: 600
+  junitxml: true
+  proves:
+  - REQ-G3-009
+min_tests: 60
+network: false
+requires:
+- python
+negative_control:
+  mutate: |
+    python -X utf8 -c "import pathlib; p = pathlib.Path('src/foss_mcp/mcp/tools/relevance.py'); s = p.read_text(encoding='utf-8'); marker = '_GENERIC_WORDS = frozenset('; assert s.count(marker) == 1, 'fix text not found - card and source have diverged'; i = s.index(marker); j = s.index(')', i); p.write_text(s[:i] + '_GENERIC_WORDS = frozenset()  # TC-585 negative control' + s[j+1:], encoding='utf-8')"
+  rationale: >-
+    Empties the generic-word set entirely, so whatever per-family or weight-gap fix this card adds on top of it
+    loses its foundation and the new tests proving the three reproduced burying cases are fixed must fail. A real
+    break of the card's central claim.
+evidence:
+- evidence/build/G3/TC-585/receipt.json
+closeout:
+- >-
+  A ubiquitous word that is generic for one family's own API surface no longer buries a semantically-correct,
+  differently-named answer in that family; a synonym-mediated match competes fairly against a literal match where
+  the literal match is on a merely-common word.
+recovery: Re-run from a clean tree.

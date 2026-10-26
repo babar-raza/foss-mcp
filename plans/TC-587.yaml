@@ -1,0 +1,97 @@
+id: TC-587
+gate: G3
+lane: storage-retrieval
+purpose: >-
+  A 2026-10-24/25 independent audit round (Round 2, RC-7) found relevance.py's evidence_terms (lines ~756-807) drops
+  the WHOLE word when a camelCase/alphanumeric run splits into more than one sub-word part, unlike the document-side
+  tokenizer (lexical_index_writer.tokenize) which keeps BOTH the whole run and its sub-words. Confirmed by direct
+  read: evidence_terms (relevance.py:776-777) does `parts = _CAMEL_PARTS_RE.findall(run); for word in (part.lower()
+  for part in (parts if len(parts) > 1 else [run]))` - when parts has more than one element the whole run is
+  discarded entirely, only the (often meaningless) sub-word fragments survive. This breaks the tex family's own
+  product name: "LaTeX" splits into fragments like "la"/"te"/"x", none of which carry the real identifying meaning,
+  so a lookup query naming the product by name directly (tex/python, 3 queries reproduced) returns `symbols: []` - a
+  complete, confident miss on the single most obvious query a user would type. FIX, bounded to evidence_terms, a
+  single narrow change: keep the whole run as a candidate term ALONGSIDE its sub-word parts when it splits, mirroring
+  tokenize()'s own discipline exactly (the whole run is always a candidate; sub-words are added in addition, never
+  instead).
+depends_on:
+- TC-505
+- TC-562
+- TC-585
+- TC-586
+write_paths:
+- src/foss_mcp/mcp/tools/relevance.py
+- tests/mcp/tools/test_relevance_idf_synonyms.py
+satisfies:
+- REQ-G3-009
+source_refs:
+- file: docs/DECISION_LOG.md
+  anchor: >-
+    ## 2026-10-17 — Round-3 independent review of the shipped image: 82 findings registered, nothing executed (operator, supervisor)
+  sha256: c2056b11a13e5b18cda7e522027fb5eb0102edcef2f99f6c7e7ce0ee5c4b4e5b
+inputs:
+- >-
+  REPRODUCE FIRST against the real baked infra/demo-manifests: lookup on tex/python with a query naming "LaTeX"
+  directly (and at least 2 similar queries the audit named) and confirm it returns an empty/no-symbol answer today.
+  Read lexical_index_writer.tokenize (its own docstring already states the discipline: "emits the whole run
+  lowercased ... PLUS ... each sub-word lowercased too") and relevance.py's evidence_terms lines ~775-777 side by
+  side to confirm the asymmetry directly, in the current code, before changing anything.
+- >-
+  THE FIX, exactly one change: in evidence_terms, when `parts = _CAMEL_PARTS_RE.findall(run)` has more than one
+  element, iterate over the whole run PLUS its parts (not parts alone) - e.g. `candidates = [run, *parts] if
+  len(parts) > 1 else [run]` in place of the current conditional - keeping every other line of the function
+  unchanged (the existing `seen`/dedup-by-canon(word) logic already handles the whole run and a part colliding, so
+  no further change is needed there). Do not touch _CAMEL_PARTS_RE itself or any other function. This is a narrow,
+  single-function fix; if you find you need to touch more than this one loop to make the fix correct, stop and
+  report why before widening scope.
+- >-
+  NEW/EXTENDED TESTS, offline: the tex/python reproduction, asserted directly against the real baked data (a query
+  naming "LaTeX" now returns a real symbol, not an empty answer). A synthetic/unit-level test on evidence_terms
+  itself: a camelCase query term ("LaTeXDocument" or similar) that splits into sub-words now yields BOTH the whole
+  run and its sub-words as candidate terms, matching what tokenize() would emit for the equivalent document-side
+  text - assert the actual returned tuple's terms, not just that the query "worked" end to end. Confirm every
+  existing test in this file and the retrieval corpus (tests/mcp/tools/test_round3_retrieval_corpus.py, read-only -
+  not in your write_paths) stays green; report hit@3 before/after.
+- Run tests/mcp/tools and tests/test_unwired_modules.py; everything must stay green. Never weaken a check to make it pass.
+actions:
+- >-
+  Make evidence_terms keep the whole camelCase/alphanumeric run as a candidate term alongside its sub-word parts,
+  mirroring the document-side tokenizer's own discipline.
+checks:
+- command: >-
+    {python} -m pytest tests/mcp/tools/test_relevance_idf_synonyms.py tests/mcp/tools/test_round3_retrieval_corpus.py
+    -q -rfE
+  expect: exit 0
+  timeout_seconds: 300
+  junitxml: true
+  proves:
+  - REQ-G3-009
+- command: >-
+    {python} -m pytest tests/mcp/tools/test_relevance_idf_synonyms.py tests/mcp/tools/test_round3_retrieval_corpus.py
+    tests/mcp/tools/test_round3_retrieval.py tests/mcp/tools/test_find_examples_title_anchor.py tests/mcp/tools/test_search_symbols_forgiveness.py
+    tests/test_unwired_modules.py -q -rfE -p no:cacheprovider
+  expect: exit 0
+  timeout_seconds: 600
+  junitxml: true
+  proves:
+  - REQ-G3-009
+min_tests: 30
+network: false
+requires:
+- python
+negative_control:
+  mutate: |
+    python -X utf8 -c "import pathlib; p = pathlib.Path('src/foss_mcp/mcp/tools/relevance.py'); s = p.read_text(encoding='utf-8'); old = 'for word in (part.lower() for part in (parts if len(parts) > 1 else [run])):'; assert s.count(old) == 1, 'fix text not found - card and source have diverged (re-target against the worker real diff if this card changed the loop shape)'; new = 'for word in (part.lower() for part in (parts if len(parts) >= 1 else [run])):'; p.write_text(s.replace(old, new, 1), encoding='utf-8')"
+  rationale: >-
+    Targets the exact pre-fix line (re-target against the worker's real diff if it restructures this loop
+    differently than the card's own suggested shape). The mutate changes the condition so parts-only iteration
+    still happens whenever parts is non-empty, i.e. the whole run is still never added - functionally identical to
+    today's bug - so the new test proving a splitting camelCase run yields the whole run too must fail. A real
+    break of the card's central claim.
+evidence:
+- evidence/build/G3/TC-587/receipt.json
+closeout:
+- >-
+  evidence_terms keeps the whole camelCase run as a candidate term alongside its sub-word parts, matching the
+  document-side tokenizer's own discipline; the tex family's own product name is answerable again.
+recovery: Re-run from a clean tree.

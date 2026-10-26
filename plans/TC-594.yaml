@@ -1,0 +1,118 @@
+id: TC-594
+gate: G3
+lane: verification
+purpose: >-
+  Card 6 of the 6-language oracle remediation (see TC-589 for full history/context). C++ ENUMERATOR, bounded to
+  ONE pilot (pdf/cpp - repository aspose-pdf-foss/Aspose.PDF-FOSS-for-Cpp, commit
+  4b83c9fec1e37fd205156770161f6843bac00ceb per infra/helm/foss-mcp/values.yaml - confirm it has not moved): a real
+  enumerate_cpp using Clang's AST. CORRECTION TO THE AUDIT'S OWN DESIGN TABLE, confirmed directly on this host
+  before authoring this card: no system `clang`/LLVM install exists anywhere under C:\dev-tools (searched
+  directly) - the audit's assumption of "None (already in toolchain)" is WRONG for this host. The SUPERVISOR has
+  already added the `libclang` PyPI package (a pinned, hash-verified Python binding that bundles its own prebuilt
+  libclang shared library - no system-wide Clang/LLVM install needed, no new system PATH entry) to requirements.in
+  and regenerated requirements.lock before dispatching this card - requirements.in/requirements.lock are globally
+  denied to every card's write_paths (dependency pins are supervisor-only), so this card's own scope is strictly to
+  USE `import clang.cindex` as an already-available dependency, never to edit either requirements file yourself. If
+  `import clang.cindex` fails in your worktree, stop and report rather than trying to add or edit the dependency.
+  Re-verify the system-clang absence yourself too; if a later toolchain update did add a real clang.exe, a bare
+  `clang -Xclang -ast-dump=json -fsyntax-only` invocation (the audit's original design) is simpler and preferred -
+  use whichever is actually available, and say which you used and why. Proven against synthetic fixtures with
+  deliberate defects, then run once, live, against the real pinned
+  commit, with the real diff findings against tests/fixtures/pdf_cpp/api_surface.json reported honestly (not
+  required to be clean - a real discrepancy is a NEW finding to report, not something this card must also fix).
+  Full fidelity only for pilots whose headers resolve cleanly; any resolution exception must be disclosed per-pilot
+  in the report, never silently swallowed into an empty result.
+depends_on:
+- TC-566
+- TC-589
+- TC-590
+- TC-591
+- TC-592
+- TC-593
+write_paths:
+- scripts/release/source_differential.py
+- tests/release/test_source_differential.py
+satisfies:
+- REQ-G3-009
+source_refs:
+- file: docs/DECISION_LOG.md
+  anchor: >-
+    ## 2026-10-17 — Round-3 independent review of the shipped image: 82 findings registered, nothing executed (operator, supervisor)
+  sha256: c2056b11a13e5b18cda7e522027fb5eb0102edcef2f99f6c7e7ce0ee5c4b4e5b
+inputs:
+- >-
+  READ FIRST: scripts/release/source_differential.py's full module docstring, the Enumerator contract, and
+  TC-589..TC-593's now-merged enumerators for the established pattern. Confirm TC-589 through TC-593 have all
+  landed before you start. Confirm this host's own clang/LLVM absence yourself (search C:\dev-tools and PATH
+  directly) before committing to the libclang-pip route; report what you found either way.
+- >-
+  BUILD enumerate_cpp(repository, commit, library_dir) -> list[OracleSymbol]: clone the pinned commit with
+  clone_pinned_commit (reused) when needed. Using the `clang.cindex` module from the `libclang` pip package (or a
+  bare `clang -Xclang -ast-dump=json -fsyntax-only` subprocess if you found a real system clang instead), parse
+  every public header under the cloned library's public include directory and find every public class/struct/enum
+  and their public methods/fields/enum values, applying the SAME discipline this project's own TC-534 C++
+  extraction fix already established and tested (read src/foss_mcp/extraction/tree_sitter_engine/lang/cpp.py and
+  its own round-3 tests first, for the exact rules on what counts as public: a type under an `internal`/`detail`
+  namespace or declared only in a .cpp file is not public API; `static const`/`static constexpr` members keep
+  their qualifiers). This is an INDEPENDENT oracle - do not import or call this project's own tree-sitter cpp
+  extractor from inside enumerate_cpp; re-derive the same rules independently from Clang's own AST, even though
+  they should agree on a correct fixture.
+- >-
+  NEW/EXTENDED TESTS, offline, hand-written C++ header micro-fixtures (never the real pilot, never the enumerator's
+  own output as the expected value, never tree_sitter_engine's own fixtures copied verbatim): (a) a correct
+  synthetic header with one public class, one public method, one private method and one `static const` member
+  that must keep its qualifiers - assert the exact returned shape. (b) At least 2 INDEPENDENTLY-DELIBERATE DEFECT
+  fixtures: for example a type declared inside `namespace internal` that must be excluded; a nested public type
+  (`class Outer { public: struct Inner {}; };`) that must appear as `Outer::Inner`, mirroring TC-534's own
+  established nested-type naming convention exactly.
+- >-
+  LIVE RUN (action, not a check - needs the network and whichever Clang tool you used; run this yourself once,
+  report the real numbers): register enumerate_cpp in DEFAULT_ENUMERATORS for "cpp" (replacing
+  _unimplemented_enumerator("cpp") only), run `python scripts/release/source_differential.py --only pdf/cpp
+  --fixtures tests/fixtures --report-dir <temp dir>` for real against the real pinned commit. If any header fails
+  to resolve (a missing include, a macro-heavy header Clang cannot parse standalone), disclose that specific
+  failure by name in your closeout rather than silently treating it as an empty result - per-pilot disclosure, not
+  per-language silence. Report the full diff summary honestly; a non-empty diff is a separate, new finding (open
+  an ops/open_questions.jsonl entry if it reveals a real extraction defect - this card does not fix extraction
+  code).
+- >-
+  Run `ruff format`/`ruff check` on every changed Python file. Run the whole test file; it must stay green. Never
+  weaken a check to make it pass.
+actions:
+- >-
+  Build and wire a real C++ enumerator (Clang AST, via the libclang pip binding since no system Clang exists on
+  this host) for source_differential.py's independent oracle, proven against synthetic fixtures with deliberate
+  defects, and run it once live against the real pdf/cpp pin.
+checks:
+- command: '{python} -m pytest tests/release/test_source_differential.py -q -rfE'
+  expect: exit 0
+  timeout_seconds: 300
+  junitxml: true
+  proves:
+  - REQ-G3-009
+- command: >-
+    {python} -m pytest tests/release/test_source_differential.py -q -rfE -p no:cacheprovider
+  expect: exit 0
+  timeout_seconds: 300
+  junitxml: true
+  proves:
+  - REQ-G3-009
+min_tests: 15
+network: false
+requires:
+- python
+- cmake
+negative_control:
+  mutate: |
+    python -X utf8 -c "import pathlib; p = pathlib.Path('scripts/release/source_differential.py'); s = p.read_text(encoding='utf-8'); marker = chr(34) + 'cpp' + chr(34) + ': enumerate_cpp'; assert s.count(marker) == 1, 'fix text not found - card and source have diverged'; p.write_text(s.replace(marker, chr(34) + 'cpp' + chr(34) + ': _unimplemented_enumerator(' + chr(34) + 'cpp' + chr(34) + ')', 1), encoding='utf-8')"
+  rationale: >-
+    Un-registers the new C++ enumerator from DEFAULT_ENUMERATORS, reverting it to the unimplemented stub, so every
+    new C++-specific test exercising the real enumerator must fail. A real break of the card's central claim.
+evidence:
+- evidence/build/G3/TC-594/receipt.json
+closeout:
+- >-
+  source_differential.py's independent oracle now has a real C++ enumerator (Clang AST via libclang), proven
+  against synthetic fixtures with deliberate defects and run once live against the real pdf/cpp pinned commit,
+  with the real diff findings reported and any header-resolution exception disclosed per-pilot.
+recovery: Re-run from a clean tree.

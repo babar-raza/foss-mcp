@@ -1,0 +1,101 @@
+id: TC-590
+gate: G3
+lane: verification
+purpose: >-
+  Card 2 of the 6-language oracle remediation (see TC-589 for the full history/context: TC-566 only wired Python;
+  this and 4 more per-language cards fill the gap one language at a time, per source_differential.py's own
+  docstring). RUST ENUMERATOR, bounded to ONE pilot (cells/rust, the only Rust pilot - repository
+  aspose-cells-foss/Aspose.Cells-FOSS-for-Rust, commit 1a6004af47b1ef15385f9d36d381a8172428cc7e per
+  infra/helm/foss-mcp/values.yaml - confirm it has not moved before you rely on it): a real enumerate_rust using the
+  `syn` crate (one pinned crate, a real new dependency the audit's own design table already expects - confirmed
+  cargo is in this project's toolchain), proven against synthetic fixtures with deliberate defects, then run once,
+  live, against the real pinned commit, with the real diff findings against tests/fixtures/cells_rust/api_surface.json
+  reported honestly (not required to be clean - a real discrepancy is a NEW finding to report, not something this
+  card must also fix). The design table's own fidelity note: "Full (macro-expansion-blind, disclosed)" - syn parses
+  syntax, not macro-expanded output, so a type or member produced only by a macro will not appear; disclose this
+  limitation plainly in the enumerator's own docstring rather than silently under-reporting.
+depends_on:
+- TC-566
+- TC-589
+write_paths:
+- scripts/release/source_differential.py
+- tests/release/test_source_differential.py
+satisfies:
+- REQ-G3-009
+source_refs:
+- file: docs/DECISION_LOG.md
+  anchor: >-
+    ## 2026-10-17 — Round-3 independent review of the shipped image: 82 findings registered, nothing executed (operator, supervisor)
+  sha256: c2056b11a13e5b18cda7e522027fb5eb0102edcef2f99f6c7e7ce0ee5c4b4e5b
+inputs:
+- >-
+  READ FIRST: scripts/release/source_differential.py's full module docstring, the Enumerator contract and
+  OracleSymbol/OracleMember/OracleParam shape, enumerate_python AND TC-589's enumerate_go (now merged - mirror its
+  exact companion-helper-process style: a small, separate Rust binary crate invoked via subprocess, its own
+  documented JSON output format) for the established pattern of this project's per-language enumerators. Confirm
+  TC-589 has landed (your depends_on already requires it) before you start.
+- >-
+  BUILD enumerate_rust(repository, commit, library_dir) -> list[OracleSymbol]: clone the pinned commit with
+  clone_pinned_commit (reused) when needed. Create a small companion Rust crate (a new Cargo project, e.g. under
+  scripts/release/oracle_helpers/rust_enumerator/, with its own Cargo.toml pinning an exact `syn` version plus
+  whatever `proc-macro2`/`quote` it needs for parsing, and `cargo build --release` or `cargo run` invoked via
+  subprocess from the Python side) that walks every `.rs` file under the cloned library and uses `syn::parse_file`
+  to find every `pub struct`/`pub enum`/`pub trait` and their `pub` methods/fields/variants, emitting JSON on
+  stdout. Map onto OracleSymbol/OracleMember: kind="class" for a struct, "enum" for an enum (enum variants as
+  kind="enum_value" members), "class" for a trait (its methods as kind="method" members); a method's `&self`/`&mut
+  self`/`self`/no-self receiver does not change its OracleMember.params (self is never a param, matching
+  enumerate_python's own `self`/`cls` exclusion).
+- >-
+  NEW/EXTENDED TESTS, offline, hand-written Rust micro-fixtures (never the real pilot, never the enumerator's own
+  output as the expected value): (a) a correct synthetic .rs file with one pub struct, one pub method with
+  parameters, one private (non-pub) method that must NOT appear - assert the exact returned shape. (b) At least 2
+  INDEPENDENTLY-DELIBERATE DEFECT fixtures: for example a struct field declared without `pub` that must be absent;
+  an enum with explicit discriminant values (`enum X { A = 1, B = 2 }`) whose enum_value the enumerator must get
+  exactly right, not merely count the variants. (c) One fixture proving the macro-expansion-blind limitation is
+  real and disclosed (a type produced only inside a `macro_rules!` expansion is correctly absent, not crashed on),
+  so the "disclosed" claim in this card's purpose is itself tested, not merely asserted in prose.
+- >-
+  LIVE RUN (action, not a check - needs the network and cargo; run this yourself once, report the real numbers):
+  register enumerate_rust in DEFAULT_ENUMERATORS for "rust" (replacing _unimplemented_enumerator("rust") only), run
+  `python scripts/release/source_differential.py --only cells/rust --fixtures tests/fixtures --report-dir <temp
+  dir>` for real against the real pinned commit. Report the full diff summary honestly in your closeout, whatever
+  it says; a non-empty diff is a separate, new finding (open an ops/open_questions.jsonl entry if it reveals a real
+  extraction defect - this card does not fix extraction code).
+- Run the whole test file; it must stay green. Never weaken a check to make it pass.
+actions:
+- >-
+  Build and wire a real Rust enumerator (the syn crate) for source_differential.py's independent oracle, proven
+  against synthetic fixtures with deliberate defects, and run it once live against the real cells/rust pin.
+checks:
+- command: '{python} -m pytest tests/release/test_source_differential.py -q -rfE'
+  expect: exit 0
+  timeout_seconds: 300
+  junitxml: true
+  proves:
+  - REQ-G3-009
+- command: >-
+    {python} -m pytest tests/release/test_source_differential.py -q -rfE -p no:cacheprovider
+  expect: exit 0
+  timeout_seconds: 300
+  junitxml: true
+  proves:
+  - REQ-G3-009
+min_tests: 15
+network: false
+requires:
+- python
+- rust
+negative_control:
+  mutate: |
+    python -X utf8 -c "import pathlib; p = pathlib.Path('scripts/release/source_differential.py'); s = p.read_text(encoding='utf-8'); marker = chr(34) + 'rust' + chr(34) + ': enumerate_rust'; assert s.count(marker) == 1, 'fix text not found - card and source have diverged'; p.write_text(s.replace(marker, chr(34) + 'rust' + chr(34) + ': _unimplemented_enumerator(' + chr(34) + 'rust' + chr(34) + ')', 1), encoding='utf-8')"
+  rationale: >-
+    Un-registers the new Rust enumerator from DEFAULT_ENUMERATORS, reverting it to the unimplemented stub, so every
+    new Rust-specific test exercising the real enumerator must fail. A real break of the card's central claim.
+evidence:
+- evidence/build/G3/TC-590/receipt.json
+closeout:
+- >-
+  source_differential.py's independent oracle now has a real Rust enumerator (the syn crate), proven against
+  synthetic fixtures with deliberate defects and run once live against the real cells/rust pinned commit, with the
+  real diff findings reported, and its macro-expansion-blind limitation disclosed and tested.
+recovery: Re-run from a clean tree.

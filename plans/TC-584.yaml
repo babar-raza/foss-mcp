@@ -1,0 +1,134 @@
+id: TC-584
+gate: G3
+lane: storage-retrieval
+purpose: >-
+  A 2026-10-24/25 independent audit round (Round 2, RC-1/RC-2/RC-3/RC-4) found find_examples.py's vector fallback
+  (_vector_fallback, lines ~497-600) ranks candidates by raw cosine similarity alone, with no demotion for generic
+  boilerplate chunks: a real README's own generic section headings ("Quick Start", "Additional Examples") embed
+  similarly to almost any on-topic query and act as universal attractors, clearing the 0.45 similarity floor for
+  nearly any query in that family regardless of real relevance (reproduced identically on 5 of 7 cells platforms for
+  "merge cells in a worksheet"). Worse, a generic chunk can outrank a genuinely correct, lower-scored candidate
+  (reproduced on note/python: a generic chunk at 0.820 ranked above the correct answer at 0.709) - the tool answers
+  confidently wrong instead of either finding the right example or admitting a miss. Separately, the 0.45 floor
+  itself (find_examples.py:119) was measured empirically but only against 2 of 32 pilots (pdf/go, pdf/typescript)
+  and never re-validated at fleet scale - a 2-pilot calibration silently became a 32-pilot production control.
+  FIX, bounded to find_examples.py's vector-fallback stage only: (1) detect and demote/suppress generic-boilerplate
+  chunks in the ranking so a specific, on-topic candidate is preferred over a generic attractor at a similar or even
+  somewhat higher raw score; (2) disclose when an accepted match is a loose/low-confidence one rather than reporting
+  it with the same unqualified confidence as a strong match; (3) re-measure the 0.45 threshold against a materially
+  larger sample of the real fleet (not just 2 pilots) and report whether it still holds or needs adjustment, with the
+  same empirical rigor TC-331's original measurement used (real pilots, real embedding gateway, real true/false-positive
+  probes) - do not weaken the floor without equivalent measurement backing it.
+depends_on:
+- TC-508
+- TC-562
+- TC-565
+- TC-583
+write_paths:
+- src/foss_mcp/mcp/tools/find_examples.py
+- tests/mcp/tools/test_find_examples_vector_deadline.py
+- tests/mcp/tools/test_find_examples_verified_only.py
+- tests/mcp/tools/test_round3_retrieval.py
+satisfies:
+- REQ-G3-009
+source_refs:
+- file: docs/DECISION_LOG.md
+  anchor: >-
+    ## 2026-10-17 — Round-3 independent review of the shipped image: 82 findings registered, nothing executed (operator, supervisor)
+  sha256: c2056b11a13e5b18cda7e522027fb5eb0102edcef2f99f6c7e7ce0ee5c4b4e5b
+inputs:
+- >-
+  REPRODUCE FIRST, against the real baked infra/demo-manifests (copied to a temp dir, never written in place, matching
+  this file's own existing test pattern): run find_examples on at least 3 cells-family platforms with the query "merge
+  cells in a worksheet" and confirm a generic-heading chunk (its text's title/FQN line will say something like "Quick
+  Start" or "Additional Examples" rather than naming a specific task) is accepted at or above 0.45. Run find_examples
+  on note/python with a query whose correct example you can identify by reading the pilot's own README/example chunks
+  directly, and confirm (or refute) the audit's claim that a generic chunk outranks it. Write down exactly what you
+  find - do not assume the audit's numbers are still exactly reproducible today; code has changed since 2026-10-24,
+  so re-confirm the mechanism (generic chunks acting as attractors) even if the exact numeric scores drifted.
+- >-
+  DESIGN THE DEMOTION MECHANISM FROM WHAT YOU OBSERVE, not from a guess. A generic-heading chunk is identifiable:
+  its example title (the text after "Example: " on the FQN line, already parsed elsewhere in this file) is one of a
+  small, closed set of generic section names a README commonly uses for a catch-all code dump ("Quick Start", "Getting
+  Started", "Additional Examples", "More Examples", "Basic Usage", or similar - confirm the REAL titles you see in the
+  reproduction before hard-coding a list; if the real titles differ from this guess, use what you actually found).
+  Demote such a chunk relative to a specifically-titled one: either a fixed penalty subtracted from its score before
+  the 0.45 comparison, a stricter floor applied only to generically-titled chunks, or ranking non-generic candidates
+  first whenever one also clears the floor - choose the mechanism and justify it with the reproduction data, the same
+  way _VECTOR_SIMILARITY_THRESHOLD's own docstring justifies 0.45 with real measured numbers. Never drop a generic
+  chunk's correctness entirely (a pilot whose only real examples happen to live under a "Quick Start" heading must not
+  regress to a miss) - demote, do not exclude outright, unless you can prove no real pilot's only usable material lives
+  under a generic heading.
+- >-
+  DISCLOSURE: when the accepted vector match's score sits in a defined "loose match" band below some higher confidence
+  line you choose and justify (e.g. partway between the 0.45 floor and the stronger scores TC-331's own measurement
+  found for true positives, roughly 0.65-0.85), add a field or note to the returned ExampleMatch (additive, never
+  replacing match_basis/coverage) saying plainly that this is a lower-confidence match, not a strong one. A caller
+  must be able to tell a 0.46 match from a 0.80 match without reading the raw coverage number against a hidden mental
+  scale.
+- >-
+  RC-3 RE-MEASUREMENT: using the SAME methodology _VECTOR_SIMILARITY_THRESHOLD's own docstring documents (real
+  embedding gateway, real example chunks, true-positive probes naming each example's real task, false-positive probes
+  with unrelated queries), re-run the measurement against at least 8 real pilots spanning at least 4 different
+  families (not just pdf) - a materially larger sample than the original 2. Report the true/false-positive score
+  ranges you measure in the updated docstring, exactly as before, dated and attributed to this card. If 0.45 still
+  sits with real margin on both sides, keep it and say so with the new numbers; if it does not, raise it to a value
+  that does, with the same justification discipline, and confirm no real pilot's genuine example then falls below the
+  new floor (or report by name any pilot that would and why). Needs network (the real embedding gateway) and is
+  explicitly an ACTION run by you, not a check-time behavior - checks stay offline exactly as this module's own
+  checks do today.
+- >-
+  NEW/EXTENDED TESTS, offline, against committed fixtures - never depending on network or the real gateway:
+  (a) a synthetic manifest with one generic-titled vector point and one specifically-titled vector point, both above
+  the floor, where the specific one scores lower raw similarity than the generic one: after the fix, the specific one
+  ranks first (or the generic one is excluded/demoted per your chosen mechanism) - prove this is NOT simply "sort by
+  raw score" by asserting the actual accepted top match's provenance/title. (b) a match whose score sits in the
+  loose-match band carries the new disclosure field/note; a match above the confident line does not (or carries a
+  note saying it is NOT loose, whichever shape you choose - be explicit either way, never silent for one case and
+  present for the other with no way to tell them apart). (c) every existing test in this file's own test suite and in
+  the other three files in write_paths stays green - this card is strictly additive to the vector-fallback stage; the
+  lexical fallback and exact-title paths are untouched.
+- Run the whole corpus (tests/mcp/tools/test_round3_retrieval.py and the other three files) plus tests/mcp/test_response_envelope.py and tests/test_unwired_modules.py; it must stay green.
+actions:
+- >-
+  Demote/suppress generic-boilerplate vector-fallback matches relative to specific ones, disclose low-confidence
+  matches, and re-measure the 0.45 similarity floor against a materially larger real-fleet sample.
+checks:
+- command: >-
+    {python} -m pytest tests/mcp/tools/test_find_examples_vector_deadline.py tests/mcp/tools/test_find_examples_verified_only.py
+    tests/mcp/tools/test_round3_retrieval.py -q -rfE
+  expect: exit 0
+  timeout_seconds: 300
+  junitxml: true
+  proves:
+  - REQ-G3-009
+- command: >-
+    {python} -m pytest tests/mcp/tools/test_find_examples_vector_deadline.py tests/mcp/tools/test_find_examples_verified_only.py
+    tests/mcp/tools/test_find_examples_title_anchor.py tests/mcp/tools/test_find_examples_verification_record.py
+    tests/mcp/tools/test_round3_retrieval.py tests/mcp/tools/test_round3_retrieval_corpus.py tests/mcp/tools/test_vector_guard.py
+    tests/mcp/tools/test_find_examples_vector_deadline.py tests/mcp/test_response_envelope.py tests/test_unwired_modules.py
+    -q -rfE -p no:cacheprovider
+  expect: exit 0
+  timeout_seconds: 600
+  junitxml: true
+  proves:
+  - REQ-G3-009
+min_tests: 40
+network: false
+requires:
+- python
+negative_control:
+  mutate: |
+    python -X utf8 -c "import pathlib; p = pathlib.Path('src/foss_mcp/mcp/tools/find_examples.py'); s = p.read_text(encoding='utf-8'); marker = 'candidates.sort(key=lambda item: item[0])'; assert s.count(marker) == 1, 'fix text not found - card and source have diverged'; p.write_text(s.replace(marker, 'candidates.sort(key=lambda item: 0)', 1), encoding='utf-8')"
+  rationale: >-
+    Collapses the ranking key to a constant, so whatever demotion/ordering logic this card adds to the candidates'
+    sort key no longer has any effect and the new test proving a specific match outranks a generic one must fail.
+    A real break of the card's central claim.
+evidence:
+- evidence/build/G3/TC-584/receipt.json
+closeout:
+- >-
+  find_examples' vector fallback no longer lets a generic boilerplate chunk silently outrank or impersonate a
+  specific, correct example; a loose match is disclosed as such; the 0.45 similarity floor is re-validated against a
+  materially larger real-fleet sample with the same empirical rigor its original measurement used.
+recovery: Re-run from a clean tree.

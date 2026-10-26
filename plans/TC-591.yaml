@@ -1,0 +1,107 @@
+id: TC-591
+gate: G3
+lane: verification
+purpose: >-
+  Card 3 of the 6-language oracle remediation (see TC-589 for full history/context). TYPESCRIPT ENUMERATOR, bounded
+  to ONE pilot (pdf/typescript - repository aspose-pdf-foss/Aspose.PDF-FOSS-for-TypeScript, commit
+  155bfc7a33f0ba23fb4252b6ba201828b02a5b9d per infra/helm/foss-mcp/values.yaml - confirm it has not moved): a real
+  enumerate_typescript using the TypeScript Compiler API (ts.createProgram + the type checker, NOT a regex or the
+  tree-sitter grammar this project's own extractor uses - that would make the oracle circular). CONFIRMED on this
+  host: the `typescript` npm package is already present at
+  C:\dev-tools\foss-mcp\rp-toolchains\npm\prefix\node_modules\typescript (verify this path is still correct in your
+  own environment and adjust if the toolchain moved; the audit's own design table expected "None (already
+  installed)" and this is why). Proven against synthetic fixtures with deliberate defects, then run once, live,
+  against the real pinned commit, with the real diff findings against tests/fixtures/pdf_typescript/api_surface.json
+  reported honestly (not required to be clean - a real discrepancy is a NEW finding to report, not something this
+  card must also fix).
+depends_on:
+- TC-566
+- TC-589
+- TC-590
+write_paths:
+- scripts/release/source_differential.py
+- tests/release/test_source_differential.py
+satisfies:
+- REQ-G3-009
+source_refs:
+- file: docs/DECISION_LOG.md
+  anchor: >-
+    ## 2026-10-17 — Round-3 independent review of the shipped image: 82 findings registered, nothing executed (operator, supervisor)
+  sha256: c2056b11a13e5b18cda7e522027fb5eb0102edcef2f99f6c7e7ce0ee5c4b4e5b
+inputs:
+- >-
+  READ FIRST: scripts/release/source_differential.py's full module docstring, the Enumerator contract, and
+  TC-589/TC-590's now-merged enumerate_go/enumerate_rust for the established companion-helper-process pattern.
+  Confirm TC-589 and TC-590 have landed before you start. Confirm the typescript package's real location on THIS
+  host yourself (`node -e "console.log(require.resolve('typescript'))"` with NODE_PATH set to the toolchain
+  prefix's node_modules, or whatever the real activated toolchain resolves to) - do not trust the path in this
+  card's purpose text blindly if your own environment check disagrees.
+- >-
+  BUILD enumerate_typescript(repository, commit, library_dir) -> list[OracleSymbol]: clone the pinned commit with
+  clone_pinned_commit (reused) when needed. Create a small companion Node script (e.g.
+  scripts/release/oracle_helpers/ts_enumerator.js, invoked via `node` subprocess from the Python side,
+  `require()`-ing the real typescript package by its resolved absolute path or via NODE_PATH) that uses
+  ts.createProgram over every .ts file under the cloned library's public source directory and the TypeScript
+  Compiler API's type checker to find every exported class/interface and their exported/public methods and
+  properties, emitting JSON on stdout. Map onto OracleSymbol/OracleMember: kind="class" for a class or interface;
+  methods/properties as kind="method"/"property"; a method's parameters with `has_default` true when the parameter
+  node has an initializer. Exclude a class member explicitly marked `private`; TypeScript's structural typing means
+  "public" is the default for a class member with no modifier - get this right, it is the single most important
+  rule this enumerator must apply correctly.
+- >-
+  NEW/EXTENDED TESTS, offline, hand-written TypeScript micro-fixtures (never the real pilot, never the enumerator's
+  own output as the expected value): (a) a correct synthetic .ts file with one exported class, one public method
+  with a defaulted parameter, one `private` method that must NOT appear - assert the exact returned shape. (b) At
+  least 2 INDEPENDENTLY-DELIBERATE DEFECT fixtures: for example a class property declared `private` that must be
+  absent; an interface member whose optional (`?`) marker must not be confused with a parameter default; a method
+  overload set (TypeScript allows multiple signatures for one implementation) handled sanely, not duplicated or
+  dropped.
+- >-
+  LIVE RUN (action, not a check - needs the network and node; run this yourself once, report the real numbers):
+  register enumerate_typescript in DEFAULT_ENUMERATORS for "typescript" (replacing
+  _unimplemented_enumerator("typescript") only - leave "javascript"/"nodejs" as unimplemented stubs, this card's
+  scope is the typescript platform key alone, matching this card's one pinned pilot), run `python
+  scripts/release/source_differential.py --only pdf/typescript --fixtures tests/fixtures --report-dir <temp dir>`
+  for real against the real pinned commit. Report the full diff summary honestly in your closeout, whatever it
+  says; a non-empty diff is a separate, new finding (open an ops/open_questions.jsonl entry if it reveals a real
+  extraction defect - this card does not fix extraction code).
+- Run the whole test file; it must stay green. Never weaken a check to make it pass.
+actions:
+- >-
+  Build and wire a real TypeScript enumerator (the TS Compiler API) for source_differential.py's independent
+  oracle, proven against synthetic fixtures with deliberate defects, and run it once live against the real
+  pdf/typescript pin.
+checks:
+- command: '{python} -m pytest tests/release/test_source_differential.py -q -rfE'
+  expect: exit 0
+  timeout_seconds: 300
+  junitxml: true
+  proves:
+  - REQ-G3-009
+- command: >-
+    {python} -m pytest tests/release/test_source_differential.py -q -rfE -p no:cacheprovider
+  expect: exit 0
+  timeout_seconds: 300
+  junitxml: true
+  proves:
+  - REQ-G3-009
+min_tests: 15
+network: false
+requires:
+- python
+- node
+negative_control:
+  mutate: |
+    python -X utf8 -c "import pathlib; p = pathlib.Path('scripts/release/source_differential.py'); s = p.read_text(encoding='utf-8'); marker = chr(34) + 'typescript' + chr(34) + ': enumerate_typescript'; assert s.count(marker) == 1, 'fix text not found - card and source have diverged'; p.write_text(s.replace(marker, chr(34) + 'typescript' + chr(34) + ': _unimplemented_enumerator(' + chr(34) + 'typescript' + chr(34) + ')', 1), encoding='utf-8')"
+  rationale: >-
+    Un-registers the new TypeScript enumerator from DEFAULT_ENUMERATORS, reverting it to the unimplemented stub, so
+    every new TypeScript-specific test exercising the real enumerator must fail. A real break of the card's
+    central claim.
+evidence:
+- evidence/build/G3/TC-591/receipt.json
+closeout:
+- >-
+  source_differential.py's independent oracle now has a real TypeScript enumerator (the TS Compiler API), proven
+  against synthetic fixtures with deliberate defects and run once live against the real pdf/typescript pinned
+  commit, with the real diff findings reported.
+recovery: Re-run from a clean tree.

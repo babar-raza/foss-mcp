@@ -1,0 +1,93 @@
+id: TC-586
+gate: G3
+lane: storage-retrieval
+purpose: >-
+  A 2026-10-24/25 independent audit round (Round 2, RC-6) found relevance.py's title_anchored (lines ~608-620) only
+  protects a query with at most TITLE_ANCHOR_MAX_TERMS (2) distinctive terms: `if len(terms) > TITLE_ANCHOR_MAX_TERMS:
+  return True`, meaning a longer, natural 3+ word task sentence gets ZERO title-anchor protection at all - it is
+  judged by the coverage floor alone, which the audit reproduced as insufficient on slides/cpp. A short query is
+  therefore MORE protected against a false title-match than a longer, more specific one, which is backwards: a
+  longer query carries more real signal, not less. FIX, bounded to relevance.py's title_anchored and
+  TITLE_ANCHOR_MAX_TERMS: replace the unconditional `return True` above the cutoff with a graduated check that still
+  provides real protection for longer queries - for example requiring that at least one distinctive term (the same
+  present_terms/synonym-counting check already used below the cutoff) is present in the title regardless of query
+  length, or a check that scales with term count rather than switching off entirely. Measure the result against the
+  slides/cpp case the audit reproduced AND against the existing retrieval corpus to confirm no regression, rather
+  than guessing which graduation is right.
+depends_on:
+- TC-543
+- TC-585
+write_paths:
+- src/foss_mcp/mcp/tools/relevance.py
+- tests/mcp/tools/test_find_examples_title_anchor.py
+satisfies:
+- REQ-G3-009
+source_refs:
+- file: docs/DECISION_LOG.md
+  anchor: >-
+    ## 2026-10-17 — Round-3 independent review of the shipped image: 82 findings registered, nothing executed (operator, supervisor)
+  sha256: c2056b11a13e5b18cda7e522027fb5eb0102edcef2f99f6c7e7ce0ee5c4b4e5b
+inputs:
+- >-
+  REPRODUCE FIRST on slides/cpp against the real baked infra/demo-manifests: find a natural 3+ distinctive-term task
+  query whose find_examples answer is wrong today because title_anchored waves it through unconditionally above the
+  cutoff. Code has changed since the audit; re-confirm the exact mechanism and the exact query that reproduces it
+  before designing the fix - do not assume the audit's own example query still reproduces byte-for-byte.
+- >-
+  DESIGN AND MEASURE THE GRADUATION. Read title_anchored and distinctive_terms/present_terms in full first. A simple,
+  defensible graduation that keeps the function monotonic in protection (never less protected as terms grow) is: for
+  ANY term count, require at least one distinctive term present in the title (drop the `len(terms) >
+  TITLE_ANCHOR_MAX_TERMS: return True` escape entirely, always compute present_terms) - this is a real tightening,
+  so measure its effect on the full retrieval corpus before committing to it; if it regresses currently-correct
+  longer queries that rely on the coverage floor alone with no title match at all, design a softer graduation
+  instead (e.g. requiring a higher fraction of terms to match as term count grows, rather than exactly one) and
+  justify the exact shape with the corpus measurement. Report the before/after corpus numbers either way.
+- >-
+  NEW/EXTENDED TESTS, offline, against committed fixtures: the slides/cpp reproduction case, asserted directly
+  (title_anchored now returns False for the wrong candidate given the real query and title, or find_examples itself
+  no longer returns that wrong match - whichever layer you fix at, test at that layer). A synthetic 4+ term query
+  whose title genuinely contains none of its distinctive terms is correctly excluded by the new graduation. Re-run
+  tests/mcp/tools/test_round3_retrieval_corpus.py (read-only - not in your write_paths) and confirm hit@3 does not
+  regress below its current pinned floors; report the numbers in your closeout.
+- Run tests/mcp/tools and tests/test_unwired_modules.py; everything must stay green. Never weaken a check to make it pass.
+actions:
+- >-
+  Replace title_anchored's unconditional pass above TITLE_ANCHOR_MAX_TERMS with a graduated, measured protection
+  that does not switch off entirely for longer queries.
+checks:
+- command: >-
+    {python} -m pytest tests/mcp/tools/test_find_examples_title_anchor.py tests/mcp/tools/test_round3_retrieval_corpus.py
+    -q -rfE
+  expect: exit 0
+  timeout_seconds: 300
+  junitxml: true
+  proves:
+  - REQ-G3-009
+- command: >-
+    {python} -m pytest tests/mcp/tools/test_find_examples_title_anchor.py tests/mcp/tools/test_round3_retrieval_corpus.py
+    tests/mcp/tools/test_round3_retrieval.py tests/mcp/tools/test_relevance_idf_synonyms.py tests/mcp/tools/test_search_symbols_forgiveness.py
+    tests/test_unwired_modules.py -q -rfE -p no:cacheprovider
+  expect: exit 0
+  timeout_seconds: 600
+  junitxml: true
+  proves:
+  - REQ-G3-009
+min_tests: 30
+network: false
+requires:
+- python
+negative_control:
+  mutate: |
+    python -X utf8 -c "import pathlib; p = pathlib.Path('src/foss_mcp/mcp/tools/relevance.py'); lines = p.read_text(encoding='utf-8').splitlines(); marker = 'def title_anchored('; hit = [i for i, line in enumerate(lines) if marker in line]; assert len(hit) == 1, 'fix text not found - card and source have diverged'; lines.insert(hit[0] + 1, '    return True  # TC-586 negative control'); p.write_text(chr(10).join(lines) + chr(10), encoding='utf-8')"
+  rationale: >-
+    Inserts an unconditional early return right after title_anchored's own signature line, so it always returns
+    True regardless of this card's graduated logic - exactly the pre-fix, worse-than-before behavior - and the new
+    slides/cpp reproduction test must fail. A real break of the card's central claim.
+evidence:
+- evidence/build/G3/TC-586/receipt.json
+closeout:
+- >-
+  title_anchored no longer disables itself entirely for a query with more than 2 distinctive terms; a longer, more
+  specific task sentence is protected at least as well as a short one, measured against the reproduced slides/cpp
+  case and the existing retrieval corpus.
+recovery: Re-run from a clean tree.

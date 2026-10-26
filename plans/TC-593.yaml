@@ -1,0 +1,105 @@
+id: TC-593
+gate: G3
+lane: verification
+purpose: >-
+  Card 5 of the 6-language oracle remediation (see TC-589 for full history/context). .NET ENUMERATOR, bounded to
+  ONE pilot (pdf/net - repository aspose-pdf-foss/Aspose.PDF-FOSS-for-.NET, commit
+  b7172877651413cff57a8bfe41fb8a8befb2406b per infra/helm/foss-mcp/values.yaml - confirm it has not moved): a real
+  enumerate_dotnet using Roslyn's CSharpSyntaxTree.ParseText (dotnet is already in this project's toolchain,
+  confirmed C:\dev-tools\foss-mcp\dotnet-8\dotnet.exe; the Microsoft.CodeAnalysis.CSharp NuGet package is one
+  pinned new dependency, exactly as the audit's own design table expects). Parse/syntax-tree only, same discipline
+  as the Java card's parse-phase scoping - never requiring the library's own external dependencies to resolve.
+  Proven against synthetic fixtures with deliberate defects, then run once, live, against the real pinned commit,
+  with the real diff findings against tests/fixtures/pdf_net/api_surface.json reported honestly (not required to
+  be clean - a real discrepancy is a NEW finding to report, not something this card must also fix).
+depends_on:
+- TC-566
+- TC-589
+- TC-590
+- TC-591
+- TC-592
+write_paths:
+- scripts/release/source_differential.py
+- tests/release/test_source_differential.py
+satisfies:
+- REQ-G3-009
+source_refs:
+- file: docs/DECISION_LOG.md
+  anchor: >-
+    ## 2026-10-17 — Round-3 independent review of the shipped image: 82 findings registered, nothing executed (operator, supervisor)
+  sha256: c2056b11a13e5b18cda7e522027fb5eb0102edcef2f99f6c7e7ce0ee5c4b4e5b
+inputs:
+- >-
+  READ FIRST: scripts/release/source_differential.py's full module docstring, the Enumerator contract, and
+  TC-589..TC-592's now-merged enumerators for the established companion-helper-process pattern. Confirm TC-589
+  through TC-592 have all landed before you start.
+- >-
+  BUILD enumerate_dotnet(repository, commit, library_dir) -> list[OracleSymbol]: clone the pinned commit with
+  clone_pinned_commit (reused) when needed. Create a small companion .NET console project (e.g. under
+  scripts/release/oracle_helpers/dotnet_enumerator/, a new .csproj referencing Microsoft.CodeAnalysis.CSharp at a
+  pinned version, built/run via `dotnet run` or `dotnet build` + direct binary invocation via subprocess from the
+  Python side) that walks every .cs file under the cloned library's public source directory,
+  CSharpSyntaxTree.ParseText's it (syntax only - do not attempt semantic/symbol resolution against the library's
+  own external references), and finds every public class/interface/struct and their public methods/properties and
+  their parameter lists (with default-value detection from the syntax tree's own EqualsValueClause), emitting JSON
+  on stdout. Map onto OracleSymbol/OracleMember: kind="class" for class/struct, "class" for interface; a method
+  marked `static` sets is_static True. A member with no explicit access modifier inside an interface IS public (C#
+  interface members are implicitly public); a member with no explicit modifier inside a class is implicitly
+  PRIVATE (the opposite rule from TypeScript) - get both right, they are easy to invert by mistake.
+- >-
+  NEW/EXTENDED TESTS, offline, hand-written C# micro-fixtures (never the real pilot, never the enumerator's own
+  output as the expected value): (a) a correct synthetic .cs file with one public class, one public method with a
+  default parameter value, one private method and one field with no modifier (must be excluded - implicitly
+  private) - assert the exact returned shape. (b) At least 2 INDEPENDENTLY-DELIBERATE DEFECT fixtures: for example
+  an interface member with no modifier (must be INCLUDED - implicitly public, the opposite rule from the class
+  case, and the easiest place to get this wrong); a static method correctly flagged is_static True versus an
+  instance method flagged False.
+- >-
+  LIVE RUN (action, not a check - needs the network and dotnet; run this yourself once, report the real numbers):
+  register enumerate_dotnet in DEFAULT_ENUMERATORS for BOTH "net" and "dotnet" (replacing
+  _unimplemented_enumerator for each - this project's own platform naming uses both keys for the same ecosystem;
+  confirm this directly by reading how "net"/"dotnet" are used elsewhere in this codebase before assuming), run
+  `python scripts/release/source_differential.py --only pdf/net --fixtures tests/fixtures --report-dir <temp dir>`
+  for real against the real pinned commit. Report the full diff summary honestly in your closeout, whatever it
+  says; a non-empty diff is a separate, new finding (open an ops/open_questions.jsonl entry if it reveals a real
+  extraction defect - this card does not fix extraction code).
+- Run the whole test file; it must stay green. Never weaken a check to make it pass.
+actions:
+- >-
+  Build and wire a real .NET enumerator (Roslyn CSharpSyntaxTree.ParseText) for source_differential.py's
+  independent oracle, proven against synthetic fixtures with deliberate defects, and run it once live against the
+  real pdf/net pin.
+checks:
+- command: '{python} -m pytest tests/release/test_source_differential.py -q -rfE'
+  expect: exit 0
+  timeout_seconds: 300
+  junitxml: true
+  proves:
+  - REQ-G3-009
+- command: >-
+    {python} -m pytest tests/release/test_source_differential.py -q -rfE -p no:cacheprovider
+  expect: exit 0
+  timeout_seconds: 300
+  junitxml: true
+  proves:
+  - REQ-G3-009
+min_tests: 15
+network: false
+requires:
+- python
+- dotnet
+negative_control:
+  mutate: |
+    python -X utf8 -c "import pathlib; p = pathlib.Path('scripts/release/source_differential.py'); s = p.read_text(encoding='utf-8'); marker = chr(34) + 'net' + chr(34) + ': enumerate_dotnet'; assert s.count(marker) == 1, 'fix text not found - card and source have diverged'; p.write_text(s.replace(marker, chr(34) + 'net' + chr(34) + ': _unimplemented_enumerator(' + chr(34) + 'net' + chr(34) + ')', 1), encoding='utf-8')"
+  rationale: >-
+    Un-registers the new .NET enumerator from DEFAULT_ENUMERATORS for the "net" key, reverting it to the
+    unimplemented stub, so every new .NET-specific test exercising the real enumerator through that key must fail.
+    A real break of the card's central claim.
+evidence:
+- evidence/build/G3/TC-593/receipt.json
+closeout:
+- >-
+  source_differential.py's independent oracle now has a real .NET enumerator (Roslyn syntax parsing), proven
+  against synthetic fixtures with deliberate defects and run once live against the real pdf/net pinned commit, with
+  the real diff findings reported.
+recovery: Re-run from a clean tree.
