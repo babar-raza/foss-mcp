@@ -29,6 +29,8 @@ write_paths:
 - tests/mcp/tools/test_find_examples_vector_deadline.py
 - tests/mcp/tools/test_find_examples_verified_only.py
 - tests/mcp/tools/test_round3_retrieval.py
+- tests/mcp/tools/test_find_examples_title_anchor.py
+- tests/mcp/tools/test_find_examples_verification_record.py
 satisfies:
 - REQ-G3-009
 source_refs:
@@ -37,6 +39,17 @@ source_refs:
     ## 2026-10-17 — Round-3 independent review of the shipped image: 82 findings registered, nothing executed (operator, supervisor)
   sha256: c2056b11a13e5b18cda7e522027fb5eb0102edcef2f99f6c7e7ce0ee5c4b4e5b
 inputs:
+- >-
+  REWORK NOTE (2026-10-26, supervisor, after reviewing the worker's report). write_paths widened above to add
+  tests/mcp/tools/test_find_examples_title_anchor.py and tests/mcp/tools/test_find_examples_verification_record.py -
+  the worker's new ExampleMatch.confidence field correctly broke two pre-existing tests that hard-code the
+  dataclass's exact trailing field-name list (test_match_basis_is_the_last_field and
+  test_the_new_fields_are_the_last_three_fields_of_the_match), the same way TC-544 previously had to update both
+  when IT last added fields. Update both pinned name lists to include the new confidence field at the end, in both
+  files, with a one-line comment naming this card (mirroring the existing TC-544 comment style right above each
+  assertion). Do not touch anything else in either file. Then re-run the second check in full and confirm it is
+  now fully green, and resume exactly where you left off otherwise - nothing else in your prior work needs to
+  change.
 - >-
   REPRODUCE FIRST, against the real baked infra/demo-manifests (copied to a temp dir, never written in place, matching
   this file's own existing test pattern): run find_examples on at least 3 cells-family platforms with the query "merge
