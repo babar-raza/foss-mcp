@@ -1,0 +1,100 @@
+id: TC-596
+gate: G3
+lane: verification
+purpose: >-
+  Retrofit card, not one of the original 6 language cards: TC-589's own enumerate_go/_run_go_enumerator
+  (scripts/release/source_differential.py:588-636) invokes `go run go_enumerator.go <library_dir>` directly on the
+  Windows host. This host's Windows Application Control (WDAC) policy intermittently blocks execution of a
+  freshly-built, unsigned native .exe - confirmed directly against THIS exact function (go_enumerator.exe,
+  "Enterprise signing level requirements", Policy ID {0283AC0F-FFF1-49AE-ADA1-8A933130CAD6}) when TC-590's worker
+  independently reproduced it while reworking the Rust card (OWNER-16). TC-589 itself already landed because its
+  own live run happened to complete before this condition re-triggered - a fragile, lucky timing, not a durable
+  guarantee. FIX: run `go run` (and the go_enumerator.go companion program) inside a pinned Docker container
+  instead of directly on the host, exactly the same architectural fix TC-590 is applying to the Rust enumerator in
+  parallel - WDAC governs native Windows PE execution only, never a Linux binary running inside Docker Desktop's
+  own Linux VM, so this removes the dependency on the policy entirely rather than merely hoping it stays quiet.
+depends_on:
+- TC-589
+- TC-590
+write_paths:
+- scripts/release/source_differential.py
+- tests/release/test_source_differential.py
+satisfies:
+- REQ-G3-009
+source_refs:
+- file: docs/DECISION_LOG.md
+  anchor: >-
+    ## 2026-10-17 — Round-3 independent review of the shipped image: 82 findings registered, nothing executed (operator, supervisor)
+  sha256: c2056b11a13e5b18cda7e522027fb5eb0102edcef2f99f6c7e7ce0ee5c4b4e5b
+inputs:
+- >-
+  READ FIRST: scripts/release/source_differential.py's enumerate_go and _run_go_enumerator in full (lines
+  ~588-636), and TC-590's own rework of enumerate_rust/the Rust container invocation (now merged - mirror its
+  exact Docker pattern for consistency between the two enumerators, including how it pre-confirms the image is
+  cached and how it distinguishes a WDAC-shaped failure from a Docker-down BLOCKED_ENV, if that distinction is
+  still relevant for Go once containerized - it should not be, since the point of this card is to remove that
+  dependency entirely). Confirm TC-590 has landed (your depends_on already requires it) before you start.
+- >-
+  CHANGE ONLY `_run_go_enumerator`: replace the bare `["go", "run", str(GO_ENUMERATOR_SOURCE), str(library_dir)]`
+  subprocess invocation with a `docker run --rm` invocation against a pinned `golang:<exact-tag>` image (try
+  `golang:1.26.4` first, matching this host's installed `go version go1.26.4`; if Docker Hub has no exact match,
+  use the closest real published patch tag and say so plainly in your report). Mount the directory containing
+  go_enumerator.go (read-only) and library_dir (read-write, since Go's own module cache/build cache may want to
+  write there) as two separate volumes, run `go run go_enumerator.go <mounted library_dir path>` inside the
+  container, and capture its stdout exactly as the bare-subprocess design already expected - `enumerate_go`'s own
+  JSON-parsing contract does not change at all. Confirm Docker is reachable (`docker info` exits 0) before relying
+  on it; if it is down, that is a clean, distinct BLOCKED_ENV, not the WDAC issue this card exists to eliminate -
+  report which one you hit, if either.
+- >-
+  `docker pull golang:1.26.4` has already been run by the supervisor and that exact tag is cached locally on this
+  host - confirm it is still there and use it; every offline test exercising enumerate_go now also runs this
+  container each time pytest runs (not only a one-off live action), so the card's own `network: false` holds only
+  because the image is already cached, not because nothing here ever touches Docker.
+- >-
+  RE-RUN THE LIVE ACTION once more for completeness, now through the container: register (already registered by
+  TC-589; no change needed there) and run `python scripts/release/source_differential.py --only cells/go --fixtures
+  tests/fixtures --report-dir <temp dir>` against the real pinned commit, exactly as TC-589 already did, and
+  confirm the diff result is identical (checked=79, all categories 0) now that it runs through Docker - if it
+  differs, investigate and report why before closing this card.
+- >-
+  Run the whole test file; it must stay green with ZERO skipped tests (the entire point of this card). Never
+  weaken a check to make it pass.
+actions:
+- >-
+  Run the Go enumerator's build and execution inside a pinned Docker container instead of directly on the host,
+  removing its dependency on the host's intermittent WDAC policy entirely.
+checks:
+- command: '{python} -m pytest tests/release/test_source_differential.py -q -rfE'
+  expect: exit 0
+  timeout_seconds: 300
+  junitxml: true
+  proves:
+  - REQ-G3-009
+- command: >-
+    {python} -m pytest tests/release/test_source_differential.py -q -rfE -p no:cacheprovider
+  expect: exit 0
+  timeout_seconds: 300
+  junitxml: true
+  proves:
+  - REQ-G3-009
+min_tests: 15
+network: false
+requires:
+- python
+- docker
+negative_control:
+  mutate: |
+    python -X utf8 -c "import pathlib; p = pathlib.Path('scripts/release/source_differential.py'); s = p.read_text(encoding='utf-8'); old = chr(34) + 'go' + chr(34) + ', ' + chr(34) + 'run' + chr(34); assert s.count(old) == 1, 'fix text not found - card and source have diverged (re-target against the worker real diff if it restructures the invocation differently)'; p.write_text(s.replace(old, chr(34) + 'go' + chr(34) + ', ' + chr(34) + 'build' + chr(34)), encoding='utf-8')"
+  rationale: >-
+    Changes the Go subcommand from "run" to "build" inside whatever invocation this card lands on (host or
+    container), so the companion program never actually executes and prints nothing on stdout - the JSON parse
+    must fail and every enumerate_go-dependent test must fail. A real break of the card's central claim. Re-target
+    against the worker's actual committed diff if the invocation shape differs from this guess.
+evidence:
+- evidence/build/G3/TC-596/receipt.json
+closeout:
+- >-
+  The Go enumerator's build and execution now happen inside a pinned Docker container, never directly on the
+  host, permanently eliminating its dependency on the host's intermittent WDAC policy (OWNER-16) rather than
+  merely having gotten lucky once.
+recovery: Re-run from a clean tree.
