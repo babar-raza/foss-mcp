@@ -1,0 +1,115 @@
+{
+  "schema_version": 1,
+  "card": "TC-590",
+  "gate": "G3",
+  "generated_by": "gatectl",
+  "generated_at": "2026-10-26T05:57:37Z",
+  "base_rev": "b40b2df4f8591a0e547c3c2494b4f5bd28c1d69a",
+  "head_rev": "3afac4bece0d5b1110beb714ac1fb7720b3bb680",
+  "card_sha256": "d58ece701f21ae99ac718e3e2f4478df15f9c254af18317ee73cd2de23e137ac",
+  "fingerprint": {
+    "python": "3.13.2",
+    "platform": "Windows-11-10.0.26300-SP0",
+    "lock_sha256": "5c72e798a73c059a438e752e94a8d4c88c1bdf81a197f6e5c5fcecbc9466a691",
+    "env": {
+      "PYTHONHASHSEED": "0",
+      "PYTHONUTF8": "1",
+      "PYTHONDONTWRITEBYTECODE": "1",
+      "PYTHONIOENCODING": "utf-8",
+      "TZ": "UTC",
+      "LC_ALL": "C.UTF-8",
+      "SOURCE_DATE_EPOCH": "1700000000",
+      "verify_runner": "host"
+    }
+  },
+  "scope": {
+    "ok": true,
+    "changed_paths": [
+      "scripts/release/oracle_helpers/rust_enumerator/.gitignore",
+      "scripts/release/oracle_helpers/rust_enumerator/Cargo.lock",
+      "scripts/release/oracle_helpers/rust_enumerator/Cargo.toml",
+      "scripts/release/oracle_helpers/rust_enumerator/src/main.rs",
+      "scripts/release/source_differential.py",
+      "tests/release/test_source_differential.py"
+    ],
+    "violations": [],
+    "evaluated": true
+  },
+  "runs": [
+    {
+      "run": 1,
+      "checks": [
+        {
+          "command": "{python} -m pytest tests/release/test_source_differential.py -q -rfE",
+          "exit_code": 0,
+          "duration_s": 8.988,
+          "stdout_sha256": "6572888d07897cf7fd694c4e66625c724aedb26a7c4a6e063f87c5ace43bb7e7",
+          "tests": 69,
+          "skipped": 9,
+          "errors": 0,
+          "failures": 0
+        },
+        {
+          "command": "{python} -m pytest tests/release/test_source_differential.py -q -rfE -p no:cacheprovider",
+          "exit_code": 0,
+          "duration_s": 5.168,
+          "stdout_sha256": "6572888d07897cf7fd694c4e66625c724aedb26a7c4a6e063f87c5ace43bb7e7",
+          "tests": 69,
+          "skipped": 9,
+          "errors": 0,
+          "failures": 0
+        }
+      ],
+      "all_passed": true
+    },
+    {
+      "run": 2,
+      "checks": [
+        {
+          "command": "{python} -m pytest tests/release/test_source_differential.py -q -rfE",
+          "exit_code": 0,
+          "duration_s": 6.945,
+          "stdout_sha256": "6572888d07897cf7fd694c4e66625c724aedb26a7c4a6e063f87c5ace43bb7e7",
+          "tests": 69,
+          "skipped": 9,
+          "errors": 0,
+          "failures": 0
+        },
+        {
+          "command": "{python} -m pytest tests/release/test_source_differential.py -q -rfE -p no:cacheprovider",
+          "exit_code": 0,
+          "duration_s": 12.674,
+          "stdout_sha256": "6572888d07897cf7fd694c4e66625c724aedb26a7c4a6e063f87c5ace43bb7e7",
+          "tests": 69,
+          "skipped": 9,
+          "errors": 0,
+          "failures": 0
+        }
+      ],
+      "all_passed": true
+    }
+  ],
+  "negative_control": {
+    "kind": "mutate",
+    "patch": "python -X utf8 -c \"import pathlib; p = pathlib.Path('scripts/release/source_differential.py'); s = p.read_text(encoding='utf-8'); marker = chr(34) + 'rust' + chr(34) + ': enumerate_rust'; assert s.count(marker) == 1, 'fix text not found - card and source have diverged'; p.write_text(s.replace(marker, chr(34) + 'rust' + chr(34) + ': _unimplemented_enumerator(' + chr(34) + 'rust' + chr(34) + ')', 1), encoding='utf-8')\"\n",
+    "patch_sha256": "d50eda27d764f18d9b02ddc1cd75001f79bc43b942d8de605470de11ae7972b9",
+    "applied": true,
+    "patch_applied_failed": true,
+    "exit_codes": [
+      1,
+      1
+    ],
+    "tree_changed": [
+      "M scripts/release/source_differential.py",
+      "?? .junit-0.xml",
+      "?? .junit-1.xml"
+    ]
+  },
+  "holdout": {
+    "ran": false,
+    "passed": true,
+    "detail": "no holdout for this card"
+  },
+  "accepted": false,
+  "reason": "structural gate: {python} -m pytest tests/release/test_source_differential.py -q -rfE: 9 skipped test(s); skips are not evidence; {python} -m pytest tests/release/test_source_differential.py -q -rfE -p no:cacheprovider: 9 skipped test(s); skips are not evidence"
+}
