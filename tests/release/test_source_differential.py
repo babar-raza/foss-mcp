@@ -9,13 +9,17 @@ lose or fabricate data. No network call is made by any test below -- the per-lan
 ``scripts/release/verify_pushed_image.py``'s own injection style, so even the few tests that exercise
 ``main()`` never touch the real git path.
 
-The ``enumerate_go`` tests really invoke the local Go toolchain (``go run``), and the
+The ``enumerate_go`` tests (G3/TC-596) really invoke Docker (``docker run ... go run
+go_enumerator.go``, against the pinned, already-cached ``golang:1.26.4`` image), and the
 ``enumerate_rust`` tests (G3/TC-590) really invoke Docker (``docker run ... cargo run --release
 --offline``, against the pinned, already-cached ``rust:1.98.1`` image and the companion crate's
-own vendored dependencies) against hand-written, on-disk synthetic ``.rs`` fixtures -- never the
-real pilot, never a network call, since both the Go toolchain and the Docker daemon with its
-pinned image already cached are this card's own declared local ``requires:``, never something
-reached over the wire mid-check.
+own vendored dependencies) against hand-written, on-disk synthetic ``.go``/``.rs`` fixtures --
+never the real pilot, never a network call, since the Docker daemon with both pinned images
+already cached is this card's own declared local ``requires:``, never something reached over the
+wire mid-check. Both enumerators moved off the host's own toolchain and into a pinned container
+because this host's Windows Application Control policy blocks execution of a freshly-built,
+unsigned native ``.exe`` directly on the host (first observed in TC-590's Rust rework, OWNER-16;
+TC-596 applies the identical fix to Go).
 """
 
 from __future__ import annotations
@@ -461,11 +465,15 @@ def test_enumerate_python_skips_a_file_that_fails_to_parse(tmp_path):
 
 # --- the Go go/parser+go/ast enumerator: the second real, wired tool this card lands -----------------
 # Every fixture below is a hand-written synthetic .go file (never the real pilot, never the
-# enumerator's own output read back as the expected value). enumerate_go really invokes the Go
-# toolchain's own go/parser+go/ast (through scripts/release/oracle_helpers/go_enumerator.go, run
-# with `go run`) against these files on local disk -- no network, matching this card's network:
-# false requirement, since the Go toolchain itself is a declared local `requires:` entry, never
-# something reached over the wire.
+# enumerator's own output read back as the expected value). enumerate_go really invokes Go's own
+# go/parser+go/ast (through scripts/release/oracle_helpers/go_enumerator.go, run with `go run`)
+# against these files on local disk, built AND run entirely inside a pinned Docker container
+# (docker run ... go run go_enumerator.go, against the pinned, already-cached golang:1.26.4 image
+# -- G3/TC-596, mirroring enumerate_rust's own container rework below) -- no network, matching
+# this card's network: false requirement, since the Docker daemon with its pinned image already
+# cached is this card's own declared local `requires:` entry, never something reached over the
+# wire mid-check. This also means every test below takes real wall-clock time (a real container
+# start), same as the Rust tests further down.
 
 
 def test_enumerate_go_reads_a_real_struct_with_go_ast_offline(tmp_path):
@@ -584,6 +592,49 @@ def test_enumerate_go_never_enumerates_bare_package_level_functions(tmp_path):
     )
     (document,) = sd.enumerate_go("acme/pdf", "deadbeef", tmp_path)
     assert {member.name for member in document.members} == {"Title"}
+
+
+def test_run_go_enumerator_shells_out_to_the_pinned_docker_image_mounting_the_helpers_dir_and_library(
+    tmp_path,
+):
+    """Offline check of the Docker invocation's own shape (never a real container here): the
+    exact pinned image tag, the oracle_helpers directory mounted read-only at /work, the library
+    directory mounted read-write at /library, and never a bare host-side `go run` (G3/TC-596,
+    mirroring the Rust check below)."""
+    import subprocess as _subprocess
+
+    captured: dict[str, object] = {}
+
+    def fake_run(args, **kwargs):
+        captured["args"] = args
+        captured["kwargs"] = kwargs
+        return _subprocess.CompletedProcess(args=args, returncode=0, stdout="[]", stderr="")
+
+    library_dir = tmp_path / "library"
+    library_dir.mkdir()
+    result = sd._run_go_enumerator(library_dir, run=fake_run)
+    assert result == []
+    args = captured["args"]
+    assert args[:3] == ["docker", "run", "--rm"]
+    assert "golang:1.26.4" in args
+    assert any(a == f"{sd._ORACLE_HELPERS_DIR}:/work:ro" for a in args)
+    assert any(a == f"{library_dir}:/library" for a in args)
+    assert not any(a == f"{library_dir}:/library:ro" for a in args), (
+        "library_dir must be mounted read-write, not read-only"
+    )
+    assert "go" in args and "run" in args, "the companion program must still be invoked with go run"
+
+
+def test_run_go_enumerator_raises_with_the_image_name_on_a_nonzero_docker_exit(tmp_path):
+    import subprocess as _subprocess
+
+    def failing_run(args, **kwargs):
+        return _subprocess.CompletedProcess(
+            args=args, returncode=1, stdout="", stderr="docker: daemon unreachable"
+        )
+
+    with pytest.raises(RuntimeError, match="golang:1.26.4"):
+        sd._run_go_enumerator(tmp_path, run=failing_run)
 
 
 # --- the Rust `syn` enumerator: the third real, wired tool this card lands (G3/TC-590) ---------
@@ -910,14 +961,16 @@ def test_main_never_uses_kubectl_for_cluster_orchestration():
     assert "kubectl" not in SOURCE.read_text(encoding="utf-8").lower()
 
 
-def test_docker_is_confined_to_the_rust_enumerators_own_container_invocation():
-    """REWORK (G3/TC-590) narrows this file's original "docker is never used for network or
-    cluster use" guarantee: enumerate_rust now legitimately shells out to Docker, because this
-    host's Windows Application Control policy blocks execution of a freshly-built, unsigned
-    native .exe directly on the host (plans/TC-590.yaml's REWORK note). This proves the narrower
-    claim that still matters -- main()'s own CLI parsing and orchestration path never mentions
-    Docker, and the mention that does exist is confined to the Rust-specific enumerator, not
-    spread into this module's general-purpose plumbing."""
+def test_docker_is_confined_to_the_go_and_rust_enumerators_own_container_invocations():
+    """REWORK (G3/TC-590, extended by G3/TC-596) narrows this file's original "docker is never
+    used for network or cluster use" guarantee: enumerate_go and enumerate_rust now both
+    legitimately shell out to Docker, because this host's Windows Application Control policy
+    blocks execution of a freshly-built, unsigned native .exe directly on the host (first fixed
+    for Rust in plans/TC-590.yaml's REWORK note, then applied identically to Go in
+    plans/TC-596.yaml). This proves the narrower claim that still matters -- main()'s own CLI
+    parsing and orchestration path never mentions Docker, and the mentions that do exist are
+    confined to the Go- and Rust-specific enumerators, not spread into this module's
+    general-purpose plumbing."""
     import ast as _ast
 
     source = SOURCE.read_text(encoding="utf-8")
@@ -926,5 +979,5 @@ def test_docker_is_confined_to_the_rust_enumerators_own_container_invocation():
     for name in ("main", "parse_args", "diff_symbol", "diff_language", "verify_pilot"):
         segment = _ast.get_source_segment(source, top_level_functions[name]) or ""
         assert "docker" not in segment.lower(), f"{name} must never mention Docker"
-    assert "docker" in source.lower(), "enumerate_rust must still reference Docker somewhere"
+    assert "docker" in source.lower(), "enumerate_go/enumerate_rust must still reference Docker somewhere"
     assert "helm" not in source.lower()

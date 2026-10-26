@@ -31,11 +31,12 @@ compiler, interpreter or network call is ever made by ``tests/release/test_sourc
 ``enumerate_python``, ``enumerate_go`` and ``enumerate_rust`` are wired to real tooling here
 (Python's own ``ast`` module, Go's own ``go/parser``+``go/ast`` via a small companion program, and
 Rust's ``syn`` crate via a small companion crate, respectively -- all three reading the real
-cloned source, no network beyond the clone, no external compiler for Python, the project's
-already-pinned ``go`` toolchain for Go run with ``go run``, and a pinned ``rust:1.98.1`` Docker
-container for Rust -- the companion crate is built AND run entirely inside that container, never
-directly on the host, because this host's Windows Application Control policy blocks execution of
-a freshly-built, unsigned native .exe; see ``_run_rust_enumerator``'s own docstring). The other
+cloned source, no network beyond the clone, no external compiler for Python, and a pinned
+``golang:1.26.4`` Docker container for Go (G3/TC-596) plus a pinned ``rust:1.98.1`` Docker
+container for Rust (G3/TC-590) -- both companion programs are built AND run entirely inside their
+own container, never directly on the host, because this host's Windows Application Control policy
+blocks execution of a freshly-built, unsigned native .exe; see ``_run_go_enumerator``'s and
+``_run_rust_enumerator``'s own docstrings). The other
 four languages the card names (TypeScript, Java, .NET, C++) each need their own real
 compiler/reflection/AST tool wired and proven against a real pinned repository -- a scope this
 card's worker could not respect responsibly within one dispatch without shipping four untested,
@@ -590,14 +591,52 @@ def enumerate_python(
 
 _ORACLE_HELPERS_DIR = Path(__file__).resolve().parent / "oracle_helpers"
 GO_ENUMERATOR_SOURCE = _ORACLE_HELPERS_DIR / "go_enumerator.go"
+GO_DOCKER_IMAGE = "golang:1.26.4"  # matches this host's installed go version go1.26.4; see plans/TC-596.yaml
 
 
-def _run_go_enumerator(library_dir: Path, *, run: Callable[..., Any] | None = None) -> list[dict[str, Any]]:
+def _run_go_enumerator(
+    library_dir: Path, *, run: Callable[..., Any] | None = None, image: str = GO_DOCKER_IMAGE
+) -> list[dict[str, Any]]:
     """Run ``go_enumerator.go`` (Go's own ``go/parser``+``go/ast``, no new dependency) and parse
-    its JSON stdout. Never a fixture, never this project's own tree-sitter engine."""
+    its JSON stdout. Built AND executed entirely inside a pinned Docker container -- never
+    directly on the host (G3/TC-596).
+
+    This host's Windows Application Control policy blocks execution of a freshly-built, unsigned
+    native ``.exe`` -- confirmed directly against this exact function (``go_enumerator.exe``,
+    "Enterprise signing level requirements") when TC-590's worker independently reproduced the
+    same condition while reworking the Rust enumerator (OWNER-16); TC-589 itself only landed
+    because its own live run happened to complete before this condition re-triggered here, a
+    fragile timing accident, never a durable guarantee. WDAC governs native Windows PE execution
+    only -- a Linux binary executed inside Docker Desktop's own Linux VM is completely outside
+    its scope, so ``go run`` moves inside the container too, eliminating the dependency on the
+    host's own WDAC posture entirely, mirroring ``_run_rust_enumerator``'s own fix (G3/TC-590).
+
+    The directory holding ``go_enumerator.go`` is mounted read-only (the companion program is
+    never written to); ``library_dir`` is mounted read-write, since Go's own module/build cache
+    may want to write under the directory tree it is reading from. ``go_enumerator.go`` has no
+    non-stdlib imports (see its own module docstring), so this never reaches the network -- this
+    function, and therefore every test that calls ``enumerate_go``, stays compatible with this
+    card's own ``network: false`` requirement even though it shells out to Docker, because the
+    pinned image is already cached locally before the checks ever run.
+    """
     runner = run or subprocess.run
     result = runner(
-        ["go", "run", str(GO_ENUMERATOR_SOURCE), str(library_dir)],
+        [
+            "docker",
+            "run",
+            "--rm",
+            "-v",
+            f"{_ORACLE_HELPERS_DIR}:/work:ro",
+            "-v",
+            f"{library_dir}:/library",
+            "-w",
+            "/work",
+            image,
+            "go",
+            "run",
+            "go_enumerator.go",
+            "/library",
+        ],
         cwd=REPO_ROOT,
         capture_output=True,
         text=True,
@@ -607,7 +646,8 @@ def _run_go_enumerator(library_dir: Path, *, run: Callable[..., Any] | None = No
     )
     if result.returncode != 0:
         raise RuntimeError(
-            f"go_enumerator.go failed against {library_dir}:\n{result.stdout}\n{result.stderr}"
+            f"go_enumerator.go (Docker image {image}) failed against {library_dir}:\n"
+            f"{result.stdout}\n{result.stderr}"
         )
     parsed = json.loads(result.stdout)
     if not isinstance(parsed, list):
@@ -620,14 +660,16 @@ def enumerate_go(
 ) -> list[OracleSymbol]:
     """The real public API of a Go library, read with Go's own ``go/parser``+``go/ast`` (stdlib,
     no new dependency) through a small companion program
-    (``scripts/release/oracle_helpers/go_enumerator.go``).
+    (``scripts/release/oracle_helpers/go_enumerator.go``), built and run entirely inside a pinned
+    Docker container (never directly on the host -- see ``_run_go_enumerator``'s own docstring
+    for why, G3/TC-596).
 
     Clones ``repository`` at ``commit`` into ``library_dir`` (unless it already looks checked out:
-    a ``.git`` directory already present), runs the companion program with ``go run`` against that
-    directory, and maps its JSON output onto ``OracleSymbol``/``OracleMember``/``OracleParam``. Go
-    has no default parameter values, so every ``OracleParam.has_default`` stays ``False``; a Go
-    method always needs a receiver (there is no Go analogue of ``@staticmethod``), so every
-    member's ``is_static`` stays ``False``.
+    a ``.git`` directory already present), runs the companion program with ``go run`` inside the
+    container against that directory, and maps its JSON output onto
+    ``OracleSymbol``/``OracleMember``/``OracleParam``. Go has no default parameter values, so
+    every ``OracleParam.has_default`` stays ``False``; a Go method always needs a receiver (there
+    is no Go analogue of ``@staticmethod``), so every member's ``is_static`` stays ``False``.
     """
     if not (library_dir / ".git").is_dir():
         clone_pinned_commit(repository, commit, library_dir, run=run)
