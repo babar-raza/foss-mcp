@@ -93,11 +93,13 @@ def test_the_commit_guard_sees_every_open_dispatch_not_just_the_newest(channel):
 
 
 def test_the_channel_is_read_from_the_main_checkout(tmp_path, monkeypatch):
-    # The main checkout is the one with the .git directory, and that is where the channel lives.
-    # A worker worktree must not read its own stale copy.
-    root = Path(__file__).resolve().parents[2]
-    assert (C._main_checkout() / ".git").exists()
-    assert C._main_checkout().resolve() == root.resolve()
+    # The main checkout is the one with a real .git DIRECTORY; every linked worktree (including the
+    # throwaway one gatectl review's own _run_related_once uses to run this very test) has a .git FILE
+    # (a gitdir pointer) instead. Comparing against Path(__file__)'s own ancestor broke under exactly
+    # that invocation: this module gets copied into a worktree there, so __file__ no longer anchors the
+    # main checkout at all (found reviewing TC-595, 2026-10-27). is_dir() is the invocation-independent
+    # way to assert "this is the main checkout, not a worktree's own stale copy".
+    assert C._main_checkout().joinpath(".git").is_dir()
 
 
 def test_the_worker_tick_path_is_per_card():
