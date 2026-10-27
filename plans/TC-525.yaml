@@ -261,10 +261,13 @@ requires:
 - python
 negative_control:
   mutate: |
-    python -X utf8 -c "import pathlib;p=pathlib.Path('src/foss_mcp/extraction/tree_sitter_engine/api_surface.py');s=p.read_text(encoding='utf-8');old='def _extract_go_const_groups(';assert s.count(old)==1;p.write_text(s.replace(old,'def _extract_go_const_groupsX(',1),encoding='utf-8')"
+    python -X utf8 -c "import pathlib;p=pathlib.Path('src/foss_mcp/extraction/tree_sitter_engine/api_surface.py');s=p.read_text(encoding='utf-8');old=chr(34)+'owner'+chr(34)+': type_text if kind == '+chr(34)+'constant'+chr(34)+' and _GO_PLAIN_TYPE.match(type_text) else '+chr(34)+chr(34)+',';assert s.count(old)==1;p.write_text(s.replace(old,chr(34)+'owner'+chr(34)+': '+chr(34)+chr(34)+',',1),encoding='utf-8')"
   rationale: >-
-    Renames the function that reads Go constant groups, so Go extraction raises NameError: the new Go fidelity tests, the gate and the chunk tests
-    fail. A real break of the card's central claim (a basic-type enum's constants are discoverable as its Members).
+    TC-535 later refactored _extract_go_const_groups into _go_value_decls's own owner-assignment line (this is
+    the current equivalent of the removed function). Forces every constant's "owner" to always be empty, so no
+    typed constant ever folds into its owning type's Members, exactly the behavior the original mutation broke
+    by name before the rename. A real break of the card's central claim (a basic-type enum's constants are
+    discoverable as its Members).
 evidence:
 - evidence/build/G3/TC-525/receipt.json
 closeout:

@@ -63,10 +63,11 @@ requires:
 - python
 negative_control:
   mutate: |
-    python -X utf8 -c "import pathlib;p=pathlib.Path('tests/deploy/test_demo_manifests_sidecars.py');s=p.read_text(encoding='utf-8');old='TREE_BYTES_BUDGET = 29_500_000';assert old in s;p.write_text(s.replace(old,'TREE_BYTES_BUDGET = 22_600_000',1),encoding='utf-8')"
+    python -X utf8 -c "import pathlib;p=pathlib.Path('tests/deploy/test_demo_manifests_sidecars.py');s=p.read_text(encoding='utf-8');old='TREE_BYTES_BUDGET = 43_820_000';assert old in s;p.write_text(s.replace(old,'TREE_BYTES_BUDGET = 1',1),encoding='utf-8')"
   rationale: >-
-    Puts the sidecars test's tree budget back to the old 22.6 MB, which the 28.07 MB tree exceeds, so the size test fails. A real break of the
-    card's central claim (the budget must cover the real committed tree).
+    Shrinks the sidecars test's tree budget to 1 byte, which the real committed tree always exceeds, so the size test fails. A real break of the
+    card's central claim (the budget must cover the real committed tree). A fixed tiny value rather than a specific reduced MB figure, so this
+    stays a real break regardless of how much the tree grows later.
 evidence:
 - evidence/build/G3/TC-503/receipt.json
 closeout:
