@@ -1,12 +1,12 @@
 
 ===== CLEAN RUN 1 (host) =====
-$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-5c72e798a73c059a\Scripts\python.exe -m pytest tests/normalization/test_citation.py -q -rfE "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-qqndtfx0\.junit-0.xml"
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-5c72e798a73c059a\Scripts\python.exe -m pytest tests/normalization/test_citation.py -q -rfE "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-w9wd6ogq\.junit-0.xml"
 --- stdout ---
 ......................                                                   [100%]
 
 --- stderr ---
 
-$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-5c72e798a73c059a\Scripts\python.exe -m pytest tests/normalization -q -rfE "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-qqndtfx0\.junit-1.xml"
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-5c72e798a73c059a\Scripts\python.exe -m pytest tests/normalization -q -rfE "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-w9wd6ogq\.junit-1.xml"
 --- stdout ---
 ................................                                         [100%]
 
@@ -14,22 +14,96 @@ $ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-5c72
 
 
 ===== CLEAN RUN 2 (host) =====
-$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-5c72e798a73c059a\Scripts\python.exe -m pytest tests/normalization/test_citation.py -q -rfE "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-qqndtfx0\.junit-0.xml"
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-5c72e798a73c059a\Scripts\python.exe -m pytest tests/normalization/test_citation.py -q -rfE "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-w9wd6ogq\.junit-0.xml"
 --- stdout ---
 ......................                                                   [100%]
 
 --- stderr ---
 
-$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-5c72e798a73c059a\Scripts\python.exe -m pytest tests/normalization -q -rfE "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-qqndtfx0\.junit-1.xml"
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-5c72e798a73c059a\Scripts\python.exe -m pytest tests/normalization -q -rfE "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-w9wd6ogq\.junit-1.xml"
 --- stdout ---
 ................................                                         [100%]
 
 --- stderr ---
 
 
-!! falsifier did not apply (mutate): Traceback (most recent call last):
-  File "<string>", line 1, in <module>
-    import pathlib;p=pathlib.Path('tests/normalization/test_citation.py');s=p.read_text(encoding='utf-8');t=s.replace('== 901','== 9010',1);assert t!=s;p.write_text(t,encoding='utf-8')
-                                                                                                                                                   ^^^^
-AssertionError
+===== NEGATIVE CONTROL (checks MUST now fail) =====
+mutated: M tests/normalization/test_citation.py, ?? .junit-0.xml, ?? .junit-1.xml
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-5c72e798a73c059a\Scripts\python.exe -m pytest tests/normalization/test_citation.py -q -rfE "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-w9wd6ogq\.junit-0.xml"
+--- stdout ---
+....F.................                                                   [100%]
+================================== FAILURES ===================================
+_ test_oq_001_the_real_805_classes_claim_has_no_confident_corroborating_count _
+
+    def test_oq_001_the_real_805_classes_claim_has_no_confident_corroborating_count() -> None:
+        """The exact defect OQ-001 names: 'classes' is not among what a reduced fixture can
+        confidently vouch for (see known_counts_from_fixture), so the real claim is
+        insufficient_evidence - never silently treated as either confirmed or refuted.
+    
+        This once read the sentence live out of the real furnished pdf/net page's overview
+        prose. TC-119 regenerated that fixture from repository-presenter's own sealed
+        candidates, and the real overview no longer contains this sentence at all - it now
+        holds real README-derived content instead of the old aspose.org copy. OQ-001's real
+        historical scenario (a furnished page asserting a precise, uncorroborated numeric
+        claim) is preserved here as a permanent, hardcoded synthetic regression fixture -
+        mirroring test_the_805_classes_sentence_is_excluded_or_qualified_as_a_whole_chunk's
+        own already-correct pattern - using the exact original sentence so the defect class
+        keeps being guarded even though the live fixture that once exhibited it has moved on.
+    
+        TC-263 (rework attempt 2): ``known_counts["types"]`` is a live read off the committed
+        ``api_surface.json`` fixture, which TC-263 regenerated for real against the pinned
+        upstream repository - it now reports 901 (real upstream growth since TC-011's original
+        899, unrelated to the TC-252 selection-algorithm fix this fixture regeneration proves;
+        TC-400's re-extraction at the pinned commit is why it changed from 971).
+        """
+        known_counts = known_counts_from_fixture(_truncated_api_surface_fixture())  # re-extracted by TC-530
+        assert "classes" not in known_counts
+        # TC-558: 901 -> 915 (the 14 delegate types of pdf/net are types of the regenerated fixture; RD3-054)
+>       assert known_counts["types"] == 9150
+E       assert 915 == 9150
+
+tests\normalization\test_citation.py:129: AssertionError
+=========================== short test summary info ===========================
+FAILED tests/normalization/test_citation.py::test_oq_001_the_real_805_classes_claim_has_no_confident_corroborating_count
+
+--- stderr ---
+
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-5c72e798a73c059a\Scripts\python.exe -m pytest tests/normalization -q -rfE "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-w9wd6ogq\.junit-1.xml"
+--- stdout ---
+..........F.....................                                         [100%]
+================================== FAILURES ===================================
+_ test_oq_001_the_real_805_classes_claim_has_no_confident_corroborating_count _
+
+    def test_oq_001_the_real_805_classes_claim_has_no_confident_corroborating_count() -> None:
+        """The exact defect OQ-001 names: 'classes' is not among what a reduced fixture can
+        confidently vouch for (see known_counts_from_fixture), so the real claim is
+        insufficient_evidence - never silently treated as either confirmed or refuted.
+    
+        This once read the sentence live out of the real furnished pdf/net page's overview
+        prose. TC-119 regenerated that fixture from repository-presenter's own sealed
+        candidates, and the real overview no longer contains this sentence at all - it now
+        holds real README-derived content instead of the old aspose.org copy. OQ-001's real
+        historical scenario (a furnished page asserting a precise, uncorroborated numeric
+        claim) is preserved here as a permanent, hardcoded synthetic regression fixture -
+        mirroring test_the_805_classes_sentence_is_excluded_or_qualified_as_a_whole_chunk's
+        own already-correct pattern - using the exact original sentence so the defect class
+        keeps being guarded even though the live fixture that once exhibited it has moved on.
+    
+        TC-263 (rework attempt 2): ``known_counts["types"]`` is a live read off the committed
+        ``api_surface.json`` fixture, which TC-263 regenerated for real against the pinned
+        upstream repository - it now reports 901 (real upstream growth since TC-011's original
+        899, unrelated to the TC-252 selection-algorithm fix this fixture regeneration proves;
+        TC-400's re-extraction at the pinned commit is why it changed from 971).
+        """
+        known_counts = known_counts_from_fixture(_truncated_api_surface_fixture())  # re-extracted by TC-530
+        assert "classes" not in known_counts
+        # TC-558: 901 -> 915 (the 14 delegate types of pdf/net are types of the regenerated fixture; RD3-054)
+>       assert known_counts["types"] == 9150
+E       assert 915 == 9150
+
+tests\normalization\test_citation.py:129: AssertionError
+=========================== short test summary info ===========================
+FAILED tests/normalization/test_citation.py::test_oq_001_the_real_805_classes_claim_has_no_confident_corroborating_count
+
+--- stderr ---
 

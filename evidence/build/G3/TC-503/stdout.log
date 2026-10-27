@@ -1,6 +1,6 @@
 
 ===== CLEAN RUN 1 (host) =====
-$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-5c72e798a73c059a\Scripts\python.exe -m pytest tests/deploy/test_compact_demo_manifests.py tests/deploy/test_demo_manifests_sidecars.py -q -rfE "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-8v6x9zsg\.junit-0.xml"
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-5c72e798a73c059a\Scripts\python.exe -m pytest tests/deploy/test_compact_demo_manifests.py tests/deploy/test_demo_manifests_sidecars.py -q -rfE "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-eqhattzw\.junit-0.xml"
 --- stdout ---
 ........................................................................ [ 46%]
 ........................................................................ [ 93%]
@@ -8,7 +8,7 @@ $ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-5c72
 
 --- stderr ---
 
-$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-5c72e798a73c059a\Scripts\python.exe -m pytest tests/deploy -q -rfE -k "demo_manifests or compact or manifest" "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-8v6x9zsg\.junit-1.xml"
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-5c72e798a73c059a\Scripts\python.exe -m pytest tests/deploy -q -rfE -k "demo_manifests or compact or manifest" "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-eqhattzw\.junit-1.xml"
 --- stdout ---
 ........................................................................ [ 31%]
 ........................................................................ [ 63%]
@@ -19,7 +19,7 @@ $ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-5c72
 
 
 ===== CLEAN RUN 2 (host) =====
-$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-5c72e798a73c059a\Scripts\python.exe -m pytest tests/deploy/test_compact_demo_manifests.py tests/deploy/test_demo_manifests_sidecars.py -q -rfE "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-8v6x9zsg\.junit-0.xml"
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-5c72e798a73c059a\Scripts\python.exe -m pytest tests/deploy/test_compact_demo_manifests.py tests/deploy/test_demo_manifests_sidecars.py -q -rfE "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-eqhattzw\.junit-0.xml"
 --- stdout ---
 ........................................................................ [ 46%]
 ........................................................................ [ 93%]
@@ -27,7 +27,7 @@ $ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-5c72
 
 --- stderr ---
 
-$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-5c72e798a73c059a\Scripts\python.exe -m pytest tests/deploy -q -rfE -k "demo_manifests or compact or manifest" "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-8v6x9zsg\.junit-1.xml"
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-5c72e798a73c059a\Scripts\python.exe -m pytest tests/deploy -q -rfE -k "demo_manifests or compact or manifest" "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-eqhattzw\.junit-1.xml"
 --- stdout ---
 ........................................................................ [ 31%]
 ........................................................................ [ 63%]
@@ -37,9 +37,46 @@ $ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-5c72
 --- stderr ---
 
 
-!! falsifier did not apply (mutate): Traceback (most recent call last):
-  File "<string>", line 1, in <module>
-    import pathlib;p=pathlib.Path('tests/deploy/test_demo_manifests_sidecars.py');s=p.read_text(encoding='utf-8');old='TREE_BYTES_BUDGET = 29_500_000';assert old in s;p.write_text(s.replace(old,'TREE_BYTES_BUDGET = 22_600_000',1),encoding='utf-8')
-                                                                                                                                                              ^^^^^^^^
-AssertionError
+===== NEGATIVE CONTROL (checks MUST now fail) =====
+mutated: M tests/deploy/test_demo_manifests_sidecars.py, ?? .junit-0.xml, ?? .junit-1.xml
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-5c72e798a73c059a\Scripts\python.exe -m pytest tests/deploy/test_compact_demo_manifests.py tests/deploy/test_demo_manifests_sidecars.py -q -rfE "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-eqhattzw\.junit-0.xml"
+--- stdout ---
+........................................................................ [ 46%]
+........................................................................ [ 93%]
+........F.                                                               [100%]
+================================== FAILURES ===================================
+________________ test_the_whole_tree_is_within_the_size_budget ________________
+
+    def test_the_whole_tree_is_within_the_size_budget() -> None:
+        total = sum(p.stat().st_size for p in DEMO_MANIFESTS.rglob("*") if p.is_file())
+>       assert total <= TREE_BYTES_BUDGET, (total, TREE_BYTES_BUDGET)
+E       AssertionError: (41737459, 1)
+E       assert 41737459 <= 1
+
+tests\deploy\test_demo_manifests_sidecars.py:190: AssertionError
+=========================== short test summary info ===========================
+FAILED tests/deploy/test_demo_manifests_sidecars.py::test_the_whole_tree_is_within_the_size_budget
+
+--- stderr ---
+
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-5c72e798a73c059a\Scripts\python.exe -m pytest tests/deploy -q -rfE -k "demo_manifests or compact or manifest" "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-eqhattzw\.junit-1.xml"
+--- stdout ---
+........................................................................ [ 31%]
+........................................................................ [ 63%]
+.........F.............................................................. [ 94%]
+............                                                             [100%]
+================================== FAILURES ===================================
+________________ test_the_whole_tree_is_within_the_size_budget ________________
+
+    def test_the_whole_tree_is_within_the_size_budget() -> None:
+        total = sum(p.stat().st_size for p in DEMO_MANIFESTS.rglob("*") if p.is_file())
+>       assert total <= TREE_BYTES_BUDGET, (total, TREE_BYTES_BUDGET)
+E       AssertionError: (41737459, 1)
+E       assert 41737459 <= 1
+
+tests\deploy\test_demo_manifests_sidecars.py:190: AssertionError
+=========================== short test summary info ===========================
+FAILED tests/deploy/test_demo_manifests_sidecars.py::test_the_whole_tree_is_within_the_size_budget
+
+--- stderr ---
 
