@@ -1,0 +1,112 @@
+{
+  "schema_version": 1,
+  "card": "TC-595",
+  "gate": "G3",
+  "generated_by": "gatectl",
+  "generated_at": "2026-10-27T00:24:50Z",
+  "base_rev": "f4a5ee65328e75a55c1e0f79e0e44c0e874232bd",
+  "head_rev": "33a3a533d020b1cc5bca31fb14ba33656f1042a9",
+  "card_sha256": "41c84dab396d5ef6a9b2df22fddf2034499bf4089a26cb63b42593b32aacd120",
+  "fingerprint": {
+    "python": "3.13.2",
+    "platform": "Windows-11-10.0.26300-SP0",
+    "lock_sha256": "5c72e798a73c059a438e752e94a8d4c88c1bdf81a197f6e5c5fcecbc9466a691",
+    "env": {
+      "PYTHONHASHSEED": "0",
+      "PYTHONUTF8": "1",
+      "PYTHONDONTWRITEBYTECODE": "1",
+      "PYTHONIOENCODING": "utf-8",
+      "TZ": "UTC",
+      "LC_ALL": "C.UTF-8",
+      "SOURCE_DATE_EPOCH": "1700000000",
+      "verify_runner": "host"
+    }
+  },
+  "scope": {
+    "ok": true,
+    "changed_paths": [
+      "docs/DECISION_LOG.md",
+      "docs/RELEASE.md",
+      "tests/release/test_source_differential.py"
+    ],
+    "violations": [],
+    "evaluated": true
+  },
+  "runs": [
+    {
+      "run": 1,
+      "checks": [
+        {
+          "command": "{python} -m pytest tests/release/test_source_differential.py -q -rfE",
+          "exit_code": 0,
+          "duration_s": 77.366,
+          "stdout_sha256": "59f023734f6cb1483201466b425c83aa15db929c4a49f21e3d4a47285a49fb80",
+          "tests": 128,
+          "skipped": 0,
+          "errors": 0,
+          "failures": 0
+        },
+        {
+          "command": "{python} -m pytest tests/release/test_source_differential.py -q -rfE -p no:cacheprovider",
+          "exit_code": 0,
+          "duration_s": 59.074,
+          "stdout_sha256": "59f023734f6cb1483201466b425c83aa15db929c4a49f21e3d4a47285a49fb80",
+          "tests": 128,
+          "skipped": 0,
+          "errors": 0,
+          "failures": 0
+        }
+      ],
+      "all_passed": true
+    },
+    {
+      "run": 2,
+      "checks": [
+        {
+          "command": "{python} -m pytest tests/release/test_source_differential.py -q -rfE",
+          "exit_code": 0,
+          "duration_s": 58.891,
+          "stdout_sha256": "59f023734f6cb1483201466b425c83aa15db929c4a49f21e3d4a47285a49fb80",
+          "tests": 128,
+          "skipped": 0,
+          "errors": 0,
+          "failures": 0
+        },
+        {
+          "command": "{python} -m pytest tests/release/test_source_differential.py -q -rfE -p no:cacheprovider",
+          "exit_code": 0,
+          "duration_s": 59.24,
+          "stdout_sha256": "59f023734f6cb1483201466b425c83aa15db929c4a49f21e3d4a47285a49fb80",
+          "tests": 128,
+          "skipped": 0,
+          "errors": 0,
+          "failures": 0
+        }
+      ],
+      "all_passed": true
+    }
+  ],
+  "negative_control": {
+    "kind": "mutate",
+    "patch": "python -X utf8 -c \"import pathlib; p = pathlib.Path('scripts/release/source_differential.py'); s = p.read_text(encoding='utf-8'); marker = chr(34) + 'go' + chr(34) + ': enumerate_go'; assert s.count(marker) == 1, 'fix text not found - card and source have diverged'; p.write_text(s.replace(marker, chr(34) + 'go' + chr(34) + ': _unimplemented_enumerator(' + chr(34) + 'go' + chr(34) + ')', 1), encoding='utf-8')\"\n",
+    "patch_sha256": "a350b8f96deb0b3aff5dde4878136221a15417e719c3f263f24d42b45ec5a946",
+    "applied": true,
+    "patch_applied_failed": true,
+    "exit_codes": [
+      1,
+      1
+    ],
+    "tree_changed": [
+      "M scripts/release/source_differential.py",
+      "?? .junit-0.xml",
+      "?? .junit-1.xml"
+    ]
+  },
+  "holdout": {
+    "ran": false,
+    "passed": true,
+    "detail": "no holdout for this card"
+  },
+  "accepted": true,
+  "reason": "all gates passed"
+}
