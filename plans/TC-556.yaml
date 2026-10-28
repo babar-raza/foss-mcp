@@ -50,9 +50,19 @@ requires:
 - python
 negative_control:
   mutate: |
-    python -X utf8 -c "import pathlib;p=pathlib.Path('tests/deploy/test_fleet_consistency.py');s=p.read_text(encoding='utf-8');q=chr(34);old='STALE_BAKED_PILOTS';assert old in s;p.write_text(s.replace(old,'STALE_BAKED_PILOTS_X',1),encoding='utf-8')"
+    python -X utf8 -c "import pathlib;p=pathlib.Path('tests/deploy/test_fleet_consistency.py');s=p.read_text(encoding='utf-8');old='STALE_BAKED_PILOTS: dict[str, str] = {}';assert s.count(old)==1;p.write_text(s.replace(old,'STALE_BAKED_PILOTS_X: dict[str, str] = {}',1),encoding='utf-8')"
   rationale: >-
-    Renames the first occurrence of the stale-pilot table (its definition), so every test that reads the table fails at import or lookup: the pins of the fleet-consistency file cannot be silently removed.
+    Renames the stale-pilot table's own definition (its exact typed-assignment line, not merely its bare name), so
+    every test that reads the table fails with NameError at execution: the pins of the fleet-consistency file
+    cannot be silently removed. The original mutation (bare `.replace('STALE_BAKED_PILOTS', ..., 1)`) hit the
+    WRONG occurrence: TC-536's own comment, directly above the real definition, explains in prose why the table is
+    "kept defined, not removed" and contains the literal substring `STALE_BAKED_PILOTS` inside a backtick-quoted
+    import example - that comment is earlier in the file than the real `STALE_BAKED_PILOTS: dict[str, str] = {}`
+    assignment, so `.replace(..., 1)` always corrupted the comment's prose and left the actual definition and
+    every usage (test_every_exception_names_a_pilot_of_the_chart, test_every_exception_carries_a_reason) untouched
+    - a vacuous mutation that could never have broken anything, found and fixed 2026-10-28 (gate-exit, OQ-027).
+    Verified directly: running the corrected mutation against the real file and executing the mutated test file
+    produces a real NameError at both call sites.
 evidence:
 - evidence/build/G3/TC-556/receipt.json
 closeout:
