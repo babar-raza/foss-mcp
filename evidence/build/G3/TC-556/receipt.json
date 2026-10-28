@@ -3,10 +3,10 @@
   "card": "TC-556",
   "gate": "G3",
   "generated_by": "gatectl",
-  "generated_at": "2026-10-27T12:31:54Z",
-  "base_rev": "e02dac19a3363f0771133fbd5c04f1180f030120",
-  "head_rev": "6e84f3a125b65836cded68dd458cdfa50ee38efa",
-  "card_sha256": "cb6522938d720ec738ab72047769ed6c0721ab8a2aa1eb636ea4e30a5540c45c",
+  "generated_at": "2026-10-28T04:27:05Z",
+  "base_rev": "f875d539079a82f9e1290ac20fd2685d74d1a2da",
+  "head_rev": "f875d539079a82f9e1290ac20fd2685d74d1a2da",
+  "card_sha256": "837e86a72e21e8445d1854e4167d60e508ff1bff748023c08cd123c984d5872c",
   "fingerprint": {
     "python": "3.13.2",
     "platform": "Windows-11-10.0.26300-SP0",
@@ -35,7 +35,7 @@
         {
           "command": "{python} -m pytest tests/deploy/test_fleet_consistency.py tests/deploy/test_served_provenance.py tests/deploy/test_served_coverage_matches_fixtures.py -q -rfE -p no:cacheprovider",
           "exit_code": 0,
-          "duration_s": 50.173,
+          "duration_s": 34.786,
           "stdout_sha256": "a2501ede27eb6f69362834c9e5dd59aa3bdd89ee867fdbb81e94fbfb7f87484d",
           "tests": 521,
           "skipped": 0,
@@ -51,7 +51,7 @@
         {
           "command": "{python} -m pytest tests/deploy/test_fleet_consistency.py tests/deploy/test_served_provenance.py tests/deploy/test_served_coverage_matches_fixtures.py -q -rfE -p no:cacheprovider",
           "exit_code": 0,
-          "duration_s": 40.3,
+          "duration_s": 26.461,
           "stdout_sha256": "a2501ede27eb6f69362834c9e5dd59aa3bdd89ee867fdbb81e94fbfb7f87484d",
           "tests": 521,
           "skipped": 0,
@@ -64,12 +64,12 @@
   ],
   "negative_control": {
     "kind": "mutate",
-    "patch": "python -X utf8 -c \"import pathlib;p=pathlib.Path('tests/deploy/test_fleet_consistency.py');s=p.read_text(encoding='utf-8');q=chr(34);old='STALE_BAKED_PILOTS';assert old in s;p.write_text(s.replace(old,'STALE_BAKED_PILOTS_X',1),encoding='utf-8')\"\n",
-    "patch_sha256": "7eb11c1f5ffe1b462a26f89ca3896edcc14ccaad4ee87afc2bf50555cffd492c",
+    "patch": "python -X utf8 -c \"import pathlib;p=pathlib.Path('tests/deploy/test_fleet_consistency.py');s=p.read_text(encoding='utf-8');old='STALE_BAKED_PILOTS: dict[str, str] = {}';assert s.count(old)==1;p.write_text(s.replace(old,'STALE_BAKED_PILOTS_X: dict[str, str] = {}',1),encoding='utf-8')\"\n",
+    "patch_sha256": "326974ce56f1a58a4e3d2137683932abb4662b3994eac004ce24a7bc34a201cd",
     "applied": true,
-    "patch_applied_failed": false,
+    "patch_applied_failed": true,
     "exit_codes": [
-      0
+      2
     ],
     "tree_changed": [
       "M tests/deploy/test_fleet_consistency.py",
@@ -81,6 +81,6 @@
     "passed": true,
     "detail": "no holdout for this card"
   },
-  "accepted": false,
-  "reason": "VACUOUS CHECKS: the suite still passed with the falsifier applied"
+  "accepted": true,
+  "reason": "all gates passed"
 }
