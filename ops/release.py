@@ -288,7 +288,8 @@ def record(reference: str, gate_report: Path, push_result: Path | None = None) -
 
     release_dir().mkdir(parents=True, exist_ok=True)
     copied = release_dir() / f"{stem_for(reference)}{GATE_REPORT_SUFFIX}"
-    shutil.copyfile(gate_report, copied)
+    if Path(gate_report).resolve() != copied.resolve():
+        shutil.copyfile(gate_report, copied)
     doc = {
         "schema_version": 1,
         "generated_by": "gatectl",
