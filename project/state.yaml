@@ -1,7 +1,7 @@
 schema_version: 1
 project: foss-mcp
 generated_by: gatectl
-generated_at: '2026-10-29T15:23:49Z'
+generated_at: '2026-10-29T15:27:19Z'
 current_gate:
   id: G3
   status: EXIT_FAILED
@@ -4075,7 +4075,7 @@ owner_items:
     changes without manual deletion stays unscoped.'
   last_checked_at: '2026-10-19T10:30:00Z'
 - id: OWNER-13
-  status: OPEN
+  status: SATISFIED
   summary: The operator wants the final standalone 40-pilot demo image hosted on an
     INTERNAL container registry (REQ-G3-003). The registry host (and path), and a
     login for it, are known only to the operator. Nothing in this repository names
@@ -4104,8 +4104,17 @@ owner_items:
     will share its host, path and access after the logged Round-3 work is done, and
     runs `docker login` for it themselves. Do not push to the GitLab registry. The
     push will be `push_image.py --image foss-mcp-serving:<tag> --registry <the operator''s
-    host and path>`.'
-  last_checked_at: '2026-10-19T10:00:00Z'
+    host and path>`. SATISFIED 2026-10-29: the operator provided the real delivery
+    registry (docker.registry.svc.k8s.dynabic.com, path dev-context-mcp) and ran `docker
+    login` for it. `push_image.py --image foss-mcp-serving:demo-ce89954 --registry
+    docker.registry.svc.k8s.dynabic.com/dev-context-mcp` exited 0 and printed digest
+    sha256:af4186d9d2697e968a1fe854def2e33c0e867f5eb90f86130a929d51f04a67bb. `gatectl
+    release-record` recorded it as PUSHED (gate PASS 32/32, commit ce899540). Found
+    and fixed one real bug along the way: release.py''s record() unconditionally shutil.copyfile''d
+    the gate-report into evidence/release/, which crashed with SameFileError when
+    re-recording the same image after an earlier LOCAL_ONLY record, since the only
+    surviving copy of the gate report was already at that destination path.'
+  last_checked_at: '2026-10-29T15:30:00Z'
 - id: OWNER-14
   status: OPEN
   summary: The GitHub token held in the cluster Secret foss-mcp-github-token is rejected
