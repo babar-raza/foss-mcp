@@ -67,10 +67,12 @@ requires:
 - docker
 negative_control:
   mutate: |
-    python -X utf8 -c "import pathlib;p=pathlib.Path('tests/e2e/test_pdf_typescript_live_content.py');s=p.read_text(encoding='utf-8');q=chr(34);old='REAL_SOURCE_COMMIT = '+q+'155bfc7a33f0ba23fb4252b6ba201828b02a5b9d'+q;assert s.count(old)==1;p.write_text(s.replace(old,'REAL_SOURCE_COMMIT = '+q+'155bfc7a33f0ba23fb4252b6ba201828b02a5b9e'+q),encoding='utf-8')"
+    python -X utf8 -c "import pathlib;p=pathlib.Path('tests/e2e/test_pdf_typescript_live_content.py');s=p.read_text(encoding='utf-8');q=chr(34);old='REAL_SOURCE_COMMIT = _chart_library_commit('+q+'pdf'+q+', '+q+'typescript'+q+')';assert s.count(old)==1;new='REAL_SOURCE_COMMIT = (lambda c: c[:-1] + ('+q+'0'+q+' if c[-1] != '+q+'0'+q+' else '+q+'1'+q+'))(_chart_library_commit('+q+'pdf'+q+', '+q+'typescript'+q+'))';p.write_text(s.replace(old,new,1),encoding='utf-8')"
   rationale: >-
-    Changes the last character of the pinned commit, so the live freshness report (which records the real 155bfc7a33f0ba23fb4252b6ba201828b02a5b9d) no longer equals the pin and the rewritten freshness test
-    fails at once. A real break of the card's claim (the test proves the single commit the index really carries).
+    Changes the last character of the pinned commit, so the live freshness report (which records the real indexed commit) no longer equals the pin and the rewritten freshness test fails at once. A real
+    break of the card's claim (the test proves the single commit the index really carries). Re-targeted: a later card refactored REAL_SOURCE_COMMIT from a hardcoded literal into
+    `_chart_library_commit("pdf", "typescript")` (reading the chart's own pinned commit dynamically, so it can never drift from it), so the original literal-string mutation no longer matched anything.
+    This wraps that same call in a lambda that flips its last character to a value guaranteed different from whatever it is (never a no-op, unlike subtracting/adding one character blindly).
 evidence:
 - evidence/build/G3/TC-567/receipt.json
 closeout:
