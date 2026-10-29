@@ -13,6 +13,8 @@ import re
 import subprocess
 import sys
 import tempfile
+import threading
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from pathlib import Path
 
 import cardlint as CL
@@ -1222,6 +1224,15 @@ def cmd_gate_exit(args) -> int:
     # D6: a superseded card is complete once its accepted successor exists. Its plan
     # file may still be present, so it is skipped here rather than re-verified.
     superseded = {row["id"] for row in V.rebuild_state()["cards"] if row["status"] == "SUPERSEDED"}
+    # D9 (2026-10-28): each card's do_verify runs in its own throwaway worktree (make_worktree uses
+    # tempfile.mkdtemp, so paths never collide) and writes only to its own evidence/build/<gate>/<cid>/
+    # directory, so cards are independent and safe to verify concurrently - nothing here changes WHAT
+    # is checked, only that waiting on one card's subprocesses no longer blocks starting the next.
+    # Bounded at 4, matching this project's own stated concurrency limit for per-card worktree work
+    # (execution_limits.workers_in_flight). Found necessary live: a fully serial re-verification of
+    # G3's 201 cards ran past 14 hours (most of it idle wall-clock waiting on one subprocess at a
+    # time), which is not "a handful of gates, so the cost is small" any more at this scale.
+    todo: list[tuple[str, str, str]] = []
     for cid in sorted(cards):
         if cid in superseded:
             continue
@@ -1230,16 +1241,30 @@ def cmd_gate_exit(args) -> int:
             failures.append(f"{cid}: never dispatched")
             continue
         issue = _last_rev_touching(f"plans/{cid}.yaml") or head
-        print(f"re-verifying {cid} at HEAD ...", flush=True)
+        todo.append((cid, base, issue))
+
+    V.ensure_shared_venv()  # pre-warm once; avoids every worker racing to create it on first use
+    print_lock = threading.Lock()
+
+    def verify_one(cid: str, base: str, issue: str):
+        with print_lock:
+            print(f"re-verifying {cid} at HEAD ...", flush=True)
         # persist="on_fail": a card that still passes keeps its stored receipt byte for byte, so a
         # gate exit does not rewrite hundreds of files; a failing card writes its failing receipt,
         # which reopens it in the derived state. The exit report records every card either way.
-        r = V.do_verify(cid, base, head, issue, evaluate_scope=False, persist="on_fail")
-        results[cid] = r
-        if r.get("blocked_env"):
-            blocked.append(f"{cid}: {r['reason']}")
-        elif not r["accepted"]:
-            failures.append(f"{cid}: {r['reason']}")
+        return cid, V.do_verify(cid, base, head, issue, evaluate_scope=False, persist="on_fail")
+
+    with ThreadPoolExecutor(max_workers=4) as pool:
+        futures = [pool.submit(verify_one, cid, base, issue) for cid, base, issue in todo]
+        for future in as_completed(futures):
+            cid, r = future.result()
+            results[cid] = r
+            if r.get("blocked_env"):
+                blocked.append(f"{cid}: {r['reason']}")
+            elif not r["accepted"]:
+                failures.append(f"{cid}: {r['reason']}")
+    blocked.sort()
+    failures.sort()
 
     # Repo-wide CI is a GATE property, not a card property. Card checks are
     # scoped to what each card touched, so lint, format and typecheck drifted
