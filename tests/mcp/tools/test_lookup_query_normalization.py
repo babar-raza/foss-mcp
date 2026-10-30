@@ -256,15 +256,28 @@ def test_the_dot_alone_disables_search_symbols_evidence_stage_before_this_card()
 
 def test_the_dotted_mention_fix_is_observable_on_the_real_pilot_through_search_symbols(
     pdf_net_store: GenerationManifestStore,
+    monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     """Real-pilot measurement at the mechanism level: on the real, committed pdf/net pilot, the
     dotted query is a complete miss for ``search_symbols`` (the evidence stage never even runs);
     the de-dotted, equivalent query - exactly what ``lookup``'s own wiring now hands it - finds 10
-    real symbol matches."""
+    real symbol matches.
+
+    G3/TC-618 note: ``search_symbols`` itself now ALSO calls ``normalize_query`` internally (its
+    own local, lazy import of ``foss_mcp.mcp.tools.relevance.normalize_query``, re-resolved fresh
+    on every call rather than bound once at module import time), so simply calling
+    ``search_symbols`` with the still-dotted query no longer reconstructs the "before" state by
+    itself. The real call site ``search_symbols`` re-imports from each time is
+    ``relevance_module.normalize_query`` (NOT any attribute on ``search_symbols``'s own module,
+    which it never consults - it has no module-level binding of that name to override), so that is
+    what must be shadowed to identity for the duration of the "before" call."""
     dotted = fold_query(DOTTED_MENTION_QUERY)
     cleaned = normalize_query(dotted, "pdf")
 
+    monkeypatch.setattr(relevance_module, "normalize_query", lambda q, f: q)
     before = search_symbols(pdf_net_store, PDF_NET, dotted)
+    monkeypatch.undo()
+
     after = search_symbols(pdf_net_store, PDF_NET, cleaned)
 
     assert isinstance(before, Miss)
@@ -284,16 +297,28 @@ def test_the_dotted_mention_fix_is_observable_through_the_real_wired_lookup(
     Measured directly (not assumed): "before" is simulated by shadowing ``normalize_query`` with the
     identity function - the exact shape of this card's own negative control - so the dotted string
     reaches ``search_symbols`` unmodified, exactly as it did before this card.
+
+    G3/TC-618 note: ``lookup``'s own module-level ``normalize_query`` binding (patched below) only
+    disables ITS OWN call site; ``lookup`` then hands the (now unmodified, still-dotted) query to
+    ``search_symbols``, which - after this card - does its OWN, independent ``normalize_query``
+    call via a local, lazy import re-resolved fresh from ``foss_mcp.mcp.tools.relevance`` on every
+    invocation. Reconstructing "neither TC-617 nor TC-618 is active" therefore requires shadowing
+    BOTH real call sites: ``lookup_module.normalize_query`` (lookup's own, already-bound
+    reference) and ``relevance_module.normalize_query`` (the real source ``search_symbols``'s
+    local import re-reads every call).
     """
     after = lookup(pdf_net_store, PDF_NET, DOTTED_MENTION_QUERY)
     assert isinstance(after, TaskAnswer)
 
     real_normalize_query = lookup_module.normalize_query
+    real_relevance_normalize_query = relevance_module.normalize_query
     lookup_module.normalize_query = lambda q, f: q  # type: ignore[assignment]
+    relevance_module.normalize_query = lambda q, f: q  # type: ignore[assignment]
     try:
         before = lookup(pdf_net_store, PDF_NET, DOTTED_MENTION_QUERY)
     finally:
         lookup_module.normalize_query = real_normalize_query
+        relevance_module.normalize_query = real_relevance_normalize_query
     assert isinstance(before, TaskAnswer)
 
     assert _symbol_fqns(before) == []
