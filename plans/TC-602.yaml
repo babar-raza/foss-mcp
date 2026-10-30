@@ -1,0 +1,118 @@
+id: TC-602
+gate: G3
+lane: verification
+purpose: >-
+  Fix the plan's T2 (REQ-G3-010): scripts/release/adversarial_suite.py's loopback HTTP client
+  swallows the one piece of diagnostic information that would explain an intermittent
+  "no usable reply" failure - the real OSError's errno/winerror. Four gate cards (TC-345/346/347/349)
+  hit exactly this failure mode (confirmed in the plan's section 1.2 flakiness investigation) with
+  no way to tell DNS exhaustion from port exhaustion from a genuine connection refusal, because the
+  exception's own errno was discarded before the message was built. Read
+  C:\Users\babar\.claude\plans\steady-wobbling-meteor.md section 1.2 and section 2.1 (T2) first.
+depends_on:
+  - TC-001
+  - TC-365
+  - TC-497
+write_paths:
+  - scripts/release/adversarial_suite.py
+  - tests/deploy/test_adversarial_suite.py
+satisfies:
+  - REQ-G3-010
+source_refs:
+  - file: docs/DECISION_LOG.md
+    anchor: >-
+      ## 2026-10-30 — Round-2 portfolio audit remediation adopted: unified plan, governance decisions A-K
+      recorded (supervisor)
+    sha256: 62cf1403a592118e3fb6bd14c5336f8a997cc3181d44a585323ec9f1d385a931
+inputs:
+  - >-
+    READ FIRST: C:\Users\babar\.claude\plans\steady-wobbling-meteor.md section 1.2 (the flakiness
+    table) and section 2.1 (T2's one-line description). Context, already investigated, do not
+    re-derive it: four gate-exit cards (TC-345/346/347/349, 2026-10-30) hit
+    `OSError: no usable reply` from this exact function during a 4-worker-parallel run of
+    `tests/deploy/test_adversarial_suite.py`'s loopback HTTP client. On Windows a bare `OSError`
+    (not `TimeoutError`, not `ConnectionRefusedError`) with no further detail is consistent with
+    `WSAENOBUFS` (socket-buffer exhaustion) or `WSAEADDRNOTAVAIL` (ephemeral-port exhaustion) under
+    concurrent load - but this is only a hypothesis, because the real errno was discarded before
+    the message was built. Fixing THAT discard - not diagnosing or fixing the underlying
+    concurrency contention itself, which is a separate, larger, supervisor-level process change
+    (S4 in the plan) - is this card's whole scope.
+  - >-
+    In scripts/release/adversarial_suite.py, find the exact line (grep for "no usable reply" -
+    there are two occurrences; you want the one inside the `except (OSError, http.client.HTTPException)
+    as exc:` block, currently reading
+    `f"{type(exc).__name__}: no usable reply"`). Change it to include `exc.errno` (an `OSError`
+    always has this attribute, `None` if not set by the OS) and, when present,
+    `getattr(exc, "winerror", None)` (a Windows-only `OSError` subclass attribute - absent/None on
+    non-Windows; use `getattr` so this does not raise on other platforms), e.g. something shaped
+    like `f"{type(exc).__name__}: no usable reply (errno={exc.errno}, winerror={getattr(exc,
+    'winerror', None)})"` - the exact wording is yours, but BOTH values must appear in the string
+    whenever the exception is an `OSError` (an `http.client.HTTPException` has neither attribute,
+    so branch on `isinstance(exc, OSError)` before accessing them, or use `getattr(exc, "errno",
+    None)` for both to stay safe across both exception types in one line - your choice, tested
+    either way). Do not change the other "no usable reply" occurrence (line ~724's Violation
+    message) unless you find it ALSO needs the same information - check it, and if it already
+    receives the fixed Reply.error string as-is, it needs no change (it will automatically carry
+    the new detail through).
+  - >-
+    tests/deploy/test_adversarial_suite.py: add a real, deterministic, offline test (no actual
+    concurrent load needed, and no live server needed either) that directly calls the function
+    containing this except block (find its real name and signature by reading the file - it takes
+    a `connection`/method/path and returns a `Reply`) with a mock or a real socket connection object
+    whose `.request()` or `.getresponse()` raises a real `OSError` constructed with a specific,
+    known `errno` (e.g. `OSError(errno.ECONNRESET, "simulated")` - use the real `errno` module, a
+    real errno constant, not a magic number) and, on top of that same test or a second one, an
+    `OSError` subclass instance that also carries a `winerror` attribute (construct it exactly the
+    way the stdlib would: `exc = OSError(errno.ECONNRESET, "msg"); exc.winerror = 10055` - WSAENOBUFS
+    - since plain `OSError.__init__` doesn't accept winerror as a constructor arg). Assert the
+    returned `Reply.error` string contains the literal errno value and the literal winerror value
+    (as their string representations, e.g. `"10054"` and `"10055"` both appearing) - not just that
+    it's non-empty. You will likely need to monkeypatch or substitt a fake connection/response
+    object rather than opening a real socket - look at how other tests in this same file already
+    construct a `Reply` or drive this function, and follow that existing pattern rather than
+    inventing a new mocking approach for this one test. Never weaken a check to make it pass.
+actions:
+  - >-
+    Make adversarial_suite.py's loopback client preserve the real OSError's errno and (on
+    Windows) winerror in its "no usable reply" message, so a future flake's exact cause (DNS,
+    port exhaustion, or a genuine refusal) is diagnosable from the receipt log alone.
+checks:
+  - command: '{python} -m pytest tests/deploy/test_adversarial_suite.py -q -rfE'
+    expect: 'exit 0'
+    timeout_seconds: 180
+    junitxml: true
+    proves:
+      - REQ-G3-010
+  - command: '{python} -m pytest tests/deploy/test_adversarial_suite.py -q -rfE -p no:cacheprovider'
+    expect: 'exit 0'
+    timeout_seconds: 180
+    junitxml: true
+    proves:
+      - REQ-G3-010
+min_tests: 2
+requires:
+  - python
+network: false
+negative_control:
+  mutate: |
+    python -X utf8 -c "import pathlib; p = pathlib.Path('scripts/release/adversarial_suite.py'); s = p.read_text(encoding='utf-8'); old = 'except (OSError, http.client.HTTPException) as exc:'; assert s.count(old) == 1, 'fix text not found - card and source have diverged'; lines = s.splitlines(); i = next(idx for idx, line in enumerate(lines) if old in line); indent = ' ' * (len(lines[i]) - len(lines[i].lstrip())); q = chr(34); lines.insert(i + 1, indent + '    return Reply(None, {}, ' + q + q + ', time.monotonic() - started, ' + q + 'no usable reply' + q + ')  # TC-602 negative control'); p.write_text(chr(10).join(lines) + chr(10), encoding='utf-8')"
+  rationale: >-
+    Inserts an early return, right after the except clause whose signature this card does not
+    change, carrying the original detail-free message - this line executes before the real fix's
+    line ever runs, so the function always returns the stripped-down message regardless of the
+    fix underneath. The new test's "errno and winerror values appear in Reply.error" assertion
+    must then fail, proving the test actually checks for the real diagnostic detail rather than
+    merely that some error string exists.
+evidence:
+  - evidence/build/G3/TC-602/receipt.json
+closeout:
+  - >-
+    A future "no usable reply" failure's receipt log now names the real errno and winerror,
+    distinguishing port/buffer exhaustion from a genuine refusal without needing to reproduce the
+    flake under a debugger.
+recovery: >-
+  If the mutate script above does not parse/apply cleanly against the real file once you've
+  written your fix (the exact except-block line layout may differ from this guess), that is a
+  stale negative control, not a reason to weaken your own test - report the exact real line
+  layout you found in your closeout so the supervisor can re-target the mutate script, matching
+  the TC-567 precedent for a stale falsifier.

@@ -1,0 +1,149 @@
+id: TC-603
+gate: G3
+lane: transport-deployment
+purpose: >-
+  Fix the plan's T3 (REQ-G3-010): add a PYTHONHASHSEED determinism check and a Windows job to CI,
+  scoped conservatively since a FULL Windows toolchain bootstrap (Go/Rust/Java/.NET/CMake/Node,
+  the way scripts/toolchain/activate.ps1 merely points PATH at a PRE-INSTALLED
+  C:\dev-tools\foss-mcp tree rather than installing anything) is a much larger, separate
+  undertaking this card does not attempt. Read
+  C:\Users\babar\.claude\plans\steady-wobbling-meteor.md section 1.2 and section 2.1 (T3) first.
+depends_on:
+  - TC-001
+  - TC-128
+write_paths:
+  - .github/workflows/ci.yml
+  - tests/infra/test_ci_workflow_yaml.py
+satisfies:
+  - REQ-G3-010
+source_refs:
+  - file: docs/DECISION_LOG.md
+    anchor: >-
+      ## 2026-10-30 — Round-2 portfolio audit remediation adopted: unified plan, governance decisions A-K
+      recorded (supervisor)
+    sha256: 62cf1403a592118e3fb6bd14c5336f8a997cc3181d44a585323ec9f1d385a931
+inputs:
+  - >-
+    READ FIRST: C:\Users\babar\.claude\plans\steady-wobbling-meteor.md section 1.2 (flakiness
+    table, item "code: ... production and serving set no PYTHONHASHSEED") and section 2.1 (T3's
+    one-line description: "CI: windows job, PYTHONHASHSEED matrix, determinism hash upload").
+    Context already investigated, do not re-derive: a 729-case retrieval corpus was already found
+    to be byte-identical under 7 different PYTHONHASHSEED values in prior research for this plan,
+    AND a separate, narrower latent hazard was flagged in `search_symbols.py` around a
+    frozenset-sorted-by-fraction-only tie (not yet fixed by any card as of this card's authoring -
+    do not assume it is fixed). This card's job is to make CI itself continuously re-prove the
+    corpus-level determinism finding on every push/PR, not to fix the latent `search_symbols.py`
+    tie (a separate, future card's job).
+  - >-
+    Read .github/workflows/ci.yml in full (it is short). It currently has one job, `ci`, on
+    `ubuntu-latest`, excluding `tests/e2e`/`tests/infra` via `PYTEST_ADDOPTS`, running
+    `scripts/ci_check.sh`. Read `scripts/toolchain/activate.ps1` in full too - CONFIRM before
+    writing anything that it only prepends PATH entries pointing at a PRE-EXISTING
+    `C:\dev-tools\foss-mcp` directory (or `$env:FOSS_MCP_TOOLS`); it does not download or install
+    any of Go/Rust/Java/.NET/CMake/Node/Maven itself. A GitHub-hosted `windows-latest` runner has
+    none of that pre-installed, so a naive "run the full suite on Windows" job would fail
+    immediately for reasons unrelated to anything this plan is trying to catch. Do NOT attempt to
+    bootstrap the full polyglot toolchain on Windows CI as part of this card - that is out of
+    scope; a future card can do it deliberately if ever needed.
+  - >-
+    This card's check is a real, automated pytest file (`tests/infra/test_ci_workflow_yaml.py`)
+    that parses the COMMITTED `.github/workflows/ci.yml` with `yaml.safe_load` and asserts
+    structural facts about it - it cannot invoke GitHub Actions itself, so it verifies the file's
+    shape and content instead: both new jobs exist by name (`determinism`,
+    `windows-python-only`); `windows-python-only` names `runs-on: windows-latest` and its steps do
+    NOT reference `scripts/toolchain/activate.ps1` or any `C:\dev-tools` path (this is the
+    guardrail against accidentally trying to bootstrap the full toolchain there); `determinism`'s
+    steps run pytest at least 3 times with a `PYTHONHASHSEED` env value set differently each time
+    (parse the step `env:`/`run:` blocks and extract the values - do not just grep for the
+    substring, actually parse enough to confirm at least 3 distinct values appear); an
+    `actions/upload-artifact` step exists in the `determinism` job; the existing `ci` job's
+    `steps` list is unchanged in count and content from before this card (load the file from
+    `git show <base-commit>:.github/workflows/ci.yml` for the "before" comparison, where
+    `<base-commit>` is this card's own `source_refs`-adjacent base - simplest: compare against
+    `git show HEAD:.github/workflows/ci.yml` captured BEFORE you make any edit, save it to a
+    variable/fixture in your test, not to a new file outside your write_paths). The whole file
+    must also parse as valid YAML (`yaml.safe_load` not raising) - this one assertion subsumes
+    the manual check described below.
+  - >-
+    Add a new job, `determinism` (can run on `ubuntu-latest`, same setup as the existing `ci` job -
+    checkout, setup-python, pip install with --require-hashes), that runs the real retrieval
+    corpus tests under at least 3 different PYTHONHASHSEED values (e.g. 0, 1, and one more
+    distinct value such as 42 or a value derived from the run - your choice, as long as they are
+    genuinely different and at least one is non-zero) and asserts they all produce identical
+    results. The cleanest implementation: run `{python} -m pytest
+    tests/mcp/tools/test_round3_retrieval_corpus.py -q -rfE` three times with
+    `PYTHONHASHSEED` set differently each time via the job step's `env:`, and fail the job (a
+    simple shell step comparing exit codes, or better, comparing a content hash of each run's
+    JUnit XML / a stable summary line if the test file supports `--junitxml`) if any run's result
+    differs from the others. Keep this proportionate - you do not need to invent new
+    instrumentation inside the test file itself; three separate `pytest` invocations with
+    different env vars, each writing its own junit XML via `--junitxml=run-N.xml`, followed by a
+    short script/step that diffs the three XML files' test-outcome summaries (ignoring timing
+    fields, which will legitimately differ run to run), is sufficient and matches this plan's
+    "determinism hash upload" intent if you also upload those three XML files as a CI artifact
+    (`actions/upload-artifact@v4`) so a future investigation has them without needing to rerun.
+  - >-
+    Add a second new job, `windows-python-only`, on `windows-latest`, using ONLY
+    `actions/setup-python@v5` (no custom toolchain, no activate.ps1) and running a DELIBERATELY
+    NARROW subset of the test suite: determine empirically (by reading the relevant test files'
+    own imports/subprocess calls, or by just trying a candidate directory and seeing whether it
+    needs `go`/`cargo`/`javac`/`dotnet`/`cmake`/`node` on PATH) which top-level test packages are
+    safe to run with Python alone - a reasonable starting guess is `tests/mcp`, `tests/indexing`
+    (parts of it may need toolchains for example verification - check), and
+    `tests/conformance` (the new package this plan's F3/TC-598 card added, if it has landed by
+    the time you run this card - check `tests/conformance/` exists first; if it does not exist
+    yet, simply scope this job to `tests/mcp` alone and note in your closeout that it should be
+    widened once tests/conformance lands). Document the EXACT final list of directories you chose
+    and why in your closeout - do not guess silently. The job's purpose is proving Windows-specific
+    issues (CRLF/newline handling, path-separator bugs, `Access is denied` on `.pytest_cache`-style
+    OneDrive quirks that would not manifest on a Linux runner) get caught by CI, not only on one
+    developer's own machine. If the whole thing would collect 0 real tests because your chosen
+    scope is empty, that is a card-authoring mistake - widen the scope before committing, do not
+    let `tests/infra/test_ci_workflow_yaml.py` pass while the real job it describes would run
+    nothing.
+actions:
+  - >-
+    Add a `determinism` CI job (3 PYTHONHASHSEED values, junit-diffed, uploaded as an artifact)
+    and a conservatively-scoped `windows-python-only` CI job to .github/workflows/ci.yml, proven
+    by a structural pytest file since the jobs themselves cannot run inside this repository's own
+    test suite, without attempting to bootstrap this repository's full non-Python toolchain on
+    Windows CI.
+checks:
+  - command: '{python} -m pytest tests/infra/test_ci_workflow_yaml.py -q -rfE'
+    expect: 'exit 0'
+    timeout_seconds: 60
+    junitxml: true
+    proves:
+      - REQ-G3-010
+  - command: '{python} -m pytest tests/infra/test_ci_workflow_yaml.py -q -rfE -p no:cacheprovider'
+    expect: 'exit 0'
+    timeout_seconds: 60
+    junitxml: true
+    proves:
+      - REQ-G3-010
+min_tests: 5
+requires:
+  - python
+network: false
+negative_control:
+  mutate: |
+    python -X utf8 -c "import pathlib; p = pathlib.Path('.github/workflows/ci.yml'); s = p.read_text(encoding='utf-8'); old = 'jobs:'; assert s.count(old) == 1, 'fix text not found - card and source have diverged'; lines = s.splitlines(); i = next(idx for idx, line in enumerate(lines) if line.strip() == old); del lines[i + 1:]; lines.append('  ci:'); lines.append('    runs-on: ubuntu-latest'); lines.append('    steps: []'); p.write_text(chr(10).join(lines) + chr(10), encoding='utf-8')"
+  rationale: >-
+    Truncates the workflow file down to a single empty job, deleting the new determinism and
+    windows-python-only jobs entirely while the YAML stays syntactically valid. The real pytest
+    check's "both new jobs exist by name" and every other structural assertion must then fail,
+    proving the test actually inspects the committed workflow's real content rather than merely
+    that the file parses as YAML.
+evidence:
+  - evidence/build/G3/TC-603/receipt.json
+closeout:
+  - >-
+    .github/workflows/ci.yml has two new jobs (determinism, windows-python-only), both with valid
+    YAML, both scoped exactly as documented above; the exact windows-python-only test directory
+    list and the reasoning for it is stated plainly, not left implicit.
+recovery: >-
+  If no way exists to validate the workflow will actually run correctly on GitHub's runners
+  short of pushing it (workflow files cannot be dry-run locally in a fully faithful way), say so
+  explicitly in your closeout rather than claiming a confidence this card cannot actually
+  support - the supervisor's own later push to main, and watching the Actions run once pushed, is
+  the only full verification, and is out of this card's own scope (workers never push).
