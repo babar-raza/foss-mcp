@@ -12,6 +12,28 @@ purpose: >-
   reports something like "516 of 517" (the real, honest ratio) instead of an inflated denominator
   that permanently caps the ratio below 100% even for a pilot the extractor fully covers. Read
   C:\Users\babar\.claude\plans\steady-wobbling-meteor.md section 1.1 (M2/C1) and 2.3 (I1-I5) first.
+
+  REWORK (attempt 2): attempt 1's fix is correct and complete for its own scope (confirmed: real
+  measured numbers for slides_python - denominator 1022 -> 516, combined I2+I3 coverage line
+  "516 of 516 types; 1 of 1 functions" - and a clean, acyclic extraction -> indexing import). Its
+  own check 2 found ONE pre-existing, unrelated-but-blocking test broken by the real behaviour
+  change: `tests/extraction/test_run_extraction_coverage_policy.py
+  ::test_extract_pinned_repository_writes_the_new_keys` builds a synthetic fixture
+  (`from .core import Gadget, make`) that creates a real TC-522 reexport_of shell/definition pair
+  for `Gadget`, then asserts two raw-count invariants that amount to "the denominator must never
+  deduplicate" - exactly what this card changes. Fix IN PLACE, inside that one test function, by
+  updating its two assertions to the real, measured, deduplicated numbers (not the old raw-count
+  ones): `symbol_counts == {"types": 1, "functions": 2}` (was `{"types": 2, "functions": 2}`) and
+  the companion invariant becomes `counts["types"] + counts["functions"] == 3`, one less than
+  `len(artifact["types"]) == 4` (the dedup of `Gadget`'s shell/definition pair is exactly the one
+  unit this fixture's own name tests for). Measure these numbers fresh yourself against the real
+  fixture and the real fixed code - do not simply trust the numbers named here, which attempt 1's
+  worker already reported but you must independently confirm. Do not touch any OTHER test in this
+  file, and do not weaken either assertion into something that no longer checks a real, specific
+  number. Also apply the negative-control replacement below (attempt 1's registered mutate landed
+  inside the real 3-line, ruff-reflowed function signature rather than the function body, producing
+  a collection error rather than a clean logical failure - the same shape TC-614 already
+  documented and fixed the same way).
 depends_on:
   - TC-561
   - TC-612
@@ -19,6 +41,7 @@ depends_on:
 write_paths:
   - src/foss_mcp/extraction/run_extraction.py
   - tests/extraction/test_run_extraction_canonical_counts.py
+  - tests/extraction/test_run_extraction_coverage_policy.py
 satisfies:
   - REQ-G3-012
 source_refs:
@@ -107,12 +130,18 @@ requires:
 network: false
 negative_control:
   mutate: |
-    python -X utf8 -c "import pathlib; p = pathlib.Path('src/foss_mcp/extraction/run_extraction.py'); s = p.read_text(encoding='utf-8'); old = 'def summarize_symbols('; assert s.count(old) == 1, 'fix text not found - card and source have diverged'; lines = s.splitlines(); i = next(idx for idx, line in enumerate(lines) if old in line); j = i + 1; depth_line = lines[j]; indent = ' ' * (len(depth_line) - len(depth_line.lstrip())); lines.insert(j, indent + 'identities = None  # TC-620 negative control: never use the canonical identities even when given'); p.write_text(chr(10).join(lines) + chr(10), encoding='utf-8')"
+    python -X utf8 -c "import pathlib; p = pathlib.Path('src/foss_mcp/extraction/run_extraction.py'); s = p.read_text(encoding='utf-8'); old = '    entries = [entry for entry in types if not _is_test_entry(entry)]'; assert s.count(old) == 1, 'fix text not found - card and source have diverged'; new = '    identities = None  # TC-620 negative control: never use the canonical identities even when given' + chr(10) + old; p.write_text(s.replace(old, new, 1), encoding='utf-8')"
   rationale: >-
-    Forces the function to ignore any identities argument it is given, immediately on entry,
-    reproducing the pre-fix, non-deduplicated denominator unconditionally. The deduplication test
-    and the real slides/python regression test must then fail, proving they exercise the real dedup
-    logic rather than trusting the function signature alone.
+    REPLACED in attempt 2: attempt 1's anchor (right after the `def summarize_symbols(` line) landed
+    inside the real 3-line, ruff-reflowed parameter list, producing a SyntaxError/collection error
+    rather than a clean logical failure (the predicted outcome still held in spirit, just via a
+    blunter mechanism - the exact same shape TC-614 documented and fixed). This replacement anchors
+    on the function BODY's first real statement instead (immune to signature reflow) and shadows
+    `identities` to `None` immediately before it, forcing the function to ignore any identities
+    argument it is given, reproducing the pre-fix, non-deduplicated denominator unconditionally. The
+    deduplication test, the real slides/python regression test, and the corrected
+    test_run_extraction_coverage_policy.py assertions (attempt 2) must then fail, proving they
+    exercise the real dedup logic rather than trusting the function signature alone.
 evidence:
   - evidence/build/G3/TC-620/receipt.json
 closeout:
@@ -120,7 +149,9 @@ closeout:
     summarize_symbols's types denominator is deduplicated via I1's canonical-identity model, fully
     backward-compatible; state the real before/after numbers for slides/python's denominator alone,
     and the real COMBINED (I2+I3) coverage-line number for that pilot. Confirm the new
-    extraction -> indexing import introduces no circular dependency.
+    extraction -> indexing import introduces no circular dependency. Confirm
+    test_run_extraction_coverage_policy.py's corrected assertions (attempt 2) use real, freshly
+    measured numbers, not copied blind from this card's own text.
 recovery: >-
   If importing symbol_identity into run_extraction.py creates a circular import or you find
   evidence elsewhere in the repository that extraction/ must never depend on indexing/, STOP and
