@@ -1,0 +1,118 @@
+id: TC-618
+gate: G3
+lane: storage-retrieval
+purpose: >-
+  Build Q4 (REQ-G3-011): wire Q1's `normalize_query` into `search_symbols`, so a literal
+  "Aspose.<Family>" product-name mention no longer stays a single dotted token and switches off
+  `_plain_words`'s evidence stage - the exact confirmed problem TC-610's own docstring names as
+  this program's motivating case: `search_symbols.py`'s `_plain_words` returns `None` for ANY query
+  containing a dotted word, conflating a real exact-name query (`PdfDocument.Rotate`) with an
+  ordinary sentence that merely names the product. This card is DELIBERATELY narrower than Q2/Q3:
+  it does NOT thread the `platform` parameter into `relevance.evidence_terms` or
+  `search_symbols.naming_tokens` - both of those functions have their own documented, measured
+  fallback/rescue logic (TC-585's own comments record a PRIOR regression from excluding a
+  family-ubiquitous word from `evidence_terms`'s concept set), and Q2's own rework (TC-617) just
+  found a real, reproduced conflict between platform exclusion and a DIFFERENT bare-query fallback
+  in `search_docs._rule_for` - extending platform exclusion into this file's OWN fallback-heavy
+  machinery without a dedicated, isolated measurement is exactly the kind of blast-radius risk that
+  bit TC-617. If a real, measured case for platform exclusion here turns up while building this
+  card, STOP and report it as a finding for a separate, dedicated card rather than bundling it in.
+  Read C:\Users\babar\.claude\plans\steady-wobbling-meteor.md section 2.2 (Q1-Q4) first.
+depends_on:
+  - TC-585
+  - TC-610
+  - TC-617
+write_paths:
+  - src/foss_mcp/mcp/tools/search_symbols.py
+  - tests/mcp/tools/test_search_symbols_query_normalization.py
+satisfies:
+  - REQ-G3-011
+source_refs:
+  - file: docs/DECISION_LOG.md
+    anchor: >-
+      ## 2026-10-30 — Round-2 portfolio audit remediation adopted: unified plan, governance decisions A-K
+      recorded (supervisor)
+    sha256: 62cf1403a592118e3fb6bd14c5336f8a997cc3181d44a585323ec9f1d385a931
+inputs:
+  - >-
+    READ FIRST: C:\Users\babar\.claude\plans\steady-wobbling-meteor.md section 2.2 (Q1-Q4). Also
+    read `src/foss_mcp/mcp/tools/search_symbols.py`'s real `search_symbols` function IN FULL
+    (around line 988) - note the local import `from foss_mcp.mcp.tools.relevance import
+    fold_query` (around line 1033) and `query = fold_query(query)` (around line 1051) - and
+    `_plain_words` (around line 701) and everywhere it is called (grep - it gates the evidence
+    stage, used by `_inflected_name_ids` and the sentence-evidence path; confirm the exact current
+    call graph, it may have shifted). Confirm `relevance.normalize_query`'s exact real signature
+    (TC-610) before writing anything.
+  - >-
+    Add `normalize_query` to the existing local import at line ~1033 (alongside `fold_query`, same
+    lazy-import style - do not promote it to a module-level import unless you find fold_query
+    already is one; match the existing pattern exactly) and call
+    `query = normalize_query(query, scope.family)` immediately after the existing
+    `query = fold_query(query)` line. This is the WHOLE functional change for this card - a single,
+    narrow, low-risk wiring, matching exactly what TC-610 built and tested in isolation.
+  - >-
+    tests/mcp/tools/test_search_symbols_query_normalization.py (no mocks for the real-pilot case;
+    reads the real, committed infra/demo-manifests, writes nothing to it): (a) a real pilot query
+    containing a literal "Aspose.<Family>" dotted mention that previously disabled the evidence
+    stage (confirm concretely: call `_plain_words` directly on the ORIGINAL query first and show it
+    returns `None`) now reaches `search_symbols()`'s real evidence-ranking path and returns a real,
+    non-`Miss` result where it returned `Miss` before this card - prove this with an A/B real-pilot
+    comparison (stub/monkeypatch `normalize_query` back to identity for the "before" run), not an
+    assumption; (b) `search_symbols()` for a genuine identifier-style exact-name query
+    (`"PdfDocument.Rotate"`-shaped, or any real such query against a real pilot) is COMPLETELY
+    UNCHANGED by this card - the dot in a real member-qualified name is not a product-name mention
+    and `normalize_query` must leave it alone (confirmed in TC-610's own tests, re-confirm end to
+    end through the real wired `search_symbols()` here); (c) the full existing search_symbols
+    ratchet suite (test_search_symbols_forgiveness.py, test_search_symbols_memberless_last.py,
+    tests/conformance/test_symbol_self_retrieval.py, test_round3_retrieval_corpus.py) is UNCHANGED -
+    every existing pinned match, miss and tier value byte-identical to before this card; (d) if, in
+    the course of building (a), you find the platform word ALSO ever matters for a real `_plain_words`
+    or evidence-stage case, do NOT wire platform exclusion in - write down the concrete real case you
+    found in your closeout as a finding for a dedicated future card instead. Never weaken a check to
+    make it pass.
+actions:
+  - >-
+    Wire Q1's normalize_query into search_symbols so a literal "Aspose.<Family>" dotted mention no
+    longer disables the evidence stage, proven against a real pilot and the full existing
+    search_symbols ratchet suite with zero regression; platform exclusion is explicitly out of
+    scope here.
+checks:
+  - command: '{python} -m pytest tests/mcp/tools/test_search_symbols_query_normalization.py -q -rfE'
+    expect: 'exit 0'
+    timeout_seconds: 180
+    junitxml: true
+    proves:
+      - REQ-G3-011
+  - command: '{python} -m pytest tests/mcp/tools/test_search_symbols_query_normalization.py tests/mcp/tools/test_search_symbols_forgiveness.py tests/mcp/tools/test_search_symbols_memberless_last.py tests/conformance/test_symbol_self_retrieval.py tests/mcp/tools/test_round3_retrieval_corpus.py -q -rfE -p no:cacheprovider'
+    expect: 'exit 0'
+    timeout_seconds: 300
+    junitxml: true
+    proves:
+      - REQ-G3-011
+min_tests: 6
+requires:
+  - python
+network: false
+negative_control:
+  mutate: |
+    python -X utf8 -c "import pathlib; p = pathlib.Path('src/foss_mcp/mcp/tools/search_symbols.py'); s = p.read_text(encoding='utf-8'); old = 'query = fold_query(query)'; assert s.count(old) == 1, 'fix text not found - card and source have diverged'; p.write_text(s.replace(old, old + chr(10) + '    normalize_query = lambda q, f: q  # TC-618 negative control: never normalize the query', 1), encoding='utf-8')"
+  rationale: >-
+    Shadows normalize_query with an identity no-op immediately after fold_query runs, regardless of
+    exactly which line inside the function the real wiring calls it from. The dotted-mention
+    evidence-stage revival test must then fail, proving it exercises the real wiring rather than
+    trusting that normalize_query is imported.
+evidence:
+  - evidence/build/G3/TC-618/receipt.json
+closeout:
+  - >-
+    search_symbols now normalizes a dotted "Aspose.<Family>" mention before `_plain_words` sees it,
+    reviving the evidence stage for sentence queries that merely name the product; a genuine
+    exact-name dotted query is unaffected; the full existing search_symbols ratchet suite is
+    confirmed unchanged. State plainly whether any real platform-exclusion case was found and, if
+    so, that it was deliberately left for a separate card.
+recovery: >-
+  If wiring normalize_query changes ANY existing pinned search_symbols result for a query with no
+  product-name mention, STOP and report FAILED_INTERNAL with the exact diff - TC-610 already
+  proved normalize_query is a no-op for a query with no "Aspose.<Family>" pattern, so a change here
+  means something about this file's own query handling is not what the card's inputs assumed, not
+  that a ratchet needs adjusting.
