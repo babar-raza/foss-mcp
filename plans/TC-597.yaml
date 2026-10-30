@@ -1,0 +1,129 @@
+id: TC-597
+gate: G3
+lane: verification
+purpose: >-
+  Preserve the round-2 32-pilot portfolio audit (285 issues) and the LONGQ-001 long-sentence report into the
+  repository as a committed, structure-checked register, mirroring docs/ROUND3_REVIEW.md's own register shape,
+  BEFORE any of the 165 later remediation cards can cite it as a stable source_refs anchor. This is the first
+  card of the unified plan at C:\Users\babar\.claude\plans\steady-wobbling-meteor.md (read it in full first -
+  Appendix A already has the exact, final workstream assignment for all 285 issues; do not re-derive it).
+depends_on:
+  - TC-001
+  - TC-223
+write_paths:
+  - docs/ROUND2_REVIEW.md
+  - docs/round2/issues.json
+  - docs/round2/HANDOFF.md
+  - tests/deploy/test_round2_ledger.py
+satisfies:
+  - REQ-G3-010
+source_refs:
+  - file: docs/DECISION_LOG.md
+    anchor: >-
+      ## 2026-10-30 — Round-2 portfolio audit remediation adopted: unified plan, governance decisions A-K
+      recorded (supervisor)
+    sha256: 62cf1403a592118e3fb6bd14c5336f8a997cc3181d44a585323ec9f1d385a931
+inputs:
+  - >-
+    READ FIRST: C:\Users\babar\.claude\plans\steady-wobbling-meteor.md in full, especially section 4 (Step 0),
+    section 5 (card table and notes), Appendix A (the issue ledger table: workstream, count, closing cards,
+    issue ids - this IS the workstream assignment to use, verbatim, do not recompute it) and Appendix D (the
+    oracle disagreement classes). Do not read the mission plan.
+  - >-
+    SOURCE DATA (read-only; copy, never edit): the audit's HANDOFF.md and ISSUES.json live at
+    C:\Users\babar\AppData\Local\Temp\claude\e--Users-prora-OneDrive-Documents-GitHub-foss-mcp\468cc4ad-866e-4026-9a56-88d013007b8a\scratchpad\portfolio2\.
+    Copy HANDOFF.md verbatim to docs/round2/HANDOFF.md. Copy ISSUES.json verbatim to docs/round2/issues.json -
+    byte-for-byte, do not reformat, do not reorder, do not edit any field. If this path no longer exists, STOP
+    and report FAILED_INTERNAL per this card's own recovery instruction below; do not reconstruct the 285 rows
+    from any summary.
+  - >-
+    docs/ROUND2_REVIEW.md structure to build, mirroring docs/ROUND3_REVIEW.md's own shape (read that file first
+    for the exact tone and section pattern, but do not copy its content - this is a different review):
+    a short intro paragraph naming the requirement (REQ-G3-010..018, ops/requirements.yaml), the decision log
+    entry this card's source_refs cites, and the evidence root (docs/round2/issues.json, the full fidelity
+    source; the audit's own per-pilot evidence/work folders stay outside the repo, archived durably by the
+    supervisor); then "## 1. Method" (32 solo subagents, one per pilot, full budget each, a 10-dimension
+    protocol - copy the real description from HANDOFF.md, do not invent one); "## 2. Headline" (285 issues: 29
+    P0/94 P1/100 P2/62 P3; no pilot above B+; quote HANDOFF.md's own 5 cross-cutting findings and the 3d-family
+    finding); then "## 3. Register" - the main table, columns
+    `| Id | Sev | Cat | Pilot | WS | Cards | Finding | Evidence | Status |`:
+    - `Id`: `RD2-001` through `RD2-285`, assigned by iterating docs/round2/issues.json IN FILE ORDER (so Id
+      order is stable and re-derivable; do not sort by severity or pilot) - plus one final row `RD2-286` for
+      `LONGQ-001`, the long-sentence report (query text: "how do I install and reference the Aspose.PDF FOSS
+      library in my .NET project so I can start converting files", pilot pdf/net).
+    - `Sev`/`Cat`/`Pilot`: copied verbatim from that issue's `severity`/`category`/`pilot` fields in
+      docs/round2/issues.json (RD2-286 is severity P1, category mcp-search, pilot pdf/net).
+    - `WS`: the workstream letter (A-L) Appendix A assigns that issue id to - build a lookup from Appendix A's
+      per-workstream id lists, every one of the 285 ids appears in exactly one workstream list; verify this
+      with a script before writing the table, not by eye.
+    - `Cards`: the closing-card keys named in Appendix A's "Closing cards" column for that issue's workstream
+      (these are plan-internal keys like `Q8`, `C1-C12`, `KD1-KD11` - NOT real TC numbers yet, since the real
+      numbers are only confirmed at each card's own authoring time; write them exactly as Appendix A spells
+      them, e.g. `Q11-Q16, I5`).
+    - `Finding`: a one-line summary, derived from that issue's `title` field in issues.json, truncated to
+      roughly 110 characters if needed (RD2-286's Finding: "Sentence query reduces to 7 distinctive terms;
+      the real install chunk holds only 3, so coverage (0.43) never clears the 0.6 floor").
+    - `Evidence`: that issue's `evidence` field from issues.json (a list of relative paths inside the
+      per-pilot folder) rendered as a short comma-joined string; RD2-286's Evidence is
+      "docs/DECISION_LOG.md: this entry; live reproduction against infra/demo-manifests/pdf__net__self_extracted".
+    - `Status`: every row starts `OPEN`. Nothing in this card closes anything - closure happens only in each
+      program's own closure card (Q17, I14, O10, C11, XA19, KD11, RT5, and the final R7), which will edit this
+      same file later. Do not mark any row anything other than OPEN in this card.
+    Then "## 4. Decisions needing a human call" (quote HANDOFF.md's own section verbatim: upstream-vs-MCP-fix,
+    version-drift policy, cells/typescript and 3d-family priority - and note, factually, that both are now
+    answered by Decisions A and B in the 2026-10-30 DECISION_LOG entry, so this section is historical context,
+    not an open question). Then "## 5. Notes on the pasted summary's own discrepancies" (the count mismatches
+    the plan's section 1.4 already found - e.g. "49 issues" for find_examples vs 43 by probable_owner - and the
+    two process-note items that could not be located in HANDOFF.md/ISSUES.json/PROTOCOL.md; state this
+    factually, do not speculate about what they might have meant).
+  - >-
+    This card writes NO production code and closes NO issue. It is scaffolding other cards cite. Never weaken
+    a check to make it pass; if the structural checks below cannot be satisfied because the source data itself
+    is inconsistent, STOP and report FAILED_INTERNAL with the exact inconsistency - do not silently patch over
+    it in the register.
+actions:
+  - >-
+    Copy docs/round2/HANDOFF.md and docs/round2/issues.json verbatim from the scratchpad path; author
+    docs/ROUND2_REVIEW.md with exactly 286 register rows (285 from issues.json in file order + RD2-286 for
+    LONGQ-001), every row's Sev/Cat/Pilot matching issues.json byte-for-byte and every row's WS/Cards matching
+    the plan's Appendix A; write a structural pytest that proves both facts programmatically, not by
+    eyeballing the table.
+checks:
+  - command: '{python} -m pytest tests/deploy/test_round2_ledger.py -q -rfE'
+    expect: 'exit 0'
+    timeout_seconds: 120
+    junitxml: true
+    proves:
+      - REQ-G3-010
+  - command: '{python} -m pytest tests/deploy/test_round2_ledger.py -q -rfE -p no:cacheprovider'
+    expect: 'exit 0'
+    timeout_seconds: 120
+    junitxml: true
+    proves:
+      - REQ-G3-010
+min_tests: 8
+requires:
+  - python
+network: false
+negative_control:
+  mutate: |
+    python -X utf8 -c "import pathlib; p = pathlib.Path('docs/ROUND2_REVIEW.md'); s = p.read_text(encoding='utf-8'); old = '| RD2-001 |'; assert s.count(old) == 1, 'fix text not found - card and source have diverged'; p.write_text(s.replace(old, '| RD2-001-mutated |', 1), encoding='utf-8')"
+  rationale: >-
+    Renames the first register row's id so it no longer matches docs/round2/issues.json's first entry in file
+    order; the structural test's "every RD2-NNN id maps to the right issues.json entry, in file order" check
+    must then fail, proving the test actually reads the table and cross-checks it against the source rather
+    than just counting rows.
+evidence:
+  - evidence/build/G3/TC-597/receipt.json
+closeout:
+  - >-
+    docs/ROUND2_REVIEW.md exists with exactly 286 OPEN register rows, every row's severity/category/pilot
+    verified byte-for-byte against the committed docs/round2/issues.json and every row's workstream/closing-card
+    columns verified against the plan's Appendix A, so every later card in REQ-G3-011 through REQ-G3-018 can
+    cite this file and this card as a stable, re-derivable source.
+recovery: >-
+  If the scratchpad source path no longer exists, STOP and report FAILED_INTERNAL - do not reconstruct the 285
+  rows from the pasted chat summary alone; that summary's own counts were already shown (plan section 1.4) to
+  disagree with issues.json in three places. If issues.json is internally inconsistent (e.g. a severity value
+  outside P0-P3, or an id Appendix A does not assign to any workstream), STOP and report the exact inconsistency
+  rather than silently normalizing it.

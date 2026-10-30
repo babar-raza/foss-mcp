@@ -705,3 +705,23 @@ requirements:
     email/python, note/python, page/python) and tex/python are re-verified by an independent QA pass on the rebuilt image and none of
     their rows reproduces. No image is uploaded before the final image is rebuilt from the last fix, re-ingested for all 32 pilots,
     re-gated (32 of 32, attack suite, live smoke), re-recorded, and the local CI gate (scripts/ci_check.sh) is green.
+- id: REQ-G3-010
+  gate: G3
+  anchor: 'docs/DECISION_LOG.md: 2026-10-30 - Round-2 portfolio audit remediation adopted'
+  text: >-
+    Conformance harness and deterministic audit replay. An offline, seeded, all-32-pilot conformance suite exists for each of symbol
+    self-retrieval, sentence-wrapped retrieval (including the literal LONGQ-001 query), precision/exact-label/size-budget behaviour,
+    index-honesty, reference-content and example-integrity, each with a committed baseline of today's known failures that can only
+    shrink once flipped to strict. The round-2 portfolio audit's 285 issues and the LONGQ-001 report are moved into the repository
+    (docs/ROUND2_REVIEW.md, docs/round2/issues.json) and replayed deterministically in-process against infra/demo-manifests, producing
+    a still-reproduces/fixed/changed verdict and a content hash per commit, so the 32-pilot audit never has to be re-run by agents to
+    confirm a fix. Governance-reading tests (tests/deploy/test_round3_closure.py and similar) read a committed snapshot rather than
+    live gate state, and CI runs a Windows job plus a PYTHONHASHSEED matrix.
+# REQ-G3-011 through REQ-G3-018 (findability, index truth + oracle, content truth, example corpus,
+# disclosure, runtime + contract, hermetic regeneration, release proof) are drafted in full in
+# C:\Users\babar\.claude\plans\steady-wobbling-meteor.md section 4 item 4, ready to paste in verbatim.
+# They are deliberately NOT added yet: `validate`'s own rule ("a missing REQ is a missing card") means a
+# REQ with zero cards is a permanent FAIL, and most of those programs' first cards (Q1, I1/O1, C1, XA1,
+# KD1, R1A) cannot be authored - several structurally cannot even exist - until their own dependency chain
+# (waves 1-20) is built out. Each REQ row is appended at the exact moment its program's first card is
+# authored, never before, so `validate` stays green at every step instead of failing for 19 waves running.
