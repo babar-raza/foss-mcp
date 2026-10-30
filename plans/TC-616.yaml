@@ -1,0 +1,118 @@
+id: TC-616
+gate: G3
+lane: storage-retrieval
+purpose: >-
+  Build Q3 (REQ-G3-011): wire Q1's `normalize_query` and the new `platform` parameter (landed in
+  TC-610, deliberately unwired by that card) into `find_examples`, so a literal product-name
+  mention ("Aspose.PDF") no longer stays a single dotted token for this tool's own term machinery,
+  and a query's own platform word (net/java/python/go/rust/typescript/cpp) no longer counts as one
+  of its distinctive terms here either - the same two fixes TC-610 proved in isolation, now live on
+  one real tool entrypoint. Read C:\Users\babar\.claude\plans\steady-wobbling-meteor.md section 2.2
+  (Q1-Q4) first.
+depends_on:
+  - TC-584
+  - TC-610
+write_paths:
+  - src/foss_mcp/mcp/tools/find_examples.py
+  - tests/mcp/tools/test_find_examples_query_normalization.py
+satisfies:
+  - REQ-G3-011
+source_refs:
+  - file: docs/DECISION_LOG.md
+    anchor: >-
+      ## 2026-10-30 — Round-2 portfolio audit remediation adopted: unified plan, governance decisions A-K
+      recorded (supervisor)
+    sha256: 62cf1403a592118e3fb6bd14c5336f8a997cc3181d44a585323ec9f1d385a931
+inputs:
+  - >-
+    READ FIRST: C:\Users\babar\.claude\plans\steady-wobbling-meteor.md section 2.2 (Q1-Q4). Also
+    read `src/foss_mcp/mcp/tools/find_examples.py`'s real `find_examples` function IN FULL (around
+    line 477 onward) - every call to `distinctive_terms`, `query_terms`, `title_anchored` (around
+    lines 536-572) - and `src/foss_mcp/mcp/tools/relevance.py`'s real, now-landed `normalize_query`,
+    and the `platform` parameter on `_excluded_terms`/`query_terms`/`distinctive_terms` (TC-610) IN
+    FULL before writing anything, confirming their exact current signatures against the CURRENT
+    code (it may have shifted slightly since TC-610 landed). Note `fold_query` (imported and called
+    at line 487, `query = fold_query(query)`) is a SEPARATE, older, already-wired synonym/plural
+    folding step - `normalize_query` is additive to it, not a replacement; do not touch
+    `fold_query` itself or change its call site's position relative to where you add
+    `normalize_query`.
+  - >-
+    Call `normalize_query(query, scope.family)` once, right after the existing
+    `query = fold_query(query)` line (order: fold first, normalize second - confirm this order
+    does not change any existing pinned behaviour, since `normalize_query`'s job is narrowly the
+    "Aspose.<Family>" dotted-mention rewrite and should be inert for queries `fold_query` already
+    handles). Thread `platform=scope.platform` into EVERY call in this function to
+    `distinctive_terms(query, scope.family)` and `query_terms(query, scope.family)` (there are
+    several call sites per the `grep` above - find all of them, not just the first) so the
+    platform word is excluded consistently everywhere in this function, not just in the first
+    gate check. Do not add `platform` to `title_anchored` unless you find it already accepts that
+    parameter (check first; if it does not, leave it alone - this card's scope is `_excluded_terms`/
+    `query_terms`/`distinctive_terms` only, per TC-610's own extension).
+  - >-
+    tests/mcp/tools/test_find_examples_query_normalization.py (no mocks for the real-pilot case;
+    reads the real, committed `infra/demo-manifests`, writes nothing to it): (a) a query containing
+    a literal "Aspose.PDF"-style dotted mention now returns the SAME or a STRICTLY BETTER result
+    than before this card for at least one real pilot with real example chunks (pick one from
+    `infra/demo-manifests`) - prove concretely that the normalized, non-dotted query reaches the
+    scoring stage with the dotted mention no longer intact (do not just assert on the final
+    ExampleMatch list's shape; show the intermediate term set changed where the old code would have
+    kept the dotted token, by comparing against a reference call that bypasses your new
+    normalize_query line); (b) a query containing the scope's own platform word (e.g. "net") now
+    produces a distinctive-term count ONE LOWER than the unpatched behaviour, confirmed concretely
+    against a real pilot/platform pair (not a synthetic fixture) - mirror TC-610's own LONGQ-001
+    measurement methodology; (c) the full existing find_examples ratchet suite named in this card's
+    second check (test_example_search_mode.py, test_find_examples_title_anchor.py,
+    test_find_examples_vector_deadline.py, test_find_examples_verification_record.py,
+    test_find_examples_verified_only.py, test_round3_example_labels.py,
+    test_round3_retrieval_corpus.py) is UNCHANGED - every existing pinned example match, miss, and
+    confidence value is byte-identical to before this card, since neither fix should change
+    anything for a query that had no dotted product mention and no bare platform word; state this
+    confirmation explicitly in your closeout; (d) a query that is ONLY the bare platform word
+    ("net") with no other distinctive
+    content now gets an explicit, sensible Miss (either via the existing "no distinctive terms"
+    early-return at line ~536, now correctly tripped because the platform word no longer counts, or
+    via whatever the real measured behaviour turns out to be - report reality, do not assume the
+    outcome). Never weaken a check to make it pass.
+actions:
+  - >-
+    Wire Q1's normalize_query and the platform-aware term exclusion into find_examples, proven
+    against a real pilot and against the full existing find_examples ratchet suite with zero
+    regression.
+checks:
+  - command: '{python} -m pytest tests/mcp/tools/test_find_examples_query_normalization.py -q -rfE'
+    expect: 'exit 0'
+    timeout_seconds: 180
+    junitxml: true
+    proves:
+      - REQ-G3-011
+  - command: '{python} -m pytest tests/mcp/tools/test_find_examples_query_normalization.py tests/mcp/tools/test_example_search_mode.py tests/mcp/tools/test_find_examples_title_anchor.py tests/mcp/tools/test_find_examples_vector_deadline.py tests/mcp/tools/test_find_examples_verification_record.py tests/mcp/tools/test_find_examples_verified_only.py tests/mcp/tools/test_round3_example_labels.py tests/mcp/tools/test_round3_retrieval_corpus.py -q -rfE -p no:cacheprovider'
+    expect: 'exit 0'
+    timeout_seconds: 420
+    junitxml: true
+    proves:
+      - REQ-G3-011
+min_tests: 8
+requires:
+  - python
+network: false
+negative_control:
+  mutate: |
+    python -X utf8 -c "import pathlib; p = pathlib.Path('src/foss_mcp/mcp/tools/find_examples.py'); s = p.read_text(encoding='utf-8'); old = 'query = fold_query(query)'; assert s.count(old) == 1, 'fix text not found - card and source have diverged'; p.write_text(s.replace(old, old + chr(10) + '    normalize_query = lambda q, f: q  # TC-616 negative control: never normalize the query', 1), encoding='utf-8')"
+  rationale: >-
+    Shadows normalize_query with an identity no-op immediately after fold_query runs, regardless of
+    exactly which line inside the function the real wiring calls it from. The dotted-mention
+    normalization test must then fail, proving it exercises the real wiring rather than trusting
+    that normalize_query is imported.
+evidence:
+  - evidence/build/G3/TC-616/receipt.json
+closeout:
+  - >-
+    find_examples now normalizes a dotted "Aspose.<Family>" mention and excludes the scope's own
+    platform word from distinctive-term counting, proven against a real pilot; the full existing
+    find_examples ratchet suite is confirmed unchanged.
+recovery: >-
+  If threading platform= into query_terms/distinctive_terms changes ANY existing pinned
+  find_examples result even for a query with no platform word, STOP and report FAILED_INTERNAL with
+  the exact diff - TC-610 already proved platform=None is fully inert, so a change here would mean
+  this card's wiring is passing a non-None platform somewhere it should not, not that the ratchet
+  needs adjusting.
