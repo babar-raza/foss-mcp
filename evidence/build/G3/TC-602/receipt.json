@@ -1,0 +1,111 @@
+{
+  "schema_version": 1,
+  "card": "TC-602",
+  "gate": "G3",
+  "generated_by": "gatectl",
+  "generated_at": "2026-10-30T12:57:39Z",
+  "base_rev": "d543598339a214e3fbb54068d82aac1cc9a9c587",
+  "head_rev": "ad7df15aba03c19e3304f22e8adc9fcc5f723b5b",
+  "card_sha256": "b44b4981a6472178da796ca8bd598795ee77d847c2cbbc906121f877549a75c7",
+  "fingerprint": {
+    "python": "3.13.2",
+    "platform": "Windows-11-10.0.26300-SP0",
+    "lock_sha256": "5c72e798a73c059a438e752e94a8d4c88c1bdf81a197f6e5c5fcecbc9466a691",
+    "env": {
+      "PYTHONHASHSEED": "0",
+      "PYTHONUTF8": "1",
+      "PYTHONDONTWRITEBYTECODE": "1",
+      "PYTHONIOENCODING": "utf-8",
+      "TZ": "UTC",
+      "LC_ALL": "C.UTF-8",
+      "SOURCE_DATE_EPOCH": "1700000000",
+      "verify_runner": "host"
+    }
+  },
+  "scope": {
+    "ok": true,
+    "changed_paths": [
+      "scripts/release/adversarial_suite.py",
+      "tests/deploy/test_adversarial_suite.py"
+    ],
+    "violations": [],
+    "evaluated": true
+  },
+  "runs": [
+    {
+      "run": 1,
+      "checks": [
+        {
+          "command": "{python} -m pytest tests/deploy/test_adversarial_suite.py -q -rfE",
+          "exit_code": 0,
+          "duration_s": 69.989,
+          "stdout_sha256": "31d4f6ed061187bd4bcaecd24059371e79ed220f567109eaef744423f52fcf35",
+          "tests": 88,
+          "skipped": 0,
+          "errors": 0,
+          "failures": 0
+        },
+        {
+          "command": "{python} -m pytest tests/deploy/test_adversarial_suite.py -q -rfE -p no:cacheprovider",
+          "exit_code": 0,
+          "duration_s": 70.83,
+          "stdout_sha256": "31d4f6ed061187bd4bcaecd24059371e79ed220f567109eaef744423f52fcf35",
+          "tests": 88,
+          "skipped": 0,
+          "errors": 0,
+          "failures": 0
+        }
+      ],
+      "all_passed": true
+    },
+    {
+      "run": 2,
+      "checks": [
+        {
+          "command": "{python} -m pytest tests/deploy/test_adversarial_suite.py -q -rfE",
+          "exit_code": 0,
+          "duration_s": 69.114,
+          "stdout_sha256": "31d4f6ed061187bd4bcaecd24059371e79ed220f567109eaef744423f52fcf35",
+          "tests": 88,
+          "skipped": 0,
+          "errors": 0,
+          "failures": 0
+        },
+        {
+          "command": "{python} -m pytest tests/deploy/test_adversarial_suite.py -q -rfE -p no:cacheprovider",
+          "exit_code": 0,
+          "duration_s": 69.175,
+          "stdout_sha256": "31d4f6ed061187bd4bcaecd24059371e79ed220f567109eaef744423f52fcf35",
+          "tests": 88,
+          "skipped": 0,
+          "errors": 0,
+          "failures": 0
+        }
+      ],
+      "all_passed": true
+    }
+  ],
+  "negative_control": {
+    "kind": "mutate",
+    "patch": "python -X utf8 -c \"import pathlib; p = pathlib.Path('scripts/release/adversarial_suite.py'); s = p.read_text(encoding='utf-8'); old = 'except (OSError, http.client.HTTPException) as exc:'; assert s.count(old) == 1, 'fix text not found - card and source have diverged'; lines = s.splitlines(); i = next(idx for idx, line in enumerate(lines) if old in line); indent = ' ' * (len(lines[i]) - len(lines[i].lstrip())); q = chr(34); lines.insert(i + 1, indent + '    return Reply(None, {}, ' + q + q + ', time.monotonic() - started, ' + q + 'no usable reply' + q + ')  # TC-602 negative control'); p.write_text(chr(10).join(lines) + chr(10), encoding='utf-8')\"\n",
+    "patch_sha256": "13b83ee092510364a9437c011044f049353e95f73c80350e4b8b597a445679c1",
+    "applied": true,
+    "patch_applied_failed": true,
+    "exit_codes": [
+      1,
+      1
+    ],
+    "tree_changed": [
+      "M scripts/release/adversarial_suite.py",
+      "?? .junit-0.xml",
+      "?? .junit-1.xml"
+    ]
+  },
+  "holdout": {
+    "ran": false,
+    "passed": true,
+    "detail": "no holdout for this card"
+  },
+  "accepted": true,
+  "reason": "all gates passed"
+}

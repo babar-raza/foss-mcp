@@ -1,0 +1,129 @@
+
+===== CLEAN RUN 1 (host) =====
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-5c72e798a73c059a\Scripts\python.exe -m pytest tests/deploy/test_adversarial_suite.py -q -rfE "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-_hd4s8el\.junit-0.xml"
+--- stdout ---
+........................................................................ [ 81%]
+................                                                         [100%]
+
+--- stderr ---
+
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-5c72e798a73c059a\Scripts\python.exe -m pytest tests/deploy/test_adversarial_suite.py -q -rfE -p no:cacheprovider "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-_hd4s8el\.junit-1.xml"
+--- stdout ---
+........................................................................ [ 81%]
+................                                                         [100%]
+
+--- stderr ---
+
+
+===== CLEAN RUN 2 (host) =====
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-5c72e798a73c059a\Scripts\python.exe -m pytest tests/deploy/test_adversarial_suite.py -q -rfE "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-_hd4s8el\.junit-0.xml"
+--- stdout ---
+........................................................................ [ 81%]
+................                                                         [100%]
+
+--- stderr ---
+
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-5c72e798a73c059a\Scripts\python.exe -m pytest tests/deploy/test_adversarial_suite.py -q -rfE -p no:cacheprovider "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-_hd4s8el\.junit-1.xml"
+--- stdout ---
+........................................................................ [ 81%]
+................                                                         [100%]
+
+--- stderr ---
+
+
+===== NEGATIVE CONTROL (checks MUST now fail) =====
+mutated: M scripts/release/adversarial_suite.py, ?? .junit-0.xml, ?? .junit-1.xml
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-5c72e798a73c059a\Scripts\python.exe -m pytest tests/deploy/test_adversarial_suite.py -q -rfE "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-_hd4s8el\.junit-0.xml"
+--- stdout ---
+........................................................FF.............. [ 81%]
+................                                                         [100%]
+================================== FAILURES ===================================
+________ test_http_request_keeps_the_real_errno_when_the_socket_fails _________
+
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x00000167C91B44B0>
+
+    def test_http_request_keeps_the_real_errno_when_the_socket_fails(monkeypatch: pytest.MonkeyPatch) -> None:
+        exc = OSError(errno.ECONNRESET, "simulated")
+        monkeypatch.setattr(suite.http.client, "HTTPConnection", lambda *a, **kw: _RaisingConnection(exc))
+        reply = suite.http_request("GET", "http://127.0.0.1:1/mcp")
+        assert reply.status is None and reply.body == ""
+        assert reply.error is not None
+>       assert str(errno.ECONNRESET) in reply.error, reply.error
+E       AssertionError: no usable reply
+E       assert '10054' in 'no usable reply'
+E        +  where '10054' = str(10054)
+E        +    where 10054 = errno.ECONNRESET
+E        +  and   'no usable reply' = Reply(status=None, headers={}, body='', elapsed=3.190000279573724e-05, error='no usable reply', oversize=False).error
+
+tests\deploy\test_adversarial_suite.py:966: AssertionError
+_______ test_http_request_keeps_the_real_winerror_when_the_os_sets_one ________
+
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x00000167C9576D60>
+
+    def test_http_request_keeps_the_real_winerror_when_the_os_sets_one(monkeypatch: pytest.MonkeyPatch) -> None:
+        exc = OSError(errno.ECONNRESET, "simulated")
+        exc.winerror = 10055  # WSAENOBUFS, assigned the way the stdlib would on Windows
+        monkeypatch.setattr(suite.http.client, "HTTPConnection", lambda *a, **kw: _RaisingConnection(exc))
+        reply = suite.http_request("GET", "http://127.0.0.1:1/mcp")
+        assert reply.error is not None
+>       assert str(errno.ECONNRESET) in reply.error, reply.error
+E       AssertionError: no usable reply
+E       assert '10054' in 'no usable reply'
+E        +  where '10054' = str(10054)
+E        +    where 10054 = errno.ECONNRESET
+E        +  and   'no usable reply' = Reply(status=None, headers={}, body='', elapsed=1.68999977177009e-05, error='no usable reply', oversize=False).error
+
+tests\deploy\test_adversarial_suite.py:975: AssertionError
+=========================== short test summary info ===========================
+FAILED tests/deploy/test_adversarial_suite.py::test_http_request_keeps_the_real_errno_when_the_socket_fails
+FAILED tests/deploy/test_adversarial_suite.py::test_http_request_keeps_the_real_winerror_when_the_os_sets_one
+
+--- stderr ---
+
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-5c72e798a73c059a\Scripts\python.exe -m pytest tests/deploy/test_adversarial_suite.py -q -rfE -p no:cacheprovider "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-_hd4s8el\.junit-1.xml"
+--- stdout ---
+........................................................FF.............. [ 81%]
+................                                                         [100%]
+================================== FAILURES ===================================
+________ test_http_request_keeps_the_real_errno_when_the_socket_fails _________
+
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x0000020D0DC832A0>
+
+    def test_http_request_keeps_the_real_errno_when_the_socket_fails(monkeypatch: pytest.MonkeyPatch) -> None:
+        exc = OSError(errno.ECONNRESET, "simulated")
+        monkeypatch.setattr(suite.http.client, "HTTPConnection", lambda *a, **kw: _RaisingConnection(exc))
+        reply = suite.http_request("GET", "http://127.0.0.1:1/mcp")
+        assert reply.status is None and reply.body == ""
+        assert reply.error is not None
+>       assert str(errno.ECONNRESET) in reply.error, reply.error
+E       AssertionError: no usable reply
+E       assert '10054' in 'no usable reply'
+E        +  where '10054' = str(10054)
+E        +    where 10054 = errno.ECONNRESET
+E        +  and   'no usable reply' = Reply(status=None, headers={}, body='', elapsed=3.650000144261867e-05, error='no usable reply', oversize=False).error
+
+tests\deploy\test_adversarial_suite.py:966: AssertionError
+_______ test_http_request_keeps_the_real_winerror_when_the_os_sets_one ________
+
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x0000020D0D842660>
+
+    def test_http_request_keeps_the_real_winerror_when_the_os_sets_one(monkeypatch: pytest.MonkeyPatch) -> None:
+        exc = OSError(errno.ECONNRESET, "simulated")
+        exc.winerror = 10055  # WSAENOBUFS, assigned the way the stdlib would on Windows
+        monkeypatch.setattr(suite.http.client, "HTTPConnection", lambda *a, **kw: _RaisingConnection(exc))
+        reply = suite.http_request("GET", "http://127.0.0.1:1/mcp")
+        assert reply.error is not None
+>       assert str(errno.ECONNRESET) in reply.error, reply.error
+E       AssertionError: no usable reply
+E       assert '10054' in 'no usable reply'
+E        +  where '10054' = str(10054)
+E        +    where 10054 = errno.ECONNRESET
+E        +  and   'no usable reply' = Reply(status=None, headers={}, body='', elapsed=2.4900000425986946e-05, error='no usable reply', oversize=False).error
+
+tests\deploy\test_adversarial_suite.py:975: AssertionError
+=========================== short test summary info ===========================
+FAILED tests/deploy/test_adversarial_suite.py::test_http_request_keeps_the_real_errno_when_the_socket_fails
+FAILED tests/deploy/test_adversarial_suite.py::test_http_request_keeps_the_real_winerror_when_the_os_sets_one
+
+--- stderr ---
+
