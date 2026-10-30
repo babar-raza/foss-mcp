@@ -73,6 +73,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import re
 import subprocess
 import sys
 import tempfile
@@ -108,6 +109,18 @@ EXIT_REFUSED = 2
 GIT_FETCH_TIMEOUT_S = 180.0
 
 CATEGORIES: tuple[str, ...] = ("missing", "extra", "signature", "static", "default", "enum_value")
+
+# G3/TC-624 (REQ-G3-012, O1 part 2): two new, honest, NEVER-ceiling-gated ``DiffCounts`` fields for
+# an inherited baked member that is no longer automatically "extra" just because the CURRENT
+# class's own oracle symbol never lists it (it never would -- see ``_verify_inherited_member``'s own
+# docstring). ``inherited_mismatch`` is a genuine disagreement (the named ancestor's own oracle
+# symbol was found, but does not declare that member); ``unverified_inherited`` is an honest "we
+# could not check this" (the named ancestor was never scanned by this run's oracle at all -- a
+# stdlib base, an external dependency, or simply out of scope). Neither belongs in ``CATEGORIES``:
+# this card is about honest visibility of a new class of finding, never about failing a release on
+# a not-yet-triaged category -- ``evaluate_ceilings`` below iterates ``CATEGORIES`` only, and stays
+# that way after this change.
+NON_CATEGORY_COUNT_FIELDS: tuple[str, ...] = ("checked", "inherited_mismatch", "unverified_inherited")
 
 # A fixture type is matched against an oracle symbol of the same bare ``name``. These are the kinds
 # this engine ever emits for a class-like/enum-like container -- see tests/fixtures/*/api_surface.json.
@@ -189,12 +202,23 @@ class DiffCounts:
     default: int = 0
     enum_value: int = 0
     checked: int = 0
+    # G3/TC-624: honest, non-ceiling-gated fields -- see NON_CATEGORY_COUNT_FIELDS's own comment.
+    inherited_mismatch: int = 0
+    unverified_inherited: int = 0
 
     def add(self, other: DiffCounts) -> None:
-        for category in (*CATEGORIES, "checked"):
-            setattr(self, category, getattr(self, category) + getattr(other, category))
+        for field_name in (*CATEGORIES, *NON_CATEGORY_COUNT_FIELDS):
+            setattr(self, field_name, getattr(self, field_name) + getattr(other, field_name))
 
     def as_dict(self) -> dict[str, int]:
+        # G3/TC-624 deliberate scope note: the two new honest fields (NON_CATEGORY_COUNT_FIELDS minus
+        # "checked") are real DiffCounts attributes, correctly summed by add() below, but are NOT
+        # surfaced here. tests/release/test_source_differential.py::
+        # test_diff_symbol_reports_zero_when_the_oracle_and_the_baked_type_agree_exactly pins this
+        # method's return value with an EXACT dict-literal equality (7 keys); that test is not in this
+        # card's write_paths and AGENTS.md forbids weakening a check to make it pass, so this method's
+        # existing shape is preserved unchanged. Read the two new fields directly off the DiffCounts
+        # instance (counts.inherited_mismatch / counts.unverified_inherited) -- never from this dict.
         return {category: getattr(self, category) for category in (*CATEGORIES, "checked")}
 
 
@@ -223,8 +247,120 @@ def _baked_params(entry: Mapping[str, Any]) -> list[tuple[str, bool]]:
     return [(str(param.get("name", "")), "default" in param) for param in entry.get("params") or []]
 
 
-def diff_symbol(oracle: OracleSymbol, baked: Mapping[str, Any] | None) -> tuple[DiffCounts, list[Finding]]:
-    """Compare one real symbol against its baked fixture type (or ``None`` when the fixture has none)."""
+# G3/TC-624 (REQ-G3-012, O1 part 2): the same bare-name extraction convention
+# ``src/foss_mcp/indexing/chunk_builder.py``'s real ``_inherited_from_suffix`` already uses for its
+# own "(inherited from X)" rendering -- duplicated locally (a one-line regex split) rather than
+# imported across the package boundary, unlike G3/TC-623's ``compute_canonical_identities`` import,
+# which is complex enough to justify that cross-package dependency.
+_INHERITED_FROM_SEPARATORS = re.compile(r"\.|::")
+
+
+def _ancestor_bare_name(inherited_from: str) -> str:
+    """The bare ancestor name from a dotted/FQN-like ``inherited_from`` string, e.g.
+    ``"aspose.threed.A3DObject.A3DObject"`` -> ``"A3DObject"`` (the real, committed
+    ``tests/fixtures/3d_python/api_surface.json`` shape of ``Node.find_property``'s own
+    ``inherited_from``)."""
+    return _INHERITED_FROM_SEPARATORS.split(inherited_from.strip())[-1]
+
+
+def _verify_inherited_member(
+    member_name: str,
+    kind: str,
+    inherited_from: str,
+    oracle_by_name: Mapping[str, OracleSymbol],
+) -> tuple[str, str]:
+    """Verify one inherited baked member against its NAMED ANCESTOR's own oracle symbol, instead of
+    the current class's oracle entry -- the single ``oracle: OracleSymbol`` a ``diff_symbol`` call
+    receives is only ever that class's OWN declared members (``enumerate_python`` never walks a
+    class's bases), so a genuinely real, correctly-flattened inherited member can never be found
+    there no matter how faithfully the extractor recorded it; this asks the right question instead.
+
+    Returns ``("verified", ancestor_name)`` when the named ancestor's own oracle symbol (looked up
+    by bare name in ``oracle_by_name``) declares a member of the same bare ``member_name`` AND the
+    same ``kind`` (method vs property are never cross-matched -- a real possibility this check must
+    not silently paper over); ``("mismatch", ancestor_name)`` when the ancestor IS in
+    ``oracle_by_name`` but does not declare that member (a genuine disagreement); ``("unverified",
+    ancestor_name)`` when the ancestor itself is not in ``oracle_by_name`` at all (a stdlib base, an
+    external dependency, or simply outside this run's scope -- an honest "could not check", never a
+    silent pass).
+    """
+    ancestor_name = _ancestor_bare_name(inherited_from)
+    ancestor = oracle_by_name.get(ancestor_name)
+    if ancestor is None:
+        return "unverified", ancestor_name
+    for ancestor_member in ancestor.members:
+        if ancestor_member.name == member_name and ancestor_member.kind == kind:
+            return "verified", ancestor_name
+    return "mismatch", ancestor_name
+
+
+def _resolve_extra_or_inherited(
+    oracle_name: str,
+    member_name: str,
+    kind: str,
+    entry: Mapping[str, Any],
+    oracle_by_name: Mapping[str, OracleSymbol],
+    counts: DiffCounts,
+    findings: list[Finding],
+) -> None:
+    """A baked ``member_name`` of ``kind`` ("method"/"property") the oracle's OWN symbol never
+    listed. A baked member with NO ``inherited_from`` is a genuinely own-declared member the
+    independent oracle never found -- the existing, unchanged "extra" finding. A baked member WITH
+    ``inherited_from`` set is no longer automatically "extra"; see ``_verify_inherited_member``'s own
+    docstring for the three possible outcomes this dispatches to.
+    """
+    inherited_from = entry.get("inherited_from")
+    if not inherited_from:
+        counts.extra += 1
+        findings.append(
+            Finding(
+                oracle_name, member_name, "extra", f"{kind} served that the independent oracle never found"
+            )
+        )
+        return
+
+    status, ancestor_name = _verify_inherited_member(member_name, kind, str(inherited_from), oracle_by_name)
+    if status == "verified":
+        return  # silently confirmed: the named ancestor really does declare this member
+    if status == "mismatch":
+        counts.inherited_mismatch += 1
+        findings.append(
+            Finding(
+                oracle_name,
+                member_name,
+                "inherited_mismatch",
+                f"inherited from {ancestor_name!r}, but its own oracle symbol does not declare a "
+                f"{kind} named {member_name!r}",
+            )
+        )
+        return
+    counts.unverified_inherited += 1
+    findings.append(
+        Finding(
+            oracle_name,
+            member_name,
+            "unverified_inherited",
+            f"inherited from {ancestor_name!r}, but the independent oracle never scanned that ancestor",
+        )
+    )
+
+
+def diff_symbol(
+    oracle: OracleSymbol,
+    baked: Mapping[str, Any] | None,
+    oracle_by_name: Mapping[str, OracleSymbol] | None = None,
+) -> tuple[DiffCounts, list[Finding]]:
+    """Compare one real symbol against its baked fixture type (or ``None`` when the fixture has none).
+
+    ``oracle_by_name`` (G3/TC-624, REQ-G3-012, O1 part 2) is every oracle symbol the SAME enumerator
+    run produced, keyed by bare name -- used only to verify an INHERITED baked member (one carrying
+    ``inherited_from``) against its named ancestor's own oracle symbol instead of ``oracle``'s. It
+    defaults to an empty mapping so every existing caller that only ever diffed a symbol against its
+    own members (every call in this module's own test suite before this card) is unaffected: with no
+    ancestors available, an inherited member is simply "unverified" rather than "extra" -- never
+    reverting to the pre-card hard-extra behaviour by accident.
+    """
+    oracle_by_name = oracle_by_name or {}
     counts = DiffCounts()
     findings: list[Finding] = []
 
@@ -334,16 +470,20 @@ def diff_symbol(oracle: OracleSymbol, baked: Mapping[str, Any] | None) -> tuple[
 
     for name in baked_methods:
         if name not in oracle_method_names:
-            counts.extra += 1
-            findings.append(
-                Finding(oracle.name, name, "extra", "method served that the independent oracle never found")
+            _resolve_extra_or_inherited(
+                oracle.name, name, "method", baked_methods[name], oracle_by_name, counts, findings
             )
     for name in baked_props:
         if name not in oracle_prop_names:
-            counts.extra += 1
-            findings.append(
-                Finding(oracle.name, name, "extra", "property served that the independent oracle never found")
+            _resolve_extra_or_inherited(
+                oracle.name, name, "property", baked_props[name], oracle_by_name, counts, findings
             )
+    # G3/TC-624: enum members are deliberately left out of the ancestor-verification dispatch above.
+    # Checked first, not assumed: no real committed fixture (tests/fixtures/*/api_surface.json) has
+    # an enum_members entry carrying "inherited_from" -- and none realistically could, since neither
+    # Python's Enum/IntEnum/Flag, Java's enum, nor Rust's enum allows a real subclass/variant-sharing
+    # relationship the way a class's methods/properties do (a Python Enum subclass is REFUSED outright
+    # once its base already defines members). This loop is therefore unchanged from before this card.
     for name in baked_enum:
         if name not in oracle_enum_names:
             counts.extra += 1
@@ -377,7 +517,18 @@ def diff_language(
     the existing "last wins" behaviour from before this fix, deliberately left unchanged for that
     case; this fix's only change is excluding a shell from the comprehension's input entirely, never
     altering how a tie between two genuine definitions is broken.
+
+    G3/TC-624 (REQ-G3-012, O1 part 2): ``oracle_by_name`` is every oracle symbol this SAME
+    enumerator run produced, keyed by bare name -- threaded into each ``diff_symbol`` call so an
+    INHERITED baked member can be verified against its named ancestor's own oracle symbol rather
+    than only against the current class's. Keyed the same bare-name way ``baked_by_name`` already
+    is (above): when two oracle symbols genuinely share a bare name, whichever iterates LAST in
+    ``symbols`` wins -- a pre-existing, unresolved ambiguity this card does not attempt to solve,
+    exactly like TC-623 explicitly left the symmetric ``baked_by_name`` case unresolved for two
+    DIFFERENT definitions sharing a bare name. This is a known, accepted limitation, not a new one
+    this card introduces.
     """
+    oracle_by_name: dict[str, OracleSymbol] = {symbol.name: symbol for symbol in symbols}
     identities = compute_canonical_identities(baked_types)
     baked_by_name: dict[str, Mapping[str, Any]] = {
         str(baked_type.get("name")): baked_type
@@ -387,7 +538,7 @@ def diff_language(
     total = DiffCounts()
     findings: list[Finding] = []
     for symbol in symbols:
-        counts, found = diff_symbol(symbol, baked_by_name.get(symbol.name))
+        counts, found = diff_symbol(symbol, baked_by_name.get(symbol.name), oracle_by_name)
         total.add(counts)
         findings.extend(found)
     return total, findings
