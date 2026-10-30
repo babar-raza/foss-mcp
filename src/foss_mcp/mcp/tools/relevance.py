@@ -579,9 +579,22 @@ def _stemmed_query_terms(query: str) -> frozenset[str]:
     return multi_character if multi_character else stemmed
 
 
-def _excluded_terms(family: str, extra_generic: Collection[str] = ()) -> set[str]:
+def _excluded_terms(
+    family: str, platform: str | None = None, extra_generic: Collection[str] = ()
+) -> set[str]:
+    """The family's own set, plus (TC-610, G3/REQ-G3-011) *platform*'s own stem(s) when given - the
+    query's own platform/runtime word ("net", "java", "python") is otherwise never excluded, so on a
+    query naming it (the literal LONGQ-001 sentence: "...Aspose.PDF FOSS library in my .NET
+    project...") it counts as a distinctive term even though it names the SCOPE, not the task.
+    *platform* is excluded exactly like *family* two lines above (its tokens' stems and its own whole
+    stem) - no separate stemming/tokenizing path. ``platform=None`` (the default) is a no-op: every
+    existing caller that passes none keeps the byte-for-byte prior result.
+    """
     excluded = {stem_token(token) for token in tokenize(family)}
     excluded.add(stem_token(family))
+    if platform:
+        excluded.update(stem_token(token) for token in tokenize(platform))
+        excluded.add(stem_token(platform))
     excluded.update(stem_token(word) for word in _GENERIC_WORDS)
     excluded.update(extra_generic)
     return excluded
@@ -592,7 +605,7 @@ def is_common_word(word: str, family: str, *, extra_generic: Collection[str] = (
     *extra_generic*'s stems (TC-585: a word measured ubiquitous within one family's own data; see
     ``family_generic_stems``), after stemming.
     """
-    return stem_token(word) in _excluded_terms(family, extra_generic)
+    return stem_token(word) in _excluded_terms(family, extra_generic=extra_generic)
 
 
 # TC-585 (G3/REQ-G3-009, RST round-2 RD-5): a word that is merely ubiquitous within ONE family's own
@@ -702,23 +715,51 @@ def family_generic_fraction(stem: str, lexical_payload: Mapping[str, object] | N
     return _scope_document_fraction(stem, lexical_payload)
 
 
-def query_terms(query: str, family: str) -> frozenset[str]:
+def query_terms(query: str, family: str, platform: str | None = None) -> frozenset[str]:
     """The query's stemmed term set, minus the scope's family word and the generic set; when that
     leaves nothing, the stemmed set before removal (so the bare query "pdf" still works). A
     possessive suffix is removed, a plural acronym ("PDFs") is read as the acronym, and one-letter
     alphabetic terms are dropped (unless nothing else remains), so the query side never carries
-    terms no chunk can contain.
+    terms no chunk can contain. *platform* (TC-610, G3/REQ-G3-011), when given, additionally excludes
+    the scope's own platform/runtime word ("net", "java", ...); omitted, every existing two-argument
+    call site is byte-for-byte unchanged.
     """
     stemmed = _stemmed_query_terms(query)
-    remaining = stemmed - _excluded_terms(family)
+    remaining = stemmed - _excluded_terms(family, platform)
     return remaining if remaining else stemmed
 
 
-def distinctive_terms(query: str, family: str) -> frozenset[str]:
+def distinctive_terms(query: str, family: str, platform: str | None = None) -> frozenset[str]:
     """``query_terms`` WITHOUT its "fall back to the full set when nothing remains" rule: the stemmed
     terms minus the family word and the generic words, so "Example:" and "pdf examples" have none.
+    *platform* (TC-610, G3/REQ-G3-011) is the same optional, backward-compatible exclusion
+    ``query_terms`` documents.
     """
-    return _stemmed_query_terms(query) - _excluded_terms(family)
+    return _stemmed_query_terms(query) - _excluded_terms(family, platform)
+
+
+@functools.cache
+def _aspose_dotted_mention_re(family: str) -> re.Pattern[str]:
+    """A case-insensitive pattern matching the literal, whole-word dotted mention "Aspose.<family>"
+    (e.g. "Aspose.PDF", "Aspose.3D") - never a merely similar-looking token (``\\b`` on both sides
+    means "Aspose.PDF2Word" and "Aspose.PDFs" do not match, since neither has a word boundary right
+    after *family*)."""
+    return re.compile(rf"\bAspose\.{re.escape(family)}\b", re.IGNORECASE)
+
+
+def normalize_query(query: str, family: str) -> str:
+    """TC-610 (G3/REQ-G3-011): rewrites a literal "Aspose.<family>" dotted product-name mention
+    (case-insensitive, e.g. "Aspose.PDF", "Aspose.3D") in *query* to its two-word, space-separated
+    form ("Aspose PDF", "Aspose 3D"), so it is no longer a single dotted token for a downstream
+    consumer that treats any dotted word as an exact-name query (``search_symbols._plain_words``,
+    which otherwise disables the whole symbol evidence stage for a query that merely NAMES the
+    product). Only that one narrow pattern is recognised - every OTHER dotted token in *query* (a
+    real identifier-style mention such as ``PdfDocument.Rotate``, or a file extension) is left
+    completely untouched, and *query* is returned unchanged when no "Aspose.<family>" mention is
+    found. Pure and independent of the ``platform`` exclusion above: the two fixes are composable,
+    not coupled.
+    """
+    return _aspose_dotted_mention_re(family).sub(lambda match: match.group(0).replace(".", " "), query)
 
 
 _LANGUAGE_LETTER_RE = re.compile(r"(?<![A-Za-z0-9])[A-Za-z](?=\+\+|#)")

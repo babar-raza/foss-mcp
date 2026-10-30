@@ -39,9 +39,9 @@ Method (real, structural, ``ast``-based - never a hand-maintained prose list):
    other production-reachable file, so the separate special case was retired.
 
 ``_KNOWN_UNWIRED`` pins the resulting set exactly. Running this walk against the real, current
-tree now finds SEVEN such symbols: ``prepare_cpp_library``, ``verify_cpp_example``,
+tree now finds EIGHT such symbols: ``prepare_cpp_library``, ``verify_cpp_example``,
 ``query_vector_index``, ``query_lexical_index``, ``server.run_stdio``,
-``document_schema.from_dict``, ``document_schema.to_dict`` - each
+``document_schema.from_dict``, ``document_schema.to_dict``, ``relevance.normalize_query`` - each
 individually confirmed above the frozenset by manual citation of its own real callers (or lack
 of them). ``_KNOWN_UNWIRED_AND_UNTESTED`` is currently empty: every symbol that once sat in that
 worse ("reachable from NOTHING, not even a test") tier has since been wired in. (History: TC-140
@@ -107,6 +107,10 @@ _KNOWN_UNWIRED = frozenset(
         "foss_mcp.mcp.server.run_stdio",
         "foss_mcp.normalization.document_schema.from_dict",
         "foss_mcp.normalization.document_schema.to_dict",
+        # Deliberately built standalone by TC-610 (REQ-G3-011, Q1): the shared foundation Q2/Q3/
+        # Q4 (separate, later cards under the same requirement) wire into lookup, search_docs,
+        # find_examples and search_symbols. Not yet called from any production entrypoint.
+        "foss_mcp.mcp.tools.relevance.normalize_query",
     }
 )
 
