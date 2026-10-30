@@ -726,8 +726,18 @@ requirements:
     inside this repository is recorded as a measured limitation rather than silently left unexplained. The hosting configuration is
     versioned into the repository. raw_text becomes opt-in, confidence is populated for every match source, and find_examples' "no
     verified example" reasons use one shared enum instead of five inconsistent strings.
-# REQ-G3-011 through REQ-G3-015, REQ-G3-017 and REQ-G3-018 (findability, index truth + oracle, content
-# truth, example corpus, disclosure, hermetic regeneration, release proof) are drafted in full in
+- id: REQ-G3-017
+  gate: G3
+  anchor: 'docs/DECISION_LOG.md: 2026-10-30 - Round-2 portfolio audit remediation adopted'
+  text: >-
+    Hermetic, reproducible regeneration. infra/demo-manifests becomes a provably pure function of committed fixtures, a pinned,
+    hashed snapshot of sidecars/embeddings/verification verdicts, and code: scripts/release/regenerate_demo.py's `regenerate` command
+    runs fully offline and socket-guarded and its `check` command fails on any drift from the committed tree; two runs, under
+    different PYTHONHASHSEED values, on a different machine, and from a different working directory, produce an identical tree
+    sha256. Fresh upstream data enters only through an explicit, reviewed `refresh-inputs` data commit, never silently through a
+    regular regeneration run.
+# REQ-G3-011 through REQ-G3-015 and REQ-G3-018 (findability, index truth + oracle, content truth,
+# example corpus, disclosure, release proof) are drafted in full in
 # C:\Users\babar\.claude\plans\steady-wobbling-meteor.md section 4 item 4, ready to paste in verbatim.
 # They are deliberately NOT added yet: `validate`'s own rule ("a missing REQ is a missing card") means a
 # REQ with zero cards is a permanent FAIL, and most of those programs' first cards (Q1, I1/O1, C1, XA1,

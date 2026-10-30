@@ -1,0 +1,133 @@
+id: TC-600
+gate: G3
+lane: storage-retrieval
+purpose: >-
+  Add a deterministic, content-derived generation-version helper (the plan's H2, REQ-G3-017) and
+  wire it through infra/ingest.py as a strictly OPT-IN flag, so a future hermetic regeneration
+  command (H6, a later card) can produce the same generation_id twice for the same inputs. This
+  card changes NO default behaviour: without the new flag, ingest.py still calls
+  publisher.new_version() exactly as today, and the live cluster path is untouched. Read
+  C:\Users\babar\.claude\plans\steady-wobbling-meteor.md section 2.8 first.
+depends_on:
+  - TC-001
+  - TC-510
+  - TC-529
+  - TC-564
+write_paths:
+  - src/foss_mcp/indexing/publisher.py
+  - infra/ingest.py
+  - tests/indexing/test_publisher_content_derived_version.py
+satisfies:
+  - REQ-G3-017
+source_refs:
+  - file: docs/DECISION_LOG.md
+    anchor: >-
+      ## 2026-10-30 — Round-2 portfolio audit remediation adopted: unified plan, governance decisions A-K
+      recorded (supervisor)
+    sha256: 62cf1403a592118e3fb6bd14c5336f8a997cc3181d44a585323ec9f1d385a931
+inputs:
+  - >-
+    READ FIRST: C:\Users\babar\.claude\plans\steady-wobbling-meteor.md section 2.8 ("Hermetic
+    regeneration"). Also read src/foss_mcp/indexing/publisher.py's real, current `new_version()`
+    (around line 46) and `publish_generation()` (around line 78) in full BEFORE writing anything -
+    `publish_generation` ALREADY accepts an explicit `version: str | None = None` parameter and
+    already falls back to `new_version()` only when `version` is None (`version = version or
+    new_version()`). This means the plumbing you need is narrower than it might look: you are NOT
+    modifying publish_generation's signature or behaviour at all. You are adding ONE new, separate,
+    pure helper function next to `new_version()` plus ONE new optional CLI flag in infra/ingest.py
+    that computes a value and passes it as the already-existing `version=` keyword.
+  - >-
+    In src/foss_mcp/indexing/publisher.py, add a new function (do not rename or touch
+    `new_version` - it stays exactly as-is, docstring and all, since the cluster path depends on
+    its "never derived from content" guarantee for the reason its own docstring states):
+    `content_derived_version(chunk_ids: Sequence[str], *, source_date_epoch: int) -> str`. It must
+    return a string in the SAME shape `new_version()` returns
+    (`f"{timestamp}-{suffix}"`, 15-digit-plus-microseconds UTC timestamp ending in Z, dash, 8 lowercase
+    hex characters) so `release_alignment.generation_indexed_at()`'s existing regex
+    (`(\d{8})T(\d{6})\d*Z`) keeps parsing it and "newest is lexicographically greatest version"
+    (generation_manifest.py's `previous_generation`/`prune`) keeps working unchanged. Derive the
+    timestamp from `datetime.fromtimestamp(source_date_epoch, UTC).strftime("%Y%m%dT%H%M%S000000Z")`
+    (zero microseconds, since source_date_epoch has no sub-second resolution - this makes the
+    timestamp component itself a pure function of the epoch, not of chunk content). Derive the
+    8-hex suffix from `hashlib.sha256(("\x1f".join(sorted(chunk_ids))).encode()).hexdigest()[:8]`
+    (sorted so the result does not depend on input order - chunk_ids are IDs you are handed, not
+    something you need to resort elsewhere). Give it a docstring explaining it is the deterministic
+    counterpart to `new_version()`, used ONLY by a future hermetic regeneration path (H6, not yet
+    built), never by the live/cluster ingestion path, and that it deliberately reuses
+    new_version()'s exact string shape for the two downstream parsers named above.
+  - >-
+    In infra/ingest.py's `main()`, add two new, OPTIONAL `argparse` arguments:
+    `--content-derived-version` (a boolean flag, `action="store_true"`, default False) and
+    `--source-date-epoch` (`type=int`, default None). When `--content-derived-version` is given,
+    `--source-date-epoch` becomes required (raise a clear `parser.error(...)` if it is missing -
+    argparse's own mutually-dependent-argument idiom, do not silently default it); compute
+    `publisher.content_derived_version(chunk_ids, source_date_epoch=args.source_date_epoch)` (you
+    will need to read how chunk_ids are already available at the point `publish_generation` is
+    called in this file - do not re-derive them differently) and pass it as `version=` to the
+    existing `publish_generation(...)` call. When the flag is absent (the default, and the ONLY
+    behaviour the live Helm ingestion job and docker-compose services use today - confirm this by
+    grep across infra/helm/ and docker-compose.yml that neither currently passes this flag, and do
+    not add it to either as part of this card), nothing changes: `version` stays unset and
+    `publish_generation` falls back to `new_version()` exactly as it does right now.
+  - >-
+    tests/indexing/test_publisher_content_derived_version.py tests, all against real code, no
+    mocks: (a) `content_derived_version` is a pure function - same chunk_ids and epoch, called
+    twice, produce byte-identical strings; (b) different chunk_ids (even just reordered) with the
+    same epoch produce the SAME string (order-independence, since you sorted) UNLESS the actual
+    content differs, in which case a genuinely different id list produces a different suffix - test
+    both a reordering case (same result) and a genuinely-different-set case (different result); (c)
+    the returned string matches `release_alignment`'s own real `(\d{8})T(\d{6})\d*Z` timestamp
+    regex and round-trips through its real `generation_indexed_at()` function without raising; (d)
+    an end-to-end test: build a tiny real `GenerationManifestStore` in a tmp_path, call
+    `publish_generation(..., version=content_derived_version(...))` directly (not through
+    ingest.py's CLI - that is covered by (e)) with a handful of synthetic chunks, and confirm the
+    resulting active generation_id equals exactly what `content_derived_version` returned; (e) one
+    test invoking `infra/ingest.py`'s real `main()` (or its argument-parsing function directly, if
+    main() does sys.exit/real I/O that is awkward to call from a test - check how existing
+    tests/infra/test_ingest*.py style tests already invoke it, follow that pattern) with
+    `--content-derived-version` set but `--source-date-epoch` omitted, asserting it exits
+    non-zero / raises SystemExit via parser.error - and a second test with BOTH flags set, confirming
+    it runs to completion and the published generation_id matches content_derived_version's own
+    independently-computed value for the same inputs. Never weaken a check to make it pass.
+actions:
+  - >-
+    Add publisher.content_derived_version() as a pure, opt-in alternative to new_version(), and
+    wire infra/ingest.py's main() with two new optional flags that use it - changing no default
+    behaviour on the live cluster or compose path.
+checks:
+  - command: '{python} -m pytest tests/indexing/test_publisher_content_derived_version.py -q -rfE'
+    expect: 'exit 0'
+    timeout_seconds: 120
+    junitxml: true
+    proves:
+      - REQ-G3-017
+  - command: '{python} -m pytest tests/indexing/test_publisher_content_derived_version.py tests/indexing/test_publisher.py -q -rfE -p no:cacheprovider'
+    expect: 'exit 0'
+    timeout_seconds: 180
+    junitxml: true
+    proves:
+      - REQ-G3-017
+min_tests: 7
+requires:
+  - python
+network: false
+negative_control:
+  mutate: |
+    python -X utf8 -c "import pathlib; p = pathlib.Path('src/foss_mcp/indexing/publisher.py'); s = p.read_text(encoding='utf-8'); old = 'def content_derived_version('; assert s.count(old) == 1, 'fix text not found - card and source have diverged'; lines = s.splitlines(); i = next(idx for idx, line in enumerate(lines) if old in line); q = chr(34); lines.insert(i + 1, '    return ' + q + 'not-deterministic-' + q + ' + str(id(object()))  # TC-600 negative control'); p.write_text(chr(10).join(lines) + chr(10), encoding='utf-8')"
+  rationale: >-
+    Makes content_derived_version return a different, non-deterministic value on every call
+    (Python object id salts it). The "same inputs produce byte-identical strings twice" assertion
+    must then fail, proving the test actually calls the real function and checks real determinism
+    rather than trusting a docstring's claim.
+evidence:
+  - evidence/build/G3/TC-600/receipt.json
+closeout:
+  - >-
+    publisher.content_derived_version() exists, is proven pure and order-independent-on-content,
+    and infra/ingest.py's two new opt-in flags produce a generation_id that matches it exactly,
+    with the live cluster/compose default path left completely untouched.
+recovery: >-
+  If infra/ingest.py's existing chunk_ids derivation is not a simple, available local variable at
+  the point publish_generation is called (e.g. it is computed inline and discarded), STOP and
+  report FAILED_INTERNAL describing the real control flow rather than refactoring more of
+  ingest.py than this card's narrow scope calls for - a larger refactor needs its own card.
