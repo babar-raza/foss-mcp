@@ -1,0 +1,375 @@
+
+===== CLEAN RUN 1 (host) =====
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-5c72e798a73c059a\Scripts\python.exe -m pytest tests/normalization/test_chunker_fence_aware.py -q -rfE "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-1ija68a7\.junit-0.xml"
+--- stdout ---
+.....                                                                    [100%]
+
+--- stderr ---
+
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-5c72e798a73c059a\Scripts\python.exe -m pytest tests/normalization/test_chunker_fence_aware.py tests/normalization/test_chunker.py tests/conformance/test_example_integrity.py -q -rfE -p no:cacheprovider "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-1ija68a7\.junit-1.xml"
+--- stdout ---
+...................                                                      [100%]
+
+--- stderr ---
+
+
+===== CLEAN RUN 2 (host) =====
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-5c72e798a73c059a\Scripts\python.exe -m pytest tests/normalization/test_chunker_fence_aware.py -q -rfE "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-1ija68a7\.junit-0.xml"
+--- stdout ---
+.....                                                                    [100%]
+
+--- stderr ---
+
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-5c72e798a73c059a\Scripts\python.exe -m pytest tests/normalization/test_chunker_fence_aware.py tests/normalization/test_chunker.py tests/conformance/test_example_integrity.py -q -rfE -p no:cacheprovider "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-1ija68a7\.junit-1.xml"
+--- stdout ---
+...................                                                      [100%]
+
+--- stderr ---
+
+
+===== NEGATIVE CONTROL (checks MUST now fail) =====
+mutated: M src/foss_mcp/normalization/chunker.py, ?? .junit-0.xml, ?? .junit-1.xml
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-5c72e798a73c059a\Scripts\python.exe -m pytest tests/normalization/test_chunker_fence_aware.py -q -rfE "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-1ija68a7\.junit-0.xml"
+--- stdout ---
+FFFFF                                                                    [100%]
+================================== FAILURES ===================================
+________ test_a_column_0_comment_inside_a_fence_never_splits_the_chunk ________
+
+    def test_a_column_0_comment_inside_a_fence_never_splits_the_chunk() -> None:
+        body = (
+            "# Save a Scene\n\n"
+            "Build a scene and export it.\n\n"
+            "```python\n"
+            "from aspose.threed import Scene\n"
+            "\n"
+            "scene = Scene()\n"
+            "\n"
+            "# Save to STL once the scene is built - a column-0 comment, the exact shape the old\n"
+            "# _HEADING regex mistook for a markdown heading.\n"
+            "scene.save('crate.stl')\n"
+            "```\n\n"
+            "The saved file can now be reopened by any STL-aware tool.\n"
+        )
+        chunks = chunk_document(_document(body))
+    
+>       assert len(chunks) == 1
+E       AssertionError: assert 3 == 1
+E        +  where 3 = len([Chunk(section_title='Save a Scene', text='Build a scene and export it.\n\n```python\nfrom aspose.threed import Scene\...se-slides-foss/Aspose.Slides-FOSS-for-Python#readme',), validation=ValidationResult(verdict='not_checked', detail=''))])
+
+tests\normalization\test_chunker_fence_aware.py:88: AssertionError
+_________ test_b_real_headings_outside_any_fence_still_split_normally _________
+
+    def test_b_real_headings_outside_any_fence_still_split_normally() -> None:
+        """The fix narrows what counts as a heading - it must not disable heading-splitting
+        everywhere. Three real ``##`` headings, with a fence (holding its own column-0 ``#`` comment)
+        sitting between two of them, must still produce three separate sections."""
+        body = (
+            "## Overview\n\n"
+            "A rendering and cross-platform release.\n\n"
+            "## Installation\n\n"
+            "```bash\n"
+            "# not a heading - a shell comment inside the fence\n"
+            "pip install aspose-3d-foss\n"
+            "```\n\n"
+            "## Usage\n\n"
+            "Import the package and get started.\n"
+        )
+        chunks = chunk_document(_document(body))
+    
+        titles = [c.section_title for c in chunks]
+>       assert titles == ["Overview", "Installation", "Usage"]
+E       AssertionError: assert ['Overview', ...nce', 'Usage'] == ['Overview', ...ion', 'Usage']
+E         
+E         At index 2 diff: 'not a heading - a shell comment inside the fence' != 'Usage'
+E         Left contains one more item: 'Usage'
+E         Use -v to get more diff
+
+tests\normalization\test_chunker_fence_aware.py:121: AssertionError
+_ test_a2_two_separate_fences_in_one_document_are_each_tracked_independently __
+
+    def test_a2_two_separate_fences_in_one_document_are_each_tracked_independently() -> None:
+        """A document with TWO separate, properly-closed fences (each carrying its own in-fence
+        comment), followed by a real heading after both close - proves fence-tracking resets correctly
+        between fences rather than treating the whole rest of the document as "still in a fence" once
+        the first one closes, or conversely losing track and missing the second fence's comment."""
+        body = (
+            "## First Example\n\n"
+            "```python\n"
+            "# first fence's own column-0 comment\n"
+            "print('one')\n"
+            "```\n\n"
+            "## Second Example\n\n"
+            "```python\n"
+            "# second fence's own column-0 comment\n"
+            "print('two')\n"
+            "```\n\n"
+            "## Wrap Up\n\n"
+            "Both examples ran.\n"
+        )
+        chunks = chunk_document(_document(body))
+    
+        titles = [c.section_title for c in chunks]
+>       assert titles == ["First Example", "Second Example", "Wrap Up"]
+E       assert ['First Examp...t", 'Wrap Up'] == ['First Examp...e', 'Wrap Up']
+E         
+E         At index 1 diff: "first fence's own column-0 comment" != 'Second Example'
+E         Left contains 2 more items, first extra item: "second fence's own column-0 comment"
+E         Use -v to get more diff
+
+tests\normalization\test_chunker_fence_aware.py:153: AssertionError
+________ test_c_an_unclosed_fence_falls_back_to_closing_at_end_of_body ________
+
+    def test_c_an_unclosed_fence_falls_back_to_closing_at_end_of_body() -> None:
+        """An opened-but-never-closed fence must not make the rest of a real document unscannable in
+        the OTHER direction either: everything from the opening delimiter to the end of the body stays
+        inside the one section the fence opened in - including a line that looks like a real heading -
+        rather than the chunker crashing, hanging, or (the regression this card fixes) treating that
+        line as a real heading and splitting there anyway."""
+        body = (
+            "# Truncated Example\n\n"
+            "The fence below is never closed - a real, if malformed, README can look like this.\n\n"
+            "```python\n"
+            "import os\n"
+            "\n"
+            "# a column-0 comment, same shape as the orphan-triggering ones\n"
+            "print(os.getcwd())\n"
+            "\n"
+            "# Looks Like A Heading But Is Inside The Unclosed Fence\n"
+            "print('still inside the broken fence')\n"
+        )
+        chunks = chunk_document(_document(body))
+    
+>       assert len(chunks) == 1
+E       AssertionError: assert 3 == 1
+E        +  where 3 = len([Chunk(section_title='Truncated Example', text='The fence below is never closed - a real, if malformed, README can loo...se-slides-foss/Aspose.Slides-FOSS-for-Python#readme',), validation=ValidationResult(verdict='not_checked', detail=''))])
+
+tests\normalization\test_chunker_fence_aware.py:185: AssertionError
+_ test_d_real_slides_python_quick_start_no_longer_orphans_on_the_in_fence_comments _
+
+    def test_d_real_slides_python_quick_start_no_longer_orphans_on_the_in_fence_comments() -> None:
+        """``tests/fixtures/furnished/slides_python/pages/_index.md`` is one of TC-609's three
+        confirmed-affected pilots. Its real, committed "Installation, Dependencies, and Quick Start"
+        content block's ``### Quick Start`` subsection carries a fenced Python example with TWO
+        column-0 ``#`` comments inside the fence ("Create a new presentation...", "Open an existing
+        presentation...") - read through the real, production ``extract_doc_sections`` (TC-110), never
+        a second, hand-rolled extraction.
+    
+        First this proves the raw real text WOULD have triggered the old defect: the OLD, unfixed
+        ``_HEADING`` regex (imported from the real module, not re-derived) matches both in-fence
+        comment lines in addition to the four genuine ``###`` headings. Then it proves the FIXED
+        ``chunk_document`` no longer acts on those two matches: the whole ``### Quick Start``
+        subsection - prose, fence open, both comments, both code blocks, fence close - survives as ONE
+        section, and neither in-fence comment line ever becomes a chunk title of its own.
+        """
+        page = _load_page(FIXTURE_ROOT / "slides_python" / "pages" / "_index.md")
+        candidates = extract_doc_sections(page)
+        candidate = next(c for c in candidates if c.title == "Installation, Dependencies, and Quick Start")
+    
+        # The real body contains both in-fence comment lines, verbatim.
+        assert "# Create a new presentation" in candidate.body
+        assert "# Open an existing presentation" in candidate.body
+    
+        # Sanity: the OLD (unfixed) regex really does match both in-fence lines on this real text -
+        # the defect this card closes is real on this exact committed fixture, not a synthetic stand-in.
+        old_heading_lines = [match.group(0) for match in _HEADING.finditer(candidate.body)]
+        assert any(line.startswith("# Create a new presentation") for line in old_heading_lines)
+        assert any(line.startswith("# Open an existing presentation") for line in old_heading_lines)
+    
+        doc = make_document(
+            source_kind=SourceKind.FURNISHED,
+            content_type="doc",
+            provenance=PROVENANCE,
+            evidence_refs=("aspose-slides-foss/Aspose.Slides-FOSS-for-Python#readme",),
+            title=candidate.title,
+            body=candidate.body,
+        )
+        chunks = chunk_document(doc)
+        titles = [chunk.section_title for chunk in chunks]
+    
+        # Neither in-fence comment produced its own chunk - the orphan-fragment defect is gone.
+>       assert not any(title.startswith("Create a new presentation") for title in titles)
+E       assert not True
+E        +  where True = any(<generator object test_d_real_slides_python_quick_start_no_longer_orphans_on_the_in_fence_comments.<locals>.<genexpr> at 0x000001E394E325A0>)
+
+tests\normalization\test_chunker_fence_aware.py:241: AssertionError
+=========================== short test summary info ===========================
+FAILED tests/normalization/test_chunker_fence_aware.py::test_a_column_0_comment_inside_a_fence_never_splits_the_chunk
+FAILED tests/normalization/test_chunker_fence_aware.py::test_b_real_headings_outside_any_fence_still_split_normally
+FAILED tests/normalization/test_chunker_fence_aware.py::test_a2_two_separate_fences_in_one_document_are_each_tracked_independently
+FAILED tests/normalization/test_chunker_fence_aware.py::test_c_an_unclosed_fence_falls_back_to_closing_at_end_of_body
+FAILED tests/normalization/test_chunker_fence_aware.py::test_d_real_slides_python_quick_start_no_longer_orphans_on_the_in_fence_comments
+
+--- stderr ---
+
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-5c72e798a73c059a\Scripts\python.exe -m pytest tests/normalization/test_chunker_fence_aware.py tests/normalization/test_chunker.py tests/conformance/test_example_integrity.py -q -rfE -p no:cacheprovider "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-1ija68a7\.junit-1.xml"
+--- stdout ---
+FFFFF..............                                                      [100%]
+================================== FAILURES ===================================
+________ test_a_column_0_comment_inside_a_fence_never_splits_the_chunk ________
+
+    def test_a_column_0_comment_inside_a_fence_never_splits_the_chunk() -> None:
+        body = (
+            "# Save a Scene\n\n"
+            "Build a scene and export it.\n\n"
+            "```python\n"
+            "from aspose.threed import Scene\n"
+            "\n"
+            "scene = Scene()\n"
+            "\n"
+            "# Save to STL once the scene is built - a column-0 comment, the exact shape the old\n"
+            "# _HEADING regex mistook for a markdown heading.\n"
+            "scene.save('crate.stl')\n"
+            "```\n\n"
+            "The saved file can now be reopened by any STL-aware tool.\n"
+        )
+        chunks = chunk_document(_document(body))
+    
+>       assert len(chunks) == 1
+E       AssertionError: assert 3 == 1
+E        +  where 3 = len([Chunk(section_title='Save a Scene', text='Build a scene and export it.\n\n```python\nfrom aspose.threed import Scene\...se-slides-foss/Aspose.Slides-FOSS-for-Python#readme',), validation=ValidationResult(verdict='not_checked', detail=''))])
+
+tests\normalization\test_chunker_fence_aware.py:88: AssertionError
+_________ test_b_real_headings_outside_any_fence_still_split_normally _________
+
+    def test_b_real_headings_outside_any_fence_still_split_normally() -> None:
+        """The fix narrows what counts as a heading - it must not disable heading-splitting
+        everywhere. Three real ``##`` headings, with a fence (holding its own column-0 ``#`` comment)
+        sitting between two of them, must still produce three separate sections."""
+        body = (
+            "## Overview\n\n"
+            "A rendering and cross-platform release.\n\n"
+            "## Installation\n\n"
+            "```bash\n"
+            "# not a heading - a shell comment inside the fence\n"
+            "pip install aspose-3d-foss\n"
+            "```\n\n"
+            "## Usage\n\n"
+            "Import the package and get started.\n"
+        )
+        chunks = chunk_document(_document(body))
+    
+        titles = [c.section_title for c in chunks]
+>       assert titles == ["Overview", "Installation", "Usage"]
+E       AssertionError: assert ['Overview', ...nce', 'Usage'] == ['Overview', ...ion', 'Usage']
+E         
+E         At index 2 diff: 'not a heading - a shell comment inside the fence' != 'Usage'
+E         Left contains one more item: 'Usage'
+E         Use -v to get more diff
+
+tests\normalization\test_chunker_fence_aware.py:121: AssertionError
+_ test_a2_two_separate_fences_in_one_document_are_each_tracked_independently __
+
+    def test_a2_two_separate_fences_in_one_document_are_each_tracked_independently() -> None:
+        """A document with TWO separate, properly-closed fences (each carrying its own in-fence
+        comment), followed by a real heading after both close - proves fence-tracking resets correctly
+        between fences rather than treating the whole rest of the document as "still in a fence" once
+        the first one closes, or conversely losing track and missing the second fence's comment."""
+        body = (
+            "## First Example\n\n"
+            "```python\n"
+            "# first fence's own column-0 comment\n"
+            "print('one')\n"
+            "```\n\n"
+            "## Second Example\n\n"
+            "```python\n"
+            "# second fence's own column-0 comment\n"
+            "print('two')\n"
+            "```\n\n"
+            "## Wrap Up\n\n"
+            "Both examples ran.\n"
+        )
+        chunks = chunk_document(_document(body))
+    
+        titles = [c.section_title for c in chunks]
+>       assert titles == ["First Example", "Second Example", "Wrap Up"]
+E       assert ['First Examp...t", 'Wrap Up'] == ['First Examp...e', 'Wrap Up']
+E         
+E         At index 1 diff: "first fence's own column-0 comment" != 'Second Example'
+E         Left contains 2 more items, first extra item: "second fence's own column-0 comment"
+E         Use -v to get more diff
+
+tests\normalization\test_chunker_fence_aware.py:153: AssertionError
+________ test_c_an_unclosed_fence_falls_back_to_closing_at_end_of_body ________
+
+    def test_c_an_unclosed_fence_falls_back_to_closing_at_end_of_body() -> None:
+        """An opened-but-never-closed fence must not make the rest of a real document unscannable in
+        the OTHER direction either: everything from the opening delimiter to the end of the body stays
+        inside the one section the fence opened in - including a line that looks like a real heading -
+        rather than the chunker crashing, hanging, or (the regression this card fixes) treating that
+        line as a real heading and splitting there anyway."""
+        body = (
+            "# Truncated Example\n\n"
+            "The fence below is never closed - a real, if malformed, README can look like this.\n\n"
+            "```python\n"
+            "import os\n"
+            "\n"
+            "# a column-0 comment, same shape as the orphan-triggering ones\n"
+            "print(os.getcwd())\n"
+            "\n"
+            "# Looks Like A Heading But Is Inside The Unclosed Fence\n"
+            "print('still inside the broken fence')\n"
+        )
+        chunks = chunk_document(_document(body))
+    
+>       assert len(chunks) == 1
+E       AssertionError: assert 3 == 1
+E        +  where 3 = len([Chunk(section_title='Truncated Example', text='The fence below is never closed - a real, if malformed, README can loo...se-slides-foss/Aspose.Slides-FOSS-for-Python#readme',), validation=ValidationResult(verdict='not_checked', detail=''))])
+
+tests\normalization\test_chunker_fence_aware.py:185: AssertionError
+_ test_d_real_slides_python_quick_start_no_longer_orphans_on_the_in_fence_comments _
+
+    def test_d_real_slides_python_quick_start_no_longer_orphans_on_the_in_fence_comments() -> None:
+        """``tests/fixtures/furnished/slides_python/pages/_index.md`` is one of TC-609's three
+        confirmed-affected pilots. Its real, committed "Installation, Dependencies, and Quick Start"
+        content block's ``### Quick Start`` subsection carries a fenced Python example with TWO
+        column-0 ``#`` comments inside the fence ("Create a new presentation...", "Open an existing
+        presentation...") - read through the real, production ``extract_doc_sections`` (TC-110), never
+        a second, hand-rolled extraction.
+    
+        First this proves the raw real text WOULD have triggered the old defect: the OLD, unfixed
+        ``_HEADING`` regex (imported from the real module, not re-derived) matches both in-fence
+        comment lines in addition to the four genuine ``###`` headings. Then it proves the FIXED
+        ``chunk_document`` no longer acts on those two matches: the whole ``### Quick Start``
+        subsection - prose, fence open, both comments, both code blocks, fence close - survives as ONE
+        section, and neither in-fence comment line ever becomes a chunk title of its own.
+        """
+        page = _load_page(FIXTURE_ROOT / "slides_python" / "pages" / "_index.md")
+        candidates = extract_doc_sections(page)
+        candidate = next(c for c in candidates if c.title == "Installation, Dependencies, and Quick Start")
+    
+        # The real body contains both in-fence comment lines, verbatim.
+        assert "# Create a new presentation" in candidate.body
+        assert "# Open an existing presentation" in candidate.body
+    
+        # Sanity: the OLD (unfixed) regex really does match both in-fence lines on this real text -
+        # the defect this card closes is real on this exact committed fixture, not a synthetic stand-in.
+        old_heading_lines = [match.group(0) for match in _HEADING.finditer(candidate.body)]
+        assert any(line.startswith("# Create a new presentation") for line in old_heading_lines)
+        assert any(line.startswith("# Open an existing presentation") for line in old_heading_lines)
+    
+        doc = make_document(
+            source_kind=SourceKind.FURNISHED,
+            content_type="doc",
+            provenance=PROVENANCE,
+            evidence_refs=("aspose-slides-foss/Aspose.Slides-FOSS-for-Python#readme",),
+            title=candidate.title,
+            body=candidate.body,
+        )
+        chunks = chunk_document(doc)
+        titles = [chunk.section_title for chunk in chunks]
+    
+        # Neither in-fence comment produced its own chunk - the orphan-fragment defect is gone.
+>       assert not any(title.startswith("Create a new presentation") for title in titles)
+E       assert not True
+E        +  where True = any(<generator object test_d_real_slides_python_quick_start_no_longer_orphans_on_the_in_fence_comments.<locals>.<genexpr> at 0x000001815721ECF0>)
+
+tests\normalization\test_chunker_fence_aware.py:241: AssertionError
+=========================== short test summary info ===========================
+FAILED tests/normalization/test_chunker_fence_aware.py::test_a_column_0_comment_inside_a_fence_never_splits_the_chunk
+FAILED tests/normalization/test_chunker_fence_aware.py::test_b_real_headings_outside_any_fence_still_split_normally
+FAILED tests/normalization/test_chunker_fence_aware.py::test_a2_two_separate_fences_in_one_document_are_each_tracked_independently
+FAILED tests/normalization/test_chunker_fence_aware.py::test_c_an_unclosed_fence_falls_back_to_closing_at_end_of_body
+FAILED tests/normalization/test_chunker_fence_aware.py::test_d_real_slides_python_quick_start_no_longer_orphans_on_the_in_fence_comments
+
+--- stderr ---
+

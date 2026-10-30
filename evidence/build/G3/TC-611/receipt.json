@@ -1,0 +1,111 @@
+{
+  "schema_version": 1,
+  "card": "TC-611",
+  "gate": "G3",
+  "generated_by": "gatectl",
+  "generated_at": "2026-10-30T14:16:11Z",
+  "base_rev": "5653afa519a97869afae4234b32c3eb34061a542",
+  "head_rev": "f2fb22e74cedbc647d65bcf374efdd446477a362",
+  "card_sha256": "b70210f08ac60b3cc8d6cf5d14f0c1ea14f7124a56b7e7605fd6369aa5c4fd46",
+  "fingerprint": {
+    "python": "3.13.2",
+    "platform": "Windows-11-10.0.26300-SP0",
+    "lock_sha256": "5c72e798a73c059a438e752e94a8d4c88c1bdf81a197f6e5c5fcecbc9466a691",
+    "env": {
+      "PYTHONHASHSEED": "0",
+      "PYTHONUTF8": "1",
+      "PYTHONDONTWRITEBYTECODE": "1",
+      "PYTHONIOENCODING": "utf-8",
+      "TZ": "UTC",
+      "LC_ALL": "C.UTF-8",
+      "SOURCE_DATE_EPOCH": "1700000000",
+      "verify_runner": "host"
+    }
+  },
+  "scope": {
+    "ok": true,
+    "changed_paths": [
+      "src/foss_mcp/normalization/chunker.py",
+      "tests/normalization/test_chunker_fence_aware.py"
+    ],
+    "violations": [],
+    "evaluated": true
+  },
+  "runs": [
+    {
+      "run": 1,
+      "checks": [
+        {
+          "command": "{python} -m pytest tests/normalization/test_chunker_fence_aware.py -q -rfE",
+          "exit_code": 0,
+          "duration_s": 0.876,
+          "stdout_sha256": "4d2df7a96ce4a667da3ccf295f2d16c728a65ed0e861a3baa919f7bb469b02b5",
+          "tests": 5,
+          "skipped": 0,
+          "errors": 0,
+          "failures": 0
+        },
+        {
+          "command": "{python} -m pytest tests/normalization/test_chunker_fence_aware.py tests/normalization/test_chunker.py tests/conformance/test_example_integrity.py -q -rfE -p no:cacheprovider",
+          "exit_code": 0,
+          "duration_s": 4.195,
+          "stdout_sha256": "0caf379acbcb845c31b98bf4efeffb865a66d527d27d5bb4f34018bea0099078",
+          "tests": 19,
+          "skipped": 0,
+          "errors": 0,
+          "failures": 0
+        }
+      ],
+      "all_passed": true
+    },
+    {
+      "run": 2,
+      "checks": [
+        {
+          "command": "{python} -m pytest tests/normalization/test_chunker_fence_aware.py -q -rfE",
+          "exit_code": 0,
+          "duration_s": 0.84,
+          "stdout_sha256": "4d2df7a96ce4a667da3ccf295f2d16c728a65ed0e861a3baa919f7bb469b02b5",
+          "tests": 5,
+          "skipped": 0,
+          "errors": 0,
+          "failures": 0
+        },
+        {
+          "command": "{python} -m pytest tests/normalization/test_chunker_fence_aware.py tests/normalization/test_chunker.py tests/conformance/test_example_integrity.py -q -rfE -p no:cacheprovider",
+          "exit_code": 0,
+          "duration_s": 3.524,
+          "stdout_sha256": "0caf379acbcb845c31b98bf4efeffb865a66d527d27d5bb4f34018bea0099078",
+          "tests": 19,
+          "skipped": 0,
+          "errors": 0,
+          "failures": 0
+        }
+      ],
+      "all_passed": true
+    }
+  ],
+  "negative_control": {
+    "kind": "mutate",
+    "patch": "python -X utf8 -c \"import pathlib; p = pathlib.Path('src/foss_mcp/normalization/chunker.py'); s = p.read_text(encoding='utf-8'); old = 'spans = _fence_spans(body)'; assert s.count(old) == 1, 'fix text not found - card and source have diverged'; p.write_text(s.replace(old, 'spans = []  # TC-611 negative control: fence spans forced empty, fence tracking never applied', 1), encoding='utf-8')\"\n",
+    "patch_sha256": "457a5c251b1576ba3ad6c388beb555bc9e138473794ec52f948b5423d5823b4d",
+    "applied": true,
+    "patch_applied_failed": true,
+    "exit_codes": [
+      1,
+      1
+    ],
+    "tree_changed": [
+      "M src/foss_mcp/normalization/chunker.py",
+      "?? .junit-0.xml",
+      "?? .junit-1.xml"
+    ]
+  },
+  "holdout": {
+    "ran": false,
+    "passed": true,
+    "detail": "no holdout for this card"
+  },
+  "accepted": true,
+  "reason": "all gates passed"
+}
