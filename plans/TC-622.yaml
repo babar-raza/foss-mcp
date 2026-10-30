@@ -1,0 +1,160 @@
+id: TC-622
+gate: G3
+lane: storage-retrieval
+purpose: >-
+  Build I8 (REQ-G3-012): wire the real, already-written `served_version` field (written into the
+  package-registry sidecar JSON at ingestion time since TC-561, but never read by anything since -
+  an AGENTS.md "Integration and liveness" gap) through to I7's new `registry_served_version`
+  parameter on `report_index_freshness` (TC-621), so a live server actually feeds it real data
+  instead of it only ever being exercised by unit tests passing it in directly. The full real chain,
+  confirmed by reading the real code: `infra/verify_package_registry.py`'s `main()` already writes
+  `{"ecosystem", "coordinate", "verified", "checked_at", "served_version", ...}` to the sidecar file
+  (`served_version_or_none(...)` when `verified`, else `null`); `infra/serve_http.py`'s
+  `_merge_registry_verification` already reads that SAME sidecar file but only extracts 3 of its
+  keys (`verified`, `coordinate`, `checked_at`) into `ProductReferenceInputs` via
+  `install_verified`/`install_verified_coordinate`/`install_verified_checked_at` - `served_version`
+  is read from the file's `state`/`payload` dict but then silently dropped on the floor, never
+  reaching `ProductReferenceInputs` at all; `src/foss_mcp/mcp/server.py`'s
+  `_live_report_index_freshness` already calls the real `report_index_freshness(...)` with
+  `product_reference=inputs` but has no `registry_served_version=` argument at all (TC-621
+  deliberately left this out of its own scope). This card closes that whole chain, end to end. Read
+  C:\Users\babar\.claude\plans\steady-wobbling-meteor.md section 1.1 (M2/C8) and 2.3 (I6-I8) first.
+depends_on:
+  - TC-564
+  - TC-582
+  - TC-621
+write_paths:
+  - src/foss_mcp/mcp/tools/get_product_reference.py
+  - infra/serve_http.py
+  - src/foss_mcp/mcp/server.py
+  - tests/infra/test_serve_registry_served_version.py
+  - tests/mcp/test_server_registry_served_version_wiring.py
+satisfies:
+  - REQ-G3-012
+source_refs:
+  - file: docs/DECISION_LOG.md
+    anchor: >-
+      ## 2026-10-30 — Round-2 portfolio audit remediation adopted: unified plan, governance decisions A-K
+      recorded (supervisor)
+    sha256: 62cf1403a592118e3fb6bd14c5336f8a997cc3181d44a585323ec9f1d385a931
+inputs:
+  - >-
+    READ FIRST, in full, before writing anything (the exact current control flow is required to get
+    this right - re-read the real files, do not trust line numbers from memory): (1)
+    `infra/verify_package_registry.py`'s real `main()` - confirm the exact sidecar JSON shape it
+    writes, in particular that `served_version` is a plain string (e.g. "26.8.0") or `None`/`null`,
+    never pre-parsed; (2) `infra/serve_http.py`'s real `_merge_registry_verification` function in
+    full, including the type-check block that currently validates only `verified`/`coordinate`/
+    `checked_at` and the final `dataclasses.replace(sidecar, install_verified=..., ...)` call that
+    currently sets only those 3 fields; (3) `src/foss_mcp/mcp/tools/get_product_reference.py`'s real
+    `ProductReferenceInputs` dataclass, in particular the existing `install_verified`,
+    `install_verified_coordinate`, `install_verified_checked_at` fields and their doc-comment
+    convention (each one's own small comment block, "None (the default)... means X") - match that
+    convention exactly for the new field; (4) `src/foss_mcp/mcp/server.py`'s real
+    `_live_report_index_freshness` function and its one real call to `report_index_freshness(...)`;
+    (5) `src/foss_mcp/mcp/tools/release_alignment.py`'s real `parse_release_version(tag) ->
+    tuple[int, ...] | None`.
+  - >-
+    (a) In `get_product_reference.py`: add `install_verified_served_version: str | None = None` to
+    `ProductReferenceInputs`, placed next to the other 3 `install_verified_*` fields, with a short
+    doc-comment in the SAME style ("G3/TC-622: ... None (the default, and what a sidecar written
+    before this card loads as) means 'never checked, or the registry confirmed nothing is
+    published'"). This is a RAW string (unparsed), mirroring how `install_verified_checked_at`
+    is also stored raw - parsing happens only at the one real consumer, never here.
+  - >-
+    (b) In `infra/serve_http.py`'s `_merge_registry_verification`: widen the type-check block to
+    also accept `loaded.get("served_version")` being either `None` or a `str` (reject any other
+    type the same way the existing 3 fields are rejected - one shared `problem = _PROBLEM_WRONG_TYPES`
+    path, do not add a second, differently-worded problem constant unless the existing one's wording
+    is actually wrong for this case). Thread it into the final `dataclasses.replace(...)` call as
+    `install_verified_served_version=registry_verification.get("served_version")`. A sidecar written
+    before this card (no `served_version` key at all) must be accepted exactly as before - `.get()`
+    with no key present returns `None`, which is already a valid, well-typed value per (a).
+  - >-
+    (c) In `src/foss_mcp/mcp/server.py`'s `_live_report_index_freshness`: parse
+    `inputs.install_verified_served_version` via `release_alignment.parse_release_version` when it is
+    not `None` (import `parse_release_version` alongside whatever `release_alignment` symbols this
+    file already imports, or add a fresh import if none exist yet - check first), and pass the
+    result as `registry_served_version=` to the real `report_index_freshness(...)` call. When
+    `install_verified_served_version` is `None`, pass `registry_served_version=None` (or omit the
+    argument - the default is the same either way; pick whichever reads more clearly next to the
+    other keyword arguments already there).
+  - >-
+    tests/infra/test_serve_registry_served_version.py (reuse the real fixture-building helpers
+    already in `tests/infra/test_serve_http.py`/`test_serve_sidecar_tolerance.py` for constructing a
+    real sidecar file on disk and a real `deployment_config` - do not invent new ones): (a) a real
+    sidecar file written with a `served_version` string produces a `ProductReferenceInputs` whose
+    `install_verified_served_version` equals that exact string, through the real
+    `_merge_registry_verification` function; (b) a sidecar written with `served_version: null`
+    (the `verified=False` shape `main()` itself writes) produces `install_verified_served_version is
+    None`; (c) a sidecar written BEFORE this card (no `served_version` key present at all - construct
+    this dict literally without the key, simulating an old file) is accepted exactly as before,
+    `install_verified_served_version is None`, and every OTHER field (`install_verified`, etc.) is
+    unaffected; (d) a sidecar where `served_version` is present but wrong-typed (an int, a list) is
+    rejected the same way the 3 existing fields already are (confirm the real existing rejection
+    behaviour for a wrong-typed `verified`/`coordinate` first, then mirror it exactly for this new
+    field - same warning, same fallback-to-unverified behaviour).
+  - >-
+    tests/mcp/test_server_registry_served_version_wiring.py (through the real, public, wired
+    `create_server`/the real `_live_report_index_freshness` - not by calling
+    `report_index_freshness` directly, which TC-621 already tests in isolation): (a) a
+    `ProductReferenceInputs` with a real `install_verified_served_version` string (e.g. "26.8.0")
+    and a manifest declaring an OLDER version, with no other freshness signal available (no
+    `current_source_commit`, no usable releases), produces a `FreshnessReport` with
+    `freshness_state="stale"` and `freshness_basis="registry_served_version"` through the real,
+    live-wired tool function - proving the whole chain end to end, not just each piece in isolation;
+    (b) `install_verified_served_version=None` (the default, and what every EXISTING test already
+    constructs) produces byte-identical `FreshnessReport` output to before this card - the
+    backward-compatibility proof; (c) a malformed version string (`parse_release_version` returns
+    `None` for it) degrades to `registry_served_version=None` being passed through, never raising.
+    Never weaken a check to make it pass.
+actions:
+  - >-
+    Thread the already-written, already-landed-but-never-read served_version sidecar field through
+    ProductReferenceInputs and the real server.py call site into I7's registry_served_version
+    parameter, closing the whole unwired chain end to end with zero change to any sidecar written
+    before this card.
+checks:
+  - command: '{python} -m pytest tests/infra/test_serve_registry_served_version.py tests/mcp/test_server_registry_served_version_wiring.py -q -rfE'
+    expect: 'exit 0'
+    timeout_seconds: 180
+    junitxml: true
+    proves:
+      - REQ-G3-012
+  - command: '{python} -m pytest tests/infra/test_serve_registry_served_version.py tests/mcp/test_server_registry_served_version_wiring.py tests/infra/test_serve_http.py tests/infra/test_serve_sidecar_tolerance.py tests/mcp/test_server_wiring.py tests/mcp/tools/test_freshness_registry_version.py -q -rfE -p no:cacheprovider'
+    expect: 'exit 0'
+    timeout_seconds: 300
+    junitxml: true
+    proves:
+      - REQ-G3-012
+min_tests: 7
+requires:
+  - python
+network: false
+negative_control:
+  mutate: |
+    python -X utf8 -c "import pathlib; p = pathlib.Path('src/foss_mcp/mcp/server.py'); s = p.read_text(encoding='utf-8'); old = '        inputs = snapshot.product_reference_inputs'; assert s.count(old) == 1, 'fix text not found - card and source have diverged'; new = old + chr(10) + '        inputs = dataclasses.replace(inputs, install_verified_served_version=None)  # TC-622 negative control'; p.write_text(s.replace(old, new, 1), encoding='utf-8')"
+  rationale: >-
+    Immediately after `_live_report_index_freshness` reads `inputs` from the real sidecar snapshot,
+    forces `install_verified_served_version` back to `None` regardless of what the real sidecar
+    merge (steps a/b) actually produced - reproducing "the field never reaches this call site" even
+    though it IS correctly populated upstream. The new end-to-end wiring test (part a, the
+    stale-verdict-through-the-real-wired-tool case) must then fail, proving it exercises the real
+    server.py call site rather than trusting that `install_verified_served_version` merely exists as
+    a field. Dry-run confirmed by the supervisor: applies cleanly (the anchor line, `inputs =
+    snapshot.product_reference_inputs`, already exists today and is unrelated to this card's own
+    diff, so it is immune to however steps (a)-(c) are otherwise implemented); `dataclasses` is
+    already imported in server.py.
+evidence:
+  - evidence/build/G3/TC-622/receipt.json
+closeout:
+  - >-
+    The real served_version sidecar field now reaches report_index_freshness's
+    registry_served_version parameter end to end, through ProductReferenceInputs and the real
+    server.py call site, with zero behaviour change for any sidecar written before this card.
+recovery: >-
+  If any step in the chain (sidecar merge, dataclass field, server.py call site) turns out to
+  already partially exist in a different shape than described here, confirm the real current shape
+  yourself and adapt the specific field names/call sites accordingly - the END-TO-END wiring
+  requirement (a real served_version value reaching registry_served_version) is what this card must
+  satisfy, not the exact field names guessed here if the real code has since diverged.
