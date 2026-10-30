@@ -51,3 +51,133 @@ jobs:
         env:
           PYTEST_ADDOPTS: "--ignore=tests/e2e --ignore=tests/infra"
         run: bash scripts/ci_check.sh
+
+  # T3 (REQ-G3-010): re-prove, on every push/PR, the corpus-level determinism finding already
+  # established for this plan (the 729-case retrieval corpus is byte-identical under 7 different
+  # PYTHONHASHSEED values - see docs/DECISION_LOG.md and
+  # C:\Users\babar\.claude\plans\steady-wobbling-meteor.md section 1.2/2.1). This does NOT fix the
+  # separate, narrower search_symbols.py frozenset-sorted-by-fraction tie flagged in the same
+  # research; that is a future card's job.
+  determinism:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+
+      - name: Install dependencies (hash-verified)
+        run: pip install --no-cache-dir --require-hashes -r requirements.lock
+
+      # Three independent runs under three distinct PYTHONHASHSEED values. Each writes its own
+      # JUnit XML so the next step can diff real test-outcome content, not just an exit code.
+      - name: Run retrieval corpus under PYTHONHASHSEED=0
+        env:
+          PYTHONHASHSEED: '0'
+        run: >-
+          python -m pytest tests/mcp/tools/test_round3_retrieval_corpus.py -q -rfE
+          --junitxml=run-0.xml
+
+      - name: Run retrieval corpus under PYTHONHASHSEED=1
+        env:
+          PYTHONHASHSEED: '1'
+        run: >-
+          python -m pytest tests/mcp/tools/test_round3_retrieval_corpus.py -q -rfE
+          --junitxml=run-1.xml
+
+      - name: Run retrieval corpus under PYTHONHASHSEED=42
+        env:
+          PYTHONHASHSEED: '42'
+        run: >-
+          python -m pytest tests/mcp/tools/test_round3_retrieval_corpus.py -q -rfE
+          --junitxml=run-42.xml
+
+      # Compares each run's (classname, name, outcome) triples - never timing fields, which
+      # legitimately differ run to run - and fails the job if any run's outcomes differ.
+      - name: Diff the three runs' test-outcome summaries
+        run: |
+          python -c "
+          import sys
+          import xml.etree.ElementTree as ET
+
+          def outcomes(path):
+              root = ET.parse(path).getroot()
+              result = {}
+              for case in root.iter('testcase'):
+                  key = (case.get('classname'), case.get('name'))
+                  if case.find('failure') is not None:
+                      outcome = 'failure'
+                  elif case.find('error') is not None:
+                      outcome = 'error'
+                  elif case.find('skipped') is not None:
+                      outcome = 'skipped'
+                  else:
+                      outcome = 'passed'
+                  result[key] = outcome
+              return result
+
+          files = ['run-0.xml', 'run-1.xml', 'run-42.xml']
+          summaries = [outcomes(f) for f in files]
+          baseline = summaries[0]
+          if not baseline:
+              print('run-0.xml collected zero test cases', file=sys.stderr)
+              sys.exit(1)
+          mismatched = False
+          for name, summary in zip(files[1:], summaries[1:]):
+              if summary != baseline:
+                  mismatched = True
+                  print(f'{name} differs from {files[0]}:', file=sys.stderr)
+                  for key in sorted(set(baseline) | set(summary)):
+                      a, b = baseline.get(key), summary.get(key)
+                      if a != b:
+                          print(f'  {key}: {files[0]}={a!r} {name}={b!r}', file=sys.stderr)
+          if mismatched:
+              sys.exit(1)
+          print(f'All {len(baseline)} test outcomes identical across PYTHONHASHSEED=0,1,42')
+          "
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: determinism-junit-xml
+          path: |
+            run-0.xml
+            run-1.xml
+            run-42.xml
+
+  # T3 (REQ-G3-010): a conservatively-scoped Windows job. Deliberately does NOT use
+  # scripts/toolchain/activate.ps1 or anything under C:\dev-tools - that script only prepends PATH
+  # entries pointing at a PRE-INSTALLED toolchain tree on a specific developer machine; it installs
+  # nothing, and a GitHub-hosted windows-latest runner has none of Go/Rust/Java/.NET/CMake/Node
+  # pre-installed. Bootstrapping that full polyglot toolchain on Windows CI is a separate,
+  # deliberate future card - out of scope here.
+  #
+  # Scope is tests/mcp and tests/conformance only, chosen empirically (not guessed): every test
+  # file under both directories was checked for subprocess/toolchain invocations, and the only
+  # subprocess calls found anywhere in tests/mcp or tests/conformance shell out to `git`
+  # (test_server_identity.py, test_round3_drift.py), which ships with actions/checkout's runner
+  # image. tests/indexing was EXCLUDED: it contains real go/cargo/javac/dotnet/cmake/node verifier
+  # tests (e.g. test_go_verifier_assembly.py, test_rust_verifier_assembly.py,
+  # test_java_verifier_pilots.py, test_dotnet_verifier_assembly.py, test_nodejs_verifier.py,
+  # test_cpp_verifier_linux.py) that genuinely need those toolchains. This scope was also run end
+  # to end on a Windows machine with only python/git on PATH (no custom toolchain) as part of this
+  # card's own verification, and collected and passed hundreds of tests with zero failures.
+  windows-python-only:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+
+      - name: Install dependencies (hash-verified)
+        run: pip install --no-cache-dir --require-hashes -r requirements.lock
+
+      - name: Run the Windows-safe pytest subset (tests/mcp, tests/conformance)
+        run: python -m pytest tests/mcp tests/conformance -q -rfE
