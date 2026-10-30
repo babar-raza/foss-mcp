@@ -1,0 +1,128 @@
+id: TC-620
+gate: G3
+lane: extraction
+purpose: >-
+  Build I3 (REQ-G3-012): deduplicate the DENOMINATOR side of the API-Coverage ratio -
+  `run_extraction.summarize_symbols`'s `symbol_counts.types` total, which TC-614 (I2) deliberately
+  left inflated (it counts every raw extracted entry, aliases included, exactly like the numerator
+  did before I2). After I2 alone, a pilot with real aliases honestly shows a ratio BELOW 100% for
+  the first time (measured: slides/python "516 of 1022"), but the "1022" itself is still the old,
+  un-deduplicated raw entry count. This card closes that: `summarize_symbols` must count each
+  canonical unit (I1's `symbol_identity.compute_canonical_identities`) once, so the SAME pilot
+  reports something like "516 of 517" (the real, honest ratio) instead of an inflated denominator
+  that permanently caps the ratio below 100% even for a pilot the extractor fully covers. Read
+  C:\Users\babar\.claude\plans\steady-wobbling-meteor.md section 1.1 (M2/C1) and 2.3 (I1-I5) first.
+depends_on:
+  - TC-561
+  - TC-612
+  - TC-614
+write_paths:
+  - src/foss_mcp/extraction/run_extraction.py
+  - tests/extraction/test_run_extraction_canonical_counts.py
+satisfies:
+  - REQ-G3-012
+source_refs:
+  - file: docs/DECISION_LOG.md
+    anchor: >-
+      ## 2026-10-30 — Round-2 portfolio audit remediation adopted: unified plan, governance decisions A-K
+      recorded (supervisor)
+    sha256: 62cf1403a592118e3fb6bd14c5336f8a997cc3181d44a585323ec9f1d385a931
+inputs:
+  - >-
+    READ FIRST: C:\Users\babar\.claude\plans\steady-wobbling-meteor.md section 2.3 (I1-I5). Also
+    read, in full, before writing anything: `src/foss_mcp/extraction/run_extraction.py`'s real
+    `summarize_symbols(types)` function (around line 592) and its ONE real call site inside
+    `extract_pinned_repository` (around line 610-645, `"symbol_counts": summarize_symbols(types)`
+    - confirm `types` there is the FULL, raw, un-cut extracted list, the same shape chunk_builder's
+    own `entries` parameter expects - no slot-cap has been applied yet at this point in the
+    pipeline, since that only happens later, per-generation, inside chunk_builder); and
+    `src/foss_mcp/indexing/symbol_identity.py`'s real `SymbolIdentity`/
+    `compute_canonical_identities(entries) -> list[SymbolIdentity]` (TC-612) IN FULL - confirm its
+    exact real shape and input-shape expectations (a `Sequence[Mapping[str, object]]` of the same
+    extractor-entry dicts). ALSO confirm, by reading both files' real import lists, that
+    `src/foss_mcp/indexing/chunk_builder.py` (which `symbol_identity.py` itself imports from) does
+    NOT import anything from `src/foss_mcp/extraction/` (checked already by the supervisor via
+    grep and found clean - no existing import either direction between these two packages - but
+    verify this yourself before adding a NEW cross-package import, extraction -> indexing, which
+    this card introduces for the first time in this codebase; if you find any reason this creates a
+    circular import or violates an architectural rule you can see evidence of elsewhere in the
+    repository, STOP and report that finding rather than working around it).
+  - >-
+    Add an optional `identities: Sequence[SymbolIdentity] | None = None` parameter to
+    `summarize_symbols(types, identities=None)` - `identities=None` (the default) must preserve the
+    EXACT current behaviour byte-for-byte, so every existing caller/test using the old one-argument
+    form is unaffected (this is the backward-compatibility contract, identical in shape to TC-614's
+    own `_coverage_line` change). When `identities` is given, replace the numerator-shaped
+    `len(entries) - functions` types-count with a count of entries whose
+    `identities[index].is_definition` is True AND whose `kind` is not `"function"` (mirroring
+    TC-614's exact dedup logic in `chunk_builder._coverage_line` - do not invent a different rule).
+    At the ONE real call site inside `extract_pinned_repository`, compute
+    `identities = compute_canonical_identities(types)` (the import you are adding) and pass it:
+    `summarize_symbols(types, identities=identities)`. Do NOT touch `api_counts` (a separate
+    function with a separate `"counts"` field in the artifact, used only by its own pinned tests as
+    far as you can confirm by grep - if you find it IS actually consumed by something coverage-
+    related that this card's own definition of done requires fixing, STOP and report that finding
+    rather than silently expanding scope to fix it too).
+  - >-
+    tests/extraction/test_run_extraction_canonical_counts.py (no mocks for the real-pilot case;
+    reads the real, committed `infra/demo-manifests`/fixture data, writes nothing to it): (a)
+    calling `summarize_symbols` with the OLD one-argument form produces IDENTICAL output to before
+    this card (copy a couple of cases from `tests/extraction/test_run_extraction_coverage_policy.py`
+    if suitable, or build synthetic ones) - the backward-compatibility proof; (b) a synthetic
+    `types` list with a real shell/definition pair (reuse `_reexport_pairs`'s own synthetic shapes,
+    matching one of its three real rules) produces a DEDUPLICATED `types` count with `identities`
+    given, smaller than without; (c) a REAL regression reproduction: run
+    `extract_pinned_repository`-shaped logic (or re-derive the relevant piece, calling
+    `summarize_symbols` with real `compute_canonical_identities` output) against the real,
+    committed `slides_python` extraction fixture and confirm the real denominator drops from the
+    old, inflated count to the real, deduplicated one - state the exact real before/after numbers in
+    your closeout; (d) an end-to-end proof that, with BOTH I2's numerator fix (already landed,
+    `chunk_builder._coverage_line`) and this card's denominator fix combined, the SAME slides/python
+    pilot's rendered coverage line now reads something close to "N of N" (fully honest, both sides
+    deduplicated) rather than I2-alone's "516 of 1022" - measure the real combined number, do not
+    assume it is exactly "516 of 516" (the numerator and denominator dedup rules are similar but not
+    byte-identical in every edge case - report what you actually measure). Never weaken a check to
+    make it pass.
+actions:
+  - >-
+    Thread I1's canonical-identity model into run_extraction's symbol_counts denominator so the
+    API-Coverage ratio's total also counts each alias group once, closing the gap I2 deliberately
+    left open - proven against the real slides/python pilot, combined with I2's already-landed fix.
+checks:
+  - command: '{python} -m pytest tests/extraction/test_run_extraction_canonical_counts.py -q -rfE'
+    expect: 'exit 0'
+    timeout_seconds: 180
+    junitxml: true
+    proves:
+      - REQ-G3-012
+  - command: '{python} -m pytest tests/extraction/test_run_extraction_canonical_counts.py tests/extraction/test_run_extraction_coverage_policy.py tests/extraction/test_round3_python_fidelity.py tests/indexing/test_symbol_identity.py -q -rfE -p no:cacheprovider'
+    expect: 'exit 0'
+    timeout_seconds: 300
+    junitxml: true
+    proves:
+      - REQ-G3-012
+min_tests: 4
+requires:
+  - python
+network: false
+negative_control:
+  mutate: |
+    python -X utf8 -c "import pathlib; p = pathlib.Path('src/foss_mcp/extraction/run_extraction.py'); s = p.read_text(encoding='utf-8'); old = 'def summarize_symbols('; assert s.count(old) == 1, 'fix text not found - card and source have diverged'; lines = s.splitlines(); i = next(idx for idx, line in enumerate(lines) if old in line); j = i + 1; depth_line = lines[j]; indent = ' ' * (len(depth_line) - len(depth_line.lstrip())); lines.insert(j, indent + 'identities = None  # TC-620 negative control: never use the canonical identities even when given'); p.write_text(chr(10).join(lines) + chr(10), encoding='utf-8')"
+  rationale: >-
+    Forces the function to ignore any identities argument it is given, immediately on entry,
+    reproducing the pre-fix, non-deduplicated denominator unconditionally. The deduplication test
+    and the real slides/python regression test must then fail, proving they exercise the real dedup
+    logic rather than trusting the function signature alone.
+evidence:
+  - evidence/build/G3/TC-620/receipt.json
+closeout:
+  - >-
+    summarize_symbols's types denominator is deduplicated via I1's canonical-identity model, fully
+    backward-compatible; state the real before/after numbers for slides/python's denominator alone,
+    and the real COMBINED (I2+I3) coverage-line number for that pilot. Confirm the new
+    extraction -> indexing import introduces no circular dependency.
+recovery: >-
+  If importing symbol_identity into run_extraction.py creates a circular import or you find
+  evidence elsewhere in the repository that extraction/ must never depend on indexing/, STOP and
+  report FAILED_INTERNAL with the exact error - do not route around it with a local re-implementation
+  of compute_canonical_identities, which this plan explicitly treats as the one shared engine.
