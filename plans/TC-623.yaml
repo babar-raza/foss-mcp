@@ -1,0 +1,141 @@
+id: TC-623
+gate: G3
+lane: verification
+purpose: >-
+  Build O1 part 1 (REQ-G3-012): fix the SINGLE largest, cleanest-mechanism bucket of the oracle
+  diff engine's false "missing" findings - the measured 43% ("missing", ~10,490 rows, Appendix D of
+  the plan) same-name collision, where `diff_language`'s `baked_by_name` dict
+  (`{str(t.get("name")): t for t in baked_types}`) is built from EVERY entry in the fixture's
+  `types` list, shell and definition alike, so when a Python re-export shell and its real
+  definition share a bare name, whichever happens to iterate LAST in the fixture's own list order
+  silently overwrites the other in the dict - if the shell (memberless, or carrying only a subset)
+  wins, every one of the real definition's genuine members is then diffed against the WRONG,
+  near-empty baked entry and reported as spuriously "missing", even though the real definition sits
+  right there in the same fixture a few entries away. This card is DELIBERATELY the ONE, narrow,
+  mechanical fix: prefer I1's canonical-identity model's definition entry over a shell when both
+  share a bare name. It does NOT attempt fully-qualified (cross-module) keying, overload-set
+  comparison, or inherited_from verification against a named ancestor - those are separate,
+  larger O1 sub-tasks for later cards; if you find yourself tempted to fix any of those too while
+  you are in this function, STOP and report the finding instead of expanding scope. Read
+  C:\Users\babar\.claude\plans\steady-wobbling-meteor.md section 1.3 (Appendix D) and 2.3 (O1-O10)
+  first.
+depends_on:
+  - TC-596
+  - TC-612
+write_paths:
+  - scripts/release/source_differential.py
+  - tests/release/test_oracle_shell_resolution.py
+satisfies:
+  - REQ-G3-012
+source_refs:
+  - file: docs/DECISION_LOG.md
+    anchor: >-
+      ## 2026-10-30 — Round-2 portfolio audit remediation adopted: unified plan, governance decisions A-K
+      recorded (supervisor)
+    sha256: 62cf1403a592118e3fb6bd14c5336f8a997cc3181d44a585323ec9f1d385a931
+inputs:
+  - >-
+    READ FIRST: C:\Users\babar\.claude\plans\steady-wobbling-meteor.md section 1.3 (the oracle
+    disagreement investigation, Appendix D) and 2.3 (O1-O10). Also read, in full, before writing
+    anything: `scripts/release/source_differential.py`'s real `diff_language` function (around
+    line 358) and its one real call site inside `verify_pilot` (around line 452-475, confirm
+    `fixture.get("types") or []` - the EXACT same shape of entry dicts `run_extraction`/
+    `chunk_builder` already use - is passed as `baked_types`); and
+    `src/foss_mcp/indexing/symbol_identity.py`'s real `SymbolIdentity`/
+    `compute_canonical_identities(entries) -> list[SymbolIdentity]` (TC-612) - confirm this script
+    already imports from `foss_mcp.*` elsewhere (`from foss_mcp.extraction import run_extraction`
+    near the top of the file), so importing `symbol_identity` too is consistent with existing
+    precedent, not a new layering concern.
+  - >-
+    Add `from foss_mcp.indexing.symbol_identity import compute_canonical_identities  # noqa: E402`
+    as a new module-level import, placed immediately after the existing
+    `from foss_mcp.extraction import run_extraction  # noqa: E402` line (around line 101) - this
+    exact placement is required so the card's own negative control (below) has a stable anchor
+    immune to whatever shape `diff_language`'s own body ends up having. Fix `diff_language`'s
+    `baked_by_name` construction: compute
+    `identities = compute_canonical_identities(baked_types)` once, then build `baked_by_name` by
+    iterating `baked_types` and SKIPPING any entry whose `identities[index].is_definition` is
+    False (a shell) - so a shell can never win a same-name collision against its own definition.
+    When two DIFFERENT definitions genuinely share a bare name (a real ambiguity, not a shell/
+    definition pair), keep the FIRST one encountered in fixture order (do not change this part of
+    the existing behaviour - it was already "last wins" before; changing it to "first wins" for the
+    genuinely-ambiguous case is an incidental, harmless side effect of the simplest correct
+    implementation, not something to specially preserve or specially test either way - mention
+    which you ended up with in your closeout, do not silently pick one without saying so). This is
+    the WHOLE functional change for this card.
+  - >-
+    tests/release/test_oracle_shell_resolution.py (no mocks for the real-pilot case; reads the
+    real, committed fixture data under `tests/fixtures/`, writes nothing to it): (a) a synthetic
+    `oracle` `OracleSymbol` with real members and a synthetic `baked_types` list containing a
+    shell/definition pair sharing the oracle's own bare name (reuse `_reexport_pairs`'s own
+    synthetic shapes from `chunk_builder`'s tests, or build one matching one of its three real
+    rules, with the SHELL placed AFTER the definition in list order, reproducing the exact
+    "last wins" bug) - confirm `diff_language` now reports ZERO false "missing" findings for the
+    oracle's real members (before this card's fix, reproduce that it DOES report them falsely - a
+    `git stash`-style before/after comparison, or simply call the OLD dict-comprehension logic
+    inline to prove the old behaviour genuinely had the bug, not just assert the new behaviour is
+    nice); (b) the SAME synthetic case with the shell placed BEFORE the definition (the "shell
+    happens to win by luck" case that was already accidentally correct before this card) - confirm
+    this card's fix does not regress it; (c) a REAL regression reproduction: find a real, committed
+    Python pilot fixture (`tests/fixtures/<pilot>/api_surface.json` for some python pilot) with a
+    genuine same-name shell/definition collision (search for an entry with a non-null `reexport_of`
+    sharing a bare `name` with another entry), build a synthetic `OracleSymbol` whose members
+    EXACTLY match the real definition's real methods/properties (read them directly from the real
+    fixture, do not invent plausible-looking ones), and confirm `diff_language` now reports those
+    members as correctly matched (zero missing) where the OLD logic would have reported them all
+    missing - state the real pilot and the real collision you found in your closeout; (d) run the
+    full, existing `tests/release/test_source_differential.py` suite (128 tests as of this card's
+    authoring - confirm the real current count) and confirm every existing pinned result is
+    UNCHANGED, since this fix only changes behaviour for a bare-name collision, which the existing
+    suite's own fixtures may or may not already contain - if the existing suite's own numbers DO
+    change, that is a sign some existing pinned number was itself relying on the bug (shell winning
+    a collision) rather than correct behaviour; investigate and report which, do not just update
+    the pinned number to make it pass. Never weaken a check to make it pass.
+actions:
+  - >-
+    Fix the oracle diff engine's same-name collision to prefer a canonical definition over its own
+    re-export shell, closing the measured 43% same-name-collision share of the "missing" bucket
+    (Appendix D), proven against a real pilot fixture with zero change to the existing 128-test
+    suite.
+checks:
+  - command: '{python} -m pytest tests/release/test_oracle_shell_resolution.py -q -rfE'
+    expect: 'exit 0'
+    timeout_seconds: 180
+    junitxml: true
+    proves:
+      - REQ-G3-012
+  - command: '{python} -m pytest tests/release/test_oracle_shell_resolution.py tests/release/test_source_differential.py -q -rfE -p no:cacheprovider'
+    expect: 'exit 0'
+    timeout_seconds: 300
+    junitxml: true
+    proves:
+      - REQ-G3-012
+min_tests: 4
+requires:
+  - python
+network: false
+negative_control:
+  mutate: |
+    python -X utf8 -c "import pathlib; p = pathlib.Path('scripts/release/source_differential.py'); s = p.read_text(encoding='utf-8'); old = 'from foss_mcp.indexing.symbol_identity import compute_canonical_identities  # noqa: E402'; assert s.count(old) == 1, 'fix text not found - card and source have diverged'; new = old + chr(10) + 'compute_canonical_identities = lambda entries: [__import__(' + chr(34) + 'types' + chr(34) + ').SimpleNamespace(is_definition=True) for _ in entries]  # TC-623 negative control: every entry treated as its own definition, reinstating the pre-fix bare-name-only match'; p.write_text(s.replace(old, new, 1), encoding='utf-8')"
+  rationale: >-
+    Shadows the module-level compute_canonical_identities import immediately after it, with a
+    lambda that treats EVERY entry (shell and definition alike) as its own definition
+    (`is_definition=True` unconditionally) - this reinstates the exact pre-fix "last entry in
+    fixture order wins" bare-name match regardless of how diff_language's own body is written,
+    since it intercepts the shared function reference at the module level rather than anchoring
+    inside the function. The new collision tests (a) and (c) must then fail, proving they exercise
+    the real canonical-identity consultation rather than trusting the import's mere existence.
+evidence:
+  - evidence/build/G3/TC-623/receipt.json
+closeout:
+  - >-
+    diff_language now prefers a canonical definition over its own re-export shell on a same-name
+    collision, proven against a real pilot fixture's real collision; state which pilot and which
+    collision, and confirm the existing 128-test suite is unaffected (or explain exactly which
+    pinned number changed and why it was relying on the bug).
+recovery: >-
+  If the real existing test_source_differential.py suite's own numbers change because some existing
+  fixture's pinned expectation was itself built around the shell-wins bug, do not revert the fix or
+  quietly adjust the pinned number without comment - report the specific test and the real
+  before/after numbers, and update that one pinned expectation to the new, correct value with an
+  explanatory comment, exactly as TC-614/TC-620's own reworks did for their respective blast radii.
