@@ -1,0 +1,111 @@
+{
+  "schema_version": 1,
+  "card": "TC-616",
+  "gate": "G3",
+  "generated_by": "gatectl",
+  "generated_at": "2026-10-30T17:17:51Z",
+  "base_rev": "eabc65eea2b50b48bd19e5151a9e7b2e675da2c9",
+  "head_rev": "69e55445ca5190175dc98c4675331f666f218b2a",
+  "card_sha256": "737ee3332467e2ba0e4ed26f1b9b2746670316ebc0802162c2fcfee6970eeacc",
+  "fingerprint": {
+    "python": "3.13.2",
+    "platform": "Windows-11-10.0.26300-SP0",
+    "lock_sha256": "5c72e798a73c059a438e752e94a8d4c88c1bdf81a197f6e5c5fcecbc9466a691",
+    "env": {
+      "PYTHONHASHSEED": "0",
+      "PYTHONUTF8": "1",
+      "PYTHONDONTWRITEBYTECODE": "1",
+      "PYTHONIOENCODING": "utf-8",
+      "TZ": "UTC",
+      "LC_ALL": "C.UTF-8",
+      "SOURCE_DATE_EPOCH": "1700000000",
+      "verify_runner": "host"
+    }
+  },
+  "scope": {
+    "ok": true,
+    "changed_paths": [
+      "src/foss_mcp/mcp/tools/find_examples.py",
+      "tests/mcp/tools/test_find_examples_query_normalization.py"
+    ],
+    "violations": [],
+    "evaluated": true
+  },
+  "runs": [
+    {
+      "run": 1,
+      "checks": [
+        {
+          "command": "{python} -m pytest tests/mcp/tools/test_find_examples_query_normalization.py -q -rfE",
+          "exit_code": 0,
+          "duration_s": 1.371,
+          "stdout_sha256": "08faea39fd19189f6544839f505d91d76ecb1367e219f5db362cdf22916ef869",
+          "tests": 11,
+          "skipped": 0,
+          "errors": 0,
+          "failures": 0
+        },
+        {
+          "command": "{python} -m pytest tests/mcp/tools/test_find_examples_query_normalization.py tests/mcp/tools/test_example_search_mode.py tests/mcp/tools/test_find_examples_title_anchor.py tests/mcp/tools/test_find_examples_vector_deadline.py tests/mcp/tools/test_find_examples_verification_record.py tests/mcp/tools/test_find_examples_verified_only.py tests/mcp/tools/test_round3_example_labels.py tests/mcp/tools/test_round3_retrieval_corpus.py -q -rfE -p no:cacheprovider",
+          "exit_code": 0,
+          "duration_s": 87.5,
+          "stdout_sha256": "92609987e603a9b21f1709d625abc5360f4fde3b29296db124375a0578c14fd9",
+          "tests": 415,
+          "skipped": 0,
+          "errors": 0,
+          "failures": 0
+        }
+      ],
+      "all_passed": true
+    },
+    {
+      "run": 2,
+      "checks": [
+        {
+          "command": "{python} -m pytest tests/mcp/tools/test_find_examples_query_normalization.py -q -rfE",
+          "exit_code": 0,
+          "duration_s": 0.801,
+          "stdout_sha256": "08faea39fd19189f6544839f505d91d76ecb1367e219f5db362cdf22916ef869",
+          "tests": 11,
+          "skipped": 0,
+          "errors": 0,
+          "failures": 0
+        },
+        {
+          "command": "{python} -m pytest tests/mcp/tools/test_find_examples_query_normalization.py tests/mcp/tools/test_example_search_mode.py tests/mcp/tools/test_find_examples_title_anchor.py tests/mcp/tools/test_find_examples_vector_deadline.py tests/mcp/tools/test_find_examples_verification_record.py tests/mcp/tools/test_find_examples_verified_only.py tests/mcp/tools/test_round3_example_labels.py tests/mcp/tools/test_round3_retrieval_corpus.py -q -rfE -p no:cacheprovider",
+          "exit_code": 0,
+          "duration_s": 78.266,
+          "stdout_sha256": "92609987e603a9b21f1709d625abc5360f4fde3b29296db124375a0578c14fd9",
+          "tests": 415,
+          "skipped": 0,
+          "errors": 0,
+          "failures": 0
+        }
+      ],
+      "all_passed": true
+    }
+  ],
+  "negative_control": {
+    "kind": "mutate",
+    "patch": "python -X utf8 -c \"import pathlib; p = pathlib.Path('src/foss_mcp/mcp/tools/find_examples.py'); s = p.read_text(encoding='utf-8'); old = 'query = fold_query(query)'; assert s.count(old) == 1, 'fix text not found - card and source have diverged'; p.write_text(s.replace(old, old + chr(10) + '    normalize_query = lambda q, f: q  # TC-616 negative control: never normalize the query', 1), encoding='utf-8')\"\n",
+    "patch_sha256": "72b29cb258884043d72c1ac43de1eddb19ab4bf4f3b3b52e37677d92008f4dc3",
+    "applied": true,
+    "patch_applied_failed": true,
+    "exit_codes": [
+      1,
+      1
+    ],
+    "tree_changed": [
+      "M src/foss_mcp/mcp/tools/find_examples.py",
+      "?? .junit-0.xml",
+      "?? .junit-1.xml"
+    ]
+  },
+  "holdout": {
+    "ran": false,
+    "passed": true,
+    "detail": "no holdout for this card"
+  },
+  "accepted": true,
+  "reason": "all gates passed"
+}

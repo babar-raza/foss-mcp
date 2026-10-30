@@ -1,0 +1,136 @@
+
+===== CLEAN RUN 1 (host) =====
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-5c72e798a73c059a\Scripts\python.exe -m pytest tests/mcp/tools/test_find_examples_query_normalization.py -q -rfE "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-b4xrz9ti\.junit-0.xml"
+--- stdout ---
+...........                                                              [100%]
+
+--- stderr ---
+
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-5c72e798a73c059a\Scripts\python.exe -m pytest tests/mcp/tools/test_find_examples_query_normalization.py tests/mcp/tools/test_example_search_mode.py tests/mcp/tools/test_find_examples_title_anchor.py tests/mcp/tools/test_find_examples_vector_deadline.py tests/mcp/tools/test_find_examples_verification_record.py tests/mcp/tools/test_find_examples_verified_only.py tests/mcp/tools/test_round3_example_labels.py tests/mcp/tools/test_round3_retrieval_corpus.py -q -rfE -p no:cacheprovider "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-b4xrz9ti\.junit-1.xml"
+--- stdout ---
+........................................................................ [ 17%]
+........................................................................ [ 34%]
+........................................................................ [ 52%]
+........................................................................ [ 69%]
+........................................................................ [ 86%]
+.......................................................                  [100%]
+============================== warnings summary ===============================
+..\venv-5c72e798a73c059a\Lib\site-packages\starlette\testclient.py:53
+  E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-5c72e798a73c059a\Lib\site-packages\starlette\testclient.py:53: DeprecationWarning: The anyio.abc.BlockingPortal alias is deprecated, use anyio.from_thread.BlockingPortal instead.
+    _PortalFactoryType = Callable[[], AbstractContextManager[anyio.abc.BlockingPortal]]
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+
+--- stderr ---
+
+
+===== CLEAN RUN 2 (host) =====
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-5c72e798a73c059a\Scripts\python.exe -m pytest tests/mcp/tools/test_find_examples_query_normalization.py -q -rfE "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-b4xrz9ti\.junit-0.xml"
+--- stdout ---
+...........                                                              [100%]
+
+--- stderr ---
+
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-5c72e798a73c059a\Scripts\python.exe -m pytest tests/mcp/tools/test_find_examples_query_normalization.py tests/mcp/tools/test_example_search_mode.py tests/mcp/tools/test_find_examples_title_anchor.py tests/mcp/tools/test_find_examples_vector_deadline.py tests/mcp/tools/test_find_examples_verification_record.py tests/mcp/tools/test_find_examples_verified_only.py tests/mcp/tools/test_round3_example_labels.py tests/mcp/tools/test_round3_retrieval_corpus.py -q -rfE -p no:cacheprovider "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-b4xrz9ti\.junit-1.xml"
+--- stdout ---
+........................................................................ [ 17%]
+........................................................................ [ 34%]
+........................................................................ [ 52%]
+........................................................................ [ 69%]
+........................................................................ [ 86%]
+.......................................................                  [100%]
+============================== warnings summary ===============================
+..\venv-5c72e798a73c059a\Lib\site-packages\starlette\testclient.py:53
+  E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-5c72e798a73c059a\Lib\site-packages\starlette\testclient.py:53: DeprecationWarning: The anyio.abc.BlockingPortal alias is deprecated, use anyio.from_thread.BlockingPortal instead.
+    _PortalFactoryType = Callable[[], AbstractContextManager[anyio.abc.BlockingPortal]]
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+
+--- stderr ---
+
+
+===== NEGATIVE CONTROL (checks MUST now fail) =====
+mutated: M src/foss_mcp/mcp/tools/find_examples.py, ?? .junit-0.xml, ?? .junit-1.xml
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-5c72e798a73c059a\Scripts\python.exe -m pytest tests/mcp/tools/test_find_examples_query_normalization.py -q -rfE "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-b4xrz9ti\.junit-0.xml"
+--- stdout ---
+.F.........                                                              [100%]
+================================== FAILURES ===================================
+_________ test_normalize_query_is_actually_called_by_the_real_wiring __________
+
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x000001D8FF9DE3F0>
+
+    def test_normalize_query_is_actually_called_by_the_real_wiring(monkeypatch: pytest.MonkeyPatch) -> None:
+        """THE test the card's negative control must break: proves ``find_examples`` really calls the
+        module-level ``normalize_query`` (not merely that it is imported) by spying on it. This is the
+        one assertion in this file that is sensitive to the negative control's exact mutation (a LOCAL
+        ``normalize_query = lambda q, f: q`` assignment inside the function body, which shadows the
+        module-level name for the whole function and so is never reached by a spy on the module
+        attribute)."""
+        calls: list[tuple[str, str]] = []
+        real_normalize_query = relevance_module.normalize_query
+    
+        def _spy(query: str, family: str) -> str:
+            calls.append((query, family))
+            return real_normalize_query(query, family)
+    
+        monkeypatch.setattr(find_examples_module, "normalize_query", _spy)
+    
+        find_examples(_store(), PDF_NET, DOTTED_MENTION_QUERY)
+    
+>       assert calls, "normalize_query was never called by find_examples - the wiring is missing or shadowed"
+E       AssertionError: normalize_query was never called by find_examples - the wiring is missing or shadowed
+E       assert []
+
+tests\mcp\tools\test_find_examples_query_normalization.py:143: AssertionError
+=========================== short test summary info ===========================
+FAILED tests/mcp/tools/test_find_examples_query_normalization.py::test_normalize_query_is_actually_called_by_the_real_wiring
+
+--- stderr ---
+
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-5c72e798a73c059a\Scripts\python.exe -m pytest tests/mcp/tools/test_find_examples_query_normalization.py tests/mcp/tools/test_example_search_mode.py tests/mcp/tools/test_find_examples_title_anchor.py tests/mcp/tools/test_find_examples_vector_deadline.py tests/mcp/tools/test_find_examples_verification_record.py tests/mcp/tools/test_find_examples_verified_only.py tests/mcp/tools/test_round3_example_labels.py tests/mcp/tools/test_round3_retrieval_corpus.py -q -rfE -p no:cacheprovider "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-b4xrz9ti\.junit-1.xml"
+--- stdout ---
+.F...................................................................... [ 17%]
+........................................................................ [ 34%]
+........................................................................ [ 52%]
+........................................................................ [ 69%]
+........................................................................ [ 86%]
+.......................................................                  [100%]
+================================== FAILURES ===================================
+_________ test_normalize_query_is_actually_called_by_the_real_wiring __________
+
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x000001927F1CD810>
+
+    def test_normalize_query_is_actually_called_by_the_real_wiring(monkeypatch: pytest.MonkeyPatch) -> None:
+        """THE test the card's negative control must break: proves ``find_examples`` really calls the
+        module-level ``normalize_query`` (not merely that it is imported) by spying on it. This is the
+        one assertion in this file that is sensitive to the negative control's exact mutation (a LOCAL
+        ``normalize_query = lambda q, f: q`` assignment inside the function body, which shadows the
+        module-level name for the whole function and so is never reached by a spy on the module
+        attribute)."""
+        calls: list[tuple[str, str]] = []
+        real_normalize_query = relevance_module.normalize_query
+    
+        def _spy(query: str, family: str) -> str:
+            calls.append((query, family))
+            return real_normalize_query(query, family)
+    
+        monkeypatch.setattr(find_examples_module, "normalize_query", _spy)
+    
+        find_examples(_store(), PDF_NET, DOTTED_MENTION_QUERY)
+    
+>       assert calls, "normalize_query was never called by find_examples - the wiring is missing or shadowed"
+E       AssertionError: normalize_query was never called by find_examples - the wiring is missing or shadowed
+E       assert []
+
+tests\mcp\tools\test_find_examples_query_normalization.py:143: AssertionError
+============================== warnings summary ===============================
+..\venv-5c72e798a73c059a\Lib\site-packages\starlette\testclient.py:53
+  E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-5c72e798a73c059a\Lib\site-packages\starlette\testclient.py:53: DeprecationWarning: The anyio.abc.BlockingPortal alias is deprecated, use anyio.from_thread.BlockingPortal instead.
+    _PortalFactoryType = Callable[[], AbstractContextManager[anyio.abc.BlockingPortal]]
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+=========================== short test summary info ===========================
+FAILED tests/mcp/tools/test_find_examples_query_normalization.py::test_normalize_query_is_actually_called_by_the_real_wiring
+
+--- stderr ---
+
