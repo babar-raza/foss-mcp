@@ -1,0 +1,138 @@
+id: TC-614
+gate: G3
+lane: storage-retrieval
+purpose: >-
+  Build I2 (REQ-G3-012): deduplicate the numerator of the `API-Coverage:` line using I1's new
+  canonical-identity model (`symbol_identity.compute_canonical_identities`, just landed in
+  TC-612), closing the measured slides/python case where 1023 raw entries render as "1022 of 1022
+  types" (100%, by construction) even though only 517 are real, distinct canonical types. This
+  card fixes the NUMERATOR side only (chunk_builder.py's rendering); the DENOMINATOR
+  (`run_extraction.py`'s own `symbol_counts.types` total, also computed by counting raw
+  un-deduplicated entries) is I3's separate job, not this card's - after this card alone, a pilot
+  with real aliases will honestly show a ratio BELOW 100% for the first time (e.g. roughly "517 of
+  1022"), even though 1022 itself is still an inflated denominator until I3 lands; state this
+  residual plainly in your closeout, do not try to fix it here.
+  `coverage_note.coverage_note_from_text` ALREADY re-parses whatever `chunk_builder._coverage_line`
+  renders and ALREADY correctly emits a caveat whenever the parsed numerator is less than the
+  parsed denominator - it needs NO code change (confirm this yourself by reading it; it is a
+  read-only reference for this card, not a write_path) - it was simply never exercised because the
+  numerator was never honestly below the denominator before. Read
+  C:\Users\babar\.claude\plans\steady-wobbling-meteor.md section 1.1 (M2/C1) and 2.3 (I1-I5) first.
+depends_on:
+  - TC-559
+  - TC-612
+write_paths:
+  - src/foss_mcp/indexing/chunk_builder.py
+  - tests/indexing/test_chunk_builder_coverage_line.py
+satisfies:
+  - REQ-G3-012
+source_refs:
+  - file: docs/DECISION_LOG.md
+    anchor: >-
+      ## 2026-10-30 — Round-2 portfolio audit remediation adopted: unified plan, governance decisions A-K
+      recorded (supervisor)
+    sha256: 62cf1403a592118e3fb6bd14c5336f8a997cc3181d44a585323ec9f1d385a931
+inputs:
+  - >-
+    READ FIRST: C:\Users\babar\.claude\plans\steady-wobbling-meteor.md section 2.3. Also read, in
+    full, before writing anything: `src/foss_mcp/indexing/chunk_builder.py`'s real `_coverage_line`
+    function (around line 679) AND its one real call site inside `build_chunks_from_api_surface`
+    (around line 712-750, where `coverage = _coverage_line(fixture, entries)` is called - note
+    that `candidate_pairs`/`pairs` already exist in scope at that call site, computed by
+    `_reexport_pairs`/`_slot_units` a few lines earlier for an unrelated purpose, the `max_types`
+    slot cap); `src/foss_mcp/indexing/symbol_identity.py`'s real `SymbolIdentity`
+    dataclass (`canonical_id`, `aliases`, `is_definition`) and `compute_canonical_identities(entries)
+    -&gt; list[SymbolIdentity]` (just landed, TC-612 - confirm its exact real shape, it may have
+    details beyond what is summarized here); `src/foss_mcp/mcp/tools/coverage_note.py`'s real
+    `parse_api_coverage`/`_describe`/`coverage_note_from_text` (read-only - confirm for yourself
+    that it needs no change, by tracing through what happens once `_coverage_line` emits a smaller
+    numerator; if you find it DOES need a change, STOP and report that finding rather than editing
+    a file outside your write_paths).
+  - >-
+    At the ONE real call site (`build_chunks_from_api_surface`), compute
+    `identities = compute_canonical_identities(entries)` (over the SAME `entries` list already in
+    scope there - the post-slot-cut, position-remapped list, not the pre-cut `candidates`) and
+    pass it into `_coverage_line` as a new parameter. Change `_coverage_line`'s signature to accept
+    it: `_coverage_line(fixture, entries, identities: Sequence[SymbolIdentity] | None = None)` -
+    `identities=None` (the default) must preserve the EXACT current behaviour byte-for-byte, so
+    every existing caller/test that calls `_coverage_line` with the old two-argument form is
+    unaffected - this is the backward-compatibility contract. When `identities` is given, replace
+    the numerator computation: instead of `len(entries) - kept_functions` (which counts every
+    entry, aliases included), count only entries whose `identities[index].is_definition` is True
+    AND whose `kind` is not `"function"` (functions have their own separate clause and are not
+    affected by this change - confirm whether `compute_canonical_identities` even groups function
+    entries at all, since `_reexport_pairs`' three rules all restrict to class/enum kinds per its
+    own docstring; if functions are never paired, every function entry's `is_definition` should
+    already be True by construction - verify this rather than assuming it, and if a function entry
+    is ever NOT its own definition, treat that as a real finding to report, not something to
+    silently special-case around). Apply the same dedup to the LEGACY clause
+    (`f"{len(entries)} of {type_count} types"`, used when the fixture has no `symbol_counts`) the
+    same way, for consistency - a pilot without `symbol_counts` still deserves an honest numerator
+    if it has real aliases.
+  - >-
+    tests/indexing/test_chunk_builder_coverage_line.py (no mocks for the real-pilot case; this is
+    allowed to read the real, committed `infra/demo-manifests`, nothing is ever written to it):
+    (a) calling `_coverage_line` with the OLD two-argument form (no `identities`) produces
+    IDENTICAL output to before this card, for a handful of cases copied from
+    `tests/indexing/test_chunk_builder.py`'s own existing coverage-line tests if any exist (check
+    first; if none exist, build a couple of synthetic `fixture`/`entries` pairs yourself) - the
+    backward-compatibility proof; (b) a synthetic fixture+entries with a real shell/definition pair
+    (reuse `_reexport_pairs`'s own synthetic shapes, or build one matching one of the three real
+    rules) produces a DEDUPLICATED numerator with `identities` given, smaller than without; (c) a
+    REAL regression reproduction: run `build_chunks_from_api_surface` (or re-derive the relevant
+    piece of it, calling `_coverage_line` with real `compute_canonical_identities` output) against
+    the real, committed `slides_python` fixture (`tests/fixtures/slides_python/api_surface.json` or
+    wherever it actually lives - find the real path) and confirm the rendered coverage line's
+    numerator drops from the old (inflated) count to the real, deduplicated one - state the exact
+    real before/after numbers in your closeout, do not assume they match TC-612's own 517/1023
+    finding exactly (that card measured differently; measure fresh here against the real rendering
+    path); (d) an end-to-end proof that `coverage_note.coverage_note_from_text` now returns a
+    non-None caveat for that same slides/python-shaped chunk text (where it returned `None` before
+    this card, since the ratio was always 100%) - call the REAL, unmodified `coverage_note_from_text`
+    function against the real rendered line text, proving the revival with zero changes to that
+    file. Never weaken a check to make it pass.
+actions:
+  - >-
+    Thread I1's canonical-identity model into chunk_builder's API-Coverage rendering so the
+    numerator counts each alias group once, not once per chunk - reviving coverage_note's existing,
+    unmodified caveat path for the first time on a real pilot (slides/python), with the
+    denominator-side fix explicitly deferred to I3.
+checks:
+  - command: '{python} -m pytest tests/indexing/test_chunk_builder_coverage_line.py -q -rfE'
+    expect: 'exit 0'
+    timeout_seconds: 180
+    junitxml: true
+    proves:
+      - REQ-G3-012
+  - command: '{python} -m pytest tests/indexing/test_chunk_builder_coverage_line.py tests/indexing/test_chunk_builder.py tests/indexing/test_symbol_identity.py -q -rfE -p no:cacheprovider'
+    expect: 'exit 0'
+    timeout_seconds: 240
+    junitxml: true
+    proves:
+      - REQ-G3-012
+min_tests: 4
+requires:
+  - python
+network: false
+negative_control:
+  mutate: |
+    python -X utf8 -c "import pathlib; p = pathlib.Path('src/foss_mcp/indexing/chunk_builder.py'); s = p.read_text(encoding='utf-8'); old = 'def _coverage_line('; assert s.count(old) == 1, 'fix text not found - card and source have diverged'; lines = s.splitlines(); i = next(idx for idx, line in enumerate(lines) if old in line); j = i + 1; depth_line = lines[j]; indent = ' ' * (len(depth_line) - len(depth_line.lstrip())); lines.insert(j, indent + 'identities = None  # TC-614 negative control: never use the canonical identities even when given'); p.write_text(chr(10).join(lines) + chr(10), encoding='utf-8')"
+  rationale: >-
+    Forces the function to ignore any identities argument it is given, immediately on entry,
+    reproducing the pre-fix, non-deduplicated numerator unconditionally. The deduplication test and
+    the real slides/python regression test must then fail, proving they exercise the real dedup
+    logic rather than trusting the function signature alone.
+evidence:
+  - evidence/build/G3/TC-614/receipt.json
+closeout:
+  - >-
+    The API-Coverage numerator is deduplicated via I1's canonical-identity model, fully backward-
+    compatible; state the real before/after numbers for slides/python and confirm
+    coverage_note_from_text now returns a real caveat for it. State plainly that the denominator
+    remains inflated until I3 lands.
+recovery: >-
+  If compute_canonical_identities turns out not to group function entries at all (so every
+  function's is_definition is trivially True), confirm this explicitly in your closeout rather than
+  assuming it - it changes nothing about the fix's correctness, but the plan needs it documented
+  honestly. If coverage_note.py turns out to need a real change after all, STOP and report that
+  finding rather than editing a file outside this card's write_paths.
