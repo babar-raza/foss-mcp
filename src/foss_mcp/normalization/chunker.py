@@ -21,6 +21,58 @@ from foss_mcp.normalization.document_schema import (
 _HEADING = re.compile(r"^(#{1,6})[ \t]+(.+?)[ \t]*$", re.MULTILINE)
 _BLANK_LINE = re.compile(r"\n\s*\n+")
 
+# A markdown fence opener: up to 3 leading spaces/tabs (CommonMark's own indentation allowance),
+# then 3+ backticks or 3+ tildes, with anything (a language tag, nothing at all) after it on the
+# same line. Mixing fence characters is not allowed by real markdown semantics - a backtick fence
+# is only closed by backticks, a tilde fence only by tildes - so the character and run length seen
+# here are what a later candidate closing line is checked against.
+_FENCE_OPEN = re.compile(r"^[ \t]{0,3}(`{3,}|~{3,})")
+
+
+def _fence_spans(body: str) -> list[tuple[int, int]]:
+    """``[start, end)`` character ranges of *body* that sit inside an OPEN markdown fence.
+
+    A span runs from its opening delimiter line through its matching closing delimiter line - one
+    whose stripped text is nothing but the SAME fence character, repeated AT LEAST as many times as
+    the opener (real markdown lets a closing fence be longer than its opener, never shorter, and
+    never a different character - this is why four-or-more-backtick fences exist at all, as an
+    escape for code that itself contains a run of three backticks). A fence opened but never closed
+    before the body ends is treated as closing at end-of-body: the chosen fallback for an unclosed
+    fence, so one unterminated fence can never silently swallow every heading in the rest of a real
+    document - it can only swallow the rest of its own, already-malformed block.
+    """
+    spans: list[tuple[int, int]] = []
+    fence_char = ""
+    fence_len = 0
+    open_start: int | None = None
+    length = len(body)
+    pos = 0
+    while pos <= length:
+        newline = body.find("\n", pos)
+        line_end = newline if newline != -1 else length
+        line = body[pos:line_end]
+        if open_start is None:
+            opener = _FENCE_OPEN.match(line)
+            if opener is not None:
+                run = opener.group(1)
+                fence_char, fence_len = run[0], len(run)
+                open_start = pos
+        else:
+            stripped = line.strip()
+            if len(stripped) >= fence_len and stripped == fence_char * len(stripped):
+                spans.append((open_start, line_end))
+                open_start = None
+        if newline == -1:
+            break
+        pos = newline + 1
+    if open_start is not None:
+        spans.append((open_start, length))
+    return spans
+
+
+def _inside_any_span(position: int, spans: list[tuple[int, int]]) -> bool:
+    return any(start <= position < end for start, end in spans)
+
 
 @dataclass(frozen=True)
 class Chunk:
@@ -39,8 +91,15 @@ class Chunk:
 
 
 def _heading_sections(body: str) -> list[tuple[str, str]]:
-    """(heading, section body) for each ``#``-style heading in *body*; ``[]`` if there are none."""
-    matches = list(_HEADING.finditer(body))
+    """(heading, section body) for each ``#``-style heading in *body*; ``[]`` if there are none.
+
+    A line that would otherwise match as a heading is never treated as one while it sits inside an
+    OPEN fenced code block (``_fence_spans``) - a column-0 ``#`` comment in a fenced Python or shell
+    snippet is exactly such a line, and was previously cutting the chunk there and orphaning the
+    real code after it.
+    """
+    spans = _fence_spans(body)
+    matches = [match for match in _HEADING.finditer(body) if not _inside_any_span(match.start(), spans)]
     if not matches:
         return []
     sections: list[tuple[str, str]] = []
