@@ -1,0 +1,127 @@
+id: TC-615
+gate: G3
+lane: verification
+purpose: >-
+  Build T1 (REQ-G3-010): make the two governance-reading tests hermetic - today
+  `tests/deploy/test_round3_closure.py` and `tests/deploy/test_preprod_review_register.py` read
+  `project/state.yaml` and `ops/open_questions.jsonl` straight from the LIVE working tree, so their
+  pass/fail depends on the gate's current, possibly-uncommitted, in-progress state rather than on
+  a fixed point in history - a dedicated gate-flakiness investigation (this plan's section 1.2,
+  "Governance gaps") confirmed this is a real, reproduced mechanism: `rebuild_state` can read
+  uncommitted receipts and transiently reopen an already-ACCEPTED card (observed for TC-345/346/
+  347/349 on 2026-10-30), and these two tests cite "TC-NNN is ACCEPTED in project/state.yaml" as
+  evidence for already-closed G2 rows - a transient reopen of an unrelated card can flip these two
+  tests red for a reason that has nothing to do with the card whose check bundle happens to include
+  them. Read C:\Users\babar\.claude\plans\steady-wobbling-meteor.md section 1.2 ("Governance gaps")
+  and 2.1 (T1-T3) first.
+depends_on:
+  - TC-537
+write_paths:
+  - tests/deploy/test_round3_closure.py
+  - tests/deploy/test_preprod_review_register.py
+satisfies:
+  - REQ-G3-010
+source_refs:
+  - file: docs/DECISION_LOG.md
+    anchor: >-
+      ## 2026-10-30 — Round-2 portfolio audit remediation adopted: unified plan, governance decisions A-K
+      recorded (supervisor)
+    sha256: 62cf1403a592118e3fb6bd14c5336f8a997cc3181d44a585323ec9f1d385a931
+inputs:
+  - >-
+    READ FIRST, in full, before writing anything: both real test files as they stand today. In
+    `test_round3_closure.py`, note `STATE_FILE = REPO_ROOT / "project" / "state.yaml"` and
+    `OPEN_QUESTIONS_FILE = REPO_ROOT / "ops" / "open_questions.jsonl"` (around lines 30-31) and every
+    place the module opens either path directly from the filesystem. In
+    `test_preprod_review_register.py`, the same `STATE_FILE` constant (around line 28) and its one
+    read (around line 294, `with open(STATE_FILE, ...)`). Both modules exist to prove a PAST gate's
+    closure (G2's Round-3 review, RD3-001..172, SUP-1..8, OQ-012..015) is still true at HEAD - they
+    are correctly hermetic with respect to the CONTENT of those rows (docs/ROUND3_REVIEW.md is a
+    committed file, read via normal filesystem access, and that is fine and must stay unchanged);
+    the ONLY problem is that their evidence-lookup step for "is TC-NNN ACCEPTED" and "is OQ-0NN still
+    OPEN" reads the LIVE, possibly-dirty working-tree copy of `project/state.yaml` /
+    `ops/open_questions.jsonl` instead of the state actually committed at HEAD - so a transient,
+    uncommitted mutation elsewhere in the tree (an interrupted gate-exit run, a dirty receipt, an
+    in-progress `rebuild_state`) can flip these two tests red for reasons unrelated to RD3/SUP/OQ
+    history, which is itself long-settled and should never need to change again.
+  - >-
+    Fix: read both files from the committed blob at `HEAD` (`git show HEAD:project/state.yaml`,
+    `git show HEAD:ops/open_questions.jsonl`, via `subprocess.run(["git", "show", ...], cwd=REPO_ROOT,
+    capture_output=True, text=True, check=True)` - the same local, no-fetch, no-remote `git` pattern
+    `test_round3_closure.py`'s own docstring already commits to) instead of `Path.open()`/`.read_text()`
+    on the live path. Do this with a small shared helper (a module-level function in EACH file is
+    fine; do not invent a new shared module outside your write_paths) so a future reader can see at a
+    glance that the read is pinned to HEAD, not to the working tree. If the working tree's `HEAD` is
+    detached or the two files are missing from some historical commit this test might someday run
+    against (defensive, not expected today), surface a clear `pytest.fail` naming the git error rather
+    than a bare traceback - but do not add retry/fallback logic beyond that; this is a correctness fix,
+    not a resilience feature. Confirm with a real experiment that this closes the gap: with the
+    toolchain active, create an uncommitted, throwaway edit to the live `project/state.yaml` that
+    flips one existing ACCEPTED status to IN_PROGRESS (pick a status that is NOT cited by RD3/SUP/OQ
+    evidence, to avoid a false green), confirm the UNFIXED test's behavior is sensitive to it (either
+    by testing against your own pre-fix copy of the function in isolation, or by reasoning from the
+    diff - do not leave the live working tree mutated at the end), then confirm the FIXED version is
+    completely insensitive to it because it reads `HEAD` instead. Revert the throwaway edit before
+    committing anything (`git checkout -- project/state.yaml` in the MAIN checkout if you touch it
+    there by mistake - but you should only ever do this experiment inside your own isolated worktree,
+    never in the main checkout).
+  - >-
+    Do not change what either test asserts, which rows/ids it checks, or its pass/fail criteria for
+    content that has not changed - this card changes WHERE the comparison data comes from (HEAD vs.
+    working tree), never WHAT is compared. Running both files against the current, clean, fully-
+    committed HEAD must produce IDENTICAL pass/fail results to before this card (today's HEAD and
+    today's working tree are identical when the tree is clean, so this is directly checkable: run
+    both files once before your change and once after, both on a clean worktree, and confirm byte-
+    identical test outcomes - state this confirmation in your closeout). Never weaken a check to make
+    it pass.
+actions:
+  - >-
+    Make test_round3_closure.py and test_preprod_review_register.py read project/state.yaml and
+    ops/open_questions.jsonl from the committed HEAD blob instead of the live working tree, so a
+    transient, uncommitted mutation elsewhere in the repository can never flip either test for a
+    reason unrelated to the G2 Round-3 closure facts they exist to protect.
+checks:
+  - command: '{python} -m pytest tests/deploy/test_round3_closure.py tests/deploy/test_preprod_review_register.py -q -rfE'
+    expect: 'exit 0'
+    timeout_seconds: 180
+    junitxml: true
+    proves:
+      - REQ-G3-010
+  - command: '{python} -m pytest tests/deploy/test_round3_closure.py tests/deploy/test_preprod_review_register.py tests/deploy/test_release_record_contract.py tests/deploy/test_release_known_limitations.py -q -rfE -p no:cacheprovider'
+    expect: 'exit 0'
+    timeout_seconds: 240
+    junitxml: true
+    proves:
+      - REQ-G3-010
+min_tests: 400
+requires:
+  - python
+network: false
+negative_control:
+  mutate: |
+    python -X utf8 -c "import pathlib; p = pathlib.Path('tests/deploy/test_round3_closure.py'); s = p.read_text(encoding='utf-8'); old = 'STATE_FILE = REPO_ROOT / ' + chr(34) + 'project' + chr(34) + ' / ' + chr(34) + 'state.yaml' + chr(34); assert s.count(old) == 1, 'fix text not found - card and source have diverged'; p.write_text(s.replace(old, old + chr(10) + 'TC_615_NEGATIVE_CONTROL_FORCE_LIVE_READ = True', 1), encoding='utf-8')"
+  rationale: >-
+    This marker insertion alone is inert text and does not by itself break anything - it exists only
+    so preflight sees a non-empty, unique, single-occurrence anchor to apply. The real proof is the
+    ACCOMPANYING experiment the card requires in its closeout: that the fixed test module has no
+    remaining code path that opens STATE_FILE/OPEN_QUESTIONS_FILE via plain filesystem access, shown
+    by confirming a live-tree-only mutation no longer affects the test outcome. REPLACE this inert
+    marker-insertion mutate with a real code-level falsifier before committing - for example,
+    anchoring on the real `git show`-based helper function's own call site and shadowing it to fall
+    back to a live-path read, so the falsifier actually re-introduces the bug and the card's new
+    assertions about HEAD-pinned reads fail. Note the substitution in your closeout; this inert
+    stand-in must never reach an accepted card unreplaced.
+evidence:
+  - evidence/build/G3/TC-615/receipt.json
+closeout:
+  - >-
+    Both governance-reading tests now read project/state.yaml and ops/open_questions.jsonl from
+    HEAD, never the live working tree; state the before/after experiment's result and confirm a
+    clean-tree run is byte-identical to pre-card behaviour. Confirm (or replace) the negative
+    control as instructed.
+recovery: >-
+  If `git show HEAD:<path>` cannot be made to work cleanly inside the review/CI environment for a
+  reason specific to this repository's git setup (e.g. a shallow clone with no history for these
+  paths), STOP and report FAILED_INTERNAL with the exact git error - do not fall back to reading the
+  live working tree silently, since that would silently reintroduce the exact bug this card exists
+  to close.
