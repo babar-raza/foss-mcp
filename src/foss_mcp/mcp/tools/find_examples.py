@@ -99,6 +99,7 @@ from foss_mcp.mcp.tools.relevance import (
     fold_query,
     guarded_coverage,
     has_minimum_evidence,
+    normalize_query,
     query_terms,
     required_terms,
     term_weights,
@@ -485,6 +486,10 @@ def find_examples(
     """
     original_query = query
     query = fold_query(query)
+    # TC-616 (Q3, G3/REQ-G3-011): a literal "Aspose.<family>" dotted product-name mention no longer
+    # stays a single dotted token for this tool's own term machinery, exactly as TC-610 proved in
+    # isolation. Additive to fold_query above, not a replacement.
+    query = normalize_query(query, scope.family)
     key = scope_key(scope, SOURCE_KIND)
     active_generation_id = store.read_active(key)
     if active_generation_id is None:
@@ -533,9 +538,11 @@ def find_examples(
 
     # TC-516: a query with no distinctive term ("Example:", "pdf examples") names no task, so no example
     # can answer it; and relevance is IDF-weighted with every identifier-like query word required.
-    if not distinctive_terms(query, scope.family) or not has_minimum_evidence(query):
+    # TC-616: the scope's own platform/runtime word ("net", "java", ...) is excluded here too, exactly
+    # like the family word, so it can no longer count as the query's one distinctive term.
+    if not distinctive_terms(query, scope.family, platform=scope.platform) or not has_minimum_evidence(query):
         return NoExampleFound(scope, original_query)
-    terms = query_terms(query, scope.family)
+    terms = query_terms(query, scope.family, platform=scope.platform)
     weights = term_weights(terms, lexical_payload)
     required = required_terms(query)
     bm25 = dict(query_lexical_index_scored(lexical_payload, query, top_k=len(documents)))
@@ -569,7 +576,7 @@ def find_examples(
 
     lexical_basis = (
         MATCH_BASIS_TITLE_WORD
-        if len(distinctive_terms(query, scope.family)) <= TITLE_ANCHOR_MAX_TERMS
+        if len(distinctive_terms(query, scope.family, platform=scope.platform)) <= TITLE_ANCHOR_MAX_TERMS
         else MATCH_BASIS_QUERY_TERMS
     )
     matches = []
