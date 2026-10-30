@@ -1,0 +1,441 @@
+
+===== CLEAN RUN 1 (host) =====
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-5c72e798a73c059a\Scripts\python.exe -m pytest tests/indexing/test_symbol_identity.py -q -rfE "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-gj_58tt0\.junit-0.xml"
+--- stdout ---
+..........                                                               [100%]
+
+--- stderr ---
+
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-5c72e798a73c059a\Scripts\python.exe -m pytest tests/indexing/test_symbol_identity.py -q -rfE -p no:cacheprovider "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-gj_58tt0\.junit-1.xml"
+--- stdout ---
+..........                                                               [100%]
+
+--- stderr ---
+
+
+===== CLEAN RUN 2 (host) =====
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-5c72e798a73c059a\Scripts\python.exe -m pytest tests/indexing/test_symbol_identity.py -q -rfE "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-gj_58tt0\.junit-0.xml"
+--- stdout ---
+..........                                                               [100%]
+
+--- stderr ---
+
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-5c72e798a73c059a\Scripts\python.exe -m pytest tests/indexing/test_symbol_identity.py -q -rfE -p no:cacheprovider "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-gj_58tt0\.junit-1.xml"
+--- stdout ---
+..........                                                               [100%]
+
+--- stderr ---
+
+
+===== NEGATIVE CONTROL (checks MUST now fail) =====
+mutated: M src/foss_mcp/indexing/symbol_identity.py, ?? .junit-0.xml, ?? .junit-1.xml
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-5c72e798a73c059a\Scripts\python.exe -m pytest tests/indexing/test_symbol_identity.py -q -rfE "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-gj_58tt0\.junit-0.xml"
+--- stdout ---
+FFFFFFFFFF                                                               [100%]
+================================== FAILURES ===================================
+__ test_explicit_reexport_of_chain_groups_under_the_definitions_canonical_id __
+
+    def test_explicit_reexport_of_chain_groups_under_the_definitions_canonical_id() -> None:
+        """TC-522 rule: an entry whose `reexport_of` names another entry's `class_import` pairs with it,
+        whatever members the shell itself has. A two-hop chain (shell -> mid -> real definition) is
+        followed to the final definition."""
+        entries = [
+            _entry("Shape", "pkg.shells.Shape", "pkg/shells/__init__.py", reexport_of="pkg.mid.Shape"),
+            _entry("Shape", "pkg.mid.Shape", "pkg/mid.py", reexport_of="pkg.real.Shape"),
+            _entry("Shape", "pkg.real.Shape", "pkg/real.py", members=True),
+        ]
+        identities = compute_canonical_identities(entries)
+>       assert len(identities) == 3
+E       assert 0 == 3
+E        +  where 0 = len({})
+
+tests\indexing\test_symbol_identity.py:73: AssertionError
+____________ test_package_init_stub_pairs_with_its_one_definition _____________
+
+    def test_package_init_stub_pairs_with_its_one_definition() -> None:
+        """TC-382 rule 8: a member-less stub re-exported from a package `__init__.py` pairs with the one
+        other entry of the same name whose `class_import` lives under that package and that has members."""
+        entries = [
+            _entry("Foo", "pkg.Foo", "pkg/__init__.py", members=False),
+            _entry("Foo", "pkg.sub.Foo", "pkg/sub/foo.py", members=True),
+            _entry("Bar", "pkg.Bar", "pkg/bar.py", members=True),  # unrelated, untouched
+        ]
+        identities = compute_canonical_identities(entries)
+>       assert identities[0].canonical_id == "pkg.sub.Foo"
+               ^^^^^^^^^^^^^
+E       KeyError: 0
+
+tests\indexing\test_symbol_identity.py:93: KeyError
+__ test_memberless_same_name_class_falls_back_to_the_one_definition_anywhere __
+
+    def test_memberless_same_name_class_falls_back_to_the_one_definition_anywhere() -> None:
+        """TC-541: a member-less `class`/`enum` of a `.py` file that the earlier rules did not pair pairs
+        with the ONE `.py` entry of the same name and kind that has members, wherever it lives."""
+        entries = [
+            _entry("Widget", "other.Widget", "other/mod.py", kind="class", members=False),
+            _entry("Widget", "real.Widget", "real/mod.py", kind="class", members=True),
+        ]
+        identities = compute_canonical_identities(entries)
+>       assert identities[0].canonical_id == "real.Widget"
+               ^^^^^^^^^^^^^
+E       KeyError: 0
+
+tests\indexing\test_symbol_identity.py:112: KeyError
+_ test_slides_python_real_fixture_canonical_ids_significantly_fewer_than_raw_entries _
+
+    def test_slides_python_real_fixture_canonical_ids_significantly_fewer_than_raw_entries() -> None:
+        """Loads the real, committed `tests/fixtures/slides_python/api_surface.json` the same way
+        `chunk_builder.build_chunks_from_api_surface` does (filtering test sources via `_is_test_source`,
+        the same filter the real pipeline applies before calling `_reexport_pairs`), and confirms the
+        canonical-id count this module computes is significantly lower than the raw entry count.
+    
+        Cross-checked against `tests/conformance/corpus.py`'s loader over the real, committed
+        `infra/demo-manifests` generation: that generation's own rendered symbol-chunk count for this same
+        pilot is used only as an independent sanity check that the raw entry count below is the real,
+        currently-served population, not a stale fixture.
+        """
+        fixture_path = FIXTURES_DIR / "slides_python" / "api_surface.json"
+        fixture = json.loads(fixture_path.read_text(encoding="utf-8"))
+        entries = [entry for entry in _items(fixture["types"]) if not _is_test_source(entry.get("file"))]
+        raw_entry_count = len(entries)
+    
+        with tempfile.TemporaryDirectory() as tmp:
+            corpus = load_demo_manifests_corpus(Path(tmp))
+            pilot = corpus.pilots["slides__python"]
+            served_symbol_chunk_count = len(pilot.symbol_chunks())
+    
+        identities = compute_canonical_identities(entries)
+>       assert len(identities) == raw_entry_count
+E       assert 0 == 1023
+E        +  where 0 = len({})
+
+tests\indexing\test_symbol_identity.py:146: AssertionError
+___________ test_no_reexports_every_entry_is_its_own_unaliased_unit ___________
+
+    def test_no_reexports_every_entry_is_its_own_unaliased_unit() -> None:
+        entries = [
+            _entry("Alpha", "pkg.Alpha", "pkg/alpha.py", members=True),
+            _entry("Beta", "pkg.Beta", "pkg/beta.py", members=True),
+            _entry("Gamma", "pkg.Gamma", "pkg/gamma.py", kind="enum", members=True),
+        ]
+        identities = compute_canonical_identities(entries)
+>       assert len(identities) == 3
+E       assert 0 == 3
+E        +  where 0 = len({})
+
+tests\indexing\test_symbol_identity.py:178: AssertionError
+_______________ test_identity_result_is_pure_and_deterministic ________________
+
+    def test_identity_result_is_pure_and_deterministic() -> None:
+        """Calling `compute_canonical_identities` twice on the same (never mutated) input returns equal
+        results, and the input entries are left untouched."""
+        entries = [
+            _entry("Alpha", "pkg.shell.Alpha", "pkg/shell/__init__.py", reexport_of="pkg.real.Alpha"),
+            _entry("Alpha", "pkg.real.Alpha", "pkg/real.py", members=True),
+        ]
+        snapshot = json.dumps(entries, sort_keys=True)
+        first = compute_canonical_identities(entries)
+        second = compute_canonical_identities(entries)
+        assert json.dumps(entries, sort_keys=True) == snapshot
+        assert first == second
+>       assert len(first) == 2
+E       assert 0 == 2
+E        +  where 0 = len({})
+
+tests\indexing\test_symbol_identity.py:200: AssertionError
+__________ test_shadowing_entry_is_never_paired_as_a_memberless_stub __________
+
+    def test_shadowing_entry_is_never_paired_as_a_memberless_stub() -> None:
+        """TC-532: an entry that itself `shadows` another is never treated as a member-less stub to be
+        paired away (rule 8/TC-541 both `continue` when `entry.get("shadows")` is truthy) - it stays its own
+        unit even though a same-name, member-bearing entry exists elsewhere."""
+        entries = [
+            _entry(
+                "Baz",
+                "pkg.exported.Baz",
+                "pkg/exported.py",
+                kind="class",
+                members=False,
+                shadows="pkg.old.OldBaz",
+            ),
+            _entry("Baz", "pkg.real.Baz", "pkg/real.py", kind="class", members=True),
+        ]
+        identities = compute_canonical_identities(entries)
+>       assert identities[0].canonical_id == "pkg.exported.Baz"
+               ^^^^^^^^^^^^^
+E       KeyError: 0
+
+tests\indexing\test_symbol_identity.py:229: KeyError
+________ test_shadowed_by_entry_is_never_used_as_a_fallback_definition ________
+
+    def test_shadowed_by_entry_is_never_used_as_a_fallback_definition() -> None:
+        """TC-532: an entry another entry's `shadowed_by` names is excluded from the member-less-fallback
+        candidate pool (`_reexport_pairs`'s own `definitions` dict skips any entry carrying
+        `shadowed_by`), so a member-less same-name entry is left unpaired rather than wrongly grouped with
+        the replaced class."""
+        entries = [
+            _entry(
+                "Qux",
+                "pkg.old.Qux",
+                "pkg/old.py",
+                kind="class",
+                members=True,
+                shadowed_by="pkg.new.Qux",
+            ),
+            _entry("Qux", "pkg.stub.Qux", "pkg/stub.py", kind="class", members=False),
+        ]
+        identities = compute_canonical_identities(entries)
+        # Neither entry is paired with the other: the only candidate definition is excluded by its own
+        # shadowed_by marker, so the member-less entry stays its own unit.
+>       assert identities[0].canonical_id == "pkg.old.Qux"
+               ^^^^^^^^^^^^^
+E       KeyError: 0
+
+tests\indexing\test_symbol_identity.py:255: KeyError
+______ test_reexport_cycle_leaves_both_entries_unpaired_without_crashing ______
+
+    def test_reexport_cycle_leaves_both_entries_unpaired_without_crashing() -> None:
+        """`_reexport_pairs`'s own docstring: a chain that loops is not paired. Two entries whose
+        `reexport_of` each name the other must not pair, must not crash, and must each remain their own,
+        unaliased unit."""
+        entries = [
+            _entry("A", "pkg.A", "pkg/a.py", reexport_of="pkg.B"),
+            _entry("B", "pkg.B", "pkg/b.py", reexport_of="pkg.A"),
+        ]
+        identities = compute_canonical_identities(entries)
+>       assert identities[0].canonical_id == "pkg.A"
+               ^^^^^^^^^^^^^
+E       KeyError: 0
+
+tests\indexing\test_symbol_identity.py:270: KeyError
+________________ test_reexport_of_naming_itself_is_not_paired _________________
+
+    def test_reexport_of_naming_itself_is_not_paired() -> None:
+        """`_reexport_pairs`'s own docstring: "an entry that names itself" is not paired - the single-entry
+        degenerate case of the cycle guard."""
+        entries = [_entry("A", "pkg.A", "pkg/a.py", reexport_of="pkg.A", members=True)]
+        identities = compute_canonical_identities(entries)
+>       assert len(identities) == 1
+E       assert 0 == 1
+E        +  where 0 = len({})
+
+tests\indexing\test_symbol_identity.py:283: AssertionError
+=========================== short test summary info ===========================
+FAILED tests/indexing/test_symbol_identity.py::test_explicit_reexport_of_chain_groups_under_the_definitions_canonical_id
+FAILED tests/indexing/test_symbol_identity.py::test_package_init_stub_pairs_with_its_one_definition
+FAILED tests/indexing/test_symbol_identity.py::test_memberless_same_name_class_falls_back_to_the_one_definition_anywhere
+FAILED tests/indexing/test_symbol_identity.py::test_slides_python_real_fixture_canonical_ids_significantly_fewer_than_raw_entries
+FAILED tests/indexing/test_symbol_identity.py::test_no_reexports_every_entry_is_its_own_unaliased_unit
+FAILED tests/indexing/test_symbol_identity.py::test_identity_result_is_pure_and_deterministic
+FAILED tests/indexing/test_symbol_identity.py::test_shadowing_entry_is_never_paired_as_a_memberless_stub
+FAILED tests/indexing/test_symbol_identity.py::test_shadowed_by_entry_is_never_used_as_a_fallback_definition
+FAILED tests/indexing/test_symbol_identity.py::test_reexport_cycle_leaves_both_entries_unpaired_without_crashing
+FAILED tests/indexing/test_symbol_identity.py::test_reexport_of_naming_itself_is_not_paired
+
+--- stderr ---
+
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-5c72e798a73c059a\Scripts\python.exe -m pytest tests/indexing/test_symbol_identity.py -q -rfE -p no:cacheprovider "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-gj_58tt0\.junit-1.xml"
+--- stdout ---
+FFFFFFFFFF                                                               [100%]
+================================== FAILURES ===================================
+__ test_explicit_reexport_of_chain_groups_under_the_definitions_canonical_id __
+
+    def test_explicit_reexport_of_chain_groups_under_the_definitions_canonical_id() -> None:
+        """TC-522 rule: an entry whose `reexport_of` names another entry's `class_import` pairs with it,
+        whatever members the shell itself has. A two-hop chain (shell -> mid -> real definition) is
+        followed to the final definition."""
+        entries = [
+            _entry("Shape", "pkg.shells.Shape", "pkg/shells/__init__.py", reexport_of="pkg.mid.Shape"),
+            _entry("Shape", "pkg.mid.Shape", "pkg/mid.py", reexport_of="pkg.real.Shape"),
+            _entry("Shape", "pkg.real.Shape", "pkg/real.py", members=True),
+        ]
+        identities = compute_canonical_identities(entries)
+>       assert len(identities) == 3
+E       assert 0 == 3
+E        +  where 0 = len({})
+
+tests\indexing\test_symbol_identity.py:73: AssertionError
+____________ test_package_init_stub_pairs_with_its_one_definition _____________
+
+    def test_package_init_stub_pairs_with_its_one_definition() -> None:
+        """TC-382 rule 8: a member-less stub re-exported from a package `__init__.py` pairs with the one
+        other entry of the same name whose `class_import` lives under that package and that has members."""
+        entries = [
+            _entry("Foo", "pkg.Foo", "pkg/__init__.py", members=False),
+            _entry("Foo", "pkg.sub.Foo", "pkg/sub/foo.py", members=True),
+            _entry("Bar", "pkg.Bar", "pkg/bar.py", members=True),  # unrelated, untouched
+        ]
+        identities = compute_canonical_identities(entries)
+>       assert identities[0].canonical_id == "pkg.sub.Foo"
+               ^^^^^^^^^^^^^
+E       KeyError: 0
+
+tests\indexing\test_symbol_identity.py:93: KeyError
+__ test_memberless_same_name_class_falls_back_to_the_one_definition_anywhere __
+
+    def test_memberless_same_name_class_falls_back_to_the_one_definition_anywhere() -> None:
+        """TC-541: a member-less `class`/`enum` of a `.py` file that the earlier rules did not pair pairs
+        with the ONE `.py` entry of the same name and kind that has members, wherever it lives."""
+        entries = [
+            _entry("Widget", "other.Widget", "other/mod.py", kind="class", members=False),
+            _entry("Widget", "real.Widget", "real/mod.py", kind="class", members=True),
+        ]
+        identities = compute_canonical_identities(entries)
+>       assert identities[0].canonical_id == "real.Widget"
+               ^^^^^^^^^^^^^
+E       KeyError: 0
+
+tests\indexing\test_symbol_identity.py:112: KeyError
+_ test_slides_python_real_fixture_canonical_ids_significantly_fewer_than_raw_entries _
+
+    def test_slides_python_real_fixture_canonical_ids_significantly_fewer_than_raw_entries() -> None:
+        """Loads the real, committed `tests/fixtures/slides_python/api_surface.json` the same way
+        `chunk_builder.build_chunks_from_api_surface` does (filtering test sources via `_is_test_source`,
+        the same filter the real pipeline applies before calling `_reexport_pairs`), and confirms the
+        canonical-id count this module computes is significantly lower than the raw entry count.
+    
+        Cross-checked against `tests/conformance/corpus.py`'s loader over the real, committed
+        `infra/demo-manifests` generation: that generation's own rendered symbol-chunk count for this same
+        pilot is used only as an independent sanity check that the raw entry count below is the real,
+        currently-served population, not a stale fixture.
+        """
+        fixture_path = FIXTURES_DIR / "slides_python" / "api_surface.json"
+        fixture = json.loads(fixture_path.read_text(encoding="utf-8"))
+        entries = [entry for entry in _items(fixture["types"]) if not _is_test_source(entry.get("file"))]
+        raw_entry_count = len(entries)
+    
+        with tempfile.TemporaryDirectory() as tmp:
+            corpus = load_demo_manifests_corpus(Path(tmp))
+            pilot = corpus.pilots["slides__python"]
+            served_symbol_chunk_count = len(pilot.symbol_chunks())
+    
+        identities = compute_canonical_identities(entries)
+>       assert len(identities) == raw_entry_count
+E       assert 0 == 1023
+E        +  where 0 = len({})
+
+tests\indexing\test_symbol_identity.py:146: AssertionError
+___________ test_no_reexports_every_entry_is_its_own_unaliased_unit ___________
+
+    def test_no_reexports_every_entry_is_its_own_unaliased_unit() -> None:
+        entries = [
+            _entry("Alpha", "pkg.Alpha", "pkg/alpha.py", members=True),
+            _entry("Beta", "pkg.Beta", "pkg/beta.py", members=True),
+            _entry("Gamma", "pkg.Gamma", "pkg/gamma.py", kind="enum", members=True),
+        ]
+        identities = compute_canonical_identities(entries)
+>       assert len(identities) == 3
+E       assert 0 == 3
+E        +  where 0 = len({})
+
+tests\indexing\test_symbol_identity.py:178: AssertionError
+_______________ test_identity_result_is_pure_and_deterministic ________________
+
+    def test_identity_result_is_pure_and_deterministic() -> None:
+        """Calling `compute_canonical_identities` twice on the same (never mutated) input returns equal
+        results, and the input entries are left untouched."""
+        entries = [
+            _entry("Alpha", "pkg.shell.Alpha", "pkg/shell/__init__.py", reexport_of="pkg.real.Alpha"),
+            _entry("Alpha", "pkg.real.Alpha", "pkg/real.py", members=True),
+        ]
+        snapshot = json.dumps(entries, sort_keys=True)
+        first = compute_canonical_identities(entries)
+        second = compute_canonical_identities(entries)
+        assert json.dumps(entries, sort_keys=True) == snapshot
+        assert first == second
+>       assert len(first) == 2
+E       assert 0 == 2
+E        +  where 0 = len({})
+
+tests\indexing\test_symbol_identity.py:200: AssertionError
+__________ test_shadowing_entry_is_never_paired_as_a_memberless_stub __________
+
+    def test_shadowing_entry_is_never_paired_as_a_memberless_stub() -> None:
+        """TC-532: an entry that itself `shadows` another is never treated as a member-less stub to be
+        paired away (rule 8/TC-541 both `continue` when `entry.get("shadows")` is truthy) - it stays its own
+        unit even though a same-name, member-bearing entry exists elsewhere."""
+        entries = [
+            _entry(
+                "Baz",
+                "pkg.exported.Baz",
+                "pkg/exported.py",
+                kind="class",
+                members=False,
+                shadows="pkg.old.OldBaz",
+            ),
+            _entry("Baz", "pkg.real.Baz", "pkg/real.py", kind="class", members=True),
+        ]
+        identities = compute_canonical_identities(entries)
+>       assert identities[0].canonical_id == "pkg.exported.Baz"
+               ^^^^^^^^^^^^^
+E       KeyError: 0
+
+tests\indexing\test_symbol_identity.py:229: KeyError
+________ test_shadowed_by_entry_is_never_used_as_a_fallback_definition ________
+
+    def test_shadowed_by_entry_is_never_used_as_a_fallback_definition() -> None:
+        """TC-532: an entry another entry's `shadowed_by` names is excluded from the member-less-fallback
+        candidate pool (`_reexport_pairs`'s own `definitions` dict skips any entry carrying
+        `shadowed_by`), so a member-less same-name entry is left unpaired rather than wrongly grouped with
+        the replaced class."""
+        entries = [
+            _entry(
+                "Qux",
+                "pkg.old.Qux",
+                "pkg/old.py",
+                kind="class",
+                members=True,
+                shadowed_by="pkg.new.Qux",
+            ),
+            _entry("Qux", "pkg.stub.Qux", "pkg/stub.py", kind="class", members=False),
+        ]
+        identities = compute_canonical_identities(entries)
+        # Neither entry is paired with the other: the only candidate definition is excluded by its own
+        # shadowed_by marker, so the member-less entry stays its own unit.
+>       assert identities[0].canonical_id == "pkg.old.Qux"
+               ^^^^^^^^^^^^^
+E       KeyError: 0
+
+tests\indexing\test_symbol_identity.py:255: KeyError
+______ test_reexport_cycle_leaves_both_entries_unpaired_without_crashing ______
+
+    def test_reexport_cycle_leaves_both_entries_unpaired_without_crashing() -> None:
+        """`_reexport_pairs`'s own docstring: a chain that loops is not paired. Two entries whose
+        `reexport_of` each name the other must not pair, must not crash, and must each remain their own,
+        unaliased unit."""
+        entries = [
+            _entry("A", "pkg.A", "pkg/a.py", reexport_of="pkg.B"),
+            _entry("B", "pkg.B", "pkg/b.py", reexport_of="pkg.A"),
+        ]
+        identities = compute_canonical_identities(entries)
+>       assert identities[0].canonical_id == "pkg.A"
+               ^^^^^^^^^^^^^
+E       KeyError: 0
+
+tests\indexing\test_symbol_identity.py:270: KeyError
+________________ test_reexport_of_naming_itself_is_not_paired _________________
+
+    def test_reexport_of_naming_itself_is_not_paired() -> None:
+        """`_reexport_pairs`'s own docstring: "an entry that names itself" is not paired - the single-entry
+        degenerate case of the cycle guard."""
+        entries = [_entry("A", "pkg.A", "pkg/a.py", reexport_of="pkg.A", members=True)]
+        identities = compute_canonical_identities(entries)
+>       assert len(identities) == 1
+E       assert 0 == 1
+E        +  where 0 = len({})
+
+tests\indexing\test_symbol_identity.py:283: AssertionError
+=========================== short test summary info ===========================
+FAILED tests/indexing/test_symbol_identity.py::test_explicit_reexport_of_chain_groups_under_the_definitions_canonical_id
+FAILED tests/indexing/test_symbol_identity.py::test_package_init_stub_pairs_with_its_one_definition
+FAILED tests/indexing/test_symbol_identity.py::test_memberless_same_name_class_falls_back_to_the_one_definition_anywhere
+FAILED tests/indexing/test_symbol_identity.py::test_slides_python_real_fixture_canonical_ids_significantly_fewer_than_raw_entries
+FAILED tests/indexing/test_symbol_identity.py::test_no_reexports_every_entry_is_its_own_unaliased_unit
+FAILED tests/indexing/test_symbol_identity.py::test_identity_result_is_pure_and_deterministic
+FAILED tests/indexing/test_symbol_identity.py::test_shadowing_entry_is_never_paired_as_a_memberless_stub
+FAILED tests/indexing/test_symbol_identity.py::test_shadowed_by_entry_is_never_used_as_a_fallback_definition
+FAILED tests/indexing/test_symbol_identity.py::test_reexport_cycle_leaves_both_entries_unpaired_without_crashing
+FAILED tests/indexing/test_symbol_identity.py::test_reexport_of_naming_itself_is_not_paired
+
+--- stderr ---
+
