@@ -1,0 +1,143 @@
+id: TC-610
+gate: G3
+lane: storage-retrieval
+purpose: >-
+  Build Q1 (REQ-G3-011): `normalize_query`, plus an optional `platform` parameter on the existing
+  term-exclusion machinery - the shared foundation Q2/Q3/Q4 (later cards) wire into lookup,
+  search_docs, find_examples and search_symbols. This card is PURE relevance.py work: it builds and
+  unit-tests the new function and the extended signature in isolation, wiring it into any real tool
+  is explicitly out of scope (Q2/Q3/Q4's job). Fixes two concrete, measured problems: (1) a query's
+  own PLATFORM word (net/java/python/go/rust/typescript/cpp) is never excluded today - only the
+  family word is (`_excluded_terms(family)`) - so on the literal LONGQ-001 query "net" counts as one
+  of the 7 distinctive terms; dropping it too brings LONGQ-001 to 6 terms, at the measured corpus
+  ceiling, not past it. (2) a literal product-name mention like "Aspose.PDF" is a DOTTED token, and
+  `search_symbols.py`'s `_plain_words` returns `None` (disabling the whole symbol evidence stage) for
+  ANY query containing a dotted word, conflating a real exact-name query (`PdfDocument.Rotate`) with
+  an ordinary sentence that merely names the product. Read
+  C:\Users\babar\.claude\plans\steady-wobbling-meteor.md section 1.1, 1.4, 2.2 (Q1-Q4) first.
+depends_on:
+  - TC-587
+  - TC-605
+  - TC-606
+write_paths:
+  - src/foss_mcp/mcp/tools/relevance.py
+  - tests/mcp/tools/test_relevance_normalize_query.py
+satisfies:
+  - REQ-G3-011
+source_refs:
+  - file: docs/DECISION_LOG.md
+    anchor: >-
+      ## 2026-10-30 — Round-2 portfolio audit remediation adopted: unified plan, governance decisions A-K
+      recorded (supervisor)
+    sha256: 62cf1403a592118e3fb6bd14c5336f8a997cc3181d44a585323ec9f1d385a931
+inputs:
+  - >-
+    READ FIRST: C:\Users\babar\.claude\plans\steady-wobbling-meteor.md section 2.2 (Q1-Q4). Also
+    read `src/foss_mcp/mcp/tools/relevance.py`'s real, current `_excluded_terms`, `query_terms`,
+    `distinctive_terms`, `is_common_word` functions (around lines 582-721) and
+    `src/foss_mcp/mcp/tools/search_symbols.py`'s real `_plain_words` function (around line 701) IN
+    FULL before writing anything - confirm the exact current signatures and behaviour against the
+    CURRENT code (it may have shifted slightly since this plan was written).
+  - >-
+    Extend `_excluded_terms(family: str, extra_generic: Collection[str] = ())` to
+    `_excluded_terms(family: str, platform: str | None = None, extra_generic: Collection[str] =
+    ())` - when `platform` is given, also add `stem_token(token) for token in tokenize(platform)`
+    and `stem_token(platform)` to the excluded set (mirroring EXACTLY how the family word is
+    excluded two lines above - do not write a different stemming/tokenizing path for platform).
+    `platform=None` (the default) must leave every existing caller's behaviour byte-for-byte
+    unchanged - this is the backward-compatibility contract every existing call site and every
+    existing pinned test relies on. Thread the new optional parameter through `query_terms` and
+    `distinctive_terms` the same way (`query_terms(query: str, family: str, platform: str | None =
+    None) -&gt; frozenset[str]`, same for `distinctive_terms`) - again, calling either with the old
+    two-argument form must be completely unaffected. Do NOT change `is_common_word`'s signature
+    unless you find a real caller that needs it (check first; if none does, leave it as a
+    family-only check for now - a future card can extend it if it turns out to be needed, do not
+    over-build ahead of actual demand).
+  - >-
+    Add a new, separate, pure function: `normalize_query(query: str, family: str) -&gt; str`. Its job:
+    detect a literal product-name mention shaped like `Aspose.&lt;Family&gt;` (case-insensitive match on
+    the literal word "Aspose" followed by a dot followed by *family* or a close variant - check how
+    the real family strings look across all 32 pilots' `config/products/*/*.yaml` to know what
+    variants to handle, e.g. "pdf", "cells", "3d" - "3d" in particular may need care since
+    "Aspose.3D" has a leading digit after the dot) and rewrite it to the two-word, space-separated
+    form ("Aspose PDF", "Aspose 3D") so it is no longer a single dotted token for any downstream
+    consumer (`_plain_words` in particular). Do NOT touch any OTHER dotted token in the query (a
+    real identifier-style mention like `PdfDocument.Rotate` or a file extension must pass through
+    `normalize_query` completely unchanged) - this function's only job is recognizing the specific,
+    narrow "Aspose.&lt;product&gt;" pattern, nothing broader. Return the query unchanged if no such
+    pattern is found. This function does not call or depend on the `_excluded_terms`/`platform`
+    change above - the two fixes are independent and composable, do not couple them in one function
+    signature.
+  - >-
+    tests/mcp/tools/test_relevance_normalize_query.py: (a) `_excluded_terms`/`query_terms`/
+    `distinctive_terms` called with the OLD two-argument form produce IDENTICAL results to before
+    this card (pick a handful of real queries/families from the existing pinned test suite - e.g.
+    copy a few cases from `tests/mcp/tools/test_relevance_query_terms.py` if it exists and confirm
+    they still pass unchanged); (b) calling `query_terms`/`distinctive_terms` WITH a platform value
+    now excludes that platform's own stem - confirm concretely with the literal LONGQ-001 query
+    ("how do I install and reference the Aspose.PDF FOSS library in my .NET project so I can start
+    converting files") and `family="pdf"`, `platform="net"`: the WITHOUT-platform distinctive-term
+    count must be 7 (the already-measured, already-pinned number), and the WITH-platform count must
+    be 6 (or state the real number if your own measurement differs and explain why - do not force it
+    to 6 if the real measured count is different, report reality); (c) `normalize_query("...Aspose.PDF
+    library...", "pdf")` rewrites the dotted mention to a non-dotted form, and
+    `search_symbols._plain_words` (import and call it directly) returns non-None for the normalized
+    string where it returned None for the original, literal query (prove this concretely by calling
+    both, not by asserting on the string shape alone); (d) `normalize_query` leaves a genuine
+    identifier-style query (`"PdfDocument.Rotate"`) completely unchanged, and `_plain_words` still
+    correctly returns `None` for it (the evidence stage must still be correctly disabled for a REAL
+    exact-name query - this is the regression guard proving the fix is narrow, not a blanket "strip
+    all dots" change); (e) `normalize_query` is idempotent (`normalize_query(normalize_query(q, f),
+    f) == normalize_query(q, f)`) and returns queries with no product mention completely unchanged.
+    Never weaken a check to make it pass.
+  - >-
+    Run the FULL existing relevance/retrieval ratchet bundle (the retrieval corpus test, forgiveness
+    acceptance, nonsense-miss, title-anchor, idf-synonyms) as this card's second check and confirm
+    every existing pinned number is UNCHANGED - this card adds new, unused-by-default capability
+    (the old two-arg calls are untouched, and nothing yet calls `normalize_query` from a real tool
+    entrypoint), so there must be ZERO behavioural change to any existing tool's answers. If
+    anything shifts, that is a sign the backward-compatibility contract above was violated -
+    diagnose and fix it, do not report a changed number as acceptable.
+actions:
+  - >-
+    Add `normalize_query()` and an optional `platform` parameter on `_excluded_terms`/
+    `query_terms`/`distinctive_terms`, fully backward-compatible with every existing two-argument
+    call site, proven both by new unit tests against the literal LONGQ-001 query and by zero change
+    to every existing retrieval ratchet.
+checks:
+  - command: '{python} -m pytest tests/mcp/tools/test_relevance_normalize_query.py -q -rfE'
+    expect: 'exit 0'
+    timeout_seconds: 120
+    junitxml: true
+    proves:
+      - REQ-G3-011
+  - command: '{python} -m pytest tests/mcp/tools/test_relevance_normalize_query.py tests/mcp/tools/test_round3_retrieval_corpus.py tests/mcp/tools/test_forgiveness_acceptance.py tests/mcp/tools/test_nonsense_queries_miss.py tests/mcp/tools/test_find_examples_title_anchor.py tests/mcp/tools/test_relevance_idf_synonyms.py -q -rfE -p no:cacheprovider'
+    expect: 'exit 0'
+    timeout_seconds: 300
+    junitxml: true
+    proves:
+      - REQ-G3-011
+min_tests: 6
+requires:
+  - python
+network: false
+negative_control:
+  mutate: |
+    python -X utf8 -c "import pathlib; p = pathlib.Path('src/foss_mcp/mcp/tools/relevance.py'); s = p.read_text(encoding='utf-8'); old = 'def normalize_query('; assert s.count(old) == 1, 'fix text not found - card and source have diverged'; lines = s.splitlines(); i = next(idx for idx, line in enumerate(lines) if old in line); j = i + 1; depth_line = lines[j]; indent = ' ' * (len(depth_line) - len(depth_line.lstrip())); lines.insert(j, indent + 'return query  # TC-610 negative control: never normalize anything'); p.write_text(chr(10).join(lines) + chr(10), encoding='utf-8')"
+  rationale: >-
+    Makes normalize_query an unconditional no-op. The test asserting that a dotted "Aspose.PDF"
+    mention is rewritten to a non-dotted form, and that _plain_words then returns non-None, must
+    fail, proving the test genuinely exercises the function's real transformation rather than
+    trusting its docstring.
+evidence:
+  - evidence/build/G3/TC-610/receipt.json
+closeout:
+  - >-
+    normalize_query and the optional platform parameter exist, are fully backward-compatible (every
+    existing ratchet unchanged), and are proven against the literal LONGQ-001 query: state the real
+    measured distinctive-term count with and without the platform exclusion.
+recovery: >-
+  If adding the platform parameter changes ANY existing ratchet number even though old call sites
+  pass no platform argument, STOP and report FAILED_INTERNAL with the exact diff - this would mean
+  the default-None path is not truly inert, which breaks this card's whole backward-compatibility
+  premise and must not be patched around by adjusting a ratchet's pinned number.

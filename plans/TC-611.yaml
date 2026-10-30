@@ -1,0 +1,123 @@
+id: TC-611
+gate: G3
+lane: extraction
+purpose: >-
+  Build XA1 (REQ-G3-014): make the chunker fence-aware, fixing the confirmed orphan-fragment defect
+  (TC-609/F9 measured exactly 12 orphan chunks on 3d/python, pdf/python, slides/python). Root cause,
+  already confirmed, do not re-derive: `chunk_document`'s `_HEADING` regex
+  (`^(#{1,6})[ \t]+(.+?)[ \t]*$`, MULTILINE) matches ANY line starting with 1-6 `#` characters
+  anywhere in the body, including a column-0 Python comment (`# Save to STL`) sitting inside a
+  fenced code block - splitting the chunk there and orphaning the real code after it. The fix: track
+  fenced-code-block state while scanning for headings, and never treat a line inside an OPEN fence
+  as a heading. Read C:\Users\babar\.claude\plans\steady-wobbling-meteor.md section 1.4 and 2.5 (XA1)
+  first.
+depends_on:
+  - TC-147
+  - TC-609
+write_paths:
+  - src/foss_mcp/normalization/chunker.py
+  - tests/normalization/test_chunker_fence_aware.py
+satisfies:
+  - REQ-G3-014
+source_refs:
+  - file: docs/DECISION_LOG.md
+    anchor: >-
+      ## 2026-10-30 — Round-2 portfolio audit remediation adopted: unified plan, governance decisions A-K
+      recorded (supervisor)
+    sha256: 62cf1403a592118e3fb6bd14c5336f8a997cc3181d44a585323ec9f1d385a931
+inputs:
+  - >-
+    READ FIRST: C:\Users\babar\.claude\plans\steady-wobbling-meteor.md section 2.5 (XA1). Also read
+    `src/foss_mcp/normalization/chunker.py` IN FULL (it is short - under 100 lines) - this card's
+    whole job is `_HEADING`/`_heading_sections`, nothing else in the file. Also read
+    `tests/normalization/test_chunker.py` (the existing test file, owned by a different card,
+    TC-147 - you may READ it for the existing pinned behaviour and patterns, but you write only to
+    a NEW file, `tests/normalization/test_chunker_fence_aware.py`, never touching
+    `test_chunker.py` itself).
+  - >-
+    Modify `_heading_sections` (or add a small helper it calls) so that a `#`-prefixed line inside
+    an OPEN markdown fence (a line that is exactly three or more backticks, optionally followed by a
+    language tag, e.g. "```python" or "```", and its matching closing fence of the same or more
+    backticks with no language tag) is never matched as a heading. Track fence open/close state by
+    scanning the body line by line (or with a single combined regex that also matches fence-delimiter
+    lines, toggling a boolean as you iterate matches in document order) - do not assume all fences
+    use exactly three backticks; markdown allows four or more as an escape for code containing three
+    backticks, and a closing fence must have AT LEAST as many backticks as its opening one. Handle
+    tilde fences (`~~~`) the same way if you find any real furnished-page content uses them (check
+    `tests/fixtures/furnished/**/pages/_index.md` for real examples of both fence styles before
+    assuming only backticks are used). An UNCLOSED fence (one opened but never closed before the body
+    ends) must not cause every subsequent real heading in the rest of the document to be silently
+    swallowed - decide and document a sane fallback (e.g. treat an unclosed fence as closing at the
+    end of the body) rather than leaving the rest of the document unscannable; note which choice you
+    made in your closeout.
+  - >-
+    This is a PURE function change - no new imports beyond what fence-detection needs (the `re`
+    module already imported is almost certainly sufficient), no I/O, no change to `Chunk`'s shape,
+    no change to `_paragraph_sections`/`chunk_document`/`with_validation`. Keep the diff small and
+    reviewable.
+  - >-
+    tests/normalization/test_chunker_fence_aware.py: (a) a synthetic `NormalizedDocument` whose body
+    has a real markdown heading, then a fenced Python code block containing a column-0
+    `# comment` line, then MORE real content after the fence closes - confirm `chunk_document`
+    produces exactly the sections a human would expect: the heading's section includes the FULL
+    fenced code block (comment and all, uninterrupted), and the content after the closing fence is
+    NOT split off as its own headerless orphan section; (b) a document with a genuine heading
+    actually inside the fenced block's surrounding prose (i.e. real headings outside any fence still
+    split correctly - prove the fix does not accidentally disable heading-splitting everywhere); (c)
+    an unclosed fence case, asserting your documented fallback behaviour; (d) a REAL regression
+    reproduction: load the actual, real, currently-committed furnished-page markdown for one of the
+    three confirmed-affected pilots (3d/python, pdf/python, or slides/python - pick one, read its
+    real `tests/fixtures/furnished/&lt;pilot&gt;/pages/_index.md`) and confirm that running the FIXED
+    `chunk_document` over that real content no longer produces an orphan (headerless) chunk where the
+    old behaviour did - this is the direct, real-data proof the fix actually closes the bug, not just
+    a synthetic unit test. Never weaken a check to make it pass.
+  - >-
+    Also run the full existing `tests/normalization/test_chunker.py` (read-only - not in your
+    write_paths, but run it as part of your own verification before committing) to confirm your
+    change does not alter ANY existing pinned chunking behaviour for documents with no fences - if
+    it does, your fence-detection logic is too broad and needs narrowing before you commit.
+actions:
+  - >-
+    Make the chunker fence-aware so a column-0 `#` comment inside a fenced code block is never
+    mistaken for a markdown heading, fixing the exact orphan-fragment defect TC-609 measured on
+    3d/python, pdf/python and slides/python, proven against real furnished-page content.
+checks:
+  - command: '{python} -m pytest tests/normalization/test_chunker_fence_aware.py -q -rfE'
+    expect: 'exit 0'
+    timeout_seconds: 120
+    junitxml: true
+    proves:
+      - REQ-G3-014
+  - command: '{python} -m pytest tests/normalization/test_chunker_fence_aware.py tests/normalization/test_chunker.py tests/conformance/test_example_integrity.py -q -rfE -p no:cacheprovider'
+    expect: 'exit 0'
+    timeout_seconds: 180
+    junitxml: true
+    proves:
+      - REQ-G3-014
+min_tests: 5
+requires:
+  - python
+network: false
+negative_control:
+  mutate: |
+    python -X utf8 -c "import pathlib; p = pathlib.Path('src/foss_mcp/normalization/chunker.py'); s = p.read_text(encoding='utf-8'); old = 'def _heading_sections('; assert s.count(old) == 1, 'fix text not found - card and source have diverged'; lines = s.splitlines(); i = next(idx for idx, line in enumerate(lines) if old in line); j = i + 1; depth_line = lines[j]; indent = ' ' * (len(depth_line) - len(depth_line.lstrip())); lines.insert(j, indent + 'pass  # TC-611 negative control: fall through to the real body unchanged below, fence tracking never applied'); p.write_text(chr(10).join(lines) + chr(10), encoding='utf-8')"
+  rationale: >-
+    A bare `pass` right after the function signature changes nothing by itself in Python, so if
+    this exact insertion point turns out not to disable your real fence-tracking logic (e.g. you
+    restructured the function differently than a simple early-body insertion point allows), the
+    falsifier will not apply cleanly - in that case, per this card's own recovery instruction, write
+    a simpler, reliable one yourself (e.g. one that forces the fence-tracking boolean to always be
+    False) in the same chr()-based style and report the substitution; do not leave a non-functional
+    negative control in place.
+evidence:
+  - evidence/build/G3/TC-611/receipt.json
+closeout:
+  - >-
+    The chunker is fence-aware; a real furnished-page regression reproduction for at least one of
+    the three previously-affected pilots confirms the orphan no longer occurs. State which fallback
+    you chose for an unclosed fence.
+recovery: >-
+  If the negative-control mutate script does not actually disable your real implementation (because
+  your fix is structured differently than a single early-body insertion point), write a working
+  replacement yourself in the same chr()-based, backslash-free style used elsewhere in this plan and
+  report the substitution in your closeout - do not leave a non-functional falsifier in place.
