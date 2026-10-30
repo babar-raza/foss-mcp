@@ -1,0 +1,269 @@
+
+===== CLEAN RUN 1 (host) =====
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-5c72e798a73c059a\Scripts\python.exe -m pytest tests/conformance/test_sentence_wrapped_retrieval.py -q -rfE "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-or8_47t8\.junit-0.xml"
+--- stdout ---
+.....                                                                    [100%]
+
+--- stderr ---
+
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-5c72e798a73c059a\Scripts\python.exe -m pytest tests/conformance/test_sentence_wrapped_retrieval.py -q -rfE -p no:cacheprovider "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-or8_47t8\.junit-1.xml"
+--- stdout ---
+.....                                                                    [100%]
+
+--- stderr ---
+
+
+===== CLEAN RUN 2 (host) =====
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-5c72e798a73c059a\Scripts\python.exe -m pytest tests/conformance/test_sentence_wrapped_retrieval.py -q -rfE "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-or8_47t8\.junit-0.xml"
+--- stdout ---
+.....                                                                    [100%]
+
+--- stderr ---
+
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-5c72e798a73c059a\Scripts\python.exe -m pytest tests/conformance/test_sentence_wrapped_retrieval.py -q -rfE -p no:cacheprovider "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-or8_47t8\.junit-1.xml"
+--- stdout ---
+.....                                                                    [100%]
+
+--- stderr ---
+
+
+===== NEGATIVE CONTROL (checks MUST now fail) =====
+mutated: M tests/fixtures/conformance/baseline_sentence_wrapped_retrieval.json, ?? .junit-0.xml, ?? .junit-1.xml
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-5c72e798a73c059a\Scripts\python.exe -m pytest tests/conformance/test_sentence_wrapped_retrieval.py -q -rfE "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-or8_47t8\.junit-0.xml"
+--- stdout ---
+..FF.                                                                    [100%]
+================================== FAILURES ===================================
+_____ test_longq_001_literal_query_pinned_against_the_real_pdf_net_pilot ______
+
+corpus = <tests.conformance.corpus.ConformanceCorpus object at 0x000002578B816120>
+
+    def test_longq_001_literal_query_pinned_against_the_real_pdf_net_pilot(corpus: ConformanceCorpus) -> None:
+        """The permanent regression test for the originally reported bug. Confirmed by this card's own
+        worker, by actually running it (not assumed): TODAY this is a ``Miss`` - the real
+        "Installation, Dependencies, and Quick Start" chunk holds only 3 of LONGQ-001's 7 distinctive
+        terms (coverage 0.43), under the 0.6 ``guarded_coverage()`` floor. This single case flipping to
+        PASS (with the baseline then tightened to ``strict: true`` by Q17, a much later closure card) is
+        the literal, permanent proof the original bug is fixed.
+        """
+        pilot = corpus.pilots[LONGQ_001_PILOT]
+        install_chunk = next(chunk for chunk in _titled_chunks(pilot) if chunk.title == LONGQ_001_TITLE)
+        result = lookup(corpus.store, pilot.scope, LONGQ_001_QUERY)
+        passed = _case_passes(result, install_chunk.chunk_id, install_chunk.fqn)
+        observed_failures = (
+            ()
+            if passed
+            else (
+                {
+                    "pilot": LONGQ_001_PILOT,
+                    "case_id": LONGQ_001_CASE_ID,
+                    "reason": f"literal LONGQ-001 query -> {type(result).__name__}: {result!r}",
+                },
+            )
+        )
+>       assert_no_new_failures(load_baseline(BASELINE_PATH), observed_failures)
+
+tests\conformance\test_sentence_wrapped_retrieval.py:345: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+baseline = Baseline(strict=False, known_failures=())
+observed_failures = ({'pilot': 'pdf__net', 'case_id': 'sentence-wrapped:pdf__net:longq-001:literal', 'reason': 'literal LONGQ-001 query ->... Aspose.PDF FOSS library in my .NET project so I can start converting files\'", suggestions=(), coverage_note=None)'},)
+
+    def assert_no_new_failures(baseline: Baseline, observed_failures: Iterable[Any]) -> None:
+        """Raise ``AssertionError`` if *observed_failures* contains a ``(pilot, case_id)`` the baseline does
+        not already know about, naming exactly which case(s) are new. When ``baseline.strict`` is ``True``,
+        also raise if a baseline entry is NOT present in *observed_failures* (i.e. it now passes and the
+        baseline must be tightened); when ``baseline.strict`` is ``False`` (the default), that same absence
+        never fails - a baseline may always be ahead of what is currently observed."""
+        observed_keys = frozenset(_observed_key(failure) for failure in observed_failures)
+        known_keys = baseline.known_keys()
+    
+        new_failures = observed_keys - known_keys
+        if new_failures:
+            named = ", ".join(f"{pilot}:{case_id}" for pilot, case_id in sorted(new_failures))
+>           raise AssertionError(f"new failure(s) not present in the baseline: {named}")
+E           AssertionError: new failure(s) not present in the baseline: pdf__net:sentence-wrapped:pdf__net:longq-001:literal
+
+tests\conformance\baseline.py:80: AssertionError
+_______________ test_sentence_wrapped_retrieval_default_sample ________________
+
+corpus = <tests.conformance.corpus.ConformanceCorpus object at 0x000002578B816120>
+
+    def test_sentence_wrapped_retrieval_default_sample(corpus: ConformanceCorpus) -> None:
+        """The card's own default-run sweep: a seeded sample of 2-3 real titles per pilot, each wrapped in
+        one of the twelve frames, measured against the real ``lookup()`` entry point and pinned into the
+        committed baseline. Most of these are expected to FAIL today (see module docstring); this test
+        only proves the measured set of failures has not grown beyond what is already pinned.
+        """
+        cases = _default_sample_cases(corpus)
+        assert cases, "no sampled cases were generated - the corpus or the sampler is broken"
+        observed_failures: list[dict[str, str]] = []
+        for pilot_name, pilot, frame_index, title_chunk in cases:
+            family = _display(_FAMILY_DISPLAY, pilot.scope.family)
+            platform = _display(_PLATFORM_DISPLAY, pilot.scope.platform)
+            frame_name, frame_template = FRAMES[frame_index]
+            sentence = _render(frame_template, title_chunk.title, family, platform)
+            word_count = len(sentence.split())
+            assert 12 <= word_count <= 35, (
+                f"{pilot_name}:{frame_name} rendered a {word_count}-word sentence (want 12-35): {sentence!r}"
+            )
+            result = lookup(corpus.store, pilot.scope, sentence)
+            if not _case_passes(result, title_chunk.chunk_id, title_chunk.fqn):
+                observed_failures.append(
+                    {
+                        "pilot": pilot_name,
+                        "case_id": f"sentence-wrapped:{pilot_name}:{frame_index}:{title_chunk.title}",
+                        "reason": (
+                            f"frame={frame_name!r} title={title_chunk.title!r} sentence={sentence!r} "
+                            f"-> {type(result).__name__}"
+                        ),
+                    }
+                )
+>       assert_no_new_failures(load_baseline(BASELINE_PATH), observed_failures)
+
+tests\conformance\test_sentence_wrapped_retrieval.py:402: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+baseline = Baseline(strict=False, known_failures=())
+observed_failures = [{'pilot': '3d__java', 'case_id': 'sentence-wrapped:3d__java:0:Build a Scene From a Primitive', 'reason': 'frame=\'how... Dependencies, and Quick Start? I\'m pretty new to 3D and I only just started this .NET project." -> TaskAnswer'}, ...]
+
+    def assert_no_new_failures(baseline: Baseline, observed_failures: Iterable[Any]) -> None:
+        """Raise ``AssertionError`` if *observed_failures* contains a ``(pilot, case_id)`` the baseline does
+        not already know about, naming exactly which case(s) are new. When ``baseline.strict`` is ``True``,
+        also raise if a baseline entry is NOT present in *observed_failures* (i.e. it now passes and the
+        baseline must be tightened); when ``baseline.strict`` is ``False`` (the default), that same absence
+        never fails - a baseline may always be ahead of what is currently observed."""
+        observed_keys = frozenset(_observed_key(failure) for failure in observed_failures)
+        known_keys = baseline.known_keys()
+    
+        new_failures = observed_keys - known_keys
+        if new_failures:
+            named = ", ".join(f"{pilot}:{case_id}" for pilot, case_id in sorted(new_failures))
+>           raise AssertionError(f"new failure(s) not present in the baseline: {named}")
+E           AssertionError: new failure(s) not present in the baseline: 3d__java:sentence-wrapped:3d__java:0:Build a Scene From a Primitive, 3d__java:sentence-wrapped:3d__java:1:Save a box mesh as an STL file, 3d__java:sentence-wrapped:3d__java:2:Key Capabilities and API Reference, 3d__net:sentence-wrapped:3d__net:3:Convert a Lambert Material to PBR, 3d__net:sentence-wrapped:3d__net:4:Load OBJ With Custom Options and Export to STL, 3d__net:sentence-wrapped:3d__net:5:Installation, Dependencies, and Quick Start, 3d__python:sentence-wrapped:3d__python:6:Build a Cube and Export It to 3MF, 3d__python:sentence-wrapped:3d__python:7:Quick Start, 3d__python:sentence-wrapped:3d__python:8:Convert a Parametric Primitive to a Mesh, 3d__typescript:sentence-wrapped:3d__typescript:10:Quick Start, 3d__typescript:sentence-wrapped:3d__typescript:11:Load OBJ With Custom Options and Export to Binary STL, 3d__typescript:sentence-wrapped:3d__typescript:9:Installation, Dependencies, and Quick Start, barcode__python:sentence-wrapped:barcode__python:0:Additional Examples (3), barcode__python:sentence-wrapped:barcode__python:1:Installation, Dependencies, and Quick Start, barcode__python:sentence-wrapped:barcode__python:2:Key Capabilities and API Reference, cells__cpp:sentence-wrapped:cells__cpp:3:Bold Header and Number Format on Cells, cells__cpp:sentence-wrapped:cells__cpp:4:Typical use cases, cells__cpp:sentence-wrapped:cells__cpp:5:How do I install the library?, cells__go:sentence-wrapped:cells__go:6:Data Validation, cells__go:sentence-wrapped:cells__go:7:Streaming Large Files, cells__go:sentence-wrapped:cells__go:8:Quick Start, cells__java:sentence-wrapped:cells__java:10:Quick Start, cells__java:sentence-wrapped:cells__java:11:Key Capabilities and API Reference, cells__java:sentence-wrapped:cells__java:9:Aspose.Cells FOSS for Java, cells__net:sentence-wrapped:cells__net:0:Build a Table With Totals, cells__net:sentence-wrapped:cells__net:1:Quick Start (3), cells__net:sentence-wrapped:cells__net:2:Key Capabilities and API Reference, cells__python:sentence-wrapped:cells__python:3:Aspose.Cells FOSS for Python, cells__python:sentence-wrapped:cells__python:4:Password-Protect a Workbook, cells__python:sentence-wrapped:cells__python:5:Quick Start, cells__rust:sentence-wrapped:cells__rust:6:Create, Save, and Reload a Workbook, cells__rust:sentence-wrapped:cells__rust:7:Installation, Dependencies, and Quick Start, cells__rust:sentence-wrapped:cells__rust:8:Format numbers as thousands and percentages, cells__typescript:sentence-wrapped:cells__typescript:10:Quick Start, cells__typescript:sentence-wrapped:cells__typescript:11:Key Capabilities and API Reference, cells__typescript:sentence-wrapped:cells__typescript:9:Export a Workbook to HTML, email__cpp:sentence-wrapped:email__cpp:0:Installation, Dependencies, and Quick Start, email__cpp:sentence-wrapped:email__cpp:1:Quick Start (2), email__cpp:sentence-wrapped:email__cpp:2:Quick Start, email__net:sentence-wrapped:email__net:3:Create and Save an MSG Message, email__net:sentence-wrapped:email__net:4:Installation, Dependencies, and Quick Start, email__net:sentence-wrapped:email__net:5:Inspect a CFB Container's Structure, email__python:sentence-wrapped:email__python:6:Build a CFB Container Directly, email__python:sentence-wrapped:email__python:7:Key Capabilities and API Reference, email__python:sentence-wrapped:email__python:8:Installation, Dependencies, and Quick Start, html__python:sentence-wrapped:html__python:10:Scope and Limitations, html__python:sentence-wrapped:html__python:11:Query Elements By Tag Name, html__python:sentence-wrapped:html__python:9:Drive The Tokenizer Directly, imaging__net:sentence-wrapped:imaging__net:0:Installation and Quick Start, imaging__net:sentence-wrapped:imaging__net:1:Probe a PNG stream asynchronously, imaging__net:sentence-wrapped:imaging__net:2:Key Capabilities, note__python:sentence-wrapped:note__python:3:Export to PDF With Custom Options, note__python:sentence-wrapped:note__python:4:Key Capabilities and API Reference, note__python:sentence-wrapped:note__python:5:Inspect Numbered Lists, page__python:sentence-wrapped:page__python:6:Extract EPS Metadata, page__python:sentence-wrapped:page__python:7:Key Capabilities and API Reference, page__python:sentence-wrapped:page__python:8:Installation, Dependencies, and Quick Start, pdf__cpp:sentence-wrapped:pdf__cpp:10:Open a Password-Protected Document, pdf__cpp:sentence-wrapped:pdf__cpp:11:Key Capabilities and API Reference, pdf__cpp:sentence-wrapped:pdf__cpp:9:Encrypt a Document With AES-256, pdf__go:sentence-wrapped:pdf__go:0:Encrypt with Permissions, pdf__go:sentence-wrapped:pdf__go:1:Key Capabilities and API Reference, pdf__go:sentence-wrapped:pdf__go:2:Installation, Dependencies, and Quick Start, pdf__java:sentence-wrapped:pdf__java:3:Create a Document with Widget Annotation, pdf__java:sentence-wrapped:pdf__java:4:Key Capabilities and API Reference, pdf__java:sentence-wrapped:pdf__java:5:Installation, Dependencies, and Quick Start, pdf__net:sentence-wrapped:pdf__net:6:Aspose.PDF FOSS for .NET, pdf__net:sentence-wrapped:pdf__net:7:Key Capabilities and API Reference, pdf__net:sentence-wrapped:pdf__net:8:Installation, Dependencies, and Quick Start, pdf__python:sentence-wrapped:pdf__python:10:Quick Start (3), pdf__python:sentence-wrapped:pdf__python:11:Render a Page to an Image, pdf__python:sentence-wrapped:pdf__python:9:Export a Page as SVG, pdf__typescript:sentence-wrapped:pdf__typescript:0:Document and Page Editing, pdf__typescript:sentence-wrapped:pdf__typescript:1:Where It's Used, pdf__typescript:sentence-wrapped:pdf__typescript:2:How do I install Aspose.PDF FOSS for TypeScript?, slides__cpp:sentence-wrapped:slides__cpp:3:Comments and Replies, slides__cpp:sentence-wrapped:slides__cpp:4:Key Capabilities and API Reference, slides__cpp:sentence-wrapped:slides__cpp:5:Installation, Dependencies, and Quick Start, slides__java:sentence-wrapped:slides__java:6:Additional Examples, slides__java:sentence-wrapped:slides__java:7:Open an Existing Presentation, slides__java:sentence-wrapped:slides__java:8:Format a Text Portion's Font Size, Weight, and Color, slides__net:sentence-wrapped:slides__net:10:Tables, slides__net:sentence-wrapped:slides__net:11:Quick start, slides__net:sentence-wrapped:slides__net:9:Installation and Quick Start, slides__python:sentence-wrapped:slides__python:0:Create a Presentation and Add a Shape, slides__python:sentence-wrapped:slides__python:1:Key Capabilities and API Reference, slides__python:sentence-wrapped:slides__python:2:Installation, Dependencies, and Quick Start, tex__python:sentence-wrapped:tex__python:3:Extraction notice, tex__python:sentence-wrapped:tex__python:4:Messages and Logging (2), tex__python:sentence-wrapped:tex__python:5:Key Capabilities and API Reference, words__net:sentence-wrapped:words__net:6:Accept All Tracked Changes, words__net:sentence-wrapped:words__net:7:Installation and Dependencies, words__net:sentence-wrapped:words__net:8:Convert Markdown to DOCX, words__python:sentence-wrapped:words__python:10:Load Markdown From In-Memory Content, words__python:sentence-wrapped:words__python:11:Key Capabilities and API Reference, words__python:sentence-wrapped:words__python:9:Convert Image-Containing Documents to Every Output Format
+
+tests\conformance\baseline.py:80: AssertionError
+=========================== short test summary info ===========================
+FAILED tests/conformance/test_sentence_wrapped_retrieval.py::test_longq_001_literal_query_pinned_against_the_real_pdf_net_pilot
+FAILED tests/conformance/test_sentence_wrapped_retrieval.py::test_sentence_wrapped_retrieval_default_sample
+
+--- stderr ---
+
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-5c72e798a73c059a\Scripts\python.exe -m pytest tests/conformance/test_sentence_wrapped_retrieval.py -q -rfE -p no:cacheprovider "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-or8_47t8\.junit-1.xml"
+--- stdout ---
+..FF.                                                                    [100%]
+================================== FAILURES ===================================
+_____ test_longq_001_literal_query_pinned_against_the_real_pdf_net_pilot ______
+
+corpus = <tests.conformance.corpus.ConformanceCorpus object at 0x0000019324541BE0>
+
+    def test_longq_001_literal_query_pinned_against_the_real_pdf_net_pilot(corpus: ConformanceCorpus) -> None:
+        """The permanent regression test for the originally reported bug. Confirmed by this card's own
+        worker, by actually running it (not assumed): TODAY this is a ``Miss`` - the real
+        "Installation, Dependencies, and Quick Start" chunk holds only 3 of LONGQ-001's 7 distinctive
+        terms (coverage 0.43), under the 0.6 ``guarded_coverage()`` floor. This single case flipping to
+        PASS (with the baseline then tightened to ``strict: true`` by Q17, a much later closure card) is
+        the literal, permanent proof the original bug is fixed.
+        """
+        pilot = corpus.pilots[LONGQ_001_PILOT]
+        install_chunk = next(chunk for chunk in _titled_chunks(pilot) if chunk.title == LONGQ_001_TITLE)
+        result = lookup(corpus.store, pilot.scope, LONGQ_001_QUERY)
+        passed = _case_passes(result, install_chunk.chunk_id, install_chunk.fqn)
+        observed_failures = (
+            ()
+            if passed
+            else (
+                {
+                    "pilot": LONGQ_001_PILOT,
+                    "case_id": LONGQ_001_CASE_ID,
+                    "reason": f"literal LONGQ-001 query -> {type(result).__name__}: {result!r}",
+                },
+            )
+        )
+>       assert_no_new_failures(load_baseline(BASELINE_PATH), observed_failures)
+
+tests\conformance\test_sentence_wrapped_retrieval.py:345: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+baseline = Baseline(strict=False, known_failures=())
+observed_failures = ({'pilot': 'pdf__net', 'case_id': 'sentence-wrapped:pdf__net:longq-001:literal', 'reason': 'literal LONGQ-001 query ->... Aspose.PDF FOSS library in my .NET project so I can start converting files\'", suggestions=(), coverage_note=None)'},)
+
+    def assert_no_new_failures(baseline: Baseline, observed_failures: Iterable[Any]) -> None:
+        """Raise ``AssertionError`` if *observed_failures* contains a ``(pilot, case_id)`` the baseline does
+        not already know about, naming exactly which case(s) are new. When ``baseline.strict`` is ``True``,
+        also raise if a baseline entry is NOT present in *observed_failures* (i.e. it now passes and the
+        baseline must be tightened); when ``baseline.strict`` is ``False`` (the default), that same absence
+        never fails - a baseline may always be ahead of what is currently observed."""
+        observed_keys = frozenset(_observed_key(failure) for failure in observed_failures)
+        known_keys = baseline.known_keys()
+    
+        new_failures = observed_keys - known_keys
+        if new_failures:
+            named = ", ".join(f"{pilot}:{case_id}" for pilot, case_id in sorted(new_failures))
+>           raise AssertionError(f"new failure(s) not present in the baseline: {named}")
+E           AssertionError: new failure(s) not present in the baseline: pdf__net:sentence-wrapped:pdf__net:longq-001:literal
+
+tests\conformance\baseline.py:80: AssertionError
+_______________ test_sentence_wrapped_retrieval_default_sample ________________
+
+corpus = <tests.conformance.corpus.ConformanceCorpus object at 0x0000019324541BE0>
+
+    def test_sentence_wrapped_retrieval_default_sample(corpus: ConformanceCorpus) -> None:
+        """The card's own default-run sweep: a seeded sample of 2-3 real titles per pilot, each wrapped in
+        one of the twelve frames, measured against the real ``lookup()`` entry point and pinned into the
+        committed baseline. Most of these are expected to FAIL today (see module docstring); this test
+        only proves the measured set of failures has not grown beyond what is already pinned.
+        """
+        cases = _default_sample_cases(corpus)
+        assert cases, "no sampled cases were generated - the corpus or the sampler is broken"
+        observed_failures: list[dict[str, str]] = []
+        for pilot_name, pilot, frame_index, title_chunk in cases:
+            family = _display(_FAMILY_DISPLAY, pilot.scope.family)
+            platform = _display(_PLATFORM_DISPLAY, pilot.scope.platform)
+            frame_name, frame_template = FRAMES[frame_index]
+            sentence = _render(frame_template, title_chunk.title, family, platform)
+            word_count = len(sentence.split())
+            assert 12 <= word_count <= 35, (
+                f"{pilot_name}:{frame_name} rendered a {word_count}-word sentence (want 12-35): {sentence!r}"
+            )
+            result = lookup(corpus.store, pilot.scope, sentence)
+            if not _case_passes(result, title_chunk.chunk_id, title_chunk.fqn):
+                observed_failures.append(
+                    {
+                        "pilot": pilot_name,
+                        "case_id": f"sentence-wrapped:{pilot_name}:{frame_index}:{title_chunk.title}",
+                        "reason": (
+                            f"frame={frame_name!r} title={title_chunk.title!r} sentence={sentence!r} "
+                            f"-> {type(result).__name__}"
+                        ),
+                    }
+                )
+>       assert_no_new_failures(load_baseline(BASELINE_PATH), observed_failures)
+
+tests\conformance\test_sentence_wrapped_retrieval.py:402: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+baseline = Baseline(strict=False, known_failures=())
+observed_failures = [{'pilot': '3d__java', 'case_id': 'sentence-wrapped:3d__java:0:Build a Scene From a Primitive', 'reason': 'frame=\'how... Dependencies, and Quick Start? I\'m pretty new to 3D and I only just started this .NET project." -> TaskAnswer'}, ...]
+
+    def assert_no_new_failures(baseline: Baseline, observed_failures: Iterable[Any]) -> None:
+        """Raise ``AssertionError`` if *observed_failures* contains a ``(pilot, case_id)`` the baseline does
+        not already know about, naming exactly which case(s) are new. When ``baseline.strict`` is ``True``,
+        also raise if a baseline entry is NOT present in *observed_failures* (i.e. it now passes and the
+        baseline must be tightened); when ``baseline.strict`` is ``False`` (the default), that same absence
+        never fails - a baseline may always be ahead of what is currently observed."""
+        observed_keys = frozenset(_observed_key(failure) for failure in observed_failures)
+        known_keys = baseline.known_keys()
+    
+        new_failures = observed_keys - known_keys
+        if new_failures:
+            named = ", ".join(f"{pilot}:{case_id}" for pilot, case_id in sorted(new_failures))
+>           raise AssertionError(f"new failure(s) not present in the baseline: {named}")
+E           AssertionError: new failure(s) not present in the baseline: 3d__java:sentence-wrapped:3d__java:0:Build a Scene From a Primitive, 3d__java:sentence-wrapped:3d__java:1:Save a box mesh as an STL file, 3d__java:sentence-wrapped:3d__java:2:Key Capabilities and API Reference, 3d__net:sentence-wrapped:3d__net:3:Convert a Lambert Material to PBR, 3d__net:sentence-wrapped:3d__net:4:Load OBJ With Custom Options and Export to STL, 3d__net:sentence-wrapped:3d__net:5:Installation, Dependencies, and Quick Start, 3d__python:sentence-wrapped:3d__python:6:Build a Cube and Export It to 3MF, 3d__python:sentence-wrapped:3d__python:7:Quick Start, 3d__python:sentence-wrapped:3d__python:8:Convert a Parametric Primitive to a Mesh, 3d__typescript:sentence-wrapped:3d__typescript:10:Quick Start, 3d__typescript:sentence-wrapped:3d__typescript:11:Load OBJ With Custom Options and Export to Binary STL, 3d__typescript:sentence-wrapped:3d__typescript:9:Installation, Dependencies, and Quick Start, barcode__python:sentence-wrapped:barcode__python:0:Additional Examples (3), barcode__python:sentence-wrapped:barcode__python:1:Installation, Dependencies, and Quick Start, barcode__python:sentence-wrapped:barcode__python:2:Key Capabilities and API Reference, cells__cpp:sentence-wrapped:cells__cpp:3:Bold Header and Number Format on Cells, cells__cpp:sentence-wrapped:cells__cpp:4:Typical use cases, cells__cpp:sentence-wrapped:cells__cpp:5:How do I install the library?, cells__go:sentence-wrapped:cells__go:6:Data Validation, cells__go:sentence-wrapped:cells__go:7:Streaming Large Files, cells__go:sentence-wrapped:cells__go:8:Quick Start, cells__java:sentence-wrapped:cells__java:10:Quick Start, cells__java:sentence-wrapped:cells__java:11:Key Capabilities and API Reference, cells__java:sentence-wrapped:cells__java:9:Aspose.Cells FOSS for Java, cells__net:sentence-wrapped:cells__net:0:Build a Table With Totals, cells__net:sentence-wrapped:cells__net:1:Quick Start (3), cells__net:sentence-wrapped:cells__net:2:Key Capabilities and API Reference, cells__python:sentence-wrapped:cells__python:3:Aspose.Cells FOSS for Python, cells__python:sentence-wrapped:cells__python:4:Password-Protect a Workbook, cells__python:sentence-wrapped:cells__python:5:Quick Start, cells__rust:sentence-wrapped:cells__rust:6:Create, Save, and Reload a Workbook, cells__rust:sentence-wrapped:cells__rust:7:Installation, Dependencies, and Quick Start, cells__rust:sentence-wrapped:cells__rust:8:Format numbers as thousands and percentages, cells__typescript:sentence-wrapped:cells__typescript:10:Quick Start, cells__typescript:sentence-wrapped:cells__typescript:11:Key Capabilities and API Reference, cells__typescript:sentence-wrapped:cells__typescript:9:Export a Workbook to HTML, email__cpp:sentence-wrapped:email__cpp:0:Installation, Dependencies, and Quick Start, email__cpp:sentence-wrapped:email__cpp:1:Quick Start (2), email__cpp:sentence-wrapped:email__cpp:2:Quick Start, email__net:sentence-wrapped:email__net:3:Create and Save an MSG Message, email__net:sentence-wrapped:email__net:4:Installation, Dependencies, and Quick Start, email__net:sentence-wrapped:email__net:5:Inspect a CFB Container's Structure, email__python:sentence-wrapped:email__python:6:Build a CFB Container Directly, email__python:sentence-wrapped:email__python:7:Key Capabilities and API Reference, email__python:sentence-wrapped:email__python:8:Installation, Dependencies, and Quick Start, html__python:sentence-wrapped:html__python:10:Scope and Limitations, html__python:sentence-wrapped:html__python:11:Query Elements By Tag Name, html__python:sentence-wrapped:html__python:9:Drive The Tokenizer Directly, imaging__net:sentence-wrapped:imaging__net:0:Installation and Quick Start, imaging__net:sentence-wrapped:imaging__net:1:Probe a PNG stream asynchronously, imaging__net:sentence-wrapped:imaging__net:2:Key Capabilities, note__python:sentence-wrapped:note__python:3:Export to PDF With Custom Options, note__python:sentence-wrapped:note__python:4:Key Capabilities and API Reference, note__python:sentence-wrapped:note__python:5:Inspect Numbered Lists, page__python:sentence-wrapped:page__python:6:Extract EPS Metadata, page__python:sentence-wrapped:page__python:7:Key Capabilities and API Reference, page__python:sentence-wrapped:page__python:8:Installation, Dependencies, and Quick Start, pdf__cpp:sentence-wrapped:pdf__cpp:10:Open a Password-Protected Document, pdf__cpp:sentence-wrapped:pdf__cpp:11:Key Capabilities and API Reference, pdf__cpp:sentence-wrapped:pdf__cpp:9:Encrypt a Document With AES-256, pdf__go:sentence-wrapped:pdf__go:0:Encrypt with Permissions, pdf__go:sentence-wrapped:pdf__go:1:Key Capabilities and API Reference, pdf__go:sentence-wrapped:pdf__go:2:Installation, Dependencies, and Quick Start, pdf__java:sentence-wrapped:pdf__java:3:Create a Document with Widget Annotation, pdf__java:sentence-wrapped:pdf__java:4:Key Capabilities and API Reference, pdf__java:sentence-wrapped:pdf__java:5:Installation, Dependencies, and Quick Start, pdf__net:sentence-wrapped:pdf__net:6:Aspose.PDF FOSS for .NET, pdf__net:sentence-wrapped:pdf__net:7:Key Capabilities and API Reference, pdf__net:sentence-wrapped:pdf__net:8:Installation, Dependencies, and Quick Start, pdf__python:sentence-wrapped:pdf__python:10:Quick Start (3), pdf__python:sentence-wrapped:pdf__python:11:Render a Page to an Image, pdf__python:sentence-wrapped:pdf__python:9:Export a Page as SVG, pdf__typescript:sentence-wrapped:pdf__typescript:0:Document and Page Editing, pdf__typescript:sentence-wrapped:pdf__typescript:1:Where It's Used, pdf__typescript:sentence-wrapped:pdf__typescript:2:How do I install Aspose.PDF FOSS for TypeScript?, slides__cpp:sentence-wrapped:slides__cpp:3:Comments and Replies, slides__cpp:sentence-wrapped:slides__cpp:4:Key Capabilities and API Reference, slides__cpp:sentence-wrapped:slides__cpp:5:Installation, Dependencies, and Quick Start, slides__java:sentence-wrapped:slides__java:6:Additional Examples, slides__java:sentence-wrapped:slides__java:7:Open an Existing Presentation, slides__java:sentence-wrapped:slides__java:8:Format a Text Portion's Font Size, Weight, and Color, slides__net:sentence-wrapped:slides__net:10:Tables, slides__net:sentence-wrapped:slides__net:11:Quick start, slides__net:sentence-wrapped:slides__net:9:Installation and Quick Start, slides__python:sentence-wrapped:slides__python:0:Create a Presentation and Add a Shape, slides__python:sentence-wrapped:slides__python:1:Key Capabilities and API Reference, slides__python:sentence-wrapped:slides__python:2:Installation, Dependencies, and Quick Start, tex__python:sentence-wrapped:tex__python:3:Extraction notice, tex__python:sentence-wrapped:tex__python:4:Messages and Logging (2), tex__python:sentence-wrapped:tex__python:5:Key Capabilities and API Reference, words__net:sentence-wrapped:words__net:6:Accept All Tracked Changes, words__net:sentence-wrapped:words__net:7:Installation and Dependencies, words__net:sentence-wrapped:words__net:8:Convert Markdown to DOCX, words__python:sentence-wrapped:words__python:10:Load Markdown From In-Memory Content, words__python:sentence-wrapped:words__python:11:Key Capabilities and API Reference, words__python:sentence-wrapped:words__python:9:Convert Image-Containing Documents to Every Output Format
+
+tests\conformance\baseline.py:80: AssertionError
+=========================== short test summary info ===========================
+FAILED tests/conformance/test_sentence_wrapped_retrieval.py::test_longq_001_literal_query_pinned_against_the_real_pdf_net_pilot
+FAILED tests/conformance/test_sentence_wrapped_retrieval.py::test_sentence_wrapped_retrieval_default_sample
+
+--- stderr ---
+
