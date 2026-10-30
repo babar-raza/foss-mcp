@@ -1,0 +1,134 @@
+id: TC-617
+gate: G3
+lane: storage-retrieval
+purpose: >-
+  Build Q2 (REQ-G3-011): wire Q1's `normalize_query` and the new `platform` parameter (landed in
+  TC-610, deliberately unwired by that card, then wired into `find_examples` by TC-616) into
+  `search_docs` and `lookup`, so these two tools also stop counting a query's own platform word as
+  distinctive and stop leaving a literal "Aspose.<Family>" mention as a single dotted token. TC-616
+  measured that the dotted-mention fix is a provable no-op for `find_examples` specifically (that
+  tool's own tokenizer already splits on dots); this card must measure the SAME question fresh for
+  `search_docs` and `lookup` rather than assuming either outcome - report reality for each. Read
+  C:\Users\babar\.claude\plans\steady-wobbling-meteor.md section 2.2 (Q1-Q4) first.
+depends_on:
+  - TC-563
+  - TC-572
+  - TC-562
+  - TC-610
+  - TC-616
+write_paths:
+  - src/foss_mcp/mcp/tools/search_docs.py
+  - src/foss_mcp/mcp/tools/lookup.py
+  - tests/mcp/tools/test_search_docs_query_normalization.py
+  - tests/mcp/tools/test_lookup_query_normalization.py
+satisfies:
+  - REQ-G3-011
+source_refs:
+  - file: docs/DECISION_LOG.md
+    anchor: >-
+      ## 2026-10-30 — Round-2 portfolio audit remediation adopted: unified plan, governance decisions A-K
+      recorded (supervisor)
+    sha256: 62cf1403a592118e3fb6bd14c5336f8a997cc3181d44a585323ec9f1d385a931
+inputs:
+  - >-
+    READ FIRST: C:\Users\babar\.claude\plans\steady-wobbling-meteor.md section 2.2 (Q1-Q4), and
+    TC-616's own closeout note (visible in evidence/build/G3/TC-616/ and the commit it integrated)
+    about the dotted-mention fix being measured as a no-op for find_examples - do not assume that
+    same conclusion carries to search_docs/lookup; re-measure fresh for each.
+  - >-
+    In `src/foss_mcp/mcp/tools/search_docs.py`: read `_rule_for(query, family, lexical_payload)`
+    (around line 235, called once at line 460 inside `search_docs` where `scope` is in scope) and
+    `names_language_letter`/`has_minimum_evidence` it also calls - confirm nothing else needs
+    threading. Add an optional `platform: str | None = None` parameter to `_rule_for`, threaded into
+    its `query_terms(query, family, platform=platform)` and `distinctive_terms(query, family,
+    platform=platform)` calls; `platform=None` must leave every existing call byte-for-byte
+    unaffected (there may be other existing callers/tests of `_rule_for` with the old signature -
+    check first). At `_rule_for`'s one real call site inside `search_docs` (line ~460), pass
+    `platform=scope.platform`. Also call `normalize_query(query, scope.family)` once, immediately
+    after the existing `query = fold_query(query)` line inside `search_docs` itself (around line
+    455) - confirm the exact real line first, it may have shifted.
+  - >-
+    In `src/foss_mcp/mcp/tools/lookup.py`: find EVERY real call site of `query_terms`/
+    `distinctive_terms` via grep (there are at least 4 as of this plan's own research:
+    `_limitation_docs` line ~346/348, `_answer_quality`'s unmatched-terms fallback line ~407,
+    `_rule_for` reused from search_docs via its one call inside `_answer_quality` line ~401, and
+    `_without_unsupported_tables` line ~429) - confirm the exact current set, it may have shifted.
+    For each helper that already receives `scope` directly (`_limitation_docs`, `_answer_quality`),
+    pass `platform=scope.platform` straight through to the relevant `query_terms`/
+    `distinctive_terms` call. For `_without_unsupported_tables(matches, query, family)`, which
+    receives a bare `family` string rather than `scope` - add an optional `platform: str | None =
+    None` parameter to IT too (same backward-compatible pattern), thread it into its
+    `distinctive_terms` call, and pass `platform=scope.platform` from its one real call site inside
+    `lookup` (find it via grep; confirm `scope` is actually in lexical scope there). `_rule_for` is
+    SHARED with search_docs.py - do not duplicate it; lookup.py must still import and call the one
+    real `_rule_for` from search_docs.py exactly as it does today, now simply passing
+    `platform=scope.platform` at its own call site too (line ~401). Also call
+    `normalize_query(query, scope.family)` once, immediately after the existing
+    `query = fold_query(query)` line inside `lookup` itself (around line 470).
+  - >-
+    tests/mcp/tools/test_search_docs_query_normalization.py and
+    tests/mcp/tools/test_lookup_query_normalization.py (no mocks for the real-pilot case; reads the
+    real, committed infra/demo-manifests, writes nothing to it) - for EACH of the two tools,
+    separately: (a) a query containing the scope's own platform word now produces a distinctive-term
+    count one lower than before, measured concretely against a real pilot/platform pair, with the
+    concrete, real effect on the tool's own returned answer (an upgraded match_quality, a changed
+    unmatched_terms list, or whatever the real measured effect turns out to be - report reality);
+    (b) a query containing a literal "Aspose.<Family>" dotted mention - measure fresh whether this
+    tool's own term machinery is actually affected (it may be a no-op here too, as TC-616 found for
+    find_examples, or it may not be - report reality either way, backed by a concrete before/after
+    comparison, not an assumption); (c) the full existing search_docs/lookup ratchet suites (list the
+    real files you ran for each) are UNCHANGED - every existing pinned match, miss and confidence
+    value byte-identical to before this card - the real files to run are named in this card's second
+    check (test_lookup_forgiveness.py, test_lookup_miss_reason.py, test_search_docs_language_letter.py,
+    test_search_docs_title_passage_coverage.py, test_round3_retrieval_corpus.py; there is no
+    monolithic test_search_docs.py/test_lookup.py in this repository); (d) a query that is ONLY the
+    bare platform word gets a sensible, reported-not-assumed outcome for each tool. Never weaken a
+    check to make it pass.
+actions:
+  - >-
+    Wire Q1's normalize_query and the platform-aware term exclusion into search_docs and lookup
+    (including lookup's own _without_unsupported_tables helper), proven against real pilots and
+    against the full existing search_docs/lookup ratchet suites with zero regression.
+checks:
+  - command: '{python} -m pytest tests/mcp/tools/test_search_docs_query_normalization.py tests/mcp/tools/test_lookup_query_normalization.py -q -rfE'
+    expect: 'exit 0'
+    timeout_seconds: 180
+    junitxml: true
+    proves:
+      - REQ-G3-011
+  - command: '{python} -m pytest tests/mcp/tools/test_search_docs_query_normalization.py tests/mcp/tools/test_lookup_query_normalization.py tests/mcp/tools/test_lookup_forgiveness.py tests/mcp/tools/test_lookup_miss_reason.py tests/mcp/tools/test_search_docs_language_letter.py tests/mcp/tools/test_search_docs_title_passage_coverage.py tests/mcp/tools/test_round3_retrieval_corpus.py -q -rfE -p no:cacheprovider'
+    expect: 'exit 0'
+    timeout_seconds: 420
+    junitxml: true
+    proves:
+      - REQ-G3-011
+min_tests: 12
+requires:
+  - python
+network: false
+negative_control:
+  mutate: |
+    python -X utf8 -c "import pathlib; p = pathlib.Path('src/foss_mcp/mcp/tools/search_docs.py'); s = p.read_text(encoding='utf-8'); old = 'query = fold_query(query)'; assert s.count(old) == 1, 'fix text not found - card and source have diverged'; p.write_text(s.replace(old, old + chr(10) + '    normalize_query = lambda q, f: q  # TC-617 negative control: never normalize the query', 1), encoding='utf-8')"
+  rationale: >-
+    Shadows normalize_query with an identity no-op immediately after fold_query runs in search_docs,
+    regardless of exactly which line inside the function the real wiring calls it from. At least the
+    search_docs-side normalization test must then fail, proving it exercises the real wiring rather
+    than trusting that normalize_query is imported. If search_docs's own dotted-mention fix turns
+    out to be a measured no-op the same way find_examples's was, use the module's own
+    liveness-spy pattern TC-616 built (confirming normalize_query is actually CALLED) instead of
+    relying on an output-shape assertion - state which approach you used and why in your closeout.
+evidence:
+  - evidence/build/G3/TC-617/receipt.json
+closeout:
+  - >-
+    search_docs and lookup (including lookup's own _without_unsupported_tables) now normalize a
+    dotted "Aspose.<Family>" mention and exclude the scope's own platform word from
+    distinctive-term counting; state the real measured effect of each fix on each tool
+    separately (do not assume TC-616's find_examples-specific no-op finding carries over). The full
+    existing search_docs/lookup ratchet suites are confirmed unchanged.
+recovery: >-
+  If threading platform= into any query_terms/distinctive_terms call changes ANY existing pinned
+  search_docs or lookup result even for a query with no platform word, STOP and report
+  FAILED_INTERNAL with the exact diff - TC-610 already proved platform=None is fully inert, so a
+  change here would mean this card's wiring is passing a non-None platform somewhere it should
+  not, not that the ratchet needs adjusting.
