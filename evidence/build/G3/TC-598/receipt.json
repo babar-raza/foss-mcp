@@ -1,0 +1,113 @@
+{
+  "schema_version": 1,
+  "card": "TC-598",
+  "gate": "G3",
+  "generated_by": "gatectl",
+  "generated_at": "2026-10-30T12:00:53Z",
+  "base_rev": "06503cd310b04931e1000e00501c692f2b565ad2",
+  "head_rev": "604e2f8c0d37164bce0710c5e54cec0af2e4182c",
+  "card_sha256": "3a50055ed44d6358ad1fc7918e7459c8d9db5cfe9817662d3257fe32679963a4",
+  "fingerprint": {
+    "python": "3.13.2",
+    "platform": "Windows-11-10.0.26300-SP0",
+    "lock_sha256": "5c72e798a73c059a438e752e94a8d4c88c1bdf81a197f6e5c5fcecbc9466a691",
+    "env": {
+      "PYTHONHASHSEED": "0",
+      "PYTHONUTF8": "1",
+      "PYTHONDONTWRITEBYTECODE": "1",
+      "PYTHONIOENCODING": "utf-8",
+      "TZ": "UTC",
+      "LC_ALL": "C.UTF-8",
+      "SOURCE_DATE_EPOCH": "1700000000",
+      "verify_runner": "host"
+    }
+  },
+  "scope": {
+    "ok": true,
+    "changed_paths": [
+      "tests/conformance/__init__.py",
+      "tests/conformance/baseline.py",
+      "tests/conformance/corpus.py",
+      "tests/conformance/test_conformance_core.py"
+    ],
+    "violations": [],
+    "evaluated": true
+  },
+  "runs": [
+    {
+      "run": 1,
+      "checks": [
+        {
+          "command": "{python} -m pytest tests/conformance/test_conformance_core.py -q -rfE",
+          "exit_code": 0,
+          "duration_s": 1.259,
+          "stdout_sha256": "c66ef7936b32d2201bf6eb901cf69cbc8e71996669c38afe1f70ad40098e04a3",
+          "tests": 20,
+          "skipped": 0,
+          "errors": 0,
+          "failures": 0
+        },
+        {
+          "command": "{python} -m pytest tests/conformance/test_conformance_core.py -q -rfE -p no:cacheprovider",
+          "exit_code": 0,
+          "duration_s": 1.182,
+          "stdout_sha256": "c66ef7936b32d2201bf6eb901cf69cbc8e71996669c38afe1f70ad40098e04a3",
+          "tests": 20,
+          "skipped": 0,
+          "errors": 0,
+          "failures": 0
+        }
+      ],
+      "all_passed": true
+    },
+    {
+      "run": 2,
+      "checks": [
+        {
+          "command": "{python} -m pytest tests/conformance/test_conformance_core.py -q -rfE",
+          "exit_code": 0,
+          "duration_s": 1.218,
+          "stdout_sha256": "c66ef7936b32d2201bf6eb901cf69cbc8e71996669c38afe1f70ad40098e04a3",
+          "tests": 20,
+          "skipped": 0,
+          "errors": 0,
+          "failures": 0
+        },
+        {
+          "command": "{python} -m pytest tests/conformance/test_conformance_core.py -q -rfE -p no:cacheprovider",
+          "exit_code": 0,
+          "duration_s": 1.368,
+          "stdout_sha256": "c66ef7936b32d2201bf6eb901cf69cbc8e71996669c38afe1f70ad40098e04a3",
+          "tests": 20,
+          "skipped": 0,
+          "errors": 0,
+          "failures": 0
+        }
+      ],
+      "all_passed": true
+    }
+  ],
+  "negative_control": {
+    "kind": "mutate",
+    "patch": "python -X utf8 -c \"import pathlib; p = pathlib.Path('tests/conformance/baseline.py'); s = p.read_text(encoding='utf-8'); old = 'def assert_no_new_failures('; assert s.count(old) == 1, 'fix text not found - card and source have diverged'; lines = s.splitlines(); i = next(idx for idx, line in enumerate(lines) if old in line); lines.insert(i + 1, '    return  # TC-598 negative control: short-circuit, never check anything'); p.write_text(chr(10).join(lines) + chr(10), encoding='utf-8')\"\n",
+    "patch_sha256": "84b69855482378928f01c769eae679cede6dae4bc544eddf1be41f689b7b17fa",
+    "applied": true,
+    "patch_applied_failed": true,
+    "exit_codes": [
+      1,
+      1
+    ],
+    "tree_changed": [
+      "M tests/conformance/baseline.py",
+      "?? .junit-0.xml",
+      "?? .junit-1.xml"
+    ]
+  },
+  "holdout": {
+    "ran": false,
+    "passed": true,
+    "detail": "no holdout for this card"
+  },
+  "accepted": true,
+  "reason": "all gates passed"
+}

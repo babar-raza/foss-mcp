@@ -1,0 +1,115 @@
+
+===== CLEAN RUN 1 (host) =====
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-5c72e798a73c059a\Scripts\python.exe -m pytest tests/conformance/test_conformance_core.py -q -rfE "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-p8noh1yp\.junit-0.xml"
+--- stdout ---
+....................                                                     [100%]
+
+--- stderr ---
+
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-5c72e798a73c059a\Scripts\python.exe -m pytest tests/conformance/test_conformance_core.py -q -rfE -p no:cacheprovider "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-p8noh1yp\.junit-1.xml"
+--- stdout ---
+....................                                                     [100%]
+
+--- stderr ---
+
+
+===== CLEAN RUN 2 (host) =====
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-5c72e798a73c059a\Scripts\python.exe -m pytest tests/conformance/test_conformance_core.py -q -rfE "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-p8noh1yp\.junit-0.xml"
+--- stdout ---
+....................                                                     [100%]
+
+--- stderr ---
+
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-5c72e798a73c059a\Scripts\python.exe -m pytest tests/conformance/test_conformance_core.py -q -rfE -p no:cacheprovider "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-p8noh1yp\.junit-1.xml"
+--- stdout ---
+....................                                                     [100%]
+
+--- stderr ---
+
+
+===== NEGATIVE CONTROL (checks MUST now fail) =====
+mutated: M tests/conformance/baseline.py, ?? .junit-0.xml, ?? .junit-1.xml
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-5c72e798a73c059a\Scripts\python.exe -m pytest tests/conformance/test_conformance_core.py -q -rfE "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-p8noh1yp\.junit-0.xml"
+--- stdout ---
+...............FF...                                                     [100%]
+================================== FAILURES ===================================
+_________ test_a_case_in_observed_but_not_in_baseline_fails_naming_it _________
+
+tmp_path = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-17055/test_a_case_in_observed_but_no0')
+
+    def test_a_case_in_observed_but_not_in_baseline_fails_naming_it(tmp_path: Path) -> None:
+        path = tmp_path / "baseline.json"
+        _write_baseline(path, strict=False)
+        baseline = load_baseline(path)
+        observed = [
+            {"pilot": "cells__net", "case_id": "c05", "reason": "still reproduces"},
+            {"pilot": "pdf__net", "case_id": "p02", "reason": "a brand new regression"},
+        ]
+>       with pytest.raises(AssertionError, match="pdf__net:p02"):
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       Failed: DID NOT RAISE AssertionError
+
+tests\conformance\test_conformance_core.py:177: Failed
+____ test_strict_baseline_fails_when_a_known_failure_no_longer_reproduces _____
+
+tmp_path = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-17055/test_strict_baseline_fails_whe0')
+
+    def test_strict_baseline_fails_when_a_known_failure_no_longer_reproduces(tmp_path: Path) -> None:
+        path = tmp_path / "baseline.json"
+        _write_baseline(path, strict=True)
+        baseline = load_baseline(path)
+        # cells__net:c05 is known but absent from the observed failures below - it now passes, so the
+        # strict baseline must be tightened, and that absence must fail the check.
+>       with pytest.raises(AssertionError, match="cells__net:c05"):
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       Failed: DID NOT RAISE AssertionError
+
+tests\conformance\test_conformance_core.py:187: Failed
+=========================== short test summary info ===========================
+FAILED tests/conformance/test_conformance_core.py::test_a_case_in_observed_but_not_in_baseline_fails_naming_it
+FAILED tests/conformance/test_conformance_core.py::test_strict_baseline_fails_when_a_known_failure_no_longer_reproduces
+
+--- stderr ---
+
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-5c72e798a73c059a\Scripts\python.exe -m pytest tests/conformance/test_conformance_core.py -q -rfE -p no:cacheprovider "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-p8noh1yp\.junit-1.xml"
+--- stdout ---
+...............FF...                                                     [100%]
+================================== FAILURES ===================================
+_________ test_a_case_in_observed_but_not_in_baseline_fails_naming_it _________
+
+tmp_path = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-17056/test_a_case_in_observed_but_no0')
+
+    def test_a_case_in_observed_but_not_in_baseline_fails_naming_it(tmp_path: Path) -> None:
+        path = tmp_path / "baseline.json"
+        _write_baseline(path, strict=False)
+        baseline = load_baseline(path)
+        observed = [
+            {"pilot": "cells__net", "case_id": "c05", "reason": "still reproduces"},
+            {"pilot": "pdf__net", "case_id": "p02", "reason": "a brand new regression"},
+        ]
+>       with pytest.raises(AssertionError, match="pdf__net:p02"):
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       Failed: DID NOT RAISE AssertionError
+
+tests\conformance\test_conformance_core.py:177: Failed
+____ test_strict_baseline_fails_when_a_known_failure_no_longer_reproduces _____
+
+tmp_path = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-17056/test_strict_baseline_fails_whe0')
+
+    def test_strict_baseline_fails_when_a_known_failure_no_longer_reproduces(tmp_path: Path) -> None:
+        path = tmp_path / "baseline.json"
+        _write_baseline(path, strict=True)
+        baseline = load_baseline(path)
+        # cells__net:c05 is known but absent from the observed failures below - it now passes, so the
+        # strict baseline must be tightened, and that absence must fail the check.
+>       with pytest.raises(AssertionError, match="cells__net:c05"):
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       Failed: DID NOT RAISE AssertionError
+
+tests\conformance\test_conformance_core.py:187: Failed
+=========================== short test summary info ===========================
+FAILED tests/conformance/test_conformance_core.py::test_a_case_in_observed_but_not_in_baseline_fails_naming_it
+FAILED tests/conformance/test_conformance_core.py::test_strict_baseline_fails_when_a_known_failure_no_longer_reproduces
+
+--- stderr ---
+
