@@ -1,0 +1,149 @@
+id: TC-621
+gate: G3
+lane: storage-retrieval
+purpose: >-
+  Build I7 (REQ-G3-012): give `report_index_freshness` a new, purely offline, additive verdict
+  path comparing the package's own declared version (`release_alignment.package_version`, already
+  computed) against the package REGISTRY's real, currently-served version - closing the
+  "registry-served version compared to the manifest version" half of the plan's "freshness from
+  package truth" goal (section 2.3). Today the function's "unknown" fallback (no git commit signal,
+  no usable release tag) gives up entirely even when a registry comparison would resolve it. This
+  card is DELIBERATELY the pure-logic half only: it adds a new, fully optional
+  `registry_served_version` parameter and a new verdict branch that consumes it IF a caller
+  supplies it - it does NOT wire a live registry fetch, a sidecar file, or `server.py`'s
+  `SidecarSnapshot`/`serve_http.py`'s polling loop. That real-data wiring (the ALREADY-BUILT-BUT-
+  UNWIRED `infra/verify_package_registry.served_version_or_none`/`load_package_registry_sidecar`,
+  landing in `SidecarSnapshot`, then the `report_index_freshness_tool` call site in server.py) is
+  I8's separate job (depends_on this card) - deliberately split exactly the way the plan's own card
+  table already splits it ("I7 | I6 | RIF RA" then "I8 | I7 | VPR SH"), because the full
+  sidecar-to-server wiring is a materially larger, multi-file change than the pure verdict logic
+  and deserves its own focused review. Read
+  C:\Users\babar\.claude\plans\steady-wobbling-meteor.md section 1.1 (M2/C8) and 2.3 (I6-I8) first.
+depends_on:
+  - TC-519
+  - TC-559
+  - TC-560
+  - TC-564
+  - TC-613
+write_paths:
+  - src/foss_mcp/mcp/tools/report_index_freshness.py
+  - tests/mcp/tools/test_freshness_registry_version.py
+satisfies:
+  - REQ-G3-012
+source_refs:
+  - file: docs/DECISION_LOG.md
+    anchor: >-
+      ## 2026-10-30 — Round-2 portfolio audit remediation adopted: unified plan, governance decisions A-K
+      recorded (supervisor)
+    sha256: 62cf1403a592118e3fb6bd14c5336f8a997cc3181d44a585323ec9f1d385a931
+inputs:
+  - >-
+    READ FIRST: C:\Users\babar\.claude\plans\steady-wobbling-meteor.md section 2.3 (I6-I8). Also
+    read, in full, before writing anything: `src/foss_mcp/mcp/tools/report_index_freshness.py`'s
+    real `report_index_freshness` function (around line 311-444) end to end - every existing
+    verdict branch, in order, and the `build(...)` closure's full `FreshnessReport` construction
+    (confirm the EXACT current field list and branch order against the real code; it may have
+    shifted since this plan was written) - and `src/foss_mcp/mcp/tools/release_alignment.py`'s real
+    `package_version(inputs) -> tuple[int, ...] | None` (around line 51) and
+    `parse_release_version` (confirm its real signature). Also skim
+    `infra/verify_package_registry.py`'s real `served_version_or_none(ecosystem, coordinate)` and
+    `load_package_registry_sidecar(path)` purely to confirm their real return shapes (a version
+    STRING, not a parsed tuple) - you are NOT calling either of them from this card; this is only so
+    you choose a parameter shape for `report_index_freshness` that a later card (I8) can feed from
+    them without re-parsing twice.
+  - >-
+    Add a new, fully optional keyword parameter to `report_index_freshness`:
+    `registry_served_version: tuple[int, ...] | None = None` - already-parsed, matching
+    `package_version`'s own return shape exactly (the caller, I8, is responsible for calling
+    `parse_release_version` on whatever raw string the registry returns; this function must never
+    parse a raw string itself, to keep its own contract pure and testable without any real
+    registry-shaped string-parsing edge cases). `registry_served_version=None` (the default) must
+    preserve the function's EXACT current behaviour byte-for-byte - every existing caller (the real
+    one in `server.py`, and every existing test) is unaffected; this is the backward-compatibility
+    contract, identical in shape to every other optional-parameter card in this plan (Q1, I2, I3).
+  - >-
+    Add exactly ONE new verdict branch, placed AFTER every existing branch in the function (so it
+    only ever fires when every existing signal - caller-given commit, git ancestry drift, release
+    tag commit, release tag version - has already been tried and found nothing, i.e. exactly where
+    the function's final `return build("unknown", ...)` sits today): when `registry_served_version`
+    is given AND `indexed_version` (`package_version(product_reference)`, already computed earlier
+    in the function) is also not `None`, compare them as tuples (Python's own tuple ordering is
+    already the correct comparison for a dotted version, exactly like `release_alignment`'s own
+    comparisons elsewhere use); `registry_served_version > indexed_version` is `"stale"` (a newer
+    version is really published than what this index's own declared package version claims),
+    `registry_served_version <= indexed_version` is `"fresh"`. Use basis string
+    `"registry_served_version"` (a new, distinct value from the existing `"latest_release_version"`
+    basis, since this compares against the REGISTRY's served truth, not a GitHub release tag).
+    State the compared numbers in the reason string, in the same style every other branch's reason
+    already uses (read a couple of the existing reason strings for the exact tone/format to match).
+    When `registry_served_version` is given but `indexed_version` is `None` (the manifest declares
+    no parseable version - go, for instance), fall through to the existing final `"unknown"`
+    branch unchanged - do not invent a comparison with nothing to compare against.
+  - >-
+    tests/mcp/tools/test_freshness_registry_version.py (offline, no network, no mocks needed beyond
+    constructing `ProductReferenceInputs`/`Scope`/a published generation the same way the existing
+    `test_freshness_tristate.py`/`test_freshness_provenance.py` files already do - read those first
+    for the real fixture-building helpers and reuse them rather than inventing new ones): (a)
+    calling `report_index_freshness` with the OLD signature (no `registry_served_version`) produces
+    IDENTICAL output to before this card, for a handful of cases copied from the two existing test
+    files - the backward-compatibility proof; (b) `registry_served_version` strictly newer than
+    `indexed_version` (with no other signal available - no `current_source_commit`, no usable
+    releases) now yields `freshness_state="stale"`, `freshness_basis="registry_served_version"`,
+    with the compared versions named in the reason; (c) `registry_served_version` equal to or older
+    than `indexed_version` yields `freshness_state="fresh"` with the same basis; (d) when
+    `indexed_version` is `None` (no parseable manifest version), giving a non-None
+    `registry_served_version` still falls through to the existing `"unknown"` verdict, unchanged;
+    (e) when an EARLIER signal (a real git commit comparison, or a usable release tag) already
+    resolves the verdict, giving a `registry_served_version` too has NO effect - the earlier branch
+    wins, exactly as the plan's branch-ordering intends; confirm this concretely by giving BOTH a
+    resolving `current_source_commit` AND a registry version that would disagree, and confirming
+    the commit-based verdict wins. Never weaken a check to make it pass.
+actions:
+  - >-
+    Add a new, fully optional registry_served_version parameter and one new, final verdict branch
+    to report_index_freshness, resolving an "unknown" freshness verdict against the real package
+    registry's served version when every existing signal has already been tried and found nothing -
+    proven backward-compatible and correctly subordinate to every earlier-tried signal. The real
+    sidecar/server wiring to feed it live data is explicitly I8's separate job.
+checks:
+  - command: '{python} -m pytest tests/mcp/tools/test_freshness_registry_version.py -q -rfE'
+    expect: 'exit 0'
+    timeout_seconds: 120
+    junitxml: true
+    proves:
+      - REQ-G3-012
+  - command: '{python} -m pytest tests/mcp/tools/test_freshness_registry_version.py tests/mcp/tools/test_freshness_provenance.py tests/mcp/tools/test_freshness_tristate.py -q -rfE -p no:cacheprovider'
+    expect: 'exit 0'
+    timeout_seconds: 180
+    junitxml: true
+    proves:
+      - REQ-G3-012
+min_tests: 5
+requires:
+  - python
+network: false
+negative_control:
+  mutate: |
+    python -X utf8 -c "import pathlib; p = pathlib.Path('src/foss_mcp/mcp/tools/report_index_freshness.py'); s = p.read_text(encoding='utf-8'); old = 'def report_index_freshness('; assert s.count(old) == 1, 'fix text not found - card and source have diverged'; lines = s.splitlines(); i = next(idx for idx, line in enumerate(lines) if old in line); j = i + 1; depth_line = lines[j]; indent = ' ' * (len(depth_line) - len(depth_line.lstrip())); marker = indent + 'registry_served_version = None  # TC-621 negative control: never use the registry-served version even when given'; lines.insert(j, marker); p.write_text(chr(10).join(lines) + chr(10), encoding='utf-8')"
+  rationale: >-
+    Shadows the registry_served_version parameter with None immediately on entry, regardless of
+    what the caller actually passed - if this anchor lands inside a multi-line, ruff-reflowed
+    signature rather than the function body (the exact failure mode TC-614/TC-620 both already hit
+    and documented), replace it with an anchor on the function's first real body statement instead,
+    in the same chr()-based, backslash-free style, and note the substitution in your closeout - do
+    not leave a syntactically broken falsifier in place. Either way, the new registry-version tests
+    (b)/(c)/(d) must then fail, proving they exercise the real new branch rather than trusting the
+    parameter's existence.
+evidence:
+  - evidence/build/G3/TC-621/receipt.json
+closeout:
+  - >-
+    report_index_freshness has a new, optional, fully backward-compatible registry_served_version
+    parameter and verdict branch, proven subordinate to every existing signal and correct on its
+    own when nothing else resolves. State plainly that I8 (not this card) wires real registry data
+    into it from server.py/serve_http.py.
+recovery: >-
+  If the negative-control anchor lands inside the function's signature rather than its body
+  (confirm by reading the real function's current line-wrapping), replace it with a body-first-
+  statement anchor yourself, in the same style, and note the substitution - do not leave a
+  non-functional falsifier in place, per TC-614/TC-620's own precedent.
