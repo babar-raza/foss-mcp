@@ -1,0 +1,120 @@
+id: TC-608
+gate: G3
+lane: storage-retrieval
+purpose: >-
+  Build F8 (REQ-G3-010): the reference-content conformance invariant. Measures, against all 32 real
+  baked pilots, three already-confirmed defects in `get_product_reference`: a formats/limitations/
+  install answer can be truncated at an arbitrary character boundary (no fence-awareness, no marker);
+  an install answer can carry more than one, sometimes contradictory, recipe; and a section that
+  comes back empty gives no reason distinguishing "upstream genuinely has none" from "not extracted".
+  IMPORTANT CONTEXT, already confirmed by this plan's research, do not re-derive: all 32 baked
+  product-reference sidecars predate TC-561 (none has a `readme_document`/`manifest_path` field),
+  because the cluster's GitHub token is rejected (OWNER-14) - this means the README-fallback code
+  path this card is partly measuring is CURRENTLY DEAD in the shipped data for most sections; this
+  card must measure and report that reality honestly rather than silently assuming the fallback is
+  live. Read C:\Users\babar\.claude\plans\steady-wobbling-meteor.md section 1.1 (M3) and 2.1 (F8)
+  first.
+depends_on:
+  - TC-001
+  - TC-598
+write_paths:
+  - tests/conformance/test_reference_content.py
+  - tests/fixtures/conformance/baseline_reference_content.json
+satisfies:
+  - REQ-G3-010
+source_refs:
+  - file: docs/DECISION_LOG.md
+    anchor: >-
+      ## 2026-10-30 — Round-2 portfolio audit remediation adopted: unified plan, governance decisions A-K
+      recorded (supervisor)
+    sha256: 62cf1403a592118e3fb6bd14c5336f8a997cc3181d44a585323ec9f1d385a931
+inputs:
+  - >-
+    READ FIRST: C:\Users\babar\.claude\plans\steady-wobbling-meteor.md section 1.1 (M3) and 2.4 (the
+    P3 Content truth design, context for C1-C12 which do the actual fixing later - implement none of
+    it here). Also read `src/foss_mcp/mcp/tools/get_product_reference.py`'s real
+    `_cap_at_line`/`_cap_at_paragraph` functions and its truncation marker (`_TRUNCATED_MARKER`) in
+    full, confirming against the CURRENT code whether a `chunk_id`/offset is actually present on the
+    marker today or not (prior research found it was not, for this tool specifically - verify, do not
+    assume it has not changed).
+  - >-
+    READ `tests/conformance/corpus.py`/`baseline.py` in full; reuse their real API exactly. This card
+    calls `get_product_reference` directly (in-process, against the real `GenerationManifestStore`
+    the corpus loader builds) for every section (`formats`, `limitations`, `install`,
+    `agent_guidance`, `compatibility`, `support`, `contributing`, `faq` - check the tool's real
+    section list rather than guessing) on all 32 real pilots.
+  - >-
+    Truncation sub-case: for every section's answer on every pilot, if the answer text ends exactly
+    at a declared character cap (check the tool's own constants) AND the character immediately before
+    the cut is not whitespace/punctuation suggesting a clean boundary, record a FAILURE
+    (`f"mid-cut:{pilot}:{section}"`). Separately, record whether ANY truncation marker you observe
+    carries a `chunk_id`/offset-equivalent (if the tool exposes one) - record "marker-lacks-locator" as
+    its own FAILURE kind per pilot/section where a truncation occurred but no locator was present.
+  - >-
+    Multiple/contradictory install recipe sub-case: for the `install` section on every pilot, count
+    how many distinct, complete install-command blocks (e.g. separate fenced code blocks that each
+    look like a standalone install recipe, not a continuation of one) appear in the answer text -
+    record a FAILURE for any pilot with more than one. This does not need semantic contradiction
+    detection (that is a later fix's job) - simply counting independently-complete recipe blocks is
+    enough to measure today's real "how many pilots get more than one recipe" number.
+  - >-
+    Empty-section-with-no-reason sub-case: for every (pilot, section) pair whose answer is empty or a
+    bare "not available"/"no data source" style stub, check whether the response includes ANY
+    structured reason distinguishing "upstream genuinely has none" from "not extracted" (read the
+    tool's real response shape to know what field, if any, could carry this today - prior research
+    found none does). Record every empty-with-no-reason case as a FAILURE - given the TC-561
+    staleness context above, EXPECT this to fire very often today (most of the 32 pilots' sidecars
+    predate the fix that would populate this properly) - that is the honest, real baseline number
+    this card exists to pin, not a surprise to explain away.
+  - >-
+    Separately, as a DISTINCT measurement (not folded into the failure count above, reported plainly
+    in your closeout instead): confirm directly, for at least 3 real pilots, that their committed
+    product-reference sidecar JSON (`infra/demo-manifests/product_reference_&lt;pilot&gt;.json` or
+    wherever it is actually stored - find the real path) indeed lacks `readme_document`/
+    `manifest_path`, corroborating the TC-561-staleness context stated above with your own direct
+    read, not just by citing this plan's prior claim.
+  - >-
+    Record every sub-case's findings into the one combined baseline via
+    `assert_no_new_failures(load_baseline(...), observed_failures)`. Generate the real baseline JSON
+    from your own actual measured run, `"strict": false` to start.
+actions:
+  - >-
+    Measure, against all 32 real baked pilots, how often a product-reference answer is truncated at
+    an arbitrary boundary, carries more than one install recipe, or comes back empty with no
+    distinguishing reason - corroborating the TC-561-staleness context directly - and pin today's
+    real numbers as a committed baseline for C1-C12 to improve against.
+checks:
+  - command: '{python} -m pytest tests/conformance/test_reference_content.py -q -rfE'
+    expect: 'exit 0'
+    timeout_seconds: 180
+    junitxml: true
+    proves:
+      - REQ-G3-010
+  - command: '{python} -m pytest tests/conformance/test_reference_content.py -q -rfE -p no:cacheprovider'
+    expect: 'exit 0'
+    timeout_seconds: 180
+    junitxml: true
+    proves:
+      - REQ-G3-010
+min_tests: 4
+requires:
+  - python
+network: false
+negative_control:
+  mutate: |
+    python -X utf8 -c "import pathlib, json; p = pathlib.Path('tests/fixtures/conformance/baseline_reference_content.json'); d = json.loads(p.read_text(encoding='utf-8')); assert d.get('known_failures'), 'fix text not found - the real baseline has no known_failures to empty, card and source have diverged'; p.write_text(json.dumps({'strict': d.get('strict', False), 'known_failures': []}, indent=2) + chr(10), encoding='utf-8')"
+  rationale: >-
+    Rewrites the committed baseline to an empty known_failures list, so every real measured
+    truncation/multi-recipe/empty-with-no-reason case becomes "new" and unexpected. The check must
+    then fail, proving the baseline file is actually consulted rather than decorative.
+evidence:
+  - evidence/build/G3/TC-608/receipt.json
+closeout:
+  - >-
+    A real, measured baseline exists across all 32 pilots for truncation, multi-recipe, and empty-
+    with-no-reason behaviour, with direct confirmation (not just citation) that at least 3 pilots'
+    sidecars lack readme_document/manifest_path.
+recovery: >-
+  If the negative-control mutate script's JSON assumption does not match your real baseline file's
+  actual shape, write a simpler, reliable one yourself in the same chr()/json-based style used
+  elsewhere in this plan and report the substitution in your closeout.

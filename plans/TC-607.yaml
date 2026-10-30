@@ -1,0 +1,127 @@
+id: TC-607
+gate: G3
+lane: storage-retrieval
+purpose: >-
+  Build F7 (REQ-G3-010): the index-honesty conformance invariant. Measures, against all 32 real
+  baked pilots, three self-referential-counting defects already confirmed by this plan's research:
+  the "API-Coverage: N of N (100%)" line is always 100% by construction (numerator and denominator
+  both come from the same extractor pass); Python re-export aliases are indexed as full duplicate
+  chunks, inflating counts (slides/python is the known worst case); and the parse-failure count
+  reported in extraction-notice/coverage text understates the real figure against an INDEPENDENT
+  `ast.parse` sweep of the real pinned source (tex/python's reported "11 of 45" vs. a real 35 of 45,
+  already confirmed). This card only measures and pins today's real numbers - I1-I3 (later cards) do
+  the fixing. Read C:\Users\babar\.claude\plans\steady-wobbling-meteor.md section 1.1 (M2), 1.3 (the
+  oracle finding - do not confuse this card with the oracle program, O1-O10, a separate later effort)
+  and 2.1 (F7) first.
+depends_on:
+  - TC-001
+  - TC-598
+write_paths:
+  - tests/conformance/test_index_honesty.py
+  - tests/fixtures/conformance/baseline_index_honesty.json
+satisfies:
+  - REQ-G3-010
+source_refs:
+  - file: docs/DECISION_LOG.md
+    anchor: >-
+      ## 2026-10-30 — Round-2 portfolio audit remediation adopted: unified plan, governance decisions A-K
+      recorded (supervisor)
+    sha256: 62cf1403a592118e3fb6bd14c5336f8a997cc3181d44a585323ec9f1d385a931
+inputs:
+  - >-
+    READ FIRST: C:\Users\babar\.claude\plans\steady-wobbling-meteor.md section 1.1 (M2) and section
+    2.3 (the P2 Index truth design, for context on what I1-I3 will later fix - do not implement any
+    of it here). Also read `src/foss_mcp/indexing/chunk_builder.py`'s real `_coverage_line` function
+    in full to confirm (against the CURRENT code, which may have shifted) that the "API-Coverage:"
+    line's numerator and denominator are both derived from the same extraction pass.
+  - >-
+    READ `tests/conformance/corpus.py`/`baseline.py` in full; reuse their real API exactly.
+  - >-
+    Tautology sub-case: for each of the 32 real pilots, find every symbol chunk (or doc chunk, if the
+    line appears there too - check both) containing an "API-Coverage:" line (parse it with a real
+    regex matching "N of N" / percentages, not a loose substring check), and record, per pilot,
+    whether the claimed numerator exactly equals the claimed denominator everywhere it appears (the
+    expected, already-confirmed-tautological case) vs. a genuine, independently-interesting
+    `&lt;100%` case (which would be worth a note in your closeout, not a failure - a real coverage gap
+    being disclosed honestly is a GOOD sign, not a defect to record). Record, as a FAILURE, any pilot
+    where the SAME chunk's own numerator/denominator are internally inconsistent in a way no plausible
+    honest accounting explains (this is a sanity check on the measurement itself, expect it to almost
+    never fire) - the real, interesting finding to record in your closeout is simply: of the 32
+    pilots, how many show 100% everywhere (the audit finding to pin), and name any exception.
+  - >-
+    Alias-duplication sub-case: for each pilot, using `ConformancePilot.symbol_chunks()`, group chunks
+    by a canonical identity signal you can measure WITHOUT yet building the real canonical-identity
+    model I1 will later build (that model doesn't exist yet) - the simplest honest proxy available
+    today: group by identical rendered METHOD/PROPERTY body text (i.e., two chunks with different FQNs
+    but byte-identical `Methods:`/`Properties:` sections are very likely a shell+definition pair).
+    Count, per pilot, how many such duplicate-body groups exist and how many chunks they account for
+    (slides/python is the known worst case from this plan's research - confirm it still reproduces,
+    report the real current numbers in your closeout whether or not they match the prior research
+    exactly). Record a FAILURE per pilot whose duplicate-chunk count exceeds a small, documented
+    threshold you choose and justify (e.g. more than a handful of duplicate-body pairs) - most pilots
+    should have zero or very few; this baseline exists to measure which ones do not.
+  - >-
+    Parse-failure undercount sub-case: for the Python pilots specifically (there are 11 - get the real
+    list from `config/products/*/python.yaml` or equivalent, do not hardcode a guessed list), find
+    each one's reported parse-failure count (the "N source files could not be parsed" style text, if
+    present in that pilot's chunks - some pilots may have none, which is fine and not a failure) and
+    independently compute the REAL failure count yourself: for the pilot's pinned commit (read it from
+    `tests/fixtures/&lt;pilot&gt;/api_surface.json`'s own recorded commit field), you do NOT need to
+    re-clone the real upstream repository for this measurement (that would need network and is out of
+    scope for an offline conformance test) - instead, compare the REPORTED count against the count
+    implied by `tests/fixtures/&lt;pilot&gt;/api_surface.json`'s own recorded parse-failure data if it
+    separately tracks an as-written-vs-repaired distinction (this plan's research found
+    `run_extraction.py` computes both `failed` and `as_written_failed` - check whether the FIXTURE
+    itself exposes both, or only the post-repair one). If the fixture only exposes one number and you
+    cannot independently verify a discrepancy without network access, record that fact honestly in
+    your closeout (name exactly which pilots you could and could not independently check) rather than
+    fabricating a verification you did not actually perform - a card that honestly reports "I could
+    verify 3 of 11 Python pilots offline, here are their real numbers" is more valuable than one that
+    pretends to have checked all 11.
+  - >-
+    Record every sub-case's findings into the one combined baseline via
+    `assert_no_new_failures(load_baseline(...), observed_failures)`, `case_id` naming the sub-case and
+    pilot. Generate the real baseline JSON from your own actual measured run, `"strict": false` to
+    start.
+actions:
+  - >-
+    Measure, against all 32 real baked pilots, how often the API-Coverage line is tautological by
+    construction, how many duplicate-body alias chunks exist per pilot, and (where independently
+    checkable offline) how much the reported Python parse-failure count understates the real figure -
+    pinning today's real numbers as a committed baseline for I1-I3 to improve against.
+checks:
+  - command: '{python} -m pytest tests/conformance/test_index_honesty.py -q -rfE'
+    expect: 'exit 0'
+    timeout_seconds: 180
+    junitxml: true
+    proves:
+      - REQ-G3-010
+  - command: '{python} -m pytest tests/conformance/test_index_honesty.py -q -rfE -p no:cacheprovider'
+    expect: 'exit 0'
+    timeout_seconds: 180
+    junitxml: true
+    proves:
+      - REQ-G3-010
+min_tests: 4
+requires:
+  - python
+network: false
+negative_control:
+  mutate: |
+    python -X utf8 -c "import pathlib, json; p = pathlib.Path('tests/fixtures/conformance/baseline_index_honesty.json'); d = json.loads(p.read_text(encoding='utf-8')); assert d.get('known_failures'), 'fix text not found - the real baseline has no known_failures to empty, card and source have diverged'; p.write_text(json.dumps({'strict': d.get('strict', False), 'known_failures': []}, indent=2) + chr(10), encoding='utf-8')"
+  rationale: >-
+    Rewrites the committed baseline to an empty known_failures list, so every real measured
+    duplicate-alias or undercounting case becomes "new" and unexpected. The check must then fail,
+    proving the baseline file is actually consulted rather than decorative.
+evidence:
+  - evidence/build/G3/TC-607/receipt.json
+closeout:
+  - >-
+    A real, measured baseline exists naming which pilots show the API-Coverage tautology (expect
+    most/all), which pilots have significant alias-duplication (name the worst, confirm or correct
+    the slides/python figure), and exactly which Python pilots' parse-failure undercount could be
+    independently verified offline and what the real numbers were.
+recovery: >-
+  If the negative-control mutate script's JSON assumption does not match your real baseline file's
+  actual shape, write a simpler, reliable one yourself in the same chr()/json-based style used
+  elsewhere in this plan and report the substitution in your closeout.

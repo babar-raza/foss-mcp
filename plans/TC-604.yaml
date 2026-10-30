@@ -1,0 +1,134 @@
+id: TC-604
+gate: G3
+lane: storage-retrieval
+purpose: >-
+  Build F4 (REQ-G3-010): the symbol self-retrieval conformance invariant. Measures, against all 32
+  real baked pilots, how reliably search_symbols/get_symbol resolve a symbol by its own real name in
+  every form a caller might reasonably try - and, just as importantly, that a FABRICATED name or a
+  bare member/namespace word is never labelled a confident "exact" match. Most sub-cases are expected
+  to FAIL today (no prefix tier exists yet, digit-suffixed names like Vector2 are not split, alias
+  forms are not resolved) - this card's job is to measure and pin today's real numbers as a committed
+  baseline, not to fix any of it (Q11-Q16, later cards, do the fixing). Read
+  C:\Users\babar\.claude\plans\steady-wobbling-meteor.md section 2.1 (F4) and section 2.2 (Q11-Q16,
+  for what "later" means here - do not implement any of it) first.
+depends_on:
+  - TC-001
+  - TC-598
+write_paths:
+  - tests/conformance/test_symbol_self_retrieval.py
+  - tests/fixtures/conformance/baseline_symbol_self_retrieval.json
+satisfies:
+  - REQ-G3-010
+source_refs:
+  - file: docs/DECISION_LOG.md
+    anchor: >-
+      ## 2026-10-30 — Round-2 portfolio audit remediation adopted: unified plan, governance decisions A-K
+      recorded (supervisor)
+    sha256: 62cf1403a592118e3fb6bd14c5336f8a997cc3181d44a585323ec9f1d385a931
+inputs:
+  - >-
+    READ FIRST: C:\Users\babar\.claude\plans\steady-wobbling-meteor.md section 2.1 (F4's bullet) and
+    the research summary embedded in section 1.1/2.2 about search_symbols.py's real tiers (tier 0
+    exact FQN, tier 1 final dotted segment, tier 2 a contiguous run of whole camelCase words - NO
+    prefix tier exists, digit-suffixed names like `Vector2` are never split from `Vector`, a
+    fabricated full name whose final segment happens to equal a real class's final segment resolves
+    at tier 1 with `match_quality="exact"`). Do not re-derive this from scratch - read
+    `src/foss_mcp/mcp/tools/search_symbols.py` yourself to confirm the exact current behaviour (it
+    may have shifted slightly since this plan was written; measure what is REALLY there now, not
+    what the plan assumed).
+  - >-
+    READ `tests/conformance/corpus.py` and `tests/conformance/baseline.py` IN FULL before writing
+    anything - this card's whole job is to call their existing, real API, not to reinvent any of it.
+    Use `load_demo_manifests_corpus(tmp_path)` to load all 32 real pilots (wrap the whole test module
+    with the existing embedding-gateway scrub pattern, e.g. an autouse fixture using
+    `no_embedding_gateway_env()` or `monkeypatch.delenv`, matching how `test_round3_retrieval_corpus.py`
+    already does it). Use `ConformancePilot.symbol_chunks()` to get each pilot's real symbol chunks,
+    from which you can extract real FQNs (parse the `FQN:` line the same way `get_symbol.py` or
+    `search_symbols.py` itself does - check how they extract it, reuse that exact parsing, do not
+    write a second, different FQN-extraction regex).
+  - >-
+    Seeded sampling: use `sample_pilots`/`sample_items` if `tests/conformance/corpus.py` exposes them
+    by those names (check - the card that built it may have named them slightly differently; use
+    whatever it actually exports) to pick a deterministic subset of symbols per pilot for the default,
+    fast run (target: this test file completes in well under 3 minutes), and gate a full, unsampled
+    sweep over every symbol in every pilot behind `exhaustive_enabled()` (also from `corpus.py`) -
+    call it directly at collection/parametrization time to decide sample size, do not invent a second
+    gating mechanism.
+  - >-
+    For each sampled real symbol, measure and record as PASS or a named FAILURE (do not raise on a
+    failure - record it, so the baseline mechanism decides pass/fail, not a bare pytest assertion per
+    symbol): (a) `search_symbols(store, scope, &lt;exact real FQN&gt;)` returns that symbol at rank 1
+    with `match_quality == "exact"`; (b) `get_symbol(store, scope, &lt;exact real FQN&gt;)` resolves
+    (not NotFound); (c) a bare short name (the FQN's final segment alone) finds the real symbol
+    somewhere in the top 10, though not necessarily labelled exact if the final segment is shared with
+    other symbols (do not assert "exact" here - only "findable"); (d) a 3-character PREFIX of the
+    short name finds the real symbol in the top 10 (THIS IS EXPECTED TO FAIL TODAY for most/every
+    pilot - no prefix tier exists; record it as a failure, do not skip or xfail it - the whole point
+    is a committed, honest baseline number); (e) for any real symbol name containing a digit
+    immediately after a letter (e.g. `Vector2`, `Type3Font` - search the real corpus for actual
+    examples across the 32 pilots rather than assuming one exists in a specific pilot), a query for
+    the letter-only prefix before the digit (e.g. `Vector`) finds it (ALSO EXPECTED TO FAIL TODAY in
+    general - digit-run splitting is not implemented; if this plan's audit genuinely has zero such
+    real names across all 32 pilots, note that explicitly in your closeout rather than silently
+    skipping the whole sub-case). For the two negative-direction checks (do NOT weaken these - they
+    test the CURRENT protection that must not regress): (f) a syntactically-plausible but FABRICATED
+    full FQN (take a real symbol's FQN and change its final segment to something that does not exist,
+    verified by checking it doesn't appear anywhere in the pilot's real symbol chunks) must NOT
+    resolve with `match_quality == "exact"` at search_symbols - measure how often it currently does
+    (prior research found this happens on `3d/java` via tail-segment collision; expect some real
+    failures here too, pin them); (g) a bare member-name word or a bare namespace segment word
+    (e.g. just `aspose` or `com`) must not resolve as `match_quality == "exact"` either.
+  - >-
+    Write each (pilot, case) measurement into the baseline comparison via
+    `assert_no_new_failures(load_baseline(BASELINE_PATH), observed_failures)` where `observed_failures`
+    is the real list of (pilot, case_id) pairs that failed in THIS run - `case_id` should encode which
+    sub-case (a)-(g) and which symbol, e.g. `f"exact-fqn-rank1:{fqn}"`, so a future re-run's diff is
+    readable. Generate the ACTUAL baseline JSON file
+    (`tests/fixtures/conformance/baseline_symbol_self_retrieval.json`) by running your own measurement
+    once, recording every real failure you observe with a brief, honest `reason` string, and committing
+    that as the baseline - do not write a synthetic/guessed baseline, it must be the real, measured
+    output of your own test against the real 32 pilots today. Start with `"strict": false`.
+actions:
+  - >-
+    Measure, against all 32 real baked pilots, how reliably a real symbol is retrievable by its exact
+    FQN, short name, 3-char prefix, and digit-stripped family name, and how often a fabricated name or
+    bare member/namespace word is wrongly labelled exact - pinning today's real numbers as a committed
+    baseline for later fix cards (Q11-Q16) to shrink.
+checks:
+  - command: '{python} -m pytest tests/conformance/test_symbol_self_retrieval.py -q -rfE'
+    expect: 'exit 0'
+    timeout_seconds: 240
+    junitxml: true
+    proves:
+      - REQ-G3-010
+  - command: '{python} -m pytest tests/conformance/test_symbol_self_retrieval.py -q -rfE -p no:cacheprovider'
+    expect: 'exit 0'
+    timeout_seconds: 240
+    junitxml: true
+    proves:
+      - REQ-G3-010
+min_tests: 4
+requires:
+  - python
+network: false
+negative_control:
+  mutate: |
+    python -X utf8 -c "import pathlib, json; p = pathlib.Path('tests/fixtures/conformance/baseline_symbol_self_retrieval.json'); d = json.loads(p.read_text(encoding='utf-8')); assert d.get('known_failures'), 'fix text not found - the real baseline has no known_failures to empty, card and source have diverged'; p.write_text(json.dumps({'strict': d.get('strict', False), 'known_failures': []}, indent=2) + chr(10), encoding='utf-8')"
+  rationale: >-
+    Rewrites the committed baseline to an empty known_failures list, so every real measured failure
+    this card found becomes "new" and unexpected. The check must then fail, proving the baseline
+    file is actually consulted and is not merely decorative.
+evidence:
+  - evidence/build/G3/TC-604/receipt.json
+closeout:
+  - >-
+    A real, measured baseline of today's symbol self-retrieval behaviour across all 32 pilots exists,
+    naming exactly which sub-cases pass and which fail today (state the real pass/fail counts per
+    sub-case a-g in your closeout) - the honest starting line Q11-Q16 must improve against.
+recovery: >-
+  If the negative-control mutate script above is too fragile against your real baseline file's exact
+  formatting (it is a best-effort guess at a JSON-list-emptying transform), write a SIMPLER one
+  yourself that reliably empties or corrupts the known_failures list using the same chr()-based,
+  backslash-free style as other cards in this plan, and report in your closeout that you replaced it -
+  do not leave a broken negative control in place; a working one you wrote is better than a stale one
+  from the card.

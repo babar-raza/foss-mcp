@@ -1,0 +1,116 @@
+id: TC-606
+gate: G3
+lane: storage-retrieval
+purpose: >-
+  Build F6 (REQ-G3-010): the precision, exact-label, and size-budget conformance invariant. Measures
+  three related honesty properties of lookup/search_docs against all 32 real pilots: absent-feature
+  and nonsense sentences must miss; a `TaskAnswer.match_quality == "exact"` must mean one real
+  artifact explains every concept in the query, never a keyword coincidence; and an in-process
+  `search_docs` call stays inside a sane size budget even for a query that happens to match many
+  chunks. Some sub-cases are known, already-reproduced false positives today (cells/rust "create a
+  pivot table" labelled exact via a member-name keyword match with fit=0.0; html/python "render html
+  to image" forced exact via `limitations_first`; pdf/java's class-table responses running to tens of
+  KB) - pin them as a measured baseline, do not fix them here. Read
+  C:\Users\babar\.claude\plans\steady-wobbling-meteor.md section 1.1, 2.1 (F6) and 2.2 (Q7/Q8, for
+  what later fixes this baseline waits on) first.
+depends_on:
+  - TC-001
+  - TC-598
+write_paths:
+  - tests/conformance/test_precision_and_size_budget.py
+  - tests/fixtures/conformance/baseline_precision_and_size_budget.json
+satisfies:
+  - REQ-G3-010
+source_refs:
+  - file: docs/DECISION_LOG.md
+    anchor: >-
+      ## 2026-10-30 — Round-2 portfolio audit remediation adopted: unified plan, governance decisions A-K
+      recorded (supervisor)
+    sha256: 62cf1403a592118e3fb6bd14c5336f8a997cc3181d44a585323ec9f1d385a931
+inputs:
+  - >-
+    READ FIRST: C:\Users\babar\.claude\plans\steady-wobbling-meteor.md section 1.1 and 2.1 (F6).
+    Also read `src/foss_mcp/mcp/tools/lookup.py`'s real `_answer_quality` function in full (find the
+    four conditions that currently force `match_quality == "exact"`: `limitations_first`,
+    `category_intent`, a symbol with `via_member=True` regardless of its `fit` score, or a doc passage
+    at full equal-weight coverage) - confirm these are still the real conditions in the CURRENT code
+    (it may have shifted since this plan was written) before writing anything.
+  - >-
+    READ `tests/conformance/corpus.py`/`baseline.py` in full; reuse their real API exactly.
+  - >-
+    Precision sub-case: reuse (do not duplicate) the existing nonsense-query vocabulary this
+    repository already has in `tests/mcp/tools/test_nonsense_queries_miss.py` if it is importable, or
+    build an equivalent absent-vocabulary list if not; run a sample of nonsense sentences (seeded,
+    per-pilot) through `lookup`, recording any confident (non-Miss) hit as a FAILURE.
+  - >-
+    Exact-label sub-case: attempt to REPRODUCE, against the real current baked data, the three
+    concrete cases named in this card's purpose (cells/rust "create a pivot table", html/python
+    "render html to image", and at least one pdf/java "how do I X" query that this plan's own research
+    found returns a large alphabetical class table) - if a case no longer reproduces exactly as
+    described (the code may have changed), say so plainly in your closeout and do not force it into
+    the baseline; if it does reproduce, record it. Beyond those specific known cases, also run a
+    broader seeded sample of real-task-style queries per pilot (reuse titles the same way F4/F5 do, or
+    build simple "how do I use X" queries from real symbol/type names) and for each `exact` answer,
+    independently verify (by your own separate check in the test, not by trusting the field) that
+    every named/explaining symbol or doc passage genuinely, individually passes the real coverage/fit
+    threshold on its own - record a mismatch (labelled exact but your own independent check says it
+    shouldn't be) as a FAILURE.
+  - >-
+    Size-budget sub-case: for each pilot, run a query intentionally chosen to be broad (e.g. the
+    pilot's own product/platform name alone, or a single extremely common word found in many chunks)
+    through `search_docs` IN-PROCESS (not through the server's response-budget wrapper, which this
+    sub-case deliberately bypasses to see the tool's own raw, unbudgeted output) and measure the total
+    serialized size of the returned matches. Choose and justify a generous but meaningful byte ceiling
+    in a code comment (prior research found a real ~76KB case; a reasonable ceiling here might be
+    something like 200KB - your call, documented) - record any pilot whose raw in-process response
+    exceeds it as a FAILURE. This sub-case's purpose is proving a future fix (a table-dominated guard
+    moving into search_docs itself, per the plan) has something concrete to fix and to later verify
+    against - it is fine, even expected, for several real pilots to fail this today.
+  - >-
+    Record every sub-case's failures into one combined baseline via
+    `assert_no_new_failures(load_baseline(...), observed_failures)`, with `case_id` naming which
+    sub-case and query, e.g. `f"nonsense-miss:{pilot}:{index}"`, `f"false-exact:{pilot}:{query}"`,
+    `f"size-budget:{pilot}"`. Generate the real baseline JSON from your own actual measured run against
+    the real 32 pilots, `"strict": false` to start.
+actions:
+  - >-
+    Measure, against all 32 real baked pilots, how often nonsense queries wrongly hit, how often
+    "exact" is forced by keyword coincidence rather than genuinely explaining every query concept, and
+    how large an unbudgeted in-process search_docs response can get - pinning today's real numbers,
+    including the three already-known false-exact cases where they still reproduce, as a committed
+    baseline for Q7/Q8 to improve against.
+checks:
+  - command: '{python} -m pytest tests/conformance/test_precision_and_size_budget.py -q -rfE'
+    expect: 'exit 0'
+    timeout_seconds: 240
+    junitxml: true
+    proves:
+      - REQ-G3-010
+  - command: '{python} -m pytest tests/conformance/test_precision_and_size_budget.py -q -rfE -p no:cacheprovider'
+    expect: 'exit 0'
+    timeout_seconds: 240
+    junitxml: true
+    proves:
+      - REQ-G3-010
+min_tests: 4
+requires:
+  - python
+network: false
+negative_control:
+  mutate: |
+    python -X utf8 -c "import pathlib, json; p = pathlib.Path('tests/fixtures/conformance/baseline_precision_and_size_budget.json'); d = json.loads(p.read_text(encoding='utf-8')); assert d.get('known_failures'), 'fix text not found - the real baseline has no known_failures to empty, card and source have diverged'; p.write_text(json.dumps({'strict': d.get('strict', False), 'known_failures': []}, indent=2) + chr(10), encoding='utf-8')"
+  rationale: >-
+    Rewrites the committed baseline to an empty known_failures list, so every real measured false-
+    positive, nonsense-hit, or oversized-response case becomes "new" and unexpected. The check must
+    then fail, proving the baseline file is actually consulted rather than decorative.
+evidence:
+  - evidence/build/G3/TC-606/receipt.json
+closeout:
+  - >-
+    A real, measured baseline of today's precision, exact-label honesty, and in-process response-size
+    behaviour exists across all 32 pilots; state plainly which of the three specifically-named known
+    false-exact cases still reproduce today and which do not.
+recovery: >-
+  If the negative-control mutate script's JSON assumption does not match your real baseline file's
+  actual shape, write a simpler, reliable one yourself in the same chr()/json-based style used
+  elsewhere in this plan and report the substitution in your closeout.
