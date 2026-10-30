@@ -1,0 +1,301 @@
+
+===== CLEAN RUN 1 (host) =====
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-5c72e798a73c059a\Scripts\python.exe -m pytest tests/conformance/test_precision_and_size_budget.py -q -rfE "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-apig12aj\.junit-0.xml"
+--- stdout ---
+.....                                                                    [100%]
+
+--- stderr ---
+
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-5c72e798a73c059a\Scripts\python.exe -m pytest tests/conformance/test_precision_and_size_budget.py -q -rfE -p no:cacheprovider "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-apig12aj\.junit-1.xml"
+--- stdout ---
+.....                                                                    [100%]
+
+--- stderr ---
+
+
+===== CLEAN RUN 2 (host) =====
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-5c72e798a73c059a\Scripts\python.exe -m pytest tests/conformance/test_precision_and_size_budget.py -q -rfE "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-apig12aj\.junit-0.xml"
+--- stdout ---
+.....                                                                    [100%]
+
+--- stderr ---
+
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-5c72e798a73c059a\Scripts\python.exe -m pytest tests/conformance/test_precision_and_size_budget.py -q -rfE -p no:cacheprovider "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-apig12aj\.junit-1.xml"
+--- stdout ---
+.....                                                                    [100%]
+
+--- stderr ---
+
+
+===== NEGATIVE CONTROL (checks MUST now fail) =====
+mutated: M tests/fixtures/conformance/baseline_precision_and_size_budget.json, ?? .junit-0.xml, ?? .junit-1.xml
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-5c72e798a73c059a\Scripts\python.exe -m pytest tests/conformance/test_precision_and_size_budget.py -q -rfE "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-apig12aj\.junit-0.xml"
+--- stdout ---
+..F.F                                                                    [100%]
+================================== FAILURES ===================================
+________________ test_the_three_named_known_false_exact_cases _________________
+
+corpus = <tests.conformance.corpus.ConformanceCorpus object at 0x000001AFD2A06120>
+
+    def test_the_three_named_known_false_exact_cases(corpus: ConformanceCorpus) -> None:
+        """Attempts to REPRODUCE, against the real current baked data, the three concrete cases this
+        card's own purpose names (each already confirmed false-exact by the round-2 audit's own domain
+        reasoning - ``docs/round2/issues.json`` CELLS-RUST-001, HTML-PY-007's render-to-image sibling
+        phrasing, PDF-JAVA-005): if ``lookup`` still answers ``match_quality == "exact"``, the case still
+        reproduces and is recorded; if it no longer does, this test leaves it out of ``observed`` and the
+        non-strict baseline never fails on its absence (and this docstring, not a silent pass, is why: see
+        the closeout report for which of the three reproduced on this run)."""
+        observed: list[tuple[str, str]] = []
+    
+        def _check(pilot: str, scope: Scope, query: str, case_id: str) -> None:
+            answer = lookup(corpus.store, scope, query)
+            if isinstance(answer, TaskAnswer) and answer.match_quality == MATCH_EXACT:
+                observed.append((pilot, case_id))
+    
+        # CELLS-RUST-001: "how do I create a pivot table" on cells/rust - pivot tables are not one of the
+        # 122 indexed types and are not in the README; a member-name keyword match (WorksheetProtection /
+        # WorkbookProperties, fit~0.0 per the audit) forces match_quality="exact" anyway.
+        _check(
+            "cells__rust",
+            corpus.pilots["cells__rust"].scope,
+            "how do I create a pivot table",
+            "false-exact:cells__rust:pivot-table",
+        )
+    
+        # HTML-PY-007's sibling phrasing: html/python genuinely has no public API to render HTML to an
+        # image (get_product_reference(section="limitations") says so explicitly) - the limitations
+        # documentation chunk is found, limitations_first fires, and TC-562's condition 1 forces
+        # match_quality="exact" unconditionally once ANY limitations paragraph clears the relevance floor,
+        # whether or not it was really asked for this specific capability's own words.
+        _check(
+            "html__python",
+            corpus.pilots["html__python"].scope,
+            "how do I render HTML to an image",
+            "false-exact:html__python:render-to-image",
+        )
+    
+        # PDF-JAVA-005: "convert PDF to PNG image" on pdf/java - the real answering class (devices.PngDevice)
+        # exists and is indexed, but the composed answer is still "exact" even though several of its own
+        # doc_matches are multi-KB alphabetically-sorted A-Z class-table dumps (hundreds of unrelated
+        # classes) rather than a targeted answer - exactly the class-table shape this card's purpose names.
+        _check(
+            "pdf__java",
+            corpus.pilots["pdf__java"].scope,
+            "convert PDF to PNG image",
+            "false-exact:pdf__java:png-class-table",
+        )
+    
+>       assert_no_new_failures(load_baseline(BASELINE_PATH), observed)
+
+tests\conformance\test_precision_and_size_budget.py:183: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+baseline = Baseline(strict=False, known_failures=())
+observed_failures = [('cells__rust', 'false-exact:cells__rust:pivot-table'), ('html__python', 'false-exact:html__python:render-to-image'), ('pdf__java', 'false-exact:pdf__java:png-class-table')]
+
+    def assert_no_new_failures(baseline: Baseline, observed_failures: Iterable[Any]) -> None:
+        """Raise ``AssertionError`` if *observed_failures* contains a ``(pilot, case_id)`` the baseline does
+        not already know about, naming exactly which case(s) are new. When ``baseline.strict`` is ``True``,
+        also raise if a baseline entry is NOT present in *observed_failures* (i.e. it now passes and the
+        baseline must be tightened); when ``baseline.strict`` is ``False`` (the default), that same absence
+        never fails - a baseline may always be ahead of what is currently observed."""
+        observed_keys = frozenset(_observed_key(failure) for failure in observed_failures)
+        known_keys = baseline.known_keys()
+    
+        new_failures = observed_keys - known_keys
+        if new_failures:
+            named = ", ".join(f"{pilot}:{case_id}" for pilot, case_id in sorted(new_failures))
+>           raise AssertionError(f"new failure(s) not present in the baseline: {named}")
+E           AssertionError: new failure(s) not present in the baseline: cells__rust:false-exact:cells__rust:pivot-table, html__python:false-exact:html__python:render-to-image, pdf__java:false-exact:pdf__java:png-class-table
+
+tests\conformance\baseline.py:80: AssertionError
+_ test_in_process_search_docs_stays_inside_the_size_budget_for_a_broad_query __
+
+corpus = <tests.conformance.corpus.ConformanceCorpus object at 0x000001AFD2A06120>
+
+    def test_in_process_search_docs_stays_inside_the_size_budget_for_a_broad_query(
+        corpus: ConformanceCorpus,
+    ) -> None:
+        """For every real pilot, a deliberately broad query (the pilot's own family word alone, which
+        ``search_docs._rule_for`` keeps as a valid rule even after the usual family-word exclusion empties
+        the term set) run through ``search_docs`` directly, in-process, with a generous ``top_k`` so the
+        tool's own, real, unbudgeted candidate count decides the response size - never this test's cap.
+        Any pilot whose raw serialized response exceeds the documented byte ceiling is recorded as a
+        failure; several real pilots are EXPECTED to fail this today (that is this sub-case's whole
+        purpose: pinning today's real numbers for the later table-dominated guard, Q7/Q8, to fix and verify
+        against), so a baseline entry reproducing here is not itself news - a NEW one, outside the
+        baseline, is."""
+        observed: list[tuple[str, str]] = []
+        for pilot_name in sorted(corpus.pilots):
+            scope = corpus.pilots[pilot_name].scope
+            result = search_docs(corpus.store, scope, scope.family, top_k=_BROAD_QUERY_TOP_K)
+            if isinstance(result, DocSearchMiss):
+                continue
+            size = _serialized_bytes(result)
+            if size > _SIZE_BUDGET_BYTES:
+                observed.append((pilot_name, f"size-budget:{pilot_name}"))
+>       assert_no_new_failures(load_baseline(BASELINE_PATH), observed)
+
+tests\conformance\test_precision_and_size_budget.py:296: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+baseline = Baseline(strict=False, known_failures=())
+observed_failures = [('cells__rust', 'size-budget:cells__rust'), ('pdf__go', 'size-budget:pdf__go'), ('pdf__java', 'size-budget:pdf__java'...e-budget:pdf__net'), ('pdf__python', 'size-budget:pdf__python'), ('slides__python', 'size-budget:slides__python'), ...]
+
+    def assert_no_new_failures(baseline: Baseline, observed_failures: Iterable[Any]) -> None:
+        """Raise ``AssertionError`` if *observed_failures* contains a ``(pilot, case_id)`` the baseline does
+        not already know about, naming exactly which case(s) are new. When ``baseline.strict`` is ``True``,
+        also raise if a baseline entry is NOT present in *observed_failures* (i.e. it now passes and the
+        baseline must be tightened); when ``baseline.strict`` is ``False`` (the default), that same absence
+        never fails - a baseline may always be ahead of what is currently observed."""
+        observed_keys = frozenset(_observed_key(failure) for failure in observed_failures)
+        known_keys = baseline.known_keys()
+    
+        new_failures = observed_keys - known_keys
+        if new_failures:
+            named = ", ".join(f"{pilot}:{case_id}" for pilot, case_id in sorted(new_failures))
+>           raise AssertionError(f"new failure(s) not present in the baseline: {named}")
+E           AssertionError: new failure(s) not present in the baseline: cells__rust:size-budget:cells__rust, pdf__go:size-budget:pdf__go, pdf__java:size-budget:pdf__java, pdf__net:size-budget:pdf__net, pdf__python:size-budget:pdf__python, slides__python:size-budget:slides__python, words__net:size-budget:words__net
+
+tests\conformance\baseline.py:80: AssertionError
+=========================== short test summary info ===========================
+FAILED tests/conformance/test_precision_and_size_budget.py::test_the_three_named_known_false_exact_cases
+FAILED tests/conformance/test_precision_and_size_budget.py::test_in_process_search_docs_stays_inside_the_size_budget_for_a_broad_query
+
+--- stderr ---
+
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-5c72e798a73c059a\Scripts\python.exe -m pytest tests/conformance/test_precision_and_size_budget.py -q -rfE -p no:cacheprovider "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-apig12aj\.junit-1.xml"
+--- stdout ---
+..F.F                                                                    [100%]
+================================== FAILURES ===================================
+________________ test_the_three_named_known_false_exact_cases _________________
+
+corpus = <tests.conformance.corpus.ConformanceCorpus object at 0x000001B807F81BE0>
+
+    def test_the_three_named_known_false_exact_cases(corpus: ConformanceCorpus) -> None:
+        """Attempts to REPRODUCE, against the real current baked data, the three concrete cases this
+        card's own purpose names (each already confirmed false-exact by the round-2 audit's own domain
+        reasoning - ``docs/round2/issues.json`` CELLS-RUST-001, HTML-PY-007's render-to-image sibling
+        phrasing, PDF-JAVA-005): if ``lookup`` still answers ``match_quality == "exact"``, the case still
+        reproduces and is recorded; if it no longer does, this test leaves it out of ``observed`` and the
+        non-strict baseline never fails on its absence (and this docstring, not a silent pass, is why: see
+        the closeout report for which of the three reproduced on this run)."""
+        observed: list[tuple[str, str]] = []
+    
+        def _check(pilot: str, scope: Scope, query: str, case_id: str) -> None:
+            answer = lookup(corpus.store, scope, query)
+            if isinstance(answer, TaskAnswer) and answer.match_quality == MATCH_EXACT:
+                observed.append((pilot, case_id))
+    
+        # CELLS-RUST-001: "how do I create a pivot table" on cells/rust - pivot tables are not one of the
+        # 122 indexed types and are not in the README; a member-name keyword match (WorksheetProtection /
+        # WorkbookProperties, fit~0.0 per the audit) forces match_quality="exact" anyway.
+        _check(
+            "cells__rust",
+            corpus.pilots["cells__rust"].scope,
+            "how do I create a pivot table",
+            "false-exact:cells__rust:pivot-table",
+        )
+    
+        # HTML-PY-007's sibling phrasing: html/python genuinely has no public API to render HTML to an
+        # image (get_product_reference(section="limitations") says so explicitly) - the limitations
+        # documentation chunk is found, limitations_first fires, and TC-562's condition 1 forces
+        # match_quality="exact" unconditionally once ANY limitations paragraph clears the relevance floor,
+        # whether or not it was really asked for this specific capability's own words.
+        _check(
+            "html__python",
+            corpus.pilots["html__python"].scope,
+            "how do I render HTML to an image",
+            "false-exact:html__python:render-to-image",
+        )
+    
+        # PDF-JAVA-005: "convert PDF to PNG image" on pdf/java - the real answering class (devices.PngDevice)
+        # exists and is indexed, but the composed answer is still "exact" even though several of its own
+        # doc_matches are multi-KB alphabetically-sorted A-Z class-table dumps (hundreds of unrelated
+        # classes) rather than a targeted answer - exactly the class-table shape this card's purpose names.
+        _check(
+            "pdf__java",
+            corpus.pilots["pdf__java"].scope,
+            "convert PDF to PNG image",
+            "false-exact:pdf__java:png-class-table",
+        )
+    
+>       assert_no_new_failures(load_baseline(BASELINE_PATH), observed)
+
+tests\conformance\test_precision_and_size_budget.py:183: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+baseline = Baseline(strict=False, known_failures=())
+observed_failures = [('cells__rust', 'false-exact:cells__rust:pivot-table'), ('html__python', 'false-exact:html__python:render-to-image'), ('pdf__java', 'false-exact:pdf__java:png-class-table')]
+
+    def assert_no_new_failures(baseline: Baseline, observed_failures: Iterable[Any]) -> None:
+        """Raise ``AssertionError`` if *observed_failures* contains a ``(pilot, case_id)`` the baseline does
+        not already know about, naming exactly which case(s) are new. When ``baseline.strict`` is ``True``,
+        also raise if a baseline entry is NOT present in *observed_failures* (i.e. it now passes and the
+        baseline must be tightened); when ``baseline.strict`` is ``False`` (the default), that same absence
+        never fails - a baseline may always be ahead of what is currently observed."""
+        observed_keys = frozenset(_observed_key(failure) for failure in observed_failures)
+        known_keys = baseline.known_keys()
+    
+        new_failures = observed_keys - known_keys
+        if new_failures:
+            named = ", ".join(f"{pilot}:{case_id}" for pilot, case_id in sorted(new_failures))
+>           raise AssertionError(f"new failure(s) not present in the baseline: {named}")
+E           AssertionError: new failure(s) not present in the baseline: cells__rust:false-exact:cells__rust:pivot-table, html__python:false-exact:html__python:render-to-image, pdf__java:false-exact:pdf__java:png-class-table
+
+tests\conformance\baseline.py:80: AssertionError
+_ test_in_process_search_docs_stays_inside_the_size_budget_for_a_broad_query __
+
+corpus = <tests.conformance.corpus.ConformanceCorpus object at 0x000001B807F81BE0>
+
+    def test_in_process_search_docs_stays_inside_the_size_budget_for_a_broad_query(
+        corpus: ConformanceCorpus,
+    ) -> None:
+        """For every real pilot, a deliberately broad query (the pilot's own family word alone, which
+        ``search_docs._rule_for`` keeps as a valid rule even after the usual family-word exclusion empties
+        the term set) run through ``search_docs`` directly, in-process, with a generous ``top_k`` so the
+        tool's own, real, unbudgeted candidate count decides the response size - never this test's cap.
+        Any pilot whose raw serialized response exceeds the documented byte ceiling is recorded as a
+        failure; several real pilots are EXPECTED to fail this today (that is this sub-case's whole
+        purpose: pinning today's real numbers for the later table-dominated guard, Q7/Q8, to fix and verify
+        against), so a baseline entry reproducing here is not itself news - a NEW one, outside the
+        baseline, is."""
+        observed: list[tuple[str, str]] = []
+        for pilot_name in sorted(corpus.pilots):
+            scope = corpus.pilots[pilot_name].scope
+            result = search_docs(corpus.store, scope, scope.family, top_k=_BROAD_QUERY_TOP_K)
+            if isinstance(result, DocSearchMiss):
+                continue
+            size = _serialized_bytes(result)
+            if size > _SIZE_BUDGET_BYTES:
+                observed.append((pilot_name, f"size-budget:{pilot_name}"))
+>       assert_no_new_failures(load_baseline(BASELINE_PATH), observed)
+
+tests\conformance\test_precision_and_size_budget.py:296: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+baseline = Baseline(strict=False, known_failures=())
+observed_failures = [('cells__rust', 'size-budget:cells__rust'), ('pdf__go', 'size-budget:pdf__go'), ('pdf__java', 'size-budget:pdf__java'...e-budget:pdf__net'), ('pdf__python', 'size-budget:pdf__python'), ('slides__python', 'size-budget:slides__python'), ...]
+
+    def assert_no_new_failures(baseline: Baseline, observed_failures: Iterable[Any]) -> None:
+        """Raise ``AssertionError`` if *observed_failures* contains a ``(pilot, case_id)`` the baseline does
+        not already know about, naming exactly which case(s) are new. When ``baseline.strict`` is ``True``,
+        also raise if a baseline entry is NOT present in *observed_failures* (i.e. it now passes and the
+        baseline must be tightened); when ``baseline.strict`` is ``False`` (the default), that same absence
+        never fails - a baseline may always be ahead of what is currently observed."""
+        observed_keys = frozenset(_observed_key(failure) for failure in observed_failures)
+        known_keys = baseline.known_keys()
+    
+        new_failures = observed_keys - known_keys
+        if new_failures:
+            named = ", ".join(f"{pilot}:{case_id}" for pilot, case_id in sorted(new_failures))
+>           raise AssertionError(f"new failure(s) not present in the baseline: {named}")
+E           AssertionError: new failure(s) not present in the baseline: cells__rust:size-budget:cells__rust, pdf__go:size-budget:pdf__go, pdf__java:size-budget:pdf__java, pdf__net:size-budget:pdf__net, pdf__python:size-budget:pdf__python, slides__python:size-budget:slides__python, words__net:size-budget:words__net
+
+tests\conformance\baseline.py:80: AssertionError
+=========================== short test summary info ===========================
+FAILED tests/conformance/test_precision_and_size_budget.py::test_the_three_named_known_false_exact_cases
+FAILED tests/conformance/test_precision_and_size_budget.py::test_in_process_search_docs_stays_inside_the_size_budget_for_a_broad_query
+
+--- stderr ---
+
