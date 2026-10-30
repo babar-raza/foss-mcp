@@ -45,6 +45,22 @@ purpose: >-
   `normalize_query` wiring, lookup's own platform threading, which were NOT implicated in the
   regression and remain correct as attempt 1 left them, uncommitted, in the worktree) before
   writing the required test files.
+
+  ALSO FOUND (attempt 2, a separate pre-existing residual, discovered when `gatectl dispatch-next`
+  ran its own broader offline sweep after TC-616 integrated): `tests/test_unwired_modules.py`'s
+  `_KNOWN_UNWIRED` frozenset still lists `"foss_mcp.mcp.tools.relevance.normalize_query"` - but
+  TC-616 already wired it into `find_examples`, making it genuinely reachable, and TC-616's own
+  checks never ran this test (an authoring gap in that card). This flipped TC-616's own already-
+  integrated receipt to `accepted: false` on re-check (visible in
+  evidence/build/G3/TC-616/receipt.json) - `gatectl validate` currently still passes (state is
+  derived from git/receipts together, not the stale receipt alone), but this is a real, live
+  violation of AGENTS.md's "Integration and liveness" clause sitting in the committed tree right
+  now and must not be left for a later card to stumble into again. Since this card (TC-617) wires
+  `normalize_query` into two MORE tools (search_docs, lookup), definitively entrenching its
+  reachability, remove `"foss_mcp.mcp.tools.relevance.normalize_query"` from `_KNOWN_UNWIRED` here
+  (along with its explanatory comment in the module docstring around line 44, and the doc-comment
+  on the frozenset entry itself) and confirm `tests/test_unwired_modules.py` passes clean with it
+  removed. Run it as part of both of this card's checks.
 depends_on:
   - TC-563
   - TC-572
@@ -56,6 +72,7 @@ write_paths:
   - src/foss_mcp/mcp/tools/lookup.py
   - tests/mcp/tools/test_search_docs_query_normalization.py
   - tests/mcp/tools/test_lookup_query_normalization.py
+  - tests/test_unwired_modules.py
 satisfies:
   - REQ-G3-011
 source_refs:
@@ -125,13 +142,13 @@ actions:
     (including lookup's own _without_unsupported_tables helper), proven against real pilots and
     against the full existing search_docs/lookup ratchet suites with zero regression.
 checks:
-  - command: '{python} -m pytest tests/mcp/tools/test_search_docs_query_normalization.py tests/mcp/tools/test_lookup_query_normalization.py -q -rfE'
+  - command: '{python} -m pytest tests/mcp/tools/test_search_docs_query_normalization.py tests/mcp/tools/test_lookup_query_normalization.py tests/test_unwired_modules.py -q -rfE'
     expect: 'exit 0'
     timeout_seconds: 180
     junitxml: true
     proves:
       - REQ-G3-011
-  - command: '{python} -m pytest tests/mcp/tools/test_search_docs_query_normalization.py tests/mcp/tools/test_lookup_query_normalization.py tests/mcp/tools/test_lookup_forgiveness.py tests/mcp/tools/test_lookup_miss_reason.py tests/mcp/tools/test_search_docs_language_letter.py tests/mcp/tools/test_search_docs_title_passage_coverage.py tests/mcp/tools/test_round3_retrieval_corpus.py -q -rfE -p no:cacheprovider'
+  - command: '{python} -m pytest tests/mcp/tools/test_search_docs_query_normalization.py tests/mcp/tools/test_lookup_query_normalization.py tests/mcp/tools/test_lookup_forgiveness.py tests/mcp/tools/test_lookup_miss_reason.py tests/mcp/tools/test_search_docs_language_letter.py tests/mcp/tools/test_search_docs_title_passage_coverage.py tests/mcp/tools/test_round3_retrieval_corpus.py tests/test_unwired_modules.py -q -rfE -p no:cacheprovider'
     expect: 'exit 0'
     timeout_seconds: 420
     junitxml: true
@@ -167,7 +184,9 @@ closeout:
     separately (do not assume TC-616's find_examples-specific no-op finding carries over). The full
     existing search_docs/lookup ratchet suites are confirmed unchanged, INCLUDING the 24-case
     product-title regression attempt 1 found and attempt 2's `_rule_for` fix resolves - state the
-    before (24 failing)/after (0 failing) counts explicitly.
+    before (24 failing)/after (0 failing) counts explicitly. `relevance.normalize_query` is removed
+    from `tests/test_unwired_modules.py`'s `_KNOWN_UNWIRED` (it is genuinely reachable now via 3
+    tools), and that test passes clean.
 recovery: >-
   If threading platform= into any query_terms/distinctive_terms call changes ANY existing pinned
   search_docs or lookup result even for a query with no platform word, STOP and report
