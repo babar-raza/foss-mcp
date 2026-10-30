@@ -16,12 +16,14 @@ purpose: >-
   an ordinary sentence that merely names the product. Read
   C:\Users\babar\.claude\plans\steady-wobbling-meteor.md section 1.1, 1.4, 2.2 (Q1-Q4) first.
 depends_on:
+  - TC-560
   - TC-587
   - TC-605
   - TC-606
 write_paths:
   - src/foss_mcp/mcp/tools/relevance.py
   - tests/mcp/tools/test_relevance_normalize_query.py
+  - tests/test_unwired_modules.py
 satisfies:
   - REQ-G3-011
 source_refs:
@@ -98,6 +100,15 @@ inputs:
     entrypoint), so there must be ZERO behavioural change to any existing tool's answers. If
     anything shifts, that is a sign the backward-compatibility contract above was violated -
     diagnose and fix it, do not report a changed number as acceptable.
+  - >-
+    `tests/test_unwired_modules.py` enforces that every production symbol is reachable from a real
+    entrypoint (AGENTS.md's "Integration and liveness" clause). `normalize_query` is deliberately
+    NOT wired into any tool by this card - Q2/Q3/Q4 (separate, later cards, REQ-G3-011) do that -
+    so this test WILL fail against your new function as written. Add
+    `"foss_mcp.mcp.tools.relevance.normalize_query"` to that file's real `_KNOWN_UNWIRED` frozenset,
+    with an inline comment stating it is wired in by Q2/Q3/Q4, matching the style of the other
+    commented entries already in that frozenset. Re-run `tests/test_unwired_modules.py` to confirm
+    it passes again before committing.
 actions:
   - >-
     Add `normalize_query()` and an optional `platform` parameter on `_excluded_terms`/
@@ -111,7 +122,7 @@ checks:
     junitxml: true
     proves:
       - REQ-G3-011
-  - command: '{python} -m pytest tests/mcp/tools/test_relevance_normalize_query.py tests/mcp/tools/test_round3_retrieval_corpus.py tests/mcp/tools/test_forgiveness_acceptance.py tests/mcp/tools/test_nonsense_queries_miss.py tests/mcp/tools/test_find_examples_title_anchor.py tests/mcp/tools/test_relevance_idf_synonyms.py -q -rfE -p no:cacheprovider'
+  - command: '{python} -m pytest tests/mcp/tools/test_relevance_normalize_query.py tests/mcp/tools/test_round3_retrieval_corpus.py tests/mcp/tools/test_forgiveness_acceptance.py tests/mcp/tools/test_nonsense_queries_miss.py tests/mcp/tools/test_find_examples_title_anchor.py tests/mcp/tools/test_relevance_idf_synonyms.py tests/test_unwired_modules.py -q -rfE -p no:cacheprovider'
     expect: 'exit 0'
     timeout_seconds: 300
     junitxml: true
