@@ -1,0 +1,126 @@
+
+===== CLEAN RUN 1 (host) =====
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-5c72e798a73c059a\Scripts\python.exe -m pytest tests/mcp/tools/test_search_symbols_query_normalization.py -q -rfE "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-7chuib6g\.junit-0.xml"
+--- stdout ---
+.............                                                            [100%]
+
+--- stderr ---
+
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-5c72e798a73c059a\Scripts\python.exe -m pytest tests/mcp/tools/test_search_symbols_query_normalization.py tests/mcp/tools/test_search_symbols_forgiveness.py tests/mcp/tools/test_search_symbols_memberless_last.py tests/conformance/test_symbol_self_retrieval.py tests/mcp/tools/test_round3_retrieval_corpus.py -q -rfE -p no:cacheprovider "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-7chuib6g\.junit-1.xml"
+--- stdout ---
+........................................................................ [ 75%]
+.......................                                                  [100%]
+
+--- stderr ---
+
+
+===== CLEAN RUN 2 (host) =====
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-5c72e798a73c059a\Scripts\python.exe -m pytest tests/mcp/tools/test_search_symbols_query_normalization.py -q -rfE "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-7chuib6g\.junit-0.xml"
+--- stdout ---
+.............                                                            [100%]
+
+--- stderr ---
+
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-5c72e798a73c059a\Scripts\python.exe -m pytest tests/mcp/tools/test_search_symbols_query_normalization.py tests/mcp/tools/test_search_symbols_forgiveness.py tests/mcp/tools/test_search_symbols_memberless_last.py tests/conformance/test_symbol_self_retrieval.py tests/mcp/tools/test_round3_retrieval_corpus.py -q -rfE -p no:cacheprovider "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-7chuib6g\.junit-1.xml"
+--- stdout ---
+........................................................................ [ 75%]
+.......................                                                  [100%]
+
+--- stderr ---
+
+
+===== NEGATIVE CONTROL (checks MUST now fail) =====
+mutated: M src/foss_mcp/mcp/tools/search_symbols.py, ?? .junit-0.xml, ?? .junit-1.xml
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-5c72e798a73c059a\Scripts\python.exe -m pytest tests/mcp/tools/test_search_symbols_query_normalization.py -q -rfE "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-7chuib6g\.junit-0.xml"
+--- stdout ---
+..FF.........                                                            [100%]
+================================== FAILURES ===================================
+_ test_dotted_mention_query_now_reaches_the_real_evidence_stage_and_finds_a_real_answer _
+
+pdf_net_store = <foss_mcp.indexing.generation_manifest.GenerationManifestStore object at 0x000001BEB0A1DE80>
+
+    def test_dotted_mention_query_now_reaches_the_real_evidence_stage_and_finds_a_real_answer(
+        pdf_net_store: GenerationManifestStore,
+    ) -> None:
+        # No monkeypatch here: this is the real wired search_symbols, exactly as a caller reaches it.
+        after = search_symbols(pdf_net_store, PDF_NET, DOTTED_MENTION_QUERY)  # type: ignore[arg-type]
+>       assert isinstance(after, list) and after, after
+E       AssertionError: Miss(scope=Scope(family='pdf', platform='net', source_kind='self_extracted'), query='how can I add a watermark using Aspose.PDF', reason="no symbol matches 'how can I add a watermark using Aspose.PDF'", suggestions=(), coverage_note=None)
+E       assert (False)
+E        +  where False = isinstance(Miss(scope=Scope(family='pdf', platform='net', source_kind='self_extracted'), query='how can I add a watermark using Aspose.PDF', reason="no symbol matches 'how can I add a watermark using Aspose.PDF'", suggestions=(), coverage_note=None), list)
+
+tests\mcp\tools\test_search_symbols_query_normalization.py:94: AssertionError
+____ test_dotted_mention_ab_comparison_is_miss_before_and_a_real_hit_after ____
+
+pdf_net_store = <foss_mcp.indexing.generation_manifest.GenerationManifestStore object at 0x000001BEB0A1DE80>
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x000001BEB096BDF0>
+
+    def test_dotted_mention_ab_comparison_is_miss_before_and_a_real_hit_after(
+        pdf_net_store: GenerationManifestStore, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """The one A/B comparison this card's own measurement rests on, in a single test: identical
+        store, scope and query, the only variable being whether ``normalize_query`` runs for real or is
+        stubbed back to identity."""
+        after = search_symbols(pdf_net_store, PDF_NET, DOTTED_MENTION_QUERY)  # type: ignore[arg-type]
+        _without_normalize_query(monkeypatch)
+        before = search_symbols(pdf_net_store, PDF_NET, DOTTED_MENTION_QUERY)  # type: ignore[arg-type]
+    
+        assert isinstance(before, Miss)
+>       assert isinstance(after, list) and len(after) >= 1
+E       assert (False)
+E        +  where False = isinstance(Miss(scope=Scope(family='pdf', platform='net', source_kind='self_extracted'), query='how can I add a watermark using Aspose.PDF', reason="no symbol matches 'how can I add a watermark using Aspose.PDF'", suggestions=(), coverage_note=None), list)
+
+tests\mcp\tools\test_search_symbols_query_normalization.py:113: AssertionError
+=========================== short test summary info ===========================
+FAILED tests/mcp/tools/test_search_symbols_query_normalization.py::test_dotted_mention_query_now_reaches_the_real_evidence_stage_and_finds_a_real_answer
+FAILED tests/mcp/tools/test_search_symbols_query_normalization.py::test_dotted_mention_ab_comparison_is_miss_before_and_a_real_hit_after
+
+--- stderr ---
+
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-5c72e798a73c059a\Scripts\python.exe -m pytest tests/mcp/tools/test_search_symbols_query_normalization.py tests/mcp/tools/test_search_symbols_forgiveness.py tests/mcp/tools/test_search_symbols_memberless_last.py tests/conformance/test_symbol_self_retrieval.py tests/mcp/tools/test_round3_retrieval_corpus.py -q -rfE -p no:cacheprovider "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-7chuib6g\.junit-1.xml"
+--- stdout ---
+..FF.................................................................... [ 75%]
+.......................                                                  [100%]
+================================== FAILURES ===================================
+_ test_dotted_mention_query_now_reaches_the_real_evidence_stage_and_finds_a_real_answer _
+
+pdf_net_store = <foss_mcp.indexing.generation_manifest.GenerationManifestStore object at 0x00000234D2D217F0>
+
+    def test_dotted_mention_query_now_reaches_the_real_evidence_stage_and_finds_a_real_answer(
+        pdf_net_store: GenerationManifestStore,
+    ) -> None:
+        # No monkeypatch here: this is the real wired search_symbols, exactly as a caller reaches it.
+        after = search_symbols(pdf_net_store, PDF_NET, DOTTED_MENTION_QUERY)  # type: ignore[arg-type]
+>       assert isinstance(after, list) and after, after
+E       AssertionError: Miss(scope=Scope(family='pdf', platform='net', source_kind='self_extracted'), query='how can I add a watermark using Aspose.PDF', reason="no symbol matches 'how can I add a watermark using Aspose.PDF'", suggestions=(), coverage_note=None)
+E       assert (False)
+E        +  where False = isinstance(Miss(scope=Scope(family='pdf', platform='net', source_kind='self_extracted'), query='how can I add a watermark using Aspose.PDF', reason="no symbol matches 'how can I add a watermark using Aspose.PDF'", suggestions=(), coverage_note=None), list)
+
+tests\mcp\tools\test_search_symbols_query_normalization.py:94: AssertionError
+____ test_dotted_mention_ab_comparison_is_miss_before_and_a_real_hit_after ____
+
+pdf_net_store = <foss_mcp.indexing.generation_manifest.GenerationManifestStore object at 0x00000234D2D217F0>
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x00000234D3184E20>
+
+    def test_dotted_mention_ab_comparison_is_miss_before_and_a_real_hit_after(
+        pdf_net_store: GenerationManifestStore, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """The one A/B comparison this card's own measurement rests on, in a single test: identical
+        store, scope and query, the only variable being whether ``normalize_query`` runs for real or is
+        stubbed back to identity."""
+        after = search_symbols(pdf_net_store, PDF_NET, DOTTED_MENTION_QUERY)  # type: ignore[arg-type]
+        _without_normalize_query(monkeypatch)
+        before = search_symbols(pdf_net_store, PDF_NET, DOTTED_MENTION_QUERY)  # type: ignore[arg-type]
+    
+        assert isinstance(before, Miss)
+>       assert isinstance(after, list) and len(after) >= 1
+E       assert (False)
+E        +  where False = isinstance(Miss(scope=Scope(family='pdf', platform='net', source_kind='self_extracted'), query='how can I add a watermark using Aspose.PDF', reason="no symbol matches 'how can I add a watermark using Aspose.PDF'", suggestions=(), coverage_note=None), list)
+
+tests\mcp\tools\test_search_symbols_query_normalization.py:113: AssertionError
+=========================== short test summary info ===========================
+FAILED tests/mcp/tools/test_search_symbols_query_normalization.py::test_dotted_mention_query_now_reaches_the_real_evidence_stage_and_finds_a_real_answer
+FAILED tests/mcp/tools/test_search_symbols_query_normalization.py::test_dotted_mention_ab_comparison_is_miss_before_and_a_real_hit_after
+
+--- stderr ---
+
