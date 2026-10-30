@@ -1,0 +1,145 @@
+id: TC-601
+gate: G3
+lane: storage-retrieval
+purpose: >-
+  Build a replay-only EmbeddingProvider (the plan's H3, REQ-G3-017) seeded from the vectors
+  already baked into infra/demo-manifests, so a future hermetic regeneration command (H6) can
+  reproduce today's 166 example-chunk vectors offline, with zero network calls, instead of
+  needing a live embedding gateway. This card is self-contained: it extracts and commits the
+  seed data from the CURRENT infra/demo-manifests as one of its own actions, it does not depend
+  on any later card. Read C:\Users\babar\.claude\plans\steady-wobbling-meteor.md section 2.8
+  first.
+depends_on:
+  - TC-001
+write_paths:
+  - src/foss_mcp/indexing/cached_embedding_provider.py
+  - infra/demo-inputs/embeddings/
+  - tests/indexing/test_cached_embedding_provider.py
+satisfies:
+  - REQ-G3-017
+source_refs:
+  - file: docs/DECISION_LOG.md
+    anchor: >-
+      ## 2026-10-30 — Round-2 portfolio audit remediation adopted: unified plan, governance decisions A-K
+      recorded (supervisor)
+    sha256: 62cf1403a592118e3fb6bd14c5336f8a997cc3181d44a585323ec9f1d385a931
+inputs:
+  - >-
+    READ FIRST: C:\Users\babar\.claude\plans\steady-wobbling-meteor.md section 2.8. Also read
+    src/foss_mcp/indexing/gateway_embedding_provider.py in full - it is the real
+    EmbeddingProvider shape you must match exactly: a class with a ZERO-ARGUMENT `__init__`
+    (required because infra/ingest.py's `_load_embedding_provider` does
+    `getattr(module, class_name)()` with no arguments and reads all configuration from
+    environment variables inside __init__), a `self.dimension: int` attribute, and
+    `def embed(self, texts: Sequence[str]) -> list[Vector]` returning one vector per input text,
+    in the same order. Also inspect the real baked data shape yourself before writing anything:
+    `infra/demo-manifests/<pilot>__self_extracted/generation__*.json`'s
+    `payload["vector_index"]` has keys `dimension` (int, 4096 today), `generation_id`, and
+    `points` (a list of `{chunk_id, point_id, text, vector}` dicts, `vector` already rounded to
+    5 decimals). There is no stored "model name" field in this payload - do not invent one; key
+    the cache by `sha256(text.encode("utf-8")).hexdigest()` alone (text is already fully
+    model-and-decimals-specific by construction in this repository, since there is exactly one
+    embedding configuration in play).
+  - >-
+    ACTION 1 (do this first, as a one-time extraction, before writing the provider class): write
+    a small script or an importable function (your choice where it lives, as long as it is
+    callable deterministically and you document how you ran it in your closeout) that walks
+    every `infra/demo-manifests/<family>__<platform>__self_extracted/` directory, reads its
+    active generation's `payload["vector_index"]["points"]`, and writes
+    `infra/demo-inputs/embeddings/<family>__<platform>.json` - a JSON object
+    `{"dimension": <int>, "entries": {<sha256 of text>: [<float>, ...], ...}}`, `sort_keys=True`,
+    `ensure_ascii=False`, 2-space indent, trailing newline (match this repository's own
+    established canonical-JSON convention - check how `scripts/release/compact_demo_manifests.py`
+    serializes output and mirror it exactly, including newline handling, since you are on
+    Windows and must not let CRLF leak into a file meant to be byte-reproducible - write with
+    `newline="\n"` explicitly). Run this extraction for real, now, against the real committed
+    `infra/demo-manifests` (read-only - you are not modifying anything under
+    `infra/demo-manifests/` itself, only reading it to produce new files under
+    `infra/demo-inputs/embeddings/`, which IS one of your declared write_paths). Confirm in your
+    closeout exactly how many pilot files you wrote and the total entry count across all of them
+    (prior research found 166 example-chunk vector points fleet-wide - if your real count differs,
+    report the real number, do not force it to match 166).
+  - >-
+    ACTION 2: build `src/foss_mcp/indexing/cached_embedding_provider.py`'s
+    `CachedEmbeddingProvider` class. Zero-argument `__init__` reads two environment variables:
+    `FOSS_MCP_CACHED_EMBEDDING_ROOT` (default: a path resolved relative to this module to
+    `infra/demo-inputs/embeddings/` - compute it the same way other modules in this repo locate
+    repo-relative data, e.g. check how `gateway_embedding_provider.py` or
+    `hashing_embedding_provider.py` resolve `dimension`/config for the idiom this codebase
+    prefers) and `FOSS_MCP_CACHED_EMBEDDING_SCOPE` (optional; a value like `pdf__net` naming one
+    pilot's cache file to load; when unset, load and merge the entries of EVERY
+    `<family>__<platform>.json` file found under the root into one combined lookup dict - last
+    file wins on a key collision, which should never happen in practice since sha256 collisions
+    don't happen, but do not special-case or assert against it either). `self.dimension` is read
+    from whichever cache file(s) were loaded (all loaded files must agree on `dimension` - raise a
+    clear `ValueError` naming the conflicting files if they do not). `embed(self, texts)` looks up
+    `sha256(text.encode("utf-8")).hexdigest()` for each text in the merged lookup; if ANY text is
+    missing, raise a clear exception (define a small `CachedEmbeddingMissError` or similar) whose
+    message lists every missing text's hash (not the raw text, which could be large) so a caller
+    knows exactly what to add via a future `refresh-inputs` step (H5, not yet built) - never
+    silently substitute a zero vector or any other placeholder.
+  - >-
+    tests/indexing/test_cached_embedding_provider.py: no mocks, no synthetic cache files for the
+    primary tests - use the REAL extracted `infra/demo-inputs/embeddings/` files your Action 1
+    just committed. (a) construct a `CachedEmbeddingProvider` scoped to one real pilot via the env
+    var (use `monkeypatch.setenv`), call `embed()` with texts taken directly from that pilot's own
+    real `infra/demo-manifests` generation (the exact example-chunk texts, not paraphrased), and
+    assert the returned vectors are byte-identical (as lists of floats, exact equality - these are
+    already-rounded 5-decimal values, not floating subject to drift) to the real baked vectors for
+    those exact texts; (b) construct one with no scope set (loads everything) and confirm it also
+    resolves the same real pilot's texts correctly, plus at least one text from a DIFFERENT real
+    pilot, proving the merge actually merges; (c) `embed()` with one real text plus one obviously-
+    fabricated text raises the missing-hash error, and the error message contains the fabricated
+    text's real sha256 hash (assert the exact hash string appears, not just "an error was raised");
+    (d) `self.dimension` matches the real baked `vector_index["dimension"]` (4096, but read it from
+    the data, never hardcode the literal 4096 in your test's own assertion - compare against what
+    the real generation file itself states); (e) a conflicting-dimension ValueError test using two
+    small synthetic cache files you write to a tmp_path with different `dimension` values (this one
+    synthetic case is fine and necessary, since you cannot provoke a real dimension conflict from
+    the committed data). Never weaken a check to make it pass.
+actions:
+  - >-
+    Extract the 166 real example-chunk vectors already baked into infra/demo-manifests into
+    committed per-pilot cache files under infra/demo-inputs/embeddings/, then add
+    CachedEmbeddingProvider - a zero-argument, environment-configured, replay-only
+    EmbeddingProvider matching GatewayEmbeddingProvider's exact shape - that resolves text to
+    vector from that committed cache with no network calls, raising a clear, actionable error on
+    any cache miss instead of ever fabricating a vector.
+checks:
+  - command: '{python} -m pytest tests/indexing/test_cached_embedding_provider.py -q -rfE'
+    expect: 'exit 0'
+    timeout_seconds: 120
+    junitxml: true
+    proves:
+      - REQ-G3-017
+  - command: '{python} -m pytest tests/indexing/test_cached_embedding_provider.py -q -rfE -p no:cacheprovider'
+    expect: 'exit 0'
+    timeout_seconds: 120
+    junitxml: true
+    proves:
+      - REQ-G3-017
+min_tests: 5
+requires:
+  - python
+network: false
+negative_control:
+  mutate: |
+    python -X utf8 -c "import pathlib; p = pathlib.Path('src/foss_mcp/indexing/cached_embedding_provider.py'); s = p.read_text(encoding='utf-8'); old = 'def embed('; assert s.count(old) == 1, 'fix text not found - card and source have diverged'; lines = s.splitlines(); i = next(idx for idx, line in enumerate(lines) if old in line); lines.insert(i + 1, '        return [[0.0] * self.dimension for _ in texts]  # TC-601 negative control'); p.write_text(chr(10).join(lines) + chr(10), encoding='utf-8')"
+  rationale: >-
+    Makes embed() silently return zero vectors for everything instead of looking anything up. The
+    "returned vectors are byte-identical to the real baked vectors" assertion must then fail,
+    proving the test actually checks real vector content rather than merely that embed() returns
+    something of the right shape.
+evidence:
+  - evidence/build/G3/TC-601/receipt.json
+closeout:
+  - >-
+    infra/demo-inputs/embeddings/ holds a committed, per-pilot replay cache extracted from the
+    real baked vectors (state the real total pilot-file and entry count found); state the exact
+    total). CachedEmbeddingProvider resolves exactly those vectors offline, with no network
+    dependency, raising a clear, hash-naming error on any miss rather than fabricating output.
+recovery: >-
+  If any pilot's vector_index payload is missing or malformed (e.g. a pilot with zero example
+  chunks, which is expected and fine - just write an empty entries dict for it, not an error -
+  versus a genuinely corrupt payload, which is not), STOP and report FAILED_INTERNAL naming the
+  exact pilot and the exact problem rather than skipping that pilot silently.
