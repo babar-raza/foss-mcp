@@ -1,0 +1,149 @@
+
+===== CLEAN RUN 1 (host) =====
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-5c72e798a73c059a\Scripts\python.exe -m pytest tests/mcp/tools/test_relevance_normalize_query.py -q -rfE "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-0t8da2w7\.junit-0.xml"
+--- stdout ---
+...............                                                          [100%]
+
+--- stderr ---
+
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-5c72e798a73c059a\Scripts\python.exe -m pytest tests/mcp/tools/test_relevance_normalize_query.py tests/mcp/tools/test_round3_retrieval_corpus.py tests/mcp/tools/test_forgiveness_acceptance.py tests/mcp/tools/test_nonsense_queries_miss.py tests/mcp/tools/test_find_examples_title_anchor.py tests/mcp/tools/test_relevance_idf_synonyms.py tests/test_unwired_modules.py -q -rfE -p no:cacheprovider "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-0t8da2w7\.junit-1.xml"
+--- stdout ---
+........................................................................ [ 23%]
+........................................................................ [ 46%]
+........................................................................ [ 69%]
+........................................................................ [ 93%]
+.....................                                                    [100%]
+
+--- stderr ---
+
+
+===== CLEAN RUN 2 (host) =====
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-5c72e798a73c059a\Scripts\python.exe -m pytest tests/mcp/tools/test_relevance_normalize_query.py -q -rfE "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-0t8da2w7\.junit-0.xml"
+--- stdout ---
+...............                                                          [100%]
+
+--- stderr ---
+
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-5c72e798a73c059a\Scripts\python.exe -m pytest tests/mcp/tools/test_relevance_normalize_query.py tests/mcp/tools/test_round3_retrieval_corpus.py tests/mcp/tools/test_forgiveness_acceptance.py tests/mcp/tools/test_nonsense_queries_miss.py tests/mcp/tools/test_find_examples_title_anchor.py tests/mcp/tools/test_relevance_idf_synonyms.py tests/test_unwired_modules.py -q -rfE -p no:cacheprovider "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-0t8da2w7\.junit-1.xml"
+--- stdout ---
+........................................................................ [ 23%]
+........................................................................ [ 46%]
+........................................................................ [ 69%]
+........................................................................ [ 93%]
+.....................                                                    [100%]
+
+--- stderr ---
+
+
+===== NEGATIVE CONTROL (checks MUST now fail) =====
+mutated: M src/foss_mcp/mcp/tools/relevance.py, ?? .junit-0.xml, ?? .junit-1.xml
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-5c72e798a73c059a\Scripts\python.exe -m pytest tests/mcp/tools/test_relevance_normalize_query.py -q -rfE "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-0t8da2w7\.junit-0.xml"
+--- stdout ---
+......FFF......                                                          [100%]
+================================== FAILURES ===================================
+___________ test_normalize_query_rewrites_the_dotted_aspose_mention ___________
+
+    def test_normalize_query_rewrites_the_dotted_aspose_mention() -> None:
+        query = "I want to use the Aspose.PDF library for my project"
+        normalized = normalize_query(query, "pdf")
+>       assert normalized == "I want to use the Aspose PDF library for my project"
+E       AssertionError: assert 'I want to us...or my project' == 'I want to us...or my project'
+E         
+E         - I want to use the Aspose PDF library for my project
+E         ?                         ^
+E         + I want to use the Aspose.PDF library for my project
+E         ?                         ^
+
+tests\mcp\tools\test_relevance_normalize_query.py:90: AssertionError
+_ test_plain_words_is_none_for_the_original_query_but_not_for_the_normalized_one _
+
+    def test_plain_words_is_none_for_the_original_query_but_not_for_the_normalized_one() -> None:
+        query = "I want to use the Aspose.PDF library for my project"
+        normalized = normalize_query(query, "pdf")
+        # Prove this concretely by calling _plain_words on both, not by asserting on the string shape.
+        assert _plain_words(query) is None
+>       assert _plain_words(normalized) is not None
+E       AssertionError: assert None is not None
+E        +  where None = _plain_words('I want to use the Aspose.PDF library for my project')
+
+tests\mcp\tools\test_relevance_normalize_query.py:99: AssertionError
+__________ test_normalize_query_handles_the_leading_digit_3d_family ___________
+
+    def test_normalize_query_handles_the_leading_digit_3d_family() -> None:
+        # "Aspose.3D" has a digit immediately after the dot - confirm this is still recognised and
+        # that _plain_words is fixed by it too.
+        query = "how do I use Aspose.3D to load a model"
+        normalized = normalize_query(query, "3d")
+>       assert normalized == "how do I use Aspose 3D to load a model"
+E       AssertionError: assert 'how do I use... load a model' == 'how do I use... load a model'
+E         
+E         - how do I use Aspose 3D to load a model
+E         ?                    ^
+E         + how do I use Aspose.3D to load a model
+E         ?                    ^
+
+tests\mcp\tools\test_relevance_normalize_query.py:107: AssertionError
+=========================== short test summary info ===========================
+FAILED tests/mcp/tools/test_relevance_normalize_query.py::test_normalize_query_rewrites_the_dotted_aspose_mention
+FAILED tests/mcp/tools/test_relevance_normalize_query.py::test_plain_words_is_none_for_the_original_query_but_not_for_the_normalized_one
+FAILED tests/mcp/tools/test_relevance_normalize_query.py::test_normalize_query_handles_the_leading_digit_3d_family
+
+--- stderr ---
+
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-5c72e798a73c059a\Scripts\python.exe -m pytest tests/mcp/tools/test_relevance_normalize_query.py tests/mcp/tools/test_round3_retrieval_corpus.py tests/mcp/tools/test_forgiveness_acceptance.py tests/mcp/tools/test_nonsense_queries_miss.py tests/mcp/tools/test_find_examples_title_anchor.py tests/mcp/tools/test_relevance_idf_synonyms.py tests/test_unwired_modules.py -q -rfE -p no:cacheprovider "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-0t8da2w7\.junit-1.xml"
+--- stdout ---
+......FFF............................................................... [ 23%]
+........................................................................ [ 46%]
+........................................................................ [ 69%]
+........................................................................ [ 93%]
+.....................                                                    [100%]
+================================== FAILURES ===================================
+___________ test_normalize_query_rewrites_the_dotted_aspose_mention ___________
+
+    def test_normalize_query_rewrites_the_dotted_aspose_mention() -> None:
+        query = "I want to use the Aspose.PDF library for my project"
+        normalized = normalize_query(query, "pdf")
+>       assert normalized == "I want to use the Aspose PDF library for my project"
+E       AssertionError: assert 'I want to us...or my project' == 'I want to us...or my project'
+E         
+E         - I want to use the Aspose PDF library for my project
+E         ?                         ^
+E         + I want to use the Aspose.PDF library for my project
+E         ?                         ^
+
+tests\mcp\tools\test_relevance_normalize_query.py:90: AssertionError
+_ test_plain_words_is_none_for_the_original_query_but_not_for_the_normalized_one _
+
+    def test_plain_words_is_none_for_the_original_query_but_not_for_the_normalized_one() -> None:
+        query = "I want to use the Aspose.PDF library for my project"
+        normalized = normalize_query(query, "pdf")
+        # Prove this concretely by calling _plain_words on both, not by asserting on the string shape.
+        assert _plain_words(query) is None
+>       assert _plain_words(normalized) is not None
+E       AssertionError: assert None is not None
+E        +  where None = _plain_words('I want to use the Aspose.PDF library for my project')
+
+tests\mcp\tools\test_relevance_normalize_query.py:99: AssertionError
+__________ test_normalize_query_handles_the_leading_digit_3d_family ___________
+
+    def test_normalize_query_handles_the_leading_digit_3d_family() -> None:
+        # "Aspose.3D" has a digit immediately after the dot - confirm this is still recognised and
+        # that _plain_words is fixed by it too.
+        query = "how do I use Aspose.3D to load a model"
+        normalized = normalize_query(query, "3d")
+>       assert normalized == "how do I use Aspose 3D to load a model"
+E       AssertionError: assert 'how do I use... load a model' == 'how do I use... load a model'
+E         
+E         - how do I use Aspose 3D to load a model
+E         ?                    ^
+E         + how do I use Aspose.3D to load a model
+E         ?                    ^
+
+tests\mcp\tools\test_relevance_normalize_query.py:107: AssertionError
+=========================== short test summary info ===========================
+FAILED tests/mcp/tools/test_relevance_normalize_query.py::test_normalize_query_rewrites_the_dotted_aspose_mention
+FAILED tests/mcp/tools/test_relevance_normalize_query.py::test_plain_words_is_none_for_the_original_query_but_not_for_the_normalized_one
+FAILED tests/mcp/tools/test_relevance_normalize_query.py::test_normalize_query_handles_the_leading_digit_3d_family
+
+--- stderr ---
+
