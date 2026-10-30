@@ -1,0 +1,214 @@
+
+===== CLEAN RUN 1 (host) =====
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-5c72e798a73c059a\Scripts\python.exe -m pytest tests/mcp/tools/test_relevance_normalize_query.py -q -rfE "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-r42lagyc\.junit-0.xml"
+--- stdout ---
+.....................                                                    [100%]
+
+--- stderr ---
+
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-5c72e798a73c059a\Scripts\python.exe -m pytest tests/mcp/tools/test_relevance_normalize_query.py tests/mcp/tools/test_find_examples_query_normalization.py tests/mcp/tools/test_search_docs_query_normalization.py tests/mcp/tools/test_lookup_query_normalization.py tests/conformance/test_symbol_self_retrieval.py tests/mcp/tools/test_round3_retrieval_corpus.py -q -rfE -p no:cacheprovider "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-r42lagyc\.junit-1.xml"
+--- stdout ---
+........................................................................ [ 71%]
+.............................                                            [100%]
+
+--- stderr ---
+
+
+===== CLEAN RUN 2 (host) =====
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-5c72e798a73c059a\Scripts\python.exe -m pytest tests/mcp/tools/test_relevance_normalize_query.py -q -rfE "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-r42lagyc\.junit-0.xml"
+--- stdout ---
+.....................                                                    [100%]
+
+--- stderr ---
+
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-5c72e798a73c059a\Scripts\python.exe -m pytest tests/mcp/tools/test_relevance_normalize_query.py tests/mcp/tools/test_find_examples_query_normalization.py tests/mcp/tools/test_search_docs_query_normalization.py tests/mcp/tools/test_lookup_query_normalization.py tests/conformance/test_symbol_self_retrieval.py tests/mcp/tools/test_round3_retrieval_corpus.py -q -rfE -p no:cacheprovider "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-r42lagyc\.junit-1.xml"
+--- stdout ---
+........................................................................ [ 71%]
+.............................                                            [100%]
+
+--- stderr ---
+
+
+===== NEGATIVE CONTROL (checks MUST now fail) =====
+mutated: M src/foss_mcp/mcp/tools/relevance.py, ?? .junit-0.xml, ?? .junit-1.xml
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-5c72e798a73c059a\Scripts\python.exe -m pytest tests/mcp/tools/test_relevance_normalize_query.py -q -rfE "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-r42lagyc\.junit-0.xml"
+--- stdout ---
+...............FFFF.F                                                    [100%]
+================================== FAILURES ===================================
+_ test_normalize_query_leaves_a_real_pdf_fqn_continuation_byte_for_byte_unchanged _
+
+    def test_normalize_query_leaves_a_real_pdf_fqn_continuation_byte_for_byte_unchanged() -> None:
+        # The literal regression: before TC-619's fix, this became "Aspose Pdf.Annotations.Measure",
+        # breaking find_examples' exact branch (extract_fqn(document) == query).
+        fqn = "Aspose.Pdf.Annotations.Measure"
+>       assert normalize_query(fqn, "pdf") == fqn
+E       AssertionError: assert 'Aspose Pdf.A...tions.Measure' == 'Aspose.Pdf.A...tions.Measure'
+E         
+E         - Aspose.Pdf.Annotations.Measure
+E         ?       ^
+E         + Aspose Pdf.Annotations.Measure
+E         ?       ^
+
+tests\mcp\tools\test_relevance_normalize_query.py:178: AssertionError
+_ test_normalize_query_leaves_a_real_pdf_forms_fqn_continuation_byte_for_byte_unchanged _
+
+    def test_normalize_query_leaves_a_real_pdf_forms_fqn_continuation_byte_for_byte_unchanged() -> None:
+        # The second case TC-618's worker's conformance run caught (same pilot, different symbol).
+        fqn = "Aspose.Pdf.Forms.Signature"
+>       assert normalize_query(fqn, "pdf") == fqn
+E       AssertionError: assert 'Aspose Pdf.Forms.Signature' == 'Aspose.Pdf.Forms.Signature'
+E         
+E         - Aspose.Pdf.Forms.Signature
+E         ?       ^
+E         + Aspose Pdf.Forms.Signature
+E         ?       ^
+
+tests\mcp\tools\test_relevance_normalize_query.py:184: AssertionError
+_ test_normalize_query_leaves_a_real_words_fqn_continuation_byte_for_byte_unchanged _
+
+    def test_normalize_query_leaves_a_real_words_fqn_continuation_byte_for_byte_unchanged() -> None:
+        fqn = "Aspose.Words.Fields.Field"
+>       assert normalize_query(fqn, "words") == fqn
+E       AssertionError: assert 'Aspose Words.Fields.Field' == 'Aspose.Words.Fields.Field'
+E         
+E         - Aspose.Words.Fields.Field
+E         ?       ^
+E         + Aspose Words.Fields.Field
+E         ?       ^
+
+tests\mcp\tools\test_relevance_normalize_query.py:189: AssertionError
+_ test_normalize_query_leaves_a_real_imaging_fqn_continuation_byte_for_byte_unchanged _
+
+    def test_normalize_query_leaves_a_real_imaging_fqn_continuation_byte_for_byte_unchanged() -> None:
+        fqn = "Aspose.Imaging.Foss.ImageFormat"
+>       assert normalize_query(fqn, "imaging") == fqn
+E       AssertionError: assert 'Aspose Imagi...s.ImageFormat' == 'Aspose.Imagi...s.ImageFormat'
+E         
+E         - Aspose.Imaging.Foss.ImageFormat
+E         ?       ^
+E         + Aspose Imaging.Foss.ImageFormat
+E         ?       ^
+
+tests\mcp\tools\test_relevance_normalize_query.py:194: AssertionError
+_ test_normalize_query_leaves_the_trailing_sentence_final_period_case_unrewritten _
+
+    def test_normalize_query_leaves_the_trailing_sentence_final_period_case_unrewritten() -> None:
+        # The one accepted, deliberate tradeoff this fix creates (documented in normalize_query's own
+        # docstring): a query ending in a literal sentence-final period directly after the family mention
+        # is, by this regex alone, indistinguishable from a real FQN continuation, so it too is left
+        # unrewritten. This is accepted as low-cost because every real downstream consumer
+        # (find_examples/search_docs/lookup's tokenize()-based term extraction, and
+        # search_symbols._plain_words's own punctuation-stripping) treats "Aspose.PDF." and "Aspose PDF."
+        # identically regardless - only this function's own dedicated unit tests can tell them apart.
+        query = "I am just getting started with Aspose.PDF."
+        normalized = normalize_query(query, "pdf")
+>       assert normalized == query  # left completely unrewritten, not partially mangled
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       AssertionError: assert 'I am just ge...h Aspose PDF.' == 'I am just ge...h Aspose.PDF.'
+E         
+E         - I am just getting started with Aspose.PDF.
+E         ?                                      ^
+E         + I am just getting started with Aspose PDF.
+E         ?                                      ^
+
+tests\mcp\tools\test_relevance_normalize_query.py:217: AssertionError
+=========================== short test summary info ===========================
+FAILED tests/mcp/tools/test_relevance_normalize_query.py::test_normalize_query_leaves_a_real_pdf_fqn_continuation_byte_for_byte_unchanged
+FAILED tests/mcp/tools/test_relevance_normalize_query.py::test_normalize_query_leaves_a_real_pdf_forms_fqn_continuation_byte_for_byte_unchanged
+FAILED tests/mcp/tools/test_relevance_normalize_query.py::test_normalize_query_leaves_a_real_words_fqn_continuation_byte_for_byte_unchanged
+FAILED tests/mcp/tools/test_relevance_normalize_query.py::test_normalize_query_leaves_a_real_imaging_fqn_continuation_byte_for_byte_unchanged
+FAILED tests/mcp/tools/test_relevance_normalize_query.py::test_normalize_query_leaves_the_trailing_sentence_final_period_case_unrewritten
+
+--- stderr ---
+
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-5c72e798a73c059a\Scripts\python.exe -m pytest tests/mcp/tools/test_relevance_normalize_query.py tests/mcp/tools/test_find_examples_query_normalization.py tests/mcp/tools/test_search_docs_query_normalization.py tests/mcp/tools/test_lookup_query_normalization.py tests/conformance/test_symbol_self_retrieval.py tests/mcp/tools/test_round3_retrieval_corpus.py -q -rfE -p no:cacheprovider "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-r42lagyc\.junit-1.xml"
+--- stdout ---
+...............FFFF.F................................................... [ 71%]
+.............................                                            [100%]
+================================== FAILURES ===================================
+_ test_normalize_query_leaves_a_real_pdf_fqn_continuation_byte_for_byte_unchanged _
+
+    def test_normalize_query_leaves_a_real_pdf_fqn_continuation_byte_for_byte_unchanged() -> None:
+        # The literal regression: before TC-619's fix, this became "Aspose Pdf.Annotations.Measure",
+        # breaking find_examples' exact branch (extract_fqn(document) == query).
+        fqn = "Aspose.Pdf.Annotations.Measure"
+>       assert normalize_query(fqn, "pdf") == fqn
+E       AssertionError: assert 'Aspose Pdf.A...tions.Measure' == 'Aspose.Pdf.A...tions.Measure'
+E         
+E         - Aspose.Pdf.Annotations.Measure
+E         ?       ^
+E         + Aspose Pdf.Annotations.Measure
+E         ?       ^
+
+tests\mcp\tools\test_relevance_normalize_query.py:178: AssertionError
+_ test_normalize_query_leaves_a_real_pdf_forms_fqn_continuation_byte_for_byte_unchanged _
+
+    def test_normalize_query_leaves_a_real_pdf_forms_fqn_continuation_byte_for_byte_unchanged() -> None:
+        # The second case TC-618's worker's conformance run caught (same pilot, different symbol).
+        fqn = "Aspose.Pdf.Forms.Signature"
+>       assert normalize_query(fqn, "pdf") == fqn
+E       AssertionError: assert 'Aspose Pdf.Forms.Signature' == 'Aspose.Pdf.Forms.Signature'
+E         
+E         - Aspose.Pdf.Forms.Signature
+E         ?       ^
+E         + Aspose Pdf.Forms.Signature
+E         ?       ^
+
+tests\mcp\tools\test_relevance_normalize_query.py:184: AssertionError
+_ test_normalize_query_leaves_a_real_words_fqn_continuation_byte_for_byte_unchanged _
+
+    def test_normalize_query_leaves_a_real_words_fqn_continuation_byte_for_byte_unchanged() -> None:
+        fqn = "Aspose.Words.Fields.Field"
+>       assert normalize_query(fqn, "words") == fqn
+E       AssertionError: assert 'Aspose Words.Fields.Field' == 'Aspose.Words.Fields.Field'
+E         
+E         - Aspose.Words.Fields.Field
+E         ?       ^
+E         + Aspose Words.Fields.Field
+E         ?       ^
+
+tests\mcp\tools\test_relevance_normalize_query.py:189: AssertionError
+_ test_normalize_query_leaves_a_real_imaging_fqn_continuation_byte_for_byte_unchanged _
+
+    def test_normalize_query_leaves_a_real_imaging_fqn_continuation_byte_for_byte_unchanged() -> None:
+        fqn = "Aspose.Imaging.Foss.ImageFormat"
+>       assert normalize_query(fqn, "imaging") == fqn
+E       AssertionError: assert 'Aspose Imagi...s.ImageFormat' == 'Aspose.Imagi...s.ImageFormat'
+E         
+E         - Aspose.Imaging.Foss.ImageFormat
+E         ?       ^
+E         + Aspose Imaging.Foss.ImageFormat
+E         ?       ^
+
+tests\mcp\tools\test_relevance_normalize_query.py:194: AssertionError
+_ test_normalize_query_leaves_the_trailing_sentence_final_period_case_unrewritten _
+
+    def test_normalize_query_leaves_the_trailing_sentence_final_period_case_unrewritten() -> None:
+        # The one accepted, deliberate tradeoff this fix creates (documented in normalize_query's own
+        # docstring): a query ending in a literal sentence-final period directly after the family mention
+        # is, by this regex alone, indistinguishable from a real FQN continuation, so it too is left
+        # unrewritten. This is accepted as low-cost because every real downstream consumer
+        # (find_examples/search_docs/lookup's tokenize()-based term extraction, and
+        # search_symbols._plain_words's own punctuation-stripping) treats "Aspose.PDF." and "Aspose PDF."
+        # identically regardless - only this function's own dedicated unit tests can tell them apart.
+        query = "I am just getting started with Aspose.PDF."
+        normalized = normalize_query(query, "pdf")
+>       assert normalized == query  # left completely unrewritten, not partially mangled
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       AssertionError: assert 'I am just ge...h Aspose PDF.' == 'I am just ge...h Aspose.PDF.'
+E         
+E         - I am just getting started with Aspose.PDF.
+E         ?                                      ^
+E         + I am just getting started with Aspose PDF.
+E         ?                                      ^
+
+tests\mcp\tools\test_relevance_normalize_query.py:217: AssertionError
+=========================== short test summary info ===========================
+FAILED tests/mcp/tools/test_relevance_normalize_query.py::test_normalize_query_leaves_a_real_pdf_fqn_continuation_byte_for_byte_unchanged
+FAILED tests/mcp/tools/test_relevance_normalize_query.py::test_normalize_query_leaves_a_real_pdf_forms_fqn_continuation_byte_for_byte_unchanged
+FAILED tests/mcp/tools/test_relevance_normalize_query.py::test_normalize_query_leaves_a_real_words_fqn_continuation_byte_for_byte_unchanged
+FAILED tests/mcp/tools/test_relevance_normalize_query.py::test_normalize_query_leaves_a_real_imaging_fqn_continuation_byte_for_byte_unchanged
+FAILED tests/mcp/tools/test_relevance_normalize_query.py::test_normalize_query_leaves_the_trailing_sentence_final_period_case_unrewritten
+
+--- stderr ---
+

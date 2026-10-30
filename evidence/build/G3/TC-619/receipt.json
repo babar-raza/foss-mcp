@@ -1,0 +1,111 @@
+{
+  "schema_version": 1,
+  "card": "TC-619",
+  "gate": "G3",
+  "generated_by": "gatectl",
+  "generated_at": "2026-10-30T19:36:49Z",
+  "base_rev": "4393331b290dab2673dcb0290b4a11447082a694",
+  "head_rev": "5ea1078eee9ee307272a3cd569557e11aa9fb3e2",
+  "card_sha256": "deec6a739968d90b0e9e6e99e9d39c8283f68ddabc1dd1045d3210428d7aaf43",
+  "fingerprint": {
+    "python": "3.13.2",
+    "platform": "Windows-11-10.0.26300-SP0",
+    "lock_sha256": "5c72e798a73c059a438e752e94a8d4c88c1bdf81a197f6e5c5fcecbc9466a691",
+    "env": {
+      "PYTHONHASHSEED": "0",
+      "PYTHONUTF8": "1",
+      "PYTHONDONTWRITEBYTECODE": "1",
+      "PYTHONIOENCODING": "utf-8",
+      "TZ": "UTC",
+      "LC_ALL": "C.UTF-8",
+      "SOURCE_DATE_EPOCH": "1700000000",
+      "verify_runner": "host"
+    }
+  },
+  "scope": {
+    "ok": true,
+    "changed_paths": [
+      "src/foss_mcp/mcp/tools/relevance.py",
+      "tests/mcp/tools/test_relevance_normalize_query.py"
+    ],
+    "violations": [],
+    "evaluated": true
+  },
+  "runs": [
+    {
+      "run": 1,
+      "checks": [
+        {
+          "command": "{python} -m pytest tests/mcp/tools/test_relevance_normalize_query.py -q -rfE",
+          "exit_code": 0,
+          "duration_s": 0.623,
+          "stdout_sha256": "32faef56d0289369b1ac111e68ee0bb7b2ed1bcf92d3f33b75313bd0556c3e6f",
+          "tests": 21,
+          "skipped": 0,
+          "errors": 0,
+          "failures": 0
+        },
+        {
+          "command": "{python} -m pytest tests/mcp/tools/test_relevance_normalize_query.py tests/mcp/tools/test_find_examples_query_normalization.py tests/mcp/tools/test_search_docs_query_normalization.py tests/mcp/tools/test_lookup_query_normalization.py tests/conformance/test_symbol_self_retrieval.py tests/mcp/tools/test_round3_retrieval_corpus.py -q -rfE -p no:cacheprovider",
+          "exit_code": 0,
+          "duration_s": 51.888,
+          "stdout_sha256": "6674452e653bfb530342ae4a12971ba9538f6465c6ef2a5c3b8904713e1c32c9",
+          "tests": 101,
+          "skipped": 0,
+          "errors": 0,
+          "failures": 0
+        }
+      ],
+      "all_passed": true
+    },
+    {
+      "run": 2,
+      "checks": [
+        {
+          "command": "{python} -m pytest tests/mcp/tools/test_relevance_normalize_query.py -q -rfE",
+          "exit_code": 0,
+          "duration_s": 0.44,
+          "stdout_sha256": "32faef56d0289369b1ac111e68ee0bb7b2ed1bcf92d3f33b75313bd0556c3e6f",
+          "tests": 21,
+          "skipped": 0,
+          "errors": 0,
+          "failures": 0
+        },
+        {
+          "command": "{python} -m pytest tests/mcp/tools/test_relevance_normalize_query.py tests/mcp/tools/test_find_examples_query_normalization.py tests/mcp/tools/test_search_docs_query_normalization.py tests/mcp/tools/test_lookup_query_normalization.py tests/conformance/test_symbol_self_retrieval.py tests/mcp/tools/test_round3_retrieval_corpus.py -q -rfE -p no:cacheprovider",
+          "exit_code": 0,
+          "duration_s": 50.044,
+          "stdout_sha256": "6674452e653bfb530342ae4a12971ba9538f6465c6ef2a5c3b8904713e1c32c9",
+          "tests": 101,
+          "skipped": 0,
+          "errors": 0,
+          "failures": 0
+        }
+      ],
+      "all_passed": true
+    }
+  ],
+  "negative_control": {
+    "kind": "mutate",
+    "patch": "python -X utf8 -c \"import pathlib; p = pathlib.Path('src/foss_mcp/mcp/tools/relevance.py'); s = p.read_text(encoding='utf-8'); old = 'def _aspose_dotted_mention_re(family: str) -> re.Pattern[str]:'; assert s.count(old) == 1, 'fix text not found - card and source have diverged'; lines = s.splitlines(); i = next(idx for idx, line in enumerate(lines) if old in line); j = i + 1; depth_line = lines[j]; indent = ' ' * (len(depth_line) - len(depth_line.lstrip())); marker = indent + 'return __import__(' + chr(34) + 're' + chr(34) + ').compile(rf' + chr(34) + chr(92) + 'bAspose' + chr(92) + chr(46) + '{re.escape(family)}' + chr(92) + 'b' + chr(34) + ', __import__(' + chr(34) + 're' + chr(34) + ').IGNORECASE)  # TC-619 negative control: reinstate the pre-fix pattern'; lines.insert(j, marker); p.write_text(chr(10).join(lines) + chr(10), encoding='utf-8')\"\n",
+    "patch_sha256": "975132e7d96a142100cbf915c73da2d76bfeb0126559db4b390009a4689d0b04",
+    "applied": true,
+    "patch_applied_failed": true,
+    "exit_codes": [
+      1,
+      1
+    ],
+    "tree_changed": [
+      "M src/foss_mcp/mcp/tools/relevance.py",
+      "?? .junit-0.xml",
+      "?? .junit-1.xml"
+    ]
+  },
+  "holdout": {
+    "ran": false,
+    "passed": true,
+    "detail": "no holdout for this card"
+  },
+  "accepted": true,
+  "reason": "all gates passed"
+}
