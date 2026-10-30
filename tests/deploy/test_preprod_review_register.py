@@ -15,6 +15,7 @@ from __future__ import annotations
 
 import re
 import subprocess
+import sys
 from pathlib import Path
 
 import pytest
@@ -583,9 +584,17 @@ def test_synthetic_a_severity_of_p4_fails_the_row_shape_check():
         _assert_row_cells_not_all_valid(row)
 
 
-def test_synthetic_a_fixed_row_naming_tc_999_fails_the_card_exists_check():
+def test_synthetic_a_fixed_row_naming_tc_999_fails_the_card_exists_check(monkeypatch, tmp_path):
     # TC-999 has the wrong shape (plans are TC-5NN at the time of writing); TC-599 has the right shape
     # but names a card with no plan file. Both ways of naming a non-existent card must fail.
+    #
+    # PLANS_DIR is monkeypatched to an empty tmp_path for this test only (auto-reverts afterward,
+    # leaving every other test's real PLANS_DIR read untouched): this plan's own cards filled the
+    # entire TC-5NN numeric range, so "TC-599" is no longer guaranteed to be missing from the real
+    # plans/ directory. The point being proved - a syntactically valid card id with no plan file must
+    # fail the exists-check - has nothing to do with the real plans/ directory's current contents, so
+    # it must not depend on them.
+    monkeypatch.setattr(sys.modules[__name__], "PLANS_DIR", tmp_path)
     assert not CARD_ID_RE.fullmatch("TC-999")
     card = "TC-599"
     assert CARD_ID_RE.fullmatch(card)
