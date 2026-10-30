@@ -100,15 +100,14 @@ requires:
 network: false
 negative_control:
   mutate: |
-    python -X utf8 -c "import pathlib; p = pathlib.Path('src/foss_mcp/normalization/chunker.py'); s = p.read_text(encoding='utf-8'); old = 'def _heading_sections('; assert s.count(old) == 1, 'fix text not found - card and source have diverged'; lines = s.splitlines(); i = next(idx for idx, line in enumerate(lines) if old in line); j = i + 1; depth_line = lines[j]; indent = ' ' * (len(depth_line) - len(depth_line.lstrip())); lines.insert(j, indent + 'pass  # TC-611 negative control: fall through to the real body unchanged below, fence tracking never applied'); p.write_text(chr(10).join(lines) + chr(10), encoding='utf-8')"
+    python -X utf8 -c "import pathlib; p = pathlib.Path('src/foss_mcp/normalization/chunker.py'); s = p.read_text(encoding='utf-8'); old = 'spans = _fence_spans(body)'; assert s.count(old) == 1, 'fix text not found - card and source have diverged'; p.write_text(s.replace(old, 'spans = []  # TC-611 negative control: fence spans forced empty, fence tracking never applied', 1), encoding='utf-8')"
   rationale: >-
-    A bare `pass` right after the function signature changes nothing by itself in Python, so if
-    this exact insertion point turns out not to disable your real fence-tracking logic (e.g. you
-    restructured the function differently than a simple early-body insertion point allows), the
-    falsifier will not apply cleanly - in that case, per this card's own recovery instruction, write
-    a simpler, reliable one yourself (e.g. one that forces the fence-tracking boolean to always be
-    False) in the same chr()-based style and report the substitution; do not leave a non-functional
-    negative control in place.
+    CORRECTED after a real attempt (attempt 1) found the original wording's premise false: a bare
+    `pass` immediately after the function signature changes nothing in Python (it just becomes a
+    no-op statement before the real docstring/body), so it never disabled the real fence-tracking
+    logic. Forcing the computed `spans` list to always be empty is the real disable point - every
+    heading match is then treated as outside any fence, reproducing the exact pre-fix behaviour.
+    All 5 new tests must then fail, proving they exercise the real fence-tracking logic.
 evidence:
   - evidence/build/G3/TC-611/receipt.json
 closeout:
