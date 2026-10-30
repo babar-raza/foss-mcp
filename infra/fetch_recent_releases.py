@@ -80,6 +80,16 @@ from foss_mcp.extraction.github_release_reader import (
     order_tags_newest_first,
 )
 
+try:
+    # This module is run directly as a script in production (``python infra/fetch_recent_releases.py``,
+    # per infra/helm/foss-mcp/templates/ingestion-job.yaml), where sys.path[0] is this file's own
+    # directory, so verify_package_registry (its sibling in infra/) is importable flat. Tests import
+    # this module as the package ``infra.fetch_recent_releases`` instead (project root on sys.path),
+    # where only the qualified form resolves.
+    from verify_package_registry import resolve_tag_commit
+except ImportError:
+    from infra.verify_package_registry import resolve_tag_commit
+
 _IDENTITY_PART = re.compile(r"[a-z0-9]+")
 _SIDECAR_FILE_NAME = re.compile(r"recent_releases_([a-z0-9]+)_([a-z0-9]+)\.json")
 _META_SCHEMA = 1
@@ -393,6 +403,23 @@ def _with_ancestry(args: argparse.Namespace, fetched: list[Release], indexed_com
                 file=sys.stderr,
             )
     merged = merged[: args.limit]
+    if merged and merged[0].target_commit is None:
+        # G3/TC-613: a GitHub Release's own ``target_commitish`` is often a branch name (e.g.
+        # "main"), not the real commit it was cut from - resolve it by the release's own tag name
+        # (not target_commitish itself, which is only "where a new tag would be created from") so
+        # fetch_drift below compares against the real commit instead of reporting "unknown" purely
+        # because of the branch-name shape. A failed resolution must not fail the whole fetch.
+        try:
+            resolved = resolve_tag_commit(args.repository, merged[0].tag_name)
+        except Exception as exc:  # noqa: BLE001 - a failed commit resolution must not fail the releases fetch.
+            print(
+                f"WARNING commit resolution failed for {args.repository}#{merged[0].tag_name}: "
+                f"class={type(exc).__name__}; target_commitish left unresolved",
+                file=sys.stderr,
+            )
+        else:
+            if resolved is not None:
+                merged[0] = dataclasses.replace(merged[0], target_commitish=resolved)
     if merged:
         record = fetch_drift(args.repository, merged[0], indexed_commit)
         merged[0] = dataclasses.replace(merged[0], drift=record)

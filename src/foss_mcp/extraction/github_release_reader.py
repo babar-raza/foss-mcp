@@ -325,14 +325,17 @@ def merge_newer_tags(releases: list[Release], tags: list[Release]) -> list[Relea
 def fetch_drift(repository: str, tag: Release, indexed_commit: str) -> DriftRecord:
     """G3/TC-560: the ancestry of *indexed_commit* against *tag*'s commit, from ONE compare call.
 
-    ``compare/<base>...<indexed_commit>`` with the tag's commit as base when the entry carries one
-    (a tag-sourced entry does), else the tag name. ``ahead_by`` / ``behind_by`` / ``status`` are
-    GitHub's own and ``base_commit.sha`` is the commit the tag points at. Any failure (no network, a
-    commit GitHub does not know, a rate limit) is returned as a record with no counts and the failure's
-    class name in ``error`` - never raised, so one pilot's drift cannot fail the whole releases fetch.
+    ``compare/<base>...<indexed_commit>`` with the entry's own commit as base whenever it carries
+    one (a tag-sourced entry always does; a Release-sourced entry does too once G3/TC-613's own
+    caller has resolved its branch-name ``target_commitish`` to a real commit before this is ever
+    called), else the tag name. ``ahead_by`` / ``behind_by`` / ``status`` are GitHub's own and
+    ``base_commit.sha`` is the commit the tag points at. Any failure (no network, a commit GitHub
+    does not know, a rate limit) is returned as a record with no counts and the failure's class
+    name in ``error`` - never raised, so one pilot's drift cannot fail the whole releases fetch.
     """
-    # A tag entry's commit is the tag's own; a Release's ``target_commitish`` is only where it was cut from.
-    base = (tag.target_commit if tag.source == "tag" else None) or tag.tag_name
+    # Both a tag entry's own commit and an already-resolved Release's commit (G3/TC-613) are used
+    # directly; an entry whose commit is still unresolved falls back to its bare tag name.
+    base = tag.target_commit or tag.tag_name
     url = f"{_API_ROOT}/repos/{repository}/compare/{quote(base, safe='/')}...{quote(indexed_commit, safe='')}?per_page=1"
     try:
         _status, body, _etag = _get_json(url)
