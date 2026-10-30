@@ -1,0 +1,144 @@
+id: TC-612
+gate: G3
+lane: storage-retrieval
+purpose: >-
+  Build I1 (REQ-G3-012): a new, standalone `symbol_identity.py` module computing a canonical
+  identity and a full alias-form list per extracted symbol entry - the shared foundation I2-I5
+  (later cards) will use to replace three currently-divergent, duplicated pairing/collapsing
+  heuristics (`chunk_builder._reexport_pairs`, `get_symbol._owners`, `search_symbols._collapse_aliases`).
+  THIS CARD DOES NOT WIRE THE NEW MODULE INTO ANY CONSUMER - it only builds and unit-tests it in
+  isolation; I2 (honest coverage), I3 (canonical counts), I4 (alias pointer chunks), I5 (consume
+  canonical ids in get_symbol/search_symbols) do the wiring in later cards. Do NOT re-implement
+  pairing logic from scratch: `chunk_builder._reexport_pairs` already encodes real, carefully-tuned
+  rules (TC-382/522/532/541) for shell/definition pairing, chain-following, shadow handling and
+  cycle detection - REUSE it as the core grouping engine, add a canonical-id and alias-form layer
+  on top of what it already returns. Read
+  C:\Users\babar\.claude\plans\steady-wobbling-meteor.md section 1.1 (M2), 1.3 and 2.3 (I1-I5)
+  first.
+depends_on:
+  - TC-607
+write_paths:
+  - src/foss_mcp/indexing/symbol_identity.py
+  - tests/indexing/test_symbol_identity.py
+satisfies:
+  - REQ-G3-012
+source_refs:
+  - file: docs/DECISION_LOG.md
+    anchor: >-
+      ## 2026-10-30 — Round-2 portfolio audit remediation adopted: unified plan, governance decisions A-K
+      recorded (supervisor)
+    sha256: 62cf1403a592118e3fb6bd14c5336f8a997cc3181d44a585323ec9f1d385a931
+inputs:
+  - >-
+    READ FIRST: C:\Users\babar\.claude\plans\steady-wobbling-meteor.md section 2.3 (the P2 Index
+    truth design) and TC-607's own closeout (read `evidence/build/G3/TC-607/receipt.json`'s closeout
+    text and the committed `tests/fixtures/conformance/baseline_index_honesty.json` it produced) for
+    the REAL, measured alias-duplication numbers you are building the eventual fix's foundation
+    for (17 of 32 pilots exceed its chosen threshold; slides__python is the worst case: 320
+    duplicate-body groups across 764 of 1023 symbol chunks).
+  - >-
+    READ, in full, before writing anything: `src/foss_mcp/indexing/chunk_builder.py`'s real
+    `_explicit_reexport_pairs`, `_reexport_pairs`, `_slot_units`, and `_has_members` functions
+    (the complete pairing engine, with its TC-382/522/532/541 rule history in its own docstrings -
+    do not skip the docstrings, they explain real edge cases: reexport chains up to 5 hops, shadow
+    handling, package-__init__ stub-to-definition fallback, member-less class/enum same-name
+    fallback); `src/foss_mcp/mcp/tools/get_symbol.py`'s real `_owners` function; and
+    `src/foss_mcp/mcp/tools/search_symbols.py`'s real `_collapse_aliases` function. Confirm all four
+    against the CURRENT code (it may have shifted since this plan was written) and note, honestly,
+    in your closeout, any place where the three mechanisms already agree, partially agree, or
+    genuinely conflict on what counts as "the same symbol" - this plan's own prior research found
+    they are three SEPARATE, divergent implementations; confirm or correct that characterization
+    with your own direct reading.
+  - >-
+    Design `symbol_identity.py` around REUSE, not reinvention: import and call
+    `chunk_builder._reexport_pairs`/`_slot_units` as the grouping engine (even though they are
+    underscore-prefixed - this is intentional, deliberate reuse of the module-internal pairing
+    logic from a sibling module in the same package, acknowledge this choice in a comment; if you
+    find a cleaner way to expose them as a small public wrapper function in `chunk_builder.py`
+    WITHOUT changing their behaviour, that is also acceptable, but keep any such change minimal and
+    additive - do not refactor chunk_builder.py beyond what is strictly needed to expose what I1
+    needs). On top of the `{shell_index: definition_index}` pairs and the per-index `unit` list
+    `_slot_units` returns, add: (a) a STABLE, NAME-BASED canonical id per unit - not the positional
+    index `_slot_units` uses internally (which is an implementation detail of one extraction run) -
+    derive it from the definition entry's own most-specific real identifier (its `class_import` or
+    equivalent FQN-shaped field; read how entries are shaped to pick the right field); (b) a
+    complete alias-form list per unit: every entry in that unit's own `class_import`/name field,
+    plus (where present in a real entry) any `reexport_of`, `shadows`/`shadowed_by`, or
+    `Qualified:`-style additional name form you find in the real data (read a few real
+    `tests/fixtures/&lt;pilot&gt;/api_surface.json` files to confirm what fields are actually present -
+    do not assume a field exists without checking).
+  - >-
+    Public API to build (exact names are your call, but the SHAPE below is required): a function or
+    small class taking the same `entries: Sequence[Mapping[str, object]]` shape
+    `_reexport_pairs` already takes, returning a structure that, for EVERY entry index, gives (i)
+    its unit's canonical id, (ii) the full alias-form list for that unit, (iii) whether this
+    particular entry IS the canonical/definition entry of its unit or an alias of it. Make this a
+    PURE function - no I/O, no mutation of the input, deterministic given the same input (no
+    reliance on dict iteration order where Python does not guarantee it - though in CPython 3.7+
+    dict order is insertion order, which this card may rely on SAFELY since the whole fleet runs
+    the same Python version per the repository's own pinned toolchain; note this assumption in a
+    comment rather than leaving it silent).
+  - >-
+    tests/indexing/test_symbol_identity.py: (a) a synthetic entries list reproducing each of
+    `_reexport_pairs`'s three real rules (an explicit `reexport_of` chain, a package-`__init__.py`
+    stub-to-definition case, a member-less class/enum same-name fallback) and confirm your new
+    module's output correctly groups each under one canonical id with the right alias forms; (b) a
+    REAL regression case: load the real, committed `slides__python` generation (via
+    `tests/conformance/corpus.py`'s loader - read it first for the real API) and confirm your
+    module's canonical-id grouping produces SIGNIFICANTLY FEWER distinct canonical ids than raw
+    entry count for that pilot (state the real before/after numbers in your closeout - do not assert
+    an exact prior number, measure and report what you actually get, which should be in the
+    neighbourhood of TC-607's own 320-group/764-chunk finding, though not necessarily identical
+    since TC-607 used a cruder body-matching heuristic, not this real pairing engine); (c) a case
+    with NO re-exports at all (most pilots) where every entry is its own unit, unaliased; (d) a
+    shadow/cycle case proving your module does not crash or mis-group on the edge cases
+    `_reexport_pairs`'s own docstring says it specifically guards against (feed it a case that would
+    trigger the guard, confirm the guard still holds through your new layer). Never weaken a check
+    to make it pass.
+actions:
+  - >-
+    Add a new symbol_identity.py module computing a canonical id and full alias-form list per
+    symbol, built on top of chunk_builder's existing, already-tuned pairing engine - proven against
+    a real pilot's data (slides/python) and every documented edge case the underlying engine
+    guards against, with no wiring into any real tool yet.
+checks:
+  - command: '{python} -m pytest tests/indexing/test_symbol_identity.py -q -rfE'
+    expect: 'exit 0'
+    timeout_seconds: 180
+    junitxml: true
+    proves:
+      - REQ-G3-012
+  - command: '{python} -m pytest tests/indexing/test_symbol_identity.py -q -rfE -p no:cacheprovider'
+    expect: 'exit 0'
+    timeout_seconds: 180
+    junitxml: true
+    proves:
+      - REQ-G3-012
+min_tests: 5
+requires:
+  - python
+network: false
+negative_control:
+  mutate: |
+    python -X utf8 -c "import pathlib; p = pathlib.Path('src/foss_mcp/indexing/symbol_identity.py'); s = p.read_text(encoding='utf-8'); old = 'import'; assert s.count(old) >= 1, 'fix text not found - card and source have diverged'; lines = s.splitlines(); i = next(idx for idx, line in enumerate(lines) if line.strip().startswith('def ') and 'canonical' in line.lower()); j = i + 1; depth_line = lines[j]; indent = ' ' * (len(depth_line) - len(depth_line.lstrip())); lines.insert(j, indent + 'return {}  # TC-612 negative control: never compute anything'); p.write_text(chr(10).join(lines) + chr(10), encoding='utf-8')"
+  rationale: >-
+    Attempts to short-circuit the main public entry point to return an empty result unconditionally.
+    This anchors on finding a function whose name contains "canonical" rather than an exact string,
+    since the real function's chosen name is the worker's own choice - if this does not apply
+    cleanly against the real file, per this card's own recovery instruction, write a simpler,
+    reliable one yourself (anchored on your own function's real name) and report the substitution.
+    Either way, every real grouping test must then fail, proving the tests exercise the real
+    computation rather than trusting an empty/default result.
+evidence:
+  - evidence/build/G3/TC-612/receipt.json
+closeout:
+  - >-
+    symbol_identity.py exists, reuses chunk_builder's real pairing engine rather than duplicating
+    it, and is proven against slides/python's real data - state the real before/after canonical-id
+    count for that pilot, and whether the three existing mechanisms (chunk_builder, get_symbol,
+    search_symbols) were found to agree, partially agree, or conflict on symbol identity today.
+recovery: >-
+  If the negative-control mutate script's function-name anchor does not match your real
+  implementation's naming, write a simpler, reliable one yourself (anchored on your own function's
+  real name, same chr()-based style) and report the substitution in your closeout - do not leave a
+  non-functional falsifier in place.
