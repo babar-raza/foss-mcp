@@ -1,0 +1,128 @@
+id: TC-598
+gate: G3
+lane: verification
+purpose: >-
+  Build the conformance-harness core (the plan's F3, REQ-G3-010): a reusable, offline, seeded
+  loader over all 32 baked pilots plus a committed-baseline mechanism that F4-F9 (and every later
+  program's closure card) will build their own invariant tests on top of. This card adds no
+  invariant itself - only the shared loader, the sampler, and the baseline file format/loader.
+  Read C:\Users\babar\.claude\plans\steady-wobbling-meteor.md section 2.1 and section 5 (card F3)
+  first.
+depends_on:
+  - TC-001
+write_paths:
+  - tests/conformance/__init__.py
+  - tests/conformance/corpus.py
+  - tests/conformance/baseline.py
+  - tests/conformance/test_conformance_core.py
+satisfies:
+  - REQ-G3-010
+source_refs:
+  - file: docs/DECISION_LOG.md
+    anchor: >-
+      ## 2026-10-30 — Round-2 portfolio audit remediation adopted: unified plan, governance decisions A-K
+      recorded (supervisor)
+    sha256: 62cf1403a592118e3fb6bd14c5336f8a997cc3181d44a585323ec9f1d385a931
+inputs:
+  - >-
+    READ FIRST: C:\Users\babar\.claude\plans\steady-wobbling-meteor.md section 2.1 ("Conformance
+    harness") and section 5 (card F3's one-line description). Also read
+    tests/mcp/tools/test_round3_retrieval_corpus.py in full (lines ~260-330 especially) - it
+    already contains the exact loader pattern to generalize: copy infra/demo-manifests/*__self_extracted
+    to a temp dir via shutil.copytree, build a GenerationManifestStore over it, iterate directories
+    named family__platform__source_kind, read the active generation, and get documents from
+    payload["lexical_index"]["documents"]. Do not invent a different loading mechanism - reuse this
+    one, generalized into a standalone, importable module other test files can use without copying
+    code.
+  - >-
+    Build tests/conformance/corpus.py: a `ConformancePilot` dataclass (name, scope, Scope object,
+    list of raw lexical-index documents, maybe a helper to get just doc/example/symbol chunks by
+    kind - reuse chunk_kind() from the retrieval corpus test file's own imports if that's importable,
+    or import the same underlying classify function it uses) and a `ConformanceCorpus` class whose
+    __init__(root: Path) does the copytree-and-load exactly as test_round3_retrieval_corpus.py's
+    Corpus class does, but is a reusable library module, not a test-file-local class. It must work
+    against the real infra/demo-manifests directory (32 pilots) with the embedding gateway env vars
+    unset/stubbed (copy the "_no_embedding_gateway" autouse-fixture pattern from
+    tests/mcp/tools/test_round3_retrieval_corpus.py or test_forgiveness_acceptance.py, but as a
+    plain context manager or helper function here since this is a library module, not a test file -
+    callers' own pytest fixtures will supply the env-var scrubbing).
+  - >-
+    Build a seeded sampler: a pure function `sample_pilots(corpus, seed: int, fraction_or_count) ->
+    list[str]` (deterministic given the same seed - use random.Random(seed), never the global random
+    module) and a similar `sample_items(items, seed, n)`. These let F4-F9's tests run a fast seeded
+    subset by default (target: each F4-F9 test file completes in under ~3 minutes) and a full sweep
+    under `-m exhaustive` (register a pytest marker named "exhaustive" in this package's own
+    conftest or in a way other packages' test files can use `@pytest.mark.exhaustive` without a
+    pytest.ini/pyproject.toml edit outside your write_paths - check pyproject.toml's existing marker
+    registration approach first; if markers must be registered centrally and pyproject.toml is
+    outside your write_paths, use a plain boolean env var gate instead,
+    e.g. `FOSS_MCP_CONFORMANCE_EXHAUSTIVE=1`, and document that choice in your closeout).
+  - >-
+    Build tests/conformance/baseline.py: a small, pure module implementing the "baseline" contract
+    from plan section 2.1: `load_baseline(path: Path) -> Baseline` (a frozen dataclass or dict
+    wrapping a JSON file shaped `{"strict": bool, "known_failures": [{"pilot": str, "case_id": str,
+    "reason": str}, ...]}`), and a helper `assert_no_new_failures(baseline, observed_failures:
+    list[...]) -> None` (raises AssertionError, with a clear message naming exactly which
+    case(s) are new, i.e. present in observed but not in baseline.known_failures) PLUS, when
+    `baseline.strict` is True, also raises if any known_failures entry is NOT present in observed
+    (i.e. it now passes and the baseline must be tightened, never left stale). This is the
+    mechanism every F4-F9 baseline file and every later program's closure card (Q17, I14, O10, C11,
+    XA19, KD11, RT5, R7) will flip to strict - implement exactly this contract now, since those
+    cards will import and call it unmodified.
+  - >-
+    tests/conformance/test_conformance_core.py tests THIS card's own mechanism, not any product
+    invariant: (a) ConformanceCorpus loads all 32 real baked pilots from the real
+    infra/demo-manifests and finds at least 32 pilots, each with a nonzero document count
+    (a real, not synthetic, smoke test - this IS allowed to touch the real baked data, reading it
+    is always allowed; copying it to a temp dir first means nothing in the repo is written); (b) the
+    sampler is deterministic (same seed -> same sample, twice) and different seeds can produce
+    different samples; (c) load_baseline round-trips a small synthetic JSON fixture (written inline
+    in the test, not under tests/fixtures/, since this card owns no fixture path) covering: a case
+    present in both observed and baseline passes; a case in observed but not baseline fails with a
+    clear message naming it; with strict=True, a baseline case absent from observed also fails; with
+    strict=False (the default), that same absence does NOT fail. Never weaken a check to make it
+    pass - if the real infra/demo-manifests loader test is slow (the corpus test file's own fixture
+    takes under 1 second to copy+load in prior measurement), that's fine; if it is unexpectedly
+    slow, report the real number in your closeout rather than silently skipping or marking it slow.
+actions:
+  - >-
+    Add tests/conformance/ as a small, reusable, pure-Python harness package: a generalized
+    baked-pilot loader (corpus.py), a seeded sampler, and a baseline load/assert contract
+    (baseline.py) that every later F4-F9 and program-closure card will import unmodified.
+checks:
+  - command: '{python} -m pytest tests/conformance/test_conformance_core.py -q -rfE'
+    expect: 'exit 0'
+    timeout_seconds: 180
+    junitxml: true
+    proves:
+      - REQ-G3-010
+  - command: '{python} -m pytest tests/conformance/test_conformance_core.py -q -rfE -p no:cacheprovider'
+    expect: 'exit 0'
+    timeout_seconds: 180
+    junitxml: true
+    proves:
+      - REQ-G3-010
+min_tests: 6
+requires:
+  - python
+network: false
+negative_control:
+  mutate: |
+    python -X utf8 -c "import pathlib; p = pathlib.Path('tests/conformance/baseline.py'); s = p.read_text(encoding='utf-8'); old = 'def assert_no_new_failures('; assert s.count(old) == 1, 'fix text not found - card and source have diverged'; lines = s.splitlines(); i = next(idx for idx, line in enumerate(lines) if old in line); lines.insert(i + 1, '    return  # TC-598 negative control: short-circuit, never check anything'); p.write_text(chr(10).join(lines) + chr(10), encoding='utf-8')"
+  rationale: >-
+    Makes assert_no_new_failures a silent no-op immediately on entry, so it can never raise for any
+    input. The baseline round-trip test's "a case in observed but not baseline fails with a clear
+    message" assertion must then fail, proving the test actually exercises the real assertion logic
+    rather than a mechanism that never gets called.
+evidence:
+  - evidence/build/G3/TC-598/receipt.json
+closeout:
+  - >-
+    tests/conformance/corpus.py, baseline.py exist as a reusable, imported-not-copied harness;
+    tests/conformance/test_conformance_core.py proves the loader works against all 32 real baked
+    pilots and the baseline contract is correct, including its strict-mode tightening behaviour.
+recovery: >-
+  If infra/demo-manifests does not contain exactly 32 pilot directories when this card runs, STOP
+  and report FAILED_INTERNAL with the real count and names found - do not hardcode 32 as a pass
+  condition if the real data has drifted; report the discrepancy for the supervisor to resolve
+  before this card is accepted, since many later cards assume 32.
