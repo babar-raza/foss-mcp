@@ -1,0 +1,695 @@
+
+===== CLEAN RUN 1 (host) =====
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-5c72e798a73c059a\Scripts\python.exe -m pytest tests/indexing/test_chunk_builder_coverage_line.py tests/extraction/test_reextracted_uncapped.py tests/indexing/test_chunk_builder_python_signatures.py tests/mcp/tools/test_coverage_note.py -q -rfE "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-zmijhvks\.junit-0.xml"
+--- stdout ---
+........................................................................ [ 28%]
+........................................................................ [ 57%]
+........................................................................ [ 86%]
+...................................                                      [100%]
+
+--- stderr ---
+
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-5c72e798a73c059a\Scripts\python.exe -m pytest tests/indexing/test_chunk_builder_coverage_line.py tests/extraction/test_reextracted_uncapped.py tests/indexing/test_chunk_builder_python_signatures.py tests/mcp/tools/test_coverage_note.py tests/indexing/test_chunk_builder.py tests/indexing/test_symbol_identity.py -q -rfE -p no:cacheprovider "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-zmijhvks\.junit-1.xml"
+--- stdout ---
+........................................................................ [ 26%]
+........................................................................ [ 52%]
+........................................................................ [ 78%]
+............................................................             [100%]
+
+--- stderr ---
+
+
+===== CLEAN RUN 2 (host) =====
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-5c72e798a73c059a\Scripts\python.exe -m pytest tests/indexing/test_chunk_builder_coverage_line.py tests/extraction/test_reextracted_uncapped.py tests/indexing/test_chunk_builder_python_signatures.py tests/mcp/tools/test_coverage_note.py -q -rfE "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-zmijhvks\.junit-0.xml"
+--- stdout ---
+........................................................................ [ 28%]
+........................................................................ [ 57%]
+........................................................................ [ 86%]
+...................................                                      [100%]
+
+--- stderr ---
+
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-5c72e798a73c059a\Scripts\python.exe -m pytest tests/indexing/test_chunk_builder_coverage_line.py tests/extraction/test_reextracted_uncapped.py tests/indexing/test_chunk_builder_python_signatures.py tests/mcp/tools/test_coverage_note.py tests/indexing/test_chunk_builder.py tests/indexing/test_symbol_identity.py -q -rfE -p no:cacheprovider "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-zmijhvks\.junit-1.xml"
+--- stdout ---
+........................................................................ [ 26%]
+........................................................................ [ 52%]
+........................................................................ [ 78%]
+............................................................             [100%]
+
+--- stderr ---
+
+
+===== NEGATIVE CONTROL (checks MUST now fail) =====
+mutated: M src/foss_mcp/indexing/chunk_builder.py, ?? .junit-0.xml, ?? .junit-1.xml
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-5c72e798a73c059a\Scripts\python.exe -m pytest tests/indexing/test_chunk_builder_coverage_line.py tests/extraction/test_reextracted_uncapped.py tests/indexing/test_chunk_builder_python_signatures.py tests/mcp/tools/test_coverage_note.py -q -rfE "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-zmijhvks\.junit-0.xml"
+--- stdout ---
+........................F..F.FFF........................................ [ 28%]
+...................................................FFFF...F............. [ 57%]
+........................................................................ [ 86%]
+.............F.................F...                                      [100%]
+================================== FAILURES ===================================
+_ test_committed_tex_python_fixture_states_the_unparsed_files_in_every_chunk __
+
+    def test_committed_tex_python_fixture_states_the_unparsed_files_in_every_chunk() -> None:
+        fixture = _real("tex_python")
+        texts = _texts(fixture)
+        # TC-555: 4 chunks -> 23 (21 types, 2 functions) and "at least 2 source files" -> the measured
+        # parse_failures of the committed fixture (the files the indentation repair reads are no failure; the 11
+        # private files it cannot repair are: TC-555 rework 2, 35 of 45 -> 11 of 45).
+        # TC-614 (I2): the types numerator now counts each alias group once - tex/python has real
+        # shell/definition pairs too (not only slides/python), measured fresh here: 21 -> 14.
+        assert len(texts) == 23
+        expected = "API-Coverage: 14 of 21 types; 2 of 2 functions; 11 of 45 source files could not be parsed"
+>       assert all(text.splitlines()[-1] == expected for text in texts)
+E       assert False
+E        +  where False = all(<generator object test_committed_tex_python_fixture_states_the_unparsed_files_in_every_chunk.<locals>.<genexpr> at 0x000001D14ED1C6C0>)
+
+tests\indexing\test_chunk_builder_coverage_line.py:207: AssertionError
+___ test_the_line_stays_the_last_line_before_the_source_commit_is_appended ____
+
+    def test_the_line_stays_the_last_line_before_the_source_commit_is_appended() -> None:
+        fixture = _real("tex_python")
+        for text in _texts(fixture):
+            appended = f"{text}\nSource-Commit: {fixture['source_commit']}"
+>           assert appended.splitlines()[-2].startswith(
+                "API-Coverage: 14 of 21 types"
+            )  # TC-555: 4 of 4 -> 21 of 21; TC-614: 21 of 21 -> 14 of 21 (dedup)
+E           AssertionError: assert False
+E            +  where False = <built-in method startswith of str object at 0x000001D14ED0F990>('API-Coverage: 14 of 21 types')
+E            +    where <built-in method startswith of str object at 0x000001D14ED0F990> = 'API-Coverage: 21 of 21 types; 2 of 2 functions; 11 of 45 source files could not be parsed'.startswith
+
+tests\indexing\test_chunk_builder_coverage_line.py:242: AssertionError
+_ test_b_identities_deduplicate_the_numerator_for_a_synthetic_shell_definition_pair _
+
+    def test_b_identities_deduplicate_the_numerator_for_a_synthetic_shell_definition_pair() -> None:
+        """(b) A synthetic TC-382-rule-8 shape (reused from `test_symbol_identity.py`'s own synthetic
+        shapes): a member-less package `__init__.py` stub paired with the one other entry of the same
+        name that has members. Without `identities` the numerator counts both entries (the shell
+        inflates it); with `identities` it counts the unit once."""
+        entries = [
+            {
+                "name": "Foo",
+                "kind": "class",
+                "file": "pkg/__init__.py",
+                "class_import": "pkg.Foo",
+                "bases": [],
+                "methods": [],
+                "properties": [],
+            },
+            {
+                "name": "Foo",
+                "kind": "class",
+                "file": "pkg/sub/foo.py",
+                "class_import": "pkg.sub.Foo",
+                "bases": [],
+                "methods": [{"name": "m", "params": [], "return_type": ""}],
+                "properties": [],
+            },
+            {
+                "name": "Bar",
+                "kind": "class",
+                "file": "pkg/bar.py",
+                "class_import": "pkg.Bar",
+                "bases": [],
+                "methods": [{"name": "m", "params": [], "return_type": ""}],
+                "properties": [],
+            },
+        ]
+        identities = compute_canonical_identities(entries)
+        # Sanity on the identity model itself, before touching `_coverage_line` at all: entry 0 (the
+        # stub) is an alias, not a definition; the real two definitions (entries 1 and 2) each are.
+        assert [identity.is_definition for identity in identities] == [False, True, True]
+    
+        counted_fixture = _fixture(entries, type_count=3, symbol_counts={"types": 3, "functions": 0})
+        assert _coverage_line(counted_fixture, entries) == "3 of 3 types"
+>       assert _coverage_line(counted_fixture, entries, identities) == "2 of 3 types"
+E       AssertionError: assert '3 of 3 types' == '2 of 3 types'
+E         
+E         - 2 of 3 types
+E         ? ^
+E         + 3 of 3 types
+E         ? ^
+
+tests\indexing\test_chunk_builder_coverage_line.py:318: AssertionError
+____ test_c_real_slides_python_regression_numerator_drops_with_identities _____
+
+    def test_c_real_slides_python_regression_numerator_drops_with_identities() -> None:
+        """(c) The real, measured regression against the committed `slides_python` fixture end to end,
+        through the real rendering path (`build_chunks_from_api_surface`, now always threading
+        `compute_canonical_identities` output into `_coverage_line`). `max_types=10_000` (via `_texts`)
+        keeps the slot cut from also moving these numbers, matching the real, already-committed
+        generation manifest's rendered line (`infra/demo-manifests/slides__python__self_extracted/...`:
+        ``API-Coverage: 1022 of 1022 types; 1 of 1 functions``) for the BEFORE state.
+    
+        Measured fresh for this card (does NOT assume TC-612's own 517/1023 finding, which measured
+        differently): 1023 non-test entries, 517 canonical units, 516 of which are non-function
+        definitions (the fixture's one function entry keeps its own, separate, unaffected clause) -
+        AFTER this card, the numerator is 516, not 517, because `kind == "function"` is excluded from
+        the types-clause dedup count exactly as REQ-G3-012 specifies.
+        """
+        fixture = _real("slides_python")
+        after_lines = _last_lines(fixture)
+>       assert after_lines == {"API-Coverage: 516 of 1022 types; 1 of 1 functions"}
+E       AssertionError: assert {'API-Coverag... 1 functions'} == {'API-Coverag... 1 functions'}
+E         
+E         Extra items in the left set:
+E         'API-Coverage: 1022 of 1022 types; 1 of 1 functions'
+E         Extra items in the right set:
+E         'API-Coverage: 516 of 1022 types; 1 of 1 functions'
+E         Use -v to get more diff
+
+tests\indexing\test_chunk_builder_coverage_line.py:342: AssertionError
+__ test_d_coverage_note_from_text_now_fires_for_slides_python_after_the_fix ___
+
+    def test_d_coverage_note_from_text_now_fires_for_slides_python_after_the_fix() -> None:
+        """(d) End-to-end revival proof: `coverage_note.coverage_note_from_text` (read-only to this
+        card, UNMODIFIED) already re-parses whatever `_coverage_line` renders and already emits a
+        caveat whenever the parsed numerator is below the parsed denominator - it needs no code change,
+        it was simply never exercised on a real pilot before this card, because the numerator was never
+        honestly below 100% for slides/python. Calling the real, unmodified function against the real
+        rendered AFTER line proves the revival; calling it against the real rendered BEFORE line proves
+        it correctly returned `None` previously (the ratio was 100% "by construction")."""
+        fixture = _real("slides_python")
+        after_text = next(iter(_texts(fixture)))
+        after_note = coverage_note_from_text(after_text)
+>       assert after_note is not None
+E       assert None is not None
+
+tests\indexing\test_chunk_builder_coverage_line.py:363: AssertionError
+_________ test_coverage_line_states_the_complete_surface[pdf_python] __________
+
+key = 'pdf_python'
+
+    @pytest.mark.parametrize("key", PILOTS)
+    def test_coverage_line_states_the_complete_surface(key: str) -> None:
+        chunks = _symbol_chunks(key)
+        assert chunks
+        lines: set[str] = set()
+        for chunk in chunks:
+            found = [line for line in chunk.text.splitlines() if line.startswith("API-Coverage:")]
+            assert len(found) == 1, chunk.section_title
+            assert chunk.text.splitlines()[-1] == found[0]
+            lines.add(found[0])
+        assert len(lines) == 1, lines
+        (line,) = lines
+        assert _parse_coverage(line) is not None, line
+        if key in PARTIAL_COVERAGE_AFTER_DEDUP:
+>           assert line == PARTIAL_COVERAGE_AFTER_DEDUP[key], line
+E           AssertionError: API-Coverage: 543 of 543 types; 324 of 324 functions
+E           assert 'API-Coverage...324 functions' == 'API-Coverage...324 functions'
+E             
+E             - API-Coverage: 356 of 543 types; 324 of 324 functions
+E             ?               -------
+E             + API-Coverage: 543 of 543 types; 324 of 324 functions
+E             ?                  +++++++
+
+tests\extraction\test_reextracted_uncapped.py:423: AssertionError
+________ test_coverage_line_states_the_complete_surface[slides_python] ________
+
+key = 'slides_python'
+
+    @pytest.mark.parametrize("key", PILOTS)
+    def test_coverage_line_states_the_complete_surface(key: str) -> None:
+        chunks = _symbol_chunks(key)
+        assert chunks
+        lines: set[str] = set()
+        for chunk in chunks:
+            found = [line for line in chunk.text.splitlines() if line.startswith("API-Coverage:")]
+            assert len(found) == 1, chunk.section_title
+            assert chunk.text.splitlines()[-1] == found[0]
+            lines.add(found[0])
+        assert len(lines) == 1, lines
+        (line,) = lines
+        assert _parse_coverage(line) is not None, line
+        if key in PARTIAL_COVERAGE_AFTER_DEDUP:
+>           assert line == PARTIAL_COVERAGE_AFTER_DEDUP[key], line
+E           AssertionError: API-Coverage: 1022 of 1022 types; 1 of 1 functions
+E           assert 'API-Coverage...f 1 functions' == 'API-Coverage...f 1 functions'
+E             
+E             - API-Coverage: 516 of 1022 types; 1 of 1 functions
+E             ?               -------
+E             + API-Coverage: 1022 of 1022 types; 1 of 1 functions
+E             ?                   ++++++++
+
+tests\extraction\test_reextracted_uncapped.py:423: AssertionError
+_________ test_coverage_line_states_the_complete_surface[html_python] _________
+
+key = 'html_python'
+
+    @pytest.mark.parametrize("key", PILOTS)
+    def test_coverage_line_states_the_complete_surface(key: str) -> None:
+        chunks = _symbol_chunks(key)
+        assert chunks
+        lines: set[str] = set()
+        for chunk in chunks:
+            found = [line for line in chunk.text.splitlines() if line.startswith("API-Coverage:")]
+            assert len(found) == 1, chunk.section_title
+            assert chunk.text.splitlines()[-1] == found[0]
+            lines.add(found[0])
+        assert len(lines) == 1, lines
+        (line,) = lines
+        assert _parse_coverage(line) is not None, line
+        if key in PARTIAL_COVERAGE_AFTER_DEDUP:
+>           assert line == PARTIAL_COVERAGE_AFTER_DEDUP[key], line
+E           AssertionError: API-Coverage: 305 of 305 types; 18 of 18 functions
+E           assert 'API-Coverage... 18 functions' == 'API-Coverage... 18 functions'
+E             
+E             - API-Coverage: 218 of 305 types; 18 of 18 functions
+E             ?               -------
+E             + API-Coverage: 305 of 305 types; 18 of 18 functions
+E             ?                  +++++++
+
+tests\extraction\test_reextracted_uncapped.py:423: AssertionError
+__________ test_coverage_line_states_the_complete_surface[3d_python] __________
+
+key = '3d_python'
+
+    @pytest.mark.parametrize("key", PILOTS)
+    def test_coverage_line_states_the_complete_surface(key: str) -> None:
+        chunks = _symbol_chunks(key)
+        assert chunks
+        lines: set[str] = set()
+        for chunk in chunks:
+            found = [line for line in chunk.text.splitlines() if line.startswith("API-Coverage:")]
+            assert len(found) == 1, chunk.section_title
+            assert chunk.text.splitlines()[-1] == found[0]
+            lines.add(found[0])
+        assert len(lines) == 1, lines
+        (line,) = lines
+        assert _parse_coverage(line) is not None, line
+        if key in PARTIAL_COVERAGE_AFTER_DEDUP:
+>           assert line == PARTIAL_COVERAGE_AFTER_DEDUP[key], line
+E           AssertionError: API-Coverage: 697 of 697 types
+E           assert 'API-Coverage... of 697 types' == 'API-Coverage... of 697 types'
+E             
+E             - API-Coverage: 343 of 697 types
+E             ?               -------
+E             + API-Coverage: 697 of 697 types
+E             ?                  +++++++
+
+tests\extraction\test_reextracted_uncapped.py:423: AssertionError
+________ test_coverage_line_states_the_complete_surface[words_python] _________
+
+key = 'words_python'
+
+    @pytest.mark.parametrize("key", PILOTS)
+    def test_coverage_line_states_the_complete_surface(key: str) -> None:
+        chunks = _symbol_chunks(key)
+        assert chunks
+        lines: set[str] = set()
+        for chunk in chunks:
+            found = [line for line in chunk.text.splitlines() if line.startswith("API-Coverage:")]
+            assert len(found) == 1, chunk.section_title
+            assert chunk.text.splitlines()[-1] == found[0]
+            lines.add(found[0])
+        assert len(lines) == 1, lines
+        (line,) = lines
+        assert _parse_coverage(line) is not None, line
+        if key in PARTIAL_COVERAGE_AFTER_DEDUP:
+>           assert line == PARTIAL_COVERAGE_AFTER_DEDUP[key], line
+E           AssertionError: API-Coverage: 272 of 272 types; 119 of 119 functions
+E           assert 'API-Coverage...119 functions' == 'API-Coverage...119 functions'
+E             
+E             - API-Coverage: 190 of 272 types; 119 of 119 functions
+E             ?               -------
+E             + API-Coverage: 272 of 272 types; 119 of 119 functions
+E             ?                  +++++++
+
+tests\extraction\test_reextracted_uncapped.py:423: AssertionError
+_________ test_coverage_line_counts_entries_so_it_can_exceed_the_cap __________
+
+    def test_coverage_line_counts_entries_so_it_can_exceed_the_cap() -> None:
+        """A pair costs one slot but renders two chunks, so the rendered CHUNK COUNT (4) still exceeds
+        the slot cap (``max_types=2``) - that part of this test's original intent is untouched.
+    
+        TC-614 (I2): before dedup, the coverage line's own numerator counted raw entries (4, matching
+        ``len(texts)``), so it incidentally also "exceeded the cap". That was exactly the bug REQ-G3-012
+        fixes: each shell/definition pair is one slot AND one canonical unit, so after dedup the
+        numerator (2) equals the kept slot count rather than exceeding it. No fixture shape can restore
+        the old "numerator exceeds the cap" property without reintroducing the double-count the fix
+        removes, so that half of the original intent does not hold any more, by design; a second case is
+        not added for it. Measured fresh against the real rendering path: 4 of 10 -> 2 of 10.
+        """
+        types = [entry for index in (1, 2) for entry in _pair(index)]
+        texts = _texts(types, max_types=2, type_count=10)
+        assert len(texts) == 4
+>       assert all(text.splitlines()[-1] == "API-Coverage: 2 of 10 types" for text in texts)
+E       assert False
+E        +  where False = all(<generator object test_coverage_line_counts_entries_so_it_can_exceed_the_cap.<locals>.<genexpr> at 0x000001D1571B7B90>)
+
+tests\indexing\test_chunk_builder_python_signatures.py:271: AssertionError
+______________ test_report_index_freshness_states_the_same_note _______________
+
+    def test_report_index_freshness_states_the_same_note() -> None:
+        store = _tex_store()
+        report = report_index_freshness(store, SCOPE, SOURCE_KIND, _COMMIT)  # type: ignore[arg-type]
+        # TC-555: (4, 4) -> (21, 21); TC-614 (I2, dedup): (21, 21) -> (14, 21)
+>       assert (report.indexed_types, report.total_types) == (14, 21)
+E       assert (21, 21) == (14, 21)
+E         
+E         At index 0 diff: 21 != 14
+E         Use -v to get more diff
+
+tests\mcp\tools\test_coverage_note.py:183: AssertionError
+=========================== short test summary info ===========================
+FAILED tests/indexing/test_chunk_builder_coverage_line.py::test_committed_tex_python_fixture_states_the_unparsed_files_in_every_chunk
+FAILED tests/indexing/test_chunk_builder_coverage_line.py::test_the_line_stays_the_last_line_before_the_source_commit_is_appended
+FAILED tests/indexing/test_chunk_builder_coverage_line.py::test_b_identities_deduplicate_the_numerator_for_a_synthetic_shell_definition_pair
+FAILED tests/indexing/test_chunk_builder_coverage_line.py::test_c_real_slides_python_regression_numerator_drops_with_identities
+FAILED tests/indexing/test_chunk_builder_coverage_line.py::test_d_coverage_note_from_text_now_fires_for_slides_python_after_the_fix
+FAILED tests/extraction/test_reextracted_uncapped.py::test_coverage_line_states_the_complete_surface[pdf_python]
+FAILED tests/extraction/test_reextracted_uncapped.py::test_coverage_line_states_the_complete_surface[slides_python]
+FAILED tests/extraction/test_reextracted_uncapped.py::test_coverage_line_states_the_complete_surface[html_python]
+FAILED tests/extraction/test_reextracted_uncapped.py::test_coverage_line_states_the_complete_surface[3d_python]
+FAILED tests/extraction/test_reextracted_uncapped.py::test_coverage_line_states_the_complete_surface[words_python]
+FAILED tests/indexing/test_chunk_builder_python_signatures.py::test_coverage_line_counts_entries_so_it_can_exceed_the_cap
+FAILED tests/mcp/tools/test_coverage_note.py::test_report_index_freshness_states_the_same_note
+
+--- stderr ---
+
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-5c72e798a73c059a\Scripts\python.exe -m pytest tests/indexing/test_chunk_builder_coverage_line.py tests/extraction/test_reextracted_uncapped.py tests/indexing/test_chunk_builder_python_signatures.py tests/mcp/tools/test_coverage_note.py tests/indexing/test_chunk_builder.py tests/indexing/test_symbol_identity.py -q -rfE -p no:cacheprovider "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-zmijhvks\.junit-1.xml"
+--- stdout ---
+........................F..F.FFF........................................ [ 26%]
+...................................................FFFF...F............. [ 52%]
+........................................................................ [ 78%]
+.............F.................F............................             [100%]
+================================== FAILURES ===================================
+_ test_committed_tex_python_fixture_states_the_unparsed_files_in_every_chunk __
+
+    def test_committed_tex_python_fixture_states_the_unparsed_files_in_every_chunk() -> None:
+        fixture = _real("tex_python")
+        texts = _texts(fixture)
+        # TC-555: 4 chunks -> 23 (21 types, 2 functions) and "at least 2 source files" -> the measured
+        # parse_failures of the committed fixture (the files the indentation repair reads are no failure; the 11
+        # private files it cannot repair are: TC-555 rework 2, 35 of 45 -> 11 of 45).
+        # TC-614 (I2): the types numerator now counts each alias group once - tex/python has real
+        # shell/definition pairs too (not only slides/python), measured fresh here: 21 -> 14.
+        assert len(texts) == 23
+        expected = "API-Coverage: 14 of 21 types; 2 of 2 functions; 11 of 45 source files could not be parsed"
+>       assert all(text.splitlines()[-1] == expected for text in texts)
+E       assert False
+E        +  where False = all(<generator object test_committed_tex_python_fixture_states_the_unparsed_files_in_every_chunk.<locals>.<genexpr> at 0x0000021774807850>)
+
+tests\indexing\test_chunk_builder_coverage_line.py:207: AssertionError
+___ test_the_line_stays_the_last_line_before_the_source_commit_is_appended ____
+
+    def test_the_line_stays_the_last_line_before_the_source_commit_is_appended() -> None:
+        fixture = _real("tex_python")
+        for text in _texts(fixture):
+            appended = f"{text}\nSource-Commit: {fixture['source_commit']}"
+>           assert appended.splitlines()[-2].startswith(
+                "API-Coverage: 14 of 21 types"
+            )  # TC-555: 4 of 4 -> 21 of 21; TC-614: 21 of 21 -> 14 of 21 (dedup)
+E           AssertionError: assert False
+E            +  where False = <built-in method startswith of str object at 0x0000021774883AB0>('API-Coverage: 14 of 21 types')
+E            +    where <built-in method startswith of str object at 0x0000021774883AB0> = 'API-Coverage: 21 of 21 types; 2 of 2 functions; 11 of 45 source files could not be parsed'.startswith
+
+tests\indexing\test_chunk_builder_coverage_line.py:242: AssertionError
+_ test_b_identities_deduplicate_the_numerator_for_a_synthetic_shell_definition_pair _
+
+    def test_b_identities_deduplicate_the_numerator_for_a_synthetic_shell_definition_pair() -> None:
+        """(b) A synthetic TC-382-rule-8 shape (reused from `test_symbol_identity.py`'s own synthetic
+        shapes): a member-less package `__init__.py` stub paired with the one other entry of the same
+        name that has members. Without `identities` the numerator counts both entries (the shell
+        inflates it); with `identities` it counts the unit once."""
+        entries = [
+            {
+                "name": "Foo",
+                "kind": "class",
+                "file": "pkg/__init__.py",
+                "class_import": "pkg.Foo",
+                "bases": [],
+                "methods": [],
+                "properties": [],
+            },
+            {
+                "name": "Foo",
+                "kind": "class",
+                "file": "pkg/sub/foo.py",
+                "class_import": "pkg.sub.Foo",
+                "bases": [],
+                "methods": [{"name": "m", "params": [], "return_type": ""}],
+                "properties": [],
+            },
+            {
+                "name": "Bar",
+                "kind": "class",
+                "file": "pkg/bar.py",
+                "class_import": "pkg.Bar",
+                "bases": [],
+                "methods": [{"name": "m", "params": [], "return_type": ""}],
+                "properties": [],
+            },
+        ]
+        identities = compute_canonical_identities(entries)
+        # Sanity on the identity model itself, before touching `_coverage_line` at all: entry 0 (the
+        # stub) is an alias, not a definition; the real two definitions (entries 1 and 2) each are.
+        assert [identity.is_definition for identity in identities] == [False, True, True]
+    
+        counted_fixture = _fixture(entries, type_count=3, symbol_counts={"types": 3, "functions": 0})
+        assert _coverage_line(counted_fixture, entries) == "3 of 3 types"
+>       assert _coverage_line(counted_fixture, entries, identities) == "2 of 3 types"
+E       AssertionError: assert '3 of 3 types' == '2 of 3 types'
+E         
+E         - 2 of 3 types
+E         ? ^
+E         + 3 of 3 types
+E         ? ^
+
+tests\indexing\test_chunk_builder_coverage_line.py:318: AssertionError
+____ test_c_real_slides_python_regression_numerator_drops_with_identities _____
+
+    def test_c_real_slides_python_regression_numerator_drops_with_identities() -> None:
+        """(c) The real, measured regression against the committed `slides_python` fixture end to end,
+        through the real rendering path (`build_chunks_from_api_surface`, now always threading
+        `compute_canonical_identities` output into `_coverage_line`). `max_types=10_000` (via `_texts`)
+        keeps the slot cut from also moving these numbers, matching the real, already-committed
+        generation manifest's rendered line (`infra/demo-manifests/slides__python__self_extracted/...`:
+        ``API-Coverage: 1022 of 1022 types; 1 of 1 functions``) for the BEFORE state.
+    
+        Measured fresh for this card (does NOT assume TC-612's own 517/1023 finding, which measured
+        differently): 1023 non-test entries, 517 canonical units, 516 of which are non-function
+        definitions (the fixture's one function entry keeps its own, separate, unaffected clause) -
+        AFTER this card, the numerator is 516, not 517, because `kind == "function"` is excluded from
+        the types-clause dedup count exactly as REQ-G3-012 specifies.
+        """
+        fixture = _real("slides_python")
+        after_lines = _last_lines(fixture)
+>       assert after_lines == {"API-Coverage: 516 of 1022 types; 1 of 1 functions"}
+E       AssertionError: assert {'API-Coverag... 1 functions'} == {'API-Coverag... 1 functions'}
+E         
+E         Extra items in the left set:
+E         'API-Coverage: 1022 of 1022 types; 1 of 1 functions'
+E         Extra items in the right set:
+E         'API-Coverage: 516 of 1022 types; 1 of 1 functions'
+E         Use -v to get more diff
+
+tests\indexing\test_chunk_builder_coverage_line.py:342: AssertionError
+__ test_d_coverage_note_from_text_now_fires_for_slides_python_after_the_fix ___
+
+    def test_d_coverage_note_from_text_now_fires_for_slides_python_after_the_fix() -> None:
+        """(d) End-to-end revival proof: `coverage_note.coverage_note_from_text` (read-only to this
+        card, UNMODIFIED) already re-parses whatever `_coverage_line` renders and already emits a
+        caveat whenever the parsed numerator is below the parsed denominator - it needs no code change,
+        it was simply never exercised on a real pilot before this card, because the numerator was never
+        honestly below 100% for slides/python. Calling the real, unmodified function against the real
+        rendered AFTER line proves the revival; calling it against the real rendered BEFORE line proves
+        it correctly returned `None` previously (the ratio was 100% "by construction")."""
+        fixture = _real("slides_python")
+        after_text = next(iter(_texts(fixture)))
+        after_note = coverage_note_from_text(after_text)
+>       assert after_note is not None
+E       assert None is not None
+
+tests\indexing\test_chunk_builder_coverage_line.py:363: AssertionError
+_________ test_coverage_line_states_the_complete_surface[pdf_python] __________
+
+key = 'pdf_python'
+
+    @pytest.mark.parametrize("key", PILOTS)
+    def test_coverage_line_states_the_complete_surface(key: str) -> None:
+        chunks = _symbol_chunks(key)
+        assert chunks
+        lines: set[str] = set()
+        for chunk in chunks:
+            found = [line for line in chunk.text.splitlines() if line.startswith("API-Coverage:")]
+            assert len(found) == 1, chunk.section_title
+            assert chunk.text.splitlines()[-1] == found[0]
+            lines.add(found[0])
+        assert len(lines) == 1, lines
+        (line,) = lines
+        assert _parse_coverage(line) is not None, line
+        if key in PARTIAL_COVERAGE_AFTER_DEDUP:
+>           assert line == PARTIAL_COVERAGE_AFTER_DEDUP[key], line
+E           AssertionError: API-Coverage: 543 of 543 types; 324 of 324 functions
+E           assert 'API-Coverage...324 functions' == 'API-Coverage...324 functions'
+E             
+E             - API-Coverage: 356 of 543 types; 324 of 324 functions
+E             ?               -------
+E             + API-Coverage: 543 of 543 types; 324 of 324 functions
+E             ?                  +++++++
+
+tests\extraction\test_reextracted_uncapped.py:423: AssertionError
+________ test_coverage_line_states_the_complete_surface[slides_python] ________
+
+key = 'slides_python'
+
+    @pytest.mark.parametrize("key", PILOTS)
+    def test_coverage_line_states_the_complete_surface(key: str) -> None:
+        chunks = _symbol_chunks(key)
+        assert chunks
+        lines: set[str] = set()
+        for chunk in chunks:
+            found = [line for line in chunk.text.splitlines() if line.startswith("API-Coverage:")]
+            assert len(found) == 1, chunk.section_title
+            assert chunk.text.splitlines()[-1] == found[0]
+            lines.add(found[0])
+        assert len(lines) == 1, lines
+        (line,) = lines
+        assert _parse_coverage(line) is not None, line
+        if key in PARTIAL_COVERAGE_AFTER_DEDUP:
+>           assert line == PARTIAL_COVERAGE_AFTER_DEDUP[key], line
+E           AssertionError: API-Coverage: 1022 of 1022 types; 1 of 1 functions
+E           assert 'API-Coverage...f 1 functions' == 'API-Coverage...f 1 functions'
+E             
+E             - API-Coverage: 516 of 1022 types; 1 of 1 functions
+E             ?               -------
+E             + API-Coverage: 1022 of 1022 types; 1 of 1 functions
+E             ?                   ++++++++
+
+tests\extraction\test_reextracted_uncapped.py:423: AssertionError
+_________ test_coverage_line_states_the_complete_surface[html_python] _________
+
+key = 'html_python'
+
+    @pytest.mark.parametrize("key", PILOTS)
+    def test_coverage_line_states_the_complete_surface(key: str) -> None:
+        chunks = _symbol_chunks(key)
+        assert chunks
+        lines: set[str] = set()
+        for chunk in chunks:
+            found = [line for line in chunk.text.splitlines() if line.startswith("API-Coverage:")]
+            assert len(found) == 1, chunk.section_title
+            assert chunk.text.splitlines()[-1] == found[0]
+            lines.add(found[0])
+        assert len(lines) == 1, lines
+        (line,) = lines
+        assert _parse_coverage(line) is not None, line
+        if key in PARTIAL_COVERAGE_AFTER_DEDUP:
+>           assert line == PARTIAL_COVERAGE_AFTER_DEDUP[key], line
+E           AssertionError: API-Coverage: 305 of 305 types; 18 of 18 functions
+E           assert 'API-Coverage... 18 functions' == 'API-Coverage... 18 functions'
+E             
+E             - API-Coverage: 218 of 305 types; 18 of 18 functions
+E             ?               -------
+E             + API-Coverage: 305 of 305 types; 18 of 18 functions
+E             ?                  +++++++
+
+tests\extraction\test_reextracted_uncapped.py:423: AssertionError
+__________ test_coverage_line_states_the_complete_surface[3d_python] __________
+
+key = '3d_python'
+
+    @pytest.mark.parametrize("key", PILOTS)
+    def test_coverage_line_states_the_complete_surface(key: str) -> None:
+        chunks = _symbol_chunks(key)
+        assert chunks
+        lines: set[str] = set()
+        for chunk in chunks:
+            found = [line for line in chunk.text.splitlines() if line.startswith("API-Coverage:")]
+            assert len(found) == 1, chunk.section_title
+            assert chunk.text.splitlines()[-1] == found[0]
+            lines.add(found[0])
+        assert len(lines) == 1, lines
+        (line,) = lines
+        assert _parse_coverage(line) is not None, line
+        if key in PARTIAL_COVERAGE_AFTER_DEDUP:
+>           assert line == PARTIAL_COVERAGE_AFTER_DEDUP[key], line
+E           AssertionError: API-Coverage: 697 of 697 types
+E           assert 'API-Coverage... of 697 types' == 'API-Coverage... of 697 types'
+E             
+E             - API-Coverage: 343 of 697 types
+E             ?               -------
+E             + API-Coverage: 697 of 697 types
+E             ?                  +++++++
+
+tests\extraction\test_reextracted_uncapped.py:423: AssertionError
+________ test_coverage_line_states_the_complete_surface[words_python] _________
+
+key = 'words_python'
+
+    @pytest.mark.parametrize("key", PILOTS)
+    def test_coverage_line_states_the_complete_surface(key: str) -> None:
+        chunks = _symbol_chunks(key)
+        assert chunks
+        lines: set[str] = set()
+        for chunk in chunks:
+            found = [line for line in chunk.text.splitlines() if line.startswith("API-Coverage:")]
+            assert len(found) == 1, chunk.section_title
+            assert chunk.text.splitlines()[-1] == found[0]
+            lines.add(found[0])
+        assert len(lines) == 1, lines
+        (line,) = lines
+        assert _parse_coverage(line) is not None, line
+        if key in PARTIAL_COVERAGE_AFTER_DEDUP:
+>           assert line == PARTIAL_COVERAGE_AFTER_DEDUP[key], line
+E           AssertionError: API-Coverage: 272 of 272 types; 119 of 119 functions
+E           assert 'API-Coverage...119 functions' == 'API-Coverage...119 functions'
+E             
+E             - API-Coverage: 190 of 272 types; 119 of 119 functions
+E             ?               -------
+E             + API-Coverage: 272 of 272 types; 119 of 119 functions
+E             ?                  +++++++
+
+tests\extraction\test_reextracted_uncapped.py:423: AssertionError
+_________ test_coverage_line_counts_entries_so_it_can_exceed_the_cap __________
+
+    def test_coverage_line_counts_entries_so_it_can_exceed_the_cap() -> None:
+        """A pair costs one slot but renders two chunks, so the rendered CHUNK COUNT (4) still exceeds
+        the slot cap (``max_types=2``) - that part of this test's original intent is untouched.
+    
+        TC-614 (I2): before dedup, the coverage line's own numerator counted raw entries (4, matching
+        ``len(texts)``), so it incidentally also "exceeded the cap". That was exactly the bug REQ-G3-012
+        fixes: each shell/definition pair is one slot AND one canonical unit, so after dedup the
+        numerator (2) equals the kept slot count rather than exceeding it. No fixture shape can restore
+        the old "numerator exceeds the cap" property without reintroducing the double-count the fix
+        removes, so that half of the original intent does not hold any more, by design; a second case is
+        not added for it. Measured fresh against the real rendering path: 4 of 10 -> 2 of 10.
+        """
+        types = [entry for index in (1, 2) for entry in _pair(index)]
+        texts = _texts(types, max_types=2, type_count=10)
+        assert len(texts) == 4
+>       assert all(text.splitlines()[-1] == "API-Coverage: 2 of 10 types" for text in texts)
+E       assert False
+E        +  where False = all(<generator object test_coverage_line_counts_entries_so_it_can_exceed_the_cap.<locals>.<genexpr> at 0x000002177CBCBD30>)
+
+tests\indexing\test_chunk_builder_python_signatures.py:271: AssertionError
+______________ test_report_index_freshness_states_the_same_note _______________
+
+    def test_report_index_freshness_states_the_same_note() -> None:
+        store = _tex_store()
+        report = report_index_freshness(store, SCOPE, SOURCE_KIND, _COMMIT)  # type: ignore[arg-type]
+        # TC-555: (4, 4) -> (21, 21); TC-614 (I2, dedup): (21, 21) -> (14, 21)
+>       assert (report.indexed_types, report.total_types) == (14, 21)
+E       assert (21, 21) == (14, 21)
+E         
+E         At index 0 diff: 21 != 14
+E         Use -v to get more diff
+
+tests\mcp\tools\test_coverage_note.py:183: AssertionError
+=========================== short test summary info ===========================
+FAILED tests/indexing/test_chunk_builder_coverage_line.py::test_committed_tex_python_fixture_states_the_unparsed_files_in_every_chunk
+FAILED tests/indexing/test_chunk_builder_coverage_line.py::test_the_line_stays_the_last_line_before_the_source_commit_is_appended
+FAILED tests/indexing/test_chunk_builder_coverage_line.py::test_b_identities_deduplicate_the_numerator_for_a_synthetic_shell_definition_pair
+FAILED tests/indexing/test_chunk_builder_coverage_line.py::test_c_real_slides_python_regression_numerator_drops_with_identities
+FAILED tests/indexing/test_chunk_builder_coverage_line.py::test_d_coverage_note_from_text_now_fires_for_slides_python_after_the_fix
+FAILED tests/extraction/test_reextracted_uncapped.py::test_coverage_line_states_the_complete_surface[pdf_python]
+FAILED tests/extraction/test_reextracted_uncapped.py::test_coverage_line_states_the_complete_surface[slides_python]
+FAILED tests/extraction/test_reextracted_uncapped.py::test_coverage_line_states_the_complete_surface[html_python]
+FAILED tests/extraction/test_reextracted_uncapped.py::test_coverage_line_states_the_complete_surface[3d_python]
+FAILED tests/extraction/test_reextracted_uncapped.py::test_coverage_line_states_the_complete_surface[words_python]
+FAILED tests/indexing/test_chunk_builder_python_signatures.py::test_coverage_line_counts_entries_so_it_can_exceed_the_cap
+FAILED tests/mcp/tools/test_coverage_note.py::test_report_index_freshness_states_the_same_note
+
+--- stderr ---
+

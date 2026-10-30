@@ -1,0 +1,114 @@
+{
+  "schema_version": 1,
+  "card": "TC-614",
+  "gate": "G3",
+  "generated_by": "gatectl",
+  "generated_at": "2026-10-30T16:03:54Z",
+  "base_rev": "d834c185eaf826bb19d98c38912bc495c0cc5b36",
+  "head_rev": "09bce7fcc6218a640d32bd003c883b52ba3e5410",
+  "card_sha256": "3b27679206227eced724d8cca85e686fdbe269473b428681c4980b3d528aa4fe",
+  "fingerprint": {
+    "python": "3.13.2",
+    "platform": "Windows-11-10.0.26300-SP0",
+    "lock_sha256": "5c72e798a73c059a438e752e94a8d4c88c1bdf81a197f6e5c5fcecbc9466a691",
+    "env": {
+      "PYTHONHASHSEED": "0",
+      "PYTHONUTF8": "1",
+      "PYTHONDONTWRITEBYTECODE": "1",
+      "PYTHONIOENCODING": "utf-8",
+      "TZ": "UTC",
+      "LC_ALL": "C.UTF-8",
+      "SOURCE_DATE_EPOCH": "1700000000",
+      "verify_runner": "host"
+    }
+  },
+  "scope": {
+    "ok": true,
+    "changed_paths": [
+      "src/foss_mcp/indexing/chunk_builder.py",
+      "tests/extraction/test_reextracted_uncapped.py",
+      "tests/indexing/test_chunk_builder_coverage_line.py",
+      "tests/indexing/test_chunk_builder_python_signatures.py",
+      "tests/mcp/tools/test_coverage_note.py"
+    ],
+    "violations": [],
+    "evaluated": true
+  },
+  "runs": [
+    {
+      "run": 1,
+      "checks": [
+        {
+          "command": "{python} -m pytest tests/indexing/test_chunk_builder_coverage_line.py tests/extraction/test_reextracted_uncapped.py tests/indexing/test_chunk_builder_python_signatures.py tests/mcp/tools/test_coverage_note.py -q -rfE",
+          "exit_code": 0,
+          "duration_s": 9.882,
+          "stdout_sha256": "3dc0a67e957ff2e06601ee1e4e3ca9c30c61bf6534256d93b1ea5b381ec5f318",
+          "tests": 251,
+          "skipped": 0,
+          "errors": 0,
+          "failures": 0
+        },
+        {
+          "command": "{python} -m pytest tests/indexing/test_chunk_builder_coverage_line.py tests/extraction/test_reextracted_uncapped.py tests/indexing/test_chunk_builder_python_signatures.py tests/mcp/tools/test_coverage_note.py tests/indexing/test_chunk_builder.py tests/indexing/test_symbol_identity.py -q -rfE -p no:cacheprovider",
+          "exit_code": 0,
+          "duration_s": 9.509,
+          "stdout_sha256": "16c456dcc559a029a64905881b8c713ac9f3fc82397f3fe4f7639ab75dc91b26",
+          "tests": 276,
+          "skipped": 0,
+          "errors": 0,
+          "failures": 0
+        }
+      ],
+      "all_passed": true
+    },
+    {
+      "run": 2,
+      "checks": [
+        {
+          "command": "{python} -m pytest tests/indexing/test_chunk_builder_coverage_line.py tests/extraction/test_reextracted_uncapped.py tests/indexing/test_chunk_builder_python_signatures.py tests/mcp/tools/test_coverage_note.py -q -rfE",
+          "exit_code": 0,
+          "duration_s": 5.339,
+          "stdout_sha256": "3dc0a67e957ff2e06601ee1e4e3ca9c30c61bf6534256d93b1ea5b381ec5f318",
+          "tests": 251,
+          "skipped": 0,
+          "errors": 0,
+          "failures": 0
+        },
+        {
+          "command": "{python} -m pytest tests/indexing/test_chunk_builder_coverage_line.py tests/extraction/test_reextracted_uncapped.py tests/indexing/test_chunk_builder_python_signatures.py tests/mcp/tools/test_coverage_note.py tests/indexing/test_chunk_builder.py tests/indexing/test_symbol_identity.py -q -rfE -p no:cacheprovider",
+          "exit_code": 0,
+          "duration_s": 8.64,
+          "stdout_sha256": "16c456dcc559a029a64905881b8c713ac9f3fc82397f3fe4f7639ab75dc91b26",
+          "tests": 276,
+          "skipped": 0,
+          "errors": 0,
+          "failures": 0
+        }
+      ],
+      "all_passed": true
+    }
+  ],
+  "negative_control": {
+    "kind": "mutate",
+    "patch": "python -X utf8 -c \"import pathlib; p = pathlib.Path('src/foss_mcp/indexing/chunk_builder.py'); s = p.read_text(encoding='utf-8'); old = chr(10).join(['    type_count = fixture.get(' + chr(34) + 'type_count' + chr(34) + ')']); assert s.count(old) == 1, 'fix text not found - card and source have diverged'; p.write_text(s.replace(old, '    identities = None  # TC-614 negative control: never use the canonical identities even when given' + chr(10) + old, 1), encoding='utf-8')\"\n",
+    "patch_sha256": "85ffb324a247d94bb2288baeba0c22b16a1596b7000dccbd02aed8f4083dc759",
+    "applied": true,
+    "patch_applied_failed": true,
+    "exit_codes": [
+      1,
+      1
+    ],
+    "tree_changed": [
+      "M src/foss_mcp/indexing/chunk_builder.py",
+      "?? .junit-0.xml",
+      "?? .junit-1.xml"
+    ]
+  },
+  "holdout": {
+    "ran": false,
+    "passed": true,
+    "detail": "no holdout for this card"
+  },
+  "accepted": true,
+  "reason": "all gates passed"
+}
