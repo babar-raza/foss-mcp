@@ -1,0 +1,229 @@
+
+===== CLEAN RUN 1 (host) =====
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-5c72e798a73c059a\Scripts\python.exe -m pytest tests/infra/test_fetch_recent_releases_commit_resolution.py -q -rfE "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-szli2937\.junit-0.xml"
+--- stdout ---
+.....                                                                    [100%]
+
+--- stderr ---
+
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-5c72e798a73c059a\Scripts\python.exe -m pytest tests/infra/test_fetch_recent_releases_commit_resolution.py tests/infra/test_round3_release_tags.py tests/infra/test_fetch_recent_releases.py -q -rfE -p no:cacheprovider "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-szli2937\.junit-1.xml"
+--- stdout ---
+..............................................................           [100%]
+
+--- stderr ---
+
+
+===== CLEAN RUN 2 (host) =====
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-5c72e798a73c059a\Scripts\python.exe -m pytest tests/infra/test_fetch_recent_releases_commit_resolution.py -q -rfE "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-szli2937\.junit-0.xml"
+--- stdout ---
+.....                                                                    [100%]
+
+--- stderr ---
+
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-5c72e798a73c059a\Scripts\python.exe -m pytest tests/infra/test_fetch_recent_releases_commit_resolution.py tests/infra/test_round3_release_tags.py tests/infra/test_fetch_recent_releases.py -q -rfE -p no:cacheprovider "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-szli2937\.junit-1.xml"
+--- stdout ---
+..............................................................           [100%]
+
+--- stderr ---
+
+
+===== NEGATIVE CONTROL (checks MUST now fail) =====
+mutated: M infra/fetch_recent_releases.py, ?? .junit-0.xml, ?? .junit-1.xml
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-5c72e798a73c059a\Scripts\python.exe -m pytest tests/infra/test_fetch_recent_releases_commit_resolution.py -q -rfE "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-szli2937\.junit-0.xml"
+--- stdout ---
+F.F.F                                                                    [100%]
+================================== FAILURES ===================================
+__ test_a_branch_name_target_commitish_is_resolved_before_drift_is_computed ___
+
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x0000013E17209A70>
+
+    def test_a_branch_name_target_commitish_is_resolved_before_drift_is_computed(
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        repository = "o/r"
+        resolved_sha = "a" * 40
+        release = Release(tag_name="v1.2.3", body="", richness="none", target_commitish="main", source="release")
+        resolve_calls: list[tuple[str, str]] = []
+    
+        def _resolve(repo: str, ref: str) -> str | None:
+            resolve_calls.append((repo, ref))
+            return resolved_sha
+    
+        _no_newer_tags(monkeypatch)
+        monkeypatch.setattr(fetch_recent_releases, "resolve_tag_commit", _resolve)
+        http = _Http({f"/compare/{resolved_sha}...": _compare(2, 0, base_sha=resolved_sha)})
+        monkeypatch.setattr(reader, "_get_json", http)
+    
+        merged = fetch_recent_releases._with_ancestry(_args(repository), [release], SHA_INDEXED)
+    
+        # Resolved by the release's own TAG NAME, not by the literal branch-name target_commitish.
+>       assert resolve_calls == [(repository, "v1.2.3")]
+E       AssertionError: assert [] == [('o/r', 'v1.2.3')]
+E         
+E         Right contains one more item: ('o/r', 'v1.2.3')
+E         Use -v to get more diff
+
+tests\infra\test_fetch_recent_releases_commit_resolution.py:93: AssertionError
+__ test_a_resolution_exception_is_caught_and_also_leaves_the_entry_unchanged __
+
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x0000013E171F4170>
+capsys = <_pytest.capture.CaptureFixture object at 0x0000013E171FCEC0>
+
+    def test_a_resolution_exception_is_caught_and_also_leaves_the_entry_unchanged(
+        monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+    ) -> None:
+        repository = "o/r"
+        release = Release(tag_name="v1.2.3", body="", richness="none", target_commitish="main", source="release")
+    
+        def _raise(repo: str, ref: str) -> str | None:
+            raise OSError("offline")
+    
+        _no_newer_tags(monkeypatch)
+        monkeypatch.setattr(fetch_recent_releases, "resolve_tag_commit", _raise)
+        http = _Http({"/compare/v1.2.3...": _compare(0, 0, base_sha="irrelevant")})
+        monkeypatch.setattr(reader, "_get_json", http)
+    
+        merged = fetch_recent_releases._with_ancestry(_args(repository), [release], SHA_INDEXED)
+    
+        assert merged[0].target_commitish == "main"  # no crash, no fabricated commit
+>       assert "WARNING" in capsys.readouterr().err
+E       AssertionError: assert 'WARNING' in ''
+E        +  where '' = CaptureResult(out='', err='').err
+E        +    where CaptureResult(out='', err='') = readouterr()
+E        +      where readouterr = <_pytest.capture.CaptureFixture object at 0x0000013E171FCEC0>.readouterr
+
+tests\infra\test_fetch_recent_releases_commit_resolution.py:149: AssertionError
+__ test_the_3d_net_branch_name_release_resolves_instead_of_reporting_unknown __
+
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x0000013E171D4D10>
+
+    def test_the_3d_net_branch_name_release_resolves_instead_of_reporting_unknown(
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        # 3D-NET-007: 3d/net's newest GitHub Release carries a branch-name target_commitish ("main"),
+        # the exact shape that made report_index_freshness report drift as "unknown" for a real,
+        # measurable 34%/101-of-297-type gap, even though the index was genuinely behind the package.
+        repository = "3d/net"
+        fake_resolved_sha = "c" * 40
+        release = Release(tag_name="v3.4.0", body="Release notes", richness="detailed", target_commitish="main")
+    
+        _no_newer_tags(monkeypatch)
+        monkeypatch.setattr(fetch_recent_releases, "resolve_tag_commit", lambda repo, ref: fake_resolved_sha)
+        http = _Http({f"/compare/{fake_resolved_sha}...": _compare(0, 101, base_sha=fake_resolved_sha)})
+        monkeypatch.setattr(reader, "_get_json", http)
+    
+        merged = fetch_recent_releases._with_ancestry(_args(repository), [release], SHA_INDEXED)
+    
+        assert merged[0].drift is not None
+>       assert merged[0].drift.error is None
+E       AssertionError: assert 'AssertionError' is None
+E        +  where 'AssertionError' = DriftRecord(indexed_commit='1234567890abcdef1234567890abcdef12345678', tag='v3.4.0', tag_commit=None, ahead_by=None, behind_by=None, status=None, error='AssertionError').error
+E        +    where DriftRecord(indexed_commit='1234567890abcdef1234567890abcdef12345678', tag='v3.4.0', tag_commit=None, ahead_by=None, behind_by=None, status=None, error='AssertionError') = Release(tag_name='v3.4.0', body='Release notes', richness='detailed', published_at=None, url=None, target_commitish='m...890abcdef12345678', tag='v3.4.0', tag_commit=None, ahead_by=None, behind_by=None, status=None, error='AssertionError')).drift
+
+tests\infra\test_fetch_recent_releases_commit_resolution.py:201: AssertionError
+=========================== short test summary info ===========================
+FAILED tests/infra/test_fetch_recent_releases_commit_resolution.py::test_a_branch_name_target_commitish_is_resolved_before_drift_is_computed
+FAILED tests/infra/test_fetch_recent_releases_commit_resolution.py::test_a_resolution_exception_is_caught_and_also_leaves_the_entry_unchanged
+FAILED tests/infra/test_fetch_recent_releases_commit_resolution.py::test_the_3d_net_branch_name_release_resolves_instead_of_reporting_unknown
+
+--- stderr ---
+
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-5c72e798a73c059a\Scripts\python.exe -m pytest tests/infra/test_fetch_recent_releases_commit_resolution.py tests/infra/test_round3_release_tags.py tests/infra/test_fetch_recent_releases.py -q -rfE -p no:cacheprovider "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-szli2937\.junit-1.xml"
+--- stdout ---
+F.F.F.........................................................           [100%]
+================================== FAILURES ===================================
+__ test_a_branch_name_target_commitish_is_resolved_before_drift_is_computed ___
+
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x000002B42AAFE8B0>
+
+    def test_a_branch_name_target_commitish_is_resolved_before_drift_is_computed(
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        repository = "o/r"
+        resolved_sha = "a" * 40
+        release = Release(tag_name="v1.2.3", body="", richness="none", target_commitish="main", source="release")
+        resolve_calls: list[tuple[str, str]] = []
+    
+        def _resolve(repo: str, ref: str) -> str | None:
+            resolve_calls.append((repo, ref))
+            return resolved_sha
+    
+        _no_newer_tags(monkeypatch)
+        monkeypatch.setattr(fetch_recent_releases, "resolve_tag_commit", _resolve)
+        http = _Http({f"/compare/{resolved_sha}...": _compare(2, 0, base_sha=resolved_sha)})
+        monkeypatch.setattr(reader, "_get_json", http)
+    
+        merged = fetch_recent_releases._with_ancestry(_args(repository), [release], SHA_INDEXED)
+    
+        # Resolved by the release's own TAG NAME, not by the literal branch-name target_commitish.
+>       assert resolve_calls == [(repository, "v1.2.3")]
+E       AssertionError: assert [] == [('o/r', 'v1.2.3')]
+E         
+E         Right contains one more item: ('o/r', 'v1.2.3')
+E         Use -v to get more diff
+
+tests\infra\test_fetch_recent_releases_commit_resolution.py:93: AssertionError
+__ test_a_resolution_exception_is_caught_and_also_leaves_the_entry_unchanged __
+
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x000002B42AA7B9B0>
+capsys = <_pytest.capture.CaptureFixture object at 0x000002B42AB00D70>
+
+    def test_a_resolution_exception_is_caught_and_also_leaves_the_entry_unchanged(
+        monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+    ) -> None:
+        repository = "o/r"
+        release = Release(tag_name="v1.2.3", body="", richness="none", target_commitish="main", source="release")
+    
+        def _raise(repo: str, ref: str) -> str | None:
+            raise OSError("offline")
+    
+        _no_newer_tags(monkeypatch)
+        monkeypatch.setattr(fetch_recent_releases, "resolve_tag_commit", _raise)
+        http = _Http({"/compare/v1.2.3...": _compare(0, 0, base_sha="irrelevant")})
+        monkeypatch.setattr(reader, "_get_json", http)
+    
+        merged = fetch_recent_releases._with_ancestry(_args(repository), [release], SHA_INDEXED)
+    
+        assert merged[0].target_commitish == "main"  # no crash, no fabricated commit
+>       assert "WARNING" in capsys.readouterr().err
+E       AssertionError: assert 'WARNING' in ''
+E        +  where '' = CaptureResult(out='', err='').err
+E        +    where CaptureResult(out='', err='') = readouterr()
+E        +      where readouterr = <_pytest.capture.CaptureFixture object at 0x000002B42AB00D70>.readouterr
+
+tests\infra\test_fetch_recent_releases_commit_resolution.py:149: AssertionError
+__ test_the_3d_net_branch_name_release_resolves_instead_of_reporting_unknown __
+
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x000002B42AAEC160>
+
+    def test_the_3d_net_branch_name_release_resolves_instead_of_reporting_unknown(
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        # 3D-NET-007: 3d/net's newest GitHub Release carries a branch-name target_commitish ("main"),
+        # the exact shape that made report_index_freshness report drift as "unknown" for a real,
+        # measurable 34%/101-of-297-type gap, even though the index was genuinely behind the package.
+        repository = "3d/net"
+        fake_resolved_sha = "c" * 40
+        release = Release(tag_name="v3.4.0", body="Release notes", richness="detailed", target_commitish="main")
+    
+        _no_newer_tags(monkeypatch)
+        monkeypatch.setattr(fetch_recent_releases, "resolve_tag_commit", lambda repo, ref: fake_resolved_sha)
+        http = _Http({f"/compare/{fake_resolved_sha}...": _compare(0, 101, base_sha=fake_resolved_sha)})
+        monkeypatch.setattr(reader, "_get_json", http)
+    
+        merged = fetch_recent_releases._with_ancestry(_args(repository), [release], SHA_INDEXED)
+    
+        assert merged[0].drift is not None
+>       assert merged[0].drift.error is None
+E       AssertionError: assert 'AssertionError' is None
+E        +  where 'AssertionError' = DriftRecord(indexed_commit='1234567890abcdef1234567890abcdef12345678', tag='v3.4.0', tag_commit=None, ahead_by=None, behind_by=None, status=None, error='AssertionError').error
+E        +    where DriftRecord(indexed_commit='1234567890abcdef1234567890abcdef12345678', tag='v3.4.0', tag_commit=None, ahead_by=None, behind_by=None, status=None, error='AssertionError') = Release(tag_name='v3.4.0', body='Release notes', richness='detailed', published_at=None, url=None, target_commitish='m...890abcdef12345678', tag='v3.4.0', tag_commit=None, ahead_by=None, behind_by=None, status=None, error='AssertionError')).drift
+
+tests\infra\test_fetch_recent_releases_commit_resolution.py:201: AssertionError
+=========================== short test summary info ===========================
+FAILED tests/infra/test_fetch_recent_releases_commit_resolution.py::test_a_branch_name_target_commitish_is_resolved_before_drift_is_computed
+FAILED tests/infra/test_fetch_recent_releases_commit_resolution.py::test_a_resolution_exception_is_caught_and_also_leaves_the_entry_unchanged
+FAILED tests/infra/test_fetch_recent_releases_commit_resolution.py::test_the_3d_net_branch_name_release_resolves_instead_of_reporting_unknown
+
+--- stderr ---
+

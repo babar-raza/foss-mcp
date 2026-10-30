@@ -1,0 +1,112 @@
+{
+  "schema_version": 1,
+  "card": "TC-613",
+  "gate": "G3",
+  "generated_by": "gatectl",
+  "generated_at": "2026-10-30T15:21:05Z",
+  "base_rev": "176183f7a5508040bd5a8731d49142cbd099c048",
+  "head_rev": "920cc752a057a8b9d281f6f9cb6647e810e45c81",
+  "card_sha256": "fa68f543a507ddd0050dd251a3a273ecf2558536a12b8ac13c072cba1c7bf45c",
+  "fingerprint": {
+    "python": "3.13.2",
+    "platform": "Windows-11-10.0.26300-SP0",
+    "lock_sha256": "5c72e798a73c059a438e752e94a8d4c88c1bdf81a197f6e5c5fcecbc9466a691",
+    "env": {
+      "PYTHONHASHSEED": "0",
+      "PYTHONUTF8": "1",
+      "PYTHONDONTWRITEBYTECODE": "1",
+      "PYTHONIOENCODING": "utf-8",
+      "TZ": "UTC",
+      "LC_ALL": "C.UTF-8",
+      "SOURCE_DATE_EPOCH": "1700000000",
+      "verify_runner": "host"
+    }
+  },
+  "scope": {
+    "ok": true,
+    "changed_paths": [
+      "infra/fetch_recent_releases.py",
+      "src/foss_mcp/extraction/github_release_reader.py",
+      "tests/infra/test_fetch_recent_releases_commit_resolution.py"
+    ],
+    "violations": [],
+    "evaluated": true
+  },
+  "runs": [
+    {
+      "run": 1,
+      "checks": [
+        {
+          "command": "{python} -m pytest tests/infra/test_fetch_recent_releases_commit_resolution.py -q -rfE",
+          "exit_code": 0,
+          "duration_s": 0.573,
+          "stdout_sha256": "4d2df7a96ce4a667da3ccf295f2d16c728a65ed0e861a3baa919f7bb469b02b5",
+          "tests": 5,
+          "skipped": 0,
+          "errors": 0,
+          "failures": 0
+        },
+        {
+          "command": "{python} -m pytest tests/infra/test_fetch_recent_releases_commit_resolution.py tests/infra/test_round3_release_tags.py tests/infra/test_fetch_recent_releases.py -q -rfE -p no:cacheprovider",
+          "exit_code": 0,
+          "duration_s": 68.372,
+          "stdout_sha256": "de0615cf37b5c81f3262e96c1af6d39e3e1ed022fb623f364a1d3c083a4e551f",
+          "tests": 62,
+          "skipped": 0,
+          "errors": 0,
+          "failures": 0
+        }
+      ],
+      "all_passed": true
+    },
+    {
+      "run": 2,
+      "checks": [
+        {
+          "command": "{python} -m pytest tests/infra/test_fetch_recent_releases_commit_resolution.py -q -rfE",
+          "exit_code": 0,
+          "duration_s": 0.492,
+          "stdout_sha256": "4d2df7a96ce4a667da3ccf295f2d16c728a65ed0e861a3baa919f7bb469b02b5",
+          "tests": 5,
+          "skipped": 0,
+          "errors": 0,
+          "failures": 0
+        },
+        {
+          "command": "{python} -m pytest tests/infra/test_fetch_recent_releases_commit_resolution.py tests/infra/test_round3_release_tags.py tests/infra/test_fetch_recent_releases.py -q -rfE -p no:cacheprovider",
+          "exit_code": 0,
+          "duration_s": 69.991,
+          "stdout_sha256": "de0615cf37b5c81f3262e96c1af6d39e3e1ed022fb623f364a1d3c083a4e551f",
+          "tests": 62,
+          "skipped": 0,
+          "errors": 0,
+          "failures": 0
+        }
+      ],
+      "all_passed": true
+    }
+  ],
+  "negative_control": {
+    "kind": "mutate",
+    "patch": "python -X utf8 -c \"import pathlib; p = pathlib.Path('infra/fetch_recent_releases.py'); s = p.read_text(encoding='utf-8'); old = 'A failed tags read leaves the list as it was.' + chr(34) * 3; assert s.count(old) == 1, 'fix text not found - card and source have diverged'; lines = s.splitlines(); i = next(idx for idx, line in enumerate(lines) if old in line); lines.insert(i + 1, '    resolve_tag_commit = lambda *a, **k: None  # TC-613 negative control: never resolve a release commit'); p.write_text(chr(10).join(lines) + chr(10), encoding='utf-8')\"\n",
+    "patch_sha256": "edfad4666716b525ceeccec6abcccbe6786ff6261afa2af3587d0d5e37ed3c6e",
+    "applied": true,
+    "patch_applied_failed": true,
+    "exit_codes": [
+      1,
+      1
+    ],
+    "tree_changed": [
+      "M infra/fetch_recent_releases.py",
+      "?? .junit-0.xml",
+      "?? .junit-1.xml"
+    ]
+  },
+  "holdout": {
+    "ran": false,
+    "passed": true,
+    "detail": "no holdout for this card"
+  },
+  "accepted": true,
+  "reason": "all gates passed"
+}
