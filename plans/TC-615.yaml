@@ -14,6 +14,35 @@ purpose: >-
   tests red for a reason that has nothing to do with the card whose check bundle happens to include
   them. Read C:\Users\babar\.claude\plans\steady-wobbling-meteor.md section 1.2 ("Governance gaps")
   and 2.1 (T1-T3) first.
+
+  REWORK (attempt 2): attempt 1's fix is correct and complete for its own scope (confirmed by the
+  supervisor's review: a byte-identical-outcomes experiment and a concrete sensitivity-flip proof
+  both held). While building it, the worker found a SEPARATE, pre-existing, unrelated defect that
+  blocks both of this card's own check commands from exit 0:
+  `tests/deploy/test_preprod_review_register.py::test_synthetic_a_fixed_row_naming_tc_999_fails_the_card_exists_check`
+  hardcodes `card = "TC-599"` as "a card id with the right shape but no plan file" - but
+  `plans/TC-500.yaml` through `plans/TC-599.yaml` now ALL 100 exist (this plan's own cards landed in
+  that exact numeric range), so the test's premise is permanently false for its whole `^TC-5\d\d$`
+  shape and no replacement NUMBER in that family can ever fix it. Confirmed via the supervisor's own
+  `git stash` experiment: the failure is byte-identical before and after attempt 1's real fix, so it
+  is not caused by this card - but it DOES live inside a file already in this card's write_paths, and
+  `gatectl verify`'s acceptance gate requires both clean runs to pass before it will even run the
+  negative control, so this card cannot be accepted until it is fixed. Fix IN PLACE, inside the same
+  test function, WITHOUT touching `CARD_ID_RE` (line ~178, real shape-validation regex also used by
+  the real register-row logic at lines ~424/434) and without changing the test's actual intent ("a
+  syntactically valid card id with no plan file must fail the exists-check"): use the `monkeypatch`
+  and `tmp_path` pytest fixtures to patch the module's `PLANS_DIR` constant to an EMPTY temporary
+  directory for the duration of this one test only (`monkeypatch.setattr(<module>, "PLANS_DIR",
+  tmp_path)` - this auto-reverts after the test, leaving every other test's real `PLANS_DIR` read
+  untouched), so `card = "TC-599"` (or any syntactically valid placeholder id - keep "TC-599" for
+  continuity with the existing comment, or pick a clearer one and update the comment) genuinely has
+  no plan file relative to that empty directory, regardless of what the real `plans/` directory
+  contains now or in the future. This makes the test robust against the real `plans/` directory ever
+  filling its numeric range again. Add `monkeypatch`/`tmp_path` to the test function's parameters;
+  this is a pytest built-in fixture, no new import needed beyond what the file may already use for
+  other tests (check first). Also apply the worker's hand-verified negative_control replacement
+  recorded below (attempt 1's registered mutate was an inert placeholder by design; this is its real
+  replacement).
 depends_on:
   - TC-537
 write_paths:
@@ -99,26 +128,33 @@ requires:
 network: false
 negative_control:
   mutate: |
-    python -X utf8 -c "import pathlib; p = pathlib.Path('tests/deploy/test_round3_closure.py'); s = p.read_text(encoding='utf-8'); old = 'STATE_FILE = REPO_ROOT / ' + chr(34) + 'project' + chr(34) + ' / ' + chr(34) + 'state.yaml' + chr(34); assert s.count(old) == 1, 'fix text not found - card and source have diverged'; p.write_text(s.replace(old, old + chr(10) + 'TC_615_NEGATIVE_CONTROL_FORCE_LIVE_READ = True', 1), encoding='utf-8')"
+    python -X utf8 -c "import pathlib; p = pathlib.Path('tests/deploy/test_round3_closure.py'); s = p.read_text(encoding='utf-8'); old = '    relpath = path.relative_to(REPO_ROOT).as_posix()'; assert s.count(old) == 1, 'fix text not found - card and source have diverged'; new = '    return ' + chr(34) + chr(34) + '  # TC-615 negative control: corrupt the HEAD-pinned read so every assertion that depends on it fails' + chr(10) + old; p.write_text(s.replace(old, new, 1), encoding='utf-8')"
   rationale: >-
-    This marker insertion alone is inert text and does not by itself break anything - it exists only
-    so preflight sees a non-empty, unique, single-occurrence anchor to apply. The real proof is the
-    ACCOMPANYING experiment the card requires in its closeout: that the fixed test module has no
-    remaining code path that opens STATE_FILE/OPEN_QUESTIONS_FILE via plain filesystem access, shown
-    by confirming a live-tree-only mutation no longer affects the test outcome. REPLACE this inert
-    marker-insertion mutate with a real code-level falsifier before committing - for example,
-    anchoring on the real `git show`-based helper function's own call site and shadowing it to fall
-    back to a live-path read, so the falsifier actually re-introduces the bug and the card's new
-    assertions about HEAD-pinned reads fail. Note the substitution in your closeout; this inert
-    stand-in must never reach an accepted card unreplaced.
+    REPLACED in attempt 2: attempt 1's registered mutate was a deliberately inert text marker (its own
+    rationale said so, pending a real replacement). A "shadow the helper to fall back to a live-path
+    read" falsifier (the inputs section's own suggestion) was tried and found NOT to fail any check
+    under gatectl verify's mechanism: verify always applies the mutate inside a freshly checked-out,
+    clean worktree where live == HEAD by construction, and the mutate cannot dirty
+    project/state.yaml/ops/open_questions.jsonl itself (both outside this card's write_paths) to
+    create a real divergence - so "fall back to live" is indistinguishable from the fix when nothing
+    is dirty. This replacement instead shadows `_read_head`'s first body statement in
+    test_round3_closure.py so it unconditionally returns an empty string instead of reaching
+    `git show HEAD:<path>`, corrupting the HEAD-pinned read directly. Hand-verified by both the
+    worker and the supervisor (dry run): with this applied, `test_rd3_row_is_closed_or_disclosed`
+    fails for every RD3-NNN id, `test_supervisor_item_is_done_with_existing_evidence` fails for all 8
+    SUP ids, and `test_open_question_is_not_open` fails for all 4 OQ ids (empty string parses to
+    `None`/an empty lookup, so every dependent assertion fails) - real, non-inert, reliably
+    falsifying. Reverting restores a clean pass.
 evidence:
   - evidence/build/G3/TC-615/receipt.json
 closeout:
   - >-
     Both governance-reading tests now read project/state.yaml and ops/open_questions.jsonl from
     HEAD, never the live working tree; state the before/after experiment's result and confirm a
-    clean-tree run is byte-identical to pre-card behaviour. Confirm (or replace) the negative
-    control as instructed.
+    clean-tree run is byte-identical to pre-card behaviour. State that the pre-existing TC-599
+    collision in test_synthetic_a_fixed_row_naming_tc_999_fails_the_card_exists_check is fixed via
+    an isolated, empty monkeypatched PLANS_DIR, with CARD_ID_RE and real register-row logic
+    untouched, and confirm both check commands now reach exit 0 twice cleanly.
 recovery: >-
   If `git show HEAD:<path>` cannot be made to work cleanly inside the review/CI environment for a
   reason specific to this repository's git setup (e.g. a shallow clone with no history for these
