@@ -254,10 +254,21 @@ def test_rendered_shell_shows_the_definitions_own_methods() -> None:
 
 
 def test_coverage_line_counts_entries_so_it_can_exceed_the_cap() -> None:
+    """A pair costs one slot but renders two chunks, so the rendered CHUNK COUNT (4) still exceeds
+    the slot cap (``max_types=2``) - that part of this test's original intent is untouched.
+
+    TC-614 (I2): before dedup, the coverage line's own numerator counted raw entries (4, matching
+    ``len(texts)``), so it incidentally also "exceeded the cap". That was exactly the bug REQ-G3-012
+    fixes: each shell/definition pair is one slot AND one canonical unit, so after dedup the
+    numerator (2) equals the kept slot count rather than exceeding it. No fixture shape can restore
+    the old "numerator exceeds the cap" property without reintroducing the double-count the fix
+    removes, so that half of the original intent does not hold any more, by design; a second case is
+    not added for it. Measured fresh against the real rendering path: 4 of 10 -> 2 of 10.
+    """
     types = [entry for index in (1, 2) for entry in _pair(index)]
     texts = _texts(types, max_types=2, type_count=10)
     assert len(texts) == 4
-    assert all(text.splitlines()[-1] == "API-Coverage: 4 of 10 types" for text in texts)
+    assert all(text.splitlines()[-1] == "API-Coverage: 2 of 10 types" for text in texts)
 
 
 def test_a_fixture_without_shells_is_cut_exactly_as_before() -> None:

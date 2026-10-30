@@ -179,7 +179,8 @@ def test_a_recovered_symbol_of_the_tex_store_is_answered_not_missed() -> None:
 def test_report_index_freshness_states_the_same_note() -> None:
     store = _tex_store()
     report = report_index_freshness(store, SCOPE, SOURCE_KIND, _COMMIT)  # type: ignore[arg-type]
-    assert (report.indexed_types, report.total_types) == (21, 21)  # TC-555: (4, 4) -> (21, 21)
+    # TC-555: (4, 4) -> (21, 21); TC-614 (I2, dedup): (21, 21) -> (14, 21)
+    assert (report.indexed_types, report.total_types) == (14, 21)
     assert report.coverage_note is not None
     assert "could not be parsed" in report.coverage_note
     assert "Extraction notice" in report.coverage_note

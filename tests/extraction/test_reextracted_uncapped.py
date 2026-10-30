@@ -393,6 +393,19 @@ def test_symbol_counts_and_counts_agree_with_the_entries(key: str) -> None:
     }
 
 
+# TC-614 (I2, REQ-G3-012): these 5 python pilots have real re-export shell/definition pairs, so the
+# deduplicated numerator now honestly reports below the (still-inflated until I3 lands) denominator;
+# each is a concrete, measured-fresh assertion, not a loosened one. Every pilot NOT in this table has
+# zero real aliased pairs and legitimately stays 100%-complete, so its assertion is unchanged.
+PARTIAL_COVERAGE_AFTER_DEDUP = {
+    "pdf_python": "API-Coverage: 356 of 543 types; 324 of 324 functions",  # TC-614: 543 of 543 -> 356 of 543
+    "slides_python": "API-Coverage: 516 of 1022 types; 1 of 1 functions",  # TC-614: 1022 of 1022 -> 516 of 1022
+    "html_python": "API-Coverage: 218 of 305 types; 18 of 18 functions",  # TC-614: 305 of 305 -> 218 of 305
+    "3d_python": "API-Coverage: 343 of 697 types",  # TC-614: 697 of 697 -> 343 of 697
+    "words_python": "API-Coverage: 190 of 272 types; 119 of 119 functions",  # TC-614: 272 of 272 -> 190 of 272
+}
+
+
 @pytest.mark.parametrize("key", PILOTS)
 def test_coverage_line_states_the_complete_surface(key: str) -> None:
     chunks = _symbol_chunks(key)
@@ -406,7 +419,10 @@ def test_coverage_line_states_the_complete_surface(key: str) -> None:
     assert len(lines) == 1, lines
     (line,) = lines
     assert _parse_coverage(line) is not None, line
-    assert _coverage_is_complete(line), line
+    if key in PARTIAL_COVERAGE_AFTER_DEDUP:
+        assert line == PARTIAL_COVERAGE_AFTER_DEDUP[key], line
+    else:
+        assert _coverage_is_complete(line), line
 
 
 @pytest.mark.parametrize("key", PILOTS)
