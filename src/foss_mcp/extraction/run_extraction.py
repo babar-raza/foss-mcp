@@ -17,7 +17,7 @@ import re
 import shutil
 import subprocess
 import tempfile
-from collections.abc import Iterable, Mapping
+from collections.abc import Iterable, Mapping, Sequence
 from pathlib import Path, PurePosixPath
 from typing import Any
 
@@ -30,6 +30,7 @@ from foss_mcp.extraction.tree_sitter_engine import (
     python_surface,
     tree_helpers,
 )
+from foss_mcp.indexing.symbol_identity import SymbolIdentity, compute_canonical_identities
 
 # Platform name (as written in a product manifest) to the tree-sitter-language-pack spelling
 # extract_api_surface expects. package_root.detect_package_root takes the manifest spelling
@@ -589,13 +590,35 @@ def fill_python_enum_members(types: list[dict[str, Any]], clone_root: Path) -> N
             entry["enum_members"] = _enum_members_from_class(node)
 
 
-def summarize_symbols(types: list[dict[str, Any]]) -> dict[str, int]:
+def summarize_symbols(
+    types: list[dict[str, Any]],
+    identities: Sequence[SymbolIdentity] | None = None,
+) -> dict[str, int]:
     """``{"types": N, "functions": M}`` over the non-test entries: ``functions`` counts entries
-    whose ``kind`` is "function" (a Go/Rust/TypeScript free function or a python module function),
-    ``types`` every other entry. The coverage line states the two separately."""
+    whose ``kind`` is "function" (a Go/Rust/TypeScript free function or a python module function).
+
+    ``identities=None`` (the default) preserves the EXACT prior behaviour byte for byte: ``types``
+    is every non-test, non-function entry, aliases included - every existing one-argument caller is
+    unaffected. TC-620 (I3, REQ-G3-012): when *identities* is given it is I1's canonical-identity
+    model (``symbol_identity.compute_canonical_identities(types)``), one entry per *types* position
+    (the FULL, raw, un-cut list - test filtering happens below, inside this function, same as
+    always, so *identities* must be indexed against *types* itself, never against the filtered
+    ``entries``). ``types`` then counts each alias group ONCE (``identities[index].is_definition``)
+    instead of once per entry, mirroring TC-614's exact dedup logic in
+    ``chunk_builder._coverage_line``. ``functions`` is untouched either way: a function is never
+    paired by ``chunk_builder._reexport_pairs`` (confirmed on every real, committed fixture; see
+    TC-614's closeout), so excluding ``kind == "function"`` from the dedup is a no-op for it.
+    """
     entries = [entry for entry in types if not _is_test_entry(entry)]
     functions = sum(1 for entry in entries if entry.get("kind") == "function")
-    return {"types": len(entries) - functions, "functions": functions}
+    if identities is None:
+        return {"types": len(entries) - functions, "functions": functions}
+    types_count = sum(
+        1
+        for index, entry in enumerate(types)
+        if not _is_test_entry(entry) and entry.get("kind") != "function" and identities[index].is_definition
+    )
+    return {"types": types_count, "functions": functions}
 
 
 def api_counts(types: list[dict[str, Any]]) -> dict[str, int]:
@@ -631,6 +654,12 @@ def extract_pinned_repository(manifest_path: Path, *, commit: str | None = None)
         # "python" is recorded literally here, never a tree-sitter grammar name, so downstream
         # code can tell which reader produced a given fixture.
         language = "python" if platform == "python" else _LANGUAGE_BY_PLATFORM[platform]
+        # TC-620 (I3, REQ-G3-012): types here is the FULL, raw, un-cut extracted list (no slot-cap
+        # has been applied yet - that happens later, per-generation, inside chunk_builder), the same
+        # shape chunk_builder's own `entries` parameter expects. identities is computed once, over
+        # that same full list, and threaded into summarize_symbols so the API-Coverage denominator
+        # counts each alias group once, same as I2 already does for the numerator.
+        identities = compute_canonical_identities(types)
         artifact: dict[str, Any] = {
             "source_repository": manifest["repository"],
             "source_commit": commit_sha,
@@ -639,7 +668,7 @@ def extract_pinned_repository(manifest_path: Path, *, commit: str | None = None)
             "counts": api_counts(types),
             "types": types,
             "extractor_version": EXTRACTOR_VERSION,
-            "symbol_counts": summarize_symbols(types),
+            "symbol_counts": summarize_symbols(types, identities=identities),
         }
         if health is not None:
             artifact["parse_failures"] = health
