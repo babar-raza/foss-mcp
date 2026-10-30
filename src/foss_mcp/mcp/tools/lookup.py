@@ -68,6 +68,7 @@ from foss_mcp.mcp.tools.relevance import (
     distinctive_terms,
     fold_query,
     has_minimum_evidence,
+    normalize_query,
     present_terms,
     query_terms,
     term_weights,
@@ -343,9 +344,9 @@ def _limitation_docs(store: GenerationManifestStore, scope: Scope, query: str) -
     with a negation cue ("not supported", "not implemented", "no PDF export", "throws") that holds at least two
     of the question's terms and at least 60 percent of them - best first, a chunk titled as a limitation or scope
     document ahead of an equal one that is not. At most two. ``()`` when none: nothing is invented."""
-    terms = query_terms(query, scope.family)
+    terms = query_terms(query, scope.family, platform=scope.platform)
     if (
-        len(distinctive_terms(query, scope.family)) < _LIMITATION_MIN_TERMS
+        len(distinctive_terms(query, scope.family, platform=scope.platform)) < _LIMITATION_MIN_TERMS
         and len(terms) < _LIMITATION_MIN_TERMS
     ):
         return ()
@@ -398,13 +399,15 @@ def _answer_quality(
     if example is not None and example.coverage >= _FULL_COVERAGE and example.source != "vector":
         return MATCH_EXACT, ()
     _generation_id, documents = _documents_of(store, scope)
-    rule = _rule_for(query, scope.family, {"documents": documents})
+    rule = _rule_for(query, scope.family, {"documents": documents}, platform=scope.platform)
     if rule is not None:
         for match in doc_matches:
             if passage_coverage(rule, match.text) >= _FULL_COVERAGE:
                 return MATCH_EXACT, ()
     unmatched = (
-        symbols[0].unmatched_terms if symbols else tuple(sorted(distinctive_terms(query, scope.family)))
+        symbols[0].unmatched_terms
+        if symbols
+        else tuple(sorted(distinctive_terms(query, scope.family, platform=scope.platform)))
     )
     return MATCH_PARTIAL, unmatched
 
@@ -420,13 +423,16 @@ def _merged_symbols(*groups: tuple[SymbolMatch, ...]) -> tuple[SymbolMatch, ...]
 
 
 def _without_unsupported_tables(
-    matches: tuple[DocMatch, ...], query: str, family: str
+    matches: tuple[DocMatch, ...], query: str, family: str, *, platform: str | None = None
 ) -> tuple[DocMatch, ...]:
     """TC-516: documentation whose only evidence is table-dominated chunks stands only when one such chunk
-    holds at least two distinctive query terms; otherwise those chunks are dropped (``()``)."""
+    holds at least two distinctive query terms; otherwise those chunks are dropped (``()``). *platform*
+    (TC-610, G3/REQ-G3-011), when given, additionally excludes the scope's own platform/runtime word from
+    ``distinctive_terms``, exactly as that function already documents; ``platform=None`` (the default)
+    leaves the existing behaviour byte-for-byte unaffected."""
     if not all(_is_table_dominated(match.text) for match in matches):
         return matches
-    terms = distinctive_terms(query, family)
+    terms = distinctive_terms(query, family, platform=platform)
     for match in matches:
         if len(present_terms(terms, tokenize(match.text))) >= _TABLE_EVIDENCE_MIN_TERMS:
             return matches
@@ -468,6 +474,7 @@ def lookup(
         return search_docs(store, scope, query, content_type, top_k=top_k)
 
     query = fold_query(query)
+    query = normalize_query(query, scope.family)
 
     def _compose_from_docs() -> TaskAnswer | None:
         doc_matches: tuple[DocMatch, ...] = ()
@@ -478,7 +485,9 @@ def lookup(
                 # is never offered as documentation (search_docs already guarantees it; this
                 # keeps lookup's own composition honest even if that ever regresses).
                 documentation = tuple(m for m in doc_result if chunk_kind(m.text) == DOCUMENTATION)
-                documentation = _without_unsupported_tables(documentation, query, scope.family)
+                documentation = _without_unsupported_tables(
+                    documentation, query, scope.family, platform=scope.platform
+                )
                 if documentation:
                     doc_matches = documentation
                     break

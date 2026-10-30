@@ -34,6 +34,7 @@ from foss_mcp.mcp.tools.relevance import (
     guarded_coverage,
     has_minimum_evidence,
     names_language_letter,
+    normalize_query,
     query_terms,
     required_terms,
     stem_token,
@@ -232,18 +233,36 @@ class _Rule:
     required: frozenset[str]
 
 
-def _rule_for(query: str, family: str, lexical_payload: dict | None) -> _Rule | None:
+def _rule_for(
+    query: str, family: str, lexical_payload: dict | None, *, platform: str | None = None
+) -> _Rule | None:
     """The rule for *query*, or ``None`` when the query has no distinctive term (it names no topic, so
     no documentation chunk can answer it). The bare query that IS only the family word keeps
     ``query_terms``' fallback, as it always has. A query that names the language C++ or C# (a single
     letter directly followed by ``++`` or ``#``) names a topic even though that letter is not a term. A query
-    with no word of two characters (``a.b.c::d``) names nothing (TC-562)."""
+    with no word of two characters (``a.b.c::d``) names nothing (TC-562). *platform* (TC-610, G3/REQ-G3-011),
+    when given, additionally excludes the scope's own platform/runtime word from ``query_terms``/
+    ``distinctive_terms``, exactly as those functions already document; ``platform=None`` (the default)
+    leaves every existing call byte-for-byte unaffected.
+
+    REWORK (attempt 2, G3/TC-617): excluding the platform word can empty ``distinctive_terms`` even
+    though the query names a real topic - a bare product-title query ("Aspose.<Family> FOSS for
+    <Platform>") whose only non-generic, non-family content IS its own platform word. Before platform
+    exclusion existed, such a query fell through to ``query_terms``' own fallback (the full stemmed
+    set) via the bare-family-word special case below. When that is exactly what happened - the
+    platform exclusion alone is what emptied ``distinctive_terms`` - this rebuilds ``terms`` without
+    the platform exclusion, preserving that pre-existing single-term rule byte-for-byte, while a query
+    with real additional distinctive content beyond its own platform word still gets that word
+    correctly excluded."""
     if not has_minimum_evidence(query):
         return None
-    terms = query_terms(query, family)
-    names_topic = bool(distinctive_terms(query, family)) or names_language_letter(query)
-    if not names_topic and terms != frozenset({stem_token(family)}):
-        return None
+    terms = query_terms(query, family, platform=platform)
+    names_topic = bool(distinctive_terms(query, family, platform=platform)) or names_language_letter(query)
+    if not names_topic:
+        if platform is not None and distinctive_terms(query, family) == frozenset({stem_token(platform)}):
+            terms = query_terms(query, family)
+        elif terms != frozenset({stem_token(family)}):
+            return None
     return _Rule(terms, term_weights(terms, lexical_payload or {}), required_terms(query))
 
 
@@ -453,11 +472,12 @@ def search_docs(
 
     original_query = query
     query = fold_query(query)
+    query = normalize_query(query, scope.family)
     # TC-381: only ``documentation`` chunks are candidates - an API-symbol or example chunk is never
     # documentation, whatever its words - and the category is derived for those alone.
     grouped = _doc_ids_by_content_type(documents)
     matching_doc_ids = set().union(*grouped.values()) if content_type is None else grouped[content_type]
-    rule = _rule_for(query, scope.family, lexical_payload)
+    rule = _rule_for(query, scope.family, lexical_payload, platform=scope.platform)
     if not matching_doc_ids:
         return _miss_with_hint(
             scope,
