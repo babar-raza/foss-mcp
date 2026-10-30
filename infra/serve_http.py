@@ -1418,9 +1418,9 @@ def _merge_registry_verification(
     sidecar: ProductReferenceInputs, manifests_dir: Path, deployment_config: DeploymentConfig
 ) -> ProductReferenceInputs:
     """Merge the identity's registry-verification sidecar into *sidecar*. A missing file is as before; a
-    corrupt or wrong-shaped file (or ``verified`` that is not a bool, or ``coordinate`` / ``checked_at``
-    that are not strings) is ignored with ONE WARNING and the answers stay as if never verified. It never
-    changes the product-reference state."""
+    corrupt or wrong-shaped file (or ``verified`` that is not a bool, ``coordinate`` / ``checked_at`` that
+    are not strings, or ``served_version`` that is neither ``None`` nor a string) is ignored with ONE
+    WARNING and the answers stay as if never verified. It never changes the product-reference state."""
     family = deployment_config.family
     platform = deployment_config.platform
     path = manifests_dir / verify_package_registry_sidecar_name(family, platform)
@@ -1442,6 +1442,7 @@ def _merge_registry_verification(
                 or not isinstance(loaded.get("verified"), bool)
                 or not isinstance(loaded.get("coordinate"), str)
                 or not isinstance(loaded.get("checked_at"), str)
+                or not (loaded.get("served_version") is None or isinstance(loaded.get("served_version"), str))
             ):
                 problem = _PROBLEM_WRONG_TYPES
             else:
@@ -1463,6 +1464,7 @@ def _merge_registry_verification(
         install_verified=registry_verification["verified"],
         install_verified_coordinate=registry_verification["coordinate"],
         install_verified_checked_at=registry_verification["checked_at"],
+        install_verified_served_version=registry_verification.get("served_version"),
     )
 
 

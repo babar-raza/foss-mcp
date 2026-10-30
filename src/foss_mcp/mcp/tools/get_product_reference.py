@@ -199,6 +199,14 @@ class ProductReferenceInputs:
     install_verified: bool | None = None
     install_verified_coordinate: str | None = None
     install_verified_checked_at: str | None = None
+    # G3/TC-622: the version infra/verify_package_registry.py's own served_version_or_none(...) wrote
+    # into the SAME registry-verification sidecar, for THIS platform's current install coordinate,
+    # merged in by infra/serve_http.py's _merge_registry_verification alongside the 3 fields above. A
+    # RAW string (e.g. "26.8.0"), unparsed - mirroring how install_verified_checked_at is also stored
+    # raw; parsing happens only at the one real consumer (server.py's _live_report_index_freshness),
+    # never here. None (the default, and what a sidecar written before this card loads as) means
+    # "never checked, or the registry confirmed nothing is published".
+    install_verified_served_version: str | None = None
     # G3/TC-353: the repository ("owner/name", or a full URL) and the exact commit the product's
     # symbols were extracted from, as recorded in the product-reference sidecar by
     # infra/fetch_product_reference.py. Read ONLY by the "install" branch, and only when the

@@ -83,7 +83,7 @@ from foss_mcp.mcp.tools.list_members import list_members
 from foss_mcp.mcp.tools.list_recent_changes import list_recent_changes
 from foss_mcp.mcp.tools.lookup import lookup
 from foss_mcp.mcp.tools.readme_sections import ReadmeSections, read_readme_sections
-from foss_mcp.mcp.tools.release_alignment import align_releases, package_version
+from foss_mcp.mcp.tools.release_alignment import align_releases, package_version, parse_release_version
 from foss_mcp.mcp.tools.report_index_freshness import (
     read_generation_commits,
     read_indexed_commits,
@@ -368,6 +368,14 @@ def _live_report_index_freshness(
         snapshot = sidecars()
         inputs = snapshot.product_reference_inputs
         releases = snapshot.recent_releases
+        # G3/TC-622: the already-written served_version sidecar field, parsed the same way
+        # release_alignment.package_version parses the manifest's own declared version, so
+        # report_index_freshness's registry_served_version comparison is well-typed.
+        registry_served_version = (
+            parse_release_version(inputs.install_verified_served_version)
+            if inputs.install_verified_served_version is not None
+            else None
+        )
         return report_index_freshness(
             store,
             scope,
@@ -376,6 +384,7 @@ def _live_report_index_freshness(
             pinned_library_commit=inputs.source_ref,
             product_reference=inputs,
             releases=releases,
+            registry_served_version=registry_served_version,
         )
 
     return report_index_freshness_tool
