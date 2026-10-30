@@ -1,0 +1,111 @@
+{
+  "schema_version": 1,
+  "card": "TC-621",
+  "gate": "G3",
+  "generated_by": "gatectl",
+  "generated_at": "2026-10-30T21:16:04Z",
+  "base_rev": "1f60dbfce27725f1c0974b3a1304e09b5a9c52b7",
+  "head_rev": "b5774d0a5d5d57cc787cb0aac861b4e46a35a0a3",
+  "card_sha256": "fe86226ba44b1066a67cb371235990fa9fcb3cd8009b60390ae6b8272a72809f",
+  "fingerprint": {
+    "python": "3.13.2",
+    "platform": "Windows-11-10.0.26300-SP0",
+    "lock_sha256": "5c72e798a73c059a438e752e94a8d4c88c1bdf81a197f6e5c5fcecbc9466a691",
+    "env": {
+      "PYTHONHASHSEED": "0",
+      "PYTHONUTF8": "1",
+      "PYTHONDONTWRITEBYTECODE": "1",
+      "PYTHONIOENCODING": "utf-8",
+      "TZ": "UTC",
+      "LC_ALL": "C.UTF-8",
+      "SOURCE_DATE_EPOCH": "1700000000",
+      "verify_runner": "host"
+    }
+  },
+  "scope": {
+    "ok": true,
+    "changed_paths": [
+      "src/foss_mcp/mcp/tools/report_index_freshness.py",
+      "tests/mcp/tools/test_freshness_registry_version.py"
+    ],
+    "violations": [],
+    "evaluated": true
+  },
+  "runs": [
+    {
+      "run": 1,
+      "checks": [
+        {
+          "command": "{python} -m pytest tests/mcp/tools/test_freshness_registry_version.py -q -rfE",
+          "exit_code": 0,
+          "duration_s": 1.751,
+          "stdout_sha256": "7040371af15613c02e821ec0eecc1d1330f691ace4cef93a41bfa358822c4103",
+          "tests": 10,
+          "skipped": 0,
+          "errors": 0,
+          "failures": 0
+        },
+        {
+          "command": "{python} -m pytest tests/mcp/tools/test_freshness_registry_version.py tests/mcp/tools/test_freshness_provenance.py tests/mcp/tools/test_freshness_tristate.py -q -rfE -p no:cacheprovider",
+          "exit_code": 0,
+          "duration_s": 4.415,
+          "stdout_sha256": "302c481d0476715670506a6664542c2cdca3bcb6f6be63ec67b5ba0dde493cf4",
+          "tests": 71,
+          "skipped": 0,
+          "errors": 0,
+          "failures": 0
+        }
+      ],
+      "all_passed": true
+    },
+    {
+      "run": 2,
+      "checks": [
+        {
+          "command": "{python} -m pytest tests/mcp/tools/test_freshness_registry_version.py -q -rfE",
+          "exit_code": 0,
+          "duration_s": 1.297,
+          "stdout_sha256": "7040371af15613c02e821ec0eecc1d1330f691ace4cef93a41bfa358822c4103",
+          "tests": 10,
+          "skipped": 0,
+          "errors": 0,
+          "failures": 0
+        },
+        {
+          "command": "{python} -m pytest tests/mcp/tools/test_freshness_registry_version.py tests/mcp/tools/test_freshness_provenance.py tests/mcp/tools/test_freshness_tristate.py -q -rfE -p no:cacheprovider",
+          "exit_code": 0,
+          "duration_s": 3.957,
+          "stdout_sha256": "302c481d0476715670506a6664542c2cdca3bcb6f6be63ec67b5ba0dde493cf4",
+          "tests": 71,
+          "skipped": 0,
+          "errors": 0,
+          "failures": 0
+        }
+      ],
+      "all_passed": true
+    }
+  ],
+  "negative_control": {
+    "kind": "mutate",
+    "patch": "python -X utf8 -c \"import pathlib; p = pathlib.Path('src/foss_mcp/mcp/tools/report_index_freshness.py'); s = p.read_text(encoding='utf-8'); old = 'def report_index_freshness('; assert s.count(old) == 1, 'fix text not found - card and source have diverged'; lines = s.splitlines(); i = next(idx for idx, line in enumerate(lines) if old in line); j = i + 1; depth_line = lines[j]; indent = ' ' * (len(depth_line) - len(depth_line.lstrip())); marker = indent + 'registry_served_version = None  # TC-621 negative control: never use the registry-served version even when given'; lines.insert(j, marker); p.write_text(chr(10).join(lines) + chr(10), encoding='utf-8')\"\n",
+    "patch_sha256": "fef785476dfe81d8372dbb1d7c032e0e863f441c54cb44114e1bc30bb1ee5003",
+    "applied": true,
+    "patch_applied_failed": true,
+    "exit_codes": [
+      2,
+      2
+    ],
+    "tree_changed": [
+      "M src/foss_mcp/mcp/tools/report_index_freshness.py",
+      "?? .junit-0.xml",
+      "?? .junit-1.xml"
+    ]
+  },
+  "holdout": {
+    "ran": false,
+    "passed": true,
+    "detail": "no holdout for this card"
+  },
+  "accepted": true,
+  "reason": "all gates passed"
+}
