@@ -18,12 +18,53 @@ purpose: >-
   read-only reference for this card, not a write_path) - it was simply never exercised because the
   numerator was never honestly below the denominator before. Read
   C:\Users\babar\.claude\plans\steady-wobbling-meteor.md section 1.1 (M2/C1) and 2.3 (I1-I5) first.
+
+  REWORK (attempt 2): attempt 1 built the real fix correctly (verified by the supervisor's own
+  review) but its blast radius extends past the 2 files it was scoped to. `gatectl review`'s own
+  wider offline sweep of "files this card touches" found 7 pre-existing tests across 3 OTHER files
+  now failing, because they hardcoded the OLD, tautological numbers for pilots that genuinely have
+  real aliases - this is the exact, intended consequence of fixing the tautology, not a bug in the
+  fix. Attempt 2 widens this card's write_paths to the 3 affected files and REQUIRES correcting
+  their hardcoded expectations to the new, honestly-measured numbers (never deleting or weakening
+  the assertions - each one still asserts something true and specific, just a different true,
+  specific number than before):
+  1. `tests/extraction/test_reextracted_uncapped.py::test_coverage_line_states_the_complete_surface`
+     is parametrized over 5 pilots (pdf_python, slides_python, html_python, 3d_python, words_python)
+     and asserts `_coverage_is_complete(line)` (100%) for each. Measure fresh, per pilot, through the
+     real `build_chunks_from_api_surface` call site with the fix applied: a pilot with zero real
+     aliased pairs legitimately stays 100%-complete and its assertion is unchanged; a pilot with real
+     aliases now honestly reports a partial ratio and its assertion must change to a concrete
+     `assert line == "API-Coverage: <real N> of <real M> types; ..."` (or equivalent concrete check),
+     never a change to `_coverage_is_complete`'s own definition or threshold. State the real measured
+     before/after per pilot in your closeout.
+  2. `tests/indexing/test_chunk_builder_python_signatures.py::test_coverage_line_counts_entries_so_it_can_exceed_the_cap`
+     currently asserts the literal string `"API-Coverage: 4 of 10 types"` for a fixture built from two
+     real shell/definition pairs (`_pair(1)`, `_pair(2)`) with `max_types=2`, `type_count=10`. With the
+     fix, two real pairs canonicalize to 2 distinct types, not 4 - measure the real rendered line
+     through the actual call site and update the literal to match. If the test's own intent ("counts
+     entries so it can exceed the cap") depended on counting raw entries rather than canonical units,
+     state plainly in your closeout whether that intent still holds under dedup or whether the test
+     needed a second, separate case added (without removing the original assertion's correctness).
+  3. `tests/mcp/tools/test_coverage_note.py::test_report_index_freshness_states_the_same_note` hardcodes
+     tex_python's old `(21, 21)` (itself a correction from TC-555's `(4, 4)` - keep that comment style,
+     append `# TC-614: (21, 21) -> (<real>, 21)`). The supervisor's own review run measured this as
+     `(14, 21)` through the real, unmodified `coverage_note_from_text` - confirm this number yourself
+     fresh rather than trusting it, since the fixture may have shifted slightly, and update the
+     assertion to the real measured pair.
+  Do not go looking for a 4th or 5th affected file beyond these 3 plus your attempt-1 files - the
+  supervisor's review ran the full offline suite of every file this card's write_paths now cover and
+  these were the only failures found. If your own verification surfaces a DIFFERENT file failing for
+  the same reason (a hardcoded pre-fix number), you may add it to write_paths and fix it the same way,
+  but state this explicitly in your closeout as a correction to the card.
 depends_on:
   - TC-559
   - TC-612
 write_paths:
   - src/foss_mcp/indexing/chunk_builder.py
   - tests/indexing/test_chunk_builder_coverage_line.py
+  - tests/extraction/test_reextracted_uncapped.py
+  - tests/indexing/test_chunk_builder_python_signatures.py
+  - tests/mcp/tools/test_coverage_note.py
 satisfies:
   - REQ-G3-012
 source_refs:
@@ -98,30 +139,37 @@ actions:
     unmodified caveat path for the first time on a real pilot (slides/python), with the
     denominator-side fix explicitly deferred to I3.
 checks:
-  - command: '{python} -m pytest tests/indexing/test_chunk_builder_coverage_line.py -q -rfE'
-    expect: 'exit 0'
-    timeout_seconds: 180
-    junitxml: true
-    proves:
-      - REQ-G3-012
-  - command: '{python} -m pytest tests/indexing/test_chunk_builder_coverage_line.py tests/indexing/test_chunk_builder.py tests/indexing/test_symbol_identity.py -q -rfE -p no:cacheprovider'
+  - command: '{python} -m pytest tests/indexing/test_chunk_builder_coverage_line.py tests/extraction/test_reextracted_uncapped.py tests/indexing/test_chunk_builder_python_signatures.py tests/mcp/tools/test_coverage_note.py -q -rfE'
     expect: 'exit 0'
     timeout_seconds: 240
     junitxml: true
     proves:
       - REQ-G3-012
-min_tests: 4
+  - command: '{python} -m pytest tests/indexing/test_chunk_builder_coverage_line.py tests/extraction/test_reextracted_uncapped.py tests/indexing/test_chunk_builder_python_signatures.py tests/mcp/tools/test_coverage_note.py tests/indexing/test_chunk_builder.py tests/indexing/test_symbol_identity.py -q -rfE -p no:cacheprovider'
+    expect: 'exit 0'
+    timeout_seconds: 300
+    junitxml: true
+    proves:
+      - REQ-G3-012
+min_tests: 245
 requires:
   - python
 network: false
 negative_control:
   mutate: |
-    python -X utf8 -c "import pathlib; p = pathlib.Path('src/foss_mcp/indexing/chunk_builder.py'); s = p.read_text(encoding='utf-8'); old = 'def _coverage_line('; assert s.count(old) == 1, 'fix text not found - card and source have diverged'; lines = s.splitlines(); i = next(idx for idx, line in enumerate(lines) if old in line); j = i + 1; depth_line = lines[j]; indent = ' ' * (len(depth_line) - len(depth_line.lstrip())); lines.insert(j, indent + 'identities = None  # TC-614 negative control: never use the canonical identities even when given'); p.write_text(chr(10).join(lines) + chr(10), encoding='utf-8')"
+    python -X utf8 -c "import pathlib; p = pathlib.Path('src/foss_mcp/indexing/chunk_builder.py'); s = p.read_text(encoding='utf-8'); old = chr(10).join(['    type_count = fixture.get(' + chr(34) + 'type_count' + chr(34) + ')']); assert s.count(old) == 1, 'fix text not found - card and source have diverged'; p.write_text(s.replace(old, '    identities = None  # TC-614 negative control: never use the canonical identities even when given' + chr(10) + old, 1), encoding='utf-8')"
   rationale: >-
-    Forces the function to ignore any identities argument it is given, immediately on entry,
-    reproducing the pre-fix, non-deduplicated numerator unconditionally. The deduplication test and
-    the real slides/python regression test must then fail, proving they exercise the real dedup
-    logic rather than trusting the function signature alone.
+    CORRECTED in attempt 2 after a real attempt found the original anchor fragile: `_coverage_line`'s
+    3-parameter signature exceeds this repo's pinned ruff line length, so ruff format reflows the
+    signature across multiple physical lines - an anchor on the literal `def _coverage_line(` landed
+    the inserted line INSIDE the parameter list, producing a SyntaxError/collection error rather than
+    a clean logical failure (the predicted outcome still held in spirit, just via a blunter mechanism).
+    The new anchor is the first statement of the function BODY (`type_count = fixture.get(...)`, after
+    the docstring, immune to signature reflow) and shadows `identities` to `None` immediately before
+    it executes, forcing the function to ignore any identities argument it is given, reproducing the
+    pre-fix, non-deduplicated numerator unconditionally. The deduplication test, the real slides/python
+    regression test, and the 3 corrected-expectation tests (REWORK attempt 2) must then fail, proving
+    they exercise the real dedup logic rather than trusting the function signature alone.
 evidence:
   - evidence/build/G3/TC-614/receipt.json
 closeout:
@@ -129,10 +177,14 @@ closeout:
     The API-Coverage numerator is deduplicated via I1's canonical-identity model, fully backward-
     compatible; state the real before/after numbers for slides/python and confirm
     coverage_note_from_text now returns a real caveat for it. State plainly that the denominator
-    remains inflated until I3 lands.
+    remains inflated until I3 lands. State the real before/after numbers for each of the 5
+    test_reextracted_uncapped.py pilots, the test_chunk_builder_python_signatures.py synthetic case,
+    and the test_coverage_note.py tex_python case corrected in REWORK attempt 2.
 recovery: >-
   If compute_canonical_identities turns out not to group function entries at all (so every
   function's is_definition is trivially True), confirm this explicitly in your closeout rather than
   assuming it - it changes nothing about the fix's correctness, but the plan needs it documented
   honestly. If coverage_note.py turns out to need a real change after all, STOP and report that
-  finding rather than editing a file outside this card's write_paths.
+  finding rather than editing a file outside this card's write_paths. If a 4th file beyond the 3
+  named in the REWORK note turns out to hardcode a pre-fix number, add it to write_paths and fix it
+  the same way, stating this explicitly in your closeout.
