@@ -1,0 +1,151 @@
+id: TC-613
+gate: G3
+lane: extraction
+purpose: >-
+  Build I6 (REQ-G3-012): resolve a release's real commit for drift detection, for BOTH GitHub
+  Release entries (whose `target_commitish` is often a branch name like "main", not a commit) and
+  tag entries - closing the measured 3D-NET-007 gap (`report_index_freshness` reports drift as
+  "unknown" for 3d/net even though a real, measurable 34%/101-of-297-type gap exists). The exact
+  resolution function ALREADY EXISTS, fully built and tested, but UNWIRED:
+  `infra/verify_package_registry.resolve_tag_commit(repository, ref)` calls GitHub's
+  `commits/{ref}` endpoint, which resolves a tag name OR a branch name directly to its real commit
+  SHA - this card's whole job is WIRING it in at the right point, not building new resolution logic.
+  Read C:\Users\babar\.claude\plans\steady-wobbling-meteor.md section 1.1 (M2/C8) and 2.3 (I6-I8)
+  first.
+depends_on:
+  - TC-560
+  - TC-607
+write_paths:
+  - infra/fetch_recent_releases.py
+  - src/foss_mcp/extraction/github_release_reader.py
+  - tests/infra/test_fetch_recent_releases_commit_resolution.py
+satisfies:
+  - REQ-G3-012
+source_refs:
+  - file: docs/DECISION_LOG.md
+    anchor: >-
+      ## 2026-10-30 — Round-2 portfolio audit remediation adopted: unified plan, governance decisions A-K
+      recorded (supervisor)
+    sha256: 62cf1403a592118e3fb6bd14c5336f8a997cc3181d44a585323ec9f1d385a931
+inputs:
+  - >-
+    READ FIRST, in full, before writing anything (the exact current control flow, confirmed by this
+    plan's own research, is required to get this fix right - do not guess at line numbers, re-read
+    the real file):
+    1. `infra/verify_package_registry.py`'s real `resolve_tag_commit(repository, ref)` function and
+       its full docstring (confirm it still calls `GET /repos/{repository}/commits/{ref}`, resolves
+       either a tag or a branch name, returns `None` on 404 or 422, reuses
+       `foss_mcp.extraction.github_http`'s `with_auth`/`urlopen_with_backoff`).
+    2. `src/foss_mcp/extraction/github_release_reader.py`'s real `Release` dataclass (particularly
+       `target_commitish`, `source`, `target_commit` property - the property's own docstring
+       explicitly says "resolving a tag to its commit is a later card's job"; THIS card is that
+       job) and its real `fetch_drift(repository, tag, indexed_commit)` function - find the exact
+       line computing `base` from `tag.target_commit`/`tag.source`/`tag.tag_name` and confirm
+       whether it STILL restricts using a resolved commit to `tag.source == "tag"` only (excluding
+       "release"-sourced entries even when a commit could be resolved for them too) - this plan's
+       own research found exactly this restriction; confirm it is still there before deciding how
+       to fix it.
+    3. `infra/fetch_recent_releases.py`'s real `_with_ancestry(args, fetched, indexed_commit)`
+       function - find the exact line calling `fetch_drift(args.repository, merged[0],
+       indexed_commit)` and confirm what `merged[0]` is at that point (a `Release` whose
+       `target_commitish` may be a branch name, a tag-resolved sha, or None).
+  - >-
+    Design the fix at the `_with_ancestry` call site (infra/ may import from both infra/ and
+    src/foss_mcp/; the reverse direction, src/foss_mcp/ importing from infra/, is NOT allowed per
+    this repository's own layering - `src/foss_mcp/extraction/github_release_reader.py` must NOT
+    import anything from `infra/verify_package_registry.py`; if the fix needs logic in BOTH files,
+    keep the GitHub-resolving call in `infra/fetch_recent_releases.py` and only change
+    `github_release_reader.py`'s `fetch_drift` to accept/use an already-resolved commit, never to
+    call the resolver itself):
+    1. In `_with_ancestry`, BEFORE calling `fetch_drift`, if `merged[0].target_commit` is `None`
+       (the unresolved case - a branch name, or no `target_commitish` at all), call
+       `resolve_tag_commit(args.repository, merged[0].tag_name)` (resolve by the release's own TAG
+       NAME, not by `target_commitish` itself, since `target_commitish` is documented as "where a
+       NEW tag would be created from" rather than a reliable pointer to an EXISTING tag's real
+       commit - the tag name is the unambiguous, correct ref to resolve for an existing release).
+       On a successful resolution, replace `merged[0]` with
+       `dataclasses.replace(merged[0], target_commitish=&lt;resolved sha&gt;)` so its `target_commit`
+       property now returns the real commit. On a failed resolution (`None` returned), leave
+       `merged[0]` exactly as it was - do not fabricate a commit, and do not raise; a failed
+       network resolution must degrade to today's behaviour (still "unknown" is honest), never to
+       a wrong, fabricated answer. Wrap the resolver call the same way the existing
+       `fetch_tags` call three lines above is already wrapped (a bare `except Exception` that logs
+       a warning to stderr and continues without failing the whole fetch) - match that existing
+       error-handling pattern exactly, do not invent a different one.
+    2. If `fetch_drift`'s `base` computation still restricts a resolved commit to
+       `tag.source == "tag"` only, widen that condition so a RELEASE-sourced entry whose
+       `target_commit` is now resolved (by step 1, before `fetch_drift` is ever called) is used
+       exactly the same way a tag-sourced entry's already-direct commit is - the two cases should
+       be symmetric once both carry a real, confirmed commit in `target_commitish`. Make this the
+       SMALLEST possible change to `fetch_drift`'s existing line, preserving its exact fallback
+       behavviour (falling through to the bare `tag.tag_name` string) for the genuinely-unresolved
+       case.
+    3. `report_index_freshness.py` (read-only reference - NOT in your write_paths; if you find it
+       also needs a change to actually surface the improved drift record to callers, STOP and
+       report that as a finding for a separate card rather than expanding this card's scope).
+  - >-
+    tests/infra/test_fetch_recent_releases_commit_resolution.py (offline - mock/monkeypatch the
+    actual GitHub HTTP call, do not make real network calls from this test; this card's `network:
+    false` and the real resolver's own existing tests already cover the live-HTTP behaviour):
+    (a) `_with_ancestry` given a Release-sourced entry whose `target_commitish` is a branch name
+    ("main") resolves it to a real commit via a monkeypatched `resolve_tag_commit` and the returned
+    entry's `drift` record is then computed against that REAL commit, not the literal string
+    "main" or the bare tag name; (b) a resolution failure (monkeypatched to return `None`) leaves
+    the entry exactly as before - no crash, no fabricated commit, same "unknown"-class outcome as
+    today; (c) a tag-sourced entry (where `target_commitish` is already a direct sha from the tags
+    API) is completely unaffected by this change - confirm byte-identical behaviour to before; (d)
+    a concrete reproduction of the measured 3D-NET-007 case: using the real `3d/net` repository
+    name and a synthetic Release whose `target_commitish` is a branch name (mirroring the real
+    reported shape), confirm the fixed code path would resolve it (with the HTTP call
+    monkeypatched to return a plausible fake sha, since this test must stay offline) rather than
+    reporting "unknown" purely because of the branch-name shape. Never weaken a check to make it
+    pass.
+actions:
+  - >-
+    Wire the already-built, already-tested resolve_tag_commit into _with_ancestry so a GitHub
+    Release's real commit is resolved before drift detection runs, and widen fetch_drift's
+    source=="tag"-only restriction so a resolved Release commit is used exactly like a tag's -
+    closing the measured 3D-NET-007 "unknown" gap without any new resolution logic.
+checks:
+  - command: '{python} -m pytest tests/infra/test_fetch_recent_releases_commit_resolution.py -q -rfE'
+    expect: 'exit 0'
+    timeout_seconds: 120
+    junitxml: true
+    proves:
+      - REQ-G3-012
+  - command: '{python} -m pytest tests/infra/test_fetch_recent_releases_commit_resolution.py tests/infra/test_round3_release_tags.py tests/infra/test_fetch_recent_releases.py -q -rfE -p no:cacheprovider'
+    expect: 'exit 0'
+    timeout_seconds: 180
+    junitxml: true
+    proves:
+      - REQ-G3-012
+min_tests: 4
+requires:
+  - python
+network: false
+negative_control:
+  mutate: |
+    python -X utf8 -c "import pathlib; p = pathlib.Path('infra/fetch_recent_releases.py'); s = p.read_text(encoding='utf-8'); old = 'A failed tags read leaves the list as it was.' + chr(34) * 3; assert s.count(old) == 1, 'fix text not found - card and source have diverged'; lines = s.splitlines(); i = next(idx for idx, line in enumerate(lines) if old in line); lines.insert(i + 1, '    resolve_tag_commit = lambda *a, **k: None  # TC-613 negative control: never resolve a release commit'); p.write_text(chr(10).join(lines) + chr(10), encoding='utf-8')"
+  rationale: >-
+    Inserts a local reassignment right after _with_ancestry's own docstring that shadows
+    resolve_tag_commit with a no-op lambda for the rest of that function's body - regardless of
+    exactly which line inside the function the real fix calls it from, every call resolves to this
+    inert shadow instead. The new tests proving a branch-name target_commitish gets resolved (and
+    the 3D-NET-007 reproduction) must then fail, proving they exercise the real resolution call
+    rather than trusting that it merely exists somewhere in the function.
+evidence:
+  - evidence/build/G3/TC-613/receipt.json
+closeout:
+  - >-
+    A GitHub Release's branch-name target_commitish is now resolved to a real commit before drift
+    detection runs, and a resolved Release commit is used exactly like a tag's own direct commit.
+    State whether fetch_drift's source=="tag" restriction was still present and exactly how you
+    widened it.
+recovery: >-
+  If the negative-control mutate script's docstring-text anchor does not match the real file
+  (e.g. the docstring wording has since changed), write a simpler, reliable replacement yourself in
+  the same chr()-based, backslash-free style used elsewhere in this plan (the local-shadow-lambda
+  technique it uses is the important part - keep that approach even if you have to re-anchor it)
+  and report the substitution in your closeout. If `report_index_freshness.py` also needs a change
+  to surface the fix end-to-end, STOP and report that as a finding rather than expanding this
+  card's write_paths yourself.
