@@ -1,0 +1,111 @@
+{
+  "schema_version": 1,
+  "card": "TC-599",
+  "gate": "G3",
+  "generated_by": "gatectl",
+  "generated_at": "2026-10-30T12:17:55Z",
+  "base_rev": "a8fe98bba846368e969f35d194761fe111b8152b",
+  "head_rev": "a30a53b59ea8325620bd6e7187e012c002132688",
+  "card_sha256": "1d22f9e77742f89953b67dd66b6ff75bad34ed1d5d659b72745450e35a25dc18",
+  "fingerprint": {
+    "python": "3.13.2",
+    "platform": "Windows-11-10.0.26300-SP0",
+    "lock_sha256": "5c72e798a73c059a438e752e94a8d4c88c1bdf81a197f6e5c5fcecbc9466a691",
+    "env": {
+      "PYTHONHASHSEED": "0",
+      "PYTHONUTF8": "1",
+      "PYTHONDONTWRITEBYTECODE": "1",
+      "PYTHONIOENCODING": "utf-8",
+      "TZ": "UTC",
+      "LC_ALL": "C.UTF-8",
+      "SOURCE_DATE_EPOCH": "1700000000",
+      "verify_runner": "host"
+    }
+  },
+  "scope": {
+    "ok": true,
+    "changed_paths": [
+      "scripts/release/latency_probe.py",
+      "tests/release/test_latency_probe.py"
+    ],
+    "violations": [],
+    "evaluated": true
+  },
+  "runs": [
+    {
+      "run": 1,
+      "checks": [
+        {
+          "command": "{python} -m pytest tests/release/test_latency_probe.py -q -rfE",
+          "exit_code": 0,
+          "duration_s": 11.182,
+          "stdout_sha256": "7040371af15613c02e821ec0eecc1d1330f691ace4cef93a41bfa358822c4103",
+          "tests": 10,
+          "skipped": 0,
+          "errors": 0,
+          "failures": 0
+        },
+        {
+          "command": "{python} -m pytest tests/release/test_latency_probe.py -q -rfE -p no:cacheprovider",
+          "exit_code": 0,
+          "duration_s": 10.189,
+          "stdout_sha256": "7040371af15613c02e821ec0eecc1d1330f691ace4cef93a41bfa358822c4103",
+          "tests": 10,
+          "skipped": 0,
+          "errors": 0,
+          "failures": 0
+        }
+      ],
+      "all_passed": true
+    },
+    {
+      "run": 2,
+      "checks": [
+        {
+          "command": "{python} -m pytest tests/release/test_latency_probe.py -q -rfE",
+          "exit_code": 0,
+          "duration_s": 8.67,
+          "stdout_sha256": "7040371af15613c02e821ec0eecc1d1330f691ace4cef93a41bfa358822c4103",
+          "tests": 10,
+          "skipped": 0,
+          "errors": 0,
+          "failures": 0
+        },
+        {
+          "command": "{python} -m pytest tests/release/test_latency_probe.py -q -rfE -p no:cacheprovider",
+          "exit_code": 0,
+          "duration_s": 8.376,
+          "stdout_sha256": "7040371af15613c02e821ec0eecc1d1330f691ace4cef93a41bfa358822c4103",
+          "tests": 10,
+          "skipped": 0,
+          "errors": 0,
+          "failures": 0
+        }
+      ],
+      "all_passed": true
+    }
+  ],
+  "negative_control": {
+    "kind": "mutate",
+    "patch": "python -X utf8 -c \"import pathlib; p = pathlib.Path('scripts/release/latency_probe.py'); s = p.read_text(encoding='utf-8'); old = 'def measure_calls('; assert s.count(old) == 1, 'fix text not found - card and source have diverged'; lines = s.splitlines(); i = next(idx for idx, line in enumerate(lines) if old in line); q = chr(34); lines.insert(i + 1, '    return {' + q + 'p50' + q + ': -1.0, ' + q + 'p95' + q + ': -1.0, ' + q + 'p99' + q + ': -1.0, ' + q + 'max' + q + ': -1.0}  # TC-599 negative control'); p.write_text(chr(10).join(lines) + chr(10), encoding='utf-8')\"\n",
+    "patch_sha256": "dd90d0350d29503fdc8eb2f4256b023beb43403451b67b31016b3be76f14c1a6",
+    "applied": true,
+    "patch_applied_failed": true,
+    "exit_codes": [
+      1,
+      1
+    ],
+    "tree_changed": [
+      "M scripts/release/latency_probe.py",
+      "?? .junit-0.xml",
+      "?? .junit-1.xml"
+    ]
+  },
+  "holdout": {
+    "ran": false,
+    "passed": true,
+    "detail": "no holdout for this card"
+  },
+  "accepted": true,
+  "reason": "all gates passed"
+}
