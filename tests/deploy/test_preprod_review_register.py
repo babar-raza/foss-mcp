@@ -14,6 +14,7 @@ regex code, no markdown library. Offline, deterministic, no network, no skips.
 from __future__ import annotations
 
 import re
+import subprocess
 from pathlib import Path
 
 import pytest
@@ -25,6 +26,9 @@ REPO_ROOT = Path(__file__).resolve().parents[2]
 REVIEW_DOC = REPO_ROOT / "docs" / "PREPROD_REVIEW.md"
 RELEASE_DOC = REPO_ROOT / "docs" / "RELEASE.md"
 PLANS_DIR = REPO_ROOT / "plans"
+# Identity only - never opened directly. This path is gate-mutable (a dirty receipt, an in-progress
+# `rebuild_state`) so the one read of it goes through `_read_head` (G3/TC-615), pinned to the
+# committed HEAD blob and therefore immune to any uncommitted, in-progress state.
 STATE_FILE = REPO_ROOT / "project" / "state.yaml"
 
 # ---------------------------------------------------------------------------
@@ -290,9 +294,27 @@ def _release_md_bullets() -> dict[str, str]:
     return {k: " ".join(v).strip() for k, v in bullets.items()}
 
 
+def _read_head(path: Path) -> str:
+    """Read `path` as committed at HEAD, never from the live working tree, so a transient,
+    uncommitted mutation elsewhere in the repository (a dirty receipt, an in-progress
+    `rebuild_state`) can never flip this module's verdict for a reason unrelated to the
+    pre-production review closure facts it exists to protect. Local ``git show`` only - no fetch,
+    no remote."""
+    relpath = path.relative_to(REPO_ROOT).as_posix()
+    result = subprocess.run(
+        ["git", "show", f"HEAD:{relpath}"],
+        cwd=REPO_ROOT,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    if result.returncode != 0:
+        pytest.fail(f"git show HEAD:{relpath} failed: {result.stderr.strip()}")
+    return result.stdout
+
+
 def _card_status_map() -> dict[str, str]:
-    with open(STATE_FILE, encoding="utf-8") as f:
-        state = yaml.safe_load(f)
+    state = yaml.safe_load(_read_head(STATE_FILE))
     return {c["id"]: c["status"] for c in state["cards"]}
 
 

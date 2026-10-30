@@ -27,6 +27,9 @@ import yaml
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 ROUND3_DOC = REPO_ROOT / "docs" / "ROUND3_REVIEW.md"
+# Identity only - these two paths are never opened directly. Both are gate-mutable (a dirty receipt,
+# an in-progress `rebuild_state`) so every read of them goes through `_read_head` (G3/TC-615), which
+# is pinned to the committed HEAD blob and is therefore immune to any uncommitted, in-progress state.
 STATE_FILE = REPO_ROOT / "project" / "state.yaml"
 OPEN_QUESTIONS_FILE = REPO_ROOT / "ops" / "open_questions.jsonl"
 EVIDENCE_DIR = REPO_ROOT / "evidence"
@@ -108,14 +111,25 @@ def _sup_rows() -> dict[str, list[str]]:
     return rows
 
 
-def _card_status_map() -> dict[str, str]:
-    with open(STATE_FILE, encoding="utf-8") as f:
-        state = yaml.safe_load(f)
-    return {c["id"]: c["status"] for c in state["cards"]}
-
-
 def _git(*args: str) -> subprocess.CompletedProcess:
     return subprocess.run(["git", *args], cwd=REPO_ROOT, capture_output=True, text=True, check=False)
+
+
+def _read_head(path: Path) -> str:
+    """Read `path` as committed at HEAD, never from the live working tree, so a transient,
+    uncommitted mutation elsewhere in the repository (a dirty receipt, an in-progress
+    `rebuild_state`) can never flip this module's verdict for a reason unrelated to the Round-3
+    closure facts it exists to protect. Local ``git show`` only - no fetch, no remote."""
+    relpath = path.relative_to(REPO_ROOT).as_posix()
+    result = _git("show", f"HEAD:{relpath}")
+    if result.returncode != 0:
+        pytest.fail(f"git show HEAD:{relpath} failed: {result.stderr.strip()}")
+    return result.stdout
+
+
+def _card_status_map() -> dict[str, str]:
+    state = yaml.safe_load(_read_head(STATE_FILE))
+    return {c["id"]: c["status"] for c in state["cards"]}
 
 
 def _commit_reachable_from_head(commit: str) -> bool:
@@ -137,15 +151,13 @@ def _card_integrated_into_head(card: str) -> bool:
 
 
 def _open_questions() -> dict[str, dict]:
-    assert OPEN_QUESTIONS_FILE.is_file()
     out: dict[str, dict] = {}
-    with open(OPEN_QUESTIONS_FILE, encoding="utf-8") as f:
-        for line in f:
-            line = line.strip()
-            if not line:
-                continue
-            obj = json.loads(line)
-            out[obj["id"]] = obj
+    for line in _read_head(OPEN_QUESTIONS_FILE).splitlines():
+        line = line.strip()
+        if not line:
+            continue
+        obj = json.loads(line)
+        out[obj["id"]] = obj
     return out
 
 
