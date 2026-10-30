@@ -1,0 +1,112 @@
+{
+  "schema_version": 1,
+  "card": "TC-600",
+  "gate": "G3",
+  "generated_by": "gatectl",
+  "generated_at": "2026-10-30T12:29:39Z",
+  "base_rev": "11877c44380337fe2116f8f578968351bd9618bc",
+  "head_rev": "ca1a4454ab41af4c8e089ef435c99166747fa731",
+  "card_sha256": "31c870cff43ca8e87e3fb2da38333c94fefecbe7ce3e74217761b3a794fae404",
+  "fingerprint": {
+    "python": "3.13.2",
+    "platform": "Windows-11-10.0.26300-SP0",
+    "lock_sha256": "5c72e798a73c059a438e752e94a8d4c88c1bdf81a197f6e5c5fcecbc9466a691",
+    "env": {
+      "PYTHONHASHSEED": "0",
+      "PYTHONUTF8": "1",
+      "PYTHONDONTWRITEBYTECODE": "1",
+      "PYTHONIOENCODING": "utf-8",
+      "TZ": "UTC",
+      "LC_ALL": "C.UTF-8",
+      "SOURCE_DATE_EPOCH": "1700000000",
+      "verify_runner": "host"
+    }
+  },
+  "scope": {
+    "ok": true,
+    "changed_paths": [
+      "infra/ingest.py",
+      "src/foss_mcp/indexing/publisher.py",
+      "tests/indexing/test_publisher_content_derived_version.py"
+    ],
+    "violations": [],
+    "evaluated": true
+  },
+  "runs": [
+    {
+      "run": 1,
+      "checks": [
+        {
+          "command": "{python} -m pytest tests/indexing/test_publisher_content_derived_version.py -q -rfE",
+          "exit_code": 0,
+          "duration_s": 1.407,
+          "stdout_sha256": "83a1593c5b5783693fe3006d1f6597bcb4f3a5968f23b59481ee09a0477f910a",
+          "tests": 7,
+          "skipped": 0,
+          "errors": 0,
+          "failures": 0
+        },
+        {
+          "command": "{python} -m pytest tests/indexing/test_publisher_content_derived_version.py tests/indexing/test_publisher.py -q -rfE -p no:cacheprovider",
+          "exit_code": 0,
+          "duration_s": 4.306,
+          "stdout_sha256": "e2289c230135b682d66e48107f8caab30f5b37878e8daf2e9fb92df9aebb1375",
+          "tests": 22,
+          "skipped": 0,
+          "errors": 0,
+          "failures": 0
+        }
+      ],
+      "all_passed": true
+    },
+    {
+      "run": 2,
+      "checks": [
+        {
+          "command": "{python} -m pytest tests/indexing/test_publisher_content_derived_version.py -q -rfE",
+          "exit_code": 0,
+          "duration_s": 0.883,
+          "stdout_sha256": "83a1593c5b5783693fe3006d1f6597bcb4f3a5968f23b59481ee09a0477f910a",
+          "tests": 7,
+          "skipped": 0,
+          "errors": 0,
+          "failures": 0
+        },
+        {
+          "command": "{python} -m pytest tests/indexing/test_publisher_content_derived_version.py tests/indexing/test_publisher.py -q -rfE -p no:cacheprovider",
+          "exit_code": 0,
+          "duration_s": 3.54,
+          "stdout_sha256": "e2289c230135b682d66e48107f8caab30f5b37878e8daf2e9fb92df9aebb1375",
+          "tests": 22,
+          "skipped": 0,
+          "errors": 0,
+          "failures": 0
+        }
+      ],
+      "all_passed": true
+    }
+  ],
+  "negative_control": {
+    "kind": "mutate",
+    "patch": "python -X utf8 -c \"import pathlib; p = pathlib.Path('src/foss_mcp/indexing/publisher.py'); s = p.read_text(encoding='utf-8'); old = 'def content_derived_version('; assert s.count(old) == 1, 'fix text not found - card and source have diverged'; lines = s.splitlines(); i = next(idx for idx, line in enumerate(lines) if old in line); q = chr(34); lines.insert(i + 1, '    return ' + q + 'not-deterministic-' + q + ' + str(id(object()))  # TC-600 negative control'); p.write_text(chr(10).join(lines) + chr(10), encoding='utf-8')\"\n",
+    "patch_sha256": "a8ae8f186c9719a144ef51f32bb6ce6233ba026941241bdfa57f29210eff7d3b",
+    "applied": true,
+    "patch_applied_failed": true,
+    "exit_codes": [
+      1,
+      1
+    ],
+    "tree_changed": [
+      "M src/foss_mcp/indexing/publisher.py",
+      "?? .junit-0.xml",
+      "?? .junit-1.xml"
+    ]
+  },
+  "holdout": {
+    "ran": false,
+    "passed": true,
+    "detail": "no holdout for this card"
+  },
+  "accepted": true,
+  "reason": "all gates passed"
+}

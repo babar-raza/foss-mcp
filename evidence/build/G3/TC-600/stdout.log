@@ -1,0 +1,197 @@
+
+===== CLEAN RUN 1 (host) =====
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-5c72e798a73c059a\Scripts\python.exe -m pytest tests/indexing/test_publisher_content_derived_version.py -q -rfE "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-df3xlxoj\.junit-0.xml"
+--- stdout ---
+.......                                                                  [100%]
+
+--- stderr ---
+
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-5c72e798a73c059a\Scripts\python.exe -m pytest tests/indexing/test_publisher_content_derived_version.py tests/indexing/test_publisher.py -q -rfE -p no:cacheprovider "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-df3xlxoj\.junit-1.xml"
+--- stdout ---
+......................                                                   [100%]
+
+--- stderr ---
+
+
+===== CLEAN RUN 2 (host) =====
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-5c72e798a73c059a\Scripts\python.exe -m pytest tests/indexing/test_publisher_content_derived_version.py -q -rfE "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-df3xlxoj\.junit-0.xml"
+--- stdout ---
+.......                                                                  [100%]
+
+--- stderr ---
+
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-5c72e798a73c059a\Scripts\python.exe -m pytest tests/indexing/test_publisher_content_derived_version.py tests/indexing/test_publisher.py -q -rfE -p no:cacheprovider "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-df3xlxoj\.junit-1.xml"
+--- stdout ---
+......................                                                   [100%]
+
+--- stderr ---
+
+
+===== NEGATIVE CONTROL (checks MUST now fail) =====
+mutated: M src/foss_mcp/indexing/publisher.py, ?? .junit-0.xml, ?? .junit-1.xml
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-5c72e798a73c059a\Scripts\python.exe -m pytest tests/indexing/test_publisher_content_derived_version.py -q -rfE "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-df3xlxoj\.junit-0.xml"
+--- stdout ---
+.FF..F.                                                                  [100%]
+================================== FAILURES ===================================
+___ test_content_derived_version_is_order_independent_but_content_sensitive ___
+
+    def test_content_derived_version_is_order_independent_but_content_sensitive() -> None:
+        chunk_ids = ["aaaa1111", "bbbb2222", "cccc3333"]
+        reordered = ["cccc3333", "aaaa1111", "bbbb2222"]
+        different = ["aaaa1111", "bbbb2222", "dddd4444"]
+    
+        original = content_derived_version(chunk_ids, source_date_epoch=EPOCH)
+        assert content_derived_version(reordered, source_date_epoch=EPOCH) == original, (
+            "reordering the same chunk_ids must not change the result"
+        )
+>       assert content_derived_version(different, source_date_epoch=EPOCH) != original, (
+            "a genuinely different chunk_ids set must change the result"
+        )
+E       AssertionError: a genuinely different chunk_ids set must change the result
+E       assert 'not-deterministic-2999699901216' != 'not-deterministic-2999699901216'
+E        +  where 'not-deterministic-2999699901216' = content_derived_version(['aaaa1111', 'bbbb2222', 'dddd4444'], source_date_epoch=1700000000)
+
+tests\indexing\test_publisher_content_derived_version.py:109: AssertionError
+_____ test_content_derived_version_round_trips_through_release_alignment ______
+
+    def test_content_derived_version_round_trips_through_release_alignment() -> None:
+        version = content_derived_version(["aaaa1111", "bbbb2222"], source_date_epoch=EPOCH)
+    
+        indexed_at = generation_indexed_at(version)
+    
+>       assert indexed_at == "2023-11-14T22:13:20Z"
+E       AssertionError: assert None == '2023-11-14T22:13:20Z'
+
+tests\indexing\test_publisher_content_derived_version.py:121: AssertionError
+____ test_main_with_both_flags_publishes_the_content_derived_generation_id ____
+
+tmp_path = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-17132/test_main_with_both_flags_publ0')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x000002BA6D59B550>
+
+    def test_main_with_both_flags_publishes_the_content_derived_generation_id(
+        tmp_path: Path, monkeypatch
+    ) -> None:
+        chunks_path = tmp_path / "chunks.json"
+        manifest_store_path = tmp_path / "manifests"
+        entries = [
+            _chunk_entry("Document.Open", "`Document.Open` opens a file."),
+            _chunk_entry("Page", "A page carries properties."),
+        ]
+        _write_chunks_fixture(chunks_path, entries)
+    
+        argv = [
+            *_base_argv(chunks_path, manifest_store_path),
+            "--content-derived-version",
+            "--source-date-epoch",
+            str(EPOCH),
+        ]
+        monkeypatch.setattr(sys, "argv", ["ingest.py", *argv])
+        ingest.main()
+    
+        chunks = ingest._load_chunks(chunks_path)
+        chunk_ids = [content_chunk_id(chunk) for chunk in chunks]
+        expected_version = content_derived_version(chunk_ids, source_date_epoch=EPOCH)
+    
+        store = GenerationManifestStore(manifest_store_path)
+>       assert store.read_active(SCOPE) == f"{SCOPE}::{expected_version}"
+E       AssertionError: assert 'pdf::net::se...2999699901456' == 'pdf::net::se...2999699901504'
+E         
+E         Skipping 44 identical leading characters in diff, use -v to show
+E         - 2999699901504
+E         ?            ^^
+E         + 2999699901456
+E         ?           + ^
+
+tests\indexing\test_publisher_content_derived_version.py:203: AssertionError
+---------------------------- Captured stdout call -----------------------------
+published pdf::net::self_extracted::not-deterministic-2999699901456
+=========================== short test summary info ===========================
+FAILED tests/indexing/test_publisher_content_derived_version.py::test_content_derived_version_is_order_independent_but_content_sensitive
+FAILED tests/indexing/test_publisher_content_derived_version.py::test_content_derived_version_round_trips_through_release_alignment
+FAILED tests/indexing/test_publisher_content_derived_version.py::test_main_with_both_flags_publishes_the_content_derived_generation_id
+
+--- stderr ---
+
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-5c72e798a73c059a\Scripts\python.exe -m pytest tests/indexing/test_publisher_content_derived_version.py tests/indexing/test_publisher.py -q -rfE -p no:cacheprovider "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-df3xlxoj\.junit-1.xml"
+--- stdout ---
+.FF..F................                                                   [100%]
+================================== FAILURES ===================================
+___ test_content_derived_version_is_order_independent_but_content_sensitive ___
+
+    def test_content_derived_version_is_order_independent_but_content_sensitive() -> None:
+        chunk_ids = ["aaaa1111", "bbbb2222", "cccc3333"]
+        reordered = ["cccc3333", "aaaa1111", "bbbb2222"]
+        different = ["aaaa1111", "bbbb2222", "dddd4444"]
+    
+        original = content_derived_version(chunk_ids, source_date_epoch=EPOCH)
+        assert content_derived_version(reordered, source_date_epoch=EPOCH) == original, (
+            "reordering the same chunk_ids must not change the result"
+        )
+>       assert content_derived_version(different, source_date_epoch=EPOCH) != original, (
+            "a genuinely different chunk_ids set must change the result"
+        )
+E       AssertionError: a genuinely different chunk_ids set must change the result
+E       assert 'not-deterministic-2552102767824' != 'not-deterministic-2552102767824'
+E        +  where 'not-deterministic-2552102767824' = content_derived_version(['aaaa1111', 'bbbb2222', 'dddd4444'], source_date_epoch=1700000000)
+
+tests\indexing\test_publisher_content_derived_version.py:109: AssertionError
+_____ test_content_derived_version_round_trips_through_release_alignment ______
+
+    def test_content_derived_version_round_trips_through_release_alignment() -> None:
+        version = content_derived_version(["aaaa1111", "bbbb2222"], source_date_epoch=EPOCH)
+    
+        indexed_at = generation_indexed_at(version)
+    
+>       assert indexed_at == "2023-11-14T22:13:20Z"
+E       AssertionError: assert None == '2023-11-14T22:13:20Z'
+
+tests\indexing\test_publisher_content_derived_version.py:121: AssertionError
+____ test_main_with_both_flags_publishes_the_content_derived_generation_id ____
+
+tmp_path = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-17133/test_main_with_both_flags_publ0')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x000002523573BC50>
+
+    def test_main_with_both_flags_publishes_the_content_derived_generation_id(
+        tmp_path: Path, monkeypatch
+    ) -> None:
+        chunks_path = tmp_path / "chunks.json"
+        manifest_store_path = tmp_path / "manifests"
+        entries = [
+            _chunk_entry("Document.Open", "`Document.Open` opens a file."),
+            _chunk_entry("Page", "A page carries properties."),
+        ]
+        _write_chunks_fixture(chunks_path, entries)
+    
+        argv = [
+            *_base_argv(chunks_path, manifest_store_path),
+            "--content-derived-version",
+            "--source-date-epoch",
+            str(EPOCH),
+        ]
+        monkeypatch.setattr(sys, "argv", ["ingest.py", *argv])
+        ingest.main()
+    
+        chunks = ingest._load_chunks(chunks_path)
+        chunk_ids = [content_chunk_id(chunk) for chunk in chunks]
+        expected_version = content_derived_version(chunk_ids, source_date_epoch=EPOCH)
+    
+        store = GenerationManifestStore(manifest_store_path)
+>       assert store.read_active(SCOPE) == f"{SCOPE}::{expected_version}"
+E       AssertionError: assert 'pdf::net::se...2552102768464' == 'pdf::net::se...2552102768128'
+E         
+E         Skipping 44 identical leading characters in diff, use -v to show
+E         - 2552102768128
+E         ?           ^^^
+E         + 2552102768464
+E         ?           ^^^
+
+tests\indexing\test_publisher_content_derived_version.py:203: AssertionError
+---------------------------- Captured stdout call -----------------------------
+published pdf::net::self_extracted::not-deterministic-2552102768464
+=========================== short test summary info ===========================
+FAILED tests/indexing/test_publisher_content_derived_version.py::test_content_derived_version_is_order_independent_but_content_sensitive
+FAILED tests/indexing/test_publisher_content_derived_version.py::test_content_derived_version_round_trips_through_release_alignment
+FAILED tests/indexing/test_publisher_content_derived_version.py::test_main_with_both_flags_publishes_the_content_derived_generation_id
+
+--- stderr ---
+
