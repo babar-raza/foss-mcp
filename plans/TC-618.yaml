@@ -28,7 +28,29 @@ purpose: >-
   upstream); if the regression TC-619 was supposed to fix still reproduces here, STOP and report
   FAILED_INTERNAL again rather than attempting your own second fix to relevance.py, which is
   outside this card's write_paths.
-depends_on:
+
+  ATTEMPT 3 NOTE: attempt 2 correctly implemented the wiring and TC-619's regex fix held - but
+  `gatectl review`'s own offline "files this card touches" sweep found attempt 2's own commit broke
+  2 tests in `tests/mcp/tools/test_lookup_query_normalization.py` (TC-617's file, which names
+  `search_symbols` among its related modules): `test_the_dotted_mention_fix_is_observable_on_the_
+  real_pilot_through_search_symbols` and `test_the_dotted_mention_fix_is_observable_through_the_
+  real_wired_lookup`. Root cause: TC-617's tests simulate "before this card" by stubbing ONLY
+  `lookup_module.normalize_query` to identity, which correctly reconstructed pre-TC-618 behaviour
+  back when `search_symbols()` itself never normalized anything - but now that THIS card makes
+  `search_symbols()` normalize the query internally too, stubbing lookup's own reference no longer
+  fully disables normalization end-to-end: `search_symbols`'s OWN internal call still fires. This is
+  not a regression in correctness (the real, non-simulated behaviour is MORE robust now - defense in
+  depth, normalized at two independent layers) - it is TC-617's "before" simulation methodology
+  becoming stale now that a second, independent normalization call site exists. Fix IN
+  `tests/mcp/tools/test_lookup_query_normalization.py` only (added to write_paths): in BOTH failing
+  tests, also stub `search_symbols`'s own module-level `normalize_query` reference to identity
+  (`import foss_mcp.mcp.tools.search_symbols as search_symbols_module;
+  monkeypatch.setattr(search_symbols_module, "normalize_query", lambda q, f: q)` or an equivalent
+  try/finally restore pattern matching the existing style in this file, since the function does not
+  already take a `monkeypatch` fixture - check and add it) for the "before" branch, so "before" once
+  again means "neither layer normalizes", genuinely reconstructing pre-TC-618-and-pre-TC-617
+  behaviour. Do not change what either test is trying to prove or weaken any assertion - only make
+  the simulation stub both real call sites that now exist. State this explicitly in your closeout.
   - TC-585
   - TC-610
   - TC-617
@@ -36,6 +58,7 @@ depends_on:
 write_paths:
   - src/foss_mcp/mcp/tools/search_symbols.py
   - tests/mcp/tools/test_search_symbols_query_normalization.py
+  - tests/mcp/tools/test_lookup_query_normalization.py
 satisfies:
   - REQ-G3-011
 source_refs:
@@ -88,13 +111,13 @@ actions:
     search_symbols ratchet suite with zero regression; platform exclusion is explicitly out of
     scope here.
 checks:
-  - command: '{python} -m pytest tests/mcp/tools/test_search_symbols_query_normalization.py -q -rfE'
+  - command: '{python} -m pytest tests/mcp/tools/test_search_symbols_query_normalization.py tests/mcp/tools/test_lookup_query_normalization.py -q -rfE'
     expect: 'exit 0'
     timeout_seconds: 180
     junitxml: true
     proves:
       - REQ-G3-011
-  - command: '{python} -m pytest tests/mcp/tools/test_search_symbols_query_normalization.py tests/mcp/tools/test_search_symbols_forgiveness.py tests/mcp/tools/test_search_symbols_memberless_last.py tests/conformance/test_symbol_self_retrieval.py tests/mcp/tools/test_round3_retrieval_corpus.py -q -rfE -p no:cacheprovider'
+  - command: '{python} -m pytest tests/mcp/tools/test_search_symbols_query_normalization.py tests/mcp/tools/test_lookup_query_normalization.py tests/mcp/tools/test_search_symbols_forgiveness.py tests/mcp/tools/test_search_symbols_memberless_last.py tests/conformance/test_symbol_self_retrieval.py tests/mcp/tools/test_round3_retrieval_corpus.py -q -rfE -p no:cacheprovider'
     expect: 'exit 0'
     timeout_seconds: 300
     junitxml: true
@@ -120,7 +143,9 @@ closeout:
     reviving the evidence stage for sentence queries that merely name the product; a genuine
     exact-name dotted query is unaffected; the full existing search_symbols ratchet suite is
     confirmed unchanged. State plainly whether any real platform-exclusion case was found and, if
-    so, that it was deliberately left for a separate card.
+    so, that it was deliberately left for a separate card. Confirm the 2 TC-617 "before" simulation
+    tests in test_lookup_query_normalization.py now correctly stub both normalize_query call sites
+    and pass clean.
 recovery: >-
   If wiring normalize_query changes ANY existing pinned search_symbols result for a query with no
   product-name mention, STOP and report FAILED_INTERNAL with the exact diff - TC-610 already
