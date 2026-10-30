@@ -264,7 +264,14 @@ def http_request(
     except TimeoutError:
         return Reply(None, {}, "", time.monotonic() - started, f"no reply within {timeout:g} s")
     except (OSError, http.client.HTTPException) as exc:
-        return Reply(None, {}, "", time.monotonic() - started, f"{type(exc).__name__}: no usable reply")
+        return Reply(
+            None,
+            {},
+            "",
+            time.monotonic() - started,
+            f"{type(exc).__name__}: no usable reply "
+            f"(errno={getattr(exc, 'errno', None)}, winerror={getattr(exc, 'winerror', None)})",
+        )
     finally:
         connection.close()
 

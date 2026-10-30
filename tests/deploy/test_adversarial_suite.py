@@ -9,6 +9,7 @@ attack, a memory jump, a generation change after a restart), and the matching sc
 
 from __future__ import annotations
 
+import errno
 import inspect
 import json
 import re
@@ -930,6 +931,49 @@ def test_an_oversized_protocol_reply_is_reported_as_larger_than_the_ceiling() ->
 def test_a_truncated_reply_is_still_unparseable() -> None:
     cut = suite.Reply(200, {}, 'event: message\ndata: {"jsonrpc": "2.0", "id": 1, "result": {"a": "', 0.1)
     assert suite.classify(cut).kind == "unparseable"
+
+
+# --- TC-602: the loopback client's "no usable reply" message keeps the real OSError detail ------------------------
+
+
+class _RaisingConnection:
+    """A fake ``http.client.HTTPConnection`` whose ``getresponse`` raises a given exception.
+
+    ``request`` is a no-op (the real one is already guarded by an inner handler for a clean
+    disconnect) so the raised exception is the one that reaches ``http_request``'s outer
+    ``except (OSError, http.client.HTTPException)`` block, exactly as a real socket failure would.
+    """
+
+    def __init__(self, exc: Exception) -> None:
+        self._exc = exc
+
+    def request(self, *args: object, **kwargs: object) -> None:
+        pass
+
+    def getresponse(self) -> object:
+        raise self._exc
+
+    def close(self) -> None:
+        pass
+
+
+def test_http_request_keeps_the_real_errno_when_the_socket_fails(monkeypatch: pytest.MonkeyPatch) -> None:
+    exc = OSError(errno.ECONNRESET, "simulated")
+    monkeypatch.setattr(suite.http.client, "HTTPConnection", lambda *a, **kw: _RaisingConnection(exc))
+    reply = suite.http_request("GET", "http://127.0.0.1:1/mcp")
+    assert reply.status is None and reply.body == ""
+    assert reply.error is not None
+    assert str(errno.ECONNRESET) in reply.error, reply.error
+
+
+def test_http_request_keeps_the_real_winerror_when_the_os_sets_one(monkeypatch: pytest.MonkeyPatch) -> None:
+    exc = OSError(errno.ECONNRESET, "simulated")
+    exc.winerror = 10055  # WSAENOBUFS, assigned the way the stdlib would on Windows
+    monkeypatch.setattr(suite.http.client, "HTTPConnection", lambda *a, **kw: _RaisingConnection(exc))
+    reply = suite.http_request("GET", "http://127.0.0.1:1/mcp")
+    assert reply.error is not None
+    assert str(errno.ECONNRESET) in reply.error, reply.error
+    assert "10055" in reply.error, reply.error
 
 
 # --- TC-365 fix 2: an echoed request is not another pilot's data --------------------------------------------------
