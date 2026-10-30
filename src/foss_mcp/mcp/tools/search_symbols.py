@@ -1030,7 +1030,7 @@ def search_symbols(
     fallback to a different generation or scope.
     """
     from foss_mcp.mcp.tools.get_symbol import extract_fqn, generation_coverage_note
-    from foss_mcp.mcp.tools.relevance import fold_query
+    from foss_mcp.mcp.tools.relevance import fold_query, normalize_query
 
     key = scope_key(scope, SOURCE_KIND)
     active_generation_id = store.read_active(key)
@@ -1049,6 +1049,7 @@ def search_symbols(
 
     original_query = query
     query = fold_query(query)
+    query = normalize_query(query, scope.family)
     documents = lexical_payload["documents"]
     ranked = query_lexical_index_scored(lexical_payload, query, top_k=len(documents))
     admitted: list[tuple[int, int, int, float, str]] = []
