@@ -90,7 +90,7 @@ requires:
 network: false
 negative_control:
   mutate: |
-    python -X utf8 -c "import pathlib; p = pathlib.Path('scripts/release/latency_probe.py'); s = p.read_text(encoding='utf-8'); old = 'def measure_calls('; assert s.count(old) == 1, 'fix text not found - card and source have diverged'; lines = s.splitlines(); i = next(idx for idx, line in enumerate(lines) if old in line); lines.insert(i + 1, '    return {\"p50\": -1.0, \"p95\": -1.0, \"p99\": -1.0, \"max\": -1.0}  # TC-599 negative control'); p.write_text(chr(10).join(lines) + chr(10), encoding='utf-8')"
+    python -X utf8 -c "import pathlib; p = pathlib.Path('scripts/release/latency_probe.py'); s = p.read_text(encoding='utf-8'); old = 'def measure_calls('; assert s.count(old) == 1, 'fix text not found - card and source have diverged'; lines = s.splitlines(); i = next(idx for idx, line in enumerate(lines) if old in line); q = chr(34); lines.insert(i + 1, '    return {' + q + 'p50' + q + ': -1.0, ' + q + 'p95' + q + ': -1.0, ' + q + 'p99' + q + ': -1.0, ' + q + 'max' + q + ': -1.0}  # TC-599 negative control'); p.write_text(chr(10).join(lines) + chr(10), encoding='utf-8')"
   rationale: >-
     Makes the measurement function return a fixed, nonsensical negative-latency report regardless
     of input. The "all non-negative floats" and "p50 <= p95 <= p99 <= max" shape assertions must

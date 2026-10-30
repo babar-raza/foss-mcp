@@ -717,8 +717,17 @@ requirements:
     a still-reproduces/fixed/changed verdict and a content hash per commit, so the 32-pilot audit never has to be re-run by agents to
     confirm a fix. Governance-reading tests (tests/deploy/test_round3_closure.py and similar) read a committed snapshot rather than
     live gate state, and CI runs a Windows job plus a PYTHONHASHSEED matrix.
-# REQ-G3-011 through REQ-G3-018 (findability, index truth + oracle, content truth, example corpus,
-# disclosure, runtime + contract, hermetic regeneration, release proof) are drafted in full in
+- id: REQ-G3-016
+  gate: G3
+  anchor: 'docs/DECISION_LOG.md: 2026-10-30 - Round-2 portfolio audit remediation adopted'
+  text: >-
+    Runtime and contract honesty. The 7-42 second tail latency the round-2 audit observed through the public tunnel is measured one
+    hosting layer at a time (in-process, container-direct, nginx, tunnel) before any fix is applied; any stall that cannot be removed
+    inside this repository is recorded as a measured limitation rather than silently left unexplained. The hosting configuration is
+    versioned into the repository. raw_text becomes opt-in, confidence is populated for every match source, and find_examples' "no
+    verified example" reasons use one shared enum instead of five inconsistent strings.
+# REQ-G3-011 through REQ-G3-015, REQ-G3-017 and REQ-G3-018 (findability, index truth + oracle, content
+# truth, example corpus, disclosure, hermetic regeneration, release proof) are drafted in full in
 # C:\Users\babar\.claude\plans\steady-wobbling-meteor.md section 4 item 4, ready to paste in verbatim.
 # They are deliberately NOT added yet: `validate`'s own rule ("a missing REQ is a missing card") means a
 # REQ with zero cards is a permanent FAIL, and most of those programs' first cards (Q1, I1/O1, C1, XA1,
