@@ -10,6 +10,41 @@ purpose: >-
   tool's own tokenizer already splits on dots); this card must measure the SAME question fresh for
   `search_docs` and `lookup` rather than assuming either outcome - report reality for each. Read
   C:\Users\babar\.claude\plans\steady-wobbling-meteor.md section 2.2 (Q1-Q4) first.
+
+  REWORK (attempt 2): attempt 1 implemented the wiring exactly as instructed and correctly found a
+  REAL, reproduced regression: threading `platform=scope.platform` into `search_docs._rule_for`'s
+  `query_terms`/`distinctive_terms` calls breaks TC-549's product-title answerability for every
+  non-cpp/csharp pilot (24 test failures, both runs identical -
+  `test_every_pilots_product_title_is_answered_for_at_least_one_content_type` and
+  `test_a_python_product_title_is_still_answered`). Root cause, confirmed by the supervisor against
+  the real failing query ("Aspose.PDF FOSS for Python", family="pdf", platform="python"):
+  `query_terms`'s own fallback rule ("when nothing remains after exclusion, return the full stemmed
+  set") means that once the query's only non-generic, non-family content was its platform word,
+  excluding that word too empties `distinctive_terms` AND makes `query_terms` fall back to the FULL
+  unstemmed-noise set rather than the single-word rule TC-549 depended on - `_rule_for`'s own
+  existing "bare query" special case (`terms != frozenset({stem_token(family)})`) was written
+  before platform exclusion existed and does not anticipate this. Measured precisely:
+  `distinctive_terms("Aspose.PDF FOSS for Python", "pdf", platform=None)` (WITHOUT the platform
+  exclusion) equals exactly `frozenset({stem_token("python")})` - the query's only non-generic,
+  non-family content was genuinely just its own platform word. Fix `_rule_for` itself (still inside
+  this card's existing `src/foss_mcp/mcp/tools/search_docs.py` write_path - no new write_paths
+  needed) to add this as a SECOND, narrower special case alongside the existing bare-family-word
+  one: when `names_topic` is False AND `platform` is given AND `distinctive_terms(query, family)`
+  (computed WITHOUT platform exclusion) equals exactly `frozenset({stem_token(platform)})`, rebuild
+  `terms` as `query_terms(query, family)` (also WITHOUT platform exclusion) instead of returning
+  `None` - this is the exact single-term rule `_rule_for` returned for this query before platform
+  exclusion existed, so TC-549's title-answerability mechanism is preserved byte-for-byte for a
+  bare product-title query, while every OTHER query (one with real additional distinctive content
+  beyond its own platform word) still gets the platform word correctly excluded from its rule. Add
+  a parameter `platform: str | None = None` to `_rule_for`'s own signature (it currently takes no
+  platform parameter at all - confirm this against the real current code) so this logic lives
+  inside the function itself rather than being duplicated at each call site; thread
+  `platform=scope.platform` from both of `_rule_for`'s real call sites (inside `search_docs`
+  itself, and inside `lookup._answer_quality`) exactly as attempt 1 already correctly identified.
+  Re-verify against the full 24-case regression AND the rest of attempt 1's work (both tools'
+  `normalize_query` wiring, lookup's own platform threading, which were NOT implicated in the
+  regression and remain correct as attempt 1 left them, uncommitted, in the worktree) before
+  writing the required test files.
 depends_on:
   - TC-563
   - TC-572
@@ -117,6 +152,11 @@ negative_control:
     out to be a measured no-op the same way find_examples's was, use the module's own
     liveness-spy pattern TC-616 built (confirming normalize_query is actually CALLED) instead of
     relying on an output-shape assertion - state which approach you used and why in your closeout.
+    This mutate is independent of the attempt-2 `_rule_for` platform-exclusion fix; also hand-verify
+    (not necessarily via a SECOND registered falsifier, one is enough per card, but state the result
+    in your closeout) that reverting the attempt-2 `_rule_for` fix specifically (e.g. by removing
+    just its new special-case branch) makes the 24-case product-title regression reappear, proving
+    that fix is load-bearing and not accidentally inert.
 evidence:
   - evidence/build/G3/TC-617/receipt.json
 closeout:
@@ -125,7 +165,9 @@ closeout:
     dotted "Aspose.<Family>" mention and exclude the scope's own platform word from
     distinctive-term counting; state the real measured effect of each fix on each tool
     separately (do not assume TC-616's find_examples-specific no-op finding carries over). The full
-    existing search_docs/lookup ratchet suites are confirmed unchanged.
+    existing search_docs/lookup ratchet suites are confirmed unchanged, INCLUDING the 24-case
+    product-title regression attempt 1 found and attempt 2's `_rule_for` fix resolves - state the
+    before (24 failing)/after (0 failing) counts explicitly.
 recovery: >-
   If threading platform= into any query_terms/distinctive_terms call changes ANY existing pinned
   search_docs or lookup result even for a query with no platform word, STOP and report
