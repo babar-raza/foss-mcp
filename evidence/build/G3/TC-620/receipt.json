@@ -1,0 +1,112 @@
+{
+  "schema_version": 1,
+  "card": "TC-620",
+  "gate": "G3",
+  "generated_by": "gatectl",
+  "generated_at": "2026-10-30T21:01:41Z",
+  "base_rev": "4b3d6d3618a3428ef98f74c8bd1b9a7753f1da71",
+  "head_rev": "1a928240ebb3535672c22dd51231a28e92c7a86e",
+  "card_sha256": "46cbd60d9284286dfc3ef07d53c7c633f891bd86ae50477ebb689267eae2e88e",
+  "fingerprint": {
+    "python": "3.13.2",
+    "platform": "Windows-11-10.0.26300-SP0",
+    "lock_sha256": "5c72e798a73c059a438e752e94a8d4c88c1bdf81a197f6e5c5fcecbc9466a691",
+    "env": {
+      "PYTHONHASHSEED": "0",
+      "PYTHONUTF8": "1",
+      "PYTHONDONTWRITEBYTECODE": "1",
+      "PYTHONIOENCODING": "utf-8",
+      "TZ": "UTC",
+      "LC_ALL": "C.UTF-8",
+      "SOURCE_DATE_EPOCH": "1700000000",
+      "verify_runner": "host"
+    }
+  },
+  "scope": {
+    "ok": true,
+    "changed_paths": [
+      "src/foss_mcp/extraction/run_extraction.py",
+      "tests/extraction/test_run_extraction_canonical_counts.py",
+      "tests/extraction/test_run_extraction_coverage_policy.py"
+    ],
+    "violations": [],
+    "evaluated": true
+  },
+  "runs": [
+    {
+      "run": 1,
+      "checks": [
+        {
+          "command": "{python} -m pytest tests/extraction/test_run_extraction_canonical_counts.py -q -rfE",
+          "exit_code": 0,
+          "duration_s": 1.575,
+          "stdout_sha256": "06955fb47f16312e5d13266c774a2aa4648c46e423cbe6564a92e25b68e39131",
+          "tests": 8,
+          "skipped": 0,
+          "errors": 0,
+          "failures": 0
+        },
+        {
+          "command": "{python} -m pytest tests/extraction/test_run_extraction_canonical_counts.py tests/extraction/test_run_extraction_coverage_policy.py tests/extraction/test_round3_python_fidelity.py tests/indexing/test_symbol_identity.py -q -rfE -p no:cacheprovider",
+          "exit_code": 0,
+          "duration_s": 17.11,
+          "stdout_sha256": "58cd708f40f409f346b398fae7eb5741bbe85ac0a15f5e1113ddc04910b59e14",
+          "tests": 177,
+          "skipped": 0,
+          "errors": 0,
+          "failures": 0
+        }
+      ],
+      "all_passed": true
+    },
+    {
+      "run": 2,
+      "checks": [
+        {
+          "command": "{python} -m pytest tests/extraction/test_run_extraction_canonical_counts.py -q -rfE",
+          "exit_code": 0,
+          "duration_s": 0.655,
+          "stdout_sha256": "06955fb47f16312e5d13266c774a2aa4648c46e423cbe6564a92e25b68e39131",
+          "tests": 8,
+          "skipped": 0,
+          "errors": 0,
+          "failures": 0
+        },
+        {
+          "command": "{python} -m pytest tests/extraction/test_run_extraction_canonical_counts.py tests/extraction/test_run_extraction_coverage_policy.py tests/extraction/test_round3_python_fidelity.py tests/indexing/test_symbol_identity.py -q -rfE -p no:cacheprovider",
+          "exit_code": 0,
+          "duration_s": 12.855,
+          "stdout_sha256": "58cd708f40f409f346b398fae7eb5741bbe85ac0a15f5e1113ddc04910b59e14",
+          "tests": 177,
+          "skipped": 0,
+          "errors": 0,
+          "failures": 0
+        }
+      ],
+      "all_passed": true
+    }
+  ],
+  "negative_control": {
+    "kind": "mutate",
+    "patch": "python -X utf8 -c \"import pathlib; p = pathlib.Path('src/foss_mcp/extraction/run_extraction.py'); s = p.read_text(encoding='utf-8'); old = '    entries = [entry for entry in types if not _is_test_entry(entry)]'; assert s.count(old) == 1, 'fix text not found - card and source have diverged'; new = '    identities = None  # TC-620 negative control: never use the canonical identities even when given' + chr(10) + old; p.write_text(s.replace(old, new, 1), encoding='utf-8')\"\n",
+    "patch_sha256": "1f0a877aa5353d96d5da36c4f65dab418c17f80bc457793c105cfd345cb957eb",
+    "applied": true,
+    "patch_applied_failed": true,
+    "exit_codes": [
+      1,
+      1
+    ],
+    "tree_changed": [
+      "M src/foss_mcp/extraction/run_extraction.py",
+      "?? .junit-0.xml",
+      "?? .junit-1.xml"
+    ]
+  },
+  "holdout": {
+    "ran": false,
+    "passed": true,
+    "detail": "no holdout for this card"
+  },
+  "accepted": true,
+  "reason": "all gates passed"
+}
