@@ -1,0 +1,111 @@
+{
+  "schema_version": 1,
+  "card": "TC-623",
+  "gate": "G3",
+  "generated_by": "gatectl",
+  "generated_at": "2026-10-30T22:54:07Z",
+  "base_rev": "93008874c268083fa932d1eb90c38b0ba9715b0d",
+  "head_rev": "424ad869f3378372f237c1c9cb02cb6a81b82195",
+  "card_sha256": "b71f66ec23cb845a523c43999ffff4305ef25fff7fe111ffc4ef6a875a260359",
+  "fingerprint": {
+    "python": "3.13.2",
+    "platform": "Windows-11-10.0.26300-SP0",
+    "lock_sha256": "5c72e798a73c059a438e752e94a8d4c88c1bdf81a197f6e5c5fcecbc9466a691",
+    "env": {
+      "PYTHONHASHSEED": "0",
+      "PYTHONUTF8": "1",
+      "PYTHONDONTWRITEBYTECODE": "1",
+      "PYTHONIOENCODING": "utf-8",
+      "TZ": "UTC",
+      "LC_ALL": "C.UTF-8",
+      "SOURCE_DATE_EPOCH": "1700000000",
+      "verify_runner": "host"
+    }
+  },
+  "scope": {
+    "ok": true,
+    "changed_paths": [
+      "scripts/release/source_differential.py",
+      "tests/release/test_oracle_shell_resolution.py"
+    ],
+    "violations": [],
+    "evaluated": true
+  },
+  "runs": [
+    {
+      "run": 1,
+      "checks": [
+        {
+          "command": "{python} -m pytest tests/release/test_oracle_shell_resolution.py -q -rfE",
+          "exit_code": 0,
+          "duration_s": 89.672,
+          "stdout_sha256": "c4b808d34f4db00b333696dec1f3a43a2887d8bfe0cb7af07a3cb98ff43a7830",
+          "tests": 4,
+          "skipped": 0,
+          "errors": 0,
+          "failures": 0
+        },
+        {
+          "command": "{python} -m pytest tests/release/test_oracle_shell_resolution.py tests/release/test_source_differential.py -q -rfE -p no:cacheprovider",
+          "exit_code": 0,
+          "duration_s": 142.493,
+          "stdout_sha256": "6f56d1941d6e6b217f191c1435e40069b1de98bcedb6de4d8fbdfa8e8f0263a2",
+          "tests": 132,
+          "skipped": 0,
+          "errors": 0,
+          "failures": 0
+        }
+      ],
+      "all_passed": true
+    },
+    {
+      "run": 2,
+      "checks": [
+        {
+          "command": "{python} -m pytest tests/release/test_oracle_shell_resolution.py -q -rfE",
+          "exit_code": 0,
+          "duration_s": 70.393,
+          "stdout_sha256": "c4b808d34f4db00b333696dec1f3a43a2887d8bfe0cb7af07a3cb98ff43a7830",
+          "tests": 4,
+          "skipped": 0,
+          "errors": 0,
+          "failures": 0
+        },
+        {
+          "command": "{python} -m pytest tests/release/test_oracle_shell_resolution.py tests/release/test_source_differential.py -q -rfE -p no:cacheprovider",
+          "exit_code": 0,
+          "duration_s": 142.673,
+          "stdout_sha256": "6f56d1941d6e6b217f191c1435e40069b1de98bcedb6de4d8fbdfa8e8f0263a2",
+          "tests": 132,
+          "skipped": 0,
+          "errors": 0,
+          "failures": 0
+        }
+      ],
+      "all_passed": true
+    }
+  ],
+  "negative_control": {
+    "kind": "mutate",
+    "patch": "python -X utf8 -c \"import pathlib; p = pathlib.Path('scripts/release/source_differential.py'); s = p.read_text(encoding='utf-8'); old = 'from foss_mcp.indexing.symbol_identity import compute_canonical_identities  # noqa: E402'; assert s.count(old) == 1, 'fix text not found - card and source have diverged'; new = old + chr(10) + 'compute_canonical_identities = lambda entries: [__import__(' + chr(34) + 'types' + chr(34) + ').SimpleNamespace(is_definition=True) for _ in entries]  # TC-623 negative control: every entry treated as its own definition, reinstating the pre-fix bare-name-only match'; p.write_text(s.replace(old, new, 1), encoding='utf-8')\"\n",
+    "patch_sha256": "210740da64484d1cd2312825bfea96d92038207273784f8c7697b33ea8fb40da",
+    "applied": true,
+    "patch_applied_failed": true,
+    "exit_codes": [
+      1,
+      1
+    ],
+    "tree_changed": [
+      "M scripts/release/source_differential.py",
+      "?? .junit-0.xml",
+      "?? .junit-1.xml"
+    ]
+  },
+  "holdout": {
+    "ran": false,
+    "passed": true,
+    "detail": "no holdout for this card"
+  },
+  "accepted": true,
+  "reason": "all gates passed"
+}

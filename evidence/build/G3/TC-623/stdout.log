@@ -1,0 +1,232 @@
+
+===== CLEAN RUN 1 (host) =====
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-5c72e798a73c059a\Scripts\python.exe -m pytest tests/release/test_oracle_shell_resolution.py -q -rfE "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-d39ywlwk\.junit-0.xml"
+--- stdout ---
+....                                                                     [100%]
+
+--- stderr ---
+
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-5c72e798a73c059a\Scripts\python.exe -m pytest tests/release/test_oracle_shell_resolution.py tests/release/test_source_differential.py -q -rfE -p no:cacheprovider "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-d39ywlwk\.junit-1.xml"
+--- stdout ---
+........................................................................ [ 54%]
+............................................................             [100%]
+
+--- stderr ---
+
+
+===== CLEAN RUN 2 (host) =====
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-5c72e798a73c059a\Scripts\python.exe -m pytest tests/release/test_oracle_shell_resolution.py -q -rfE "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-d39ywlwk\.junit-0.xml"
+--- stdout ---
+....                                                                     [100%]
+
+--- stderr ---
+
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-5c72e798a73c059a\Scripts\python.exe -m pytest tests/release/test_oracle_shell_resolution.py tests/release/test_source_differential.py -q -rfE -p no:cacheprovider "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-d39ywlwk\.junit-1.xml"
+--- stdout ---
+........................................................................ [ 54%]
+............................................................             [100%]
+
+--- stderr ---
+
+
+===== NEGATIVE CONTROL (checks MUST now fail) =====
+mutated: M scripts/release/source_differential.py, ?? .junit-0.xml, ?? .junit-1.xml
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-5c72e798a73c059a\Scripts\python.exe -m pytest tests/release/test_oracle_shell_resolution.py -q -rfE "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-d39ywlwk\.junit-0.xml"
+--- stdout ---
+F.F.                                                                     [100%]
+================================== FAILURES ===================================
+_ test_shell_after_definition_old_logic_reports_false_missing_new_logic_reports_zero _
+
+    def test_shell_after_definition_old_logic_reports_false_missing_new_logic_reports_zero() -> None:
+        definition = _shape_definition()
+        shell = _shape_shell()
+        baked_types = [definition, shell]  # the shell iterates LAST in fixture order
+        oracle = _shape_oracle()
+    
+        # Before this card: the bare dict-comprehension logic really does let the shell silently
+        # overwrite the definition, and diff_symbol against that wrong, near-empty entry really does
+        # report both of the definition's real members as falsely "missing".
+        old_by_name = _old_baked_by_name(baked_types)
+        assert old_by_name["Shape"] is shell, "the pre-fix bug: the LAST entry in list order wins"
+        old_counts, old_findings = sd.diff_symbol(oracle, old_by_name.get("Shape"))
+        assert old_counts.missing == 2
+        assert {finding.member for finding in old_findings} == {"area", "sides"}
+    
+        # After this card: diff_language consults compute_canonical_identities, so the shell can never
+        # win regardless of list order -- zero false "missing" findings.
+        new_counts, new_findings = sd.diff_language([oracle], baked_types)
+>       assert new_counts.missing == 0, new_findings
+E       AssertionError: [Finding(symbol='Shape', member='area', category='missing', detail='method absent from the baked fixture'), Finding(symbol='Shape', member='sides', category='missing', detail='property absent from the baked fixture')]
+E       assert 2 == 0
+E        +  where 2 = DiffCounts(missing=2, extra=0, signature=0, static=0, default=0, enum_value=0, checked=2).missing
+
+tests\release\test_oracle_shell_resolution.py:125: AssertionError
+__ test_real_3d_python_fixture_propertycollection_shell_definition_collision __
+
+    def test_real_3d_python_fixture_propertycollection_shell_definition_collision() -> None:
+        """``tests/fixtures/3d_python/api_surface.json``'s ``types`` list carries a real collision on
+        the bare name ``PropertyCollection``: ``aspose.threed.PropertyCollection.PropertyCollection``
+        (``aspose/threed/PropertyCollection.py``, the real definition -- a constructor, three methods
+        and one property) and ``aspose.threed.PropertyCollection`` (``aspose/threed/__init__.py``, a
+        member-less re-export shell whose ``reexport_of`` names the definition's own ``class_import``
+        exactly). The shell iterates immediately AFTER the definition in the fixture's own committed
+        list order, reproducing the exact bug case (a) reproduces synthetically. The oracle's members
+        below are read directly from the real definition entry, not invented."""
+        fixture = json.loads((FIXTURES_DIR / "3d_python" / "api_surface.json").read_text(encoding="utf-8"))
+        types = fixture["types"]
+    
+        definition = next(
+            t
+            for t in types
+            if t.get("name") == "PropertyCollection"
+            and t.get("class_import") == "aspose.threed.PropertyCollection.PropertyCollection"
+            and not t.get("reexport_of")
+        )
+        shell = next(
+            t
+            for t in types
+            if t.get("name") == "PropertyCollection"
+            and t.get("reexport_of") == "aspose.threed.PropertyCollection.PropertyCollection"
+        )
+        assert types.index(shell) > types.index(definition), (
+            "the real fixture must list the shell after the definition to reproduce the bug this card fixes"
+        )
+        assert definition.get("methods"), "the real definition must genuinely carry members"
+        assert not shell.get("methods") and not shell.get("properties"), "the real shell must be member-less"
+    
+        # The oracle's members are read directly off the real definition entry above -- __init__,
+        # find_property, get, remove_property and the count property -- not invented.
+        oracle = OS(
+            "PropertyCollection",
+            "class",
+            members=(
+                OM("__init__", "method"),
+                OM("find_property", "method", params=(OP("property_name"),)),
+                OM("get", "method", params=(OP("property"),)),
+                OM("remove_property", "method", params=(OP("property"),)),
+                OM("count", "property"),
+            ),
+        )
+    
+        # Before this card: the old bare-name logic lets the member-less shell win this real collision,
+        # and every one of the real definition's members is reported as falsely missing.
+        old_by_name = _old_baked_by_name(types)
+        assert old_by_name["PropertyCollection"] is shell, "the real fixture must reproduce the pre-fix bug"
+        old_counts, _old_findings = sd.diff_symbol(oracle, old_by_name.get("PropertyCollection"))
+        assert old_counts.missing == 5, "the old bug must report every real member of the definition as missing"
+    
+        # After this card: diff_language resolves the real collision correctly; zero false "missing".
+        new_counts, new_findings = sd.diff_language([oracle], types)
+        missing_findings = [finding for finding in new_findings if finding.category == "missing"]
+>       assert new_counts.missing == 0, missing_findings
+E       AssertionError: [Finding(symbol='PropertyCollection', member='__init__', category='missing', detail='method absent from the baked fixt...ding(symbol='PropertyCollection', member='count', category='missing', detail='property absent from the baked fixture')]
+E       assert 5 == 0
+E        +  where 5 = DiffCounts(missing=5, extra=0, signature=0, static=0, default=0, enum_value=0, checked=5).missing
+
+tests\release\test_oracle_shell_resolution.py:215: AssertionError
+=========================== short test summary info ===========================
+FAILED tests/release/test_oracle_shell_resolution.py::test_shell_after_definition_old_logic_reports_false_missing_new_logic_reports_zero
+FAILED tests/release/test_oracle_shell_resolution.py::test_real_3d_python_fixture_propertycollection_shell_definition_collision
+
+--- stderr ---
+
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-5c72e798a73c059a\Scripts\python.exe -m pytest tests/release/test_oracle_shell_resolution.py tests/release/test_source_differential.py -q -rfE -p no:cacheprovider "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-d39ywlwk\.junit-1.xml"
+--- stdout ---
+F.F..................................................................... [ 54%]
+............................................................             [100%]
+================================== FAILURES ===================================
+_ test_shell_after_definition_old_logic_reports_false_missing_new_logic_reports_zero _
+
+    def test_shell_after_definition_old_logic_reports_false_missing_new_logic_reports_zero() -> None:
+        definition = _shape_definition()
+        shell = _shape_shell()
+        baked_types = [definition, shell]  # the shell iterates LAST in fixture order
+        oracle = _shape_oracle()
+    
+        # Before this card: the bare dict-comprehension logic really does let the shell silently
+        # overwrite the definition, and diff_symbol against that wrong, near-empty entry really does
+        # report both of the definition's real members as falsely "missing".
+        old_by_name = _old_baked_by_name(baked_types)
+        assert old_by_name["Shape"] is shell, "the pre-fix bug: the LAST entry in list order wins"
+        old_counts, old_findings = sd.diff_symbol(oracle, old_by_name.get("Shape"))
+        assert old_counts.missing == 2
+        assert {finding.member for finding in old_findings} == {"area", "sides"}
+    
+        # After this card: diff_language consults compute_canonical_identities, so the shell can never
+        # win regardless of list order -- zero false "missing" findings.
+        new_counts, new_findings = sd.diff_language([oracle], baked_types)
+>       assert new_counts.missing == 0, new_findings
+E       AssertionError: [Finding(symbol='Shape', member='area', category='missing', detail='method absent from the baked fixture'), Finding(symbol='Shape', member='sides', category='missing', detail='property absent from the baked fixture')]
+E       assert 2 == 0
+E        +  where 2 = DiffCounts(missing=2, extra=0, signature=0, static=0, default=0, enum_value=0, checked=2).missing
+
+tests\release\test_oracle_shell_resolution.py:125: AssertionError
+__ test_real_3d_python_fixture_propertycollection_shell_definition_collision __
+
+    def test_real_3d_python_fixture_propertycollection_shell_definition_collision() -> None:
+        """``tests/fixtures/3d_python/api_surface.json``'s ``types`` list carries a real collision on
+        the bare name ``PropertyCollection``: ``aspose.threed.PropertyCollection.PropertyCollection``
+        (``aspose/threed/PropertyCollection.py``, the real definition -- a constructor, three methods
+        and one property) and ``aspose.threed.PropertyCollection`` (``aspose/threed/__init__.py``, a
+        member-less re-export shell whose ``reexport_of`` names the definition's own ``class_import``
+        exactly). The shell iterates immediately AFTER the definition in the fixture's own committed
+        list order, reproducing the exact bug case (a) reproduces synthetically. The oracle's members
+        below are read directly from the real definition entry, not invented."""
+        fixture = json.loads((FIXTURES_DIR / "3d_python" / "api_surface.json").read_text(encoding="utf-8"))
+        types = fixture["types"]
+    
+        definition = next(
+            t
+            for t in types
+            if t.get("name") == "PropertyCollection"
+            and t.get("class_import") == "aspose.threed.PropertyCollection.PropertyCollection"
+            and not t.get("reexport_of")
+        )
+        shell = next(
+            t
+            for t in types
+            if t.get("name") == "PropertyCollection"
+            and t.get("reexport_of") == "aspose.threed.PropertyCollection.PropertyCollection"
+        )
+        assert types.index(shell) > types.index(definition), (
+            "the real fixture must list the shell after the definition to reproduce the bug this card fixes"
+        )
+        assert definition.get("methods"), "the real definition must genuinely carry members"
+        assert not shell.get("methods") and not shell.get("properties"), "the real shell must be member-less"
+    
+        # The oracle's members are read directly off the real definition entry above -- __init__,
+        # find_property, get, remove_property and the count property -- not invented.
+        oracle = OS(
+            "PropertyCollection",
+            "class",
+            members=(
+                OM("__init__", "method"),
+                OM("find_property", "method", params=(OP("property_name"),)),
+                OM("get", "method", params=(OP("property"),)),
+                OM("remove_property", "method", params=(OP("property"),)),
+                OM("count", "property"),
+            ),
+        )
+    
+        # Before this card: the old bare-name logic lets the member-less shell win this real collision,
+        # and every one of the real definition's members is reported as falsely missing.
+        old_by_name = _old_baked_by_name(types)
+        assert old_by_name["PropertyCollection"] is shell, "the real fixture must reproduce the pre-fix bug"
+        old_counts, _old_findings = sd.diff_symbol(oracle, old_by_name.get("PropertyCollection"))
+        assert old_counts.missing == 5, "the old bug must report every real member of the definition as missing"
+    
+        # After this card: diff_language resolves the real collision correctly; zero false "missing".
+        new_counts, new_findings = sd.diff_language([oracle], types)
+        missing_findings = [finding for finding in new_findings if finding.category == "missing"]
+>       assert new_counts.missing == 0, missing_findings
+E       AssertionError: [Finding(symbol='PropertyCollection', member='__init__', category='missing', detail='method absent from the baked fixt...ding(symbol='PropertyCollection', member='count', category='missing', detail='property absent from the baked fixture')]
+E       assert 5 == 0
+E        +  where 5 = DiffCounts(missing=5, extra=0, signature=0, static=0, default=0, enum_value=0, checked=5).missing
+
+tests\release\test_oracle_shell_resolution.py:215: AssertionError
+=========================== short test summary info ===========================
+FAILED tests/release/test_oracle_shell_resolution.py::test_shell_after_definition_old_logic_reports_false_missing_new_logic_reports_zero
+FAILED tests/release/test_oracle_shell_resolution.py::test_real_3d_python_fixture_propertycollection_shell_definition_collision
+
+--- stderr ---
+
