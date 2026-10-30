@@ -99,6 +99,7 @@ if str(_DEPLOY_DIR) not in sys.path:
 import pilots as chart  # noqa: E402
 
 from foss_mcp.extraction import run_extraction  # noqa: E402
+from foss_mcp.indexing.symbol_identity import compute_canonical_identities  # noqa: E402
 
 SCHEMA_VERSION = 1
 REPORT_NAME = "source_differential.json"
@@ -358,8 +359,31 @@ def diff_symbol(oracle: OracleSymbol, baked: Mapping[str, Any] | None) -> tuple[
 def diff_language(
     symbols: Sequence[OracleSymbol], baked_types: Sequence[Mapping[str, Any]]
 ) -> tuple[DiffCounts, list[Finding]]:
-    """Diff every oracle symbol against the baked fixture's types of the same bare name."""
-    baked_by_name: dict[str, Mapping[str, Any]] = {str(t.get("name")): t for t in baked_types}
+    """Diff every oracle symbol against the baked fixture's types of the same bare name.
+
+    G3/TC-623 (REQ-G3-012, O1 part 1): a bare-name match is ambiguous whenever a Python
+    re-export shell and its real definition share a bare ``name`` -- a plain
+    ``{name: entry}`` dict comprehension would let whichever of the two happens to iterate
+    LAST in the fixture's own list order silently overwrite the other, and a shell (member-less,
+    or carrying only a subset) winning means every one of the real definition's genuine members
+    is then diffed against the wrong, near-empty entry and reported as spuriously "missing"
+    (Appendix D's measured 43% share of the "missing" bucket). ``compute_canonical_identities``
+    (I1, TC-612) is consulted once so a shell can never win a same-name collision against its own
+    definition: any entry it marks as not a definition (``is_definition`` False) is excluded before
+    the name-keyed dict is ever built, regardless of list order. When two DIFFERENT definitions
+    genuinely share a bare name (a real ambiguity, not a shell/definition pair -- both pass the
+    ``is_definition`` filter), the dict comprehension's own natural overwrite-on-duplicate-key
+    behaviour still applies to the two of them, so whichever iterates LAST still wins -- this is
+    the existing "last wins" behaviour from before this fix, deliberately left unchanged for that
+    case; this fix's only change is excluding a shell from the comprehension's input entirely, never
+    altering how a tie between two genuine definitions is broken.
+    """
+    identities = compute_canonical_identities(baked_types)
+    baked_by_name: dict[str, Mapping[str, Any]] = {
+        str(baked_type.get("name")): baked_type
+        for index, baked_type in enumerate(baked_types)
+        if identities[index].is_definition  # a re-export shell never wins a same-name collision
+    }
     total = DiffCounts()
     findings: list[Finding] = []
     for symbol in symbols:
