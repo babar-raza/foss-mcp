@@ -471,9 +471,17 @@ def test_extract_pinned_repository_writes_the_new_keys(
     artifact = run_extraction.extract_pinned_repository(manifest)
     assert artifact["extractor_version"] == run_extraction.EXTRACTOR_VERSION
     counts = artifact["symbol_counts"]
-    assert counts == run_extraction.summarize_symbols(artifact["types"])
+    # TC-620 (I3, REQ-G3-012): symbol_counts is now the DEDUPLICATED denominator, threaded through
+    # compute_canonical_identities - Gadget's __init__.py re-export and its core.py definition are a
+    # real TC-522 reexport_of shell/definition pair that now collapses to one canonical unit, so this
+    # no longer equals the OLD one-argument summarize_symbols(artifact["types"]) (which still
+    # double-counts the alias pair: {"types": 2, "functions": 2}). Measured fresh against this
+    # fixture, not assumed.
+    assert counts == {"types": 1, "functions": 2}
     assert counts["types"] >= 1 and counts["functions"] >= 1  # Gadget and make (and their re-exports)
-    assert counts["types"] + counts["functions"] == len(artifact["types"])
+    # one less than len(artifact["types"]) == 4: the Gadget shell/definition pair collapses to one
+    # canonical unit (make's re-export pair is NOT collapsed - functions is untouched by the dedup).
+    assert counts["types"] + counts["functions"] == 3
     health = artifact["parse_failures"]
     assert health["engine"] == "ast"
     assert (health["failed"], health["total"]) == (1, 3)
