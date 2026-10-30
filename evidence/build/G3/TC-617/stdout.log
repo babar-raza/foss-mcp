@@ -1,0 +1,109 @@
+
+===== CLEAN RUN 1 (host) =====
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-5c72e798a73c059a\Scripts\python.exe -m pytest tests/mcp/tools/test_search_docs_query_normalization.py tests/mcp/tools/test_lookup_query_normalization.py tests/test_unwired_modules.py -q -rfE "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-v6hsf551\.junit-0.xml"
+--- stdout ---
+.........................                                                [100%]
+
+--- stderr ---
+
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-5c72e798a73c059a\Scripts\python.exe -m pytest tests/mcp/tools/test_search_docs_query_normalization.py tests/mcp/tools/test_lookup_query_normalization.py tests/mcp/tools/test_lookup_forgiveness.py tests/mcp/tools/test_lookup_miss_reason.py tests/mcp/tools/test_search_docs_language_letter.py tests/mcp/tools/test_search_docs_title_passage_coverage.py tests/mcp/tools/test_round3_retrieval_corpus.py tests/test_unwired_modules.py -q -rfE -p no:cacheprovider "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-v6hsf551\.junit-1.xml"
+--- stdout ---
+........................................................................ [ 35%]
+........................................................................ [ 70%]
+.............................................................            [100%]
+
+--- stderr ---
+
+
+===== CLEAN RUN 2 (host) =====
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-5c72e798a73c059a\Scripts\python.exe -m pytest tests/mcp/tools/test_search_docs_query_normalization.py tests/mcp/tools/test_lookup_query_normalization.py tests/test_unwired_modules.py -q -rfE "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-v6hsf551\.junit-0.xml"
+--- stdout ---
+.........................                                                [100%]
+
+--- stderr ---
+
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-5c72e798a73c059a\Scripts\python.exe -m pytest tests/mcp/tools/test_search_docs_query_normalization.py tests/mcp/tools/test_lookup_query_normalization.py tests/mcp/tools/test_lookup_forgiveness.py tests/mcp/tools/test_lookup_miss_reason.py tests/mcp/tools/test_search_docs_language_letter.py tests/mcp/tools/test_search_docs_title_passage_coverage.py tests/mcp/tools/test_round3_retrieval_corpus.py tests/test_unwired_modules.py -q -rfE -p no:cacheprovider "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-v6hsf551\.junit-1.xml"
+--- stdout ---
+........................................................................ [ 35%]
+........................................................................ [ 70%]
+.............................................................            [100%]
+
+--- stderr ---
+
+
+===== NEGATIVE CONTROL (checks MUST now fail) =====
+mutated: M src/foss_mcp/mcp/tools/search_docs.py, ?? .junit-0.xml, ?? .junit-1.xml
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-5c72e798a73c059a\Scripts\python.exe -m pytest tests/mcp/tools/test_search_docs_query_normalization.py tests/mcp/tools/test_lookup_query_normalization.py tests/test_unwired_modules.py -q -rfE "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-v6hsf551\.junit-0.xml"
+--- stdout ---
+...F.....................                                                [100%]
+================================== FAILURES ===================================
+_________ test_normalize_query_is_actually_called_by_the_real_wiring __________
+
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x000001643EC52AD0>
+
+    def test_normalize_query_is_actually_called_by_the_real_wiring(monkeypatch: pytest.MonkeyPatch) -> None:
+        """THE test the card's negative control must break: proves ``search_docs`` really calls the
+        module-level ``normalize_query`` (not merely that it is imported) by spying on it. This is the
+        one assertion in this file sensitive to the negative control's exact mutation (a LOCAL
+        ``normalize_query = lambda q, f: q`` assignment inside the function body, which shadows the
+        module-level name for the whole function)."""
+        calls: list[tuple[str, str]] = []
+        real_normalize_query = relevance_module.normalize_query
+    
+        def _spy(query: str, family: str) -> str:
+            calls.append((query, family))
+            return real_normalize_query(query, family)
+    
+        monkeypatch.setattr(search_docs_module, "normalize_query", _spy)
+    
+        store = _InMemoryStore(_doc_chunk("Guide", "Aspose.PDF FOSS is a free library for pdf files."))
+        search_docs(store, PDF_NET, DOTTED_MENTION_QUERY)  # type: ignore[arg-type]
+    
+>       assert calls, "normalize_query was never called by search_docs - the wiring is missing or shadowed"
+E       AssertionError: normalize_query was never called by search_docs - the wiring is missing or shadowed
+E       assert []
+
+tests\mcp\tools\test_search_docs_query_normalization.py:202: AssertionError
+=========================== short test summary info ===========================
+FAILED tests/mcp/tools/test_search_docs_query_normalization.py::test_normalize_query_is_actually_called_by_the_real_wiring
+
+--- stderr ---
+
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-5c72e798a73c059a\Scripts\python.exe -m pytest tests/mcp/tools/test_search_docs_query_normalization.py tests/mcp/tools/test_lookup_query_normalization.py tests/mcp/tools/test_lookup_forgiveness.py tests/mcp/tools/test_lookup_miss_reason.py tests/mcp/tools/test_search_docs_language_letter.py tests/mcp/tools/test_search_docs_title_passage_coverage.py tests/mcp/tools/test_round3_retrieval_corpus.py tests/test_unwired_modules.py -q -rfE -p no:cacheprovider "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-v6hsf551\.junit-1.xml"
+--- stdout ---
+...F.................................................................... [ 35%]
+........................................................................ [ 70%]
+.............................................................            [100%]
+================================== FAILURES ===================================
+_________ test_normalize_query_is_actually_called_by_the_real_wiring __________
+
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x000001AE1B0E5370>
+
+    def test_normalize_query_is_actually_called_by_the_real_wiring(monkeypatch: pytest.MonkeyPatch) -> None:
+        """THE test the card's negative control must break: proves ``search_docs`` really calls the
+        module-level ``normalize_query`` (not merely that it is imported) by spying on it. This is the
+        one assertion in this file sensitive to the negative control's exact mutation (a LOCAL
+        ``normalize_query = lambda q, f: q`` assignment inside the function body, which shadows the
+        module-level name for the whole function)."""
+        calls: list[tuple[str, str]] = []
+        real_normalize_query = relevance_module.normalize_query
+    
+        def _spy(query: str, family: str) -> str:
+            calls.append((query, family))
+            return real_normalize_query(query, family)
+    
+        monkeypatch.setattr(search_docs_module, "normalize_query", _spy)
+    
+        store = _InMemoryStore(_doc_chunk("Guide", "Aspose.PDF FOSS is a free library for pdf files."))
+        search_docs(store, PDF_NET, DOTTED_MENTION_QUERY)  # type: ignore[arg-type]
+    
+>       assert calls, "normalize_query was never called by search_docs - the wiring is missing or shadowed"
+E       AssertionError: normalize_query was never called by search_docs - the wiring is missing or shadowed
+E       assert []
+
+tests\mcp\tools\test_search_docs_query_normalization.py:202: AssertionError
+=========================== short test summary info ===========================
+FAILED tests/mcp/tools/test_search_docs_query_normalization.py::test_normalize_query_is_actually_called_by_the_real_wiring
+
+--- stderr ---
+

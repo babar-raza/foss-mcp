@@ -1,0 +1,114 @@
+{
+  "schema_version": 1,
+  "card": "TC-617",
+  "gate": "G3",
+  "generated_by": "gatectl",
+  "generated_at": "2026-10-30T18:50:24Z",
+  "base_rev": "3eb4f49115cfde93f3bb4bfcea7931515835a4eb",
+  "head_rev": "885598ca82bc5cf12573f45a02b359d4fadd245b",
+  "card_sha256": "24ec6cc2ceddc3b95448e503a4490002fd1ea9b4599a60d5a2c7bf42b5586983",
+  "fingerprint": {
+    "python": "3.13.2",
+    "platform": "Windows-11-10.0.26300-SP0",
+    "lock_sha256": "5c72e798a73c059a438e752e94a8d4c88c1bdf81a197f6e5c5fcecbc9466a691",
+    "env": {
+      "PYTHONHASHSEED": "0",
+      "PYTHONUTF8": "1",
+      "PYTHONDONTWRITEBYTECODE": "1",
+      "PYTHONIOENCODING": "utf-8",
+      "TZ": "UTC",
+      "LC_ALL": "C.UTF-8",
+      "SOURCE_DATE_EPOCH": "1700000000",
+      "verify_runner": "host"
+    }
+  },
+  "scope": {
+    "ok": true,
+    "changed_paths": [
+      "src/foss_mcp/mcp/tools/lookup.py",
+      "src/foss_mcp/mcp/tools/search_docs.py",
+      "tests/mcp/tools/test_lookup_query_normalization.py",
+      "tests/mcp/tools/test_search_docs_query_normalization.py",
+      "tests/test_unwired_modules.py"
+    ],
+    "violations": [],
+    "evaluated": true
+  },
+  "runs": [
+    {
+      "run": 1,
+      "checks": [
+        {
+          "command": "{python} -m pytest tests/mcp/tools/test_search_docs_query_normalization.py tests/mcp/tools/test_lookup_query_normalization.py tests/test_unwired_modules.py -q -rfE",
+          "exit_code": 0,
+          "duration_s": 10.299,
+          "stdout_sha256": "c6ce8518a2cc113cc5560b3731e234ed6d559e746221ae903ce01599dfe7e797",
+          "tests": 25,
+          "skipped": 0,
+          "errors": 0,
+          "failures": 0
+        },
+        {
+          "command": "{python} -m pytest tests/mcp/tools/test_search_docs_query_normalization.py tests/mcp/tools/test_lookup_query_normalization.py tests/mcp/tools/test_lookup_forgiveness.py tests/mcp/tools/test_lookup_miss_reason.py tests/mcp/tools/test_search_docs_language_letter.py tests/mcp/tools/test_search_docs_title_passage_coverage.py tests/mcp/tools/test_round3_retrieval_corpus.py tests/test_unwired_modules.py -q -rfE -p no:cacheprovider",
+          "exit_code": 0,
+          "duration_s": 63.311,
+          "stdout_sha256": "38b80f9adf06621e56eac9aa7e24e5d2ffbd24080e7ca702bc0de16943e3a1cf",
+          "tests": 205,
+          "skipped": 0,
+          "errors": 0,
+          "failures": 0
+        }
+      ],
+      "all_passed": true
+    },
+    {
+      "run": 2,
+      "checks": [
+        {
+          "command": "{python} -m pytest tests/mcp/tools/test_search_docs_query_normalization.py tests/mcp/tools/test_lookup_query_normalization.py tests/test_unwired_modules.py -q -rfE",
+          "exit_code": 0,
+          "duration_s": 5.782,
+          "stdout_sha256": "c6ce8518a2cc113cc5560b3731e234ed6d559e746221ae903ce01599dfe7e797",
+          "tests": 25,
+          "skipped": 0,
+          "errors": 0,
+          "failures": 0
+        },
+        {
+          "command": "{python} -m pytest tests/mcp/tools/test_search_docs_query_normalization.py tests/mcp/tools/test_lookup_query_normalization.py tests/mcp/tools/test_lookup_forgiveness.py tests/mcp/tools/test_lookup_miss_reason.py tests/mcp/tools/test_search_docs_language_letter.py tests/mcp/tools/test_search_docs_title_passage_coverage.py tests/mcp/tools/test_round3_retrieval_corpus.py tests/test_unwired_modules.py -q -rfE -p no:cacheprovider",
+          "exit_code": 0,
+          "duration_s": 55.817,
+          "stdout_sha256": "38b80f9adf06621e56eac9aa7e24e5d2ffbd24080e7ca702bc0de16943e3a1cf",
+          "tests": 205,
+          "skipped": 0,
+          "errors": 0,
+          "failures": 0
+        }
+      ],
+      "all_passed": true
+    }
+  ],
+  "negative_control": {
+    "kind": "mutate",
+    "patch": "python -X utf8 -c \"import pathlib; p = pathlib.Path('src/foss_mcp/mcp/tools/search_docs.py'); s = p.read_text(encoding='utf-8'); old = 'query = fold_query(query)'; assert s.count(old) == 1, 'fix text not found - card and source have diverged'; p.write_text(s.replace(old, old + chr(10) + '    normalize_query = lambda q, f: q  # TC-617 negative control: never normalize the query', 1), encoding='utf-8')\"\n",
+    "patch_sha256": "7a1b1ef91e0809da141daa2281a9e27c18369d52dd26c98919154353a1cdaa5d",
+    "applied": true,
+    "patch_applied_failed": true,
+    "exit_codes": [
+      1,
+      1
+    ],
+    "tree_changed": [
+      "M src/foss_mcp/mcp/tools/search_docs.py",
+      "?? .junit-0.xml",
+      "?? .junit-1.xml"
+    ]
+  },
+  "holdout": {
+    "ran": false,
+    "passed": true,
+    "detail": "no holdout for this card"
+  },
+  "accepted": true,
+  "reason": "all gates passed"
+}
