@@ -1,0 +1,167 @@
+id: TC-624
+gate: G3
+lane: verification
+purpose: >-
+  Build O1 part 2 (REQ-G3-012): verify an inherited baked member against its NAMED ANCESTOR's own
+  oracle symbol, instead of flagging it "extra" purely because it is absent from the CURRENT
+  class's own oracle entry - closing the single largest bucket of the whole oracle disagreement
+  (measured ~73.5% of the "extra" findings, ~44,026 rows, Appendix D of the plan). Root cause,
+  confirmed by reading the real code: `diff_symbol`'s trailing three "extra" loops
+  (`for name in baked_methods/baked_props/baked_enum: if name not in oracle_*_names: extra`) treat
+  EVERY baked member the same way, whether or not it carries `inherited_from` - but the single
+  `oracle: OracleSymbol` parameter `diff_symbol` receives is only ONE class's OWN declared members
+  (confirmed: `enumerate_python` collects one `OracleSymbol` per public class-def, each only from
+  that class's own body - it never walks a class's bases to also list its inherited members). A
+  real, correctly-flattened, correctly-labelled inherited member (`chunk_builder.py` already
+  renders `Defined-In:`/the member's own `inherited_from` field elsewhere) is therefore NEVER
+  findable in `oracle.members` no matter how faithfully the extractor recorded it - the comparison
+  is asking the wrong question. This card asks the RIGHT one: does the NAMED ANCESTOR's own oracle
+  symbol (a DIFFERENT, real `OracleSymbol` the SAME enumerator run already produced) really declare
+  a member of that name. This is DELIBERATELY narrower than full "qualified keys" (a separate O1
+  sub-task): the ancestor lookup is by BARE name (the same ambiguity risk TC-623 closed for the
+  PRIMARY symbol lookup, not yet closed for this SECONDARY, ancestor lookup) - a strict improvement
+  over "never checked at all" regardless. Read
+  C:\Users\babar\.claude\plans\steady-wobbling-meteor.md section 1.3 (Appendix D) and 2.3 (O1-O10)
+  first.
+depends_on:
+  - TC-566
+  - TC-589
+  - TC-590
+  - TC-623
+write_paths:
+  - scripts/release/source_differential.py
+  - tests/release/test_oracle_inherited_verification.py
+satisfies:
+  - REQ-G3-012
+source_refs:
+  - file: docs/DECISION_LOG.md
+    anchor: >-
+      ## 2026-10-30 — Round-2 portfolio audit remediation adopted: unified plan, governance decisions A-K
+      recorded (supervisor)
+    sha256: 62cf1403a592118e3fb6bd14c5336f8a997cc3181d44a585323ec9f1d385a931
+inputs:
+  - >-
+    READ FIRST: C:\Users\babar\.claude\plans\steady-wobbling-meteor.md section 1.3 (Appendix D) and
+    2.3 (O1-O10). Also read, in full, before writing anything: `diff_symbol` and `diff_language`
+    (both just changed by TC-623 - re-read the REAL current code, do not trust the summary here if
+    it has shifted) and `src/foss_mcp/indexing/chunk_builder.py`'s real `_inherited_from_suffix`
+    (around line 96-108), specifically its `_NAME_SEPARATORS = re.compile(r"\.|::")` pattern and
+    `_NAME_SEPARATORS.split(str(inherited_from).strip())[-1]` bare-name extraction - define an
+    equivalent small helper locally in `source_differential.py` (a single-line regex split; do NOT
+    import this private helper across packages, it is simple enough to duplicate, unlike
+    `compute_canonical_identities`, which IS complex enough to justify TC-623's cross-package
+    import). Confirm for yourself, by reading a real committed fixture
+    (`tests/fixtures/3d_python/api_surface.json` has a real example already found by TC-623's own
+    worker: `Node`'s `find_property` method, `inherited_from: "aspose.threed.A3DObject.A3DObject"`),
+    the exact real shape of `inherited_from` (a dotted, FQN-like string, not a bare name).
+  - >-
+    In `diff_language`, as the FIRST new statement of the function body (before the existing
+    `baked_by_name` line), add EXACTLY this line, verbatim, since the card's own negative control
+    anchors on it precisely: `oracle_by_name: dict[str, OracleSymbol] = {symbol.name: symbol for
+    symbol in symbols}` (bare name, matching how `baked_by_name` is already keyed after TC-623's
+    fix - when TWO oracle symbols share a bare name, which one `oracle_by_name` ends up holding is
+    a pre-existing, unresolved ambiguity this card does not need to solve, exactly like TC-623
+    explicitly left the symmetric case for `baked_by_name` unresolved; state in your closeout which
+    one wins and that this is a known, accepted limitation, not a new one this card introduces).
+    Thread `oracle_by_name` into `diff_symbol` as a new parameter.
+  - >-
+    In `diff_symbol`'s three trailing "extra" loops (`baked_methods`, `baked_props`, and - only if
+    enum members can realistically carry `inherited_from` in a real fixture, check this first and
+    report what you find rather than assuming - `baked_enum`): for a baked member whose
+    `inherited_from` is set and whose name is not already in the oracle's own
+    `oracle_method_names`/`oracle_prop_names` (i.e. it would currently be flagged "extra"), do NOT
+    flag it as a hard "extra" finding. Instead: extract the ancestor's bare name from
+    `inherited_from` (the helper above), look it up in `oracle_by_name`. If the ancestor IS found
+    and its own `members` tuple contains a member of the SAME name (and same `kind` - method vs
+    property; do not cross-match a method name against a property of the same name, a real
+    possibility this check must not silently paper over): the member is VERIFIED - no finding at
+    all, not even informational. If the ancestor is found but does NOT declare that name: this is
+    now a GENUINE finding - add a NEW, separate category (NOT one of the existing `CATEGORIES`
+    tuple, since this is a different kind of disagreement; add it as its OWN `DiffCounts` field,
+    e.g. `inherited_mismatch`, included in `as_dict`/`add` explicitly but NOT added to the
+    `CATEGORIES` tuple itself, so it is never ceiling-gated by `evaluate_ceilings` - this card is
+    about HONEST VISIBILITY of a new class of finding, not about failing a release on a
+    not-yet-triaged category; `evaluate_ceilings` iterates `CATEGORIES` only, confirm this stays
+    true after your change). If the ancestor is NOT found in `oracle_by_name` at all (the oracle
+    enumerator never scanned it - a stdlib base, an external dependency, or simply outside this
+    run's scope): the member is UNVERIFIABLE - also no hard "extra" finding, but record it in
+    ANOTHER new, separate, non-gated `DiffCounts` field, e.g. `unverified_inherited`, so the real,
+    honest count of "how much of this fixture we could not check" is visible rather than silently
+    disappearing. A baked member with NO `inherited_from` (a genuinely own-declared member) is
+    completely unaffected by this card - the existing "extra" logic for it is untouched.
+  - >-
+    tests/release/test_oracle_inherited_verification.py (no mocks for the real-pilot case; reads
+    the real, committed fixture data under `tests/fixtures/`, writes nothing to it): (a) a
+    synthetic baked member with `inherited_from` naming a real ancestor oracle symbol that DOES
+    declare the member - confirm ZERO "extra" findings and ZERO entries in either new field (fully
+    verified, silent); (b) the same shape but the named ancestor's oracle symbol does NOT declare
+    that member - confirm it lands in the new `inherited_mismatch` field (not the old `extra`
+    field), with a finding whose `category` names the new category and whose `detail` names the
+    real ancestor and the real mismatch; (c) the same shape but the named ancestor is not in the
+    oracle's symbol set at all - confirm it lands in `unverified_inherited`, not `extra`, and
+    produces no `CATEGORIES`-gated finding; (d) a REAL regression reproduction: the real
+    `3d_python`/`Node`/`find_property`/`A3DObject` case TC-623's own worker already found and
+    documented - confirm concretely that, before this card, `find_property` (and every other real
+    inherited member of `Node` sharing the same ancestor) was counted as hard "extra" (reproduce the
+    OLD behaviour explicitly, by calling the old trailing-loop logic inline or via a before/after
+    comparison, not by assuming), and after this card is either silently verified or correctly
+    re-bucketed - state the real measured before/after extra-count for this one real case; (e) a
+    method name and a property name sharing the same bare name on the SAME ancestor (construct this
+    synthetically if no real fixture has it) - confirm the kind-matching requirement actually
+    prevents a false cross-kind verification; (f) run the full, existing
+    `tests/release/test_source_differential.py` suite PLUS TC-623's own
+    `tests/release/test_oracle_shell_resolution.py` and confirm every existing pinned result
+    (including TC-623's own, now-dependent-card result) is UNCHANGED - state the real current test
+    count. Never weaken a check to make it pass.
+actions:
+  - >-
+    Verify an inherited baked member against its named ancestor's own oracle symbol instead of the
+    current class's, closing the single largest bucket of the oracle disagreement (measured 73.5%
+    of "extra") with two new, honest, non-ceiling-gated DiffCounts fields for the genuinely
+    unresolved cases, proven against the real 3d_python/Node/A3DObject case with zero change to the
+    existing 128+4-test suite.
+checks:
+  - command: '{python} -m pytest tests/release/test_oracle_inherited_verification.py -q -rfE'
+    expect: 'exit 0'
+    timeout_seconds: 180
+    junitxml: true
+    proves:
+      - REQ-G3-012
+  - command: '{python} -m pytest tests/release/test_oracle_inherited_verification.py tests/release/test_oracle_shell_resolution.py tests/release/test_source_differential.py -q -rfE -p no:cacheprovider'
+    expect: 'exit 0'
+    timeout_seconds: 300
+    junitxml: true
+    proves:
+      - REQ-G3-012
+min_tests: 6
+requires:
+  - python
+network: false
+negative_control:
+  mutate: |
+    python -X utf8 -c "import pathlib; p = pathlib.Path('scripts/release/source_differential.py'); s = p.read_text(encoding='utf-8'); old = '    oracle_by_name: dict[str, OracleSymbol] = {symbol.name: symbol for symbol in symbols}'; assert s.count(old) == 1, 'fix text not found - card and source have diverged'; new = old + chr(10) + '    oracle_by_name = {}  # TC-624 negative control: every ancestor lookup fails, reproducing pre-fix hard-extra flagging'; p.write_text(s.replace(old, new, 1), encoding='utf-8')"
+  rationale: >-
+    Immediately after the real oracle_by_name is built, forces it back to an empty dict - every
+    ancestor lookup then fails to find its ancestor, so every inherited member falls into
+    `unverified_inherited` (never `inherited_mismatch`, and critically, the real case (a)
+    genuinely-verified scenario would ALSO wrongly fall through to unverified rather than being
+    silently confirmed) - reproducing "the ancestor verification never actually runs" even though
+    the surrounding code and the two new DiffCounts fields all exist. Tests (a), (b) and (d) must
+    then fail or change outcome, proving they exercise the real ancestor lookup rather than trusting
+    that `oracle_by_name` merely exists as a variable. Dry-run confirmed by the supervisor against a
+    simulated version of this card's own required first-body-statement line: applies cleanly,
+    produces valid Python.
+evidence:
+  - evidence/build/G3/TC-624/receipt.json
+closeout:
+  - >-
+    Inherited members are now verified against their named ancestor's own oracle symbol; state the
+    real before/after extra-count for the 3d_python/Node/find_property case and the real,
+    dry-run-confirmed replacement negative control you used (per the rationale above). Confirm the
+    existing suite (128 + TC-623's 4) is unchanged.
+recovery: >-
+  If building oracle_by_name or threading it into diff_symbol turns out to need a different shape
+  than described here (e.g. diff_symbol is restructured rather than given a new parameter), adapt
+  the specific mechanism while keeping the END RESULT this card requires: an inherited member is
+  verified against its named ancestor, not against the current class, with the two new honest,
+  non-ceiling-gated fields. State the real shape you used in your closeout.
