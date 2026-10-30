@@ -743,8 +743,16 @@ def _aspose_dotted_mention_re(family: str) -> re.Pattern[str]:
     """A case-insensitive pattern matching the literal, whole-word dotted mention "Aspose.<family>"
     (e.g. "Aspose.PDF", "Aspose.3D") - never a merely similar-looking token (``\\b`` on both sides
     means "Aspose.PDF2Word" and "Aspose.PDFs" do not match, since neither has a word boundary right
-    after *family*)."""
-    return re.compile(rf"\bAspose\.{re.escape(family)}\b", re.IGNORECASE)
+    after *family*), and - G3/REQ-G3-011, TC-619 - never a real FQN continuation either: the trailing
+    ``(?!\\.)`` negative lookahead refuses a match when the family mention is immediately followed by
+    a literal ``.`` (``Aspose.Pdf.Annotations.Measure``, ``Aspose.Cells.Worksheet``,
+    ``Aspose.Slides.Presentation`` - every real FQN in this corpus is shaped
+    ``Aspose.<Family>.<More>``), because plain ``\\b`` alone is satisfied by that ``.`` too (a
+    transition from a word character to a non-word character), which is exactly how TC-610's original
+    pattern silently corrupted a genuine, exact FQN query into a broken, space-separated prefix
+    (``"Aspose Pdf.Annotations.Measure"``) - the regression TC-618's worker caught via
+    ``tests/conformance/test_symbol_self_retrieval.py``."""
+    return re.compile(rf"\bAspose\.{re.escape(family)}\b(?!\.)", re.IGNORECASE)
 
 
 def normalize_query(query: str, family: str) -> str:
@@ -758,6 +766,32 @@ def normalize_query(query: str, family: str) -> str:
     completely untouched, and *query* is returned unchanged when no "Aspose.<family>" mention is
     found. Pure and independent of the ``platform`` exclusion above: the two fixes are composable,
     not coupled.
+
+    TC-619 (G3/REQ-G3-011) fix: the family mention is rewritten only when it is NOT immediately
+    followed by a literal ``.`` - a real FQN continuation (``Aspose.Pdf.Annotations.Measure``,
+    ``Aspose.Cells.Worksheet``, ``Aspose.Slides.Presentation``, ...) is therefore left completely
+    untouched, never mistaken for a bare product-name mention and corrupted into a broken,
+    space-separated prefix. This closes a real regression: TC-610's own test suite never covered a
+    family mention immediately followed by further dotted segments, so plain ``\\b`` (satisfied by
+    ANY word-to-non-word transition, including that very ``.``) silently turned an exact-FQN query
+    into garbage, breaking tier-0 exact-FQN matching in ``find_examples`` (whose exact branch compares
+    ``extract_fqn(document) == query`` byte-for-byte) and in any other exact-name consumer.
+
+    One accepted, deliberate tradeoff: a query ending in a literal sentence-final period directly
+    after the family mention ("...using Aspose.PDF.") is now also left unrewritten - by this regex
+    alone, that trailing "." is indistinguishable from a real FQN continuation. This is accepted
+    because leaving a rare, degenerate trailing-period case unrewritten is far better than silently
+    corrupting the overwhelmingly common, important case (an exact FQN query); and it is low-cost
+    because every downstream consumer of this result already strips trailing punctuation before
+    making a decision on it regardless of what ``normalize_query`` does: ``find_examples``,
+    ``search_docs`` and ``lookup`` all tokenize the (possibly still-dotted) query through
+    ``tokenize()`` (``lexical_index_writer.tokenize``, an alphanumeric-run tokenizer that already
+    discards every non-alphanumeric character, trailing periods included) before ever comparing
+    terms, and ``search_symbols._plain_words`` strips surrounding ``string.punctuation`` from each
+    word - including a trailing "." - before deciding whether a word is "dotted" at all, and would
+    still see the mention's OWN internal "." either way. So "Aspose.PDF." and "Aspose PDF." are
+    treated identically by every real caller; only this one function's own unit tests can tell them
+    apart.
     """
     return _aspose_dotted_mention_re(family).sub(lambda match: match.group(0).replace(".", " "), query)
 

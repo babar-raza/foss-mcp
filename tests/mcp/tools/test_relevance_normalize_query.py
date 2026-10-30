@@ -156,3 +156,63 @@ def test_normalize_query_is_a_no_op_for_an_unrelated_family() -> None:
     # THIS family is present, so nothing is rewritten.
     query = "I want to use the Aspose.PDF library for my project"
     assert normalize_query(query, "cells") == query
+
+
+# --- (f) G3/TC-619: a real FQN continuation is never corrupted into a broken, space-separated
+#         prefix - the exact regression TC-618's worker found via
+#         tests/conformance/test_symbol_self_retrieval.py (pdf/net's
+#         "Aspose.Pdf.Annotations.Measure" and "Aspose.Pdf.Forms.Signature" cases). Each FQN below is
+#         copied verbatim from a real, committed fixture's own "class_import" field (never invented):
+#         - "Aspose.Pdf.Annotations.Measure" <- tests/fixtures/pdf_net/api_surface.json, type "Measure"
+#         - "Aspose.Words.Fields.Field"      <- tests/fixtures/words_net/api_surface.json, type "Field"
+#         - "Aspose.Imaging.Foss.ImageFormat" <- tests/fixtures/imaging_net/api_surface.json,
+#           type "ImageFormat" (this family's own FOSS fork namespace continues with ".Foss...", which
+#           is exactly the kind of further-dotted continuation the fix must also leave alone)
+# -----------------------------------------------------------------------------------------------
+
+
+def test_normalize_query_leaves_a_real_pdf_fqn_continuation_byte_for_byte_unchanged() -> None:
+    # The literal regression: before TC-619's fix, this became "Aspose Pdf.Annotations.Measure",
+    # breaking find_examples' exact branch (extract_fqn(document) == query).
+    fqn = "Aspose.Pdf.Annotations.Measure"
+    assert normalize_query(fqn, "pdf") == fqn
+
+
+def test_normalize_query_leaves_a_real_pdf_forms_fqn_continuation_byte_for_byte_unchanged() -> None:
+    # The second case TC-618's worker's conformance run caught (same pilot, different symbol).
+    fqn = "Aspose.Pdf.Forms.Signature"
+    assert normalize_query(fqn, "pdf") == fqn
+
+
+def test_normalize_query_leaves_a_real_words_fqn_continuation_byte_for_byte_unchanged() -> None:
+    fqn = "Aspose.Words.Fields.Field"
+    assert normalize_query(fqn, "words") == fqn
+
+
+def test_normalize_query_leaves_a_real_imaging_fqn_continuation_byte_for_byte_unchanged() -> None:
+    fqn = "Aspose.Imaging.Foss.ImageFormat"
+    assert normalize_query(fqn, "imaging") == fqn
+
+
+def test_normalize_query_still_rewrites_a_bare_product_mention_with_nothing_dotted_after_it() -> None:
+    # Guards against the fix overcorrecting into never rewriting anything: a bare mention with no
+    # further dotted segment (nothing immediately follows the family word but a non-dot boundary)
+    # must still be rewritten exactly as before.
+    query = "how do I install and reference the Aspose.PDF FOSS library for conversion"
+    normalized = normalize_query(query, "pdf")
+    assert normalized == "how do I install and reference the Aspose PDF FOSS library for conversion"
+    assert "Aspose.PDF" not in normalized
+
+
+def test_normalize_query_leaves_the_trailing_sentence_final_period_case_unrewritten() -> None:
+    # The one accepted, deliberate tradeoff this fix creates (documented in normalize_query's own
+    # docstring): a query ending in a literal sentence-final period directly after the family mention
+    # is, by this regex alone, indistinguishable from a real FQN continuation, so it too is left
+    # unrewritten. This is accepted as low-cost because every real downstream consumer
+    # (find_examples/search_docs/lookup's tokenize()-based term extraction, and
+    # search_symbols._plain_words's own punctuation-stripping) treats "Aspose.PDF." and "Aspose PDF."
+    # identically regardless - only this function's own dedicated unit tests can tell them apart.
+    query = "I am just getting started with Aspose.PDF."
+    normalized = normalize_query(query, "pdf")
+    assert normalized == query  # left completely unrewritten, not partially mangled
+    assert "Aspose.PDF." in normalized
