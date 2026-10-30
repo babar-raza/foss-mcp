@@ -1,0 +1,128 @@
+id: TC-619
+gate: G3
+lane: storage-retrieval
+purpose: >-
+  Fix a real, reproduced defect in TC-610's `relevance.normalize_query` (REQ-G3-011), found by
+  TC-618's worker while wiring it into `search_symbols`: `_aspose_dotted_mention_re`'s pattern
+  (`rf"\bAspose\.{family}\b"`) uses `\b` as its ONLY right-hand guard, but `\b` is satisfied by ANY
+  transition from a word character to a non-word character - including a literal `.` immediately
+  following the family segment. Every real FQN in this corpus is shaped `Aspose.<Family>.<More>`
+  (`Aspose.Pdf.Annotations.Measure`, `Aspose.Cells.Worksheet`, `Aspose.Slides.Presentation`,
+  `Aspose.Words.Document` - confirmed universal for this naming convention, not a two-case edge
+  condition), so `normalize_query` silently corrupts a genuine, exact FQN query into a broken,
+  space-separated form (`"Aspose Pdf.Annotations.Measure"`), breaking tier-0 exact-FQN matching.
+  TC-610's own test suite never covered a family mention immediately followed by further dotted
+  segments, so this gap was real and unmeasured until TC-618's conformance-suite run caught it
+  (`tests/conformance/test_symbol_self_retrieval.py`, 2 new baseline failures on pdf/net, with the
+  worker confirming the blast radius is universal across families by direct reproduction). TC-618
+  itself could not be completed until this lands (its own `recovery:` clause correctly told the
+  worker to stop rather than paper over it). Read
+  C:\Users\babar\.claude\plans\steady-wobbling-meteor.md section 2.2 (Q1-Q4) first.
+depends_on:
+  - TC-610
+  - TC-616
+  - TC-617
+write_paths:
+  - src/foss_mcp/mcp/tools/relevance.py
+  - tests/mcp/tools/test_relevance_normalize_query.py
+satisfies:
+  - REQ-G3-011
+source_refs:
+  - file: docs/DECISION_LOG.md
+    anchor: >-
+      ## 2026-10-30 — Round-2 portfolio audit remediation adopted: unified plan, governance decisions A-K
+      recorded (supervisor)
+    sha256: 62cf1403a592118e3fb6bd14c5336f8a997cc3181d44a585323ec9f1d385a931
+inputs:
+  - >-
+    READ FIRST: `src/foss_mcp/mcp/tools/relevance.py`'s real `_aspose_dotted_mention_re` (around
+    line 742) and `normalize_query` (around line 750) IN FULL, exactly as they stand today -
+    confirm the pattern is still `rf"\bAspose\.{{re.escape(family)}}\b"` before changing it (it may
+    have shifted slightly). Also read `tests/mcp/tools/test_relevance_normalize_query.py`'s real,
+    existing pinned tests in full - this card ADDS new cases, it does not change or remove any
+    existing one unless a currently-pinned case turns out to itself be wrong (if so, STOP and
+    report that finding rather than silently changing a pinned assertion).
+  - >-
+    Fix: add a negative lookahead for a literal `.` immediately after the family mention, so a real
+    FQN continuation (`Aspose.<Family>.<More>`) is never treated as a bare product-name mention:
+    `rf"\bAspose\.{{re.escape(family)}}\b(?!\.)"` (or an equivalent, clearer formulation achieving
+    the identical semantics - your choice, but keep it a single compiled regex, matching the
+    function's existing style). Document the one accepted, deliberate tradeoff this creates: a query
+    ending in a literal sentence-final period directly after the family mention
+    ("...using Aspose.PDF.") is now also left unrewritten (indistinguishable, by this regex alone,
+    from a real FQN continuation) - state in the docstring that this is accepted because leaving a
+    rare, degenerate trailing-period case unrewritten is far better than silently corrupting the
+    overwhelmingly common, important case (an exact FQN query), and that downstream tokenization
+    already strips such trailing punctuation in every other consumer of this result anyway (confirm
+    this second claim is actually true by reading how the normalized query is subsequently consumed
+    in at least one real caller - find_examples, search_docs, lookup or search_symbols - rather than
+    asserting it blind).
+  - >-
+    tests/mcp/tools/test_relevance_normalize_query.py: ADD (do not remove or weaken any existing
+    case) - (a) a real, full FQN for at least THREE different real families from this corpus
+    (e.g. `Aspose.Pdf.Annotations.Measure` family="pdf", `Aspose.Cells.Worksheet` family="cells",
+    `Aspose.Slides.Presentation` family="slides" - confirm these are real FQNs by checking a real
+    committed fixture, not inventing plausible-looking ones) passed through `normalize_query` is
+    returned COMPLETELY UNCHANGED (byte-for-byte identical to the input) - the exact regression
+    TC-618's worker found; (b) a bare product-name mention with nothing dotted after it
+    ("...using Aspose.PDF for conversion", family="pdf") is STILL correctly rewritten to its
+    space-separated form - confirming the fix does not overcorrect into never rewriting anything;
+    (c) the documented trailing-period tradeoff case (a query ending in "Aspose.PDF." with nothing
+    else after the period) is left unrewritten, and a comment/assertion explains why this is
+    accepted, not a silent gap; (d) re-run every EXISTING pinned case in this file unchanged, to
+    confirm backward compatibility within the file itself. Never weaken a check to make it pass.
+  - >-
+    Also re-run, as this card's second check, the full set of OTHER cards' own normalize_query
+    integration tests that already landed (`tests/mcp/tools/test_find_examples_query_normalization.py`
+    from TC-616, `tests/mcp/tools/test_search_docs_query_normalization.py` and
+    `tests/mcp/tools/test_lookup_query_normalization.py` from TC-617) plus
+    `tests/conformance/test_symbol_self_retrieval.py` (the exact test that caught this regression)
+    and `tests/mcp/tools/test_round3_retrieval_corpus.py`, to confirm the fix does not change any of
+    their already-pinned results and that the conformance baseline failure TC-618's worker found is
+    now gone. State explicitly in your closeout whether any of TC-616/TC-617's own real-pilot
+    measurements (the "no-op for find_examples/search_docs" findings, the lookup revival case) are
+    affected by this regex change - they should not be, since none of them used an FQN-continuation
+    shaped query, but confirm this rather than assume it.
+actions:
+  - >-
+    Fix normalize_query's dotted-mention regex so a real FQN continuation (Aspose.<Family>.<More>)
+    is never mistaken for a bare product-name mention, closing the regression TC-618's worker found
+    before wiring normalize_query into any MORE tools, with zero change to any already-landed
+    integration's pinned results.
+checks:
+  - command: '{python} -m pytest tests/mcp/tools/test_relevance_normalize_query.py -q -rfE'
+    expect: 'exit 0'
+    timeout_seconds: 120
+    junitxml: true
+    proves:
+      - REQ-G3-011
+  - command: '{python} -m pytest tests/mcp/tools/test_relevance_normalize_query.py tests/mcp/tools/test_find_examples_query_normalization.py tests/mcp/tools/test_search_docs_query_normalization.py tests/mcp/tools/test_lookup_query_normalization.py tests/conformance/test_symbol_self_retrieval.py tests/mcp/tools/test_round3_retrieval_corpus.py -q -rfE -p no:cacheprovider'
+    expect: 'exit 0'
+    timeout_seconds: 300
+    junitxml: true
+    proves:
+      - REQ-G3-011
+min_tests: 8
+requires:
+  - python
+network: false
+negative_control:
+  mutate: |
+    python -X utf8 -c "import pathlib; p = pathlib.Path('src/foss_mcp/mcp/tools/relevance.py'); s = p.read_text(encoding='utf-8'); old = 'def _aspose_dotted_mention_re(family: str) -> re.Pattern[str]:'; assert s.count(old) == 1, 'fix text not found - card and source have diverged'; lines = s.splitlines(); i = next(idx for idx, line in enumerate(lines) if old in line); j = i + 1; depth_line = lines[j]; indent = ' ' * (len(depth_line) - len(depth_line.lstrip())); marker = indent + 'return __import__(' + chr(34) + 're' + chr(34) + ').compile(rf' + chr(34) + chr(92) + 'bAspose' + chr(92) + chr(46) + '{re.escape(family)}' + chr(92) + 'b' + chr(34) + ', __import__(' + chr(34) + 're' + chr(34) + ').IGNORECASE)  # TC-619 negative control: reinstate the pre-fix pattern'; lines.insert(j, marker); p.write_text(chr(10).join(lines) + chr(10), encoding='utf-8')"
+  rationale: >-
+    Shadows _aspose_dotted_mention_re's return value with the exact pre-fix pattern (no negative
+    lookahead) immediately on entry, regardless of what the real fix looks like inside the function
+    body below it. The new FQN-continuation regression test must then fail, proving it exercises the
+    real fixed pattern rather than trusting the function's existence.
+evidence:
+  - evidence/build/G3/TC-619/receipt.json
+closeout:
+  - >-
+    normalize_query no longer corrupts a real FQN continuation; the documented trailing-period
+    tradeoff is stated plainly. Confirm the TC-618 conformance-suite regression (pdf/net
+    Aspose.Pdf.Annotations.Measure / Aspose.Pdf.Forms.Signature) no longer reproduces, and that
+    TC-616/TC-617's own already-landed measurements are unaffected.
+recovery: >-
+  If the negative lookahead approach itself turns out to have its own edge case (e.g. a family name
+  containing a literal dot, or a case-folding interaction), STOP and report FAILED_INTERNAL with the
+  exact concrete query that breaks, rather than adding special-case branches ad hoc.

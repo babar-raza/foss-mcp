@@ -18,10 +18,21 @@ purpose: >-
   bit TC-617. If a real, measured case for platform exclusion here turns up while building this
   card, STOP and report it as a finding for a separate, dedicated card rather than bundling it in.
   Read C:\Users\babar\.claude\plans\steady-wobbling-meteor.md section 2.2 (Q1-Q4) first.
+
+  ATTEMPT 2 NOTE: attempt 1 correctly found and stopped on a real, reproduced defect in
+  `normalize_query` itself (not in this card's own write_paths): it corrupts a genuine, exact FQN
+  query (`Aspose.Pdf.Annotations.Measure`) by treating the family-then-dot boundary as a bare
+  product-name mention, breaking tier-0 exact-FQN matching for essentially every real symbol in
+  every family. This is now fixed by TC-619 (added to `depends_on`). Re-attempt the exact same
+  wiring attempt 1 already correctly designed (do not redo the diagnosis - it is already fixed
+  upstream); if the regression TC-619 was supposed to fix still reproduces here, STOP and report
+  FAILED_INTERNAL again rather than attempting your own second fix to relevance.py, which is
+  outside this card's write_paths.
 depends_on:
   - TC-585
   - TC-610
   - TC-617
+  - TC-619
 write_paths:
   - src/foss_mcp/mcp/tools/search_symbols.py
   - tests/mcp/tools/test_search_symbols_query_normalization.py
