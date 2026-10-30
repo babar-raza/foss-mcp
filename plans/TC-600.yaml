@@ -61,14 +61,22 @@ inputs:
     `--source-date-epoch` (`type=int`, default None). When `--content-derived-version` is given,
     `--source-date-epoch` becomes required (raise a clear `parser.error(...)` if it is missing -
     argparse's own mutually-dependent-argument idiom, do not silently default it); compute
-    `publisher.content_derived_version(chunk_ids, source_date_epoch=args.source_date_epoch)` (you
-    will need to read how chunk_ids are already available at the point `publish_generation` is
-    called in this file - do not re-derive them differently) and pass it as `version=` to the
-    existing `publish_generation(...)` call. When the flag is absent (the default, and the ONLY
-    behaviour the live Helm ingestion job and docker-compose services use today - confirm this by
-    grep across infra/helm/ and docker-compose.yml that neither currently passes this flag, and do
-    not add it to either as part of this card), nothing changes: `version` stays unset and
-    `publish_generation` falls back to `new_version()` exactly as it does right now.
+    `chunk_ids = [publisher.content_chunk_id(c) for c in chunks]` (CONFIRMED SAFE AND SANCTIONED:
+    `content_chunk_id` is a public, pure, already-exported function in publisher.py - this is
+    EXACTLY the same function and the same `chunks` list `publish_generation` uses internally to
+    compute its own `chunk_ids` one line into its body, so calling it a second time here from
+    ingest.py cannot diverge from what `publish_generation` will independently compute; this is
+    not "re-deriving them differently", it is calling the one real implementation twice on the
+    same input, which is pure and side-effect-free - do NOT change `publish_generation`'s
+    signature or internals, and do NOT import or duplicate `content_chunk_id`'s logic inline;
+    just call the existing function), then
+    `publisher.content_derived_version(chunk_ids, source_date_epoch=args.source_date_epoch)` and
+    pass the result as `version=` to the existing `publish_generation(...)` call. When the flag is
+    absent (the default, and the ONLY behaviour the live Helm ingestion job and docker-compose
+    services use today - confirm this by grep across infra/helm/ and docker-compose.yml that
+    neither currently passes this flag, and do not add it to either as part of this card), nothing
+    changes: `version` stays unset and `publish_generation` falls back to `new_version()` exactly
+    as it does right now.
   - >-
     tests/indexing/test_publisher_content_derived_version.py tests, all against real code, no
     mocks: (a) `content_derived_version` is a pure function - same chunk_ids and epoch, called
@@ -127,7 +135,9 @@ closeout:
     and infra/ingest.py's two new opt-in flags produce a generation_id that matches it exactly,
     with the live cluster/compose default path left completely untouched.
 recovery: >-
-  If infra/ingest.py's existing chunk_ids derivation is not a simple, available local variable at
-  the point publish_generation is called (e.g. it is computed inline and discarded), STOP and
-  report FAILED_INTERNAL describing the real control flow rather than refactoring more of
-  ingest.py than this card's narrow scope calls for - a larger refactor needs its own card.
+  CORRECTED after a real attempt (attempt 1) found the original wording's premise false:
+  infra/ingest.py has no pre-existing chunk_ids local variable; publish_generation computes it
+  internally via content_chunk_id(chunk) per chunk. The inputs above now explicitly sanction
+  calling that same public, pure function a second time at the ingest.py call site - this is
+  the fix, not a workaround. If content_chunk_id is ever removed, renamed, or made private
+  (unrelated to this card), STOP and report FAILED_INTERNAL rather than reimplementing its logic.
