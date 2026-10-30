@@ -24,6 +24,7 @@ from dataclasses import dataclass
 from pathlib import Path
 
 from foss_mcp.extraction.claim_id_bridge import SymbolIndex
+from foss_mcp.indexing import publisher
 from foss_mcp.indexing.embedding_provider import EmbeddingProvider
 
 # PublishSafetyError is re-exported: this module used to define its own PublishSafetyError
@@ -369,7 +370,33 @@ def main() -> None:
         default=None,
         help="why the shrink is accepted; also read from FOSS_MCP_ACCEPT_REGRESSION_REASON",
     )
+    parser.add_argument(
+        "--content-derived-version",
+        action="store_true",
+        default=False,
+        help=(
+            "mint the published generation's version from its own content (G3/REQ-G3-017), not "
+            "from the current time, so a hermetic regeneration of byte-identical chunks produces "
+            "the SAME generation_id every time. OPT-IN only: omitted (the default, and what the "
+            "live Helm ingestion job and docker-compose services use today), nothing changes - "
+            "version is still minted by publisher.new_version(), never from content. Requires "
+            "--source-date-epoch."
+        ),
+    )
+    parser.add_argument(
+        "--source-date-epoch",
+        type=int,
+        default=None,
+        metavar="EPOCH",
+        help=(
+            "the UTC unix epoch seconds to stamp into a --content-derived-version version's "
+            "timestamp component. Required when --content-derived-version is given; otherwise "
+            "unused."
+        ),
+    )
     args = parser.parse_args()
+    if args.content_derived_version and args.source_date_epoch is None:
+        parser.error("--content-derived-version requires --source-date-epoch")
 
     accept_regressions: list[tuple[str, int, int]] = list(args.accept_regression or [])
     if args.accept_regression is None:
@@ -403,6 +430,17 @@ def main() -> None:
         print(report.furnished_summary_line())
     embedding_provider = _load_embedding_provider(args.embedding_provider)
 
+    # --content-derived-version (G3/REQ-G3-017) is strictly opt-in: when absent (the default,
+    # and the only behaviour the live Helm ingestion job and docker-compose services use
+    # today), `version` stays unset below and publish_generation falls back to new_version()
+    # exactly as it does without this card. Calling content_chunk_id a second time here is
+    # calling the one real, pure implementation publish_generation itself calls internally -
+    # not re-deriving chunk ids differently - so this cannot diverge from what gets published.
+    version = None
+    if args.content_derived_version:
+        chunk_ids = [publisher.content_chunk_id(chunk) for chunk in chunks]
+        version = publisher.content_derived_version(chunk_ids, source_date_epoch=args.source_date_epoch)
+
     # The empty-generation / >50% regression guard (PublishSafetyError) is no longer
     # checked here: TC-242 moved it inside generation_manifest.publish() itself (called by
     # publish_generation below), so it is enforced for every direct caller of
@@ -418,6 +456,7 @@ def main() -> None:
         chunks=chunks,
         embedding_provider=embedding_provider,
         lease=lease,
+        version=version,
         vector_chunk_filter=is_example_chunk if args.vector_scope == "examples" else None,
         vector_decimals=args.vector_decimals,
         policy=policy,

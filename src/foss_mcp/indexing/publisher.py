@@ -57,6 +57,29 @@ def new_version() -> str:
     return f"{timestamp}-{uuid.uuid4().hex[:8]}"
 
 
+def content_derived_version(chunk_ids: Sequence[str], *, source_date_epoch: int) -> str:
+    """The deterministic counterpart to ``new_version()`` - used ONLY by a future hermetic
+    regeneration path (H6, not yet built), never by the live/cluster ingestion path, which
+    keeps calling ``new_version()`` exactly as before this function existed.
+
+    Returns the SAME shape ``new_version()`` returns (``f"{timestamp}-{suffix}"``, a UTC
+    timestamp ending in ``Z``, a dash, then 8 lowercase hex characters) so
+    ``release_alignment.generation_indexed_at()``'s existing ``(\\d{8})T(\\d{6})\\d*Z`` regex
+    keeps parsing it, and "newest is lexicographically greatest version"
+    (``generation_manifest.py``'s ``previous_generation``/``prune``) keeps working unchanged.
+
+    The timestamp component is a pure function of *source_date_epoch* alone (zero
+    microseconds, since an epoch has no sub-second resolution), and the 8-hex suffix is a pure
+    function of *chunk_ids* alone (sorted first, so the result does not depend on the order
+    they are handed in - only on which ids are present). Two calls with the same inputs always
+    produce the same string; this is the whole point - a hermetic regeneration from the same
+    content on the same recorded epoch must produce the same generation_id every time.
+    """
+    timestamp = datetime.fromtimestamp(source_date_epoch, UTC).strftime("%Y%m%dT%H%M%S000000Z")
+    suffix = hashlib.sha256("\x1f".join(sorted(chunk_ids)).encode()).hexdigest()[:8]
+    return f"{timestamp}-{suffix}"
+
+
 def build_generation_stats(chunks: Sequence[Chunk], chunk_ids: Sequence[str]) -> dict[str, Any]:
     """The per-generation statistics persisted as ``payload.stats`` (TC-510): the per-kind counts
     of the lexical index this generation carries (one document per distinct chunk id), plus the
