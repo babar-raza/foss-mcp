@@ -1,0 +1,111 @@
+{
+  "schema_version": 1,
+  "card": "TC-603",
+  "gate": "G3",
+  "generated_by": "gatectl",
+  "generated_at": "2026-10-30T12:50:03Z",
+  "base_rev": "d543598339a214e3fbb54068d82aac1cc9a9c587",
+  "head_rev": "6b4f6353a8cfe560b65d8c626827beaf73987658",
+  "card_sha256": "8fb5aae8812086c9f4171d5ce132afdc643674d441750c9f184c02469a62dab1",
+  "fingerprint": {
+    "python": "3.13.2",
+    "platform": "Windows-11-10.0.26300-SP0",
+    "lock_sha256": "5c72e798a73c059a438e752e94a8d4c88c1bdf81a197f6e5c5fcecbc9466a691",
+    "env": {
+      "PYTHONHASHSEED": "0",
+      "PYTHONUTF8": "1",
+      "PYTHONDONTWRITEBYTECODE": "1",
+      "PYTHONIOENCODING": "utf-8",
+      "TZ": "UTC",
+      "LC_ALL": "C.UTF-8",
+      "SOURCE_DATE_EPOCH": "1700000000",
+      "verify_runner": "host"
+    }
+  },
+  "scope": {
+    "ok": true,
+    "changed_paths": [
+      ".github/workflows/ci.yml",
+      "tests/infra/test_ci_workflow_yaml.py"
+    ],
+    "violations": [],
+    "evaluated": true
+  },
+  "runs": [
+    {
+      "run": 1,
+      "checks": [
+        {
+          "command": "{python} -m pytest tests/infra/test_ci_workflow_yaml.py -q -rfE",
+          "exit_code": 0,
+          "duration_s": 0.95,
+          "stdout_sha256": "08faea39fd19189f6544839f505d91d76ecb1367e219f5db362cdf22916ef869",
+          "tests": 11,
+          "skipped": 0,
+          "errors": 0,
+          "failures": 0
+        },
+        {
+          "command": "{python} -m pytest tests/infra/test_ci_workflow_yaml.py -q -rfE -p no:cacheprovider",
+          "exit_code": 0,
+          "duration_s": 0.645,
+          "stdout_sha256": "08faea39fd19189f6544839f505d91d76ecb1367e219f5db362cdf22916ef869",
+          "tests": 11,
+          "skipped": 0,
+          "errors": 0,
+          "failures": 0
+        }
+      ],
+      "all_passed": true
+    },
+    {
+      "run": 2,
+      "checks": [
+        {
+          "command": "{python} -m pytest tests/infra/test_ci_workflow_yaml.py -q -rfE",
+          "exit_code": 0,
+          "duration_s": 0.495,
+          "stdout_sha256": "08faea39fd19189f6544839f505d91d76ecb1367e219f5db362cdf22916ef869",
+          "tests": 11,
+          "skipped": 0,
+          "errors": 0,
+          "failures": 0
+        },
+        {
+          "command": "{python} -m pytest tests/infra/test_ci_workflow_yaml.py -q -rfE -p no:cacheprovider",
+          "exit_code": 0,
+          "duration_s": 0.629,
+          "stdout_sha256": "08faea39fd19189f6544839f505d91d76ecb1367e219f5db362cdf22916ef869",
+          "tests": 11,
+          "skipped": 0,
+          "errors": 0,
+          "failures": 0
+        }
+      ],
+      "all_passed": true
+    }
+  ],
+  "negative_control": {
+    "kind": "mutate",
+    "patch": "python -X utf8 -c \"import pathlib; p = pathlib.Path('.github/workflows/ci.yml'); s = p.read_text(encoding='utf-8'); old = 'jobs:'; assert s.count(old) == 1, 'fix text not found - card and source have diverged'; lines = s.splitlines(); i = next(idx for idx, line in enumerate(lines) if line.strip() == old); del lines[i + 1:]; lines.append('  ci:'); lines.append('    runs-on: ubuntu-latest'); lines.append('    steps: []'); p.write_text(chr(10).join(lines) + chr(10), encoding='utf-8')\"\n",
+    "patch_sha256": "0af1ca015c1a734e061f6831cb61909781036373743664860cbf27f48bcb99b8",
+    "applied": true,
+    "patch_applied_failed": true,
+    "exit_codes": [
+      1,
+      1
+    ],
+    "tree_changed": [
+      "M .github/workflows/ci.yml",
+      "?? .junit-0.xml",
+      "?? .junit-1.xml"
+    ]
+  },
+  "holdout": {
+    "ran": false,
+    "passed": true,
+    "detail": "no holdout for this card"
+  },
+  "accepted": true,
+  "reason": "all gates passed"
+}

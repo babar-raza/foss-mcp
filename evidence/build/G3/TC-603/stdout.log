@@ -1,0 +1,223 @@
+
+===== CLEAN RUN 1 (host) =====
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-5c72e798a73c059a\Scripts\python.exe -m pytest tests/infra/test_ci_workflow_yaml.py -q -rfE "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-yhihhdwr\.junit-0.xml"
+--- stdout ---
+...........                                                              [100%]
+
+--- stderr ---
+
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-5c72e798a73c059a\Scripts\python.exe -m pytest tests/infra/test_ci_workflow_yaml.py -q -rfE -p no:cacheprovider "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-yhihhdwr\.junit-1.xml"
+--- stdout ---
+...........                                                              [100%]
+
+--- stderr ---
+
+
+===== CLEAN RUN 2 (host) =====
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-5c72e798a73c059a\Scripts\python.exe -m pytest tests/infra/test_ci_workflow_yaml.py -q -rfE "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-yhihhdwr\.junit-0.xml"
+--- stdout ---
+...........                                                              [100%]
+
+--- stderr ---
+
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-5c72e798a73c059a\Scripts\python.exe -m pytest tests/infra/test_ci_workflow_yaml.py -q -rfE -p no:cacheprovider "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-yhihhdwr\.junit-1.xml"
+--- stdout ---
+...........                                                              [100%]
+
+--- stderr ---
+
+
+===== NEGATIVE CONTROL (checks MUST now fail) =====
+mutated: M .github/workflows/ci.yml, ?? .junit-0.xml, ?? .junit-1.xml
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-5c72e798a73c059a\Scripts\python.exe -m pytest tests/infra/test_ci_workflow_yaml.py -q -rfE "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-yhihhdwr\.junit-0.xml"
+--- stdout ---
+.FFFFFFFFF.                                                              [100%]
+================================== FAILURES ===================================
+______________________ test_both_new_jobs_exist_by_name _______________________
+
+    def test_both_new_jobs_exist_by_name() -> None:
+        jobs = _workflow()["jobs"]
+>       assert "determinism" in jobs, "determinism job missing from .github/workflows/ci.yml"
+E       AssertionError: determinism job missing from .github/workflows/ci.yml
+E       assert 'determinism' in {'ci': {'runs-on': 'ubuntu-latest', 'steps': []}}
+
+tests\infra\test_ci_workflow_yaml.py:80: AssertionError
+___________________ test_windows_job_runs_on_windows_latest ___________________
+
+    def test_windows_job_runs_on_windows_latest() -> None:
+>       job = _workflow()["jobs"]["windows-python-only"]
+              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       KeyError: 'windows-python-only'
+
+tests\infra\test_ci_workflow_yaml.py:85: KeyError
+_________ test_windows_job_never_references_activate_ps1_or_dev_tools _________
+
+    def test_windows_job_never_references_activate_ps1_or_dev_tools() -> None:
+>       job = _workflow()["jobs"]["windows-python-only"]
+              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       KeyError: 'windows-python-only'
+
+tests\infra\test_ci_workflow_yaml.py:90: KeyError
+______________ test_windows_job_collects_a_non_empty_test_scope _______________
+
+    def test_windows_job_collects_a_non_empty_test_scope() -> None:
+        """Guard against the job silently running zero tests (card's own warning)."""
+>       job = _workflow()["jobs"]["windows-python-only"]
+              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       KeyError: 'windows-python-only'
+
+tests\infra\test_ci_workflow_yaml.py:99: KeyError
+___ test_determinism_job_uses_at_least_three_distinct_pythonhashseed_values ___
+
+    def test_determinism_job_uses_at_least_three_distinct_pythonhashseed_values() -> None:
+>       job = _workflow()["jobs"]["determinism"]
+              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       KeyError: 'determinism'
+
+tests\infra\test_ci_workflow_yaml.py:107: KeyError
+__________ test_determinism_job_runs_the_retrieval_corpus_each_time ___________
+
+    def test_determinism_job_runs_the_retrieval_corpus_each_time() -> None:
+>       job = _workflow()["jobs"]["determinism"]
+              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       KeyError: 'determinism'
+
+tests\infra\test_ci_workflow_yaml.py:117: KeyError
+______________ test_determinism_job_has_an_upload_artifact_step _______________
+
+    def test_determinism_job_has_an_upload_artifact_step() -> None:
+>       job = _workflow()["jobs"]["determinism"]
+              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       KeyError: 'determinism'
+
+tests\infra\test_ci_workflow_yaml.py:128: KeyError
+_____________ test_determinism_job_compares_the_three_junit_runs ______________
+
+    def test_determinism_job_compares_the_three_junit_runs() -> None:
+        """A step must actually diff the three runs' outcomes, not just produce them."""
+>       job = _workflow()["jobs"]["determinism"]
+              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       KeyError: 'determinism'
+
+tests\infra\test_ci_workflow_yaml.py:137: KeyError
+____________ test_ci_job_steps_are_unchanged_from_before_this_card ____________
+
+    def test_ci_job_steps_are_unchanged_from_before_this_card() -> None:
+        """The existing `ci` job must be untouched: same step count, same content."""
+        ci_job = _workflow()["jobs"]["ci"]
+>       assert ci_job["steps"] == _CI_JOB_STEPS_BEFORE_TC_603
+E       AssertionError: assert [] == [{'uses': 'ac...ci_check.sh'}]
+E         
+E         Right contains 5 more items, first extra item: {'uses': 'actions/checkout@v5', 'with': {'fetch-depth': 0}}
+E         Use -v to get more diff
+
+tests\infra\test_ci_workflow_yaml.py:146: AssertionError
+=========================== short test summary info ===========================
+FAILED tests/infra/test_ci_workflow_yaml.py::test_both_new_jobs_exist_by_name
+FAILED tests/infra/test_ci_workflow_yaml.py::test_windows_job_runs_on_windows_latest
+FAILED tests/infra/test_ci_workflow_yaml.py::test_windows_job_never_references_activate_ps1_or_dev_tools
+FAILED tests/infra/test_ci_workflow_yaml.py::test_windows_job_collects_a_non_empty_test_scope
+FAILED tests/infra/test_ci_workflow_yaml.py::test_determinism_job_uses_at_least_three_distinct_pythonhashseed_values
+FAILED tests/infra/test_ci_workflow_yaml.py::test_determinism_job_runs_the_retrieval_corpus_each_time
+FAILED tests/infra/test_ci_workflow_yaml.py::test_determinism_job_has_an_upload_artifact_step
+FAILED tests/infra/test_ci_workflow_yaml.py::test_determinism_job_compares_the_three_junit_runs
+FAILED tests/infra/test_ci_workflow_yaml.py::test_ci_job_steps_are_unchanged_from_before_this_card
+
+--- stderr ---
+
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-5c72e798a73c059a\Scripts\python.exe -m pytest tests/infra/test_ci_workflow_yaml.py -q -rfE -p no:cacheprovider "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-yhihhdwr\.junit-1.xml"
+--- stdout ---
+.FFFFFFFFF.                                                              [100%]
+================================== FAILURES ===================================
+______________________ test_both_new_jobs_exist_by_name _______________________
+
+    def test_both_new_jobs_exist_by_name() -> None:
+        jobs = _workflow()["jobs"]
+>       assert "determinism" in jobs, "determinism job missing from .github/workflows/ci.yml"
+E       AssertionError: determinism job missing from .github/workflows/ci.yml
+E       assert 'determinism' in {'ci': {'runs-on': 'ubuntu-latest', 'steps': []}}
+
+tests\infra\test_ci_workflow_yaml.py:80: AssertionError
+___________________ test_windows_job_runs_on_windows_latest ___________________
+
+    def test_windows_job_runs_on_windows_latest() -> None:
+>       job = _workflow()["jobs"]["windows-python-only"]
+              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       KeyError: 'windows-python-only'
+
+tests\infra\test_ci_workflow_yaml.py:85: KeyError
+_________ test_windows_job_never_references_activate_ps1_or_dev_tools _________
+
+    def test_windows_job_never_references_activate_ps1_or_dev_tools() -> None:
+>       job = _workflow()["jobs"]["windows-python-only"]
+              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       KeyError: 'windows-python-only'
+
+tests\infra\test_ci_workflow_yaml.py:90: KeyError
+______________ test_windows_job_collects_a_non_empty_test_scope _______________
+
+    def test_windows_job_collects_a_non_empty_test_scope() -> None:
+        """Guard against the job silently running zero tests (card's own warning)."""
+>       job = _workflow()["jobs"]["windows-python-only"]
+              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       KeyError: 'windows-python-only'
+
+tests\infra\test_ci_workflow_yaml.py:99: KeyError
+___ test_determinism_job_uses_at_least_three_distinct_pythonhashseed_values ___
+
+    def test_determinism_job_uses_at_least_three_distinct_pythonhashseed_values() -> None:
+>       job = _workflow()["jobs"]["determinism"]
+              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       KeyError: 'determinism'
+
+tests\infra\test_ci_workflow_yaml.py:107: KeyError
+__________ test_determinism_job_runs_the_retrieval_corpus_each_time ___________
+
+    def test_determinism_job_runs_the_retrieval_corpus_each_time() -> None:
+>       job = _workflow()["jobs"]["determinism"]
+              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       KeyError: 'determinism'
+
+tests\infra\test_ci_workflow_yaml.py:117: KeyError
+______________ test_determinism_job_has_an_upload_artifact_step _______________
+
+    def test_determinism_job_has_an_upload_artifact_step() -> None:
+>       job = _workflow()["jobs"]["determinism"]
+              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       KeyError: 'determinism'
+
+tests\infra\test_ci_workflow_yaml.py:128: KeyError
+_____________ test_determinism_job_compares_the_three_junit_runs ______________
+
+    def test_determinism_job_compares_the_three_junit_runs() -> None:
+        """A step must actually diff the three runs' outcomes, not just produce them."""
+>       job = _workflow()["jobs"]["determinism"]
+              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       KeyError: 'determinism'
+
+tests\infra\test_ci_workflow_yaml.py:137: KeyError
+____________ test_ci_job_steps_are_unchanged_from_before_this_card ____________
+
+    def test_ci_job_steps_are_unchanged_from_before_this_card() -> None:
+        """The existing `ci` job must be untouched: same step count, same content."""
+        ci_job = _workflow()["jobs"]["ci"]
+>       assert ci_job["steps"] == _CI_JOB_STEPS_BEFORE_TC_603
+E       AssertionError: assert [] == [{'uses': 'ac...ci_check.sh'}]
+E         
+E         Right contains 5 more items, first extra item: {'uses': 'actions/checkout@v5', 'with': {'fetch-depth': 0}}
+E         Use -v to get more diff
+
+tests\infra\test_ci_workflow_yaml.py:146: AssertionError
+=========================== short test summary info ===========================
+FAILED tests/infra/test_ci_workflow_yaml.py::test_both_new_jobs_exist_by_name
+FAILED tests/infra/test_ci_workflow_yaml.py::test_windows_job_runs_on_windows_latest
+FAILED tests/infra/test_ci_workflow_yaml.py::test_windows_job_never_references_activate_ps1_or_dev_tools
+FAILED tests/infra/test_ci_workflow_yaml.py::test_windows_job_collects_a_non_empty_test_scope
+FAILED tests/infra/test_ci_workflow_yaml.py::test_determinism_job_uses_at_least_three_distinct_pythonhashseed_values
+FAILED tests/infra/test_ci_workflow_yaml.py::test_determinism_job_runs_the_retrieval_corpus_each_time
+FAILED tests/infra/test_ci_workflow_yaml.py::test_determinism_job_has_an_upload_artifact_step
+FAILED tests/infra/test_ci_workflow_yaml.py::test_determinism_job_compares_the_three_junit_runs
+FAILED tests/infra/test_ci_workflow_yaml.py::test_ci_job_steps_are_unchanged_from_before_this_card
+
+--- stderr ---
+
