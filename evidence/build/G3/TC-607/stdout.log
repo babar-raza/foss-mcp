@@ -1,0 +1,177 @@
+
+===== CLEAN RUN 1 (host) =====
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-5c72e798a73c059a\Scripts\python.exe -m pytest tests/conformance/test_index_honesty.py -q -rfE "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-qq3pz1hq\.junit-0.xml"
+--- stdout ---
+..........                                                               [100%]
+
+--- stderr ---
+
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-5c72e798a73c059a\Scripts\python.exe -m pytest tests/conformance/test_index_honesty.py -q -rfE -p no:cacheprovider "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-qq3pz1hq\.junit-1.xml"
+--- stdout ---
+..........                                                               [100%]
+
+--- stderr ---
+
+
+===== CLEAN RUN 2 (host) =====
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-5c72e798a73c059a\Scripts\python.exe -m pytest tests/conformance/test_index_honesty.py -q -rfE "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-qq3pz1hq\.junit-0.xml"
+--- stdout ---
+..........                                                               [100%]
+
+--- stderr ---
+
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-5c72e798a73c059a\Scripts\python.exe -m pytest tests/conformance/test_index_honesty.py -q -rfE -p no:cacheprovider "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-qq3pz1hq\.junit-1.xml"
+--- stdout ---
+..........                                                               [100%]
+
+--- stderr ---
+
+
+===== NEGATIVE CONTROL (checks MUST now fail) =====
+mutated: M tests/fixtures/conformance/baseline_index_honesty.json, ?? .junit-0.xml, ?? .junit-1.xml
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-5c72e798a73c059a\Scripts\python.exe -m pytest tests/conformance/test_index_honesty.py -q -rfE "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-qq3pz1hq\.junit-0.xml"
+--- stdout ---
+..F..F....                                                               [100%]
+================================== FAILURES ===================================
+_______ test_alias_duplication_sub_case_matches_the_committed_baseline ________
+
+corpus = <tests.conformance.corpus.ConformanceCorpus object at 0x00000221FC286120>
+baseline = Baseline(strict=False, known_failures=())
+
+    def test_alias_duplication_sub_case_matches_the_committed_baseline(
+        corpus: ConformanceCorpus, baseline: Baseline
+    ) -> None:
+        failures, _ = _alias_duplication_observations(corpus)
+>       assert_no_new_failures(baseline, failures)
+
+tests\conformance\test_index_honesty.py:238: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+baseline = Baseline(strict=False, known_failures=())
+observed_failures = [{'pilot': '3d__python', 'case_id': 'alias_duplication:3d__python', 'reason': '219 duplicate-body group(s) across 590 ...', 'reason': '22 duplicate-body group(s) across 45 of 63 symbol chunks exceed the >10-duplicate-chunk threshold'}, ...]
+
+    def assert_no_new_failures(baseline: Baseline, observed_failures: Iterable[Any]) -> None:
+        """Raise ``AssertionError`` if *observed_failures* contains a ``(pilot, case_id)`` the baseline does
+        not already know about, naming exactly which case(s) are new. When ``baseline.strict`` is ``True``,
+        also raise if a baseline entry is NOT present in *observed_failures* (i.e. it now passes and the
+        baseline must be tightened); when ``baseline.strict`` is ``False`` (the default), that same absence
+        never fails - a baseline may always be ahead of what is currently observed."""
+        observed_keys = frozenset(_observed_key(failure) for failure in observed_failures)
+        known_keys = baseline.known_keys()
+    
+        new_failures = observed_keys - known_keys
+        if new_failures:
+            named = ", ".join(f"{pilot}:{case_id}" for pilot, case_id in sorted(new_failures))
+>           raise AssertionError(f"new failure(s) not present in the baseline: {named}")
+E           AssertionError: new failure(s) not present in the baseline: 3d__python:alias_duplication:3d__python, 3d__typescript:alias_duplication:3d__typescript, barcode__python:alias_duplication:barcode__python, cells__java:alias_duplication:cells__java, cells__python:alias_duplication:cells__python, email__python:alias_duplication:email__python, html__python:alias_duplication:html__python, note__python:alias_duplication:note__python, page__python:alias_duplication:page__python, pdf__go:alias_duplication:pdf__go, pdf__java:alias_duplication:pdf__java, pdf__net:alias_duplication:pdf__net, pdf__python:alias_duplication:pdf__python, slides__java:alias_duplication:slides__java, slides__python:alias_duplication:slides__python, tex__python:alias_duplication:tex__python, words__python:alias_duplication:words__python
+
+tests\conformance\baseline.py:80: AssertionError
+____ test_parse_failure_undercount_sub_case_matches_the_committed_baseline ____
+
+baseline = Baseline(strict=False, known_failures=())
+
+    def test_parse_failure_undercount_sub_case_matches_the_committed_baseline(baseline: Baseline) -> None:
+        failures, _ = _parse_failure_undercount_observations()
+>       assert_no_new_failures(baseline, failures)
+
+tests\conformance\test_index_honesty.py:336: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+baseline = Baseline(strict=False, known_failures=())
+observed_failures = [{'pilot': 'tex__python', 'case_id': 'parse_failure_undercount:tex__python', 'reason': 'reports 11 of 45 source files ...is offline measurement cannot independently confirm or refute whether the reported count understates the real figure'}]
+
+    def assert_no_new_failures(baseline: Baseline, observed_failures: Iterable[Any]) -> None:
+        """Raise ``AssertionError`` if *observed_failures* contains a ``(pilot, case_id)`` the baseline does
+        not already know about, naming exactly which case(s) are new. When ``baseline.strict`` is ``True``,
+        also raise if a baseline entry is NOT present in *observed_failures* (i.e. it now passes and the
+        baseline must be tightened); when ``baseline.strict`` is ``False`` (the default), that same absence
+        never fails - a baseline may always be ahead of what is currently observed."""
+        observed_keys = frozenset(_observed_key(failure) for failure in observed_failures)
+        known_keys = baseline.known_keys()
+    
+        new_failures = observed_keys - known_keys
+        if new_failures:
+            named = ", ".join(f"{pilot}:{case_id}" for pilot, case_id in sorted(new_failures))
+>           raise AssertionError(f"new failure(s) not present in the baseline: {named}")
+E           AssertionError: new failure(s) not present in the baseline: tex__python:parse_failure_undercount:tex__python
+
+tests\conformance\baseline.py:80: AssertionError
+=========================== short test summary info ===========================
+FAILED tests/conformance/test_index_honesty.py::test_alias_duplication_sub_case_matches_the_committed_baseline
+FAILED tests/conformance/test_index_honesty.py::test_parse_failure_undercount_sub_case_matches_the_committed_baseline
+
+--- stderr ---
+
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-5c72e798a73c059a\Scripts\python.exe -m pytest tests/conformance/test_index_honesty.py -q -rfE -p no:cacheprovider "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-qq3pz1hq\.junit-1.xml"
+--- stdout ---
+..F..F....                                                               [100%]
+================================== FAILURES ===================================
+_______ test_alias_duplication_sub_case_matches_the_committed_baseline ________
+
+corpus = <tests.conformance.corpus.ConformanceCorpus object at 0x000001BC21D11BE0>
+baseline = Baseline(strict=False, known_failures=())
+
+    def test_alias_duplication_sub_case_matches_the_committed_baseline(
+        corpus: ConformanceCorpus, baseline: Baseline
+    ) -> None:
+        failures, _ = _alias_duplication_observations(corpus)
+>       assert_no_new_failures(baseline, failures)
+
+tests\conformance\test_index_honesty.py:238: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+baseline = Baseline(strict=False, known_failures=())
+observed_failures = [{'pilot': '3d__python', 'case_id': 'alias_duplication:3d__python', 'reason': '219 duplicate-body group(s) across 590 ...', 'reason': '22 duplicate-body group(s) across 45 of 63 symbol chunks exceed the >10-duplicate-chunk threshold'}, ...]
+
+    def assert_no_new_failures(baseline: Baseline, observed_failures: Iterable[Any]) -> None:
+        """Raise ``AssertionError`` if *observed_failures* contains a ``(pilot, case_id)`` the baseline does
+        not already know about, naming exactly which case(s) are new. When ``baseline.strict`` is ``True``,
+        also raise if a baseline entry is NOT present in *observed_failures* (i.e. it now passes and the
+        baseline must be tightened); when ``baseline.strict`` is ``False`` (the default), that same absence
+        never fails - a baseline may always be ahead of what is currently observed."""
+        observed_keys = frozenset(_observed_key(failure) for failure in observed_failures)
+        known_keys = baseline.known_keys()
+    
+        new_failures = observed_keys - known_keys
+        if new_failures:
+            named = ", ".join(f"{pilot}:{case_id}" for pilot, case_id in sorted(new_failures))
+>           raise AssertionError(f"new failure(s) not present in the baseline: {named}")
+E           AssertionError: new failure(s) not present in the baseline: 3d__python:alias_duplication:3d__python, 3d__typescript:alias_duplication:3d__typescript, barcode__python:alias_duplication:barcode__python, cells__java:alias_duplication:cells__java, cells__python:alias_duplication:cells__python, email__python:alias_duplication:email__python, html__python:alias_duplication:html__python, note__python:alias_duplication:note__python, page__python:alias_duplication:page__python, pdf__go:alias_duplication:pdf__go, pdf__java:alias_duplication:pdf__java, pdf__net:alias_duplication:pdf__net, pdf__python:alias_duplication:pdf__python, slides__java:alias_duplication:slides__java, slides__python:alias_duplication:slides__python, tex__python:alias_duplication:tex__python, words__python:alias_duplication:words__python
+
+tests\conformance\baseline.py:80: AssertionError
+____ test_parse_failure_undercount_sub_case_matches_the_committed_baseline ____
+
+baseline = Baseline(strict=False, known_failures=())
+
+    def test_parse_failure_undercount_sub_case_matches_the_committed_baseline(baseline: Baseline) -> None:
+        failures, _ = _parse_failure_undercount_observations()
+>       assert_no_new_failures(baseline, failures)
+
+tests\conformance\test_index_honesty.py:336: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+baseline = Baseline(strict=False, known_failures=())
+observed_failures = [{'pilot': 'tex__python', 'case_id': 'parse_failure_undercount:tex__python', 'reason': 'reports 11 of 45 source files ...is offline measurement cannot independently confirm or refute whether the reported count understates the real figure'}]
+
+    def assert_no_new_failures(baseline: Baseline, observed_failures: Iterable[Any]) -> None:
+        """Raise ``AssertionError`` if *observed_failures* contains a ``(pilot, case_id)`` the baseline does
+        not already know about, naming exactly which case(s) are new. When ``baseline.strict`` is ``True``,
+        also raise if a baseline entry is NOT present in *observed_failures* (i.e. it now passes and the
+        baseline must be tightened); when ``baseline.strict`` is ``False`` (the default), that same absence
+        never fails - a baseline may always be ahead of what is currently observed."""
+        observed_keys = frozenset(_observed_key(failure) for failure in observed_failures)
+        known_keys = baseline.known_keys()
+    
+        new_failures = observed_keys - known_keys
+        if new_failures:
+            named = ", ".join(f"{pilot}:{case_id}" for pilot, case_id in sorted(new_failures))
+>           raise AssertionError(f"new failure(s) not present in the baseline: {named}")
+E           AssertionError: new failure(s) not present in the baseline: tex__python:parse_failure_undercount:tex__python
+
+tests\conformance\baseline.py:80: AssertionError
+=========================== short test summary info ===========================
+FAILED tests/conformance/test_index_honesty.py::test_alias_duplication_sub_case_matches_the_committed_baseline
+FAILED tests/conformance/test_index_honesty.py::test_parse_failure_undercount_sub_case_matches_the_committed_baseline
+
+--- stderr ---
+
