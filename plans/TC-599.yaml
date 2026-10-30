@@ -1,0 +1,112 @@
+id: TC-599
+gate: G3
+lane: verification
+purpose: >-
+  Measure the round-2 audit's observed 7-42 second tail latency (RT1, REQ-G3-016) before any fix
+  is proposed. App-side compute was already measured in prior research at 0.5-83 ms even on the
+  largest index, so this card builds the layered, in-process measurement harness and runs the
+  layer the repository can test without the live hosting stack: in-process tool calls against the
+  real baked data. It does NOT yet test the container/nginx/tunnel layers (RT2/RT4 do, once the
+  hosting config is versioned in). Read
+  C:\Users\babar\.claude\plans\steady-wobbling-meteor.md section 2.7 first.
+depends_on:
+  - TC-001
+write_paths:
+  - scripts/release/latency_probe.py
+  - tests/release/test_latency_probe.py
+satisfies:
+  - REQ-G3-016
+source_refs:
+  - file: docs/DECISION_LOG.md
+    anchor: >-
+      ## 2026-10-30 — Round-2 portfolio audit remediation adopted: unified plan, governance decisions A-K
+      recorded (supervisor)
+    sha256: 62cf1403a592118e3fb6bd14c5336f8a997cc3181d44a585323ec9f1d385a931
+inputs:
+  - >-
+    READ FIRST: C:\Users\babar\.claude\plans\steady-wobbling-meteor.md section 2.7 ("Runtime and
+    contract"). Context (do not re-derive, just use it): the round-2 audit observed p50 ~70-90ms
+    but p95 up to 15.1s and max up to 42s on 3d/net, cells/net and cells/python through the public
+    cloudflared quick tunnel. A prior in-process measurement (recorded in this plan, not
+    reproduced by you here) found the app's own tool-call compute is 0.5-83ms even on the largest
+    pilot's index, which rules out the retrieval/indexing code itself as the cause and points at
+    the hosting layer (nginx, Docker DNS, the tunnel) - none of which exists in this repository
+    yet (RT2 versions it in). This card's job is ONLY the in-process layer: build a reusable,
+    offline latency-measurement script and prove, with real numbers against the real baked data,
+    that in-process compute is not the source of the observed tail - not to fix the tail itself.
+  - >-
+    Build scripts/release/latency_probe.py: a CLI script (argparse) that, for a given list of
+    pilots (default: all 32, same discovery as tests/conformance/corpus.py if that card has landed
+    first - if not yet landed, copy infra/demo-manifests/*__self_extracted directly the same way
+    tests/mcp/tools/test_round3_retrieval_corpus.py does, since you cannot depend on an unlanded
+    card) and a given tool name (lookup, get_symbol, find_examples, search_symbols,
+    search_docs), runs N=500 (configurable via --n, default smaller for the offline test, e.g. 50,
+    to keep the test fast - the CLI default for a real run stays 500) identical calls using
+    time.perf_counter() around each call, and reports p50/p95/p99/max in milliseconds per
+    (pilot, tool) pair as a JSON report (write to a path given by --report, or print to stdout if
+    omitted). No network calls, no subprocess, no server - call the tool functions directly
+    in-process against a GenerationManifestStore built from a temp copy of infra/demo-manifests,
+    exactly like the existing retrieval corpus test's own fixture does. This script becomes RT2/RT4's
+    foundation for the later hosting-layer measurements (they will add container-direct, nginx and
+    tunnel layers on top of this one - do not try to build those layers now, they need the hosting
+    config this card's dependents will version in).
+  - >-
+    tests/release/test_latency_probe.py tests the script with a small, fast run (N on the order of
+    10-20, not 500, to keep this offline test fast) against a couple of real pilots (pick small ones,
+    e.g. imaging/net which prior research found has only 8 documents, and one larger one such as
+    pdf/java) and asserts, with real numbers: (a) the script runs end to end and produces a valid
+    report (correct shape: p50/p95/p99/max keys present, p50 <= p95 <= p99 <= max, all non-negative
+    floats); (b) the measured p99 (not just p50) for an in-process call is under some generous but
+    meaningful bound you choose and justify in a comment (e.g. under 500ms - prior measurement found
+    single-digit-to-low-double-digit milliseconds even on the largest pilot, so 500ms has wide
+    headroom and still catches a real regression, not just documents today's number); (c) the script
+    is deterministic enough to run twice without crashing or producing wildly different shapes
+    (do not assert exact timing equality across runs - timing is inherently noisy; assert structural
+    and bound properties, never exact wall-clock values, so this test itself does not become another
+    source of flakiness). Never weaken a check to make it pass; if a real pilot's p99 exceeds your
+    chosen bound, that is itself a finding to report honestly in your closeout, not something to
+    loosen the bound to hide.
+actions:
+  - >-
+    Add a reusable, offline, in-process latency-measurement script (scripts/release/latency_probe.py)
+    plus a test proving its correctness and that in-process compute meets a generous latency bound
+    on real baked pilots, laying the foundation for RT2/RT4's later hosting-layer measurements.
+checks:
+  - command: '{python} -m pytest tests/release/test_latency_probe.py -q -rfE'
+    expect: 'exit 0'
+    timeout_seconds: 180
+    junitxml: true
+    proves:
+      - REQ-G3-016
+  - command: '{python} -m pytest tests/release/test_latency_probe.py -q -rfE -p no:cacheprovider'
+    expect: 'exit 0'
+    timeout_seconds: 180
+    junitxml: true
+    proves:
+      - REQ-G3-016
+min_tests: 5
+requires:
+  - python
+network: false
+negative_control:
+  mutate: |
+    python -X utf8 -c "import pathlib; p = pathlib.Path('scripts/release/latency_probe.py'); s = p.read_text(encoding='utf-8'); old = 'def measure_calls('; assert s.count(old) == 1, 'fix text not found - card and source have diverged'; lines = s.splitlines(); i = next(idx for idx, line in enumerate(lines) if old in line); lines.insert(i + 1, '    return {\"p50\": -1.0, \"p95\": -1.0, \"p99\": -1.0, \"max\": -1.0}  # TC-599 negative control'); p.write_text(chr(10).join(lines) + chr(10), encoding='utf-8')"
+  rationale: >-
+    Makes the measurement function return a fixed, nonsensical negative-latency report regardless
+    of input. The "all non-negative floats" and "p50 <= p95 <= p99 <= max" shape assertions must
+    then fail, proving the test actually inspects real measured values rather than trusting any
+    shape the function happens to return.
+evidence:
+  - evidence/build/G3/TC-599/receipt.json
+closeout:
+  - >-
+    scripts/release/latency_probe.py exists and is proven correct against real baked pilots with a
+    documented, justified latency bound; in-process compute is confirmed, with real measured
+    numbers in the closeout, to be far below the audit's observed tail, supporting (not yet
+    proving - RT2/RT4 still need the hosting layer) the hypothesis that the stall lives outside
+    this repository's own code.
+recovery: >-
+  If a real pilot's measured p99 is unexpectedly high (within an order of magnitude of the
+  audit's observed tail), STOP and report this as a significant finding rather than silently
+  raising the bound to make the check pass - it would mean the in-process-compute hypothesis
+  needs revisiting before RT2/RT4 proceed.
