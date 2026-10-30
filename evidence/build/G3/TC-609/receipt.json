@@ -1,0 +1,111 @@
+{
+  "schema_version": 1,
+  "card": "TC-609",
+  "gate": "G3",
+  "generated_by": "gatectl",
+  "generated_at": "2026-10-30T13:19:42Z",
+  "base_rev": "2a697e76ffd19e0f6a4de4ba00da51ee772a05b2",
+  "head_rev": "9246fb5c1fdf8c71828703a11e7fd351e1fbddb6",
+  "card_sha256": "9458e8e5d9b1dbeeba3754efe6322ee0214c3ce7fb6eebc18acc68ff06aa9718",
+  "fingerprint": {
+    "python": "3.13.2",
+    "platform": "Windows-11-10.0.26300-SP0",
+    "lock_sha256": "5c72e798a73c059a438e752e94a8d4c88c1bdf81a197f6e5c5fcecbc9466a691",
+    "env": {
+      "PYTHONHASHSEED": "0",
+      "PYTHONUTF8": "1",
+      "PYTHONDONTWRITEBYTECODE": "1",
+      "PYTHONIOENCODING": "utf-8",
+      "TZ": "UTC",
+      "LC_ALL": "C.UTF-8",
+      "SOURCE_DATE_EPOCH": "1700000000",
+      "verify_runner": "host"
+    }
+  },
+  "scope": {
+    "ok": true,
+    "changed_paths": [
+      "tests/conformance/test_example_integrity.py",
+      "tests/fixtures/conformance/baseline_example_integrity.json"
+    ],
+    "violations": [],
+    "evaluated": true
+  },
+  "runs": [
+    {
+      "run": 1,
+      "checks": [
+        {
+          "command": "{python} -m pytest tests/conformance/test_example_integrity.py -q -rfE",
+          "exit_code": 0,
+          "duration_s": 3.387,
+          "stdout_sha256": "06955fb47f16312e5d13266c774a2aa4648c46e423cbe6564a92e25b68e39131",
+          "tests": 8,
+          "skipped": 0,
+          "errors": 0,
+          "failures": 0
+        },
+        {
+          "command": "{python} -m pytest tests/conformance/test_example_integrity.py -q -rfE -p no:cacheprovider",
+          "exit_code": 0,
+          "duration_s": 3.007,
+          "stdout_sha256": "06955fb47f16312e5d13266c774a2aa4648c46e423cbe6564a92e25b68e39131",
+          "tests": 8,
+          "skipped": 0,
+          "errors": 0,
+          "failures": 0
+        }
+      ],
+      "all_passed": true
+    },
+    {
+      "run": 2,
+      "checks": [
+        {
+          "command": "{python} -m pytest tests/conformance/test_example_integrity.py -q -rfE",
+          "exit_code": 0,
+          "duration_s": 2.72,
+          "stdout_sha256": "06955fb47f16312e5d13266c774a2aa4648c46e423cbe6564a92e25b68e39131",
+          "tests": 8,
+          "skipped": 0,
+          "errors": 0,
+          "failures": 0
+        },
+        {
+          "command": "{python} -m pytest tests/conformance/test_example_integrity.py -q -rfE -p no:cacheprovider",
+          "exit_code": 0,
+          "duration_s": 2.704,
+          "stdout_sha256": "06955fb47f16312e5d13266c774a2aa4648c46e423cbe6564a92e25b68e39131",
+          "tests": 8,
+          "skipped": 0,
+          "errors": 0,
+          "failures": 0
+        }
+      ],
+      "all_passed": true
+    }
+  ],
+  "negative_control": {
+    "kind": "mutate",
+    "patch": "python -X utf8 -c \"import pathlib, json; p = pathlib.Path('tests/fixtures/conformance/baseline_example_integrity.json'); d = json.loads(p.read_text(encoding='utf-8')); assert d.get('known_failures'), 'fix text not found - the real baseline has no known_failures to empty, card and source have diverged'; p.write_text(json.dumps({'strict': d.get('strict', False), 'known_failures': []}, indent=2) + chr(10), encoding='utf-8')\"\n",
+    "patch_sha256": "469519cd9b53c4af3b97070c9a007d0a41be810a2385c14df06ed83f100d1e48",
+    "applied": true,
+    "patch_applied_failed": true,
+    "exit_codes": [
+      1,
+      1
+    ],
+    "tree_changed": [
+      "M tests/fixtures/conformance/baseline_example_integrity.json",
+      "?? .junit-0.xml",
+      "?? .junit-1.xml"
+    ]
+  },
+  "holdout": {
+    "ran": false,
+    "passed": true,
+    "detail": "no holdout for this card"
+  },
+  "accepted": true,
+  "reason": "all gates passed"
+}

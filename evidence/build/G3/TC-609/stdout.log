@@ -1,0 +1,117 @@
+
+===== CLEAN RUN 1 (host) =====
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-5c72e798a73c059a\Scripts\python.exe -m pytest tests/conformance/test_example_integrity.py -q -rfE "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-rxukfmk2\.junit-0.xml"
+--- stdout ---
+........                                                                 [100%]
+
+--- stderr ---
+
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-5c72e798a73c059a\Scripts\python.exe -m pytest tests/conformance/test_example_integrity.py -q -rfE -p no:cacheprovider "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-rxukfmk2\.junit-1.xml"
+--- stdout ---
+........                                                                 [100%]
+
+--- stderr ---
+
+
+===== CLEAN RUN 2 (host) =====
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-5c72e798a73c059a\Scripts\python.exe -m pytest tests/conformance/test_example_integrity.py -q -rfE "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-rxukfmk2\.junit-0.xml"
+--- stdout ---
+........                                                                 [100%]
+
+--- stderr ---
+
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-5c72e798a73c059a\Scripts\python.exe -m pytest tests/conformance/test_example_integrity.py -q -rfE -p no:cacheprovider "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-rxukfmk2\.junit-1.xml"
+--- stdout ---
+........                                                                 [100%]
+
+--- stderr ---
+
+
+===== NEGATIVE CONTROL (checks MUST now fail) =====
+mutated: M tests/fixtures/conformance/baseline_example_integrity.json, ?? .junit-0.xml, ?? .junit-1.xml
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-5c72e798a73c059a\Scripts\python.exe -m pytest tests/conformance/test_example_integrity.py -q -rfE "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-rxukfmk2\.junit-0.xml"
+--- stdout ---
+.......F                                                                 [100%]
+================================== FAILURES ===================================
+________ test_example_integrity_failures_match_the_committed_baseline _________
+
+corpus = <tests.conformance.corpus.ConformanceCorpus object at 0x00000208E5F06120>
+
+    def test_example_integrity_failures_match_the_committed_baseline(corpus: ConformanceCorpus) -> None:
+        """Every real measured orphan-fragment or mislabelled-verified failure, across all 32 pilots,
+        recorded against the committed, non-strict baseline: a FAILURE not already known is new and
+        fails loudly (``assert_no_new_failures``); a baseline entry no longer observed is fine while
+        ``"strict": false`` (XA1-XA19's own closure card flips that, not this one)."""
+        baseline = load_baseline(BASELINE_PATH)
+>       assert_no_new_failures(baseline, _all_findings(corpus))
+
+tests\conformance\test_example_integrity.py:226: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+baseline = Baseline(strict=False, known_failures=())
+observed_failures = [{'pilot': '3d__java', 'case_id': 'mislabelled_verified:Example: Build a Scene From a Primitive', 'reason': 'Kind: ver...nt but no FQN:/Kind: header - first line 'Pass the detected FileFormat into the constructor explicitly: unlike'"}, ...]
+
+    def assert_no_new_failures(baseline: Baseline, observed_failures: Iterable[Any]) -> None:
+        """Raise ``AssertionError`` if *observed_failures* contains a ``(pilot, case_id)`` the baseline does
+        not already know about, naming exactly which case(s) are new. When ``baseline.strict`` is ``True``,
+        also raise if a baseline entry is NOT present in *observed_failures* (i.e. it now passes and the
+        baseline must be tightened); when ``baseline.strict`` is ``False`` (the default), that same absence
+        never fails - a baseline may always be ahead of what is currently observed."""
+        observed_keys = frozenset(_observed_key(failure) for failure in observed_failures)
+        known_keys = baseline.known_keys()
+    
+        new_failures = observed_keys - known_keys
+        if new_failures:
+            named = ", ".join(f"{pilot}:{case_id}" for pilot, case_id in sorted(new_failures))
+>           raise AssertionError(f"new failure(s) not present in the baseline: {named}")
+E           AssertionError: new failure(s) not present in the baseline: 3d__java:mislabelled_verified:Example: Build a Scene From a Primitive, 3d__java:mislabelled_verified:Example: Quick Start (2), 3d__net:mislabelled_verified:Example: Additional Examples, 3d__python:orphan_fragment:2deeb56b86060eed, 3d__python:orphan_fragment:3e3ed64834169302, 3d__python:orphan_fragment:40c8b75ac6a7ab9c, 3d__python:orphan_fragment:50652d576d5052c2, 3d__python:orphan_fragment:5a2c4fed34724191, 3d__python:orphan_fragment:d6e9e7cc9bc50d58, 3d__python:orphan_fragment:eda51a81fdbcbd32, 3d__python:orphan_fragment:f09c140c77dfe29b, pdf__cpp:mislabelled_verified:Example: Open a Password-Protected Document, pdf__python:orphan_fragment:5d46e2c76bf8c291, pdf__python:orphan_fragment:93937766eab8b3d0, slides__python:orphan_fragment:8c573f3462128c46, slides__python:orphan_fragment:aabf949ee3b4ea1f
+
+tests\conformance\baseline.py:80: AssertionError
+=========================== short test summary info ===========================
+FAILED tests/conformance/test_example_integrity.py::test_example_integrity_failures_match_the_committed_baseline
+
+--- stderr ---
+
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-5c72e798a73c059a\Scripts\python.exe -m pytest tests/conformance/test_example_integrity.py -q -rfE -p no:cacheprovider "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-rxukfmk2\.junit-1.xml"
+--- stdout ---
+.......F                                                                 [100%]
+================================== FAILURES ===================================
+________ test_example_integrity_failures_match_the_committed_baseline _________
+
+corpus = <tests.conformance.corpus.ConformanceCorpus object at 0x0000028502261BE0>
+
+    def test_example_integrity_failures_match_the_committed_baseline(corpus: ConformanceCorpus) -> None:
+        """Every real measured orphan-fragment or mislabelled-verified failure, across all 32 pilots,
+        recorded against the committed, non-strict baseline: a FAILURE not already known is new and
+        fails loudly (``assert_no_new_failures``); a baseline entry no longer observed is fine while
+        ``"strict": false`` (XA1-XA19's own closure card flips that, not this one)."""
+        baseline = load_baseline(BASELINE_PATH)
+>       assert_no_new_failures(baseline, _all_findings(corpus))
+
+tests\conformance\test_example_integrity.py:226: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+baseline = Baseline(strict=False, known_failures=())
+observed_failures = [{'pilot': '3d__java', 'case_id': 'mislabelled_verified:Example: Build a Scene From a Primitive', 'reason': 'Kind: ver...nt but no FQN:/Kind: header - first line 'Pass the detected FileFormat into the constructor explicitly: unlike'"}, ...]
+
+    def assert_no_new_failures(baseline: Baseline, observed_failures: Iterable[Any]) -> None:
+        """Raise ``AssertionError`` if *observed_failures* contains a ``(pilot, case_id)`` the baseline does
+        not already know about, naming exactly which case(s) are new. When ``baseline.strict`` is ``True``,
+        also raise if a baseline entry is NOT present in *observed_failures* (i.e. it now passes and the
+        baseline must be tightened); when ``baseline.strict`` is ``False`` (the default), that same absence
+        never fails - a baseline may always be ahead of what is currently observed."""
+        observed_keys = frozenset(_observed_key(failure) for failure in observed_failures)
+        known_keys = baseline.known_keys()
+    
+        new_failures = observed_keys - known_keys
+        if new_failures:
+            named = ", ".join(f"{pilot}:{case_id}" for pilot, case_id in sorted(new_failures))
+>           raise AssertionError(f"new failure(s) not present in the baseline: {named}")
+E           AssertionError: new failure(s) not present in the baseline: 3d__java:mislabelled_verified:Example: Build a Scene From a Primitive, 3d__java:mislabelled_verified:Example: Quick Start (2), 3d__net:mislabelled_verified:Example: Additional Examples, 3d__python:orphan_fragment:2deeb56b86060eed, 3d__python:orphan_fragment:3e3ed64834169302, 3d__python:orphan_fragment:40c8b75ac6a7ab9c, 3d__python:orphan_fragment:50652d576d5052c2, 3d__python:orphan_fragment:5a2c4fed34724191, 3d__python:orphan_fragment:d6e9e7cc9bc50d58, 3d__python:orphan_fragment:eda51a81fdbcbd32, 3d__python:orphan_fragment:f09c140c77dfe29b, pdf__cpp:mislabelled_verified:Example: Open a Password-Protected Document, pdf__python:orphan_fragment:5d46e2c76bf8c291, pdf__python:orphan_fragment:93937766eab8b3d0, slides__python:orphan_fragment:8c573f3462128c46, slides__python:orphan_fragment:aabf949ee3b4ea1f
+
+tests\conformance\baseline.py:80: AssertionError
+=========================== short test summary info ===========================
+FAILED tests/conformance/test_example_integrity.py::test_example_integrity_failures_match_the_committed_baseline
+
+--- stderr ---
+
