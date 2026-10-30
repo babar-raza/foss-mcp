@@ -317,6 +317,7 @@ def report_index_freshness(
     pinned_library_commit: str | None = None,
     product_reference: ProductReferenceInputs | None = None,
     releases: Sequence[Release] = (),
+    registry_served_version: tuple[int, ...] | None = None,
 ) -> FreshnessReport:
     """Compare every commit ``scope``'s active generation (for *source_kind*) was indexed from
     against *current_source_commit*. Never publishes a generation, never guesses freshness
@@ -331,6 +332,15 @@ def report_index_freshness(
     omitted, the newest of *releases* is the reference: its tag commit when it has one, else its
     version against the version the package manifest (*product_reference*) declares; with neither
     the verdict stays unknown and the legacy reason is kept.
+
+    G3/TC-621: when every signal above still leaves the verdict unresolved and *registry_served_version*
+    is given (already parsed, matching ``release_alignment.package_version``'s own shape - the caller
+    is responsible for parsing whatever raw string the real package registry serves), it is compared
+    against ``indexed_version`` (the manifest's own declared version): a strictly newer registry
+    version is ``"stale"`` with basis ``"registry_served_version"``, an equal or older one is
+    ``"fresh"`` with the same basis. With no ``indexed_version`` to compare against, the verdict falls
+    through to the legacy ``"unknown"`` fallback unchanged. Wiring a live registry fetch into
+    *registry_served_version* is a separate card's job; this function only consumes it.
     """
     key = scope_key(scope, source_kind)
     generation_id = store.read_active(key)
@@ -438,6 +448,22 @@ def report_index_freshness(
             f"latest release {latest.tag_name} is newer than the indexed package version {indexed_text}; "
             "no current_source_commit was given",
             "latest_release_version",
+        )
+    if registry_served_version is not None and indexed_version is not None:
+        indexed_text = ".".join(str(part) for part in indexed_version)
+        registry_text = ".".join(str(part) for part in registry_served_version)
+        if registry_served_version > indexed_version:
+            return build(
+                "stale",
+                f"the package registry serves version {registry_text}, newer than the indexed "
+                f"package version {indexed_text}",
+                "registry_served_version",
+            )
+        return build(
+            "fresh",
+            f"the package registry serves version {registry_text}, no newer than the indexed "
+            f"package version {indexed_text}",
+            "registry_served_version",
         )
     if len(commits) > 1:
         return build("unknown", _mixed_reason(commits, None), "none")
