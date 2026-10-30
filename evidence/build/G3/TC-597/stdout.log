@@ -1,0 +1,87 @@
+
+===== CLEAN RUN 1 (host) =====
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-5c72e798a73c059a\Scripts\python.exe -m pytest tests/deploy/test_round2_ledger.py -q -rfE "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-wpwn1dd5\.junit-0.xml"
+--- stdout ---
+..........                                                               [100%]
+
+--- stderr ---
+
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-5c72e798a73c059a\Scripts\python.exe -m pytest tests/deploy/test_round2_ledger.py -q -rfE -p no:cacheprovider "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-wpwn1dd5\.junit-1.xml"
+--- stdout ---
+..........                                                               [100%]
+
+--- stderr ---
+
+
+===== CLEAN RUN 2 (host) =====
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-5c72e798a73c059a\Scripts\python.exe -m pytest tests/deploy/test_round2_ledger.py -q -rfE "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-wpwn1dd5\.junit-0.xml"
+--- stdout ---
+..........                                                               [100%]
+
+--- stderr ---
+
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-5c72e798a73c059a\Scripts\python.exe -m pytest tests/deploy/test_round2_ledger.py -q -rfE -p no:cacheprovider "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-wpwn1dd5\.junit-1.xml"
+--- stdout ---
+..........                                                               [100%]
+
+--- stderr ---
+
+
+===== NEGATIVE CONTROL (checks MUST now fail) =====
+mutated: M docs/ROUND2_REVIEW.md, ?? .junit-0.xml, ?? .junit-1.xml
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-5c72e798a73c059a\Scripts\python.exe -m pytest tests/deploy/test_round2_ledger.py -q -rfE "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-wpwn1dd5\.junit-0.xml"
+--- stdout ---
+..F.......                                                               [100%]
+================================== FAILURES ===================================
+_______________ test_register_ids_are_sequential_in_file_order ________________
+
+    def test_register_ids_are_sequential_in_file_order():
+        """The core structural guarantee: row i's Id must literally be f"RD2-{i+1:03d}", in the exact order the
+        rows appear in the document. This is what the card's negative control targets - renaming row 0's id to
+        'RD2-001-mutated' must fail here, proving this test reads the table rather than just counting rows."""
+        for i, row in enumerate(REGISTER_ROWS, start=1):
+            expected_id = f"RD2-{i:03d}"
+>           assert row["Id"] == expected_id, (
+                f"register row {i} has Id {row['Id']!r}, expected {expected_id!r} "
+                "(ids must be sequential, in file order, with no gaps or renames)"
+            )
+E           AssertionError: register row 1 has Id 'RD2-001-mutated', expected 'RD2-001' (ids must be sequential, in file order, with no gaps or renames)
+E           assert 'RD2-001-mutated' == 'RD2-001'
+E             
+E             - RD2-001
+E             + RD2-001-mutated
+
+tests\deploy\test_round2_ledger.py:202: AssertionError
+=========================== short test summary info ===========================
+FAILED tests/deploy/test_round2_ledger.py::test_register_ids_are_sequential_in_file_order
+
+--- stderr ---
+
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-5c72e798a73c059a\Scripts\python.exe -m pytest tests/deploy/test_round2_ledger.py -q -rfE -p no:cacheprovider "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-wpwn1dd5\.junit-1.xml"
+--- stdout ---
+..F.......                                                               [100%]
+================================== FAILURES ===================================
+_______________ test_register_ids_are_sequential_in_file_order ________________
+
+    def test_register_ids_are_sequential_in_file_order():
+        """The core structural guarantee: row i's Id must literally be f"RD2-{i+1:03d}", in the exact order the
+        rows appear in the document. This is what the card's negative control targets - renaming row 0's id to
+        'RD2-001-mutated' must fail here, proving this test reads the table rather than just counting rows."""
+        for i, row in enumerate(REGISTER_ROWS, start=1):
+            expected_id = f"RD2-{i:03d}"
+>           assert row["Id"] == expected_id, (
+                f"register row {i} has Id {row['Id']!r}, expected {expected_id!r} "
+                "(ids must be sequential, in file order, with no gaps or renames)"
+            )
+E           AssertionError: register row 1 has Id 'RD2-001-mutated', expected 'RD2-001' (ids must be sequential, in file order, with no gaps or renames)
+E           assert 'RD2-001-mutated' == 'RD2-001'
+E             
+E             - RD2-001
+E             + RD2-001-mutated
+
+tests\deploy\test_round2_ledger.py:202: AssertionError
+=========================== short test summary info ===========================
+FAILED tests/deploy/test_round2_ledger.py::test_register_ids_are_sequential_in_file_order
+
+--- stderr ---
+
