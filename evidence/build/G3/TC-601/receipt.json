@@ -1,0 +1,143 @@
+{
+  "schema_version": 1,
+  "card": "TC-601",
+  "gate": "G3",
+  "generated_by": "gatectl",
+  "generated_at": "2026-10-30T12:43:20Z",
+  "base_rev": "d543598339a214e3fbb54068d82aac1cc9a9c587",
+  "head_rev": "f9ef1f8dd49f4166d9a31519903832b73c42a054",
+  "card_sha256": "33c412663bc8fbf51e0b67ad8861ed99bcc536e1dc6384f6e164433b6867de6f",
+  "fingerprint": {
+    "python": "3.13.2",
+    "platform": "Windows-11-10.0.26300-SP0",
+    "lock_sha256": "5c72e798a73c059a438e752e94a8d4c88c1bdf81a197f6e5c5fcecbc9466a691",
+    "env": {
+      "PYTHONHASHSEED": "0",
+      "PYTHONUTF8": "1",
+      "PYTHONDONTWRITEBYTECODE": "1",
+      "PYTHONIOENCODING": "utf-8",
+      "TZ": "UTC",
+      "LC_ALL": "C.UTF-8",
+      "SOURCE_DATE_EPOCH": "1700000000",
+      "verify_runner": "host"
+    }
+  },
+  "scope": {
+    "ok": true,
+    "changed_paths": [
+      "infra/demo-inputs/embeddings/3d__java.json",
+      "infra/demo-inputs/embeddings/3d__net.json",
+      "infra/demo-inputs/embeddings/3d__python.json",
+      "infra/demo-inputs/embeddings/3d__typescript.json",
+      "infra/demo-inputs/embeddings/barcode__python.json",
+      "infra/demo-inputs/embeddings/cells__cpp.json",
+      "infra/demo-inputs/embeddings/cells__go.json",
+      "infra/demo-inputs/embeddings/cells__java.json",
+      "infra/demo-inputs/embeddings/cells__net.json",
+      "infra/demo-inputs/embeddings/cells__python.json",
+      "infra/demo-inputs/embeddings/cells__rust.json",
+      "infra/demo-inputs/embeddings/cells__typescript.json",
+      "infra/demo-inputs/embeddings/email__cpp.json",
+      "infra/demo-inputs/embeddings/email__net.json",
+      "infra/demo-inputs/embeddings/email__python.json",
+      "infra/demo-inputs/embeddings/html__python.json",
+      "infra/demo-inputs/embeddings/imaging__net.json",
+      "infra/demo-inputs/embeddings/note__python.json",
+      "infra/demo-inputs/embeddings/page__python.json",
+      "infra/demo-inputs/embeddings/pdf__cpp.json",
+      "infra/demo-inputs/embeddings/pdf__go.json",
+      "infra/demo-inputs/embeddings/pdf__java.json",
+      "infra/demo-inputs/embeddings/pdf__net.json",
+      "infra/demo-inputs/embeddings/pdf__python.json",
+      "infra/demo-inputs/embeddings/pdf__typescript.json",
+      "infra/demo-inputs/embeddings/slides__cpp.json",
+      "infra/demo-inputs/embeddings/slides__java.json",
+      "infra/demo-inputs/embeddings/slides__net.json",
+      "infra/demo-inputs/embeddings/slides__python.json",
+      "infra/demo-inputs/embeddings/tex__python.json",
+      "infra/demo-inputs/embeddings/words__net.json",
+      "infra/demo-inputs/embeddings/words__python.json",
+      "src/foss_mcp/indexing/cached_embedding_provider.py",
+      "tests/indexing/test_cached_embedding_provider.py"
+    ],
+    "violations": [],
+    "evaluated": true
+  },
+  "runs": [
+    {
+      "run": 1,
+      "checks": [
+        {
+          "command": "{python} -m pytest tests/indexing/test_cached_embedding_provider.py -q -rfE",
+          "exit_code": 0,
+          "duration_s": 0.9,
+          "stdout_sha256": "4d2df7a96ce4a667da3ccf295f2d16c728a65ed0e861a3baa919f7bb469b02b5",
+          "tests": 5,
+          "skipped": 0,
+          "errors": 0,
+          "failures": 0
+        },
+        {
+          "command": "{python} -m pytest tests/indexing/test_cached_embedding_provider.py -q -rfE -p no:cacheprovider",
+          "exit_code": 0,
+          "duration_s": 0.675,
+          "stdout_sha256": "4d2df7a96ce4a667da3ccf295f2d16c728a65ed0e861a3baa919f7bb469b02b5",
+          "tests": 5,
+          "skipped": 0,
+          "errors": 0,
+          "failures": 0
+        }
+      ],
+      "all_passed": true
+    },
+    {
+      "run": 2,
+      "checks": [
+        {
+          "command": "{python} -m pytest tests/indexing/test_cached_embedding_provider.py -q -rfE",
+          "exit_code": 0,
+          "duration_s": 0.693,
+          "stdout_sha256": "4d2df7a96ce4a667da3ccf295f2d16c728a65ed0e861a3baa919f7bb469b02b5",
+          "tests": 5,
+          "skipped": 0,
+          "errors": 0,
+          "failures": 0
+        },
+        {
+          "command": "{python} -m pytest tests/indexing/test_cached_embedding_provider.py -q -rfE -p no:cacheprovider",
+          "exit_code": 0,
+          "duration_s": 0.661,
+          "stdout_sha256": "4d2df7a96ce4a667da3ccf295f2d16c728a65ed0e861a3baa919f7bb469b02b5",
+          "tests": 5,
+          "skipped": 0,
+          "errors": 0,
+          "failures": 0
+        }
+      ],
+      "all_passed": true
+    }
+  ],
+  "negative_control": {
+    "kind": "mutate",
+    "patch": "python -X utf8 -c \"import pathlib; p = pathlib.Path('src/foss_mcp/indexing/cached_embedding_provider.py'); s = p.read_text(encoding='utf-8'); old = 'def embed('; assert s.count(old) == 1, 'fix text not found - card and source have diverged'; lines = s.splitlines(); i = next(idx for idx, line in enumerate(lines) if old in line); lines.insert(i + 1, '        return [[0.0] * self.dimension for _ in texts]  # TC-601 negative control'); p.write_text(chr(10).join(lines) + chr(10), encoding='utf-8')\"\n",
+    "patch_sha256": "4ff38487549ff9600290173021574b7458bbb0ca5d80a37bd4653b57f6e7d26d",
+    "applied": true,
+    "patch_applied_failed": true,
+    "exit_codes": [
+      1,
+      1
+    ],
+    "tree_changed": [
+      "M src/foss_mcp/indexing/cached_embedding_provider.py",
+      "?? .junit-0.xml",
+      "?? .junit-1.xml"
+    ]
+  },
+  "holdout": {
+    "ran": false,
+    "passed": true,
+    "detail": "no holdout for this card"
+  },
+  "accepted": true,
+  "reason": "all gates passed"
+}

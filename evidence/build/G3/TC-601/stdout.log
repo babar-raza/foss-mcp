@@ -1,0 +1,215 @@
+
+===== CLEAN RUN 1 (host) =====
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-5c72e798a73c059a\Scripts\python.exe -m pytest tests/indexing/test_cached_embedding_provider.py -q -rfE "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-kilq_kls\.junit-0.xml"
+--- stdout ---
+.....                                                                    [100%]
+
+--- stderr ---
+
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-5c72e798a73c059a\Scripts\python.exe -m pytest tests/indexing/test_cached_embedding_provider.py -q -rfE -p no:cacheprovider "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-kilq_kls\.junit-1.xml"
+--- stdout ---
+.....                                                                    [100%]
+
+--- stderr ---
+
+
+===== CLEAN RUN 2 (host) =====
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-5c72e798a73c059a\Scripts\python.exe -m pytest tests/indexing/test_cached_embedding_provider.py -q -rfE "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-kilq_kls\.junit-0.xml"
+--- stdout ---
+.....                                                                    [100%]
+
+--- stderr ---
+
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-5c72e798a73c059a\Scripts\python.exe -m pytest tests/indexing/test_cached_embedding_provider.py -q -rfE -p no:cacheprovider "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-kilq_kls\.junit-1.xml"
+--- stdout ---
+.....                                                                    [100%]
+
+--- stderr ---
+
+
+===== NEGATIVE CONTROL (checks MUST now fail) =====
+mutated: M src/foss_mcp/indexing/cached_embedding_provider.py, ?? .junit-0.xml, ?? .junit-1.xml
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-5c72e798a73c059a\Scripts\python.exe -m pytest tests/indexing/test_cached_embedding_provider.py -q -rfE "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-kilq_kls\.junit-0.xml"
+--- stdout ---
+FFF..                                                                    [100%]
+================================== FAILURES ===================================
+___________ test_scoped_provider_matches_real_baked_vectors_exactly ___________
+
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x000001CB43BC55B0>
+
+    def test_scoped_provider_matches_real_baked_vectors_exactly(monkeypatch: pytest.MonkeyPatch) -> None:
+        """(a) Scoped to one real pilot, embed() on that pilot's own real texts returns vectors
+        byte-identical (exact float-list equality) to the real baked vectors for those exact texts."""
+        monkeypatch.setenv("FOSS_MCP_CACHED_EMBEDDING_ROOT", str(_CACHE_ROOT))
+        monkeypatch.setenv("FOSS_MCP_CACHED_EMBEDDING_SCOPE", _PILOT_A)
+    
+        dimension, points = _active_generation_points(f"{_PILOT_A}__self_extracted")
+        assert points, f"{_PILOT_A} has no real example-chunk points to test against"
+    
+        provider = CachedEmbeddingProvider()
+        assert provider.dimension == dimension
+    
+        texts = [point["text"] for point in points]
+        expected = [tuple(point["vector"]) for point in points]
+        actual = provider.embed(texts)
+    
+>       assert actual == expected
+E       AssertionError: assert [[0.0, 0.0, 0....0, 0.0, ...]] == [(-0.02323, 2...0.01657, ...)]
+E         
+E         At index 0 diff: [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0...
+E         
+E         ...Full output truncated (2 lines hidden), use '-vv' to show
+
+tests\indexing\test_cached_embedding_provider.py:65: AssertionError
+________________ test_unscoped_provider_merges_two_real_pilots ________________
+
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x000001CB43BC5220>
+
+    def test_unscoped_provider_merges_two_real_pilots(monkeypatch: pytest.MonkeyPatch) -> None:
+        """(b) With no scope set (loads everything), the merged lookup still resolves pilot A's
+        own texts correctly, PLUS at least one text from a different real pilot (B) - proving the
+        merge actually merges rather than loading only one file."""
+        monkeypatch.setenv("FOSS_MCP_CACHED_EMBEDDING_ROOT", str(_CACHE_ROOT))
+        monkeypatch.delenv("FOSS_MCP_CACHED_EMBEDDING_SCOPE", raising=False)
+    
+        dimension_a, points_a = _active_generation_points(f"{_PILOT_A}__self_extracted")
+        dimension_b, points_b = _active_generation_points(f"{_PILOT_B}__self_extracted")
+        assert points_a and points_b
+    
+        provider = CachedEmbeddingProvider()
+        assert provider.dimension == dimension_a
+        assert provider.dimension == dimension_b
+    
+        texts = [points_a[0]["text"], points_b[0]["text"]]
+        expected = [tuple(points_a[0]["vector"]), tuple(points_b[0]["vector"])]
+        actual = provider.embed(texts)
+    
+>       assert actual == expected
+E       AssertionError: assert [[0.0, 0.0, 0....0, 0.0, ...]] == [(-0.02323, 2...0.02718, ...)]
+E         
+E         At index 0 diff: [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0...
+E         
+E         ...Full output truncated (2 lines hidden), use '-vv' to show
+
+tests\indexing\test_cached_embedding_provider.py:87: AssertionError
+_____________ test_missing_text_raises_error_naming_its_real_hash _____________
+
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x000001CB43C4DFD0>
+
+    def test_missing_text_raises_error_naming_its_real_hash(monkeypatch: pytest.MonkeyPatch) -> None:
+        """(c) embed() with one real text plus one fabricated text raises the missing-hash error,
+        and the error message contains the fabricated text's exact real sha256 hash."""
+        monkeypatch.setenv("FOSS_MCP_CACHED_EMBEDDING_ROOT", str(_CACHE_ROOT))
+        monkeypatch.setenv("FOSS_MCP_CACHED_EMBEDDING_SCOPE", _PILOT_A)
+    
+        _, points = _active_generation_points(f"{_PILOT_A}__self_extracted")
+        real_text = points[0]["text"]
+        fabricated_text = "TC-601 negative-control fabricated text, definitely not in any cache"
+        fabricated_hash = hashlib.sha256(fabricated_text.encode("utf-8")).hexdigest()
+    
+        provider = CachedEmbeddingProvider()
+    
+>       with pytest.raises(CachedEmbeddingMissError) as excinfo:
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       Failed: DID NOT RAISE CachedEmbeddingMissError
+
+tests\indexing\test_cached_embedding_provider.py:103: Failed
+=========================== short test summary info ===========================
+FAILED tests/indexing/test_cached_embedding_provider.py::test_scoped_provider_matches_real_baked_vectors_exactly
+FAILED tests/indexing/test_cached_embedding_provider.py::test_unscoped_provider_merges_two_real_pilots
+FAILED tests/indexing/test_cached_embedding_provider.py::test_missing_text_raises_error_naming_its_real_hash
+
+--- stderr ---
+
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-5c72e798a73c059a\Scripts\python.exe -m pytest tests/indexing/test_cached_embedding_provider.py -q -rfE -p no:cacheprovider "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-kilq_kls\.junit-1.xml"
+--- stdout ---
+FFF..                                                                    [100%]
+================================== FAILURES ===================================
+___________ test_scoped_provider_matches_real_baked_vectors_exactly ___________
+
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x00000274D566D5B0>
+
+    def test_scoped_provider_matches_real_baked_vectors_exactly(monkeypatch: pytest.MonkeyPatch) -> None:
+        """(a) Scoped to one real pilot, embed() on that pilot's own real texts returns vectors
+        byte-identical (exact float-list equality) to the real baked vectors for those exact texts."""
+        monkeypatch.setenv("FOSS_MCP_CACHED_EMBEDDING_ROOT", str(_CACHE_ROOT))
+        monkeypatch.setenv("FOSS_MCP_CACHED_EMBEDDING_SCOPE", _PILOT_A)
+    
+        dimension, points = _active_generation_points(f"{_PILOT_A}__self_extracted")
+        assert points, f"{_PILOT_A} has no real example-chunk points to test against"
+    
+        provider = CachedEmbeddingProvider()
+        assert provider.dimension == dimension
+    
+        texts = [point["text"] for point in points]
+        expected = [tuple(point["vector"]) for point in points]
+        actual = provider.embed(texts)
+    
+>       assert actual == expected
+E       AssertionError: assert [[0.0, 0.0, 0....0, 0.0, ...]] == [(-0.02323, 2...0.01657, ...)]
+E         
+E         At index 0 diff: [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0...
+E         
+E         ...Full output truncated (2 lines hidden), use '-vv' to show
+
+tests\indexing\test_cached_embedding_provider.py:65: AssertionError
+________________ test_unscoped_provider_merges_two_real_pilots ________________
+
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x00000274D566D220>
+
+    def test_unscoped_provider_merges_two_real_pilots(monkeypatch: pytest.MonkeyPatch) -> None:
+        """(b) With no scope set (loads everything), the merged lookup still resolves pilot A's
+        own texts correctly, PLUS at least one text from a different real pilot (B) - proving the
+        merge actually merges rather than loading only one file."""
+        monkeypatch.setenv("FOSS_MCP_CACHED_EMBEDDING_ROOT", str(_CACHE_ROOT))
+        monkeypatch.delenv("FOSS_MCP_CACHED_EMBEDDING_SCOPE", raising=False)
+    
+        dimension_a, points_a = _active_generation_points(f"{_PILOT_A}__self_extracted")
+        dimension_b, points_b = _active_generation_points(f"{_PILOT_B}__self_extracted")
+        assert points_a and points_b
+    
+        provider = CachedEmbeddingProvider()
+        assert provider.dimension == dimension_a
+        assert provider.dimension == dimension_b
+    
+        texts = [points_a[0]["text"], points_b[0]["text"]]
+        expected = [tuple(points_a[0]["vector"]), tuple(points_b[0]["vector"])]
+        actual = provider.embed(texts)
+    
+>       assert actual == expected
+E       AssertionError: assert [[0.0, 0.0, 0....0, 0.0, ...]] == [(-0.02323, 2...0.02718, ...)]
+E         
+E         At index 0 diff: [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0...
+E         
+E         ...Full output truncated (2 lines hidden), use '-vv' to show
+
+tests\indexing\test_cached_embedding_provider.py:87: AssertionError
+_____________ test_missing_text_raises_error_naming_its_real_hash _____________
+
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x00000274D56F9D90>
+
+    def test_missing_text_raises_error_naming_its_real_hash(monkeypatch: pytest.MonkeyPatch) -> None:
+        """(c) embed() with one real text plus one fabricated text raises the missing-hash error,
+        and the error message contains the fabricated text's exact real sha256 hash."""
+        monkeypatch.setenv("FOSS_MCP_CACHED_EMBEDDING_ROOT", str(_CACHE_ROOT))
+        monkeypatch.setenv("FOSS_MCP_CACHED_EMBEDDING_SCOPE", _PILOT_A)
+    
+        _, points = _active_generation_points(f"{_PILOT_A}__self_extracted")
+        real_text = points[0]["text"]
+        fabricated_text = "TC-601 negative-control fabricated text, definitely not in any cache"
+        fabricated_hash = hashlib.sha256(fabricated_text.encode("utf-8")).hexdigest()
+    
+        provider = CachedEmbeddingProvider()
+    
+>       with pytest.raises(CachedEmbeddingMissError) as excinfo:
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       Failed: DID NOT RAISE CachedEmbeddingMissError
+
+tests\indexing\test_cached_embedding_provider.py:103: Failed
+=========================== short test summary info ===========================
+FAILED tests/indexing/test_cached_embedding_provider.py::test_scoped_provider_matches_real_baked_vectors_exactly
+FAILED tests/indexing/test_cached_embedding_provider.py::test_unscoped_provider_merges_two_real_pilots
+FAILED tests/indexing/test_cached_embedding_provider.py::test_missing_text_raises_error_naming_its_real_hash
+
+--- stderr ---
+
