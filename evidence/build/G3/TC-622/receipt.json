@@ -1,0 +1,114 @@
+{
+  "schema_version": 1,
+  "card": "TC-622",
+  "gate": "G3",
+  "generated_by": "gatectl",
+  "generated_at": "2026-10-30T21:39:32Z",
+  "base_rev": "9cd47eacbde37e1ad7d4fc183d05107c632800c2",
+  "head_rev": "2526defa2dd3c54c412195ad2dbde4a5755d69ba",
+  "card_sha256": "840bdee2aba47740515b480cce5c30133da1d7aab54e87fa865fefbbe93e5536",
+  "fingerprint": {
+    "python": "3.13.2",
+    "platform": "Windows-11-10.0.26300-SP0",
+    "lock_sha256": "5c72e798a73c059a438e752e94a8d4c88c1bdf81a197f6e5c5fcecbc9466a691",
+    "env": {
+      "PYTHONHASHSEED": "0",
+      "PYTHONUTF8": "1",
+      "PYTHONDONTWRITEBYTECODE": "1",
+      "PYTHONIOENCODING": "utf-8",
+      "TZ": "UTC",
+      "LC_ALL": "C.UTF-8",
+      "SOURCE_DATE_EPOCH": "1700000000",
+      "verify_runner": "host"
+    }
+  },
+  "scope": {
+    "ok": true,
+    "changed_paths": [
+      "infra/serve_http.py",
+      "src/foss_mcp/mcp/server.py",
+      "src/foss_mcp/mcp/tools/get_product_reference.py",
+      "tests/infra/test_serve_registry_served_version.py",
+      "tests/mcp/test_server_registry_served_version_wiring.py"
+    ],
+    "violations": [],
+    "evaluated": true
+  },
+  "runs": [
+    {
+      "run": 1,
+      "checks": [
+        {
+          "command": "{python} -m pytest tests/infra/test_serve_registry_served_version.py tests/mcp/test_server_registry_served_version_wiring.py -q -rfE",
+          "exit_code": 0,
+          "duration_s": 2.81,
+          "stdout_sha256": "aaee21a6bd41dd1e84d0c7e90bbc12e774a80df243c10671dcc8d051c38a2cb4",
+          "tests": 8,
+          "skipped": 0,
+          "errors": 0,
+          "failures": 0
+        },
+        {
+          "command": "{python} -m pytest tests/infra/test_serve_registry_served_version.py tests/mcp/test_server_registry_served_version_wiring.py tests/infra/test_serve_http.py tests/infra/test_serve_sidecar_tolerance.py tests/mcp/test_server_wiring.py tests/mcp/tools/test_freshness_registry_version.py -q -rfE -p no:cacheprovider",
+          "exit_code": 0,
+          "duration_s": 9.462,
+          "stdout_sha256": "b1967cf5279fad746ed1834ff094bc8dc42b5a7b13171bed17af8e408b3aec7d",
+          "tests": 178,
+          "skipped": 0,
+          "errors": 0,
+          "failures": 0
+        }
+      ],
+      "all_passed": true
+    },
+    {
+      "run": 2,
+      "checks": [
+        {
+          "command": "{python} -m pytest tests/infra/test_serve_registry_served_version.py tests/mcp/test_server_registry_served_version_wiring.py -q -rfE",
+          "exit_code": 0,
+          "duration_s": 1.761,
+          "stdout_sha256": "aaee21a6bd41dd1e84d0c7e90bbc12e774a80df243c10671dcc8d051c38a2cb4",
+          "tests": 8,
+          "skipped": 0,
+          "errors": 0,
+          "failures": 0
+        },
+        {
+          "command": "{python} -m pytest tests/infra/test_serve_registry_served_version.py tests/mcp/test_server_registry_served_version_wiring.py tests/infra/test_serve_http.py tests/infra/test_serve_sidecar_tolerance.py tests/mcp/test_server_wiring.py tests/mcp/tools/test_freshness_registry_version.py -q -rfE -p no:cacheprovider",
+          "exit_code": 0,
+          "duration_s": 9.058,
+          "stdout_sha256": "b1967cf5279fad746ed1834ff094bc8dc42b5a7b13171bed17af8e408b3aec7d",
+          "tests": 178,
+          "skipped": 0,
+          "errors": 0,
+          "failures": 0
+        }
+      ],
+      "all_passed": true
+    }
+  ],
+  "negative_control": {
+    "kind": "mutate",
+    "patch": "python -X utf8 -c \"import pathlib; p = pathlib.Path('src/foss_mcp/mcp/server.py'); s = p.read_text(encoding='utf-8'); old = '        inputs = snapshot.product_reference_inputs'; assert s.count(old) == 1, 'fix text not found - card and source have diverged'; new = old + chr(10) + '        inputs = dataclasses.replace(inputs, install_verified_served_version=None)  # TC-622 negative control'; p.write_text(s.replace(old, new, 1), encoding='utf-8')\"\n",
+    "patch_sha256": "2c8893dee0efa20b9373fd4ee64a67c45f9c8b4c52c367aca3606499e6bc6859",
+    "applied": true,
+    "patch_applied_failed": true,
+    "exit_codes": [
+      1,
+      1
+    ],
+    "tree_changed": [
+      "M src/foss_mcp/mcp/server.py",
+      "?? .junit-0.xml",
+      "?? .junit-1.xml"
+    ]
+  },
+  "holdout": {
+    "ran": false,
+    "passed": true,
+    "detail": "no holdout for this card"
+  },
+  "accepted": true,
+  "reason": "all gates passed"
+}
