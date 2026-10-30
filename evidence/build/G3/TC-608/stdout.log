@@ -1,0 +1,109 @@
+
+===== CLEAN RUN 1 (host) =====
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-5c72e798a73c059a\Scripts\python.exe -m pytest tests/conformance/test_reference_content.py -q -rfE "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-db5rz6_o\.junit-0.xml"
+--- stdout ---
+..........                                                               [100%]
+
+--- stderr ---
+
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-5c72e798a73c059a\Scripts\python.exe -m pytest tests/conformance/test_reference_content.py -q -rfE -p no:cacheprovider "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-db5rz6_o\.junit-1.xml"
+--- stdout ---
+..........                                                               [100%]
+
+--- stderr ---
+
+
+===== CLEAN RUN 2 (host) =====
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-5c72e798a73c059a\Scripts\python.exe -m pytest tests/conformance/test_reference_content.py -q -rfE "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-db5rz6_o\.junit-0.xml"
+--- stdout ---
+..........                                                               [100%]
+
+--- stderr ---
+
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-5c72e798a73c059a\Scripts\python.exe -m pytest tests/conformance/test_reference_content.py -q -rfE -p no:cacheprovider "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-db5rz6_o\.junit-1.xml"
+--- stdout ---
+..........                                                               [100%]
+
+--- stderr ---
+
+
+===== NEGATIVE CONTROL (checks MUST now fail) =====
+mutated: M tests/fixtures/conformance/baseline_reference_content.json, ?? .junit-0.xml, ?? .junit-1.xml
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-5c72e798a73c059a\Scripts\python.exe -m pytest tests/conformance/test_reference_content.py -q -rfE "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-db5rz6_o\.junit-0.xml"
+--- stdout ---
+.........F                                                               [100%]
+================================== FAILURES ===================================
+____________ test_reference_content_matches_the_committed_baseline ____________
+
+measured = Measurement(answers=(_SectionAnswer(pilot='3d__java', section='install', result=ReferenceContent(section='install', te...et_product_reference.py) has no structured field distinguishing 'upstream genuinely has none' from 'not extracted'."}))
+
+    def test_reference_content_matches_the_committed_baseline(measured: Measurement) -> None:
+        baseline = load_baseline(BASELINE_PATH)
+>       assert_no_new_failures(baseline, measured.failures)
+
+tests\conformance\test_reference_content.py:398: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+baseline = Baseline(strict=False, known_failures=())
+observed_failures = ({'pilot': '3d__java', 'case_id': 'empty-no-reason:3d__java:contributing', 'reason': "contributing answered absent/emp...roduct_reference.py) has no structured field distinguishing 'upstream genuinely has none' from 'not extracted'."}, ...)
+
+    def assert_no_new_failures(baseline: Baseline, observed_failures: Iterable[Any]) -> None:
+        """Raise ``AssertionError`` if *observed_failures* contains a ``(pilot, case_id)`` the baseline does
+        not already know about, naming exactly which case(s) are new. When ``baseline.strict`` is ``True``,
+        also raise if a baseline entry is NOT present in *observed_failures* (i.e. it now passes and the
+        baseline must be tightened); when ``baseline.strict`` is ``False`` (the default), that same absence
+        never fails - a baseline may always be ahead of what is currently observed."""
+        observed_keys = frozenset(_observed_key(failure) for failure in observed_failures)
+        known_keys = baseline.known_keys()
+    
+        new_failures = observed_keys - known_keys
+        if new_failures:
+            named = ", ".join(f"{pilot}:{case_id}" for pilot, case_id in sorted(new_failures))
+>           raise AssertionError(f"new failure(s) not present in the baseline: {named}")
+E           AssertionError: new failure(s) not present in the baseline: 3d__java:empty-no-reason:3d__java:contributing, 3d__net:empty-no-reason:3d__net:contributing, 3d__python:empty-no-reason:3d__python:contributing, 3d__typescript:empty-no-reason:3d__typescript:compatibility, 3d__typescript:empty-no-reason:3d__typescript:contributing, barcode__python:empty-no-reason:barcode__python:agent_guidance, barcode__python:empty-no-reason:barcode__python:contributing, cells__cpp:empty-no-reason:cells__cpp:contributing, cells__cpp:empty-no-reason:cells__cpp:formats, cells__cpp:empty-no-reason:cells__cpp:limitations, cells__go:empty-no-reason:cells__go:contributing, cells__java:empty-no-reason:cells__java:contributing, cells__net:empty-no-reason:cells__net:contributing, cells__python:empty-no-reason:cells__python:contributing, cells__rust:empty-no-reason:cells__rust:contributing, cells__typescript:empty-no-reason:cells__typescript:contributing, email__cpp:empty-no-reason:email__cpp:agent_guidance, email__cpp:empty-no-reason:email__cpp:contributing, email__cpp:multi-recipe:email__cpp:install, email__net:empty-no-reason:email__net:agent_guidance, email__net:empty-no-reason:email__net:contributing, html__python:empty-no-reason:html__python:agent_guidance, imaging__net:empty-no-reason:imaging__net:agent_guidance, imaging__net:empty-no-reason:imaging__net:contributing, imaging__net:empty-no-reason:imaging__net:formats, imaging__net:empty-no-reason:imaging__net:limitations, note__python:empty-no-reason:note__python:agent_guidance, note__python:empty-no-reason:note__python:contributing, page__python:empty-no-reason:page__python:agent_guidance, page__python:empty-no-reason:page__python:contributing, pdf__cpp:empty-no-reason:pdf__cpp:agent_guidance, pdf__cpp:marker-lacks-locator:pdf__cpp:install, pdf__cpp:multi-recipe:pdf__cpp:install, pdf__go:empty-no-reason:pdf__go:agent_guidance, pdf__java:empty-no-reason:pdf__java:contributing, pdf__net:empty-no-reason:pdf__net:agent_guidance, pdf__net:empty-no-reason:pdf__net:contributing, pdf__python:empty-no-reason:pdf__python:contributing, pdf__typescript:empty-no-reason:pdf__typescript:contributing, pdf__typescript:empty-no-reason:pdf__typescript:formats, pdf__typescript:empty-no-reason:pdf__typescript:limitations, slides__cpp:empty-no-reason:slides__cpp:agent_guidance, slides__cpp:marker-lacks-locator:slides__cpp:install, slides__cpp:marker-lacks-locator:slides__cpp:limitations, slides__cpp:multi-recipe:slides__cpp:install, slides__net:empty-no-reason:slides__net:limitations, tex__python:empty-no-reason:tex__python:agent_guidance, tex__python:empty-no-reason:tex__python:contributing, words__net:empty-no-reason:words__net:contributing, words__net:empty-no-reason:words__net:limitations, words__python:empty-no-reason:words__python:agent_guidance, words__python:empty-no-reason:words__python:contributing
+
+tests\conformance\baseline.py:80: AssertionError
+=========================== short test summary info ===========================
+FAILED tests/conformance/test_reference_content.py::test_reference_content_matches_the_committed_baseline
+
+--- stderr ---
+
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-5c72e798a73c059a\Scripts\python.exe -m pytest tests/conformance/test_reference_content.py -q -rfE -p no:cacheprovider "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-db5rz6_o\.junit-1.xml"
+--- stdout ---
+.........F                                                               [100%]
+================================== FAILURES ===================================
+____________ test_reference_content_matches_the_committed_baseline ____________
+
+measured = Measurement(answers=(_SectionAnswer(pilot='3d__java', section='install', result=ReferenceContent(section='install', te...et_product_reference.py) has no structured field distinguishing 'upstream genuinely has none' from 'not extracted'."}))
+
+    def test_reference_content_matches_the_committed_baseline(measured: Measurement) -> None:
+        baseline = load_baseline(BASELINE_PATH)
+>       assert_no_new_failures(baseline, measured.failures)
+
+tests\conformance\test_reference_content.py:398: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+baseline = Baseline(strict=False, known_failures=())
+observed_failures = ({'pilot': '3d__java', 'case_id': 'empty-no-reason:3d__java:contributing', 'reason': "contributing answered absent/emp...roduct_reference.py) has no structured field distinguishing 'upstream genuinely has none' from 'not extracted'."}, ...)
+
+    def assert_no_new_failures(baseline: Baseline, observed_failures: Iterable[Any]) -> None:
+        """Raise ``AssertionError`` if *observed_failures* contains a ``(pilot, case_id)`` the baseline does
+        not already know about, naming exactly which case(s) are new. When ``baseline.strict`` is ``True``,
+        also raise if a baseline entry is NOT present in *observed_failures* (i.e. it now passes and the
+        baseline must be tightened); when ``baseline.strict`` is ``False`` (the default), that same absence
+        never fails - a baseline may always be ahead of what is currently observed."""
+        observed_keys = frozenset(_observed_key(failure) for failure in observed_failures)
+        known_keys = baseline.known_keys()
+    
+        new_failures = observed_keys - known_keys
+        if new_failures:
+            named = ", ".join(f"{pilot}:{case_id}" for pilot, case_id in sorted(new_failures))
+>           raise AssertionError(f"new failure(s) not present in the baseline: {named}")
+E           AssertionError: new failure(s) not present in the baseline: 3d__java:empty-no-reason:3d__java:contributing, 3d__net:empty-no-reason:3d__net:contributing, 3d__python:empty-no-reason:3d__python:contributing, 3d__typescript:empty-no-reason:3d__typescript:compatibility, 3d__typescript:empty-no-reason:3d__typescript:contributing, barcode__python:empty-no-reason:barcode__python:agent_guidance, barcode__python:empty-no-reason:barcode__python:contributing, cells__cpp:empty-no-reason:cells__cpp:contributing, cells__cpp:empty-no-reason:cells__cpp:formats, cells__cpp:empty-no-reason:cells__cpp:limitations, cells__go:empty-no-reason:cells__go:contributing, cells__java:empty-no-reason:cells__java:contributing, cells__net:empty-no-reason:cells__net:contributing, cells__python:empty-no-reason:cells__python:contributing, cells__rust:empty-no-reason:cells__rust:contributing, cells__typescript:empty-no-reason:cells__typescript:contributing, email__cpp:empty-no-reason:email__cpp:agent_guidance, email__cpp:empty-no-reason:email__cpp:contributing, email__cpp:multi-recipe:email__cpp:install, email__net:empty-no-reason:email__net:agent_guidance, email__net:empty-no-reason:email__net:contributing, html__python:empty-no-reason:html__python:agent_guidance, imaging__net:empty-no-reason:imaging__net:agent_guidance, imaging__net:empty-no-reason:imaging__net:contributing, imaging__net:empty-no-reason:imaging__net:formats, imaging__net:empty-no-reason:imaging__net:limitations, note__python:empty-no-reason:note__python:agent_guidance, note__python:empty-no-reason:note__python:contributing, page__python:empty-no-reason:page__python:agent_guidance, page__python:empty-no-reason:page__python:contributing, pdf__cpp:empty-no-reason:pdf__cpp:agent_guidance, pdf__cpp:marker-lacks-locator:pdf__cpp:install, pdf__cpp:multi-recipe:pdf__cpp:install, pdf__go:empty-no-reason:pdf__go:agent_guidance, pdf__java:empty-no-reason:pdf__java:contributing, pdf__net:empty-no-reason:pdf__net:agent_guidance, pdf__net:empty-no-reason:pdf__net:contributing, pdf__python:empty-no-reason:pdf__python:contributing, pdf__typescript:empty-no-reason:pdf__typescript:contributing, pdf__typescript:empty-no-reason:pdf__typescript:formats, pdf__typescript:empty-no-reason:pdf__typescript:limitations, slides__cpp:empty-no-reason:slides__cpp:agent_guidance, slides__cpp:marker-lacks-locator:slides__cpp:install, slides__cpp:marker-lacks-locator:slides__cpp:limitations, slides__cpp:multi-recipe:slides__cpp:install, slides__net:empty-no-reason:slides__net:limitations, tex__python:empty-no-reason:tex__python:agent_guidance, tex__python:empty-no-reason:tex__python:contributing, words__net:empty-no-reason:words__net:contributing, words__net:empty-no-reason:words__net:limitations, words__python:empty-no-reason:words__python:agent_guidance, words__python:empty-no-reason:words__python:contributing
+
+tests\conformance\baseline.py:80: AssertionError
+=========================== short test summary info ===========================
+FAILED tests/conformance/test_reference_content.py::test_reference_content_matches_the_committed_baseline
+
+--- stderr ---
+
