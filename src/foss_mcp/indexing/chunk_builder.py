@@ -29,10 +29,15 @@ from __future__ import annotations
 
 import re
 from collections.abc import Mapping, Sequence
-from typing import Any, cast
+from typing import TYPE_CHECKING, Any, cast
 
 from foss_mcp.normalization.chunker import Chunk, chunk_document
 from foss_mcp.normalization.document_schema import Provenance, SourceKind, make_document
+
+if TYPE_CHECKING:
+    # TC-614 (I2): type-only - `symbol_identity` imports this module at module level, so a runtime
+    # import here would be circular; the real import is local to `build_chunks_from_api_surface`.
+    from foss_mcp.indexing.symbol_identity import SymbolIdentity
 
 _REASON_LIMIT = 200
 _TEST_BASENAME_SUFFIXES = ("_test.go", "_test.py", ".test.ts", ".spec.ts", ".test.js", ".spec.js")
@@ -676,25 +681,52 @@ def _syntax_error_files(fixture: Mapping[str, object]) -> set[str]:
     return files
 
 
-def _coverage_line(fixture: Mapping[str, object], entries: Sequence[Mapping[str, object]]) -> str | None:
+def _coverage_line(
+    fixture: Mapping[str, object],
+    entries: Sequence[Mapping[str, object]],
+    identities: Sequence[SymbolIdentity] | None = None,
+) -> str | None:
     """The ``API-Coverage:`` value of every symbol chunk of *fixture*.
 
     Legacy rendering (``{kept} of {type_count} types``) when the fixture has none of
     ``symbol_counts``, ``parse_failures`` and a ``:syntax-error:`` entry. Otherwise one line of
     clauses joined by "; ", the types clause first: kept types of the types the library has, kept
     functions of its functions, and how many source files could not be parsed.
+
+    TC-614 (I2, REQ-G3-012): *identities* is I1's canonical-identity model
+    (``symbol_identity.compute_canonical_identities(entries)``), one entry per *entries* position.
+    ``identities=None`` (the default) preserves the exact prior behaviour byte for byte - every
+    existing two-argument caller is unaffected. When given, both the types clause and the legacy
+    clause count each alias group ONCE (``identities[index].is_definition``) instead of once per
+    entry, so a shell/definition pair (a Python re-export stub and the class it re-exports) no
+    longer inflates the numerator. Functions are untouched either way: they have their own clause
+    and are never paired by ``_reexport_pairs`` (confirmed against every real, committed fixture;
+    see TC-614's closeout), so excluding ``kind == "function"`` from the dedup is a no-op for them,
+    never a behaviour change.
     """
     type_count = fixture.get("type_count")
-    legacy = f"{len(entries)} of {type_count} types" if _is_count(type_count) else None
+    if identities is None:
+        legacy_numerator = len(entries)
+    else:
+        legacy_numerator = sum(1 for index in range(len(entries)) if identities[index].is_definition)
+    legacy = f"{legacy_numerator} of {type_count} types" if _is_count(type_count) else None
     counts = fixture.get("symbol_counts")
     failures = fixture.get("parse_failures")
     syntax_files = _syntax_error_files(fixture)
     if counts is None and failures is None and not syntax_files:
         return legacy
     kept_functions = sum(1 for entry in entries if entry.get("kind") == "function")
+    if identities is None:
+        kept_types = len(entries) - kept_functions
+    else:
+        kept_types = sum(
+            1
+            for index, entry in enumerate(entries)
+            if entry.get("kind") != "function" and identities[index].is_definition
+        )
     clauses: list[str] = []
     if isinstance(counts, Mapping) and _is_count(counts.get("types")):
-        clauses.append(f"{len(entries) - kept_functions} of {counts['types']} types")
+        clauses.append(f"{kept_types} of {counts['types']} types")
     elif legacy is not None:
         clauses.append(legacy)
     else:
@@ -744,7 +776,14 @@ def build_chunks_from_api_surface(
     exported_as: dict[int, list[str]] = {}
     for stub_index, definition_index in pairs.items():
         exported_as.setdefault(definition_index, []).append(fqns[stub_index])
-    coverage = _coverage_line(fixture, entries)
+    # TC-614 (I2, REQ-G3-012): local import - `symbol_identity` imports this module at module
+    # level, so a module-level import here would be circular. Computed over this SAME,
+    # post-slot-cut, position-remapped `entries` (not the pre-cut `candidates`), so each identity's
+    # index lines up with `fqns`/`pairs` above.
+    from foss_mcp.indexing.symbol_identity import compute_canonical_identities
+
+    identities = compute_canonical_identities(entries)
+    coverage = _coverage_line(fixture, entries, identities)
     sections = []
     for index, entry in enumerate(entries):
         target = pairs.get(index)

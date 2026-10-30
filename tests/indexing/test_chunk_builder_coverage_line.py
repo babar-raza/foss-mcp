@@ -17,9 +17,13 @@ import pytest
 
 from foss_mcp.indexing.chunk_builder import (
     PARSE_FAILURE_NOTE_THRESHOLD,
+    _coverage_line,
+    _is_test_source,
     build_chunks_from_api_surface,
     parse_failures_over_threshold,
 )
+from foss_mcp.indexing.symbol_identity import compute_canonical_identities
+from foss_mcp.mcp.tools.coverage_note import coverage_note_from_text
 
 FIXTURES_DIR = Path(__file__).resolve().parents[1] / "fixtures"
 LEGACY_LINE = re.compile(r"^API-Coverage:\s*(\d+)\s+of\s+(\d+)\s+types\b", re.MULTILINE)
@@ -196,8 +200,10 @@ def test_committed_tex_python_fixture_states_the_unparsed_files_in_every_chunk()
     # TC-555: 4 chunks -> 23 (21 types, 2 functions) and "at least 2 source files" -> the measured
     # parse_failures of the committed fixture (the files the indentation repair reads are no failure; the 11
     # private files it cannot repair are: TC-555 rework 2, 35 of 45 -> 11 of 45).
+    # TC-614 (I2): the types numerator now counts each alias group once - tex/python has real
+    # shell/definition pairs too (not only slides/python), measured fresh here: 21 -> 14.
     assert len(texts) == 23
-    expected = "API-Coverage: 21 of 21 types; 2 of 2 functions; 11 of 45 source files could not be parsed"
+    expected = "API-Coverage: 14 of 21 types; 2 of 2 functions; 11 of 45 source files could not be parsed"
     assert all(text.splitlines()[-1] == expected for text in texts)
 
 
@@ -234,5 +240,130 @@ def test_the_line_stays_the_last_line_before_the_source_commit_is_appended() -> 
     for text in _texts(fixture):
         appended = f"{text}\nSource-Commit: {fixture['source_commit']}"
         assert appended.splitlines()[-2].startswith(
-            "API-Coverage: 21 of 21 types"
-        )  # TC-555: 4 of 4 -> 21 of 21
+            "API-Coverage: 14 of 21 types"
+        )  # TC-555: 4 of 4 -> 21 of 21; TC-614: 21 of 21 -> 14 of 21 (dedup)
+
+
+# ---------------------------------------------------------------- TC-614 (I2, REQ-G3-012): dedup
+#
+# I1's canonical-identity model (`symbol_identity.compute_canonical_identities`) threaded into the
+# numerator so each alias group (a Python re-export shell and its definition) is counted ONCE, not
+# once per entry. `identities=None` (the default) must be byte-for-byte identical to the prior
+# behaviour - case (a) below. The DENOMINATOR side (`run_extraction.py`'s own, still-inflated
+# `symbol_counts.types`) is explicitly out of scope for this card (I3's job).
+
+
+def test_a_identities_none_is_byte_for_byte_identical_to_the_old_two_argument_form() -> None:
+    """(a) The backward-compatibility contract: the OLD two-argument form of `_coverage_line`
+    (no `identities`, and `identities=None` spelled out explicitly) renders exactly as before this
+    card, for both the `symbol_counts` path and the no-`symbol_counts` legacy path."""
+    types = [
+        {"name": "Alpha", "kind": "type_spec", "file": "a.go"},
+        {"name": "Beta", "kind": "type_spec", "file": "b.go"},
+        {"name": "Run", "kind": "function", "file": "a.go", "params": [], "return_type": ""},
+    ]
+    fixture = _fixture(types, type_count=3, symbol_counts={"types": 259, "functions": 2054})
+    assert _coverage_line(fixture, types) == "2 of 259 types; 1 of 2054 functions"
+    assert _coverage_line(fixture, types, None) == "2 of 259 types; 1 of 2054 functions"
+    assert _coverage_line(fixture, types) == _coverage_line(fixture, types, None)
+
+    legacy_fixture = _fixture([{"name": "A", "kind": "class", "file": "a.py"}], type_count=4)
+    legacy_entries = legacy_fixture["types"]
+    assert isinstance(legacy_entries, list)
+    assert _coverage_line(legacy_fixture, legacy_entries) == "1 of 4 types"
+    assert _coverage_line(legacy_fixture, legacy_entries, None) == "1 of 4 types"
+
+
+def test_b_identities_deduplicate_the_numerator_for_a_synthetic_shell_definition_pair() -> None:
+    """(b) A synthetic TC-382-rule-8 shape (reused from `test_symbol_identity.py`'s own synthetic
+    shapes): a member-less package `__init__.py` stub paired with the one other entry of the same
+    name that has members. Without `identities` the numerator counts both entries (the shell
+    inflates it); with `identities` it counts the unit once."""
+    entries = [
+        {
+            "name": "Foo",
+            "kind": "class",
+            "file": "pkg/__init__.py",
+            "class_import": "pkg.Foo",
+            "bases": [],
+            "methods": [],
+            "properties": [],
+        },
+        {
+            "name": "Foo",
+            "kind": "class",
+            "file": "pkg/sub/foo.py",
+            "class_import": "pkg.sub.Foo",
+            "bases": [],
+            "methods": [{"name": "m", "params": [], "return_type": ""}],
+            "properties": [],
+        },
+        {
+            "name": "Bar",
+            "kind": "class",
+            "file": "pkg/bar.py",
+            "class_import": "pkg.Bar",
+            "bases": [],
+            "methods": [{"name": "m", "params": [], "return_type": ""}],
+            "properties": [],
+        },
+    ]
+    identities = compute_canonical_identities(entries)
+    # Sanity on the identity model itself, before touching `_coverage_line` at all: entry 0 (the
+    # stub) is an alias, not a definition; the real two definitions (entries 1 and 2) each are.
+    assert [identity.is_definition for identity in identities] == [False, True, True]
+
+    counted_fixture = _fixture(entries, type_count=3, symbol_counts={"types": 3, "functions": 0})
+    assert _coverage_line(counted_fixture, entries) == "3 of 3 types"
+    assert _coverage_line(counted_fixture, entries, identities) == "2 of 3 types"
+
+    # The legacy clause (no `symbol_counts`) dedups the same way (TC-614 instruction 2).
+    legacy_fixture = _fixture(entries, type_count=3)
+    assert _coverage_line(legacy_fixture, entries) == "3 of 3 types"
+    assert _coverage_line(legacy_fixture, entries, identities) == "2 of 3 types"
+
+
+def test_c_real_slides_python_regression_numerator_drops_with_identities() -> None:
+    """(c) The real, measured regression against the committed `slides_python` fixture end to end,
+    through the real rendering path (`build_chunks_from_api_surface`, now always threading
+    `compute_canonical_identities` output into `_coverage_line`). `max_types=10_000` (via `_texts`)
+    keeps the slot cut from also moving these numbers, matching the real, already-committed
+    generation manifest's rendered line (`infra/demo-manifests/slides__python__self_extracted/...`:
+    ``API-Coverage: 1022 of 1022 types; 1 of 1 functions``) for the BEFORE state.
+
+    Measured fresh for this card (does NOT assume TC-612's own 517/1023 finding, which measured
+    differently): 1023 non-test entries, 517 canonical units, 516 of which are non-function
+    definitions (the fixture's one function entry keeps its own, separate, unaffected clause) -
+    AFTER this card, the numerator is 516, not 517, because `kind == "function"` is excluded from
+    the types-clause dedup count exactly as REQ-G3-012 specifies.
+    """
+    fixture = _real("slides_python")
+    after_lines = _last_lines(fixture)
+    assert after_lines == {"API-Coverage: 516 of 1022 types; 1 of 1 functions"}
+
+    # The BEFORE rendering (pre-TC-614: `identities=None`), reproduced directly against the same,
+    # real, non-test-filtered entries this module itself computes - this is the exact real line the
+    # already-committed generation manifest carries today.
+    candidates = [entry for entry in fixture["types"] if not _is_test_source(entry.get("file"))]
+    before = _coverage_line(fixture, candidates)
+    assert before == "1022 of 1022 types; 1 of 1 functions"
+
+
+def test_d_coverage_note_from_text_now_fires_for_slides_python_after_the_fix() -> None:
+    """(d) End-to-end revival proof: `coverage_note.coverage_note_from_text` (read-only to this
+    card, UNMODIFIED) already re-parses whatever `_coverage_line` renders and already emits a
+    caveat whenever the parsed numerator is below the parsed denominator - it needs no code change,
+    it was simply never exercised on a real pilot before this card, because the numerator was never
+    honestly below 100% for slides/python. Calling the real, unmodified function against the real
+    rendered AFTER line proves the revival; calling it against the real rendered BEFORE line proves
+    it correctly returned `None` previously (the ratio was 100% "by construction")."""
+    fixture = _real("slides_python")
+    after_text = next(iter(_texts(fixture)))
+    after_note = coverage_note_from_text(after_text)
+    assert after_note is not None
+    assert "516 of 1022 types" in after_note
+    assert "a type missing from it may still exist upstream" in after_note
+
+    candidates = [entry for entry in fixture["types"] if not _is_test_source(entry.get("file"))]
+    before_line = f"API-Coverage: {_coverage_line(fixture, candidates)}"
+    assert coverage_note_from_text(before_line) is None
