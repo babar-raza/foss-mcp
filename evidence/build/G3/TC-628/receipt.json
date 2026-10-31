@@ -1,0 +1,114 @@
+{
+  "schema_version": 1,
+  "card": "TC-628",
+  "gate": "G3",
+  "generated_by": "gatectl",
+  "generated_at": "2026-10-31T08:28:54Z",
+  "base_rev": "fd2cdd369c95545450f9600add48df1efcdb8b7a",
+  "head_rev": "171c206355996df359d81c284fe05f984fa3b8e1",
+  "card_sha256": "a20e5bbc3af1bed0134ec06636349ac33fbca64c8c32ff795dde04baabb668ec",
+  "fingerprint": {
+    "python": "3.13.2",
+    "platform": "Windows-11-10.0.26300-SP0",
+    "lock_sha256": "5c72e798a73c059a438e752e94a8d4c88c1bdf81a197f6e5c5fcecbc9466a691",
+    "env": {
+      "PYTHONHASHSEED": "0",
+      "PYTHONUTF8": "1",
+      "PYTHONDONTWRITEBYTECODE": "1",
+      "PYTHONIOENCODING": "utf-8",
+      "TZ": "UTC",
+      "LC_ALL": "C.UTF-8",
+      "SOURCE_DATE_EPOCH": "1700000000",
+      "verify_runner": "host"
+    }
+  },
+  "scope": {
+    "ok": true,
+    "changed_paths": [
+      "src/foss_mcp/mcp/tools/lookup.py",
+      "src/foss_mcp/mcp/tools/search_docs.py",
+      "tests/mcp/test_round3_doc_excerpt.py",
+      "tests/mcp/tools/test_lookup_table_guard_and_exact_predicate.py",
+      "tests/mcp/tools/test_search_docs_query_normalization.py"
+    ],
+    "violations": [],
+    "evaluated": true
+  },
+  "runs": [
+    {
+      "run": 1,
+      "checks": [
+        {
+          "command": "{python} -m pytest tests/mcp/tools/test_lookup_table_guard_and_exact_predicate.py -q -rfE -p no:cacheprovider",
+          "exit_code": 0,
+          "duration_s": 6.424,
+          "stdout_sha256": "eb27a136c18598aedc0e4f11e6893b614a04335a9faf3ec03433325d777e2663",
+          "tests": 12,
+          "skipped": 0,
+          "errors": 0,
+          "failures": 0
+        },
+        {
+          "command": "{python} -m pytest tests/mcp/tools/test_lookup_table_guard_and_exact_predicate.py tests/mcp/tools/test_search_docs_partial_tier.py tests/mcp/tools/test_round3_retrieval_corpus.py tests/mcp/tools/test_forgiveness_acceptance.py tests/mcp/tools/test_nonsense_queries_miss.py tests/mcp/tools/test_find_examples_title_anchor.py tests/mcp/tools/test_relevance_idf_synonyms.py tests/mcp/tools/test_search_docs_title_passage_coverage.py tests/mcp/tools/test_search_docs_query_normalization.py tests/mcp/tools/test_search_docs_language_letter.py tests/mcp/tools/test_lookup_forgiveness.py tests/mcp/tools/test_lookup_miss_reason.py tests/mcp/tools/test_lookup_query_normalization.py tests/mcp/test_round3_doc_excerpt.py tests/conformance/test_sentence_wrapped_retrieval.py tests/conformance/test_precision_and_size_budget.py -q -rfE -p no:cacheprovider",
+          "exit_code": 0,
+          "duration_s": 167.216,
+          "stdout_sha256": "c4697376e655ffc28a31a92fb6d32cdf7f967b2fabfd65a09bdbc12b499998aa",
+          "tests": 505,
+          "skipped": 0,
+          "errors": 0,
+          "failures": 0
+        }
+      ],
+      "all_passed": true
+    },
+    {
+      "run": 2,
+      "checks": [
+        {
+          "command": "{python} -m pytest tests/mcp/tools/test_lookup_table_guard_and_exact_predicate.py -q -rfE -p no:cacheprovider",
+          "exit_code": 0,
+          "duration_s": 4.907,
+          "stdout_sha256": "eb27a136c18598aedc0e4f11e6893b614a04335a9faf3ec03433325d777e2663",
+          "tests": 12,
+          "skipped": 0,
+          "errors": 0,
+          "failures": 0
+        },
+        {
+          "command": "{python} -m pytest tests/mcp/tools/test_lookup_table_guard_and_exact_predicate.py tests/mcp/tools/test_search_docs_partial_tier.py tests/mcp/tools/test_round3_retrieval_corpus.py tests/mcp/tools/test_forgiveness_acceptance.py tests/mcp/tools/test_nonsense_queries_miss.py tests/mcp/tools/test_find_examples_title_anchor.py tests/mcp/tools/test_relevance_idf_synonyms.py tests/mcp/tools/test_search_docs_title_passage_coverage.py tests/mcp/tools/test_search_docs_query_normalization.py tests/mcp/tools/test_search_docs_language_letter.py tests/mcp/tools/test_lookup_forgiveness.py tests/mcp/tools/test_lookup_miss_reason.py tests/mcp/tools/test_lookup_query_normalization.py tests/mcp/test_round3_doc_excerpt.py tests/conformance/test_sentence_wrapped_retrieval.py tests/conformance/test_precision_and_size_budget.py -q -rfE -p no:cacheprovider",
+          "exit_code": 0,
+          "duration_s": 160.292,
+          "stdout_sha256": "c4697376e655ffc28a31a92fb6d32cdf7f967b2fabfd65a09bdbc12b499998aa",
+          "tests": 505,
+          "skipped": 0,
+          "errors": 0,
+          "failures": 0
+        }
+      ],
+      "all_passed": true
+    }
+  ],
+  "negative_control": {
+    "kind": "mutate",
+    "patch": "python -X utf8 -c \"import pathlib; nl = chr(10); p = pathlib.Path('src/foss_mcp/mcp/tools/lookup.py'); s = p.read_text(encoding='utf-8'); old = 'if category_intent(query) is not None:' + nl + '        return MATCH_EXACT, ()'; assert s.count(old) == 1, 'post-fix branch text not found as expected - if your real fix reads differently (e.g. different whitespace/line-join), anchor on your own real line instead, in the same chr()-based style, and note the substitution in your closeout'; p.write_text(s.replace(old, 'if category_intent(query) is not None or True:  # TC-628 negative control: reinstate unconditional forced-exact' + nl + '        return MATCH_EXACT, ()', 1), encoding='utf-8')\"\n",
+    "patch_sha256": "7ced3ac746263bc6fd39bbff0b7dcbf1483bf1e01fa85abd74e882e6cb62a2bb",
+    "applied": true,
+    "patch_applied_failed": true,
+    "exit_codes": [
+      1,
+      1
+    ],
+    "tree_changed": [
+      "M src/foss_mcp/mcp/tools/lookup.py",
+      "?? .junit-0.xml",
+      "?? .junit-1.xml"
+    ]
+  },
+  "holdout": {
+    "ran": false,
+    "passed": true,
+    "detail": "no holdout for this card"
+  },
+  "accepted": true,
+  "reason": "all gates passed"
+}
