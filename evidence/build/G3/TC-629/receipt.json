@@ -1,0 +1,111 @@
+{
+  "schema_version": 1,
+  "card": "TC-629",
+  "gate": "G3",
+  "generated_by": "gatectl",
+  "generated_at": "2026-10-31T08:51:01Z",
+  "base_rev": "44c3323a8794ab16f86e4adea9527504daa1934d",
+  "head_rev": "1e4f9ae748ff4ee741cbd258e2a3a2029de41096",
+  "card_sha256": "bbbfd0b783574e8b35d9b05e14107a0034f34f67d45e471f37c9da3a1a78875f",
+  "fingerprint": {
+    "python": "3.13.2",
+    "platform": "Windows-11-10.0.26300-SP0",
+    "lock_sha256": "5c72e798a73c059a438e752e94a8d4c88c1bdf81a197f6e5c5fcecbc9466a691",
+    "env": {
+      "PYTHONHASHSEED": "0",
+      "PYTHONUTF8": "1",
+      "PYTHONDONTWRITEBYTECODE": "1",
+      "PYTHONIOENCODING": "utf-8",
+      "TZ": "UTC",
+      "LC_ALL": "C.UTF-8",
+      "SOURCE_DATE_EPOCH": "1700000000",
+      "verify_runner": "host"
+    }
+  },
+  "scope": {
+    "ok": true,
+    "changed_paths": [
+      "src/foss_mcp/mcp/tools/report_index_freshness.py",
+      "tests/mcp/tools/test_freshness_registry_version.py"
+    ],
+    "violations": [],
+    "evaluated": true
+  },
+  "runs": [
+    {
+      "run": 1,
+      "checks": [
+        {
+          "command": "{python} -m pytest tests/mcp/tools/test_freshness_registry_version.py -q -rfE -p no:cacheprovider",
+          "exit_code": 0,
+          "duration_s": 1.649,
+          "stdout_sha256": "fe9dca0451129aaabdd76ea13e310b61a52091a146a1f9fe5b72b851eb33547f",
+          "tests": 14,
+          "skipped": 0,
+          "errors": 0,
+          "failures": 0
+        },
+        {
+          "command": "{python} -m pytest tests/mcp/tools/test_freshness_registry_version.py tests/mcp/tools/test_freshness_provenance.py tests/mcp/tools/test_freshness_tristate.py tests/infra/test_serve_registry_served_version.py tests/mcp/test_server_registry_served_version_wiring.py -q -rfE -p no:cacheprovider",
+          "exit_code": 0,
+          "duration_s": 5.544,
+          "stdout_sha256": "91770e193538622f61335731b207d9658de20c32aa6cb225a5637cc3defc6911",
+          "tests": 83,
+          "skipped": 0,
+          "errors": 0,
+          "failures": 0
+        }
+      ],
+      "all_passed": true
+    },
+    {
+      "run": 2,
+      "checks": [
+        {
+          "command": "{python} -m pytest tests/mcp/tools/test_freshness_registry_version.py -q -rfE -p no:cacheprovider",
+          "exit_code": 0,
+          "duration_s": 1.357,
+          "stdout_sha256": "fe9dca0451129aaabdd76ea13e310b61a52091a146a1f9fe5b72b851eb33547f",
+          "tests": 14,
+          "skipped": 0,
+          "errors": 0,
+          "failures": 0
+        },
+        {
+          "command": "{python} -m pytest tests/mcp/tools/test_freshness_registry_version.py tests/mcp/tools/test_freshness_provenance.py tests/mcp/tools/test_freshness_tristate.py tests/infra/test_serve_registry_served_version.py tests/mcp/test_server_registry_served_version_wiring.py -q -rfE -p no:cacheprovider",
+          "exit_code": 0,
+          "duration_s": 4.758,
+          "stdout_sha256": "91770e193538622f61335731b207d9658de20c32aa6cb225a5637cc3defc6911",
+          "tests": 83,
+          "skipped": 0,
+          "errors": 0,
+          "failures": 0
+        }
+      ],
+      "all_passed": true
+    }
+  ],
+  "negative_control": {
+    "kind": "mutate",
+    "patch": "python -X utf8 -c \"import pathlib; p = pathlib.Path('src/foss_mcp/mcp/tools/report_index_freshness.py'); s = p.read_text(encoding='utf-8'); old = 'if padded_registry_version > padded_indexed_version:'; assert s.count(old) == 1, 'comparison line text not found as expected - if your real fix reads differently, anchor on your own real line instead, in the same chr()-based style, and note the substitution in your closeout'; p.write_text(s.replace(old, 'if registry_served_version > indexed_version:  # TC-629 negative control: reinstate the unpadded comparison', 1), encoding='utf-8')\"\n",
+    "patch_sha256": "d3ba23d2f09267d9d2781170b925bded7a5da817a47da7c20a23733c9cf8d7bd",
+    "applied": true,
+    "patch_applied_failed": true,
+    "exit_codes": [
+      1,
+      1
+    ],
+    "tree_changed": [
+      "M src/foss_mcp/mcp/tools/report_index_freshness.py",
+      "?? .junit-0.xml",
+      "?? .junit-1.xml"
+    ]
+  },
+  "holdout": {
+    "ran": false,
+    "passed": true,
+    "detail": "no holdout for this card"
+  },
+  "accepted": true,
+  "reason": "all gates passed"
+}

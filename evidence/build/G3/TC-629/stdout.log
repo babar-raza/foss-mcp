@@ -1,0 +1,124 @@
+
+===== CLEAN RUN 1 (host) =====
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-5c72e798a73c059a\Scripts\python.exe -m pytest tests/mcp/tools/test_freshness_registry_version.py -q -rfE -p no:cacheprovider "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-ke0aujgt\.junit-0.xml"
+--- stdout ---
+..............                                                           [100%]
+
+--- stderr ---
+
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-5c72e798a73c059a\Scripts\python.exe -m pytest tests/mcp/tools/test_freshness_registry_version.py tests/mcp/tools/test_freshness_provenance.py tests/mcp/tools/test_freshness_tristate.py tests/infra/test_serve_registry_served_version.py tests/mcp/test_server_registry_served_version_wiring.py -q -rfE -p no:cacheprovider "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-ke0aujgt\.junit-1.xml"
+--- stdout ---
+........................................................................ [ 86%]
+...........                                                              [100%]
+============================== warnings summary ===============================
+..\venv-5c72e798a73c059a\Lib\site-packages\starlette\testclient.py:53
+  E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-5c72e798a73c059a\Lib\site-packages\starlette\testclient.py:53: DeprecationWarning: The anyio.abc.BlockingPortal alias is deprecated, use anyio.from_thread.BlockingPortal instead.
+    _PortalFactoryType = Callable[[], AbstractContextManager[anyio.abc.BlockingPortal]]
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+
+--- stderr ---
+
+
+===== CLEAN RUN 2 (host) =====
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-5c72e798a73c059a\Scripts\python.exe -m pytest tests/mcp/tools/test_freshness_registry_version.py -q -rfE -p no:cacheprovider "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-ke0aujgt\.junit-0.xml"
+--- stdout ---
+..............                                                           [100%]
+
+--- stderr ---
+
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-5c72e798a73c059a\Scripts\python.exe -m pytest tests/mcp/tools/test_freshness_registry_version.py tests/mcp/tools/test_freshness_provenance.py tests/mcp/tools/test_freshness_tristate.py tests/infra/test_serve_registry_served_version.py tests/mcp/test_server_registry_served_version_wiring.py -q -rfE -p no:cacheprovider "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-ke0aujgt\.junit-1.xml"
+--- stdout ---
+........................................................................ [ 86%]
+...........                                                              [100%]
+============================== warnings summary ===============================
+..\venv-5c72e798a73c059a\Lib\site-packages\starlette\testclient.py:53
+  E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-5c72e798a73c059a\Lib\site-packages\starlette\testclient.py:53: DeprecationWarning: The anyio.abc.BlockingPortal alias is deprecated, use anyio.from_thread.BlockingPortal instead.
+    _PortalFactoryType = Callable[[], AbstractContextManager[anyio.abc.BlockingPortal]]
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+
+--- stderr ---
+
+
+===== NEGATIVE CONTROL (checks MUST now fail) =====
+mutated: M src/foss_mcp/mcp/tools/report_index_freshness.py, ?? .junit-0.xml, ?? .junit-1.xml
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-5c72e798a73c059a\Scripts\python.exe -m pytest tests/mcp/tools/test_freshness_registry_version.py -q -rfE -p no:cacheprovider "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-ke0aujgt\.junit-0.xml"
+--- stdout ---
+.....F........                                                           [100%]
+================================== FAILURES ===================================
+_ test_registry_served_version_equal_at_higher_precision_than_indexed_is_fresh_not_stale _
+
+tmp_path = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-18143/test_registry_served_version_e1')
+
+    def test_registry_served_version_equal_at_higher_precision_than_indexed_is_fresh_not_stale(
+        tmp_path: Path,
+    ) -> None:
+        """Regression for TC-629: indexed manifest version (26, 7), registry-served (26, 7, 0) - the
+        exact same version, written at different precision. A plain, unpadded tuple comparison reads
+        the shorter indexed tuple as older (`(26, 7) < (26, 7, 0)` is True in Python), which would
+        falsely report "stale". Padding both to equal width before comparing must report "fresh"."""
+        store = _single(tmp_path)
+    
+        report = _report(
+            store,
+            None,
+            product_reference=_PYTHON_26_7_SHORT,
+            registry_served_version=(26, 7, 0),
+        )
+    
+>       assert report.freshness_state == "fresh"
+E       AssertionError: assert 'stale' == 'fresh'
+E         
+E         - fresh
+E         + stale
+
+tests\mcp\tools\test_freshness_registry_version.py:163: AssertionError
+=========================== short test summary info ===========================
+FAILED tests/mcp/tools/test_freshness_registry_version.py::test_registry_served_version_equal_at_higher_precision_than_indexed_is_fresh_not_stale
+
+--- stderr ---
+
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-5c72e798a73c059a\Scripts\python.exe -m pytest tests/mcp/tools/test_freshness_registry_version.py tests/mcp/tools/test_freshness_provenance.py tests/mcp/tools/test_freshness_tristate.py tests/infra/test_serve_registry_served_version.py tests/mcp/test_server_registry_served_version_wiring.py -q -rfE -p no:cacheprovider "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-ke0aujgt\.junit-1.xml"
+--- stdout ---
+.....F.................................................................. [ 86%]
+...........                                                              [100%]
+================================== FAILURES ===================================
+_ test_registry_served_version_equal_at_higher_precision_than_indexed_is_fresh_not_stale _
+
+tmp_path = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-18144/test_registry_served_version_e1')
+
+    def test_registry_served_version_equal_at_higher_precision_than_indexed_is_fresh_not_stale(
+        tmp_path: Path,
+    ) -> None:
+        """Regression for TC-629: indexed manifest version (26, 7), registry-served (26, 7, 0) - the
+        exact same version, written at different precision. A plain, unpadded tuple comparison reads
+        the shorter indexed tuple as older (`(26, 7) < (26, 7, 0)` is True in Python), which would
+        falsely report "stale". Padding both to equal width before comparing must report "fresh"."""
+        store = _single(tmp_path)
+    
+        report = _report(
+            store,
+            None,
+            product_reference=_PYTHON_26_7_SHORT,
+            registry_served_version=(26, 7, 0),
+        )
+    
+>       assert report.freshness_state == "fresh"
+E       AssertionError: assert 'stale' == 'fresh'
+E         
+E         - fresh
+E         + stale
+
+tests\mcp\tools\test_freshness_registry_version.py:163: AssertionError
+============================== warnings summary ===============================
+..\venv-5c72e798a73c059a\Lib\site-packages\starlette\testclient.py:53
+  E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-5c72e798a73c059a\Lib\site-packages\starlette\testclient.py:53: DeprecationWarning: The anyio.abc.BlockingPortal alias is deprecated, use anyio.from_thread.BlockingPortal instead.
+    _PortalFactoryType = Callable[[], AbstractContextManager[anyio.abc.BlockingPortal]]
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+=========================== short test summary info ===========================
+FAILED tests/mcp/tools/test_freshness_registry_version.py::test_registry_served_version_equal_at_higher_precision_than_indexed_is_fresh_not_stale
+
+--- stderr ---
+
