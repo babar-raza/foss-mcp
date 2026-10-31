@@ -1,0 +1,111 @@
+{
+  "schema_version": 1,
+  "card": "TC-630",
+  "gate": "G3",
+  "generated_by": "gatectl",
+  "generated_at": "2026-10-31T09:15:36Z",
+  "base_rev": "9b90c2b9bc16f842339a20077d08d174dcede38e",
+  "head_rev": "2d696f7b49538d6ed858fc0ee01c890edee40a9c",
+  "card_sha256": "493ba3d58d7bfa2a29ea1ced8a3b76fa6b7acbb058e19fa454cf9b7fc4d66476",
+  "fingerprint": {
+    "python": "3.13.2",
+    "platform": "Windows-11-10.0.26300-SP0",
+    "lock_sha256": "5c72e798a73c059a438e752e94a8d4c88c1bdf81a197f6e5c5fcecbc9466a691",
+    "env": {
+      "PYTHONHASHSEED": "0",
+      "PYTHONUTF8": "1",
+      "PYTHONDONTWRITEBYTECODE": "1",
+      "PYTHONIOENCODING": "utf-8",
+      "TZ": "UTC",
+      "LC_ALL": "C.UTF-8",
+      "SOURCE_DATE_EPOCH": "1700000000",
+      "verify_runner": "host"
+    }
+  },
+  "scope": {
+    "ok": true,
+    "changed_paths": [
+      "src/foss_mcp/mcp/tools/search_docs.py",
+      "tests/mcp/tools/test_search_docs_partial_tier.py"
+    ],
+    "violations": [],
+    "evaluated": true
+  },
+  "runs": [
+    {
+      "run": 1,
+      "checks": [
+        {
+          "command": "{python} -m pytest tests/mcp/tools/test_search_docs_partial_tier.py -q -rfE -p no:cacheprovider",
+          "exit_code": 0,
+          "duration_s": 11.627,
+          "stdout_sha256": "fe9dca0451129aaabdd76ea13e310b61a52091a146a1f9fe5b72b851eb33547f",
+          "tests": 14,
+          "skipped": 0,
+          "errors": 0,
+          "failures": 0
+        },
+        {
+          "command": "{python} -m pytest tests/mcp/tools/test_search_docs_partial_tier.py tests/mcp/tools/test_round3_retrieval_corpus.py tests/mcp/tools/test_forgiveness_acceptance.py tests/mcp/tools/test_nonsense_queries_miss.py tests/mcp/tools/test_relevance_idf_synonyms.py tests/mcp/tools/test_search_docs_title_passage_coverage.py tests/mcp/tools/test_lookup_forgiveness.py tests/conformance/test_sentence_wrapped_retrieval.py tests/conformance/test_precision_and_size_budget.py -q -rfE -p no:cacheprovider",
+          "exit_code": 0,
+          "duration_s": 189.572,
+          "stdout_sha256": "0ebc0e0c5d14fd225123dd590b78f3f9ed2b0ed17bb2cc8c28f976d579052b3b",
+          "tests": 300,
+          "skipped": 0,
+          "errors": 0,
+          "failures": 0
+        }
+      ],
+      "all_passed": true
+    },
+    {
+      "run": 2,
+      "checks": [
+        {
+          "command": "{python} -m pytest tests/mcp/tools/test_search_docs_partial_tier.py -q -rfE -p no:cacheprovider",
+          "exit_code": 0,
+          "duration_s": 7.755,
+          "stdout_sha256": "fe9dca0451129aaabdd76ea13e310b61a52091a146a1f9fe5b72b851eb33547f",
+          "tests": 14,
+          "skipped": 0,
+          "errors": 0,
+          "failures": 0
+        },
+        {
+          "command": "{python} -m pytest tests/mcp/tools/test_search_docs_partial_tier.py tests/mcp/tools/test_round3_retrieval_corpus.py tests/mcp/tools/test_forgiveness_acceptance.py tests/mcp/tools/test_nonsense_queries_miss.py tests/mcp/tools/test_relevance_idf_synonyms.py tests/mcp/tools/test_search_docs_title_passage_coverage.py tests/mcp/tools/test_lookup_forgiveness.py tests/conformance/test_sentence_wrapped_retrieval.py tests/conformance/test_precision_and_size_budget.py -q -rfE -p no:cacheprovider",
+          "exit_code": 0,
+          "duration_s": 152.154,
+          "stdout_sha256": "0ebc0e0c5d14fd225123dd590b78f3f9ed2b0ed17bb2cc8c28f976d579052b3b",
+          "tests": 300,
+          "skipped": 0,
+          "errors": 0,
+          "failures": 0
+        }
+      ],
+      "all_passed": true
+    }
+  ],
+  "negative_control": {
+    "kind": "mutate",
+    "patch": "python -X utf8 -c \"import pathlib; nl = chr(10); p = pathlib.Path('src/foss_mcp/mcp/tools/search_docs.py'); s = p.read_text(encoding='utf-8'); old = 'best_matched = present_terms(rule.terms, tokens)'; assert s.count(old) == 1, 'post-fix line text not found as expected - if your real fix reads differently, anchor on your own real line instead, in the same chr()-based style, and note the substitution in your closeout'; p.write_text(s.replace(old, 'best_matched = frozenset(rule.terms) & {stem_token(t) for t in tokens}  # TC-630 negative control: reinstate the synonym-blind intersection', 1), encoding='utf-8')\"\n",
+    "patch_sha256": "d5cc50acfacf71ab5c697a1e8fdd7d67414515ead3423235109bbb2dcffb8aa6",
+    "applied": true,
+    "patch_applied_failed": true,
+    "exit_codes": [
+      1,
+      1
+    ],
+    "tree_changed": [
+      "M src/foss_mcp/mcp/tools/search_docs.py",
+      "?? .junit-0.xml",
+      "?? .junit-1.xml"
+    ]
+  },
+  "holdout": {
+    "ran": false,
+    "passed": true,
+    "detail": "no holdout for this card"
+  },
+  "accepted": true,
+  "reason": "all gates passed"
+}

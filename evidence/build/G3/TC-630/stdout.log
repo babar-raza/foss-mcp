@@ -1,0 +1,215 @@
+
+===== CLEAN RUN 1 (host) =====
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-5c72e798a73c059a\Scripts\python.exe -m pytest tests/mcp/tools/test_search_docs_partial_tier.py -q -rfE -p no:cacheprovider "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-c56ney2z\.junit-0.xml"
+--- stdout ---
+..............                                                           [100%]
+
+--- stderr ---
+
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-5c72e798a73c059a\Scripts\python.exe -m pytest tests/mcp/tools/test_search_docs_partial_tier.py tests/mcp/tools/test_round3_retrieval_corpus.py tests/mcp/tools/test_forgiveness_acceptance.py tests/mcp/tools/test_nonsense_queries_miss.py tests/mcp/tools/test_relevance_idf_synonyms.py tests/mcp/tools/test_search_docs_title_passage_coverage.py tests/mcp/tools/test_lookup_forgiveness.py tests/conformance/test_sentence_wrapped_retrieval.py tests/conformance/test_precision_and_size_budget.py -q -rfE -p no:cacheprovider "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-c56ney2z\.junit-1.xml"
+--- stdout ---
+........................................................................ [ 24%]
+........................................................................ [ 48%]
+........................................................................ [ 72%]
+........................................................................ [ 96%]
+............                                                             [100%]
+
+--- stderr ---
+
+
+===== CLEAN RUN 2 (host) =====
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-5c72e798a73c059a\Scripts\python.exe -m pytest tests/mcp/tools/test_search_docs_partial_tier.py -q -rfE -p no:cacheprovider "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-c56ney2z\.junit-0.xml"
+--- stdout ---
+..............                                                           [100%]
+
+--- stderr ---
+
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-5c72e798a73c059a\Scripts\python.exe -m pytest tests/mcp/tools/test_search_docs_partial_tier.py tests/mcp/tools/test_round3_retrieval_corpus.py tests/mcp/tools/test_forgiveness_acceptance.py tests/mcp/tools/test_nonsense_queries_miss.py tests/mcp/tools/test_relevance_idf_synonyms.py tests/mcp/tools/test_search_docs_title_passage_coverage.py tests/mcp/tools/test_lookup_forgiveness.py tests/conformance/test_sentence_wrapped_retrieval.py tests/conformance/test_precision_and_size_budget.py -q -rfE -p no:cacheprovider "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-c56ney2z\.junit-1.xml"
+--- stdout ---
+........................................................................ [ 24%]
+........................................................................ [ 48%]
+........................................................................ [ 72%]
+........................................................................ [ 96%]
+............                                                             [100%]
+
+--- stderr ---
+
+
+===== NEGATIVE CONTROL (checks MUST now fail) =====
+mutated: M src/foss_mcp/mcp/tools/search_docs.py, ?? .junit-0.xml, ?? .junit-1.xml
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-5c72e798a73c059a\Scripts\python.exe -m pytest tests/mcp/tools/test_search_docs_partial_tier.py -q -rfE -p no:cacheprovider "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-c56ney2z\.junit-0.xml"
+--- stdout ---
+............FF                                                           [100%]
+================================== FAILURES ===================================
+___ test_passage_match_reports_synonym_driven_term_as_matched_not_unmatched ___
+
+    def test_passage_match_reports_synonym_driven_term_as_matched_not_unmatched() -> None:
+        """G3/TC-630 (REQ-G3-011): ``_passage_match``'s matched-term set must pair with its own
+        synonym-aware ``guarded_coverage`` score (via ``present_terms``), not a plain stemmed-token
+        intersection. A rule whose terms include the stem of "convert" (one of the four pinned
+        ``SYNONYM_GROUPS`` pairs - plus "file" so the best window is well defined) scored against a
+        window whose only relevant word is "conversion" - the literal stem "convert" never appears
+        anywhere in the text - must report "convert" as MATCHED (it genuinely, correctly drove the
+        window's own full coverage score), never as unmatched."""
+        convert_term = stem_token("convert")
+        file_term = stem_token("file")
+        rule = _Rule(
+            terms=frozenset({convert_term, file_term}),
+            weights={convert_term: 1.0, file_term: 1.0},
+            required=frozenset(),
+        )
+        text = "this guide explains the conversion workflow for every file you create here\n"
+        assert convert_term not in {stem_token(token) for token in tokenize(text)}, (
+            "test construction requires the literal stem of 'convert' to be absent from the text"
+        )
+    
+        score, matched = _passage_match(rule, text)
+    
+        assert score == 1.0, f"expected full synonym-driven coverage; measured {score}"
+>       assert convert_term in matched, (
+            f"'convert' should be MATCHED via its synonym 'conversion'; matched={matched}"
+        )
+E       AssertionError: 'convert' should be MATCHED via its synonym 'conversion'; matched=frozenset({'file'})
+E       assert 'convert' in frozenset({'file'})
+
+tests\mcp\tools\test_search_docs_partial_tier.py:419: AssertionError
+_ test_partial_coverage_admission_gate_admits_a_candidate_only_synonyms_make_eligible _
+
+    def test_partial_coverage_admission_gate_admits_a_candidate_only_synonyms_make_eligible() -> None:
+        """G3/TC-630 (REQ-G3-011): ``_partial_coverage``'s own admission gate (``len(matched) >= 2``
+        distinct rule terms) reads the SAME matched set ``_passage_match`` returns, so the undercounting
+        bug this card fixes was a real false-negative in the gate itself, not merely a cosmetic label
+        error. A rule with two terms - the stems of "convert" and "save", from two DIFFERENT pinned
+        ``SYNONYM_GROUPS`` pairs - scored against a window whose only relevant words are "conversion" and
+        "export" (each a synonym of one term; neither literal term appears anywhere in the text):
+    
+        - the OLD plain-stemmed-token intersection this card replaces finds 0 matched terms (reproduced
+          directly below), so the gate would have wrongly REJECTED this chunk even though its coverage
+          score legitimately clears ``PARTIAL_COVERAGE_THRESHOLD`` - a false negative, not a label error;
+        - the fix's synonym-aware ``present_terms`` finds both terms matched, and ``_partial_coverage``
+          now correctly ADMITS it.
+        """
+        convert_term = stem_token("convert")
+        save_term = stem_token("save")
+        rule = _Rule(
+            terms=frozenset({convert_term, save_term}),
+            weights={convert_term: 1.0, save_term: 1.0},
+            required=frozenset(),
+        )
+        text = "please review the conversion settings before you export the result\n"
+        documents = {"doc-1": {"text": text}}
+    
+        score, matched = _passage_match(rule, text)
+        assert score >= PARTIAL_COVERAGE_THRESHOLD, (
+            f"test construction requires a qualifying coverage score; measured {score}"
+        )
+    
+        # Reproduces the OLD, synonym-blind computation this card replaces, to prove this case is a
+        # genuine false negative closed by the fix, not merely a differently-labelled pass.
+        old_matched = frozenset(rule.terms) & {stem_token(token) for token in tokenize(text)}
+        assert len(old_matched) < 2, (
+            f"test construction requires the OLD plain-intersection matched count to be < 2 (the false "
+            f"negative this case proves is closed); measured old_matched={old_matched}"
+        )
+>       assert len(matched) >= 2, f"the fix's synonym-aware matched set must clear the gate; matched={matched}"
+E       AssertionError: the fix's synonym-aware matched set must clear the gate; matched=frozenset()
+E       assert 0 >= 2
+E        +  where 0 = len(frozenset())
+
+tests\mcp\tools\test_search_docs_partial_tier.py:468: AssertionError
+=========================== short test summary info ===========================
+FAILED tests/mcp/tools/test_search_docs_partial_tier.py::test_passage_match_reports_synonym_driven_term_as_matched_not_unmatched
+FAILED tests/mcp/tools/test_search_docs_partial_tier.py::test_partial_coverage_admission_gate_admits_a_candidate_only_synonyms_make_eligible
+
+--- stderr ---
+
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-5c72e798a73c059a\Scripts\python.exe -m pytest tests/mcp/tools/test_search_docs_partial_tier.py tests/mcp/tools/test_round3_retrieval_corpus.py tests/mcp/tools/test_forgiveness_acceptance.py tests/mcp/tools/test_nonsense_queries_miss.py tests/mcp/tools/test_relevance_idf_synonyms.py tests/mcp/tools/test_search_docs_title_passage_coverage.py tests/mcp/tools/test_lookup_forgiveness.py tests/conformance/test_sentence_wrapped_retrieval.py tests/conformance/test_precision_and_size_budget.py -q -rfE -p no:cacheprovider "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-c56ney2z\.junit-1.xml"
+--- stdout ---
+............FF.......................................................... [ 24%]
+........................................................................ [ 48%]
+........................................................................ [ 72%]
+........................................................................ [ 96%]
+............                                                             [100%]
+================================== FAILURES ===================================
+___ test_passage_match_reports_synonym_driven_term_as_matched_not_unmatched ___
+
+    def test_passage_match_reports_synonym_driven_term_as_matched_not_unmatched() -> None:
+        """G3/TC-630 (REQ-G3-011): ``_passage_match``'s matched-term set must pair with its own
+        synonym-aware ``guarded_coverage`` score (via ``present_terms``), not a plain stemmed-token
+        intersection. A rule whose terms include the stem of "convert" (one of the four pinned
+        ``SYNONYM_GROUPS`` pairs - plus "file" so the best window is well defined) scored against a
+        window whose only relevant word is "conversion" - the literal stem "convert" never appears
+        anywhere in the text - must report "convert" as MATCHED (it genuinely, correctly drove the
+        window's own full coverage score), never as unmatched."""
+        convert_term = stem_token("convert")
+        file_term = stem_token("file")
+        rule = _Rule(
+            terms=frozenset({convert_term, file_term}),
+            weights={convert_term: 1.0, file_term: 1.0},
+            required=frozenset(),
+        )
+        text = "this guide explains the conversion workflow for every file you create here\n"
+        assert convert_term not in {stem_token(token) for token in tokenize(text)}, (
+            "test construction requires the literal stem of 'convert' to be absent from the text"
+        )
+    
+        score, matched = _passage_match(rule, text)
+    
+        assert score == 1.0, f"expected full synonym-driven coverage; measured {score}"
+>       assert convert_term in matched, (
+            f"'convert' should be MATCHED via its synonym 'conversion'; matched={matched}"
+        )
+E       AssertionError: 'convert' should be MATCHED via its synonym 'conversion'; matched=frozenset({'file'})
+E       assert 'convert' in frozenset({'file'})
+
+tests\mcp\tools\test_search_docs_partial_tier.py:419: AssertionError
+_ test_partial_coverage_admission_gate_admits_a_candidate_only_synonyms_make_eligible _
+
+    def test_partial_coverage_admission_gate_admits_a_candidate_only_synonyms_make_eligible() -> None:
+        """G3/TC-630 (REQ-G3-011): ``_partial_coverage``'s own admission gate (``len(matched) >= 2``
+        distinct rule terms) reads the SAME matched set ``_passage_match`` returns, so the undercounting
+        bug this card fixes was a real false-negative in the gate itself, not merely a cosmetic label
+        error. A rule with two terms - the stems of "convert" and "save", from two DIFFERENT pinned
+        ``SYNONYM_GROUPS`` pairs - scored against a window whose only relevant words are "conversion" and
+        "export" (each a synonym of one term; neither literal term appears anywhere in the text):
+    
+        - the OLD plain-stemmed-token intersection this card replaces finds 0 matched terms (reproduced
+          directly below), so the gate would have wrongly REJECTED this chunk even though its coverage
+          score legitimately clears ``PARTIAL_COVERAGE_THRESHOLD`` - a false negative, not a label error;
+        - the fix's synonym-aware ``present_terms`` finds both terms matched, and ``_partial_coverage``
+          now correctly ADMITS it.
+        """
+        convert_term = stem_token("convert")
+        save_term = stem_token("save")
+        rule = _Rule(
+            terms=frozenset({convert_term, save_term}),
+            weights={convert_term: 1.0, save_term: 1.0},
+            required=frozenset(),
+        )
+        text = "please review the conversion settings before you export the result\n"
+        documents = {"doc-1": {"text": text}}
+    
+        score, matched = _passage_match(rule, text)
+        assert score >= PARTIAL_COVERAGE_THRESHOLD, (
+            f"test construction requires a qualifying coverage score; measured {score}"
+        )
+    
+        # Reproduces the OLD, synonym-blind computation this card replaces, to prove this case is a
+        # genuine false negative closed by the fix, not merely a differently-labelled pass.
+        old_matched = frozenset(rule.terms) & {stem_token(token) for token in tokenize(text)}
+        assert len(old_matched) < 2, (
+            f"test construction requires the OLD plain-intersection matched count to be < 2 (the false "
+            f"negative this case proves is closed); measured old_matched={old_matched}"
+        )
+>       assert len(matched) >= 2, f"the fix's synonym-aware matched set must clear the gate; matched={matched}"
+E       AssertionError: the fix's synonym-aware matched set must clear the gate; matched=frozenset()
+E       assert 0 >= 2
+E        +  where 0 = len(frozenset())
+
+tests\mcp\tools\test_search_docs_partial_tier.py:468: AssertionError
+=========================== short test summary info ===========================
+FAILED tests/mcp/tools/test_search_docs_partial_tier.py::test_passage_match_reports_synonym_driven_term_as_matched_not_unmatched
+FAILED tests/mcp/tools/test_search_docs_partial_tier.py::test_partial_coverage_admission_gate_admits_a_candidate_only_synonyms_make_eligible
+
+--- stderr ---
+
