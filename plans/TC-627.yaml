@@ -1,0 +1,226 @@
+id: TC-627
+gate: G3
+lane: storage-retrieval
+purpose: >-
+  Build Q7 (REQ-G3-011): the labelled partial tier in `search_docs` - REAL, PRE-AUTHORING
+  measurement already performed by the supervisor against the real, committed 32-pilot corpus
+  (not assumed). Scope, precisely: `search_docs.py` ONLY. `lookup.py`'s own partial/exact
+  predicate and the table-dominated guard are Q8's separate job (plan section 2.2, card table "Q8
+  | Q7 | LK SD TSTC"); do not touch `lookup.py` even though it will observably start returning a
+  `TaskAnswer` for some queries that are `Miss` today, purely as a side effect of this card's
+  change to `search_docs` (explained below) - that side effect is expected, already covered by the
+  ratchet bundle below, and is NOT this card's job to shape further.
+
+  Today, `search_docs()` admits a documentation chunk ONLY when its whole-chunk `guarded_coverage`
+  AND its best 10-line-window `passage_coverage` both clear `RELEVANCE_THRESHOLD` (0.6) - otherwise
+  every candidate is silently discarded and the query gets a plain `Miss`, however close a chunk
+  came. This is LONGQ-001's own root mechanism (plan section 1.1 row 1): the real pdf/net
+  "Installation, Dependencies, and Quick Start" chunk's own passage coverage for the literal
+  LONGQ-001 sentence measures 0.2984 today (post-Q6, with `doc_scope_term_weights` already live) -
+  real signal, honestly short of confident, discarded entirely rather than surfaced as an honest
+  partial answer.
+
+  Design (plan section 2.2 item 3, Q7-Q8 bullet, "the symbol path already has this shape" -
+  `search_symbols.SymbolMatch.match_quality`/`unmatched_terms`, `MATCH_EXACT`/`MATCH_PARTIAL`):
+  add `match_quality: str = MATCH_EXACT` and `unmatched_terms: tuple[str, ...] = ()` fields to
+  `DocMatch` (both carry a default so lookup.py's own existing `DocMatch(...)` construction in
+  `_limitation_docs` - out of this card's write_paths - needs no change). When, for a query of at
+  least `PARTIAL_LONG_QUERY_MIN_TERMS` (6) content terms (`rule.terms`, i.e. `query_terms`'s own
+  stemmed set - the plan's own "6 content terms" wording), NO candidate clears the confident
+  `RELEVANCE_THRESHOLD` gate (today's existing `_relevant_coverage` returns `{}`), `search_docs`
+  now additionally tries a SECOND, weaker admission over the SAME candidate pool
+  (`matching_doc_ids`): a chunk qualifies for the partial tier when its own best-passage weighted
+  coverage is at least `PARTIAL_COVERAGE_THRESHOLD` (0.40 - the plan's own frozen default, measured
+  safe below, per section 2.2 item 3's allowed 0.34-0.50 band) AND at least 2 of the rule's terms
+  are actually present in that SAME best passage window (reuse `passage_coverage`'s own window
+  scan, refactored to also report which terms matched that window - see `inputs` below; a required
+  identifier-like term's absence already zeroes a window via `guarded_coverage`, so the existing
+  `required_terms` gate is inherited for free, with no separate check needed). Up to
+  `_MAX_PARTIAL_DOCS` (3) such chunks, best passage coverage first (BM25 as the same tie-break the
+  confident path already uses), each returned as a `DocMatch` with `match_quality=MATCH_PARTIAL`
+  and `unmatched_terms` = the rule's terms NOT present in that chunk's own best window, sorted.
+  When the partial tier finds nothing either, today's exact `Miss` (with its existing
+  `_miss_with_hint` other-content-types hint) is unchanged.
+
+  REAL MEASUREMENT (supervisor, against `infra/demo-manifests`'s real 32 pilots, reusing
+  `tests/conformance/test_sentence_wrapped_retrieval.py`'s own seeded sample and nonsense
+  sentences, and `tests/mcp/tools/test_nonsense_queries_miss.py`'s own 4 short nonsense queries -
+  script not committed, re-derive your own numbers fresh): the literal LONGQ-001 query's rule has 6
+  terms (`convert`, `file`, `install`, `project`, `reference`, `start`) and ZERO required terms;
+  its real install chunk's own best-passage coverage is 0.2984, BELOW even the loosest allowed
+  tau_p (0.34) - LONGQ-001 itself does NOT get a partial hit from this card alone (flipping it
+  remains Q8/Q9's job, exactly as TC-626's own closeout already said). Across F5's 96-case default
+  sample, 78 cases are both "long" (>=6 distinctive terms) and currently failing (whole-chunk
+  coverage < 0.6); at tau_p=0.40, 12 of those 78 (15%) have their OWN true chunk's best-passage
+  coverage clear 0.40 - real, if modest, recall headroom. A structural precision risk was also
+  found and must be designed around, not ignored: for several of those 12 (and more at looser
+  tau_p), a DIFFERENT, more lexically generic chunk - overwhelmingly one titled "Key Capabilities
+  and API Reference" - has an even higher best-passage coverage than the true chunk, sometimes by
+  a wide margin (one real case: the true chunk is beaten by 14 other chunks at tau_p=0.40). This is
+  why the design above returns UP TO 3 candidates (never claims one single "best" answer) and why
+  every returned candidate is honestly labelled `match_quality=MATCH_PARTIAL` with its own
+  `unmatched_terms` shown - the plan's own tradeoffs (section 9: "the partial tier can add
+  irrelevant-but-labelled answers; its precision is measured on the absent-feature probes and
+  nonsense frames") explicitly accept this; do not try to "fix" the generic-chunk-magnet problem in
+  this card (out of scope - a future card, plausibly tied to the title-anchor protection
+  `find_examples` already has but `search_docs` does not).
+
+  PRECISION FLOOR, independently confirmed: `test_nonsense_queries_miss.py`'s 4 short nonsense
+  queries ("send a fax via modem" etc.) each have only 3 distinctive/content terms - they can NEVER
+  reach the `>= 6` long-query gate, at any tau_p, by construction; that test's strict `isinstance
+  (answer, Miss)` assertion is therefore structurally unaffected regardless of tau_p, independent
+  of the coverage-number margin below. F5's own 5 LONGER nonsense sentences (12-35 words, 8-11
+  distinctive terms each - these DO reach the gate) measure a maximum best-passage coverage of
+  0.25 across ALL 32 real pilots - comfortably below every candidate tau_p in the plan's allowed
+  0.34-0.50 band (a 0.09-0.25 margin depending on where in the band you land). Re-confirm both
+  numbers yourself, fresh, before trusting them; if your own measurement disagrees, STOP under
+  Decision F and report the real numbers rather than shipping a tau_p your own data contradicts.
+
+  Read C:\Users\babar\.claude\plans\steady-wobbling-meteor.md section 1.1 (row 1), 2.2 (items 2-3,
+  Q7), section 3 Decision F, and section 9 (the Q7/Q8 tradeoff paragraph) first.
+depends_on:
+  - TC-626
+write_paths:
+  - src/foss_mcp/mcp/tools/search_docs.py
+  - tests/mcp/tools/test_search_docs_partial_tier.py
+satisfies:
+  - REQ-G3-011
+source_refs:
+  - file: docs/DECISION_LOG.md
+    anchor: >-
+      ## 2026-10-30 — Round-2 portfolio audit remediation adopted: unified plan, governance decisions A-K
+      recorded (supervisor)
+    sha256: 62cf1403a592118e3fb6bd14c5336f8a997cc3181d44a585323ec9f1d385a931
+inputs:
+  - >-
+    READ FIRST: the supervisor's own pre-authoring measurement above is real but must be
+    INDEPENDENTLY RE-CONFIRMED by you, fresh, exactly as every other card in this plan requires -
+    do not simply trust the card text. This is a measurement-gated card (Decision F): if your own
+    fresh numbers show the nonsense-sentence margin does not hold for tau_p=0.40, try the next
+    lower value still inside the plan's allowed 0.34-0.50 band before concluding the stage must
+    stop; if NO value in that band holds (it does, per the supervisor's own numbers, with real
+    margin), STOP and report FAILED_INTERNAL with your exact numbers rather than shipping an unsafe
+    threshold or silently widening the allowed band.
+  - >-
+    In `search_docs.py`: add `match_quality: str = MATCH_EXACT` and
+    `unmatched_terms: tuple[str, ...] = ()` fields to the existing `DocMatch` dataclass (both
+    carry defaults, so `lookup.py`'s own `DocMatch(...)` construction in `_limitation_docs` needs
+    no change - confirm this yourself by re-reading that call site, do not assume). Import
+    `MATCH_EXACT, MATCH_PARTIAL` from `search_symbols` alongside the existing `scope_key` import.
+    Add two module constants, named and commented so their provenance is clear:
+    `PARTIAL_LONG_QUERY_MIN_TERMS = 6` and `PARTIAL_COVERAGE_THRESHOLD = 0.40` (or your own
+    independently-confirmed value from the allowed 0.34-0.50 band, if different from the
+    supervisor's - state which and why in your closeout). Add `_MAX_PARTIAL_DOCS = 3`.
+  - >-
+    Refactor `passage_coverage(rule, text) -> float`'s internals into a new helper that ALSO
+    reports which of `rule.terms` (stemmed) were present in the SAME best-scoring window - e.g. a
+    `_passage_match(rule, text) -> tuple[float, frozenset[str]]` that `passage_coverage` becomes a
+    thin one-line wrapper around (`return _passage_match(rule, text)[0]`), so its existing two call
+    sites (`_relevant_coverage`, `_miss_with_hint`) and their behaviour stay byte-for-byte
+    unchanged. The matched-terms set for a window is `rule.terms` intersected with that window's own
+    stemmed tokens (the same tokens `guarded_coverage` already stems internally for its `required`
+    check - reuse that, do not re-stem by hand a second way).
+  - >-
+    In `search_docs()`'s main lookup path: after `relevant = _relevant_coverage(documents,
+    matching_doc_ids, rule)` comes back empty, and only when `rule is not None and
+    len(rule.terms) >= PARTIAL_LONG_QUERY_MIN_TERMS`, scan `matching_doc_ids` with
+    `_passage_match`: a chunk qualifies when its best-window coverage is at least
+    `PARTIAL_COVERAGE_THRESHOLD` AND at least 2 distinct rule terms matched that same window. Sort
+    qualifying chunks by `(-passage_coverage, -bm25_score, doc_id)` (reuse the `bm25` dict already
+    computed above this point in the function), take the first `min(top_k, _MAX_PARTIAL_DOCS)`, and
+    return them as `DocMatch` objects with `match_quality=MATCH_PARTIAL` and `unmatched_terms =
+    tuple(sorted(rule.terms - matched))`. If none qualify, fall through to the existing
+    `_miss_with_hint` call completely unchanged - do not alter the Miss path, its reason text, or
+    its other-content-types hint logic in any way.
+  - >-
+    Do not change the `intent`-match branch (category-name queries, e.g. "getting started") at
+    all - it returns before `_relevant_coverage` is ever called and must stay exactly as it is. Do
+    not touch `lookup.py`, `find_examples.py`, or `relevance.py` - none are in this card's
+    write_paths. `lookup.py`'s `_compose_from_docs` will start receiving non-empty partial
+    `DocMatch` lists from some queries that used to get an empty list from every content type; this
+    is an EXPECTED, already-covered side effect (its own `_answer_quality` already computes
+    `MATCH_PARTIAL` with `unmatched_terms` for exactly this shape - read `lookup.py` lines ~383-412
+    to confirm before you start) - prove it does not regress any PINNED lookup/conformance number
+    via the ratchet bundle below, but do not write code to shape it further.
+  - >-
+    tests/mcp/tools/test_search_docs_partial_tier.py must prove, against REAL pilots loaded from
+    `infra/demo-manifests` (the same read-only corpus pattern every other conformance/ratchet test
+    in this plan already uses - copy into a temp dir, never write the repo): (a) a short query
+    (<6 content terms) never reaches the partial tier regardless of how high its passage coverage
+    is - construct or find a real short-query case whose best passage coverage is deliberately
+    high but still ends `Miss`; (b) a real long query that is a known `Miss` today gets a
+    `list[DocMatch]` with every item's `match_quality == MATCH_PARTIAL` and a correctly-sorted,
+    correctly-computed `unmatched_terms`; (c) never more than `_MAX_PARTIAL_DOCS` (3) partial
+    results, and never more than `top_k` when `top_k` is smaller; (d) a query with an existing
+    CONFIDENT hit is returned exactly as today (no partial-tier item mixed in, `match_quality`
+    stays `MATCH_EXACT` for every item) - the partial tier must never fire when `relevant` is
+    non-empty; (e) re-run, fresh, F5's own long nonsense sentences (`test_sentence_wrapped_
+    retrieval.NONSENSE_SENTENCES`, importable) against every real pilot through the real wired
+    `search_docs` and confirm every one is STILL a plain `Miss` - a real, pinned regression test of
+    the precision floor, not an assumption; (f) the literal LONGQ-001 query against the real
+    pdf/net pilot through `search_docs` (not `lookup`) still returns a plain `Miss` (confirms this
+    card alone does not and is not meant to flip it - that is Q8/Q9's job); (g) state, in a test
+    docstring or an assertion message, the real fresh-measured count of F5's 96-case default
+    sample's long+failing cases that newly get a partial `list[DocMatch]` instead of `Miss` under
+    your chosen `tau_p` - honestly, whichever number you get, never forced.
+  - >-
+    Checks: run the new test file alone, then the full retrieval ratchet bundle fresh (reuse the
+    TC-626 list: `test_round3_retrieval_corpus.py`, `test_forgiveness_acceptance.py`,
+    `test_nonsense_queries_miss.py`, `test_find_examples_title_anchor.py`,
+    `test_relevance_idf_synonyms.py`, plus `search_docs`'s own existing tests
+    `test_search_docs_title_passage_coverage.py`, `test_search_docs_query_normalization.py`,
+    `test_search_docs_language_letter.py`, plus `lookup`'s own
+    `test_lookup_forgiveness.py`, `test_lookup_miss_reason.py`, `test_lookup_query_normalization.py`,
+    plus `tests/conformance/test_sentence_wrapped_retrieval.py` and
+    `tests/conformance/test_precision_and_size_budget.py`) and confirm every existing pinned number
+    is unchanged (a baseline case flipping from failure to PASS is fine and expected since neither
+    baseline is `strict`; a NEW failure outside either baseline is not). Never weaken a check to
+    make it pass.
+actions:
+  - >-
+    Add a labelled, capped, honestly-uncertain partial-match tier to search_docs for long queries
+    with real (if modest) measured recall headroom and a confirmed, comfortable precision margin
+    against nonsense queries - proven against the full retrieval ratchet bundle with zero
+    behavioural change to any existing pinned number, and reporting honestly that the literal
+    LONGQ-001 sentence does not flip from this card alone.
+checks:
+  - command: '{python} -m pytest tests/mcp/tools/test_search_docs_partial_tier.py -q -rfE -p no:cacheprovider'
+    expect: 'exit 0'
+    timeout_seconds: 180
+    junitxml: true
+    proves:
+      - REQ-G3-011
+  - command: '{python} -m pytest tests/mcp/tools/test_search_docs_partial_tier.py tests/mcp/tools/test_round3_retrieval_corpus.py tests/mcp/tools/test_forgiveness_acceptance.py tests/mcp/tools/test_nonsense_queries_miss.py tests/mcp/tools/test_find_examples_title_anchor.py tests/mcp/tools/test_relevance_idf_synonyms.py tests/mcp/tools/test_search_docs_title_passage_coverage.py tests/mcp/tools/test_search_docs_query_normalization.py tests/mcp/tools/test_search_docs_language_letter.py tests/mcp/tools/test_lookup_forgiveness.py tests/mcp/tools/test_lookup_miss_reason.py tests/mcp/tools/test_lookup_query_normalization.py tests/conformance/test_sentence_wrapped_retrieval.py tests/conformance/test_precision_and_size_budget.py -q -rfE -p no:cacheprovider'
+    expect: 'exit 0'
+    timeout_seconds: 420
+    junitxml: true
+    proves:
+      - REQ-G3-011
+min_tests: 10
+requires:
+  - python
+network: false
+negative_control:
+  mutate: |
+    python -X utf8 -c "import pathlib; p = pathlib.Path('src/foss_mcp/mcp/tools/search_docs.py'); s = p.read_text(encoding='utf-8'); old = 'PARTIAL_COVERAGE_THRESHOLD = 0.40'; assert s.count(old) == 1, 'threshold literal not found as expected - if you chose a different tau_p value, anchor on your own real post-fix line instead, in the same chr()-based style, and note the substitution in your closeout'; p.write_text(s.replace(old, 'PARTIAL_COVERAGE_THRESHOLD = 1.01  # TC-627 negative control: no chunk can ever clear this', 1), encoding='utf-8')"
+  rationale: >-
+    Raises the partial-tier admission floor above 1.0, so no chunk can ever clear it - this
+    collapses the whole new mechanism back to today's behaviour (every long, currently-failing
+    query falls straight through to the unchanged Miss path) without touching any other code path.
+    Test (b) (a known-Miss long query now gets a labelled partial list) must fail; test (e)/(f)
+    (nonsense/LONGQ-001 stay Miss) must keep passing, since they were already Miss before this
+    card and remain Miss either way - this mutate's failure signal is specifically test (b) (and,
+    if you wrote it, test (g)'s nonzero-count assertion).
+evidence:
+  - evidence/build/G3/TC-627/receipt.json
+closeout:
+  - >-
+    search_docs carries a labelled, capped partial-match tier for long queries, gated by a
+    measured, confirmed-safe coverage floor; every existing ratchet holds unchanged.
+    lookup/find_examples/relevance are untouched. State your own fresh-measured nonsense-margin and
+    recall-headroom numbers, which tau_p you used and why, and confirm the literal LONGQ-001 query
+    still returns a plain Miss from search_docs alone (expected - flipping it is Q8/Q9's job).
+recovery: >-
+  If your own fresh measurement finds the nonsense-sentence precision margin does not hold at any
+  value in the plan's allowed 0.34-0.50 band, STOP and report FAILED_INTERNAL with the exact
+  numbers - per Decision F, do not ship a threshold your own data contradicts.
