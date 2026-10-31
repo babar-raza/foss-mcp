@@ -1,0 +1,138 @@
+id: TC-634
+gate: G3
+lane: storage-retrieval
+purpose: >-
+  QV3 (findability sub-program, closes the QV1/QV2 chain - see DECISION_LOG.md 2026-10-31,
+  plans/TC-632.yaml, plans/TC-633.yaml). Give `lookup()` access to TC-633's doc-scoped vector
+  fallback, at most once per `lookup()` call - never once per content-type category - and make
+  sure a vector-sourced match can never be silently promoted to a confident answer by `lookup`'s
+  own, separate quality recheck.
+
+  READ FIRST: `lookup.py`'s `_compose_from_docs` (inside `lookup()`, currently the function
+  starting ~line 458) and `_answer_quality` (currently ~line 372-408).
+
+  Mechanism 1 (the actual QV3 wiring): `_compose_from_docs` currently loops over `CONTENT_TYPES`,
+  calling `search_docs(store, scope, query, candidate_type, top_k=top_k)` once per category with
+  an explicit `candidate_type`, breaking on the first non-empty documentation result. TC-633's new
+  vector-fallback stage inside `search_docs` fires ONLY when `content_type is None` - by design,
+  specifically so this very loop never triggers it once per category. If that per-category loop
+  finds NOTHING (`doc_matches` is still `()` after the loop), make exactly ONE further call:
+  `search_docs(store, scope, query, top_k=top_k)` (no `content_type` argument - the combined,
+  all-categories path, which already contains the confident tier, Q7's partial tier AND TC-633's
+  vector fallback over the union of every category's candidates). If that call returns a
+  non-empty list, filter it to `chunk_kind(m.text) == DOCUMENTATION` exactly as the existing loop
+  already does, and use it as `doc_matches` if non-empty. This is strictly additive: it only runs
+  on the path that already returns nothing today, and it is still at most one extra `search_docs`
+  call per `lookup()` invocation (never one per category), so TC-633's own cost/latency contract
+  (at most one embedding-gateway call per logical query) is preserved end to end. Do NOT import or
+  call the private `_doc_vector_fallback` function directly - reusing `search_docs()`'s own public
+  composition is the whole point; a direct import of a `_`-prefixed helper across modules is not
+  this card's pattern and is out of scope.
+
+  Mechanism 2 (a real interaction bug this card must also close, found by code reading, not yet
+  reproduced in a committed test): `_answer_quality`'s own exactness recheck
+  (`if passage_coverage(rule, match.text) >= _FULL_COVERAGE: return MATCH_EXACT, ()`) recomputes
+  lexical passage coverage directly against each `doc_matches` entry's raw text, completely
+  independent of that entry's own `match_quality`/`match_basis` fields. In the overwhelming
+  majority of real cases this is moot (a vector-matched chunk's text does not lexically cover the
+  query - that is WHY it fell through to the vector stage in the first place), but nothing
+  currently stops it: if some vector-matched chunk's text ever DID happen to score
+  `_FULL_COVERAGE` under this independent recheck, `lookup()` would silently claim `MATCH_EXACT`
+  for a pure cosine-similarity match, directly violating Decision G (DECISION_LOG.md: a confident
+  wrong answer is worse than an honest partial one) and TC-633's own explicit "never MATCH_EXACT
+  from a vector match" invariant. Close this as defense-in-depth, not as "probably fine": add a
+  guard inside `_answer_quality`'s loop that skips the exactness check entirely for any match whose
+  `match_basis` is `search_docs.MATCH_BASIS_EMBEDDING` (import it alongside the existing `DocMatch`/
+  `MATCH_PARTIAL` import from `search_docs.py` - `lookup.py` already imports from that module).
+  Write a test that constructs a `DocMatch` with `match_basis=MATCH_BASIS_EMBEDDING` and text that
+  WOULD score `_FULL_COVERAGE` under `passage_coverage` if the guard did not exist (a deliberately
+  adversarial fixture, not a real-corpus case), and confirm `_answer_quality` returns
+  `MATCH_PARTIAL`, never `MATCH_EXACT`, for it - this is the test the negative control below
+  targets.
+
+  Verification point, not necessarily a code change: check whether `TaskAnswer`/`DocMatch` is
+  serialized anywhere in the MCP response surface (e.g. `mcp/server.py`) by an explicit field list
+  that would silently drop the new `match_basis` field rather than passing it through generically
+  (e.g. `dataclasses.asdict` or similar). If you find an explicit field list that omits it, report
+  this in your closing report rather than fixing it yourself (that file is out of this card's
+  write_paths) - the supervisor will scope a follow-up card if needed.
+depends_on:
+  - TC-628
+  - TC-633
+write_paths:
+  - src/foss_mcp/mcp/tools/lookup.py
+  - tests/mcp/tools/test_lookup_vector_fallback.py
+satisfies:
+  - REQ-G3-011
+source_refs:
+  - file: docs/DECISION_LOG.md
+    anchor: >-
+      ## 2026-10-31 — Lexical-only doc/symbol retrieval decision (2026-10-12) partially
+      superseded: a doc-scoped vector fallback is adopted for `search_docs`/`lookup` (operator,
+      supervisor)
+    sha256: 9cbb486b3e74401f32b6e70ef04c40cd2b897b9ab47651ae02db7ad1cbc84a47
+inputs:
+  - >-
+    READ FIRST: `lookup.py`'s `_compose_from_docs` and `_answer_quality` in full. Then
+    `search_docs.py`'s `search_docs` function's own `content_type is None` gate around its new
+    vector-fallback call (TC-633) - confirm for yourself that calling `search_docs` with no
+    `content_type` argument reaches that stage when every lexical tier misses, so you are not
+    guessing at the composition you are reusing.
+  - >-
+    Write tests in `tests/mcp/tools/test_lookup_vector_fallback.py` covering, at minimum: (a) when
+    the per-category loop finds nothing and a combined `search_docs(..., content_type=None)` call
+    (via a monkeypatch/fake store that would only return a documentation match on that specific
+    call shape) returns a vector-matched (`match_basis=MATCH_BASIS_EMBEDDING`,
+    `match_quality=MATCH_PARTIAL`) result, `lookup()` surfaces it in its `TaskAnswer.doc_matches`
+    and its own overall `match_quality` is `MATCH_PARTIAL`, never `MATCH_EXACT`; (b) `lookup()`
+    makes AT MOST ONE extra `search_docs` call beyond its existing per-category loop for a single
+    invocation - prove this directly by counting calls on a fake/wrapped `search_docs` (or an
+    equivalent call-counting technique), not by inference; (c) when the per-category loop DOES find
+    something, no extra combined call happens at all (prove the call count stays at exactly the
+    per-category loop's own count); (d) the `_answer_quality` adversarial test described in this
+    card's `purpose` (a `MATCH_BASIS_EMBEDDING` match whose text would score `_FULL_COVERAGE` under
+    `passage_coverage` must still yield `MATCH_PARTIAL`, never `MATCH_EXACT`); (e) a plain lexical
+    `MATCH_PARTIAL` doc match (today's existing Q7 behaviour, `match_basis="lexical"`) that
+    genuinely has full passage coverage is UNAFFECTED by the new guard and still correctly promotes
+    to `MATCH_EXACT` - prove the guard is specific to `MATCH_BASIS_EMBEDDING`, not a blanket
+    disablement of this promotion path.
+actions:
+  - >-
+    Give `lookup()` one extra, bounded `search_docs` call (content_type=None) when its own
+    per-category composition finds nothing, reusing TC-633's vector fallback without multiplying
+    gateway calls, and make the "never MATCH_EXACT from a vector match" invariant hold inside
+    `lookup`'s own separate quality recheck too.
+checks:
+  - command: '{python} -m pytest tests/mcp/tools/test_lookup_vector_fallback.py -q -rfE -p no:cacheprovider'
+    expect: 'exit 0'
+    timeout_seconds: 180
+    junitxml: true
+    proves:
+      - REQ-G3-011
+  - command: '{python} -m pytest tests/mcp/tools/test_lookup_table_guard_and_exact_predicate.py tests/mcp/tools/test_lookup_forgiveness.py tests/mcp/tools/test_lookup_miss_reason.py tests/mcp/tools/test_lookup_query_normalization.py tests/indexing/test_lookup_doc_fallback_query_safety.py tests/mcp/tools/test_search_docs_vector_fallback.py -q -rfE -p no:cacheprovider'
+    expect: 'exit 0'
+    timeout_seconds: 240
+    junitxml: true
+    proves:
+      - REQ-G3-011
+min_tests: 5
+requires:
+  - python
+network: false
+negative_control:
+  mutate: |
+    python -X utf8 -c "import pathlib; p = pathlib.Path('src/foss_mcp/mcp/tools/lookup.py'); s = p.read_text(encoding='utf-8'); old = 'match.match_basis == MATCH_BASIS_EMBEDDING'; assert s.count(old) == 1, 'match.match_basis == MATCH_BASIS_EMBEDDING literal not found as expected - if your real code reads differently, anchor on your own real literal instead and note the substitution in your closeout'; p.write_text(s.replace(old, 'False  # TC-634 negative control: never skip the exactness recheck for a vector match', 1), encoding='utf-8')"
+  rationale: >-
+    Disables the new "never promote a vector-sourced match to MATCH_EXACT" guard without touching
+    whether the combined fallback call happens or what it finds. The adversarial test in (d) above
+    must fail under this mutation (the vector-matched adversarial fixture would now wrongly score
+    MATCH_EXACT); every other test, including (e)'s plain-lexical-promotion test, is unaffected.
+evidence:
+  - evidence/build/G3/TC-634/receipt.json
+closeout:
+  - >-
+    `lookup()` now reaches TC-633's doc-scoped vector fallback at most once per call (never once
+    per content-type category), and a vector-sourced match can never be silently promoted to a
+    confident answer by `lookup`'s own separate quality recheck. State whether you found an
+    explicit-field-list serialization gap for `match_basis` in your report.
+recovery: Re-run from a clean tree.
