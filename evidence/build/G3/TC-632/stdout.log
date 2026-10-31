@@ -1,0 +1,117 @@
+
+===== CLEAN RUN 1 (host) =====
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-5c72e798a73c059a\Scripts\python.exe -m pytest tests/indexing/test_doc_vector_scope.py tests/infra/test_ingest_vector_scope_docs.py -q -rfE -p no:cacheprovider "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-dcx5mjyc\.junit-0.xml"
+--- stdout ---
+.........                                                                [100%]
+
+--- stderr ---
+
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-5c72e798a73c059a\Scripts\python.exe -m pytest tests/indexing/test_vector_scope.py tests/indexing/test_publisher.py tests/indexing/test_index_writers.py tests/infra/test_ingest.py -q -rfE -p no:cacheprovider "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-dcx5mjyc\.junit-1.xml"
+--- stdout ---
+.................................................                        [100%]
+
+--- stderr ---
+
+
+===== CLEAN RUN 2 (host) =====
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-5c72e798a73c059a\Scripts\python.exe -m pytest tests/indexing/test_doc_vector_scope.py tests/infra/test_ingest_vector_scope_docs.py -q -rfE -p no:cacheprovider "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-dcx5mjyc\.junit-0.xml"
+--- stdout ---
+.........                                                                [100%]
+
+--- stderr ---
+
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-5c72e798a73c059a\Scripts\python.exe -m pytest tests/indexing/test_vector_scope.py tests/indexing/test_publisher.py tests/indexing/test_index_writers.py tests/infra/test_ingest.py -q -rfE -p no:cacheprovider "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-dcx5mjyc\.junit-1.xml"
+--- stdout ---
+.................................................                        [100%]
+
+--- stderr ---
+
+
+===== NEGATIVE CONTROL (checks MUST now fail) =====
+mutated: M src/foss_mcp/indexing/publisher.py, ?? .junit-0.xml, ?? .junit-1.xml
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-5c72e798a73c059a\Scripts\python.exe -m pytest tests/indexing/test_doc_vector_scope.py tests/infra/test_ingest_vector_scope_docs.py -q -rfE -p no:cacheprovider "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-dcx5mjyc\.junit-0.xml"
+--- stdout ---
+...F..F.F                                                                [100%]
+================================== FAILURES ===================================
+_ test_publish_generation_with_both_filters_produces_two_non_cross_contaminating_indexes _
+
+tmp_path = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-18324/test_publish_generation_with_b0')
+
+    def test_publish_generation_with_both_filters_produces_two_non_cross_contaminating_indexes(
+        tmp_path: Path,
+    ) -> None:
+        chunks = _mixed_chunks()
+        store = GenerationManifestStore(tmp_path / "manifests")
+        scope = "pdf::net::self_extracted"
+        provider = RecordingEmbeddingProvider()
+        lease = store.acquire_lease(scope, "test", "pending")
+    
+        generation_id = publish_generation(
+            store,
+            family="pdf",
+            platform="net",
+            source_kind="self_extracted",
+            expected_active=store.read_active(scope),
+            chunks=chunks,
+            embedding_provider=provider,
+            lease=lease,
+            vector_chunk_filter=is_example_chunk,
+            doc_vector_chunk_filter=is_doc_chunk,
+        )
+    
+        manifest = store.read_generation(scope, generation_id)
+        example_chunk_ids = {content_chunk_id(chunks[2])}
+        doc_chunk_ids = {content_chunk_id(chunks[1]), content_chunk_id(chunks[3])}
+    
+        vector_index_chunk_ids = {p["chunk_id"] for p in manifest.payload["vector_index"]["points"]}
+>       vector_index_docs_chunk_ids = {p["chunk_id"] for p in manifest.payload["vector_index_docs"]["points"]}
+                                                              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       KeyError: 'vector_index_docs'
+
+tests\indexing\test_doc_vector_scope.py:153: KeyError
+____ test_vector_scope_docs_flag_stores_doc_only_points_in_a_separate_key _____
+
+tmp_path = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-18324/test_vector_scope_docs_flag_st0')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x00000167DDAE4C50>
+
+    def test_vector_scope_docs_flag_stores_doc_only_points_in_a_separate_key(tmp_path: Path, monkeypatch) -> None:
+        manifest = _run_ingest(monkeypatch, tmp_path, "--vector-scope-docs")
+    
+>       assert "vector_index_docs" in manifest.payload
+E       AssertionError: assert 'vector_index_docs' in {'lexical_index': {'doc_freq': {'api': 1, 'apply': 1, 'calling': 1, 'csharp': 1, ...}, 'documents': {'pdf::net::self_e...: [1.0, 0.8431372549019608, 0.11372549019607843, 0.4196078431372549, 0.11764705882352941, 0.21176470588235294, ...]}]}}
+E        +  where {'lexical_index': {'doc_freq': {'api': 1, 'apply': 1, 'calling': 1, 'csharp': 1, ...}, 'documents': {'pdf::net::self_e...: [1.0, 0.8431372549019608, 0.11372549019607843, 0.4196078431372549, 0.11764705882352941, 0.21176470588235294, ...]}]}} = GenerationManifest(key=GenerationKey(family='pdf', platform='net', source_kind='self_extracted', version='20261031T191...19607843, 0.4196078431372549, 0.11764705882352941, 0.21176470588235294, 0.050980392156862744, 0.34901960784313724]}]}}).payload
+
+tests\infra\test_ingest_vector_scope_docs.py:124: AssertionError
+---------------------------- Captured stdout call -----------------------------
+published pdf::net::self_extracted::20261031T191019547884Z-62bda668
+_ test_vector_scope_docs_combined_with_vector_scope_examples_keeps_both_indexes_independent _
+
+tmp_path = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-18324/test_vector_scope_docs_combine0')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x00000167DDAD19A0>
+
+    def test_vector_scope_docs_combined_with_vector_scope_examples_keeps_both_indexes_independent(
+        tmp_path: Path, monkeypatch
+    ) -> None:
+        manifest = _run_ingest(monkeypatch, tmp_path, "--vector-scope", "examples", "--vector-scope-docs")
+    
+        assert [p["text"] for p in manifest.payload["vector_index"]["points"]] == [EXAMPLE_ONE]
+>       assert [p["text"] for p in manifest.payload["vector_index_docs"]["points"]] == [DOC_ONE, DOC_TWO]
+                                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       KeyError: 'vector_index_docs'
+
+tests\infra\test_ingest_vector_scope_docs.py:169: KeyError
+---------------------------- Captured stdout call -----------------------------
+published pdf::net::self_extracted::20261031T191019688256Z-0717a65d
+=========================== short test summary info ===========================
+FAILED tests/indexing/test_doc_vector_scope.py::test_publish_generation_with_both_filters_produces_two_non_cross_contaminating_indexes
+FAILED tests/infra/test_ingest_vector_scope_docs.py::test_vector_scope_docs_flag_stores_doc_only_points_in_a_separate_key
+FAILED tests/infra/test_ingest_vector_scope_docs.py::test_vector_scope_docs_combined_with_vector_scope_examples_keeps_both_indexes_independent
+
+--- stderr ---
+
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-5c72e798a73c059a\Scripts\python.exe -m pytest tests/indexing/test_vector_scope.py tests/indexing/test_publisher.py tests/indexing/test_index_writers.py tests/infra/test_ingest.py -q -rfE -p no:cacheprovider "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-dcx5mjyc\.junit-1.xml"
+--- stdout ---
+.................................................                        [100%]
+
+--- stderr ---
+

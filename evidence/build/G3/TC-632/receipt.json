@@ -1,0 +1,114 @@
+{
+  "schema_version": 1,
+  "card": "TC-632",
+  "gate": "G3",
+  "generated_by": "gatectl",
+  "generated_at": "2026-10-31T19:10:26Z",
+  "base_rev": "885c34c8c5b485bb275505c7cd5ce8fa7371812a",
+  "head_rev": "c2a805c0fb37b5841fa1a98df0d55c9c57236afd",
+  "card_sha256": "a20ff8a842916fa916f0f04dec0b05c21f817efafcb84422d655d74e2214a78f",
+  "fingerprint": {
+    "python": "3.13.2",
+    "platform": "Windows-11-10.0.26300-SP0",
+    "lock_sha256": "5c72e798a73c059a438e752e94a8d4c88c1bdf81a197f6e5c5fcecbc9466a691",
+    "env": {
+      "PYTHONHASHSEED": "0",
+      "PYTHONUTF8": "1",
+      "PYTHONDONTWRITEBYTECODE": "1",
+      "PYTHONIOENCODING": "utf-8",
+      "TZ": "UTC",
+      "LC_ALL": "C.UTF-8",
+      "SOURCE_DATE_EPOCH": "1700000000",
+      "verify_runner": "host"
+    }
+  },
+  "scope": {
+    "ok": true,
+    "changed_paths": [
+      "infra/ingest.py",
+      "src/foss_mcp/indexing/publisher.py",
+      "src/foss_mcp/indexing/vector_index_writer.py",
+      "tests/indexing/test_doc_vector_scope.py",
+      "tests/infra/test_ingest_vector_scope_docs.py"
+    ],
+    "violations": [],
+    "evaluated": true
+  },
+  "runs": [
+    {
+      "run": 1,
+      "checks": [
+        {
+          "command": "{python} -m pytest tests/indexing/test_doc_vector_scope.py tests/infra/test_ingest_vector_scope_docs.py -q -rfE -p no:cacheprovider",
+          "exit_code": 0,
+          "duration_s": 1.398,
+          "stdout_sha256": "585ba42829657b9e2d56f8614be6c3365a8405474eed008559511ab50f2ffcfb",
+          "tests": 9,
+          "skipped": 0,
+          "errors": 0,
+          "failures": 0
+        },
+        {
+          "command": "{python} -m pytest tests/indexing/test_vector_scope.py tests/indexing/test_publisher.py tests/indexing/test_index_writers.py tests/infra/test_ingest.py -q -rfE -p no:cacheprovider",
+          "exit_code": 0,
+          "duration_s": 6.95,
+          "stdout_sha256": "34885ca5b1ff763fc403eb9bf08eedee994f23728fbc41b590539facb3650164",
+          "tests": 49,
+          "skipped": 0,
+          "errors": 0,
+          "failures": 0
+        }
+      ],
+      "all_passed": true
+    },
+    {
+      "run": 2,
+      "checks": [
+        {
+          "command": "{python} -m pytest tests/indexing/test_doc_vector_scope.py tests/infra/test_ingest_vector_scope_docs.py -q -rfE -p no:cacheprovider",
+          "exit_code": 0,
+          "duration_s": 1.022,
+          "stdout_sha256": "585ba42829657b9e2d56f8614be6c3365a8405474eed008559511ab50f2ffcfb",
+          "tests": 9,
+          "skipped": 0,
+          "errors": 0,
+          "failures": 0
+        },
+        {
+          "command": "{python} -m pytest tests/indexing/test_vector_scope.py tests/indexing/test_publisher.py tests/indexing/test_index_writers.py tests/infra/test_ingest.py -q -rfE -p no:cacheprovider",
+          "exit_code": 0,
+          "duration_s": 5.939,
+          "stdout_sha256": "34885ca5b1ff763fc403eb9bf08eedee994f23728fbc41b590539facb3650164",
+          "tests": 49,
+          "skipped": 0,
+          "errors": 0,
+          "failures": 0
+        }
+      ],
+      "all_passed": true
+    }
+  ],
+  "negative_control": {
+    "kind": "mutate",
+    "patch": "python -X utf8 -c \"import pathlib; p = pathlib.Path('src/foss_mcp/indexing/publisher.py'); s = p.read_text(encoding='utf-8'); old = 'if doc_vector_chunk_filter is not None:'; assert s.count(old) == 1, 'guard clause text not found as expected - if your real code reads differently, anchor on your own real literal guard instead and note the substitution in your closeout'; p.write_text(s.replace(old, 'if False:  # TC-632 negative control: never build the doc vector index', 1), encoding='utf-8')\"\n",
+    "patch_sha256": "d7ca60a68ece9d8a3a7e582d1bdc14399fa567a7745fd157566c441cd1e8557c",
+    "applied": true,
+    "patch_applied_failed": true,
+    "exit_codes": [
+      1,
+      0
+    ],
+    "tree_changed": [
+      "M src/foss_mcp/indexing/publisher.py",
+      "?? .junit-0.xml",
+      "?? .junit-1.xml"
+    ]
+  },
+  "holdout": {
+    "ran": false,
+    "passed": true,
+    "detail": "no holdout for this card"
+  },
+  "accepted": true,
+  "reason": "all gates passed"
+}
