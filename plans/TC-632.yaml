@@ -1,0 +1,154 @@
+id: TC-632
+gate: G3
+lane: storage-retrieval
+purpose: >-
+  QV1 (new findability sub-program, supersedes Q9 as the plan's next stage for the LONGQ-001
+  gap - see DECISION_LOG.md 2026-10-31). Pure mechanism/plumbing: add an opt-in, additive
+  doc-chunk vector-index scope, mirroring exactly how TC-331/TC-340 already added the
+  examples-only vector scope `find_examples` uses. This card adds NO new query-time retrieval
+  behaviour (that is QV2/TC-633's job) - it only makes it possible for a generation to carry a
+  second, separate set of embedded vectors for documentation-type chunks, built the exact same
+  way the existing example-chunk vectors are built today.
+
+  Mechanism: `vector_index_writer.py` gets `DOC_TITLE_PREFIX = "FQN: Doc: "` and
+  `is_doc_chunk(chunk) -> bool` (returns `chunk.text.startswith(DOC_TITLE_PREFIX)`), written in
+  the exact same style as the existing `EXAMPLE_MARKER`/`is_example_chunk` pair right above it in
+  the same file - including the same "this module does not import foss_mcp.mcp" discipline (the
+  marker is a literal string, pinned equal to `search_docs.py`'s own private
+  `_DOC_TITLE_PREFIX = "FQN: Doc: "` by a test, never imported from it).
+
+  `publisher.py`'s `publish_generation` gets a new, independent, opt-in parameter
+  `doc_vector_chunk_filter: Callable[[Chunk], bool] | None = None`, default `None` (today's
+  behaviour, completely unchanged: no `"vector_index_docs"` key at all). You MUST write the
+  guard as the literal clause `if doc_vector_chunk_filter is not None:` (this exact text is
+  required - the negative control below anchors on it verbatim). Inside that guard, add
+  `payload["vector_index_docs"] = build_vector_index(chunks, chunk_ids, embedding_provider,
+  generation_id, include=doc_vector_chunk_filter, decimals=vector_decimals)` - the SAME
+  `build_vector_index` call already used for `payload["vector_index"]` two lines above it, same
+  `embedding_provider`, same `decimals`, only `include` and the target dict key differ. The
+  existing `payload["vector_index"]` line and everything else in `publish_generation` is
+  untouched.
+
+  `infra/ingest.py` gets a new CLI flag `--vector-scope-docs` (`action="store_true",
+  default=False`; do not touch the existing `--vector-scope` flag or its `("all", "examples")`
+  choices at all - this is a second, independent flag, not a third choice on that one), and the
+  real `publish_generation(...)` call site (around line 450-463 today) gets
+  `doc_vector_chunk_filter=is_doc_chunk if args.vector_scope_docs else None` added as a new
+  keyword argument, importing `is_doc_chunk` alongside the existing `is_example_chunk` import.
+  This is the real, grep-able entrypoint wiring AGENTS.md's "Integration and liveness" section
+  requires - a mechanism with no real call site is exactly the failure mode that section warns
+  against, so this card does not stop at the library function.
+
+  Measured context (do not re-derive, just read): on the real committed
+  `infra/demo-manifests/pdf__net__self_extracted` generation, 25 of 943 chunks (2.65%) classify
+  as documentation chunks (`relevance.chunk_kind(text) == DOCUMENTATION`, which agrees with the
+  `FQN: Doc: ` prefix check in every real case inspected). Adding their vectors alongside the
+  existing 3 example-chunk vectors grows that generation's file by about 1.27x (measured
+  directly: 117991 bytes -> ~1101249 bytes of vector payload at 4096 dimensions unrounded, out of
+  a 3709478-byte total file). This is why the 2026-10-12 decision's "seven-fold" number does not
+  apply here: that number came from embedding symbols (97% of all chunks) together with docs;
+  symbols stay lexical-only and are not touched by this card.
+depends_on:
+  - TC-600
+  - TC-601
+write_paths:
+  - src/foss_mcp/indexing/vector_index_writer.py
+  - src/foss_mcp/indexing/publisher.py
+  - infra/ingest.py
+  - tests/indexing/test_doc_vector_scope.py
+  - tests/infra/test_ingest_vector_scope_docs.py
+satisfies:
+  - REQ-G3-011
+source_refs:
+  - file: docs/DECISION_LOG.md
+    anchor: >-
+      ## 2026-10-31 — Lexical-only doc/symbol retrieval decision (2026-10-12) partially
+      superseded: a doc-scoped vector fallback is adopted for `search_docs`/`lookup` (operator,
+      supervisor)
+    sha256: 9cbb486b3e74401f32b6e70ef04c40cd2b897b9ab47651ae02db7ad1cbc84a47
+inputs:
+  - >-
+    READ FIRST: `src/foss_mcp/indexing/vector_index_writer.py`'s existing `EXAMPLE_MARKER`/
+    `is_example_chunk` (lines ~20-31) - your `DOC_TITLE_PREFIX`/`is_doc_chunk` is the same shape,
+    same docstring style, same "this module does not import foss_mcp.mcp" discipline. Then read
+    `src/foss_mcp/indexing/publisher.py`'s `publish_generation` (the `vector_chunk_filter`
+    parameter and the `payload = {...}` block around line 154-164) - your new parameter and
+    guarded block are additive right next to it, nothing existing changes shape. Then read
+    `infra/ingest.py` lines ~300-330 (the `--vector-scope` argparse block) and ~450-463 (the real
+    `publish_generation(...)` call site and its `vector_chunk_filter=is_example_chunk if
+    args.vector_scope == "examples" else None` line) - your new flag and keyword argument sit
+    right beside these, unchanged.
+  - >-
+    Read `tests/indexing/test_vector_scope.py` in full before writing your own tests - it is the
+    exact template for `tests/indexing/test_doc_vector_scope.py`. Reuse its fixtures' style
+    (`_chunk(section_title, text)`, `RecordingEmbeddingProvider` wrapping
+    `tests.indexing.test_index_writers.DeterministicEmbeddingProvider`) and write doc-chunk
+    fixtures whose text starts with `"FQN: Doc: <title>\n..."`, mixed with example-marked and
+    plain chunks in the same list, so your tests prove `vector_index` and `vector_index_docs`
+    never cross-contaminate when both filters are passed to the same `publish_generation` call.
+  - >-
+    Write at least 6 tests in `tests/indexing/test_doc_vector_scope.py` covering: (a)
+    `is_doc_chunk` matches only the real `"FQN: Doc: "` prefix, not a bare mid-text occurrence of
+    the word "Doc" or a different FQN kind; (b) `build_vector_index(..., include=is_doc_chunk)`
+    selects only doc chunks and embeds only their texts (select-then-embed, same proof style as
+    the existing `test_example_scope_keeps_only_marked_chunks...` test); (c)
+    `publish_generation` called with BOTH `vector_chunk_filter=is_example_chunk` AND
+    `doc_vector_chunk_filter=is_doc_chunk` on a mixed chunk list produces `vector_index`
+    containing ONLY the example chunk(s)' points and `vector_index_docs` containing ONLY the doc
+    chunk(s)' points - assert each dict's `chunk_id` set directly, both ways; (d)
+    `publish_generation` called with `doc_vector_chunk_filter=None` (the default, i.e. omit the
+    argument) produces a payload with NO `"vector_index_docs"` key at all - `"vector_index_docs"
+    not in manifest.payload` - proving this card changes nothing for every existing caller that
+    does not pass the new argument; (e) `DOC_TITLE_PREFIX` is pinned equal to
+    `foss_mcp.mcp.tools.search_docs._DOC_TITLE_PREFIX` (import search_docs only from the test
+    file, never from vector_index_writer.py itself, exactly as the existing
+    `test_example_marker_is_pinned_to_find_examples_own_copy` test does for the example marker).
+  - >-
+    Write at least 2 tests in `tests/infra/test_ingest_vector_scope_docs.py` (read
+    `tests/infra/test_ingest.py` first for the harness pattern already used to test
+    `--vector-scope`) proving: `--vector-scope-docs` passed on the CLI threads through to a real
+    `doc_vector_chunk_filter=is_doc_chunk` argument reaching `publish_generation`, and omitting
+    the flag leaves `doc_vector_chunk_filter` unset/`None` (no behaviour change from today).
+actions:
+  - >-
+    Add an opt-in, additive documentation-chunk vector scope (`is_doc_chunk`,
+    `doc_vector_chunk_filter`, `vector_index_docs`, `--vector-scope-docs`), exactly mirroring the
+    existing examples-only vector scope end to end from library function to the real ingestion
+    CLI entrypoint, with zero behaviour change for every existing caller that does not opt in.
+checks:
+  - command: '{python} -m pytest tests/indexing/test_doc_vector_scope.py tests/infra/test_ingest_vector_scope_docs.py -q -rfE -p no:cacheprovider'
+    expect: 'exit 0'
+    timeout_seconds: 180
+    junitxml: true
+    proves:
+      - REQ-G3-011
+  - command: '{python} -m pytest tests/indexing/test_vector_scope.py tests/indexing/test_publisher.py tests/indexing/test_index_writers.py tests/infra/test_ingest.py -q -rfE -p no:cacheprovider'
+    expect: 'exit 0'
+    timeout_seconds: 180
+    junitxml: true
+    proves:
+      - REQ-G3-011
+min_tests: 8
+requires:
+  - python
+network: false
+negative_control:
+  mutate: |
+    python -X utf8 -c "import pathlib; p = pathlib.Path('src/foss_mcp/indexing/publisher.py'); s = p.read_text(encoding='utf-8'); old = 'if doc_vector_chunk_filter is not None:'; assert s.count(old) == 1, 'guard clause text not found as expected - if your real code reads differently, anchor on your own real literal guard instead and note the substitution in your closeout'; p.write_text(s.replace(old, 'if False:  # TC-632 negative control: never build the doc vector index', 1), encoding='utf-8')"
+  rationale: >-
+    Disables the new doc-vector-index construction entirely while leaving `vector_index`
+    (examples) and every other existing payload key untouched. The new `vector_index_docs`
+    presence/content tests in `tests/indexing/test_doc_vector_scope.py` must fail under this
+    mutation (the key goes missing even when `doc_vector_chunk_filter` was passed); the
+    pre-existing bundle (`test_vector_scope.py`, `test_publisher.py`, `test_index_writers.py`,
+    `test_ingest.py`) must keep passing unchanged, since none of it exercises the new parameter.
+evidence:
+  - evidence/build/G3/TC-632/receipt.json
+closeout:
+  - >-
+    A generation can now carry a second, independent, opt-in vector index scoped to
+    documentation chunks only, built and wired through to the real `infra/ingest.py` CLI exactly
+    like the existing examples-only scope, with zero behaviour change for any caller that does not
+    pass the new argument/flag. State the real collected test count for both checks in your
+    report.
+recovery: Re-run from a clean tree.
