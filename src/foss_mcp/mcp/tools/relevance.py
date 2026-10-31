@@ -112,6 +112,12 @@ WEIGHT_FLOOR = 0.5
 WEIGHT_KNOWN_CEILING = 1.0
 WEIGHT_CEILING = 2.0
 
+# TC-625 (Q5, REQ-G3-011): a DORMANT marker, not a runtime switch. Nothing in this card's own diff
+# reads it, and no real tool calls ``doc_scope_term_weights`` yet - this flag exists purely so a
+# reader (and Q6, the later card that measures whether doc-scope weights should go live) can find,
+# in one place, the single switch Q6 is expected to flip once its own measurement passes.
+DOC_SCOPE_WEIGHTS_ENABLED = False
+
 _IDENTIFIER_RUN_RE = re.compile(r"[A-Za-z0-9_]+")
 _LOWER_THEN_CAPITAL_RE = re.compile(r"[a-z][A-Z]")
 _LOWER_RE = re.compile(r"[a-z]")
@@ -953,6 +959,50 @@ def term_weights(terms: Collection[str], lexical_payload: Mapping[str, object]) 
         stem = stem_token(token)
         if stem in frequency:
             frequency[stem] += count
+    return {
+        term: (
+            WEIGHT_CEILING
+            if count == 0
+            else min(WEIGHT_KNOWN_CEILING, max(WEIGHT_FLOOR, math.log(1 + document_count / (1 + count))))
+        )
+        for term, count in frequency.items()
+    }
+
+
+def doc_scope_term_weights(terms: Collection[str], lexical_payload: Mapping[str, object]) -> dict[str, float]:
+    """``term_weights``'s own IDF weight, but scoped to doc/example chunks only (TC-625, Q5,
+    REQ-G3-011) rather than the whole generation. ``term_weights``'s stored ``doc_freq`` table is a
+    GLOBAL, whole-generation aggregate, so a documentation-specific word ends up weighing the same
+    as a near-universal symbol-chunk word of the same raw frequency (the root mechanism behind
+    LONGQ-001). Here, ``N`` is the count of *lexical_payload*'s own documents whose ``chunk_kind``
+    is ``DOCUMENTATION`` or ``EXAMPLE`` (never the whole generation), and each term's ``df`` is the
+    count of those same doc/example documents whose own stemmed token set contains it - recomputed
+    per document rather than read off the stored, whole-generation ``doc_freq`` table, which cannot
+    be filtered after the fact. The exact same formula and clip ``term_weights`` already uses: a
+    term this doc/example scope holds (``df`` above 0) weighs ``ln(1 + N / (1 + df))`` clipped to
+    [0.5, 1.0]; a term absent from the scope (``df`` 0) weighs most, 2.0. A generation with zero
+    doc/example chunks (``N`` 0) necessarily leaves every term's ``df`` at 0 too, so every term
+    weighs 2.0 - an absent scope means every term is "unseen" by it, never a division-by-zero or an
+    arbitrary default.
+
+    PURE and reads only its own two arguments, exactly like ``term_weights``. Deliberately NOT
+    called from any real tool by this card - see ``DOC_SCOPE_WEIGHTS_ENABLED``'s own comment and
+    ``tests/test_unwired_modules.py``'s ``_KNOWN_UNWIRED`` entry for this symbol; wiring and the
+    measurement-gated decision to enable it are Q6's separate job.
+    """
+    doc_scope_documents = lexical_payload.get("documents") or {}
+    scope_documents = [
+        document
+        for document in doc_scope_documents.values()  # type: ignore[union-attr]
+        if chunk_kind(document["text"]) in (DOCUMENTATION, EXAMPLE)
+    ]
+    document_count = len(scope_documents)
+    frequency = dict.fromkeys(frozenset(terms), 0)
+    for document in scope_documents:
+        document_stems = {stem_token(token) for token in document["tokens"]}
+        for term in frequency:
+            if term in document_stems:
+                frequency[term] += 1
     return {
         term: (
             WEIGHT_CEILING
