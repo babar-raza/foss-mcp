@@ -1,0 +1,99 @@
+{
+  "schema_version": 1,
+  "card": "TC-626",
+  "gate": "G3",
+  "generated_by": "gatectl",
+  "generated_at": "2026-10-31T03:38:38Z",
+  "base_rev": "fb243ccfba57e2218e50295c59558b5ce1d2f349",
+  "head_rev": "c11d00ad096f91e1e671d7df7bf23d0c974f4930",
+  "card_sha256": "c79713d8aee21b935f1c9835b8fc6b0e4dd14e49c3d28e14589b4ba4fa1b70e2",
+  "fingerprint": {
+    "python": "3.13.2",
+    "platform": "Windows-11-10.0.26300-SP0",
+    "lock_sha256": "5c72e798a73c059a438e752e94a8d4c88c1bdf81a197f6e5c5fcecbc9466a691",
+    "env": {
+      "PYTHONHASHSEED": "0",
+      "PYTHONUTF8": "1",
+      "PYTHONDONTWRITEBYTECODE": "1",
+      "PYTHONIOENCODING": "utf-8",
+      "TZ": "UTC",
+      "LC_ALL": "C.UTF-8",
+      "SOURCE_DATE_EPOCH": "1700000000",
+      "verify_runner": "host"
+    }
+  },
+  "scope": {
+    "ok": true,
+    "changed_paths": [
+      "src/foss_mcp/mcp/tools/lookup.py",
+      "src/foss_mcp/mcp/tools/relevance.py",
+      "src/foss_mcp/mcp/tools/search_docs.py",
+      "tests/mcp/tools/test_relevance_doc_scope_weights.py",
+      "tests/mcp/tools/test_relevance_doc_scope_weights_enabled.py",
+      "tests/test_unwired_modules.py"
+    ],
+    "violations": [],
+    "evaluated": true
+  },
+  "runs": [
+    {
+      "run": 1,
+      "checks": [
+        {
+          "command": "{python} -m pytest tests/mcp/tools/test_relevance_doc_scope_weights_enabled.py tests/mcp/tools/test_relevance_doc_scope_weights.py tests/test_unwired_modules.py -q -rfE",
+          "exit_code": 124,
+          "duration_s": 180.593,
+          "stdout_sha256": "65e859663a6c666ef3bb86e9b9c6dc31a5ff4585c6708edc5bb0f4b8ef2b73f9"
+        },
+        {
+          "command": "{python} -m pytest tests/mcp/tools/test_relevance_doc_scope_weights_enabled.py tests/mcp/tools/test_relevance_doc_scope_weights.py tests/test_unwired_modules.py tests/mcp/tools/test_round3_retrieval_corpus.py tests/mcp/tools/test_forgiveness_acceptance.py tests/mcp/tools/test_nonsense_queries_miss.py tests/mcp/tools/test_find_examples_title_anchor.py tests/mcp/tools/test_relevance_idf_synonyms.py tests/mcp/tools/test_lookup_forgiveness.py tests/mcp/tools/test_lookup_miss_reason.py tests/conformance/test_sentence_wrapped_retrieval.py -q -rfE -p no:cacheprovider",
+          "exit_code": 0,
+          "duration_s": 383.755,
+          "stdout_sha256": "ee9e5814ae4befcc4c62118bae81dc6ae249c850584fac31cfaaac477d2a2936",
+          "tests": 379,
+          "skipped": 0,
+          "errors": 0,
+          "failures": 0
+        }
+      ],
+      "all_passed": false
+    },
+    {
+      "run": 2,
+      "checks": [
+        {
+          "command": "{python} -m pytest tests/mcp/tools/test_relevance_doc_scope_weights_enabled.py tests/mcp/tools/test_relevance_doc_scope_weights.py tests/test_unwired_modules.py -q -rfE",
+          "exit_code": 124,
+          "duration_s": 180.578,
+          "stdout_sha256": "65e859663a6c666ef3bb86e9b9c6dc31a5ff4585c6708edc5bb0f4b8ef2b73f9"
+        },
+        {
+          "command": "{python} -m pytest tests/mcp/tools/test_relevance_doc_scope_weights_enabled.py tests/mcp/tools/test_relevance_doc_scope_weights.py tests/test_unwired_modules.py tests/mcp/tools/test_round3_retrieval_corpus.py tests/mcp/tools/test_forgiveness_acceptance.py tests/mcp/tools/test_nonsense_queries_miss.py tests/mcp/tools/test_find_examples_title_anchor.py tests/mcp/tools/test_relevance_idf_synonyms.py tests/mcp/tools/test_lookup_forgiveness.py tests/mcp/tools/test_lookup_miss_reason.py tests/conformance/test_sentence_wrapped_retrieval.py -q -rfE -p no:cacheprovider",
+          "exit_code": 0,
+          "duration_s": 400.586,
+          "stdout_sha256": "ee9e5814ae4befcc4c62118bae81dc6ae249c850584fac31cfaaac477d2a2936",
+          "tests": 379,
+          "skipped": 0,
+          "errors": 0,
+          "failures": 0
+        }
+      ],
+      "all_passed": false
+    }
+  ],
+  "negative_control": {
+    "kind": "mutate",
+    "patch": "python -X utf8 -c \"import pathlib; p = pathlib.Path('src/foss_mcp/mcp/tools/relevance.py'); s = p.read_text(encoding='utf-8'); old = 'DOC_SCOPE_WEIGHTS_ENABLED = True'; assert s.count(old) == 1, 'fix text not found - card and source have diverged - if the real flag text differs from this guess (e.g. spacing, or the flip was implemented a different way), anchor on your own real post-fix line instead, in the same chr()-based style, and note the substitution in your closeout'; p.write_text(s.replace(old, 'DOC_SCOPE_WEIGHTS_ENABLED = False  # TC-626 negative control: reinstate the dormant default', 1), encoding='utf-8')\"\n",
+    "patch_sha256": "0000000000000000000000000000000000000000000000000000000000000000",
+    "applied": false,
+    "patch_applied_failed": false,
+    "exit_codes": []
+  },
+  "holdout": {
+    "ran": false,
+    "passed": true,
+    "detail": "no holdout for this card"
+  },
+  "accepted": false,
+  "reason": "checks failed: {python} -m pytest tests/mcp/tools/test_relevance_doc_scope_weights_enabled.py tests/mcp/tools/test_relevance_doc_scope_weights.py tests/test_unwired_modules.py -q -rfE; negative-control patch did not apply"
+}
