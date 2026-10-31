@@ -1,0 +1,139 @@
+id: TC-626
+gate: G3
+lane: storage-retrieval
+purpose: >-
+  Build Q6 (REQ-G3-011): the measurement-gated decision to enable Q5's `doc_scope_term_weights`
+  (dormant since TC-625) - REAL, PRE-AUTHORING measurement already performed by the supervisor
+  (not assumed), with a precise, narrower-than-originally-planned result. Patching
+  `term_weights` -> `doc_scope_term_weights` at ALL THREE real call sites at once
+  (`search_docs._rule_for` line ~266, `lookup._limitation_docs` line ~357,
+  `find_examples.find_examples` line ~546) and running the full retrieval ratchet bundle found: (a)
+  `search_docs` ALONE: the full bundle (`test_round3_retrieval_corpus.py`,
+  `test_forgiveness_acceptance.py`, `test_nonsense_queries_miss.py`,
+  `test_find_examples_title_anchor.py`, `test_relevance_idf_synonyms.py` - 293 tests) passes
+  completely unchanged; (b) `lookup` ALONE: the same bundle plus `test_lookup_forgiveness.py`/
+  `test_lookup_miss_reason.py` also passes completely unchanged; (c) `find_examples` ALONE: a REAL,
+  REPRODUCED REGRESSION - `test_forgiveness_acceptance.py::test_verbose_example_queries_do_not_
+  regress` and `test_find_examples_title_anchor.py::test_the_tc516_example_tables_are_unchanged`
+  both drop from the pinned floor `MIN_VERBOSE_HITS = 14` to a measured 12 hits / 14 misses. This
+  card therefore enables doc-scope weights for `search_docs` and `lookup` ONLY - `find_examples`
+  stays on `term_weights` unchanged, and the measured regression is recorded as a finding for a
+  SEPARATE, later card (plausibly tied to Q10's own find_examples-specific admission work, NOT this
+  card's job to fix). Also measured directly, honestly, and worth stating plainly rather than
+  assuming a feel-good narrative: the literal LONGQ-001 sentence itself does NOT flip to a confident
+  hit from this card alone - the real, committed "Installation, Dependencies, and Quick Start"
+  chunk's own weighted coverage for that exact query measures 0.4286 with `term_weights` and 0.3895
+  with `doc_scope_term_weights` (a small DECREASE for this one specific passage, even though the
+  isolated "install" vs. "file" weight gap this card's own premise rests on DOES widen, as TC-625
+  measured) - because `passage_coverage` sums weighted coverage over ALL of the query's distinctive
+  terms, not just the two illustrative ones, and not every term's doc-scope weight shifts the same
+  direction. Flipping LONGQ-001 to a confident hit remains Q7-Q9's job (the graded admission tier
+  and, if still needed, clause decomposition) - per the plan's own staged design, this was never
+  this card's own acceptance bar; "every existing ratchet holds" is. Read
+  C:\Users\babar\.claude\plans\steady-wobbling-meteor.md section 1.1 (row 1), 2.2 (Q5-Q9), and
+  section 3 Decision F (measurement-gated stages) first.
+depends_on:
+  - TC-617
+  - TC-625
+write_paths:
+  - src/foss_mcp/mcp/tools/relevance.py
+  - src/foss_mcp/mcp/tools/search_docs.py
+  - src/foss_mcp/mcp/tools/lookup.py
+  - tests/mcp/tools/test_relevance_doc_scope_weights_enabled.py
+satisfies:
+  - REQ-G3-011
+source_refs:
+  - file: docs/DECISION_LOG.md
+    anchor: >-
+      ## 2026-10-30 — Round-2 portfolio audit remediation adopted: unified plan, governance decisions A-K
+      recorded (supervisor)
+    sha256: 62cf1403a592118e3fb6bd14c5336f8a997cc3181d44a585323ec9f1d385a931
+inputs:
+  - >-
+    READ FIRST: C:\Users\babar\.claude\plans\steady-wobbling-meteor.md section 2.2 (Q5-Q9) and
+    section 3 Decision F. The supervisor's own pre-authoring measurement (summarized in `purpose`
+    above) already determined the real scope and real numbers - your job is to INDEPENDENTLY
+    RE-CONFIRM every one of those real numbers yourself (do not simply trust the card text; measure
+    fresh, exactly as every other card in this plan requires), implement the real wiring, and write
+    a test proving the measurement methodology itself (not just the end wiring) - because this is
+    the highest-blast-radius card in the whole Q-program (plan section 9 says so explicitly: "Doc-
+    scope weights change shared scoring... gated by every ratchet"), getting the SCOPE right (which
+    tools get it, which do not) matters more than usual.
+  - >-
+    In `relevance.py`: flip `DOC_SCOPE_WEIGHTS_ENABLED` from `False` to `True` (its own comment
+    already states this is the flag Q6 is expected to flip). In `search_docs.py`'s `_rule_for`:
+    replace its `term_weights(terms, lexical_payload or {})` call with
+    `doc_scope_term_weights(terms, lexical_payload or {})` (import the new name alongside the
+    existing `term_weights` import - check first whether `term_weights` is still used elsewhere in
+    this file before deciding whether to also remove its now-unused import; if it's still used
+    anywhere else in this file, leave the import). In `lookup.py`'s `_limitation_docs`: replace its
+    `weights = term_weights(terms, payload)` call the same way. Do NOT touch
+    `find_examples.py` at all - its own `weights = term_weights(terms, lexical_payload)` call (line
+    ~546) stays exactly as it is; this is a deliberate, measured exclusion, not an oversight.
+  - >-
+    tests/mcp/tools/test_relevance_doc_scope_weights_enabled.py: (a) re-run the full ratchet bundle
+    named in `purpose` (list the real files you ran, confirm the real current counts) through the
+    REAL, now-wired `search_docs`/`lookup` and confirm every existing pinned number is unchanged -
+    this is your own fresh confirmation of the supervisor's pre-measurement, not a re-statement of
+    it; (b) confirm, through the real wired `search_docs`/`lookup`, that `DOC_SCOPE_WEIGHTS_ENABLED`
+    is `True` and that `_rule_for`/`_limitation_docs` are genuinely calling
+    `doc_scope_term_weights` now, not `term_weights` (a liveness/wiring check, not just an output-
+    shape assertion - e.g. a spy or a direct inspection of which function the closure captured);
+    (c) confirm `find_examples` is genuinely UNCHANGED - it still calls `term_weights`, and its own
+    verbose-example ratchet (`test_forgiveness_acceptance.py::test_verbose_example_queries_do_not_
+    regress`, `test_find_examples_title_anchor.py::test_the_tc516_example_tables_are_unchanged`)
+    still passes at its pinned floor; (d) measure fresh, through the real wired `search_docs`, the
+    literal LONGQ-001 sentence's real weighted coverage for the real "Installation, Dependencies,
+    and Quick Start" chunk, and state the real number - do NOT assume it crosses 0.6, and do not
+    weaken the test to force a pass if it does not; this test's whole point is recording reality,
+    whichever way it falls. Never weaken a check to make it pass.
+actions:
+  - >-
+    Enable doc-scope IDF weights for search_docs and lookup only (find_examples excluded after a
+    real, measured regression), proven against the full retrieval ratchet bundle with zero
+    behavioural change to any existing pinned number, and reporting honestly that the literal
+    LONGQ-001 sentence does not yet flip to a confident hit from this card alone.
+checks:
+  - command: '{python} -m pytest tests/mcp/tools/test_relevance_doc_scope_weights_enabled.py -q -rfE'
+    expect: 'exit 0'
+    timeout_seconds: 180
+    junitxml: true
+    proves:
+      - REQ-G3-011
+  - command: '{python} -m pytest tests/mcp/tools/test_relevance_doc_scope_weights_enabled.py tests/mcp/tools/test_round3_retrieval_corpus.py tests/mcp/tools/test_forgiveness_acceptance.py tests/mcp/tools/test_nonsense_queries_miss.py tests/mcp/tools/test_find_examples_title_anchor.py tests/mcp/tools/test_relevance_idf_synonyms.py tests/mcp/tools/test_lookup_forgiveness.py tests/mcp/tools/test_lookup_miss_reason.py tests/conformance/test_sentence_wrapped_retrieval.py -q -rfE -p no:cacheprovider'
+    expect: 'exit 0'
+    timeout_seconds: 420
+    junitxml: true
+    proves:
+      - REQ-G3-011
+min_tests: 8
+requires:
+  - python
+network: false
+negative_control:
+  mutate: |
+    python -X utf8 -c "import pathlib; p = pathlib.Path('src/foss_mcp/mcp/tools/relevance.py'); s = p.read_text(encoding='utf-8'); old = 'DOC_SCOPE_WEIGHTS_ENABLED = True'; assert s.count(old) == 1, 'fix text not found - card and source have diverged - if the real flag text differs from this guess (e.g. spacing, or the flip was implemented a different way), anchor on your own real post-fix line instead, in the same chr()-based style, and note the substitution in your closeout'; p.write_text(s.replace(old, 'DOC_SCOPE_WEIGHTS_ENABLED = False  # TC-626 negative control: reinstate the dormant default', 1), encoding='utf-8')"
+  rationale: >-
+    Reverts the flag to its pre-card dormant value. If search_docs/lookup's own wiring reads this
+    flag at call time (one design option this card's inputs leave open to the author), this
+    reproduces pre-card behaviour directly; if instead the wiring unconditionally calls
+    doc_scope_term_weights with no runtime flag check (also a valid reading of the inputs, since
+    the flag's own comment calls it a documentation/handoff marker, not necessarily a runtime
+    switch), this mutate alone will NOT fail any check - in that case, REPLACE it with one that
+    shadows `doc_scope_term_weights` itself (imported into search_docs.py/lookup.py) back to
+    `term_weights`'s own old behaviour, in the same chr()-based style, dry-run it, and note the
+    substitution in your closeout. Either way, test (b) (the liveness/wiring check) must fail.
+evidence:
+  - evidence/build/G3/TC-626/receipt.json
+closeout:
+  - >-
+    doc_scope_term_weights is live in search_docs and lookup, confirmed ratchet-safe against the
+    full bundle; find_examples stays on term_weights, with the real measured regression numbers
+    recorded as a finding for a future card. State the real, fresh-measured LONGQ-001 coverage
+    number honestly, whichever way it falls, and confirm which negative-control approach you used.
+recovery: >-
+  If your OWN fresh measurement of the full ratchet bundle finds a regression the supervisor's
+  pre-measurement did not catch (in search_docs or lookup specifically, not find_examples, which is
+  already known and excluded), STOP and report FAILED_INTERNAL with the exact numbers - per Decision
+  F, do not enable the flag or ship the wiring if your own independent measurement disagrees with
+  the supervisor's; report the real conflict instead.
