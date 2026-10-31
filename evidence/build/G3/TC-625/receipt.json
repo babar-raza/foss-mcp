@@ -1,0 +1,112 @@
+{
+  "schema_version": 1,
+  "card": "TC-625",
+  "gate": "G3",
+  "generated_by": "gatectl",
+  "generated_at": "2026-10-31T00:49:04Z",
+  "base_rev": "48696e38f16bfac214480ac9ebb11c6c1ce4a8b3",
+  "head_rev": "8415c3ea9984d98a72434943ffa69c4e867952dd",
+  "card_sha256": "376ba4ba21825c94f93f614e4590dbb14d36758620494ec5de6abe1d969fde6b",
+  "fingerprint": {
+    "python": "3.13.2",
+    "platform": "Windows-11-10.0.26300-SP0",
+    "lock_sha256": "5c72e798a73c059a438e752e94a8d4c88c1bdf81a197f6e5c5fcecbc9466a691",
+    "env": {
+      "PYTHONHASHSEED": "0",
+      "PYTHONUTF8": "1",
+      "PYTHONDONTWRITEBYTECODE": "1",
+      "PYTHONIOENCODING": "utf-8",
+      "TZ": "UTC",
+      "LC_ALL": "C.UTF-8",
+      "SOURCE_DATE_EPOCH": "1700000000",
+      "verify_runner": "host"
+    }
+  },
+  "scope": {
+    "ok": true,
+    "changed_paths": [
+      "src/foss_mcp/mcp/tools/relevance.py",
+      "tests/mcp/tools/test_relevance_doc_scope_weights.py",
+      "tests/test_unwired_modules.py"
+    ],
+    "violations": [],
+    "evaluated": true
+  },
+  "runs": [
+    {
+      "run": 1,
+      "checks": [
+        {
+          "command": "{python} -m pytest tests/mcp/tools/test_relevance_doc_scope_weights.py -q -rfE",
+          "exit_code": 0,
+          "duration_s": 0.885,
+          "stdout_sha256": "83a1593c5b5783693fe3006d1f6597bcb4f3a5968f23b59481ee09a0477f910a",
+          "tests": 7,
+          "skipped": 0,
+          "errors": 0,
+          "failures": 0
+        },
+        {
+          "command": "{python} -m pytest tests/mcp/tools/test_relevance_doc_scope_weights.py tests/mcp/tools/test_round3_retrieval_corpus.py tests/mcp/tools/test_forgiveness_acceptance.py tests/mcp/tools/test_nonsense_queries_miss.py tests/mcp/tools/test_find_examples_title_anchor.py tests/mcp/tools/test_relevance_idf_synonyms.py tests/test_unwired_modules.py -q -rfE -p no:cacheprovider",
+          "exit_code": 0,
+          "duration_s": 90.856,
+          "stdout_sha256": "5cc94952df5ebb59eb97cea35eedefefc9bc8ee09bf43ecf7e857f24779709bc",
+          "tests": 301,
+          "skipped": 0,
+          "errors": 0,
+          "failures": 0
+        }
+      ],
+      "all_passed": true
+    },
+    {
+      "run": 2,
+      "checks": [
+        {
+          "command": "{python} -m pytest tests/mcp/tools/test_relevance_doc_scope_weights.py -q -rfE",
+          "exit_code": 0,
+          "duration_s": 0.508,
+          "stdout_sha256": "83a1593c5b5783693fe3006d1f6597bcb4f3a5968f23b59481ee09a0477f910a",
+          "tests": 7,
+          "skipped": 0,
+          "errors": 0,
+          "failures": 0
+        },
+        {
+          "command": "{python} -m pytest tests/mcp/tools/test_relevance_doc_scope_weights.py tests/mcp/tools/test_round3_retrieval_corpus.py tests/mcp/tools/test_forgiveness_acceptance.py tests/mcp/tools/test_nonsense_queries_miss.py tests/mcp/tools/test_find_examples_title_anchor.py tests/mcp/tools/test_relevance_idf_synonyms.py tests/test_unwired_modules.py -q -rfE -p no:cacheprovider",
+          "exit_code": 0,
+          "duration_s": 86.78,
+          "stdout_sha256": "5cc94952df5ebb59eb97cea35eedefefc9bc8ee09bf43ecf7e857f24779709bc",
+          "tests": 301,
+          "skipped": 0,
+          "errors": 0,
+          "failures": 0
+        }
+      ],
+      "all_passed": true
+    }
+  ],
+  "negative_control": {
+    "kind": "mutate",
+    "patch": "python -X utf8 -c \"import pathlib; p = pathlib.Path('src/foss_mcp/mcp/tools/relevance.py'); s = p.read_text(encoding='utf-8'); old = '    doc_scope_documents = lexical_payload.get(' + chr(34) + 'documents' + chr(34) + ') or {}'; assert s.count(old) == 1, 'fix text not found - card and source have diverged'; new = '    return dict.fromkeys(terms, 1.0)  # TC-625 negative control: every term weighs 1.0, never computing the real doc-scope df' + chr(10) + old; p.write_text(s.replace(old, new, 1), encoding='utf-8')\"\n",
+    "patch_sha256": "4d0aa6b969b4805b82e7321d112f00dbc54e95c6deb515638428096f5ad0b670",
+    "applied": true,
+    "patch_applied_failed": true,
+    "exit_codes": [
+      1,
+      1
+    ],
+    "tree_changed": [
+      "M src/foss_mcp/mcp/tools/relevance.py",
+      "?? .junit-0.xml",
+      "?? .junit-1.xml"
+    ]
+  },
+  "holdout": {
+    "ran": false,
+    "passed": true,
+    "detail": "no holdout for this card"
+  },
+  "accepted": true,
+  "reason": "all gates passed"
+}

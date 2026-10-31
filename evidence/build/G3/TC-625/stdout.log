@@ -1,0 +1,413 @@
+
+===== CLEAN RUN 1 (host) =====
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-5c72e798a73c059a\Scripts\python.exe -m pytest tests/mcp/tools/test_relevance_doc_scope_weights.py -q -rfE "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-mj4mlag4\.junit-0.xml"
+--- stdout ---
+.......                                                                  [100%]
+
+--- stderr ---
+
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-5c72e798a73c059a\Scripts\python.exe -m pytest tests/mcp/tools/test_relevance_doc_scope_weights.py tests/mcp/tools/test_round3_retrieval_corpus.py tests/mcp/tools/test_forgiveness_acceptance.py tests/mcp/tools/test_nonsense_queries_miss.py tests/mcp/tools/test_find_examples_title_anchor.py tests/mcp/tools/test_relevance_idf_synonyms.py tests/test_unwired_modules.py -q -rfE -p no:cacheprovider "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-mj4mlag4\.junit-1.xml"
+--- stdout ---
+........................................................................ [ 23%]
+........................................................................ [ 47%]
+........................................................................ [ 71%]
+........................................................................ [ 95%]
+.............                                                            [100%]
+
+--- stderr ---
+
+
+===== CLEAN RUN 2 (host) =====
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-5c72e798a73c059a\Scripts\python.exe -m pytest tests/mcp/tools/test_relevance_doc_scope_weights.py -q -rfE "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-mj4mlag4\.junit-0.xml"
+--- stdout ---
+.......                                                                  [100%]
+
+--- stderr ---
+
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-5c72e798a73c059a\Scripts\python.exe -m pytest tests/mcp/tools/test_relevance_doc_scope_weights.py tests/mcp/tools/test_round3_retrieval_corpus.py tests/mcp/tools/test_forgiveness_acceptance.py tests/mcp/tools/test_nonsense_queries_miss.py tests/mcp/tools/test_find_examples_title_anchor.py tests/mcp/tools/test_relevance_idf_synonyms.py tests/test_unwired_modules.py -q -rfE -p no:cacheprovider "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-mj4mlag4\.junit-1.xml"
+--- stdout ---
+........................................................................ [ 23%]
+........................................................................ [ 47%]
+........................................................................ [ 71%]
+........................................................................ [ 95%]
+.............                                                            [100%]
+
+--- stderr ---
+
+
+===== NEGATIVE CONTROL (checks MUST now fail) =====
+mutated: M src/foss_mcp/mcp/tools/relevance.py, ?? .junit-0.xml, ?? .junit-1.xml
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-5c72e798a73c059a\Scripts\python.exe -m pytest tests/mcp/tools/test_relevance_doc_scope_weights.py -q -rfE "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-mj4mlag4\.junit-0.xml"
+--- stdout ---
+FFFFF..                                                                  [100%]
+================================== FAILURES ===================================
+____ test_doc_scope_weights_floor_and_ceiling_on_a_pure_doc_example_corpus ____
+
+    def test_doc_scope_weights_floor_and_ceiling_on_a_pure_doc_example_corpus() -> None:
+        """Every chunk is doc/example (text="" -> DOCUMENTATION); term A is in every one of the 40,
+        term B in none - mirrors term_weights' own
+        test_weights_are_clipped_to_0_5_and_2_0_and_deterministic shape, scoped to doc/example only."""
+        entries = [(["alpha", "filler"], _DOC_TEXT) for _ in range(40)]
+        payload = _lexical_payload(entries)
+        weights = doc_scope_term_weights({"alpha", "beta"}, payload)
+    
+        assert set(weights) == {"alpha", "beta"}
+        assert all(WEIGHT_FLOOR <= weight <= WEIGHT_CEILING for weight in weights.values()), weights
+        # A in every doc/example chunk (df 40 of N 40): ln(1 + 40 / 41), the same floor-end value
+        # term_weights' own test pins for a term known by the whole generation.
+>       assert weights["alpha"] == pytest.approx(math.log(1 + 40 / 41))
+E       assert 1.0 == 0.680877087968131 ± 6.8e-07
+E         
+E         comparison failed
+E         Obtained: 1.0
+E         Expected: 0.680877087968131 ± 6.8e-07
+
+tests\mcp\tools\test_relevance_doc_scope_weights.py:84: AssertionError
+_ test_doc_scope_weights_count_example_chunks_the_same_as_documentation_chunks _
+
+    def test_doc_scope_weights_count_example_chunks_the_same_as_documentation_chunks() -> None:
+        """EXAMPLE chunks count towards N and df exactly like DOCUMENTATION chunks - the card's own
+        "DOCUMENTATION or EXAMPLE" scope, not DOCUMENTATION alone."""
+        entries = [(["alpha"], _DOC_TEXT)] * 5 + [(["alpha"], _EXAMPLE_TEXT)] * 5
+        payload = _lexical_payload(entries)
+        weights = doc_scope_term_weights({"alpha"}, payload)
+>       assert weights["alpha"] == pytest.approx(math.log(1 + 10 / 11))
+E       assert 1.0 == 0.6466271649250525 ± 6.5e-07
+E         
+E         comparison failed
+E         Obtained: 1.0
+E         Expected: 0.6466271649250525 ± 6.5e-07
+
+tests\mcp\tools\test_relevance_doc_scope_weights.py:95: AssertionError
+_____ test_doc_scope_weights_diverge_from_term_weights_on_a_mixed_corpus ______
+
+    def test_doc_scope_weights_diverge_from_term_weights_on_a_mixed_corpus() -> None:
+        """ "common" is carried by nearly every SYMBOL chunk (200 of 220) but by only one of the 20
+        doc/example chunks - the exact MIXED-corpus shape the plan's row-1 diagnosis describes: a
+        documentation-specific word must not weigh the same as a near-universal symbol-chunk word.
+        doc_scope_term_weights must weigh it HIGH (doc-scope-rare); term_weights, on the SAME
+        payload, must weigh it LOW (whole-generation-common) - this concrete A/B contrast is the
+        proof this card's whole premise is real, not assumed.
+        """
+        doc_example_entries = [(["common"], _DOC_TEXT)] + [(["other"], _EXAMPLE_TEXT) for _ in range(19)]
+        symbol_entries = [(["common"], _SYMBOL_TEXT) for _ in range(199)] + [(["other"], _SYMBOL_TEXT)]
+        payload = _lexical_payload(doc_example_entries + symbol_entries)
+    
+        # Sanity on the corpus shape itself: 220 chunks total, 20 of them doc/example.
+        documents = payload["documents"]
+        assert len(documents) == 220
+        assert sum(1 for d in documents.values() if chunk_kind(d["text"]) in (DOCUMENTATION, EXAMPLE)) == 20
+        assert sum(1 for d in documents.values() if chunk_kind(d["text"]) == SYMBOL) == 200
+    
+        whole = term_weights({"common", "other"}, payload)
+        scoped = doc_scope_term_weights({"common", "other"}, payload)
+    
+        # term_weights, over the WHOLE 220-chunk generation (df 200 of 220): correctly LOW, close to
+        # the floor of what the generation "knows".
+        assert whole["common"] == pytest.approx(math.log(1 + 220 / 201))
+        assert whole["common"] < 0.75
+        # doc_scope_term_weights, scoped to the 20 doc/example chunks only (df 1 of 20): correctly
+        # HIGH, saturating the known ceiling.
+        assert scoped["common"] == pytest.approx(WEIGHT_KNOWN_CEILING)
+        assert scoped["common"] > whole["common"]
+    
+        # "other" is the mirror case, present in 19 of the 20 doc/example chunks (common WITHIN the
+        # doc-scope itself) - its doc-scope weight is genuinely computed, not merely capped, so it
+        # pins the real ln(1 + N / (1 + df)) value rather than coincidentally landing on the known
+        # ceiling the way "common"'s doc-scope value above does.
+>       assert scoped["other"] == pytest.approx(math.log(1 + 20 / 20))
+E       assert 1.0 == 0.6931471805599453 ± 6.9e-07
+E         
+E         comparison failed
+E         Obtained: 1.0
+E         Expected: 0.6931471805599453 ± 6.9e-07
+
+tests\mcp\tools\test_relevance_doc_scope_weights.py:135: AssertionError
+__ test_real_pdf_net_pilot_doc_scope_gap_is_wider_than_whole_generation_gap ___
+
+    def test_real_pdf_net_pilot_doc_scope_gap_is_wider_than_whole_generation_gap() -> None:
+        """The real reproduction of the plan's own row-1 diagnosis, against the real, committed
+        pdf/net pilot (943 chunks, 28 of them doc/example). Real measured numbers:
+    
+        - whole-generation df: "install" 5, "file" 163 (out of 943) - term_weights' own
+          ``ln(1 + N / (1 + df))`` SATURATES BOTH at the known ceiling (1.0), so the whole-generation
+          gap between them is 0.0 - exactly the LONGQ-001 failure mode (a doc-specific word weighs
+          the same as a near-universal symbol-chunk word).
+        - doc-scope df (within the 28 doc/example chunks only): "install" 3, "file" 18 -
+          doc_scope_term_weights gives "install" the known ceiling (1.0) and "file" ~0.9057, a real,
+          measured gap of ~0.0943 - WIDER than term_weights' own whole-generation gap of 0.0, proving
+          this card's premise on real data, not an invented example.
+    
+        Do not weaken this test to match the plan's illustrative "df 5 vs df 163" figures more
+        precisely than the real data supports - the real numbers are what is asserted here.
+        """
+        payload = _real_pdf_net_lexical_payload()
+        documents = payload["documents"]
+        install_stem = stem_token("install")
+        file_stem = stem_token("file")
+        terms = {install_stem, file_stem}
+    
+        # Pin the real fixture's own shape so this test fails loudly (not silently) if
+        # infra/demo-manifests' pdf/net generation is ever regenerated differently underneath it.
+        assert len(documents) == 943
+        doc_example_documents = [
+            d for d in documents.values() if chunk_kind(d["text"]) in (DOCUMENTATION, EXAMPLE)
+        ]
+        assert len(doc_example_documents) == 28
+    
+        whole_generation_install_df = sum(
+            count for token, count in payload["doc_freq"].items() if stem_token(token) == install_stem
+        )
+        whole_generation_file_df = sum(
+            count for token, count in payload["doc_freq"].items() if stem_token(token) == file_stem
+        )
+        assert whole_generation_install_df == 5
+        assert whole_generation_file_df == 163
+    
+        doc_scope_install_df = sum(
+            1 for d in doc_example_documents if install_stem in {stem_token(t) for t in d["tokens"]}
+        )
+        doc_scope_file_df = sum(
+            1 for d in doc_example_documents if file_stem in {stem_token(t) for t in d["tokens"]}
+        )
+        assert doc_scope_install_df == 3
+        assert doc_scope_file_df == 18
+    
+        whole = term_weights(terms, payload)
+        scoped = doc_scope_term_weights(terms, payload)
+    
+        whole_gap = whole[install_stem] - whole[file_stem]
+        scoped_gap = scoped[install_stem] - scoped[file_stem]
+    
+        assert whole[install_stem] == pytest.approx(1.0)
+        assert whole[file_stem] == pytest.approx(1.0)
+        assert whole_gap == pytest.approx(0.0)
+    
+        assert scoped[install_stem] == pytest.approx(1.0)
+>       assert scoped[file_stem] == pytest.approx(0.9057086225436182, abs=1e-6)
+E       assert 1.0 == 0.9057086225436182 ± 1.0e-06
+E         
+E         comparison failed
+E         Obtained: 1.0
+E         Expected: 0.9057086225436182 ± 1.0e-06
+
+tests\mcp\tools\test_relevance_doc_scope_weights.py:200: AssertionError
+_______ test_zero_doc_example_chunks_makes_every_term_weigh_the_ceiling _______
+
+    def test_zero_doc_example_chunks_makes_every_term_weigh_the_ceiling() -> None:
+        """A generation with no documentation or example chunks at all (N == 0): every term must
+        weigh WEIGHT_CEILING - an absent scope means every term is "unseen" by it, never a
+        division-by-zero or an arbitrary default - regardless of whether the term appears in the
+        (symbol-only) chunks that do exist."""
+        entries = [(["common"], _SYMBOL_TEXT) for _ in range(10)]
+        payload = _lexical_payload(entries)
+    
+        weights = doc_scope_term_weights({"common", "absent"}, payload)
+    
+>       assert weights == {"common": WEIGHT_CEILING, "absent": WEIGHT_CEILING}
+E       AssertionError: assert {'absent': 1.0, 'common': 1.0} == {'common': 2.0, 'absent': 2.0}
+E         
+E         Differing items:
+E         {'absent': 1.0} != {'absent': 2.0}
+E         {'common': 1.0} != {'common': 2.0}
+E         Use -v to get more diff
+
+tests\mcp\tools\test_relevance_doc_scope_weights.py:221: AssertionError
+=========================== short test summary info ===========================
+FAILED tests/mcp/tools/test_relevance_doc_scope_weights.py::test_doc_scope_weights_floor_and_ceiling_on_a_pure_doc_example_corpus
+FAILED tests/mcp/tools/test_relevance_doc_scope_weights.py::test_doc_scope_weights_count_example_chunks_the_same_as_documentation_chunks
+FAILED tests/mcp/tools/test_relevance_doc_scope_weights.py::test_doc_scope_weights_diverge_from_term_weights_on_a_mixed_corpus
+FAILED tests/mcp/tools/test_relevance_doc_scope_weights.py::test_real_pdf_net_pilot_doc_scope_gap_is_wider_than_whole_generation_gap
+FAILED tests/mcp/tools/test_relevance_doc_scope_weights.py::test_zero_doc_example_chunks_makes_every_term_weigh_the_ceiling
+
+--- stderr ---
+
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-5c72e798a73c059a\Scripts\python.exe -m pytest tests/mcp/tools/test_relevance_doc_scope_weights.py tests/mcp/tools/test_round3_retrieval_corpus.py tests/mcp/tools/test_forgiveness_acceptance.py tests/mcp/tools/test_nonsense_queries_miss.py tests/mcp/tools/test_find_examples_title_anchor.py tests/mcp/tools/test_relevance_idf_synonyms.py tests/test_unwired_modules.py -q -rfE -p no:cacheprovider "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-mj4mlag4\.junit-1.xml"
+--- stdout ---
+FFFFF................................................................... [ 23%]
+........................................................................ [ 47%]
+........................................................................ [ 71%]
+........................................................................ [ 95%]
+.............                                                            [100%]
+================================== FAILURES ===================================
+____ test_doc_scope_weights_floor_and_ceiling_on_a_pure_doc_example_corpus ____
+
+    def test_doc_scope_weights_floor_and_ceiling_on_a_pure_doc_example_corpus() -> None:
+        """Every chunk is doc/example (text="" -> DOCUMENTATION); term A is in every one of the 40,
+        term B in none - mirrors term_weights' own
+        test_weights_are_clipped_to_0_5_and_2_0_and_deterministic shape, scoped to doc/example only."""
+        entries = [(["alpha", "filler"], _DOC_TEXT) for _ in range(40)]
+        payload = _lexical_payload(entries)
+        weights = doc_scope_term_weights({"alpha", "beta"}, payload)
+    
+        assert set(weights) == {"alpha", "beta"}
+        assert all(WEIGHT_FLOOR <= weight <= WEIGHT_CEILING for weight in weights.values()), weights
+        # A in every doc/example chunk (df 40 of N 40): ln(1 + 40 / 41), the same floor-end value
+        # term_weights' own test pins for a term known by the whole generation.
+>       assert weights["alpha"] == pytest.approx(math.log(1 + 40 / 41))
+E       assert 1.0 == 0.680877087968131 ± 6.8e-07
+E         
+E         comparison failed
+E         Obtained: 1.0
+E         Expected: 0.680877087968131 ± 6.8e-07
+
+tests\mcp\tools\test_relevance_doc_scope_weights.py:84: AssertionError
+_ test_doc_scope_weights_count_example_chunks_the_same_as_documentation_chunks _
+
+    def test_doc_scope_weights_count_example_chunks_the_same_as_documentation_chunks() -> None:
+        """EXAMPLE chunks count towards N and df exactly like DOCUMENTATION chunks - the card's own
+        "DOCUMENTATION or EXAMPLE" scope, not DOCUMENTATION alone."""
+        entries = [(["alpha"], _DOC_TEXT)] * 5 + [(["alpha"], _EXAMPLE_TEXT)] * 5
+        payload = _lexical_payload(entries)
+        weights = doc_scope_term_weights({"alpha"}, payload)
+>       assert weights["alpha"] == pytest.approx(math.log(1 + 10 / 11))
+E       assert 1.0 == 0.6466271649250525 ± 6.5e-07
+E         
+E         comparison failed
+E         Obtained: 1.0
+E         Expected: 0.6466271649250525 ± 6.5e-07
+
+tests\mcp\tools\test_relevance_doc_scope_weights.py:95: AssertionError
+_____ test_doc_scope_weights_diverge_from_term_weights_on_a_mixed_corpus ______
+
+    def test_doc_scope_weights_diverge_from_term_weights_on_a_mixed_corpus() -> None:
+        """ "common" is carried by nearly every SYMBOL chunk (200 of 220) but by only one of the 20
+        doc/example chunks - the exact MIXED-corpus shape the plan's row-1 diagnosis describes: a
+        documentation-specific word must not weigh the same as a near-universal symbol-chunk word.
+        doc_scope_term_weights must weigh it HIGH (doc-scope-rare); term_weights, on the SAME
+        payload, must weigh it LOW (whole-generation-common) - this concrete A/B contrast is the
+        proof this card's whole premise is real, not assumed.
+        """
+        doc_example_entries = [(["common"], _DOC_TEXT)] + [(["other"], _EXAMPLE_TEXT) for _ in range(19)]
+        symbol_entries = [(["common"], _SYMBOL_TEXT) for _ in range(199)] + [(["other"], _SYMBOL_TEXT)]
+        payload = _lexical_payload(doc_example_entries + symbol_entries)
+    
+        # Sanity on the corpus shape itself: 220 chunks total, 20 of them doc/example.
+        documents = payload["documents"]
+        assert len(documents) == 220
+        assert sum(1 for d in documents.values() if chunk_kind(d["text"]) in (DOCUMENTATION, EXAMPLE)) == 20
+        assert sum(1 for d in documents.values() if chunk_kind(d["text"]) == SYMBOL) == 200
+    
+        whole = term_weights({"common", "other"}, payload)
+        scoped = doc_scope_term_weights({"common", "other"}, payload)
+    
+        # term_weights, over the WHOLE 220-chunk generation (df 200 of 220): correctly LOW, close to
+        # the floor of what the generation "knows".
+        assert whole["common"] == pytest.approx(math.log(1 + 220 / 201))
+        assert whole["common"] < 0.75
+        # doc_scope_term_weights, scoped to the 20 doc/example chunks only (df 1 of 20): correctly
+        # HIGH, saturating the known ceiling.
+        assert scoped["common"] == pytest.approx(WEIGHT_KNOWN_CEILING)
+        assert scoped["common"] > whole["common"]
+    
+        # "other" is the mirror case, present in 19 of the 20 doc/example chunks (common WITHIN the
+        # doc-scope itself) - its doc-scope weight is genuinely computed, not merely capped, so it
+        # pins the real ln(1 + N / (1 + df)) value rather than coincidentally landing on the known
+        # ceiling the way "common"'s doc-scope value above does.
+>       assert scoped["other"] == pytest.approx(math.log(1 + 20 / 20))
+E       assert 1.0 == 0.6931471805599453 ± 6.9e-07
+E         
+E         comparison failed
+E         Obtained: 1.0
+E         Expected: 0.6931471805599453 ± 6.9e-07
+
+tests\mcp\tools\test_relevance_doc_scope_weights.py:135: AssertionError
+__ test_real_pdf_net_pilot_doc_scope_gap_is_wider_than_whole_generation_gap ___
+
+    def test_real_pdf_net_pilot_doc_scope_gap_is_wider_than_whole_generation_gap() -> None:
+        """The real reproduction of the plan's own row-1 diagnosis, against the real, committed
+        pdf/net pilot (943 chunks, 28 of them doc/example). Real measured numbers:
+    
+        - whole-generation df: "install" 5, "file" 163 (out of 943) - term_weights' own
+          ``ln(1 + N / (1 + df))`` SATURATES BOTH at the known ceiling (1.0), so the whole-generation
+          gap between them is 0.0 - exactly the LONGQ-001 failure mode (a doc-specific word weighs
+          the same as a near-universal symbol-chunk word).
+        - doc-scope df (within the 28 doc/example chunks only): "install" 3, "file" 18 -
+          doc_scope_term_weights gives "install" the known ceiling (1.0) and "file" ~0.9057, a real,
+          measured gap of ~0.0943 - WIDER than term_weights' own whole-generation gap of 0.0, proving
+          this card's premise on real data, not an invented example.
+    
+        Do not weaken this test to match the plan's illustrative "df 5 vs df 163" figures more
+        precisely than the real data supports - the real numbers are what is asserted here.
+        """
+        payload = _real_pdf_net_lexical_payload()
+        documents = payload["documents"]
+        install_stem = stem_token("install")
+        file_stem = stem_token("file")
+        terms = {install_stem, file_stem}
+    
+        # Pin the real fixture's own shape so this test fails loudly (not silently) if
+        # infra/demo-manifests' pdf/net generation is ever regenerated differently underneath it.
+        assert len(documents) == 943
+        doc_example_documents = [
+            d for d in documents.values() if chunk_kind(d["text"]) in (DOCUMENTATION, EXAMPLE)
+        ]
+        assert len(doc_example_documents) == 28
+    
+        whole_generation_install_df = sum(
+            count for token, count in payload["doc_freq"].items() if stem_token(token) == install_stem
+        )
+        whole_generation_file_df = sum(
+            count for token, count in payload["doc_freq"].items() if stem_token(token) == file_stem
+        )
+        assert whole_generation_install_df == 5
+        assert whole_generation_file_df == 163
+    
+        doc_scope_install_df = sum(
+            1 for d in doc_example_documents if install_stem in {stem_token(t) for t in d["tokens"]}
+        )
+        doc_scope_file_df = sum(
+            1 for d in doc_example_documents if file_stem in {stem_token(t) for t in d["tokens"]}
+        )
+        assert doc_scope_install_df == 3
+        assert doc_scope_file_df == 18
+    
+        whole = term_weights(terms, payload)
+        scoped = doc_scope_term_weights(terms, payload)
+    
+        whole_gap = whole[install_stem] - whole[file_stem]
+        scoped_gap = scoped[install_stem] - scoped[file_stem]
+    
+        assert whole[install_stem] == pytest.approx(1.0)
+        assert whole[file_stem] == pytest.approx(1.0)
+        assert whole_gap == pytest.approx(0.0)
+    
+        assert scoped[install_stem] == pytest.approx(1.0)
+>       assert scoped[file_stem] == pytest.approx(0.9057086225436182, abs=1e-6)
+E       assert 1.0 == 0.9057086225436182 ± 1.0e-06
+E         
+E         comparison failed
+E         Obtained: 1.0
+E         Expected: 0.9057086225436182 ± 1.0e-06
+
+tests\mcp\tools\test_relevance_doc_scope_weights.py:200: AssertionError
+_______ test_zero_doc_example_chunks_makes_every_term_weigh_the_ceiling _______
+
+    def test_zero_doc_example_chunks_makes_every_term_weigh_the_ceiling() -> None:
+        """A generation with no documentation or example chunks at all (N == 0): every term must
+        weigh WEIGHT_CEILING - an absent scope means every term is "unseen" by it, never a
+        division-by-zero or an arbitrary default - regardless of whether the term appears in the
+        (symbol-only) chunks that do exist."""
+        entries = [(["common"], _SYMBOL_TEXT) for _ in range(10)]
+        payload = _lexical_payload(entries)
+    
+        weights = doc_scope_term_weights({"common", "absent"}, payload)
+    
+>       assert weights == {"common": WEIGHT_CEILING, "absent": WEIGHT_CEILING}
+E       AssertionError: assert {'absent': 1.0, 'common': 1.0} == {'common': 2.0, 'absent': 2.0}
+E         
+E         Differing items:
+E         {'absent': 1.0} != {'absent': 2.0}
+E         {'common': 1.0} != {'common': 2.0}
+E         Use -v to get more diff
+
+tests\mcp\tools\test_relevance_doc_scope_weights.py:221: AssertionError
+=========================== short test summary info ===========================
+FAILED tests/mcp/tools/test_relevance_doc_scope_weights.py::test_doc_scope_weights_floor_and_ceiling_on_a_pure_doc_example_corpus
+FAILED tests/mcp/tools/test_relevance_doc_scope_weights.py::test_doc_scope_weights_count_example_chunks_the_same_as_documentation_chunks
+FAILED tests/mcp/tools/test_relevance_doc_scope_weights.py::test_doc_scope_weights_diverge_from_term_weights_on_a_mixed_corpus
+FAILED tests/mcp/tools/test_relevance_doc_scope_weights.py::test_real_pdf_net_pilot_doc_scope_gap_is_wider_than_whole_generation_gap
+FAILED tests/mcp/tools/test_relevance_doc_scope_weights.py::test_zero_doc_example_chunks_makes_every_term_weigh_the_ceiling
+
+--- stderr ---
+
