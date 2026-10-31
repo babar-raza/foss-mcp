@@ -142,12 +142,22 @@ def test_platform_exclusion_narrows_search_docs_own_matches_on_the_real_pilot(
     ``_rule_for`` reverted to its pre-card, platform-unaware shape) against the SAME real query and
     the SAME real generation, not merely asserted.
 
-    Measured directly: BEFORE this card's platform-exclusion fix, ``search_docs`` returns 4 chunks
+    Measured directly: BEFORE this card's platform-exclusion fix, ``search_docs`` returns 3 chunks
     for this query - including the small "Aspose.PDF FOSS for .NET" title chunk, which only clears
     the relevance floor because the query's own "net" inflates its coverage. AFTER, with "net"
     correctly excluded as the scope's own platform word, only the 2 "Key Capabilities and API
     Reference" chunks that genuinely discuss watermarking/annotations remain - a real precision
     gain, not merely a different-sized list.
+
+    G3/TC-628 (REQ-G3-011, Q8): this "before" count is 3, not the 4 this test originally measured,
+    because ``search_docs``'s own table-dominated admission guard (moved here from ``lookup.py`` by
+    that later card, as a per-candidate filter applied unconditionally - independent of, and never
+    reverted by, the ``_rule_for`` monkeypatch below) now also excludes a second, differently-
+    windowed "Key Capabilities and API Reference" table chunk from the candidate pool before this
+    test's own simulated "before" state ever reaches it, since that chunk carries fewer than 2 of
+    this query's own (always platform-excluded) distinctive terms. The one hardcoded number changed;
+    this test's own architectural claim - that platform exclusion further narrows the result - still
+    holds (3 -> 2, still a real, strict narrowing), confirmed by every assertion below.
     """
     after = search_docs(pdf_net_store, PDF_NET, PLATFORM_WORD_QUERY)
     assert isinstance(after, list)
@@ -156,7 +166,7 @@ def test_platform_exclusion_narrows_search_docs_own_matches_on_the_real_pilot(
     before = search_docs(pdf_net_store, PDF_NET, PLATFORM_WORD_QUERY)
     assert isinstance(before, list)
 
-    assert len(before) == 4
+    assert len(before) == 3
     assert len(after) == 2
     after_ids = {match.doc_id for match in after}
     before_ids = {match.doc_id for match in before}

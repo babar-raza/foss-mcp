@@ -82,6 +82,15 @@ from foss_mcp.mcp.tools.search_docs import (
     passage_coverage,
     search_docs,
 )
+from foss_mcp.mcp.tools.search_docs import (
+    # G3/TC-628 (REQ-G3-011): the table-dominated guard itself now lives in search_docs.py as a
+    # per-candidate admission filter (moved there from this module), but
+    # tests/mcp/tools/test_lookup_forgiveness.py (not in this card's write_paths) imports this exact
+    # name directly from lookup, so it must stay importable from here under its own name. The
+    # `as`-alias is the standard explicit-re-export idiom pyflakes/ruff (F401) honours, so this import
+    # is not reported as unused even though nothing else in this module calls it directly.
+    _is_table_dominated as _is_table_dominated,
+)
 from foss_mcp.mcp.tools.search_symbols import (
     MATCH_EXACT,
     MATCH_PARTIAL,
@@ -129,16 +138,12 @@ _QUESTION_OR_AUXILIARY_WORDS = frozenset(
     }
 )
 
-# TC-516: how a query is read as naming a type, and what counts as a table-dominated documentation chunk.
+# TC-516: how a query is read as naming a type.
 _MAX_NAMED_SYMBOLS = 3
 _FULL_COVERAGE = 0.999
 # TC-562: of those, at most this many are the symbols that EXPLAIN the question (the best two; a third is a guess).
 _MAX_EXPLAINING_SYMBOLS = 2
 _NAMED_SHARE = 0.6
-_TABLE_LINE = re.compile(r"^\s*(?:\||- +`[^`]+`\s*[-:\u2013\u2014])")
-_TABLE_DOMINATED_MIN_SHARE = 0.5
-_TABLE_DOMINATED_MIN_LENGTH = 8000
-_TABLE_EVIDENCE_MIN_TERMS = 2
 _FINAL_SEGMENT = re.compile(r"\.|::")
 
 # A query at or above this many words reads as a sentence, not an identifier - real symbol
@@ -203,21 +208,6 @@ class TaskAnswer:
     # then ``unmatched_terms`` names the words it could not explain. ``""`` for a hand-built answer.
     match_quality: str = ""
     unmatched_terms: tuple[str, ...] = ()
-
-
-def _is_table_dominated(text: str) -> bool:
-    """True when a documentation chunk is a table or reference dump rather than prose: at least half of its
-    non-empty body lines (after the ``FQN:`` line) start with ``|`` or with ``- `` and a backticked
-    identifier and a dash or colon, or the chunk is longer than 8,000 characters."""
-    if len(text) > _TABLE_DOMINATED_MIN_LENGTH:
-        return True
-    lines = text.splitlines()
-    body_start = next((index + 1 for index, line in enumerate(lines) if line.startswith("FQN:")), 0)
-    body = [line for line in lines[body_start:] if line.strip()]
-    if not body:
-        return False
-    table_lines = sum(1 for line in body if _TABLE_LINE.match(line))
-    return table_lines >= _TABLE_DOMINATED_MIN_SHARE * len(body)
 
 
 def _named_symbols(store: GenerationManifestStore, scope: Scope, query: str) -> tuple[SymbolMatch, ...]:
@@ -386,13 +376,19 @@ def _answer_quality(
     symbols: tuple[SymbolMatch, ...],
     example: ExampleMatch | None,
     doc_matches: tuple[DocMatch, ...],
-    limitations_first: bool,
 ) -> tuple[str, tuple[str, ...]]:
     """TC-562: ``("exact", ())`` when some part of the answer explains every distinctive word of the question - a
     symbol labelled exact, the verified example (all its terms present), one passage of a documentation chunk
     holding all of them, or documentation that states the capability is not available - else ``("partial",
-    <the words the best symbol could not explain>)``."""
-    if limitations_first or category_intent(query) is not None:
+    <the words the best symbol could not explain>)``.
+
+    G3/TC-628 (REQ-G3-011): a limitations-first composition (``_compose_from_docs`` placing a limitation
+    doc match ahead of the others) no longer forces this unconditionally by itself - a limitation doc
+    match is one ``doc_matches`` entry like any other, and the passage-coverage loop below decides its
+    quality on the same real-coverage terms every other doc match is already held to. Only a bare
+    category-name query (``category_intent(query) is not None`` - a deliberate, complete match by
+    design, e.g. "getting started") still forces exact unconditionally; that branch is unchanged."""
+    if category_intent(query) is not None:
         return MATCH_EXACT, ()
     if any(match.match_quality == MATCH_EXACT for match in symbols[:1]):
         return MATCH_EXACT, ()
@@ -420,23 +416,6 @@ def _merged_symbols(*groups: tuple[SymbolMatch, ...]) -> tuple[SymbolMatch, ...]
             if all(match.doc_id != other.doc_id for other in chosen) and len(chosen) < _MAX_NAMED_SYMBOLS:
                 chosen.append(match)
     return tuple(chosen)
-
-
-def _without_unsupported_tables(
-    matches: tuple[DocMatch, ...], query: str, family: str, *, platform: str | None = None
-) -> tuple[DocMatch, ...]:
-    """TC-516: documentation whose only evidence is table-dominated chunks stands only when one such chunk
-    holds at least two distinctive query terms; otherwise those chunks are dropped (``()``). *platform*
-    (TC-610, G3/REQ-G3-011), when given, additionally excludes the scope's own platform/runtime word from
-    ``distinctive_terms``, exactly as that function already documents; ``platform=None`` (the default)
-    leaves the existing behaviour byte-for-byte unaffected."""
-    if not all(_is_table_dominated(match.text) for match in matches):
-        return matches
-    terms = distinctive_terms(query, family, platform=platform)
-    for match in matches:
-        if len(present_terms(terms, tokenize(match.text))) >= _TABLE_EVIDENCE_MIN_TERMS:
-            return matches
-    return ()
 
 
 def lookup(
@@ -483,11 +462,10 @@ def lookup(
             if isinstance(doc_result, list) and doc_result:
                 # TC-381: doc_matches are documentation chunks only - a symbol or example chunk
                 # is never offered as documentation (search_docs already guarantees it; this
-                # keeps lookup's own composition honest even if that ever regresses).
+                # keeps lookup's own composition honest even if that ever regresses). G3/TC-628:
+                # the table-dominated admission guard now lives in search_docs itself (a
+                # per-candidate filter, protecting every caller, not only this composition).
                 documentation = tuple(m for m in doc_result if chunk_kind(m.text) == DOCUMENTATION)
-                documentation = _without_unsupported_tables(
-                    documentation, query, scope.family, platform=scope.platform
-                )
                 if documentation:
                     doc_matches = documentation
                     break
@@ -504,9 +482,7 @@ def lookup(
         if not doc_matches and example is None:
             return None
         symbols = answer_symbols()
-        quality, unmatched = _answer_quality(
-            store, scope, query, symbols, example, doc_matches, bool(limitations)
-        )
+        quality, unmatched = _answer_quality(store, scope, query, symbols, example, doc_matches)
         return TaskAnswer(
             scope=scope,
             doc_matches=doc_matches,

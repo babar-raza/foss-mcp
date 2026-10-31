@@ -36,6 +36,7 @@ from foss_mcp.mcp.tools.relevance import (
     has_minimum_evidence,
     names_language_letter,
     normalize_query,
+    present_terms,
     query_terms,
     required_terms,
     stem_token,
@@ -232,6 +233,50 @@ def _doc_ids_by_content_type(documents: dict[str, dict]) -> dict[str, set[str]]:
     return grouped
 
 
+# TC-516: what counts as a table-dominated documentation chunk - relocated here from ``lookup.py``
+# (G3/TC-628, REQ-G3-011) so every direct ``search_docs`` caller is protected, not only ``lookup``'s
+# own composition. Definitions and values are unchanged.
+_TABLE_LINE = re.compile(r"^\s*(?:\||- +`[^`]+`\s*[-:–—])")
+_TABLE_DOMINATED_MIN_SHARE = 0.5
+_TABLE_DOMINATED_MIN_LENGTH = 8000
+# G3/TC-628 (REQ-G3-011): a table-dominated chunk is eligible for either scoring tier only when it
+# itself carries at least this many of the query's own distinctive terms.
+_TABLE_EVIDENCE_MIN_TERMS = 2
+
+
+def _is_table_dominated(text: str) -> bool:
+    """True when a documentation chunk is a table or reference dump rather than prose: at least half of its
+    non-empty body lines (after the ``FQN:`` line) start with ``|`` or with ``- `` and a backticked
+    identifier and a dash or colon, or the chunk is longer than 8,000 characters."""
+    if len(text) > _TABLE_DOMINATED_MIN_LENGTH:
+        return True
+    lines = text.splitlines()
+    body_start = next((index + 1 for index, line in enumerate(lines) if line.startswith("FQN:")), 0)
+    body = [line for line in lines[body_start:] if line.strip()]
+    if not body:
+        return False
+    table_lines = sum(1 for line in body if _TABLE_LINE.match(line))
+    return table_lines >= _TABLE_DOMINATED_MIN_SHARE * len(body)
+
+
+def _table_guarded_doc_ids(
+    documents: dict[str, dict], doc_ids: Iterable[str], terms: frozenset[str]
+) -> list[str]:
+    """G3/TC-628 (REQ-G3-011): the subset of *doc_ids* eligible to reach EITHER scoring tier
+    (``_relevant_coverage``'s confident tier or Q7's ``_partial_coverage`` partial tier) - a
+    table-dominated chunk (``_is_table_dominated``) is eligible only when it itself carries at least
+    ``_TABLE_EVIDENCE_MIN_TERMS`` of *terms*; a chunk that is not table-dominated is unaffected
+    either way. Applied once, per candidate, before either tier ever scores a candidate - this is a
+    per-candidate admission filter, not the old all-or-nothing post-filter
+    ``lookup._without_unsupported_tables`` used to apply only to ``lookup``'s own composed answer."""
+    return [
+        doc_id
+        for doc_id in doc_ids
+        if not _is_table_dominated(documents[doc_id]["text"])
+        or len(present_terms(terms, tokenize(documents[doc_id]["text"]))) >= _TABLE_EVIDENCE_MIN_TERMS
+    ]
+
+
 @dataclass(frozen=True)
 class _Rule:
     """The relevance rule of one query over one generation (TC-516): its terms, their IDF weights and
@@ -395,12 +440,20 @@ def _miss_with_hint(
     documents: dict[str, dict],
     grouped: dict[str, set[str]],
     rule: _Rule | None,
+    table_guard_terms: frozenset[str],
 ) -> Miss:
-    """A miss that also names the other content types holding a chunk relevant to the query."""
+    """A miss that also names the other content types holding a chunk relevant to the query.
+
+    G3/TC-628 (REQ-G3-011): each other content type's own candidate pool is passed through the same
+    per-candidate table-dominated guard the main path applies, so a hint is never offered on the
+    strength of a table-dominated chunk that itself carries too little of the query's own terms."""
     others = tuple(
         other
         for other in CONTENT_TYPES
-        if other != content_type and _relevant_coverage(documents, sorted(grouped[other]), rule)
+        if other != content_type
+        and _relevant_coverage(
+            documents, _table_guarded_doc_ids(documents, sorted(grouped[other]), table_guard_terms), rule
+        )
     )
     hint = (
         f"documentation for this query exists under content_type: {', '.join(others)}; "
@@ -557,6 +610,11 @@ def search_docs(
     grouped = _doc_ids_by_content_type(documents)
     matching_doc_ids = set().union(*grouped.values()) if content_type is None else grouped[content_type]
     rule = _rule_for(query, scope.family, lexical_payload, platform=scope.platform)
+    # G3/TC-628 (REQ-G3-011, Q8): the table-dominated admission guard, moved here from
+    # ``lookup.py`` - a per-candidate filter applied once, before this candidate pool ever reaches
+    # either the confident tier (``_relevant_coverage``) or Q7's partial tier (``_partial_coverage``),
+    # protecting every direct ``search_docs`` caller, not only ``lookup``'s own composition.
+    table_guard_terms = distinctive_terms(query, scope.family, platform=scope.platform)
     if not matching_doc_ids:
         return _miss_with_hint(
             scope,
@@ -566,6 +624,7 @@ def search_docs(
             documents,
             grouped,
             rule,
+            table_guard_terms,
         )
 
     intent = category_intent(query)
@@ -594,7 +653,8 @@ def search_docs(
     # Candidate selection never depends on BM25 having scored the document (a stemmed match such as
     # "install" vs "Installation" has no BM25 score); BM25 only breaks ties between equal coverage.
     bm25 = dict(query_lexical_index_scored(lexical_payload, query, top_k=len(documents)))
-    relevant = _relevant_coverage(documents, matching_doc_ids, rule)
+    guarded_doc_ids = _table_guarded_doc_ids(documents, matching_doc_ids, table_guard_terms)
+    relevant = _relevant_coverage(documents, guarded_doc_ids, rule)
     scored = [(doc_coverage, bm25.get(doc_id, 0.0), doc_id) for doc_id, doc_coverage in relevant.items()]
     scored.sort(key=lambda item: (-item[0], -item[1], item[2]))
     hits = [doc_id for _coverage, _score, doc_id in scored][:top_k]
@@ -603,7 +663,7 @@ def search_docs(
         # (>= PARTIAL_LONG_QUERY_MIN_TERMS content terms), try the SAME candidate pool once more
         # under the weaker, labelled partial admission before giving up to a plain Miss.
         if rule is not None and len(rule.terms) >= PARTIAL_LONG_QUERY_MIN_TERMS:
-            partial = _partial_coverage(documents, matching_doc_ids, rule)
+            partial = _partial_coverage(documents, guarded_doc_ids, rule)
             if partial:
                 ordered_partial = sorted(
                     partial.items(), key=lambda item: (-item[1][0], -bm25.get(item[0], 0.0), item[0])
@@ -631,6 +691,7 @@ def search_docs(
             documents,
             grouped,
             rule,
+            table_guard_terms,
         )
 
     return [
