@@ -762,7 +762,7 @@ def test_an_example_answer_survives_zero_documentation_matches(
         store_arg: GenerationManifestStore,
         scope: Scope,
         query: str,
-        content_type: str,
+        content_type: str | None = None,
         *args: object,
         **kwargs: object,
     ) -> DocsMiss:

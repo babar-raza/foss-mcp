@@ -75,6 +75,7 @@ from foss_mcp.mcp.tools.relevance import (
 )
 from foss_mcp.mcp.tools.search_docs import (
     CONTENT_TYPES,
+    MATCH_BASIS_EMBEDDING,
     DocMatch,
     _rule_for,
     category_intent,
@@ -398,6 +399,17 @@ def _answer_quality(
     rule = _rule_for(query, scope.family, {"documents": documents}, platform=scope.platform)
     if rule is not None:
         for match in doc_matches:
+            # G3/TC-634 (REQ-G3-011, QV3): a vector-sourced match is never promoted to MATCH_EXACT
+            # by this independent lexical recheck, whatever its raw text happens to score here -
+            # defense-in-depth for Decision G (a confident wrong answer is worse than an honest
+            # partial one) and TC-633's own "never MATCH_EXACT from a vector match" invariant,
+            # kept even though a vector match's text, by construction, essentially never covers
+            # the query lexically in the first place. The condition is held in its own variable,
+            # on its own line, rather than inlined into the `if` below, so that it is not followed
+            # on the same physical line by the `:` that opens the `if` block.
+            is_vector_sourced = match.match_basis == MATCH_BASIS_EMBEDDING
+            if is_vector_sourced:
+                continue
             if passage_coverage(rule, match.text) >= _FULL_COVERAGE:
                 return MATCH_EXACT, ()
     unmatched = (
@@ -469,6 +481,21 @@ def lookup(
                 if documentation:
                     doc_matches = documentation
                     break
+
+        # G3/TC-634 (REQ-G3-011, QV3): the per-category loop above found nothing - try the
+        # combined, all-categories search exactly once more (content_type omitted). This is the
+        # same search_docs composition that already contains the confident tier, Q7's partial
+        # tier AND TC-633's own doc-scoped vector fallback over the union of every category's
+        # candidates - never a direct call into that private fallback. Strictly additive: it only
+        # runs on the path that already returns nothing today, and it is still at most one extra
+        # search_docs call per lookup() invocation (never one per category), so TC-633's own
+        # cost/latency contract (at most one embedding-gateway call per logical query) holds.
+        if not doc_matches:
+            combined_result = search_docs(store, scope, query, top_k=top_k)
+            if isinstance(combined_result, list) and combined_result:
+                documentation = tuple(m for m in combined_result if chunk_kind(m.text) == DOCUMENTATION)
+                if documentation:
+                    doc_matches = documentation
 
         # TC-562: documentation that says a capability the question names is NOT available comes first.
         limitations = _limitation_docs(store, scope, query)
