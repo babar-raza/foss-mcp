@@ -1,0 +1,443 @@
+
+===== CLEAN RUN 1 (host) =====
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-5c72e798a73c059a\Scripts\python.exe -m pytest tests/mcp/tools/test_search_docs_partial_tier.py -q -rfE -p no:cacheprovider "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-0p67xvvz\.junit-0.xml"
+--- stdout ---
+............                                                             [100%]
+
+--- stderr ---
+
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-5c72e798a73c059a\Scripts\python.exe -m pytest tests/mcp/tools/test_search_docs_partial_tier.py tests/mcp/tools/test_round3_retrieval_corpus.py tests/mcp/tools/test_forgiveness_acceptance.py tests/mcp/tools/test_nonsense_queries_miss.py tests/mcp/tools/test_find_examples_title_anchor.py tests/mcp/tools/test_relevance_idf_synonyms.py tests/mcp/tools/test_search_docs_title_passage_coverage.py tests/mcp/tools/test_search_docs_query_normalization.py tests/mcp/tools/test_search_docs_language_letter.py tests/mcp/tools/test_lookup_forgiveness.py tests/mcp/tools/test_lookup_miss_reason.py tests/mcp/tools/test_lookup_query_normalization.py tests/conformance/test_sentence_wrapped_retrieval.py tests/conformance/test_precision_and_size_budget.py -q -rfE -p no:cacheprovider "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-0p67xvvz\.junit-1.xml"
+--- stdout ---
+........................................................................ [ 15%]
+........................................................................ [ 30%]
+........................................................................ [ 46%]
+........................................................................ [ 61%]
+........................................................................ [ 77%]
+........................................................................ [ 92%]
+...................................                                      [100%]
+
+--- stderr ---
+
+
+===== CLEAN RUN 2 (host) =====
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-5c72e798a73c059a\Scripts\python.exe -m pytest tests/mcp/tools/test_search_docs_partial_tier.py -q -rfE -p no:cacheprovider "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-0p67xvvz\.junit-0.xml"
+--- stdout ---
+............                                                             [100%]
+
+--- stderr ---
+
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-5c72e798a73c059a\Scripts\python.exe -m pytest tests/mcp/tools/test_search_docs_partial_tier.py tests/mcp/tools/test_round3_retrieval_corpus.py tests/mcp/tools/test_forgiveness_acceptance.py tests/mcp/tools/test_nonsense_queries_miss.py tests/mcp/tools/test_find_examples_title_anchor.py tests/mcp/tools/test_relevance_idf_synonyms.py tests/mcp/tools/test_search_docs_title_passage_coverage.py tests/mcp/tools/test_search_docs_query_normalization.py tests/mcp/tools/test_search_docs_language_letter.py tests/mcp/tools/test_lookup_forgiveness.py tests/mcp/tools/test_lookup_miss_reason.py tests/mcp/tools/test_lookup_query_normalization.py tests/conformance/test_sentence_wrapped_retrieval.py tests/conformance/test_precision_and_size_budget.py -q -rfE -p no:cacheprovider "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-0p67xvvz\.junit-1.xml"
+--- stdout ---
+........................................................................ [ 15%]
+........................................................................ [ 30%]
+........................................................................ [ 46%]
+........................................................................ [ 61%]
+........................................................................ [ 77%]
+........................................................................ [ 92%]
+...................................                                      [100%]
+
+--- stderr ---
+
+
+===== NEGATIVE CONTROL (checks MUST now fail) =====
+mutated: M src/foss_mcp/mcp/tools/search_docs.py, ?? .junit-0.xml, ?? .junit-1.xml
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-5c72e798a73c059a\Scripts\python.exe -m pytest tests/mcp/tools/test_search_docs_partial_tier.py -q -rfE -p no:cacheprovider "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-0p67xvvz\.junit-0.xml"
+--- stdout ---
+FFFFF...F..F                                                             [100%]
+================================== FAILURES ===================================
+_____________ test_measured_module_constants_are_self_consistent ______________
+
+    def test_measured_module_constants_are_self_consistent() -> None:
+        """Sanity: the constants documented above (this worker's own fresh re-measurement) are inside the
+        plan's allowed 0.34-0.50 band and below ``PARTIAL_COVERAGE_THRESHOLD``, exactly as the module's own
+        provenance comment on ``PARTIAL_COVERAGE_THRESHOLD`` states."""
+>       assert 0.34 <= PARTIAL_COVERAGE_THRESHOLD <= 0.50
+E       assert 1.01 <= 0.5
+
+tests\mcp\tools\test_search_docs_partial_tier.py:98: AssertionError
+_ test_short_query_never_reaches_partial_tier_despite_deliberately_high_passage_coverage _
+
+corpus = <tests.conformance.corpus.ConformanceCorpus object at 0x000001B3830917F0>
+
+    def test_short_query_never_reaches_partial_tier_despite_deliberately_high_passage_coverage(
+        corpus: ConformanceCorpus,
+    ) -> None:
+        """A real, constructed short query (``PARTIAL_LONG_QUERY_MIN_TERMS`` - 1 == 4 < 6 content terms):
+        "convert this file class elsewhere" against the real pdf/net pilot. Its best-passage coverage
+        against the real "Key Capabilities and API Reference" chunk is independently measured at 0.5871 -
+        deliberately high, well above ``PARTIAL_COVERAGE_THRESHOLD`` - yet the query still ends ``Miss``,
+        because it never has enough content terms to reach the partial tier's own gate at all. This proves
+        the gate is on TERM COUNT, not on how high a chunk's own coverage happens to be."""
+        pilot = corpus.pilots["pdf__net"]
+        query = "convert this file class elsewhere"
+        payload, documents = _payload_and_documents(corpus, "pdf__net")
+        rule = _rule_for(query, pilot.scope.family, payload, platform=pilot.scope.platform)
+        assert rule is not None
+        assert len(rule.terms) < PARTIAL_LONG_QUERY_MIN_TERMS, sorted(rule.terms)
+    
+        best_passage = max(passage_coverage(rule, doc["text"]) for doc in documents.values())
+>       assert best_passage >= PARTIAL_COVERAGE_THRESHOLD, (
+            f"test construction requires a deliberately high best-passage coverage; measured {best_passage}"
+        )
+E       AssertionError: test construction requires a deliberately high best-passage coverage; measured 0.5871162312915216
+E       assert 0.5871162312915216 >= 1.01
+
+tests\mcp\tools\test_search_docs_partial_tier.py:123: AssertionError
+__________ test_long_known_miss_query_gets_labelled_partial_matches ___________
+
+corpus = <tests.conformance.corpus.ConformanceCorpus object at 0x000001B3830917F0>
+
+    def test_long_known_miss_query_gets_labelled_partial_matches(corpus: ConformanceCorpus) -> None:
+        """A real 12-35 word sentence-wrapped query, already confirmed (by this worker, fresh) to be a
+        plain confident ``Miss`` under today's mechanism (``_relevant_coverage`` returns ``{}`` for every
+        candidate): 3d/java, "I need to understand save a box mesh as an STL file for the Java app I'm
+        building with 3D, can you help me out?" (its own 8-term rule never clears the whole-chunk 0.6
+        floor on any chunk). Confirms it now returns a ``list[DocMatch]``, every item labelled
+        ``match_quality == MATCH_PARTIAL``, with ``unmatched_terms`` correctly computed as ``rule.terms``
+        minus the terms this worker's own ``_passage_match`` independently finds present in that exact
+        chunk's own best window - never re-derived by hand a second way."""
+        pilot = corpus.pilots[LONG_MISS_PILOT]
+        payload, documents = _payload_and_documents(corpus, LONG_MISS_PILOT)
+        rule = _rule_for(LONG_MISS_QUERY, pilot.scope.family, payload, platform=pilot.scope.platform)
+        assert rule is not None
+        assert len(rule.terms) >= PARTIAL_LONG_QUERY_MIN_TERMS, sorted(rule.terms)
+    
+        matching_doc_ids = _matching_doc_ids(documents)
+        relevant_today = _relevant_coverage(documents, matching_doc_ids, rule)
+        assert relevant_today == {}, "test fixture assumption broke: this case is no longer a confident Miss"
+    
+        result = search_docs(corpus.store, pilot.scope, LONG_MISS_QUERY)
+>       assert isinstance(result, list) and result, f"expected a non-empty list, got {result!r}"
+E       AssertionError: expected a non-empty list, got Miss(scope=Scope(family='3d', platform='java', source_kind='self_extracted'), query="I need to understand save a box mesh as an STL file for the Java app I'm building with 3D, can you help me out?", content_type='all', reason='no documents match "I need to understand save a box mesh as an STL file for the Java app I\'m building with 3D, can you help me out?"', other_content_types=(), hint=None)
+E       assert (False)
+E        +  where False = isinstance(Miss(scope=Scope(family='3d', platform='java', source_kind='self_extracted'), query="I need to understand save a box m... mesh as an STL file for the Java app I\'m building with 3D, can you help me out?"', other_content_types=(), hint=None), list)
+
+tests\mcp\tools\test_search_docs_partial_tier.py:160: AssertionError
+_____________ test_partial_matches_are_capped_at_max_partial_docs _____________
+
+corpus = <tests.conformance.corpus.ConformanceCorpus object at 0x000001B3830917F0>
+
+    def test_partial_matches_are_capped_at_max_partial_docs(corpus: ConformanceCorpus) -> None:
+        """A real query/pilot pair independently measured to have MORE than ``_MAX_PARTIAL_DOCS`` (3)
+        qualifying chunks (4, confirmed below) under today's confident-Miss + partial-admission rules: the
+        returned list is still capped at 3, with the highest best-passage coverage (BM25 tie-break) kept."""
+        pilot = corpus.pilots[CAP_PILOT]
+        payload, documents = _payload_and_documents(corpus, CAP_PILOT)
+        rule = _rule_for(CAP_QUERY, pilot.scope.family, payload, platform=pilot.scope.platform)
+        assert rule is not None
+        matching_doc_ids = _matching_doc_ids(documents)
+        assert _relevant_coverage(documents, matching_doc_ids, rule) == {}
+    
+        qualifying = [
+            doc_id
+            for doc_id in matching_doc_ids
+            if chunk_kind(documents[doc_id]["text"]) == DOCUMENTATION
+            and (
+                lambda score_matched: (
+                    score_matched[0] >= PARTIAL_COVERAGE_THRESHOLD and len(score_matched[1]) >= 2
+                )
+            )(_passage_match(rule, documents[doc_id]["text"]))
+        ]
+>       assert len(qualifying) > _MAX_PARTIAL_DOCS, (
+            f"test construction requires >{_MAX_PARTIAL_DOCS} qualifying chunks; measured {len(qualifying)}"
+        )
+E       AssertionError: test construction requires >3 qualifying chunks; measured 0
+E       assert 0 > 3
+E        +  where 0 = len([])
+
+tests\mcp\tools\test_search_docs_partial_tier.py:203: AssertionError
+___________ test_partial_matches_respect_top_k_smaller_than_the_cap ___________
+
+corpus = <tests.conformance.corpus.ConformanceCorpus object at 0x000001B3830917F0>
+
+    def test_partial_matches_respect_top_k_smaller_than_the_cap(corpus: ConformanceCorpus) -> None:
+        """The same over-threshold case as above, but with ``top_k`` smaller than ``_MAX_PARTIAL_DOCS``:
+        the result is capped at ``top_k``, not at 3."""
+        pilot = corpus.pilots[CAP_PILOT]
+        result = search_docs(corpus.store, pilot.scope, CAP_QUERY, top_k=2)
+>       assert isinstance(result, list)
+E       assert False
+E        +  where False = isinstance(Miss(scope=Scope(family='3d', platform='java', source_kind='self_extracted'), query="Can you show me key Capabilities ...ey Capabilities and API Reference? I\'m using 3D inside a Java project right now."', other_content_types=(), hint=None), list)
+
+tests\mcp\tools\test_search_docs_partial_tier.py:218: AssertionError
+______ test_default_sample_recall_headroom_is_real_and_honestly_measured ______
+
+corpus = <tests.conformance.corpus.ConformanceCorpus object at 0x000001B3830917F0>
+
+    def test_default_sample_recall_headroom_is_real_and_honestly_measured(corpus: ConformanceCorpus) -> None:
+        """Over F5's own 96-case default sample (``_default_sample_cases``, the identical seeded sample
+        ``test_sentence_wrapped_retrieval.py`` itself uses - reused, not re-derived a second way): for every
+        case that is (1) long (``rule.terms`` >= ``PARTIAL_LONG_QUERY_MIN_TERMS``) and (2) a true confident
+        ``Miss`` today (``_relevant_coverage`` returns ``{}`` for the WHOLE candidate pool, not merely that
+        the target chunk itself fails), count how many now get a ``list[DocMatch]`` instead of ``Miss``
+        under ``PARTIAL_COVERAGE_THRESHOLD`` = 0.41.
+    
+        This worker's own fresh measurement (independent of the card's own pre-authoring numbers, which
+        this run does not match exactly - see this worker's closeout report for the discrepancy and why it
+        does not change the safety conclusion): of the 96 default-sample cases, a real, non-zero number
+        are long-and-confident-Miss today, and a real, non-zero subset of THOSE now get a partial hit at
+        tau_p=0.41. The exact counts are asserted below, honestly, whichever numbers this run produces -
+        never forced to match a target.
+        """
+        cases = _default_sample_cases(corpus)
+        assert cases, "no sampled cases were generated - the corpus or the sampler is broken"
+    
+        long_confident_miss = 0
+        newly_partial = 0
+        for _pilot_name, pilot, frame_index, title_chunk in cases:
+            family = _display(_FAMILY_DISPLAY, pilot.scope.family)
+            platform = _display(_PLATFORM_DISPLAY, pilot.scope.platform)
+            _frame_name, frame_template = FRAMES[frame_index]
+            sentence = _render(frame_template, title_chunk.title, family, platform)
+    
+            _payload, documents = _payload_and_documents(corpus, pilot.name)
+            rule = _rule_for(sentence, pilot.scope.family, _payload, platform=pilot.scope.platform)
+            if rule is None or len(rule.terms) < PARTIAL_LONG_QUERY_MIN_TERMS:
+                continue
+            matching_doc_ids = _matching_doc_ids(documents)
+            if _relevant_coverage(documents, matching_doc_ids, rule) != {}:
+                continue  # not a confident Miss today: out of scope for this count
+    
+            long_confident_miss += 1
+            result = search_docs(corpus.store, pilot.scope, sentence)
+            if isinstance(result, list):
+                newly_partial += 1
+                assert all(match.match_quality == MATCH_PARTIAL for match in result)
+    
+        assert long_confident_miss > 0, "F5's default sample has no long+confident-Miss case at all"
+>       assert newly_partial > 0, (
+            f"real recall headroom check failed: 0 of {long_confident_miss} long+confident-Miss default-"
+            f"sample cases newly got a partial list at PARTIAL_COVERAGE_THRESHOLD={PARTIAL_COVERAGE_THRESHOLD}"
+        )
+E       AssertionError: real recall headroom check failed: 0 of 79 long+confident-Miss default-sample cases newly got a partial list at PARTIAL_COVERAGE_THRESHOLD=1.01
+E       assert 0 > 0
+
+tests\mcp\tools\test_search_docs_partial_tier.py:322: AssertionError
+_ test_partial_coverage_threshold_and_min_terms_are_the_cards_frozen_values_or_a_justified_deviation _
+
+    def test_partial_coverage_threshold_and_min_terms_are_the_cards_frozen_values_or_a_justified_deviation() -> (
+        None
+    ):
+        """``PARTIAL_LONG_QUERY_MIN_TERMS`` is exactly the card's own frozen 6. ``PARTIAL_COVERAGE_THRESHOLD``
+        is inside the card's own allowed 0.34-0.50 band, even though it is not the card's own suggested 0.40
+        default - see this module's own provenance comment and this worker's closeout report for the
+        measured, real reason (the literal LONGQ-001 pinned case, test (f) above)."""
+        assert PARTIAL_LONG_QUERY_MIN_TERMS == 6
+>       assert 0.34 <= PARTIAL_COVERAGE_THRESHOLD <= 0.50
+E       assert 1.01 <= 0.5
+
+tests\mcp\tools\test_search_docs_partial_tier.py:386: AssertionError
+=========================== short test summary info ===========================
+FAILED tests/mcp/tools/test_search_docs_partial_tier.py::test_measured_module_constants_are_self_consistent
+FAILED tests/mcp/tools/test_search_docs_partial_tier.py::test_short_query_never_reaches_partial_tier_despite_deliberately_high_passage_coverage
+FAILED tests/mcp/tools/test_search_docs_partial_tier.py::test_long_known_miss_query_gets_labelled_partial_matches
+FAILED tests/mcp/tools/test_search_docs_partial_tier.py::test_partial_matches_are_capped_at_max_partial_docs
+FAILED tests/mcp/tools/test_search_docs_partial_tier.py::test_partial_matches_respect_top_k_smaller_than_the_cap
+FAILED tests/mcp/tools/test_search_docs_partial_tier.py::test_default_sample_recall_headroom_is_real_and_honestly_measured
+FAILED tests/mcp/tools/test_search_docs_partial_tier.py::test_partial_coverage_threshold_and_min_terms_are_the_cards_frozen_values_or_a_justified_deviation
+
+--- stderr ---
+
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-5c72e798a73c059a\Scripts\python.exe -m pytest tests/mcp/tools/test_search_docs_partial_tier.py tests/mcp/tools/test_round3_retrieval_corpus.py tests/mcp/tools/test_forgiveness_acceptance.py tests/mcp/tools/test_nonsense_queries_miss.py tests/mcp/tools/test_find_examples_title_anchor.py tests/mcp/tools/test_relevance_idf_synonyms.py tests/mcp/tools/test_search_docs_title_passage_coverage.py tests/mcp/tools/test_search_docs_query_normalization.py tests/mcp/tools/test_search_docs_language_letter.py tests/mcp/tools/test_lookup_forgiveness.py tests/mcp/tools/test_lookup_miss_reason.py tests/mcp/tools/test_lookup_query_normalization.py tests/conformance/test_sentence_wrapped_retrieval.py tests/conformance/test_precision_and_size_budget.py -q -rfE -p no:cacheprovider "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-0p67xvvz\.junit-1.xml"
+--- stdout ---
+FFFFF...F..F............................................................ [ 15%]
+........................................................................ [ 30%]
+........................................................................ [ 46%]
+........................................................................ [ 61%]
+........................................................................ [ 77%]
+........................................................................ [ 92%]
+...................................                                      [100%]
+================================== FAILURES ===================================
+_____________ test_measured_module_constants_are_self_consistent ______________
+
+    def test_measured_module_constants_are_self_consistent() -> None:
+        """Sanity: the constants documented above (this worker's own fresh re-measurement) are inside the
+        plan's allowed 0.34-0.50 band and below ``PARTIAL_COVERAGE_THRESHOLD``, exactly as the module's own
+        provenance comment on ``PARTIAL_COVERAGE_THRESHOLD`` states."""
+>       assert 0.34 <= PARTIAL_COVERAGE_THRESHOLD <= 0.50
+E       assert 1.01 <= 0.5
+
+tests\mcp\tools\test_search_docs_partial_tier.py:98: AssertionError
+_ test_short_query_never_reaches_partial_tier_despite_deliberately_high_passage_coverage _
+
+corpus = <tests.conformance.corpus.ConformanceCorpus object at 0x00000144744697F0>
+
+    def test_short_query_never_reaches_partial_tier_despite_deliberately_high_passage_coverage(
+        corpus: ConformanceCorpus,
+    ) -> None:
+        """A real, constructed short query (``PARTIAL_LONG_QUERY_MIN_TERMS`` - 1 == 4 < 6 content terms):
+        "convert this file class elsewhere" against the real pdf/net pilot. Its best-passage coverage
+        against the real "Key Capabilities and API Reference" chunk is independently measured at 0.5871 -
+        deliberately high, well above ``PARTIAL_COVERAGE_THRESHOLD`` - yet the query still ends ``Miss``,
+        because it never has enough content terms to reach the partial tier's own gate at all. This proves
+        the gate is on TERM COUNT, not on how high a chunk's own coverage happens to be."""
+        pilot = corpus.pilots["pdf__net"]
+        query = "convert this file class elsewhere"
+        payload, documents = _payload_and_documents(corpus, "pdf__net")
+        rule = _rule_for(query, pilot.scope.family, payload, platform=pilot.scope.platform)
+        assert rule is not None
+        assert len(rule.terms) < PARTIAL_LONG_QUERY_MIN_TERMS, sorted(rule.terms)
+    
+        best_passage = max(passage_coverage(rule, doc["text"]) for doc in documents.values())
+>       assert best_passage >= PARTIAL_COVERAGE_THRESHOLD, (
+            f"test construction requires a deliberately high best-passage coverage; measured {best_passage}"
+        )
+E       AssertionError: test construction requires a deliberately high best-passage coverage; measured 0.5871162312915216
+E       assert 0.5871162312915216 >= 1.01
+
+tests\mcp\tools\test_search_docs_partial_tier.py:123: AssertionError
+__________ test_long_known_miss_query_gets_labelled_partial_matches ___________
+
+corpus = <tests.conformance.corpus.ConformanceCorpus object at 0x00000144744697F0>
+
+    def test_long_known_miss_query_gets_labelled_partial_matches(corpus: ConformanceCorpus) -> None:
+        """A real 12-35 word sentence-wrapped query, already confirmed (by this worker, fresh) to be a
+        plain confident ``Miss`` under today's mechanism (``_relevant_coverage`` returns ``{}`` for every
+        candidate): 3d/java, "I need to understand save a box mesh as an STL file for the Java app I'm
+        building with 3D, can you help me out?" (its own 8-term rule never clears the whole-chunk 0.6
+        floor on any chunk). Confirms it now returns a ``list[DocMatch]``, every item labelled
+        ``match_quality == MATCH_PARTIAL``, with ``unmatched_terms`` correctly computed as ``rule.terms``
+        minus the terms this worker's own ``_passage_match`` independently finds present in that exact
+        chunk's own best window - never re-derived by hand a second way."""
+        pilot = corpus.pilots[LONG_MISS_PILOT]
+        payload, documents = _payload_and_documents(corpus, LONG_MISS_PILOT)
+        rule = _rule_for(LONG_MISS_QUERY, pilot.scope.family, payload, platform=pilot.scope.platform)
+        assert rule is not None
+        assert len(rule.terms) >= PARTIAL_LONG_QUERY_MIN_TERMS, sorted(rule.terms)
+    
+        matching_doc_ids = _matching_doc_ids(documents)
+        relevant_today = _relevant_coverage(documents, matching_doc_ids, rule)
+        assert relevant_today == {}, "test fixture assumption broke: this case is no longer a confident Miss"
+    
+        result = search_docs(corpus.store, pilot.scope, LONG_MISS_QUERY)
+>       assert isinstance(result, list) and result, f"expected a non-empty list, got {result!r}"
+E       AssertionError: expected a non-empty list, got Miss(scope=Scope(family='3d', platform='java', source_kind='self_extracted'), query="I need to understand save a box mesh as an STL file for the Java app I'm building with 3D, can you help me out?", content_type='all', reason='no documents match "I need to understand save a box mesh as an STL file for the Java app I\'m building with 3D, can you help me out?"', other_content_types=(), hint=None)
+E       assert (False)
+E        +  where False = isinstance(Miss(scope=Scope(family='3d', platform='java', source_kind='self_extracted'), query="I need to understand save a box m... mesh as an STL file for the Java app I\'m building with 3D, can you help me out?"', other_content_types=(), hint=None), list)
+
+tests\mcp\tools\test_search_docs_partial_tier.py:160: AssertionError
+_____________ test_partial_matches_are_capped_at_max_partial_docs _____________
+
+corpus = <tests.conformance.corpus.ConformanceCorpus object at 0x00000144744697F0>
+
+    def test_partial_matches_are_capped_at_max_partial_docs(corpus: ConformanceCorpus) -> None:
+        """A real query/pilot pair independently measured to have MORE than ``_MAX_PARTIAL_DOCS`` (3)
+        qualifying chunks (4, confirmed below) under today's confident-Miss + partial-admission rules: the
+        returned list is still capped at 3, with the highest best-passage coverage (BM25 tie-break) kept."""
+        pilot = corpus.pilots[CAP_PILOT]
+        payload, documents = _payload_and_documents(corpus, CAP_PILOT)
+        rule = _rule_for(CAP_QUERY, pilot.scope.family, payload, platform=pilot.scope.platform)
+        assert rule is not None
+        matching_doc_ids = _matching_doc_ids(documents)
+        assert _relevant_coverage(documents, matching_doc_ids, rule) == {}
+    
+        qualifying = [
+            doc_id
+            for doc_id in matching_doc_ids
+            if chunk_kind(documents[doc_id]["text"]) == DOCUMENTATION
+            and (
+                lambda score_matched: (
+                    score_matched[0] >= PARTIAL_COVERAGE_THRESHOLD and len(score_matched[1]) >= 2
+                )
+            )(_passage_match(rule, documents[doc_id]["text"]))
+        ]
+>       assert len(qualifying) > _MAX_PARTIAL_DOCS, (
+            f"test construction requires >{_MAX_PARTIAL_DOCS} qualifying chunks; measured {len(qualifying)}"
+        )
+E       AssertionError: test construction requires >3 qualifying chunks; measured 0
+E       assert 0 > 3
+E        +  where 0 = len([])
+
+tests\mcp\tools\test_search_docs_partial_tier.py:203: AssertionError
+___________ test_partial_matches_respect_top_k_smaller_than_the_cap ___________
+
+corpus = <tests.conformance.corpus.ConformanceCorpus object at 0x00000144744697F0>
+
+    def test_partial_matches_respect_top_k_smaller_than_the_cap(corpus: ConformanceCorpus) -> None:
+        """The same over-threshold case as above, but with ``top_k`` smaller than ``_MAX_PARTIAL_DOCS``:
+        the result is capped at ``top_k``, not at 3."""
+        pilot = corpus.pilots[CAP_PILOT]
+        result = search_docs(corpus.store, pilot.scope, CAP_QUERY, top_k=2)
+>       assert isinstance(result, list)
+E       assert False
+E        +  where False = isinstance(Miss(scope=Scope(family='3d', platform='java', source_kind='self_extracted'), query="Can you show me key Capabilities ...ey Capabilities and API Reference? I\'m using 3D inside a Java project right now."', other_content_types=(), hint=None), list)
+
+tests\mcp\tools\test_search_docs_partial_tier.py:218: AssertionError
+______ test_default_sample_recall_headroom_is_real_and_honestly_measured ______
+
+corpus = <tests.conformance.corpus.ConformanceCorpus object at 0x00000144744697F0>
+
+    def test_default_sample_recall_headroom_is_real_and_honestly_measured(corpus: ConformanceCorpus) -> None:
+        """Over F5's own 96-case default sample (``_default_sample_cases``, the identical seeded sample
+        ``test_sentence_wrapped_retrieval.py`` itself uses - reused, not re-derived a second way): for every
+        case that is (1) long (``rule.terms`` >= ``PARTIAL_LONG_QUERY_MIN_TERMS``) and (2) a true confident
+        ``Miss`` today (``_relevant_coverage`` returns ``{}`` for the WHOLE candidate pool, not merely that
+        the target chunk itself fails), count how many now get a ``list[DocMatch]`` instead of ``Miss``
+        under ``PARTIAL_COVERAGE_THRESHOLD`` = 0.41.
+    
+        This worker's own fresh measurement (independent of the card's own pre-authoring numbers, which
+        this run does not match exactly - see this worker's closeout report for the discrepancy and why it
+        does not change the safety conclusion): of the 96 default-sample cases, a real, non-zero number
+        are long-and-confident-Miss today, and a real, non-zero subset of THOSE now get a partial hit at
+        tau_p=0.41. The exact counts are asserted below, honestly, whichever numbers this run produces -
+        never forced to match a target.
+        """
+        cases = _default_sample_cases(corpus)
+        assert cases, "no sampled cases were generated - the corpus or the sampler is broken"
+    
+        long_confident_miss = 0
+        newly_partial = 0
+        for _pilot_name, pilot, frame_index, title_chunk in cases:
+            family = _display(_FAMILY_DISPLAY, pilot.scope.family)
+            platform = _display(_PLATFORM_DISPLAY, pilot.scope.platform)
+            _frame_name, frame_template = FRAMES[frame_index]
+            sentence = _render(frame_template, title_chunk.title, family, platform)
+    
+            _payload, documents = _payload_and_documents(corpus, pilot.name)
+            rule = _rule_for(sentence, pilot.scope.family, _payload, platform=pilot.scope.platform)
+            if rule is None or len(rule.terms) < PARTIAL_LONG_QUERY_MIN_TERMS:
+                continue
+            matching_doc_ids = _matching_doc_ids(documents)
+            if _relevant_coverage(documents, matching_doc_ids, rule) != {}:
+                continue  # not a confident Miss today: out of scope for this count
+    
+            long_confident_miss += 1
+            result = search_docs(corpus.store, pilot.scope, sentence)
+            if isinstance(result, list):
+                newly_partial += 1
+                assert all(match.match_quality == MATCH_PARTIAL for match in result)
+    
+        assert long_confident_miss > 0, "F5's default sample has no long+confident-Miss case at all"
+>       assert newly_partial > 0, (
+            f"real recall headroom check failed: 0 of {long_confident_miss} long+confident-Miss default-"
+            f"sample cases newly got a partial list at PARTIAL_COVERAGE_THRESHOLD={PARTIAL_COVERAGE_THRESHOLD}"
+        )
+E       AssertionError: real recall headroom check failed: 0 of 79 long+confident-Miss default-sample cases newly got a partial list at PARTIAL_COVERAGE_THRESHOLD=1.01
+E       assert 0 > 0
+
+tests\mcp\tools\test_search_docs_partial_tier.py:322: AssertionError
+_ test_partial_coverage_threshold_and_min_terms_are_the_cards_frozen_values_or_a_justified_deviation _
+
+    def test_partial_coverage_threshold_and_min_terms_are_the_cards_frozen_values_or_a_justified_deviation() -> (
+        None
+    ):
+        """``PARTIAL_LONG_QUERY_MIN_TERMS`` is exactly the card's own frozen 6. ``PARTIAL_COVERAGE_THRESHOLD``
+        is inside the card's own allowed 0.34-0.50 band, even though it is not the card's own suggested 0.40
+        default - see this module's own provenance comment and this worker's closeout report for the
+        measured, real reason (the literal LONGQ-001 pinned case, test (f) above)."""
+        assert PARTIAL_LONG_QUERY_MIN_TERMS == 6
+>       assert 0.34 <= PARTIAL_COVERAGE_THRESHOLD <= 0.50
+E       assert 1.01 <= 0.5
+
+tests\mcp\tools\test_search_docs_partial_tier.py:386: AssertionError
+=========================== short test summary info ===========================
+FAILED tests/mcp/tools/test_search_docs_partial_tier.py::test_measured_module_constants_are_self_consistent
+FAILED tests/mcp/tools/test_search_docs_partial_tier.py::test_short_query_never_reaches_partial_tier_despite_deliberately_high_passage_coverage
+FAILED tests/mcp/tools/test_search_docs_partial_tier.py::test_long_known_miss_query_gets_labelled_partial_matches
+FAILED tests/mcp/tools/test_search_docs_partial_tier.py::test_partial_matches_are_capped_at_max_partial_docs
+FAILED tests/mcp/tools/test_search_docs_partial_tier.py::test_partial_matches_respect_top_k_smaller_than_the_cap
+FAILED tests/mcp/tools/test_search_docs_partial_tier.py::test_default_sample_recall_headroom_is_real_and_honestly_measured
+FAILED tests/mcp/tools/test_search_docs_partial_tier.py::test_partial_coverage_threshold_and_min_terms_are_the_cards_frozen_values_or_a_justified_deviation
+
+--- stderr ---
+
