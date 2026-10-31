@@ -1,0 +1,129 @@
+id: TC-630
+gate: G3
+lane: storage-retrieval
+purpose: >-
+  FAILED_INTERNAL fix, found by an independent post-integration review of TC-627 (not part of the
+  original plan's own card table - a real defect discovered after acceptance, per AGENTS.md
+  "diagnose, repair, resume"). `search_docs.py`'s `_passage_match` (added by TC-627, Q7's labelled
+  partial tier) computes its best-window COVERAGE SCORE via `guarded_coverage` -> `coverage` ->
+  `_coverage_over` -> `relevance._term_present`, which is SYNONYM-AWARE (a term counts as present
+  when the window holds it OR any member of its `_SYNONYMS_OF` group - the four pinned groups are
+  `convert`/`conversion`, `colour`/`color`, `tab`/`sheet`/`worksheet`, `export`/`save`). But the
+  SAME function computes which terms were "matched" for its OWN `unmatched_terms` output via a
+  PLAIN set intersection (`frozenset(rule.terms) & {stem_token(token) for token in tokens}`), which
+  is NOT synonym-aware. Because the synonym-aware score can only be HIGHER than what a plain
+  intersection would support, `best_matched` can under-report relative to what actually drove the
+  score it is paired with.
+
+  Independently reproduced by direct execution before authoring this card: a rule whose terms
+  include `convert`, scored against a window containing only "conversion" (no literal "convert"),
+  scores a full `1.0` coverage (synonym match) while the plain-intersection `matched` set comes
+  back WITHOUT `convert` - so `unmatched_terms` wrongly lists `convert` as unmatched even though it
+  genuinely, correctly contributed to the passage's own admitting score. Two real consequences: (1)
+  `DocMatch.unmatched_terms` - whose entire purpose is to honestly tell a caller what a partial
+  answer could NOT explain - is sometimes wrong for any query touching one of the four synonym
+  groups; (2) `_partial_coverage`'s own admission gate (`len(matched) >= 2` distinct terms) reads
+  this SAME under-counted set, so it can wrongly REJECT an otherwise-eligible chunk whose real,
+  synonym-aware coverage score legitimately clears `PARTIAL_COVERAGE_THRESHOLD`, purely because the
+  plain-intersection count of distinct terms undercounts below 2 - a false-negative, under-recall
+  bug in the gate itself, not merely a cosmetic label error.
+
+  The fix is a one-line, already-proven-correct pattern reused from elsewhere in this SAME cluster
+  of cards: `lookup.py`'s own `_limitation_coverage` (written by the same cards' era) already
+  computes its own matched-term count via `relevance.present_terms(terms, tokens)` - synonym-aware,
+  correct. `_passage_match` should do the same instead of the plain set intersection.
+depends_on:
+  - TC-628
+write_paths:
+  - src/foss_mcp/mcp/tools/search_docs.py
+  - tests/mcp/tools/test_search_docs_partial_tier.py
+satisfies:
+  - REQ-G3-011
+source_refs:
+  - file: docs/DECISION_LOG.md
+    anchor: >-
+      ## 2026-10-30 — Round-2 portfolio audit remediation adopted: unified plan, governance decisions A-K
+      recorded (supervisor)
+    sha256: 62cf1403a592118e3fb6bd14c5336f8a997cc3181d44a585323ec9f1d385a931
+inputs:
+  - >-
+    READ FIRST: `relevance.present_terms` (synonym-aware matched-term lookup) and
+    `relevance._SYNONYMS_OF`/`SYNONYM_GROUPS` (the four pinned synonym groups:
+    `convert`/`conversion`, `colour`/`color`, `tab`/`sheet`/`worksheet`, `export`/`save`). Also read
+    `lookup.py`'s `_limitation_coverage` - it already uses `present_terms` correctly for
+    conceptually the exact same "how many of the rule's terms did this text actually explain"
+    question `_passage_match` is trying to answer.
+  - >-
+    Independently re-confirm the bug yourself before fixing it: construct a `_Rule` whose terms
+    include the stem of "convert" (and at least one other term so the "best window" is well
+    defined), call the real, current `_passage_match` against text whose only relevant word is
+    "conversion" (not "convert"), and confirm the returned coverage score reflects the synonym
+    match (reasonably high/full) while the returned matched-terms set is MISSING "convert" - i.e.
+    `rule.terms - matched` wrongly includes it. Then fix `_passage_match`'s `best_matched`
+    computation to use `present_terms(rule.terms, tokens)` instead of the plain stemmed-token
+    intersection, and confirm the same repro now correctly includes "convert" in `matched` (and
+    therefore NOT in `unmatched_terms`). Check first whether `present_terms` is already imported
+    into `search_docs.py` by this point (TC-628, this card's own dependency, may already have added
+    it for an unrelated purpose) before deciding whether you need to add the import yourself.
+  - >-
+    Also check, and fix if needed: does this same plain-intersection gap exist anywhere ELSE in
+    `search_docs.py` that TC-627/TC-628 added (e.g. any other place computing "which terms matched"
+    outside of `guarded_coverage`'s own internal, already-synonym-aware required-term check)? If
+    you find another instance, fix it the same way and say so in your closeout; if you find none,
+    say that explicitly too rather than leaving it unstated.
+  - >-
+    Add test cases to `tests/mcp/tools/test_search_docs_partial_tier.py` covering: (a) a partial-
+    tier match whose coverage was driven by a synonym (not the literal term) reports that term as
+    MATCHED, not in `unmatched_terms` - use one of the four real pinned synonym pairs, constructed
+    so the distinction is unambiguous (the literal stem must NOT appear anywhere in the test
+    window, only its synonym); (b) the `_partial_coverage` admission gate (`len(matched) >= 2`)
+    correctly ADMITS a candidate whose 2-distinct-term requirement is only met once synonyms are
+    counted (i.e. a case that would have been wrongly rejected before this fix - construct it so it
+    fails under the OLD plain-intersection logic and passes under the fix, proving the false-
+    negative is closed, not just the label). Every existing test in this file must keep passing
+    unchanged.
+  - >-
+    TC-628 (this card's own dependency) adds `tests/mcp/tools/test_lookup_table_guard_and_exact_
+    predicate.py`, which did not exist when this card was authored (so it is not in check 2's
+    command below) but will exist by the time you work this card. Also run it as part of your own
+    manual verification before committing, even though it is not in the declared checks - if your
+    fix broke anything there, stop and report rather than committing.
+actions:
+  - >-
+    Make search_docs's own partial-tier matched/unmatched-term computation synonym-aware,
+    consistent with the coverage score it is paired with and with lookup.py's own existing correct
+    pattern - fixing both a wrong unmatched_terms label and a false-negative in the partial tier's
+    own admission gate.
+checks:
+  - command: '{python} -m pytest tests/mcp/tools/test_search_docs_partial_tier.py -q -rfE -p no:cacheprovider'
+    expect: 'exit 0'
+    timeout_seconds: 180
+    junitxml: true
+    proves:
+      - REQ-G3-011
+  - command: '{python} -m pytest tests/mcp/tools/test_search_docs_partial_tier.py tests/mcp/tools/test_round3_retrieval_corpus.py tests/mcp/tools/test_forgiveness_acceptance.py tests/mcp/tools/test_nonsense_queries_miss.py tests/mcp/tools/test_relevance_idf_synonyms.py tests/mcp/tools/test_search_docs_title_passage_coverage.py tests/mcp/tools/test_lookup_forgiveness.py tests/conformance/test_sentence_wrapped_retrieval.py tests/conformance/test_precision_and_size_budget.py -q -rfE -p no:cacheprovider'
+    expect: 'exit 0'
+    timeout_seconds: 420
+    junitxml: true
+    proves:
+      - REQ-G3-011
+min_tests: 9
+requires:
+  - python
+network: false
+negative_control:
+  mutate: |
+    python -X utf8 -c "import pathlib; nl = chr(10); p = pathlib.Path('src/foss_mcp/mcp/tools/search_docs.py'); s = p.read_text(encoding='utf-8'); old = 'best_matched = present_terms(rule.terms, tokens)'; assert s.count(old) == 1, 'post-fix line text not found as expected - if your real fix reads differently, anchor on your own real line instead, in the same chr()-based style, and note the substitution in your closeout'; p.write_text(s.replace(old, 'best_matched = frozenset(rule.terms) & {stem_token(t) for t in tokens}  # TC-630 negative control: reinstate the synonym-blind intersection', 1), encoding='utf-8')"
+  rationale: >-
+    Reinstates the original plain, synonym-blind intersection this card replaces. The new
+    synonym-driven "matched, not unmatched" test case must fail under this mutation, and (if you
+    wrote it as a separate assertion) the admission-gate false-negative-closed case must also fail.
+evidence:
+  - evidence/build/G3/TC-630/receipt.json
+closeout:
+  - >-
+    search_docs's partial-tier matched/unmatched-term computation is now synonym-aware and
+    consistent with its own coverage score. State the real before/after behavior for your repro
+    case, and whether you found or ruled out any other instance of the same plain-intersection gap
+    elsewhere in search_docs.py.
+recovery: Re-run from a clean tree.
