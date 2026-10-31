@@ -92,13 +92,15 @@ requires:
 network: false
 negative_control:
   mutate: |
-    python -X utf8 -c "import pathlib; p = pathlib.Path('src/foss_mcp/mcp/tools/report_index_freshness.py'); s = p.read_text(encoding='utf-8'); old = 'if registry_served_version > indexed_version:'; assert s.count(old) == 1, 'comparison line text not found as expected - if your real fix reads differently, anchor on your own real line instead, in the same chr()-based style, and note the substitution in your closeout'; p.write_text(s.replace(old, 'if tuple(registry_served_version) > tuple(indexed_version):  # TC-629 negative control: reinstate the unpadded comparison', 1), encoding='utf-8')"
+    python -X utf8 -c "import pathlib; p = pathlib.Path('src/foss_mcp/mcp/tools/report_index_freshness.py'); s = p.read_text(encoding='utf-8'); old = 'if padded_registry_version > padded_indexed_version:'; assert s.count(old) == 1, 'comparison line text not found as expected - if your real fix reads differently, anchor on your own real line instead, in the same chr()-based style, and note the substitution in your closeout'; p.write_text(s.replace(old, 'if registry_served_version > indexed_version:  # TC-629 negative control: reinstate the unpadded comparison', 1), encoding='utf-8')"
   rationale: >-
-    Reinstates a direct, unpadded tuple comparison (wrapping both sides in a no-op `tuple()` call
-    keeps the line textually distinct from your own fixed line while being semantically identical
-    to the original bug - a plain, length-sensitive comparison). The new equal-at-different-
-    precision test case(s) must fail under this mutation; the genuinely-newer/genuinely-older
-    cases should still pass (they are not what this bug affects).
+    SUPERVISOR CORRECTION (post-worker, attempt 1): the worker's real fix introduces new
+    `padded_registry_version`/`padded_indexed_version` locals rather than reassigning the original
+    parameter names, so the anchor is updated to match. This mutate reverts the comparison to the
+    original, still-in-scope unpadded parameters - semantically identical to the pre-fix bug. The
+    new equal-at-different-precision test case(s) must fail under this mutation; the genuinely-
+    newer/genuinely-older cases should still pass (they are not what this bug affects) - confirmed
+    by the worker's own hand-verified dry run before this correction was committed.
 evidence:
   - evidence/build/G3/TC-629/receipt.json
 closeout:
