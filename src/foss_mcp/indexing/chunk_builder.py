@@ -587,6 +587,13 @@ def _reexport_pairs(entries: Sequence[Mapping[str, object]]) -> dict[int, int]:
     (a stub in another package, a stub module such as ``pkg/generated/document.py``). A definition that
     another pair already uses still counts; a shell never counts as a definition; two or more definitions
     leave the entry unpaired. Entries of other languages are never paired by this rule.
+
+    TC-631: neither heuristic rule above ever selects a test-source candidate/definition, whether or
+    not the caller already filtered test entries out of *entries* - this is the single shared root
+    both ``build_chunks_from_api_surface`` (which pre-filters) and ``run_extraction.
+    summarize_symbols`` (via ``symbol_identity.compute_canonical_identities``, which does not) reuse,
+    so a production entry can no longer be paired to a test-fixture entry of the same name/kind and
+    silently excluded from one caller's count but not the other's.
     """
     pairs = _explicit_reexport_pairs(entries)
     for index, entry in enumerate(entries):
@@ -609,12 +616,18 @@ def _reexport_pairs(entries: Sequence[Mapping[str, object]]) -> dict[int, int]:
             and other.get("name") == entry.get("name")
             and str(other.get("class_import") or "").startswith(prefix)
             and _has_members(other)
+            and not _is_test_source(other.get("file"))
         ]
         if len(candidates) == 1:
             pairs[index] = candidates[0]
     definitions: dict[tuple[str, str], list[int]] = {}
     for index, entry in enumerate(entries):
-        if index in pairs or not _has_members(entry) or not str(entry.get("file") or "").endswith(".py"):
+        if (
+            index in pairs
+            or not _has_members(entry)
+            or not str(entry.get("file") or "").endswith(".py")
+            or _is_test_source(entry.get("file"))
+        ):
             continue
         if entry.get("shadowed_by"):
             continue  # TC-532: the class an exported name replaced is nobody's definition by name
