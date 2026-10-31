@@ -170,7 +170,7 @@ requires:
 network: false
 negative_control:
   mutate: |
-    python -X utf8 -c "import pathlib; p = pathlib.Path('src/foss_mcp/mcp/tools/lookup.py'); s = p.read_text(encoding='utf-8'); old = 'if category_intent(query) is not None:\n        return MATCH_EXACT, ()'; assert s.count(old) == 1, 'post-fix branch text not found as expected - if your real fix reads differently (e.g. different whitespace/line-join), anchor on your own real line instead, in the same chr()-based style, and note the substitution in your closeout'; p.write_text(s.replace(old, 'if category_intent(query) is not None or True:  # TC-628 negative control: reinstate unconditional forced-exact\n        return MATCH_EXACT, ()', 1), encoding='utf-8')"
+    python -X utf8 -c "import pathlib; nl = chr(10); p = pathlib.Path('src/foss_mcp/mcp/tools/lookup.py'); s = p.read_text(encoding='utf-8'); old = 'if category_intent(query) is not None:' + nl + '        return MATCH_EXACT, ()'; assert s.count(old) == 1, 'post-fix branch text not found as expected - if your real fix reads differently (e.g. different whitespace/line-join), anchor on your own real line instead, in the same chr()-based style, and note the substitution in your closeout'; p.write_text(s.replace(old, 'if category_intent(query) is not None or True:  # TC-628 negative control: reinstate unconditional forced-exact' + nl + '        return MATCH_EXACT, ()', 1), encoding='utf-8')"
   rationale: >-
     Reinstates the pre-card behaviour of unconditionally forcing match_quality=exact (the ` or
     True` makes the branch fire on every call, exactly like the old `limitations_first or
