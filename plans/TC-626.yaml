@@ -123,7 +123,7 @@ actions:
 checks:
   - command: '{python} -m pytest tests/mcp/tools/test_relevance_doc_scope_weights_enabled.py tests/mcp/tools/test_relevance_doc_scope_weights.py tests/test_unwired_modules.py -q -rfE -p no:cacheprovider'
     expect: 'exit 0'
-    timeout_seconds: 180
+    timeout_seconds: 360
     junitxml: true
     proves:
       - REQ-G3-011
@@ -160,7 +160,12 @@ closeout:
     number honestly, whichever way it falls, and confirm which negative-control approach you used.
     Confirm tests/test_unwired_modules.py's stale _KNOWN_UNWIRED entry is removed and
     tests/mcp/tools/test_relevance_doc_scope_weights.py's dormant-marker test now correctly
-    asserts the live, enabled state.
+    asserts the live, enabled state. (Attempt 4, supervisor-only: check 1's timeout_seconds raised
+    180 -> 360 after root-causing a real, reproducible timeout via `-v --durations=0` -
+    `test_the_full_ratchet_bundle_passes_completely_through_the_real_wired_search_docs_and_lookup`
+    genuinely takes ~194s on its own, spawning a separate pytest subprocess that re-runs this
+    card's own check-2 bundle internally - slow, redundant with check 2, but a real, valid
+    additional confirmation, not a defect; no code/test change needed for this round.)
 recovery: >-
   If your OWN fresh measurement of the full ratchet bundle finds a regression the supervisor's
   pre-measurement did not catch (in search_docs or lookup specifically, not find_examples, which is
