@@ -17,12 +17,24 @@ derives richness from a release body's own text rather than a metadata field nob
 from __future__ import annotations
 
 import json
+import os
 import re
 from collections.abc import Iterable
 from dataclasses import dataclass, field
 
-from foss_mcp.indexing.generation_manifest import GenerationManifestStore
+from foss_mcp.indexing.gateway_embedding_provider import (
+    _API_KEY_ENV,
+    _ENDPOINT_ENV,
+    GatewayEmbeddingProvider,
+    Vector,
+)
+from foss_mcp.indexing.gateway_embedding_provider import (
+    GatewayEmbeddingProvider as _RealGatewayEmbeddingProvider,
+)
+from foss_mcp.indexing.generation_manifest import GenerationManifest, GenerationManifestStore
+from foss_mcp.indexing.lexical_index_writer import doc_id as _lexical_doc_id
 from foss_mcp.indexing.lexical_index_writer import query_lexical_index_scored, tokenize
+from foss_mcp.indexing.vector_index_writer import query_vector_index_scored
 from foss_mcp.mcp.response_budget import fence_blocks
 from foss_mcp.mcp.routing import Scope
 from foss_mcp.mcp.tools.relevance import (
@@ -42,8 +54,20 @@ from foss_mcp.mcp.tools.relevance import (
     stem_token,
 )
 from foss_mcp.mcp.tools.search_symbols import MATCH_EXACT, MATCH_PARTIAL, scope_key
+from foss_mcp.mcp.tools.vector_guard import (
+    QUERY_TIME_MAX_ATTEMPTS,
+    STATUS_OK,
+    STATUS_SKIPPED_ERROR,
+    get_guard,
+)
 
 SOURCE_KIND = "self_extracted"
+
+# G3/TC-633 (REQ-G3-011, QV2): mirrors find_examples.STATUS_NOT_CONFIGURED - a local copy, never
+# imported cross-module, exactly as that module's own comment on the identical check explains: a
+# real provider with no gateway endpoint/key configured means this deployment is lexical-only BY
+# DESIGN, never a gateway failure the circuit breaker should count.
+_STATUS_NOT_CONFIGURED = "not_configured"
 
 CONTENT_TYPES = ("getting_started", "developer_guide", "troubleshooting", "faq")
 
@@ -188,6 +212,10 @@ class DocMatch:
     # default argument"), confirmed by actually constructing the two classes before relying on it.
     match_quality: str = field(default=MATCH_EXACT, kw_only=True)
     unmatched_terms: tuple[str, ...] = field(default=(), kw_only=True)
+    # G3/TC-633 (REQ-G3-011, QV2): what kind of evidence produced this match - "lexical" for every
+    # existing construction (this file's confident/partial tiers, ``lookup.py``'s ``_limitation_docs``,
+    # needs no change) or ``MATCH_BASIS_EMBEDDING`` for the new doc-scoped vector fallback below.
+    match_basis: str = field(default="lexical", kw_only=True)
 
 
 # G3/TC-563: the most JSON bytes of chunk text one continuation part carries. The response budget is
@@ -359,6 +387,41 @@ PARTIAL_COVERAGE_THRESHOLD = 0.41
 # honestly-uncertain candidates are returned instead.
 _MAX_PARTIAL_DOCS = 3
 
+# G3/TC-633 (REQ-G3-011, QV2): the embedding-similarity match_basis label for the doc-scoped
+# vector fallback below - pinned equal to ``find_examples.MATCH_BASIS_EMBEDDING`` by test (never
+# imported cross-module, the same discipline ``EXAMPLE_MARKER``/``DOC_TITLE_PREFIX`` already
+# follow between this module and ``vector_index_writer.py``).
+MATCH_BASIS_EMBEDDING = "embedding_similarity"
+
+# G3/TC-633 (REQ-G3-011, QV2): the measured cosine-similarity floor for the doc-scoped vector
+# fallback (``_doc_vector_fallback`` below) - NOT ``find_examples``'s own 0.45
+# (``_VECTOR_SIMILARITY_THRESHOLD``) reused unmeasured: that threshold was measured over short,
+# homogeneous verified-example snippets, and documentation chunks are longer and more verbose, so
+# this worker independently re-measured fresh, over the real embedding gateway
+# (GPT_OSS_ENDPOINT/GPT_OSS_API_KEY, the real production Qwen gateway, 4096-dim) against every one
+# of the 407 real documentation chunks across all 32 real ``infra/demo-manifests`` pilots:
+#
+# - F5's own 5 nonsense sentences (``test_sentence_wrapped_retrieval.NONSENSE_SENTENCES``, built
+#   from vocabulary absent from every real pilot) measure a maximum cosine similarity of 0.5169
+#   against EVERY one of those 407 real doc chunks - well ABOVE ``find_examples``'s own 0.45,
+#   confirming the two distributions are not interchangeable: reusing 0.45 here would let pure
+#   nonsense queries fire this stage.
+# - A 64-case sample (2 real titled doc chunks per pilot x all 32 pilots, deterministic sample
+#   seed 633), each wrapped in one of F5's own 12 sentence frames and scored against its OWN real
+#   chunk, measures correct-chunk cosine similarity from 0.4816 to 0.7721 (mean 0.6651); the
+#   best-scoring WRONG chunk in the same pilot often scores just as high or higher (mean 0.6814,
+#   max 0.8211) - the same generic/verbose-chunk attractor risk DECISION_LOG's 2026-10-31 entry
+#   names, which is exactly why every match this stage returns is ``match_quality=MATCH_PARTIAL``,
+#   never ``MATCH_EXACT``, whatever its score.
+# - The literal LONGQ-001 query's own real "Installation, Dependencies, and Quick Start" chunk
+#   scores 0.7075 here, with a topically-adjacent "Scope and Limitations"-style chunk scoring
+#   0.7125 - this worker's own fresh measurement reproduces DECISION_LOG's 0.708/0.713 pair.
+#
+# 0.55 sits comfortably above the measured 0.5169 nonsense ceiling (a real 0.033 margin, not a
+# knife-edge one) while still clearing 59 of the 64 (92%) sampled real correct-chunk scores above -
+# a real, measured value, not an invented or reused one.
+DOC_VECTOR_SIMILARITY_THRESHOLD = 0.55
+
 
 def _passage_match(rule: _Rule, text: str) -> tuple[float, frozenset[str]]:
     """``passage_coverage``'s own best-window coverage, together with which of ``rule.terms``
@@ -432,6 +495,117 @@ def _partial_coverage(
         if score >= PARTIAL_COVERAGE_THRESHOLD and len(matched) >= 2:
             partial[doc_id] = (score, matched)
     return partial
+
+
+def _doc_vector_fallback(
+    manifest: GenerationManifest,
+    scope: Scope,
+    generation_id: str,
+    query: str,
+    top_k: int,
+    rule: _Rule,
+) -> tuple[list[DocMatch], str | None]:
+    """G3/TC-633 (REQ-G3-011, QV2): one more, strictly additive attempt when every lexical stage
+    above - ``_relevant_coverage``'s confident tier AND Q7's ``_partial_coverage`` partial tier -
+    has already found nothing for a long-enough query. Mirrors ``find_examples._vector_fallback``'s
+    structure end to end (the same ``GatewayEmbeddingProvider``, the same ``VectorFallbackGuard``
+    deadline+circuit-breaker, the same exception-safety contract) rather than inventing a second
+    one - see that function's own docstring for the full exception-safety discussion this one does
+    not repeat.
+
+    Reads ``manifest.payload.get("vector_index_docs")`` (TC-632's QV1 - absent on any generation
+    published before that card, or when ``--vector-scope-docs`` was not passed): a missing or empty
+    payload returns ``([], None)`` immediately, exactly as ``find_examples`` treats a missing
+    ``vector_index``. Ranks the WHOLE corpus via ``query_vector_index_scored`` (never pre-cut by
+    *top_k* first), filtered to points scoring at or above ``DOC_VECTOR_SIMILARITY_THRESHOLD`` (see
+    that constant's own measured-provenance comment), truncated to ``min(top_k, _MAX_PARTIAL_DOCS)``
+    only at the end - the same cap the existing partial tier above already applies.
+
+    Every ``DocMatch`` this returns carries ``match_quality=MATCH_PARTIAL`` and a ``match_basis`` of
+    ``MATCH_BASIS_EMBEDDING`` - NEVER ``MATCH_EXACT``: a pure cosine-similarity score is
+    not reliable enough to ever claim full confidence (DECISION_LOG's 2026-10-31 entry: the real
+    literal LONGQ-001 query scored its correct chunk 0.708 against a topically-adjacent wrong
+    chunk's 0.713, a near-tie). ``unmatched_terms`` is every one of *rule*'s terms - honestly
+    "unmatched" by lexical means, since that is exactly why this stage ran at all.
+
+    Fully exception-safe end to end: a missing gateway configuration, a network error, a
+    budget-exceeded error, a deadline overrun, an open circuit, or any other failure anywhere in
+    this stage returns ``([], status)`` instead of raising, so ``search_docs`` falls straight
+    through to its existing ``Miss`` return.
+    """
+    vector_payload = manifest.payload.get("vector_index_docs")
+    points = (vector_payload or {}).get("points") or []
+    if not points:
+        return [], None
+
+    # TC-562's own pattern (``find_examples``): with the real provider and no gateway endpoint or
+    # key configured, this deployment is lexical-only BY DESIGN - say so instead of reporting an
+    # error, and never ask the guard, so a missing configuration can never count as a gateway
+    # failure. A stand-in provider (any test double) is always asked.
+    if GatewayEmbeddingProvider is _RealGatewayEmbeddingProvider and not (
+        os.environ.get(_ENDPOINT_ENV, "").strip() and os.environ.get(_API_KEY_ENV, "").strip()
+    ):
+        return [], _STATUS_NOT_CONFIGURED
+
+    try:
+        guard = get_guard()
+    except Exception:
+        # An unusable deadline setting must not take the tool down: degrade to the lexical miss.
+        return [], STATUS_SKIPPED_ERROR
+
+    def _embed_query() -> Vector:
+        provider = GatewayEmbeddingProvider()
+        # Query time, not ingestion: one attempt and no longer than the guard's deadline. A
+        # stand-in provider that only has ``embed`` simply skips this.
+        set_limits = getattr(provider, "set_query_time_limits", None)
+        if set_limits is not None:
+            set_limits(max_attempts=QUERY_TIME_MAX_ATTEMPTS, timeout_seconds=guard.deadline_seconds)
+        return provider.embed([query])[0]
+
+    status, query_vector = guard.call(_embed_query)
+    if status != STATUS_OK:
+        return [], status
+    if query_vector is None:
+        return [], STATUS_SKIPPED_ERROR
+
+    try:
+        point_by_id = {point["point_id"]: point for point in points}
+        ranked = query_vector_index_scored(vector_payload, query_vector, top_k=len(points))
+
+        candidates: list[tuple[float, str, str]] = []  # (score, chunk_id, text)
+        for point_id, score in ranked:
+            if score < DOC_VECTOR_SIMILARITY_THRESHOLD:
+                continue
+            point = point_by_id[point_id]
+            candidates.append((score, point["chunk_id"], point["text"]))
+        # Highest score first; a stable tie-break on chunk_id for a deterministic order.
+        candidates.sort(key=lambda item: (-item[0], item[1]))
+
+        matches: list[DocMatch] = []
+        seen_chunk_ids: set[str] = set()
+        cap = min(top_k, _MAX_PARTIAL_DOCS)
+        for _score, chunk_id, text in candidates:
+            if chunk_id in seen_chunk_ids:
+                continue
+            seen_chunk_ids.add(chunk_id)
+            matches.append(
+                DocMatch(
+                    scope=scope,
+                    generation_id=generation_id,
+                    doc_id=_lexical_doc_id(generation_id, chunk_id),
+                    chunk_id=chunk_id,
+                    content_type=classify_content_type(text),
+                    text=text,
+                    match_quality=MATCH_PARTIAL,
+                    unmatched_terms=tuple(sorted(rule.terms)),
+                    match_basis=MATCH_BASIS_EMBEDDING,
+                )
+            )
+            if len(matches) >= cap:
+                break
+        return matches, None
+    except Exception:
+        return [], None
 
 
 def _miss_with_hint(
@@ -683,6 +857,24 @@ def search_docs(
                     )
                     for doc_id, (_score, matched) in ordered_partial
                 ]
+            # G3/TC-633 (REQ-G3-011, QV2): still nothing from either lexical tier. One more,
+            # strictly additive attempt against the doc-scoped vector index - gated on
+            # ``content_type is None`` (the combined, all-categories-together search path), NEVER
+            # when the caller passed an explicit category. ``lookup.py``'s ``_compose_from_docs``
+            # calls ``search_docs`` once PER category in a loop, always with an explicit
+            # ``candidate_type``, never ``None`` - so this gate is exactly what keeps one
+            # ``lookup()`` call from triggering several real embedding-gateway calls (one per
+            # category tried before any hit) instead of at most one. A direct caller doing a
+            # combined search (``content_type=None``) reaches this stage in one call;
+            # ``lookup.py``'s existing per-category composition is completely unaffected (QV3's
+            # job, out of this card's scope, is giving ``lookup`` its own single call to this
+            # stage after its per-category lexical loop is exhausted).
+            if content_type is None:
+                vector_matches, _note = _doc_vector_fallback(
+                    manifest, scope, active_generation_id, query, top_k, rule
+                )
+                if vector_matches:
+                    return vector_matches
         return _miss_with_hint(
             scope,
             original_query,
