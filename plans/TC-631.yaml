@@ -1,0 +1,165 @@
+id: TC-631
+gate: G3
+lane: storage-retrieval
+purpose: >-
+  FAILED_INTERNAL fix, found by an independent post-integration review of TC-612/TC-614/TC-620
+  (not part of the original plan's own card table - a real defect discovered after acceptance,
+  per AGENTS.md "diagnose, repair, resume"). The API-Coverage NUMERATOR (`chunk_builder.
+  build_chunks_from_api_surface`, TC-614) and DENOMINATOR (`run_extraction.summarize_symbols`,
+  TC-620) both dedupe via the SAME canonical-identity engine
+  (`symbol_identity.compute_canonical_identities`, which itself purely reuses `chunk_builder.
+  _reexport_pairs`/`_slot_units` - no separate grouping logic of its own), but the two real
+  callers feed it DIFFERENTLY FILTERED input: `build_chunks_from_api_surface` filters test-source
+  entries OUT of `candidates` BEFORE calling `_reexport_pairs` (so test entries never participate
+  in pairing at all for the numerator); `extract_pinned_repository` calls `compute_canonical_
+  identities(types)` over the FULL, raw, UNFILTERED list (test entries included), and
+  `summarize_symbols` only filters test entries out AFTERWARD, when deciding what to count - by
+  which point the identity/pairing decision has already been made using test entries as real
+  candidates.
+
+  `_reexport_pairs`'s own TC-541 member-less-class fallback rule (and the TC-382 `__init__.py`-stub
+  rule just above it) has NO test-source exclusion of its own - it pairs a member-less `class`/
+  `enum` entry with "the ONE `.py` entry of the same name and kind that has members, wherever it
+  lives," with no check that candidate is production code. So when `compute_canonical_identities`
+  is called on the full unfiltered list (the denominator path only), a member-less PRODUCTION
+  class can be paired, for identity purposes ONLY, to a has-members TEST-FIXTURE class of the same
+  name+kind - and both then get excluded from the denominator (the production shell because
+  `is_definition=False` once paired; the "definition" because it is itself a test entry, filtered
+  separately) - while the EXACT SAME production entry is still counted normally in the numerator,
+  where test entries were never even in the pairing pool. Net effect: a real production symbol can
+  silently vanish from the coverage DENOMINATOR only, while still being present (and counted) in
+  the NUMERATOR - i.e. `API-Coverage: N of M` can read `M` too small, understating the universe and
+  potentially reading N/M as > 100%.
+
+  Independently reproduced by direct execution before authoring this card: two entries named
+  `"Shape"`/kind `"class"` - one member-less in `app/shapes.py` (production), one WITH members in
+  `app/tests/helpers.py` (test dir) - fed through `compute_canonical_identities` as the full,
+  unfiltered list: the production shell pairs to the test-dir "definition" and is excluded from
+  the denominator; the SAME production entry, run through chunk_builder's own already-test-
+  filtered numerator path, is counted as `1`.
+
+  Fix, at the single shared root cause rather than patching either caller's calling convention:
+  `_reexport_pairs` itself should never pair an entry with a candidate that is a test source,
+  regardless of which caller's input happens to still contain test entries - this protects BOTH
+  current callers (and any future one) without needing to change either caller's own filtering
+  order or the documented, deliberate "identities indexed against the full, unfiltered types list"
+  contract `run_extraction.summarize_symbols`'s own docstring already describes.
+
+  ALSO NOTED, explicitly OUT OF SCOPE for this card (do not fix, just confirmed real and
+  pre-existing, not introduced by TC-612/614/620): `chunk_builder._is_test_source` and
+  `run_extraction._is_test_entry` are two INDEPENDENT, differently-implemented test-source
+  heuristics (the latter delegates to `tree_sitter_engine.tree_helpers._is_test_source_file`, a
+  more thorough check; the former is a simple suffix/directory check). Unifying them is a separate,
+  larger pre-existing-duplication cleanup, not this card's job - use `chunk_builder._is_test_source`
+  (the one already local to the function you are fixing) for this fix.
+depends_on:
+  - TC-614
+write_paths:
+  - src/foss_mcp/indexing/chunk_builder.py
+  - tests/indexing/test_chunk_builder_reexport_pairs_test_source_guard.py
+satisfies:
+  - REQ-G3-012
+source_refs:
+  - file: docs/DECISION_LOG.md
+    anchor: >-
+      ## 2026-10-30 — Round-2 portfolio audit remediation adopted: unified plan, governance decisions A-K
+      recorded (supervisor)
+    sha256: 62cf1403a592118e3fb6bd14c5336f8a997cc3181d44a585323ec9f1d385a931
+inputs:
+  - >-
+    READ FIRST: `src/foss_mcp/indexing/chunk_builder.py`'s `_reexport_pairs` function in full,
+    plus `build_chunks_from_api_surface`'s own call to it (line ~758: `candidates = [... if not
+    _is_test_source(entry.get("file"))]` - the numerator's own pre-filter), plus `src/foss_mcp/
+    extraction/run_extraction.py`'s `summarize_symbols` and `extract_pinned_repository` (the
+    denominator's own call to `symbol_identity.compute_canonical_identities(types)` over the FULL,
+    unfiltered list - read that function's own docstring, which explains WHY it is deliberately
+    unfiltered at that call site; your fix must not need to change that contract).
+  - >-
+    Independently re-confirm the bug yourself before fixing it: construct two entries (as plain
+    dicts, the same shape `api_surface.json` fixtures use) named the same, same `kind="class"`, one
+    member-less with `"file": "app/shapes.py"`, one WITH a non-empty `methods`/members list with
+    `"file": "app/tests/helpers.py"`. Call `symbol_identity.compute_canonical_identities` on the
+    two-entry list (as `run_extraction.extract_pinned_repository` does, unfiltered) and confirm the
+    production entry's own identity comes back `is_definition=False` (paired to the test entry).
+    Then fix `_reexport_pairs` so that NEITHER of its two heuristic rules (the TC-382 `__init__.py`-
+    stub rule, and the TC-541 member-less-class fallback rule just below it) ever selects a
+    candidate/definition that is a test source. Do not touch `_explicit_reexport_pairs` (the
+    `reexport_of`-driven rule just above both of these) - it follows an explicit, extractor-
+    declared relationship, not a name-collision heuristic, and a genuine `reexport_of` pointing at
+    a test entry would be a different, unrelated extractor-side question, not this card's job.
+  - >-
+    Use EXACTLY these two literal clauses (verbatim, so the supervisor's own negative-control
+    anchors below match your real commit) - add each as a new final `and`/`or` condition on its own
+    line, in the same style as the surrounding conditions, re-running `ruff format` afterward (a
+    reflow of surrounding lines is fine; keep each clause's own text byte-for-byte as given):
+    in the TC-382 rule's `candidates` list comprehension (the one ending `and _has_members(other)`),
+    add a new final line `and not _is_test_source(other.get("file"))`. In the TC-541 rule's
+    `definitions` loop (the one whose first `if` ends `.endswith(".py"):`), change that `if` to
+    also skip test entries by adding `or _is_test_source(entry.get("file"))` as one more `or`
+    clause before the final `:` (ruff format may reflow this whole condition onto multiple lines -
+    that is fine, the clause's own text is what matters).
+  - >-
+    Confirm, after your fix, that the SAME two-entry repro above now correctly leaves the
+    production entry's own identity as `is_definition=True` (its own unit, uncollapsed, since its
+    only same-name candidate is a test entry and must now be excluded from consideration) - and
+    that `chunk_builder.build_chunks_from_api_surface`'s own numerator path (which already
+    pre-filters test entries before calling `_reexport_pairs`, so this fix should be a complete
+    NO-OP for it - confirm this explicitly, not just assumed) is byte-for-byte unchanged on every
+    existing fixture.
+  - >-
+    tests/indexing/test_chunk_builder_reexport_pairs_test_source_guard.py must prove, with
+    synthetic in-memory entries (no real fixture needed for this one - the bug is a pure logic gap,
+    reproducible with 2-3 hand-built dict entries): (a) the exact repro case above - a member-less
+    production entry is no longer paired to a has-members test-dir entry of the same name/kind,
+    under BOTH of the two heuristic rules you are fixing (construct one case per rule); (b) the
+    SAME scenario but with the "definition" entry moved to a non-test directory still pairs
+    correctly (proving you did not just disable the rule outright); (c) the NUMERATOR path
+    (`build_chunks_from_api_surface`, which already pre-filters) and the DENOMINATOR path
+    (`run_extraction.summarize_symbols` fed via `compute_canonical_identities` over the SAME
+    unfiltered entries) now agree on whether the production entry counts, for your exact repro case
+    - this is the card's own real acceptance bar (numerator/denominator CONSISTENCY), so write it
+    as a direct, explicit comparison between the two real functions' own real outputs, not merely
+    an assertion about `_reexport_pairs` in isolation.
+actions:
+  - >-
+    Make chunk_builder._reexport_pairs never pair a production entry's identity to a test-source
+    candidate, at the single shared root the coverage numerator and denominator both already reuse
+    - closing a real numerator/denominator inconsistency that could understate the denominator and
+    read coverage above 100%, without changing either caller's own filtering order or contract.
+checks:
+  - command: '{python} -m pytest tests/indexing/test_chunk_builder_reexport_pairs_test_source_guard.py -q -rfE -p no:cacheprovider'
+    expect: 'exit 0'
+    timeout_seconds: 180
+    junitxml: true
+    proves:
+      - REQ-G3-012
+  - command: '{python} -m pytest tests/indexing/test_chunk_builder_reexport_pairs_test_source_guard.py tests/indexing/test_chunk_builder_coverage_line.py tests/extraction/test_reextracted_uncapped.py tests/extraction/test_run_extraction_canonical_counts.py tests/extraction/test_run_extraction_coverage_policy.py tests/indexing/test_symbol_identity.py -q -rfE -p no:cacheprovider'
+    expect: 'exit 0'
+    timeout_seconds: 300
+    junitxml: true
+    proves:
+      - REQ-G3-012
+min_tests: 8
+requires:
+  - python
+network: false
+negative_control:
+  mutate: |
+    python -X utf8 -c "import pathlib; p = pathlib.Path('src/foss_mcp/indexing/chunk_builder.py'); s = p.read_text(encoding='utf-8'); a = 'and not _is_test_source(other.get(' + chr(34) + 'file' + chr(34) + '))'; b = 'or _is_test_source(entry.get(' + chr(34) + 'file' + chr(34) + '))'; assert s.count(a) == 1, 'TC-382-rule exclusion clause not found verbatim - use the exact clause text the card gives you, or anchor on your own real line instead and note the substitution in your closeout'; assert s.count(b) == 1, 'TC-541-rule exclusion clause not found verbatim - use the exact clause text the card gives you, or anchor on your own real line instead and note the substitution in your closeout'; s = s.replace(a, 'and True', 1); s = s.replace(b, 'or False', 1); p.write_text(s, encoding='utf-8')"
+  rationale: >-
+    Neutralizes both of this card's new exclusion clauses to a no-op (`and True`, `or False`),
+    reverting both heuristic rules to their pre-fix, test-source-blind behaviour at once. The
+    cross-path numerator/denominator consistency test (check (c), comparing
+    build_chunks_from_api_surface's own output against summarize_symbols fed the same unfiltered
+    entries) must fail under this mutation; cases (a)/(b) that exercise each rule directly must
+    also fail.
+evidence:
+  - evidence/build/G3/TC-631/receipt.json
+closeout:
+  - >-
+    chunk_builder._reexport_pairs never pairs a production entry to a test-source candidate; the
+    coverage numerator and denominator are now provably consistent for the repro case. State the
+    real before/after behavior, and the exact mutate text you recommend the supervisor use (see the
+    negative_control note above - this card's own mutate is a placeholder the supervisor must fix
+    before review).
+recovery: Re-run from a clean tree.
