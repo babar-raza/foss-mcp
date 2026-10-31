@@ -58,12 +58,28 @@ purpose: >-
   3 Decision F first, then `tests/conformance/test_precision_and_size_budget.py` in full (it is
   your single best source of truth for both of this card's own named target bugs and how to
   measure them against the real 32-pilot corpus).
+
+  SUPERVISOR AMENDMENT (card edit, attempt 1 still in progress, before any commit - not a rework):
+  this card's own fix 2 widens the table guard to EVERY `search_docs` call, which legitimately,
+  correctly narrows the result of `tests/mcp/tools/test_search_docs_query_normalization.py::
+  test_platform_exclusion_narrows_search_docs_own_matches_on_the_real_pilot`'s own "before" count
+  from 4 to 3 chunks (that test isolates "life before TC-617's platform exclusion" by reverting
+  only `_rule_for`, which never mediated this card's own new, direct `distinctive_terms` call for
+  table admission - so the "before" simulation now also benefits from this card's always-on guard,
+  correctly). This file is added to `write_paths` below SPECIFICALLY to fix that one stale
+  hardcoded count (`assert len(before) == 4` -> `assert len(before) == 3`, plus its docstring's
+  "returns 4 chunks" -> "returns 3 chunks", crediting this card's own table-admission guard for the
+  extra correct narrowing) - nothing else in that file. Every other assertion in that same test
+  function must be independently re-confirmed by you to still hold with the corrected number
+  (`len(after)`, `after_ids <= before_ids`, the titles check) - do not just change the one number
+  and assume the rest follows.
 depends_on:
   - TC-627
 write_paths:
   - src/foss_mcp/mcp/tools/search_docs.py
   - src/foss_mcp/mcp/tools/lookup.py
   - tests/mcp/tools/test_lookup_table_guard_and_exact_predicate.py
+  - tests/mcp/tools/test_search_docs_query_normalization.py
 satisfies:
   - REQ-G3-011
 source_refs:
