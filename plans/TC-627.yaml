@@ -202,15 +202,22 @@ requires:
 network: false
 negative_control:
   mutate: |
-    python -X utf8 -c "import pathlib; p = pathlib.Path('src/foss_mcp/mcp/tools/search_docs.py'); s = p.read_text(encoding='utf-8'); old = 'PARTIAL_COVERAGE_THRESHOLD = 0.40'; assert s.count(old) == 1, 'threshold literal not found as expected - if you chose a different tau_p value, anchor on your own real post-fix line instead, in the same chr()-based style, and note the substitution in your closeout'; p.write_text(s.replace(old, 'PARTIAL_COVERAGE_THRESHOLD = 1.01  # TC-627 negative control: no chunk can ever clear this', 1), encoding='utf-8')"
+    python -X utf8 -c "import pathlib; p = pathlib.Path('src/foss_mcp/mcp/tools/search_docs.py'); s = p.read_text(encoding='utf-8'); old = 'PARTIAL_COVERAGE_THRESHOLD = 0.41'; assert s.count(old) == 1, 'threshold literal not found as expected - the card and the real committed source have diverged again; anchor on the real current line instead, in the same chr()-based style, and note the substitution'; p.write_text(s.replace(old, 'PARTIAL_COVERAGE_THRESHOLD = 1.01  # TC-627 negative control: no chunk can ever clear this', 1), encoding='utf-8')"
   rationale: >-
+    SUPERVISOR CORRECTION (post-worker, attempt 1): the worker independently measured a real
+    collision at the card's own suggested 0.40 (a "Key Capabilities and API Reference" chunk
+    clearing 0.40 on the literal LONGQ-001 query itself, flipping test (f) to a wrong-chunk partial
+    hit) and justifiably used 0.41 instead, inside the allowed 0.34-0.50 band, documenting the real
+    numbers in a module-level comment. The anchor above is updated to match the real committed
+    line; dry-run confirmed by the supervisor directly against the worker's own commit (backup,
+    mutate, run tests, restore, confirm a clean diff) before this correction was committed.
+
     Raises the partial-tier admission floor above 1.0, so no chunk can ever clear it - this
     collapses the whole new mechanism back to today's behaviour (every long, currently-failing
     query falls straight through to the unchanged Miss path) without touching any other code path.
-    Test (b) (a known-Miss long query now gets a labelled partial list) must fail; test (e)/(f)
-    (nonsense/LONGQ-001 stay Miss) must keep passing, since they were already Miss before this
-    card and remain Miss either way - this mutate's failure signal is specifically test (b) (and,
-    if you wrote it, test (g)'s nonzero-count assertion).
+    Confirmed to fail 7 of the new file's 12 tests, including the known-Miss-long-query-gets-a-
+    partial-list case and the recall-headroom nonzero-count case; the nonsense/LONGQ-001-stays-Miss
+    cases correctly keep passing either way, since they were already Miss before this card.
 evidence:
   - evidence/build/G3/TC-627/receipt.json
 closeout:
