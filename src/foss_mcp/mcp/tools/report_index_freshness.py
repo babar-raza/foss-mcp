@@ -452,7 +452,13 @@ def report_index_freshness(
     if registry_served_version is not None and indexed_version is not None:
         indexed_text = ".".join(str(part) for part in indexed_version)
         registry_text = ".".join(str(part) for part in registry_served_version)
-        if registry_served_version > indexed_version:
+        # G3/TC-629: pad both tuples to equal width with trailing zeros before comparing, the
+        # same pattern release_alignment.release_in_index already uses - a version served at
+        # higher precision than the manifest declares (e.g. "26.7.0" vs "26.7") is not newer.
+        width = max(len(registry_served_version), len(indexed_version))
+        padded_registry_version = registry_served_version + (0,) * (width - len(registry_served_version))
+        padded_indexed_version = indexed_version + (0,) * (width - len(indexed_version))
+        if padded_registry_version > padded_indexed_version:
             return build(
                 "stale",
                 f"the package registry serves version {registry_text}, newer than the indexed "

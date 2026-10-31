@@ -20,6 +20,16 @@ from tests.mcp.tools.test_freshness_tristate import _OTHER_COMMIT, _PYTHON_26_7
 
 SCOPE = Scope(family="pdf", platform="net")
 
+# G3/TC-629: a manifest declaring a 2-segment version ("26.7"), to exercise the mixed-precision
+# comparison against a 3-segment registry_served_version - the exact shape of the real bug
+# (`(26, 7) < (26, 7, 0)` is True under a plain, unpadded tuple comparison, even though the two
+# are the same version).
+_PYTHON_26_7_SHORT = ProductReferenceInputs(
+    manifest_text='[project]\nname = "x"\nversion = "26.7"\n',
+    platform="python",
+    source_repository="aspose-cells-foss/Aspose.Cells-FOSS-for-Python",
+)
+
 
 def _single(tmp_path: Path) -> GenerationManifestStore:
     return _publish(tmp_path / "m", [_symbol("Alpha", SYMBOL_COMMIT), _symbol("Beta", SYMBOL_COMMIT)])
@@ -128,6 +138,103 @@ def test_registry_served_version_older_than_indexed_is_fresh(tmp_path: Path) -> 
     assert report.stale is False
     assert report.reason == (
         "the package registry serves version 26.6.0, no newer than the indexed package version 26.7.0"
+    )
+
+
+# --- (c2) G3/TC-629: an equal version at mismatched precision must never read as "newer" -----
+
+
+def test_registry_served_version_equal_at_higher_precision_than_indexed_is_fresh_not_stale(
+    tmp_path: Path,
+) -> None:
+    """Regression for TC-629: indexed manifest version (26, 7), registry-served (26, 7, 0) - the
+    exact same version, written at different precision. A plain, unpadded tuple comparison reads
+    the shorter indexed tuple as older (`(26, 7) < (26, 7, 0)` is True in Python), which would
+    falsely report "stale". Padding both to equal width before comparing must report "fresh"."""
+    store = _single(tmp_path)
+
+    report = _report(
+        store,
+        None,
+        product_reference=_PYTHON_26_7_SHORT,
+        registry_served_version=(26, 7, 0),
+    )
+
+    assert report.freshness_state == "fresh"
+    assert report.freshness_basis == "registry_served_version"
+    assert report.stale is False
+    assert report.reason == (
+        "the package registry serves version 26.7.0, no newer than the indexed package version 26.7"
+    )
+
+
+def test_registry_served_version_equal_at_lower_precision_than_indexed_is_fresh_not_stale(
+    tmp_path: Path,
+) -> None:
+    """Symmetric case: indexed manifest version (26, 7, 0), registry-served (26, 7) - again the
+    same version, just with the shorter tuple on the registry side this time. Must still be
+    "fresh", not a false "shorter tuple is older" reading in the other direction."""
+    store = _single(tmp_path)
+
+    report = _report(
+        store,
+        None,
+        product_reference=_PYTHON_26_7,
+        registry_served_version=(26, 7),
+    )
+
+    assert report.freshness_state == "fresh"
+    assert report.freshness_basis == "registry_served_version"
+    assert report.stale is False
+    assert report.reason == (
+        "the package registry serves version 26.7, no newer than the indexed package version 26.7.0"
+    )
+
+
+def test_registry_served_version_genuinely_newer_at_different_precision_is_still_stale(
+    tmp_path: Path,
+) -> None:
+    """A genuinely newer registry version at different precision (26, 8, 0) against an indexed
+    (26, 7) must still correctly report "stale" - the padding fix must not blur a real difference."""
+    store = _single(tmp_path)
+
+    report = _report(
+        store,
+        None,
+        product_reference=_PYTHON_26_7_SHORT,
+        registry_served_version=(26, 8, 0),
+    )
+
+    assert report.freshness_state == "stale"
+    assert report.freshness_basis == "registry_served_version"
+    assert report.stale is True
+    assert report.reason == (
+        "the package registry serves version 26.8.0, newer than the indexed package version 26.7"
+    )
+
+
+def test_registry_served_version_genuinely_older_at_different_precision_is_still_fresh(
+    tmp_path: Path,
+) -> None:
+    """A genuinely older registry version at different precision (26, 7) against an indexed
+    (26, 8, 0) must still correctly report "fresh"."""
+    store = _single(tmp_path)
+
+    report = _report(
+        store,
+        None,
+        product_reference=ProductReferenceInputs(
+            manifest_text='[project]\nname = "x"\nversion = "26.8.0"\n',
+            platform="python",
+        ),
+        registry_served_version=(26, 7),
+    )
+
+    assert report.freshness_state == "fresh"
+    assert report.freshness_basis == "registry_served_version"
+    assert report.stale is False
+    assert report.reason == (
+        "the package registry serves version 26.7, no newer than the indexed package version 26.8.0"
     )
 
 
