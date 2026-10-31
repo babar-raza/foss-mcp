@@ -59,9 +59,11 @@ purpose: >-
 depends_on:
   - TC-628
   - TC-633
+  - TC-572
 write_paths:
   - src/foss_mcp/mcp/tools/lookup.py
   - tests/mcp/tools/test_lookup_vector_fallback.py
+  - tests/mcp/tools/test_retrieval_tools.py
 satisfies:
   - REQ-G3-011
 source_refs:
@@ -72,6 +74,21 @@ source_refs:
       supervisor)
     sha256: 9cbb486b3e74401f32b6e70ef04c40cd2b897b9ab47651ae02db7ad1cbc84a47
 inputs:
+  - >-
+    SUPERVISOR AMENDMENT after attempt 1's real `gatectl review`: attempt 1's own implementation
+    of mechanism 1 was correct, but review's related-tests sweep found one real, legitimate
+    collateral regression: `tests/mcp/tools/test_retrieval_tools.py::
+    test_an_example_answer_survives_zero_documentation_matches` monkeypatches
+    `lookup.search_docs` with a fake `_forced_miss(store_arg, scope, query, content_type, *args,
+    **kwargs)` whose `content_type` parameter has NO default - calling it the new way (no
+    `content_type` argument at all, relying on the real function's own `content_type: str |
+    None = None` default) raises `TypeError: missing 1 required positional argument:
+    'content_type'`. This is a legitimately stale test double, not a design problem: give
+    `_forced_miss`'s `content_type` parameter the same default the real `search_docs` function
+    already has (`content_type: str | None = None`) so it accepts being called either way, exactly
+    matching the real function's own contract. Do not touch anything else in this test file, and
+    do not weaken the test's own assertions - only widen that one fake function's signature to
+    match the real one it stands in for.
   - >-
     READ FIRST: `lookup.py`'s `_compose_from_docs` and `_answer_quality` in full. Then
     `search_docs.py`'s `search_docs` function's own `content_type is None` gate around its new
