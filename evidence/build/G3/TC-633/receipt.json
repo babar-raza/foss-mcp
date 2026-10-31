@@ -1,0 +1,111 @@
+{
+  "schema_version": 1,
+  "card": "TC-633",
+  "gate": "G3",
+  "generated_by": "gatectl",
+  "generated_at": "2026-10-31T20:07:32Z",
+  "base_rev": "9c07cb6ec86fea5901014057246e0ce7b273a849",
+  "head_rev": "1f950b3a014f4728dd2b6b4510dcb5923903b680",
+  "card_sha256": "7ac17c038242befa60ce70ff603d4425cea97d193e2a1ff2c66f1570760e45db",
+  "fingerprint": {
+    "python": "3.13.2",
+    "platform": "Windows-11-10.0.26300-SP0",
+    "lock_sha256": "5c72e798a73c059a438e752e94a8d4c88c1bdf81a197f6e5c5fcecbc9466a691",
+    "env": {
+      "PYTHONHASHSEED": "0",
+      "PYTHONUTF8": "1",
+      "PYTHONDONTWRITEBYTECODE": "1",
+      "PYTHONIOENCODING": "utf-8",
+      "TZ": "UTC",
+      "LC_ALL": "C.UTF-8",
+      "SOURCE_DATE_EPOCH": "1700000000",
+      "verify_runner": "host"
+    }
+  },
+  "scope": {
+    "ok": true,
+    "changed_paths": [
+      "src/foss_mcp/mcp/tools/search_docs.py",
+      "tests/mcp/tools/test_search_docs_vector_fallback.py"
+    ],
+    "violations": [],
+    "evaluated": true
+  },
+  "runs": [
+    {
+      "run": 1,
+      "checks": [
+        {
+          "command": "{python} -m pytest tests/mcp/tools/test_search_docs_vector_fallback.py -q -rfE -p no:cacheprovider",
+          "exit_code": 0,
+          "duration_s": 26.072,
+          "stdout_sha256": "fe9dca0451129aaabdd76ea13e310b61a52091a146a1f9fe5b72b851eb33547f",
+          "tests": 14,
+          "skipped": 0,
+          "errors": 0,
+          "failures": 0
+        },
+        {
+          "command": "{python} -m pytest tests/mcp/tools/test_search_docs_partial_tier.py tests/mcp/tools/test_search_docs_query_normalization.py tests/mcp/tools/test_lookup_table_guard_and_exact_predicate.py tests/mcp/tools/test_find_examples_vector_deadline.py tests/mcp/test_round3_doc_excerpt.py -q -rfE -p no:cacheprovider",
+          "exit_code": 0,
+          "duration_s": 16.585,
+          "stdout_sha256": "0fad0a991838d695f5b48bbf12bcd6b46118e3a0347be88208246da3c20abc37",
+          "tests": 77,
+          "skipped": 0,
+          "errors": 0,
+          "failures": 0
+        }
+      ],
+      "all_passed": true
+    },
+    {
+      "run": 2,
+      "checks": [
+        {
+          "command": "{python} -m pytest tests/mcp/tools/test_search_docs_vector_fallback.py -q -rfE -p no:cacheprovider",
+          "exit_code": 0,
+          "duration_s": 9.804,
+          "stdout_sha256": "fe9dca0451129aaabdd76ea13e310b61a52091a146a1f9fe5b72b851eb33547f",
+          "tests": 14,
+          "skipped": 0,
+          "errors": 0,
+          "failures": 0
+        },
+        {
+          "command": "{python} -m pytest tests/mcp/tools/test_search_docs_partial_tier.py tests/mcp/tools/test_search_docs_query_normalization.py tests/mcp/tools/test_lookup_table_guard_and_exact_predicate.py tests/mcp/tools/test_find_examples_vector_deadline.py tests/mcp/test_round3_doc_excerpt.py -q -rfE -p no:cacheprovider",
+          "exit_code": 0,
+          "duration_s": 14.999,
+          "stdout_sha256": "0fad0a991838d695f5b48bbf12bcd6b46118e3a0347be88208246da3c20abc37",
+          "tests": 77,
+          "skipped": 0,
+          "errors": 0,
+          "failures": 0
+        }
+      ],
+      "all_passed": true
+    }
+  ],
+  "negative_control": {
+    "kind": "mutate",
+    "patch": "python -X utf8 -c \"import pathlib; p = pathlib.Path('src/foss_mcp/mcp/tools/search_docs.py'); s = p.read_text(encoding='utf-8'); old = 'match_basis=MATCH_BASIS_EMBEDDING'; assert s.count(old) == 1, 'match_basis=MATCH_BASIS_EMBEDDING literal not found as expected - if your real code reads differently, anchor on your own real literal instead and note the substitution in your closeout'; q = chr(34); new = 'match_basis=' + q + 'lexical' + q + '  # TC-633 negative control: mislabel the vector match as lexical'; p.write_text(s.replace(old, new, 1), encoding='utf-8')\"\n",
+    "patch_sha256": "dccd4eba768436879ac0f74d2502281fd1ae5a030407ecf0559da8c6b6e6646e",
+    "applied": true,
+    "patch_applied_failed": true,
+    "exit_codes": [
+      1,
+      0
+    ],
+    "tree_changed": [
+      "M src/foss_mcp/mcp/tools/search_docs.py",
+      "?? .junit-0.xml",
+      "?? .junit-1.xml"
+    ]
+  },
+  "holdout": {
+    "ran": false,
+    "passed": true,
+    "detail": "no holdout for this card"
+  },
+  "accepted": true,
+  "reason": "all gates passed"
+}

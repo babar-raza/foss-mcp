@@ -1,0 +1,168 @@
+
+===== CLEAN RUN 1 (host) =====
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-5c72e798a73c059a\Scripts\python.exe -m pytest tests/mcp/tools/test_search_docs_vector_fallback.py -q -rfE -p no:cacheprovider "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-1yuwciji\.junit-0.xml"
+--- stdout ---
+..............                                                           [100%]
+
+--- stderr ---
+
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-5c72e798a73c059a\Scripts\python.exe -m pytest tests/mcp/tools/test_search_docs_partial_tier.py tests/mcp/tools/test_search_docs_query_normalization.py tests/mcp/tools/test_lookup_table_guard_and_exact_predicate.py tests/mcp/tools/test_find_examples_vector_deadline.py tests/mcp/test_round3_doc_excerpt.py -q -rfE -p no:cacheprovider "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-1yuwciji\.junit-1.xml"
+--- stdout ---
+........................................................................ [ 93%]
+.....                                                                    [100%]
+
+--- stderr ---
+
+
+===== CLEAN RUN 2 (host) =====
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-5c72e798a73c059a\Scripts\python.exe -m pytest tests/mcp/tools/test_search_docs_vector_fallback.py -q -rfE -p no:cacheprovider "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-1yuwciji\.junit-0.xml"
+--- stdout ---
+..............                                                           [100%]
+
+--- stderr ---
+
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-5c72e798a73c059a\Scripts\python.exe -m pytest tests/mcp/tools/test_search_docs_partial_tier.py tests/mcp/tools/test_search_docs_query_normalization.py tests/mcp/tools/test_lookup_table_guard_and_exact_predicate.py tests/mcp/tools/test_find_examples_vector_deadline.py tests/mcp/test_round3_doc_excerpt.py -q -rfE -p no:cacheprovider "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-1yuwciji\.junit-1.xml"
+--- stdout ---
+........................................................................ [ 93%]
+.....                                                                    [100%]
+
+--- stderr ---
+
+
+===== NEGATIVE CONTROL (checks MUST now fail) =====
+mutated: M src/foss_mcp/mcp/tools/search_docs.py, ?? .junit-0.xml, ?? .junit-1.xml
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-5c72e798a73c059a\Scripts\python.exe -m pytest tests/mcp/tools/test_search_docs_vector_fallback.py -q -rfE -p no:cacheprovider "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-1yuwciji\.junit-0.xml"
+--- stdout ---
+....F......FF.                                                           [100%]
+================================== FAILURES ===================================
+________ test_vector_fallback_finds_a_match_the_lexical_stages_missed _________
+
+tmp_path = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-18415/test_vector_fallback_finds_a_m0')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x0000022E934727A0>
+
+    def test_vector_fallback_finds_a_match_the_lexical_stages_missed(
+        tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        store = _store(tmp_path)
+        chunks = _three_chunk_fixture()
+        generation_id = _publish_docs(store, PDF_NET_SCOPE, chunks, _fixed_vectors_provider())
+        monkeypatch.setattr(search_docs_module, "GatewayEmbeddingProvider", _vector_query_provider(0.9))
+    
+        result = search_docs(store, PDF_NET_SCOPE, NONSENSE_LONG_QUERY)
+    
+        assert isinstance(result, list) and result, result
+        assert all(isinstance(match, DocMatch) for match in result)
+        assert all(match.match_quality == MATCH_PARTIAL for match in result)
+        assert all(match.match_quality != MATCH_EXACT for match in result)
+>       assert all(match.match_basis == MATCH_BASIS_EMBEDDING for match in result)
+E       assert False
+E        +  where False = all(<generator object test_vector_fallback_finds_a_match_the_lexical_stages_missed.<locals>.<genexpr> at 0x0000022EFFFA7E00>)
+
+tests\mcp\tools\test_search_docs_vector_fallback.py:304: AssertionError
+_ test_content_type_guard_blocks_the_gateway_per_category_but_not_for_the_combined_search _
+
+tmp_path = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-18415/test_content_type_guard_blocks0')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x0000022EFFE4EC30>
+
+    def test_content_type_guard_blocks_the_gateway_per_category_but_not_for_the_combined_search(
+        tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """``lookup.py``'s ``_compose_from_docs`` calls ``search_docs`` once PER category, always with an
+        explicit ``candidate_type``, never ``content_type=None`` - so this new stage must NEVER fire for
+        an explicit ``content_type=`` call (else one ``lookup()`` could trigger several real
+        embedding-gateway calls, one per category tried before any hit), and MUST fire for the combined,
+        ``content_type=None`` search. Both directions, same query and fixture, in one test."""
+        store = _store(tmp_path)
+        chunks = _three_chunk_fixture()
+        _publish_docs(store, PDF_NET_SCOPE, chunks, _fixed_vectors_provider())
+    
+        # VECTOR_TARGET_TEXT's title ("Internationalization") classifies as "developer_guide" - a real,
+        # non-empty category this query's own lexical stages still miss inside.
+        counting = _CountingProvider()
+        monkeypatch.setattr(search_docs_module, "GatewayEmbeddingProvider", counting)
+    
+        per_category_result = search_docs(store, PDF_NET_SCOPE, NONSENSE_LONG_QUERY, "developer_guide")
+    
+        assert isinstance(per_category_result, Miss), per_category_result
+        assert counting.constructed == 0, "an explicit content_type= call must never reach the gateway"
+    
+        monkeypatch.setattr(search_docs_module, "GatewayEmbeddingProvider", _vector_query_provider(0.9))
+    
+        combined_result = search_docs(store, PDF_NET_SCOPE, NONSENSE_LONG_QUERY, content_type=None)
+    
+        assert isinstance(combined_result, list) and combined_result, combined_result
+>       assert all(match.match_basis == MATCH_BASIS_EMBEDDING for match in combined_result)
+E       assert False
+E        +  where False = all(<generator object test_content_type_guard_blocks_the_gateway_per_category_but_not_for_the_combined_search.<locals>.<genexpr> at 0x0000022E9344DE50>)
+
+tests\mcp\tools\test_search_docs_vector_fallback.py:448: AssertionError
+_ test_a_real_longq_001_style_query_gets_a_real_vector_match_against_the_real_gateway _
+
+tmp_path = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-18415/test_a_real_longq_001_style_qu0')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x0000022E9338AED0>
+
+    @pytest.mark.skipif(
+        not _REAL_CREDS_PRESENT,
+        reason="GPT_OSS_ENDPOINT/GPT_OSS_API_KEY not set in this environment - real-gateway proof skipped",
+    )
+    def test_a_real_longq_001_style_query_gets_a_real_vector_match_against_the_real_gateway(
+        tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """The literal LONGQ-001 query against a generation built from pdf/net's REAL, committed doc
+        chunks (``infra/demo-manifests``), with a REAL ``vector_index_docs`` payload built via
+        ``publish_generation`` and the REAL ``GatewayEmbeddingProvider`` (TC-632's own test pattern) - not
+        a hand-picked fake vector. This worker's own fresh measurement (closeout report) found this exact
+        query's own real "Installation, Dependencies, and Quick Start" chunk scores 0.7075 and a
+        topically-adjacent chunk scores 0.7125 - both comfortably above ``DOC_VECTOR_SIMILARITY_THRESHOLD``
+        (0.55), so this must return a real, non-``MATCH_EXACT`` vector match.
+        """
+        monkeypatch.setenv(_ENDPOINT_ENV, os.environ[_GPT_OSS_ENDPOINT])
+        monkeypatch.setenv(_API_KEY_ENV, os.environ[_GPT_OSS_API_KEY])
+    
+        corpus_root = tmp_path / "corpus"
+        corpus = load_demo_manifests_corpus(corpus_root)
+        pilot = corpus.pilots[LONGQ_001_PILOT]
+        real_doc_chunks = pilot.doc_chunks()
+        assert real_doc_chunks, "the real pdf/net pilot must carry at least one real documentation chunk"
+    
+        chunks = [_doc_chunk(f"real-doc-{i}", document["text"]) for i, document in enumerate(real_doc_chunks)]
+    
+        store = GenerationManifestStore(tmp_path / "manifests")
+        generation_id = _publish_docs(store, PDF_NET_SCOPE, chunks, RealGatewayEmbeddingProvider())
+    
+        manifest = store.read_generation(scope_key(PDF_NET_SCOPE, SOURCE_KIND), generation_id)
+        lexical_payload = manifest.payload["lexical_index"]
+        documents = lexical_payload["documents"]
+        rule = _rule_for(LONGQ_001_QUERY, PDF_NET_SCOPE.family, lexical_payload, platform=PDF_NET_SCOPE.platform)
+        assert rule is not None
+        assert len(rule.terms) >= PARTIAL_LONG_QUERY_MIN_TERMS, sorted(rule.terms)
+        # Confirms, directly, that this is a genuine lexical miss on BOTH tiers before the real vector
+        # stage is ever asked to do anything - never merely assumed.
+        assert _relevant_coverage(documents, documents.keys(), rule) == {}
+        assert _partial_coverage(documents, documents.keys(), rule) == {}
+    
+        result = search_docs(store, PDF_NET_SCOPE, LONGQ_001_QUERY)
+    
+        assert isinstance(result, list) and result, f"expected a real vector match, got {result!r}"
+        assert all(isinstance(match, DocMatch) for match in result)
+        assert all(match.match_quality == MATCH_PARTIAL for match in result)
+        assert all(match.match_quality != MATCH_EXACT for match in result)
+>       assert all(match.match_basis == MATCH_BASIS_EMBEDDING for match in result)
+E       assert False
+E        +  where False = all(<generator object test_a_real_longq_001_style_query_gets_a_real_vector_match_against_the_real_gateway.<locals>.<genexpr> at 0x0000022EFFF9B1D0>)
+
+tests\mcp\tools\test_search_docs_vector_fallback.py:505: AssertionError
+=========================== short test summary info ===========================
+FAILED tests/mcp/tools/test_search_docs_vector_fallback.py::test_vector_fallback_finds_a_match_the_lexical_stages_missed
+FAILED tests/mcp/tools/test_search_docs_vector_fallback.py::test_content_type_guard_blocks_the_gateway_per_category_but_not_for_the_combined_search
+FAILED tests/mcp/tools/test_search_docs_vector_fallback.py::test_a_real_longq_001_style_query_gets_a_real_vector_match_against_the_real_gateway
+
+--- stderr ---
+
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-5c72e798a73c059a\Scripts\python.exe -m pytest tests/mcp/tools/test_search_docs_partial_tier.py tests/mcp/tools/test_search_docs_query_normalization.py tests/mcp/tools/test_lookup_table_guard_and_exact_predicate.py tests/mcp/tools/test_find_examples_vector_deadline.py tests/mcp/test_round3_doc_excerpt.py -q -rfE -p no:cacheprovider "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-1yuwciji\.junit-1.xml"
+--- stdout ---
+........................................................................ [ 93%]
+.....                                                                    [100%]
+
+--- stderr ---
+
