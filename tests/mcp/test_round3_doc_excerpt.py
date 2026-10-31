@@ -28,12 +28,13 @@ from mcp.types import CallToolRequestParams, CallToolResult
 
 from foss_mcp.indexing.gateway_embedding_provider import _API_KEY_ENV, _ENDPOINT_ENV
 from foss_mcp.indexing.generation_manifest import GenerationManifestStore
+from foss_mcp.indexing.lexical_index_writer import tokenize
 from foss_mcp.mcp import response_budget
 from foss_mcp.mcp.response_budget import ITEM_TEXT_CAP, TOTAL_CAP_BYTES, apply_budget
 from foss_mcp.mcp.routing import DeploymentConfig
 from foss_mcp.mcp.server import TOOL_DESCRIPTIONS, create_server, tool_input_schema
 from foss_mcp.mcp.tools.relevance import DOCUMENTATION, chunk_kind
-from foss_mcp.mcp.tools.search_docs import classify_content_type
+from foss_mcp.mcp.tools.search_docs import _is_table_dominated, classify_content_type
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 DEMO_MANIFESTS = REPO_ROOT / "infra" / "demo-manifests"
@@ -296,13 +297,24 @@ def _no_embedding_gateway(monkeypatch: pytest.MonkeyPatch) -> None:
 
 
 def _server(tmp_path: Path, extra_documents: dict[str, str] | None = None) -> Any:
+    """G3/TC-628 (REQ-G3-011): ``extra_documents``' own ``tokens`` field is the SAME real
+    ``tokenize(text)`` ``build_lexical_index`` computes for every real chunk (not a placeholder),
+    so an injected document is genuinely discoverable by search/relevance scoring too, not merely
+    fetchable directly by its own ``chunk_id`` - the synthetic-truncation test below needs this.
+    Every EXISTING caller of this helper only ever fetches an injected chunk directly by
+    ``chunk_id`` (``_fetch_part`` never reads ``tokens``), so this is a pure addition; it does not
+    change what any of them observe."""
     shutil.copytree(DEMO_MANIFESTS / PDF_PYTHON, tmp_path / PDF_PYTHON)
     if extra_documents:
         generation_file = glob.glob(str(tmp_path / PDF_PYTHON / "generation__*.json"))[0]
         generation = json.loads(Path(generation_file).read_text(encoding="utf-8"))
         documents = generation["payload"]["lexical_index"]["documents"]
         for chunk_id, text in extra_documents.items():
-            documents[f"injected::{chunk_id}"] = {"chunk_id": chunk_id, "text": text, "tokens": ["injected"]}
+            documents[f"injected::{chunk_id}"] = {
+                "chunk_id": chunk_id,
+                "text": text,
+                "tokens": tokenize(text),
+            }
         Path(generation_file).write_text(json.dumps(generation), encoding="utf-8")
     return create_server(DeploymentConfig(family="pdf", platform="python"), GenerationManifestStore(tmp_path))
 
@@ -470,18 +482,72 @@ def test_an_unknown_chunk_is_a_miss_and_a_bad_offset_is_an_invalid_argument(tmp_
     assert without_id.is_error is False  # an offset without a chunk_id is ignored: the normal search runs
 
 
+# G3/TC-628 (REQ-G3-011): the trigger for the test below used to be the real "convert pdf"/
+# developer_guide query on pdf/python, which used to match 5 real chunks whose combined size
+# needed the response's adaptive item budget to cut several of them. TC-628's own table-admission
+# guard now correctly excludes a 6th... no, the 5th of those (a table-dominated "Key Capabilities
+# and API Reference" listing, chunk_id 1a852f56c65ae87d) from this specific query's candidate pool,
+# because the query's only distinctive term ("convert"; "pdf" is the family word) can never clear
+# the guard's own 2-term admission floor - correct, deliberate narrowing, the same category as the
+# PDF-JAVA-005 fix. The side effect: the remaining 4 real chunks now fit under the response budget
+# without truncation, so this real query no longer reliably exercises the chunk-continuation
+# mechanism this test exists to prove. The trigger below is now SYNTHETIC and deliberately
+# oversized instead - independent of how many real chunks any given real-pilot query happens to
+# match (which is now coupled to this card's own relevance-mechanism correctness and could shift
+# again under a future card) - while proving the exact SAME real mechanism: a
+# ``lookup(content_type=...)`` call surfaces a ``chunk_id``/``offset`` continuation marker for a
+# cut chunk, and fetching that chunk/offset via ``search_docs`` returns the exact correct remainder
+# matching the original source.
+_SYNTHETIC_TRUNCATION_QUERY = "zylarkynth modulation envelope"
+
+
+def _zylarkynth_prose(count: int, tag: str) -> list[str]:
+    """Every line repeats all three of ``_SYNTHETIC_TRUNCATION_QUERY``'s own distinctive words, so
+    the chunk clears both the confident tier's whole-document coverage AND its best-10-line-window
+    passage coverage trivially, regardless of exactly where a 10-line window falls."""
+    return [
+        f"Zylarkynth modulation envelope line {tag}{n:03d} describes one synthetic tuning detail."
+        for n in range(count)
+    ]
+
+
 def test_lookup_with_a_content_type_marks_cut_chunks_with_a_working_search_docs_call(tmp_path: Path) -> None:
-    oracle = _oracle_by_chunk_id()
-    server = _server(tmp_path)
-    hits = _call(server, "lookup", {"query": "convert pdf", "content_type": "developer_guide"})
-    cut = [hit for hit in hits if hit["text"] != oracle[hit["chunk_id"]]]
+    # Ten synthetic ~5.7 KB chunks (57 KB total, well over the 24,576-byte response budget) that
+    # match ONLY this made-up query (no real pdf/python content contains these invented words), so
+    # the response's candidate pool is exactly these ten chunks - deterministic, independent of any
+    # real pilot content. Plain prose, no table syntax and each well under the 8,000-character
+    # length threshold, so none of them is table-dominated (independently confirmed below) - this
+    # test's own trigger for truncation is unrelated to, and unaffected by, this card's table guard.
+    synthetic = {
+        f"facefeedcafe{index:04x}": _doc(
+            f"Zylarkynth Section {index}", _zylarkynth_prose(70, tag=f"s{index}")
+        )
+        for index in range(10)
+    }
+    for chunk_id, text in synthetic.items():
+        assert not _is_table_dominated(text), chunk_id
+        assert 5000 < len(text) < 6000, (chunk_id, len(text))
+
+    server = _server(tmp_path, synthetic)
+    hits = _call(server, "lookup", {"query": _SYNTHETIC_TRUNCATION_QUERY, "content_type": "developer_guide"})
+    assert len(hits) == len(synthetic)  # every synthetic chunk is found; nothing real collides with it
+    cut = [hit for hit in hits if hit["text"] != synthetic[hit["chunk_id"]]]
     assert cut
     for hit in cut:
-        call = _MARKER_CALL.search(hit["text"].rpartition("\n")[2])
-        assert call is not None
+        body, marker = _split_marker(hit["text"])
+        call = _MARKER_CALL.search(marker)
+        assert call is not None, marker
+        assert call.group("chunk_id") == hit["chunk_id"]
+        assert call.group("content_type") == "developer_guide"
         offset = int(call.group("offset"))
+        original = synthetic[hit["chunk_id"]]
         part = _fetch(server, call.group("chunk_id"), offset, call.group("content_type"))[0]
-        assert part["text"] == oracle[hit["chunk_id"]][offset : offset + len(part["text"])]
+        assert part["text"] == original[offset : offset + len(part["text"])]
+        if part["next_offset"] is None:
+            assert part["text"] == original[offset:]
+        # the title plus the passage shown, then the fetched remainder: nothing of the chunk is lost
+        assert body.partition("\n")[2] in original
+        assert len(body) < len(original)
 
 
 def test_the_tool_schema_and_description_document_the_new_arguments() -> None:
