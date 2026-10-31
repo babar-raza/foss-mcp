@@ -1,0 +1,99 @@
+
+===== CLEAN RUN 1 (host) =====
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-5c72e798a73c059a\Scripts\python.exe -m pytest tests/mcp/tools/test_lookup_vector_fallback.py -q -rfE -p no:cacheprovider "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-i8zgfsxk\.junit-0.xml"
+--- stdout ---
+.......                                                                  [100%]
+
+--- stderr ---
+
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-5c72e798a73c059a\Scripts\python.exe -m pytest tests/mcp/tools/test_lookup_table_guard_and_exact_predicate.py tests/mcp/tools/test_lookup_forgiveness.py tests/mcp/tools/test_lookup_miss_reason.py tests/mcp/tools/test_lookup_query_normalization.py tests/indexing/test_lookup_doc_fallback_query_safety.py tests/mcp/tools/test_search_docs_vector_fallback.py -q -rfE -p no:cacheprovider "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-i8zgfsxk\.junit-1.xml"
+--- stdout ---
+........................................................................ [ 66%]
+.....................................                                    [100%]
+
+--- stderr ---
+
+
+===== CLEAN RUN 2 (host) =====
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-5c72e798a73c059a\Scripts\python.exe -m pytest tests/mcp/tools/test_lookup_vector_fallback.py -q -rfE -p no:cacheprovider "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-i8zgfsxk\.junit-0.xml"
+--- stdout ---
+.......                                                                  [100%]
+
+--- stderr ---
+
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-5c72e798a73c059a\Scripts\python.exe -m pytest tests/mcp/tools/test_lookup_table_guard_and_exact_predicate.py tests/mcp/tools/test_lookup_forgiveness.py tests/mcp/tools/test_lookup_miss_reason.py tests/mcp/tools/test_lookup_query_normalization.py tests/indexing/test_lookup_doc_fallback_query_safety.py tests/mcp/tools/test_search_docs_vector_fallback.py -q -rfE -p no:cacheprovider "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-i8zgfsxk\.junit-1.xml"
+--- stdout ---
+........................................................................ [ 66%]
+.....................................                                    [100%]
+
+--- stderr ---
+
+
+===== NEGATIVE CONTROL (checks MUST now fail) =====
+mutated: M src/foss_mcp/mcp/tools/lookup.py, ?? .junit-0.xml, ?? .junit-1.xml
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-5c72e798a73c059a\Scripts\python.exe -m pytest tests/mcp/tools/test_lookup_vector_fallback.py -q -rfE -p no:cacheprovider "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-i8zgfsxk\.junit-0.xml"
+--- stdout ---
+....F.F                                                                  [100%]
+================================== FAILURES ===================================
+_ test_vector_sourced_match_is_never_promoted_to_exact_even_with_full_lexical_coverage _
+
+    def test_vector_sourced_match_is_never_promoted_to_exact_even_with_full_lexical_coverage() -> None:
+        """The deliberately adversarial fixture the card's own ``purpose`` describes: a
+        ``MATCH_BASIS_EMBEDDING`` match whose text WOULD score ``_FULL_COVERAGE`` under
+        ``passage_coverage`` if the new guard did not exist - independently confirmed below, not
+        merely assumed - must still yield ``MATCH_PARTIAL``, never ``MATCH_EXACT``. This is the test
+        the card's negative control targets."""
+        store = _InMemoryStore(ADVERSARIAL_TEXT)
+        scope = SYNTHETIC_SCOPE
+        documents, coverage = _measured_rule_and_coverage(store, scope, ADVERSARIAL_QUERY, ADVERSARIAL_TEXT)
+        assert coverage >= lookup_module._FULL_COVERAGE, (  # noqa: SLF001
+            f"test construction requires real, measured full coverage; measured {coverage}"
+        )
+        doc_id = next(iter(documents))
+        match = DocMatch(
+            scope=scope,
+            generation_id=_GENERATION_ID,
+            doc_id=doc_id,
+            chunk_id=documents[doc_id]["chunk_id"],
+            content_type="developer_guide",
+            text=ADVERSARIAL_TEXT,
+            match_quality=MATCH_PARTIAL,
+            match_basis=MATCH_BASIS_EMBEDDING,
+        )
+    
+        quality, _unmatched = lookup_module._answer_quality(store, scope, ADVERSARIAL_QUERY, (), None, (match,))  # noqa: SLF001
+    
+>       assert quality == MATCH_PARTIAL
+E       AssertionError: assert 'exact' == 'partial'
+E         
+E         - partial
+E         + exact
+
+tests\mcp\tools\test_lookup_vector_fallback.py:308: AssertionError
+_ test_match_basis_embedding_guard_is_the_literal_this_cards_negative_control_anchors_on _
+
+    def test_match_basis_embedding_guard_is_the_literal_this_cards_negative_control_anchors_on() -> None:
+        """Documents, directly against the real committed source, the exact literal the taskcard's
+        negative control mutates - ``gatectl``'s own anchor, not this test's invention."""
+        import inspect
+    
+        source = inspect.getsource(lookup_module._answer_quality)  # noqa: SLF001
+>       assert source.count("match.match_basis == MATCH_BASIS_EMBEDDING") == 1
+E       AssertionError: assert 0 == 1
+E        +  where 0 = <built-in method count of str object at 0x000001EF8D00D870>('match.match_basis == MATCH_BASIS_EMBEDDING')
+E        +    where <built-in method count of str object at 0x000001EF8D00D870> = 'def _answer_quality(\n    store: GenerationManifestStore,\n    scope: Scope,\n    query: str,\n    symbols: tuple[Sym...sorted(distinctive_terms(query, scope.family, platform=scope.platform)))\n    )\n    return MATCH_PARTIAL, unmatched\n'.count
+
+tests\mcp\tools\test_lookup_vector_fallback.py:351: AssertionError
+=========================== short test summary info ===========================
+FAILED tests/mcp/tools/test_lookup_vector_fallback.py::test_vector_sourced_match_is_never_promoted_to_exact_even_with_full_lexical_coverage
+FAILED tests/mcp/tools/test_lookup_vector_fallback.py::test_match_basis_embedding_guard_is_the_literal_this_cards_negative_control_anchors_on
+
+--- stderr ---
+
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-5c72e798a73c059a\Scripts\python.exe -m pytest tests/mcp/tools/test_lookup_table_guard_and_exact_predicate.py tests/mcp/tools/test_lookup_forgiveness.py tests/mcp/tools/test_lookup_miss_reason.py tests/mcp/tools/test_lookup_query_normalization.py tests/indexing/test_lookup_doc_fallback_query_safety.py tests/mcp/tools/test_search_docs_vector_fallback.py -q -rfE -p no:cacheprovider "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-i8zgfsxk\.junit-1.xml"
+--- stdout ---
+........................................................................ [ 66%]
+.....................................                                    [100%]
+
+--- stderr ---
+

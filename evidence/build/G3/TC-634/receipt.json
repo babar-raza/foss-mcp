@@ -1,0 +1,112 @@
+{
+  "schema_version": 1,
+  "card": "TC-634",
+  "gate": "G3",
+  "generated_by": "gatectl",
+  "generated_at": "2026-10-31T21:13:41Z",
+  "base_rev": "b9b039b2ef27bf32d78060ebc5344f7dd8166d5d",
+  "head_rev": "a4c190e7c0d0f1578a945482c885582ad905b95e",
+  "card_sha256": "b1f4d154505e5e2738b8b24085344d5ccfaf7a84ab27f19441926172e7d373f3",
+  "fingerprint": {
+    "python": "3.13.2",
+    "platform": "Windows-11-10.0.26300-SP0",
+    "lock_sha256": "5c72e798a73c059a438e752e94a8d4c88c1bdf81a197f6e5c5fcecbc9466a691",
+    "env": {
+      "PYTHONHASHSEED": "0",
+      "PYTHONUTF8": "1",
+      "PYTHONDONTWRITEBYTECODE": "1",
+      "PYTHONIOENCODING": "utf-8",
+      "TZ": "UTC",
+      "LC_ALL": "C.UTF-8",
+      "SOURCE_DATE_EPOCH": "1700000000",
+      "verify_runner": "host"
+    }
+  },
+  "scope": {
+    "ok": true,
+    "changed_paths": [
+      "src/foss_mcp/mcp/tools/lookup.py",
+      "tests/mcp/tools/test_lookup_vector_fallback.py",
+      "tests/mcp/tools/test_retrieval_tools.py"
+    ],
+    "violations": [],
+    "evaluated": true
+  },
+  "runs": [
+    {
+      "run": 1,
+      "checks": [
+        {
+          "command": "{python} -m pytest tests/mcp/tools/test_lookup_vector_fallback.py -q -rfE -p no:cacheprovider",
+          "exit_code": 0,
+          "duration_s": 0.961,
+          "stdout_sha256": "83a1593c5b5783693fe3006d1f6597bcb4f3a5968f23b59481ee09a0477f910a",
+          "tests": 7,
+          "skipped": 0,
+          "errors": 0,
+          "failures": 0
+        },
+        {
+          "command": "{python} -m pytest tests/mcp/tools/test_lookup_table_guard_and_exact_predicate.py tests/mcp/tools/test_lookup_forgiveness.py tests/mcp/tools/test_lookup_miss_reason.py tests/mcp/tools/test_lookup_query_normalization.py tests/indexing/test_lookup_doc_fallback_query_safety.py tests/mcp/tools/test_search_docs_vector_fallback.py -q -rfE -p no:cacheprovider",
+          "exit_code": 0,
+          "duration_s": 27.659,
+          "stdout_sha256": "4d23f7b2ccdb158ce92d66f7d94e2c5474e021483f72ddb1bc5310dc592e66eb",
+          "tests": 109,
+          "skipped": 0,
+          "errors": 0,
+          "failures": 0
+        }
+      ],
+      "all_passed": true
+    },
+    {
+      "run": 2,
+      "checks": [
+        {
+          "command": "{python} -m pytest tests/mcp/tools/test_lookup_vector_fallback.py -q -rfE -p no:cacheprovider",
+          "exit_code": 0,
+          "duration_s": 0.532,
+          "stdout_sha256": "83a1593c5b5783693fe3006d1f6597bcb4f3a5968f23b59481ee09a0477f910a",
+          "tests": 7,
+          "skipped": 0,
+          "errors": 0,
+          "failures": 0
+        },
+        {
+          "command": "{python} -m pytest tests/mcp/tools/test_lookup_table_guard_and_exact_predicate.py tests/mcp/tools/test_lookup_forgiveness.py tests/mcp/tools/test_lookup_miss_reason.py tests/mcp/tools/test_lookup_query_normalization.py tests/indexing/test_lookup_doc_fallback_query_safety.py tests/mcp/tools/test_search_docs_vector_fallback.py -q -rfE -p no:cacheprovider",
+          "exit_code": 0,
+          "duration_s": 24.114,
+          "stdout_sha256": "4d23f7b2ccdb158ce92d66f7d94e2c5474e021483f72ddb1bc5310dc592e66eb",
+          "tests": 109,
+          "skipped": 0,
+          "errors": 0,
+          "failures": 0
+        }
+      ],
+      "all_passed": true
+    }
+  ],
+  "negative_control": {
+    "kind": "mutate",
+    "patch": "python -X utf8 -c \"import pathlib; p = pathlib.Path('src/foss_mcp/mcp/tools/lookup.py'); s = p.read_text(encoding='utf-8'); old = 'match.match_basis == MATCH_BASIS_EMBEDDING'; assert s.count(old) == 1, 'match.match_basis == MATCH_BASIS_EMBEDDING literal not found as expected - if your real code reads differently, anchor on your own real literal instead and note the substitution in your closeout'; p.write_text(s.replace(old, 'False  # TC-634 negative control: never skip the exactness recheck for a vector match', 1), encoding='utf-8')\"\n",
+    "patch_sha256": "191697b69ed108f41a4ae22a376214476c22472bf96083f2c0e641540e6fb43b",
+    "applied": true,
+    "patch_applied_failed": true,
+    "exit_codes": [
+      1,
+      0
+    ],
+    "tree_changed": [
+      "M src/foss_mcp/mcp/tools/lookup.py",
+      "?? .junit-0.xml",
+      "?? .junit-1.xml"
+    ]
+  },
+  "holdout": {
+    "ran": false,
+    "passed": true,
+    "detail": "no holdout for this card"
+  },
+  "accepted": true,
+  "reason": "all gates passed"
+}
