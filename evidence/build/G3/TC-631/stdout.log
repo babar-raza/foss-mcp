@@ -1,0 +1,258 @@
+
+===== CLEAN RUN 1 (host) =====
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-5c72e798a73c059a\Scripts\python.exe -m pytest tests/indexing/test_chunk_builder_reexport_pairs_test_source_guard.py -q -rfE -p no:cacheprovider "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-254atm41\.junit-0.xml"
+--- stdout ---
+........                                                                 [100%]
+
+--- stderr ---
+
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-5c72e798a73c059a\Scripts\python.exe -m pytest tests/indexing/test_chunk_builder_reexport_pairs_test_source_guard.py tests/indexing/test_chunk_builder_coverage_line.py tests/extraction/test_reextracted_uncapped.py tests/extraction/test_run_extraction_canonical_counts.py tests/extraction/test_run_extraction_coverage_policy.py tests/indexing/test_symbol_identity.py -q -rfE -p no:cacheprovider "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-254atm41\.junit-1.xml"
+--- stdout ---
+........................................................................ [ 25%]
+........................................................................ [ 50%]
+........................................................................ [ 76%]
+...................................................................      [100%]
+
+--- stderr ---
+
+
+===== CLEAN RUN 2 (host) =====
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-5c72e798a73c059a\Scripts\python.exe -m pytest tests/indexing/test_chunk_builder_reexport_pairs_test_source_guard.py -q -rfE -p no:cacheprovider "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-254atm41\.junit-0.xml"
+--- stdout ---
+........                                                                 [100%]
+
+--- stderr ---
+
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-5c72e798a73c059a\Scripts\python.exe -m pytest tests/indexing/test_chunk_builder_reexport_pairs_test_source_guard.py tests/indexing/test_chunk_builder_coverage_line.py tests/extraction/test_reextracted_uncapped.py tests/extraction/test_run_extraction_canonical_counts.py tests/extraction/test_run_extraction_coverage_policy.py tests/indexing/test_symbol_identity.py -q -rfE -p no:cacheprovider "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-254atm41\.junit-1.xml"
+--- stdout ---
+........................................................................ [ 25%]
+........................................................................ [ 50%]
+........................................................................ [ 76%]
+...................................................................      [100%]
+
+--- stderr ---
+
+
+===== NEGATIVE CONTROL (checks MUST now fail) =====
+mutated: M src/foss_mcp/indexing/chunk_builder.py, ?? .junit-0.xml, ?? .junit-1.xml
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-5c72e798a73c059a\Scripts\python.exe -m pytest tests/indexing/test_chunk_builder_reexport_pairs_test_source_guard.py -q -rfE -p no:cacheprovider "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-254atm41\.junit-0.xml"
+--- stdout ---
+FFF..FF.                                                                 [100%]
+================================== FAILURES ===================================
+__ test_tc541_memberless_production_class_not_paired_to_test_dir_definition ___
+
+    def test_tc541_memberless_production_class_not_paired_to_test_dir_definition() -> None:
+        """TC-541's fallback rule (member-less class/enum, matched anywhere by name+kind): the exact
+        repro the card describes - production `Shape` in `app/shapes.py`, a has-members `Shape` in the
+        test directory `app/tests/helpers.py`."""
+        entries = [_shape_production(), _shape_definition()]
+        identities = compute_canonical_identities(entries)
+>       assert identities[0].is_definition is True, "the production entry must stay its own unit"
+E       AssertionError: the production entry must stay its own unit
+E       assert False is True
+E        +  where False = SymbolIdentity(canonical_id='app.tests.helpers.Shape', aliases=('app.shapes.Shape', 'app.tests.helpers.Shape'), is_definition=False).is_definition
+
+tests\indexing\test_chunk_builder_reexport_pairs_test_source_guard.py:113: AssertionError
+___________ test_tc382_init_stub_not_paired_to_test_dir_definition ____________
+
+    def test_tc382_init_stub_not_paired_to_test_dir_definition() -> None:
+        """TC-382's stub rule (a package `__init__.py` stub paired with its one member-bearing
+        definition under the same package): the definition candidate living in a test directory must
+        not be selected."""
+        entries = [_foo_init_stub(), _foo_definition()]
+        identities = compute_canonical_identities(entries)
+>       assert identities[0].is_definition is True, "the init stub must stay its own unit"
+E       AssertionError: the init stub must stay its own unit
+E       assert False is True
+E        +  where False = SymbolIdentity(canonical_id='pkg.tests.Foo', aliases=('pkg.Foo', 'pkg.tests.Foo'), is_definition=False).is_definition
+
+tests\indexing\test_chunk_builder_reexport_pairs_test_source_guard.py:124: AssertionError
+________ test_tc541_memberless_enum_not_paired_to_test_dir_definition _________
+
+    def test_tc541_memberless_enum_not_paired_to_test_dir_definition() -> None:
+        """The same TC-541 fallback rule, over the ``enum`` kind it also covers (not just ``class``),
+        confirming the fix is not accidentally scoped to one kind only."""
+        entries = [
+            {
+                "name": "Color",
+                "kind": "enum",
+                "file": "app/colors.py",
+                "class_import": "app.colors.Color",
+                "enum_members": [],
+            },
+            {
+                "name": "Color",
+                "kind": "enum",
+                "file": "app/tests/fixtures.py",
+                "class_import": "app.tests.fixtures.Color",
+                "enum_members": [{"name": "RED", "value": "1"}],
+            },
+        ]
+        identities = compute_canonical_identities(entries)
+>       assert identities[0].is_definition is True
+E       AssertionError: assert False is True
+E        +  where False = SymbolIdentity(canonical_id='app.tests.fixtures.Color', aliases=('app.colors.Color', 'app.tests.fixtures.Color'), is_definition=False).is_definition
+
+tests\indexing\test_chunk_builder_reexport_pairs_test_source_guard.py:149: AssertionError
+_____ test_numerator_and_denominator_agree_on_the_production_entry_count ______
+
+    def test_numerator_and_denominator_agree_on_the_production_entry_count() -> None:
+        entries = [_shape_production(), _shape_definition()]
+    
+        # NUMERATOR: build_chunks_from_api_surface filters test entries out of `candidates` *before*
+        # calling `_reexport_pairs`, so the test entry never enters the pairing pool at all for this
+        # path - it is tested here exactly as the real pipeline calls it, fixture and all.
+        fixture = {"source_repository": "org/repo", "source_commit": "c0ffee", "types": entries}
+        numerator_chunks = build_chunks_from_api_surface(fixture, title="t", max_types=10_000)
+        numerator_text = "\n".join(chunk.text for chunk in numerator_chunks)
+        numerator_count = numerator_text.count("FQN: app.shapes.Shape")
+        assert numerator_count == 1, "the numerator's own already-filtered path must count it once"
+    
+        # DENOMINATOR: identities computed over the FULL, unfiltered list, exactly as
+        # `run_extraction.extract_pinned_repository` calls `compute_canonical_identities(types)`, then
+        # fed into `summarize_symbols` exactly as `run_extraction` does.
+        identities = compute_canonical_identities(entries)
+        denominator_counts = summarize_symbols(entries, identities)
+>       assert denominator_counts["types"] == numerator_count, (
+            "the denominator must now agree with the numerator on whether the production entry "
+            f"counts - numerator counted it {numerator_count} time(s), denominator counted "
+            f"{denominator_counts['types']}"
+        )
+E       AssertionError: the denominator must now agree with the numerator on whether the production entry counts - numerator counted it 1 time(s), denominator counted 0
+E       assert 0 == 1
+
+tests\indexing\test_chunk_builder_reexport_pairs_test_source_guard.py:206: AssertionError
+_______ test_denominator_alone_counts_the_production_entry_exactly_once _______
+
+    def test_denominator_alone_counts_the_production_entry_exactly_once() -> None:
+        """A direct check on `summarize_symbols`'s own output (not just the cross-path comparison
+        above): before this fix, the production entry's identity came back `is_definition=False`
+        (paired to the test entry) and was excluded from the denominator entirely (`types == 0`)."""
+        entries = [_shape_production(), _shape_definition()]
+        identities = compute_canonical_identities(entries)
+>       assert identities[0].is_definition is True
+E       AssertionError: assert False is True
+E        +  where False = SymbolIdentity(canonical_id='app.tests.helpers.Shape', aliases=('app.shapes.Shape', 'app.tests.helpers.Shape'), is_definition=False).is_definition
+
+tests\indexing\test_chunk_builder_reexport_pairs_test_source_guard.py:220: AssertionError
+=========================== short test summary info ===========================
+FAILED tests/indexing/test_chunk_builder_reexport_pairs_test_source_guard.py::test_tc541_memberless_production_class_not_paired_to_test_dir_definition
+FAILED tests/indexing/test_chunk_builder_reexport_pairs_test_source_guard.py::test_tc382_init_stub_not_paired_to_test_dir_definition
+FAILED tests/indexing/test_chunk_builder_reexport_pairs_test_source_guard.py::test_tc541_memberless_enum_not_paired_to_test_dir_definition
+FAILED tests/indexing/test_chunk_builder_reexport_pairs_test_source_guard.py::test_numerator_and_denominator_agree_on_the_production_entry_count
+FAILED tests/indexing/test_chunk_builder_reexport_pairs_test_source_guard.py::test_denominator_alone_counts_the_production_entry_exactly_once
+
+--- stderr ---
+
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-5c72e798a73c059a\Scripts\python.exe -m pytest tests/indexing/test_chunk_builder_reexport_pairs_test_source_guard.py tests/indexing/test_chunk_builder_coverage_line.py tests/extraction/test_reextracted_uncapped.py tests/extraction/test_run_extraction_canonical_counts.py tests/extraction/test_run_extraction_coverage_policy.py tests/indexing/test_symbol_identity.py -q -rfE -p no:cacheprovider "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-254atm41\.junit-1.xml"
+--- stdout ---
+FFF..FF................................................................. [ 25%]
+........................................................................ [ 50%]
+........................................................................ [ 76%]
+...................................................................      [100%]
+================================== FAILURES ===================================
+__ test_tc541_memberless_production_class_not_paired_to_test_dir_definition ___
+
+    def test_tc541_memberless_production_class_not_paired_to_test_dir_definition() -> None:
+        """TC-541's fallback rule (member-less class/enum, matched anywhere by name+kind): the exact
+        repro the card describes - production `Shape` in `app/shapes.py`, a has-members `Shape` in the
+        test directory `app/tests/helpers.py`."""
+        entries = [_shape_production(), _shape_definition()]
+        identities = compute_canonical_identities(entries)
+>       assert identities[0].is_definition is True, "the production entry must stay its own unit"
+E       AssertionError: the production entry must stay its own unit
+E       assert False is True
+E        +  where False = SymbolIdentity(canonical_id='app.tests.helpers.Shape', aliases=('app.shapes.Shape', 'app.tests.helpers.Shape'), is_definition=False).is_definition
+
+tests\indexing\test_chunk_builder_reexport_pairs_test_source_guard.py:113: AssertionError
+___________ test_tc382_init_stub_not_paired_to_test_dir_definition ____________
+
+    def test_tc382_init_stub_not_paired_to_test_dir_definition() -> None:
+        """TC-382's stub rule (a package `__init__.py` stub paired with its one member-bearing
+        definition under the same package): the definition candidate living in a test directory must
+        not be selected."""
+        entries = [_foo_init_stub(), _foo_definition()]
+        identities = compute_canonical_identities(entries)
+>       assert identities[0].is_definition is True, "the init stub must stay its own unit"
+E       AssertionError: the init stub must stay its own unit
+E       assert False is True
+E        +  where False = SymbolIdentity(canonical_id='pkg.tests.Foo', aliases=('pkg.Foo', 'pkg.tests.Foo'), is_definition=False).is_definition
+
+tests\indexing\test_chunk_builder_reexport_pairs_test_source_guard.py:124: AssertionError
+________ test_tc541_memberless_enum_not_paired_to_test_dir_definition _________
+
+    def test_tc541_memberless_enum_not_paired_to_test_dir_definition() -> None:
+        """The same TC-541 fallback rule, over the ``enum`` kind it also covers (not just ``class``),
+        confirming the fix is not accidentally scoped to one kind only."""
+        entries = [
+            {
+                "name": "Color",
+                "kind": "enum",
+                "file": "app/colors.py",
+                "class_import": "app.colors.Color",
+                "enum_members": [],
+            },
+            {
+                "name": "Color",
+                "kind": "enum",
+                "file": "app/tests/fixtures.py",
+                "class_import": "app.tests.fixtures.Color",
+                "enum_members": [{"name": "RED", "value": "1"}],
+            },
+        ]
+        identities = compute_canonical_identities(entries)
+>       assert identities[0].is_definition is True
+E       AssertionError: assert False is True
+E        +  where False = SymbolIdentity(canonical_id='app.tests.fixtures.Color', aliases=('app.colors.Color', 'app.tests.fixtures.Color'), is_definition=False).is_definition
+
+tests\indexing\test_chunk_builder_reexport_pairs_test_source_guard.py:149: AssertionError
+_____ test_numerator_and_denominator_agree_on_the_production_entry_count ______
+
+    def test_numerator_and_denominator_agree_on_the_production_entry_count() -> None:
+        entries = [_shape_production(), _shape_definition()]
+    
+        # NUMERATOR: build_chunks_from_api_surface filters test entries out of `candidates` *before*
+        # calling `_reexport_pairs`, so the test entry never enters the pairing pool at all for this
+        # path - it is tested here exactly as the real pipeline calls it, fixture and all.
+        fixture = {"source_repository": "org/repo", "source_commit": "c0ffee", "types": entries}
+        numerator_chunks = build_chunks_from_api_surface(fixture, title="t", max_types=10_000)
+        numerator_text = "\n".join(chunk.text for chunk in numerator_chunks)
+        numerator_count = numerator_text.count("FQN: app.shapes.Shape")
+        assert numerator_count == 1, "the numerator's own already-filtered path must count it once"
+    
+        # DENOMINATOR: identities computed over the FULL, unfiltered list, exactly as
+        # `run_extraction.extract_pinned_repository` calls `compute_canonical_identities(types)`, then
+        # fed into `summarize_symbols` exactly as `run_extraction` does.
+        identities = compute_canonical_identities(entries)
+        denominator_counts = summarize_symbols(entries, identities)
+>       assert denominator_counts["types"] == numerator_count, (
+            "the denominator must now agree with the numerator on whether the production entry "
+            f"counts - numerator counted it {numerator_count} time(s), denominator counted "
+            f"{denominator_counts['types']}"
+        )
+E       AssertionError: the denominator must now agree with the numerator on whether the production entry counts - numerator counted it 1 time(s), denominator counted 0
+E       assert 0 == 1
+
+tests\indexing\test_chunk_builder_reexport_pairs_test_source_guard.py:206: AssertionError
+_______ test_denominator_alone_counts_the_production_entry_exactly_once _______
+
+    def test_denominator_alone_counts_the_production_entry_exactly_once() -> None:
+        """A direct check on `summarize_symbols`'s own output (not just the cross-path comparison
+        above): before this fix, the production entry's identity came back `is_definition=False`
+        (paired to the test entry) and was excluded from the denominator entirely (`types == 0`)."""
+        entries = [_shape_production(), _shape_definition()]
+        identities = compute_canonical_identities(entries)
+>       assert identities[0].is_definition is True
+E       AssertionError: assert False is True
+E        +  where False = SymbolIdentity(canonical_id='app.tests.helpers.Shape', aliases=('app.shapes.Shape', 'app.tests.helpers.Shape'), is_definition=False).is_definition
+
+tests\indexing\test_chunk_builder_reexport_pairs_test_source_guard.py:220: AssertionError
+=========================== short test summary info ===========================
+FAILED tests/indexing/test_chunk_builder_reexport_pairs_test_source_guard.py::test_tc541_memberless_production_class_not_paired_to_test_dir_definition
+FAILED tests/indexing/test_chunk_builder_reexport_pairs_test_source_guard.py::test_tc382_init_stub_not_paired_to_test_dir_definition
+FAILED tests/indexing/test_chunk_builder_reexport_pairs_test_source_guard.py::test_tc541_memberless_enum_not_paired_to_test_dir_definition
+FAILED tests/indexing/test_chunk_builder_reexport_pairs_test_source_guard.py::test_numerator_and_denominator_agree_on_the_production_entry_count
+FAILED tests/indexing/test_chunk_builder_reexport_pairs_test_source_guard.py::test_denominator_alone_counts_the_production_entry_exactly_once
+
+--- stderr ---
+

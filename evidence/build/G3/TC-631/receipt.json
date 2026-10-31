@@ -1,0 +1,111 @@
+{
+  "schema_version": 1,
+  "card": "TC-631",
+  "gate": "G3",
+  "generated_by": "gatectl",
+  "generated_at": "2026-10-31T09:52:37Z",
+  "base_rev": "44a8a7645947549cd0dc4ca8d997347b0d186d91",
+  "head_rev": "0182dbcbae6ed8a69910e48d11dece345e763f37",
+  "card_sha256": "6a943688153542d99eac9525bd95209158b0035f61641708411f596f8b0168d4",
+  "fingerprint": {
+    "python": "3.13.2",
+    "platform": "Windows-11-10.0.26300-SP0",
+    "lock_sha256": "5c72e798a73c059a438e752e94a8d4c88c1bdf81a197f6e5c5fcecbc9466a691",
+    "env": {
+      "PYTHONHASHSEED": "0",
+      "PYTHONUTF8": "1",
+      "PYTHONDONTWRITEBYTECODE": "1",
+      "PYTHONIOENCODING": "utf-8",
+      "TZ": "UTC",
+      "LC_ALL": "C.UTF-8",
+      "SOURCE_DATE_EPOCH": "1700000000",
+      "verify_runner": "host"
+    }
+  },
+  "scope": {
+    "ok": true,
+    "changed_paths": [
+      "src/foss_mcp/indexing/chunk_builder.py",
+      "tests/indexing/test_chunk_builder_reexport_pairs_test_source_guard.py"
+    ],
+    "violations": [],
+    "evaluated": true
+  },
+  "runs": [
+    {
+      "run": 1,
+      "checks": [
+        {
+          "command": "{python} -m pytest tests/indexing/test_chunk_builder_reexport_pairs_test_source_guard.py -q -rfE -p no:cacheprovider",
+          "exit_code": 0,
+          "duration_s": 0.88,
+          "stdout_sha256": "06955fb47f16312e5d13266c774a2aa4648c46e423cbe6564a92e25b68e39131",
+          "tests": 8,
+          "skipped": 0,
+          "errors": 0,
+          "failures": 0
+        },
+        {
+          "command": "{python} -m pytest tests/indexing/test_chunk_builder_reexport_pairs_test_source_guard.py tests/indexing/test_chunk_builder_coverage_line.py tests/extraction/test_reextracted_uncapped.py tests/extraction/test_run_extraction_canonical_counts.py tests/extraction/test_run_extraction_coverage_policy.py tests/indexing/test_symbol_identity.py -q -rfE -p no:cacheprovider",
+          "exit_code": 0,
+          "duration_s": 30.602,
+          "stdout_sha256": "df2d744db8fce32a82c422dc760221655ac858993bca647d081966980a210bd0",
+          "tests": 283,
+          "skipped": 0,
+          "errors": 0,
+          "failures": 0
+        }
+      ],
+      "all_passed": true
+    },
+    {
+      "run": 2,
+      "checks": [
+        {
+          "command": "{python} -m pytest tests/indexing/test_chunk_builder_reexport_pairs_test_source_guard.py -q -rfE -p no:cacheprovider",
+          "exit_code": 0,
+          "duration_s": 0.658,
+          "stdout_sha256": "06955fb47f16312e5d13266c774a2aa4648c46e423cbe6564a92e25b68e39131",
+          "tests": 8,
+          "skipped": 0,
+          "errors": 0,
+          "failures": 0
+        },
+        {
+          "command": "{python} -m pytest tests/indexing/test_chunk_builder_reexport_pairs_test_source_guard.py tests/indexing/test_chunk_builder_coverage_line.py tests/extraction/test_reextracted_uncapped.py tests/extraction/test_run_extraction_canonical_counts.py tests/extraction/test_run_extraction_coverage_policy.py tests/indexing/test_symbol_identity.py -q -rfE -p no:cacheprovider",
+          "exit_code": 0,
+          "duration_s": 24.869,
+          "stdout_sha256": "df2d744db8fce32a82c422dc760221655ac858993bca647d081966980a210bd0",
+          "tests": 283,
+          "skipped": 0,
+          "errors": 0,
+          "failures": 0
+        }
+      ],
+      "all_passed": true
+    }
+  ],
+  "negative_control": {
+    "kind": "mutate",
+    "patch": "python -X utf8 -c \"import pathlib; p = pathlib.Path('src/foss_mcp/indexing/chunk_builder.py'); s = p.read_text(encoding='utf-8'); a = 'and not _is_test_source(other.get(' + chr(34) + 'file' + chr(34) + '))'; b = 'or _is_test_source(entry.get(' + chr(34) + 'file' + chr(34) + '))'; assert s.count(a) == 1, 'TC-382-rule exclusion clause not found verbatim - use the exact clause text the card gives you, or anchor on your own real line instead and note the substitution in your closeout'; assert s.count(b) == 1, 'TC-541-rule exclusion clause not found verbatim - use the exact clause text the card gives you, or anchor on your own real line instead and note the substitution in your closeout'; s = s.replace(a, 'and True', 1); s = s.replace(b, 'or False', 1); p.write_text(s, encoding='utf-8')\"\n",
+    "patch_sha256": "bccb5643bfa4297e733d68e2009162faa844c6ac2ba1ea4a926db3612640378e",
+    "applied": true,
+    "patch_applied_failed": true,
+    "exit_codes": [
+      1,
+      1
+    ],
+    "tree_changed": [
+      "M src/foss_mcp/indexing/chunk_builder.py",
+      "?? .junit-0.xml",
+      "?? .junit-1.xml"
+    ]
+  },
+  "holdout": {
+    "ran": false,
+    "passed": true,
+    "detail": "no holdout for this card"
+  },
+  "accepted": true,
+  "reason": "all gates passed"
+}
