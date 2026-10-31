@@ -237,11 +237,12 @@ def test_doc_scope_term_weights_is_pure_and_deterministic() -> None:
     assert all(WEIGHT_FLOOR <= weight <= WEIGHT_CEILING for weight in first.values())
 
 
-def test_doc_scope_weights_enabled_marker_is_false_and_dormant() -> None:
-    """DOC_SCOPE_WEIGHTS_ENABLED is a documentation/handoff marker for Q6 only - it must start
-    False, and doc_scope_term_weights' own behaviour must not depend on it (the function always
-    computes the real doc-scope weights; nothing gates its body on this flag)."""
-    assert DOC_SCOPE_WEIGHTS_ENABLED is False
+def test_doc_scope_weights_enabled_marker_is_true_and_live() -> None:
+    """DOC_SCOPE_WEIGHTS_ENABLED is a documentation/handoff marker, now flipped live by Q6
+    (TC-626: search_docs and lookup now genuinely call doc_scope_term_weights) - it must now
+    read True, and doc_scope_term_weights' own behaviour must still not depend on it (the
+    function always computes the real doc-scope weights; nothing gates its body on this flag)."""
+    assert DOC_SCOPE_WEIGHTS_ENABLED is True
 
     entries = [(["alpha"], _DOC_TEXT) for _ in range(5)]
     payload = _lexical_payload(entries)
@@ -250,9 +251,9 @@ def test_doc_scope_weights_enabled_marker_is_false_and_dormant() -> None:
     import foss_mcp.mcp.tools.relevance as relevance_module
 
     before = doc_scope_term_weights({"alpha"}, payload)
-    relevance_module.DOC_SCOPE_WEIGHTS_ENABLED = True
+    relevance_module.DOC_SCOPE_WEIGHTS_ENABLED = False
     try:
         after = doc_scope_term_weights({"alpha"}, payload)
     finally:
-        relevance_module.DOC_SCOPE_WEIGHTS_ENABLED = False
+        relevance_module.DOC_SCOPE_WEIGHTS_ENABLED = True
     assert before == after

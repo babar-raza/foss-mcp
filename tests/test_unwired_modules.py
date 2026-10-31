@@ -39,15 +39,16 @@ Method (real, structural, ``ast``-based - never a hand-maintained prose list):
    other production-reachable file, so the separate special case was retired.
 
 ``_KNOWN_UNWIRED`` pins the resulting set exactly. Running this walk against the real, current
-tree now finds EIGHT such symbols: ``prepare_cpp_library``, ``verify_cpp_example``,
+tree now finds SEVEN such symbols: ``prepare_cpp_library``, ``verify_cpp_example``,
 ``query_vector_index``, ``query_lexical_index``, ``server.run_stdio``,
-``document_schema.from_dict``, ``document_schema.to_dict``, ``relevance.doc_scope_term_weights``
+``document_schema.from_dict``, ``document_schema.to_dict``
 - each individually confirmed above the frozenset by manual citation of its own real callers (or
-lack of them).
-(``relevance.normalize_query`` used to be an eighth entry here, deliberately built standalone by
-TC-610 ahead of any real caller; TC-616 wired it into ``find_examples`` and TC-617 wired it into
-``search_docs`` and ``lookup`` too, so it now has real production callers and has dropped out of
-this set entirely.) ``_KNOWN_UNWIRED_AND_UNTESTED`` is currently empty: every symbol that once sat in that
+lack of them). (Two symbols used to be an eighth entry here in turn, each wired in by a later
+card: ``relevance.normalize_query``, deliberately built standalone by TC-610 ahead of any real
+caller, got its first real callers from TC-616 (``find_examples``) and TC-617 (``search_docs``
+and ``lookup``); ``relevance.doc_scope_term_weights``, built dormant and isolated by TC-625 (Q5,
+REQ-G3-011), got its first real callers from TC-626 (Q6, ``search_docs`` and ``lookup``). Both
+have since dropped out of this set entirely.) ``_KNOWN_UNWIRED_AND_UNTESTED`` is currently empty: every symbol that once sat in that
 worse ("reachable from NOTHING, not even a test") tier has since been wired in. (History: TC-140
 shrank the set from its original fourteen - ``is_alive`` and ``round_trip_check`` were wired into
 ``infra/serve_http.py`` by TC-137, and ``rollback_generation`` got its first real caller once
@@ -111,11 +112,6 @@ _KNOWN_UNWIRED = frozenset(
         "foss_mcp.mcp.server.run_stdio",
         "foss_mcp.normalization.document_schema.from_dict",
         "foss_mcp.normalization.document_schema.to_dict",
-        # Built dormant and isolated by TC-625 (Q5, REQ-G3-011): a pure doc-scope IDF-weight
-        # function, proven against a real pilot but deliberately not called from search_docs,
-        # lookup, find_examples, or anywhere else real yet. Wired in by Q6 (a separate, later
-        # card), once its own measurement-gated decision passes.
-        "foss_mcp.mcp.tools.relevance.doc_scope_term_weights",
     }
 )
 
