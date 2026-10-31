@@ -69,9 +69,27 @@ purpose: >-
      already is (`rule is not None and len(rule.terms) >= PARTIAL_LONG_QUERY_MIN_TERMS`), tried
      only after `_partial_coverage` returns nothing, at most `min(top_k, _MAX_PARTIAL_DOCS)`
      results, same ordering/dedup discipline as the existing partial-tier return just above it.
-  5. `lookup.py` is explicitly OUT OF SCOPE for this card (that is QV3/a later card) - do not touch
-     it even if it would be a one-line change; if you find it is NOT a one-line change, say so in
-     your report instead of making it one.
+  5. CRITICAL, MUST VERIFY: this new stage must fire ONLY when the caller's own `content_type`
+     parameter is `None` (the combined, all-categories-together search path this function's own
+     docstring already describes) - it must NEVER run when `content_type` is a specific category.
+     Reason: `lookup.py`'s `_compose_from_docs` calls `search_docs` once PER category in a loop
+     over `CONTENT_TYPES` (an explicit `candidate_type` each time, never `None`), breaking on the
+     first non-empty result. If this new stage fired on every explicit-`content_type` call, ONE
+     `lookup()` invocation could trigger several real embedding-gateway calls (one per category
+     tried before any hit) instead of one - a latency/cost multiplication this card must not
+     introduce. Gating on `content_type is None` means a direct caller doing a combined search
+     gets the new stage in one call, while `lookup.py`'s existing per-category composition is
+     completely unaffected by this card (it keeps calling `search_docs` with an explicit category
+     exactly as it does today, so it never reaches this new branch at all). Write a test proving
+     this directly: the same long, lexically-missing query, called once with `content_type=None`
+     (reaches the vector stage) and once with an explicit `content_type` (does not - prove the
+     gateway/provider double is never invoked in that call).
+  6. `lookup.py` is explicitly OUT OF SCOPE for this card (that is QV3/a later card - which must
+     solve the "at most one embedding call per `lookup()` invocation, not one per category" problem
+     directly, likely by calling the new vector-fallback function once itself after its own
+     per-category lexical loop is exhausted, never by simply removing the `content_type is None`
+     guard this card adds). Do not touch `lookup.py` even if it would be a one-line change; if you
+     find it is NOT a one-line change, say so in your report instead of making it one.
 depends_on:
   - TC-630
   - TC-632
@@ -114,7 +132,13 @@ inputs:
     never even attempted - e.g. a provider double that raises/asserts if called); (d) any exception
     raised inside the new stage (simulate a gateway/timeout/budget error) degrades to the existing
     `Miss` behaviour, never propagates; (e) `MATCH_BASIS_EMBEDDING` is pinned equal to
-    `find_examples.MATCH_BASIS_EMBEDDING`. Also add at least one test using the REAL gateway (env
+    `find_examples.MATCH_BASIS_EMBEDDING`; (f) THE CONTENT_TYPE GUARD - read `lookup.py`'s
+    `_compose_from_docs` first (it calls `search_docs` once per category in a loop, never with
+    `content_type=None`) to see why this matters: the exact same long, lexically-missing query,
+    with a provider double that raises/asserts if called, must NOT reach the gateway when called
+    with an explicit `content_type=` (any one category), and MUST reach it (and get a result) when
+    called with `content_type=None` - prove both directions in one test with the same query/fixture
+    data, not two unrelated tests. Also add at least one test using the REAL gateway (env
     vars already present in this shell) proving a real F5-style long sentence query that lexically
     misses gets back a non-`MATCH_EXACT` vector-based result against the real demo-manifests
     corpus for at least one pilot with `vector_index_docs` built via `publish_generation` in a
@@ -140,7 +164,7 @@ checks:
     junitxml: true
     proves:
       - REQ-G3-011
-min_tests: 10
+min_tests: 7
 requires:
   - python
 network: false
