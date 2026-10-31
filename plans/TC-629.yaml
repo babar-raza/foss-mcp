@@ -1,0 +1,109 @@
+id: TC-629
+gate: G3
+lane: storage-retrieval
+purpose: >-
+  FAILED_INTERNAL fix, found by an independent post-integration review of TC-621/TC-622 (not part
+  of the original plan's own card table - a real defect discovered after acceptance, per AGENTS.md
+  "diagnose, repair, resume"). `report_index_freshness.py`'s new `registry_served_version`
+  comparison (TC-621, line ~455: `if registry_served_version > indexed_version:`) compares two
+  version tuples directly, with no length normalization - but Python tuple comparison treats a
+  SHORTER tuple as less than any LONGER tuple sharing its prefix: `(26, 7) < (26, 7, 0)` is `True`
+  even though "26.7" and "26.7.0" are the exact same version. This produces a FALSE "stale"
+  verdict whenever the registry serves a version string with more precision than the indexed
+  manifest's own declared version (a very real case - e.g. a 2-segment manifest version "26.7"
+  against a 3-segment PyPI/npm release "26.7.0", or a 3-segment manifest against a 4-segment NuGet
+  version). The exact same codebase already solved this correctly, right next to this code:
+  `release_alignment.release_in_index` pads both tuples to equal width with trailing zeros before
+  comparing, specifically to avoid this. TC-621's own new branch never reused or replicated that
+  padding. Independently reproduced by direct execution before authoring this card: manifest
+  version `(26, 7)`, registry-served `(26, 7, 0)` (the same real version at different precision) ->
+  current code returns `freshness_state="stale"`, reason text literally claims "26.7.0, newer than
+  the indexed package version 26.7" - false.
+
+  Fix: before the `registry_served_version > indexed_version` comparison, pad both tuples to equal
+  length with trailing zeros (reuse the exact same pattern `release_alignment.release_in_index`
+  already uses - do not invent a different one; consider importing and reusing a shared helper if
+  one exists, or replicating the same two-line pattern if not, your judgment on which is cleaner
+  given what's already in this file's own imports).
+
+  Read `src/foss_mcp/mcp/tools/release_alignment.py`'s `release_in_index` function first - its own
+  padding lines are your reference implementation.
+depends_on:
+  - TC-621
+write_paths:
+  - src/foss_mcp/mcp/tools/report_index_freshness.py
+  - tests/mcp/tools/test_freshness_registry_version.py
+satisfies:
+  - REQ-G3-012
+source_refs:
+  - file: docs/DECISION_LOG.md
+    anchor: >-
+      ## 2026-10-30 — Round-2 portfolio audit remediation adopted: unified plan, governance decisions A-K
+      recorded (supervisor)
+    sha256: 62cf1403a592118e3fb6bd14c5336f8a997cc3181d44a585323ec9f1d385a931
+inputs:
+  - >-
+    READ FIRST: `src/foss_mcp/mcp/tools/release_alignment.py`'s `release_in_index` function - it
+    already pads both version tuples to equal width with trailing zeros before comparing them,
+    exactly to avoid the bug this card fixes. `report_index_freshness.py`'s own
+    `registry_served_version` branch (search for it - the comparison is a direct `>` on two
+    tuples, no padding) needs the same treatment.
+  - >-
+    Independently re-confirm the bug yourself before fixing it: call `report_index_freshness`
+    directly (or construct the comparison in isolation) with an indexed version of `(26, 7)` and a
+    `registry_served_version` of `(26, 7, 0)` and confirm it currently reports `"stale"` when the
+    two versions are actually equal. Then fix the comparison to pad both tuples to the same length
+    with trailing zeros before comparing (reuse `release_alignment.release_in_index`'s own exact
+    pattern). Confirm the SAME inputs now report `"fresh"` (equal, not stale) after your fix. Also
+    confirm a GENUINELY newer registry version at a DIFFERENT precision still correctly reports
+    stale (e.g. indexed `(26, 7)` vs registry `(26, 8, 0)` must still be stale) and a genuinely
+    older one still correctly reports fresh (indexed `(26, 7, 0)` vs registry `(26, 7)` must be
+    fresh, not stale from a false "shorter tuple is older" reading either).
+  - >-
+    Add test cases to `tests/mcp/tools/test_freshness_registry_version.py` covering: (a) an equal
+    version at different precision (indexed shorter than registry, e.g. `(26,7)` vs `(26,7,0)`) is
+    `"fresh"`, not `"stale"`; (b) the symmetric case (indexed longer than registry, e.g. `(26,7,0)`
+    vs `(26,7)`) is also `"fresh"`; (c) a genuinely newer version at different precision is still
+    correctly `"stale"`; (d) a genuinely older version at different precision is still correctly
+    `"fresh"`. Every existing test in this file must keep passing unchanged (none of them currently
+    use mixed-precision tuples, so none should be affected by the fix).
+actions:
+  - >-
+    Pad both version tuples to equal length before comparing registry_served_version against
+    indexed_version, so a version written at different precision (e.g. "26.7" vs "26.7.0") is
+    never mistaken for a newer one - reusing release_alignment's own existing, already-correct
+    padding pattern.
+checks:
+  - command: '{python} -m pytest tests/mcp/tools/test_freshness_registry_version.py -q -rfE -p no:cacheprovider'
+    expect: 'exit 0'
+    timeout_seconds: 180
+    junitxml: true
+    proves:
+      - REQ-G3-012
+  - command: '{python} -m pytest tests/mcp/tools/test_freshness_registry_version.py tests/mcp/tools/test_freshness_provenance.py tests/mcp/tools/test_freshness_tristate.py tests/infra/test_serve_registry_served_version.py tests/mcp/test_server_registry_served_version_wiring.py -q -rfE -p no:cacheprovider'
+    expect: 'exit 0'
+    timeout_seconds: 240
+    junitxml: true
+    proves:
+      - REQ-G3-012
+min_tests: 8
+requires:
+  - python
+network: false
+negative_control:
+  mutate: |
+    python -X utf8 -c "import pathlib; p = pathlib.Path('src/foss_mcp/mcp/tools/report_index_freshness.py'); s = p.read_text(encoding='utf-8'); old = 'if registry_served_version > indexed_version:'; assert s.count(old) == 1, 'comparison line text not found as expected - if your real fix reads differently, anchor on your own real line instead, in the same chr()-based style, and note the substitution in your closeout'; p.write_text(s.replace(old, 'if tuple(registry_served_version) > tuple(indexed_version):  # TC-629 negative control: reinstate the unpadded comparison', 1), encoding='utf-8')"
+  rationale: >-
+    Reinstates a direct, unpadded tuple comparison (wrapping both sides in a no-op `tuple()` call
+    keeps the line textually distinct from your own fixed line while being semantically identical
+    to the original bug - a plain, length-sensitive comparison). The new equal-at-different-
+    precision test case(s) must fail under this mutation; the genuinely-newer/genuinely-older
+    cases should still pass (they are not what this bug affects).
+evidence:
+  - evidence/build/G3/TC-629/receipt.json
+closeout:
+  - >-
+    registry_served_version comparisons now pad both tuples to equal length before comparing, so a
+    version written at different precision is never mistaken for newer or older. State the real
+    before/after behavior for the exact repro case ((26,7) vs (26,7,0)) in your report.
+recovery: Re-run from a clean tree.
