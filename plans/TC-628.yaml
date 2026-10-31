@@ -1,0 +1,197 @@
+id: TC-628
+gate: G3
+lane: storage-retrieval
+purpose: >-
+  Build Q8 (REQ-G3-011): lookup's own partial/exact predicate, and moving the table-dominated
+  guard into `search_docs` (plan section 2.2 item 3, card table "Q8 | Q7 | LK SD TSTC"). Two
+  independent fixes, both already named and already measured by the project's OWN committed F6
+  conformance test (`tests/conformance/test_precision_and_size_budget.py`,
+  `test_the_three_named_known_false_exact_cases`) - read that test and its module docstring
+  FIRST, it already documents exactly what this card must fix and gives you a ready, real,
+  non-strict-baseline measurement harness for it:
+
+  1. `lookup._answer_quality`'s first branch - `if limitations_first or category_intent(query) is
+  not None: return MATCH_EXACT, ()` - forces the WHOLE `TaskAnswer` to `match_quality="exact"`
+  unconditionally the instant ANY limitations/scope-and-limitations documentation chunk clears the
+  relevance floor, never checking whether that chunk's own passage actually explains the query's
+  own distinctive words. This is the real, already-reproduced HTML-PY-005 class of bug (the F6
+  test's own named case: "how do I render HTML to an image" on html/python - a real limitations
+  chunk is found, says nothing specific about this exact capability's own words, and still gets
+  labelled "exact"). Fix: `limitations_first` stops forcing exact by itself - a limitation doc
+  match is a `doc_matches` entry exactly like any other (it already is, structurally -
+  `_compose_from_docs` prepends it), so let the EXISTING `for match in doc_matches: if
+  passage_coverage(rule, match.text) >= _FULL_COVERAGE: return MATCH_EXACT` loop just below decide
+  its quality on the same real-coverage terms every other doc match is already held to. Only
+  `category_intent(query) is not None` (a query that names a documentation CATEGORY and nothing
+  else - a deliberate, complete match by design, not a coincidence) keeps forcing exact
+  unconditionally; the plan does not ask you to touch that branch, and it is not one of the F6
+  test's named false-exact cases.
+
+  2. The table-dominated guard - today `lookup._without_unsupported_tables` (ALL-or-nothing: only
+  acts when EVERY `doc_matches` entry is table-dominated, dropping the whole tuple to `()` unless
+  at least one of them carries >= 2 real distinctive-term matches of its own) - moves into
+  `search_docs` itself, as a PER-CANDIDATE admission filter applied once, before `_relevant_
+  coverage` (the confident tier) and before Q7's `_partial_coverage` (the partial tier) ever score
+  a candidate: a table-dominated chunk (`_is_table_dominated`, unchanged definition) is eligible
+  for EITHER tier only when it itself carries >= `_TABLE_EVIDENCE_MIN_TERMS` (2, unchanged) of the
+  query's own distinctive terms (`present_terms`); a chunk that is not table-dominated is
+  unaffected either way. This widens protection to every direct `search_docs` caller (not only
+  `lookup`'s own composition, as today), and is this plan's own fix for the third F6-named case,
+  PDF-JAVA-005 ("convert PDF to PNG image" on pdf/java - tens of KB of alphabetically-sorted,
+  unrelated class-description tables crowd the real answering class, and a table chunk's own
+  incidental full coverage of generic query words can even be what triggers the false "exact"
+  label). `lookup._without_unsupported_tables` and its call site become dead code once this move
+  is complete and must be deleted, not left as an unused duplicate - but `_is_table_dominated`
+  itself must stay IMPORTABLE from `lookup` by its own existing name (re-export, do not rename):
+  `tests/mcp/tools/test_lookup_forgiveness.py` (NOT in this card's write_paths, cannot be touched)
+  does `from foss_mcp.mcp.tools.lookup import TaskAnswer, _is_table_dominated, lookup` and must
+  keep working and passing unchanged.
+
+  EXPLICITLY OUT OF SCOPE (do not touch, not in this card's write tokens): the F6 test's OTHER
+  named false-exact case, CELLS-RUST-001 ("how do I create a pivot table" on cells/rust), is
+  caused by `search_symbols.py`'s own `via_member` scoring shortcut (`_Scored.exact`'s `self.fit
+  >= 0.5 or self.via_member`) - a real, separate defect in a file this card never writes to. State
+  honestly in your closeout whether it still reproduces (it should - this card cannot fix it) and
+  leave it for a future card. Do not touch `relevance.py` or `find_examples.py` either.
+
+  Read C:\Users\babar\.claude\plans\steady-wobbling-meteor.md section 2.2 (item 3, Q8) and section
+  3 Decision F first, then `tests/conformance/test_precision_and_size_budget.py` in full (it is
+  your single best source of truth for both of this card's own named target bugs and how to
+  measure them against the real 32-pilot corpus).
+depends_on:
+  - TC-627
+write_paths:
+  - src/foss_mcp/mcp/tools/search_docs.py
+  - src/foss_mcp/mcp/tools/lookup.py
+  - tests/mcp/tools/test_lookup_table_guard_and_exact_predicate.py
+satisfies:
+  - REQ-G3-011
+source_refs:
+  - file: docs/DECISION_LOG.md
+    anchor: >-
+      ## 2026-10-30 — Round-2 portfolio audit remediation adopted: unified plan, governance decisions A-K
+      recorded (supervisor)
+    sha256: 62cf1403a592118e3fb6bd14c5336f8a997cc3181d44a585323ec9f1d385a931
+inputs:
+  - >-
+    READ FIRST: `tests/conformance/test_precision_and_size_budget.py` in full, especially
+    `test_the_three_named_known_false_exact_cases` and `test_a_broader_sample_of_real_task_queries_
+    for_false_exact_labels` (lines ~134-260 as of this writing - confirm the real current line
+    numbers yourself). These are F6's own already-committed, non-strict-baseline conformance tests;
+    you do not need to invent a measurement methodology, you need to make real cases they already
+    watch stop reproducing, honestly, without weakening either test (not in your write_paths
+    anyway).
+  - >-
+    In `lookup.py`'s `_answer_quality`: change `if limitations_first or category_intent(query) is
+    not None: return MATCH_EXACT, ()` to drop `limitations_first or` (keep `category_intent`'s own
+    branch exactly as it is). `limitations_first` then becomes an unused parameter of this
+    function - remove it from the signature entirely, and update its one call site in
+    `_compose_from_docs` (`_answer_quality(store, scope, query, symbols, example, doc_matches,
+    bool(limitations))`) to match. Confirm nothing else reads `limitations_first` before removing
+    it (it is passed nowhere else, by grep, as of this writing - re-confirm yourself).
+  - >-
+    In `search_docs.py`: move `_TABLE_DOMINATED_MIN_LENGTH`, `_TABLE_LINE`,
+    `_TABLE_DOMINATED_MIN_SHARE`, `_is_table_dominated` and `_TABLE_EVIDENCE_MIN_TERMS` here from
+    `lookup.py` (identical definitions, just relocated - do not change their logic or values). Add
+    `present_terms` to the existing `from foss_mcp.mcp.tools.relevance import (...)` block (already
+    imports `distinctive_terms`; `tokenize` is already imported from `lexical_index_writer`). Add a
+    new filter, applied once right after `matching_doc_ids` is computed in `search_docs()`'s main
+    path, BEFORE it is passed to `_relevant_coverage` or Q7's `_partial_coverage`: a candidate
+    `doc_id` is eligible when `not _is_table_dominated(text)` OR `len(present_terms(distinctive_
+    terms(query, scope.family, platform=scope.platform), tokenize(text))) >=
+    _TABLE_EVIDENCE_MIN_TERMS`. Apply this filter consistently wherever a candidate pool currently
+    reaches `_relevant_coverage`/`_partial_coverage`-style scoring in this file, INCLUDING
+    `_miss_with_hint`'s own "other content types" check (re-derive this yourself from the real
+    current code shape rather than guessing - the exact call sites may differ slightly from this
+    description once Q7's own code is in front of you). The `intent`-match branch (bare
+    category-name queries) is explicitly OUT OF SCOPE - leave it completely untouched, exactly as
+    Q7's card already required.
+  - >-
+    In `lookup.py`: delete `_without_unsupported_tables` and its one call site inside
+    `_compose_from_docs` (now redundant - `search_docs` polices this itself for every caller). Add
+    `from foss_mcp.mcp.tools.search_docs import _is_table_dominated` (or extend the existing
+    `search_docs` import if one already exists) so `_is_table_dominated` stays importable from
+    `lookup` by its own existing name - `tests/mcp/tools/test_lookup_forgiveness.py` depends on
+    this and is NOT in your write_paths. Delete `_TABLE_DOMINATED_MIN_LENGTH`, `_TABLE_LINE`,
+    `_TABLE_DOMINATED_MIN_SHARE`, `_TABLE_EVIDENCE_MIN_TERMS` from `lookup.py` once nothing there
+    uses them any more (re-confirm nothing else in the file still does, by grep, before deleting
+    each one).
+  - >-
+    tests/mcp/tools/test_lookup_table_guard_and_exact_predicate.py must prove, against REAL pilots
+    loaded from `infra/demo-manifests` (same read-only copy-to-temp-dir pattern as every other
+    ratchet/conformance test in this plan): (a) a limitations-first query whose real limitation
+    chunk does NOT reach full passage coverage of the query's own terms now returns
+    `match_quality=MATCH_PARTIAL` with non-empty `unmatched_terms`, not a forced `MATCH_EXACT` -
+    reuse or adapt the real HTML-PY-007/html__python "how do I render HTML to an image" case to
+    show this concretely; (b) a bare category-name query (e.g. "known issues") still returns
+    `MATCH_EXACT` unconditionally, completely unaffected (`category_intent` branch untouched); (c)
+    a synthetic, in-memory table-dominated chunk with fewer than 2 distinctive-term matches is now
+    excluded from `search_docs`'s OWN candidate pool directly (call `search_docs`, not just
+    `lookup`) - never admitted to either the confident or Q7's partial tier; (d) the same synthetic
+    table-dominated chunk WITH >= 2 distinctive-term matches IS still admitted through
+    `search_docs` directly, unchanged; (e) `_is_table_dominated` is still importable from `lookup`
+    by that exact name and behaves identically to before (a direct equality/behavioural check, not
+    just an import-does-not-raise check); (f) state, honestly, whether each of the three F6-named
+    cases (CELLS-RUST-001, HTML-PY-007, PDF-JAVA-005) still reproduces after your fix, by actually
+    calling `lookup()` against the real corpus the same way that test does - CELLS-RUST-001 is
+    expected to still reproduce (out of scope, `search_symbols.py`'s `via_member`), HTML-PY-007 and
+    PDF-JAVA-005 are the cases this card targets; report the real outcome whichever way it falls,
+    never forced.
+  - >-
+    Checks: run the new test file alone, then the full retrieval ratchet bundle fresh (same list
+    Q7 used, which already includes `tests/conformance/test_precision_and_size_budget.py` and
+    `tests/mcp/tools/test_lookup_forgiveness.py` - both are NOT in your write_paths and must pass
+    completely unchanged as pinned, zero new failures against either baseline). Never weaken a
+    check to make it pass; if either of those two un-editable test files turns out to actually
+    need a change to stay honestly correct, STOP and report FAILED_INTERNAL describing exactly
+    what and why, rather than working around it.
+actions:
+  - >-
+    Stop lookup from forcing match_quality=exact on an unconditional limitations-first coincidence,
+    and move the table-dominated admission guard into search_docs itself as a per-candidate filter
+    protecting every caller - fixing 2 of F6's 3 already-named, already-measured false-exact
+    cases, with the third (search_symbols' via_member) honestly left out of scope.
+checks:
+  - command: '{python} -m pytest tests/mcp/tools/test_lookup_table_guard_and_exact_predicate.py -q -rfE -p no:cacheprovider'
+    expect: 'exit 0'
+    timeout_seconds: 180
+    junitxml: true
+    proves:
+      - REQ-G3-011
+  - command: '{python} -m pytest tests/mcp/tools/test_lookup_table_guard_and_exact_predicate.py tests/mcp/tools/test_search_docs_partial_tier.py tests/mcp/tools/test_round3_retrieval_corpus.py tests/mcp/tools/test_forgiveness_acceptance.py tests/mcp/tools/test_nonsense_queries_miss.py tests/mcp/tools/test_find_examples_title_anchor.py tests/mcp/tools/test_relevance_idf_synonyms.py tests/mcp/tools/test_search_docs_title_passage_coverage.py tests/mcp/tools/test_search_docs_query_normalization.py tests/mcp/tools/test_search_docs_language_letter.py tests/mcp/tools/test_lookup_forgiveness.py tests/mcp/tools/test_lookup_miss_reason.py tests/mcp/tools/test_lookup_query_normalization.py tests/conformance/test_sentence_wrapped_retrieval.py tests/conformance/test_precision_and_size_budget.py -q -rfE -p no:cacheprovider'
+    expect: 'exit 0'
+    timeout_seconds: 420
+    junitxml: true
+    proves:
+      - REQ-G3-011
+min_tests: 10
+requires:
+  - python
+network: false
+negative_control:
+  mutate: |
+    python -X utf8 -c "import pathlib; p = pathlib.Path('src/foss_mcp/mcp/tools/lookup.py'); s = p.read_text(encoding='utf-8'); old = 'if category_intent(query) is not None:\n        return MATCH_EXACT, ()'; assert s.count(old) == 1, 'post-fix branch text not found as expected - if your real fix reads differently (e.g. different whitespace/line-join), anchor on your own real line instead, in the same chr()-based style, and note the substitution in your closeout'; p.write_text(s.replace(old, 'if category_intent(query) is not None or True:  # TC-628 negative control: reinstate unconditional forced-exact\n        return MATCH_EXACT, ()', 1), encoding='utf-8')"
+  rationale: >-
+    Reinstates the pre-card behaviour of unconditionally forcing match_quality=exact (the ` or
+    True` makes the branch fire on every call, exactly like the old `limitations_first or
+    category_intent(...)` condition did whenever limitations_first was true, which was the whole
+    bug). Test (a) (a real limitations case now correctly demoted to partial) must fail under this
+    mutation. This mutate does not exercise the table-guard half of the card (tests (c)/(d)/(e)) -
+    if your own dry-run finds those still pass clean under this single mutation (expected, they are
+    a separate mechanism), that is correct; do not treat it as a negative-control failure.
+evidence:
+  - evidence/build/G3/TC-628/receipt.json
+closeout:
+  - >-
+    limitations_first no longer forces match_quality=exact by itself; the table-dominated guard
+    now lives in search_docs as a per-candidate filter protecting every caller, not only lookup's
+    own composition. State which of F6's 3 named false-exact cases still reproduce after your fix,
+    honestly. lookup._without_unsupported_tables is deleted; _is_table_dominated stays importable
+    from lookup by its own name. relevance.py and find_examples.py are untouched;
+    search_symbols.py's own via_member false-exact case (CELLS-RUST-001) is confirmed out of scope
+    and left for a future card.
+recovery: >-
+  If fixing either named bug turns out to require a change to test_lookup_forgiveness.py or
+  test_precision_and_size_budget.py to stay honestly correct (neither is in your write_paths), STOP
+  and report FAILED_INTERNAL with exactly what change would be needed and why, rather than working
+  around the restriction.
