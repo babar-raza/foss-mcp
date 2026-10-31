@@ -73,6 +73,46 @@ purpose: >-
   function must be independently re-confirmed by you to still hold with the corrected number
   (`len(after)`, `after_ids <= before_ids`, the titles check) - do not just change the one number
   and assume the rest follows.
+
+  SUPERVISOR AMENDMENT 2 (attempt 2, rework - the real `gatectl review` of attempt 1's commit
+  1b931e51 found exactly one new failure in a third, previously-unidentified file, via its own
+  "offline tests of files this card touches" sweep):
+  `tests/mcp/test_round3_doc_excerpt.py::test_lookup_with_a_content_type_marks_cut_chunks_with_a_
+  working_search_docs_call` now fails (`assert cut` -> `assert []`). ROOT CAUSE, independently
+  diagnosed and confirmed by the supervisor by running both the post-fix and pre-fix code against
+  this exact test (not guessed): on the real pdf/python pilot, the literal query "convert pdf"
+  under `content_type="developer_guide"` used to match 5 real chunks; one of them (chunk_id
+  `1a852f56c65ae87d`, a table-dominated "Key Capabilities and API Reference" alphabetical class
+  listing, 7776 chars) is now correctly EXCLUDED by this card's own table-admission guard, because
+  this specific query's only distinctive term is `convert` (`pdf` is excluded as the family word) -
+  one term can never clear the guard's own `_TABLE_EVIDENCE_MIN_TERMS` (2) floor, so the chunk is
+  rightly dropped. This is the fix working exactly as intended - the SAME category of correct,
+  deliberate narrowing as PDF-JAVA-005's own fix. The side effect: with that 5th large chunk gone,
+  the remaining 4 real chunks' combined size now fits comfortably under the response's adaptive
+  item budget, so NONE of them need truncation any more - and this test's entire premise (this
+  literal real query reliably triggers the truncation/chunk-continuation mechanism on this pilot)
+  is now simply false, as a direct, correct consequence of this card's own fix, not a defect in it.
+
+  `tests/mcp/test_round3_doc_excerpt.py` is added to `write_paths` below to fix ONLY this one test
+  function, and the fix should make it MORE robust, not merely patch the number: stop relying on
+  how many real chunks a real pilot's query happens to match (which is now coupled to this card's
+  own relevance-mechanism correctness and could shift again under a future card), and instead
+  inject a synthetic, deliberately-oversized, deliberately NON-table-dominated documentation chunk
+  via this same test file's own existing `_server(tmp_path, extra_documents={...})` injection
+  mechanism (already used elsewhere in this file, e.g. around the `test_the_fetch_call_returns_
+  the_whole_remainder_of_every_large_baked_chunk`-style tests - read those for the real, working
+  pattern) that is GUARANTEED to need truncation under the real response budget, independent of
+  any other real chunk the pilot happens to hold. Keep testing the SAME real mechanism this test
+  was written for (a `lookup(content_type=...)` call surfaces a `chunk_id`/`offset` continuation
+  marker for a cut chunk, and fetching that chunk/offset via `search_docs` returns the exact
+  correct remainder matching the real source) - only the TRIGGER for truncation should become
+  synthetic and deliberate rather than an incidental real-query side effect. Do not weaken the
+  assertions themselves (still prove the fetched remainder exactly matches the original, still
+  prove the marker format, etc.) - only change how a chunk needing truncation is GUARANTEED to
+  exist. Independently re-confirm, yourself, that the synthetic chunk you construct is not itself
+  table-dominated (`_is_table_dominated` would be a good direct check to run) and that it carries
+  enough of your chosen query's own distinctive terms to be admitted at the confident tier (not
+  accidentally caught by this card's own new guard, which would defeat the point).
 depends_on:
   - TC-627
 write_paths:
@@ -80,6 +120,7 @@ write_paths:
   - src/foss_mcp/mcp/tools/lookup.py
   - tests/mcp/tools/test_lookup_table_guard_and_exact_predicate.py
   - tests/mcp/tools/test_search_docs_query_normalization.py
+  - tests/mcp/test_round3_doc_excerpt.py
 satisfies:
   - REQ-G3-011
 source_refs:
@@ -174,7 +215,7 @@ checks:
     junitxml: true
     proves:
       - REQ-G3-011
-  - command: '{python} -m pytest tests/mcp/tools/test_lookup_table_guard_and_exact_predicate.py tests/mcp/tools/test_search_docs_partial_tier.py tests/mcp/tools/test_round3_retrieval_corpus.py tests/mcp/tools/test_forgiveness_acceptance.py tests/mcp/tools/test_nonsense_queries_miss.py tests/mcp/tools/test_find_examples_title_anchor.py tests/mcp/tools/test_relevance_idf_synonyms.py tests/mcp/tools/test_search_docs_title_passage_coverage.py tests/mcp/tools/test_search_docs_query_normalization.py tests/mcp/tools/test_search_docs_language_letter.py tests/mcp/tools/test_lookup_forgiveness.py tests/mcp/tools/test_lookup_miss_reason.py tests/mcp/tools/test_lookup_query_normalization.py tests/conformance/test_sentence_wrapped_retrieval.py tests/conformance/test_precision_and_size_budget.py -q -rfE -p no:cacheprovider'
+  - command: '{python} -m pytest tests/mcp/tools/test_lookup_table_guard_and_exact_predicate.py tests/mcp/tools/test_search_docs_partial_tier.py tests/mcp/tools/test_round3_retrieval_corpus.py tests/mcp/tools/test_forgiveness_acceptance.py tests/mcp/tools/test_nonsense_queries_miss.py tests/mcp/tools/test_find_examples_title_anchor.py tests/mcp/tools/test_relevance_idf_synonyms.py tests/mcp/tools/test_search_docs_title_passage_coverage.py tests/mcp/tools/test_search_docs_query_normalization.py tests/mcp/tools/test_search_docs_language_letter.py tests/mcp/tools/test_lookup_forgiveness.py tests/mcp/tools/test_lookup_miss_reason.py tests/mcp/tools/test_lookup_query_normalization.py tests/mcp/test_round3_doc_excerpt.py tests/conformance/test_sentence_wrapped_retrieval.py tests/conformance/test_precision_and_size_budget.py -q -rfE -p no:cacheprovider'
     expect: 'exit 0'
     timeout_seconds: 420
     junitxml: true
