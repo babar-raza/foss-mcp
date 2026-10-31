@@ -1,0 +1,164 @@
+id: TC-625
+gate: G3
+lane: storage-retrieval
+purpose: >-
+  Build Q5 (REQ-G3-011): a new, pure, DORMANT `doc_scope_term_weights` function computing IDF
+  weights over doc/example chunks ONLY, not the whole generation - closing the root mechanism
+  behind the originally-reported LONGQ-001 failure (the real install chunk holds 3 of 7 query terms
+  at 0.43 coverage, below the 0.6 floor, because `term_weights`'s existing `doc_freq` table is
+  computed over the WHOLE generation, which is ~98% symbol chunks, so a documentation-specific word
+  like "install" (df 5) ends up weighing the SAME as a near-universal symbol-chunk word like "file"
+  (df 163) - see plan section 1.1, row 1). This card builds and unit-tests the new function in
+  ISOLATION ONLY - it is NOT called from `search_docs`, `lookup`, `find_examples`, or anywhere else
+  real; wiring and the measurement-gated decision to enable it happen in Q6 (a separate, later
+  card, explicitly conditioned on "every existing ratchet unchanged or higher" per the plan's own
+  acceptance bar for this stage). Of the plan's two candidate formulas ("same clip with doc-scope
+  df" vs. "log-ratio mapped to [0.25, 1.0]"), this card builds ONLY the first, simpler one (literally
+  reusing `term_weights`'s own existing clip/formula, just over a different, doc/example-filtered
+  document population) - do not build the second candidate speculatively; if Q6's later measurement
+  finds the first candidate insufficient, a follow-up card builds the second one then, not now. Read
+  C:\Users\babar\.claude\plans\steady-wobbling-meteor.md section 1.1 (row 1) and 2.2 (Q5-Q6) first.
+depends_on:
+  - TC-619
+write_paths:
+  - src/foss_mcp/mcp/tools/relevance.py
+  - tests/mcp/tools/test_relevance_doc_scope_weights.py
+satisfies:
+  - REQ-G3-011
+source_refs:
+  - file: docs/DECISION_LOG.md
+    anchor: >-
+      ## 2026-10-30 — Round-2 portfolio audit remediation adopted: unified plan, governance decisions A-K
+      recorded (supervisor)
+    sha256: 62cf1403a592118e3fb6bd14c5336f8a997cc3181d44a585323ec9f1d385a931
+inputs:
+  - >-
+    READ FIRST: C:\Users\babar\.claude\plans\steady-wobbling-meteor.md section 1.1 (row 1) and 2.2
+    (Q5-Q6). Also read, in full, before writing anything: `relevance.py`'s real `term_weights`
+    function (around line 940) and its exact weight formula/clip constants (`WEIGHT_FLOOR`,
+    `WEIGHT_KNOWN_CEILING`, `WEIGHT_CEILING`); `chunk_kind(text) -> str` (around line 121,
+    `SYMBOL`/`EXAMPLE`/`DOCUMENTATION` constants just above it); and `_scope_document_fraction`
+    (around line 649), which already demonstrates the exact pattern of iterating
+    `lexical_payload["documents"]` and `lexical_payload["doc_freq"]` together - model your new
+    function's structure after it, since `doc_freq` as stored is a GLOBAL, whole-generation
+    aggregate (confirmed: `_scope_document_fraction` sums it directly with no per-document
+    filtering), so a DOC-SCOPE-ONLY df cannot reuse the stored `doc_freq` table directly - it must
+    be recomputed by iterating each document's own `tokens` field (confirm this field's real name
+    and shape - `find_examples.py`'s own `guarded_coverage` calls reference
+    `documents[doc_id]["tokens"]`, confirm this is the real, present key) and `chunk_kind(document["text"])`,
+    counting a token present only for documents whose kind is `DOCUMENTATION` or `EXAMPLE`.
+  - >-
+    Add `doc_scope_term_weights(terms: Collection[str], lexical_payload: Mapping[str, object]) ->
+    dict[str, float]`. Its FIRST body statement (immediately after the docstring, before anything
+    else) must be, verbatim, `doc_scope_documents = lexical_payload.get("documents") or {}` -
+    deliberately NOT the identical text `_scope_document_fraction`/other existing functions already
+    use for their own, unrelated "documents" local (confirmed: that exact phrasing already appears
+    3 times in the file before this card) - this exact, distinctly-named text is required because
+    the card's own negative control anchors on it precisely and must stay unique. `N` is the count
+    of documents whose `chunk_kind` is `DOCUMENTATION` or
+    `EXAMPLE` (not the whole generation); for each term, `df` is the count of THOSE SAME
+    doc/example documents whose own token set (stemmed) contains the term; apply the EXACT SAME
+    formula and clip `term_weights` already uses (`ln(1 + N / (1 + df))` clipped to
+    `[WEIGHT_FLOOR, WEIGHT_KNOWN_CEILING]` for a term with `df > 0`, `WEIGHT_CEILING` for `df == 0`)
+    - reuse the same constants, do not invent new ones. When the generation has ZERO doc/example
+    chunks (`N == 0`, e.g. a pilot with no documentation at all), every term must weigh
+    `WEIGHT_CEILING` (an absent scope means every term is "unseen" by that scope, never a
+    division-by-zero or an arbitrary default - confirm this edge case explicitly in your tests).
+    This function is PURE and reads only its own two arguments, exactly like `term_weights`.
+  - >-
+    Add one new, clearly-named, clearly-commented module-level constant,
+    `DOC_SCOPE_WEIGHTS_ENABLED = False`, placed near `RELEVANCE_THRESHOLD`/the other tuning
+    constants, with a comment stating plainly that this is a DORMANT marker - nothing in this
+    card's own diff reads it, and no real tool calls `doc_scope_term_weights` yet; it exists so a
+    reader (and Q6) can find, in one place, the single flag Q6 is expected to flip once its own
+    measurement passes. Do not gate the new function's own body on this constant (the function
+    itself has no "enabled/disabled" behaviour - it either computes correctly or it does not; the
+    constant is purely a documentation/handoff marker for Q6, not a runtime switch inside this
+    function).
+  - >-
+    `tests/test_unwired_modules.py` enforces that every production symbol is reachable from a real
+    entrypoint. `doc_scope_term_weights` is deliberately NOT wired into any tool by this card - Q6
+    does that - so this test WILL fail against your new function as written. Add
+    `"foss_mcp.mcp.tools.relevance.doc_scope_term_weights"` to that file's real `_KNOWN_UNWIRED`
+    frozenset, with an inline comment stating it is wired in by Q6, matching the style of every
+    other commented entry already in that frozenset (confirm the current real entries and count
+    language before editing, it has changed at least once already this gate - TC-617 removed
+    `normalize_query` from it). Re-run `tests/test_unwired_modules.py` to confirm it passes again
+    before committing.
+  - >-
+    tests/mcp/tools/test_relevance_doc_scope_weights.py (no mocks needed - build synthetic
+    `lexical_payload` dicts directly, the same style `term_weights`'s own existing tests likely
+    already use; ALSO include at least one REAL-pilot measurement, reading a real, committed
+    `infra/demo-manifests` generation, since the whole point of this card is to show a REAL,
+    concrete improvement over `term_weights`'s existing weights for a real term pair): (a) a
+    synthetic doc/example-only corpus where term A appears in every doc/example chunk and term B
+    appears in none - confirm A's weight is at the floor end and B's is `WEIGHT_CEILING`,
+    mirroring `term_weights`'s own existing test shapes; (b) a MIXED corpus (doc/example chunks
+    AND many symbol chunks) where a term is common in symbol chunks but RARE in doc/example chunks
+    - confirm `doc_scope_term_weights` weighs it HIGH (correctly treating it as doc-scope-rare)
+    while the EXISTING `term_weights`, called on the SAME payload, weighs it LOW (correctly
+    reflecting whole-generation commonness) - this concrete A/B contrast is the proof this card's
+    whole premise is real, not assumed; (c) the real LONGQ-001-relevant case: against a real,
+    committed pdf/net-shaped generation (or the closest real equivalent pilot available), measure
+    the REAL `doc_scope_term_weights` value for "install" and for "file" (or whichever real terms
+    from the plan's own row-1 diagnosis are present in the real data) and confirm the doc-scope gap
+    between them is WIDER than `term_weights`'s existing whole-generation gap for the same two
+    terms - state the real measured numbers in your closeout, do not assume they match the plan's
+    illustrative "df 5 vs df 163" figures exactly; (d) the zero-doc/example-chunks edge case
+    (`N == 0`) - confirm every term weighs `WEIGHT_CEILING`, no division error; (e)
+    `tests/test_unwired_modules.py` passes with the new `_KNOWN_UNWIRED` entry. Never weaken a
+    check to make it pass.
+  - >-
+    Run the FULL existing relevance/retrieval ratchet bundle as this card's second check and
+    confirm every existing pinned number is UNCHANGED - this card adds new, unused-by-default
+    capability only; nothing yet calls `doc_scope_term_weights` from a real entrypoint, so there
+    must be ZERO behavioural change to any existing tool's answers.
+actions:
+  - >-
+    Add doc_scope_term_weights, a pure, dormant IDF-weight function scoped to doc/example chunks
+    only, proven against a real pilot to measurably widen the weight gap between a doc-specific
+    word and a symbol-chunk-common word - wiring and the measurement-gated enable decision are Q6's
+    separate job.
+checks:
+  - command: '{python} -m pytest tests/mcp/tools/test_relevance_doc_scope_weights.py -q -rfE'
+    expect: 'exit 0'
+    timeout_seconds: 120
+    junitxml: true
+    proves:
+      - REQ-G3-011
+  - command: '{python} -m pytest tests/mcp/tools/test_relevance_doc_scope_weights.py tests/mcp/tools/test_round3_retrieval_corpus.py tests/mcp/tools/test_forgiveness_acceptance.py tests/mcp/tools/test_nonsense_queries_miss.py tests/mcp/tools/test_find_examples_title_anchor.py tests/mcp/tools/test_relevance_idf_synonyms.py tests/test_unwired_modules.py -q -rfE -p no:cacheprovider'
+    expect: 'exit 0'
+    timeout_seconds: 300
+    junitxml: true
+    proves:
+      - REQ-G3-011
+min_tests: 6
+requires:
+  - python
+network: false
+negative_control:
+  mutate: |
+    python -X utf8 -c "import pathlib; p = pathlib.Path('src/foss_mcp/mcp/tools/relevance.py'); s = p.read_text(encoding='utf-8'); old = '    doc_scope_documents = lexical_payload.get(' + chr(34) + 'documents' + chr(34) + ') or {}'; assert s.count(old) == 1, 'fix text not found - card and source have diverged'; new = '    return dict.fromkeys(terms, 1.0)  # TC-625 negative control: every term weighs 1.0, never computing the real doc-scope df' + chr(10) + old; p.write_text(s.replace(old, new, 1), encoding='utf-8')"
+  rationale: >-
+    Immediately before doc_scope_term_weights' own required, distinctly-named first statement,
+    forces an early return of a uniform 1.0 weight for every term, never reaching the real
+    doc-scope computation below it. The mixed-corpus A/B contrast test (b) and the real-pilot
+    measurement test (c) must then fail, proving they exercise the real doc-scope computation
+    rather than trusting the function's mere existence. Dry-run confirmed by the supervisor: the
+    anchor text is distinct from the 3 pre-existing, differently-named occurrences of the similar
+    `documents = lexical_payload.get("documents") or {}` line used by other functions in this
+    file.
+evidence:
+  - evidence/build/G3/TC-625/receipt.json
+closeout:
+  - >-
+    doc_scope_term_weights exists, is pure and fully isolated (not called by any real tool yet, per
+    the new _KNOWN_UNWIRED entry); state the real measured weight gap for a real doc-specific vs.
+    symbol-common term pair on a real pilot, and confirm it is wider than term_weights' own
+    existing gap for the same pair. Confirm the existing retrieval ratchet bundle is unchanged.
+recovery: >-
+  If the real-pilot measurement in test (c) does not show a wider gap for any real term pair you
+  can find, STOP and report FAILED_INTERNAL with the real numbers you measured rather than picking
+  a less representative pair to make the test pass - this would mean the plan's own row-1 diagnosis
+  needs re-examining before Q6 can proceed, which is exactly the kind of finding this plan wants
+  surfaced honestly, not hidden.
