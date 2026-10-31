@@ -32,6 +32,31 @@ purpose: >-
   this card's own acceptance bar; "every existing ratchet holds" is. Read
   C:\Users\babar\.claude\plans\steady-wobbling-meteor.md section 1.1 (row 1), 2.2 (Q5-Q9), and
   section 3 Decision F (measurement-gated stages) first.
+
+  REWORK (attempt 2): attempt 1's wiring is correct, fully re-confirmed independently by the
+  worker (search_docs-only and lookup-only both passed the full 361-test ratchet bundle
+  unchanged; find_examples-only reproduced the exact predicted regression - all three numbers
+  matched the card's own pre-measurement exactly). The worker ALSO found and honestly corrected a
+  real error in the supervisor's own pre-authoring LONGQ-001 measurement: it was taken with
+  `platform=None`, but every real production call site passes `platform="net"` (TC-610's platform
+  exclusion, already shipped) - the real, correctly-measured number is `0.3333 -> 0.2984` (still a
+  decrease, still well under 0.6 - the qualitative conclusion is unchanged, only the exact figures
+  were wrong in this card's own `purpose` text; do not "fix" that text, it is not in your
+  write_paths and the real test now carries the correct number). Attempt 1 also correctly
+  identified, and correctly did NOT fix (outside its write_paths), two now-stale pre-existing
+  tests broken by this card's OWN real, correct behaviour change: (1)
+  `tests/test_unwired_modules.py`'s `_KNOWN_UNWIRED` frozenset still lists
+  `"foss_mcp.mcp.tools.relevance.doc_scope_term_weights"` (TC-625's own entry) even though this
+  card makes it genuinely, permanently wired - remove that one entry and its docstring mention
+  (update the "EIGHT such symbols" count language down by one; confirm the real current count
+  yourself, it may have shifted); (2)
+  `tests/mcp/tools/test_relevance_doc_scope_weights.py::test_doc_scope_weights_enabled_marker_is_
+  false_and_dormant` (TC-625's own test) pins `DOC_SCOPE_WEIGHTS_ENABLED is False` - update it to
+  assert `is True` (rename the test function to match: e.g.
+  `test_doc_scope_weights_enabled_marker_is_true_and_live`), keep its OWN real, valuable invariant
+  (flipping the flag back and forth must not change `doc_scope_term_weights`' own output - the
+  function never reads it) intact, just toggling in the OTHER direction from the new `True`
+  default. Do not touch any OTHER test in either file.
 depends_on:
   - TC-617
   - TC-625
@@ -40,6 +65,8 @@ write_paths:
   - src/foss_mcp/mcp/tools/search_docs.py
   - src/foss_mcp/mcp/tools/lookup.py
   - tests/mcp/tools/test_relevance_doc_scope_weights_enabled.py
+  - tests/test_unwired_modules.py
+  - tests/mcp/tools/test_relevance_doc_scope_weights.py
 satisfies:
   - REQ-G3-011
 source_refs:
@@ -94,13 +121,13 @@ actions:
     behavioural change to any existing pinned number, and reporting honestly that the literal
     LONGQ-001 sentence does not yet flip to a confident hit from this card alone.
 checks:
-  - command: '{python} -m pytest tests/mcp/tools/test_relevance_doc_scope_weights_enabled.py -q -rfE'
+  - command: '{python} -m pytest tests/mcp/tools/test_relevance_doc_scope_weights_enabled.py tests/mcp/tools/test_relevance_doc_scope_weights.py tests/test_unwired_modules.py -q -rfE'
     expect: 'exit 0'
     timeout_seconds: 180
     junitxml: true
     proves:
       - REQ-G3-011
-  - command: '{python} -m pytest tests/mcp/tools/test_relevance_doc_scope_weights_enabled.py tests/mcp/tools/test_round3_retrieval_corpus.py tests/mcp/tools/test_forgiveness_acceptance.py tests/mcp/tools/test_nonsense_queries_miss.py tests/mcp/tools/test_find_examples_title_anchor.py tests/mcp/tools/test_relevance_idf_synonyms.py tests/mcp/tools/test_lookup_forgiveness.py tests/mcp/tools/test_lookup_miss_reason.py tests/conformance/test_sentence_wrapped_retrieval.py -q -rfE -p no:cacheprovider'
+  - command: '{python} -m pytest tests/mcp/tools/test_relevance_doc_scope_weights_enabled.py tests/mcp/tools/test_relevance_doc_scope_weights.py tests/test_unwired_modules.py tests/mcp/tools/test_round3_retrieval_corpus.py tests/mcp/tools/test_forgiveness_acceptance.py tests/mcp/tools/test_nonsense_queries_miss.py tests/mcp/tools/test_find_examples_title_anchor.py tests/mcp/tools/test_relevance_idf_synonyms.py tests/mcp/tools/test_lookup_forgiveness.py tests/mcp/tools/test_lookup_miss_reason.py tests/conformance/test_sentence_wrapped_retrieval.py -q -rfE -p no:cacheprovider'
     expect: 'exit 0'
     timeout_seconds: 420
     junitxml: true
@@ -131,6 +158,9 @@ closeout:
     full bundle; find_examples stays on term_weights, with the real measured regression numbers
     recorded as a finding for a future card. State the real, fresh-measured LONGQ-001 coverage
     number honestly, whichever way it falls, and confirm which negative-control approach you used.
+    Confirm tests/test_unwired_modules.py's stale _KNOWN_UNWIRED entry is removed and
+    tests/mcp/tools/test_relevance_doc_scope_weights.py's dormant-marker test now correctly
+    asserts the live, enabled state.
 recovery: >-
   If your OWN fresh measurement of the full ratchet bundle finds a regression the supervisor's
   pre-measurement did not catch (in search_docs or lookup specifically, not find_examples, which is
