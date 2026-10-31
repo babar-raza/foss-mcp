@@ -17,7 +17,8 @@ from __future__ import annotations
 
 import pytest
 
-from foss_mcp.mcp.tools.relevance import DOCUMENTATION, chunk_kind
+from foss_mcp.indexing.lexical_index_writer import tokenize
+from foss_mcp.mcp.tools.relevance import DOCUMENTATION, chunk_kind, stem_token
 from foss_mcp.mcp.tools.search_docs import (
     _MAX_PARTIAL_DOCS,
     MATCH_EXACT,
@@ -28,8 +29,10 @@ from foss_mcp.mcp.tools.search_docs import (
     DocPart,
     Miss,
     _doc_ids_by_content_type,
+    _partial_coverage,
     _passage_match,
     _relevant_coverage,
+    _Rule,
     _rule_for,
     passage_coverage,
     search_docs,
@@ -385,3 +388,85 @@ def test_partial_coverage_threshold_and_min_terms_are_the_cards_frozen_values_or
     assert PARTIAL_LONG_QUERY_MIN_TERMS == 6
     assert 0.34 <= PARTIAL_COVERAGE_THRESHOLD <= 0.50
     assert _MAX_PARTIAL_DOCS == 3
+
+
+# ---- (h): a synonym-driven match is reported as MATCHED, never as unmatched (G3/TC-630) -----------
+
+
+def test_passage_match_reports_synonym_driven_term_as_matched_not_unmatched() -> None:
+    """G3/TC-630 (REQ-G3-011): ``_passage_match``'s matched-term set must pair with its own
+    synonym-aware ``guarded_coverage`` score (via ``present_terms``), not a plain stemmed-token
+    intersection. A rule whose terms include the stem of "convert" (one of the four pinned
+    ``SYNONYM_GROUPS`` pairs - plus "file" so the best window is well defined) scored against a
+    window whose only relevant word is "conversion" - the literal stem "convert" never appears
+    anywhere in the text - must report "convert" as MATCHED (it genuinely, correctly drove the
+    window's own full coverage score), never as unmatched."""
+    convert_term = stem_token("convert")
+    file_term = stem_token("file")
+    rule = _Rule(
+        terms=frozenset({convert_term, file_term}),
+        weights={convert_term: 1.0, file_term: 1.0},
+        required=frozenset(),
+    )
+    text = "this guide explains the conversion workflow for every file you create here\n"
+    assert convert_term not in {stem_token(token) for token in tokenize(text)}, (
+        "test construction requires the literal stem of 'convert' to be absent from the text"
+    )
+
+    score, matched = _passage_match(rule, text)
+
+    assert score == 1.0, f"expected full synonym-driven coverage; measured {score}"
+    assert convert_term in matched, (
+        f"'convert' should be MATCHED via its synonym 'conversion'; matched={matched}"
+    )
+    unmatched_terms = rule.terms - matched
+    assert convert_term not in unmatched_terms, (
+        f"'convert' wrongly reported as unmatched despite genuinely driving the coverage score; "
+        f"unmatched={unmatched_terms}"
+    )
+
+
+# ---- (i): the admission gate admits a candidate only synonyms make eligible (G3/TC-630) -----------
+
+
+def test_partial_coverage_admission_gate_admits_a_candidate_only_synonyms_make_eligible() -> None:
+    """G3/TC-630 (REQ-G3-011): ``_partial_coverage``'s own admission gate (``len(matched) >= 2``
+    distinct rule terms) reads the SAME matched set ``_passage_match`` returns, so the undercounting
+    bug this card fixes was a real false-negative in the gate itself, not merely a cosmetic label
+    error. A rule with two terms - the stems of "convert" and "save", from two DIFFERENT pinned
+    ``SYNONYM_GROUPS`` pairs - scored against a window whose only relevant words are "conversion" and
+    "export" (each a synonym of one term; neither literal term appears anywhere in the text):
+
+    - the OLD plain-stemmed-token intersection this card replaces finds 0 matched terms (reproduced
+      directly below), so the gate would have wrongly REJECTED this chunk even though its coverage
+      score legitimately clears ``PARTIAL_COVERAGE_THRESHOLD`` - a false negative, not a label error;
+    - the fix's synonym-aware ``present_terms`` finds both terms matched, and ``_partial_coverage``
+      now correctly ADMITS it.
+    """
+    convert_term = stem_token("convert")
+    save_term = stem_token("save")
+    rule = _Rule(
+        terms=frozenset({convert_term, save_term}),
+        weights={convert_term: 1.0, save_term: 1.0},
+        required=frozenset(),
+    )
+    text = "please review the conversion settings before you export the result\n"
+    documents = {"doc-1": {"text": text}}
+
+    score, matched = _passage_match(rule, text)
+    assert score >= PARTIAL_COVERAGE_THRESHOLD, (
+        f"test construction requires a qualifying coverage score; measured {score}"
+    )
+
+    # Reproduces the OLD, synonym-blind computation this card replaces, to prove this case is a
+    # genuine false negative closed by the fix, not merely a differently-labelled pass.
+    old_matched = frozenset(rule.terms) & {stem_token(token) for token in tokenize(text)}
+    assert len(old_matched) < 2, (
+        f"test construction requires the OLD plain-intersection matched count to be < 2 (the false "
+        f"negative this case proves is closed); measured old_matched={old_matched}"
+    )
+    assert len(matched) >= 2, f"the fix's synonym-aware matched set must clear the gate; matched={matched}"
+
+    partial = _partial_coverage(documents, documents.keys(), rule)
+    assert "doc-1" in partial, "the admission gate wrongly rejected a chunk only synonyms make eligible"
+    assert partial["doc-1"] == (score, matched)

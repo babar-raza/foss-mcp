@@ -362,12 +362,14 @@ _MAX_PARTIAL_DOCS = 3
 
 def _passage_match(rule: _Rule, text: str) -> tuple[float, frozenset[str]]:
     """``passage_coverage``'s own best-window coverage, together with which of ``rule.terms``
-    (stemmed) were present in that SAME best-scoring window (G3/TC-627, REQ-G3-011): the plain
-    intersection of ``rule.terms`` with the window's own stemmed tokens - the same stemming
-    ``guarded_coverage`` already does internally for its ``required`` check, reused here rather than
-    re-stemmed a second way. A required identifier-like term's absence already zeroes a window's
-    score via ``guarded_coverage``, so the partial tier's own "at least 2 matched terms" gate never
-    needs a separate check for it.
+    were present in that SAME best-scoring window (G3/TC-627/TC-630, REQ-G3-011): synonym-aware,
+    via ``present_terms`` - the same pattern ``lookup.py``'s own ``_limitation_coverage`` already
+    uses for conceptually the same question. ``guarded_coverage`` scores the window as synonym-aware
+    (a term counts as present when a ``_SYNONYMS_OF`` member of it is in the window), so the matched
+    set paired with that score must be synonym-aware too, or a synonym-driven match gets reported as
+    an "unmatched" term even though it genuinely drove the score - and the partial tier's own "at
+    least 2 matched terms" admission gate (``_partial_coverage``) would undercount against the same
+    stale, plain intersection, wrongly rejecting an otherwise-eligible chunk.
 
     G3/TC-572: a chunk's own ``FQN: Doc: <title>`` first line (TC-517) declares that title as the topic
     of the WHOLE chunk, not just the physical lines near line 0 - so the title's own tokens are folded
@@ -382,7 +384,7 @@ def _passage_match(rule: _Rule, text: str) -> tuple[float, frozenset[str]]:
         score = guarded_coverage(rule.terms, tokens, rule.required, rule.weights)
         if score > best:
             best = score
-            best_matched = frozenset(rule.terms) & {stem_token(token) for token in tokens}
+            best_matched = present_terms(rule.terms, tokens)
         if best >= 1.0:
             break
     return best, best_matched
