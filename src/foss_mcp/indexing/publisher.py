@@ -110,6 +110,7 @@ def publish_generation(
     lease: Lease,
     version: str | None = None,
     vector_chunk_filter: Callable[[Chunk], bool] | None = None,
+    doc_vector_chunk_filter: Callable[[Chunk], bool] | None = None,
     vector_decimals: int | None = None,
     policy: PublishPolicy | None = None,
 ) -> str:
@@ -120,6 +121,12 @@ def publish_generation(
     ``build_vector_index`` as ``include``: ``None`` (the default) embeds and stores every chunk;
     a predicate embeds and stores only the chunks it accepts. The lexical index always holds
     every chunk either way.
+
+    ``doc_vector_chunk_filter`` is a second, independent, opt-in vector scope for documentation
+    chunks: ``None`` (the default, today's behaviour, completely unchanged) builds no second
+    vector index at all - the payload carries no ``"vector_index_docs"`` key. A predicate builds
+    a SEPARATE ``payload["vector_index_docs"]`` the same way ``payload["vector_index"]`` is
+    built, scoped to only the chunks it accepts.
 
     ``vector_decimals`` is passed straight to ``build_vector_index`` as ``decimals``: ``None`` (the
     default) stores vectors unrounded, an integer rounds every stored component to that many places.
@@ -162,6 +169,15 @@ def publish_generation(
         ),
         "lexical_index": build_lexical_index(chunks, chunk_ids, generation_id),
     }
+    if doc_vector_chunk_filter is not None:
+        payload["vector_index_docs"] = build_vector_index(
+            chunks,
+            chunk_ids,
+            embedding_provider,
+            generation_id,
+            include=doc_vector_chunk_filter,
+            decimals=vector_decimals,
+        )
     if policy is not None:
         payload["stats"] = build_generation_stats(chunks, chunk_ids)
     manifest = build_manifest(family, platform, source_kind, version, payload)

@@ -41,7 +41,7 @@ from foss_mcp.indexing.generation_manifest import (  # noqa: F401
     PublishSafetyError,
 )
 from foss_mcp.indexing.publisher import publish_generation
-from foss_mcp.indexing.vector_index_writer import is_example_chunk
+from foss_mcp.indexing.vector_index_writer import is_doc_chunk, is_example_chunk
 from foss_mcp.mcp.tools.get_symbol import extract_fqn
 from foss_mcp.normalization.chunker import Chunk
 from foss_mcp.normalization.citation import (
@@ -324,6 +324,17 @@ def main() -> None:
         ),
     )
     parser.add_argument(
+        "--vector-scope-docs",
+        action="store_true",
+        default=False,
+        help=(
+            "additionally embed and store, in a SEPARATE vector index, only chunks that are "
+            "documentation chunks (text starting with the 'FQN: Doc: ' prefix). Independent of "
+            "--vector-scope: unset (default) builds no second vector index at all, exactly as "
+            "before this flag existed. The lexical index always holds every chunk either way."
+        ),
+    )
+    parser.add_argument(
         "--vector-decimals",
         type=_vector_decimals,
         default=None,
@@ -458,6 +469,7 @@ def main() -> None:
         lease=lease,
         version=version,
         vector_chunk_filter=is_example_chunk if args.vector_scope == "examples" else None,
+        doc_vector_chunk_filter=is_doc_chunk if args.vector_scope_docs else None,
         vector_decimals=args.vector_decimals,
         policy=policy,
     )

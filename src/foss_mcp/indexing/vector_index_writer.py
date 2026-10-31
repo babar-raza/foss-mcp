@@ -31,6 +31,21 @@ def is_example_chunk(chunk: Chunk) -> bool:
     return EXAMPLE_MARKER in chunk.text
 
 
+# The prefix that makes a chunk a documentation chunk. ``foss_mcp.mcp.tools.search_docs`` keeps
+# its own private copy (``_DOC_TITLE_PREFIX``) and only ever returns vector points whose text
+# starts with it; tests/indexing/test_doc_vector_scope.py pins the two copies equal so neither
+# can drift. This module does not import ``foss_mcp.mcp`` - the dependency would run the wrong
+# way.
+DOC_TITLE_PREFIX = "FQN: Doc: "
+
+
+def is_doc_chunk(chunk: Chunk) -> bool:
+    """True when ``chunk`` is a documentation chunk - the only chunks a doc-scoped vector
+    fallback can ever return, and so the only ones a docs-only vector scope embeds.
+    """
+    return chunk.text.startswith(DOC_TITLE_PREFIX)
+
+
 def quantize_vector(vector: Sequence[float], decimals: int) -> tuple[float, ...]:
     """``vector`` with every component rounded to ``decimals`` decimal places.
 
