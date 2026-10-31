@@ -1,0 +1,163 @@
+id: TC-633
+gate: G3
+lane: storage-retrieval
+purpose: >-
+  QV2 (findability sub-program, supersedes Q9 for the LONGQ-001 gap - see DECISION_LOG.md
+  2026-10-31 and plans/TC-632.yaml's QV1, which this card depends on). Add a strictly-additive
+  vector-similarity fallback stage to `search_docs`, firing ONLY when every lexical stage
+  (`_relevant_coverage`'s confident tier AND Q7's `_partial_coverage` tier) has already found
+  nothing for a long-enough query - the exact same "last resort, can only turn a Miss into a
+  hit, never regress an existing hit" contract `find_examples._vector_fallback` (TC-331/TC-508/
+  TC-584) already ships in production. This card reuses that mechanism's real, already-hardened
+  machinery end to end (the same `GatewayEmbeddingProvider`, the same `VectorFallbackGuard`
+  deadline+circuit-breaker, the same exception-safety contract) rather than inventing a second
+  one - do not re-implement gateway retry/timeout/circuit logic; import and call the existing
+  pieces exactly as `find_examples.py` does.
+
+  READ FIRST, in this order: (1) `find_examples.py`'s `_vector_fallback` function (currently
+  lines ~603-729) end to end - this is your reference implementation's shape, docstring style,
+  and exception-safety discipline; (2) its caller at `find_examples.py` lines ~566-569 (the
+  `if not hits:` branch that calls it) - the same "only when lexical found literally nothing"
+  calling contract; (3) `search_docs.py`'s `search_docs` function, specifically the branch at
+  (currently) lines 663-697: `if not hits:` -> the `PARTIAL_LONG_QUERY_MIN_TERMS`-gated partial-
+  tier attempt -> falling through to `return _miss_with_hint(...)`. Your new stage is a further
+  attempt inside that SAME branch, tried after `_partial_coverage` comes back empty (or the
+  query did not qualify for it), still before the final `_miss_with_hint` return - never touching
+  the confident-tier or Q7 partial-tier code paths above it.
+
+  Mechanism (`search_docs.py`):
+  1. Add `_doc_vector_fallback(manifest, scope, generation_id, query, top_k, rule)`, mirroring
+     `find_examples._vector_fallback`'s structure: reads `manifest.payload.get("vector_index_docs")`
+     (built by TC-632's QV1 - absent on any generation published before that card, or when
+     `--vector-scope-docs` was not passed; treat an absent/empty payload exactly like
+     `find_examples` treats a missing `vector_index` - return `([], None)` immediately, no error).
+     Checks gateway configuration the same way (`_ENDPOINT_ENV`/`_API_KEY_ENV`, `STATUS_NOT_CONFIGURED`),
+     gets the process-wide guard (`foss_mcp.mcp.tools.vector_guard.get_guard`), embeds the query
+     through `GatewayEmbeddingProvider` under the guard exactly as `find_examples` does (same
+     `set_query_time_limits`/`QUERY_TIME_MAX_ATTEMPTS` call), ranks the WHOLE `vector_index_docs`
+     corpus via `query_vector_index_scored` (never pre-cut by `top_k`), and is fully exception-safe
+     end to end (any failure anywhere in this stage returns `([], None)` or the guard's own status
+     string - never raises, never takes `search_docs` down).
+  2. YOU MUST MEASURE a real similarity floor before picking one - do not reuse `find_examples`'s
+     `_VECTOR_SIMILARITY_THRESHOLD = 0.45` unmeasured; documentation chunks are longer and more
+     verbose than example snippets and may embed with a different score distribution. Using the
+     real gateway (env vars `GPT_OSS_ENDPOINT`/`GPT_OSS_API_KEY` are present in your shell; map
+     them to `FOSS_MCP_EMBEDDING_GATEWAY_ENDPOINT`/`FOSS_MCP_EMBEDDING_GATEWAY_API_KEY` exactly as
+     `gateway_embedding_provider.py`'s own docstring documents, the same mapping already proven to
+     work this session), embed every real documentation chunk of a representative sample of
+     pilots (`tests/conformance/corpus.load_demo_manifests_corpus` +
+     `ConformancePilot.doc_chunks()` is the real, already-loaded corpus) plus a sample of F5's own
+     sentence-wrapped queries (`tests.conformance.test_sentence_wrapped_retrieval.FRAMES`/
+     `sample_items`/`_titled_chunks`/`_render`) and the literal `LONGQ-001` query
+     (`LONGQ_001_QUERY`/`LONGQ_001_PILOT`/`LONGQ_001_TITLE` in that same module). Pick a floor that
+     is real and dry-run-verified (document the measured numbers behind your choice in a code
+     comment, the same discipline `PARTIAL_COVERAGE_THRESHOLD = 0.41`'s own comment in this file
+     already follows) - it does not have to recover every case; it must not be invented.
+  3. Every result this stage returns MUST be labelled `match_quality=MATCH_PARTIAL` - NEVER
+     `MATCH_EXACT`. This is a hard invariant, not a tuning choice: Decision G (DECISION_LOG.md)
+     treats a confident wrong answer as strictly worse than an honest partial one, and a pure
+     cosine-similarity match (see DECISION_LOG.md's 2026-10-31 entry: the real literal LONGQ-001
+     query scored its correct chunk 0.708 against a topically-adjacent wrong chunk's 0.713 - a
+     near-tie) is not reliable enough to ever claim full confidence. Add a new `DocMatch` field
+     `match_basis: str = field(default="lexical", kw_only=True)` and a new module constant
+     `MATCH_BASIS_EMBEDDING = "embedding_similarity"` - pin it, by test, equal to
+     `find_examples.MATCH_BASIS_EMBEDDING` (the literal string both must share, never imported
+     cross-module - same discipline as the existing `EXAMPLE_MARKER` pin). Set
+     `unmatched_terms=tuple(sorted(rule.terms))` on a vector-matched result (every rule term is
+     honestly "unmatched" by lexical means - that is exactly why this stage ran at all).
+  4. Wire it into `search_docs` only where described above: gated the same way Q7's partial tier
+     already is (`rule is not None and len(rule.terms) >= PARTIAL_LONG_QUERY_MIN_TERMS`), tried
+     only after `_partial_coverage` returns nothing, at most `min(top_k, _MAX_PARTIAL_DOCS)`
+     results, same ordering/dedup discipline as the existing partial-tier return just above it.
+  5. `lookup.py` is explicitly OUT OF SCOPE for this card (that is QV3/a later card) - do not touch
+     it even if it would be a one-line change; if you find it is NOT a one-line change, say so in
+     your report instead of making it one.
+depends_on:
+  - TC-630
+  - TC-632
+write_paths:
+  - src/foss_mcp/mcp/tools/search_docs.py
+  - tests/mcp/tools/test_search_docs_vector_fallback.py
+satisfies:
+  - REQ-G3-011
+source_refs:
+  - file: docs/DECISION_LOG.md
+    anchor: >-
+      ## 2026-10-31 — Lexical-only doc/symbol retrieval decision (2026-10-12) partially
+      superseded: a doc-scoped vector fallback is adopted for `search_docs`/`lookup` (operator,
+      supervisor)
+    sha256: 9cbb486b3e74401f32b6e70ef04c40cd2b897b9ab47651ae02db7ad1cbc84a47
+inputs:
+  - >-
+    READ FIRST (in order): `find_examples.py`'s `_vector_fallback` and its caller;
+    `search_docs.py`'s `search_docs` function's `if not hits:` branch; `vector_guard.py` in full
+    (the guard you reuse unmodified); `gateway_embedding_provider.py`'s module docstring (the env
+    var names and the real gateway's confirmed shape - already proven reachable this session via
+    `GPT_OSS_ENDPOINT`/`GPT_OSS_API_KEY`).
+  - >-
+    MEASURE FIRST: before writing the real floor constant, run a real-gateway measurement script
+    (scratch file, not committed) over a representative sample of pilots' real doc chunks and a
+    sample of F5's sentence-wrapped queries plus the literal LONGQ-001 query, exactly as described
+    in this card's `purpose`. Report the real numbers you measured and the floor you chose in your
+    closing report - do not reuse `find_examples`'s 0.45 without re-measuring for this corpus.
+  - >-
+    Write tests in `tests/mcp/tools/test_search_docs_vector_fallback.py` covering, at minimum: (a)
+    with no `vector_index_docs` payload at all (a generation published before TC-632, or without
+    `--vector-scope-docs`), `search_docs` behaves byte-for-byte as it does today (falls through to
+    `Miss`/`_miss_with_hint` exactly as now - use a deterministic stand-in embedding provider or
+    monkeypatch the gateway construction to prove this, never the real gateway in this test); (b)
+    with a `vector_index_docs` payload present and a deterministic fake provider/guard returning a
+    known vector, a long query that lexically misses entirely gets a `DocMatch` back with
+    `match_quality=MATCH_PARTIAL` and `match_basis=MATCH_BASIS_EMBEDDING` - NEVER
+    `MATCH_EXACT`, whatever the fake similarity score; (c) a query that already gets a confident
+    OR Q7-partial lexical hit never reaches this new stage at all (prove the vector/gateway path is
+    never even attempted - e.g. a provider double that raises/asserts if called); (d) any exception
+    raised inside the new stage (simulate a gateway/timeout/budget error) degrades to the existing
+    `Miss` behaviour, never propagates; (e) `MATCH_BASIS_EMBEDDING` is pinned equal to
+    `find_examples.MATCH_BASIS_EMBEDDING`. Also add at least one test using the REAL gateway (env
+    vars already present in this shell) proving a real F5-style long sentence query that lexically
+    misses gets back a non-`MATCH_EXACT` vector-based result against the real demo-manifests
+    corpus for at least one pilot with `vector_index_docs` built via `publish_generation` in a
+    tmp_path store (reuse TC-632's own test pattern for building that payload) - mark this one test
+    so the suite can still run offline (e.g. `pytest.mark.skipif` when the two env vars are unset),
+    since CI/other machines will not have the real credential.
+actions:
+  - >-
+    Add a measured, strictly-additive, exception-safe vector-similarity fallback to `search_docs`
+    that fires only when every lexical stage already found nothing for a long query, reusing the
+    existing `find_examples` gateway/guard machinery unmodified, and labels every result it
+    returns as a disclosed partial match - never a confident one.
+checks:
+  - command: '{python} -m pytest tests/mcp/tools/test_search_docs_vector_fallback.py -q -rfE -p no:cacheprovider'
+    expect: 'exit 0'
+    timeout_seconds: 240
+    junitxml: true
+    proves:
+      - REQ-G3-011
+  - command: '{python} -m pytest tests/mcp/tools/test_search_docs_partial_tier.py tests/mcp/tools/test_search_docs_query_normalization.py tests/mcp/tools/test_lookup_table_guard_and_exact_predicate.py tests/mcp/tools/test_find_examples_vector_deadline.py tests/mcp/test_round3_doc_excerpt.py -q -rfE -p no:cacheprovider'
+    expect: 'exit 0'
+    timeout_seconds: 300
+    junitxml: true
+    proves:
+      - REQ-G3-011
+min_tests: 10
+requires:
+  - python
+network: false
+negative_control:
+  mutate: |
+    python -X utf8 -c "import pathlib; p = pathlib.Path('src/foss_mcp/mcp/tools/search_docs.py'); s = p.read_text(encoding='utf-8'); old = 'match_basis=MATCH_BASIS_EMBEDDING'; assert s.count(old) == 1, 'match_basis=MATCH_BASIS_EMBEDDING literal not found as expected - if your real code reads differently, anchor on your own real literal instead and note the substitution in your closeout'; p.write_text(s.replace(old, 'match_basis=\"lexical\"  # TC-633 negative control: mislabel the vector match as lexical', 1), encoding='utf-8')"
+  rationale: >-
+    Mislabels every vector-matched result as an ordinary lexical partial match instead of an
+    embedding-similarity one, without touching whether the stage fires or what it finds. Any test
+    asserting `match_basis == MATCH_BASIS_EMBEDDING` on a vector-fallback result must fail under
+    this mutation; every other test (including the "never fires when lexical already hit"
+    tests) is unaffected, since this mutate only changes a label on an already-produced result.
+evidence:
+  - evidence/build/G3/TC-633/receipt.json
+closeout:
+  - >-
+    `search_docs` now tries a measured, labelled, exception-safe vector-similarity fallback as a
+    true last resort when every lexical stage misses on a long query - state the real measured
+    floor you chose and the numbers behind it in your report.
+recovery: Re-run from a clean tree.
