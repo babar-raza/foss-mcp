@@ -19,7 +19,7 @@ from __future__ import annotations
 import json
 import re
 from collections.abc import Iterable
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 
 from foss_mcp.indexing.generation_manifest import GenerationManifestStore
 from foss_mcp.indexing.lexical_index_writer import query_lexical_index_scored, tokenize
@@ -40,7 +40,7 @@ from foss_mcp.mcp.tools.relevance import (
     required_terms,
     stem_token,
 )
-from foss_mcp.mcp.tools.search_symbols import scope_key
+from foss_mcp.mcp.tools.search_symbols import MATCH_EXACT, MATCH_PARTIAL, scope_key
 
 SOURCE_KIND = "self_extracted"
 
@@ -178,6 +178,15 @@ class DocMatch:
     chunk_id: str
     content_type: str
     text: str
+    # G3/TC-627 (REQ-G3-011): the symbol path's own shape (``search_symbols.SymbolMatch``) -
+    # ``MATCH_EXACT`` for today's confident hit (every existing construction, in this file and in
+    # ``lookup.py``'s ``_limitation_docs``, needs no change), ``MATCH_PARTIAL`` for the new labelled
+    # partial tier below. ``kw_only=True``: ``DocPart`` (below) subclasses ``DocMatch`` and adds its
+    # OWN non-default fields (``offset`` etc.) - without ``kw_only`` a dataclass refuses to combine a
+    # parent's defaulted field with a child's non-defaulted one ("non-default argument follows
+    # default argument"), confirmed by actually constructing the two classes before relying on it.
+    match_quality: str = field(default=MATCH_EXACT, kw_only=True)
+    unmatched_terms: tuple[str, ...] = field(default=(), kw_only=True)
 
 
 # G3/TC-563: the most JSON bytes of chunk text one continuation part carries. The response budget is
@@ -269,10 +278,51 @@ def _rule_for(
 # TC-562: a passage is this many consecutive lines of a chunk.
 PASSAGE_LINES = 10
 
+# G3/TC-627 (REQ-G3-011, Q7): a query needs at least this many content terms (``rule.terms`` -
+# ``query_terms``'s own stemmed set) to be eligible for the labelled partial tier at all. Below this,
+# a query is "short" and a plain ``Miss`` is the only outcome, however high a chunk's own passage
+# coverage happens to be - independently re-measured safe: the 4 short nonsense queries of
+# ``test_nonsense_queries_miss.py`` top out at 3 content terms across all 32 real pilots, so they can
+# never reach this gate by construction, at any threshold.
+PARTIAL_LONG_QUERY_MIN_TERMS = 6
 
-def passage_coverage(rule: _Rule, text: str) -> float:
-    """The best coverage of the rule's terms (IDF-weighted, identifier-like words required) by any window of
-    ``PASSAGE_LINES`` consecutive lines of *text*; the whole chunk when it is no longer than a window.
+# G3/TC-627 (REQ-G3-011, Q7): the frozen admission floor for the partial tier's own best-passage
+# coverage (plan section 2.2 item 3's allowed band is 0.34-0.50). Independently re-measured, fresh,
+# against the real 32-pilot infra/demo-manifests corpus before this card was written: F5's 5 longer
+# nonsense sentences (test_sentence_wrapped_retrieval.NONSENSE_SENTENCES) measure a maximum
+# best-passage coverage of 0.2500 across every pilot and every documentation chunk - a comfortable
+# 0.09-0.25 margin below every value in the allowed band. The literal LONGQ-001 query's own real
+# install chunk measures 0.2984, still below even the loosest allowed value, so this card alone does
+# NOT flip LONGQ-001 via its OWN chunk (flipping it is Q8/Q9's job).
+#
+# 0.41, not the card's own suggested 0.40 default: at 0.40, several real pdf/net "Key Capabilities
+# and API Reference" chunks (the card's own named structural precision risk) measure EXACTLY
+# 0.403166800478466 best-passage coverage against the literal LONGQ-001 query itself, with 2-3 of
+# its terms ("convert"/"file"/"reference") present via this file's own title-folding
+# (``_passage_match``'s ``title_tokens``) - at 0.40 these clear the gate and flip the pinned
+# LONGQ-001 case from Miss to a partial hit on the WRONG chunk, which this card's own required test
+# (f) forbids. 0.41 is the smallest round value still inside the allowed band that clears this
+# measured collision (0.403166800478466 < 0.41) while keeping real recall headroom: of the 81
+# "long and currently-failing" cases in F5's 96-case default sample, 17 (21%) still clear 0.41's own
+# chunk floor, against 19 (23%) at the exact collision value and 24 (30%) at 0.40 - a small, honest
+# reduction, not a collapse.
+PARTIAL_COVERAGE_THRESHOLD = 0.41
+
+# G3/TC-627 (REQ-G3-011, Q7): the partial tier never claims one single "best" answer - a structural
+# precision risk (a different, more lexically generic chunk, overwhelmingly one titled "Key
+# Capabilities and API Reference", can out-score the true chunk) means up to this many labelled,
+# honestly-uncertain candidates are returned instead.
+_MAX_PARTIAL_DOCS = 3
+
+
+def _passage_match(rule: _Rule, text: str) -> tuple[float, frozenset[str]]:
+    """``passage_coverage``'s own best-window coverage, together with which of ``rule.terms``
+    (stemmed) were present in that SAME best-scoring window (G3/TC-627, REQ-G3-011): the plain
+    intersection of ``rule.terms`` with the window's own stemmed tokens - the same stemming
+    ``guarded_coverage`` already does internally for its ``required`` check, reused here rather than
+    re-stemmed a second way. A required identifier-like term's absence already zeroes a window's
+    score via ``guarded_coverage``, so the partial tier's own "at least 2 matched terms" gate never
+    needs a separate check for it.
 
     G3/TC-572: a chunk's own ``FQN: Doc: <title>`` first line (TC-517) declares that title as the topic
     of the WHOLE chunk, not just the physical lines near line 0 - so the title's own tokens are folded
@@ -281,12 +331,25 @@ def passage_coverage(rule: _Rule, text: str) -> float:
     line_tokens = [tokenize(line) for line in lines]
     title_tokens = tokenize(lines[0]) if lines and lines[0].startswith(_DOC_TITLE_PREFIX) else []
     best = 0.0
+    best_matched: frozenset[str] = frozenset()
     for start in range(max(1, len(lines) - PASSAGE_LINES + 1)):
         tokens = title_tokens + [token for found in line_tokens[start : start + PASSAGE_LINES] for token in found]  # fmt: skip
-        best = max(best, guarded_coverage(rule.terms, tokens, rule.required, rule.weights))
+        score = guarded_coverage(rule.terms, tokens, rule.required, rule.weights)
+        if score > best:
+            best = score
+            best_matched = frozenset(rule.terms) & {stem_token(token) for token in tokens}
         if best >= 1.0:
             break
-    return best
+    return best, best_matched
+
+
+def passage_coverage(rule: _Rule, text: str) -> float:
+    """The best coverage of the rule's terms (IDF-weighted, identifier-like words required) by any window of
+    ``PASSAGE_LINES`` consecutive lines of *text*; the whole chunk when it is no longer than a window.
+
+    A thin wrapper around ``_passage_match`` (G3/TC-627): this function's own two existing call sites
+    (``_relevant_coverage``, ``_miss_with_hint``) and their behaviour stay byte-for-byte unchanged."""
+    return _passage_match(rule, text)[0]
 
 
 def _relevant_coverage(
@@ -306,6 +369,22 @@ def _relevant_coverage(
         if passage >= RELEVANCE_THRESHOLD:
             relevant[doc_id] = passage
     return relevant
+
+
+def _partial_coverage(
+    documents: dict[str, dict], doc_ids: Iterable[str], rule: _Rule
+) -> dict[str, tuple[float, frozenset[str]]]:
+    """doc_id -> (best-passage coverage, the rule terms matched in that SAME window), for the chunks
+    of *doc_ids* whose best-passage coverage clears ``PARTIAL_COVERAGE_THRESHOLD`` with at least 2
+    distinct rule terms actually present in that window (G3/TC-627, REQ-G3-011). This is the labelled
+    partial tier's own, weaker admission - tried only when ``_relevant_coverage``'s confident gate
+    found nothing, and only for a long-enough query (``search_docs`` checks that before calling this)."""
+    partial: dict[str, tuple[float, frozenset[str]]] = {}
+    for doc_id in doc_ids:
+        score, matched = _passage_match(rule, documents[doc_id]["text"])
+        if score >= PARTIAL_COVERAGE_THRESHOLD and len(matched) >= 2:
+            partial[doc_id] = (score, matched)
+    return partial
 
 
 def _miss_with_hint(
@@ -520,6 +599,28 @@ def search_docs(
     scored.sort(key=lambda item: (-item[0], -item[1], item[2]))
     hits = [doc_id for _coverage, _score, doc_id in scored][:top_k]
     if not hits:
+        # G3/TC-627 (REQ-G3-011, Q7): the confident gate found nothing. For a long-enough query
+        # (>= PARTIAL_LONG_QUERY_MIN_TERMS content terms), try the SAME candidate pool once more
+        # under the weaker, labelled partial admission before giving up to a plain Miss.
+        if rule is not None and len(rule.terms) >= PARTIAL_LONG_QUERY_MIN_TERMS:
+            partial = _partial_coverage(documents, matching_doc_ids, rule)
+            if partial:
+                ordered_partial = sorted(
+                    partial.items(), key=lambda item: (-item[1][0], -bm25.get(item[0], 0.0), item[0])
+                )[: min(top_k, _MAX_PARTIAL_DOCS)]
+                return [
+                    DocMatch(
+                        scope=scope,
+                        generation_id=active_generation_id,
+                        doc_id=doc_id,
+                        chunk_id=documents[doc_id]["chunk_id"],
+                        content_type=content_type or classify_content_type(documents[doc_id]["text"]),
+                        text=documents[doc_id]["text"],
+                        match_quality=MATCH_PARTIAL,
+                        unmatched_terms=tuple(sorted(rule.terms - matched)),
+                    )
+                    for doc_id, (_score, matched) in ordered_partial
+                ]
         return _miss_with_hint(
             scope,
             original_query,
