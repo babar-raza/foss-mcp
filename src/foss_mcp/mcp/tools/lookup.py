@@ -66,12 +66,12 @@ from foss_mcp.mcp.tools.relevance import (
     chunk_kind,
     coverage,
     distinctive_terms,
+    doc_scope_term_weights,
     fold_query,
     has_minimum_evidence,
     normalize_query,
     present_terms,
     query_terms,
-    term_weights,
 )
 from foss_mcp.mcp.tools.search_docs import (
     CONTENT_TYPES,
@@ -354,7 +354,7 @@ def _limitation_docs(store: GenerationManifestStore, scope: Scope, query: str) -
     documents = payload.get("documents") or {}
     if generation_id is None:
         return ()
-    weights = term_weights(terms, payload)
+    weights = doc_scope_term_weights(terms, payload)
     found: list[tuple[float, int, str, str]] = []
     for doc_id, document in documents.items():
         text = document["text"]

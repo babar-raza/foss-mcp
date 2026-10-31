@@ -112,11 +112,16 @@ WEIGHT_FLOOR = 0.5
 WEIGHT_KNOWN_CEILING = 1.0
 WEIGHT_CEILING = 2.0
 
-# TC-625 (Q5, REQ-G3-011): a DORMANT marker, not a runtime switch. Nothing in this card's own diff
-# reads it, and no real tool calls ``doc_scope_term_weights`` yet - this flag exists purely so a
-# reader (and Q6, the later card that measures whether doc-scope weights should go live) can find,
-# in one place, the single switch Q6 is expected to flip once its own measurement passes.
-DOC_SCOPE_WEIGHTS_ENABLED = False
+# TC-625 (Q5, REQ-G3-011) added this as a DORMANT marker; TC-626 (Q6) flips it live after measuring
+# ``doc_scope_term_weights`` against the full retrieval ratchet bundle at each of the three real
+# call sites in isolation: ``search_docs._rule_for`` and ``lookup._limitation_docs`` both pass the
+# bundle completely unchanged and are wired to ``doc_scope_term_weights`` below; ``find_examples``
+# reproduces a real regression (two pinned verbose-example rows drop from the floor
+# ``MIN_VERBOSE_HITS = 14`` to a measured 12 hits / 14 misses) and stays on ``term_weights``,
+# untouched - a deliberate, measured exclusion recorded as a finding for a later card, not this
+# one's job to fix. This flag is documentation of that decision, not itself consulted at call
+# time: each caller imports the function it needs directly.
+DOC_SCOPE_WEIGHTS_ENABLED = True
 
 _IDENTIFIER_RUN_RE = re.compile(r"[A-Za-z0-9_]+")
 _LOWER_THEN_CAPITAL_RE = re.compile(r"[a-z][A-Z]")

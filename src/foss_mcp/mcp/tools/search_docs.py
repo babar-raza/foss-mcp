@@ -30,6 +30,7 @@ from foss_mcp.mcp.tools.relevance import (
     RELEVANCE_THRESHOLD,
     chunk_kind,
     distinctive_terms,
+    doc_scope_term_weights,
     fold_query,
     guarded_coverage,
     has_minimum_evidence,
@@ -38,7 +39,6 @@ from foss_mcp.mcp.tools.relevance import (
     query_terms,
     required_terms,
     stem_token,
-    term_weights,
 )
 from foss_mcp.mcp.tools.search_symbols import scope_key
 
@@ -263,7 +263,7 @@ def _rule_for(
             terms = query_terms(query, family)
         elif terms != frozenset({stem_token(family)}):
             return None
-    return _Rule(terms, term_weights(terms, lexical_payload or {}), required_terms(query))
+    return _Rule(terms, doc_scope_term_weights(terms, lexical_payload or {}), required_terms(query))
 
 
 # TC-562: a passage is this many consecutive lines of a chunk.
