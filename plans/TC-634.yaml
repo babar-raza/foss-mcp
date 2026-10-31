@@ -118,7 +118,7 @@ checks:
 min_tests: 5
 requires:
   - python
-network: false
+network: true
 negative_control:
   mutate: |
     python -X utf8 -c "import pathlib; p = pathlib.Path('src/foss_mcp/mcp/tools/lookup.py'); s = p.read_text(encoding='utf-8'); old = 'match.match_basis == MATCH_BASIS_EMBEDDING'; assert s.count(old) == 1, 'match.match_basis == MATCH_BASIS_EMBEDDING literal not found as expected - if your real code reads differently, anchor on your own real literal instead and note the substitution in your closeout'; p.write_text(s.replace(old, 'False  # TC-634 negative control: never skip the exactness recheck for a vector match', 1), encoding='utf-8')"
