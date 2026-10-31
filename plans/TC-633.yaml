@@ -146,7 +146,7 @@ requires:
 network: false
 negative_control:
   mutate: |
-    python -X utf8 -c "import pathlib; p = pathlib.Path('src/foss_mcp/mcp/tools/search_docs.py'); s = p.read_text(encoding='utf-8'); old = 'match_basis=MATCH_BASIS_EMBEDDING'; assert s.count(old) == 1, 'match_basis=MATCH_BASIS_EMBEDDING literal not found as expected - if your real code reads differently, anchor on your own real literal instead and note the substitution in your closeout'; p.write_text(s.replace(old, 'match_basis=\"lexical\"  # TC-633 negative control: mislabel the vector match as lexical', 1), encoding='utf-8')"
+    python -X utf8 -c "import pathlib; p = pathlib.Path('src/foss_mcp/mcp/tools/search_docs.py'); s = p.read_text(encoding='utf-8'); old = 'match_basis=MATCH_BASIS_EMBEDDING'; assert s.count(old) == 1, 'match_basis=MATCH_BASIS_EMBEDDING literal not found as expected - if your real code reads differently, anchor on your own real literal instead and note the substitution in your closeout'; q = chr(34); new = 'match_basis=' + q + 'lexical' + q + '  # TC-633 negative control: mislabel the vector match as lexical'; p.write_text(s.replace(old, new, 1), encoding='utf-8')"
   rationale: >-
     Mislabels every vector-matched result as an ordinary lexical partial match instead of an
     embedding-similarity one, without touching whether the stage fires or what it finds. Any test
