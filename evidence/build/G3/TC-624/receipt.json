@@ -1,0 +1,111 @@
+{
+  "schema_version": 1,
+  "card": "TC-624",
+  "gate": "G3",
+  "generated_by": "gatectl",
+  "generated_at": "2026-10-31T00:10:06Z",
+  "base_rev": "e1f1c055b9b54fde3352ccf3d54d612fa252d81d",
+  "head_rev": "71e8d88f1b30c7bd6b34230c51f5d34e5e39156d",
+  "card_sha256": "23d4fdb65d90ef3505e3e3f6a1ed19e4b12cb4336d3c0be6e719476e5b1d8ef2",
+  "fingerprint": {
+    "python": "3.13.2",
+    "platform": "Windows-11-10.0.26300-SP0",
+    "lock_sha256": "5c72e798a73c059a438e752e94a8d4c88c1bdf81a197f6e5c5fcecbc9466a691",
+    "env": {
+      "PYTHONHASHSEED": "0",
+      "PYTHONUTF8": "1",
+      "PYTHONDONTWRITEBYTECODE": "1",
+      "PYTHONIOENCODING": "utf-8",
+      "TZ": "UTC",
+      "LC_ALL": "C.UTF-8",
+      "SOURCE_DATE_EPOCH": "1700000000",
+      "verify_runner": "host"
+    }
+  },
+  "scope": {
+    "ok": true,
+    "changed_paths": [
+      "scripts/release/source_differential.py",
+      "tests/release/test_oracle_inherited_verification.py"
+    ],
+    "violations": [],
+    "evaluated": true
+  },
+  "runs": [
+    {
+      "run": 1,
+      "checks": [
+        {
+          "command": "{python} -m pytest tests/release/test_oracle_inherited_verification.py -q -rfE",
+          "exit_code": 0,
+          "duration_s": 151.641,
+          "stdout_sha256": "83a1593c5b5783693fe3006d1f6597bcb4f3a5968f23b59481ee09a0477f910a",
+          "tests": 7,
+          "skipped": 0,
+          "errors": 0,
+          "failures": 0
+        },
+        {
+          "command": "{python} -m pytest tests/release/test_oracle_inherited_verification.py tests/release/test_oracle_shell_resolution.py tests/release/test_source_differential.py -q -rfE -p no:cacheprovider",
+          "exit_code": 0,
+          "duration_s": 262.745,
+          "stdout_sha256": "54c8351d0dc406023ffa28f1a76b6886441a7a9bcb4e80ac560696a3e0e6342e",
+          "tests": 139,
+          "skipped": 0,
+          "errors": 0,
+          "failures": 0
+        }
+      ],
+      "all_passed": true
+    },
+    {
+      "run": 2,
+      "checks": [
+        {
+          "command": "{python} -m pytest tests/release/test_oracle_inherited_verification.py -q -rfE",
+          "exit_code": 0,
+          "duration_s": 135.17,
+          "stdout_sha256": "83a1593c5b5783693fe3006d1f6597bcb4f3a5968f23b59481ee09a0477f910a",
+          "tests": 7,
+          "skipped": 0,
+          "errors": 0,
+          "failures": 0
+        },
+        {
+          "command": "{python} -m pytest tests/release/test_oracle_inherited_verification.py tests/release/test_oracle_shell_resolution.py tests/release/test_source_differential.py -q -rfE -p no:cacheprovider",
+          "exit_code": 0,
+          "duration_s": 262.655,
+          "stdout_sha256": "54c8351d0dc406023ffa28f1a76b6886441a7a9bcb4e80ac560696a3e0e6342e",
+          "tests": 139,
+          "skipped": 0,
+          "errors": 0,
+          "failures": 0
+        }
+      ],
+      "all_passed": true
+    }
+  ],
+  "negative_control": {
+    "kind": "mutate",
+    "patch": "python -X utf8 -c \"import pathlib; p = pathlib.Path('scripts/release/source_differential.py'); s = p.read_text(encoding='utf-8'); old = '    oracle_by_name: dict[str, OracleSymbol] = {symbol.name: symbol for symbol in symbols}'; assert s.count(old) == 1, 'fix text not found - card and source have diverged'; new = old + chr(10) + '    oracle_by_name = {}  # TC-624 negative control: every ancestor lookup fails, reproducing pre-fix hard-extra flagging'; p.write_text(s.replace(old, new, 1), encoding='utf-8')\"\n",
+    "patch_sha256": "48eb9b0b465f7dbb647371bf1945e0bd261ffab0a5f20eee32daa2e302206a71",
+    "applied": true,
+    "patch_applied_failed": true,
+    "exit_codes": [
+      1,
+      1
+    ],
+    "tree_changed": [
+      "M scripts/release/source_differential.py",
+      "?? .junit-0.xml",
+      "?? .junit-1.xml"
+    ]
+  },
+  "holdout": {
+    "ran": false,
+    "passed": true,
+    "detail": "no holdout for this card"
+  },
+  "accepted": true,
+  "reason": "all gates passed"
+}

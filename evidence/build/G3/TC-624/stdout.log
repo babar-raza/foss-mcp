@@ -1,0 +1,306 @@
+
+===== CLEAN RUN 1 (host) =====
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-5c72e798a73c059a\Scripts\python.exe -m pytest tests/release/test_oracle_inherited_verification.py -q -rfE "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-rgznokva\.junit-0.xml"
+--- stdout ---
+.......                                                                  [100%]
+
+--- stderr ---
+
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-5c72e798a73c059a\Scripts\python.exe -m pytest tests/release/test_oracle_inherited_verification.py tests/release/test_oracle_shell_resolution.py tests/release/test_source_differential.py -q -rfE -p no:cacheprovider "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-rgznokva\.junit-1.xml"
+--- stdout ---
+........................................................................ [ 51%]
+...................................................................      [100%]
+
+--- stderr ---
+
+
+===== CLEAN RUN 2 (host) =====
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-5c72e798a73c059a\Scripts\python.exe -m pytest tests/release/test_oracle_inherited_verification.py -q -rfE "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-rgznokva\.junit-0.xml"
+--- stdout ---
+.......                                                                  [100%]
+
+--- stderr ---
+
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-5c72e798a73c059a\Scripts\python.exe -m pytest tests/release/test_oracle_inherited_verification.py tests/release/test_oracle_shell_resolution.py tests/release/test_source_differential.py -q -rfE -p no:cacheprovider "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-rgznokva\.junit-1.xml"
+--- stdout ---
+........................................................................ [ 51%]
+...................................................................      [100%]
+
+--- stderr ---
+
+
+===== NEGATIVE CONTROL (checks MUST now fail) =====
+mutated: M scripts/release/source_differential.py, ?? .junit-0.xml, ?? .junit-1.xml
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-5c72e798a73c059a\Scripts\python.exe -m pytest tests/release/test_oracle_inherited_verification.py -q -rfE "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-rgznokva\.junit-0.xml"
+--- stdout ---
+FF.F...                                                                  [100%]
+================================== FAILURES ===================================
+____ test_a_inherited_member_verified_against_its_named_ancestor_is_silent ____
+
+    def test_a_inherited_member_verified_against_its_named_ancestor_is_silent() -> None:
+        ancestor = OS("Base", "class", members=(OM("widget_method", "method"),))
+        child = OS("Child", "class", members=())
+        baked_child = _baked_type(
+            "Child",
+            methods=[{"name": "widget_method", "params": [], "inherited_from": "pkg.Base.Base"}],
+        )
+        baked_base = _baked_type("Base", methods=[{"name": "widget_method", "params": []}])
+    
+        counts, findings = sd.diff_language([child, ancestor], [baked_child, baked_base])
+    
+        assert counts.extra == 0
+        assert counts.missing == 0
+        assert counts.inherited_mismatch == 0
+>       assert counts.unverified_inherited == 0
+E       assert 1 == 0
+E        +  where 1 = DiffCounts(missing=0, extra=0, signature=0, static=0, default=0, enum_value=0, checked=1, inherited_mismatch=0, unverified_inherited=1).unverified_inherited
+
+tests\release\test_oracle_inherited_verification.py:143: AssertionError
+_ test_b_inherited_member_ancestor_found_but_lacking_it_is_inherited_mismatch _
+
+    def test_b_inherited_member_ancestor_found_but_lacking_it_is_inherited_mismatch() -> None:
+        ancestor = OS("Base", "class", members=())  # Base does NOT declare widget_method
+        child = OS("Child", "class", members=())
+        baked_child = _baked_type(
+            "Child",
+            methods=[{"name": "widget_method", "params": [], "inherited_from": "pkg.Base.Base"}],
+        )
+        baked_base = _baked_type("Base")  # Base's own baked entry also has no widget_method -- consistent
+    
+        counts, findings = sd.diff_language([child, ancestor], [baked_child, baked_base])
+    
+>       assert counts.inherited_mismatch == 1
+E       assert 0 == 1
+E        +  where 0 = DiffCounts(missing=0, extra=0, signature=0, static=0, default=0, enum_value=0, checked=0, inherited_mismatch=0, unverified_inherited=1).inherited_mismatch
+
+tests\release\test_oracle_inherited_verification.py:166: AssertionError
+________ test_d_real_3d_python_node_find_property_a3dobject_regression ________
+
+    def test_d_real_3d_python_node_find_property_a3dobject_regression() -> None:
+        fixture = json.loads((FIXTURES_DIR / "3d_python" / "api_surface.json").read_text(encoding="utf-8"))
+        types = fixture["types"]
+    
+        node = next(
+            t
+            for t in types
+            if t.get("name") == "Node"
+            and t.get("class_import") == "aspose.threed.Node.Node"
+            and not t.get("reexport_of")
+        )
+        a3dobject = next(
+            t
+            for t in types
+            if t.get("name") == "A3DObject"
+            and t.get("class_import") == "aspose.threed.A3DObject.A3DObject"
+            and not t.get("reexport_of")
+        )
+        sceneobject = next(
+            t
+            for t in types
+            if t.get("name") == "SceneObject"
+            and t.get("class_import") == "aspose.threed.SceneObject.SceneObject"
+            and not t.get("reexport_of")
+        )
+    
+        inherited_methods = [str(m["name"]) for m in node.get("methods") or [] if m.get("inherited_from")]
+        inherited_props = [str(p["name"]) for p in node.get("properties") or [] if p.get("inherited_from")]
+        assert "find_property" in inherited_methods, "the real fixture must still carry this regression case"
+        assert inherited_methods == ["find_property", "get_property", "remove_property", "set_property"]
+        assert inherited_props == ["scene", "name", "properties"]
+    
+        # The real, independent Python AST oracle (enumerate_python) only ever lists a class's OWN
+        # declared members -- never a base's (it never walks bases at all). Build each oracle symbol
+        # from exactly its own baked definition's own-declared (no inherited_from) methods/properties,
+        # mirroring what the real tool would have produced.
+        def _own_declared_oracle(name: str, entry: dict) -> sd.OracleSymbol:
+            return OS(
+                name,
+                "class",
+                members=tuple(
+                    OM(str(m["name"]), "method")
+                    for m in entry.get("methods") or []
+                    if not m.get("inherited_from")
+                )
+                + tuple(
+                    OM(str(p["name"]), "property")
+                    for p in entry.get("properties") or []
+                    if not p.get("inherited_from")
+                ),
+            )
+    
+        node_oracle = _own_declared_oracle("Node", node)
+        a3dobject_oracle = _own_declared_oracle("A3DObject", a3dobject)
+        sceneobject_oracle = _own_declared_oracle("SceneObject", sceneobject)
+        # A3DObject's own real definition has no inherited_from on any of its members (confirmed by
+        # reading the real fixture), so its "own-declared" oracle already carries find_property etc.
+        assert {m.name for m in a3dobject_oracle.members} >= {"find_property", "name", "properties"}
+        assert {m.name for m in sceneobject_oracle.members} >= {"scene"}
+    
+        # BEFORE this card: every one of the 7 real inherited members was unconditionally "extra".
+        # (the OLD, pre-card trailing-loop logic, reproduced verbatim -- never diff_language/diff_symbol
+        # themselves, which no longer behave this way.)
+        old_extra, old_extra_members = _old_diff_symbol_extra_count(node_oracle, node)
+        assert old_extra == len(inherited_methods) + len(inherited_props) == 7
+        assert "find_property" in old_extra_members
+    
+        # AFTER this card: routed through the real diff_language (never diff_symbol called directly
+        # with a hand-built oracle_by_name) so this test's outcome actually depends on diff_language's
+        # own, internally-built oracle_by_name -- exactly what this card's own negative control targets
+        # (see this card's negative_control.rationale). Node's, A3DObject's and SceneObject's own
+        # definitions (all three real, read directly off the committed fixture above) are enumerated
+        # together, exactly as one real enumerate_python run over the real library would produce them.
+        new_counts, new_findings = sd.diff_language(
+            [node_oracle, a3dobject_oracle, sceneobject_oracle], [node, a3dobject, sceneobject]
+        )
+        assert new_counts.extra == 0, new_findings
+        assert new_counts.inherited_mismatch == 0, new_findings
+>       assert new_counts.unverified_inherited == 0, new_findings
+E       AssertionError: [Finding(symbol='Node', member='__init__', category='signature', detail="expected params [], baked ['name', 'entity']"...ng(symbol='Node', member='get_child', category='signature', detail="expected params [], baked ['index_or_name']"), ...]
+E       assert 13 == 0
+E        +  where 13 = DiffCounts(missing=0, extra=0, signature=16, static=0, default=0, enum_value=0, checked=32, inherited_mismatch=0, unverified_inherited=13).unverified_inherited
+
+tests\release\test_oracle_inherited_verification.py:296: AssertionError
+=========================== short test summary info ===========================
+FAILED tests/release/test_oracle_inherited_verification.py::test_a_inherited_member_verified_against_its_named_ancestor_is_silent
+FAILED tests/release/test_oracle_inherited_verification.py::test_b_inherited_member_ancestor_found_but_lacking_it_is_inherited_mismatch
+FAILED tests/release/test_oracle_inherited_verification.py::test_d_real_3d_python_node_find_property_a3dobject_regression
+
+--- stderr ---
+
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-5c72e798a73c059a\Scripts\python.exe -m pytest tests/release/test_oracle_inherited_verification.py tests/release/test_oracle_shell_resolution.py tests/release/test_source_differential.py -q -rfE -p no:cacheprovider "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-rgznokva\.junit-1.xml"
+--- stdout ---
+FF.F.................................................................... [ 51%]
+...................................................................      [100%]
+================================== FAILURES ===================================
+____ test_a_inherited_member_verified_against_its_named_ancestor_is_silent ____
+
+    def test_a_inherited_member_verified_against_its_named_ancestor_is_silent() -> None:
+        ancestor = OS("Base", "class", members=(OM("widget_method", "method"),))
+        child = OS("Child", "class", members=())
+        baked_child = _baked_type(
+            "Child",
+            methods=[{"name": "widget_method", "params": [], "inherited_from": "pkg.Base.Base"}],
+        )
+        baked_base = _baked_type("Base", methods=[{"name": "widget_method", "params": []}])
+    
+        counts, findings = sd.diff_language([child, ancestor], [baked_child, baked_base])
+    
+        assert counts.extra == 0
+        assert counts.missing == 0
+        assert counts.inherited_mismatch == 0
+>       assert counts.unverified_inherited == 0
+E       assert 1 == 0
+E        +  where 1 = DiffCounts(missing=0, extra=0, signature=0, static=0, default=0, enum_value=0, checked=1, inherited_mismatch=0, unverified_inherited=1).unverified_inherited
+
+tests\release\test_oracle_inherited_verification.py:143: AssertionError
+_ test_b_inherited_member_ancestor_found_but_lacking_it_is_inherited_mismatch _
+
+    def test_b_inherited_member_ancestor_found_but_lacking_it_is_inherited_mismatch() -> None:
+        ancestor = OS("Base", "class", members=())  # Base does NOT declare widget_method
+        child = OS("Child", "class", members=())
+        baked_child = _baked_type(
+            "Child",
+            methods=[{"name": "widget_method", "params": [], "inherited_from": "pkg.Base.Base"}],
+        )
+        baked_base = _baked_type("Base")  # Base's own baked entry also has no widget_method -- consistent
+    
+        counts, findings = sd.diff_language([child, ancestor], [baked_child, baked_base])
+    
+>       assert counts.inherited_mismatch == 1
+E       assert 0 == 1
+E        +  where 0 = DiffCounts(missing=0, extra=0, signature=0, static=0, default=0, enum_value=0, checked=0, inherited_mismatch=0, unverified_inherited=1).inherited_mismatch
+
+tests\release\test_oracle_inherited_verification.py:166: AssertionError
+________ test_d_real_3d_python_node_find_property_a3dobject_regression ________
+
+    def test_d_real_3d_python_node_find_property_a3dobject_regression() -> None:
+        fixture = json.loads((FIXTURES_DIR / "3d_python" / "api_surface.json").read_text(encoding="utf-8"))
+        types = fixture["types"]
+    
+        node = next(
+            t
+            for t in types
+            if t.get("name") == "Node"
+            and t.get("class_import") == "aspose.threed.Node.Node"
+            and not t.get("reexport_of")
+        )
+        a3dobject = next(
+            t
+            for t in types
+            if t.get("name") == "A3DObject"
+            and t.get("class_import") == "aspose.threed.A3DObject.A3DObject"
+            and not t.get("reexport_of")
+        )
+        sceneobject = next(
+            t
+            for t in types
+            if t.get("name") == "SceneObject"
+            and t.get("class_import") == "aspose.threed.SceneObject.SceneObject"
+            and not t.get("reexport_of")
+        )
+    
+        inherited_methods = [str(m["name"]) for m in node.get("methods") or [] if m.get("inherited_from")]
+        inherited_props = [str(p["name"]) for p in node.get("properties") or [] if p.get("inherited_from")]
+        assert "find_property" in inherited_methods, "the real fixture must still carry this regression case"
+        assert inherited_methods == ["find_property", "get_property", "remove_property", "set_property"]
+        assert inherited_props == ["scene", "name", "properties"]
+    
+        # The real, independent Python AST oracle (enumerate_python) only ever lists a class's OWN
+        # declared members -- never a base's (it never walks bases at all). Build each oracle symbol
+        # from exactly its own baked definition's own-declared (no inherited_from) methods/properties,
+        # mirroring what the real tool would have produced.
+        def _own_declared_oracle(name: str, entry: dict) -> sd.OracleSymbol:
+            return OS(
+                name,
+                "class",
+                members=tuple(
+                    OM(str(m["name"]), "method")
+                    for m in entry.get("methods") or []
+                    if not m.get("inherited_from")
+                )
+                + tuple(
+                    OM(str(p["name"]), "property")
+                    for p in entry.get("properties") or []
+                    if not p.get("inherited_from")
+                ),
+            )
+    
+        node_oracle = _own_declared_oracle("Node", node)
+        a3dobject_oracle = _own_declared_oracle("A3DObject", a3dobject)
+        sceneobject_oracle = _own_declared_oracle("SceneObject", sceneobject)
+        # A3DObject's own real definition has no inherited_from on any of its members (confirmed by
+        # reading the real fixture), so its "own-declared" oracle already carries find_property etc.
+        assert {m.name for m in a3dobject_oracle.members} >= {"find_property", "name", "properties"}
+        assert {m.name for m in sceneobject_oracle.members} >= {"scene"}
+    
+        # BEFORE this card: every one of the 7 real inherited members was unconditionally "extra".
+        # (the OLD, pre-card trailing-loop logic, reproduced verbatim -- never diff_language/diff_symbol
+        # themselves, which no longer behave this way.)
+        old_extra, old_extra_members = _old_diff_symbol_extra_count(node_oracle, node)
+        assert old_extra == len(inherited_methods) + len(inherited_props) == 7
+        assert "find_property" in old_extra_members
+    
+        # AFTER this card: routed through the real diff_language (never diff_symbol called directly
+        # with a hand-built oracle_by_name) so this test's outcome actually depends on diff_language's
+        # own, internally-built oracle_by_name -- exactly what this card's own negative control targets
+        # (see this card's negative_control.rationale). Node's, A3DObject's and SceneObject's own
+        # definitions (all three real, read directly off the committed fixture above) are enumerated
+        # together, exactly as one real enumerate_python run over the real library would produce them.
+        new_counts, new_findings = sd.diff_language(
+            [node_oracle, a3dobject_oracle, sceneobject_oracle], [node, a3dobject, sceneobject]
+        )
+        assert new_counts.extra == 0, new_findings
+        assert new_counts.inherited_mismatch == 0, new_findings
+>       assert new_counts.unverified_inherited == 0, new_findings
+E       AssertionError: [Finding(symbol='Node', member='__init__', category='signature', detail="expected params [], baked ['name', 'entity']"...ng(symbol='Node', member='get_child', category='signature', detail="expected params [], baked ['index_or_name']"), ...]
+E       assert 13 == 0
+E        +  where 13 = DiffCounts(missing=0, extra=0, signature=16, static=0, default=0, enum_value=0, checked=32, inherited_mismatch=0, unverified_inherited=13).unverified_inherited
+
+tests\release\test_oracle_inherited_verification.py:296: AssertionError
+=========================== short test summary info ===========================
+FAILED tests/release/test_oracle_inherited_verification.py::test_a_inherited_member_verified_against_its_named_ancestor_is_silent
+FAILED tests/release/test_oracle_inherited_verification.py::test_b_inherited_member_ancestor_found_but_lacking_it_is_inherited_mismatch
+FAILED tests/release/test_oracle_inherited_verification.py::test_d_real_3d_python_node_find_property_a3dobject_regression
+
+--- stderr ---
+
