@@ -1,0 +1,148 @@
+
+===== CLEAN RUN 1 (host) =====
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-5c72e798a73c059a\Scripts\python.exe -m pytest tests/mcp/tools/test_known_hazards_words_net.py -q -rfE -p no:cacheprovider "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-ku5jf8_r\.junit-0.xml"
+--- stdout ---
+.........                                                                [100%]
+
+--- stderr ---
+
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-5c72e798a73c059a\Scripts\python.exe -m pytest tests/mcp/tools/test_product_reference_known_hazards.py tests/schemas/test_product_manifest_schema.py -q -rfE -p no:cacheprovider "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-ku5jf8_r\.junit-1.xml"
+--- stdout ---
+..............................................                           [100%]
+
+--- stderr ---
+
+
+===== CLEAN RUN 2 (host) =====
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-5c72e798a73c059a\Scripts\python.exe -m pytest tests/mcp/tools/test_known_hazards_words_net.py -q -rfE -p no:cacheprovider "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-ku5jf8_r\.junit-0.xml"
+--- stdout ---
+.........                                                                [100%]
+
+--- stderr ---
+
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-5c72e798a73c059a\Scripts\python.exe -m pytest tests/mcp/tools/test_product_reference_known_hazards.py tests/schemas/test_product_manifest_schema.py -q -rfE -p no:cacheprovider "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-ku5jf8_r\.junit-1.xml"
+--- stdout ---
+..............................................                           [100%]
+
+--- stderr ---
+
+
+===== NEGATIVE CONTROL (checks MUST now fail) =====
+mutated: M config/products/words/net.yaml, ?? .junit-0.xml, ?? .junit-1.xml
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-5c72e798a73c059a\Scripts\python.exe -m pytest tests/mcp/tools/test_known_hazards_words_net.py -q -rfE -p no:cacheprovider "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-ku5jf8_r\.junit-0.xml"
+--- stdout ---
+FFFFFFFF.                                                                [100%]
+================================== FAILURES ===================================
+_____ test_manifest_known_hazards_entry_validates_against_the_real_schema _____
+
+    def test_manifest_known_hazards_entry_validates_against_the_real_schema() -> None:
+        manifest = _real_manifest()
+        jsonschema.Draft202012Validator(_schema()).validate(manifest)
+        hazards = known_hazards_from_manifest(manifest)
+>       assert len(hazards) == 1, hazards
+E       AssertionError: ()
+E       assert 0 == 1
+E        +  where 0 = len(())
+
+tests\mcp\tools\test_known_hazards_words_net.py:112: AssertionError
+_______ test_get_product_reference_limitations_surfaces_the_real_hazard _______
+
+tmp_path = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-19020/test_get_product_reference_lim0')
+
+    def test_get_product_reference_limitations_surfaces_the_real_hazard(tmp_path: Path) -> None:
+        """The REAL baked sidecar's "limitations" answer, with words/net's manifest-sourced
+        known_hazards merged in exactly as the live server does, discloses the WORDS-NET-003 hazard -
+        distinctly framed, never marked untrusted_upstream_content. Before this card the section had
+        no data source at all; the merged hazard text is the only content, and it must be present."""
+        inputs, readme = _load_baked(tmp_path)
+        manifest = _real_manifest()
+        hazards = known_hazards_from_manifest(manifest)
+>       assert hazards
+E       assert ()
+
+tests\mcp\tools\test_known_hazards_words_net.py:128: AssertionError
+___ test_hazard_text_names_at_least_two_real_unsupported_saveformat_values ____
+
+    def test_hazard_text_names_at_least_two_real_unsupported_saveformat_values() -> None:
+        """The hazard text names at least 2 of the real unsupported SaveFormat values from the
+        issue's own repro list (Pdf, Html) - not a vague, generic warning."""
+>       hazard = known_hazards_from_manifest(_real_manifest())[0]
+                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       IndexError: tuple index out of range
+
+tests\mcp\tools\test_known_hazards_words_net.py:146: IndexError
+____ test_hazard_text_does_not_claim_every_saveformat_value_is_unsupported ____
+
+    def test_hazard_text_does_not_claim_every_saveformat_value_is_unsupported() -> None:
+        """The issue's own repro shows SaveFormat.Markdown succeeds; the hazard text must not
+        contradict that by claiming every value is unsupported, and must name Markdown as a
+        confirmed-working alternative."""
+>       hazard = known_hazards_from_manifest(_real_manifest())[0]
+                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       IndexError: tuple index out of range
+
+tests\mcp\tools\test_known_hazards_words_net.py:156: IndexError
+________ test_hazard_text_carries_the_real_issue_specific_trace_tokens ________
+
+    def test_hazard_text_carries_the_real_issue_specific_trace_tokens() -> None:
+        """The hazard's distinctive technical tokens appear BOTH in the real issue record's own text
+        AND in the manifest's hazard text - proving the hazard text is not generic boilerplate, but is
+        actually traceable to the real WORDS-NET-003 record it discloses."""
+        issue = _real_issue()
+        issue_text = _WHITESPACE_RE.sub(" ", json.dumps(issue).lower())
+        manifest_text = _WHITESPACE_RE.sub(" ", yaml.safe_dump(_real_manifest()).lower())
+        for token in _TRACE_TOKENS:
+            assert token in issue_text, (token, "token not even in the real issue record")
+>           assert token in manifest_text, (token, "token missing from the manifest's hazard text")
+E           AssertionError: ('notsupportedexception', "token missing from the manifest's hazard text")
+E           assert 'notsupportedexception' in 'family: words known_hazards: [] platform: net repository: aspose-words-foss/aspose.words-foss-for-.net schedule: cron: 0 6 * * * timezone: utc storage_topology: embedded '
+
+tests\mcp\tools\test_known_hazards_words_net.py:186: AssertionError
+____ test_hazard_text_names_markdown_as_the_confirmed_working_repro_value _____
+
+    def test_hazard_text_names_markdown_as_the_confirmed_working_repro_value() -> None:
+        """``SaveFormat.Markdown`` is the one repro line in the real issue record whose outcome is
+        'succeeds' - the hazard text must name it, traceable to that exact repro line."""
+        issue = _real_issue()
+        repro_lines = [line.lower() for line in issue["repro"]]
+        assert any("markdown" in line and "succeeds" in line for line in repro_lines)
+>       hazard = known_hazards_from_manifest(_real_manifest())[0]
+                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       IndexError: tuple index out of range
+
+tests\mcp\tools\test_known_hazards_words_net.py:195: IndexError
+________ test_known_hazards_verified_at_is_a_real_valid_calendar_date _________
+
+    def test_known_hazards_verified_at_is_a_real_valid_calendar_date() -> None:
+        hazards = known_hazards_from_manifest(_real_manifest())
+>       assert hazards
+E       assert ()
+
+tests\mcp\tools\test_known_hazards_words_net.py:204: AssertionError
+____________________ test_exactly_one_known_hazards_entry _____________________
+
+    def test_exactly_one_known_hazards_entry() -> None:
+        hazards = known_hazards_from_manifest(_real_manifest())
+>       assert len(hazards) == 1
+E       assert 0 == 1
+E        +  where 0 = len(())
+
+tests\mcp\tools\test_known_hazards_words_net.py:217: AssertionError
+=========================== short test summary info ===========================
+FAILED tests/mcp/tools/test_known_hazards_words_net.py::test_manifest_known_hazards_entry_validates_against_the_real_schema
+FAILED tests/mcp/tools/test_known_hazards_words_net.py::test_get_product_reference_limitations_surfaces_the_real_hazard
+FAILED tests/mcp/tools/test_known_hazards_words_net.py::test_hazard_text_names_at_least_two_real_unsupported_saveformat_values
+FAILED tests/mcp/tools/test_known_hazards_words_net.py::test_hazard_text_does_not_claim_every_saveformat_value_is_unsupported
+FAILED tests/mcp/tools/test_known_hazards_words_net.py::test_hazard_text_carries_the_real_issue_specific_trace_tokens
+FAILED tests/mcp/tools/test_known_hazards_words_net.py::test_hazard_text_names_markdown_as_the_confirmed_working_repro_value
+FAILED tests/mcp/tools/test_known_hazards_words_net.py::test_known_hazards_verified_at_is_a_real_valid_calendar_date
+FAILED tests/mcp/tools/test_known_hazards_words_net.py::test_exactly_one_known_hazards_entry
+
+--- stderr ---
+
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-5c72e798a73c059a\Scripts\python.exe -m pytest tests/mcp/tools/test_product_reference_known_hazards.py tests/schemas/test_product_manifest_schema.py -q -rfE -p no:cacheprovider "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-ku5jf8_r\.junit-1.xml"
+--- stdout ---
+..............................................                           [100%]
+
+--- stderr ---
+

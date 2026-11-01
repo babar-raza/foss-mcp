@@ -1,0 +1,113 @@
+{
+  "schema_version": 1,
+  "card": "TC-653",
+  "gate": "G3",
+  "generated_by": "gatectl",
+  "generated_at": "2026-11-01T08:50:04Z",
+  "base_rev": "0cf67935e72cb798ef40e24bd54871f34acbb4e1",
+  "head_rev": "9a7aca16870e6980f37678485d35ae7adad8ecb7",
+  "card_sha256": "91584b89266e173ab7cdefb002eac151f19e7ee3621c82c422d5a137f19f1fa8",
+  "fingerprint": {
+    "python": "3.13.2",
+    "platform": "Windows-11-10.0.26300-SP0",
+    "lock_sha256": "5c72e798a73c059a438e752e94a8d4c88c1bdf81a197f6e5c5fcecbc9466a691",
+    "env": {
+      "PYTHONHASHSEED": "0",
+      "PYTHONUTF8": "1",
+      "PYTHONDONTWRITEBYTECODE": "1",
+      "PYTHONIOENCODING": "utf-8",
+      "TZ": "UTC",
+      "LC_ALL": "C.UTF-8",
+      "SOURCE_DATE_EPOCH": "1700000000",
+      "verify_runner": "host"
+    }
+  },
+  "scope": {
+    "ok": true,
+    "changed_paths": [
+      "config/products/words/net.yaml",
+      "tests/mcp/tools/test_known_hazards_words_net.py",
+      "tests/mcp/tools/test_product_reference_known_hazards.py",
+      "tests/schemas/test_product_manifest_schema.py"
+    ],
+    "violations": [],
+    "evaluated": true
+  },
+  "runs": [
+    {
+      "run": 1,
+      "checks": [
+        {
+          "command": "{python} -m pytest tests/mcp/tools/test_known_hazards_words_net.py -q -rfE -p no:cacheprovider",
+          "exit_code": 0,
+          "duration_s": 1.841,
+          "stdout_sha256": "585ba42829657b9e2d56f8614be6c3365a8405474eed008559511ab50f2ffcfb",
+          "tests": 9,
+          "skipped": 0,
+          "errors": 0,
+          "failures": 0
+        },
+        {
+          "command": "{python} -m pytest tests/mcp/tools/test_product_reference_known_hazards.py tests/schemas/test_product_manifest_schema.py -q -rfE -p no:cacheprovider",
+          "exit_code": 0,
+          "duration_s": 1.617,
+          "stdout_sha256": "2fdbfd8ca4b1f03517583a95c9d797258bdf9116d64cf90fbdaa175b61869611",
+          "tests": 46,
+          "skipped": 0,
+          "errors": 0,
+          "failures": 0
+        }
+      ],
+      "all_passed": true
+    },
+    {
+      "run": 2,
+      "checks": [
+        {
+          "command": "{python} -m pytest tests/mcp/tools/test_known_hazards_words_net.py -q -rfE -p no:cacheprovider",
+          "exit_code": 0,
+          "duration_s": 0.633,
+          "stdout_sha256": "585ba42829657b9e2d56f8614be6c3365a8405474eed008559511ab50f2ffcfb",
+          "tests": 9,
+          "skipped": 0,
+          "errors": 0,
+          "failures": 0
+        },
+        {
+          "command": "{python} -m pytest tests/mcp/tools/test_product_reference_known_hazards.py tests/schemas/test_product_manifest_schema.py -q -rfE -p no:cacheprovider",
+          "exit_code": 0,
+          "duration_s": 0.8,
+          "stdout_sha256": "2fdbfd8ca4b1f03517583a95c9d797258bdf9116d64cf90fbdaa175b61869611",
+          "tests": 46,
+          "skipped": 0,
+          "errors": 0,
+          "failures": 0
+        }
+      ],
+      "all_passed": true
+    }
+  ],
+  "negative_control": {
+    "kind": "mutate",
+    "patch": "python -X utf8 -c \"import pathlib; p = pathlib.Path('config/products/words/net.yaml'); s = p.read_text(encoding='utf-8'); marker = 'known_hazards:'; idx = s.find(marker); assert idx != -1, 'known_hazards key not found in config/products/words/net.yaml as expected - if your real file differs, anchor your own mutate on your own real file instead and note the substitution in your closeout'; s2 = s[:idx] + 'known_hazards: []' + chr(10); assert s2 != s, 'substitution had no effect'; p.write_text(s2, encoding='utf-8')\"\n",
+    "patch_sha256": "9c79e1b0ef871357fb497b1100f32ab66047b730bbd283489a49a096101573df",
+    "applied": true,
+    "patch_applied_failed": true,
+    "exit_codes": [
+      1,
+      0
+    ],
+    "tree_changed": [
+      "M config/products/words/net.yaml",
+      "?? .junit-0.xml",
+      "?? .junit-1.xml"
+    ]
+  },
+  "holdout": {
+    "ran": false,
+    "passed": true,
+    "detail": "no holdout for this card"
+  },
+  "accepted": true,
+  "reason": "all gates passed"
+}
