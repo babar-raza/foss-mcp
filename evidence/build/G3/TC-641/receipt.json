@@ -1,0 +1,112 @@
+{
+  "schema_version": 1,
+  "card": "TC-641",
+  "gate": "G3",
+  "generated_by": "gatectl",
+  "generated_at": "2026-11-01T06:55:35Z",
+  "base_rev": "28451b980df2297c81468aee3df5ec80c80dddd5",
+  "head_rev": "f812744a12c5649838a0f0aadcf29a20e9cf719f",
+  "card_sha256": "6a1c3f930ed31ae05bce23862ea6aaa0ffc469f666b079776745308ea977c129",
+  "fingerprint": {
+    "python": "3.13.2",
+    "platform": "Windows-11-10.0.26300-SP0",
+    "lock_sha256": "5c72e798a73c059a438e752e94a8d4c88c1bdf81a197f6e5c5fcecbc9466a691",
+    "env": {
+      "PYTHONHASHSEED": "0",
+      "PYTHONUTF8": "1",
+      "PYTHONDONTWRITEBYTECODE": "1",
+      "PYTHONIOENCODING": "utf-8",
+      "TZ": "UTC",
+      "LC_ALL": "C.UTF-8",
+      "SOURCE_DATE_EPOCH": "1700000000",
+      "verify_runner": "host"
+    }
+  },
+  "scope": {
+    "ok": true,
+    "changed_paths": [
+      "src/foss_mcp/mcp/tools/get_product_reference.py",
+      "src/foss_mcp/mcp/tools/lookup.py",
+      "tests/mcp/tools/test_known_defects_in_product_reference.py"
+    ],
+    "violations": [],
+    "evaluated": true
+  },
+  "runs": [
+    {
+      "run": 1,
+      "checks": [
+        {
+          "command": "{python} -m pytest tests/mcp/tools/test_known_defects_in_product_reference.py -q -rfE -p no:cacheprovider",
+          "exit_code": 0,
+          "duration_s": 1.06,
+          "stdout_sha256": "eb27a136c18598aedc0e4f11e6893b614a04335a9faf3ec03433325d777e2663",
+          "tests": 12,
+          "skipped": 0,
+          "errors": 0,
+          "failures": 0
+        },
+        {
+          "command": "{python} -m pytest tests/mcp/tools/test_get_product_reference_platforms.py tests/mcp/tools/test_get_product_reference_unresolved.py tests/mcp/tools/test_product_reference_compatibility_units.py tests/mcp/tools/test_lookup_forgiveness.py -q -rfE -p no:cacheprovider",
+          "exit_code": 0,
+          "duration_s": 1.412,
+          "stdout_sha256": "9405616d40158ed5f33068c29d4091c3ba6ba9100972d3eb01ea2906303362ea",
+          "tests": 163,
+          "skipped": 0,
+          "errors": 0,
+          "failures": 0
+        }
+      ],
+      "all_passed": true
+    },
+    {
+      "run": 2,
+      "checks": [
+        {
+          "command": "{python} -m pytest tests/mcp/tools/test_known_defects_in_product_reference.py -q -rfE -p no:cacheprovider",
+          "exit_code": 0,
+          "duration_s": 0.831,
+          "stdout_sha256": "eb27a136c18598aedc0e4f11e6893b614a04335a9faf3ec03433325d777e2663",
+          "tests": 12,
+          "skipped": 0,
+          "errors": 0,
+          "failures": 0
+        },
+        {
+          "command": "{python} -m pytest tests/mcp/tools/test_get_product_reference_platforms.py tests/mcp/tools/test_get_product_reference_unresolved.py tests/mcp/tools/test_product_reference_compatibility_units.py tests/mcp/tools/test_lookup_forgiveness.py -q -rfE -p no:cacheprovider",
+          "exit_code": 0,
+          "duration_s": 1.147,
+          "stdout_sha256": "9405616d40158ed5f33068c29d4091c3ba6ba9100972d3eb01ea2906303362ea",
+          "tests": 163,
+          "skipped": 0,
+          "errors": 0,
+          "failures": 0
+        }
+      ],
+      "all_passed": true
+    }
+  ],
+  "negative_control": {
+    "kind": "mutate",
+    "patch": "python -X utf8 -c \"import pathlib; p = pathlib.Path('src/foss_mcp/mcp/tools/get_product_reference.py'); s = p.read_text(encoding='utf-8'); old = 'load_known_defects('; assert s.count(old) == 1, 'load_known_defects( literal not found as expected (exactly once) - if your real code calls it a different number of times or with a different name, anchor your own mutate on your own real literal instead and note the substitution in your closeout'; i = s.index(old); p.write_text(s[:i] + '(lambda *a, **k: [])(' + s[i+len(old):], encoding='utf-8')\"\n",
+    "patch_sha256": "d460089278c9544f552edde4c6bcc4f0661cb722aed6b0e1882c6e5cf15fb65b",
+    "applied": true,
+    "patch_applied_failed": true,
+    "exit_codes": [
+      1,
+      0
+    ],
+    "tree_changed": [
+      "M src/foss_mcp/mcp/tools/get_product_reference.py",
+      "?? .junit-0.xml",
+      "?? .junit-1.xml"
+    ]
+  },
+  "holdout": {
+    "ran": false,
+    "passed": true,
+    "detail": "no holdout for this card"
+  },
+  "accepted": true,
+  "reason": "all gates passed"
+}

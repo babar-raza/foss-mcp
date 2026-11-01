@@ -1,0 +1,236 @@
+
+===== CLEAN RUN 1 (host) =====
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-5c72e798a73c059a\Scripts\python.exe -m pytest tests/mcp/tools/test_known_defects_in_product_reference.py -q -rfE -p no:cacheprovider "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-2_mhpmss\.junit-0.xml"
+--- stdout ---
+............                                                             [100%]
+
+--- stderr ---
+
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-5c72e798a73c059a\Scripts\python.exe -m pytest tests/mcp/tools/test_get_product_reference_platforms.py tests/mcp/tools/test_get_product_reference_unresolved.py tests/mcp/tools/test_product_reference_compatibility_units.py tests/mcp/tools/test_lookup_forgiveness.py -q -rfE -p no:cacheprovider "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-2_mhpmss\.junit-1.xml"
+--- stdout ---
+........................................................................ [ 44%]
+........................................................................ [ 88%]
+...................                                                      [100%]
+
+--- stderr ---
+
+
+===== CLEAN RUN 2 (host) =====
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-5c72e798a73c059a\Scripts\python.exe -m pytest tests/mcp/tools/test_known_defects_in_product_reference.py -q -rfE -p no:cacheprovider "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-2_mhpmss\.junit-0.xml"
+--- stdout ---
+............                                                             [100%]
+
+--- stderr ---
+
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-5c72e798a73c059a\Scripts\python.exe -m pytest tests/mcp/tools/test_get_product_reference_platforms.py tests/mcp/tools/test_get_product_reference_unresolved.py tests/mcp/tools/test_product_reference_compatibility_units.py tests/mcp/tools/test_lookup_forgiveness.py -q -rfE -p no:cacheprovider "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-2_mhpmss\.junit-1.xml"
+--- stdout ---
+........................................................................ [ 44%]
+........................................................................ [ 88%]
+...................                                                      [100%]
+
+--- stderr ---
+
+
+===== NEGATIVE CONTROL (checks MUST now fail) =====
+mutated: M src/foss_mcp/mcp/tools/get_product_reference.py, ?? .junit-0.xml, ?? .junit-1.xml
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-5c72e798a73c059a\Scripts\python.exe -m pytest tests/mcp/tools/test_known_defects_in_product_reference.py -q -rfE -p no:cacheprovider "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-2_mhpmss\.junit-0.xml"
+--- stdout ---
+FFF.....FFF.                                                             [100%]
+================================== FAILURES ===================================
+_____ test_package_scoped_defect_appends_its_own_paragraph_to_limitations _____
+
+registry_dir = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-18760/test_package_scoped_defect_app0/known_defects')
+
+    def test_package_scoped_defect_appends_its_own_paragraph_to_limitations(registry_dir: Path) -> None:
+        _write_registry(
+            registry_dir,
+            [
+                _defect(
+                    "PDF-CPP-001",
+                    kind="package",
+                    ref="aspose.pdf.cpp",
+                    package_versions=["26.7.0"],
+                    summary="AES-256 encrypted output cannot be decrypted by any reader.",
+                    user_action="Use AES-128 or RC4 until this is fixed upstream.",
+                    repro="Encrypt with AES256, reopen with Adobe Reader; the file is reported corrupt.",
+                )
+            ],
+        )
+        inputs = ProductReferenceInputs(platform=PLATFORM, family=FAMILY, readme_document=None)
+    
+        result = get_product_reference(inputs, "limitations", readme=None)
+    
+>       assert isinstance(result, ReferenceContent)
+E       AssertionError: assert False
+E        +  where False = isinstance(NotAvailable(section='limitations', reason='limitations has no data source in this project yet'), ReferenceContent)
+
+tests\mcp\tools\test_known_defects_in_product_reference.py:137: AssertionError
+_____ test_commit_scoped_defect_appends_its_own_paragraph_to_limitations ______
+
+registry_dir = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-18760/test_commit_scoped_defect_appe0/known_defects')
+
+    def test_commit_scoped_defect_appends_its_own_paragraph_to_limitations(registry_dir: Path) -> None:
+        _write_registry(
+            registry_dir,
+            [
+                _defect(
+                    "PDF-CPP-002",
+                    kind="commit",
+                    ref=COMMIT,
+                    indexed_commit=COMMIT,
+                    summary="3 DoS bugs present at this indexed commit, fixed 5 commits later upstream.",
+                    user_action="Update past this commit to pick up the upstream fix.",
+                    repro="Feed the malformed input fixture; the process hangs.",
+                )
+            ],
+        )
+        inputs = ProductReferenceInputs(platform=PLATFORM, family=FAMILY, readme_document=None)
+    
+        result = get_product_reference(inputs, "limitations", readme=None)
+    
+>       assert isinstance(result, ReferenceContent)
+E       AssertionError: assert False
+E        +  where False = isinstance(NotAvailable(section='limitations', reason='limitations has no data source in this project yet'), ReferenceContent)
+
+tests\mcp\tools\test_known_defects_in_product_reference.py:166: AssertionError
+_ test_known_hazards_and_known_defects_both_appear_neither_overwrites_the_other _
+
+registry_dir = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-18760/test_known_hazards_and_known_d0/known_defects')
+
+    def test_known_hazards_and_known_defects_both_appear_neither_overwrites_the_other(
+        registry_dir: Path,
+    ) -> None:
+        from foss_mcp.mcp.tools.get_product_reference import KnownHazard
+    
+        _write_registry(
+            registry_dir,
+            [
+                _defect(
+                    "PDF-CPP-003",
+                    kind="package",
+                    ref="aspose.pdf.cpp",
+                    package_versions=["26.7.0"],
+                    summary="A registry-sourced known defect.",
+                    user_action="Registry user action.",
+                    repro="Registry repro.",
+                )
+            ],
+        )
+        hazard = KnownHazard(text="A manifest-sourced known hazard.", verified_at="2026-10-20")
+        inputs = ProductReferenceInputs(
+            platform=PLATFORM, family=FAMILY, readme_document=None, known_hazards=(hazard,)
+        )
+    
+        result = get_product_reference(inputs, "limitations", readme=None)
+    
+        assert isinstance(result, ReferenceContent)
+        assert "A manifest-sourced known hazard." in result.text
+>       assert "A registry-sourced known defect." in result.text
+E       assert 'A registry-sourced known defect.' in 'Known hazard (verified by this project), 2026-10-20: A manifest-sourced known hazard.'
+E        +  where 'Known hazard (verified by this project), 2026-10-20: A manifest-sourced known hazard.' = ReferenceContent(section='limitations', text='Known hazard (verified by this project), 2026-10-20: A manifest-sourced ...ject itself, from its own verified finding - not a claim about what the upstream repository's own documentation says.").text
+
+tests\mcp\tools\test_known_defects_in_product_reference.py:205: AssertionError
+_ test_method_scoped_defect_alongside_a_package_scoped_one_only_the_package_one_shows _
+
+registry_dir = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-18760/test_method_scoped_defect_alon0/known_defects')
+
+    def test_method_scoped_defect_alongside_a_package_scoped_one_only_the_package_one_shows(
+        registry_dir: Path,
+    ) -> None:
+        _write_registry(
+            registry_dir,
+            [
+                _defect(
+                    "PDF-CPP-005",
+                    kind="method",
+                    ref="Aspose.Pdf.Document.Save",
+                    package_versions=["26.7.0"],
+                    summary="Method-scoped defect; must not appear in limitations.",
+                ),
+                _defect(
+                    "PDF-CPP-006",
+                    kind="package",
+                    ref="aspose.pdf.cpp",
+                    package_versions=["26.7.0"],
+                    summary="Package-scoped defect; must appear in limitations.",
+                ),
+            ],
+        )
+        inputs = ProductReferenceInputs(platform=PLATFORM, family=FAMILY, readme_document=None)
+    
+        result = get_product_reference(inputs, "limitations", readme=None)
+    
+>       assert isinstance(result, ReferenceContent)
+E       AssertionError: assert False
+E        +  where False = isinstance(NotAvailable(section='limitations', reason='limitations has no data source in this project yet'), ReferenceContent)
+
+tests\mcp\tools\test_known_defects_in_product_reference.py:322: AssertionError
+____ test_readme_with_no_limitations_section_still_surfaces_known_defects _____
+
+registry_dir = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-18760/test_readme_with_no_limitation0/known_defects')
+
+    def test_readme_with_no_limitations_section_still_surfaces_known_defects(registry_dir: Path) -> None:
+        from foss_mcp.mcp.tools.get_product_reference import DocumentPresent
+        from foss_mcp.mcp.tools.readme_sections import ReadmeSections
+    
+        _write_registry(
+            registry_dir,
+            [_defect("PDF-CPP-007", kind="package", ref="aspose.pdf.cpp", package_versions=["26.7.0"])],
+        )
+        inputs = ProductReferenceInputs(
+            platform=PLATFORM,
+            family=FAMILY,
+            readme_document=DocumentPresent(
+                path="README.md", content="# pdf/cpp\n\nNo limitations section.", sha="deadbeef", size=30
+            ),
+        )
+        readme = ReadmeSections()
+    
+        result = get_product_reference(inputs, "limitations", readme=readme)
+    
+        # _with_known_hazards replaces a NotAvailable entirely with the hazard/defect text (the
+        # pre-existing G3/TC-582 behaviour, unchanged by this card) - the "no section on limitations"
+        # reason is not itself part of the merged answer; only the disclosure paragraph is.
+>       assert isinstance(result, ReferenceContent)
+E       AssertionError: assert False
+E        +  where False = isinstance(NotAvailable(section='limitations', reason='the repository README at the indexed commit has no section on limitations; ask lookup or search_docs'), ReferenceContent)
+
+tests\mcp\tools\test_known_defects_in_product_reference.py:355: AssertionError
+_________ test_no_readme_document_at_all_still_surfaces_known_defects _________
+
+registry_dir = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-18760/test_no_readme_document_at_all0/known_defects')
+
+    def test_no_readme_document_at_all_still_surfaces_known_defects(registry_dir: Path) -> None:
+        _write_registry(
+            registry_dir,
+            [_defect("PDF-CPP-008", kind="commit", ref=COMMIT, indexed_commit=COMMIT)],
+        )
+        inputs = ProductReferenceInputs(platform=PLATFORM, family=FAMILY, readme_document=None)
+    
+        result = get_product_reference(inputs, "limitations", readme=None)
+    
+        # Same replacement behaviour as the readme-present case above: the NotAvailable ("no data
+        # source") is replaced entirely by the disclosure text, not appended alongside its reason.
+>       assert isinstance(result, ReferenceContent)
+E       AssertionError: assert False
+E        +  where False = isinstance(NotAvailable(section='limitations', reason='limitations has no data source in this project yet'), ReferenceContent)
+
+tests\mcp\tools\test_known_defects_in_product_reference.py:371: AssertionError
+=========================== short test summary info ===========================
+FAILED tests/mcp/tools/test_known_defects_in_product_reference.py::test_package_scoped_defect_appends_its_own_paragraph_to_limitations
+FAILED tests/mcp/tools/test_known_defects_in_product_reference.py::test_commit_scoped_defect_appends_its_own_paragraph_to_limitations
+FAILED tests/mcp/tools/test_known_defects_in_product_reference.py::test_known_hazards_and_known_defects_both_appear_neither_overwrites_the_other
+FAILED tests/mcp/tools/test_known_defects_in_product_reference.py::test_method_scoped_defect_alongside_a_package_scoped_one_only_the_package_one_shows
+FAILED tests/mcp/tools/test_known_defects_in_product_reference.py::test_readme_with_no_limitations_section_still_surfaces_known_defects
+FAILED tests/mcp/tools/test_known_defects_in_product_reference.py::test_no_readme_document_at_all_still_surfaces_known_defects
+
+--- stderr ---
+
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-5c72e798a73c059a\Scripts\python.exe -m pytest tests/mcp/tools/test_get_product_reference_platforms.py tests/mcp/tools/test_get_product_reference_unresolved.py tests/mcp/tools/test_product_reference_compatibility_units.py tests/mcp/tools/test_lookup_forgiveness.py -q -rfE -p no:cacheprovider "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-2_mhpmss\.junit-1.xml"
+--- stdout ---
+........................................................................ [ 44%]
+........................................................................ [ 88%]
+...................                                                      [100%]
+
+--- stderr ---
+
