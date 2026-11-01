@@ -1,0 +1,111 @@
+id: TC-637
+gate: G3
+lane: storage-retrieval
+purpose: >-
+  Q11 (findability sub-program, workstream B - "fragment search inconsistent" from the round-2
+  audit). `search_symbols.py`'s `_symbol_words`/`_CAMEL_BOUNDARY` splits identifier words at
+  camel-case boundaries, but its digit-to-uppercase rule is too aggressive: it treats a digit
+  followed by a SINGLE trailing uppercase letter (an acronym/unit suffix like `2D`, `3D`, `3MF`)
+  the same as a genuine new-word boundary, destroying real, meaningful acronyms.
+
+  REPRODUCED DIRECTLY, against the real baked corpus, before writing this card (do not take these
+  on faith - re-run them yourself first to confirm, the exact same `_symbol_words`/
+  `_CAMEL_BOUNDARY`/`_WORD_SEPARATORS` logic, currently in `search_symbols.py`):
+  - `ITexture2D` -> `['i', 'texture2', 'd']` - splits the meaningful unit `2D` into `texture2` +
+    a bare, meaningless `d`. A query "2d texture" cannot match this at all.
+  - `A3DObject` -> `['a3', 'd', 'object']` - splits `3D` the same way, even worse (`a3` glues the
+    prefix to the digit).
+  - `Microsoft3MFFormat` -> `['microsoft3', 'mf', 'format']` - splits the real file-format
+    acronym `3MF` (3D Manufacturing Format) into `microsoft3` + `mf`, losing it as a search word
+    entirely.
+  By contrast, these REAL names are already handled correctly today and MUST NOT regress:
+  `Code128EncodeMode` -> `['code128', 'encode', 'mode']`, `Ean13Options` ->
+  `['ean13', 'options']`, `PDF17_NS` -> `['pdf17', 'ns']` (a trailing digit-run that is NOT
+  followed by another letter stays attached to its word already, correctly).
+
+  Fix this by adding a new, separate, narrowly-named function
+  `_rejoin_digit_acronym_split(words: list[str]) -> list[str]` to `search_symbols.py`, called
+  right after `_symbol_words`'s existing `_CAMEL_BOUNDARY.sub(...)`/split step (do not modify
+  `_CAMEL_BOUNDARY` itself - leave its existing two alternatives untouched, since the second one
+  already correctly handles `AFRelationship`-style splits and you must not risk it). Your new
+  function's job: detect the specific over-split pattern this card reproduces (a word ending in
+  digits immediately followed, in the ORIGINAL split sequence, by a single bare letter that is
+  not itself a real following word - i.e. exactly the `texture2`, `d` / `a3`, `d` shape above) and
+  rejoin them into one acronym-shaped word (`texture2d`, `a3d`) - OR, your own equally real
+  alternative approach, worked out from your own measurement, as long as `_CAMEL_BOUNDARY` itself
+  is not touched and the fix is a distinct, separately-testable function. REQUIRED VERBATIM: your
+  new function's signature line must read EXACTLY
+  `def _rejoin_digit_acronym_split(words: list[str]) -> list[str]:` (the supervisor's negative
+  control anchors on this exact literal) - the body is entirely yours to design from real
+  measurement. Measure against the REAL corpus, not just the 6 repro cases above: extract every real
+  digit-containing final-segment symbol name from `infra/demo-manifests/*/generation__*.json`
+  (parse each file's `payload.lexical_index.documents`, extract the `FQN:` line, take its final
+  dotted/`::`-scoped segment, keep names containing a digit that are not purely numeric) and run
+  your fixed splitter against ALL of them, not a hand-picked subset - report the real count and a
+  sample of what changed versus what stayed the same in your closing report.
+depends_on:
+  - TC-618
+write_paths:
+  - src/foss_mcp/mcp/tools/search_symbols.py
+  - tests/mcp/tools/test_search_symbols_digit_words.py
+satisfies:
+  - REQ-G3-011
+source_refs:
+  - file: docs/DECISION_LOG.md
+    anchor: >-
+      ## 2026-10-30 — Round-2 portfolio audit remediation adopted: unified plan, governance decisions A-K
+      recorded (supervisor)
+    sha256: 62cf1403a592118e3fb6bd14c5336f8a997cc3181d44a585323ec9f1d385a931
+inputs:
+  - >-
+    READ FIRST: `search_symbols.py`'s `_symbol_words`, `_CAMEL_BOUNDARY`, `_WORD_SEPARATORS`,
+    `_match_tier` (the module's own docstring explains tier 2's bag-of-words-plus-contiguous-run
+    mechanism these words feed into - read it, since your fix changes the word list every tier-2
+    match is computed from).
+  - >-
+    Write at least 8 tests in `tests/mcp/tools/test_search_symbols_digit_words.py` covering: the
+    6 named repro names above (3 broken-before, must be fixed; 3 already-correct, must not
+    regress) via direct calls to the real splitter function; a real end-to-end `search_symbols`
+    or `_match_tier`-level test proving a query like `"2d texture"` now finds `ITexture2D` (or an
+    equivalent real pilot symbol) where it did not before. Re-run the existing
+    `test_search_symbols_memberless_last.py` and the full symbol-search ratchet bundle
+    (`tests/mcp/tools/test_retrieval_tools.py`, `tests/mcp/tools/test_symbol_tools.py`) before and
+    after your change and report both sets of real numbers.
+actions:
+  - >-
+    Fix the digit-to-uppercase camel-case boundary rule so real acronym/unit suffixes (`2D`,
+    `3D`, `3MF`) stay intact as search words, measured against every real digit-containing symbol
+    name in the baked corpus, without regressing any already-correct case.
+checks:
+  - command: '{python} -m pytest tests/mcp/tools/test_search_symbols_digit_words.py -q -rfE -p no:cacheprovider'
+    expect: 'exit 0'
+    timeout_seconds: 180
+    junitxml: true
+    proves:
+      - REQ-G3-011
+  - command: '{python} -m pytest tests/mcp/tools/test_search_symbols_memberless_last.py tests/mcp/tools/test_retrieval_tools.py tests/mcp/tools/test_symbol_tools.py -q -rfE -p no:cacheprovider'
+    expect: 'exit 0'
+    timeout_seconds: 300
+    junitxml: true
+    proves:
+      - REQ-G3-011
+min_tests: 8
+requires:
+  - python
+network: false
+negative_control:
+  mutate: |
+    python -X utf8 -c "import pathlib; p = pathlib.Path('src/foss_mcp/mcp/tools/search_symbols.py'); s = p.read_text(encoding='utf-8'); old = 'def _rejoin_digit_acronym_split(words: list[str]) -> list[str]:'; assert s.count(old) == 1, 'def _rejoin_digit_acronym_split(words: list[str]) -> list[str]: literal not found as expected - if your real function has a different name or signature, anchor your own mutate on your own real literal instead and note the substitution in your closeout'; new = old + chr(10) + '    return words  # TC-637 negative control: never rejoin anything'; p.write_text(s.replace(old, new, 1), encoding='utf-8')"
+  rationale: >-
+    Inserts an immediate `return words` as the new function's first line, making it a no-op
+    regardless of its real body (the real body never executes). Any test proving one of the
+    three previously-broken repro names is now fixed must fail under this mutation; the three
+    already-correct repro names, and anything not routed through this function, are unaffected.
+evidence:
+  - evidence/build/G3/TC-637/receipt.json
+closeout:
+  - >-
+    Digit-containing acronym/unit suffixes (`2D`, `3D`, `3MF`, etc.) now survive symbol-name word
+    splitting intact, measured against every real digit-containing symbol name in the baked
+    corpus, with no regression to any already-correct case.
+recovery: Re-run from a clean tree.

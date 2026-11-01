@@ -1,0 +1,115 @@
+id: TC-638
+gate: G3
+lane: extraction
+purpose: >-
+  C1 (content-truth program, workstream G, 63 issues - the single largest remaining workstream;
+  the round-2 audit's own leverage item 3: "the product-reference layer is the least reliable
+  content - truncated mid-sentence, empty for one platform while sibling platforms extract the
+  identical README section fine, self-contradicting"). Root cause, confirmed by reading the real
+  code (not guessed): `infra/generate_furnished_page.py`'s `build_page_from_readme` MERGES
+  multiple distinct README sections into just two generic blobs before they ever become
+  documentation chunks - `_LEFT_SECTIONS = ("Installation", "Dependencies", "Quick Start")` become
+  ONE block titled by `_join_names` (e.g. "Installation, Dependencies, and Quick Start") via
+  `_merge_readme_sections`, and `_RIGHT_SECTIONS = ("Key Capabilities", "API Reference")` become a
+  SECOND merged block the same way. This is WHY the real "Key Capabilities and API Reference"
+  chunk (confirmed in this session's own earlier measurement work) is enormous, generic, and gets
+  split into many numbered "Part N of 23" sub-chunks downstream, diluting its own retrieval
+  distinctiveness - a real, measured, cross-cutting defect, not a hypothetical one.
+
+  `doc_candidates.py`'s `_extract_content_blocks` already handles an ARBITRARY number of blocks in
+  `content.block[]` generically (it loops over the list, extracting `title_left`/`content_left`
+  and `title_right`/`content_right` from EACH entry) - the limitation is entirely in
+  `build_page_from_readme`'s own merging logic, nowhere downstream. This is a surgical fix:
+  `blocks: list[dict[str, str]]` is already built by `.append()`, not a fixed two-slot structure.
+
+  Fix: change `build_page_from_readme` so each of `_LEFT_SECTIONS` and `_RIGHT_SECTIONS` that is
+  present in `fields.sections` becomes its OWN block entry (its own real, unmerged title, its own
+  real, unmerged content) - never `_join_names`'d together, never `_merge_readme_sections`'d
+  together. `_SCOPE_SECTION`'s own existing block (already singular, already correct) is
+  untouched. Read `readme_doc_fields`/`parse_readme`/`ReadmeFields` yourself (READ FIRST below) to
+  confirm the real, current shape of `fields.sections` before deciding exactly how many of its
+  real keys deserve their own block beyond the five already named - the "At a Glance" section
+  stays the overview (unchanged) and must not also get a duplicate content block.
+depends_on:
+  - TC-517
+write_paths:
+  - infra/generate_furnished_page.py
+  - tests/infra/test_generate_furnished_page.py
+satisfies:
+  - REQ-G3-013
+source_refs:
+  - file: docs/DECISION_LOG.md
+    anchor: >-
+      ## 2026-10-30 — Round-2 portfolio audit remediation adopted: unified plan, governance decisions A-K
+      recorded (supervisor)
+    sha256: 62cf1403a592118e3fb6bd14c5336f8a997cc3181d44a585323ec9f1d385a931
+inputs:
+  - >-
+    READ FIRST, in order: `readme_doc_fields`, `parse_readme`, the `ReadmeFields` dataclass
+    definition (confirm the real, current shape of `.sections`/`.missing`/`.blocks` yourself -
+    do not assume); `build_page_from_readme` in full (currently ~lines 1038-1112); `_join_names`
+    and `_merge_readme_sections` (currently ~lines 935-949) - the two functions whose
+    multi-section-joining role this card removes for `_LEFT_SECTIONS`/`_RIGHT_SECTIONS`
+    specifically (you may keep them for any other genuinely-still-needed use, or retire them if
+    nothing else calls them - check first). Then `doc_candidates.py`'s `_extract_content_blocks`
+    (confirm for yourself it already handles an arbitrary-length `blocks` list - it does not need
+    to change).
+  - >-
+    `tests/infra/test_generate_furnished_page.py` already exists and pins real behaviour - read
+    it first, run it BEFORE your change to get a real baseline, and again after. Any existing
+    test that currently asserts the OLD merged-title/merged-content shape (e.g. asserting
+    `title_left == "Installation, Dependencies, and Quick Start"` or similar joined text) is
+    testing behaviour this card deliberately changes - update those specific assertions to the
+    new, real, unmerged shape (do not weaken what they check, only what they expect); report
+    exactly which assertions you changed and why in your closeout. Any test NOT about this merge
+    (fence handling, example extraction, commit pinning, the `ReadmeTooThinError` refusal path)
+    must keep passing completely unchanged.
+  - >-
+    Write at least 6 new tests proving: a real multi-section README fixture now produces one
+    distinct, correctly-titled block per present `_LEFT_SECTIONS`/`_RIGHT_SECTIONS` section
+    (not one merged pair); a README missing some of these sections still produces only the
+    present ones, each still correctly separate (no silent re-merging when some are absent); the
+    `_SCOPE_SECTION` block and the `overview`/`faq` fields are completely unaffected; the
+    "nothing invented" contract from this function's own docstring still holds (a section the
+    README lacks is still omitted, never fabricated).
+actions:
+  - >-
+    Stop merging multiple distinct README sections into generic joined blobs when building a
+    furnished page from a live README - each present section becomes its own correctly-titled
+    block, measured against the real existing test fixtures and new tests covering the change.
+checks:
+  - command: '{python} -m pytest tests/infra/test_generate_furnished_page.py -q -rfE -p no:cacheprovider'
+    expect: 'exit 0'
+    timeout_seconds: 240
+    junitxml: true
+    proves:
+      - REQ-G3-013
+  - command: '{python} -m pytest tests/indexing/test_doc_candidates.py tests/infra/test_furnished_fixtures_valid.py tests/infra/test_furnished_chunk_survival.py -q -rfE -p no:cacheprovider'
+    expect: 'exit 0'
+    timeout_seconds: 240
+    junitxml: true
+    proves:
+      - REQ-G3-013
+min_tests: 6
+requires:
+  - python
+network: false
+negative_control:
+  mutate: |
+    python -X utf8 -c "import pathlib; p = pathlib.Path('infra/generate_furnished_page.py'); s = p.read_text(encoding='utf-8'); old = 'def build_page_from_readme('; assert s.count(old) == 1, 'def build_page_from_readme( literal not found as expected - if this function has moved or been renamed, anchor your own mutate on your own real literal instead and note the substitution in your closeout'; i = s.index(old); j = s.index(':' + chr(10), i) + 2; p.write_text(s[:j] + '    return ' + chr(39) + 'TC-638 negative control: never build a real page' + chr(39) + chr(10) + s[j:], encoding='utf-8')"
+  rationale: >-
+    Makes `build_page_from_readme` return a bare string instead of real front-matter, breaking
+    every test that inspects the page's structure. Any test proving the new per-section block
+    behaviour must fail under this mutation; this is intentionally broad (the whole function is
+    disabled) because the fix touches this function's core logic throughout, not one isolated
+    line - the point is to confirm the new tests exercise the real function at all, not a stale
+    assumption about its shape.
+evidence:
+  - evidence/build/G3/TC-638/receipt.json
+closeout:
+  - >-
+    A furnished page built from a live README now preserves each of its Installation/Dependencies/
+    Quick-Start/Key-Capabilities/API-Reference sections as its own distinct, correctly-titled
+    documentation chunk, instead of two generic merged blobs - state which existing test
+    assertions you updated and why.
+recovery: Re-run from a clean tree.

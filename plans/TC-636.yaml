@@ -1,0 +1,134 @@
+id: TC-636
+gate: G3
+lane: storage-retrieval
+purpose: >-
+  KD1 (upstream-defect disclosure program, workstream J, 66 issues, including 20 of the audit's
+  29 P0s - see DECISION_LOG.md 2026-10-31 entry and the operator's 2026-11-01 explicit decision:
+  a clear, evidenced disclosure IS the production-grade fix for an upstream library bug, not a
+  code-level patch). This card builds the mechanism's foundation only: the schema and the loader.
+  Wiring it into live tools (`get_symbol`, `list_members`, `find_examples`, `get_product_reference`,
+  `lookup`, `report_index_freshness`) and writing the real per-family defect data are LATER cards
+  (KD2-KD9), explicitly out of scope here.
+
+  Build `config/known_defects/<family>__<platform>.yaml` as the registry location (one file per
+  pilot, empty/absent is valid - no defects yet) and `schemas/product/known_defects.schema.json`
+  as its schema, matching the shape below exactly (this exact shape is already decided, not a
+  design choice for you to re-litigate):
+
+  - `schema_version` (const 1)
+  - `pilot` (string, matches `<family>_<platform>`)
+  - `defects` (array, 0+ items), each:
+    - `id` (string, a stable ledger id, e.g. `IMAGING-NET-004`)
+    - `subject` `{kind, ref}` - `kind` one of `method | class | commit | package`; `ref` the
+      exact symbol FQN or commit sha the defect is about
+    - `applies_to` `{indexed_commit}` OR `{package_versions: [str, ...]}` (at least one of the two)
+    - `summary` (string, <= 240 chars, a factual description - no editorializing, no blame)
+    - `user_action` (string, what the caller should do - e.g. "avoid this method" or "use a newer
+      version")
+    - `evidence` `{repro, verified_on: {package, version, date}}` - `repro` a short factual
+      description of how this was confirmed (not a instructions to re-exploit anything unsafe)
+    - `status` (string, one of `open | fixed_upstream | disputed`)
+
+  Build `src/foss_mcp/indexing/known_defects.py`: a loader (`load_known_defects(family, platform)
+  -> list[KnownDefect]` or equivalent, your own naming, following `authored_examples.py`'s own
+  established loader pattern for structure/style - READ IT FIRST) that validates the real schema,
+  enforces every structural rule the schema itself cannot express (READ `authored_examples.py`'s
+  own docstring for which rules those typically are in this codebase - uniqueness, well-formed
+  dates, non-contradictory status/evidence combinations), and returns an empty list gracefully
+  when no file exists for a given pilot (most pilots will have none yet - that is valid, not an
+  error). This module is NOT wired into any live tool by this card - it is a pure library with its
+  own tests, dormant until KD2-KD5.
+
+  CRITICAL, do not skip: the disclosure-expiry rule from Decision C (DECISION_LOG.md's
+  `## 2026-10-30` entry, decision C) - "a known-defect entry is version-scoped
+  (`verified_on {package, version, date}`); once the served package version moves past that, the
+  served text downgrades from an assertion to 'last verified broken on X; not re-verified on Y'
+  rather than silently going stale." Build the COMPARISON HELPER for this now (e.g.
+  `defect_is_stale(defect, served_version) -> bool`, comparing `verified_on.version` against the
+  currently-served version using the SAME padded-tuple comparison pattern
+  `release_alignment.release_in_index` already uses - TC-629 fixed exactly this class of bug
+  elsewhere in this codebase, read that fix first) even though no live tool calls it yet - KD5
+  wires it into `report_index_freshness` later, but the helper's own correctness must be proven
+  here, by this card's own tests, not deferred.
+depends_on:
+  - TC-565
+write_paths:
+  - schemas/product/known_defects.schema.json
+  - src/foss_mcp/indexing/known_defects.py
+  - tests/indexing/test_known_defects.py
+satisfies:
+  - REQ-G3-015
+source_refs:
+  - file: docs/DECISION_LOG.md
+    anchor: >-
+      ## 2026-10-30 — Round-2 portfolio audit remediation adopted: unified plan, governance decisions A-K
+      recorded (supervisor)
+    sha256: 62cf1403a592118e3fb6bd14c5336f8a997cc3181d44a585323ec9f1d385a931
+inputs:
+  - >-
+    READ FIRST: `src/foss_mcp/indexing/authored_examples.py` in full (its loader pattern, its
+    docstring's own list of rules a schema cannot express) and `schemas/product/
+    authored-examples.schema.json` (the schema style/strictness this codebase already uses -
+    `additionalProperties: false`, real `pattern`/`type` constraints, a `description` on every
+    property). Then `src/foss_mcp/mcp/tools/release_alignment.py`'s `release_in_index` (the padded
+    version-tuple comparison pattern your staleness helper must reuse) and `plans/TC-629.yaml`
+    (the real bug that pattern avoids, fixed elsewhere in this codebase - do not reintroduce it
+    here).
+  - >-
+    `jsonschema` (4.26.0, already a real dependency - see `tests/config/test_cells_cpp_manifest.py`
+    for the established usage pattern: `jsonschema.Draft202012Validator(schema).iter_errors(...)`)
+    is used ONLY in test code in this project to confirm a schema's own conformance - it is never
+    called from a production loader. `authored_examples.py` hand-writes every structural rule
+    its OWN schema cannot express directly in plain Python at load time (cross-item uniqueness,
+    date well-formedness, non-contradictory field combinations), and your loader does the same:
+    hand-validate the rules a JSON Schema cannot express (cross-item `id` uniqueness; anything
+    else you find genuinely needs it) in plain Python at load time, raising a clear error on a
+    violation - but use `jsonschema.Draft202012Validator` in your TEST file to confirm the schema
+    document itself correctly rejects a missing field/bad enum/length violation, matching the
+    established test pattern exactly.
+  - >-
+    Write at least 10 tests in `tests/indexing/test_known_defects.py` covering: the loader
+    returns `[]` for a pilot with no file; a real, valid fixture file loads correctly with every
+    field intact; `jsonschema.Draft202012Validator` against your real schema document rejects a
+    missing required field, an out-of-range `summary` length, and an invalid `status`/`kind` enum
+    value; your loader itself rejects a duplicate `id` within one pilot's file (the one rule a
+    schema alone cannot express); your staleness helper correctly handles equal-at-different-
+    precision versions (the exact TC-629 bug class - e.g. `(26,7)` vs `(26,7,0)` must NOT be
+    treated as stale), a genuinely newer served version (stale), and a genuinely older served
+    version (not stale).
+actions:
+  - >-
+    Build the known-defects registry's schema and loader (including the version-staleness
+    comparison helper later cards will wire up), dormant and unwired until KD2-KD9.
+checks:
+  - command: '{python} -m pytest tests/indexing/test_known_defects.py -q -rfE -p no:cacheprovider'
+    expect: 'exit 0'
+    timeout_seconds: 180
+    junitxml: true
+    proves:
+      - REQ-G3-015
+  - command: '{python} -m pytest tests/indexing/test_authored_examples.py tests/test_unwired_modules.py -q -rfE -p no:cacheprovider'
+    expect: 'exit 0'
+    timeout_seconds: 180
+    junitxml: true
+    proves:
+      - REQ-G3-015
+min_tests: 10
+requires:
+  - python
+network: false
+negative_control:
+  mutate: |
+    python -X utf8 -c "import pathlib; p = pathlib.Path('schemas/product/known_defects.schema.json'); s = p.read_text(encoding='utf-8'); old = chr(34) + 'additionalProperties' + chr(34) + ': false'; assert s.count(old) >= 1, 'additionalProperties: false not found as expected - if your real schema reads differently, anchor your own mutate on your own real literal instead and note the substitution in your closeout'; p.write_text(s.replace(old, chr(34) + 'additionalProperties' + chr(34) + ': true', 1), encoding='utf-8')"
+  rationale: >-
+    Loosens the schema's own strictness at its first occurrence, allowing an unexpected/typo'd
+    field to pass validation silently. A test asserting the schema rejects a document with an
+    extra, unexpected property must fail under this mutation; every other test (loading a valid
+    fixture, the staleness helper) is unaffected.
+evidence:
+  - evidence/build/G3/TC-636/receipt.json
+closeout:
+  - >-
+    The known-defects registry's schema and loader exist, are fully tested including the
+    version-staleness helper, and are not yet wired into any live tool (by design - KD2-KD9's job).
+recovery: Re-run from a clean tree.
