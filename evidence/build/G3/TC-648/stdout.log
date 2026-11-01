@@ -1,0 +1,110 @@
+
+===== CLEAN RUN 1 (host) =====
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-5c72e798a73c059a\Scripts\python.exe -m pytest tests/indexing/test_claim_check.py -q -rfE -p no:cacheprovider "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-k9rtqorc\.junit-0.xml"
+--- stdout ---
+.................                                                        [100%]
+
+--- stderr ---
+
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-5c72e798a73c059a\Scripts\python.exe -m pytest tests/indexing/test_doc_candidates.py tests/infra/test_furnished_fixtures_valid.py -q -rfE -p no:cacheprovider "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-k9rtqorc\.junit-1.xml"
+--- stdout ---
+........................................................................ [ 40%]
+........................................................................ [ 80%]
+...................................                                      [100%]
+
+--- stderr ---
+
+
+===== CLEAN RUN 2 (host) =====
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-5c72e798a73c059a\Scripts\python.exe -m pytest tests/indexing/test_claim_check.py -q -rfE -p no:cacheprovider "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-k9rtqorc\.junit-0.xml"
+--- stdout ---
+.................                                                        [100%]
+
+--- stderr ---
+
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-5c72e798a73c059a\Scripts\python.exe -m pytest tests/indexing/test_doc_candidates.py tests/infra/test_furnished_fixtures_valid.py -q -rfE -p no:cacheprovider "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-k9rtqorc\.junit-1.xml"
+--- stdout ---
+........................................................................ [ 40%]
+........................................................................ [ 80%]
+...................................                                      [100%]
+
+--- stderr ---
+
+
+===== NEGATIVE CONTROL (checks MUST now fail) =====
+mutated: M tests/fixtures/furnished/cells_cpp/pages/_index.md, ?? .junit-0.xml, ?? .junit-1.xml
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-5c72e798a73c059a\Scripts\python.exe -m pytest tests/indexing/test_claim_check.py -q -rfE -p no:cacheprovider "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-k9rtqorc\.junit-0.xml"
+--- stdout ---
+...........FF.FF.                                                        [100%]
+================================== FAILURES ===================================
+__________ test_real_cells_cpp_fixture_after_the_fix_is_not_flagged ___________
+
+    def test_real_cells_cpp_fixture_after_the_fix_is_not_flagged() -> None:
+        """The same fixture, as currently committed (this card's own fix), is clean."""
+        found = cc.check_pilot("cells_cpp")
+>       assert found == [], [c.describe() for c in found]
+E       AssertionError: ["cells_cpp [faq] 'Which file formats are supported?': claims 'csv' load/save is supported but no matching enum member exists (clause: '`.csv` is supported for load or save in v0.1')"]
+E       assert [Contradictio...ave in v0.1')] == []
+E         
+E         Left contains one more item: Contradiction(pilot='cells_cpp', origin='faq', title='Which file formats are supported?', format_name='csv', direction='load/save', clause='`.csv` is supported for load or save in v0.1')
+E         Use -v to get more diff
+
+tests\indexing\test_claim_check.py:221: AssertionError
+_________ test_fixed_fixture_no_longer_contains_the_fabricated_claim __________
+
+    def test_fixed_fixture_no_longer_contains_the_fabricated_claim() -> None:
+        """Direct textual confirmation of the fix: the fabricated 'csv load is supported'
+        literal is gone from the real, committed file."""
+        text = (cc.DEFAULT_FURNISHED_ROOT / "cells_cpp" / "pages" / "_index.md").read_text(encoding="utf-8")
+        assert "`.csv` load is supported" not in text
+        # The corrected answer still states the real ground truth plainly (no csv support at
+        # all), it does not merely delete the sentence.
+        assert "csv" in text.lower()
+>       assert "not supported" in text.lower()
+E       assert 'not supported' in "---\nlayout: plugin\nfamily_name: aspose.cells foss\nplugin_description: open-source c++ library for creating, loadin...6d6b87a8eff8c063a2\n  model_version: ''\n  claims: []\n  apis: []\n  formats:\n  - ext: xlsx\n    support: both\n---\n"
+E        +  where "---\nlayout: plugin\nfamily_name: aspose.cells foss\nplugin_description: open-source c++ library for creating, loadin...6d6b87a8eff8c063a2\n  model_version: ''\n  claims: []\n  apis: []\n  formats:\n  - ext: xlsx\n    support: both\n---\n" = <built-in method lower of str object at 0x000002266650F2B0>()
+E        +    where <built-in method lower of str object at 0x000002266650F2B0> = "---\nlayout: plugin\nfamily_name: Aspose.Cells FOSS\nplugin_description: Open-source C++ library for creating, loadin...6d6b87a8eff8c063a2\n  model_version: ''\n  claims: []\n  apis: []\n  formats:\n  - ext: xlsx\n    support: both\n---\n".lower
+
+tests\indexing\test_claim_check.py:232: AssertionError
+______ test_full_sweep_of_all_committed_pilots_finds_zero_contradictions ______
+
+    def test_full_sweep_of_all_committed_pilots_finds_zero_contradictions() -> None:
+        """The real cross-check, run for real against every committed pilot's own furnished
+        page and api_surface.json. Zero contradictions after this card's fix (the negative
+        control reverts cells_cpp's fixture and asserts this test then fails)."""
+        contradictions = cc.sweep_all_pilots()
+>       assert contradictions == [], [c.describe() for c in contradictions]
+E       AssertionError: ["cells_cpp [faq] 'Which file formats are supported?': claims 'csv' load/save is supported but no matching enum member exists (clause: '`.csv` is supported for load or save in v0.1')"]
+E       assert [Contradictio...ave in v0.1')] == []
+E         
+E         Left contains one more item: Contradiction(pilot='cells_cpp', origin='faq', title='Which file formats are supported?', format_name='csv', direction='load/save', clause='`.csv` is supported for load or save in v0.1')
+E         Use -v to get more diff
+
+tests\indexing\test_claim_check.py:254: AssertionError
+_________________ test_main_entry_point_exits_zero_when_clean _________________
+
+capsys = <_pytest.capture.CaptureFixture object at 0x0000022666F412B0>
+
+    def test_main_entry_point_exits_zero_when_clean(capsys: pytest.CaptureFixture[str]) -> None:
+        exit_code = cc.main()
+        captured = capsys.readouterr()
+>       assert exit_code == 0
+E       assert 1 == 0
+
+tests\indexing\test_claim_check.py:260: AssertionError
+=========================== short test summary info ===========================
+FAILED tests/indexing/test_claim_check.py::test_real_cells_cpp_fixture_after_the_fix_is_not_flagged
+FAILED tests/indexing/test_claim_check.py::test_fixed_fixture_no_longer_contains_the_fabricated_claim
+FAILED tests/indexing/test_claim_check.py::test_full_sweep_of_all_committed_pilots_finds_zero_contradictions
+FAILED tests/indexing/test_claim_check.py::test_main_entry_point_exits_zero_when_clean
+
+--- stderr ---
+
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-5c72e798a73c059a\Scripts\python.exe -m pytest tests/indexing/test_doc_candidates.py tests/infra/test_furnished_fixtures_valid.py -q -rfE -p no:cacheprovider "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-k9rtqorc\.junit-1.xml"
+--- stdout ---
+........................................................................ [ 40%]
+........................................................................ [ 80%]
+...................................                                      [100%]
+
+--- stderr ---
+
