@@ -1,0 +1,196 @@
+
+===== CLEAN RUN 1 (host) =====
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-5c72e798a73c059a\Scripts\python.exe -m pytest tests/indexing/test_known_defects_data_remaining.py -q -rfE -p no:cacheprovider "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-h2q1ald8\.junit-0.xml"
+--- stdout ---
+...........................                                              [100%]
+
+--- stderr ---
+
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-5c72e798a73c059a\Scripts\python.exe -m pytest tests/indexing/test_known_defects.py tests/mcp/tools/test_known_defects_in_freshness.py tests/mcp/tools/test_known_defects_in_get_symbol.py -q -rfE -p no:cacheprovider "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-h2q1ald8\.junit-1.xml"
+--- stdout ---
+..........................................                               [100%]
+
+--- stderr ---
+
+
+===== CLEAN RUN 2 (host) =====
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-5c72e798a73c059a\Scripts\python.exe -m pytest tests/indexing/test_known_defects_data_remaining.py -q -rfE -p no:cacheprovider "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-h2q1ald8\.junit-0.xml"
+--- stdout ---
+...........................                                              [100%]
+
+--- stderr ---
+
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-5c72e798a73c059a\Scripts\python.exe -m pytest tests/indexing/test_known_defects.py tests/mcp/tools/test_known_defects_in_freshness.py tests/mcp/tools/test_known_defects_in_get_symbol.py -q -rfE -p no:cacheprovider "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-h2q1ald8\.junit-1.xml"
+--- stdout ---
+..........................................                               [100%]
+
+--- stderr ---
+
+
+===== NEGATIVE CONTROL (checks MUST now fail) =====
+mutated: M config/known_defects/imaging__net.yaml, ?? .junit-0.xml, ?? .junit-1.xml
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-5c72e798a73c059a\Scripts\python.exe -m pytest tests/indexing/test_known_defects_data_remaining.py -q -rfE -p no:cacheprovider "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-h2q1ald8\.junit-0.xml"
+--- stdout ---
+...........F....F..FFF.FFF.                                              [100%]
+================================== FAILURES ===================================
+_ test_load_known_defects_returns_the_real_written_count_for_this_pilot[imaging-net] _
+
+family = 'imaging', platform = 'net'
+
+    @pytest.mark.parametrize("family,platform", _PILOTS)
+    def test_load_known_defects_returns_the_real_written_count_for_this_pilot(family: str, platform: str) -> None:
+        defects = load_known_defects(family, platform)
+        expected = _EXPECTED_COUNTS[(family, platform)]
+>       assert len(defects) == expected, (
+            f"{family}/{platform}: expected {expected} real written entries, got {len(defects)}"
+        )
+E       AssertionError: imaging/net: expected 5 real written entries, got 0
+E       assert 0 == 5
+E        +  where 0 = len([])
+
+tests\indexing\test_known_defects_data_remaining.py:151: AssertionError
+_____________ test_fifteen_entries_total_across_all_eight_pilots ______________
+
+    def test_fifteen_entries_total_across_all_eight_pilots() -> None:
+>       assert len(_all_written_defects()) == 15
+E       AssertionError: assert 10 == 15
+E        +  where 10 = len([KnownDefect(id='BARCODE-PY-006', subject=Subject(kind='method', ref='aspose_barcode_foss.upce'), applies_to=AppliesTo...ument.', verified_on=VerifiedOn(package='aspose-note-foss', version='26.9.0', date='2026-10-29')), status='open'), ...])
+E        +    where [KnownDefect(id='BARCODE-PY-006', subject=Subject(kind='method', ref='aspose_barcode_foss.upce'), applies_to=AppliesTo...ument.', verified_on=VerifiedOn(package='aspose-note-foss', version='26.9.0', date='2026-10-29')), status='open'), ...] = _all_written_defects()
+
+tests\indexing\test_known_defects_data_remaining.py:157: AssertionError
+___ test_every_real_round2_upstream_library_bug_finding_has_a_written_entry ___
+
+    def test_every_real_round2_upstream_library_bug_finding_has_a_written_entry() -> None:
+        expected_ids = _real_round2_upstream_library_bug_ids()
+        written_ids = {defect.id for defect in _all_written_defects()}
+>       assert expected_ids <= written_ids, (
+            f"real round-2 upstream-library-bug findings with no written entry: {expected_ids - written_ids}"
+        )
+E       AssertionError: real round-2 upstream-library-bug findings with no written entry: {'IMAGING-NET-003', 'IMAGING-NET-004', 'IMAGING-NET-008', 'IMAGING-NET-002', 'IMAGING-NET-001'}
+E       assert {'BARCODE-PY-...NET-001', ...} <= {'BARCODE-PY-...-PY-002', ...}
+E         
+E         Extra items in the left set:
+E         'IMAGING-NET-003'
+E         'IMAGING-NET-004'
+E         'IMAGING-NET-008'
+E         'IMAGING-NET-002'
+E         'IMAGING-NET-001'
+
+tests\indexing\test_known_defects_data_remaining.py:184: AssertionError
+________ test_every_written_defect_id_is_one_of_the_fifteen_named_ids _________
+
+    def test_every_written_defect_id_is_one_of_the_fifteen_named_ids() -> None:
+        """The exact 15 ids this card's own instructions named - a second, independent cross-check
+        against a hand-written (not algorithmically derived) list, so a mistake in the algorithmic
+        filter above cannot silently hide a wrong id."""
+        named_ids = {
+            "BARCODE-PY-006",
+            "EMAIL-CPP-001",
+            "EMAIL-CPP-002",
+            "EMAIL-CPP-003",
+            "EMAIL-PY-006",
+            "IMAGING-NET-001",
+            "IMAGING-NET-002",
+            "IMAGING-NET-003",
+            "IMAGING-NET-004",
+            "IMAGING-NET-008",
+            "NOTE-PY-002",
+            "NOTE-PY-008",
+            "PAGE-PYTHON-006",
+            "TEX-PYTHON-001",
+            "WORDS-PY-008",
+        }
+        written_ids = {defect.id for defect in _all_written_defects()}
+>       assert written_ids == named_ids
+E       AssertionError: assert {'BARCODE-PY-...-PY-002', ...} == {'BARCODE-PY-...NET-001', ...}
+E         
+E         Extra items in the right set:
+E         'IMAGING-NET-003'
+E         'IMAGING-NET-004'
+E         'IMAGING-NET-008'
+E         'IMAGING-NET-002'
+E         'IMAGING-NET-001'
+E         Use -v to get more diff
+
+tests\indexing\test_known_defects_data_remaining.py:214: AssertionError
+___ test_imaging_net_004_is_indexed_commit_scoped_with_the_real_commit_sha ____
+
+    def test_imaging_net_004_is_indexed_commit_scoped_with_the_real_commit_sha() -> None:
+        defects = {defect.id: defect for defect in load_known_defects("imaging", "net")}
+>       defect = defects["IMAGING-NET-004"]
+                 ^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       KeyError: 'IMAGING-NET-004'
+
+tests\indexing\test_known_defects_data_remaining.py:225: KeyError
+_ test_defect_is_stale_is_never_asked_about_a_commit_only_scoped_defect_in_production _
+
+    def test_defect_is_stale_is_never_asked_about_a_commit_only_scoped_defect_in_production() -> None:
+        """``report_index_freshness.known_defect_lines`` ``continue``s past a commit-scoped defect
+        (``commit_scope is not None``) before it ever reaches the ``defect_is_stale`` branch - proven
+        here by giving a ``registry_served_version`` that WOULD make this defect look stale if it were
+        (wrongly) treated as package-version-scoped, and confirming the disclosure line carries none of
+        ``_render_stale_known_defect``'s "last verified broken on" wording when the commit matches."""
+        defects = load_known_defects("imaging", "net")
+>       defect = next(d for d in defects if d.id == "IMAGING-NET-004")
+                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       StopIteration
+
+tests\indexing\test_known_defects_data_remaining.py:255: StopIteration
+_ test_defect_is_stale_would_raise_nothing_useful_if_misapplied_but_is_structurally_unreachable _
+
+    def test_defect_is_stale_would_raise_nothing_useful_if_misapplied_but_is_structurally_unreachable() -> None:
+        """Calling ``defect_is_stale`` directly on IMAGING-NET-004 is possible (the function itself has
+        no commit-vs-package guard - that guard lives in the CALLER, ``known_defect_lines``), which is
+        exactly why the production wiring must never ask: this defect's own
+        ``evidence.verified_on.version`` is the commit sha, not a real package version, so any answer
+        ``defect_is_stale`` gives for it is meaningless. This test documents that boundary rather than
+        asserting a specific nonsensical return value."""
+        defects = load_known_defects("imaging", "net")
+>       defect = next(d for d in defects if d.id == "IMAGING-NET-004")
+                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       StopIteration
+
+tests\indexing\test_known_defects_data_remaining.py:272: StopIteration
+_ test_imaging_net_004_surfaces_through_report_index_freshness_when_commit_matches _
+
+tmp_path = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-18931/test_imaging_net_004_surfaces_0')
+
+    def test_imaging_net_004_surfaces_through_report_index_freshness_when_commit_matches(
+        tmp_path: Path,
+    ) -> None:
+        """A real ``report_index_freshness`` call for the real ``imaging/net`` scope, reading the REAL
+        committed ``config/known_defects/imaging__net.yaml`` this card wrote (nothing monkeypatched),
+        surfaces IMAGING-NET-004 when the generation's own indexed commit equals the defect's
+        ``applies_to.indexed_commit``."""
+        store = _publish_imaging_net(tmp_path / "gen", IMAGING_NET_COMMIT)
+        scope = Scope(family="imaging", platform="net")
+    
+        report = report_index_freshness(store, scope, "self_extracted", IMAGING_NET_COMMIT)
+    
+        assert report.indexed_source_commit == IMAGING_NET_COMMIT
+>       assert any("hang" in line.lower() or "memory" in line.lower() for line in report.known_defects), (
+            report.known_defects
+        )
+E       AssertionError: ()
+E       assert False
+E        +  where False = any(<generator object test_imaging_net_004_surfaces_through_report_index_freshness_when_commit_matches.<locals>.<genexpr> at 0x0000028D99464110>)
+
+tests\indexing\test_known_defects_data_remaining.py:345: AssertionError
+=========================== short test summary info ===========================
+FAILED tests/indexing/test_known_defects_data_remaining.py::test_load_known_defects_returns_the_real_written_count_for_this_pilot[imaging-net]
+FAILED tests/indexing/test_known_defects_data_remaining.py::test_fifteen_entries_total_across_all_eight_pilots
+FAILED tests/indexing/test_known_defects_data_remaining.py::test_every_real_round2_upstream_library_bug_finding_has_a_written_entry
+FAILED tests/indexing/test_known_defects_data_remaining.py::test_every_written_defect_id_is_one_of_the_fifteen_named_ids
+FAILED tests/indexing/test_known_defects_data_remaining.py::test_imaging_net_004_is_indexed_commit_scoped_with_the_real_commit_sha
+FAILED tests/indexing/test_known_defects_data_remaining.py::test_defect_is_stale_is_never_asked_about_a_commit_only_scoped_defect_in_production
+FAILED tests/indexing/test_known_defects_data_remaining.py::test_defect_is_stale_would_raise_nothing_useful_if_misapplied_but_is_structurally_unreachable
+FAILED tests/indexing/test_known_defects_data_remaining.py::test_imaging_net_004_surfaces_through_report_index_freshness_when_commit_matches
+
+--- stderr ---
+
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-5c72e798a73c059a\Scripts\python.exe -m pytest tests/indexing/test_known_defects.py tests/mcp/tools/test_known_defects_in_freshness.py tests/mcp/tools/test_known_defects_in_get_symbol.py -q -rfE -p no:cacheprovider "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-h2q1ald8\.junit-1.xml"
+--- stdout ---
+..........................................                               [100%]
+
+--- stderr ---
+
