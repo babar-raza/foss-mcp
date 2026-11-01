@@ -1,0 +1,99 @@
+id: TC-650
+gate: G3
+lane: extraction
+purpose: >-
+  Workstream G (content truth) closure via the EXISTING known_hazards mechanism (TC-582,
+  extended into get_product_reference's limitations rendering by KD4/TC-641 - never build a new
+  mechanism here, reuse the one `config/products/cells/go.yaml` already demonstrates). Closes the
+  7 round-2 audit issues the plan's own ledger explicitly assigns to "C1-C12 + KD4 for false
+  README claims": `3D-NET-001`, `HTML-PY-001`, `HTML-PY-005`, `PDF-JAVA-003`, `SLIDES-JAVA-001`,
+  `SLIDES-JAVA-002`, `SLIDES-PY-002`. Every one of these is the SAME pattern: a pilot's
+  `formats`/`limitations`/`agent_guidance` text (served by `get_product_reference`) makes a
+  concrete capability claim this project's own audit disproved by live reproduction against the
+  actually-installed/published package - not an upstream-caused bug (so it is NOT a known_defects/
+  disclosure-program card), but a stale or version-drifted claim this project's OWN content made
+  and must correct or caveat.
+
+  Read each of the 7 real issue records in `docs/round2/issues.json` yourself (ids above) - every
+  hazard `text` you write must be traceable to that issue's own `actual`/`expected` fields, stating
+  plainly: the real failure mode, its real trigger, and the safe pattern - exactly as
+  `config/products/cells/go.yaml`'s own existing `known_hazards` entry already does (read it first,
+  it is your template, including its own comment "Keep this the LAST top-level key").
+
+  Add one `known_hazards` entry (schema: `schemas/product/product-manifest.schema.json`, `text` +
+  `verified_at`) per issue to the real pilot's own manifest: `config/products/3d/net.yaml`
+  (3D-NET-001), `config/products/html/python.yaml` (HTML-PY-001 and HTML-PY-005, two entries),
+  `config/products/pdf/java.yaml` (PDF-JAVA-003), `config/products/slides/java.yaml`
+  (SLIDES-JAVA-001 and SLIDES-JAVA-002, two entries), `config/products/slides/python.yaml`
+  (SLIDES-PY-002). Confirm the real `verified_at` date yourself (check `docs/HANDOFF.md`
+  or the round-2 audit folder's own date - do not invent one; KD6-KD9's own data cards used
+  2026-10-29, confirm this is the real audit date before reusing it).
+depends_on:
+  - TC-641
+write_paths:
+  - config/products/3d/net.yaml
+  - config/products/html/python.yaml
+  - config/products/pdf/java.yaml
+  - config/products/slides/java.yaml
+  - config/products/slides/python.yaml
+  - tests/mcp/tools/test_known_hazards_round2_disclosures.py
+satisfies:
+  - REQ-G3-013
+source_refs:
+  - file: docs/DECISION_LOG.md
+    anchor: >-
+      ## 2026-10-30 — Round-2 portfolio audit remediation adopted: unified plan, governance decisions A-K
+      recorded (supervisor)
+    sha256: 62cf1403a592118e3fb6bd14c5336f8a997cc3181d44a585323ec9f1d385a931
+inputs:
+  - >-
+    READ FIRST: `config/products/cells/go.yaml`'s own real, already-committed `known_hazards`
+    entry (your exact template) and `src/foss_mcp/mcp/tools/get_product_reference.py`'s
+    `KnownHazard`/`known_hazards_from_manifest`/`_with_known_hazards`/`_KNOWN_HAZARD_PROVENANCE_NOTICE`
+    (how it renders - do not modify this code, it already works). Then the 7 real issue records in
+    `docs/round2/issues.json`. Then `schemas/product/product-manifest.schema.json`'s
+    `known_hazards` definition.
+  - >-
+    Write at least 7 tests in `tests/mcp/tools/test_known_hazards_round2_disclosures.py`: each of
+    the 5 manifests parses and validates against the real schema with its new `known_hazards`
+    entries intact; a real end-to-end test per pilot (reuse the existing
+    `tests/mcp/tools/test_product_reference_known_hazards.py` pattern - read it first) proving
+    `get_product_reference(section="limitations")` for that pilot now surfaces the real hazard
+    text; a test confirming each entry's `verified_at` is a real, valid calendar date.
+actions:
+  - >-
+    Disclose the 7 real round-2 audit findings where this project's own served content (not an
+    upstream defect) made a false capability claim, using the existing known_hazards mechanism.
+checks:
+  - command: '{python} -m pytest tests/mcp/tools/test_known_hazards_round2_disclosures.py -q -rfE -p no:cacheprovider'
+    expect: 'exit 0'
+    timeout_seconds: 120
+    junitxml: true
+    proves:
+      - REQ-G3-013
+  - command: '{python} -m pytest tests/mcp/tools/test_product_reference_known_hazards.py tests/schemas/test_product_manifest_schema.py -q -rfE -p no:cacheprovider'
+    expect: 'exit 0'
+    timeout_seconds: 120
+    junitxml: true
+    proves:
+      - REQ-G3-013
+min_tests: 7
+requires:
+  - python
+network: false
+negative_control:
+  mutate: |
+    python -X utf8 -c "import pathlib; p = pathlib.Path('config/products/slides/java.yaml'); s = p.read_text(encoding='utf-8'); assert 'known_hazards' in s, 'known_hazards key not found in config/products/slides/java.yaml as expected - if your real file differs, anchor your own mutate on your own real file instead and note the substitution in your closeout'; import re; s2 = re.sub(r'(?ms)^known_hazards:.*\\Z', 'known_hazards: []' + chr(10), s); assert s2 != s, 'substitution had no effect - adjust the mutate to your own real file shape'; p.write_text(s2, encoding='utf-8')"
+  rationale: >-
+    Empties slides/java's known_hazards back to zero entries, regardless of what you actually
+    wrote - the two real SLIDES-JAVA-001/002 disclosures must stop surfacing. Any end-to-end test
+    proving they surface through get_product_reference must fail under this mutation; tests scoped
+    to the other four pilots' files are unaffected.
+evidence:
+  - evidence/build/G3/TC-650/receipt.json
+closeout:
+  - >-
+    The 7 round-2 audit issues where this project's OWN served content made a false capability
+    claim are now disclosed through the existing, working known_hazards mechanism - closing this
+    slice of workstream G without touching generate_furnished_page.py or any extraction code.
+recovery: Re-run from a clean tree.

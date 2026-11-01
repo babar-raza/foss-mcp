@@ -1,0 +1,96 @@
+id: TC-649
+gate: G3
+lane: verification
+purpose: >-
+  KD10 (disclosure program completeness closure, workstream J). TC-644/645/646/647 (KD6-KD9)
+  together wrote real known-defect entries for all 47 `category: "upstream-library-bug"` issues
+  in `docs/round2/issues.json` (14 3d-family + 12 cells-family + 6 pdf/slides-family + 15 remaining
+  families), one entry per issue id. This card writes the completeness lock: a single, permanent,
+  offline test that would catch ANY future drift between the two - a new upstream-library-bug
+  issue added to `docs/round2/issues.json` with no corresponding `config/known_defects/*.yaml`
+  entry, or a known-defect entry whose id does not correspond to a real round-2 issue.
+
+  Write ONE new test file, `tests/indexing/test_known_defects_completeness.py`, that:
+  1. Loads every `config/known_defects/*.yaml` file in the real, committed `config/known_defects/`
+     directory (glob, do not hardcode the 8 family filenames - this must keep working if a future
+     card adds a 9th family file).
+  2. Loads `docs/round2/issues.json` and filters to `category == "upstream-library-bug"`.
+  3. Asserts the two sets of ids are EXACTLY equal (every upstream-library-bug issue has an entry;
+     every entry corresponds to a real upstream-library-bug issue; report the real symmetric
+     difference in the assertion message if they are not, so a future failure is immediately
+     actionable).
+  4. Asserts every entry across every file validates against the real
+     `schemas/product/known_defects.schema.json` (reuse the same `jsonschema.Draft202012Validator`
+     pattern TC-644/645/646/647 already used - read one of their test files first).
+  5. Asserts no id appears in more than one file (global, not just within-file as TC-647's own test
+     already checked within its 8 files - this must check ACROSS ALL files including TC-644/645/646's).
+  6. States the real, current total count of registry entries in the test (as of today, 47) and
+     asserts it equals the real, current count of upstream-library-bug issues in issues.json read
+     at test time (not hardcoded to 47 - derive both sides from the real data so this test is not
+     itself a tautology; only the cross-check in point 3 needs to be exact-match).
+depends_on:
+  - TC-644
+  - TC-645
+  - TC-646
+  - TC-647
+write_paths:
+  - tests/indexing/test_known_defects_completeness.py
+satisfies:
+  - REQ-G3-015
+source_refs:
+  - file: docs/DECISION_LOG.md
+    anchor: >-
+      ## 2026-10-30 — Round-2 portfolio audit remediation adopted: unified plan, governance decisions A-K
+      recorded (supervisor)
+    sha256: 62cf1403a592118e3fb6bd14c5336f8a997cc3181d44a585323ec9f1d385a931
+inputs:
+  - >-
+    READ FIRST: TC-644/645/646/647's own real, committed `config/known_defects/*.yaml` files and
+    their test files (your reference examples for the loading/validation pattern). Then
+    `docs/round2/issues.json`'s real structure (id, category fields) and
+    `schemas/product/known_defects.schema.json`.
+  - >-
+    Write at least 6 tests: the full cross-check (point 3 above) as one test; schema validation
+    across ALL files as a parametrized or looped test; the global no-duplicate-id check (point 5);
+    the derived-count check (point 6); a test that the glob in point 1 actually finds all real
+    files currently in `config/known_defects/` (assert the real count of files found is 8, as a
+    sanity check that the glob pattern is correct today - not a floor on the future); a test that
+    every entry's `id` matches the exact string format used in `docs/round2/issues.json` (no
+    whitespace, no case difference).
+actions:
+  - >-
+    Write the permanent completeness lock proving the disclosure program's data
+    (`config/known_defects/*.yaml`) exactly covers the round-2 audit's 47 real upstream-library-bug
+    findings, with no drift possible in either direction.
+checks:
+  - command: '{python} -m pytest tests/indexing/test_known_defects_completeness.py -q -rfE -p no:cacheprovider'
+    expect: 'exit 0'
+    timeout_seconds: 120
+    junitxml: true
+    proves:
+      - REQ-G3-015
+  - command: '{python} -m pytest tests/indexing/test_known_defects_data_3d.py tests/indexing/test_known_defects_data_cells.py tests/indexing/test_known_defects_data_pdf_slides.py tests/indexing/test_known_defects_data_remaining.py -q -rfE -p no:cacheprovider'
+    expect: 'exit 0'
+    timeout_seconds: 180
+    junitxml: true
+    proves:
+      - REQ-G3-015
+min_tests: 6
+requires:
+  - python
+network: false
+negative_control:
+  mutate: |
+    python -X utf8 -c "import pathlib; p = pathlib.Path('config/known_defects/barcode__python.yaml'); s = p.read_text(encoding='utf-8'); assert 'BARCODE-PY-006' in s, 'BARCODE-PY-006 literal not found in config/known_defects/barcode__python.yaml as expected - if your real file differs, anchor your own mutate on your own real file+id instead and note the substitution in your closeout'; p.write_text(s.replace('BARCODE-PY-006', 'BARCODE-PY-999', 1), encoding='utf-8')"
+  rationale: >-
+    Renames one real registry entry's id so it no longer matches any real round-2 issue id and the
+    real BARCODE-PY-006 issue no longer has a matching entry - the completeness cross-check (point 3)
+    must fail under this mutation. Tests scoped only to schema shape or other files are unaffected.
+evidence:
+  - evidence/build/G3/TC-649/receipt.json
+closeout:
+  - >-
+    The disclosure program's data coverage (KD6-KD9) is now permanently locked against drift: any
+    future addition, removal, or id mismatch between the round-2 audit's upstream-library-bug
+    findings and the known-defects registry fails this test immediately.
+recovery: Re-run from a clean tree.

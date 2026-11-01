@@ -1,0 +1,117 @@
+id: TC-648
+gate: G3
+lane: extraction
+purpose: >-
+  C9 (content-truth program, workstream G - closes the round-2 audit's ONE confirmed
+  fabrication across all 32 pilots: `CELLS-CPP-001`). REPRODUCED DIRECTLY (re-confirm yourself
+  first): `tests/fixtures/furnished/cells_cpp/pages/_index.md`'s own committed FAQ answer reads
+  "`.csv` load is supported; `.csv` save is not available in v0.1" - but the REAL, already-
+  extracted `LoadFormat`/`SaveFormat` enums in `tests/fixtures/cells_cpp/api_surface.json` have
+  members `{Auto, Xlsx}` and `{Xlsx}` respectively - NO `Csv` member at all, matching the
+  README's own "Scope and Limitations" section ("no .xls, .xlsb, .ods, or .csv read/write
+  support") and a live runtime repro (`Workbook("probe.csv")` throws). The FAQ text was almost
+  certainly cloned across platforms without per-platform verification (the audit's own
+  `suggested_fix` names this as the likely cause).
+
+  Two real deliverables, both required:
+  1. FIX the one confirmed wrong fixture answer directly: correct
+     `tests/fixtures/furnished/cells_cpp/pages/_index.md`'s CSV FAQ answer to match the real
+     ground truth (no .csv load OR save support at all) - a concrete, verified correction, not
+     a disclosure.
+  2. BUILD the general mechanism the audit's own `suggested_fix` names: "an automated cross-check
+     that flags FAQ/doc assertions that contradict the formats/limitations section or the enum
+     list" - a new `src/foss_mcp/indexing/claim_check.py` module. You have real, already-
+     extracted, structured ground truth to check against: a pilot's `LoadFormat`/`SaveFormat`
+     enum's real `enum_members` (each `{"name": ..., "value": ...}`) in its own `api_surface.json`
+     - a format is genuinely supported for load/save if and only if its name (or a reasonable
+     match of it, e.g. "CSV" vs enum member "Csv") appears as an enum member name; otherwise a
+     text claim that it IS supported is a contradiction worth flagging. Build your own, focused
+     format-extension + support-verb extraction (a short list of known extensions - csv, xlsx,
+     pdf, docx, etc. - paired with a support-claiming verb - support/read/write/load/save/export/
+     import - is enough; you do NOT need to reuse or match `get_product_reference._FORMAT_WORDS`/
+     `_FORMAT_VERB_RE` exactly, and in fact CANNOT import them directly - `indexing` sits below
+     `mcp.tools` in this codebase's layering, confirm this yourself before writing any import).
+     Write a real, independently-runnable check (a script or test, your own judgment) that scans
+     every committed furnished-page FAQ/content answer against its own pilot's real
+     `api_surface.json` enum data and reports every contradiction found - run it for real against
+     all 32 pilots' committed fixtures as part of your own verification (not just a synthetic
+     unit test) to confirm CELLS-CPP-001 is the only real contradiction in the current committed
+     set, and that your fix above resolves it with zero contradictions remaining.
+depends_on:
+  - TC-640
+write_paths:
+  - src/foss_mcp/indexing/claim_check.py
+  - tests/indexing/test_claim_check.py
+  - tests/fixtures/furnished/cells_cpp/pages/_index.md
+satisfies:
+  - REQ-G3-013
+source_refs:
+  - file: docs/DECISION_LOG.md
+    anchor: >-
+      ## 2026-10-30 — Round-2 portfolio audit remediation adopted: unified plan, governance decisions A-K
+      recorded (supervisor)
+    sha256: 62cf1403a592118e3fb6bd14c5336f8a997cc3181d44a585323ec9f1d385a931
+inputs:
+  - >-
+    READ FIRST: `tests/fixtures/furnished/cells_cpp/pages/_index.md`'s real, current FAQ content
+    (confirm the exact wrong text yourself); `tests/fixtures/cells_cpp/api_surface.json`'s real
+    `LoadFormat`/`SaveFormat` enum entries (confirm the real member lists yourself - do not trust
+    this card's own summary of them); `src/foss_mcp/mcp/tools/get_product_reference.py`'s
+    `_format_statements`/`_FORMAT_WORDS`/`_FORMAT_VERB_RE` (your pattern reference, reimplemented
+    independently here per this project's established "reimplement, never cross-layer-import"
+    convention - see `known_defects.py`'s own rendering helpers' docstrings for the same pattern
+    applied elsewhere).
+  - >-
+    Run your real cross-check against ALL 32 pilots' committed `tests/fixtures/furnished/
+    <pilot>/pages/_index.md` FAQ/content answers and their own `tests/fixtures/<pilot>/
+    api_surface.json`, and state the real result in your closing report - confirm CELLS-CPP-001
+    is the only real contradiction found, and that it is zero after your fix.
+  - >-
+    Write at least 8 tests in `tests/indexing/test_claim_check.py` covering: your verifier
+    correctly flags a synthetic contradiction (a format claimed supported with no matching enum
+    member); a format correctly claimed as unsupported is NOT flagged; a format genuinely
+    supported (appears in the enum) is NOT flagged; the real CELLS-CPP-001 fixture, BEFORE your
+    fix (read it via `git show <base-commit>:tests/fixtures/furnished/cells_cpp/pages/_index.md`
+    or an equivalent captured snapshot), is flagged by your verifier; the SAME fixture, AFTER your
+    fix (the real, current file), is NOT flagged; a real, full 32-pilot sweep test proving zero
+    contradictions remain in the committed fixtures after your fix (this is the test the card's
+    own negative control targets).
+actions:
+  - >-
+    Fix the one confirmed fabricated FAQ claim (cells/cpp's CSV support) and build a real,
+    automated cross-check against the real LoadFormat/SaveFormat enum data that would catch this
+    class of error for any pilot going forward.
+checks:
+  - command: '{python} -m pytest tests/indexing/test_claim_check.py -q -rfE -p no:cacheprovider'
+    expect: 'exit 0'
+    timeout_seconds: 180
+    junitxml: true
+    proves:
+      - REQ-G3-013
+  - command: '{python} -m pytest tests/indexing/test_doc_candidates.py tests/infra/test_furnished_fixtures_valid.py -q -rfE -p no:cacheprovider'
+    expect: 'exit 0'
+    timeout_seconds: 240
+    junitxml: true
+    proves:
+      - REQ-G3-013
+min_tests: 8
+requires:
+  - python
+network: false
+negative_control:
+  mutate: |
+    python -X utf8 -c "import pathlib; p = pathlib.Path('tests/fixtures/furnished/cells_cpp/pages/_index.md'); s = p.read_text(encoding='utf-8'); old = chr(96) + '.csv' + chr(96) + ' load is supported'; new = chr(96) + '.csv' + chr(96) + ' load is NOT supported'; assert old in s or new in s, chr(96) + '.csv' + chr(96) + ' load is supported literal not found in either the pre-fix or post-fix shape - if your real fix text reads differently, anchor your own mutate on your own real literal instead and note the substitution in your closeout'; p.write_text(s.replace(new, old) if new in s else s, encoding='utf-8')"
+  rationale: >-
+    Reverts the CELLS-CPP-001 fixture answer back to its original, fabricated "csv load is
+    supported" claim, regardless of your fix's own exact wording. Any test proving your verifier
+    now finds zero contradictions in the full 32-pilot sweep must fail under this mutation (the
+    reverted fixture reintroduces the one real contradiction); a synthetic unit test not touching
+    this real fixture is unaffected.
+evidence:
+  - evidence/build/G3/TC-648/receipt.json
+closeout:
+  - >-
+    The one confirmed fabricated claim in the round-2 audit is fixed at its source, and a real,
+    automated cross-check now exists that would catch this class of error for any pilot going
+    forward. State the real full-sweep result (contradictions found before/after your fix).
+recovery: Re-run from a clean tree.
