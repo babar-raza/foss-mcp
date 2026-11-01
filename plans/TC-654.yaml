@@ -1,0 +1,164 @@
+id: TC-654
+gate: G3
+lane: storage-retrieval
+purpose: >-
+  Q12 (findability, workstream B, REQ-G3-011) - the plan's own frozen acceptance for this stage
+  (section 2.2): "prefix tier (>= 3 chars)" admitted as the weakest evidence, "an explicit Miss
+  reason below" that floor, target "prefix >= 3 finds the type in top 10 for >= 95%". Q11
+  (digit/acronym-aware symbol words, TC-637) is already done; this is the next, independent
+  mechanism - a genuinely MISSING tier, not a bug in an existing one. Confirmed directly:
+  `search_symbols.py`'s own module docstring states "There is no prefix tier:
+  `tests/mcp/test_search_symbols_honest_miss.py` pins those partial words as misses" (search for
+  this exact sentence before starting). Closes 10 real round-2 audit issues sharing this one root
+  cause (read each yourself in `docs/round2/issues.json`, do not take this card's summary alone):
+  `3D-JAVA-008`, `3D-TYPESCRIPT-002`, `BARCODE-PY-003`, `CELLS-TYPESCRIPT-010`, `EMAIL-CPP-008`,
+  `EML-NET-001`, `NOTE-PY-004`, `PDF-TS-001`, `SLIDES-JAVA-005`, `SLIDES-NET-003`. Two of these
+  (`EMAIL-CPP-008`, `NOTE-PY-004`) specifically complain about 1-2 CHARACTER queries - these must
+  stay honest misses (the floor is >= 3, never lowered), but with a reason that actually says so,
+  not a generic "no symbol matches" message that gives no hint why.
+
+  `_match_tier`'s existing tier 2 (bag-of-words) already requires every query word to be a WHOLE
+  word of the FQN (`_symbol_words`); a query word that is only a case-insensitive PREFIX (never a
+  whole-word match) of exactly one or more of the FQN's own words is currently rejected entirely
+  (`Watermar` against `PdfDocument.AddWatermarkAnnotation`'s word `Watermark`). Add a new,
+  STRICTLY WEAKER tier below the existing tier 3 (bag-of-words, inside `search_symbols`'s own
+  combined numbering - read the function's full docstring and body first, you will renumber
+  nothing that exists, only add tier 4 beneath it): every word of the query (after the existing
+  fold/normalize steps) that is NOT a whole-word match must be at least `_PREFIX_MIN_LENGTH`
+  (your own constant, 3) characters AND a genuine case-insensitive prefix of at least one of the
+  FQN's own words (reuse `_symbol_words`, never reimplement word-splitting), for ALL of the
+  query's words combined (same "every query word must be explained" discipline tier 2 already
+  has - a query is not admitted at this tier if even one of its words matches nothing, whole or
+  prefix). A query shorter than 3 characters (after fold/strip) must short-circuit to an explicit
+  Miss reason naming the floor (e.g. "query must be at least 3 characters to match a name
+  fragment") BEFORE any tier is attempted for it - this is a real, visible change for
+  `EMAIL-CPP-008`/`NOTE-PY-004`'s own single-letter probes, which must stay misses but with this
+  new, honest reason instead of whatever generic one they get today (check what they get today
+  first, do not assume).
+
+  A tier-4 (prefix) hit's `match_quality` must be `MATCH_PARTIAL`, never `MATCH_EXACT` - the
+  weakest tier gets the most honest label, exactly the spirit of this plan's own "namespace words
+  never exact" rule for a different tier. Tier-4 hits still compete on BM25 within their own tier,
+  same as every other tier (`candidate[3]` in the existing sort key) - do not special-case this.
+
+  You must UPDATE (never delete or weaken the intent of) every pinned test in
+  `tests/mcp/test_search_symbols_honest_miss.py` that currently asserts a genuine >=3-char prefix
+  of a real word is a Miss - this card's own investigation found at least THREE such assertions
+  (`test_a_partial_name_is_not_a_match`'s `"Watermar"`/`"Annotat"`, `test_a_cpp_partial_word_is_not_a_hit`'s
+  `"AFRelation"`, `test_a_dotted_fqn_still_matches_whole_words_only`'s `"Watermar"`) - search the
+  WHOLE file yourself for every such case, there may be more. Each must become a positive
+  assertion that the real symbol is now found (tier-4, `match_quality == MATCH_PARTIAL`), with a
+  clear docstring/comment explaining this is Q12's deliberate, reviewed overturning of the
+  previous "no prefix tier" design (a RAISED floor - recall went up, nothing that worked before
+  stopped working - never a silently weakened check). A query that shares NO prefix relationship
+  with any real word (the file's genuine not-a-real-name cases, e.g.
+  `"Tc197AbsentSymbolProbe"`/`"Aspose::Pdf::Nonexistent"`) must stay exactly as pinned today -
+  untouched.
+
+  Measure for real against the existing corpus before claiming this closes the plan's own
+  acceptance number: pick at least 3 real pilots already used elsewhere in this module's own
+  measurement protocol (pdf/net, cells/cpp, slides/python - same 3 this module's own docstring
+  already cites for TC-278's measurement) and, for a sample of real >=3-char prefixes of real
+  type names in each (your own sample, at least 10 per pilot, seeded/reproducible), report the
+  real hit-rate in your closing report. State the real number; if it falls short of 95%, say so
+  honestly rather than rounding up - this is Decision F's own rule (a measurement-gated stage
+  reports its real number, it does not get silently waved through).
+depends_on:
+  - TC-017a
+  - TC-071
+  - TC-079
+  - TC-120
+  - TC-143
+  - TC-199
+  - TC-202
+  - TC-210
+  - TC-278
+  - TC-279
+  - TC-386
+  - TC-493
+  - TC-515
+  - TC-516
+  - TC-523
+  - TC-536
+  - TC-541
+  - TC-562
+  - TC-571
+  - TC-585
+  - TC-604
+  - TC-610
+  - TC-612
+  - TC-618
+  - TC-637
+  - TC-642
+write_paths:
+  - src/foss_mcp/mcp/tools/search_symbols.py
+  - tests/mcp/test_search_symbols_honest_miss.py
+  - tests/mcp/tools/test_search_symbols_prefix_tier.py
+satisfies:
+  - REQ-G3-011
+source_refs:
+  - file: docs/DECISION_LOG.md
+    anchor: >-
+      ## 2026-10-30 — Round-2 portfolio audit remediation adopted: unified plan, governance decisions A-K
+      recorded (supervisor)
+    sha256: 62cf1403a592118e3fb6bd14c5336f8a997cc3181d44a585323ec9f1d385a931
+inputs:
+  - >-
+    READ FIRST, in full: `search_symbols.py`'s module docstring (every TC-### entry describing the
+    tier ladder - this is dense, load-bearing prose, not filler), `_match_tier`'s full docstring
+    and body, `search_symbols()`'s full body (the admission loop, the tier-combination logic at
+    the `class_tier`/`member_declaration`/`tier` block, the sort key, `qualities` dict). Then
+    `tests/mcp/test_search_symbols_honest_miss.py` in full - find every pinned "a partial word is
+    a miss" assertion yourself, do not trust this card's own list as exhaustive. Then at least 5
+    of the 10 real issue ids named above in `docs/round2/issues.json`.
+  - >-
+    Write at least 12 tests in `tests/mcp/tools/test_search_symbols_prefix_tier.py`: a real
+    >=3-char prefix of a real type name is now found, `match_quality == MATCH_PARTIAL`; the exact
+    same query as a WHOLE word (not a prefix) still gets `MATCH_EXACT` (tier 4 never shadows a
+    stronger tier); a <3-char query gets the new explicit length-floor Miss reason; a query
+    sharing no prefix with any real word stays Miss with its existing reason, unchanged; a
+    multi-word query where ONE word is a real whole-word match and another is only a valid prefix
+    is admitted (mixed whole-word+prefix); a multi-word query where one word matches NEITHER
+    whole nor prefix is NOT admitted at tier 4 (every word must be explained, same discipline as
+    tier 2); a tier-4 hit never outranks a tier-0/1/2/3 hit for the same query when both exist;
+    BM25 still breaks ties within tier 4; the real measurement test(s) against your >=3-pilot
+    sample, reporting the real hit-rate (this is the test the card's own negative control and your
+    own closing report both reference).
+actions:
+  - >-
+    Add the plan's own missing prefix tier to search_symbols (weakest evidence, explicit length
+    floor, never exact), closing 10 real round-2 audit issues that all share this one root cause.
+checks:
+  - command: '{python} -m pytest tests/mcp/tools/test_search_symbols_prefix_tier.py -q -rfE -p no:cacheprovider'
+    expect: 'exit 0'
+    timeout_seconds: 180
+    junitxml: true
+    proves:
+      - REQ-G3-011
+  - command: '{python} -m pytest tests/mcp/test_search_symbols_honest_miss.py tests/mcp/tools/test_search_symbols_forgiveness.py tests/mcp/tools/test_search_symbols_digit_words.py tests/mcp/tools/test_search_symbols_memberless_last.py tests/mcp/tools/test_search_symbols_query_normalization.py tests/mcp/tools/test_known_defects_in_search_symbols.py -q -rfE -p no:cacheprovider'
+    expect: 'exit 0'
+    timeout_seconds: 300
+    junitxml: true
+    proves:
+      - REQ-G3-011
+min_tests: 12
+requires:
+  - python
+network: false
+negative_control:
+  mutate: |
+    python -X utf8 -c "import pathlib; p = pathlib.Path('src/foss_mcp/mcp/tools/search_symbols.py'); s = p.read_text(encoding='utf-8'); marker = 'def _match_tier'; idx = s.find(marker); assert idx != -1, '_match_tier not found as expected - if your real function differs, anchor your own mutate on your own real name instead and note the substitution in your closeout'; needle = '_PREFIX_MIN_LENGTH'; assert needle in s, 'your fix does not reference _PREFIX_MIN_LENGTH as expected - if you named your own constant differently, anchor your own mutate on your own real name instead and note the substitution in your closeout'; s2 = s.replace(needle, '_DISABLED_' + needle); assert s2 != s, 'substitution had no effect'; p.write_text(s2, encoding='utf-8')"
+  rationale: >-
+    Breaks every reference to the prefix-tier length floor constant by renaming it to an
+    undefined symbol, so the prefix tier can never run (a NameError at the first real prefix
+    query). Every test proving a real prefix query now finds its symbol must fail under this
+    mutation; tests of the pre-existing tiers 0-3 (unaffected by this card) and of genuinely
+    unrelated names stay green.
+evidence:
+  - evidence/build/G3/TC-654/receipt.json
+closeout:
+  - >-
+    search_symbols now has the plan's own prefix tier - the weakest, most honestly-labelled
+    evidence, with an explicit length floor - closing 10 real round-2 findability issues. State
+    the real measured hit-rate against your real multi-pilot sample.
+recovery: Re-run from a clean tree.
