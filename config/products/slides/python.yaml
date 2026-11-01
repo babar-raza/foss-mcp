@@ -21,3 +21,26 @@ schedule:
   cron: "0 6 * * *"
   timezone: UTC
 storage_topology: embedded
+
+# G3/TC-650 (round-2 audit SLIDES-PY-002): this project's OWN served formats/limitations text
+# falsely claims 7 SaveFormat values "produce valid output files" on the published PyPI 26.8.0
+# release - not an upstream documentation gap (the repository's own CHANGELOG.md already
+# describes the fix, but only on the unreleased default branch). Independently reproduced
+# 2026-10-29. Keep this the LAST top-level key.
+known_hazards:
+  - text: >-
+      This project's own formats/limitations text claims that 7 SaveFormat values (PPTX, PPTM,
+      PPSX, PPSM, POTX, POTM, MD) "produce valid output files", but on the installed PyPI release
+      26.8.0 - the exact version this project's own install section tells an agent to pip install -
+      only 2 of those 7 (PPTX and MD) actually are. The real trigger: saving with PPTM, PPSX,
+      PPSM, POTX, or POTM raises no exception, but each of those 5 writes the SAME main-part
+      content type as PPTX ("...presentationml.presentation.main+xml") instead of its own type -
+      the exact defect the repository's own CHANGELOG.md (at the indexed commit) describes as
+      fixed only on the unreleased default branch, not in 26.8.0. agent_guidance carries a general
+      "describes the default branch, not 26.8.0" notice, but the formats/limitations text that
+      makes the concrete "produce valid output files" claim does not repeat that caveat. The safe
+      pattern: on the installed 26.8.0 PyPI release, treat only PPTX and MD as genuinely valid
+      SaveFormat outputs; do not trust the absence of an exception from save() as proof the
+      written file is valid for PPTM/PPSX/PPSM/POTX/POTM - independently verify the saved file's
+      main-part content type before relying on it being openable.
+    verified_at: "2026-10-29"

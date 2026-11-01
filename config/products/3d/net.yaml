@@ -22,3 +22,24 @@ schedule:
   cron: "0 3 * * *"
   timezone: UTC
 storage_topology: embedded
+
+# G3/TC-650 (round-2 audit 3D-NET-001): this project's OWN served formats/limitations text
+# falsely claimed PLY, RVM, AMF and the HTML5/Aspose3DWeb viewer export work on the installed
+# 26.1.0 package - not an upstream documentation gap. Independently reproduced 2026-10-29. Keep
+# this the LAST top-level key.
+known_hazards:
+  - text: >-
+      This project's own formats/limitations text claims RVM, AMF, and HTML5/Aspose3DWeb viewer
+      export work (and implies Universal/U3D export works), but on the installed 26.1.0 package
+      every one of those four is non-functional. The real trigger: scene.Save(path,
+      FileFormat.RvmText) and .RvmBinary both throw NotImplementedException ("Save options not
+      implemented for rvm"); .AMF throws "Save options not implemented for .amf";
+      .Aspose3DWeb/.HTML5 throw "Save options not implemented for .html"; and extension-based
+      Scene.Save("x.rvm"/"x.amf"/"x.u3d"/"x.html5"/"x.a3dw") throws ArgumentException
+      ("Unsupported file format: .<ext>"). "Universal" (U3D) has no FileFormat static field at
+      all in 26.1.0, so there is no public way to invoke it even explicitly. The safe pattern:
+      treat RVM, AMF, HTML5/Aspose3DWeb, and Universal/U3D export as unsupported in 26.1.0 -
+      export only to the formats this project's own audit did not find to throw (e.g. FBX, glTF,
+      OBJ, STL, COLLADA) - and re-verify against the actually-installed package version before
+      relying on any of the four.
+    verified_at: "2026-10-29"

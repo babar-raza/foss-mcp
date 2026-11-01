@@ -21,3 +21,22 @@ schedule:
   cron: "0 12 * * *"
   timezone: UTC
 storage_topology: embedded
+
+# G3/TC-650 (round-2 audit PDF-JAVA-003): this project's OWN served formats/limitations text
+# falsely claims PDF<->Word/Excel conversion is unsupported, stale against the actually-installed
+# 26.9.0 package - not an upstream documentation gap. Independently reproduced 2026-10-29. Keep
+# this the LAST top-level key.
+known_hazards:
+  - text: >-
+      This project's own formats/limitations text claims "conversion to non-PDF formats beyond
+      HTML/XML, conversion from non-PDF formats beyond HTML ... are not supported", but on the
+      real registry package (26.9.0) PDF<->Word/Excel conversion IS supported end-to-end. The real
+      trigger: this is stale README prose from before the 26.8.0 SDM subsystem landed;
+      Document.save(path, SaveFormat.DocX) works and produces a correct, valid .docx file, and the
+      same deployment's own symbol index and search_docs describe DocSaveOptions/DocLoadOptions/
+      ExcelSaveOptions/SaveFormat.DocX/.Xlsx/.Doc in detail. The safe pattern: do not tell an agent
+      that PDF<->Word/Excel conversion is unsupported - call Document.save with SaveFormat.DocX
+      (or .Xlsx/.Doc) directly, and cross-check a formats/limitations claim of "unsupported"
+      against the deployment's own symbol index before repeating it, since stale prose and a live
+      index can disagree.
+    verified_at: "2026-10-29"

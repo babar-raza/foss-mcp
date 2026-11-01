@@ -21,3 +21,32 @@ schedule:
   cron: "0 6 * * *"
   timezone: UTC
 storage_topology: embedded
+
+# G3/TC-650 (round-2 audit HTML-PY-001, HTML-PY-005): this project's OWN served limitations text
+# made two false capability claims about the installed package at the pinned commit (bf0f1e7a6d29)
+# - not an upstream documentation gap. Independently reproduced 2026-10-29. Keep this the LAST
+# top-level key.
+known_hazards:
+  - text: >-
+      This project's own limitations text claims form constraint validation is "not yet
+      implemented", but on the real installed library at the pinned commit (bf0f1e7a6d29) it is
+      fully implemented and numerically correct. The real trigger: calling check_validity() /
+      reading .validity / .validityState on an HTMLFormElement or form control (required, email
+      format, numeric range all verified across 5 test cases); source inspection confirms a real
+      _compute_validity_state() implementation in src/aspose_html/dom/_validation.py, not a stub.
+      The safe pattern: do not tell an agent that constraint validation is unimplemented - it
+      works - and re-verify the limitations text whenever the library's validation module changes,
+      rather than trusting stale README prose.
+    verified_at: "2026-10-29"
+  - text: >-
+      This project's own limitations text says dynamic pseudo-classes (:hover, :focus, :visited,
+      :active, :focus-visible, :focus-within) "raise NotImplementedError", but on the real
+      installed library they never raise for that common case - the matcher module's own code
+      comment documents the real, intentional behavior as silent no-match. The real trigger: using
+      any of those pseudo-classes in a selector and expecting an exception to guard against them -
+      none is raised; only pseudo-ELEMENTS (::before etc., a different construct) and a narrower
+      residual set actually raise. The safe pattern: do not wrap :hover/:focus/:visited/:active/
+      :focus-visible/:focus-within selectors in try/except NotImplementedError expecting to catch
+      anything - that selector will simply never match, silently, with no exception and no
+      warning.
+    verified_at: "2026-10-29"

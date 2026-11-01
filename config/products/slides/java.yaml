@@ -20,3 +20,39 @@ schedule:
   cron: "0 6 * * *"
   timezone: UTC
 storage_topology: embedded
+
+# G3/TC-650 (round-2 audit SLIDES-JAVA-001, SLIDES-JAVA-002): this project's OWN served
+# limitations/agent_guidance text made two false capability claims about the published 26.7.0
+# jar - not an upstream documentation gap. Independently reproduced 2026-10-29. Keep this the
+# LAST top-level key.
+known_hazards:
+  - text: >-
+      This project's own limitations text claims Presentation.save() "raises
+      UnsupportedOperationException" for any of the 22 non-PPTX/PPSX/POTX formats, with the exact
+      quoted message "Export format 'Pdf' is not supported. Writable formats are: Pptx, Ppsx,
+      Potx" - but on the published 26.7.0 jar, save() ignores the SaveFormat argument entirely and
+      never throws. The real trigger: calling save(path, fmt) for fmt in {PDF, PPT, GIF, HTML,
+      PNG, XML} (or PPTX/PPSX/POTX themselves) all return normally and write byte-for-byte
+      identical, plain-PPTX content (same sha256, same [Content_Types].xml main part) regardless
+      of the requested format - PPSX and POTX do not even get their own content type. The safe
+      pattern: do not trust the claimed exception as a safety net for an unsupported SaveFormat on
+      26.7.0 - after calling save(), independently verify the written file's actual content type
+      (or extension-appropriate structure) matches the format you asked for, since a silent
+      PPTX-labeled-as-anything-else file is the real failure mode, not an exception.
+    verified_at: "2026-10-29"
+  - text: >-
+      This project's own agent_guidance lists Presentation.getSlides().addEmptySlide(layout) under
+      "## Do" with no caveat, and the curated "Example: Clone a Slide" asserts
+      prs.getSlides().size() is now 2 as the expected outcome of addClone(slide) - but on the
+      published 26.7.0 jar, addEmptySlide(layout), insertEmptySlide(index, layout), and
+      addClone(slide) each produce an orphaned, unregistered slide part. The real trigger: the new
+      ppt/slides/slideN.xml part is never added to <p:sldIdLst> in ppt/presentation.xml, never
+      given a relationship in ppt/_rels/presentation.xml.rels, never given its own
+      ppt/slides/_rels/slideN.xml.rels, and never given a Content_Types.xml Override - so
+      Presentation.getSlides().size() reports 2 (matching the misleading example comment) while a
+      conformant reader (PowerPoint, Apache POI, or a from-scratch sldIdLst walk) sees only 1
+      slide. The safe pattern: after calling addEmptySlide, insertEmptySlide, or addClone on
+      26.7.0, do not trust getSlides().size() alone - independently verify the saved file's
+      <p:sldIdLst>, presentation.xml.rels, and Content_Types.xml actually register the new slide
+      part before relying on it being present in a conformant reader.
+    verified_at: "2026-10-29"
