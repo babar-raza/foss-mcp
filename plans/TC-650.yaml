@@ -28,6 +28,25 @@ purpose: >-
   (SLIDES-PY-002). Confirm the real `verified_at` date yourself (check `docs/HANDOFF.md`
   or the round-2 audit folder's own date - do not invent one; KD6-KD9's own data cards used
   2026-10-29, confirm this is the real audit date before reusing it).
+
+  REWORK (attempt 2): attempt 1's real disclosure work was correct and is preserved - the only
+  defect was in this card's own check 2, which names two PRE-EXISTING files that hard-code "only
+  cells/go carries known_hazards" as a permanent invariant:
+  `tests/mcp/tools/test_product_reference_known_hazards.py`'s `OTHER_PILOT_MANIFEST_PATHS`
+  (currently every pilot manifest except cells/go, asserted `len == 31`) and
+  `tests/schemas/test_product_manifest_schema.py`'s
+  `test_every_other_real_pilot_manifest_still_validates_with_no_known_hazards_field` (same "every
+  pilot but cells/go" framing). TC-650's own purpose is to add `known_hazards` to 5 MORE pilots,
+  which makes both assertions false for those 5 by construction - not a flaky or incidental
+  failure, a structural one this card's own author (the supervisor) failed to anticipate when
+  scoping check 2. Fix BOTH files narrowly: widen the exclusion set from "cells/go only" to "every
+  pilot that carries a real known_hazards entry today" (cells/go plus the 5 this card adds:
+  3d/net, html/python, pdf/java, slides/java, slides/python), correct the `len(...) == 31` (now
+  `== 32 - 6 == 26`) pin in the first file, and the analogous "every pilot but cells/go" framing
+  and any hardcoded count in the second file. This is a widening of an exclusion list and its
+  count pin, never a weakening of what the tests actually check (both files still assert every
+  OTHER real pilot - correctly excluding all 6 named ones now - carries no `known_hazards` field
+  and still validates cleanly without it).
 depends_on:
   - TC-641
 write_paths:
@@ -37,6 +56,8 @@ write_paths:
   - config/products/slides/java.yaml
   - config/products/slides/python.yaml
   - tests/mcp/tools/test_known_hazards_round2_disclosures.py
+  - tests/mcp/tools/test_product_reference_known_hazards.py
+  - tests/schemas/test_product_manifest_schema.py
 satisfies:
   - REQ-G3-013
 source_refs:
