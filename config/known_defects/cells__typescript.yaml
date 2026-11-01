@@ -1,0 +1,123 @@
+schema_version: 1
+pilot: cells_typescript
+defects:
+- id: CELLS-TYPESCRIPT-003
+  subject:
+    kind: method
+    ref: Worksheet
+  applies_to:
+    package_versions:
+    - 1.0.0
+  summary: 'Worksheet.mergeCells() in excel-cells 1.0.0 has zero effect on the saved file: toXml()
+    never references the private _mergedCells array it populates, so no <mergeCells> element
+    is ever written to the worksheet XML.'
+  user_action: Do not rely on Worksheet.mergeCells() in excel-cells 1.0.0 to produce a visible
+    merge in the saved .xlsx; the call succeeds in memory (mergedCells getter reflects it) but
+    toXml() never serializes _mergedCells, so the file has no <mergeCells> element at all.
+  evidence:
+    repro: 'Called s1.mergeCells(''A1:B1''); the mergedCells getter confirmed [''A1:B1''] in
+      memory. Inspecting the saved file''s xl/worksheets/sheet1.xml showed no <mergeCells> element
+      anywhere in the output, confirmed by grepping the whole aspose_cells/ source: worksheet.ts''s
+      toXml() (the only serializer) never references _mergedCells.'
+    verified_on:
+      package: excel-cells
+      version: 1.0.0
+      date: '2026-10-29'
+  status: open
+- id: CELLS-TYPESCRIPT-004
+  subject:
+    kind: method
+    ref: Cell
+  applies_to:
+    package_versions:
+    - 1.0.0
+  summary: 'Cell.setHyperlink() in excel-cells 1.0.0 has zero effect on the saved file: Cell.toXml()
+    never references the private _hyperlink field it sets, and xl/worksheets/_rels/ is not even
+    created.'
+  user_action: Do not rely on Cell.setHyperlink() (or Worksheet.addHyperlink()) in excel-cells
+    1.0.0 to produce a clickable hyperlink in the saved .xlsx; the setter succeeds in memory
+    but Cell.toXml() and workbook.ts's writeToZip never serialize _hyperlink/_hyperlinks at
+    all.
+  evidence:
+    repro: Called s1.getCell2('F1').setHyperlink('https://example.com'); the getter confirmed
+      it round-tripped in memory. Reading xl/worksheets/sheet1.xml from the saved out_scenarioA.xlsx
+      contained no 'hyperlink' text at all, and xl/worksheets/_rels/ did not even exist in the
+      zip; workbook.ts has zero references to _hyperlinks anywhere.
+    verified_on:
+      package: excel-cells
+      version: 1.0.0
+      date: '2026-10-29'
+  status: open
+- id: CELLS-TYPESCRIPT-005
+  subject:
+    kind: method
+    ref: Worksheet
+  applies_to:
+    package_versions:
+    - 1.0.0
+  summary: 'Worksheet.addDataValidation()/addConditionalFormat()/addComment() in excel-cells
+    1.0.0 all have zero effect on the saved file: writeToZip never references _dataValidations,
+    _conditionalFormats, or _comments.'
+  user_action: Do not rely on Worksheet.addDataValidation(), addConditionalFormat(), or addComment()
+    in excel-cells 1.0.0 to persist anything to the saved .xlsx; all three populate an in-memory
+    collection that the save path never serializes.
+  evidence:
+    repro: Called s1.addDataValidation(dv, 'E1:E5'); the dataValidations getter confirmed the
+      in-memory array was populated. Grepping the whole save path (workbook.ts) for dataValidation,
+      conditionalFormat, hyperlink, comment, and mergeCell returned zero hits, and the saved
+      xl/worksheets/sheet1.xml contained no 'dataValidation' text at all.
+    verified_on:
+      package: excel-cells
+      version: 1.0.0
+      date: '2026-10-29'
+  status: open
+- id: CELLS-TYPESCRIPT-008
+  subject:
+    kind: method
+    ref: Style
+  applies_to:
+    package_versions:
+    - 1.0.0
+  summary: 'Style.setNumberFormat() in excel-cells 1.0.0 silently drops a builtin-looking format
+    string back to General: workbook.ts''s generateStyles() never maps its 8-entry builtinFmts
+    list to real OOXML numFmtIds.'
+  user_action: Do not use Style.setNumberFormat() in excel-cells 1.0.0 with a format string
+    that textually matches one of Excel's 8 common builtin codes (e.g. '#,##0.00', '0%'); generateStyles()
+    leaves numFmtId at its default 0 (General) for exactly those strings, while a non-matching
+    custom format string (e.g. '$#,##0.00') works correctly.
+  evidence:
+    repro: 'Set A1.setNumberFormat(''#,##0.00''), A2.setNumberFormat(''$#,##0.00''), A3.setNumberFormat(''0%'').
+      The saved xl/styles.xml''s cellXfs showed: A1 maps to numFmtId 0 (General, wrong), A2
+      maps to numFmtId 164 (correct custom numFmt), A3 maps to numFmtId 0 (General, wrong);
+      workbook.ts''s generateStyles() checks whether style.numberFormat is absent from its builtinFmts
+      list before registering a custom numFmtId, but never maps a matched builtinFmts entry
+      to its real OOXML id (0,1,2,3,4,9,10,11).'
+    verified_on:
+      package: excel-cells
+      version: 1.0.0
+      date: '2026-10-29'
+  status: open
+- id: CELLS-TYPESCRIPT-011
+  subject:
+    kind: method
+    ref: Cell
+  applies_to:
+    package_versions:
+    - 1.0.0
+  summary: Cell.putValue(ref, Date) in excel-cells 1.0.0 writes an Excel serial date that is
+    one day short, because dateToExcelSerial() subtracts two local-time Date objects 124 years
+    apart instead of using UTC-normalized dates.
+  user_action: Do not trust the Excel serial date Cell.putValue(ref, new Date(...)) writes in
+    excel-cells 1.0.0; it can be one day short of the correct 1899-12-30-epoch serial, because
+    dateToExcelSerial() does naive local-time millisecond subtraction vulnerable to historical
+    DST-table artifacts.
+  evidence:
+    repro: Called s1.putValue('C2', new Date(2024,0,15)); the saved xl/worksheets/sheet1.xml
+      showed cell C2 with value 45305. The correct Excel serial for 2024-01-15 (1899-12-30 epoch)
+      is 45306 days later; cell.ts's dateToExcelSerial() computes Math.floor((date.getTime()-excelEpoch.getTime())/86400000)
+      using two local Date objects, which is vulnerable to local-time/DST artifacts.
+    verified_on:
+      package: excel-cells
+      version: 1.0.0
+      date: '2026-10-29'
+  status: open

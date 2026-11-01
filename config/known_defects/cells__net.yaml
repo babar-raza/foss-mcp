@@ -1,0 +1,25 @@
+schema_version: 1
+pilot: cells_net
+defects:
+- id: CELLS-NET-002
+  subject:
+    kind: method
+    ref: Workbook
+  applies_to:
+    package_versions:
+    - 26.10.0
+  summary: Workbook.Save(path) in Aspose.Cells.FOSS 26.10.0 with an unrecognized extension (e.g.
+    .csv) silently writes a full XLSX/OOXML binary with no error or warning, and this is undocumented.
+  user_action: Do not trust the file extension passed to Workbook.Save(path) in Aspose.Cells.FOSS
+    26.10.0 beyond .pdf; any other extension (e.g. .csv) still silently gets a full XLSX/OOXML
+    ZIP package written to it, with no exception raised.
+  evidence:
+    repro: wb.Save("scenario_out.csv") returned normally and wrote a 408008-byte file; running
+      the file command on scenario_out.csv reported Microsoft Excel 2007+, its first 4 bytes
+      were the ZIP signature PK\x03\x04, and zipfile.ZipFile(...).namelist() listed xl/workbook.xml,
+      xl/worksheets/sheet1.xml, etc.
+    verified_on:
+      package: Aspose.Cells.FOSS
+      version: 26.10.0
+      date: '2026-10-29'
+  status: open

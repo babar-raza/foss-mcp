@@ -1,0 +1,26 @@
+schema_version: 1
+pilot: cells_java
+defects:
+- id: CELLS-JAVA-001
+  subject:
+    kind: method
+    ref: Workbook
+  applies_to:
+    package_versions:
+    - 26.7.0
+  summary: 'Workbook.save(fileName) in org.aspose:aspose-cells-foss 26.7.0 ignores the file
+    extension: paths ending .pdf or .csv both silently get a byte-identical, valid XLSX ZIP,
+    contradicting the MCP''s ''saving is limited to .xlsx'' text.'
+  user_action: Do not rely on Workbook.save(fileName)'s extension in org.aspose:aspose-cells-foss
+    26.7.0 to select or validate an output format; it always writes XLSX bytes regardless of
+    the name given, with no exception.
+  evidence:
+    repro: wb.save("work/scenarioB.pdf") and wb.save("work/scenarioB.csv") both returned normally;
+      zipfile.ZipFile(...).namelist() on both files showed an identical 3299-byte XLSX ZIP package
+      ([Content_Types].xml, _rels/.rels, xl/workbook.xml), even though get_product_reference(section="limitations")
+      states Saving is currently limited to .xlsx.
+    verified_on:
+      package: org.aspose:aspose-cells-foss
+      version: 26.7.0
+      date: '2026-10-29'
+  status: open

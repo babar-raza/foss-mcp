@@ -1,0 +1,52 @@
+schema_version: 1
+pilot: cells_go
+defects:
+- id: CELLS-GO-001
+  subject:
+    kind: method
+    ref: cells_foss.Cell
+  applies_to:
+    package_versions:
+    - v26.7.1
+  summary: A numeric cell value (float64) saved via Cells().Set() and reloaded via Load() in
+    aspose-cells-foss for Go v26.7.1 comes back as a Go string, not float64, because xmlloader.go's
+    resolveCellValue returns untyped/numeric <v> cells as strings.
+  user_action: Do not assume cell.Value is float64 after Load() in aspose-cells-foss for Go
+    v26.7.1; every reloaded numeric cell is typed as a Go string and must be parsed (e.g. via
+    strconv) by the caller.
+  evidence:
+    repro: 'Set B2 to float64(1200.0) via Cells().Set(), called wb.Save("out.xlsx"); reloaded
+      via Load() and read cell.Value, which came back as the Go string "1200" (type string),
+      not float64(1200). Confirmed via xmlloader.go''s resolveCellValue comment: ''Numeric or
+      untyped -> return as string; callers may parse with strconv.'' The saved OOXML XML itself
+      (<c r="B2"><v>1200</v></c>, no t="s") is correct; the defect is in the loader, not the
+      saver.'
+    verified_on:
+      package: github.com/aspose-cells-foss/Aspose.Cells-FOSS-for-Go/v26
+      version: v26.7.1
+      date: '2026-10-29'
+  status: open
+- id: CELLS-GO-011
+  subject:
+    kind: method
+    ref: cells_foss.CalculateFormula
+  applies_to:
+    package_versions:
+    - v26.7.1
+  summary: CalculateFormula() in aspose-cells-foss for Go v26.7.1 reports a misleading 'not
+    numeric' error for an unsupported function (e.g. VLOOKUP) instead of 'unsupported function',
+    since it resolves arguments to float64 before checking funcName.
+  user_action: Do not trust a 'not numeric' error from CalculateFormula() in aspose-cells-foss
+    for Go v26.7.1 as a data problem; it can mean the formula's function name itself is unsupported
+    (e.g. VLOOKUP) and failed before the unsupported-function check ran.
+  evidence:
+    repro: 'Called cells_foss.CalculateFormula("VLOOKUP(A1,A1:B4,2,FALSE)", ws) where A1 held
+      the string "Month"; got ''formula: not numeric: "Month"'' instead of ''formula: unsupported
+      function "VLOOKUP"''. formula_engine.go resolves every argument/range reference to float64
+      before checking whether funcName is one of SUM/AVERAGE/MAX/MIN, even though a default
+      case already returns ''unsupported function %q''.'
+    verified_on:
+      package: github.com/aspose-cells-foss/Aspose.Cells-FOSS-for-Go/v26
+      version: v26.7.1
+      date: '2026-10-29'
+  status: open

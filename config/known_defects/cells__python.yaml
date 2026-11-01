@@ -1,0 +1,50 @@
+schema_version: 1
+pilot: cells_python
+defects:
+- id: CELLS-PY-003
+  subject:
+    kind: method
+    ref: Workbook
+  applies_to:
+    package_versions:
+    - 26.10.0
+  summary: Workbook.save_as_pdf() in aspose-cells-foss 26.10.0 raises RuntimeError('PDF export
+    requires skia-python') under the documented 'pip install aspose-cells-foss' command, which
+    declares no pdf extra and never installs skia-python.
+  user_action: Do not call Workbook.save_as_pdf() in aspose-cells-foss 26.10.0 after only 'pip
+    install aspose-cells-foss'; it raises RuntimeError at runtime because skia-python is not
+    installed and no pip extra pulls it in.
+  evidence:
+    repro: 'After ''pip install aspose-cells-foss'', running work/t6_pdf_export.py printed:
+      PDF export FAILED: RuntimeError(''PDF export requires skia-python; install the package
+      dependencies''). importlib.metadata confirmed aspose-cells-foss 26.10.0 declares only
+      pycryptodome and olefile as requirements (plus a ''dev'' extra), with no ''pdf'' extra.'
+    verified_on:
+      package: aspose-cells-foss
+      version: 26.10.0
+      date: '2026-10-29'
+  status: open
+- id: CELLS-PY-005
+  subject:
+    kind: method
+    ref: Workbook
+  applies_to:
+    package_versions:
+    - 26.10.0
+  summary: 'A Python datetime cell value silently loses its date-ness across Workbook.save()+reload
+    in aspose-cells-foss 26.10.0: it becomes a bare float with no exception, because save()
+    never assigns a date number format.'
+  user_action: Do not assume a datetime value survives Workbook.save()+reload as a date in aspose-cells-foss
+    26.10.0; without an explicit number_format set by the caller, it comes back as a plain float
+    (data_type='numeric'), and the saved XLSX's cell style has numFmtId=0 (General), so even
+    real Excel would show a plain number.
+  evidence:
+    repro: 'Set a cell to datetime.datetime(2026,1,15); before save: value=2026-01-15 00:00:00,
+      is_date_time_value()=True, data_type=''datetime''. After wb.save()+reopen: value=46037.0
+      (float), is_date_time_value()=False, data_type=''numeric''. zipfile inspection of the
+      saved XLSX confirmed the cell''s style xf has numFmtId=0 (''General'').'
+    verified_on:
+      package: aspose-cells-foss
+      version: 26.10.0
+      date: '2026-10-29'
+  status: open

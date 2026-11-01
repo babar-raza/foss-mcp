@@ -1,0 +1,26 @@
+schema_version: 1
+pilot: cells_rust
+defects:
+- id: CELLS-RUST-011
+  subject:
+    kind: package
+    ref: aspose-cells-foss-rust
+  applies_to:
+    package_versions:
+    - 26.7.0
+  summary: 'aspose-cells-foss-rust 26.7.0''s SaveFormat enum has exactly one variant (Xlsx):
+    the crate has no PDF or CSV export at all, the only cells-family platform missing both,
+    while cells/net and cells/python already ship them.'
+  user_action: Use cells/net or cells/python if PDF or CSV export is needed; aspose-cells-foss-rust
+    26.7.0 supports only .xlsx (SaveFormat has a single Xlsx variant).
+  evidence:
+    repro: 'get_product_reference(section=formats) for cells-rust returned: The library supports
+      only the .xlsx format and does not handle legacy .xls, ODS, or CSV files. Confirmed against
+      the crate''s own SaveFormat/LoadFormat enum source (registry version 26.7.0) and Cargo.toml;
+      cells-net''s and cells-python''s own formats sections confirm PDF/CSV export already exist
+      on those platforms.'
+    verified_on:
+      package: aspose-cells-foss-rust
+      version: 26.7.0
+      date: '2026-10-29'
+  status: open
