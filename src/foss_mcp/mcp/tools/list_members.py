@@ -23,6 +23,16 @@ def list_members(store: GenerationManifestStore, scope: Scope, fqn: str) -> tupl
     first, then properties, then enum members. An absent FQN returns the same ``NotFound``
     ``get_symbol`` would. Base types are NOT included here - a base type is not a child of *fqn*,
     it stays exposed only through ``get_symbol``'s own ``bases`` field.
+
+    TC-639 (KD2, G3/REQ-G3-015): this tool's return shape is a flat ``tuple[str, ...]`` - it has no
+    field to add a ``known_defects`` list to without breaking its existing, simple contract. Its
+    established precedent (TC-559's own type-level ``Limitation:`` line, below) is to PREPEND any
+    type-level disclosure line directly into that same tuple, so it is chosen here too: a type-level
+    known-defect disclosure line is prepended the same way, right after the limitation line and
+    before the member lists. A single resolved member's lines (``signature.member_lines``, just
+    below) already excludes the type-level limitation line for the identical reason - a member-only
+    query is not asking about the type as a whole - so the type-level known-defect line is withheld
+    there too, for the same reason, rather than inventing new, untested behaviour for that case.
     """
     signature = get_symbol(store, scope, fqn)
     if isinstance(signature, NotFound):
@@ -35,4 +45,10 @@ def list_members(store: GenerationManifestStore, scope: Scope, fqn: str) -> tupl
     type_limitation = tuple(
         line for line in signature.limitations if line.startswith(_TYPE_LIMITATION_PREFIX)
     )
-    return type_limitation + signature.methods + signature.properties + signature.members
+    return (
+        type_limitation
+        + signature.known_defects
+        + signature.methods
+        + signature.properties
+        + signature.members
+    )

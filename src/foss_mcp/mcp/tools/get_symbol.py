@@ -20,6 +20,7 @@ from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 
 from foss_mcp.indexing.generation_manifest import GenerationManifestStore
+from foss_mcp.indexing.known_defects import KnownDefect, load_known_defects
 from foss_mcp.mcp.routing import Scope
 from foss_mcp.mcp.tools.coverage_note import coverage_note_from_text
 from foss_mcp.mcp.tools.search_symbols import (
@@ -46,6 +47,11 @@ _SUGGESTION_LIMIT = 5
 # an enum value (``  - Pdf  (not implemented in this build: ...)``), which is no part of the value's name.
 _TYPE_LIMITATION_PREFIX = "Limitation:"
 _MARKER_START = re.compile(r"\s*\(" + re.escape(NOT_IMPLEMENTED_PHRASE))
+# TC-639 (KD2, G3/REQ-G3-015): the exact pattern report_index_freshness._SOURCE_COMMIT_LINE already
+# established for reading a chunk's own ``Source-Commit:`` line. Reimplemented locally, verbatim,
+# rather than imported - report_index_freshness (and find_examples) already import FROM this module
+# (``extract_fqn``), so importing their constant back here would be a circular import.
+_SOURCE_COMMIT_LINE = re.compile(r"^Source-Commit:\s*(\S+)$", re.MULTILINE)
 
 
 @dataclass(frozen=True)
@@ -66,6 +72,11 @@ class SymbolSignature:
     # type-level ``Limitation: ...`` line, if any, then each member line that carries the phrase. Empty for a
     # symbol that works. For a resolved member name only the type-level line and that member's own lines.
     limitations: tuple[str, ...] = ()
+    # TC-639 (KD2, G3/REQ-G3-015, additive): a rendered disclosure line for every committed known-defect
+    # entry whose subject.ref matches this symbol's own fqn (the OWNING type's FQN for a resolved member -
+    # see ResolvedSignature below), in registry file order. Empty when no defect data is recorded for this
+    # pilot yet (KD6-KD9's job), or none of it matches this symbol.
+    known_defects: tuple[str, ...] = ()
 
 
 @dataclass(frozen=True)
@@ -137,16 +148,51 @@ def limitation_lines(text: str, member_lines: Sequence[str] | None = None) -> tu
     return tuple(found)
 
 
+def _render_known_defect(defect: KnownDefect) -> str:
+    """One factual disclosure line built from *defect*'s own recorded ``summary``/``user_action``/
+    ``evidence.repro`` - no editorializing, this is the defect's own recorded wording, assembled."""
+    return f"Known defect: {defect.summary} {defect.user_action} (repro: {defect.evidence.repro})"
+
+
+def known_defect_lines(scope: Scope, fqn: str, text: str) -> tuple[str, ...]:
+    """Every known-defect disclosure line that applies to *fqn*, in registry file order (KD2,
+    G3/REQ-G3-015).
+
+    A defect applies when its ``subject.ref`` equals *fqn* exactly - the OWNING type's FQN for a
+    resolved member, never the raw member name, matching how a resolved name is already treated
+    elsewhere in this module - and, when it is scoped by ``applies_to.indexed_commit``, that commit
+    equals *text*'s own ``Source-Commit:`` line. A package-version-scoped defect (no
+    ``indexed_commit``) always applies here regardless of commit: this tool has no live registry
+    check against a currently served package version - that staleness-aware check is KD5's job on
+    ``report_index_freshness`` specifically, not this one.
+    """
+    defects = load_known_defects(scope.family, scope.platform)
+    if not defects:
+        return ()
+    commit_match = _SOURCE_COMMIT_LINE.search(text)
+    chunk_commit = commit_match.group(1) if commit_match is not None else None
+    lines: list[str] = []
+    for defect in defects:
+        if defect.subject.ref != fqn:
+            continue
+        indexed_commit = defect.applies_to.indexed_commit
+        if indexed_commit is not None and indexed_commit != chunk_commit:
+            continue
+        lines.append(_render_known_defect(defect))
+    return tuple(lines)
+
+
 def _parse_signature(
     scope: Scope, generation_id: str, doc_id: str, chunk_id: str, text: str
 ) -> SymbolSignature:
     kind_match = _KIND_LINE.search(text)
+    fqn = extract_fqn(text) or ""
     return SymbolSignature(
         scope=scope,
         generation_id=generation_id,
         doc_id=doc_id,
         chunk_id=chunk_id,
-        fqn=extract_fqn(text) or "",
+        fqn=fqn,
         kind=kind_match.group(1).strip() if kind_match else "",
         bases=_extract_block(text, "Bases:"),
         methods=_extract_block(text, "Methods:"),
@@ -154,6 +200,7 @@ def _parse_signature(
         members=_extract_block(text, "Members:"),
         raw_text=text,
         limitations=limitation_lines(text),
+        known_defects=known_defect_lines(scope, fqn, text),
     )
 
 
@@ -267,6 +314,7 @@ def _signature_of(
         members=base.members,
         raw_text=base.raw_text,
         limitations=limitation_lines(chunk.text, member_lines if member else None),
+        known_defects=base.known_defects,
         resolved_from=requested,
         member=member,
         member_lines=member_lines,
