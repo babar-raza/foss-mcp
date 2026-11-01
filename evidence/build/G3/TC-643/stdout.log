@@ -1,0 +1,185 @@
+
+===== CLEAN RUN 1 (host) =====
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-5c72e798a73c059a\Scripts\python.exe -m pytest tests/mcp/tools/test_known_defects_in_freshness.py -q -rfE -p no:cacheprovider "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-4ld7edb_\.junit-0.xml"
+--- stdout ---
+..........                                                               [100%]
+
+--- stderr ---
+
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-5c72e798a73c059a\Scripts\python.exe -m pytest tests/mcp/tools/test_freshness_registry_version.py tests/mcp/tools/test_freshness_provenance.py tests/mcp/tools/test_freshness_tristate.py -q -rfE -p no:cacheprovider "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-4ld7edb_\.junit-1.xml"
+--- stdout ---
+........................................................................ [ 96%]
+...                                                                      [100%]
+
+--- stderr ---
+
+
+===== CLEAN RUN 2 (host) =====
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-5c72e798a73c059a\Scripts\python.exe -m pytest tests/mcp/tools/test_known_defects_in_freshness.py -q -rfE -p no:cacheprovider "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-4ld7edb_\.junit-0.xml"
+--- stdout ---
+..........                                                               [100%]
+
+--- stderr ---
+
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-5c72e798a73c059a\Scripts\python.exe -m pytest tests/mcp/tools/test_freshness_registry_version.py tests/mcp/tools/test_freshness_provenance.py tests/mcp/tools/test_freshness_tristate.py -q -rfE -p no:cacheprovider "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-4ld7edb_\.junit-1.xml"
+--- stdout ---
+........................................................................ [ 96%]
+...                                                                      [100%]
+
+--- stderr ---
+
+
+===== NEGATIVE CONTROL (checks MUST now fail) =====
+mutated: M src/foss_mcp/mcp/tools/report_index_freshness.py, ?? .junit-0.xml, ?? .junit-1.xml
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-5c72e798a73c059a\Scripts\python.exe -m pytest tests/mcp/tools/test_known_defects_in_freshness.py -q -rfE -p no:cacheprovider "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-4ld7edb_\.junit-0.xml"
+--- stdout ---
+F..FFF..FF                                                               [100%]
+================================== FAILURES ===================================
+_______ test_commit_scoped_defect_surfaces_when_indexed_commit_matches ________
+
+tmp_path = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-18828/test_commit_scoped_defect_surf0')
+registry_dir = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-18828/test_commit_scoped_defect_surf0/known_defects')
+
+    def test_commit_scoped_defect_surfaces_when_indexed_commit_matches(
+        tmp_path: Path, registry_dir: Path
+    ) -> None:
+        store = _single(tmp_path)
+        _write_registry(registry_dir, [_defect("PDF-NET-001", indexed_commit=SYMBOL_COMMIT)])
+    
+        report = _report(store, SYMBOL_COMMIT)
+    
+        assert report.indexed_source_commit == SYMBOL_COMMIT
+>       assert len(report.known_defects) == 1
+E       AssertionError: assert 0 == 1
+E        +  where 0 = len(())
+E        +    where () = FreshnessReport(scope=Scope(family='pdf', platform='net', source_kind='self_extracted'), source_kind='self_extracted',... package_ahead_of_index=None, drift_commit_distance=None, published_version=None, drift_message=None, known_defects=()).known_defects
+
+tests\mcp\tools\test_known_defects_in_freshness.py:107: AssertionError
+_ test_package_version_scoped_defect_surfaces_plain_when_no_served_version_available _
+
+tmp_path = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-18828/test_package_version_scoped_de0')
+registry_dir = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-18828/test_package_version_scoped_de0/known_defects')
+
+    def test_package_version_scoped_defect_surfaces_plain_when_no_served_version_available(
+        tmp_path: Path, registry_dir: Path
+    ) -> None:
+        store = _single(tmp_path)
+        _write_registry(registry_dir, [_defect("PDF-NET-004", package_versions=["26.7.0"])])
+    
+        report = _report(store, SYMBOL_COMMIT)  # no registry_served_version given at all
+    
+>       assert len(report.known_defects) == 1
+E       AssertionError: assert 0 == 1
+E        +  where 0 = len(())
+E        +    where () = FreshnessReport(scope=Scope(family='pdf', platform='net', source_kind='self_extracted'), source_kind='self_extracted',... package_ahead_of_index=None, drift_commit_distance=None, published_version=None, drift_message=None, known_defects=()).known_defects
+
+tests\mcp\tools\test_known_defects_in_freshness.py:162: AssertionError
+_ test_package_version_scoped_defect_surfaces_plain_when_served_version_not_stale _
+
+tmp_path = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-18828/test_package_version_scoped_de1')
+registry_dir = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-18828/test_package_version_scoped_de1/known_defects')
+
+    def test_package_version_scoped_defect_surfaces_plain_when_served_version_not_stale(
+        tmp_path: Path, registry_dir: Path
+    ) -> None:
+        store = _single(tmp_path)
+        _write_registry(
+            registry_dir, [_defect("PDF-NET-005", package_versions=["26.7.0"], verified_version="26.7.0")]
+        )
+    
+        # Served version equal to the verified-on version: defect_is_stale is False.
+        report = _report(store, SYMBOL_COMMIT, registry_served_version=(26, 7, 0))
+    
+>       assert len(report.known_defects) == 1
+E       AssertionError: assert 0 == 1
+E        +  where 0 = len(())
+E        +    where () = FreshnessReport(scope=Scope(family='pdf', platform='net', source_kind='self_extracted'), source_kind='self_extracted',... package_ahead_of_index=None, drift_commit_distance=None, published_version=None, drift_message=None, known_defects=()).known_defects
+
+tests\mcp\tools\test_known_defects_in_freshness.py:180: AssertionError
+_ test_package_version_scoped_defect_surfaces_decision_c_downgrade_when_stale _
+
+tmp_path = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-18828/test_package_version_scoped_de2')
+registry_dir = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-18828/test_package_version_scoped_de2/known_defects')
+
+    def test_package_version_scoped_defect_surfaces_decision_c_downgrade_when_stale(
+        tmp_path: Path, registry_dir: Path
+    ) -> None:
+        store = _single(tmp_path)
+        _write_registry(
+            registry_dir, [_defect("PDF-NET-006", package_versions=["26.7.0"], verified_version="26.7.0")]
+        )
+    
+        # Served version strictly newer than the verified-on version: defect_is_stale is True.
+        report = _report(store, SYMBOL_COMMIT, registry_served_version=(26, 8, 0))
+    
+>       assert len(report.known_defects) == 1
+E       AssertionError: assert 0 == 1
+E        +  where 0 = len(())
+E        +    where () = FreshnessReport(scope=Scope(family='pdf', platform='net', source_kind='self_extracted'), source_kind='self_extracted',... package_ahead_of_index=None, drift_commit_distance=None, published_version=None, drift_message=None, known_defects=()).known_defects
+
+tests\mcp\tools\test_known_defects_in_freshness.py:197: AssertionError
+_ test_never_published_generation_still_surfaces_package_version_scoped_defect _
+
+tmp_path = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-18828/test_never_published_generatio1')
+registry_dir = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-18828/test_never_published_generatio1/known_defects')
+
+    def test_never_published_generation_still_surfaces_package_version_scoped_defect(
+        tmp_path: Path, registry_dir: Path
+    ) -> None:
+        from foss_mcp.indexing.generation_manifest import GenerationManifestStore
+    
+        store = GenerationManifestStore(tmp_path / "empty")
+        _write_registry(registry_dir, [_defect("PDF-NET-008", package_versions=["26.7.0"])])
+    
+        report = _report(store, SYMBOL_COMMIT)
+    
+        assert report.indexed_source_commit is None
+>       assert len(report.known_defects) == 1
+E       AssertionError: assert 0 == 1
+E        +  where 0 = len(())
+E        +    where () = FreshnessReport(scope=Scope(family='pdf', platform='net', source_kind='self_extracted'), source_kind='self_extracted',... package_ahead_of_index=None, drift_commit_distance=None, published_version=None, drift_message=None, known_defects=()).known_defects
+
+tests\mcp\tools\test_known_defects_in_freshness.py:256: AssertionError
+________ test_defect_matching_neither_scoping_condition_never_surfaces ________
+
+tmp_path = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-18828/test_defect_matching_neither_s0')
+registry_dir = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-18828/test_defect_matching_neither_s0/known_defects')
+
+    def test_defect_matching_neither_scoping_condition_never_surfaces(tmp_path: Path, registry_dir: Path) -> None:
+        store = _single(tmp_path)
+        _write_registry(
+            registry_dir,
+            [
+                _defect("PDF-NET-009", indexed_commit=_OTHER_COMMIT),
+                _defect("PDF-NET-010", package_versions=["26.7.0"], verified_version="99.0.0"),
+            ],
+        )
+    
+        # PDF-NET-009's indexed_commit never matches SYMBOL_COMMIT, so it never surfaces. PDF-NET-010
+        # is verified_on 99.0.0; a served 26.8.0 is not newer, so defect_is_stale is False and it
+        # surfaces with the plain wording.
+        report = _report(store, SYMBOL_COMMIT, registry_served_version=(26, 8, 0))
+    
+>       assert len(report.known_defects) == 1
+E       AssertionError: assert 0 == 1
+E        +  where 0 = len(())
+E        +    where () = FreshnessReport(scope=Scope(family='pdf', platform='net', source_kind='self_extracted'), source_kind='self_extracted',... package_ahead_of_index=None, drift_commit_distance=None, published_version=None, drift_message=None, known_defects=()).known_defects
+
+tests\mcp\tools\test_known_defects_in_freshness.py:282: AssertionError
+=========================== short test summary info ===========================
+FAILED tests/mcp/tools/test_known_defects_in_freshness.py::test_commit_scoped_defect_surfaces_when_indexed_commit_matches
+FAILED tests/mcp/tools/test_known_defects_in_freshness.py::test_package_version_scoped_defect_surfaces_plain_when_no_served_version_available
+FAILED tests/mcp/tools/test_known_defects_in_freshness.py::test_package_version_scoped_defect_surfaces_plain_when_served_version_not_stale
+FAILED tests/mcp/tools/test_known_defects_in_freshness.py::test_package_version_scoped_defect_surfaces_decision_c_downgrade_when_stale
+FAILED tests/mcp/tools/test_known_defects_in_freshness.py::test_never_published_generation_still_surfaces_package_version_scoped_defect
+FAILED tests/mcp/tools/test_known_defects_in_freshness.py::test_defect_matching_neither_scoping_condition_never_surfaces
+
+--- stderr ---
+
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-5c72e798a73c059a\Scripts\python.exe -m pytest tests/mcp/tools/test_freshness_registry_version.py tests/mcp/tools/test_freshness_provenance.py tests/mcp/tools/test_freshness_tristate.py -q -rfE -p no:cacheprovider "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-4ld7edb_\.junit-1.xml"
+--- stdout ---
+........................................................................ [ 96%]
+...                                                                      [100%]
+
+--- stderr ---
+

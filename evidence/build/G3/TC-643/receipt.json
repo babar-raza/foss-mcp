@@ -1,0 +1,111 @@
+{
+  "schema_version": 1,
+  "card": "TC-643",
+  "gate": "G3",
+  "generated_by": "gatectl",
+  "generated_at": "2026-11-01T07:29:50Z",
+  "base_rev": "cb5ae96e944e3f9677325280a3a69e1f713a01aa",
+  "head_rev": "8005f08e3429d6bcc5b39ec312ce48c78ab9b930",
+  "card_sha256": "7c2eb27679b07ab2539fa83081140c8509067827cded771a639ec36cc472bde5",
+  "fingerprint": {
+    "python": "3.13.2",
+    "platform": "Windows-11-10.0.26300-SP0",
+    "lock_sha256": "5c72e798a73c059a438e752e94a8d4c88c1bdf81a197f6e5c5fcecbc9466a691",
+    "env": {
+      "PYTHONHASHSEED": "0",
+      "PYTHONUTF8": "1",
+      "PYTHONDONTWRITEBYTECODE": "1",
+      "PYTHONIOENCODING": "utf-8",
+      "TZ": "UTC",
+      "LC_ALL": "C.UTF-8",
+      "SOURCE_DATE_EPOCH": "1700000000",
+      "verify_runner": "host"
+    }
+  },
+  "scope": {
+    "ok": true,
+    "changed_paths": [
+      "src/foss_mcp/mcp/tools/report_index_freshness.py",
+      "tests/mcp/tools/test_known_defects_in_freshness.py"
+    ],
+    "violations": [],
+    "evaluated": true
+  },
+  "runs": [
+    {
+      "run": 1,
+      "checks": [
+        {
+          "command": "{python} -m pytest tests/mcp/tools/test_known_defects_in_freshness.py -q -rfE -p no:cacheprovider",
+          "exit_code": 0,
+          "duration_s": 2.364,
+          "stdout_sha256": "7040371af15613c02e821ec0eecc1d1330f691ace4cef93a41bfa358822c4103",
+          "tests": 10,
+          "skipped": 0,
+          "errors": 0,
+          "failures": 0
+        },
+        {
+          "command": "{python} -m pytest tests/mcp/tools/test_freshness_registry_version.py tests/mcp/tools/test_freshness_provenance.py tests/mcp/tools/test_freshness_tristate.py -q -rfE -p no:cacheprovider",
+          "exit_code": 0,
+          "duration_s": 4.858,
+          "stdout_sha256": "ddc3d9f1cf00f769a1ed8e6e5d487701daf649ab1ed0cf685fdfe072a3be7d8b",
+          "tests": 75,
+          "skipped": 0,
+          "errors": 0,
+          "failures": 0
+        }
+      ],
+      "all_passed": true
+    },
+    {
+      "run": 2,
+      "checks": [
+        {
+          "command": "{python} -m pytest tests/mcp/tools/test_known_defects_in_freshness.py -q -rfE -p no:cacheprovider",
+          "exit_code": 0,
+          "duration_s": 1.525,
+          "stdout_sha256": "7040371af15613c02e821ec0eecc1d1330f691ace4cef93a41bfa358822c4103",
+          "tests": 10,
+          "skipped": 0,
+          "errors": 0,
+          "failures": 0
+        },
+        {
+          "command": "{python} -m pytest tests/mcp/tools/test_freshness_registry_version.py tests/mcp/tools/test_freshness_provenance.py tests/mcp/tools/test_freshness_tristate.py -q -rfE -p no:cacheprovider",
+          "exit_code": 0,
+          "duration_s": 4.984,
+          "stdout_sha256": "ddc3d9f1cf00f769a1ed8e6e5d487701daf649ab1ed0cf685fdfe072a3be7d8b",
+          "tests": 75,
+          "skipped": 0,
+          "errors": 0,
+          "failures": 0
+        }
+      ],
+      "all_passed": true
+    }
+  ],
+  "negative_control": {
+    "kind": "mutate",
+    "patch": "python -X utf8 -c \"import pathlib; p = pathlib.Path('src/foss_mcp/mcp/tools/report_index_freshness.py'); s = p.read_text(encoding='utf-8'); old = 'load_known_defects('; assert s.count(old) == 1, 'load_known_defects( literal not found as expected (exactly once) - if your real code calls it a different number of times or with a different name, anchor your own mutate on your own real literal instead and note the substitution in your closeout'; i = s.index(old); p.write_text(s[:i] + '(lambda *a, **k: [])(' + s[i+len(old):], encoding='utf-8')\"\n",
+    "patch_sha256": "8f18bf859142cca9549762de0dd0bf4c16c50d6d531a7b6997e6aef3c974f364",
+    "applied": true,
+    "patch_applied_failed": true,
+    "exit_codes": [
+      1,
+      0
+    ],
+    "tree_changed": [
+      "M src/foss_mcp/mcp/tools/report_index_freshness.py",
+      "?? .junit-0.xml",
+      "?? .junit-1.xml"
+    ]
+  },
+  "holdout": {
+    "ran": false,
+    "passed": true,
+    "detail": "no holdout for this card"
+  },
+  "accepted": true,
+  "reason": "all gates passed"
+}
