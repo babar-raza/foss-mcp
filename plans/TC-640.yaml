@@ -1,0 +1,95 @@
+id: TC-640
+gate: G3
+lane: storage-retrieval
+purpose: >-
+  C2 (content-truth program, workstream G - the round-2 audit's own diagnosis table: "the
+  setup/error regexes misfile 'Page Setup'"). `search_docs.py`'s `_GETTING_STARTED_TITLE` regex
+  (`install|quick ?start|getting started|prerequisite|setup|dependenc|requirement`) matches the
+  bare substring `setup` anywhere in a title - REPRODUCED DIRECTLY against the real baked corpus
+  (do not take this on faith, re-confirm yourself first): the real title "Page Setup and Print
+  Configuration" (a genuine FAQ/reference title about page layout, not onboarding) misclassifies
+  as `getting_started` purely because it contains the word "setup". Measured across all 59 real
+  distinct documentation titles in the corpus: no OTHER real title currently depends on the bare
+  `setup` alternative to classify correctly - every genuine onboarding title already matches via
+  `install`, `quick ?start`, or `dependenc` instead. Removing the standalone `setup` alternative
+  (or narrowing it to a phrase that only matches genuine onboarding use, e.g. requiring it appear
+  beside `quick`/`initial`/`first`) fixes the real misfile with zero measured regression - but
+  CONFIRM this against the real corpus yourself before committing to either approach; do not
+  trust this card's own count without re-deriving it.
+depends_on:
+  - TC-633
+  - TC-638
+write_paths:
+  - src/foss_mcp/mcp/tools/search_docs.py
+  - tests/mcp/tools/test_search_docs_title_classification.py
+satisfies:
+  - REQ-G3-013
+source_refs:
+  - file: docs/DECISION_LOG.md
+    anchor: >-
+      ## 2026-10-30 — Round-2 portfolio audit remediation adopted: unified plan, governance decisions A-K
+      recorded (supervisor)
+    sha256: 62cf1403a592118e3fb6bd14c5336f8a997cc3181d44a585323ec9f1d385a931
+inputs:
+  - >-
+    READ FIRST: `search_docs.py`'s `_classify_by_title`, `classify_content_type`,
+    `_TROUBLESHOOTING_TITLE`, `_GETTING_STARTED_TITLE` (currently ~lines 145-185) in full - these
+    already classify by TITLE via regex when a chunk carries an `FQN: Doc: <title>` first line
+    (TC-517), falling back to body-text keyword matching only for titleless chunks. Your fix is
+    narrowly scoped to the title-regex path only.
+  - >-
+    MEASURE FIRST, do not assume: extract every real distinct `FQN: Doc: <title>` value across
+    `infra/demo-manifests/*/generation__*.json` yourself (parse `payload.lexical_index.documents`,
+    regex `^FQN: Doc: (.+)$` per chunk, dedupe) and run both title regexes against every one of
+    them, before AND after your change. Confirm the real "Page Setup and Print Configuration"
+    misfile exists today and is fixed by your change, and confirm no other real title's
+    classification changes as a side effect (if one does, that is a real finding to report, not
+    something to paper over - decide and justify whether that other change is itself correct).
+  - >-
+    Write at least 6 tests in `tests/mcp/tools/test_search_docs_title_classification.py` covering:
+    the real "Page Setup and Print Configuration" title (or an equivalent real title you find)
+    now classifies as `developer_guide`, not `getting_started`; every genuine onboarding title
+    this card's own measurement found (`"How do I install ...?"`, `"Installation and Quick
+    Start"`, `"Installation, Dependencies, and Quick Start"`, etc.) still classifies as
+    `getting_started` unchanged; `"Scope and Limitations"` still classifies as `troubleshooting`
+    unchanged; a synthetic adversarial title containing "setup" in a genuinely onboarding sense
+    (your own choice, if your fix narrows rather than removes the pattern) still classifies
+    correctly if your approach is narrowing rather than outright removal.
+actions:
+  - >-
+    Fix the title-classification regex so a title merely containing the substring "setup" is no
+    longer misfiled as getting-started content, measured against every real title in the corpus
+    with zero regression to any currently-correct classification.
+checks:
+  - command: '{python} -m pytest tests/mcp/tools/test_search_docs_title_classification.py -q -rfE -p no:cacheprovider'
+    expect: 'exit 0'
+    timeout_seconds: 180
+    junitxml: true
+    proves:
+      - REQ-G3-013
+  - command: '{python} -m pytest tests/mcp/tools/test_doc_classification_by_title.py tests/mcp/tools/test_search_docs_partial_tier.py -q -rfE -p no:cacheprovider'
+    expect: 'exit 0'
+    timeout_seconds: 240
+    junitxml: true
+    proves:
+      - REQ-G3-013
+min_tests: 6
+requires:
+  - python
+network: false
+negative_control:
+  mutate: |
+    python -X utf8 -c "import pathlib; p = pathlib.Path('src/foss_mcp/mcp/tools/search_docs.py'); s = p.read_text(encoding='utf-8'); old = '_GETTING_STARTED_TITLE = re.compile('; assert s.count(old) == 1, '_GETTING_STARTED_TITLE = re.compile( literal not found as expected - if your real code restructures this differently, anchor your own mutate on your own real literal instead and note the substitution in your closeout'; i = s.index(old); j = s.index(chr(10), i); p.write_text(s[:i] + '_GETTING_STARTED_TITLE = re.compile(' + chr(114) + chr(39) + 'install|quick ?start|getting started|prerequisite|setup|dependenc|requirement' + chr(39) + ', re.IGNORECASE)  # TC-640 negative control: restore the unfixed regex' + s[j:], encoding='utf-8')"
+  rationale: >-
+    Restores the exact original, unfixed regex (including the bare `setup` alternative), whatever
+    the real fix's own final code shape turned out to be. Any test proving the "Page Setup..."
+    misfile is now fixed must fail under this mutation; every test of an unrelated, already-correct
+    title is unaffected.
+evidence:
+  - evidence/build/G3/TC-640/receipt.json
+closeout:
+  - >-
+    A documentation title merely containing the substring "setup" is no longer misfiled as
+    getting-started content, measured against every real title in the baked corpus with zero
+    regression.
+recovery: Re-run from a clean tree.
