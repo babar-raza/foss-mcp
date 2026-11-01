@@ -1,0 +1,112 @@
+{
+  "schema_version": 1,
+  "card": "TC-639",
+  "gate": "G3",
+  "generated_by": "gatectl",
+  "generated_at": "2026-11-01T06:37:40Z",
+  "base_rev": "b1a3289295f75da2285364f839077d67f2cf61a2",
+  "head_rev": "7bc72d1fa8733d12007e3f6280df5a487f068f33",
+  "card_sha256": "4e0d92b79aded273f39b98d7748253d0d1a5674d279069a2ef28e165e0ed6ba1",
+  "fingerprint": {
+    "python": "3.13.2",
+    "platform": "Windows-11-10.0.26300-SP0",
+    "lock_sha256": "5c72e798a73c059a438e752e94a8d4c88c1bdf81a197f6e5c5fcecbc9466a691",
+    "env": {
+      "PYTHONHASHSEED": "0",
+      "PYTHONUTF8": "1",
+      "PYTHONDONTWRITEBYTECODE": "1",
+      "PYTHONIOENCODING": "utf-8",
+      "TZ": "UTC",
+      "LC_ALL": "C.UTF-8",
+      "SOURCE_DATE_EPOCH": "1700000000",
+      "verify_runner": "host"
+    }
+  },
+  "scope": {
+    "ok": true,
+    "changed_paths": [
+      "src/foss_mcp/mcp/tools/get_symbol.py",
+      "src/foss_mcp/mcp/tools/list_members.py",
+      "tests/mcp/tools/test_known_defects_in_get_symbol.py"
+    ],
+    "violations": [],
+    "evaluated": true
+  },
+  "runs": [
+    {
+      "run": 1,
+      "checks": [
+        {
+          "command": "{python} -m pytest tests/mcp/tools/test_known_defects_in_get_symbol.py -q -rfE -p no:cacheprovider",
+          "exit_code": 0,
+          "duration_s": 1.301,
+          "stdout_sha256": "585ba42829657b9e2d56f8614be6c3365a8405474eed008559511ab50f2ffcfb",
+          "tests": 9,
+          "skipped": 0,
+          "errors": 0,
+          "failures": 0
+        },
+        {
+          "command": "{python} -m pytest tests/mcp/tools/test_member_lookup.py tests/mcp/tools/test_member_lookup_baked.py tests/mcp/tools/test_symbol_tools.py -q -rfE -p no:cacheprovider",
+          "exit_code": 0,
+          "duration_s": 30.366,
+          "stdout_sha256": "6692934017b7c49d882f90bacacdf46a1fb73798aa5057b4c7edfb9fb4d213af",
+          "tests": 89,
+          "skipped": 0,
+          "errors": 0,
+          "failures": 0
+        }
+      ],
+      "all_passed": true
+    },
+    {
+      "run": 2,
+      "checks": [
+        {
+          "command": "{python} -m pytest tests/mcp/tools/test_known_defects_in_get_symbol.py -q -rfE -p no:cacheprovider",
+          "exit_code": 0,
+          "duration_s": 0.697,
+          "stdout_sha256": "585ba42829657b9e2d56f8614be6c3365a8405474eed008559511ab50f2ffcfb",
+          "tests": 9,
+          "skipped": 0,
+          "errors": 0,
+          "failures": 0
+        },
+        {
+          "command": "{python} -m pytest tests/mcp/tools/test_member_lookup.py tests/mcp/tools/test_member_lookup_baked.py tests/mcp/tools/test_symbol_tools.py -q -rfE -p no:cacheprovider",
+          "exit_code": 0,
+          "duration_s": 11.977,
+          "stdout_sha256": "6692934017b7c49d882f90bacacdf46a1fb73798aa5057b4c7edfb9fb4d213af",
+          "tests": 89,
+          "skipped": 0,
+          "errors": 0,
+          "failures": 0
+        }
+      ],
+      "all_passed": true
+    }
+  ],
+  "negative_control": {
+    "kind": "mutate",
+    "patch": "python -X utf8 -c \"import pathlib; p = pathlib.Path('src/foss_mcp/mcp/tools/get_symbol.py'); s = p.read_text(encoding='utf-8'); old = 'load_known_defects('; assert s.count(old) == 1, 'load_known_defects( literal not found as expected (exactly once) - if your real code calls it a different number of times or with a different name, anchor your own mutate on your own real literal instead and note the substitution in your closeout'; i = s.index(old); j = s.index(')', i); p.write_text(s[:i] + '(lambda *a, **k: [])(' + s[i+len(old):], encoding='utf-8')\"\n",
+    "patch_sha256": "14d2398d41aae6884a4386567962e6cd2bd2cedf49bbfb89aaf38ad8a5075da9",
+    "applied": true,
+    "patch_applied_failed": true,
+    "exit_codes": [
+      1,
+      0
+    ],
+    "tree_changed": [
+      "M src/foss_mcp/mcp/tools/get_symbol.py",
+      "?? .junit-0.xml",
+      "?? .junit-1.xml"
+    ]
+  },
+  "holdout": {
+    "ran": false,
+    "passed": true,
+    "detail": "no holdout for this card"
+  },
+  "accepted": true,
+  "reason": "all gates passed"
+}
