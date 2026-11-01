@@ -11,7 +11,7 @@
 # mcp.server.stdio, mcp.server.transport_security, mcp.types import them, and
 # infra/serve_http.py imports starlette directly to build the ASGI app around mcp's
 # server) - `uv pip compile` resolves that full transitive closure automatically.
-# Dev/ops-only (PyYAML, jsonschema, pytest, ruff, mypy) and extraction/ingestion-only
+# Dev/ops-only (jsonschema, pytest, ruff, mypy) and extraction/ingestion-only
 # (tree-sitter*) packages from requirements.in are deliberately NOT here: the serving
 # image never imports them.
 mcp
@@ -24,3 +24,14 @@ mcp
 # full measurement). Needed here, not just in requirements.in's dev/test closure,
 # because this scoring path runs inside the serving image itself in production.
 numpy
+
+# G3/TC-636 (round-2 remediation, 2026-11-01): src/foss_mcp/indexing/known_defects.py
+# (loaded on every serving request through get_product_reference.py, get_symbol.py,
+# search_symbols.py and report_index_freshness.py, confirmed by the real import chain
+# serve_http.py -> fetch_product_reference.py -> get_product_reference.py ->
+# known_defects.py) parses config/known_defects/*.yaml with `import yaml` at module
+# load time - this was missed when TC-636 landed (the module was dormant/unwired then)
+# and caused the serving image to crash on startup for every pilot
+# (ModuleNotFoundError: No module named 'yaml') the moment KD2 (TC-639) wired it into
+# the real import chain. Caught by image_workflow_gate.py before any push.
+pyyaml

@@ -108,8 +108,14 @@ def test_a_real_docker_build_of_the_serving_image_can_still_import_the_server() 
         )
         assert build_result.returncode == 0, (build_result.stdout + build_result.stderr)[-6000:]
 
+        # G3/2026-11-01: the real entrypoint is infra/serve_http.py, not foss_mcp.mcp.server -
+        # confirmed directly from a real crash this check missed: serve_http.py imports
+        # infra/fetch_product_reference.py, which imports get_product_reference.py, which
+        # imports foss_mcp.indexing.known_defects, which imports yaml - a chain
+        # `import foss_mcp.mcp.server` alone never walks. Importing the real entrypoint module
+        # is the only way this check can catch a missing serving-only dependency again.
         run_result = subprocess.run(
-            ["docker", "run", "--rm", image_tag, "python", "-c", "import foss_mcp.mcp.server"],
+            ["docker", "run", "--rm", "-w", "/app/infra", image_tag, "python", "-c", "import serve_http"],
             capture_output=True,
             text=True,
             encoding="utf-8",
@@ -117,7 +123,7 @@ def test_a_real_docker_build_of_the_serving_image_can_still_import_the_server() 
             timeout=60,
         )
         assert run_result.returncode == 0, (
-            "built serving image cannot import foss_mcp.mcp.server: "
+            "built serving image cannot import infra.serve_http (the real entrypoint): "
             + (run_result.stdout + run_result.stderr)[-4000:]
         )
     finally:
