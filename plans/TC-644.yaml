@@ -1,0 +1,125 @@
+id: TC-644
+gate: G3
+lane: verification
+purpose: >-
+  KD6 (disclosure program data card, workstream J, family 3d - the round-2 audit's own
+  worst-rated family, D/D/C/C+). KD1-KD5's mechanism is now fully wired (schema, loader,
+  get_symbol, list_members, search_symbols, get_product_reference, report_index_freshness) but
+  carries ZERO real data - every pilot's registry is still empty. This card writes the first real
+  entries, closing the actual disclosure gap for 14 confirmed, high-confidence upstream-library-
+  bug findings the round-2 audit already produced and already committed to this repository at
+  `docs/round2/issues.json` (ids `3D-JAVA-002/003/004/006`, `3D-NET-003/004/006/008`,
+  `3D-PYTHON-001/002/006/008/010`, `3D-TYPESCRIPT-008` - every one tagged
+  `category: "upstream-library-bug"`, `confidence: "high"`, with its own real repro steps and
+  evidence file list already in that JSON). Read each entry's REAL text from that file yourself -
+  do not invent, paraphrase from memory, or guess at any of it; every `summary`/`user_action`/
+  `evidence.repro` you write must be traceable back to that issue's own `actual`/`expected`/
+  `suggested_fix`/`repro` fields.
+
+  Write four real registry files (one per pilot, since the schema is per-pilot):
+  `config/known_defects/3d__java.yaml`, `config/known_defects/3d__net.yaml`,
+  `config/known_defects/3d__python.yaml`, `config/known_defects/3d__typescript.yaml` - confirm the
+  real, exact filename pattern yourself from `known_defects.py`'s own loader (it may be
+  `<family>__<platform>.yaml` or `<family>__<platform>__self_extracted.yaml` or something else -
+  read the loader's own path-construction code, do not guess). One entry per issue id (never
+  consolidate two issue ids into one entry - the ledger id IS the issue id, for traceability).
+
+  For `subject`: use `kind: "method"` or `"class"` with the exact FQN when the issue clearly
+  implicates one specific symbol (e.g. "Mesh.triangulate() is a no-op" -> a method on
+  `<namespace>.Mesh`); use `kind: "package"` with `ref` the real Maven/PyPI/npm/NuGet coordinate
+  from that pilot's own `config/products/<family>/<platform>.yaml` (read it yourself per pilot,
+  each has a real, verified `repository` field but you need the real PUBLISHED PACKAGE coordinate,
+  which is in the issue's own `repro`/`evidence` text, e.g. "org.aspose:aspose-3d-foss:26.5.0" for
+  3d/java - confirm the pattern per pilot from its own issues' repro text) for a whole-library
+  behavioral claim (most of these 14, e.g. "0 of ~37 documented export formats work"). The
+  issue's own `tools` field is a strong hint: `get_symbol`/`list_members` in `tools` suggests a
+  symbol-scoped subject is more useful; `get_product_reference` alone suggests package-scoped.
+  Use your own judgment per entry and report it.
+
+  `applies_to`: `package_versions: ["<the real version from the issue's own repro text>"]` for
+  every one of these 14 (all are confirmed against a specific installed/published version, never
+  an `indexed_commit`-only finding here). `status: "open"` for all 14 (none has an upstream fix
+  confirmed yet, per the issue data). `evidence.verified_on`: `{package: "<real coordinate>",
+  version: "<real version>", date: "2026-10-29"}` (the round-2 audit's own completion date,
+  already recorded in this repo's own memory/decision history - confirm this date is reasonable
+  from the issue data's own timestamps if any exist, otherwise use this exact date).
+depends_on:
+  - TC-636
+  - TC-639
+  - TC-642
+  - TC-641
+write_paths:
+  - config/known_defects/3d__java.yaml
+  - config/known_defects/3d__net.yaml
+  - config/known_defects/3d__python.yaml
+  - config/known_defects/3d__typescript.yaml
+  - tests/indexing/test_known_defects_data_3d.py
+satisfies:
+  - REQ-G3-015
+source_refs:
+  - file: docs/DECISION_LOG.md
+    anchor: >-
+      ## 2026-10-30 — Round-2 portfolio audit remediation adopted: unified plan, governance decisions A-K
+      recorded (supervisor)
+    sha256: 62cf1403a592118e3fb6bd14c5336f8a997cc3181d44a585323ec9f1d385a931
+inputs:
+  - >-
+    READ FIRST: `docs/round2/issues.json` (parse it, filter to the 14 real ids named above -
+    every field you write must trace back to one of these real entries, verbatim content, not
+    paraphrased from this card's own short summaries above which are illustrative only);
+    `src/foss_mcp/indexing/known_defects.py`'s loader (the real, exact per-pilot filename pattern
+    it expects - confirm before naming your files); `schemas/product/known_defects.schema.json`
+    (every field's real constraint - `summary` is <= 240 chars, so you will need to compress each
+    issue's own title/actual text factually, never editorializing or adding blame language beyond
+    what the issue itself states); each pilot's own `config/products/<family>/<platform>.yaml` for
+    its real repository identity (context only - the package coordinate itself comes from the
+    issue's own repro/evidence text, not this file).
+  - >-
+    Write at least 8 tests in `tests/indexing/test_known_defects_data_3d.py` covering: all four
+    files parse as valid YAML and validate against the real schema
+    (`jsonschema.Draft202012Validator`, the established test pattern from TC-636's own tests);
+    `known_defects.load_known_defects("3d", "java"|"net"|"python"|"typescript")` returns exactly
+    the real number of entries you wrote for each pilot, no duplicate ids anywhere; every entry's
+    `id` is one of the 14 real issue ids named above (prove this against the real
+    `docs/round2/issues.json` data directly in the test, not a hand-copied list, so a future edit
+    to either file is caught); at least one REAL end-to-end test proving a real written defect
+    actually surfaces through `get_symbol` or `get_product_reference` (whichever tool its own
+    `tools` field names) for the real pilot scope - not a synthetic fixture, the real committed
+    registry file you just wrote, loaded for real.
+actions:
+  - >-
+    Write real, schema-conforming known-defect entries for all 14 confirmed 3d-family upstream-
+    library-bug findings from the round-2 audit, traceable field-by-field back to the audit's own
+    already-committed evidence.
+checks:
+  - command: '{python} -m pytest tests/indexing/test_known_defects_data_3d.py -q -rfE -p no:cacheprovider'
+    expect: 'exit 0'
+    timeout_seconds: 180
+    junitxml: true
+    proves:
+      - REQ-G3-015
+  - command: '{python} -m pytest tests/indexing/test_known_defects.py tests/mcp/tools/test_known_defects_in_get_symbol.py tests/mcp/tools/test_known_defects_in_product_reference.py -q -rfE -p no:cacheprovider'
+    expect: 'exit 0'
+    timeout_seconds: 240
+    junitxml: true
+    proves:
+      - REQ-G3-015
+min_tests: 8
+requires:
+  - python
+network: false
+negative_control:
+  mutate: |
+    python -X utf8 -c "import pathlib; p = pathlib.Path('config/known_defects/3d__java.yaml'); assert p.exists(), 'config/known_defects/3d__java.yaml does not exist as expected - if your real filename pattern differs, anchor your own mutate on your own real file path instead and note the substitution in your closeout'; p.write_text('schema_version: 1' + chr(10) + 'pilot: 3d_java' + chr(10) + 'defects: []' + chr(10), encoding='utf-8')"
+  rationale: >-
+    Empties the 3d/java registry file back to zero defects, regardless of what you actually
+    wrote. Any test proving a real 3d/java defect loads or surfaces must fail under this
+    mutation; tests scoped to the other three pilots' files are unaffected.
+evidence:
+  - evidence/build/G3/TC-644/receipt.json
+closeout:
+  - >-
+    All 14 confirmed 3d-family upstream-library-bug findings from the round-2 audit are now real,
+    schema-conforming, loader-validated known-defect entries, with at least one proven to surface
+    end to end through a real MCP tool. State the real filename pattern you used and why.
+recovery: Re-run from a clean tree.
