@@ -1,0 +1,94 @@
+schema_version: 1
+pilot: 3d_java
+defects:
+- id: 3D-JAVA-002
+  subject:
+    kind: method
+    ref: com.aspose.threed.Scene
+  applies_to:
+    package_versions:
+    - 26.5.0
+  summary: Scene.save() to STL (STL_BINARY or STLASCII) discards all vertex geometry;
+    reloading the saved file gives 0 control points instead of the original mesh,
+    even though get_product_reference calls STL fully functional.
+  user_action: Do not rely on STL export to preserve mesh geometry in aspose-3d-foss
+    26.5.0; verify any STL round-trip independently before depending on it.
+  evidence:
+    repro: 'Saved a verified box-mesh example (new Box(2,2,2).toMesh()) to STL via
+      Scene.save(), then reloaded with Scene.fromFile(): reloaded Mesh.controlPoints.size()==0
+      (expected 8). Reproduced for both FileFormat.STL_BINARY and FileFormat.STLASCII.'
+    verified_on:
+      package: org.aspose:aspose-3d-foss
+      version: 26.5.0
+      date: '2026-10-29'
+  status: open
+- id: 3D-JAVA-003
+  subject:
+    kind: method
+    ref: com.aspose.threed.Scene
+  applies_to:
+    package_versions:
+    - 26.5.0
+  summary: 'FileFormat.STLASCII produces byte-for-byte identical output to FileFormat.STL_BINARY
+    in aspose-3d-foss 26.5.0: Scene.save() silently ignores the ASCII flag and always
+    writes a binary STL file, never ASCII text.'
+  user_action: Do not expect an ASCII STL file from Scene.save(..., FileFormat.STLASCII);
+    the output is binary. Inspect the written bytes if ASCII text is actually required.
+  evidence:
+    repro: Saved the same scene with both FileFormat.STLASCII and FileFormat.STL_BINARY;
+      cmp showed the files were byte-identical, and a hex dump of the STLASCII output
+      showed raw binary bytes (80-byte header, little-endian triangle count), not
+      ASCII 'solid ...' text.
+    verified_on:
+      package: org.aspose:aspose-3d-foss
+      version: 26.5.0
+      date: '2026-10-29'
+  status: open
+- id: 3D-JAVA-004
+  subject:
+    kind: package
+    ref: org.aspose:aspose-3d-foss
+  applies_to:
+    package_versions:
+    - 26.5.0
+  summary: 0 of the ~37 documented FileFormat export constants in aspose-3d-foss 26.5.0
+    produce a usable 3D file; canImport/canExport always report true regardless of
+    real support, and 2 format families leave a truncated 0-byte file on failure.
+  user_action: Treat every documented export format as unverified in 26.5.0; do not
+    trust FileFormat.getCanImport()/getCanExport(), and check for a truncated output
+    file after any failed save.
+  evidence:
+    repro: Reflectively enumerated all 37 FileFormat.* constants; for each, created
+      a box scene, read getCanImport()/getCanExport() (always true), then called scene.save()
+      and attempted reload. WAVEFRONTOBJ saved with no exception but wrote a 0-byte
+      file; FBX/glTF variants threw after writing a truncated 0-byte file; 29 others
+      threw UnsupportedOperationException with no file written; STL variants 'succeeded'
+      but discarded geometry (3D-JAVA-002/003).
+    verified_on:
+      package: org.aspose:aspose-3d-foss
+      version: 26.5.0
+      date: '2026-10-29'
+  status: open
+- id: 3D-JAVA-006
+  subject:
+    kind: method
+    ref: com.aspose.threed.Mesh
+  applies_to:
+    package_versions:
+    - 26.5.0
+  summary: 'Mesh.triangulate() is a no-op in aspose-3d-foss 26.5.0: a 6-quad box mesh
+    still has 6 polygons after calling it (expected 12 triangles), so STL export of
+    a triangulated mesh silently omits half the surface.'
+  user_action: Do not rely on Mesh.triangulate() to split quads into triangles; it
+    returns the mesh unchanged. Pre-triangulate geometry before constructing the Mesh
+    if triangle output is required.
+  evidence:
+    repro: 'Called triangulate() on a 6-quad Box(2,2,2).toMesh(): polygon count stayed
+      at 6 (expected 12). Saving the untriangulated mesh via StlSaveOptions(ASCII)
+      produced only 6 facet blocks with real coordinates instead of the 12 a correct
+      triangulation needs.'
+    verified_on:
+      package: org.aspose:aspose-3d-foss
+      version: 26.5.0
+      date: '2026-10-29'
+  status: open

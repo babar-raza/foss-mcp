@@ -1,0 +1,26 @@
+schema_version: 1
+pilot: 3d_typescript
+defects:
+- id: 3D-TYPESCRIPT-008
+  subject:
+    kind: method
+    ref: aspose.threed.entities.Mesh.Mesh
+  applies_to:
+    package_versions:
+    - 24.12.0
+  summary: 'Mesh.createPolygon(indices, offset, length) is unreachable dead code in
+    @aspose/3d 24.12.0: any 3-argument call is always intercepted by an earlier branch
+    that treats the 3 arguments as raw vertex indices instead.'
+  user_action: Do not call Mesh.createPolygon with the (indices, offset, length) 3-argument
+    form in @aspose/3d 24.12.0; it is silently reinterpreted as 3 raw vertex indices.
+    Pass individual vertex index numbers instead.
+  evidence:
+    repro: 'Static read of lib/src/aspose/threed/entities/Mesh.ts createPolygon():
+      the args.length===3 branch testing raw vertex indices is checked and returns
+      before the later args.length===3 && typeof args[2]===''number'' branch for the
+      (indices, offset, length) form; version @aspose/3d 24.12.0 at commit 66cb26df3b031f0bf6976d4e88dc89721983afa4.'
+    verified_on:
+      package: '@aspose/3d'
+      version: 24.12.0
+      date: '2026-10-29'
+  status: open

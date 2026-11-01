@@ -1,0 +1,114 @@
+schema_version: 1
+pilot: 3d_python
+defects:
+- id: 3D-PYTHON-001
+  subject:
+    kind: package
+    ref: aspose-3d-foss
+  applies_to:
+    package_versions:
+    - 26.1.0
+  summary: Scene.save() to OBJ in aspose-3d-foss 26.1.0 always raises TypeError('a
+    bytes-like object is required, not str'), even via the exact aspose.threed.formats.obj.ObjSaveOptions
+    import path the MCP's own limitations text recommends.
+  user_action: Do not use OBJ export via Scene.save(path, ObjSaveOptions()) in aspose-3d-foss
+    26.1.0; it always raises TypeError regardless of import path.
+  evidence:
+    repro: Called scene.save(path, ObjSaveOptions()) using the exact import (from
+      aspose.threed.formats.obj import ObjSaveOptions) the MCP's own get_product_reference(section='limitations')
+      recommends; traceback showed Scene.py opens the destination in binary mode while
+      ObjExporter writes a str to the stream with no encode().
+    verified_on:
+      package: aspose-3d-foss
+      version: 26.1.0
+      date: '2026-10-29'
+  status: open
+- id: 3D-PYTHON-002
+  subject:
+    kind: package
+    ref: aspose-3d-foss
+  applies_to:
+    package_versions:
+    - 26.1.0
+  summary: glTF export in aspose-3d-foss 26.1.0 serializes the second mesh's 'name'
+    field as the integer 10 instead of a string, producing non-conformant glTF 2.0
+    JSON (mesh.name must be a string per spec).
+  user_action: Validate exported glTF JSON's mesh.name fields before relying on them;
+    aspose-3d-foss 26.1.0 can write an integer where a string is required for multi-mesh
+    scenes.
+  evidence:
+    repro: Exported a 2-node scene (cube, box) to glTF via aspose.threed.formats.gltf.GltfSaveOptions;
+      parsing the written JSON showed meshes[].name == ['cube', 10], the second mesh's
+      name being the integer 10.
+    verified_on:
+      package: aspose-3d-foss
+      version: 26.1.0
+      date: '2026-10-29'
+  status: open
+- id: 3D-PYTHON-006
+  subject:
+    kind: package
+    ref: aspose-3d-foss
+  applies_to:
+    package_versions:
+    - 26.1.0
+  summary: 3MF export in aspose-3d-foss 26.1.0 writes a zip containing only 3D/3dmodel.model,
+    missing [Content_Types].xml and _rels/.rels required for a conformant OPC/3MF
+    package.
+  user_action: Do not assume 3MF files written by aspose-3d-foss 26.1.0 are conformant
+    OPC packages; other 3MF consumers (slicers, viewers) may reject them.
+  evidence:
+    repro: Exported via the MCP's own recommended 3MF example pattern (ThreeMfSaveOptions,
+      enable_compression=False); zipfile.ZipFile(...).namelist() returned only ['3D/3dmodel.model'],
+      with no [Content_Types].xml or _rels/.rels.
+    verified_on:
+      package: aspose-3d-foss
+      version: 26.1.0
+      date: '2026-10-29'
+  status: open
+- id: 3D-PYTHON-008
+  subject:
+    kind: package
+    ref: aspose-3d-foss
+  applies_to:
+    package_versions:
+    - 26.1.0
+  summary: Reloading a multi-node scene exported to STL by aspose-3d-foss 26.1.0 collapses
+    all nodes into a single unnamed node with combined geometry; get_product_reference's
+    limitations section does not document this loss.
+  user_action: Do not rely on Scene.from_file() of an STL file to preserve the original
+    scene graph's per-node structure or names in aspose-3d-foss 26.1.0; STL export
+    flattens multiple nodes into one.
+  evidence:
+    repro: Exported a 2-node scene (named 'cube' and 'box') to STL, producing two
+      correctly-separated 'solid' blocks (24 facets = 12+12); reloading via Scene.from_file()
+      gave a single child node named after the STL 'solid' label with the combined
+      72 control points / 24 polygons, not two separate nodes.
+    verified_on:
+      package: aspose-3d-foss
+      version: 26.1.0
+      date: '2026-10-29'
+  status: open
+- id: 3D-PYTHON-010
+  subject:
+    kind: package
+    ref: aspose-3d-foss
+  applies_to:
+    package_versions:
+    - 26.1.0
+  summary: OBJ export via Scene.save() with an in-memory stream raises NotImplementedError
+    from an unrelated exporter's supports_format(), a different crash than the TypeError
+    raised for the same ObjSaveOptions saved to a file path.
+  user_action: Expect OBJ export failure behavior in aspose-3d-foss 26.1.0 to depend
+    on call shape (file path vs. stream) and on unrelated prior imports; do not assume
+    a consistent error or success across call forms.
+  evidence:
+    repro: scene.save(io.StringIO(), ObjSaveOptions()) raised NotImplementedError
+      from Exporter.supports_format() via IOService.create_exporter() reaching FbxExporter
+      before ObjExporter in its internal _exporters list, versus TypeError when saving
+      the same ObjSaveOptions to a file path.
+    verified_on:
+      package: aspose-3d-foss
+      version: 26.1.0
+      date: '2026-10-29'
+  status: open
