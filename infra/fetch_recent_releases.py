@@ -73,6 +73,7 @@ from foss_mcp.extraction.github_http import failure_reason, reset_default_budget
 from foss_mcp.extraction.github_release_reader import (
     DriftRecord,
     Release,
+    _tag_version,
     fetch_drift,
     fetch_releases,
     fetch_tags,
@@ -440,6 +441,47 @@ def _record_drift_in_product_reference(args: argparse.Namespace, record: DriftRe
         atomic_write_json(path, data)
 
 
+def pad_with_older_tags(releases: list[Release], repository: str, limit: int) -> list[Release]:
+    """NOTE-PY-003: fill the remaining *limit* slots of *releases* with tag-only entries when fewer
+    GitHub Releases exist than the caller asked for - ``list_recent_changes``'s own documented
+    promise, not only the already-handled, narrower case of a completely empty Releases list.
+
+    Distinct from ``merge_newer_tags`` (G3/TC-560, built for ``_with_ancestry``'s drift-detection
+    use case): that helper only ever adds a tag NEWER than every release. Here every added tag may
+    be older OR newer than the existing releases - the only tags excluded are those whose version
+    (``_tag_version``) already belongs to a release in *releases* (a ``26.9.0`` tag beside a
+    ``v26.9.0`` release is the same version) or has no parseable version at all. The tags actually
+    added are sorted newest-first among themselves, then appended after *releases* - *releases*'
+    own order and contents are never touched.
+
+    Does nothing (no tags fetch even attempted) when *releases* is already empty (the earlier,
+    narrower empty-Releases fallback in ``main`` already had its chance) or already at *limit*. A
+    failed tags read is caught, logged as a ``WARNING`` on stderr exactly like every other
+    tags-read failure in this module, and leaves *releases* exactly as it was - never raised.
+    """
+    missing = limit - len(releases)
+    if not releases or missing <= 0:
+        return releases
+    try:
+        tags = fetch_tags(repository)
+    except Exception as exc:  # noqa: BLE001 - a failed tags read must not fail the releases fetch.
+        print(
+            f"WARNING tags read failed for {repository}: class={type(exc).__name__}; "
+            "no older tags were used to pad the list",
+            file=sys.stderr,
+        )
+        return releases
+    known_versions = {version for release in releases if (version := _tag_version(release.tag_name))}
+    candidates: dict[tuple[int, ...], Release] = {}
+    for tag in tags:
+        version = _tag_version(tag.tag_name)
+        if version is None or version in known_versions or version in candidates:
+            continue
+        candidates[version] = tag
+    padding = [candidates[version] for version in sorted(candidates, reverse=True)][:missing]
+    return list(releases) + padding
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--repository", required=True, help="'owner/name'")
@@ -489,6 +531,10 @@ def main() -> None:
             # are fetched ONLY here; a failure follows the same path as a failed releases fetch.
             fetched = fetch_tags(args.repository)
         releases = fetched[: args.limit]
+        # NOTE-PY-003: additive to the no-`--indexed-commit` path's output below - the
+        # `--indexed-commit` path recomputes `releases` from `fetched` itself via `_with_ancestry`
+        # and is therefore unaffected by this padding.
+        releases = pad_with_older_tags(releases, args.repository, args.limit)
     except Exception as exc:  # noqa: BLE001 - deliberately broad: any failure is recorded as one.
         # A sidecar must always eventually exist once this step runs at all (see module docstring
         # and infra/helm/foss-mcp/templates/deployment.yaml's initContainer, which waits on this
