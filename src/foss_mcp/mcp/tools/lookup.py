@@ -46,6 +46,28 @@ only name a symbol exactly. A task answer now carries the symbols that EXPLAIN t
 each labelled ``exact`` or ``partial``; the documentation that says a capability the question names is NOT
 available (a "Scope and Limitations" paragraph, "no PDF export") is placed first; and a query that is only a
 documentation category ("getting started") returns that category's documentation.
+
+TC-641 (KD4 investigation, G3/REQ-G3-015): ``search_symbols.SymbolMatch`` (this module's own ``symbols``
+field) is built directly from raw lexical-index chunk text (``_named_symbols`` below, and ``search_symbols``
+itself, out of this card's write_paths) - it carries no ``known_defects`` field and IS structurally
+disconnected from ``get_symbol.SymbolSignature.known_defects`` (G3/TC-639, KD2): a ``TaskAnswer``'s own
+``symbols`` never automatically carries a get_symbol-sourced method/class-scoped defect disclosure.
+
+A genuinely minimal, additive fix was attempted - a new ``TaskAnswer.known_defects`` field, composed the same
+way ``_limitation_docs`` already composes into ``doc_matches``, asking ``get_symbol.known_defect_lines`` for
+each named symbol's own FQN, with no change to ``SymbolMatch`` or ``search_symbols`` at all. It was reverted:
+``tests/mcp/tools/test_lookup_forgiveness.py`` (one of this card's own required checks, NOT in this card's
+write_paths) pins ``TaskAnswer``'s exact field list with a list-equality assertion
+(``test_taskanswer_symbols_default_is_empty_and_additive``); ANY new field - in any position - fails that
+assertion, and that test cannot be edited here to accommodate it. Surfacing the disclosure on the existing
+``SymbolMatch.limitation`` field instead was also rejected: that field's own, already-published contract is
+specifically "the line that says the symbol is not implemented in this build" (its own docstring), and several
+tests of this module and ``search_symbols`` read it as exactly that line; repurposing it to also carry an
+unrelated known-defect disclosure is not additive, it changes what an existing field means. Per this card's own
+instruction ("if you find it is NOT a small, safe change, STOP and report that finding instead of forcing
+one"), ``lookup.py`` is therefore unchanged in behaviour by this card: the disconnect is real, and wiring it
+safely needs ``SymbolMatch`` itself to gain the field (search_symbols.py, a different card's write_paths) or
+``test_lookup_forgiveness.py``'s pin to be updated at the same time (also outside this card's write_paths).
 """
 
 from __future__ import annotations
