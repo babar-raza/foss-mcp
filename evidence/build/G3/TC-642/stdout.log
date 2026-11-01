@@ -1,0 +1,194 @@
+
+===== CLEAN RUN 1 (host) =====
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-5c72e798a73c059a\Scripts\python.exe -m pytest tests/mcp/tools/test_known_defects_in_search_symbols.py -q -rfE -p no:cacheprovider "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-k45nc5_0\.junit-0.xml"
+--- stdout ---
+..........                                                               [100%]
+
+--- stderr ---
+
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-5c72e798a73c059a\Scripts\python.exe -m pytest tests/mcp/tools/test_search_symbols_digit_words.py tests/mcp/tools/test_search_symbols_memberless_last.py tests/mcp/tools/test_lookup_forgiveness.py tests/mcp/tools/test_known_defects_in_product_reference.py -q -rfE -p no:cacheprovider "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-k45nc5_0\.junit-1.xml"
+--- stdout ---
+........................................................................ [ 86%]
+...........                                                              [100%]
+
+--- stderr ---
+
+
+===== CLEAN RUN 2 (host) =====
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-5c72e798a73c059a\Scripts\python.exe -m pytest tests/mcp/tools/test_known_defects_in_search_symbols.py -q -rfE -p no:cacheprovider "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-k45nc5_0\.junit-0.xml"
+--- stdout ---
+..........                                                               [100%]
+
+--- stderr ---
+
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-5c72e798a73c059a\Scripts\python.exe -m pytest tests/mcp/tools/test_search_symbols_digit_words.py tests/mcp/tools/test_search_symbols_memberless_last.py tests/mcp/tools/test_lookup_forgiveness.py tests/mcp/tools/test_known_defects_in_product_reference.py -q -rfE -p no:cacheprovider "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-k45nc5_0\.junit-1.xml"
+--- stdout ---
+........................................................................ [ 86%]
+...........                                                              [100%]
+
+--- stderr ---
+
+
+===== NEGATIVE CONTROL (checks MUST now fail) =====
+mutated: M src/foss_mcp/mcp/tools/search_symbols.py, ?? .junit-0.xml, ?? .junit-1.xml
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-5c72e798a73c059a\Scripts\python.exe -m pytest tests/mcp/tools/test_known_defects_in_search_symbols.py -q -rfE -p no:cacheprovider "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-k45nc5_0\.junit-0.xml"
+--- stdout ---
+FF.F.....F                                                               [100%]
+================================== FAILURES ===================================
+________ test_method_scoped_defect_surfaces_when_chunk_commit_matches _________
+
+store = <tests.mcp.tools.test_known_defects_in_search_symbols._InMemoryStore object at 0x0000022EC6E11BE0>
+registry_dir = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-18799/test_method_scoped_defect_surf0/known_defects')
+
+    def test_method_scoped_defect_surfaces_when_chunk_commit_matches(
+        store: _InMemoryStore, registry_dir: Path
+    ) -> None:
+        _write_registry(registry_dir, [_defect("PDF-NET-001", DOCUMENT_FQN, indexed_commit=COMMIT_MATCH)])
+    
+        matches = _symbol_matches(search_symbols(store, SCOPE, DOCUMENT_FQN))  # type: ignore[arg-type]
+    
+        assert len(matches) == 1
+>       assert len(matches[0].known_defects) == 1
+E       AssertionError: assert 0 == 1
+E        +  where 0 = len(())
+E        +    where () = SymbolMatch(scope=Scope(family='pdf', platform='net', source_kind='self_extracted'), generation_id='gen-tc642', doc_id...ch_quality='exact', unmatched_terms=(), total_matches=1, next_offset=None, aliases=(), limitation='', known_defects=()).known_defects
+
+tests\mcp\tools\test_known_defects_in_search_symbols.py:173: AssertionError
+___________________ test_class_scoped_defect_also_surfaces ____________________
+
+store = <tests.mcp.tools.test_known_defects_in_search_symbols._InMemoryStore object at 0x0000022EC6E11BE0>
+registry_dir = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-18799/test_class_scoped_defect_also_0/known_defects')
+
+    def test_class_scoped_defect_also_surfaces(store: _InMemoryStore, registry_dir: Path) -> None:
+        _write_registry(
+            registry_dir, [_defect("PDF-NET-002", DOCUMENT_FQN, kind="class", package_versions=["26.7.0"])]
+        )
+    
+        matches = _symbol_matches(search_symbols(store, SCOPE, DOCUMENT_FQN))  # type: ignore[arg-type]
+    
+>       assert len(matches[0].known_defects) == 1
+E       AssertionError: assert 0 == 1
+E        +  where 0 = len(())
+E        +    where () = SymbolMatch(scope=Scope(family='pdf', platform='net', source_kind='self_extracted'), generation_id='gen-tc642', doc_id...ch_quality='exact', unmatched_terms=(), total_matches=1, next_offset=None, aliases=(), limitation='', known_defects=()).known_defects
+
+tests\mcp\tools\test_known_defects_in_search_symbols.py:186: AssertionError
+___ test_package_version_scoped_defect_always_surfaces_regardless_of_commit ___
+
+store = <tests.mcp.tools.test_known_defects_in_search_symbols._InMemoryStore object at 0x0000022EC6E11BE0>
+registry_dir = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-18799/test_package_version_scoped_de0/known_defects')
+
+    def test_package_version_scoped_defect_always_surfaces_regardless_of_commit(
+        store: _InMemoryStore, registry_dir: Path
+    ) -> None:
+        _write_registry(registry_dir, [_defect("PDF-NET-004", DOCUMENT_FQN, package_versions=["26.7.0"])])
+    
+        matches = _symbol_matches(search_symbols(store, SCOPE, DOCUMENT_FQN))  # type: ignore[arg-type]
+    
+>       assert len(matches[0].known_defects) == 1
+E       AssertionError: assert 0 == 1
+E        +  where 0 = len(())
+E        +    where () = SymbolMatch(scope=Scope(family='pdf', platform='net', source_kind='self_extracted'), generation_id='gen-tc642', doc_id...ch_quality='exact', unmatched_terms=(), total_matches=1, next_offset=None, aliases=(), limitation='', known_defects=()).known_defects
+
+tests\mcp\tools\test_known_defects_in_search_symbols.py:212: AssertionError
+_________ test_lookup_named_symbols_path_never_carries_known_defects __________
+
+store = <tests.mcp.tools.test_known_defects_in_search_symbols._InMemoryStore object at 0x0000022EC6E11BE0>
+registry_dir = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-18799/test_lookup_named_symbols_path0/known_defects')
+
+    def test_lookup_named_symbols_path_never_carries_known_defects(
+        store: _InMemoryStore, registry_dir: Path
+    ) -> None:
+        """The real finding: ``lookup.py``'s own ``_named_symbols`` (out of this card's write_paths)
+        builds its own fresh ``SymbolMatch`` instances directly from raw chunk documents rather than
+        reusing ``search_symbols()``'s own construction, so it never computes this card's new
+        ``known_defects`` field at all - even for the exact same fqn/scope ``search_symbols()`` itself
+        correctly discloses the defect for. ``TaskAnswer.symbols`` only carries the new field
+        automatically for a symbol ``search_symbols()``/``explained_symbols()`` itself returns; a
+        symbol reached ONLY through ``_named_symbols`` keeps ``known_defects == ()`` regardless of
+        real registry data."""
+        _write_registry(registry_dir, [_defect("PDF-NET-009", DOCUMENT_FQN, package_versions=["26.7.0"])])
+    
+        direct = _symbol_matches(search_symbols(store, SCOPE, "Document"))  # type: ignore[arg-type]
+>       assert direct[0].known_defects != ()
+E       AssertionError: assert () != ()
+E        +  where () = SymbolMatch(scope=Scope(family='pdf', platform='net', source_kind='self_extracted'), generation_id='gen-tc642', doc_id...ch_quality='exact', unmatched_terms=(), total_matches=1, next_offset=None, aliases=(), limitation='', known_defects=()).known_defects
+
+tests\mcp\tools\test_known_defects_in_search_symbols.py:304: AssertionError
+=========================== short test summary info ===========================
+FAILED tests/mcp/tools/test_known_defects_in_search_symbols.py::test_method_scoped_defect_surfaces_when_chunk_commit_matches
+FAILED tests/mcp/tools/test_known_defects_in_search_symbols.py::test_class_scoped_defect_also_surfaces
+FAILED tests/mcp/tools/test_known_defects_in_search_symbols.py::test_package_version_scoped_defect_always_surfaces_regardless_of_commit
+FAILED tests/mcp/tools/test_known_defects_in_search_symbols.py::test_lookup_named_symbols_path_never_carries_known_defects
+
+--- stderr ---
+
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-5c72e798a73c059a\Scripts\python.exe -m pytest tests/mcp/tools/test_search_symbols_digit_words.py tests/mcp/tools/test_search_symbols_memberless_last.py tests/mcp/tools/test_lookup_forgiveness.py tests/mcp/tools/test_known_defects_in_product_reference.py -q -rfE -p no:cacheprovider "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-k45nc5_0\.junit-1.xml"
+--- stdout ---
+........................................................................ [ 86%]
+..........F                                                              [100%]
+================================== FAILURES ===================================
+_______ test_lookup_disconnect_symbol_match_never_carries_known_defects _______
+
+registry_dir = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-18800/test_lookup_disconnect_symbol_0/known_defects')
+
+    def test_lookup_disconnect_symbol_match_never_carries_known_defects(registry_dir: Path) -> None:
+        """G3/TC-642 (KD3) is the "future card" this test's own original docstring named, and it
+        narrowed this finding rather than leaving it as a total disconnect: ``SymbolMatch`` now HAS a
+        ``known_defects`` field, and for THIS test's own query shape - a bare FQN through ``lookup()``,
+        which reaches ``search_symbols()``'s own real ``SymbolMatch`` construction site directly, the
+        same site TC-642 wired - the method-scoped disclosure DOES surface through ``lookup``'s own
+        ``symbols``, exactly like ``get_symbol`` already showed it does. The real, narrower gap TC-642's
+        own investigation found and left unfixed (out of its write_paths) is ``lookup.py``'s separate
+        ``_named_symbols()`` helper: it builds its own fresh ``SymbolMatch`` instances directly from raw
+        chunk documents rather than reusing ``search_symbols()``'s construction, so a symbol reached
+        ONLY through that path still keeps ``known_defects == ()`` regardless of real registry data -
+        proven directly by
+        ``tests/mcp/tools/test_known_defects_in_search_symbols.py::test_lookup_named_symbols_path_never_carries_known_defects``
+        (TC-642's own test), not this one. This test is kept, updated rather than deleted, as the
+        regression guard for the now-fixed, broader claim it originally pinned."""
+        _write_registry(
+            registry_dir,
+            [
+                _defect(
+                    "PDF-CPP-009",
+                    kind="method",
+                    ref=DOCUMENT_FQN,
+                    package_versions=["26.7.0"],
+                    summary="A method-scoped defect that get_symbol discloses.",
+                )
+            ],
+        )
+        store = _InMemoryStore((_symbol_body(DOCUMENT_FQN, methods=("Save(path: string) -> void",)),))
+    
+        # First prove get_symbol (KD2, G3/TC-639) DOES disclose it - the baseline this investigates.
+        signature = get_symbol(store, SYMBOL_SCOPE, DOCUMENT_FQN)  # type: ignore[arg-type]
+        assert isinstance(signature, SymbolSignature)
+        assert len(signature.known_defects) == 1
+        assert "A method-scoped defect that get_symbol discloses." in signature.known_defects[0]
+    
+        # G3/TC-642 (KD3): for this exact query shape - a bare FQN through lookup() - the result
+        # reaches search_symbols()'s own real construction site directly, which now computes
+        # known_defects itself, so the disclosure DOES surface here through lookup too.
+        result = lookup(store, SYMBOL_SCOPE, DOCUMENT_FQN)  # type: ignore[arg-type]
+        if isinstance(result, TaskAnswer):
+            symbols = result.symbols
+        elif isinstance(result, list):
+            symbols = tuple(result)
+        else:
+            symbols = ()
+        assert symbols, "the query names an indexed symbol; lookup must return it in some shape"
+>       assert any(
+            "A method-scoped defect that get_symbol discloses." in line
+            for match in symbols
+            for line in match.known_defects
+        ), "lookup's own symbol path must now surface the same defect get_symbol discloses"
+E       AssertionError: lookup's own symbol path must now surface the same defect get_symbol discloses
+E       assert False
+E        +  where False = any(<generator object test_lookup_disconnect_symbol_match_never_carries_known_defects.<locals>.<genexpr> at 0x000001FBA25E0120>)
+
+tests\mcp\tools\test_known_defects_in_product_reference.py:473: AssertionError
+=========================== short test summary info ===========================
+FAILED tests/mcp/tools/test_known_defects_in_product_reference.py::test_lookup_disconnect_symbol_match_never_carries_known_defects
+
+--- stderr ---
+
