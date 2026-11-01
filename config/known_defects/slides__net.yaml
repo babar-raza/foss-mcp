@@ -1,0 +1,25 @@
+schema_version: 1
+pilot: slides_net
+defects:
+- id: SLIDES-NET-006
+  subject:
+    kind: method
+    ref: Aspose.Slides.Foss.ILayoutSlide
+  applies_to:
+    package_versions:
+    - 26.9.0
+  summary: ILayoutSlide.MasterSlide is null for a freshly-created presentation's default layout,
+    and after a save/reopen round trip, even though the master exists and the saved package's
+    own relationship links it.
+  user_action: Do not rely on ILayoutSlide.MasterSlide to navigate from a layout to its master
+    in Aspose.Slides.Foss 26.9.0; it is always null even when Presentation.Masters and the
+    saved OOXML relationship are both correct.
+  evidence:
+    repro: A freshly-created Presentation's LayoutSlides[0].MasterSlide was null even though
+      Presentation.Masters.Count was 1; after Save and reopen it was still null, while the
+      saved package's slideLayout1.xml.rels correctly linked to slideMaster1.xml.
+    verified_on:
+      package: Aspose.Slides.Foss
+      version: 26.9.0
+      date: '2026-10-29'
+  status: open

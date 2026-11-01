@@ -1,0 +1,26 @@
+schema_version: 1
+pilot: slides_python
+defects:
+- id: SLIDES-PY-001
+  subject:
+    kind: package
+    ref: aspose-slides-foss
+  applies_to:
+    package_versions:
+    - 26.8.0
+  summary: add_clone() raises RecursionError when cloning a slide that has a notes slide,
+    from an unguarded slide<->notesSlide relationship recursion in the library's internal
+    clone implementation.
+  user_action: Do not call add_clone() on a slide that has a notes slide in aspose-slides-foss
+    26.8.0; it crashes with RecursionError. Shape-only, table-only, and image-only clones
+    are unaffected.
+  evidence:
+    repro: 'Added a notes slide to slide 0 with notes_slide_manager.add_notes_slide(), then
+      called slides.add_clone(slides[0]): raised RecursionError from slide_part.py''s _clone_related_part
+      recursing through the slide-notesSlide relationship pair without a visited-set; deterministic
+      across repeated runs.'
+    verified_on:
+      package: aspose-slides-foss
+      version: 26.8.0
+      date: '2026-10-29'
+  status: open

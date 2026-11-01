@@ -1,0 +1,24 @@
+schema_version: 1
+pilot: slides_cpp
+defects:
+- id: SLIDES-CPP-002
+  subject:
+    kind: method
+    ref: Aspose::Slides::Foss::SlideCollection
+  applies_to:
+    indexed_commit: 469ce77a07b988c49deb930632b8276c89ec6b66
+  summary: SlideCollection::add_clone() turns a cloned PictureFrame into a blank untextured
+    rectangle (image reference dropped) and drops a cloned Table entirely, beyond the documented
+    'loses text' limitation.
+  user_action: Do not clone a slide containing pictures or tables with SlideCollection::add_clone();
+    manually re-add the picture and table shapes to the cloned slide afterward.
+  evidence:
+    repro: Cloned a slide containing a rectangle, a picture (PictureFrame), and a 2x2 table
+      via add_clone(); inspecting the saved PPTX's slide2.xml showed the picture became a
+      bare textless rectangle with no blip/image reference, and the table was absent entirely
+      (no graphicFrame, not even an empty placeholder).
+    verified_on:
+      package: aspose-slides-foss/Aspose.Slides-FOSS-for-Cpp
+      version: 469ce77
+      date: '2026-10-29'
+  status: open

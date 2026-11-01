@@ -1,0 +1,49 @@
+schema_version: 1
+pilot: pdf_java
+defects:
+- id: PDF-JAVA-001
+  subject:
+    kind: method
+    ref: org.aspose.pdf.WatermarkArtifact
+  applies_to:
+    package_versions:
+    - 26.9.0
+  summary: WatermarkArtifact('CONFIDENTIAL') added via Page.getArtifacts().add() produces
+    no watermark anywhere in the saved PDF, with no exception at any layer (MCP, library,
+    or JVM).
+  user_action: Do not rely on WatermarkArtifact in aspose-pdf-foss 26.9.0 to add a watermark;
+    verify the saved output actually contains the expected text, or use TextStamp on a reopened
+    Document instead.
+  evidence:
+    repro: Added a WatermarkArtifact('CONFIDENTIAL') with opacity 0.3 and rotation 45 to a
+      page via Page.getArtifacts().add() and saved; pypdf extract_text() on the saved PDF
+      returned only the original paragraph text, with no 'CONFIDENTIAL' anywhere in the file
+      bytes and no exception raised at any layer.
+    verified_on:
+      package: org.aspose:aspose-pdf-foss
+      version: 26.9.0
+      date: '2026-10-29'
+  status: open
+- id: PDF-JAVA-002
+  subject:
+    kind: method
+    ref: org.aspose.pdf.Page
+  applies_to:
+    package_versions:
+    - 26.9.0
+  summary: Page.addStamp(TextStamp) is silently dropped when the stamp is added in the same
+    Document session the page's paragraphs were just created in; it only works after save
+    and reopen.
+  user_action: Save and reopen the Document before calling Page.addStamp(TextStamp) in aspose-pdf-foss
+    26.9.0; adding a stamp in the same session the paragraphs were created in silently loses
+    the stamp.
+  evidence:
+    repro: 'Added a TextStamp(''CONFIDENTIAL'') via Page.addStamp() in the same Document session
+      the page''s paragraph was created in: pypdf extract_text() on the saved PDF showed no
+      ''CONFIDENTIAL'' text and no exception. Repeating the identical addStamp call after
+      saving and reopening the Document produced a PDF where the stamp text was present.'
+    verified_on:
+      package: org.aspose:aspose-pdf-foss
+      version: 26.9.0
+      date: '2026-10-29'
+  status: open

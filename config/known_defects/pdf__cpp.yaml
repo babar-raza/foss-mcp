@@ -1,0 +1,25 @@
+schema_version: 1
+pilot: pdf_cpp
+defects:
+- id: PDF-CPP-001
+  subject:
+    kind: method
+    ref: Aspose::Pdf::Document
+  applies_to:
+    indexed_commit: 4b83c9fec1e37fd205156770161f6843bac00ceb
+  summary: Document::Encrypt with CryptoAlgorithm::AESx256 produces a content stream that
+    cannot be decrypted by the library's own reopen path (TextAbsorber returns '') or by an
+    independent decoder (pypdf raises PdfReadError).
+  user_action: Do not rely on AES-256 encryption in aspose-pdf-foss (C++) at this indexed
+    commit; a reopened or independently-decrypted document returns empty or garbage text instead
+    of the original content.
+  evidence:
+    repro: 'Encrypted a Document with CryptoAlgorithm::AESx256 and reopened it with the user
+      password: TextAbsorber returned '''' instead of the original text. Independently, pypdf
+      raised PdfReadError decrypting the same AES-decrypted content stream (non-PDF garbage
+      bytes).'
+    verified_on:
+      package: aspose-pdf-foss/Aspose.PDF-FOSS-for-Cpp
+      version: 4b83c9f
+      date: '2026-10-29'
+  status: open
