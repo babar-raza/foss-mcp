@@ -1,0 +1,99 @@
+id: TC-646
+gate: G3
+lane: verification
+purpose: >-
+  KD8 (disclosure program data card, workstream J, families pdf+slides). Same pattern as TC-644
+  (KD6) and TC-645 (KD7, both already integrated - read their real, committed
+  `config/known_defects/*.yaml` files first as your own reference example). Writes real
+  known-defect entries for the 6 confirmed, high-confidence pdf/slides-family upstream-library-bug
+  findings already committed to this repository at `docs/round2/issues.json` (ids `PDF-CPP-001`
+  - this is the round-2 audit's own single most-cited headline example, the undecryptable AES-256
+  output - `PDF-JAVA-001`, `PDF-JAVA-002`, `SLIDES-CPP-002`, `SLIDES-NET-006`, `SLIDES-PY-001`;
+  every one `category: "upstream-library-bug"`). Read each entry's REAL text from that file
+  yourself - every `summary`/`user_action`/`evidence.repro` you write must be traceable back to
+  that issue's own real fields, never invented or paraphrased from memory.
+
+  Write five real registry files (one per pilot - confirm the real filename pattern yourself from
+  `known_defects.py`, same as TC-644/TC-645 already confirmed:
+  `config/known_defects/<family>__<platform>.yaml`): `pdf__cpp.yaml`, `pdf__java.yaml`,
+  `slides__cpp.yaml`, `slides__net.yaml`, `slides__python.yaml`. One entry per issue id, never
+  consolidated. Same `subject`/`applies_to`/`status`/`evidence.verified_on` conventions TC-644/
+  TC-645 already established - read their real, committed YAML files for the exact style to
+  match, do not reinvent the shape. Pay particular attention to `PDF-CPP-001`'s own real `subject.kind`
+  choice - it is about a specific encryption method's output, not a whole-library claim; confirm
+  from the issue's own text whether a real public FQN is named before choosing `method` over
+  `package` (the same judgment call TC-644's own worker report already documented reasoning for -
+  read it).
+depends_on:
+  - TC-644
+  - TC-645
+write_paths:
+  - config/known_defects/pdf__cpp.yaml
+  - config/known_defects/pdf__java.yaml
+  - config/known_defects/slides__cpp.yaml
+  - config/known_defects/slides__net.yaml
+  - config/known_defects/slides__python.yaml
+  - tests/indexing/test_known_defects_data_pdf_slides.py
+satisfies:
+  - REQ-G3-015
+source_refs:
+  - file: docs/DECISION_LOG.md
+    anchor: >-
+      ## 2026-10-30 — Round-2 portfolio audit remediation adopted: unified plan, governance decisions A-K
+      recorded (supervisor)
+    sha256: 62cf1403a592118e3fb6bd14c5336f8a997cc3181d44a585323ec9f1d385a931
+inputs:
+  - >-
+    READ FIRST: TC-644's and TC-645's own real, already-committed `config/known_defects/*.yaml`
+    files (your reference examples - match their exact shape/style) and their own test files
+    (your reference test pattern). Then `docs/round2/issues.json`, filtered to the 6 real
+    pdf/slides-family ids named above (every field you write must trace back to this file's real
+    content); `src/foss_mcp/indexing/known_defects.py`'s loader; `schemas/product/
+    known_defects.schema.json`; each pilot's own `config/products/<family>/<platform>.yaml` for
+    repository context.
+  - >-
+    Write at least 6 tests in `tests/indexing/test_known_defects_data_pdf_slides.py` covering: all
+    five files parse as valid YAML and validate against the real schema
+    (`jsonschema.Draft202012Validator`); `known_defects.load_known_defects(<family>, <platform>)`
+    returns exactly the real number of entries you wrote per pilot, no duplicate ids anywhere;
+    every entry's `id` is one of the 6 real issue ids named above, proven against the real
+    `docs/round2/issues.json` data directly in the test (not a hand-copied list); at least one REAL
+    end-to-end test proving `PDF-CPP-001` specifically surfaces through `get_symbol` or
+    `get_product_reference` (whichever its own `tools` field names) for the real pdf/cpp scope.
+actions:
+  - >-
+    Write real, schema-conforming known-defect entries for all 6 confirmed pdf/slides-family
+    upstream-library-bug findings from the round-2 audit, traceable field-by-field back to the
+    audit's own already-committed evidence.
+checks:
+  - command: '{python} -m pytest tests/indexing/test_known_defects_data_pdf_slides.py -q -rfE -p no:cacheprovider'
+    expect: 'exit 0'
+    timeout_seconds: 180
+    junitxml: true
+    proves:
+      - REQ-G3-015
+  - command: '{python} -m pytest tests/indexing/test_known_defects.py tests/mcp/tools/test_known_defects_in_get_symbol.py tests/mcp/tools/test_known_defects_in_product_reference.py -q -rfE -p no:cacheprovider'
+    expect: 'exit 0'
+    timeout_seconds: 240
+    junitxml: true
+    proves:
+      - REQ-G3-015
+min_tests: 6
+requires:
+  - python
+network: false
+negative_control:
+  mutate: |
+    python -X utf8 -c "import pathlib; p = pathlib.Path('config/known_defects/pdf__cpp.yaml'); assert p.exists(), 'config/known_defects/pdf__cpp.yaml does not exist as expected - if your real filename pattern differs, anchor your own mutate on your own real file path instead and note the substitution in your closeout'; p.write_text('schema_version: 1' + chr(10) + 'pilot: pdf_cpp' + chr(10) + 'defects: []' + chr(10), encoding='utf-8')"
+  rationale: >-
+    Empties the pdf/cpp registry file back to zero defects, regardless of what you actually
+    wrote - this is the headline AES-256 finding, so a real test proving it surfaces must fail
+    under this mutation. Tests scoped to the other four pilots' files are unaffected.
+evidence:
+  - evidence/build/G3/TC-646/receipt.json
+closeout:
+  - >-
+    All 6 confirmed pdf/slides-family upstream-library-bug findings from the round-2 audit,
+    including the headline AES-256 finding, are now real, schema-conforming, loader-validated
+    known-defect entries, with at least one proven to surface end to end through a real MCP tool.
+recovery: Re-run from a clean tree.
