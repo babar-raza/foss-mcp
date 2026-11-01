@@ -1,0 +1,111 @@
+id: TC-641
+gate: G3
+lane: storage-retrieval
+purpose: >-
+  KD4 (disclosure program, workstream J). Wires TC-636's known-defects registry into
+  `get_product_reference`'s "limitations" section - the surface that actually carries the
+  round-2 audit's two headline upstream-bug examples (pdf/cpp's undecryptable AES-256 output,
+  imaging/net's 3 DoS bugs fixed 5 commits later upstream), since those are library-level facts,
+  not single-symbol ones.
+
+  IMPORTANT, confirmed by reading the real code first (do not skip this): `get_product_reference.py`
+  ALREADY has a simpler, pre-existing disclosure mechanism for exactly this section - `KnownHazard`/
+  `known_hazards_from_manifest`/`_with_known_hazards` (TC-582), reading a pilot's own
+  `config/products/<family>/<platform>.yaml`'s `known_hazards:` array (just `{text, verified_at}`
+  pairs, manually authored per pilot, cells/go only today). This card does NOT replace, rename, or
+  remove that mechanism - it is simpler and already works. Instead, EXTEND the same merge point
+  (`_with_known_hazards`, called from the `section == "limitations"` branches) so it ALSO appends
+  any TC-636 `known_defects` entries whose `subject.kind` is `package`/`commit` (a library-level
+  defect, not a single-method one - a `method`/`class`-scoped defect belongs to KD2's get_symbol
+  path, already done, not here) for this pilot, using the EXACT SAME "own clearly-labelled
+  paragraph, never `untrusted_upstream_content`" presentation `_known_hazard_paragraph`/
+  `_KNOWN_HAZARD_PROVENANCE_NOTICE` already establish - read them and reuse the pattern, do not
+  invent a second one. Work out for yourself (and report your reasoning) whether this is cleanest
+  as a genuinely new merge function or an extension of `_with_known_hazards` itself; either is
+  acceptable as long as `known_hazards` (the existing mechanism) keeps behaving byte-identically
+  when a pilot has no `known_defects` registry entries.
+
+  Also wire `lookup.py`: investigate yourself whether `lookup()`'s own existing composition
+  (`_limitation_docs`, `answer_symbols`/`named_symbols`) already surfaces a `get_symbol`-sourced
+  `SymbolSignature.known_defects` (KD2/TC-639) through its own `symbols: tuple[SymbolMatch, ...]`
+  field, or whether `SymbolMatch` (search_symbols.py's own result shape) is structurally
+  disconnected from `SymbolSignature` and so does NOT automatically inherit it. Report what you
+  find; if disconnected, wire a minimal, additive surfacing (your own judgment on the lightest
+  correct approach, consistent with how `_limitation_docs` already composes into `TaskAnswer`) -
+  if you find it is NOT a small, safe change, STOP and report that finding instead of forcing one.
+depends_on:
+  - TC-636
+  - TC-639
+  - TC-622
+  - TC-634
+write_paths:
+  - src/foss_mcp/mcp/tools/get_product_reference.py
+  - src/foss_mcp/mcp/tools/lookup.py
+  - tests/mcp/tools/test_known_defects_in_product_reference.py
+satisfies:
+  - REQ-G3-015
+source_refs:
+  - file: docs/DECISION_LOG.md
+    anchor: >-
+      ## 2026-10-30 — Round-2 portfolio audit remediation adopted: unified plan, governance decisions A-K
+      recorded (supervisor)
+    sha256: 62cf1403a592118e3fb6bd14c5336f8a997cc3181d44a585323ec9f1d385a931
+inputs:
+  - >-
+    READ FIRST, in order: `src/foss_mcp/indexing/known_defects.py` (TC-636's real API); then
+    `get_product_reference.py`'s `KnownHazard`/`known_hazards_from_manifest`/
+    `_with_known_hazards`/`_known_hazard_paragraph`/`_KNOWN_HAZARD_PROVENANCE_NOTICE` and every
+    `section == "limitations"` call site of `_with_known_hazards` in full - confirm the real,
+    current call sites yourself, do not assume from this card's line numbers (they will have
+    shifted). Then `lookup.py`'s `_limitation_docs`, `answer_symbols`, `named_symbols`, and
+    `search_symbols.SymbolMatch`'s real field list, to answer the investigation question above.
+  - >-
+    Write at least 8 tests in `tests/mcp/tools/test_known_defects_in_product_reference.py` using
+    a real, synthetic `tmp_path`-scoped known-defects fixture (never a real committed
+    `config/known_defects/*.yaml` file) covering: a `package`/`commit`-scoped defect for a pilot
+    appends its own clearly-labelled paragraph to the limitations answer, never marked
+    `untrusted_upstream_content`; a pilot with BOTH an existing `known_hazards` manifest entry AND
+    a new `known_defects` entry shows both, neither overwriting the other; a pilot with neither
+    is byte-identical to before this card (prove the existing `known_hazards`-only behaviour is
+    completely unaffected); a `method`/`class`-scoped defect does NOT appear here (that is KD2's
+    path, not this one); your real `lookup.py` finding/fix, whichever it turns out to be, with its
+    own test(s).
+actions:
+  - >-
+    Extend get_product_reference's existing limitations-disclosure mechanism to also surface a
+    library-level known-defects entry, and investigate/fix lookup's own symbol-path disclosure
+    gap if one is found, without disturbing the pre-existing known_hazards mechanism's behaviour.
+checks:
+  - command: '{python} -m pytest tests/mcp/tools/test_known_defects_in_product_reference.py -q -rfE -p no:cacheprovider'
+    expect: 'exit 0'
+    timeout_seconds: 180
+    junitxml: true
+    proves:
+      - REQ-G3-015
+  - command: '{python} -m pytest tests/mcp/tools/test_get_product_reference_platforms.py tests/mcp/tools/test_get_product_reference_unresolved.py tests/mcp/tools/test_product_reference_compatibility_units.py tests/mcp/tools/test_lookup_forgiveness.py -q -rfE -p no:cacheprovider'
+    expect: 'exit 0'
+    timeout_seconds: 300
+    junitxml: true
+    proves:
+      - REQ-G3-015
+min_tests: 8
+requires:
+  - python
+network: false
+negative_control:
+  mutate: |
+    python -X utf8 -c "import pathlib; p = pathlib.Path('src/foss_mcp/mcp/tools/get_product_reference.py'); s = p.read_text(encoding='utf-8'); old = 'load_known_defects('; assert s.count(old) == 1, 'load_known_defects( literal not found as expected (exactly once) - if your real code calls it a different number of times or with a different name, anchor your own mutate on your own real literal instead and note the substitution in your closeout'; i = s.index(old); p.write_text(s[:i] + '(lambda *a, **k: [])(' + s[i+len(old):], encoding='utf-8')"
+  rationale: >-
+    Replaces the registry lookup with a call that always returns an empty list, so no
+    known_defects entry ever surfaces in the limitations answer regardless of real fixture data.
+    Any test proving a real matching known_defects entry appears must fail under this mutation;
+    tests of the pre-existing known_hazards-only behaviour are unaffected (unrelated code path).
+evidence:
+  - evidence/build/G3/TC-641/receipt.json
+closeout:
+  - >-
+    get_product_reference's limitations section now also surfaces a real, library-level
+    known-defect entry alongside the pre-existing known_hazards mechanism, with the pre-existing
+    behaviour completely unaffected when no known_defects data exists. State your lookup.py
+    finding and what you did about it.
+recovery: Re-run from a clean tree.
