@@ -1,0 +1,144 @@
+id: TC-635
+gate: G3
+lane: storage-retrieval
+purpose: >-
+  Q10 (findability sub-program, section 2.2 item 5 of the plan). `find_examples`'s admission gate
+  currently requires BOTH a coverage floor AND `title_anchored` (the query shares a distinctive
+  word with the example's own title) before an example answers. This misses two real,
+  reproducible classes of correct-but-unanchored example: (1) the query names an exact
+  identifier the example's CODE uses (`Workbook`, `WatermarkArtifact`) but whose TITLE happens
+  not to repeat that word; (2) the query uses a word (e.g. `async`) that is a genuine prefix of a
+  longer title word (`asynchronously`) that stemming does not fold to the same root. Add two
+  independent, additive admission paths beside the existing title anchor - never replacing it,
+  never weakening the coverage floor itself.
+
+  READ FIRST: `src/foss_mcp/mcp/tools/relevance.py`'s `title_anchored`, `required_terms`,
+  `present_terms`, `TITLE_ANCHOR_MAX_TERMS`/`TITLE_ANCHOR_GRADUATED_MAX_TERMS` (read their own
+  measured-provenance comments in full - TC-543/TC-586's real numbers are the pattern to follow
+  for your own measurement below, not just the code shape). Then
+  `src/foss_mcp/mcp/tools/find_examples.py`'s admission gate (currently ~line 550-554:
+  `if doc_coverage >= RELEVANCE_THRESHOLD and title_anchored(query, scope.family, title):`) and
+  its `MATCH_BASIS_*` constants/assignment (currently ~line 257-260, ~577-594).
+
+  Mechanism 1 (code anchor): add this EXACT function to `relevance.py` (the literal shape below
+  is REQUIRED VERBATIM - the supervisor's negative control anchors on its exact `return` line;
+  you may still write your own docstring and may rename the local variable only if you also tell
+  the supervisor in your closeout, but keep the two statements shown exactly):
+
+      def code_anchored(required: frozenset[str], code_tokens: Iterable[str]) -> bool:
+          code_matches = present_terms(required, code_tokens)
+          return bool(code_matches)
+
+  Called from `find_examples.py` as `code_anchored(required, tokenize(_extract_example(text) or
+  ""))` - True only when `required` (the query's own identifier-shaped terms, from
+  `required_terms(query)` - already computed in `find_examples` before this gate) is non-empty
+  AND at least one of them is present in the EXAMPLE'S OWN CODE SNIPPET tokens specifically (via
+  `find_examples._extract_example(text)` + `tokenize()`, NOT the whole chunk's tokens - a required
+  term appearing in surrounding prose, not the code itself, is not what this mechanism is for).
+  For a query with no identifier-shaped required terms, `present_terms(frozenset(), ...)` is
+  trivially empty, so this is False - zero behaviour change for every query that reaches this gate
+  today without one.
+
+  Mechanism 2 (bounded prefix title match): a query's distinctive term of at least 4 characters
+  that is a literal PREFIX of a title word at least 2 characters longer (so `async` anchors
+  `asynchronously`, but `set` does not spuriously anchor `settings` off a 3-char accidental
+  prefix) also counts as a title anchor, alongside the existing exact-stemmed/synonym check
+  `title_anchored` already does. You decide the exact threshold shape (minimum term length,
+  minimum extra title-word length) from real measurement against the corpus below - the numbers
+  above are the plan's own suggested starting point, not a frozen requirement; report what you
+  measured and chose.
+
+  Admission gate becomes: `doc_coverage >= RELEVANCE_THRESHOLD and (title_anchored(...) or
+  code_anchored(required, code_tokens) or <your prefix mechanism>(...))`. Add a new constant
+  `MATCH_BASIS_CODE_WORD` (your own literal string, following the existing
+  `MATCH_BASIS_EXACT_TITLE`/`MATCH_BASIS_TITLE_WORD`/`MATCH_BASIS_QUERY_TERMS`/
+  `MATCH_BASIS_EMBEDDING` naming pattern) assigned ONLY when code-anchor is the reason a match was
+  admitted that neither the title anchor nor the prefix mechanism would have admitted on its own -
+  work out the real precedence/labelling logic yourself from the existing `lexical_basis`
+  assignment's own shape (currently ~line 577-581) and report it.
+
+  MEASURE, do not assume: re-run the full ratchet bundle below BEFORE and AFTER your change and
+  report the real before/after numbers in your closing report, the same discipline
+  `TITLE_ANCHOR_GRADUATED_MAX_TERMS`'s own comment follows - this card's own floors (hit@3,
+  wrong-confident, the 26-pilot verbose-hit table's `MIN_VERBOSE_HITS` floor) must hold or improve,
+  never regress (Decision E: no card lowers a floor). If your measurement finds either mechanism
+  regresses a pinned floor, narrow its condition (a stricter length/prefix threshold, not a looser
+  one) until it does not, and report the real numbers behind whatever threshold you land on.
+depends_on:
+  - TC-626
+  - TC-616
+write_paths:
+  - src/foss_mcp/mcp/tools/relevance.py
+  - src/foss_mcp/mcp/tools/find_examples.py
+  - tests/mcp/tools/test_find_examples_code_anchor.py
+satisfies:
+  - REQ-G3-011
+source_refs:
+  - file: docs/DECISION_LOG.md
+    anchor: >-
+      ## 2026-10-31 — Lexical-only doc/symbol retrieval decision (2026-10-12) partially
+      superseded: a doc-scoped vector fallback is adopted for `search_docs`/`lookup` (operator,
+      supervisor)
+    sha256: 9cbb486b3e74401f32b6e70ef04c40cd2b897b9ab47651ae02db7ad1cbc84a47
+inputs:
+  - >-
+    READ FIRST, in order: `relevance.py`'s `title_anchored`/`required_terms`/`present_terms` and
+    their own comments in full; `find_examples.py`'s admission gate, `_extract_example`, and the
+    existing `MATCH_BASIS_*` constants/assignment logic. Do not guess the admission gate's exact
+    current line numbers - read the real file, they may have shifted.
+  - >-
+    Write real, deterministic unit tests in `tests/mcp/tools/test_find_examples_code_anchor.py`
+    proving: (a) a query naming an identifier-shaped required term present in an example's CODE
+    (not its title, not surrounding prose) is now admitted where it was not before, labelled
+    `MATCH_BASIS_CODE_WORD`; (b) a query whose identifier-shaped term appears only in PROSE
+    outside the code snippet is NOT admitted by this mechanism (the code-only scoping is real, not
+    accidental); (c) a query with no identifier-shaped term is completely unaffected (prove the
+    new code path is never even reached); (d) the bounded prefix title match admits a real
+    prefix/longer-word pair and does NOT admit a case below your own chosen minimum lengths; (e) a
+    query that already satisfied the existing title anchor is unaffected (no double-counting,
+    same `MATCH_BASIS_*` as before).
+  - >-
+    Re-run the real ratchet bundle (`test_find_examples_title_anchor.py`,
+    `test_forgiveness_acceptance.py`, `test_round3_retrieval_corpus.py`) BEFORE your change
+    (baseline) and AFTER, and report both sets of real numbers (hit@3, wrong-confident rate, the
+    26-pilot verbose-hit count against `MIN_VERBOSE_HITS`) in your closing report - this is the
+    measurement this card's acceptance actually depends on, not just your own new tests passing.
+actions:
+  - >-
+    Add two additive, measured admission paths to `find_examples` (a code-identifier anchor and a
+    bounded prefix title match) beside the existing title anchor, never replacing or weakening it,
+    with a new honestly-labelled `MATCH_BASIS_CODE_WORD`.
+checks:
+  - command: '{python} -m pytest tests/mcp/tools/test_find_examples_code_anchor.py -q -rfE -p no:cacheprovider'
+    expect: 'exit 0'
+    timeout_seconds: 180
+    junitxml: true
+    proves:
+      - REQ-G3-011
+  - command: '{python} -m pytest tests/mcp/tools/test_find_examples_title_anchor.py tests/mcp/tools/test_forgiveness_acceptance.py tests/mcp/tools/test_round3_retrieval_corpus.py -q -rfE -p no:cacheprovider'
+    expect: 'exit 0'
+    timeout_seconds: 600
+    junitxml: true
+    proves:
+      - REQ-G3-011
+min_tests: 5
+requires:
+  - python
+network: false
+negative_control:
+  mutate: |
+    python -X utf8 -c "import pathlib; p = pathlib.Path('src/foss_mcp/mcp/tools/relevance.py'); s = p.read_text(encoding='utf-8'); old = 'return bool(code_matches)'; assert s.count(old) == 1, 'return bool(code_matches) literal not found as expected - if your real code reads differently (e.g. you renamed the local variable), anchor on your own real literal instead and note the substitution in your closeout'; p.write_text(s.replace(old, 'return False  # TC-635 negative control: code anchor never admits anything', 1), encoding='utf-8')"
+  rationale: >-
+    Disables the code-anchor mechanism's own admission contribution (forces it to always return
+    False) without touching the existing title anchor or the prefix mechanism. Any test proving a
+    code-anchor-only admission (one the title anchor and prefix mechanism would both refuse) must
+    fail under this mutation; every test of the existing title anchor or the prefix mechanism
+    alone is unaffected.
+evidence:
+  - evidence/build/G3/TC-635/receipt.json
+closeout:
+  - >-
+    `find_examples` now admits a real, previously-missed class of code-identifier-anchored and
+    prefix-title-anchored examples, honestly labelled, with the real before/after ratchet numbers
+    stated in your report.
+recovery: Re-run from a clean tree.
