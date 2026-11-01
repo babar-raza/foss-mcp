@@ -127,8 +127,8 @@ faq:
     answer: MIT License — free for commercial and open-source use. Include the `LICENSE.txt`
       file when distributing.
   - question: Which file formats are supported?
-    answer: '`.xlsx` for both load and save. `.csv` load is supported; `.csv` save
-      is not available in v0.1.'
+    answer: '`.xlsx` for both load and save. `.csv` is not supported for load or
+      save in v0.1.'
   - question: How do I install the library?
     answer: Clone the repository and use CMake `add_subdirectory` or `FetchContent`.
       Requires a `C++17` compiler and `CMake 3.15+`. No external dependencies.
