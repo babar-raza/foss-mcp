@@ -70,6 +70,20 @@ or ``"loose"`` for a vector match, depending on where its score sits relative to
 ``_VECTOR_CONFIDENT_FLOOR``, so a caller can tell a strong match from a borderline one without
 reading the raw ``coverage`` number against a hidden mental scale. ``confidence`` is ``""`` for an
 exact or lexical match - the concept is specific to the vector fallback's cosine-similarity scale.
+
+TC-635 (Q10, G3/REQ-G3-011) adds two more, strictly additive admission paths beside the existing
+title anchor for the lexical stage's per-document gate - never replacing or weakening it, and never
+touching the coverage floor itself: a CODE anchor (``relevance.code_anchored``), True when a query's
+identifier-shaped required term (``relevance.required_terms``) is present in the example's OWN CODE
+SNIPPET specifically, not merely somewhere in the chunk's surrounding prose; and a bounded PREFIX
+title match (``relevance.title_prefix_anchored``), True when a distinctive query term of at least
+``relevance.TITLE_PREFIX_MIN_TERM_LENGTH`` characters is a literal prefix of a title word at least
+``relevance.TITLE_PREFIX_MIN_EXTRA_LENGTH`` characters longer (``async`` anchors
+``asynchronously``, which stemming does not fold to the same root). A match admitted by the code
+anchor ALONE - neither the title anchor nor the prefix match would have admitted it - carries the
+new, honestly-labelled ``MATCH_BASIS_CODE_WORD``; a match the prefix mechanism admits is labelled
+exactly as ``title_anchored`` already labels any other title-anchored match (it is, semantically,
+one more way a title can anchor a query), so no new basis constant was needed for it.
 """
 
 from __future__ import annotations
@@ -88,13 +102,14 @@ from foss_mcp.indexing.gateway_embedding_provider import (
     GatewayEmbeddingProvider as _RealGatewayEmbeddingProvider,
 )
 from foss_mcp.indexing.generation_manifest import GenerationManifest, GenerationManifestStore
-from foss_mcp.indexing.lexical_index_writer import query_lexical_index_scored
+from foss_mcp.indexing.lexical_index_writer import query_lexical_index_scored, tokenize
 from foss_mcp.indexing.vector_index_writer import query_vector_index_scored
 from foss_mcp.mcp.routing import Scope
 from foss_mcp.mcp.tools.get_symbol import extract_fqn
 from foss_mcp.mcp.tools.relevance import (
     RELEVANCE_THRESHOLD,
     TITLE_ANCHOR_MAX_TERMS,
+    code_anchored,
     distinctive_terms,
     fold_query,
     guarded_coverage,
@@ -104,6 +119,7 @@ from foss_mcp.mcp.tools.relevance import (
     required_terms,
     term_weights,
     title_anchored,
+    title_prefix_anchored,
 )
 from foss_mcp.mcp.tools.search_symbols import SOURCE_KIND, scope_key
 from foss_mcp.mcp.tools.vector_guard import (
@@ -258,6 +274,12 @@ MATCH_BASIS_EXACT_TITLE = "exact_title"
 MATCH_BASIS_TITLE_WORD = "title_word_and_example_text"
 MATCH_BASIS_QUERY_TERMS = "query_terms_in_example_text"
 MATCH_BASIS_EMBEDDING = "embedding_similarity"
+# TC-635 (Q10, G3/REQ-G3-011): set ONLY when a match's admission rests on the code-identifier anchor
+# (``relevance.code_anchored``) and neither the title anchor (``relevance.title_anchored``) nor the
+# bounded prefix title match (``relevance.title_prefix_anchored``) would have admitted it on their
+# own - never when either of those two would already have admitted the same document, so this basis
+# never double-counts a match the existing title-anchor machinery already explains.
+MATCH_BASIS_CODE_WORD = "code_identifier_in_example_code"
 
 
 def is_verified_example_text(text: str) -> bool:
@@ -546,21 +568,38 @@ def find_examples(
     weights = term_weights(terms, lexical_payload)
     required = required_terms(query)
     bm25 = dict(query_lexical_index_scored(lexical_payload, query, top_k=len(documents)))
-    scored: list[tuple[float, float, str]] = []
+    # TC-635 (Q10, G3/REQ-G3-011): two more, strictly additive admission paths beside the existing
+    # title anchor - a code-identifier anchor and a bounded prefix title match - never replacing or
+    # weakening the title anchor itself, nor the coverage floor above. ``code_only`` records, per
+    # document, whether admission rests on the code anchor ALONE (title_anchored and
+    # title_prefix_anchored both False for that document): the one case ``MATCH_BASIS_CODE_WORD`` is
+    # ever assigned, so it never double-counts a match the existing title-anchor machinery already
+    # explains.
+    scored: list[tuple[float, float, str, bool]] = []
     for doc_id in example_doc_ids:
         doc_coverage = guarded_coverage(terms, documents[doc_id]["tokens"], required, weights)
-        title = (extract_fqn(documents[doc_id]["text"]) or "")[len(_EXAMPLE_FQN_PREFIX) :]
-        if doc_coverage >= RELEVANCE_THRESHOLD and title_anchored(query, scope.family, title):
-            scored.append((doc_coverage, bm25.get(doc_id, 0.0), doc_id))
+        text = documents[doc_id]["text"]
+        title = (extract_fqn(text) or "")[len(_EXAMPLE_FQN_PREFIX) :]
+        title_hit = title_anchored(query, scope.family, title)
+        prefix_hit = not title_hit and title_prefix_anchored(query, scope.family, title)
+        # ``required`` is checked FIRST so that a query with no identifier-shaped required term
+        # (``required_terms`` empty) never even calls ``code_anchored`` - not merely a trivially
+        # False result, but the call itself skipped, exactly like every query that reached this gate
+        # before this card.
+        code_only = bool(required) and not title_hit and not prefix_hit
+        if code_only:
+            code_only = code_anchored(required, tokenize(_extract_example(text) or ""))
+        if doc_coverage >= RELEVANCE_THRESHOLD and (title_hit or prefix_hit or code_only):
+            scored.append((doc_coverage, bm25.get(doc_id, 0.0), doc_id, code_only))
     # TC-565: an example whose run failed or produced nothing is served after every other one, and one
     # example held by several chunks is answered once, by its highest-scoring chunk.
     scored.sort(key=lambda item: (_runtime_rank(documents[item[2]]["text"]), -item[0], -item[1], item[2]))
-    hits: list[tuple[str, float]] = []
+    hits: list[tuple[str, float, bool]] = []
     seen_fqns: set[str] = set()
-    for doc_coverage, _score, doc_id in scored:
+    for doc_coverage, _score, doc_id, code_only in scored:
         if _same_example(seen_fqns, extract_fqn(documents[doc_id]["text"]) or ""):
             continue
-        hits.append((doc_id, doc_coverage))
+        hits.append((doc_id, doc_coverage, code_only))
         if len(hits) >= top_k:
             break
     if not hits:
@@ -580,7 +619,7 @@ def find_examples(
         else MATCH_BASIS_QUERY_TERMS
     )
     matches = []
-    for doc_id, doc_coverage in hits:
+    for doc_id, doc_coverage, code_only in hits:
         text = documents[doc_id]["text"]
         matches.append(
             ExampleMatch(
@@ -591,7 +630,7 @@ def find_examples(
                 coverage=doc_coverage,
                 source="lexical",
                 provenance=_provenance(text),
-                match_basis=lexical_basis,
+                match_basis=MATCH_BASIS_CODE_WORD if code_only else lexical_basis,
                 language=_PLATFORM_LANGUAGE.get(scope.platform, ""),
                 source_commit=_source_commit(text),
                 verification=_verification_note(text),

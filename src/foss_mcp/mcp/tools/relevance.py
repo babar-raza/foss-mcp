@@ -865,6 +865,78 @@ def title_anchored(query: str, family: str, title: str) -> bool:
     return bool(present_terms(terms, tokenize(title)))
 
 
+def code_anchored(required: frozenset[str], code_tokens: Iterable[str]) -> bool:
+    """TC-635 (Q10, G3/REQ-G3-011): whether an example's own CODE anchors *required* - the query's
+    identifier-shaped terms (``required_terms``), already computed by the caller before this check.
+
+    Additive beside ``title_anchored``: a query that names an exact identifier the example's code
+    uses (``Workbook``, ``WatermarkArtifact``) but whose TITLE happens not to repeat that word was,
+    before this card, rejected by ``title_anchored`` alone even though the code genuinely answers it.
+    *code_tokens* must be the EXAMPLE'S OWN CODE SNIPPET tokens specifically
+    (``find_examples._extract_example(text)`` tokenized), never the whole chunk's tokens - a required
+    term appearing only in surrounding prose, not the code itself, does not anchor here.
+
+    ``present_terms(frozenset(), ...)`` is trivially empty, so a query with no identifier-shaped
+    required term is always False here - zero behaviour change for every query that reaches this
+    check today without one.
+    """
+    code_matches = present_terms(required, code_tokens)
+    return bool(code_matches)
+
+
+# TC-635 (Q10, G3/REQ-G3-011): the shortest query term this mechanism will anchor on. Below this many
+# characters a prefix relationship is too likely to be an accident of English rather than a real
+# shared root ("set" is a prefix of "settings", "setup" and "sets" with no real connection to any of
+# them); measured against the real retrieval ratchet bundle (test_find_examples_title_anchor.py,
+# test_forgiveness_acceptance.py, test_round3_retrieval_corpus.py) - see this card's own worker
+# report for the real before/after numbers - 4 holds every pinned floor with real margin, so it is
+# kept at the plan's own suggested starting point rather than raised further.
+TITLE_PREFIX_MIN_TERM_LENGTH = 4
+
+# TC-635: the title word must be at least this many characters LONGER than the query term for the
+# prefix relationship to count - "async" (5) anchors "asynchronously" (14, +9) but not a title word
+# only one or two characters longer than the term itself, which is more often an unrelated plural or
+# near-miss ("workbook" anchoring "workbooks", +1) than a genuine derivational relationship; a
+# genuine case of that shape is already caught by ``title_anchored``'s own stemming, so this
+# mechanism does not need to reach for it. Measured together with the length above against the same
+# ratchet bundle.
+TITLE_PREFIX_MIN_EXTRA_LENGTH = 2
+
+
+def title_prefix_anchored(query: str, family: str, title: str) -> bool:
+    """TC-635 (Q10, G3/REQ-G3-011): whether *title* anchors *query* through a bounded literal PREFIX
+    relationship, additive beside ``title_anchored``'s own exact-stemmed/synonym check.
+
+    True when some distinctive term of *query* (``distinctive_terms``, the same term set
+    ``title_anchored`` itself scores against - the family word and the generic words never anchor
+    here either) is a literal, case-insensitive prefix of a word of *title* that is at least
+    ``TITLE_PREFIX_MIN_EXTRA_LENGTH`` characters longer, and the term itself is at least
+    ``TITLE_PREFIX_MIN_TERM_LENGTH`` characters long: "async" (5 characters) is a prefix of
+    "asynchronously" (14, +9) that stemming does not fold to the same root (``stem_token`` has no
+    rule for either word), so ``title_anchored`` alone would miss it; "set" (3 characters, below the
+    minimum) must not spuriously anchor "settings" off a 3-character accidental prefix. A query with
+    no distinctive term, or an empty title, is False.
+
+    Deliberately NOT bounded by ``TITLE_ANCHOR_MAX_TERMS``/``TITLE_ANCHOR_GRADUATED_MAX_TERMS``: a
+    query past the graduated ceiling already clears ``title_anchored`` unconditionally (the coverage
+    floor alone decides for it), so this function is only ever reached, in the real admission gate,
+    for a query still inside that ceiling - the same queries ``title_anchored`` itself judges.
+    """
+    terms = distinctive_terms(query, family)
+    if not terms:
+        return False
+    title_words = [word.lower() for word in tokenize(title)]
+    if not title_words:
+        return False
+    for term in terms:
+        if len(term) < TITLE_PREFIX_MIN_TERM_LENGTH:
+            continue
+        for word in title_words:
+            if word.startswith(term) and len(word) - len(term) >= TITLE_PREFIX_MIN_EXTRA_LENGTH:
+                return True
+    return False
+
+
 def required_terms(query: str) -> frozenset[str]:
     """The identifier-like words of *query*, as the stemmed tokens a chunk MUST contain.
 
