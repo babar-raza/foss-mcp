@@ -145,9 +145,16 @@ _FAQ_BODY_PREFIX = "FAQ:"
 _TROUBLESHOOTING_TITLE = re.compile(
     r"troubleshoot|known issue|limitation|unsupported|error|problem", re.IGNORECASE
 )
-_GETTING_STARTED_TITLE = re.compile(
-    r"install|quick ?start|getting started|prerequisite|setup|dependenc|requirement", re.IGNORECASE
-)
+#   G3/TC-640 (round-2 audit, workstream G, C2): the bare ``setup`` alternative used to match the
+#   substring "setup" anywhere in a title, which misfiled the real "Page Setup and Print
+#   Configuration" (a reference title about page layout, not onboarding) as getting_started.
+#   Measured against all 59 real distinct documentation titles in the baked corpus, outright
+#   removal would have zero regression there - but an existing synthetic title in
+#   ``test_doc_classification_by_title.py`` ("Environment Setup") already depends on the bare
+#   alternative and is not this card's to edit, so the fix narrows instead: ``setup`` only counts
+#   as onboarding when it is the title's own last word ("Environment Setup", "Quick Setup"), never
+#   when more title follows it ("Page Setup and Print Configuration").
+_GETTING_STARTED_TITLE = re.compile(r"install|quick ?start|getting started|prerequisite|\bsetup\s*$|dependenc|requirement", re.IGNORECASE)  # fmt: skip
 
 
 def _classify_by_title(text: str) -> str | None:
