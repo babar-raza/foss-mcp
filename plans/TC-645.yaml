@@ -1,0 +1,103 @@
+id: TC-645
+gate: G3
+lane: verification
+purpose: >-
+  KD7 (disclosure program data card, workstream J, family cells). Same pattern as TC-644 (KD6,
+  3d family, already integrated - read that card and its real committed YAML files first as your
+  own reference example of the exact shape/style expected). Writes real known-defect entries for
+  the 12 confirmed, high-confidence cells-family upstream-library-bug findings already committed
+  to this repository at `docs/round2/issues.json` (ids `CELLS-GO-001`, `CELLS-GO-011`,
+  `CELLS-JAVA-001`, `CELLS-NET-002`, `CELLS-PY-003`, `CELLS-PY-005`, `CELLS-RUST-011`,
+  `CELLS-TYPESCRIPT-003/004/005/008/011` - every one `category: "upstream-library-bug"`,
+  `confidence: "high"`). Read each entry's REAL text from that file yourself - every
+  `summary`/`user_action`/`evidence.repro` you write must be traceable back to that issue's own
+  real fields, never invented or paraphrased from memory.
+
+  EXPLICITLY OUT OF SCOPE, do not include: `CELLS-CPP-001` (category `"honesty"`, not
+  `"upstream-library-bug"` - a false FAQ claim this project's own content got wrong, not an
+  upstream bug to disclose; that is the content-truth program's job, a different card entirely -
+  do not write a known-defect entry for it).
+
+  Write six real registry files (one per pilot - confirm the real filename pattern yourself from
+  `known_defects.py`, same as TC-644 already confirmed: `config/known_defects/<family>__
+  <platform>.yaml`): `cells__go.yaml`, `cells__java.yaml`, `cells__net.yaml`, `cells__python.yaml`,
+  `cells__rust.yaml`, `cells__typescript.yaml`. One entry per issue id, never consolidated.
+  Same `subject`/`applies_to`/`status`/`evidence.verified_on` conventions TC-644 already
+  established - read its real, committed YAML files for the exact style to match, do not
+  reinvent the shape.
+depends_on:
+  - TC-644
+write_paths:
+  - config/known_defects/cells__go.yaml
+  - config/known_defects/cells__java.yaml
+  - config/known_defects/cells__net.yaml
+  - config/known_defects/cells__python.yaml
+  - config/known_defects/cells__rust.yaml
+  - config/known_defects/cells__typescript.yaml
+  - tests/indexing/test_known_defects_data_cells.py
+satisfies:
+  - REQ-G3-015
+source_refs:
+  - file: docs/DECISION_LOG.md
+    anchor: >-
+      ## 2026-10-30 — Round-2 portfolio audit remediation adopted: unified plan, governance decisions A-K
+      recorded (supervisor)
+    sha256: 62cf1403a592118e3fb6bd14c5336f8a997cc3181d44a585323ec9f1d385a931
+inputs:
+  - >-
+    READ FIRST: TC-644's own real, already-committed `config/known_defects/3d__*.yaml` files (your
+    reference example - match their exact shape/style) and its own
+    `tests/indexing/test_known_defects_data_3d.py` (your reference test pattern). Then
+    `docs/round2/issues.json`, filtered to the 12 real cells-family ids named above (every field
+    you write must trace back to this file's real content); `src/foss_mcp/indexing/known_defects.py`'s
+    loader; `schemas/product/known_defects.schema.json`; each pilot's own
+    `config/products/cells/<platform>.yaml` for repository context (the real package coordinate
+    itself comes from each issue's own repro/evidence text).
+  - >-
+    Write at least 8 tests in `tests/indexing/test_known_defects_data_cells.py` covering: all six
+    files parse as valid YAML and validate against the real schema
+    (`jsonschema.Draft202012Validator`); `known_defects.load_known_defects("cells", <platform>)`
+    returns exactly the real number of entries you wrote per pilot, no duplicate ids anywhere;
+    every entry's `id` is one of the 12 real issue ids named above, proven against the real
+    `docs/round2/issues.json` data directly in the test (not a hand-copied list); `CELLS-CPP-001`
+    appears in NEITHER this card's data NOR as a `cells/cpp` registry file (prove the exclusion is
+    deliberate, not an oversight); at least one REAL end-to-end test proving a real written defect
+    surfaces through `get_symbol` or `get_product_reference` for a real pilot scope.
+actions:
+  - >-
+    Write real, schema-conforming known-defect entries for all 12 confirmed cells-family
+    upstream-library-bug findings from the round-2 audit, traceable field-by-field back to the
+    audit's own already-committed evidence.
+checks:
+  - command: '{python} -m pytest tests/indexing/test_known_defects_data_cells.py -q -rfE -p no:cacheprovider'
+    expect: 'exit 0'
+    timeout_seconds: 180
+    junitxml: true
+    proves:
+      - REQ-G3-015
+  - command: '{python} -m pytest tests/indexing/test_known_defects.py tests/mcp/tools/test_known_defects_in_get_symbol.py tests/mcp/tools/test_known_defects_in_product_reference.py -q -rfE -p no:cacheprovider'
+    expect: 'exit 0'
+    timeout_seconds: 240
+    junitxml: true
+    proves:
+      - REQ-G3-015
+min_tests: 8
+requires:
+  - python
+network: false
+negative_control:
+  mutate: |
+    python -X utf8 -c "import pathlib; p = pathlib.Path('config/known_defects/cells__java.yaml'); assert p.exists(), 'config/known_defects/cells__java.yaml does not exist as expected - if your real filename pattern differs, anchor your own mutate on your own real file path instead and note the substitution in your closeout'; p.write_text('schema_version: 1' + chr(10) + 'pilot: cells_java' + chr(10) + 'defects: []' + chr(10), encoding='utf-8')"
+  rationale: >-
+    Empties the cells/java registry file back to zero defects, regardless of what you actually
+    wrote. Any test proving a real cells/java defect loads or surfaces must fail under this
+    mutation; tests scoped to the other five pilots' files are unaffected.
+evidence:
+  - evidence/build/G3/TC-645/receipt.json
+closeout:
+  - >-
+    All 12 confirmed cells-family upstream-library-bug findings from the round-2 audit are now
+    real, schema-conforming, loader-validated known-defect entries, with at least one proven to
+    surface end to end through a real MCP tool. CELLS-CPP-001 is confirmed excluded (content-
+    truth program's job, not disclosure).
+recovery: Re-run from a clean tree.
