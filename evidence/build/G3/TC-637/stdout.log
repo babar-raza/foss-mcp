@@ -1,0 +1,387 @@
+
+===== CLEAN RUN 1 (host) =====
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-5c72e798a73c059a\Scripts\python.exe -m pytest tests/mcp/tools/test_search_symbols_digit_words.py -q -rfE -p no:cacheprovider "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-ck_d9j6x\.junit-0.xml"
+--- stdout ---
+..............................                                           [100%]
+
+--- stderr ---
+
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-5c72e798a73c059a\Scripts\python.exe -m pytest tests/mcp/tools/test_search_symbols_memberless_last.py tests/mcp/tools/test_retrieval_tools.py tests/mcp/tools/test_symbol_tools.py -q -rfE -p no:cacheprovider "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-ck_d9j6x\.junit-1.xml"
+--- stdout ---
+...............................................................          [100%]
+
+--- stderr ---
+
+
+===== CLEAN RUN 2 (host) =====
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-5c72e798a73c059a\Scripts\python.exe -m pytest tests/mcp/tools/test_search_symbols_digit_words.py -q -rfE -p no:cacheprovider "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-ck_d9j6x\.junit-0.xml"
+--- stdout ---
+..............................                                           [100%]
+
+--- stderr ---
+
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-5c72e798a73c059a\Scripts\python.exe -m pytest tests/mcp/tools/test_search_symbols_memberless_last.py tests/mcp/tools/test_retrieval_tools.py tests/mcp/tools/test_symbol_tools.py -q -rfE -p no:cacheprovider "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-ck_d9j6x\.junit-1.xml"
+--- stdout ---
+...............................................................          [100%]
+
+--- stderr ---
+
+
+===== NEGATIVE CONTROL (checks MUST now fail) =====
+mutated: M src/foss_mcp/mcp/tools/search_symbols.py, ?? .junit-0.xml, ?? .junit-1.xml
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-5c72e798a73c059a\Scripts\python.exe -m pytest tests/mcp/tools/test_search_symbols_digit_words.py -q -rfE -p no:cacheprovider "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-ck_d9j6x\.junit-0.xml"
+--- stdout ---
+FFF.........FFF.FFFFF..F....FF                                           [100%]
+================================== FAILURES ===================================
+____ test_symbol_words_on_the_six_named_repro_cases[ITexture2D-expected0] _____
+
+name = 'ITexture2D', expected = ['i', 'texture', '2d']
+
+    @pytest.mark.parametrize(
+        ("name", "expected"),
+        [
+            # Broken before this card; must be fixed now.
+            ("ITexture2D", ["i", "texture", "2d"]),
+            ("A3DObject", ["a", "3d", "object"]),
+            ("Microsoft3MFFormat", ["microsoft", "3mf", "format"]),
+            # Already correct today; must not regress.
+            ("Code128EncodeMode", ["code128", "encode", "mode"]),
+            ("Ean13Options", ["ean13", "options"]),
+            ("PDF17_NS", ["pdf17", "ns"]),
+        ],
+    )
+    def test_symbol_words_on_the_six_named_repro_cases(name: str, expected: list[str]) -> None:
+>       assert _symbol_words(name) == expected
+E       AssertionError: assert ['i', 'texture2', 'd'] == ['i', 'texture', '2d']
+E         
+E         At index 1 diff: 'texture2' != 'texture'
+E         Use -v to get more diff
+
+tests\mcp\tools\test_search_symbols_digit_words.py:82: AssertionError
+_____ test_symbol_words_on_the_six_named_repro_cases[A3DObject-expected1] _____
+
+name = 'A3DObject', expected = ['a', '3d', 'object']
+
+    @pytest.mark.parametrize(
+        ("name", "expected"),
+        [
+            # Broken before this card; must be fixed now.
+            ("ITexture2D", ["i", "texture", "2d"]),
+            ("A3DObject", ["a", "3d", "object"]),
+            ("Microsoft3MFFormat", ["microsoft", "3mf", "format"]),
+            # Already correct today; must not regress.
+            ("Code128EncodeMode", ["code128", "encode", "mode"]),
+            ("Ean13Options", ["ean13", "options"]),
+            ("PDF17_NS", ["pdf17", "ns"]),
+        ],
+    )
+    def test_symbol_words_on_the_six_named_repro_cases(name: str, expected: list[str]) -> None:
+>       assert _symbol_words(name) == expected
+E       AssertionError: assert ['a3', 'd', 'object'] == ['a', '3d', 'object']
+E         
+E         At index 0 diff: 'a3' != 'a'
+E         Use -v to get more diff
+
+tests\mcp\tools\test_search_symbols_digit_words.py:82: AssertionError
+_ test_symbol_words_on_the_six_named_repro_cases[Microsoft3MFFormat-expected2] _
+
+name = 'Microsoft3MFFormat', expected = ['microsoft', '3mf', 'format']
+
+    @pytest.mark.parametrize(
+        ("name", "expected"),
+        [
+            # Broken before this card; must be fixed now.
+            ("ITexture2D", ["i", "texture", "2d"]),
+            ("A3DObject", ["a", "3d", "object"]),
+            ("Microsoft3MFFormat", ["microsoft", "3mf", "format"]),
+            # Already correct today; must not regress.
+            ("Code128EncodeMode", ["code128", "encode", "mode"]),
+            ("Ean13Options", ["ean13", "options"]),
+            ("PDF17_NS", ["pdf17", "ns"]),
+        ],
+    )
+    def test_symbol_words_on_the_six_named_repro_cases(name: str, expected: list[str]) -> None:
+>       assert _symbol_words(name) == expected
+E       AssertionError: assert ['microsoft3', 'mf', 'format'] == ['microsoft', '3mf', 'format']
+E         
+E         At index 0 diff: 'microsoft3' != 'microsoft'
+E         Use -v to get more diff
+
+tests\mcp\tools\test_search_symbols_digit_words.py:82: AssertionError
+_________ test_rejoin_digit_acronym_split_directly[words3-expected3] __________
+
+words = ['Texture2', 'D'], expected = ['Texture', '2D']
+
+    @pytest.mark.parametrize(
+        ("words", "expected"),
+        [
+            ([], []),
+            (["Options"], ["Options"]),  # no trailing digit anywhere: untouched
+            (["Code128", "Encode", "Mode"], ["Code128", "Encode", "Mode"]),  # real word follows: untouched
+            (["Texture2", "D"], ["Texture", "2D"]),  # bare trailing letter: always rejoins
+            (["Rotation3", "D"], ["Rotation", "3D"]),  # bare trailing letter at the very end: still rejoins
+            (["Microsoft3", "MF", "Format"], ["Microsoft", "3MF", "Format"]),  # mid-identifier acronym fragment
+            (["PDF17", "NS"], ["PDF17", "NS"]),  # same acronym shape, but it is the LAST word: untouched
+            (["3", "D", "Foo"], ["3D", "Foo"]),  # digit run is the whole first word: no empty word emitted
+        ],
+    )
+    def test_rejoin_digit_acronym_split_directly(words: list[str], expected: list[str]) -> None:
+>       assert _rejoin_digit_acronym_split(words) == expected
+E       AssertionError: assert ['Texture2', 'D'] == ['Texture', '2D']
+E         
+E         At index 0 diff: 'Texture2' != 'Texture'
+E         Use -v to get more diff
+
+tests\mcp\tools\test_search_symbols_digit_words.py:116: AssertionError
+_________ test_rejoin_digit_acronym_split_directly[words4-expected4] __________
+
+words = ['Rotation3', 'D'], expected = ['Rotation', '3D']
+
+    @pytest.mark.parametrize(
+        ("words", "expected"),
+        [
+            ([], []),
+            (["Options"], ["Options"]),  # no trailing digit anywhere: untouched
+            (["Code128", "Encode", "Mode"], ["Code128", "Encode", "Mode"]),  # real word follows: untouched
+            (["Texture2", "D"], ["Texture", "2D"]),  # bare trailing letter: always rejoins
+            (["Rotation3", "D"], ["Rotation", "3D"]),  # bare trailing letter at the very end: still rejoins
+            (["Microsoft3", "MF", "Format"], ["Microsoft", "3MF", "Format"]),  # mid-identifier acronym fragment
+            (["PDF17", "NS"], ["PDF17", "NS"]),  # same acronym shape, but it is the LAST word: untouched
+            (["3", "D", "Foo"], ["3D", "Foo"]),  # digit run is the whole first word: no empty word emitted
+        ],
+    )
+    def test_rejoin_digit_acronym_split_directly(words: list[str], expected: list[str]) -> None:
+>       assert _rejoin_digit_acronym_split(words) == expected
+E       AssertionError: assert ['Rotation3', 'D'] == ['Rotation', '3D']
+E         
+E         At index 0 diff: 'Rotation3' != 'Rotation'
+E         Use -v to get more diff
+
+tests\mcp\tools\test_search_symbols_digit_words.py:116: AssertionError
+_________ test_rejoin_digit_acronym_split_directly[words5-expected5] __________
+
+words = ['Microsoft3', 'MF', 'Format']
+expected = ['Microsoft', '3MF', 'Format']
+
+    @pytest.mark.parametrize(
+        ("words", "expected"),
+        [
+            ([], []),
+            (["Options"], ["Options"]),  # no trailing digit anywhere: untouched
+            (["Code128", "Encode", "Mode"], ["Code128", "Encode", "Mode"]),  # real word follows: untouched
+            (["Texture2", "D"], ["Texture", "2D"]),  # bare trailing letter: always rejoins
+            (["Rotation3", "D"], ["Rotation", "3D"]),  # bare trailing letter at the very end: still rejoins
+            (["Microsoft3", "MF", "Format"], ["Microsoft", "3MF", "Format"]),  # mid-identifier acronym fragment
+            (["PDF17", "NS"], ["PDF17", "NS"]),  # same acronym shape, but it is the LAST word: untouched
+            (["3", "D", "Foo"], ["3D", "Foo"]),  # digit run is the whole first word: no empty word emitted
+        ],
+    )
+    def test_rejoin_digit_acronym_split_directly(words: list[str], expected: list[str]) -> None:
+>       assert _rejoin_digit_acronym_split(words) == expected
+E       AssertionError: assert ['Microsoft3', 'MF', 'Format'] == ['Microsoft', '3MF', 'Format']
+E         
+E         At index 0 diff: 'Microsoft3' != 'Microsoft'
+E         Use -v to get more diff
+
+tests\mcp\tools\test_search_symbols_digit_words.py:116: AssertionError
+_________ test_rejoin_digit_acronym_split_directly[words7-expected7] __________
+
+words = ['3', 'D', 'Foo'], expected = ['3D', 'Foo']
+
+    @pytest.mark.parametrize(
+        ("words", "expected"),
+        [
+            ([], []),
+            (["Options"], ["Options"]),  # no trailing digit anywhere: untouched
+            (["Code128", "Encode", "Mode"], ["Code128", "Encode", "Mode"]),  # real word follows: untouched
+            (["Texture2", "D"], ["Texture", "2D"]),  # bare trailing letter: always rejoins
+            (["Rotation3", "D"], ["Rotation", "3D"]),  # bare trailing letter at the very end: still rejoins
+            (["Microsoft3", "MF", "Format"], ["Microsoft", "3MF", "Format"]),  # mid-identifier acronym fragment
+            (["PDF17", "NS"], ["PDF17", "NS"]),  # same acronym shape, but it is the LAST word: untouched
+            (["3", "D", "Foo"], ["3D", "Foo"]),  # digit run is the whole first word: no empty word emitted
+        ],
+    )
+    def test_rejoin_digit_acronym_split_directly(words: list[str], expected: list[str]) -> None:
+>       assert _rejoin_digit_acronym_split(words) == expected
+E       AssertionError: assert ['3', 'D', 'Foo'] == ['3D', 'Foo']
+E         
+E         At index 0 diff: '3' != '3D'
+E         Left contains one more item: 'Foo'
+E         Use -v to get more diff
+
+tests\mcp\tools\test_search_symbols_digit_words.py:116: AssertionError
+_ test_match_tier_now_finds_the_bare_unit_or_acronym[2d-Aspose.ThreeD.ITexture2D] _
+
+query = '2d', fqn = 'Aspose.ThreeD.ITexture2D'
+
+    @pytest.mark.parametrize(
+        ("query", "fqn"),
+        [
+            ("2d", "Aspose.ThreeD.ITexture2D"),
+            ("3d", "Aspose.ThreeD.A3DObject"),
+            ("3mf", "Aspose.ThreeD.Microsoft3MFFormat"),
+            ("texture 2d", "Aspose.ThreeD.ITexture2D"),
+        ],
+    )
+    def test_match_tier_now_finds_the_bare_unit_or_acronym(query: str, fqn: str) -> None:
+>       assert _match_tier(query, fqn) == 2
+E       AssertionError: assert None == 2
+E        +  where None = _match_tier('2d', 'Aspose.ThreeD.ITexture2D')
+
+tests\mcp\tools\test_search_symbols_digit_words.py:132: AssertionError
+_ test_match_tier_now_finds_the_bare_unit_or_acronym[3d-Aspose.ThreeD.A3DObject] _
+
+query = '3d', fqn = 'Aspose.ThreeD.A3DObject'
+
+    @pytest.mark.parametrize(
+        ("query", "fqn"),
+        [
+            ("2d", "Aspose.ThreeD.ITexture2D"),
+            ("3d", "Aspose.ThreeD.A3DObject"),
+            ("3mf", "Aspose.ThreeD.Microsoft3MFFormat"),
+            ("texture 2d", "Aspose.ThreeD.ITexture2D"),
+        ],
+    )
+    def test_match_tier_now_finds_the_bare_unit_or_acronym(query: str, fqn: str) -> None:
+>       assert _match_tier(query, fqn) == 2
+E       AssertionError: assert None == 2
+E        +  where None = _match_tier('3d', 'Aspose.ThreeD.A3DObject')
+
+tests\mcp\tools\test_search_symbols_digit_words.py:132: AssertionError
+_ test_match_tier_now_finds_the_bare_unit_or_acronym[3mf-Aspose.ThreeD.Microsoft3MFFormat] _
+
+query = '3mf', fqn = 'Aspose.ThreeD.Microsoft3MFFormat'
+
+    @pytest.mark.parametrize(
+        ("query", "fqn"),
+        [
+            ("2d", "Aspose.ThreeD.ITexture2D"),
+            ("3d", "Aspose.ThreeD.A3DObject"),
+            ("3mf", "Aspose.ThreeD.Microsoft3MFFormat"),
+            ("texture 2d", "Aspose.ThreeD.ITexture2D"),
+        ],
+    )
+    def test_match_tier_now_finds_the_bare_unit_or_acronym(query: str, fqn: str) -> None:
+>       assert _match_tier(query, fqn) == 2
+E       AssertionError: assert None == 2
+E        +  where None = _match_tier('3mf', 'Aspose.ThreeD.Microsoft3MFFormat')
+
+tests\mcp\tools\test_search_symbols_digit_words.py:132: AssertionError
+_ test_match_tier_now_finds_the_bare_unit_or_acronym[texture 2d-Aspose.ThreeD.ITexture2D] _
+
+query = 'texture 2d', fqn = 'Aspose.ThreeD.ITexture2D'
+
+    @pytest.mark.parametrize(
+        ("query", "fqn"),
+        [
+            ("2d", "Aspose.ThreeD.ITexture2D"),
+            ("3d", "Aspose.ThreeD.A3DObject"),
+            ("3mf", "Aspose.ThreeD.Microsoft3MFFormat"),
+            ("texture 2d", "Aspose.ThreeD.ITexture2D"),
+        ],
+    )
+    def test_match_tier_now_finds_the_bare_unit_or_acronym(query: str, fqn: str) -> None:
+>       assert _match_tier(query, fqn) == 2
+E       AssertionError: assert None == 2
+E        +  where None = _match_tier('texture 2d', 'Aspose.ThreeD.ITexture2D')
+
+tests\mcp\tools\test_search_symbols_digit_words.py:132: AssertionError
+_ test_search_symbols_now_finds_a_real_pilot_symbol_by_its_unit_suffix_alone __
+
+    def test_search_symbols_now_finds_a_real_pilot_symbol_by_its_unit_suffix_alone() -> None:
+        store = _InMemoryStore(
+            _chunk("Aspose.ThreeD.ITexture2D"),
+            _chunk(
+                "Aspose.ThreeD.Unrelated",
+                filler="A long filler sentence unrelated to any texture or dimensionality at all.",
+            ),
+        )
+    
+>       assert _fqns(search_symbols(store, SCOPE, "2d")) == ["Aspose.ThreeD.ITexture2D"]  # type: ignore[arg-type]
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests\mcp\tools\test_search_symbols_digit_words.py:199: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+result = Miss(scope=Scope(family='pkg', platform='python', source_kind='self_extracted'), query='2d', reason="no symbol matches '2d'", suggestions=(), coverage_note=None)
+
+    def _fqns(result: list[SymbolMatch] | Miss) -> list[str]:
+>       assert not isinstance(result, Miss), result
+E       AssertionError: Miss(scope=Scope(family='pkg', platform='python', source_kind='self_extracted'), query='2d', reason="no symbol matches '2d'", suggestions=(), coverage_note=None)
+E       assert not True
+E        +  where True = isinstance(Miss(scope=Scope(family='pkg', platform='python', source_kind='self_extracted'), query='2d', reason="no symbol matches '2d'", suggestions=(), coverage_note=None), Miss)
+
+tests\mcp\tools\test_search_symbols_digit_words.py:186: AssertionError
+_ test_the_fix_only_changes_a_real_over_split_shape_across_the_whole_real_corpus _
+
+    def test_the_fix_only_changes_a_real_over_split_shape_across_the_whole_real_corpus() -> None:
+        """Re-measures this card's own claim directly against the committed corpus, rather than trusting a
+        fixed number written down once: every real digit-containing final-segment name that changes between
+        the pre-fix and the fixed splitter changes because of exactly the over-split shape this card
+        describes (a digit-ending word immediately followed by a bare single letter or a short, mid-identifier
+        uppercase acronym fragment) - never anything else - and the fix changes a real, non-trivial number of
+        them (never a vacuous no-op)."""
+        changed: list[str] = []
+        for name in _real_digit_containing_names():
+            before = _pre_fix_symbol_words(name)
+            after = _symbol_words(name)
+            if before == after:
+                continue
+            changed.append(name)
+            # Every change must be explained by the exact over-split shape: SOME adjacent pair in the pre-fix
+            # words is a digit-ending word immediately followed by a bare letter or short all-caps fragment.
+            assert any(
+                before[index]
+                and before[index][-1].isdigit()
+                and _looks_like_a_stranded_acronym_fragment(before[index + 1])
+                for index in range(len(before) - 1)
+            ), f"{name}: {before} -> {after} changed for a reason other than the over-split shape"
+        # Measured 30 on main d7b594fd's committed demo manifests; a loose floor guards against a vacuous pass.
+>       assert len(changed) >= 20
+E       assert 0 >= 20
+E        +  where 0 = len([])
+
+tests\mcp\tools\test_search_symbols_digit_words.py:303: AssertionError
+_______ test_no_real_corpus_name_still_has_the_bug_shape_after_the_fix ________
+
+    def test_no_real_corpus_name_still_has_the_bug_shape_after_the_fix() -> None:
+        """The structural invariant the fix exists to establish: after ``_symbol_words``, no digit-ending word
+        is ever immediately followed by a bare single-letter word, for any real name in the whole corpus."""
+        offenders: list[str] = []
+        for name in _real_digit_containing_names():
+            words = _symbol_words(name)
+            for index in range(len(words) - 1):
+                if words[index] and words[index][-1].isdigit() and len(words[index + 1]) == 1:
+                    offenders.append(f"{name}: {words}")
+                    break
+>       assert offenders == []
+E       assert ["A3DObject: ...', 'd']", ...] == []
+E         
+E         Left contains 24 more items, first extra item: "A3DObject: ['a3', 'd', 'object']"
+E         Use -v to get more diff
+
+tests\mcp\tools\test_search_symbols_digit_words.py:324: AssertionError
+=========================== short test summary info ===========================
+FAILED tests/mcp/tools/test_search_symbols_digit_words.py::test_symbol_words_on_the_six_named_repro_cases[ITexture2D-expected0]
+FAILED tests/mcp/tools/test_search_symbols_digit_words.py::test_symbol_words_on_the_six_named_repro_cases[A3DObject-expected1]
+FAILED tests/mcp/tools/test_search_symbols_digit_words.py::test_symbol_words_on_the_six_named_repro_cases[Microsoft3MFFormat-expected2]
+FAILED tests/mcp/tools/test_search_symbols_digit_words.py::test_rejoin_digit_acronym_split_directly[words3-expected3]
+FAILED tests/mcp/tools/test_search_symbols_digit_words.py::test_rejoin_digit_acronym_split_directly[words4-expected4]
+FAILED tests/mcp/tools/test_search_symbols_digit_words.py::test_rejoin_digit_acronym_split_directly[words5-expected5]
+FAILED tests/mcp/tools/test_search_symbols_digit_words.py::test_rejoin_digit_acronym_split_directly[words7-expected7]
+FAILED tests/mcp/tools/test_search_symbols_digit_words.py::test_match_tier_now_finds_the_bare_unit_or_acronym[2d-Aspose.ThreeD.ITexture2D]
+FAILED tests/mcp/tools/test_search_symbols_digit_words.py::test_match_tier_now_finds_the_bare_unit_or_acronym[3d-Aspose.ThreeD.A3DObject]
+FAILED tests/mcp/tools/test_search_symbols_digit_words.py::test_match_tier_now_finds_the_bare_unit_or_acronym[3mf-Aspose.ThreeD.Microsoft3MFFormat]
+FAILED tests/mcp/tools/test_search_symbols_digit_words.py::test_match_tier_now_finds_the_bare_unit_or_acronym[texture 2d-Aspose.ThreeD.ITexture2D]
+FAILED tests/mcp/tools/test_search_symbols_digit_words.py::test_search_symbols_now_finds_a_real_pilot_symbol_by_its_unit_suffix_alone
+FAILED tests/mcp/tools/test_search_symbols_digit_words.py::test_the_fix_only_changes_a_real_over_split_shape_across_the_whole_real_corpus
+FAILED tests/mcp/tools/test_search_symbols_digit_words.py::test_no_real_corpus_name_still_has_the_bug_shape_after_the_fix
+
+--- stderr ---
+
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-5c72e798a73c059a\Scripts\python.exe -m pytest tests/mcp/tools/test_search_symbols_memberless_last.py tests/mcp/tools/test_retrieval_tools.py tests/mcp/tools/test_symbol_tools.py -q -rfE -p no:cacheprovider "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-ck_d9j6x\.junit-1.xml"
+--- stdout ---
+...............................................................          [100%]
+
+--- stderr ---
+
