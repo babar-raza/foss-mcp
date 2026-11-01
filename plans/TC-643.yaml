@@ -1,0 +1,102 @@
+id: TC-643
+gate: G3
+lane: storage-retrieval
+purpose: >-
+  KD5 (disclosure program, workstream J - closes the KD-wiring half of this program: KD1-KD4 are
+  done, this is the last tool to wire). `report_index_freshness` is the one surface that already
+  models "the real, currently-served truth" (registry-served version comparisons, TC-621/TC-629;
+  git-ancestry drift, TC-560) - the right place for the version-staleness-aware disclosure
+  `known_defects.defect_is_stale` (TC-636) was built for but never called by anything yet.
+
+  Mechanism: add disclosure to `FreshnessReport` for this pilot's `config/known_defects` entries:
+  - A COMMIT-scoped defect (`subject.kind in {"method","class"}` with `applies_to.indexed_commit`
+    set, OR a `package`/`commit`-scoped defect with `applies_to.indexed_commit` set) applies when
+    that commit equals `FreshnessReport`'s own `indexed_source_commit` (an exact match, read the
+    real field - confirm its real current value/meaning yourself, do not assume from this card).
+  - A PACKAGE-VERSION-scoped defect (`applies_to.package_versions`, no `indexed_commit`) is where
+    `defect_is_stale(defect, served_version)` (already built, already tested, never called by
+    production code until this card - confirm this yourself, e.g. grep for its real callers before
+    you start) finally gets its first real caller: compare the defect's own
+    `evidence.verified_on.version` against whatever this report already treats as "the real,
+    currently-served version" (investigate `published_version`/the registry-served-version
+    concept TC-621/TC-629 already built into this file - identify the real field yourself, do not
+    guess its name). When `defect_is_stale` is True, the disclosure text must use the Decision C
+    downgrade wording ("last verified broken on X; not re-verified on Y" - DECISION_LOG.md's
+    2026-10-30 entry, decision C) instead of a flat assertion; when no comparison version is
+    available at all (most pilots, today), show the defect's assertion as-is, exactly like KD2/
+    KD3/KD4 already do when they have no staleness concept available to them either.
+  Add a new field to `FreshnessReport` (your own name, e.g. `known_defects: tuple[str, ...] = ()`,
+  additive, same style as its existing `warnings` field) carrying the rendered disclosure lines.
+depends_on:
+  - TC-629
+  - TC-636
+write_paths:
+  - src/foss_mcp/mcp/tools/report_index_freshness.py
+  - tests/mcp/tools/test_known_defects_in_freshness.py
+satisfies:
+  - REQ-G3-015
+source_refs:
+  - file: docs/DECISION_LOG.md
+    anchor: >-
+      ## 2026-10-30 — Round-2 portfolio audit remediation adopted: unified plan, governance decisions A-K
+      recorded (supervisor)
+    sha256: 62cf1403a592118e3fb6bd14c5336f8a997cc3181d44a585323ec9f1d385a931
+inputs:
+  - >-
+    READ FIRST: `src/foss_mcp/indexing/known_defects.py`'s `defect_is_stale` and its own docstring
+    in full (it documents the Decision C downgrade wording this card requires). Then
+    `report_index_freshness.py`'s `FreshnessReport` dataclass and `report_index_freshness`
+    function in full - confirm the real, current field names for "the indexed commit" and "the
+    real served/registry version this report already compares against" yourself (this card
+    deliberately does not name them, to force you to read the real code rather than trust a
+    possibly-stale description). Then `get_symbol.known_defect_lines` and
+    `search_symbols.known_defect_lines` (TC-639/TC-642's own versions of this exact pattern - a
+    third, independent reimplementation here is expected and correct, same reasoning they already
+    documented about circular imports, not a mistake to avoid).
+  - >-
+    Write at least 8 tests in `tests/mcp/tools/test_known_defects_in_freshness.py` covering: a
+    commit-scoped defect surfaces when the indexed commit matches, does not when it differs; a
+    package-version-scoped defect surfaces with the PLAIN assertion wording when the real served
+    version is not stale relative to it (or unavailable); the SAME defect surfaces with the
+    Decision C DOWNGRADE wording when `defect_is_stale` is True for the real served version; a
+    pilot with no registry file is byte-identical to before this card (every existing
+    `report_index_freshness` test must keep passing, prove it); a defect matching neither
+    condition never surfaces.
+actions:
+  - >-
+    Wire the known-defects registry into report_index_freshness, giving defect_is_stale its first
+    real production caller and completing KD1-KD5's tool-wiring half of the disclosure program.
+checks:
+  - command: '{python} -m pytest tests/mcp/tools/test_known_defects_in_freshness.py -q -rfE -p no:cacheprovider'
+    expect: 'exit 0'
+    timeout_seconds: 180
+    junitxml: true
+    proves:
+      - REQ-G3-015
+  - command: '{python} -m pytest tests/mcp/tools/test_freshness_registry_version.py tests/mcp/tools/test_freshness_provenance.py tests/mcp/tools/test_freshness_tristate.py -q -rfE -p no:cacheprovider'
+    expect: 'exit 0'
+    timeout_seconds: 240
+    junitxml: true
+    proves:
+      - REQ-G3-015
+min_tests: 8
+requires:
+  - python
+network: false
+negative_control:
+  mutate: |
+    python -X utf8 -c "import pathlib; p = pathlib.Path('src/foss_mcp/mcp/tools/report_index_freshness.py'); s = p.read_text(encoding='utf-8'); old = 'load_known_defects('; assert s.count(old) == 1, 'load_known_defects( literal not found as expected (exactly once) - if your real code calls it a different number of times or with a different name, anchor your own mutate on your own real literal instead and note the substitution in your closeout'; i = s.index(old); p.write_text(s[:i] + '(lambda *a, **k: [])(' + s[i+len(old):], encoding='utf-8')"
+  rationale: >-
+    Replaces the registry lookup with a call that always returns an empty list, so no
+    known_defects entry (plain or downgraded) ever surfaces regardless of real fixture data. Any
+    test proving a real matching defect surfaces, in either wording, must fail under this
+    mutation; tests of the pre-existing freshness behaviour (no defect data) are unaffected.
+evidence:
+  - evidence/build/G3/TC-643/receipt.json
+closeout:
+  - >-
+    report_index_freshness now surfaces a real, correctly-worded known-defect disclosure
+    (plain assertion or Decision C downgrade, depending on real measured staleness), completing
+    KD1-KD5's tool-wiring. State which real field names you used for "indexed commit" and "served
+    version" and why.
+recovery: Re-run from a clean tree.
