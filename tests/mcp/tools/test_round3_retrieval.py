@@ -518,9 +518,32 @@ def test_a_typo_still_gives_did_you_mean(corpus: Corpus) -> None:
 
 
 def test_dotted_and_partial_names_stay_honest_misses(corpus: Corpus) -> None:
+    # TC-654 (G3/REQ-G3-011): "Workboo" moved to test_a_workboo_prefix_now_finds_workbook below -
+    # it is a genuine >= 3 char prefix of the real "Workbook" (and every other real "Workbook*"
+    # type), so it is now a tier-4 hit, verified directly against this real fixture rather than
+    # assumed. "Workbook.NoSuchMember" (a real type, but no such member or prefix of one - the
+    # dotted member name is checked for exact equality only, no prefix tier there) and
+    # "Cells::Merg" (verified directly: no real cells/net FQN word is adjacent to "cells" in a
+    # window that "merg" could prefix-explain) both still have a word that explains nothing,
+    # whole or prefix, so the "every query word must be explained" discipline still rejects both
+    # exactly as before.
     scope = _scope("cells__net")
-    for query in ("Workbook.NoSuchMember", "Workboo", "Cells::Merg"):
+    for query in ("Workbook.NoSuchMember", "Cells::Merg"):
         assert isinstance(search_symbols(corpus.store, scope, query), Miss), query
+
+
+def test_a_workboo_prefix_now_finds_workbook(corpus: Corpus) -> None:
+    # TC-654 (G3/REQ-G3-011): Q12's deliberate, reviewed OVERTURNING of the previous "no prefix
+    # tier" design for this exact probe - a RAISED floor, recall went up, nothing that worked
+    # before stopped working. "Workboo" is a genuine >= 3 char prefix of the real word
+    # "Workbook", shared by every real "Workbook*" type on this pilot - admitted as a tier-4 hit,
+    # MATCH_PARTIAL, never MATCH_EXACT, with BM25 sorting among the tied siblings as usual.
+    scope = _scope("cells__net")
+    result = search_symbols(corpus.store, scope, "Workboo")
+
+    assert isinstance(result, list)
+    assert any(_short(match.text) == "Workbook" for match in result)
+    assert all(getattr(match, "match_quality", "") == "partial" for match in result)
 
 
 def test_an_invented_sentence_is_an_honest_miss_on_every_pilot(corpus: Corpus) -> None:

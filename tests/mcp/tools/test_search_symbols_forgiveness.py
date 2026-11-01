@@ -3,8 +3,12 @@
 Review finding RST-14: on pdf/go ``search_symbols("SetPassword")`` ranked ``Document``, the type that
 declares the useful method, behind six field types that merely INHERIT ``SetPassword(v: bool)`` from
 ``TextBoxField``; and "Workbook methods" found nothing on cells/net although the type exists. The fallback is
-gated (the query must contain whitespace) and adds no prefix tier: ``tests/mcp/test_search_symbols_honest_miss.py``
-(unchanged) pins "AFRelation" and "Watermar" as honest misses. Offline: real pilots are COPIED to a temporary
+gated (the query must contain whitespace) and adds no prefix tier of its own. At the time this paragraph was
+written, ``tests/mcp/test_search_symbols_honest_miss.py`` pinned "AFRelation" and "Watermar" as honest misses
+for that reason; TC-654 (G3/REQ-G3-011) later added a real prefix tier to ``_match_tier`` itself (a separate,
+class-level mechanism from this file's own member-declaration/fallback stages) - see
+``test_an_afrelation_prefix_is_now_found_at_the_new_weakest_tier`` below and that card's own paragraph in
+``search_symbols.py``'s module docstring for the current rule. Offline: real pilots are COPIED to a temporary
 directory, synthetic generations are built in memory.
 """
 
@@ -20,7 +24,7 @@ from foss_mcp.indexing.generation_manifest import GenerationManifestStore
 from foss_mcp.indexing.lexical_index_writer import build_lexical_index
 from foss_mcp.mcp.routing import Scope
 from foss_mcp.mcp.tools.get_symbol import extract_fqn
-from foss_mcp.mcp.tools.search_symbols import Miss, SymbolMatch, search_symbols
+from foss_mcp.mcp.tools.search_symbols import MATCH_PARTIAL, Miss, SymbolMatch, search_symbols
 
 REPO_ROOT = Path(__file__).resolve().parents[3]
 DEMO_MANIFESTS = REPO_ROOT / "infra" / "demo-manifests"
@@ -153,15 +157,45 @@ def test_dotted_unknown_member_stays_a_miss() -> None:
 
 
 def test_partial_words_stay_misses() -> None:
+    # TC-654 (G3/REQ-G3-011): "AFRelation" is now a genuine tier-4 (prefix) hit - it was moved to
+    # test_an_afrelation_prefix_is_now_found_at_the_new_weakest_tier below, which checks the real
+    # behavior (match_quality, not just "not a Miss") directly, rather than by assumption. The other
+    # three stay honest misses, VERIFIED directly against this real fixture, not assumed from the
+    # single-word case: "Watermar" has no class-level FQN word to be a prefix OF here - unlike
+    # test_search_symbols_honest_miss.py's own store, "AddWatermarkAnnotation" here is rendered as
+    # a MEMBER of ``Pdf.PdfDocument`` (inside its Methods: block), never the type's own FQN, and
+    # `_match_tier` is class-level evidence only (member-name matching, `_member_declaration`,
+    # still requires an EXACT member name - no prefix tier was added there, out of this card's
+    # scope); "Watermar annotation" and "AFRelation type" each still have one word ("annotation",
+    # "type") that explains nothing, whole or prefix, so the "every query word must be explained"
+    # discipline still rejects both exactly as before.
     store = _InMemoryStore(
         _type_chunk("Aspose.Pdf.AFRelationship"),
         _type_chunk("Pdf.PdfDocument", "AddWatermarkAnnotation()"),
     )
 
-    for query in ("Watermar", "AFRelation", "Watermar annotation", "AFRelation type"):
+    for query in ("Watermar", "Watermar annotation", "AFRelation type"):
         result = _search(store, query)
         assert isinstance(result, Miss), (query, result)
         assert result.reason == f"no symbol matches {query!r}"
+
+
+def test_an_afrelation_prefix_is_now_found_at_the_new_weakest_tier() -> None:
+    # TC-654 (G3/REQ-G3-011): Q12's deliberate, reviewed OVERTURNING of the previous "no prefix
+    # tier" design for this exact probe - a RAISED floor, recall went up, nothing that worked
+    # before stopped working. "AFRelation" is "af" (a real whole word of
+    # ``Aspose.Pdf.AFRelationship``) plus "relation" - not itself a whole word, but a genuine
+    # >= 3 char prefix of the real word "relationship" - so every word of the query is now
+    # explained (whole or prefix) and this is a tier-4 hit, MATCH_PARTIAL, never MATCH_EXACT.
+    store = _InMemoryStore(
+        _type_chunk("Aspose.Pdf.AFRelationship"),
+        _type_chunk("Pdf.PdfDocument", "AddWatermarkAnnotation()"),
+    )
+
+    result = _search(store, "AFRelation")
+
+    assert _names(result) == ["AFRelationship"]
+    assert all(match.match_quality == MATCH_PARTIAL for match in result)  # type: ignore[union-attr]
 
 
 def test_the_fallback_only_runs_for_queries_with_whitespace() -> None:

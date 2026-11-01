@@ -286,12 +286,15 @@ def test_search_symbols_miss_suggests_a_real_close_fqn_from_this_same_generation
 
     ``Annotation`` is a real class confirmed present in the committed pdf/net fixture
     (``Aspose.Pdf.Annotations.Annotation``, see ``tests/fixtures/pdf_net/api_surface.json``).
-    ``Annotatio`` (a single dropped trailing character) shares zero BM25 tokens with the
-    published chunk's own prose - confirmed directly against ``tokenize`` before writing this
-    test - so this is a genuine lexical Miss, not an accidental real hit. The suggestion itself
-    comes only from ``difflib.get_close_matches`` against the real FQN this exact generation
-    published - never a fabricated or stale one - and the Miss verdict/reason stay completely
-    unchanged.
+    ``Annotatiom`` (TC-654, G3/REQ-G3-011: a same-length, last-character SUBSTITUTION, never a
+    dropped trailing character - a genuine >= 3 char prefix of "Annotation" is now a real tier-4
+    hit, not a Miss, so a truncation can no longer be used to demo this "did you mean" hint; a
+    substitution of the same length is never a prefix of the real word, same length, one
+    character wrong) shares zero BM25 tokens with the published chunk's own prose - confirmed
+    directly against ``tokenize`` before writing this test - so this is a genuine lexical Miss,
+    not an accidental real hit. The suggestion itself comes only from
+    ``difflib.get_close_matches`` against the real FQN this exact generation published - never a
+    fabricated or stale one - and the Miss verdict/reason stay completely unchanged.
     """
     store = _store(tmp_path)
     real_symbol_body = """## Annotation
@@ -310,11 +313,11 @@ Serves as the abstract base for every markup element placed on a PDF page.
     )
     _publish(store, PDF_NET_SCOPE, "self_extracted", chunk_document(real_doc))
 
-    result = search_symbols(store, PDF_NET_SCOPE, "Annotatio")
+    result = search_symbols(store, PDF_NET_SCOPE, "Annotatiom")
 
     assert isinstance(result, SymbolsMiss)
     assert result.scope == PDF_NET_SCOPE
-    assert result.reason == "no symbol matches 'Annotatio'"
+    assert result.reason == "no symbol matches 'Annotatiom'"
     assert result.suggestions == ("Annotation",)
 
     # A genuinely unrelated query (no real close match) stays empty - never fabricated.
@@ -336,6 +339,13 @@ def test_search_symbols_miss_suggestions_never_include_a_pseudo_symbol_fqn(tmp_p
     chunks are excluded from it exactly as they already are from a real match (see this
     module's own docstring), so a typo'd query is never pointed at a pseudo-symbol as if it
     were a real "did you mean" answer.
+
+    TC-654 (G3/REQ-G3-011): the query is ``"Annotatiom"`` (a same-length, last-character
+    SUBSTITUTION of "Annotation"), not a dropped trailing character - a genuine prefix is now a
+    real tier-4 hit, which this test's own Miss setup must not accidentally become; see
+    ``test_search_symbols_miss_suggests_a_real_close_fqn_from_this_same_generation`` above for
+    the same fix. The pseudo-symbol's own title/FQN below is changed to match, so it is still a
+    "close enough to be suggested if it counted" pseudo-symbol, still correctly excluded.
     """
     store = _store(tmp_path)
     real_symbol_body = """## Annotation
@@ -345,8 +355,8 @@ Kind: Class
 Serves as the abstract base for every markup element placed on a PDF page.
 """
     pseudo_symbol_body = (
-        "# Example: Annotatio\n\n"
-        "FQN: Example: Annotatio\n"
+        "# Example: Annotatiom\n\n"
+        "FQN: Example: Annotatiom\n"
         "Kind: verified_example\n"
         "A pseudo-symbol chunk that must never be suggested as a real FQN.\n\n"
         "Example:\nannotation.DoSomething()"
@@ -364,17 +374,17 @@ Serves as the abstract base for every markup element placed on a PDF page.
         content_type="example",
         provenance=Provenance(repository="Aspose/Aspose.PDF-for-.NET", commit="z"),
         evidence_refs=(),
-        title="Annotatio",
+        title="Annotatiom",
         body=pseudo_symbol_body,
     )
     chunks = chunk_document(real_doc) + chunk_document(pseudo_doc)
     _publish(store, PDF_NET_SCOPE, "self_extracted", chunks)
 
-    result = search_symbols(store, PDF_NET_SCOPE, "Annotatio")
+    result = search_symbols(store, PDF_NET_SCOPE, "Annotatiom")
 
     assert isinstance(result, SymbolsMiss)
     assert result.suggestions == ("Annotation",)
-    assert "Example: Annotatio" not in result.suggestions
+    assert "Example: Annotatiom" not in result.suggestions
 
 
 def test_get_symbol_not_found_suggests_a_real_close_fqn_from_this_same_generation(tmp_path: Path) -> None:
