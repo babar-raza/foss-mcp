@@ -1,0 +1,114 @@
+{
+  "schema_version": 1,
+  "card": "TC-655",
+  "gate": "G3",
+  "generated_by": "gatectl",
+  "generated_at": "2026-11-01T11:15:29Z",
+  "base_rev": "335c84b428c1ef51dc49d144a19cad688227418c",
+  "head_rev": "97e7192d9df3dfa5c0f22c87821e66a01afa1bc7",
+  "card_sha256": "13299a27b6085dfd7c6808c9df43921390d3e0efb7c4653922ff44d1044fbbbc",
+  "fingerprint": {
+    "python": "3.13.2",
+    "platform": "Windows-11-10.0.26300-SP0",
+    "lock_sha256": "5c72e798a73c059a438e752e94a8d4c88c1bdf81a197f6e5c5fcecbc9466a691",
+    "env": {
+      "PYTHONHASHSEED": "0",
+      "PYTHONUTF8": "1",
+      "PYTHONDONTWRITEBYTECODE": "1",
+      "PYTHONIOENCODING": "utf-8",
+      "TZ": "UTC",
+      "LC_ALL": "C.UTF-8",
+      "SOURCE_DATE_EPOCH": "1700000000",
+      "verify_runner": "host"
+    }
+  },
+  "scope": {
+    "ok": true,
+    "changed_paths": [
+      "infra/fetch_recent_releases.py",
+      "tests/infra/test_fetch_recent_releases.py",
+      "tests/infra/test_fetch_recent_releases_failure.py",
+      "tests/infra/test_fetch_recent_releases_tag_padding.py",
+      "tests/infra/test_fetch_recent_releases_tags.py"
+    ],
+    "violations": [],
+    "evaluated": true
+  },
+  "runs": [
+    {
+      "run": 1,
+      "checks": [
+        {
+          "command": "{python} -m pytest tests/infra/test_fetch_recent_releases_tag_padding.py -q -rfE -p no:cacheprovider",
+          "exit_code": 0,
+          "duration_s": 0.746,
+          "stdout_sha256": "585ba42829657b9e2d56f8614be6c3365a8405474eed008559511ab50f2ffcfb",
+          "tests": 9,
+          "skipped": 0,
+          "errors": 0,
+          "failures": 0
+        },
+        {
+          "command": "{python} -m pytest tests/infra/test_fetch_recent_releases.py tests/infra/test_fetch_recent_releases_commit_resolution.py tests/infra/test_fetch_recent_releases_failure.py tests/infra/test_fetch_recent_releases_tags.py -q -rfE -p no:cacheprovider",
+          "exit_code": 0,
+          "duration_s": 1.047,
+          "stdout_sha256": "325b7cf7b0d6ead544ebb7e833a08009fa10cf90ce29b8f9021e2ede461488f5",
+          "tests": 47,
+          "skipped": 0,
+          "errors": 0,
+          "failures": 0
+        }
+      ],
+      "all_passed": true
+    },
+    {
+      "run": 2,
+      "checks": [
+        {
+          "command": "{python} -m pytest tests/infra/test_fetch_recent_releases_tag_padding.py -q -rfE -p no:cacheprovider",
+          "exit_code": 0,
+          "duration_s": 0.507,
+          "stdout_sha256": "585ba42829657b9e2d56f8614be6c3365a8405474eed008559511ab50f2ffcfb",
+          "tests": 9,
+          "skipped": 0,
+          "errors": 0,
+          "failures": 0
+        },
+        {
+          "command": "{python} -m pytest tests/infra/test_fetch_recent_releases.py tests/infra/test_fetch_recent_releases_commit_resolution.py tests/infra/test_fetch_recent_releases_failure.py tests/infra/test_fetch_recent_releases_tags.py -q -rfE -p no:cacheprovider",
+          "exit_code": 0,
+          "duration_s": 1.118,
+          "stdout_sha256": "325b7cf7b0d6ead544ebb7e833a08009fa10cf90ce29b8f9021e2ede461488f5",
+          "tests": 47,
+          "skipped": 0,
+          "errors": 0,
+          "failures": 0
+        }
+      ],
+      "all_passed": true
+    }
+  ],
+  "negative_control": {
+    "kind": "mutate",
+    "patch": "python -X utf8 -c \"import pathlib; p = pathlib.Path('infra/fetch_recent_releases.py'); s = p.read_text(encoding='utf-8'); marker = 'if not fetched and not fetch_meta.get('; idx = s.find(marker); assert idx != -1, 'the real guard line was not found as expected - if your real code differs, anchor your own mutate on your own real literal instead and note the substitution in your closeout'; needle = 'fetched = fetch_tags(args.repository)'; idx2 = s.find(needle); assert idx2 != -1 and idx2 > idx, 'the tag-fallback assignment was not found after the guard as expected'; s2 = s[:idx2] + 'fetched = fetched' + s[idx2 + len(needle):]; assert s2 != s, 'substitution had no effect'; p.write_text(s2, encoding='utf-8')\"\n",
+    "patch_sha256": "328a50f78d917964dca110cf478b8c93e9504730c9dfaab27e4060682776e148",
+    "applied": true,
+    "patch_applied_failed": true,
+    "exit_codes": [
+      0,
+      1
+    ],
+    "tree_changed": [
+      "M infra/fetch_recent_releases.py",
+      "?? .junit-0.xml",
+      "?? .junit-1.xml"
+    ]
+  },
+  "holdout": {
+    "ran": false,
+    "passed": true,
+    "detail": "no holdout for this card"
+  },
+  "accepted": true,
+  "reason": "all gates passed"
+}

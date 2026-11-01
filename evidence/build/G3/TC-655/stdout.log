@@ -1,0 +1,190 @@
+
+===== CLEAN RUN 1 (host) =====
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-5c72e798a73c059a\Scripts\python.exe -m pytest tests/infra/test_fetch_recent_releases_tag_padding.py -q -rfE -p no:cacheprovider "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-nixn_h7j\.junit-0.xml"
+--- stdout ---
+.........                                                                [100%]
+
+--- stderr ---
+
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-5c72e798a73c059a\Scripts\python.exe -m pytest tests/infra/test_fetch_recent_releases.py tests/infra/test_fetch_recent_releases_commit_resolution.py tests/infra/test_fetch_recent_releases_failure.py tests/infra/test_fetch_recent_releases_tags.py -q -rfE -p no:cacheprovider "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-nixn_h7j\.junit-1.xml"
+--- stdout ---
+...............................................                          [100%]
+
+--- stderr ---
+
+
+===== CLEAN RUN 2 (host) =====
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-5c72e798a73c059a\Scripts\python.exe -m pytest tests/infra/test_fetch_recent_releases_tag_padding.py -q -rfE -p no:cacheprovider "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-nixn_h7j\.junit-0.xml"
+--- stdout ---
+.........                                                                [100%]
+
+--- stderr ---
+
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-5c72e798a73c059a\Scripts\python.exe -m pytest tests/infra/test_fetch_recent_releases.py tests/infra/test_fetch_recent_releases_commit_resolution.py tests/infra/test_fetch_recent_releases_failure.py tests/infra/test_fetch_recent_releases_tags.py -q -rfE -p no:cacheprovider "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-nixn_h7j\.junit-1.xml"
+--- stdout ---
+...............................................                          [100%]
+
+--- stderr ---
+
+
+===== NEGATIVE CONTROL (checks MUST now fail) =====
+mutated: M infra/fetch_recent_releases.py, ?? .junit-0.xml, ?? .junit-1.xml
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-5c72e798a73c059a\Scripts\python.exe -m pytest tests/infra/test_fetch_recent_releases_tag_padding.py -q -rfE -p no:cacheprovider "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-nixn_h7j\.junit-0.xml"
+--- stdout ---
+.........                                                                [100%]
+
+--- stderr ---
+
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-5c72e798a73c059a\Scripts\python.exe -m pytest tests/infra/test_fetch_recent_releases.py tests/infra/test_fetch_recent_releases_commit_resolution.py tests/infra/test_fetch_recent_releases_failure.py tests/infra/test_fetch_recent_releases_tags.py -q -rfE -p no:cacheprovider "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-nixn_h7j\.junit-1.xml"
+--- stdout ---
+........................................FF.FF.F                          [100%]
+================================== FAILURES ===================================
+_____________ test_zero_releases_fall_back_to_tags_and_mark_them ______________
+
+tmp_path = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-19175/test_zero_releases_fall_back_t0')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x0000016AB6F63770>
+
+    def test_zero_releases_fall_back_to_tags_and_mark_them(
+        tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        calls = _install(monkeypatch, [], _tags(4))
+        output = tmp_path / "recent_releases_pdf_go.json"
+        _set_argv(monkeypatch, output)
+    
+        fetch_recent_releases.main()
+    
+        written = json.loads(output.read_text(encoding="utf-8"))
+>       assert calls == {"releases": 1, "tags": 1}
+E       AssertionError: assert {'releases': 1, 'tags': 0} == {'releases': 1, 'tags': 1}
+E         
+E         Omitting 1 identical items, use -vv to show
+E         Differing items:
+E         {'tags': 0} != {'tags': 1}
+E         Use -v to get more diff
+
+tests\infra\test_fetch_recent_releases_tags.py:110: AssertionError
+---------------------------- Captured stdout call -----------------------------
+wrote 0 recent release(s) for aspose-pdf-foss/Aspose.PDF-FOSS-for-Go -> C:\Users\babar\AppData\Local\Temp\pytest-of-babar\pytest-19175\test_zero_releases_fall_back_t0\recent_releases_pdf_go.json
+________________ test_the_tag_fallback_keeps_at_most_the_limit ________________
+
+tmp_path = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-19175/test_the_tag_fallback_keeps_at0')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x0000016AB6F63B60>
+
+    def test_the_tag_fallback_keeps_at_most_the_limit(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+        _install(monkeypatch, [], _tags(30))
+        output = tmp_path / "recent_releases_pdf_go.json"
+        _set_argv(monkeypatch, output)
+    
+        fetch_recent_releases.main()
+    
+>       assert len(json.loads(output.read_text(encoding="utf-8"))) == 20
+E       AssertionError: assert 0 == 20
+E        +  where 0 = len([])
+E        +    where [] = <function loads at 0x0000016AB438D440>('[]')
+E        +      where <function loads at 0x0000016AB438D440> = json.loads
+E        +      and   '[]' = read_text(encoding='utf-8')
+E        +        where read_text = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-19175/test_the_tag_fallback_keeps_at0/recent_releases_pdf_go.json').read_text
+
+tests\infra\test_fetch_recent_releases_tags.py:128: AssertionError
+---------------------------- Captured stdout call -----------------------------
+wrote 0 recent release(s) for aspose-pdf-foss/Aspose.PDF-FOSS-for-Go -> C:\Users\babar\AppData\Local\Temp\pytest-of-babar\pytest-19175\test_the_tag_fallback_keeps_at0\recent_releases_pdf_go.json
+_____________ test_a_failing_tags_fetch_follows_the_failure_path ______________
+
+tmp_path = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-19175/test_a_failing_tags_fetch_foll0')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x0000016AB6F61160>
+capsys = <_pytest.capture.CaptureFixture object at 0x0000016AB6EAC640>
+
+    def test_a_failing_tags_fetch_follows_the_failure_path(
+        tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+    ) -> None:
+        calls = _install(monkeypatch, [], RuntimeError("boom"))
+        output = tmp_path / "recent_releases_pdf_go.json"
+        _set_argv(monkeypatch, output)
+    
+        fetch_recent_releases.main()
+    
+>       assert calls == {"releases": 1, "tags": 1}
+E       AssertionError: assert {'releases': 1, 'tags': 0} == {'releases': 1, 'tags': 1}
+E         
+E         Omitting 1 identical items, use -vv to show
+E         Differing items:
+E         {'tags': 0} != {'tags': 1}
+E         Use -v to get more diff
+
+tests\infra\test_fetch_recent_releases_tags.py:181: AssertionError
+---------------------------- Captured stdout call -----------------------------
+wrote 0 recent release(s) for aspose-pdf-foss/Aspose.PDF-FOSS-for-Go -> C:\Users\babar\AppData\Local\Temp\pytest-of-babar\pytest-19175\test_a_failing_tags_fetch_foll0\recent_releases_pdf_go.json
+___________ test_a_failing_tags_fetch_keeps_a_good_existing_sidecar ___________
+
+tmp_path = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-19175/test_a_failing_tags_fetch_keep0')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x0000016AB6F63BD0>
+
+    def test_a_failing_tags_fetch_keeps_a_good_existing_sidecar(
+        tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        output = tmp_path / "recent_releases_pdf_go.json"
+        before = json.dumps([{"tag_name": "t1", "body": "", "richness": "none", "source": "tag"}])
+        output.write_text(before, encoding="utf-8")
+        _install(monkeypatch, [], RuntimeError("boom"))
+        _set_argv(monkeypatch, output, "--force")
+    
+        fetch_recent_releases.main()
+    
+>       assert output.read_text(encoding="utf-8") == before
+E       assert '[]' == '[{"tag_name"...rce": "tag"}]'
+E         
+E         - [{"tag_name": "t1", "body": "", "richness": "none", "source": "tag"}]
+E         + []
+
+tests\infra\test_fetch_recent_releases_tags.py:200: AssertionError
+---------------------------- Captured stdout call -----------------------------
+wrote 0 recent release(s) for aspose-pdf-foss/Aspose.PDF-FOSS-for-Go -> C:\Users\babar\AppData\Local\Temp\pytest-of-babar\pytest-19175\test_a_failing_tags_fetch_keep0\recent_releases_pdf_go.json
+________ test_a_tag_only_sidecar_is_not_kept_by_a_not_modified_answer _________
+
+tmp_path = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-19175/test_a_tag_only_sidecar_is_not0')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x0000016AB6F62F20>
+
+    def test_a_tag_only_sidecar_is_not_kept_by_a_not_modified_answer(
+        tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        # The releases list of a tag-only repository is empty and never changes, so an ETag taken from it
+        # must not be sent: tags are re-read instead.
+        output = tmp_path / "recent_releases_pdf_go.json"
+        fetch_recent_releases.atomic_write_json(
+            output, [{"tag_name": "t1", "body": "", "richness": "none", "source": "tag"}]
+        )
+        fetch_recent_releases.atomic_write_json(
+            fetch_recent_releases.releases_meta_path(output),
+            {"state": "ok", "source_repository": REPOSITORY, "etag": 'W/"abc"', "release_count": 1},
+        )
+        seen: list[object] = []
+    
+        def _fetch_releases(repository: str, **kwargs: object) -> list[Release]:
+            seen.append(kwargs.get("etag"))
+            return []
+    
+        monkeypatch.setattr(fetch_recent_releases, "fetch_releases", _fetch_releases)
+        monkeypatch.setattr(fetch_recent_releases, "fetch_tags", lambda repository, **kwargs: _tags(2))
+        _set_argv(monkeypatch, output, "--force")
+    
+        fetch_recent_releases.main()
+    
+        assert seen == [None]
+>       assert [entry["tag_name"] for entry in json.loads(output.read_text(encoding="utf-8"))] == ["t2", "t1"]
+E       AssertionError: assert [] == ['t2', 't1']
+E         
+E         Right contains 2 more items, first extra item: 't2'
+E         Use -v to get more diff
+
+tests\infra\test_fetch_recent_releases_tags.py:251: AssertionError
+---------------------------- Captured stdout call -----------------------------
+wrote 0 recent release(s) for aspose-pdf-foss/Aspose.PDF-FOSS-for-Go -> C:\Users\babar\AppData\Local\Temp\pytest-of-babar\pytest-19175\test_a_tag_only_sidecar_is_not0\recent_releases_pdf_go.json
+=========================== short test summary info ===========================
+FAILED tests/infra/test_fetch_recent_releases_tags.py::test_zero_releases_fall_back_to_tags_and_mark_them
+FAILED tests/infra/test_fetch_recent_releases_tags.py::test_the_tag_fallback_keeps_at_most_the_limit
+FAILED tests/infra/test_fetch_recent_releases_tags.py::test_a_failing_tags_fetch_follows_the_failure_path
+FAILED tests/infra/test_fetch_recent_releases_tags.py::test_a_failing_tags_fetch_keeps_a_good_existing_sidecar
+FAILED tests/infra/test_fetch_recent_releases_tags.py::test_a_tag_only_sidecar_is_not_kept_by_a_not_modified_answer
+
+--- stderr ---
+
