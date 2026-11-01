@@ -1,0 +1,1471 @@
+
+===== CLEAN RUN 1 (host) =====
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-5c72e798a73c059a\Scripts\python.exe -m pytest tests/mcp/tools/test_compatibility_drift_notice.py -q -rfE -p no:cacheprovider "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-oxenqd3h\.junit-0.xml"
+--- stdout ---
+........                                                                 [100%]
+
+--- stderr ---
+
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-5c72e798a73c059a\Scripts\python.exe -m pytest tests/mcp/tools/test_product_reference_compatibility_units.py tests/mcp/tools/test_java_compatibility_unit.py -q -rfE -p no:cacheprovider "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-oxenqd3h\.junit-1.xml"
+--- stdout ---
+.......................................................                  [100%]
+
+--- stderr ---
+
+
+===== CLEAN RUN 2 (host) =====
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-5c72e798a73c059a\Scripts\python.exe -m pytest tests/mcp/tools/test_compatibility_drift_notice.py -q -rfE -p no:cacheprovider "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-oxenqd3h\.junit-0.xml"
+--- stdout ---
+........                                                                 [100%]
+
+--- stderr ---
+
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-5c72e798a73c059a\Scripts\python.exe -m pytest tests/mcp/tools/test_product_reference_compatibility_units.py tests/mcp/tools/test_java_compatibility_unit.py -q -rfE -p no:cacheprovider "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-oxenqd3h\.junit-1.xml"
+--- stdout ---
+.......................................................                  [100%]
+
+--- stderr ---
+
+
+===== NEGATIVE CONTROL (checks MUST now fail) =====
+mutated: M src/foss_mcp/mcp/tools/get_product_reference.py, ?? .junit-0.xml, ?? .junit-1.xml
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-5c72e798a73c059a\Scripts\python.exe -m pytest tests/mcp/tools/test_compatibility_drift_notice.py -q -rfE -p no:cacheprovider "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-oxenqd3h\.junit-0.xml"
+--- stdout ---
+FFFFFFFF                                                                 [100%]
+================================== FAILURES ===================================
+____ test_index_ahead_drift_appends_the_real_sentence_to_the_python_notice ____
+
+    def test_index_ahead_drift_appends_the_real_sentence_to_the_python_notice() -> None:
+        record = DriftRecord(indexed_commit=COMMIT, tag="v26.10.0", ahead_by=3, behind_by=0)
+        inputs = _inputs(PYTHON_MANIFEST, "python", drift=record)
+        expected = _drift_notice(inputs, "pypi")
+        assert expected is not None and "ahead" in expected
+    
+>       result = _compatibility(inputs, _EMPTY_README)
+                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests\mcp\tools\test_compatibility_drift_notice.py:73: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+tests\mcp\tools\test_compatibility_drift_notice.py:62: in _compatibility
+    result = get_product_reference(inputs, "compatibility", readme=readme)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+src\foss_mcp\mcp\tools\get_product_reference.py:1574: in get_product_reference
+    result = _answer(inputs, section, effective)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+inputs = ProductReferenceInputs(manifest_text='[project]\nname = "demo"\nrequires-python = ">=3.7"\n', contributing=None, agent...one, error=None), readme_document=None, manifest_path=None, install_served_version=None, known_hazards=(), family=None)
+section = 'compatibility'
+readme = ReadmeSections(limitations=None, install=None, capabilities=None, formats=None, import_warning=None)
+
+    def _answer(
+        inputs: ProductReferenceInputs, section: Section, readme: ReadmeSections | None
+    ) -> ReferenceContent | NotAvailable:
+        """``get_product_reference`` after the README sections are settled."""
+    
+        # G3/TC-507: a sidecar that could not be fetched or read is a transient failure, never an
+        # absence. "formats" and "limitations" never depend on a sidecar, so they keep their own reason.
+        if inputs.sidecar_state == SIDECAR_FETCH_FAILED and section not in ("formats", "limitations"):
+            reason = FETCH_FAILED_REASON
+            if inputs.sidecar_fetched_at:
+                reason += f" (last attempt {inputs.sidecar_fetched_at})"
+            return NotAvailable(section, reason)
+    
+        if section == "contributing":
+            return _document_section(section, inputs.contributing)
+        if section == "agent_guidance":
+            return _agent_guidance_section(inputs.agent_guidance)
+    
+        if section in ("formats", "limitations"):
+            if readme is not None:
+                if section == "limitations" and readme.limitations is not None:
+                    return _with_known_hazards(
+                        _limitations_from_readme(readme.limitations), _hazards_for_limitations(inputs)
+                    )
+                if section == "formats":
+                    formats = _formats_from_readme(readme)
+                    if formats is not None:
+                        return formats
+            if isinstance(inputs.readme_document, DocumentPresent):
+                # G3/TC-561: the README was read and holds no such section; say so instead of "no data source".
+                absent = NotAvailable(
+                    section,
+                    f"the repository README at the indexed commit has no section on {section}; "
+                    "ask lookup or search_docs",
+                )
+                if section == "limitations":
+                    return _with_known_hazards(absent, _hazards_for_limitations(inputs))
+                return absent
+            no_source = NotAvailable(section, f"{section} has no data source in this project yet")
+            if section == "limitations":
+                return _with_known_hazards(no_source, _hazards_for_limitations(inputs))
+            return no_source
+    
+        if inputs.manifest_text is None:
+            # G3/TC-427: with no manifest at all, the repository's own license file and its URL are still
+            # real answers; with neither known (every sidecar before TC-427) this is exactly as before.
+            if section == "license":
+                from_document = _license_from_document(section, inputs.license_document)
+                if from_document is not None:
+                    return from_document
+            elif section == "support":
+                fallback = _source_repository_support(inputs, section)
+                if fallback is not None:
+                    return fallback
+            return NotAvailable(section, "no packaging manifest was provided")
+    
+        # A single read of inputs.platform, reused by every branch below - this is what
+        # the card's negative control targets: force this back to a literal 'net' and every
+        # non-.NET platform's dispatch collapses onto the .NET path, which raises when it
+        # tries to parse non-XML manifest text as a .csproj.
+        platform = inputs.platform
+    
+        if section == "compatibility":
+            if platform in _DOTNET_PLATFORMS:
+                value = read_dotnet_manifest(inputs.manifest_text).target_framework
+                # G3/TC-561: a package that multi-targets (TargetFrameworks) supports all of them, not the one
+                # single TargetFramework a Debug configuration happens to name.
+                frameworks = _dotnet_target_frameworks(inputs.manifest_text)
+                if frameworks:
+                    value = ", ".join(frameworks)
+                reason = "manifest does not state a TargetFramework"
+            elif platform == "python":
+                value = read_python_manifest(inputs.manifest_text).requires_python
+                if not value:
+                    # G3/TC-471: a setup.py states its floor as the keyword python_requires, which the
+                    # pyproject-only reader never sees; pyproject's requires-python still wins above.
+                    setup_match = _SETUP_PY_PYTHON_REQUIRES.search(inputs.manifest_text)
+                    value = setup_match.group("value").strip() if setup_match else ""
+                reason = "manifest does not state requires-python"
+            elif platform == "java":
+                value = read_java_manifest(inputs.manifest_text).runtime_min_version
+                # G3/TC-542: the pom states a bare number (11, 17, 21), which a reader cannot tell from a
+                # library version; keep it for the disagreement notice and say it is a Java release.
+                java_minimum = value
+                if value and re.fullmatch(r"\d+(?:\.\d+)*", value):
+                    value = f"Java {value}+"
+                reason = "manifest does not state a compiler target version"
+            elif platform in _JS_PLATFORMS:
+                value = read_js_manifest(inputs.manifest_text).engines_node
+                reason = "manifest does not state an engines.node range"
+            elif platform == "go":
+                value = read_go_manifest(inputs.manifest_text).go_version
+                reason = "manifest does not state a go version"
+            elif platform == "rust":
+                value = read_rust_manifest(inputs.manifest_text).rust_version
+                reason = "manifest does not state a rust-version"
+            elif platform == "cpp":
+                value = read_cpp_manifest(inputs.manifest_text).cpp_standard
+                if value:
+                    # G3/TC-471: the reader yields the bare number; a client must be told it is a
+                    # C++ language standard, not a version of the library.
+                    value = f"C++{value}"
+                reason = "manifest does not state a C++ standard"
+            else:
+                return NotAvailable(section, f"platform {platform!r} is not supported")
+            if not value:
+                if readme is not None:
+                    fallback_answer = _compatibility_fallback(inputs, readme, reason)
+                    if fallback_answer is not None:
+                        return fallback_answer
+                return NotAvailable(section, reason)
+            if readme is None:
+                return ReferenceContent(section, value)
+            # G3/TC-518: show where the manifest and the README / AGENTS.md disagree about the minimum
+            # (for C++ the CMake minimum, not the language standard the answer states), and the package
+            # version the manifest declares. The answer's text stays the manifest's own value.
+            if platform == "cpp":
+                compared = read_cpp_manifest(inputs.manifest_text).cmake_min_version
+            elif platform == "java":
+                compared = java_minimum  # G3/TC-542: the pom's own number, not the "Java N+" answer text
+            else:
+                compared = value
+            notice = _join_notice(
+                _disagreement_notice(inputs, readme, compared),
+                _version_sentence(platform, inputs.manifest_text),
+                # G3/TC-652: the same index-versus-package drift caveat the install section's notice
+                # already carries (CELLS-PY-001) - additive only, the manifest's own `value` never changes.
+>               disabled_drift_notice(inputs, _REGISTRY_ECOSYSTEM_BY_PLATFORM.get(platform, "cmake")),
+                ^^^^^^^^^^^^^^^^^^^^^
+            )
+E           NameError: name 'disabled_drift_notice' is not defined
+
+src\foss_mcp\mcp\tools\get_product_reference.py:1707: NameError
+___ test_package_ahead_drift_appends_the_real_sentence_to_the_python_notice ___
+
+    def test_package_ahead_drift_appends_the_real_sentence_to_the_python_notice() -> None:
+        record = DriftRecord(indexed_commit=COMMIT, tag="v26.10.0", ahead_by=0, behind_by=5)
+        inputs = _inputs(PYTHON_MANIFEST, "python", drift=record)
+        expected = _drift_notice(inputs, "pypi")
+        assert expected is not None and "ahead" in expected
+    
+>       result = _compatibility(inputs, _EMPTY_README)
+                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests\mcp\tools\test_compatibility_drift_notice.py:86: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+tests\mcp\tools\test_compatibility_drift_notice.py:62: in _compatibility
+    result = get_product_reference(inputs, "compatibility", readme=readme)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+src\foss_mcp\mcp\tools\get_product_reference.py:1574: in get_product_reference
+    result = _answer(inputs, section, effective)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+inputs = ProductReferenceInputs(manifest_text='[project]\nname = "demo"\nrequires-python = ">=3.7"\n', contributing=None, agent...one, error=None), readme_document=None, manifest_path=None, install_served_version=None, known_hazards=(), family=None)
+section = 'compatibility'
+readme = ReadmeSections(limitations=None, install=None, capabilities=None, formats=None, import_warning=None)
+
+    def _answer(
+        inputs: ProductReferenceInputs, section: Section, readme: ReadmeSections | None
+    ) -> ReferenceContent | NotAvailable:
+        """``get_product_reference`` after the README sections are settled."""
+    
+        # G3/TC-507: a sidecar that could not be fetched or read is a transient failure, never an
+        # absence. "formats" and "limitations" never depend on a sidecar, so they keep their own reason.
+        if inputs.sidecar_state == SIDECAR_FETCH_FAILED and section not in ("formats", "limitations"):
+            reason = FETCH_FAILED_REASON
+            if inputs.sidecar_fetched_at:
+                reason += f" (last attempt {inputs.sidecar_fetched_at})"
+            return NotAvailable(section, reason)
+    
+        if section == "contributing":
+            return _document_section(section, inputs.contributing)
+        if section == "agent_guidance":
+            return _agent_guidance_section(inputs.agent_guidance)
+    
+        if section in ("formats", "limitations"):
+            if readme is not None:
+                if section == "limitations" and readme.limitations is not None:
+                    return _with_known_hazards(
+                        _limitations_from_readme(readme.limitations), _hazards_for_limitations(inputs)
+                    )
+                if section == "formats":
+                    formats = _formats_from_readme(readme)
+                    if formats is not None:
+                        return formats
+            if isinstance(inputs.readme_document, DocumentPresent):
+                # G3/TC-561: the README was read and holds no such section; say so instead of "no data source".
+                absent = NotAvailable(
+                    section,
+                    f"the repository README at the indexed commit has no section on {section}; "
+                    "ask lookup or search_docs",
+                )
+                if section == "limitations":
+                    return _with_known_hazards(absent, _hazards_for_limitations(inputs))
+                return absent
+            no_source = NotAvailable(section, f"{section} has no data source in this project yet")
+            if section == "limitations":
+                return _with_known_hazards(no_source, _hazards_for_limitations(inputs))
+            return no_source
+    
+        if inputs.manifest_text is None:
+            # G3/TC-427: with no manifest at all, the repository's own license file and its URL are still
+            # real answers; with neither known (every sidecar before TC-427) this is exactly as before.
+            if section == "license":
+                from_document = _license_from_document(section, inputs.license_document)
+                if from_document is not None:
+                    return from_document
+            elif section == "support":
+                fallback = _source_repository_support(inputs, section)
+                if fallback is not None:
+                    return fallback
+            return NotAvailable(section, "no packaging manifest was provided")
+    
+        # A single read of inputs.platform, reused by every branch below - this is what
+        # the card's negative control targets: force this back to a literal 'net' and every
+        # non-.NET platform's dispatch collapses onto the .NET path, which raises when it
+        # tries to parse non-XML manifest text as a .csproj.
+        platform = inputs.platform
+    
+        if section == "compatibility":
+            if platform in _DOTNET_PLATFORMS:
+                value = read_dotnet_manifest(inputs.manifest_text).target_framework
+                # G3/TC-561: a package that multi-targets (TargetFrameworks) supports all of them, not the one
+                # single TargetFramework a Debug configuration happens to name.
+                frameworks = _dotnet_target_frameworks(inputs.manifest_text)
+                if frameworks:
+                    value = ", ".join(frameworks)
+                reason = "manifest does not state a TargetFramework"
+            elif platform == "python":
+                value = read_python_manifest(inputs.manifest_text).requires_python
+                if not value:
+                    # G3/TC-471: a setup.py states its floor as the keyword python_requires, which the
+                    # pyproject-only reader never sees; pyproject's requires-python still wins above.
+                    setup_match = _SETUP_PY_PYTHON_REQUIRES.search(inputs.manifest_text)
+                    value = setup_match.group("value").strip() if setup_match else ""
+                reason = "manifest does not state requires-python"
+            elif platform == "java":
+                value = read_java_manifest(inputs.manifest_text).runtime_min_version
+                # G3/TC-542: the pom states a bare number (11, 17, 21), which a reader cannot tell from a
+                # library version; keep it for the disagreement notice and say it is a Java release.
+                java_minimum = value
+                if value and re.fullmatch(r"\d+(?:\.\d+)*", value):
+                    value = f"Java {value}+"
+                reason = "manifest does not state a compiler target version"
+            elif platform in _JS_PLATFORMS:
+                value = read_js_manifest(inputs.manifest_text).engines_node
+                reason = "manifest does not state an engines.node range"
+            elif platform == "go":
+                value = read_go_manifest(inputs.manifest_text).go_version
+                reason = "manifest does not state a go version"
+            elif platform == "rust":
+                value = read_rust_manifest(inputs.manifest_text).rust_version
+                reason = "manifest does not state a rust-version"
+            elif platform == "cpp":
+                value = read_cpp_manifest(inputs.manifest_text).cpp_standard
+                if value:
+                    # G3/TC-471: the reader yields the bare number; a client must be told it is a
+                    # C++ language standard, not a version of the library.
+                    value = f"C++{value}"
+                reason = "manifest does not state a C++ standard"
+            else:
+                return NotAvailable(section, f"platform {platform!r} is not supported")
+            if not value:
+                if readme is not None:
+                    fallback_answer = _compatibility_fallback(inputs, readme, reason)
+                    if fallback_answer is not None:
+                        return fallback_answer
+                return NotAvailable(section, reason)
+            if readme is None:
+                return ReferenceContent(section, value)
+            # G3/TC-518: show where the manifest and the README / AGENTS.md disagree about the minimum
+            # (for C++ the CMake minimum, not the language standard the answer states), and the package
+            # version the manifest declares. The answer's text stays the manifest's own value.
+            if platform == "cpp":
+                compared = read_cpp_manifest(inputs.manifest_text).cmake_min_version
+            elif platform == "java":
+                compared = java_minimum  # G3/TC-542: the pom's own number, not the "Java N+" answer text
+            else:
+                compared = value
+            notice = _join_notice(
+                _disagreement_notice(inputs, readme, compared),
+                _version_sentence(platform, inputs.manifest_text),
+                # G3/TC-652: the same index-versus-package drift caveat the install section's notice
+                # already carries (CELLS-PY-001) - additive only, the manifest's own `value` never changes.
+>               disabled_drift_notice(inputs, _REGISTRY_ECOSYSTEM_BY_PLATFORM.get(platform, "cmake")),
+                ^^^^^^^^^^^^^^^^^^^^^
+            )
+E           NameError: name 'disabled_drift_notice' is not defined
+
+src\foss_mcp\mcp\tools\get_product_reference.py:1707: NameError
+_______ test_no_drift_record_leaves_the_compatibility_notice_unchanged ________
+
+    def test_no_drift_record_leaves_the_compatibility_notice_unchanged() -> None:
+        inputs = _inputs(PYTHON_MANIFEST, "python", drift=None)
+        assert _drift_notice(inputs, "pypi") is None
+    
+>       result = _compatibility(inputs, _disagreeing_python_readme())
+                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests\mcp\tools\test_compatibility_drift_notice.py:97: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+tests\mcp\tools\test_compatibility_drift_notice.py:62: in _compatibility
+    result = get_product_reference(inputs, "compatibility", readme=readme)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+src\foss_mcp\mcp\tools\get_product_reference.py:1574: in get_product_reference
+    result = _answer(inputs, section, effective)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+inputs = ProductReferenceInputs(manifest_text='[project]\nname = "demo"\nrequires-python = ">=3.7"\n', contributing=None, agent...None, drift=None, readme_document=None, manifest_path=None, install_served_version=None, known_hazards=(), family=None)
+section = 'compatibility'
+readme = ReadmeSections(limitations=None, install=ReadmeSection(title='Installation', text='Requires Python 3.9.', commit='0123456789abcdef0123456789abcdef01234567', ordered=True, parts=1), capabilities=None, formats=None, import_warning=None)
+
+    def _answer(
+        inputs: ProductReferenceInputs, section: Section, readme: ReadmeSections | None
+    ) -> ReferenceContent | NotAvailable:
+        """``get_product_reference`` after the README sections are settled."""
+    
+        # G3/TC-507: a sidecar that could not be fetched or read is a transient failure, never an
+        # absence. "formats" and "limitations" never depend on a sidecar, so they keep their own reason.
+        if inputs.sidecar_state == SIDECAR_FETCH_FAILED and section not in ("formats", "limitations"):
+            reason = FETCH_FAILED_REASON
+            if inputs.sidecar_fetched_at:
+                reason += f" (last attempt {inputs.sidecar_fetched_at})"
+            return NotAvailable(section, reason)
+    
+        if section == "contributing":
+            return _document_section(section, inputs.contributing)
+        if section == "agent_guidance":
+            return _agent_guidance_section(inputs.agent_guidance)
+    
+        if section in ("formats", "limitations"):
+            if readme is not None:
+                if section == "limitations" and readme.limitations is not None:
+                    return _with_known_hazards(
+                        _limitations_from_readme(readme.limitations), _hazards_for_limitations(inputs)
+                    )
+                if section == "formats":
+                    formats = _formats_from_readme(readme)
+                    if formats is not None:
+                        return formats
+            if isinstance(inputs.readme_document, DocumentPresent):
+                # G3/TC-561: the README was read and holds no such section; say so instead of "no data source".
+                absent = NotAvailable(
+                    section,
+                    f"the repository README at the indexed commit has no section on {section}; "
+                    "ask lookup or search_docs",
+                )
+                if section == "limitations":
+                    return _with_known_hazards(absent, _hazards_for_limitations(inputs))
+                return absent
+            no_source = NotAvailable(section, f"{section} has no data source in this project yet")
+            if section == "limitations":
+                return _with_known_hazards(no_source, _hazards_for_limitations(inputs))
+            return no_source
+    
+        if inputs.manifest_text is None:
+            # G3/TC-427: with no manifest at all, the repository's own license file and its URL are still
+            # real answers; with neither known (every sidecar before TC-427) this is exactly as before.
+            if section == "license":
+                from_document = _license_from_document(section, inputs.license_document)
+                if from_document is not None:
+                    return from_document
+            elif section == "support":
+                fallback = _source_repository_support(inputs, section)
+                if fallback is not None:
+                    return fallback
+            return NotAvailable(section, "no packaging manifest was provided")
+    
+        # A single read of inputs.platform, reused by every branch below - this is what
+        # the card's negative control targets: force this back to a literal 'net' and every
+        # non-.NET platform's dispatch collapses onto the .NET path, which raises when it
+        # tries to parse non-XML manifest text as a .csproj.
+        platform = inputs.platform
+    
+        if section == "compatibility":
+            if platform in _DOTNET_PLATFORMS:
+                value = read_dotnet_manifest(inputs.manifest_text).target_framework
+                # G3/TC-561: a package that multi-targets (TargetFrameworks) supports all of them, not the one
+                # single TargetFramework a Debug configuration happens to name.
+                frameworks = _dotnet_target_frameworks(inputs.manifest_text)
+                if frameworks:
+                    value = ", ".join(frameworks)
+                reason = "manifest does not state a TargetFramework"
+            elif platform == "python":
+                value = read_python_manifest(inputs.manifest_text).requires_python
+                if not value:
+                    # G3/TC-471: a setup.py states its floor as the keyword python_requires, which the
+                    # pyproject-only reader never sees; pyproject's requires-python still wins above.
+                    setup_match = _SETUP_PY_PYTHON_REQUIRES.search(inputs.manifest_text)
+                    value = setup_match.group("value").strip() if setup_match else ""
+                reason = "manifest does not state requires-python"
+            elif platform == "java":
+                value = read_java_manifest(inputs.manifest_text).runtime_min_version
+                # G3/TC-542: the pom states a bare number (11, 17, 21), which a reader cannot tell from a
+                # library version; keep it for the disagreement notice and say it is a Java release.
+                java_minimum = value
+                if value and re.fullmatch(r"\d+(?:\.\d+)*", value):
+                    value = f"Java {value}+"
+                reason = "manifest does not state a compiler target version"
+            elif platform in _JS_PLATFORMS:
+                value = read_js_manifest(inputs.manifest_text).engines_node
+                reason = "manifest does not state an engines.node range"
+            elif platform == "go":
+                value = read_go_manifest(inputs.manifest_text).go_version
+                reason = "manifest does not state a go version"
+            elif platform == "rust":
+                value = read_rust_manifest(inputs.manifest_text).rust_version
+                reason = "manifest does not state a rust-version"
+            elif platform == "cpp":
+                value = read_cpp_manifest(inputs.manifest_text).cpp_standard
+                if value:
+                    # G3/TC-471: the reader yields the bare number; a client must be told it is a
+                    # C++ language standard, not a version of the library.
+                    value = f"C++{value}"
+                reason = "manifest does not state a C++ standard"
+            else:
+                return NotAvailable(section, f"platform {platform!r} is not supported")
+            if not value:
+                if readme is not None:
+                    fallback_answer = _compatibility_fallback(inputs, readme, reason)
+                    if fallback_answer is not None:
+                        return fallback_answer
+                return NotAvailable(section, reason)
+            if readme is None:
+                return ReferenceContent(section, value)
+            # G3/TC-518: show where the manifest and the README / AGENTS.md disagree about the minimum
+            # (for C++ the CMake minimum, not the language standard the answer states), and the package
+            # version the manifest declares. The answer's text stays the manifest's own value.
+            if platform == "cpp":
+                compared = read_cpp_manifest(inputs.manifest_text).cmake_min_version
+            elif platform == "java":
+                compared = java_minimum  # G3/TC-542: the pom's own number, not the "Java N+" answer text
+            else:
+                compared = value
+            notice = _join_notice(
+                _disagreement_notice(inputs, readme, compared),
+                _version_sentence(platform, inputs.manifest_text),
+                # G3/TC-652: the same index-versus-package drift caveat the install section's notice
+                # already carries (CELLS-PY-001) - additive only, the manifest's own `value` never changes.
+>               disabled_drift_notice(inputs, _REGISTRY_ECOSYSTEM_BY_PLATFORM.get(platform, "cmake")),
+                ^^^^^^^^^^^^^^^^^^^^^
+            )
+E           NameError: name 'disabled_drift_notice' is not defined
+
+src\foss_mcp\mcp\tools\get_product_reference.py:1707: NameError
+___ test_an_in_sync_drift_record_leaves_the_compatibility_notice_unchanged ____
+
+    def test_an_in_sync_drift_record_leaves_the_compatibility_notice_unchanged() -> None:
+        record = DriftRecord(indexed_commit=COMMIT, tag="v26.10.0", ahead_by=0, behind_by=0)
+        inputs = _inputs(PYTHON_MANIFEST, "python", drift=record)
+        assert _drift_notice(inputs, "pypi") is None  # in sync: nothing to disclose
+    
+>       result = _compatibility(inputs, _disagreeing_python_readme())
+                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests\mcp\tools\test_compatibility_drift_notice.py:111: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+tests\mcp\tools\test_compatibility_drift_notice.py:62: in _compatibility
+    result = get_product_reference(inputs, "compatibility", readme=readme)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+src\foss_mcp\mcp\tools\get_product_reference.py:1574: in get_product_reference
+    result = _answer(inputs, section, effective)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+inputs = ProductReferenceInputs(manifest_text='[project]\nname = "demo"\nrequires-python = ">=3.7"\n', contributing=None, agent...one, error=None), readme_document=None, manifest_path=None, install_served_version=None, known_hazards=(), family=None)
+section = 'compatibility'
+readme = ReadmeSections(limitations=None, install=ReadmeSection(title='Installation', text='Requires Python 3.9.', commit='0123456789abcdef0123456789abcdef01234567', ordered=True, parts=1), capabilities=None, formats=None, import_warning=None)
+
+    def _answer(
+        inputs: ProductReferenceInputs, section: Section, readme: ReadmeSections | None
+    ) -> ReferenceContent | NotAvailable:
+        """``get_product_reference`` after the README sections are settled."""
+    
+        # G3/TC-507: a sidecar that could not be fetched or read is a transient failure, never an
+        # absence. "formats" and "limitations" never depend on a sidecar, so they keep their own reason.
+        if inputs.sidecar_state == SIDECAR_FETCH_FAILED and section not in ("formats", "limitations"):
+            reason = FETCH_FAILED_REASON
+            if inputs.sidecar_fetched_at:
+                reason += f" (last attempt {inputs.sidecar_fetched_at})"
+            return NotAvailable(section, reason)
+    
+        if section == "contributing":
+            return _document_section(section, inputs.contributing)
+        if section == "agent_guidance":
+            return _agent_guidance_section(inputs.agent_guidance)
+    
+        if section in ("formats", "limitations"):
+            if readme is not None:
+                if section == "limitations" and readme.limitations is not None:
+                    return _with_known_hazards(
+                        _limitations_from_readme(readme.limitations), _hazards_for_limitations(inputs)
+                    )
+                if section == "formats":
+                    formats = _formats_from_readme(readme)
+                    if formats is not None:
+                        return formats
+            if isinstance(inputs.readme_document, DocumentPresent):
+                # G3/TC-561: the README was read and holds no such section; say so instead of "no data source".
+                absent = NotAvailable(
+                    section,
+                    f"the repository README at the indexed commit has no section on {section}; "
+                    "ask lookup or search_docs",
+                )
+                if section == "limitations":
+                    return _with_known_hazards(absent, _hazards_for_limitations(inputs))
+                return absent
+            no_source = NotAvailable(section, f"{section} has no data source in this project yet")
+            if section == "limitations":
+                return _with_known_hazards(no_source, _hazards_for_limitations(inputs))
+            return no_source
+    
+        if inputs.manifest_text is None:
+            # G3/TC-427: with no manifest at all, the repository's own license file and its URL are still
+            # real answers; with neither known (every sidecar before TC-427) this is exactly as before.
+            if section == "license":
+                from_document = _license_from_document(section, inputs.license_document)
+                if from_document is not None:
+                    return from_document
+            elif section == "support":
+                fallback = _source_repository_support(inputs, section)
+                if fallback is not None:
+                    return fallback
+            return NotAvailable(section, "no packaging manifest was provided")
+    
+        # A single read of inputs.platform, reused by every branch below - this is what
+        # the card's negative control targets: force this back to a literal 'net' and every
+        # non-.NET platform's dispatch collapses onto the .NET path, which raises when it
+        # tries to parse non-XML manifest text as a .csproj.
+        platform = inputs.platform
+    
+        if section == "compatibility":
+            if platform in _DOTNET_PLATFORMS:
+                value = read_dotnet_manifest(inputs.manifest_text).target_framework
+                # G3/TC-561: a package that multi-targets (TargetFrameworks) supports all of them, not the one
+                # single TargetFramework a Debug configuration happens to name.
+                frameworks = _dotnet_target_frameworks(inputs.manifest_text)
+                if frameworks:
+                    value = ", ".join(frameworks)
+                reason = "manifest does not state a TargetFramework"
+            elif platform == "python":
+                value = read_python_manifest(inputs.manifest_text).requires_python
+                if not value:
+                    # G3/TC-471: a setup.py states its floor as the keyword python_requires, which the
+                    # pyproject-only reader never sees; pyproject's requires-python still wins above.
+                    setup_match = _SETUP_PY_PYTHON_REQUIRES.search(inputs.manifest_text)
+                    value = setup_match.group("value").strip() if setup_match else ""
+                reason = "manifest does not state requires-python"
+            elif platform == "java":
+                value = read_java_manifest(inputs.manifest_text).runtime_min_version
+                # G3/TC-542: the pom states a bare number (11, 17, 21), which a reader cannot tell from a
+                # library version; keep it for the disagreement notice and say it is a Java release.
+                java_minimum = value
+                if value and re.fullmatch(r"\d+(?:\.\d+)*", value):
+                    value = f"Java {value}+"
+                reason = "manifest does not state a compiler target version"
+            elif platform in _JS_PLATFORMS:
+                value = read_js_manifest(inputs.manifest_text).engines_node
+                reason = "manifest does not state an engines.node range"
+            elif platform == "go":
+                value = read_go_manifest(inputs.manifest_text).go_version
+                reason = "manifest does not state a go version"
+            elif platform == "rust":
+                value = read_rust_manifest(inputs.manifest_text).rust_version
+                reason = "manifest does not state a rust-version"
+            elif platform == "cpp":
+                value = read_cpp_manifest(inputs.manifest_text).cpp_standard
+                if value:
+                    # G3/TC-471: the reader yields the bare number; a client must be told it is a
+                    # C++ language standard, not a version of the library.
+                    value = f"C++{value}"
+                reason = "manifest does not state a C++ standard"
+            else:
+                return NotAvailable(section, f"platform {platform!r} is not supported")
+            if not value:
+                if readme is not None:
+                    fallback_answer = _compatibility_fallback(inputs, readme, reason)
+                    if fallback_answer is not None:
+                        return fallback_answer
+                return NotAvailable(section, reason)
+            if readme is None:
+                return ReferenceContent(section, value)
+            # G3/TC-518: show where the manifest and the README / AGENTS.md disagree about the minimum
+            # (for C++ the CMake minimum, not the language standard the answer states), and the package
+            # version the manifest declares. The answer's text stays the manifest's own value.
+            if platform == "cpp":
+                compared = read_cpp_manifest(inputs.manifest_text).cmake_min_version
+            elif platform == "java":
+                compared = java_minimum  # G3/TC-542: the pom's own number, not the "Java N+" answer text
+            else:
+                compared = value
+            notice = _join_notice(
+                _disagreement_notice(inputs, readme, compared),
+                _version_sentence(platform, inputs.manifest_text),
+                # G3/TC-652: the same index-versus-package drift caveat the install section's notice
+                # already carries (CELLS-PY-001) - additive only, the manifest's own `value` never changes.
+>               disabled_drift_notice(inputs, _REGISTRY_ECOSYSTEM_BY_PLATFORM.get(platform, "cmake")),
+                ^^^^^^^^^^^^^^^^^^^^^
+            )
+E           NameError: name 'disabled_drift_notice' is not defined
+
+src\foss_mcp\mcp\tools\get_product_reference.py:1707: NameError
+____ test_diverged_drift_also_appends_a_real_sentence_to_the_python_notice ____
+
+    def test_diverged_drift_also_appends_a_real_sentence_to_the_python_notice() -> None:
+        record = DriftRecord(indexed_commit=COMMIT, tag="v26.10.0", ahead_by=2, behind_by=1)
+        inputs = _inputs(PYTHON_MANIFEST, "python", drift=record)
+        expected = _drift_notice(inputs, "pypi")
+        assert expected is not None and "diverged" in expected
+    
+>       result = _compatibility(inputs, _EMPTY_README)
+                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests\mcp\tools\test_compatibility_drift_notice.py:125: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+tests\mcp\tools\test_compatibility_drift_notice.py:62: in _compatibility
+    result = get_product_reference(inputs, "compatibility", readme=readme)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+src\foss_mcp\mcp\tools\get_product_reference.py:1574: in get_product_reference
+    result = _answer(inputs, section, effective)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+inputs = ProductReferenceInputs(manifest_text='[project]\nname = "demo"\nrequires-python = ">=3.7"\n', contributing=None, agent...one, error=None), readme_document=None, manifest_path=None, install_served_version=None, known_hazards=(), family=None)
+section = 'compatibility'
+readme = ReadmeSections(limitations=None, install=None, capabilities=None, formats=None, import_warning=None)
+
+    def _answer(
+        inputs: ProductReferenceInputs, section: Section, readme: ReadmeSections | None
+    ) -> ReferenceContent | NotAvailable:
+        """``get_product_reference`` after the README sections are settled."""
+    
+        # G3/TC-507: a sidecar that could not be fetched or read is a transient failure, never an
+        # absence. "formats" and "limitations" never depend on a sidecar, so they keep their own reason.
+        if inputs.sidecar_state == SIDECAR_FETCH_FAILED and section not in ("formats", "limitations"):
+            reason = FETCH_FAILED_REASON
+            if inputs.sidecar_fetched_at:
+                reason += f" (last attempt {inputs.sidecar_fetched_at})"
+            return NotAvailable(section, reason)
+    
+        if section == "contributing":
+            return _document_section(section, inputs.contributing)
+        if section == "agent_guidance":
+            return _agent_guidance_section(inputs.agent_guidance)
+    
+        if section in ("formats", "limitations"):
+            if readme is not None:
+                if section == "limitations" and readme.limitations is not None:
+                    return _with_known_hazards(
+                        _limitations_from_readme(readme.limitations), _hazards_for_limitations(inputs)
+                    )
+                if section == "formats":
+                    formats = _formats_from_readme(readme)
+                    if formats is not None:
+                        return formats
+            if isinstance(inputs.readme_document, DocumentPresent):
+                # G3/TC-561: the README was read and holds no such section; say so instead of "no data source".
+                absent = NotAvailable(
+                    section,
+                    f"the repository README at the indexed commit has no section on {section}; "
+                    "ask lookup or search_docs",
+                )
+                if section == "limitations":
+                    return _with_known_hazards(absent, _hazards_for_limitations(inputs))
+                return absent
+            no_source = NotAvailable(section, f"{section} has no data source in this project yet")
+            if section == "limitations":
+                return _with_known_hazards(no_source, _hazards_for_limitations(inputs))
+            return no_source
+    
+        if inputs.manifest_text is None:
+            # G3/TC-427: with no manifest at all, the repository's own license file and its URL are still
+            # real answers; with neither known (every sidecar before TC-427) this is exactly as before.
+            if section == "license":
+                from_document = _license_from_document(section, inputs.license_document)
+                if from_document is not None:
+                    return from_document
+            elif section == "support":
+                fallback = _source_repository_support(inputs, section)
+                if fallback is not None:
+                    return fallback
+            return NotAvailable(section, "no packaging manifest was provided")
+    
+        # A single read of inputs.platform, reused by every branch below - this is what
+        # the card's negative control targets: force this back to a literal 'net' and every
+        # non-.NET platform's dispatch collapses onto the .NET path, which raises when it
+        # tries to parse non-XML manifest text as a .csproj.
+        platform = inputs.platform
+    
+        if section == "compatibility":
+            if platform in _DOTNET_PLATFORMS:
+                value = read_dotnet_manifest(inputs.manifest_text).target_framework
+                # G3/TC-561: a package that multi-targets (TargetFrameworks) supports all of them, not the one
+                # single TargetFramework a Debug configuration happens to name.
+                frameworks = _dotnet_target_frameworks(inputs.manifest_text)
+                if frameworks:
+                    value = ", ".join(frameworks)
+                reason = "manifest does not state a TargetFramework"
+            elif platform == "python":
+                value = read_python_manifest(inputs.manifest_text).requires_python
+                if not value:
+                    # G3/TC-471: a setup.py states its floor as the keyword python_requires, which the
+                    # pyproject-only reader never sees; pyproject's requires-python still wins above.
+                    setup_match = _SETUP_PY_PYTHON_REQUIRES.search(inputs.manifest_text)
+                    value = setup_match.group("value").strip() if setup_match else ""
+                reason = "manifest does not state requires-python"
+            elif platform == "java":
+                value = read_java_manifest(inputs.manifest_text).runtime_min_version
+                # G3/TC-542: the pom states a bare number (11, 17, 21), which a reader cannot tell from a
+                # library version; keep it for the disagreement notice and say it is a Java release.
+                java_minimum = value
+                if value and re.fullmatch(r"\d+(?:\.\d+)*", value):
+                    value = f"Java {value}+"
+                reason = "manifest does not state a compiler target version"
+            elif platform in _JS_PLATFORMS:
+                value = read_js_manifest(inputs.manifest_text).engines_node
+                reason = "manifest does not state an engines.node range"
+            elif platform == "go":
+                value = read_go_manifest(inputs.manifest_text).go_version
+                reason = "manifest does not state a go version"
+            elif platform == "rust":
+                value = read_rust_manifest(inputs.manifest_text).rust_version
+                reason = "manifest does not state a rust-version"
+            elif platform == "cpp":
+                value = read_cpp_manifest(inputs.manifest_text).cpp_standard
+                if value:
+                    # G3/TC-471: the reader yields the bare number; a client must be told it is a
+                    # C++ language standard, not a version of the library.
+                    value = f"C++{value}"
+                reason = "manifest does not state a C++ standard"
+            else:
+                return NotAvailable(section, f"platform {platform!r} is not supported")
+            if not value:
+                if readme is not None:
+                    fallback_answer = _compatibility_fallback(inputs, readme, reason)
+                    if fallback_answer is not None:
+                        return fallback_answer
+                return NotAvailable(section, reason)
+            if readme is None:
+                return ReferenceContent(section, value)
+            # G3/TC-518: show where the manifest and the README / AGENTS.md disagree about the minimum
+            # (for C++ the CMake minimum, not the language standard the answer states), and the package
+            # version the manifest declares. The answer's text stays the manifest's own value.
+            if platform == "cpp":
+                compared = read_cpp_manifest(inputs.manifest_text).cmake_min_version
+            elif platform == "java":
+                compared = java_minimum  # G3/TC-542: the pom's own number, not the "Java N+" answer text
+            else:
+                compared = value
+            notice = _join_notice(
+                _disagreement_notice(inputs, readme, compared),
+                _version_sentence(platform, inputs.manifest_text),
+                # G3/TC-652: the same index-versus-package drift caveat the install section's notice
+                # already carries (CELLS-PY-001) - additive only, the manifest's own `value` never changes.
+>               disabled_drift_notice(inputs, _REGISTRY_ECOSYSTEM_BY_PLATFORM.get(platform, "cmake")),
+                ^^^^^^^^^^^^^^^^^^^^^
+            )
+E           NameError: name 'disabled_drift_notice' is not defined
+
+src\foss_mcp\mcp\tools\get_product_reference.py:1707: NameError
+_________________ test_the_drift_notice_is_added_for_java_too _________________
+
+    def test_the_drift_notice_is_added_for_java_too() -> None:
+        record = DriftRecord(indexed_commit=COMMIT, tag="v26.10.0", ahead_by=4, behind_by=0)
+        inputs = _inputs(JAVA_MANIFEST, "java", drift=record)
+        expected = _drift_notice(inputs, "maven")
+        assert expected is not None
+    
+>       result = _compatibility(inputs, _EMPTY_README)
+                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests\mcp\tools\test_compatibility_drift_notice.py:138: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+tests\mcp\tools\test_compatibility_drift_notice.py:62: in _compatibility
+    result = get_product_reference(inputs, "compatibility", readme=readme)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+src\foss_mcp\mcp\tools\get_product_reference.py:1574: in get_product_reference
+    result = _answer(inputs, section, effective)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+inputs = ProductReferenceInputs(manifest_text='<project><groupId>com.demo</groupId><artifactId>demo</artifactId><properties><ma...one, error=None), readme_document=None, manifest_path=None, install_served_version=None, known_hazards=(), family=None)
+section = 'compatibility'
+readme = ReadmeSections(limitations=None, install=None, capabilities=None, formats=None, import_warning=None)
+
+    def _answer(
+        inputs: ProductReferenceInputs, section: Section, readme: ReadmeSections | None
+    ) -> ReferenceContent | NotAvailable:
+        """``get_product_reference`` after the README sections are settled."""
+    
+        # G3/TC-507: a sidecar that could not be fetched or read is a transient failure, never an
+        # absence. "formats" and "limitations" never depend on a sidecar, so they keep their own reason.
+        if inputs.sidecar_state == SIDECAR_FETCH_FAILED and section not in ("formats", "limitations"):
+            reason = FETCH_FAILED_REASON
+            if inputs.sidecar_fetched_at:
+                reason += f" (last attempt {inputs.sidecar_fetched_at})"
+            return NotAvailable(section, reason)
+    
+        if section == "contributing":
+            return _document_section(section, inputs.contributing)
+        if section == "agent_guidance":
+            return _agent_guidance_section(inputs.agent_guidance)
+    
+        if section in ("formats", "limitations"):
+            if readme is not None:
+                if section == "limitations" and readme.limitations is not None:
+                    return _with_known_hazards(
+                        _limitations_from_readme(readme.limitations), _hazards_for_limitations(inputs)
+                    )
+                if section == "formats":
+                    formats = _formats_from_readme(readme)
+                    if formats is not None:
+                        return formats
+            if isinstance(inputs.readme_document, DocumentPresent):
+                # G3/TC-561: the README was read and holds no such section; say so instead of "no data source".
+                absent = NotAvailable(
+                    section,
+                    f"the repository README at the indexed commit has no section on {section}; "
+                    "ask lookup or search_docs",
+                )
+                if section == "limitations":
+                    return _with_known_hazards(absent, _hazards_for_limitations(inputs))
+                return absent
+            no_source = NotAvailable(section, f"{section} has no data source in this project yet")
+            if section == "limitations":
+                return _with_known_hazards(no_source, _hazards_for_limitations(inputs))
+            return no_source
+    
+        if inputs.manifest_text is None:
+            # G3/TC-427: with no manifest at all, the repository's own license file and its URL are still
+            # real answers; with neither known (every sidecar before TC-427) this is exactly as before.
+            if section == "license":
+                from_document = _license_from_document(section, inputs.license_document)
+                if from_document is not None:
+                    return from_document
+            elif section == "support":
+                fallback = _source_repository_support(inputs, section)
+                if fallback is not None:
+                    return fallback
+            return NotAvailable(section, "no packaging manifest was provided")
+    
+        # A single read of inputs.platform, reused by every branch below - this is what
+        # the card's negative control targets: force this back to a literal 'net' and every
+        # non-.NET platform's dispatch collapses onto the .NET path, which raises when it
+        # tries to parse non-XML manifest text as a .csproj.
+        platform = inputs.platform
+    
+        if section == "compatibility":
+            if platform in _DOTNET_PLATFORMS:
+                value = read_dotnet_manifest(inputs.manifest_text).target_framework
+                # G3/TC-561: a package that multi-targets (TargetFrameworks) supports all of them, not the one
+                # single TargetFramework a Debug configuration happens to name.
+                frameworks = _dotnet_target_frameworks(inputs.manifest_text)
+                if frameworks:
+                    value = ", ".join(frameworks)
+                reason = "manifest does not state a TargetFramework"
+            elif platform == "python":
+                value = read_python_manifest(inputs.manifest_text).requires_python
+                if not value:
+                    # G3/TC-471: a setup.py states its floor as the keyword python_requires, which the
+                    # pyproject-only reader never sees; pyproject's requires-python still wins above.
+                    setup_match = _SETUP_PY_PYTHON_REQUIRES.search(inputs.manifest_text)
+                    value = setup_match.group("value").strip() if setup_match else ""
+                reason = "manifest does not state requires-python"
+            elif platform == "java":
+                value = read_java_manifest(inputs.manifest_text).runtime_min_version
+                # G3/TC-542: the pom states a bare number (11, 17, 21), which a reader cannot tell from a
+                # library version; keep it for the disagreement notice and say it is a Java release.
+                java_minimum = value
+                if value and re.fullmatch(r"\d+(?:\.\d+)*", value):
+                    value = f"Java {value}+"
+                reason = "manifest does not state a compiler target version"
+            elif platform in _JS_PLATFORMS:
+                value = read_js_manifest(inputs.manifest_text).engines_node
+                reason = "manifest does not state an engines.node range"
+            elif platform == "go":
+                value = read_go_manifest(inputs.manifest_text).go_version
+                reason = "manifest does not state a go version"
+            elif platform == "rust":
+                value = read_rust_manifest(inputs.manifest_text).rust_version
+                reason = "manifest does not state a rust-version"
+            elif platform == "cpp":
+                value = read_cpp_manifest(inputs.manifest_text).cpp_standard
+                if value:
+                    # G3/TC-471: the reader yields the bare number; a client must be told it is a
+                    # C++ language standard, not a version of the library.
+                    value = f"C++{value}"
+                reason = "manifest does not state a C++ standard"
+            else:
+                return NotAvailable(section, f"platform {platform!r} is not supported")
+            if not value:
+                if readme is not None:
+                    fallback_answer = _compatibility_fallback(inputs, readme, reason)
+                    if fallback_answer is not None:
+                        return fallback_answer
+                return NotAvailable(section, reason)
+            if readme is None:
+                return ReferenceContent(section, value)
+            # G3/TC-518: show where the manifest and the README / AGENTS.md disagree about the minimum
+            # (for C++ the CMake minimum, not the language standard the answer states), and the package
+            # version the manifest declares. The answer's text stays the manifest's own value.
+            if platform == "cpp":
+                compared = read_cpp_manifest(inputs.manifest_text).cmake_min_version
+            elif platform == "java":
+                compared = java_minimum  # G3/TC-542: the pom's own number, not the "Java N+" answer text
+            else:
+                compared = value
+            notice = _join_notice(
+                _disagreement_notice(inputs, readme, compared),
+                _version_sentence(platform, inputs.manifest_text),
+                # G3/TC-652: the same index-versus-package drift caveat the install section's notice
+                # already carries (CELLS-PY-001) - additive only, the manifest's own `value` never changes.
+>               disabled_drift_notice(inputs, _REGISTRY_ECOSYSTEM_BY_PLATFORM.get(platform, "cmake")),
+                ^^^^^^^^^^^^^^^^^^^^^
+            )
+E           NameError: name 'disabled_drift_notice' is not defined
+
+src\foss_mcp\mcp\tools\get_product_reference.py:1707: NameError
+________________ test_the_drift_notice_is_added_for_dotnet_too ________________
+
+    def test_the_drift_notice_is_added_for_dotnet_too() -> None:
+        record = DriftRecord(indexed_commit=COMMIT, tag="v26.10.0", ahead_by=0, behind_by=6)
+        inputs = _inputs(DOTNET_MANIFEST, "net", drift=record)
+        expected = _drift_notice(inputs, "nuget")
+        assert expected is not None
+    
+>       result = _compatibility(inputs, _EMPTY_README)
+                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests\mcp\tools\test_compatibility_drift_notice.py:151: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+tests\mcp\tools\test_compatibility_drift_notice.py:62: in _compatibility
+    result = get_product_reference(inputs, "compatibility", readme=readme)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+src\foss_mcp\mcp\tools\get_product_reference.py:1574: in get_product_reference
+    result = _answer(inputs, section, effective)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+inputs = ProductReferenceInputs(manifest_text='<Project><PropertyGroup><TargetFramework>net8.0</TargetFramework></PropertyGroup...one, error=None), readme_document=None, manifest_path=None, install_served_version=None, known_hazards=(), family=None)
+section = 'compatibility'
+readme = ReadmeSections(limitations=None, install=None, capabilities=None, formats=None, import_warning=None)
+
+    def _answer(
+        inputs: ProductReferenceInputs, section: Section, readme: ReadmeSections | None
+    ) -> ReferenceContent | NotAvailable:
+        """``get_product_reference`` after the README sections are settled."""
+    
+        # G3/TC-507: a sidecar that could not be fetched or read is a transient failure, never an
+        # absence. "formats" and "limitations" never depend on a sidecar, so they keep their own reason.
+        if inputs.sidecar_state == SIDECAR_FETCH_FAILED and section not in ("formats", "limitations"):
+            reason = FETCH_FAILED_REASON
+            if inputs.sidecar_fetched_at:
+                reason += f" (last attempt {inputs.sidecar_fetched_at})"
+            return NotAvailable(section, reason)
+    
+        if section == "contributing":
+            return _document_section(section, inputs.contributing)
+        if section == "agent_guidance":
+            return _agent_guidance_section(inputs.agent_guidance)
+    
+        if section in ("formats", "limitations"):
+            if readme is not None:
+                if section == "limitations" and readme.limitations is not None:
+                    return _with_known_hazards(
+                        _limitations_from_readme(readme.limitations), _hazards_for_limitations(inputs)
+                    )
+                if section == "formats":
+                    formats = _formats_from_readme(readme)
+                    if formats is not None:
+                        return formats
+            if isinstance(inputs.readme_document, DocumentPresent):
+                # G3/TC-561: the README was read and holds no such section; say so instead of "no data source".
+                absent = NotAvailable(
+                    section,
+                    f"the repository README at the indexed commit has no section on {section}; "
+                    "ask lookup or search_docs",
+                )
+                if section == "limitations":
+                    return _with_known_hazards(absent, _hazards_for_limitations(inputs))
+                return absent
+            no_source = NotAvailable(section, f"{section} has no data source in this project yet")
+            if section == "limitations":
+                return _with_known_hazards(no_source, _hazards_for_limitations(inputs))
+            return no_source
+    
+        if inputs.manifest_text is None:
+            # G3/TC-427: with no manifest at all, the repository's own license file and its URL are still
+            # real answers; with neither known (every sidecar before TC-427) this is exactly as before.
+            if section == "license":
+                from_document = _license_from_document(section, inputs.license_document)
+                if from_document is not None:
+                    return from_document
+            elif section == "support":
+                fallback = _source_repository_support(inputs, section)
+                if fallback is not None:
+                    return fallback
+            return NotAvailable(section, "no packaging manifest was provided")
+    
+        # A single read of inputs.platform, reused by every branch below - this is what
+        # the card's negative control targets: force this back to a literal 'net' and every
+        # non-.NET platform's dispatch collapses onto the .NET path, which raises when it
+        # tries to parse non-XML manifest text as a .csproj.
+        platform = inputs.platform
+    
+        if section == "compatibility":
+            if platform in _DOTNET_PLATFORMS:
+                value = read_dotnet_manifest(inputs.manifest_text).target_framework
+                # G3/TC-561: a package that multi-targets (TargetFrameworks) supports all of them, not the one
+                # single TargetFramework a Debug configuration happens to name.
+                frameworks = _dotnet_target_frameworks(inputs.manifest_text)
+                if frameworks:
+                    value = ", ".join(frameworks)
+                reason = "manifest does not state a TargetFramework"
+            elif platform == "python":
+                value = read_python_manifest(inputs.manifest_text).requires_python
+                if not value:
+                    # G3/TC-471: a setup.py states its floor as the keyword python_requires, which the
+                    # pyproject-only reader never sees; pyproject's requires-python still wins above.
+                    setup_match = _SETUP_PY_PYTHON_REQUIRES.search(inputs.manifest_text)
+                    value = setup_match.group("value").strip() if setup_match else ""
+                reason = "manifest does not state requires-python"
+            elif platform == "java":
+                value = read_java_manifest(inputs.manifest_text).runtime_min_version
+                # G3/TC-542: the pom states a bare number (11, 17, 21), which a reader cannot tell from a
+                # library version; keep it for the disagreement notice and say it is a Java release.
+                java_minimum = value
+                if value and re.fullmatch(r"\d+(?:\.\d+)*", value):
+                    value = f"Java {value}+"
+                reason = "manifest does not state a compiler target version"
+            elif platform in _JS_PLATFORMS:
+                value = read_js_manifest(inputs.manifest_text).engines_node
+                reason = "manifest does not state an engines.node range"
+            elif platform == "go":
+                value = read_go_manifest(inputs.manifest_text).go_version
+                reason = "manifest does not state a go version"
+            elif platform == "rust":
+                value = read_rust_manifest(inputs.manifest_text).rust_version
+                reason = "manifest does not state a rust-version"
+            elif platform == "cpp":
+                value = read_cpp_manifest(inputs.manifest_text).cpp_standard
+                if value:
+                    # G3/TC-471: the reader yields the bare number; a client must be told it is a
+                    # C++ language standard, not a version of the library.
+                    value = f"C++{value}"
+                reason = "manifest does not state a C++ standard"
+            else:
+                return NotAvailable(section, f"platform {platform!r} is not supported")
+            if not value:
+                if readme is not None:
+                    fallback_answer = _compatibility_fallback(inputs, readme, reason)
+                    if fallback_answer is not None:
+                        return fallback_answer
+                return NotAvailable(section, reason)
+            if readme is None:
+                return ReferenceContent(section, value)
+            # G3/TC-518: show where the manifest and the README / AGENTS.md disagree about the minimum
+            # (for C++ the CMake minimum, not the language standard the answer states), and the package
+            # version the manifest declares. The answer's text stays the manifest's own value.
+            if platform == "cpp":
+                compared = read_cpp_manifest(inputs.manifest_text).cmake_min_version
+            elif platform == "java":
+                compared = java_minimum  # G3/TC-542: the pom's own number, not the "Java N+" answer text
+            else:
+                compared = value
+            notice = _join_notice(
+                _disagreement_notice(inputs, readme, compared),
+                _version_sentence(platform, inputs.manifest_text),
+                # G3/TC-652: the same index-versus-package drift caveat the install section's notice
+                # already carries (CELLS-PY-001) - additive only, the manifest's own `value` never changes.
+>               disabled_drift_notice(inputs, _REGISTRY_ECOSYSTEM_BY_PLATFORM.get(platform, "cmake")),
+                ^^^^^^^^^^^^^^^^^^^^^
+            )
+E           NameError: name 'disabled_drift_notice' is not defined
+
+src\foss_mcp\mcp\tools\get_product_reference.py:1707: NameError
+____ test_the_value_text_is_byte_identical_with_and_without_a_drift_record ____
+
+    def test_the_value_text_is_byte_identical_with_and_without_a_drift_record() -> None:
+>       with_drift = _compatibility(
+            _inputs(
+                PYTHON_MANIFEST,
+                "python",
+                drift=DriftRecord(indexed_commit=COMMIT, tag="v26.10.0", ahead_by=3, behind_by=0),
+            ),
+            _EMPTY_README,
+        )
+
+tests\mcp\tools\test_compatibility_drift_notice.py:159: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+tests\mcp\tools\test_compatibility_drift_notice.py:62: in _compatibility
+    result = get_product_reference(inputs, "compatibility", readme=readme)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+src\foss_mcp\mcp\tools\get_product_reference.py:1574: in get_product_reference
+    result = _answer(inputs, section, effective)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+inputs = ProductReferenceInputs(manifest_text='[project]\nname = "demo"\nrequires-python = ">=3.7"\n', contributing=None, agent...one, error=None), readme_document=None, manifest_path=None, install_served_version=None, known_hazards=(), family=None)
+section = 'compatibility'
+readme = ReadmeSections(limitations=None, install=None, capabilities=None, formats=None, import_warning=None)
+
+    def _answer(
+        inputs: ProductReferenceInputs, section: Section, readme: ReadmeSections | None
+    ) -> ReferenceContent | NotAvailable:
+        """``get_product_reference`` after the README sections are settled."""
+    
+        # G3/TC-507: a sidecar that could not be fetched or read is a transient failure, never an
+        # absence. "formats" and "limitations" never depend on a sidecar, so they keep their own reason.
+        if inputs.sidecar_state == SIDECAR_FETCH_FAILED and section not in ("formats", "limitations"):
+            reason = FETCH_FAILED_REASON
+            if inputs.sidecar_fetched_at:
+                reason += f" (last attempt {inputs.sidecar_fetched_at})"
+            return NotAvailable(section, reason)
+    
+        if section == "contributing":
+            return _document_section(section, inputs.contributing)
+        if section == "agent_guidance":
+            return _agent_guidance_section(inputs.agent_guidance)
+    
+        if section in ("formats", "limitations"):
+            if readme is not None:
+                if section == "limitations" and readme.limitations is not None:
+                    return _with_known_hazards(
+                        _limitations_from_readme(readme.limitations), _hazards_for_limitations(inputs)
+                    )
+                if section == "formats":
+                    formats = _formats_from_readme(readme)
+                    if formats is not None:
+                        return formats
+            if isinstance(inputs.readme_document, DocumentPresent):
+                # G3/TC-561: the README was read and holds no such section; say so instead of "no data source".
+                absent = NotAvailable(
+                    section,
+                    f"the repository README at the indexed commit has no section on {section}; "
+                    "ask lookup or search_docs",
+                )
+                if section == "limitations":
+                    return _with_known_hazards(absent, _hazards_for_limitations(inputs))
+                return absent
+            no_source = NotAvailable(section, f"{section} has no data source in this project yet")
+            if section == "limitations":
+                return _with_known_hazards(no_source, _hazards_for_limitations(inputs))
+            return no_source
+    
+        if inputs.manifest_text is None:
+            # G3/TC-427: with no manifest at all, the repository's own license file and its URL are still
+            # real answers; with neither known (every sidecar before TC-427) this is exactly as before.
+            if section == "license":
+                from_document = _license_from_document(section, inputs.license_document)
+                if from_document is not None:
+                    return from_document
+            elif section == "support":
+                fallback = _source_repository_support(inputs, section)
+                if fallback is not None:
+                    return fallback
+            return NotAvailable(section, "no packaging manifest was provided")
+    
+        # A single read of inputs.platform, reused by every branch below - this is what
+        # the card's negative control targets: force this back to a literal 'net' and every
+        # non-.NET platform's dispatch collapses onto the .NET path, which raises when it
+        # tries to parse non-XML manifest text as a .csproj.
+        platform = inputs.platform
+    
+        if section == "compatibility":
+            if platform in _DOTNET_PLATFORMS:
+                value = read_dotnet_manifest(inputs.manifest_text).target_framework
+                # G3/TC-561: a package that multi-targets (TargetFrameworks) supports all of them, not the one
+                # single TargetFramework a Debug configuration happens to name.
+                frameworks = _dotnet_target_frameworks(inputs.manifest_text)
+                if frameworks:
+                    value = ", ".join(frameworks)
+                reason = "manifest does not state a TargetFramework"
+            elif platform == "python":
+                value = read_python_manifest(inputs.manifest_text).requires_python
+                if not value:
+                    # G3/TC-471: a setup.py states its floor as the keyword python_requires, which the
+                    # pyproject-only reader never sees; pyproject's requires-python still wins above.
+                    setup_match = _SETUP_PY_PYTHON_REQUIRES.search(inputs.manifest_text)
+                    value = setup_match.group("value").strip() if setup_match else ""
+                reason = "manifest does not state requires-python"
+            elif platform == "java":
+                value = read_java_manifest(inputs.manifest_text).runtime_min_version
+                # G3/TC-542: the pom states a bare number (11, 17, 21), which a reader cannot tell from a
+                # library version; keep it for the disagreement notice and say it is a Java release.
+                java_minimum = value
+                if value and re.fullmatch(r"\d+(?:\.\d+)*", value):
+                    value = f"Java {value}+"
+                reason = "manifest does not state a compiler target version"
+            elif platform in _JS_PLATFORMS:
+                value = read_js_manifest(inputs.manifest_text).engines_node
+                reason = "manifest does not state an engines.node range"
+            elif platform == "go":
+                value = read_go_manifest(inputs.manifest_text).go_version
+                reason = "manifest does not state a go version"
+            elif platform == "rust":
+                value = read_rust_manifest(inputs.manifest_text).rust_version
+                reason = "manifest does not state a rust-version"
+            elif platform == "cpp":
+                value = read_cpp_manifest(inputs.manifest_text).cpp_standard
+                if value:
+                    # G3/TC-471: the reader yields the bare number; a client must be told it is a
+                    # C++ language standard, not a version of the library.
+                    value = f"C++{value}"
+                reason = "manifest does not state a C++ standard"
+            else:
+                return NotAvailable(section, f"platform {platform!r} is not supported")
+            if not value:
+                if readme is not None:
+                    fallback_answer = _compatibility_fallback(inputs, readme, reason)
+                    if fallback_answer is not None:
+                        return fallback_answer
+                return NotAvailable(section, reason)
+            if readme is None:
+                return ReferenceContent(section, value)
+            # G3/TC-518: show where the manifest and the README / AGENTS.md disagree about the minimum
+            # (for C++ the CMake minimum, not the language standard the answer states), and the package
+            # version the manifest declares. The answer's text stays the manifest's own value.
+            if platform == "cpp":
+                compared = read_cpp_manifest(inputs.manifest_text).cmake_min_version
+            elif platform == "java":
+                compared = java_minimum  # G3/TC-542: the pom's own number, not the "Java N+" answer text
+            else:
+                compared = value
+            notice = _join_notice(
+                _disagreement_notice(inputs, readme, compared),
+                _version_sentence(platform, inputs.manifest_text),
+                # G3/TC-652: the same index-versus-package drift caveat the install section's notice
+                # already carries (CELLS-PY-001) - additive only, the manifest's own `value` never changes.
+>               disabled_drift_notice(inputs, _REGISTRY_ECOSYSTEM_BY_PLATFORM.get(platform, "cmake")),
+                ^^^^^^^^^^^^^^^^^^^^^
+            )
+E           NameError: name 'disabled_drift_notice' is not defined
+
+src\foss_mcp\mcp\tools\get_product_reference.py:1707: NameError
+=========================== short test summary info ===========================
+FAILED tests/mcp/tools/test_compatibility_drift_notice.py::test_index_ahead_drift_appends_the_real_sentence_to_the_python_notice
+FAILED tests/mcp/tools/test_compatibility_drift_notice.py::test_package_ahead_drift_appends_the_real_sentence_to_the_python_notice
+FAILED tests/mcp/tools/test_compatibility_drift_notice.py::test_no_drift_record_leaves_the_compatibility_notice_unchanged
+FAILED tests/mcp/tools/test_compatibility_drift_notice.py::test_an_in_sync_drift_record_leaves_the_compatibility_notice_unchanged
+FAILED tests/mcp/tools/test_compatibility_drift_notice.py::test_diverged_drift_also_appends_a_real_sentence_to_the_python_notice
+FAILED tests/mcp/tools/test_compatibility_drift_notice.py::test_the_drift_notice_is_added_for_java_too
+FAILED tests/mcp/tools/test_compatibility_drift_notice.py::test_the_drift_notice_is_added_for_dotnet_too
+FAILED tests/mcp/tools/test_compatibility_drift_notice.py::test_the_value_text_is_byte_identical_with_and_without_a_drift_record
+
+--- stderr ---
+
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-5c72e798a73c059a\Scripts\python.exe -m pytest tests/mcp/tools/test_product_reference_compatibility_units.py tests/mcp/tools/test_java_compatibility_unit.py -q -rfE -p no:cacheprovider "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-oxenqd3h\.junit-1.xml"
+--- stdout ---
+......................................................F                  [100%]
+================================== FAILURES ===================================
+________ test_the_disagreement_notice_still_compares_the_java_minimum _________
+
+    def test_the_disagreement_notice_still_compares_the_java_minimum() -> None:
+        manifest = _pom("maven.compiler.release", "17")
+        inputs = ProductReferenceInputs(manifest_text=manifest, platform="java")
+    
+>       agreeing = _content(get_product_reference(inputs, "compatibility", readme=_readme("Requires Java 17.")))
+                            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests\mcp\tools\test_java_compatibility_unit.py:145: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+src\foss_mcp\mcp\tools\get_product_reference.py:1574: in get_product_reference
+    result = _answer(inputs, section, effective)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+inputs = ProductReferenceInputs(manifest_text='<project><groupId>com.demo</groupId><artifactId>demo</artifactId><properties><ma...None, drift=None, readme_document=None, manifest_path=None, install_served_version=None, known_hazards=(), family=None)
+section = 'compatibility'
+readme = ReadmeSections(limitations=None, install=ReadmeSection(title='Installation', text='Requires Java 17.', commit='0123456789abcdef0123456789abcdef01234567', ordered=True, parts=1), capabilities=None, formats=None, import_warning=None)
+
+    def _answer(
+        inputs: ProductReferenceInputs, section: Section, readme: ReadmeSections | None
+    ) -> ReferenceContent | NotAvailable:
+        """``get_product_reference`` after the README sections are settled."""
+    
+        # G3/TC-507: a sidecar that could not be fetched or read is a transient failure, never an
+        # absence. "formats" and "limitations" never depend on a sidecar, so they keep their own reason.
+        if inputs.sidecar_state == SIDECAR_FETCH_FAILED and section not in ("formats", "limitations"):
+            reason = FETCH_FAILED_REASON
+            if inputs.sidecar_fetched_at:
+                reason += f" (last attempt {inputs.sidecar_fetched_at})"
+            return NotAvailable(section, reason)
+    
+        if section == "contributing":
+            return _document_section(section, inputs.contributing)
+        if section == "agent_guidance":
+            return _agent_guidance_section(inputs.agent_guidance)
+    
+        if section in ("formats", "limitations"):
+            if readme is not None:
+                if section == "limitations" and readme.limitations is not None:
+                    return _with_known_hazards(
+                        _limitations_from_readme(readme.limitations), _hazards_for_limitations(inputs)
+                    )
+                if section == "formats":
+                    formats = _formats_from_readme(readme)
+                    if formats is not None:
+                        return formats
+            if isinstance(inputs.readme_document, DocumentPresent):
+                # G3/TC-561: the README was read and holds no such section; say so instead of "no data source".
+                absent = NotAvailable(
+                    section,
+                    f"the repository README at the indexed commit has no section on {section}; "
+                    "ask lookup or search_docs",
+                )
+                if section == "limitations":
+                    return _with_known_hazards(absent, _hazards_for_limitations(inputs))
+                return absent
+            no_source = NotAvailable(section, f"{section} has no data source in this project yet")
+            if section == "limitations":
+                return _with_known_hazards(no_source, _hazards_for_limitations(inputs))
+            return no_source
+    
+        if inputs.manifest_text is None:
+            # G3/TC-427: with no manifest at all, the repository's own license file and its URL are still
+            # real answers; with neither known (every sidecar before TC-427) this is exactly as before.
+            if section == "license":
+                from_document = _license_from_document(section, inputs.license_document)
+                if from_document is not None:
+                    return from_document
+            elif section == "support":
+                fallback = _source_repository_support(inputs, section)
+                if fallback is not None:
+                    return fallback
+            return NotAvailable(section, "no packaging manifest was provided")
+    
+        # A single read of inputs.platform, reused by every branch below - this is what
+        # the card's negative control targets: force this back to a literal 'net' and every
+        # non-.NET platform's dispatch collapses onto the .NET path, which raises when it
+        # tries to parse non-XML manifest text as a .csproj.
+        platform = inputs.platform
+    
+        if section == "compatibility":
+            if platform in _DOTNET_PLATFORMS:
+                value = read_dotnet_manifest(inputs.manifest_text).target_framework
+                # G3/TC-561: a package that multi-targets (TargetFrameworks) supports all of them, not the one
+                # single TargetFramework a Debug configuration happens to name.
+                frameworks = _dotnet_target_frameworks(inputs.manifest_text)
+                if frameworks:
+                    value = ", ".join(frameworks)
+                reason = "manifest does not state a TargetFramework"
+            elif platform == "python":
+                value = read_python_manifest(inputs.manifest_text).requires_python
+                if not value:
+                    # G3/TC-471: a setup.py states its floor as the keyword python_requires, which the
+                    # pyproject-only reader never sees; pyproject's requires-python still wins above.
+                    setup_match = _SETUP_PY_PYTHON_REQUIRES.search(inputs.manifest_text)
+                    value = setup_match.group("value").strip() if setup_match else ""
+                reason = "manifest does not state requires-python"
+            elif platform == "java":
+                value = read_java_manifest(inputs.manifest_text).runtime_min_version
+                # G3/TC-542: the pom states a bare number (11, 17, 21), which a reader cannot tell from a
+                # library version; keep it for the disagreement notice and say it is a Java release.
+                java_minimum = value
+                if value and re.fullmatch(r"\d+(?:\.\d+)*", value):
+                    value = f"Java {value}+"
+                reason = "manifest does not state a compiler target version"
+            elif platform in _JS_PLATFORMS:
+                value = read_js_manifest(inputs.manifest_text).engines_node
+                reason = "manifest does not state an engines.node range"
+            elif platform == "go":
+                value = read_go_manifest(inputs.manifest_text).go_version
+                reason = "manifest does not state a go version"
+            elif platform == "rust":
+                value = read_rust_manifest(inputs.manifest_text).rust_version
+                reason = "manifest does not state a rust-version"
+            elif platform == "cpp":
+                value = read_cpp_manifest(inputs.manifest_text).cpp_standard
+                if value:
+                    # G3/TC-471: the reader yields the bare number; a client must be told it is a
+                    # C++ language standard, not a version of the library.
+                    value = f"C++{value}"
+                reason = "manifest does not state a C++ standard"
+            else:
+                return NotAvailable(section, f"platform {platform!r} is not supported")
+            if not value:
+                if readme is not None:
+                    fallback_answer = _compatibility_fallback(inputs, readme, reason)
+                    if fallback_answer is not None:
+                        return fallback_answer
+                return NotAvailable(section, reason)
+            if readme is None:
+                return ReferenceContent(section, value)
+            # G3/TC-518: show where the manifest and the README / AGENTS.md disagree about the minimum
+            # (for C++ the CMake minimum, not the language standard the answer states), and the package
+            # version the manifest declares. The answer's text stays the manifest's own value.
+            if platform == "cpp":
+                compared = read_cpp_manifest(inputs.manifest_text).cmake_min_version
+            elif platform == "java":
+                compared = java_minimum  # G3/TC-542: the pom's own number, not the "Java N+" answer text
+            else:
+                compared = value
+            notice = _join_notice(
+                _disagreement_notice(inputs, readme, compared),
+                _version_sentence(platform, inputs.manifest_text),
+                # G3/TC-652: the same index-versus-package drift caveat the install section's notice
+                # already carries (CELLS-PY-001) - additive only, the manifest's own `value` never changes.
+>               disabled_drift_notice(inputs, _REGISTRY_ECOSYSTEM_BY_PLATFORM.get(platform, "cmake")),
+                ^^^^^^^^^^^^^^^^^^^^^
+            )
+E           NameError: name 'disabled_drift_notice' is not defined
+
+src\foss_mcp\mcp\tools\get_product_reference.py:1707: NameError
+=========================== short test summary info ===========================
+FAILED tests/mcp/tools/test_java_compatibility_unit.py::test_the_disagreement_notice_still_compares_the_java_minimum
+
+--- stderr ---
+
