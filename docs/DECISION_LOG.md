@@ -3187,3 +3187,68 @@ QV1 (TC-632, doc-chunk vector index scope), QV2 (TC-633, vector fallback in `sea
 
 **Operator feedback recorded verbatim (context for future revisits of this limitation)**: "I believe there must be a way to solve the problem which we have not yet explored or tried." This is not a request to keep working on it now - the explicit instruction was to log the limitation, continue through the rest of the plan's review items, and return to this specific problem later, properly, once that other work is done.
 
+## 2026-11-01 — Workstream L (tail latency, 7 round-2 issues): recorded as a measured, diagnosed, hosting-layer limitation, not an application defect - no code card authored for it under the Monday deadline (supervisor)
+
+Seven round-2 audit findings (`3D-NET-010`, `CELLS-NET-004`, `CELLS-PY-011`, `IMAGING-NET-009`,
+`PAGE-PYTHON-009`, `PDF-PYTHON-007`, `PDF-TS-010`) each independently report the identical
+symptom on otherwise-identical, sequential, valid tool calls: almost every call returns in
+60-230 ms, but a small minority (5-20% in this audit's own sampling) stall for several seconds,
+clustering near ~7 s, ~15 s, ~21 s, ~28 s and ~42 s - near-exact multiples of ~7 s. One report
+(`PDF-PYTHON-007`) additionally hit a hard transport-level timeout, and `PAGE-PYTHON-009` saw the
+same during an unrelated ground-truth run. This is the SAME symptom this plan's own diagnosis
+already analysed in depth before any of this remediation work started (section 1.1's symptom
+table: "7-42 s stalls... App compute is 0.5-83 ms; hosting stack... is outside the repo" and
+section 2.7's `RT1-RT5` runtime program) - the round-2 audit independently re-discovered a
+previously-diagnosed issue across 7 more pilots, it did not find a new one.
+
+**Why no code card was authored for this now**: the plan's own prior analysis already concludes
+the proximate cause is almost certainly in the hosting stack (one nginx worker, per-request DNS
+resolution, no upstream keepalive, the Cloudflare quick tunnel's own documented limits) rather
+than in application code, and its own closing program (`RT1`-`RT5`) is explicitly
+measurement-gated: a real fix requires a four-layer latency probe (in-process, container-direct,
+nginx, tunnel) run for real against the live hosting stack, which needs wall-clock time this
+session's Monday-8AM deadline does not allow to do properly without risking a rushed,
+unmeasured "fix" that could make the public demo's actual serving path WORSE just before the
+deadline - a worse outcome than disclosing a known, bounded, already-diagnosed limitation.
+
+**Decision**: these 7 issues are recorded here as reported, cross-checked against the existing
+diagnosis (same signature, same likely root cause, no new mechanism), and deliberately left open
+as a measured limitation rather than force-closed by either a rushed hosting change or a silent
+drop. This does not touch any served tool response's correctness - a slow call still returns the
+same correct content a fast call would. Closing this properly is the `RT1`-`RT5` program's job
+(latency probe, versioned hosting config, measurement-driven fix, runtime closure) and should be
+picked up after the public-facing content-truth and disclosure work (which does affect what a
+peer is told, not just how fast they are told it) is complete. No ledger id is minted for these 7
+issues under the existing `L-NNN` `docs/RELEASE.md`/`docs/REVIEW_LEDGER.md` mechanism in this
+session, for the same reason QV1-QV4's limitation above was not force-closed: recording the
+decision and the reason is the honest action; inventing a ledger entry under time pressure, for a
+program this plan already scoped in detail, would not add information a future session needs.
+
+## 2026-11-01 — Workstream K (contract, 3 round-2 issues): CELLS-CPP-009 is a pass, not a defect; 3D-NET-014 and SLIDES-NET-005 deliberately deferred as contract-breaking changes, not taken under the Monday deadline (supervisor)
+
+`CELLS-CPP-009` reports that robustness/contract checks across all 9 tools pass cleanly
+(consistent Pydantic-style errors, no stack traces, no internal paths) - this is the audit
+confirming correct behaviour, not reporting a defect; it needs no card, matching this plan's own
+pre-existing note that it is informational.
+
+`3D-NET-014` (get_symbol's `raw_text` duplicates the same content already in the structured
+`methods`/`properties` fields, roughly doubling response size for no new information) and
+`SLIDES-NET-005` (find_examples's `confidence` field is always `""` for every lexical (non-vector)
+match) are both real, reproduced findings, but both are, by this plan's own Decision D and section
+2.6's design, CONTRACT-BREAKING changes, not bug fixes: `raw_text` becoming opt-in changes the
+default response shape for every pilot's `get_symbol`; `SLIDES-NET-005`'s own fix is checked
+against a test this project wrote on purpose
+(`tests/mcp/tools/test_find_examples_verified_only.py::test_confidence_is_not_applicable_outside_the_vector_branch`,
+from TC-584) that currently PINS `confidence == ""` for every non-vector match as the intended
+behaviour - closing this finding means deliberately reversing a previous explicit design decision
+across all 32 pilots' `find_examples` responses, not filling an accidental gap.
+
+**Decision**: neither is taken now. A response-shape change this broad, done in the final hours
+before a public demo deployment, risks introducing a real regression in the one place it would be
+most visible (every pilot, every call) for the lowest-severity class of finding in the whole
+audit (both P3, both `confidence: "medium"` in the audit's own self-rating) - the downside of a
+rushed contract change outweighs the upside of closing two P3 polish items. Both remain exactly
+what the plan's own section 2.6 (`RT3`, contract changes) already scoped them as: real, deliberate,
+measured future work, not silently dropped. `docs/round2/issues.json` still carries both as
+findable, reproducible records with real repro commands for whoever picks up `RT3` next.
+
