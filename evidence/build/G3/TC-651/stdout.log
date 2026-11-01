@@ -1,0 +1,1553 @@
+
+===== CLEAN RUN 1 (host) =====
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-5c72e798a73c059a\Scripts\python.exe -m pytest tests/mcp/tools/test_report_index_freshness_content_type_counts.py -q -rfE -p no:cacheprovider "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-bu0gwqbl\.junit-0.xml"
+--- stdout ---
+.........                                                                [100%]
+
+--- stderr ---
+
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-5c72e798a73c059a\Scripts\python.exe -m pytest tests/mcp/tools/test_freshness_provenance.py tests/mcp/tools/test_freshness_registry_version.py tests/mcp/tools/test_freshness_tristate.py tests/mcp/tools/test_known_defects_in_freshness.py -q -rfE -p no:cacheprovider "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-bu0gwqbl\.junit-1.xml"
+--- stdout ---
+........................................................................ [ 84%]
+.............                                                            [100%]
+
+--- stderr ---
+
+
+===== CLEAN RUN 2 (host) =====
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-5c72e798a73c059a\Scripts\python.exe -m pytest tests/mcp/tools/test_report_index_freshness_content_type_counts.py -q -rfE -p no:cacheprovider "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-bu0gwqbl\.junit-0.xml"
+--- stdout ---
+.........                                                                [100%]
+
+--- stderr ---
+
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-5c72e798a73c059a\Scripts\python.exe -m pytest tests/mcp/tools/test_freshness_provenance.py tests/mcp/tools/test_freshness_registry_version.py tests/mcp/tools/test_freshness_tristate.py tests/mcp/tools/test_known_defects_in_freshness.py -q -rfE -p no:cacheprovider "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-bu0gwqbl\.junit-1.xml"
+--- stdout ---
+........................................................................ [ 84%]
+.............                                                            [100%]
+
+--- stderr ---
+
+
+===== NEGATIVE CONTROL (checks MUST now fail) =====
+mutated: M src/foss_mcp/mcp/tools/report_index_freshness.py, ?? .junit-0.xml, ?? .junit-1.xml
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-5c72e798a73c059a\Scripts\python.exe -m pytest tests/mcp/tools/test_report_index_freshness_content_type_counts.py -q -rfE -p no:cacheprovider "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-bu0gwqbl\.junit-0.xml"
+--- stdout ---
+FF..FFF.F                                                                [100%]
+================================== FAILURES ===================================
+_______ test_all_four_categories_report_their_real_per_category_counts ________
+
+tmp_path = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-19049/test_all_four_categories_repor0')
+
+    def test_all_four_categories_report_their_real_per_category_counts(tmp_path: Path) -> None:
+        store = _publish(
+            tmp_path / "m",
+            [
+                GETTING_STARTED_DOC,
+                DEVELOPER_GUIDE_DOC,
+                DEVELOPER_GUIDE_DOC.replace("API Reference", "API Reference 2"),
+                TROUBLESHOOTING_DOC,
+                FAQ_DOC,
+            ],
+        )
+>       report = _report(store)
+                 ^^^^^^^^^^^^^^
+
+tests\mcp\tools\test_report_index_freshness_content_type_counts.py:118: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+tests\mcp\tools\test_report_index_freshness_content_type_counts.py:104: in _report
+    return report_index_freshness(store, SCOPE, "self_extracted", current)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+src\foss_mcp\mcp\tools\report_index_freshness.py:451: in report_index_freshness
+    provenance = _read_provenance(manifest.payload)
+                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+manifest_payload = {'lexical_index': {'doc_freq': {'2': 1, 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa': 5, 'api': 2, 'asked': 1, ...}, 'do...37254902, 0.4588235294117647, 0.0196078431372549, 0.3215686274509804, 0.30980392156862746, 0.3137254901960784, ...]}]}}
+
+    def _read_provenance(manifest_payload: dict) -> _Provenance:
+        documents = (manifest_payload.get("lexical_index") or {}).get("documents") or {}
+        per_commit: dict[str, dict[str, int]] = {}
+        without_commit = 0
+        indexed_types: int | None = None
+        total_types: int | None = None
+        coverage_text: str | None = None
+        # G3/TC-651: tallied across every chunk _chunk_kind classifies as documentation, regardless of
+        # which (or whether any) source commit it carries - a caller asking "which categories are
+        # empty" cares about the whole generation, not one commit's slice of it.
+        content_type_counts: dict[str, int] = dict.fromkeys(CONTENT_TYPES, 0)
+        # Sorted by document id so "the first API-Coverage line" does not depend on dict order.
+        for _, document in sorted(documents.items()):
+            text = document["text"]
+            kind = _chunk_kind(text)
+            if kind == _SYMBOL and indexed_types is None:
+                coverage = parse_api_coverage(text)
+                if coverage is not None:
+                    indexed_types, total_types = coverage.indexed, coverage.total
+                    coverage_text = text
+            if kind == _DOCUMENTATION:
+>               content_type_counts[search_docs.disabled_classify_content_type(text)] += 1
+                                    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E               AttributeError: module 'foss_mcp.mcp.tools.search_docs' has no attribute 'disabled_classify_content_type'. Did you mean: 'classify_content_type'?
+
+src\foss_mcp\mcp\tools\report_index_freshness.py:190: AttributeError
+_______ test_empty_category_reports_an_explicit_zero_not_an_absent_key ________
+
+tmp_path = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-19049/test_empty_category_reports_an0')
+
+    def test_empty_category_reports_an_explicit_zero_not_an_absent_key(tmp_path: Path) -> None:
+        # No faq chunk anywhere in this generation - the real symptom of all 15 round-2 issues.
+        store = _publish(tmp_path / "m", [GETTING_STARTED_DOC, DEVELOPER_GUIDE_DOC, TROUBLESHOOTING_DOC])
+>       report = _report(store)
+                 ^^^^^^^^^^^^^^
+
+tests\mcp\tools\test_report_index_freshness_content_type_counts.py:130: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+tests\mcp\tools\test_report_index_freshness_content_type_counts.py:104: in _report
+    return report_index_freshness(store, SCOPE, "self_extracted", current)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+src\foss_mcp\mcp\tools\report_index_freshness.py:451: in report_index_freshness
+    provenance = _read_provenance(manifest.payload)
+                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+manifest_payload = {'lexical_index': {'doc_freq': {'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa': 3, 'api': 1, 'available': 1, 'classes': 1,...294118, 0.9333333333333333, 0.5490196078431373, 0.17647058823529413, 0.25882352941176473, 0.33725490196078434, ...]}]}}
+
+    def _read_provenance(manifest_payload: dict) -> _Provenance:
+        documents = (manifest_payload.get("lexical_index") or {}).get("documents") or {}
+        per_commit: dict[str, dict[str, int]] = {}
+        without_commit = 0
+        indexed_types: int | None = None
+        total_types: int | None = None
+        coverage_text: str | None = None
+        # G3/TC-651: tallied across every chunk _chunk_kind classifies as documentation, regardless of
+        # which (or whether any) source commit it carries - a caller asking "which categories are
+        # empty" cares about the whole generation, not one commit's slice of it.
+        content_type_counts: dict[str, int] = dict.fromkeys(CONTENT_TYPES, 0)
+        # Sorted by document id so "the first API-Coverage line" does not depend on dict order.
+        for _, document in sorted(documents.items()):
+            text = document["text"]
+            kind = _chunk_kind(text)
+            if kind == _SYMBOL and indexed_types is None:
+                coverage = parse_api_coverage(text)
+                if coverage is not None:
+                    indexed_types, total_types = coverage.indexed, coverage.total
+                    coverage_text = text
+            if kind == _DOCUMENTATION:
+>               content_type_counts[search_docs.disabled_classify_content_type(text)] += 1
+                                    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E               AttributeError: module 'foss_mcp.mcp.tools.search_docs' has no attribute 'disabled_classify_content_type'. Did you mean: 'classify_content_type'?
+
+src\foss_mcp\mcp\tools\report_index_freshness.py:190: AttributeError
+_____________ test_counts_combine_across_multiple_source_commits ______________
+
+tmp_path = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-19049/test_counts_combine_across_mul0')
+
+    def test_counts_combine_across_multiple_source_commits(tmp_path: Path) -> None:
+        # A mixed-commit generation (TC-383's own scenario): the per-category tally is across the
+        # WHOLE generation, not scoped to one commit - a caller asking "is faq empty for this pilot"
+        # cares about the generation as a whole.
+        store = _publish(
+            tmp_path / "m",
+            [
+                _symbol("Alpha", COMMIT_A),
+                GETTING_STARTED_DOC,
+                _doc("Troubleshooting", "Known issues.", COMMIT_B),
+                _doc("Frequently Asked Questions", "FAQ: Is this free?", COMMIT_B),
+            ],
+        )
+>       report = _report(store)
+                 ^^^^^^^^^^^^^^
+
+tests\mcp\tools\test_report_index_freshness_content_type_counts.py:170: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+tests\mcp\tools\test_report_index_freshness_content_type_counts.py:104: in _report
+    return report_index_freshness(store, SCOPE, "self_extracted", current)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+src\foss_mcp\mcp\tools\report_index_freshness.py:451: in report_index_freshness
+    provenance = _read_provenance(manifest.payload)
+                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+manifest_payload = {'lexical_index': {'doc_freq': {'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa': 2, 'alpha': 1, 'asked': 1, 'aspose': 1, .....84313725, 0.5372549019607843, 0.7843137254901961, 0.17254901960784313, 0.9725490196078431, 0.3607843137254902, ...]}]}}
+
+    def _read_provenance(manifest_payload: dict) -> _Provenance:
+        documents = (manifest_payload.get("lexical_index") or {}).get("documents") or {}
+        per_commit: dict[str, dict[str, int]] = {}
+        without_commit = 0
+        indexed_types: int | None = None
+        total_types: int | None = None
+        coverage_text: str | None = None
+        # G3/TC-651: tallied across every chunk _chunk_kind classifies as documentation, regardless of
+        # which (or whether any) source commit it carries - a caller asking "which categories are
+        # empty" cares about the whole generation, not one commit's slice of it.
+        content_type_counts: dict[str, int] = dict.fromkeys(CONTENT_TYPES, 0)
+        # Sorted by document id so "the first API-Coverage line" does not depend on dict order.
+        for _, document in sorted(documents.items()):
+            text = document["text"]
+            kind = _chunk_kind(text)
+            if kind == _SYMBOL and indexed_types is None:
+                coverage = parse_api_coverage(text)
+                if coverage is not None:
+                    indexed_types, total_types = coverage.indexed, coverage.total
+                    coverage_text = text
+            if kind == _DOCUMENTATION:
+>               content_type_counts[search_docs.disabled_classify_content_type(text)] += 1
+                                    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E               AttributeError: module 'foss_mcp.mcp.tools.search_docs' has no attribute 'disabled_classify_content_type'. Did you mean: 'classify_content_type'?
+
+src\foss_mcp\mcp\tools\report_index_freshness.py:190: AttributeError
+_ test_counts_match_an_independent_manual_tally_via_the_real_classify_content_type _
+
+tmp_path = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-19049/test_counts_match_an_independe0')
+
+    def test_counts_match_an_independent_manual_tally_via_the_real_classify_content_type(
+        tmp_path: Path,
+    ) -> None:
+        # Never reimplements classification: tallies the same fixture chunks independently (via the
+        # real, imported search_docs.classify_content_type) and checks the report agrees exactly.
+        texts = [
+            GETTING_STARTED_DOC,
+            DEVELOPER_GUIDE_DOC,
+            TROUBLESHOOTING_DOC,
+            FAQ_DOC,
+            _symbol("Beta", COMMIT_A),
+        ]
+        store = _publish(tmp_path / "m", texts)
+>       report = _report(store)
+                 ^^^^^^^^^^^^^^
+
+tests\mcp\tools\test_report_index_freshness_content_type_counts.py:193: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+tests\mcp\tools\test_report_index_freshness_content_type_counts.py:104: in _report
+    return report_index_freshness(store, SCOPE, "self_extracted", current)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+src\foss_mcp\mcp\tools\report_index_freshness.py:451: in report_index_freshness
+    provenance = _read_provenance(manifest.payload)
+                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+manifest_payload = {'lexical_index': {'doc_freq': {'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa': 5, 'api': 1, 'asked': 1, 'aspose': 1, ...}... [0.5294117647058824, 0.14901960784313725, 0.08235294117647059, 0.25882352941176473, 0.37254901960784315, 1.0, ...]}]}}
+
+    def _read_provenance(manifest_payload: dict) -> _Provenance:
+        documents = (manifest_payload.get("lexical_index") or {}).get("documents") or {}
+        per_commit: dict[str, dict[str, int]] = {}
+        without_commit = 0
+        indexed_types: int | None = None
+        total_types: int | None = None
+        coverage_text: str | None = None
+        # G3/TC-651: tallied across every chunk _chunk_kind classifies as documentation, regardless of
+        # which (or whether any) source commit it carries - a caller asking "which categories are
+        # empty" cares about the whole generation, not one commit's slice of it.
+        content_type_counts: dict[str, int] = dict.fromkeys(CONTENT_TYPES, 0)
+        # Sorted by document id so "the first API-Coverage line" does not depend on dict order.
+        for _, document in sorted(documents.items()):
+            text = document["text"]
+            kind = _chunk_kind(text)
+            if kind == _SYMBOL and indexed_types is None:
+                coverage = parse_api_coverage(text)
+                if coverage is not None:
+                    indexed_types, total_types = coverage.indexed, coverage.total
+                    coverage_text = text
+            if kind == _DOCUMENTATION:
+>               content_type_counts[search_docs.disabled_classify_content_type(text)] += 1
+                                    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E               AttributeError: module 'foss_mcp.mcp.tools.search_docs' has no attribute 'disabled_classify_content_type'. Did you mean: 'classify_content_type'?
+
+src\foss_mcp\mcp\tools\report_index_freshness.py:190: AttributeError
+_________ test_keys_exactly_equal_the_real_search_docs_content_types __________
+
+tmp_path = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-19049/test_keys_exactly_equal_the_re0')
+
+    def test_keys_exactly_equal_the_real_search_docs_content_types(tmp_path: Path) -> None:
+        # Compared against the real imported constant, never a tuple hardcoded in this test file, so
+        # the two can never silently drift apart.
+        store = _publish(tmp_path / "m", [FAQ_DOC])
+>       report = _report(store)
+                 ^^^^^^^^^^^^^^
+
+tests\mcp\tools\test_report_index_freshness_content_type_counts.py:205: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+tests\mcp\tools\test_report_index_freshness_content_type_counts.py:104: in _report
+    return report_index_freshness(store, SCOPE, "self_extracted", current)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+src\foss_mcp\mcp\tools\report_index_freshness.py:451: in report_index_freshness
+    provenance = _read_provenance(manifest.payload)
+                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+manifest_payload = {'lexical_index': {'doc_freq': {'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa': 1, 'asked': 1, 'commit': 1, 'doc': 1, ...}...37254902, 0.4588235294117647, 0.0196078431372549, 0.3215686274509804, 0.30980392156862746, 0.3137254901960784, ...]}]}}
+
+    def _read_provenance(manifest_payload: dict) -> _Provenance:
+        documents = (manifest_payload.get("lexical_index") or {}).get("documents") or {}
+        per_commit: dict[str, dict[str, int]] = {}
+        without_commit = 0
+        indexed_types: int | None = None
+        total_types: int | None = None
+        coverage_text: str | None = None
+        # G3/TC-651: tallied across every chunk _chunk_kind classifies as documentation, regardless of
+        # which (or whether any) source commit it carries - a caller asking "which categories are
+        # empty" cares about the whole generation, not one commit's slice of it.
+        content_type_counts: dict[str, int] = dict.fromkeys(CONTENT_TYPES, 0)
+        # Sorted by document id so "the first API-Coverage line" does not depend on dict order.
+        for _, document in sorted(documents.items()):
+            text = document["text"]
+            kind = _chunk_kind(text)
+            if kind == _SYMBOL and indexed_types is None:
+                coverage = parse_api_coverage(text)
+                if coverage is not None:
+                    indexed_types, total_types = coverage.indexed, coverage.total
+                    coverage_text = text
+            if kind == _DOCUMENTATION:
+>               content_type_counts[search_docs.disabled_classify_content_type(text)] += 1
+                                    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E               AttributeError: module 'foss_mcp.mcp.tools.search_docs' has no attribute 'disabled_classify_content_type'. Did you mean: 'classify_content_type'?
+
+src\foss_mcp\mcp\tools\report_index_freshness.py:190: AttributeError
+___ test_real_pdf_net_pilot_reports_faq_explicitly_zero_closing_pdf_net_004 ___
+
+tmp_path = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-19049/test_real_pdf_net_pilot_report0')
+
+    def test_real_pdf_net_pilot_reports_faq_explicitly_zero_closing_pdf_net_004(tmp_path: Path) -> None:
+        """End-to-end reproduction of ``PDF-NET-004`` (confirmed in the 15-id list in this card's own
+        `plans/TC-651.yaml`): the real baked pdf/net generation genuinely has 0 faq chunks. Before
+        this card, nothing told a caller that up front; after it, ``report_index_freshness`` says so
+        directly."""
+        manifests = tmp_path / "manifests"
+        shutil.copytree(DEMO_MANIFESTS / "pdf__net__self_extracted", manifests / "pdf__net__self_extracted")
+        store = GenerationManifestStore(manifests)
+    
+>       report = report_index_freshness(store, SCOPE, "self_extracted", None)
+                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests\mcp\tools\test_report_index_freshness_content_type_counts.py:230: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+src\foss_mcp\mcp\tools\report_index_freshness.py:451: in report_index_freshness
+    provenance = _read_provenance(manifest.payload)
+                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+manifest_payload = {'lexical_index': {'doc_freq': {'0': 103, '1': 147, '10': 17, '100': 3, ...}, 'documents': {'pdf::net::self_extracted:...172877651413cff57a8bfe41fb8a8befb2406b', 'vector': [-0.03031, 0.02912, -0.00805, -0.00293, -0.00081, -0.01657, ...]}]}}
+
+    def _read_provenance(manifest_payload: dict) -> _Provenance:
+        documents = (manifest_payload.get("lexical_index") or {}).get("documents") or {}
+        per_commit: dict[str, dict[str, int]] = {}
+        without_commit = 0
+        indexed_types: int | None = None
+        total_types: int | None = None
+        coverage_text: str | None = None
+        # G3/TC-651: tallied across every chunk _chunk_kind classifies as documentation, regardless of
+        # which (or whether any) source commit it carries - a caller asking "which categories are
+        # empty" cares about the whole generation, not one commit's slice of it.
+        content_type_counts: dict[str, int] = dict.fromkeys(CONTENT_TYPES, 0)
+        # Sorted by document id so "the first API-Coverage line" does not depend on dict order.
+        for _, document in sorted(documents.items()):
+            text = document["text"]
+            kind = _chunk_kind(text)
+            if kind == _SYMBOL and indexed_types is None:
+                coverage = parse_api_coverage(text)
+                if coverage is not None:
+                    indexed_types, total_types = coverage.indexed, coverage.total
+                    coverage_text = text
+            if kind == _DOCUMENTATION:
+>               content_type_counts[search_docs.disabled_classify_content_type(text)] += 1
+                                    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E               AttributeError: module 'foss_mcp.mcp.tools.search_docs' has no attribute 'disabled_classify_content_type'. Did you mean: 'classify_content_type'?
+
+src\foss_mcp\mcp\tools\report_index_freshness.py:190: AttributeError
+=========================== short test summary info ===========================
+FAILED tests/mcp/tools/test_report_index_freshness_content_type_counts.py::test_all_four_categories_report_their_real_per_category_counts
+FAILED tests/mcp/tools/test_report_index_freshness_content_type_counts.py::test_empty_category_reports_an_explicit_zero_not_an_absent_key
+FAILED tests/mcp/tools/test_report_index_freshness_content_type_counts.py::test_counts_combine_across_multiple_source_commits
+FAILED tests/mcp/tools/test_report_index_freshness_content_type_counts.py::test_counts_match_an_independent_manual_tally_via_the_real_classify_content_type
+FAILED tests/mcp/tools/test_report_index_freshness_content_type_counts.py::test_keys_exactly_equal_the_real_search_docs_content_types
+FAILED tests/mcp/tools/test_report_index_freshness_content_type_counts.py::test_real_pdf_net_pilot_reports_faq_explicitly_zero_closing_pdf_net_004
+
+--- stderr ---
+
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-5c72e798a73c059a\Scripts\python.exe -m pytest tests/mcp/tools/test_freshness_provenance.py tests/mcp/tools/test_freshness_registry_version.py tests/mcp/tools/test_freshness_tristate.py tests/mcp/tools/test_known_defects_in_freshness.py -q -rfE -p no:cacheprovider "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-bu0gwqbl\.junit-1.xml"
+--- stdout ---
+..............FFFFFFFFFFF..FF.FF..FFFF..................F.F............. [ 84%]
+FFF..........                                                            [100%]
+================================== FAILURES ===================================
+______________ test_two_commits_split_by_kind_with_exact_counts _______________
+
+tmp_path = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-19050/test_two_commits_split_by_kind0')
+
+    def test_two_commits_split_by_kind_with_exact_counts(tmp_path: Path) -> None:
+        store = _publish(tmp_path / "m", _mixed_texts())
+>       report = _report(store, PINNED_COMMIT)
+                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests\mcp\tools\test_freshness_provenance.py:184: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+tests\mcp\tools\test_freshness_provenance.py:104: in _report
+    return report_index_freshness(store, SCOPE, "self_extracted", current, **kwargs)  # type: ignore[arg-type]
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+src\foss_mcp\mcp\tools\report_index_freshness.py:451: in report_index_freshness
+    provenance = _read_provenance(manifest.payload)
+                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+manifest_payload = {'lexical_index': {'doc_freq': {'10': 3, '10a363830fea952c29df20fdb37d35ad3a881433': 3, '20': 3, '2406': 3, ...}, 'doc...0392156, 0.5215686274509804, 0.17647058823529413, 0.45098039215686275, 0.5333333333333333, 0.5215686274509804, ...]}]}}
+
+    def _read_provenance(manifest_payload: dict) -> _Provenance:
+        documents = (manifest_payload.get("lexical_index") or {}).get("documents") or {}
+        per_commit: dict[str, dict[str, int]] = {}
+        without_commit = 0
+        indexed_types: int | None = None
+        total_types: int | None = None
+        coverage_text: str | None = None
+        # G3/TC-651: tallied across every chunk _chunk_kind classifies as documentation, regardless of
+        # which (or whether any) source commit it carries - a caller asking "which categories are
+        # empty" cares about the whole generation, not one commit's slice of it.
+        content_type_counts: dict[str, int] = dict.fromkeys(CONTENT_TYPES, 0)
+        # Sorted by document id so "the first API-Coverage line" does not depend on dict order.
+        for _, document in sorted(documents.items()):
+            text = document["text"]
+            kind = _chunk_kind(text)
+            if kind == _SYMBOL and indexed_types is None:
+                coverage = parse_api_coverage(text)
+                if coverage is not None:
+                    indexed_types, total_types = coverage.indexed, coverage.total
+                    coverage_text = text
+            if kind == _DOCUMENTATION:
+>               content_type_counts[search_docs.disabled_classify_content_type(text)] += 1
+                                    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E               AttributeError: module 'foss_mcp.mcp.tools.search_docs' has no attribute 'disabled_classify_content_type'. Did you mean: 'classify_content_type'?
+
+src\foss_mcp\mcp\tools\report_index_freshness.py:190: AttributeError
+______ test_source_commits_are_ordered_by_chunks_descending_then_commit _______
+
+tmp_path = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-19050/test_source_commits_are_ordere0')
+
+    def test_source_commits_are_ordered_by_chunks_descending_then_commit(tmp_path: Path) -> None:
+        texts = [_doc("One", PINNED_COMMIT), _doc("Two", PINNED_COMMIT), _symbol("Alpha", SYMBOL_COMMIT)] + [
+            _symbol("Zeta", "f" * 40),
+            _symbol("Eta", "e" * 40),
+        ]
+>       report = _report(_publish(tmp_path / "m", texts), None)
+                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests\mcp\tools\test_freshness_provenance.py:198: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+tests\mcp\tools\test_freshness_provenance.py:104: in _report
+    return report_index_freshness(store, SCOPE, "self_extracted", current, **kwargs)  # type: ignore[arg-type]
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+src\foss_mcp\mcp\tools\report_index_freshness.py:451: in report_index_freshness
+    provenance = _read_provenance(manifest.payload)
+                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+manifest_payload = {'lexical_index': {'doc_freq': {'10': 1, '10a363830fea952c29df20fdb37d35ad3a881433': 1, '20': 1, '2406': 2, ...}, 'doc...0392157, 0.4627450980392157, 0.07450980392156863, 0.1843137254901961, 0.1803921568627451, 0.47843137254901963, ...]}]}}
+
+    def _read_provenance(manifest_payload: dict) -> _Provenance:
+        documents = (manifest_payload.get("lexical_index") or {}).get("documents") or {}
+        per_commit: dict[str, dict[str, int]] = {}
+        without_commit = 0
+        indexed_types: int | None = None
+        total_types: int | None = None
+        coverage_text: str | None = None
+        # G3/TC-651: tallied across every chunk _chunk_kind classifies as documentation, regardless of
+        # which (or whether any) source commit it carries - a caller asking "which categories are
+        # empty" cares about the whole generation, not one commit's slice of it.
+        content_type_counts: dict[str, int] = dict.fromkeys(CONTENT_TYPES, 0)
+        # Sorted by document id so "the first API-Coverage line" does not depend on dict order.
+        for _, document in sorted(documents.items()):
+            text = document["text"]
+            kind = _chunk_kind(text)
+            if kind == _SYMBOL and indexed_types is None:
+                coverage = parse_api_coverage(text)
+                if coverage is not None:
+                    indexed_types, total_types = coverage.indexed, coverage.total
+                    coverage_text = text
+            if kind == _DOCUMENTATION:
+>               content_type_counts[search_docs.disabled_classify_content_type(text)] += 1
+                                    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E               AttributeError: module 'foss_mcp.mcp.tools.search_docs' has no attribute 'disabled_classify_content_type'. Did you mean: 'classify_content_type'?
+
+src\foss_mcp\mcp\tools\report_index_freshness.py:190: AttributeError
+_ test_caller_matching_only_the_documentation_commit_is_stale_and_the_reason_says_so _
+
+tmp_path = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-19050/test_caller_matching_only_the_0')
+
+    def test_caller_matching_only_the_documentation_commit_is_stale_and_the_reason_says_so(
+        tmp_path: Path,
+    ) -> None:
+>       report = _report(_publish(tmp_path / "m", _mixed_texts()), PINNED_COMMIT)
+                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests\mcp\tools\test_freshness_provenance.py:210: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+tests\mcp\tools\test_freshness_provenance.py:104: in _report
+    return report_index_freshness(store, SCOPE, "self_extracted", current, **kwargs)  # type: ignore[arg-type]
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+src\foss_mcp\mcp\tools\report_index_freshness.py:451: in report_index_freshness
+    provenance = _read_provenance(manifest.payload)
+                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+manifest_payload = {'lexical_index': {'doc_freq': {'10': 3, '10a363830fea952c29df20fdb37d35ad3a881433': 3, '20': 3, '2406': 3, ...}, 'doc...0392156, 0.5215686274509804, 0.17647058823529413, 0.45098039215686275, 0.5333333333333333, 0.5215686274509804, ...]}]}}
+
+    def _read_provenance(manifest_payload: dict) -> _Provenance:
+        documents = (manifest_payload.get("lexical_index") or {}).get("documents") or {}
+        per_commit: dict[str, dict[str, int]] = {}
+        without_commit = 0
+        indexed_types: int | None = None
+        total_types: int | None = None
+        coverage_text: str | None = None
+        # G3/TC-651: tallied across every chunk _chunk_kind classifies as documentation, regardless of
+        # which (or whether any) source commit it carries - a caller asking "which categories are
+        # empty" cares about the whole generation, not one commit's slice of it.
+        content_type_counts: dict[str, int] = dict.fromkeys(CONTENT_TYPES, 0)
+        # Sorted by document id so "the first API-Coverage line" does not depend on dict order.
+        for _, document in sorted(documents.items()):
+            text = document["text"]
+            kind = _chunk_kind(text)
+            if kind == _SYMBOL and indexed_types is None:
+                coverage = parse_api_coverage(text)
+                if coverage is not None:
+                    indexed_types, total_types = coverage.indexed, coverage.total
+                    coverage_text = text
+            if kind == _DOCUMENTATION:
+>               content_type_counts[search_docs.disabled_classify_content_type(text)] += 1
+                                    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E               AttributeError: module 'foss_mcp.mcp.tools.search_docs' has no attribute 'disabled_classify_content_type'. Did you mean: 'classify_content_type'?
+
+src\foss_mcp\mcp\tools\report_index_freshness.py:190: AttributeError
+_ test_caller_matching_only_the_symbol_commit_is_stale_and_the_reason_says_so _
+
+tmp_path = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-19050/test_caller_matching_only_the_1')
+
+    def test_caller_matching_only_the_symbol_commit_is_stale_and_the_reason_says_so(tmp_path: Path) -> None:
+>       report = _report(_publish(tmp_path / "m", _mixed_texts()), SYMBOL_COMMIT[:9])
+                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests\mcp\tools\test_freshness_provenance.py:219: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+tests\mcp\tools\test_freshness_provenance.py:104: in _report
+    return report_index_freshness(store, SCOPE, "self_extracted", current, **kwargs)  # type: ignore[arg-type]
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+src\foss_mcp\mcp\tools\report_index_freshness.py:451: in report_index_freshness
+    provenance = _read_provenance(manifest.payload)
+                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+manifest_payload = {'lexical_index': {'doc_freq': {'10': 3, '10a363830fea952c29df20fdb37d35ad3a881433': 3, '20': 3, '2406': 3, ...}, 'doc...0392156, 0.5215686274509804, 0.17647058823529413, 0.45098039215686275, 0.5333333333333333, 0.5215686274509804, ...]}]}}
+
+    def _read_provenance(manifest_payload: dict) -> _Provenance:
+        documents = (manifest_payload.get("lexical_index") or {}).get("documents") or {}
+        per_commit: dict[str, dict[str, int]] = {}
+        without_commit = 0
+        indexed_types: int | None = None
+        total_types: int | None = None
+        coverage_text: str | None = None
+        # G3/TC-651: tallied across every chunk _chunk_kind classifies as documentation, regardless of
+        # which (or whether any) source commit it carries - a caller asking "which categories are
+        # empty" cares about the whole generation, not one commit's slice of it.
+        content_type_counts: dict[str, int] = dict.fromkeys(CONTENT_TYPES, 0)
+        # Sorted by document id so "the first API-Coverage line" does not depend on dict order.
+        for _, document in sorted(documents.items()):
+            text = document["text"]
+            kind = _chunk_kind(text)
+            if kind == _SYMBOL and indexed_types is None:
+                coverage = parse_api_coverage(text)
+                if coverage is not None:
+                    indexed_types, total_types = coverage.indexed, coverage.total
+                    coverage_text = text
+            if kind == _DOCUMENTATION:
+>               content_type_counts[search_docs.disabled_classify_content_type(text)] += 1
+                                    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E               AttributeError: module 'foss_mcp.mcp.tools.search_docs' has no attribute 'disabled_classify_content_type'. Did you mean: 'classify_content_type'?
+
+src\foss_mcp\mcp\tools\report_index_freshness.py:190: AttributeError
+________________ test_caller_matching_neither_commit_is_stale _________________
+
+tmp_path = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-19050/test_caller_matching_neither_c0')
+
+    def test_caller_matching_neither_commit_is_stale(tmp_path: Path) -> None:
+>       report = _report(_publish(tmp_path / "m", _mixed_texts()), "c" * 40)
+                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests\mcp\tools\test_freshness_provenance.py:225: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+tests\mcp\tools\test_freshness_provenance.py:104: in _report
+    return report_index_freshness(store, SCOPE, "self_extracted", current, **kwargs)  # type: ignore[arg-type]
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+src\foss_mcp\mcp\tools\report_index_freshness.py:451: in report_index_freshness
+    provenance = _read_provenance(manifest.payload)
+                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+manifest_payload = {'lexical_index': {'doc_freq': {'10': 3, '10a363830fea952c29df20fdb37d35ad3a881433': 3, '20': 3, '2406': 3, ...}, 'doc...0392156, 0.5215686274509804, 0.17647058823529413, 0.45098039215686275, 0.5333333333333333, 0.5215686274509804, ...]}]}}
+
+    def _read_provenance(manifest_payload: dict) -> _Provenance:
+        documents = (manifest_payload.get("lexical_index") or {}).get("documents") or {}
+        per_commit: dict[str, dict[str, int]] = {}
+        without_commit = 0
+        indexed_types: int | None = None
+        total_types: int | None = None
+        coverage_text: str | None = None
+        # G3/TC-651: tallied across every chunk _chunk_kind classifies as documentation, regardless of
+        # which (or whether any) source commit it carries - a caller asking "which categories are
+        # empty" cares about the whole generation, not one commit's slice of it.
+        content_type_counts: dict[str, int] = dict.fromkeys(CONTENT_TYPES, 0)
+        # Sorted by document id so "the first API-Coverage line" does not depend on dict order.
+        for _, document in sorted(documents.items()):
+            text = document["text"]
+            kind = _chunk_kind(text)
+            if kind == _SYMBOL and indexed_types is None:
+                coverage = parse_api_coverage(text)
+                if coverage is not None:
+                    indexed_types, total_types = coverage.indexed, coverage.total
+                    coverage_text = text
+            if kind == _DOCUMENTATION:
+>               content_type_counts[search_docs.disabled_classify_content_type(text)] += 1
+                                    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E               AttributeError: module 'foss_mcp.mcp.tools.search_docs' has no attribute 'disabled_classify_content_type'. Did you mean: 'classify_content_type'?
+
+src\foss_mcp\mcp\tools\report_index_freshness.py:190: AttributeError
+_ test_unknown_current_commit_on_a_mixed_index_is_stale_and_still_lists_the_commits _
+
+tmp_path = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-19050/test_unknown_current_commit_on0')
+
+    def test_unknown_current_commit_on_a_mixed_index_is_stale_and_still_lists_the_commits(
+        tmp_path: Path,
+    ) -> None:
+>       report = _report(_publish(tmp_path / "m", _mixed_texts()), None)
+                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests\mcp\tools\test_freshness_provenance.py:233: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+tests\mcp\tools\test_freshness_provenance.py:104: in _report
+    return report_index_freshness(store, SCOPE, "self_extracted", current, **kwargs)  # type: ignore[arg-type]
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+src\foss_mcp\mcp\tools\report_index_freshness.py:451: in report_index_freshness
+    provenance = _read_provenance(manifest.payload)
+                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+manifest_payload = {'lexical_index': {'doc_freq': {'10': 3, '10a363830fea952c29df20fdb37d35ad3a881433': 3, '20': 3, '2406': 3, ...}, 'doc...0392156, 0.5215686274509804, 0.17647058823529413, 0.45098039215686275, 0.5333333333333333, 0.5215686274509804, ...]}]}}
+
+    def _read_provenance(manifest_payload: dict) -> _Provenance:
+        documents = (manifest_payload.get("lexical_index") or {}).get("documents") or {}
+        per_commit: dict[str, dict[str, int]] = {}
+        without_commit = 0
+        indexed_types: int | None = None
+        total_types: int | None = None
+        coverage_text: str | None = None
+        # G3/TC-651: tallied across every chunk _chunk_kind classifies as documentation, regardless of
+        # which (or whether any) source commit it carries - a caller asking "which categories are
+        # empty" cares about the whole generation, not one commit's slice of it.
+        content_type_counts: dict[str, int] = dict.fromkeys(CONTENT_TYPES, 0)
+        # Sorted by document id so "the first API-Coverage line" does not depend on dict order.
+        for _, document in sorted(documents.items()):
+            text = document["text"]
+            kind = _chunk_kind(text)
+            if kind == _SYMBOL and indexed_types is None:
+                coverage = parse_api_coverage(text)
+                if coverage is not None:
+                    indexed_types, total_types = coverage.indexed, coverage.total
+                    coverage_text = text
+            if kind == _DOCUMENTATION:
+>               content_type_counts[search_docs.disabled_classify_content_type(text)] += 1
+                                    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E               AttributeError: module 'foss_mcp.mcp.tools.search_docs' has no attribute 'disabled_classify_content_type'. Did you mean: 'classify_content_type'?
+
+src\foss_mcp\mcp\tools\report_index_freshness.py:190: AttributeError
+_ test_indexed_source_commit_is_the_symbol_commit_even_when_documentation_has_more_chunks _
+
+tmp_path = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-19050/test_indexed_source_commit_is_0')
+
+    def test_indexed_source_commit_is_the_symbol_commit_even_when_documentation_has_more_chunks(
+        tmp_path: Path,
+    ) -> None:
+        texts = [_symbol("Alpha", SYMBOL_COMMIT)] + [_doc(f"Page {i}", PINNED_COMMIT) for i in range(5)]
+>       report = _report(_publish(tmp_path / "m", texts), None)
+                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests\mcp\tools\test_freshness_provenance.py:244: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+tests\mcp\tools\test_freshness_provenance.py:104: in _report
+    return report_index_freshness(store, SCOPE, "self_extracted", current, **kwargs)  # type: ignore[arg-type]
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+src\foss_mcp\mcp\tools\report_index_freshness.py:451: in report_index_freshness
+    provenance = _read_provenance(manifest.payload)
+                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+manifest_payload = {'lexical_index': {'doc_freq': {'0': 1, '1': 1, '10': 1, '10a363830fea952c29df20fdb37d35ad3a881433': 1, ...}, 'documen...039216, 0.42745098039215684, 0.796078431372549, 0.9176470588235294, 0.03529411764705882, 0.047058823529411764, ...]}]}}
+
+    def _read_provenance(manifest_payload: dict) -> _Provenance:
+        documents = (manifest_payload.get("lexical_index") or {}).get("documents") or {}
+        per_commit: dict[str, dict[str, int]] = {}
+        without_commit = 0
+        indexed_types: int | None = None
+        total_types: int | None = None
+        coverage_text: str | None = None
+        # G3/TC-651: tallied across every chunk _chunk_kind classifies as documentation, regardless of
+        # which (or whether any) source commit it carries - a caller asking "which categories are
+        # empty" cares about the whole generation, not one commit's slice of it.
+        content_type_counts: dict[str, int] = dict.fromkeys(CONTENT_TYPES, 0)
+        # Sorted by document id so "the first API-Coverage line" does not depend on dict order.
+        for _, document in sorted(documents.items()):
+            text = document["text"]
+            kind = _chunk_kind(text)
+            if kind == _SYMBOL and indexed_types is None:
+                coverage = parse_api_coverage(text)
+                if coverage is not None:
+                    indexed_types, total_types = coverage.indexed, coverage.total
+                    coverage_text = text
+            if kind == _DOCUMENTATION:
+>               content_type_counts[search_docs.disabled_classify_content_type(text)] += 1
+                                    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E               AttributeError: module 'foss_mcp.mcp.tools.search_docs' has no attribute 'disabled_classify_content_type'. Did you mean: 'classify_content_type'?
+
+src\foss_mcp\mcp\tools\report_index_freshness.py:190: AttributeError
+__ test_indexed_source_commit_without_symbols_is_the_commit_with_most_chunks __
+
+tmp_path = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-19050/test_indexed_source_commit_wit0')
+
+    def test_indexed_source_commit_without_symbols_is_the_commit_with_most_chunks(tmp_path: Path) -> None:
+        texts = [_doc("A", SYMBOL_COMMIT), _doc("B", PINNED_COMMIT), _example("C", PINNED_COMMIT)]
+>       report = _report(_publish(tmp_path / "m", texts), None)
+                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests\mcp\tools\test_freshness_provenance.py:250: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+tests\mcp\tools\test_freshness_provenance.py:104: in _report
+    return report_index_freshness(store, SCOPE, "self_extracted", current, **kwargs)  # type: ignore[arg-type]
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+src\foss_mcp\mcp\tools\report_index_freshness.py:451: in report_index_freshness
+    provenance = _read_provenance(manifest.payload)
+                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+manifest_payload = {'lexical_index': {'doc_freq': {'10': 1, '10a363830fea952c29df20fdb37d35ad3a881433': 1, '20': 1, '2406': 2, ...}, 'doc...882353, 0.043137254901960784, 0.7764705882352941, 0.23137254901960785, 0.4666666666666667, 0.3333333333333333, ...]}]}}
+
+    def _read_provenance(manifest_payload: dict) -> _Provenance:
+        documents = (manifest_payload.get("lexical_index") or {}).get("documents") or {}
+        per_commit: dict[str, dict[str, int]] = {}
+        without_commit = 0
+        indexed_types: int | None = None
+        total_types: int | None = None
+        coverage_text: str | None = None
+        # G3/TC-651: tallied across every chunk _chunk_kind classifies as documentation, regardless of
+        # which (or whether any) source commit it carries - a caller asking "which categories are
+        # empty" cares about the whole generation, not one commit's slice of it.
+        content_type_counts: dict[str, int] = dict.fromkeys(CONTENT_TYPES, 0)
+        # Sorted by document id so "the first API-Coverage line" does not depend on dict order.
+        for _, document in sorted(documents.items()):
+            text = document["text"]
+            kind = _chunk_kind(text)
+            if kind == _SYMBOL and indexed_types is None:
+                coverage = parse_api_coverage(text)
+                if coverage is not None:
+                    indexed_types, total_types = coverage.indexed, coverage.total
+                    coverage_text = text
+            if kind == _DOCUMENTATION:
+>               content_type_counts[search_docs.disabled_classify_content_type(text)] += 1
+                                    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E               AttributeError: module 'foss_mcp.mcp.tools.search_docs' has no attribute 'disabled_classify_content_type'. Did you mean: 'classify_content_type'?
+
+src\foss_mcp\mcp\tools\report_index_freshness.py:190: AttributeError
+_____ test_indexed_source_commit_ties_break_to_the_smaller_commit_string ______
+
+tmp_path = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-19050/test_indexed_source_commit_tie0')
+
+    def test_indexed_source_commit_ties_break_to_the_smaller_commit_string(tmp_path: Path) -> None:
+        symbols = [_symbol("Alpha", "b" * 40), _symbol("Beta", "a" * 40)]
+        assert _report(_publish(tmp_path / "s", symbols), None).indexed_source_commit == "a" * 40
+        docs = [_doc("Alpha", "d" * 40), _doc("Beta", "c" * 40)]
+>       assert _report(_publish(tmp_path / "d", docs), None).indexed_source_commit == "c" * 40
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests\mcp\tools\test_freshness_provenance.py:258: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+tests\mcp\tools\test_freshness_provenance.py:104: in _report
+    return report_index_freshness(store, SCOPE, "self_extracted", current, **kwargs)  # type: ignore[arg-type]
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+src\foss_mcp\mcp\tools\report_index_freshness.py:451: in report_index_freshness
+    provenance = _read_provenance(manifest.payload)
+                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+manifest_payload = {'lexical_index': {'doc_freq': {'alpha': 1, 'beta': 1, 'cccccccccccccccccccccccccccccccccccccccc': 1, 'commit': 2, ......r': [0.6352941176470588, 0.49411764705882355, 0.6313725490196078, 0.4549019607843137, 0.4666666666666667, 1.0, ...]}]}}
+
+    def _read_provenance(manifest_payload: dict) -> _Provenance:
+        documents = (manifest_payload.get("lexical_index") or {}).get("documents") or {}
+        per_commit: dict[str, dict[str, int]] = {}
+        without_commit = 0
+        indexed_types: int | None = None
+        total_types: int | None = None
+        coverage_text: str | None = None
+        # G3/TC-651: tallied across every chunk _chunk_kind classifies as documentation, regardless of
+        # which (or whether any) source commit it carries - a caller asking "which categories are
+        # empty" cares about the whole generation, not one commit's slice of it.
+        content_type_counts: dict[str, int] = dict.fromkeys(CONTENT_TYPES, 0)
+        # Sorted by document id so "the first API-Coverage line" does not depend on dict order.
+        for _, document in sorted(documents.items()):
+            text = document["text"]
+            kind = _chunk_kind(text)
+            if kind == _SYMBOL and indexed_types is None:
+                coverage = parse_api_coverage(text)
+                if coverage is not None:
+                    indexed_types, total_types = coverage.indexed, coverage.total
+                    coverage_text = text
+            if kind == _DOCUMENTATION:
+>               content_type_counts[search_docs.disabled_classify_content_type(text)] += 1
+                                    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E               AttributeError: module 'foss_mcp.mcp.tools.search_docs' has no attribute 'disabled_classify_content_type'. Did you mean: 'classify_content_type'?
+
+src\foss_mcp\mcp\tools\report_index_freshness.py:190: AttributeError
+_____________ test_report_is_independent_of_chunk_insertion_order _____________
+
+tmp_path = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-19050/test_report_is_independent_of_0')
+
+    def test_report_is_independent_of_chunk_insertion_order(tmp_path: Path) -> None:
+        texts = _mixed_texts()
+>       forward = _report(_publish(tmp_path / "forward", texts), PINNED_COMMIT)
+                  ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests\mcp\tools\test_freshness_provenance.py:263: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+tests\mcp\tools\test_freshness_provenance.py:104: in _report
+    return report_index_freshness(store, SCOPE, "self_extracted", current, **kwargs)  # type: ignore[arg-type]
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+src\foss_mcp\mcp\tools\report_index_freshness.py:451: in report_index_freshness
+    provenance = _read_provenance(manifest.payload)
+                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+manifest_payload = {'lexical_index': {'doc_freq': {'10': 3, '10a363830fea952c29df20fdb37d35ad3a881433': 3, '20': 3, '2406': 3, ...}, 'doc...0392156, 0.5215686274509804, 0.17647058823529413, 0.45098039215686275, 0.5333333333333333, 0.5215686274509804, ...]}]}}
+
+    def _read_provenance(manifest_payload: dict) -> _Provenance:
+        documents = (manifest_payload.get("lexical_index") or {}).get("documents") or {}
+        per_commit: dict[str, dict[str, int]] = {}
+        without_commit = 0
+        indexed_types: int | None = None
+        total_types: int | None = None
+        coverage_text: str | None = None
+        # G3/TC-651: tallied across every chunk _chunk_kind classifies as documentation, regardless of
+        # which (or whether any) source commit it carries - a caller asking "which categories are
+        # empty" cares about the whole generation, not one commit's slice of it.
+        content_type_counts: dict[str, int] = dict.fromkeys(CONTENT_TYPES, 0)
+        # Sorted by document id so "the first API-Coverage line" does not depend on dict order.
+        for _, document in sorted(documents.items()):
+            text = document["text"]
+            kind = _chunk_kind(text)
+            if kind == _SYMBOL and indexed_types is None:
+                coverage = parse_api_coverage(text)
+                if coverage is not None:
+                    indexed_types, total_types = coverage.indexed, coverage.total
+                    coverage_text = text
+            if kind == _DOCUMENTATION:
+>               content_type_counts[search_docs.disabled_classify_content_type(text)] += 1
+                                    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E               AttributeError: module 'foss_mcp.mcp.tools.search_docs' has no attribute 'disabled_classify_content_type'. Did you mean: 'classify_content_type'?
+
+src\foss_mcp\mcp\tools\report_index_freshness.py:190: AttributeError
+_______ test_chunks_without_a_source_commit_line_are_counted_separately _______
+
+tmp_path = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-19050/test_chunks_without_a_source_c0')
+
+    def test_chunks_without_a_source_commit_line_are_counted_separately(tmp_path: Path) -> None:
+        texts = [_symbol("Alpha", SYMBOL_COMMIT), _symbol("Beta", None), _doc("Page", None)]
+>       report = _report(_publish(tmp_path / "m", texts), SYMBOL_COMMIT)
+                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests\mcp\tools\test_freshness_provenance.py:280: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+tests\mcp\tools\test_freshness_provenance.py:104: in _report
+    return report_index_freshness(store, SCOPE, "self_extracted", current, **kwargs)  # type: ignore[arg-type]
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+src\foss_mcp\mcp\tools\report_index_freshness.py:451: in report_index_freshness
+    provenance = _read_provenance(manifest.payload)
+                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+manifest_payload = {'lexical_index': {'doc_freq': {'10': 1, '10a363830fea952c29df20fdb37d35ad3a881433': 1, '20': 1, '29': 1, ...}, 'docum...35294117, 0.4745098039215686, 0.5333333333333333, 0.1607843137254902, 0.35294117647058826, 0.9098039215686274, ...]}]}}
+
+    def _read_provenance(manifest_payload: dict) -> _Provenance:
+        documents = (manifest_payload.get("lexical_index") or {}).get("documents") or {}
+        per_commit: dict[str, dict[str, int]] = {}
+        without_commit = 0
+        indexed_types: int | None = None
+        total_types: int | None = None
+        coverage_text: str | None = None
+        # G3/TC-651: tallied across every chunk _chunk_kind classifies as documentation, regardless of
+        # which (or whether any) source commit it carries - a caller asking "which categories are
+        # empty" cares about the whole generation, not one commit's slice of it.
+        content_type_counts: dict[str, int] = dict.fromkeys(CONTENT_TYPES, 0)
+        # Sorted by document id so "the first API-Coverage line" does not depend on dict order.
+        for _, document in sorted(documents.items()):
+            text = document["text"]
+            kind = _chunk_kind(text)
+            if kind == _SYMBOL and indexed_types is None:
+                coverage = parse_api_coverage(text)
+                if coverage is not None:
+                    indexed_types, total_types = coverage.indexed, coverage.total
+                    coverage_text = text
+            if kind == _DOCUMENTATION:
+>               content_type_counts[search_docs.disabled_classify_content_type(text)] += 1
+                                    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E               AttributeError: module 'foss_mcp.mcp.tools.search_docs' has no attribute 'disabled_classify_content_type'. Did you mean: 'classify_content_type'?
+
+src\foss_mcp\mcp\tools\report_index_freshness.py:190: AttributeError
+________________ test_pinned_commit_matching_the_symbol_commit ________________
+
+tmp_path = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-19050/test_pinned_commit_matching_th0')
+
+    def test_pinned_commit_matching_the_symbol_commit(tmp_path: Path) -> None:
+        store = _publish(tmp_path / "m", [_symbol("Alpha", SYMBOL_COMMIT), _doc("Page", SYMBOL_COMMIT)])
+>       report = _report(store, SYMBOL_COMMIT, pinned_library_commit=SYMBOL_COMMIT[:8])
+                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests\mcp\tools\test_freshness_provenance.py:310: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+tests\mcp\tools\test_freshness_provenance.py:104: in _report
+    return report_index_freshness(store, SCOPE, "self_extracted", current, **kwargs)  # type: ignore[arg-type]
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+src\foss_mcp\mcp\tools\report_index_freshness.py:451: in report_index_freshness
+    provenance = _read_provenance(manifest.payload)
+                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+manifest_payload = {'lexical_index': {'doc_freq': {'10': 2, '10a363830fea952c29df20fdb37d35ad3a881433': 2, '20': 2, '29': 2, ...}, 'docum...': [0.8901960784313725, 0.6313725490196078, 0.2, 0.13333333333333333, 0.5725490196078431, 0.43529411764705883, ...]}]}}
+
+    def _read_provenance(manifest_payload: dict) -> _Provenance:
+        documents = (manifest_payload.get("lexical_index") or {}).get("documents") or {}
+        per_commit: dict[str, dict[str, int]] = {}
+        without_commit = 0
+        indexed_types: int | None = None
+        total_types: int | None = None
+        coverage_text: str | None = None
+        # G3/TC-651: tallied across every chunk _chunk_kind classifies as documentation, regardless of
+        # which (or whether any) source commit it carries - a caller asking "which categories are
+        # empty" cares about the whole generation, not one commit's slice of it.
+        content_type_counts: dict[str, int] = dict.fromkeys(CONTENT_TYPES, 0)
+        # Sorted by document id so "the first API-Coverage line" does not depend on dict order.
+        for _, document in sorted(documents.items()):
+            text = document["text"]
+            kind = _chunk_kind(text)
+            if kind == _SYMBOL and indexed_types is None:
+                coverage = parse_api_coverage(text)
+                if coverage is not None:
+                    indexed_types, total_types = coverage.indexed, coverage.total
+                    coverage_text = text
+            if kind == _DOCUMENTATION:
+>               content_type_counts[search_docs.disabled_classify_content_type(text)] += 1
+                                    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E               AttributeError: module 'foss_mcp.mcp.tools.search_docs' has no attribute 'disabled_classify_content_type'. Did you mean: 'classify_content_type'?
+
+src\foss_mcp\mcp\tools\report_index_freshness.py:190: AttributeError
+_____ test_pinned_commit_not_matching_the_symbol_commit_adds_one_sentence _____
+
+tmp_path = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-19050/test_pinned_commit_not_matchin0')
+
+    def test_pinned_commit_not_matching_the_symbol_commit_adds_one_sentence(tmp_path: Path) -> None:
+>       report = _report(
+            _publish(tmp_path / "m", _mixed_texts()), PINNED_COMMIT, pinned_library_commit=PINNED_COMMIT
+        )
+
+tests\mcp\tools\test_freshness_provenance.py:318: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+tests\mcp\tools\test_freshness_provenance.py:104: in _report
+    return report_index_freshness(store, SCOPE, "self_extracted", current, **kwargs)  # type: ignore[arg-type]
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+src\foss_mcp\mcp\tools\report_index_freshness.py:451: in report_index_freshness
+    provenance = _read_provenance(manifest.payload)
+                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+manifest_payload = {'lexical_index': {'doc_freq': {'10': 3, '10a363830fea952c29df20fdb37d35ad3a881433': 3, '20': 3, '2406': 3, ...}, 'doc...0392156, 0.5215686274509804, 0.17647058823529413, 0.45098039215686275, 0.5333333333333333, 0.5215686274509804, ...]}]}}
+
+    def _read_provenance(manifest_payload: dict) -> _Provenance:
+        documents = (manifest_payload.get("lexical_index") or {}).get("documents") or {}
+        per_commit: dict[str, dict[str, int]] = {}
+        without_commit = 0
+        indexed_types: int | None = None
+        total_types: int | None = None
+        coverage_text: str | None = None
+        # G3/TC-651: tallied across every chunk _chunk_kind classifies as documentation, regardless of
+        # which (or whether any) source commit it carries - a caller asking "which categories are
+        # empty" cares about the whole generation, not one commit's slice of it.
+        content_type_counts: dict[str, int] = dict.fromkeys(CONTENT_TYPES, 0)
+        # Sorted by document id so "the first API-Coverage line" does not depend on dict order.
+        for _, document in sorted(documents.items()):
+            text = document["text"]
+            kind = _chunk_kind(text)
+            if kind == _SYMBOL and indexed_types is None:
+                coverage = parse_api_coverage(text)
+                if coverage is not None:
+                    indexed_types, total_types = coverage.indexed, coverage.total
+                    coverage_text = text
+            if kind == _DOCUMENTATION:
+>               content_type_counts[search_docs.disabled_classify_content_type(text)] += 1
+                                    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E               AttributeError: module 'foss_mcp.mcp.tools.search_docs' has no attribute 'disabled_classify_content_type'. Did you mean: 'classify_content_type'?
+
+src\foss_mcp\mcp\tools\report_index_freshness.py:190: AttributeError
+_____________ test_pinned_commit_without_symbol_chunks_is_unknown _____________
+
+tmp_path = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-19050/test_pinned_commit_without_sym0')
+
+    def test_pinned_commit_without_symbol_chunks_is_unknown(tmp_path: Path) -> None:
+        store = _publish(tmp_path / "m", [_doc("A", PINNED_COMMIT), _example("B", PINNED_COMMIT)])
+>       report = _report(store, PINNED_COMMIT, pinned_library_commit=SYMBOL_COMMIT)
+                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests\mcp\tools\test_freshness_provenance.py:338: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+tests\mcp\tools\test_freshness_provenance.py:104: in _report
+    return report_index_freshness(store, SCOPE, "self_extracted", current, **kwargs)  # type: ignore[arg-type]
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+src\foss_mcp\mcp\tools\report_index_freshness.py:451: in report_index_freshness
+    provenance = _read_provenance(manifest.payload)
+                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+manifest_payload = {'lexical_index': {'doc_freq': {'2406': 2, '41': 2, '57': 2, '7172877651413': 2, ...}, 'documents': {'pdf::net::self_e...0980393, 0.18823529411764706, 0.9254901960784314, 0.9333333333333333, 0.23137254901960785, 0.8392156862745098, ...]}]}}
+
+    def _read_provenance(manifest_payload: dict) -> _Provenance:
+        documents = (manifest_payload.get("lexical_index") or {}).get("documents") or {}
+        per_commit: dict[str, dict[str, int]] = {}
+        without_commit = 0
+        indexed_types: int | None = None
+        total_types: int | None = None
+        coverage_text: str | None = None
+        # G3/TC-651: tallied across every chunk _chunk_kind classifies as documentation, regardless of
+        # which (or whether any) source commit it carries - a caller asking "which categories are
+        # empty" cares about the whole generation, not one commit's slice of it.
+        content_type_counts: dict[str, int] = dict.fromkeys(CONTENT_TYPES, 0)
+        # Sorted by document id so "the first API-Coverage line" does not depend on dict order.
+        for _, document in sorted(documents.items()):
+            text = document["text"]
+            kind = _chunk_kind(text)
+            if kind == _SYMBOL and indexed_types is None:
+                coverage = parse_api_coverage(text)
+                if coverage is not None:
+                    indexed_types, total_types = coverage.indexed, coverage.total
+                    coverage_text = text
+            if kind == _DOCUMENTATION:
+>               content_type_counts[search_docs.disabled_classify_content_type(text)] += 1
+                                    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E               AttributeError: module 'foss_mcp.mcp.tools.search_docs' has no attribute 'disabled_classify_content_type'. Did you mean: 'classify_content_type'?
+
+src\foss_mcp\mcp\tools\report_index_freshness.py:190: AttributeError
+__________ test_without_a_pinned_commit_the_pinned_fields_stay_none ___________
+
+tmp_path = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-19050/test_without_a_pinned_commit_t0')
+
+    def test_without_a_pinned_commit_the_pinned_fields_stay_none(tmp_path: Path) -> None:
+>       report = _report(_publish(tmp_path / "m", _mixed_texts()), PINNED_COMMIT)
+                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests\mcp\tools\test_freshness_provenance.py:345: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+tests\mcp\tools\test_freshness_provenance.py:104: in _report
+    return report_index_freshness(store, SCOPE, "self_extracted", current, **kwargs)  # type: ignore[arg-type]
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+src\foss_mcp\mcp\tools\report_index_freshness.py:451: in report_index_freshness
+    provenance = _read_provenance(manifest.payload)
+                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+manifest_payload = {'lexical_index': {'doc_freq': {'10': 3, '10a363830fea952c29df20fdb37d35ad3a881433': 3, '20': 3, '2406': 3, ...}, 'doc...0392156, 0.5215686274509804, 0.17647058823529413, 0.45098039215686275, 0.5333333333333333, 0.5215686274509804, ...]}]}}
+
+    def _read_provenance(manifest_payload: dict) -> _Provenance:
+        documents = (manifest_payload.get("lexical_index") or {}).get("documents") or {}
+        per_commit: dict[str, dict[str, int]] = {}
+        without_commit = 0
+        indexed_types: int | None = None
+        total_types: int | None = None
+        coverage_text: str | None = None
+        # G3/TC-651: tallied across every chunk _chunk_kind classifies as documentation, regardless of
+        # which (or whether any) source commit it carries - a caller asking "which categories are
+        # empty" cares about the whole generation, not one commit's slice of it.
+        content_type_counts: dict[str, int] = dict.fromkeys(CONTENT_TYPES, 0)
+        # Sorted by document id so "the first API-Coverage line" does not depend on dict order.
+        for _, document in sorted(documents.items()):
+            text = document["text"]
+            kind = _chunk_kind(text)
+            if kind == _SYMBOL and indexed_types is None:
+                coverage = parse_api_coverage(text)
+                if coverage is not None:
+                    indexed_types, total_types = coverage.indexed, coverage.total
+                    coverage_text = text
+            if kind == _DOCUMENTATION:
+>               content_type_counts[search_docs.disabled_classify_content_type(text)] += 1
+                                    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E               AttributeError: module 'foss_mcp.mcp.tools.search_docs' has no attribute 'disabled_classify_content_type'. Did you mean: 'classify_content_type'?
+
+src\foss_mcp\mcp\tools\report_index_freshness.py:190: AttributeError
+_______________ test_absent_api_coverage_is_unknown_not_guessed _______________
+
+tmp_path = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-19050/test_absent_api_coverage_is_un0')
+
+    def test_absent_api_coverage_is_unknown_not_guessed(tmp_path: Path) -> None:
+>       report = _report(_publish(tmp_path / "m", _mixed_texts()), SYMBOL_COMMIT)
+                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests\mcp\tools\test_freshness_provenance.py:374: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+tests\mcp\tools\test_freshness_provenance.py:104: in _report
+    return report_index_freshness(store, SCOPE, "self_extracted", current, **kwargs)  # type: ignore[arg-type]
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+src\foss_mcp\mcp\tools\report_index_freshness.py:451: in report_index_freshness
+    provenance = _read_provenance(manifest.payload)
+                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+manifest_payload = {'lexical_index': {'doc_freq': {'10': 3, '10a363830fea952c29df20fdb37d35ad3a881433': 3, '20': 3, '2406': 3, ...}, 'doc...0392156, 0.5215686274509804, 0.17647058823529413, 0.45098039215686275, 0.5333333333333333, 0.5215686274509804, ...]}]}}
+
+    def _read_provenance(manifest_payload: dict) -> _Provenance:
+        documents = (manifest_payload.get("lexical_index") or {}).get("documents") or {}
+        per_commit: dict[str, dict[str, int]] = {}
+        without_commit = 0
+        indexed_types: int | None = None
+        total_types: int | None = None
+        coverage_text: str | None = None
+        # G3/TC-651: tallied across every chunk _chunk_kind classifies as documentation, regardless of
+        # which (or whether any) source commit it carries - a caller asking "which categories are
+        # empty" cares about the whole generation, not one commit's slice of it.
+        content_type_counts: dict[str, int] = dict.fromkeys(CONTENT_TYPES, 0)
+        # Sorted by document id so "the first API-Coverage line" does not depend on dict order.
+        for _, document in sorted(documents.items()):
+            text = document["text"]
+            kind = _chunk_kind(text)
+            if kind == _SYMBOL and indexed_types is None:
+                coverage = parse_api_coverage(text)
+                if coverage is not None:
+                    indexed_types, total_types = coverage.indexed, coverage.total
+                    coverage_text = text
+            if kind == _DOCUMENTATION:
+>               content_type_counts[search_docs.disabled_classify_content_type(text)] += 1
+                                    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E               AttributeError: module 'foss_mcp.mcp.tools.search_docs' has no attribute 'disabled_classify_content_type'. Did you mean: 'classify_content_type'?
+
+src\foss_mcp\mcp\tools\report_index_freshness.py:190: AttributeError
+____________ test_api_coverage_on_a_documentation_chunk_is_ignored ____________
+
+tmp_path = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-19050/test_api_coverage_on_a_documen0')
+
+    def test_api_coverage_on_a_documentation_chunk_is_ignored(tmp_path: Path) -> None:
+        doc = _doc("Page", PINNED_COMMIT) + "\nAPI-Coverage: 1 of 2 types"
+>       report = _report(_publish(tmp_path / "m", [_symbol("Alpha", SYMBOL_COMMIT), doc]), None)
+                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests\mcp\tools\test_freshness_provenance.py:382: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+tests\mcp\tools\test_freshness_provenance.py:104: in _report
+    return report_index_freshness(store, SCOPE, "self_extracted", current, **kwargs)  # type: ignore[arg-type]
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+src\foss_mcp\mcp\tools\report_index_freshness.py:451: in report_index_freshness
+    provenance = _read_provenance(manifest.payload)
+                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+manifest_payload = {'lexical_index': {'doc_freq': {'1': 1, '10': 1, '10a363830fea952c29df20fdb37d35ad3a881433': 1, '2': 1, ...}, 'documen...43137, 0.027450980392156862, 0.08627450980392157, 0.5529411764705883, 0.10588235294117647, 0.7333333333333333, ...]}]}}
+
+    def _read_provenance(manifest_payload: dict) -> _Provenance:
+        documents = (manifest_payload.get("lexical_index") or {}).get("documents") or {}
+        per_commit: dict[str, dict[str, int]] = {}
+        without_commit = 0
+        indexed_types: int | None = None
+        total_types: int | None = None
+        coverage_text: str | None = None
+        # G3/TC-651: tallied across every chunk _chunk_kind classifies as documentation, regardless of
+        # which (or whether any) source commit it carries - a caller asking "which categories are
+        # empty" cares about the whole generation, not one commit's slice of it.
+        content_type_counts: dict[str, int] = dict.fromkeys(CONTENT_TYPES, 0)
+        # Sorted by document id so "the first API-Coverage line" does not depend on dict order.
+        for _, document in sorted(documents.items()):
+            text = document["text"]
+            kind = _chunk_kind(text)
+            if kind == _SYMBOL and indexed_types is None:
+                coverage = parse_api_coverage(text)
+                if coverage is not None:
+                    indexed_types, total_types = coverage.indexed, coverage.total
+                    coverage_text = text
+            if kind == _DOCUMENTATION:
+>               content_type_counts[search_docs.disabled_classify_content_type(text)] += 1
+                                    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E               AttributeError: module 'foss_mcp.mcp.tools.search_docs' has no attribute 'disabled_classify_content_type'. Did you mean: 'classify_content_type'?
+
+src\foss_mcp\mcp\tools\report_index_freshness.py:190: AttributeError
+_____________ test_real_pdf_net_generation_reports_its_one_commit _____________
+
+tmp_path = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-19050/test_real_pdf_net_generation_r0')
+
+    def test_real_pdf_net_generation_reports_its_one_commit(tmp_path: Path) -> None:
+        store = _real_store(tmp_path, "pdf__net__self_extracted")
+    
+>       report = _report(store, PDF_NET_COMMIT)
+                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests\mcp\tools\test_freshness_provenance.py:406: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+tests\mcp\tools\test_freshness_provenance.py:104: in _report
+    return report_index_freshness(store, SCOPE, "self_extracted", current, **kwargs)  # type: ignore[arg-type]
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+src\foss_mcp\mcp\tools\report_index_freshness.py:451: in report_index_freshness
+    provenance = _read_provenance(manifest.payload)
+                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+manifest_payload = {'lexical_index': {'doc_freq': {'0': 103, '1': 147, '10': 17, '100': 3, ...}, 'documents': {'pdf::net::self_extracted:...172877651413cff57a8bfe41fb8a8befb2406b', 'vector': [-0.03031, 0.02912, -0.00805, -0.00293, -0.00081, -0.01657, ...]}]}}
+
+    def _read_provenance(manifest_payload: dict) -> _Provenance:
+        documents = (manifest_payload.get("lexical_index") or {}).get("documents") or {}
+        per_commit: dict[str, dict[str, int]] = {}
+        without_commit = 0
+        indexed_types: int | None = None
+        total_types: int | None = None
+        coverage_text: str | None = None
+        # G3/TC-651: tallied across every chunk _chunk_kind classifies as documentation, regardless of
+        # which (or whether any) source commit it carries - a caller asking "which categories are
+        # empty" cares about the whole generation, not one commit's slice of it.
+        content_type_counts: dict[str, int] = dict.fromkeys(CONTENT_TYPES, 0)
+        # Sorted by document id so "the first API-Coverage line" does not depend on dict order.
+        for _, document in sorted(documents.items()):
+            text = document["text"]
+            kind = _chunk_kind(text)
+            if kind == _SYMBOL and indexed_types is None:
+                coverage = parse_api_coverage(text)
+                if coverage is not None:
+                    indexed_types, total_types = coverage.indexed, coverage.total
+                    coverage_text = text
+            if kind == _DOCUMENTATION:
+>               content_type_counts[search_docs.disabled_classify_content_type(text)] += 1
+                                    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E               AttributeError: module 'foss_mcp.mcp.tools.search_docs' has no attribute 'disabled_classify_content_type'. Did you mean: 'classify_content_type'?
+
+src\foss_mcp\mcp\tools\report_index_freshness.py:190: AttributeError
+_ test_real_pdf_typescript_generation_reports_its_one_commit_at_the_chart_pin _
+
+tmp_path = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-19050/test_real_pdf_typescript_gener0')
+
+    def test_real_pdf_typescript_generation_reports_its_one_commit_at_the_chart_pin(tmp_path: Path) -> None:
+        store = _real_store(tmp_path, "pdf__typescript__self_extracted")
+        ts_scope = Scope(family="pdf", platform="typescript")
+        chart = yaml.safe_load(
+            (REPO_ROOT / "infra" / "helm" / "foss-mcp" / "values.yaml").read_text(encoding="utf-8")
+        )
+        pin = next(
+            p["library"]["commit"]
+            for p in chart["ingestion"]["pilots"]
+            if (p["family"], p["platform"]) == ("pdf", "typescript")
+        )
+        assert pin == TS_PINNED_COMMIT
+        fixture = json.loads(
+            (REPO_ROOT / "tests" / "fixtures" / "pdf_typescript" / "api_surface.json").read_text(encoding="utf-8")
+        )
+    
+        def report(current: str | None, pinned_library_commit: str | None = None) -> FreshnessReport:
+            return report_index_freshness(
+                store, ts_scope, "self_extracted", current, pinned_library_commit=pinned_library_commit
+            )
+    
+>       at_pin = report(pin)
+                 ^^^^^^^^^^^
+
+tests\mcp\tools\test_freshness_provenance.py:444: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+tests\mcp\tools\test_freshness_provenance.py:440: in report
+    return report_index_freshness(
+src\foss_mcp\mcp\tools\report_index_freshness.py:451: in report_index_freshness
+    provenance = _read_provenance(manifest.payload)
+                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+manifest_payload = {'lexical_index': {'doc_freq': {'0': 561, '00': 1, '02': 561, '0x00': 1, ...}, 'documents': {'pdf::typescript::self_ex...it: 155bfc7a33f0ba23fb4252b6ba201828b02a5b9d', 'vector': [-0.02376, 0.0079, 0.00606, 0.0071, 0.00992, 0.00131, ...]}]}}
+
+    def _read_provenance(manifest_payload: dict) -> _Provenance:
+        documents = (manifest_payload.get("lexical_index") or {}).get("documents") or {}
+        per_commit: dict[str, dict[str, int]] = {}
+        without_commit = 0
+        indexed_types: int | None = None
+        total_types: int | None = None
+        coverage_text: str | None = None
+        # G3/TC-651: tallied across every chunk _chunk_kind classifies as documentation, regardless of
+        # which (or whether any) source commit it carries - a caller asking "which categories are
+        # empty" cares about the whole generation, not one commit's slice of it.
+        content_type_counts: dict[str, int] = dict.fromkeys(CONTENT_TYPES, 0)
+        # Sorted by document id so "the first API-Coverage line" does not depend on dict order.
+        for _, document in sorted(documents.items()):
+            text = document["text"]
+            kind = _chunk_kind(text)
+            if kind == _SYMBOL and indexed_types is None:
+                coverage = parse_api_coverage(text)
+                if coverage is not None:
+                    indexed_types, total_types = coverage.indexed, coverage.total
+                    coverage_text = text
+            if kind == _DOCUMENTATION:
+>               content_type_counts[search_docs.disabled_classify_content_type(text)] += 1
+                                    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E               AttributeError: module 'foss_mcp.mcp.tools.search_docs' has no attribute 'disabled_classify_content_type'. Did you mean: 'classify_content_type'?
+
+src\foss_mcp\mcp\tools\report_index_freshness.py:190: AttributeError
+_____ test_omitted_commit_on_a_mixed_index_keeps_the_legacy_mixed_reason ______
+
+tmp_path = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-19050/test_omitted_commit_on_a_mixed0')
+
+    def test_omitted_commit_on_a_mixed_index_keeps_the_legacy_mixed_reason(tmp_path: Path) -> None:
+        store = _publish(tmp_path / "m", _mixed_texts())
+>       report = _report(store, None)
+                 ^^^^^^^^^^^^^^^^^^^^
+
+tests\mcp\tools\test_freshness_tristate.py:98: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+tests\mcp\tools\test_freshness_tristate.py:48: in _report
+    return report_index_freshness(store, SCOPE, "self_extracted", current, **kwargs)  # type: ignore[arg-type]
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+src\foss_mcp\mcp\tools\report_index_freshness.py:451: in report_index_freshness
+    provenance = _read_provenance(manifest.payload)
+                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+manifest_payload = {'lexical_index': {'doc_freq': {'10': 3, '10a363830fea952c29df20fdb37d35ad3a881433': 3, '20': 3, '2406': 3, ...}, 'doc...0392156, 0.5215686274509804, 0.17647058823529413, 0.45098039215686275, 0.5333333333333333, 0.5215686274509804, ...]}]}}
+
+    def _read_provenance(manifest_payload: dict) -> _Provenance:
+        documents = (manifest_payload.get("lexical_index") or {}).get("documents") or {}
+        per_commit: dict[str, dict[str, int]] = {}
+        without_commit = 0
+        indexed_types: int | None = None
+        total_types: int | None = None
+        coverage_text: str | None = None
+        # G3/TC-651: tallied across every chunk _chunk_kind classifies as documentation, regardless of
+        # which (or whether any) source commit it carries - a caller asking "which categories are
+        # empty" cares about the whole generation, not one commit's slice of it.
+        content_type_counts: dict[str, int] = dict.fromkeys(CONTENT_TYPES, 0)
+        # Sorted by document id so "the first API-Coverage line" does not depend on dict order.
+        for _, document in sorted(documents.items()):
+            text = document["text"]
+            kind = _chunk_kind(text)
+            if kind == _SYMBOL and indexed_types is None:
+                coverage = parse_api_coverage(text)
+                if coverage is not None:
+                    indexed_types, total_types = coverage.indexed, coverage.total
+                    coverage_text = text
+            if kind == _DOCUMENTATION:
+>               content_type_counts[search_docs.disabled_classify_content_type(text)] += 1
+                                    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E               AttributeError: module 'foss_mcp.mcp.tools.search_docs' has no attribute 'disabled_classify_content_type'. Did you mean: 'classify_content_type'?
+
+src\foss_mcp\mcp\tools\report_index_freshness.py:190: AttributeError
+______ test_the_latest_tag_commit_is_compared_with_every_indexed_commit _______
+
+tmp_path = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-19050/test_the_latest_tag_commit_is_0')
+
+    def test_the_latest_tag_commit_is_compared_with_every_indexed_commit(tmp_path: Path) -> None:
+        store = _publish(tmp_path / "m", _mixed_texts())
+    
+>       only_symbols = _report(store, None, releases=[_release("v1.0.0", SYMBOL_COMMIT)])
+                       ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests\mcp\tools\test_freshness_tristate.py:133: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+tests\mcp\tools\test_freshness_tristate.py:48: in _report
+    return report_index_freshness(store, SCOPE, "self_extracted", current, **kwargs)  # type: ignore[arg-type]
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+src\foss_mcp\mcp\tools\report_index_freshness.py:451: in report_index_freshness
+    provenance = _read_provenance(manifest.payload)
+                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+manifest_payload = {'lexical_index': {'doc_freq': {'10': 3, '10a363830fea952c29df20fdb37d35ad3a881433': 3, '20': 3, '2406': 3, ...}, 'doc...0392156, 0.5215686274509804, 0.17647058823529413, 0.45098039215686275, 0.5333333333333333, 0.5215686274509804, ...]}]}}
+
+    def _read_provenance(manifest_payload: dict) -> _Provenance:
+        documents = (manifest_payload.get("lexical_index") or {}).get("documents") or {}
+        per_commit: dict[str, dict[str, int]] = {}
+        without_commit = 0
+        indexed_types: int | None = None
+        total_types: int | None = None
+        coverage_text: str | None = None
+        # G3/TC-651: tallied across every chunk _chunk_kind classifies as documentation, regardless of
+        # which (or whether any) source commit it carries - a caller asking "which categories are
+        # empty" cares about the whole generation, not one commit's slice of it.
+        content_type_counts: dict[str, int] = dict.fromkeys(CONTENT_TYPES, 0)
+        # Sorted by document id so "the first API-Coverage line" does not depend on dict order.
+        for _, document in sorted(documents.items()):
+            text = document["text"]
+            kind = _chunk_kind(text)
+            if kind == _SYMBOL and indexed_types is None:
+                coverage = parse_api_coverage(text)
+                if coverage is not None:
+                    indexed_types, total_types = coverage.indexed, coverage.total
+                    coverage_text = text
+            if kind == _DOCUMENTATION:
+>               content_type_counts[search_docs.disabled_classify_content_type(text)] += 1
+                                    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E               AttributeError: module 'foss_mcp.mcp.tools.search_docs' has no attribute 'disabled_classify_content_type'. Did you mean: 'classify_content_type'?
+
+src\foss_mcp\mcp\tools\report_index_freshness.py:190: AttributeError
+___________ test_a_generation_without_a_recorded_commit_is_unknown ____________
+
+tmp_path = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-19050/test_a_generation_without_a_re0')
+
+    def test_a_generation_without_a_recorded_commit_is_unknown(tmp_path: Path) -> None:
+        store = _publish(tmp_path / "m", [_symbol("Alpha", None), _doc("Install", None)])
+    
+>       report = _report(store, SYMBOL_COMMIT)
+                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests\mcp\tools\test_freshness_tristate.py:254: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+tests\mcp\tools\test_freshness_tristate.py:48: in _report
+    return report_index_freshness(store, SCOPE, "self_extracted", current, **kwargs)  # type: ignore[arg-type]
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+src\foss_mcp\mcp\tools\report_index_freshness.py:451: in report_index_freshness
+    provenance = _read_provenance(manifest.payload)
+                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+manifest_payload = {'lexical_index': {'doc_freq': {'alpha': 1, 'aspose': 1, 'class': 1, 'declaration': 1, ...}, 'documents': {'pdf::net::...90197, 0.7019607843137254, 0.44313725490196076, 0.45098039215686275, 0.7372549019607844, 0.047058823529411764, ...]}]}}
+
+    def _read_provenance(manifest_payload: dict) -> _Provenance:
+        documents = (manifest_payload.get("lexical_index") or {}).get("documents") or {}
+        per_commit: dict[str, dict[str, int]] = {}
+        without_commit = 0
+        indexed_types: int | None = None
+        total_types: int | None = None
+        coverage_text: str | None = None
+        # G3/TC-651: tallied across every chunk _chunk_kind classifies as documentation, regardless of
+        # which (or whether any) source commit it carries - a caller asking "which categories are
+        # empty" cares about the whole generation, not one commit's slice of it.
+        content_type_counts: dict[str, int] = dict.fromkeys(CONTENT_TYPES, 0)
+        # Sorted by document id so "the first API-Coverage line" does not depend on dict order.
+        for _, document in sorted(documents.items()):
+            text = document["text"]
+            kind = _chunk_kind(text)
+            if kind == _SYMBOL and indexed_types is None:
+                coverage = parse_api_coverage(text)
+                if coverage is not None:
+                    indexed_types, total_types = coverage.indexed, coverage.total
+                    coverage_text = text
+            if kind == _DOCUMENTATION:
+>               content_type_counts[search_docs.disabled_classify_content_type(text)] += 1
+                                    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E               AttributeError: module 'foss_mcp.mcp.tools.search_docs' has no attribute 'disabled_classify_content_type'. Did you mean: 'classify_content_type'?
+
+src\foss_mcp\mcp\tools\report_index_freshness.py:190: AttributeError
+_____________________ test_existing_fields_are_unchanged ______________________
+
+tmp_path = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-19050/test_existing_fields_are_uncha0')
+
+    def test_existing_fields_are_unchanged(tmp_path: Path) -> None:
+        store = _publish(tmp_path / "m", _mixed_texts())
+    
+>       report = _report(store, PINNED_COMMIT, pinned_library_commit=PINNED_COMMIT)
+                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests\mcp\tools\test_freshness_tristate.py:264: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+tests\mcp\tools\test_freshness_tristate.py:48: in _report
+    return report_index_freshness(store, SCOPE, "self_extracted", current, **kwargs)  # type: ignore[arg-type]
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+src\foss_mcp\mcp\tools\report_index_freshness.py:451: in report_index_freshness
+    provenance = _read_provenance(manifest.payload)
+                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+manifest_payload = {'lexical_index': {'doc_freq': {'10': 3, '10a363830fea952c29df20fdb37d35ad3a881433': 3, '20': 3, '2406': 3, ...}, 'doc...0392156, 0.5215686274509804, 0.17647058823529413, 0.45098039215686275, 0.5333333333333333, 0.5215686274509804, ...]}]}}
+
+    def _read_provenance(manifest_payload: dict) -> _Provenance:
+        documents = (manifest_payload.get("lexical_index") or {}).get("documents") or {}
+        per_commit: dict[str, dict[str, int]] = {}
+        without_commit = 0
+        indexed_types: int | None = None
+        total_types: int | None = None
+        coverage_text: str | None = None
+        # G3/TC-651: tallied across every chunk _chunk_kind classifies as documentation, regardless of
+        # which (or whether any) source commit it carries - a caller asking "which categories are
+        # empty" cares about the whole generation, not one commit's slice of it.
+        content_type_counts: dict[str, int] = dict.fromkeys(CONTENT_TYPES, 0)
+        # Sorted by document id so "the first API-Coverage line" does not depend on dict order.
+        for _, document in sorted(documents.items()):
+            text = document["text"]
+            kind = _chunk_kind(text)
+            if kind == _SYMBOL and indexed_types is None:
+                coverage = parse_api_coverage(text)
+                if coverage is not None:
+                    indexed_types, total_types = coverage.indexed, coverage.total
+                    coverage_text = text
+            if kind == _DOCUMENTATION:
+>               content_type_counts[search_docs.disabled_classify_content_type(text)] += 1
+                                    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E               AttributeError: module 'foss_mcp.mcp.tools.search_docs' has no attribute 'disabled_classify_content_type'. Did you mean: 'classify_content_type'?
+
+src\foss_mcp\mcp\tools\report_index_freshness.py:190: AttributeError
+____________ test_read_indexed_commits_lists_the_distinct_commits _____________
+
+tmp_path = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-19050/test_read_indexed_commits_list0')
+
+    def test_read_indexed_commits_lists_the_distinct_commits(tmp_path: Path) -> None:
+        store = _publish(tmp_path / "m", _mixed_texts())
+    
+>       assert set(read_indexed_commits(store, SCOPE)) == {SYMBOL_COMMIT, PINNED_COMMIT}
+                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests\mcp\tools\test_freshness_tristate.py:285: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+src\foss_mcp\mcp\tools\report_index_freshness.py:301: in read_indexed_commits
+    return tuple(entry.commit for entry in _read_provenance(manifest.payload).source_commits)
+                                           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+manifest_payload = {'lexical_index': {'doc_freq': {'10': 3, '10a363830fea952c29df20fdb37d35ad3a881433': 3, '20': 3, '2406': 3, ...}, 'doc...0392156, 0.5215686274509804, 0.17647058823529413, 0.45098039215686275, 0.5333333333333333, 0.5215686274509804, ...]}]}}
+
+    def _read_provenance(manifest_payload: dict) -> _Provenance:
+        documents = (manifest_payload.get("lexical_index") or {}).get("documents") or {}
+        per_commit: dict[str, dict[str, int]] = {}
+        without_commit = 0
+        indexed_types: int | None = None
+        total_types: int | None = None
+        coverage_text: str | None = None
+        # G3/TC-651: tallied across every chunk _chunk_kind classifies as documentation, regardless of
+        # which (or whether any) source commit it carries - a caller asking "which categories are
+        # empty" cares about the whole generation, not one commit's slice of it.
+        content_type_counts: dict[str, int] = dict.fromkeys(CONTENT_TYPES, 0)
+        # Sorted by document id so "the first API-Coverage line" does not depend on dict order.
+        for _, document in sorted(documents.items()):
+            text = document["text"]
+            kind = _chunk_kind(text)
+            if kind == _SYMBOL and indexed_types is None:
+                coverage = parse_api_coverage(text)
+                if coverage is not None:
+                    indexed_types, total_types = coverage.indexed, coverage.total
+                    coverage_text = text
+            if kind == _DOCUMENTATION:
+>               content_type_counts[search_docs.disabled_classify_content_type(text)] += 1
+                                    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E               AttributeError: module 'foss_mcp.mcp.tools.search_docs' has no attribute 'disabled_classify_content_type'. Did you mean: 'classify_content_type'?
+
+src\foss_mcp\mcp\tools\report_index_freshness.py:190: AttributeError
+=========================== short test summary info ===========================
+FAILED tests/mcp/tools/test_freshness_provenance.py::test_two_commits_split_by_kind_with_exact_counts
+FAILED tests/mcp/tools/test_freshness_provenance.py::test_source_commits_are_ordered_by_chunks_descending_then_commit
+FAILED tests/mcp/tools/test_freshness_provenance.py::test_caller_matching_only_the_documentation_commit_is_stale_and_the_reason_says_so
+FAILED tests/mcp/tools/test_freshness_provenance.py::test_caller_matching_only_the_symbol_commit_is_stale_and_the_reason_says_so
+FAILED tests/mcp/tools/test_freshness_provenance.py::test_caller_matching_neither_commit_is_stale
+FAILED tests/mcp/tools/test_freshness_provenance.py::test_unknown_current_commit_on_a_mixed_index_is_stale_and_still_lists_the_commits
+FAILED tests/mcp/tools/test_freshness_provenance.py::test_indexed_source_commit_is_the_symbol_commit_even_when_documentation_has_more_chunks
+FAILED tests/mcp/tools/test_freshness_provenance.py::test_indexed_source_commit_without_symbols_is_the_commit_with_most_chunks
+FAILED tests/mcp/tools/test_freshness_provenance.py::test_indexed_source_commit_ties_break_to_the_smaller_commit_string
+FAILED tests/mcp/tools/test_freshness_provenance.py::test_report_is_independent_of_chunk_insertion_order
+FAILED tests/mcp/tools/test_freshness_provenance.py::test_chunks_without_a_source_commit_line_are_counted_separately
+FAILED tests/mcp/tools/test_freshness_provenance.py::test_pinned_commit_matching_the_symbol_commit
+FAILED tests/mcp/tools/test_freshness_provenance.py::test_pinned_commit_not_matching_the_symbol_commit_adds_one_sentence
+FAILED tests/mcp/tools/test_freshness_provenance.py::test_pinned_commit_without_symbol_chunks_is_unknown
+FAILED tests/mcp/tools/test_freshness_provenance.py::test_without_a_pinned_commit_the_pinned_fields_stay_none
+FAILED tests/mcp/tools/test_freshness_provenance.py::test_absent_api_coverage_is_unknown_not_guessed
+FAILED tests/mcp/tools/test_freshness_provenance.py::test_api_coverage_on_a_documentation_chunk_is_ignored
+FAILED tests/mcp/tools/test_freshness_provenance.py::test_real_pdf_net_generation_reports_its_one_commit
+FAILED tests/mcp/tools/test_freshness_provenance.py::test_real_pdf_typescript_generation_reports_its_one_commit_at_the_chart_pin
+FAILED tests/mcp/tools/test_freshness_tristate.py::test_omitted_commit_on_a_mixed_index_keeps_the_legacy_mixed_reason
+FAILED tests/mcp/tools/test_freshness_tristate.py::test_the_latest_tag_commit_is_compared_with_every_indexed_commit
+FAILED tests/mcp/tools/test_freshness_tristate.py::test_a_generation_without_a_recorded_commit_is_unknown
+FAILED tests/mcp/tools/test_freshness_tristate.py::test_existing_fields_are_unchanged
+FAILED tests/mcp/tools/test_freshness_tristate.py::test_read_indexed_commits_lists_the_distinct_commits
+
+--- stderr ---
+
