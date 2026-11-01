@@ -425,12 +425,20 @@ SYMBOL_SCOPE = Scope(family=FAMILY, platform=PLATFORM)
 
 
 def test_lookup_disconnect_symbol_match_never_carries_known_defects(registry_dir: Path) -> None:
-    """The investigation finding, as a regression test: a method-scoped known-defect that DOES
-    surface through ``get_symbol`` (KD2, proven first) never surfaces through ``lookup``'s own
-    ``symbols`` - because ``SymbolMatch`` has no ``known_defects`` field at all, unlike
-    ``SymbolSignature``. This pins the disconnect so a future card that wires it (by touching
-    ``search_symbols.SymbolMatch`` and ``test_lookup_forgiveness.py`` together, both outside this
-    card's write_paths) updates this test deliberately rather than by accident."""
+    """G3/TC-642 (KD3) is the "future card" this test's own original docstring named, and it
+    narrowed this finding rather than leaving it as a total disconnect: ``SymbolMatch`` now HAS a
+    ``known_defects`` field, and for THIS test's own query shape - a bare FQN through ``lookup()``,
+    which reaches ``search_symbols()``'s own real ``SymbolMatch`` construction site directly, the
+    same site TC-642 wired - the method-scoped disclosure DOES surface through ``lookup``'s own
+    ``symbols``, exactly like ``get_symbol`` already showed it does. The real, narrower gap TC-642's
+    own investigation found and left unfixed (out of its write_paths) is ``lookup.py``'s separate
+    ``_named_symbols()`` helper: it builds its own fresh ``SymbolMatch`` instances directly from raw
+    chunk documents rather than reusing ``search_symbols()``'s construction, so a symbol reached
+    ONLY through that path still keeps ``known_defects == ()`` regardless of real registry data -
+    proven directly by
+    ``tests/mcp/tools/test_known_defects_in_search_symbols.py::test_lookup_named_symbols_path_never_carries_known_defects``
+    (TC-642's own test), not this one. This test is kept, updated rather than deleted, as the
+    regression guard for the now-fixed, broader claim it originally pinned."""
     _write_registry(
         registry_dir,
         [
@@ -451,8 +459,9 @@ def test_lookup_disconnect_symbol_match_never_carries_known_defects(registry_dir
     assert len(signature.known_defects) == 1
     assert "A method-scoped defect that get_symbol discloses." in signature.known_defects[0]
 
-    # Now prove lookup's own symbol path carries no such field at all for the identical fqn/scope -
-    # SymbolMatch (the type lookup's `symbols` field holds) simply has no known_defects attribute.
+    # G3/TC-642 (KD3): for this exact query shape - a bare FQN through lookup() - the result
+    # reaches search_symbols()'s own real construction site directly, which now computes
+    # known_defects itself, so the disclosure DOES surface here through lookup too.
     result = lookup(store, SYMBOL_SCOPE, DOCUMENT_FQN)  # type: ignore[arg-type]
     if isinstance(result, TaskAnswer):
         symbols = result.symbols
@@ -461,6 +470,10 @@ def test_lookup_disconnect_symbol_match_never_carries_known_defects(registry_dir
     else:
         symbols = ()
     assert symbols, "the query names an indexed symbol; lookup must return it in some shape"
-    for match in symbols:
-        assert not hasattr(match, "known_defects")
+    assert any(
+        "A method-scoped defect that get_symbol discloses." in line
+        for match in symbols
+        for line in match.known_defects
+    ), "lookup's own symbol path must now surface the same defect get_symbol discloses"
+    # TaskAnswer itself still carries no known_defects field - TC-642 only touched SymbolMatch.
     assert not hasattr(TaskAnswer(scope=SYMBOL_SCOPE), "known_defects")

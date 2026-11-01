@@ -151,6 +151,25 @@ final-segment symbol names found across ``infra/demo-manifests/*/generation__*.j
 genuine over-split acronym/unit suffixes corrected), the other 94 - including every already-correct case
 this card names - unchanged; see this card's own worker report for the full list. ``_CAMEL_BOUNDARY``
 itself is untouched.
+
+TC-642 (KD3, G3/REQ-G3-015): ``SymbolMatch`` gains its own ``known_defects`` field, additive and
+defaulting to ``()`` exactly like its existing ``limitation`` field - a committed known-defect entry
+(``foss_mcp.indexing.known_defects``) whose ``subject.kind`` is ``"method"`` or ``"class"`` (a
+``"package"``/``"commit"``-scoped entry is KD4's ``get_product_reference`` path, not this one) and
+whose ``subject.ref`` equals the matched chunk's own FQN is rendered and attached, the same
+commit-match logic ``get_symbol.known_defect_lines`` (KD2, TC-639) already established for the
+identical ``Source-Commit:`` scoping rule. Reimplemented locally (``_known_defect_lines``,
+``_render_known_defect`` below) rather than imported: ``get_symbol.py`` already imports FROM this
+module, so importing back from it would be circular, and its own ``_render_known_defect`` is
+private besides - the same documented reason KD2 gave for not importing
+``report_index_freshness``'s ``_SOURCE_COMMIT_LINE``.
+
+Investigated for this card: ``lookup.py``'s own ``_named_symbols`` (out of this card's write_paths)
+does NOT reuse ``search_symbols()``'s own constructed ``SymbolMatch`` instances - it builds fresh
+ones directly from raw chunk documents, so a symbol reached only through that path (never also
+returned by ``search_symbols()``/``explained_symbols()`` for the same query) keeps
+``known_defects == ()`` regardless of real registry data. See this card's own worker report for the
+full finding; fixing it is out of this card's write_paths.
 """
 
 from __future__ import annotations
@@ -165,6 +184,7 @@ from difflib import get_close_matches
 from typing import TYPE_CHECKING
 
 from foss_mcp.indexing.generation_manifest import GenerationManifestStore
+from foss_mcp.indexing.known_defects import KnownDefect, load_known_defects
 from foss_mcp.indexing.lexical_index_writer import query_lexical_index_scored, tokenize
 from foss_mcp.mcp.routing import Scope
 
@@ -180,6 +200,14 @@ _CAMEL_BOUNDARY = re.compile(r"(?<=[a-z0-9])(?=[A-Z])|(?<=[A-Z])(?=[A-Z][a-z])")
 _WORD_SEPARATORS = re.compile(r"[\s._:]+")
 _FINAL_SEGMENT = re.compile(r"\.|::")
 _TRAILING_DIGITS = re.compile(r"(\d+)\Z")
+
+# TC-642 (KD3, G3/REQ-G3-015): the exact pattern get_symbol.py's own `_SOURCE_COMMIT_LINE`
+# establishes for reading a chunk's own `Source-Commit:` line - reimplemented locally, verbatim,
+# rather than imported (get_symbol.py already imports FROM this module, so the reverse import
+# would be circular; see the module docstring).
+_SOURCE_COMMIT_LINE = re.compile(r"^Source-Commit:\s*(\S+)$", re.MULTILINE)
+# Method/class-scoped only - a package/commit-scoped defect is KD4's get_product_reference path.
+_SYMBOL_DEFECT_SUBJECT_KINDS = frozenset({"method", "class"})
 
 
 def _rejoin_digit_acronym_split(words: list[str]) -> list[str]:
@@ -503,7 +531,10 @@ class SymbolMatch:
     - ``total_matches`` / ``next_offset``: how many symbols answered the query in all and the ``offset`` that
       returns the next page (``None`` on the last page; ``total_matches`` 0 when unknown);
     - ``aliases``: the other FQNs whose chunk is the same type under another name (a re-export), not repeated;
-    - ``limitation``: the line of the chunk that says the symbol is "not implemented in this build", when it does.
+    - ``limitation``: the line of the chunk that says the symbol is "not implemented in this build", when it does;
+    - ``known_defects`` (TC-642, KD3, G3/REQ-G3-015): a rendered disclosure line for every committed
+      method/class-scoped known-defect entry whose ``subject.ref`` matches this symbol's own FQN, in registry
+      file order - empty when no defect data is recorded for this pilot yet, or none of it matches.
     """
 
     scope: Scope
@@ -517,6 +548,7 @@ class SymbolMatch:
     next_offset: int | None = None
     aliases: tuple[str, ...] = ()
     limitation: str = ""
+    known_defects: tuple[str, ...] = ()
 
 
 def limitation_line(text: str) -> str:
@@ -525,6 +557,44 @@ def limitation_line(text: str) -> str:
         if NOT_IMPLEMENTED_PHRASE in line.lower():
             return line.strip()
     return ""
+
+
+def _render_known_defect(defect: KnownDefect) -> str:
+    """One factual disclosure line built from *defect*'s own recorded ``summary``/``user_action``/
+    ``evidence.repro`` - the exact wording ``get_symbol._render_known_defect`` uses, reimplemented
+    locally here (both private, and the same circular-import problem the module docstring explains)
+    so disclosure text reads consistently across both tools."""
+    return f"Known defect: {defect.summary} {defect.user_action} (repro: {defect.evidence.repro})"
+
+
+def known_defect_lines(scope: Scope, fqn: str, text: str) -> tuple[str, ...]:
+    """Every method/class-scoped known-defect disclosure line that applies to *fqn*, in registry file
+    order (TC-642, KD3, G3/REQ-G3-015).
+
+    A defect applies here only when its ``subject.kind`` is ``"method"`` or ``"class"`` (a
+    ``"package"``/``"commit"``-scoped entry is KD4's ``get_product_reference`` path, never surfaced
+    through a symbol match) and its ``subject.ref`` equals *fqn* exactly, and, when it is scoped by
+    ``applies_to.indexed_commit``, that commit equals *text*'s own ``Source-Commit:`` line - the same
+    rule ``get_symbol.known_defect_lines`` (KD2, TC-639) already established. A package-version-scoped
+    defect (no ``indexed_commit``) always applies regardless of commit: there is no live registry
+    check against a currently served package version here either, same as KD2.
+    """
+    defects = load_known_defects(scope.family, scope.platform)
+    if not defects:
+        return ()
+    commit_match = _SOURCE_COMMIT_LINE.search(text)
+    chunk_commit = commit_match.group(1) if commit_match is not None else None
+    lines: list[str] = []
+    for defect in defects:
+        if defect.subject.kind not in _SYMBOL_DEFECT_SUBJECT_KINDS:
+            continue
+        if defect.subject.ref != fqn:
+            continue
+        indexed_commit = defect.applies_to.indexed_commit
+        if indexed_commit is not None and indexed_commit != chunk_commit:
+            continue
+        lines.append(_render_known_defect(defect))
+    return tuple(lines)
 
 
 @dataclass(frozen=True)
@@ -1198,19 +1268,29 @@ def search_symbols(
             f"offset {offset} is past the last of the {total} symbols that match {original_query!r}",
         )
     next_offset = offset + top_k if offset + top_k < total else None
-    return [
-        SymbolMatch(
-            scope=scope,
-            generation_id=active_generation_id,
-            doc_id=doc_id,
-            chunk_id=documents[doc_id]["chunk_id"],
-            text=documents[doc_id]["text"],
-            match_quality=qualities.get(doc_id, MATCH_EXACT),
-            unmatched_terms=unmatched.get(doc_id, ()),
-            total_matches=total,
-            next_offset=next_offset,
-            aliases=aliases.get(doc_id, ()),
-            limitation=limitation_line(documents[doc_id]["text"]),
+    results: list[SymbolMatch] = []
+    for doc_id in page:
+        text = documents[doc_id]["text"]
+        entry = entries_by_doc.get(doc_id)
+        # TC-642 (KD3, G3/REQ-G3-015): every admission path above already requires a real,
+        # non-pseudo-symbol FQN, so `entry` is only ``None`` for the same defensive edge case
+        # `_collapse_aliases` above already guards against; `extract_fqn` is this function's own
+        # fallback for that case, same source of truth `entry.fqn` would otherwise have given.
+        fqn = entry.fqn if entry is not None else (extract_fqn(text) or "")
+        results.append(
+            SymbolMatch(
+                scope=scope,
+                generation_id=active_generation_id,
+                doc_id=doc_id,
+                chunk_id=documents[doc_id]["chunk_id"],
+                text=text,
+                match_quality=qualities.get(doc_id, MATCH_EXACT),
+                unmatched_terms=unmatched.get(doc_id, ()),
+                total_matches=total,
+                next_offset=next_offset,
+                aliases=aliases.get(doc_id, ()),
+                limitation=limitation_line(text),
+                known_defects=known_defect_lines(scope, fqn, text),
+            )
         )
-        for doc_id in page
-    ]
+    return results
