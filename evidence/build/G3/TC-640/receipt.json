@@ -1,0 +1,111 @@
+{
+  "schema_version": 1,
+  "card": "TC-640",
+  "gate": "G3",
+  "generated_by": "gatectl",
+  "generated_at": "2026-11-01T06:40:06Z",
+  "base_rev": "ac7c87cf0543658adb2a30c2a807cfa8416d4c6b",
+  "head_rev": "0808444541984779626d64e40df0904a9c812df9",
+  "card_sha256": "41c8ef2eda1726ff0fd8c903bbc24fe4a90ff9e9d2b227ead8f4d58736c1ef1e",
+  "fingerprint": {
+    "python": "3.13.2",
+    "platform": "Windows-11-10.0.26300-SP0",
+    "lock_sha256": "5c72e798a73c059a438e752e94a8d4c88c1bdf81a197f6e5c5fcecbc9466a691",
+    "env": {
+      "PYTHONHASHSEED": "0",
+      "PYTHONUTF8": "1",
+      "PYTHONDONTWRITEBYTECODE": "1",
+      "PYTHONIOENCODING": "utf-8",
+      "TZ": "UTC",
+      "LC_ALL": "C.UTF-8",
+      "SOURCE_DATE_EPOCH": "1700000000",
+      "verify_runner": "host"
+    }
+  },
+  "scope": {
+    "ok": true,
+    "changed_paths": [
+      "src/foss_mcp/mcp/tools/search_docs.py",
+      "tests/mcp/tools/test_search_docs_title_classification.py"
+    ],
+    "violations": [],
+    "evaluated": true
+  },
+  "runs": [
+    {
+      "run": 1,
+      "checks": [
+        {
+          "command": "{python} -m pytest tests/mcp/tools/test_search_docs_title_classification.py -q -rfE -p no:cacheprovider",
+          "exit_code": 0,
+          "duration_s": 4.354,
+          "stdout_sha256": "cfc14fd2dc11c362cccf5421245ca5ab0e9d286b54a604a80bd2dd5522f6feb9",
+          "tests": 13,
+          "skipped": 0,
+          "errors": 0,
+          "failures": 0
+        },
+        {
+          "command": "{python} -m pytest tests/mcp/tools/test_doc_classification_by_title.py tests/mcp/tools/test_search_docs_partial_tier.py -q -rfE -p no:cacheprovider",
+          "exit_code": 0,
+          "duration_s": 6.481,
+          "stdout_sha256": "07c2eef926162e0090994bc913805aa08a8b2cbb5b21d2c933b937a10300713f",
+          "tests": 39,
+          "skipped": 0,
+          "errors": 0,
+          "failures": 0
+        }
+      ],
+      "all_passed": true
+    },
+    {
+      "run": 2,
+      "checks": [
+        {
+          "command": "{python} -m pytest tests/mcp/tools/test_search_docs_title_classification.py -q -rfE -p no:cacheprovider",
+          "exit_code": 0,
+          "duration_s": 0.927,
+          "stdout_sha256": "cfc14fd2dc11c362cccf5421245ca5ab0e9d286b54a604a80bd2dd5522f6feb9",
+          "tests": 13,
+          "skipped": 0,
+          "errors": 0,
+          "failures": 0
+        },
+        {
+          "command": "{python} -m pytest tests/mcp/tools/test_doc_classification_by_title.py tests/mcp/tools/test_search_docs_partial_tier.py -q -rfE -p no:cacheprovider",
+          "exit_code": 0,
+          "duration_s": 6.085,
+          "stdout_sha256": "07c2eef926162e0090994bc913805aa08a8b2cbb5b21d2c933b937a10300713f",
+          "tests": 39,
+          "skipped": 0,
+          "errors": 0,
+          "failures": 0
+        }
+      ],
+      "all_passed": true
+    }
+  ],
+  "negative_control": {
+    "kind": "mutate",
+    "patch": "python -X utf8 -c \"import pathlib; p = pathlib.Path('src/foss_mcp/mcp/tools/search_docs.py'); s = p.read_text(encoding='utf-8'); old = '_GETTING_STARTED_TITLE = re.compile('; assert s.count(old) == 1, '_GETTING_STARTED_TITLE = re.compile( literal not found as expected - if your real code restructures this differently, anchor your own mutate on your own real literal instead and note the substitution in your closeout'; i = s.index(old); j = s.index(chr(10), i); p.write_text(s[:i] + '_GETTING_STARTED_TITLE = re.compile(' + chr(114) + chr(39) + 'install|quick ?start|getting started|prerequisite|setup|dependenc|requirement' + chr(39) + ', re.IGNORECASE)  # TC-640 negative control: restore the unfixed regex' + s[j:], encoding='utf-8')\"\n",
+    "patch_sha256": "eeec4d1c06b1e954aa75fca8597a0d0b37ed3721aa6c58a7a5a43c55a4584d8d",
+    "applied": true,
+    "patch_applied_failed": true,
+    "exit_codes": [
+      1,
+      0
+    ],
+    "tree_changed": [
+      "M src/foss_mcp/mcp/tools/search_docs.py",
+      "?? .junit-0.xml",
+      "?? .junit-1.xml"
+    ]
+  },
+  "holdout": {
+    "ran": false,
+    "passed": true,
+    "detail": "no holdout for this card"
+  },
+  "accepted": true,
+  "reason": "all gates passed"
+}

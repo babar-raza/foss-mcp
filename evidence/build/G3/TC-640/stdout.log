@@ -1,0 +1,115 @@
+
+===== CLEAN RUN 1 (host) =====
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-5c72e798a73c059a\Scripts\python.exe -m pytest tests/mcp/tools/test_search_docs_title_classification.py -q -rfE -p no:cacheprovider "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-r54orcjc\.junit-0.xml"
+--- stdout ---
+.............                                                            [100%]
+
+--- stderr ---
+
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-5c72e798a73c059a\Scripts\python.exe -m pytest tests/mcp/tools/test_doc_classification_by_title.py tests/mcp/tools/test_search_docs_partial_tier.py -q -rfE -p no:cacheprovider "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-r54orcjc\.junit-1.xml"
+--- stdout ---
+.......................................                                  [100%]
+
+--- stderr ---
+
+
+===== CLEAN RUN 2 (host) =====
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-5c72e798a73c059a\Scripts\python.exe -m pytest tests/mcp/tools/test_search_docs_title_classification.py -q -rfE -p no:cacheprovider "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-r54orcjc\.junit-0.xml"
+--- stdout ---
+.............                                                            [100%]
+
+--- stderr ---
+
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-5c72e798a73c059a\Scripts\python.exe -m pytest tests/mcp/tools/test_doc_classification_by_title.py tests/mcp/tools/test_search_docs_partial_tier.py -q -rfE -p no:cacheprovider "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-r54orcjc\.junit-1.xml"
+--- stdout ---
+.......................................                                  [100%]
+
+--- stderr ---
+
+
+===== NEGATIVE CONTROL (checks MUST now fail) =====
+mutated: M src/foss_mcp/mcp/tools/search_docs.py, ?? .junit-0.xml, ?? .junit-1.xml
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-5c72e798a73c059a\Scripts\python.exe -m pytest tests/mcp/tools/test_search_docs_title_classification.py -q -rfE -p no:cacheprovider "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-r54orcjc\.junit-0.xml"
+--- stdout ---
+F..........FF                                                            [100%]
+================================== FAILURES ===================================
+____ test_the_real_page_setup_title_no_longer_misfiles_as_getting_started _____
+
+    def test_the_real_page_setup_title_no_longer_misfiles_as_getting_started() -> None:
+        # The exact repro the round-2 audit found: a reference title about page layout, not onboarding.
+>       assert classify_content_type(_text("Page Setup and Print Configuration")) == "developer_guide"
+E       AssertionError: assert 'getting_started' == 'developer_guide'
+E         
+E         - developer_guide
+E         + getting_started
+
+tests\mcp\tools\test_search_docs_title_classification.py:60: AssertionError
+________ test_setup_followed_by_more_title_text_is_not_getting_started ________
+
+    def test_setup_followed_by_more_title_text_is_not_getting_started() -> None:
+        # The actual distinction the fix draws: "setup" mid-title, with unrelated title text after it,
+        # is reference material (page layout, print configuration), not onboarding.
+>       assert classify_content_type(_text("Setup and Printing Options")) == "developer_guide"
+E       AssertionError: assert 'getting_started' == 'developer_guide'
+E         
+E         - developer_guide
+E         + getting_started
+
+tests\mcp\tools\test_search_docs_title_classification.py:95: AssertionError
+_ test_the_real_baked_corpus_has_exactly_one_title_whose_classification_the_fix_changes _
+
+    def test_the_real_baked_corpus_has_exactly_one_title_whose_classification_the_fix_changes() -> None:
+        """Re-derive the measurement this card's contract demands, against the real corpus, every time
+        this test runs - not a one-off manual check trusted on faith.
+    
+        Before the fix: 'Page Setup and Print Configuration' was the only real title misfiled as
+        getting_started by the bare `setup` substring. After the fix: that title is `developer_guide`,
+        and every one of the OTHER real distinct titles in the corpus must classify exactly the same as
+        it did before the fix (zero regression).
+        """
+        titles = _real_corpus_titles()
+        assert len(titles) >= 50, f"expected dozens of real distinct titles, found {len(titles)}"
+        assert "Page Setup and Print Configuration" in titles
+    
+        pre_fix_getting_started = re.compile(
+            r"install|quick ?start|getting started|prerequisite|setup|dependenc|requirement",
+            re.IGNORECASE,
+        )
+        pre_fix_troubleshooting = re.compile(
+            r"troubleshoot|known issue|limitation|unsupported|error|problem", re.IGNORECASE
+        )
+    
+        def classify_pre_fix(title: str) -> str:
+            if pre_fix_troubleshooting.search(title):
+                return "troubleshooting"
+            if pre_fix_getting_started.search(title):
+                return "getting_started"
+            return "developer_guide"
+    
+        changed = []
+        for title in sorted(titles):
+            before = classify_pre_fix(title)
+            after = classify_content_type(_text(title))
+            if before != after:
+                changed.append((title, before, after))
+    
+>       assert changed == [("Page Setup and Print Configuration", "getting_started", "developer_guide")]
+E       AssertionError: assert [] == [('Page Setup...loper_guide')]
+E         
+E         Right contains one more item: ('Page Setup and Print Configuration', 'getting_started', 'developer_guide')
+E         Use -v to get more diff
+
+tests\mcp\tools\test_search_docs_title_classification.py:134: AssertionError
+=========================== short test summary info ===========================
+FAILED tests/mcp/tools/test_search_docs_title_classification.py::test_the_real_page_setup_title_no_longer_misfiles_as_getting_started
+FAILED tests/mcp/tools/test_search_docs_title_classification.py::test_setup_followed_by_more_title_text_is_not_getting_started
+FAILED tests/mcp/tools/test_search_docs_title_classification.py::test_the_real_baked_corpus_has_exactly_one_title_whose_classification_the_fix_changes
+
+--- stderr ---
+
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-5c72e798a73c059a\Scripts\python.exe -m pytest tests/mcp/tools/test_doc_classification_by_title.py tests/mcp/tools/test_search_docs_partial_tier.py -q -rfE -p no:cacheprovider "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-r54orcjc\.junit-1.xml"
+--- stdout ---
+.......................................                                  [100%]
+
+--- stderr ---
+
