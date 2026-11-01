@@ -568,17 +568,22 @@ def test_a_complete_readme_builds_a_complete_page(tmp_path: Path, monkeypatch: p
     candidates = extract_doc_sections(page)
     assert [(c.origin, c.title) for c in candidates] == [
         ("overview", _README_TITLE),
-        ("content", "Installation, Dependencies, and Quick Start"),
-        ("content", "Key Capabilities and API Reference"),
+        ("content", "Installation"),
+        ("content", "Dependencies"),
+        ("content", "Quick Start"),
+        ("content", "Key Capabilities"),
+        ("content", "API Reference"),
         ("content", "Scope and Limitations"),
     ]
     by_title = {c.title: c.body for c in candidates}
-    left = by_title["Installation, Dependencies, and Quick Start"]
-    assert "Install with the Go tool" in left and "gear v1.2.0" in left and "w.Spin()" in left
-    assert left.count("### Installation") == 1
-    assert left.count("### Required Package Dependencies") == 1  # its own heading is not wrapped again
-    right = by_title["Key Capabilities and API Reference"]
-    assert "Spin widgets" in right and "public surface has 12 types" in right
+    # Each section is now its own distinct, correctly-titled block - never merged with its neighbours.
+    assert "Install with the Go tool" in by_title["Installation"]
+    assert "gear v1.2.0" in by_title["Dependencies"]
+    assert by_title["Dependencies"].count("### Required Package Dependencies") == 1  # not wrapped again
+    assert "w.Spin()" in by_title["Quick Start"]
+    assert "Spin widgets" in by_title["Key Capabilities"]
+    right = by_title["API Reference"]
+    assert "public surface has 12 types" in right
     assert "```mermaid" in by_title[_README_TITLE]
     # The table's separator row is dropped (the same rule the sealed path applies); the rows stay.
     assert "| `Widget` | The widget. |" in right and "| --- |" not in right
@@ -638,9 +643,16 @@ def test_a_readme_without_dependencies_still_builds_a_page(
     candidates = extract_doc_sections(_load_page(tmp_path, page_text))
 
     assert fields.missing == ("Dependencies",)
-    assert [c.title for c in candidates if c.origin == "content"][0] == "Installation and Quick Start"
+    content_titles = [c.title for c in candidates if c.origin == "content"]
+    assert content_titles == [
+        "Installation",
+        "Quick Start",
+        "Key Capabilities",
+        "API Reference",
+        "Scope and Limitations",
+    ]
     assert "gear v1.2.0" not in page_text and "Required Package Dependencies" not in page_text
-    assert len(candidates) == 4
+    assert len(candidates) == 6
 
 
 def test_a_readme_missing_several_sections_gives_a_partial_page_and_reports_them(
@@ -664,7 +676,9 @@ def test_a_readme_missing_several_sections_gives_a_partial_page_and_reports_them
     assert page["overview"] == {"enable": False}
     assert page["doc_source"] == "github_readme" and page["doc_source_commit"] == _README_COMMIT
     assert [(c.origin, c.title) for c in extract_doc_sections(page)] == [
-        ("content", "Installation, Dependencies, and Quick Start")
+        ("content", "Installation"),
+        ("content", "Dependencies"),
+        ("content", "Quick Start"),
     ]
     assert "title_right" not in page["content"]["block"][0]
     for name in omitted:
@@ -672,6 +686,120 @@ def test_a_readme_missing_several_sections_gives_a_partial_page_and_reports_them
     assert "sections found: Installation, Dependencies, Quick Start;" in output
     # Nothing was invented to stand in for the absent sections.
     assert "Spin widgets" not in str(page) and "Gears larger than 4cm" not in str(page)
+
+
+# -----------------------------------------------------------------------------------------------
+# G3/TC-638 (REQ-G3-013): each of _LEFT_SECTIONS/_RIGHT_SECTIONS that is present becomes its own
+# distinct, correctly-titled block - never _join_names'd or _merge_readme_sections'd together.
+# -----------------------------------------------------------------------------------------------
+
+
+def test_every_present_left_and_right_section_becomes_its_own_distinct_block(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    page_text, fields = _build(_readme(), monkeypatch)
+    page = _load_page(tmp_path, page_text)
+
+    non_scope_blocks = page["content"]["block"][:-1]
+    assert [block["title_left"] for block in non_scope_blocks] == [
+        "Installation",
+        "Dependencies",
+        "Quick Start",
+        "Key Capabilities",
+        "API Reference",
+    ]
+    for block in non_scope_blocks:
+        # Never merged with any other section: no right half, and the content is exactly
+        # (not a superset of) that one section's own real body.
+        assert "title_right" not in block and "content_right" not in block
+        assert block["content_left"] == fields.sections[block["title_left"]]
+
+
+def test_omitting_one_left_section_leaves_the_others_separate_and_present(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    page_text, _ = _build(_readme(omit=("Installation",)), monkeypatch)
+    page = _load_page(tmp_path, page_text)
+
+    titles = [c.title for c in extract_doc_sections(page) if c.origin == "content"]
+    # Dependencies and Quick Start stay their own blocks - never silently re-merged into
+    # "Dependencies and Quick Start" just because their sibling Installation is gone.
+    assert titles == [
+        "Dependencies",
+        "Quick Start",
+        "Key Capabilities",
+        "API Reference",
+        "Scope and Limitations",
+    ]
+    assert "Install with the Go tool" not in page_text
+
+
+def test_omitting_one_right_section_leaves_the_remaining_one_its_own_unmerged_block(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    # "Additional Examples"/"Development and Testing" are also omitted: left in, their unrecognised
+    # headings would be kept under Key Capabilities by the section fallback, undermining the point
+    # of this test (that an explicitly-omitted Key Capabilities really stays absent, not reconstituted).
+    # Padding keeps the README above MIN_NON_BLANK_LINES once those sections are gone.
+    padding = "\n".join(f"- licence note {number}" for number in range(15))
+    readme = (
+        _readme(omit=("Key Capabilities", "Additional Examples", "Development and Testing"))
+        + f"\n{padding}\n"
+    )
+    page_text, fields = _build(readme, monkeypatch)
+    page = _load_page(tmp_path, page_text)
+
+    titles = [c.title for c in extract_doc_sections(page) if c.origin == "content"]
+    assert "API Reference" in titles and "Key Capabilities" not in titles
+    api_block = next(block for block in page["content"]["block"] if block["title_left"] == "API Reference")
+    assert "title_right" not in api_block
+    assert api_block["content_left"] == fields.sections["API Reference"]
+    assert "Spin widgets" not in page_text  # Key Capabilities' own content is never invented back in
+
+
+def test_omitting_every_left_section_still_builds_separate_right_and_scope_blocks(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    page_text, _ = _build(_readme(omit=("Installation", "Dependencies", "Quick Start")), monkeypatch)
+    page = _load_page(tmp_path, page_text)
+
+    titles = [c.title for c in extract_doc_sections(page) if c.origin == "content"]
+    assert titles == ["Key Capabilities", "API Reference", "Scope and Limitations"]
+    for text in ("Install with the Go tool", "gear v1.2.0", "w.Spin()"):
+        assert text not in page_text
+
+
+def test_the_scope_block_overview_and_faq_are_unaffected_by_the_per_section_split(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    page_text, fields = _build(_readme(), monkeypatch)
+    page = _load_page(tmp_path, page_text)
+
+    scope_block = page["content"]["block"][-1]
+    assert scope_block["title_left"] == "Scope and Limitations"
+    assert "title_right" not in scope_block and "content_right" not in scope_block
+    assert "Gears larger than 4cm" in scope_block["content_left"]
+
+    assert page["overview"] == {
+        "enable": True,
+        "title": fields.title,
+        "content": fields.sections["At a Glance"],
+    }
+    assert page["faq"] == {"enable": False, "list": []}
+
+
+def test_nothing_is_invented_when_a_left_and_a_right_section_are_both_missing(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    page_text, fields = _build(_readme(omit=("Dependencies", "API Reference")), monkeypatch)
+    page = _load_page(tmp_path, page_text)
+
+    assert fields.missing == ("Dependencies", "API Reference")
+    titles = [c.title for c in extract_doc_sections(page) if c.origin == "content"]
+    assert "Dependencies" not in titles and "API Reference" not in titles
+    assert titles == ["Installation", "Quick Start", "Key Capabilities", "Scope and Limitations"]
+    assert "gear v1.2.0" not in page_text  # Dependencies' real content, never fabricated as a stand-in
+    assert "12 types" not in page_text  # API Reference's real content, likewise never fabricated
 
 
 def test_strict_refuses_a_readme_missing_any_section_and_writes_nothing(
@@ -786,14 +914,14 @@ def test_literal_triple_dash_lines_never_let_the_page_parser_split_the_page(
     assert page_text.count("---") == 2
     assert page_text.startswith("---\n") and page_text.endswith("\n---\n")
     candidates = {c.title: c.body for c in extract_doc_sections(page)}
-    left = candidates["Installation, Dependencies, and Quick Start"]
+    left = candidates["Installation"]
     # A code block's own "---" lines are real content and survive byte for byte ...
     assert "```yaml\n---\nname: widget\n---\n```" in left
     # ... and so does a dash run inside a sentence, while a bare rule line and a table rule row are dropped.
     assert "dashes---inside a sentence, and a rule of ------." in left
     assert "\n---\n\n" not in left.replace("```yaml\n---\n", "").replace("\n---\n```", "")
-    assert "|---|" not in candidates["Key Capabilities and API Reference"]
-    assert "| `Widget` | The widget. |" in candidates["Key Capabilities and API Reference"]
+    assert "|---|" not in candidates["API Reference"]
+    assert "| `Widget` | The widget. |" in candidates["API Reference"]
     yaml_example = next(e for e in extract_candidate_examples(page) if e.language == "yaml")
     assert yaml_example.code == "---\nname: widget\n---"
 
@@ -1306,7 +1434,11 @@ def test_the_page_built_from_kept_sections_loads_through_the_real_loader(
     page = _load_page(tmp_path, page_text)
 
     titles = [(c.origin, c.title) for c in extract_doc_sections(page)]
-    assert titles == [("content", "Installation and Quick Start"), ("content", "Key Capabilities")]
+    assert titles == [
+        ("content", "Installation"),
+        ("content", "Quick Start"),
+        ("content", "Key Capabilities"),
+    ]
     assert "BMPFMT" in str(page["content"]) and "WHYTEXT" in str(page["content"])
 
 

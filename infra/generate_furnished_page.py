@@ -451,7 +451,7 @@ _PLATFORM_DISPLAY = {
     "rust": "Rust",
 }
 
-# Sections whose body is merged into the first and second halves of the first content block.
+# Sections given their own, unmerged content block (in this order) when present.
 _LEFT_SECTIONS = ("Installation", "Dependencies", "Quick Start")
 _RIGHT_SECTIONS = ("Key Capabilities", "API Reference")
 _SCOPE_SECTION = "Scope and Limitations"
@@ -932,23 +932,6 @@ def readme_doc_fields(repository: str, commit: str) -> ReadmeFields:
     return parse_readme(repository, commit, result.content)
 
 
-def _join_names(names: Sequence[str]) -> str:
-    if len(names) <= 1:
-        return "".join(names)
-    if len(names) == 2:
-        return f"{names[0]} and {names[1]}"
-    return f"{', '.join(names[:-1])}, and {names[-1]}"
-
-
-def _merge_readme_sections(sections: Mapping[str, str], names: Sequence[str]) -> str:
-    """Concatenate *names*' bodies, re-adding each ``### <name>`` unless the body opens with a heading."""
-    parts: list[str] = []
-    for name in names:
-        body = sections[name]
-        parts.append(body if body.lstrip().startswith("#") else f"### {name}\n\n{body}")
-    return "\n\n".join(parts)
-
-
 def _pilot_identity(pilot: Mapping[str, object]) -> tuple[str, str, str, str]:
     """``(family, platform, repository, commit)`` of a chart ``ingestion.pilots`` entry."""
     library = pilot.get("library")
@@ -1052,18 +1035,11 @@ def build_page_from_readme(pilot: Mapping[str, object], fields: ReadmeFields) ->
     description = fields.summary or title
     platform_name = _PLATFORM_DISPLAY.get(platform, platform.capitalize())
 
-    left = [name for name in _LEFT_SECTIONS if name in fields.sections]
-    right = [name for name in _RIGHT_SECTIONS if name in fields.sections]
-    blocks: list[dict[str, str]] = []
-    if left or right:
-        pair: dict[str, str] = {}
-        if left:
-            pair["title_left"] = _join_names(left)
-            pair["content_left"] = _merge_readme_sections(fields.sections, left)
-        if right:
-            pair["title_right"] = _join_names(right)
-            pair["content_right"] = _merge_readme_sections(fields.sections, right)
-        blocks.append(pair)
+    blocks: list[dict[str, str]] = [
+        {"title_left": name, "content_left": fields.sections[name]}
+        for name in (*_LEFT_SECTIONS, *_RIGHT_SECTIONS)
+        if name in fields.sections
+    ]
     if _SCOPE_SECTION in fields.sections:
         blocks.append(
             {
