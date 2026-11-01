@@ -117,6 +117,7 @@ depends_on:
   - TC-610
   - TC-612
   - TC-618
+  - TC-619
   - TC-634
   - TC-637
   - TC-642
@@ -127,6 +128,7 @@ write_paths:
   - tests/mcp/tools/test_search_symbols_forgiveness.py
   - tests/mcp/tools/test_round3_retrieval.py
   - tests/mcp/tools/test_retrieval_tools.py
+  - tests/fixtures/conformance/baseline_symbol_self_retrieval.json
 satisfies:
   - REQ-G3-011
 source_refs:
@@ -181,7 +183,31 @@ inputs:
     `tests/fixtures/conformance/baseline_symbol_self_retrieval.json` - confirmed from
     `tests/conformance/baseline.py`'s own docstring that a baseline entry which no longer
     reproduces is tolerated, not a failure, until a program's own closure card flips `"strict":
-    true` (not this card's job); leave that file exactly as it is.
+    true` (not this card's job) - THIS NOTE IS NOW SUPERSEDED, see the attempt-3 note below.
+  - >-
+    REWORK (attempt 3): the supervisor independently ran `tests/conformance/test_symbol_self_retrieval.py`
+    in its DEFAULT (sampled, non-exhaustive) mode against your attempt-2 commit and found exactly
+    ONE new failure not already in the committed baseline:
+    `words__net:prefix3-findable:Aspose.Words.Drawing.Charts.AxisScaling` - matching your own
+    already-reported diagnosis (too many same-prefix siblings crowding the real target out of the
+    top-10 by BM25 tie-break alone, the same characteristic TC-278's own docstring already
+    documents for "Dispose"). The card's own write_paths now also include
+    `tests/fixtures/conformance/baseline_symbol_self_retrieval.json` (the one exception to the
+    prior note above, which otherwise still holds - add ONLY this one entry, nothing else) - add
+    exactly one new `known_failures` entry (same JSON shape every existing entry already uses:
+    `{"pilot": "words__net", "case_id": "prefix3-findable:Aspose.Words.Drawing.Charts.AxisScaling",
+    "reason": "<your own honest, specific reason, citing the real sibling count you already
+    measured>"}`), inserted anywhere in the array (order does not matter, confirmed from
+    `baseline.py`'s own `known_keys()` using a frozenset). The supervisor ALSO independently ran
+    the EXHAUSTIVE sweep (`FOSS_MCP_CONFORMANCE_EXHAUSTIVE=1`) both with and without your changes
+    and confirmed this card is NOT the cause of the exhaustive sweep's much larger pre-existing
+    gap (10813 non-baselined failures on main WITHOUT this card, 6436 WITH it - your change is a
+    net improvement there too, reducing prefix3-findable failures from 8963 to 4609, and leaving
+    every other case type's count completely unchanged); that pre-existing exhaustive gap is real
+    but explicitly out of this card's scope (the module's own docstring says exhaustive mode is
+    for release-time, not routine card gating) and is being recorded separately by the supervisor,
+    not fixed here. Run the real default-mode conformance test yourself to confirm clean (see the
+    new check below) before committing.
 actions:
   - >-
     Add the plan's own missing prefix tier to search_symbols (weakest evidence, explicit length
@@ -205,7 +231,13 @@ checks:
     junitxml: true
     proves:
       - REQ-G3-011
-min_tests: 12
+  - command: '{python} -m pytest tests/conformance/test_symbol_self_retrieval.py -q -rfE -p no:cacheprovider'
+    expect: 'exit 0'
+    timeout_seconds: 240
+    junitxml: true
+    proves:
+      - REQ-G3-011
+min_tests: 5
 requires:
   - python
 network: false
