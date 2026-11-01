@@ -1,0 +1,176 @@
+
+===== CLEAN RUN 1 (host) =====
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-5c72e798a73c059a\Scripts\python.exe -m pytest tests/mcp/tools/test_known_hazards_round2_disclosures.py -q -rfE -p no:cacheprovider "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-pguttb37\.junit-0.xml"
+--- stdout ---
+........................                                                 [100%]
+
+--- stderr ---
+
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-5c72e798a73c059a\Scripts\python.exe -m pytest tests/mcp/tools/test_product_reference_known_hazards.py tests/schemas/test_product_manifest_schema.py -q -rfE -p no:cacheprovider "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-pguttb37\.junit-1.xml"
+--- stdout ---
+...............................................                          [100%]
+
+--- stderr ---
+
+
+===== CLEAN RUN 2 (host) =====
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-5c72e798a73c059a\Scripts\python.exe -m pytest tests/mcp/tools/test_known_hazards_round2_disclosures.py -q -rfE -p no:cacheprovider "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-pguttb37\.junit-0.xml"
+--- stdout ---
+........................                                                 [100%]
+
+--- stderr ---
+
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-5c72e798a73c059a\Scripts\python.exe -m pytest tests/mcp/tools/test_product_reference_known_hazards.py tests/schemas/test_product_manifest_schema.py -q -rfE -p no:cacheprovider "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-pguttb37\.junit-1.xml"
+--- stdout ---
+...............................................                          [100%]
+
+--- stderr ---
+
+
+===== NEGATIVE CONTROL (checks MUST now fail) =====
+mutated: M config/products/slides/java.yaml, ?? .junit-0.xml, ?? .junit-1.xml
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-5c72e798a73c059a\Scripts\python.exe -m pytest tests/mcp/tools/test_known_hazards_round2_disclosures.py -q -rfE -p no:cacheprovider "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-pguttb37\.junit-0.xml"
+--- stdout ---
+...F.F...F.....FF....F..                                                 [100%]
+================================== FAILURES ===================================
+_ test_manifest_known_hazards_entries_validate_against_the_real_schema[slides/java] _
+
+family = 'slides', platform = 'java'
+issue_ids = ('SLIDES-JAVA-001', 'SLIDES-JAVA-002')
+
+    @pytest.mark.parametrize("family,platform,issue_ids", PILOTS, ids=PILOT_IDS)
+    def test_manifest_known_hazards_entries_validate_against_the_real_schema(
+        family: str, platform: str, issue_ids: tuple[str, ...]
+    ) -> None:
+        manifest = _real_manifest(family, platform)
+        jsonschema.Draft202012Validator(_schema()).validate(manifest)
+        hazards = known_hazards_from_manifest(manifest)
+>       assert len(hazards) == len(issue_ids), (family, platform, hazards)
+E       AssertionError: ('slides', 'java', ())
+E       assert 0 == 2
+E        +  where 0 = len(())
+E        +  and   2 = len(('SLIDES-JAVA-001', 'SLIDES-JAVA-002'))
+
+tests\mcp\tools\test_known_hazards_round2_disclosures.py:120: AssertionError
+______ test_total_known_hazards_entries_match_the_seven_round2_findings _______
+
+    def test_total_known_hazards_entries_match_the_seven_round2_findings() -> None:
+        """Exactly 7 entries across the 5 pilots - one per round-2 issue id this card closes, no more,
+        no fewer."""
+        total = sum(
+            len(known_hazards_from_manifest(_real_manifest(family, platform))) for family, platform, _ in PILOTS
+        )
+>       assert total == 7
+E       assert 5 == 7
+
+tests\mcp\tools\test_known_hazards_round2_disclosures.py:132: AssertionError
+_ test_get_product_reference_limitations_surfaces_the_real_hazard_for_each_pilot[slides/java] _
+
+tmp_path = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-19000/test_get_product_reference_lim3')
+family = 'slides', platform = 'java'
+issue_ids = ('SLIDES-JAVA-001', 'SLIDES-JAVA-002')
+
+    @pytest.mark.parametrize("family,platform,issue_ids", PILOTS, ids=PILOT_IDS)
+    def test_get_product_reference_limitations_surfaces_the_real_hazard_for_each_pilot(
+        tmp_path: Path, family: str, platform: str, issue_ids: tuple[str, ...]
+    ) -> None:
+        """The REAL baked sidecar's "limitations" answer, with this pilot's manifest-sourced
+        known_hazards merged in exactly as the live server does, discloses every one of this pilot's
+        round-2 hazards - distinctly framed, never marked untrusted_upstream_content."""
+        inputs, readme = _load_baked(tmp_path, family, platform)
+        manifest = _real_manifest(family, platform)
+        hazards = known_hazards_from_manifest(manifest)
+>       assert hazards, (family, platform)
+E       AssertionError: ('slides', 'java')
+E       assert ()
+
+tests\mcp\tools\test_known_hazards_round2_disclosures.py:149: AssertionError
+_ test_hazard_text_carries_the_real_issue_specific_trace_tokens[SLIDES-JAVA-001] _
+
+issue_id = 'SLIDES-JAVA-001'
+
+    @pytest.mark.parametrize("issue_id", ALL_ISSUE_IDS)
+    def test_hazard_text_carries_the_real_issue_specific_trace_tokens(issue_id: str) -> None:
+        """Each issue's distinctive technical tokens (drawn from its own real ``docs/round2/issues.json``
+        record) appear BOTH in that real issue record's own text AND in the matching manifest's hazard
+        text - proving the hazard text is not generic boilerplate, but is actually traceable to the
+        real issue it claims to disclose."""
+        issue = _real_issue(issue_id)
+        issue_text = _WHITESPACE_RE.sub(" ", json.dumps(issue).lower())
+        family, platform = issue["pilot"].split("/")
+        # yaml.safe_dump line-folds long scalars, inserting a newline+indent where the real text has a
+        # single space - collapse all whitespace runs to one space so a multi-word token still matches.
+        manifest_text = _WHITESPACE_RE.sub(" ", yaml.safe_dump(_real_manifest(family, platform)).lower())
+        for token in _HAZARD_TRACE_TOKENS[issue_id]:
+            assert token.lower() in issue_text, (issue_id, token, "token not even in the real issue record")
+>           assert token.lower() in manifest_text, (
+                issue_id,
+                token,
+                "token missing from the manifest's hazard text",
+            )
+E           AssertionError: ('SLIDES-JAVA-001', 'unsupportedoperationexception', "token missing from the manifest's hazard text")
+E           assert 'unsupportedoperationexception' in 'family: slides known_hazards: [] platform: java repository: aspose-slides-foss/aspose.slides-foss-for-java schedule: cron: 0 6 * * * timezone: utc storage_topology: embedded '
+E            +  where 'unsupportedoperationexception' = <built-in method lower of str object at 0x00000212D8CECE90>()
+E            +    where <built-in method lower of str object at 0x00000212D8CECE90> = 'unsupportedoperationexception'.lower
+
+tests\mcp\tools\test_known_hazards_round2_disclosures.py:190: AssertionError
+_ test_hazard_text_carries_the_real_issue_specific_trace_tokens[SLIDES-JAVA-002] _
+
+issue_id = 'SLIDES-JAVA-002'
+
+    @pytest.mark.parametrize("issue_id", ALL_ISSUE_IDS)
+    def test_hazard_text_carries_the_real_issue_specific_trace_tokens(issue_id: str) -> None:
+        """Each issue's distinctive technical tokens (drawn from its own real ``docs/round2/issues.json``
+        record) appear BOTH in that real issue record's own text AND in the matching manifest's hazard
+        text - proving the hazard text is not generic boilerplate, but is actually traceable to the
+        real issue it claims to disclose."""
+        issue = _real_issue(issue_id)
+        issue_text = _WHITESPACE_RE.sub(" ", json.dumps(issue).lower())
+        family, platform = issue["pilot"].split("/")
+        # yaml.safe_dump line-folds long scalars, inserting a newline+indent where the real text has a
+        # single space - collapse all whitespace runs to one space so a multi-word token still matches.
+        manifest_text = _WHITESPACE_RE.sub(" ", yaml.safe_dump(_real_manifest(family, platform)).lower())
+        for token in _HAZARD_TRACE_TOKENS[issue_id]:
+            assert token.lower() in issue_text, (issue_id, token, "token not even in the real issue record")
+>           assert token.lower() in manifest_text, (
+                issue_id,
+                token,
+                "token missing from the manifest's hazard text",
+            )
+E           AssertionError: ('SLIDES-JAVA-002', 'sldidlst', "token missing from the manifest's hazard text")
+E           assert 'sldidlst' in 'family: slides known_hazards: [] platform: java repository: aspose-slides-foss/aspose.slides-foss-for-java schedule: cron: 0 6 * * * timezone: utc storage_topology: embedded '
+E            +  where 'sldidlst' = <built-in method lower of str object at 0x00000212D8D4D0B0>()
+E            +    where <built-in method lower of str object at 0x00000212D8D4D0B0> = 'sldidlst'.lower
+
+tests\mcp\tools\test_known_hazards_round2_disclosures.py:190: AssertionError
+__ test_known_hazards_verified_at_is_a_real_valid_calendar_date[slides/java] __
+
+family = 'slides', platform = 'java'
+issue_ids = ('SLIDES-JAVA-001', 'SLIDES-JAVA-002')
+
+    @pytest.mark.parametrize("family,platform,issue_ids", PILOTS, ids=PILOT_IDS)
+    def test_known_hazards_verified_at_is_a_real_valid_calendar_date(
+        family: str, platform: str, issue_ids: tuple[str, ...]
+    ) -> None:
+        manifest = _real_manifest(family, platform)
+        hazards = known_hazards_from_manifest(manifest)
+>       assert hazards
+E       assert ()
+
+tests\mcp\tools\test_known_hazards_round2_disclosures.py:206: AssertionError
+=========================== short test summary info ===========================
+FAILED tests/mcp/tools/test_known_hazards_round2_disclosures.py::test_manifest_known_hazards_entries_validate_against_the_real_schema[slides/java]
+FAILED tests/mcp/tools/test_known_hazards_round2_disclosures.py::test_total_known_hazards_entries_match_the_seven_round2_findings
+FAILED tests/mcp/tools/test_known_hazards_round2_disclosures.py::test_get_product_reference_limitations_surfaces_the_real_hazard_for_each_pilot[slides/java]
+FAILED tests/mcp/tools/test_known_hazards_round2_disclosures.py::test_hazard_text_carries_the_real_issue_specific_trace_tokens[SLIDES-JAVA-001]
+FAILED tests/mcp/tools/test_known_hazards_round2_disclosures.py::test_hazard_text_carries_the_real_issue_specific_trace_tokens[SLIDES-JAVA-002]
+FAILED tests/mcp/tools/test_known_hazards_round2_disclosures.py::test_known_hazards_verified_at_is_a_real_valid_calendar_date[slides/java]
+
+--- stderr ---
+
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-5c72e798a73c059a\Scripts\python.exe -m pytest tests/mcp/tools/test_product_reference_known_hazards.py tests/schemas/test_product_manifest_schema.py -q -rfE -p no:cacheprovider "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-pguttb37\.junit-1.xml"
+--- stdout ---
+...............................................                          [100%]
+
+--- stderr ---
+

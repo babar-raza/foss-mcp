@@ -1,0 +1,117 @@
+{
+  "schema_version": 1,
+  "card": "TC-650",
+  "gate": "G3",
+  "generated_by": "gatectl",
+  "generated_at": "2026-11-01T08:37:01Z",
+  "base_rev": "81312186368ceedc85fe72cf24fe62ed1f2e599c",
+  "head_rev": "fb18289816b52e0fdf50e15cd2c68b48a4ae9c62",
+  "card_sha256": "fac1f89d9cc525ff92c0252758a6c04c7c71f48aabc2a951fd7082b382bea2e9",
+  "fingerprint": {
+    "python": "3.13.2",
+    "platform": "Windows-11-10.0.26300-SP0",
+    "lock_sha256": "5c72e798a73c059a438e752e94a8d4c88c1bdf81a197f6e5c5fcecbc9466a691",
+    "env": {
+      "PYTHONHASHSEED": "0",
+      "PYTHONUTF8": "1",
+      "PYTHONDONTWRITEBYTECODE": "1",
+      "PYTHONIOENCODING": "utf-8",
+      "TZ": "UTC",
+      "LC_ALL": "C.UTF-8",
+      "SOURCE_DATE_EPOCH": "1700000000",
+      "verify_runner": "host"
+    }
+  },
+  "scope": {
+    "ok": true,
+    "changed_paths": [
+      "config/products/3d/net.yaml",
+      "config/products/html/python.yaml",
+      "config/products/pdf/java.yaml",
+      "config/products/slides/java.yaml",
+      "config/products/slides/python.yaml",
+      "tests/mcp/tools/test_known_hazards_round2_disclosures.py",
+      "tests/mcp/tools/test_product_reference_known_hazards.py",
+      "tests/schemas/test_product_manifest_schema.py"
+    ],
+    "violations": [],
+    "evaluated": true
+  },
+  "runs": [
+    {
+      "run": 1,
+      "checks": [
+        {
+          "command": "{python} -m pytest tests/mcp/tools/test_known_hazards_round2_disclosures.py -q -rfE -p no:cacheprovider",
+          "exit_code": 0,
+          "duration_s": 3.174,
+          "stdout_sha256": "12784721e0280443291002b595b03384e8588476665647b621a862f07297e08f",
+          "tests": 24,
+          "skipped": 0,
+          "errors": 0,
+          "failures": 0
+        },
+        {
+          "command": "{python} -m pytest tests/mcp/tools/test_product_reference_known_hazards.py tests/schemas/test_product_manifest_schema.py -q -rfE -p no:cacheprovider",
+          "exit_code": 0,
+          "duration_s": 1.498,
+          "stdout_sha256": "325b7cf7b0d6ead544ebb7e833a08009fa10cf90ce29b8f9021e2ede461488f5",
+          "tests": 47,
+          "skipped": 0,
+          "errors": 0,
+          "failures": 0
+        }
+      ],
+      "all_passed": true
+    },
+    {
+      "run": 2,
+      "checks": [
+        {
+          "command": "{python} -m pytest tests/mcp/tools/test_known_hazards_round2_disclosures.py -q -rfE -p no:cacheprovider",
+          "exit_code": 0,
+          "duration_s": 0.916,
+          "stdout_sha256": "12784721e0280443291002b595b03384e8588476665647b621a862f07297e08f",
+          "tests": 24,
+          "skipped": 0,
+          "errors": 0,
+          "failures": 0
+        },
+        {
+          "command": "{python} -m pytest tests/mcp/tools/test_product_reference_known_hazards.py tests/schemas/test_product_manifest_schema.py -q -rfE -p no:cacheprovider",
+          "exit_code": 0,
+          "duration_s": 0.859,
+          "stdout_sha256": "325b7cf7b0d6ead544ebb7e833a08009fa10cf90ce29b8f9021e2ede461488f5",
+          "tests": 47,
+          "skipped": 0,
+          "errors": 0,
+          "failures": 0
+        }
+      ],
+      "all_passed": true
+    }
+  ],
+  "negative_control": {
+    "kind": "mutate",
+    "patch": "python -X utf8 -c \"import pathlib; p = pathlib.Path('config/products/slides/java.yaml'); s = p.read_text(encoding='utf-8'); marker = 'known_hazards:'; idx = s.find(marker); assert idx != -1, 'known_hazards key not found in config/products/slides/java.yaml as expected - if your real file differs, anchor your own mutate on your own real file instead and note the substitution in your closeout'; s2 = s[:idx] + 'known_hazards: []' + chr(10); assert s2 != s, 'substitution had no effect - adjust the mutate to your own real file shape'; p.write_text(s2, encoding='utf-8')\"\n",
+    "patch_sha256": "7ce8dfb938ff93f7c4eb730c22f0beaab1b2f65a04f6128938713489521f2ac6",
+    "applied": true,
+    "patch_applied_failed": true,
+    "exit_codes": [
+      1,
+      0
+    ],
+    "tree_changed": [
+      "M config/products/slides/java.yaml",
+      "?? .junit-0.xml",
+      "?? .junit-1.xml"
+    ]
+  },
+  "holdout": {
+    "ran": false,
+    "passed": true,
+    "detail": "no holdout for this card"
+  },
+  "accepted": true,
+  "reason": "all gates passed"
+}
