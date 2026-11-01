@@ -83,7 +83,7 @@ requires:
 network: false
 negative_control:
   mutate: |
-    python -X utf8 -c "import pathlib; p = pathlib.Path('config/products/slides/java.yaml'); s = p.read_text(encoding='utf-8'); assert 'known_hazards' in s, 'known_hazards key not found in config/products/slides/java.yaml as expected - if your real file differs, anchor your own mutate on your own real file instead and note the substitution in your closeout'; import re; s2 = re.sub(r'(?ms)^known_hazards:.*\\Z', 'known_hazards: []' + chr(10), s); assert s2 != s, 'substitution had no effect - adjust the mutate to your own real file shape'; p.write_text(s2, encoding='utf-8')"
+    python -X utf8 -c "import pathlib; p = pathlib.Path('config/products/slides/java.yaml'); s = p.read_text(encoding='utf-8'); marker = 'known_hazards:'; idx = s.find(marker); assert idx != -1, 'known_hazards key not found in config/products/slides/java.yaml as expected - if your real file differs, anchor your own mutate on your own real file instead and note the substitution in your closeout'; s2 = s[:idx] + 'known_hazards: []' + chr(10); assert s2 != s, 'substitution had no effect - adjust the mutate to your own real file shape'; p.write_text(s2, encoding='utf-8')"
   rationale: >-
     Empties slides/java's known_hazards back to zero entries, regardless of what you actually
     wrote - the two real SLIDES-JAVA-001/002 disclosures must stop surfacing. Any end-to-end test
