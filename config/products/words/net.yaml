@@ -21,3 +21,23 @@ schedule:
   cron: "0 6 * * *"
   timezone: UTC
 storage_topology: embedded
+
+# G3/TC-653 (round-2 audit WORDS-NET-003): a real runtime gap in the installed library itself, not
+# this project's own content. Aspose.Words.SaveFormat lists all 41 members with no annotation via
+# get_symbol/list_members, but calling doc.Save with most of those values throws at runtime on the
+# real installed Aspose.Words.FOSS 26.3.0. Independently reproduced 2026-10-29. Keep this the LAST
+# top-level key.
+known_hazards:
+  - text: >-
+      Most Aspose.Words.SaveFormat enum values throw System.NotSupportedException: FOSS at runtime
+      when passed to doc.Save() on the real installed Aspose.Words.FOSS 26.3.0 library - not every
+      value, but the majority, including SaveFormat.Pdf and SaveFormat.Html (reproduced: doc.Save(
+      "x.pdf", SaveFormat.Pdf) and doc.Save("x.html", SaveFormat.Html) both throw). get_symbol and
+      list_members for Aspose.Words.SaveFormat list all 41 members uniformly, with no indication of
+      which ones actually work in this edition. The real trigger is calling doc.Save with any of the
+      ~15+ unsupported values (Pdf, Html, Xps, Odt, Rtf, Doc, Epub, image formats, and others) based
+      solely on the enum's own name, without checking this edition's real support first. The safe
+      pattern: do not assume a SaveFormat value works just because it is listed - verify it against
+      this edition first, or use a confirmed-working value such as SaveFormat.Markdown (reproduced:
+      doc.Save("x.md", SaveFormat.Markdown) succeeds).
+    verified_at: "2026-10-29"

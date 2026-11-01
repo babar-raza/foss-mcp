@@ -13,11 +13,12 @@ field); ``known_hazards_from_manifest`` parses it and ``get_product_reference`` 
 
 These tests prove: (1) cells/go's LIVE answer (the real baked sidecar, the real README, the real
 config/products/cells/go.yaml) discloses the hazard, distinctly framed, never marked
-``untrusted_upstream_content``. (2) Every one of the other 26 real pilot manifests - every pilot
-EXCEPT cells/go and the 5 more G3/TC-650 later added (3d/net, html/python, pdf/java, slides/java,
-slides/python) - carries no ``known_hazards`` field, and feeding that absence through the real
-merge path changes nothing - no regression. (3) A synthetic manifest with two ``known_hazards``
-entries produces both, in a stable, deterministic order.
+``untrusted_upstream_content``. (2) Every one of the other 25 real pilot manifests - every pilot
+EXCEPT cells/go, the 5 more G3/TC-650 later added (3d/net, html/python, pdf/java, slides/java,
+slides/python), and the 1 more G3/TC-653 later added (words/net) - carries no ``known_hazards``
+field, and feeding that absence through the real merge path changes nothing - no regression.
+(3) A synthetic manifest with two ``known_hazards`` entries produces both, in a stable,
+deterministic order.
 """
 
 from __future__ import annotations
@@ -51,9 +52,9 @@ CONFIG_PRODUCTS = REPO_ROOT / "config" / "products"
 SOURCE_KIND = "self_extracted"
 KNOWN_HAZARD_LEAD = "Known hazard (verified by this project)"
 
-# G3/TC-650: 5 more pilots now carry a real known_hazards entry alongside cells/go - this is the
-# full set of every pilot manifest that does, today, and OTHER_PILOT_MANIFEST_PATHS below excludes
-# all 6 of them, not only cells/go.
+# G3/TC-650: 5 more pilots now carry a real known_hazards entry alongside cells/go; G3/TC-653 adds
+# 1 more (words/net) - this is the full set of every pilot manifest that does, today, and
+# OTHER_PILOT_MANIFEST_PATHS below excludes all 7 of them, not only cells/go.
 PILOTS_WITH_KNOWN_HAZARDS = frozenset(
     {
         ("cells", "go"),
@@ -62,6 +63,7 @@ PILOTS_WITH_KNOWN_HAZARDS = frozenset(
         ("pdf", "java"),
         ("slides", "java"),
         ("slides", "python"),
+        ("words", "net"),
     }
 )
 
@@ -71,13 +73,13 @@ OTHER_PILOT_MANIFEST_PATHS = [
     for path in ALL_PRODUCT_MANIFEST_PATHS
     if (path.parent.name, path.stem) not in PILOTS_WITH_KNOWN_HAZARDS
 ]
-# 32 is every real pilot manifest under config/products/; 26 is that count minus the 6 pilots that
-# carry a real known_hazards entry today (cells/go, plus the 5 G3/TC-650 added: 3d/net,
-# html/python, pdf/java, slides/java, slides/python).
+# 32 is every real pilot manifest under config/products/; 25 is that count minus the 7 pilots that
+# carry a real known_hazards entry today (cells/go, the 5 G3/TC-650 added: 3d/net, html/python,
+# pdf/java, slides/java, slides/python, plus the 1 G3/TC-653 added: words/net).
 # If a pilot is ever added or removed, or another known_hazards entry is added, re-pin both counts
 # here to match the new total.
 assert len(ALL_PRODUCT_MANIFEST_PATHS) == 32, ALL_PRODUCT_MANIFEST_PATHS
-assert len(OTHER_PILOT_MANIFEST_PATHS) == 26, OTHER_PILOT_MANIFEST_PATHS
+assert len(OTHER_PILOT_MANIFEST_PATHS) == 25, OTHER_PILOT_MANIFEST_PATHS
 
 
 def _real_manifest(family: str, platform: str) -> dict[str, Any]:
