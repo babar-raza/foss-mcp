@@ -455,12 +455,15 @@ def pad_with_older_tags(releases: list[Release], repository: str, limit: int) ->
     own order and contents are never touched.
 
     Does nothing (no tags fetch even attempted) when *releases* is already empty (the earlier,
-    narrower empty-Releases fallback in ``main`` already had its chance) or already at *limit*. A
-    failed tags read is caught, logged as a ``WARNING`` on stderr exactly like every other
-    tags-read failure in this module, and leaves *releases* exactly as it was - never raised.
+    narrower empty-Releases fallback in ``main`` already had its chance), already at *limit*, or
+    already entirely tag-sourced (the same ``all(release.source == "tag" ...)`` guard
+    ``_with_ancestry`` itself already uses: a tag-only repository's *releases* came from the
+    earlier empty-Releases fallback's own ``fetch_tags`` call, so a second one here would be
+    redundant). A failed tags read is caught, logged as a ``WARNING`` on stderr exactly like every
+    other tags-read failure in this module, and leaves *releases* exactly as it was - never raised.
     """
     missing = limit - len(releases)
-    if not releases or missing <= 0:
+    if not releases or missing <= 0 or all(release.source == "tag" for release in releases):
         return releases
     try:
         tags = fetch_tags(repository)

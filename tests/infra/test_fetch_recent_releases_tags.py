@@ -128,16 +128,45 @@ def test_the_tag_fallback_keeps_at_most_the_limit(tmp_path: Path, monkeypatch: p
     assert len(json.loads(output.read_text(encoding="utf-8"))) == 20
 
 
-def test_releases_present_means_tags_are_not_fetched(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
-    calls = _install(monkeypatch, _releases(3), _tags(5))
+def test_fewer_releases_than_limit_are_padded_with_older_tags(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    # G3/TC-655 (NOTE-PY-003): with 3 releases and the default limit of 20, tags ARE now fetched
+    # and used to pad the remaining slots - the old "releases present means tags are not fetched"
+    # behavior, this test's own former name and assertion, was exactly the bug this card closed.
+    # Versioned (unlike the module's own `_tags` helper, whose "t{n}" names have no parseable
+    # version) and all older than every release, so padding has real entries to add.
+    older_tags = [
+        Release(
+            f"v0.{index}.0",
+            "",
+            "none",
+            url=f"https://github.com/o/r/releases/tag/v0.{index}.0",
+            target_commitish=_SHA,
+            source="tag",
+        )
+        for index in range(5, 0, -1)
+    ]
+    calls = _install(monkeypatch, _releases(3), older_tags)
     output = tmp_path / "recent_releases_pdf_go.json"
     _set_argv(monkeypatch, output)
 
     fetch_recent_releases.main()
 
-    assert calls == {"releases": 1, "tags": 0}
+    assert calls == {"releases": 1, "tags": 1}
     written = json.loads(output.read_text(encoding="utf-8"))
-    assert all("source" not in entry for entry in written)
+    release_names = {"v1.3.0", "v1.2.0", "v1.1.0"}
+    assert {entry["tag_name"] for entry in written if "source" not in entry} == release_names
+    tag_entries = [entry for entry in written if entry.get("source") == "tag"]
+    assert [entry["tag_name"] for entry in tag_entries] == [
+        "v0.5.0",
+        "v0.4.0",
+        "v0.3.0",
+        "v0.2.0",
+        "v0.1.0",
+    ]
+    # No padded tag duplicates a release's own version.
+    assert release_names.isdisjoint(entry["tag_name"] for entry in tag_entries)
 
 
 def test_a_failing_tags_fetch_follows_the_failure_path(

@@ -52,6 +52,9 @@ def _set_argv(monkeypatch: pytest.MonkeyPatch, output_path: Path, *extra: str) -
 def test_main_writes_the_real_shaped_json_list(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     calls: list[str] = []
     monkeypatch.setattr(fetch_recent_releases, "fetch_releases", _fake_fetch_releases(calls))
+    # This test's own intent is unrelated to tag padding (G3/TC-655, NOTE-PY-003); stub fetch_tags
+    # so the 2 releases below (under the default limit) never reach the real network for it.
+    monkeypatch.setattr(fetch_recent_releases, "fetch_tags", lambda *_a, **_k: [])
     output_path = tmp_path / "recent_releases.json"
     _set_argv(monkeypatch, output_path)
 
@@ -106,6 +109,7 @@ def test_main_fetches_again_when_the_existing_output_is_older_than_the_freshness
     stale_time = time.time() - fetch_recent_releases._SIDECAR_FRESHNESS_SECONDS - 1
     os.utime(output_path, (stale_time, stale_time))
     monkeypatch.setattr(fetch_recent_releases, "fetch_releases", _fake_fetch_releases(calls))
+    monkeypatch.setattr(fetch_recent_releases, "fetch_tags", lambda *_a, **_k: [])  # keep this test offline
     _set_argv(monkeypatch, output_path)
 
     fetch_recent_releases.main()
@@ -122,6 +126,7 @@ def test_main_treats_a_malformed_existing_output_as_absent_and_fetches_live_with
     output_path = tmp_path / "recent_releases.json"
     output_path.write_text("{this is not valid json at all", encoding="utf-8")
     monkeypatch.setattr(fetch_recent_releases, "fetch_releases", _fake_fetch_releases(calls))
+    monkeypatch.setattr(fetch_recent_releases, "fetch_tags", lambda *_a, **_k: [])  # keep this test offline
     _set_argv(monkeypatch, output_path)
 
     fetch_recent_releases.main()
@@ -155,6 +160,9 @@ def test_load_recent_releases_sidecar_round_trips_what_main_wrote(
 ) -> None:
     calls: list[str] = []
     monkeypatch.setattr(fetch_recent_releases, "fetch_releases", _fake_fetch_releases(calls))
+    # This test's own intent is unrelated to tag padding (G3/TC-655, NOTE-PY-003); stub fetch_tags
+    # so the 2 releases below (under the default limit) never reach the real network for it.
+    monkeypatch.setattr(fetch_recent_releases, "fetch_tags", lambda *_a, **_k: [])
     output_path = tmp_path / "recent_releases.json"
     _set_argv(monkeypatch, output_path)
 

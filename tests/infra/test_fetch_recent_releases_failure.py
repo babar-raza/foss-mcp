@@ -130,6 +130,7 @@ def test_the_next_run_refetches_when_the_marker_is_present_even_though_the_sidec
     )
     calls: list[str] = []
     monkeypatch.setattr(fetch_recent_releases, "fetch_releases", _recording_fetch(calls))
+    monkeypatch.setattr(fetch_recent_releases, "fetch_tags", lambda *_a, **_k: [])  # keep this test offline
     _set_argv(monkeypatch, output)
 
     fetch_recent_releases.main()
@@ -147,6 +148,7 @@ def test_a_failed_run_followed_by_another_run_refetches(
     fetch_recent_releases.main()  # fails: writes [] + marker, both brand new (so "fresh-looking")
     calls: list[str] = []
     monkeypatch.setattr(fetch_recent_releases, "fetch_releases", _recording_fetch(calls))
+    monkeypatch.setattr(fetch_recent_releases, "fetch_tags", lambda *_a, **_k: [])  # keep this test offline
 
     fetch_recent_releases.main()
 
@@ -159,6 +161,7 @@ def test_success_deletes_the_marker(tmp_path: Path, monkeypatch: pytest.MonkeyPa
     marker.write_text("X 2026-01-01T00:00:00Z\n", encoding="utf-8")
     calls: list[str] = []
     monkeypatch.setattr(fetch_recent_releases, "fetch_releases", _recording_fetch(calls))
+    monkeypatch.setattr(fetch_recent_releases, "fetch_tags", lambda *_a, **_k: [])  # keep this test offline
     _set_argv(monkeypatch, output)
 
     fetch_recent_releases.main()
@@ -171,6 +174,7 @@ def test_success_deletes_the_marker(tmp_path: Path, monkeypatch: pytest.MonkeyPa
 def test_success_without_a_marker_does_not_fail(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     output = tmp_path / "recent_releases.json"
     monkeypatch.setattr(fetch_recent_releases, "fetch_releases", _recording_fetch([]))
+    monkeypatch.setattr(fetch_recent_releases, "fetch_tags", lambda *_a, **_k: [])  # keep this test offline
     _set_argv(monkeypatch, output)
 
     fetch_recent_releases.main()
@@ -184,6 +188,7 @@ def test_force_refetches_a_fresh_sidecar(tmp_path: Path, monkeypatch: pytest.Mon
     assert fetch_recent_releases._sidecar_is_fresh(output) is True
     calls: list[str] = []
     monkeypatch.setattr(fetch_recent_releases, "fetch_releases", _recording_fetch(calls))
+    monkeypatch.setattr(fetch_recent_releases, "fetch_tags", lambda *_a, **_k: [])  # keep this test offline
     _set_argv(monkeypatch, output, "--force")
 
     fetch_recent_releases.main()
@@ -256,6 +261,9 @@ def test_published_at_and_url_round_trip_through_the_sidecar(
     )
     output = tmp_path / "recent_releases.json"
     monkeypatch.setattr(fetch_recent_releases, "fetch_releases", _recording_fetch([], [release]))
+    # This test's own intent is unrelated to tag padding (G3/TC-655, NOTE-PY-003); stub fetch_tags
+    # so the 1 release below (under the default limit) never reaches the real network for it.
+    monkeypatch.setattr(fetch_recent_releases, "fetch_tags", lambda *_a, **_k: [])
     _set_argv(monkeypatch, output)
 
     fetch_recent_releases.main()
