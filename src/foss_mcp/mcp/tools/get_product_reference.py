@@ -1702,6 +1702,9 @@ def _answer(
         notice = _join_notice(
             _disagreement_notice(inputs, readme, compared),
             _version_sentence(platform, inputs.manifest_text),
+            # G3/TC-652: the same index-versus-package drift caveat the install section's notice
+            # already carries (CELLS-PY-001) - additive only, the manifest's own `value` never changes.
+            _drift_notice(inputs, _REGISTRY_ECOSYSTEM_BY_PLATFORM.get(platform, "cmake")),
         )
         return ReferenceContent(section, value, notice=notice)
 
