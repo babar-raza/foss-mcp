@@ -1,0 +1,25 @@
+schema_version: 1
+pilot: page_python
+defects:
+- id: PAGE-PYTHON-006
+  subject:
+    kind: package
+    ref: aspose-page-foss
+  applies_to:
+    package_versions:
+    - 26.9.0
+  summary: The aspose-page-foss 26.9.0 wheel ships aspose/page/common/ as an implicit namespace package
+    (no __init__.py), hiding 33 real public classes from pkgutil-based introspection though they still
+    import directly.
+  user_action: Do not use pkgutil.iter_modules to verify this MCP's coverage of aspose.page.common.*
+    classes; it will wrongly list 'common' as missing even though render_model.py/color_resources.py
+    classes import and resolve correctly.
+  evidence:
+    repro: pkgutil.iter_modules(aspose.page.__path__) listed image/mcp/pdf/ps/xps but not 'common';
+      'import aspose.page.common.render_model as m; print(m.__path__)' succeeded, printing a _NamespacePath,
+      and the installed site-packages dir has no __init__.py in aspose/page/common/.
+    verified_on:
+      package: aspose-page-foss
+      version: 26.9.0
+      date: '2026-10-29'
+  status: open

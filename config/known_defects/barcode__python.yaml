@@ -1,0 +1,23 @@
+schema_version: 1
+pilot: barcode_python
+defects:
+- id: BARCODE-PY-006
+  subject:
+    kind: method
+    ref: aspose_barcode_foss.upce
+  applies_to:
+    package_versions:
+    - 0.1.0
+  summary: upce() in aspose-barcode-foss 0.1.0 requires an 11 or 12 digit input and raises InvalidInputError
+    for the conventional 6/7/8-digit zero-suppressed GS1 UPC-E code length; this constraint is undocumented
+    by the MCP.
+  user_action: Do not pass a conventional 6/7/8-digit zero-suppressed UPC-E code to upce() in aspose-barcode-foss
+    0.1.0; it raises InvalidInputError unless given 11 or 12 digits.
+  evidence:
+    repro: 'python -c "from aspose_barcode_foss import upce; upce(''01245714'')" raised InvalidInputError:
+      UPC-E data must be 11 or 12 digits, got 8; upce(''012457'') raised the same error, got 6.'
+    verified_on:
+      package: aspose-barcode-foss
+      version: 0.1.0
+      date: '2026-10-29'
+  status: open

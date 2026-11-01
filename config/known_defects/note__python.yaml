@@ -1,0 +1,45 @@
+schema_version: 1
+pilot: note_python
+defects:
+- id: NOTE-PY-002
+  subject:
+    kind: method
+    ref: aspose.note.DocumentVisitor
+  applies_to:
+    package_versions:
+    - 26.9.0
+  summary: DocumentVisitor in aspose-note-foss 26.9.0 never dispatches into Table/TableRow/TableCell/AttachedFile/NumberList,
+    so VisitRichTextStart is called 0 times for a table-only document with 12 real RichText nodes.
+  user_action: Do not rely on DocumentVisitor alone to count or visit nodes inside a Table/TableRow/TableCell
+    or AttachedFile; use GetChildNodes(...) directly to reach content inside tables.
+  evidence:
+    repro: A DocumentVisitor subclass counting VisitRichTextStart calls against a table-only .one file
+      (SimpleTable.one) saw 0, while doc.GetChildNodes(RichText) found 12 real RichText nodes in the
+      same document.
+    verified_on:
+      package: aspose-note-foss
+      version: 26.9.0
+      date: '2026-10-29'
+  status: open
+- id: NOTE-PY-008
+  subject:
+    kind: method
+    ref: aspose.note.RichText
+  applies_to:
+    package_versions:
+    - 26.9.0
+  summary: RichText.Text in aspose-note-foss 26.9.0 embeds a raw U+FDDF field-separator character and
+    the literal internal HYPERLINK field instruction inside hyperlink runs, instead of only the human-visible
+    display text.
+  user_action: Do not use RichText.Text verbatim on a hyperlink-containing document without stripping
+    OneNote field-code runs; it can contain the raw instruction text (e.g. HYPERLINK "www.google.com")
+    mixed into otherwise-plain text.
+  evidence:
+    repro: doc.GetChildNodes(RichText) on FormattedRichText.one returned one entry reading 'This is
+      \ufddfHYPERLINK "www.google.com"hyperlink. This text is not a hyperlink.' instead of the clean
+      display text.
+    verified_on:
+      package: aspose-note-foss
+      version: 26.9.0
+      date: '2026-10-29'
+  status: open

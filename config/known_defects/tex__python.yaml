@@ -1,0 +1,24 @@
+schema_version: 1
+pilot: tex_python
+defects:
+- id: TEX-PYTHON-001
+  subject:
+    kind: package
+    ref: aspose-tex
+  applies_to:
+    package_versions:
+    - '26.5'
+  summary: 35 of 45 source files (78%) in aspose-tex at commit 181015d2 fail to parse with IndentationError,
+    cascading from aspose_tex/__init__.py's first import; the package cannot be imported at all.
+  user_action: Do not attempt 'from aspose_tex import TeXJob, TeXOptions, PdfDevice, create_input_source'
+    against this release; it raises IndentationError at import time. Treat the whole tex/python pilot
+    as blocked until fixed upstream.
+  evidence:
+    repro: import aspose_tex raised IndentationError at catcode.py:66 ('expected an indented block after
+      for statement'); ast.parse failed on 35 of 45 files under src/ with the same pattern; the repo's
+      own pytest suite errored at collection on 67 of 68 test files.
+    verified_on:
+      package: aspose-tex
+      version: '26.5'
+      date: '2026-10-29'
+  status: open

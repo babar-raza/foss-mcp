@@ -1,0 +1,64 @@
+schema_version: 1
+pilot: email_cpp
+defects:
+- id: EMAIL-CPP-001
+  subject:
+    kind: method
+    ref: aspose::email::foss::msg::mapi_message
+  applies_to:
+    package_versions:
+    - c844a467cf7f2503819b655f4d6ceaef91056c40
+  summary: mapi_message::save_to_eml at commit c844a467 serializes an embedded message attachment as
+    a base64 CFB/.msg blob mislabeled message/rfc822, not a real RFC822 message; no standards-compliant
+    parser can read its subject or body.
+  user_action: Do not rely on add_embedded_message_attachment + save_to_eml to produce a standards-readable
+    message/rfc822 part; the embedded attachment is an unreadable binary MSG blob disguised as text.
+  evidence:
+    repro: Built commit c844a467cf7f2503819b655f4d6ceaef91056c40; saved a message with an embedded mapi_message
+      attachment to EML; Python's email module decoded the message/rfc822 part's base64 payload to 3072
+      bytes starting d0cf11e0a1b11ae1, the CFB/OLE2 .msg magic number, not text.
+    verified_on:
+      package: aspose-email-foss/Aspose.Email-FOSS-for-Cpp
+      version: c844a467cf7f2503819b655f4d6ceaef91056c40
+      date: '2026-10-29'
+  status: open
+- id: EMAIL-CPP-002
+  subject:
+    kind: method
+    ref: aspose::email::foss::msg::mapi_message
+  applies_to:
+    package_versions:
+    - c844a467cf7f2503819b655f4d6ceaef91056c40
+  summary: mapi_message::save_to_eml at commit c844a467 writes only the To header; Cc and Bcc recipients
+    are silently dropped entirely, with no error, warning, or validation_issues() entry.
+  user_action: Do not add Cc/Bcc recipients expecting them to round-trip through save_to_eml/load_from_eml
+    in this build; only the To recipient list is preserved.
+  evidence:
+    repro: Added To/Cc/Bcc recipients to a mapi_message and called save_to_eml; the generated EML had
+      only a 'To' header (Python's email module showed m['Cc'] and m['Bcc'] both None); reloading via
+      load_from_eml showed recipients().size() == 1, down from 3.
+    verified_on:
+      package: aspose-email-foss/Aspose.Email-FOSS-for-Cpp
+      version: c844a467cf7f2503819b655f4d6ceaef91056c40
+      date: '2026-10-29'
+  status: open
+- id: EMAIL-CPP-003
+  subject:
+    kind: method
+    ref: aspose::email::foss::msg::mapi_message
+  applies_to:
+    package_versions:
+    - c844a467cf7f2503819b655f4d6ceaef91056c40
+  summary: mapi_message::load_from_eml at commit c844a467 leaves a trailing space on every parsed From/To
+    display name, e.g. 'Alice Example ' (len 15) instead of 'Alice Example' (len 14).
+  user_action: Trim the trailing space load_from_eml leaves on sender_name and every recipient display_name
+    before comparing or displaying them.
+  evidence:
+    repro: 'Saved a message with sender_name ''Alice Example'' and recipient display_name ''Bob To''
+      to EML, then reloaded with load_from_eml: reloaded.sender_name() was ''Alice Example '' (len 15,
+      should be 14); the recipient display_name was ''Bob To '' (len 7, should be 6).'
+    verified_on:
+      package: aspose-email-foss/Aspose.Email-FOSS-for-Cpp
+      version: c844a467cf7f2503819b655f4d6ceaef91056c40
+      date: '2026-10-29'
+  status: open

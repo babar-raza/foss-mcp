@@ -1,0 +1,26 @@
+schema_version: 1
+pilot: words_python
+defects:
+- id: WORDS-PY-008
+  subject:
+    kind: method
+    ref: aspose.words_foss.document.Document
+  applies_to:
+    package_versions:
+    - 26.7.0
+  summary: Document.get_text() in aspose-words-foss 26.7.0 claims in its docstring that 'Tables are
+    included with cell text' but returns body-paragraph text only, silently dropping all table cells
+    and header/footer text.
+  user_action: Do not rely on Document.get_text() to include table cell text or header/footer text;
+    it returns only body-paragraph text (light_document_model.Document.text), despite the method's own
+    docstring.
+  evidence:
+    repro: Built a document with a heading, a paragraph, a 2x2 table, and header/footer text; get_text()
+      after save+reload returned only the heading and paragraph text, with the table cells and header/footer
+      entirely absent; zipfile inspection confirmed the table and header/footer XML genuinely exist
+      in the saved DOCX.
+    verified_on:
+      package: aspose-words-foss
+      version: 26.7.0
+      date: '2026-10-29'
+  status: open

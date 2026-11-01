@@ -1,0 +1,23 @@
+schema_version: 1
+pilot: email_python
+defects:
+- id: EMAIL-PY-006
+  subject:
+    kind: method
+    ref: aspose.email_foss.msg.MapiMessage
+  applies_to:
+    package_versions:
+    - '26.3'
+  summary: MapiMessage.to_email_message()/to_email_bytes() in aspose-email-foss 26.3 unconditionally
+    write Bcc recipients into a plainly visible Bcc header, defeating blind-copy privacy if the output
+    is ever relayed via SMTP; undocumented.
+  user_action: Do not assume to_email_message()/to_email_bytes() output is safe to relay via SMTP unmodified
+    when a Bcc recipient was added; strip or rewrite the Bcc header yourself before sending.
+  evidence:
+    repro: Added a Bcc recipient (recipient_type=3) and called to_email_message(); inspecting the output
+      (work/scn1.eml) confirmed a literal, visible 'Bcc:' header containing the address.
+    verified_on:
+      package: aspose-email-foss
+      version: '26.3'
+      date: '2026-10-29'
+  status: open

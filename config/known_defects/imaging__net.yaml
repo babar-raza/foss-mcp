@@ -1,0 +1,106 @@
+schema_version: 1
+pilot: imaging_net
+defects:
+- id: IMAGING-NET-001
+  subject:
+    kind: method
+    ref: Aspose.Imaging.Foss.ImageProbe
+  applies_to:
+    package_versions:
+    - c5e77bdc7b4a5c19190b6dfae5ae9d420b5886fa
+  summary: ImageProbe.DetectFormat(Stream) at commit c5e77bdc throws NotSupportedException on a non-seekable
+    stream instead of detecting the format, contradicting the README's 'stream (seekable or not)' promise.
+  user_action: Do not call ImageProbe.DetectFormat(Stream) on a non-seekable stream; it throws NotSupportedException
+    instead of returning ImageFormat.Unknown. Wrap it in a seekable stream first, or use Probe(Stream),
+    which calls EnsureSeekable.
+  evidence:
+    repro: 'A Stream subclass with CanSeek=>false whose Seek/Position/Length throw NotSupportedException
+      was passed to ImageProbe.DetectFormat; stderr showed ''DetectFormat(non-seekable) threw NotSupportedException:
+      Specified method is not supported.'''
+    verified_on:
+      package: Aspose.Imaging.Foss
+      version: c5e77bdc7b4a5c19190b6dfae5ae9d420b5886fa
+      date: '2026-10-29'
+  status: open
+- id: IMAGING-NET-002
+  subject:
+    kind: method
+    ref: Aspose.Imaging.Foss.ImageProbe
+  applies_to:
+    package_versions:
+    - c5e77bdc7b4a5c19190b6dfae5ae9d420b5886fa
+  summary: ImageProbe.Probe at commit c5e77bdc returns fabricated non-null Width/Height/BitDepth for
+    a truncated PNG/BMP/ICO/WebP/EMF/PSD/WMF file instead of the documented Format-only fallback (handlers
+    never check ReadFully's byte count).
+  user_action: Do not trust a non-null Width/Height/BitDepth from Probe() on a truncated PNG/BMP/ICO/WebP/EMF/PSD/WMF
+    file; it can be garbage (a signature-only PNG returned Width=-1907342965) rather than the documented
+    null fallback.
+  evidence:
+    repro: 'Truncated copies of generated PNG/BMP/ICO/WebP files (work/imgs/trunc_mid.*) were probed:
+      trunc_mid.bmp -> Width=0 Height=0 BitDepth=0 (not null); trunc_mid.ico -> Width=16 Height=16 BitDepth=0;
+      sig_only.png (8-byte signature + random bytes) -> Width=-1907342965 Height=-1133207736 BitDepth=132.'
+    verified_on:
+      package: Aspose.Imaging.Foss
+      version: c5e77bdc7b4a5c19190b6dfae5ae9d420b5886fa
+      date: '2026-10-29'
+  status: open
+- id: IMAGING-NET-003
+  subject:
+    kind: method
+    ref: Aspose.Imaging.Foss.ImageProbe
+  applies_to:
+    package_versions:
+    - c5e77bdc7b4a5c19190b6dfae5ae9d420b5886fa
+  summary: ImageProbe.Probe at commit c5e77bdc misreads BitsPerSample for any multi-sample (e.g. RGB)
+    TIFF, returning BitDepth=134 instead of 8, because ReadIfdValue ignores the IFD entry's Count field
+    for type SHORT.
+  user_action: Do not trust Probe()'s BitDepth for an RGB (or other multi-channel) TIFF; single.tif
+    and multi.tif both returned BitDepth=134 instead of the correct 8.
+  evidence:
+    repro: 'Generated single.tif (33x22 RGB) and multi.tif (3-page 20x20 RGB) with Pillow and probed
+      them: both returned BitDepth=134 against a Pillow ground truth of mode=''RGB'' (8 bits per channel).'
+    verified_on:
+      package: Aspose.Imaging.Foss
+      version: c5e77bdc7b4a5c19190b6dfae5ae9d420b5886fa
+      date: '2026-10-29'
+  status: open
+- id: IMAGING-NET-004
+  subject:
+    kind: commit
+    ref: c5e77bdc7b4a5c19190b6dfae5ae9d420b5886fa
+  applies_to:
+    indexed_commit: c5e77bdc7b4a5c19190b6dfae5ae9d420b5886fa
+  summary: Commit c5e77bdc - the commit install instructions tell users to build - has upstream-acknowledged
+    hang/CPU/memory-blowup bugs fixed 5 commits later in 5131c44a; the MCP surfaces none of this unless
+    the caller already knows HEAD.
+  user_action: Re-index past d947d11cc6b282443231c2025ee43bf974a335dd (which also fixes IMAGING-NET-002),
+    or until then treat an 11-byte malformed JPEG, a 65535-entry IFD chain, or a 161-byte DICOM file
+    as capable of hanging or exhausting memory when probed at this commit.
+  evidence:
+    repro: 'GitHub compare c5e77bdc...main showed ahead_by: 5, including commit 5131c44a705080bc45e688761827d0181bc99a85,
+      whose message reads ''Fix hang, CPU and memory blowups on malformed input'' (a JPEG infinite seek
+      loop, a TIFF IFD chain ~45s on a 1.3MB file, a DICOM ~2GB allocation from a 161-byte file).'
+    verified_on:
+      package: Aspose.Imaging.Foss
+      version: c5e77bdc7b4a5c19190b6dfae5ae9d420b5886fa
+      date: '2026-10-29'
+  status: open
+- id: IMAGING-NET-008
+  subject:
+    kind: method
+    ref: Aspose.Imaging.Foss.ImageProbe
+  applies_to:
+    package_versions:
+    - c5e77bdc7b4a5c19190b6dfae5ae9d420b5886fa
+  summary: ImageProbe.Probe at commit c5e77bdc always reports FrameCount=1 for WebP, even for a genuinely
+    multi-frame animated file, instead of null like the equally-unsupported BitDepth field.
+  user_action: Do not trust Probe()'s WebP FrameCount; a 4-frame animated WebP still reports FrameCount=1,
+    indistinguishable from a real single-frame WebP.
+  evidence:
+    repro: 'A 4-frame animated WebP generated with Pillow (n_frames=4) was probed: probe_results.json
+      showed BitDepth=null (honest) but FrameCount=1 (wrong; should be 4 or null).'
+    verified_on:
+      package: Aspose.Imaging.Foss
+      version: c5e77bdc7b4a5c19190b6dfae5ae9d420b5886fa
+      date: '2026-10-29'
+  status: open
