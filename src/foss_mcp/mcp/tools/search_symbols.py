@@ -79,8 +79,12 @@ field types that inherit it from ``TextBoxField`` no longer outrank ``Document``
 FALLBACK stage runs only when every stage above admitted nothing AND the query contains whitespace: the
 distinctive tokens of the query (``naming_tokens``) are matched against each type's own name and the
 members it declares, so "Workbook methods", "workbooks" and "send email" find their type while
-"PdfDocument.Rotate" (no whitespace), "Watermar" and "AFRelation" stay honest misses. There is no
-prefix tier: ``tests/mcp/test_search_symbols_honest_miss.py`` pins those partial words as misses.
+"PdfDocument.Rotate" (no whitespace, and no genuine prefix relationship to any real word either)
+stays an honest miss. At the time this paragraph was written there was no prefix tier, and
+``tests/mcp/test_search_symbols_honest_miss.py`` pinned "Watermar" and "AFRelation" as misses for
+exactly that reason; TC-654 below adds that tier, and those same two probes are now its own worked
+examples of a tier-4 hit instead - see TC-654's own paragraph, not this historical one, for the
+current rule.
 
 TC-279 (G2/REQ-G2-043): a SEPARATE defect from TC-278's ranking/threshold fixes above - a false
 NEGATIVE from extraction/matching granularity, not a ranking problem. ``chunk_builder.py``'s
@@ -163,6 +167,38 @@ identical ``Source-Commit:`` scoping rule. Reimplemented locally (``_known_defec
 module, so importing back from it would be circular, and its own ``_render_known_defect`` is
 private besides - the same documented reason KD2 gave for not importing
 ``report_index_freshness``'s ``_SOURCE_COMMIT_LINE``.
+
+TC-654 (G3/REQ-G3-011, Q12, workstream B): adds the plan's own missing weakest tier - a genuine,
+case-insensitive PREFIX of one of the FQN's own words (``_symbol_words``, reused rather than
+reimplemented) - directly below TC-278's bag-of-words tier (overall tier 3 here), closing 10 real
+round-2 findability issues that all shared one root cause: a query naming a real prefix of a real
+type's own word ("Watermar" of ``PdfDocument.AddWatermarkAnnotation``'s own "Watermark",
+"AFRelation" of ``Aspose::Pdf::AFRelationship``'s own "Relationship") was rejected entirely,
+contradicting this tool's own description ("type name or fragment") - see
+``docs/round2/issues.json``'s ``3D-JAVA-008``, ``3D-TYPESCRIPT-002``, ``BARCODE-PY-003``,
+``CELLS-TYPESCRIPT-010``, ``EMAIL-CPP-008``, ``EML-NET-001``, ``NOTE-PY-004``, ``PDF-TS-001``,
+``SLIDES-JAVA-005``, ``SLIDES-NET-003``. ``_match_tier``'s own local tier 3 (overall tier 4, below
+every tier above) keeps TC-278's own contiguous, correctly-ordered-window precision floor (FIX B)
+intact rather than relaxing it for this new, weaker tier too: each window position matches either
+by EQUALITY or, when the query's own word there is at least ``_PREFIX_MIN_LENGTH`` (3) characters,
+by being a genuine prefix of the FQN's word at that same position - every word of the query must
+still be explained, whole or prefix, the same discipline tier 3's own bag-of-words already has.
+Deliberately NOT relaxed to an unordered set check even though the card only names single- or
+two-word probes: this project already measured a real, scattered-word false positive that an
+unordered check alone cannot reject (see TC-278's own paragraph above), and a strictly weaker tier
+is, if anything, more exposed to that failure mode, not less. A tier-4 hit's own ``match_quality``
+is always ``MATCH_PARTIAL``, never ``MATCH_EXACT`` - the weakest tier gets the most honest label.
+A query shorter than ``_PREFIX_MIN_LENGTH`` characters (after ``fold_query`` and ``.strip()``)
+never gets this treatment at all - a 1-2 character probe is too short to be a genuine fragment of
+anything - but it is never forced into a Miss it would not otherwise be: a query that already
+matches some OTHER stage (a short real whole-word/final-segment hit such as "Do", or TC-637's own
+standalone digit-acronym words "2d"/"3mf") is returned exactly as before, unaffected. Only when
+every stage - this new tier included - finds nothing does ``search_symbols`` give that short query
+an honest, explicit reason naming the floor instead of the generic "no symbol matches" message,
+closing EMAIL-CPP-008 and NOTE-PY-004's own single/double-letter-probe complaints without ever
+lowering the floor itself. Measured against 3 real pilots (pdf/net, cells/cpp, slides/python - the
+same 3 this module's own docstring already cites for TC-278's and TC-637's own measurements): see
+this card's own worker report for the real sampled hit-rate.
 
 Investigated for this card: ``lookup.py``'s own ``_named_symbols`` (out of this card's write_paths)
 does NOT reuse ``search_symbols()``'s own constructed ``SymbolMatch`` instances - it builds fresh
@@ -276,9 +312,15 @@ def _symbol_words(text: str) -> list[str]:
     return [word.casefold() for word in _rejoin_digit_acronym_split(words)]
 
 
+_PREFIX_MIN_LENGTH = 3
+# TC-654 (G3/REQ-G3-011): the floor below which a word is never treated as a genuine name
+# fragment - a 1-2 character word is too short for a prefix relationship to mean anything.
+# `search_symbols` reuses this exact constant for its own whole-query Miss reason.
+
+
 def _match_tier(query: str, fqn: str | None) -> int | None:
-    """The strength of evidence that *query* names *fqn*, as a tier - 0 (strongest) to 2
-    (weakest) - or ``None`` for no match at all. The three tiers, in admission order:
+    """The strength of evidence that *query* names *fqn*, as a tier - 0 (strongest) to 3
+    (weakest, TC-654) - or ``None`` for no match at all. The four tiers, in admission order:
 
     0. Full-FQN equality: *query* equals the whole FQN, case-insensitively after stripping.
     1. Final-segment equality: *query* equals the FQN's final dotted (or ``::``-scoped)
@@ -296,16 +338,34 @@ def _match_tier(query: str, fqn: str | None) -> int | None:
        containment-SET check alone cannot tell this case apart from a real
        match, and a symmetric overlap-ratio threshold cannot either (the measured false
        positive scores higher on that signal than an already-required true positive).
+    3. Prefix containment (TC-654, G3/REQ-G3-011): the SAME contiguous, correctly-ordered
+       window as tier 2 above, tried only once no window satisfies tier 2 - but a window
+       position may now match by PREFIX instead of exact equality, when the query's own word
+       there is at least ``_PREFIX_MIN_LENGTH`` characters long AND the FQN's word at that same
+       position starts with it (case-insensitively). ``watermar`` is a genuine prefix of
+       ``watermark``, so it is a tier-3 hit against ``PdfDocument.AddWatermarkAnnotation``;
+       ``afrelation`` similarly explains ``af`` (by equality) and ``relation`` (by prefix of
+       ``relationship``) against ``Aspose::Pdf::AFRelationship``. Every word of the query must
+       still be explained, by equality or by prefix, in the SAME tier-2 discipline - a query is
+       not admitted at this tier if even one of its words matches neither. The tier-2 ordering
+       floor is deliberately kept rather than relaxed to a plain unordered set check: a strictly
+       WEAKER tier is at least as exposed to the measured scattered-word false positive above as
+       tier 2 is, never less.
 
     A partial word such as ``Watermar`` is never a whole word of anything, so it never reaches
-    tier 2 regardless of this floor. A chunk with no FQN line (*fqn* is ``None``) can never
-    match at any tier.
+    tier 2 - but, at least ``_PREFIX_MIN_LENGTH`` characters long and a genuine prefix of a real
+    word, it can still reach tier 3. A query word shorter than ``_PREFIX_MIN_LENGTH`` can still
+    match tier 3, but only by equality, never by prefix (``search_symbols`` separately gives a
+    whole QUERY shorter than that floor its own, more honest Miss reason before it would
+    otherwise fall all the way through to a generic one). A chunk with no FQN line (*fqn* is
+    ``None``) can never match at any tier.
 
     This is CLASS-level evidence only - it never looks inside the chunk's own rendered
     Methods:/Properties: blocks. ``search_symbols`` (TC-279, G2/REQ-G2-043) combines this
     result with ``_matches_a_rendered_member`` below to place a member-name match between this
     function's own tier 1 and tier 2, remapping this function's tier 2 (bag-of-words) to overall
-    tier 3 - see ``search_symbols``'s own docstring for the combined ordering.
+    tier 3, and this function's tier 3 (prefix, TC-654) to overall tier 4 - see
+    ``search_symbols``'s own docstring for the combined ordering.
     """
     if fqn is None:
         return None
@@ -321,17 +381,22 @@ def _match_tier(query: str, fqn: str | None) -> int | None:
     if not query_words:
         return None
     fqn_words = _symbol_words(fqn)
-    fqn_word_set = set(fqn_words)
-    if not all(word in fqn_word_set for word in query_words):
-        return None
     run_length = len(query_words)
     window_count = len(fqn_words) - run_length + 1
     if window_count < 1:
         return None
+    prefix_hit = False
     for start in range(window_count):
-        if fqn_words[start : start + run_length] == query_words:
+        window = fqn_words[start : start + run_length]
+        if window == query_words:
             return 2
-    return None
+        if not prefix_hit and all(
+            query_word == fqn_word
+            or (len(query_word) >= _PREFIX_MIN_LENGTH and fqn_word.startswith(query_word))
+            for query_word, fqn_word in zip(query_words, window, strict=True)
+        ):
+            prefix_hit = True
+    return 3 if prefix_hit else None
 
 
 _MEMBER_NAME_END = re.compile(r"\(|:| \((?:inherited|promoted) from")
@@ -1167,6 +1232,18 @@ def search_symbols(
     like every other tier already lets BM25 sort among several same-tier candidates - there is
     no special-casing for this case because none was needed.
 
+    TC-654 (G3/REQ-G3-011): a FIFTH, weaker-still tier (``_match_tier``'s own local tier 3,
+    overall tier 4 here) admits a candidate whose FQN only PREFIX-matches the query's words -
+    never a whole-word match - closing 10 real round-2 findability issues (see this module's own
+    docstring for the ids). A tier-4 hit's own ``match_quality`` is always ``MATCH_PARTIAL``,
+    never ``MATCH_EXACT``, and it still competes on BM25 within its own tier like every tier
+    above. A whole QUERY shorter than ``_PREFIX_MIN_LENGTH`` characters (after ``fold_query`` and
+    ``.strip()``) is never admitted at this new tier at all, and - only once every stage here,
+    including this one, finds nothing - is given its own explicit, honest Miss reason naming the
+    floor instead of the generic "no symbol matches" message; a short query that already matches
+    some OTHER stage (a real whole-word/final-segment hit, or TC-637's own standalone
+    digit-acronym words) is returned exactly as before, never forced into a Miss by this change.
+
     TC-562 (G3/REQ-G3-009): the query is NFKC-folded first (a full-width ``Ｗｏｒｋｂｏｏｋ`` is ``Workbook``). When
     no tier above admits anything and the per-token fallback finds nothing, two more stages run, in order: (a) a
     single plain word that is a whole type name up to an English inflection (``Widgets``) or a name the index
@@ -1199,10 +1276,17 @@ def search_symbols(
 
     original_query = query
     query = fold_query(query)
+    # TC-654 (G3/REQ-G3-011): computed right here, after fold + strip and before any tier is even
+    # attempted - but only ever USED below as the Miss reason once every stage (this new tier
+    # included) has already found nothing; it never overrides a query that genuinely matches
+    # some other, stronger stage (a real whole-word/final-segment hit such as "Do", or TC-637's
+    # own standalone digit-acronym words "2d"/"3mf", both shorter than this floor).
+    query_below_fragment_floor = len(query.strip()) < _PREFIX_MIN_LENGTH
     query = normalize_query(query, scope.family)
     documents = lexical_payload["documents"]
     ranked = query_lexical_index_scored(lexical_payload, query, top_k=len(documents))
     admitted: list[tuple[int, int, int, float, str]] = []
+    admitted_doc_ids: set[str] = set()
     for doc_id, bm25_score in ranked:
         text = documents[doc_id]["text"]
         fqn = extract_fqn(text)
@@ -1219,17 +1303,53 @@ def search_symbols(
             tier = 2
             # TC-516: a type that DECLARES the member ranks before the types that only INHERIT it.
             inherits_only = 0 if member_declaration else 1
-        else:
+        elif class_tier == 2:
             tier = 3
+        else:
+            # TC-654 (G3/REQ-G3-011): class_tier == 3 here - _match_tier's own new, weakest local
+            # tier (prefix containment), the weakest evidence admitted anywhere in this function.
+            tier = 4
         # TC-541: a chunk that lists members (0) before one that lists none (1) within the tier.
         memberless = 0 if _has_listed_members(text) else 1
         admitted.append((tier, memberless, inherits_only, bm25_score, doc_id))
+        admitted_doc_ids.add(doc_id)
+    # TC-654 (G3/REQ-G3-011): a genuine prefix query shares NO token with the real word it is a
+    # prefix of - the lexical index's own tokenizer (``tokenize``) indexes whole words and their
+    # camelCase sub-words, never a fragment of one - so the BM25 ranking above, built from that
+    # same tokenizer, never even considers the real document: ``ranked`` can come back completely
+    # empty for a query such as "Watermar" despite a real, correct tier-4 match existing (measured
+    # directly: ``tokenize("Watermar") == ["watermar"]``, which shares nothing with
+    # ``tokenize("AddWatermarkAnnotation")``). This second pass mirrors ``_fallback_doc_ids`` and
+    # ``_evidence_ranking`` below, both of which already scan every document directly for exactly
+    # this reason, using the BM25 score (``0.0`` when a document never scored at all) only as the
+    # secondary tie-break here too, never as the admission gate. Skipped entirely for a query
+    # already below the fragment floor - too short to ever satisfy the per-word prefix length
+    # check inside ``_match_tier`` regardless.
+    if not query_below_fragment_floor:
+        bm25 = dict(ranked)
+        for doc_id, document in documents.items():
+            if doc_id in admitted_doc_ids:
+                continue
+            text = document["text"]
+            fqn = extract_fqn(text)
+            if fqn is None or fqn.startswith(_NON_SYMBOL_FQN_PREFIXES):
+                continue
+            if _match_tier(query, fqn) != 3:
+                continue
+            memberless = 0 if _has_listed_members(text) else 1
+            admitted.append((4, memberless, 0, bm25.get(doc_id, 0.0), doc_id))
     # Strongest evidence first (ascending tier); within a tier, a chunk that lists members before an empty
     # one (TC-541), declaring types before inheriting ones, then the existing BM25-descending order - it
     # is never discarded, only demoted to secondary.
     admitted.sort(key=lambda candidate: (candidate[0], candidate[1], candidate[2], -candidate[3]))
     ordered = [doc_id for _tier, _memberless, _inherits, _bm25_score, doc_id in admitted]
-    qualities: dict[str, str] = dict.fromkeys(ordered, MATCH_EXACT)
+    # TC-654: a tier-4 (prefix) hit's own match_quality is always MATCH_PARTIAL, never
+    # MATCH_EXACT - the weakest tier gets the most honest label; every stronger tier keeps the
+    # pre-existing MATCH_EXACT it already had.
+    qualities: dict[str, str] = {
+        doc_id: (MATCH_PARTIAL if tier == 4 else MATCH_EXACT)
+        for tier, _memberless, _inherits, _bm25_score, doc_id in admitted
+    }
     unmatched: dict[str, tuple[str, ...]] = {}
     if not ordered:
         ordered = _inflected_name_ids(documents, query)
@@ -1244,6 +1364,17 @@ def search_symbols(
         ordered = _fallback_doc_ids(documents, ranked, query, scope.family, len(documents), lexical_payload)
         qualities = dict.fromkeys(ordered, MATCH_EXACT)
     if not ordered:
+        if query_below_fragment_floor:
+            # TC-654 (G3/REQ-G3-011): every stage above - the new prefix tier included - found
+            # nothing, and the query itself is too short to ever be a genuine fragment of
+            # anything; an honest reason naming the floor, not the generic message below, which
+            # gives no hint why (closes EMAIL-CPP-008/NOTE-PY-004's own single/double-letter
+            # probe complaints). The floor is never lowered: this is still an honest Miss.
+            return Miss(
+                scope,
+                original_query,
+                f"query must be at least {_PREFIX_MIN_LENGTH} characters to match a name fragment",
+            )
         known_fqns = []
         for doc_id in documents:
             fqn = extract_fqn(documents[doc_id]["text"])

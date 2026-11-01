@@ -12,7 +12,7 @@ from types import SimpleNamespace
 
 from foss_mcp.indexing.lexical_index_writer import build_lexical_index
 from foss_mcp.mcp.routing import Scope
-from foss_mcp.mcp.tools.search_symbols import Miss, SymbolMatch, search_symbols
+from foss_mcp.mcp.tools.search_symbols import MATCH_PARTIAL, Miss, SymbolMatch, search_symbols
 from foss_mcp.normalization.chunker import chunk_document
 from foss_mcp.normalization.document_schema import Provenance, SourceKind, make_document
 
@@ -90,8 +90,13 @@ def test_an_absent_symbol_sharing_a_token_with_a_real_one_is_a_miss_not_a_match(
 
 
 def test_the_miss_for_an_absent_symbol_suggests_a_close_real_name() -> None:
-    # A single dropped trailing character of a real FQN: a miss, with that FQN as the hint.
-    result = search_symbols(_InMemoryGenerationStore(), PDF_NET_SCOPE, "PdfDocument.AddWatermarkAnnotatio")
+    # A single CHANGED (never dropped) trailing character of a real FQN: a miss, with that FQN as
+    # the hint. TC-654 (G3/REQ-G3-011): deliberately a same-length substitution, not a truncation -
+    # a truncated last word is always a genuine prefix of the real word, which TC-654's own new
+    # tier-4 now admits as a (weak) match, not a miss (see test_a_partial_name_is_not_a_match
+    # below); a substituted last character is never a prefix of the real word (same length, one
+    # character wrong), so this probe still stays an honest miss with a "did you mean" hint.
+    result = search_symbols(_InMemoryGenerationStore(), PDF_NET_SCOPE, "PdfDocument.AddWatermarkAnnotatiom")
 
     assert isinstance(result, Miss)
     assert result.suggestions == ("PdfDocument.AddWatermarkAnnotation",)
@@ -114,15 +119,28 @@ def test_an_absent_name_sharing_no_word_with_a_real_one_is_a_miss_never_a_match(
     assert set(result.suggestions) <= {fqn for fqn, _, _ in _KNOWN_SYMBOLS}
 
 
-def test_a_partial_name_is_not_a_match() -> None:
+def test_a_partial_name_now_finds_its_real_word_at_the_new_weakest_tier() -> None:
+    # TC-654 (G3/REQ-G3-011): Q12's deliberate, reviewed OVERTURNING of the previous "no prefix
+    # tier" design - a RAISED floor, recall went up, nothing that worked before stopped working.
+    # "Watermar" and "Annotat" are truncated words: each is a genuine (>= 3 char) prefix of a real
+    # word of a real FQN, never a whole word itself - they used to be honest misses (TC-199/TC-516)
+    # because this tool had no tier weak enough to admit a fragment; they are now tier-4
+    # (prefix) hits, with the weakest, most honestly-labelled match_quality, MATCH_PARTIAL, never
+    # MATCH_EXACT. ("PdfDocument" and "AddWatermark" are already whole words of a real FQN, so they
+    # stay stronger, pre-existing matches - unaffected by this card.)
     store = _InMemoryGenerationStore()
 
-    # "Watermar" and "Annotat" are truncated words: each is a prefix of a whole word of a real FQN,
-    # never a whole word itself, so neither is an exact symbol hit and both must be misses.
-    # ("PdfDocument" and "AddWatermark" are whole words of a real FQN, so they are matches.)
-    for partial in ("Watermar", "Annotat"):
-        result = search_symbols(store, PDF_NET_SCOPE, partial)
-        assert isinstance(result, Miss), f"partial name {partial!r} must not be a match"
+    watermar = search_symbols(store, PDF_NET_SCOPE, "Watermar")
+    texts = _matched_fqns(watermar)
+    assert any("FQN: PdfDocument.AddWatermarkAnnotation" in text for text in texts)
+    assert all(match.match_quality == MATCH_PARTIAL for match in watermar)  # type: ignore[union-attr]
+
+    annotat = search_symbols(store, PDF_NET_SCOPE, "Annotat")
+    texts = _matched_fqns(annotat)
+    # "annotat" is a genuine prefix of "annotation", a real word of BOTH remaining FQNs.
+    assert any("FQN: Annotation" in text for text in texts)
+    assert any("FQN: PdfDocument.AddWatermarkAnnotation" in text for text in texts)
+    assert all(match.match_quality == MATCH_PARTIAL for match in annotat)  # type: ignore[union-attr]
 
 
 def _cpp_result(query: str) -> object:
@@ -150,11 +168,17 @@ def test_a_cpp_whole_word_of_the_short_name_is_a_hit() -> None:
     _assert_cpp_hit("Relationship")
 
 
-def test_a_cpp_partial_word_is_not_a_hit() -> None:
+def test_a_cpp_partial_word_now_finds_its_real_word_at_the_new_weakest_tier() -> None:
+    # TC-654 (G3/REQ-G3-011): the same RAISED floor as test_a_partial_name_now_finds_its_real_word
+    # above, for a ``::``-scoped C++ FQN. "AFRelation" is "af" (a real whole word of
+    # ``Aspose::Pdf::AFRelationship``) plus "relation" - not itself a whole word, but a genuine
+    # >= 3 char prefix of the real word "relationship" - so every word of the query is now
+    # explained (whole or prefix) and this is a tier-4 hit, MATCH_PARTIAL.
     result = _cpp_result("AFRelation")
 
-    assert isinstance(result, Miss)
-    assert result.reason == "no symbol matches 'AFRelation'"
+    texts = _matched_fqns(result)
+    assert any("FQN: Aspose::Pdf::AFRelationship" in text for text in texts)
+    assert all(match.match_quality == MATCH_PARTIAL for match in result)  # type: ignore[union-attr]
 
 
 def test_an_absent_cpp_scoped_name_is_a_miss() -> None:
@@ -164,9 +188,19 @@ def test_an_absent_cpp_scoped_name_is_a_miss() -> None:
     assert result.reason == "no symbol matches 'Aspose::Pdf::Nonexistent'"
 
 
-def test_a_dotted_fqn_still_matches_whole_words_only() -> None:
+def test_a_dotted_fqn_matches_a_whole_word_exactly_and_a_prefix_only_partially() -> None:
+    # TC-654 (G3/REQ-G3-011): "Watermar" is no longer a miss (see
+    # test_a_partial_name_now_finds_its_real_word_at_the_new_weakest_tier) - it is now this tool's
+    # own weakest, most honestly-labelled tier-4 hit, MATCH_PARTIAL. The whole word "watermark"
+    # is untouched: still a stronger, pre-existing bag-of-words hit, MATCH_EXACT.
     store = _InMemoryGenerationStore()
 
-    assert isinstance(search_symbols(store, PDF_NET_SCOPE, "Watermar"), Miss)
-    texts = _matched_fqns(search_symbols(store, PDF_NET_SCOPE, "watermark"))
+    prefix_hit = search_symbols(store, PDF_NET_SCOPE, "Watermar")
+    assert all(match.match_quality == MATCH_PARTIAL for match in prefix_hit)  # type: ignore[union-attr]
+    texts = _matched_fqns(prefix_hit)
     assert any("FQN: PdfDocument.AddWatermarkAnnotation" in text for text in texts)
+
+    whole_word_hit = search_symbols(store, PDF_NET_SCOPE, "watermark")
+    texts = _matched_fqns(whole_word_hit)
+    assert any("FQN: PdfDocument.AddWatermarkAnnotation" in text for text in texts)
+    assert all(match.match_quality != MATCH_PARTIAL for match in whole_word_hit)  # type: ignore[union-attr]
