@@ -1,0 +1,112 @@
+{
+  "schema_version": 1,
+  "card": "TC-635",
+  "gate": "G3",
+  "generated_by": "gatectl",
+  "generated_at": "2026-11-01T04:46:14Z",
+  "base_rev": "2be0808b8ae06775d0ad16e8ba0b62ff88253635",
+  "head_rev": "e9f1b1dba0ab889e8bcc50ffe160257b4679bd1d",
+  "card_sha256": "f7798ee4733a3041f8bb3b98c42ba3e9c3d7bed7b7b30db7ea7f4912a096ded2",
+  "fingerprint": {
+    "python": "3.13.2",
+    "platform": "Windows-11-10.0.26300-SP0",
+    "lock_sha256": "5c72e798a73c059a438e752e94a8d4c88c1bdf81a197f6e5c5fcecbc9466a691",
+    "env": {
+      "PYTHONHASHSEED": "0",
+      "PYTHONUTF8": "1",
+      "PYTHONDONTWRITEBYTECODE": "1",
+      "PYTHONIOENCODING": "utf-8",
+      "TZ": "UTC",
+      "LC_ALL": "C.UTF-8",
+      "SOURCE_DATE_EPOCH": "1700000000",
+      "verify_runner": "host"
+    }
+  },
+  "scope": {
+    "ok": true,
+    "changed_paths": [
+      "src/foss_mcp/mcp/tools/find_examples.py",
+      "src/foss_mcp/mcp/tools/relevance.py",
+      "tests/mcp/tools/test_find_examples_code_anchor.py"
+    ],
+    "violations": [],
+    "evaluated": true
+  },
+  "runs": [
+    {
+      "run": 1,
+      "checks": [
+        {
+          "command": "{python} -m pytest tests/mcp/tools/test_find_examples_code_anchor.py -q -rfE -p no:cacheprovider",
+          "exit_code": 0,
+          "duration_s": 2.24,
+          "stdout_sha256": "511fb971caf59261241ec2a3919d9d10c7dcb9ec044ee07d50b2db465184f057",
+          "tests": 15,
+          "skipped": 0,
+          "errors": 0,
+          "failures": 0
+        },
+        {
+          "command": "{python} -m pytest tests/mcp/tools/test_find_examples_title_anchor.py tests/mcp/tools/test_forgiveness_acceptance.py tests/mcp/tools/test_round3_retrieval_corpus.py -q -rfE -p no:cacheprovider",
+          "exit_code": 0,
+          "duration_s": 129.178,
+          "stdout_sha256": "4775289cae8c25b492bbdb87259af927358abca51bcd06b2e01d8b9796f79cdc",
+          "tests": 102,
+          "skipped": 0,
+          "errors": 0,
+          "failures": 0
+        }
+      ],
+      "all_passed": true
+    },
+    {
+      "run": 2,
+      "checks": [
+        {
+          "command": "{python} -m pytest tests/mcp/tools/test_find_examples_code_anchor.py -q -rfE -p no:cacheprovider",
+          "exit_code": 0,
+          "duration_s": 1.94,
+          "stdout_sha256": "511fb971caf59261241ec2a3919d9d10c7dcb9ec044ee07d50b2db465184f057",
+          "tests": 15,
+          "skipped": 0,
+          "errors": 0,
+          "failures": 0
+        },
+        {
+          "command": "{python} -m pytest tests/mcp/tools/test_find_examples_title_anchor.py tests/mcp/tools/test_forgiveness_acceptance.py tests/mcp/tools/test_round3_retrieval_corpus.py -q -rfE -p no:cacheprovider",
+          "exit_code": 0,
+          "duration_s": 156.529,
+          "stdout_sha256": "4775289cae8c25b492bbdb87259af927358abca51bcd06b2e01d8b9796f79cdc",
+          "tests": 102,
+          "skipped": 0,
+          "errors": 0,
+          "failures": 0
+        }
+      ],
+      "all_passed": true
+    }
+  ],
+  "negative_control": {
+    "kind": "mutate",
+    "patch": "python -X utf8 -c \"import pathlib; p = pathlib.Path('src/foss_mcp/mcp/tools/relevance.py'); s = p.read_text(encoding='utf-8'); old = 'return bool(code_matches)'; assert s.count(old) == 1, 'return bool(code_matches) literal not found as expected - if your real code reads differently (e.g. you renamed the local variable), anchor on your own real literal instead and note the substitution in your closeout'; p.write_text(s.replace(old, 'return False  # TC-635 negative control: code anchor never admits anything', 1), encoding='utf-8')\"\n",
+    "patch_sha256": "64edde6adee324b664c1d9a722f0c7405f765469e9a23bf7e54da14706cfa97f",
+    "applied": true,
+    "patch_applied_failed": true,
+    "exit_codes": [
+      1,
+      0
+    ],
+    "tree_changed": [
+      "M src/foss_mcp/mcp/tools/relevance.py",
+      "?? .junit-0.xml",
+      "?? .junit-1.xml"
+    ]
+  },
+  "holdout": {
+    "ran": false,
+    "passed": true,
+    "detail": "no holdout for this card"
+  },
+  "accepted": true,
+  "reason": "all gates passed"
+}

@@ -1,0 +1,109 @@
+
+===== CLEAN RUN 1 (host) =====
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-5c72e798a73c059a\Scripts\python.exe -m pytest tests/mcp/tools/test_find_examples_code_anchor.py -q -rfE -p no:cacheprovider "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-i4deqw23\.junit-0.xml"
+--- stdout ---
+...............                                                          [100%]
+
+--- stderr ---
+
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-5c72e798a73c059a\Scripts\python.exe -m pytest tests/mcp/tools/test_find_examples_title_anchor.py tests/mcp/tools/test_forgiveness_acceptance.py tests/mcp/tools/test_round3_retrieval_corpus.py -q -rfE -p no:cacheprovider "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-i4deqw23\.junit-1.xml"
+--- stdout ---
+........................................................................ [ 70%]
+..............................                                           [100%]
+
+--- stderr ---
+
+
+===== CLEAN RUN 2 (host) =====
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-5c72e798a73c059a\Scripts\python.exe -m pytest tests/mcp/tools/test_find_examples_code_anchor.py -q -rfE -p no:cacheprovider "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-i4deqw23\.junit-0.xml"
+--- stdout ---
+...............                                                          [100%]
+
+--- stderr ---
+
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-5c72e798a73c059a\Scripts\python.exe -m pytest tests/mcp/tools/test_find_examples_title_anchor.py tests/mcp/tools/test_forgiveness_acceptance.py tests/mcp/tools/test_round3_retrieval_corpus.py -q -rfE -p no:cacheprovider "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-i4deqw23\.junit-1.xml"
+--- stdout ---
+........................................................................ [ 70%]
+..............................                                           [100%]
+
+--- stderr ---
+
+
+===== NEGATIVE CONTROL (checks MUST now fail) =====
+mutated: M src/foss_mcp/mcp/tools/relevance.py, ?? .junit-0.xml, ?? .junit-1.xml
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-5c72e798a73c059a\Scripts\python.exe -m pytest tests/mcp/tools/test_find_examples_code_anchor.py -q -rfE -p no:cacheprovider "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-i4deqw23\.junit-0.xml"
+--- stdout ---
+FF.F...........                                                          [100%]
+================================== FAILURES ===================================
+_ test_a_query_naming_an_identifier_present_only_in_the_code_is_now_admitted __
+
+code_anchor_generation = <foss_mcp.indexing.generation_manifest.GenerationManifestStore object at 0x0000022C36F01BE0>
+
+    def test_a_query_naming_an_identifier_present_only_in_the_code_is_now_admitted(
+        code_anchor_generation: GenerationManifestStore,
+    ) -> None:
+        # Neither the title anchor nor the prefix mechanism would admit this title for this query - the
+        # title shares no word, stemmed or synonym, and no prefix relationship either.
+        assert title_anchored("WatermarkArtifact", "pdf", CODE_ANCHOR_TITLE) is False
+        assert title_prefix_anchored("WatermarkArtifact", "pdf", CODE_ANCHOR_TITLE) is False
+        result = find_examples(code_anchor_generation, SCOPE, "WatermarkArtifact")
+>       assert _titles(result) == [CODE_ANCHOR_TITLE]
+               ^^^^^^^^^^^^^^^
+
+tests\mcp\tools\test_find_examples_code_anchor.py:157: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+result = NoExampleFound(scope=Scope(family='pdf', platform='net', source_kind='self_extracted'), query='WatermarkArtifact', fou...e, reason='no verified example matches this query (semantic fallback skipped: error)', vector_fallback='skipped_error')
+
+    def _titles(result: object) -> list[str]:
+>       assert isinstance(result, list), result
+E       AssertionError: NoExampleFound(scope=Scope(family='pdf', platform='net', source_kind='self_extracted'), query='WatermarkArtifact', fou...e, reason='no verified example matches this query (semantic fallback skipped: error)', vector_fallback='skipped_error')
+E       assert False
+E        +  where False = isinstance(NoExampleFound(scope=Scope(family='pdf', platform='net', source_kind='self_extracted'), query='WatermarkArtifact', fou...e, reason='no verified example matches this query (semantic fallback skipped: error)', vector_fallback='skipped_error'), list)
+
+tests\mcp\tools\test_find_examples_code_anchor.py:128: AssertionError
+_______________ test_the_negative_control_would_catch_this_case _______________
+
+code_anchor_generation = <foss_mcp.indexing.generation_manifest.GenerationManifestStore object at 0x0000022C654DFED0>
+
+    def test_the_negative_control_would_catch_this_case(
+        code_anchor_generation: GenerationManifestStore,
+    ) -> None:
+        """Direct proof that this admission really rests on ``code_anchored`` returning True: forcing it
+        to always return False (the supervisor's own negative control) turns this exact match into a
+        miss."""
+        required = required_terms("WatermarkArtifact")
+        assert required  # the required term the mechanism depends on is real, not accidentally empty
+>       assert code_anchored(required, ["watermarkartifact"]) is True
+E       AssertionError: assert False is True
+E        +  where False = code_anchored(frozenset({'watermarkartifact'}), ['watermarkartifact'])
+
+tests\mcp\tools\test_find_examples_code_anchor.py:169: AssertionError
+_____ test_code_anchored_itself_only_looks_at_the_code_tokens_given_to_it _____
+
+    def test_code_anchored_itself_only_looks_at_the_code_tokens_given_to_it() -> None:
+        required = required_terms("WatermarkArtifact")
+        # The same required term, present among tokens that stand for "prose" tokens, is not found
+        # because code_anchored is handed ONLY the code tokens by its caller - this is exactly what
+        # find_examples.py's call site enforces by passing ``tokenize(_extract_example(text) or "")``,
+        # never the whole chunk's tokens.
+        assert code_anchored(required, ["this", "uses", "a", "watermark", "artifact", "somewhere"]) is False
+>       assert code_anchored(required, ["watermarkartifact"]) is True
+E       AssertionError: assert False is True
+E        +  where False = code_anchored(frozenset({'watermarkartifact'}), ['watermarkartifact'])
+
+tests\mcp\tools\test_find_examples_code_anchor.py:199: AssertionError
+=========================== short test summary info ===========================
+FAILED tests/mcp/tools/test_find_examples_code_anchor.py::test_a_query_naming_an_identifier_present_only_in_the_code_is_now_admitted
+FAILED tests/mcp/tools/test_find_examples_code_anchor.py::test_the_negative_control_would_catch_this_case
+FAILED tests/mcp/tools/test_find_examples_code_anchor.py::test_code_anchored_itself_only_looks_at_the_code_tokens_given_to_it
+
+--- stderr ---
+
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-5c72e798a73c059a\Scripts\python.exe -m pytest tests/mcp/tools/test_find_examples_title_anchor.py tests/mcp/tools/test_forgiveness_acceptance.py tests/mcp/tools/test_round3_retrieval_corpus.py -q -rfE -p no:cacheprovider "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-i4deqw23\.junit-1.xml"
+--- stdout ---
+........................................................................ [ 70%]
+..............................                                           [100%]
+
+--- stderr ---
+
