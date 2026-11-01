@@ -1,0 +1,60 @@
+
+===== CLEAN RUN 1 (host) =====
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-5c72e798a73c059a\Scripts\python.exe -m pytest tests/indexing/test_known_defects.py -q -rfE -p no:cacheprovider "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-z3wyi_oz\.junit-0.xml"
+--- stdout ---
+.......................                                                  [100%]
+
+--- stderr ---
+
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-5c72e798a73c059a\Scripts\python.exe -m pytest tests/test_unwired_modules.py tests/test_repo_hygiene.py tests/indexing/test_doc_candidates.py -q -rfE -p no:cacheprovider "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-z3wyi_oz\.junit-1.xml"
+--- stdout ---
+...........................                                              [100%]
+
+--- stderr ---
+
+
+===== CLEAN RUN 2 (host) =====
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-5c72e798a73c059a\Scripts\python.exe -m pytest tests/indexing/test_known_defects.py -q -rfE -p no:cacheprovider "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-z3wyi_oz\.junit-0.xml"
+--- stdout ---
+.......................                                                  [100%]
+
+--- stderr ---
+
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-5c72e798a73c059a\Scripts\python.exe -m pytest tests/test_unwired_modules.py tests/test_repo_hygiene.py tests/indexing/test_doc_candidates.py -q -rfE -p no:cacheprovider "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-z3wyi_oz\.junit-1.xml"
+--- stdout ---
+...........................                                              [100%]
+
+--- stderr ---
+
+
+===== NEGATIVE CONTROL (checks MUST now fail) =====
+mutated: M schemas/product/known_defects.schema.json, ?? .junit-0.xml, ?? .junit-1.xml
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-5c72e798a73c059a\Scripts\python.exe -m pytest tests/indexing/test_known_defects.py -q -rfE -p no:cacheprovider "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-z3wyi_oz\.junit-0.xml"
+--- stdout ---
+.....F.................                                                  [100%]
+================================== FAILURES ===================================
+____ test_schema_rejects_a_document_with_an_unexpected_top_level_property _____
+
+    def test_schema_rejects_a_document_with_an_unexpected_top_level_property():
+        """Guards the top-level ``additionalProperties: false`` specifically: an unexpected/typo'd
+        top-level key (for example a stray ``note``) must be rejected, not silently ignored."""
+        schema = _load_schema()
+        document = copy.deepcopy(_valid_document())
+        document["note"] = "not a real field"
+        errors = list(jsonschema.Draft202012Validator(schema).iter_errors(document))
+>       assert errors != [], "schema accepted an unexpected top-level property"
+E       AssertionError: schema accepted an unexpected top-level property
+E       assert [] != []
+
+tests\indexing\test_known_defects.py:133: AssertionError
+=========================== short test summary info ===========================
+FAILED tests/indexing/test_known_defects.py::test_schema_rejects_a_document_with_an_unexpected_top_level_property
+
+--- stderr ---
+
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-5c72e798a73c059a\Scripts\python.exe -m pytest tests/test_unwired_modules.py tests/test_repo_hygiene.py tests/indexing/test_doc_candidates.py -q -rfE -p no:cacheprovider "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-z3wyi_oz\.junit-1.xml"
+--- stdout ---
+...........................                                              [100%]
+
+--- stderr ---
+

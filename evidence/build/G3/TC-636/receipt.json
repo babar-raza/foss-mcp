@@ -1,0 +1,112 @@
+{
+  "schema_version": 1,
+  "card": "TC-636",
+  "gate": "G3",
+  "generated_by": "gatectl",
+  "generated_at": "2026-11-01T05:02:40Z",
+  "base_rev": "049d1dd199f8513da2f61634a628bac28475d782",
+  "head_rev": "2ed92435192cd83a18090d74b0083482e9529d07",
+  "card_sha256": "7353b7eaaf702aff128096f74ceb287aeb3505b2a138701cc762c880e181c51b",
+  "fingerprint": {
+    "python": "3.13.2",
+    "platform": "Windows-11-10.0.26300-SP0",
+    "lock_sha256": "5c72e798a73c059a438e752e94a8d4c88c1bdf81a197f6e5c5fcecbc9466a691",
+    "env": {
+      "PYTHONHASHSEED": "0",
+      "PYTHONUTF8": "1",
+      "PYTHONDONTWRITEBYTECODE": "1",
+      "PYTHONIOENCODING": "utf-8",
+      "TZ": "UTC",
+      "LC_ALL": "C.UTF-8",
+      "SOURCE_DATE_EPOCH": "1700000000",
+      "verify_runner": "host"
+    }
+  },
+  "scope": {
+    "ok": true,
+    "changed_paths": [
+      "schemas/product/known_defects.schema.json",
+      "src/foss_mcp/indexing/known_defects.py",
+      "tests/indexing/test_known_defects.py"
+    ],
+    "violations": [],
+    "evaluated": true
+  },
+  "runs": [
+    {
+      "run": 1,
+      "checks": [
+        {
+          "command": "{python} -m pytest tests/indexing/test_known_defects.py -q -rfE -p no:cacheprovider",
+          "exit_code": 0,
+          "duration_s": 1.178,
+          "stdout_sha256": "475bcfb56b286d857c4310602373e306e2cb722ad6df6053d0e1aff939c18220",
+          "tests": 23,
+          "skipped": 0,
+          "errors": 0,
+          "failures": 0
+        },
+        {
+          "command": "{python} -m pytest tests/test_unwired_modules.py tests/test_repo_hygiene.py tests/indexing/test_doc_candidates.py -q -rfE -p no:cacheprovider",
+          "exit_code": 0,
+          "duration_s": 5.904,
+          "stdout_sha256": "a82a0b51cd86fa0131904e08c34ef556963104f0e3677f688117e093ebf2d3fe",
+          "tests": 27,
+          "skipped": 0,
+          "errors": 0,
+          "failures": 0
+        }
+      ],
+      "all_passed": true
+    },
+    {
+      "run": 2,
+      "checks": [
+        {
+          "command": "{python} -m pytest tests/indexing/test_known_defects.py -q -rfE -p no:cacheprovider",
+          "exit_code": 0,
+          "duration_s": 1.072,
+          "stdout_sha256": "475bcfb56b286d857c4310602373e306e2cb722ad6df6053d0e1aff939c18220",
+          "tests": 23,
+          "skipped": 0,
+          "errors": 0,
+          "failures": 0
+        },
+        {
+          "command": "{python} -m pytest tests/test_unwired_modules.py tests/test_repo_hygiene.py tests/indexing/test_doc_candidates.py -q -rfE -p no:cacheprovider",
+          "exit_code": 0,
+          "duration_s": 5.966,
+          "stdout_sha256": "a82a0b51cd86fa0131904e08c34ef556963104f0e3677f688117e093ebf2d3fe",
+          "tests": 27,
+          "skipped": 0,
+          "errors": 0,
+          "failures": 0
+        }
+      ],
+      "all_passed": true
+    }
+  ],
+  "negative_control": {
+    "kind": "mutate",
+    "patch": "python -X utf8 -c \"import pathlib; p = pathlib.Path('schemas/product/known_defects.schema.json'); s = p.read_text(encoding='utf-8'); old = chr(34) + 'additionalProperties' + chr(34) + ': false'; assert s.count(old) >= 1, 'additionalProperties: false not found as expected - if your real schema reads differently, anchor your own mutate on your own real literal instead and note the substitution in your closeout'; p.write_text(s.replace(old, chr(34) + 'additionalProperties' + chr(34) + ': true', 1), encoding='utf-8')\"\n",
+    "patch_sha256": "cfde900138b541dae28307cdeebce276d48dc6f21b44a8b8f276f98830b92101",
+    "applied": true,
+    "patch_applied_failed": true,
+    "exit_codes": [
+      1,
+      0
+    ],
+    "tree_changed": [
+      "M schemas/product/known_defects.schema.json",
+      "?? .junit-0.xml",
+      "?? .junit-1.xml"
+    ]
+  },
+  "holdout": {
+    "ran": false,
+    "passed": true,
+    "detail": "no holdout for this card"
+  },
+  "accepted": true,
+  "reason": "all gates passed"
+}
