@@ -1,0 +1,106 @@
+id: TC-639
+gate: G3
+lane: storage-retrieval
+purpose: >-
+  KD2 (disclosure program, workstream J). Wires TC-636's dormant known-defects registry into the
+  two tools whose callers most directly ask "tell me about this exact symbol":
+  `get_symbol`/`list_members`. No defect DATA exists yet (KD6-KD9's job) - this card proves the
+  wiring itself is correct using synthetic fixture defects, so when real data lands later it
+  surfaces automatically with no further code change.
+
+  Mechanism: when `get_symbol`/`list_members` resolve a real FQN (an exact hit or a `ResolvedSignature`
+  - never for a `NotFound`), call `known_defects.load_known_defects(scope.family, scope.platform)`
+  and filter to defects whose `subject.ref == fqn` (the exact FQN resolved, not the raw query
+  string - a resolved member name's defects are looked up under the OWNING type's FQN, matching
+  how `get_symbol` already treats a resolved name). For a defect scoped by `applies_to.indexed_commit`,
+  it applies only when that commit matches the chunk's own `Source-Commit:` line (read it the SAME
+  way `find_examples._source_commit`/`report_index_freshness._SOURCE_COMMIT_LINE` already do -
+  reuse that exact pattern, do not invent a third copy) - a package-version-scoped defect (no
+  `indexed_commit`) always applies here regardless of commit (this tool has no live registry
+  check; that staleness-aware check is KD5's job on `report_index_freshness` specifically, not
+  this card's). Add a new field `known_defects: tuple[str, ...] = ()` to `SymbolSignature`
+  (`get_symbol.py`) - following the exact style of the existing `limitations: tuple[str, ...] = ()`
+  field right above it - each entry a short, factual, rendered disclosure line (your own exact
+  wording, built from the defect's `summary`/`user_action`/`evidence.repro` - no editorializing).
+  `list_members`'s own return shape only ever returns member NAME strings today (`tuple[str, ...]
+  | NotFound` - confirm this yourself, do not assume) - read it first to decide for yourself the
+  least invasive way to surface a type-level defect there without breaking its existing, simple
+  contract; report your real decision and reasoning in your closeout, since the card does not
+  prescribe one.
+depends_on:
+  - TC-636
+  - TC-612
+  - TC-559
+write_paths:
+  - src/foss_mcp/mcp/tools/get_symbol.py
+  - src/foss_mcp/mcp/tools/list_members.py
+  - tests/mcp/tools/test_known_defects_in_get_symbol.py
+satisfies:
+  - REQ-G3-015
+source_refs:
+  - file: docs/DECISION_LOG.md
+    anchor: >-
+      ## 2026-10-30 — Round-2 portfolio audit remediation adopted: unified plan, governance decisions A-K
+      recorded (supervisor)
+    sha256: 62cf1403a592118e3fb6bd14c5336f8a997cc3181d44a585323ec9f1d385a931
+inputs:
+  - >-
+    READ FIRST: `src/foss_mcp/indexing/known_defects.py` (TC-636's real, already-integrated API -
+    `load_known_defects`, the `KnownDefect`/`Subject`/`AppliesTo`/`Evidence` dataclasses) in full.
+    Then `get_symbol.py`'s `get_symbol`/`SymbolSignature`/`ResolvedSignature`/`_resolve_name` and
+    `list_members.py`'s `list_members` in full - confirm their real current return shapes
+    yourself, do not assume from this card's own description. Then `find_examples._source_commit`
+    or `report_index_freshness._SOURCE_COMMIT_LINE` (whichever is cleaner to reuse) for the
+    commit-extraction pattern.
+  - >-
+    Write at least 8 tests in `tests/mcp/tools/test_known_defects_in_get_symbol.py` using a real,
+    synthetic `config/known_defects/<pilot>__self_extracted.yaml` fixture (a `tmp_path`-scoped
+    registry directory, not the real committed one - do not create any real
+    `config/known_defects/*.yaml` file as part of this card) covering: a commit-scoped defect
+    whose `indexed_commit` matches the resolved chunk's own `Source-Commit:` surfaces in
+    `known_defects`; the same defect does NOT surface when the chunk's commit differs (prove the
+    comparison is real, not a rubber stamp); a package-version-scoped defect (no `indexed_commit`)
+    always surfaces regardless of chunk commit; a defect whose `subject.ref` does NOT match the
+    resolved FQN never surfaces; a symbol with no matching defects has `known_defects == ()`
+    (default, unaffected - prove every EXISTING get_symbol test still passes unchanged); a
+    `NotFound` result never gains or looks up defects at all; your own chosen `list_members`
+    surfacing mechanism, whatever you decide it is, round-trips correctly for a type with a real
+    matching defect.
+actions:
+  - >-
+    Wire the known-defects registry into get_symbol and list_members so a real defect, once data
+    exists, surfaces automatically at the exact point a caller asks about that symbol.
+checks:
+  - command: '{python} -m pytest tests/mcp/tools/test_known_defects_in_get_symbol.py -q -rfE -p no:cacheprovider'
+    expect: 'exit 0'
+    timeout_seconds: 180
+    junitxml: true
+    proves:
+      - REQ-G3-015
+  - command: '{python} -m pytest tests/mcp/tools/test_member_lookup.py tests/mcp/tools/test_member_lookup_baked.py tests/mcp/tools/test_symbol_tools.py -q -rfE -p no:cacheprovider'
+    expect: 'exit 0'
+    timeout_seconds: 240
+    junitxml: true
+    proves:
+      - REQ-G3-015
+min_tests: 8
+requires:
+  - python
+network: false
+negative_control:
+  mutate: |
+    python -X utf8 -c "import pathlib; p = pathlib.Path('src/foss_mcp/mcp/tools/get_symbol.py'); s = p.read_text(encoding='utf-8'); old = 'load_known_defects('; assert s.count(old) == 1, 'load_known_defects( literal not found as expected (exactly once) - if your real code calls it a different number of times or with a different name, anchor your own mutate on your own real literal instead and note the substitution in your closeout'; i = s.index(old); j = s.index(')', i); p.write_text(s[:i] + '(lambda *a, **k: [])(' + s[i+len(old):], encoding='utf-8')"
+  rationale: >-
+    Replaces the real registry lookup with a call that always returns an empty list, so no defect
+    ever surfaces regardless of real fixture data. Any test proving a real matching defect
+    surfaces in known_defects/list_members must fail under this mutation; tests proving a
+    non-matching defect or a NotFound case stays empty are unaffected (they were already going to
+    be empty).
+evidence:
+  - evidence/build/G3/TC-639/receipt.json
+closeout:
+  - >-
+    get_symbol and list_members now surface a real, matching known-defect entry automatically,
+    with no further code change needed once real per-family defect data lands (KD6-KD9). State
+    your chosen list_members surfacing mechanism and why.
+recovery: Re-run from a clean tree.
