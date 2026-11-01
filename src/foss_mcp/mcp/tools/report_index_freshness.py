@@ -23,6 +23,7 @@ from dataclasses import dataclass
 
 from foss_mcp.extraction.github_release_reader import Release
 from foss_mcp.indexing.generation_manifest import GenerationManifestStore
+from foss_mcp.indexing.known_defects import KnownDefect, defect_is_stale, load_known_defects
 from foss_mcp.mcp.routing import Scope
 from foss_mcp.mcp.tools.coverage_note import coverage_note_from_text, parse_api_coverage
 from foss_mcp.mcp.tools.example_search_mode import example_search_mode
@@ -105,6 +106,16 @@ class FreshnessReport:
     drift_commit_distance: int | None = None
     published_version: str | None = None
     drift_message: str | None = None
+    # G3/TC-643 (KD5, REQ-G3-015): rendered known-defect disclosure lines for this pilot's
+    # config/known_defects registry (foss_mcp.indexing.known_defects), in registry file order.
+    # A commit-scoped defect (``applies_to.indexed_commit`` set) applies only when that commit
+    # equals ``indexed_source_commit`` above, exactly. A package-version-scoped defect (no
+    # ``indexed_commit``) always applies, worded as a flat assertion unless ``defect_is_stale``
+    # finds the real served version (``registry_served_version``, TC-621/TC-629) has moved past
+    # the version the defect was last verified broken on - the first real production caller of
+    # ``defect_is_stale`` - in which case it carries the Decision C downgrade wording instead
+    # (DECISION_LOG.md's 2026-10-30 entry, decision C).
+    known_defects: tuple[str, ...] = ()
 
 
 def _commit_matches(indexed_commit: str, current_commit: str) -> bool:
@@ -308,6 +319,60 @@ def _abbreviation_warnings(current_source_commit: str | None) -> tuple[str, ...]
     return ()
 
 
+def _render_known_defect(defect: KnownDefect) -> str:
+    """One factual disclosure line built from *defect*'s own recorded ``summary``/``user_action``/
+    ``evidence.repro`` - the exact wording ``get_symbol._render_known_defect`` and
+    ``search_symbols._render_known_defect`` already use, reimplemented locally here per this
+    disclosure program's established convention (KD2/KD3): each tool's rendering helper is its
+    own independent copy, not a shared import."""
+    return f"Known defect: {defect.summary} {defect.user_action} (repro: {defect.evidence.repro})"
+
+
+def _render_stale_known_defect(defect: KnownDefect, served_version: tuple[int, ...]) -> str:
+    """The Decision C downgrade wording (DECISION_LOG.md's ``## 2026-10-30`` entry, decision C):
+    once the real served package version has moved past the version *defect* was last verified
+    broken on, the disclosure downgrades from a flat assertion to "last verified broken on X; not
+    re-verified on Y" rather than silently going stale."""
+    served_text = ".".join(str(part) for part in served_version)
+    return (
+        f"Known defect (last verified broken on {defect.evidence.verified_on.version}; "
+        f"not re-verified on {served_text}): {defect.summary} {defect.user_action} "
+        f"(repro: {defect.evidence.repro})"
+    )
+
+
+def known_defect_lines(
+    defects: Sequence[KnownDefect],
+    indexed_source_commit: str | None,
+    registry_served_version: tuple[int, ...] | None,
+) -> tuple[str, ...]:
+    """Every known-defect disclosure line for this report, in registry file order (KD5,
+    G3/REQ-G3-015).
+
+    A defect scoped by ``applies_to.indexed_commit`` applies only when that commit equals
+    *indexed_source_commit* exactly - no abbreviation, the registry only ever records a full
+    40-hex commit (``known_defects.validate_known_defects``'s own ``_COMMIT_RE``). A
+    package-version-scoped defect (no ``indexed_commit``) always applies, the same
+    "no live registry check against a currently served package version" default KD2/KD3/KD4
+    already use for it (``get_symbol.known_defect_lines``'s own docstring) - except here, for the
+    first time, a real served version can be available: when *registry_served_version* is given
+    and ``defect_is_stale`` finds it has moved past the version the defect was last verified
+    broken on, the line carries the Decision C downgrade wording instead of the flat assertion.
+    """
+    lines: list[str] = []
+    for defect in defects:
+        commit_scope = defect.applies_to.indexed_commit
+        if commit_scope is not None:
+            if commit_scope == indexed_source_commit:
+                lines.append(_render_known_defect(defect))
+            continue
+        if registry_served_version is not None and defect_is_stale(defect, registry_served_version):
+            lines.append(_render_stale_known_defect(defect, registry_served_version))
+        else:
+            lines.append(_render_known_defect(defect))
+    return tuple(lines)
+
+
 def report_index_freshness(
     store: GenerationManifestStore,
     scope: Scope,
@@ -343,6 +408,7 @@ def report_index_freshness(
     *registry_served_version* is a separate card's job; this function only consumes it.
     """
     key = scope_key(scope, source_kind)
+    defects = load_known_defects(scope.family, scope.platform)
     generation_id = store.read_active(key)
     if generation_id is None:
         return FreshnessReport(
@@ -355,6 +421,7 @@ def report_index_freshness(
             "never published",
             pinned_library_commit=pinned_library_commit,
             freshness_state="unknown",
+            known_defects=known_defect_lines(defects, None, registry_served_version),
         )
 
     manifest = store.read_generation(key, generation_id)
@@ -419,6 +486,7 @@ def report_index_freshness(
             drift_commit_distance=drift["commit_distance"],
             published_version=drift["published_version"],
             drift_message=drift["message"],
+            known_defects=known_defect_lines(defects, indexed_commit, registry_served_version),
         )
 
     if indexed_commit is None:
