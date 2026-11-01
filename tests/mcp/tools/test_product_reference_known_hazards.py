@@ -13,10 +13,11 @@ field); ``known_hazards_from_manifest`` parses it and ``get_product_reference`` 
 
 These tests prove: (1) cells/go's LIVE answer (the real baked sidecar, the real README, the real
 config/products/cells/go.yaml) discloses the hazard, distinctly framed, never marked
-``untrusted_upstream_content``. (2) Every one of the other 31 real pilot manifests carries no
-``known_hazards`` field, and feeding that absence through the real merge path changes nothing - no
-regression. (3) A synthetic manifest with two ``known_hazards`` entries produces both, in a stable,
-deterministic order.
+``untrusted_upstream_content``. (2) Every one of the other 26 real pilot manifests - every pilot
+EXCEPT cells/go and the 5 more G3/TC-650 later added (3d/net, html/python, pdf/java, slides/java,
+slides/python) - carries no ``known_hazards`` field, and feeding that absence through the real
+merge path changes nothing - no regression. (3) A synthetic manifest with two ``known_hazards``
+entries produces both, in a stable, deterministic order.
 """
 
 from __future__ import annotations
@@ -50,14 +51,33 @@ CONFIG_PRODUCTS = REPO_ROOT / "config" / "products"
 SOURCE_KIND = "self_extracted"
 KNOWN_HAZARD_LEAD = "Known hazard (verified by this project)"
 
+# G3/TC-650: 5 more pilots now carry a real known_hazards entry alongside cells/go - this is the
+# full set of every pilot manifest that does, today, and OTHER_PILOT_MANIFEST_PATHS below excludes
+# all 6 of them, not only cells/go.
+PILOTS_WITH_KNOWN_HAZARDS = frozenset(
+    {
+        ("cells", "go"),
+        ("3d", "net"),
+        ("html", "python"),
+        ("pdf", "java"),
+        ("slides", "java"),
+        ("slides", "python"),
+    }
+)
+
 ALL_PRODUCT_MANIFEST_PATHS = sorted(CONFIG_PRODUCTS.glob("*/*.yaml"))
 OTHER_PILOT_MANIFEST_PATHS = [
-    path for path in ALL_PRODUCT_MANIFEST_PATHS if not (path.parent.name == "cells" and path.stem == "go")
+    path
+    for path in ALL_PRODUCT_MANIFEST_PATHS
+    if (path.parent.name, path.stem) not in PILOTS_WITH_KNOWN_HAZARDS
 ]
-# 32 is every real pilot manifest under config/products/; 31 is that count minus cells/go.
-# If a pilot is ever added or removed, re-pin both counts here to match the new total.
+# 32 is every real pilot manifest under config/products/; 26 is that count minus the 6 pilots that
+# carry a real known_hazards entry today (cells/go, plus the 5 G3/TC-650 added: 3d/net,
+# html/python, pdf/java, slides/java, slides/python).
+# If a pilot is ever added or removed, or another known_hazards entry is added, re-pin both counts
+# here to match the new total.
 assert len(ALL_PRODUCT_MANIFEST_PATHS) == 32, ALL_PRODUCT_MANIFEST_PATHS
-assert len(OTHER_PILOT_MANIFEST_PATHS) == 31, OTHER_PILOT_MANIFEST_PATHS
+assert len(OTHER_PILOT_MANIFEST_PATHS) == 26, OTHER_PILOT_MANIFEST_PATHS
 
 
 def _real_manifest(family: str, platform: str) -> dict[str, Any]:
@@ -131,7 +151,7 @@ def test_cells_go_manifest_known_hazard_states_failure_mode_trigger_and_safe_pat
     assert hazard.verified_at == "2026-10-24"
 
 
-# -------------------------------------------------------------------------- (2) no regression, 31 others
+# -------------------------------------------------------------------------- (2) no regression, 26 others
 
 
 @pytest.mark.parametrize("path", OTHER_PILOT_MANIFEST_PATHS, ids=lambda p: f"{p.parent.name}/{p.stem}")
@@ -147,9 +167,10 @@ def test_other_pilots_manifest_carries_no_known_hazards(path: Path) -> None:
 def test_other_pilot_limitations_answer_is_unchanged_by_the_known_hazards_field(
     tmp_path: Path, family: str, platform: str
 ) -> None:
-    """A synthetic manifest with NO known_hazards field (every real pilot but cells/go, today)
-    produces a limitations answer byte-identical to before this card - proven against the REAL
-    product manifest and the REAL baked sidecar, not a mock of ``get_product_reference``."""
+    """A synthetic manifest with NO known_hazards field (every real pilot outside the
+    PILOTS_WITH_KNOWN_HAZARDS set, today) produces a limitations answer byte-identical to before
+    this card - proven against the REAL product manifest and the REAL baked sidecar, not a mock of
+    ``get_product_reference``."""
     inputs, readme = _load_baked(tmp_path, family, platform)
     manifest = _real_manifest(family, platform)
     hazards_from_manifest = known_hazards_from_manifest(manifest)
@@ -166,9 +187,9 @@ def test_other_pilot_limitations_answer_is_unchanged_by_the_known_hazards_field(
 
 
 def test_limitations_answer_unchanged_when_known_hazards_defaults_to_empty() -> None:
-    """``known_hazards=()`` (the field's default, and what every manifest but cells/go's parses to)
-    merges to nothing: the "limitations" answer is returned completely unchanged, whatever shape it
-    already had (``ReferenceContent`` or ``NotAvailable``)."""
+    """``known_hazards=()`` (the field's default, and what every manifest outside
+    PILOTS_WITH_KNOWN_HAZARDS parses to) merges to nothing: the "limitations" answer is returned
+    completely unchanged, whatever shape it already had (``ReferenceContent`` or ``NotAvailable``)."""
     result = get_product_reference(
         ProductReferenceInputs(platform="python", readme_document=None), "limitations", readme=None
     )
