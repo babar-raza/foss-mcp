@@ -19,12 +19,13 @@ from __future__ import annotations
 
 import re
 from collections.abc import Sequence
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 
 from foss_mcp.extraction.github_release_reader import Release
 from foss_mcp.indexing.generation_manifest import GenerationManifestStore
 from foss_mcp.indexing.known_defects import KnownDefect, defect_is_stale, load_known_defects
 from foss_mcp.mcp.routing import Scope
+from foss_mcp.mcp.tools import search_docs
 from foss_mcp.mcp.tools.coverage_note import coverage_note_from_text, parse_api_coverage
 from foss_mcp.mcp.tools.example_search_mode import example_search_mode
 from foss_mcp.mcp.tools.get_product_reference import ProductReferenceInputs
@@ -40,6 +41,7 @@ from foss_mcp.mcp.tools.release_alignment import (
     generation_indexed_at,
     package_version,
 )
+from foss_mcp.mcp.tools.search_docs import CONTENT_TYPES
 from foss_mcp.mcp.tools.search_symbols import scope_key
 
 _SOURCE_COMMIT_LINE = re.compile(r"^Source-Commit:\s*(\S+)$", re.MULTILINE)
@@ -116,6 +118,15 @@ class FreshnessReport:
     # ``defect_is_stale`` - in which case it carries the Decision C downgrade wording instead
     # (DECISION_LOG.md's 2026-10-30 entry, decision C).
     known_defects: tuple[str, ...] = ()
+    # G3/TC-651 (REQ-G3-013, workstream I): every one of search_docs.CONTENT_TYPES mapped to its
+    # real integer documentation-chunk count for the active generation - including an explicit 0
+    # for an empty category, never an absent key. 15 of 17 round-2 issues (PDF-NET-004 and 14
+    # others) are the same shape: a category (usually faq, sometimes troubleshooting) is
+    # completely empty for a pilot with no indication of that before a caller spends a query
+    # discovering it. Defaults to all-zero (never published / no documentation chunks at all).
+    documentation_content_type_counts: dict[str, int] = field(
+        default_factory=lambda: dict.fromkeys(CONTENT_TYPES, 0)
+    )
 
 
 def _commit_matches(indexed_commit: str, current_commit: str) -> bool:
@@ -150,6 +161,9 @@ class _Provenance:
     indexed_types: int | None
     total_types: int | None
     coverage_text: str | None = None
+    # G3/TC-651: every search_docs.CONTENT_TYPES value mapped to its real documentation-chunk
+    # count across the whole generation (all commits combined), zero-inclusive.
+    content_type_counts: dict[str, int] = field(default_factory=lambda: dict.fromkeys(CONTENT_TYPES, 0))
 
 
 def _read_provenance(manifest_payload: dict) -> _Provenance:
@@ -159,6 +173,10 @@ def _read_provenance(manifest_payload: dict) -> _Provenance:
     indexed_types: int | None = None
     total_types: int | None = None
     coverage_text: str | None = None
+    # G3/TC-651: tallied across every chunk _chunk_kind classifies as documentation, regardless of
+    # which (or whether any) source commit it carries - a caller asking "which categories are
+    # empty" cares about the whole generation, not one commit's slice of it.
+    content_type_counts: dict[str, int] = dict.fromkeys(CONTENT_TYPES, 0)
     # Sorted by document id so "the first API-Coverage line" does not depend on dict order.
     for _, document in sorted(documents.items()):
         text = document["text"]
@@ -168,6 +186,8 @@ def _read_provenance(manifest_payload: dict) -> _Provenance:
             if coverage is not None:
                 indexed_types, total_types = coverage.indexed, coverage.total
                 coverage_text = text
+        if kind == _DOCUMENTATION:
+            content_type_counts[search_docs.classify_content_type(text)] += 1
         commit_match = _SOURCE_COMMIT_LINE.search(text)
         if commit_match is None:
             without_commit += 1
@@ -186,7 +206,9 @@ def _read_provenance(manifest_payload: dict) -> _Provenance:
         for commit, counts in per_commit.items()
     ]
     commits.sort(key=lambda entry: (-entry.chunks, entry.commit))
-    return _Provenance(tuple(commits), without_commit, indexed_types, total_types, coverage_text)
+    return _Provenance(
+        tuple(commits), without_commit, indexed_types, total_types, coverage_text, content_type_counts
+    )
 
 
 def _indexed_source_commit(commits: tuple[CommitCount, ...]) -> str | None:
@@ -422,6 +444,7 @@ def report_index_freshness(
             pinned_library_commit=pinned_library_commit,
             freshness_state="unknown",
             known_defects=known_defect_lines(defects, None, registry_served_version),
+            documentation_content_type_counts=dict.fromkeys(CONTENT_TYPES, 0),
         )
 
     manifest = store.read_generation(key, generation_id)
@@ -487,6 +510,7 @@ def report_index_freshness(
             published_version=drift["published_version"],
             drift_message=drift["message"],
             known_defects=known_defect_lines(defects, indexed_commit, registry_served_version),
+            documentation_content_type_counts=dict(provenance.content_type_counts),
         )
 
     if indexed_commit is None:
