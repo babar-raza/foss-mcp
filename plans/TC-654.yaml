@@ -66,34 +66,67 @@ purpose: >-
 depends_on:
   - TC-017a
   - TC-071
+  - TC-074
+  - TC-075
   - TC-079
+  - TC-109
   - TC-120
   - TC-143
   - TC-199
   - TC-202
   - TC-210
+  - TC-218
+  - TC-273
   - TC-278
   - TC-279
+  - TC-331
+  - TC-333
+  - TC-340
+  - TC-346
+  - TC-381
+  - TC-382
   - TC-386
+  - TC-400
+  - TC-401
+  - TC-402
+  - TC-403
+  - TC-465
+  - TC-466
   - TC-493
+  - TC-508
   - TC-515
   - TC-516
   - TC-523
+  - TC-530
+  - TC-531
   - TC-536
+  - TC-540
   - TC-541
+  - TC-543
+  - TC-550
+  - TC-552
+  - TC-553
   - TC-562
   - TC-571
+  - TC-572
+  - TC-584
   - TC-585
+  - TC-586
+  - TC-587
   - TC-604
   - TC-610
   - TC-612
   - TC-618
+  - TC-634
   - TC-637
   - TC-642
 write_paths:
   - src/foss_mcp/mcp/tools/search_symbols.py
   - tests/mcp/test_search_symbols_honest_miss.py
   - tests/mcp/tools/test_search_symbols_prefix_tier.py
+  - tests/mcp/tools/test_search_symbols_forgiveness.py
+  - tests/mcp/tools/test_round3_retrieval.py
+  - tests/mcp/tools/test_retrieval_tools.py
 satisfies:
   - REQ-G3-011
 source_refs:
@@ -124,6 +157,31 @@ inputs:
     BM25 still breaks ties within tier 4; the real measurement test(s) against your >=3-pilot
     sample, reporting the real hit-rate (this is the test the card's own negative control and your
     own closing report both reference).
+  - >-
+    REWORK (attempt 2): attempt 1's real implementation (the new tier, the length-floor Miss
+    reason, MATCH_PARTIAL labelling, the full-corpus BM25 scan pass for a fragment sharing no
+    token with its real word, and all 4 updates in `tests/mcp/test_search_symbols_honest_miss.py`)
+    is correct and is preserved - do not redo it. The only gap: this card's own write_paths did
+    not originally include every file this real, deliberate behavior change touches. You already
+    found and correctly reported 3 more test files with pinned "this prefix stays a Miss"
+    assertions that are now structurally false by this card's own design, not by a defect:
+    `tests/mcp/tools/test_search_symbols_forgiveness.py::test_partial_words_stay_misses` (the
+    `"Watermar"`/`"AFRelation"` single-word cases must become hits exactly as you already did in
+    the honest-miss file; check whether the two-word cases `"Watermar annotation"`/`"AFRelation
+    type"` also flip - read what `_search` does with an added unrelated word and decide from the
+    real behavior, not from assumption), `tests/mcp/tools/test_round3_retrieval.py::test_dotted_and_partial_names_stay_honest_misses`
+    (`"Workboo"` is a real >=3-char prefix of `Workbook` and must become a hit; check
+    `"Cells::Merg"` the same way - it may or may not flip depending on whether a real `Merge*`
+    member/type exists in that pilot's real fixture, verify directly rather than guessing), and
+    `tests/mcp/tools/test_retrieval_tools.py` (the `"Annotatio"` dropped-trailing-character probe
+    around line 289-317 is the exact same "did-you-mean demo relies on zero token overlap" issue
+    you already fixed once in your own new test file - apply the SAME fix here: change the probe
+    to a same-length, different-last-character variant that is never a valid prefix, preserving
+    the test's real intent). Do NOT touch `tests/conformance/test_symbol_self_retrieval.py` or
+    `tests/fixtures/conformance/baseline_symbol_self_retrieval.json` - confirmed from
+    `tests/conformance/baseline.py`'s own docstring that a baseline entry which no longer
+    reproduces is tolerated, not a failure, until a program's own closure card flips `"strict":
+    true` (not this card's job); leave that file exactly as it is.
 actions:
   - >-
     Add the plan's own missing prefix tier to search_symbols (weakest evidence, explicit length
@@ -147,13 +205,16 @@ requires:
 network: false
 negative_control:
   mutate: |
-    python -X utf8 -c "import pathlib; p = pathlib.Path('src/foss_mcp/mcp/tools/search_symbols.py'); s = p.read_text(encoding='utf-8'); marker = 'def _match_tier'; idx = s.find(marker); assert idx != -1, '_match_tier not found as expected - if your real function differs, anchor your own mutate on your own real name instead and note the substitution in your closeout'; needle = '_PREFIX_MIN_LENGTH'; assert needle in s, 'your fix does not reference _PREFIX_MIN_LENGTH as expected - if you named your own constant differently, anchor your own mutate on your own real name instead and note the substitution in your closeout'; s2 = s.replace(needle, '_DISABLED_' + needle); assert s2 != s, 'substitution had no effect'; p.write_text(s2, encoding='utf-8')"
+    python -X utf8 -c "import pathlib; p = pathlib.Path('src/foss_mcp/mcp/tools/search_symbols.py'); s = p.read_text(encoding='utf-8'); marker = '_PREFIX_MIN_LENGTH = '; idx = s.find(marker); assert idx != -1, 'the literal _PREFIX_MIN_LENGTH = <int> assignment was not found - if you named or wrote your own length-floor constant differently, anchor your own mutate on your own real assignment line instead and note the substitution in your closeout'; start = idx + len(marker); end = next((i for i in range(start, len(s)) if not s[i].isdigit()), len(s)); old_number = s[start:end]; assert old_number, 'no integer literal immediately follows _PREFIX_MIN_LENGTH = as expected'; s2 = s[:start] + '999' + s[end:]; assert s2 != s, 'substitution had no effect'; p.write_text(s2, encoding='utf-8')"
   rationale: >-
-    Breaks every reference to the prefix-tier length floor constant by renaming it to an
-    undefined symbol, so the prefix tier can never run (a NameError at the first real prefix
-    query). Every test proving a real prefix query now finds its symbol must fail under this
-    mutation; tests of the pre-existing tiers 0-3 (unaffected by this card) and of genuinely
-    unrelated names stay green.
+    Raises the prefix-tier's own length floor to 999 characters, a genuine runtime behavior
+    change (not merely a rename every usage shares, which an attempt-1 draft of this mutate
+    found would leave the mechanism itself working - only an import in a new test file would
+    break): no real symbol word is ever 999 characters long, so the floor check now rejects
+    every real query at this tier and the prefix tier is functionally disabled for every caller,
+    not only one test file's own import statement. Every test proving a real prefix query now
+    finds its symbol must fail under this mutation; tests of the pre-existing tiers 0-3
+    (unaffected by this card) and of genuinely unrelated names stay green.
 evidence:
   - evidence/build/G3/TC-654/receipt.json
 closeout:
