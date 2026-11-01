@@ -44,9 +44,11 @@ purpose: >-
 depends_on:
   - TC-637
   - TC-639
+  - TC-641
 write_paths:
   - src/foss_mcp/mcp/tools/search_symbols.py
   - tests/mcp/tools/test_known_defects_in_search_symbols.py
+  - tests/mcp/tools/test_known_defects_in_product_reference.py
 satisfies:
   - REQ-G3-015
 source_refs:
@@ -56,6 +58,23 @@ source_refs:
       recorded (supervisor)
     sha256: 62cf1403a592118e3fb6bd14c5336f8a997cc3181d44a585323ec9f1d385a931
 inputs:
+  - >-
+    SUPERVISOR AMENDMENT after attempt 1's real investigation: attempt 1's own implementation was
+    correct and complete, and it correctly found that
+    `tests/mcp/tools/test_known_defects_in_product_reference.py::
+    test_lookup_disconnect_symbol_match_never_carries_known_defects` (written by TC-641) now fails
+    as a direct, anticipated consequence - that test pins the OLD disconnect (`SymbolMatch` has no
+    `known_defects` field at all) as a permanent regression guard, and TC-641's own comment on it
+    explicitly says a future card wiring `SymbolMatch` must update it deliberately. This is that
+    update. Change its final assertion loop so that, for the EXACT query shape the test already
+    uses (a bare FQN through `lookup()`, which reaches `search_symbols()`'s own real construction
+    site, now wired), it asserts the known-defect text DOES appear in at least one matching
+    symbol's `known_defects` (reusing the same defect/summary text the test already writes) -
+    rather than asserting the attribute never exists. Update the test's own docstring to describe
+    the new, correct, narrower-but-real gap this card's own
+    `test_lookup_named_symbols_path_never_carries_known_defects` test already covers precisely
+    (the `_named_symbols()`-only path, not this one) - do not weaken or remove this test, make it
+    assert the real, now-correct behavior. Do not touch anything else in that file.
   - >-
     READ FIRST: `src/foss_mcp/indexing/known_defects.py` in full; `get_symbol.py`'s
     `known_defect_lines`/`_render_known_defect`/`_SOURCE_COMMIT_LINE` (your reference pattern,
@@ -80,7 +99,7 @@ checks:
     junitxml: true
     proves:
       - REQ-G3-015
-  - command: '{python} -m pytest tests/mcp/tools/test_search_symbols_digit_words.py tests/mcp/tools/test_search_symbols_memberless_last.py tests/mcp/tools/test_lookup_forgiveness.py -q -rfE -p no:cacheprovider'
+  - command: '{python} -m pytest tests/mcp/tools/test_search_symbols_digit_words.py tests/mcp/tools/test_search_symbols_memberless_last.py tests/mcp/tools/test_lookup_forgiveness.py tests/mcp/tools/test_known_defects_in_product_reference.py -q -rfE -p no:cacheprovider'
     expect: 'exit 0'
     timeout_seconds: 240
     junitxml: true
