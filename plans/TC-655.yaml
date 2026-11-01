@@ -48,6 +48,9 @@ depends_on:
 write_paths:
   - infra/fetch_recent_releases.py
   - tests/infra/test_fetch_recent_releases_tag_padding.py
+  - tests/infra/test_fetch_recent_releases_tags.py
+  - tests/infra/test_fetch_recent_releases.py
+  - tests/infra/test_fetch_recent_releases_failure.py
 satisfies:
   - REQ-G3-013
 source_refs:
@@ -77,6 +80,45 @@ inputs:
     behavior is unchanged by your padding (reuse or closely mirror an existing passing test from
     `test_fetch_recent_releases_commit_resolution.py` with padding now also active, proving
     nothing about drift detection broke).
+  - >-
+    REWORK (attempt 2, final): your real implementation (`pad_with_older_tags`, wired into
+    `main()`) is correct in design and is preserved. Two real things to fix, both confirmed by
+    the supervisor from your own report:
+
+    (1) DESIGN FIX in `infra/fetch_recent_releases.py`: when `releases` (after the pre-existing
+    empty-list tag-fallback already ran) is ENTIRELY tag-sourced already (`all(r.source == "tag"
+    for r in releases)`), `pad_with_older_tags` must be a no-op and never call `fetch_tags` again
+    - reuse the exact same all-tag-sourced check `_with_ancestry` already makes at its own first
+    line (`if merged and all(release.source == "tag" for release in merged): ...`) as your guard.
+    This both fixes a genuine redundant-fetch gap in your own design and restores
+    `test_zero_releases_fall_back_to_tags_and_mark_them`'s original passing behavior with NO test
+    edit needed there - verify this yourself before touching that test file.
+
+    (2) Three tests that mock `fetch_releases` but never `fetch_tags`, with a release count under
+    the default limit, now reach the REAL, unmocked `fetch_tags` (confirmed: real network access
+    exists in this sandbox and real GitHub data came back) - add `monkeypatch.setattr(
+    fetch_recent_releases, "fetch_tags", lambda *_a, **_k: [])` (or your own equivalently clean
+    no-tags stub) to each, so they stay genuinely offline and keep their original, unrelated
+    intent and assertions unchanged: `tests/infra/test_fetch_recent_releases.py::test_main_writes_the_real_shaped_json_list`,
+    `tests/infra/test_fetch_recent_releases.py::test_load_recent_releases_sidecar_round_trips_what_main_wrote`,
+    `tests/infra/test_fetch_recent_releases_failure.py::test_published_at_and_url_round_trip_through_the_sidecar`.
+
+    (3) `tests/infra/test_fetch_recent_releases_tags.py::test_releases_present_means_tags_are_not_fetched`
+    literally pins the OLD bug NOTE-PY-003 complains about (3 real releases, 5 real tags, default
+    limit 20 - its own name and `calls == {"releases": 1, "tags": 0}` assertion assert tags are
+    NEVER fetched when any release exists, which is exactly wrong per this card's whole purpose).
+    Rename and rewrite it to assert the NEW, correct contract: tags ARE now fetched
+    (`calls == {"releases": 1, "tags": 1}`), and the written output now includes the real tag
+    entries padded in (up to the 5 available, since 3 releases + up to 5 tags is still under the
+    limit of 20) with `source == "tag"` and none of them duplicating a release's own version -
+    the same positive-assertion pattern already used elsewhere in this program's other reworks
+    (never delete the test, turn its wrong assumption into the real, now-correct one).
+
+    Add every file in the amended `write_paths` list above (3 more test files) that this touches.
+    Re-run BOTH of the card's checks twice each after all 3 fixes, confirm green all four times,
+    with the toolchain's normal network access blocked or at minimum not silently relied upon -
+    if you are unsure whether a test still reaches a real network call, say so explicitly in your
+    report rather than letting it pass by chance. This is the final round for this card.
 actions:
   - >-
     Fill list_recent_changes's remaining --limit slots with older tag entries when fewer GitHub
