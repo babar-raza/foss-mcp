@@ -1,0 +1,110 @@
+id: TC-647
+gate: G3
+lane: verification
+purpose: >-
+  KD9 (disclosure program data card, workstream J, remaining families - closes the family-data
+  cards: after this, KD6+KD7+KD8+KD9 together cover all 47 `category: "upstream-library-bug"`
+  issues in `docs/round2/issues.json`, exactly - 14+12+6+15). Same pattern as TC-644/TC-645/TC-646
+  (read their real, committed `config/known_defects/*.yaml` files first as your own reference
+  example). Writes real known-defect entries for the 15 confirmed, high-confidence
+  upstream-library-bug findings across the remaining families (ids `BARCODE-PY-006`,
+  `EMAIL-CPP-001/002/003`, `EMAIL-PY-006`, `IMAGING-NET-001/002/003/004/008`, `NOTE-PY-002/008`,
+  `PAGE-PYTHON-006`, `TEX-PYTHON-001`, `WORDS-PY-008`). `IMAGING-NET-004` is the round-2 audit's
+  own second headline example (the exact indexed commit has upstream-acknowledged hang/DoS bugs
+  fixed 5 commits later) - treat it with care, it is `commit`-scoped (`applies_to.indexed_commit`),
+  not `package_versions`-scoped like the others, since it is about a SPECIFIC commit, not a
+  version range; confirm the real commit sha from the issue's own text, never invent one.
+  `TEX-PYTHON-001` (78% of source files fail to import) is already disclosed elsewhere in this
+  project as a BLOCKED_UPSTREAM limitation for a different program (the example-corpus program) -
+  write it here too anyway, so it is ALSO discoverable through get_symbol/get_product_reference,
+  not only buried in that other program's own internal accounting.
+
+  Read each entry's REAL text from `docs/round2/issues.json` yourself - every
+  `summary`/`user_action`/`evidence.repro` you write must be traceable back to that issue's own
+  real fields, never invented or paraphrased from memory.
+
+  Write eight real registry files (confirm the real filename pattern yourself, same as TC-644/645/
+  646 already confirmed): `barcode__python.yaml`, `email__cpp.yaml`, `email__python.yaml`,
+  `imaging__net.yaml`, `note__python.yaml`, `page__python.yaml`, `tex__python.yaml`,
+  `words__python.yaml`. One entry per issue id, never consolidated.
+depends_on:
+  - TC-644
+  - TC-645
+  - TC-646
+write_paths:
+  - config/known_defects/barcode__python.yaml
+  - config/known_defects/email__cpp.yaml
+  - config/known_defects/email__python.yaml
+  - config/known_defects/imaging__net.yaml
+  - config/known_defects/note__python.yaml
+  - config/known_defects/page__python.yaml
+  - config/known_defects/tex__python.yaml
+  - config/known_defects/words__python.yaml
+  - tests/indexing/test_known_defects_data_remaining.py
+satisfies:
+  - REQ-G3-015
+source_refs:
+  - file: docs/DECISION_LOG.md
+    anchor: >-
+      ## 2026-10-30 — Round-2 portfolio audit remediation adopted: unified plan, governance decisions A-K
+      recorded (supervisor)
+    sha256: 62cf1403a592118e3fb6bd14c5336f8a997cc3181d44a585323ec9f1d385a931
+inputs:
+  - >-
+    READ FIRST: TC-644/TC-645/TC-646's own real, already-committed `config/known_defects/*.yaml`
+    files (your reference examples) and their own test files. Then `docs/round2/issues.json`,
+    filtered to the 15 real ids named above. Then
+    `src/foss_mcp/indexing/known_defects.py`'s loader (pay particular attention to the
+    `indexed_commit`-scoped shape for `IMAGING-NET-004` - a real 40-hex commit sha, read it from
+    the issue's own text, never invent one) and `schemas/product/known_defects.schema.json`.
+  - >-
+    Write at least 12 tests in `tests/indexing/test_known_defects_data_remaining.py` covering: all
+    eight files parse as valid YAML and validate against the real schema
+    (`jsonschema.Draft202012Validator`); `known_defects.load_known_defects(<family>, <platform>)`
+    returns exactly the real number of entries you wrote per pilot, no duplicate ids anywhere;
+    every entry's `id` is one of the 15 real issue ids named above, proven against the real
+    `docs/round2/issues.json` data directly in the test; `IMAGING-NET-004` is specifically
+    `indexed_commit`-scoped (not `package_versions`) with the real commit sha from the issue text;
+    `known_defects.defect_is_stale` behaves correctly for `IMAGING-NET-004` if you give it a
+    package-version comparison it does not apply to (it should not even be asked, since this
+    defect has no `package_versions`); at least one REAL end-to-end test proving `IMAGING-NET-004`
+    surfaces through `report_index_freshness` for the real imaging/net scope when the indexed
+    commit matches, and does NOT surface when it does not.
+actions:
+  - >-
+    Write real, schema-conforming known-defect entries for all 15 remaining confirmed
+    upstream-library-bug findings from the round-2 audit, completing full coverage of the
+    audit's own 47-issue upstream-library-bug category across KD6-KD9.
+checks:
+  - command: '{python} -m pytest tests/indexing/test_known_defects_data_remaining.py -q -rfE -p no:cacheprovider'
+    expect: 'exit 0'
+    timeout_seconds: 180
+    junitxml: true
+    proves:
+      - REQ-G3-015
+  - command: '{python} -m pytest tests/indexing/test_known_defects.py tests/mcp/tools/test_known_defects_in_freshness.py tests/mcp/tools/test_known_defects_in_get_symbol.py -q -rfE -p no:cacheprovider'
+    expect: 'exit 0'
+    timeout_seconds: 240
+    junitxml: true
+    proves:
+      - REQ-G3-015
+min_tests: 12
+requires:
+  - python
+network: false
+negative_control:
+  mutate: |
+    python -X utf8 -c "import pathlib; p = pathlib.Path('config/known_defects/imaging__net.yaml'); assert p.exists(), 'config/known_defects/imaging__net.yaml does not exist as expected - if your real filename pattern differs, anchor your own mutate on your own real file path instead and note the substitution in your closeout'; p.write_text('schema_version: 1' + chr(10) + 'pilot: imaging_net' + chr(10) + 'defects: []' + chr(10), encoding='utf-8')"
+  rationale: >-
+    Empties the imaging/net registry file back to zero defects, regardless of what you actually
+    wrote - this is the headline commit-level DoS finding, so a real test proving it surfaces
+    must fail under this mutation. Tests scoped to the other seven pilots' files are unaffected.
+evidence:
+  - evidence/build/G3/TC-647/receipt.json
+closeout:
+  - >-
+    All 15 remaining confirmed upstream-library-bug findings from the round-2 audit, including
+    the commit-level imaging/net DoS finding, are now real, schema-conforming, loader-validated
+    known-defect entries. KD6-KD9 together now cover all 47 of the audit's own upstream-library-
+    bug issues with zero gaps.
+recovery: Re-run from a clean tree.
