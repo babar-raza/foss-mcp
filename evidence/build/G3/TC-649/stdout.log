@@ -1,0 +1,144 @@
+
+===== CLEAN RUN 1 (host) =====
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-5c72e798a73c059a\Scripts\python.exe -m pytest tests/indexing/test_known_defects_completeness.py -q -rfE -p no:cacheprovider "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-jv65ysmg\.junit-0.xml"
+--- stdout ---
+......                                                                   [100%]
+
+--- stderr ---
+
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-5c72e798a73c059a\Scripts\python.exe -m pytest tests/indexing/test_known_defects_data_3d.py tests/indexing/test_known_defects_data_cells.py tests/indexing/test_known_defects_data_pdf_slides.py tests/indexing/test_known_defects_data_remaining.py -q -rfE -p no:cacheprovider "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-jv65ysmg\.junit-1.xml"
+--- stdout ---
+........................................................................ [ 82%]
+...............                                                          [100%]
+
+--- stderr ---
+
+
+===== CLEAN RUN 2 (host) =====
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-5c72e798a73c059a\Scripts\python.exe -m pytest tests/indexing/test_known_defects_completeness.py -q -rfE -p no:cacheprovider "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-jv65ysmg\.junit-0.xml"
+--- stdout ---
+......                                                                   [100%]
+
+--- stderr ---
+
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-5c72e798a73c059a\Scripts\python.exe -m pytest tests/indexing/test_known_defects_data_3d.py tests/indexing/test_known_defects_data_cells.py tests/indexing/test_known_defects_data_pdf_slides.py tests/indexing/test_known_defects_data_remaining.py -q -rfE -p no:cacheprovider "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-jv65ysmg\.junit-1.xml"
+--- stdout ---
+........................................................................ [ 82%]
+...............                                                          [100%]
+
+--- stderr ---
+
+
+===== NEGATIVE CONTROL (checks MUST now fail) =====
+mutated: M config/known_defects/barcode__python.yaml, ?? .junit-0.xml, ?? .junit-1.xml
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-5c72e798a73c059a\Scripts\python.exe -m pytest tests/indexing/test_known_defects_completeness.py -q -rfE -p no:cacheprovider "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-jv65ysmg\.junit-0.xml"
+--- stdout ---
+F.....                                                                   [100%]
+================================== FAILURES ===================================
+___ test_registry_ids_exactly_equal_the_real_upstream_library_bug_issue_ids ___
+
+    def test_registry_ids_exactly_equal_the_real_upstream_library_bug_issue_ids() -> None:
+        expected_ids = _real_upstream_library_bug_ids()
+        written_ids = set(_all_registry_ids())
+    
+        missing_entries = expected_ids - written_ids
+        orphan_entries = written_ids - expected_ids
+    
+>       assert expected_ids == written_ids, (
+            "config/known_defects/*.yaml drifted from docs/round2/issues.json's upstream-library-bug "
+            f"category. Real round-2 upstream-library-bug issues with NO registry entry: "
+            f"{sorted(missing_entries) or 'none'}. Registry entries with NO matching real round-2 "
+            f"upstream-library-bug issue: {sorted(orphan_entries) or 'none'}."
+        )
+E       AssertionError: config/known_defects/*.yaml drifted from docs/round2/issues.json's upstream-library-bug category. Real round-2 upstream-library-bug issues with NO registry entry: ['BARCODE-PY-006']. Registry entries with NO matching real round-2 upstream-library-bug issue: ['BARCODE-PY-999'].
+E       assert {'3D-JAVA-002...NET-004', ...} == {'3D-JAVA-002...NET-004', ...}
+E         
+E         Extra items in the left set:
+E         'BARCODE-PY-006'
+E         Extra items in the right set:
+E         'BARCODE-PY-999'
+E         Use -v to get more diff
+
+tests\indexing\test_known_defects_completeness.py:99: AssertionError
+=========================== short test summary info ===========================
+FAILED tests/indexing/test_known_defects_completeness.py::test_registry_ids_exactly_equal_the_real_upstream_library_bug_issue_ids
+
+--- stderr ---
+
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-5c72e798a73c059a\Scripts\python.exe -m pytest tests/indexing/test_known_defects_data_3d.py tests/indexing/test_known_defects_data_cells.py tests/indexing/test_known_defects_data_pdf_slides.py tests/indexing/test_known_defects_data_remaining.py -q -rfE -p no:cacheprovider "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-jv65ysmg\.junit-1.xml"
+--- stdout ---
+........................................................................ [ 82%]
+......FFF......                                                          [100%]
+================================== FAILURES ===================================
+_ test_every_written_defect_id_is_a_real_round2_upstream_library_bug_finding __
+
+    def test_every_written_defect_id_is_a_real_round2_upstream_library_bug_finding() -> None:
+        expected_ids = _real_round2_upstream_library_bug_ids()
+        written_ids = {defect.id for defect in _all_written_defects()}
+>       assert written_ids <= expected_ids, (
+            f"written ids not found among real round-2 upstream-library-bug findings: "
+            f"{written_ids - expected_ids}"
+        )
+E       AssertionError: written ids not found among real round-2 upstream-library-bug findings: {'BARCODE-PY-999'}
+E       assert {'BARCODE-PY-...NET-001', ...} <= {'BARCODE-PY-...NET-001', ...}
+E         
+E         Extra items in the left set:
+E         'BARCODE-PY-999'
+
+tests\indexing\test_known_defects_data_remaining.py:175: AssertionError
+___ test_every_real_round2_upstream_library_bug_finding_has_a_written_entry ___
+
+    def test_every_real_round2_upstream_library_bug_finding_has_a_written_entry() -> None:
+        expected_ids = _real_round2_upstream_library_bug_ids()
+        written_ids = {defect.id for defect in _all_written_defects()}
+>       assert expected_ids <= written_ids, (
+            f"real round-2 upstream-library-bug findings with no written entry: {expected_ids - written_ids}"
+        )
+E       AssertionError: real round-2 upstream-library-bug findings with no written entry: {'BARCODE-PY-006'}
+E       assert {'BARCODE-PY-...NET-001', ...} <= {'BARCODE-PY-...NET-001', ...}
+E         
+E         Extra items in the left set:
+E         'BARCODE-PY-006'
+
+tests\indexing\test_known_defects_data_remaining.py:184: AssertionError
+________ test_every_written_defect_id_is_one_of_the_fifteen_named_ids _________
+
+    def test_every_written_defect_id_is_one_of_the_fifteen_named_ids() -> None:
+        """The exact 15 ids this card's own instructions named - a second, independent cross-check
+        against a hand-written (not algorithmically derived) list, so a mistake in the algorithmic
+        filter above cannot silently hide a wrong id."""
+        named_ids = {
+            "BARCODE-PY-006",
+            "EMAIL-CPP-001",
+            "EMAIL-CPP-002",
+            "EMAIL-CPP-003",
+            "EMAIL-PY-006",
+            "IMAGING-NET-001",
+            "IMAGING-NET-002",
+            "IMAGING-NET-003",
+            "IMAGING-NET-004",
+            "IMAGING-NET-008",
+            "NOTE-PY-002",
+            "NOTE-PY-008",
+            "PAGE-PYTHON-006",
+            "TEX-PYTHON-001",
+            "WORDS-PY-008",
+        }
+        written_ids = {defect.id for defect in _all_written_defects()}
+>       assert written_ids == named_ids
+E       AssertionError: assert {'BARCODE-PY-...NET-001', ...} == {'BARCODE-PY-...NET-001', ...}
+E         
+E         Extra items in the left set:
+E         'BARCODE-PY-999'
+E         Extra items in the right set:
+E         'BARCODE-PY-006'
+E         Use -v to get more diff
+
+tests\indexing\test_known_defects_data_remaining.py:214: AssertionError
+=========================== short test summary info ===========================
+FAILED tests/indexing/test_known_defects_data_remaining.py::test_every_written_defect_id_is_a_real_round2_upstream_library_bug_finding
+FAILED tests/indexing/test_known_defects_data_remaining.py::test_every_real_round2_upstream_library_bug_finding_has_a_written_entry
+FAILED tests/indexing/test_known_defects_data_remaining.py::test_every_written_defect_id_is_one_of_the_fifteen_named_ids
+
+--- stderr ---
+
