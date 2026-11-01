@@ -1,0 +1,117 @@
+id: TC-655
+gate: G3
+lane: extraction
+purpose: >-
+  Workstream H (freshness/release content). Closes `NOTE-PY-003` (P1, high confidence): read the
+  real issue record yourself in `docs/round2/issues.json` before starting. `list_recent_changes`'s
+  own tool description promises "each release states... source ('release' or 'tag')" and that
+  tag-only fallback entries fill remaining `--limit` slots "when fewer Releases exist" - but
+  confirmed directly in `infra/fetch_recent_releases.py`'s real `main()` (around line 487-491):
+  `fetch_tags(...)` is called ONLY when `fetched` (the Releases list) is COMPLETELY EMPTY
+  (`if not fetched`). The moment even ONE real GitHub Release exists, tags are never fetched at
+  all - note/python has 2 real Releases and 17 real tags, so `list_recent_changes(limit=20)`
+  returns only the 2 releases and silently omits the other 15 tags, including the exact version
+  (`v26.9.0`) `pip install aspose-note-foss` currently installs.
+
+  Do NOT reuse `merge_newer_tags` for this - read its own docstring first and confirm: it only
+  adds a tag NEWER than every existing release (built for `_with_ancestry`'s drift-detection use
+  case, called only when `--indexed-commit` is given). This card's need is different and
+  additive: when `fetched` is non-empty but SHORTER than `--limit`, fetch tags too and fill the
+  REMAINING slots with tag-only entries whose version is not already covered by any release in
+  `fetched` (a `26.9.0` tag beside a `v26.9.0` release is the same version - reuse the existing
+  version-parsing/comparison helpers already in this file, e.g. `_tag_version`, never
+  reimplement), sorted newest-first among the added tags, regardless of whether they are older or
+  newer than the existing releases (unlike `merge_newer_tags`, which only ever looks at newer
+  ones). Add a NEW function for this (your own naming) rather than overloading
+  `merge_newer_tags`'s existing, narrower, already-tested meaning. Wire it into `main()` right
+  after `releases = fetched[: args.limit]` is first computed (or an equivalently early point you
+  judge cleaner - read the whole function first) so the existing `--indexed-commit` path
+  (`_with_ancestry`, `merge_newer_tags`, drift detection) still runs, unchanged, on whatever list
+  you hand it afterward - this card is additive to the no-`--indexed-commit` path's output and
+  must not change `_with_ancestry`'s own behavior or its tests. A failed tags fetch here must
+  follow the same pattern every other tags-read failure in this file already uses (caught, logged
+  as a warning, the existing/partial list kept, never propagated as a fatal error).
+
+  Fully offline: `tests/infra/test_fetch_recent_releases_tags.py` is your pattern reference for
+  monkeypatching `fetch_releases`/`fetch_tags` - reuse it, never hit a real network call.
+depends_on:
+  - TC-244
+  - TC-251
+  - TC-260
+  - TC-349
+  - TC-388
+  - TC-507
+  - TC-511
+  - TC-519
+  - TC-560
+  - TC-613
+write_paths:
+  - infra/fetch_recent_releases.py
+  - tests/infra/test_fetch_recent_releases_tag_padding.py
+satisfies:
+  - REQ-G3-013
+source_refs:
+  - file: docs/DECISION_LOG.md
+    anchor: >-
+      ## 2026-10-30 — Round-2 portfolio audit remediation adopted: unified plan, governance decisions A-K
+      recorded (supervisor)
+    sha256: 62cf1403a592118e3fb6bd14c5336f8a997cc3181d44a585323ec9f1d385a931
+inputs:
+  - >-
+    READ FIRST, in full: `infra/fetch_recent_releases.py`'s `main()`, `merge_newer_tags`,
+    `fetch_tags`, `_tag_version`, `_with_ancestry` - confirm the real current line numbers and
+    logic yourself, do not trust this card's own line-number citations as exact. Then the real
+    `NOTE-PY-003` issue record in `docs/round2/issues.json`. Then
+    `tests/infra/test_fetch_recent_releases_tags.py` (your mocking pattern) and
+    `tests/infra/test_fetch_recent_releases.py`/`test_fetch_recent_releases_commit_resolution.py`
+    (the existing regression suite your fix must not break).
+  - >-
+    Write at least 8 tests in `tests/infra/test_fetch_recent_releases_tag_padding.py`: fewer
+    releases than limit pads with the correct older tags, newest-first, up to limit exactly;
+    releases already AT limit are never padded (no tags fetch even attempted - confirm via the
+    mocked call count, same pattern the reference test file already uses); a tag whose version
+    already exists among the releases is never duplicated; a tag with no parseable version is
+    skipped; a failed tags fetch during padding leaves the existing releases list intact and logs
+    a warning, never raises; the padding runs correctly whether or not `--indexed-commit` is
+    given (two tests, one per path), and the `--indexed-commit` path's own `_with_ancestry`/drift
+    behavior is unchanged by your padding (reuse or closely mirror an existing passing test from
+    `test_fetch_recent_releases_commit_resolution.py` with padding now also active, proving
+    nothing about drift detection broke).
+actions:
+  - >-
+    Fill list_recent_changes's remaining --limit slots with older tag entries when fewer GitHub
+    Releases exist than the caller asked for, matching the tool's own documented promise.
+checks:
+  - command: '{python} -m pytest tests/infra/test_fetch_recent_releases_tag_padding.py -q -rfE -p no:cacheprovider'
+    expect: 'exit 0'
+    timeout_seconds: 120
+    junitxml: true
+    proves:
+      - REQ-G3-013
+  - command: '{python} -m pytest tests/infra/test_fetch_recent_releases.py tests/infra/test_fetch_recent_releases_commit_resolution.py tests/infra/test_fetch_recent_releases_failure.py tests/infra/test_fetch_recent_releases_tags.py -q -rfE -p no:cacheprovider'
+    expect: 'exit 0'
+    timeout_seconds: 180
+    junitxml: true
+    proves:
+      - REQ-G3-013
+min_tests: 8
+requires:
+  - python
+network: false
+negative_control:
+  mutate: |
+    python -X utf8 -c "import pathlib; p = pathlib.Path('infra/fetch_recent_releases.py'); s = p.read_text(encoding='utf-8'); marker = 'if not fetched and not fetch_meta.get('; idx = s.find(marker); assert idx != -1, 'the real guard line was not found as expected - if your real code differs, anchor your own mutate on your own real literal instead and note the substitution in your closeout'; needle = 'fetched = fetch_tags(args.repository)'; idx2 = s.find(needle); assert idx2 != -1 and idx2 > idx, 'the tag-fallback assignment was not found after the guard as expected'; s2 = s[:idx2] + 'fetched = fetched' + s[idx2 + len(needle):]; assert s2 != s, 'substitution had no effect'; p.write_text(s2, encoding='utf-8')"
+  rationale: >-
+    Neutralizes the pre-existing empty-releases tag-fallback assignment into a no-op, as a stable
+    anchor point near your real fix (your own new padding call sits near this same code and must
+    itself be disabled too for the control to be meaningful - if your implementation is not
+    reachable through this exact mutation, say so and adjust your own verification accordingly,
+    but the intent is: no tag ever gets fetched or merged for a limit-padding purpose). Any test
+    proving tags now pad out a short releases list to --limit must fail under this mutation.
+evidence:
+  - evidence/build/G3/TC-655/receipt.json
+closeout:
+  - >-
+    list_recent_changes now fills remaining --limit slots with older tag-only entries when fewer
+    GitHub Releases exist, matching its own documented promise - closing NOTE-PY-003.
+recovery: Re-run from a clean tree.
