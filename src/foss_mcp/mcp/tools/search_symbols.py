@@ -129,6 +129,28 @@ additive to the existing global ``_GENERIC_WORDS``) - independent reproduction f
 one family's own API surface to bury a correct, differently-named answer that does not happen to share
 the word, exactly the kind of defect ``_match_tier``'s own tiers above are immune to (they require the
 WHOLE query, not one common word of it) but the sentence-level evidence stage was not.
+
+TC-637 (G3/REQ-G3-011): ``_symbol_words``'s digit-to-uppercase ``_CAMEL_BOUNDARY`` rule is correct for a
+real new-word boundary (``Code128EncodeMode`` -> ``code128``, ``encode``, ``mode``) but too aggressive for
+a digit followed by a single trailing uppercase letter or short uppercase acronym fragment - a unit/format
+suffix, not a new word - measured directly against the real baked corpus: ``ITexture2D`` ->
+``i``, ``texture2``, ``d`` (the meaningful unit ``2D`` destroyed into a bare, meaningless ``d``),
+``A3DObject`` -> ``a3``, ``d``, ``object``, ``Microsoft3MFFormat`` -> ``microsoft3``, ``mf``, ``format``
+(the real file-format acronym ``3MF`` lost as a search word entirely). ``_rejoin_digit_acronym_split``
+runs as a post-processing step right after ``_symbol_words``'s own split, on the ORIGINAL-CASE words
+(before casefold): it moves the stranded trailing digit run OFF the stem and onto the acronym fragment
+that follows it, so the unit/acronym becomes its own standalone word (``texture``, ``2d``; ``microsoft``,
+``3mf``) rather than one combined word - the standalone form is what lets a query naming just the unit
+(``"2d"``) become a real tier-2 bag-of-words hit it could not be before. Case is exactly the signal that
+tells a synthetic camel-split acronym fragment (``D``, ``MF``: always upper, straight out of
+``_CAMEL_BOUNDARY``'s own uppercase lookahead, and either a bare single letter or followed by more real
+words) apart from a genuine already-correct trailing abbreviation a real ``_WORD_SEPARATORS`` character
+deliberately isolated (``PDF17_NS``'s ``NS`` is the identifier's own last word, with nothing after it to
+prove it was a mid-identifier fragment). Measured against every one of the 124 real digit-containing
+final-segment symbol names found across ``infra/demo-manifests/*/generation__*.json``: 30 changed (all
+genuine over-split acronym/unit suffixes corrected), the other 94 - including every already-correct case
+this card names - unchanged; see this card's own worker report for the full list. ``_CAMEL_BOUNDARY``
+itself is untouched.
 """
 
 from __future__ import annotations
@@ -157,15 +179,73 @@ _NON_SYMBOL_FQN_PREFIXES = ("Example: ", "Doc: ")
 _CAMEL_BOUNDARY = re.compile(r"(?<=[a-z0-9])(?=[A-Z])|(?<=[A-Z])(?=[A-Z][a-z])")
 _WORD_SEPARATORS = re.compile(r"[\s._:]+")
 _FINAL_SEGMENT = re.compile(r"\.|::")
+_TRAILING_DIGITS = re.compile(r"(\d+)\Z")
+
+
+def _rejoin_digit_acronym_split(words: list[str]) -> list[str]:
+    """TC-637 (G3/REQ-G3-011): undoes the one shape of over-split ``_CAMEL_BOUNDARY`` itself is too
+    aggressive for - a digit run immediately followed, in *words* (the ORIGINAL-CASE split sequence,
+    before ``_symbol_words``'s own casefold), by a single bare uppercase letter (``Texture2``, ``D``) or
+    by a short, fully-uppercase acronym fragment that is itself mid-identifier, i.e. more real words
+    still follow it (``Microsoft3``, ``MF``, with ``Format`` still to come). Rather than gluing the whole
+    pair into one longer word, the trailing digit run moves OFF the first word and onto the front of the
+    second, so the acronym/unit suffix becomes its own standalone, independently searchable word:
+    ``Texture2``, ``D`` -> ``Texture``, ``2D``; ``Microsoft3``, ``MF`` -> ``Microsoft``, ``3MF`` (not
+    ``Texture2D``/``Microsoft3MF`` as one word each) - a query naming only the unit/acronym
+    (``2D``, ``3MF``) then finds a whole-word, tier-2 bag-of-words match it could not before, which
+    gluing everything into one combined word would not allow (neither ``2d`` nor ``3mf`` would be a
+    WHOLE word of anything). When the digit run was the first word's entire content, no empty word is
+    emitted (``"3D FOSS for Java"`` -> ``3``, ``D``, ... -> ``3D``, ... , not an empty string followed
+    by ``3D``).
+
+    Case is exactly the signal that tells a synthetic camel-split acronym fragment apart from a genuine,
+    already-correct trailing abbreviation a real ``_WORD_SEPARATORS`` character deliberately isolated:
+    ``PDF17_NS``'s ``NS`` is also short and fully uppercase, but it is the identifier's own LAST word -
+    nothing follows it to prove it was a mid-identifier fragment rather than the identifier's own
+    deliberately short final word - so it is correctly left alone (a bare single letter, by contrast,
+    can never be a real word of its own regardless of position, so it always rejoins).
+
+    Measured directly against every real digit-containing final-segment symbol name in
+    ``infra/demo-manifests/*/generation__*.json`` (124 names): 30 changed, all a genuine over-split
+    acronym/unit suffix corrected; the other 94 - including ``Code128EncodeMode``, ``Ean13Options``,
+    ``PDF17_NS`` and ``PDF20_NS`` - are untouched. Never mutates ``_CAMEL_BOUNDARY`` itself.
+    """
+    result: list[str] = []
+    index = 0
+    total = len(words)
+    while index < total:
+        word = words[index]
+        match = _TRAILING_DIGITS.search(word) if index + 1 < total and word else None
+        if match is not None:
+            following = words[index + 1]
+            is_bare_letter = len(following) == 1 and following.isalpha() and following.isupper()
+            is_mid_acronym_fragment = (
+                len(following) == 2 and following.isalpha() and following.isupper() and index + 2 < total
+            )
+            if is_bare_letter or is_mid_acronym_fragment:
+                prefix = word[: match.start()]
+                if prefix:
+                    result.append(prefix)
+                result.append(match.group(1) + following)
+                index += 2
+                continue
+        result.append(word)
+        index += 1
+    return result
 
 
 def _symbol_words(text: str) -> list[str]:
     """The lowercased words of *text*, split at camel-case boundaries and at whitespace, dots,
     colons and underscores (``PdfDocument.AddWatermarkAnnotation`` -> pdf, document, add, watermark,
-    annotation; ``Aspose::Pdf::AFRelationship`` -> aspose, pdf, af, relationship).
+    annotation; ``Aspose::Pdf::AFRelationship`` -> aspose, pdf, af, relationship), with a digit-run's
+    over-split acronym/unit suffix corrected first (TC-637, ``_rejoin_digit_acronym_split``):
+    ``ITexture2D`` -> i, texture, 2d (not i, texture2, d); ``Code128EncodeMode`` -> code128, encode, mode
+    is unaffected, since ``128`` is followed by the real word ``Encode``, not a bare/short acronym
+    fragment.
     """
     spaced = _CAMEL_BOUNDARY.sub(" ", text)
-    return [word.casefold() for word in _WORD_SEPARATORS.split(spaced) if word]
+    words = [word for word in _WORD_SEPARATORS.split(spaced) if word]
+    return [word.casefold() for word in _rejoin_digit_acronym_split(words)]
 
 
 def _match_tier(query: str, fqn: str | None) -> int | None:
