@@ -1,0 +1,107 @@
+id: TC-642
+gate: G3
+lane: storage-retrieval
+purpose: >-
+  KD3 (disclosure program, workstream J). Closes the real gap TC-641's own investigation found
+  and reported: `search_symbols.SymbolMatch` (and therefore `lookup()`'s own `symbols` field,
+  which carries `SymbolMatch` instances directly) has no `known_defects` field and is
+  structurally disconnected from `get_symbol.SymbolSignature.known_defects` (TC-639/KD2) - a
+  caller using `search_symbols`/`lookup` never sees a method/class-scoped defect that
+  `get_symbol` would have shown for the exact same symbol.
+
+  IMPORTANT, confirmed by the supervisor before writing this card (re-confirm it yourself, do not
+  take it on faith): TC-641's own report said this fix needs `test_lookup_forgiveness.py` updated
+  too, because adding a field to `TaskAnswer` would break its pinned
+  `test_taskanswer_symbols_default_is_empty_and_additive` field-list assertion. That is true ONLY
+  for a NEW `TaskAnswer` field. A repo-wide search confirms NO test anywhere pins
+  `SymbolMatch`'s own field list - adding `known_defects: tuple[str, ...] = ()` directly to
+  `SymbolMatch` itself (search_symbols.py), not to `TaskAnswer`, needs no change to
+  `test_lookup_forgiveness.py` at all. Confirm this yourself (grep the whole `tests/` tree for
+  `dataclasses.fields(SymbolMatch)` before you start) rather than trusting this paragraph blindly.
+
+  Mechanism: add `known_defects: tuple[str, ...] = ()` to `SymbolMatch`
+  (search_symbols.py, additive, same style as its own existing `limitation: str = ""` field).
+  Import `load_known_defects` DIRECTLY from `foss_mcp.indexing.known_defects` (never from
+  `get_symbol.py` - `get_symbol.py` already imports FROM `search_symbols.py`, so the reverse
+  import would be circular; confirm this yourself before writing any import). You cannot reuse
+  `get_symbol._render_known_defect` either (private, and the same circular-import problem) - write
+  your own equivalent rendering function here, matching its exact wording style
+  ("Known defect: {summary} {user_action} (repro: {evidence.repro})") so disclosure text reads
+  consistently across both tools; if you find a cleaner way to share the rendering logic without a
+  circular import (e.g. moving the renderer into `known_defects.py` itself, called from both
+  tools), that is also acceptable - use your own judgment and report what you chose. Filter to
+  `subject.kind in {"method", "class"}` (method/class-scoped - package/commit-scoped is KD4's
+  `get_product_reference` path, already done, not this one) and `subject.ref == fqn`, with the
+  same commit-match logic for an `indexed_commit`-scoped defect that `get_symbol.known_defect_lines`
+  already established (re-derive the `Source-Commit:` read the same way, your own local copy -
+  the same documented reason KD2/TC-639 already gave for not importing it).
+
+  Investigate, and report your finding, whether `lookup.py` needs ANY change at all: if
+  `lookup()`'s own symbol composition (`_named_symbols`, `answer_symbols`) passes through the
+  SAME `SymbolMatch` instances `search_symbols()` already built (never reconstructing a new one
+  that drops fields), then `TaskAnswer.symbols` already carries the new field automatically with
+  zero code change in lookup.py - confirm this directly rather than assuming either way.
+depends_on:
+  - TC-637
+  - TC-639
+write_paths:
+  - src/foss_mcp/mcp/tools/search_symbols.py
+  - tests/mcp/tools/test_known_defects_in_search_symbols.py
+satisfies:
+  - REQ-G3-015
+source_refs:
+  - file: docs/DECISION_LOG.md
+    anchor: >-
+      ## 2026-10-30 — Round-2 portfolio audit remediation adopted: unified plan, governance decisions A-K
+      recorded (supervisor)
+    sha256: 62cf1403a592118e3fb6bd14c5336f8a997cc3181d44a585323ec9f1d385a931
+inputs:
+  - >-
+    READ FIRST: `src/foss_mcp/indexing/known_defects.py` in full; `get_symbol.py`'s
+    `known_defect_lines`/`_render_known_defect`/`_SOURCE_COMMIT_LINE` (your reference pattern,
+    reimplemented locally here, never imported); `search_symbols.py`'s `SymbolMatch` and its real
+    construction site(s) in `search_symbols()`; `lookup.py`'s `_named_symbols`/`answer_symbols` to
+    answer the investigation question above.
+  - >-
+    Write at least 8 tests in `tests/mcp/tools/test_known_defects_in_search_symbols.py` covering:
+    a method/class-scoped defect surfaces on a real `search_symbols` hit for the matching FQN; a
+    package/commit-scoped defect does NOT surface here (that's KD4's path); commit-match/mismatch
+    behaves the same as KD2's own tests; a symbol with no matching defect has `known_defects ==
+    ()`, proving every existing `search_symbols` test stays unaffected; your real `lookup.py`
+    finding, with its own test proving whichever way it actually behaves.
+actions:
+  - >-
+    Add known-defects disclosure directly to SymbolMatch so search_symbols and lookup's own
+    symbol answers surface a method/class-scoped defect exactly like get_symbol already does.
+checks:
+  - command: '{python} -m pytest tests/mcp/tools/test_known_defects_in_search_symbols.py -q -rfE -p no:cacheprovider'
+    expect: 'exit 0'
+    timeout_seconds: 180
+    junitxml: true
+    proves:
+      - REQ-G3-015
+  - command: '{python} -m pytest tests/mcp/tools/test_search_symbols_digit_words.py tests/mcp/tools/test_search_symbols_memberless_last.py tests/mcp/tools/test_lookup_forgiveness.py -q -rfE -p no:cacheprovider'
+    expect: 'exit 0'
+    timeout_seconds: 240
+    junitxml: true
+    proves:
+      - REQ-G3-015
+min_tests: 8
+requires:
+  - python
+network: false
+negative_control:
+  mutate: |
+    python -X utf8 -c "import pathlib; p = pathlib.Path('src/foss_mcp/mcp/tools/search_symbols.py'); s = p.read_text(encoding='utf-8'); old = 'load_known_defects('; assert s.count(old) == 1, 'load_known_defects( literal not found as expected (exactly once) - if your real code calls it a different number of times or with a different name, anchor your own mutate on your own real literal instead and note the substitution in your closeout'; i = s.index(old); p.write_text(s[:i] + '(lambda *a, **k: [])(' + s[i+len(old):], encoding='utf-8')"
+  rationale: >-
+    Replaces the registry lookup with a call that always returns an empty list, so no
+    known_defects entry ever surfaces on a SymbolMatch regardless of real fixture data. Any test
+    proving a real matching defect surfaces must fail under this mutation; a non-matching or
+    package/commit-scoped defect's tests are unaffected (already expecting emptiness there).
+evidence:
+  - evidence/build/G3/TC-642/receipt.json
+closeout:
+  - >-
+    search_symbols (and, through it, lookup's own symbol answers) now surfaces a method/class-
+    scoped known-defect exactly like get_symbol already does. State your real lookup.py finding.
+recovery: Re-run from a clean tree.
