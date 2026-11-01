@@ -1,0 +1,102 @@
+id: TC-652
+gate: G3
+lane: extraction
+purpose: >-
+  Workstream G (content truth). Closes `CELLS-PY-001` (P1): `get_product_reference
+  (section="compatibility")` for cells/python returns the bare manifest string `>=3.7` (read from
+  the packaging manifest at the pinned/indexed commit) with no caveat, while the real, currently
+  registry-published package (26.10.0, the exact version the "install" section's own command tells
+  a caller to `pip install`) declares `Requires-Python >=3.10` per its own release notes'
+  "Breaking Changes: Minimum Python version" section - a caller who installs what "install" says
+  and trusts what "compatibility" says is told a materially false minimum Python version. Read the
+  real issue record in `docs/round2/issues.json` yourself before starting (id `CELLS-PY-001`) -
+  do not take this card's summary of it on faith.
+
+  This project ALREADY has the exact mechanism needed, used today for the "install" section's own
+  index-vs-package drift notice: `get_product_reference.py`'s `_drift_notice(inputs, ecosystem)`
+  (reads `inputs.drift` via `release_alignment.drift_verdict`, returns a real sentence when the
+  index and the latest published release/tag have drifted apart, `None` when they have not or
+  when there is nothing to compare). The `compatibility` section's own single return point already
+  joins two other notices with `_join_notice` (`_disagreement_notice` + `_version_sentence`) -
+  confirm this yourself by reading the `if section == "compatibility":` branch in full before
+  writing anything. Add `_drift_notice(inputs, <your own best ecosystem label for this branch's
+  platform>)` as a THIRD argument to that same `_join_notice(...)` call, exactly mirroring how the
+  cpp install branch already appends `_drift_notice(inputs, "cmake")` to its own notice via
+  `_join_notice`. This is strictly additive to the compatibility answer: the `value` text itself
+  (the manifest's own stated minimum) is never changed or invented - only the notice gains a real,
+  already-measured drift sentence when one applies, exactly the pattern Decision B/the audit's own
+  `suggested_fix` names ("append the same 'may differ from indexed commit' caveat the install
+  section already carries").
+
+  Do NOT touch `_drift_notice` itself, `_disagreement_notice`, `_version_sentence`, or any other
+  section's branch - this is a one-call, additive change to the `compatibility` branch only.
+depends_on: []
+write_paths:
+  - src/foss_mcp/mcp/tools/get_product_reference.py
+  - tests/mcp/tools/test_compatibility_drift_notice.py
+satisfies:
+  - REQ-G3-013
+source_refs:
+  - file: docs/DECISION_LOG.md
+    anchor: >-
+      ## 2026-10-30 — Round-2 portfolio audit remediation adopted: unified plan, governance decisions A-K
+      recorded (supervisor)
+    sha256: 62cf1403a592118e3fb6bd14c5336f8a997cc3181d44a585323ec9f1d385a931
+inputs:
+  - >-
+    READ FIRST: `get_product_reference.py`'s `_drift_notice` (full docstring and body), the `if
+    section == "compatibility":` branch in full (where `value`/`reason`/`notice` are built per
+    platform and the single `return ReferenceContent(section, value, notice=notice)` at its end),
+    and the cpp `install` branch's own use of `_drift_notice(inputs, "cmake")` (your exact
+    precedent to mirror). Then the real `CELLS-PY-001` issue record in `docs/round2/issues.json`.
+  - >-
+    Write at least 6 tests in `tests/mcp/tools/test_compatibility_drift_notice.py`: a synthetic
+    `ProductReferenceInputs` with a real drift record (index ahead of package, and separately
+    package ahead of index) produces a compatibility notice that includes the real drift sentence
+    `_drift_notice` itself would produce (call `_drift_notice` directly in the test to get the
+    exact expected text, never hardcode a copy of its wording); a synthetic input with NO drift
+    record (or an in-sync one) produces a compatibility notice unchanged from before this card
+    (no drift sentence appended, and the existing `_disagreement_notice`/`_version_sentence`
+    content, if any, is untouched); this holds for at least 2 different platforms (python and one
+    other real platform this branch supports, e.g. java or dotnet) to prove the fix is not
+    accidentally python-only; the compatibility `value` text itself is byte-identical with and
+    without a drift record (proving this is additive-to-notice-only, never a change to the stated
+    minimum version itself).
+actions:
+  - >-
+    Append the existing, already-measured index-vs-package drift notice to the compatibility
+    section's answer, the same way the install section's cpp branch already does - closing
+    CELLS-PY-001 without inventing a new mechanism.
+checks:
+  - command: '{python} -m pytest tests/mcp/tools/test_compatibility_drift_notice.py -q -rfE -p no:cacheprovider'
+    expect: 'exit 0'
+    timeout_seconds: 120
+    junitxml: true
+    proves:
+      - REQ-G3-013
+  - command: '{python} -m pytest tests/mcp/tools/test_product_reference_compatibility_units.py tests/mcp/tools/test_java_compatibility_unit.py -q -rfE -p no:cacheprovider'
+    expect: 'exit 0'
+    timeout_seconds: 180
+    junitxml: true
+    proves:
+      - REQ-G3-013
+min_tests: 6
+requires:
+  - python
+network: false
+negative_control:
+  mutate: |
+    python -X utf8 -c "import pathlib; p = pathlib.Path('src/foss_mcp/mcp/tools/get_product_reference.py'); s = p.read_text(encoding='utf-8'); idx = s.find('if section == \"compatibility\":'); assert idx != -1, 'compatibility branch not found as expected - if your real code differs, anchor your own mutate on your own real marker instead and note the substitution in your closeout'; end = s.find('if section == \"license\":', idx); assert end != -1, 'license branch not found after compatibility as expected'; segment = s[idx:end]; assert '_drift_notice' in segment, 'your fix does not call _drift_notice inside the compatibility branch as expected - if you anchored the call elsewhere, adjust this mutate to match and note the substitution in your closeout'; segment2 = segment.replace('_drift_notice', 'disabled_drift_notice', 1); p.write_text(s[:idx] + segment2 + s[end:], encoding='utf-8')"
+  rationale: >-
+    Breaks the one call this card adds inside the compatibility branch by renaming it to an
+    undefined symbol, so the drift notice can never be appended - any test proving the real drift
+    sentence appears in a compatibility notice must fail under this mutation (either a NameError,
+    or the notice silently missing the sentence). Tests of unrelated sections are unaffected.
+evidence:
+  - evidence/build/G3/TC-652/receipt.json
+closeout:
+  - >-
+    get_product_reference's compatibility answer now carries the same index-vs-package drift
+    caveat the install section already gives, closing CELLS-PY-001 with a single additive call to
+    an existing, already-measured mechanism.
+recovery: Re-run from a clean tree.

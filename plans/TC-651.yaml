@@ -1,0 +1,117 @@
+id: TC-651
+gate: G3
+lane: storage-retrieval
+purpose: >-
+  Workstream I (documentation-category honesty, 17 round-2 issues). 15 of the 17 share one real
+  root cause and one real fix, confirmed by direct investigation (not assumed): `search_docs`
+  classifies every documentation chunk into one of exactly 4 `CONTENT_TYPES`
+  (`getting_started`, `developer_guide`, `troubleshooting`, `faq` -
+  `src/foss_mcp/mcp/tools/search_docs.py:72`), but nothing tells a caller UP FRONT which of those
+  4 categories actually hold content for a given pilot before it spends a query discovering one
+  is empty - `report_index_freshness.py`'s own `CommitCount.documentation_chunks` is a single
+  aggregate across all 4 categories, never broken out. The 15 real issues this closes (read each
+  one's own real title/actual/expected in `docs/round2/issues.json` yourself, do not take this
+  card's summary on faith): `3D-JAVA-010`, `3D-NET-015`, `3D-TYPESCRIPT-009`, `CELLS-JAVA-004`,
+  `CELLS-PY-007`, `CELLS-RUST-008`, `EMAIL-PY-007`, `HTML-PY-008`, `PDF-CPP-006`, `PDF-GO-005`,
+  `PDF-NET-004`, `SLIDES-CPP-007`, `SLIDES-PY-006`, `TEX-PYTHON-005`, `WORDS-NET-007` - every one
+  is the same shape: "content_type=faq (or troubleshooting) is completely empty for this pilot,
+  with no indication anywhere that it would be before querying it."
+
+  Fix: add a new field to `FreshnessReport`
+  (e.g. `documentation_content_type_counts: dict[str, int]`, your own exact naming judgment,
+  but it must map EVERY one of `search_docs.CONTENT_TYPES`'s 4 real values to its real integer
+  chunk count for the active generation, including an explicit `0` for an empty category - never
+  omit a zero-count category, that omission would recreate the exact same "no indication" problem
+  for a caller that does not already know the vocabulary). Compute it in
+  `_read_provenance` (or a new small helper next to it) by calling `search_docs.classify_content_type`
+  on every chunk `_chunk_kind` already classifies as `_DOCUMENTATION`, tallying by category -
+  confirmed importable (`report_index_freshness.py` and `search_docs.py` are both in the same
+  `mcp.tools` package, `search_docs.py` imports nothing from `report_index_freshness.py`, so this
+  import direction is safe; confirm this yourself before writing it, do not assume it from this
+  card's own claim). Wire the new field through BOTH `FreshnessReport` construction sites in
+  `report_index_freshness()` (the early "never published" return AND the `build()` closure).
+  `FreshnessReport`'s serialization to the live MCP response is fully automatic
+  (`server.py`'s `_to_jsonable` walks `dataclasses.fields` and already handles a `dict` value) -
+  confirm this yourself by reading `server.py`'s `_to_jsonable` (around line 1017) before assuming
+  no `server.py` change is needed; if you find it IS needed, say so and make the minimal change.
+
+  Two issues from the same 17 are explicitly OUT of this card's scope - they need a different, real
+  code fix, not count-surfacing, and must not be folded in: `PDF-TS-008` (README has a real
+  `## Quick Start` section but `classify_content_type`'s `getting_started` heuristic
+  misclassifies it) and `PDF-CPP-007` (troubleshooting content never cross-references
+  `PDF-CPP-001`'s own already-disclosed AES-256 known_defect). Leave both as real, open,
+  documented gaps for a future card.
+depends_on:
+  - TC-643
+write_paths:
+  - src/foss_mcp/mcp/tools/report_index_freshness.py
+  - tests/mcp/tools/test_report_index_freshness_content_type_counts.py
+satisfies:
+  - REQ-G3-013
+source_refs:
+  - file: docs/DECISION_LOG.md
+    anchor: >-
+      ## 2026-10-30 — Round-2 portfolio audit remediation adopted: unified plan, governance decisions A-K
+      recorded (supervisor)
+    sha256: 62cf1403a592118e3fb6bd14c5336f8a997cc3181d44a585323ec9f1d385a931
+inputs:
+  - >-
+    READ FIRST: `src/foss_mcp/mcp/tools/search_docs.py`'s `CONTENT_TYPES`, `classify_content_type`,
+    and `chunk_kind`/`DOCUMENTATION` (the exact classification this card reuses, never
+    reimplements). Then `report_index_freshness.py`'s `_read_provenance`, `_chunk_kind`,
+    `CommitCount`, `FreshnessReport`, and the two `FreshnessReport(...)` construction sites inside
+    `report_index_freshness()`. Then at least 3 of the 15 real issues named above in
+    `docs/round2/issues.json`, to confirm the real symptom yourself.
+  - >-
+    Write at least 8 tests in `tests/mcp/tools/test_report_index_freshness_content_type_counts.py`:
+    a synthetic generation with chunks in all 4 categories reports the real per-category counts;
+    a category with zero chunks reports an explicit `0`, not an absent key; a generation with NO
+    documentation chunks at all reports all 4 categories as `0` (never omits the field); the
+    "never published" early-return path also carries the field (with every category `0`, since no
+    generation means no chunks of any kind); a real end-to-end test reproducing one of the 15 named
+    issues against a REAL pilot's own baked sidecar (pick one, e.g. `pdf/net` or `cells/python` -
+    confirm it is actually in the 15-id list and that the real baked generation genuinely has 0 faq
+    chunks before writing the test) and proving `report_index_freshness`'s real output now shows
+    `faq: 0` explicitly, closing the "no indication" gap for that pilot; a test that the new field's
+    4 keys exactly equal `search_docs.CONTENT_TYPES` (not a hardcoded tuple duplicated in this test
+    file - import and compare against the real constant, so the two can never silently drift apart).
+actions:
+  - >-
+    Add explicit, zero-inclusive per-content_type documentation chunk counts to
+    report_index_freshness, so a caller can see which of the 4 documentation categories are empty
+    before querying one blindly - closing 15 of workstream I's 17 round-2 issues.
+checks:
+  - command: '{python} -m pytest tests/mcp/tools/test_report_index_freshness_content_type_counts.py -q -rfE -p no:cacheprovider'
+    expect: 'exit 0'
+    timeout_seconds: 120
+    junitxml: true
+    proves:
+      - REQ-G3-013
+  - command: '{python} -m pytest tests/mcp/tools/test_freshness_provenance.py tests/mcp/tools/test_freshness_registry_version.py tests/mcp/tools/test_freshness_tristate.py tests/mcp/tools/test_known_defects_in_freshness.py -q -rfE -p no:cacheprovider'
+    expect: 'exit 0'
+    timeout_seconds: 180
+    junitxml: true
+    proves:
+      - REQ-G3-013
+min_tests: 8
+requires:
+  - python
+network: false
+negative_control:
+  mutate: |
+    python -X utf8 -c "import pathlib; p = pathlib.Path('src/foss_mcp/mcp/tools/report_index_freshness.py'); s = p.read_text(encoding='utf-8'); marker = 'def _read_provenance'; idx = s.find(marker); assert idx != -1, '_read_provenance not found as expected - if your real function differs, anchor your own mutate on your own real function name instead and note the substitution in your closeout'; needle = 'classify_content_type'; assert needle in s, 'classify_content_type is not referenced in report_index_freshness.py as expected - if your real helper has a different name, anchor your own mutate on that name instead'; s2 = s.replace(needle, 'disabled_' + needle); assert s2 != s, 'substitution had no effect'; p.write_text(s2, encoding='utf-8')"
+  rationale: >-
+    Breaks the real call to classify_content_type by renaming it to an undefined symbol, so the
+    per-category tally can never run - any test proving the real per-category counts (zero-
+    inclusive, matching CONTENT_TYPES) must fail under this mutation (either a NameError at import/
+    call time, or the new field silently missing/wrong). A test scoped only to unrelated existing
+    behavior is unaffected.
+evidence:
+  - evidence/build/G3/TC-651/receipt.json
+closeout:
+  - >-
+    report_index_freshness now tells a caller, up front, exactly which of the 4 documentation
+    categories hold real content for this pilot and which are empty - closing 15 of workstream I's
+    17 round-2 issues without touching generate_furnished_page.py or any extraction code. 2 issues
+    (PDF-TS-008, PDF-CPP-007) remain open, documented, and explicitly out of this card's scope.
+recovery: Re-run from a clean tree.
