@@ -1,0 +1,138 @@
+
+===== CLEAN RUN 1 (host) =====
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-5c72e798a73c059a\Scripts\python.exe -m pytest tests/indexing/test_known_defects_data_pdf_slides.py -q -rfE -p no:cacheprovider "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-ssf08q_3\.junit-0.xml"
+--- stdout ---
+.....................                                                    [100%]
+
+--- stderr ---
+
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-5c72e798a73c059a\Scripts\python.exe -m pytest tests/indexing/test_known_defects.py tests/mcp/tools/test_known_defects_in_get_symbol.py tests/mcp/tools/test_known_defects_in_product_reference.py -q -rfE -p no:cacheprovider "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-ssf08q_3\.junit-1.xml"
+--- stdout ---
+............................................                             [100%]
+
+--- stderr ---
+
+
+===== CLEAN RUN 2 (host) =====
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-5c72e798a73c059a\Scripts\python.exe -m pytest tests/indexing/test_known_defects_data_pdf_slides.py -q -rfE -p no:cacheprovider "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-ssf08q_3\.junit-0.xml"
+--- stdout ---
+.....................                                                    [100%]
+
+--- stderr ---
+
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-5c72e798a73c059a\Scripts\python.exe -m pytest tests/indexing/test_known_defects.py tests/mcp/tools/test_known_defects_in_get_symbol.py tests/mcp/tools/test_known_defects_in_product_reference.py -q -rfE -p no:cacheprovider "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-ssf08q_3\.junit-1.xml"
+--- stdout ---
+............................................                             [100%]
+
+--- stderr ---
+
+
+===== NEGATIVE CONTROL (checks MUST now fail) =====
+mutated: M config/known_defects/pdf__cpp.yaml, ?? .junit-0.xml, ?? .junit-1.xml
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-5c72e798a73c059a\Scripts\python.exe -m pytest tests/indexing/test_known_defects_data_pdf_slides.py -q -rfE -p no:cacheprovider "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-ssf08q_3\.junit-0.xml"
+--- stdout ---
+.....F....F..F.FF..F.                                                    [100%]
+================================== FAILURES ===================================
+_ test_load_known_defects_returns_the_real_written_count_for_this_pilot[pdf-cpp] _
+
+family = 'pdf', platform = 'cpp'
+
+    @pytest.mark.parametrize(("family", "platform"), _PILOTS)
+    def test_load_known_defects_returns_the_real_written_count_for_this_pilot(family: str, platform: str) -> None:
+        defects = load_known_defects(family, platform)
+>       assert len(defects) == _EXPECTED_COUNTS[(family, platform)], (
+            f"{family}/{platform}: expected {_EXPECTED_COUNTS[(family, platform)]} real written "
+            f"entries, got {len(defects)}"
+        )
+E       AssertionError: pdf/cpp: expected 1 real written entries, got 0
+E       assert 0 == 1
+E        +  where 0 = len([])
+
+tests\indexing\test_known_defects_data_pdf_slides.py:130: AssertionError
+__________ test_six_entries_total_across_all_five_pdf_slides_pilots ___________
+
+    def test_six_entries_total_across_all_five_pdf_slides_pilots() -> None:
+        total = sum(len(load_known_defects(family, platform)) for family, platform in _PILOTS)
+>       assert total == 6
+E       assert 5 == 6
+
+tests\indexing\test_known_defects_data_pdf_slides.py:138: AssertionError
+_ test_every_real_round2_pdf_slides_upstream_library_bug_finding_has_a_written_entry _
+
+    def test_every_real_round2_pdf_slides_upstream_library_bug_finding_has_a_written_entry() -> None:
+        expected_ids = _real_round2_pdf_slides_upstream_library_bug_ids()
+        written_ids = {defect.id for defect in _all_written_defects()}
+>       assert expected_ids <= written_ids, (
+            f"real round-2 pdf/slides upstream-library-bug findings with no written entry: "
+            f"{expected_ids - written_ids}"
+        )
+E       AssertionError: real round-2 pdf/slides upstream-library-bug findings with no written entry: {'PDF-CPP-001'}
+E       assert {'PDF-CPP-001...LIDES-PY-001'} <= {'PDF-JAVA-00...LIDES-PY-001'}
+E         
+E         Extra items in the left set:
+E         'PDF-CPP-001'
+
+tests\indexing\test_known_defects_data_pdf_slides.py:165: AssertionError
+____________ test_every_entry_scope_matches_its_own_real_evidence _____________
+
+    def test_every_entry_scope_matches_its_own_real_evidence() -> None:
+        """The two C++ findings (PDF-CPP-001, SLIDES-CPP-002) are scoped by the real indexed commit the
+        issue's own text names (C++ has no published package version for these pilots); the four
+        findings with a real published package version in their own issue text are scoped by it."""
+        by_id = {defect.id: defect for defect in _all_written_defects()}
+    
+        for commit_id in ("PDF-CPP-001", "SLIDES-CPP-002"):
+>           defect = by_id[commit_id]
+                     ^^^^^^^^^^^^^^^^
+E           KeyError: 'PDF-CPP-001'
+
+tests\indexing\test_known_defects_data_pdf_slides.py:192: KeyError
+_________ test_pdf_cpp_001_is_method_scoped_not_a_whole_library_claim _________
+
+    def test_pdf_cpp_001_is_method_scoped_not_a_whole_library_claim() -> None:
+        """The card's own headline AES-256 finding is about one specific method
+        (``Document::Encrypt``), not the whole library - ``subject.kind`` must be ``method``, never
+        ``package``, matching this card's own instructions."""
+        defects = load_known_defects("pdf", "cpp")
+>       assert len(defects) == 1
+E       assert 0 == 1
+E        +  where 0 = len([])
+
+tests\indexing\test_known_defects_data_pdf_slides.py:207: AssertionError
+_ test_get_symbol_end_to_end_surfaces_the_real_written_pdf_cpp_aes256_defect __
+
+    def test_get_symbol_end_to_end_surfaces_the_real_written_pdf_cpp_aes256_defect() -> None:
+        """PDF-CPP-001 (``Aspose::Pdf::Document``, method-scoped, indexed-commit-scoped) is loaded
+        from the REAL ``config/known_defects/pdf__cpp.yaml`` this card wrote (``load_known_defects``
+        uses its default, production ``REGISTRY_DIR`` here - nothing is monkeypatched) and must
+        surface through a real ``get_symbol`` call for the real ``pdf/cpp`` scope, when the queried
+        chunk's own ``Source-Commit`` matches the defect's real ``applies_to.indexed_commit``."""
+        store = _InMemoryStore((_document_symbol_body(commit=_REAL_PDF_CPP_001_COMMIT),))
+        scope = Scope(family="pdf", platform="cpp")
+    
+        result = get_symbol(store, scope, "Aspose::Pdf::Document.Encrypt")  # type: ignore[arg-type]
+    
+        assert isinstance(result, ResolvedSignature)
+        assert result.fqn == "Aspose::Pdf::Document"
+>       assert len(result.known_defects) == 1
+E       AssertionError: assert 0 == 1
+E        +  where 0 = len(())
+E        +    where () = ResolvedSignature(scope=Scope(family='pdf', platform='cpp', source_kind='self_extracted'), generation_id='gen-tc646', ...'Encrypt(userPassword: string, ownerPassword: string, permissions: Permissions, algorithm: CryptoAlgorithm) -> void',)).known_defects
+
+tests\indexing\test_known_defects_data_pdf_slides.py:303: AssertionError
+=========================== short test summary info ===========================
+FAILED tests/indexing/test_known_defects_data_pdf_slides.py::test_load_known_defects_returns_the_real_written_count_for_this_pilot[pdf-cpp]
+FAILED tests/indexing/test_known_defects_data_pdf_slides.py::test_six_entries_total_across_all_five_pdf_slides_pilots
+FAILED tests/indexing/test_known_defects_data_pdf_slides.py::test_every_real_round2_pdf_slides_upstream_library_bug_finding_has_a_written_entry
+FAILED tests/indexing/test_known_defects_data_pdf_slides.py::test_every_entry_scope_matches_its_own_real_evidence
+FAILED tests/indexing/test_known_defects_data_pdf_slides.py::test_pdf_cpp_001_is_method_scoped_not_a_whole_library_claim
+FAILED tests/indexing/test_known_defects_data_pdf_slides.py::test_get_symbol_end_to_end_surfaces_the_real_written_pdf_cpp_aes256_defect
+
+--- stderr ---
+
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-5c72e798a73c059a\Scripts\python.exe -m pytest tests/indexing/test_known_defects.py tests/mcp/tools/test_known_defects_in_get_symbol.py tests/mcp/tools/test_known_defects_in_product_reference.py -q -rfE -p no:cacheprovider "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-ssf08q_3\.junit-1.xml"
+--- stdout ---
+............................................                             [100%]
+
+--- stderr ---
+
