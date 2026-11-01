@@ -100,7 +100,7 @@ requires:
 network: false
 negative_control:
   mutate: |
-    python -X utf8 -c "import pathlib; p = pathlib.Path('tests/fixtures/furnished/cells_cpp/pages/_index.md'); s = p.read_text(encoding='utf-8'); old = chr(96) + '.csv' + chr(96) + ' load is supported'; new = chr(96) + '.csv' + chr(96) + ' load is NOT supported'; assert old in s or new in s, chr(96) + '.csv' + chr(96) + ' load is supported literal not found in either the pre-fix or post-fix shape - if your real fix text reads differently, anchor your own mutate on your own real literal instead and note the substitution in your closeout'; p.write_text(s.replace(new, old) if new in s else s, encoding='utf-8')"
+    python -X utf8 -c "import pathlib; p = pathlib.Path('tests/fixtures/furnished/cells_cpp/pages/_index.md'); s = p.read_text(encoding='utf-8'); fixed = 'is not supported for load or'; reintroduced = 'is supported for load or'; assert s.count(fixed) == 1, 'the real fixed fragment was not found exactly once - if your real fix text reads differently, anchor your own mutate on your own real literal instead and note the substitution in your closeout'; p.write_text(s.replace(fixed, reintroduced, 1), encoding='utf-8')"
   rationale: >-
     Reverts the CELLS-CPP-001 fixture answer back to its original, fabricated "csv load is
     supported" claim, regardless of your fix's own exact wording. Any test proving your verifier
