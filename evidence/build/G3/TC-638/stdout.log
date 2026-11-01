@@ -1,0 +1,839 @@
+
+===== CLEAN RUN 1 (host) =====
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-5c72e798a73c059a\Scripts\python.exe -m pytest tests/infra/test_generate_furnished_page.py -q -rfE -p no:cacheprovider "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-911k7wsi\.junit-0.xml"
+--- stdout ---
+........................................................................ [ 88%]
+.........                                                                [100%]
+
+--- stderr ---
+
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-5c72e798a73c059a\Scripts\python.exe -m pytest tests/indexing/test_doc_candidates.py tests/infra/test_furnished_fixtures_valid.py tests/infra/test_furnished_chunk_survival.py -q -rfE -p no:cacheprovider "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-911k7wsi\.junit-1.xml"
+--- stdout ---
+........................................................................ [ 29%]
+........................................................................ [ 58%]
+........................................................................ [ 87%]
+..............................                                           [100%]
+
+--- stderr ---
+
+
+===== CLEAN RUN 2 (host) =====
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-5c72e798a73c059a\Scripts\python.exe -m pytest tests/infra/test_generate_furnished_page.py -q -rfE -p no:cacheprovider "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-911k7wsi\.junit-0.xml"
+--- stdout ---
+........................................................................ [ 88%]
+.........                                                                [100%]
+
+--- stderr ---
+
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-5c72e798a73c059a\Scripts\python.exe -m pytest tests/indexing/test_doc_candidates.py tests/infra/test_furnished_fixtures_valid.py tests/infra/test_furnished_chunk_survival.py -q -rfE -p no:cacheprovider "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-911k7wsi\.junit-1.xml"
+--- stdout ---
+........................................................................ [ 29%]
+........................................................................ [ 58%]
+........................................................................ [ 87%]
+..............................                                           [100%]
+
+--- stderr ---
+
+
+===== NEGATIVE CONTROL (checks MUST now fail) =====
+mutated: M infra/generate_furnished_page.py, ?? .junit-0.xml, ?? .junit-1.xml
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-5c72e798a73c059a\Scripts\python.exe -m pytest tests/infra/test_generate_furnished_page.py -q -rfE -p no:cacheprovider "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-911k7wsi\.junit-0.xml"
+--- stdout ---
+...............................FFFFFFFFFFFF.......F...FFFF..F.....F.F... [ 88%]
+.FF.F....                                                                [100%]
+================================== FAILURES ===================================
+________________ test_a_complete_readme_builds_a_complete_page ________________
+
+tmp_path = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-18597/test_a_complete_readme_builds_0')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x000001ED5564E890>
+
+    def test_a_complete_readme_builds_a_complete_page(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+        page_text, fields = _build(_readme(), monkeypatch)
+>       page = _load_page(tmp_path, page_text)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests\infra\test_generate_furnished_page.py:553: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+tests\infra\test_generate_furnished_page.py:510: in _load_page
+    return build_chunks._load_furnished_page(path)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+path = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-18597/test_a_complete_readme_builds_0/loaded/pages/_index.md')
+
+    def _load_furnished_page(path: Path) -> dict:
+        """Parse a Hugo page-bundle's front matter - the exact real pattern TC-066's own
+        real-fixture test uses (split on the first two ``---`` fences, ``yaml.safe_load``).
+        """
+        text = path.read_text(encoding="utf-8")
+>       front_matter = text.split("---", 2)[1]
+                       ^^^^^^^^^^^^^^^^^^^^^^^
+E       IndexError: list index out of range
+
+infra\build_chunks.py:414: IndexError
+_____ test_the_scope_and_limitations_block_classifies_as_troubleshooting ______
+
+tmp_path = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-18597/test_the_scope_and_limitations0')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x000001ED5566F8C0>
+
+    def test_the_scope_and_limitations_block_classifies_as_troubleshooting(
+        tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        page_text, _ = _build(_readme(), monkeypatch)
+>       candidates = extract_doc_sections(_load_page(tmp_path, page_text))
+                                          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests\infra\test_generate_furnished_page.py:596: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+tests\infra\test_generate_furnished_page.py:510: in _load_page
+    return build_chunks._load_furnished_page(path)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+path = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-18597/test_the_scope_and_limitations0/loaded/pages/_index.md')
+
+    def _load_furnished_page(path: Path) -> dict:
+        """Parse a Hugo page-bundle's front matter - the exact real pattern TC-066's own
+        real-fixture test uses (split on the first two ``---`` fences, ``yaml.safe_load``).
+        """
+        text = path.read_text(encoding="utf-8")
+>       front_matter = text.split("---", 2)[1]
+                       ^^^^^^^^^^^^^^^^^^^^^^^
+E       IndexError: list index out of range
+
+infra\build_chunks.py:414: IndexError
+__________ test_the_page_yields_one_example_entry_per_eligible_fence __________
+
+tmp_path = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-18597/test_the_page_yields_one_examp0')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x000001ED5566F700>
+
+    def test_the_page_yields_one_example_entry_per_eligible_fence(
+        tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        page_text, _ = _build(_readme(), monkeypatch)
+>       page = _load_page(tmp_path, page_text)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests\infra\test_generate_furnished_page.py:609: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+tests\infra\test_generate_furnished_page.py:510: in _load_page
+    return build_chunks._load_furnished_page(path)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+path = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-18597/test_the_page_yields_one_examp0/loaded/pages/_index.md')
+
+    def _load_furnished_page(path: Path) -> dict:
+        """Parse a Hugo page-bundle's front matter - the exact real pattern TC-066's own
+        real-fixture test uses (split on the first two ``---`` fences, ``yaml.safe_load``).
+        """
+        text = path.read_text(encoding="utf-8")
+>       front_matter = text.split("---", 2)[1]
+                       ^^^^^^^^^^^^^^^^^^^^^^^
+E       IndexError: list index out of range
+
+infra\build_chunks.py:414: IndexError
+_____ test_fence_tags_are_normalised_and_build_tags_never_become_examples _____
+
+tmp_path = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-18597/test_fence_tags_are_normalised0')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x000001ED5566E820>
+
+    def test_fence_tags_are_normalised_and_build_tags_never_become_examples(
+        tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        page_text, fields = _build(_readme(), monkeypatch)
+>       languages = [e.language for e in extract_candidate_examples(_load_page(tmp_path, page_text))]
+                                                                    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests\infra\test_generate_furnished_page.py:626: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+tests\infra\test_generate_furnished_page.py:510: in _load_page
+    return build_chunks._load_furnished_page(path)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+path = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-18597/test_fence_tags_are_normalised0/loaded/pages/_index.md')
+
+    def _load_furnished_page(path: Path) -> dict:
+        """Parse a Hugo page-bundle's front matter - the exact real pattern TC-066's own
+        real-fixture test uses (split on the first two ``---`` fences, ``yaml.safe_load``).
+        """
+        text = path.read_text(encoding="utf-8")
+>       front_matter = text.split("---", 2)[1]
+                       ^^^^^^^^^^^^^^^^^^^^^^^
+E       IndexError: list index out of range
+
+infra\build_chunks.py:414: IndexError
+___________ test_a_readme_without_dependencies_still_builds_a_page ____________
+
+tmp_path = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-18597/test_a_readme_without_dependen0')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x000001ED5566F2A0>
+
+    def test_a_readme_without_dependencies_still_builds_a_page(
+        tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        page_text, fields = _build(_readme(omit=("Dependencies",)), monkeypatch)
+>       candidates = extract_doc_sections(_load_page(tmp_path, page_text))
+                                          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests\infra\test_generate_furnished_page.py:643: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+tests\infra\test_generate_furnished_page.py:510: in _load_page
+    return build_chunks._load_furnished_page(path)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+path = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-18597/test_a_readme_without_dependen0/loaded/pages/_index.md')
+
+    def _load_furnished_page(path: Path) -> dict:
+        """Parse a Hugo page-bundle's front matter - the exact real pattern TC-066's own
+        real-fixture test uses (split on the first two ``---`` fences, ``yaml.safe_load``).
+        """
+        text = path.read_text(encoding="utf-8")
+>       front_matter = text.split("---", 2)[1]
+                       ^^^^^^^^^^^^^^^^^^^^^^^
+E       IndexError: list index out of range
+
+infra\build_chunks.py:414: IndexError
+_ test_a_readme_missing_several_sections_gives_a_partial_page_and_reports_them _
+
+tmp_path = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-18597/test_a_readme_missing_several_0')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x000001ED5564E890>
+capsys = <_pytest.capture.CaptureFixture object at 0x000001ED55698830>
+
+    def test_a_readme_missing_several_sections_gives_a_partial_page_and_reports_them(
+        tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+    ) -> None:
+        omitted = ("At a Glance", "Key Capabilities", "API Reference", "Scope and Limitations")
+        root = _readme_project(tmp_path / "project")
+        # TC-369: the README is also built without the two unrecognised sections (the keep-the-rest rule
+        # now carries them into the page); only this input changed, no assertion below did.
+        unrecognised = ("Additional Examples", "Development and Testing")
+        # The README must stay long enough not to be refused as thin, so the 30 lines that Development and
+        # Testing supplied are appended to the (last, boilerplate) License section, which is never kept.
+        padding = "\n".join(f"- licence note {number}" for number in range(30))
+        readme = _readme(omit=omitted + unrecognised) + f"\n{padding}\n"
+        _patch_readmes(monkeypatch, {_README_REPOSITORY: readme})
+    
+        _run_github(root)
+    
+        output = capsys.readouterr().out
+>       page = build_chunks._load_furnished_page(gen._fixture_path(root, _README_PILOT_KEY))
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests\infra\test_generate_furnished_page.py:675: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+path = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-18597/test_a_readme_missing_several_0/project/tests/fixtures/furnished/widget_go/pages/_index.md')
+
+    def _load_furnished_page(path: Path) -> dict:
+        """Parse a Hugo page-bundle's front matter - the exact real pattern TC-066's own
+        real-fixture test uses (split on the first two ``---`` fences, ``yaml.safe_load``).
+        """
+        text = path.read_text(encoding="utf-8")
+>       front_matter = text.split("---", 2)[1]
+                       ^^^^^^^^^^^^^^^^^^^^^^^
+E       IndexError: list index out of range
+
+infra\build_chunks.py:414: IndexError
+__ test_every_present_left_and_right_section_becomes_its_own_distinct_block ___
+
+tmp_path = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-18597/test_every_present_left_and_ri0')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x000001ED555E8BB0>
+
+    def test_every_present_left_and_right_section_becomes_its_own_distinct_block(
+        tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        page_text, fields = _build(_readme(), monkeypatch)
+>       page = _load_page(tmp_path, page_text)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests\infra\test_generate_furnished_page.py:701: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+tests\infra\test_generate_furnished_page.py:510: in _load_page
+    return build_chunks._load_furnished_page(path)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+path = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-18597/test_every_present_left_and_ri0/loaded/pages/_index.md')
+
+    def _load_furnished_page(path: Path) -> dict:
+        """Parse a Hugo page-bundle's front matter - the exact real pattern TC-066's own
+        real-fixture test uses (split on the first two ``---`` fences, ``yaml.safe_load``).
+        """
+        text = path.read_text(encoding="utf-8")
+>       front_matter = text.split("---", 2)[1]
+                       ^^^^^^^^^^^^^^^^^^^^^^^
+E       IndexError: list index out of range
+
+infra\build_chunks.py:414: IndexError
+____ test_omitting_one_left_section_leaves_the_others_separate_and_present ____
+
+tmp_path = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-18597/test_omitting_one_left_section0')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x000001ED555EA430>
+
+    def test_omitting_one_left_section_leaves_the_others_separate_and_present(
+        tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        page_text, _ = _build(_readme(omit=("Installation",)), monkeypatch)
+>       page = _load_page(tmp_path, page_text)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests\infra\test_generate_furnished_page.py:722: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+tests\infra\test_generate_furnished_page.py:510: in _load_page
+    return build_chunks._load_furnished_page(path)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+path = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-18597/test_omitting_one_left_section0/loaded/pages/_index.md')
+
+    def _load_furnished_page(path: Path) -> dict:
+        """Parse a Hugo page-bundle's front matter - the exact real pattern TC-066's own
+        real-fixture test uses (split on the first two ``---`` fences, ``yaml.safe_load``).
+        """
+        text = path.read_text(encoding="utf-8")
+>       front_matter = text.split("---", 2)[1]
+                       ^^^^^^^^^^^^^^^^^^^^^^^
+E       IndexError: list index out of range
+
+infra\build_chunks.py:414: IndexError
+_ test_omitting_one_right_section_leaves_the_remaining_one_its_own_unmerged_block _
+
+tmp_path = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-18597/test_omitting_one_right_sectio0')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x000001ED555EBCB0>
+
+    def test_omitting_one_right_section_leaves_the_remaining_one_its_own_unmerged_block(
+        tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        # "Additional Examples"/"Development and Testing" are also omitted: left in, their unrecognised
+        # headings would be kept under Key Capabilities by the section fallback, undermining the point
+        # of this test (that an explicitly-omitted Key Capabilities really stays absent, not reconstituted).
+        # Padding keeps the README above MIN_NON_BLANK_LINES once those sections are gone.
+        padding = "\n".join(f"- licence note {number}" for number in range(15))
+        readme = (
+            _readme(omit=("Key Capabilities", "Additional Examples", "Development and Testing"))
+            + f"\n{padding}\n"
+        )
+        page_text, fields = _build(readme, monkeypatch)
+>       page = _load_page(tmp_path, page_text)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests\infra\test_generate_furnished_page.py:750: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+tests\infra\test_generate_furnished_page.py:510: in _load_page
+    return build_chunks._load_furnished_page(path)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+path = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-18597/test_omitting_one_right_sectio0/loaded/pages/_index.md')
+
+    def _load_furnished_page(path: Path) -> dict:
+        """Parse a Hugo page-bundle's front matter - the exact real pattern TC-066's own
+        real-fixture test uses (split on the first two ``---`` fences, ``yaml.safe_load``).
+        """
+        text = path.read_text(encoding="utf-8")
+>       front_matter = text.split("---", 2)[1]
+                       ^^^^^^^^^^^^^^^^^^^^^^^
+E       IndexError: list index out of range
+
+infra\build_chunks.py:414: IndexError
+_ test_omitting_every_left_section_still_builds_separate_right_and_scope_blocks _
+
+tmp_path = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-18597/test_omitting_every_left_secti0')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x000001ED555E9470>
+
+    def test_omitting_every_left_section_still_builds_separate_right_and_scope_blocks(
+        tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        page_text, _ = _build(_readme(omit=("Installation", "Dependencies", "Quick Start")), monkeypatch)
+>       page = _load_page(tmp_path, page_text)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests\infra\test_generate_furnished_page.py:764: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+tests\infra\test_generate_furnished_page.py:510: in _load_page
+    return build_chunks._load_furnished_page(path)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+path = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-18597/test_omitting_every_left_secti0/loaded/pages/_index.md')
+
+    def _load_furnished_page(path: Path) -> dict:
+        """Parse a Hugo page-bundle's front matter - the exact real pattern TC-066's own
+        real-fixture test uses (split on the first two ``---`` fences, ``yaml.safe_load``).
+        """
+        text = path.read_text(encoding="utf-8")
+>       front_matter = text.split("---", 2)[1]
+                       ^^^^^^^^^^^^^^^^^^^^^^^
+E       IndexError: list index out of range
+
+infra\build_chunks.py:414: IndexError
+_ test_the_scope_block_overview_and_faq_are_unaffected_by_the_per_section_split _
+
+tmp_path = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-18597/test_the_scope_block_overview_0')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x000001ED555EA120>
+
+    def test_the_scope_block_overview_and_faq_are_unaffected_by_the_per_section_split(
+        tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        page_text, fields = _build(_readme(), monkeypatch)
+>       page = _load_page(tmp_path, page_text)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests\infra\test_generate_furnished_page.py:776: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+tests\infra\test_generate_furnished_page.py:510: in _load_page
+    return build_chunks._load_furnished_page(path)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+path = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-18597/test_the_scope_block_overview_0/loaded/pages/_index.md')
+
+    def _load_furnished_page(path: Path) -> dict:
+        """Parse a Hugo page-bundle's front matter - the exact real pattern TC-066's own
+        real-fixture test uses (split on the first two ``---`` fences, ``yaml.safe_load``).
+        """
+        text = path.read_text(encoding="utf-8")
+>       front_matter = text.split("---", 2)[1]
+                       ^^^^^^^^^^^^^^^^^^^^^^^
+E       IndexError: list index out of range
+
+infra\build_chunks.py:414: IndexError
+__ test_nothing_is_invented_when_a_left_and_a_right_section_are_both_missing __
+
+tmp_path = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-18597/test_nothing_is_invented_when_0')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x000001ED555EAAC0>
+
+    def test_nothing_is_invented_when_a_left_and_a_right_section_are_both_missing(
+        tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        page_text, fields = _build(_readme(omit=("Dependencies", "API Reference")), monkeypatch)
+>       page = _load_page(tmp_path, page_text)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests\infra\test_generate_furnished_page.py:795: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+tests\infra\test_generate_furnished_page.py:510: in _load_page
+    return build_chunks._load_furnished_page(path)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+path = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-18597/test_nothing_is_invented_when_0/loaded/pages/_index.md')
+
+    def _load_furnished_page(path: Path) -> dict:
+        """Parse a Hugo page-bundle's front matter - the exact real pattern TC-066's own
+        real-fixture test uses (split on the first two ``---`` fences, ``yaml.safe_load``).
+        """
+        text = path.read_text(encoding="utf-8")
+>       front_matter = text.split("---", 2)[1]
+                       ^^^^^^^^^^^^^^^^^^^^^^^
+E       IndexError: list index out of range
+
+infra\build_chunks.py:414: IndexError
+___ test_literal_triple_dash_lines_never_let_the_page_parser_split_the_page ___
+
+tmp_path = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-18597/test_literal_triple_dash_lines0')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x000001ED5566F4D0>
+
+    def test_literal_triple_dash_lines_never_let_the_page_parser_split_the_page(
+        tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        tricky = dict(_README_SECTIONS)
+        tricky["Installation"] = (
+            "Install with the Go tool:\n\n---\n\nA run of dashes---inside a sentence, and a rule of ------.\n\n"
+            "```yaml\n---\nname: widget\n---\n```\n\n```bash\ngo get example.invalid/widget\n```"
+        )
+        tricky["API Reference"] = "| Type | Description |\n|---|---|\n| `Widget` | The widget. |"
+        readme = _README_INTRO + "\n" + "\n".join(f"## {name}\n\n{body}\n" for name, body in tricky.items())
+    
+        page_text, _ = _build(readme, monkeypatch)
+>       page = _load_page(tmp_path, page_text)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests\infra\test_generate_furnished_page.py:911: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+tests\infra\test_generate_furnished_page.py:510: in _load_page
+    return build_chunks._load_furnished_page(path)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+path = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-18597/test_literal_triple_dash_lines0/loaded/pages/_index.md')
+
+    def _load_furnished_page(path: Path) -> dict:
+        """Parse a Hugo page-bundle's front matter - the exact real pattern TC-066's own
+        real-fixture test uses (split on the first two ``---`` fences, ``yaml.safe_load``).
+        """
+        text = path.read_text(encoding="utf-8")
+>       front_matter = text.split("---", 2)[1]
+                       ^^^^^^^^^^^^^^^^^^^^^^^
+E       IndexError: list index out of range
+
+infra\build_chunks.py:414: IndexError
+___________ test_tabs_unicode_and_odd_whitespace_round_trip_exactly ___________
+
+tmp_path = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-18597/test_tabs_unicode_and_odd_whit0')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x000001ED55621860>
+
+    def test_tabs_unicode_and_odd_whitespace_round_trip_exactly(
+        tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        readme = _readme().replace(
+            "w := widget.New()\nw.Spin()",
+            "func main() {\n\tw := widget.New()  \n\tw.Spin() // spins — \U0001f680 é\n}\n\n\n",
+        )
+    
+        page_text, _ = _build(readme, monkeypatch)
+>       page = _load_page(tmp_path, page_text)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests\infra\test_generate_furnished_page.py:985: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+tests\infra\test_generate_furnished_page.py:510: in _load_page
+    return build_chunks._load_furnished_page(path)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+path = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-18597/test_tabs_unicode_and_odd_whit0/loaded/pages/_index.md')
+
+    def _load_furnished_page(path: Path) -> dict:
+        """Parse a Hugo page-bundle's front matter - the exact real pattern TC-066's own
+        real-fixture test uses (split on the first two ``---`` fences, ``yaml.safe_load``).
+        """
+        text = path.read_text(encoding="utf-8")
+>       front_matter = text.split("---", 2)[1]
+                       ^^^^^^^^^^^^^^^^^^^^^^^
+E       IndexError: list index out of range
+
+infra\build_chunks.py:414: IndexError
+_______________ test_furnished_title_finds_the_generated_title ________________
+
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x000001ED5564E890>
+
+    def test_furnished_title_finds_the_generated_title(monkeypatch: pytest.MonkeyPatch) -> None:
+        poc = _poc_module()
+        page_text, _ = _build(_readme(), monkeypatch)
+    
+>       assert poc.furnished_title(page_text) == _README_TITLE
+E       AssertionError: assert None == 'Widget FOSS for Go'
+E        +  where None = <function furnished_title at 0x000001ED55588400>('TC-638 negative control: never build a real page')
+E        +    where <function furnished_title at 0x000001ED55588400> = <module 'pilot_workflow_proof_for_tc351' from 'E:\\Users\\prora\\OneDrive\\Documents\\GitHub\\foss-mcp\\.gatectl-worktrees\\wt-911k7wsi\\scripts\\poc\\pilot_workflow_proof.py'>.furnished_title
+
+tests\infra\test_generate_furnished_page.py:996: AssertionError
+______ test_build_page_refuses_a_page_that_would_claim_the_wrong_commit _______
+
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x000001ED5566FA80>
+
+    def test_build_page_refuses_a_page_that_would_claim_the_wrong_commit(monkeypatch: pytest.MonkeyPatch) -> None:
+        _patch_readmes(monkeypatch, {_README_REPOSITORY: _readme()})
+        fields = gen.readme_doc_fields(_README_REPOSITORY, "e" * 40)
+>       with pytest.raises(ValueError, match="pins"):
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       Failed: DID NOT RAISE ValueError
+
+tests\infra\test_generate_furnished_page.py:1006: Failed
+_ test_a_page_is_generated_for_a_real_chart_pilot_pinned_to_its_chart_commit __
+
+tmp_path = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-18597/test_a_page_is_generated_for_a0')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x000001ED5566F4D0>
+
+    def test_a_page_is_generated_for_a_real_chart_pilot_pinned_to_its_chart_commit(
+        tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        chart = gen._load_chart_pilots(_REPO_ROOT)
+        # re-pinned by TC-551: 40 -> 32
+        assert len(chart) == 32
+        for key, pilot in chart.items():
+            family, platform, repository, commit = gen._pilot_identity(pilot)
+            assert key == f"{family}_{platform}"
+            assert repository and re.fullmatch(r"[0-9a-f]{40}", commit), key
+    
+        pilot = chart["pdf_go"]
+        repository = pilot["library"]["repository"]
+        _patch_readmes(monkeypatch, {repository: _readme()})
+        fields = gen.readme_doc_fields(repository, pilot["library"]["commit"])
+>       page = _load_page(tmp_path, gen.build_page_from_readme(pilot, fields))
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests\infra\test_generate_furnished_page.py:1029: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+tests\infra\test_generate_furnished_page.py:510: in _load_page
+    return build_chunks._load_furnished_page(path)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+path = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-18597/test_a_page_is_generated_for_a0/loaded/pages/_index.md')
+
+    def _load_furnished_page(path: Path) -> dict:
+        """Parse a Hugo page-bundle's front matter - the exact real pattern TC-066's own
+        real-fixture test uses (split on the first two ``---`` fences, ``yaml.safe_load``).
+        """
+        text = path.read_text(encoding="utf-8")
+>       front_matter = text.split("---", 2)[1]
+                       ^^^^^^^^^^^^^^^^^^^^^^^
+E       IndexError: list index out of range
+
+infra\build_chunks.py:414: IndexError
+______ test_pilot_is_repeatable_and_validated_against_the_charts_pilots _______
+
+tmp_path = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-18597/test_pilot_is_repeatable_and_v0')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x000001ED555E9470>
+capsys = <_pytest.capture.CaptureFixture object at 0x000001ED55609F50>
+
+    def test_pilot_is_repeatable_and_validated_against_the_charts_pilots(
+        tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+    ) -> None:
+        other = {
+            "family": "gadget",
+            "platform": "nodejs",
+            "library": {"repository": "widget-org/Gadget-FOSS-for-Node.js", "commit": "c" * 40},
+        }
+        third = {
+            "family": "gizmo",
+            "platform": "cpp",
+            "library": {"repository": "widget-org/Gizmo-FOSS-for-Cpp", "commit": "d" * 40},
+        }
+        root = _readme_project(tmp_path / "project", (_README_PILOT, other, third))
+        calls = _patch_readmes(
+            monkeypatch,
+            {
+                _README_REPOSITORY: _readme(),
+                "widget-org/Gadget-FOSS-for-Node.js": _readme(),
+                "widget-org/Gizmo-FOSS-for-Cpp": _readme(),
+            },
+        )
+    
+        _run_github(root, "--pilot", "gizmo_cpp", "--pilot", _README_PILOT_KEY, "--pilot", "gizmo_cpp")
+    
+        assert [call[0] for call in calls] == ["widget-org/Gizmo-FOSS-for-Cpp", _README_REPOSITORY]
+        assert (
+            gen._fixture_path(root, "gizmo_cpp").is_file()
+            and not gen._fixture_path(root, "gadget_nodejs").exists()
+        )
+>       assert "plugin_platform: C++" in gen._fixture_path(root, "gizmo_cpp").read_text(encoding="utf-8")
+E       AssertionError: assert 'plugin_platform: C++' in 'TC-638 negative control: never build a real page'
+E        +  where 'TC-638 negative control: never build a real page' = read_text(encoding='utf-8')
+E        +    where read_text = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-18597/test_pilot_is_repeatable_and_v0/project/tests/fixtures/furnished/gizmo_cpp/pages/_index.md').read_text
+E        +      where WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-18597/test_pilot_is_repeatable_and_v0/project/tests/fixtures/furnished/gizmo_cpp/pages/_index.md') = <function _fixture_path at 0x000001ED55AD2340>(WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-18597/test_pilot_is_repeatable_and_v0/project'), 'gizmo_cpp')
+E        +        where <function _fixture_path at 0x000001ED55AD2340> = gen._fixture_path
+
+tests\infra\test_generate_furnished_page.py:1102: AssertionError
+---------------------------- Captured stdout call -----------------------------
+gizmo_cpp: wrote tests/fixtures/furnished/gizmo_cpp/pages/_index.md - sections found: At a Glance, Installation, Dependencies, Quick Start, Key Capabilities, API Reference, Scope and Limitations; missing: none; examples: 5; 48 bytes
+widget_go: wrote tests/fixtures/furnished/widget_go/pages/_index.md - sections found: At a Glance, Installation, Dependencies, Quick Start, Key Capabilities, API Reference, Scope and Limitations; missing: none; examples: 5; 48 bytes
+______ test_alternative_headings_are_mapped_onto_the_canonical_sections _______
+
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x000001ED55620DE0>
+
+    def test_alternative_headings_are_mapped_onto_the_canonical_sections(
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        page_text, fields = _build(_loose_readme(*_ALIASED_SECTIONS), monkeypatch)
+    
+        assert set(fields.missing) == {"At a Glance", "Dependencies", "API Reference"}
+        assert fields.mapped == (
+            ("Install", "Installation"),
+            ("Usage", "Quick Start"),
+            ("Supported formats", "Key Capabilities"),
+            ("Notes", "Scope and Limitations"),
+        )
+        assert fields.kept == ()
+        for text in ("go get example.invalid/loose", "w := loose.New()", "WIDGETFMT", "not thread safe"):
+>           assert text in page_text
+E           AssertionError: assert 'go get example.invalid/loose' in 'TC-638 negative control: never build a real page'
+
+tests\infra\test_generate_furnished_page.py:1298: AssertionError
+____ test_an_imaging_style_readme_keeps_its_content_and_drops_contributing ____
+
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x000001ED55350130>
+
+    def test_an_imaging_style_readme_keeps_its_content_and_drops_contributing(
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        page_text, fields = _build(_IMAGING_STYLE_README, monkeypatch)
+    
+>       assert "BMPFMT" in page_text and "WHYTEXT" in page_text
+E       AssertionError: assert ('BMPFMT' in 'TC-638 negative control: never build a real page')
+
+tests\infra\test_generate_furnished_page.py:1319: AssertionError
+__ test_the_first_of_two_matching_alias_headings_wins_and_the_second_is_kept __
+
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x000001ED5564E970>
+
+    def test_the_first_of_two_matching_alias_headings_wins_and_the_second_is_kept(
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        readme = _loose_readme(
+            ("Features", "FIRSTFEATURES are listed here."),
+            ("Highlights", "SECONDHIGHLIGHTS are listed here."),
+            *_ALIASED_SECTIONS[:2],
+        )
+        page_text, fields = _build(readme, monkeypatch)
+    
+        assert ("Features", "Key Capabilities") in fields.mapped
+        assert all(heading != "Highlights" for heading, _ in fields.mapped)
+        assert fields.kept == ("Highlights",)
+        body = fields.sections["Key Capabilities"]
+        assert body.startswith("FIRSTFEATURES") and "### Highlights\n\nSECONDHIGHLIGHTS" in body
+>       assert "FIRSTFEATURES" in page_text and "SECONDHIGHLIGHTS" in page_text
+E       AssertionError: assert ('FIRSTFEATURES' in 'TC-638 negative control: never build a real page')
+
+tests\infra\test_generate_furnished_page.py:1392: AssertionError
+_ test_unrecognised_sections_alone_create_key_capabilities_and_are_not_reported_missing _
+
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x000001ED5564ECF0>
+
+    def test_unrecognised_sections_alone_create_key_capabilities_and_are_not_reported_missing(
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        readme = _loose_readme(
+            ("Install", "Fetch it."),
+            ("Usage", "Use it:\n\n```go\nw := loose.New()\n```"),
+            ("Roadmap", "ROADMAPTEXT is planned."),
+            ("FAQ", "FAQTEXT answers questions."),
+            ("License", "MIT."),
+        )
+        page_text, fields = _build(readme, monkeypatch)
+    
+        assert fields.kept == ("Roadmap", "FAQ")
+        assert "Key Capabilities" in fields.found and "Key Capabilities" not in fields.missing
+        assert fields.sections["Key Capabilities"].startswith("### Roadmap\n\nROADMAPTEXT")
+>       assert "ROADMAPTEXT" in page_text and "FAQTEXT" in page_text and "MIT." not in page_text
+E       AssertionError: assert ('ROADMAPTEXT' in 'TC-638 negative control: never build a real page')
+
+tests\infra\test_generate_furnished_page.py:1410: AssertionError
+____ test_the_page_built_from_kept_sections_loads_through_the_real_loader _____
+
+tmp_path = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-18597/test_the_page_built_from_kept_0')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x000001ED5564EB30>
+
+    def test_the_page_built_from_kept_sections_loads_through_the_real_loader(
+        tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        page_text, _ = _build(_IMAGING_STYLE_README, monkeypatch)
+>       page = _load_page(tmp_path, page_text)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests\infra\test_generate_furnished_page.py:1434: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+tests\infra\test_generate_furnished_page.py:510: in _load_page
+    return build_chunks._load_furnished_page(path)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+path = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-18597/test_the_page_built_from_kept_0/loaded/pages/_index.md')
+
+    def _load_furnished_page(path: Path) -> dict:
+        """Parse a Hugo page-bundle's front matter - the exact real pattern TC-066's own
+        real-fixture test uses (split on the first two ``---`` fences, ``yaml.safe_load``).
+        """
+        text = path.read_text(encoding="utf-8")
+>       front_matter = text.split("---", 2)[1]
+                       ^^^^^^^^^^^^^^^^^^^^^^^
+E       IndexError: list index out of range
+
+infra\build_chunks.py:414: IndexError
+=========================== short test summary info ===========================
+FAILED tests/infra/test_generate_furnished_page.py::test_a_complete_readme_builds_a_complete_page
+FAILED tests/infra/test_generate_furnished_page.py::test_the_scope_and_limitations_block_classifies_as_troubleshooting
+FAILED tests/infra/test_generate_furnished_page.py::test_the_page_yields_one_example_entry_per_eligible_fence
+FAILED tests/infra/test_generate_furnished_page.py::test_fence_tags_are_normalised_and_build_tags_never_become_examples
+FAILED tests/infra/test_generate_furnished_page.py::test_a_readme_without_dependencies_still_builds_a_page
+FAILED tests/infra/test_generate_furnished_page.py::test_a_readme_missing_several_sections_gives_a_partial_page_and_reports_them
+FAILED tests/infra/test_generate_furnished_page.py::test_every_present_left_and_right_section_becomes_its_own_distinct_block
+FAILED tests/infra/test_generate_furnished_page.py::test_omitting_one_left_section_leaves_the_others_separate_and_present
+FAILED tests/infra/test_generate_furnished_page.py::test_omitting_one_right_section_leaves_the_remaining_one_its_own_unmerged_block
+FAILED tests/infra/test_generate_furnished_page.py::test_omitting_every_left_section_still_builds_separate_right_and_scope_blocks
+FAILED tests/infra/test_generate_furnished_page.py::test_the_scope_block_overview_and_faq_are_unaffected_by_the_per_section_split
+FAILED tests/infra/test_generate_furnished_page.py::test_nothing_is_invented_when_a_left_and_a_right_section_are_both_missing
+FAILED tests/infra/test_generate_furnished_page.py::test_literal_triple_dash_lines_never_let_the_page_parser_split_the_page
+FAILED tests/infra/test_generate_furnished_page.py::test_tabs_unicode_and_odd_whitespace_round_trip_exactly
+FAILED tests/infra/test_generate_furnished_page.py::test_furnished_title_finds_the_generated_title
+FAILED tests/infra/test_generate_furnished_page.py::test_build_page_refuses_a_page_that_would_claim_the_wrong_commit
+FAILED tests/infra/test_generate_furnished_page.py::test_a_page_is_generated_for_a_real_chart_pilot_pinned_to_its_chart_commit
+FAILED tests/infra/test_generate_furnished_page.py::test_pilot_is_repeatable_and_validated_against_the_charts_pilots
+FAILED tests/infra/test_generate_furnished_page.py::test_alternative_headings_are_mapped_onto_the_canonical_sections
+FAILED tests/infra/test_generate_furnished_page.py::test_an_imaging_style_readme_keeps_its_content_and_drops_contributing
+FAILED tests/infra/test_generate_furnished_page.py::test_the_first_of_two_matching_alias_headings_wins_and_the_second_is_kept
+FAILED tests/infra/test_generate_furnished_page.py::test_unrecognised_sections_alone_create_key_capabilities_and_are_not_reported_missing
+FAILED tests/infra/test_generate_furnished_page.py::test_the_page_built_from_kept_sections_loads_through_the_real_loader
+
+--- stderr ---
+
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-5c72e798a73c059a\Scripts\python.exe -m pytest tests/indexing/test_doc_candidates.py tests/infra/test_furnished_fixtures_valid.py tests/infra/test_furnished_chunk_survival.py -q -rfE -p no:cacheprovider "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-911k7wsi\.junit-1.xml"
+--- stdout ---
+........................................................................ [ 29%]
+........................................................................ [ 58%]
+................................F....................................... [ 87%]
+..............................                                           [100%]
+================================== FAILURES ===================================
+____________ test_a_generated_page_passes_every_one_of_these_rules ____________
+
+tmp_path = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-18598/test_a_generated_page_passes_e0')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x000001985EA82350>
+
+    def test_a_generated_page_passes_every_one_of_these_rules(
+        tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """The generator's own output is held to the same rules as the committed pages.
+    
+        Built for a real chart entry from an in-memory README (the network is never reached), then
+        checked with the very functions the parametrized tests above use.
+        """
+        chart = _chart_pilots()
+        pilot = chart["pdf_go"]
+        repository, commit = pilot["library"]["repository"], pilot["library"]["commit"]
+        readme = "\n".join(
+            [
+                "# Demo Library for Go",
+                "",
+                "Demo Library for Go is a small pure-Go library used to prove the generator.",
+                "",
+                "## Quick Start",
+                "",
+                "```go",
+                "d := demo.New()",
+                "```",
+                "",
+                *(f"- line {number}" for number in range(40)),
+            ]
+        )
+    
+        def fake_read_repo_document(repo: str, path: str, *, ref: str | None = None, etag: str | None = None):
+            assert (repo, path, ref) == (repository, "README.md", commit)
+            return DocumentPresent(path=path, sha="f" * 40, size=len(readme), content=readme)
+    
+        monkeypatch.setattr(gen, "read_repo_document", fake_read_repo_document)
+        page_path = tmp_path / "pdf_go" / "pages" / "_index.md"
+        page_path.parent.mkdir(parents=True)
+        page_path.write_bytes(
+            gen.build_page_from_readme(pilot, gen.readme_doc_fields(repository, commit)).encode()
+        )
+    
+>       page = check_loads(page_path)
+               ^^^^^^^^^^^^^^^^^^^^^^
+
+tests\infra\test_furnished_fixtures_valid.py:208: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+tests\infra\test_furnished_fixtures_valid.py:75: in check_loads
+    page = build_chunks._load_furnished_page(page_path)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+path = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-18598/test_a_generated_page_passes_e0/pdf_go/pages/_index.md')
+
+    def _load_furnished_page(path: Path) -> dict:
+        """Parse a Hugo page-bundle's front matter - the exact real pattern TC-066's own
+        real-fixture test uses (split on the first two ``---`` fences, ``yaml.safe_load``).
+        """
+        text = path.read_text(encoding="utf-8")
+>       front_matter = text.split("---", 2)[1]
+                       ^^^^^^^^^^^^^^^^^^^^^^^
+E       IndexError: list index out of range
+
+infra\build_chunks.py:414: IndexError
+=========================== short test summary info ===========================
+FAILED tests/infra/test_furnished_fixtures_valid.py::test_a_generated_page_passes_every_one_of_these_rules
+
+--- stderr ---
+

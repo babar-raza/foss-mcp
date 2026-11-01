@@ -1,0 +1,111 @@
+{
+  "schema_version": 1,
+  "card": "TC-638",
+  "gate": "G3",
+  "generated_by": "gatectl",
+  "generated_at": "2026-11-01T05:20:05Z",
+  "base_rev": "732185426a75f04260ec1176d85c631cb387e545",
+  "head_rev": "0049aee00f7eecdb6bf6770b3ecf3bc30c4e9208",
+  "card_sha256": "094963f8458ab0317108692e0f0c71d46b5c4d7d8c78f7fdc45f64f0bc66fe1b",
+  "fingerprint": {
+    "python": "3.13.2",
+    "platform": "Windows-11-10.0.26300-SP0",
+    "lock_sha256": "5c72e798a73c059a438e752e94a8d4c88c1bdf81a197f6e5c5fcecbc9466a691",
+    "env": {
+      "PYTHONHASHSEED": "0",
+      "PYTHONUTF8": "1",
+      "PYTHONDONTWRITEBYTECODE": "1",
+      "PYTHONIOENCODING": "utf-8",
+      "TZ": "UTC",
+      "LC_ALL": "C.UTF-8",
+      "SOURCE_DATE_EPOCH": "1700000000",
+      "verify_runner": "host"
+    }
+  },
+  "scope": {
+    "ok": true,
+    "changed_paths": [
+      "infra/generate_furnished_page.py",
+      "tests/infra/test_generate_furnished_page.py"
+    ],
+    "violations": [],
+    "evaluated": true
+  },
+  "runs": [
+    {
+      "run": 1,
+      "checks": [
+        {
+          "command": "{python} -m pytest tests/infra/test_generate_furnished_page.py -q -rfE -p no:cacheprovider",
+          "exit_code": 0,
+          "duration_s": 4.737,
+          "stdout_sha256": "3d62d17cda0245ac103dacbc19a54714f32a472955ffa1297184c4315837fbd1",
+          "tests": 81,
+          "skipped": 0,
+          "errors": 0,
+          "failures": 0
+        },
+        {
+          "command": "{python} -m pytest tests/indexing/test_doc_candidates.py tests/infra/test_furnished_fixtures_valid.py tests/infra/test_furnished_chunk_survival.py -q -rfE -p no:cacheprovider",
+          "exit_code": 0,
+          "duration_s": 15.58,
+          "stdout_sha256": "df626e9ee6f2bfda10b9890cddcb1ad919aafeded545fef619fb7d8f602a4004",
+          "tests": 246,
+          "skipped": 0,
+          "errors": 0,
+          "failures": 0
+        }
+      ],
+      "all_passed": true
+    },
+    {
+      "run": 2,
+      "checks": [
+        {
+          "command": "{python} -m pytest tests/infra/test_generate_furnished_page.py -q -rfE -p no:cacheprovider",
+          "exit_code": 0,
+          "duration_s": 2.009,
+          "stdout_sha256": "3d62d17cda0245ac103dacbc19a54714f32a472955ffa1297184c4315837fbd1",
+          "tests": 81,
+          "skipped": 0,
+          "errors": 0,
+          "failures": 0
+        },
+        {
+          "command": "{python} -m pytest tests/indexing/test_doc_candidates.py tests/infra/test_furnished_fixtures_valid.py tests/infra/test_furnished_chunk_survival.py -q -rfE -p no:cacheprovider",
+          "exit_code": 0,
+          "duration_s": 13.054,
+          "stdout_sha256": "df626e9ee6f2bfda10b9890cddcb1ad919aafeded545fef619fb7d8f602a4004",
+          "tests": 246,
+          "skipped": 0,
+          "errors": 0,
+          "failures": 0
+        }
+      ],
+      "all_passed": true
+    }
+  ],
+  "negative_control": {
+    "kind": "mutate",
+    "patch": "python -X utf8 -c \"import pathlib; p = pathlib.Path('infra/generate_furnished_page.py'); s = p.read_text(encoding='utf-8'); old = 'def build_page_from_readme('; assert s.count(old) == 1, 'def build_page_from_readme( literal not found as expected - if this function has moved or been renamed, anchor your own mutate on your own real literal instead and note the substitution in your closeout'; i = s.index(old); j = s.index(':' + chr(10), i) + 2; p.write_text(s[:j] + '    return ' + chr(39) + 'TC-638 negative control: never build a real page' + chr(39) + chr(10) + s[j:], encoding='utf-8')\"\n",
+    "patch_sha256": "ab1ebffd89e8bac245ad81946e0611644fff64e0a2fd5831e3af383578d52081",
+    "applied": true,
+    "patch_applied_failed": true,
+    "exit_codes": [
+      1,
+      1
+    ],
+    "tree_changed": [
+      "M infra/generate_furnished_page.py",
+      "?? .junit-0.xml",
+      "?? .junit-1.xml"
+    ]
+  },
+  "holdout": {
+    "ran": false,
+    "passed": true,
+    "detail": "no holdout for this card"
+  },
+  "accepted": true,
+  "reason": "all gates passed"
+}
