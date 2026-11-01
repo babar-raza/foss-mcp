@@ -1,0 +1,109 @@
+
+===== CLEAN RUN 1 (host) =====
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-5c72e798a73c059a\Scripts\python.exe -m pytest tests/indexing/test_known_defects_data_cells.py -q -rfE -p no:cacheprovider "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-silo6kp9\.junit-0.xml"
+--- stdout ---
+.......................                                                  [100%]
+
+--- stderr ---
+
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-5c72e798a73c059a\Scripts\python.exe -m pytest tests/indexing/test_known_defects.py tests/mcp/tools/test_known_defects_in_get_symbol.py tests/mcp/tools/test_known_defects_in_product_reference.py -q -rfE -p no:cacheprovider "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-silo6kp9\.junit-1.xml"
+--- stdout ---
+............................................                             [100%]
+
+--- stderr ---
+
+
+===== CLEAN RUN 2 (host) =====
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-5c72e798a73c059a\Scripts\python.exe -m pytest tests/indexing/test_known_defects_data_cells.py -q -rfE -p no:cacheprovider "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-silo6kp9\.junit-0.xml"
+--- stdout ---
+.......................                                                  [100%]
+
+--- stderr ---
+
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-5c72e798a73c059a\Scripts\python.exe -m pytest tests/indexing/test_known_defects.py tests/mcp/tools/test_known_defects_in_get_symbol.py tests/mcp/tools/test_known_defects_in_product_reference.py -q -rfE -p no:cacheprovider "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-silo6kp9\.junit-1.xml"
+--- stdout ---
+............................................                             [100%]
+
+--- stderr ---
+
+
+===== NEGATIVE CONTROL (checks MUST now fail) =====
+mutated: M config/known_defects/cells__java.yaml, ?? .junit-0.xml, ?? .junit-1.xml
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-5c72e798a73c059a\Scripts\python.exe -m pytest tests/indexing/test_known_defects_data_cells.py -q -rfE -p no:cacheprovider "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-silo6kp9\.junit-0.xml"
+--- stdout ---
+.......F....F..F.....F.                                                  [100%]
+================================== FAILURES ===================================
+_ test_load_known_defects_returns_the_real_written_count_for_this_pilot[java] _
+
+platform = 'java'
+
+    @pytest.mark.parametrize("platform", _ALL_PLATFORMS)
+    def test_load_known_defects_returns_the_real_written_count_for_this_pilot(platform: str) -> None:
+        defects = load_known_defects("cells", platform)
+>       assert len(defects) == _EXPECTED_COUNTS[platform], (
+            f"cells/{platform}: expected {_EXPECTED_COUNTS[platform]} real written entries, got {len(defects)}"
+        )
+E       AssertionError: cells/java: expected 1 real written entries, got 0
+E       assert 0 == 1
+E        +  where 0 = len([])
+
+tests\indexing\test_known_defects_data_cells.py:124: AssertionError
+____________ test_twelve_entries_total_across_all_six_cells_pilots ____________
+
+    def test_twelve_entries_total_across_all_six_cells_pilots() -> None:
+        total = sum(len(load_known_defects("cells", platform)) for platform in _ALL_PLATFORMS)
+>       assert total == 12
+E       assert 11 == 12
+
+tests\indexing\test_known_defects_data_cells.py:131: AssertionError
+_ test_every_real_round2_cells_upstream_library_bug_finding_has_a_written_entry _
+
+    def test_every_real_round2_cells_upstream_library_bug_finding_has_a_written_entry() -> None:
+        expected_ids = _real_round2_cells_upstream_library_bug_ids()
+        written_ids = {
+            defect.id for platform in _ALL_PLATFORMS for defect in load_known_defects("cells", platform)
+        }
+>       assert expected_ids <= written_ids, (
+            f"real round-2 cells upstream-library-bug findings with no written entry: {expected_ids - written_ids}"
+        )
+E       AssertionError: real round-2 cells upstream-library-bug findings with no written entry: {'CELLS-JAVA-001'}
+E       assert {'CELLS-GO-00...-PY-005', ...} <= {'CELLS-GO-00...UST-011', ...}
+E         
+E         Extra items in the left set:
+E         'CELLS-JAVA-001'
+
+tests\indexing\test_known_defects_data_cells.py:162: AssertionError
+_ test_get_symbol_end_to_end_surfaces_the_real_written_java_workbook_save_defect _
+
+    def test_get_symbol_end_to_end_surfaces_the_real_written_java_workbook_save_defect() -> None:
+        """CELLS-JAVA-001 (``Workbook``, method-scoped) is loaded from the REAL
+        ``config/known_defects/cells__java.yaml`` this card wrote (``load_known_defects`` uses its
+        default, production ``REGISTRY_DIR`` here - nothing is monkeypatched) and must surface
+        through a real ``get_symbol`` call for the real ``cells/java`` scope."""
+        store = _InMemoryStore((_workbook_symbol_body(),))
+        scope = Scope(family="cells", platform="java")
+    
+        result = get_symbol(store, scope, "Workbook.save")  # type: ignore[arg-type]
+    
+        assert isinstance(result, ResolvedSignature)
+        assert result.fqn == "Workbook"
+>       assert len(result.known_defects) == 1
+E       AssertionError: assert 0 == 1
+E        +  where 0 = len(())
+E        +    where () = ResolvedSignature(scope=Scope(family='cells', platform='java', source_kind='self_extracted'), generation_id='gen-tc645...s=(), known_defects=(), resolved_from='Workbook.save', member='save', member_lines=('save(fileName: string) -> void',)).known_defects
+
+tests\indexing\test_known_defects_data_cells.py:307: AssertionError
+=========================== short test summary info ===========================
+FAILED tests/indexing/test_known_defects_data_cells.py::test_load_known_defects_returns_the_real_written_count_for_this_pilot[java]
+FAILED tests/indexing/test_known_defects_data_cells.py::test_twelve_entries_total_across_all_six_cells_pilots
+FAILED tests/indexing/test_known_defects_data_cells.py::test_every_real_round2_cells_upstream_library_bug_finding_has_a_written_entry
+FAILED tests/indexing/test_known_defects_data_cells.py::test_get_symbol_end_to_end_surfaces_the_real_written_java_workbook_save_defect
+
+--- stderr ---
+
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-5c72e798a73c059a\Scripts\python.exe -m pytest tests/indexing/test_known_defects.py tests/mcp/tools/test_known_defects_in_get_symbol.py tests/mcp/tools/test_known_defects_in_product_reference.py -q -rfE -p no:cacheprovider "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-silo6kp9\.junit-1.xml"
+--- stdout ---
+............................................                             [100%]
+
+--- stderr ---
+
