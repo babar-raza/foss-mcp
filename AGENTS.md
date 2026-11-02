@@ -134,6 +134,28 @@ itself.
   actually produce more than one outcome. A decision only one branch of the
   code can ever reach is not a measurement.
 
+## No pilot ever gets worse (added 2026-11-02, after round 3 found a real regression)
+
+An independent round-3 re-audit found cells/typescript's rating fall from D to **F** between
+rounds: `save()` started silently writing only the first 2 worksheets, with no error and no
+disclosure, on a pilot nothing in this project had touched. One pilot getting worse while 31
+held or improved is not an acceptable trade-off for progress elsewhere.
+
+- Every change to a pilot's served content, index, or disclosure is checked against that
+  pilot's own most recent independent audit rating before being accepted, not only against this
+  project's own tests passing. A card that lowers any pilot's rating, reintroduces a disclosed-
+  and-then-regressed defect, or adds a new silent-data-loss/fabrication class failure is treated
+  as a blocking defect in that card — never shipped, never deferred as "a later cleanup."
+- This applies to every dimension an audit scores, not just the one that changed: correctness,
+  disclosure completeness, example fidelity, and freshness are each a floor, not a budget to
+  trade against another dimension.
+- A known-defect or known-hazard registry entry that is fixed upstream and the fix lands in the
+  indexed/served version must be re-verified before the entry is removed or downgraded - removing
+  a disclosure is itself a regression if the defect is still live.
+- When an external audit disagrees with this project's own tests, re-verify the real, current
+  behavior directly before trusting either source; `docs/round2/issues.json` and prior audit
+  reports are historical snapshots, not live truth.
+
 ## Toolchain
 
 Run `scripts/toolchain/activate.ps1` in the same shell command as any build,
