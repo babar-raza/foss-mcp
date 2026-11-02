@@ -66,6 +66,16 @@ depends_on:
   - TC-001
 write_paths:
   - tests/mcp/tools/test_product_reference_cpp_install.py
+  - tests/fixtures/furnished/cells_cpp/pages/_index.md
+  - infra/demo-manifests/cells__cpp__self_extracted/
+  - src/foss_mcp/mcp/tools/readme_sections.py
+  - tests/mcp/tools/test_readme_sections_install_priority.py
+depends_on:
+  - TC-518
+  - TC-553
+  - TC-561
+  - TC-574
+  - TC-648
 satisfies:
   - REQ-G3-013
 source_refs:
@@ -102,33 +112,86 @@ inputs:
     version named anywhere in the output (if any) matches the real `CMakeLists.txt`'s `3.16`, not
     `3.15`; a regression test pinning the real root cause you found (so this exact failure class
     cannot silently return).
+  - >-
+    REWORK (attempt 2): your attempt-1 investigation is thorough, correct, and exactly what this
+    card asked for - a full git-archaeology root-cause, not a guess. Confirmed: root cause (a),
+    a stale documentation generation, NOT an extraction bug. The furnished page's FAQ answer for
+    "How do I install the library?" predates the real round-3 README pin (authored 2026-09-28,
+    README pinned 2026-10-19) and was carried forward verbatim into the generation stamped
+    2026-10-23 - the commit stamp is correct, the baked FAQ text was simply never re-checked
+    against it. `readme_sections.py`'s install-section merge always lets an index-derived
+    FAQ-titled "install" chunk win over the real heading-based README section, even when the
+    real README has a genuine `## Installation` heading (TC-574's FAQ-fallback rule was meant
+    for pilots whose README documents install ONLY via FAQ, and nothing currently checks that
+    precondition before applying it).
+
+    Fix all three, now in your expanded write_paths:
+
+    1. **Data fix** (`tests/fixtures/furnished/cells_cpp/pages/_index.md`): correct the "How do I
+    install the library?" FAQ answer to match the real current README's real install guidance
+    (NuGet-first, Windows/MSVC-only prebuilt, `CMakeLists.txt` requiring 3.16, the
+    `add_subdirectory` source-build route as the Linux/macOS/non-MSVC fallback) - the same kind
+    of direct fixture correction `TC-648` already applied to this exact file for a different
+    fabricated FAQ claim (commit `58a3b0ee`, your own report's own citation - read it as your
+    precedent).
+
+    2. **Re-ingest** (`infra/demo-manifests/cells__cpp__self_extracted/`): republish cells/cpp's
+    documentation generation through the real, already-established pipeline
+    (`infra/build_chunks.py` then `infra/ingest.py --family cells --platform cpp --source-kind
+    self_extracted ...` - confirm the real exact invocation yourself, this card does not
+    prescribe exact flags) so the committed, baked generation actually reflects the corrected FAQ
+    text and `active_pointer.json` points at it. Editing only the fixture and leaving the stale
+    generation JSON committed would not fix the live-served bug.
+
+    3. **Structural fix** (`src/foss_mcp/mcp/tools/readme_sections.py`): the FAQ-chunk-promoted-
+    to-install rule must only apply when the live sidecar README genuinely has no heading-based
+    install section of its own - gate the FAQ promotion on the real heading-based parse
+    (`fallback.install is None`, or your own equivalently precise condition after reading the
+    real current merge logic yourself) rather than letting any index-derived "install"-titled
+    chunk win unconditionally. This is the fix that stops this exact failure class from recurring
+    silently on a future README update for cells/cpp or any other pilot with the same FAQ-vs-
+    heading structure. Write at least 4 tests in a new
+    `tests/mcp/tools/test_readme_sections_install_priority.py` proving: a pilot whose index has
+    BOTH a real heading-based install section AND an FAQ-titled "install"-matching chunk now
+    prefers the heading-based one; a pilot with ONLY the FAQ-chunk (no real heading section)
+    still falls back to it correctly (the original TC-574 case must keep working); re-run every
+    existing test in `tests/mcp/tools/` that touches `readme_sections`/`get_product_reference`'s
+    install rendering to confirm nothing else regresses.
+
+    Re-run every test in every touched file twice, then every one of the card's own checks twice,
+    before committing. This closes CELLS-CPP-010 at its real root cause, not just today's symptom.
 actions:
   - >-
     Investigate and fix CELLS-CPP-010 (a second confirmed fabrication for this pilot): determine
     whether the real root cause is a stale documentation generation or a real extraction bug, fix
     it at the source, and prove the real install text now matches the real committed README.
 checks:
-  - command: '{python} -m pytest tests/mcp/tools/test_product_reference_cpp_install.py -q -rfE -p no:cacheprovider'
+  - command: '{python} -m pytest tests/mcp/tools/test_product_reference_cpp_install.py tests/mcp/tools/test_readme_sections_install_priority.py -q -rfE -p no:cacheprovider'
     expect: 'exit 0'
     timeout_seconds: 180
     junitxml: true
     proves:
       - REQ-G3-013
-min_tests: 6
+  - command: '{python} -m pytest tests/mcp/tools/test_product_reference_baked_contract.py -q -rfE -p no:cacheprovider'
+    expect: 'exit 0'
+    timeout_seconds: 180
+    junitxml: true
+    proves:
+      - REQ-G3-013
+min_tests: 10
 requires:
   - python
 network: false
 negative_control:
   mutate: |
-    python -X utf8 -c "import pathlib; p = pathlib.Path('tests/mcp/tools/test_product_reference_cpp_install.py'); s = p.read_text(encoding='utf-8'); marker = 'def test_'; idx = s.find(marker); assert idx != -1, 'no test function found as expected'; end = s.find(chr(10) + marker, idx + 1); segment = s[idx:end] if end != -1 else s[idx:]; s2 = s.replace(segment, '', 1); assert s2 != s, 'removal had no effect'; p.write_text(s2, encoding='utf-8')"
+    python -X utf8 -c "import pathlib; p = pathlib.Path('src/foss_mcp/mcp/tools/readme_sections.py'); s = p.read_text(encoding='utf-8'); marker = 'fallback.install'; assert marker in s, 'fallback.install not found in readme_sections.py as expected - if your real fix uses a different real condition, anchor your own mutate on your own real literal instead and note the substitution in your closeout'; s2 = s.replace(marker, 'disabled_' + marker, 1); assert s2 != s, 'substitution had no effect'; p.write_text(s2, encoding='utf-8')"
   rationale: >-
-    Removes one real test this card adds (the first one in the file), reducing the real test
-    count below min_tests - gatectl's own min_tests check must then fail. This card's real fix
-    location is unknown at authoring time, so a more targeted mutate against production code
-    cannot be written here; the worker's own report must state clearly whether their real fix has
-    an equally real, independently-verified negative control of its own (e.g. reverting the real
-    fix and confirming their new tests fail for the right reason) even though this card's own
-    mutate cannot target it directly.
+    Breaks the real condition this card's structural fix adds (whatever its own exact form - a
+    NameError at the first real merge call), so the FAQ-chunk fallback goes back to
+    unconditionally winning over a real heading-based install section. Any test proving a pilot
+    with BOTH a real install heading and a conflicting FAQ chunk now prefers the heading must
+    fail under this mutation; the TC-574 original case (FAQ-only, no heading) is unaffected
+    since that path never reaches this new condition either way.
 evidence:
   - evidence/build/G3/TC-659/receipt.json
 closeout:
