@@ -1,0 +1,319 @@
+
+===== CLEAN RUN 1 (host) =====
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-5c72e798a73c059a\Scripts\python.exe -m pytest tests/indexing/test_known_defects_data_cells_typescript_013.py -q -rfE -p no:cacheprovider "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-tgd6do2h\.junit-0.xml"
+--- stdout ---
+............                                                             [100%]
+
+--- stderr ---
+
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-5c72e798a73c059a\Scripts\python.exe -m pytest tests/indexing/test_known_defects_data_cells.py tests/indexing/test_known_defects_completeness.py tests/indexing/test_known_defects_data_3d.py tests/indexing/test_known_defects_data_remaining.py tests/mcp/tools/test_known_defects_round3_siblings.py -q -rfE -p no:cacheprovider "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-tgd6do2h\.junit-1.xml"
+--- stdout ---
+........................................................................ [ 83%]
+..............                                                           [100%]
+
+--- stderr ---
+
+
+===== CLEAN RUN 2 (host) =====
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-5c72e798a73c059a\Scripts\python.exe -m pytest tests/indexing/test_known_defects_data_cells_typescript_013.py -q -rfE -p no:cacheprovider "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-tgd6do2h\.junit-0.xml"
+--- stdout ---
+............                                                             [100%]
+
+--- stderr ---
+
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-5c72e798a73c059a\Scripts\python.exe -m pytest tests/indexing/test_known_defects_data_cells.py tests/indexing/test_known_defects_completeness.py tests/indexing/test_known_defects_data_3d.py tests/indexing/test_known_defects_data_remaining.py tests/mcp/tools/test_known_defects_round3_siblings.py -q -rfE -p no:cacheprovider "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-tgd6do2h\.junit-1.xml"
+--- stdout ---
+........................................................................ [ 83%]
+..............                                                           [100%]
+
+--- stderr ---
+
+
+===== NEGATIVE CONTROL (checks MUST now fail) =====
+mutated: M config/known_defects/cells__typescript.yaml, ?? .junit-0.xml, ?? .junit-1.xml
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-5c72e798a73c059a\Scripts\python.exe -m pytest tests/indexing/test_known_defects_data_cells_typescript_013.py -q -rfE -p no:cacheprovider "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-tgd6do2h\.junit-0.xml"
+--- stdout ---
+.FFFFFFFFFF.                                                             [100%]
+================================== FAILURES ===================================
+_______ test_the_new_entry_is_present_exactly_once_in_the_raw_document ________
+
+    def test_the_new_entry_is_present_exactly_once_in_the_raw_document() -> None:
+        document = _load_real_registry_document()
+        ids = [defect["id"] for defect in document["defects"]]
+>       assert ids.count(DEFECT_ID) == 1
+E       AssertionError: assert 0 == 1
+E        +  where 0 = <built-in method count of list object at 0x000001E20F8D3340>('CELLS-TYPESCRIPT-013')
+E        +    where <built-in method count of list object at 0x000001E20F8D3340> = ['CELLS-TYPESCRIPT-003', 'CELLS-TYPESCRIPT-004', 'CELLS-TYPESCRIPT-005', 'CELLS-TYPESCRIPT-008', 'CELLS-TYPESCRIPT-011'].count
+
+tests\indexing\test_known_defects_data_cells_typescript_013.py:101: AssertionError
+__ test_load_known_defects_returns_an_entry_with_the_real_id_and_subject_ref __
+
+    def test_load_known_defects_returns_an_entry_with_the_real_id_and_subject_ref() -> None:
+>       defect = _real_defect()
+                 ^^^^^^^^^^^^^^
+
+tests\indexing\test_known_defects_data_cells_typescript_013.py:110: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+    def _real_defect() -> KnownDefect:
+        defects = load_known_defects("cells", "typescript")
+>       (match,) = [defect for defect in defects if defect.id == DEFECT_ID]
+        ^^^^^^^^
+E       ValueError: not enough values to unpack (expected 1, got 0)
+
+tests\indexing\test_known_defects_data_cells_typescript_013.py:81: ValueError
+____________________ test_no_duplicate_id_within_the_file _____________________
+
+    def test_no_duplicate_id_within_the_file() -> None:
+        defects = load_known_defects("cells", "typescript")
+        ids = [defect.id for defect in defects]
+>       assert ids.count(DEFECT_ID) == 1
+E       AssertionError: assert 0 == 1
+E        +  where 0 = <built-in method count of list object at 0x000001E20F899500>('CELLS-TYPESCRIPT-013')
+E        +    where <built-in method count of list object at 0x000001E20F899500> = ['CELLS-TYPESCRIPT-003', 'CELLS-TYPESCRIPT-004', 'CELLS-TYPESCRIPT-005', 'CELLS-TYPESCRIPT-008', 'CELLS-TYPESCRIPT-011'].count
+
+tests\indexing\test_known_defects_data_cells_typescript_013.py:120: AssertionError
+________________ test_verified_on_date_is_a_real_calendar_date ________________
+
+    def test_verified_on_date_is_a_real_calendar_date() -> None:
+>       defect = _real_defect()
+                 ^^^^^^^^^^^^^^
+
+tests\indexing\test_known_defects_data_cells_typescript_013.py:125: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+    def _real_defect() -> KnownDefect:
+        defects = load_known_defects("cells", "typescript")
+>       (match,) = [defect for defect in defects if defect.id == DEFECT_ID]
+        ^^^^^^^^
+E       ValueError: not enough values to unpack (expected 1, got 0)
+
+tests\indexing\test_known_defects_data_cells_typescript_013.py:81: ValueError
+__________ test_disclosure_text_does_not_claim_every_save_call_fails __________
+
+    def test_disclosure_text_does_not_claim_every_save_call_fails() -> None:
+>       defect = _real_defect()
+                 ^^^^^^^^^^^^^^
+
+tests\indexing\test_known_defects_data_cells_typescript_013.py:140: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+    def _real_defect() -> KnownDefect:
+        defects = load_known_defects("cells", "typescript")
+>       (match,) = [defect for defect in defects if defect.id == DEFECT_ID]
+        ^^^^^^^^
+E       ValueError: not enough values to unpack (expected 1, got 0)
+
+tests\indexing\test_known_defects_data_cells_typescript_013.py:81: ValueError
+___________ test_disclosure_names_the_real_trigger_and_safe_pattern ___________
+
+    def test_disclosure_names_the_real_trigger_and_safe_pattern() -> None:
+>       defect = _real_defect()
+                 ^^^^^^^^^^^^^^
+
+tests\indexing\test_known_defects_data_cells_typescript_013.py:158: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+    def _real_defect() -> KnownDefect:
+        defects = load_known_defects("cells", "typescript")
+>       (match,) = [defect for defect in defects if defect.id == DEFECT_ID]
+        ^^^^^^^^
+E       ValueError: not enough values to unpack (expected 1, got 0)
+
+tests\indexing\test_known_defects_data_cells_typescript_013.py:81: ValueError
+_________ test_get_symbol_end_to_end_surfaces_the_real_written_defect _________
+
+store = <tests.indexing.test_known_defects_data_cells_typescript_013._InMemoryStore object at 0x000001E20FAD5E80>
+
+    def test_get_symbol_end_to_end_surfaces_the_real_written_defect(store: _InMemoryStore) -> None:
+        """``get_symbol(fqn='Workbook')`` for the real ``cells/typescript`` scope must carry the real
+        ``CELLS-TYPESCRIPT-013`` disclosure, loaded from the REAL, committed registry file this card
+        wrote - nothing monkeypatched."""
+        result = get_symbol(store, SCOPE, "Workbook")  # type: ignore[arg-type]
+    
+        assert isinstance(result, SymbolSignature)
+        assert result.fqn == "Workbook"
+>       assert len(result.known_defects) == 1
+E       AssertionError: assert 0 == 1
+E        +  where 0 = len(())
+E        +    where () = SymbolSignature(scope=Scope(family='cells', platform='typescript', source_kind='self_extracted'), generation_id='gen-t...ions?: { password?: string; saveFormat?: SaveFormat }) -> Promise<void>', found=True, limitations=(), known_defects=()).known_defects
+
+tests\indexing\test_known_defects_data_cells_typescript_013.py:230: AssertionError
+_____ test_get_symbol_resolved_member_save_also_surfaces_the_real_defect ______
+
+store = <tests.indexing.test_known_defects_data_cells_typescript_013._InMemoryStore object at 0x000001E20FAD5E80>
+
+    def test_get_symbol_resolved_member_save_also_surfaces_the_real_defect(store: _InMemoryStore) -> None:
+        """Resolving the member name ``Workbook.save`` (TC-540's member-resolution path) must carry
+        the same disclosure, since ``known_defect_lines`` matches on the OWNING type's fqn."""
+        result = get_symbol(store, SCOPE, "Workbook.save")  # type: ignore[arg-type]
+    
+        assert isinstance(result, ResolvedSignature)
+        assert result.fqn == "Workbook"
+>       assert len(result.known_defects) == 1
+E       AssertionError: assert 0 == 1
+E        +  where 0 = len(())
+E        +    where () = ResolvedSignature(scope=Scope(family='cells', platform='typescript', source_kind='self_extracted'), generation_id='gen...', member_lines=('save(filePath: string, options?: { password?: string; saveFormat?: SaveFormat }) -> Promise<void>',)).known_defects
+
+tests\indexing\test_known_defects_data_cells_typescript_013.py:243: AssertionError
+_______ test_search_symbols_end_to_end_surfaces_the_real_written_defect _______
+
+store = <tests.indexing.test_known_defects_data_cells_typescript_013._InMemoryStore object at 0x000001E20FAD5E80>
+
+    def test_search_symbols_end_to_end_surfaces_the_real_written_defect(store: _InMemoryStore) -> None:
+        """``search_symbols('Workbook')`` for the real ``cells/typescript`` scope must carry the same
+        real ``CELLS-TYPESCRIPT-013`` disclosure on its ``SymbolMatch.known_defects`` field (KD3),
+        loaded from the REAL, committed registry file - nothing monkeypatched."""
+        result = search_symbols(store, SCOPE, "Workbook")  # type: ignore[arg-type]
+    
+        assert isinstance(result, list), f"expected a real symbol hit, got a Miss: {result!r}"
+        matches: list[SymbolMatch] = result
+        assert len(matches) == 1
+>       assert len(matches[0].known_defects) == 1
+E       AssertionError: assert 0 == 1
+E        +  where 0 = len(())
+E        +    where () = SymbolMatch(scope=Scope(family='cells', platform='typescript', source_kind='self_extracted'), generation_id='gen-tc656...ch_quality='exact', unmatched_terms=(), total_matches=1, next_offset=None, aliases=(), limitation='', known_defects=()).known_defects
+
+tests\indexing\test_known_defects_data_cells_typescript_013.py:256: AssertionError
+______ test_search_symbols_by_save_also_surfaces_the_real_written_defect ______
+
+store = <tests.indexing.test_known_defects_data_cells_typescript_013._InMemoryStore object at 0x000001E20FAD5E80>
+
+    def test_search_symbols_by_save_also_surfaces_the_real_written_defect(store: _InMemoryStore) -> None:
+        """``search_symbols('save')`` must also resolve to the ``Workbook`` type and carry the same
+        disclosure - proving the defect surfaces regardless of whether the caller searched by type
+        name or by the affected method name."""
+        result = search_symbols(store, SCOPE, "save")  # type: ignore[arg-type]
+    
+        assert isinstance(result, list), f"expected a real symbol hit, got a Miss: {result!r}"
+        matches: list[SymbolMatch] = result
+>       assert any(match.known_defects for match in matches), (
+            "search_symbols('save') must surface the Workbook-scoped CELLS-TYPESCRIPT-013 disclosure"
+        )
+E       AssertionError: search_symbols('save') must surface the Workbook-scoped CELLS-TYPESCRIPT-013 disclosure
+E       assert False
+E        +  where False = any(<generator object test_search_symbols_by_save_also_surfaces_the_real_written_defect.<locals>.<genexpr> at 0x000001E20FBAAE00>)
+
+tests\indexing\test_known_defects_data_cells_typescript_013.py:270: AssertionError
+=========================== short test summary info ===========================
+FAILED tests/indexing/test_known_defects_data_cells_typescript_013.py::test_the_new_entry_is_present_exactly_once_in_the_raw_document
+FAILED tests/indexing/test_known_defects_data_cells_typescript_013.py::test_load_known_defects_returns_an_entry_with_the_real_id_and_subject_ref
+FAILED tests/indexing/test_known_defects_data_cells_typescript_013.py::test_no_duplicate_id_within_the_file
+FAILED tests/indexing/test_known_defects_data_cells_typescript_013.py::test_verified_on_date_is_a_real_calendar_date
+FAILED tests/indexing/test_known_defects_data_cells_typescript_013.py::test_disclosure_text_does_not_claim_every_save_call_fails
+FAILED tests/indexing/test_known_defects_data_cells_typescript_013.py::test_disclosure_names_the_real_trigger_and_safe_pattern
+FAILED tests/indexing/test_known_defects_data_cells_typescript_013.py::test_get_symbol_end_to_end_surfaces_the_real_written_defect
+FAILED tests/indexing/test_known_defects_data_cells_typescript_013.py::test_get_symbol_resolved_member_save_also_surfaces_the_real_defect
+FAILED tests/indexing/test_known_defects_data_cells_typescript_013.py::test_search_symbols_end_to_end_surfaces_the_real_written_defect
+FAILED tests/indexing/test_known_defects_data_cells_typescript_013.py::test_search_symbols_by_save_also_surfaces_the_real_written_defect
+
+--- stderr ---
+
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-5c72e798a73c059a\Scripts\python.exe -m pytest tests/indexing/test_known_defects_data_cells.py tests/indexing/test_known_defects_completeness.py tests/indexing/test_known_defects_data_3d.py tests/indexing/test_known_defects_data_remaining.py tests/mcp/tools/test_known_defects_round3_siblings.py -q -rfE -p no:cacheprovider "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-tgd6do2h\.junit-1.xml"
+--- stdout ---
+...........FF..F.......F..F............................................. [ 83%]
+..............                                                           [100%]
+================================== FAILURES ===================================
+_ test_load_known_defects_returns_the_real_written_count_for_this_pilot[typescript] _
+
+platform = 'typescript'
+
+    @pytest.mark.parametrize("platform", _ALL_PLATFORMS)
+    def test_load_known_defects_returns_the_real_written_count_for_this_pilot(platform: str) -> None:
+        defects = load_known_defects("cells", platform)
+>       assert len(defects) == _EXPECTED_COUNTS[platform], (
+            f"cells/{platform}: expected {_EXPECTED_COUNTS[platform]} real written entries, got {len(defects)}"
+        )
+E       AssertionError: cells/typescript: expected 6 real written entries, got 5
+E       assert 5 == 6
+E        +  where 5 = len([KnownDefect(id='CELLS-TYPESCRIPT-003', subject=Subject(kind='method', ref='Worksheet'), applies_to=AppliesTo(indexed_...me/DST artifacts.", verified_on=VerifiedOn(package='excel-cells', version='1.0.0', date='2026-10-29')), status='open')])
+
+tests\indexing\test_known_defects_data_cells.py:173: AssertionError
+___________ test_fourteen_entries_total_across_all_six_cells_pilots ___________
+
+    def test_fourteen_entries_total_across_all_six_cells_pilots() -> None:
+        """14 real written entries as of TC-656 attempt 3 (the 12 round-2 findings TC-645 wrote, plus
+        ``CELLS-TYPESCRIPT-013`` and ``CELLS-GO-012``) - now equal to the real "findings needing an
+        entry" union total (also 14, see
+        ``test_every_real_cells_upstream_library_bug_finding_has_a_written_entry`` below)."""
+        total = sum(len(load_known_defects("cells", platform)) for platform in _ALL_PLATFORMS)
+>       assert total == 14
+E       assert 13 == 14
+
+tests\indexing\test_known_defects_data_cells.py:184: AssertionError
+___ test_every_real_cells_upstream_library_bug_finding_has_a_written_entry ____
+
+    def test_every_real_cells_upstream_library_bug_finding_has_a_written_entry() -> None:
+        """The real union of round2+round3 cells-family upstream-library-bug ids is 14:
+        ``CELLS-GO-012`` (cells/go, round3-only, ``AddPicture`` silently loses the embedded image on
+        Save+Load) and ``CELLS-TYPESCRIPT-013`` are both now disclosed, closing the gap TC-656 attempt
+        2 found and reported rather than worked around (AGENTS.md worker rule 5) when
+        ``config/known_defects/cells__go.yaml`` was still outside this card's ``write_paths``. The
+        assertion itself was never weakened across either rework attempt - only the registry's own
+        real content changed."""
+        expected_ids = _real_cells_upstream_library_bug_ids()
+        written_ids = {
+            defect.id for platform in _ALL_PLATFORMS for defect in load_known_defects("cells", platform)
+        }
+>       assert expected_ids <= written_ids, (
+            f"real cells upstream-library-bug findings (round2 union round3) with no written entry: "
+            f"{expected_ids - written_ids}"
+        )
+E       AssertionError: real cells upstream-library-bug findings (round2 union round3) with no written entry: {'CELLS-TYPESCRIPT-013'}
+E       assert {'CELLS-GO-00...-PY-003', ...} <= {'CELLS-GO-00...-PY-003', ...}
+E         
+E         Extra items in the left set:
+E         'CELLS-TYPESCRIPT-013'
+
+tests\indexing\test_known_defects_data_cells.py:222: AssertionError
+___ test_registry_ids_exactly_equal_the_real_upstream_library_bug_issue_ids ___
+
+    def test_registry_ids_exactly_equal_the_real_upstream_library_bug_issue_ids() -> None:
+        expected_ids = _real_upstream_library_bug_ids()
+        written_ids = set(_all_registry_ids())
+    
+        missing_entries = expected_ids - written_ids
+        orphan_entries = written_ids - expected_ids
+    
+>       assert expected_ids == written_ids, (
+            "config/known_defects/*.yaml drifted from docs/round2/issues.json's upstream-library-bug "
+            f"category. Real round-2 upstream-library-bug issues with NO registry entry: "
+            f"{sorted(missing_entries) or 'none'}. Registry entries with NO matching real round-2 "
+            f"upstream-library-bug issue: {sorted(orphan_entries) or 'none'}."
+        )
+E       AssertionError: config/known_defects/*.yaml drifted from docs/round2/issues.json's upstream-library-bug category. Real round-2 upstream-library-bug issues with NO registry entry: ['CELLS-TYPESCRIPT-013']. Registry entries with NO matching real round-2 upstream-library-bug issue: none.
+E       assert {'3D-JAVA-002...NET-003', ...} == {'3D-JAVA-002...NET-003', ...}
+E         
+E         Extra items in the left set:
+E         'CELLS-TYPESCRIPT-013'
+E         Use -v to get more diff
+
+tests\indexing\test_known_defects_completeness.py:162: AssertionError
+______ test_registry_entry_count_equals_upstream_library_bug_issue_count ______
+
+    def test_registry_entry_count_equals_upstream_library_bug_issue_count() -> None:
+        upstream_issue_ids = _real_upstream_library_bug_ids()
+        registry_ids = _all_registry_ids()
+    
+        # Every registry id is unique (proven by the global no-duplicate test above), so the raw
+        # entry count and the id-set size agree; comparing both derived counts directly here, not the
+        # literal 53, is what makes this assertion non-tautological.
+>       assert len(registry_ids) == len(upstream_issue_ids), (
+            f"registry entry count ({len(registry_ids)}) does not equal the real upstream-library-bug "
+            f"issue count ({len(upstream_issue_ids)})"
+        )
+E       AssertionError: registry entry count (52) does not equal the real upstream-library-bug issue count (53)
+E       assert 52 == 53
+E        +  where 52 = len(['3D-JAVA-002', '3D-JAVA-003', '3D-JAVA-004', '3D-JAVA-014', '3D-JAVA-006', '3D-NET-003', ...])
+E        +  and   53 = len({'3D-JAVA-002', '3D-JAVA-003', '3D-JAVA-004', '3D-JAVA-006', '3D-JAVA-014', '3D-NET-003', ...})
+
+tests\indexing\test_known_defects_completeness.py:218: AssertionError
+=========================== short test summary info ===========================
+FAILED tests/indexing/test_known_defects_data_cells.py::test_load_known_defects_returns_the_real_written_count_for_this_pilot[typescript]
+FAILED tests/indexing/test_known_defects_data_cells.py::test_fourteen_entries_total_across_all_six_cells_pilots
+FAILED tests/indexing/test_known_defects_data_cells.py::test_every_real_cells_upstream_library_bug_finding_has_a_written_entry
+FAILED tests/indexing/test_known_defects_completeness.py::test_registry_ids_exactly_equal_the_real_upstream_library_bug_issue_ids
+FAILED tests/indexing/test_known_defects_completeness.py::test_registry_entry_count_equals_upstream_library_bug_issue_count
+
+--- stderr ---
+
