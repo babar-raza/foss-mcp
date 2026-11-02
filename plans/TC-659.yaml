@@ -62,15 +62,15 @@ purpose: >-
   the real current README. Fix the real root cause; do not simply hand-author new install text
   that happens to read correctly today, since that would not prevent this exact failure class
   from recurring on the next re-ingest.
-depends_on:
-  - TC-001
 write_paths:
   - tests/mcp/tools/test_product_reference_cpp_install.py
   - tests/fixtures/furnished/cells_cpp/pages/_index.md
-  - infra/demo-manifests/cells__cpp__self_extracted/
+  - infra/demo-manifests/cells__cpp__self_extracted/**
   - src/foss_mcp/mcp/tools/readme_sections.py
   - tests/mcp/tools/test_readme_sections_install_priority.py
+  - tests/mcp/tools/test_cpp_install_faq_fallback.py
 depends_on:
+  - TC-001
   - TC-518
   - TC-553
   - TC-561
@@ -160,6 +160,31 @@ inputs:
 
     Re-run every test in every touched file twice, then every one of the card's own checks twice,
     before committing. This closes CELLS-CPP-010 at its real root cause, not just today's symptom.
+  - >-
+    REWORK (attempt 2 amendment, before you commit): your attempt-2 work is complete and fully
+    verified - do not redo any of it. Two fixes to this card itself, both supervisor-caused:
+
+    1. **write_paths typo**: `infra/demo-manifests/cells__cpp__self_extracted/` (bare trailing
+    slash) has been corrected to `infra/demo-manifests/cells__cpp__self_extracted/**` - this is
+    why your commit was blocked by the worker-commit guard. You do not need to change anything
+    about your already-staged re-ingest; just commit now that the pattern matches.
+
+    2. **One more real file in scope**: `tests/mcp/tools/test_cpp_install_faq_fallback.py` (now
+    added to write_paths) has a pre-existing test,
+    `test_cells_cpp_install_is_the_faq_fallback_specifically`, that asserts the OLD fabricated
+    sentence ("Clone the repository and use CMake add_subdirectory or FetchContent" with no NuGet
+    mention) is present in the real served install text for cells/cpp - i.e. it pins exactly the
+    bug this card fixes as if it were correct behavior. Update this one test's assertions to match
+    the real, now-correct served text (the real NuGet-first guidance, the real CMake 3.16 floor),
+    following the same evidence you already gathered for `test_product_reference_cpp_install.py`.
+    Do not weaken or delete the test; it should keep proving cells/cpp's install answer is real
+    FAQ-sourced content traceable to the real README, just with the corrected expected text. Leave
+    every other test in this file untouched - they test an orthogonal, still-correct mechanism
+    (FAQ chunks are valid install content) that this card does not change.
+
+    Re-run the full `tests/mcp/tools/` sweep one more time after this change to confirm the 2
+    pre-existing pdf/net failures you already identified (unrelated, confirmed via `git stash` to
+    predate this card) are still the only other failures, then commit.
 actions:
   - >-
     Investigate and fix CELLS-CPP-010 (a second confirmed fabrication for this pilot): determine
