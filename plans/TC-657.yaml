@@ -1,0 +1,193 @@
+id: TC-657
+gate: G3
+lane: storage-retrieval
+purpose: >-
+  Fixes 3 real round-3 audit findings (`docs/round3/issues.json`: `EML-NET-007`, `NOTE-PY-010`,
+  `SLIDES-JAVA-004`), all one shared root cause in `report_index_freshness.py`'s
+  `registry_served_version` comparison branch (the last-resort verdict this function falls
+  through to when no commit-ancestry/release-tag signal is available - the branch this
+  supervisor built as I7/I8, `TC-621`/`TC-622`). Per `AGENTS.md`'s "no pilot ever gets worse"
+  rule: these are regressions in epistemic honesty (a confident-but-wrong verdict replacing an
+  honest `"unknown"`), exactly as serious as a letter-grade regression, and are fixed before any
+  further work on this mechanism.
+
+  Confirmed directly by this supervisor before authoring this card:
+
+  1. **`SLIDES-JAVA-004`** (real, narrow bug, not a design flaw): when this branch fires, it
+     returns `build("fresh"/"stale", ...)` WITHOUT setting `drift`/`published_version`/
+     `index_ahead_of_package` the way the sibling `git_ancestry` branch (a few lines above, in
+     the same function) already does for the identical kind of verdict. The confident `"fresh"`
+     verdict itself is consistent with this project's own existing design (Decision B: an index
+     ahead of what the registry serves has always meant `"fresh"` here, the same rule
+     `git_ancestry`'s own branch already uses) - the real, fixable gap is that the caller gets a
+     confident verdict with none of the supporting evidence fields populated, which is what the
+     audit's own "confident-but-unsupported" wording is really describing.
+  2. **`NOTE-PY-010`**: not a logic bug. The real comparison (registry 26.9.0 vs indexed 26.9.0)
+     is correct. The tool's own self-description text, in TWO places -
+     `report_index_freshness`'s own docstring (`src/foss_mcp/mcp/tools/report_index_freshness.py`,
+     "never guesses freshness") and the MCP-facing tool description served to a real agent
+     (`src/foss_mcp/mcp/server.py` line ~551, "it never guesses") - is simply stale: both were
+     written before this exact fallback branch existed (I7/I8) and were never updated to
+     honestly describe it.
+  3. **`EML-NET-007`**: a real, confirmed data problem, not a code bug in the comparison itself.
+     `indexed_version` for this whole comparison comes from `release_alignment.package_version()`,
+     which parses the raw packaging-manifest-declared version (`infra/demo-manifests/
+     product_reference_email_net.json`'s own `manifest_text`, a `.csproj` with a literal
+     `<Version>0.1.0</Version>`) - a meaningless, generic placeholder many of this project's
+     pinned repos use in their build files, confirmed NOT the real served/installed version
+     (the SAME sidecar's own `install_served_version` field reads `"26.7.0"`, matching the
+     registry's own `served_version`). Comparing a real registry version against a placeholder
+     manifest version produces an arithmetically "correct" but semantically meaningless
+     `"stale"` verdict. Confirmed this is NOT simply fixable by swapping in
+     `install_verified_served_version` as the comparison's `indexed_version` instead - read
+     `src/foss_mcp/mcp/server.py` around line 373-387 yourself first: `registry_served_version`
+     (the OTHER side of this exact comparison) is ITSELF already derived from that same field, so
+     substituting it in would make the comparison trivially compare a value against itself.
+
+  You must find and apply the right fix for case 3 yourself, guided by this project's own
+  founding principle (`AGENTS.md`/this plan's own diagnosis: "a miss or an empty result is an
+  honest answer... never guess past it") rather than a prescribed mechanism: when the ONLY
+  available `indexed_version` signal is a manifest-declared version that cannot be trusted to
+  mean anything (this card's own confirmed email/net case is your real, reproducible example -
+  do not invent a synthetic one), this branch must prefer reporting `"unknown"` over a
+  confident-but-potentially-meaningless verdict, consistent with every other honest-miss
+  convention already in this codebase. Do not simply delete or weaken this branch for every
+  caller - pilots where the manifest's declared version IS meaningful (check a few real
+  `config/products/*/*.yaml`-adjacent manifests yourself to confirm not everyone uses a
+  "0.1.0"-style placeholder) must keep getting a real, confident verdict from it.
+depends_on:
+  - TC-016
+  - TC-017c
+  - TC-019a
+  - TC-125
+  - TC-126
+  - TC-130
+  - TC-131
+  - TC-132
+  - TC-136
+  - TC-140
+  - TC-142
+  - TC-148
+  - TC-149
+  - TC-178
+  - TC-239
+  - TC-244
+  - TC-355
+  - TC-380
+  - TC-383
+  - TC-386
+  - TC-389
+  - TC-390
+  - TC-391
+  - TC-444
+  - TC-465
+  - TC-470
+  - TC-474
+  - TC-493
+  - TC-506
+  - TC-507
+  - TC-508
+  - TC-509
+  - TC-514
+  - TC-515
+  - TC-516
+  - TC-517
+  - TC-518
+  - TC-519
+  - TC-520
+  - TC-539
+  - TC-540
+  - TC-541
+  - TC-542
+  - TC-543
+  - TC-544
+  - TC-546
+  - TC-560
+  - TC-562
+  - TC-563
+  - TC-564
+  - TC-621
+  - TC-622
+  - TC-629
+  - TC-643
+  - TC-651
+write_paths:
+  - src/foss_mcp/mcp/tools/report_index_freshness.py
+  - src/foss_mcp/mcp/server.py
+  - tests/mcp/tools/test_freshness_registry_version.py
+  - tests/mcp/tools/test_round3_freshness_honesty_regressions.py
+satisfies:
+  - REQ-G3-012
+source_refs:
+  - file: docs/DECISION_LOG.md
+    anchor: >-
+      ## 2026-11-02 — Round-3 independent re-audit adopted; a real regression found and given top priority; the "no pilot ever gets worse" rule adopted project-wide (operator, supervisor)
+    sha256: b750b8bf0df25b17bf66d014895ecb42952050c7cc63773f56249c4a1c551791
+inputs:
+  - >-
+    READ FIRST, in full: the real `EML-NET-007`/`NOTE-PY-010`/`SLIDES-JAVA-004` records in
+    `docs/round3/issues.json`. Then `report_index_freshness.py`'s full `report_index_freshness()`
+    function (every branch, not just the `registry_served_version` one, so your fix's ordering
+    relative to the other branches is deliberate) and its own module/function docstrings. Then
+    `server.py`'s own tool description text around line 551 and wherever `registry_served_version`
+    is computed and passed in (around line 373-387). Then `infra/demo-manifests/
+    product_reference_email_net.json`'s real `manifest_text`/`install_served_version` fields
+    (confirm the 0.1.0-vs-26.7.0 mismatch yourself) and at least 2 other pilots' equivalent
+    sidecars to check whether the placeholder-version problem is widespread or email/net-specific.
+  - >-
+    Write at least 10 tests in `tests/mcp/tools/test_round3_freshness_honesty_regressions.py`:
+    a synthetic case reproducing SLIDES-JAVA-004 (registry_served_version branch fires, verdict is
+    fresh/stale, assert `drift`/`published_version`/`index_ahead_of_package` are now populated,
+    matching what the git_ancestry branch would populate for the equivalent case); a real
+    end-to-end test against email/net's real baked sidecar proving the real EML-NET-007 case now
+    resolves to `"unknown"` (or your own chosen honest outcome) rather than a wrong confident
+    `"stale"`; a synthetic case proving a PILOT WITH A MEANINGFUL manifest version still gets a
+    real confident verdict from this same branch (your fix must not blind the mechanism for
+    everyone); a test confirming `server.py`'s real tool description text no longer claims
+    "never guesses" unconditionally; a test confirming `report_index_freshness.py`'s own
+    docstring is updated the same way. Also add any missing coverage to
+    `tests/mcp/tools/test_freshness_registry_version.py` (the existing regression file for this
+    branch) if your fix changes that file's own already-passing tests' real expected output.
+actions:
+  - >-
+    Fix 3 real round-3 regressions in report_index_freshness's registry-version fallback: a
+    missing evidence-field population, a stale tool description, and a confident-but-meaningless
+    verdict built on a placeholder manifest version - restoring the "never guesses" promise this
+    tool's own documentation already makes to callers.
+checks:
+  - command: '{python} -m pytest tests/mcp/tools/test_round3_freshness_honesty_regressions.py -q -rfE -p no:cacheprovider'
+    expect: 'exit 0'
+    timeout_seconds: 180
+    junitxml: true
+    proves:
+      - REQ-G3-012
+  - command: '{python} -m pytest tests/mcp/tools/test_freshness_registry_version.py tests/mcp/tools/test_freshness_provenance.py tests/mcp/tools/test_freshness_tristate.py tests/mcp/tools/test_known_defects_in_freshness.py -q -rfE -p no:cacheprovider'
+    expect: 'exit 0'
+    timeout_seconds: 240
+    junitxml: true
+    proves:
+      - REQ-G3-012
+min_tests: 10
+requires:
+  - python
+network: false
+negative_control:
+  mutate: |
+    python -X utf8 -c "import pathlib; p = pathlib.Path('src/foss_mcp/mcp/tools/report_index_freshness.py'); s = p.read_text(encoding='utf-8'); marker = 'registry_served_version'; assert marker in s, 'registry_served_version not found as expected - if your real code differs, anchor your own mutate on your own real name instead and note the substitution in your closeout'; s2 = s.replace(marker, 'disabled_' + marker); assert s2 != s, 'substitution had no effect'; p.write_text(s2, encoding='utf-8')"
+  rationale: >-
+    Breaks every reference to the registry_served_version branch by renaming it to an undefined
+    symbol, so neither the fixed evidence-field population nor the honest-unknown fallback can
+    run. Every test proving this card's real fixes must fail under this mutation (a NameError, or
+    the field population/honest-fallback behavior silently missing); tests of unrelated freshness
+    paths (git_ancestry, caller_commit, etc.) stay green. If your real fix lives partly outside
+    this exact branch's own code block, verify this mutation still reaches it, or write your own
+    more faithful mutate and say so in your closeout.
+evidence:
+  - evidence/build/G3/TC-657/receipt.json
+closeout:
+  - >-
+    report_index_freshness's registry-version fallback now populates its evidence fields, never
+    claims "never guesses" while using a confidence-graded fallback, and prefers an honest
+    "unknown" over a verdict built on a meaningless placeholder version - closing 3 real round-3
+    honesty regressions.
+recovery: Re-run from a clean tree.
