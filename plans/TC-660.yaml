@@ -1,0 +1,275 @@
+id: TC-660
+gate: G3
+lane: storage-retrieval
+purpose: >-
+  Closes the round-3 audit's "known_defects content-missing" cluster (`docs/round3/issues.json`,
+  category `mcp-content-missing`, ~18 findings) for the subset where a REAL, already-committed
+  known_defect entry's own `summary`/`user_action` text already names a real sibling symbol the
+  same bug affects, but `subject.refs` (the array `TC-658` just proved the mechanism for) still
+  only has the ONE name the original finding cited. This supervisor already investigated every
+  candidate via a dedicated fork and verified each addition below against the pilot's real
+  `tests/fixtures/<pilot>/api_surface.json` before writing this card - do not re-derive from
+  scratch, but DO re-verify the exact FQN string live (see the ambiguous-FQN note below) before
+  committing any of it, since a wrong string is worse than a missing one.
+
+  This card intentionally does NOT cover every pilot the audit named: cells/cpp, html/python,
+  pdf/typescript, slides/java, words/net have ZERO existing known_defects coverage (new-entry
+  authoring, not refs-population - out of scope, future card), and cells/rust's pivot-table bug,
+  cells/typescript's formula-write-only bug, pdf/net's OcspSettings bug, slides/cpp's
+  add_clone()/get_xfrm bugs, and 3d/typescript's other Scene/SaveOptions bugs each need a BRAND
+  NEW entry with no existing entry to extend - also out of scope, also a future card. Do not add
+  new defect ids in this card under any circumstance; only add names to existing `refs` arrays
+  (plus the one real pre-existing bug fix named below, which is a correction, not an addition).
+
+  **A real, independent bug this investigation found** (fix regardless of everything else):
+  `config/known_defects/cells__go.yaml`'s `CELLS-GO-001` (`refs: [cells_foss.Cell]`) and
+  `CELLS-GO-011` (`refs: [cells_foss.CalculateFormula]`) have NEVER matched anything, in any
+  version of this registry, because Go's real FQN convention (confirm yourself in
+  `src/foss_mcp/indexing/chunk_builder.py`'s `_entry_fqn`, and in the real
+  `tests/fixtures/cells_go/api_surface.json`) is the bare name with no package prefix - exactly
+  like the already-correct, already-tested `CELLS-GO-012` (`refs: [Worksheet]`, added by
+  `TC-656`, which passed its own real end-to-end test). Correct these two to `refs: [Cell]` and
+  `refs: [CalculateFormula]` respectively (a correction of wrong data, not an addition).
+
+  **The architectural blocker found** (fix first, before adding any `package`-kind refs below):
+  `search_symbols.py:247`'s `_SYMBOL_DEFECT_SUBJECT_KINDS = frozenset({"method", "class"})`
+  filters out every `subject.kind == "package"` entry before `refs` is even checked
+  (`search_symbols.py:658`). `get_symbol.py`'s `known_defect_lines` has no such filter. Several
+  round-3 findings name BOTH surfaces as empty (e.g. `TEX-PYTHON-008`: "empty on
+  get_symbol/search_symbols/lookup") for entries that are `kind: package`
+  (`TEX-PYTHON-001`, `SLIDES-PY-001`, the five `3D-PYTHON-*` entries below) - adding refs to
+  those alone would fix only `get_symbol`, not `search_symbols`. Fix: widen
+  `_SYMBOL_DEFECT_SUBJECT_KINDS` to `frozenset({"method", "class", "package"})` - purely
+  additive, matches `get_symbol.py`'s existing unconditional-kind precedent, and does NOT touch
+  `get_product_reference.py`'s own independent `_LIBRARY_DEFECT_SUBJECT_KINDS` filter
+  (`frozenset({"package", "commit"})`, a different constant in a different file), so every
+  pilot's existing library-wide hazard display in `get_product_reference` is completely
+  unaffected - no regression there under this project's own "no pilot ever gets worse" rule.
+  Confirm this yourself by reading both constants and their call sites before changing anything.
+
+  **Refs to ADD** (verified against each pilot's real `api_surface.json`; re-verify the exact FQN
+  string live against the real committed generation before committing - see the ambiguous-FQN
+  note):
+  - `config/known_defects/cells__net.yaml` `CELLS-NET-002` (currently `refs: [Workbook]`): add
+    `SaveOptions`, `PdfSaveOptions` (both real; the entry is specifically about the Save-extension
+    behavior these two option types control).
+  - `config/known_defects/cells__java.yaml` `CELLS-JAVA-001` (currently `refs: [Workbook]`): add
+    `SaveOptions` only - confirm `PdfSaveOptions` does NOT exist as a real symbol in
+    `tests/fixtures/cells_java/api_surface.json` before deciding whether to add it too.
+  - `config/known_defects/cells__python.yaml` `CELLS-PY-005` (currently `refs: [Workbook]`): add
+    `Cell` - confirm the real canonical FQN string (the fixture may carry both a canonical
+    module-qualified form and a re-export shell; use whichever one the real baked chunk's own
+    `FQN:` line actually carries, not a guess).
+  - `config/known_defects/pdf__java.yaml` `PDF-JAVA-002` (currently
+    `refs: [org.aspose.pdf.Page]`): add `org.aspose.pdf.TextStamp` - this entry's own summary is
+    literally about `Page.addStamp(TextStamp)` being silently dropped; TextStamp is the real
+    implicated class. Do NOT add anything to `PDF-JAVA-001` (the WatermarkArtifact entry) -
+    its own text recommends TextStamp as the correct *workaround*, not as another affected symbol.
+  - `config/known_defects/pdf__cpp.yaml` `PDF-CPP-001` (currently
+    `refs: [Aspose::Pdf::Document]`): add `Aspose::Pdf::Text::TextAbsorber` and
+    `Aspose::Pdf::CryptoAlgorithm` - both real, both literally named in this entry's own repro
+    text (the AES-256 defect this card's own `purpose` already called out for `PDF-CPP-013`).
+  - `config/known_defects/tex__python.yaml` `TEX-PYTHON-001` (currently
+    `kind: package, refs: [aspose-tex]`): add `TeXJob`, `PdfDevice`, `TeXOptions` - all real, all
+    literally named in this entry's own existing `user_action` text as the exact quick-start
+    import names that fail. Requires the architectural `search_symbols.py` fix above to actually
+    reach `search_symbols`/`lookup`, not just `get_symbol`.
+  - `config/known_defects/slides__python.yaml` `SLIDES-PY-001` (currently
+    `kind: package, refs: [aspose-slides-foss]`): add `SlideCollection`, `NotesSlideManager` -
+    both real, both literally used in this entry's own repro (`add_clone()` via
+    `SlideCollection`, `notes_slide_manager.add_notes_slide()`). Same architectural dependency.
+  - `config/known_defects/3d__python.yaml`, all 5 entries (`3D-PYTHON-001`, `-002`, `-006`,
+    `-008`, `-010`; currently `kind: package, refs: [aspose-3d-foss]` each): every one of these
+    is really about `Scene` (export/reload behavior); `3D-PYTHON-001`/`-010` are also about
+    `ObjSaveOptions`, `3D-PYTHON-002` about `GltfSaveOptions`, `3D-PYTHON-006` about
+    `ThreeMfSaveOptions`. Add `Scene` to all 5, and the matching `*SaveOptions` type to the 3
+    named above. Same architectural dependency as tex/python and slides/python above.
+
+  **Ambiguous-FQN note** (read before touching any of the refs above): several of these real
+  symbols have more than one candidate FQN string in their pilot's fixture - a canonical
+  module-qualified form plus one or more re-export/alias shells (e.g. `Scene` may appear as both
+  `aspose.threed.Scene.Scene` and the re-exported `aspose.threed.Scene`; `Document` in
+  words/python has 3 variants). Do not guess which string the real baked generation's `FQN:` line
+  actually carries for a given symbol - confirm it directly (read the real committed
+  generation/lexical-index content for that pilot, or make a real `get_symbol(<candidate>)` call
+  through the test harness and see what comes back) before writing it into any `refs` array. A
+  wrong string is strictly worse than a missing one: it looks like coverage while adding none.
+
+  Before writing anything, re-read this card's own claims against the real, current
+  `config/known_defects/*.yaml` content and the real `api_surface.json` files yourself - this
+  investigation is thorough but is still this supervisor's synthesis, not infallible.
+depends_on:
+  - TC-017a
+  - TC-017b
+  - TC-017c
+  - TC-022
+  - TC-065
+  - TC-071
+  - TC-079
+  - TC-120
+  - TC-143
+  - TC-145
+  - TC-199
+  - TC-200
+  - TC-202
+  - TC-210
+  - TC-254
+  - TC-275
+  - TC-278
+  - TC-279
+  - TC-353
+  - TC-386
+  - TC-387
+  - TC-427
+  - TC-470
+  - TC-471
+  - TC-493
+  - TC-507
+  - TC-514
+  - TC-515
+  - TC-516
+  - TC-518
+  - TC-519
+  - TC-520
+  - TC-523
+  - TC-527
+  - TC-536
+  - TC-539
+  - TC-540
+  - TC-541
+  - TC-542
+  - TC-554
+  - TC-559
+  - TC-560
+  - TC-561
+  - TC-562
+  - TC-571
+  - TC-574
+  - TC-577
+  - TC-582
+  - TC-585
+  - TC-604
+  - TC-608
+  - TC-610
+  - TC-612
+  - TC-618
+  - TC-622
+  - TC-636
+  - TC-637
+  - TC-639
+  - TC-641
+  - TC-642
+  - TC-643
+  - TC-644
+  - TC-645
+  - TC-646
+  - TC-647
+  - TC-648
+  - TC-649
+  - TC-650
+  - TC-652
+  - TC-653
+  - TC-654
+  - TC-656
+  - TC-658
+write_paths:
+  - src/foss_mcp/mcp/tools/search_symbols.py
+  - config/known_defects/cells__go.yaml
+  - config/known_defects/cells__net.yaml
+  - config/known_defects/cells__java.yaml
+  - config/known_defects/cells__python.yaml
+  - config/known_defects/pdf__java.yaml
+  - config/known_defects/pdf__cpp.yaml
+  - config/known_defects/tex__python.yaml
+  - config/known_defects/slides__python.yaml
+  - config/known_defects/3d__python.yaml
+  - tests/indexing/test_known_defects_data_cells.py
+  - tests/indexing/test_known_defects_data_pdf_slides.py
+  - tests/indexing/test_known_defects_data_remaining.py
+  - tests/indexing/test_known_defects_data_3d.py
+  - tests/mcp/tools/test_known_defects_in_search_symbols.py
+  - tests/mcp/tools/test_known_defects_refs_population.py
+satisfies:
+  - REQ-G3-015
+source_refs:
+  - file: docs/DECISION_LOG.md
+    anchor: >-
+      ## 2026-11-02 — Round-3 independent re-audit adopted; a real regression found and given top priority; the "no pilot ever gets worse" rule adopted project-wide (operator, supervisor)
+    sha256: b750b8bf0df25b17bf66d014895ecb42952050c7cc63773f56249c4a1c551791
+inputs:
+  - >-
+    READ FIRST: this card's own `purpose` text in full - it already contains the real, verified
+    evidence for every change. Then `src/foss_mcp/mcp/tools/search_symbols.py`'s
+    `_SYMBOL_DEFECT_SUBJECT_KINDS` and its one call site, and `get_product_reference.py`'s
+    `_LIBRARY_DEFECT_SUBJECT_KINDS` (confirm they are genuinely separate constants in separate
+    files before changing either). Then each of the 9 `config/known_defects/*.yaml` files named
+    above, in full, plus the relevant pilot's real `api_surface.json`, before writing a single
+    ref.
+  - >-
+    Order of work: (1) the `CELLS-GO-001`/`CELLS-GO-011` ref correction (independent of
+    everything else, verify against `chunk_builder.py`'s `_entry_fqn` and the real Go fixture);
+    (2) the `search_symbols.py` architectural widening; (3) each refs addition, one pilot at a
+    time, verifying the exact FQN string live before writing it; (4) update every existing test
+    in the 4 named `tests/indexing/test_known_defects_data_*.py` files whose assertions pin the
+    OLD single-ref value for any entry you changed.
+  - >-
+    Write at least 12 tests in `tests/mcp/tools/test_known_defects_refs_population.py`: for each
+    `method`/`class`-kind addition (cells/net, cells/java, cells/python, pdf/java, pdf/cpp),
+    a real end-to-end `get_symbol`/`search_symbols` call on the NEW ref name surfaces the right
+    defect id, called through the real `foss_mcp.mcp.server` wrapper against the real
+    `infra/demo-manifests` data (the same pattern `test_known_defects_round3_siblings.py` already
+    established) - not a synthetic in-memory `KnownDefect`. For the `package`-kind additions
+    (tex/python, slides/python, 3d/python), at least one test per pilot proving `search_symbols`
+    now surfaces the defect on the new ref (this is the test that actually proves the
+    architectural fix, not just the data change) and at least one proving `get_symbol` still
+    works too (regression guard - it already worked, must keep working). One test proving a
+    pilot's existing `method`/`class`-kind entry (unaffected by the architectural change) still
+    behaves identically before/after (no regression). One test proving `CELLS-GO-001`'s corrected
+    ref now actually matches a real `get_symbol("Cell")` call where it never did before.
+  - >-
+    Re-run every test in every one of the 4 `tests/indexing/test_known_defects_data_*.py` files
+    and the completeness test twice clean (not just the ones you expect to change) - a stray
+    assertion elsewhere in those files may also pin an old single-ref value you didn't expect.
+actions:
+  - >-
+    Fix search_symbols.py's package-kind filter gap, correct cells/go's two never-matching refs,
+    and add real, independently-verified sibling symbol names to 9 existing known_defects entries
+    across 9 pilots - closing the round-3 audit's "known_defects content-missing" cluster for
+    every case where an existing entry's own text already named the real sibling.
+checks:
+  - command: '{python} -m pytest tests/mcp/tools/test_known_defects_refs_population.py -q -rfE -p no:cacheprovider'
+    expect: 'exit 0'
+    timeout_seconds: 180
+    junitxml: true
+    proves:
+      - REQ-G3-015
+  - command: '{python} -m pytest tests/indexing/test_known_defects_data_cells.py tests/indexing/test_known_defects_data_pdf_slides.py tests/indexing/test_known_defects_data_remaining.py tests/indexing/test_known_defects_data_3d.py tests/indexing/test_known_defects_completeness.py tests/mcp/tools/test_known_defects_in_search_symbols.py tests/mcp/tools/test_known_defects_in_get_symbol.py tests/mcp/tools/test_known_defects_in_product_reference.py -q -rfE -p no:cacheprovider'
+    expect: 'exit 0'
+    timeout_seconds: 300
+    junitxml: true
+    proves:
+      - REQ-G3-015
+min_tests: 12
+requires:
+  - python
+network: false
+negative_control:
+  mutate: |
+    python -X utf8 -c "import pathlib; q = chr(34); p = pathlib.Path('src/foss_mcp/mcp/tools/search_symbols.py'); s = p.read_text(encoding='utf-8'); marker = '_SYMBOL_DEFECT_SUBJECT_KINDS = frozenset({' + q + 'method' + q + ', ' + q + 'class' + q + ', ' + q + 'package' + q + '})'; assert marker in s, 'the widened frozenset literal was not found exactly as expected - if your real fix spells it differently (e.g. a different ordering or a different variable form), anchor your own mutate on your own real literal instead and note the substitution in your closeout'; narrowed = '_SYMBOL_DEFECT_SUBJECT_KINDS = frozenset({' + q + 'method' + q + ', ' + q + 'class' + q + '})'; s2 = s.replace(marker, narrowed, 1); assert s2 != s, 'substitution had no effect'; p.write_text(s2, encoding='utf-8')"
+  rationale: >-
+    Reverts the one-line architectural widening back to excluding package-kind defects from
+    search_symbols, so every test proving search_symbols now surfaces a package-kind entry
+    (tex/python, slides/python, 3d/python) must fail. Tests scoped only to get_symbol or to the
+    method/class-kind refs additions (cells/net, cells/java, cells/python, pdf/java, pdf/cpp,
+    the cells/go correction) are unaffected by this specific mutation; if your real fix touches
+    get_symbol.py differently too, verify this mutation still reaches a real behavioral break
+    for at least the search_symbols package-kind path, and say so in your closeout.
+evidence:
+  - evidence/build/G3/TC-660/receipt.json
+closeout:
+  - >-
+    9 real known_defects entries across 9 pilots now name every real sibling symbol their own
+    text already implied, search_symbols no longer silently drops every package-kind disclosure,
+    and cells/go's two always-broken refs now actually match. 5 pilots with zero coverage and 5
+    bugs needing brand-new entries remain, explicitly deferred to a future card.
+recovery: Re-run from a clean tree.
