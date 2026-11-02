@@ -3252,3 +3252,41 @@ what the plan's own section 2.6 (`RT3`, contract changes) already scoped them as
 measured future work, not silently dropped. `docs/round2/issues.json` still carries both as
 findable, reproducible records with real repro commands for whoever picks up `RT3` next.
 
+## 2026-11-02 — Round-3 independent re-audit adopted; a real regression found and given top priority; the "no pilot ever gets worse" rule adopted project-wide (operator, supervisor)
+
+A third independent audit pass re-ran the full round-2 protocol against this project's own
+already-pushed image (`foss-mcp-serving:demo-cac9288`, commit `cac92881a1ef`), reconciling every
+round-2 finding before hunting for new ones. Committed in full at `docs/round3/` (`HANDOFF3.md`,
+`issues.json`, `ROUND3_ADDENDUM.md`), the same way round-2's audit was committed. Full detail and
+the program-by-program reconciliation against the unified plan is maintained in
+`C:\Users\babar\.claude\plans\steady-wobbling-meteor.md`'s new section 0b, kept current as work
+continues - read that file for the live picture, this entry records the decision and its reasons.
+
+**Headline**: 3 pilots improved a letter grade with zero regressions of their own
+(barcode/python, pdf/java, pdf/typescript); 28 unchanged; **1 regressed** - `cells/typescript`
+D->F, a severe, undisclosed, newly-discovered silent-data-loss bug in the real upstream library
+(`Workbook.save()` drops every worksheet past the 2nd with no error). Independently re-confirmed
+by this supervisor against the real pinned upstream source before acting - this is real, not an
+audit error. Two more genuinely new P0/P1 upstream bugs surfaced the same pass
+(`PAGE-PYTHON-010`, `CELLS-GO-012`), plus 3 regressions in epistemic honesty
+(`EML-NET-007`/`NOTE-PY-010`/`SLIDES-JAVA-004` - `report_index_freshness`'s registry-version
+verdict flipping an honest "unknown" to a confident-but-wrong verdict in 3 pilots).
+
+**Operator directive, adopted without qualification**: no pilot ever gets worse, in any
+dimension an independent audit scores, as a side effect of other progress. A decrease is treated
+as a critical, blocking defect in whichever change caused it - never shipped, never deferred as
+"a later cleanup," regardless of how much unrelated progress a card or a release makes elsewhere.
+This is now recorded in `AGENTS.md` itself (a conduct rule, not only a plan note) so it survives
+independently of this plan's own lifecycle. `CELLS-TYPESCRIPT-013` (the regression's own real
+defect) was authored and dispatched as the single highest-priority card in the project the moment
+it was confirmed, ahead of every other open item.
+
+**Also found, and recorded as this program's own real structural limit, not a new defect to
+patch reactively**: the round-2-born disclosure program (KD1-KD10, `REQ-G3-015`) built a correct
+mechanism - independently re-verified end to end - but each entry's `subject.ref` names only the
+one symbol its original finding happened to cite, leaving real sibling symbols in the same
+causal chain undisclosed across roughly 15-20 of 32 pilots. This is a data-completeness gap in a
+working mechanism, not a wiring defect, and is being scoped as its own fix (schema/matching change
+for a multi-symbol reference, versus many additional per-sibling entries) - decision and scope
+to be recorded in a follow-up entry once a real fix is authored.
+
