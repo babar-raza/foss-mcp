@@ -46,9 +46,17 @@ depends_on:
   - TC-649
 write_paths:
   - config/known_defects/cells__typescript.yaml
+  - config/known_defects/3d__java.yaml
+  - config/known_defects/cells__go.yaml
+  - config/known_defects/page__python.yaml
+  - config/known_defects/email__net.yaml
+  - config/known_defects/pdf__net.yaml
   - tests/indexing/test_known_defects_data_cells_typescript_013.py
   - tests/indexing/test_known_defects_data_cells.py
   - tests/indexing/test_known_defects_completeness.py
+  - tests/indexing/test_known_defects_data_3d.py
+  - tests/indexing/test_known_defects_data_remaining.py
+  - tests/mcp/tools/test_known_defects_round3_siblings.py
 satisfies:
   - REQ-G3-015
 source_refs:
@@ -113,6 +121,66 @@ inputs:
     audit finding" widens to cover both committed rounds. Re-run every test in both files (not
     just the ones you expect to be affected) twice to confirm nothing else broke, then re-run
     both of the card's own checks twice each before committing.
+  - >-
+    REWORK (attempt 3, final): your attempt-2 diagnosis is exactly right and your widened
+    completeness logic is correct and is preserved - do not change it again. You correctly found,
+    by mechanically applying the literal instruction (never by cherry-picking to make the check
+    pass), that round 3 contributes 6 real new `upstream-library-bug` ids project-wide, not the 1
+    this card originally assumed, and that 5 of them have no registry entry anywhere:
+    `3D-JAVA-014` (3d/java), `CELLS-GO-012` (cells/go), `EML-NET-003` (email/net),
+    `PAGE-PYTHON-010` (page/python), `PDF-NET-003` (pdf/net). This card's scope now explicitly
+    includes disclosing all 5, using the real evidence already gathered (by this supervisor,
+    independently, before this rework) below - the completeness lock's own job is to make this
+    kind of gap impossible to miss silently, and it just did exactly that.
+
+    Write_paths now also include `config/known_defects/3d__java.yaml`,
+    `config/known_defects/cells__go.yaml`, `config/known_defects/page__python.yaml` (all three
+    already exist, add one entry to each, following that file's own existing entries as your
+    template) and `config/known_defects/email__net.yaml`,
+    `config/known_defects/pdf__net.yaml` (NEITHER exists yet - create both from scratch,
+    `schema_version: 1`, `pilot: email_net` / `pilot: pdf_net`, one entry each, matching every
+    other file's real structure exactly), plus `tests/indexing/test_known_defects_data_3d.py`
+    and `tests/indexing/test_known_defects_data_remaining.py` (both have the identical
+    round-2-only `_EXPECTED_COUNTS`/hardcoded-total pattern you already fixed twice elsewhere in
+    this card - widen them the same way: `test_known_defects_data_3d.py`'s java count 4->5 and
+    total 14->15 two places; `test_known_defects_data_remaining.py`'s page/python count 1->2 and
+    total 15->16 two places), plus a new `tests/mcp/tools/test_known_defects_round3_siblings.py`
+    for the 2 brand-new pilot files (email/net, pdf/net have NO existing known_defects test
+    coverage at all - write fresh tests here rather than shoehorning them into
+    `test_known_defects_data_remaining.py`'s own pilot-specific assertions).
+
+    Real entries, each independently confirmed by this supervisor before this rework (verify
+    everything yourself anyway - do not simply transcribe this card's own text uncritically):
+
+    - `3D-JAVA-014` (`subject.ref: Scene`, `kind: method`): `Scene.open()` on a valid OBJ file
+      throws no exception yet imports 0 meshes/0 geometry - a silent-data-loss import failure,
+      the same pattern as this pilot's already-disclosed export bugs.
+    - `CELLS-GO-012` (`subject.ref: Worksheet`, `kind: method`): `Worksheet.AddPicture` embeds a
+      real, valid image; the saver writes `xl/media/image1.png` and `xl/drawings/drawing1.xml`
+      but `sheet1.xml` never emits the `<drawing r:id="..."/>` element its own `.rels` file
+      declares, so the picture is orphaned - invisible both to this library's own loader and to
+      real Excel. `DataValidation` and `Table` do NOT have this problem on the same API surface.
+    - `EML-NET-003` (`subject.ref: MapiMessage`, `kind: method`): `SaveToEml` writes the `Bcc`
+      header verbatim into the serialized message with no stripping and no documentation -
+      real MTAs strip Bcc before transmission; this library does not, so a caller forwarding the
+      raw output over SMTP as-is would leak the Bcc recipient.
+    - `PAGE-PYTHON-010` (`subject.ref: PsDocument`, `kind: method`): `PsDocument.create(page_size=
+      ...)` is silently ignored by both `to_pdf()` and `to_image()` - output is always rendered at
+      the hardcoded default A4 size regardless of what `page_size` names. Root-caused in the real
+      source: `page_geometry.py`'s `_DEFAULT_PAGE_SIZE`, `pipeline.py`'s "keep default A4 unless
+      explicit DSC size" logic, and `as_bytes()` never emitting a size-carrying DSC comment at all.
+    - `PDF-NET-003` (`subject.ref: TableAbsorber`, `kind: method`): a `Table` added to a page with
+      no visible border set (no `Border`/`DefaultCellBorder`) is silently invisible to
+      `TableAbsorber` - it reports 0 tables found, with no error, even though the table object was
+      genuinely added; setting a visible border makes it detected correctly.
+
+    Confirm the real `verified_at` date and each real package/commit version the same way every
+    prior entry in this program did (read the real sidecar/manifest for that exact pilot - do not
+    reuse a date or version from a different pilot's entry). Re-run EVERY test in every touched
+    file (not just the obviously-affected ones) twice, then both of the card's own checks twice,
+    before committing. This is the final round for this card - the completeness lock should now
+    pass with zero remaining gaps; if it does not, report the exact remaining gap rather than
+    weakening the check.
 actions:
   - >-
     Disclose CELLS-TYPESCRIPT-013 (the round-3 audit's new P0 silent-data-loss finding) through
@@ -125,9 +193,9 @@ checks:
     junitxml: true
     proves:
       - REQ-G3-015
-  - command: '{python} -m pytest tests/indexing/test_known_defects_data_cells.py tests/indexing/test_known_defects_completeness.py -q -rfE -p no:cacheprovider'
+  - command: '{python} -m pytest tests/indexing/test_known_defects_data_cells.py tests/indexing/test_known_defects_completeness.py tests/indexing/test_known_defects_data_3d.py tests/indexing/test_known_defects_data_remaining.py tests/mcp/tools/test_known_defects_round3_siblings.py -q -rfE -p no:cacheprovider'
     expect: 'exit 0'
-    timeout_seconds: 180
+    timeout_seconds: 240
     junitxml: true
     proves:
       - REQ-G3-015
