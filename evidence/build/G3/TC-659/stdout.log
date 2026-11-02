@@ -1,0 +1,293 @@
+
+===== CLEAN RUN 1 (host) =====
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-5c72e798a73c059a\Scripts\python.exe -m pytest tests/mcp/tools/test_product_reference_cpp_install.py tests/mcp/tools/test_readme_sections_install_priority.py -q -rfE -p no:cacheprovider "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-dlyvn9i9\.junit-0.xml"
+--- stdout ---
+...............                                                          [100%]
+
+--- stderr ---
+
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-5c72e798a73c059a\Scripts\python.exe -m pytest tests/mcp/tools/test_product_reference_baked_contract.py -q -rfE -p no:cacheprovider "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-dlyvn9i9\.junit-1.xml"
+--- stdout ---
+........................................................................ [ 59%]
+.................................................                        [100%]
+
+--- stderr ---
+
+
+===== CLEAN RUN 2 (host) =====
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-5c72e798a73c059a\Scripts\python.exe -m pytest tests/mcp/tools/test_product_reference_cpp_install.py tests/mcp/tools/test_readme_sections_install_priority.py -q -rfE -p no:cacheprovider "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-dlyvn9i9\.junit-0.xml"
+--- stdout ---
+...............                                                          [100%]
+
+--- stderr ---
+
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-5c72e798a73c059a\Scripts\python.exe -m pytest tests/mcp/tools/test_product_reference_baked_contract.py -q -rfE -p no:cacheprovider "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-dlyvn9i9\.junit-1.xml"
+--- stdout ---
+........................................................................ [ 59%]
+.................................................                        [100%]
+
+--- stderr ---
+
+
+===== NEGATIVE CONTROL (checks MUST now fail) =====
+mutated: M src/foss_mcp/mcp/tools/readme_sections.py, ?? .junit-0.xml, ?? .junit-1.xml
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-5c72e798a73c059a\Scripts\python.exe -m pytest tests/mcp/tools/test_product_reference_cpp_install.py tests/mcp/tools/test_readme_sections_install_priority.py -q -rfE -p no:cacheprovider "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-dlyvn9i9\.junit-0.xml"
+--- stdout ---
+........FFF....                                                          [100%]
+================================== FAILURES ===================================
+_ test_an_faq_only_index_install_section_still_wins_when_the_readme_has_no_heading_either _
+
+    def test_an_faq_only_index_install_section_still_wins_when_the_readme_has_no_heading_either() -> None:
+        index = sections_from_documents(_faq_install_documents("Clone and build with CMake."))
+        readme_without_install = sections_from_markdown("## Some Other Section\n\ntext\n")
+        assert readme_without_install.install is None
+    
+>       merged = merge_sections(index, readme_without_install)
+                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests\mcp\tools\test_readme_sections_install_priority.py:67: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+primary = ReadmeSections(limitations=None, install=ReadmeSection(title='How do I install the library?', text='Clone and build wi...f0123456789abcdef01234567', ordered=True, parts=1, all_faq=True), capabilities=None, formats=None, import_warning=None)
+fallback = ReadmeSections(limitations=None, install=None, capabilities=None, formats=None, import_warning=None)
+
+    def merge_sections(primary: ReadmeSections | None, fallback: ReadmeSections | None) -> ReadmeSections | None:
+        """*primary* with each section it lacks taken from *fallback* (the index wins; the README fills the
+        rest). ``None`` only when both are ``None``.
+    
+        G3/TC-659: one exception to "the index wins" - ``install`` only. When *primary*'s install section
+        is ``all_faq`` (every contributing chunk was FAQ-promoted, G3/TC-574's install-only exception,
+        never a real ``## Installation``-heading chunk) AND *fallback* has an install section of its own,
+        *fallback*'s install wins instead: a live, heading-based README section is a stronger signal than
+        a furnished page's FAQ answer, which can go stale (CELLS-CPP-010: authored before a README repin,
+        never refreshed) while the real README keeps moving. An index install section backed by at least
+        one real heading-based chunk is unaffected and still wins as before; so does the original TC-574
+        case, where install content is ONLY ever available as an FAQ chunk (the fallback README has no
+        install section of its own to prefer).
+        """
+        if fallback is None:
+            return primary
+        if primary is None:
+            return fallback
+        install = primary.install
+>       if install is not None and install.all_faq and disabled_fallback.install is not None:
+                                                       ^^^^^^^^^^^^^^^^^
+E       NameError: name 'disabled_fallback' is not defined
+
+src\foss_mcp\mcp\tools\readme_sections.py:372: NameError
+_ test_a_real_heading_based_readme_install_section_now_beats_a_stale_faq_chunk _
+
+    def test_a_real_heading_based_readme_install_section_now_beats_a_stale_faq_chunk() -> None:
+        index = sections_from_documents(
+            _faq_install_documents("Clone the repository and use CMake add_subdirectory. CMake 3.15+.")
+        )
+        assert index.install is not None and index.install.all_faq is True
+        live_readme = sections_from_markdown(
+            "## Installation\n\nInstall the prebuilt NuGet package. CMake 3.16 for a source build.\n"
+        )
+        assert live_readme.install is not None
+    
+>       merged = merge_sections(index, live_readme)
+                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests\mcp\tools\test_readme_sections_install_priority.py:86: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+primary = ReadmeSections(limitations=None, install=ReadmeSection(title='How do I install the library?', text='Clone the reposito...f0123456789abcdef01234567', ordered=True, parts=1, all_faq=True), capabilities=None, formats=None, import_warning=None)
+fallback = ReadmeSections(limitations=None, install=ReadmeSection(title='Installation', text='Install the prebuilt NuGet package....urce build.', commit=None, ordered=True, parts=1, all_faq=False), capabilities=None, formats=None, import_warning=None)
+
+    def merge_sections(primary: ReadmeSections | None, fallback: ReadmeSections | None) -> ReadmeSections | None:
+        """*primary* with each section it lacks taken from *fallback* (the index wins; the README fills the
+        rest). ``None`` only when both are ``None``.
+    
+        G3/TC-659: one exception to "the index wins" - ``install`` only. When *primary*'s install section
+        is ``all_faq`` (every contributing chunk was FAQ-promoted, G3/TC-574's install-only exception,
+        never a real ``## Installation``-heading chunk) AND *fallback* has an install section of its own,
+        *fallback*'s install wins instead: a live, heading-based README section is a stronger signal than
+        a furnished page's FAQ answer, which can go stale (CELLS-CPP-010: authored before a README repin,
+        never refreshed) while the real README keeps moving. An index install section backed by at least
+        one real heading-based chunk is unaffected and still wins as before; so does the original TC-574
+        case, where install content is ONLY ever available as an FAQ chunk (the fallback README has no
+        install section of its own to prefer).
+        """
+        if fallback is None:
+            return primary
+        if primary is None:
+            return fallback
+        install = primary.install
+>       if install is not None and install.all_faq and disabled_fallback.install is not None:
+                                                       ^^^^^^^^^^^^^^^^^
+E       NameError: name 'disabled_fallback' is not defined
+
+src\foss_mcp\mcp\tools\readme_sections.py:372: NameError
+_________ test_the_cells_cpp_shape_directly_reproducing_cells_cpp_010 _________
+
+    def test_the_cells_cpp_shape_directly_reproducing_cells_cpp_010() -> None:
+        """The exact shape CELLS-CPP-010 was: the furnished page's FAQ answer is stale and the real
+        README documents a completely different install route. Pinned with the real wording this
+        card found, not a paraphrase."""
+        index = sections_from_documents(
+            _faq_install_documents(
+                "Clone the repository and use CMake add_subdirectory or FetchContent. Requires a "
+                "C++17 compiler and CMake 3.15+. No external dependencies."
+            )
+        )
+        live_readme = sections_from_markdown(
+            "## Installation\n\n"
+            "Published on NuGet, but the package ships prebuilt static libraries for Windows only.\n\n"
+            "```bash\nnuget install Aspose.Cells.Cpp.FOSS\n```\n\n"
+            "On Linux, macOS, or a non-MSVC toolchain, build from source instead.\n"
+        )
+    
+>       merged = merge_sections(index, live_readme)
+                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests\mcp\tools\test_readme_sections_install_priority.py:111: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+primary = ReadmeSections(limitations=None, install=ReadmeSection(title='How do I install the library?', text='Clone the reposito...f0123456789abcdef01234567', ordered=True, parts=1, all_faq=True), capabilities=None, formats=None, import_warning=None)
+fallback = ReadmeSections(limitations=None, install=ReadmeSection(title='Installation', text='Published on NuGet, but the package...ce instead.', commit=None, ordered=True, parts=1, all_faq=False), capabilities=None, formats=None, import_warning=None)
+
+    def merge_sections(primary: ReadmeSections | None, fallback: ReadmeSections | None) -> ReadmeSections | None:
+        """*primary* with each section it lacks taken from *fallback* (the index wins; the README fills the
+        rest). ``None`` only when both are ``None``.
+    
+        G3/TC-659: one exception to "the index wins" - ``install`` only. When *primary*'s install section
+        is ``all_faq`` (every contributing chunk was FAQ-promoted, G3/TC-574's install-only exception,
+        never a real ``## Installation``-heading chunk) AND *fallback* has an install section of its own,
+        *fallback*'s install wins instead: a live, heading-based README section is a stronger signal than
+        a furnished page's FAQ answer, which can go stale (CELLS-CPP-010: authored before a README repin,
+        never refreshed) while the real README keeps moving. An index install section backed by at least
+        one real heading-based chunk is unaffected and still wins as before; so does the original TC-574
+        case, where install content is ONLY ever available as an FAQ chunk (the fallback README has no
+        install section of its own to prefer).
+        """
+        if fallback is None:
+            return primary
+        if primary is None:
+            return fallback
+        install = primary.install
+>       if install is not None and install.all_faq and disabled_fallback.install is not None:
+                                                       ^^^^^^^^^^^^^^^^^
+E       NameError: name 'disabled_fallback' is not defined
+
+src\foss_mcp\mcp\tools\readme_sections.py:372: NameError
+=========================== short test summary info ===========================
+FAILED tests/mcp/tools/test_readme_sections_install_priority.py::test_an_faq_only_index_install_section_still_wins_when_the_readme_has_no_heading_either
+FAILED tests/mcp/tools/test_readme_sections_install_priority.py::test_a_real_heading_based_readme_install_section_now_beats_a_stale_faq_chunk
+FAILED tests/mcp/tools/test_readme_sections_install_priority.py::test_the_cells_cpp_shape_directly_reproducing_cells_cpp_010
+
+--- stderr ---
+
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-5c72e798a73c059a\Scripts\python.exe -m pytest tests/mcp/tools/test_product_reference_baked_contract.py -q -rfE -p no:cacheprovider "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-dlyvn9i9\.junit-1.xml"
+--- stdout ---
+..................................................................F...F. [ 59%]
+.................................................                        [100%]
+================================== FAILURES ===================================
+_____________ test_cpp_installs_are_the_readme_recipe[cells_cpp] ______________
+
+baked = <tests.mcp.tools.test_product_reference_baked_contract._Baked object at 0x000001E02F641BE0>
+pilot = 'cells_cpp'
+
+    @pytest.mark.parametrize("pilot", ["cells_cpp", "email_cpp", "pdf_cpp", "slides_cpp"])
+    def test_cpp_installs_are_the_readme_recipe(baked: _Baked, pilot: str) -> None:
+>       inputs, readme = _with_sidecar_readme(pilot, *baked.load(pilot)[:2])
+                         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests\mcp\tools\test_product_reference_baked_contract.py:253: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+tests\mcp\tools\test_product_reference_baked_contract.py:244: in _with_sidecar_readme
+    merge_sections(readme, sections_from_markdown(document.content, commit=inputs.source_ref)) or readme,
+    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+primary = ReadmeSections(limitations=None, install=ReadmeSection(title='How do I install the library?', text='On Windows (MSVC),...2d661556d6b87a8eff8c063a2', ordered=True, parts=1, all_faq=True), capabilities=None, formats=None, import_warning=None)
+fallback = ReadmeSections(limitations=ReadmeSection(title='Scope and Limitations', text='To keep this edition free, this library ...t='9f852d0ff1cfdad2d661556d6b87a8eff8c063a2', ordered=True, parts=1, all_faq=False), formats=None, import_warning=None)
+
+    def merge_sections(primary: ReadmeSections | None, fallback: ReadmeSections | None) -> ReadmeSections | None:
+        """*primary* with each section it lacks taken from *fallback* (the index wins; the README fills the
+        rest). ``None`` only when both are ``None``.
+    
+        G3/TC-659: one exception to "the index wins" - ``install`` only. When *primary*'s install section
+        is ``all_faq`` (every contributing chunk was FAQ-promoted, G3/TC-574's install-only exception,
+        never a real ``## Installation``-heading chunk) AND *fallback* has an install section of its own,
+        *fallback*'s install wins instead: a live, heading-based README section is a stronger signal than
+        a furnished page's FAQ answer, which can go stale (CELLS-CPP-010: authored before a README repin,
+        never refreshed) while the real README keeps moving. An index install section backed by at least
+        one real heading-based chunk is unaffected and still wins as before; so does the original TC-574
+        case, where install content is ONLY ever available as an FAQ chunk (the fallback README has no
+        install section of its own to prefer).
+        """
+        if fallback is None:
+            return primary
+        if primary is None:
+            return fallback
+        install = primary.install
+>       if install is not None and install.all_faq and disabled_fallback.install is not None:
+                                                       ^^^^^^^^^^^^^^^^^
+E       NameError: name 'disabled_fallback' is not defined
+
+src\foss_mcp\mcp\tools\readme_sections.py:372: NameError
+_ test_cells_cpp_install_has_the_url_commit_subdirectory_target_and_nuget_package _
+
+baked = <tests.mcp.tools.test_product_reference_baked_contract._Baked object at 0x000001E02F641BE0>
+
+    def test_cells_cpp_install_has_the_url_commit_subdirectory_target_and_nuget_package(baked: _Baked) -> None:
+        """RD3-080/TC-574: cells/cpp's only install recipe in its README is a FAQ answer, which the index itself
+        now recognises as real install content (TC-574) - so the answer is available even with no sidecar README
+        at all. When a richer, manifest-sourced sidecar README is ALSO present (TC-561/TC-575's path, once
+        OWNER-14 is resolved), its CMakeLists-derived facts (subdirectory, target, package name) still enrich
+        the answer beyond what the FAQ text alone carries - that forward-compatible path is proven too."""
+        inputs, index_readme, doc_texts = baked.load("cells_cpp")
+        assert index_readme.install is not None, "TC-574's FAQ fallback should populate this from the index alone"
+        faq = [text for text in doc_texts if _title(text) == "How do I install the library?"]
+        assert faq, "the cells/cpp documentation holds no FAQ chunk titled 'How do I install the library?'"
+    
+        index_only = baked.answer("cells_cpp", "install")
+        assert isinstance(index_only, ReferenceContent), "the FAQ fallback must answer with no sidecar at all"
+        assert "clone the repository" in index_only.text.lower()
+        assert "cmake" in index_only.text.lower()
+    
+>       sidecar_inputs, readme = _with_sidecar_readme("cells_cpp", inputs, index_readme)
+                                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests\mcp\tools\test_product_reference_baked_contract.py:285: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+tests\mcp\tools\test_product_reference_baked_contract.py:244: in _with_sidecar_readme
+    merge_sections(readme, sections_from_markdown(document.content, commit=inputs.source_ref)) or readme,
+    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+primary = ReadmeSections(limitations=None, install=ReadmeSection(title='How do I install the library?', text='On Windows (MSVC),...2d661556d6b87a8eff8c063a2', ordered=True, parts=1, all_faq=True), capabilities=None, formats=None, import_warning=None)
+fallback = ReadmeSections(limitations=ReadmeSection(title='Scope and Limitations', text='To keep this edition free, this library ...t='9f852d0ff1cfdad2d661556d6b87a8eff8c063a2', ordered=True, parts=1, all_faq=False), formats=None, import_warning=None)
+
+    def merge_sections(primary: ReadmeSections | None, fallback: ReadmeSections | None) -> ReadmeSections | None:
+        """*primary* with each section it lacks taken from *fallback* (the index wins; the README fills the
+        rest). ``None`` only when both are ``None``.
+    
+        G3/TC-659: one exception to "the index wins" - ``install`` only. When *primary*'s install section
+        is ``all_faq`` (every contributing chunk was FAQ-promoted, G3/TC-574's install-only exception,
+        never a real ``## Installation``-heading chunk) AND *fallback* has an install section of its own,
+        *fallback*'s install wins instead: a live, heading-based README section is a stronger signal than
+        a furnished page's FAQ answer, which can go stale (CELLS-CPP-010: authored before a README repin,
+        never refreshed) while the real README keeps moving. An index install section backed by at least
+        one real heading-based chunk is unaffected and still wins as before; so does the original TC-574
+        case, where install content is ONLY ever available as an FAQ chunk (the fallback README has no
+        install section of its own to prefer).
+        """
+        if fallback is None:
+            return primary
+        if primary is None:
+            return fallback
+        install = primary.install
+>       if install is not None and install.all_faq and disabled_fallback.install is not None:
+                                                       ^^^^^^^^^^^^^^^^^
+E       NameError: name 'disabled_fallback' is not defined
+
+src\foss_mcp\mcp\tools\readme_sections.py:372: NameError
+=========================== short test summary info ===========================
+FAILED tests/mcp/tools/test_product_reference_baked_contract.py::test_cpp_installs_are_the_readme_recipe[cells_cpp]
+FAILED tests/mcp/tools/test_product_reference_baked_contract.py::test_cells_cpp_install_has_the_url_commit_subdirectory_target_and_nuget_package
+
+--- stderr ---
+

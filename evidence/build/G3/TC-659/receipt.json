@@ -1,0 +1,117 @@
+{
+  "schema_version": 1,
+  "card": "TC-659",
+  "gate": "G3",
+  "generated_by": "gatectl",
+  "generated_at": "2026-11-02T09:08:30Z",
+  "base_rev": "64a0e1ddbab0073a70685805b8862b36638f6b36",
+  "head_rev": "24b9c54d842490f87560ffa8b7b018bbd2c782f2",
+  "card_sha256": "e62bce380eadcbc5097c8e4c574e16b486ffc4ec5938a354895b646840ce149d",
+  "fingerprint": {
+    "python": "3.13.2",
+    "platform": "Windows-11-10.0.26300-SP0",
+    "lock_sha256": "5c72e798a73c059a438e752e94a8d4c88c1bdf81a197f6e5c5fcecbc9466a691",
+    "env": {
+      "PYTHONHASHSEED": "0",
+      "PYTHONUTF8": "1",
+      "PYTHONDONTWRITEBYTECODE": "1",
+      "PYTHONIOENCODING": "utf-8",
+      "TZ": "UTC",
+      "LC_ALL": "C.UTF-8",
+      "SOURCE_DATE_EPOCH": "1700000000",
+      "verify_runner": "host"
+    }
+  },
+  "scope": {
+    "ok": true,
+    "changed_paths": [
+      "infra/demo-manifests/cells__cpp__self_extracted/active_pointer.json",
+      "infra/demo-manifests/cells__cpp__self_extracted/generation__20261023T094607045401Z-ff140eef.json",
+      "infra/demo-manifests/cells__cpp__self_extracted/generation__20261102T081405045059Z-6980f28f.json",
+      "src/foss_mcp/mcp/tools/readme_sections.py",
+      "tests/fixtures/furnished/cells_cpp/pages/_index.md",
+      "tests/mcp/tools/test_cpp_install_faq_fallback.py",
+      "tests/mcp/tools/test_product_reference_cpp_install.py",
+      "tests/mcp/tools/test_readme_sections_install_priority.py"
+    ],
+    "violations": [],
+    "evaluated": true
+  },
+  "runs": [
+    {
+      "run": 1,
+      "checks": [
+        {
+          "command": "{python} -m pytest tests/mcp/tools/test_product_reference_cpp_install.py tests/mcp/tools/test_readme_sections_install_priority.py -q -rfE -p no:cacheprovider",
+          "exit_code": 0,
+          "duration_s": 1.794,
+          "stdout_sha256": "511fb971caf59261241ec2a3919d9d10c7dcb9ec044ee07d50b2db465184f057",
+          "tests": 15,
+          "skipped": 0,
+          "errors": 0,
+          "failures": 0
+        },
+        {
+          "command": "{python} -m pytest tests/mcp/tools/test_product_reference_baked_contract.py -q -rfE -p no:cacheprovider",
+          "exit_code": 0,
+          "duration_s": 6.643,
+          "stdout_sha256": "9f987b2f573532331f033712a27a7be4d492a4b8a13083c20e6f76e9846f40b3",
+          "tests": 121,
+          "skipped": 0,
+          "errors": 0,
+          "failures": 0
+        }
+      ],
+      "all_passed": true
+    },
+    {
+      "run": 2,
+      "checks": [
+        {
+          "command": "{python} -m pytest tests/mcp/tools/test_product_reference_cpp_install.py tests/mcp/tools/test_readme_sections_install_priority.py -q -rfE -p no:cacheprovider",
+          "exit_code": 0,
+          "duration_s": 1.269,
+          "stdout_sha256": "511fb971caf59261241ec2a3919d9d10c7dcb9ec044ee07d50b2db465184f057",
+          "tests": 15,
+          "skipped": 0,
+          "errors": 0,
+          "failures": 0
+        },
+        {
+          "command": "{python} -m pytest tests/mcp/tools/test_product_reference_baked_contract.py -q -rfE -p no:cacheprovider",
+          "exit_code": 0,
+          "duration_s": 5.578,
+          "stdout_sha256": "9f987b2f573532331f033712a27a7be4d492a4b8a13083c20e6f76e9846f40b3",
+          "tests": 121,
+          "skipped": 0,
+          "errors": 0,
+          "failures": 0
+        }
+      ],
+      "all_passed": true
+    }
+  ],
+  "negative_control": {
+    "kind": "mutate",
+    "patch": "python -X utf8 -c \"import pathlib; p = pathlib.Path('src/foss_mcp/mcp/tools/readme_sections.py'); s = p.read_text(encoding='utf-8'); marker = 'fallback.install'; assert marker in s, 'fallback.install not found in readme_sections.py as expected - if your real fix uses a different real condition, anchor your own mutate on your own real literal instead and note the substitution in your closeout'; s2 = s.replace(marker, 'disabled_' + marker, 1); assert s2 != s, 'substitution had no effect'; p.write_text(s2, encoding='utf-8')\"\n",
+    "patch_sha256": "bfb280f923eb6dc1a49f2d60a7d1a101ef072334e0818e4fcbd9a483161e70b9",
+    "applied": true,
+    "patch_applied_failed": true,
+    "exit_codes": [
+      1,
+      1
+    ],
+    "tree_changed": [
+      "M src/foss_mcp/mcp/tools/readme_sections.py",
+      "?? .junit-0.xml",
+      "?? .junit-1.xml"
+    ]
+  },
+  "holdout": {
+    "ran": false,
+    "passed": true,
+    "detail": "no holdout for this card"
+  },
+  "accepted": true,
+  "reason": "all gates passed"
+}
