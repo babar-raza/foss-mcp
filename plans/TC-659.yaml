@@ -1,0 +1,138 @@
+id: TC-659
+gate: G3
+lane: extraction
+purpose: >-
+  Closes `CELLS-CPP-010` (round-3 audit, `docs/round3/issues.json`, P1, category honesty) - a
+  second, independent fabrication for cells/cpp (the first, `CELLS-CPP-001`, was already fixed by
+  `TC-648`). Read the real `CELLS-CPP-010` record in `docs/round3/issues.json` yourself before
+  starting - this card's own summary below is a paraphrase of a direct investigation this
+  supervisor already ran, not a substitute for checking the real evidence.
+
+  `get_product_reference(section="install")` for cells/cpp serves text labelled, verbatim,
+  "The repository README's installation section" (via `_cpp_install`'s own `_README_INSTALL_LEAD`
+  text in `src/foss_mcp/mcp/tools/get_product_reference.py` - confirm the real current label
+  text yourself, it may read slightly differently than this card's own paraphrase) claiming:
+  "Clone the repository and use CMake `add_subdirectory` or `FetchContent`. Requires a C++17
+  compiler and CMake 3.15+. No external dependencies." Independently confirmed by this supervisor
+  before authoring this card, directly against the real, already-committed fixtures:
+
+  1. `tests/fixtures/round3_readmes/cells_cpp/README.md`'s real `## Installation` section (read
+     it yourself, starting around line 91) is structured completely differently: NuGet
+     (`nuget install Aspose.Cells.Cpp.FOSS`) is the documented PRIMARY path (Windows-only
+     prebuilt static libraries, MSVC toolset only), with an MSBuild `<PackageReference>` snippet,
+     then a CMake-on-Windows snippet pointing at the package's own bundled config, and only THEN
+     (for Linux/macOS or a non-MSVC toolchain) a source-build `add_subdirectory` route. The exact
+     sentence "Requires a C++17 compiler and CMake 3.15+. No external dependencies." does not
+     appear anywhere in this real file - confirm this yourself with a direct search, do not trust
+     this card's own claim.
+  2. `infra/demo-manifests/product_reference_cells_cpp.json`'s real `manifest_text` (the real
+     pinned `CMakeLists.txt`) states `cmake_minimum_required(VERSION 3.16)`, not "3.15+".
+  3. The exact wrong sentence ALSO appears, independently, in `tests/fixtures/furnished/
+     cells_cpp/pages/_index.md`'s own `faq` block ("How do I install the library?" answer) - that
+     file's own `provenance.content_origin` is `skill-generated`, confirming it is NOT a verbatim
+     README copy by design. This is a strong, but not yet proven, clue that
+     `get_product_reference`'s install text and the furnished page's FAQ may be drawing from the
+     same wrong or stale source, or that one was copied into the other at some point - investigate
+     this connection directly rather than assuming it.
+
+  `get_product_reference`'s README-section text comes from `src/foss_mcp/mcp/tools/
+  readme_sections.py`'s `read_readme_sections()`, which reads real documentation chunks already
+  baked into the pilot's active `self_extracted` generation (`sections_from_documents`,
+  classified by heading pattern) - NOT a live README fetch at request time. This means the wrong
+  text, whatever its origin, is BAKED INTO THE INDEXED GENERATION itself. You must determine which
+  of these it really is, with real evidence, before fixing it:
+
+  (a) **Stale documentation generation**: the indexed generation's own install-section chunk was
+      built from an OLDER version of the README than the one now pinned/committed at
+      `tests/fixtures/round3_readmes/cells_cpp/README.md` - i.e. a genuine index-freshness
+      problem, not an extraction bug. If true, the fix is re-ingesting/rebuilding cells/cpp's
+      documentation chunks from the real, current, pinned README (check how other pilots'
+      generations were built/regenerated and follow the same real, already-established process -
+      do not invent a new one).
+  (b) **A real extraction/chunking bug**: the real current README is what was actually indexed,
+      but `sections_from_documents`'s heading-matching or chunk-building logic mis-selected or
+      corrupted the install section's own text for this specific pilot (e.g. picked up stale
+      cached text from a template, or merged the wrong heading's content). If true, fix the real
+      extraction bug directly.
+
+  Confirm which by reading the ACTUAL current baked chunk text for cells/cpp's install-classified
+  documentation chunk directly (inspect the real generation manifest/lexical index content for
+  this pilot - the same kind of direct inspection this supervisor already did for other pilots'
+  known_hazards/known_defects work this session) and comparing it, character by character, against
+  the real current README. Fix the real root cause; do not simply hand-author new install text
+  that happens to read correctly today, since that would not prevent this exact failure class
+  from recurring on the next re-ingest.
+depends_on:
+  - TC-001
+write_paths:
+  - tests/mcp/tools/test_product_reference_cpp_install.py
+satisfies:
+  - REQ-G3-013
+source_refs:
+  - file: docs/DECISION_LOG.md
+    anchor: >-
+      ## 2026-11-02 — Round-3 independent re-audit adopted; a real regression found and given top priority; the "no pilot ever gets worse" rule adopted project-wide (operator, supervisor)
+    sha256: b750b8bf0df25b17bf66d014895ecb42952050c7cc63773f56249c4a1c551791
+inputs:
+  - >-
+    READ FIRST: the real `CELLS-CPP-010` record in `docs/round3/issues.json`. Then
+    `tests/fixtures/round3_readmes/cells_cpp/README.md`'s real Installation section in full. Then
+    `src/foss_mcp/mcp/tools/get_product_reference.py`'s `_cpp_install`/`_README_INSTALL_LEAD` and
+    `src/foss_mcp/mcp/tools/readme_sections.py`'s `read_readme_sections`/`sections_from_documents`
+    in full. Then inspect the REAL, current baked install-section chunk text for cells/cpp
+    directly (read the real generation/lexical-index content, not a summary) before forming a
+    theory of the bug - this card deliberately does not prescribe which of (a)/(b) above is
+    correct, because the supervisor could not determine this without running the live extraction
+    pipeline. Investigate first, fix second.
+  - >-
+    This card's write_paths deliberately name only a new test file; it does NOT yet know which
+    production file(s) your real fix will touch (`infra/build_chunks.py`,
+    `src/foss_mcp/indexing/chunk_builder.py`, a regeneration script, or a data fixture, depending
+    on what you find). If your real, confirmed root cause requires writing to a file not already
+    in write_paths, STOP and report back with your diagnosis and the exact file(s) you need added,
+    rather than attempting a workaround within the current scope - this is explicitly expected and
+    acceptable for this card, following this project's own "two equivalent failed attempts
+    prohibit a third" rule in spirit: a correctly-scoped second attempt is not a failure.
+  - >-
+    Once you know the real fix, write at least 6 tests in
+    `tests/mcp/tools/test_product_reference_cpp_install.py` proving: the real, current
+    `get_product_reference(section="install")` output for cells/cpp no longer contains the
+    fabricated sentence; it contains real text traceable to the real committed README (quote the
+    exact real phrase you expect, e.g. a fragment of the real NuGet instructions); the CMake
+    version named anywhere in the output (if any) matches the real `CMakeLists.txt`'s `3.16`, not
+    `3.15`; a regression test pinning the real root cause you found (so this exact failure class
+    cannot silently return).
+actions:
+  - >-
+    Investigate and fix CELLS-CPP-010 (a second confirmed fabrication for this pilot): determine
+    whether the real root cause is a stale documentation generation or a real extraction bug, fix
+    it at the source, and prove the real install text now matches the real committed README.
+checks:
+  - command: '{python} -m pytest tests/mcp/tools/test_product_reference_cpp_install.py -q -rfE -p no:cacheprovider'
+    expect: 'exit 0'
+    timeout_seconds: 180
+    junitxml: true
+    proves:
+      - REQ-G3-013
+min_tests: 6
+requires:
+  - python
+network: false
+negative_control:
+  mutate: |
+    python -X utf8 -c "import pathlib; p = pathlib.Path('tests/mcp/tools/test_product_reference_cpp_install.py'); s = p.read_text(encoding='utf-8'); marker = 'def test_'; idx = s.find(marker); assert idx != -1, 'no test function found as expected'; end = s.find(chr(10) + marker, idx + 1); segment = s[idx:end] if end != -1 else s[idx:]; s2 = s.replace(segment, '', 1); assert s2 != s, 'removal had no effect'; p.write_text(s2, encoding='utf-8')"
+  rationale: >-
+    Removes one real test this card adds (the first one in the file), reducing the real test
+    count below min_tests - gatectl's own min_tests check must then fail. This card's real fix
+    location is unknown at authoring time, so a more targeted mutate against production code
+    cannot be written here; the worker's own report must state clearly whether their real fix has
+    an equally real, independently-verified negative control of its own (e.g. reverting the real
+    fix and confirming their new tests fail for the right reason) even though this card's own
+    mutate cannot target it directly.
+evidence:
+  - evidence/build/G3/TC-659/receipt.json
+closeout:
+  - >-
+    CELLS-CPP-010 is fixed at its real root cause (not papered over with new static text), and
+    get_product_reference's cpp install section now matches the real committed README.
+recovery: Re-run from a clean tree.
