@@ -1,0 +1,244 @@
+id: TC-658
+gate: G3
+lane: storage-retrieval
+purpose: >-
+  Closes the round-3 audit's own #1 recommended fix (`docs/round3/HANDOFF3.md`, section "#1
+  finding") - the single highest-leverage item it found across the whole 32-pilot portfolio.
+  Read that section in full first, and the ~20 real `mcp-content-missing`-category issues in
+  `docs/round3/issues.json` it is describing, before starting - do not take this card's own
+  summary on faith.
+
+  The disclosure program's (KD1-KD10) WIRING is correct - independently re-verified by this
+  supervisor before authoring this card: `get_symbol.py`, `search_symbols.py`,
+  `get_product_reference.py`, `report_index_freshness.py`, and `list_members.py` (via
+  composition through `get_symbol.py`) all correctly surface a `known_defects` entry when its
+  `subject.ref` matches a real query. The real, confirmed gap: `subject.ref` is a single string
+  today, so an entry can only ever name ONE symbol, even when the same real upstream bug (as
+  described in the entry's OWN `summary`/`user_action` prose, already committed) affects several
+  real sibling symbols in the identical causal chain. Confirmed concrete example: pdf/java's
+  `PDF-JAVA-001` entry's own `user_action` text already says "...use TextStamp on a reopened
+  Document instead" - `TextStamp` is a real, separate, directly-queryable type in
+  `tests/fixtures/pdf_java/api_surface.json`, confirmed by this supervisor, but nothing surfaces
+  this disclosure when a caller queries `TextStamp` directly, only `WatermarkArtifact`.
+
+  Fix: change `subject.ref` (a single string) to `subject.refs` (a non-empty array of strings,
+  the exact same type `applies_to.package_versions` already uses for the identical "one or
+  several" semantic - reuse that field's own JSON Schema shape as your template, confirm it in
+  `schemas/product/known_defects.schema.json` yourself first) everywhere: the schema, the
+  `Subject` dataclass in `src/foss_mcp/indexing/known_defects.py`, and the TWO real exact-match
+  call sites that currently do `if defect.subject.ref != fqn` (`get_symbol.py` line ~176,
+  `search_symbols.py` line ~656 - confirm the real current line numbers yourself) - change both
+  to admit when `fqn` is a member of `defect.subject.refs` (membership, not equality).
+  `get_product_reference.py`'s one render line (around line 699, `f"Known defect
+  ({defect.subject.ref}): ..."` - confirm the real current text yourself) never matches by ref
+  at all (it surfaces every package/commit-scoped defect for the pilot unconditionally); update
+  it to render every name in `refs` (e.g. joined with ", ") rather than a single value, so the
+  rendered text stays accurate once `refs` has more than one entry. Do NOT touch
+  `report_index_freshness.py` in this card - confirmed it never filters by ref at all, and a
+  different card (`TC-657`) is already in flight touching that exact file; a write-path
+  collision with an in-flight card is not acceptable.
+
+  Migrate all 23 real, already-committed `config/known_defects/*.yaml` files mechanically:
+  every existing `ref: <value>` line becomes `refs: [<value>]` (or the equivalent multi-line
+  array form if you judge it more readable - your call, consistently applied) - a lossless,
+  purely syntactic change, NOT a content judgment call. Do not add any NEW sibling symbol to any
+  entry's `refs` in this card - that is deliberately separate, larger, future content-authoring
+  work (research each pilot's real siblings), explicitly out of this card's scope. This card
+  proves the MECHANISM works for a list of one; populating richer lists with real sibling
+  symbols is the next card after this one, not this one.
+depends_on:
+  - TC-017a
+  - TC-017b
+  - TC-017c
+  - TC-022
+  - TC-065
+  - TC-071
+  - TC-079
+  - TC-120
+  - TC-143
+  - TC-145
+  - TC-199
+  - TC-200
+  - TC-202
+  - TC-210
+  - TC-254
+  - TC-275
+  - TC-278
+  - TC-279
+  - TC-353
+  - TC-386
+  - TC-387
+  - TC-427
+  - TC-470
+  - TC-471
+  - TC-493
+  - TC-507
+  - TC-514
+  - TC-515
+  - TC-516
+  - TC-518
+  - TC-519
+  - TC-520
+  - TC-523
+  - TC-527
+  - TC-536
+  - TC-539
+  - TC-540
+  - TC-541
+  - TC-542
+  - TC-554
+  - TC-559
+  - TC-560
+  - TC-561
+  - TC-562
+  - TC-571
+  - TC-574
+  - TC-577
+  - TC-582
+  - TC-585
+  - TC-604
+  - TC-608
+  - TC-610
+  - TC-612
+  - TC-618
+  - TC-622
+  - TC-636
+  - TC-637
+  - TC-639
+  - TC-641
+  - TC-642
+  - TC-643
+  - TC-644
+  - TC-645
+  - TC-646
+  - TC-647
+  - TC-648
+  - TC-649
+  - TC-650
+  - TC-652
+  - TC-653
+  - TC-654
+  - TC-656
+write_paths:
+  - schemas/product/known_defects.schema.json
+  - src/foss_mcp/indexing/known_defects.py
+  - src/foss_mcp/mcp/tools/get_symbol.py
+  - src/foss_mcp/mcp/tools/search_symbols.py
+  - src/foss_mcp/mcp/tools/get_product_reference.py
+  - config/known_defects/3d__java.yaml
+  - config/known_defects/3d__net.yaml
+  - config/known_defects/3d__python.yaml
+  - config/known_defects/3d__typescript.yaml
+  - config/known_defects/barcode__python.yaml
+  - config/known_defects/cells__cpp.yaml
+  - config/known_defects/cells__go.yaml
+  - config/known_defects/cells__java.yaml
+  - config/known_defects/cells__net.yaml
+  - config/known_defects/cells__python.yaml
+  - config/known_defects/cells__rust.yaml
+  - config/known_defects/cells__typescript.yaml
+  - config/known_defects/email__cpp.yaml
+  - config/known_defects/email__python.yaml
+  - config/known_defects/imaging__net.yaml
+  - config/known_defects/note__python.yaml
+  - config/known_defects/page__python.yaml
+  - config/known_defects/pdf__cpp.yaml
+  - config/known_defects/pdf__java.yaml
+  - config/known_defects/slides__cpp.yaml
+  - config/known_defects/slides__net.yaml
+  - config/known_defects/slides__python.yaml
+  - config/known_defects/tex__python.yaml
+  - config/known_defects/words__python.yaml
+  - tests/indexing/test_known_defects.py
+  - tests/indexing/test_known_defects_data_3d.py
+  - tests/indexing/test_known_defects_data_cells.py
+  - tests/indexing/test_known_defects_data_pdf_slides.py
+  - tests/indexing/test_known_defects_data_remaining.py
+  - tests/indexing/test_known_defects_completeness.py
+  - tests/mcp/tools/test_known_defects_in_get_symbol.py
+  - tests/mcp/tools/test_known_defects_in_search_symbols.py
+  - tests/mcp/tools/test_known_defects_in_product_reference.py
+  - tests/mcp/tools/test_known_hazards_words_net.py
+  - tests/indexing/test_known_defects_data_cells_typescript_013.py
+  - tests/mcp/tools/test_known_defects_multi_ref.py
+satisfies:
+  - REQ-G3-015
+source_refs:
+  - file: docs/DECISION_LOG.md
+    anchor: >-
+      ## 2026-11-02 — Round-3 independent re-audit adopted; a real regression found and given top priority; the "no pilot ever gets worse" rule adopted project-wide (operator, supervisor)
+    sha256: b750b8bf0df25b17bf66d014895ecb42952050c7cc63773f56249c4a1c551791
+inputs:
+  - >-
+    READ FIRST, in full: `docs/round3/HANDOFF3.md`'s "#1 finding" section. Then
+    `schemas/product/known_defects.schema.json`'s current `subject`/`applies_to` definitions
+    (confirm `package_versions` really is an array, your template). Then
+    `src/foss_mcp/indexing/known_defects.py`'s `Subject`/`KnownDefect` dataclasses and loader in
+    full. Then the two real exact-match call sites in `get_symbol.py` and `search_symbols.py`,
+    and `get_product_reference.py`'s one render line. Then at least 3 real
+    `config/known_defects/*.yaml` files to confirm the real current `ref:` shape before writing
+    your migration.
+  - >-
+    Write a small, standalone migration (a short Python script run once, or hand-edit each of
+    the 23 files directly - your judgment, but every file's real content must end up
+    byte-equivalent in meaning to its pre-migration form, `ref: X` becoming `refs: [X]`, nothing
+    else changed) and confirm every file still validates against the updated schema and every
+    existing completeness/data test in `tests/indexing/test_known_defects_data_*.py` and
+    `tests/indexing/test_known_defects_completeness.py` still passes after the rename (update
+    those test files' own `Subject`/`.ref` references to `.refs`/`refs=(...)` wherever they
+    construct or assert one directly - this is a mechanical rename in test code, not a logic
+    change).
+  - >-
+    Write at least 10 tests in `tests/mcp/tools/test_known_defects_multi_ref.py`: a synthetic
+    `KnownDefect` with 2+ `refs` is found by `get_symbol`/`known_defect_lines` under EITHER real
+    name, not just the first; the same for `search_symbols`; a single-ref entry (migrated from
+    the old shape) behaves identically to before the migration (no regression for every existing
+    entry - this is the single most important test in this file, run it against at least 3 real,
+    already-committed pilots' real entries); `get_product_reference`'s rendered text for a
+    multi-ref entry names every ref, not just one; the schema rejects an empty `refs` array; the
+    schema rejects the OLD `ref:` key name now that it has been fully migrated (confirm this is
+    the real intended behavior - a schema that still silently accepts the old key alongside the
+    new one would hide a future authoring mistake, so `additionalProperties: false` on `subject`
+    should already make this impossible, verify it directly rather than assuming).
+actions:
+  - >-
+    Change known_defects' subject.ref from a single string to a non-empty array (refs), fixing
+    the round-3 audit's #1 recommended, highest-leverage finding across the whole portfolio -
+    proves the mechanism for a list of one; a later card populates real sibling symbols.
+checks:
+  - command: '{python} -m pytest tests/mcp/tools/test_known_defects_multi_ref.py -q -rfE -p no:cacheprovider'
+    expect: 'exit 0'
+    timeout_seconds: 180
+    junitxml: true
+    proves:
+      - REQ-G3-015
+  - command: '{python} -m pytest tests/indexing/test_known_defects.py tests/indexing/test_known_defects_data_3d.py tests/indexing/test_known_defects_data_cells.py tests/indexing/test_known_defects_data_pdf_slides.py tests/indexing/test_known_defects_data_remaining.py tests/indexing/test_known_defects_completeness.py tests/mcp/tools/test_known_defects_in_get_symbol.py tests/mcp/tools/test_known_defects_in_search_symbols.py tests/mcp/tools/test_known_defects_in_product_reference.py -q -rfE -p no:cacheprovider'
+    expect: 'exit 0'
+    timeout_seconds: 300
+    junitxml: true
+    proves:
+      - REQ-G3-015
+min_tests: 10
+requires:
+  - python
+network: false
+negative_control:
+  mutate: |
+    python -X utf8 -c "import pathlib; p = pathlib.Path('src/foss_mcp/mcp/tools/get_symbol.py'); s = p.read_text(encoding='utf-8'); marker = 'defect.subject.refs'; assert marker in s, 'defect.subject.refs not found in get_symbol.py as expected - if your real code differs, anchor your own mutate on your own real literal instead and note the substitution in your closeout'; s2 = s.replace(marker, 'defect.subject.ref', 1); assert s2 != s, 'substitution had no effect'; p.write_text(s2, encoding='utf-8')"
+  rationale: >-
+    Reverts get_symbol.py's one real matching call site back to the old single-value attribute
+    name, which no longer exists on the migrated Subject dataclass - a real AttributeError at
+    the first known-defect-bearing query. Every test proving multi-ref matching (or even
+    single-ref matching after the rename) works through get_symbol must fail under this
+    mutation; tests scoped only to search_symbols/get_product_reference's own call sites are
+    unaffected (if your real fix touches those differently, verify this mutation still reaches a
+    real behavioral break for at least the get_symbol path, and say so in your closeout).
+evidence:
+  - evidence/build/G3/TC-658/receipt.json
+closeout:
+  - >-
+    known_defects' subject can now name every real sibling symbol a disclosed bug affects, not
+    only the one its original finding happened to cite - the mechanism fix for the round-3
+    audit's #1 recommendation. All 23 existing entries migrated losslessly; a future card adds
+    the real sibling names the audit already identified.
+recovery: Re-run from a clean tree.
