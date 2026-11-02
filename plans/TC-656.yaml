@@ -1,0 +1,118 @@
+id: TC-656
+gate: G3
+lane: extraction
+purpose: >-
+  HIGHEST PRIORITY (operator directive, 2026-11-02): a round-3 independent re-audit of this
+  project's own already-pushed image (`foss-mcp-serving:demo-cac9288`, commit `cac92881a1ef`)
+  found cells/typescript regressed from D to F - a brand-new, severe, undisclosed silent-data-
+  loss defect in the real upstream library, independently confirmed by a dedicated investigation
+  this supervisor ran before authoring this card: `aspose_cells/workbook.ts`'s `generateWorkbook()`
+  builds `xl/workbook.xml`'s `<sheets>` index with exactly two hand-written, unconditional
+  `if (this._sheets.worksheets.length > N)` blocks (N=0,1) and NO loop for index >= 2, while the
+  SAME file's `writeToZip()` DOES loop over every real worksheet and writes a real
+  `xl/worksheets/sheetN.xml` part for each one. Net effect: a 3rd+ worksheet's data is physically
+  present in the saved .xlsx zip but never referenced by the one index (`workbook.xml`) any real
+  OOXML reader (Excel included) uses to enumerate sheets - it is invisible, with zero exception
+  and zero warning, to every consumer of the file. This is confirmed as entirely real (not a
+  foss-mcp defect - a defect in the actual upstream `excel-cells` npm package) and genuinely new
+  (not covered by any of the 5 existing `config/known_defects/cells__typescript.yaml` entries,
+  nor by any round-2 finding - `docs/round2/issues.json` has no cells/typescript issue about this).
+
+  Ledger id: `CELLS-TYPESCRIPT-013` (round-3 audit, `docs/round3/issues.json`, P0,
+  category upstream-library-bug). Read that real record yourself before starting - do not take
+  this card's own summary on faith.
+
+  Add ONE real `known_defects` entry to `config/known_defects/cells__typescript.yaml`
+  (schema: `schemas/product/known_defects.schema.json`, same shape every existing entry in that
+  file already uses - read them first, they are your template) disclosing this defect plainly:
+  the real failure mode (any workbook saved with 3 or more worksheets silently loses every sheet
+  past the 2nd in the written file's own sheet index, though the data is technically present in
+  the zip), the real trigger (calling `Workbook.save()` on a workbook with >= 3 worksheets), and
+  the safe pattern (do not rely on `save()` for more than 2 worksheets in this version; verify a
+  saved file's real sheet count by re-opening it, not by trusting in-memory state). `subject.ref`
+  must be the bare type name `Workbook` (the public method is `Workbook.save()`, confirmed from
+  `tests/fixtures/cells_typescript/api_surface.json` - its `methods` array lists `save` at line
+  390 of `aspose_cells/workbook.ts` as a real public member of the `Workbook` class), matching
+  every existing entry's own bare-type-name convention in this same file.
+
+  This is a data-only card: the wiring that surfaces this disclosure through `get_symbol`,
+  `search_symbols`, `get_product_reference`, and `report_index_freshness` for the `Workbook` type
+  already exists and is already correct (independently re-verified by the supervisor directly
+  against the real code before authoring this card - `get_symbol.py`, `search_symbols.py`,
+  `get_product_reference.py`, and `report_index_freshness.py` all already call
+  `load_known_defects`/`known_defect_lines` correctly). Do not modify any of those four files.
+depends_on:
+  - TC-645
+write_paths:
+  - config/known_defects/cells__typescript.yaml
+  - tests/indexing/test_known_defects_data_cells_typescript_013.py
+satisfies:
+  - REQ-G3-015
+source_refs:
+  - file: docs/DECISION_LOG.md
+    anchor: >-
+      ## 2026-10-30 — Round-2 portfolio audit remediation adopted: unified plan, governance decisions A-K
+      recorded (supervisor)
+    sha256: 62cf1403a592118e3fb6bd14c5336f8a997cc3181d44a585323ec9f1d385a931
+inputs:
+  - >-
+    READ FIRST: the real `CELLS-TYPESCRIPT-013` record in `docs/round3/issues.json`. Then the 5
+    real, already-committed entries in `config/known_defects/cells__typescript.yaml` (your exact
+    template). Then `tests/fixtures/cells_typescript/api_surface.json`'s real `Workbook` type
+    entry (confirm `save` is a real public method yourself). If you have real network access,
+    confirm directly against the real pinned upstream source
+    (`aspose-cells-foss/Aspose.Cells-FOSS-for-TypeScript`, file `aspose_cells/workbook.ts`,
+    functions `generateWorkbook()` and `writeToZip()`) that the hardcoded-2-sheet / loops-all-
+    sheets asymmetry is real; if you do not have network access, trust this card's own citation
+    (already independently verified by the supervisor) but say so plainly in your report.
+  - >-
+    Write at least 7 tests in `tests/indexing/test_known_defects_data_cells_typescript_013.py`:
+    the new entry parses and validates against the real schema; `load_known_defects('cells',
+    'typescript')` returns an entry with `id == 'CELLS-TYPESCRIPT-013'` and `subject.ref ==
+    'Workbook'`; a real end-to-end test proving `get_symbol(fqn='Workbook')` for the cells/
+    typescript scope now surfaces this disclosure (reuse the real end-to-end pattern already
+    established in `tests/mcp/tools/test_known_defects_in_get_symbol.py` or
+    `tests/indexing/test_known_defects_data_cells.py` - read one first); a real end-to-end test
+    proving `search_symbols('save')` or `search_symbols('Workbook')` for the same scope also
+    surfaces it; no duplicate id within the file; `verified_at` is a valid calendar date; the
+    disclosure text does not claim every save() call fails (only >= 3 worksheets) - this must
+    not overstate the defect.
+actions:
+  - >-
+    Disclose CELLS-TYPESCRIPT-013 (the round-3 audit's new P0 silent-data-loss finding) through
+    the existing, already-correct known_defects mechanism - the single highest-priority item in
+    this project's current open-issue list.
+checks:
+  - command: '{python} -m pytest tests/indexing/test_known_defects_data_cells_typescript_013.py -q -rfE -p no:cacheprovider'
+    expect: 'exit 0'
+    timeout_seconds: 120
+    junitxml: true
+    proves:
+      - REQ-G3-015
+  - command: '{python} -m pytest tests/indexing/test_known_defects_data_cells.py tests/indexing/test_known_defects_completeness.py -q -rfE -p no:cacheprovider'
+    expect: 'exit 0'
+    timeout_seconds: 180
+    junitxml: true
+    proves:
+      - REQ-G3-015
+min_tests: 7
+requires:
+  - python
+network: false
+negative_control:
+  mutate: |
+    python -X utf8 -c "import pathlib; p = pathlib.Path('config/known_defects/cells__typescript.yaml'); s = p.read_text(encoding='utf-8'); marker = 'CELLS-TYPESCRIPT-013'; assert marker in s, 'CELLS-TYPESCRIPT-013 literal not found in config/known_defects/cells__typescript.yaml as expected - if your real file differs, anchor your own mutate on your own real id instead and note the substitution in your closeout'; idx = s.find('- id: ' + marker); assert idx != -1, 'the exact entry opener was not found'; end = s.find(chr(10) + '- id: ', idx + 1); segment = s[idx:end] if end != -1 else s[idx:]; s2 = s.replace(segment, '', 1); assert s2 != s, 'removal had no effect'; p.write_text(s2, encoding='utf-8')"
+  rationale: >-
+    Removes the one real CELLS-TYPESCRIPT-013 entry this card adds. Any test proving this
+    specific disclosure surfaces through get_symbol/search_symbols/load_known_defects must fail
+    under this mutation; tests of the other 5 pre-existing entries in this same file are
+    unaffected.
+evidence:
+  - evidence/build/G3/TC-656/receipt.json
+closeout:
+  - >-
+    The round-3 audit's highest-priority new finding (cells/typescript's silent 3rd+-worksheet
+    data loss on save) is now disclosed through the existing, already-correct known_defects
+    mechanism, reachable from get_symbol, search_symbols, get_product_reference, and
+    report_index_freshness for the Workbook type.
+recovery: Re-run from a clean tree.
