@@ -547,11 +547,17 @@ TOOL_DESCRIPTIONS: dict[str, str] = {
         "this product: the other three values (furnished, repo_native_manifest, "
         'repo_native_release_notes) always answer "never published", so there is no reason '
         "to pass them. If "
-        "current_source_commit is omitted, staleness cannot be ruled out and the report says "
-        "so explicitly rather than assuming freshness - it never guesses. Check this before "
-        "relying heavily on search results if you need to know whether the index reflects the "
-        "latest upstream release. The report gives freshness_state (fresh, stale or unknown) with its "
-        "basis, and when no commit is supplied it compares against the latest release when it can."
+        "current_source_commit is omitted, the report falls back through git-ancestry, "
+        "latest-release-tag, and latest-release-version signals and, as a last resort, the "
+        "version the package registry currently serves against the packaging manifest's own "
+        "declared version - each basis graded by how directly it was observed, never invented. "
+        "When none of those resolve it, or the registry comparison would rest on a manifest "
+        "version that cannot be trusted to mean anything (e.g. a placeholder like 0.1.0 next to "
+        "a calendar-style registry version), it says staleness cannot be ruled out rather than "
+        "assuming freshness. Check this before relying heavily on search results if you need to "
+        "know whether the index reflects the latest upstream release. The report gives "
+        "freshness_state (fresh, stale or unknown) with its basis, and when no commit is "
+        "supplied it compares against the latest release, then the package registry, when it can."
     ),
 }
 

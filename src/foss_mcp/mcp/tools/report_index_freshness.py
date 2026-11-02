@@ -88,7 +88,8 @@ class FreshnessReport:
     example_search_reason: str = "no active generation"
     # G3/TC-519. ``stale`` stays True for an unknown verdict (it is ``freshness_state != "fresh"``);
     # ``freshness_state`` (fresh / stale / unknown) carries the distinction and ``freshness_basis``
-    # (caller_commit, git_ancestry, latest_release_tag_commit, latest_release_version, none) says how it was decided.
+    # (caller_commit, git_ancestry, latest_release_tag_commit, latest_release_version,
+    # registry_served_version, none) says how it was decided.
     freshness_state: str = "unknown"
     freshness_basis: str = "none"
     indexed_at: str | None = None
@@ -395,6 +396,60 @@ def known_defect_lines(
     return tuple(lines)
 
 
+def _registry_version_drift(
+    padded_registry_version: tuple[int, ...],
+    padded_indexed_version: tuple[int, ...],
+    registry_text: str,
+    indexed_text: str,
+) -> dict:
+    """The same evidence shape ``release_alignment.drift_from_record`` returns, built from a
+    version comparison instead of git ancestry (G3/TC-657, fixing SLIDES-JAVA-004): the
+    ``registry_served_version`` branch has no commit-ancestry counts to decide
+    ``index_ahead_of_package``/``package_ahead_of_index`` from, but the version comparison it
+    already performs is itself a real, disclosed ancestry signal, and a confident ``"fresh"``/
+    ``"stale"`` verdict from this branch must carry it exactly like the ``git_ancestry`` branch's
+    own confident verdicts do - never a bare verdict with no supporting fields.
+
+    *padded_registry_version*/*padded_indexed_version* are the equal-width tuples the branch
+    already compares; *registry_text*/*indexed_text* are the unpadded, as-given strings used in
+    the report's own ``reason`` text, reused here so ``published_version`` matches it exactly.
+    """
+    if padded_registry_version > padded_indexed_version:
+        return {
+            "drift": PACKAGE_AHEAD,
+            "index_ahead_of_package": False,
+            "package_ahead_of_index": True,
+            "commit_distance": None,
+            "published_version": registry_text,
+            "message": (
+                f"The package registry serves version {registry_text}, newer than the indexed "
+                f"package version {indexed_text}: the published package can have types and "
+                "members this index does not describe."
+            ),
+        }
+    if padded_registry_version == padded_indexed_version:
+        return {
+            "drift": DRIFT_IN_SYNC,
+            "index_ahead_of_package": False,
+            "package_ahead_of_index": False,
+            "commit_distance": 0,
+            "published_version": registry_text,
+            "message": f"The indexed package version is the version the registry serves ({registry_text}).",
+        }
+    return {
+        "drift": INDEX_AHEAD,
+        "index_ahead_of_package": True,
+        "package_ahead_of_index": False,
+        "commit_distance": None,
+        "published_version": registry_text,
+        "message": (
+            f"The indexed package version {indexed_text} is ahead of the version the registry "
+            f"serves ({registry_text}): the index describes source that is not in the published "
+            "package, which can lack types and members documented here."
+        ),
+    }
+
+
 def report_index_freshness(
     store: GenerationManifestStore,
     scope: Scope,
@@ -407,8 +462,12 @@ def report_index_freshness(
     registry_served_version: tuple[int, ...] | None = None,
 ) -> FreshnessReport:
     """Compare every commit ``scope``'s active generation (for *source_kind*) was indexed from
-    against *current_source_commit*. Never publishes a generation, never guesses freshness
-    when the information needed to know is simply absent.
+    against *current_source_commit*. Never publishes a generation, and never invents a verdict
+    when the information needed to know is simply absent - but it is not a pure commit-equality
+    check either: when no commit signal resolves it, it falls back through a sequence of
+    progressively weaker, explicitly-graded bases (``freshness_basis``) ending in a version
+    comparison against the live package registry (G3/TC-621, below), each one disclosed, never
+    silently assumed.
 
     When *pinned_library_commit* is given, the report also says whether the API symbols were
     extracted at it. When the chunks state how much of the API surface they hold, the report
@@ -425,8 +484,23 @@ def report_index_freshness(
     is responsible for parsing whatever raw string the real package registry serves), it is compared
     against ``indexed_version`` (the manifest's own declared version): a strictly newer registry
     version is ``"stale"`` with basis ``"registry_served_version"``, an equal or older one is
-    ``"fresh"`` with the same basis. With no ``indexed_version`` to compare against, the verdict falls
-    through to the legacy ``"unknown"`` fallback unchanged. Wiring a live registry fetch into
+    ``"fresh"`` with the same basis - and, as of G3/TC-657, this verdict populates ``drift``,
+    ``published_version`` and ``index_ahead_of_package``/``package_ahead_of_index`` the same way the
+    ``git_ancestry`` branch above already does for an equivalent verdict, derived from the version
+    comparison itself rather than from commit ancestry (no ancestry data is available here).
+
+    G3/TC-657: ``indexed_version`` is only trustworthy for this comparison when its major version
+    number agrees with *registry_served_version*'s - the same guard
+    ``release_alignment.release_in_index`` already applies to a release tag against the manifest
+    version (a calendar-style tag such as ``v26.09`` against a placeholder ``0.1.0`` manifest has a
+    different major and is never compared there either). Some pilots' packaging manifests declare a
+    real, meaningful version that tracks the registry; others (confirmed: email/net's ``.csproj``)
+    declare a generic, never-bumped placeholder such as ``0.1.0`` that means nothing next to a real
+    served version like ``26.7.0``. Comparing those would produce an arithmetically "correct" but
+    semantically meaningless confident verdict, so a major-version mismatch here reports
+    ``"unknown"`` instead - an honest miss, not a guess dressed up as a verdict. With no
+    ``indexed_version`` to compare against, or that mismatch, the verdict falls through to the
+    legacy ``"unknown"`` fallback unchanged. Wiring a live registry fetch into
     *registry_served_version* is a separate card's job; this function only consumes it.
     """
     key = scope_key(scope, source_kind)
@@ -471,13 +545,26 @@ def report_index_freshness(
         (drift["message"],) if drift_state in (INDEX_AHEAD, PACKAGE_AHEAD, DRIFT_DIVERGED) else ()
     )
 
-    def build(state: str, reason: str, basis: str, compared_against: str | None = None) -> FreshnessReport:
+    def build(
+        state: str,
+        reason: str,
+        basis: str,
+        compared_against: str | None = None,
+        version_drift: dict | None = None,
+    ) -> FreshnessReport:
         if pinned_matches is False and pinned_library_commit is not None:
             reason = (
                 f"{reason}. API symbols were not extracted at the pinned library commit "
                 f"{pinned_library_commit.strip()[:_SHORT_COMMIT_LENGTH]} (they come from "
                 f"{(indexed_commit or '')[:_SHORT_COMMIT_LENGTH]})"
             )
+        # G3/TC-657 (SLIDES-JAVA-004): *version_drift*, when given, is the registry_served_version
+        # branch's own version-comparison-derived evidence - used in place of the git-ancestry
+        # *drift* computed above, which is always DRIFT_UNKNOWN by the time that branch is reached
+        # (any non-unknown git-ancestry drift would already have returned via the git_ancestry
+        # branch above), so a confident verdict from the registry branch is never left with none
+        # of the supporting fields the sibling git_ancestry branch already populates.
+        evidence = version_drift if version_drift is not None else drift
         return FreshnessReport(
             scope,
             source_kind,
@@ -503,12 +590,12 @@ def report_index_freshness(
             latest_release_in_index=latest_in_index,
             warnings=_abbreviation_warnings(current_source_commit) + drift_warnings,
             compared_against_commit=compared_against,
-            drift=drift_state,
-            index_ahead_of_package=drift["index_ahead_of_package"],
-            package_ahead_of_index=drift["package_ahead_of_index"],
-            drift_commit_distance=drift["commit_distance"],
-            published_version=drift["published_version"],
-            drift_message=drift["message"],
+            drift=evidence["drift"],
+            index_ahead_of_package=evidence["index_ahead_of_package"],
+            package_ahead_of_index=evidence["package_ahead_of_index"],
+            drift_commit_distance=evidence["commit_distance"],
+            published_version=evidence["published_version"],
+            drift_message=evidence["message"],
             known_defects=known_defect_lines(defects, indexed_commit, registry_served_version),
             documentation_content_type_counts=dict(provenance.content_type_counts),
         )
@@ -541,7 +628,21 @@ def report_index_freshness(
             "no current_source_commit was given",
             "latest_release_version",
         )
-    if registry_served_version is not None and indexed_version is not None:
+    if (
+        registry_served_version is not None
+        and indexed_version is not None
+        and registry_served_version[0] == indexed_version[0]
+    ):
+        # G3/TC-657 (EML-NET-007): the major-version-agreement check above is what makes the
+        # manifest's declared version a trustworthy signal here at all - the same guard
+        # release_alignment.release_in_index already applies to a release tag against the
+        # manifest version. Some pilots' manifests never get bumped from a generic placeholder
+        # (confirmed: email/net's .csproj declares "0.1.0" while the registry serves "26.7.0");
+        # comparing that against a real registry version would produce an arithmetically
+        # "correct" but meaningless confident verdict. A major mismatch falls through to the
+        # honest "unknown" fallback below instead, same as having no indexed_version at all - it
+        # does NOT disable this branch for pilots whose manifest version is real (same major as
+        # the registry's).
         indexed_text = ".".join(str(part) for part in indexed_version)
         registry_text = ".".join(str(part) for part in registry_served_version)
         # G3/TC-629: pad both tuples to equal width with trailing zeros before comparing, the
@@ -550,18 +651,26 @@ def report_index_freshness(
         width = max(len(registry_served_version), len(indexed_version))
         padded_registry_version = registry_served_version + (0,) * (width - len(registry_served_version))
         padded_indexed_version = indexed_version + (0,) * (width - len(indexed_version))
+        # G3/TC-657 (SLIDES-JAVA-004): the confident verdict below now carries the same
+        # drift/published_version/index_ahead_of_package evidence the git_ancestry branch's
+        # own confident verdicts already carry, derived from this version comparison itself.
+        version_drift = _registry_version_drift(
+            padded_registry_version, padded_indexed_version, registry_text, indexed_text
+        )
         if padded_registry_version > padded_indexed_version:
             return build(
                 "stale",
                 f"the package registry serves version {registry_text}, newer than the indexed "
                 f"package version {indexed_text}",
                 "registry_served_version",
+                version_drift=version_drift,
             )
         return build(
             "fresh",
             f"the package registry serves version {registry_text}, no newer than the indexed "
             f"package version {indexed_text}",
             "registry_served_version",
+            version_drift=version_drift,
         )
     if len(commits) > 1:
         return build("unknown", _mixed_reason(commits, None), "none")
