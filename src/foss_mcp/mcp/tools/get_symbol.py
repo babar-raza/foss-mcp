@@ -73,9 +73,9 @@ class SymbolSignature:
     # symbol that works. For a resolved member name only the type-level line and that member's own lines.
     limitations: tuple[str, ...] = ()
     # TC-639 (KD2, G3/REQ-G3-015, additive): a rendered disclosure line for every committed known-defect
-    # entry whose subject.ref matches this symbol's own fqn (the OWNING type's FQN for a resolved member -
-    # see ResolvedSignature below), in registry file order. Empty when no defect data is recorded for this
-    # pilot yet (KD6-KD9's job), or none of it matches this symbol.
+    # entry whose subject.refs contains this symbol's own fqn (G3/TC-658: refs, plural - the OWNING
+    # type's FQN for a resolved member - see ResolvedSignature below), in registry file order. Empty when
+    # no defect data is recorded for this pilot yet (KD6-KD9's job), or none of it matches this symbol.
     known_defects: tuple[str, ...] = ()
 
 
@@ -158,13 +158,15 @@ def known_defect_lines(scope: Scope, fqn: str, text: str) -> tuple[str, ...]:
     """Every known-defect disclosure line that applies to *fqn*, in registry file order (KD2,
     G3/REQ-G3-015).
 
-    A defect applies when its ``subject.ref`` equals *fqn* exactly - the OWNING type's FQN for a
-    resolved member, never the raw member name, matching how a resolved name is already treated
-    elsewhere in this module - and, when it is scoped by ``applies_to.indexed_commit``, that commit
-    equals *text*'s own ``Source-Commit:`` line. A package-version-scoped defect (no
-    ``indexed_commit``) always applies here regardless of commit: this tool has no live registry
-    check against a currently served package version - that staleness-aware check is KD5's job on
-    ``report_index_freshness`` specifically, not this one.
+    A defect applies when *fqn* is a member of its ``subject.refs`` (G3/TC-658: a non-empty tuple,
+    since the same real upstream bug can affect several real sibling symbols in the identical
+    causal chain) - the OWNING type's FQN for a resolved member, never the raw member name,
+    matching how a resolved name is already treated elsewhere in this module - and, when it is
+    scoped by ``applies_to.indexed_commit``, that commit equals *text*'s own ``Source-Commit:``
+    line. A package-version-scoped defect (no ``indexed_commit``) always applies here regardless
+    of commit: this tool has no live registry check against a currently served package version -
+    that staleness-aware check is KD5's job on ``report_index_freshness`` specifically, not this
+    one.
     """
     defects = load_known_defects(scope.family, scope.platform)
     if not defects:
@@ -173,7 +175,7 @@ def known_defect_lines(scope: Scope, fqn: str, text: str) -> tuple[str, ...]:
     chunk_commit = commit_match.group(1) if commit_match is not None else None
     lines: list[str] = []
     for defect in defects:
-        if defect.subject.ref != fqn:
+        if fqn not in defect.subject.refs:
             continue
         indexed_commit = defect.applies_to.indexed_commit
         if indexed_commit is not None and indexed_commit != chunk_commit:

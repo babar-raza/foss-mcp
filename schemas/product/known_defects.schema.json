@@ -33,18 +33,23 @@
           "subject": {
             "type": "object",
             "additionalProperties": false,
-            "required": ["kind", "ref"],
+            "required": ["kind", "refs"],
             "description": "What the defect is about.",
             "properties": {
               "kind": {
                 "type": "string",
                 "enum": ["method", "class", "commit", "package"],
-                "description": "The kind of thing subject.ref names."
+                "description": "The kind of thing every subject.refs entry names."
               },
-              "ref": {
-                "type": "string",
-                "pattern": "\\S",
-                "description": "The exact symbol FQN or commit sha the defect is about."
+              "refs": {
+                "type": "array",
+                "minItems": 1,
+                "uniqueItems": true,
+                "description": "One or more symbol FQNs or commit shas the defect is about - the same real upstream bug can affect several real sibling symbols in the identical causal chain.",
+                "items": {
+                  "type": "string",
+                  "pattern": "\\S"
+                }
               }
             }
           },

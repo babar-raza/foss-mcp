@@ -259,7 +259,7 @@ def test_imaging_net_004_is_indexed_commit_scoped_with_the_real_commit_sha() -> 
     assert defect.applies_to.indexed_commit == IMAGING_NET_COMMIT
     assert defect.applies_to.package_versions is None
     assert defect.subject.kind == "commit"
-    assert defect.subject.ref == IMAGING_NET_COMMIT
+    assert defect.subject.refs == (IMAGING_NET_COMMIT,)
     assert defect.status == "open"
 
 

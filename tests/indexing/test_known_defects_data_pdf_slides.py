@@ -208,7 +208,7 @@ def test_pdf_cpp_001_is_method_scoped_not_a_whole_library_claim() -> None:
     defect = defects[0]
     assert defect.id == "PDF-CPP-001"
     assert defect.subject.kind == "method"
-    assert defect.subject.ref == "Aspose::Pdf::Document"
+    assert defect.subject.refs == ("Aspose::Pdf::Document",)
 
 
 def test_slides_python_001_has_no_confirmed_public_fqn_so_is_package_scoped() -> None:
@@ -222,7 +222,7 @@ def test_slides_python_001_has_no_confirmed_public_fqn_so_is_package_scoped() ->
     defect = defects[0]
     assert defect.id == "SLIDES-PY-001"
     assert defect.subject.kind == "package"
-    assert defect.subject.ref == "aspose-slides-foss"
+    assert defect.subject.refs == ("aspose-slides-foss",)
 
 
 def test_every_other_entrys_subject_kind_is_method() -> None:

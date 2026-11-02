@@ -160,7 +160,8 @@ TC-642 (KD3, G3/REQ-G3-015): ``SymbolMatch`` gains its own ``known_defects`` fie
 defaulting to ``()`` exactly like its existing ``limitation`` field - a committed known-defect entry
 (``foss_mcp.indexing.known_defects``) whose ``subject.kind`` is ``"method"`` or ``"class"`` (a
 ``"package"``/``"commit"``-scoped entry is KD4's ``get_product_reference`` path, not this one) and
-whose ``subject.ref`` equals the matched chunk's own FQN is rendered and attached, the same
+whose ``subject.refs`` contains the matched chunk's own FQN (G3/TC-658: a non-empty tuple, not a
+single value) is rendered and attached, the same
 commit-match logic ``get_symbol.known_defect_lines`` (KD2, TC-639) already established for the
 identical ``Source-Commit:`` scoping rule. Reimplemented locally (``_known_defect_lines``,
 ``_render_known_defect`` below) rather than imported: ``get_symbol.py`` already imports FROM this
@@ -598,8 +599,9 @@ class SymbolMatch:
     - ``aliases``: the other FQNs whose chunk is the same type under another name (a re-export), not repeated;
     - ``limitation``: the line of the chunk that says the symbol is "not implemented in this build", when it does;
     - ``known_defects`` (TC-642, KD3, G3/REQ-G3-015): a rendered disclosure line for every committed
-      method/class-scoped known-defect entry whose ``subject.ref`` matches this symbol's own FQN, in registry
-      file order - empty when no defect data is recorded for this pilot yet, or none of it matches.
+      method/class-scoped known-defect entry whose ``subject.refs`` contains this symbol's own FQN
+      (G3/TC-658), in registry file order - empty when no defect data is recorded for this pilot yet,
+      or none of it matches.
     """
 
     scope: Scope
@@ -638,11 +640,13 @@ def known_defect_lines(scope: Scope, fqn: str, text: str) -> tuple[str, ...]:
 
     A defect applies here only when its ``subject.kind`` is ``"method"`` or ``"class"`` (a
     ``"package"``/``"commit"``-scoped entry is KD4's ``get_product_reference`` path, never surfaced
-    through a symbol match) and its ``subject.ref`` equals *fqn* exactly, and, when it is scoped by
-    ``applies_to.indexed_commit``, that commit equals *text*'s own ``Source-Commit:`` line - the same
-    rule ``get_symbol.known_defect_lines`` (KD2, TC-639) already established. A package-version-scoped
-    defect (no ``indexed_commit``) always applies regardless of commit: there is no live registry
-    check against a currently served package version here either, same as KD2.
+    through a symbol match) and *fqn* is a member of its ``subject.refs`` (G3/TC-658: a non-empty
+    tuple, since the same real upstream bug can affect several real sibling symbols in the identical
+    causal chain), and, when it is scoped by ``applies_to.indexed_commit``, that commit equals
+    *text*'s own ``Source-Commit:`` line - the same rule ``get_symbol.known_defect_lines`` (KD2,
+    TC-639) already established. A package-version-scoped defect (no ``indexed_commit``) always
+    applies regardless of commit: there is no live registry check against a currently served
+    package version here either, same as KD2.
     """
     defects = load_known_defects(scope.family, scope.platform)
     if not defects:
@@ -653,7 +657,7 @@ def known_defect_lines(scope: Scope, fqn: str, text: str) -> tuple[str, ...]:
     for defect in defects:
         if defect.subject.kind not in _SYMBOL_DEFECT_SUBJECT_KINDS:
             continue
-        if defect.subject.ref != fqn:
+        if fqn not in defect.subject.refs:
             continue
         indexed_commit = defect.applies_to.indexed_commit
         if indexed_commit is not None and indexed_commit != chunk_commit:

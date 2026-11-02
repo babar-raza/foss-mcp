@@ -691,12 +691,15 @@ def _known_defect_as_hazard(defect: KnownDefect) -> KnownHazard:
     pattern ``_with_known_hazards`` already establishes for G3/TC-582's own hazards - never a
     second presentation mechanism. The wording mirrors ``get_symbol._render_known_defect``'s own
     ("Known defect: {summary} {user_action} (repro: {evidence.repro})") so the two disclosure
-    paths read consistently; the subject's own ``ref`` (the package or commit this defect names)
-    is prefixed, since a hazard's own wording alone carries no such reference. ``verified_at`` is
-    the defect's own ``evidence.verified_on.date``."""
+    paths read consistently; the subject's own ``refs`` (the package(s)/commit(s) this defect
+    names - G3/TC-658: every name is rendered, joined with ", ", not only the first, so the
+    rendered text stays accurate once ``refs`` has more than one entry) is prefixed, since a
+    hazard's own wording alone carries no such reference. ``verified_at`` is the defect's own
+    ``evidence.verified_on.date``."""
+    joined_refs = ", ".join(defect.subject.refs)
     return KnownHazard(
         text=(
-            f"Known defect ({defect.subject.ref}): {defect.summary} {defect.user_action} "
+            f"Known defect ({joined_refs}): {defect.summary} {defect.user_action} "
             f"(repro: {defect.evidence.repro})"
         ),
         verified_at=defect.evidence.verified_on.date,

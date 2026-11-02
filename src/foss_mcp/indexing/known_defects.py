@@ -80,7 +80,7 @@ REGISTRY_DIR = Path(__file__).resolve().parents[3] / "config" / "known_defects"
 
 _TOP_LEVEL_KEYS = frozenset({"schema_version", "pilot", "defects"})
 _DEFECT_KEYS = frozenset({"id", "subject", "applies_to", "summary", "user_action", "evidence", "status"})
-_SUBJECT_KEYS = frozenset({"kind", "ref"})
+_SUBJECT_KEYS = frozenset({"kind", "refs"})
 _APPLIES_TO_KEYS = frozenset({"indexed_commit", "package_versions"})
 _EVIDENCE_KEYS = frozenset({"repro", "verified_on"})
 _VERIFIED_ON_KEYS = frozenset({"package", "version", "date"})
@@ -174,8 +174,14 @@ def _subject_problems(subject: Any, label: str) -> list[str]:
         problems.append(
             f"{label}: subject.kind must be one of {sorted(_SUBJECT_KINDS)}, got {subject['kind']!r}"
         )
-    if "ref" in subject and not _non_blank(subject["ref"]):
-        problems.append(f"{label}: subject.ref must be a non-empty string")
+    if "refs" in subject:
+        refs = subject["refs"]
+        if not isinstance(refs, list) or not refs:
+            problems.append(f"{label}: subject.refs must be a non-empty list")
+        elif not all(_non_blank(ref) for ref in refs):
+            problems.append(f"{label}: every subject.refs entry must be a non-empty string")
+        elif len(set(refs)) != len(refs):
+            problems.append(f"{label}: subject.refs must be unique")
     return problems
 
 
@@ -317,10 +323,13 @@ class Evidence:
 
 @dataclass(frozen=True, slots=True)
 class Subject:
-    """What a defect is about."""
+    """What a defect is about. ``refs`` is a non-empty tuple: the same real upstream bug can
+    affect several real sibling symbols in the identical causal chain (round-3 audit's #1
+    recommended fix, G3/TC-658) - mirroring the exact "one or several" array shape
+    ``AppliesTo.package_versions`` already uses for the identical semantic."""
 
     kind: str
-    ref: str
+    refs: tuple[str, ...]
 
 
 @dataclass(frozen=True, slots=True)
@@ -352,7 +361,7 @@ def _defect_from_mapping(raw: Mapping[str, Any]) -> KnownDefect:
     package_versions = applies_to.get("package_versions")
     return KnownDefect(
         id=raw["id"],
-        subject=Subject(kind=subject["kind"], ref=subject["ref"]),
+        subject=Subject(kind=subject["kind"], refs=tuple(subject["refs"])),
         applies_to=AppliesTo(
             indexed_commit=applies_to.get("indexed_commit"),
             package_versions=tuple(package_versions) if package_versions is not None else None,

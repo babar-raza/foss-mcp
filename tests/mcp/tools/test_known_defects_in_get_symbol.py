@@ -114,7 +114,7 @@ def _defect(
         applies_to["package_versions"] = package_versions
     return {
         "id": defect_id,
-        "subject": {"kind": "method", "ref": ref},
+        "subject": {"kind": "method", "refs": [ref]},
         "applies_to": applies_to,
         "summary": f"Summary describing {defect_id}.",
         "user_action": f"Recommended action for {defect_id}.",
@@ -177,7 +177,7 @@ def test_package_version_scoped_defect_always_surfaces_regardless_of_commit(
 
 
 # --------------------------------------------------------------------------------------------
-# subject.ref filtering and the no-match default
+# subject.refs filtering and the no-match default
 # --------------------------------------------------------------------------------------------
 
 

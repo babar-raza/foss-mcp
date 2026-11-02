@@ -106,10 +106,10 @@ def test_the_new_entry_is_present_exactly_once_in_the_raw_document() -> None:
 # --------------------------------------------------------------------------------------------
 
 
-def test_load_known_defects_returns_an_entry_with_the_real_id_and_subject_ref() -> None:
+def test_load_known_defects_returns_an_entry_with_the_real_id_and_subject_refs() -> None:
     defect = _real_defect()
     assert defect.id == DEFECT_ID
-    assert defect.subject.ref == "Workbook"
+    assert defect.subject.refs == ("Workbook",)
     assert defect.subject.kind == "method"
     assert defect.status == "open"
 

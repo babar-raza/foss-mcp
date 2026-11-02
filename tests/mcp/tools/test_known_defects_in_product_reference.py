@@ -90,7 +90,7 @@ def _defect(
         applies_to["package_versions"] = package_versions
     return {
         "id": defect_id,
-        "subject": {"kind": kind, "ref": ref},
+        "subject": {"kind": kind, "refs": [ref]},
         "applies_to": applies_to,
         "summary": summary or f"Summary describing {defect_id}.",
         "user_action": user_action or f"Recommended action for {defect_id}.",

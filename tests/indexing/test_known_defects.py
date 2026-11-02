@@ -51,7 +51,7 @@ def _valid_document(pilot: str = "imaging_net") -> dict:
         "defects": [
             {
                 "id": "IMAGING-NET-004",
-                "subject": {"kind": "method", "ref": "Aspose.Imaging.Image.Save"},
+                "subject": {"kind": "method", "refs": ["Aspose.Imaging.Image.Save"]},
                 "applies_to": {"package_versions": ["26.7.0"]},
                 "summary": "Image.Save raises on a malformed TIFF header the reader otherwise accepts.",
                 "user_action": "Validate the TIFF header before calling Save, or catch the exception.",
@@ -97,7 +97,7 @@ def test_load_known_defects_loads_a_valid_fixture_with_every_field_intact(tmp_pa
     defect = defects[0]
     assert isinstance(defect, KnownDefect)
     assert defect.id == "IMAGING-NET-004"
-    assert defect.subject == Subject(kind="method", ref="Aspose.Imaging.Image.Save")
+    assert defect.subject == Subject(kind="method", refs=("Aspose.Imaging.Image.Save",))
     assert defect.applies_to == AppliesTo(indexed_commit=None, package_versions=("26.7.0",))
     assert defect.summary.startswith("Image.Save raises")
     assert defect.user_action.startswith("Validate the TIFF header")
@@ -247,7 +247,7 @@ def test_validate_known_defects_accepts_a_file_with_zero_defects():
 def _defect_verified_on(version: str) -> KnownDefect:
     return KnownDefect(
         id="X-1",
-        subject=Subject(kind="method", ref="X.Y"),
+        subject=Subject(kind="method", refs=("X.Y",)),
         applies_to=AppliesTo(indexed_commit=None, package_versions=(version,)),
         summary="s",
         user_action="a",
