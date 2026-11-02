@@ -1,0 +1,1239 @@
+
+===== CLEAN RUN 1 (host) =====
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-5c72e798a73c059a\Scripts\python.exe -m pytest tests/mcp/tools/test_known_defects_multi_ref.py -q -rfE -p no:cacheprovider "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-upwma790\.junit-0.xml"
+--- stdout ---
+...................                                                      [100%]
+
+--- stderr ---
+
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-5c72e798a73c059a\Scripts\python.exe -m pytest tests/indexing/test_known_defects.py tests/indexing/test_known_defects_data_3d.py tests/indexing/test_known_defects_data_cells.py tests/indexing/test_known_defects_data_pdf_slides.py tests/indexing/test_known_defects_data_remaining.py tests/indexing/test_known_defects_completeness.py tests/mcp/tools/test_known_defects_in_get_symbol.py tests/mcp/tools/test_known_defects_in_search_symbols.py tests/mcp/tools/test_known_defects_in_product_reference.py tests/mcp/tools/test_known_defects_in_freshness.py tests/mcp/tools/test_known_defects_round3_siblings.py -q -rfE -p no:cacheprovider "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-upwma790\.junit-1.xml"
+--- stdout ---
+........................................................................ [ 42%]
+........................................................................ [ 84%]
+...........................                                              [100%]
+
+--- stderr ---
+
+
+===== CLEAN RUN 2 (host) =====
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-5c72e798a73c059a\Scripts\python.exe -m pytest tests/mcp/tools/test_known_defects_multi_ref.py -q -rfE -p no:cacheprovider "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-upwma790\.junit-0.xml"
+--- stdout ---
+...................                                                      [100%]
+
+--- stderr ---
+
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-5c72e798a73c059a\Scripts\python.exe -m pytest tests/indexing/test_known_defects.py tests/indexing/test_known_defects_data_3d.py tests/indexing/test_known_defects_data_cells.py tests/indexing/test_known_defects_data_pdf_slides.py tests/indexing/test_known_defects_data_remaining.py tests/indexing/test_known_defects_completeness.py tests/mcp/tools/test_known_defects_in_get_symbol.py tests/mcp/tools/test_known_defects_in_search_symbols.py tests/mcp/tools/test_known_defects_in_product_reference.py tests/mcp/tools/test_known_defects_in_freshness.py tests/mcp/tools/test_known_defects_round3_siblings.py -q -rfE -p no:cacheprovider "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-upwma790\.junit-1.xml"
+--- stdout ---
+........................................................................ [ 42%]
+........................................................................ [ 84%]
+...........................                                              [100%]
+
+--- stderr ---
+
+
+===== NEGATIVE CONTROL (checks MUST now fail) =====
+mutated: M src/foss_mcp/mcp/tools/get_symbol.py, ?? .junit-0.xml, ?? .junit-1.xml
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-5c72e798a73c059a\Scripts\python.exe -m pytest tests/mcp/tools/test_known_defects_multi_ref.py -q -rfE -p no:cacheprovider "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-upwma790\.junit-0.xml"
+--- stdout ---
+FFF....FFFF........                                                      [100%]
+================================== FAILURES ===================================
+_______ test_get_symbol_matches_a_multi_ref_entry_under_its_first_name ________
+
+registry_dir = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-19329/test_get_symbol_matches_a_mult0/known_defects')
+
+    def test_get_symbol_matches_a_multi_ref_entry_under_its_first_name(registry_dir: Path) -> None:
+        scope = Scope(family="example", platform="pkg")
+        _write_registry(registry_dir, [_synthetic_defect("EX-001", ["WatermarkArtifact", "TextStamp"])])
+    
+>       lines = get_symbol_known_defect_lines(scope, "WatermarkArtifact", _symbol_text("WatermarkArtifact"))
+                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests\mcp\tools\test_known_defects_multi_ref.py:126: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+scope = Scope(family='example', platform='pkg', source_kind='self_extracted')
+fqn = 'WatermarkArtifact'
+text = '## WatermarkArtifact\n\nFQN: WatermarkArtifact\nKind: class_declaration\n'
+
+    def known_defect_lines(scope: Scope, fqn: str, text: str) -> tuple[str, ...]:
+        """Every known-defect disclosure line that applies to *fqn*, in registry file order (KD2,
+        G3/REQ-G3-015).
+    
+        A defect applies when *fqn* is a member of its ``subject.refs`` (G3/TC-658: a non-empty tuple,
+        since the same real upstream bug can affect several real sibling symbols in the identical
+        causal chain) - the OWNING type's FQN for a resolved member, never the raw member name,
+        matching how a resolved name is already treated elsewhere in this module - and, when it is
+        scoped by ``applies_to.indexed_commit``, that commit equals *text*'s own ``Source-Commit:``
+        line. A package-version-scoped defect (no ``indexed_commit``) always applies here regardless
+        of commit: this tool has no live registry check against a currently served package version -
+        that staleness-aware check is KD5's job on ``report_index_freshness`` specifically, not this
+        one.
+        """
+        defects = load_known_defects(scope.family, scope.platform)
+        if not defects:
+            return ()
+        commit_match = _SOURCE_COMMIT_LINE.search(text)
+        chunk_commit = commit_match.group(1) if commit_match is not None else None
+        lines: list[str] = []
+        for defect in defects:
+>           if fqn not in defect.subject.ref:
+                          ^^^^^^^^^^^^^^^^^^
+E           AttributeError: 'Subject' object has no attribute 'ref'. Did you mean: 'refs'?
+
+src\foss_mcp\mcp\tools\get_symbol.py:178: AttributeError
+___ test_get_symbol_matches_the_same_multi_ref_entry_under_its_second_name ____
+
+registry_dir = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-19329/test_get_symbol_matches_the_sa0/known_defects')
+
+    def test_get_symbol_matches_the_same_multi_ref_entry_under_its_second_name(registry_dir: Path) -> None:
+        """The literal round-3 finding, proven directly: a sibling symbol named only in the entry's
+        own ``refs`` list - never the first/"original" name - surfaces identically."""
+        scope = Scope(family="example", platform="pkg")
+        _write_registry(registry_dir, [_synthetic_defect("EX-001", ["WatermarkArtifact", "TextStamp"])])
+    
+>       lines = get_symbol_known_defect_lines(scope, "TextStamp", _symbol_text("TextStamp"))
+                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests\mcp\tools\test_known_defects_multi_ref.py:138: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+scope = Scope(family='example', platform='pkg', source_kind='self_extracted')
+fqn = 'TextStamp'
+text = '## TextStamp\n\nFQN: TextStamp\nKind: class_declaration\n'
+
+    def known_defect_lines(scope: Scope, fqn: str, text: str) -> tuple[str, ...]:
+        """Every known-defect disclosure line that applies to *fqn*, in registry file order (KD2,
+        G3/REQ-G3-015).
+    
+        A defect applies when *fqn* is a member of its ``subject.refs`` (G3/TC-658: a non-empty tuple,
+        since the same real upstream bug can affect several real sibling symbols in the identical
+        causal chain) - the OWNING type's FQN for a resolved member, never the raw member name,
+        matching how a resolved name is already treated elsewhere in this module - and, when it is
+        scoped by ``applies_to.indexed_commit``, that commit equals *text*'s own ``Source-Commit:``
+        line. A package-version-scoped defect (no ``indexed_commit``) always applies here regardless
+        of commit: this tool has no live registry check against a currently served package version -
+        that staleness-aware check is KD5's job on ``report_index_freshness`` specifically, not this
+        one.
+        """
+        defects = load_known_defects(scope.family, scope.platform)
+        if not defects:
+            return ()
+        commit_match = _SOURCE_COMMIT_LINE.search(text)
+        chunk_commit = commit_match.group(1) if commit_match is not None else None
+        lines: list[str] = []
+        for defect in defects:
+>           if fqn not in defect.subject.ref:
+                          ^^^^^^^^^^^^^^^^^^
+E           AttributeError: 'Subject' object has no attribute 'ref'. Did you mean: 'refs'?
+
+src\foss_mcp\mcp\tools\get_symbol.py:178: AttributeError
+______ test_get_symbol_does_not_match_a_name_outside_the_multi_ref_list _______
+
+registry_dir = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-19329/test_get_symbol_does_not_match0/known_defects')
+
+    def test_get_symbol_does_not_match_a_name_outside_the_multi_ref_list(registry_dir: Path) -> None:
+        scope = Scope(family="example", platform="pkg")
+        _write_registry(registry_dir, [_synthetic_defect("EX-001", ["WatermarkArtifact", "TextStamp"])])
+    
+>       lines = get_symbol_known_defect_lines(scope, "SomeOtherType", _symbol_text("SomeOtherType"))
+                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests\mcp\tools\test_known_defects_multi_ref.py:148: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+scope = Scope(family='example', platform='pkg', source_kind='self_extracted')
+fqn = 'SomeOtherType'
+text = '## SomeOtherType\n\nFQN: SomeOtherType\nKind: class_declaration\n'
+
+    def known_defect_lines(scope: Scope, fqn: str, text: str) -> tuple[str, ...]:
+        """Every known-defect disclosure line that applies to *fqn*, in registry file order (KD2,
+        G3/REQ-G3-015).
+    
+        A defect applies when *fqn* is a member of its ``subject.refs`` (G3/TC-658: a non-empty tuple,
+        since the same real upstream bug can affect several real sibling symbols in the identical
+        causal chain) - the OWNING type's FQN for a resolved member, never the raw member name,
+        matching how a resolved name is already treated elsewhere in this module - and, when it is
+        scoped by ``applies_to.indexed_commit``, that commit equals *text*'s own ``Source-Commit:``
+        line. A package-version-scoped defect (no ``indexed_commit``) always applies here regardless
+        of commit: this tool has no live registry check against a currently served package version -
+        that staleness-aware check is KD5's job on ``report_index_freshness`` specifically, not this
+        one.
+        """
+        defects = load_known_defects(scope.family, scope.platform)
+        if not defects:
+            return ()
+        commit_match = _SOURCE_COMMIT_LINE.search(text)
+        chunk_commit = commit_match.group(1) if commit_match is not None else None
+        lines: list[str] = []
+        for defect in defects:
+>           if fqn not in defect.subject.ref:
+                          ^^^^^^^^^^^^^^^^^^
+E           AttributeError: 'Subject' object has no attribute 'ref'. Did you mean: 'refs'?
+
+src\foss_mcp\mcp\tools\get_symbol.py:178: AttributeError
+_ test_real_pdf_java_pdf_java_001_still_surfaces_through_get_symbol_after_migration _
+
+    def test_real_pdf_java_pdf_java_001_still_surfaces_through_get_symbol_after_migration() -> None:
+        """No regression: this real, already-committed entry must keep matching its one real symbol
+        through get_symbol's known_defect_lines exactly as it did before this card's migration."""
+        scope = Scope(family="pdf", platform="java")
+        fqn = "org.aspose.pdf.WatermarkArtifact"
+    
+>       lines = get_symbol_known_defect_lines(scope, fqn, _symbol_text(fqn))
+                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests\mcp\tools\test_known_defects_multi_ref.py:209: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+scope = Scope(family='pdf', platform='java', source_kind='self_extracted')
+fqn = 'org.aspose.pdf.WatermarkArtifact'
+text = '## org.aspose.pdf.WatermarkArtifact\n\nFQN: org.aspose.pdf.WatermarkArtifact\nKind: class_declaration\n'
+
+    def known_defect_lines(scope: Scope, fqn: str, text: str) -> tuple[str, ...]:
+        """Every known-defect disclosure line that applies to *fqn*, in registry file order (KD2,
+        G3/REQ-G3-015).
+    
+        A defect applies when *fqn* is a member of its ``subject.refs`` (G3/TC-658: a non-empty tuple,
+        since the same real upstream bug can affect several real sibling symbols in the identical
+        causal chain) - the OWNING type's FQN for a resolved member, never the raw member name,
+        matching how a resolved name is already treated elsewhere in this module - and, when it is
+        scoped by ``applies_to.indexed_commit``, that commit equals *text*'s own ``Source-Commit:``
+        line. A package-version-scoped defect (no ``indexed_commit``) always applies here regardless
+        of commit: this tool has no live registry check against a currently served package version -
+        that staleness-aware check is KD5's job on ``report_index_freshness`` specifically, not this
+        one.
+        """
+        defects = load_known_defects(scope.family, scope.platform)
+        if not defects:
+            return ()
+        commit_match = _SOURCE_COMMIT_LINE.search(text)
+        chunk_commit = commit_match.group(1) if commit_match is not None else None
+        lines: list[str] = []
+        for defect in defects:
+>           if fqn not in defect.subject.ref:
+                          ^^^^^^^^^^^^^^^^^^
+E           AttributeError: 'Subject' object has no attribute 'ref'. Did you mean: 'refs'?
+
+src\foss_mcp\mcp\tools\get_symbol.py:178: AttributeError
+_ test_real_cells_typescript_013_still_surfaces_through_get_symbol_after_migration _
+
+    def test_real_cells_typescript_013_still_surfaces_through_get_symbol_after_migration() -> None:
+        """A second real, already-committed, independently-migrated pilot - cells/typescript's
+        CELLS-TYPESCRIPT-013, the pilot the round-3 audit scored worst (F) for exactly this defect."""
+        scope = Scope(family="cells", platform="typescript")
+        fqn = "Workbook"
+    
+>       lines = get_symbol_known_defect_lines(scope, fqn, _symbol_text(fqn))
+                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests\mcp\tools\test_known_defects_multi_ref.py:222: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+scope = Scope(family='cells', platform='typescript', source_kind='self_extracted')
+fqn = 'Workbook'
+text = '## Workbook\n\nFQN: Workbook\nKind: class_declaration\n'
+
+    def known_defect_lines(scope: Scope, fqn: str, text: str) -> tuple[str, ...]:
+        """Every known-defect disclosure line that applies to *fqn*, in registry file order (KD2,
+        G3/REQ-G3-015).
+    
+        A defect applies when *fqn* is a member of its ``subject.refs`` (G3/TC-658: a non-empty tuple,
+        since the same real upstream bug can affect several real sibling symbols in the identical
+        causal chain) - the OWNING type's FQN for a resolved member, never the raw member name,
+        matching how a resolved name is already treated elsewhere in this module - and, when it is
+        scoped by ``applies_to.indexed_commit``, that commit equals *text*'s own ``Source-Commit:``
+        line. A package-version-scoped defect (no ``indexed_commit``) always applies here regardless
+        of commit: this tool has no live registry check against a currently served package version -
+        that staleness-aware check is KD5's job on ``report_index_freshness`` specifically, not this
+        one.
+        """
+        defects = load_known_defects(scope.family, scope.platform)
+        if not defects:
+            return ()
+        commit_match = _SOURCE_COMMIT_LINE.search(text)
+        chunk_commit = commit_match.group(1) if commit_match is not None else None
+        lines: list[str] = []
+        for defect in defects:
+>           if fqn not in defect.subject.ref:
+                          ^^^^^^^^^^^^^^^^^^
+E           AttributeError: 'Subject' object has no attribute 'ref'. Did you mean: 'refs'?
+
+src\foss_mcp\mcp\tools\get_symbol.py:178: AttributeError
+_ test_real_note_python_entries_still_surface_through_get_symbol_after_migration _
+
+    def test_real_note_python_entries_still_surface_through_get_symbol_after_migration() -> None:
+        """A third real, already-committed pilot with TWO separate single-ref entries on two
+        different symbols (``DocumentVisitor``, ``RichText``) - proving the migration did not
+        collapse, merge, or cross-wire distinct entries."""
+        scope = Scope(family="note", platform="python")
+    
+>       visitor_lines = get_symbol_known_defect_lines(
+            scope, "aspose.note.DocumentVisitor", _symbol_text("aspose.note.DocumentVisitor")
+        )
+
+tests\mcp\tools\test_known_defects_multi_ref.py:235: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+scope = Scope(family='note', platform='python', source_kind='self_extracted')
+fqn = 'aspose.note.DocumentVisitor'
+text = '## aspose.note.DocumentVisitor\n\nFQN: aspose.note.DocumentVisitor\nKind: class_declaration\n'
+
+    def known_defect_lines(scope: Scope, fqn: str, text: str) -> tuple[str, ...]:
+        """Every known-defect disclosure line that applies to *fqn*, in registry file order (KD2,
+        G3/REQ-G3-015).
+    
+        A defect applies when *fqn* is a member of its ``subject.refs`` (G3/TC-658: a non-empty tuple,
+        since the same real upstream bug can affect several real sibling symbols in the identical
+        causal chain) - the OWNING type's FQN for a resolved member, never the raw member name,
+        matching how a resolved name is already treated elsewhere in this module - and, when it is
+        scoped by ``applies_to.indexed_commit``, that commit equals *text*'s own ``Source-Commit:``
+        line. A package-version-scoped defect (no ``indexed_commit``) always applies here regardless
+        of commit: this tool has no live registry check against a currently served package version -
+        that staleness-aware check is KD5's job on ``report_index_freshness`` specifically, not this
+        one.
+        """
+        defects = load_known_defects(scope.family, scope.platform)
+        if not defects:
+            return ()
+        commit_match = _SOURCE_COMMIT_LINE.search(text)
+        chunk_commit = commit_match.group(1) if commit_match is not None else None
+        lines: list[str] = []
+        for defect in defects:
+>           if fqn not in defect.subject.ref:
+                          ^^^^^^^^^^^^^^^^^^
+E           AttributeError: 'Subject' object has no attribute 'ref'. Did you mean: 'refs'?
+
+src\foss_mcp\mcp\tools\get_symbol.py:178: AttributeError
+__ test_real_pdf_java_pdf_java_002_does_not_cross_match_pdf_java_001s_symbol __
+
+    def test_real_pdf_java_pdf_java_002_does_not_cross_match_pdf_java_001s_symbol() -> None:
+        """pdf/java has two distinct single-ref entries (``WatermarkArtifact``, ``Page``); migrating
+        both independently must not make either one match the other's symbol."""
+        scope = Scope(family="pdf", platform="java")
+    
+>       page_lines = get_symbol_known_defect_lines(
+            scope, "org.aspose.pdf.Page", _symbol_text("org.aspose.pdf.Page")
+        )
+
+tests\mcp\tools\test_known_defects_multi_ref.py:252: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+scope = Scope(family='pdf', platform='java', source_kind='self_extracted')
+fqn = 'org.aspose.pdf.Page'
+text = '## org.aspose.pdf.Page\n\nFQN: org.aspose.pdf.Page\nKind: class_declaration\n'
+
+    def known_defect_lines(scope: Scope, fqn: str, text: str) -> tuple[str, ...]:
+        """Every known-defect disclosure line that applies to *fqn*, in registry file order (KD2,
+        G3/REQ-G3-015).
+    
+        A defect applies when *fqn* is a member of its ``subject.refs`` (G3/TC-658: a non-empty tuple,
+        since the same real upstream bug can affect several real sibling symbols in the identical
+        causal chain) - the OWNING type's FQN for a resolved member, never the raw member name,
+        matching how a resolved name is already treated elsewhere in this module - and, when it is
+        scoped by ``applies_to.indexed_commit``, that commit equals *text*'s own ``Source-Commit:``
+        line. A package-version-scoped defect (no ``indexed_commit``) always applies here regardless
+        of commit: this tool has no live registry check against a currently served package version -
+        that staleness-aware check is KD5's job on ``report_index_freshness`` specifically, not this
+        one.
+        """
+        defects = load_known_defects(scope.family, scope.platform)
+        if not defects:
+            return ()
+        commit_match = _SOURCE_COMMIT_LINE.search(text)
+        chunk_commit = commit_match.group(1) if commit_match is not None else None
+        lines: list[str] = []
+        for defect in defects:
+>           if fqn not in defect.subject.ref:
+                          ^^^^^^^^^^^^^^^^^^
+E           AttributeError: 'Subject' object has no attribute 'ref'. Did you mean: 'refs'?
+
+src\foss_mcp\mcp\tools\get_symbol.py:178: AttributeError
+=========================== short test summary info ===========================
+FAILED tests/mcp/tools/test_known_defects_multi_ref.py::test_get_symbol_matches_a_multi_ref_entry_under_its_first_name
+FAILED tests/mcp/tools/test_known_defects_multi_ref.py::test_get_symbol_matches_the_same_multi_ref_entry_under_its_second_name
+FAILED tests/mcp/tools/test_known_defects_multi_ref.py::test_get_symbol_does_not_match_a_name_outside_the_multi_ref_list
+FAILED tests/mcp/tools/test_known_defects_multi_ref.py::test_real_pdf_java_pdf_java_001_still_surfaces_through_get_symbol_after_migration
+FAILED tests/mcp/tools/test_known_defects_multi_ref.py::test_real_cells_typescript_013_still_surfaces_through_get_symbol_after_migration
+FAILED tests/mcp/tools/test_known_defects_multi_ref.py::test_real_note_python_entries_still_surface_through_get_symbol_after_migration
+FAILED tests/mcp/tools/test_known_defects_multi_ref.py::test_real_pdf_java_pdf_java_002_does_not_cross_match_pdf_java_001s_symbol
+
+--- stderr ---
+
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-5c72e798a73c059a\Scripts\python.exe -m pytest tests/indexing/test_known_defects.py tests/indexing/test_known_defects_data_3d.py tests/indexing/test_known_defects_data_cells.py tests/indexing/test_known_defects_data_pdf_slides.py tests/indexing/test_known_defects_data_remaining.py tests/indexing/test_known_defects_completeness.py tests/mcp/tools/test_known_defects_in_get_symbol.py tests/mcp/tools/test_known_defects_in_search_symbols.py tests/mcp/tools/test_known_defects_in_product_reference.py tests/mcp/tools/test_known_defects_in_freshness.py tests/mcp/tools/test_known_defects_round3_siblings.py -q -rfE -p no:cacheprovider "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-upwma790\.junit-1.xml"
+--- stdout ---
+.....................................F......................F........... [ 42%]
+.........FF.................................FFFF..FFF................... [ 84%]
+..F..................FF.F..                                              [100%]
+================================== FAILURES ===================================
+_ test_get_symbol_end_to_end_surfaces_the_real_written_java_triangulate_defect _
+
+    def test_get_symbol_end_to_end_surfaces_the_real_written_java_triangulate_defect() -> None:
+        """3D-JAVA-006 (``com.aspose.threed.Mesh.triangulate``, method-scoped) is loaded from the
+        REAL ``config/known_defects/3d__java.yaml`` this card wrote (``load_known_defects`` uses its
+        default, production ``REGISTRY_DIR`` here - nothing is monkeypatched) and must surface through
+        a real ``get_symbol`` call for the real ``3d/java`` scope."""
+        store = _InMemoryStore((_mesh_symbol_body(),))
+        scope = Scope(family="3d", platform="java")
+    
+>       result = get_symbol(store, scope, "com.aspose.threed.Mesh.triangulate")  # type: ignore[arg-type]
+                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests\indexing\test_known_defects_data_3d.py:273: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+src\foss_mcp\mcp\tools\get_symbol.py:454: in get_symbol
+    resolved = _resolve_name(scope, active_generation_id, symbols, fqn, coverage_note)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+src\foss_mcp\mcp\tools\get_symbol.py:412: in _resolve_name
+    return _signature_of(scope, generation_id, owner, requested, member)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+src\foss_mcp\mcp\tools\get_symbol.py:304: in _signature_of
+    base = _parse_signature(scope, generation_id, chunk.doc_id, chunk.chunk_id, chunk.text)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+src\foss_mcp\mcp\tools\get_symbol.py:205: in _parse_signature
+    known_defects=known_defect_lines(scope, fqn, text),
+                  ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+scope = Scope(family='3d', platform='java', source_kind='self_extracted')
+fqn = 'com.aspose.threed.Mesh'
+text = 'FQN: com.aspose.threed.Mesh\nKind: class_declaration\n\nMethods:\n  - triangulate() -> Mesh'
+
+    def known_defect_lines(scope: Scope, fqn: str, text: str) -> tuple[str, ...]:
+        """Every known-defect disclosure line that applies to *fqn*, in registry file order (KD2,
+        G3/REQ-G3-015).
+    
+        A defect applies when *fqn* is a member of its ``subject.refs`` (G3/TC-658: a non-empty tuple,
+        since the same real upstream bug can affect several real sibling symbols in the identical
+        causal chain) - the OWNING type's FQN for a resolved member, never the raw member name,
+        matching how a resolved name is already treated elsewhere in this module - and, when it is
+        scoped by ``applies_to.indexed_commit``, that commit equals *text*'s own ``Source-Commit:``
+        line. A package-version-scoped defect (no ``indexed_commit``) always applies here regardless
+        of commit: this tool has no live registry check against a currently served package version -
+        that staleness-aware check is KD5's job on ``report_index_freshness`` specifically, not this
+        one.
+        """
+        defects = load_known_defects(scope.family, scope.platform)
+        if not defects:
+            return ()
+        commit_match = _SOURCE_COMMIT_LINE.search(text)
+        chunk_commit = commit_match.group(1) if commit_match is not None else None
+        lines: list[str] = []
+        for defect in defects:
+>           if fqn not in defect.subject.ref:
+                          ^^^^^^^^^^^^^^^^^^
+E           AttributeError: 'Subject' object has no attribute 'ref'. Did you mean: 'refs'?
+
+src\foss_mcp\mcp\tools\get_symbol.py:178: AttributeError
+_ test_get_symbol_end_to_end_surfaces_the_real_written_java_workbook_save_defect _
+
+    def test_get_symbol_end_to_end_surfaces_the_real_written_java_workbook_save_defect() -> None:
+        """CELLS-JAVA-001 (``Workbook``, method-scoped) is loaded from the REAL
+        ``config/known_defects/cells__java.yaml`` this card wrote (``load_known_defects`` uses its
+        default, production ``REGISTRY_DIR`` here - nothing is monkeypatched) and must surface
+        through a real ``get_symbol`` call for the real ``cells/java`` scope."""
+        store = _InMemoryStore((_workbook_symbol_body(),))
+        scope = Scope(family="cells", platform="java")
+    
+>       result = get_symbol(store, scope, "Workbook.save")  # type: ignore[arg-type]
+                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests\indexing\test_known_defects_data_cells.py:377: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+src\foss_mcp\mcp\tools\get_symbol.py:454: in get_symbol
+    resolved = _resolve_name(scope, active_generation_id, symbols, fqn, coverage_note)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+src\foss_mcp\mcp\tools\get_symbol.py:412: in _resolve_name
+    return _signature_of(scope, generation_id, owner, requested, member)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+src\foss_mcp\mcp\tools\get_symbol.py:304: in _signature_of
+    base = _parse_signature(scope, generation_id, chunk.doc_id, chunk.chunk_id, chunk.text)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+src\foss_mcp\mcp\tools\get_symbol.py:205: in _parse_signature
+    known_defects=known_defect_lines(scope, fqn, text),
+                  ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+scope = Scope(family='cells', platform='java', source_kind='self_extracted')
+fqn = 'Workbook'
+text = 'FQN: Workbook\nKind: class_declaration\n\nMethods:\n  - save(fileName: string) -> void'
+
+    def known_defect_lines(scope: Scope, fqn: str, text: str) -> tuple[str, ...]:
+        """Every known-defect disclosure line that applies to *fqn*, in registry file order (KD2,
+        G3/REQ-G3-015).
+    
+        A defect applies when *fqn* is a member of its ``subject.refs`` (G3/TC-658: a non-empty tuple,
+        since the same real upstream bug can affect several real sibling symbols in the identical
+        causal chain) - the OWNING type's FQN for a resolved member, never the raw member name,
+        matching how a resolved name is already treated elsewhere in this module - and, when it is
+        scoped by ``applies_to.indexed_commit``, that commit equals *text*'s own ``Source-Commit:``
+        line. A package-version-scoped defect (no ``indexed_commit``) always applies here regardless
+        of commit: this tool has no live registry check against a currently served package version -
+        that staleness-aware check is KD5's job on ``report_index_freshness`` specifically, not this
+        one.
+        """
+        defects = load_known_defects(scope.family, scope.platform)
+        if not defects:
+            return ()
+        commit_match = _SOURCE_COMMIT_LINE.search(text)
+        chunk_commit = commit_match.group(1) if commit_match is not None else None
+        lines: list[str] = []
+        for defect in defects:
+>           if fqn not in defect.subject.ref:
+                          ^^^^^^^^^^^^^^^^^^
+E           AttributeError: 'Subject' object has no attribute 'ref'. Did you mean: 'refs'?
+
+src\foss_mcp\mcp\tools\get_symbol.py:178: AttributeError
+_ test_get_symbol_end_to_end_surfaces_the_real_written_pdf_cpp_aes256_defect __
+
+    def test_get_symbol_end_to_end_surfaces_the_real_written_pdf_cpp_aes256_defect() -> None:
+        """PDF-CPP-001 (``Aspose::Pdf::Document``, method-scoped, indexed-commit-scoped) is loaded
+        from the REAL ``config/known_defects/pdf__cpp.yaml`` this card wrote (``load_known_defects``
+        uses its default, production ``REGISTRY_DIR`` here - nothing is monkeypatched) and must
+        surface through a real ``get_symbol`` call for the real ``pdf/cpp`` scope, when the queried
+        chunk's own ``Source-Commit`` matches the defect's real ``applies_to.indexed_commit``."""
+        store = _InMemoryStore((_document_symbol_body(commit=_REAL_PDF_CPP_001_COMMIT),))
+        scope = Scope(family="pdf", platform="cpp")
+    
+>       result = get_symbol(store, scope, "Aspose::Pdf::Document.Encrypt")  # type: ignore[arg-type]
+                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests\indexing\test_known_defects_data_pdf_slides.py:299: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+src\foss_mcp\mcp\tools\get_symbol.py:454: in get_symbol
+    resolved = _resolve_name(scope, active_generation_id, symbols, fqn, coverage_note)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+src\foss_mcp\mcp\tools\get_symbol.py:412: in _resolve_name
+    return _signature_of(scope, generation_id, owner, requested, member)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+src\foss_mcp\mcp\tools\get_symbol.py:304: in _signature_of
+    base = _parse_signature(scope, generation_id, chunk.doc_id, chunk.chunk_id, chunk.text)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+src\foss_mcp\mcp\tools\get_symbol.py:205: in _parse_signature
+    known_defects=known_defect_lines(scope, fqn, text),
+                  ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+scope = Scope(family='pdf', platform='cpp', source_kind='self_extracted')
+fqn = 'Aspose::Pdf::Document'
+text = 'FQN: Aspose::Pdf::Document\nKind: class_declaration\n\nMethods:\n  - Encrypt(userPassword: string, ownerPassword: str...rmissions: Permissions, algorithm: CryptoAlgorithm) -> void\n\nSource-Commit: 4b83c9fec1e37fd205156770161f6843bac00ceb'
+
+    def known_defect_lines(scope: Scope, fqn: str, text: str) -> tuple[str, ...]:
+        """Every known-defect disclosure line that applies to *fqn*, in registry file order (KD2,
+        G3/REQ-G3-015).
+    
+        A defect applies when *fqn* is a member of its ``subject.refs`` (G3/TC-658: a non-empty tuple,
+        since the same real upstream bug can affect several real sibling symbols in the identical
+        causal chain) - the OWNING type's FQN for a resolved member, never the raw member name,
+        matching how a resolved name is already treated elsewhere in this module - and, when it is
+        scoped by ``applies_to.indexed_commit``, that commit equals *text*'s own ``Source-Commit:``
+        line. A package-version-scoped defect (no ``indexed_commit``) always applies here regardless
+        of commit: this tool has no live registry check against a currently served package version -
+        that staleness-aware check is KD5's job on ``report_index_freshness`` specifically, not this
+        one.
+        """
+        defects = load_known_defects(scope.family, scope.platform)
+        if not defects:
+            return ()
+        commit_match = _SOURCE_COMMIT_LINE.search(text)
+        chunk_commit = commit_match.group(1) if commit_match is not None else None
+        lines: list[str] = []
+        for defect in defects:
+>           if fqn not in defect.subject.ref:
+                          ^^^^^^^^^^^^^^^^^^
+E           AttributeError: 'Subject' object has no attribute 'ref'. Did you mean: 'refs'?
+
+src\foss_mcp\mcp\tools\get_symbol.py:178: AttributeError
+_ test_get_symbol_end_to_end_does_not_surface_the_defect_for_a_different_commit _
+
+    def test_get_symbol_end_to_end_does_not_surface_the_defect_for_a_different_commit() -> None:
+        """The same real defect, loaded from the same real file, must NOT surface when the queried
+        chunk's own commit differs from ``applies_to.indexed_commit`` - proving the commit-scoping
+        check is real, not a tautology that always matches."""
+        store = _InMemoryStore((_document_symbol_body(commit="f" * 40),))
+        scope = Scope(family="pdf", platform="cpp")
+    
+>       result = get_symbol(store, scope, "Aspose::Pdf::Document.Encrypt")  # type: ignore[arg-type]
+                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests\indexing\test_known_defects_data_pdf_slides.py:314: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+src\foss_mcp\mcp\tools\get_symbol.py:454: in get_symbol
+    resolved = _resolve_name(scope, active_generation_id, symbols, fqn, coverage_note)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+src\foss_mcp\mcp\tools\get_symbol.py:412: in _resolve_name
+    return _signature_of(scope, generation_id, owner, requested, member)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+src\foss_mcp\mcp\tools\get_symbol.py:304: in _signature_of
+    base = _parse_signature(scope, generation_id, chunk.doc_id, chunk.chunk_id, chunk.text)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+src\foss_mcp\mcp\tools\get_symbol.py:205: in _parse_signature
+    known_defects=known_defect_lines(scope, fqn, text),
+                  ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+scope = Scope(family='pdf', platform='cpp', source_kind='self_extracted')
+fqn = 'Aspose::Pdf::Document'
+text = 'FQN: Aspose::Pdf::Document\nKind: class_declaration\n\nMethods:\n  - Encrypt(userPassword: string, ownerPassword: str...rmissions: Permissions, algorithm: CryptoAlgorithm) -> void\n\nSource-Commit: ffffffffffffffffffffffffffffffffffffffff'
+
+    def known_defect_lines(scope: Scope, fqn: str, text: str) -> tuple[str, ...]:
+        """Every known-defect disclosure line that applies to *fqn*, in registry file order (KD2,
+        G3/REQ-G3-015).
+    
+        A defect applies when *fqn* is a member of its ``subject.refs`` (G3/TC-658: a non-empty tuple,
+        since the same real upstream bug can affect several real sibling symbols in the identical
+        causal chain) - the OWNING type's FQN for a resolved member, never the raw member name,
+        matching how a resolved name is already treated elsewhere in this module - and, when it is
+        scoped by ``applies_to.indexed_commit``, that commit equals *text*'s own ``Source-Commit:``
+        line. A package-version-scoped defect (no ``indexed_commit``) always applies here regardless
+        of commit: this tool has no live registry check against a currently served package version -
+        that staleness-aware check is KD5's job on ``report_index_freshness`` specifically, not this
+        one.
+        """
+        defects = load_known_defects(scope.family, scope.platform)
+        if not defects:
+            return ()
+        commit_match = _SOURCE_COMMIT_LINE.search(text)
+        chunk_commit = commit_match.group(1) if commit_match is not None else None
+        lines: list[str] = []
+        for defect in defects:
+>           if fqn not in defect.subject.ref:
+                          ^^^^^^^^^^^^^^^^^^
+E           AttributeError: 'Subject' object has no attribute 'ref'. Did you mean: 'refs'?
+
+src\foss_mcp\mcp\tools\get_symbol.py:178: AttributeError
+________ test_commit_scoped_defect_surfaces_when_chunk_commit_matches _________
+
+store = <tests.mcp.tools.test_known_defects_in_get_symbol._InMemoryStore object at 0x000002226A7CF620>
+registry_dir = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-19330/test_commit_scoped_defect_surf0/known_defects')
+
+    def test_commit_scoped_defect_surfaces_when_chunk_commit_matches(
+        store: _InMemoryStore, registry_dir: Path
+    ) -> None:
+        _write_registry(registry_dir, [_defect("PDF-NET-001", DOCUMENT_FQN, indexed_commit=COMMIT_MATCH)])
+    
+>       result = get_symbol(store, SCOPE, DOCUMENT_FQN)  # type: ignore[arg-type]
+                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests\mcp\tools\test_known_defects_in_get_symbol.py:147: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+src\foss_mcp\mcp\tools\get_symbol.py:446: in get_symbol
+    return _parse_signature(
+src\foss_mcp\mcp\tools\get_symbol.py:205: in _parse_signature
+    known_defects=known_defect_lines(scope, fqn, text),
+                  ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+scope = Scope(family='pdf', platform='net', source_kind='self_extracted')
+fqn = 'Aspose.Pdf.Document'
+text = 'FQN: Aspose.Pdf.Document\nKind: class_declaration\n\nMethods:\n  - Save(path: string) -> void\n\nSource-Commit: aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa'
+
+    def known_defect_lines(scope: Scope, fqn: str, text: str) -> tuple[str, ...]:
+        """Every known-defect disclosure line that applies to *fqn*, in registry file order (KD2,
+        G3/REQ-G3-015).
+    
+        A defect applies when *fqn* is a member of its ``subject.refs`` (G3/TC-658: a non-empty tuple,
+        since the same real upstream bug can affect several real sibling symbols in the identical
+        causal chain) - the OWNING type's FQN for a resolved member, never the raw member name,
+        matching how a resolved name is already treated elsewhere in this module - and, when it is
+        scoped by ``applies_to.indexed_commit``, that commit equals *text*'s own ``Source-Commit:``
+        line. A package-version-scoped defect (no ``indexed_commit``) always applies here regardless
+        of commit: this tool has no live registry check against a currently served package version -
+        that staleness-aware check is KD5's job on ``report_index_freshness`` specifically, not this
+        one.
+        """
+        defects = load_known_defects(scope.family, scope.platform)
+        if not defects:
+            return ()
+        commit_match = _SOURCE_COMMIT_LINE.search(text)
+        chunk_commit = commit_match.group(1) if commit_match is not None else None
+        lines: list[str] = []
+        for defect in defects:
+>           if fqn not in defect.subject.ref:
+                          ^^^^^^^^^^^^^^^^^^
+E           AttributeError: 'Subject' object has no attribute 'ref'. Did you mean: 'refs'?
+
+src\foss_mcp\mcp\tools\get_symbol.py:178: AttributeError
+____ test_commit_scoped_defect_does_not_surface_when_chunk_commit_differs _____
+
+store = <tests.mcp.tools.test_known_defects_in_get_symbol._InMemoryStore object at 0x000002226A7CF620>
+registry_dir = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-19330/test_commit_scoped_defect_does0/known_defects')
+
+    def test_commit_scoped_defect_does_not_surface_when_chunk_commit_differs(
+        store: _InMemoryStore, registry_dir: Path
+    ) -> None:
+        _write_registry(registry_dir, [_defect("PDF-NET-002", DOCUMENT_FQN, indexed_commit=COMMIT_OTHER)])
+    
+>       result = get_symbol(store, SCOPE, DOCUMENT_FQN)  # type: ignore[arg-type]
+                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests\mcp\tools\test_known_defects_in_get_symbol.py:161: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+src\foss_mcp\mcp\tools\get_symbol.py:446: in get_symbol
+    return _parse_signature(
+src\foss_mcp\mcp\tools\get_symbol.py:205: in _parse_signature
+    known_defects=known_defect_lines(scope, fqn, text),
+                  ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+scope = Scope(family='pdf', platform='net', source_kind='self_extracted')
+fqn = 'Aspose.Pdf.Document'
+text = 'FQN: Aspose.Pdf.Document\nKind: class_declaration\n\nMethods:\n  - Save(path: string) -> void\n\nSource-Commit: aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa'
+
+    def known_defect_lines(scope: Scope, fqn: str, text: str) -> tuple[str, ...]:
+        """Every known-defect disclosure line that applies to *fqn*, in registry file order (KD2,
+        G3/REQ-G3-015).
+    
+        A defect applies when *fqn* is a member of its ``subject.refs`` (G3/TC-658: a non-empty tuple,
+        since the same real upstream bug can affect several real sibling symbols in the identical
+        causal chain) - the OWNING type's FQN for a resolved member, never the raw member name,
+        matching how a resolved name is already treated elsewhere in this module - and, when it is
+        scoped by ``applies_to.indexed_commit``, that commit equals *text*'s own ``Source-Commit:``
+        line. A package-version-scoped defect (no ``indexed_commit``) always applies here regardless
+        of commit: this tool has no live registry check against a currently served package version -
+        that staleness-aware check is KD5's job on ``report_index_freshness`` specifically, not this
+        one.
+        """
+        defects = load_known_defects(scope.family, scope.platform)
+        if not defects:
+            return ()
+        commit_match = _SOURCE_COMMIT_LINE.search(text)
+        chunk_commit = commit_match.group(1) if commit_match is not None else None
+        lines: list[str] = []
+        for defect in defects:
+>           if fqn not in defect.subject.ref:
+                          ^^^^^^^^^^^^^^^^^^
+E           AttributeError: 'Subject' object has no attribute 'ref'. Did you mean: 'refs'?
+
+src\foss_mcp\mcp\tools\get_symbol.py:178: AttributeError
+___ test_package_version_scoped_defect_always_surfaces_regardless_of_commit ___
+
+store = <tests.mcp.tools.test_known_defects_in_get_symbol._InMemoryStore object at 0x000002226A7CF620>
+registry_dir = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-19330/test_package_version_scoped_de0/known_defects')
+
+    def test_package_version_scoped_defect_always_surfaces_regardless_of_commit(
+        store: _InMemoryStore, registry_dir: Path
+    ) -> None:
+        _write_registry(registry_dir, [_defect("PDF-NET-003", DOCUMENT_FQN, package_versions=["26.7.0"])])
+    
+>       result = get_symbol(store, SCOPE, DOCUMENT_FQN)  # type: ignore[arg-type]
+                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests\mcp\tools\test_known_defects_in_get_symbol.py:172: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+src\foss_mcp\mcp\tools\get_symbol.py:446: in get_symbol
+    return _parse_signature(
+src\foss_mcp\mcp\tools\get_symbol.py:205: in _parse_signature
+    known_defects=known_defect_lines(scope, fqn, text),
+                  ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+scope = Scope(family='pdf', platform='net', source_kind='self_extracted')
+fqn = 'Aspose.Pdf.Document'
+text = 'FQN: Aspose.Pdf.Document\nKind: class_declaration\n\nMethods:\n  - Save(path: string) -> void\n\nSource-Commit: aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa'
+
+    def known_defect_lines(scope: Scope, fqn: str, text: str) -> tuple[str, ...]:
+        """Every known-defect disclosure line that applies to *fqn*, in registry file order (KD2,
+        G3/REQ-G3-015).
+    
+        A defect applies when *fqn* is a member of its ``subject.refs`` (G3/TC-658: a non-empty tuple,
+        since the same real upstream bug can affect several real sibling symbols in the identical
+        causal chain) - the OWNING type's FQN for a resolved member, never the raw member name,
+        matching how a resolved name is already treated elsewhere in this module - and, when it is
+        scoped by ``applies_to.indexed_commit``, that commit equals *text*'s own ``Source-Commit:``
+        line. A package-version-scoped defect (no ``indexed_commit``) always applies here regardless
+        of commit: this tool has no live registry check against a currently served package version -
+        that staleness-aware check is KD5's job on ``report_index_freshness`` specifically, not this
+        one.
+        """
+        defects = load_known_defects(scope.family, scope.platform)
+        if not defects:
+            return ()
+        commit_match = _SOURCE_COMMIT_LINE.search(text)
+        chunk_commit = commit_match.group(1) if commit_match is not None else None
+        lines: list[str] = []
+        for defect in defects:
+>           if fqn not in defect.subject.ref:
+                          ^^^^^^^^^^^^^^^^^^
+E           AttributeError: 'Subject' object has no attribute 'ref'. Did you mean: 'refs'?
+
+src\foss_mcp\mcp\tools\get_symbol.py:178: AttributeError
+__________ test_defect_with_non_matching_subject_ref_never_surfaces ___________
+
+store = <tests.mcp.tools.test_known_defects_in_get_symbol._InMemoryStore object at 0x000002226A7CF620>
+registry_dir = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-19330/test_defect_with_non_matching_0/known_defects')
+
+    def test_defect_with_non_matching_subject_ref_never_surfaces(
+        store: _InMemoryStore, registry_dir: Path
+    ) -> None:
+        _write_registry(
+            registry_dir,
+            [_defect("PDF-NET-004", "Aspose.Pdf.SomeOtherType", indexed_commit=COMMIT_MATCH)],
+        )
+    
+>       result = get_symbol(store, SCOPE, DOCUMENT_FQN)  # type: ignore[arg-type]
+                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests\mcp\tools\test_known_defects_in_get_symbol.py:192: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+src\foss_mcp\mcp\tools\get_symbol.py:446: in get_symbol
+    return _parse_signature(
+src\foss_mcp\mcp\tools\get_symbol.py:205: in _parse_signature
+    known_defects=known_defect_lines(scope, fqn, text),
+                  ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+scope = Scope(family='pdf', platform='net', source_kind='self_extracted')
+fqn = 'Aspose.Pdf.Document'
+text = 'FQN: Aspose.Pdf.Document\nKind: class_declaration\n\nMethods:\n  - Save(path: string) -> void\n\nSource-Commit: aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa'
+
+    def known_defect_lines(scope: Scope, fqn: str, text: str) -> tuple[str, ...]:
+        """Every known-defect disclosure line that applies to *fqn*, in registry file order (KD2,
+        G3/REQ-G3-015).
+    
+        A defect applies when *fqn* is a member of its ``subject.refs`` (G3/TC-658: a non-empty tuple,
+        since the same real upstream bug can affect several real sibling symbols in the identical
+        causal chain) - the OWNING type's FQN for a resolved member, never the raw member name,
+        matching how a resolved name is already treated elsewhere in this module - and, when it is
+        scoped by ``applies_to.indexed_commit``, that commit equals *text*'s own ``Source-Commit:``
+        line. A package-version-scoped defect (no ``indexed_commit``) always applies here regardless
+        of commit: this tool has no live registry check against a currently served package version -
+        that staleness-aware check is KD5's job on ``report_index_freshness`` specifically, not this
+        one.
+        """
+        defects = load_known_defects(scope.family, scope.platform)
+        if not defects:
+            return ()
+        commit_match = _SOURCE_COMMIT_LINE.search(text)
+        chunk_commit = commit_match.group(1) if commit_match is not None else None
+        lines: list[str] = []
+        for defect in defects:
+>           if fqn not in defect.subject.ref:
+                          ^^^^^^^^^^^^^^^^^^
+E           AttributeError: 'Subject' object has no attribute 'ref'. Did you mean: 'refs'?
+
+src\foss_mcp\mcp\tools\get_symbol.py:178: AttributeError
+________ test_resolved_member_name_gets_the_owning_types_known_defects ________
+
+store = <tests.mcp.tools.test_known_defects_in_get_symbol._InMemoryStore object at 0x000002226A7CF620>
+registry_dir = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-19330/test_resolved_member_name_gets0/known_defects')
+
+    def test_resolved_member_name_gets_the_owning_types_known_defects(
+        store: _InMemoryStore, registry_dir: Path
+    ) -> None:
+        _write_registry(registry_dir, [_defect("PDF-NET-005", DOCUMENT_FQN, package_versions=["26.7.0"])])
+    
+>       result = get_symbol(store, SCOPE, f"{DOCUMENT_FQN}.Save")  # type: ignore[arg-type]
+                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests\mcp\tools\test_known_defects_in_get_symbol.py:238: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+src\foss_mcp\mcp\tools\get_symbol.py:454: in get_symbol
+    resolved = _resolve_name(scope, active_generation_id, symbols, fqn, coverage_note)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+src\foss_mcp\mcp\tools\get_symbol.py:412: in _resolve_name
+    return _signature_of(scope, generation_id, owner, requested, member)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+src\foss_mcp\mcp\tools\get_symbol.py:304: in _signature_of
+    base = _parse_signature(scope, generation_id, chunk.doc_id, chunk.chunk_id, chunk.text)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+src\foss_mcp\mcp\tools\get_symbol.py:205: in _parse_signature
+    known_defects=known_defect_lines(scope, fqn, text),
+                  ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+scope = Scope(family='pdf', platform='net', source_kind='self_extracted')
+fqn = 'Aspose.Pdf.Document'
+text = 'FQN: Aspose.Pdf.Document\nKind: class_declaration\n\nMethods:\n  - Save(path: string) -> void\n\nSource-Commit: aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa'
+
+    def known_defect_lines(scope: Scope, fqn: str, text: str) -> tuple[str, ...]:
+        """Every known-defect disclosure line that applies to *fqn*, in registry file order (KD2,
+        G3/REQ-G3-015).
+    
+        A defect applies when *fqn* is a member of its ``subject.refs`` (G3/TC-658: a non-empty tuple,
+        since the same real upstream bug can affect several real sibling symbols in the identical
+        causal chain) - the OWNING type's FQN for a resolved member, never the raw member name,
+        matching how a resolved name is already treated elsewhere in this module - and, when it is
+        scoped by ``applies_to.indexed_commit``, that commit equals *text*'s own ``Source-Commit:``
+        line. A package-version-scoped defect (no ``indexed_commit``) always applies here regardless
+        of commit: this tool has no live registry check against a currently served package version -
+        that staleness-aware check is KD5's job on ``report_index_freshness`` specifically, not this
+        one.
+        """
+        defects = load_known_defects(scope.family, scope.platform)
+        if not defects:
+            return ()
+        commit_match = _SOURCE_COMMIT_LINE.search(text)
+        chunk_commit = commit_match.group(1) if commit_match is not None else None
+        lines: list[str] = []
+        for defect in defects:
+>           if fqn not in defect.subject.ref:
+                          ^^^^^^^^^^^^^^^^^^
+E           AttributeError: 'Subject' object has no attribute 'ref'. Did you mean: 'refs'?
+
+src\foss_mcp\mcp\tools\get_symbol.py:178: AttributeError
+_________ test_list_members_prepends_the_type_level_known_defect_line _________
+
+store = <tests.mcp.tools.test_known_defects_in_get_symbol._InMemoryStore object at 0x000002226A7CF620>
+registry_dir = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-19330/test_list_members_prepends_the0/known_defects')
+
+    def test_list_members_prepends_the_type_level_known_defect_line(
+        store: _InMemoryStore, registry_dir: Path
+    ) -> None:
+        _write_registry(registry_dir, [_defect("PDF-NET-006", DOCUMENT_FQN, package_versions=["26.7.0"])])
+    
+>       members = list_members(store, SCOPE, DOCUMENT_FQN)  # type: ignore[arg-type]
+                  ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests\mcp\tools\test_known_defects_in_get_symbol.py:256: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+src\foss_mcp\mcp\tools\list_members.py:37: in list_members
+    signature = get_symbol(store, scope, fqn)
+                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+src\foss_mcp\mcp\tools\get_symbol.py:446: in get_symbol
+    return _parse_signature(
+src\foss_mcp\mcp\tools\get_symbol.py:205: in _parse_signature
+    known_defects=known_defect_lines(scope, fqn, text),
+                  ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+scope = Scope(family='pdf', platform='net', source_kind='self_extracted')
+fqn = 'Aspose.Pdf.Document'
+text = 'FQN: Aspose.Pdf.Document\nKind: class_declaration\n\nMethods:\n  - Save(path: string) -> void\n\nSource-Commit: aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa'
+
+    def known_defect_lines(scope: Scope, fqn: str, text: str) -> tuple[str, ...]:
+        """Every known-defect disclosure line that applies to *fqn*, in registry file order (KD2,
+        G3/REQ-G3-015).
+    
+        A defect applies when *fqn* is a member of its ``subject.refs`` (G3/TC-658: a non-empty tuple,
+        since the same real upstream bug can affect several real sibling symbols in the identical
+        causal chain) - the OWNING type's FQN for a resolved member, never the raw member name,
+        matching how a resolved name is already treated elsewhere in this module - and, when it is
+        scoped by ``applies_to.indexed_commit``, that commit equals *text*'s own ``Source-Commit:``
+        line. A package-version-scoped defect (no ``indexed_commit``) always applies here regardless
+        of commit: this tool has no live registry check against a currently served package version -
+        that staleness-aware check is KD5's job on ``report_index_freshness`` specifically, not this
+        one.
+        """
+        defects = load_known_defects(scope.family, scope.platform)
+        if not defects:
+            return ()
+        commit_match = _SOURCE_COMMIT_LINE.search(text)
+        chunk_commit = commit_match.group(1) if commit_match is not None else None
+        lines: list[str] = []
+        for defect in defects:
+>           if fqn not in defect.subject.ref:
+                          ^^^^^^^^^^^^^^^^^^
+E           AttributeError: 'Subject' object has no attribute 'ref'. Did you mean: 'refs'?
+
+src\foss_mcp\mcp\tools\get_symbol.py:178: AttributeError
+_ test_list_members_for_a_resolved_member_name_excludes_the_type_level_known_defect _
+
+store = <tests.mcp.tools.test_known_defects_in_get_symbol._InMemoryStore object at 0x000002226A7CF620>
+registry_dir = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-19330/test_list_members_for_a_resolv0/known_defects')
+
+    def test_list_members_for_a_resolved_member_name_excludes_the_type_level_known_defect(
+        store: _InMemoryStore, registry_dir: Path
+    ) -> None:
+        _write_registry(registry_dir, [_defect("PDF-NET-007", DOCUMENT_FQN, package_versions=["26.7.0"])])
+    
+>       members = list_members(store, SCOPE, f"{DOCUMENT_FQN}.Save")  # type: ignore[arg-type]
+                  ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests\mcp\tools\test_known_defects_in_get_symbol.py:269: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+src\foss_mcp\mcp\tools\list_members.py:37: in list_members
+    signature = get_symbol(store, scope, fqn)
+                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+src\foss_mcp\mcp\tools\get_symbol.py:454: in get_symbol
+    resolved = _resolve_name(scope, active_generation_id, symbols, fqn, coverage_note)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+src\foss_mcp\mcp\tools\get_symbol.py:412: in _resolve_name
+    return _signature_of(scope, generation_id, owner, requested, member)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+src\foss_mcp\mcp\tools\get_symbol.py:304: in _signature_of
+    base = _parse_signature(scope, generation_id, chunk.doc_id, chunk.chunk_id, chunk.text)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+src\foss_mcp\mcp\tools\get_symbol.py:205: in _parse_signature
+    known_defects=known_defect_lines(scope, fqn, text),
+                  ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+scope = Scope(family='pdf', platform='net', source_kind='self_extracted')
+fqn = 'Aspose.Pdf.Document'
+text = 'FQN: Aspose.Pdf.Document\nKind: class_declaration\n\nMethods:\n  - Save(path: string) -> void\n\nSource-Commit: aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa'
+
+    def known_defect_lines(scope: Scope, fqn: str, text: str) -> tuple[str, ...]:
+        """Every known-defect disclosure line that applies to *fqn*, in registry file order (KD2,
+        G3/REQ-G3-015).
+    
+        A defect applies when *fqn* is a member of its ``subject.refs`` (G3/TC-658: a non-empty tuple,
+        since the same real upstream bug can affect several real sibling symbols in the identical
+        causal chain) - the OWNING type's FQN for a resolved member, never the raw member name,
+        matching how a resolved name is already treated elsewhere in this module - and, when it is
+        scoped by ``applies_to.indexed_commit``, that commit equals *text*'s own ``Source-Commit:``
+        line. A package-version-scoped defect (no ``indexed_commit``) always applies here regardless
+        of commit: this tool has no live registry check against a currently served package version -
+        that staleness-aware check is KD5's job on ``report_index_freshness`` specifically, not this
+        one.
+        """
+        defects = load_known_defects(scope.family, scope.platform)
+        if not defects:
+            return ()
+        commit_match = _SOURCE_COMMIT_LINE.search(text)
+        chunk_commit = commit_match.group(1) if commit_match is not None else None
+        lines: list[str] = []
+        for defect in defects:
+>           if fqn not in defect.subject.ref:
+                          ^^^^^^^^^^^^^^^^^^
+E           AttributeError: 'Subject' object has no attribute 'ref'. Did you mean: 'refs'?
+
+src\foss_mcp\mcp\tools\get_symbol.py:178: AttributeError
+_______ test_lookup_disconnect_symbol_match_never_carries_known_defects _______
+
+registry_dir = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-19330/test_lookup_disconnect_symbol_0/known_defects')
+
+    def test_lookup_disconnect_symbol_match_never_carries_known_defects(registry_dir: Path) -> None:
+        """G3/TC-642 (KD3) is the "future card" this test's own original docstring named, and it
+        narrowed this finding rather than leaving it as a total disconnect: ``SymbolMatch`` now HAS a
+        ``known_defects`` field, and for THIS test's own query shape - a bare FQN through ``lookup()``,
+        which reaches ``search_symbols()``'s own real ``SymbolMatch`` construction site directly, the
+        same site TC-642 wired - the method-scoped disclosure DOES surface through ``lookup``'s own
+        ``symbols``, exactly like ``get_symbol`` already showed it does. The real, narrower gap TC-642's
+        own investigation found and left unfixed (out of its write_paths) is ``lookup.py``'s separate
+        ``_named_symbols()`` helper: it builds its own fresh ``SymbolMatch`` instances directly from raw
+        chunk documents rather than reusing ``search_symbols()``'s construction, so a symbol reached
+        ONLY through that path still keeps ``known_defects == ()`` regardless of real registry data -
+        proven directly by
+        ``tests/mcp/tools/test_known_defects_in_search_symbols.py::test_lookup_named_symbols_path_never_carries_known_defects``
+        (TC-642's own test), not this one. This test is kept, updated rather than deleted, as the
+        regression guard for the now-fixed, broader claim it originally pinned."""
+        _write_registry(
+            registry_dir,
+            [
+                _defect(
+                    "PDF-CPP-009",
+                    kind="method",
+                    ref=DOCUMENT_FQN,
+                    package_versions=["26.7.0"],
+                    summary="A method-scoped defect that get_symbol discloses.",
+                )
+            ],
+        )
+        store = _InMemoryStore((_symbol_body(DOCUMENT_FQN, methods=("Save(path: string) -> void",)),))
+    
+        # First prove get_symbol (KD2, G3/TC-639) DOES disclose it - the baseline this investigates.
+>       signature = get_symbol(store, SYMBOL_SCOPE, DOCUMENT_FQN)  # type: ignore[arg-type]
+                    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests\mcp\tools\test_known_defects_in_product_reference.py:457: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+src\foss_mcp\mcp\tools\get_symbol.py:446: in get_symbol
+    return _parse_signature(
+src\foss_mcp\mcp\tools\get_symbol.py:205: in _parse_signature
+    known_defects=known_defect_lines(scope, fqn, text),
+                  ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+scope = Scope(family='pdf', platform='cpp', source_kind='self_extracted')
+fqn = 'Aspose.Pdf.Document'
+text = 'FQN: Aspose.Pdf.Document\nKind: class_declaration\n\nMethods:\n  - Save(path: string) -> void'
+
+    def known_defect_lines(scope: Scope, fqn: str, text: str) -> tuple[str, ...]:
+        """Every known-defect disclosure line that applies to *fqn*, in registry file order (KD2,
+        G3/REQ-G3-015).
+    
+        A defect applies when *fqn* is a member of its ``subject.refs`` (G3/TC-658: a non-empty tuple,
+        since the same real upstream bug can affect several real sibling symbols in the identical
+        causal chain) - the OWNING type's FQN for a resolved member, never the raw member name,
+        matching how a resolved name is already treated elsewhere in this module - and, when it is
+        scoped by ``applies_to.indexed_commit``, that commit equals *text*'s own ``Source-Commit:``
+        line. A package-version-scoped defect (no ``indexed_commit``) always applies here regardless
+        of commit: this tool has no live registry check against a currently served package version -
+        that staleness-aware check is KD5's job on ``report_index_freshness`` specifically, not this
+        one.
+        """
+        defects = load_known_defects(scope.family, scope.platform)
+        if not defects:
+            return ()
+        commit_match = _SOURCE_COMMIT_LINE.search(text)
+        chunk_commit = commit_match.group(1) if commit_match is not None else None
+        lines: list[str] = []
+        for defect in defects:
+>           if fqn not in defect.subject.ref:
+                          ^^^^^^^^^^^^^^^^^^
+E           AttributeError: 'Subject' object has no attribute 'ref'. Did you mean: 'refs'?
+
+src\foss_mcp\mcp\tools\get_symbol.py:178: AttributeError
+_______________ test_get_symbol_end_to_end_surfaces_eml_net_003 _______________
+
+    def test_get_symbol_end_to_end_surfaces_eml_net_003() -> None:
+        store = _InMemoryStore(
+            "aspose-email-foss/Aspose.Email-FOSS-for-.Net", "gen-tc656-email", (_mapi_message_symbol_body(),)
+        )
+    
+>       result = get_symbol(store, EMAIL_NET_SCOPE, "MapiMessage")  # type: ignore[arg-type]
+                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests\mcp\tools\test_known_defects_round3_siblings.py:249: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+src\foss_mcp\mcp\tools\get_symbol.py:446: in get_symbol
+    return _parse_signature(
+src\foss_mcp\mcp\tools\get_symbol.py:205: in _parse_signature
+    known_defects=known_defect_lines(scope, fqn, text),
+                  ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+scope = Scope(family='email', platform='net', source_kind='self_extracted')
+fqn = 'MapiMessage'
+text = 'FQN: MapiMessage\nKind: class_declaration\n\nMethods:\n  - SaveToEml(path: string) -> void'
+
+    def known_defect_lines(scope: Scope, fqn: str, text: str) -> tuple[str, ...]:
+        """Every known-defect disclosure line that applies to *fqn*, in registry file order (KD2,
+        G3/REQ-G3-015).
+    
+        A defect applies when *fqn* is a member of its ``subject.refs`` (G3/TC-658: a non-empty tuple,
+        since the same real upstream bug can affect several real sibling symbols in the identical
+        causal chain) - the OWNING type's FQN for a resolved member, never the raw member name,
+        matching how a resolved name is already treated elsewhere in this module - and, when it is
+        scoped by ``applies_to.indexed_commit``, that commit equals *text*'s own ``Source-Commit:``
+        line. A package-version-scoped defect (no ``indexed_commit``) always applies here regardless
+        of commit: this tool has no live registry check against a currently served package version -
+        that staleness-aware check is KD5's job on ``report_index_freshness`` specifically, not this
+        one.
+        """
+        defects = load_known_defects(scope.family, scope.platform)
+        if not defects:
+            return ()
+        commit_match = _SOURCE_COMMIT_LINE.search(text)
+        chunk_commit = commit_match.group(1) if commit_match is not None else None
+        lines: list[str] = []
+        for defect in defects:
+>           if fqn not in defect.subject.ref:
+                          ^^^^^^^^^^^^^^^^^^
+E           AttributeError: 'Subject' object has no attribute 'ref'. Did you mean: 'refs'?
+
+src\foss_mcp\mcp\tools\get_symbol.py:178: AttributeError
+_____ test_get_symbol_resolved_member_savetoeml_also_surfaces_eml_net_003 _____
+
+    def test_get_symbol_resolved_member_savetoeml_also_surfaces_eml_net_003() -> None:
+        store = _InMemoryStore(
+            "aspose-email-foss/Aspose.Email-FOSS-for-.Net", "gen-tc656-email", (_mapi_message_symbol_body(),)
+        )
+    
+>       result = get_symbol(store, EMAIL_NET_SCOPE, "MapiMessage.SaveToEml")  # type: ignore[arg-type]
+                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests\mcp\tools\test_known_defects_round3_siblings.py:262: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+src\foss_mcp\mcp\tools\get_symbol.py:454: in get_symbol
+    resolved = _resolve_name(scope, active_generation_id, symbols, fqn, coverage_note)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+src\foss_mcp\mcp\tools\get_symbol.py:412: in _resolve_name
+    return _signature_of(scope, generation_id, owner, requested, member)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+src\foss_mcp\mcp\tools\get_symbol.py:304: in _signature_of
+    base = _parse_signature(scope, generation_id, chunk.doc_id, chunk.chunk_id, chunk.text)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+src\foss_mcp\mcp\tools\get_symbol.py:205: in _parse_signature
+    known_defects=known_defect_lines(scope, fqn, text),
+                  ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+scope = Scope(family='email', platform='net', source_kind='self_extracted')
+fqn = 'MapiMessage'
+text = 'FQN: MapiMessage\nKind: class_declaration\n\nMethods:\n  - SaveToEml(path: string) -> void'
+
+    def known_defect_lines(scope: Scope, fqn: str, text: str) -> tuple[str, ...]:
+        """Every known-defect disclosure line that applies to *fqn*, in registry file order (KD2,
+        G3/REQ-G3-015).
+    
+        A defect applies when *fqn* is a member of its ``subject.refs`` (G3/TC-658: a non-empty tuple,
+        since the same real upstream bug can affect several real sibling symbols in the identical
+        causal chain) - the OWNING type's FQN for a resolved member, never the raw member name,
+        matching how a resolved name is already treated elsewhere in this module - and, when it is
+        scoped by ``applies_to.indexed_commit``, that commit equals *text*'s own ``Source-Commit:``
+        line. A package-version-scoped defect (no ``indexed_commit``) always applies here regardless
+        of commit: this tool has no live registry check against a currently served package version -
+        that staleness-aware check is KD5's job on ``report_index_freshness`` specifically, not this
+        one.
+        """
+        defects = load_known_defects(scope.family, scope.platform)
+        if not defects:
+            return ()
+        commit_match = _SOURCE_COMMIT_LINE.search(text)
+        chunk_commit = commit_match.group(1) if commit_match is not None else None
+        lines: list[str] = []
+        for defect in defects:
+>           if fqn not in defect.subject.ref:
+                          ^^^^^^^^^^^^^^^^^^
+E           AttributeError: 'Subject' object has no attribute 'ref'. Did you mean: 'refs'?
+
+src\foss_mcp\mcp\tools\get_symbol.py:178: AttributeError
+_______________ test_get_symbol_end_to_end_surfaces_pdf_net_003 _______________
+
+    def test_get_symbol_end_to_end_surfaces_pdf_net_003() -> None:
+        store = _InMemoryStore(
+            "aspose-pdf-foss/Aspose.PDF-FOSS-for-.NET", "gen-tc656-pdf", (_table_absorber_symbol_body(),)
+        )
+    
+>       result = get_symbol(store, PDF_NET_SCOPE, "TableAbsorber")  # type: ignore[arg-type]
+                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests\mcp\tools\test_known_defects_round3_siblings.py:288: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+src\foss_mcp\mcp\tools\get_symbol.py:446: in get_symbol
+    return _parse_signature(
+src\foss_mcp\mcp\tools\get_symbol.py:205: in _parse_signature
+    known_defects=known_defect_lines(scope, fqn, text),
+                  ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+scope = Scope(family='pdf', platform='net', source_kind='self_extracted')
+fqn = 'TableAbsorber'
+text = 'FQN: TableAbsorber\nKind: class_declaration\n\nMethods:\n  - Visit(page: Page) -> void'
+
+    def known_defect_lines(scope: Scope, fqn: str, text: str) -> tuple[str, ...]:
+        """Every known-defect disclosure line that applies to *fqn*, in registry file order (KD2,
+        G3/REQ-G3-015).
+    
+        A defect applies when *fqn* is a member of its ``subject.refs`` (G3/TC-658: a non-empty tuple,
+        since the same real upstream bug can affect several real sibling symbols in the identical
+        causal chain) - the OWNING type's FQN for a resolved member, never the raw member name,
+        matching how a resolved name is already treated elsewhere in this module - and, when it is
+        scoped by ``applies_to.indexed_commit``, that commit equals *text*'s own ``Source-Commit:``
+        line. A package-version-scoped defect (no ``indexed_commit``) always applies here regardless
+        of commit: this tool has no live registry check against a currently served package version -
+        that staleness-aware check is KD5's job on ``report_index_freshness`` specifically, not this
+        one.
+        """
+        defects = load_known_defects(scope.family, scope.platform)
+        if not defects:
+            return ()
+        commit_match = _SOURCE_COMMIT_LINE.search(text)
+        chunk_commit = commit_match.group(1) if commit_match is not None else None
+        lines: list[str] = []
+        for defect in defects:
+>           if fqn not in defect.subject.ref:
+                          ^^^^^^^^^^^^^^^^^^
+E           AttributeError: 'Subject' object has no attribute 'ref'. Did you mean: 'refs'?
+
+src\foss_mcp\mcp\tools\get_symbol.py:178: AttributeError
+=========================== short test summary info ===========================
+FAILED tests/indexing/test_known_defects_data_3d.py::test_get_symbol_end_to_end_surfaces_the_real_written_java_triangulate_defect
+FAILED tests/indexing/test_known_defects_data_cells.py::test_get_symbol_end_to_end_surfaces_the_real_written_java_workbook_save_defect
+FAILED tests/indexing/test_known_defects_data_pdf_slides.py::test_get_symbol_end_to_end_surfaces_the_real_written_pdf_cpp_aes256_defect
+FAILED tests/indexing/test_known_defects_data_pdf_slides.py::test_get_symbol_end_to_end_does_not_surface_the_defect_for_a_different_commit
+FAILED tests/mcp/tools/test_known_defects_in_get_symbol.py::test_commit_scoped_defect_surfaces_when_chunk_commit_matches
+FAILED tests/mcp/tools/test_known_defects_in_get_symbol.py::test_commit_scoped_defect_does_not_surface_when_chunk_commit_differs
+FAILED tests/mcp/tools/test_known_defects_in_get_symbol.py::test_package_version_scoped_defect_always_surfaces_regardless_of_commit
+FAILED tests/mcp/tools/test_known_defects_in_get_symbol.py::test_defect_with_non_matching_subject_ref_never_surfaces
+FAILED tests/mcp/tools/test_known_defects_in_get_symbol.py::test_resolved_member_name_gets_the_owning_types_known_defects
+FAILED tests/mcp/tools/test_known_defects_in_get_symbol.py::test_list_members_prepends_the_type_level_known_defect_line
+FAILED tests/mcp/tools/test_known_defects_in_get_symbol.py::test_list_members_for_a_resolved_member_name_excludes_the_type_level_known_defect
+FAILED tests/mcp/tools/test_known_defects_in_product_reference.py::test_lookup_disconnect_symbol_match_never_carries_known_defects
+FAILED tests/mcp/tools/test_known_defects_round3_siblings.py::test_get_symbol_end_to_end_surfaces_eml_net_003
+FAILED tests/mcp/tools/test_known_defects_round3_siblings.py::test_get_symbol_resolved_member_savetoeml_also_surfaces_eml_net_003
+FAILED tests/mcp/tools/test_known_defects_round3_siblings.py::test_get_symbol_end_to_end_surfaces_pdf_net_003
+
+--- stderr ---
+
