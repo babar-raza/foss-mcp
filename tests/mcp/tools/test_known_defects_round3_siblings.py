@@ -111,7 +111,7 @@ def test_load_known_defects_returns_eml_net_003_with_the_real_shape() -> None:
     (defect,) = load_known_defects("email", "net")
     assert defect.id == "EML-NET-003"
     assert defect.subject.kind == "method"
-    assert defect.subject.ref == "MapiMessage"
+    assert defect.subject.refs == ("MapiMessage",)
     assert defect.status == "open"
     assert defect.applies_to.package_versions == ("26.7.0",)
     assert defect.evidence.verified_on.package == "Aspose.Email.Foss"
@@ -121,7 +121,7 @@ def test_load_known_defects_returns_pdf_net_003_with_the_real_shape() -> None:
     (defect,) = load_known_defects("pdf", "net")
     assert defect.id == "PDF-NET-003"
     assert defect.subject.kind == "method"
-    assert defect.subject.ref == "TableAbsorber"
+    assert defect.subject.refs == ("TableAbsorber",)
     assert defect.status == "open"
     assert defect.applies_to.package_versions == ("26.10.0",)
     assert defect.evidence.verified_on.package == "Aspose.PDF.FOSS"
