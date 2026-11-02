@@ -130,11 +130,23 @@ def test_cpp_pilots_get_real_install_guidance_from_the_real_baked_data(pilot: st
 
 def test_cells_cpp_install_is_the_faq_fallback_specifically() -> None:
     """cells/cpp is the pilot RD3-080 names: its only install content is the FAQ answer this card
-    unblocks. Before this fix it answered NotAvailable; now it answers with the real recipe."""
+    unblocks. Before this fix it answered NotAvailable; now it answers with the real recipe.
+
+    G3/TC-659: the FAQ answer this assertion pins was itself a confirmed fabrication
+    (CELLS-CPP-010) - "Clone the repository and use CMake add_subdirectory or FetchContent.
+    Requires a C++17 compiler and CMake 3.15+." never appeared in the real README. The mechanism
+    this test proves (an FAQ-titled chunk is real install content, G3/TC-574) is unchanged and
+    still correct; only the expected TEXT is updated here to the real, now-corrected answer -
+    NuGet-first guidance and the real CMake 3.16 floor, the same real served text
+    ``tests/mcp/tools/test_product_reference_cpp_install.py`` already proves against this exact
+    data."""
     result = _real_install_answer("cells_cpp")
 
     assert isinstance(result, ReferenceContent), getattr(result, "reason", None)
-    assert "Clone the repository and use CMake add_subdirectory or FetchContent" in result.text
+    assert "Clone the repository and use CMake add_subdirectory or FetchContent" not in result.text
+    assert "Aspose.Cells.Cpp.FOSS" in result.text
+    assert "CMake 3.16" in result.text
+    assert "3.15" not in result.text
     assert "9f852d0ff1cfdad2d661556d6b87a8eff8c063a2" in result.text
     assert "github.com/aspose-cells-foss/Aspose.Cells-FOSS-for-Cpp" in result.text
 

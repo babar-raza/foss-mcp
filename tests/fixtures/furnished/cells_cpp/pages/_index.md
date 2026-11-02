@@ -130,8 +130,10 @@ faq:
     answer: '`.xlsx` for both load and save. `.csv` is not supported for load or
       save in v0.1.'
   - question: How do I install the library?
-    answer: Clone the repository and use CMake `add_subdirectory` or `FetchContent`.
-      Requires a `C++17` compiler and `CMake 3.15+`. No external dependencies.
+    answer: On Windows (MSVC), install the prebuilt NuGet package `Aspose.Cells.Cpp.FOSS`
+      — no build step needed. On Linux, macOS, or a non-MSVC toolchain, clone the
+      repository and build from source with CMake `add_subdirectory`, which requires
+      `CMake 3.16+` and a `C++17` compiler. No external dependencies either way.
   - question: Does the library require Microsoft Excel?
     answer: No. Aspose.Cells FOSS for C++ is fully self-contained and does not require
       Microsoft Excel or any COM interop.

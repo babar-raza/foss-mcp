@@ -24,6 +24,18 @@ built from can lack a section the README has (cells/cpp has no installation sect
 wherever it has a section and the README fill the rest. ``import_warning`` is the "cannot be imported at
 this commit" statement of an Extraction notice chunk.
 
+G3/TC-659: that "the index wins wherever it has a section" rule has one exception, for ``install``
+only. CELLS-CPP-010 (a real, confirmed fabrication) showed that an index-side install section built
+ENTIRELY from FAQ-promoted chunks (the G3/TC-574 rule above, ``_parse_chunk``'s install-only FAQ
+exception) is a weaker signal than a genuine heading-based ``## Installation`` section the live README
+actually has: the furnished page's own FAQ answer can go stale (authored before a README repin, never
+refreshed) while the real README's heading section stays current. ``merge_sections`` therefore prefers
+the fallback README's own install section over an index ``primary.install`` that is ``all_faq`` (see
+``ReadmeSection.all_faq``) when that fallback section exists; an index install section backed by at
+least one real heading-based chunk still wins exactly as before, and the original TC-574 case (install
+content ONLY ever available as an FAQ chunk, no sidecar README, or a sidecar README with no heading
+section) is unaffected either way.
+
 The module is pure apart from ``read_readme_sections``, which touches the generation store and never
 raises: any failure yields the empty ``ReadmeSections``.
 """
@@ -58,13 +70,16 @@ _LIMITATIONS_LEAD_IN = (
 class ReadmeSection:
     """One README section as indexed: its ``title``, its assembled ``text``, the source ``commit`` the
     chunks were indexed from (None when no chunk records one), whether the chunks could be put back in
-    ``ordered`` README order, and how many chunks (``parts``) it was assembled from."""
+    ``ordered`` README order, how many chunks (``parts``) it was assembled from, and (G3/TC-659)
+    whether EVERY one of those chunks was an FAQ-promoted chunk rather than a real heading-based one
+    (``all_faq``) - a weaker signal than a genuine heading section; see ``merge_sections``."""
 
     title: str
     text: str
     commit: str | None
     ordered: bool
     parts: int
+    all_faq: bool = False
 
 
 @dataclass(frozen=True)
@@ -85,6 +100,7 @@ class _Chunk:
     text: str
     commit: str | None
     part: int | None
+    is_faq: bool = False
 
 
 def _strip_lead_in(lines: list[str]) -> list[str]:
@@ -144,7 +160,7 @@ def _parse_chunk(text: str, pattern: str) -> _Chunk | None:
             kept = kept[1:]
         if not kept:
             return None
-    return _Chunk(title=title, text="\n".join(kept).strip("\n"), commit=commit, part=part)
+    return _Chunk(title=title, text="\n".join(kept).strip("\n"), commit=commit, part=part, is_faq=is_faq)
 
 
 def _assemble(chunks: list[_Chunk]) -> ReadmeSection | None:
@@ -174,8 +190,16 @@ def _assemble(chunks: list[_Chunk]) -> ReadmeSection | None:
     commit = next((chunk.commit for chunk in chunks if chunk.commit), None)
     if not text.strip():
         return None
+    # G3/TC-659: True only when every contributing chunk was FAQ-promoted (never a real heading-based
+    # Doc chunk) - the weaker-signal case merge_sections demotes below a live, heading-based README.
+    all_faq = all(chunk.is_faq for chunk in chunks)
     return ReadmeSection(
-        title="; ".join(titles), text=text, commit=commit, ordered=ordered, parts=len(chunks)
+        title="; ".join(titles),
+        text=text,
+        commit=commit,
+        ordered=ordered,
+        parts=len(chunks),
+        all_faq=all_faq,
     )
 
 
@@ -328,14 +352,28 @@ def sections_from_markdown(text: str, *, commit: str | None = None) -> ReadmeSec
 
 def merge_sections(primary: ReadmeSections | None, fallback: ReadmeSections | None) -> ReadmeSections | None:
     """*primary* with each section it lacks taken from *fallback* (the index wins; the README fills the
-    rest). ``None`` only when both are ``None``."""
+    rest). ``None`` only when both are ``None``.
+
+    G3/TC-659: one exception to "the index wins" - ``install`` only. When *primary*'s install section
+    is ``all_faq`` (every contributing chunk was FAQ-promoted, G3/TC-574's install-only exception,
+    never a real ``## Installation``-heading chunk) AND *fallback* has an install section of its own,
+    *fallback*'s install wins instead: a live, heading-based README section is a stronger signal than
+    a furnished page's FAQ answer, which can go stale (CELLS-CPP-010: authored before a README repin,
+    never refreshed) while the real README keeps moving. An index install section backed by at least
+    one real heading-based chunk is unaffected and still wins as before; so does the original TC-574
+    case, where install content is ONLY ever available as an FAQ chunk (the fallback README has no
+    install section of its own to prefer).
+    """
     if fallback is None:
         return primary
     if primary is None:
         return fallback
+    install = primary.install
+    if install is not None and install.all_faq and fallback.install is not None:
+        install = fallback.install
     return ReadmeSections(
         limitations=primary.limitations or fallback.limitations,
-        install=primary.install or fallback.install,
+        install=install or fallback.install,
         capabilities=primary.capabilities or fallback.capabilities,
         formats=primary.formats or fallback.formats,
         import_warning=primary.import_warning or fallback.import_warning,
