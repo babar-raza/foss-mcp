@@ -43,9 +43,12 @@ purpose: >-
   `load_known_defects`/`known_defect_lines` correctly). Do not modify any of those four files.
 depends_on:
   - TC-645
+  - TC-649
 write_paths:
   - config/known_defects/cells__typescript.yaml
   - tests/indexing/test_known_defects_data_cells_typescript_013.py
+  - tests/indexing/test_known_defects_data_cells.py
+  - tests/indexing/test_known_defects_completeness.py
 satisfies:
   - REQ-G3-015
 source_refs:
@@ -77,6 +80,39 @@ inputs:
     surfaces it; no duplicate id within the file; `verified_at` is a valid calendar date; the
     disclosure text does not claim every save() call fails (only >= 3 worksheets) - this must
     not overstate the defect.
+  - >-
+    REWORK (attempt 2): your attempt-1 work (the real entry, the 12-test file) is correct and is
+    preserved exactly as you wrote it - do not redo it. You correctly found and refused to touch
+    a real, out-of-scope defect instead of working around it: `tests/indexing/
+    test_known_defects_data_cells.py` (TC-645) and `tests/indexing/test_known_defects_completeness.py`
+    (TC-649) were both written on the premise that `docs/round2/issues.json` is the ONLY,
+    PERMANENT source of real `category: "upstream-library-bug"` ids a `known_defects` entry may
+    ever correspond to - a premise this round-3-sourced entry necessarily breaks. Both files are
+    now in your write_paths. Generalize both (a widening of what counts as a real source, never
+    a weakening of what either test actually checks - every id must still trace to a real,
+    committed audit record, round-2 or round-3, never an invented one):
+
+    1. `test_known_defects_completeness.py`: `_real_upstream_library_bug_ids()` currently reads
+    only `docs/round2/issues.json` (a flat list of issue objects). Also read
+    `docs/round3/issues.json` (a DIFFERENT real shape - a dict with a `"pilots"` key, each pilot
+    an object with its own `"issues"` list; read the file yourself to confirm the exact real
+    shape before writing code against it) and union in every one of ITS issues whose `category`
+    is also `"upstream-library-bug"`. The completeness assertion's real intent (every such id
+    across BOTH committed audit rounds has exactly one entry, no orphans) is unchanged; only the
+    source of truth widens from one file to the union of both. Update the `== 47` sanity anchor
+    to the real new total you compute (expect 48, confirm directly - do not hardcode a guess).
+
+    2. `test_known_defects_data_cells.py`: `_real_round2_cells_upstream_library_bug_ids()` has the
+    identical round-2-only limitation, scoped to the cells family. Widen it the same way (union
+    in round-3's cells-family upstream-library-bug ids too). Update `_EXPECTED_COUNTS["typescript"]`
+    from `5` to the real new count, and the two hardcoded family totals (`== 12` in two places)
+    to the real new total - confirm both numbers directly from the real data, do not guess.
+
+    Neither file's actual assertions (every written id traces to a real audit finding; every real
+    finding has exactly one entry; no duplicates) are weakened - only the definition of "a real
+    audit finding" widens to cover both committed rounds. Re-run every test in both files (not
+    just the ones you expect to be affected) twice to confirm nothing else broke, then re-run
+    both of the card's own checks twice each before committing.
 actions:
   - >-
     Disclose CELLS-TYPESCRIPT-013 (the round-3 audit's new P0 silent-data-loss finding) through
