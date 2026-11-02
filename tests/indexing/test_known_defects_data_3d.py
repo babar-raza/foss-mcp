@@ -19,7 +19,17 @@ by the ``get_symbol`` end-to-end test, which is an in-memory chunk store built t
 there is no committed, indexed, queryable chunk corpus for 3d/java in this repository, so a
 synthetic store is the only way to exercise ``get_symbol`` itself end to end; the REGISTRY data it
 reads is real and uncontrolled by this test.
-"""
+
+**Widened (TC-656 rework attempt 3, 2026-11-02):** the real "which finding needs an entry" source
+is now the UNION of ``docs/round2/issues.json`` and ``docs/round3/issues.json`` (a DIFFERENT real
+shape - a dict with a ``"pilots"`` key, each pilot an object with its own ``"issues"`` list), both
+filtered to the ``3d`` family and ``category: "upstream-library-bug"``. Confirmed directly: the
+real union is 15 ids, not 14 - ``3D-JAVA-014`` (``Scene.open()`` on a valid OBJ silently imports 0
+meshes/0 geometry) is genuinely new in round3 and is this card's own addition.
+``3D-NET-006``/``3D-NET-008`` are real round-2 ids simply absent from round3's own per-pilot issue
+table (not reclassified, not retired) - they keep their existing registry entries unchanged; a
+union, never a replacement, means an earlier round's own real record is never erased by a later
+round's silence."""
 
 from __future__ import annotations
 
@@ -46,7 +56,8 @@ from foss_mcp.normalization.document_schema import Provenance, SourceKind, make_
 REPO_ROOT = Path(__file__).resolve().parent.parent.parent
 SCHEMA_PATH = REPO_ROOT / "schemas" / "product" / "known_defects.schema.json"
 REGISTRY_DIR = REPO_ROOT / "config" / "known_defects"
-ISSUES_PATH = REPO_ROOT / "docs" / "round2" / "issues.json"
+ROUND2_ISSUES_PATH = REPO_ROOT / "docs" / "round2" / "issues.json"
+ROUND3_ISSUES_PATH = REPO_ROOT / "docs" / "round3" / "issues.json"
 
 _FILES_BY_PLATFORM = {
     "java": "3d__java.yaml",
@@ -54,9 +65,9 @@ _FILES_BY_PLATFORM = {
     "python": "3d__python.yaml",
     "typescript": "3d__typescript.yaml",
 }
-# The real entry count this card wrote per pilot (4 + 4 + 5 + 1 = 14, matching the 14 real
-# round-2 findings selected below).
-_EXPECTED_COUNTS = {"java": 4, "net": 4, "python": 5, "typescript": 1}
+# The real entry count actually WRITTEN per pilot (5 + 4 + 5 + 1 = 15): the 14 real round-2
+# findings TC-644 wrote, plus TC-656's own 3D-JAVA-014 (java 4 -> 5).
+_EXPECTED_COUNTS = {"java": 5, "net": 4, "python": 5, "typescript": 1}
 
 
 def _load_schema() -> dict:
@@ -68,17 +79,28 @@ def _load_real_registry_document(platform: str) -> dict:
     return yaml.safe_load(path.read_text(encoding="utf-8"))
 
 
-def _real_round2_3d_upstream_library_bug_ids() -> set[str]:
-    """The real, algorithmic answer to "which round-2 findings is this card about" - every
-    ``docs/round2/issues.json`` entry whose ``pilot`` is one of the four ``3d/*`` pilots and whose
-    ``category`` is ``"upstream-library-bug"``. Computed directly from the audit's own committed
-    data, never a hand-copied id list, so drift in either file is caught by the tests below."""
-    issues = json.loads(ISSUES_PATH.read_text(encoding="utf-8"))
-    return {
+def _real_3d_upstream_library_bug_ids() -> set[str]:
+    """The real, algorithmic answer to "which findings, from EITHER committed audit round, is
+    this card about" - the union of every ``docs/round2/issues.json`` entry and every
+    ``docs/round3/issues.json`` entry whose ``pilot`` is one of the four ``3d/*`` pilots and whose
+    ``category`` is ``"upstream-library-bug"``. Computed directly from both audits' own committed
+    data, never a hand-copied id list, so drift in any of the three files (round2, round3, the
+    registry) is caught by the tests below."""
+    round2_issues = json.loads(ROUND2_ISSUES_PATH.read_text(encoding="utf-8"))
+    round2_ids = {
         issue["id"]
-        for issue in issues
+        for issue in round2_issues
         if issue.get("pilot", "").startswith("3d/") and issue.get("category") == "upstream-library-bug"
     }
+    round3_document = json.loads(ROUND3_ISSUES_PATH.read_text(encoding="utf-8"))
+    round3_ids = {
+        issue["id"]
+        for pilot in round3_document["pilots"]
+        if pilot.get("pilot", "").startswith("3d/")
+        for issue in pilot["issues"]
+        if issue.get("category") == "upstream-library-bug"
+    }
+    return round2_ids | round3_ids
 
 
 # --------------------------------------------------------------------------------------------
@@ -108,11 +130,11 @@ def test_load_known_defects_returns_the_real_written_count_for_this_pilot(platfo
     )
 
 
-def test_fourteen_entries_total_across_all_four_3d_pilots() -> None:
+def test_fifteen_entries_total_across_all_four_3d_pilots() -> None:
     total = sum(
         len(load_known_defects("3d", platform)) for platform in ("java", "net", "python", "typescript")
     )
-    assert total == 14
+    assert total == 15
 
 
 def test_no_duplicate_ids_across_the_entire_3d_family() -> None:
@@ -131,41 +153,43 @@ def test_no_duplicate_ids_across_the_entire_3d_family() -> None:
 # --------------------------------------------------------------------------------------------
 
 
-def test_every_written_defect_id_is_a_real_round2_3d_upstream_library_bug_finding() -> None:
-    expected_ids = _real_round2_3d_upstream_library_bug_ids()
+def test_every_written_defect_id_is_a_real_3d_upstream_library_bug_finding() -> None:
+    expected_ids = _real_3d_upstream_library_bug_ids()
     written_ids = {
         defect.id
         for platform in ("java", "net", "python", "typescript")
         for defect in load_known_defects("3d", platform)
     }
     assert written_ids <= expected_ids, (
-        f"written ids not found among real round-2 3d upstream-library-bug findings: "
+        f"written ids not found among real 3d upstream-library-bug findings (round2 union round3): "
         f"{written_ids - expected_ids}"
     )
 
 
-def test_every_real_round2_3d_upstream_library_bug_finding_has_a_written_entry() -> None:
-    expected_ids = _real_round2_3d_upstream_library_bug_ids()
+def test_every_real_3d_upstream_library_bug_finding_has_a_written_entry() -> None:
+    expected_ids = _real_3d_upstream_library_bug_ids()
     written_ids = {
         defect.id
         for platform in ("java", "net", "python", "typescript")
         for defect in load_known_defects("3d", platform)
     }
     assert expected_ids <= written_ids, (
-        f"real round-2 3d upstream-library-bug findings with no written entry: {expected_ids - written_ids}"
+        f"real 3d upstream-library-bug findings (round2 union round3) with no written entry: "
+        f"{expected_ids - written_ids}"
     )
-    # Both sets equal, and both have exactly 14 members - the real count named in this card.
+    # Both sets equal, and both have exactly 15 members - the real union count as of 2026-11-02.
     assert expected_ids == written_ids
-    assert len(expected_ids) == 14
+    assert len(expected_ids) == 15
 
 
 # --------------------------------------------------------------------------------------------
-# structural invariants this card's own instructions required for all 14 entries
+# structural invariants this card's own instructions required for all 15 entries (the original
+# 14 round-2 findings plus TC-656's own 3D-JAVA-014)
 # --------------------------------------------------------------------------------------------
 
 
 def test_every_entry_is_status_open_and_scoped_by_package_versions_only() -> None:
-    """None of these 14 findings has a confirmed upstream fix, and every one is confirmed against
+    """None of these 15 findings has a confirmed upstream fix, and every one is confirmed against
     a specific published package version (never an ``indexed_commit``-only scope) - per this
     card's own instructions."""
     for platform in ("java", "net", "python", "typescript"):

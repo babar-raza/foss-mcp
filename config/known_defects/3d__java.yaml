@@ -69,6 +69,30 @@ defects:
       version: 26.5.0
       date: '2026-10-29'
   status: open
+- id: 3D-JAVA-014
+  subject:
+    kind: method
+    ref: Scene
+  applies_to:
+    package_versions:
+    - 26.5.0
+  summary: Scene.open() on a syntactically valid, non-empty OBJ file in aspose-3d-foss 26.5.0
+    throws no exception but imports a Scene with 0 meshes and 0 geometry - a silent import
+    failure, not a parse error.
+  user_action: Do not trust Scene.open()/Scene.fromFile() succeeding (no exception) as proof an
+    OBJ import produced real geometry in aspose-3d-foss 26.5.0; check the returned Scene's own
+    mesh/entity count after loading an OBJ file before relying on it.
+  evidence:
+    repro: Called Scene.open() on a valid OBJ file containing real vertex and face data (confirmed
+      parseable by an independent OBJ reader); the call returned normally with no exception, but
+      the resulting Scene had 0 meshes and 0 total geometry - the same silent-data-loss shape this
+      pilot's already-disclosed export bugs (3D-JAVA-002/003/004/006) show on the save side, now
+      confirmed on the import side too.
+    verified_on:
+      package: org.aspose:aspose-3d-foss
+      version: 26.5.0
+      date: '2026-11-02'
+  status: open
 - id: 3D-JAVA-006
   subject:
     kind: method

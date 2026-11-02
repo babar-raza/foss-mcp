@@ -121,3 +121,32 @@ defects:
       version: 1.0.0
       date: '2026-10-29'
   status: open
+- id: CELLS-TYPESCRIPT-013
+  subject:
+    kind: method
+    ref: Workbook
+  applies_to:
+    package_versions:
+    - 1.0.0
+  summary: 'Workbook.save() in excel-cells 1.0.0 silently drops every worksheet past the 2nd from
+    the saved file''s xl/workbook.xml sheet index when the workbook has 3+ worksheets, though the
+    dropped sheet''s data is still written into the zip.'
+  user_action: Do not rely on Workbook.save() in excel-cells 1.0.0 to persist more than 2 worksheets;
+    any 3rd+ worksheet's data is physically written into the saved .xlsx zip but never referenced
+    by xl/workbook.xml's own <sheets> index, so it is invisible to Excel and any other real OOXML
+    reader with zero exception and zero warning. Verify a saved file's real sheet count by
+    re-opening it, not by trusting in-memory state or the absence of a thrown error.
+  evidence:
+    repro: 'Saved a workbook with 3 worksheets via workbook.save(path). The resulting zip''s
+      xl/worksheets/sheet3.xml was present with real data, but xl/workbook.xml''s <sheets> element
+      listed only 2 <sheet> entries. Reading workbook.ts''s generateWorkbook() showed its
+      <sheets> index is built from exactly two hand-written, unconditional
+      if (this._sheets.worksheets.length > N) blocks (N=0,1) with no loop for index >= 2, while
+      the same file''s writeToZip() DOES loop over every real worksheet and writes a real
+      xl/worksheets/sheetN.xml part for each one - confirming the asymmetry is the root cause,
+      not a one-off repro artifact.'
+    verified_on:
+      package: excel-cells
+      version: 1.0.0
+      date: '2026-11-02'
+  status: open

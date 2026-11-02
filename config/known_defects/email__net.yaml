@@ -1,0 +1,26 @@
+schema_version: 1
+pilot: email_net
+defects:
+- id: EML-NET-003
+  subject:
+    kind: method
+    ref: MapiMessage
+  applies_to:
+    package_versions:
+    - 26.7.0
+  summary: MapiMessage.SaveToEml in Aspose.Email.Foss 26.7.0 writes the Bcc header verbatim into
+    the serialized message, with no stripping and no documentation that it is preserved.
+  user_action: Do not forward the raw output of MapiMessage.SaveToEml in Aspose.Email.Foss 26.7.0
+    over SMTP as-is; real MTAs strip Bcc before transmission, but this library does not - strip
+    the Bcc header yourself first, or the Bcc recipient is leaked to every other recipient.
+  evidence:
+    repro: Built a MapiMessage with a Bcc recipient via AddRecipient(..., MapiMessage.RecipientTypeBcc)
+      and called SaveToEml(path); parsing the saved file with Python's email module
+      (email.message_from_bytes(...).get('Bcc')) printed the Bcc recipient's name and address in
+      cleartext, next to To/Cc, and no product-reference section (formats/limitations/agent_guidance)
+      mentions this.
+    verified_on:
+      package: Aspose.Email.Foss
+      version: 26.7.0
+      date: '2026-11-02'
+  status: open

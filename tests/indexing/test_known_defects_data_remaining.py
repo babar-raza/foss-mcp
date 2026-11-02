@@ -34,6 +34,15 @@ instead, since ``test_freshness_provenance._publish`` is hardcoded to the ``pdf/
 cannot be reused across families. The REGISTRY data that end-to-end test reads is real and
 uncontrolled by this test; only the symbol chunk content and generation plumbing are synthetic
 (there is no committed, indexed, queryable chunk corpus for imaging/net in this repository).
+
+**Widened (TC-656 rework attempt 3, 2026-11-02):** the real "which finding needs an entry" source
+is now the UNION of ``docs/round2/issues.json`` and ``docs/round3/issues.json`` (a DIFFERENT real
+shape - a dict with a ``"pilots"`` key, each pilot an object with its own ``"issues"`` list), both
+filtered to this card's eight family prefixes and ``category: "upstream-library-bug"``. Confirmed
+directly: the real union is 16 ids, not 15 - ``PAGE-PYTHON-010``
+(``PsDocument.create(page_size=...)`` silently ignored by ``to_pdf()``/``to_image()``) is
+genuinely new in round3 and is this card's own addition; no other of these eight families' round-2
+ids are missing or reclassified in round3.
 """
 
 from __future__ import annotations
@@ -60,7 +69,8 @@ from tests.indexing.test_index_writers import DeterministicEmbeddingProvider
 REPO_ROOT = Path(__file__).resolve().parent.parent.parent
 SCHEMA_PATH = REPO_ROOT / "schemas" / "product" / "known_defects.schema.json"
 REGISTRY_DIR = REPO_ROOT / "config" / "known_defects"
-ISSUES_PATH = REPO_ROOT / "docs" / "round2" / "issues.json"
+ROUND2_ISSUES_PATH = REPO_ROOT / "docs" / "round2" / "issues.json"
+ROUND3_ISSUES_PATH = REPO_ROOT / "docs" / "round3" / "issues.json"
 
 # The eight (family, platform) pilots this card writes, and the real registry filename for each -
 # confirmed against known_defects.registry_path_for's own ``<family>__<platform>.yaml`` pattern.
@@ -75,15 +85,15 @@ _PILOTS: tuple[tuple[str, str], ...] = (
     ("words", "python"),
 )
 
-# The real entry count this card wrote per pilot (1+3+1+5+2+1+1+1 = 15, matching the 15 real
-# round-2 findings named in this card).
+# The real entry count actually WRITTEN per pilot (1+3+1+5+2+2+1+1 = 16): the 15 real round-2
+# findings TC-647 wrote, plus TC-656's own PAGE-PYTHON-010 (page/python 1 -> 2).
 _EXPECTED_COUNTS: dict[tuple[str, str], int] = {
     ("barcode", "python"): 1,
     ("email", "cpp"): 3,
     ("email", "python"): 1,
     ("imaging", "net"): 5,
     ("note", "python"): 2,
-    ("page", "python"): 1,
+    ("page", "python"): 2,
     ("tex", "python"): 1,
     ("words", "python"): 1,
 }
@@ -103,20 +113,40 @@ def _load_real_registry_document(family: str, platform: str) -> dict:
     return yaml.safe_load(_registry_path(family, platform).read_text(encoding="utf-8"))
 
 
-def _real_round2_upstream_library_bug_ids() -> set[str]:
-    """The real, algorithmic answer to "which round-2 findings is this card about" - every
-    ``docs/round2/issues.json`` entry whose ``pilot`` starts with one of this card's eight family
-    prefixes and whose ``category`` is ``"upstream-library-bug"``. Computed directly from the
-    audit's own committed data, never a hand-copied id list, so drift in either file is caught by
-    the tests below."""
-    issues = json.loads(ISSUES_PATH.read_text(encoding="utf-8"))
-    family_prefixes = tuple(f"{family}/" for family, _platform in _PILOTS)
-    return {
+def _real_upstream_library_bug_ids() -> set[str]:
+    """The real, algorithmic answer to "which findings, from EITHER committed audit round, is
+    this card about" - the union of every ``docs/round2/issues.json`` entry and every
+    ``docs/round3/issues.json`` entry whose ``pilot`` is EXACTLY one of this card's eight
+    ``<family>/<platform>`` pilots and whose ``category`` is ``"upstream-library-bug"``. Computed
+    directly from both audits' own committed data, never a hand-copied id list, so drift in any of
+    the three files (round2, round3, the registry) is caught by the tests below.
+
+    **Bug fixed here, 2026-11-02 (TC-656 rework attempt 3):** the pre-existing round-2-only version
+    of this helper matched by FAMILY PREFIX (``pilot.startswith("email/")``), which happens to also
+    match ``email/net`` - a NINTH pilot this card does not cover at all (its own
+    ``config/known_defects/email__net.yaml`` is TC-656's own sibling file, written separately).
+    That prefix bug was latent and harmless under round2-only data (round2 never classified any
+    ``email/net`` issue as ``upstream-library-bug``), but round3 reclassifies ``EML-NET-003`` into
+    this category, which the old prefix match would incorrectly pull into THIS card's expected set
+    and fail it for a pilot it was never responsible for. Fixed by matching the exact
+    ``<family>/<platform>`` pilot string, the same pattern
+    ``test_known_defects_data_cells.py``'s own ``cells_platforms`` set already uses correctly."""
+    exact_pilots = {f"{family}/{platform}" for family, platform in _PILOTS}
+    round2_issues = json.loads(ROUND2_ISSUES_PATH.read_text(encoding="utf-8"))
+    round2_ids = {
         issue["id"]
-        for issue in issues
-        if issue.get("category") == "upstream-library-bug"
-        and issue.get("pilot", "").startswith(family_prefixes)
+        for issue in round2_issues
+        if issue.get("category") == "upstream-library-bug" and issue.get("pilot") in exact_pilots
     }
+    round3_document = json.loads(ROUND3_ISSUES_PATH.read_text(encoding="utf-8"))
+    round3_ids = {
+        issue["id"]
+        for pilot in round3_document["pilots"]
+        if pilot.get("pilot") in exact_pilots
+        for issue in pilot["issues"]
+        if issue.get("category") == "upstream-library-bug"
+    }
+    return round2_ids | round3_ids
 
 
 def _all_written_defects() -> list:
@@ -153,8 +183,8 @@ def test_load_known_defects_returns_the_real_written_count_for_this_pilot(family
     )
 
 
-def test_fifteen_entries_total_across_all_eight_pilots() -> None:
-    assert len(_all_written_defects()) == 15
+def test_sixteen_entries_total_across_all_eight_pilots() -> None:
+    assert len(_all_written_defects()) == 16
 
 
 def test_no_duplicate_ids_across_any_of_the_eight_registry_files() -> None:
@@ -169,30 +199,32 @@ def test_no_duplicate_ids_across_any_of_the_eight_registry_files() -> None:
 # --------------------------------------------------------------------------------------------
 
 
-def test_every_written_defect_id_is_a_real_round2_upstream_library_bug_finding() -> None:
-    expected_ids = _real_round2_upstream_library_bug_ids()
+def test_every_written_defect_id_is_a_real_upstream_library_bug_finding() -> None:
+    expected_ids = _real_upstream_library_bug_ids()
     written_ids = {defect.id for defect in _all_written_defects()}
     assert written_ids <= expected_ids, (
-        f"written ids not found among real round-2 upstream-library-bug findings: "
+        f"written ids not found among real upstream-library-bug findings (round2 union round3): "
         f"{written_ids - expected_ids}"
     )
 
 
-def test_every_real_round2_upstream_library_bug_finding_has_a_written_entry() -> None:
-    expected_ids = _real_round2_upstream_library_bug_ids()
+def test_every_real_upstream_library_bug_finding_has_a_written_entry() -> None:
+    expected_ids = _real_upstream_library_bug_ids()
     written_ids = {defect.id for defect in _all_written_defects()}
     assert expected_ids <= written_ids, (
-        f"real round-2 upstream-library-bug findings with no written entry: {expected_ids - written_ids}"
+        f"real upstream-library-bug findings (round2 union round3) with no written entry: "
+        f"{expected_ids - written_ids}"
     )
-    # Both sets equal, and both have exactly 15 members - the real count named in this card.
+    # Both sets equal, and both have exactly 16 members - the real union count as of 2026-11-02.
     assert expected_ids == written_ids
-    assert len(expected_ids) == 15
+    assert len(expected_ids) == 16
 
 
-def test_every_written_defect_id_is_one_of_the_fifteen_named_ids() -> None:
-    """The exact 15 ids this card's own instructions named - a second, independent cross-check
-    against a hand-written (not algorithmically derived) list, so a mistake in the algorithmic
-    filter above cannot silently hide a wrong id."""
+def test_every_written_defect_id_is_one_of_the_sixteen_named_ids() -> None:
+    """The exact 16 ids this card's own instructions named (the 15 original round-2 ids plus
+    TC-656's own ``PAGE-PYTHON-010``) - a second, independent cross-check against a hand-written
+    (not algorithmically derived) list, so a mistake in the algorithmic filter above cannot
+    silently hide a wrong id."""
     named_ids = {
         "BARCODE-PY-006",
         "EMAIL-CPP-001",
@@ -207,6 +239,7 @@ def test_every_written_defect_id_is_one_of_the_fifteen_named_ids() -> None:
         "NOTE-PY-002",
         "NOTE-PY-008",
         "PAGE-PYTHON-006",
+        "PAGE-PYTHON-010",
         "TEX-PYTHON-001",
         "WORDS-PY-008",
     }

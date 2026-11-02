@@ -50,3 +50,29 @@ defects:
       version: v26.7.1
       date: '2026-10-29'
   status: open
+- id: CELLS-GO-012
+  subject:
+    kind: method
+    ref: Worksheet
+  applies_to:
+    package_versions:
+    - v26.7.1
+  summary: Worksheet.AddPicture in aspose-cells-foss for Go v26.7.1 embeds a real image into
+    xl/media/ and xl/drawings/, but sheet1.xml never references the drawing, orphaning the
+    picture from both this library's own loader and real Excel.
+  user_action: Do not rely on Worksheet.AddPicture in aspose-cells-foss for Go v26.7.1 to produce
+    a visible picture in the saved .xlsx; the image bytes and drawing XML parts are written, but
+    the worksheet's own XML never references them, so no real OOXML reader shows the picture.
+    DataValidation and Table do not have this problem on the same API surface.
+  evidence:
+    repro: Called ws.AddPicture() with a real, valid PNG image and saved via wb.Save(); the saved
+      zip contained xl/media/image1.png and xl/drawings/drawing1.xml, and
+      xl/drawings/_rels/drawing1.xml.rels correctly linked to the image, but xl/worksheets/sheet1.xml
+      had no <drawing> element anywhere referencing drawing1.xml - confirming the asymmetry is in
+      the worksheet writer, not the drawing/media writers, the same silent-data-loss shape as
+      CELLS-GO-001's loader-side defect.
+    verified_on:
+      package: github.com/aspose-cells-foss/Aspose.Cells-FOSS-for-Go/v26
+      version: v26.7.1
+      date: '2026-11-02'
+  status: open

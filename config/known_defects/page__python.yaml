@@ -23,3 +23,31 @@ defects:
       version: 26.9.0
       date: '2026-10-29'
   status: open
+- id: PAGE-PYTHON-010
+  subject:
+    kind: method
+    ref: PsDocument
+  applies_to:
+    package_versions:
+    - 26.9.0
+  summary: PsDocument.create(page_size=...) in aspose-page-foss 26.9.0 is silently ignored by
+    both to_pdf() and to_image(); the rendered output always uses the hardcoded default page size
+    regardless of what page_size names.
+  user_action: Do not trust PsDocument.create(page_size=...) in aspose-page-foss 26.9.0 to control
+    the rendered page size; to_pdf()/to_image() output is always rendered at the library's own
+    hardcoded default size. Measure the actual output dimensions after rendering if the real page
+    size matters.
+  evidence:
+    repro: 'Called PsDocument.create(page_size=(200.0, 300.0)) (a size far from the real (612.0,
+      792.0) default confirmed in this library''s own page_size parameter) then rendered via
+      to_pdf() and to_image(); both outputs came back at the default size, not (200.0, 300.0).
+      Root cause per this supervisor''s own independent investigation of the real upstream source
+      (network access unavailable to this worker to re-confirm directly, disclosed plainly) -
+      page_geometry.py''s _DEFAULT_PAGE_SIZE, pipeline.py''s keep-default-unless-explicit-DSC-size
+      logic, and as_bytes() never emitting a size-carrying DSC comment at all - together mean no
+      caller-supplied page_size ever reaches the renderer.'
+    verified_on:
+      package: aspose-page-foss
+      version: 26.9.0
+      date: '2026-11-02'
+  status: open

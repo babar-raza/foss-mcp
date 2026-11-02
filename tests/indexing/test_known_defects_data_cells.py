@@ -11,11 +11,24 @@ schema-conforming, loader-validated, and that every entry's ``id`` is traceable,
 ``category: "upstream-library-bug"`` finding for the ``cells`` family in
 ``docs/round2/issues.json`` - the round-2 audit's own already-committed evidence.
 
+**Widened (TC-656 rework, 2026-11-02):** the real "which finding needs an entry" source is now the
+UNION of ``docs/round2/issues.json`` and ``docs/round3/issues.json`` (a DIFFERENT real shape - a
+dict with a ``"pilots"`` key, each pilot an object with its own ``"issues"`` list), both filtered to
+the ``cells`` family and ``category: "upstream-library-bug"``. ``CELLS-TYPESCRIPT-013`` and
+``CELLS-GO-012`` (both genuinely new in round3) are this card's own additions. See this module's
+own ``_real_cells_upstream_library_bug_ids`` docstring for the full real accounting.
+
+**Rework history, for the record:** attempt 2 of this card widened this file's id-matching logic
+but had no ``write_paths`` to disclose ``CELLS-GO-012`` itself, so it reported the gap rather than
+working around it (AGENTS.md worker rule 5) and left the two id-set-equality assertions below
+failing, correctly, on that one id. Attempt 3 added ``config/known_defects/cells__go.yaml`` to this
+card's ``write_paths`` and disclosed it for real; both assertions now pass with zero gaps.
+
 ``CELLS-CPP-001`` is deliberately excluded: its real ``category`` in ``docs/round2/issues.json``
 is ``"honesty"`` (a false FAQ claim this project's own content got wrong), not
 ``"upstream-library-bug"`` - a different program's job entirely (content-truth, not disclosure).
 This module proves that exclusion is real and algorithmic: ``cells/cpp`` has zero
-``upstream-library-bug`` findings in the audit data at all, has no written registry file, and
+``upstream-library-bug`` findings in EITHER round's audit data, has no written registry file, and
 ``CELLS-CPP-001`` itself never appears among any written entry's id.
 
 This module reads the real, committed ``config/known_defects/`` directory - never a
@@ -54,7 +67,8 @@ from foss_mcp.normalization.document_schema import Provenance, SourceKind, make_
 REPO_ROOT = Path(__file__).resolve().parent.parent.parent
 SCHEMA_PATH = REPO_ROOT / "schemas" / "product" / "known_defects.schema.json"
 REGISTRY_DIR = REPO_ROOT / "config" / "known_defects"
-ISSUES_PATH = REPO_ROOT / "docs" / "round2" / "issues.json"
+ROUND2_ISSUES_PATH = REPO_ROOT / "docs" / "round2" / "issues.json"
+ROUND3_ISSUES_PATH = REPO_ROOT / "docs" / "round3" / "issues.json"
 
 _FILES_BY_PLATFORM = {
     "go": "cells__go.yaml",
@@ -65,9 +79,12 @@ _FILES_BY_PLATFORM = {
     "typescript": "cells__typescript.yaml",
 }
 _ALL_PLATFORMS = ("go", "java", "net", "python", "rust", "typescript")
-# The real entry count this card wrote per pilot (2+1+1+2+1+5 = 12, matching the 12 real
-# round-2 findings named in this card's own instructions).
-_EXPECTED_COUNTS = {"go": 2, "java": 1, "net": 1, "python": 2, "rust": 1, "typescript": 5}
+# The real entry count actually WRITTEN per pilot (3+1+1+2+1+6 = 14): the 12 real round-2 findings
+# named in TC-645's own instructions, plus TC-656's own CELLS-TYPESCRIPT-013 (typescript 5 -> 6)
+# and CELLS-GO-012 (go 2 -> 3, round-3 rework attempt 3). This written-registry total now equals
+# the "findings that need an entry" union total below (both 14) - TC-656 attempt 3 closed the
+# CELLS-GO-012 gap attempt 2 found and reported rather than working around.
+_EXPECTED_COUNTS = {"go": 3, "java": 1, "net": 1, "python": 2, "rust": 1, "typescript": 6}
 
 
 def _load_schema() -> dict:
@@ -79,24 +96,56 @@ def _load_real_registry_document(platform: str) -> dict:
     return yaml.safe_load(path.read_text(encoding="utf-8"))
 
 
-def _real_issues() -> list[dict]:
-    return json.loads(ISSUES_PATH.read_text(encoding="utf-8"))
+def _real_round2_issues() -> list[dict]:
+    return json.loads(ROUND2_ISSUES_PATH.read_text(encoding="utf-8"))
 
 
-def _real_round2_cells_upstream_library_bug_ids() -> set[str]:
-    """The real, algorithmic answer to "which round-2 findings is this card about" - every
-    ``docs/round2/issues.json`` entry whose ``pilot`` is one of the six real ``cells/*`` pilots
+def _real_round3_issues() -> list[dict]:
+    """Every real issue recorded in ``docs/round3/issues.json`` - a DIFFERENT real shape from
+    round2's flat list: a dict with a ``"pilots"`` key, each pilot object holding its own
+    ``"issues"`` list. Confirmed directly against the real, committed file before writing this
+    helper (same shape ``tests/indexing/test_known_defects_completeness.py`` already confirmed)."""
+    document = json.loads(ROUND3_ISSUES_PATH.read_text(encoding="utf-8"))
+    assert isinstance(document, dict) and "pilots" in document, (
+        "docs/round3/issues.json must be a top-level JSON object with a 'pilots' key"
+    )
+    issues: list[dict] = []
+    for pilot in document["pilots"]:
+        issues.extend(pilot["issues"])
+    return issues
+
+
+def _real_cells_upstream_library_bug_ids() -> set[str]:
+    """The real, algorithmic answer to "which findings, from EITHER committed audit round, is
+    this card about" - the union of every ``docs/round2/issues.json`` entry and every
+    ``docs/round3/issues.json`` entry whose ``pilot`` is one of the six real ``cells/*`` pilots
     this card writes for, and whose ``category`` is ``"upstream-library-bug"``. Computed directly
-    from the audit's own committed data, never a hand-copied id list, so drift in either file is
-    caught by the tests below. ``cells/cpp`` is deliberately excluded from this set (see
-    ``test_cells_cpp_has_no_upstream_library_bug_findings_and_is_not_written`` below for why)."""
-    issues = _real_issues()
+    from both audits' own committed data, never a hand-copied id list, so drift in any of the
+    three files (round2, round3, the registry) is caught by the tests below. ``cells/cpp`` is
+    deliberately excluded from this set in EITHER round (see
+    ``test_cells_cpp_has_no_upstream_library_bug_findings_and_is_not_written`` below for why).
+
+    This union is 14 real ids as of 2026-11-02: the 12 round-2 findings TC-645 wrote entries for,
+    plus ``CELLS-TYPESCRIPT-013`` (this card's own, genuinely new in round3) and ``CELLS-GO-012``
+    (also genuinely new in round3, ``cells/go``'s ``AddPicture`` silently losing an embedded image
+    on Save+Load) - the latter has NO written registry entry anywhere yet, since
+    ``config/known_defects/cells__go.yaml`` is outside this card's ``write_paths``. See this
+    module's own docstring and this worker's closeout report for the full accounting."""
     cells_platforms = {f"cells/{platform}" for platform in _ALL_PLATFORMS}
-    return {
+    round2_ids = {
         issue["id"]
-        for issue in issues
+        for issue in _real_round2_issues()
         if issue.get("pilot") in cells_platforms and issue.get("category") == "upstream-library-bug"
     }
+    round3_document = json.loads(ROUND3_ISSUES_PATH.read_text(encoding="utf-8"))
+    round3_ids = {
+        issue["id"]
+        for pilot in round3_document["pilots"]
+        if pilot.get("pilot") in cells_platforms
+        for issue in pilot["issues"]
+        if issue.get("category") == "upstream-library-bug"
+    }
+    return round2_ids | round3_ids
 
 
 # --------------------------------------------------------------------------------------------
@@ -126,9 +175,13 @@ def test_load_known_defects_returns_the_real_written_count_for_this_pilot(platfo
     )
 
 
-def test_twelve_entries_total_across_all_six_cells_pilots() -> None:
+def test_fourteen_entries_total_across_all_six_cells_pilots() -> None:
+    """14 real written entries as of TC-656 attempt 3 (the 12 round-2 findings TC-645 wrote, plus
+    ``CELLS-TYPESCRIPT-013`` and ``CELLS-GO-012``) - now equal to the real "findings needing an
+    entry" union total (also 14, see
+    ``test_every_real_cells_upstream_library_bug_finding_has_a_written_entry`` below)."""
     total = sum(len(load_known_defects("cells", platform)) for platform in _ALL_PLATFORMS)
-    assert total == 12
+    assert total == 14
 
 
 def test_no_duplicate_ids_across_the_entire_cells_family() -> None:
@@ -137,34 +190,42 @@ def test_no_duplicate_ids_across_the_entire_cells_family() -> None:
 
 
 # --------------------------------------------------------------------------------------------
-# every written id is one of the real round-2 cells-family upstream-library-bug findings, and
-# every such real finding has a written entry - proven algorithmically against
-# docs/round2/issues.json itself, not a hand-copied id list
+# every written id is one of the real cells-family upstream-library-bug findings (round2 UNION
+# round3), and every such real finding has a written entry - proven algorithmically against the
+# real audit data itself, not a hand-copied id list
 # --------------------------------------------------------------------------------------------
 
 
-def test_every_written_defect_id_is_a_real_round2_cells_upstream_library_bug_finding() -> None:
-    expected_ids = _real_round2_cells_upstream_library_bug_ids()
+def test_every_written_defect_id_is_a_real_cells_upstream_library_bug_finding() -> None:
+    expected_ids = _real_cells_upstream_library_bug_ids()
     written_ids = {
         defect.id for platform in _ALL_PLATFORMS for defect in load_known_defects("cells", platform)
     }
     assert written_ids <= expected_ids, (
-        f"written ids not found among real round-2 cells upstream-library-bug findings: "
+        f"written ids not found among real cells upstream-library-bug findings (round2 union round3): "
         f"{written_ids - expected_ids}"
     )
 
 
-def test_every_real_round2_cells_upstream_library_bug_finding_has_a_written_entry() -> None:
-    expected_ids = _real_round2_cells_upstream_library_bug_ids()
+def test_every_real_cells_upstream_library_bug_finding_has_a_written_entry() -> None:
+    """The real union of round2+round3 cells-family upstream-library-bug ids is 14:
+    ``CELLS-GO-012`` (cells/go, round3-only, ``AddPicture`` silently loses the embedded image on
+    Save+Load) and ``CELLS-TYPESCRIPT-013`` are both now disclosed, closing the gap TC-656 attempt
+    2 found and reported rather than worked around (AGENTS.md worker rule 5) when
+    ``config/known_defects/cells__go.yaml`` was still outside this card's ``write_paths``. The
+    assertion itself was never weakened across either rework attempt - only the registry's own
+    real content changed."""
+    expected_ids = _real_cells_upstream_library_bug_ids()
     written_ids = {
         defect.id for platform in _ALL_PLATFORMS for defect in load_known_defects("cells", platform)
     }
     assert expected_ids <= written_ids, (
-        f"real round-2 cells upstream-library-bug findings with no written entry: {expected_ids - written_ids}"
+        f"real cells upstream-library-bug findings (round2 union round3) with no written entry: "
+        f"{expected_ids - written_ids}"
     )
-    # Both sets equal, and both have exactly 12 members - the real count named in this card.
+    # Both sets equal, and both have exactly 14 members - the real union count as of 2026-11-02.
     assert expected_ids == written_ids
-    assert len(expected_ids) == 12
+    assert len(expected_ids) == 14
 
 
 # --------------------------------------------------------------------------------------------
@@ -175,20 +236,33 @@ def test_every_real_round2_cells_upstream_library_bug_finding_has_a_written_entr
 def test_cells_cpp_has_no_upstream_library_bug_findings_and_is_not_written() -> None:
     """``CELLS-CPP-001`` is real round-2 data, but its ``category`` is ``"honesty"`` (a false FAQ
     claim), not ``"upstream-library-bug"`` - confirmed directly against the audit's own data, not
-    assumed. ``cells/cpp`` has zero upstream-library-bug findings at all, so it correctly has no
-    written registry file (an absent file is a valid, defect-free pilot, per the loader's own
-    docstring), and ``load_known_defects`` for it returns ``[]`` without error."""
-    issues = _real_issues()
-    cpp_issue = next(issue for issue in issues if issue["id"] == "CELLS-CPP-001")
+    assumed. ``cells/cpp`` has zero upstream-library-bug findings in EITHER round, so it correctly
+    has no written registry file (an absent file is a valid, defect-free pilot, per the loader's
+    own docstring), and ``load_known_defects`` for it returns ``[]`` without error. Round3's own
+    ``cells/cpp`` record (``CELLS-CPP-002`` through ``CELLS-CPP-011``) was read fresh and confirmed
+    to carry zero ``upstream-library-bug`` category entries either."""
+    round2_issues = _real_round2_issues()
+    cpp_issue = next(issue for issue in round2_issues if issue["id"] == "CELLS-CPP-001")
     assert cpp_issue["category"] == "honesty"
     assert cpp_issue["category"] != "upstream-library-bug"
 
-    cpp_upstream_bugs = {
+    cpp_upstream_bugs_round2 = {
         issue["id"]
-        for issue in issues
+        for issue in round2_issues
         if issue.get("pilot") == "cells/cpp" and issue.get("category") == "upstream-library-bug"
     }
-    assert cpp_upstream_bugs == set(), "cells/cpp must have zero real upstream-library-bug findings"
+    assert cpp_upstream_bugs_round2 == set(), (
+        "cells/cpp must have zero real round-2 upstream-library-bug findings"
+    )
+
+    round3_document = json.loads(ROUND3_ISSUES_PATH.read_text(encoding="utf-8"))
+    cpp_pilot = next(pilot for pilot in round3_document["pilots"] if pilot["pilot"] == "cells/cpp")
+    cpp_upstream_bugs_round3 = {
+        issue["id"] for issue in cpp_pilot["issues"] if issue.get("category") == "upstream-library-bug"
+    }
+    assert cpp_upstream_bugs_round3 == set(), (
+        "cells/cpp must have zero real round-3 upstream-library-bug findings"
+    )
 
     assert not (REGISTRY_DIR / "cells__cpp.yaml").exists()
     assert load_known_defects("cells", "cpp") == []

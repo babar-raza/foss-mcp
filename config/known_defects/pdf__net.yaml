@@ -1,0 +1,27 @@
+schema_version: 1
+pilot: pdf_net
+defects:
+- id: PDF-NET-003
+  subject:
+    kind: method
+    ref: TableAbsorber
+  applies_to:
+    package_versions:
+    - 26.10.0
+  summary: TableAbsorber in Aspose.PDF.FOSS 26.10.0 silently reports 0 tables found for a real
+    Table added to a page with no explicit visible border set, with no error or warning.
+  user_action: Do not trust TableAbsorber in Aspose.PDF.FOSS 26.10.0 to find every real Table on
+    a page; a Table with no Border/DefaultCellBorder set is invisible to it. Set a visible
+    BorderInfo on the table (or its DefaultCellBorder) before relying on TableAbsorber to detect
+    it, and do not treat a 0-tables result as proof no table exists.
+  evidence:
+    repro: Added a 2x3 Table to a page with no Border/DefaultCellBorder set and ran TableAbsorber.Visit()
+      on that page - TableList.Count was 0, with no exception or warning, even though the table
+      object was genuinely added to the page. Setting table.Border and table.DefaultCellBorder to
+      a visible BorderInfo and rerunning the identical TableAbsorber made it report 1 table found,
+      with rows/cells extracted correctly.
+    verified_on:
+      package: Aspose.PDF.FOSS
+      version: 26.10.0
+      date: '2026-11-02'
+  status: open
