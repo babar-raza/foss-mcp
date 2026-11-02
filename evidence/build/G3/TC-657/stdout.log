@@ -1,0 +1,816 @@
+
+===== CLEAN RUN 1 (host) =====
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-5c72e798a73c059a\Scripts\python.exe -m pytest tests/mcp/tools/test_round3_freshness_honesty_regressions.py -q -rfE -p no:cacheprovider "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-3oa1e9k3\.junit-0.xml"
+--- stdout ---
+...........                                                              [100%]
+
+--- stderr ---
+
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-5c72e798a73c059a\Scripts\python.exe -m pytest tests/mcp/tools/test_freshness_registry_version.py tests/mcp/tools/test_freshness_provenance.py tests/mcp/tools/test_freshness_tristate.py tests/mcp/tools/test_known_defects_in_freshness.py -q -rfE -p no:cacheprovider "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-3oa1e9k3\.junit-1.xml"
+--- stdout ---
+........................................................................ [ 84%]
+.............                                                            [100%]
+
+--- stderr ---
+
+
+===== CLEAN RUN 2 (host) =====
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-5c72e798a73c059a\Scripts\python.exe -m pytest tests/mcp/tools/test_round3_freshness_honesty_regressions.py -q -rfE -p no:cacheprovider "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-3oa1e9k3\.junit-0.xml"
+--- stdout ---
+...........                                                              [100%]
+
+--- stderr ---
+
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-5c72e798a73c059a\Scripts\python.exe -m pytest tests/mcp/tools/test_freshness_registry_version.py tests/mcp/tools/test_freshness_provenance.py tests/mcp/tools/test_freshness_tristate.py tests/mcp/tools/test_known_defects_in_freshness.py -q -rfE -p no:cacheprovider "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-3oa1e9k3\.junit-1.xml"
+--- stdout ---
+........................................................................ [ 84%]
+.............                                                            [100%]
+
+--- stderr ---
+
+
+===== NEGATIVE CONTROL (checks MUST now fail) =====
+mutated: M src/foss_mcp/mcp/tools/report_index_freshness.py, ?? .junit-0.xml, ?? .junit-1.xml
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-5c72e798a73c059a\Scripts\python.exe -m pytest tests/mcp/tools/test_round3_freshness_honesty_regressions.py -q -rfE -p no:cacheprovider "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-3oa1e9k3\.junit-0.xml"
+--- stdout ---
+FFFF..FFFFF                                                              [100%]
+================================== FAILURES ===================================
+____ test_slides_java_004_confident_stale_verdict_populates_drift_evidence ____
+
+tmp_path = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-19243/test_slides_java_004_confident0')
+
+    def test_slides_java_004_confident_stale_verdict_populates_drift_evidence(tmp_path: Path) -> None:
+        store = _single(tmp_path)
+    
+>       report = _report(store, product_reference=_PYTHON_26_7, registry_served_version=(26, 8, 0))
+                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests\mcp\tools\test_round3_freshness_honesty_regressions.py:80: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+store = <foss_mcp.indexing.generation_manifest.GenerationManifestStore object at 0x0000020069617380>
+kwargs = {'product_reference': ProductReferenceInputs(manifest_text='[project]\nname = "x"\nversion = "26.7.0"\n', contributing...manifest_path=None, install_served_version=None, known_hazards=(), family=None), 'registry_served_version': (26, 8, 0)}
+
+    def _report(store: GenerationManifestStore, **kwargs: object):
+>       return report_index_freshness(store, SCOPE, "self_extracted", None, **kwargs)  # type: ignore[arg-type]
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       TypeError: report_index_freshness() got an unexpected keyword argument 'registry_served_version'. Did you mean 'disabled_registry_served_version'?
+
+tests\mcp\tools\test_round3_freshness_honesty_regressions.py:70: TypeError
+_ test_slides_java_004_confident_fresh_in_sync_verdict_populates_drift_evidence _
+
+tmp_path = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-19243/test_slides_java_004_confident1')
+
+    def test_slides_java_004_confident_fresh_in_sync_verdict_populates_drift_evidence(tmp_path: Path) -> None:
+        store = _single(tmp_path)
+    
+>       report = _report(store, product_reference=_PYTHON_26_7, registry_served_version=(26, 7, 0))
+                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests\mcp\tools\test_round3_freshness_honesty_regressions.py:97: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+store = <foss_mcp.indexing.generation_manifest.GenerationManifestStore object at 0x00000200695FB250>
+kwargs = {'product_reference': ProductReferenceInputs(manifest_text='[project]\nname = "x"\nversion = "26.7.0"\n', contributing...manifest_path=None, install_served_version=None, known_hazards=(), family=None), 'registry_served_version': (26, 7, 0)}
+
+    def _report(store: GenerationManifestStore, **kwargs: object):
+>       return report_index_freshness(store, SCOPE, "self_extracted", None, **kwargs)  # type: ignore[arg-type]
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       TypeError: report_index_freshness() got an unexpected keyword argument 'registry_served_version'. Did you mean 'disabled_registry_served_version'?
+
+tests\mcp\tools\test_round3_freshness_honesty_regressions.py:70: TypeError
+_ test_slides_java_004_confident_fresh_index_ahead_verdict_populates_drift_evidence _
+
+tmp_path = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-19243/test_slides_java_004_confident2')
+
+    def test_slides_java_004_confident_fresh_index_ahead_verdict_populates_drift_evidence(
+        tmp_path: Path,
+    ) -> None:
+        """The exact SLIDES-JAVA-004 shape: the registry serves an OLDER version than the manifest
+        declares, so the verdict is a confident "fresh" - but previously with no supporting evidence
+        at all, which is what the audit's "confident-but-unsupported" wording describes."""
+        store = _single(tmp_path)
+    
+>       report = _report(store, product_reference=_PYTHON_26_7, registry_served_version=(26, 6, 0))
+                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests\mcp\tools\test_round3_freshness_honesty_regressions.py:116: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+store = <foss_mcp.indexing.generation_manifest.GenerationManifestStore object at 0x00000200695FB890>
+kwargs = {'product_reference': ProductReferenceInputs(manifest_text='[project]\nname = "x"\nversion = "26.7.0"\n', contributing...manifest_path=None, install_served_version=None, known_hazards=(), family=None), 'registry_served_version': (26, 6, 0)}
+
+    def _report(store: GenerationManifestStore, **kwargs: object):
+>       return report_index_freshness(store, SCOPE, "self_extracted", None, **kwargs)  # type: ignore[arg-type]
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       TypeError: report_index_freshness() got an unexpected keyword argument 'registry_served_version'. Did you mean 'disabled_registry_served_version'?
+
+tests\mcp\tools\test_round3_freshness_honesty_regressions.py:70: TypeError
+_ test_slides_java_004_mixed_precision_verdict_still_populates_drift_evidence _
+
+tmp_path = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-19243/test_slides_java_004_mixed_pre0')
+
+    def test_slides_java_004_mixed_precision_verdict_still_populates_drift_evidence(tmp_path: Path) -> None:
+        """TC-629's own mixed-precision regression (indexed "26.7", registry (26, 7, 0) - the same
+        version at different precision) must also come out "fresh" AND carry drift evidence now."""
+        store = _single(tmp_path)
+        short = ProductReferenceInputs(
+            manifest_text='[project]\nname = "x"\nversion = "26.7"\n', platform="python"
+        )
+    
+>       report = _report(store, product_reference=short, registry_served_version=(26, 7, 0))
+                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests\mcp\tools\test_round3_freshness_honesty_regressions.py:134: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+store = <foss_mcp.indexing.generation_manifest.GenerationManifestStore object at 0x0000020069AD95B0>
+kwargs = {'product_reference': ProductReferenceInputs(manifest_text='[project]\nname = "x"\nversion = "26.7"\n', contributing=N...manifest_path=None, install_served_version=None, known_hazards=(), family=None), 'registry_served_version': (26, 7, 0)}
+
+    def _report(store: GenerationManifestStore, **kwargs: object):
+>       return report_index_freshness(store, SCOPE, "self_extracted", None, **kwargs)  # type: ignore[arg-type]
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       TypeError: report_index_freshness() got an unexpected keyword argument 'registry_served_version'. Did you mean 'disabled_registry_served_version'?
+
+tests\mcp\tools\test_round3_freshness_honesty_regressions.py:70: TypeError
+__ test_eml_net_007_real_baked_sidecar_now_reports_unknown_not_a_false_stale __
+
+tmp_path = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-19243/test_eml_net_007_real_baked_si0')
+
+    def test_eml_net_007_real_baked_sidecar_now_reports_unknown_not_a_false_stale(tmp_path: Path) -> None:
+        """The real, reproducible EML-NET-007 case: email/net's own committed sidecars
+        (infra/demo-manifests/product_reference_email_net.json declares manifest version "0.1.0";
+        infra/demo-manifests/package_registry_email_net.json's real served_version is "26.7.0").
+        Before this fix, the registry_served_version branch compared these directly and produced a
+        confident, wrong "stale". It must now report "unknown"."""
+        config = DeploymentConfig(family="email", platform="net")
+        inputs = serve_http._serving_product_reference_inputs(DEMO_MANIFESTS, config)
+        assert inputs is not None
+        # Confirm the real data shape this card's own diagnosis describes, so this test fails loudly
+        # (not silently passing for the wrong reason) if the committed sidecars ever change.
+        assert inputs.install_verified_served_version == "26.7.0"
+        assert package_version(inputs) == (0, 1, 0)
+    
+        manifests = tmp_path / "manifests"
+        shutil.copytree(DEMO_MANIFESTS / "email__net__self_extracted", manifests / "email__net__self_extracted")
+        store = GenerationManifestStore(manifests)
+        registry_served_version = parse_release_version(inputs.install_verified_served_version)
+    
+>       report = report_index_freshness(
+            store,
+            Scope(family="email", platform="net"),
+            "self_extracted",
+            None,
+            pinned_library_commit=inputs.source_ref,
+            product_reference=inputs,
+            releases=(),
+            registry_served_version=registry_served_version,
+        )
+E       TypeError: report_index_freshness() got an unexpected keyword argument 'registry_served_version'. Did you mean 'disabled_registry_served_version'?
+
+tests\mcp\tools\test_round3_freshness_honesty_regressions.py:188: TypeError
+__ test_eml_net_007_major_mismatch_registry_higher_falls_through_to_unknown ___
+
+tmp_path = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-19243/test_eml_net_007_major_mismatc0')
+
+    def test_eml_net_007_major_mismatch_registry_higher_falls_through_to_unknown(tmp_path: Path) -> None:
+        store = _single(tmp_path)
+        placeholder = ProductReferenceInputs(
+            manifest_text='[project]\nname = "x"\nversion = "0.1.0"\n', platform="python"
+        )
+    
+>       report = _report(store, product_reference=placeholder, registry_served_version=(26, 7, 0))
+                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests\mcp\tools\test_round3_freshness_honesty_regressions.py:210: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+store = <foss_mcp.indexing.generation_manifest.GenerationManifestStore object at 0x00000200696CB2F0>
+kwargs = {'product_reference': ProductReferenceInputs(manifest_text='[project]\nname = "x"\nversion = "0.1.0"\n', contributing=...manifest_path=None, install_served_version=None, known_hazards=(), family=None), 'registry_served_version': (26, 7, 0)}
+
+    def _report(store: GenerationManifestStore, **kwargs: object):
+>       return report_index_freshness(store, SCOPE, "self_extracted", None, **kwargs)  # type: ignore[arg-type]
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       TypeError: report_index_freshness() got an unexpected keyword argument 'registry_served_version'. Did you mean 'disabled_registry_served_version'?
+
+tests\mcp\tools\test_round3_freshness_honesty_regressions.py:70: TypeError
+_ test_eml_net_007_major_mismatch_registry_lower_also_falls_through_to_unknown _
+
+tmp_path = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-19243/test_eml_net_007_major_mismatc1')
+
+    def test_eml_net_007_major_mismatch_registry_lower_also_falls_through_to_unknown(tmp_path: Path) -> None:
+        """The guard is symmetric: it does not matter which side has the "placeholder-looking"
+        major - a major mismatch in EITHER direction is untrustworthy, not just the direction the
+        real email/net case happens to exercise."""
+        store = _single(tmp_path)
+        inflated = ProductReferenceInputs(
+            manifest_text='[project]\nname = "x"\nversion = "99.0.0"\n', platform="python"
+        )
+    
+>       report = _report(store, product_reference=inflated, registry_served_version=(26, 7, 0))
+                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests\mcp\tools\test_round3_freshness_honesty_regressions.py:227: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+store = <foss_mcp.indexing.generation_manifest.GenerationManifestStore object at 0x0000020069A8ACF0>
+kwargs = {'product_reference': ProductReferenceInputs(manifest_text='[project]\nname = "x"\nversion = "99.0.0"\n', contributing...manifest_path=None, install_served_version=None, known_hazards=(), family=None), 'registry_served_version': (26, 7, 0)}
+
+    def _report(store: GenerationManifestStore, **kwargs: object):
+>       return report_index_freshness(store, SCOPE, "self_extracted", None, **kwargs)  # type: ignore[arg-type]
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       TypeError: report_index_freshness() got an unexpected keyword argument 'registry_served_version'. Did you mean 'disabled_registry_served_version'?
+
+tests\mcp\tools\test_round3_freshness_honesty_regressions.py:70: TypeError
+_ test_a_pilot_with_a_meaningful_matching_major_manifest_version_still_gets_a_confident_verdict _
+
+tmp_path = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-19243/test_a_pilot_with_a_meaningful0')
+
+    def test_a_pilot_with_a_meaningful_matching_major_manifest_version_still_gets_a_confident_verdict(
+        tmp_path: Path,
+    ) -> None:
+        """The fix narrows the branch only for a major-version mismatch; a manifest declaring a real
+        version that tracks the registry's own numbering (the common case - this project's own real
+        pilots overwhelmingly use a shared 26.x calendar scheme) must keep getting a real, confident
+        verdict from this branch, exactly as before this card."""
+        store = _single(tmp_path)
+    
+>       stale = _report(store, product_reference=_PYTHON_26_7, registry_served_version=(26, 9, 0))
+                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests\mcp\tools\test_round3_freshness_honesty_regressions.py:245: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+store = <foss_mcp.indexing.generation_manifest.GenerationManifestStore object at 0x0000020069A8B020>
+kwargs = {'product_reference': ProductReferenceInputs(manifest_text='[project]\nname = "x"\nversion = "26.7.0"\n', contributing...manifest_path=None, install_served_version=None, known_hazards=(), family=None), 'registry_served_version': (26, 9, 0)}
+
+    def _report(store: GenerationManifestStore, **kwargs: object):
+>       return report_index_freshness(store, SCOPE, "self_extracted", None, **kwargs)  # type: ignore[arg-type]
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       TypeError: report_index_freshness() got an unexpected keyword argument 'registry_served_version'. Did you mean 'disabled_registry_served_version'?
+
+tests\mcp\tools\test_round3_freshness_honesty_regressions.py:70: TypeError
+______ test_no_indexed_version_still_falls_through_to_unknown_unchanged _______
+
+tmp_path = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-19243/test_no_indexed_version_still_0')
+
+    def test_no_indexed_version_still_falls_through_to_unknown_unchanged(tmp_path: Path) -> None:
+        """Pre-existing behavior (TC-621): no manifest version at all is still the legacy unknown
+        fallback, untouched by this card's major-version guard (there is no major to compare)."""
+        store = _single(tmp_path)
+    
+>       report = _report(store, registry_served_version=(26, 8, 0))
+                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests\mcp\tools\test_round3_freshness_honesty_regressions.py:259: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+store = <foss_mcp.indexing.generation_manifest.GenerationManifestStore object at 0x000002006969BA50>
+kwargs = {'registry_served_version': (26, 8, 0)}
+
+    def _report(store: GenerationManifestStore, **kwargs: object):
+>       return report_index_freshness(store, SCOPE, "self_extracted", None, **kwargs)  # type: ignore[arg-type]
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       TypeError: report_index_freshness() got an unexpected keyword argument 'registry_served_version'. Did you mean 'disabled_registry_served_version'?
+
+tests\mcp\tools\test_round3_freshness_honesty_regressions.py:70: TypeError
+=========================== short test summary info ===========================
+FAILED tests/mcp/tools/test_round3_freshness_honesty_regressions.py::test_slides_java_004_confident_stale_verdict_populates_drift_evidence
+FAILED tests/mcp/tools/test_round3_freshness_honesty_regressions.py::test_slides_java_004_confident_fresh_in_sync_verdict_populates_drift_evidence
+FAILED tests/mcp/tools/test_round3_freshness_honesty_regressions.py::test_slides_java_004_confident_fresh_index_ahead_verdict_populates_drift_evidence
+FAILED tests/mcp/tools/test_round3_freshness_honesty_regressions.py::test_slides_java_004_mixed_precision_verdict_still_populates_drift_evidence
+FAILED tests/mcp/tools/test_round3_freshness_honesty_regressions.py::test_eml_net_007_real_baked_sidecar_now_reports_unknown_not_a_false_stale
+FAILED tests/mcp/tools/test_round3_freshness_honesty_regressions.py::test_eml_net_007_major_mismatch_registry_higher_falls_through_to_unknown
+FAILED tests/mcp/tools/test_round3_freshness_honesty_regressions.py::test_eml_net_007_major_mismatch_registry_lower_also_falls_through_to_unknown
+FAILED tests/mcp/tools/test_round3_freshness_honesty_regressions.py::test_a_pilot_with_a_meaningful_matching_major_manifest_version_still_gets_a_confident_verdict
+FAILED tests/mcp/tools/test_round3_freshness_honesty_regressions.py::test_no_indexed_version_still_falls_through_to_unknown_unchanged
+
+--- stderr ---
+
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-5c72e798a73c059a\Scripts\python.exe -m pytest tests/mcp/tools/test_freshness_registry_version.py tests/mcp/tools/test_freshness_provenance.py tests/mcp/tools/test_freshness_tristate.py tests/mcp/tools/test_known_defects_in_freshness.py -q -rfE -p no:cacheprovider "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-3oa1e9k3\.junit-1.xml"
+--- stdout ---
+.FFFFFFFFFFFFF.......................................................... [ 84%]
+.....F.FF...F                                                            [100%]
+================================== FAILURES ===================================
+_____ test_registry_served_version_none_is_the_default_and_byte_identical _____
+
+tmp_path = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-19244/test_registry_served_version_n0')
+
+    def test_registry_served_version_none_is_the_default_and_byte_identical(tmp_path: Path) -> None:
+        store = _single(tmp_path)
+    
+        without = _report(store, None, product_reference=_PYTHON_26_7)
+>       with_explicit_none = _report(store, None, product_reference=_PYTHON_26_7, registry_served_version=None)
+                             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests\mcp\tools\test_freshness_registry_version.py:79: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+store = <foss_mcp.indexing.generation_manifest.GenerationManifestStore object at 0x0000026AB8A8AD50>
+current = None
+kwargs = {'product_reference': ProductReferenceInputs(manifest_text='[project]\nname = "x"\nversion = "26.7.0"\n', contributing...None, manifest_path=None, install_served_version=None, known_hazards=(), family=None), 'registry_served_version': None}
+
+    def _report(store: GenerationManifestStore, current: str | None, **kwargs: object) -> FreshnessReport:
+>       return report_index_freshness(store, SCOPE, "self_extracted", current, **kwargs)  # type: ignore[arg-type]
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       TypeError: report_index_freshness() got an unexpected keyword argument 'registry_served_version'. Did you mean 'disabled_registry_served_version'?
+
+tests\mcp\tools\test_freshness_registry_version.py:39: TypeError
+__________ test_registry_served_version_newer_than_indexed_is_stale ___________
+
+tmp_path = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-19244/test_registry_served_version_n1')
+
+    def test_registry_served_version_newer_than_indexed_is_stale(tmp_path: Path) -> None:
+        store = _single(tmp_path)
+    
+>       report = _report(
+            store,
+            None,
+            product_reference=_PYTHON_26_7,
+            registry_served_version=(26, 8, 0),
+        )
+
+tests\mcp\tools\test_freshness_registry_version.py:90: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+store = <foss_mcp.indexing.generation_manifest.GenerationManifestStore object at 0x0000026AE8570190>
+current = None
+kwargs = {'product_reference': ProductReferenceInputs(manifest_text='[project]\nname = "x"\nversion = "26.7.0"\n', contributing...manifest_path=None, install_served_version=None, known_hazards=(), family=None), 'registry_served_version': (26, 8, 0)}
+
+    def _report(store: GenerationManifestStore, current: str | None, **kwargs: object) -> FreshnessReport:
+>       return report_index_freshness(store, SCOPE, "self_extracted", current, **kwargs)  # type: ignore[arg-type]
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       TypeError: report_index_freshness() got an unexpected keyword argument 'registry_served_version'. Did you mean 'disabled_registry_served_version'?
+
+tests\mcp\tools\test_freshness_registry_version.py:39: TypeError
+___________ test_registry_served_version_equal_to_indexed_is_fresh ____________
+
+tmp_path = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-19244/test_registry_served_version_e0')
+
+    def test_registry_served_version_equal_to_indexed_is_fresh(tmp_path: Path) -> None:
+        store = _single(tmp_path)
+    
+>       report = _report(
+            store,
+            None,
+            product_reference=_PYTHON_26_7,
+            registry_served_version=(26, 7, 0),
+        )
+
+tests\mcp\tools\test_freshness_registry_version.py:111: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+store = <foss_mcp.indexing.generation_manifest.GenerationManifestStore object at 0x0000026AE8544770>
+current = None
+kwargs = {'product_reference': ProductReferenceInputs(manifest_text='[project]\nname = "x"\nversion = "26.7.0"\n', contributing...manifest_path=None, install_served_version=None, known_hazards=(), family=None), 'registry_served_version': (26, 7, 0)}
+
+    def _report(store: GenerationManifestStore, current: str | None, **kwargs: object) -> FreshnessReport:
+>       return report_index_freshness(store, SCOPE, "self_extracted", current, **kwargs)  # type: ignore[arg-type]
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       TypeError: report_index_freshness() got an unexpected keyword argument 'registry_served_version'. Did you mean 'disabled_registry_served_version'?
+
+tests\mcp\tools\test_freshness_registry_version.py:39: TypeError
+__________ test_registry_served_version_older_than_indexed_is_fresh ___________
+
+tmp_path = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-19244/test_registry_served_version_o0')
+
+    def test_registry_served_version_older_than_indexed_is_fresh(tmp_path: Path) -> None:
+        store = _single(tmp_path)
+    
+>       report = _report(
+            store,
+            None,
+            product_reference=_PYTHON_26_7,
+            registry_served_version=(26, 6, 0),
+        )
+
+tests\mcp\tools\test_freshness_registry_version.py:129: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+store = <foss_mcp.indexing.generation_manifest.GenerationManifestStore object at 0x0000026AE872AC40>
+current = None
+kwargs = {'product_reference': ProductReferenceInputs(manifest_text='[project]\nname = "x"\nversion = "26.7.0"\n', contributing...manifest_path=None, install_served_version=None, known_hazards=(), family=None), 'registry_served_version': (26, 6, 0)}
+
+    def _report(store: GenerationManifestStore, current: str | None, **kwargs: object) -> FreshnessReport:
+>       return report_index_freshness(store, SCOPE, "self_extracted", current, **kwargs)  # type: ignore[arg-type]
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       TypeError: report_index_freshness() got an unexpected keyword argument 'registry_served_version'. Did you mean 'disabled_registry_served_version'?
+
+tests\mcp\tools\test_freshness_registry_version.py:39: TypeError
+_ test_registry_served_version_equal_at_higher_precision_than_indexed_is_fresh_not_stale _
+
+tmp_path = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-19244/test_registry_served_version_e1')
+
+    def test_registry_served_version_equal_at_higher_precision_than_indexed_is_fresh_not_stale(
+        tmp_path: Path,
+    ) -> None:
+        """Regression for TC-629: indexed manifest version (26, 7), registry-served (26, 7, 0) - the
+        exact same version, written at different precision. A plain, unpadded tuple comparison reads
+        the shorter indexed tuple as older (`(26, 7) < (26, 7, 0)` is True in Python), which would
+        falsely report "stale". Padding both to equal width before comparing must report "fresh"."""
+        store = _single(tmp_path)
+    
+>       report = _report(
+            store,
+            None,
+            product_reference=_PYTHON_26_7_SHORT,
+            registry_served_version=(26, 7, 0),
+        )
+
+tests\mcp\tools\test_freshness_registry_version.py:156: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+store = <foss_mcp.indexing.generation_manifest.GenerationManifestStore object at 0x0000026AE85A55B0>
+current = None
+kwargs = {'product_reference': ProductReferenceInputs(manifest_text='[project]\nname = "x"\nversion = "26.7"\n', contributing=N...manifest_path=None, install_served_version=None, known_hazards=(), family=None), 'registry_served_version': (26, 7, 0)}
+
+    def _report(store: GenerationManifestStore, current: str | None, **kwargs: object) -> FreshnessReport:
+>       return report_index_freshness(store, SCOPE, "self_extracted", current, **kwargs)  # type: ignore[arg-type]
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       TypeError: report_index_freshness() got an unexpected keyword argument 'registry_served_version'. Did you mean 'disabled_registry_served_version'?
+
+tests\mcp\tools\test_freshness_registry_version.py:39: TypeError
+_ test_registry_served_version_equal_at_lower_precision_than_indexed_is_fresh_not_stale _
+
+tmp_path = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-19244/test_registry_served_version_e2')
+
+    def test_registry_served_version_equal_at_lower_precision_than_indexed_is_fresh_not_stale(
+        tmp_path: Path,
+    ) -> None:
+        """Symmetric case: indexed manifest version (26, 7, 0), registry-served (26, 7) - again the
+        same version, just with the shorter tuple on the registry side this time. Must still be
+        "fresh", not a false "shorter tuple is older" reading in the other direction."""
+        store = _single(tmp_path)
+    
+>       report = _report(
+            store,
+            None,
+            product_reference=_PYTHON_26_7,
+            registry_served_version=(26, 7),
+        )
+
+tests\mcp\tools\test_freshness_registry_version.py:179: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+store = <foss_mcp.indexing.generation_manifest.GenerationManifestStore object at 0x0000026AE85B1E10>
+current = None
+kwargs = {'product_reference': ProductReferenceInputs(manifest_text='[project]\nname = "x"\nversion = "26.7.0"\n', contributing...e, manifest_path=None, install_served_version=None, known_hazards=(), family=None), 'registry_served_version': (26, 7)}
+
+    def _report(store: GenerationManifestStore, current: str | None, **kwargs: object) -> FreshnessReport:
+>       return report_index_freshness(store, SCOPE, "self_extracted", current, **kwargs)  # type: ignore[arg-type]
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       TypeError: report_index_freshness() got an unexpected keyword argument 'registry_served_version'. Did you mean 'disabled_registry_served_version'?
+
+tests\mcp\tools\test_freshness_registry_version.py:39: TypeError
+_ test_registry_served_version_genuinely_newer_at_different_precision_is_still_stale _
+
+tmp_path = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-19244/test_registry_served_version_g0')
+
+    def test_registry_served_version_genuinely_newer_at_different_precision_is_still_stale(
+        tmp_path: Path,
+    ) -> None:
+        """A genuinely newer registry version at different precision (26, 8, 0) against an indexed
+        (26, 7) must still correctly report "stale" - the padding fix must not blur a real difference."""
+        store = _single(tmp_path)
+    
+>       report = _report(
+            store,
+            None,
+            product_reference=_PYTHON_26_7_SHORT,
+            registry_served_version=(26, 8, 0),
+        )
+
+tests\mcp\tools\test_freshness_registry_version.py:201: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+store = <foss_mcp.indexing.generation_manifest.GenerationManifestStore object at 0x0000026AE85B2250>
+current = None
+kwargs = {'product_reference': ProductReferenceInputs(manifest_text='[project]\nname = "x"\nversion = "26.7"\n', contributing=N...manifest_path=None, install_served_version=None, known_hazards=(), family=None), 'registry_served_version': (26, 8, 0)}
+
+    def _report(store: GenerationManifestStore, current: str | None, **kwargs: object) -> FreshnessReport:
+>       return report_index_freshness(store, SCOPE, "self_extracted", current, **kwargs)  # type: ignore[arg-type]
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       TypeError: report_index_freshness() got an unexpected keyword argument 'registry_served_version'. Did you mean 'disabled_registry_served_version'?
+
+tests\mcp\tools\test_freshness_registry_version.py:39: TypeError
+_ test_registry_served_version_genuinely_older_at_different_precision_is_still_fresh _
+
+tmp_path = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-19244/test_registry_served_version_g1')
+
+    def test_registry_served_version_genuinely_older_at_different_precision_is_still_fresh(
+        tmp_path: Path,
+    ) -> None:
+        """A genuinely older registry version at different precision (26, 7) against an indexed
+        (26, 8, 0) must still correctly report "fresh"."""
+        store = _single(tmp_path)
+    
+>       report = _report(
+            store,
+            None,
+            product_reference=ProductReferenceInputs(
+                manifest_text='[project]\nname = "x"\nversion = "26.8.0"\n',
+                platform="python",
+            ),
+            registry_served_version=(26, 7),
+        )
+
+tests\mcp\tools\test_freshness_registry_version.py:223: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+store = <foss_mcp.indexing.generation_manifest.GenerationManifestStore object at 0x0000026AE84A2F50>
+current = None
+kwargs = {'product_reference': ProductReferenceInputs(manifest_text='[project]\nname = "x"\nversion = "26.8.0"\n', contributing...e, manifest_path=None, install_served_version=None, known_hazards=(), family=None), 'registry_served_version': (26, 7)}
+
+    def _report(store: GenerationManifestStore, current: str | None, **kwargs: object) -> FreshnessReport:
+>       return report_index_freshness(store, SCOPE, "self_extracted", current, **kwargs)  # type: ignore[arg-type]
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       TypeError: report_index_freshness() got an unexpected keyword argument 'registry_served_version'. Did you mean 'disabled_registry_served_version'?
+
+tests\mcp\tools\test_freshness_registry_version.py:39: TypeError
+_ test_no_indexed_version_falls_through_to_unknown_even_with_a_registry_version _
+
+tmp_path = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-19244/test_no_indexed_version_falls_0')
+
+    def test_no_indexed_version_falls_through_to_unknown_even_with_a_registry_version(
+        tmp_path: Path,
+    ) -> None:
+        store = _single(tmp_path)
+    
+>       report = _report(store, None, registry_served_version=(26, 8, 0))
+                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests\mcp\tools\test_freshness_registry_version.py:249: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+store = <foss_mcp.indexing.generation_manifest.GenerationManifestStore object at 0x0000026AE84A3550>
+current = None, kwargs = {'registry_served_version': (26, 8, 0)}
+
+    def _report(store: GenerationManifestStore, current: str | None, **kwargs: object) -> FreshnessReport:
+>       return report_index_freshness(store, SCOPE, "self_extracted", current, **kwargs)  # type: ignore[arg-type]
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       TypeError: report_index_freshness() got an unexpected keyword argument 'registry_served_version'. Did you mean 'disabled_registry_served_version'?
+
+tests\mcp\tools\test_freshness_registry_version.py:39: TypeError
+_________ test_an_unversioned_manifest_also_falls_through_to_unknown __________
+
+tmp_path = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-19244/test_an_unversioned_manifest_a0')
+
+    def test_an_unversioned_manifest_also_falls_through_to_unknown(tmp_path: Path) -> None:
+        go = ProductReferenceInputs(manifest_text="module example.com/x\n\ngo 1.21\n", platform="go")
+        store = _single(tmp_path)
+    
+>       report = _report(store, None, product_reference=go, registry_served_version=(26, 8, 0))
+                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests\mcp\tools\test_freshness_registry_version.py:260: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+store = <foss_mcp.indexing.generation_manifest.GenerationManifestStore object at 0x0000026AE85798B0>
+current = None
+kwargs = {'product_reference': ProductReferenceInputs(manifest_text='module example.com/x\n\ngo 1.21\n', contributing=None, age...manifest_path=None, install_served_version=None, known_hazards=(), family=None), 'registry_served_version': (26, 8, 0)}
+
+    def _report(store: GenerationManifestStore, current: str | None, **kwargs: object) -> FreshnessReport:
+>       return report_index_freshness(store, SCOPE, "self_extracted", current, **kwargs)  # type: ignore[arg-type]
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       TypeError: report_index_freshness() got an unexpected keyword argument 'registry_served_version'. Did you mean 'disabled_registry_served_version'?
+
+tests\mcp\tools\test_freshness_registry_version.py:39: TypeError
+___ test_a_resolving_caller_commit_wins_over_a_disagreeing_registry_version ___
+
+tmp_path = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-19244/test_a_resolving_caller_commit0')
+
+    def test_a_resolving_caller_commit_wins_over_a_disagreeing_registry_version(tmp_path: Path) -> None:
+        store = _single(tmp_path)
+    
+>       report = _report(
+            store,
+            SYMBOL_COMMIT,
+            product_reference=_PYTHON_26_7,
+            registry_served_version=(99, 0, 0),
+        )
+
+tests\mcp\tools\test_freshness_registry_version.py:272: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+store = <foss_mcp.indexing.generation_manifest.GenerationManifestStore object at 0x0000026AE8579E50>
+current = '10a363830fea952c29df20fdb37d35ad3a881433'
+kwargs = {'product_reference': ProductReferenceInputs(manifest_text='[project]\nname = "x"\nversion = "26.7.0"\n', contributing...manifest_path=None, install_served_version=None, known_hazards=(), family=None), 'registry_served_version': (99, 0, 0)}
+
+    def _report(store: GenerationManifestStore, current: str | None, **kwargs: object) -> FreshnessReport:
+>       return report_index_freshness(store, SCOPE, "self_extracted", current, **kwargs)  # type: ignore[arg-type]
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       TypeError: report_index_freshness() got an unexpected keyword argument 'registry_served_version'. Did you mean 'disabled_registry_served_version'?
+
+tests\mcp\tools\test_freshness_registry_version.py:39: TypeError
+_ test_a_resolving_latest_release_tag_commit_wins_over_a_disagreeing_registry_version _
+
+tmp_path = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-19244/test_a_resolving_latest_releas0')
+
+    def test_a_resolving_latest_release_tag_commit_wins_over_a_disagreeing_registry_version(
+        tmp_path: Path,
+    ) -> None:
+        store = _single(tmp_path)
+    
+>       report = _report(
+            store,
+            None,
+            releases=[_release("v2.0.0", SYMBOL_COMMIT)],
+            product_reference=_PYTHON_26_7,
+            registry_served_version=(99, 0, 0),
+        )
+
+tests\mcp\tools\test_freshness_registry_version.py:289: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+store = <foss_mcp.indexing.generation_manifest.GenerationManifestStore object at 0x0000026AE8591D30>
+current = None
+kwargs = {'releases': [Release(tag_name='v2.0.0', body='', richness='none', published_at=None, url=None, target_commitish='10a3...manifest_path=None, install_served_version=None, known_hazards=(), family=None), 'registry_served_version': (99, 0, 0)}
+
+    def _report(store: GenerationManifestStore, current: str | None, **kwargs: object) -> FreshnessReport:
+>       return report_index_freshness(store, SCOPE, "self_extracted", current, **kwargs)  # type: ignore[arg-type]
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       TypeError: report_index_freshness() got an unexpected keyword argument 'registry_served_version'. Did you mean 'disabled_registry_served_version'?
+
+tests\mcp\tools\test_freshness_registry_version.py:39: TypeError
+_ test_a_resolving_latest_release_version_wins_over_a_disagreeing_registry_version _
+
+tmp_path = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-19244/test_a_resolving_latest_releas1')
+
+    def test_a_resolving_latest_release_version_wins_over_a_disagreeing_registry_version(
+        tmp_path: Path,
+    ) -> None:
+        store = _single(tmp_path)
+    
+>       report = _report(
+            store,
+            None,
+            product_reference=_PYTHON_26_7,
+            releases=[_release("V26.10.0"), _release("V26.7.0")],
+            registry_served_version=(1, 0, 0),
+        )
+
+tests\mcp\tools\test_freshness_registry_version.py:306: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+store = <foss_mcp.indexing.generation_manifest.GenerationManifestStore object at 0x0000026AE8592A50>
+current = None
+kwargs = {'product_reference': ProductReferenceInputs(manifest_text='[project]\nname = "x"\nversion = "26.7.0"\n', contributing...url=None, target_commitish=None, created_at=None, source='release', drift=None)], 'registry_served_version': (1, 0, 0)}
+
+    def _report(store: GenerationManifestStore, current: str | None, **kwargs: object) -> FreshnessReport:
+>       return report_index_freshness(store, SCOPE, "self_extracted", current, **kwargs)  # type: ignore[arg-type]
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       TypeError: report_index_freshness() got an unexpected keyword argument 'registry_served_version'. Did you mean 'disabled_registry_served_version'?
+
+tests\mcp\tools\test_freshness_registry_version.py:39: TypeError
+_ test_commit_scoped_defect_with_package_versions_also_set_still_requires_commit_match _
+
+tmp_path = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-19244/test_commit_scoped_defect_with0')
+registry_dir = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-19244/test_commit_scoped_defect_with0/known_defects')
+
+    def test_commit_scoped_defect_with_package_versions_also_set_still_requires_commit_match(
+        tmp_path: Path, registry_dir: Path
+    ) -> None:
+        """A defect with BOTH ``indexed_commit`` and ``package_versions`` set is commit-scoped: it is
+        governed only by the commit comparison, never surfacing on package-version grounds alone when
+        the commit does not match (the card's own "COMMIT-scoped ... OR a package/commit-scoped
+        defect with applies_to.indexed_commit set" rule)."""
+        store = _single(tmp_path)
+        _write_registry(
+            registry_dir,
+            [_defect("PDF-NET-003", indexed_commit=_OTHER_COMMIT, package_versions=["26.7.0"])],
+        )
+    
+>       report = _report(
+            store,
+            SYMBOL_COMMIT,
+            registry_served_version=(26, 9, 0),  # would make it "stale" if treated as package-scoped
+        )
+
+tests\mcp\tools\test_known_defects_in_freshness.py:140: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+store = <foss_mcp.indexing.generation_manifest.GenerationManifestStore object at 0x0000026AE723EB30>
+current = '10a363830fea952c29df20fdb37d35ad3a881433'
+kwargs = {'registry_served_version': (26, 9, 0)}
+
+    def _report(store: Any, current: str | None = None, **kwargs: object) -> FreshnessReport:
+>       return report_index_freshness(store, SCOPE, "self_extracted", current, **kwargs)  # type: ignore[arg-type]
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       TypeError: report_index_freshness() got an unexpected keyword argument 'registry_served_version'. Did you mean 'disabled_registry_served_version'?
+
+tests\mcp\tools\test_known_defects_in_freshness.py:40: TypeError
+_ test_package_version_scoped_defect_surfaces_plain_when_served_version_not_stale _
+
+tmp_path = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-19244/test_package_version_scoped_de1')
+registry_dir = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-19244/test_package_version_scoped_de1/known_defects')
+
+    def test_package_version_scoped_defect_surfaces_plain_when_served_version_not_stale(
+        tmp_path: Path, registry_dir: Path
+    ) -> None:
+        store = _single(tmp_path)
+        _write_registry(
+            registry_dir, [_defect("PDF-NET-005", package_versions=["26.7.0"], verified_version="26.7.0")]
+        )
+    
+        # Served version equal to the verified-on version: defect_is_stale is False.
+>       report = _report(store, SYMBOL_COMMIT, registry_served_version=(26, 7, 0))
+                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests\mcp\tools\test_known_defects_in_freshness.py:178: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+store = <foss_mcp.indexing.generation_manifest.GenerationManifestStore object at 0x0000026AE723FAF0>
+current = '10a363830fea952c29df20fdb37d35ad3a881433'
+kwargs = {'registry_served_version': (26, 7, 0)}
+
+    def _report(store: Any, current: str | None = None, **kwargs: object) -> FreshnessReport:
+>       return report_index_freshness(store, SCOPE, "self_extracted", current, **kwargs)  # type: ignore[arg-type]
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       TypeError: report_index_freshness() got an unexpected keyword argument 'registry_served_version'. Did you mean 'disabled_registry_served_version'?
+
+tests\mcp\tools\test_known_defects_in_freshness.py:40: TypeError
+_ test_package_version_scoped_defect_surfaces_decision_c_downgrade_when_stale _
+
+tmp_path = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-19244/test_package_version_scoped_de2')
+registry_dir = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-19244/test_package_version_scoped_de2/known_defects')
+
+    def test_package_version_scoped_defect_surfaces_decision_c_downgrade_when_stale(
+        tmp_path: Path, registry_dir: Path
+    ) -> None:
+        store = _single(tmp_path)
+        _write_registry(
+            registry_dir, [_defect("PDF-NET-006", package_versions=["26.7.0"], verified_version="26.7.0")]
+        )
+    
+        # Served version strictly newer than the verified-on version: defect_is_stale is True.
+>       report = _report(store, SYMBOL_COMMIT, registry_served_version=(26, 8, 0))
+                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests\mcp\tools\test_known_defects_in_freshness.py:195: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+store = <foss_mcp.indexing.generation_manifest.GenerationManifestStore object at 0x0000026AE723E9E0>
+current = '10a363830fea952c29df20fdb37d35ad3a881433'
+kwargs = {'registry_served_version': (26, 8, 0)}
+
+    def _report(store: Any, current: str | None = None, **kwargs: object) -> FreshnessReport:
+>       return report_index_freshness(store, SCOPE, "self_extracted", current, **kwargs)  # type: ignore[arg-type]
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       TypeError: report_index_freshness() got an unexpected keyword argument 'registry_served_version'. Did you mean 'disabled_registry_served_version'?
+
+tests\mcp\tools\test_known_defects_in_freshness.py:40: TypeError
+________ test_defect_matching_neither_scoping_condition_never_surfaces ________
+
+tmp_path = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-19244/test_defect_matching_neither_s0')
+registry_dir = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-19244/test_defect_matching_neither_s0/known_defects')
+
+    def test_defect_matching_neither_scoping_condition_never_surfaces(tmp_path: Path, registry_dir: Path) -> None:
+        store = _single(tmp_path)
+        _write_registry(
+            registry_dir,
+            [
+                _defect("PDF-NET-009", indexed_commit=_OTHER_COMMIT),
+                _defect("PDF-NET-010", package_versions=["26.7.0"], verified_version="99.0.0"),
+            ],
+        )
+    
+        # PDF-NET-009's indexed_commit never matches SYMBOL_COMMIT, so it never surfaces. PDF-NET-010
+        # is verified_on 99.0.0; a served 26.8.0 is not newer, so defect_is_stale is False and it
+        # surfaces with the plain wording.
+>       report = _report(store, SYMBOL_COMMIT, registry_served_version=(26, 8, 0))
+                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests\mcp\tools\test_known_defects_in_freshness.py:280: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+store = <foss_mcp.indexing.generation_manifest.GenerationManifestStore object at 0x0000026AE86744B0>
+current = '10a363830fea952c29df20fdb37d35ad3a881433'
+kwargs = {'registry_served_version': (26, 8, 0)}
+
+    def _report(store: Any, current: str | None = None, **kwargs: object) -> FreshnessReport:
+>       return report_index_freshness(store, SCOPE, "self_extracted", current, **kwargs)  # type: ignore[arg-type]
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       TypeError: report_index_freshness() got an unexpected keyword argument 'registry_served_version'. Did you mean 'disabled_registry_served_version'?
+
+tests\mcp\tools\test_known_defects_in_freshness.py:40: TypeError
+=========================== short test summary info ===========================
+FAILED tests/mcp/tools/test_freshness_registry_version.py::test_registry_served_version_none_is_the_default_and_byte_identical
+FAILED tests/mcp/tools/test_freshness_registry_version.py::test_registry_served_version_newer_than_indexed_is_stale
+FAILED tests/mcp/tools/test_freshness_registry_version.py::test_registry_served_version_equal_to_indexed_is_fresh
+FAILED tests/mcp/tools/test_freshness_registry_version.py::test_registry_served_version_older_than_indexed_is_fresh
+FAILED tests/mcp/tools/test_freshness_registry_version.py::test_registry_served_version_equal_at_higher_precision_than_indexed_is_fresh_not_stale
+FAILED tests/mcp/tools/test_freshness_registry_version.py::test_registry_served_version_equal_at_lower_precision_than_indexed_is_fresh_not_stale
+FAILED tests/mcp/tools/test_freshness_registry_version.py::test_registry_served_version_genuinely_newer_at_different_precision_is_still_stale
+FAILED tests/mcp/tools/test_freshness_registry_version.py::test_registry_served_version_genuinely_older_at_different_precision_is_still_fresh
+FAILED tests/mcp/tools/test_freshness_registry_version.py::test_no_indexed_version_falls_through_to_unknown_even_with_a_registry_version
+FAILED tests/mcp/tools/test_freshness_registry_version.py::test_an_unversioned_manifest_also_falls_through_to_unknown
+FAILED tests/mcp/tools/test_freshness_registry_version.py::test_a_resolving_caller_commit_wins_over_a_disagreeing_registry_version
+FAILED tests/mcp/tools/test_freshness_registry_version.py::test_a_resolving_latest_release_tag_commit_wins_over_a_disagreeing_registry_version
+FAILED tests/mcp/tools/test_freshness_registry_version.py::test_a_resolving_latest_release_version_wins_over_a_disagreeing_registry_version
+FAILED tests/mcp/tools/test_known_defects_in_freshness.py::test_commit_scoped_defect_with_package_versions_also_set_still_requires_commit_match
+FAILED tests/mcp/tools/test_known_defects_in_freshness.py::test_package_version_scoped_defect_surfaces_plain_when_served_version_not_stale
+FAILED tests/mcp/tools/test_known_defects_in_freshness.py::test_package_version_scoped_defect_surfaces_decision_c_downgrade_when_stale
+FAILED tests/mcp/tools/test_known_defects_in_freshness.py::test_defect_matching_neither_scoping_condition_never_surfaces
+
+--- stderr ---
+

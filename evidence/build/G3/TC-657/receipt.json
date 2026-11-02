@@ -1,0 +1,112 @@
+{
+  "schema_version": 1,
+  "card": "TC-657",
+  "gate": "G3",
+  "generated_by": "gatectl",
+  "generated_at": "2026-11-02T07:51:50Z",
+  "base_rev": "4819987bf432aca1f639fcf8f895c95119bd6508",
+  "head_rev": "2e01a2fa2b71f8cbce61c4931481faae5b32a0de",
+  "card_sha256": "834a2bdca11865f9b6fda97e8dd8d824bc00500ce0aaed76e84ca8a90a3ceb58",
+  "fingerprint": {
+    "python": "3.13.2",
+    "platform": "Windows-11-10.0.26300-SP0",
+    "lock_sha256": "5c72e798a73c059a438e752e94a8d4c88c1bdf81a197f6e5c5fcecbc9466a691",
+    "env": {
+      "PYTHONHASHSEED": "0",
+      "PYTHONUTF8": "1",
+      "PYTHONDONTWRITEBYTECODE": "1",
+      "PYTHONIOENCODING": "utf-8",
+      "TZ": "UTC",
+      "LC_ALL": "C.UTF-8",
+      "SOURCE_DATE_EPOCH": "1700000000",
+      "verify_runner": "host"
+    }
+  },
+  "scope": {
+    "ok": true,
+    "changed_paths": [
+      "src/foss_mcp/mcp/server.py",
+      "src/foss_mcp/mcp/tools/report_index_freshness.py",
+      "tests/mcp/tools/test_round3_freshness_honesty_regressions.py"
+    ],
+    "violations": [],
+    "evaluated": true
+  },
+  "runs": [
+    {
+      "run": 1,
+      "checks": [
+        {
+          "command": "{python} -m pytest tests/mcp/tools/test_round3_freshness_honesty_regressions.py -q -rfE -p no:cacheprovider",
+          "exit_code": 0,
+          "duration_s": 2.412,
+          "stdout_sha256": "08faea39fd19189f6544839f505d91d76ecb1367e219f5db362cdf22916ef869",
+          "tests": 11,
+          "skipped": 0,
+          "errors": 0,
+          "failures": 0
+        },
+        {
+          "command": "{python} -m pytest tests/mcp/tools/test_freshness_registry_version.py tests/mcp/tools/test_freshness_provenance.py tests/mcp/tools/test_freshness_tristate.py tests/mcp/tools/test_known_defects_in_freshness.py -q -rfE -p no:cacheprovider",
+          "exit_code": 0,
+          "duration_s": 4.581,
+          "stdout_sha256": "e35c4fb0464f9c25fb1600faa381b8d99b1dfac2853362d44748385704772fe8",
+          "tests": 85,
+          "skipped": 0,
+          "errors": 0,
+          "failures": 0
+        }
+      ],
+      "all_passed": true
+    },
+    {
+      "run": 2,
+      "checks": [
+        {
+          "command": "{python} -m pytest tests/mcp/tools/test_round3_freshness_honesty_regressions.py -q -rfE -p no:cacheprovider",
+          "exit_code": 0,
+          "duration_s": 1.863,
+          "stdout_sha256": "08faea39fd19189f6544839f505d91d76ecb1367e219f5db362cdf22916ef869",
+          "tests": 11,
+          "skipped": 0,
+          "errors": 0,
+          "failures": 0
+        },
+        {
+          "command": "{python} -m pytest tests/mcp/tools/test_freshness_registry_version.py tests/mcp/tools/test_freshness_provenance.py tests/mcp/tools/test_freshness_tristate.py tests/mcp/tools/test_known_defects_in_freshness.py -q -rfE -p no:cacheprovider",
+          "exit_code": 0,
+          "duration_s": 3.952,
+          "stdout_sha256": "e35c4fb0464f9c25fb1600faa381b8d99b1dfac2853362d44748385704772fe8",
+          "tests": 85,
+          "skipped": 0,
+          "errors": 0,
+          "failures": 0
+        }
+      ],
+      "all_passed": true
+    }
+  ],
+  "negative_control": {
+    "kind": "mutate",
+    "patch": "python -X utf8 -c \"import pathlib; p = pathlib.Path('src/foss_mcp/mcp/tools/report_index_freshness.py'); s = p.read_text(encoding='utf-8'); marker = 'registry_served_version'; assert marker in s, 'registry_served_version not found as expected - if your real code differs, anchor your own mutate on your own real name instead and note the substitution in your closeout'; s2 = s.replace(marker, 'disabled_' + marker); assert s2 != s, 'substitution had no effect'; p.write_text(s2, encoding='utf-8')\"\n",
+    "patch_sha256": "dd8d765e5bbdc22f33f77f6affd878fbd9129b875c8885488f83904cdc8eaac5",
+    "applied": true,
+    "patch_applied_failed": true,
+    "exit_codes": [
+      1,
+      1
+    ],
+    "tree_changed": [
+      "M src/foss_mcp/mcp/tools/report_index_freshness.py",
+      "?? .junit-0.xml",
+      "?? .junit-1.xml"
+    ]
+  },
+  "holdout": {
+    "ran": false,
+    "passed": true,
+    "detail": "no holdout for this card"
+  },
+  "accepted": true,
+  "reason": "all gates passed"
+}
