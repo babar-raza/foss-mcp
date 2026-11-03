@@ -1,0 +1,81 @@
+
+===== CLEAN RUN 1 (host) =====
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-5c72e798a73c059a\Scripts\python.exe -m pytest tests/infra/test_round3_rollback_hardening.py -q -rfE -p no:cacheprovider "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-zubof96n\.junit-0.xml"
+--- stdout ---
+.................................                                        [100%]
+
+--- stderr ---
+
+
+===== CLEAN RUN 2 (host) =====
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-5c72e798a73c059a\Scripts\python.exe -m pytest tests/infra/test_round3_rollback_hardening.py -q -rfE -p no:cacheprovider "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-zubof96n\.junit-0.xml"
+--- stdout ---
+.................................                                        [100%]
+
+--- stderr ---
+
+
+===== NEGATIVE CONTROL (checks MUST now fail) =====
+mutated: M tests/infra/test_round3_rollback_hardening.py, ?? .junit-0.xml
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-5c72e798a73c059a\Scripts\python.exe -m pytest tests/infra/test_round3_rollback_hardening.py -q -rfE -p no:cacheprovider "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-zubof96n\.junit-0.xml"
+--- stdout ---
+................................F                                        [100%]
+================================== FAILURES ===================================
+_ test_the_script_runs_with_only_src_on_the_path_and_imports_nothing_the_serving_image_lacks _
+
+store = <foss_mcp.indexing.generation_manifest.GenerationManifestStore object at 0x000001F347F13620>
+store_path = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-19509/test_the_script_runs_with_only0/manifests')
+tmp_path = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-19509/test_the_script_runs_with_only0')
+
+    def test_the_script_runs_with_only_src_on_the_path_and_imports_nothing_the_serving_image_lacks(
+        store: GenerationManifestStore, store_path: Path, tmp_path: Path
+    ) -> None:
+        """What ``python /app/infra/rollback.py --list`` does in the image: the interpreter finds ``foss_mcp`` on
+        PYTHONPATH (src) and the script directory, and nothing else of this repository."""
+        good = make_generation(store, "v1")
+        activate(store, good)
+        probe = tmp_path / "probe.py"
+        probe.write_text(_PROBE_SOURCE, encoding="utf-8")
+        environment = {key: value for key, value in os.environ.items() if key not in ("PYTHONPATH", "PYTHONHOME")}
+        environment["PYTHONPATH"] = str(REPO_ROOT / "src")
+        completed = subprocess.run(  # noqa: S603 - fixed argv, this interpreter
+            [
+                sys.executable,
+                str(probe),
+                str(REPO_ROOT / "infra" / "rollback.py"),
+                json.dumps(argv(store_path, "--list")),
+            ],
+            cwd=tmp_path,
+            env=environment,
+            capture_output=True,
+            text=True,
+            timeout=120,
+            check=False,
+        )
+    
+        assert completed.returncode == 0, completed.stderr
+        assert completed.stdout.startswith(good) or good in completed.stdout
+        loaded = json.loads(
+            next(line for line in completed.stdout.splitlines() if line.startswith("MODULES="))[8:]
+        )
+        third_party = {
+            name
+            for name in loaded
+            if name not in sys.stdlib_module_names
+            and not name.startswith(("_", "pywin32"))
+            and name != "foss_mcp"
+        }
+        normalised_lock = _serving_lock_packages()
+        missing_from_image = {
+            name for name in third_party if re.sub(r"[-_.]+", "_", name).lower() not in normalised_lock
+        }
+>       assert not missing_from_image, sorted(missing_from_image)
+E       AssertionError: ['yaml']
+E       assert not {'yaml'}
+
+tests\infra\test_round3_rollback_hardening.py:539: AssertionError
+=========================== short test summary info ===========================
+FAILED tests/infra/test_round3_rollback_hardening.py::test_the_script_runs_with_only_src_on_the_path_and_imports_nothing_the_serving_image_lacks
+
+--- stderr ---
+
