@@ -207,6 +207,16 @@ ones directly from raw chunk documents, so a symbol reached only through that pa
 returned by ``search_symbols()``/``explained_symbols()`` for the same query) keeps
 ``known_defects == ()`` regardless of real registry data. See this card's own worker report for the
 full finding; fixing it is out of this card's write_paths.
+
+TC-660 (G3/REQ-G3-015): TC-642's ``_SYMBOL_DEFECT_SUBJECT_KINDS`` above excluded ``"package"``-kind
+entries, meaning a known-defect whose ``subject.kind`` is ``"package"`` was silently dropped by
+``known_defect_lines`` here before its ``subject.refs`` was even consulted - even when a real
+method/class symbol in that entry's own ``refs`` was the exact chunk being matched, and even though
+``get_symbol.known_defect_lines`` has no such kind filter at all and already surfaced the identical
+entry there. Widened to ``frozenset({"method", "class", "package"})`` - purely additive, matches
+``get_symbol.py``'s existing unconditional-kind precedent, and leaves
+``get_product_reference.py``'s own separate ``_LIBRARY_DEFECT_SUBJECT_KINDS`` constant (a different
+frozenset in a different file, scoped to ``"package"``/``"commit"``) completely untouched.
 """
 
 from __future__ import annotations
@@ -243,8 +253,16 @@ _TRAILING_DIGITS = re.compile(r"(\d+)\Z")
 # rather than imported (get_symbol.py already imports FROM this module, so the reverse import
 # would be circular; see the module docstring).
 _SOURCE_COMMIT_LINE = re.compile(r"^Source-Commit:\s*(\S+)$", re.MULTILINE)
-# Method/class-scoped only - a package/commit-scoped defect is KD4's get_product_reference path.
-_SYMBOL_DEFECT_SUBJECT_KINDS = frozenset({"method", "class"})
+# Method/class/package-scoped (TC-660, G3/REQ-G3-015): widened from the original method/class-only
+# set because a package-kind entry's own subject.refs can legitimately name a real method/class
+# symbol in its summary (e.g. TEX-PYTHON-001's TeXJob/PdfDevice/TeXOptions quick-start names) and
+# that disclosure was silently dropped here before any refs check ever ran, even though
+# get_symbol.known_defect_lines has no such kind filter at all and already surfaced it. Purely
+# additive - does NOT touch get_product_reference.py's own separate _LIBRARY_DEFECT_SUBJECT_KINDS
+# (frozenset({"package", "commit"}), a different constant in a different file) - so every pilot's
+# existing library-wide hazard display in get_product_reference is unaffected. A commit-scoped
+# entry is still never reachable here: "commit" is deliberately absent from this set.
+_SYMBOL_DEFECT_SUBJECT_KINDS = frozenset({"method", "class", "package"})
 
 
 def _rejoin_digit_acronym_split(words: list[str]) -> list[str]:
@@ -635,18 +653,18 @@ def _render_known_defect(defect: KnownDefect) -> str:
 
 
 def known_defect_lines(scope: Scope, fqn: str, text: str) -> tuple[str, ...]:
-    """Every method/class-scoped known-defect disclosure line that applies to *fqn*, in registry file
-    order (TC-642, KD3, G3/REQ-G3-015).
+    """Every method/class/package-scoped known-defect disclosure line that applies to *fqn*, in
+    registry file order (TC-642, KD3, G3/REQ-G3-015; kind set widened by TC-660).
 
-    A defect applies here only when its ``subject.kind`` is ``"method"`` or ``"class"`` (a
-    ``"package"``/``"commit"``-scoped entry is KD4's ``get_product_reference`` path, never surfaced
-    through a symbol match) and *fqn* is a member of its ``subject.refs`` (G3/TC-658: a non-empty
-    tuple, since the same real upstream bug can affect several real sibling symbols in the identical
-    causal chain), and, when it is scoped by ``applies_to.indexed_commit``, that commit equals
-    *text*'s own ``Source-Commit:`` line - the same rule ``get_symbol.known_defect_lines`` (KD2,
-    TC-639) already established. A package-version-scoped defect (no ``indexed_commit``) always
-    applies regardless of commit: there is no live registry check against a currently served
-    package version here either, same as KD2.
+    A defect applies here only when its ``subject.kind`` is in ``_SYMBOL_DEFECT_SUBJECT_KINDS``
+    (``"method"``, ``"class"``, or ``"package"`` - a ``"commit"``-scoped entry is KD4's
+    ``get_product_reference`` path, never surfaced through a symbol match) and *fqn* is a member of
+    its ``subject.refs`` (G3/TC-658: a non-empty tuple, since the same real upstream bug can affect
+    several real sibling symbols in the identical causal chain), and, when it is scoped by
+    ``applies_to.indexed_commit``, that commit equals *text*'s own ``Source-Commit:`` line - the same
+    rule ``get_symbol.known_defect_lines`` (KD2, TC-639) already established. A package-version-scoped
+    defect (no ``indexed_commit``) always applies regardless of commit: there is no live registry
+    check against a currently served package version here either, same as KD2.
     """
     defects = load_known_defects(scope.family, scope.platform)
     if not defects:

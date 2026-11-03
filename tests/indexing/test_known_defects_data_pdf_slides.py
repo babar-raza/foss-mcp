@@ -208,7 +208,14 @@ def test_pdf_cpp_001_is_method_scoped_not_a_whole_library_claim() -> None:
     defect = defects[0]
     assert defect.id == "PDF-CPP-001"
     assert defect.subject.kind == "method"
-    assert defect.subject.refs == ("Aspose::Pdf::Document",)
+    # G3/TC-660: widened to add the two real siblings this entry's own repro text names
+    # (Aspose::Pdf::Text::TextAbsorber, Aspose::Pdf::CryptoAlgorithm) alongside the original
+    # Aspose::Pdf::Document - a correction/addition, not a narrowing, so the original ref stays.
+    assert defect.subject.refs == (
+        "Aspose::Pdf::Document",
+        "Aspose::Pdf::Text::TextAbsorber",
+        "Aspose::Pdf::CryptoAlgorithm",
+    )
 
 
 def test_slides_python_001_has_no_confirmed_public_fqn_so_is_package_scoped() -> None:
@@ -222,7 +229,15 @@ def test_slides_python_001_has_no_confirmed_public_fqn_so_is_package_scoped() ->
     defect = defects[0]
     assert defect.id == "SLIDES-PY-001"
     assert defect.subject.kind == "package"
-    assert defect.subject.refs == ("aspose-slides-foss",)
+    # G3/TC-660: widened to add the real SlideCollection/NotesSlideManager siblings this entry's
+    # own repro text names, alongside the original aspose-slides-foss package ref.
+    assert defect.subject.refs == (
+        "aspose-slides-foss",
+        "aspose.slides_foss.SlideCollection.SlideCollection",
+        "aspose.slides_foss.SlideCollection",
+        "aspose.slides_foss.NotesSlideManager.NotesSlideManager",
+        "aspose.slides_foss.NotesSlideManager",
+    )
 
 
 def test_every_other_entrys_subject_kind_is_method() -> None:

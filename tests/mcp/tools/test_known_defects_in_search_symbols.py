@@ -26,6 +26,16 @@ own constructed ``SymbolMatch`` instances for a query that merely NAMES a type -
 regardless of real registry data, even though the identical fqn/scope passed through the real
 ``search_symbols()`` carries the disclosure correctly. Fixing ``_named_symbols`` itself is out of
 this card's write_paths; see ``lookup.py``'s own module docstring for the full note.
+
+G3/TC-660 (REQ-G3-015): ``_SYMBOL_DEFECT_SUBJECT_KINDS`` widened from ``{"method", "class"}`` to
+``{"method", "class", "package"}`` - a real gap this card's own investigation found: a
+``package``-kind defect's ``subject.refs`` can legitimately name a real method/class symbol (several
+real round-3 findings did exactly this), and that disclosure was silently dropped here before any
+``refs`` check ever ran, even though ``get_symbol.known_defect_lines`` has no such kind filter and
+already surfaced it. ``test_package_kind_defect_now_surfaces_through_search_symbols`` below replaces
+the old ``..._never_surfaces_...`` test of the same scenario, updated to the new, intended behavior -
+a ``commit``-kind defect remains excluded here (``test_commit_kind_defect_never_surfaces_through_search_symbols``,
+unchanged): that is still exclusively KD4's ``get_product_reference`` path.
 """
 
 from __future__ import annotations
@@ -214,13 +224,20 @@ def test_package_version_scoped_defect_always_surfaces_regardless_of_commit(
 
 
 # --------------------------------------------------------------------------------------------
-# a package/commit-scoped defect does NOT surface here - that's KD4's get_product_reference path
+# a package-kind defect DOES surface here (G3/TC-660); a commit-kind defect does NOT - that's
+# exclusively KD4's get_product_reference path.
 # --------------------------------------------------------------------------------------------
 
 
-def test_package_kind_defect_never_surfaces_through_search_symbols(
+def test_package_kind_defect_now_surfaces_through_search_symbols(
     store: _InMemoryStore, registry_dir: Path
 ) -> None:
+    """G3/TC-660: ``_SYMBOL_DEFECT_SUBJECT_KINDS`` was widened to include ``"package"`` - a
+    package-kind entry whose ``subject.refs`` names a real method/class symbol (several real
+    round-3 known-defects do exactly this) must now surface through ``search_symbols`` too, not
+    only through ``get_symbol``. This replaces the old
+    ``test_package_kind_defect_never_surfaces_through_search_symbols``, which pinned the pre-fix
+    behavior this card deliberately changed."""
     _write_registry(
         registry_dir,
         [_defect("PDF-NET-005", DOCUMENT_FQN, kind="package", package_versions=["26.7.0"])],
@@ -228,7 +245,8 @@ def test_package_kind_defect_never_surfaces_through_search_symbols(
 
     matches = _symbol_matches(search_symbols(store, SCOPE, DOCUMENT_FQN))  # type: ignore[arg-type]
 
-    assert matches[0].known_defects == ()
+    assert len(matches[0].known_defects) == 1
+    assert "Summary describing PDF-NET-005." in matches[0].known_defects[0]
 
 
 def test_commit_kind_defect_never_surfaces_through_search_symbols(
