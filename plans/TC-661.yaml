@@ -79,13 +79,15 @@ requires:
 network: false
 negative_control:
   mutate: |
-    python -X utf8 -c "import pathlib; p = pathlib.Path('tests/mcp/tools/test_lookup_miss_reason.py'); s = p.read_text(encoding='utf-8'); marker = 'assert symbol_miss.suggestions, ' + chr(34) + 'control: search_symbols itself offers suggestions for this query' + chr(34); assert s.count(marker) == 1, 'marker text not found verbatim - the real fix may have reworded this line; if so anchor your own mutate on your own real literal instead and note the substitution in your closeout'; s2 = s.replace(marker, 'assert True  # ' + marker, 1); assert s2 != s; p.write_text(s2, encoding='utf-8')"
+    python -X utf8 -c "import pathlib; p = pathlib.Path('tests/mcp/tools/test_lookup_miss_reason.py'); s = p.read_text(encoding='utf-8'); old = chr(34) + 'Annotaiton' + chr(34); n = s.count(old); assert n >= 3, 'the real fix used a different replacement query than Annotaiton - if so anchor your own mutate on the real literal instead and note the substitution in your closeout'; s2 = s.replace(old, chr(34) + 'Annotatio' + chr(34)); assert s2 != s; p.write_text(s2, encoding='utf-8')"
   rationale: >-
-    Disables the one assertion that proves search_symbols itself still offers a real suggestion
-    for the (possibly new) query, so if the worker's replacement query stopped triggering real
-    suggestions, this specific line would no longer catch it. A real break of the card's central
-    claim (the replacement query must be a REAL did-you-mean case, not merely a string that happens
-    to also return a Miss for an unrelated reason, e.g. being too short or empty).
+    Reverts the fix's replacement query back to the original, confirmed-broken "Annotatio" (a real
+    9-character prefix of the real symbol "Annotation" under TC-654's prefix tier, so it now
+    matches instead of producing a Miss) - this makes `assert isinstance(answer, Miss)` and
+    `assert isinstance(symbol_miss, Miss)` fail for real, dry-run-verified directly against the
+    worker's own committed content before this card was amended. A real break of the card's
+    central claim: the specific replacement query matters, not merely that SOME string was
+    substituted in.
 evidence:
   - evidence/build/G3/TC-661/receipt.json
 closeout:
