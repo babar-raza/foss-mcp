@@ -1,0 +1,55 @@
+
+===== CLEAN RUN 1 (host) =====
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-5c72e798a73c059a\Scripts\python.exe -m pytest tests/infra/test_round3_release_tags.py tests/infra/test_serve_manifest_sidecar.py -q -rfE -p no:cacheprovider "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-gpv08on4\.junit-0.xml"
+--- stdout ---
+......................................................                   [100%]
+
+--- stderr ---
+
+
+===== CLEAN RUN 2 (host) =====
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-5c72e798a73c059a\Scripts\python.exe -m pytest tests/infra/test_round3_release_tags.py tests/infra/test_serve_manifest_sidecar.py -q -rfE -p no:cacheprovider "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-gpv08on4\.junit-0.xml"
+--- stdout ---
+......................................................                   [100%]
+
+--- stderr ---
+
+
+===== NEGATIVE CONTROL (checks MUST now fail) =====
+mutated: M tests/infra/test_round3_release_tags.py, ?? .junit-0.xml
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-5c72e798a73c059a\Scripts\python.exe -m pytest tests/infra/test_round3_release_tags.py tests/infra/test_serve_manifest_sidecar.py -q -rfE -p no:cacheprovider "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-gpv08on4\.junit-0.xml"
+--- stdout ---
+.................................F....................                   [100%]
+================================== FAILURES ===================================
+__________ test_main_ignores_a_failed_product_reference_placeholder ___________
+
+tmp_path = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-19512/test_main_ignores_a_failed_pro0')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x000002C37FFB5080>
+
+    def test_main_ignores_a_failed_product_reference_placeholder(
+        tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        output, product, calls, http = _setup(
+            tmp_path, monkeypatch, releases=[_release("v26.8.0")], tags=[], compare=None, source_ref=None
+        )
+        product.write_text(
+            json.dumps({"state": "fetch_failed", "status": "fetch_failed", "source_ref": SHA_INDEXED})
+        )
+    
+        fetch_recent_releases.main()
+    
+        # TC-664: the failed placeholder is still correctly ignored for drift purposes (no indexed
+        # commit is derived from it, so `_with_ancestry` never runs and no compare call is made) - but
+        # `pad_with_older_tags` (TC-655, NOTE-PY-003) runs independently of the indexed-commit lookup,
+        # so it does read tags once (an empty list here, so nothing is actually appended).
+>       assert calls["tags"] == 999 and http.urls == []
+E       assert (1 == 999)
+
+tests\infra\test_round3_release_tags.py:463: AssertionError
+---------------------------- Captured stdout call -----------------------------
+wrote 1 recent release(s) for aspose-note-foss/Aspose.Note-FOSS-for-Python -> C:\Users\babar\AppData\Local\Temp\pytest-of-babar\pytest-19512\test_main_ignores_a_failed_pro0\recent_releases_note_python.json
+=========================== short test summary info ===========================
+FAILED tests/infra/test_round3_release_tags.py::test_main_ignores_a_failed_product_reference_placeholder
+
+--- stderr ---
+
