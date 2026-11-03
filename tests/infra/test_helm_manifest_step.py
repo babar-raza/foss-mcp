@@ -433,9 +433,21 @@ def test_serving_with_the_pdf_java_identity_never_reads_the_pdf_net_sidecar(tmp_
     (tmp_path / fetch_product_reference.sidecar_name("pdf", "net")).write_text(
         json.dumps(net_sidecar), encoding="utf-8"
     )
-    # Only the pdf/net file exists, so the pdf/java identity has no sidecar and answers NotAvailable.
+    # Only the pdf/net file exists, so the pdf/java identity has no sidecar of its own. Since
+    # G3/TC-650, pdf/java carries a real `known_hazards` entry in config/products/pdf/java.yaml,
+    # and _with_deployment_known_hazards (G3/TC-582) upgrades the None case for ANY
+    # hazard-bearing deployment into a fresh ProductReferenceInputs carrying only that local
+    # disclosure - so the answer here is non-None, but it must carry NONE of the pdf/net
+    # sidecar's manifest-derived content: that is the cross-identity isolation this test exists
+    # to prove.
     java = DeploymentConfig(family="pdf", platform="java")
-    assert serve_http._serving_product_reference_inputs(tmp_path, java) is None
+    java_inputs = serve_http._serving_product_reference_inputs(tmp_path, java)
+    assert java_inputs is not None
+    assert java_inputs.manifest_text is None
+    assert java_inputs.contributing is None
+    assert java_inputs.agent_guidance is None
+    assert java_inputs.platform == "java"
+    assert len(java_inputs.known_hazards) > 0
     net = DeploymentConfig(family="pdf", platform="net")
     assert serve_http._serving_product_reference_inputs(tmp_path, net).platform == "net"
 
