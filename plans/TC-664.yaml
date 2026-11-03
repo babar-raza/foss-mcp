@@ -96,16 +96,16 @@ negative_control:
     p = pathlib.Path('tests/infra/test_round3_release_tags.py')
     s = p.read_text(encoding='utf-8')
     old = 'assert calls[' + q + 'tags' + q + '] == 0 and http.urls == []'
-    assert s.count(old) == 1, ('expected exactly one occurrence of the pdf-placeholder tags==0 assertion, found ' + str(s.count(old)) + ' - the real fix may have reshaped this assertion differently; if so anchor your own mutate on the real literal instead and note the substitution in your closeout')
+    assert s.count(old) == 1, ('expected exactly one occurrence of the failed-reference-marker tags==0 assertion, found ' + str(s.count(old)) + ' - the real fix may have reshaped this assertion differently; if so anchor your own mutate on the real literal instead and note the substitution in your closeout')
     new = 'assert calls[' + q + 'tags' + q + '] == 999 and http.urls == []'
     p.write_text(s.replace(old, new), encoding='utf-8')
     "
   rationale: >-
-    Forces `test_main_ignores_a_failed_product_reference_placeholder`'s own updated tag-count
-    assertion to an impossible value, making it fail for real against the real, padded call
-    count the fix observed live - a direct, real break of this card's central claim (the updated
-    counts are the real, live-verified ones), dry-run-verified against the worker's own committed
-    content before this card was issued.
+    Forces the stale-sidecar-marker test's own updated tag-count assertion to an impossible
+    value, making it fail for real against the real, padded call count the fix observed live -
+    a direct, real break of this card's central claim (the updated counts are the real,
+    live-verified ones), dry-run-verified against the worker's own committed content before
+    this card was issued.
 evidence:
   - evidence/build/G3/TC-664/receipt.json
 closeout:
