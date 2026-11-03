@@ -68,7 +68,7 @@ requires:
 network: false
 negative_control:
   mutate: |
-    python -X utf8 -c "import pathlib; nl = chr(10); q = chr(34); p = pathlib.Path('tests/infra/test_round3_rollback_hardening.py'); s = p.read_text(encoding='utf-8'); marker = 'def _serving_lock_packages'; assert s.count(marker) == 1, 'helper not found where expected - re-anchor this mutate on the real current function'; start = s.index(marker); end = s.index(nl + nl + nl, start); old_block = s[start:end]; new_block = old_block + nl + '    names.discard(' + q + 'yaml' + q + ')  # control: force the real yaml import to look missing again'; p.write_text(s[:start] + new_block + s[end:], encoding='utf-8')"
+    python -X utf8 -c "import pathlib; nl = chr(10); q = chr(34); p = pathlib.Path('tests/infra/test_round3_rollback_hardening.py'); s = p.read_text(encoding='utf-8'); marker = 'def _serving_lock_packages'; assert s.count(marker) == 1, 'helper not found where expected - re-anchor this mutate on the real current function'; start = s.index(marker); ret = nl + '    return names'; rpos = s.index(ret, start); insert = nl + '    names.discard(' + q + 'yaml' + q + ')  # control: force the real yaml import to look missing again'; p.write_text(s[:rpos] + insert + s[rpos:], encoding='utf-8')"
   rationale: >-
     Forces the fix's own corrected name-set to drop the real `yaml` entry it added right back
     out, making `missing_from_image` contain `yaml` again and
