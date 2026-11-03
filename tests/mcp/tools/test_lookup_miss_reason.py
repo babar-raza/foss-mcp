@@ -166,16 +166,23 @@ def test_identifier_path_miss_names_everything_searched_while_search_symbols_is_
 def test_did_you_mean_suggestions_are_kept(
     pilot_stores: dict[str, GenerationManifestStore], tmp_path_factory: pytest.TempPathFactory
 ) -> None:
+    # Was "Annotatio" (TC-493); TC-654 (Q12) added search_symbols' own prefix tier, under which
+    # "Annotatio" is a genuine 9-character prefix of the real symbol "Annotation" and therefore no
+    # longer a Miss. "Annotaiton" (the 't'/'i' transposed in the middle of "Annotation", not merely
+    # truncated at the end) is still a genuine Miss under that prefix tier - live-verified: it is not
+    # a prefix of any real indexed FQN word - while remaining close enough that search_symbols' own
+    # difflib-based suggestion mechanism offers real suggestions for it, including the real
+    # "Aspose.Pdf.Annotations.Annotation".
     directory = "pdf__net__self_extracted"
     store = _store_for(pilot_stores, tmp_path_factory, directory)
     scope = _scope_of(directory)
 
-    answer = lookup(store, scope, "Annotatio")
-    symbol_miss = search_symbols(store, scope, "Annotatio")
+    answer = lookup(store, scope, "Annotaiton")
+    symbol_miss = search_symbols(store, scope, "Annotaiton")
 
     assert isinstance(answer, Miss)
     assert isinstance(symbol_miss, Miss)
-    assert answer.reason == _expected_reason("Annotatio")
+    assert answer.reason == _expected_reason("Annotaiton")
     assert symbol_miss.suggestions, "control: search_symbols itself offers suggestions for this query"
     assert answer.suggestions == symbol_miss.suggestions
     assert answer.suggestions
