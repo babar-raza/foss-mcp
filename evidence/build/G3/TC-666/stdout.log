@@ -1,0 +1,64 @@
+
+===== CLEAN RUN 1 (host) =====
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-5c72e798a73c059a\Scripts\python.exe -m pytest tests/infra/test_helm_manifest_step.py -q -rfE -p no:cacheprovider "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-k77oe7e2\.junit-0.xml"
+--- stdout ---
+..........................                                               [100%]
+
+--- stderr ---
+
+
+===== CLEAN RUN 2 (host) =====
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-5c72e798a73c059a\Scripts\python.exe -m pytest tests/infra/test_helm_manifest_step.py -q -rfE -p no:cacheprovider "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-k77oe7e2\.junit-0.xml"
+--- stdout ---
+..........................                                               [100%]
+
+--- stderr ---
+
+
+===== NEGATIVE CONTROL (checks MUST now fail) =====
+mutated: M tests/infra/test_helm_manifest_step.py, ?? .junit-0.xml
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-5c72e798a73c059a\Scripts\python.exe -m pytest tests/infra/test_helm_manifest_step.py -q -rfE -p no:cacheprovider "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-k77oe7e2\.junit-0.xml"
+--- stdout ---
+.................F........                                               [100%]
+================================== FAILURES ===================================
+___ test_serving_with_the_pdf_java_identity_never_reads_the_pdf_net_sidecar ___
+
+tmp_path = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-19503/test_serving_with_the_pdf_java0')
+
+    def test_serving_with_the_pdf_java_identity_never_reads_the_pdf_net_sidecar(tmp_path: Path) -> None:
+        net_sidecar = {
+            "manifest_text": '<Project Sdk="Microsoft.NET.Sdk"/>',
+            "platform": "net",
+            "contributing": {"status": "not_present", "path": "CONTRIBUTING.md"},
+            "agent_guidance": {"status": "not_present", "path": "AGENTS.md"},
+        }
+        (tmp_path / fetch_product_reference.sidecar_name("pdf", "net")).write_text(
+            json.dumps(net_sidecar), encoding="utf-8"
+        )
+        # Only the pdf/net file exists, so the pdf/java identity has no sidecar of its own. Since
+        # G3/TC-650, pdf/java carries a real `known_hazards` entry in config/products/pdf/java.yaml,
+        # and _with_deployment_known_hazards (G3/TC-582) upgrades the None case for ANY
+        # hazard-bearing deployment into a fresh ProductReferenceInputs carrying only that local
+        # disclosure - so the answer here is non-None, but it must carry NONE of the pdf/net
+        # sidecar's manifest-derived content: that is the cross-identity isolation this test exists
+        # to prove.
+        java = DeploymentConfig(family="pdf", platform="java")
+        java_inputs = serve_http._serving_product_reference_inputs(tmp_path, java)
+        assert java_inputs is not None
+        assert java_inputs.manifest_text is None
+        assert java_inputs.contributing is None
+        assert java_inputs.agent_guidance is None
+        assert java_inputs.platform == "java"
+        assert len(java_inputs.known_hazards) > 0
+        net = DeploymentConfig(family="pdf", platform="net")
+        assert serve_http._serving_product_reference_inputs(tmp_path, net).platform == "net"
+>       assert False  # control: force this test to fail regardless of the real fix
+        ^^^^^^^^^^^^
+E       assert False
+
+tests\infra\test_helm_manifest_step.py:453: AssertionError
+=========================== short test summary info ===========================
+FAILED tests/infra/test_helm_manifest_step.py::test_serving_with_the_pdf_java_identity_never_reads_the_pdf_net_sidecar
+
+--- stderr ---
+
