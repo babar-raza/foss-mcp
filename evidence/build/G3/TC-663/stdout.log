@@ -1,0 +1,52 @@
+
+===== CLEAN RUN 1 (host) =====
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-5c72e798a73c059a\Scripts\python.exe -m pytest tests/infra/test_furnished_chunk_quality.py tests/mcp/tools/test_doc_classification_by_title.py tests/mcp/tools/test_search_docs_title_classification.py -q -rfE -p no:cacheprovider "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-n6h9m332\.junit-0.xml"
+--- stdout ---
+........................................................................ [ 30%]
+........................................................................ [ 60%]
+........................................................................ [ 91%]
+.....................                                                    [100%]
+
+--- stderr ---
+
+
+===== CLEAN RUN 2 (host) =====
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-5c72e798a73c059a\Scripts\python.exe -m pytest tests/infra/test_furnished_chunk_quality.py tests/mcp/tools/test_doc_classification_by_title.py tests/mcp/tools/test_search_docs_title_classification.py -q -rfE -p no:cacheprovider "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-n6h9m332\.junit-0.xml"
+--- stdout ---
+........................................................................ [ 30%]
+........................................................................ [ 60%]
+........................................................................ [ 91%]
+.....................                                                    [100%]
+
+--- stderr ---
+
+
+===== NEGATIVE CONTROL (checks MUST now fail) =====
+mutated: M tests/infra/test_furnished_chunk_quality.py, ?? .junit-0.xml
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-5c72e798a73c059a\Scripts\python.exe -m pytest tests/infra/test_furnished_chunk_quality.py tests/mcp/tools/test_doc_classification_by_title.py tests/mcp/tools/test_search_docs_title_classification.py -q -rfE -p no:cacheprovider "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-n6h9m332\.junit-0.xml"
+--- stdout ---
+........................................................................ [ 30%]
+..............................................................F......... [ 60%]
+........................................................................ [ 91%]
+.....................                                                    [100%]
+================================== FAILURES ===================================
+________________ test_categories_derive_from_titles[cells_cpp] ________________
+
+pilot = 'cells_cpp'
+
+    @pytest.mark.parametrize("pilot", PILOTS)
+    def test_categories_derive_from_titles(pilot: str) -> None:
+        for chunk in _built(pilot).chunks:
+>           assert classify_content_type(chunk.text) == _expected_category(chunk), (pilot, _title(chunk))
+E           AssertionError: ('cells_cpp', 'Page Setup and Print Configuration')
+E           assert 'developer_guide' == 'getting_started'
+E             
+E             - getting_started
+E             + developer_guide
+
+tests\infra\test_furnished_chunk_quality.py:157: AssertionError
+=========================== short test summary info ===========================
+FAILED tests/infra/test_furnished_chunk_quality.py::test_categories_derive_from_titles[cells_cpp]
+
+--- stderr ---
+

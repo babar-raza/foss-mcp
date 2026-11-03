@@ -1,0 +1,88 @@
+{
+  "schema_version": 1,
+  "card": "TC-663",
+  "gate": "G3",
+  "generated_by": "gatectl",
+  "generated_at": "2026-11-03T12:28:14Z",
+  "base_rev": "93b179585f3438255ce7d7eb08fe5139ec691c49",
+  "head_rev": "f5b4e26efc3540971ecd7950d662cda6bef964a9",
+  "card_sha256": "b40c0aab23ac490afc570aa209e050b80bde7ba38d0a18bf58fa47fe9f311222",
+  "fingerprint": {
+    "python": "3.13.2",
+    "platform": "Windows-11-10.0.26300-SP0",
+    "lock_sha256": "5c72e798a73c059a438e752e94a8d4c88c1bdf81a197f6e5c5fcecbc9466a691",
+    "env": {
+      "PYTHONHASHSEED": "0",
+      "PYTHONUTF8": "1",
+      "PYTHONDONTWRITEBYTECODE": "1",
+      "PYTHONIOENCODING": "utf-8",
+      "TZ": "UTC",
+      "LC_ALL": "C.UTF-8",
+      "SOURCE_DATE_EPOCH": "1700000000",
+      "verify_runner": "host"
+    }
+  },
+  "scope": {
+    "ok": true,
+    "changed_paths": [
+      "tests/infra/test_furnished_chunk_quality.py"
+    ],
+    "violations": [],
+    "evaluated": true
+  },
+  "runs": [
+    {
+      "run": 1,
+      "checks": [
+        {
+          "command": "{python} -m pytest tests/infra/test_furnished_chunk_quality.py tests/mcp/tools/test_doc_classification_by_title.py tests/mcp/tools/test_search_docs_title_classification.py -q -rfE -p no:cacheprovider",
+          "exit_code": 0,
+          "duration_s": 6.466,
+          "stdout_sha256": "54e361919cd2eab70308bdb2c57b8b3e16c960f3b33f0eafa9ef421fc187db18",
+          "tests": 237,
+          "skipped": 0,
+          "errors": 0,
+          "failures": 0
+        }
+      ],
+      "all_passed": true
+    },
+    {
+      "run": 2,
+      "checks": [
+        {
+          "command": "{python} -m pytest tests/infra/test_furnished_chunk_quality.py tests/mcp/tools/test_doc_classification_by_title.py tests/mcp/tools/test_search_docs_title_classification.py -q -rfE -p no:cacheprovider",
+          "exit_code": 0,
+          "duration_s": 1.866,
+          "stdout_sha256": "54e361919cd2eab70308bdb2c57b8b3e16c960f3b33f0eafa9ef421fc187db18",
+          "tests": 237,
+          "skipped": 0,
+          "errors": 0,
+          "failures": 0
+        }
+      ],
+      "all_passed": true
+    }
+  ],
+  "negative_control": {
+    "kind": "mutate",
+    "patch": "python -X utf8 -c \"import pathlib; bs = chr(92); p = pathlib.Path('tests/infra/test_furnished_chunk_quality.py'); s = p.read_text(encoding='utf-8'); old = 'install|quick ?start|getting started|prerequisite|' + bs + 'bsetup' + bs + 's*$|dependenc|requirement'; new = 'install|quick ?start|getting started|prerequisite|setup|dependenc|requirement'; n = s.count(old); assert n == 1, 'expected exactly one occurrence of the narrowed regex literal, found ' + str(n) + ' - the real fix may have formatted this differently; if so anchor your own mutate on the real literal instead and note the substitution in your closeout'; s2 = s.replace(old, new); assert s2 != s; p.write_text(s2, encoding='utf-8')\"\n",
+    "patch_sha256": "c046ebab97a7d21604131c882857cd3af35abaa5850dd9e930cc4c086513734b",
+    "applied": true,
+    "patch_applied_failed": true,
+    "exit_codes": [
+      1
+    ],
+    "tree_changed": [
+      "M tests/infra/test_furnished_chunk_quality.py",
+      "?? .junit-0.xml"
+    ]
+  },
+  "holdout": {
+    "ran": false,
+    "passed": true,
+    "detail": "no holdout for this card"
+  },
+  "accepted": true,
+  "reason": "all gates passed"
+}
