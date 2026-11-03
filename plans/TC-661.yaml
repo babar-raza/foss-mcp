@@ -1,0 +1,96 @@
+id: TC-661
+gate: G3
+lane: storage-retrieval
+purpose: >-
+  `tests/mcp/tools/test_lookup_miss_reason.py::test_did_you_mean_suggestions_are_kept` (TC-493,
+  REQ-G3-005) pins the query `"Annotatio"` against pdf/net as a case that MUST return a `Miss` with
+  "did you mean" suggestions from both `lookup` and `search_symbols`. This stopped holding the
+  moment `TC-654` (Q12, the real `search_symbols` prefix tier: any real FQN word prefix of 3+
+  characters now matches at `MATCH_PARTIAL`) landed: `"Annotatio"` is a genuine 9-character prefix
+  of the real symbol `Annotation`, so it now correctly returns real `SymbolMatch` results, not a
+  `Miss`. Confirmed directly: this exact failure reproduces identically at the commit immediately
+  before TC-654 was superseded by later work and at every commit since (most recently reconfirmed
+  against commit `2d193291`, before TC-660 touched anything) - this is TC-654's own un-reconciled
+  interaction with an older test, not a regression from any later card, and not something TC-654's
+  own write_paths could have caught (`test_lookup_miss_reason.py` was never in TC-654's write_paths).
+  The test's own INTENT (did-you-mean suggestions survive the round trip from `search_symbols`'
+  own Miss into `lookup`'s composed Miss, with matching text/scope/query) is still correct and
+  still needs covering; only the specific query it uses to trigger a Miss has stopped being a Miss.
+depends_on:
+  - TC-493
+  - TC-515
+  - TC-654
+write_paths:
+  - tests/mcp/tools/test_lookup_miss_reason.py
+satisfies:
+  - REQ-G3-005
+source_refs:
+  - file: docs/DECISION_LOG.md
+    anchor: >-
+      ## 2026-11-02 — Round-3 independent re-audit adopted; a real regression found and given top priority; the "no pilot ever gets worse" rule adopted project-wide (operator, supervisor)
+    sha256: b750b8bf0df25b17bf66d014895ecb42952050c7cc63773f56249c4a1c551791
+inputs:
+  - >-
+    READ FIRST: this card's own `purpose` text above, then
+    `test_did_you_mean_suggestions_are_kept` itself (currently ~line 166) and
+    `src/foss_mcp/mcp/tools/search_symbols.py`'s prefix-tier mechanism (TC-654,
+    `_PREFIX_MIN_LENGTH` and its call site) to confirm the diagnosis yourself before changing
+    anything - do not trust this card's claim blindly, re-derive it.
+  - >-
+    Find a REAL replacement query against the SAME pdf/net pilot (or, if none exists there, pick
+    whichever already-loaded pilot in this test file's own fixture set has one) that: (a) is NOT a
+    valid 3+ character prefix of any real indexed symbol's FQN word (so it still returns a genuine
+    `Miss` under the current, correct prefix-tier behavior - verify this live, do not guess), and
+    (b) is still close enough to a real symbol name that `search_symbols`' own did-you-mean/fuzzy-
+    suggestion mechanism offers at least one suggestion for it (verify this live too - the
+    assertion `symbol_miss.suggestions, "control: search_symbols itself offers suggestions for
+    this query"` must keep passing for a REAL reason, not be weakened or removed). A query with an
+    internal typo/transposition (changing a middle character rather than only truncating the end)
+    is a reasonable starting point, but confirm whatever you pick actually produces both a Miss
+    AND suggestions via a real call before committing - do not assume from the shape of the string
+    alone.
+  - >-
+    Replace `"Annotatio"` with your verified replacement query in this one test only. Do not touch
+    any other test in this file (the other `Miss`-producing queries, e.g. `"Zzqxv"`, are unrelated
+    and already correct - confirm they still pass unchanged). Do not weaken the test's own
+    assertions (`isinstance(answer, Miss)`, `isinstance(symbol_miss, Miss)`, the reason-text match,
+    the suggestions round-trip) - only the query string changes.
+  - >-
+    Run the whole file twice clean. Also run `tests/mcp/tools/test_search_symbols_honest_miss.py`
+    and any other test file that already names "Annotatio"/"Annotation" as a fixture value, to
+    confirm you are not introducing a second instance of the same staleness elsewhere - grep for
+    both strings across `tests/` before committing, not just in this one file.
+actions:
+  - >-
+    Replace the one stale query in `test_did_you_mean_suggestions_are_kept` with a real,
+    live-verified query that still produces a genuine Miss-with-suggestions under the current
+    (TC-654-updated) search_symbols behavior, restoring this test's real coverage without
+    weakening any of its assertions.
+checks:
+  - command: '{python} -m pytest tests/mcp/tools/test_lookup_miss_reason.py -q -rfE -p no:cacheprovider'
+    expect: 'exit 0'
+    timeout_seconds: 180
+    junitxml: true
+    proves:
+      - REQ-G3-005
+min_tests: 10
+requires:
+  - python
+network: false
+negative_control:
+  mutate: |
+    python -X utf8 -c "import pathlib; p = pathlib.Path('tests/mcp/tools/test_lookup_miss_reason.py'); s = p.read_text(encoding='utf-8'); marker = 'assert symbol_miss.suggestions, ' + chr(34) + 'control: search_symbols itself offers suggestions for this query' + chr(34); assert s.count(marker) == 1, 'marker text not found verbatim - the real fix may have reworded this line; if so anchor your own mutate on your own real literal instead and note the substitution in your closeout'; s2 = s.replace(marker, 'assert True  # ' + marker, 1); assert s2 != s; p.write_text(s2, encoding='utf-8')"
+  rationale: >-
+    Disables the one assertion that proves search_symbols itself still offers a real suggestion
+    for the (possibly new) query, so if the worker's replacement query stopped triggering real
+    suggestions, this specific line would no longer catch it. A real break of the card's central
+    claim (the replacement query must be a REAL did-you-mean case, not merely a string that happens
+    to also return a Miss for an unrelated reason, e.g. being too short or empty).
+evidence:
+  - evidence/build/G3/TC-661/receipt.json
+closeout:
+  - >-
+    test_did_you_mean_suggestions_are_kept uses a real, live-verified query that still produces a
+    genuine Miss-with-suggestions under the current search_symbols prefix-tier behavior, closing
+    the staleness TC-654 left behind without weakening any assertion.
+recovery: Re-run from a clean tree.
