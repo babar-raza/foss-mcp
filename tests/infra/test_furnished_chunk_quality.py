@@ -43,7 +43,8 @@ TROUBLESHOOTING_TITLE = re.compile(
     r"troubleshoot|known issue|limitation|unsupported|error|problem", re.IGNORECASE
 )
 GETTING_STARTED_TITLE = re.compile(
-    r"install|quick ?start|getting started|prerequisite|setup|dependenc|requirement", re.IGNORECASE
+    r"install|quick ?start|getting started|prerequisite|\bsetup\s*$|dependenc|requirement",
+    re.IGNORECASE,
 )
 
 
