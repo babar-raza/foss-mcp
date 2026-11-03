@@ -1,0 +1,101 @@
+id: TC-667
+gate: G3
+lane: verification
+purpose: >-
+  Cluster 3 of the 16-failure full-suite regression:
+  `tests/infra/test_build_chunks_parse_failures_notice.py::test_main_on_the_committed_tex_fixture_ends_symbol_chunks_with_the_coverage_line`
+  pins tex/python's `API-Coverage` numerator at "21 of 21 types" (line 117); the real, current
+  number is 14. Per AGENTS.md's "no pilot ever gets worse" rule, a coverage DECREASE may never
+  be accepted as a simple re-pin without first proving it is honest. A dedicated investigation
+  (not this card) already did that proof and reached a definitive, evidence-backed verdict:
+  HONEST_CORRECTION, root-caused to TC-614 (I2, REQ-G3-012, commit `f3673794`), NOT TC-631 as
+  first suspected. TC-614 deduplicated the `API-Coverage` numerator using the canonical-identity
+  model so a re-export SHELL no longer double-counts alongside the real definition it re-exports
+  - tex/python has 7 such shell/definition pairs, so 21 raw entries collapse to 14 canonical
+  units, exactly the same treatment TC-614 already applied and measured for slides_python
+  (1023 -> 517) in the same card. TC-614's OWN commit message explicitly names this exact test
+  as a known, deliberately-deferred follow-up it left stale, alongside two others
+  (`tests/extraction/test_reextracted_uncapped.py::test_coverage_line_states_the_complete_surface`
+  and `tests/mcp/tools/test_coverage_note.py::test_report_index_freshness_states_the_same_note`)
+  - the investigation found `test_coverage_note.py` already resyncs dynamically (no stale
+  literal) and `test_reextracted_uncapped.py` LOOKS unaffected by its own comment, but neither
+  was independently re-run to confirm; this card's own `inputs` requires that live confirmation
+  before touching anything.
+depends_on:
+  - TC-614
+write_paths:
+  - tests/infra/test_build_chunks_parse_failures_notice.py
+satisfies:
+  - REQ-G3-009
+  - REQ-G3-012
+source_refs:
+  - file: docs/DECISION_LOG.md
+    anchor: >-
+      ## 2026-11-02 — Round-3 independent re-audit adopted; a real regression found and given top priority; the "no pilot ever gets worse" rule adopted project-wide (operator, supervisor)
+    sha256: b750b8bf0df25b17bf66d014895ecb42952050c7cc63773f56249c4a1c551791
+inputs:
+  - >-
+    READ FIRST: this card's own `purpose` text above, then `plans/TC-614.yaml` in full and its
+    real commit `f3673794` (`git show f3673794`) to confirm the diagnosis yourself before
+    changing anything - do not trust this card's claim blindly, re-derive it live. Confirm the
+    canonical-identity dedup is genuinely what changed tex/python's numerator (read
+    `chunk_builder.py`'s coverage-line rendering and `symbol_identity.compute_canonical_identities`)
+    and that 7 shell/definition pairs is the real count for tex/python's own
+    `tests/fixtures/tex_python/api_surface.json` fixture (count them yourself, name them in your
+    closeout).
+  - >-
+    Run `tests/extraction/test_reextracted_uncapped.py::test_coverage_line_states_the_complete_surface`
+    and `tests/mcp/tools/test_coverage_note.py::test_report_index_freshness_states_the_same_note`
+    (TC-614's own named follow-ups) FIRST, before touching anything, to confirm live whether
+    either is ALSO stale. If either still fails, that is real, in-scope work for this card too -
+    update it the same way (resync to the real, canonical-identity-correct number), after the
+    same live-verification discipline. If both already pass, say so explicitly in your closeout
+    with the real numbers you observed, do not just assume it from this card's text.
+  - >-
+    Update ONLY the one stale literal in `test_main_on_the_committed_tex_fixture_ends_symbol_chunks_with_the_coverage_line`
+    (currently `expected = "API-Coverage: 21 of 21 types; 2 of 2 functions; 11 of 45 source files
+    could not be parsed"`) to the real, live-measured number - re-run the test's own `build_chunks.main()`
+    call yourself and read the ACTUAL coverage line it produces today, do not just substitute "14"
+    from this card's text without confirming it independently. `assert len(symbols) == 23` on the
+    preceding line is a CHUNK count (21 types + 2 functions, pre-dedup), not a coverage-numerator
+    count, and TC-614 does not change it - confirm it still holds unchanged, do not touch it
+    unless your own live run shows otherwise.
+  - >-
+    Do not touch `chunk_builder.py`, `symbol_identity.py`, `run_extraction.py`, or any other
+    production file - the canonical-identity dedup is already correct and already shipped by
+    TC-614; this card closes stale literal test assertions it knowingly left behind, nothing more.
+actions:
+  - >-
+    Resync the stale "21 of 21 types" literal in
+    `test_main_on_the_committed_tex_fixture_ends_symbol_chunks_with_the_coverage_line` to the
+    real, live-measured, canonical-identity-correct coverage number (TC-614's own honest
+    correction), and close TC-614's other two named follow-ups if they are also still stale.
+checks:
+  - command: '{python} -m pytest tests/infra/test_build_chunks_parse_failures_notice.py tests/extraction/test_reextracted_uncapped.py tests/mcp/tools/test_coverage_note.py -q -rfE -p no:cacheprovider'
+    expect: 'exit 0'
+    timeout_seconds: 180
+    junitxml: true
+    proves:
+      - REQ-G3-009
+      - REQ-G3-012
+min_tests: 15
+requires:
+  - python
+network: false
+negative_control:
+  mutate: |
+    python -X utf8 -c "import pathlib; q = chr(34); p = pathlib.Path('tests/infra/test_build_chunks_parse_failures_notice.py'); s = p.read_text(encoding='utf-8'); old = 'expected = ' + q + 'API-Coverage: 14 of 21 types; 2 of 2 functions; 11 of 45 source files could not be parsed' + q; n = s.count(old); assert n == 1, 'expected exactly one occurrence of the resynced 14-of-21 coverage literal, found ' + str(n) + ' - the real fix may have used a different number or wording; if so anchor your own mutate on the real literal instead and note the substitution in your closeout'; new = 'expected = ' + q + 'API-Coverage: 21 of 21 types; 2 of 2 functions; 11 of 45 source files could not be parsed' + q; p.write_text(s.replace(old, new), encoding='utf-8')"
+  rationale: >-
+    Reverts the fix's resynced coverage literal back to the original, confirmed-stale "21 of 21"
+    value, making `test_main_on_the_committed_tex_fixture_ends_symbol_chunks_with_the_coverage_line`
+    fail for real against the real, canonical-identity-deduplicated coverage line TC-614 actually
+    produces - a direct, real break of this card's central claim (the resynced number is the real,
+    live-measured one), not a cosmetic change.
+evidence:
+  - evidence/build/G3/TC-667/receipt.json
+closeout:
+  - >-
+    tex/python's `API-Coverage` numerator literal resynced to the real, canonical-identity-correct
+    number TC-614 already produces; TC-614's other two named follow-ups confirmed either already
+    correct or closed the same way; no production code touched.
+recovery: Re-run from a clean tree.
