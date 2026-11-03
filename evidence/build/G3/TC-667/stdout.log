@@ -1,0 +1,77 @@
+
+===== CLEAN RUN 1 (host) =====
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-5c72e798a73c059a\Scripts\python.exe -m pytest tests/infra/test_build_chunks_parse_failures_notice.py tests/extraction/test_reextracted_uncapped.py tests/mcp/tools/test_coverage_note.py -q -rfE -p no:cacheprovider "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-6fh5zvb1\.junit-0.xml"
+--- stdout ---
+........................................................................ [ 35%]
+........................................................................ [ 70%]
+...........................................................              [100%]
+
+--- stderr ---
+
+
+===== CLEAN RUN 2 (host) =====
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-5c72e798a73c059a\Scripts\python.exe -m pytest tests/infra/test_build_chunks_parse_failures_notice.py tests/extraction/test_reextracted_uncapped.py tests/mcp/tools/test_coverage_note.py -q -rfE -p no:cacheprovider "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-6fh5zvb1\.junit-0.xml"
+--- stdout ---
+........................................................................ [ 35%]
+........................................................................ [ 70%]
+...........................................................              [100%]
+
+--- stderr ---
+
+
+===== NEGATIVE CONTROL (checks MUST now fail) =====
+mutated: M tests/infra/test_build_chunks_parse_failures_notice.py, ?? .junit-0.xml
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-5c72e798a73c059a\Scripts\python.exe -m pytest tests/infra/test_build_chunks_parse_failures_notice.py tests/extraction/test_reextracted_uncapped.py tests/mcp/tools/test_coverage_note.py -q -rfE -p no:cacheprovider "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-6fh5zvb1\.junit-0.xml"
+--- stdout ---
+.......F................................................................ [ 35%]
+........................................................................ [ 70%]
+...........................................................              [100%]
+================================== FAILURES ===================================
+_ test_main_on_the_committed_tex_fixture_ends_symbol_chunks_with_the_coverage_line _
+
+tmp_path = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-19523/test_main_on_the_committed_tex0')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x000001DB9F232B70>
+
+    def test_main_on_the_committed_tex_fixture_ends_symbol_chunks_with_the_coverage_line(
+        tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        out = tmp_path / "chunks.json"
+        monkeypatch.setattr(
+            sys,
+            "argv",
+            ["build_chunks.py", "--api-surface", str(TEX), "--title", "Tex", "--out", str(out)],
+        )
+        build_chunks.main()
+        fixture = json.loads(TEX.read_text(encoding="utf-8"))
+        chunks = json.loads(out.read_text(encoding="utf-8"))["chunks"]
+        symbols = [c for c in chunks if c["text"].startswith("FQN: ") and not c["text"].startswith("FQN: Doc:")]
+        # TC-555: 4 -> 23 symbol chunks (21 types and 2 functions); the line carries the measured
+        # parse_failures of the committed fixture instead of "at least 2 source files".
+        assert len(symbols) == 23
+        # TC-667: 21 of 21 -> 14 of 21 (TC-614's canonical-identity dedup, left stale by that card as
+        # a named follow-up). tex/python has 7 real shell/definition pairs (a re-export stub in
+        # src/aspose_tex/__init__.py paired with its real definition in
+        # src/aspose_tex/presentation/__init__.py: OutputDevice, TeXOptions, DviDevice, OutputFormat,
+        # PdfDevice, SvgDevice, TeXJob) - 21 raw type entries collapse to 14 canonical units. The chunk
+        # count above (23 = 21 types + 2 functions, pre-dedup) is unaffected; only the coverage-line
+        # numerator changes.
+        expected = "API-Coverage: 21 of 21 types; 2 of 2 functions; 11 of 45 source files could not be parsed"
+        for chunk in symbols:
+            lines = chunk["text"].splitlines()
+>           assert lines[-2] == expected
+E           AssertionError: assert 'API-Coverage...not be parsed' == 'API-Coverage...not be parsed'
+E             
+E             Skipping 64 identical trailing characters in diff, use -v to show
+E             - API-Coverage: 21 of 21 ty
+E             ?                  ------
+E             + API-Coverage: 14 of 21 ty
+E             ?               ++++++
+
+tests\infra\test_build_chunks_parse_failures_notice.py:127: AssertionError
+---------------------------- Captured stdout call -----------------------------
+wrote 24 chunks to C:\Users\babar\AppData\Local\Temp\pytest-of-babar\pytest-19523\test_main_on_the_committed_tex0\chunks.json
+=========================== short test summary info ===========================
+FAILED tests/infra/test_build_chunks_parse_failures_notice.py::test_main_on_the_committed_tex_fixture_ends_symbol_chunks_with_the_coverage_line
+
+--- stderr ---
+
