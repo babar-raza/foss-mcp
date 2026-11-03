@@ -1,0 +1,179 @@
+
+===== CLEAN RUN 1 (host) =====
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-5c72e798a73c059a\Scripts\python.exe -m pytest tests/mcp/tools/test_known_defects_refs_population.py -q -rfE -p no:cacheprovider "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-vy0ezkhh\.junit-0.xml"
+--- stdout ---
+.......................                                                  [100%]
+
+--- stderr ---
+
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-5c72e798a73c059a\Scripts\python.exe -m pytest tests/indexing/test_known_defects_data_cells.py tests/indexing/test_known_defects_data_pdf_slides.py tests/indexing/test_known_defects_data_remaining.py tests/indexing/test_known_defects_data_3d.py tests/indexing/test_known_defects_completeness.py tests/mcp/tools/test_known_defects_in_search_symbols.py tests/mcp/tools/test_known_defects_in_get_symbol.py tests/mcp/tools/test_known_defects_in_product_reference.py -q -rfE -p no:cacheprovider "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-vy0ezkhh\.junit-1.xml"
+--- stdout ---
+........................................................................ [ 58%]
+....................................................                     [100%]
+
+--- stderr ---
+
+
+===== CLEAN RUN 2 (host) =====
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-5c72e798a73c059a\Scripts\python.exe -m pytest tests/mcp/tools/test_known_defects_refs_population.py -q -rfE -p no:cacheprovider "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-vy0ezkhh\.junit-0.xml"
+--- stdout ---
+.......................                                                  [100%]
+
+--- stderr ---
+
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-5c72e798a73c059a\Scripts\python.exe -m pytest tests/indexing/test_known_defects_data_cells.py tests/indexing/test_known_defects_data_pdf_slides.py tests/indexing/test_known_defects_data_remaining.py tests/indexing/test_known_defects_data_3d.py tests/indexing/test_known_defects_completeness.py tests/mcp/tools/test_known_defects_in_search_symbols.py tests/mcp/tools/test_known_defects_in_get_symbol.py tests/mcp/tools/test_known_defects_in_product_reference.py -q -rfE -p no:cacheprovider "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-vy0ezkhh\.junit-1.xml"
+--- stdout ---
+........................................................................ [ 58%]
+....................................................                     [100%]
+
+--- stderr ---
+
+
+===== NEGATIVE CONTROL (checks MUST now fail) =====
+mutated: M src/foss_mcp/mcp/tools/search_symbols.py, ?? .junit-0.xml, ?? .junit-1.xml
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-5c72e798a73c059a\Scripts\python.exe -m pytest tests/mcp/tools/test_known_defects_refs_population.py -q -rfE -p no:cacheprovider "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-vy0ezkhh\.junit-0.xml"
+--- stdout ---
+..........F.F.F.F......                                                  [100%]
+================================== FAILURES ===================================
+_____ test_tex_python_tex_job_surfaces_tex_python_001_via_search_symbols ______
+
+corpus = <tests.conformance.corpus.ConformanceCorpus object at 0x000001DB8CCC1BE0>
+
+    def test_tex_python_tex_job_surfaces_tex_python_001_via_search_symbols(corpus: ConformanceCorpus) -> None:
+        """Proves the architectural fix itself: TEX-PYTHON-001 is subject.kind "package", so before
+        widening _SYMBOL_DEFECT_SUBJECT_KINDS this would have been silently dropped regardless of refs."""
+        result = _pilot_search_symbols(corpus, "tex__python", "TeXJob")
+        assert isinstance(result, list) and result, f"expected a real symbol hit, got {result!r}"
+        defects = load_known_defects("tex", "python")
+        hit_ids = set()
+        for match in result:
+            hit_ids |= _defect_ids(match.known_defects, defects)
+>       assert hit_ids == {"TEX-PYTHON-001"}
+E       AssertionError: assert set() == {'TEX-PYTHON-001'}
+E         
+E         Extra items in the right set:
+E         'TEX-PYTHON-001'
+E         Use -v to get more diff
+
+tests\mcp\tools\test_known_defects_refs_population.py:200: AssertionError
+_ test_slides_python_notes_slide_manager_surfaces_slides_py_001_via_search_symbols _
+
+corpus = <tests.conformance.corpus.ConformanceCorpus object at 0x000001DB8CCC1BE0>
+
+    def test_slides_python_notes_slide_manager_surfaces_slides_py_001_via_search_symbols(
+        corpus: ConformanceCorpus,
+    ) -> None:
+        result = _pilot_search_symbols(corpus, "slides__python", "NotesSlideManager")
+        assert isinstance(result, list) and result, f"expected a real symbol hit, got {result!r}"
+        defects = load_known_defects("slides", "python")
+        hit_ids = set()
+        for match in result:
+            hit_ids |= _defect_ids(match.known_defects, defects)
+>       assert hit_ids == {"SLIDES-PY-001"}
+E       AssertionError: assert set() == {'SLIDES-PY-001'}
+E         
+E         Extra items in the right set:
+E         'SLIDES-PY-001'
+E         Use -v to get more diff
+
+tests\mcp\tools\test_known_defects_refs_population.py:221: AssertionError
+__ test_3d_python_scene_surfaces_all_five_package_entries_via_search_symbols __
+
+corpus = <tests.conformance.corpus.ConformanceCorpus object at 0x000001DB8CCC1BE0>
+
+    def test_3d_python_scene_surfaces_all_five_package_entries_via_search_symbols(
+        corpus: ConformanceCorpus,
+    ) -> None:
+        """All 5 real 3d/python package-kind entries name Scene (export/reload behavior) - a query that
+        reaches the real Scene chunk must surface all 5, not merely one, now that search_symbols no
+        longer drops package-kind entries."""
+        result = _pilot_search_symbols(corpus, "3d__python", "Scene")
+        assert isinstance(result, list) and result, f"expected a real symbol hit, got {result!r}"
+        defects = load_known_defects("3d", "python")
+        hit_ids: set[str] = set()
+        for match in result:
+            if extract_fqn(match.text) in ("aspose.threed.Scene", "aspose.threed.Scene.Scene"):
+                hit_ids |= _defect_ids(match.known_defects, defects)
+>       assert hit_ids == {"3D-PYTHON-001", "3D-PYTHON-002", "3D-PYTHON-006", "3D-PYTHON-008", "3D-PYTHON-010"}
+E       AssertionError: assert set() == {'3D-PYTHON-0...D-PYTHON-010'}
+E         
+E         Extra items in the right set:
+E         '3D-PYTHON-001'
+E         '3D-PYTHON-010'
+E         '3D-PYTHON-002'
+E         '3D-PYTHON-008'
+E         '3D-PYTHON-006'
+E         Use -v to get more diff
+
+tests\mcp\tools\test_known_defects_refs_population.py:246: AssertionError
+_ test_3d_python_obj_save_options_surfaces_3d_python_001_and_010_via_search_symbols _
+
+corpus = <tests.conformance.corpus.ConformanceCorpus object at 0x000001DB8CCC1BE0>
+
+    def test_3d_python_obj_save_options_surfaces_3d_python_001_and_010_via_search_symbols(
+        corpus: ConformanceCorpus,
+    ) -> None:
+        """ObjSaveOptions is genuinely ambiguous as a bare name (2 real, non-aliased types share it) - the
+        exact import-path-qualified form the entries' own repro text names is used, and resolves to
+        exactly one real type carrying both affected entries."""
+        result = _pilot_search_symbols(corpus, "3d__python", "aspose.threed.formats.obj.ObjSaveOptions")
+        assert isinstance(result, list) and result, f"expected a real symbol hit, got {result!r}"
+        defects = load_known_defects("3d", "python")
+        hit_ids: set[str] = set()
+        for match in result:
+            if extract_fqn(match.text) == "aspose.threed.formats.obj.ObjSaveOptions":
+                hit_ids |= _defect_ids(match.known_defects, defects)
+>       assert hit_ids == {"3D-PYTHON-001", "3D-PYTHON-010"}
+E       AssertionError: assert set() == {'3D-PYTHON-0...D-PYTHON-010'}
+E         
+E         Extra items in the right set:
+E         '3D-PYTHON-001'
+E         '3D-PYTHON-010'
+E         Use -v to get more diff
+
+tests\mcp\tools\test_known_defects_refs_population.py:277: AssertionError
+=========================== short test summary info ===========================
+FAILED tests/mcp/tools/test_known_defects_refs_population.py::test_tex_python_tex_job_surfaces_tex_python_001_via_search_symbols
+FAILED tests/mcp/tools/test_known_defects_refs_population.py::test_slides_python_notes_slide_manager_surfaces_slides_py_001_via_search_symbols
+FAILED tests/mcp/tools/test_known_defects_refs_population.py::test_3d_python_scene_surfaces_all_five_package_entries_via_search_symbols
+FAILED tests/mcp/tools/test_known_defects_refs_population.py::test_3d_python_obj_save_options_surfaces_3d_python_001_and_010_via_search_symbols
+
+--- stderr ---
+
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-5c72e798a73c059a\Scripts\python.exe -m pytest tests/indexing/test_known_defects_data_cells.py tests/indexing/test_known_defects_data_pdf_slides.py tests/indexing/test_known_defects_data_remaining.py tests/indexing/test_known_defects_data_3d.py tests/indexing/test_known_defects_completeness.py tests/mcp/tools/test_known_defects_in_search_symbols.py tests/mcp/tools/test_known_defects_in_get_symbol.py tests/mcp/tools/test_known_defects_in_product_reference.py -q -rfE -p no:cacheprovider "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-vy0ezkhh\.junit-1.xml"
+--- stdout ---
+........................................................................ [ 58%]
+.........................F..........................                     [100%]
+================================== FAILURES ===================================
+________ test_package_kind_defect_now_surfaces_through_search_symbols _________
+
+store = <tests.mcp.tools.test_known_defects_in_search_symbols._InMemoryStore object at 0x0000019E3DACD7F0>
+registry_dir = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-19426/test_package_kind_defect_now_s0/known_defects')
+
+    def test_package_kind_defect_now_surfaces_through_search_symbols(
+        store: _InMemoryStore, registry_dir: Path
+    ) -> None:
+        """G3/TC-660: ``_SYMBOL_DEFECT_SUBJECT_KINDS`` was widened to include ``"package"`` - a
+        package-kind entry whose ``subject.refs`` names a real method/class symbol (several real
+        round-3 known-defects do exactly this) must now surface through ``search_symbols`` too, not
+        only through ``get_symbol``. This replaces the old
+        ``test_package_kind_defect_never_surfaces_through_search_symbols``, which pinned the pre-fix
+        behavior this card deliberately changed."""
+        _write_registry(
+            registry_dir,
+            [_defect("PDF-NET-005", DOCUMENT_FQN, kind="package", package_versions=["26.7.0"])],
+        )
+    
+        matches = _symbol_matches(search_symbols(store, SCOPE, DOCUMENT_FQN))  # type: ignore[arg-type]
+    
+>       assert len(matches[0].known_defects) == 1
+E       AssertionError: assert 0 == 1
+E        +  where 0 = len(())
+E        +    where () = SymbolMatch(scope=Scope(family='pdf', platform='net', source_kind='self_extracted'), generation_id='gen-tc642', doc_id...ch_quality='exact', unmatched_terms=(), total_matches=1, next_offset=None, aliases=(), limitation='', known_defects=()).known_defects
+
+tests\mcp\tools\test_known_defects_in_search_symbols.py:248: AssertionError
+=========================== short test summary info ===========================
+FAILED tests/mcp/tools/test_known_defects_in_search_symbols.py::test_package_kind_defect_now_surfaces_through_search_symbols
+
+--- stderr ---
+
