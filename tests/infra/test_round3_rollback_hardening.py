@@ -450,12 +450,32 @@ def test_a_generation_that_already_existed_is_not_removed_by_a_failed_publish(
 # --- the shipped script runs where it is shipped ------------------------------------------------------
 
 
+# A distribution name and its top-level import name are not always the same string. Verified
+# live against this project's own installed environment (`importlib.metadata.packages_distributions()`
+# against the venv `requirements-serving.lock` was compiled for) rather than assumed: these are the
+# only pairs genuinely present in requirements-serving.lock where the two differ -
+# `pyyaml` imports as `yaml`, `pyjwt` imports as `jwt`, `opentelemetry-api` provides the
+# `opentelemetry` namespace package (there is no importable `opentelemetry_api` module), and
+# `rpds-py` imports as `rpds`. Common examples like `pillow`/`PIL` and `beautifulsoup4`/`bs4` are
+# NOT in this lock file, so they are deliberately not mapped here.
+_DISTRIBUTION_IMPORT_ALIASES = {
+    "pyyaml": "yaml",
+    "pyjwt": "jwt",
+    "opentelemetry_api": "opentelemetry",
+    "rpds_py": "rpds",
+}
+
+
 def _serving_lock_packages() -> set[str]:
     names = set()
     for line in (REPO_ROOT / "requirements-serving.lock").read_text(encoding="utf-8").splitlines():
         match = re.match(r"^([A-Za-z0-9][A-Za-z0-9._-]*)==", line)
         if match:
-            names.add(re.sub(r"[-_.]+", "_", match.group(1)).lower())
+            normalised = re.sub(r"[-_.]+", "_", match.group(1)).lower()
+            names.add(normalised)
+            alias = _DISTRIBUTION_IMPORT_ALIASES.get(normalised)
+            if alias:
+                names.add(alias)
     return names
 
 
