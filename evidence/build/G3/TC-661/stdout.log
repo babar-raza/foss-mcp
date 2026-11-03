@@ -1,0 +1,55 @@
+
+===== CLEAN RUN 1 (host) =====
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-5c72e798a73c059a\Scripts\python.exe -m pytest tests/mcp/tools/test_lookup_miss_reason.py -q -rfE -p no:cacheprovider "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-cdjx_ntq\.junit-0.xml"
+--- stdout ---
+............................................                             [100%]
+
+--- stderr ---
+
+
+===== CLEAN RUN 2 (host) =====
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-5c72e798a73c059a\Scripts\python.exe -m pytest tests/mcp/tools/test_lookup_miss_reason.py -q -rfE -p no:cacheprovider "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-cdjx_ntq\.junit-0.xml"
+--- stdout ---
+............................................                             [100%]
+
+--- stderr ---
+
+
+===== NEGATIVE CONTROL (checks MUST now fail) =====
+mutated: M tests/mcp/tools/test_lookup_miss_reason.py, ?? .junit-0.xml
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-5c72e798a73c059a\Scripts\python.exe -m pytest tests/mcp/tools/test_lookup_miss_reason.py -q -rfE -p no:cacheprovider "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-cdjx_ntq\.junit-0.xml"
+--- stdout ---
+....................................F.......                             [100%]
+================================== FAILURES ===================================
+___________________ test_did_you_mean_suggestions_are_kept ____________________
+
+pilot_stores = {'3d__java__self_extracted': <foss_mcp.indexing.generation_manifest.GenerationManifestStore object at 0x00000215245617...pt__self_extracted': <foss_mcp.indexing.generation_manifest.GenerationManifestStore object at 0x0000021554EF7230>, ...}
+tmp_path_factory = TempPathFactory(_given_basetemp=None, _trace=<pluggy._tracing.TagTracerSub object at 0x000002152445BA80>, _basetemp=WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-19448'), _retention_count=3, _retention_policy='all')
+
+    def test_did_you_mean_suggestions_are_kept(
+        pilot_stores: dict[str, GenerationManifestStore], tmp_path_factory: pytest.TempPathFactory
+    ) -> None:
+        # Was "Annotatio" (TC-493); TC-654 (Q12) added search_symbols' own prefix tier, under which
+        # "Annotatio" is a genuine 9-character prefix of the real symbol "Annotation" and therefore no
+        # longer a Miss. "Annotatio" (the 't'/'i' transposed in the middle of "Annotation", not merely
+        # truncated at the end) is still a genuine Miss under that prefix tier - live-verified: it is not
+        # a prefix of any real indexed FQN word - while remaining close enough that search_symbols' own
+        # difflib-based suggestion mechanism offers real suggestions for it, including the real
+        # "Aspose.Pdf.Annotations.Annotation".
+        directory = "pdf__net__self_extracted"
+        store = _store_for(pilot_stores, tmp_path_factory, directory)
+        scope = _scope_of(directory)
+    
+        answer = lookup(store, scope, "Annotatio")
+        symbol_miss = search_symbols(store, scope, "Annotatio")
+    
+>       assert isinstance(answer, Miss)
+E       AssertionError: assert False
+E        +  where False = isinstance([SymbolMatch(scope=Scope(family='pdf', platform='net', source_kind='self_extracted'), generation_id='pdf::net::self_ex...ty='partial', unmatched_terms=(), total_matches=136, next_offset=10, aliases=(), limitation='', known_defects=()), ...], Miss)
+
+tests\mcp\tools\test_lookup_miss_reason.py:183: AssertionError
+=========================== short test summary info ===========================
+FAILED tests/mcp/tools/test_lookup_miss_reason.py::test_did_you_mean_suggestions_are_kept
+
+--- stderr ---
+
