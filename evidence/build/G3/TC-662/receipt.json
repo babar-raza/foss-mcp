@@ -1,0 +1,89 @@
+{
+  "schema_version": 1,
+  "card": "TC-662",
+  "gate": "G3",
+  "generated_by": "gatectl",
+  "generated_at": "2026-11-03T12:48:57Z",
+  "base_rev": "3e02adc92105fd887e85e4e2049896eb2ae60dfc",
+  "head_rev": "f50c8a44a4d82fdd61ef140dc9336454668b22bf",
+  "card_sha256": "05bdae758fe079cdc9850b5c5e300b9b1333a76e864d31df711419da3b38a434",
+  "fingerprint": {
+    "python": "3.13.2",
+    "platform": "Windows-11-10.0.26300-SP0",
+    "lock_sha256": "5c72e798a73c059a438e752e94a8d4c88c1bdf81a197f6e5c5fcecbc9466a691",
+    "env": {
+      "PYTHONHASHSEED": "0",
+      "PYTHONUTF8": "1",
+      "PYTHONDONTWRITEBYTECODE": "1",
+      "PYTHONIOENCODING": "utf-8",
+      "TZ": "UTC",
+      "LC_ALL": "C.UTF-8",
+      "SOURCE_DATE_EPOCH": "1700000000",
+      "verify_runner": "host"
+    }
+  },
+  "scope": {
+    "ok": true,
+    "changed_paths": [
+      "tests/fixtures/furnished/cells_cpp/manifest.json",
+      "tests/fixtures/readme_identifier_allowlist.json"
+    ],
+    "violations": [],
+    "evaluated": true
+  },
+  "runs": [
+    {
+      "run": 1,
+      "checks": [
+        {
+          "command": "{python} -m pytest tests/extraction/test_docs_identifiers_resolve.py tests/test_pilot_export.py -q -rfE -p no:cacheprovider",
+          "exit_code": 0,
+          "duration_s": 13.34,
+          "stdout_sha256": "19da9087d92935b2064df20f632357e22786ce3e50fd7075c1f2ef56c47433ca",
+          "tests": 73,
+          "skipped": 0,
+          "errors": 0,
+          "failures": 0
+        }
+      ],
+      "all_passed": true
+    },
+    {
+      "run": 2,
+      "checks": [
+        {
+          "command": "{python} -m pytest tests/extraction/test_docs_identifiers_resolve.py tests/test_pilot_export.py -q -rfE -p no:cacheprovider",
+          "exit_code": 0,
+          "duration_s": 8.028,
+          "stdout_sha256": "19da9087d92935b2064df20f632357e22786ce3e50fd7075c1f2ef56c47433ca",
+          "tests": 73,
+          "skipped": 0,
+          "errors": 0,
+          "failures": 0
+        }
+      ],
+      "all_passed": true
+    }
+  ],
+  "negative_control": {
+    "kind": "mutate",
+    "patch": "python -X utf8 -c \"import json, pathlib; p = pathlib.Path('tests/fixtures/furnished/cells_cpp/manifest.json'); data = json.loads(p.read_text(encoding='utf-8')); entries = [e for e in data['files'] if e['path'] == '_index.md']; assert entries, 'no _index.md entry found - card scope may have changed, re-anchor this mutate'; entries[0]['sha256'] = 'f' * 64; p.write_text(json.dumps(data, indent=2) + chr(10), encoding='utf-8')\"\n",
+    "patch_sha256": "f9626b84755a843f14eebeb94578977c7c5c1ef25ab678ecf326c81f5afeac6c",
+    "applied": true,
+    "patch_applied_failed": true,
+    "exit_codes": [
+      1
+    ],
+    "tree_changed": [
+      "M tests/fixtures/furnished/cells_cpp/manifest.json",
+      "?? .junit-0.xml"
+    ]
+  },
+  "holdout": {
+    "ran": false,
+    "passed": true,
+    "detail": "no holdout for this card"
+  },
+  "accepted": true,
+  "reason": "all gates passed"
+}
