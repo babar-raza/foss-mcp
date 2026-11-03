@@ -1,0 +1,117 @@
+id: TC-664
+gate: G3
+lane: verification
+purpose: >-
+  TC-655 (NOTE-PY-003) widened `fetch_recent_releases.main()`'s tag-fetch trigger from "only when
+  the release list is completely empty" to "also to pad a short list toward --limit" - a real,
+  intentional, already-closed freshness fix. Six existing tests across two files pin the OLD,
+  narrower trigger and now fail for real because tags ARE fetched where they used to not be:
+  confirmed directly by re-running each one against current main:
+  `test_main_merges_the_newer_tag_and_records_the_drift_in_both_sidecars` and
+  `test_main_without_an_indexed_commit_does_nothing_new` both expected `calls["tags"] == 0`,
+  got `1`; `test_main_keeps_the_list_when_the_tags_read_fails` expected `calls["tags"] == 1`,
+  got `2` (tags are now read a second time to attempt padding even after the first read already
+  failed); `test_main_ignores_a_failed_product_reference_placeholder` expected
+  `calls["tags"] == 0`, got `1`; and in `tests/infra/test_serve_manifest_sidecar.py`, two tests
+  that drive `fetch_recent_releases.main()` through its own shared `_write_recent_releases_sidecar`
+  helper with a short (1-2 item) mocked release list got MORE releases written than the test
+  fixture's hand-written expectation (7 instead of 2 in one case; 6 real tag-padded entries
+  instead of the expected single net-only entry in the other) once real tag padding kicked in.
+  None of this is a regression - TC-655's own card and its acceptance already proved the padding
+  behavior correct; these six tests simply predate it and were never updated for it, because
+  `tests/infra/test_round3_release_tags.py` and `tests/infra/test_serve_manifest_sidecar.py` were
+  not in TC-655's own write_paths.
+depends_on:
+  - TC-655
+  - TC-577
+write_paths:
+  - tests/infra/test_round3_release_tags.py
+  - tests/infra/test_serve_manifest_sidecar.py
+satisfies:
+  - REQ-G3-009
+source_refs:
+  - file: docs/DECISION_LOG.md
+    anchor: >-
+      ## 2026-11-02 — Round-3 independent re-audit adopted; a real regression found and given top priority; the "no pilot ever gets worse" rule adopted project-wide (operator, supervisor)
+    sha256: b750b8bf0df25b17bf66d014895ecb42952050c7cc63773f56249c4a1c551791
+inputs:
+  - >-
+    READ FIRST: this card's own `purpose` text above, then TC-655's own card and
+    `infra/fetch_recent_releases.py`'s real current tag-padding logic (the function that decides
+    whether to call `fetch_tags`, and its `--limit`/`_DEFAULT_LIMIT` interaction) to confirm the
+    diagnosis yourself before changing anything - do not trust this card's claim blindly,
+    re-derive it live by re-running each of the six named tests and reading its real vs expected
+    values.
+  - >-
+    For each of the four tests in `tests/infra/test_round3_release_tags.py`
+    (`test_main_merges_the_newer_tag_and_records_the_drift_in_both_sidecars`,
+    `test_main_without_an_indexed_commit_does_nothing_new`,
+    `test_main_keeps_the_list_when_the_tags_read_fails`,
+    `test_main_ignores_a_failed_product_reference_placeholder`): update ONLY the hardcoded
+    `calls[...]`/`http.urls`/output-length assertions that assumed the old no-padding trigger, to
+    match the real, now-correct padded call counts and resulting content you observe live. Do not
+    weaken what each test actually verifies (the drift record shape, the tag-merge ordering, the
+    warning text on a failed tags read, the placeholder-ignoring behavior) - only the
+    call-count/content numbers that padding changed.
+  - >-
+    For the two tests in `tests/infra/test_serve_manifest_sidecar.py`
+    (`test_serving_with_a_recent_releases_sidecar_reaches_list_recent_changes_with_real_content`,
+    `test_serving_with_the_pdf_java_identity_never_reads_the_pdf_net_recent_releases_sidecar`):
+    the first's own comment says it exists specifically as AGENTS.md's "Integration and
+    liveness" live-content smoke test - real, non-empty content reaching `list_recent_changes`,
+    not a specific count - so widen its count assertion to accept the real padded count rather
+    than hardcoding today's exact number, and keep asserting the real first entry's tag/richness.
+    The second test's job is cross-identity isolation (pdf/java must never see pdf/net's
+    sidecar) - keep that assertion exactly as strict (still comparing the full real tuple, not
+    just checking non-emptiness), just update the expected tuple's content to what the real
+    padded fetch for pdf/net now produces; the pdf/java side (`== ()`) must stay unchanged and
+    must still pass, since cross-identity isolation is NOT something TC-655 touched.
+  - >-
+    Run both files' full suites (not just the six named tests) twice clean, and specifically
+    re-confirm `test_serving_with_no_recent_releases_sidecar_answers_an_empty_tuple_and_does_not_raise`
+    and the pdf/java `== ()` assertion still pass unchanged - this card must not weaken isolation
+    while fixing content-count staleness.
+actions:
+  - >-
+    Update the six named tests' hardcoded call-count/content assertions to match
+    `fetch_recent_releases.main()`'s real, already-correct TC-655 tag-padding behavior, without
+    weakening any test's actual verified claim (drift shape, failure handling, cross-identity
+    isolation).
+checks:
+  - command: '{python} -m pytest tests/infra/test_round3_release_tags.py tests/infra/test_serve_manifest_sidecar.py -q -rfE -p no:cacheprovider'
+    expect: 'exit 0'
+    timeout_seconds: 240
+    junitxml: true
+    proves:
+      - REQ-G3-009
+min_tests: 20
+requires:
+  - python
+network: true
+negative_control:
+  mutate: |
+    python -X utf8 -c "
+    import pathlib
+    q = chr(34)
+    p = pathlib.Path('tests/infra/test_round3_release_tags.py')
+    s = p.read_text(encoding='utf-8')
+    old = 'assert calls[' + q + 'tags' + q + '] == 0 and http.urls == []'
+    assert s.count(old) == 1, ('expected exactly one occurrence of the pdf-placeholder tags==0 assertion, found ' + str(s.count(old)) + ' - the real fix may have reshaped this assertion differently; if so anchor your own mutate on the real literal instead and note the substitution in your closeout')
+    new = 'assert calls[' + q + 'tags' + q + '] == 999 and http.urls == []'
+    p.write_text(s.replace(old, new), encoding='utf-8')
+    "
+  rationale: >-
+    Forces `test_main_ignores_a_failed_product_reference_placeholder`'s own updated tag-count
+    assertion to an impossible value, making it fail for real against the real, padded call
+    count the fix observed live - a direct, real break of this card's central claim (the updated
+    counts are the real, live-verified ones), dry-run-verified against the worker's own committed
+    content before this card was issued.
+evidence:
+  - evidence/build/G3/TC-664/receipt.json
+closeout:
+  - >-
+    All six tests in `tests/infra/test_round3_release_tags.py` and
+    `tests/infra/test_serve_manifest_sidecar.py` updated to match TC-655's real, already-correct
+    tag-padding behavior; cross-identity isolation and failure-handling assertions left exactly
+    as strict as before.
+recovery: Re-run from a clean tree.

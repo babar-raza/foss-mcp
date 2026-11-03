@@ -1,0 +1,112 @@
+id: TC-666
+gate: G3
+lane: verification
+purpose: >-
+  `tests/infra/test_helm_manifest_step.py::test_serving_with_the_pdf_java_identity_never_reads_the_pdf_net_sidecar`
+  asserts `serve_http._serving_product_reference_inputs(tmp_path, java) is None` when only a
+  pdf/net sidecar file exists and no pdf/java sidecar or failure marker does. This predates
+  TC-650 (round-2 audit PDF-JAVA-003), which gave `config/products/pdf/java.yaml` a real
+  `known_hazards` entry (the project's own stale formats/limitations text falsely claiming
+  PDF<->Word/Excel conversion is unsupported). `_serving_product_reference_inputs` (per its own
+  docstring, G3/TC-582) merges a deployment's `known_hazards` into EVERY path it can return,
+  including the `None` case - "A deployment with no known_hazards... passes inputs through
+  completely unchanged" (true when TC-582 landed, when only cells/go had one; no longer true for
+  pdf/java since TC-650). So this test's bare `is None` assertion stopped holding the moment
+  TC-650 landed pdf/java's hazard, well before this session's TC-655/659/660/661 work - confirmed
+  directly: re-ran the test against current main and got a real `ProductReferenceInputs` back
+  with `known_hazards` populated from the real TC-650 text (`verified_at='2026-10-29'`),
+  `manifest_text=None, contributing=None, agent_guidance=None, platform='java'`. The test's real
+  INTENT (pdf/java's identity must never read pdf/net's manifest-derived sidecar content) is
+  still correct and still true; only the literal `is None` shape assumption is stale, since a
+  hazard-bearing identity with no sidecar now correctly gets a non-None answer carrying ONLY its
+  own local hazards, never the other identity's manifest content.
+depends_on:
+  - TC-650
+  - TC-575
+write_paths:
+  - tests/infra/test_helm_manifest_step.py
+satisfies:
+  - REQ-G3-009
+source_refs:
+  - file: docs/DECISION_LOG.md
+    anchor: >-
+      ## 2026-11-02 — Round-3 independent re-audit adopted; a real regression found and given top priority; the "no pilot ever gets worse" rule adopted project-wide (operator, supervisor)
+    sha256: b750b8bf0df25b17bf66d014895ecb42952050c7cc63773f56249c4a1c551791
+inputs:
+  - >-
+    READ FIRST: this card's own `purpose` text above, then
+    `infra/serve_http.py`'s `_serving_product_reference_inputs`,
+    `_serving_product_reference_inputs_without_known_hazards`, and `_with_deployment_known_hazards`
+    (read all three docstrings in full - they explain exactly why `None` can now become non-None)
+    and `config/products/pdf/java.yaml`'s real `known_hazards` entry (from TC-650), to confirm the
+    diagnosis yourself before changing anything - do not trust this card's claim blindly,
+    re-derive it live.
+  - >-
+    Rewrite `test_serving_with_the_pdf_java_identity_never_reads_the_pdf_net_sidecar` to assert
+    the test's real, still-valid intent precisely: with only a pdf/net sidecar present, the
+    pdf/java answer must be non-None (because of its own real, local `known_hazards`) but its
+    manifest-DERIVED fields (`manifest_text`, `contributing`, `agent_guidance`) must all stay
+    `None`/not-present, and its `platform` must read `"java"`, never anything derived from the
+    pdf/net sidecar file. Keep the existing pdf/net-side assertion (`.platform == "net"`) exactly
+    as it is - that half of the cross-identity check is untouched by TC-650 and must keep passing
+    unchanged.
+  - >-
+    Do not touch `infra/serve_http.py`, `config/products/pdf/java.yaml`, or any other production
+    or config file - this is a test-only staleness fix, the hazard disclosure and the merge
+    mechanism are both already correct and already shipped.
+  - >-
+    Grep this test file (and `tests/infra/test_serve_manifest_sidecar.py`, which has its own,
+    separate pdf/java cross-identity test already passing) for any OTHER bare `is None` assertion
+    on `_serving_product_reference_inputs` for a deployment that might also gain a
+    `known_hazards` entry in the future, and note in your closeout whether any other such
+    assertion exists today (none should, since only cells/go and pdf/java currently have
+    `known_hazards` entries and the other cells/go-identity tests already account for it) - this
+    is a check, not an invitation to pre-emptively rewrite tests this card has no evidence are
+    broken.
+actions:
+  - >-
+    Update the one stale `is None` assertion to the real, still-correct cross-identity isolation
+    claim (no manifest-derived leakage from pdf/net, while pdf/java's own local `known_hazards`
+    correctly appears), closing the confirmed pre-existing TC-650/TC-582 interaction without
+    touching any production or config file.
+checks:
+  - command: '{python} -m pytest tests/infra/test_helm_manifest_step.py -q -rfE -p no:cacheprovider'
+    expect: 'exit 0'
+    timeout_seconds: 180
+    junitxml: true
+    proves:
+      - REQ-G3-009
+min_tests: 15
+requires:
+  - python
+network: false
+negative_control:
+  mutate: |
+    python -X utf8 -c "
+    import pathlib
+    nl = chr(10)
+    p = pathlib.Path('tests/infra/test_helm_manifest_step.py')
+    s = p.read_text(encoding='utf-8')
+    marker = 'def test_serving_with_the_pdf_java_identity_never_reads_the_pdf_net_sidecar'
+    assert s.count(marker) == 1, 'test not found where expected - re-anchor this mutate on the real current test'
+    start = s.index(marker)
+    end = s.index(nl + nl + nl, start)
+    body = s[start:end]
+    assert 'contributing' in body or 'manifest_text' in body, 'expected the fixed test to assert on manifest-derived fields - if the real fix shaped this differently, re-anchor your own mutate on the real literal and note the substitution in your closeout'
+    new_body = body + nl + '    assert False  # control: force this test to fail regardless of the real fix'
+    p.write_text(s[:start] + new_body + s[end:], encoding='utf-8')
+    "
+  rationale: >-
+    Appends an unconditional failing assertion to the end of the fixed test's own body, making
+    it fail for real no matter what the fix's real assertions are - a direct, real break of this
+    card's central claim that this specific test is the one carrying the fix, confirmed by
+    requiring the fix to actually touch `manifest_text`/`contributing` (the fields the fix's own
+    instructions named) before the mutate applies.
+evidence:
+  - evidence/build/G3/TC-666/receipt.json
+closeout:
+  - >-
+    `test_serving_with_the_pdf_java_identity_never_reads_the_pdf_net_sidecar` updated to assert
+    the real, still-correct cross-identity isolation claim (no pdf/net manifest-derived leakage,
+    pdf/java's own local known_hazards correctly present); no production or config file touched.
+recovery: Re-run from a clean tree.

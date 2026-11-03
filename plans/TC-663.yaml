@@ -1,0 +1,102 @@
+id: TC-663
+gate: G3
+lane: verification
+purpose: >-
+  `tests/infra/test_furnished_chunk_quality.py::test_categories_derive_from_titles[cells_cpp]`
+  fails on the real chunk titled "Page Setup and Print Configuration":
+  `classify_content_type` (production) answers `developer_guide`, the test's own
+  `_expected_category` heuristic answers `getting_started`. This is NOT a new regression from any
+  recent card - it is TC-640's own already-landed, already-correct production fix
+  (`src/foss_mcp/mcp/tools/search_docs.py`'s `_GETTING_STARTED_TITLE`, which TC-640 narrowed from
+  a bare `setup` substring match to `\bsetup\s*$` - "setup" only counts as onboarding when it is
+  the title's own LAST word - specifically because the bare form misfiled this exact title,
+  "Page Setup and Print Configuration", a reference title about page layout, not onboarding) that
+  was never mirrored into this test file's OWN restated copy of the same regex
+  (`GETTING_STARTED_TITLE` at module level here, which still has the old, unnarrowed bare `setup`
+  alternative). The test file's own comment states the intent directly: "The title rules,
+  restated here on purpose: a change to the production table must show up as a diff in this file
+  too" - TC-640 changed the production table but this file's own diff never happened, because no
+  real pilot's chunk title happened to contain a non-trailing "setup" word until TC-659's cells/cpp
+  re-ingest produced this exact title. Confirmed directly: re-ran the failing test against current
+  main and got `AssertionError: ('cells_cpp', 'Page Setup and Print Configuration') assert
+  'developer_guide' == 'getting_started'`, then read both regexes side by side and confirmed the
+  drift is exactly TC-640's own narrowing, word for word.
+depends_on:
+  - TC-640
+write_paths:
+  - tests/infra/test_furnished_chunk_quality.py
+satisfies:
+  - REQ-G3-009
+source_refs:
+  - file: docs/DECISION_LOG.md
+    anchor: >-
+      ## 2026-11-02 — Round-3 independent re-audit adopted; a real regression found and given top priority; the "no pilot ever gets worse" rule adopted project-wide (operator, supervisor)
+    sha256: b750b8bf0df25b17bf66d014895ecb42952050c7cc63773f56249c4a1c551791
+inputs:
+  - >-
+    READ FIRST: this card's own `purpose` text above, then both regexes yourself before changing
+    anything - `src/foss_mcp/mcp/tools/search_docs.py`'s `_GETTING_STARTED_TITLE` (currently
+    `r"install|quick ?start|getting started|prerequisite|\bsetup\s*$|dependenc|requirement"`,
+    with TC-640's own comment directly above explaining the `\bsetup\s*$` narrowing) and
+    `tests/infra/test_furnished_chunk_quality.py`'s `GETTING_STARTED_TITLE` (currently
+    `r"install|quick ?start|getting started|prerequisite|setup|dependenc|requirement"`, the old,
+    unnarrowed form) - confirm the ONLY difference is the `setup` vs `\bsetup\s*$` alternative
+    before touching anything; do not trust this card's claim blindly, re-derive it.
+  - >-
+    This file's own comment ("a change to the production table must show up as a diff in this
+    file too") makes the fix exact and mechanical: update ONLY the `setup` alternative in this
+    test file's `GETTING_STARTED_TITLE` to `\bsetup\s*$`, byte-for-byte matching production's real
+    current regex. Do not touch `TROUBLESHOOTING_TITLE` (unchanged in production, must stay
+    unchanged here) or `_expected_category`'s own logic (it is correct; only the regex constant
+    it calls into is stale).
+  - >-
+    Run `test_categories_derive_from_titles` across ALL parametrized pilots (not just cells_cpp)
+    twice clean, to confirm the narrowed regex does not newly misclassify some OTHER pilot's
+    title that happened to rely on the old bare-`setup` match (the one place that was known to
+    rely on it, "Environment Setup" in `tests/extraction/test_doc_classification_by_title.py`
+    per TC-640's own comment, is a different file, not in this card's write_paths, and TC-640
+    already confirmed it still matches under `\bsetup\s*$` since "Setup" is the last word there -
+    verify this stays true, do not just assume it from the comment).
+actions:
+  - >-
+    Resync `tests/infra/test_furnished_chunk_quality.py`'s `GETTING_STARTED_TITLE` mirror to
+    production's real, already-correct, TC-640-narrowed regex, closing the confirmed pre-existing
+    test/production drift without changing any production code or any other test's behavior.
+checks:
+  - command: '{python} -m pytest tests/infra/test_furnished_chunk_quality.py tests/extraction/test_doc_classification_by_title.py -q -rfE -p no:cacheprovider'
+    expect: 'exit 0'
+    timeout_seconds: 180
+    junitxml: true
+    proves:
+      - REQ-G3-009
+min_tests: 20
+requires:
+  - python
+network: false
+negative_control:
+  mutate: |
+    python -X utf8 -c "
+    import pathlib
+    bs = chr(92)
+    p = pathlib.Path('tests/infra/test_furnished_chunk_quality.py')
+    s = p.read_text(encoding='utf-8')
+    old = 'install|quick ?start|getting started|prerequisite|' + bs + 'bsetup' + bs + 's*$|dependenc|requirement'
+    new = 'install|quick ?start|getting started|prerequisite|setup|dependenc|requirement'
+    n = s.count(old)
+    assert n == 1, ('expected exactly one occurrence of the narrowed regex literal, found ' + str(n) + ' - the real fix may have formatted this differently; if so anchor your own mutate on the real literal instead and note the substitution in your closeout')
+    s2 = s.replace(old, new)
+    assert s2 != s
+    p.write_text(s2, encoding='utf-8')
+    "
+  rationale: >-
+    Reverts the fix's own narrowed regex back to the old, stale, bare `setup` form, making
+    `test_categories_derive_from_titles[cells_cpp]` fail for real
+    (`'developer_guide' == 'getting_started'` again) - a direct, real break of this card's
+    central claim, dry-run-verified against the real narrowing before this card was dispatched.
+evidence:
+  - evidence/build/G3/TC-663/receipt.json
+closeout:
+  - >-
+    `tests/infra/test_furnished_chunk_quality.py`'s `GETTING_STARTED_TITLE` mirror resynced to
+    production's TC-640-narrowed regex; no production code or other test's behavior changed.
+recovery: Re-run from a clean tree.

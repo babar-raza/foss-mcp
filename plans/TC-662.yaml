@@ -1,0 +1,111 @@
+id: TC-662
+gate: G3
+lane: extraction
+purpose: >-
+  TC-659 re-ingested cells/cpp's real documentation and structurally fixed `readme_sections.py`
+  (closing a second fabrication, CELLS-CPP-010). That re-ingest changed cells/cpp's real baked
+  README content and `_index.md`, but two derived artifacts that must track that content byte-
+  for-byte were never regenerated, so `scripts/ci_check.sh`'s full pytest run now fails on both:
+  (1) `tests/fixtures/readme_identifier_allowlist.json` (TC-??? the README-identifier allowlist)
+  no longer matches the real identifiers the re-ingested README actually names - confirmed live:
+  `cells_cpp: the README names ['FOSS'] which the fixture does not hold` and `['FetchContent']
+  are on the allowlist but now resolve or are no longer named - REMOVE them`; (2) the committed
+  cells/cpp export bundle's `manifest.json` still carries `pages/_index.md`'s OLD sha256, so
+  `verify_bundle` reports `_index.md: checksum mismatch (tampered or corrupt)` even though the
+  file's real current content is simply TC-659's real, intended re-ingested content, not actual
+  corruption. Both are pre-existing, confirmed-reproducing failures (not something this card's
+  own write_paths could have caused): directly re-ran
+  `pytest tests/extraction/test_docs_identifiers_resolve.py tests/test_pilot_export.py::test_the_committed_cells_cpp_bundle_is_real_and_verifies_clean`
+  against current main and got the exact tracebacks above.
+depends_on:
+  - TC-659
+write_paths:
+  - tests/fixtures/readme_identifier_allowlist.json
+  - tests/fixtures/furnished/cells_cpp/manifest.json
+satisfies:
+  - REQ-G3-009
+source_refs:
+  - file: docs/DECISION_LOG.md
+    anchor: >-
+      ## 2026-11-02 — Round-3 independent re-audit adopted; a real regression found and given top priority; the "no pilot ever gets worse" rule adopted project-wide (operator, supervisor)
+    sha256: b750b8bf0df25b17bf66d014895ecb42952050c7cc63773f56249c4a1c551791
+inputs:
+  - >-
+    READ FIRST: this card's own `purpose` text above. Then confirm both failures yourself before
+    changing anything - `python -m pytest tests/extraction/test_docs_identifiers_resolve.py
+    tests/test_pilot_export.py::test_the_committed_cells_cpp_bundle_is_real_and_verifies_clean -q -rfE`
+    from a clean tree, re-derive the diagnosis from the real tracebacks, do not trust this card's
+    claim blindly.
+  - >-
+    Allowlist (failure 1): `tests/extraction/docs_identifiers.py` (read it; do not edit it, it is
+    not in this card's write_paths) has a `--write` mode that regenerates
+    `tests/fixtures/readme_identifier_allowlist.json` from the REAL, currently-ingested README
+    content for every pilot. Run it (with the repo's `src` on `PYTHONPATH`, same as any other
+    test invocation) and inspect the diff it produces against the committed file - it must touch
+    ONLY the `cells_cpp` entry (removing `FetchContent`, adding `FOSS`, or whatever the real
+    current README content actually requires); if it touches any OTHER pilot's entry, stop and
+    investigate before committing - that would mean something unrelated also drifted, which is
+    out of this card's scope and must be reported via `ops/open_questions.jsonl`, not silently
+    folded in here.
+  - >-
+    Bundle checksum (failure 2): confirm `tests/fixtures/furnished/cells_cpp/pages/_index.md`'s
+    REAL current content is TC-659's own intended re-ingested content (read TC-659's card and its
+    closeout, and the file itself) - this is a sha256 resync of an already-correct file, never a
+    silent acceptance of corrupted or wrong content. If anything about the file's real content
+    looks wrong or unintended, stop and report via `ops/open_questions.jsonl` instead of just
+    recomputing the hash. Once confirmed correct: recompute `hashlib.sha256(...).hexdigest()` of
+    the real file bytes and update ONLY that one entry's `sha256` field in
+    `tests/fixtures/furnished/cells_cpp/manifest.json` - do not touch any other entry, any other
+    pilot's bundle, or `source_commit`/`source_repository`/`source_subtree`. Do NOT run
+    `scripts/pilot_manual_export.py` itself (it requires live `gh api` access to the private
+    `Aspose/aspose.org` repository per OWNER-01's credential gate and would re-export from
+    scratch, far beyond what a one-field checksum resync needs).
+  - >-
+    Run the full `tests/extraction/` and `tests/test_pilot_export.py` suites (not just the
+    failing tests) twice clean, plus a full `scripts/ci_check.sh` pytest sweep if time allows, to
+    confirm no other pilot's allowlist or bundle entry was disturbed.
+actions:
+  - >-
+    Regenerate `tests/fixtures/readme_identifier_allowlist.json`'s cells_cpp entry to match the
+    real, currently-ingested README content, and resync
+    `tests/fixtures/furnished/cells_cpp/manifest.json`'s `_index.md` checksum to the file's real
+    current (TC-659-intended) content - closing both confirmed-pre-existing failures without
+    touching any other pilot or any production code.
+checks:
+  - command: '{python} -m pytest tests/extraction/test_docs_identifiers_resolve.py tests/test_pilot_export.py -q -rfE -p no:cacheprovider'
+    expect: 'exit 0'
+    timeout_seconds: 300
+    junitxml: true
+    proves:
+      - REQ-G3-009
+min_tests: 15
+requires:
+  - python
+network: false
+negative_control:
+  mutate: |
+    python -X utf8 -c "
+    import json, pathlib
+    p = pathlib.Path('tests/fixtures/furnished/cells_cpp/manifest.json')
+    data = json.loads(p.read_text(encoding='utf-8'))
+    for entry in data['files']:
+        if entry['path'] == '_index.md':
+            entry['sha256'] = 'f' * 64
+            break
+    else:
+        raise SystemExit('no _index.md entry found - card scope may have changed, re-anchor this mutate')
+    p.write_text(json.dumps(data, indent=2) + chr(10), encoding='utf-8')
+    "
+  rationale: >-
+    Corrupts the fix's own resynced `_index.md` checksum back to an obviously-wrong value, making
+    `verify_bundle(CELLS_CPP_BUNDLE) == []` fail for real
+    (`test_the_committed_cells_cpp_bundle_is_real_and_verifies_clean`) - a direct, real break of
+    this card's central claim (the checksum now matches the real file), not a cosmetic change.
+evidence:
+  - evidence/build/G3/TC-662/receipt.json
+closeout:
+  - >-
+    `tests/fixtures/readme_identifier_allowlist.json` and
+    `tests/fixtures/furnished/cells_cpp/manifest.json` both resynced to TC-659's real re-ingested
+    cells/cpp content; no other pilot touched; no production code changed.
+recovery: Re-run from a clean tree.

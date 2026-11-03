@@ -1,0 +1,99 @@
+id: TC-665
+gate: G3
+lane: verification
+purpose: >-
+  `tests/infra/test_round3_rollback_hardening.py::test_the_script_runs_with_only_src_on_the_path_and_imports_nothing_the_serving_image_lacks`
+  fails because its own helper `_serving_lock_packages()` (defined in this test file, not
+  production code) normalizes `requirements-serving.lock`'s DISTRIBUTION names
+  (`pyyaml==6.0.3` -> `pyyaml`) but compares them directly against the real IMPORT names
+  `rollback.py` actually imports at runtime (`yaml`, not `pyyaml`) - a distribution name and its
+  import name are not always the same string, and this helper's normalization (separator/case
+  folding only) never accounts for that mismatch. Confirmed directly: re-ran the test against
+  current main and got `AssertionError: assert not {'yaml'}` - `yaml` genuinely is in
+  `requirements-serving.lock` (as `pyyaml==6.0.3`, confirmed by reading the lock file directly),
+  so this is a false positive in the test's own helper, not a real missing dependency in the
+  serving image.
+depends_on:
+  - TC-001
+  - TC-564
+write_paths:
+  - tests/infra/test_round3_rollback_hardening.py
+satisfies:
+  - REQ-G3-009
+source_refs:
+  - file: docs/DECISION_LOG.md
+    anchor: >-
+      ## 2026-11-02 — Round-3 independent re-audit adopted; a real regression found and given top priority; the "no pilot ever gets worse" rule adopted project-wide (operator, supervisor)
+    sha256: b750b8bf0df25b17bf66d014895ecb42952050c7cc63773f56249c4a1c551791
+inputs:
+  - >-
+    READ FIRST: this card's own `purpose` text above, then `_serving_lock_packages()` and the
+    test's own `third_party`/`missing_from_image` computation (currently ~line 453-518) to
+    confirm the diagnosis yourself before changing anything - re-run the test, read the real
+    failure, read `requirements-serving.lock`'s real `pyyaml==...` line, and re-derive the
+    mismatch; do not trust this card's claim blindly.
+  - >-
+    Fix `_serving_lock_packages()` (or the comparison that uses it - your call which reads more
+    naturally, but keep the change inside this one test file) to account for import-name vs
+    distribution-name mismatches for every such pair genuinely present in
+    `requirements-serving.lock` - at minimum `pyyaml` (imports as `yaml`). Check the REAL lock
+    file for every other such pair this project actually ships (common ones: `pillow`/`PIL`,
+    `beautifulsoup4`/`bs4`, `protobuf`/`google.protobuf`) rather than hardcoding only the one
+    failure you can see today - a mapping dict keyed by the normalized distribution name is a
+    reasonable shape, but verify live which packages in the REAL lock file actually need an
+    entry; do not add entries for packages that are not actually in the lock file.
+  - >-
+    This is a test-only fix: do not touch `infra/rollback.py`, `requirements-serving.lock`, or
+    any other production file. The serving image's real dependency set is not changing; only the
+    test's own name-matching helper is.
+  - >-
+    Run the full file twice clean, and re-confirm every OTHER test in it that does not touch this
+    helper is unaffected.
+actions:
+  - >-
+    Fix `_serving_lock_packages()`'s import-name vs distribution-name comparison so it no longer
+    false-positives on `pyyaml`/`yaml` (and any other real such pair in
+    `requirements-serving.lock`), closing the confirmed false-positive without touching any
+    production file.
+checks:
+  - command: '{python} -m pytest tests/infra/test_round3_rollback_hardening.py -q -rfE -p no:cacheprovider'
+    expect: 'exit 0'
+    timeout_seconds: 180
+    junitxml: true
+    proves:
+      - REQ-G3-009
+min_tests: 8
+requires:
+  - python
+network: false
+negative_control:
+  mutate: |
+    python -X utf8 -c "
+    import pathlib
+    nl = chr(10)
+    q = chr(34)
+    p = pathlib.Path('tests/infra/test_round3_rollback_hardening.py')
+    s = p.read_text(encoding='utf-8')
+    marker = 'def _serving_lock_packages'
+    assert s.count(marker) == 1, 'helper not found where expected - re-anchor this mutate on the real current function'
+    start = s.index(marker)
+    end = s.index(nl + nl + nl, start)
+    old_block = s[start:end]
+    new_block = old_block + nl + '    names.discard(' + q + 'yaml' + q + ')  # control: force the real yaml import to look missing again'
+    p.write_text(s[:start] + new_block + s[end:], encoding='utf-8')
+    "
+  rationale: >-
+    Forces the fix's own corrected name-set to drop the real `yaml` entry it added right back
+    out, making `missing_from_image` contain `yaml` again and
+    `test_the_script_runs_with_only_src_on_the_path_and_imports_nothing_the_serving_image_lacks`
+    fail for real - a direct, real break of this card's central claim (the import-name mapping
+    genuinely resolves the false positive), dry-run-verified against the worker's own committed
+    content before this card was issued.
+evidence:
+  - evidence/build/G3/TC-665/receipt.json
+closeout:
+  - >-
+    `_serving_lock_packages()`'s import-name vs distribution-name comparison fixed for `pyyaml`/
+    `yaml` and any other real such pair in `requirements-serving.lock`; no production file
+    touched; the false positive closed without masking a real missing dependency.
+recovery: Re-run from a clean tree.
