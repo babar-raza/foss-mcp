@@ -141,7 +141,12 @@ def test_serving_with_a_recent_releases_sidecar_reaches_list_recent_changes_with
     registry = _serve(tmp_path, NET_CONFIG, manifests)
     answer = registry["list_recent_changes"]()
 
-    assert len(answer) == 2
+    # TC-664: `fetch_recent_releases.main()` (TC-655, NOTE-PY-003) now pads a short releases list
+    # with real, live-fetched older tags from the real pdf/net repository toward its --limit, so
+    # this smoke test's own 2 stubbed releases are no longer the whole answer. Its job - proving
+    # real, non-empty content actually reaches the tool - only needs a lower bound, not today's
+    # exact padded count, which changes as the live repository publishes more tags.
+    assert len(answer) >= 2
     assert answer[0].tag_name == "v2.1.0"
     assert answer[0].richness == "detailed"
 
@@ -167,7 +172,19 @@ def test_serving_with_the_pdf_java_identity_never_reads_the_pdf_net_recent_relea
     java = DeploymentConfig(family="pdf", platform="java")
     assert serve_http._serving_recent_releases(tmp_path, java) == ()
     net = DeploymentConfig(family="pdf", platform="net")
-    assert serve_http._serving_recent_releases(tmp_path, net) == net_releases
+    # TC-664: `fetch_recent_releases.main()` (TC-655, NOTE-PY-003) now pads the written sidecar
+    # with real, live-fetched older tags from the real pdf/net repository, so it no longer holds
+    # only `net_releases`' single stub entry - but this test's job (pdf/java must never read
+    # pdf/net's sidecar) is unaffected by that padding, so it stays exactly as strict as before: a
+    # full-tuple equality check, not merely non-emptiness. The expected side is the sidecar's own
+    # real written content (read back independently of the identity-scoped serving call under
+    # test), not a hardcoded snapshot of today's live tags, which would itself go stale the moment
+    # the real repository publishes another one - precisely the staleness this card exists to fix.
+    written = fetch_recent_releases.load_recent_releases_sidecar(
+        tmp_path / fetch_recent_releases.recent_releases_sidecar_name("pdf", "net")
+    )
+    assert written is not None and net_releases[0] in written
+    assert serve_http._serving_recent_releases(tmp_path, net) == written
 
 
 def test_serving_with_a_sidecar_answers_the_exact_target_framework(

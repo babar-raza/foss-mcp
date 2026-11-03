@@ -311,7 +311,11 @@ def test_main_merges_the_newer_tag_and_records_the_drift_in_both_sidecars(
         "status": "behind",
     }
     assert all("drift" not in entry for entry in written[1:])
-    assert calls == {"releases": 1, "tags": 1}
+    # TC-664: TC-655 (NOTE-PY-003) widened the padding trigger, so `main`'s own `pad_with_older_tags`
+    # call now also reads tags once (it is immediately superseded by `_with_ancestry` below, which
+    # recomputes the list from `fetched` and reads tags again to merge the newer one in) - two real
+    # tags reads, not one, for an indexed-commit run whose releases list is already non-empty.
+    assert calls == {"releases": 1, "tags": 2}
     assert len(http.urls) == 1  # the compare API is asked once per pilot
     stored = json.loads(product.read_text(encoding="utf-8"))
     assert stored["drift"] == written[0]["drift"]
@@ -341,11 +345,16 @@ def test_main_without_an_indexed_commit_does_nothing_new(
 
     fetch_recent_releases.main()
 
-    assert calls == {"releases": 1, "tags": 0}
+    # TC-664: without an indexed commit, `_with_ancestry` never runs - but `pad_with_older_tags`
+    # (TC-655, NOTE-PY-003) runs regardless, and does read tags once to pad the short (1-item)
+    # releases list toward --limit, appending the one newer tag that is not already a known version.
+    assert calls == {"releases": 1, "tags": 1}
     assert http.urls == []
     written = json.loads(output.read_text(encoding="utf-8"))
-    assert [e["tag_name"] for e in written] == ["v26.8.0"]
+    assert [e["tag_name"] for e in written] == ["v26.8.0", "v26.9.0"]
+    assert written[1]["source"] == "tag"
     assert "drift" not in written[0]
+    assert "drift" not in written[1]
 
 
 def test_main_takes_the_indexed_commit_from_the_flag_when_there_is_no_product_sidecar(
@@ -409,7 +418,10 @@ def test_main_keeps_the_list_when_the_tags_read_fails(
     written = json.loads(output.read_text(encoding="utf-8"))
     assert [e["tag_name"] for e in written] == ["v26.8.0"]
     assert written[0]["drift"]["ahead_by"] == 1
-    assert calls["tags"] == 1
+    # TC-664: the failing tags read is now attempted twice - once by `pad_with_older_tags`
+    # (TC-655, NOTE-PY-003) and once by `_with_ancestry`'s own `merge_newer_tags` call - and both
+    # failures are caught and logged exactly the same way, leaving the list untouched either time.
+    assert calls["tags"] == 2
     assert "tags read failed" in capsys.readouterr().err
 
 
@@ -444,7 +456,11 @@ def test_main_ignores_a_failed_product_reference_placeholder(
 
     fetch_recent_releases.main()
 
-    assert calls["tags"] == 0 and http.urls == []
+    # TC-664: the failed placeholder is still correctly ignored for drift purposes (no indexed
+    # commit is derived from it, so `_with_ancestry` never runs and no compare call is made) - but
+    # `pad_with_older_tags` (TC-655, NOTE-PY-003) runs independently of the indexed-commit lookup,
+    # so it does read tags once (an empty list here, so nothing is actually appended).
+    assert calls["tags"] == 1 and http.urls == []
     assert "drift" not in json.loads(output.read_text(encoding="utf-8"))[0]
 
 
