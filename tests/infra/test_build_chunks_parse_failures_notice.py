@@ -114,7 +114,14 @@ def test_main_on_the_committed_tex_fixture_ends_symbol_chunks_with_the_coverage_
     # TC-555: 4 -> 23 symbol chunks (21 types and 2 functions); the line carries the measured
     # parse_failures of the committed fixture instead of "at least 2 source files".
     assert len(symbols) == 23
-    expected = "API-Coverage: 21 of 21 types; 2 of 2 functions; 11 of 45 source files could not be parsed"
+    # TC-667: 21 of 21 -> 14 of 21 (TC-614's canonical-identity dedup, left stale by that card as
+    # a named follow-up). tex/python has 7 real shell/definition pairs (a re-export stub in
+    # src/aspose_tex/__init__.py paired with its real definition in
+    # src/aspose_tex/presentation/__init__.py: OutputDevice, TeXOptions, DviDevice, OutputFormat,
+    # PdfDevice, SvgDevice, TeXJob) - 21 raw type entries collapse to 14 canonical units. The chunk
+    # count above (23 = 21 types + 2 functions, pre-dedup) is unaffected; only the coverage-line
+    # numerator changes.
+    expected = "API-Coverage: 14 of 21 types; 2 of 2 functions; 11 of 45 source files could not be parsed"
     for chunk in symbols:
         lines = chunk["text"].splitlines()
         assert lines[-2] == expected
