@@ -75,19 +75,7 @@ requires:
 network: false
 negative_control:
   mutate: |
-    python -X utf8 -c "
-    import pathlib
-    bs = chr(92)
-    p = pathlib.Path('tests/infra/test_furnished_chunk_quality.py')
-    s = p.read_text(encoding='utf-8')
-    old = 'install|quick ?start|getting started|prerequisite|' + bs + 'bsetup' + bs + 's*$|dependenc|requirement'
-    new = 'install|quick ?start|getting started|prerequisite|setup|dependenc|requirement'
-    n = s.count(old)
-    assert n == 1, ('expected exactly one occurrence of the narrowed regex literal, found ' + str(n) + ' - the real fix may have formatted this differently; if so anchor your own mutate on the real literal instead and note the substitution in your closeout')
-    s2 = s.replace(old, new)
-    assert s2 != s
-    p.write_text(s2, encoding='utf-8')
-    "
+    python -X utf8 -c "import pathlib; bs = chr(92); p = pathlib.Path('tests/infra/test_furnished_chunk_quality.py'); s = p.read_text(encoding='utf-8'); old = 'install|quick ?start|getting started|prerequisite|' + bs + 'bsetup' + bs + 's*$|dependenc|requirement'; new = 'install|quick ?start|getting started|prerequisite|setup|dependenc|requirement'; n = s.count(old); assert n == 1, 'expected exactly one occurrence of the narrowed regex literal, found ' + str(n) + ' - the real fix may have formatted this differently; if so anchor your own mutate on the real literal instead and note the substitution in your closeout'; s2 = s.replace(old, new); assert s2 != s; p.write_text(s2, encoding='utf-8')"
   rationale: >-
     Reverts the fix's own narrowed regex back to the old, stale, bare `setup` form, making
     `test_categories_derive_from_titles[cells_cpp]` fail for real

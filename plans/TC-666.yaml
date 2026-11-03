@@ -82,20 +82,7 @@ requires:
 network: false
 negative_control:
   mutate: |
-    python -X utf8 -c "
-    import pathlib
-    nl = chr(10)
-    p = pathlib.Path('tests/infra/test_helm_manifest_step.py')
-    s = p.read_text(encoding='utf-8')
-    marker = 'def test_serving_with_the_pdf_java_identity_never_reads_the_pdf_net_sidecar'
-    assert s.count(marker) == 1, 'test not found where expected - re-anchor this mutate on the real current test'
-    start = s.index(marker)
-    end = s.index(nl + nl + nl, start)
-    body = s[start:end]
-    assert 'contributing' in body or 'manifest_text' in body, 'expected the fixed test to assert on manifest-derived fields - if the real fix shaped this differently, re-anchor your own mutate on the real literal and note the substitution in your closeout'
-    new_body = body + nl + '    assert False  # control: force this test to fail regardless of the real fix'
-    p.write_text(s[:start] + new_body + s[end:], encoding='utf-8')
-    "
+    python -X utf8 -c "import pathlib; nl = chr(10); p = pathlib.Path('tests/infra/test_helm_manifest_step.py'); s = p.read_text(encoding='utf-8'); marker = 'def test_serving_with_the_pdf_java_identity_never_reads_the_pdf_net_sidecar'; assert s.count(marker) == 1, 'test not found where expected - re-anchor this mutate on the real current test'; start = s.index(marker); end = s.index(nl + nl + nl, start); body = s[start:end]; assert 'contributing' in body or 'manifest_text' in body, 'expected the fixed test to assert on manifest-derived fields - if the real fix shaped this differently, re-anchor your own mutate on the real literal and note the substitution in your closeout'; new_body = body + nl + '    assert False  # control: force this test to fail regardless of the real fix'; p.write_text(s[:start] + new_body + s[end:], encoding='utf-8')"
   rationale: >-
     Appends an unconditional failing assertion to the end of the fixed test's own body, making
     it fail for real no matter what the fix's real assertions are - a direct, real break of this

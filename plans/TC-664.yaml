@@ -90,16 +90,7 @@ requires:
 network: true
 negative_control:
   mutate: |
-    python -X utf8 -c "
-    import pathlib
-    q = chr(34)
-    p = pathlib.Path('tests/infra/test_round3_release_tags.py')
-    s = p.read_text(encoding='utf-8')
-    old = 'assert calls[' + q + 'tags' + q + '] == 0 and http.urls == []'
-    assert s.count(old) == 1, ('expected exactly one occurrence of the failed-reference-marker tags==0 assertion, found ' + str(s.count(old)) + ' - the real fix may have reshaped this assertion differently; if so anchor your own mutate on the real literal instead and note the substitution in your closeout')
-    new = 'assert calls[' + q + 'tags' + q + '] == 999 and http.urls == []'
-    p.write_text(s.replace(old, new), encoding='utf-8')
-    "
+    python -X utf8 -c "import pathlib; q = chr(34); p = pathlib.Path('tests/infra/test_round3_release_tags.py'); s = p.read_text(encoding='utf-8'); old = 'assert calls[' + q + 'tags' + q + '] == 1 and http.urls == []'; n = s.count(old); assert n == 1, 'expected exactly one occurrence of the failed-reference-marker tags==1 assertion, found ' + str(n) + ' - the real fix may have reshaped this assertion differently; if so anchor your own mutate on the real literal instead and note the substitution in your closeout'; new = 'assert calls[' + q + 'tags' + q + '] == 999 and http.urls == []'; p.write_text(s.replace(old, new), encoding='utf-8')"
   rationale: >-
     Forces the stale-sidecar-marker test's own updated tag-count assertion to an impossible
     value, making it fail for real against the real, padded call count the fix observed live -

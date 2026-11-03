@@ -84,18 +84,7 @@ requires:
 network: false
 negative_control:
   mutate: |
-    python -X utf8 -c "
-    import json, pathlib
-    p = pathlib.Path('tests/fixtures/furnished/cells_cpp/manifest.json')
-    data = json.loads(p.read_text(encoding='utf-8'))
-    for entry in data['files']:
-        if entry['path'] == '_index.md':
-            entry['sha256'] = 'f' * 64
-            break
-    else:
-        raise SystemExit('no _index.md entry found - card scope may have changed, re-anchor this mutate')
-    p.write_text(json.dumps(data, indent=2) + chr(10), encoding='utf-8')
-    "
+    python -X utf8 -c "import json, pathlib; p = pathlib.Path('tests/fixtures/furnished/cells_cpp/manifest.json'); data = json.loads(p.read_text(encoding='utf-8')); entries = [e for e in data['files'] if e['path'] == '_index.md']; assert entries, 'no _index.md entry found - card scope may have changed, re-anchor this mutate'; entries[0]['sha256'] = 'f' * 64; p.write_text(json.dumps(data, indent=2) + chr(10), encoding='utf-8')"
   rationale: >-
     Corrupts the fix's own resynced `_index.md` checksum back to an obviously-wrong value, making
     `verify_bundle(CELLS_CPP_BUNDLE) == []` fail for real
