@@ -105,6 +105,7 @@ write_paths:
   - tests/mcp/tools/test_find_examples_symbol_aware_matching.py
   - tests/mcp/tools/test_known_defects_in_find_examples.py
   - tests/mcp/tools/test_find_examples_title_anchor.py
+  - tests/mcp/tools/test_find_examples_verification_record.py
 satisfies:
   - REQ-G3-011
 source_refs:
@@ -182,6 +183,44 @@ inputs:
     of your prior work (the `known_symbol_names` mechanism, the `known_defects` wiring, the new
     test files) is already correct, do not redo it - just fix this one test and re-run the full
     ratchet bundle (now including this file) twice clean before committing.
+  - >-
+    REWORK (attempt 3, before you commit): the supervisor's own `gatectl review` run against your
+    attempt-2 head found two more real, independent defects in files OUTSIDE this card's own new
+    test files - both are now fixed by this amendment, not by you improvising around them:
+
+    (1) `find_examples.py` now defines `_SYMBOL_WORD_RE = re.compile(r"[A-Za-z0-9]+")` and
+    `_FQN_SEGMENT_RE = re.compile(r"::|\.")` directly in its own module body (confirmed by `git
+    diff main` that neither existed before this card). This violates a pre-existing,
+    security-relevant architectural invariant enforced by TWO tests outside this card's prior
+    write_paths - `tests/mcp/tools/test_symbol_tools.py::test_no_snippet_is_ever_executed_at_query_time`
+    and `tests/mcp/tools/test_find_examples_verification_record.py::test_the_source_never_builds_a_pattern_with_a_scanned_call`
+    - both of which assert `find_examples.py`'s own source text never contains the literal
+    substring `"compile("` (grouped with `eval(`/`exec(`/`subprocess.`/`os.system(`, together
+    proving no example snippet or dynamically-built pattern is ever executed at query time). Your
+    two `re.compile(...)` calls trip this even though they are ordinary regex compilation, not
+    snippet execution - the check is a blunt literal-substring scan, and weakening or
+    renaming-around it would defeat its intent (forbidden, AGENTS.md "never weaken a check to make
+    it pass"). The correct fix is architectural, matching the layering you already chose
+    deliberately for the `chunk_kind` guard in attempt 1: move both regexes (and the two helpers
+    that use them - the FQN-last-segment split and the symbol-word tokenizer) into `relevance.py`,
+    which already sits below `find_examples.py` in the import graph and already hosts
+    `required_terms`/`stem_token`/`known_symbol_names`. Export plain functions from `relevance.py`
+    (e.g. `symbol_words(text: str) -> frozenset[str]`, `fqn_last_segment(fqn: str) -> str` - your
+    own naming, no negative-control dependency on these names) and have `find_examples.py` import
+    and call them. Confirm before committing: `grep -n "compile(" src/foss_mcp/mcp/tools/find_examples.py`
+    returns nothing.
+
+    (2) `tests/mcp/tools/test_find_examples_verification_record.py::test_the_new_fields_are_the_last_three_fields_of_the_match`
+    is the SAME frozen-field-list situation as the title_anchor test you already fixed in attempt
+    2, just in a second file this card's write_paths never declared (now added, above). It currently
+    reads `names[-4:] == ["language", "source_commit", "verification", "confidence"]`; extend it
+    the identical way: `names[-5:] == ["language", "source_commit", "verification", "confidence",
+    "known_defects"]`.
+
+    Nothing else about your attempt-2 work is in question - the `known_symbol_names` mechanism, the
+    `known_defects` wiring, and all your own new test files passed clean. After these two fixes,
+    re-run the FULL ratchet bundle below (both check commands) twice clean, confirm the negative
+    control still applies and still fails the first check, then commit.
 actions:
   - >-
     Widen find_examples's code-anchor mechanism from "looks syntactically like an identifier" to
