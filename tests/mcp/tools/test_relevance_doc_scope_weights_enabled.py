@@ -123,7 +123,9 @@ def test_the_full_ratchet_bundle_passes_completely_through_the_real_wired_search
     ``lookup._limitation_docs`` are both genuinely wired to ``doc_scope_term_weights``. Must exit 0
     with zero failures and zero errors - the end-state confirmation of the isolated, by-call-site
     measurements this worker performed by hand before committing (see module docstring)."""
-    result = _run_pytest(list(RATCHET_BUNDLE), timeout=300)
+    # TC-671: 1200s (20 min) replaces the prior 300s budget, which was too tight on this host -
+    # the supervisor measured 464s for a subset and 736s for the full bundle, both passing cleanly.
+    result = _run_pytest(list(RATCHET_BUNDLE), timeout=1200)
     assert result.returncode == 0, (
         f"the ratchet bundle regressed with doc-scope weights wired into search_docs/lookup "
         f"(exit {result.returncode}):\n{result.stdout[-4000:]}\n{result.stderr[-2000:]}"
