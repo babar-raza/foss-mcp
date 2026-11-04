@@ -345,15 +345,17 @@ def test_match_basis_is_the_last_field() -> None:
     # TC-544 appended three additive fields (language, source_commit, verification) after match_basis,
     # so match_basis is no longer last; it still follows provenance and the earlier fields unchanged.
     # TC-584 appended one more additive field (confidence) after verification.
-    assert names[-6:] == [
+    # TC-670 appended one more additive field (known_defects) after confidence.
+    assert names[-7:] == [
         "provenance",
         "match_basis",
         "language",
         "source_commit",
         "verification",
         "confidence",
+        "known_defects",
     ]
-    assert names[:-5] == [
+    assert names[:-6] == [
         "scope",
         "generation_id",
         "fqn",
