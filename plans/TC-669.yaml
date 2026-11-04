@@ -1,0 +1,102 @@
+id: TC-669
+gate: G3
+lane: transport-deployment
+purpose: >-
+  Adds the two-path-segment URL shape `/demo/{family}/{platform}` alongside the existing
+  hyphenated `/demo/{family}-{platform}`, in the one real, repo-tracked production Ingress
+  template (`infra/helm/foss-mcp/templates/demo-ingress.yaml:41`) - confirmed by this supervisor's
+  own prior investigation to be the ONLY repo-tracked file encoding the current path shape.
+  `src/foss_mcp/mcp/routing.py`'s `resolve_scope()` already derives scope purely from
+  container-deploy-time env vars (`FOSS_MCP_FAMILY`/`FOSS_MCP_PLATFORM`), never from the request
+  path - confirm this yourself by reading it - so the server itself is already fully
+  path-shape-agnostic and this card touches no server code.
+
+  Add the new path as a SECOND entry per pilot in the same `range` loop, pointing at the exact
+  same backend Service the existing hyphenated path already uses - both shapes must serve
+  simultaneously (this is a backward-compatible addition, not a replacement; do not remove the
+  existing hyphenated path entry). Update this file's own leading comment (currently describing
+  only the hyphenated shape) to mention both. Do not touch
+  `infra/helm/foss-mcp/templates/demo-deployment.yaml` or any Service/container name - those stay
+  hyphenated (Kubernetes object names cannot contain `/`), this card only adds a second Ingress
+  `path:` entry.
+
+  Out of scope, explicitly: the operator's own local demo gateway
+  (`C:\Users\babar\.foss-mcp-tools\hosting\nginx.conf`) is NOT a repo-tracked file (confirmed via
+  a full `git grep` finding zero references anywhere in this repository) - it is a manual,
+  machine-local file the operator edits directly if/when needed, never a taskcard's write_paths.
+depends_on:
+  - TC-236
+  - TC-238
+  - TC-251
+  - TC-327
+  - TC-328
+  - TC-375
+  - TC-512
+  - TC-530
+  - TC-533
+  - TC-534
+  - TC-535
+  - TC-550
+  - TC-551
+  - TC-557
+  - TC-558
+  - TC-559
+write_paths:
+  - infra/helm/foss-mcp/templates/demo-ingress.yaml
+  - tests/infra/test_helm_chart.py
+satisfies:
+  - REQ-G3-016
+source_refs:
+  - file: docs/DECISION_LOG.md
+    anchor: >-
+      ## 2026-11-02 — Round-3 independent re-audit adopted; a real regression found and given top priority; the "no pilot ever gets worse" rule adopted project-wide (operator, supervisor)
+    sha256: b750b8bf0df25b17bf66d014895ecb42952050c7cc63773f56249c4a1c551791
+inputs:
+  - >-
+    READ FIRST: the real current `infra/helm/foss-mcp/templates/demo-ingress.yaml` in full
+    (confirm line ~41 is the only `path:` line, and that it lives inside the `{{- range $p :=
+    $pilots }}` loop), then `src/foss_mcp/mcp/routing.py`'s `resolve_scope()` to confirm it never
+    reads the request path, then the existing test
+    `test_demo_mode_renders_exactly_one_shared_ingress_routing_to_every_pilot` in
+    `tests/infra/test_helm_chart.py` (confirm it checks path MEMBERSHIP in a set, not an exact
+    count, so adding a second path per pilot cannot break it).
+  - >-
+    Add at least 3 new tests in `tests/infra/test_helm_chart.py`: the new two-segment path
+    (`/demo/{family}/{platform}`) is present for every pilot, alongside the still-present old
+    hyphenated path (both present at once, for the same pilot, pointing at the same backend
+    Service name); the total path count is exactly double the pilot count (proving nothing was
+    silently dropped or duplicated); narrowing the pilot list (the existing
+    `--set demo.pilots[0]...` mechanism already tested nearby in this file) still produces both
+    shapes for the narrowed set.
+actions:
+  - >-
+    Add the two-segment /demo/{family}/{platform} Ingress path alongside the existing hyphenated
+    /demo/{family}-{platform}, serving both simultaneously - the server itself already derives
+    scope only from deploy-time env vars, never the request path, so this is a pure, backward-
+    compatible routing-layer addition.
+checks:
+  - command: '{python} -m pytest tests/infra/test_helm_chart.py -q -rfE -p no:cacheprovider'
+    expect: 'exit 0'
+    timeout_seconds: 180
+    junitxml: true
+    proves:
+      - REQ-G3-016
+min_tests: 3
+requires:
+  - python
+network: false
+negative_control:
+  mutate: |
+    python -X utf8 -c "import pathlib; p = pathlib.Path('infra/helm/foss-mcp/templates/demo-ingress.yaml'); s = p.read_text(encoding='utf-8'); marker = '{{ $p.family }}/{{ $p.platform }}'; assert marker in s, 'the new two-segment path literal was not found exactly as expected - if your real template spells the Helm expression differently, anchor your own mutate on your own real literal instead and note the substitution in your closeout'; s2 = s.replace(marker, '{{ $p.family }}DISABLED{{ $p.platform }}', 1); assert s2 != s, 'substitution had no effect'; p.write_text(s2, encoding='utf-8')"
+  rationale: >-
+    Breaks the one new path shape this card adds, so every test asserting the new
+    /demo/{family}/{platform} path is present must fail; the pre-existing hyphenated-path test is
+    unaffected since this mutation only touches the new Helm expression.
+evidence:
+  - evidence/build/G3/TC-669/receipt.json
+closeout:
+  - >-
+    The demo Ingress now serves both /demo/{family}-{platform} and /demo/{family}/{platform} for
+    every pilot simultaneously, with zero server-side change - a reversible, backward-compatible
+    first step toward the two-segment path shape.
+recovery: Re-run from a clean tree.

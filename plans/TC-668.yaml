@@ -1,0 +1,186 @@
+id: TC-668
+gate: G3
+lane: storage-retrieval
+purpose: >-
+  Closes `OQ-028` (`ops/open_questions.jsonl`): TC-660's own worker found, while live-verifying the
+  refs it was adding, that `CELLS-NET-002`, `CELLS-JAVA-001`, and `CELLS-PY-005`'s PRE-EXISTING,
+  unmodified `Workbook` ref has never actually matched any real symbol in the real
+  `infra/demo-manifests` data either - the real baked FQN is namespace-qualified in all three
+  pilots (confirmed live by that worker): `Aspose.Cells_FOSS.Workbook` (cells/net),
+  `org.aspose.cells_foss.Workbook` (cells/java), `aspose.cells_foss.workbook.Workbook`
+  (cells/python) - never the bare `Workbook` the registry carries today. This is the exact same
+  bug class as `CELLS-GO-001`/`CELLS-GO-011`, which TC-660 already found and corrected for
+  cells/go. Confirm each of the three real FQN strings yourself (read the real, current
+  `infra/demo-manifests` lexical-index/generation content for each pilot, or make a real
+  `get_symbol`/`search_symbols` call through the test harness) before writing anything - OQ-028's
+  own text already gives you the answer, but a wrong FQN string here is strictly worse than
+  leaving the bug alone, since it would look fixed while still matching nothing.
+
+  Read `OQ-028` in `ops/open_questions.jsonl` in full before starting. This is a correction of
+  wrong data, not an addition: replace each entry's bare `Workbook` with the real
+  namespace-qualified form, in the same position in the `refs` array (do not remove or reorder
+  the other refs TC-660 already added - `Aspose.Cells_FOSS.SaveOptions`,
+  `org.aspose.cells_foss.SaveOptions`, `aspose.cells_foss.cell.Cell` - those are already correct
+  and already proven by TC-660's own tests).
+
+  `tests/indexing/test_known_defects_data_cells.py`'s
+  `test_get_symbol_end_to_end_surfaces_the_real_written_java_workbook_save_defect` builds a
+  SYNTHETIC in-memory symbol store whose own FQN is the bare string `"Workbook"` (not the real
+  namespace-qualified form) - confirm this yourself by reading the test - which means this test
+  has been passing by accidentally matching the OLD, WRONG ref, not by testing real behavior.
+  Update the synthetic store's FQN and the test's own assertions to the real namespace-qualified
+  form (`org.aspose.cells_foss.Workbook`), so the test proves the real fix rather than continuing
+  to validate the bug it never should have had.
+depends_on:
+  - TC-017a
+  - TC-017b
+  - TC-017c
+  - TC-022
+  - TC-065
+  - TC-071
+  - TC-079
+  - TC-120
+  - TC-143
+  - TC-145
+  - TC-199
+  - TC-200
+  - TC-202
+  - TC-210
+  - TC-254
+  - TC-275
+  - TC-278
+  - TC-279
+  - TC-353
+  - TC-386
+  - TC-387
+  - TC-427
+  - TC-470
+  - TC-471
+  - TC-493
+  - TC-507
+  - TC-514
+  - TC-515
+  - TC-516
+  - TC-518
+  - TC-519
+  - TC-520
+  - TC-523
+  - TC-527
+  - TC-536
+  - TC-539
+  - TC-540
+  - TC-541
+  - TC-542
+  - TC-554
+  - TC-559
+  - TC-560
+  - TC-561
+  - TC-562
+  - TC-571
+  - TC-574
+  - TC-577
+  - TC-582
+  - TC-585
+  - TC-604
+  - TC-608
+  - TC-610
+  - TC-612
+  - TC-618
+  - TC-622
+  - TC-636
+  - TC-637
+  - TC-639
+  - TC-641
+  - TC-642
+  - TC-643
+  - TC-644
+  - TC-645
+  - TC-646
+  - TC-647
+  - TC-648
+  - TC-649
+  - TC-650
+  - TC-652
+  - TC-653
+  - TC-654
+  - TC-656
+  - TC-658
+  - TC-660
+write_paths:
+  - config/known_defects/cells__net.yaml
+  - config/known_defects/cells__java.yaml
+  - config/known_defects/cells__python.yaml
+  - tests/indexing/test_known_defects_data_cells.py
+  - tests/mcp/tools/test_known_defects_refs_population.py
+satisfies:
+  - REQ-G3-015
+source_refs:
+  - file: docs/DECISION_LOG.md
+    anchor: >-
+      ## 2026-11-02 — Round-3 independent re-audit adopted; a real regression found and given top priority; the "no pilot ever gets worse" rule adopted project-wide (operator, supervisor)
+    sha256: b750b8bf0df25b17bf66d014895ecb42952050c7cc63773f56249c4a1c551791
+inputs:
+  - >-
+    READ FIRST: `OQ-028` in `ops/open_questions.jsonl` in full, then the real current content of
+    `config/known_defects/cells__net.yaml`, `cells__java.yaml`, `cells__python.yaml` (confirm the
+    bare `Workbook` ref really sits there today, alongside TC-660's own already-correct
+    additions), then `tests/indexing/test_known_defects_data_cells.py`'s synthetic test for
+    `CELLS-JAVA-001`.
+  - >-
+    Verify each of the three real namespace-qualified FQN strings yourself before writing them -
+    OQ-028 already names them, but confirm directly against the real generation/lexical-index
+    content (or a real test-harness call) rather than copying blind.
+  - >-
+    Write at least 6 new tests in `tests/mcp/tools/test_known_defects_refs_population.py` (one
+    `get_symbol` and one `search_symbols` test per pilot), proving the real namespace-qualified
+    FQN query now surfaces the right defect id through the real server wrapper against the real
+    `infra/demo-manifests` data - the same pattern this file's own Group A tests already use for
+    `SaveOptions`/`Cell`. These are the tests that actually prove OQ-028 is closed; the existing
+    bare-`Workbook` path was never tested against real data before and should NOT be asserted to
+    still "work", since it never did.
+  - >-
+    Fix `test_get_symbol_end_to_end_surfaces_the_real_written_java_workbook_save_defect`'s
+    synthetic store and assertions to use the real namespace-qualified FQN, confirming the
+    existing single-ref regression-shape test (one `get_symbol` call, one defect, no
+    cross-match) still holds under the corrected data.
+actions:
+  - >-
+    Correct three pre-existing known_defects refs (CELLS-NET-002, CELLS-JAVA-001, CELLS-PY-005)
+    from a bare "Workbook" that has never matched any real symbol to each pilot's real
+    namespace-qualified FQN - closing OQ-028, the same bug class TC-660 already fixed for
+    cells/go.
+checks:
+  - command: '{python} -m pytest tests/mcp/tools/test_known_defects_refs_population.py -q -rfE -p no:cacheprovider'
+    expect: 'exit 0'
+    timeout_seconds: 180
+    junitxml: true
+    proves:
+      - REQ-G3-015
+  - command: '{python} -m pytest tests/indexing/test_known_defects_data_cells.py tests/indexing/test_known_defects_completeness.py tests/mcp/tools/test_known_defects_in_get_symbol.py tests/mcp/tools/test_known_defects_in_search_symbols.py -q -rfE -p no:cacheprovider'
+    expect: 'exit 0'
+    timeout_seconds: 180
+    junitxml: true
+    proves:
+      - REQ-G3-015
+min_tests: 6
+requires:
+  - python
+network: false
+negative_control:
+  mutate: |
+    python -X utf8 -c "import pathlib; q = chr(34); p = pathlib.Path('config/known_defects/cells__java.yaml'); s = p.read_text(encoding='utf-8'); marker = q + 'org.aspose.cells_foss.Workbook' + q; assert marker in s, 'the corrected qualified FQN literal was not found exactly as expected in cells__java.yaml - if your real fix spells it differently (e.g. without quotes, or a different qualified form), anchor your own mutate on your own real literal instead and note the substitution in your closeout'; s2 = s.replace(marker, q + 'NeverMatchesAnything.Workbook' + q, 1); assert s2 != s, 'substitution had no effect'; p.write_text(s2, encoding='utf-8')"
+  rationale: >-
+    Breaks the one real fix this card makes for cells/java - the corrected qualified FQN no
+    longer matches the real symbol - so any test proving get_symbol/search_symbols now surfaces
+    CELLS-JAVA-001 via the qualified Workbook FQN must fail. Tests scoped only to cells/net or
+    cells/python are unaffected by this specific mutation; if your real fix does not quote the
+    FQN this way in YAML, anchor your own mutate on your own real literal instead and say so in
+    your closeout.
+evidence:
+  - evidence/build/G3/TC-668/receipt.json
+closeout:
+  - >-
+    CELLS-NET-002, CELLS-JAVA-001, and CELLS-PY-005 now disclose through their real
+    namespace-qualified Workbook FQN, which is what the real baked data actually carries - closing
+    OQ-028. The bare "Workbook" ref, which never matched anything, is gone.
+recovery: Re-run from a clean tree.
