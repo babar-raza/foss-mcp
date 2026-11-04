@@ -1,0 +1,58 @@
+
+===== CLEAN RUN 1 (host) =====
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-5c72e798a73c059a\Scripts\python.exe -m pytest tests/infra/test_helm_chart.py -q -rfE -p no:cacheprovider "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-zc26y0ao\.junit-0.xml"
+--- stdout ---
+............................                                             [100%]
+
+--- stderr ---
+
+
+===== CLEAN RUN 2 (host) =====
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-5c72e798a73c059a\Scripts\python.exe -m pytest tests/infra/test_helm_chart.py -q -rfE -p no:cacheprovider "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-zc26y0ao\.junit-0.xml"
+--- stdout ---
+............................                                             [100%]
+
+--- stderr ---
+
+
+===== NEGATIVE CONTROL (checks MUST now fail) =====
+mutated: M infra/helm/foss-mcp/templates/demo-ingress.yaml, ?? .junit-0.xml
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-5c72e798a73c059a\Scripts\python.exe -m pytest tests/infra/test_helm_chart.py -q -rfE -p no:cacheprovider "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-zc26y0ao\.junit-0.xml"
+--- stdout ---
+.........................F.F                                             [100%]
+================================== FAILURES ===================================
+_ test_demo_ingress_serves_both_path_shapes_per_pilot_to_the_same_backend_service _
+
+    def test_demo_ingress_serves_both_path_shapes_per_pilot_to_the_same_backend_service() -> None:
+        docs = _render_demo()
+        pilots = yaml.safe_load((CHART / "values.yaml").read_text(encoding="utf-8"))["ingestion"]["pilots"]
+        entries = _ingress_path_entries(docs)
+        by_path = {entry["path"]: entry for entry in entries}
+        for pilot in pilots:
+            hyphenated = f"/demo/{pilot['family']}-{pilot['platform']}"
+            two_segment = f"/demo/{pilot['family']}/{pilot['platform']}"
+            assert hyphenated in by_path, pilot
+>           assert two_segment in by_path, pilot
+E           AssertionError: {'family': 'pdf', 'platform': 'net', 'sourceKind': 'self_extracted', 'heldBy': 'ingestion-pdf-net', ...}
+E           assert '/demo/pdf/net' in {'/demo/pdf-net': {'path': '/demo/pdf-net', 'pathType': 'Prefix', 'backend': {'service': {'name': 'foss-mcp-pdf-net-de...Type': 'Prefix', 'backend': {'service': {'name': 'foss-mcp-pdf-net-demo-slides-python', 'port': {'number': 80}}}}, ...}
+
+tests\infra\test_helm_chart.py:620: AssertionError
+______ test_demo_mode_narrowed_pilot_list_still_serves_both_path_shapes _______
+
+    def test_demo_mode_narrowed_pilot_list_still_serves_both_path_shapes() -> None:
+        docs = _render_demo("--set", "demo.pilots[0].family=pdf", "--set", "demo.pilots[0].platform=net")
+        entries = _ingress_path_entries(docs)
+        # Exactly one narrowed pilot -> exactly 2 path entries, both shapes, same backend Service.
+        assert len(entries) == 2, "a narrowed demo.pilots list must still produce exactly 2 paths"
+        by_path = {entry["path"]: entry for entry in entries}
+        assert "/demo/pdf-net" in by_path
+>       assert "/demo/pdf/net" in by_path
+E       AssertionError: assert '/demo/pdf/net' in {'/demo/pdf-net': {'path': '/demo/pdf-net', 'pathType': 'Prefix', 'backend': {'service': {'name': 'foss-mcp-pdf-net-de...net', 'pathType': 'Prefix', 'backend': {'service': {'name': 'foss-mcp-pdf-net-demo-pdf-net', 'port': {'number': 80}}}}}
+
+tests\infra\test_helm_chart.py:650: AssertionError
+=========================== short test summary info ===========================
+FAILED tests/infra/test_helm_chart.py::test_demo_ingress_serves_both_path_shapes_per_pilot_to_the_same_backend_service
+FAILED tests/infra/test_helm_chart.py::test_demo_mode_narrowed_pilot_list_still_serves_both_path_shapes
+
+--- stderr ---
+
