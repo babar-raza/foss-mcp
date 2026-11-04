@@ -84,12 +84,37 @@ anchor ALONE - neither the title anchor nor the prefix match would have admitted
 new, honestly-labelled ``MATCH_BASIS_CODE_WORD``; a match the prefix mechanism admits is labelled
 exactly as ``title_anchored`` already labels any other title-anchored match (it is, semantically,
 one more way a title can anchor a query), so no new basis constant was needed for it.
+
+TC-670 (G3/REQ-G3-011) widens TC-635's own code anchor from "a query term that LOOKS syntactically
+like an identifier" to "a query term that IS a real symbol name in this pilot's own index" -
+measured directly against the real, baked ``infra/demo-manifests`` data: ``relevance.
+required_terms`` returns an EMPTY set for every plain word ("Workbook", "watermark", "Document",
+"Scene", ...), the overwhelming majority of real class/concept names in this portfolio, closing
+the dominant share of round-2's #1 cross-cutting finding (``docs/round2/HANDOFF.md``) that TC-635
+itself left untouched. ``relevance.known_symbol_names`` - this scope's own real short symbol
+names, built fresh every call from this generation's own ``documents``, never a global or
+cross-pilot list - is matched against the
+query's own original-cased words CASE-SENSITIVELY, additive beside the existing compound-identifier
+check (never instead of it): the common English word "workbook" must never anchor on the real class
+"Workbook" through this mechanism. The CODE side of the check is unchanged - the example's own
+snippet must still actually contain the term for the anchor to fire; only which query terms are
+WATCHED FOR by it is widened.
+
+TC-670 also wires ``known_defects`` into this tool - the one surface among
+``get_symbol``/``search_symbols``/``get_product_reference``/``report_index_freshness``/
+``find_examples`` that never had it. ``ExampleMatch.known_defects`` (additive, default ``()``) is
+populated, for the exact-title and lexical branches only, by ``_example_known_defects``: it scans
+the matched example's own CODE SNIPPET for a real symbol name (the same mechanism as the widened
+code anchor above) and discloses every committed known-defect entry that applies to it, through the
+real ``get_symbol.known_defect_lines`` - never the example's own pseudo ``Example: <title>`` FQN,
+which no real registry entry ever names.
 """
 
 from __future__ import annotations
 
 import os
 import re
+from collections.abc import Mapping
 from dataclasses import dataclass
 
 from foss_mcp.indexing.gateway_embedding_provider import (
@@ -105,7 +130,7 @@ from foss_mcp.indexing.generation_manifest import GenerationManifest, Generation
 from foss_mcp.indexing.lexical_index_writer import query_lexical_index_scored, tokenize
 from foss_mcp.indexing.vector_index_writer import query_vector_index_scored
 from foss_mcp.mcp.routing import Scope
-from foss_mcp.mcp.tools.get_symbol import extract_fqn
+from foss_mcp.mcp.tools.get_symbol import extract_fqn, known_defect_lines
 from foss_mcp.mcp.tools.relevance import (
     RELEVANCE_THRESHOLD,
     TITLE_ANCHOR_MAX_TERMS,
@@ -114,14 +139,20 @@ from foss_mcp.mcp.tools.relevance import (
     fold_query,
     guarded_coverage,
     has_minimum_evidence,
+    known_symbol_names,
     normalize_query,
     query_terms,
     required_terms,
+    stem_token,
     term_weights,
     title_anchored,
     title_prefix_anchored,
 )
-from foss_mcp.mcp.tools.search_symbols import SOURCE_KIND, scope_key
+from foss_mcp.mcp.tools.search_symbols import (
+    _NON_SYMBOL_FQN_PREFIXES,
+    SOURCE_KIND,
+    scope_key,
+)
 from foss_mcp.mcp.tools.vector_guard import (
     QUERY_TIME_MAX_ATTEMPTS,
     STATUS_OK,
@@ -441,6 +472,15 @@ class ExampleMatch:
     cosine-similarity scale, which is not comparable to a lexical coverage fraction. Always set to one
     of the two named strings for a vector match - never silently absent for one case and present for
     the other.
+
+    ``known_defects`` (TC-670, G3/REQ-G3-011, additive, last field, defaults ``()``) is a rendered
+    disclosure line (``get_symbol.known_defect_lines``'s own wording - the same function
+    ``get_symbol.py``/``search_symbols.py`` already call) for every committed known-defect entry
+    that applies to a REAL symbol this example's own CODE SNIPPET literally names - never the
+    example's own pseudo ``Example: <title>`` FQN, which no real registry entry's ``subject.refs``
+    ever names. Set for ``source="exact"`` and ``source="lexical"`` matches only; always ``()`` for
+    ``source="vector"`` (out of this card's scope). Empty when no defect data is recorded for this
+    pilot yet, or none of it applies to a symbol the example's own code actually uses.
     """
 
     scope: Scope
@@ -461,6 +501,9 @@ class ExampleMatch:
     verification: str = ""
     # TC-584: "confident"/"loose" for a vector match (see _VECTOR_CONFIDENT_FLOOR), "" otherwise.
     confidence: str = ""
+    # TC-670: a known-defect disclosure line for every real symbol the example's own CODE names;
+    # () when none applies, or for a vector match (not wired by this card).
+    known_defects: tuple[str, ...] = ()
 
 
 @dataclass(frozen=True)
@@ -495,6 +538,83 @@ _SKIP_WORDS = {
     STATUS_SKIPPED_CIRCUIT_OPEN: "circuit open",
     STATUS_SKIPPED_ERROR: "error",
 }
+
+_SYMBOL_WORD_RE = re.compile(r"[A-Za-z0-9]+")
+_FQN_SEGMENT_RE = re.compile(r"::|\.")
+
+
+def _real_symbol_fqns(documents: Mapping[str, Mapping[str, str]]) -> dict[str, frozenset[str]]:
+    """TC-670: this scope's own real, fully-qualified symbol FQNs, grouped by short name - the
+    identical ``extract_fqn``/``_NON_SYMBOL_FQN_PREFIXES`` filter ``search_symbols.py``'s own
+    Miss-path loop uses to build its ``known_fqns`` list. Deliberately NOT the general-purpose
+    symbol/example/documentation classifier ``relevance`` exports for other tools: this file's own
+    ``is_verified_example_text`` is the ONE predicate it uses for what a chunk is (a dedicated test
+    pins that this module's source never reaches for that other classifier at all), so this is
+    reimplemented locally with the one predicate this file already has, exactly as
+    ``relevance.known_symbol_names`` does the equivalent short-name-only computation for the code
+    anchor above, in its own module, with its own equivalent tool).
+
+    Used only by ``_example_known_defects`` below, to connect a real symbol an example's own CODE
+    names back to a real committed known-defect entry, which may reference either the symbol's bare
+    short name or its namespace-qualified form (confirmed against the real, committed
+    ``config/known_defects/*.yaml`` registry: cells/typescript's own entries use the bare
+    ``Workbook``, cells/net's own entries use the qualified ``Aspose.Cells_FOSS.Workbook``, for the
+    identical real class).
+    """
+    grouped: dict[str, set[str]] = {}
+    for document in documents.values():
+        fqn = extract_fqn(document.get("text", ""))
+        if fqn is None or fqn.startswith(_NON_SYMBOL_FQN_PREFIXES):
+            continue
+        segments = [segment for segment in _FQN_SEGMENT_RE.split(fqn) if segment]
+        if segments:
+            grouped.setdefault(segments[-1], set()).add(fqn)
+    return {short: frozenset(fqns) for short, fqns in grouped.items()}
+
+
+def _example_known_defects(
+    scope: Scope, fqns_by_short: Mapping[str, frozenset[str]], code: str, text: str
+) -> tuple[str, ...]:
+    """TC-670 (G3/REQ-G3-011): the known-defect disclosure for every REAL symbol this example's own
+    CODE SNIPPET literally names, through the real ``get_symbol.known_defect_lines`` (the identical
+    function ``get_symbol.py``/``search_symbols.py`` already call) - never the example's own pseudo
+    ``Example: <title>`` FQN, which no real registry entry's ``subject.refs`` ever names, so that
+    naive lookup would never surface anything against real data.
+
+    A real symbol is recognised the same CASE-SENSITIVE way ``relevance.known_symbol_names`` is
+    built for the code anchor above: *code* (the example's OWN CODE SNIPPET specifically - the same
+    scoping ``code_anchored`` already enforces, so a symbol name appearing only in surrounding
+    prose never triggers a disclosure here either) is scanned for alphanumeric runs, and each run
+    that is a real short name in *fqns_by_short* is tried both as its bare short name and as every
+    one of its real, fully-qualified FQNs - the real committed registry uses either form depending
+    on the pilot (see ``_real_symbol_fqns``'s own docstring). *text* is the example chunk's own
+    text, for the identical ``Source-Commit:`` commit-scoping every other ``known_defect_lines``
+    call site already gets. Registry file order, deduplicated by rendered line.
+    """
+    code_words = frozenset(_SYMBOL_WORD_RE.findall(code))
+    if not code_words:
+        return ()
+    candidates: list[str] = []
+    seen_candidates: set[str] = set()
+    for short in code_words:
+        fqns = fqns_by_short.get(short)
+        if fqns is None:
+            continue
+        if short not in seen_candidates:
+            seen_candidates.add(short)
+            candidates.append(short)
+        for fqn in sorted(fqns):
+            if fqn not in seen_candidates:
+                seen_candidates.add(fqn)
+                candidates.append(fqn)
+    lines: list[str] = []
+    seen_lines: set[str] = set()
+    for candidate in candidates:
+        for line in known_defect_lines(scope, candidate, text):
+            if line not in seen_lines:
+                seen_lines.add(line)
+                lines.append(line)
+    return tuple(lines)
 
 
 def find_examples(
@@ -536,12 +656,13 @@ def find_examples(
     if exact_texts:
         # Two chunks with one title are one example: the one whose run did not fail is the answer (TC-565).
         text = min(exact_texts, key=_runtime_rank)
+        exact_code = _extract_example(text) or ""
         return [
             ExampleMatch(
                 scope,
                 active_generation_id,
                 query,
-                _extract_example(text) or "",
+                exact_code,
                 coverage=1.0,
                 source="exact",
                 provenance=_provenance(text),
@@ -549,6 +670,8 @@ def find_examples(
                 language=_PLATFORM_LANGUAGE.get(scope.platform, ""),
                 source_commit=_source_commit(text),
                 verification=_verification_note(text),
+                # TC-670: disclose a known defect for any real symbol this example's own CODE names.
+                known_defects=_example_known_defects(scope, _real_symbol_fqns(documents), exact_code, text),
             )
         ]
 
@@ -567,6 +690,20 @@ def find_examples(
     terms = query_terms(query, scope.family, platform=scope.platform)
     weights = term_weights(terms, lexical_payload)
     required = required_terms(query)
+    # TC-670 (G3/REQ-G3-011): widens which query terms the CODE ANCHOR watches for, additive beside
+    # the existing compound-identifier check (``required``) above - never replacing it, and never
+    # touching ``guarded_coverage``'s own ``required`` gate just below, which stays exactly
+    # ``required_terms(query)``, byte-for-byte as before. ``known_symbol_names`` below is called
+    # with THIS generation's own ``documents`` for this scope's own real short symbol names (never
+    # a global or cross-pilot list - see that function's own docstring). The match against
+    # it is a literal, CASE-SENSITIVE comparison of the query's own original-cased words: the
+    # common English word "workbook" must never anchor on the real class "Workbook" through this
+    # mechanism, only an exact-case "Workbook" in the query does.
+    symbol_names = known_symbol_names(documents)
+    symbol_required = frozenset(
+        stem_token(word) for word in _SYMBOL_WORD_RE.findall(query) if word in symbol_names
+    )
+    code_anchor_required = required | symbol_required
     bm25 = dict(query_lexical_index_scored(lexical_payload, query, top_k=len(documents)))
     # TC-635 (Q10, G3/REQ-G3-011): two more, strictly additive admission paths beside the existing
     # title anchor - a code-identifier anchor and a bounded prefix title match - never replacing or
@@ -582,13 +719,13 @@ def find_examples(
         title = (extract_fqn(text) or "")[len(_EXAMPLE_FQN_PREFIX) :]
         title_hit = title_anchored(query, scope.family, title)
         prefix_hit = not title_hit and title_prefix_anchored(query, scope.family, title)
-        # ``required`` is checked FIRST so that a query with no identifier-shaped required term
-        # (``required_terms`` empty) never even calls ``code_anchored`` - not merely a trivially
-        # False result, but the call itself skipped, exactly like every query that reached this gate
-        # before this card.
-        code_only = bool(required) and not title_hit and not prefix_hit
+        # ``code_anchor_required`` (the compound-identifier check widened by the real-symbol-name
+        # check, TC-670) is checked FIRST so that a query with no eligible term never even calls
+        # ``code_anchored`` - not merely a trivially False result, but the call itself skipped,
+        # exactly like every query that reached this gate before either card.
+        code_only = bool(code_anchor_required) and not title_hit and not prefix_hit
         if code_only:
-            code_only = code_anchored(required, tokenize(_extract_example(text) or ""))
+            code_only = code_anchored(code_anchor_required, tokenize(_extract_example(text) or ""))
         if doc_coverage >= RELEVANCE_THRESHOLD and (title_hit or prefix_hit or code_only):
             scored.append((doc_coverage, bm25.get(doc_id, 0.0), doc_id, code_only))
     # TC-565: an example whose run failed or produced nothing is served after every other one, and one
@@ -618,15 +755,19 @@ def find_examples(
         if len(distinctive_terms(query, scope.family, platform=scope.platform)) <= TITLE_ANCHOR_MAX_TERMS
         else MATCH_BASIS_QUERY_TERMS
     )
+    # TC-670: computed once for every hit of this call, not once per hit - the mapping is the same
+    # for every document of this one generation.
+    fqns_by_short = _real_symbol_fqns(documents)
     matches = []
     for doc_id, doc_coverage, code_only in hits:
         text = documents[doc_id]["text"]
+        lexical_code = _extract_example(text) or ""
         matches.append(
             ExampleMatch(
                 scope=scope,
                 generation_id=active_generation_id,
                 fqn=extract_fqn(text) or "",
-                snippet=_extract_example(text) or "",
+                snippet=lexical_code,
                 coverage=doc_coverage,
                 source="lexical",
                 provenance=_provenance(text),
@@ -634,6 +775,8 @@ def find_examples(
                 language=_PLATFORM_LANGUAGE.get(scope.platform, ""),
                 source_commit=_source_commit(text),
                 verification=_verification_note(text),
+                # TC-670: disclose a known defect for any real symbol this example's own CODE names.
+                known_defects=_example_known_defects(scope, fqns_by_short, lexical_code, text),
             )
         )
     return matches

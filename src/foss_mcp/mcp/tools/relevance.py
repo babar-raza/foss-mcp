@@ -884,6 +884,50 @@ def code_anchored(required: frozenset[str], code_tokens: Iterable[str]) -> bool:
     return bool(code_matches)
 
 
+_FQN_SEGMENT_RE = re.compile(r"::|\.")
+
+
+def known_symbol_names(documents: Mapping[str, Mapping[str, str]]) -> frozenset[str]:
+    """TC-670 (G3/REQ-G3-011): the scope's own real short symbol names, built fresh from
+    *documents* (the SAME per-pilot ``lexical_index.documents`` dict ``search_symbols.py``'s own
+    Miss-path already iterates at ~line 1400 for its own ``known_fqns`` list,
+    ``extract_fqn(documents[doc_id]["text"])``) - never a global or cross-pilot list, never cached
+    across calls. A chunk whose ``chunk_kind`` is not ``SYMBOL`` (an ``Example: `` or ``Doc: ``
+    pseudo-FQN, or no ``FQN:`` line at all) contributes nothing - the identical
+    ``_NON_SYMBOL_FQN_PREFIXES`` exclusion ``search_symbols.py``'s own loop applies, expressed here
+    through the ``chunk_kind`` this module already owns rather than importing that module's own
+    private constant (this module sits BELOW ``search_symbols.py`` in the import graph - every
+    tool module imports FROM ``relevance``, never the reverse - so importing back from it here
+    would invert that layering for one constant).
+
+    A "short name" is the LAST dotted (``.``) or double-colon (``::``) separated segment of a real
+    FQN: "Workbook" for "Aspose.Cells_FOSS.Workbook", "Document" for "Aspose::Pdf::Document".
+    Confirmed against the real, committed ``infra/demo-manifests`` data before being trusted (see
+    this card's own worker report): ``required_terms("Workbook")`` is empty (a plain word, no
+    identifier shape), yet "Workbook" is the real short name of several real FQNs in every real
+    cells pilot's own index.
+
+    Exact strings, CASE PRESERVED - this function makes no case decision itself; the caller
+    (``find_examples.py``, this card's one real call site, literally
+    ``known_symbol_names(documents)``) is responsible for comparing a query's own words against
+    this set CASE-SENSITIVELY: the common English word "workbook" must never be treated as naming
+    the real class "Workbook" through this mechanism, only an exact-case "Workbook" in the query
+    does - this set holds the FQN's own casing, never a folded or lowered copy.
+    """
+    names: set[str] = set()
+    for document in documents.values():
+        text = document.get("text", "")
+        if chunk_kind(text) != SYMBOL:
+            continue
+        fqn = extract_fqn(text)
+        if not fqn:
+            continue
+        segments = [segment for segment in _FQN_SEGMENT_RE.split(fqn) if segment]
+        if segments:
+            names.add(segments[-1])
+    return frozenset(names)
+
+
 # TC-635 (Q10, G3/REQ-G3-011): the shortest query term this mechanism will anchor on. Below this many
 # characters a prefix relationship is too likely to be an accident of English rather than a real
 # shared root ("set" is a prefix of "settings", "setup" and "sets" with no real connection to any of
