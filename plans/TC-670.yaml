@@ -104,6 +104,7 @@ write_paths:
   - tests/mcp/tools/test_relevance_query_terms.py
   - tests/mcp/tools/test_find_examples_symbol_aware_matching.py
   - tests/mcp/tools/test_known_defects_in_find_examples.py
+  - tests/mcp/tools/test_find_examples_title_anchor.py
 satisfies:
   - REQ-G3-011
 source_refs:
@@ -168,6 +169,19 @@ inputs:
     radius (relevance.py is used by get_symbol/search_symbols/lookup too, even though this card
     does not touch their call sites) and the project's own "no pilot ever gets worse" rule means
     a silent precision regression anywhere is a blocking defect, not a tradeoff to accept.
+  - >-
+    REWORK (attempt 2, before you commit): a prior attempt's work (adding the `known_defects`
+    field to `ExampleMatch`) was correct and complete, but necessarily breaks
+    `tests/mcp/tools/test_find_examples_title_anchor.py::test_match_basis_is_the_last_field`,
+    which pins the dataclass's trailing field names verbatim - the same situation `TC-544`/
+    `TC-584` each hit when they added their own additive fields, and each fixed by updating this
+    exact test (read its own comments, which already document each prior card's edit). This file
+    is now in your write_paths specifically for this: extend `names[-6:]` to `names[-7:]==[...,
+    "confidence", "known_defects"]` and adjust `names[:-5]` to `names[:-6]` accordingly - a
+    one-line-shape change with full precedent in the same file, not a judgment call. If the rest
+    of your prior work (the `known_symbol_names` mechanism, the `known_defects` wiring, the new
+    test files) is already correct, do not redo it - just fix this one test and re-run the full
+    ratchet bundle (now including this file) twice clean before committing.
 actions:
   - >-
     Widen find_examples's code-anchor mechanism from "looks syntactically like an identifier" to
