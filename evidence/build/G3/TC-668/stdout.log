@@ -1,0 +1,108 @@
+
+===== CLEAN RUN 1 (host) =====
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-5c72e798a73c059a\Scripts\python.exe -m pytest tests/mcp/tools/test_known_defects_refs_population.py -q -rfE -p no:cacheprovider "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-y3ptg5ac\.junit-0.xml"
+--- stdout ---
+.............................                                            [100%]
+
+--- stderr ---
+
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-5c72e798a73c059a\Scripts\python.exe -m pytest tests/indexing/test_known_defects_data_cells.py tests/indexing/test_known_defects_completeness.py tests/mcp/tools/test_known_defects_in_get_symbol.py tests/mcp/tools/test_known_defects_in_search_symbols.py -q -rfE -p no:cacheprovider "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-y3ptg5ac\.junit-1.xml"
+--- stdout ---
+................................................                         [100%]
+
+--- stderr ---
+
+
+===== CLEAN RUN 2 (host) =====
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-5c72e798a73c059a\Scripts\python.exe -m pytest tests/mcp/tools/test_known_defects_refs_population.py -q -rfE -p no:cacheprovider "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-y3ptg5ac\.junit-0.xml"
+--- stdout ---
+.............................                                            [100%]
+
+--- stderr ---
+
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-5c72e798a73c059a\Scripts\python.exe -m pytest tests/indexing/test_known_defects_data_cells.py tests/indexing/test_known_defects_completeness.py tests/mcp/tools/test_known_defects_in_get_symbol.py tests/mcp/tools/test_known_defects_in_search_symbols.py -q -rfE -p no:cacheprovider "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-y3ptg5ac\.junit-1.xml"
+--- stdout ---
+................................................                         [100%]
+
+--- stderr ---
+
+
+===== NEGATIVE CONTROL (checks MUST now fail) =====
+mutated: M config/known_defects/cells__java.yaml, ?? .junit-0.xml, ?? .junit-1.xml
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-5c72e798a73c059a\Scripts\python.exe -m pytest tests/mcp/tools/test_known_defects_refs_population.py -q -rfE -p no:cacheprovider "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-y3ptg5ac\.junit-0.xml"
+--- stdout ---
+............FF...............                                            [100%]
+================================== FAILURES ===================================
+_______ test_cells_java_workbook_surfaces_cells_java_001_via_get_symbol _______
+
+corpus = <tests.conformance.corpus.ConformanceCorpus object at 0x000001E7827D1BE0>
+
+    def test_cells_java_workbook_surfaces_cells_java_001_via_get_symbol(corpus: ConformanceCorpus) -> None:
+        result = _pilot_get_symbol(corpus, "cells__java", "Workbook")
+        assert isinstance(result, SymbolSignature) and result.found
+        assert result.fqn == "org.aspose.cells_foss.Workbook"
+        defects = load_known_defects("cells", "java")
+>       assert _defect_ids(result.known_defects, defects) == {"CELLS-JAVA-001"}
+E       AssertionError: assert set() == {'CELLS-JAVA-001'}
+E         
+E         Extra items in the right set:
+E         'CELLS-JAVA-001'
+E         Use -v to get more diff
+
+tests\mcp\tools\test_known_defects_refs_population.py:230: AssertionError
+_____ test_cells_java_workbook_surfaces_cells_java_001_via_search_symbols _____
+
+corpus = <tests.conformance.corpus.ConformanceCorpus object at 0x000001E7827D1BE0>
+
+    def test_cells_java_workbook_surfaces_cells_java_001_via_search_symbols(corpus: ConformanceCorpus) -> None:
+        result = _pilot_search_symbols(corpus, "cells__java", "Workbook")
+        assert isinstance(result, list) and result, f"expected a real symbol hit, got {result!r}"
+        defects = load_known_defects("cells", "java")
+        hit_ids: set[str] = set()
+        for match in result:
+            hit_ids |= _defect_ids(match.known_defects, defects)
+>       assert hit_ids == {"CELLS-JAVA-001"}
+E       AssertionError: assert set() == {'CELLS-JAVA-001'}
+E         
+E         Extra items in the right set:
+E         'CELLS-JAVA-001'
+E         Use -v to get more diff
+
+tests\mcp\tools\test_known_defects_refs_population.py:240: AssertionError
+=========================== short test summary info ===========================
+FAILED tests/mcp/tools/test_known_defects_refs_population.py::test_cells_java_workbook_surfaces_cells_java_001_via_get_symbol
+FAILED tests/mcp/tools/test_known_defects_refs_population.py::test_cells_java_workbook_surfaces_cells_java_001_via_search_symbols
+
+--- stderr ---
+
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-5c72e798a73c059a\Scripts\python.exe -m pytest tests/indexing/test_known_defects_data_cells.py tests/indexing/test_known_defects_completeness.py tests/mcp/tools/test_known_defects_in_get_symbol.py tests/mcp/tools/test_known_defects_in_search_symbols.py -q -rfE -p no:cacheprovider "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-y3ptg5ac\.junit-1.xml"
+--- stdout ---
+.....................F..........................                         [100%]
+================================== FAILURES ===================================
+_ test_get_symbol_end_to_end_surfaces_the_real_written_java_workbook_save_defect _
+
+    def test_get_symbol_end_to_end_surfaces_the_real_written_java_workbook_save_defect() -> None:
+        """CELLS-JAVA-001 (``org.aspose.cells_foss.Workbook``, method-scoped, G3/TC-668/OQ-028: the
+        real namespace-qualified FQN - the bare ``Workbook`` this test used before never matched any
+        real symbol) is loaded from the REAL ``config/known_defects/cells__java.yaml`` this card wrote
+        (``load_known_defects`` uses its default, production ``REGISTRY_DIR`` here - nothing is
+        monkeypatched) and must surface through a real ``get_symbol`` call for the real ``cells/java``
+        scope."""
+        store = _InMemoryStore((_workbook_symbol_body(),))
+        scope = Scope(family="cells", platform="java")
+    
+        result = get_symbol(store, scope, "Workbook.save")  # type: ignore[arg-type]
+    
+        assert isinstance(result, ResolvedSignature)
+        assert result.fqn == "org.aspose.cells_foss.Workbook"
+>       assert len(result.known_defects) == 1
+E       AssertionError: assert 0 == 1
+E        +  where 0 = len(())
+E        +    where () = ResolvedSignature(scope=Scope(family='cells', platform='java', source_kind='self_extracted'), generation_id='gen-tc645...s=(), known_defects=(), resolved_from='Workbook.save', member='save', member_lines=('save(fileName: string) -> void',)).known_defects
+
+tests\indexing\test_known_defects_data_cells.py:383: AssertionError
+=========================== short test summary info ===========================
+FAILED tests/indexing/test_known_defects_data_cells.py::test_get_symbol_end_to_end_surfaces_the_real_written_java_workbook_save_defect
+
+--- stderr ---
+
