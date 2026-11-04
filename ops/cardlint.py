@@ -35,6 +35,14 @@ NETWORK_HINTS = (
     "_clone_pinned_commit",
     "urlopen(",
     "requests.get(",
+    # 2026-11-04: an e2e container-session test (tests/e2e/test_*_container_session.py) runs
+    # `docker compose up` against a real container and errors at setup when the docker daemon is
+    # unreachable - the exact same "errors at setup rather than skipping" failure shape L2 already
+    # names for the network case, just for infrastructure instead of a URL. These files got swept
+    # into `related_offline_tests` whenever a card's write_path stem (e.g. "find_examples",
+    # "server") happens to appear in their own tool-name parametrize list (TC-670's own review).
+    '"docker", "compose"',
+    "'docker', 'compose'",
 )
 
 # Substrings that mean "this test runs the CI or a hook".
