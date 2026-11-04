@@ -168,7 +168,7 @@ requires:
 network: false
 negative_control:
   mutate: |
-    python -X utf8 -c "import pathlib; q = chr(34); p = pathlib.Path('config/known_defects/cells__java.yaml'); s = p.read_text(encoding='utf-8'); marker = q + 'org.aspose.cells_foss.Workbook' + q; assert marker in s, 'the corrected qualified FQN literal was not found exactly as expected in cells__java.yaml - if your real fix spells it differently (e.g. without quotes, or a different qualified form), anchor your own mutate on your own real literal instead and note the substitution in your closeout'; s2 = s.replace(marker, q + 'NeverMatchesAnything.Workbook' + q, 1); assert s2 != s, 'substitution had no effect'; p.write_text(s2, encoding='utf-8')"
+    python -X utf8 -c "import pathlib; p = pathlib.Path('config/known_defects/cells__java.yaml'); s = p.read_text(encoding='utf-8'); marker = 'org.aspose.cells_foss.Workbook'; assert marker in s, 'the corrected qualified FQN literal was not found exactly as expected in cells__java.yaml - if your real fix spells it differently, anchor your own mutate on your own real literal instead and note the substitution in your closeout'; s2 = s.replace(marker, 'NeverMatchesAnything.Workbook', 1); assert s2 != s, 'substitution had no effect'; p.write_text(s2, encoding='utf-8')"
   rationale: >-
     Breaks the one real fix this card makes for cells/java - the corrected qualified FQN no
     longer matches the real symbol - so any test proving get_symbol/search_symbols now surfaces
