@@ -38,6 +38,12 @@ query) - two real, distinct, non-aliased types share the same short name. The en
 names the exact import path (``from aspose.threed.formats.obj import ObjSaveOptions``), so the
 qualified, unambiguous form matching that import was used, confirmed to resolve to exactly one real
 type on both surfaces.
+
+**G3/TC-668 (OQ-028) addendum:** Group A2 below adds 6 further tests (one ``get_symbol`` + one
+``search_symbols`` per pilot) proving that CELLS-NET-002, CELLS-JAVA-001 and CELLS-PY-005's own
+PRE-EXISTING ``Workbook`` ref - never touched by TC-660 above, and never actually matching any real
+symbol in this corpus before TC-668 - now surfaces correctly through each pilot's real,
+namespace-qualified ``Workbook`` FQN.
 """
 
 from __future__ import annotations
@@ -179,6 +185,77 @@ def test_pdf_cpp_crypto_algorithm_surfaces_pdf_cpp_001_via_search_symbols(corpus
     for match in result:
         hit_ids |= _defect_ids(match.known_defects, defects)
     assert hit_ids == {"PDF-CPP-001"}
+
+
+# --------------------------------------------------------------------------------------------
+# Group A2 (G3/TC-668, OQ-028): CELLS-NET-002, CELLS-JAVA-001 and CELLS-PY-005's own PRE-EXISTING
+# ``Workbook`` ref was a bare, unqualified name that never matched any real symbol in the real
+# ``infra/demo-manifests`` data (TC-660's own worker found this live while adding the
+# SaveOptions/PdfSaveOptions/Cell sibling refs above, but it was out of that card's scope - see
+# OQ-028). This card corrected each entry's ``Workbook`` ref to its real, namespace-qualified FQN
+# (``Aspose.Cells_FOSS.Workbook``, ``org.aspose.cells_foss.Workbook``,
+# ``aspose.cells_foss.workbook.Workbook`` respectively - each confirmed live against the real,
+# committed ``infra/demo-manifests`` corpus before being written, via the exact same
+# ``_wrap_get_symbol``/``_wrap_search_symbols`` calls these tests themselves make). These tests
+# query the bare short name ``Workbook`` - the real server's own symbol-resolution path maps it to
+# the qualified FQN, and it is that qualified FQN which must now appear in the entry's ``refs`` and
+# therefore surface the defect; before this card's fix, the bare ``Workbook`` ref in the registry
+# never matched the qualified resolved FQN and these calls would have surfaced no defect at all.
+# --------------------------------------------------------------------------------------------
+
+
+def test_cells_net_workbook_surfaces_cells_net_002_via_get_symbol(corpus: ConformanceCorpus) -> None:
+    result = _pilot_get_symbol(corpus, "cells__net", "Workbook")
+    assert isinstance(result, SymbolSignature) and result.found
+    assert result.fqn == "Aspose.Cells_FOSS.Workbook"
+    defects = load_known_defects("cells", "net")
+    assert _defect_ids(result.known_defects, defects) == {"CELLS-NET-002"}
+
+
+def test_cells_net_workbook_surfaces_cells_net_002_via_search_symbols(corpus: ConformanceCorpus) -> None:
+    result = _pilot_search_symbols(corpus, "cells__net", "Workbook")
+    assert isinstance(result, list) and result, f"expected a real symbol hit, got {result!r}"
+    defects = load_known_defects("cells", "net")
+    hit_ids: set[str] = set()
+    for match in result:
+        hit_ids |= _defect_ids(match.known_defects, defects)
+    assert hit_ids == {"CELLS-NET-002"}
+
+
+def test_cells_java_workbook_surfaces_cells_java_001_via_get_symbol(corpus: ConformanceCorpus) -> None:
+    result = _pilot_get_symbol(corpus, "cells__java", "Workbook")
+    assert isinstance(result, SymbolSignature) and result.found
+    assert result.fqn == "org.aspose.cells_foss.Workbook"
+    defects = load_known_defects("cells", "java")
+    assert _defect_ids(result.known_defects, defects) == {"CELLS-JAVA-001"}
+
+
+def test_cells_java_workbook_surfaces_cells_java_001_via_search_symbols(corpus: ConformanceCorpus) -> None:
+    result = _pilot_search_symbols(corpus, "cells__java", "Workbook")
+    assert isinstance(result, list) and result, f"expected a real symbol hit, got {result!r}"
+    defects = load_known_defects("cells", "java")
+    hit_ids: set[str] = set()
+    for match in result:
+        hit_ids |= _defect_ids(match.known_defects, defects)
+    assert hit_ids == {"CELLS-JAVA-001"}
+
+
+def test_cells_python_workbook_surfaces_cells_py_005_via_get_symbol(corpus: ConformanceCorpus) -> None:
+    result = _pilot_get_symbol(corpus, "cells__python", "Workbook")
+    assert isinstance(result, SymbolSignature) and result.found
+    assert result.fqn == "aspose.cells_foss.workbook.Workbook"
+    defects = load_known_defects("cells", "python")
+    assert _defect_ids(result.known_defects, defects) == {"CELLS-PY-005"}
+
+
+def test_cells_python_workbook_surfaces_cells_py_005_via_search_symbols(corpus: ConformanceCorpus) -> None:
+    result = _pilot_search_symbols(corpus, "cells__python", "Workbook")
+    assert isinstance(result, list) and result, f"expected a real symbol hit, got {result!r}"
+    defects = load_known_defects("cells", "python")
+    hit_ids: set[str] = set()
+    for match in result:
+        hit_ids |= _defect_ids(match.known_defects, defects)
+    assert hit_ids == {"CELLS-PY-005"}
 
 
 # --------------------------------------------------------------------------------------------

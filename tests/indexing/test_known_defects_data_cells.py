@@ -357,7 +357,7 @@ def _workbook_symbol_body() -> str:
     lines = [
         "## Workbook",
         "",
-        "FQN: Workbook",
+        "FQN: org.aspose.cells_foss.Workbook",
         "Kind: class_declaration",
         "",
         "Methods:",
@@ -367,17 +367,19 @@ def _workbook_symbol_body() -> str:
 
 
 def test_get_symbol_end_to_end_surfaces_the_real_written_java_workbook_save_defect() -> None:
-    """CELLS-JAVA-001 (``Workbook``, method-scoped) is loaded from the REAL
-    ``config/known_defects/cells__java.yaml`` this card wrote (``load_known_defects`` uses its
-    default, production ``REGISTRY_DIR`` here - nothing is monkeypatched) and must surface
-    through a real ``get_symbol`` call for the real ``cells/java`` scope."""
+    """CELLS-JAVA-001 (``org.aspose.cells_foss.Workbook``, method-scoped, G3/TC-668/OQ-028: the
+    real namespace-qualified FQN - the bare ``Workbook`` this test used before never matched any
+    real symbol) is loaded from the REAL ``config/known_defects/cells__java.yaml`` this card wrote
+    (``load_known_defects`` uses its default, production ``REGISTRY_DIR`` here - nothing is
+    monkeypatched) and must surface through a real ``get_symbol`` call for the real ``cells/java``
+    scope."""
     store = _InMemoryStore((_workbook_symbol_body(),))
     scope = Scope(family="cells", platform="java")
 
     result = get_symbol(store, scope, "Workbook.save")  # type: ignore[arg-type]
 
     assert isinstance(result, ResolvedSignature)
-    assert result.fqn == "Workbook"
+    assert result.fqn == "org.aspose.cells_foss.Workbook"
     assert len(result.known_defects) == 1
     assert (
         "Workbook.save(fileName) in org.aspose:aspose-cells-foss 26.7.0 ignores the file extension"
