@@ -587,3 +587,65 @@ def test_demo_mode_can_be_narrowed_to_a_smaller_pilot_list() -> None:
     ]
     # re-pinned by TC-551: 40 -> 32
     assert len(demo_deployments) == 1, "a narrowed demo.pilots list must not fall back to the full 32"
+
+
+def _ingress_path_entries(docs: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """Flatten every `path:` entry (dict with path/pathType/backend) across every rule of the
+    one shared demo Ingress, in render order."""
+    ingresses = _by_kind(docs, "Ingress")
+    assert len(ingresses) == 1, "expected exactly one shared Ingress for the whole demo"
+    return [rule_path for rule in ingresses[0]["spec"]["rules"] for rule_path in rule["http"]["paths"]]
+
+
+def _backend_service_name(path_entry: dict[str, Any]) -> str:
+    return path_entry["backend"]["service"]["name"]
+
+
+# TC-669: adds a second, two-segment path shape (/demo/{family}/{platform}) alongside the
+# original hyphenated shape (/demo/{family}-{platform}), both serving simultaneously from the
+# same backend Service. The server itself (src/foss_mcp/mcp/routing.py's resolve_scope()) never
+# reads the request path - scope comes only from deploy-time env vars - so this is a pure,
+# backward-compatible routing-layer addition; the hyphenated shape is never removed.
+
+
+def test_demo_ingress_serves_both_path_shapes_per_pilot_to_the_same_backend_service() -> None:
+    docs = _render_demo()
+    pilots = yaml.safe_load((CHART / "values.yaml").read_text(encoding="utf-8"))["ingestion"]["pilots"]
+    entries = _ingress_path_entries(docs)
+    by_path = {entry["path"]: entry for entry in entries}
+    for pilot in pilots:
+        hyphenated = f"/demo/{pilot['family']}-{pilot['platform']}"
+        two_segment = f"/demo/{pilot['family']}/{pilot['platform']}"
+        assert hyphenated in by_path, pilot
+        assert two_segment in by_path, pilot
+        hyphenated_service = _backend_service_name(by_path[hyphenated])
+        two_segment_service = _backend_service_name(by_path[two_segment])
+        assert hyphenated_service == two_segment_service, (
+            f"both path shapes for {pilot} must point at the exact same backend Service, got "
+            f"{hyphenated_service!r} vs {two_segment_service!r}"
+        )
+
+
+def test_demo_ingress_path_count_per_pilot_is_exactly_two() -> None:
+    docs = _render_demo()
+    pilots = yaml.safe_load((CHART / "values.yaml").read_text(encoding="utf-8"))["ingestion"]["pilots"]
+    entries = _ingress_path_entries(docs)
+    # Exactly double the pilot count: nothing silently dropped (would be < 2x) or duplicated
+    # (would be > 2x).
+    assert len(entries) == 2 * len(pilots), (
+        f"expected exactly 2 path entries per pilot ({2 * len(pilots)} total for {len(pilots)} "
+        f"pilots), got {len(entries)}"
+    )
+    paths = [entry["path"] for entry in entries]
+    assert len(paths) == len(set(paths)), "no path string should be duplicated"
+
+
+def test_demo_mode_narrowed_pilot_list_still_serves_both_path_shapes() -> None:
+    docs = _render_demo("--set", "demo.pilots[0].family=pdf", "--set", "demo.pilots[0].platform=net")
+    entries = _ingress_path_entries(docs)
+    # Exactly one narrowed pilot -> exactly 2 path entries, both shapes, same backend Service.
+    assert len(entries) == 2, "a narrowed demo.pilots list must still produce exactly 2 paths"
+    by_path = {entry["path"]: entry for entry in entries}
+    assert "/demo/pdf-net" in by_path
+    assert "/demo/pdf/net" in by_path
+    assert _backend_service_name(by_path["/demo/pdf-net"]) == _backend_service_name(by_path["/demo/pdf/net"])
