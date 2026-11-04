@@ -1,0 +1,213 @@
+id: TC-670
+gate: G3
+lane: storage-retrieval
+purpose: >-
+  Closes the real majority of round-2's own #1 cross-cutting finding ("find_examples is broken
+  almost everywhere... matches on example title words only, not body/code content", ~49 issues,
+  `docs/round2/HANDOFF.md`) - re-scoped 2026-11-03 after this supervisor found, by direct testing
+  against the real `relevance.required_terms()`, that the existing fix (`TC-635`/Q10,
+  `code_anchored`) only admits a query term that is syntactically COMPOUND (a camelCase hump, an
+  underscore, or a letter+digit mix - confirm this yourself by reading `required_terms()` and
+  `_IDENTIFIER_RUN_RE`/`_LOWER_THEN_CAPITAL_RE` in `relevance.py`). Tested directly:
+  `required_terms()` returns an EMPTY set for `watermark`, `formula`, `Workbook`, `Box`, and every
+  one of pdf/python's 18 missed verbs (`encrypt`, `sign`, `rotate`, `crop`, ...) - i.e. every
+  PLAIN capitalized-or-lowercase word, which is the overwhelming majority of real class/concept
+  names in this portfolio (`Workbook`, `Document`, `Scene`, `Table`, `Cell`, `Page`,
+  `Presentation`, ...). Q10 closed a real but minority slice (compound identifiers only); this
+  card closes the dominant case.
+
+  The right fix is NOT a bigger regex. The right question `code_anchored` should ask is "is this
+  query term a REAL SYMBOL NAME in this pilot's own index" - not "does this term look
+  syntactically like code". `find_examples()` already receives the exact same
+  `documents` dict (`manifest.payload["lexical_index"]["documents"]`) that `search_symbols.py`'s
+  own Miss-path already iterates to build a `known_fqns` list for `suggest_similar_fqns`
+  (`search_symbols.py` ~line 1400-1404: `extract_fqn(documents[doc_id]["text"])`, filtered by
+  `_NON_SYMBOL_FQN_PREFIXES`) - read that real loop as your template, do not invent a different
+  one. Build the scope's real set of short symbol names (the final dotted/`::`-separated segment
+  of each real, non-pseudo FQN) from that same data, and extend the required-terms mechanism so a
+  query's own word that case-sensitively matches a real short name ALSO anchors `code_anchored`,
+  in addition to (never instead of) the existing compound-identifier check. The code side of the
+  check (the example's own snippet must actually CONTAIN the term, per `code_anchored`'s existing
+  contract) is unchanged - only which query terms get WATCHED for is widened.
+
+  Also wire `known_defects` into `find_examples` - confirmed by this supervisor to have ZERO
+  wiring today (`grep known_defect find_examples.py` returns nothing), the one surface among
+  `get_symbol`/`search_symbols`/`get_product_reference`/`report_index_freshness`/`find_examples`
+  that was never given it. `ExampleMatch` (the dataclass this tool returns) has no `known_defects`
+  field at all yet - add one the same way every other additive field on this dataclass already
+  works (default `()`, documented in the class docstring, last field). Call the real
+  `known_defect_lines(scope, fqn, text)` (same function `get_symbol.py`/`search_symbols.py`
+  already call, now also benefiting from `TC-658`'s multi-ref mechanism) for the matched example's
+  own `fqn`/`text`, for every returned match (exact and lexical).
+
+  Do not touch the title anchor, the coverage floor, or any existing admission tier's own
+  thresholds - this card is additive only, exactly like Q10 was. The "no pilot ever gets worse"
+  rule applies in full: every existing ratchet-bundle test (title anchor, nonsense-miss,
+  forgiveness acceptance, round3-retrieval corpus) must still pass unchanged, proving this widens
+  recall without weakening precision anywhere it already worked.
+depends_on:
+  - TC-016
+  - TC-125
+  - TC-126
+  - TC-131
+  - TC-132
+  - TC-136
+  - TC-142
+  - TC-148
+  - TC-239
+  - TC-273
+  - TC-331
+  - TC-380
+  - TC-381
+  - TC-386
+  - TC-389
+  - TC-391
+  - TC-465
+  - TC-505
+  - TC-506
+  - TC-507
+  - TC-508
+  - TC-509
+  - TC-514
+  - TC-515
+  - TC-516
+  - TC-518
+  - TC-519
+  - TC-540
+  - TC-542
+  - TC-543
+  - TC-544
+  - TC-549
+  - TC-562
+  - TC-563
+  - TC-564
+  - TC-565
+  - TC-584
+  - TC-585
+  - TC-586
+  - TC-587
+  - TC-610
+  - TC-616
+  - TC-619
+  - TC-622
+  - TC-625
+  - TC-626
+  - TC-635
+  - TC-657
+  - TC-017b
+  - TC-019a
+write_paths:
+  - src/foss_mcp/mcp/tools/relevance.py
+  - src/foss_mcp/mcp/tools/find_examples.py
+  - src/foss_mcp/mcp/server.py
+  - tests/mcp/tools/test_find_examples_code_anchor.py
+  - tests/mcp/tools/test_relevance_query_terms.py
+  - tests/mcp/tools/test_find_examples_symbol_aware_matching.py
+  - tests/mcp/tools/test_known_defects_in_find_examples.py
+satisfies:
+  - REQ-G3-011
+source_refs:
+  - file: docs/DECISION_LOG.md
+    anchor: >-
+      ## 2026-11-02 — Round-3 independent re-audit adopted; a real regression found and given top priority; the "no pilot ever gets worse" rule adopted project-wide (operator, supervisor)
+    sha256: b750b8bf0df25b17bf66d014895ecb42952050c7cc63773f56249c4a1c551791
+inputs:
+  - >-
+    READ FIRST, in this order: `docs/round2/HANDOFF.md`'s cross-cutting fix #1 in full; then
+    `relevance.py`'s `required_terms`/`code_anchored`/`_IDENTIFIER_RUN_RE` in full (confirm the
+    plain-word gap yourself, empirically - run `python -c "from foss_mcp.mcp.tools.relevance
+    import required_terms; print(required_terms('Workbook'))"` and see the empty set with your
+    own eyes before writing any code); then `find_examples.py`'s real current call site around
+    `code_anchored(required, tokenize(...))`; then `search_symbols.py`'s real `known_fqns`-
+    building loop (~line 1400) as your template; then `get_symbol.py`'s `known_defect_lines`
+    call site and `search_symbols.py`'s, as your template for the find_examples wiring; then
+    `ExampleMatch`'s full docstring and field list in `find_examples.py`.
+  - >-
+    Design constraint, non-negotiable: the new symbol-name check must be scoped per-pilot (built
+    fresh from that scope's own real `documents`, never a cross-pilot or hardcoded list) and must
+    require CASE-SENSITIVE exact match against the real short name (not a case-insensitive or
+    substring match - `workbook` the common English word must not spuriously anchor on `Workbook`
+    the class; confirm your own real choice against at least one real case where this distinction
+    matters, and say so in your closeout). The example's own code snippet must still actually
+    CONTAIN the term for the anchor to fire - this card only widens which query terms are
+    eligible to be checked, never what counts as present in the code.
+  - >-
+    Naming requirement (so this card's own negative control has one precise, predictable
+    target): implement the function that builds the scope's real short-name set with exactly
+    this name and signature: `known_symbol_names(documents: Mapping[str, Mapping[str, str]]) ->
+    frozenset[str]` (module your own call - `relevance.py` or `find_examples.py`, your choice,
+    but the name and signature stay exactly this). Call it as `known_symbol_names(documents)` at
+    its one real call site in `find_examples.py` - the literal text `known_symbol_names(documents)`
+    must appear verbatim there, since the negative control targets exactly that call. If a real
+    constraint forces a different call shape, STOP and say so in your closeout rather than
+    silently diverging - the supervisor will re-anchor the negative control by hand in that case.
+  - >-
+    Write at least 10 tests in `tests/mcp/tools/test_find_examples_symbol_aware_matching.py`:
+    a plain-word real class name (e.g. a real symbol from an already-committed pilot's own
+    `api_surface.json`, NOT a synthetic fixture - verify it is real first) now anchors a
+    find_examples match through the real server wrapper against real `infra/demo-manifests`
+    data, where it did not before this card (prove the before/after - run the exact same query
+    against main before your fix if you need to confirm the baseline miss); a plain English word
+    that happens to share spelling with no real symbol (e.g. a generic verb) still misses, exactly
+    as before (precision is not weakened); the existing compound-identifier path (Q10) is
+    completely unaffected and still works for at least one real compound-identifier query: a
+    query term matching a real symbol name only in a DIFFERENT pilot's scope must NOT anchor
+    (proves the per-pilot scoping, not a global list); the full existing ratchet bundle below
+    still passes unchanged.
+  - >-
+    Write at least 6 tests in `tests/mcp/tools/test_known_defects_in_find_examples.py`, mirroring
+    the real pattern already established in `test_known_defects_in_get_symbol.py` and
+    `test_known_defects_in_search_symbols.py`: a real, already-disclosed known_defect (pick one
+    whose subject symbol has a real verified example chunk - find one directly, do not assume)
+    surfaces in the returned `ExampleMatch.known_defects` through the real server wrapper; a
+    match with no disclosed defect has an empty tuple; the exact-title branch and the lexical
+    branch both wire it (two separate real calls, not one call asserted to cover both).
+  - >-
+    Before committing, run the FULL existing ratchet bundle below at least twice clean, not just
+    your own new test files - this change touches shared retrieval infrastructure with real blast
+    radius (relevance.py is used by get_symbol/search_symbols/lookup too, even though this card
+    does not touch their call sites) and the project's own "no pilot ever gets worse" rule means
+    a silent precision regression anywhere is a blocking defect, not a tradeoff to accept.
+actions:
+  - >-
+    Widen find_examples's code-anchor mechanism from "looks syntactically like an identifier" to
+    "is a real symbol name in this pilot's own index", closing the dominant share of round-2's #1
+    cross-cutting finding that Q10 left untouched; wire known_defects into find_examples, the one
+    surface among the five disclosure call sites that never had it.
+checks:
+  - command: '{python} -m pytest tests/mcp/tools/test_find_examples_symbol_aware_matching.py tests/mcp/tools/test_known_defects_in_find_examples.py -q -rfE -p no:cacheprovider'
+    expect: 'exit 0'
+    timeout_seconds: 240
+    junitxml: true
+    proves:
+      - REQ-G3-011
+  - command: '{python} -m pytest tests/mcp/tools/test_find_examples_code_anchor.py tests/mcp/tools/test_find_examples_title_anchor.py tests/mcp/tools/test_find_examples_query_normalization.py tests/mcp/tools/test_find_examples_verified_only.py tests/mcp/tools/test_relevance_query_terms.py tests/mcp/tools/test_relevance_floor.py tests/mcp/tools/test_relevance_idf_synonyms.py tests/mcp/tools/test_relevance_normalize_query.py tests/mcp/tools/test_round3_retrieval_corpus.py tests/mcp/tools/test_forgiveness_acceptance.py tests/mcp/tools/test_known_defects_in_get_symbol.py tests/mcp/tools/test_known_defects_in_search_symbols.py -q -rfE -p no:cacheprovider'
+    expect: 'exit 0'
+    timeout_seconds: 600
+    junitxml: true
+    proves:
+      - REQ-G3-011
+min_tests: 16
+requires:
+  - python
+network: false
+negative_control:
+  mutate: |
+    python -X utf8 -c "import pathlib; p = pathlib.Path('src/foss_mcp/mcp/tools/find_examples.py'); s = p.read_text(encoding='utf-8'); marker = 'known_symbol_names(documents)'; assert marker in s, 'known_symbol_names(documents) not found in find_examples.py as expected - if your real call site has a different literal shape, anchor your own mutate on your own real literal instead and note the substitution in your closeout'; s2 = s.replace(marker, 'frozenset()', 1); assert s2 != s, 'substitution had no effect'; p.write_text(s2, encoding='utf-8')"
+  rationale: >-
+    Forces the new per-pilot known-symbol-names set to always be empty at its one real call site,
+    which disables exactly the new symbol-name-based admission this card adds (the existing
+    compound-identifier path is untouched). Every test proving a plain-word real symbol name now
+    anchors a match must fail under this mutation; the existing Q10 compound-identifier tests and
+    the known_defects-wiring tests are unaffected. If the real call site's literal text differs,
+    anchor your own mutate on your own real literal and say so in your closeout - the rationale
+    (disable only the new widening, leave everything else standing) must still hold.
+evidence:
+  - evidence/build/G3/TC-670/receipt.json
+closeout:
+  - >-
+    find_examples now recognizes a query term as code-relevant when it is a real symbol name in
+    the pilot's own index, not only when it is syntactically compound - closing the dominant share
+    of round 2's #1 cross-cutting finding. find_examples now also discloses known upstream
+    defects, the one surface that never had this wiring.
+recovery: Re-run from a clean tree.
