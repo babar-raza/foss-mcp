@@ -1,0 +1,91 @@
+id: TC-671
+gate: G3
+lane: verification
+purpose: >-
+  Standalone fix, not a TC-670 rework (TC-670 already used all 3 of its attempt budget - see
+  `schemas/instruction-line.schema.json`'s `attempt: {maximum: 3}` and `schemas/state.schema.json`'s
+  `max_attempts_per_card: {const: 3}`, both deliberate project invariants, not formalities).
+
+  `gatectl review`'s related-offline-tests sweep for TC-670 (its write_paths include
+  `src/foss_mcp/mcp/tools/relevance.py`, so any test file whose text contains the word "relevance"
+  is swept in) surfaced a real but UNRELATED defect:
+  `tests/mcp/tools/test_relevance_doc_scope_weights_enabled.py::test_the_full_ratchet_bundle_passes_completely_through_the_real_wired_search_docs_and_lookup`
+  spawns its own nested pytest subprocess (`_run_pytest(list(RATCHET_BUNDLE), timeout=300)`,
+  line ~126) to re-run an 8-file ratchet bundle that exercises `search_docs.py`/`lookup.py` - code
+  TC-670 never touches. The supervisor measured this exact bundle directly, twice, on two different
+  checkouts, confirming this is a PRE-EXISTING margin problem, not a regression caused by any card:
+  on a clean `main` worktree with none of TC-670's changes, just the two heaviest files in the
+  bundle alone already took 7m45s (464s); on TC-670's own worker branch, the full 8-file bundle took
+  12m16s (736s). Both runs passed with ZERO failures - purely too slow for the hardcoded 300-second
+  budget on this host's current load.
+
+  Fix the budget only. Change `timeout=300` to `timeout=1200` on that one line (20 minutes gives
+  roughly 1.6x headroom over the worst measurement recorded above). Add a one-line comment directly
+  above or beside the change citing this measurement, so a future reader does not mistake 1200 for
+  an arbitrary round number. Do NOT touch the assertion itself (`result.returncode == 0`, the exact
+  f-string message, or anything else in this file) - the correctness bar stays exactly as strict;
+  only the amount of wall-clock time the test is willing to wait changes.
+depends_on:
+  - TC-001
+  - TC-626
+write_paths:
+  - tests/mcp/tools/test_relevance_doc_scope_weights_enabled.py
+satisfies:
+  - REQ-G3-011
+source_refs:
+  - file: docs/DECISION_LOG.md
+    anchor: >-
+      ## 2026-11-02 — Round-3 independent re-audit adopted; a real regression found and given top priority; the "no pilot ever gets worse" rule adopted project-wide (operator, supervisor)
+    sha256: b750b8bf0df25b17bf66d014895ecb42952050c7cc63773f56249c4a1c551791
+inputs:
+  - >-
+    READ FIRST: `tests/mcp/tools/test_relevance_doc_scope_weights_enabled.py` in full, especially
+    `_run_pytest` and `RATCHET_BUNDLE` (lines ~87-130). Confirm with your own eyes that `timeout=300`
+    appears exactly once in this file, at the one real call site named above.
+  - >-
+    Do not re-measure from scratch if you don't need to - the supervisor's own two direct
+    measurements (736s on a worker branch, 464s for a subset on a clean main worktree, both with
+    zero failures) are given above as evidence this is a budget problem, not a correctness problem.
+    If your own run of the full test file finishes well inside 300s, say so plainly in your closeout
+    rather than assuming the supervisor's numbers still hold - host load varies run to run - but
+    either way the fix (raise the budget with margin) is the same.
+  - >-
+    Write at least 2 tests in a new file, `tests/mcp/tools/test_relevance_doc_scope_weights_timeout_budget.py`:
+    one that asserts the real `timeout=300` literal is gone from the file's source (replaced by a
+    value of at least 900), and one that imports and calls
+    `test_relevance_doc_scope_weights_enabled.test_the_full_ratchet_bundle_passes_completely_through_the_real_wired_search_docs_and_lookup`
+    directly (or re-runs it via pytest in-process) and confirms it still completes successfully -
+    this is the only direct proof that raising the number did not also, by typo, break the function.
+checks:
+  - command: '{python} -m pytest tests/mcp/tools/test_relevance_doc_scope_weights_timeout_budget.py -q -rfE -p no:cacheprovider'
+    expect: 'exit 0'
+    timeout_seconds: 120
+    junitxml: true
+    proves:
+      - REQ-G3-011
+  - command: '{python} -m pytest tests/mcp/tools/test_relevance_doc_scope_weights_enabled.py -q -rfE -p no:cacheprovider'
+    expect: 'exit 0'
+    timeout_seconds: 1500
+    junitxml: true
+    proves:
+      - REQ-G3-011
+min_tests: 2
+requires:
+  - python
+network: false
+negative_control:
+  mutate: |
+    python -X utf8 -c "import pathlib; p = pathlib.Path('tests/mcp/tools/test_relevance_doc_scope_weights_enabled.py'); s = p.read_text(encoding='utf-8'); marker = 'timeout=300'; assert marker in s, 'timeout=300 not found as expected - if your real fix spells it differently, anchor your own mutate on your own real literal instead and note the substitution in your closeout'; s2 = s.replace(marker, 'timeout=1', 1); assert s2 != s, 'substitution had no effect'; p.write_text(s2, encoding='utf-8')"
+  rationale: >-
+    Shrinks the nested-pytest subprocess budget to 1 second, which cannot possibly finish the real
+    ratchet bundle, so the test must fail with a TimeoutExpired - proving the new budget value is
+    the one actually in effect at that call site, not a second unused constant elsewhere in the
+    file.
+evidence:
+  - evidence/build/G3/TC-671/receipt.json
+closeout:
+  - >-
+    test_relevance_doc_scope_weights_enabled.py's nested ratchet-bundle re-run now has a realistic
+    time budget (measured and cited, not an arbitrary round number), so a correctly-passing,
+    merely-slow run on a loaded host no longer looks like a regression to any card's `gatectl review`.
+recovery: Re-run from a clean tree.
