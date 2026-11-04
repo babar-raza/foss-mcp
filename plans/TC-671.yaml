@@ -76,7 +76,7 @@ requires:
 network: false
 negative_control:
   mutate: |
-    python -X utf8 -c "import pathlib; p = pathlib.Path('tests/mcp/tools/test_relevance_doc_scope_weights_enabled.py'); s = p.read_text(encoding='utf-8'); marker = 'timeout=300'; assert marker in s, 'timeout=300 not found as expected - if your real fix spells it differently, anchor your own mutate on your own real literal instead and note the substitution in your closeout'; s2 = s.replace(marker, 'timeout=1', 1); assert s2 != s, 'substitution had no effect'; p.write_text(s2, encoding='utf-8')"
+    python -X utf8 -c "import pathlib; p = pathlib.Path('tests/mcp/tools/test_relevance_doc_scope_weights_enabled.py'); s = p.read_text(encoding='utf-8'); marker = 'timeout=1200'; assert marker in s, 'timeout=1200 not found as expected - the real fix replaces timeout=300 with the new budget, so the mutate must target the NEW literal, not the old one; if your real fix picked a different number, anchor your own mutate on your own real literal instead and note the substitution in your closeout'; s2 = s.replace(marker, 'timeout=1', 1); assert s2 != s, 'substitution had no effect'; p.write_text(s2, encoding='utf-8')"
   rationale: >-
     Shrinks the nested-pytest subprocess budget to 1 second, which cannot possibly finish the real
     ratchet bundle, so the test must fail with a TimeoutExpired - proving the new budget value is
