@@ -706,9 +706,7 @@ def find_examples(
     # common English word "workbook" must never anchor on the real class "Workbook" through this
     # mechanism, only an exact-case "Workbook" in the query does.
     symbol_names = known_symbol_names(documents)
-    symbol_required = frozenset(
-        stem_token(word) for word in symbol_words(query) if word in symbol_names
-    )
+    symbol_required = frozenset(stem_token(word) for word in symbol_words(query) if word in symbol_names)
     code_anchor_required = required | symbol_required
     bm25 = dict(query_lexical_index_scored(lexical_payload, query, top_k=len(documents)))
     # TC-635 (Q10, G3/REQ-G3-011): two more, strictly additive admission paths beside the existing
