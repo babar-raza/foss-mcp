@@ -1,0 +1,111 @@
+{
+  "schema_version": 1,
+  "card": "TC-671",
+  "gate": "G3",
+  "generated_by": "gatectl",
+  "generated_at": "2026-11-04T21:58:22Z",
+  "base_rev": "60a55cef06e20f4d6402da7b90d8663665be76f1",
+  "head_rev": "b5c7e715aaa0ce053936d10ebf895b01984d656b",
+  "card_sha256": "c8f9e05277851f379a47565a993bd7609bf7d1775d693919957491d1895be285",
+  "fingerprint": {
+    "python": "3.13.2",
+    "platform": "Windows-11-10.0.26300-SP0",
+    "lock_sha256": "5c72e798a73c059a438e752e94a8d4c88c1bdf81a197f6e5c5fcecbc9466a691",
+    "env": {
+      "PYTHONHASHSEED": "0",
+      "PYTHONUTF8": "1",
+      "PYTHONDONTWRITEBYTECODE": "1",
+      "PYTHONIOENCODING": "utf-8",
+      "TZ": "UTC",
+      "LC_ALL": "C.UTF-8",
+      "SOURCE_DATE_EPOCH": "1700000000",
+      "verify_runner": "host"
+    }
+  },
+  "scope": {
+    "ok": true,
+    "changed_paths": [
+      "tests/mcp/tools/test_relevance_doc_scope_weights_enabled.py",
+      "tests/mcp/tools/test_relevance_doc_scope_weights_timeout_budget.py"
+    ],
+    "violations": [],
+    "evaluated": true
+  },
+  "runs": [
+    {
+      "run": 1,
+      "checks": [
+        {
+          "command": "{python} -m pytest tests/mcp/tools/test_relevance_doc_scope_weights_timeout_budget.py -q -rfE -p no:cacheprovider",
+          "exit_code": 0,
+          "duration_s": 580.427,
+          "stdout_sha256": "99db33d5c94c6f7da021687c7391181685cc33299c5435b1c861e2db3be3ec87",
+          "tests": 2,
+          "skipped": 0,
+          "errors": 0,
+          "failures": 0
+        },
+        {
+          "command": "{python} -m pytest tests/mcp/tools/test_relevance_doc_scope_weights_enabled.py -q -rfE -p no:cacheprovider",
+          "exit_code": 0,
+          "duration_s": 556.23,
+          "stdout_sha256": "700bc0322b00f8e8db3ce495047983b54ab27ab59ed1fedac05f3aeba47dae24",
+          "tests": 6,
+          "skipped": 0,
+          "errors": 0,
+          "failures": 0
+        }
+      ],
+      "all_passed": true
+    },
+    {
+      "run": 2,
+      "checks": [
+        {
+          "command": "{python} -m pytest tests/mcp/tools/test_relevance_doc_scope_weights_timeout_budget.py -q -rfE -p no:cacheprovider",
+          "exit_code": 0,
+          "duration_s": 600.502,
+          "stdout_sha256": "99db33d5c94c6f7da021687c7391181685cc33299c5435b1c861e2db3be3ec87",
+          "tests": 2,
+          "skipped": 0,
+          "errors": 0,
+          "failures": 0
+        },
+        {
+          "command": "{python} -m pytest tests/mcp/tools/test_relevance_doc_scope_weights_enabled.py -q -rfE -p no:cacheprovider",
+          "exit_code": 0,
+          "duration_s": 576.573,
+          "stdout_sha256": "700bc0322b00f8e8db3ce495047983b54ab27ab59ed1fedac05f3aeba47dae24",
+          "tests": 6,
+          "skipped": 0,
+          "errors": 0,
+          "failures": 0
+        }
+      ],
+      "all_passed": true
+    }
+  ],
+  "negative_control": {
+    "kind": "mutate",
+    "patch": "python -X utf8 -c \"import pathlib; p = pathlib.Path('tests/mcp/tools/test_relevance_doc_scope_weights_enabled.py'); s = p.read_text(encoding='utf-8'); marker = 'timeout=1200'; assert marker in s, 'timeout=1200 not found as expected - the real fix replaces timeout=300 with the new budget, so the mutate must target the NEW literal, not the old one; if your real fix picked a different number, anchor your own mutate on your own real literal instead and note the substitution in your closeout'; s2 = s.replace(marker, 'timeout=1', 1); assert s2 != s, 'substitution had no effect'; p.write_text(s2, encoding='utf-8')\"\n",
+    "patch_sha256": "fbf1894a8969a45392dfe69376c0de510242e5a6417135502ac41df0630aa1a2",
+    "applied": true,
+    "patch_applied_failed": true,
+    "exit_codes": [
+      1,
+      1
+    ],
+    "tree_changed": [
+      "M tests/mcp/tools/test_relevance_doc_scope_weights_enabled.py",
+      "?? .junit-0.xml",
+      "?? .junit-1.xml"
+    ]
+  },
+  "holdout": {
+    "ran": false,
+    "passed": true,
+    "detail": "no holdout for this card"
+  },
+  "accepted": true,
+  "reason": "all gates passed"
+}

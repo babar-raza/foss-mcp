@@ -1,0 +1,211 @@
+
+===== CLEAN RUN 1 (host) =====
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-5c72e798a73c059a\Scripts\python.exe -m pytest tests/mcp/tools/test_relevance_doc_scope_weights_timeout_budget.py -q -rfE -p no:cacheprovider "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-o8r_h_m1\.junit-0.xml"
+--- stdout ---
+..                                                                       [100%]
+
+--- stderr ---
+
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-5c72e798a73c059a\Scripts\python.exe -m pytest tests/mcp/tools/test_relevance_doc_scope_weights_enabled.py -q -rfE -p no:cacheprovider "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-o8r_h_m1\.junit-1.xml"
+--- stdout ---
+......                                                                   [100%]
+
+--- stderr ---
+
+
+===== CLEAN RUN 2 (host) =====
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-5c72e798a73c059a\Scripts\python.exe -m pytest tests/mcp/tools/test_relevance_doc_scope_weights_timeout_budget.py -q -rfE -p no:cacheprovider "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-o8r_h_m1\.junit-0.xml"
+--- stdout ---
+..                                                                       [100%]
+
+--- stderr ---
+
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-5c72e798a73c059a\Scripts\python.exe -m pytest tests/mcp/tools/test_relevance_doc_scope_weights_enabled.py -q -rfE -p no:cacheprovider "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-o8r_h_m1\.junit-1.xml"
+--- stdout ---
+......                                                                   [100%]
+
+--- stderr ---
+
+
+===== NEGATIVE CONTROL (checks MUST now fail) =====
+mutated: M tests/mcp/tools/test_relevance_doc_scope_weights_enabled.py, ?? .junit-0.xml, ?? .junit-1.xml
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-5c72e798a73c059a\Scripts\python.exe -m pytest tests/mcp/tools/test_relevance_doc_scope_weights_timeout_budget.py -q -rfE -p no:cacheprovider "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-o8r_h_m1\.junit-0.xml"
+--- stdout ---
+FF                                                                       [100%]
+================================== FAILURES ===================================
+_ test_the_hardcoded_timeout_300_literal_is_gone_and_the_real_budget_has_enough_headroom _
+
+    def test_the_hardcoded_timeout_300_literal_is_gone_and_the_real_budget_has_enough_headroom() -> None:
+        """Reads the real, current source (not a cached copy) and confirms both that the old, too-tight
+        ``timeout=300`` literal is gone, and that whatever value replaced it at the one real call site
+        is at least 900s - enough margin over the supervisor's own worst direct measurement (736s)."""
+        source = TARGET_FILE.read_text(encoding="utf-8")
+        assert "timeout=300" not in source, (
+            "the old, too-tight timeout=300 literal is still present in "
+            f"{TARGET_FILE} - the TC-671 fix was expected to remove it"
+        )
+    
+        real_timeout = _real_call_site_timeout()
+>       assert real_timeout >= MIN_ACCEPTABLE_TIMEOUT_SECONDS, (
+            f"the real timeout at the RATCHET_BUNDLE call site is {real_timeout}s, which is below the "
+            f"{MIN_ACCEPTABLE_TIMEOUT_SECONDS}s floor this card requires for adequate headroom over the "
+            "supervisor's measured worst case (736s)"
+        )
+E       AssertionError: the real timeout at the RATCHET_BUNDLE call site is 1s, which is below the 900s floor this card requires for adequate headroom over the supervisor's measured worst case (736s)
+E       assert 1 >= 900
+
+tests\mcp\tools\test_relevance_doc_scope_weights_timeout_budget.py:63: AssertionError
+_ test_the_full_ratchet_bundle_test_still_passes_in_process_with_the_new_timeout_budget _
+
+    def test_the_full_ratchet_bundle_test_still_passes_in_process_with_the_new_timeout_budget() -> None:
+        """Direct proof the new, raised timeout did not break anything: re-invokes the real, slow
+        ratchet-bundle re-run test in-process via ``pytest.main`` against the real, current source tree.
+        This is expected to take several minutes (it re-runs an 8-file ratchet bundle as a nested
+        subprocess) - that is by design, not a bug, and must not be shrunk."""
+        exit_code = pytest.main(["-q", "-p", "no:cacheprovider", TARGET_NODEID])
+>       assert exit_code == 0, (
+            f"the real ratchet-bundle re-run test failed or errored under the new timeout budget "
+            f"(pytest exit code {exit_code}) - the TC-671 fix must not have broken the call site"
+        )
+E       AssertionError: the real ratchet-bundle re-run test failed or errored under the new timeout budget (pytest exit code 1) - the TC-671 fix must not have broken the call site
+E       assert <ExitCode.TESTS_FAILED: 1> == 0
+
+tests\mcp\tools\test_relevance_doc_scope_weights_timeout_budget.py:76: AssertionError
+---------------------------- Captured stdout call -----------------------------
+F                                                                        [100%]
+================================== FAILURES ===================================
+_ test_the_full_ratchet_bundle_passes_completely_through_the_real_wired_search_docs_and_lookup _
+
+    def test_the_full_ratchet_bundle_passes_completely_through_the_real_wired_search_docs_and_lookup() -> None:
+        """A LIVE re-run (not a restatement) of the exact bundle named in this card's own second check
+        command, against the real, current, committed source tree where ``search_docs._rule_for`` and
+        ``lookup._limitation_docs`` are both genuinely wired to ``doc_scope_term_weights``. Must exit 0
+        with zero failures and zero errors - the end-state confirmation of the isolated, by-call-site
+        measurements this worker performed by hand before committing (see module docstring)."""
+        # TC-671: 1200s (20 min) replaces the prior 300s budget, which was too tight on this host -
+        # the supervisor measured 464s for a subset and 736s for the full bundle, both passing cleanly.
+>       result = _run_pytest(list(RATCHET_BUNDLE), timeout=1)
+                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests\mcp\tools\test_relevance_doc_scope_weights_enabled.py:128: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+tests\mcp\tools\test_relevance_doc_scope_weights_enabled.py:108: in _run_pytest
+    return subprocess.run(
+C:\dev-tools\foss-mcp\python313\Lib\subprocess.py:558: in run
+    stdout, stderr = process.communicate(input, timeout=timeout)
+                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+C:\dev-tools\foss-mcp\python313\Lib\subprocess.py:1221: in communicate
+    stdout, stderr = self._communicate(input, endtime, timeout)
+                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+self = <Popen: returncode: 1 args: ['E:\\Users\\prora\\OneDrive\\Documents\\GitHub\...>
+input = None, endtime = 45102.800931, orig_timeout = 1
+
+    def _communicate(self, input, endtime, orig_timeout):
+        # Start reader threads feeding into a list hanging off of this
+        # object, unless they've already been started.
+        if self.stdout and not hasattr(self, "_stdout_buff"):
+            self._stdout_buff = []
+            self.stdout_thread = \
+                    threading.Thread(target=self._readerthread,
+                                     args=(self.stdout, self._stdout_buff))
+            self.stdout_thread.daemon = True
+            self.stdout_thread.start()
+        if self.stderr and not hasattr(self, "_stderr_buff"):
+            self._stderr_buff = []
+            self.stderr_thread = \
+                    threading.Thread(target=self._readerthread,
+                                     args=(self.stderr, self._stderr_buff))
+            self.stderr_thread.daemon = True
+            self.stderr_thread.start()
+    
+        if self.stdin:
+            self._stdin_write(input)
+    
+        # Wait for the reader threads, or time out.  If we time out, the
+        # threads remain reading and the fds left open in case the user
+        # calls communicate again.
+        if self.stdout is not None:
+            self.stdout_thread.join(self._remaining_time(endtime))
+            if self.stdout_thread.is_alive():
+>               raise TimeoutExpired(self.args, orig_timeout)
+E               subprocess.TimeoutExpired: Command '['E:\\Users\\prora\\OneDrive\\Documents\\GitHub\\foss-mcp\\.gatectl-worktrees\\venv-5c72e798a73c059a\\Scripts\\python.exe', '-m', 'pytest', 'tests/mcp/tools/test_round3_retrieval_corpus.py', 'tests/mcp/tools/test_forgiveness_acceptance.py', 'tests/mcp/tools/test_nonsense_queries_miss.py', 'tests/mcp/tools/test_find_examples_title_anchor.py', 'tests/mcp/tools/test_relevance_idf_synonyms.py', 'tests/mcp/tools/test_lookup_forgiveness.py', 'tests/mcp/tools/test_lookup_miss_reason.py', 'tests/conformance/test_sentence_wrapped_retrieval.py', '-q', '-p', 'no:cacheprovider']' timed out after 1 seconds
+
+C:\dev-tools\foss-mcp\python313\Lib\subprocess.py:1642: TimeoutExpired
+=========================== short test summary info ===========================
+FAILED tests/mcp/tools/test_relevance_doc_scope_weights_enabled.py::test_the_full_ratchet_bundle_passes_completely_through_the_real_wired_search_docs_and_lookup
+=========================== short test summary info ===========================
+FAILED tests/mcp/tools/test_relevance_doc_scope_weights_timeout_budget.py::test_the_hardcoded_timeout_300_literal_is_gone_and_the_real_budget_has_enough_headroom
+FAILED tests/mcp/tools/test_relevance_doc_scope_weights_timeout_budget.py::test_the_full_ratchet_bundle_test_still_passes_in_process_with_the_new_timeout_budget
+
+--- stderr ---
+
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-5c72e798a73c059a\Scripts\python.exe -m pytest tests/mcp/tools/test_relevance_doc_scope_weights_enabled.py -q -rfE -p no:cacheprovider "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-o8r_h_m1\.junit-1.xml"
+--- stdout ---
+F.....                                                                   [100%]
+================================== FAILURES ===================================
+_ test_the_full_ratchet_bundle_passes_completely_through_the_real_wired_search_docs_and_lookup _
+
+    def test_the_full_ratchet_bundle_passes_completely_through_the_real_wired_search_docs_and_lookup() -> None:
+        """A LIVE re-run (not a restatement) of the exact bundle named in this card's own second check
+        command, against the real, current, committed source tree where ``search_docs._rule_for`` and
+        ``lookup._limitation_docs`` are both genuinely wired to ``doc_scope_term_weights``. Must exit 0
+        with zero failures and zero errors - the end-state confirmation of the isolated, by-call-site
+        measurements this worker performed by hand before committing (see module docstring)."""
+        # TC-671: 1200s (20 min) replaces the prior 300s budget, which was too tight on this host -
+        # the supervisor measured 464s for a subset and 736s for the full bundle, both passing cleanly.
+>       result = _run_pytest(list(RATCHET_BUNDLE), timeout=1)
+                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests\mcp\tools\test_relevance_doc_scope_weights_enabled.py:128: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+tests\mcp\tools\test_relevance_doc_scope_weights_enabled.py:108: in _run_pytest
+    return subprocess.run(
+C:\dev-tools\foss-mcp\python313\Lib\subprocess.py:558: in run
+    stdout, stderr = process.communicate(input, timeout=timeout)
+                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+C:\dev-tools\foss-mcp\python313\Lib\subprocess.py:1221: in communicate
+    stdout, stderr = self._communicate(input, endtime, timeout)
+                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+self = <Popen: returncode: 1 args: ['E:\\Users\\prora\\OneDrive\\Documents\\GitHub\...>
+input = None, endtime = 45104.4649976, orig_timeout = 1
+
+    def _communicate(self, input, endtime, orig_timeout):
+        # Start reader threads feeding into a list hanging off of this
+        # object, unless they've already been started.
+        if self.stdout and not hasattr(self, "_stdout_buff"):
+            self._stdout_buff = []
+            self.stdout_thread = \
+                    threading.Thread(target=self._readerthread,
+                                     args=(self.stdout, self._stdout_buff))
+            self.stdout_thread.daemon = True
+            self.stdout_thread.start()
+        if self.stderr and not hasattr(self, "_stderr_buff"):
+            self._stderr_buff = []
+            self.stderr_thread = \
+                    threading.Thread(target=self._readerthread,
+                                     args=(self.stderr, self._stderr_buff))
+            self.stderr_thread.daemon = True
+            self.stderr_thread.start()
+    
+        if self.stdin:
+            self._stdin_write(input)
+    
+        # Wait for the reader threads, or time out.  If we time out, the
+        # threads remain reading and the fds left open in case the user
+        # calls communicate again.
+        if self.stdout is not None:
+            self.stdout_thread.join(self._remaining_time(endtime))
+            if self.stdout_thread.is_alive():
+>               raise TimeoutExpired(self.args, orig_timeout)
+E               subprocess.TimeoutExpired: Command '['E:\\Users\\prora\\OneDrive\\Documents\\GitHub\\foss-mcp\\.gatectl-worktrees\\venv-5c72e798a73c059a\\Scripts\\python.exe', '-m', 'pytest', 'tests/mcp/tools/test_round3_retrieval_corpus.py', 'tests/mcp/tools/test_forgiveness_acceptance.py', 'tests/mcp/tools/test_nonsense_queries_miss.py', 'tests/mcp/tools/test_find_examples_title_anchor.py', 'tests/mcp/tools/test_relevance_idf_synonyms.py', 'tests/mcp/tools/test_lookup_forgiveness.py', 'tests/mcp/tools/test_lookup_miss_reason.py', 'tests/conformance/test_sentence_wrapped_retrieval.py', '-q', '-p', 'no:cacheprovider']' timed out after 1 seconds
+
+C:\dev-tools\foss-mcp\python313\Lib\subprocess.py:1642: TimeoutExpired
+=========================== short test summary info ===========================
+FAILED tests/mcp/tools/test_relevance_doc_scope_weights_enabled.py::test_the_full_ratchet_bundle_passes_completely_through_the_real_wired_search_docs_and_lookup
+
+--- stderr ---
+
