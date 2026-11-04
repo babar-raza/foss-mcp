@@ -137,6 +137,7 @@ from foss_mcp.mcp.tools.relevance import (
     code_anchored,
     distinctive_terms,
     fold_query,
+    fqn_last_segment,
     guarded_coverage,
     has_minimum_evidence,
     known_symbol_names,
@@ -144,6 +145,7 @@ from foss_mcp.mcp.tools.relevance import (
     query_terms,
     required_terms,
     stem_token,
+    symbol_words,
     term_weights,
     title_anchored,
     title_prefix_anchored,
@@ -539,9 +541,6 @@ _SKIP_WORDS = {
     STATUS_SKIPPED_ERROR: "error",
 }
 
-_SYMBOL_WORD_RE = re.compile(r"[A-Za-z0-9]+")
-_FQN_SEGMENT_RE = re.compile(r"::|\.")
-
 
 def _real_symbol_fqns(documents: Mapping[str, Mapping[str, str]]) -> dict[str, frozenset[str]]:
     """TC-670: this scope's own real, fully-qualified symbol FQNs, grouped by short name - the
@@ -552,7 +551,10 @@ def _real_symbol_fqns(documents: Mapping[str, Mapping[str, str]]) -> dict[str, f
     pins that this module's source never reaches for that other classifier at all), so this is
     reimplemented locally with the one predicate this file already has, exactly as
     ``relevance.known_symbol_names`` does the equivalent short-name-only computation for the code
-    anchor above, in its own module, with its own equivalent tool).
+    anchor above, in its own module, with its own equivalent tool). The last-segment SPLIT itself
+    (``relevance.fqn_last_segment``) is shared with ``relevance.known_symbol_names``, not
+    reimplemented here, because this module may never compile its own regex pattern (see
+    ``relevance.fqn_last_segment``'s own docstring for the security-boundary reason).
 
     Used only by ``_example_known_defects`` below, to connect a real symbol an example's own CODE
     names back to a real committed known-defect entry, which may reference either the symbol's bare
@@ -566,9 +568,9 @@ def _real_symbol_fqns(documents: Mapping[str, Mapping[str, str]]) -> dict[str, f
         fqn = extract_fqn(document.get("text", ""))
         if fqn is None or fqn.startswith(_NON_SYMBOL_FQN_PREFIXES):
             continue
-        segments = [segment for segment in _FQN_SEGMENT_RE.split(fqn) if segment]
-        if segments:
-            grouped.setdefault(segments[-1], set()).add(fqn)
+        short = fqn_last_segment(fqn)
+        if short:
+            grouped.setdefault(short, set()).add(fqn)
     return {short: frozenset(fqns) for short, fqns in grouped.items()}
 
 
@@ -590,8 +592,12 @@ def _example_known_defects(
     on the pilot (see ``_real_symbol_fqns``'s own docstring). *text* is the example chunk's own
     text, for the identical ``Source-Commit:`` commit-scoping every other ``known_defect_lines``
     call site already gets. Registry file order, deduplicated by rendered line.
+
+    The alphanumeric-run scan itself is ``relevance.symbol_words``, not a locally compiled
+    pattern - this module may never compile its own regex pattern (see
+    ``relevance.symbol_words``'s own docstring for the security-boundary reason).
     """
-    code_words = frozenset(_SYMBOL_WORD_RE.findall(code))
+    code_words = symbol_words(code)
     if not code_words:
         return ()
     candidates: list[str] = []
@@ -701,7 +707,7 @@ def find_examples(
     # mechanism, only an exact-case "Workbook" in the query does.
     symbol_names = known_symbol_names(documents)
     symbol_required = frozenset(
-        stem_token(word) for word in _SYMBOL_WORD_RE.findall(query) if word in symbol_names
+        stem_token(word) for word in symbol_words(query) if word in symbol_names
     )
     code_anchor_required = required | symbol_required
     bm25 = dict(query_lexical_index_scored(lexical_payload, query, top_k=len(documents)))

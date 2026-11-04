@@ -267,8 +267,9 @@ def test_an_example_match_built_by_hand_still_defaults_the_new_fields_to_empty()
 def test_the_new_fields_are_the_last_three_fields_of_the_match() -> None:
     names = list(ExampleMatch.__dataclass_fields__)
     # TC-584 appended one more additive field (confidence) after verification.
-    assert names[-4:] == ["language", "source_commit", "verification", "confidence"]
-    assert names[-6:-4] == ["provenance", "match_basis"]
+    # TC-670 appended one more additive field (known_defects) after confidence.
+    assert names[-5:] == ["language", "source_commit", "verification", "confidence", "known_defects"]
+    assert names[-7:-5] == ["provenance", "match_basis"]
 
 
 def test_the_source_never_builds_a_pattern_with_a_scanned_call() -> None:

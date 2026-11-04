@@ -885,6 +885,38 @@ def code_anchored(required: frozenset[str], code_tokens: Iterable[str]) -> bool:
 
 
 _FQN_SEGMENT_RE = re.compile(r"::|\.")
+_SYMBOL_WORD_RE = re.compile(r"[A-Za-z0-9]+")
+
+
+def fqn_last_segment(fqn: str) -> str:
+    """TC-670: the last dotted (``.``) or double-colon (``::``) separated segment of *fqn* - the
+    identical split ``known_symbol_names`` below applies to every real FQN to build its short-name
+    set, exposed standalone so ``find_examples.py``'s own known-defect wiring (which must group a
+    scope's real FQNs by short name to connect an example's own code to a disclosed defect) can
+    reuse it rather than compiling its own copy of this split. ``find_examples.py`` itself may
+    never contain a ``re.compile(`` call at all - a pre-existing security-boundary guard
+    (``test_symbol_tools.py::test_no_snippet_is_ever_executed_at_query_time`` and
+    ``test_find_examples_verification_record.py::test_the_source_never_builds_a_pattern_with_a_scanned_call``)
+    asserts that file's own source text never contains that literal substring, grouped with
+    ``eval(``/``exec(``/``subprocess.``/``os.system(`` to prove no example snippet or dynamically-
+    built pattern is ever executed at query time - so this split lives here instead, below
+    ``find_examples.py`` in the import graph, exactly where ``known_symbol_names`` already lives
+    for the identical reason.
+
+    Returns *fqn* unchanged when it holds no ``.``/``::`` separator (or is empty).
+    """
+    segments = [segment for segment in _FQN_SEGMENT_RE.split(fqn) if segment]
+    return segments[-1] if segments else fqn
+
+
+def symbol_words(text: str) -> frozenset[str]:
+    """TC-670: every alphanumeric run in *text*, case preserved, as a set - the same tokenization
+    ``find_examples.py``'s own known-defect wiring uses to scan an example's own CODE SNIPPET for
+    alphanumeric runs that might be a real symbol's short name. Lives here, not in
+    ``find_examples.py``, for the identical ``re.compile(`` security-boundary reason documented on
+    ``fqn_last_segment`` above: that module may never compile its own pattern.
+    """
+    return frozenset(_SYMBOL_WORD_RE.findall(text))
 
 
 def known_symbol_names(documents: Mapping[str, Mapping[str, str]]) -> frozenset[str]:
