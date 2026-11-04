@@ -106,6 +106,7 @@ write_paths:
   - tests/mcp/tools/test_known_defects_in_find_examples.py
   - tests/mcp/tools/test_find_examples_title_anchor.py
   - tests/mcp/tools/test_find_examples_verification_record.py
+  - tests/mcp/tools/test_relevance_doc_scope_weights_enabled.py
 satisfies:
   - REQ-G3-011
 source_refs:
@@ -221,6 +222,26 @@ inputs:
     `known_defects` wiring, and all your own new test files passed clean. After these two fixes,
     re-run the FULL ratchet bundle below (both check commands) twice clean, confirm the negative
     control still applies and still fails the first check, then commit.
+  - >-
+    REWORK (attempt 4, before you commit): your attempt-3 commit is correct and complete (the
+    `grep -n "compile(" find_examples.py` check is clean, both ratchet-bundle commands passed
+    twice). The supervisor's `gatectl review` then failed for an UNRELATED, pre-existing reason,
+    now fixed by this amendment: `tests/mcp/tools/test_relevance_doc_scope_weights_enabled.py::
+    test_the_full_ratchet_bundle_passes_completely_through_the_real_wired_search_docs_and_lookup`
+    (a file this card never touches the logic of - it exercises `search_docs.py`/`lookup.py`,
+    which this card does not change) spawns its OWN nested pytest subprocess with a hardcoded
+    `timeout=300` (line ~126, `_run_pytest(list(RATCHET_BUNDLE), timeout=300)`). The supervisor
+    measured this exact bundle directly, twice, on two different, unmodified checkouts: on your
+    worker branch it took 12m16s (736s) end to end; on a clean `main` worktree with NONE of your
+    changes it took 7m45s (464s) for just the two heaviest files alone - proving this timeout was
+    already marginal before this card and is not a regression your code introduced (both runs
+    passed with zero failures, just slowly, on the current host's load). This file is now in your
+    write_paths specifically for this one fix: change `timeout=300` to `timeout=1200` on that one
+    line, with a one-line comment citing this measurement (e.g. "measured 736s on a loaded host,
+    2026-11-05 - 300s was already marginal on main before this card"). Do not touch anything else
+    in this file, do not weaken the assertion itself (`result.returncode == 0`, zero failures stays
+    exactly as strict) - only the budget it is given to finish changes. Re-run the full ratchet
+    bundle below twice clean as before, then commit.
 actions:
   - >-
     Widen find_examples's code-anchor mechanism from "looks syntactically like an identifier" to
