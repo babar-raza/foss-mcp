@@ -1,0 +1,195 @@
+id: TC-681
+gate: G3
+lane: storage-retrieval
+purpose: >-
+  C6 (content-truth sub-program, section 2.4: "one `install` recipe, guard no longer strips
+  `git clone`, manifest extras (`[pdf]`), CMake version check"). This wave-table item bundles 4
+  separate sub-claims; 2 of them are already fixed or fully covered by existing, already-reviewed
+  mechanisms (verified directly against real code and real pilot data this session, not assumed):
+
+  - "guard no longer strips `git clone`": ALREADY FIXED, by TC-561 (long before this remediation
+    program started) - confirmed via `git log -S"git clone"` and the current, committed
+    `_cpp_build_guidance`/`_drift_notice`, both of which deliberately EMIT `git clone` as part of
+    structured build guidance. No guard strips it anywhere in the current codebase.
+  - "CMake version check": ALREADY DONE, via the existing generic `_MIN_VERSION_PATTERNS`/
+    `_drift_notice` mechanism (`_CMAKE_MIN_RE` is one of 7 platform entries, same mechanism
+    TC-652 already extended and measured for a different platform). No separate card needed.
+
+  The other 2 are real, confirmed-live gaps with DIFFERENT root causes - this card closes the
+  narrower, more surgical one; the other (multi-install-recipe reconciliation, most visible on
+  cpp, already measured by `tests/conformance/test_reference_content.py`'s own "multi-recipe"
+  failure class, which fires on real cpp pilots today) is explicitly OUT OF SCOPE here and flagged
+  for a separate future card - it needs a TC-680-shaped "disclose, never silently resolve"
+  mechanism for a genuinely different code path (`_cpp_build_guidance`'s own recipe generation vs.
+  this card's `_python_install_text`), not a extension of this card's fix.
+
+  REPRODUCED directly (supervisor, this session, against real, committed sidecar manifest text):
+  `note/python`'s real, committed `infra/demo-manifests/product_reference_note_python.json` manifest
+  text contains a genuine, real, user-facing feature extra: `pdf = ["reportlab>=3.6"]` under
+  `[project.optional-dependencies]` (PDF export support). `html/python` has `js =
+  ["quickjs>=1.19,<2"]`; `pdf/python` has `images`/`woff2`/`text-layout` extras. None of these real,
+  meaningful extras are ever mentioned anywhere in `get_product_reference`'s install guidance -
+  `_python_install_text` always emits the bare `pip install <name>` (plus an optional upper-bound-
+  version caveat), with zero awareness that `PythonManifest` (via `read_python_manifest`,
+  `src/foss_mcp/extraction/manifest_reader.py`) does not even parse `extras_require`/
+  `[project.optional-dependencies]` at all today - confirmed: `PythonManifest`'s own dataclass has
+  only `name`/`version`/`license`/`requires_python` fields. A user asking this tool how to install
+  `note/python` is never told that PDF export needs `pip install <name>[pdf]` specifically - the
+  exact "[pdf]" extras-syntax gap the plan's own wording names.
+
+  Several pilots' extras are dev/test-only noise (`dev`, `test`, `tests`, `test-pdf` where it is
+  itself a TEST dependency grouping, not a real user feature) and must NOT be surfaced - only a
+  REAL, user-facing feature extra should ever appear in install guidance. Measure the real 32-pilot
+  corpus to decide your own exclusion list (starting point: `dev`, `test`, `tests` - the project's
+  own precedent, e.g. `excluded_dirs`, for distinguishing dev/test scaffolding from real content);
+  report what you chose and why, the same Decision-F discipline every other card this session used.
+depends_on:
+  - TC-012
+  - TC-017c
+  - TC-022
+  - TC-083
+  - TC-125
+  - TC-145
+  - TC-200
+  - TC-213
+  - TC-220
+  - TC-229
+  - TC-243
+  - TC-254
+  - TC-275
+  - TC-353
+  - TC-386
+  - TC-387
+  - TC-427
+  - TC-470
+  - TC-471
+  - TC-507
+  - TC-518
+  - TC-519
+  - TC-542
+  - TC-553
+  - TC-560
+  - TC-561
+  - TC-574
+  - TC-577
+  - TC-582
+  - TC-608
+  - TC-622
+  - TC-641
+  - TC-648
+  - TC-650
+  - TC-652
+  - TC-653
+  - TC-656
+  - TC-658
+  - TC-659
+  - TC-660
+  - TC-662
+  - TC-677
+  - TC-678
+  - TC-680
+write_paths:
+  - src/foss_mcp/extraction/manifest_reader.py
+  - src/foss_mcp/mcp/tools/get_product_reference.py
+  - tests/mcp/tools/test_get_product_reference_python_extras.py
+satisfies:
+  - REQ-G3-013
+source_refs:
+  - file: docs/DECISION_LOG.md
+    anchor: >-
+      ## 2026-11-02 — Round-3 independent re-audit adopted; a real regression found and given top
+      priority; the "no pilot ever gets worse" rule adopted project-wide (operator, supervisor)
+    sha256: b750b8bf0df25b17bf66d014895ecb42952050c7cc63773f56249c4a1c551791
+inputs:
+  - >-
+    READ FIRST: `src/foss_mcp/extraction/manifest_reader.py`'s `PythonManifest`/`read_python_manifest`
+    in full (confirm it parses no extras field today). Then
+    `src/foss_mcp/mcp/tools/get_product_reference.py`'s `_python_install_text` and its one real
+    call site (`section == "install"`, `platform == "python"` branch). Confirm with your own eyes,
+    against the real committed `infra/demo-manifests/product_reference_note_python.json` manifest
+    text, that `read_python_manifest` today returns nothing about the real `pdf = ["reportlab>=3.6"]`
+    extra it contains.
+  - >-
+    Add an `extras: dict[str, tuple[str, ...]]` field (empty dict default) to `PythonManifest`,
+    populated by `read_python_manifest` from BOTH real manifest shapes this repo's 32 pilots
+    actually use: `[project.optional-dependencies]` (TOML table, each key a group name, each value
+    a list of requirement strings) and `setup.py`'s `extras_require={...}` dict literal (the
+    `3d/python` real shape - grep the real committed sidecar for the exact syntax before writing a
+    regex for it). Measure the real 32-pilot corpus (`infra/demo-manifests/product_reference_*.json`)
+    directly to confirm your parser's real output on every one of them before relying on it -
+    report the real extras dict you got per pilot in your closing report, not just your test's
+    synthetic cases.
+  - >-
+    Decide and apply your own dev/test-noise exclusion list (starting point: `dev`, `test`, `tests`
+    - report your real, measured choice) so only genuinely user-facing feature extras are ever
+    surfaced; `_python_install_text` gains a sentence per remaining real extra naming the feature
+    and the exact `pip install <name>[<extra>]` syntax - never silently omitting a real extra, never
+    surfacing a dev/test one. When a manifest has no extras, or only excluded ones, output is
+    byte-for-byte unchanged from today - prove this with a snapshot test against the current
+    (pre-change) function's real output on a real pilot with no feature extras.
+  - >-
+    Write real, deterministic unit tests in the new file proving: (a) the REPRODUCE-FIRST
+    note/python "pdf" extra case now appears in the install text with the correct
+    `pip install <name>[pdf]` syntax; (b) a manifest with only dev/test extras (e.g. the real
+    cells/python shape) is byte-for-byte unaffected, same output as before this card; (c) a
+    manifest with multiple real feature extras (e.g. pdf/python's images/woff2/text-layout) lists
+    all of them, none dropped; (d) a manifest with no `[project.optional-dependencies]`/
+    `extras_require` section at all (most pilots) is unaffected and does not crash; (e) the
+    `setup.py`-style `extras_require={...}` shape (3d/python's real form) is also correctly parsed,
+    not just the TOML form.
+  - >-
+    MEASURE: re-run `tests/conformance/test_reference_content.py` (the real 32-pilot sweep) and any
+    existing test exercising `read_python_manifest`/`_python_install_text` (grep `tests/` for both
+    names first) BEFORE and AFTER your change, and report both real pass/fail counts. Every existing
+    non-extras install answer across all 32 real pilots must be byte-for-byte unchanged
+    (Decision E: never regress).
+actions:
+  - >-
+    Parse real Python manifest extras (`[project.optional-dependencies]` and `setup.py`
+    `extras_require`) and surface genuinely user-facing feature extras (excluding dev/test noise)
+    in `get_product_reference`'s install guidance, closing a real, reproduced gap on note/python,
+    html/python and pdf/python's real extras with zero behavior change for pilots with no feature
+    extras. The companion multi-install-recipe reconciliation gap (cpp, already measured by the
+    existing conformance suite's "multi-recipe" failure class) is explicitly deferred to a separate
+    future card, not attempted here.
+checks:
+  - command: '{python} -m pytest tests/mcp/tools/test_get_product_reference_python_extras.py -q -rfE -p no:cacheprovider'
+    expect: 'exit 0'
+    timeout_seconds: 180
+    junitxml: true
+    proves:
+      - REQ-G3-013
+  - command: '{python} -m pytest tests/conformance/test_reference_content.py -q -rfE -p no:cacheprovider'
+    expect: 'exit 0'
+    timeout_seconds: 300
+    junitxml: true
+    proves:
+      - REQ-G3-013
+min_tests: 5
+requires:
+  - python
+network: true
+# NOTE (supervisor): tests/conformance/test_reference_content.py (check 2) does not actually reach
+# the network - it contains a fixture string literal "git clone https://example.invalid/x.git"
+# inside a markdown-fenced test case, which cardlint's own blunt NETWORK_HINTS substring scan
+# cannot distinguish from a real invoked command (the same false positive TC-678/TC-680 both hit on
+# this exact file). Declared network: true per the tool's own suggested escape valve.
+negative_control:
+  mutate: |
+    python -X utf8 -c "import pathlib; p = pathlib.Path('src/foss_mcp/extraction/manifest_reader.py'); s = p.read_text(encoding='utf-8'); old = 'class PythonManifest'; assert s.count(old) == 1, 'the required class definition was not found as expected - if your real code names this differently, anchor your own mutate on your own real literal instead and note the substitution in your closeout'; new = 'class PythonManifestRenamedByNegativeControl'; s2 = s.replace(old, new, 1); assert s2 != s; p.write_text(s2, encoding='utf-8')"
+  rationale: >-
+    Renames the real PythonManifest class definition, breaking every real reference to it
+    (read_python_manifest's own return type and every call site), so the module fails to import -
+    every test in the new file must fail under this mutation; this is a maximally blunt but
+    reliable falsifier for a dataclass-shape change, since the real field addition itself has no
+    single stable string literal a semantic mutate could reliably target across an unknown final
+    implementation shape.
+evidence:
+  - evidence/build/G3/TC-681/receipt.json
+closeout:
+  - >-
+    `get_product_reference`'s Python install guidance now surfaces real, user-facing manifest
+    extras (never dev/test noise), closing the real note/python "[pdf]" gap the plan named, with
+    zero behavior change for the common no-extras case. The companion multi-recipe reconciliation
+    gap (cpp) is confirmed real and separately flagged, not yet carded.
+recovery: Re-run from a clean tree.
