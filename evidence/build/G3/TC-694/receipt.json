@@ -1,0 +1,89 @@
+{
+  "schema_version": 1,
+  "card": "TC-694",
+  "gate": "G3",
+  "generated_by": "gatectl",
+  "generated_at": "2026-11-05T21:31:33Z",
+  "base_rev": "67b92a2bc8cd6e2a16f1f30d3027ca125ee960b5",
+  "head_rev": "d4fdbda1cb0dd59c44b7a0bd7e882c709636d822",
+  "card_sha256": "3541ff7488643e9a0044746336f9e932798298e646892129ffdbecf556900a00",
+  "fingerprint": {
+    "python": "3.13.2",
+    "platform": "Windows-11-10.0.26300-SP0",
+    "lock_sha256": "5c72e798a73c059a438e752e94a8d4c88c1bdf81a197f6e5c5fcecbc9466a691",
+    "env": {
+      "PYTHONHASHSEED": "0",
+      "PYTHONUTF8": "1",
+      "PYTHONDONTWRITEBYTECODE": "1",
+      "PYTHONIOENCODING": "utf-8",
+      "TZ": "UTC",
+      "LC_ALL": "C.UTF-8",
+      "SOURCE_DATE_EPOCH": "1700000000",
+      "verify_runner": "host"
+    }
+  },
+  "scope": {
+    "ok": true,
+    "changed_paths": [
+      "scripts/release/source_differential.py",
+      "tests/release/test_source_differential.py"
+    ],
+    "violations": [],
+    "evaluated": true
+  },
+  "runs": [
+    {
+      "run": 1,
+      "checks": [
+        {
+          "command": "{python} -m pytest tests/release/test_source_differential.py -q -rfE -p no:cacheprovider",
+          "exit_code": 0,
+          "duration_s": 85.663,
+          "stdout_sha256": "1f517b15a77919b7c444fd206994b14152a4ee7e41fdb88f20d8a7a9ea38652a",
+          "tests": 137,
+          "skipped": 0,
+          "errors": 0,
+          "failures": 0
+        }
+      ],
+      "all_passed": true
+    },
+    {
+      "run": 2,
+      "checks": [
+        {
+          "command": "{python} -m pytest tests/release/test_source_differential.py -q -rfE -p no:cacheprovider",
+          "exit_code": 0,
+          "duration_s": 62.996,
+          "stdout_sha256": "1f517b15a77919b7c444fd206994b14152a4ee7e41fdb88f20d8a7a9ea38652a",
+          "tests": 137,
+          "skipped": 0,
+          "errors": 0,
+          "failures": 0
+        }
+      ],
+      "all_passed": true
+    }
+  ],
+  "negative_control": {
+    "kind": "mutate",
+    "patch": "python -X utf8 -c \"import pathlib; p = pathlib.Path('scripts/release/source_differential.py'); s = p.read_text(encoding='utf-8'); old = 'NPM_CONFIG_PREFIX'; assert s.count(old) >= 1, 'the required NPM_CONFIG_PREFIX env var read was not found as expected - if your real code names this differently, anchor your own mutate on your own real literal instead and note the substitution in your closeout'; s2 = s.replace(old, 'NPM_CONFIG_PREFIXDISABLED', s.count(old)); assert s2 != s; p.write_text(s2, encoding='utf-8')\"\n",
+    "patch_sha256": "37786a2a15ef8457afff2b1cf137e687b4d73ab08cfdb8c2139828b10ea473f7",
+    "applied": true,
+    "patch_applied_failed": true,
+    "exit_codes": [
+      1
+    ],
+    "tree_changed": [
+      "M scripts/release/source_differential.py",
+      "?? .junit-0.xml"
+    ]
+  },
+  "holdout": {
+    "ran": false,
+    "passed": true,
+    "detail": "no holdout for this card"
+  },
+  "accepted": false,
+  "reason": "offline tests of files this card touches fail at the head: finition"
+}

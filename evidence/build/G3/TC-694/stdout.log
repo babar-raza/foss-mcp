@@ -1,0 +1,48 @@
+
+===== CLEAN RUN 1 (host) =====
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-5c72e798a73c059a\Scripts\python.exe -m pytest tests/release/test_source_differential.py -q -rfE -p no:cacheprovider "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-j5bmjd7d\.junit-0.xml"
+--- stdout ---
+........................................................................ [ 52%]
+.................................................................        [100%]
+
+--- stderr ---
+
+
+===== CLEAN RUN 2 (host) =====
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-5c72e798a73c059a\Scripts\python.exe -m pytest tests/release/test_source_differential.py -q -rfE -p no:cacheprovider "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-j5bmjd7d\.junit-0.xml"
+--- stdout ---
+........................................................................ [ 52%]
+.................................................................        [100%]
+
+--- stderr ---
+
+
+===== NEGATIVE CONTROL (checks MUST now fail) =====
+mutated: M scripts/release/source_differential.py, ?? .junit-0.xml
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-5c72e798a73c059a\Scripts\python.exe -m pytest tests/release/test_source_differential.py -q -rfE -p no:cacheprovider "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-j5bmjd7d\.junit-0.xml"
+--- stdout ---
+........................................................................ [ 52%]
+........F........................................................        [100%]
+================================== FAILURES ===================================
+__ test_typescript_npm_package_dir_resolves_from_npm_config_prefix_when_set ___
+
+tmp_path = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-20637/test_typescript_npm_package_di0')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x00000276FFB23070>
+
+    def test_typescript_npm_package_dir_resolves_from_npm_config_prefix_when_set(tmp_path, monkeypatch):
+        """(a) -- with NPM_CONFIG_PREFIX set (via monkeypatch.setenv, standing in for what
+        scripts/toolchain/activate.ps1 already exports) to a synthetic path, the resolved TypeScript
+        package directory is exactly that path's own node_modules/typescript subdirectory -- never
+        the hardcoded TYPESCRIPT_NPM_PACKAGE_DIR fallback."""
+        synthetic_prefix = tmp_path / "synthetic-npm-prefix"
+        monkeypatch.setenv("NPM_CONFIG_PREFIX", str(synthetic_prefix))
+        resolved = sd._typescript_npm_package_dir()
+>       assert resolved == synthetic_prefix / "node_modules" / "typescript"
+E       AssertionError: assert WindowsPath('C:/dev-tools/foss-mcp/rp-toolchains/npm/prefix/node_modules/typescript') == ((WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-20637/test_typescript_npm_package_di0/synthetic-npm-prefix') / 'node_modules') / 'typescript')
+
+tests\release\test_source_differential.py:1244: AssertionError
+=========================== short test summary info ===========================
+FAILED tests/release/test_source_differential.py::test_typescript_npm_package_dir_resolves_from_npm_config_prefix_when_set
+
+--- stderr ---
+
