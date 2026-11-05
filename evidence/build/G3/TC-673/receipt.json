@@ -1,0 +1,111 @@
+{
+  "schema_version": 1,
+  "card": "TC-673",
+  "gate": "G3",
+  "generated_by": "gatectl",
+  "generated_at": "2026-11-05T05:08:55Z",
+  "base_rev": "3bbf01aa1cc62dec094ae59c09a52925498599aa",
+  "head_rev": "c4206bf330aff541bbc7fc072f21a9751db76368",
+  "card_sha256": "36f2ef116143ad4fd26f432f2633309e8b6de89c80818c8c2122eda39b9f99b5",
+  "fingerprint": {
+    "python": "3.13.2",
+    "platform": "Windows-11-10.0.26300-SP0",
+    "lock_sha256": "5c72e798a73c059a438e752e94a8d4c88c1bdf81a197f6e5c5fcecbc9466a691",
+    "env": {
+      "PYTHONHASHSEED": "0",
+      "PYTHONUTF8": "1",
+      "PYTHONDONTWRITEBYTECODE": "1",
+      "PYTHONIOENCODING": "utf-8",
+      "TZ": "UTC",
+      "LC_ALL": "C.UTF-8",
+      "SOURCE_DATE_EPOCH": "1700000000",
+      "verify_runner": "host"
+    }
+  },
+  "scope": {
+    "ok": true,
+    "changed_paths": [
+      "src/foss_mcp/mcp/tools/search_symbols.py",
+      "tests/mcp/tools/test_search_symbols_match_kind.py"
+    ],
+    "violations": [],
+    "evaluated": true
+  },
+  "runs": [
+    {
+      "run": 1,
+      "checks": [
+        {
+          "command": "{python} -m pytest tests/mcp/tools/test_search_symbols_match_kind.py -q -rfE -p no:cacheprovider",
+          "exit_code": 0,
+          "duration_s": 0.714,
+          "stdout_sha256": "cfc14fd2dc11c362cccf5421245ca5ab0e9d286b54a604a80bd2dd5522f6feb9",
+          "tests": 13,
+          "skipped": 0,
+          "errors": 0,
+          "failures": 0
+        },
+        {
+          "command": "{python} -m pytest tests/mcp/test_search_symbols_honest_miss.py tests/mcp/tools/test_search_symbols_prefix_tier.py tests/mcp/tools/test_search_symbols_memberless_last.py tests/mcp/tools/test_search_symbols_digit_words.py tests/mcp/tools/test_search_symbols_forgiveness.py tests/mcp/tools/test_search_symbols_query_normalization.py tests/mcp/tools/test_known_defects_in_search_symbols.py -q -rfE -p no:cacheprovider",
+          "exit_code": 0,
+          "duration_s": 10.22,
+          "stdout_sha256": "3967a3470f7eac359388222b353644d0c76efe416477cf10067638da7e665570",
+          "tests": 119,
+          "skipped": 0,
+          "errors": 0,
+          "failures": 0
+        }
+      ],
+      "all_passed": true
+    },
+    {
+      "run": 2,
+      "checks": [
+        {
+          "command": "{python} -m pytest tests/mcp/tools/test_search_symbols_match_kind.py -q -rfE -p no:cacheprovider",
+          "exit_code": 0,
+          "duration_s": 0.514,
+          "stdout_sha256": "cfc14fd2dc11c362cccf5421245ca5ab0e9d286b54a604a80bd2dd5522f6feb9",
+          "tests": 13,
+          "skipped": 0,
+          "errors": 0,
+          "failures": 0
+        },
+        {
+          "command": "{python} -m pytest tests/mcp/test_search_symbols_honest_miss.py tests/mcp/tools/test_search_symbols_prefix_tier.py tests/mcp/tools/test_search_symbols_memberless_last.py tests/mcp/tools/test_search_symbols_digit_words.py tests/mcp/tools/test_search_symbols_forgiveness.py tests/mcp/tools/test_search_symbols_query_normalization.py tests/mcp/tools/test_known_defects_in_search_symbols.py -q -rfE -p no:cacheprovider",
+          "exit_code": 0,
+          "duration_s": 3.808,
+          "stdout_sha256": "3967a3470f7eac359388222b353644d0c76efe416477cf10067638da7e665570",
+          "tests": 119,
+          "skipped": 0,
+          "errors": 0,
+          "failures": 0
+        }
+      ],
+      "all_passed": true
+    }
+  ],
+  "negative_control": {
+    "kind": "mutate",
+    "patch": "python -X utf8 -c \"import pathlib; q = chr(34); p = pathlib.Path('src/foss_mcp/mcp/tools/search_symbols.py'); s = p.read_text(encoding='utf-8'); old = '_TIER_KIND = {0: ' + q + 'exact_fqn' + q + ', 1: ' + q + 'final_segment' + q + ', 3: ' + q + 'bag_of_words' + q + ', 4: ' + q + 'prefix' + q + '}'; assert s.count(old) == 1, 'the real _TIER_KIND dict literal was not found as expected - if your implementation names these tiers differently (a different dict/helper shape), anchor your own mutate on your own real, actually-consulted literal instead and note the substitution in your closeout - a mutate on a dataclass field DEFAULT is not acceptable here, since every real construction site already passes match_kind explicitly and never falls back to that default'; new = '_TIER_KIND = {0: ' + q + 'broken' + q + ', 1: ' + q + 'broken' + q + ', 3: ' + q + 'broken' + q + ', 4: ' + q + 'broken' + q + '}'; p.write_text(s.replace(old, new, 1), encoding='utf-8')\"\n",
+    "patch_sha256": "dd4f41b363fecf823bdc21620a0f245e979e69000d58c2865c093c1f2d0e58d9",
+    "applied": true,
+    "patch_applied_failed": true,
+    "exit_codes": [
+      1,
+      0
+    ],
+    "tree_changed": [
+      "M src/foss_mcp/mcp/tools/search_symbols.py",
+      "?? .junit-0.xml",
+      "?? .junit-1.xml"
+    ]
+  },
+  "holdout": {
+    "ran": false,
+    "passed": true,
+    "detail": "no holdout for this card"
+  },
+  "accepted": true,
+  "reason": "all gates passed"
+}

@@ -1,0 +1,124 @@
+
+===== CLEAN RUN 1 (host) =====
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-5c72e798a73c059a\Scripts\python.exe -m pytest tests/mcp/tools/test_search_symbols_match_kind.py -q -rfE -p no:cacheprovider "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-g77ablt9\.junit-0.xml"
+--- stdout ---
+.............                                                            [100%]
+
+--- stderr ---
+
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-5c72e798a73c059a\Scripts\python.exe -m pytest tests/mcp/test_search_symbols_honest_miss.py tests/mcp/tools/test_search_symbols_prefix_tier.py tests/mcp/tools/test_search_symbols_memberless_last.py tests/mcp/tools/test_search_symbols_digit_words.py tests/mcp/tools/test_search_symbols_forgiveness.py tests/mcp/tools/test_search_symbols_query_normalization.py tests/mcp/tools/test_known_defects_in_search_symbols.py -q -rfE -p no:cacheprovider "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-g77ablt9\.junit-1.xml"
+--- stdout ---
+........................................................................ [ 60%]
+...............................................                          [100%]
+
+--- stderr ---
+
+
+===== CLEAN RUN 2 (host) =====
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-5c72e798a73c059a\Scripts\python.exe -m pytest tests/mcp/tools/test_search_symbols_match_kind.py -q -rfE -p no:cacheprovider "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-g77ablt9\.junit-0.xml"
+--- stdout ---
+.............                                                            [100%]
+
+--- stderr ---
+
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-5c72e798a73c059a\Scripts\python.exe -m pytest tests/mcp/test_search_symbols_honest_miss.py tests/mcp/tools/test_search_symbols_prefix_tier.py tests/mcp/tools/test_search_symbols_memberless_last.py tests/mcp/tools/test_search_symbols_digit_words.py tests/mcp/tools/test_search_symbols_forgiveness.py tests/mcp/tools/test_search_symbols_query_normalization.py tests/mcp/tools/test_known_defects_in_search_symbols.py -q -rfE -p no:cacheprovider "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-g77ablt9\.junit-1.xml"
+--- stdout ---
+........................................................................ [ 60%]
+...............................................                          [100%]
+
+--- stderr ---
+
+
+===== NEGATIVE CONTROL (checks MUST now fail) =====
+mutated: M src/foss_mcp/mcp/tools/search_symbols.py, ?? .junit-0.xml, ?? .junit-1.xml
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-5c72e798a73c059a\Scripts\python.exe -m pytest tests/mcp/tools/test_search_symbols_match_kind.py -q -rfE -p no:cacheprovider "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-g77ablt9\.junit-0.xml"
+--- stdout ---
+FF..FFF......                                                            [100%]
+================================== FAILURES ===================================
+_______________ test_a_full_fqn_query_gets_exact_fqn_match_kind _______________
+
+    def test_a_full_fqn_query_gets_exact_fqn_match_kind() -> None:
+        store = _InMemoryStore(_type_chunk("Sample.Pdf.PdfDocument"))
+    
+        result = _matches(_search(store, "Sample.Pdf.PdfDocument"))
+    
+        assert len(result) == 1
+>       assert result[0].match_kind == "exact_fqn"
+E       AssertionError: assert 'broken' == 'exact_fqn'
+E         
+E         - exact_fqn
+E         + broken
+
+tests\mcp\tools\test_search_symbols_match_kind.py:100: AssertionError
+__________ test_a_final_segment_query_gets_final_segment_match_kind ___________
+
+    def test_a_final_segment_query_gets_final_segment_match_kind() -> None:
+        store = _InMemoryStore(_type_chunk("Sample.Pdf.PdfDocument"))
+    
+        result = _matches(_search(store, "PdfDocument"))
+    
+        assert len(result) == 1
+>       assert result[0].match_kind == "final_segment"
+E       AssertionError: assert 'broken' == 'final_segment'
+E         
+E         - final_segment
+E         + broken
+
+tests\mcp\tools\test_search_symbols_match_kind.py:113: AssertionError
+___________ test_a_bag_of_words_query_gets_bag_of_words_match_kind ____________
+
+    def test_a_bag_of_words_query_gets_bag_of_words_match_kind() -> None:
+        result = _matches(_search(_WATERMARK_STORE, "watermark"))
+    
+        hit = _by_fqn(result)["Sample.PdfDocument.AddWatermarkAnnotation"]
+>       assert hit.match_kind == "bag_of_words"
+E       AssertionError: assert 'broken' == 'bag_of_words'
+E         
+E         - bag_of_words
+E         + broken
+
+tests\mcp\tools\test_search_symbols_match_kind.py:178: AssertionError
+_______________ test_a_prefix_only_query_gets_prefix_match_kind _______________
+
+    def test_a_prefix_only_query_gets_prefix_match_kind() -> None:
+        result = _matches(_search(_WATERMARK_STORE, "Watermar"))
+    
+        hit = _by_fqn(result)["Sample.PdfDocument.AddWatermarkAnnotation"]
+>       assert hit.match_kind == "prefix"
+E       AssertionError: assert 'broken' == 'prefix'
+E         
+E         - prefix
+E         + broken
+
+tests\mcp\tools\test_search_symbols_match_kind.py:189: AssertionError
+_________ test_an_afrelation_prefix_query_gets_prefix_match_kind_too __________
+
+    def test_an_afrelation_prefix_query_gets_prefix_match_kind_too() -> None:
+        store = _InMemoryStore(_type_chunk("Aspose::Pdf::AFRelationship"))
+    
+        result = _matches(_search(store, "AFRelation"))
+    
+        hit = _by_fqn(result)["Aspose::Pdf::AFRelationship"]
+>       assert hit.match_kind == "prefix"
+E       AssertionError: assert 'broken' == 'prefix'
+E         
+E         - prefix
+E         + broken
+
+tests\mcp\tools\test_search_symbols_match_kind.py:199: AssertionError
+=========================== short test summary info ===========================
+FAILED tests/mcp/tools/test_search_symbols_match_kind.py::test_a_full_fqn_query_gets_exact_fqn_match_kind
+FAILED tests/mcp/tools/test_search_symbols_match_kind.py::test_a_final_segment_query_gets_final_segment_match_kind
+FAILED tests/mcp/tools/test_search_symbols_match_kind.py::test_a_bag_of_words_query_gets_bag_of_words_match_kind
+FAILED tests/mcp/tools/test_search_symbols_match_kind.py::test_a_prefix_only_query_gets_prefix_match_kind
+FAILED tests/mcp/tools/test_search_symbols_match_kind.py::test_an_afrelation_prefix_query_gets_prefix_match_kind_too
+
+--- stderr ---
+
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-5c72e798a73c059a\Scripts\python.exe -m pytest tests/mcp/test_search_symbols_honest_miss.py tests/mcp/tools/test_search_symbols_prefix_tier.py tests/mcp/tools/test_search_symbols_memberless_last.py tests/mcp/tools/test_search_symbols_digit_words.py tests/mcp/tools/test_search_symbols_forgiveness.py tests/mcp/tools/test_search_symbols_query_normalization.py tests/mcp/tools/test_known_defects_in_search_symbols.py -q -rfE -p no:cacheprovider "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-g77ablt9\.junit-1.xml"
+--- stdout ---
+........................................................................ [ 60%]
+...............................................                          [100%]
+
+--- stderr ---
+
