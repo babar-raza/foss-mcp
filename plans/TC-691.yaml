@@ -1,0 +1,147 @@
+id: TC-691
+gate: G3
+lane: verification
+purpose: >-
+  O7 (oracle disagreement remediation, section 2.3: "triage of the rest incl. Go/Rust/C++ in
+  containers (classified report)"). Previously investigated this session (2026-11-05) and
+  DECLINED as a card because the plan's own "3,408 findings... classified from fixtures and
+  history" claim traced to an unreproducible pre-remediation estimate, and producing real numbers
+  "would need an actual Docker-dependent oracle re-run against real Go/Rust/C++ packages" - an
+  effort comparable to O1's own original work. RE-INVESTIGATED just now: that re-run already
+  happened, committed, and cross-checked, as part of a DIFFERENT but directly applicable prior
+  program (REQ-G3-009, `TC-589` through `TC-596`) - `TC-595` ran the real oracle
+  (`scripts/release/source_differential.py`) fleet-wide against all 32 real pilots in one pass (no
+  `--only` filter), with a real, independent, language-native toolchain for every platform
+  (Go's own `go/parser`+`go/ast` inside a pinned `golang:1.26.4` container; Rust's own `syn` crate
+  inside a pinned `rust:1.98.1` container; C++ via Clang's own `-ast-dump=json`, no container
+  needed). No fresh measurement is needed for this card - the real, verified data already exists in
+  three committed places: `docs/RELEASE.md`'s "Independent extraction-fidelity oracle" section
+  (updated 2026-10-27), `TC-595`'s own commit message (per-pilot, per-category counts for all 29
+  non-clean pilots), and `ops/open_questions.jsonl`'s `OQ-018` (Rust root cause) /`OQ-022` (C++ root
+  cause, independently the THIRD confirmation of the same pattern already found for Java/`OQ-020`
+  and .NET/`OQ-021`).
+
+  This card's job is to WRITE `docs/ORACLE_TRIAGE.md`, the classified report the plan names,
+  transcribing and organizing (never re-deriving or guessing) the real Go/Rust/C++ figures already
+  committed - exactly 7 pilots: `cells/go` (79 real members checked, 0 disagreements - the only
+  genuinely clean result of all 3 nominal zero-disagreement pilots fleet-wide), `pdf/go` (extra=480,
+  every other category 0 - UNTRACED, no existing `OQ` entry explains it, and Go has no class
+  inheritance in the sense the C++/Java/.NET "inheritance-flattening" bucket below describes, so
+  this card must NOT force-fit that bucket onto it without actually checking), `cells/rust`
+  (missing=341, signature=14 - root-caused in `OQ-018`), `pdf/cpp` (missing=4, extra=2406,
+  signature=694 - root-caused in `OQ-022`), `cells/cpp` (signature=13), `slides/cpp` (extra=153,
+  signature=37), `email/cpp` (extra=24, signature=7 - these last 3 C++ pilots share `pdf/cpp`'s same
+  two root-caused bucket shapes by inspection but were not individually traced by `OQ-022`).
+
+  Two cross-cutting buckets, already independently confirmed THREE times across Java/.NET/C++
+  (`OQ-020`/`OQ-021`/`OQ-022`) and explain nearly every Rust/C++ finding: (1) inheritance/base-class
+  member flattening - the baked extractor deliberately flattens an ancestor's members onto a
+  subclass (`inherited_from`), which a parse-phase-only oracle correctly refuses to replicate
+  without a full semantic/symbol resolver, by design, same as every other language; (2)
+  namespace/overload-unaware bare-name matching in `diff_symbol`/`diff_language` - the oracle's diff
+  engine compares members by bare name only, so C++ getter/setter pairs and Rust's multiple
+  `impl From<T>` overloads on one type collide under one fixture entry.
+
+  This is a documentation/classification card, not a code-fix card: no `src/` or
+  `scripts/release/source_differential.py` change is in scope. The one piece of genuinely new work
+  this card may do (optional, time-boxed): trace `pdf/go`'s untraced extra=480 the same way
+  `OQ-018`/`OQ-022` did (read the real pinned `pdf/go` source at the commit named in
+  `tests/fixtures/pdf_go/api_surface.json`'s own provenance and the fixture itself, compare a sample
+  of the 480 "extra" entries against the real Go source) - if a real, confirmable bucket emerges
+  (e.g. Go interface-method-set promotion, a Go analogue of inheritance), name it; if not cheaply
+  traceable within a reasonable look, the document must say so explicitly ("untraced, no confirmed
+  bucket") rather than silently omitting it or guessing.
+depends_on:
+  - TC-595
+  - TC-596
+  - TC-682
+write_paths:
+  - docs/ORACLE_TRIAGE.md
+  - tests/release/test_oracle_triage_doc.py
+satisfies:
+  - REQ-G3-012
+source_refs:
+  - file: docs/DECISION_LOG.md
+    anchor: >-
+      ## 2026-11-02 — Round-3 independent re-audit adopted; a real regression found and given top
+      priority; the "no pilot ever gets worse" rule adopted project-wide (operator, supervisor)
+    sha256: b750b8bf0df25b17bf66d014895ecb42952050c7cc63773f56249c4a1c551791
+inputs:
+  - >-
+    READ FIRST, in full, in this order: `docs/RELEASE.md`'s "Independent extraction-fidelity
+    oracle (REQ-G3-009)" section (search for that exact heading); `TC-595`'s own commit message
+    (`git log --format=%B -n 1 5c8bc6fe` - the real per-pilot, per-category counts for all 29
+    non-clean pilots live there verbatim, fleet-wide, not only for Go/Rust/C++); then
+    `ops/open_questions.jsonl`'s entries `OQ-018` (Rust), `OQ-020` (Java, the first confirmation of
+    the inheritance-flattening bucket), `OQ-021` (.NET, the second), `OQ-022` (C++, the third, plus
+    the bare-name-collision bucket) - read every one of these 4 in full, do not paraphrase from a
+    summary. Confirm every number you are about to transcribe against these real, committed sources
+    yourself before writing anything - this card is explicitly forbidden from re-deriving or
+    re-measuring any of these figures; they are already real, verified, committed data.
+  - >-
+    WRITE `docs/ORACLE_TRIAGE.md` as a real, reviewable classification document (your own section
+    structure and prose - this is a documentation card, use your own judgment on organization) that,
+    at minimum: (1) states which 7 pilots it covers (the Go/Rust/C++ subset of the 32-pilot fleet)
+    and cites `TC-595` as the real measurement source, with the date (2026-10-27) and the command
+    that produced it (`python scripts/release/source_differential.py --fixtures tests/fixtures`, no
+    `--only` filter); (2) for each of the 7 pilots, states its real missing/extra/signature/
+    static/default/enum_value counts EXACTLY as committed (transcribe them precisely - a worker that
+    transcribes a number incorrectly has written something false, not merely imprecise); (3) names
+    and explains the 2 cross-cutting buckets (inheritance-flattening; bare-name/overload-unaware
+    matching), citing the real example symbols already named in `OQ-018`/`OQ-022`
+    (`AutoFilterColorFilterModel`/`AutoFilterColorFilter`, `CellObjectValue`'s `impl From<T>`
+    overloads, `Annotation : BaseParagraph`, C++ getter/setter pairs sharing one bare name); (4)
+    explicitly states `pdf/go`'s extra=480 is untraced as of `OQ-018`/`OQ-022` (no existing open
+    question explains it) - either report a real, newly-traced bucket for it (see the purpose
+    text's optional item) or say plainly "untraced, no confirmed bucket" - never silently omit it or
+    guess a cause; (5) states which 3 C++ pilots besides `pdf/cpp` (`cells/cpp`, `slides/cpp`,
+    `email/cpp`) were not individually root-caused by any existing `OQ` entry, distinguishing them
+    honestly from `pdf/cpp`'s actually-confirmed bucket rather than implying they were all
+    individually traced.
+  - >-
+    Write real, deterministic tests in the new file proving: (a) `docs/ORACLE_TRIAGE.md` exists and
+    names all 7 pilots (`cells/go`, `pdf/go`, `cells/rust`, `pdf/cpp`, `cells/cpp`, `slides/cpp`,
+    `email/cpp`); (b) each pilot's real counts appear in the document exactly as pinned by this
+    card's own test (hardcode the verified figures above as the test's own ground truth - do not
+    read them back out of `docs/RELEASE.md` or `TC-595`'s commit message at test time, since this
+    test exists to catch the document DRIFTING from the real numbers later, not to prove the
+    numbers are consistent with themselves); (c) both cross-cutting bucket names/explanations and
+    their real cited example symbols are present; (d) the document explicitly addresses `pdf/go`'s
+    extra=480 (either a named new bucket or an explicit "untraced" statement - your test should
+    assert the number 480 and the pilot name `pdf/go` both appear near each other, and that the
+    document does not silently omit this pilot's finding).
+actions:
+  - >-
+    Write `docs/ORACLE_TRIAGE.md`, the classified Go/Rust/C++ oracle-disagreement report the plan
+    names, transcribing already-verified, already-committed figures from `TC-595`/`docs/RELEASE.md`/
+    `OQ-018`/`OQ-020`/`OQ-021`/`OQ-022` - no new measurement, no code change. `pdf/go`'s untraced
+    extra=480 is either traced for real or explicitly disclosed as unclassified.
+checks:
+  - command: '{python} -m pytest tests/release/test_oracle_triage_doc.py -q -rfE -p no:cacheprovider'
+    expect: 'exit 0'
+    timeout_seconds: 60
+    junitxml: true
+    proves:
+      - REQ-G3-012
+min_tests: 4
+requires:
+  - python
+network: false
+negative_control:
+  mutate: |
+    python -X utf8 -c "import pathlib; p = pathlib.Path('docs/ORACLE_TRIAGE.md'); s = p.read_text(encoding='utf-8'); old = 'pdf/go'; assert s.count(old) >= 1, 'the required pdf/go pilot name was not found as expected - if your real doc names this differently, anchor your own mutate on your own real literal instead and note the substitution in your closeout'; s2 = s.replace(old, 'pdf-go-DISABLED', s.count(old)); assert s2 != s; p.write_text(s2, encoding='utf-8')"
+  rationale: >-
+    Renames every mention of the `pdf/go` pilot in the new document, so a test asserting this
+    specific pilot's name and its real extra=480 count both appear must fail - proving the test
+    actually reads the document's real content, not merely that the file exists.
+evidence:
+  - evidence/build/G3/TC-691/receipt.json
+closeout:
+  - >-
+    `docs/ORACLE_TRIAGE.md` now classifies the real, already-measured Go/Rust/C++ oracle
+    disagreement for all 7 pilots that have one, citing `TC-595`'s fleet-wide run and the 4 existing
+    open questions that root-caused most of it. The 2 cross-cutting buckets (inheritance-flattening,
+    bare-name/overload-unaware matching) are named with their real example symbols. `pdf/go`'s
+    extra=480 is honestly addressed (traced or explicitly disclosed as unclassified, never silently
+    omitted). No code or oracle-script change - this card is documentation-only, by design.
+recovery: Re-run from a clean tree.
