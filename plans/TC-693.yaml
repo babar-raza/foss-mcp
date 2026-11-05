@@ -1,0 +1,158 @@
+id: TC-693
+gate: G3
+lane: verification
+purpose: >-
+  O8, second half (oracle disagreement remediation, section 2.3: "per-pilot snapshots..., bucket
+  ratchet that can only shrink..., offline CI test (pure Python, seconds)"). `O8a` (`TC-692`)
+  closed the hollow-pass half; this card closes the ratchet half. INVESTIGATED first (two prior
+  forks this session, consistent conclusions): the real oracle (`scripts/release/source_differential.py`)
+  needs real upstream clones (network) for every language and Docker for Go/Rust specifically -
+  there is NO way to re-derive real per-pilot disagreement counts offline. "Offline CI test (pure
+  Python, seconds)" therefore cannot mean "re-run the oracle and check it" - it means "prove the
+  RATCHET MECHANISM itself is correct against synthetic data", while the mechanism's real teeth
+  fire the next time someone actually re-runs the real oracle (a separate, manual, supervisor-run,
+  Docker/network-dependent action, explicitly out of this card's own checks).
+
+  Today, `verify_pilot`'s only ceiling mechanism (`evaluate_ceilings`, consuming
+  `LANGUAGE_ERROR_CEILINGS`/`--ceilings-file`) is per-LANGUAGE, defaulting to 0 per category - a
+  real re-run that finds, say, `pdf/cpp`'s already-known, already-disclosed extra=2406 (the
+  confirmed inheritance-flattening pattern, `OQ-022`) would fail identically whether the real count
+  stayed at 2406 or regressed to 3000 - there is no PER-PILOT floor that can only shrink. This card
+  adds exactly that, additively, without touching `evaluate_ceilings`/`LANGUAGE_ERROR_CEILINGS` at
+  all (both stay exactly as they are - this is a second, independent gate, not a replacement).
+
+  A per-pilot committed snapshot, `tests/fixtures/oracle/snapshot.json`, records the REAL,
+  already-verified disagreement counts for all 32 pilots, transcribed EXACTLY (never re-derived or
+  guessed) from the two already-committed, cross-checked sources: `TC-595`'s own commit message
+  (`git log --format=%B -n 1 5c8bc6fe`, the per-pilot counts for the 29 non-clean pilots) and
+  `docs/ORACLE_TRIAGE.md` (`TC-691`, the 7 Go/Rust/C++ pilots specifically, already cross-verified
+  against the same source). The 3 clean pilots (`cells/go`, `cells/typescript`, `tex/python`) get
+  an explicit all-zero entry. Deliberately SCOPED DOWN from the plan's own full ask: this card's
+  snapshot carries only the per-category disagreement COUNTS (the functionally critical half, which
+  is what the ratchet actually compares against); the richer per-pilot metadata the plan also names
+  (commit, sha256, toolchain versions, `public_api_definition` version) is NOT included - `commit`
+  varies per pilot and isn't centrally tracked as structured data today, and `public_api_definition`
+  has no version field at all yet (investigated: `config/public_api_definition/python.yaml` has
+  none) - inventing either would be guessed provenance, not verified data. This metadata enrichment
+  is left as an explicit, disclosed future follow-up, not forced into this card.
+depends_on:
+  - TC-691
+  - TC-692
+write_paths:
+  - scripts/release/source_differential.py
+  - tests/fixtures/oracle/snapshot.json
+  - tests/release/test_oracle_snapshot_ratchet.py
+satisfies:
+  - REQ-G3-012
+source_refs:
+  - file: docs/DECISION_LOG.md
+    anchor: >-
+      ## 2026-11-02 — Round-3 independent re-audit adopted; a real regression found and given top
+      priority; the "no pilot ever gets worse" rule adopted project-wide (operator, supervisor)
+    sha256: b750b8bf0df25b17bf66d014895ecb42952050c7cc63773f56249c4a1c551791
+inputs:
+  - >-
+    READ FIRST: `CATEGORIES`/`DiffCounts`/`evaluate_ceilings`/`evaluate_hollow_pass`/`verify_pilot`/
+    `main()`'s CLI argument parsing (all in `scripts/release/source_differential.py`) in full. Then
+    `TC-595`'s commit message (`git log --format=%B -n 1 5c8bc6fe`) and `docs/ORACLE_TRIAGE.md` -
+    these are the ONLY sources for the real per-pilot counts you are about to transcribe; do not
+    re-derive or guess any number. Confirm every count you transcribe against these real sources
+    yourself (a worker that transcribes a number incorrectly has written a false ratchet floor,
+    not merely an imprecise one).
+  - >-
+    WRITE `tests/fixtures/oracle/snapshot.json`: a JSON object keyed by pilot name (e.g.
+    `"pdf/cpp"`), each value an object with keys exactly matching `CATEGORIES`
+    (missing/extra/signature/static/default/enum_value), defaulting an absent key to 0 (your own
+    choice: either write every key explicitly as 0 where absent, or omit zero-valued keys and treat
+    absence as 0 in the loader - report which and why). All 32 pilots must have an entry (the 29
+    real non-clean pilots from `TC-595`'s commit message with their real counts; `cells/go`,
+    `cells/typescript`, `tex/python` with all-zero entries).
+  - >-
+    FIX: add `load_pilot_snapshot(path: Path) -> dict[str, dict[str, int]]` (pure, reads +
+    validates the JSON shape: every value's keys are a subset of `CATEGORIES`, every value is a
+    non-negative int) and `evaluate_pilot_snapshot_ratchet(pilot: str, counts: DiffCounts,
+    snapshot: Mapping[str, Mapping[str, int]]) -> list[str]` (pure - for each category in
+    `CATEGORIES`, if `getattr(counts, category)` exceeds the snapshot's recorded value for *pilot*
+    (0 if the pilot or category is absent from the snapshot), append a reason naming the pilot,
+    category, the new count and the snapshot's recorded count - "a regression against the last
+    recorded real oracle run", not merely "exceeds a ceiling", so the message is distinguishable
+    from `evaluate_ceilings`'s own reasons). These 2 function names are exact requirements (the
+    card's own negative control anchors on them literally).
+  - >-
+    WIRE additively, never replacing anything: `verify_pilot` gets a new optional parameter
+    `pilot_snapshot: Mapping[str, Mapping[str, int]] | None = None`; when given (not None), it ALSO
+    calls `evaluate_pilot_snapshot_ratchet(pilot, total, pilot_snapshot)` and extends the existing
+    `reasons` list with its result - `evaluate_ceilings`/`LANGUAGE_ERROR_CEILINGS` are completely
+    untouched, this is a second, independent gate running alongside the first. `main()`'s CLI gets a
+    new `--pilot-snapshot-file` argument (your own default - report it; a sensible default points at
+    the real committed `tests/fixtures/oracle/snapshot.json` so a real fleet-wide run picks it up
+    automatically without an extra flag) that, when given (or defaulted), loads the file via
+    `load_pilot_snapshot` and passes it through to every `verify_pilot` call. When the flag is
+    explicitly disabled (your own mechanism - e.g. an empty string or a literal `"none"` - report
+    it), behavior must be byte-for-byte identical to before this card (no silent default-on surprise
+    for a caller that explicitly opts out).
+  - >-
+    Write real, deterministic tests in the new file proving: (a) a synthetic `DiffCounts` whose
+    counts exactly match a synthetic pilot's snapshot entry produces NO ratchet reasons; (b) a
+    `DiffCounts` with one category 1 higher than the snapshot produces exactly one reason naming
+    that category, pilot, new count, and snapshot count; (c) a pilot ABSENT from the snapshot is
+    treated as an all-zero floor (any nonzero count for it produces a reason) - this is the correct,
+    conservative default for a newly onboarded pilot with no snapshot entry yet; (d)
+    `load_pilot_snapshot` rejects a malformed file (a non-dict value, a negative count, an unknown
+    top-level key shape - your own choice of exactly which malformations to test, report them)
+    with a clear exception, never a silent corruption; (e) the REAL committed
+    `tests/fixtures/oracle/snapshot.json` loads cleanly via `load_pilot_snapshot` and its own counts,
+    for all 32 pilots, exactly match hardcoded ground-truth values in this test file (pin the real
+    verified numbers as the TEST's own ground truth - do not read them back from `docs/RELEASE.md`/
+    `docs/ORACLE_TRIAGE.md` at test time, mirroring `TC-691`'s own test-design rule, so this test
+    catches future drift in the committed snapshot rather than merely proving self-consistency);
+    (f) `verify_pilot` wired with the real snapshot correctly passes for a synthetic `DiffCounts`
+    matching a real pilot's real recorded counts, and correctly fails when one category exceeds
+    them. Every test here is pure Python against in-memory data or the one committed JSON file - no
+    Docker, no network, runs in seconds.
+actions:
+  - >-
+    Add a per-pilot snapshot (`tests/fixtures/oracle/snapshot.json`, transcribed from already-
+    verified `TC-595`/`docs/ORACLE_TRIAGE.md` data) and an additive ratchet
+    (`evaluate_pilot_snapshot_ratchet`/`load_pilot_snapshot`, wired into `verify_pilot`/`main` via a
+    new optional parameter/CLI flag) so a future real oracle re-run fails if any pilot's category
+    count increases beyond its last recorded value - closing O8's second half. The richer per-pilot
+    metadata (commit/sha256/toolchain/definition version) the plan also names is explicitly deferred
+    as a disclosed future follow-up, not invented.
+checks:
+  - command: '{python} -m pytest tests/release/test_oracle_snapshot_ratchet.py -q -rfE -p no:cacheprovider'
+    expect: 'exit 0'
+    timeout_seconds: 60
+    junitxml: true
+    proves:
+      - REQ-G3-012
+  - command: '{python} -m pytest tests/release/test_source_differential.py -q -rfE -p no:cacheprovider'
+    expect: 'exit 0'
+    timeout_seconds: 600
+    junitxml: true
+    proves:
+      - REQ-G3-012
+min_tests: 6
+requires:
+  - python
+network: false
+negative_control:
+  mutate: |
+    python -X utf8 -c "import pathlib; p = pathlib.Path('scripts/release/source_differential.py'); s = p.read_text(encoding='utf-8'); old = 'evaluate_pilot_snapshot_ratchet'; assert s.count(old) >= 1, 'the required evaluate_pilot_snapshot_ratchet function was not found as expected - if your real code names this differently despite the card requiring this exact name, anchor your own mutate on your own real literal instead and note the substitution in your closeout'; s2 = s.replace(old, 'evaluate_pilot_snapshot_ratchetDISABLED', s.count(old)); assert s2 != s; p.write_text(s2, encoding='utf-8')"
+  rationale: >-
+    Renames every reference to the required `evaluate_pilot_snapshot_ratchet` function, so it can
+    no longer be called or defined under its real name - this must make the new tests asserting a
+    ratchet violation/pass behavior break (either a NameError, or the ratchet silently never firing
+    so a would-be regression goes unreported), proving the new mechanism, not just an import, is
+    under test.
+evidence:
+  - evidence/build/G3/TC-693/receipt.json
+closeout:
+  - >-
+    A committed, per-pilot snapshot of the real, already-verified oracle disagreement counts (all
+    32 pilots) now ratchets every future real oracle re-run: a category count that increases beyond
+    its last recorded value is a reported regression, additively alongside (never replacing) the
+    existing per-language ceiling mechanism. Closes O8. The richer per-pilot provenance metadata
+    (commit/sha256/toolchain/definition version) the plan also names remains a disclosed, deferred
+    future follow-up.
+recovery: Re-run from a clean tree.
