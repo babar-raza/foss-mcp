@@ -1,0 +1,124 @@
+
+===== CLEAN RUN 1 (host) =====
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-5c72e798a73c059a\Scripts\python.exe -m pytest tests/release/test_oracle_snapshot_ratchet.py -q -rfE -p no:cacheprovider "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-ttwuzi3c\.junit-0.xml"
+--- stdout ---
+....................                                                     [100%]
+
+--- stderr ---
+
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-5c72e798a73c059a\Scripts\python.exe -m pytest tests/release/test_source_differential.py -q -rfE -p no:cacheprovider "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-ttwuzi3c\.junit-1.xml"
+--- stdout ---
+........................................................................ [ 53%]
+..............................................................           [100%]
+
+--- stderr ---
+
+
+===== CLEAN RUN 2 (host) =====
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-5c72e798a73c059a\Scripts\python.exe -m pytest tests/release/test_oracle_snapshot_ratchet.py -q -rfE -p no:cacheprovider "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-ttwuzi3c\.junit-0.xml"
+--- stdout ---
+....................                                                     [100%]
+
+--- stderr ---
+
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-5c72e798a73c059a\Scripts\python.exe -m pytest tests/release/test_source_differential.py -q -rfE -p no:cacheprovider "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-ttwuzi3c\.junit-1.xml"
+--- stdout ---
+........................................................................ [ 53%]
+..............................................................           [100%]
+
+--- stderr ---
+
+
+===== NEGATIVE CONTROL (checks MUST now fail) =====
+mutated: M scripts/release/source_differential.py, ?? .junit-0.xml, ?? .junit-1.xml
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-5c72e798a73c059a\Scripts\python.exe -m pytest tests/release/test_oracle_snapshot_ratchet.py -q -rfE -p no:cacheprovider "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-ttwuzi3c\.junit-0.xml"
+--- stdout ---
+.FFFFFF.............                                                     [100%]
+================================== FAILURES ===================================
+_______________ test_matching_counts_produce_no_ratchet_reasons _______________
+
+    def test_matching_counts_produce_no_ratchet_reasons():
+        """(a): a synthetic DiffCounts whose counts exactly match a synthetic pilot's snapshot entry."""
+        snapshot = {"family_platform": {"missing": 4, "extra": 2406, "signature": 694}}
+        counts = DC(missing=4, extra=2406, signature=694, static=0, default=0, enum_value=0, checked=5000)
+>       reasons = sd.evaluate_pilot_snapshot_ratchet("family_platform", counts, snapshot)
+                  ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       AttributeError: module 'source_differential' has no attribute 'evaluate_pilot_snapshot_ratchet'. Did you mean: 'evaluate_pilot_snapshot_ratchetDISABLED'?
+
+tests\release\test_oracle_snapshot_ratchet.py:232: AttributeError
+_______ test_one_category_one_higher_produces_exactly_one_named_reason ________
+
+    def test_one_category_one_higher_produces_exactly_one_named_reason():
+        """(b): one category 1 higher than the snapshot -- exactly one reason, naming the category,
+        pilot, new count, and snapshot count."""
+        snapshot = {"family_platform": {"missing": 4, "extra": 2406, "signature": 694}}
+        counts = DC(missing=4, extra=2407, signature=694, static=0, default=0, enum_value=0, checked=5000)
+>       reasons = sd.evaluate_pilot_snapshot_ratchet("family_platform", counts, snapshot)
+                  ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       AttributeError: module 'source_differential' has no attribute 'evaluate_pilot_snapshot_ratchet'. Did you mean: 'evaluate_pilot_snapshot_ratchetDISABLED'?
+
+tests\release\test_oracle_snapshot_ratchet.py:241: AttributeError
+_________ test_a_pilot_absent_from_the_snapshot_is_an_all_zero_floor __________
+
+    def test_a_pilot_absent_from_the_snapshot_is_an_all_zero_floor():
+        """(c): a pilot ABSENT from the snapshot is treated as an all-zero floor -- any nonzero count
+        for it produces a reason. The correct, conservative default for a newly onboarded pilot with no
+        snapshot entry yet."""
+        snapshot = {"some_other_pilot": {"missing": 100}}
+        counts = DC(missing=0, extra=1, signature=0, static=0, default=0, enum_value=0, checked=10)
+>       reasons = sd.evaluate_pilot_snapshot_ratchet("never_onboarded_pilot", counts, snapshot)
+                  ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       AttributeError: module 'source_differential' has no attribute 'evaluate_pilot_snapshot_ratchet'. Did you mean: 'evaluate_pilot_snapshot_ratchetDISABLED'?
+
+tests\release\test_oracle_snapshot_ratchet.py:256: AttributeError
+_ test_a_category_absent_from_a_present_pilots_entry_is_also_an_all_zero_floor _
+
+    def test_a_category_absent_from_a_present_pilots_entry_is_also_an_all_zero_floor():
+        """A category the snapshot's pilot entry never mentions is 0, not "unlimited" -- any nonzero
+        count for that category is a regression too."""
+        snapshot = {"family_platform": {"missing": 4}}  # "static" never mentioned for this pilot
+        counts = DC(missing=4, extra=0, signature=0, static=1, default=0, enum_value=0, checked=10)
+>       reasons = sd.evaluate_pilot_snapshot_ratchet("family_platform", counts, snapshot)
+                  ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       AttributeError: module 'source_differential' has no attribute 'evaluate_pilot_snapshot_ratchet'. Did you mean: 'evaluate_pilot_snapshot_ratchetDISABLED'?
+
+tests\release\test_oracle_snapshot_ratchet.py:270: AttributeError
+______ test_multiple_categories_regressing_each_produce_their_own_reason ______
+
+    def test_multiple_categories_regressing_each_produce_their_own_reason():
+        snapshot = {"family_platform": {"missing": 4, "extra": 2406}}
+        counts = DC(missing=5, extra=2500, signature=0, static=0, default=0, enum_value=0, checked=10)
+>       reasons = sd.evaluate_pilot_snapshot_ratchet("family_platform", counts, snapshot)
+                  ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       AttributeError: module 'source_differential' has no attribute 'evaluate_pilot_snapshot_ratchet'. Did you mean: 'evaluate_pilot_snapshot_ratchetDISABLED'?
+
+tests\release\test_oracle_snapshot_ratchet.py:278: AttributeError
+____ test_ratchet_reason_wording_is_distinguishable_from_evaluate_ceilings ____
+
+    def test_ratchet_reason_wording_is_distinguishable_from_evaluate_ceilings():
+        """The card's own requirement: the message names "a regression against the last recorded real
+        oracle run", distinguishing it from ``evaluate_ceilings``'s own "exceeds the ceiling" wording."""
+        snapshot = {"family_platform": {"missing": 0}}
+        counts = DC(missing=1, extra=0, signature=0, static=0, default=0, enum_value=0, checked=1)
+>       (reason,) = sd.evaluate_pilot_snapshot_ratchet("family_platform", counts, snapshot)
+                    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       AttributeError: module 'source_differential' has no attribute 'evaluate_pilot_snapshot_ratchet'. Did you mean: 'evaluate_pilot_snapshot_ratchetDISABLED'?
+
+tests\release\test_oracle_snapshot_ratchet.py:289: AttributeError
+=========================== short test summary info ===========================
+FAILED tests/release/test_oracle_snapshot_ratchet.py::test_matching_counts_produce_no_ratchet_reasons
+FAILED tests/release/test_oracle_snapshot_ratchet.py::test_one_category_one_higher_produces_exactly_one_named_reason
+FAILED tests/release/test_oracle_snapshot_ratchet.py::test_a_pilot_absent_from_the_snapshot_is_an_all_zero_floor
+FAILED tests/release/test_oracle_snapshot_ratchet.py::test_a_category_absent_from_a_present_pilots_entry_is_also_an_all_zero_floor
+FAILED tests/release/test_oracle_snapshot_ratchet.py::test_multiple_categories_regressing_each_produce_their_own_reason
+FAILED tests/release/test_oracle_snapshot_ratchet.py::test_ratchet_reason_wording_is_distinguishable_from_evaluate_ceilings
+
+--- stderr ---
+
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-5c72e798a73c059a\Scripts\python.exe -m pytest tests/release/test_source_differential.py -q -rfE -p no:cacheprovider "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-ttwuzi3c\.junit-1.xml"
+--- stdout ---
+........................................................................ [ 53%]
+..............................................................           [100%]
+
+--- stderr ---
+
