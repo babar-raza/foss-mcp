@@ -21,10 +21,13 @@ from __future__ import annotations
 import contextlib
 import email.message
 import email.utils
+import functools
 import http.client
+import json
 import os
 import random
 import socket
+import subprocess
 import time
 import urllib.error
 import urllib.request
@@ -331,3 +334,66 @@ def failure_reason(exc: BaseException) -> str:
     if isinstance(exc, (urllib.error.URLError, TimeoutError, ConnectionError, OSError)):
         return "network"
     return "error"
+
+
+# G3/TC-687: off by default. ``gh_cli_json`` succeeds for REAL whenever `gh` is installed and
+# already authenticated - which is exactly what every existing offline-by-design unit test for
+# the 4 call sites below assumes can never happen, since each one stubs only
+# ``urllib.request.urlopen`` and never anticipated a second, independent transport. This is not
+# hypothetical: measured directly while authoring this card, on a workstation with `gh` already
+# logged in, 2 existing tests (`test_a_present_document_is_reported_with_its_real_content`,
+# `test_resolve_tag_commit_returns_the_sha_on_200`) failed for real - the live `gh api` call won
+# the race against their own pinned stub and returned today's real GitHub content instead of the
+# fixture's. A call site only tries the fast path when this is explicitly turned on, so no
+# existing test's behavior can ever change by accident; the real re-ingest run that wants the
+# higher effective rate limit sets ``FOSS_MCP_GH_CLI_FASTPATH=1`` in its own shell/process.
+GH_CLI_FASTPATH_ENV = "FOSS_MCP_GH_CLI_FASTPATH"
+
+
+def gh_cli_fastpath_enabled() -> bool:
+    """Whether a call site should even try the `gh` CLI fast path before its own existing HTTP
+    call - ``True`` only when ``FOSS_MCP_GH_CLI_FASTPATH`` is set to exactly ``"1"``. See the
+    module comment above this for why the default is off, not on."""
+    return os.environ.get(GH_CLI_FASTPATH_ENV, "").strip() == "1"
+
+
+@functools.cache
+def gh_cli_available() -> bool:
+    """Whether a real, usable ``gh`` CLI session exists right now (memoized).
+
+    Runs ``gh auth status`` once per process and reports whether it exited 0. Purely an optional
+    fast-path short-circuit a caller MAY use to skip even trying ``gh_cli_json`` when it would
+    obviously fail; never required, since ``gh_cli_json`` is already safe to call unconditionally.
+    Never reads, constructs, or logs any credential - ``gh`` manages its own separate,
+    already-authenticated session.
+    """
+    try:
+        result = subprocess.run(["gh", "auth", "status"], capture_output=True, timeout=15, check=False)
+    except (OSError, subprocess.SubprocessError):
+        return False
+    return result.returncode == 0
+
+
+def gh_cli_json(path: str, *, timeout: float = 15) -> Any | None:
+    """The parsed JSON of ``gh api <path>``, or ``None`` on ANY failure whatsoever.
+
+    Shells out to the operator's own ``gh`` CLI, which manages its own separate,
+    already-authenticated session - this function never reads, constructs, passes, or logs
+    ``GITHUB_TOKEN`` or any other credential itself.
+
+    Returns ``None`` - never raises, never retries, never distinguishes the reason - when ``gh``
+    is not installed (``FileNotFoundError``), the call exits non-zero (not authenticated, a real
+    404, a permission error, ...), it times out, or stdout is not valid JSON. A caller that gets
+    ``None`` back learns nothing about WHY; it is expected to fall through to its own existing
+    HTTP path unchanged.
+    """
+    try:
+        result = subprocess.run(["gh", "api", path], capture_output=True, timeout=timeout, check=False)
+    except (FileNotFoundError, subprocess.TimeoutExpired, subprocess.SubprocessError, OSError):
+        return None
+    if result.returncode != 0:
+        return None
+    try:
+        return json.loads(result.stdout)
+    except (json.JSONDecodeError, UnicodeDecodeError):
+        return None

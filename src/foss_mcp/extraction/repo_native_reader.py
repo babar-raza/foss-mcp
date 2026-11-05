@@ -13,7 +13,12 @@ import urllib.request
 from base64 import b64decode
 from dataclasses import dataclass
 
-from foss_mcp.extraction.github_http import urlopen_with_backoff, with_auth
+from foss_mcp.extraction.github_http import (
+    gh_cli_fastpath_enabled,
+    gh_cli_json,
+    urlopen_with_backoff,
+    with_auth,
+)
 
 _API_ROOT = "https://api.github.com"
 _HEADERS = {"Accept": "application/vnd.github+json", "User-Agent": "foss-mcp-extraction"}
@@ -50,6 +55,18 @@ def read_repo_document(
     headers = with_auth(_HEADERS)
     if etag:
         headers["If-None-Match"] = etag
+    # G3/TC-687: try the operator's own authenticated `gh` CLI session first (no conditional
+    # request support, so this is skipped when a caller is asking for a 304 against *etag*).
+    # On None (gh unavailable, not authenticated, a real 404, ...) fall through unchanged below.
+    if gh_cli_fastpath_enabled() and not etag and url.startswith(f"{_API_ROOT}/"):
+        cli_payload = gh_cli_json(url[len(_API_ROOT) :])
+        if cli_payload is not None:
+            cli_content = (
+                b64decode(cli_payload["content"]).decode("utf-8") if cli_payload.get("content") else ""
+            )
+            return DocumentPresent(
+                path=path, sha=cli_payload["sha"], size=cli_payload["size"], content=cli_content
+            )
     request = urllib.request.Request(url, headers=headers)
     try:
         with urlopen_with_backoff(request, timeout=30) as response:
@@ -77,6 +94,18 @@ def list_directory_entries(
     url = f"{_API_ROOT}/repos/{repository}/contents/{path}"
     if ref:
         url += f"?ref={ref}"
+    # G3/TC-687: try the operator's own authenticated `gh` CLI session first; on None (gh
+    # unavailable, not authenticated, a real 404, ...) fall through unchanged below.
+    if gh_cli_fastpath_enabled() and url.startswith(f"{_API_ROOT}/"):
+        cli_payload = gh_cli_json(url[len(_API_ROOT) :])
+        if cli_payload is not None:
+            if not isinstance(cli_payload, list):
+                return []
+            cli_entries: list[tuple[str, str]] = []
+            for item in cli_payload:
+                if isinstance(item, dict) and isinstance(item.get("name"), str):
+                    cli_entries.append((item["name"], str(item.get("type", ""))))
+            return cli_entries
     request = urllib.request.Request(url, headers=with_auth(_HEADERS))
     try:
         with urlopen_with_backoff(request, timeout=30) as response:

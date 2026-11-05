@@ -71,7 +71,12 @@ from collections.abc import Callable
 from datetime import UTC, datetime
 from pathlib import Path
 
-from foss_mcp.extraction.github_http import urlopen_with_backoff, with_auth
+from foss_mcp.extraction.github_http import (
+    gh_cli_fastpath_enabled,
+    gh_cli_json,
+    urlopen_with_backoff,
+    with_auth,
+)
 
 _IDENTITY_PART = re.compile(r"[a-z0-9]+")
 
@@ -292,6 +297,12 @@ def resolve_tag_commit(repository: str, ref: str) -> str | None:
     cleanly meaning "not found". Any other failure propagates.
     """
     url = f"{_GITHUB_API_ROOT}/repos/{repository}/commits/{ref}"
+    # G3/TC-687: try the operator's own authenticated `gh` CLI session first. On None (gh
+    # unavailable, not authenticated, a real 404/422, ...) fall through unchanged below.
+    if gh_cli_fastpath_enabled() and url.startswith(f"{_GITHUB_API_ROOT}/"):
+        cli_payload = gh_cli_json(url[len(_GITHUB_API_ROOT) :])
+        if cli_payload is not None:
+            return cli_payload["sha"]
     request = urllib.request.Request(url, headers=with_auth(_GITHUB_HEADERS), method="GET")
     try:
         with urlopen_with_backoff(request, timeout=_REQUEST_TIMEOUT_SECONDS) as response:
