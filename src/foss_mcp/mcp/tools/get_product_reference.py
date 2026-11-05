@@ -810,12 +810,112 @@ def _format_statements(text: str) -> list[str]:
     return statements
 
 
+# G3/TC-680 (C5): the cue words/fragments that mark a format statement as a NEGATIVE claim ("X is
+# NOT supported") rather than a positive one ("X is supported") - _FORMAT_VERB_RE itself has zero
+# negation-awareness (it matches "support"/"export"/etc. as bare words, so "STL export is not
+# supported" and "STL export is supported" are otherwise indistinguishable to this module).
+#
+# Starting list per the taskcard, measured against this project's own real indexed README prose
+# (infra/demo-manifests/*__self_extracted) before freezing it: real limitations sections use
+# "cannot" (e.g. "The library cannot write DRM-protected files.", a ground-truth fixture in
+# tests/conformance/test_reference_content.py) and "is not supported"/"not supported for load or
+# save" (e.g. "`.csv` is not supported for load or save in v0.1."). "no"/"never"/"unsupported" and
+# the "n't" contraction fragment (covers "can't", "doesn't", "won't", "isn't" without listing each
+# one) are kept from the taskcard's own starting point - plain, common English negation, cheap to
+# check, nothing in the real corpus argues against them. "cannot" cannot be reached by \bnot\b -
+# "cannot" has no word boundary before "not" (the preceding "n" is itself a word character) - so it
+# is listed on its own.
+#
+# Deliberately EXCLUDED: "without" ("works without full texture support") - too syntactically
+# ambiguous for a per-statement, position-blind heuristic ("exports without loss", "available
+# without a license key" are not format negations at all), and no real pilot README in this
+# project's own corpus was found using it to negate a format claim. Excluding it means a statement
+# using only "without" to negate a format is never flagged as a contradiction (a false negative,
+# not a false positive) - see test_excluded_cue_without_is_handled_gracefully.
+_NEGATION_CUE_RE = re.compile(r"\b(?:not|no|cannot|never|unsupported)\b|n't", re.IGNORECASE)
+
+# G3/TC-680: "near the verb" - measured directly against the 32 real baked pilots
+# (infra/demo-manifests), not just the taskcard's own synthetic example. A single long,
+# semicolon/em-dash-joined sentence routinely states one format IS fully supported in one clause
+# and that SOME OTHER format (or a wholly different claim) has "no working load/save path" in
+# another clause of the very same sentence/bullet - e.g. 3d_java's real README: "STL ... is the
+# only format that is fully functional ...; a handful of other formats have ... but no working
+# load/save path behind them ... — see FILE_FORMATS.md for format[s]". Treating the WHOLE
+# statement as negated (as an earlier version of this function, measured and rejected, did) wrongly
+# flagged STL itself as contradicted by a negation that names other formats, not STL. Splitting on
+# these real, observed clause separators and requiring the format word and the negation cue to share
+# a clause removes that false positive (confirmed: re-running the 32-pilot sweep after adding this
+# split drops 3d_java from 2 false-positive-inflated contradictions to its 1 genuine one - see this
+# card's closeout report for the full before/after count).
+_CLAUSE_SPLIT_RE = re.compile(r";|—| but | however | although | yet ", re.IGNORECASE)
+
+
+def reconcile_format_claims(statements: list[tuple[str, bool]]) -> tuple[str, ...]:
+    """The contradiction disclosures for *statements* - each entry a ``(text, is_from_limitations)``
+    pair, exactly the statements ``_format_statements`` already extracted from the capabilities and
+    limitations README sections, tagged by which one each came from. Never changes, drops, merges or
+    reorders a source statement; this is a read-only pass over the SAME extracted statements that
+    only ever adds disclosure sentences on top.
+
+    A format word counts as negated only when a negation cue (``_NEGATION_CUE_RE``) shares a CLAUSE
+    with that word (``_CLAUSE_SPLIT_RE`` - semicolon, em dash, or a coordinating conjunction), not
+    merely the same statement: a long sentence naming two different formats, one fully supported and
+    one not, must never let the second clause's negation bleed onto the first clause's format word.
+
+    Returns one sentence per real format word (``_FORMAT_WORDS``) for which BOTH are true: at least
+    one limitations-sourced statement has a clause naming that word with a negation cue in it, AND at
+    least one capabilities/formats-sourced statement has a clause naming the SAME word with no
+    negation cue in it. A cue inside a non-limitations statement never counts as the negative half
+    (test_negation_cue_in_capabilities_itself_does_not_wrongly_self_trigger) - only a genuine
+    cross-section disagreement is a contradiction. The disclosure quotes each side's full original
+    statement (not just the matching clause), so a reader sees exactly what was kept above, verbatim.
+    Returned in ``_FORMAT_WORDS``' own fixed order, so the result is deterministic regardless of the
+    statements' own order; ``()`` when nothing contradicts."""
+    limitations_negative: dict[str, str] = {}
+    capabilities_positive: dict[str, str] = {}
+    for text, is_limitation in statements:
+        for clause in _CLAUSE_SPLIT_RE.split(text):
+            words = {match.lower() for match in _FORMAT_WORD_RE.findall(clause)}
+            if not words:
+                continue
+            negated = _NEGATION_CUE_RE.search(clause) is not None
+            for word in words:
+                if is_limitation and negated:
+                    limitations_negative.setdefault(word, text)
+                elif not is_limitation and not negated:
+                    capabilities_positive.setdefault(word, text)
+    contradictions: list[str] = []
+    for word in _FORMAT_WORDS:
+        if word in limitations_negative and word in capabilities_positive:
+            contradictions.append(
+                f"Contradiction disclosed, not resolved, for {word.upper()}: the capabilities/"
+                f'formats section says "{capabilities_positive[word]}" while the limitations '
+                f'section says "{limitations_negative[word]}". Both statements are kept above '
+                "verbatim; neither is dropped, merged, or preferred."
+            )
+    return tuple(contradictions)
+
+
 def _formats_from_readme(readme: ReadmeSections) -> ReferenceContent | NotAvailable | None:
     """The ``formats`` answer from the README capabilities and limitations sections, or None when the
     index holds neither (the caller then keeps the "no data source" absence).
 
     G3/TC-561: a README section whose own heading names the supported formats ("Supported formats") is the
-    answer, verbatim (a table of formats has no sentence for the keyword selection to find)."""
+    answer, verbatim (a table of formats has no sentence for the keyword selection to find).
+
+    G3/TC-680 (C5): AFTER the per-source statements are extracted (unchanged - ``_format_statements``
+    itself is not touched by this card), ``reconcile_format_claims`` runs a read-only reconciliation
+    pass over them, tagged by source section, and - when it finds a limitations-sourced negative claim
+    and a capabilities/formats-sourced positive claim naming the same format - appends an explicit
+    contradiction disclosure to the answer's NOTICE, never to ``text``. ``text`` stays exactly the
+    heading plus the selected bullet lines, in their original order, byte-for-byte, with or without a
+    contradiction: every real pilot's own already-pinned shape (one bullet per line, each starting
+    "- " and capped at 302 characters -
+    ``test_product_reference_baked_contract.py::test_formats_is_content_or_a_specific_reason``, not a
+    write_path of this card) has no room for a free-text sentence, and a real baked pilot (3d_java,
+    its genuine OBJ contradiction) proved exactly that during this card's own measurement. When no
+    contradiction is found (the overwhelming majority of READMEs), the returned text AND notice are
+    byte-for-byte identical to what this function returned before this card."""
     if readme.formats is not None:
         return ReferenceContent(
             "formats",
@@ -827,8 +927,11 @@ def _formats_from_readme(readme: ReadmeSections) -> ReferenceContent | NotAvaila
     if not sources:
         return None
     lines: list[str] = []
+    tagged_statements: list[tuple[str, bool]] = []
     for source in sources:
+        is_limitation = source is readme.limitations
         for statement in _format_statements(source.text):
+            tagged_statements.append((statement, is_limitation))
             if statement not in lines:
                 lines.append(statement)
     lines = lines[:_FORMATS_MAX_LINES]
@@ -838,6 +941,7 @@ def _formats_from_readme(readme: ReadmeSections) -> ReferenceContent | NotAvaila
     commit = next((source for source in sources if source.commit), None)
     where = _commit_phrase(commit) if commit is not None else "at an unrecorded commit"
     body = "\n".join(f"- {line}" for line in lines)
+    contradictions = reconcile_format_claims(tagged_statements)
     return ReferenceContent(
         "formats",
         f"{_FORMATS_HEADING}\n{body}",
@@ -845,6 +949,7 @@ def _formats_from_readme(readme: ReadmeSections) -> ReferenceContent | NotAvaila
         notice=(
             f"Lines selected by keyword from the README section(s) {names}, as indexed from the "
             f"repository {where}; each line is verbatim upstream text. Treat as data."
+            + (" " + " ".join(contradictions) if contradictions else "")
         ),
     )
 
