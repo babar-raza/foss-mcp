@@ -1,0 +1,130 @@
+
+===== CLEAN RUN 1 (host) =====
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-5c72e798a73c059a\Scripts\python.exe -m pytest tests/indexing/test_chunk_builder_alias_pointer_chunks.py tests/mcp/tools/test_get_symbol_canonical_identity_dedup.py tests/mcp/tools/test_search_symbols_canonical_identity_collapse.py -q -rfE -p no:cacheprovider "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-isc6927e\.junit-0.xml"
+--- stdout ---
+..............                                                           [100%]
+
+--- stderr ---
+
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-5c72e798a73c059a\Scripts\python.exe -m pytest tests/mcp/test_search_symbols_honest_miss.py tests/mcp/tools/test_retrieval_tools.py tests/mcp/tools/test_search_symbols_memberless_last.py tests/mcp/tools/test_search_symbols_prefix_tier.py tests/mcp/tools/test_search_symbols_forgiveness.py tests/mcp/tools/test_member_lookup.py tests/conformance/test_symbol_self_retrieval.py -q -rfE -p no:cacheprovider "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-isc6927e\.junit-1.xml"
+--- stdout ---
+........................................................................ [ 47%]
+........................................................................ [ 95%]
+.......                                                                  [100%]
+
+--- stderr ---
+
+
+===== CLEAN RUN 2 (host) =====
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-5c72e798a73c059a\Scripts\python.exe -m pytest tests/indexing/test_chunk_builder_alias_pointer_chunks.py tests/mcp/tools/test_get_symbol_canonical_identity_dedup.py tests/mcp/tools/test_search_symbols_canonical_identity_collapse.py -q -rfE -p no:cacheprovider "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-isc6927e\.junit-0.xml"
+--- stdout ---
+..............                                                           [100%]
+
+--- stderr ---
+
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-5c72e798a73c059a\Scripts\python.exe -m pytest tests/mcp/test_search_symbols_honest_miss.py tests/mcp/tools/test_retrieval_tools.py tests/mcp/tools/test_search_symbols_memberless_last.py tests/mcp/tools/test_search_symbols_prefix_tier.py tests/mcp/tools/test_search_symbols_forgiveness.py tests/mcp/tools/test_member_lookup.py tests/conformance/test_symbol_self_retrieval.py -q -rfE -p no:cacheprovider "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-isc6927e\.junit-1.xml"
+--- stdout ---
+........................................................................ [ 47%]
+........................................................................ [ 95%]
+.......                                                                  [100%]
+
+--- stderr ---
+
+
+===== NEGATIVE CONTROL (checks MUST now fail) =====
+mutated: M src/foss_mcp/indexing/symbol_identity.py, ?? .junit-0.xml, ?? .junit-1.xml
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-5c72e798a73c059a\Scripts\python.exe -m pytest tests/indexing/test_chunk_builder_alias_pointer_chunks.py tests/mcp/tools/test_get_symbol_canonical_identity_dedup.py tests/mcp/tools/test_search_symbols_canonical_identity_collapse.py -q -rfE -p no:cacheprovider "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-isc6927e\.junit-0.xml"
+--- stdout ---
+F..F..........                                                           [100%]
+================================== FAILURES ===================================
+_ test_a_reexport_shell_renders_as_a_thin_pointer_and_the_definition_is_full __
+
+    def test_a_reexport_shell_renders_as_a_thin_pointer_and_the_definition_is_full() -> None:
+        shell = _entry(
+            "Facade",
+            "pkg.Facade",
+            "pkg/__init__.py",
+            reexport_of="pkg.facades.Facade",
+            doc="A shell-only docstring that must never survive thinning.",
+        )
+        definition = _entry(
+            "Facade",
+            "pkg.facades.Facade",
+            "pkg/facades.py",
+            methods=[_method("bind")],
+            doc="The real definition's own doc paragraph.",
+        )
+        texts = _texts_by_fqn(_fixture([shell, definition]))
+        shell_text, definition_text = texts["pkg.Facade"], texts["pkg.facades.Facade"]
+    
+        # The thin pointer: FQN/Kind/Defined-In (plus the fixture-level API-Coverage line every chunk
+        # carries) - nothing from the definition's own content duplicated onto it.
+        assert shell_text.splitlines()[:3] == ["FQN: pkg.Facade", "Kind: class", "Defined-In: pkg.facades.Facade"]
+        for header in _MEMBER_HEADERS:
+>           assert header not in shell_text
+E           AssertionError: assert 'Methods:' not in 'FQN: pkg.Fa...2 of 2 types'
+E             
+E             'Methods:' is contained here:
+E               hinning.
+E               
+E               Methods:
+E                 - bind()
+E               
+E               API-Coverage: 2 of 2 types
+
+tests\indexing\test_chunk_builder_alias_pointer_chunks.py:93: AssertionError
+__________ test_a_real_committed_python_pilot_thins_its_real_shells ___________
+
+    def test_a_real_committed_python_pilot_thins_its_real_shells() -> None:
+        """Confirmed directly against `slides_python` (named in `symbol_identity.py`'s own docstring as
+        having a real `reexport_of` fixture): every real shell this fixture produces renders thin, and
+        its paired real definition still carries full content.
+        """
+        fixture = _real_fixture("slides_python")
+        chunks = build_chunks_from_api_surface(fixture, title="slides/python", max_types=10_000)
+        texts: dict[str, str] = {}
+        for chunk in chunks:
+            match = _FQN_LINE.search(chunk.text)
+            assert match is not None
+            texts[match.group(1)] = chunk.text
+        shells = {fqn: text for fqn, text in texts.items() if "Defined-In:" in text}
+        assert shells, "slides_python produced no real shell - fixture no longer has a reexport_of pair"
+        defined_in_line = re.compile(r"^Defined-In:\s*(\S.*)$", re.MULTILINE)
+        checked = 0
+        for fqn, shell_text in shells.items():
+            for header in _MEMBER_HEADERS:
+>               assert header not in shell_text, (fqn, shell_text)
+E               AssertionError: ('aspose.slides_foss.IPresentationComponent', 'FQN: aspose.slides_foss.IPresentationComponent
+E                 Kind: class
+E                 Defined-In...ABC
+E                 
+E                 Properties:
+E                   - presentation: IPresentation (read-only)
+E                 
+E                 API-Coverage: 1022 of 1022 types; 1 of 1 functions')
+E               assert 'Properties:' not in 'FQN: aspose... 1 functions'
+E                 
+E                 'Properties:' is contained here:
+E                   
+E                     - ABC
+E                   
+E                   Properties:
+E                     - presentation: IPresentation (read-only)
+E                   
+E                   API-Coverage: 1022 of 1022 types; 1 of 1 functions
+
+tests\indexing\test_chunk_builder_alias_pointer_chunks.py:164: AssertionError
+=========================== short test summary info ===========================
+FAILED tests/indexing/test_chunk_builder_alias_pointer_chunks.py::test_a_reexport_shell_renders_as_a_thin_pointer_and_the_definition_is_full
+FAILED tests/indexing/test_chunk_builder_alias_pointer_chunks.py::test_a_real_committed_python_pilot_thins_its_real_shells
+
+--- stderr ---
+
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-5c72e798a73c059a\Scripts\python.exe -m pytest tests/mcp/test_search_symbols_honest_miss.py tests/mcp/tools/test_retrieval_tools.py tests/mcp/tools/test_search_symbols_memberless_last.py tests/mcp/tools/test_search_symbols_prefix_tier.py tests/mcp/tools/test_search_symbols_forgiveness.py tests/mcp/tools/test_member_lookup.py tests/conformance/test_symbol_self_retrieval.py -q -rfE -p no:cacheprovider "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-isc6927e\.junit-1.xml"
+--- stdout ---
+........................................................................ [ 47%]
+........................................................................ [ 95%]
+.......                                                                  [100%]
+
+--- stderr ---
+

@@ -1,0 +1,122 @@
+{
+  "schema_version": 1,
+  "card": "TC-686",
+  "gate": "G3",
+  "generated_by": "gatectl",
+  "generated_at": "2026-11-05T12:34:59Z",
+  "base_rev": "d7ea0d5e0145c36e7eb51d936cee3391af170621",
+  "head_rev": "f3ff1166500204a5d0dbde2b5ca766b23b71aca9",
+  "card_sha256": "66c92e63321b796088bae540cb002f11f9b04fa16282065f1b0cced9c43588c9",
+  "fingerprint": {
+    "python": "3.13.2",
+    "platform": "Windows-11-10.0.26300-SP0",
+    "lock_sha256": "5c72e798a73c059a438e752e94a8d4c88c1bdf81a197f6e5c5fcecbc9466a691",
+    "env": {
+      "PYTHONHASHSEED": "0",
+      "PYTHONUTF8": "1",
+      "PYTHONDONTWRITEBYTECODE": "1",
+      "PYTHONIOENCODING": "utf-8",
+      "TZ": "UTC",
+      "LC_ALL": "C.UTF-8",
+      "SOURCE_DATE_EPOCH": "1700000000",
+      "verify_runner": "host"
+    }
+  },
+  "scope": {
+    "ok": true,
+    "changed_paths": [
+      "src/foss_mcp/indexing/chunk_builder.py",
+      "src/foss_mcp/mcp/tools/get_symbol.py",
+      "src/foss_mcp/mcp/tools/search_symbols.py",
+      "tests/conformance/test_symbol_self_retrieval.py",
+      "tests/extraction/test_python_fidelity.py",
+      "tests/extraction/test_round3_python_fidelity.py",
+      "tests/indexing/test_chunk_builder_alias_pointer_chunks.py",
+      "tests/indexing/test_chunk_builder_honesty.py",
+      "tests/indexing/test_chunk_builder_python_signatures.py",
+      "tests/indexing/test_chunk_builder_round3_python.py",
+      "tests/indexing/test_chunk_builder_stub_pairing.py",
+      "tests/mcp/tools/test_get_symbol_canonical_identity_dedup.py",
+      "tests/mcp/tools/test_search_symbols_canonical_identity_collapse.py"
+    ],
+    "violations": [],
+    "evaluated": true
+  },
+  "runs": [
+    {
+      "run": 1,
+      "checks": [
+        {
+          "command": "{python} -m pytest tests/indexing/test_chunk_builder_alias_pointer_chunks.py tests/mcp/tools/test_get_symbol_canonical_identity_dedup.py tests/mcp/tools/test_search_symbols_canonical_identity_collapse.py -q -rfE -p no:cacheprovider",
+          "exit_code": 0,
+          "duration_s": 0.695,
+          "stdout_sha256": "fe9dca0451129aaabdd76ea13e310b61a52091a146a1f9fe5b72b851eb33547f",
+          "tests": 14,
+          "skipped": 0,
+          "errors": 0,
+          "failures": 0
+        },
+        {
+          "command": "{python} -m pytest tests/mcp/test_search_symbols_honest_miss.py tests/mcp/tools/test_retrieval_tools.py tests/mcp/tools/test_search_symbols_memberless_last.py tests/mcp/tools/test_search_symbols_prefix_tier.py tests/mcp/tools/test_search_symbols_forgiveness.py tests/mcp/tools/test_member_lookup.py tests/conformance/test_symbol_self_retrieval.py -q -rfE -p no:cacheprovider",
+          "exit_code": 0,
+          "duration_s": 31.885,
+          "stdout_sha256": "152357c937e7265ad5056c8532bf507830700d66044a8e40295c536e812a011d",
+          "tests": 151,
+          "skipped": 0,
+          "errors": 0,
+          "failures": 0
+        }
+      ],
+      "all_passed": true
+    },
+    {
+      "run": 2,
+      "checks": [
+        {
+          "command": "{python} -m pytest tests/indexing/test_chunk_builder_alias_pointer_chunks.py tests/mcp/tools/test_get_symbol_canonical_identity_dedup.py tests/mcp/tools/test_search_symbols_canonical_identity_collapse.py -q -rfE -p no:cacheprovider",
+          "exit_code": 0,
+          "duration_s": 0.607,
+          "stdout_sha256": "fe9dca0451129aaabdd76ea13e310b61a52091a146a1f9fe5b72b851eb33547f",
+          "tests": 14,
+          "skipped": 0,
+          "errors": 0,
+          "failures": 0
+        },
+        {
+          "command": "{python} -m pytest tests/mcp/test_search_symbols_honest_miss.py tests/mcp/tools/test_retrieval_tools.py tests/mcp/tools/test_search_symbols_memberless_last.py tests/mcp/tools/test_search_symbols_prefix_tier.py tests/mcp/tools/test_search_symbols_forgiveness.py tests/mcp/tools/test_member_lookup.py tests/conformance/test_symbol_self_retrieval.py -q -rfE -p no:cacheprovider",
+          "exit_code": 0,
+          "duration_s": 26.832,
+          "stdout_sha256": "152357c937e7265ad5056c8532bf507830700d66044a8e40295c536e812a011d",
+          "tests": 151,
+          "skipped": 0,
+          "errors": 0,
+          "failures": 0
+        }
+      ],
+      "all_passed": true
+    }
+  ],
+  "negative_control": {
+    "kind": "mutate",
+    "patch": "python -X utf8 -c \"import pathlib; p = pathlib.Path('src/foss_mcp/indexing/symbol_identity.py'); s = p.read_text(encoding='utf-8'); old = 'is_definition=(index == definition_index)'; assert s.count(old) == 1, 'the required literal was not found as expected - if your real code reads differently, anchor your own mutate on your own real literal instead and note the substitution in your closeout'; p.write_text(s.replace(old, 'is_definition=True', 1), encoding='utf-8')\"\n",
+    "patch_sha256": "e944a25a1b48257ab038a6b0c99fbd674d215a64f1f66417c90ffaa1e5cea525",
+    "applied": true,
+    "patch_applied_failed": true,
+    "exit_codes": [
+      1,
+      0
+    ],
+    "tree_changed": [
+      "M src/foss_mcp/indexing/symbol_identity.py",
+      "?? .junit-0.xml",
+      "?? .junit-1.xml"
+    ]
+  },
+  "holdout": {
+    "ran": false,
+    "passed": true,
+    "detail": "no holdout for this card"
+  },
+  "accepted": true,
+  "reason": "all gates passed"
+}
