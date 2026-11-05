@@ -1,0 +1,167 @@
+id: TC-676
+gate: G3
+lane: verification
+purpose: >-
+  O2 (oracle sub-program, section 2.3: "a machine-readable public-API definition per language
+  (`config/public_api_definition/<lang>.yaml`: scope roots, excluded dirs, visibility,
+  dunders/`__all__`, inheritance, constructors, indexers, bean properties, kind model, overloads)
+  consumed by oracle and extractor tests"). O1 (TC-623/TC-624, both DONE) fixed the diff engine's
+  shell-resolution and inherited-member-verification logic - it did NOT introduce any config-driven
+  visibility mechanism. Confirmed directly: `config/` today holds only `known_defects/` and
+  `products/`; every one of `scripts/release/source_differential.py`'s 7 language enumerators
+  hardcodes its own visibility rules in Python, independently per language, by deliberate design
+  (`_cpp_is_public_header`'s own docstring: "re-derived independently here, never imported from
+  [the extractor], so this stays a genuinely separate check").
+
+  SCOPE NOTE (read before anything else): "consumed by oracle and extractor tests" means the
+  ORACLE's PRODUCTION code may consult this file, but the EXTRACTOR's production code
+  (`src/foss_mcp/extraction/tree_sitter_engine/*.py`) must NEVER import or read it - only the
+  EXTRACTOR's TEST files may load it, as a ground-truth fixture for new assertions. Importing it
+  into the extractor's production code would destroy the deliberate cross-check independence the
+  comment above documents (a bug in a shared config would then corrupt both sides identically).
+  This card starts with Python only (7-language coverage is explicitly deferred to later cards -
+  O3/O4 in the plan's own sequencing already assume incremental, per-language honouring, not one
+  big-bang rewrite).
+
+  REAL, MEASURED DISCREPANCY found this session (your own test should pin this, not just assert it
+  in prose): the oracle's `_is_public_python_name` (`scripts/release/source_differential.py`) says
+  a name is public iff `not name.startswith("_") or (name.startswith("__") and
+  name.endswith("__"))` - EVERY dunder is public. The extractor's `_methods()`
+  (`src/foss_mcp/extraction/tree_sitter_engine/python_surface.py`) says `published = name ==
+  "__init__" or name in PUBLISHED_DUNDERS` where `PUBLISHED_DUNDERS = ("__enter__", "__exit__",
+  "__aenter__", "__aexit__")` - only 5 specific dunders are public, everything else (`__repr__`,
+  `__eq__`, `__hash__`, `__str__`, etc.) is PRIVATE by the extractor's own rule. These two real,
+  shipping rules genuinely disagree on dozens of common dunder names. This card does NOT resolve
+  which rule is "more correct" - it makes the disagreement visible, tested, and impossible to
+  silently drift further apart. A reconciliation (if warranted) is a later card's job, informed by
+  this one's now-explicit evidence.
+depends_on:
+  - TC-566
+  - TC-589
+  - TC-590
+  - TC-591
+  - TC-592
+  - TC-593
+  - TC-594
+  - TC-595
+  - TC-596
+  - TC-623
+  - TC-624
+write_paths:
+  - config/public_api_definition/python.yaml
+  - schemas/product/public-api-definition.schema.json
+  - scripts/release/source_differential.py
+  - tests/release/test_oracle_public_api_definition.py
+  - tests/extraction/tree_sitter_engine/test_python_surface_public_api_definition.py
+satisfies:
+  - REQ-G3-012
+source_refs:
+  - file: docs/DECISION_LOG.md
+    anchor: >-
+      ## 2026-11-02 — Round-3 independent re-audit adopted; a real regression found and given top
+      priority; the "no pilot ever gets worse" rule adopted project-wide (operator, supervisor)
+    sha256: b750b8bf0df25b17bf66d014895ecb42952050c7cc63773f56249c4a1c551791
+inputs:
+  - >-
+    READ FIRST: `scripts/release/source_differential.py`'s `_is_public_python_name`,
+    `_python_symbol_from_classdef`, `enumerate_python` in full (including the `tests`/`test`/
+    `examples`/`docs` directory exclusion inside `enumerate_python`'s own loop). Then
+    `src/foss_mcp/extraction/tree_sitter_engine/python_surface.py`'s `_public_name` (module-level
+    names) and `_methods`/`PUBLISHED_DUNDERS` (class members). Confirm the dunder discrepancy
+    above with your own eyes against the real committed code before writing anything.
+  - >-
+    Write `schemas/product/public-api-definition.schema.json` (JSON Schema, draft 2020-12,
+    matching this repo's other product schemas under `schemas/product/*.schema.json` in style -
+    `schemas/*` at the top level is globally denied to workers, `schemas/product/**` is card-
+    writable, same as `schemas/product/known_defects.schema.json` from TC-636). Required top-level fields:
+    `language` (string), `scope_roots` (array of string globs or `"module-level"` for a language
+    with no sub-package scoping concept), `excluded_dirs` (array of string directory-name
+    fragments), `visibility` (object: `private_prefix` string, `dunder_exception` one of
+    `"all"` | `"none"` | an explicit array of dunder names), `kind_model` (array of the symbol
+    kinds this language's oracle produces, e.g. `["class", "enum"]` for Python today), `member_kinds`
+    (array, e.g. `["method", "enum_value"]`). Optional fields present in the schema for future
+    languages but NOT required to be populated by this card: `inheritance`, `constructors`,
+    `indexers`, `bean_properties`, `overloads` (each `anyOf` a real shape or `null`/absent -
+    Python's own file may omit every one of these, or set each to `null` with a one-line comment
+    saying why it does not apply to Python, your choice, report which).
+  - >-
+    Write `config/public_api_definition/python.yaml` documenting the ORACLE's real, current rule
+    precisely (not a aspirational one): `visibility.private_prefix: "_"`, `visibility.
+    dunder_exception: "all"` (every dunder is public, per `_is_public_python_name`'s real body),
+    `excluded_dirs: [tests, test, examples, docs]` (the real literal set `enumerate_python` checks
+    via `any(part in {...} for part in path.parts)`), `kind_model: [class, enum]`, `member_kinds:
+    [method, enum_value]`. Validate this file against your own new schema as part of your tests.
+  - >-
+    Wire it into `source_differential.py`'s PRODUCTION decision for `_is_public_python_name`:
+    replace its hardcoded body with one that loads `config/public_api_definition/python.yaml`
+    (once, at module import time or lazily memoized - your choice, report which and why) and
+    applies `visibility.private_prefix`/`visibility.dunder_exception` generically, producing the
+    EXACT SAME boolean for every real name this function is ever called with today - prove this
+    with a real, measured before/after: collect every distinct top-level class name and method/
+    attribute name your own test can find in this repo's already-committed oracle test fixtures
+    (`tests/release/test_source_differential.py`, `test_oracle_shell_resolution.py`,
+    `test_oracle_inherited_verification.py` - grep them for literal name strings used in their own
+    fixtures) plus the dunder names named above, run BOTH the old hardcoded function (keep a copy
+    as a test-only reference implementation, named distinctly, e.g. `_is_public_python_name_v1_reference`
+    in the TEST file only, never in production) and the new config-driven one over that exact list,
+    and assert byte-for-byte identical results. Report the real count of names you measured.
+  - >-
+    Add ground-truth assertions to `tests/extraction/tree_sitter_engine/test_python_surface_public_api_definition.py`
+    (a NEW file - do not edit any existing `test_python_surface*.py` file) that load the SAME
+    `config/public_api_definition/python.yaml` and assert, as DATA, both (a) where the extractor's
+    real, current behavior (call the real `_public_name`/`_methods` functions directly, or exercise
+    them through the extractor's own public entry point - your choice of the least invasive real
+    call) AGREES with the oracle's documented rule for representative non-dunder names, and (b)
+    the REAL, CONFIRMED disagreement on at least 2 real dunder names (e.g. `__repr__`, `__eq__`) -
+    the oracle's config says public, the extractor's real behavior says private - asserted
+    explicitly as a KNOWN, DISCLOSED divergence (a comment explaining why, referencing this card),
+    never silently "fixed" by changing either side's real behavior. This file imports the
+    extractor's real functions for READING/asserting against in tests only - it must never import
+    `config/public_api_definition/python.yaml`'s content INTO any file under `src/foss_mcp/
+    extraction/` itself (grep `src/foss_mcp/extraction/**/*.py` for the string
+    `public_api_definition` after your change and confirm zero matches - that absence IS the
+    proof this card did not compromise the deliberate independence).
+actions:
+  - >-
+    Introduce `config/public_api_definition/python.yaml` (schema-validated) as the oracle's own
+    documented, reviewable visibility rule, wire it into one real oracle production decision with a
+    measured identical-behavior proof, and add ground-truth divergence tests against the
+    extractor's test suite only (never its production code) - surfacing a real, previously
+    undocumented rule mismatch between the two independent implementations.
+checks:
+  - command: '{python} -m pytest tests/release/test_oracle_public_api_definition.py -q -rfE -p no:cacheprovider'
+    expect: 'exit 0'
+    timeout_seconds: 180
+    junitxml: true
+    proves:
+      - REQ-G3-012
+  - command: '{python} -m pytest tests/extraction/tree_sitter_engine/test_python_surface_public_api_definition.py tests/release/test_source_differential.py -q -rfE -p no:cacheprovider'
+    expect: 'exit 0'
+    timeout_seconds: 300
+    junitxml: true
+    proves:
+      - REQ-G3-012
+min_tests: 6
+requires:
+  - python
+network: false
+negative_control:
+  mutate: |
+    python -X utf8 -c "import pathlib; q = chr(34); p = pathlib.Path('config/public_api_definition/python.yaml'); s = p.read_text(encoding='utf-8'); old = 'private_prefix: ' + q + '_' + q; assert s.count(old) == 1, 'the required literal was not found as expected - if your real file formats this differently (e.g. unquoted, different spacing), anchor your own mutate on your own real literal instead and note the substitution in your closeout'; p.write_text(s.replace(old, 'private_prefix: ' + q + 'ZZZ_NEVER_MATCHES' + q, 1), encoding='utf-8')"
+  rationale: >-
+    Changes the config's own private-name prefix to a string no real Python identifier starts
+    with, so every name the oracle's production code evaluates becomes "public" regardless of its
+    real leading underscore - proving the production wiring genuinely reads this file at runtime
+    (not a cached/hardcoded copy) and that the measured identical-behavior test actually depends on
+    the file's real content. Any test asserting the config-driven function still correctly rejects
+    a private name must fail under this mutation.
+evidence:
+  - evidence/build/G3/TC-676/receipt.json
+closeout:
+  - >-
+    The oracle's Python visibility rule is now documented as schema-validated, reviewable data
+    (not only buried in a hardcoded Python one-liner), consulted by the oracle's own production
+    code for real, with a measured identical-behavior proof, and a real, previously undocumented
+    divergence from the extractor's own independent rule is now disclosed and pinned by a test -
+    never silently resolved by this card.
+recovery: Re-run from a clean tree.
