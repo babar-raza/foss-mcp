@@ -945,6 +945,52 @@ def _ts_param(ch, fn_node) -> dict[str, Any] | None:
     return param
 
 
+def _ts_constructor_parameter_properties(ctor_node) -> list[dict[str, Any]]:
+    """TC-690: a TypeScript constructor parameter marked ``public`` (explicit) or bare ``readonly``
+    (implicitly public) is itself a real class property, on a par with a same-shaped ordinary field
+    declaration (``public x: number`` / ``readonly z: boolean`` make ``instance.x`` / ``instance.z``
+    real public members). ``private``/``protected`` parameter properties are real parameter
+    properties at the language level too, but are excluded here, mirroring ``is_public()``'s
+    identical rule for ordinary class fields. A parameter with neither an accessibility modifier nor
+    a bare ``readonly`` is not a parameter property at all and is left to the constructor's own
+    ``params`` reporting only.
+    """
+    props: list[dict[str, Any]] = []
+    param_list = child_by_field(ctor_node, "parameters")
+    if param_list is None:
+        return props
+    for ch in param_list.children:
+        if ch.type not in _TS_PARAM_TYPES:
+            continue
+        accessibility: str | None = None
+        is_readonly = False
+        for sub in ch.children:
+            if sub.type == "accessibility_modifier":
+                accessibility = node_text(sub).strip()
+            elif sub.type == "readonly":
+                is_readonly = True
+        if accessibility is None and not is_readonly:
+            continue  # a plain, non-property parameter
+        if accessibility in ("private", "protected"):
+            continue  # a real parameter property, but not part of the public surface
+        pattern = child_by_field(ch, "pattern")
+        if pattern is None or pattern.type != "identifier":
+            continue
+        name = node_text(pattern)
+        type_node = child_by_field(ch, "type")
+        ptype = node_text(type_node).lstrip(":").strip() if type_node is not None else ""
+        props.append(
+            {
+                "name": name,
+                "type": ptype,
+                "doc": "",
+                "line": ch.start_point[0] + 1,
+                "writable": not is_readonly,
+            }
+        )
+    return props
+
+
 # C# parameter modifiers kept as a prefix of the parameter's type (TC-396).
 _CSHARP_PARAM_MODIFIERS = ("ref", "out", "in", "this", "params")
 
@@ -6256,6 +6302,24 @@ def extract_api_surface(
                     or (language == "python" and mname == "__init__")
                     or (language in ("typescript", "javascript") and mname == "constructor")
                 )
+
+                # TC-690: a TypeScript constructor-parameter-property (``public x: number`` / bare
+                # ``readonly z: boolean``) is a real class property that the class-member loop above
+                # never sees, because it lives inside the constructor's own parameter list, not the
+                # class body. Synthesize it here, additively, into the same ``properties`` list the
+                # ordinary-field branch already builds above.
+                if language == "typescript" and is_ctor:
+                    for ctor_prop in _ts_constructor_parameter_properties(mnode):
+                        properties.append(ctor_prop)
+                        claims.append(
+                            _make_claim(
+                                family,
+                                "api_method",
+                                f"{cname}.{ctor_prop['name']} property of type {ctor_prop['type']}",
+                                rel,
+                                ctor_prop["line"],
+                            )
+                        )
 
                 # FR-16: stub detection â€” methods that only raise/throw NotImplemented*
                 method_entry: dict[str, Any] = {
