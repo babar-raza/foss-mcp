@@ -740,6 +740,16 @@ def _is_public_python_name(name: str) -> bool:
     return _is_public_name_by_definition(name, _load_public_api_definition("python"))
 
 
+def _python_excluded_dirs() -> frozenset[str]:
+    """``enumerate_python``'s directory-exclusion name set (O3, REQ-G3-012, G3/TC-679), read from
+    ``config/public_api_definition/python.yaml``'s own ``excluded_dirs`` field in place of the
+    hardcoded set literal it used to carry. Built fresh on every call (never memoized by this
+    function itself) because ``_load_public_api_definition`` is already ``functools.cache``'d --
+    the list-to-frozenset conversion is O(4) and the underlying file read happens at most once per
+    process, the same reliance ``_is_public_python_name`` above already has on that cache."""
+    return frozenset(_load_public_api_definition("python")["excluded_dirs"])
+
+
 def _python_enum_bases(bases: list[Any]) -> bool:
     import ast as _ast
 
@@ -807,7 +817,7 @@ def enumerate_python(
 
     symbols: list[OracleSymbol] = []
     for path in sorted(library_dir.rglob("*.py")):
-        if any(part in {"tests", "test", "examples", "docs"} for part in path.parts):
+        if any(part in _python_excluded_dirs() for part in path.parts):
             continue
         try:
             tree = _ast.parse(path.read_text(encoding="utf-8", errors="replace"))

@@ -27,6 +27,27 @@ rewrites ``config/public_api_definition/python.yaml``'s ``private_prefix: "_"`` 
 Python identifier starts with. ``test_config_driven_function_really_reads_the_file_at_runtime``
 below additionally proves the production function depends on the file's live content (not a
 cached/hardcoded copy) by pointing it at a synthetic, mutated definition directly.
+
+G3/TC-679 (O3, REQ-G3-012) adds a second, independent wiring to this same file: ``enumerate_python``'s
+directory-exclusion check (``any(part in {"tests", "test", "examples", "docs"} for part in
+path.parts)``) used to hardcode that four-name set as a Python literal; it now reads it from this
+file's own ``excluded_dirs`` field through ``_python_excluded_dirs()``. The OLD hardcoded set is
+reproduced verbatim below as ``_excluded_dirs_v1_reference`` -- TEST-ONLY, never imported from
+``source_differential`` itself, which no longer contains it -- purely to prove the new,
+config-driven check agrees with the old hardcoded one on every ``Path`` this card's own measurement
+exercises: both excluded-dir shapes and non-excluded shapes, built from the same repo-root/filename
+conventions ``tests/release/test_source_differential.py``'s own existing ``enumerate_python`` and
+``enumerate_java`` fixtures already use (``acme/widgets`` as the cloned library root; ``widgets.py``,
+``colors.py``, ``broken.py``, ``good.py`` as real non-excluded filenames; the
+``src/test/java``-style nested-directory shape ``enumerate_java``'s own fixture already exercises,
+adapted to each of the four real ``excluded_dirs`` names). No existing ``enumerate_python`` fixture
+in that file already places a file under an excluded directory, so this card's test builds that
+shape itself rather than inventing unrelated names -- see
+``test_new_config_driven_exclusion_matches_the_old_hardcoded_exclusion_across_every_measured_path``
+below for the exact path list and its provenance.
+``test_config_driven_exclusion_really_reads_the_file_at_runtime`` proves the live-read property
+directly against a synthetic file with a different ``excluded_dirs`` list, the same style the
+``visibility`` live-read test above already uses.
 """
 
 from __future__ import annotations
@@ -185,5 +206,96 @@ def test_config_driven_function_really_reads_the_file_at_runtime(tmp_path, monke
         # including one that really is private under the real rule - reads as public.
         assert sd._is_public_python_name("_private") is True
         assert sd._is_public_python_name("__dunder__") is True
+    finally:
+        sd._load_public_api_definition.cache_clear()
+
+
+# --- (3) G3/TC-679 (O3): excluded_dirs wiring into enumerate_python's directory-exclusion check ----
+
+
+def _excluded_dirs_v1_reference(path: Path) -> bool:
+    """The OLD hardcoded exclusion check ``enumerate_python`` used to inline at its own call site,
+    reproduced verbatim here, TEST-ONLY -- ``source_differential`` itself no longer contains this
+    literal as of this card. Never imported by, nor exported to, any production path."""
+    return any(part in {"tests", "test", "examples", "docs"} for part in path.parts)
+
+
+# A real, representative measured corpus of Path objects: four excluded-dir shapes (one per real
+# name in config/public_api_definition/python.yaml's own excluded_dirs list) plus four non-excluded
+# shapes, all built from the same "acme/widgets" library-root convention and the same real,
+# already-committed filenames (widgets.py, colors.py, broken.py, good.py) that
+# tests/release/test_source_differential.py's own existing enumerate_python fixtures already use -
+# no existing enumerate_python fixture there already places a file under an excluded directory, so
+# the excluded-dir shapes below are built directly from this card's own python.yaml excluded_dirs
+# entries, the same "src/test/java"-style nested-directory shape
+# test_enumerate_java_skips_a_src_test_java_directory already exercises for a sibling enumerator.
+_MEASURED_PATHS = tuple(
+    Path(p)
+    for p in (
+        # excluded-dir shapes: one per real excluded_dirs entry, nested like a real cloned library.
+        "acme/widgets/tests/widgets.py",
+        "acme/widgets/test/colors.py",
+        "acme/widgets/examples/broken.py",
+        "acme/widgets/docs/good.py",
+        "acme/widgets/src/nested/tests/deep.py",  # excluded name appears mid-path, not just at top
+        # non-excluded shapes: the real top-level fixture files already committed in
+        # tests/release/test_source_differential.py's own enumerate_python tests.
+        "acme/widgets/widgets.py",
+        "acme/widgets/colors.py",
+        "acme/widgets/broken.py",
+        "acme/widgets/good.py",
+        "acme/widgets/src/nested/testing_helpers.py",  # a near-miss name ("testing_helpers", not
+        # "test"/"tests") - proves the check matches whole path parts, never a substring.
+    )
+)
+
+
+def test_new_config_driven_exclusion_matches_the_old_hardcoded_exclusion_across_every_measured_path() -> None:
+    sd._load_public_api_definition.cache_clear()
+    mismatches = [
+        path
+        for path in _MEASURED_PATHS
+        if bool(any(part in sd._python_excluded_dirs() for part in path.parts))
+        != _excluded_dirs_v1_reference(path)
+    ]
+    assert mismatches == [], (
+        f"config-driven excluded_dirs check diverged from the old hardcoded reference on "
+        f"{len(mismatches)} of {len(_MEASURED_PATHS)} measured paths: {mismatches!r}"
+    )
+
+
+def test_config_driven_excluded_dirs_set_matches_the_real_committed_yaml_list() -> None:
+    sd._load_public_api_definition.cache_clear()
+    assert sd._python_excluded_dirs() == frozenset({"tests", "test", "examples", "docs"})
+
+
+def test_config_driven_exclusion_really_reads_the_file_at_runtime(tmp_path, monkeypatch) -> None:
+    """Proves ``_python_excluded_dirs`` (and therefore ``enumerate_python``'s own exclusion check)
+    depends on ``excluded_dirs``' live content, not a cached/hardcoded copy - the same live-read
+    property the ``visibility`` test above proves for ``_is_public_python_name``, exercised here
+    directly against a synthetic file with a different ``excluded_dirs`` list."""
+    synthetic_dir = tmp_path / "public_api_definition"
+    synthetic_dir.mkdir()
+    (synthetic_dir / "python.yaml").write_text(
+        "language: python\nscope_roots: module-level\n"
+        "excluded_dirs: [vendored, docs]\n"
+        'visibility:\n  private_prefix: "_"\n  dunder_exception: all\n'
+        "kind_model: [class]\nmember_kinds: [method]\n",
+        encoding="utf-8",
+    )
+    monkeypatch.setattr(sd, "PUBLIC_API_DEFINITION_DIR", synthetic_dir)
+    sd._load_public_api_definition.cache_clear()
+    try:
+        # under the synthetic list, "vendored" is excluded (never true under the real file) and
+        # "tests"/"test"/"examples" are no longer excluded (unlike under the real file) - the
+        # exclusion check's real behavior tracks the live file, not a cached/hardcoded copy.
+        assert sd._python_excluded_dirs() == frozenset({"vendored", "docs"})
+        assert (
+            any(part in sd._python_excluded_dirs() for part in Path("acme/widgets/vendored/x.py").parts)
+            is True
+        )
+        assert (
+            any(part in sd._python_excluded_dirs() for part in Path("acme/widgets/tests/x.py").parts) is False
+        )
     finally:
         sd._load_public_api_definition.cache_clear()
