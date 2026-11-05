@@ -361,7 +361,10 @@ def test_the_manifest_declared_version_reaches_a_registry_install_notice(baked: 
     python = baked.answer("note_python", "install")
 
     assert isinstance(result, ReferenceContent) and isinstance(python, ReferenceContent)
-    assert python.text == "pip install aspose-note-foss"
+    assert python.text == (
+        "pip install aspose-note-foss\n"
+        "The pdf feature needs its own extra: pip install aspose-note-foss[pdf]."
+    )
     manifest_version = re.search(r'version\s*=\s*"([^"]+)"', baked.load("note_python")[0].manifest_text or "")
     assert manifest_version is not None
     assert python.notice is not None
