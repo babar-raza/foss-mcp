@@ -54,6 +54,7 @@ from foss_mcp.extraction.manifest_reader import (
 )
 from foss_mcp.extraction.repo_native_reader import DocumentNotPresent, DocumentPresent, DocumentResult
 from foss_mcp.indexing.known_defects import KnownDefect, load_known_defects
+from foss_mcp.mcp.response_budget import fence_blocks
 from foss_mcp.mcp.sidecar_state import FETCH_FAILED_REASON, SIDECAR_FETCH_FAILED, SIDECAR_PRESENT
 from foss_mcp.mcp.tools.readme_sections import (
     ReadmeSection,
@@ -488,7 +489,23 @@ def _drift_notice(inputs: ProductReferenceInputs, ecosystem: str) -> str | None:
 
 _LIMITATIONS_CAP = 6000
 _INSTALL_CAP = 1800
+# Kept, byte-for-byte, as the pre-TC-678 fixed string: tests/conformance/test_reference_content.py
+# (not a write_path of this card) reads this exact attribute and value directly, both to build a
+# failure-reason sentence in its own measurement helper and in its own ground-truth unit tests. The
+# real, offset-naming marker every _cap_at_line/_cap_at_paragraph call now returns comes from
+# ``_truncation_marker`` below instead - this constant is no longer used by that logic, only kept
+# so the existing, uneditable conformance test does not crash with an AttributeError.
 _TRUNCATED_MARKER = "[truncated; use search_docs for the rest]"
+
+
+def _truncation_marker(shown: int, total: int) -> str:
+    """The marker appended after a ``_cap_at_line``/``_cap_at_paragraph`` cut, naming the real
+    character counts (G3/TC-678) - the same "showing N of M characters" phrasing
+    ``response_budget``'s own markers already use (``_doc_marker``, ``_head_excerpt``,
+    ``_cap_body``, ``_cut_raw_text``), for consistency. ``_TRUNCATED_MARKER`` above named no
+    locator at all; this is its replacement for every real call site."""
+    return f"[truncated: showing {shown} of {total} characters]"
+
 
 _FORMAT_WORDS = (
     "xlsx",
@@ -601,6 +618,39 @@ def _section_notice(section: ReadmeSection) -> str:
     )
 
 
+def _fence_snap(text: str, cut: str) -> str:
+    """*cut* (a clean-boundary prefix of *text* that ``_cap_at_line``/``_cap_at_paragraph`` already
+    found) moved back to the start of any fenced code block (G3/TC-678) still open at the point
+    *cut* ends - reusing ``response_budget.fence_blocks`` exactly as it is, never reimplementing
+    its fence detection. Only ever moves the cut BACKWARD, never past the cap: ``fence_blocks`` is
+    run over the FULL text's lines (so a fence that closes later, beyond *cut*, is seen for what it
+    is - still open at the cut point, not merely unclosed inside the given window), and the cut is
+    compared against that block's own opening/closing line indexes.
+
+    A fence open from the very first line *cut* holds leaves no prose to show and is dropped
+    entirely, returning only the lines before the fence (``""`` when the fence starts at the very
+    top - that minimum, an empty excerpt with no fence, is what G3/TC-678 chose over showing a
+    malformed, never-closed block)."""
+    if not cut:
+        return cut
+    all_lines = text.split("\n")
+    last_kept_index = cut.count("\n")  # cut holds exactly this many whole lines of text, 0-indexed
+    if last_kept_index >= len(all_lines):
+        return cut
+    block = fence_blocks(all_lines)[last_kept_index]
+    if block is None:
+        return cut
+    start, end = block
+    if end <= last_kept_index:
+        return cut  # the fence already closed at or before the cut: nothing to snap
+    if start == 0:
+        return ""  # the fence covers the cut from its very first line: no prose to show at all
+    kept = all_lines[:start]
+    while kept and not kept[-1].strip():
+        kept.pop()
+    return "\n".join(kept)
+
+
 def _cap_at_line(text: str, cap: int) -> str:
     if len(text) <= cap:
         return text
@@ -608,7 +658,10 @@ def _cap_at_line(text: str, cap: int) -> str:
     boundary = cut.rfind("\n")
     if boundary > 0:
         cut = cut[:boundary]
-    return f"{cut.rstrip()}\n{_TRUNCATED_MARKER}"
+    cut = _fence_snap(text, cut)
+    shown = cut.rstrip()
+    marker = _truncation_marker(len(shown), len(text))
+    return f"{shown}\n{marker}" if shown else marker
 
 
 def _cap_at_paragraph(text: str, cap: int) -> str:
@@ -620,7 +673,10 @@ def _cap_at_paragraph(text: str, cap: int) -> str:
         boundary = cut.rfind("\n")
     if boundary > 0:
         cut = cut[:boundary]
-    return f"{cut.rstrip()}\n\n{_TRUNCATED_MARKER}"
+    cut = _fence_snap(text, cut)
+    shown = cut.rstrip()
+    marker = _truncation_marker(len(shown), len(text))
+    return f"{shown}\n\n{marker}" if shown else marker
 
 
 def _limitations_from_readme(section: ReadmeSection) -> ReferenceContent:
