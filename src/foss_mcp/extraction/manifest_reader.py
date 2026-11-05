@@ -12,7 +12,7 @@ import json
 import re
 import urllib.request
 from base64 import b64decode
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from xml.etree import ElementTree
 
 from foss_mcp.extraction.github_http import urlopen_with_backoff, with_auth
@@ -74,6 +74,32 @@ class PythonManifest:
     version: str = ""
     license: str = ""
     requires_python: str = ""
+    extras: dict[str, tuple[str, ...]] = field(default_factory=dict)
+    """Each optional-dependency group the manifest states, verbatim - the group name to the
+    exact requirement strings it lists, in the manifest's own order. Populated from
+    ``[project.optional-dependencies]`` (PEP 621 TOML table) or, when that table is absent,
+    from ``setup.py``'s ``extras_require={...}`` dict literal. Never filtered here - a group
+    that is dev/test scaffolding rather than a real user-facing feature is still a real fact
+    the manifest states; deciding which groups are worth surfacing to a user is the caller's
+    job, not this reader's."""
+
+
+_EXTRAS_REQUIRE_BLOCK_RE = re.compile(r"extras_require\s*=\s*\{(?P<body>.*?)\n\s*\}", re.DOTALL)
+_EXTRAS_GROUP_RE = re.compile(r'["\'](?P<group>[^"\']+)["\']\s*:\s*\[(?P<items>.*?)\]', re.DOTALL)
+_QUOTED_ITEM_RE = re.compile(r'["\']([^"\']+)["\']')
+
+
+def _parse_extras_require_block(text: str) -> dict[str, tuple[str, ...]]:
+    """``setup.py``'s ``extras_require={...}`` dict literal - each key a group name, each
+    value a list of requirement strings, exactly the shape the ``3d/python`` pilot's real,
+    committed ``setup.py`` sidecar uses. Returns ``{}`` when no such block is present."""
+    match = _EXTRAS_REQUIRE_BLOCK_RE.search(text)
+    if not match:
+        return {}
+    extras: dict[str, tuple[str, ...]] = {}
+    for group_match in _EXTRAS_GROUP_RE.finditer(match.group("body")):
+        extras[group_match.group("group")] = tuple(_QUOTED_ITEM_RE.findall(group_match.group("items")))
+    return extras
 
 
 def read_python_manifest(text: str) -> PythonManifest:
@@ -96,6 +122,13 @@ def read_python_manifest(text: str) -> PythonManifest:
         license_value = ""
     requires_python = project.get("requires-python") or ""
 
+    optional_deps = project.get("optional-dependencies", {})
+    extras: dict[str, tuple[str, ...]] = {}
+    if isinstance(optional_deps, dict):
+        for group, reqs in optional_deps.items():
+            if isinstance(group, str) and isinstance(reqs, list):
+                extras[group] = tuple(req for req in reqs if isinstance(req, str))
+
     if not name:
         match = re.search(r'name\s*=\s*["\']([^"\']+)', text)
         if match:
@@ -104,11 +137,15 @@ def read_python_manifest(text: str) -> PythonManifest:
         if match:
             version = match.group(1)
 
+    if not extras:
+        extras = _parse_extras_require_block(text)
+
     return PythonManifest(
         name=name if isinstance(name, str) else "",
         version=version if isinstance(version, str) else "",
         license=license_value,
         requires_python=requires_python if isinstance(requires_python, str) else "",
+        extras=extras,
     )
 
 

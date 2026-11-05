@@ -1539,13 +1539,44 @@ def _python_requires(manifest_text: str) -> str:
     return match.group("value").strip() if match else ""
 
 
+# Dev/test-only optional-dependency groups: real manifest scaffolding, never a user-facing
+# feature. Measured against the real 32-pilot corpus (TC-681): `dev`/`test`/`tests` are the
+# project's own precedent (see `excluded_dirs`); `fuzz` (pdf/python's `atheris` fuzzing group)
+# and any group starting with `test-`/`test_` (note/python's `test-pdf`, itself a dependency
+# bundle for *testing* the `pdf` feature, not the feature itself) are the same class of noise
+# under a different name.
+_PYTHON_NOISE_EXTRAS = frozenset({"dev", "test", "tests", "fuzz"})
+_PYTHON_NOISE_EXTRA_PREFIXES = ("test-", "test_")
+
+
+def _python_feature_extras(manifest_text: str) -> dict[str, tuple[str, ...]]:
+    """The manifest's optional-dependency groups, minus dev/test noise (``_PYTHON_NOISE_EXTRAS``/
+    ``_PYTHON_NOISE_EXTRA_PREFIXES``) - only the groups a real user would install for a real
+    feature, in the manifest's own order."""
+    try:
+        extras = read_python_manifest(manifest_text).extras
+    except Exception:  # noqa: BLE001 - a manifest the reader cannot parse states no extras
+        return {}
+    return {
+        group: reqs
+        for group, reqs in extras.items()
+        if group not in _PYTHON_NOISE_EXTRAS and not group.startswith(_PYTHON_NOISE_EXTRA_PREFIXES)
+    }
+
+
 def _python_install_text(name: str, manifest_text: str) -> str:
     """``pip install <name>``; when the manifest's range has an upper bound, the line saying pip refuses on
-    a newer Python (words/python: ``>=3.10,<3.13`` fails on 3.13)."""
+    a newer Python (words/python: ``>=3.10,<3.13`` fails on 3.13). Then one sentence per real,
+    user-facing optional-dependency group the manifest states (note/python's ``pdf``, html/python's
+    ``js``, pdf/python's ``images``/``woff2``/``text-layout``) naming the feature and the exact
+    ``pip install <name>[<extra>]`` syntax - dev/test-only groups are never mentioned, and a manifest
+    with none of these emits byte-for-byte the same text this function always has."""
     text = f"pip install {name}"
     requires = _python_requires(manifest_text)
     if "<" in requires:
         text += f"\nRequires Python {requires}: pip refuses to install it on any other Python version."
+    for extra in _python_feature_extras(manifest_text):
+        text += f"\nThe {extra} feature needs its own extra: pip install {name}[{extra}]."
     return text
 
 
