@@ -618,10 +618,18 @@ class ExampleMissReason(str, Enum):
     VALUE here is exactly the text this tool already served before this card (not reworded) - the
     only change is giving each one a name. Being ``(str, Enum)`` (the identical pattern this
     project's own ``revision_negotiation.FallbackReason`` already uses), a member compares equal
-    to, formats as, and JSON-encodes as its own plain string value, so every existing caller or
-    test comparing ``result.reason == "no verified example matches this query"`` keeps working
-    unchanged - this is a reversal of TC-584's "confidence not applicable" framing for a
+    to and JSON-encodes as its own plain string value with zero extra code, so every existing
+    caller or test comparing ``result.reason == "no verified example matches this query"`` keeps
+    working unchanged - this is a reversal of TC-584's "confidence not applicable" framing for a
     different, unrelated field, not a rename of any caller-visible text.
+
+    ``str()``/f-string formatting is a DIFFERENT story: plain ``(str, Enum)`` with no explicit
+    ``__str__`` override uses ``Enum.__str__``'s own default, which renders ``f"{member}"`` as
+    ``"ExampleMissReason.NO_MATCH"`` (the class-qualified member name), not the plain value text -
+    this is the exact, well-known reason Python added ``StrEnum`` in 3.11 (deliberately not used
+    here; see this project's own ``pyproject.toml`` comment). The ``__str__`` override just below
+    exists specifically to close that gap, so every f-string site that interpolates a reason
+    (e.g. ``f"{reason} (semantic fallback skipped: ...)"``) renders the plain value text too.
 
     NO_MATCH: the general miss - nothing (lexical or vector) answered the query.
     NOT_CONFIGURED: the general miss's own by-design variant for a lexical-only deployment
@@ -629,6 +637,11 @@ class ExampleMissReason(str, Enum):
     NO_EXAMPLES_IN_GENERATION: the generation holds no verified example at all (TC-381) - no
     vector/lexical ranking is even attempted.
     """
+
+    def __str__(self) -> str:
+        """Render as the plain value text, not ``Enum.__str__``'s default ``"ClassName.MEMBER"``
+        (see class docstring) - fixes every ``f"{reason}..."`` interpolation site at once."""
+        return self.value
 
     NO_MATCH = "no verified example matches this query"
     NOT_CONFIGURED = (
