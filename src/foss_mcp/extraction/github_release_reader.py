@@ -18,6 +18,7 @@ from typing import Any, Literal
 from urllib.parse import quote
 
 from foss_mcp.extraction.github_http import (
+    gh_cli_available,
     gh_cli_fastpath_enabled,
     gh_cli_json,
     urlopen_with_backoff,
@@ -205,7 +206,10 @@ def _get_json(url: str, *, etag: str | None = None) -> tuple[int, Any, str | Non
     # G3/TC-687: try the operator's own authenticated `gh` CLI session first (no conditional
     # request support, so this is skipped when a caller is asking for a 304 against *etag*).
     # On None (gh unavailable, not authenticated, a real 404, ...) fall through unchanged below.
-    if gh_cli_fastpath_enabled() and etag is None and url.startswith(f"{_API_ROOT}/"):
+    # G3/TC-687 rework: gh_cli_available() is an additional fast-path short-circuit - when it
+    # reports False (gh not installed/not authenticated), skip straight to the existing urllib
+    # path below without even spawning the doomed `gh api` subprocess.
+    if gh_cli_fastpath_enabled() and etag is None and url.startswith(f"{_API_ROOT}/") and gh_cli_available():
         cli_payload = gh_cli_json(url[len(_API_ROOT) :])
         if cli_payload is not None:
             return 200, cli_payload, None

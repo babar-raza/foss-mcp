@@ -130,6 +130,7 @@ def test_read_repo_document_skips_the_http_call_entirely_when_gh_cli_json_succee
     def fail_if_called(*args, **kwargs):
         raise AssertionError("urlopen_with_backoff must not be called when gh_cli_json succeeds")
 
+    monkeypatch.setattr(repo_native_reader, "gh_cli_available", lambda: True)
     monkeypatch.setattr(repo_native_reader, "gh_cli_json", fake_gh_cli_json)
     monkeypatch.setattr(repo_native_reader, "urlopen_with_backoff", fail_if_called)
 
@@ -160,6 +161,7 @@ def test_read_repo_document_falls_through_to_the_existing_http_path_when_gh_cli_
         calls.append(request)
         return _Response(payload)
 
+    monkeypatch.setattr(repo_native_reader, "gh_cli_available", lambda: True)
     monkeypatch.setattr(repo_native_reader, "gh_cli_json", fake_gh_cli_json)
     monkeypatch.setattr(repo_native_reader, "urlopen_with_backoff", fake_urlopen_with_backoff)
 
@@ -223,5 +225,37 @@ def test_read_repo_document_never_tries_gh_cli_json_at_all_when_the_fast_path_is
     result = repo_native_reader.read_repo_document("owner/name", "README.md")
 
     assert len(calls) == 1
+    assert isinstance(result, repo_native_reader.DocumentPresent)
+    assert result.content == "hi"
+
+
+def test_read_repo_document_skips_gh_cli_json_entirely_when_gh_cli_available_reports_false(
+    monkeypatch,
+) -> None:
+    """G3/TC-687 rework: gh_cli_available() is an additional fast-path short-circuit a call site
+    checks before even attempting gh_cli_json. With the fast path turned on and no etag (so the
+    outer gate would otherwise try the CLI), a gh_cli_available() that reports False (gh not
+    installed, not authenticated) must make the call site skip gh_cli_json entirely and fall
+    through to the existing urllib path unchanged - this is the real production call site that
+    makes gh_cli_available a genuinely wired, reachable symbol rather than only ever exercised
+    by its own unit test."""
+    monkeypatch.setenv(github_http.GH_CLI_FASTPATH_ENV, "1")
+    payload = json.dumps({"sha": "abc", "size": 2, "content": base64.b64encode(b"hi").decode()}).encode()
+    calls: list[urllib.request.Request] = []
+
+    def fail_if_gh_cli_json_called(path, *, timeout=15):
+        raise AssertionError("gh_cli_json must not be tried when gh_cli_available() reports False")
+
+    def fake_urlopen_with_backoff(request, timeout=30):
+        calls.append(request)
+        return _Response(payload)
+
+    monkeypatch.setattr(repo_native_reader, "gh_cli_available", lambda: False)
+    monkeypatch.setattr(repo_native_reader, "gh_cli_json", fail_if_gh_cli_json_called)
+    monkeypatch.setattr(repo_native_reader, "urlopen_with_backoff", fake_urlopen_with_backoff)
+
+    result = repo_native_reader.read_repo_document("owner/name", "README.md")
+
+    assert len(calls) == 1  # fell through to the existing urllib path, exactly as before
     assert isinstance(result, repo_native_reader.DocumentPresent)
     assert result.content == "hi"
