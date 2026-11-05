@@ -1,0 +1,114 @@
+{
+  "schema_version": 1,
+  "card": "TC-676",
+  "gate": "G3",
+  "generated_by": "gatectl",
+  "generated_at": "2026-11-05T06:12:43Z",
+  "base_rev": "7ba5330639d7b204c05550e82584e18c447e0935",
+  "head_rev": "9a0b2e0cf31e26006948e46b5cbc6ff4dae0e774",
+  "card_sha256": "65476e432798e61b87c4ee51dafd5c7cf22cb5f51adef6612825a48e4690fb80",
+  "fingerprint": {
+    "python": "3.13.2",
+    "platform": "Windows-11-10.0.26300-SP0",
+    "lock_sha256": "5c72e798a73c059a438e752e94a8d4c88c1bdf81a197f6e5c5fcecbc9466a691",
+    "env": {
+      "PYTHONHASHSEED": "0",
+      "PYTHONUTF8": "1",
+      "PYTHONDONTWRITEBYTECODE": "1",
+      "PYTHONIOENCODING": "utf-8",
+      "TZ": "UTC",
+      "LC_ALL": "C.UTF-8",
+      "SOURCE_DATE_EPOCH": "1700000000",
+      "verify_runner": "host"
+    }
+  },
+  "scope": {
+    "ok": true,
+    "changed_paths": [
+      "config/public_api_definition/python.yaml",
+      "schemas/product/public-api-definition.schema.json",
+      "scripts/release/source_differential.py",
+      "tests/extraction/tree_sitter_engine/test_python_surface_public_api_definition.py",
+      "tests/release/test_oracle_public_api_definition.py"
+    ],
+    "violations": [],
+    "evaluated": true
+  },
+  "runs": [
+    {
+      "run": 1,
+      "checks": [
+        {
+          "command": "{python} -m pytest tests/release/test_oracle_public_api_definition.py -q -rfE -p no:cacheprovider",
+          "exit_code": 0,
+          "duration_s": 1.109,
+          "stdout_sha256": "83a1593c5b5783693fe3006d1f6597bcb4f3a5968f23b59481ee09a0477f910a",
+          "tests": 7,
+          "skipped": 0,
+          "errors": 0,
+          "failures": 0
+        },
+        {
+          "command": "{python} -m pytest tests/extraction/tree_sitter_engine/test_python_surface_public_api_definition.py tests/release/test_source_differential.py -q -rfE -p no:cacheprovider",
+          "exit_code": 0,
+          "duration_s": 92.392,
+          "stdout_sha256": "f2a2851fd07d932c49660c7f57aef37289927105e202692b6b4a7a987b70a9ff",
+          "tests": 135,
+          "skipped": 0,
+          "errors": 0,
+          "failures": 0
+        }
+      ],
+      "all_passed": true
+    },
+    {
+      "run": 2,
+      "checks": [
+        {
+          "command": "{python} -m pytest tests/release/test_oracle_public_api_definition.py -q -rfE -p no:cacheprovider",
+          "exit_code": 0,
+          "duration_s": 0.876,
+          "stdout_sha256": "83a1593c5b5783693fe3006d1f6597bcb4f3a5968f23b59481ee09a0477f910a",
+          "tests": 7,
+          "skipped": 0,
+          "errors": 0,
+          "failures": 0
+        },
+        {
+          "command": "{python} -m pytest tests/extraction/tree_sitter_engine/test_python_surface_public_api_definition.py tests/release/test_source_differential.py -q -rfE -p no:cacheprovider",
+          "exit_code": 0,
+          "duration_s": 71.52,
+          "stdout_sha256": "f2a2851fd07d932c49660c7f57aef37289927105e202692b6b4a7a987b70a9ff",
+          "tests": 135,
+          "skipped": 0,
+          "errors": 0,
+          "failures": 0
+        }
+      ],
+      "all_passed": true
+    }
+  ],
+  "negative_control": {
+    "kind": "mutate",
+    "patch": "python -X utf8 -c \"import pathlib; q = chr(34); p = pathlib.Path('config/public_api_definition/python.yaml'); s = p.read_text(encoding='utf-8'); old = 'private_prefix: ' + q + '_' + q; assert s.count(old) == 1, 'the required literal was not found as expected - if your real file formats this differently (e.g. unquoted, different spacing), anchor your own mutate on your own real literal instead and note the substitution in your closeout'; p.write_text(s.replace(old, 'private_prefix: ' + q + 'ZZZ_NEVER_MATCHES' + q, 1), encoding='utf-8')\"\n",
+    "patch_sha256": "368d5c7a606589cdb48d276bdd35ab8a3b767d2ce6a241594ade3a5cf16dd44d",
+    "applied": true,
+    "patch_applied_failed": true,
+    "exit_codes": [
+      1,
+      1
+    ],
+    "tree_changed": [
+      "M config/public_api_definition/python.yaml",
+      "?? .junit-0.xml",
+      "?? .junit-1.xml"
+    ]
+  },
+  "holdout": {
+    "ran": false,
+    "passed": true,
+    "detail": "no holdout for this card"
+  },
+  "accepted": true,
+  "reason": "all gates passed"
+}

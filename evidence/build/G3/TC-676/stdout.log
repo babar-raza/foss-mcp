@@ -1,0 +1,153 @@
+
+===== CLEAN RUN 1 (host) =====
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-5c72e798a73c059a\Scripts\python.exe -m pytest tests/release/test_oracle_public_api_definition.py -q -rfE -p no:cacheprovider "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-2h7auoen\.junit-0.xml"
+--- stdout ---
+.......                                                                  [100%]
+
+--- stderr ---
+
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-5c72e798a73c059a\Scripts\python.exe -m pytest tests/extraction/tree_sitter_engine/test_python_surface_public_api_definition.py tests/release/test_source_differential.py -q -rfE -p no:cacheprovider "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-2h7auoen\.junit-1.xml"
+--- stdout ---
+........................................................................ [ 53%]
+...............................................................          [100%]
+
+--- stderr ---
+
+
+===== CLEAN RUN 2 (host) =====
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-5c72e798a73c059a\Scripts\python.exe -m pytest tests/release/test_oracle_public_api_definition.py -q -rfE -p no:cacheprovider "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-2h7auoen\.junit-0.xml"
+--- stdout ---
+.......                                                                  [100%]
+
+--- stderr ---
+
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-5c72e798a73c059a\Scripts\python.exe -m pytest tests/extraction/tree_sitter_engine/test_python_surface_public_api_definition.py tests/release/test_source_differential.py -q -rfE -p no:cacheprovider "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-2h7auoen\.junit-1.xml"
+--- stdout ---
+........................................................................ [ 53%]
+...............................................................          [100%]
+
+--- stderr ---
+
+
+===== NEGATIVE CONTROL (checks MUST now fail) =====
+mutated: M config/public_api_definition/python.yaml, ?? .junit-0.xml, ?? .junit-1.xml
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-5c72e798a73c059a\Scripts\python.exe -m pytest tests/release/test_oracle_public_api_definition.py -q -rfE -p no:cacheprovider "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-2h7auoen\.junit-0.xml"
+--- stdout ---
+.F...F.                                                                  [100%]
+================================== FAILURES ===================================
+____________ test_python_definition_documents_the_real_oracle_rule ____________
+
+    def test_python_definition_documents_the_real_oracle_rule() -> None:
+        document = _config_document()
+        assert document["language"] == "python"
+        assert document["scope_roots"] == "module-level"
+        assert document["excluded_dirs"] == ["tests", "test", "examples", "docs"]
+>       assert document["visibility"] == {"private_prefix": "_", "dunder_exception": "all"}
+E       AssertionError: assert {'private_pre...ption': 'all'} == {'private_pre...ption': 'all'}
+E         
+E         Omitting 1 identical items, use -vv to show
+E         Differing items:
+E         {'private_prefix': 'ZZZ_NEVER_MATCHES'} != {'private_prefix': '_'}
+E         Use -v to get more diff
+
+tests\release\test_oracle_public_api_definition.py:123: AssertionError
+_ test_new_config_driven_rule_matches_the_old_hardcoded_rule_across_every_measured_name _
+
+    def test_new_config_driven_rule_matches_the_old_hardcoded_rule_across_every_measured_name() -> None:
+        sd._load_public_api_definition.cache_clear()
+        names = MEASURED_NAMES
+        assert len(names) >= 100, "the fixture-derived name list collapsed; re-check the grep pattern"
+        mismatches = [
+            name for name in names if sd._is_public_python_name(name) != _is_public_python_name_v1_reference(name)
+        ]
+>       assert mismatches == [], (
+            f"config-driven _is_public_python_name diverged from the old hardcoded reference on "
+            f"{len(mismatches)} of {len(names)} measured names: {sorted(mismatches)!r}"
+        )
+E       AssertionError: config-driven _is_public_python_name diverged from the old hardcoded reference on 3 of 226 measured names: ['_enumerator', '_internal', '_unimplemented_enumerator']
+E       assert ['_internal',...d_enumerator'] == []
+E         
+E         Left contains 3 more items, first extra item: '_internal'
+E         Use -v to get more diff
+
+tests\release\test_oracle_public_api_definition.py:162: AssertionError
+=========================== short test summary info ===========================
+FAILED tests/release/test_oracle_public_api_definition.py::test_python_definition_documents_the_real_oracle_rule
+FAILED tests/release/test_oracle_public_api_definition.py::test_new_config_driven_rule_matches_the_old_hardcoded_rule_across_every_measured_name
+
+--- stderr ---
+
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-5c72e798a73c059a\Scripts\python.exe -m pytest tests/extraction/tree_sitter_engine/test_python_surface_public_api_definition.py tests/release/test_source_differential.py -q -rfE -p no:cacheprovider "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-2h7auoen\.junit-1.xml"
+--- stdout ---
+.F..............................................FF...................... [ 53%]
+...............................................................          [100%]
+================================== FAILURES ===================================
+___ test_oracle_and_extractor_agree_a_leading_underscore_method_is_private ____
+
+tmp_path = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-20114/test_oracle_and_extractor_agre1')
+
+    def test_oracle_and_extractor_agree_a_leading_underscore_method_is_private(tmp_path: Path) -> None:
+        definition = _definition()
+        published = _extractor_published_names(tmp_path)
+>       assert _oracle_says_public("_hidden", definition) is False
+E       AssertionError: assert True is False
+E        +  where True = _oracle_says_public('_hidden', {'language': 'python', 'scope_roots': 'module-level', 'excluded_dirs': ['tests', 'test', 'examples', 'docs'], 'visibility': {'private_prefix': 'ZZZ_NEVER_MATCHES', 'dunder_exception': 'all'}, ...})
+
+tests\extraction\tree_sitter_engine\test_python_surface_public_api_definition.py:117: AssertionError
+__________ test_enumerate_python_reads_a_real_class_with_ast_offline __________
+
+tmp_path = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-20114/test_enumerate_python_reads_a_0')
+
+    def test_enumerate_python_reads_a_real_class_with_ast_offline(tmp_path):
+        (tmp_path / ".git").mkdir()  # pretend already-cloned, so enumerate_python never shells out to git
+        (tmp_path / "widgets.py").write_text(
+            "class Gadget:\n"
+            "    def build(self, name, count=1):\n"
+            "        return name\n"
+            "    @staticmethod\n"
+            "    def make():\n"
+            "        return Gadget()\n"
+            "    def _private(self):\n"
+            "        pass\n",
+            encoding="utf-8",
+        )
+        symbols = sd.enumerate_python("acme/widgets", "deadbeef", tmp_path)
+        (gadget,) = [s for s in symbols if s.name == "Gadget"]
+        by_name = {member.name: member for member in gadget.members}
+>       assert set(by_name) == {"build", "make"}  # _private is never public
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       AssertionError: assert {'_private', 'build', 'make'} == {'build', 'make'}
+E         
+E         Extra items in the left set:
+E         '_private'
+E         Use -v to get more diff
+
+tests\release\test_source_differential.py:494: AssertionError
+______________ test_enumerate_python_reads_enum_members_offline _______________
+
+tmp_path = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-20114/test_enumerate_python_reads_en0')
+
+    def test_enumerate_python_reads_enum_members_offline(tmp_path):
+        (tmp_path / ".git").mkdir()
+        (tmp_path / "colors.py").write_text(
+            "from enum import Enum\n\nclass Color(Enum):\n    Red = 1\n    Blue = 2\n    _Hidden = 3\n",
+            encoding="utf-8",
+        )
+        (color,) = sd.enumerate_python("acme/widgets", "deadbeef", tmp_path)
+        assert color.kind == "enum"
+        names = {member.name for member in color.members}
+>       assert names == {"Red", "Blue"}
+E       AssertionError: assert {'Blue', 'Red', '_Hidden'} == {'Blue', 'Red'}
+E         
+E         Extra items in the left set:
+E         '_Hidden'
+E         Use -v to get more diff
+
+tests\release\test_source_differential.py:508: AssertionError
+=========================== short test summary info ===========================
+FAILED tests/extraction/tree_sitter_engine/test_python_surface_public_api_definition.py::test_oracle_and_extractor_agree_a_leading_underscore_method_is_private
+FAILED tests/release/test_source_differential.py::test_enumerate_python_reads_a_real_class_with_ast_offline
+FAILED tests/release/test_source_differential.py::test_enumerate_python_reads_enum_members_offline
+
+--- stderr ---
+
