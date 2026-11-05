@@ -146,15 +146,18 @@ requires:
 network: false
 negative_control:
   mutate: |
-    python -X utf8 -c "import pathlib; p = pathlib.Path('src/foss_mcp/extraction/tree_sitter_engine/python_surface.py'); s = p.read_text(encoding='utf-8'); old = 'isinstance(node, ast.ImportFrom)'; assert s.count(old) >= 1, 'the literal isinstance check was not found as expected - if your real code reads differently (e.g. you named the nested-statement variable something else, or factored the check into a differently-named helper), anchor your own mutate on your own real literal instead and note the substitution in your closeout'; import re as _re; n = len(_re.findall(_re.escape(old), s)); assert n >= 1; p.write_text(s.replace(old, 'isinstance(node, ast.ImportFrom) and False', 1), encoding='utf-8')"
+    python -X utf8 -c "import pathlib; p = pathlib.Path('src/foss_mcp/extraction/tree_sitter_engine/python_surface.py'); s = p.read_text(encoding='utf-8'); old = 'isinstance(node, ast.Try | ast.If)'; assert s.count(old) == 1, 'the literal isinstance check gating the new Try/If branch was not found exactly once as expected - if your real code reads differently, anchor your own mutate on your own real literal instead and note the substitution in your closeout'; p.write_text(s.replace(old, 'isinstance(node, ast.Try | ast.If) and False', 1), encoding='utf-8')"
   rationale: >-
-    Disables the FIRST `isinstance(node, ast.ImportFrom)` check the committed file contains (the
-    worker's own new or refactored re-export-recognition check, by construction of this card) by
-    forcing it to always evaluate False. Any test proving this card's new try/except or if/else
-    resolution must fail under this mutation. If the worker's real implementation structures the
-    check differently such that the FIRST occurrence is not the new/shared logic, the worker must
-    say so in their closeout and the supervisor will re-anchor the mutate on the real controlling
-    literal before accepting.
+    Disables the whole new Try/If re-export-recognition branch (forces its own gating isinstance
+    check to always evaluate False) without touching the pre-existing plain top-level
+    `ast.ImportFrom` path. Re-anchored here (supervisor fix, before first review) after the worker
+    correctly flagged that the originally-authored mutate targeted `isinstance(node,
+    ast.ImportFrom)`, which the real implementation keeps as the UNTOUCHED pre-existing top-level
+    check, not the new feature - the worker verified this by running the original mutation
+    themselves and reporting that only the pre-existing-behavior test failed, not the new
+    try/except/if-else tests. Any test proving this card's new try/except or if/else resolution
+    must fail under THIS mutation; the pre-existing plain top-level and star-import behaviors are
+    unaffected.
 evidence:
   - evidence/build/G3/TC-674/receipt.json
 closeout:
