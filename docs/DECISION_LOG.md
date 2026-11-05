@@ -3358,3 +3358,36 @@ record is Q17's honest interim state: the program's real engineering work is sub
 the formal closure mechanics (baseline pruning + strict flip + ledger rows) are real, bounded,
 not-yet-started work for a future card, tracked here rather than silently skipped.
 
+
+## 2026-11-05 — RT4 (runtime/contract latency fixes, REQ-G3-016) measured; root cause isolated to the quick tunnel, not nginx or app code (supervisor)
+
+RT4 ("measurement-driven latency fixes", conditional) became reachable once RT2 (TC-685, hosting
+config versioned) and RT3 (TC-688, contract changes) landed. The live demo stack was already
+running (32 `mcp-<family>-<platform>` containers + `mcp-gateway` nginx + `mcp-tunnel` cloudflared
+quick tunnel) and was measured directly rather than guessed at.
+
+**Measured, not assumed**: N=48 concurrent MCP sessions across 3 representative pilots (pdf/python,
+cells/net, page/python) through the public Cloudflare quick-tunnel hop produced per-call latency
+clustered at 7.0-8.8 seconds - matching the round-2/round-3 audits' ~7s stall signature almost
+exactly. The IDENTICAL concurrent load through nginx alone (tunnel hop excluded) stayed flat at
+~0.9s wall clock for all 24-48 calls. Serial (non-concurrent) traffic showed no stall on any hop,
+on any pilot, confirming this is a concurrency-triggered defect, not a per-request one.
+
+**This rules OUT the plan's own leading hypothesis** (nginx's `worker_processes 1` and its
+per-request `resolver ... valid=10s` DNS lookup, both real, already-versioned properties of
+`infra/hosting/nginx.conf` since TC-685) - nginx demonstrably handled the same concurrent load with
+no degradation. `docker logs mcp-tunnel` independently corroborates the real culprit: two
+unprompted reconnects the same day ("datagram manager error", "timeout: no recent network
+activity") - the anonymous Cloudflare quick tunnel's own concurrency ceiling, not the app or the
+nginx config this project controls.
+
+**Decision**: this matches the plan's own section 2.9/R9 contingency exactly ("if the quick tunnel
+cannot meet the latency rule... the plan records the measured limitation and moves to the
+fallback"). A durable fix (a Cloudflare named tunnel, or a dedicated small VM) needs an
+owner-provisioned Cloudflare account/domain/billing decision no agent can make - recorded as
+**OWNER-17** in `ops/owner_items.yaml`, non-blocking (`consumed_by: NONE`; RT5's own closure is
+separately already blocked on KD11/XA19, recorded 2026-11-05). No code change was made against
+`infra/hosting/nginx.conf` or any app code - the measurement affirmatively shows neither needs one
+for this specific defect class. The measurement itself (3 throwaway scripts, no repository file
+touched, real live infrastructure) is reproducible by any future agent without this owner item
+being resolved first.
