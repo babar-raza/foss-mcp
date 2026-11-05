@@ -24,12 +24,13 @@ from __future__ import annotations
 
 import re
 from collections.abc import Iterable
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Any
 
 from foss_mcp.mcp.routing import Scope
 from foss_mcp.mcp.tools.example_search_mode import example_search_mode
 from foss_mcp.mcp.tools.get_symbol import extract_fqn
+from foss_mcp.mcp.tools.search_docs import CONTENT_TYPES, DOCUMENTATION, chunk_kind, classify_content_type
 
 # The display name of every family a pilot ships (infra/helm/foss-mcp/values.yaml ingestion.pilots).
 FAMILY_DISPLAY: dict[str, str] = {
@@ -111,6 +112,13 @@ class DeploymentFacts:
     example_short: str | None
     task_example: str | None
     example_search: str
+    # G3/TC-677 (REQ-G3-013, C3): every search_docs.CONTENT_TYPES value mapped to its real,
+    # zero-inclusive documentation-chunk count across this same active generation - the identical
+    # shape and computation (chunk_kind/DOCUMENTATION + classify_content_type) search_docs.Miss's
+    # own content_type_counts field now carries, so the two surfaces report the same numbers for
+    # the same generation by construction, not by two independently-asserted counts. All-zero when
+    # nothing is readable (the ``NEUTRAL_FACTS`` default below).
+    content_type_counts: dict[str, int] = field(default_factory=lambda: dict.fromkeys(CONTENT_TYPES, 0))
 
 
 NEUTRAL_FACTS = DeploymentFacts(None, None, None, _LEXICAL_ONLY)
@@ -164,7 +172,15 @@ def _facts_from_payload(payload: Any) -> DeploymentFacts:
     first verified-example title."""
     best: tuple[int, str] | None = None
     first_title: str | None = None
+    # G3/TC-677 (REQ-G3-013, C3): threaded through this SAME loop (no second pass over the
+    # manifest) rather than added as a separate one - ``chunk_kind`` already re-derives the FQN
+    # internally (it is cheap and side-effect-free), and a chunk with NO FQN line at all is still
+    # documentation per ``chunk_kind`` (hand-written chunks), which the ``if not fqn: continue``
+    # guard below would otherwise skip before it could ever be counted.
+    content_type_counts: dict[str, int] = dict.fromkeys(CONTENT_TYPES, 0)
     for text in _chunk_texts(payload):
+        if chunk_kind(text) == DOCUMENTATION:
+            content_type_counts[classify_content_type(text)] += 1
         fqn = extract_fqn(text)
         if not fqn:
             continue
@@ -187,6 +203,7 @@ def _facts_from_payload(payload: Any) -> DeploymentFacts:
         example_short=_last_segment(best[1]) if best is not None else None,
         task_example=first_title.lower() if first_title is not None else None,
         example_search=mode,
+        content_type_counts=content_type_counts,
     )
 
 

@@ -256,6 +256,14 @@ class Miss:
     # chunk clearing the same relevance rule, and a sentence naming them (``()`` / ``None`` otherwise).
     other_content_types: tuple[str, ...] = ()
     hint: str | None = None
+    # G3/TC-677 (REQ-G3-013, C3): every CONTENT_TYPES value mapped to its real, zero-inclusive
+    # documentation-chunk count across the whole active generation (never query-relative, unlike
+    # ``other_content_types`` above) - the identical TC-651 computation
+    # ``report_index_freshness.FreshnessReport.documentation_content_type_counts`` already ships,
+    # reused here via ``_content_type_counts`` below (``report_index_freshness`` exposes no public
+    # helper to import; its own counting loop is private to that module). A miss with no readable
+    # generation/document index gets this all-zero default, never a crash or a guess.
+    content_type_counts: dict[str, int] = field(default_factory=lambda: dict.fromkeys(CONTENT_TYPES, 0))
 
 
 def _doc_ids_by_content_type(documents: dict[str, dict]) -> dict[str, set[str]]:
@@ -266,6 +274,20 @@ def _doc_ids_by_content_type(documents: dict[str, dict]) -> dict[str, set[str]]:
         if chunk_kind(document["text"]) == DOCUMENTATION:
             grouped[classify_content_type(document["text"])].add(doc_id)
     return grouped
+
+
+def _content_type_counts(documents: dict[str, dict]) -> dict[str, int]:
+    """G3/TC-677 (REQ-G3-013, C3): every CONTENT_TYPES value mapped to the number of *documents*
+    classified into it, zero-inclusive - the same chunk_kind/DOCUMENTATION + classify_content_type
+    mechanism ``report_index_freshness.py``'s TC-651 work uses (that module exposes no public
+    helper, so this is this file's own copy, over the same ``documents`` dict already in hand -
+    never a second read of the manifest)."""
+    counts: dict[str, int] = dict.fromkeys(CONTENT_TYPES, 0)
+    for document in documents.values():
+        text = document["text"]
+        if chunk_kind(text) == DOCUMENTATION:
+            counts[classify_content_type(text)] += 1
+    return counts
 
 
 # TC-516: what counts as a table-dominated documentation chunk - relocated here from ``lookup.py``
@@ -644,7 +666,15 @@ def _miss_with_hint(
         if others
         else None
     )
-    return Miss(scope, query, content_type, reason, other_content_types=others, hint=hint)
+    return Miss(
+        scope,
+        query,
+        content_type,
+        reason,
+        other_content_types=others,
+        hint=hint,
+        content_type_counts=_content_type_counts(documents),
+    )
 
 
 def _part_end(text: str, offset: int) -> int:
@@ -740,7 +770,13 @@ def _fetch_part(
                 part_note=note,
             )
         ]
-    return Miss(scope, query, label, f"no {label} documentation chunk with chunk_id {chunk_id!r}")
+    return Miss(
+        scope,
+        query,
+        label,
+        f"no {label} documentation chunk with chunk_id {chunk_id!r}",
+        content_type_counts=_content_type_counts(documents),
+    )
 
 
 def search_docs(
