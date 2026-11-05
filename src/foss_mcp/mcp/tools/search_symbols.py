@@ -217,6 +217,21 @@ entry there. Widened to ``frozenset({"method", "class", "package"})`` - purely a
 ``get_symbol.py``'s existing unconditional-kind precedent, and leaves
 ``get_product_reference.py``'s own separate ``_LIBRARY_DEFECT_SUBJECT_KINDS`` constant (a different
 frozenset in a different file, scoped to ``"package"``/``"commit"``) completely untouched.
+
+TC-673 (G3/REQ-G3-011, Q13): investigated first against the real current code, not the plan's own
+3-day-old text - two of that item's three parts ("rank type > member > namespace" and "namespace
+words never exact") were ALREADY the real behaviour (the existing tier system above, and
+``_Scored.exact``'s own ``not self.internal`` check) and are untouched by this card; only a real
+regression test pinning the already-correct "namespace words never exact" guarantee was added. The
+one genuine gap: ``SymbolMatch`` had no field saying WHICH tier or fallback stage produced a given
+hit - only ``match_quality`` (``exact``/``partial``), never which of the five tiers or three further
+fallback stages actually matched. ``match_kind`` (additive, same "defaults to nothing said" pattern
+every field since TC-562 already follows) now carries that label - ``"exact_fqn"``/``"final_segment"``/
+``"member_declared"``/``"member_inherited"``/``"bag_of_words"``/``"prefix"`` for the five tiers
+``admitted`` already sorts by, and ``"inflected_name"``/``"evidence_sentence"``/``"token_fallback"``
+for the three fallback stages below them - computed from information ``search_symbols`` already had
+in hand at each site, with zero change to tier order, admission, or any existing ``match_quality``
+value anywhere.
 """
 
 from __future__ import annotations
@@ -620,6 +635,12 @@ class SymbolMatch:
       method/class-scoped known-defect entry whose ``subject.refs`` contains this symbol's own FQN
       (G3/TC-658), in registry file order - empty when no defect data is recorded for this pilot yet,
       or none of it matches.
+    - ``match_kind`` (TC-673, G3/REQ-G3-011): WHICH tier or fallback stage in ``search_symbols``'s own
+      docstring produced this hit - one of ``"exact_fqn"`` (tier 0), ``"final_segment"`` (tier 1),
+      ``"member_declared"``/``"member_inherited"`` (tier 2), ``"bag_of_words"`` (tier 3), ``"prefix"``
+      (tier 4), ``"inflected_name"``, ``"evidence_sentence"`` or ``"token_fallback"`` (the three
+      fallback stages, in the order they are tried) - ``""`` for a hand-built match. Purely additive
+      transparency on an already-correct ranking: it never changes ``match_quality`` or ordering.
     """
 
     scope: Scope
@@ -634,6 +655,7 @@ class SymbolMatch:
     aliases: tuple[str, ...] = ()
     limitation: str = ""
     known_defects: tuple[str, ...] = ()
+    match_kind: str = ""
 
 
 def limitation_line(text: str) -> str:
@@ -1199,6 +1221,22 @@ def _evidence_ranking(
     return scored
 
 
+# TC-673 (G3/REQ-G3-011): the honest label for each of ``search_symbols``'s own admission tiers -
+# additive transparency only, never consulted to decide admission, ordering or ``match_quality``.
+_TIER_KIND = {0: "exact_fqn", 1: "final_segment", 3: "bag_of_words", 4: "prefix"}
+
+
+def _tier_match_kind(tier: int, inherits_only: int) -> str:
+    """The ``match_kind`` label for one of ``search_symbols``'s own ``admitted`` tiers (0/1/3/4 via
+    ``_TIER_KIND``; tier 2 - the member-name tier - as ``"member_declared"`` when the type itself
+    declares the member, ``"member_inherited"`` when every matching item is only inherited, using the
+    already-computed ``inherits_only`` flag (0 declared, 1 inherited-only) exactly as
+    ``search_symbols`` itself already computes it for ranking)."""
+    if tier == 2:
+        return "member_inherited" if inherits_only else "member_declared"
+    return _TIER_KIND[tier]
+
+
 def _collapse_aliases(
     entries_by_doc: Mapping[str, _Entry], ordered: list[str]
 ) -> tuple[list[str], dict[str, tuple[str, ...]]]:
@@ -1372,19 +1410,29 @@ def search_symbols(
         doc_id: (MATCH_PARTIAL if tier == 4 else MATCH_EXACT)
         for tier, _memberless, _inherits, _bm25_score, doc_id in admitted
     }
+    # TC-673 (G3/REQ-G3-011): one label per admitted doc_id naming WHICH tier/fallback stage produced
+    # it - additive transparency alongside ``qualities`` above, never itself consulted for admission,
+    # ordering or ``match_quality``.
+    kinds: dict[str, str] = {
+        doc_id: _tier_match_kind(tier, inherits)
+        for tier, _memberless, inherits, _bm25_score, doc_id in admitted
+    }
     unmatched: dict[str, tuple[str, ...]] = {}
     if not ordered:
         ordered = _inflected_name_ids(documents, query)
         qualities = dict.fromkeys(ordered, MATCH_EXACT)
+        kinds = dict.fromkeys(ordered, "inflected_name")
     if not ordered:
         scored = _evidence_ranking(documents, query, scope.family, lexical_payload)
         ordered = [item.entry.doc_id for item in scored]
         for item in scored:
             qualities[item.entry.doc_id] = MATCH_EXACT if item.exact else MATCH_PARTIAL
             unmatched[item.entry.doc_id] = item.unexplained
+            kinds[item.entry.doc_id] = "evidence_sentence"
     if not ordered:
         ordered = _fallback_doc_ids(documents, ranked, query, scope.family, len(documents), lexical_payload)
         qualities = dict.fromkeys(ordered, MATCH_EXACT)
+        kinds = dict.fromkeys(ordered, "token_fallback")
     if not ordered:
         if query_below_fragment_floor:
             # TC-654 (G3/REQ-G3-011): every stage above - the new prefix tier included - found
@@ -1444,6 +1492,7 @@ def search_symbols(
                 aliases=aliases.get(doc_id, ()),
                 limitation=limitation_line(text),
                 known_defects=known_defect_lines(scope, fqn, text),
+                match_kind=kinds.get(doc_id, ""),
             )
         )
     return results
