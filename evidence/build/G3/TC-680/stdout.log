@@ -1,0 +1,305 @@
+
+===== CLEAN RUN 1 (host) =====
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-5c72e798a73c059a\Scripts\python.exe -m pytest tests/mcp/tools/test_get_product_reference_format_claim_reconciliation.py -q -rfE -p no:cacheprovider "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-dqclmrq2\.junit-0.xml"
+--- stdout ---
+.........                                                                [100%]
+
+--- stderr ---
+
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-5c72e798a73c059a\Scripts\python.exe -m pytest tests/conformance/test_reference_content.py -q -rfE -p no:cacheprovider "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-dqclmrq2\.junit-1.xml"
+--- stdout ---
+..........                                                               [100%]
+
+--- stderr ---
+
+
+===== CLEAN RUN 2 (host) =====
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-5c72e798a73c059a\Scripts\python.exe -m pytest tests/mcp/tools/test_get_product_reference_format_claim_reconciliation.py -q -rfE -p no:cacheprovider "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-dqclmrq2\.junit-0.xml"
+--- stdout ---
+.........                                                                [100%]
+
+--- stderr ---
+
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-5c72e798a73c059a\Scripts\python.exe -m pytest tests/conformance/test_reference_content.py -q -rfE -p no:cacheprovider "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-dqclmrq2\.junit-1.xml"
+--- stdout ---
+..........                                                               [100%]
+
+--- stderr ---
+
+
+===== NEGATIVE CONTROL (checks MUST now fail) =====
+mutated: M src/foss_mcp/mcp/tools/get_product_reference.py, ?? .junit-0.xml, ?? .junit-1.xml
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-5c72e798a73c059a\Scripts\python.exe -m pytest tests/mcp/tools/test_get_product_reference_format_claim_reconciliation.py -q -rfE -p no:cacheprovider "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-dqclmrq2\.junit-0.xml"
+--- stdout ---
+
+=================================== ERRORS ====================================
+_ ERROR collecting tests/mcp/tools/test_get_product_reference_format_claim_reconciliation.py _
+ImportError while importing test module 'E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-dqclmrq2\tests\mcp\tools\test_get_product_reference_format_claim_reconciliation.py'.
+Hint: make sure your test modules/packages have valid Python names.
+Traceback:
+C:\dev-tools\foss-mcp\python313\Lib\importlib\__init__.py:88: in import_module
+    return _bootstrap._gcd_import(name[level:], package, level)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+tests\mcp\tools\test_get_product_reference_format_claim_reconciliation.py:33: in <module>
+    from foss_mcp.mcp.tools.get_product_reference import (
+E   ImportError: cannot import name 'reconcile_format_claims' from 'foss_mcp.mcp.tools.get_product_reference' (E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-dqclmrq2\src\foss_mcp\mcp\tools\get_product_reference.py)
+=========================== short test summary info ===========================
+ERROR tests/mcp/tools/test_get_product_reference_format_claim_reconciliation.py
+!!!!!!!!!!!!!!!!!!! Interrupted: 1 error during collection !!!!!!!!!!!!!!!!!!!!
+
+--- stderr ---
+
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-5c72e798a73c059a\Scripts\python.exe -m pytest tests/conformance/test_reference_content.py -q -rfE -p no:cacheprovider "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-dqclmrq2\.junit-1.xml"
+--- stdout ---
+.......EEE                                                               [100%]
+=================================== ERRORS ====================================
+_ ERROR at setup of test_every_measured_answer_is_content_or_an_explicit_absence _
+
+corpus = <tests.conformance.corpus.ConformanceCorpus object at 0x000001D8970817F0>
+
+    @pytest.fixture(scope="module")
+    def measured(corpus: ConformanceCorpus) -> Measurement:
+        # A module-scoped fixture cannot depend on the function-scoped ``monkeypatch`` fixture, so this
+        # uses pytest.MonkeyPatch() directly (public API since pytest 6) and undoes it itself.
+        mp = pytest.MonkeyPatch()
+        try:
+>           return _measure(corpus, mp)
+                   ^^^^^^^^^^^^^^^^^^^^
+
+tests\conformance\test_reference_content.py:284: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+tests\conformance\test_reference_content.py:273: in _measure
+    answers = _collect_answers(corpus, cap_calls, current)
+              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+tests\conformance\test_reference_content.py:205: in _collect_answers
+    result = get_product_reference(inputs, section, readme=readme)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+src\foss_mcp\mcp\tools\get_product_reference.py:1738: in get_product_reference
+    result = _answer(inputs, section, effective)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+src\foss_mcp\mcp\tools\get_product_reference.py:1769: in _answer
+    formats = _formats_from_readme(readme)
+              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+readme = ReadmeSections(limitations=ReadmeSection(title='Scope and Limitations', text="- STL (import and export) is the only fo...='3d2ed6be91f5abdd1c52ecbcfa192719883cb1b3', ordered=False, parts=7, all_faq=False), formats=None, import_warning=None)
+
+    def _formats_from_readme(readme: ReadmeSections) -> ReferenceContent | NotAvailable | None:
+        """The ``formats`` answer from the README capabilities and limitations sections, or None when the
+        index holds neither (the caller then keeps the "no data source" absence).
+    
+        G3/TC-561: a README section whose own heading names the supported formats ("Supported formats") is the
+        answer, verbatim (a table of formats has no sentence for the keyword selection to find).
+    
+        G3/TC-680 (C5): AFTER the per-source statements are extracted (unchanged - ``_format_statements``
+        itself is not touched by this card), ``reconcile_format_claims`` runs a read-only reconciliation
+        pass over them, tagged by source section, and - when it finds a limitations-sourced negative claim
+        and a capabilities/formats-sourced positive claim naming the same format - appends an explicit
+        contradiction disclosure to the answer's NOTICE, never to ``text``. ``text`` stays exactly the
+        heading plus the selected bullet lines, in their original order, byte-for-byte, with or without a
+        contradiction: every real pilot's own already-pinned shape (one bullet per line, each starting
+        "- " and capped at 302 characters -
+        ``test_product_reference_baked_contract.py::test_formats_is_content_or_a_specific_reason``, not a
+        write_path of this card) has no room for a free-text sentence, and a real baked pilot (3d_java,
+        its genuine OBJ contradiction) proved exactly that during this card's own measurement. When no
+        contradiction is found (the overwhelming majority of READMEs), the returned text AND notice are
+        byte-for-byte identical to what this function returned before this card."""
+        if readme.formats is not None:
+            return ReferenceContent(
+                "formats",
+                _cap_at_line(readme.formats.text, _LIMITATIONS_CAP),
+                untrusted_upstream_content=True,
+                notice=_section_notice(readme.formats),
+            )
+        sources = [section for section in (readme.capabilities, readme.limitations) if section is not None]
+        if not sources:
+            return None
+        lines: list[str] = []
+        tagged_statements: list[tuple[str, bool]] = []
+        for source in sources:
+            is_limitation = source is readme.limitations
+            for statement in _format_statements(source.text):
+                tagged_statements.append((statement, is_limitation))
+                if statement not in lines:
+                    lines.append(statement)
+        lines = lines[:_FORMATS_MAX_LINES]
+        if not lines:
+            return NotAvailable("formats", _FORMATS_NONE_REASON)
+        names = " and ".join(f"'{source.title}'" for source in sources)
+        commit = next((source for source in sources if source.commit), None)
+        where = _commit_phrase(commit) if commit is not None else "at an unrecorded commit"
+        body = "\n".join(f"- {line}" for line in lines)
+>       contradictions = reconcile_format_claims(tagged_statements)
+                         ^^^^^^^^^^^^^^^^^^^^^^^
+E       NameError: name 'reconcile_format_claims' is not defined
+
+src\foss_mcp\mcp\tools\get_product_reference.py:944: NameError
+_ ERROR at setup of test_measured_failures_cover_the_subcases_this_card_actually_found _
+
+corpus = <tests.conformance.corpus.ConformanceCorpus object at 0x000001D8970817F0>
+
+    @pytest.fixture(scope="module")
+    def measured(corpus: ConformanceCorpus) -> Measurement:
+        # A module-scoped fixture cannot depend on the function-scoped ``monkeypatch`` fixture, so this
+        # uses pytest.MonkeyPatch() directly (public API since pytest 6) and undoes it itself.
+        mp = pytest.MonkeyPatch()
+        try:
+>           return _measure(corpus, mp)
+                   ^^^^^^^^^^^^^^^^^^^^
+
+tests\conformance\test_reference_content.py:284: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+tests\conformance\test_reference_content.py:273: in _measure
+    answers = _collect_answers(corpus, cap_calls, current)
+              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+tests\conformance\test_reference_content.py:205: in _collect_answers
+    result = get_product_reference(inputs, section, readme=readme)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+src\foss_mcp\mcp\tools\get_product_reference.py:1738: in get_product_reference
+    result = _answer(inputs, section, effective)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+src\foss_mcp\mcp\tools\get_product_reference.py:1769: in _answer
+    formats = _formats_from_readme(readme)
+              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+readme = ReadmeSections(limitations=ReadmeSection(title='Scope and Limitations', text="- STL (import and export) is the only fo...='3d2ed6be91f5abdd1c52ecbcfa192719883cb1b3', ordered=False, parts=7, all_faq=False), formats=None, import_warning=None)
+
+    def _formats_from_readme(readme: ReadmeSections) -> ReferenceContent | NotAvailable | None:
+        """The ``formats`` answer from the README capabilities and limitations sections, or None when the
+        index holds neither (the caller then keeps the "no data source" absence).
+    
+        G3/TC-561: a README section whose own heading names the supported formats ("Supported formats") is the
+        answer, verbatim (a table of formats has no sentence for the keyword selection to find).
+    
+        G3/TC-680 (C5): AFTER the per-source statements are extracted (unchanged - ``_format_statements``
+        itself is not touched by this card), ``reconcile_format_claims`` runs a read-only reconciliation
+        pass over them, tagged by source section, and - when it finds a limitations-sourced negative claim
+        and a capabilities/formats-sourced positive claim naming the same format - appends an explicit
+        contradiction disclosure to the answer's NOTICE, never to ``text``. ``text`` stays exactly the
+        heading plus the selected bullet lines, in their original order, byte-for-byte, with or without a
+        contradiction: every real pilot's own already-pinned shape (one bullet per line, each starting
+        "- " and capped at 302 characters -
+        ``test_product_reference_baked_contract.py::test_formats_is_content_or_a_specific_reason``, not a
+        write_path of this card) has no room for a free-text sentence, and a real baked pilot (3d_java,
+        its genuine OBJ contradiction) proved exactly that during this card's own measurement. When no
+        contradiction is found (the overwhelming majority of READMEs), the returned text AND notice are
+        byte-for-byte identical to what this function returned before this card."""
+        if readme.formats is not None:
+            return ReferenceContent(
+                "formats",
+                _cap_at_line(readme.formats.text, _LIMITATIONS_CAP),
+                untrusted_upstream_content=True,
+                notice=_section_notice(readme.formats),
+            )
+        sources = [section for section in (readme.capabilities, readme.limitations) if section is not None]
+        if not sources:
+            return None
+        lines: list[str] = []
+        tagged_statements: list[tuple[str, bool]] = []
+        for source in sources:
+            is_limitation = source is readme.limitations
+            for statement in _format_statements(source.text):
+                tagged_statements.append((statement, is_limitation))
+                if statement not in lines:
+                    lines.append(statement)
+        lines = lines[:_FORMATS_MAX_LINES]
+        if not lines:
+            return NotAvailable("formats", _FORMATS_NONE_REASON)
+        names = " and ".join(f"'{source.title}'" for source in sources)
+        commit = next((source for source in sources if source.commit), None)
+        where = _commit_phrase(commit) if commit is not None else "at an unrecorded commit"
+        body = "\n".join(f"- {line}" for line in lines)
+>       contradictions = reconcile_format_claims(tagged_statements)
+                         ^^^^^^^^^^^^^^^^^^^^^^^
+E       NameError: name 'reconcile_format_claims' is not defined
+
+src\foss_mcp\mcp\tools\get_product_reference.py:944: NameError
+___ ERROR at setup of test_reference_content_matches_the_committed_baseline ___
+
+corpus = <tests.conformance.corpus.ConformanceCorpus object at 0x000001D8970817F0>
+
+    @pytest.fixture(scope="module")
+    def measured(corpus: ConformanceCorpus) -> Measurement:
+        # A module-scoped fixture cannot depend on the function-scoped ``monkeypatch`` fixture, so this
+        # uses pytest.MonkeyPatch() directly (public API since pytest 6) and undoes it itself.
+        mp = pytest.MonkeyPatch()
+        try:
+>           return _measure(corpus, mp)
+                   ^^^^^^^^^^^^^^^^^^^^
+
+tests\conformance\test_reference_content.py:284: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+tests\conformance\test_reference_content.py:273: in _measure
+    answers = _collect_answers(corpus, cap_calls, current)
+              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+tests\conformance\test_reference_content.py:205: in _collect_answers
+    result = get_product_reference(inputs, section, readme=readme)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+src\foss_mcp\mcp\tools\get_product_reference.py:1738: in get_product_reference
+    result = _answer(inputs, section, effective)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+src\foss_mcp\mcp\tools\get_product_reference.py:1769: in _answer
+    formats = _formats_from_readme(readme)
+              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+readme = ReadmeSections(limitations=ReadmeSection(title='Scope and Limitations', text="- STL (import and export) is the only fo...='3d2ed6be91f5abdd1c52ecbcfa192719883cb1b3', ordered=False, parts=7, all_faq=False), formats=None, import_warning=None)
+
+    def _formats_from_readme(readme: ReadmeSections) -> ReferenceContent | NotAvailable | None:
+        """The ``formats`` answer from the README capabilities and limitations sections, or None when the
+        index holds neither (the caller then keeps the "no data source" absence).
+    
+        G3/TC-561: a README section whose own heading names the supported formats ("Supported formats") is the
+        answer, verbatim (a table of formats has no sentence for the keyword selection to find).
+    
+        G3/TC-680 (C5): AFTER the per-source statements are extracted (unchanged - ``_format_statements``
+        itself is not touched by this card), ``reconcile_format_claims`` runs a read-only reconciliation
+        pass over them, tagged by source section, and - when it finds a limitations-sourced negative claim
+        and a capabilities/formats-sourced positive claim naming the same format - appends an explicit
+        contradiction disclosure to the answer's NOTICE, never to ``text``. ``text`` stays exactly the
+        heading plus the selected bullet lines, in their original order, byte-for-byte, with or without a
+        contradiction: every real pilot's own already-pinned shape (one bullet per line, each starting
+        "- " and capped at 302 characters -
+        ``test_product_reference_baked_contract.py::test_formats_is_content_or_a_specific_reason``, not a
+        write_path of this card) has no room for a free-text sentence, and a real baked pilot (3d_java,
+        its genuine OBJ contradiction) proved exactly that during this card's own measurement. When no
+        contradiction is found (the overwhelming majority of READMEs), the returned text AND notice are
+        byte-for-byte identical to what this function returned before this card."""
+        if readme.formats is not None:
+            return ReferenceContent(
+                "formats",
+                _cap_at_line(readme.formats.text, _LIMITATIONS_CAP),
+                untrusted_upstream_content=True,
+                notice=_section_notice(readme.formats),
+            )
+        sources = [section for section in (readme.capabilities, readme.limitations) if section is not None]
+        if not sources:
+            return None
+        lines: list[str] = []
+        tagged_statements: list[tuple[str, bool]] = []
+        for source in sources:
+            is_limitation = source is readme.limitations
+            for statement in _format_statements(source.text):
+                tagged_statements.append((statement, is_limitation))
+                if statement not in lines:
+                    lines.append(statement)
+        lines = lines[:_FORMATS_MAX_LINES]
+        if not lines:
+            return NotAvailable("formats", _FORMATS_NONE_REASON)
+        names = " and ".join(f"'{source.title}'" for source in sources)
+        commit = next((source for source in sources if source.commit), None)
+        where = _commit_phrase(commit) if commit is not None else "at an unrecorded commit"
+        body = "\n".join(f"- {line}" for line in lines)
+>       contradictions = reconcile_format_claims(tagged_statements)
+                         ^^^^^^^^^^^^^^^^^^^^^^^
+E       NameError: name 'reconcile_format_claims' is not defined
+
+src\foss_mcp\mcp\tools\get_product_reference.py:944: NameError
+=========================== short test summary info ===========================
+ERROR tests/conformance/test_reference_content.py::test_every_measured_answer_is_content_or_an_explicit_absence
+ERROR tests/conformance/test_reference_content.py::test_measured_failures_cover_the_subcases_this_card_actually_found
+ERROR tests/conformance/test_reference_content.py::test_reference_content_matches_the_committed_baseline
+
+--- stderr ---
+
