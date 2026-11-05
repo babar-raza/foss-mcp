@@ -32,11 +32,21 @@ purpose: >-
   already-activated behavior is completely unchanged, while a second machine, a CI runner, or any
   future `FOSS_MCP_TOOLS` override is no longer silently broken by an absolute path baked in for
   this one machine.
+
+  **AMENDMENT (post-dispatch, before acceptance): widened write_paths for the same recurring
+  collateral `TC-692` already fixed once.** This card's own 3 new tests again moved
+  `test_source_differential.py`'s real count (134 -> 137), which 2 other files pin exactly:
+  `tests/release/test_oracle_shell_resolution.py`'s `EXISTING_SUITE_PINNED_TEST_COUNT` (134 -> 137)
+  and `tests/release/test_oracle_inherited_verification.py`'s `EXISTING_SUITES_PINNED_TEST_COUNT`
+  (138 -> 141 = 137+4). Both constants and their explanatory prose/comments are updated in a
+  follow-up rework - a real, Decision-E-relevant regression if left unfixed, not a false positive.
 depends_on:
   - TC-693
 write_paths:
   - scripts/release/source_differential.py
   - tests/release/test_source_differential.py
+  - tests/release/test_oracle_shell_resolution.py
+  - tests/release/test_oracle_inherited_verification.py
 satisfies:
   - REQ-G3-012
 source_refs:
