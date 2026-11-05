@@ -33,8 +33,9 @@ confirmation test:
   (e) a method name and a property name sharing the same bare name on the SAME ancestor
       (constructed synthetically, since no real fixture has this) -- confirms the kind-matching
       requirement actually prevents a false cross-kind verification.
-  (f) the full, existing ``tests/release/test_source_differential.py`` (134 tests, not the original
-      128, after TC-692's own 6 added hollow-pass-guard tests) PLUS TC-623's own
+  (f) the full, existing ``tests/release/test_source_differential.py`` (137 tests, not the original
+      128, after TC-692's own 6 added hollow-pass-guard tests and TC-694's own 3 added
+      NPM_CONFIG_PREFIX-resolution tests) PLUS TC-623's own
       ``tests/release/test_oracle_shell_resolution.py`` (4 tests) are run for real and every pinned
       result still holds, unchanged by this card.
   (extra) ``evaluate_ceilings`` still iterates ``CATEGORIES`` only -- the two new fields can never
@@ -64,8 +65,10 @@ EXISTING_SUITES = (
 # card's authoring: 128 (test_source_differential.py) + TC-623's own 4 (test_oracle_shell_resolution.py).
 # Updated to 138 (from 132) by TC-692's own collateral rework: test_source_differential.py grew from
 # 128 to 134 tests after TC-692 added 6 new tests for the independent oracle's hollow-pass guard, so
-# 134 + TC-623's own 4 = 138.
-EXISTING_SUITES_PINNED_TEST_COUNT = 138
+# 134 + TC-623's own 4 = 138. Updated again to 141 (from 138) by TC-694's own collateral rework:
+# test_source_differential.py grew from 134 to 137 tests after TC-694 added 3 new tests for the
+# NPM_CONFIG_PREFIX-based TypeScript package dir resolution, so 137 + TC-623's own 4 = 141.
+EXISTING_SUITES_PINNED_TEST_COUNT = 141
 
 sys.path.insert(0, str(RELEASE_DIR))
 
@@ -334,9 +337,10 @@ def test_e_kind_matching_prevents_a_false_cross_kind_verification() -> None:
 
 
 # ---------------------------------------------------------------------------------------------------
-# (f) The full, existing test_source_differential.py (134 tests, not the original 128, after TC-692's
-# own 6 added hollow-pass-guard tests) + TC-623's own test_oracle_shell_resolution.py (4 tests) are
-# run for real and every pinned result still holds.
+# (f) The full, existing test_source_differential.py (137 tests, not the original 128, after TC-692's
+# own 6 added hollow-pass-guard tests and TC-694's own 3 added NPM_CONFIG_PREFIX-resolution tests) +
+# TC-623's own test_oracle_shell_resolution.py (4 tests) are run for real and every pinned result
+# still holds.
 # ---------------------------------------------------------------------------------------------------
 
 

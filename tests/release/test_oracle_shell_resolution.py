@@ -29,9 +29,10 @@ Four cases, exactly as the card's own ``inputs`` section describes them:
       ``__init__.py`` re-export shell, member-less, ``reexport_of`` the definition's own
       ``class_import``) -- the shell iterates immediately AFTER its definition in the fixture's own
       committed list, reproducing the exact bug case (a) reproduces synthetically.
-  (d) the full, existing 134-test ``tests/release/test_source_differential.py`` suite is unaffected
-      by this fix (134, not the original 128, after TC-692's own 6 added hollow-pass-guard tests --
-      the collateral, mechanical update this file's own pinned count below reflects too).
+  (d) the full, existing 137-test ``tests/release/test_source_differential.py`` suite is unaffected
+      by this fix (137, not the original 128, after TC-692's own 6 added hollow-pass-guard tests
+      and TC-694's own 3 added NPM_CONFIG_PREFIX-resolution tests -- the collateral, mechanical
+      update this file's own pinned count below reflects too).
 
 No mocks anywhere below; (c) reads the real, committed fixture under ``tests/fixtures/`` and never
 writes to it.
@@ -53,8 +54,10 @@ EXISTING_SUITE = REPO_ROOT / "tests" / "release" / "test_source_differential.py"
 # The real, confirmed count (2026-10-31, against this worktree's committed suite) as of this
 # card's authoring -- the card's own `inputs` section names this exact figure. Updated to 134
 # (from 128) by TC-692's own collateral rework, after TC-692 added 6 new tests to
-# `test_source_differential.py` for the independent oracle's hollow-pass guard.
-EXISTING_SUITE_PINNED_TEST_COUNT = 134
+# `test_source_differential.py` for the independent oracle's hollow-pass guard. Updated again to
+# 137 (from 134) by TC-694's own collateral rework, after TC-694 added 3 new tests to
+# `test_source_differential.py` for the NPM_CONFIG_PREFIX-based TypeScript package dir resolution.
+EXISTING_SUITE_PINNED_TEST_COUNT = 137
 
 sys.path.insert(0, str(RELEASE_DIR))
 
@@ -219,15 +222,16 @@ def test_real_3d_python_fixture_propertycollection_shell_definition_collision() 
 
 
 # ---------------------------------------------------------------------------------------------------
-# (d) The full, existing 134-test tests/release/test_source_differential.py suite is unaffected by
+# (d) The full, existing 137-test tests/release/test_source_differential.py suite is unaffected by
 # this fix: it is run for real (never imported and iterated in-process, since several of its own
 # tests really shell out to node/java/dotnet/clang/Docker) and every pinned result still holds.
-# (134, not the original 128, after TC-692's own 6 added hollow-pass-guard tests.)
+# (137, not the original 128, after TC-692's own 6 added hollow-pass-guard tests and TC-694's own
+# 3 added NPM_CONFIG_PREFIX-resolution tests.)
 # ---------------------------------------------------------------------------------------------------
 
 
 def test_existing_source_differential_suite_is_unaffected_by_this_fix() -> None:
-    """None of ``test_source_differential.py``'s own 134 tests build a bare-name shell/definition
+    """None of ``test_source_differential.py``'s own 137 tests build a bare-name shell/definition
     collision through ``diff_language``/``verify_pilot`` (confirmed by inspection: its own
     ``_baked_type`` helper never sets ``file``/``reexport_of``, so none of its synthetic baked
     types are ever grouped as a shell by ``compute_canonical_identities`` -- every one of them
