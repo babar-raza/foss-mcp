@@ -4,7 +4,9 @@ Measures, against all 32 real baked pilots, three already-confirmed defects in
 ``get_product_reference`` (src/foss_mcp/mcp/tools/get_product_reference.py):
 
 1. a formats/limitations/install/agent_guidance answer can be truncated at an arbitrary character
-   boundary - no fence-awareness, no locator on the marker;
+   boundary (a mid-cut, severing a word rather than landing on a clean line/paragraph break) -
+   fence-awareness and a real-offset locator on the marker were both fixed by G3/TC-678, so only
+   the arbitrary-character-boundary possibility itself remains a live sub-case here;
 2. an "install" answer can carry more than one, sometimes contradictory, install recipe (this is
    most visible on the cpp platform, whose generated source-build guidance is followed by the
    repository's own README installation section, verbatim but for CMake-target correction - a
@@ -41,10 +43,13 @@ at the exact moment either is actually invoked with text longer than its cap, wh
 boundary search those functions themselves perform (``rfind("\\n")`` / ``rfind("\\n\\n")`` then
 ``rfind("\\n")``) found a real line/paragraph break inside the capped window. No break found, and
 the character the raw slice ends on is not whitespace - that is an arbitrary, mid-token cut
-(a "mid-cut" failure). A break WAS found (a clean cut) is never a failure. Every truncation that
-occurs at all - clean or not - is also a "marker-lacks-locator" failure, because
-``_TRUNCATED_MARKER`` (confirmed below, read directly from the current source) is a bare string
-with no chunk_id/offset of any kind, in either outcome.
+(a "mid-cut" failure). A break WAS found (a clean cut) is never a failure. (G3/TC-678 fixed the
+marker itself - every real cap hit now names the real N/M character counts via
+``_truncation_marker``/``_fence_snap`` - so a truncation that occurs at all is no longer, by
+itself, also a "marker-lacks-locator" failure; only a mid-cut is measured as a failure now.
+``_TRUNCATED_MARKER``, the old bare-string constant with no chunk_id/offset of any kind, is kept
+only for this module's own ground-truth unit tests below, not for the real marker production
+emits.)
 """
 
 from __future__ import annotations
@@ -212,16 +217,11 @@ def _build_failures(
     def record(pilot: str, case_id: str, reason: str) -> None:
         failures[(pilot, case_id)] = {"pilot": pilot, "case_id": case_id, "reason": reason}
 
-    # Sub-case 1: truncation. Every real cap hit lacks a locator; a cap hit with no clean boundary
-    # found is additionally a mid-cut.
+    # Sub-case 1: truncation. A cap hit with no clean boundary found is a mid-cut. (G3/TC-678 made
+    # every real cap hit's marker name the real N/M character counts via its own fence-aware
+    # _fence_snap/_truncation_marker machinery, so the former "every cap hit also lacks a locator"
+    # failure this loop used to record unconditionally is no longer true and has been retired.)
     for call in cap_calls:
-        record(
-            call.pilot,
-            f"marker-lacks-locator:{call.pilot}:{call.section}",
-            f"{call.section} was truncated (cap={call.cap} characters) and the marker "
-            f"({gpr._TRUNCATED_MARKER!r}) carries no chunk_id/offset-equivalent locator - confirmed "
-            "directly against the current _cap_at_line/_cap_at_paragraph/_TRUNCATED_MARKER source.",
-        )
         if call.mid_cut:
             record(
                 call.pilot,
@@ -336,19 +336,19 @@ def test_cap_at_line_mid_cut_ground_truth_matches_a_clean_vs_arbitrary_boundary(
     (no marker-adjacent word severed); a text with no newline at all is cut exactly at the raw
     character boundary, landing mid-word."""
     clean = "first line\n" + "x" * 40
-    assert gpr._cap_at_line(clean, 15) == f"first line\n{gpr._TRUNCATED_MARKER}"
+    assert gpr._cap_at_line(clean, 15) == f"first line\n{gpr._truncation_marker(10, len(clean))}"
     no_boundary = "a" * 20
     cut = gpr._cap_at_line(no_boundary, 15)
-    assert cut == f"{'a' * 15}\n{gpr._TRUNCATED_MARKER}"
+    assert cut == f"{'a' * 15}\n{gpr._truncation_marker(15, len(no_boundary))}"
     assert cut.split("\n", 1)[0][-1].isalnum()  # the exact condition this module calls "mid-cut"
 
 
 def test_cap_at_paragraph_mid_cut_ground_truth_matches_a_clean_vs_arbitrary_boundary() -> None:
     clean = "para one.\n\n" + "y" * 40
-    assert gpr._cap_at_paragraph(clean, 15) == f"para one.\n\n{gpr._TRUNCATED_MARKER}"
+    assert gpr._cap_at_paragraph(clean, 15) == f"para one.\n\n{gpr._truncation_marker(9, len(clean))}"
     no_boundary = "b" * 20
     cut = gpr._cap_at_paragraph(no_boundary, 15)
-    assert cut == f"{'b' * 15}\n\n{gpr._TRUNCATED_MARKER}"
+    assert cut == f"{'b' * 15}\n\n{gpr._truncation_marker(15, len(no_boundary))}"
     assert cut.split("\n", 1)[0][-1].isalnum()
 
 
@@ -380,15 +380,16 @@ def test_every_measured_answer_is_content_or_an_explicit_absence(measured: Measu
 
 def test_measured_failures_cover_the_subcases_this_card_actually_found(measured: Measurement) -> None:
     """A meta-check against a vacuously-passing measurement: at least the sub-cases this card's real
-    run actually found (marker-lacks-locator and empty-no-reason always fired; multi-recipe fired on
-    the real cpp pilots; mid-cut measured zero today - see this module's own docstring) must be
-    represented, so a future refactor that accidentally stops exercising a sub-case is caught here
-    rather than only showing up as a shrinking, unexplained baseline."""
+    run actually found (empty-no-reason always fired; multi-recipe fired on the real cpp pilots;
+    mid-cut measured zero today - see this module's own docstring) must be represented, so a future
+    refactor that accidentally stops exercising a sub-case is caught here rather than only showing up
+    as a shrinking, unexplained baseline. (marker-lacks-locator used to always fire here too, but
+    G3/TC-678 fixed the marker to name real N/M character counts, so that sub-case no longer applies
+    and its assertion was retired along with the failure it used to record.)"""
     prefixes = {
         case_id.split(":", 1)[0]
         for _pilot, case_id, _reason in ((f["pilot"], f["case_id"], f["reason"]) for f in measured.failures)
     }
-    assert "marker-lacks-locator" in prefixes, measured.failures
     assert "empty-no-reason" in prefixes, measured.failures
     assert "multi-recipe" in prefixes, measured.failures
 
