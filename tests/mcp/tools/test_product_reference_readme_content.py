@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import pytest
 
+import foss_mcp.mcp.tools.get_product_reference as gpr
 from foss_mcp.extraction.repo_native_reader import DocumentNotPresent, DocumentPresent
 from foss_mcp.mcp.tools.get_product_reference import (
     SECTIONS,
@@ -95,7 +96,7 @@ def test_limitations_text_is_capped_at_6000_characters_at_a_line_boundary() -> N
 
     result = _content(get_product_reference(ProductReferenceInputs(), "limitations", readme=readme))
 
-    marker = "[truncated; use search_docs for the rest]"
+    marker = gpr._truncation_marker(5939, len(text))
     assert result.text.endswith("\n" + marker)
     kept = result.text[: -len(marker) - 1]
     assert len(kept) <= 6000
@@ -307,7 +308,7 @@ def test_the_recipe_is_capped_at_1800_characters_at_a_paragraph_boundary() -> No
 
     result = _content(get_product_reference(_cpp_inputs(), "install", readme=readme))
 
-    marker = "[truncated; use search_docs for the rest]"
+    marker = gpr._truncation_marker(1548, len("\n\n".join(paragraphs)))
     assert result.text.endswith("\n\n" + marker)
     kept = result.text[: -len(marker) - 2]
     assert len(kept) <= 1800

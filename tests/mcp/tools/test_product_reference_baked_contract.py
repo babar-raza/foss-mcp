@@ -174,7 +174,7 @@ def test_limitations_is_never_no_data_source_when_the_index_has_the_section(
     assert bodies, pilot
     # A sentence of the chunks the index holds is in the answer; when nothing was truncated, all of them are.
     assert any(body in result.text for body in bodies), pilot
-    if "[truncated; use search_docs" not in result.text:
+    if "[truncated:" not in result.text:  # G3/TC-678: new marker shape, no longer "...search_docs..."
         assert all(body in result.text for body in bodies), pilot
     assert LEAD_IN not in result.text
     for marker in ("FQN: Doc:", "Source-Commit:"):
