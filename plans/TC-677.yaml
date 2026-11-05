@@ -1,0 +1,150 @@
+id: TC-677
+gate: G3
+lane: storage-retrieval
+purpose: >-
+  C3 (content-truth sub-program, section 2.4: "per-category counts + reason
+  (`upstream_has_none` | `not_extracted`) in misses and `DeploymentFacts`"). Confirmed directly
+  this session this is genuinely open and NOT covered by prior work: TC-651
+  (`report_index_freshness.FreshnessReport.documentation_content_type_counts`) is a DIFFERENT
+  surface entirely; `search_docs.Miss`'s existing `other_content_types` field (TC-515) is
+  query-relative (only types that would ALSO have matched THIS query), never an absolute,
+  zero-inclusive accounting of every category; `identity.DeploymentFacts` carries no per-category
+  information of any kind today. No `upstream_has_none`/`not_extracted` string or equivalent
+  mechanism exists anywhere in `src/foss_mcp/` (confirmed by grep).
+
+  SCOPE NOTE, read before anything else (the reason this card is narrower than the plan's literal
+  text): the "+ reason" half of C3's ask requires distinguishing "upstream genuinely has no such
+  content" from "upstream has it but our extraction missed it" - and NO ground truth for that
+  distinction is currently computed or persisted anywhere in this pipeline for `search_docs`'s
+  generic `CONTENT_TYPES` (getting_started/developer_guide/troubleshooting/faq).
+  `readme_sections.py` tracks specific NAMED sections (install, FAQ) via live heading parsing, not
+  these four generic categories, and does so only for the sidecar-fallback path, not as a
+  persisted per-generation signal. Inventing a two-way split without real grounds would be a
+  fabricated distinction - exactly what this project's own disclosure principles (KD-program,
+  Decision A/C) forbid. This card therefore builds ONLY the real, honestly-computable half: a
+  zero-inclusive per-category COUNT, reusing TC-651's own proven mechanism. The reason split
+  remains an explicit, disclosed, NOT-YET-SOLVABLE limitation pending a real ingestion-side
+  ground-truth signal - do not invent one to satisfy the plan's literal wording.
+depends_on:
+  - TC-017a
+  - TC-109
+  - TC-119
+  - TC-381
+  - TC-514
+  - TC-515
+  - TC-516
+  - TC-517
+  - TC-549
+  - TC-551
+  - TC-552
+  - TC-562
+  - TC-563
+  - TC-564
+  - TC-572
+  - TC-617
+  - TC-626
+  - TC-627
+  - TC-628
+  - TC-630
+  - TC-633
+  - TC-640
+  - TC-651
+  - TC-663
+write_paths:
+  - src/foss_mcp/mcp/identity.py
+  - src/foss_mcp/mcp/tools/search_docs.py
+  - tests/mcp/test_identity_content_type_counts.py
+  - tests/mcp/tools/test_search_docs_content_type_counts.py
+satisfies:
+  - REQ-G3-013
+source_refs:
+  - file: docs/DECISION_LOG.md
+    anchor: >-
+      ## 2026-11-02 — Round-3 independent re-audit adopted; a real regression found and given top
+      priority; the "no pilot ever gets worse" rule adopted project-wide (operator, supervisor)
+    sha256: b750b8bf0df25b17bf66d014895ecb42952050c7cc63773f56249c4a1c551791
+inputs:
+  - >-
+    READ FIRST: `src/foss_mcp/mcp/tools/report_index_freshness.py`'s TC-651 work in full (the
+    `documentation_content_type_counts` field, `_Provenance.content_type_counts`, and how
+    `_read_provenance` computes it via `search_docs.classify_content_type` over every chunk
+    `chunk_kind` classifies as documentation) - this card REUSES that exact computation pattern,
+    never reinvents it. Then `src/foss_mcp/mcp/tools/search_docs.py`'s `Miss` dataclass and every
+    one of its construction sites (grep `Miss(` in that file); `src/foss_mcp/mcp/identity.py`'s
+    `DeploymentFacts`, `_facts_from_payload`, `read_deployment_facts`.
+  - >-
+    Add a new field to `Miss`: `content_type_counts: dict[str, int] = field(default_factory=lambda:
+    dict.fromkeys(CONTENT_TYPES, 0))` (the identical default-factory pattern TC-651 already uses).
+    Populate it at every real `Miss(...)` construction site in this file from the SAME generation
+    payload already available at that point (reuse or adapt a small shared helper if one does not
+    already exist in a form you can import - check whether `report_index_freshness.py` exposes its
+    own counting helper as a public function first; if it does, import and reuse it rather than
+    duplicating the loop; if it is private, write one new small function in `search_docs.py` itself,
+    following the identical computation, and say which you chose). A construction site with no
+    readable generation (no active generation, no document index) gets the all-zero default - never
+    a crash, never a guess.
+  - >-
+    Add the identical field shape to `DeploymentFacts` and compute it in `_facts_from_payload` from
+    the same `payload` it already iterates via `_chunk_texts` - reuse `search_docs.classify_content_type`
+    and `search_docs.chunk_kind`/`DOCUMENTATION` exactly as `report_index_freshness.py` does, over the
+    SAME chunks `_facts_from_payload` already walks (no second pass over the manifest - thread the
+    count through the SAME loop that already builds `best`/`first_title`, or add one if the existing
+    loop's shape makes that awkward; report which). `NEUTRAL_FACTS` gets the all-zero default too.
+  - >-
+    Write real, deterministic unit tests in both new files proving: (a) a `Miss` from a generation
+    with real documentation chunks of known distribution (e.g. 3 developer_guide, 0 faq, 1
+    troubleshooting, 0 getting_started) reports the EXACT real counts, zero-inclusive; (b) a `Miss`
+    from an unreadable/empty generation reports all zeros, never crashes; (c) `DeploymentFacts`
+    built from the same kind of payload reports the identical real counts (byte-for-byte the same
+    numbers `Miss` would report for the identical payload - prove this with ONE shared fixture
+    payload used by both test files, not two independently-constructed ones that could silently
+    drift apart); (d) `NEUTRAL_FACTS` carries the all-zero default; (e) every EXISTING `Miss`/
+    `DeploymentFacts` test in the repo (grep for both class names across `tests/`) still passes
+    unchanged - this is a purely additive field, no existing test should need touching.
+  - >-
+    Do NOT attempt the "+ reason" half of C3 in this card. If, while reading the real code, you
+    find that `upstream_has_none` vs `not_extracted` IS already honestly computable from some
+    existing persisted signal this card's own investigation somehow missed, STOP and report it in
+    your closeout rather than silently building it - that would change this card's own scope and
+    needs the supervisor's review first, not a unilateral expansion.
+actions:
+  - >-
+    Add a zero-inclusive per-content-type documentation chunk count to `search_docs.Miss` and
+    `identity.DeploymentFacts`, reusing `report_index_freshness.py`'s TC-651 computation pattern -
+    the honestly-computable half of C3; the reason-classification half is explicitly deferred as a
+    disclosed limitation pending a real ingestion-side ground-truth signal that does not yet exist.
+checks:
+  - command: '{python} -m pytest tests/mcp/test_identity_content_type_counts.py tests/mcp/tools/test_search_docs_content_type_counts.py -q -rfE -p no:cacheprovider'
+    expect: 'exit 0'
+    timeout_seconds: 180
+    junitxml: true
+    proves:
+      - REQ-G3-013
+  - command: '{python} -m pytest tests/mcp/test_handshake_identity.py tests/mcp/test_server_identity.py tests/mcp/tools/test_search_docs_query_normalization.py tests/mcp/tools/test_search_docs_partial_tier.py -q -rfE -p no:cacheprovider'
+    expect: 'exit 0'
+    timeout_seconds: 300
+    junitxml: true
+    proves:
+      - REQ-G3-013
+min_tests: 6
+requires:
+  - python
+network: false
+negative_control:
+  mutate: |
+    python -X utf8 -c "import pathlib; p = pathlib.Path('src/foss_mcp/mcp/identity.py'); s = p.read_text(encoding='utf-8'); old = 'dict.fromkeys(CONTENT_TYPES, 0)'; assert s.count(old) == 1, 'the required literal default-factory shape was not found exactly once as expected - if your real field default differs, anchor your own mutate on your own real literal instead and note the substitution in your closeout'; p.write_text(s.replace(old, 'dict()', 1), encoding='utf-8')"
+  rationale: >-
+    Changes DeploymentFacts's content_type_counts default from the real zero-inclusive
+    dict.fromkeys(CONTENT_TYPES, 0) to an empty dict, so NEUTRAL_FACTS (and any other
+    default-constructed instance) silently loses every explicit-zero category - any test asserting
+    the zero-inclusive default (test (d) above) must fail under this mutation; a test that only
+    checks a non-default, explicitly-computed instance is unaffected.
+evidence:
+  - evidence/build/G3/TC-677/receipt.json
+closeout:
+  - >-
+    `Miss` and `DeploymentFacts` now both carry a real, zero-inclusive per-content-type
+    documentation chunk count, reusing the same proven computation TC-651 already shipped for
+    `FreshnessReport` - the honestly-buildable half of C3. The "+ reason" half remains an
+    explicitly disclosed, not-yet-solvable limitation, not a fabricated guess.
+recovery: Re-run from a clean tree.
