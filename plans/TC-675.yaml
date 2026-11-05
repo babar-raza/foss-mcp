@@ -1,0 +1,158 @@
+id: TC-675
+gate: G3
+lane: storage-retrieval
+purpose: >-
+  Q14 (findability sub-program, section 2.2 item 6: "word-aware did-you-mean shared with
+  get_symbol"). Two of Q14's three parts were ALREADY TRUE before this card (verify yourself, do
+  not re-derive): `get_symbol.py` imports `suggest_similar_fqns` directly from
+  `search_symbols.py` (one real shared implementation, not two divergent ones - confirmed at
+  `get_symbol.py`'s own import block and its two call sites, ~line 416/460); and
+  `suggest_similar_fqns` already has two additive tiers (full-FQN character match at cutoff 0.6,
+  then final-dotted-segment character match at cutoff 0.75, TC-386). What is genuinely still
+  missing: it is NOT word-aware - it is pure `difflib.get_close_matches` character-sequence
+  similarity, which cannot recognise that two compound identifiers built from the SAME words in a
+  DIFFERENT order are a near-match.
+
+  REPRODUCED directly (supervisor, this session, against the real function with representative
+  FQN shapes): `suggest_similar_fqns(["Aspose.Pdf_FOSS.TextFragment", "Aspose.Pdf_FOSS.Document",
+  "Aspose.Cells_FOSS.FormatCondition", ...], "FragmentText")` returns `()` - an honest miss on an
+  obvious candidate (`TextFragment`, same two words, swapped) because `difflib` scores the two
+  character sequences as too dissimilar even though a human reading both would immediately see
+  the connection. Same for `"CollectionPage"` vs the real `PageCollection`. Meanwhile a genuine
+  character-level typo (`"Workbok"` -> `Workbook`) already works correctly today - do not change
+  that path's behaviour.
+
+  Fix: add a THIRD additive fallback tier to `suggest_similar_fqns`, tried only when BOTH existing
+  tiers return empty - reuse the EXISTING, already-reviewed `lexical_index_writer.tokenize()`
+  function (it already does camelCase/PascalCase sub-word splitting, lowercasing, and stopword
+  filtering - do not write a new splitter) to split *target* and each known FQN's own final
+  dotted/`::`-segment into word sets, and suggest every known FQN whose final-segment word set
+  equals (not merely overlaps - start exact, per Decision F "measure before loosening") the
+  target's own word set. This never weakens or replaces either existing tier; it only catches
+  cases both of them currently miss entirely.
+depends_on:
+  - TC-673
+  - TC-658
+write_paths:
+  - src/foss_mcp/mcp/tools/search_symbols.py
+  - tests/mcp/tools/test_search_symbols_word_aware_suggestions.py
+satisfies:
+  - REQ-G3-011
+source_refs:
+  - file: docs/DECISION_LOG.md
+    anchor: >-
+      ## 2026-11-02 — Round-3 independent re-audit adopted; a real regression found and given top
+      priority; the "no pilot ever gets worse" rule adopted project-wide (operator, supervisor)
+    sha256: b750b8bf0df25b17bf66d014895ecb42952050c7cc63773f56249c4a1c551791
+inputs:
+  - >-
+    READ FIRST: `src/foss_mcp/mcp/tools/search_symbols.py`'s `suggest_similar_fqns` in full
+    (including its own docstring and the TC-386 history it already describes), and
+    `src/foss_mcp/indexing/lexical_index_writer.py`'s `tokenize()` in full (including
+    `_CASE_SPLIT_RE`/`_STOPWORDS`) - this card reuses it exactly as written, it is already
+    imported elsewhere in this codebase, never re-implement camelCase splitting locally. Also
+    read `get_symbol.py`'s two `suggest_similar_fqns` call sites (~line 416, ~460) so you
+    understand it needs zero changes - it inherits this fix automatically through the shared
+    function, which your own tests must prove, not just assert.
+  - >-
+    REPRODUCE FIRST (pin the failing fixture): write a test proving
+    `suggest_similar_fqns([...], "FragmentText")` (or an equivalent word-swapped compound name of
+    your own choosing against a representative FQN list) currently returns `()` before your
+    change, using the real function, not a mock.
+  - >-
+    Implement the third tier as this EXACT shape (verbatim - the supervisor's negative control
+    anchors on the comparison literal shown; you may add your own comments and may add type
+    hints/imports as needed, but the comparison `_word_set(segment) == target_words` must appear
+    character-for-character somewhere in the committed file). Add two small helpers plus one
+    change to `suggest_similar_fqns`'s own final line:
+
+        def _word_set(segment: str) -> frozenset[str]:
+            return frozenset(tokenize(segment))
+
+
+        def _word_aware_suggestions(known: Sequence[str], target_segment: str, limit: int) -> tuple[str, ...]:
+            target_words = _word_set(target_segment)
+            if not target_words:
+                return ()
+            matches: list[str] = []
+            for fqn in known:
+                segment = _FINAL_SEGMENT.split(fqn.strip())[-1]
+                if _word_set(segment) == target_words and fqn not in matches:
+                    matches.append(fqn)
+            return tuple(sorted(matches)[:limit])
+
+    Then change `suggest_similar_fqns`'s own current final line (`return
+    tuple(suggestions[:limit])`, the existing tier-2 return) to only return early when `suggestions`
+    (tier 2's own result) is non-empty, falling through to the new tier otherwise:
+
+        if suggestions:
+            return tuple(suggestions[:limit])
+        return _word_aware_suggestions(known, target_segment, limit)
+
+    `tokenize` needs importing into `search_symbols.py` from
+    `foss_mcp.indexing.lexical_index_writer` if it is not already imported there under that exact
+    name - check first, do not add a duplicate import under a different alias.
+  - >-
+    Write real, deterministic unit tests in the new file proving: (a) the real `"FragmentText"`-
+    style word-order-swap case now returns the real expected FQN; (b) a genuine character typo
+    case (`"Workbok"` -> `Workbook`) is UNCHANGED - same result, through the SAME tier as before
+    (not accidentally re-routed through the new one); (c) a target whose word set does not equal
+    ANY known FQN's final-segment word set (e.g. genuinely unrelated words) still returns `()`
+    (the exact-match requirement is real, not accidentally loose); (d) `get_symbol.py`'s own
+    `NotFound.suggestions` field now surfaces a word-order-swap suggestion too, proving the shared
+    mechanism actually benefits both call sites without touching `get_symbol.py`'s own source -
+    call `get_symbol` directly (same `GenerationManifestStore`/real-or-synthetic-generation
+    pattern already used by this codebase's own existing `get_symbol` tests) rather than only
+    unit-testing `suggest_similar_fqns` in isolation; (e) a target with no eligible final-segment
+    words (e.g. a single character after splitting, or stopword-only) does not crash and returns
+    `()`.
+  - >-
+    MEASURE: re-run `tests/mcp/test_search_symbols_honest_miss.py`,
+    `tests/mcp/tools/test_retrieval_tools.py`, and any existing test file that already exercises
+    `suggest_similar_fqns`/`NotFound.suggestions` (grep for both names across `tests/` first -
+    do not guess the list) BEFORE and AFTER your change, and report both real pass/fail counts in
+    your closing report. Every existing suggestion the two prior tiers already produce must be
+    byte-for-byte unchanged (same tuple, same order) - this card only adds NEW suggestions for
+    cases that were previously empty, never changes an existing non-empty result.
+actions:
+  - >-
+    Add a third, additive, word-set-based fallback tier to `suggest_similar_fqns`, reusing the
+    existing `tokenize()` function, so a compound-identifier "did you mean" built from the same
+    words in a different order is now suggested - automatically benefiting both `search_symbols`
+    and `get_symbol` through their one shared implementation.
+checks:
+  - command: '{python} -m pytest tests/mcp/tools/test_search_symbols_word_aware_suggestions.py -q -rfE -p no:cacheprovider'
+    expect: 'exit 0'
+    timeout_seconds: 180
+    junitxml: true
+    proves:
+      - REQ-G3-011
+  - command: '{python} -m pytest tests/mcp/test_search_symbols_honest_miss.py tests/mcp/tools/test_retrieval_tools.py -q -rfE -p no:cacheprovider'
+    expect: 'exit 0'
+    timeout_seconds: 600
+    junitxml: true
+    proves:
+      - REQ-G3-011
+min_tests: 5
+requires:
+  - python
+network: false
+negative_control:
+  mutate: |
+    python -X utf8 -c "import pathlib; p = pathlib.Path('src/foss_mcp/mcp/tools/search_symbols.py'); s = p.read_text(encoding='utf-8'); old = '_word_set(segment) == target_words'; assert s.count(old) == 1, 'the required literal comparison was not found as expected - if your real code reads differently, anchor your own mutate on your own real literal instead and note the substitution in your closeout'; p.write_text(s.replace(old, 'False', 1), encoding='utf-8')"
+  rationale: >-
+    Forces the new word-set-equality comparison to always evaluate False, so
+    `_word_aware_suggestions` can never match anything, disabling only this card's new third tier
+    without touching the two pre-existing tiers (full-FQN character match, final-segment character
+    match) at all. Any test proving a suggestion reached ONLY through the new tier (a word-order-
+    swap case neither prior tier would catch) must fail under this mutation; every test of an
+    existing tier's behavior is unaffected.
+evidence:
+  - evidence/build/G3/TC-675/receipt.json
+closeout:
+  - >-
+    `suggest_similar_fqns` now also recognises a compound identifier whose words match a known
+    FQN's own words in a different order, automatically benefiting both `search_symbols` and
+    `get_symbol` through their one shared implementation - with the real before/after numbers
+    stated in your report.
+recovery: Re-run from a clean tree.
