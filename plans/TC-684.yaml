@@ -1,0 +1,232 @@
+id: TC-684
+gate: G3
+lane: storage-retrieval
+purpose: >-
+  Q16 (findability sub-program, section 2.2 item 6: "alias-form resolution (`Qualified:`, doubled
+  final segment, package-root alias, `Type.EnumMember`)"). Of the 4 nominal sub-items, 2 are NOT
+  grounded in any real round-2 finding and were not reproduced this session: "doubled final
+  segment" (a hand-tried `Workbook.Workbook` query against the real cells/java index already
+  resolves correctly today, via the existing `get_symbol._resolve_name` owner/member split - no
+  distinct defect found) and "package-root alias" (a bare namespace-root query like `Aspose.Cells`
+  correctly returns an honest `NotFound` today; nothing in `docs/round2/issues.json` describes
+  this as a real defect). Neither is carded here.
+
+  The other 2 are real, grounded in specific round-2 findings, looked up directly (never guessed
+  from the plan's paraphrase):
+
+  - **`Type.EnumMember` via `lookup` - IN SCOPE.** Round-2's `WORDS-NET-004` ("lookup fails to
+    resolve dotted Type.EnumMember queries that search_symbols resolves fine", P2) is CONFIRMED
+    STILL REAL today (supervisor, this session): `lookup(store, Scope("words","net"),
+    "StyleIdentifier.Normal")` returns `TaskAnswer(symbols=())` - the real suggestion
+    `search_symbols` itself offers for this exact query (`Miss(suggestions=
+    ('Aspose.Words.StyleIdentifier',), ...)`) is silently discarded. Root cause, read directly in
+    `lookup.py`: the dispatch order IS already "try `search_symbols` first" (line ~589, matching
+    the audit's own suggested fix's premise) - but when `search_symbols` returns a `Miss` (not an
+    empty list, a `Miss` object carrying real suggestions) rather than a non-empty list, `lookup`
+    treats that identically to "no symbol evidence at all" and falls through unconditionally to
+    `_compose_from_docs()`, which happens to return a `TaskAnswer` (a lower-quality, partial
+    `developer_guide` match per the real audit evidence) - so the function returns that at line
+    ~594-595 and the `Miss`'s own real suggestion is never reached, never surfaced, never
+    mentioned anywhere in the final answer.
+  - **`Qualified:` line - IN SCOPE, doc-only.** Round-2's own second issue at this location
+    (looked up directly, the one quoting `"Qualified: cells_foss.Workbook"`) is a self-consistency
+    complaint, not a resolution bug: `get_symbol(fqn="Workbook")` on Go/Rust pilots resolves
+    correctly, but the response's own `Qualified:` chunk-metadata line (produced by
+    `chunk_builder.py` for Go/Rust specifically) shows the package-qualified form, which can read
+    as contradictory to a caller who queried the bare name. The audit's OWN suggested fix is
+    explicitly cheap and textual: "Add one sentence to get_symbol's and search_symbols's tool
+    descriptions ... 'fqn is the bare Go identifier without the package prefix shown in the
+    Qualified: line.'" Confirmed this sentence does not exist anywhere in
+    `TOOL_DESCRIPTIONS['get_symbol']`/`TOOL_DESCRIPTIONS['search_symbols']` in `server.py` today.
+
+  Fix: (1) in `lookup.py`, when `search_symbols` returns a `Miss` carrying one or more real
+  `suggestions` for a query lookup treats as identifier-like (not a task question per
+  `_looks_like_a_task_question`), that suggestion must be surfaced somewhere in the final answer
+  rather than silently dropped when a lower-confidence docs answer happens to exist - your own
+  choice of exact mechanism (prefer the symbol miss's suggestions over a merely-partial docs
+  answer; or merge the suggestion into whatever `TaskAnswer`/`Miss` is ultimately returned; report
+  which and why), as long as the real `StyleIdentifier.Normal` case now mentions
+  `Aspose.Words.StyleIdentifier` somewhere in `lookup`'s own result, and every CURRENTLY-PASSING
+  lookup behavior (including genuine task questions that correctly prefer docs over an incidental
+  lexical symbol collision - the whole reason `_looks_like_a_task_question` exists) is unchanged.
+  (2) in `server.py`, add one sentence (the audit's own suggested wording, or your own equivalent)
+  to `TOOL_DESCRIPTIONS['get_symbol']` and `TOOL_DESCRIPTIONS['search_symbols']` explaining the
+  `Qualified:` chunk-metadata line.
+depends_on:
+  - TC-017a
+  - TC-016
+  - TC-019a
+  - TC-071
+  - TC-072
+  - TC-074
+  - TC-075
+  - TC-079
+  - TC-125
+  - TC-126
+  - TC-130
+  - TC-131
+  - TC-132
+  - TC-136
+  - TC-140
+  - TC-142
+  - TC-143
+  - TC-148
+  - TC-149
+  - TC-178
+  - TC-199
+  - TC-202
+  - TC-218
+  - TC-239
+  - TC-244
+  - TC-248
+  - TC-355
+  - TC-380
+  - TC-381
+  - TC-386
+  - TC-389
+  - TC-390
+  - TC-391
+  - TC-399
+  - TC-444
+  - TC-465
+  - TC-470
+  - TC-474
+  - TC-493
+  - TC-506
+  - TC-507
+  - TC-508
+  - TC-509
+  - TC-514
+  - TC-515
+  - TC-516
+  - TC-517
+  - TC-518
+  - TC-519
+  - TC-539
+  - TC-540
+  - TC-541
+  - TC-542
+  - TC-543
+  - TC-544
+  - TC-546
+  - TC-551
+  - TC-552
+  - TC-562
+  - TC-563
+  - TC-564
+  - TC-585
+  - TC-606
+  - TC-617
+  - TC-622
+  - TC-626
+  - TC-627
+  - TC-628
+  - TC-630
+  - TC-633
+  - TC-634
+  - TC-639
+  - TC-641
+  - TC-642
+  - TC-657
+  - TC-670
+  - TC-671
+  - TC-675
+write_paths:
+  - src/foss_mcp/mcp/tools/lookup.py
+  - src/foss_mcp/mcp/server.py
+  - tests/mcp/tools/test_lookup_dotted_enum_member_suggestion.py
+satisfies:
+  - REQ-G3-011
+source_refs:
+  - file: docs/DECISION_LOG.md
+    anchor: >-
+      ## 2026-11-02 — Round-3 independent re-audit adopted; a real regression found and given top
+      priority; the "no pilot ever gets worse" rule adopted project-wide (operator, supervisor)
+    sha256: b750b8bf0df25b17bf66d014895ecb42952050c7cc63773f56249c4a1c551791
+inputs:
+  - >-
+    READ FIRST: `src/foss_mcp/mcp/tools/lookup.py`'s `lookup()` function in full, including
+    `_looks_like_a_task_question`, `_compose_from_docs`, `_answer_naming_a_type`, `_lookup_miss`,
+    and the real dispatch order at the end of the function (confirm the real current line numbers
+    - they may have shifted). Confirm with your own eyes, by actually calling `lookup` and
+    `search_symbols` against the real committed `words/net` pilot data (same
+    `GenerationManifestStore`/`infra/demo-manifests` pattern used throughout this session), that
+    `lookup(..., "StyleIdentifier.Normal")` returns a `TaskAnswer` with empty `symbols` while
+    `search_symbols(..., "StyleIdentifier.Normal")` returns a real `Miss` naming
+    `Aspose.Words.StyleIdentifier` as a suggestion, BEFORE changing anything.
+  - >-
+    Read `src/foss_mcp/mcp/server.py`'s `TOOL_DESCRIPTIONS` dict in full, specifically the
+    `"get_symbol"` and `"search_symbols"` entries, and confirm no sentence explaining the
+    `Qualified:` chunk-metadata line exists in either today.
+  - >-
+    Implement the lookup fix as described in the card's own purpose text. Write real,
+    deterministic unit tests in the new file proving: (a) the real `StyleIdentifier.Normal` case
+    against the real words/net data now surfaces `Aspose.Words.StyleIdentifier` somewhere in the
+    result (not necessarily identical to `search_symbols`'s own `Miss` shape - your own choice of
+    final shape, report which); (b) a genuine multi-word task question (e.g. "how do I add a
+    watermark to a document") that happens to ALSO contain a dotted-looking substring is still
+    correctly routed through the existing task-question path, unaffected - this card must not
+    weaken `_looks_like_a_task_question`'s own existing precedence; (c) a dotted query where
+    `search_symbols` returns a genuine HIT (not a `Miss`) is completely unaffected, same result as
+    before this card; (d) a non-dotted bare identifier query with no symbol match and no
+    suggestions is unaffected (no new behavior introduced where there was never a suggestion to
+    surface); (e) a dotted query where `search_symbols` returns a `Miss` with NO suggestions at
+    all (empty tuple) falls through exactly as it does today, unaffected.
+  - >-
+    Add the one-sentence `Qualified:` explanation to both `TOOL_DESCRIPTIONS` entries named above.
+    Add at least one test (in the same new test file or an existing tool-surface test - your
+    choice, report which) asserting the sentence is present in both descriptions, worded clearly
+    enough that `test_tool_surface_truthful.py` (if it checks description content at all - read it
+    first) is not broken by the addition.
+  - >-
+    MEASURE: re-run `tests/mcp/test_search_symbols_honest_miss.py`,
+    `tests/mcp/tools/test_lookup_miss_reason.py`, and any other existing test exercising `lookup`'s
+    own dispatch order (grep `tests/` for `_looks_like_a_task_question`/`lookup(` first - do not
+    guess the list) BEFORE and AFTER your change, and report real pass/fail counts. Every existing
+    task-question routing decision and every existing non-dotted miss must be byte-for-byte
+    unchanged (Decision E: never regress).
+actions:
+  - >-
+    Fix `lookup` to surface a real `search_symbols` suggestion for a dotted/colon-scoped
+    `Type.Member` query instead of silently discarding it in favor of a lower-confidence docs
+    answer (closing the real, reproduced `WORDS-NET-004`), and add the audit's own suggested
+    one-sentence `Qualified:` clarification to `get_symbol`'s and `search_symbols`'s tool
+    descriptions - both real, grounded Q16 sub-items; the other 2 nominal sub-items are confirmed
+    not real defects and excluded from this card's scope.
+checks:
+  - command: '{python} -m pytest tests/mcp/tools/test_lookup_dotted_enum_member_suggestion.py -q -rfE -p no:cacheprovider'
+    expect: 'exit 0'
+    timeout_seconds: 180
+    junitxml: true
+    proves:
+      - REQ-G3-011
+  - command: '{python} -m pytest tests/mcp/test_search_symbols_honest_miss.py tests/mcp/tools/test_lookup_miss_reason.py -q -rfE -p no:cacheprovider'
+    expect: 'exit 0'
+    timeout_seconds: 300
+    junitxml: true
+    proves:
+      - REQ-G3-011
+min_tests: 5
+requires:
+  - python
+network: false
+negative_control:
+  mutate: |
+    python -X utf8 -c "import pathlib; p = pathlib.Path('src/foss_mcp/mcp/server.py'); s = p.read_text(encoding='utf-8'); old = 'Qualified:'; count = s.count(old); assert count >= 1, 'no reference to the Qualified: line was found in server.py as expected - if your real wording differs, anchor your own mutate on your own real literal instead and note the substitution in your closeout'; s2 = s.replace(old, 'QualifiedZZZDISABLED:', count); assert s2 != s; p.write_text(s2, encoding='utf-8')"
+  rationale: >-
+    Breaks every reference to the literal "Qualified:" in the tool descriptions this card adds (or
+    any other file-local reference to that exact string), so the required one-sentence explanation
+    this card adds no longer contains the real literal it must name. Any test asserting the
+    sentence's real wording is present must fail under this mutation; the lookup fix's own tests
+    (which do not depend on this literal) are unaffected - acceptable, since this card requires at
+    least the Qualified:-wording tests to fail, not every test in the file.
+evidence:
+  - evidence/build/G3/TC-684/receipt.json
+closeout:
+  - >-
+    `lookup` now surfaces a real `search_symbols` suggestion for a dotted `Type.EnumMember`-shaped
+    query instead of silently discarding it (closing the real, reproduced WORDS-NET-004), and
+    `get_symbol`/`search_symbols`'s own tool descriptions now explain the `Qualified:`
+    chunk-metadata line - both real, grounded Q16 sub-items. "Doubled final segment" and
+    "package-root alias" are confirmed not real defects, not carded.
+recovery: Re-run from a clean tree.
