@@ -1,0 +1,82 @@
+
+===== CLEAN RUN 1 (host) =====
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-5c72e798a73c059a\Scripts\python.exe -m pytest tests/mcp/tools/test_find_examples_rare_code_word.py -q -rfE -p no:cacheprovider "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-i5j2435l\.junit-0.xml"
+--- stdout ---
+.......                                                                  [100%]
+
+--- stderr ---
+
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-5c72e798a73c059a\Scripts\python.exe -m pytest tests/mcp/tools/test_find_examples_title_anchor.py tests/mcp/tools/test_find_examples_code_anchor.py tests/mcp/tools/test_find_examples_symbol_aware_matching.py tests/mcp/tools/test_forgiveness_acceptance.py tests/mcp/tools/test_round3_retrieval_corpus.py -q -rfE -p no:cacheprovider "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-i5j2435l\.junit-1.xml"
+--- stdout ---
+........................................................................ [ 54%]
+...........................................................              [100%]
+
+--- stderr ---
+
+
+===== CLEAN RUN 2 (host) =====
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-5c72e798a73c059a\Scripts\python.exe -m pytest tests/mcp/tools/test_find_examples_rare_code_word.py -q -rfE -p no:cacheprovider "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-i5j2435l\.junit-0.xml"
+--- stdout ---
+.......                                                                  [100%]
+
+--- stderr ---
+
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-5c72e798a73c059a\Scripts\python.exe -m pytest tests/mcp/tools/test_find_examples_title_anchor.py tests/mcp/tools/test_find_examples_code_anchor.py tests/mcp/tools/test_find_examples_symbol_aware_matching.py tests/mcp/tools/test_forgiveness_acceptance.py tests/mcp/tools/test_round3_retrieval_corpus.py -q -rfE -p no:cacheprovider "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-i5j2435l\.junit-1.xml"
+--- stdout ---
+........................................................................ [ 54%]
+...........................................................              [100%]
+
+--- stderr ---
+
+
+===== NEGATIVE CONTROL (checks MUST now fail) =====
+mutated: M src/foss_mcp/mcp/tools/find_examples.py, ?? .junit-0.xml, ?? .junit-1.xml
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-5c72e798a73c059a\Scripts\python.exe -m pytest tests/mcp/tools/test_find_examples_rare_code_word.py -q -rfE -p no:cacheprovider "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-i5j2435l\.junit-0.xml"
+--- stdout ---
+F......                                                                  [100%]
+================================== FAILURES ===================================
+_ test_the_real_cells_java_formula_case_now_anchors_through_the_rare_code_word_path _
+
+tmp_path = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-20059/test_the_real_cells_java_formu0')
+
+    def test_the_real_cells_java_formula_case_now_anchors_through_the_rare_code_word_path(
+        tmp_path: Path,
+    ) -> None:
+        store = _real_store(tmp_path)
+        scope = Scope(family="cells", platform="java")
+        key = scope_key(scope, "self_extracted")
+        generation_id = store.read_active(key)
+        assert generation_id is not None
+        documents = store.read_generation(key, generation_id).payload["lexical_index"]["documents"]
+        titles = {
+            (document.get("text") or "").splitlines()[0][len("FQN: ") :]
+            for document in documents.values()
+            if (document.get("text") or "").startswith("FQN: Example: ")
+        }
+        assert "Example: Additional Examples" in titles
+    
+        # None of the three pre-existing admission paths would have anchored this query - the gap the
+        # card's own round-2 finding is built on, confirmed directly against the real functions.
+        assert required_terms("formula") == frozenset()
+        assert title_anchored("formula", "cells", "Additional Examples") is False
+        assert title_prefix_anchored("formula", "cells", "Additional Examples") is False
+    
+        result = find_examples(store, scope, "formula")
+>       assert isinstance(result, list), result
+E       AssertionError: NoExampleFound(scope=Scope(family='cells', platform='java', source_kind='self_extracted'), query='formula', found=False, reason='no verified example matches this query (semantic fallback skipped: error)', vector_fallback='skipped_error')
+E       assert False
+E        +  where False = isinstance(NoExampleFound(scope=Scope(family='cells', platform='java', source_kind='self_extracted'), query='formula', found=False, reason='no verified example matches this query (semantic fallback skipped: error)', vector_fallback='skipped_error'), list)
+
+tests\mcp\tools\test_find_examples_rare_code_word.py:182: AssertionError
+=========================== short test summary info ===========================
+FAILED tests/mcp/tools/test_find_examples_rare_code_word.py::test_the_real_cells_java_formula_case_now_anchors_through_the_rare_code_word_path
+
+--- stderr ---
+
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-5c72e798a73c059a\Scripts\python.exe -m pytest tests/mcp/tools/test_find_examples_title_anchor.py tests/mcp/tools/test_find_examples_code_anchor.py tests/mcp/tools/test_find_examples_symbol_aware_matching.py tests/mcp/tools/test_forgiveness_acceptance.py tests/mcp/tools/test_round3_retrieval_corpus.py -q -rfE -p no:cacheprovider "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-i5j2435l\.junit-1.xml"
+--- stdout ---
+........................................................................ [ 54%]
+...........................................................              [100%]
+
+--- stderr ---
+
