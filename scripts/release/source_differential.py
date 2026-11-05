@@ -597,6 +597,69 @@ def evaluate_ceilings(counts: DiffCounts, ceilings: Mapping[str, int]) -> list[s
     return reasons
 
 
+DEFAULT_PILOT_SNAPSHOT_FILE = DEFAULT_FIXTURES / "oracle" / "snapshot.json"
+
+
+def load_pilot_snapshot(path: Path) -> dict[str, dict[str, int]]:
+    """G3/TC-693: the committed, per-pilot snapshot of the independent oracle's last REAL,
+    already-verified disagreement counts (``tests/fixtures/oracle/snapshot.json`` by default -- see
+    ``--pilot-snapshot-file`` on ``main``). Pure: only reads and validates ``path``; it never
+    re-derives or guesses a count.
+
+    The shape is validated strictly enough that a corrupted or hand-edited snapshot fails loudly
+    here rather than silently becoming a wrong ratchet floor: the top level must be a JSON object
+    keyed by pilot name; each pilot's value must itself be a JSON object; each of *that* object's
+    keys must be one of ``CATEGORIES`` (this module's own closed set, unchanged by this card -- an
+    unrecognized key is treated as a typo, never a new category), and each value must be a
+    non-negative int.
+    """
+    raw = json.loads(Path(path).read_text(encoding="utf-8"))
+    if not isinstance(raw, dict):
+        raise Refused(f"{path} is not a JSON object keyed by pilot name")
+    snapshot: dict[str, dict[str, int]] = {}
+    for pilot, categories in raw.items():
+        if not isinstance(categories, dict):
+            raise Refused(f"{path}: {pilot!r}'s value is not a JSON object of category -> count")
+        bucket: dict[str, int] = {}
+        for category, count in categories.items():
+            if category not in CATEGORIES:
+                raise Refused(f"{path}: {pilot!r} names unknown category {category!r} (not in CATEGORIES)")
+            if not isinstance(count, int) or isinstance(count, bool) or count < 0:
+                raise Refused(f"{path}: {pilot!r}.{category!r} = {count!r} is not a non-negative int")
+            bucket[category] = count
+        snapshot[pilot] = bucket
+    return snapshot
+
+
+def evaluate_pilot_snapshot_ratchet(
+    pilot: str, counts: DiffCounts, snapshot: Mapping[str, Mapping[str, int]]
+) -> list[str]:
+    """G3/TC-693: a second, additive gate running ALONGSIDE ``evaluate_ceilings`` -- it never
+    touches ``evaluate_ceilings``/``LANGUAGE_ERROR_CEILINGS``. ``evaluate_ceilings`` is per-LANGUAGE
+    and, at its default ceiling of 0, fails identically whether a real, already-disclosed per-pilot
+    disagreement (e.g. ``pdf_cpp``'s own known ``extra=2406``, ``OQ-022``) stays exactly where it
+    was last measured or silently regresses further -- there is no per-pilot floor that can only
+    shrink. This gate supplies exactly that: it fails only when ``counts`` EXCEEDS the pilot's own
+    last recorded real value in ``snapshot``, never merely because the count is nonzero. A pilot (or
+    a category within it) absent from ``snapshot`` is treated as an all-zero floor -- the correct,
+    conservative default for a newly onboarded pilot with no real oracle run recorded yet.
+
+    Each returned reason explicitly says "a regression against the last recorded real oracle run",
+    distinguishing it from ``evaluate_ceilings``'s own "exceeds the ceiling" wording.
+    """
+    recorded = snapshot.get(pilot, {})
+    reasons: list[str] = []
+    for category in CATEGORIES:
+        new_count = getattr(counts, category)
+        old_count = recorded.get(category, 0)
+        if new_count > old_count:
+            reasons.append(
+                f"{pilot}: {category} count {new_count} is a regression against the last recorded "
+                f"real oracle run ({old_count})"
+            )
+    return reasons
+
+
 def evaluate_hollow_pass(counts: DiffCounts) -> list[str]:
     """G3/TC-692: a separate, additive guard alongside ``evaluate_ceilings`` -- NOT a change to it.
 
@@ -660,8 +723,15 @@ def verify_pilot(
     ceilings: Mapping[str, Mapping[str, int]],
     require_extractor_version: bool,
     current_extractor_version: int,
+    pilot_snapshot: Mapping[str, Mapping[str, int]] | None = None,
 ) -> PilotReport:
-    """Diff ``symbols`` (the independent oracle) against ``fixture`` (the baked data) and gate the result."""
+    """Diff ``symbols`` (the independent oracle) against ``fixture`` (the baked data) and gate the result.
+
+    ``pilot_snapshot`` (G3/TC-693) is a second, additive gate: when given (not ``None``), it ALSO
+    runs ``evaluate_pilot_snapshot_ratchet`` and extends ``reasons`` with its result --
+    ``evaluate_ceilings``/``LANGUAGE_ERROR_CEILINGS`` are completely untouched by this. ``None`` (the
+    default) means "no ratchet" -- byte-for-byte the behavior this function had before this card.
+    """
     version_reason = (
         check_extractor_version(fixture, current_version=current_extractor_version)
         if require_extractor_version
@@ -670,6 +740,8 @@ def verify_pilot(
     total, findings = diff_language(symbols, fixture.get("types") or [])
     reasons = evaluate_ceilings(total, ceilings.get(language, {category: 0 for category in CATEGORIES}))
     reasons = [*reasons, *evaluate_hollow_pass(total)]
+    if pilot_snapshot is not None:
+        reasons = [*reasons, *evaluate_pilot_snapshot_ratchet(pilot, total, pilot_snapshot)]
     return PilotReport(
         pilot=pilot,
         language=language,
@@ -1955,6 +2027,18 @@ def parse_args(argv: list[str] | None) -> argparse.Namespace:
         default=True,
         help="skip the extractor_version gate (never use this for a real release decision)",
     )
+    parser.add_argument(
+        "--pilot-snapshot-file",
+        type=str,
+        default=str(DEFAULT_PILOT_SNAPSHOT_FILE),
+        help=(
+            "a JSON per-pilot snapshot of the independent oracle's last recorded real disagreement "
+            "counts (G3/TC-693); a future run failing because a count exceeds its own pilot's "
+            f"recorded value is a reported regression. Default: the real committed "
+            f"{DEFAULT_PILOT_SNAPSHOT_FILE} -- pass '' or 'none' to disable the ratchet entirely "
+            "(behavior is then byte-for-byte identical to before this flag existed)"
+        ),
+    )
     return parser.parse_args(argv)
 
 
@@ -1964,6 +2048,14 @@ def main(argv: list[str] | None = None, deps: Deps | None = None) -> int:
     try:
         ceilings = load_ceilings(args.ceilings_file)
         entries = chart.select_pilots(chart.load_pilots(), args.only)
+        # G3/TC-693: "" / "none" explicitly disables the ratchet -- no silent default-on surprise
+        # for a caller that opts out; anything else (including the default, the real committed
+        # tests/fixtures/oracle/snapshot.json) is loaded and validated eagerly, before any pilot runs.
+        pilot_snapshot = (
+            None
+            if args.pilot_snapshot_file in ("", "none")
+            else load_pilot_snapshot(Path(args.pilot_snapshot_file))
+        )
     except (Refused, ValueError, OSError) as exc:
         print(f"source_differential: {exc}", file=sys.stderr)
         return EXIT_REFUSED
@@ -2030,6 +2122,7 @@ def main(argv: list[str] | None = None, deps: Deps | None = None) -> int:
                 ceilings=ceilings,
                 require_extractor_version=args.require_extractor_version,
                 current_extractor_version=run_extraction.EXTRACTOR_VERSION,
+                pilot_snapshot=pilot_snapshot,
             )
         )
 
