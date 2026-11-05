@@ -515,6 +515,60 @@ def _repaired_entry(module: str, relative: str, first_line: int, count: int) -> 
     return f"{module}:{first_line}:repaired-syntax:{relative}:{count} header lines closed with pass"
 
 
+def _branch_import_nodes(node: ast.Try | ast.If) -> list[ast.ImportFrom]:
+    """TC-674: the ``ast.ImportFrom`` statements that sit exactly one level inside *node*'s own
+    branches - never any deeper (a ``Try``/``If`` nested inside a branch, or a statement inside a
+    function/class body within one, is not descended into; only a branch member that IS itself a
+    bare ``ast.ImportFrom`` is collected).
+
+    Order is fixed and deterministic, not Python's execution order (this extractor never executes
+    anything): for ``ast.Try``, the ``try`` body, then each ``except`` handler's body in source
+    order, then ``else``, then ``finally``; for ``ast.If``, the ``if`` body then ``else``/``elif``.
+    Combined with ``_reexport_symbols_from_import``'s dict (last write wins), this gives a name
+    bound in more than one branch its LAST binding in this order - the same "last one wins"
+    convention ``_last_binding`` already applies to module-level redefinitions (TC-532).
+    """
+    branches: list[list[ast.stmt]] = []
+    if isinstance(node, ast.Try):
+        branches.append(node.body)
+        branches.extend(handler.body for handler in node.handlers)
+        branches.append(node.orelse)
+        branches.append(node.finalbody)
+    else:
+        branches.append(node.body)
+        branches.append(node.orelse)
+    return [statement for branch in branches for statement in branch if isinstance(statement, ast.ImportFrom)]
+
+
+def _reexport_symbols_from_import(
+    node: ast.ImportFrom, module: str, relative: str, is_package: bool, explicit: set[str] | None
+) -> tuple[dict[str, PublicSymbol], list[str]]:
+    """TC-674: one ``ast.ImportFrom`` re-export statement resolved into its exposed-name ->
+    ``PublicSymbol`` candidates, plus any ``unresolved`` disclosure entries - the exact rules
+    ``_module_symbols``'s own top-level loop already applies to a direct top-level import, factored
+    out so a statement nested inside a module-top-level ``Try``/``If`` can share it unchanged."""
+    symbols: dict[str, PublicSymbol] = {}
+    unresolved: list[str] = []
+    origin = _resolved_relative(module, is_package, node)
+    if origin is None or any(alias.name == "*" for alias in node.names):
+        unresolved.append(f"{module}:{node.lineno}:{ast.unparse(node)}")
+        return symbols, unresolved
+    for alias in node.names:
+        exposed = alias.asname or alias.name
+        if _public_name(exposed, explicit)[0]:
+            symbols[exposed] = PublicSymbol(
+                f"{module}.{exposed}",
+                module,
+                exposed,
+                "unknown",
+                relative,
+                node.lineno,
+                "reexport",
+                reexported_from=f"{origin}.{alias.name}",
+            )
+    return symbols, unresolved
+
+
 def _module_symbols(
     path: Path, source_root: Path, repository_root: Path
 ) -> tuple[list[PublicSymbol], list[str]]:
@@ -589,25 +643,22 @@ def _module_symbols(
                 if isinstance(node, ast.ClassDef):
                     symbols.extend(_methods(node, module, relative, public_by, context))
         elif isinstance(node, ast.ImportFrom) and (is_package or explicit is not None):
-            origin = _resolved_relative(module, is_package, node)
-            if origin is None or any(alias.name == "*" for alias in node.names):
-                unresolved.append(f"{module}:{node.lineno}:{ast.unparse(node)}")
-                continue
-            for alias in node.names:
-                exposed = alias.asname or alias.name
-                if _public_name(exposed, explicit)[0]:
-                    symbols.append(
-                        PublicSymbol(
-                            f"{module}.{exposed}",
-                            module,
-                            exposed,
-                            "unknown",
-                            relative,
-                            node.lineno,
-                            "reexport",
-                            reexported_from=f"{origin}.{alias.name}",
-                        )
-                    )
+            found, failed = _reexport_symbols_from_import(node, module, relative, is_package, explicit)
+            symbols.extend(found.values())
+            unresolved.extend(failed)
+        elif isinstance(node, ast.Try | ast.If) and (is_package or explicit is not None):
+            # TC-674: a re-export import written inside a module-top-level try/except or if/else
+            # (the "fast implementation with a pure-Python fallback", or version-conditional, idiom).
+            # When the same name is bound in more than one branch, the LAST one in
+            # ``_branch_import_nodes``'s fixed order wins - a plain dict write already does this.
+            branch_symbols: dict[str, PublicSymbol] = {}
+            for branch_node in _branch_import_nodes(node):
+                found, failed = _reexport_symbols_from_import(
+                    branch_node, module, relative, is_package, explicit
+                )
+                branch_symbols.update(found)
+                unresolved.extend(failed)
+            symbols.extend(branch_symbols.values())
     return symbols, unresolved
 
 
