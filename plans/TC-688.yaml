@@ -1,0 +1,269 @@
+id: TC-688
+gate: G3
+lane: storage-retrieval
+purpose: >-
+  RT3 (runtime/contract sub-program, section 2.7: "Contract: `raw_text` opt-in
+  (`include_raw_text`; tool-surface test updated in the same card), `confidence` for every source,
+  `members` documented/renamed, one reason enum for 'no verified example', `kind` stops leaking
+  tree-sitter node names"). RT3's own wave-table dependency is `KD11` - investigated this session
+  and found NOT achievable as a literal closure ticket (it needs an unfinished program, XA19, and
+  a ledger mechanism that does not exist; recorded directly in `docs/DECISION_LOG.md`, 2026-11-05).
+  RT3 does not actually NEED KD11's formal closure - none of its 4 real items below touch
+  disclosure content at all; the wave table's `KD11` link is sequencing, not a functional
+  dependency, so RT3 is unblocked the same way C12 proceeded once C10 was confirmed to add nothing
+  further to depend on.
+
+  Of RT3's 5 nominal items, 4 are REAL, CONFIRMED-OPEN gaps (checked directly against the real
+  committed code this session, not guessed); "members documented/renamed" is excluded from this
+  card - its own ask is too vague to scope safely without further investigation, left for a future
+  card.
+
+  TWO of the four are DELIBERATE, NAMED, PRE-AUTHORIZED reversals of a prior supervisor deferral -
+  read `docs/DECISION_LOG.md`'s 2026-11-01 "Workstream K" entry in full before touching either:
+  that entry explicitly deferred both findings "not now, in the final hours before a public demo
+  deployment" and named them "real, deliberate, measured future work... for whoever picks up RT3
+  next" - this IS that card, not a fresh, unauthorized risk:
+
+  - **3D-NET-014 (`raw_text` opt-in)**: `get_symbol.py`'s `SymbolSignature`/`ResolvedSignature`
+    dataclasses always carry a `raw_text: str` field, always populated with the FULL duplicate
+    text of the structured `methods`/`properties` fields - roughly doubling response size for
+    every single `get_symbol` call across all 32 pilots, for zero additional information a caller
+    cannot already get from the structured fields.
+  - **SLIDES-NET-005 (`confidence` for every source)**: `find_examples.py`'s `ExampleMatch.confidence`
+    (TC-584) is `""` for EVERY lexical (non-vector) match, by design - confirmed this is the exact
+    behavior `tests/mcp/tools/test_find_examples_verified_only.py::test_confidence_is_not_applicable_outside_the_vector_branch`
+    pins today.
+
+  The other two are narrower, lower-risk cleanups, not contract-breaking in the same sense (no
+  caller can reasonably depend on an internal AST node name or a specific free-text reason
+  string's exact spelling):
+
+  - **`kind` leaks a raw tree-sitter/clang-AST node type**: `api_surface.py` has exactly 2 real
+    call sites (confirmed via `grep -n '"kind":' api_surface.py` - every OTHER `kind` value in
+    this file, 11+ sites, is already a clean, documented word: `"property"`, `"function"`,
+    `"constant"`, `"field"`, `"type_item"`, `"record_component"`) where `"kind": cnode.type` uses
+    the RAW tree-sitter node type string directly (e.g. `alias_declaration`/`type_definition` for
+    a C++ nested `using`/`typedef`), leaking an internal implementation detail into served API
+    responses.
+  - **No single reason enum for "no verified example"**: `find_examples.py` has at least 4
+    distinct, independently-worded free-text reason strings for "nothing matched" (`_NO_MATCH_REASON`,
+    `NOT_CONFIGURED_REASON`, a bare field default, and `"no verified example exists in this
+    generation"` inline) - never unified into one named constant/enum a caller could match against
+    reliably.
+depends_on:
+  - TC-016
+  - TC-017b
+  - TC-019a
+  - TC-065
+  - TC-071
+  - TC-125
+  - TC-126
+  - TC-130
+  - TC-131
+  - TC-132
+  - TC-136
+  - TC-140
+  - TC-142
+  - TC-143
+  - TC-148
+  - TC-149
+  - TC-178
+  - TC-239
+  - TC-244
+  - TC-273
+  - TC-279
+  - TC-331
+  - TC-340
+  - TC-355
+  - TC-380
+  - TC-381
+  - TC-386
+  - TC-389
+  - TC-390
+  - TC-391
+  - TC-443
+  - TC-444
+  - TC-458
+  - TC-465
+  - TC-470
+  - TC-474
+  - TC-493
+  - TC-505
+  - TC-506
+  - TC-507
+  - TC-508
+  - TC-509
+  - TC-514
+  - TC-515
+  - TC-516
+  - TC-517
+  - TC-518
+  - TC-519
+  - TC-520
+  - TC-527
+  - TC-536
+  - TC-539
+  - TC-540
+  - TC-541
+  - TC-542
+  - TC-543
+  - TC-544
+  - TC-546
+  - TC-547
+  - TC-554
+  - TC-559
+  - TC-562
+  - TC-563
+  - TC-564
+  - TC-565
+  - TC-584
+  - TC-609
+  - TC-612
+  - TC-616
+  - TC-622
+  - TC-635
+  - TC-639
+  - TC-657
+  - TC-658
+  - TC-670
+  - TC-672
+  - TC-684
+  - TC-686
+write_paths:
+  - src/foss_mcp/mcp/tools/get_symbol.py
+  - src/foss_mcp/mcp/tools/find_examples.py
+  - src/foss_mcp/extraction/tree_sitter_engine/api_surface.py
+  - src/foss_mcp/mcp/server.py
+  - tests/mcp/tools/test_get_symbol_raw_text_opt_in.py
+  - tests/mcp/tools/test_find_examples_verified_only.py
+  - tests/mcp/test_tool_surface_truthful.py
+satisfies:
+  - REQ-G3-016
+source_refs:
+  - file: docs/DECISION_LOG.md
+    anchor: >-
+      ## 2026-11-02 — Round-3 independent re-audit adopted; a real regression found and given top
+      priority; the "no pilot ever gets worse" rule adopted project-wide (operator, supervisor)
+    sha256: b750b8bf0df25b17bf66d014895ecb42952050c7cc63773f56249c4a1c551791
+inputs:
+  - >-
+    READ FIRST, in full: `docs/DECISION_LOG.md`'s 2026-11-01 "Workstream K" entry (search for that
+    exact heading) - this is the authority that pre-approves closing 3D-NET-014/SLIDES-NET-005 now.
+    Then `get_symbol.py`'s `SymbolSignature`/`ResolvedSignature`/`get_symbol()` in full;
+    `find_examples.py`'s `ExampleMatch`, `confidence` assignment (~line 1034-1057),
+    `_NO_MATCH_REASON`/`NOT_CONFIGURED_REASON`, and
+    `tests/mcp/tools/test_find_examples_verified_only.py::test_confidence_is_not_applicable_outside_the_vector_branch`
+    (the test this card deliberately, knowingly reverses - confirm its exact current assertion
+    before changing it); `api_surface.py`'s 2 real `"kind": cnode.type` call sites (grep for that
+    exact string, do not guess line numbers); `server.py`'s `GetSymbolInput` schema and
+    `TOOL_DESCRIPTIONS["get_symbol"]`.
+  - >-
+    (1) `raw_text` opt-in: add `include_raw_text: bool = False` as a new parameter to
+    `get_symbol()` and a new optional field to `server.py`'s `GetSymbolInput` schema (default
+    `False`/absent). When `False` (the new default), `raw_text` is omitted from the response
+    entirely (not merely emptied - a caller must not be able to tell "opted out" apart from "field
+    didn't exist before this card" by checking for an empty string; omit the field/key, or set it
+    to a clearly-documented sentinel your own choice, report which and why). When `True`, behavior
+    is byte-for-byte identical to today's always-on behavior. Update `TOOL_DESCRIPTIONS["get_symbol"]`
+    to document the new parameter. This is a DELIBERATE default-response-shape change - do not try
+    to make it backward-compatible by keeping the old default; the whole point is shrinking the
+    default response.
+  - >-
+    (2) `confidence` for every source: extend `ExampleMatch.confidence`'s assignment so EVERY
+    match (lexical and vector) gets a real, non-empty value distinguishing at least "confident"
+    from "loose"/"partial" lexical matches (reuse whatever quality signal is already closest to
+    hand for a lexical match - `match_basis`, `coverage`, or similar; your own choice of the exact
+    two-or-more-value scheme, report which and why) - never leave the lexical branch's confidence
+    as a bare `""` going forward. This REQUIRES updating
+    `test_confidence_is_not_applicable_outside_the_vector_branch` (named in this card's own
+    write_paths) to assert the NEW, intended behavior - rewrite it, do not delete it, and name the
+    rewritten test's own docstring explaining this is a deliberate TC-688/RT3 reversal of TC-584's
+    original scope, with a citation to this card.
+  - >-
+    (3) `kind` leak fix: replace both `"kind": cnode.type` call sites in `api_surface.py` with a
+    clean, documented kind string consistent with this file's OWN existing convention (11+ other
+    call sites already use `"property"`/`"function"`/`"constant"`/`"field"`/`"type_item"`/
+    `"record_component"` - `"type_item"` at a sibling call site already covers a similar
+    type-declaration case; use it or justify a different, equally clean choice, report which).
+    Never leak `cnode.type` (or any other raw tree-sitter/clang node-type string) into a served
+    chunk again - grep the whole file for `cnode.type`/`.type` used as a `"kind"` value after your
+    change and confirm zero remaining raw leaks.
+  - >-
+    (4) one reason enum: add named constants unifying every "no verified example" reason string
+    behind one real, importable set (e.g. a small `Enum`/`Literal`/frozen set of named constants -
+    your own choice of mechanism, report which and why) that every real call site in
+    `find_examples.py` uses, replacing the 4 independently-worded strings you found. The caller-
+    visible TEXT of each distinct reason may stay worded as it is today (do not invent new prose
+    you have not measured against real pilot behavior) - the fix is giving each one a single,
+    stable, named identity a caller can match against, not rewording the messages themselves.
+  - >-
+    Write real, deterministic unit tests in the 3 named test files proving: (a) `get_symbol`
+    without `include_raw_text` omits `raw_text` from the response, with `include_raw_text=True`
+    byte-for-byte reproducing today's always-on output; (b) a real lexical `find_examples` match
+    now gets a real, non-empty, documented confidence value, distinct from a vector match's own
+    value; (c) the rewritten `test_confidence_is_not_applicable_outside_the_vector_branch` passes
+    against the new behavior with a clear docstring citing this card; (d) both `api_surface.py`
+    kind-leak call sites now emit the clean replacement string, verified against a real or
+    representative C++ `using`/`typedef`-alias fixture; (e) `find_examples`'s 4 real reason
+    call sites now each reference one of the new named constants, and
+    `tests/mcp/test_tool_surface_truthful.py` (if it checks response-shape/description content at
+    all - read it first) is not broken by the `include_raw_text` parameter addition.
+  - >-
+    MEASURE: re-run `tests/mcp/tools/test_round3_retrieval_corpus.py`,
+    `tests/mcp/tools/test_find_examples_title_anchor.py`,
+    `tests/mcp/tools/test_find_examples_code_anchor.py`,
+    `tests/mcp/tools/test_find_examples_symbol_aware_matching.py`,
+    `tests/mcp/test_tool_surface_truthful.py`, and any other existing test exercising `get_symbol`'s
+    `raw_text` field or `find_examples`'s `confidence` field (grep `tests/` for both names first -
+    do not guess the list) BEFORE and AFTER your change, and report real pass/fail counts.
+    Decision E (never regress) applies to everything EXCEPT the one test this card deliberately,
+    knowingly rewrites (`test_confidence_is_not_applicable_outside_the_vector_branch`) - name every
+    other test whose assertion changes, if any, and justify each one individually; an unplanned
+    change elsewhere is a real regression, not an acceptable side effect of this card.
+actions:
+  - >-
+    Close RT3's 4 real, scoped contract items: make `get_symbol`'s `raw_text` opt-in (3D-NET-014),
+    give every `find_examples` match a real confidence value (SLIDES-NET-005) - both explicitly
+    pre-authorized reversals of a 2026-11-01 deferral, not fresh unapproved risk - stop
+    `api_surface.py` from leaking 2 raw tree-sitter node-type strings as `kind`, and unify
+    `find_examples`'s 4 independent "no verified example" reason strings behind one named set of
+    constants. "members documented/renamed" is excluded, too vague to scope safely here.
+checks:
+  - command: '{python} -m pytest tests/mcp/tools/test_get_symbol_raw_text_opt_in.py tests/mcp/tools/test_find_examples_verified_only.py -q -rfE -p no:cacheprovider'
+    expect: 'exit 0'
+    timeout_seconds: 240
+    junitxml: true
+    proves:
+      - REQ-G3-016
+  - command: '{python} -m pytest tests/mcp/tools/test_round3_retrieval_corpus.py tests/mcp/tools/test_find_examples_title_anchor.py tests/mcp/tools/test_find_examples_code_anchor.py tests/mcp/tools/test_find_examples_symbol_aware_matching.py tests/mcp/test_tool_surface_truthful.py -q -rfE -p no:cacheprovider'
+    expect: 'exit 0'
+    timeout_seconds: 900
+    junitxml: true
+    proves:
+      - REQ-G3-016
+min_tests: 6
+requires:
+  - python
+network: false
+negative_control:
+  mutate: |
+    python -X utf8 -c "import pathlib; p = pathlib.Path('src/foss_mcp/mcp/tools/get_symbol.py'); s = p.read_text(encoding='utf-8'); old = 'include_raw_text'; assert s.count(old) >= 1, 'the required include_raw_text parameter was not found as expected - if your real code names this differently, anchor your own mutate on your own real literal instead and note the substitution in your closeout'; s2 = s.replace(old, 'include_raw_textDISABLED', s.count(old)); assert s2 != s; p.write_text(s2, encoding='utf-8')"
+  rationale: >-
+    Renames every reference to the new `include_raw_text` parameter, so get_symbol can no longer
+    accept it and any test exercising the opt-in behavior fails (NameError/TypeError at the call
+    site or a test asserting the new default-omitted behavior breaks). Tests of the other 3 items
+    (confidence, kind leak, reason enum) that do not depend on this exact name may be unaffected -
+    acceptable, since this card requires at least the raw_text-specific tests to fail, not every
+    test in the file.
+evidence:
+  - evidence/build/G3/TC-688/receipt.json
+closeout:
+  - >-
+    `get_symbol`'s `raw_text` is now opt-in (default omitted, shrinking every default response)
+    and every `find_examples` match now carries a real confidence value - both deliberate,
+    pre-authorized reversals of a 2026-11-01 deferral recorded for exactly this card. A raw
+    tree-sitter node-type leak in `api_surface.py`'s `kind` field is fixed at its only 2 real call
+    sites, and `find_examples`'s 4 independent "no verified example" reason strings are unified
+    behind one named set of constants. "members documented/renamed" remains open, deliberately
+    excluded as too vague to scope safely in this card.
+recovery: Re-run from a clean tree.
