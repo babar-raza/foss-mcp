@@ -1,0 +1,138 @@
+id: TC-692
+gate: G3
+lane: verification
+purpose: >-
+  O8, first half (oracle disagreement remediation, section 2.3: "hollow-pass guard (fails if
+  `checked` is 0 or below a floor, so `cells/typescript`/`tex/python` cannot pass empty)"). O8's
+  dependencies (`O5`=`TC-689`, `O6`=`TC-690`, `O7`=`TC-691`) are all done. INVESTIGATED first, not
+  guessed: `scripts/release/source_differential.py`'s `DiffCounts.checked` field (incremented once
+  per real oracle member actually compared, ~line 207) exists and flows into every `PilotReport`,
+  but `evaluate_ceilings()` (line 589) iterates only `CATEGORIES` (missing/extra/signature/static/
+  default/enum_value) - `checked` is explicitly excluded from ceiling evaluation
+  (`NON_CATEGORY_COUNT_FIELDS`, line 126, by deliberate prior design: it is a count of WORK DONE,
+  never a count of disagreements). Confirmed via `TC-595`'s own real fleet-wide run (commit
+  `5c8bc6fe`, cited in `docs/RELEASE.md`'s REQ-G3-009 section): `cells/typescript` compared
+  `checked=0` real members (its upstream `package.json` "main" entry is a demo script, not a
+  barrel re-export, so the TypeScript enumerator - correctly, by its own scoping design - never
+  reaches the library's real surface) and currently reports `status: "pass"`, `0 disagreements` -
+  a HOLLOW pass: there is nothing to disagree about because nothing was checked, not because the
+  fixture is faithful. `PilotReport.passed` (line 613: `extractor_version_reason is None and not
+  self.reasons`) has no way to know this, because nothing ever adds a reason for `checked == 0`.
+
+  Grepped `tests/release/test_source_differential.py` for "floor"/"hollow": zero hits - no
+  existing test or mechanism protects against this today, and no existing test currently asserts a
+  specific pass/fail verdict for `cells/typescript` or `tex/python` by name (confirmed before
+  authoring this card - this fix needs no collateral change to any existing pinned assertion).
+
+  Scoped to EXACTLY the literal, unconditional half of O8's own text: "`checked` is 0" is ALWAYS a
+  hollow pass, regardless of language or pilot, and must stop reporting `status: "pass"`. The
+  second, harder half ("or below a floor" - a pilot-specific minimum, which `tex/python`'s
+  `checked=7` genuinely needs, since 7 real classes compared out of its full real surface is
+  PARTIAL, not zero, but still incomplete due to a real upstream syntax error already disclosed in
+  `docs/RELEASE.md`) is DELIBERATELY EXCLUDED from this card: a real per-pilot floor needs real
+  per-pilot expected-minimum data, which does not exist as committed structured data anywhere today
+  (investigated: `tests/fixtures/oracle/` does not exist; the only record of real per-pilot
+  `checked` counts is the TC-595 commit message's prose). That data belongs to O8's own second half
+  (the per-pilot snapshot + ratchet mechanism, a separate, larger future card: "O8b" in this
+  session's own tracking) - this card does not invent arbitrary floor numbers to fill that gap.
+depends_on:
+  - TC-682
+  - TC-689
+  - TC-691
+write_paths:
+  - scripts/release/source_differential.py
+  - tests/release/test_source_differential.py
+satisfies:
+  - REQ-G3-012
+source_refs:
+  - file: docs/DECISION_LOG.md
+    anchor: >-
+      ## 2026-11-02 — Round-3 independent re-audit adopted; a real regression found and given top
+      priority; the "no pilot ever gets worse" rule adopted project-wide (operator, supervisor)
+    sha256: b750b8bf0df25b17bf66d014895ecb42952050c7cc63773f56249c4a1c551791
+inputs:
+  - >-
+    READ FIRST: `DiffCounts` (search for `class DiffCounts`), `CATEGORIES`/`NON_CATEGORY_COUNT_FIELDS`
+    (~line 114-126, read the comment explaining WHY `checked` is deliberately excluded from ceiling
+    evaluation - that reasoning is still correct and must not be reverted; this card ADDS a separate
+    guard, it does not fold `checked` into `CATEGORIES`), `evaluate_ceilings()` (~line 589),
+    `PilotReport`/`.passed`/`.as_dict()` (~line 605-627), and `verify_pilot()` (~line 630) in full.
+    Then read `docs/RELEASE.md`'s REQ-G3-009 section for the real, already-disclosed
+    `cells/typescript` (checked=0) and `tex/python` (checked=7 of real total) hollow-pass findings
+    this card is closing the mechanized gap for - the PROSE disclosure already exists; this card
+    makes the oracle's own machine verdict stop contradicting it.
+  - >-
+    REPRODUCE FIRST: confirm directly (a throwaway script or an existing test run is fine) that
+    today, a `PilotReport` built from a `DiffCounts` with every category at 0 and `checked=0`
+    reports `passed == True` / `status == "pass"` - this is the literal hollow-pass bug, not a
+    hypothetical.
+  - >-
+    FIX: add a new function named EXACTLY `evaluate_hollow_pass(counts: DiffCounts) -> list[str]`
+    (this exact name is required, not a suggestion - the card's own negative control anchors on it
+    literally), returning a single explanatory reason string (e.g. "checked count is 0 - no
+    real member was compared; this is a hollow fidelity check, not a real fidelity confirmation") when
+    `counts.checked == 0`, else an empty list - mirroring `evaluate_ceilings`'s own shape (a list of
+    human-readable reason strings) so it composes naturally with the existing `reasons` mechanism.
+    Call it from `verify_pilot()` and extend the existing `reasons` list with its result, so
+    `PilotReport.passed`/`.as_dict()`'s `status` field correctly flip to `False`/`"fail"` for any
+    pilot with `checked == 0` - no new status enum, no change to `PilotReport`'s own shape, reusing
+    the exact mechanism `evaluate_ceilings` already feeds. Do NOT add `checked` to `CATEGORIES` and
+    do NOT change `evaluate_ceilings` itself - this is a separate, additive guard.
+  - >-
+    Write real, deterministic tests proving: (a) a `DiffCounts` with `checked=0` and every category
+    at 0 now produces `PilotReport.passed == False` with a reason naming the hollow pass explicitly
+    (not a generic/unrelated reason); (b) a `DiffCounts` with `checked=1` (or more) and every
+    category at 0 still produces `PilotReport.passed == True` (the normal, genuine clean-pass case,
+    e.g. the real `cells/go` shape - checked=79, 0 disagreements - must NOT regress); (c) a
+    `DiffCounts` with `checked=0` but ALSO a real category disagreement (an edge case that cannot
+    happen in practice today but should not silently produce a confusing double-counted or
+    contradictory reason list - verify the hollow-pass reason and the category reasons simply
+    coexist in the same `reasons` list, nothing more elaborate needed); (d) run the real
+    `cells/typescript` and `tex/python` fixtures/oracle inputs (however the existing test file
+    already exercises real pilots - follow its own established pattern, do not invent a new
+    fixture-loading mechanism) through `verify_pilot` and confirm `cells/typescript` now reports
+    `status == "fail"` with the hollow-pass reason, while `tex/python` (checked=7, not 0) still
+    reports whatever its real category counts dictate - UNCHANGED by this card, since this card's
+    guard only fires on checked==0, exactly as scoped.
+  - >-
+    MEASURE: re-run the full `tests/release/test_source_differential.py` suite before and after
+    your change and report real pass/fail counts - confirm no existing test's expected `status`/
+    `passed` value for any OTHER pilot (one with `checked > 0`) changes. The only intended behavior
+    change is for pilots whose real `checked` count is exactly 0.
+actions:
+  - >-
+    Add a hollow-pass guard to the independent oracle: a pilot whose oracle run compares zero real
+    members (`checked == 0`) now reports `status: "fail"` with an explicit reason, instead of the
+    current, misleading `status: "pass"` / "0 disagreements". Scoped to exactly this literal case;
+    a pilot-specific floor for a PARTIAL (nonzero but incomplete) scope like `tex/python`'s is
+    deliberately left to a future, separate card once real per-pilot floor data exists.
+checks:
+  - command: '{python} -m pytest tests/release/test_source_differential.py -q -rfE -p no:cacheprovider'
+    expect: 'exit 0'
+    timeout_seconds: 300
+    junitxml: true
+    proves:
+      - REQ-G3-012
+min_tests: 4
+requires:
+  - python
+network: false
+negative_control:
+  mutate: |
+    python -X utf8 -c "import pathlib; p = pathlib.Path('scripts/release/source_differential.py'); s = p.read_text(encoding='utf-8'); old = 'evaluate_hollow_pass'; assert s.count(old) >= 1, 'the required evaluate_hollow_pass function was not found as expected - if your real code names this differently despite the card requiring this exact name, anchor your own mutate on your own real literal instead and note the substitution in your closeout'; s2 = s.replace(old, 'evaluate_hollow_passDISABLED', s.count(old)); assert s2 != s; p.write_text(s2, encoding='utf-8')"
+  rationale: >-
+    Renames every reference to the required `evaluate_hollow_pass` function, so it can no longer be
+    called or defined under its real name - this must make the new tests asserting a hollow pilot
+    (checked=0) now reports `status: "fail"` break (either a NameError at the call site, or the
+    guard silently never firing so the old misleading `status: "pass"` reappears), proving the new
+    mechanism, not just an import, is under test.
+evidence:
+  - evidence/build/G3/TC-692/receipt.json
+closeout:
+  - >-
+    The independent oracle's hollow-pass guard now catches `checked == 0`: a pilot whose oracle run
+    compared zero real members reports `status: "fail"` with an explicit reason, never a silent
+    `"pass"` - closes O8's first half. `cells/typescript`'s real hollow pass (already disclosed in
+    prose) now also fails mechanically. A pilot-specific floor for partial-but-nonzero scope
+    (`tex/python`) is deliberately deferred to a future card with real per-pilot floor data.
+recovery: Re-run from a clean tree.
