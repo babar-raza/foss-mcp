@@ -1345,6 +1345,17 @@ def _extract_enum_members(node, language: str) -> list[dict[str, str]]:
             name = _node_name(ch, language) or node_text(ch).strip()
             val_node = child_by_field(ch, "value")
             val = node_text(val_node) if val_node else ""
+            if not val and language == "java" and ch.type == "enum_constant":
+                # TC-689 (O5): tree-sitter-java's `enum_constant` node has no `value` field at
+                # all - only `name`, `arguments`, `body` - so a constant declared with
+                # constructor arguments (`RED(255, 0, 0)`) always missed the lookup above and
+                # was silently served with an empty value. Capture the real argument text
+                # (parens kept, matching how Rust's `payload` is rendered verbatim) when
+                # present and non-empty; a parameterless constant (no `arguments` field, or an
+                # empty `argument_list`) keeps `value == ""` exactly as before.
+                args_node = child_by_field(ch, "arguments")
+                if args_node is not None and args_node.named_child_count > 0:
+                    val = node_text(args_node)
             if name and name not in ("{", "}", ","):
                 members.append({"name": name, "value": val})
     return members
