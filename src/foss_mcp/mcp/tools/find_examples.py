@@ -68,8 +68,17 @@ excluded outright, so a pilot whose only real example material happens to live u
 heading still answers; and (2) adds ``ExampleMatch.confidence`` (additive, last field): ``"confident"``
 or ``"loose"`` for a vector match, depending on where its score sits relative to
 ``_VECTOR_CONFIDENT_FLOOR``, so a caller can tell a strong match from a borderline one without
-reading the raw ``coverage`` number against a hidden mental scale. ``confidence`` is ``""`` for an
-exact or lexical match - the concept is specific to the vector fallback's cosine-similarity scale.
+reading the raw ``coverage`` number against a hidden mental scale. At the time, ``confidence`` was
+``""`` for an exact or lexical match - the concept was scoped to the vector fallback's own
+cosine-similarity scale only.
+
+TC-688 (RT3, SLIDES-NET-005) deliberately reverses that last scoping decision, pre-authorized by
+``docs/DECISION_LOG.md``'s 2026-11-01 "Workstream K" entry: ``confidence`` is now set for every
+source, not only ``"vector"``. The exact branch is always ``"confident"`` (definitionally exact);
+the lexical branch is ``"confident"`` when its own ``match_basis`` is title-anchored (the same
+strength of evidence the exact branch has) and ``"loose"`` when it was admitted on the coverage
+floor or a code anchor alone, with no title relation to the query (see ``_lexical_confidence``).
+``confidence`` is never ``""`` for a real match returned by this function again.
 
 TC-635 (Q10, G3/REQ-G3-011) adds two more, strictly additive admission paths beside the existing
 title anchor for the lexical stage's per-document gate - never replacing or weakening it, and never
@@ -133,6 +142,7 @@ import os
 import re
 from collections.abc import Mapping
 from dataclasses import dataclass
+from enum import Enum
 
 from foss_mcp.indexing.gateway_embedding_provider import (
     _API_KEY_ENV,
@@ -339,6 +349,22 @@ MATCH_BASIS_CODE_WORD = "code_identifier_in_example_code"
 # for a genuinely new class of match only, never a relabelling of an existing one.
 MATCH_BASIS_RARE_CODE_WORD = "rare_code_word_in_example_code"
 
+# TC-688 (RT3, SLIDES-NET-005): every match_basis a lexical answer can carry; anchored on a word
+# of the example's own TITLE (the exact query, or a short query's own title word) is the strongest
+# evidence a lexical match can have - confident. Admitted on the coverage floor alone, or on a
+# code-identifier/rare-code-word anchor with no title relation to the query at all, is real (it
+# cleared its own floor) but weaker evidence - loose. Reuses match_basis, the closest existing
+# quality signal a lexical match already carries, rather than inventing a new one.
+_LEXICAL_CONFIDENT_BASES = frozenset({MATCH_BASIS_EXACT_TITLE, MATCH_BASIS_TITLE_WORD})
+
+
+def _lexical_confidence(match_basis: str) -> str:
+    """``MATCH_CONFIDENCE_CONFIDENT`` when *match_basis* is title-anchored, else
+    ``MATCH_CONFIDENCE_LOOSE`` - see ``_LEXICAL_CONFIDENT_BASES`` above and the ``ExampleMatch``
+    class docstring's own ``confidence`` section."""
+    return MATCH_CONFIDENCE_CONFIDENT if match_basis in _LEXICAL_CONFIDENT_BASES else MATCH_CONFIDENCE_LOOSE
+
+
 # TC-672: measured directly this session, re-running this card's own ratchet bundle
 # (test_find_examples_title_anchor.py) against the real 40-pilot fleet: a per-SCOPE code-document
 # frequency ratio alone - even combined with a minimum-corpus-size floor - cannot separate a
@@ -530,12 +556,24 @@ class ExampleMatch:
     point that the snippet does not show.
 
     ``confidence`` (TC-584, additive, last field) is ``MATCH_CONFIDENCE_CONFIDENT`` or
-    ``MATCH_CONFIDENCE_LOOSE`` for ``source="vector"`` - whether ``coverage`` (the cosine similarity)
-    is at or above ``_VECTOR_CONFIDENT_FLOOR`` - and ``""`` for ``source="exact"`` or
-    ``source="lexical"``: the confident/loose distinction is specific to the vector fallback's own
-    cosine-similarity scale, which is not comparable to a lexical coverage fraction. Always set to one
-    of the two named strings for a vector match - never silently absent for one case and present for
-    the other.
+    ``MATCH_CONFIDENCE_LOOSE`` for every source now (TC-688, RT3, SLIDES-NET-005 - a deliberate,
+    pre-authorized reversal of TC-584's original "vector only" scope; see
+    ``docs/DECISION_LOG.md``'s 2026-11-01 "Workstream K" entry):
+
+    - ``source="vector"``: unchanged - whether ``coverage`` (the cosine similarity) is at or above
+      ``_VECTOR_CONFIDENT_FLOOR``.
+    - ``source="exact"``: always ``MATCH_CONFIDENCE_CONFIDENT`` - the query WAS the example's own
+      title, definitionally exact, the strongest evidence this tool can have.
+    - ``source="lexical"``: ``MATCH_CONFIDENCE_CONFIDENT`` when ``match_basis`` is
+      ``exact_title``/``title_word_and_example_text`` (the match is anchored on a word of the
+      example's own TITLE - the same strong, title-level evidence the exact branch has);
+      ``MATCH_CONFIDENCE_LOOSE`` otherwise (``query_terms_in_example_text``,
+      ``code_identifier_in_example_code``, ``rare_code_word_in_example_code`` - admitted on
+      coverage or a code-anchor alone, with no title relation to the query). See
+      ``_lexical_confidence`` below - it reuses ``match_basis``, the closest existing quality
+      signal a lexical match already carries, rather than inventing a new one.
+
+    Never ``""`` for any source now - always one of the two named strings.
 
     ``known_defects`` (TC-670, G3/REQ-G3-011, additive, last field, defaults ``()``) is a rendered
     disclosure line (``get_symbol.known_defect_lines``'s own wording - the same function
@@ -563,11 +601,41 @@ class ExampleMatch:
     language: str = ""
     source_commit: str = ""
     verification: str = ""
-    # TC-584: "confident"/"loose" for a vector match (see _VECTOR_CONFIDENT_FLOOR), "" otherwise.
+    # TC-584/TC-688: "confident" or "loose" for EVERY source (see the class docstring); "" only for a
+    # hand-built match that never went through find_examples() at all.
     confidence: str = ""
     # TC-670: a known-defect disclosure line for every real symbol the example's own CODE names;
     # () when none applies, or for a vector match (not wired by this card).
     known_defects: tuple[str, ...] = ()
+
+
+class ExampleMissReason(str, Enum):
+    """TC-688 (RT3): one stable, importable identity per distinct "no verified example" reason
+    this tool reports - before this card, ``NoExampleFound.reason`` only ever carried free text:
+    the module constant ``_NO_MATCH_REASON``, the near-identical-but-separately-spelled bare
+    field default below, ``NOT_CONFIGURED_REASON``, and one inline literal in ``find_examples()``
+    itself - four independently-worded strings with no shared, matchable identity. Each member's
+    VALUE here is exactly the text this tool already served before this card (not reworded) - the
+    only change is giving each one a name. Being ``(str, Enum)`` (the identical pattern this
+    project's own ``revision_negotiation.FallbackReason`` already uses), a member compares equal
+    to, formats as, and JSON-encodes as its own plain string value, so every existing caller or
+    test comparing ``result.reason == "no verified example matches this query"`` keeps working
+    unchanged - this is a reversal of TC-584's "confidence not applicable" framing for a
+    different, unrelated field, not a rename of any caller-visible text.
+
+    NO_MATCH: the general miss - nothing (lexical or vector) answered the query.
+    NOT_CONFIGURED: the general miss's own by-design variant for a lexical-only deployment
+    (TC-562) - no embedding gateway is configured, so the vector stage was never asked.
+    NO_EXAMPLES_IN_GENERATION: the generation holds no verified example at all (TC-381) - no
+    vector/lexical ranking is even attempted.
+    """
+
+    NO_MATCH = "no verified example matches this query"
+    NOT_CONFIGURED = (
+        "no verified example matches this query (semantic search is not configured in this "
+        "deployment: examples are matched on their words only)"
+    )
+    NO_EXAMPLES_IN_GENERATION = "no verified example exists in this generation"
 
 
 @dataclass(frozen=True)
@@ -580,23 +648,25 @@ class NoExampleFound:
     ``vector_fallback`` (TC-508, additive) is ``None`` when the semantic stage ran normally or was
     never applicable, and otherwise says why it was skipped: ``skipped_timeout``,
     ``skipped_circuit_open`` or ``skipped_error``.
+
+    ``reason``'s default (TC-688) is ``ExampleMissReason.NO_MATCH`` - the SAME named identity
+    ``find_examples()`` itself now assigns explicitly wherever this exact text was previously
+    typed out a second time, rather than a separately-spelled literal that happened to read the
+    same.
     """
 
     scope: Scope
     query: str
     found: bool = False
-    reason: str = "no verified example matches this query"
+    reason: str = ExampleMissReason.NO_MATCH
     vector_fallback: str | None = None
 
 
-_NO_MATCH_REASON = "no verified example matches this query"
-
 # TC-562: the by-design lexical-only deployment (no embedding gateway configured) is not a failure.
 STATUS_NOT_CONFIGURED = "not_configured"
-NOT_CONFIGURED_REASON = (
-    "no verified example matches this query (semantic search is not configured in this deployment: "
-    "examples are matched on their words only)"
-)
+# TC-688: kept as a public alias of ExampleMissReason.NOT_CONFIGURED's own value - nothing else in
+# this codebase imports this name (confirmed), but the name itself predates this card.
+NOT_CONFIGURED_REASON = ExampleMissReason.NOT_CONFIGURED
 _SKIP_WORDS = {
     STATUS_SKIPPED_TIMEOUT: "timeout",
     STATUS_SKIPPED_CIRCUIT_OPEN: "circuit open",
@@ -738,6 +808,8 @@ def find_examples(
                 language=_PLATFORM_LANGUAGE.get(scope.platform, ""),
                 source_commit=_source_commit(text),
                 verification=_verification_note(text),
+                # TC-688 (RT3, SLIDES-NET-005): always confident - definitionally exact.
+                confidence=_lexical_confidence(MATCH_BASIS_EXACT_TITLE),
                 # TC-670: disclose a known defect for any real symbol this example's own CODE names.
                 known_defects=_example_known_defects(scope, _real_symbol_fqns(documents), exact_code, text),
             )
@@ -747,7 +819,7 @@ def find_examples(
         doc_id for doc_id, document in documents.items() if is_verified_example_text(document["text"])
     ]
     if not example_doc_ids:
-        return NoExampleFound(scope, original_query, reason="no verified example exists in this generation")
+        return NoExampleFound(scope, original_query, reason=ExampleMissReason.NO_EXAMPLES_IN_GENERATION)
 
     # TC-516: a query with no distinctive term ("Example:", "pdf examples") names no task, so no example
     # can answer it; and relevance is IDF-weighted with every identifier-like query word required.
@@ -901,9 +973,9 @@ def find_examples(
         vector_matches, note = _vector_fallback(manifest, scope, active_generation_id, query, top_k)
         if vector_matches:
             return vector_matches
-        reason = _NO_MATCH_REASON
+        reason: str = ExampleMissReason.NO_MATCH
         if note == STATUS_NOT_CONFIGURED:
-            reason = NOT_CONFIGURED_REASON
+            reason = ExampleMissReason.NOT_CONFIGURED
         elif note in _SKIP_WORDS:
             reason = f"{reason} (semantic fallback skipped: {_SKIP_WORDS[note]})"
         return NoExampleFound(scope, original_query, reason=reason, vector_fallback=note)
@@ -939,6 +1011,9 @@ def find_examples(
                 language=_PLATFORM_LANGUAGE.get(scope.platform, ""),
                 source_commit=_source_commit(text),
                 verification=_verification_note(text),
+                # TC-688 (RT3, SLIDES-NET-005): confident when title-anchored, loose otherwise -
+                # see _lexical_confidence and the ExampleMatch class docstring.
+                confidence=_lexical_confidence(match_basis),
                 # TC-670: disclose a known defect for any real symbol this example's own CODE names.
                 known_defects=_example_known_defects(scope, fqns_by_short, lexical_code, text),
             )

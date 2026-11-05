@@ -637,10 +637,80 @@ def test_a_loose_match_and_a_confident_match_are_each_disclosed_explicitly(
 
 
 def test_confidence_is_not_applicable_outside_the_vector_branch(tmp_path: Path) -> None:
-    store = _two_example_store(tmp_path)
+    """TC-688 (RT3, SLIDES-NET-005): a DELIBERATE reversal of this test's own original scope.
+
+    Before this card, ``confidence`` was ``""`` for every exact or lexical match by design (TC-584
+    scoped the "confident"/"loose" disclosure to the vector fallback only) - this test's own
+    original name and body pinned exactly that. ``docs/DECISION_LOG.md``'s 2026-11-01 "Workstream
+    K" entry explicitly deferred closing this gap (SLIDES-NET-005) "not now, in the final hours
+    before a public demo deployment" and named it real, measured future work for whoever picked up
+    RT3 next - this card (G3/TC-688) is that work, pre-authorized by that same entry.
+
+    The exact branch is now always ``MATCH_CONFIDENCE_CONFIDENT`` (the query WAS the example's own
+    title - definitionally exact). The lexical branch now also gets a real value, reusing its own
+    ``match_basis`` (TC-543) as the quality signal: ``MATCH_CONFIDENCE_CONFIDENT`` when anchored on
+    a word of the example's TITLE, ``MATCH_CONFIDENCE_LOOSE`` when admitted on the coverage floor
+    alone with no title relation to the query at all. The function's own original name is kept
+    unchanged, per this card's own instruction - only the body and intent are reversed.
+    """
+    # A richer body than README_BODY above - real text genuinely rich enough that a longer,
+    # multi-term query (below) clears the coverage floor on words alone, with no title relation.
+    rich_body = (
+        "FQN: Example: Merge Two Documents\n"
+        "Kind: verified_example\n"
+        "Merges two documents into one combined output file reliably.\n\n"
+        "Example:\ndocument.Merge(other)\n"
+        "Source-Commit: abc123"
+    )
+    chunks = _chunks("Merge Two Documents", rich_body)
+    store = _publish_with_vectors(tmp_path, chunks, {chunks[0].text: (1.0, 0.0)})
 
     exact = find_examples(store, PDF_NET, "Example: Merge Two Documents")
-    lexical = find_examples(store, PDF_NET, "merge two documents")
+    title_anchored_lexical = find_examples(store, PDF_NET, "merge two documents")
+    # 5 distinctive terms (above TITLE_ANCHOR_MAX_TERMS=2): real coverage-floor-only admission,
+    # genuinely weaker evidence than a short, title-anchored query - the real "loose" lexical case.
+    coverage_only_lexical = find_examples(store, PDF_NET, "merge two documents into a combined output file")
 
-    assert isinstance(exact, list) and exact[0].source == "exact" and exact[0].confidence == ""
-    assert isinstance(lexical, list) and lexical[0].source == "lexical" and lexical[0].confidence == ""
+    assert isinstance(exact, list) and exact[0].source == "exact"
+    assert exact[0].confidence == MATCH_CONFIDENCE_CONFIDENT
+
+    assert isinstance(title_anchored_lexical, list) and title_anchored_lexical[0].source == "lexical"
+    assert title_anchored_lexical[0].match_basis == "title_word_and_example_text"
+    assert title_anchored_lexical[0].confidence == MATCH_CONFIDENCE_CONFIDENT
+
+    assert isinstance(coverage_only_lexical, list) and coverage_only_lexical[0].source == "lexical"
+    assert coverage_only_lexical[0].match_basis == "query_terms_in_example_text"
+    assert coverage_only_lexical[0].confidence == MATCH_CONFIDENCE_LOOSE
+
+    # Never "" again for any of these three real, distinct cases - and the lexical loose case is a
+    # real, independently-computed value, not a copy of the lexical confident case's own value.
+    assert "" not in {
+        exact[0].confidence,
+        title_anchored_lexical[0].confidence,
+        coverage_only_lexical[0].confidence,
+    }
+    assert title_anchored_lexical[0].confidence != coverage_only_lexical[0].confidence
+
+
+def test_a_lexical_matchs_confidence_is_computed_independently_of_a_vector_matchs(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """TC-688 (RT3): proves (b) of this card's own measure requirements - a real lexical match
+    gets a real, non-empty, documented confidence value, and it is NOT copied from or dependent on
+    whatever a vector match in the same generation would compute. The two sources use two
+    different signals (``match_basis`` for lexical, the cosine score against
+    ``_VECTOR_CONFIDENT_FLOOR`` for vector) that happen to share the same two-value vocabulary
+    (``MATCH_CONFIDENCE_CONFIDENT``/``MATCH_CONFIDENCE_LOOSE``) - never the same computation."""
+    store = _two_example_store(tmp_path)
+
+    lexical = find_examples(store, PDF_NET, "merge two documents")
+    _use_query_vector(monkeypatch, (0.9, (1.0 - 0.9**2) ** 0.5))
+    vector = find_examples(store, PDF_NET, NO_LEXICAL_HIT_QUERY)
+
+    assert isinstance(lexical, list) and lexical[0].source == "lexical"
+    assert isinstance(vector, list) and vector[0].source == "vector"
+    assert lexical[0].confidence in (MATCH_CONFIDENCE_CONFIDENT, MATCH_CONFIDENCE_LOOSE)
+    assert vector[0].confidence in (MATCH_CONFIDENCE_CONFIDENT, MATCH_CONFIDENCE_LOOSE)
+    # Different match_basis proves these are two independent computations, not one value
+    # propagated from the other source.
+    assert lexical[0].match_basis != vector[0].match_basis

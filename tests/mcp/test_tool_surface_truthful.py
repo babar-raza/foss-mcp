@@ -488,3 +488,42 @@ def test_server_construction_rejects_a_schema_that_disagrees_with_its_wrapper() 
     drifted = {**advertised, "required": ["query", "top_k"]}
     with pytest.raises(RuntimeError, match="search_symbols"):
         _assert_schema_matches_wrapper("search_symbols", drifted, schema_for(wrapper))
+
+
+# ---------------------------------------------------------------------
+# TC-688 (3D-NET-014, RT3): get_symbol's include_raw_text opt-in does not break the truthful
+# surface this whole file pins - proof (e) of this card's own measure requirements.
+# ---------------------------------------------------------------------
+
+
+def test_get_symbols_advertised_schema_gained_include_raw_text_truthfully() -> None:
+    schema = tool_input_schema("get_symbol")
+    assert set(schema["properties"]) == {"fqn", "include_raw_text"}
+    assert schema["required"] == ["fqn"]
+    prop = schema["properties"]["include_raw_text"]
+    assert prop["type"] == "boolean" and prop["default"] is False and prop["description"]
+
+
+def test_get_symbol_through_the_real_server_omits_raw_text_by_default_and_includes_it_when_asked() -> None:
+    server = create_server(PDF_NET_CONFIG, _store())
+    default_call = _call(server, "get_symbol", {"fqn": "Aspose.Pdf.Document"})
+    assert default_call.is_error is False
+    assert "raw_text" not in default_call.structured_content["result"]
+
+    opted_in = _call(server, "get_symbol", {"fqn": "Aspose.Pdf.Document", "include_raw_text": True})
+    assert opted_in.is_error is False
+    assert isinstance(opted_in.structured_content["result"]["raw_text"], str)
+    assert opted_in.structured_content["result"]["raw_text"]
+    # Every other key the structured fields produce is identical between the two calls -
+    # raw_text's own presence is the only difference this card's flag makes to them.
+    # untrusted_upstream_content (G3/TC-514's response envelope) is excluded from this
+    # comparison on purpose: it marks a chunk-sourced TEXT_KEYS field as untrusted, and with
+    # raw_text omitted, get_symbol's default response carries no such field at all - a real,
+    # separate, already-measured side effect of this card's default-shape change, not a bug
+    # in this proof (see the TC-688 worker report for the full accounting).
+    ignored = {"raw_text", "untrusted_upstream_content"}
+    without_raw_text = {k: v for k, v in opted_in.structured_content["result"].items() if k not in ignored}
+    default_comparable = {
+        k: v for k, v in default_call.structured_content["result"].items() if k not in ignored
+    }
+    assert without_raw_text == default_comparable

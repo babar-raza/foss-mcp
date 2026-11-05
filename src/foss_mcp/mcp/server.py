@@ -78,7 +78,7 @@ from foss_mcp.mcp.sidecar_state import (
 )
 from foss_mcp.mcp.tools.find_examples import find_examples
 from foss_mcp.mcp.tools.get_product_reference import SECTIONS, ProductReferenceInputs, get_product_reference
-from foss_mcp.mcp.tools.get_symbol import get_symbol
+from foss_mcp.mcp.tools.get_symbol import RAW_TEXT_OMITTED, get_symbol
 from foss_mcp.mcp.tools.list_members import list_members
 from foss_mcp.mcp.tools.list_recent_changes import list_recent_changes
 from foss_mcp.mcp.tools.lookup import lookup
@@ -188,8 +188,8 @@ def _wrap_search_symbols(store: GenerationManifestStore, scope: Scope) -> Callab
 
 
 def _wrap_get_symbol(store: GenerationManifestStore, scope: Scope) -> Callable[..., Any]:
-    def get_symbol_tool(*, fqn: str) -> Any:
-        return get_symbol(store, scope, fqn)
+    def get_symbol_tool(*, fqn: str, include_raw_text: bool = False) -> Any:
+        return get_symbol(store, scope, fqn, include_raw_text=include_raw_text)
 
     return get_symbol_tool
 
@@ -491,7 +491,10 @@ TOOL_DESCRIPTIONS: dict[str, str] = {
         "an import path - use get_product_reference with section='install' and the product "
         "README for imports. On a Go or Rust pilot, a chunk's own Qualified: line shows the "
         "symbol's package- or crate-qualified display form for readability only - fqn is always "
-        "the bare identifier shown on that same chunk's FQN: line, never the Qualified: form."
+        "the bare identifier shown on that same chunk's FQN: line, never the Qualified: form. "
+        "By default the response has no raw_text field - bases, methods, properties and members "
+        "already carry everything it would show; pass include_raw_text=true to also get the full "
+        "chunk text verbatim."
     ),
     "list_members": (
         "List every method, property, and enum member a TYPE declares, in declaration order "
@@ -726,6 +729,9 @@ class GetSymbolInput(BaseModel):
     model_config = _STRICT_CLOSED
 
     fqn: str = Field(max_length=_FQN_MAX_LENGTH)
+    # TC-688 (3D-NET-014): opt-in only - the default response no longer carries the full duplicate
+    # chunk text (already present, field for field, in methods/properties/members).
+    include_raw_text: bool = False
 
     @field_validator("fqn")
     @classmethod
@@ -899,6 +905,13 @@ _TOOL_FIELD_DESCRIPTIONS: dict[str, dict[str, str]] = {
             "Case-sensitive; a method or property has no FQN of its own, but <Type>.<member> "
             "is accepted. Verify it with search_symbols if unsure."
         ),
+        "include_raw_text": (
+            "Optional, default false. When true, the response also carries raw_text: the full "
+            "chunk text the structured fields (bases, methods, properties, members) are already "
+            "parsed from. Most callers do not need it - everything it contains is already in "
+            "those structured fields. Omitted from the response entirely when false (not an "
+            "empty string), so a caller can tell not requested apart from an empty field."
+        ),
     },
     "list_members": {
         "fqn": (
@@ -1027,7 +1040,15 @@ def _assert_schema_matches_wrapper(
 
 def _to_jsonable(value: Any) -> Any:
     if dataclasses.is_dataclass(value) and not isinstance(value, type):
-        return {field.name: _to_jsonable(getattr(value, field.name)) for field in dataclasses.fields(value)}
+        # TC-688 (3D-NET-014): a field whose value IS the get_symbol.RAW_TEXT_OMITTED sentinel
+        # (by identity, never by equality) is dropped from the response entirely - the key itself
+        # is absent, not merely null or empty, so a caller can tell "opted out" apart from "field
+        # happened to be empty". Nothing else in this codebase ever produces that exact sentinel.
+        return {
+            field.name: _to_jsonable(getattr(value, field.name))
+            for field in dataclasses.fields(value)
+            if getattr(value, field.name) is not RAW_TEXT_OMITTED
+        }
     if isinstance(value, list | tuple):
         return [_to_jsonable(item) for item in value]
     if isinstance(value, dict):

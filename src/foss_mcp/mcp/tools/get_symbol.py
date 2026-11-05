@@ -18,6 +18,7 @@ import difflib
 import re
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
+from typing import Final
 
 from foss_mcp.indexing.generation_manifest import GenerationManifestStore
 from foss_mcp.indexing.known_defects import KnownDefect, load_known_defects
@@ -54,6 +55,23 @@ _MARKER_START = re.compile(r"\s*\(" + re.escape(NOT_IMPLEMENTED_PHRASE))
 _SOURCE_COMMIT_LINE = re.compile(r"^Source-Commit:\s*(\S+)$", re.MULTILINE)
 
 
+class _Omitted:
+    """TC-688 (3D-NET-014, RT3): marks ``raw_text`` as deliberately left out of a response by
+    ``get_symbol(..., include_raw_text=False)`` - never equal to ``""`` or ``None``, so a caller
+    checking either can never mistake "opted out" for "field happened to be empty" or "field never
+    existed before this card". Identity (``is``), never equality, is what matters: ``server.
+    _to_jsonable`` drops any dict entry whose value IS this exact sentinel (by identity) before a
+    response is rendered to JSON, so an MCP caller who never asked for ``raw_text`` never sees the
+    key at all. Nothing else in this codebase ever constructs or compares against it."""
+
+    def __repr__(self) -> str:
+        return "<raw_text omitted: pass include_raw_text=True to get_symbol to include it>"
+
+
+# One shared instance - this sentinel's only job is identity, so there is never a reason for two.
+RAW_TEXT_OMITTED: Final = _Omitted()
+
+
 @dataclass(frozen=True)
 class SymbolSignature:
     scope: Scope
@@ -66,7 +84,9 @@ class SymbolSignature:
     methods: tuple[str, ...]
     properties: tuple[str, ...]
     members: tuple[str, ...]
-    raw_text: str
+    # TC-688: real chunk text when a caller opts in (``include_raw_text=True``), else
+    # ``RAW_TEXT_OMITTED`` - never ``""``, never silently absent-looking. See ``_Omitted`` above.
+    raw_text: str | _Omitted
     found: bool = True
     # TC-559 (additive): the lines of the chunk that say the symbol is "not implemented in this build" - the
     # type-level ``Limitation: ...`` line, if any, then each member line that carries the phrase. Empty for a
@@ -194,7 +214,13 @@ def known_defect_lines(scope: Scope, fqn: str, text: str) -> tuple[str, ...]:
 
 
 def _parse_signature(
-    scope: Scope, generation_id: str, doc_id: str, chunk_id: str, text: str
+    scope: Scope,
+    generation_id: str,
+    doc_id: str,
+    chunk_id: str,
+    text: str,
+    *,
+    include_raw_text: bool = False,
 ) -> SymbolSignature:
     kind_match = _KIND_LINE.search(text)
     fqn = extract_fqn(text) or ""
@@ -209,7 +235,8 @@ def _parse_signature(
         methods=_extract_block(text, "Methods:"),
         properties=_extract_block(text, "Properties:"),
         members=_extract_block(text, "Members:"),
-        raw_text=text,
+        # TC-688 (3D-NET-014): real text only when the caller opted in - see RAW_TEXT_OMITTED.
+        raw_text=text if include_raw_text else RAW_TEXT_OMITTED,
         limitations=limitation_lines(text),
         known_defects=known_defect_lines(scope, fqn, text),
     )
@@ -314,9 +341,22 @@ def _owners(
 
 
 def _signature_of(
-    scope: Scope, generation_id: str, chunk: _SymbolChunk, requested: str, member: str
+    scope: Scope,
+    generation_id: str,
+    chunk: _SymbolChunk,
+    requested: str,
+    member: str,
+    *,
+    include_raw_text: bool = False,
 ) -> ResolvedSignature:
-    base = _parse_signature(scope, generation_id, chunk.doc_id, chunk.chunk_id, chunk.text)
+    base = _parse_signature(
+        scope,
+        generation_id,
+        chunk.doc_id,
+        chunk.chunk_id,
+        chunk.text,
+        include_raw_text=include_raw_text,
+    )
     member_lines = tuple(_declared_members(chunk.text).get(member, ())) if member else ()
     return ResolvedSignature(
         scope=base.scope,
@@ -384,6 +424,8 @@ def _resolve_name(
     symbols: Sequence[_SymbolChunk],
     requested: str,
     coverage_note: str | None,
+    *,
+    include_raw_text: bool = False,
 ) -> ResolvedSignature | NotFound | None:
     """Resolve a name that is not an indexed FQN (TC-540): the whole name read as a type, else
     ``<owner>.<member>`` / ``<owner>::<member>``. ``None`` means nothing to add to today's NotFound.
@@ -400,7 +442,9 @@ def _resolve_name(
 
     owners, _matched = _owners(symbols, requested)
     if len(owners) == 1:
-        return _signature_of(scope, generation_id, owners[0], requested, "")
+        return _signature_of(
+            scope, generation_id, owners[0], requested, "", include_raw_text=include_raw_text
+        )
     if len(owners) > 1:
         return shared(requested, owners, sorted(chunk.fqn for chunk in owners))
 
@@ -424,7 +468,9 @@ def _resolve_name(
     owner = owners[0]
     declared = _declared_members(owner.text)
     if member in declared:
-        return _signature_of(scope, generation_id, owner, requested, member)
+        return _signature_of(
+            scope, generation_id, owner, requested, member, include_raw_text=include_raw_text
+        )
     return NotFound(
         scope,
         requested,
@@ -435,7 +481,10 @@ def _resolve_name(
 
 
 def get_symbol(
-    store: GenerationManifestStore, scope: Scope, fqn: str
+    store: GenerationManifestStore,
+    scope: Scope,
+    fqn: str,
+    include_raw_text: bool = False,
 ) -> SymbolSignature | ResolvedSignature | NotFound:
     """The exact signature published for *fqn* in ``scope``'s currently active generation.
 
@@ -443,6 +492,15 @@ def get_symbol(
     substring, never a ranked search, never a fallback to a similarly-named symbol. Example and
     documentation chunks (``Example: ...`` / ``Doc: ...`` pseudo-FQNs) are not symbols: they
     never match, and they are never offered as suggestions (TC-386).
+
+    TC-688 (3D-NET-014, RT3): *include_raw_text* defaults to ``False`` - the FULL duplicate chunk
+    text (already available, field for field, through ``methods``/``properties``/``members``) is
+    no longer attached by default. Pass ``True`` for byte-for-byte identical output to every prior
+    release (``raw_text`` carries the real chunk text); the default omits it (see
+    ``RAW_TEXT_OMITTED``) so a typical response is roughly half the size. This is a deliberate
+    default-response-SHAPE change, not a bug fix with a compatible default - see
+    ``docs/DECISION_LOG.md``'s 2026-11-01 "Workstream K" entry and this card (G3/TC-688) for why
+    it was deferred, then taken, on purpose.
     """
     key = scope_key(scope, SOURCE_KIND)
     active_generation_id = store.read_active(key)
@@ -459,14 +517,26 @@ def get_symbol(
             continue
         if document_fqn == fqn:
             return _parse_signature(
-                scope, active_generation_id, doc_id, document["chunk_id"], document["text"]
+                scope,
+                active_generation_id,
+                doc_id,
+                document["chunk_id"],
+                document["text"],
+                include_raw_text=include_raw_text,
             )
         known_fqns.append(document_fqn)
         symbols.append(_SymbolChunk(doc_id, document["chunk_id"], document_fqn, document["text"]))
     coverage_note = generation_coverage_note(documents)
     # TC-540: an ADDITIVE step after the exact match - a member-level or short type name resolves to
     # its owning type, and a miss says what it was looking for.
-    resolved = _resolve_name(scope, active_generation_id, symbols, fqn, coverage_note)
+    resolved = _resolve_name(
+        scope,
+        active_generation_id,
+        symbols,
+        fqn,
+        coverage_note,
+        include_raw_text=include_raw_text,
+    )
     if resolved is not None:
         return resolved
     return NotFound(
