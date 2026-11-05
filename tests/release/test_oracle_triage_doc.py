@@ -125,8 +125,10 @@ def test_the_three_non_pdf_cpp_c_plus_plus_pilots_are_not_claimed_as_individuall
     for pilot in ("cells/cpp", "slides/cpp", "email/cpp"):
         assert pilot in text
     lowered = text.lower()
-    assert "not individually" in lowered or "not individually root-caused" in lowered or (
-        "by inspection" in lowered
+    assert (
+        "not individually" in lowered
+        or "not individually root-caused" in lowered
+        or ("by inspection" in lowered)
     ), "the document must honestly disclose that these 3 pilots were not individually root-caused"
 
 
