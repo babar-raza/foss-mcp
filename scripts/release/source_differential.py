@@ -72,6 +72,7 @@ fails outright, before any diff runs -- the fixture is known-stale on its face.
 from __future__ import annotations
 
 import argparse
+import functools
 import json
 import re
 import subprocess
@@ -81,6 +82,8 @@ from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
+
+import yaml
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 _SRC = REPO_ROOT / "src"
@@ -698,8 +701,43 @@ def clone_pinned_commit(
         raise RuntimeError(f"git checkout of commit {commit} failed:\n{checkout.stdout}\n{checkout.stderr}")
 
 
+PUBLIC_API_DEFINITION_DIR = REPO_ROOT / "config" / "public_api_definition"
+
+
+@functools.cache
+def _load_public_api_definition(language: str) -> dict[str, Any]:
+    """Load ``config/public_api_definition/<language>.yaml`` (O2, REQ-G3-012, G3/TC-676) once per
+    language and memoize it - lazily, on first use, never at module import time, so importing this
+    script (e.g. to enumerate a different language only) never pays for a read this run does not
+    need. Call ``_load_public_api_definition.cache_clear()`` to force a re-read (tests do this when
+    they point this function at a different, synthetic file).
+    """
+    path = PUBLIC_API_DEFINITION_DIR / f"{language}.yaml"
+    with path.open("r", encoding="utf-8") as handle:
+        return yaml.safe_load(handle)
+
+
+def _is_public_name_by_definition(name: str, definition: Mapping[str, Any]) -> bool:
+    """The generic visibility rule any language's ``public_api_definition`` file can express:
+    a name starting with ``visibility.private_prefix`` is private UNLESS it is a "dunder" (starts
+    AND ends with the prefix doubled) that ``visibility.dunder_exception`` allows - every dunder
+    (``"all"``), no dunder (``"none"``), or an explicit list of exactly which dunder names."""
+    visibility = definition["visibility"]
+    prefix = visibility["private_prefix"]
+    if not name.startswith(prefix):
+        return True
+    double_prefix = prefix * 2
+    is_dunder = name.startswith(double_prefix) and name.endswith(double_prefix)
+    dunder_exception = visibility["dunder_exception"]
+    if dunder_exception == "all":
+        return is_dunder
+    if dunder_exception == "none":
+        return False
+    return is_dunder and name in dunder_exception
+
+
 def _is_public_python_name(name: str) -> bool:
-    return not name.startswith("_") or (name.startswith("__") and name.endswith("__"))
+    return _is_public_name_by_definition(name, _load_public_api_definition("python"))
 
 
 def _python_enum_bases(bases: list[Any]) -> bool:

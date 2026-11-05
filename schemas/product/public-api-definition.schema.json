@@ -1,0 +1,110 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/babar-raza/foss-mcp/schemas/product/public-api-definition.schema.json",
+  "title": "foss-mcp machine-readable public-API definition (per language)",
+  "description": "The structural contract of config/public_api_definition/<lang>.yaml (O2, REQ-G3-012, G3/TC-676): one committed, schema-validated, reviewable file per language describing that language's oracle rule for what counts as a library's PUBLIC surface - scope roots, excluded directories, visibility (leading-underscore convention and dunder handling), the symbol/member kind model, and (for languages where they apply) inheritance, constructors, indexers, bean properties and overloads. This file is consumed by the oracle's (scripts/release/source_differential.py) own production code AND by test suites on both the oracle and extractor sides, as a ground-truth fixture - it is never imported or read by the extractor's production code (src/foss_mcp/extraction/tree_sitter_engine/*.py); that independence is deliberate (see plans/TC-676.yaml's SCOPE NOTE) so a bug in a shared config cannot corrupt both independent implementations identically. This card starts with Python only; the optional per-language fields below exist so later cards can populate them for other languages without a schema change.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["language", "scope_roots", "excluded_dirs", "visibility", "kind_model", "member_kinds"],
+  "properties": {
+    "language": {
+      "type": "string",
+      "minLength": 1,
+      "pattern": "\\S",
+      "description": "The language this definition describes, e.g. 'python'. Matches this file's own name under config/public_api_definition/<language>.yaml."
+    },
+    "scope_roots": {
+      "description": "Where this language's oracle looks for public symbols: either an array of string globs/path fragments, or the literal string 'module-level' for a language (like Python today) with no sub-package scoping concept of its own.",
+      "oneOf": [
+        {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {"type": "string", "minLength": 1, "pattern": "\\S"}
+        },
+        {"const": "module-level"}
+      ]
+    },
+    "excluded_dirs": {
+      "type": "array",
+      "minItems": 0,
+      "uniqueItems": true,
+      "description": "Directory-name fragments the oracle's own enumerator skips while walking the library tree (for example 'tests', 'examples'). Zero entries is valid for a language whose enumerator excludes nothing.",
+      "items": {"type": "string", "minLength": 1, "pattern": "\\S"}
+    },
+    "visibility": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["private_prefix", "dunder_exception"],
+      "description": "The rule the oracle's production code applies to decide whether a bare name is public.",
+      "properties": {
+        "private_prefix": {
+          "type": "string",
+          "minLength": 1,
+          "description": "The leading-character sequence that marks a name private, e.g. '_'. A name that does not start with this prefix is always public."
+        },
+        "dunder_exception": {
+          "description": "How a name that itself starts with the doubled private_prefix and ends the same way (a 'dunder', e.g. '__repr__') is treated: 'all' - every such name is public regardless of the private-prefix rule; 'none' - dunders follow the ordinary private-prefix rule with no exception; or an explicit array of the exact dunder names that are public exceptions (every other dunder stays private).",
+          "oneOf": [
+            {"enum": ["all", "none"]},
+            {
+              "type": "array",
+              "minItems": 1,
+              "uniqueItems": true,
+              "items": {"type": "string", "pattern": "^__.+__$"}
+            }
+          ]
+        }
+      }
+    },
+    "kind_model": {
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
+      "description": "The top-level symbol kinds this language's oracle produces, e.g. ['class', 'enum'] for Python today.",
+      "items": {"type": "string", "minLength": 1, "pattern": "\\S"}
+    },
+    "member_kinds": {
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
+      "description": "The member kinds this language's oracle produces within a symbol, e.g. ['method', 'enum_value'] for Python today.",
+      "items": {"type": "string", "minLength": 1, "pattern": "\\S"}
+    },
+    "inheritance": {
+      "description": "How this language's oracle resolves inherited members, if it does. Absent or null where a language's oracle does not model this (a one-line comment in the YAML file should say why).",
+      "anyOf": [
+        {"type": "null"},
+        {"type": "object", "minProperties": 1}
+      ]
+    },
+    "constructors": {
+      "description": "How this language's oracle identifies and shapes constructors, if distinct from an ordinary method. Absent or null where a language's oracle does not model this separately.",
+      "anyOf": [
+        {"type": "null"},
+        {"type": "object", "minProperties": 1}
+      ]
+    },
+    "indexers": {
+      "description": "How this language's oracle identifies indexer members, if the language has a distinct indexer concept. Absent or null where it does not.",
+      "anyOf": [
+        {"type": "null"},
+        {"type": "object", "minProperties": 1}
+      ]
+    },
+    "bean_properties": {
+      "description": "How this language's oracle identifies getter/setter accessor-pair properties (e.g. Java bean-style accessors), if it does. Absent or null where it does not.",
+      "anyOf": [
+        {"type": "null"},
+        {"type": "object", "minProperties": 1}
+      ]
+    },
+    "overloads": {
+      "description": "How this language's oracle groups multiple overloaded signatures under one member name, if it does. Absent or null where it does not.",
+      "anyOf": [
+        {"type": "null"},
+        {"type": "object", "minProperties": 1}
+      ]
+    }
+  }
+}
