@@ -1,0 +1,112 @@
+{
+  "schema_version": 1,
+  "card": "TC-684",
+  "gate": "G3",
+  "generated_by": "gatectl",
+  "generated_at": "2026-11-05T10:25:02Z",
+  "base_rev": "a85d13591b151e1b3ed6f214abcf3871a53fa668",
+  "head_rev": "c3808f86e47c102fd3ec06d19eb979756998a668",
+  "card_sha256": "2199b5ec47e06acd3d6c8fbea49e989913abf7bf8b08aa3c8e37c1ed5266e3b9",
+  "fingerprint": {
+    "python": "3.13.2",
+    "platform": "Windows-11-10.0.26300-SP0",
+    "lock_sha256": "5c72e798a73c059a438e752e94a8d4c88c1bdf81a197f6e5c5fcecbc9466a691",
+    "env": {
+      "PYTHONHASHSEED": "0",
+      "PYTHONUTF8": "1",
+      "PYTHONDONTWRITEBYTECODE": "1",
+      "PYTHONIOENCODING": "utf-8",
+      "TZ": "UTC",
+      "LC_ALL": "C.UTF-8",
+      "SOURCE_DATE_EPOCH": "1700000000",
+      "verify_runner": "host"
+    }
+  },
+  "scope": {
+    "ok": true,
+    "changed_paths": [
+      "src/foss_mcp/mcp/server.py",
+      "src/foss_mcp/mcp/tools/lookup.py",
+      "tests/mcp/tools/test_lookup_dotted_enum_member_suggestion.py"
+    ],
+    "violations": [],
+    "evaluated": true
+  },
+  "runs": [
+    {
+      "run": 1,
+      "checks": [
+        {
+          "command": "{python} -m pytest tests/mcp/tools/test_lookup_dotted_enum_member_suggestion.py -q -rfE -p no:cacheprovider",
+          "exit_code": 0,
+          "duration_s": 3.091,
+          "stdout_sha256": "06955fb47f16312e5d13266c774a2aa4648c46e423cbe6564a92e25b68e39131",
+          "tests": 8,
+          "skipped": 0,
+          "errors": 0,
+          "failures": 0
+        },
+        {
+          "command": "{python} -m pytest tests/mcp/test_search_symbols_honest_miss.py tests/mcp/tools/test_lookup_miss_reason.py -q -rfE -p no:cacheprovider",
+          "exit_code": 0,
+          "duration_s": 10.508,
+          "stdout_sha256": "b53866f7a853267d7eca16c2faa2f71689f462d5b06ee572ef078a18d6b0409a",
+          "tests": 58,
+          "skipped": 0,
+          "errors": 0,
+          "failures": 0
+        }
+      ],
+      "all_passed": true
+    },
+    {
+      "run": 2,
+      "checks": [
+        {
+          "command": "{python} -m pytest tests/mcp/tools/test_lookup_dotted_enum_member_suggestion.py -q -rfE -p no:cacheprovider",
+          "exit_code": 0,
+          "duration_s": 2.005,
+          "stdout_sha256": "06955fb47f16312e5d13266c774a2aa4648c46e423cbe6564a92e25b68e39131",
+          "tests": 8,
+          "skipped": 0,
+          "errors": 0,
+          "failures": 0
+        },
+        {
+          "command": "{python} -m pytest tests/mcp/test_search_symbols_honest_miss.py tests/mcp/tools/test_lookup_miss_reason.py -q -rfE -p no:cacheprovider",
+          "exit_code": 0,
+          "duration_s": 9.806,
+          "stdout_sha256": "b53866f7a853267d7eca16c2faa2f71689f462d5b06ee572ef078a18d6b0409a",
+          "tests": 58,
+          "skipped": 0,
+          "errors": 0,
+          "failures": 0
+        }
+      ],
+      "all_passed": true
+    }
+  ],
+  "negative_control": {
+    "kind": "mutate",
+    "patch": "python -X utf8 -c \"import pathlib; p = pathlib.Path('src/foss_mcp/mcp/server.py'); s = p.read_text(encoding='utf-8'); old = 'Qualified:'; count = s.count(old); assert count >= 1, 'no reference to the Qualified: line was found in server.py as expected - if your real wording differs, anchor your own mutate on your own real literal instead and note the substitution in your closeout'; s2 = s.replace(old, 'QualifiedZZZDISABLED:', count); assert s2 != s; p.write_text(s2, encoding='utf-8')\"\n",
+    "patch_sha256": "bce61cdefe89b3d8fc9e25572d817df70f29ca1d6675a2171a400840204b8d4b",
+    "applied": true,
+    "patch_applied_failed": true,
+    "exit_codes": [
+      1,
+      0
+    ],
+    "tree_changed": [
+      "M src/foss_mcp/mcp/server.py",
+      "?? .junit-0.xml",
+      "?? .junit-1.xml"
+    ]
+  },
+  "holdout": {
+    "ran": false,
+    "passed": true,
+    "detail": "no holdout for this card"
+  },
+  "accepted": true,
+  "reason": "all gates passed"
+}
