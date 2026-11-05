@@ -468,7 +468,8 @@ def test_get_symbol_returns_the_real_value_for_page(session: _McpSession) -> Non
     ``get_symbol.py``'s own docstring), so ``REAL_SYMBOL`` must be the full ``class_import``
     ("page.Page"), not the bare class name.
     """
-    body = session.call_tool("get_symbol", {"fqn": REAL_SYMBOL})
+    # TC-688: raw_text is opt-in now (default omitted) - this test checks its content, so opt in.
+    body = session.call_tool("get_symbol", {"fqn": REAL_SYMBOL, "include_raw_text": True})
     result = body["result"]["structuredContent"]["result"]
     assert isinstance(result, dict) and "raw_text" in result, f"expected a real SymbolSignature: {result}"
     assert result["kind"] == "class_declaration", result

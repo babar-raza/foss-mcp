@@ -161,7 +161,10 @@ def test_upstream_text_results_are_marked_untrusted(server: Any) -> None:
         "search_docs": VALID_ARGUMENTS["search_docs"],
         "lookup": {"query": "how do I add a watermark to a PDF"},
         "find_examples": {"query": "Example: Add a Watermark Annotation"},
-        "get_symbol": VALID_ARGUMENTS["get_symbol"],
+        # TC-688: raw_text is opt-in now and is the only text-shaped field get_symbol's plain
+        # dict result carries, so include_raw_text=True is needed for there to be anything here
+        # for the untrusted marker to attach to.
+        "get_symbol": {**VALID_ARGUMENTS["get_symbol"], "include_raw_text": True},
         "list_recent_changes": {},
     }
     assert set(calls) == UPSTREAM_TEXT_TOOLS
@@ -297,7 +300,9 @@ def test_every_tool_lists_its_own_valid_arguments(server: Any) -> None:
         "lookup": "query, content_type, top_k",
         "list_recent_changes": "limit",
         "report_index_freshness": "source_kind, current_source_commit",
-        "get_symbol": "fqn",
+        # TC-688: get_symbol's real schema now also accepts include_raw_text - updated to match
+        # the real, current schema, not weakened.
+        "get_symbol": "fqn, include_raw_text",
     }
     for tool, names in expected.items():
         arguments = dict(VALID_ARGUMENTS[tool], bogus=1)

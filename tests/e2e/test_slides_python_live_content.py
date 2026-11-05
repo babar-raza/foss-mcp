@@ -510,7 +510,8 @@ def test_get_symbol_returns_the_real_type_spec_for_shape(session: _McpSession) -
     this pilot, a real, non-empty ``Bases:`` line too, proving TC-265's real base-class data
     reaches this live container, not just the offline fixture test.
     """
-    body = session.call_tool("get_symbol", {"fqn": REAL_SYMBOL_FQN})
+    # TC-688: raw_text is opt-in now (default omitted) - this test checks its content, so opt in.
+    body = session.call_tool("get_symbol", {"fqn": REAL_SYMBOL_FQN, "include_raw_text": True})
     result = body["result"]["structuredContent"]["result"]
     assert isinstance(result, dict) and "raw_text" in result, f"expected a real SymbolSignature: {result}"
     assert result["kind"] == "class", result

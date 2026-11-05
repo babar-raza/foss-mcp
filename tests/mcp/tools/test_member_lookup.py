@@ -130,7 +130,9 @@ def _missed(result: Any) -> NotFound:
 def test_an_exact_fqn_is_still_a_plain_symbol_signature_without_extra_json_keys(
     store: _InMemoryStore,
 ) -> None:
-    result = get_symbol(store, SCOPE, "Aspose.Pdf.Document")  # type: ignore[arg-type]
+    # TC-688: include_raw_text=True so raw_text is present and this still proves no OTHER key
+    # was added or dropped (the dataclass's own fields are the full set this test pins).
+    result = get_symbol(store, SCOPE, "Aspose.Pdf.Document", include_raw_text=True)  # type: ignore[arg-type]
     assert type(result) is SymbolSignature
     assert set(_to_jsonable(result)) == {field.name for field in dataclasses.fields(SymbolSignature)}
     assert "member_lines" not in _to_jsonable(result)
@@ -205,7 +207,9 @@ def test_list_members_of_an_exact_fqn_and_of_a_bare_short_type_are_unchanged(sto
 def test_type_fqn_dot_member_resolves_to_the_owner_with_every_overload_line(
     store: _InMemoryStore, name: str, member: str, lines: tuple[str, ...]
 ) -> None:
-    result = _resolved(get_symbol(store, SCOPE, name))  # type: ignore[arg-type]
+    # TC-688: include_raw_text=True so .raw_text content below is still real text, not the
+    # sentinel the new default omits.
+    result = _resolved(get_symbol(store, SCOPE, name, include_raw_text=True))  # type: ignore[arg-type]
     assert name == f"{result.fqn}.{member}"
     assert result.resolved_from == name
     assert result.member == member
@@ -423,7 +427,12 @@ def test_get_symbol_and_list_members_descriptions_and_fqn_fields_name_type_dot_m
 
 def test_the_two_tools_stay_the_real_registry_entrypoints() -> None:
     # The resolution lives in get_symbol, which the real tool registry calls; list_members calls get_symbol.
-    assert "get_symbol(store, scope, fqn)" in inspect.getsource(server_module._wrap_get_symbol)
+    # TC-688: the real wrapper now also forwards include_raw_text - updated to match the real,
+    # current call site, not weakened; it still pins that the wrapper calls get_symbol with
+    # store/scope/fqn.
+    assert "get_symbol(store, scope, fqn, include_raw_text=include_raw_text)" in inspect.getsource(
+        server_module._wrap_get_symbol
+    )
     assert "list_members(store, scope, fqn)" in inspect.getsource(server_module._wrap_list_members)
     assert "get_symbol(store, scope, fqn)" in inspect.getsource(inspect.getmodule(list_members))  # type: ignore[arg-type]
 

@@ -429,7 +429,8 @@ def test_get_symbol_returns_the_real_type_spec_for_barcode_field(session: _McpSe
     the real ``BarcodeField`` type_spec returns its real, distinctive ``Bases:``/``Methods:``
     lines - not a stub, not an empty index.
     """
-    body = session.call_tool("get_symbol", {"fqn": REAL_SYMBOL})
+    # TC-688: raw_text is opt-in now (default omitted) - this test checks its content, so opt in.
+    body = session.call_tool("get_symbol", {"fqn": REAL_SYMBOL, "include_raw_text": True})
     result = body["result"]["structuredContent"]["result"]
     assert isinstance(result, dict) and "raw_text" in result, f"expected a real SymbolSignature: {result}"
     assert result["kind"] == "type_spec", result

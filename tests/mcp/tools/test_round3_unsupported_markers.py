@@ -143,7 +143,9 @@ def test_get_symbol_returns_the_lines_that_say_a_member_is_not_implemented() -> 
 
 
 def test_get_symbol_of_a_symbol_that_works_has_no_limitations() -> None:
-    result = get_symbol(_store_from(_scene(), _plain()), SCOPE, "Acme.Box")  # type: ignore[arg-type]
+    # TC-688: include_raw_text=True so .raw_text content below is still real text, not the
+    # sentinel the new default omits.
+    result = get_symbol(_store_from(_scene(), _plain()), SCOPE, "Acme.Box", include_raw_text=True)  # type: ignore[arg-type]
     assert isinstance(result, SymbolSignature) and result.limitations == ()
     assert NOT_IMPLEMENTED_PHRASE not in result.raw_text
 
