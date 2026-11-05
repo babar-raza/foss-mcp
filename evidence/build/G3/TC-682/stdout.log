@@ -1,0 +1,473 @@
+
+===== CLEAN RUN 1 (host) =====
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-5c72e798a73c059a\Scripts\python.exe -m pytest tests/release/test_oracle_public_api_definition.py -q -rfE -p no:cacheprovider "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-qkett1v1\.junit-0.xml"
+--- stdout ---
+...............                                                          [100%]
+
+--- stderr ---
+
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-5c72e798a73c059a\Scripts\python.exe -m pytest tests/release/test_source_differential.py -q -rfE -p no:cacheprovider -k "python or enumerate_python" "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-qkett1v1\.junit-1.xml"
+--- stdout ---
+......                                                                   [100%]
+
+--- stderr ---
+
+
+===== CLEAN RUN 2 (host) =====
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-5c72e798a73c059a\Scripts\python.exe -m pytest tests/release/test_oracle_public_api_definition.py -q -rfE -p no:cacheprovider "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-qkett1v1\.junit-0.xml"
+--- stdout ---
+...............                                                          [100%]
+
+--- stderr ---
+
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-5c72e798a73c059a\Scripts\python.exe -m pytest tests/release/test_source_differential.py -q -rfE -p no:cacheprovider -k "python or enumerate_python" "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-qkett1v1\.junit-1.xml"
+--- stdout ---
+......                                                                   [100%]
+
+--- stderr ---
+
+
+===== NEGATIVE CONTROL (checks MUST now fail) =====
+mutated: M scripts/release/source_differential.py, ?? .junit-0.xml, ?? .junit-1.xml
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-5c72e798a73c059a\Scripts\python.exe -m pytest tests/release/test_oracle_public_api_definition.py -q -rfE -p no:cacheprovider "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-qkett1v1\.junit-0.xml"
+--- stdout ---
+..........FF.F.                                                          [100%]
+================================== FAILURES ===================================
+_ test_enumerate_python_reads_keyword_only_params_with_correct_default_status _
+
+tmp_path = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-20254/test_enumerate_python_reads_ke0')
+
+    def test_enumerate_python_reads_keyword_only_params_with_correct_default_status(tmp_path) -> None:
+        (tmp_path / ".git").mkdir()
+        (tmp_path / "widgets.py").write_text(
+            "class Widget:\n    def configure(self, a, *, b, c=2, **kwargs):\n        pass\n",
+            encoding="utf-8",
+        )
+>       (widget,) = sd.enumerate_python("acme/widgets", "deadbeef", tmp_path)
+                    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests\release\test_oracle_public_api_definition.py:332: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+scripts\release\source_differential.py:881: in enumerate_python
+    symbols.append(_python_symbol_from_classdef(node))
+                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+node = <ast.ClassDef object at 0x000001F9E91C0050>
+
+    def _python_symbol_from_classdef(node: Any) -> OracleSymbol:
+        import ast as _ast
+    
+        is_enum = _python_enum_bases(node.bases)
+        members: list[OracleMember] = []
+        for item in node.body:
+            if is_enum and isinstance(item, _ast.Assign):
+                for target in item.targets:
+                    if isinstance(target, _ast.Name) and _is_public_python_name(target.id):
+                        if _python_is_enum_auto_call(item.value):
+                            # A distinct marker (G3/TC-682, REQ-G3-012, O4): never the generic
+                            # literal_eval-fails-to-None path below, which would make a bona fide
+                            # auto() value indistinguishable from a genuinely unparseable one.
+                            members.append(OracleMember(name=target.id, kind="enum_value", enum_value="auto()"))
+                            continue
+                        value = None
+                        try:
+                            value = _ast.literal_eval(item.value)
+                        except Exception:
+                            value = None
+                        members.append(
+                            OracleMember(
+                                name=target.id,
+                                kind="enum_value",
+                                enum_value=(str(value) if value is not None else None),
+                            )
+                        )
+                continue
+            if isinstance(item, _ast.FunctionDef | _ast.AsyncFunctionDef) and _is_public_python_name(item.name):
+                decorators = {
+                    decorator.id if isinstance(decorator, _ast.Name) else getattr(decorator, "attr", "")
+                    for decorator in item.decorator_list
+                }
+                is_static = "staticmethod" in decorators or "classmethod" in decorators
+                params = [arg.arg for arg in item.args.args if arg.arg != "self" and arg.arg != "cls"]
+                defaulted = set(params[len(params) - len(item.args.defaults) :]) if item.args.defaults else set()
+                oracle_params = [OracleParam(name=p, has_default=p in defaulted) for p in params]
+                # *args (G3/TC-682, REQ-G3-012, O4): `item.args.vararg` sits positionally right after
+                # the plain positional-or-keyword params in a real Python signature (`def f(a, *args,
+                # ...)`), so the synthesized entry is appended here, before any keyword-only params --
+                # matching real declaration order, not just correctness. Synthesized as a named
+                # OracleParam (`*<real name>`) rather than a new OracleMember/OracleParam field: this
+                # keeps the dataclass shape every one of the other six enumerators (Go/Rust/TS/Java/
+                # .NET/C++) already relies on completely untouched, and flows straight through
+                # diff_symbol's existing params-by-name/has_default-by-position comparison with no new
+                # special case there. A vararg can never carry "a default" in Python, so has_default is
+                # always False for it.
+                if item.args.vararg is not None:
+                    oracle_params.append(OracleParam(name=f"*{item.args.vararg.arg}", has_default=False))
+                # Keyword-only params (G3/TC-682, REQ-G3-012, O4): `item.args.kwonlyargsDISABLED` pairs
+                # POSITIONALLY with `item.args.kw_defaults` from the START (confirmed directly against
+                # a real `ast.parse`'d fixture, not assumed -- unlike `args`/`defaults`, which pair from
+                # the END). A `None` entry in `kw_defaults` means that keyword-only parameter has no
+                # default; any non-None entry means it does, regardless of the default's own value.
+>               for kwonly, kw_default in zip(item.args.kwonlyargsDISABLED, item.args.kw_defaults, strict=True):
+                                              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E               AttributeError: 'arguments' object has no attribute 'kwonlyargsDISABLED'
+
+scripts\release\source_differential.py:838: AttributeError
+__ test_enumerate_python_reads_varargs_and_kwargs_in_real_declaration_order ___
+
+tmp_path = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-20254/test_enumerate_python_reads_va0')
+
+    def test_enumerate_python_reads_varargs_and_kwargs_in_real_declaration_order(tmp_path) -> None:
+        (tmp_path / ".git").mkdir()
+        (tmp_path / "widgets.py").write_text(
+            "class Widget:\n"
+            "    def varargs_method(self, *args):\n"
+            "        pass\n"
+            "    def full_shape(self, a, *values, b, **opts):\n"
+            "        pass\n",
+            encoding="utf-8",
+        )
+>       (widget,) = sd.enumerate_python("acme/widgets", "deadbeef", tmp_path)
+                    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests\release\test_oracle_public_api_definition.py:352: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+scripts\release\source_differential.py:881: in enumerate_python
+    symbols.append(_python_symbol_from_classdef(node))
+                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+node = <ast.ClassDef object at 0x000001F9E8EFB250>
+
+    def _python_symbol_from_classdef(node: Any) -> OracleSymbol:
+        import ast as _ast
+    
+        is_enum = _python_enum_bases(node.bases)
+        members: list[OracleMember] = []
+        for item in node.body:
+            if is_enum and isinstance(item, _ast.Assign):
+                for target in item.targets:
+                    if isinstance(target, _ast.Name) and _is_public_python_name(target.id):
+                        if _python_is_enum_auto_call(item.value):
+                            # A distinct marker (G3/TC-682, REQ-G3-012, O4): never the generic
+                            # literal_eval-fails-to-None path below, which would make a bona fide
+                            # auto() value indistinguishable from a genuinely unparseable one.
+                            members.append(OracleMember(name=target.id, kind="enum_value", enum_value="auto()"))
+                            continue
+                        value = None
+                        try:
+                            value = _ast.literal_eval(item.value)
+                        except Exception:
+                            value = None
+                        members.append(
+                            OracleMember(
+                                name=target.id,
+                                kind="enum_value",
+                                enum_value=(str(value) if value is not None else None),
+                            )
+                        )
+                continue
+            if isinstance(item, _ast.FunctionDef | _ast.AsyncFunctionDef) and _is_public_python_name(item.name):
+                decorators = {
+                    decorator.id if isinstance(decorator, _ast.Name) else getattr(decorator, "attr", "")
+                    for decorator in item.decorator_list
+                }
+                is_static = "staticmethod" in decorators or "classmethod" in decorators
+                params = [arg.arg for arg in item.args.args if arg.arg != "self" and arg.arg != "cls"]
+                defaulted = set(params[len(params) - len(item.args.defaults) :]) if item.args.defaults else set()
+                oracle_params = [OracleParam(name=p, has_default=p in defaulted) for p in params]
+                # *args (G3/TC-682, REQ-G3-012, O4): `item.args.vararg` sits positionally right after
+                # the plain positional-or-keyword params in a real Python signature (`def f(a, *args,
+                # ...)`), so the synthesized entry is appended here, before any keyword-only params --
+                # matching real declaration order, not just correctness. Synthesized as a named
+                # OracleParam (`*<real name>`) rather than a new OracleMember/OracleParam field: this
+                # keeps the dataclass shape every one of the other six enumerators (Go/Rust/TS/Java/
+                # .NET/C++) already relies on completely untouched, and flows straight through
+                # diff_symbol's existing params-by-name/has_default-by-position comparison with no new
+                # special case there. A vararg can never carry "a default" in Python, so has_default is
+                # always False for it.
+                if item.args.vararg is not None:
+                    oracle_params.append(OracleParam(name=f"*{item.args.vararg.arg}", has_default=False))
+                # Keyword-only params (G3/TC-682, REQ-G3-012, O4): `item.args.kwonlyargsDISABLED` pairs
+                # POSITIONALLY with `item.args.kw_defaults` from the START (confirmed directly against
+                # a real `ast.parse`'d fixture, not assumed -- unlike `args`/`defaults`, which pair from
+                # the END). A `None` entry in `kw_defaults` means that keyword-only parameter has no
+                # default; any non-None entry means it does, regardless of the default's own value.
+>               for kwonly, kw_default in zip(item.args.kwonlyargsDISABLED, item.args.kw_defaults, strict=True):
+                                              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E               AttributeError: 'arguments' object has no attribute 'kwonlyargsDISABLED'
+
+scripts\release\source_differential.py:838: AttributeError
+__ test_enumerate_python_plain_signature_method_is_byte_for_byte_unaffected ___
+
+tmp_path = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-20254/test_enumerate_python_plain_si0')
+
+    def test_enumerate_python_plain_signature_method_is_byte_for_byte_unaffected(tmp_path) -> None:
+        """Decision E (plans/TC-682.yaml): a method using none of kw-only/vararg/kwarg must produce the
+        exact same OracleMember this card's predecessor code already produced."""
+        (tmp_path / ".git").mkdir()
+        (tmp_path / "widgets.py").write_text(
+            "class Gadget:\n"
+            "    def build(self, name, count=1):\n"
+            "        return name\n"
+            "    @staticmethod\n"
+            "    def make():\n"
+            "        return Gadget()\n",
+            encoding="utf-8",
+        )
+>       (gadget,) = sd.enumerate_python("acme/widgets", "deadbeef", tmp_path)
+                    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests\release\test_oracle_public_api_definition.py:401: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+scripts\release\source_differential.py:881: in enumerate_python
+    symbols.append(_python_symbol_from_classdef(node))
+                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+node = <ast.ClassDef object at 0x000001F9EA6048D0>
+
+    def _python_symbol_from_classdef(node: Any) -> OracleSymbol:
+        import ast as _ast
+    
+        is_enum = _python_enum_bases(node.bases)
+        members: list[OracleMember] = []
+        for item in node.body:
+            if is_enum and isinstance(item, _ast.Assign):
+                for target in item.targets:
+                    if isinstance(target, _ast.Name) and _is_public_python_name(target.id):
+                        if _python_is_enum_auto_call(item.value):
+                            # A distinct marker (G3/TC-682, REQ-G3-012, O4): never the generic
+                            # literal_eval-fails-to-None path below, which would make a bona fide
+                            # auto() value indistinguishable from a genuinely unparseable one.
+                            members.append(OracleMember(name=target.id, kind="enum_value", enum_value="auto()"))
+                            continue
+                        value = None
+                        try:
+                            value = _ast.literal_eval(item.value)
+                        except Exception:
+                            value = None
+                        members.append(
+                            OracleMember(
+                                name=target.id,
+                                kind="enum_value",
+                                enum_value=(str(value) if value is not None else None),
+                            )
+                        )
+                continue
+            if isinstance(item, _ast.FunctionDef | _ast.AsyncFunctionDef) and _is_public_python_name(item.name):
+                decorators = {
+                    decorator.id if isinstance(decorator, _ast.Name) else getattr(decorator, "attr", "")
+                    for decorator in item.decorator_list
+                }
+                is_static = "staticmethod" in decorators or "classmethod" in decorators
+                params = [arg.arg for arg in item.args.args if arg.arg != "self" and arg.arg != "cls"]
+                defaulted = set(params[len(params) - len(item.args.defaults) :]) if item.args.defaults else set()
+                oracle_params = [OracleParam(name=p, has_default=p in defaulted) for p in params]
+                # *args (G3/TC-682, REQ-G3-012, O4): `item.args.vararg` sits positionally right after
+                # the plain positional-or-keyword params in a real Python signature (`def f(a, *args,
+                # ...)`), so the synthesized entry is appended here, before any keyword-only params --
+                # matching real declaration order, not just correctness. Synthesized as a named
+                # OracleParam (`*<real name>`) rather than a new OracleMember/OracleParam field: this
+                # keeps the dataclass shape every one of the other six enumerators (Go/Rust/TS/Java/
+                # .NET/C++) already relies on completely untouched, and flows straight through
+                # diff_symbol's existing params-by-name/has_default-by-position comparison with no new
+                # special case there. A vararg can never carry "a default" in Python, so has_default is
+                # always False for it.
+                if item.args.vararg is not None:
+                    oracle_params.append(OracleParam(name=f"*{item.args.vararg.arg}", has_default=False))
+                # Keyword-only params (G3/TC-682, REQ-G3-012, O4): `item.args.kwonlyargsDISABLED` pairs
+                # POSITIONALLY with `item.args.kw_defaults` from the START (confirmed directly against
+                # a real `ast.parse`'d fixture, not assumed -- unlike `args`/`defaults`, which pair from
+                # the END). A `None` entry in `kw_defaults` means that keyword-only parameter has no
+                # default; any non-None entry means it does, regardless of the default's own value.
+>               for kwonly, kw_default in zip(item.args.kwonlyargsDISABLED, item.args.kw_defaults, strict=True):
+                                              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E               AttributeError: 'arguments' object has no attribute 'kwonlyargsDISABLED'
+
+scripts\release\source_differential.py:838: AttributeError
+=========================== short test summary info ===========================
+FAILED tests/release/test_oracle_public_api_definition.py::test_enumerate_python_reads_keyword_only_params_with_correct_default_status
+FAILED tests/release/test_oracle_public_api_definition.py::test_enumerate_python_reads_varargs_and_kwargs_in_real_declaration_order
+FAILED tests/release/test_oracle_public_api_definition.py::test_enumerate_python_plain_signature_method_is_byte_for_byte_unaffected
+
+--- stderr ---
+
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-5c72e798a73c059a\Scripts\python.exe -m pytest tests/release/test_source_differential.py -q -rfE -p no:cacheprovider -k "python or enumerate_python" "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-qkett1v1\.junit-1.xml"
+--- stdout ---
+..F.F.                                                                   [100%]
+================================== FAILURES ===================================
+__________ test_enumerate_python_reads_a_real_class_with_ast_offline __________
+
+tmp_path = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-20255/test_enumerate_python_reads_a_0')
+
+    def test_enumerate_python_reads_a_real_class_with_ast_offline(tmp_path):
+        (tmp_path / ".git").mkdir()  # pretend already-cloned, so enumerate_python never shells out to git
+        (tmp_path / "widgets.py").write_text(
+            "class Gadget:\n"
+            "    def build(self, name, count=1):\n"
+            "        return name\n"
+            "    @staticmethod\n"
+            "    def make():\n"
+            "        return Gadget()\n"
+            "    def _private(self):\n"
+            "        pass\n",
+            encoding="utf-8",
+        )
+>       symbols = sd.enumerate_python("acme/widgets", "deadbeef", tmp_path)
+                  ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests\release\test_source_differential.py:491: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+scripts\release\source_differential.py:881: in enumerate_python
+    symbols.append(_python_symbol_from_classdef(node))
+                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+node = <ast.ClassDef object at 0x000002448389FA90>
+
+    def _python_symbol_from_classdef(node: Any) -> OracleSymbol:
+        import ast as _ast
+    
+        is_enum = _python_enum_bases(node.bases)
+        members: list[OracleMember] = []
+        for item in node.body:
+            if is_enum and isinstance(item, _ast.Assign):
+                for target in item.targets:
+                    if isinstance(target, _ast.Name) and _is_public_python_name(target.id):
+                        if _python_is_enum_auto_call(item.value):
+                            # A distinct marker (G3/TC-682, REQ-G3-012, O4): never the generic
+                            # literal_eval-fails-to-None path below, which would make a bona fide
+                            # auto() value indistinguishable from a genuinely unparseable one.
+                            members.append(OracleMember(name=target.id, kind="enum_value", enum_value="auto()"))
+                            continue
+                        value = None
+                        try:
+                            value = _ast.literal_eval(item.value)
+                        except Exception:
+                            value = None
+                        members.append(
+                            OracleMember(
+                                name=target.id,
+                                kind="enum_value",
+                                enum_value=(str(value) if value is not None else None),
+                            )
+                        )
+                continue
+            if isinstance(item, _ast.FunctionDef | _ast.AsyncFunctionDef) and _is_public_python_name(item.name):
+                decorators = {
+                    decorator.id if isinstance(decorator, _ast.Name) else getattr(decorator, "attr", "")
+                    for decorator in item.decorator_list
+                }
+                is_static = "staticmethod" in decorators or "classmethod" in decorators
+                params = [arg.arg for arg in item.args.args if arg.arg != "self" and arg.arg != "cls"]
+                defaulted = set(params[len(params) - len(item.args.defaults) :]) if item.args.defaults else set()
+                oracle_params = [OracleParam(name=p, has_default=p in defaulted) for p in params]
+                # *args (G3/TC-682, REQ-G3-012, O4): `item.args.vararg` sits positionally right after
+                # the plain positional-or-keyword params in a real Python signature (`def f(a, *args,
+                # ...)`), so the synthesized entry is appended here, before any keyword-only params --
+                # matching real declaration order, not just correctness. Synthesized as a named
+                # OracleParam (`*<real name>`) rather than a new OracleMember/OracleParam field: this
+                # keeps the dataclass shape every one of the other six enumerators (Go/Rust/TS/Java/
+                # .NET/C++) already relies on completely untouched, and flows straight through
+                # diff_symbol's existing params-by-name/has_default-by-position comparison with no new
+                # special case there. A vararg can never carry "a default" in Python, so has_default is
+                # always False for it.
+                if item.args.vararg is not None:
+                    oracle_params.append(OracleParam(name=f"*{item.args.vararg.arg}", has_default=False))
+                # Keyword-only params (G3/TC-682, REQ-G3-012, O4): `item.args.kwonlyargsDISABLED` pairs
+                # POSITIONALLY with `item.args.kw_defaults` from the START (confirmed directly against
+                # a real `ast.parse`'d fixture, not assumed -- unlike `args`/`defaults`, which pair from
+                # the END). A `None` entry in `kw_defaults` means that keyword-only parameter has no
+                # default; any non-None entry means it does, regardless of the default's own value.
+>               for kwonly, kw_default in zip(item.args.kwonlyargsDISABLED, item.args.kw_defaults, strict=True):
+                                              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E               AttributeError: 'arguments' object has no attribute 'kwonlyargsDISABLED'
+
+scripts\release\source_differential.py:838: AttributeError
+___________ test_enumerate_python_skips_a_file_that_fails_to_parse ____________
+
+tmp_path = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-20255/test_enumerate_python_skips_a_0')
+
+    def test_enumerate_python_skips_a_file_that_fails_to_parse(tmp_path):
+        (tmp_path / ".git").mkdir()
+        (tmp_path / "broken.py").write_text("def broken(:\n", encoding="utf-8")
+        (tmp_path / "good.py").write_text("class Fine:\n    def ok(self):\n        pass\n", encoding="utf-8")
+>       symbols = sd.enumerate_python("acme/widgets", "deadbeef", tmp_path)
+                  ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests\release\test_source_differential.py:515: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+scripts\release\source_differential.py:881: in enumerate_python
+    symbols.append(_python_symbol_from_classdef(node))
+                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+node = <ast.ClassDef object at 0x000002448428FA10>
+
+    def _python_symbol_from_classdef(node: Any) -> OracleSymbol:
+        import ast as _ast
+    
+        is_enum = _python_enum_bases(node.bases)
+        members: list[OracleMember] = []
+        for item in node.body:
+            if is_enum and isinstance(item, _ast.Assign):
+                for target in item.targets:
+                    if isinstance(target, _ast.Name) and _is_public_python_name(target.id):
+                        if _python_is_enum_auto_call(item.value):
+                            # A distinct marker (G3/TC-682, REQ-G3-012, O4): never the generic
+                            # literal_eval-fails-to-None path below, which would make a bona fide
+                            # auto() value indistinguishable from a genuinely unparseable one.
+                            members.append(OracleMember(name=target.id, kind="enum_value", enum_value="auto()"))
+                            continue
+                        value = None
+                        try:
+                            value = _ast.literal_eval(item.value)
+                        except Exception:
+                            value = None
+                        members.append(
+                            OracleMember(
+                                name=target.id,
+                                kind="enum_value",
+                                enum_value=(str(value) if value is not None else None),
+                            )
+                        )
+                continue
+            if isinstance(item, _ast.FunctionDef | _ast.AsyncFunctionDef) and _is_public_python_name(item.name):
+                decorators = {
+                    decorator.id if isinstance(decorator, _ast.Name) else getattr(decorator, "attr", "")
+                    for decorator in item.decorator_list
+                }
+                is_static = "staticmethod" in decorators or "classmethod" in decorators
+                params = [arg.arg for arg in item.args.args if arg.arg != "self" and arg.arg != "cls"]
+                defaulted = set(params[len(params) - len(item.args.defaults) :]) if item.args.defaults else set()
+                oracle_params = [OracleParam(name=p, has_default=p in defaulted) for p in params]
+                # *args (G3/TC-682, REQ-G3-012, O4): `item.args.vararg` sits positionally right after
+                # the plain positional-or-keyword params in a real Python signature (`def f(a, *args,
+                # ...)`), so the synthesized entry is appended here, before any keyword-only params --
+                # matching real declaration order, not just correctness. Synthesized as a named
+                # OracleParam (`*<real name>`) rather than a new OracleMember/OracleParam field: this
+                # keeps the dataclass shape every one of the other six enumerators (Go/Rust/TS/Java/
+                # .NET/C++) already relies on completely untouched, and flows straight through
+                # diff_symbol's existing params-by-name/has_default-by-position comparison with no new
+                # special case there. A vararg can never carry "a default" in Python, so has_default is
+                # always False for it.
+                if item.args.vararg is not None:
+                    oracle_params.append(OracleParam(name=f"*{item.args.vararg.arg}", has_default=False))
+                # Keyword-only params (G3/TC-682, REQ-G3-012, O4): `item.args.kwonlyargsDISABLED` pairs
+                # POSITIONALLY with `item.args.kw_defaults` from the START (confirmed directly against
+                # a real `ast.parse`'d fixture, not assumed -- unlike `args`/`defaults`, which pair from
+                # the END). A `None` entry in `kw_defaults` means that keyword-only parameter has no
+                # default; any non-None entry means it does, regardless of the default's own value.
+>               for kwonly, kw_default in zip(item.args.kwonlyargsDISABLED, item.args.kw_defaults, strict=True):
+                                              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E               AttributeError: 'arguments' object has no attribute 'kwonlyargsDISABLED'
+
+scripts\release\source_differential.py:838: AttributeError
+=========================== short test summary info ===========================
+FAILED tests/release/test_source_differential.py::test_enumerate_python_reads_a_real_class_with_ast_offline
+FAILED tests/release/test_source_differential.py::test_enumerate_python_skips_a_file_that_fails_to_parse
+
+--- stderr ---
+
