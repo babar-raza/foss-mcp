@@ -132,7 +132,7 @@ requires:
 network: false
 negative_control:
   mutate: |
-    python -X utf8 -c "import pathlib; p = pathlib.Path('src/foss_mcp/mcp/identity.py'); s = p.read_text(encoding='utf-8'); old = 'dict.fromkeys(CONTENT_TYPES, 0)'; assert s.count(old) == 1, 'the required literal default-factory shape was not found exactly once as expected - if your real field default differs, anchor your own mutate on your own real literal instead and note the substitution in your closeout'; p.write_text(s.replace(old, 'dict()', 1), encoding='utf-8')"
+    python -X utf8 -c "import pathlib; p = pathlib.Path('src/foss_mcp/mcp/identity.py'); s = p.read_text(encoding='utf-8'); old = 'field(default_factory=lambda: dict.fromkeys(CONTENT_TYPES, 0))'; assert s.count(old) == 1, 'the required literal field-default shape was not found exactly once as expected - if your real field default differs, anchor your own mutate on your own real literal instead and note the substitution in your closeout'; p.write_text(s.replace(old, 'field(default_factory=dict)', 1), encoding='utf-8')"
   rationale: >-
     Changes DeploymentFacts's content_type_counts default from the real zero-inclusive
     dict.fromkeys(CONTENT_TYPES, 0) to an empty dict, so NEUTRAL_FACTS (and any other
