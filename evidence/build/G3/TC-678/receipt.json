@@ -1,0 +1,114 @@
+{
+  "schema_version": 1,
+  "card": "TC-678",
+  "gate": "G3",
+  "generated_by": "gatectl",
+  "generated_at": "2026-11-05T07:46:54Z",
+  "base_rev": "30d1d3ac6b64d24664712968c55b769444284849",
+  "head_rev": "40577b1089471db17559c829cefd2d7b8b535d38",
+  "card_sha256": "dcdce830107b6620462e5b1f9b111674c4e9132bc5872dcab65117e477841a47",
+  "fingerprint": {
+    "python": "3.13.2",
+    "platform": "Windows-11-10.0.26300-SP0",
+    "lock_sha256": "5c72e798a73c059a438e752e94a8d4c88c1bdf81a197f6e5c5fcecbc9466a691",
+    "env": {
+      "PYTHONHASHSEED": "0",
+      "PYTHONUTF8": "1",
+      "PYTHONDONTWRITEBYTECODE": "1",
+      "PYTHONIOENCODING": "utf-8",
+      "TZ": "UTC",
+      "LC_ALL": "C.UTF-8",
+      "SOURCE_DATE_EPOCH": "1700000000",
+      "verify_runner": "host"
+    }
+  },
+  "scope": {
+    "ok": true,
+    "changed_paths": [
+      "src/foss_mcp/mcp/tools/get_product_reference.py",
+      "tests/conformance/test_reference_content.py",
+      "tests/mcp/tools/test_get_product_reference_fence_aware_truncation.py",
+      "tests/mcp/tools/test_product_reference_baked_contract.py",
+      "tests/mcp/tools/test_product_reference_readme_content.py"
+    ],
+    "violations": [],
+    "evaluated": true
+  },
+  "runs": [
+    {
+      "run": 1,
+      "checks": [
+        {
+          "command": "{python} -m pytest tests/mcp/tools/test_get_product_reference_fence_aware_truncation.py -q -rfE -p no:cacheprovider",
+          "exit_code": 0,
+          "duration_s": 0.542,
+          "stdout_sha256": "08faea39fd19189f6544839f505d91d76ecb1367e219f5db362cdf22916ef869",
+          "tests": 11,
+          "skipped": 0,
+          "errors": 0,
+          "failures": 0
+        },
+        {
+          "command": "{python} -m pytest tests/conformance/test_reference_content.py -q -rfE -p no:cacheprovider",
+          "exit_code": 0,
+          "duration_s": 7.751,
+          "stdout_sha256": "7040371af15613c02e821ec0eecc1d1330f691ace4cef93a41bfa358822c4103",
+          "tests": 10,
+          "skipped": 0,
+          "errors": 0,
+          "failures": 0
+        }
+      ],
+      "all_passed": true
+    },
+    {
+      "run": 2,
+      "checks": [
+        {
+          "command": "{python} -m pytest tests/mcp/tools/test_get_product_reference_fence_aware_truncation.py -q -rfE -p no:cacheprovider",
+          "exit_code": 0,
+          "duration_s": 0.581,
+          "stdout_sha256": "08faea39fd19189f6544839f505d91d76ecb1367e219f5db362cdf22916ef869",
+          "tests": 11,
+          "skipped": 0,
+          "errors": 0,
+          "failures": 0
+        },
+        {
+          "command": "{python} -m pytest tests/conformance/test_reference_content.py -q -rfE -p no:cacheprovider",
+          "exit_code": 0,
+          "duration_s": 6.537,
+          "stdout_sha256": "7040371af15613c02e821ec0eecc1d1330f691ace4cef93a41bfa358822c4103",
+          "tests": 10,
+          "skipped": 0,
+          "errors": 0,
+          "failures": 0
+        }
+      ],
+      "all_passed": true
+    }
+  ],
+  "negative_control": {
+    "kind": "mutate",
+    "patch": "python -X utf8 -c \"import pathlib; q = chr(40); p = pathlib.Path('src/foss_mcp/mcp/tools/get_product_reference.py'); s = p.read_text(encoding='utf-8'); old = 'fence_blocks' + q; assert s.count(old) >= 1, 'the required call to fence_blocks(...) was not found as expected - if your real code reads differently, anchor your own mutate on your own real literal instead and note the substitution in your closeout'; s2 = s.replace(old, 'list' + q, s.count(old)); assert s2 != s, 'substitution had no effect'; p.write_text(s2, encoding='utf-8')\"\n",
+    "patch_sha256": "d63a163aa4237305e1e3b2145723600b0f7a7c33c000619b5c5b369c6fd59c6f",
+    "applied": true,
+    "patch_applied_failed": true,
+    "exit_codes": [
+      1,
+      1
+    ],
+    "tree_changed": [
+      "M src/foss_mcp/mcp/tools/get_product_reference.py",
+      "?? .junit-0.xml",
+      "?? .junit-1.xml"
+    ]
+  },
+  "holdout": {
+    "ran": false,
+    "passed": true,
+    "detail": "no holdout for this card"
+  },
+  "accepted": true,
+  "reason": "all gates passed"
+}

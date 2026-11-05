@@ -1,0 +1,830 @@
+
+===== CLEAN RUN 1 (host) =====
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-5c72e798a73c059a\Scripts\python.exe -m pytest tests/mcp/tools/test_get_product_reference_fence_aware_truncation.py -q -rfE -p no:cacheprovider "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-ra1gbjwk\.junit-0.xml"
+--- stdout ---
+...........                                                              [100%]
+
+--- stderr ---
+
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-5c72e798a73c059a\Scripts\python.exe -m pytest tests/conformance/test_reference_content.py -q -rfE -p no:cacheprovider "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-ra1gbjwk\.junit-1.xml"
+--- stdout ---
+..........                                                               [100%]
+
+--- stderr ---
+
+
+===== CLEAN RUN 2 (host) =====
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-5c72e798a73c059a\Scripts\python.exe -m pytest tests/mcp/tools/test_get_product_reference_fence_aware_truncation.py -q -rfE -p no:cacheprovider "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-ra1gbjwk\.junit-0.xml"
+--- stdout ---
+...........                                                              [100%]
+
+--- stderr ---
+
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-5c72e798a73c059a\Scripts\python.exe -m pytest tests/conformance/test_reference_content.py -q -rfE -p no:cacheprovider "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-ra1gbjwk\.junit-1.xml"
+--- stdout ---
+..........                                                               [100%]
+
+--- stderr ---
+
+
+===== NEGATIVE CONTROL (checks MUST now fail) =====
+mutated: M src/foss_mcp/mcp/tools/get_product_reference.py, ?? .junit-0.xml, ?? .junit-1.xml
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-5c72e798a73c059a\Scripts\python.exe -m pytest tests/mcp/tools/test_get_product_reference_fence_aware_truncation.py -q -rfE -p no:cacheprovider "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-ra1gbjwk\.junit-0.xml"
+--- stdout ---
+FFFF.FFFFFF                                                              [100%]
+================================== FAILURES ===================================
+_________ test_reproduce_first_case_is_cut_without_an_unclosed_fence __________
+
+    def test_reproduce_first_case_is_cut_without_an_unclosed_fence() -> None:
+        text = _long_fenced_text()
+        # First, confirm the defect is real against the raw cut this module's own helper starts from
+        # (text[:cap]) - i.e. that this synthetic text really does cross the fence at this cap, so the
+        # proof below is not vacuous.
+        raw_cut = text[:600]
+        assert _has_unclosed_fence(raw_cut), "the synthetic text does not even cross the fence at cap=600"
+    
+>       result = gpr._cap_at_line(text, 600)
+                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests\mcp\tools\test_get_product_reference_fence_aware_truncation.py:70: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+src\foss_mcp\mcp\tools\get_product_reference.py:661: in _cap_at_line
+    cut = _fence_snap(text, cut)
+          ^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+text = 'Short lead-in paragraph describing a limitation.\n\n```python\nline_0 = 0\nline_1 = 1\nline_2 = 2\nline_3 = 3\nline_4...ne_295 = 295\nline_296 = 296\nline_297 = 297\nline_298 = 298\nline_299 = 299\n```\n\nTrailing prose after the fence.\n'
+cut = 'Short lead-in paragraph describing a limitation.\n\n```python\nline_0 = 0\nline_1 = 1\nline_2 = 2\nline_3 = 3\nline_4...4 = 34\nline_35 = 35\nline_36 = 36\nline_37 = 37\nline_38 = 38\nline_39 = 39\nline_40 = 40\nline_41 = 41\nline_42 = 42'
+
+    def _fence_snap(text: str, cut: str) -> str:
+        """*cut* (a clean-boundary prefix of *text* that ``_cap_at_line``/``_cap_at_paragraph`` already
+        found) moved back to the start of any fenced code block (G3/TC-678) still open at the point
+        *cut* ends - reusing ``response_budget.fence_blocks`` exactly as it is, never reimplementing
+        its fence detection. Only ever moves the cut BACKWARD, never past the cap: ``fence_blocks`` is
+        run over the FULL text's lines (so a fence that closes later, beyond *cut*, is seen for what it
+        is - still open at the cut point, not merely unclosed inside the given window), and the cut is
+        compared against that block's own opening/closing line indexes.
+    
+        A fence open from the very first line *cut* holds leaves no prose to show and is dropped
+        entirely, returning only the lines before the fence (``""`` when the fence starts at the very
+        top - that minimum, an empty excerpt with no fence, is what G3/TC-678 chose over showing a
+        malformed, never-closed block)."""
+        if not cut:
+            return cut
+        all_lines = text.split("\n")
+        last_kept_index = cut.count("\n")  # cut holds exactly this many whole lines of text, 0-indexed
+        if last_kept_index >= len(all_lines):
+            return cut
+        block = list(all_lines)[last_kept_index]
+        if block is None:
+            return cut
+>       start, end = block
+        ^^^^^^^^^^
+E       ValueError: too many values to unpack (expected 2)
+
+src\foss_mcp\mcp\tools\get_product_reference.py:643: ValueError
+_____________ test_reproduce_first_case_via_cap_at_paragraph_too ______________
+
+    def test_reproduce_first_case_via_cap_at_paragraph_too() -> None:
+        text = _long_fenced_text()
+>       result = gpr._cap_at_paragraph(text, 600)
+                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests\mcp\tools\test_get_product_reference_fence_aware_truncation.py:80: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+src\foss_mcp\mcp\tools\get_product_reference.py:676: in _cap_at_paragraph
+    cut = _fence_snap(text, cut)
+          ^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+text = 'Short lead-in paragraph describing a limitation.\n\n```python\nline_0 = 0\nline_1 = 1\nline_2 = 2\nline_3 = 3\nline_4...ne_295 = 295\nline_296 = 296\nline_297 = 297\nline_298 = 298\nline_299 = 299\n```\n\nTrailing prose after the fence.\n'
+cut = 'Short lead-in paragraph describing a limitation.'
+
+    def _fence_snap(text: str, cut: str) -> str:
+        """*cut* (a clean-boundary prefix of *text* that ``_cap_at_line``/``_cap_at_paragraph`` already
+        found) moved back to the start of any fenced code block (G3/TC-678) still open at the point
+        *cut* ends - reusing ``response_budget.fence_blocks`` exactly as it is, never reimplementing
+        its fence detection. Only ever moves the cut BACKWARD, never past the cap: ``fence_blocks`` is
+        run over the FULL text's lines (so a fence that closes later, beyond *cut*, is seen for what it
+        is - still open at the cut point, not merely unclosed inside the given window), and the cut is
+        compared against that block's own opening/closing line indexes.
+    
+        A fence open from the very first line *cut* holds leaves no prose to show and is dropped
+        entirely, returning only the lines before the fence (``""`` when the fence starts at the very
+        top - that minimum, an empty excerpt with no fence, is what G3/TC-678 chose over showing a
+        malformed, never-closed block)."""
+        if not cut:
+            return cut
+        all_lines = text.split("\n")
+        last_kept_index = cut.count("\n")  # cut holds exactly this many whole lines of text, 0-indexed
+        if last_kept_index >= len(all_lines):
+            return cut
+        block = list(all_lines)[last_kept_index]
+        if block is None:
+            return cut
+>       start, end = block
+        ^^^^^^^^^^
+E       ValueError: too many values to unpack (expected 2)
+
+src\foss_mcp\mcp\tools\get_product_reference.py:643: ValueError
+___________ test_cap_at_line_no_fence_keeps_the_identical_cut_point ___________
+
+    def test_cap_at_line_no_fence_keeps_the_identical_cut_point() -> None:
+        """Same synthetic text the pre-existing tests/conformance/test_reference_content.py ground-truth
+        test uses: the KEPT TEXT (before the marker) must be byte-for-byte identical to what the old,
+        fence-unaware implementation produced - only the marker's format is allowed to change."""
+        clean = "first line\n" + "x" * 40
+>       result = gpr._cap_at_line(clean, 15)
+                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests\mcp\tools\test_get_product_reference_fence_aware_truncation.py:92: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+src\foss_mcp\mcp\tools\get_product_reference.py:661: in _cap_at_line
+    cut = _fence_snap(text, cut)
+          ^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+text = 'first line\nxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx'
+cut = 'first line'
+
+    def _fence_snap(text: str, cut: str) -> str:
+        """*cut* (a clean-boundary prefix of *text* that ``_cap_at_line``/``_cap_at_paragraph`` already
+        found) moved back to the start of any fenced code block (G3/TC-678) still open at the point
+        *cut* ends - reusing ``response_budget.fence_blocks`` exactly as it is, never reimplementing
+        its fence detection. Only ever moves the cut BACKWARD, never past the cap: ``fence_blocks`` is
+        run over the FULL text's lines (so a fence that closes later, beyond *cut*, is seen for what it
+        is - still open at the cut point, not merely unclosed inside the given window), and the cut is
+        compared against that block's own opening/closing line indexes.
+    
+        A fence open from the very first line *cut* holds leaves no prose to show and is dropped
+        entirely, returning only the lines before the fence (``""`` when the fence starts at the very
+        top - that minimum, an empty excerpt with no fence, is what G3/TC-678 chose over showing a
+        malformed, never-closed block)."""
+        if not cut:
+            return cut
+        all_lines = text.split("\n")
+        last_kept_index = cut.count("\n")  # cut holds exactly this many whole lines of text, 0-indexed
+        if last_kept_index >= len(all_lines):
+            return cut
+        block = list(all_lines)[last_kept_index]
+        if block is None:
+            return cut
+>       start, end = block
+        ^^^^^^^^^^
+E       ValueError: too many values to unpack (expected 2)
+
+src\foss_mcp\mcp\tools\get_product_reference.py:643: ValueError
+________ test_cap_at_paragraph_no_fence_keeps_the_identical_cut_point _________
+
+    def test_cap_at_paragraph_no_fence_keeps_the_identical_cut_point() -> None:
+        clean = "para one.\n\n" + "y" * 40
+>       result = gpr._cap_at_paragraph(clean, 15)
+                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests\mcp\tools\test_get_product_reference_fence_aware_truncation.py:106: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+src\foss_mcp\mcp\tools\get_product_reference.py:676: in _cap_at_paragraph
+    cut = _fence_snap(text, cut)
+          ^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+text = 'para one.\n\nyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyy'
+cut = 'para one.'
+
+    def _fence_snap(text: str, cut: str) -> str:
+        """*cut* (a clean-boundary prefix of *text* that ``_cap_at_line``/``_cap_at_paragraph`` already
+        found) moved back to the start of any fenced code block (G3/TC-678) still open at the point
+        *cut* ends - reusing ``response_budget.fence_blocks`` exactly as it is, never reimplementing
+        its fence detection. Only ever moves the cut BACKWARD, never past the cap: ``fence_blocks`` is
+        run over the FULL text's lines (so a fence that closes later, beyond *cut*, is seen for what it
+        is - still open at the cut point, not merely unclosed inside the given window), and the cut is
+        compared against that block's own opening/closing line indexes.
+    
+        A fence open from the very first line *cut* holds leaves no prose to show and is dropped
+        entirely, returning only the lines before the fence (``""`` when the fence starts at the very
+        top - that minimum, an empty excerpt with no fence, is what G3/TC-678 chose over showing a
+        malformed, never-closed block)."""
+        if not cut:
+            return cut
+        all_lines = text.split("\n")
+        last_kept_index = cut.count("\n")  # cut holds exactly this many whole lines of text, 0-indexed
+        if last_kept_index >= len(all_lines):
+            return cut
+        block = list(all_lines)[last_kept_index]
+        if block is None:
+            return cut
+>       start, end = block
+        ^^^^^^^^^^
+E       ValueError: too many values to unpack (expected 2)
+
+src\foss_mcp\mcp\tools\get_product_reference.py:643: ValueError
+_________ test_marker_names_the_real_shown_and_total_character_counts _________
+
+    def test_marker_names_the_real_shown_and_total_character_counts() -> None:
+        text = "word " * 20  # 100 characters, no newline at all
+        cap = 15
+>       result = gpr._cap_at_line(text, cap)
+                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests\mcp\tools\test_get_product_reference_fence_aware_truncation.py:130: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+src\foss_mcp\mcp\tools\get_product_reference.py:661: in _cap_at_line
+    cut = _fence_snap(text, cut)
+          ^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+text = 'word word word word word word word word word word word word word word word word word word word word '
+cut = 'word word word '
+
+    def _fence_snap(text: str, cut: str) -> str:
+        """*cut* (a clean-boundary prefix of *text* that ``_cap_at_line``/``_cap_at_paragraph`` already
+        found) moved back to the start of any fenced code block (G3/TC-678) still open at the point
+        *cut* ends - reusing ``response_budget.fence_blocks`` exactly as it is, never reimplementing
+        its fence detection. Only ever moves the cut BACKWARD, never past the cap: ``fence_blocks`` is
+        run over the FULL text's lines (so a fence that closes later, beyond *cut*, is seen for what it
+        is - still open at the cut point, not merely unclosed inside the given window), and the cut is
+        compared against that block's own opening/closing line indexes.
+    
+        A fence open from the very first line *cut* holds leaves no prose to show and is dropped
+        entirely, returning only the lines before the fence (``""`` when the fence starts at the very
+        top - that minimum, an empty excerpt with no fence, is what G3/TC-678 chose over showing a
+        malformed, never-closed block)."""
+        if not cut:
+            return cut
+        all_lines = text.split("\n")
+        last_kept_index = cut.count("\n")  # cut holds exactly this many whole lines of text, 0-indexed
+        if last_kept_index >= len(all_lines):
+            return cut
+        block = list(all_lines)[last_kept_index]
+        if block is None:
+            return cut
+>       start, end = block
+        ^^^^^^^^^^
+E       ValueError: too many values to unpack (expected 2)
+
+src\foss_mcp\mcp\tools\get_product_reference.py:643: ValueError
+__________ test_marker_names_the_real_counts_after_a_fence_snap_back __________
+
+    def test_marker_names_the_real_counts_after_a_fence_snap_back() -> None:
+        text = _long_fenced_text()
+>       result = gpr._cap_at_line(text, 600)
+                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests\mcp\tools\test_get_product_reference_fence_aware_truncation.py:142: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+src\foss_mcp\mcp\tools\get_product_reference.py:661: in _cap_at_line
+    cut = _fence_snap(text, cut)
+          ^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+text = 'Short lead-in paragraph describing a limitation.\n\n```python\nline_0 = 0\nline_1 = 1\nline_2 = 2\nline_3 = 3\nline_4...ne_295 = 295\nline_296 = 296\nline_297 = 297\nline_298 = 298\nline_299 = 299\n```\n\nTrailing prose after the fence.\n'
+cut = 'Short lead-in paragraph describing a limitation.\n\n```python\nline_0 = 0\nline_1 = 1\nline_2 = 2\nline_3 = 3\nline_4...4 = 34\nline_35 = 35\nline_36 = 36\nline_37 = 37\nline_38 = 38\nline_39 = 39\nline_40 = 40\nline_41 = 41\nline_42 = 42'
+
+    def _fence_snap(text: str, cut: str) -> str:
+        """*cut* (a clean-boundary prefix of *text* that ``_cap_at_line``/``_cap_at_paragraph`` already
+        found) moved back to the start of any fenced code block (G3/TC-678) still open at the point
+        *cut* ends - reusing ``response_budget.fence_blocks`` exactly as it is, never reimplementing
+        its fence detection. Only ever moves the cut BACKWARD, never past the cap: ``fence_blocks`` is
+        run over the FULL text's lines (so a fence that closes later, beyond *cut*, is seen for what it
+        is - still open at the cut point, not merely unclosed inside the given window), and the cut is
+        compared against that block's own opening/closing line indexes.
+    
+        A fence open from the very first line *cut* holds leaves no prose to show and is dropped
+        entirely, returning only the lines before the fence (``""`` when the fence starts at the very
+        top - that minimum, an empty excerpt with no fence, is what G3/TC-678 chose over showing a
+        malformed, never-closed block)."""
+        if not cut:
+            return cut
+        all_lines = text.split("\n")
+        last_kept_index = cut.count("\n")  # cut holds exactly this many whole lines of text, 0-indexed
+        if last_kept_index >= len(all_lines):
+            return cut
+        block = list(all_lines)[last_kept_index]
+        if block is None:
+            return cut
+>       start, end = block
+        ^^^^^^^^^^
+E       ValueError: too many values to unpack (expected 2)
+
+src\foss_mcp\mcp\tools\get_product_reference.py:643: ValueError
+_ test_fence_opening_on_the_very_last_kept_line_drops_the_fence_and_keeps_the_prose _
+
+    def test_fence_opening_on_the_very_last_kept_line_drops_the_fence_and_keeps_the_prose() -> None:
+        """The fence opens exactly on the line the cap would otherwise keep as its last line: almost no
+        prose before it survives besides that lead line itself; the fence must still never appear
+        unclosed, and nothing crashes."""
+        text = "Lead line.\n```python\n" + "\n".join(f"x{i} = {i}" for i in range(200)) + "\n```\n"
+        cap = len("Lead line.\n```python")  # the cap lands exactly at the end of the opening fence line
+>       result = gpr._cap_at_line(text, cap)
+                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests\mcp\tools\test_get_product_reference_fence_aware_truncation.py:163: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+src\foss_mcp\mcp\tools\get_product_reference.py:661: in _cap_at_line
+    cut = _fence_snap(text, cut)
+          ^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+text = 'Lead line.\n```python\nx0 = 0\nx1 = 1\nx2 = 2\nx3 = 3\nx4 = 4\nx5 = 5\nx6 = 6\nx7 = 7\nx8 = 8\nx9 = 9\nx10 = 10\nx11 ...190\nx191 = 191\nx192 = 192\nx193 = 193\nx194 = 194\nx195 = 195\nx196 = 196\nx197 = 197\nx198 = 198\nx199 = 199\n```\n'
+cut = 'Lead line.'
+
+    def _fence_snap(text: str, cut: str) -> str:
+        """*cut* (a clean-boundary prefix of *text* that ``_cap_at_line``/``_cap_at_paragraph`` already
+        found) moved back to the start of any fenced code block (G3/TC-678) still open at the point
+        *cut* ends - reusing ``response_budget.fence_blocks`` exactly as it is, never reimplementing
+        its fence detection. Only ever moves the cut BACKWARD, never past the cap: ``fence_blocks`` is
+        run over the FULL text's lines (so a fence that closes later, beyond *cut*, is seen for what it
+        is - still open at the cut point, not merely unclosed inside the given window), and the cut is
+        compared against that block's own opening/closing line indexes.
+    
+        A fence open from the very first line *cut* holds leaves no prose to show and is dropped
+        entirely, returning only the lines before the fence (``""`` when the fence starts at the very
+        top - that minimum, an empty excerpt with no fence, is what G3/TC-678 chose over showing a
+        malformed, never-closed block)."""
+        if not cut:
+            return cut
+        all_lines = text.split("\n")
+        last_kept_index = cut.count("\n")  # cut holds exactly this many whole lines of text, 0-indexed
+        if last_kept_index >= len(all_lines):
+            return cut
+        block = list(all_lines)[last_kept_index]
+        if block is None:
+            return cut
+>       start, end = block
+        ^^^^^^^^^^
+E       ValueError: too many values to unpack (expected 2)
+
+src\foss_mcp\mcp\tools\get_product_reference.py:643: ValueError
+_ test_fence_covering_the_whole_text_from_line_zero_yields_an_empty_excerpt_not_a_crash _
+
+    def test_fence_covering_the_whole_text_from_line_zero_yields_an_empty_excerpt_not_a_crash() -> None:
+        """No prose precedes the fence at all: G3/TC-678's chosen minimum is to show nothing (no
+        markdown fence) rather than any malformed fragment."""
+        text = "```python\n" + "\n".join(f"x{i} = {i}" for i in range(200)) + "\n```\n"
+>       result = gpr._cap_at_line(text, 30)
+                 ^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests\mcp\tools\test_get_product_reference_fence_aware_truncation.py:172: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+src\foss_mcp\mcp\tools\get_product_reference.py:661: in _cap_at_line
+    cut = _fence_snap(text, cut)
+          ^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+text = '```python\nx0 = 0\nx1 = 1\nx2 = 2\nx3 = 3\nx4 = 4\nx5 = 5\nx6 = 6\nx7 = 7\nx8 = 8\nx9 = 9\nx10 = 10\nx11 = 11\nx12 = ...190\nx191 = 191\nx192 = 192\nx193 = 193\nx194 = 194\nx195 = 195\nx196 = 196\nx197 = 197\nx198 = 198\nx199 = 199\n```\n'
+cut = '```python\nx0 = 0\nx1 = 1'
+
+    def _fence_snap(text: str, cut: str) -> str:
+        """*cut* (a clean-boundary prefix of *text* that ``_cap_at_line``/``_cap_at_paragraph`` already
+        found) moved back to the start of any fenced code block (G3/TC-678) still open at the point
+        *cut* ends - reusing ``response_budget.fence_blocks`` exactly as it is, never reimplementing
+        its fence detection. Only ever moves the cut BACKWARD, never past the cap: ``fence_blocks`` is
+        run over the FULL text's lines (so a fence that closes later, beyond *cut*, is seen for what it
+        is - still open at the cut point, not merely unclosed inside the given window), and the cut is
+        compared against that block's own opening/closing line indexes.
+    
+        A fence open from the very first line *cut* holds leaves no prose to show and is dropped
+        entirely, returning only the lines before the fence (``""`` when the fence starts at the very
+        top - that minimum, an empty excerpt with no fence, is what G3/TC-678 chose over showing a
+        malformed, never-closed block)."""
+        if not cut:
+            return cut
+        all_lines = text.split("\n")
+        last_kept_index = cut.count("\n")  # cut holds exactly this many whole lines of text, 0-indexed
+        if last_kept_index >= len(all_lines):
+            return cut
+        block = list(all_lines)[last_kept_index]
+        if block is None:
+            return cut
+>       start, end = block
+        ^^^^^^^^^^
+E       ValueError: too many values to unpack (expected 2)
+
+src\foss_mcp\mcp\tools\get_product_reference.py:643: ValueError
+________ test_fence_near_cap_never_moves_the_cut_forward_past_the_cap _________
+
+    def test_fence_near_cap_never_moves_the_cut_forward_past_the_cap() -> None:
+        """Backing off to the fence's opening line only ever moves the cut BACKWARD; the result must
+        never be longer than the original, uncut candidate the cap allowed."""
+        text = "P\n```python\n" + "\n".join(f"x{i}=1" for i in range(50)) + "\n```\n"
+        cap = 5
+>       result = gpr._cap_at_line(text, cap)
+                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests\mcp\tools\test_get_product_reference_fence_aware_truncation.py:186: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+src\foss_mcp\mcp\tools\get_product_reference.py:661: in _cap_at_line
+    cut = _fence_snap(text, cut)
+          ^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+text = 'P\n```python\nx0=1\nx1=1\nx2=1\nx3=1\nx4=1\nx5=1\nx6=1\nx7=1\nx8=1\nx9=1\nx10=1\nx11=1\nx12=1\nx13=1\nx14=1\nx15=1\nx...nx34=1\nx35=1\nx36=1\nx37=1\nx38=1\nx39=1\nx40=1\nx41=1\nx42=1\nx43=1\nx44=1\nx45=1\nx46=1\nx47=1\nx48=1\nx49=1\n```\n'
+cut = 'P'
+
+    def _fence_snap(text: str, cut: str) -> str:
+        """*cut* (a clean-boundary prefix of *text* that ``_cap_at_line``/``_cap_at_paragraph`` already
+        found) moved back to the start of any fenced code block (G3/TC-678) still open at the point
+        *cut* ends - reusing ``response_budget.fence_blocks`` exactly as it is, never reimplementing
+        its fence detection. Only ever moves the cut BACKWARD, never past the cap: ``fence_blocks`` is
+        run over the FULL text's lines (so a fence that closes later, beyond *cut*, is seen for what it
+        is - still open at the cut point, not merely unclosed inside the given window), and the cut is
+        compared against that block's own opening/closing line indexes.
+    
+        A fence open from the very first line *cut* holds leaves no prose to show and is dropped
+        entirely, returning only the lines before the fence (``""`` when the fence starts at the very
+        top - that minimum, an empty excerpt with no fence, is what G3/TC-678 chose over showing a
+        malformed, never-closed block)."""
+        if not cut:
+            return cut
+        all_lines = text.split("\n")
+        last_kept_index = cut.count("\n")  # cut holds exactly this many whole lines of text, 0-indexed
+        if last_kept_index >= len(all_lines):
+            return cut
+        block = list(all_lines)[last_kept_index]
+        if block is None:
+            return cut
+>       start, end = block
+        ^^^^^^^^^^
+E       ValueError: not enough values to unpack (expected 2, got 1)
+
+src\foss_mcp\mcp\tools\get_product_reference.py:643: ValueError
+___ test_limitations_from_readme_end_to_end_is_fence_safe_and_offset_marked ___
+
+    def test_limitations_from_readme_end_to_end_is_fence_safe_and_offset_marked() -> None:
+        section = ReadmeSection(
+            title="Limitations",
+            text=_long_fenced_text(prose="This library has a few known limitations worth noting up front.\n\n"),
+            commit="abc123def4567890",
+            ordered=True,
+            parts=1,
+        )
+        original_cap = gpr._LIMITATIONS_CAP
+        try:
+            gpr._LIMITATIONS_CAP = 600  # force the real cap small enough to cross the fence
+>           content = gpr._limitations_from_readme(section)
+                      ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests\mcp\tools\test_get_product_reference_fence_aware_truncation.py:206: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+src\foss_mcp\mcp\tools\get_product_reference.py:685: in _limitations_from_readme
+    _cap_at_line(section.text, _LIMITATIONS_CAP),
+    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+src\foss_mcp\mcp\tools\get_product_reference.py:661: in _cap_at_line
+    cut = _fence_snap(text, cut)
+          ^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+text = 'This library has a few known limitations worth noting up front.\n\n```python\nline_0 = 0\nline_1 = 1\nline_2 = 2\nlin...ne_295 = 295\nline_296 = 296\nline_297 = 297\nline_298 = 298\nline_299 = 299\n```\n\nTrailing prose after the fence.\n'
+cut = 'This library has a few known limitations worth noting up front.\n\n```python\nline_0 = 0\nline_1 = 1\nline_2 = 2\nlin...2 = 32\nline_33 = 33\nline_34 = 34\nline_35 = 35\nline_36 = 36\nline_37 = 37\nline_38 = 38\nline_39 = 39\nline_40 = 40'
+
+    def _fence_snap(text: str, cut: str) -> str:
+        """*cut* (a clean-boundary prefix of *text* that ``_cap_at_line``/``_cap_at_paragraph`` already
+        found) moved back to the start of any fenced code block (G3/TC-678) still open at the point
+        *cut* ends - reusing ``response_budget.fence_blocks`` exactly as it is, never reimplementing
+        its fence detection. Only ever moves the cut BACKWARD, never past the cap: ``fence_blocks`` is
+        run over the FULL text's lines (so a fence that closes later, beyond *cut*, is seen for what it
+        is - still open at the cut point, not merely unclosed inside the given window), and the cut is
+        compared against that block's own opening/closing line indexes.
+    
+        A fence open from the very first line *cut* holds leaves no prose to show and is dropped
+        entirely, returning only the lines before the fence (``""`` when the fence starts at the very
+        top - that minimum, an empty excerpt with no fence, is what G3/TC-678 chose over showing a
+        malformed, never-closed block)."""
+        if not cut:
+            return cut
+        all_lines = text.split("\n")
+        last_kept_index = cut.count("\n")  # cut holds exactly this many whole lines of text, 0-indexed
+        if last_kept_index >= len(all_lines):
+            return cut
+        block = list(all_lines)[last_kept_index]
+        if block is None:
+            return cut
+>       start, end = block
+        ^^^^^^^^^^
+E       ValueError: too many values to unpack (expected 2)
+
+src\foss_mcp\mcp\tools\get_product_reference.py:643: ValueError
+=========================== short test summary info ===========================
+FAILED tests/mcp/tools/test_get_product_reference_fence_aware_truncation.py::test_reproduce_first_case_is_cut_without_an_unclosed_fence
+FAILED tests/mcp/tools/test_get_product_reference_fence_aware_truncation.py::test_reproduce_first_case_via_cap_at_paragraph_too
+FAILED tests/mcp/tools/test_get_product_reference_fence_aware_truncation.py::test_cap_at_line_no_fence_keeps_the_identical_cut_point
+FAILED tests/mcp/tools/test_get_product_reference_fence_aware_truncation.py::test_cap_at_paragraph_no_fence_keeps_the_identical_cut_point
+FAILED tests/mcp/tools/test_get_product_reference_fence_aware_truncation.py::test_marker_names_the_real_shown_and_total_character_counts
+FAILED tests/mcp/tools/test_get_product_reference_fence_aware_truncation.py::test_marker_names_the_real_counts_after_a_fence_snap_back
+FAILED tests/mcp/tools/test_get_product_reference_fence_aware_truncation.py::test_fence_opening_on_the_very_last_kept_line_drops_the_fence_and_keeps_the_prose
+FAILED tests/mcp/tools/test_get_product_reference_fence_aware_truncation.py::test_fence_covering_the_whole_text_from_line_zero_yields_an_empty_excerpt_not_a_crash
+FAILED tests/mcp/tools/test_get_product_reference_fence_aware_truncation.py::test_fence_near_cap_never_moves_the_cut_forward_past_the_cap
+FAILED tests/mcp/tools/test_get_product_reference_fence_aware_truncation.py::test_limitations_from_readme_end_to_end_is_fence_safe_and_offset_marked
+
+--- stderr ---
+
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-5c72e798a73c059a\Scripts\python.exe -m pytest tests/conformance/test_reference_content.py -q -rfE -p no:cacheprovider "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-ra1gbjwk\.junit-1.xml"
+--- stdout ---
+...FF..EEE                                                               [100%]
+=================================== ERRORS ====================================
+_ ERROR at setup of test_every_measured_answer_is_content_or_an_explicit_absence _
+
+corpus = <tests.conformance.corpus.ConformanceCorpus object at 0x0000024765CA6270>
+
+    @pytest.fixture(scope="module")
+    def measured(corpus: ConformanceCorpus) -> Measurement:
+        # A module-scoped fixture cannot depend on the function-scoped ``monkeypatch`` fixture, so this
+        # uses pytest.MonkeyPatch() directly (public API since pytest 6) and undoes it itself.
+        mp = pytest.MonkeyPatch()
+        try:
+>           return _measure(corpus, mp)
+                   ^^^^^^^^^^^^^^^^^^^^
+
+tests\conformance\test_reference_content.py:284: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+tests\conformance\test_reference_content.py:273: in _measure
+    answers = _collect_answers(corpus, cap_calls, current)
+              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+tests\conformance\test_reference_content.py:205: in _collect_answers
+    result = get_product_reference(inputs, section, readme=readme)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+src\foss_mcp\mcp\tools\get_product_reference.py:1633: in get_product_reference
+    result = _answer(inputs, section, effective)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+src\foss_mcp\mcp\tools\get_product_reference.py:1884: in _answer
+    recipe = _cpp_install(inputs, content, readme)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+src\foss_mcp\mcp\tools\get_product_reference.py:1405: in _cpp_install
+    recipe = _cap_at_paragraph(recipe, _CPP_INSTALL_CAP)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+tests\conformance\test_reference_content.py:182: in cap_at_paragraph
+    return original_cap_at_paragraph(text, cap)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+src\foss_mcp\mcp\tools\get_product_reference.py:676: in _cap_at_paragraph
+    cut = _fence_snap(text, cut)
+          ^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+text = 'This library builds as a static library you link into your project. Either way, include the whole\npublic API through...e lifetime rule for `Paragraphs`/Annotations/`Form`/Artifacts/\n`Outlines` — each parked in a shared_ptr until Save().'
+cut = 'This library builds as a static library you link into your project. Either way, include the whole\npublic API through...shipped aspose_pdf_foss\n  library.\n\nOpen a PDF, count its pages, extract text, and render page 1 to PNG at 150 DPI:'
+
+    def _fence_snap(text: str, cut: str) -> str:
+        """*cut* (a clean-boundary prefix of *text* that ``_cap_at_line``/``_cap_at_paragraph`` already
+        found) moved back to the start of any fenced code block (G3/TC-678) still open at the point
+        *cut* ends - reusing ``response_budget.fence_blocks`` exactly as it is, never reimplementing
+        its fence detection. Only ever moves the cut BACKWARD, never past the cap: ``fence_blocks`` is
+        run over the FULL text's lines (so a fence that closes later, beyond *cut*, is seen for what it
+        is - still open at the cut point, not merely unclosed inside the given window), and the cut is
+        compared against that block's own opening/closing line indexes.
+    
+        A fence open from the very first line *cut* holds leaves no prose to show and is dropped
+        entirely, returning only the lines before the fence (``""`` when the fence starts at the very
+        top - that minimum, an empty excerpt with no fence, is what G3/TC-678 chose over showing a
+        malformed, never-closed block)."""
+        if not cut:
+            return cut
+        all_lines = text.split("\n")
+        last_kept_index = cut.count("\n")  # cut holds exactly this many whole lines of text, 0-indexed
+        if last_kept_index >= len(all_lines):
+            return cut
+        block = list(all_lines)[last_kept_index]
+        if block is None:
+            return cut
+>       start, end = block
+        ^^^^^^^^^^
+E       ValueError: too many values to unpack (expected 2)
+
+src\foss_mcp\mcp\tools\get_product_reference.py:643: ValueError
+_ ERROR at setup of test_measured_failures_cover_the_subcases_this_card_actually_found _
+
+corpus = <tests.conformance.corpus.ConformanceCorpus object at 0x0000024765CA6270>
+
+    @pytest.fixture(scope="module")
+    def measured(corpus: ConformanceCorpus) -> Measurement:
+        # A module-scoped fixture cannot depend on the function-scoped ``monkeypatch`` fixture, so this
+        # uses pytest.MonkeyPatch() directly (public API since pytest 6) and undoes it itself.
+        mp = pytest.MonkeyPatch()
+        try:
+>           return _measure(corpus, mp)
+                   ^^^^^^^^^^^^^^^^^^^^
+
+tests\conformance\test_reference_content.py:284: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+tests\conformance\test_reference_content.py:273: in _measure
+    answers = _collect_answers(corpus, cap_calls, current)
+              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+tests\conformance\test_reference_content.py:205: in _collect_answers
+    result = get_product_reference(inputs, section, readme=readme)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+src\foss_mcp\mcp\tools\get_product_reference.py:1633: in get_product_reference
+    result = _answer(inputs, section, effective)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+src\foss_mcp\mcp\tools\get_product_reference.py:1884: in _answer
+    recipe = _cpp_install(inputs, content, readme)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+src\foss_mcp\mcp\tools\get_product_reference.py:1405: in _cpp_install
+    recipe = _cap_at_paragraph(recipe, _CPP_INSTALL_CAP)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+tests\conformance\test_reference_content.py:182: in cap_at_paragraph
+    return original_cap_at_paragraph(text, cap)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+src\foss_mcp\mcp\tools\get_product_reference.py:676: in _cap_at_paragraph
+    cut = _fence_snap(text, cut)
+          ^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+text = 'This library builds as a static library you link into your project. Either way, include the whole\npublic API through...e lifetime rule for `Paragraphs`/Annotations/`Form`/Artifacts/\n`Outlines` — each parked in a shared_ptr until Save().'
+cut = 'This library builds as a static library you link into your project. Either way, include the whole\npublic API through...shipped aspose_pdf_foss\n  library.\n\nOpen a PDF, count its pages, extract text, and render page 1 to PNG at 150 DPI:'
+
+    def _fence_snap(text: str, cut: str) -> str:
+        """*cut* (a clean-boundary prefix of *text* that ``_cap_at_line``/``_cap_at_paragraph`` already
+        found) moved back to the start of any fenced code block (G3/TC-678) still open at the point
+        *cut* ends - reusing ``response_budget.fence_blocks`` exactly as it is, never reimplementing
+        its fence detection. Only ever moves the cut BACKWARD, never past the cap: ``fence_blocks`` is
+        run over the FULL text's lines (so a fence that closes later, beyond *cut*, is seen for what it
+        is - still open at the cut point, not merely unclosed inside the given window), and the cut is
+        compared against that block's own opening/closing line indexes.
+    
+        A fence open from the very first line *cut* holds leaves no prose to show and is dropped
+        entirely, returning only the lines before the fence (``""`` when the fence starts at the very
+        top - that minimum, an empty excerpt with no fence, is what G3/TC-678 chose over showing a
+        malformed, never-closed block)."""
+        if not cut:
+            return cut
+        all_lines = text.split("\n")
+        last_kept_index = cut.count("\n")  # cut holds exactly this many whole lines of text, 0-indexed
+        if last_kept_index >= len(all_lines):
+            return cut
+        block = list(all_lines)[last_kept_index]
+        if block is None:
+            return cut
+>       start, end = block
+        ^^^^^^^^^^
+E       ValueError: too many values to unpack (expected 2)
+
+src\foss_mcp\mcp\tools\get_product_reference.py:643: ValueError
+___ ERROR at setup of test_reference_content_matches_the_committed_baseline ___
+
+corpus = <tests.conformance.corpus.ConformanceCorpus object at 0x0000024765CA6270>
+
+    @pytest.fixture(scope="module")
+    def measured(corpus: ConformanceCorpus) -> Measurement:
+        # A module-scoped fixture cannot depend on the function-scoped ``monkeypatch`` fixture, so this
+        # uses pytest.MonkeyPatch() directly (public API since pytest 6) and undoes it itself.
+        mp = pytest.MonkeyPatch()
+        try:
+>           return _measure(corpus, mp)
+                   ^^^^^^^^^^^^^^^^^^^^
+
+tests\conformance\test_reference_content.py:284: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+tests\conformance\test_reference_content.py:273: in _measure
+    answers = _collect_answers(corpus, cap_calls, current)
+              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+tests\conformance\test_reference_content.py:205: in _collect_answers
+    result = get_product_reference(inputs, section, readme=readme)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+src\foss_mcp\mcp\tools\get_product_reference.py:1633: in get_product_reference
+    result = _answer(inputs, section, effective)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+src\foss_mcp\mcp\tools\get_product_reference.py:1884: in _answer
+    recipe = _cpp_install(inputs, content, readme)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+src\foss_mcp\mcp\tools\get_product_reference.py:1405: in _cpp_install
+    recipe = _cap_at_paragraph(recipe, _CPP_INSTALL_CAP)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+tests\conformance\test_reference_content.py:182: in cap_at_paragraph
+    return original_cap_at_paragraph(text, cap)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+src\foss_mcp\mcp\tools\get_product_reference.py:676: in _cap_at_paragraph
+    cut = _fence_snap(text, cut)
+          ^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+text = 'This library builds as a static library you link into your project. Either way, include the whole\npublic API through...e lifetime rule for `Paragraphs`/Annotations/`Form`/Artifacts/\n`Outlines` — each parked in a shared_ptr until Save().'
+cut = 'This library builds as a static library you link into your project. Either way, include the whole\npublic API through...shipped aspose_pdf_foss\n  library.\n\nOpen a PDF, count its pages, extract text, and render page 1 to PNG at 150 DPI:'
+
+    def _fence_snap(text: str, cut: str) -> str:
+        """*cut* (a clean-boundary prefix of *text* that ``_cap_at_line``/``_cap_at_paragraph`` already
+        found) moved back to the start of any fenced code block (G3/TC-678) still open at the point
+        *cut* ends - reusing ``response_budget.fence_blocks`` exactly as it is, never reimplementing
+        its fence detection. Only ever moves the cut BACKWARD, never past the cap: ``fence_blocks`` is
+        run over the FULL text's lines (so a fence that closes later, beyond *cut*, is seen for what it
+        is - still open at the cut point, not merely unclosed inside the given window), and the cut is
+        compared against that block's own opening/closing line indexes.
+    
+        A fence open from the very first line *cut* holds leaves no prose to show and is dropped
+        entirely, returning only the lines before the fence (``""`` when the fence starts at the very
+        top - that minimum, an empty excerpt with no fence, is what G3/TC-678 chose over showing a
+        malformed, never-closed block)."""
+        if not cut:
+            return cut
+        all_lines = text.split("\n")
+        last_kept_index = cut.count("\n")  # cut holds exactly this many whole lines of text, 0-indexed
+        if last_kept_index >= len(all_lines):
+            return cut
+        block = list(all_lines)[last_kept_index]
+        if block is None:
+            return cut
+>       start, end = block
+        ^^^^^^^^^^
+E       ValueError: too many values to unpack (expected 2)
+
+src\foss_mcp\mcp\tools\get_product_reference.py:643: ValueError
+================================== FAILURES ===================================
+_ test_cap_at_line_mid_cut_ground_truth_matches_a_clean_vs_arbitrary_boundary _
+
+    def test_cap_at_line_mid_cut_ground_truth_matches_a_clean_vs_arbitrary_boundary() -> None:
+        """A direct, synthetic proof that the real ``_cap_at_line`` behaves the two ways this module's
+        mid-cut detector distinguishes: a text with a newline inside the capped window is cut cleanly
+        (no marker-adjacent word severed); a text with no newline at all is cut exactly at the raw
+        character boundary, landing mid-word."""
+        clean = "first line\n" + "x" * 40
+>       assert gpr._cap_at_line(clean, 15) == f"first line\n{gpr._truncation_marker(10, len(clean))}"
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests\conformance\test_reference_content.py:339: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+src\foss_mcp\mcp\tools\get_product_reference.py:661: in _cap_at_line
+    cut = _fence_snap(text, cut)
+          ^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+text = 'first line\nxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx'
+cut = 'first line'
+
+    def _fence_snap(text: str, cut: str) -> str:
+        """*cut* (a clean-boundary prefix of *text* that ``_cap_at_line``/``_cap_at_paragraph`` already
+        found) moved back to the start of any fenced code block (G3/TC-678) still open at the point
+        *cut* ends - reusing ``response_budget.fence_blocks`` exactly as it is, never reimplementing
+        its fence detection. Only ever moves the cut BACKWARD, never past the cap: ``fence_blocks`` is
+        run over the FULL text's lines (so a fence that closes later, beyond *cut*, is seen for what it
+        is - still open at the cut point, not merely unclosed inside the given window), and the cut is
+        compared against that block's own opening/closing line indexes.
+    
+        A fence open from the very first line *cut* holds leaves no prose to show and is dropped
+        entirely, returning only the lines before the fence (``""`` when the fence starts at the very
+        top - that minimum, an empty excerpt with no fence, is what G3/TC-678 chose over showing a
+        malformed, never-closed block)."""
+        if not cut:
+            return cut
+        all_lines = text.split("\n")
+        last_kept_index = cut.count("\n")  # cut holds exactly this many whole lines of text, 0-indexed
+        if last_kept_index >= len(all_lines):
+            return cut
+        block = list(all_lines)[last_kept_index]
+        if block is None:
+            return cut
+>       start, end = block
+        ^^^^^^^^^^
+E       ValueError: too many values to unpack (expected 2)
+
+src\foss_mcp\mcp\tools\get_product_reference.py:643: ValueError
+_ test_cap_at_paragraph_mid_cut_ground_truth_matches_a_clean_vs_arbitrary_boundary _
+
+    def test_cap_at_paragraph_mid_cut_ground_truth_matches_a_clean_vs_arbitrary_boundary() -> None:
+        clean = "para one.\n\n" + "y" * 40
+>       assert gpr._cap_at_paragraph(clean, 15) == f"para one.\n\n{gpr._truncation_marker(9, len(clean))}"
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests\conformance\test_reference_content.py:348: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+src\foss_mcp\mcp\tools\get_product_reference.py:676: in _cap_at_paragraph
+    cut = _fence_snap(text, cut)
+          ^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+text = 'para one.\n\nyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyy'
+cut = 'para one.'
+
+    def _fence_snap(text: str, cut: str) -> str:
+        """*cut* (a clean-boundary prefix of *text* that ``_cap_at_line``/``_cap_at_paragraph`` already
+        found) moved back to the start of any fenced code block (G3/TC-678) still open at the point
+        *cut* ends - reusing ``response_budget.fence_blocks`` exactly as it is, never reimplementing
+        its fence detection. Only ever moves the cut BACKWARD, never past the cap: ``fence_blocks`` is
+        run over the FULL text's lines (so a fence that closes later, beyond *cut*, is seen for what it
+        is - still open at the cut point, not merely unclosed inside the given window), and the cut is
+        compared against that block's own opening/closing line indexes.
+    
+        A fence open from the very first line *cut* holds leaves no prose to show and is dropped
+        entirely, returning only the lines before the fence (``""`` when the fence starts at the very
+        top - that minimum, an empty excerpt with no fence, is what G3/TC-678 chose over showing a
+        malformed, never-closed block)."""
+        if not cut:
+            return cut
+        all_lines = text.split("\n")
+        last_kept_index = cut.count("\n")  # cut holds exactly this many whole lines of text, 0-indexed
+        if last_kept_index >= len(all_lines):
+            return cut
+        block = list(all_lines)[last_kept_index]
+        if block is None:
+            return cut
+>       start, end = block
+        ^^^^^^^^^^
+E       ValueError: too many values to unpack (expected 2)
+
+src\foss_mcp\mcp\tools\get_product_reference.py:643: ValueError
+=========================== short test summary info ===========================
+FAILED tests/conformance/test_reference_content.py::test_cap_at_line_mid_cut_ground_truth_matches_a_clean_vs_arbitrary_boundary
+FAILED tests/conformance/test_reference_content.py::test_cap_at_paragraph_mid_cut_ground_truth_matches_a_clean_vs_arbitrary_boundary
+ERROR tests/conformance/test_reference_content.py::test_every_measured_answer_is_content_or_an_explicit_absence
+ERROR tests/conformance/test_reference_content.py::test_measured_failures_cover_the_subcases_this_card_actually_found
+ERROR tests/conformance/test_reference_content.py::test_reference_content_matches_the_committed_baseline
+
+--- stderr ---
+
