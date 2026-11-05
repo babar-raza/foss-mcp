@@ -1225,6 +1225,61 @@ def test_run_typescript_enumerator_raises_a_clear_error_when_the_typescript_pack
         sd._run_typescript_enumerator(tmp_path, typescript_package_dir=tmp_path / "does-not-exist")
 
 
+# --- G3/TC-694: TYPESCRIPT_NPM_PACKAGE_DIR is portable now, resolved from NPM_CONFIG_PREFIX ----------
+# O9's real, confirmed gap was a HARDCODED, host-specific absolute Windows path
+# (`C:\dev-tools\...`). scripts/toolchain/activate.ps1 (line 38) already exports the real
+# NPM_CONFIG_PREFIX env var pointing at this exact prefix on this host. The fix below is purely
+# additive: prefer NPM_CONFIG_PREFIX when set, fall back to today's exact hardcoded path when it
+# is not, so this host's own current behavior never changes.
+
+
+def test_typescript_npm_package_dir_resolves_from_npm_config_prefix_when_set(tmp_path, monkeypatch):
+    """(a) -- with NPM_CONFIG_PREFIX set (via monkeypatch.setenv, standing in for what
+    scripts/toolchain/activate.ps1 already exports) to a synthetic path, the resolved TypeScript
+    package directory is exactly that path's own node_modules/typescript subdirectory -- never
+    the hardcoded TYPESCRIPT_NPM_PACKAGE_DIR fallback."""
+    synthetic_prefix = tmp_path / "synthetic-npm-prefix"
+    monkeypatch.setenv("NPM_CONFIG_PREFIX", str(synthetic_prefix))
+    resolved = sd._typescript_npm_package_dir()
+    assert resolved == synthetic_prefix / "node_modules" / "typescript"
+    assert resolved != sd.TYPESCRIPT_NPM_PACKAGE_DIR
+
+
+def test_typescript_npm_package_dir_falls_back_to_the_hardcoded_path_when_unset(monkeypatch):
+    """(b) -- with NPM_CONFIG_PREFIX unset (via monkeypatch.delenv, handling the case it is
+    already absent with raising=False), the resolved directory is EXACTLY today's hardcoded
+    fallback path, unchanged -- the byte-for-byte-unchanged-behavior guarantee this card's own
+    fix depends on."""
+    monkeypatch.delenv("NPM_CONFIG_PREFIX", raising=False)
+    resolved = sd._typescript_npm_package_dir()
+    assert resolved == sd.TYPESCRIPT_NPM_PACKAGE_DIR
+    assert resolved == Path(r"C:\dev-tools\foss-mcp\rp-toolchains\npm\prefix\node_modules\typescript")
+
+
+def test_run_typescript_enumerator_default_path_unaffected_when_npm_config_prefix_is_unset(
+    tmp_path, monkeypatch
+):
+    """(c) -- _run_typescript_enumerator's own default-parameter path (never passing
+    typescript_package_dir explicitly, exactly how enumerate_typescript calls it) is unaffected
+    by this card's change: with NPM_CONFIG_PREFIX unset it still resolves to, and shells out
+    with, today's exact hardcoded TYPESCRIPT_NPM_PACKAGE_DIR -- the same path every pre-existing
+    enumerate_typescript test in this file already relies on when it never overrides
+    typescript_package_dir itself. (TYPESCRIPT_NPM_PACKAGE_DIR must really exist as a directory
+    on this host for the is_dir() guard below to pass -- confirmed true, G3/TC-591/TC-694.)"""
+    monkeypatch.delenv("NPM_CONFIG_PREFIX", raising=False)
+    import subprocess as _subprocess
+
+    captured: dict[str, object] = {}
+
+    def fake_run(args, **kwargs):
+        captured["args"] = args
+        return _subprocess.CompletedProcess(args=args, returncode=0, stdout="[]", stderr="")
+
+    result = sd._run_typescript_enumerator(tmp_path, run=fake_run)
+    assert result == []
+    assert captured["args"][3] == str(sd.TYPESCRIPT_NPM_PACKAGE_DIR)
+
+
 # --- the JDK Compiler Tree API enumerator: the fifth real, wired tool this card lands ----------------
 # Every fixture below is a hand-written synthetic .java file (never the real pilot, never the
 # enumerator's own output read back as the expected value). enumerate_java really invokes the

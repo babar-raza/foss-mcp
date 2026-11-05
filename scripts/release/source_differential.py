@@ -74,6 +74,7 @@ from __future__ import annotations
 import argparse
 import functools
 import json
+import os
 import re
 import subprocess
 import sys
@@ -1193,13 +1194,31 @@ def enumerate_rust(
 
 TS_ENUMERATOR_SOURCE = _ORACLE_HELPERS_DIR / "ts_enumerator.js"
 NODE_BINARY = "node"
-# The already-installed `typescript` npm package's own directory on this host, confirmed
+# The already-installed `typescript` npm package's own directory on THIS host, confirmed
 # directly (`node -e "console.log(require.resolve('typescript'))"` under the activated
 # toolchain's NODE_PATH) rather than assumed from this card's own purpose text -- see
-# plans/TC-591.yaml. Pinned the same way GO_DOCKER_IMAGE/RUST_DOCKER_IMAGE pin this host's own
-# installed Go/Rust versions: a visible, diagnosable error if a future host ever moves it,
-# never a silent wrong answer.
+# plans/TC-591.yaml. This is now only the FALLBACK used when `NPM_CONFIG_PREFIX` is unset (see
+# `_typescript_npm_package_dir`, G3/TC-694) -- kept byte-for-byte unchanged so a host where that
+# env var is absent still resolves to exactly this path, a visible, diagnosable error if a
+# future host ever moves it, never a silent wrong answer.
 TYPESCRIPT_NPM_PACKAGE_DIR = Path(r"C:\dev-tools\foss-mcp\rp-toolchains\npm\prefix\node_modules\typescript")
+
+
+def _typescript_npm_package_dir() -> Path:
+    """Resolve the installed ``typescript`` npm package's own directory.
+
+    Prefers the real, already-established ``NPM_CONFIG_PREFIX`` environment variable that
+    ``scripts/toolchain/activate.ps1`` (line 38) already exports for this host (and which moves
+    with it, under ``FOSS_MCP_TOOLS``, for a future host or CI runner) -- ``<prefix>/node_modules/
+    typescript``, matching how ``npm install -g``-style prefixes lay out installed packages.
+    Falls back to today's exact hardcoded ``TYPESCRIPT_NPM_PACKAGE_DIR`` only when that variable
+    is unset, so this host's own current, already-activated behavior is completely unchanged
+    (G3/TC-694, closing O9's real gap: a hardcoded ``C:\\dev-tools`` path).
+    """
+    npm_config_prefix = os.environ.get("NPM_CONFIG_PREFIX")
+    if npm_config_prefix:
+        return Path(npm_config_prefix) / "node_modules" / "typescript"
+    return TYPESCRIPT_NPM_PACKAGE_DIR
 
 
 def _run_typescript_enumerator(
@@ -1207,7 +1226,7 @@ def _run_typescript_enumerator(
     *,
     run: Callable[..., Any] | None = None,
     node_binary: str = NODE_BINARY,
-    typescript_package_dir: Path = TYPESCRIPT_NPM_PACKAGE_DIR,
+    typescript_package_dir: Path | None = None,
 ) -> list[dict[str, Any]]:
     """Run ``ts_enumerator.js`` (the REAL TypeScript Compiler API --
     ``scripts/release/oracle_helpers/ts_enumerator.js``) and parse its JSON stdout.
@@ -1226,12 +1245,20 @@ def _run_typescript_enumerator(
     ``typescript_package_dir`` must already exist (the package is pre-installed; this function
     never ``npm install``s anything, keeping this card's own ``network: false`` requirement for
     every unit test true even though ``enumerate_typescript`` itself clones over the network).
+    When not given explicitly (the default, ``None``), it is resolved lazily, at call time, via
+    ``_typescript_npm_package_dir()`` -- never baked into the function signature as a module-load-
+    time constant, so an env var set after import (as every test in this file that exercises the
+    env-var-set case does, via ``monkeypatch``) is still honored (G3/TC-694).
     """
+    if typescript_package_dir is None:
+        typescript_package_dir = _typescript_npm_package_dir()
     if not typescript_package_dir.is_dir():
         raise RuntimeError(
-            f"the typescript npm package was not found at {typescript_package_dir} -- this path is "
-            "pinned in source_differential.py (TYPESCRIPT_NPM_PACKAGE_DIR); if the toolchain moved, "
-            "update that constant to the real, installed location on this host"
+            f"the typescript npm package was not found at {typescript_package_dir} -- this path "
+            "is resolved by source_differential.py's _typescript_npm_package_dir() from the "
+            "NPM_CONFIG_PREFIX environment variable (set by scripts/toolchain/activate.ps1) when "
+            "set, or TYPESCRIPT_NPM_PACKAGE_DIR as a fallback otherwise; if the toolchain moved, "
+            "fix whichever of those is actually in effect on this host"
         )
     runner = run or subprocess.run
     result = runner(
