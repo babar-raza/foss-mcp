@@ -3329,3 +3329,32 @@ describes - ledger rows marked, ratchets frozen strict - remains correctly defer
 programs it actually depends on (XA19 foremost) are real enough to close against, and until any
 future closure card defines the ledger-row mechanism it would need, rather than assuming one.
 
+## 2026-11-05 — Q-program (findability, REQ-G3-011) status recorded; Q17 in a different, better position than KD11, but closure still deferred, not forced (supervisor)
+
+Q17's own named dependencies (`Q10`, `Q16`, `F1`, `F4`, `F5`, `F6`) are, unlike KD11's, **all
+genuinely satisfied**: Q10 (TC-635/654/672), Q16 (TC-684), and the F-wave conformance harness
+(F1=TC-597, F4=TC-604, F5=TC-605, F6=TC-606) are each accepted and integrated. Q11-Q15 are either
+done or confirmed to need no card (Q15 fully, Q13 partially). This is real, substantive progress,
+not a program sitting idle behind an unstarted dependency the way KD11 was.
+
+**But Q17's own closure action - flipping `tests/fixtures/conformance/baseline_symbol_self_retrieval.json`
+and `baseline_sentence_wrapped_retrieval.json`'s `"strict"` flag to `true` - was tested directly
+against the real tree and found NOT a one-line action.** Flipping it today produces 4 hard
+conformance failures: hundreds of entries in both baselines' own `known_failures` lists no longer
+reproduce, because real fixes landed since those baselines were last written (Q10, Q12/TC-654,
+Q13/TC-673, Q14/TC-675, Q16/TC-684, QV1-4/TC-632-634, TC-651, and others) without ever pruning the
+baseline files they made stale. This matches an earlier session's own "10,813 cases" exhaustive-mode
+finding - real, substantial staleness, not a formality. Flipping `strict` without first pruning
+every now-stale entry would make the very next unrelated card's `gatectl review` fail on hundreds
+of false "this known failure stopped reproducing" errors, which is exactly the hollow-pass/false-
+alarm risk this project's own conformance design was built to avoid.
+
+**Decision: defer the strict-flip and ledger-marking action to its own dedicated future card,
+rather than performing it as an ad hoc side effect of this status check, and rather than claiming
+Q17 is closed when the baselines it would close against are not yet accurate.** Pruning hundreds
+of entries correctly requires, for each one, confirming the underlying issue was genuinely fixed
+(not merely unsampled this run) before removing it - real verification work, not a toggle. This
+record is Q17's honest interim state: the program's real engineering work is substantially done;
+the formal closure mechanics (baseline pruning + strict flip + ledger rows) are real, bounded,
+not-yet-started work for a future card, tracked here rather than silently skipped.
+
