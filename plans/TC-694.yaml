@@ -1,0 +1,119 @@
+id: TC-694
+gate: G3
+lane: verification
+purpose: >-
+  O9 (oracle disagreement remediation, section 2.3: "enumerators run in pinned containers (no host
+  paths such as `C:\dev-tools`)"). O8 (`TC-692`/`TC-693`) is done, unblocking this card.
+  INVESTIGATED first, not guessed: Go's and Rust's enumerators already run their own freshly-built
+  code entirely inside a pinned Docker container (`golang:1.26.4`/`rust:1.98.1`, `TC-589`/`TC-590`/
+  `TC-596`, closing `OWNER-16`'s WDAC finding) - that half of O9 is already done. TypeScript's,
+  Java's, and .NET's enumerators deliberately do NOT need a container (confirmed, documented,
+  already-justified in `_run_typescript_enumerator`'s own docstring, `TC-591`: they run an
+  already-trusted, already-installed interpreter/toolchain over a plain source file, never a
+  freshly-built unsigned native binary, so the Windows Application Control policy that forced
+  Go/Rust into containers simply does not apply) - this is correct design, not a remaining gap.
+
+  The REAL, confirmed remaining gap is the literal one O9's own text names: `TYPESCRIPT_NPM_PACKAGE_DIR`
+  (~line 1202) is a HARDCODED, HOST-SPECIFIC absolute Windows path -
+  `Path(r"C:\dev-tools\foss-mcp\rp-toolchains\npm\prefix\node_modules\typescript")` - exactly the
+  "host paths such as `C:\dev-tools`" the plan's own text warns about. Confirmed this is the ONLY
+  such hardcoded path among all 5 non-Go/Rust-container enumerators: `JAVA_BINARY = "java"`,
+  `DOTNET_BINARY = "dotnet"`, `NODE_BINARY = "node"` are all bare PATH-resolved command names
+  (portable); `JAVA_ENUMERATOR_SOURCE`/`DOTNET_ENUMERATOR_PROJECT` are repo-relative paths under
+  `_ORACLE_HELPERS_DIR` (portable). Confirmed the real, already-established portable alternative
+  exists and is already active on this host: `scripts/toolchain/activate.ps1` (line 38) already
+  exports `NPM_CONFIG_PREFIX` as `$tools/rp-toolchains/npm/prefix` (where `$tools` defaults to
+  `C:\dev-tools\foss-mcp` but is itself overridable via the `FOSS_MCP_TOOLS` env var, line 12) -
+  live-verified in an activated PowerShell shell: `$env:NPM_CONFIG_PREFIX` resolves to exactly
+  `C:\dev-tools\foss-mcp\rp-toolchains\npm\prefix`, the same prefix the hardcoded constant
+  duplicates verbatim. The fix is additive and narrow: derive `TYPESCRIPT_NPM_PACKAGE_DIR` from
+  `os.environ["NPM_CONFIG_PREFIX"]` when set (appending `/node_modules/typescript`), falling back to
+  today's exact hardcoded path only when the env var is absent - so this host's own
+  already-activated behavior is completely unchanged, while a second machine, a CI runner, or any
+  future `FOSS_MCP_TOOLS` override is no longer silently broken by an absolute path baked in for
+  this one machine.
+depends_on:
+  - TC-693
+write_paths:
+  - scripts/release/source_differential.py
+  - tests/release/test_source_differential.py
+satisfies:
+  - REQ-G3-012
+source_refs:
+  - file: docs/DECISION_LOG.md
+    anchor: >-
+      ## 2026-11-02 — Round-3 independent re-audit adopted; a real regression found and given top
+      priority; the "no pilot ever gets worse" rule adopted project-wide (operator, supervisor)
+    sha256: b750b8bf0df25b17bf66d014895ecb42952050c7cc63773f56249c4a1c551791
+inputs:
+  - >-
+    READ FIRST: `TYPESCRIPT_NPM_PACKAGE_DIR`/`NODE_BINARY`/`_run_typescript_enumerator` (search for
+    those exact names in `scripts/release/source_differential.py`) in full, and
+    `scripts/toolchain/activate.ps1` lines ~10-40 (the `$tools`/`FOSS_MCP_TOOLS` resolution and the
+    `NPM_CONFIG_PREFIX`/`NPM_CONFIG_CACHE` exports). Confirm for yourself, in an activated
+    PowerShell shell, that `$env:NPM_CONFIG_PREFIX` resolves to the same path the hardcoded
+    constant already duplicates (`.../rp-toolchains/npm/prefix`) before changing anything - this
+    card's own claim must hold on your own machine too, not just be trusted from this card's text.
+  - >-
+    FIX: change `TYPESCRIPT_NPM_PACKAGE_DIR` from a bare module-level constant to a function (your
+    own name, e.g. `_typescript_npm_package_dir() -> Path`, called once where the constant is used
+    as a default parameter value is no longer possible for a function call - thread it through as
+    the default via a sentinel or compute it at the top of `_run_typescript_enumerator`/
+    `enumerate_typescript`, your own choice, report which) that: reads `os.environ.get("NPM_CONFIG_PREFIX")`;
+    if set, returns `Path(that value) / "node_modules" / "typescript"`; if unset, returns today's
+    EXACT hardcoded path unchanged (`Path(r"C:\dev-tools\foss-mcp\rp-toolchains\npm\prefix\node_modules\typescript")`)
+    - this fallback is deliberate, not a TODO: it preserves byte-for-byte current behavior for any
+    caller that does not have the env var set, so this is a purely additive portability fix, never
+    a behavior change on this host. Every existing call site that currently references
+    `TYPESCRIPT_NPM_PACKAGE_DIR` as a default parameter value must be updated to call your new
+    resolution instead - grep the whole file for the constant's name first, do not guess the call
+    sites.
+  - >-
+    Write real, deterministic tests proving: (a) with `NPM_CONFIG_PREFIX` set (via `monkeypatch.setenv`)
+    to a synthetic path, the resolved TypeScript package directory is exactly that path's
+    `node_modules/typescript` subdirectory; (b) with `NPM_CONFIG_PREFIX` unset (via
+    `monkeypatch.delenv`, handling the case it is already absent), the resolved directory is
+    EXACTLY today's hardcoded fallback path, unchanged; (c) `_run_typescript_enumerator`'s existing
+    behavior (its own default-parameter path) is unaffected when called exactly as every existing
+    test already calls it - re-run the existing TypeScript-enumerator tests unchanged and confirm
+    identical pass/fail counts before and after your change.
+  - >-
+    MEASURE: re-run the full `tests/release/test_source_differential.py` suite before and after
+    your change and report real pass/fail counts - confirm zero regressions, especially in every
+    test exercising `enumerate_typescript`/`_run_typescript_enumerator`.
+actions:
+  - >-
+    Replace the hardcoded, host-specific `TYPESCRIPT_NPM_PACKAGE_DIR` absolute path in the
+    independent oracle with a resolution that reads the real, already-established
+    `NPM_CONFIG_PREFIX` environment variable `scripts/toolchain/activate.ps1` already exports,
+    falling back to today's exact path only when that variable is unset - closing O9's real,
+    confirmed gap (a hardcoded `C:\dev-tools` path) while leaving this host's own current behavior
+    byte-for-byte unchanged.
+checks:
+  - command: '{python} -m pytest tests/release/test_source_differential.py -q -rfE -p no:cacheprovider'
+    expect: 'exit 0'
+    timeout_seconds: 600
+    junitxml: true
+    proves:
+      - REQ-G3-012
+min_tests: 3
+requires:
+  - python
+network: false
+negative_control:
+  mutate: |
+    python -X utf8 -c "import pathlib; p = pathlib.Path('scripts/release/source_differential.py'); s = p.read_text(encoding='utf-8'); old = 'NPM_CONFIG_PREFIX'; assert s.count(old) >= 1, 'the required NPM_CONFIG_PREFIX env var read was not found as expected - if your real code names this differently, anchor your own mutate on your own real literal instead and note the substitution in your closeout'; s2 = s.replace(old, 'NPM_CONFIG_PREFIXDISABLED', s.count(old)); assert s2 != s; p.write_text(s2, encoding='utf-8')"
+  rationale: >-
+    Renames every reference to the `NPM_CONFIG_PREFIX` env var read this card's fix depends on, so
+    the new resolution can no longer find the real env var - this must make the new test asserting
+    the env-var-set case resolves to the synthetic path break (it would fall through to the
+    hardcoded default instead), proving the new mechanism, not just an import, is under test.
+evidence:
+  - evidence/build/G3/TC-694/receipt.json
+closeout:
+  - >-
+    `TYPESCRIPT_NPM_PACKAGE_DIR`'s hardcoded, host-specific `C:\dev-tools` path now resolves from
+    the real `NPM_CONFIG_PREFIX` environment variable when set, falling back to today's exact path
+    only when it is not - closes O9. This host's own current behavior is unchanged; a second
+    machine, CI runner, or future `FOSS_MCP_TOOLS` override is no longer silently broken.
+recovery: Re-run from a clean tree.
