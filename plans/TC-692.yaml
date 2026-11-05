@@ -35,12 +35,24 @@ purpose: >-
   `checked` counts is the TC-595 commit message's prose). That data belongs to O8's own second half
   (the per-pilot snapshot + ratchet mechanism, a separate, larger future card: "O8b" in this
   session's own tracking) - this card does not invent arbitrary floor numbers to fill that gap.
+
+  **AMENDMENT (post-dispatch, before acceptance): widened write_paths for a measured, real
+  collateral consequence.** The dispatched worker's own fix correctly added 6 tests to
+  `tests/release/test_source_differential.py` (128 -> 134 tests), which two OTHER test files pin
+  as an exact count: `tests/release/test_oracle_shell_resolution.py`'s
+  `EXISTING_SUITE_PINNED_TEST_COUNT` (128, running only `test_source_differential.py`) and
+  `tests/release/test_oracle_inherited_verification.py`'s `EXISTING_SUITES_PINNED_TEST_COUNT` (132,
+  running `test_source_differential.py` + `test_oracle_shell_resolution.py`'s own 4 tests). Both
+  constants (134 and 138 respectively) and their explanatory prose/comments are updated in a
+  follow-up rework - a real, Decision-E-relevant regression if left unfixed, not a false positive.
 depends_on:
   - TC-682
   - TC-689
   - TC-691
 write_paths:
   - scripts/release/source_differential.py
+  - tests/release/test_oracle_shell_resolution.py
+  - tests/release/test_oracle_inherited_verification.py
   - tests/release/test_source_differential.py
 satisfies:
   - REQ-G3-012
@@ -107,9 +119,9 @@ actions:
     a pilot-specific floor for a PARTIAL (nonzero but incomplete) scope like `tex/python`'s is
     deliberately left to a future, separate card once real per-pilot floor data exists.
 checks:
-  - command: '{python} -m pytest tests/release/test_source_differential.py -q -rfE -p no:cacheprovider'
+  - command: '{python} -m pytest tests/release/test_source_differential.py tests/release/test_oracle_shell_resolution.py tests/release/test_oracle_inherited_verification.py -q -rfE -p no:cacheprovider'
     expect: 'exit 0'
-    timeout_seconds: 300
+    timeout_seconds: 600
     junitxml: true
     proves:
       - REQ-G3-012
