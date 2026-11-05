@@ -1,0 +1,50 @@
+
+===== CLEAN RUN 1 (host) =====
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-5c72e798a73c059a\Scripts\python.exe -m pytest tests/release/test_oracle_triage_doc.py -q -rfE -p no:cacheprovider "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-_mf56maw\.junit-0.xml"
+--- stdout ---
+........                                                                 [100%]
+
+--- stderr ---
+
+
+===== CLEAN RUN 2 (host) =====
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-5c72e798a73c059a\Scripts\python.exe -m pytest tests/release/test_oracle_triage_doc.py -q -rfE -p no:cacheprovider "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-_mf56maw\.junit-0.xml"
+--- stdout ---
+........                                                                 [100%]
+
+--- stderr ---
+
+
+===== NEGATIVE CONTROL (checks MUST now fail) =====
+mutated: M docs/ORACLE_TRIAGE.md, ?? .junit-0.xml
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-5c72e798a73c059a\Scripts\python.exe -m pytest tests/release/test_oracle_triage_doc.py -q -rfE -p no:cacheprovider "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-_mf56maw\.junit-0.xml"
+--- stdout ---
+F....F..                                                                 [100%]
+================================== FAILURES ===================================
+___________________ test_doc_exists_and_names_all_7_pilots ____________________
+
+    def test_doc_exists_and_names_all_7_pilots() -> None:
+        text = _read_doc()
+        for pilot in PILOT_COUNTS:
+>           assert pilot in text, f"pilot {pilot!r} is never named in {DOC}"
+E           AssertionError: pilot 'pdf/go' is never named in E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-_mf56maw\docs\ORACLE_TRIAGE.md
+E           assert 'pdf/go' in '# Oracle disagreement triage: Go, Rust, C++ (G3/TC-691)\n\n## Scope and provenance\n\nThis document classifies the in... (a diff-engine-layer fix for bucket 2;\n  per-pilot fixture/extraction work, if ever re-prioritized, for bucket 1).\n'
+
+tests\release\test_oracle_triage_doc.py:49: AssertionError
+______ test_pdf_go_extra_480_is_explicitly_addressed_near_the_pilot_name ______
+
+    def test_pdf_go_extra_480_is_explicitly_addressed_near_the_pilot_name() -> None:
+        """pdf/go's extra=480 must never be silently omitted: the document must discuss the number 480 in
+        the same neighbourhood as the pilot's own name, either naming a real traced bucket or saying
+        plainly that it is untraced."""
+        text = _read_doc()
+>       assert "pdf/go" in text and "480" in text
+E       AssertionError: assert ('pdf/go' in '# Oracle disagreement triage: Go, Rust, C++ (G3/TC-691)\n\n## Scope and provenance\n\nThis document classifies the in... (a diff-engine-layer fix for bucket 2;\n  per-pilot fixture/extraction work, if ever re-prioritized, for bucket 1).\n')
+
+tests\release\test_oracle_triage_doc.py:99: AssertionError
+=========================== short test summary info ===========================
+FAILED tests/release/test_oracle_triage_doc.py::test_doc_exists_and_names_all_7_pilots
+FAILED tests/release/test_oracle_triage_doc.py::test_pdf_go_extra_480_is_explicitly_addressed_near_the_pilot_name
+
+--- stderr ---
+

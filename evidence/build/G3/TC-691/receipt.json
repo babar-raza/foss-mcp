@@ -1,0 +1,89 @@
+{
+  "schema_version": 1,
+  "card": "TC-691",
+  "gate": "G3",
+  "generated_by": "gatectl",
+  "generated_at": "2026-11-05T19:07:01Z",
+  "base_rev": "dda705e78814a3346af7afa86f905bd1378be6b0",
+  "head_rev": "f85011c406988b8b195312c8e7bc4421be923be9",
+  "card_sha256": "708aa639632ab126f23d865dbded223efe3772515734d0bc1e8b57910198e990",
+  "fingerprint": {
+    "python": "3.13.2",
+    "platform": "Windows-11-10.0.26300-SP0",
+    "lock_sha256": "5c72e798a73c059a438e752e94a8d4c88c1bdf81a197f6e5c5fcecbc9466a691",
+    "env": {
+      "PYTHONHASHSEED": "0",
+      "PYTHONUTF8": "1",
+      "PYTHONDONTWRITEBYTECODE": "1",
+      "PYTHONIOENCODING": "utf-8",
+      "TZ": "UTC",
+      "LC_ALL": "C.UTF-8",
+      "SOURCE_DATE_EPOCH": "1700000000",
+      "verify_runner": "host"
+    }
+  },
+  "scope": {
+    "ok": true,
+    "changed_paths": [
+      "docs/ORACLE_TRIAGE.md",
+      "tests/release/test_oracle_triage_doc.py"
+    ],
+    "violations": [],
+    "evaluated": true
+  },
+  "runs": [
+    {
+      "run": 1,
+      "checks": [
+        {
+          "command": "{python} -m pytest tests/release/test_oracle_triage_doc.py -q -rfE -p no:cacheprovider",
+          "exit_code": 0,
+          "duration_s": 0.789,
+          "stdout_sha256": "06955fb47f16312e5d13266c774a2aa4648c46e423cbe6564a92e25b68e39131",
+          "tests": 8,
+          "skipped": 0,
+          "errors": 0,
+          "failures": 0
+        }
+      ],
+      "all_passed": true
+    },
+    {
+      "run": 2,
+      "checks": [
+        {
+          "command": "{python} -m pytest tests/release/test_oracle_triage_doc.py -q -rfE -p no:cacheprovider",
+          "exit_code": 0,
+          "duration_s": 0.487,
+          "stdout_sha256": "06955fb47f16312e5d13266c774a2aa4648c46e423cbe6564a92e25b68e39131",
+          "tests": 8,
+          "skipped": 0,
+          "errors": 0,
+          "failures": 0
+        }
+      ],
+      "all_passed": true
+    }
+  ],
+  "negative_control": {
+    "kind": "mutate",
+    "patch": "python -X utf8 -c \"import pathlib; p = pathlib.Path('docs/ORACLE_TRIAGE.md'); s = p.read_text(encoding='utf-8'); old = 'pdf/go'; assert s.count(old) >= 1, 'the required pdf/go pilot name was not found as expected - if your real doc names this differently, anchor your own mutate on your own real literal instead and note the substitution in your closeout'; s2 = s.replace(old, 'pdf-go-DISABLED', s.count(old)); assert s2 != s; p.write_text(s2, encoding='utf-8')\"\n",
+    "patch_sha256": "fd6cd2a2ec7887446399bad0b9a2059050868f5be68a5962698d096af7554295",
+    "applied": true,
+    "patch_applied_failed": true,
+    "exit_codes": [
+      1
+    ],
+    "tree_changed": [
+      "M docs/ORACLE_TRIAGE.md",
+      "?? .junit-0.xml"
+    ]
+  },
+  "holdout": {
+    "ran": false,
+    "passed": true,
+    "detail": "no holdout for this card"
+  },
+  "accepted": false,
+  "reason": "ruff format --check failed: unformatted: File would be reformatted"
+}
