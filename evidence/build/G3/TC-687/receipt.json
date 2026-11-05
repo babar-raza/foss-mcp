@@ -1,0 +1,115 @@
+{
+  "schema_version": 1,
+  "card": "TC-687",
+  "gate": "G3",
+  "generated_by": "gatectl",
+  "generated_at": "2026-11-05T13:36:00Z",
+  "base_rev": "50403aeedcc0b96591b3f2c5d291f8eed8fe39ca",
+  "head_rev": "6c28e7993580892d4b2eb1eda315202e9040914a",
+  "card_sha256": "82a32b7ce9fb77e36ba5cc7ec2bee5428192740a61a39605c9290294e1e2afb1",
+  "fingerprint": {
+    "python": "3.13.2",
+    "platform": "Windows-11-10.0.26300-SP0",
+    "lock_sha256": "5c72e798a73c059a438e752e94a8d4c88c1bdf81a197f6e5c5fcecbc9466a691",
+    "env": {
+      "PYTHONHASHSEED": "0",
+      "PYTHONUTF8": "1",
+      "PYTHONDONTWRITEBYTECODE": "1",
+      "PYTHONIOENCODING": "utf-8",
+      "TZ": "UTC",
+      "LC_ALL": "C.UTF-8",
+      "SOURCE_DATE_EPOCH": "1700000000",
+      "verify_runner": "host"
+    }
+  },
+  "scope": {
+    "ok": true,
+    "changed_paths": [
+      "infra/verify_package_registry.py",
+      "src/foss_mcp/extraction/github_http.py",
+      "src/foss_mcp/extraction/github_release_reader.py",
+      "src/foss_mcp/extraction/manifest_reader.py",
+      "src/foss_mcp/extraction/repo_native_reader.py",
+      "tests/extraction/test_github_http_gh_cli_transport.py"
+    ],
+    "violations": [],
+    "evaluated": true
+  },
+  "runs": [
+    {
+      "run": 1,
+      "checks": [
+        {
+          "command": "{python} -m pytest tests/extraction/test_github_http_gh_cli_transport.py -q -rfE -p no:cacheprovider",
+          "exit_code": 0,
+          "duration_s": 0.638,
+          "stdout_sha256": "08faea39fd19189f6544839f505d91d76ecb1367e219f5db362cdf22916ef869",
+          "tests": 11,
+          "skipped": 0,
+          "errors": 0,
+          "failures": 0
+        },
+        {
+          "command": "{python} -m pytest tests/extraction/ -q -rfE -p no:cacheprovider -k \"github or manifest or repo_native or package_registry\"",
+          "exit_code": 0,
+          "duration_s": 15.431,
+          "stdout_sha256": "0fc8e3f5d0b35febf906669ef7be87d17ef7f601bc2e1f60e27aacf11345eb8d",
+          "tests": 170,
+          "skipped": 0,
+          "errors": 0,
+          "failures": 0
+        }
+      ],
+      "all_passed": true
+    },
+    {
+      "run": 2,
+      "checks": [
+        {
+          "command": "{python} -m pytest tests/extraction/test_github_http_gh_cli_transport.py -q -rfE -p no:cacheprovider",
+          "exit_code": 0,
+          "duration_s": 0.421,
+          "stdout_sha256": "08faea39fd19189f6544839f505d91d76ecb1367e219f5db362cdf22916ef869",
+          "tests": 11,
+          "skipped": 0,
+          "errors": 0,
+          "failures": 0
+        },
+        {
+          "command": "{python} -m pytest tests/extraction/ -q -rfE -p no:cacheprovider -k \"github or manifest or repo_native or package_registry\"",
+          "exit_code": 0,
+          "duration_s": 8.175,
+          "stdout_sha256": "0fc8e3f5d0b35febf906669ef7be87d17ef7f601bc2e1f60e27aacf11345eb8d",
+          "tests": 170,
+          "skipped": 0,
+          "errors": 0,
+          "failures": 0
+        }
+      ],
+      "all_passed": true
+    }
+  ],
+  "negative_control": {
+    "kind": "mutate",
+    "patch": "python -X utf8 -c \"import pathlib; p = pathlib.Path('src/foss_mcp/extraction/github_http.py'); s = p.read_text(encoding='utf-8'); old = 'def gh_cli_json'; assert s.count(old) == 1, 'the required function definition was not found as expected - if your real code names this differently, anchor your own mutate on your own real literal instead and note the substitution in your closeout'; new = 'def gh_cli_json_renamed_by_negative_control'; s2 = s.replace(old, new, 1); assert s2 != s; p.write_text(s2, encoding='utf-8')\"\n",
+    "patch_sha256": "15f3c4ceda1a12591307a2843f359b343386e4e7a9e557bc82192a9245186c09",
+    "applied": true,
+    "patch_applied_failed": true,
+    "exit_codes": [
+      2,
+      2
+    ],
+    "tree_changed": [
+      "M src/foss_mcp/extraction/github_http.py",
+      "?? .junit-0.xml",
+      "?? .junit-1.xml"
+    ]
+  },
+  "holdout": {
+    "ran": false,
+    "passed": true,
+    "detail": "no holdout for this card"
+  },
+  "accepted": true,
+  "reason": "all gates passed"
+}
