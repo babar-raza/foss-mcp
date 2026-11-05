@@ -3290,3 +3290,42 @@ working mechanism, not a wiring defect, and is being scoped as its own fix (sche
 for a multi-symbol reference, versus many additional per-sibling entries) - decision and scope
 to be recorded in a follow-up entry once a real fix is authored.
 
+## 2026-11-05 — KD-program (disclosure, REQ-G3-015) status recorded; KD11 confirmed not yet closeable, and why (supervisor)
+
+Follow-up to the entry above: the `subject.ref`→`subject.refs` multi-symbol gap it described was
+closed by `TC-658` (migrated all 25 real `config/known_defects/*.yaml` files losslessly to a
+non-empty array, schema/dataclass/call-sites changed from exact-match to membership). KD1-KD10
+are now **fully, verifiably complete**: KD1 (TC-636) through KD10 (TC-649) all integrated; 47 of
+47 real `category: "upstream-library-bug"` round-2 findings disclosed; the completeness lock
+(`tests/indexing/test_known_defects_completeness.py`) asserts the registry's ids exactly equal
+that 47-row set, symmetric-difference-reported; `gatectl validate` clean.
+
+**KD11 ("disclosure closure": ledger status rows + a `DECISION_LOG` entry, per the unified plan's
+section 5.2 closure-card contract) is investigated and confirmed NOT achievable as a real card
+today - recorded here rather than forced prematurely:**
+
+1. KD11's own wave-table dependency list names `XA19` (the example-corpus program's own closure
+   card). XA2 through XA19 and all 32 per-pilot `AD-*` adoption cards are barely started - only
+   XA1 (TC-611, the fence-aware chunker) is done; XA2 was investigated this session and correctly
+   found to need no card at all (an already-working, functionally-equivalent dispatch mechanism
+   already exists in `infra/build_chunks.py`, so splitting `example_verifier.py` for zero
+   functional gain was declined). A card whose own stated dependency is a program that has not
+   begun cannot be meaningfully dispatched.
+2. The closure contract itself ("mark ledger rows FIXED/DISCLOSED/NOT_REPRODUCED/DEFINITIONAL/
+   ACCEPTED(P3)/BLOCKED_UPSTREAM") presumes a ledger with a per-row status field. `docs/
+   round2/issues.json` (the real, committed 285-row audit record) has no such field today - only
+   the original audit shape (id/pilot/title/severity/category/tools/repro/expected/actual/
+   evidence/suggested_fix/probable_owner/confidence). No other program (Q/I/O/C/XA/RT/R) has
+   authored its own closure card yet either, so there is no real precedent in this repository for
+   what "marking a ledger row" concretely means in code. Inventing that mechanism now, just to
+   give KD11 something to do, would be a bigger, speculative architectural decision wearing a
+   small card's clothes - exactly the kind of premature-closure risk Decision E and the "no pilot
+   ever gets worse" discipline both warn against.
+
+This entry **is** KD11's real, honest interim record: the disclosure program's own work (KD1-KD10)
+is complete and independently verifiable right now, by the completeness lock alone, without
+waiting for a ledger mechanism that does not exist. The formal multi-program closure KD11
+describes - ledger rows marked, ratchets frozen strict - remains correctly deferred until the
+programs it actually depends on (XA19 foremost) are real enough to close against, and until any
+future closure card defines the ledger-row mechanism it would need, rather than assuming one.
+
