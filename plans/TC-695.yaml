@@ -1,0 +1,173 @@
+id: TC-695
+gate: G3
+lane: verification
+purpose: >-
+  Q17a (findability-program closure, section 2.2/5.2: Q17 flips
+  `tests/fixtures/conformance/baseline_symbol_self_retrieval.json`/`baseline_sentence_wrapped_retrieval.json`'s
+  `strict` flags once stale, now-passing entries are pruned). Investigated this session
+  (2026-11-05) and found NOT a one-step action: 223 `known_failures` entries sit in the symbol
+  baseline today, many stale after real fixes (Q10/Q12/Q13/Q14/Q16/QV1-4/TC-651 and others) landed
+  without ever pruning the baselines they made stale. RE-INVESTIGATED with real measurement
+  (2026-11-05/06): the baseline is checked by exactly one test function
+  (`test_symbol_self_retrieval_matches_the_committed_baseline`) that runs in one of 2 modes
+  depending on `FOSS_MCP_CONFORMANCE_EXHAUSTIVE` - default (a FIXED-SEED, deterministic sample via
+  `sample_items(..., seed=SEED, ...)`, identical every run - confirmed by reading
+  `test_the_default_sample_is_deterministic_for_this_module_own_seed`) or exhaustive (every real
+  symbol). Both modes call the SAME `assert_no_new_failures(baseline, observed)`.
+
+  Real counts: exhaustive mode finds 134 `known_failures` entries no longer reproduce; DEFAULT mode
+  (the one CI actually runs under `strict`) finds a SMALLER, DIFFERENT set of 104. The gap is not
+  noise - it is a real identity-stability bug in the measurement itself, confirmed by reading
+  `_measure_pilot`'s own code (`tests/conformance/test_symbol_self_retrieval.py` ~line 148-220):
+  sub-cases (a)-(f) (`exact-fqn-rank1`, `get-symbol-resolves`, `bare-short-name-findable`,
+  `prefix3-findable`, `digit-stripped-family-findable`, `fabricated-fqn-false-exact`) all key their
+  `case_id` as `f"{sub_case}:{fqn}"` - a STABLE identity (the real FQN), unaffected by sample size or
+  order, so default vs exhaustive mode always agree on whether a GIVEN fqn's case still fails.
+  Sub-case (g)'s two variants (`bare-namespace-word-false-exact`, `bare-member-word-false-exact`)
+  key their `case_id` on a COMPUTED PROBE WORD derived from `sample[0]`/`_first_declared_member` -
+  and `sample` itself is a DIFFERENT set in default vs exhaustive mode, so the SAME real defect
+  produces a DIFFERENT `case_id` string in each mode. Confirmed by direct re-test
+  (12-entry sample): every one of the 9 FQN-keyed entries checked IS genuinely fixed (the real
+  symbol now ranks correctly); all 3 case-(g) entries checked are STILL genuinely broken (the
+  baselined word still falsely resolves "exact") - exhaustive mode's own "stale" signal for case-(g)
+  is a FALSE POSITIVE caused by probing a different word than the one the baseline entry names, not
+  evidence of a real fix.
+
+  Scoped accordingly, in two parts: (1) prune ONLY the FQN-keyed sub-cases' confirmed-stale entries
+  (prefix3-findable/digit-stripped-family-findable/bare-short-name-findable, ~104 by the prior
+  measurement - re-confirm the exact number against the CURRENT committed baseline and default-mode
+  run, do not reuse a stale cached count) plus `fabricated-fqn-false-exact` if its own confirmed-
+  stale entries verify the same way (not yet individually checked - verify before pruning, same
+  rigor as the others); (2) leave every `bare-namespace-word-false-exact`/`bare-member-word-false-
+  exact` entry UNTOUCHED (neither pruned nor assumed fixed) - these remain a real, deliberately
+  unresolved tracked limitation, not this card's to close.
+
+  The `strict` flip itself is NOT automatically safe just because the FQN-keyed entries are pruned:
+  flipping `strict: true` makes BOTH default-mode AND exhaustive-mode runs fail on a stale entry.
+  Because case-(g)'s identity is mode-unstable, an exhaustive run against a strict baseline would
+  ALWAYS flag the real, still-broken case-(g) entries as falsely "no longer failing" - a guaranteed
+  false alarm at whatever future point exhaustive mode is run under strict, not a one-time risk.
+  This card requires a real, evidenced decision - not a guess - on whether to flip `strict: true`
+  now (if exhaustive mode is never run with `strict` actually enforced in practice, e.g. manual/
+  release-only, reviewed by a human anyway) or to defer the flip until case-(g)'s identity is made
+  mode-stable (a separate, future fix to `_measure_pilot` itself, out of this card's scope either
+  way). Whichever is chosen, document the real evidence for it - this card does not close Q17 in
+  full regardless (the sentence-wrapped baseline has zero confirmed-prunable entries today, per the
+  same investigation, since its own real fix, Q7/Q8, has not landed) - record the remaining, now
+  much better-understood scope as Q17's own continuing status, not a false "closed".
+depends_on:
+  - TC-686
+write_paths:
+  - tests/fixtures/conformance/baseline_symbol_self_retrieval.json
+  - tests/conformance/test_symbol_self_retrieval.py
+satisfies:
+  - REQ-G3-011
+source_refs:
+  - file: docs/DECISION_LOG.md
+    anchor: >-
+      ## 2026-11-02 — Round-3 independent re-audit adopted; a real regression found and given top
+      priority; the "no pilot ever gets worse" rule adopted project-wide (operator, supervisor)
+    sha256: b750b8bf0df25b17bf66d014895ecb42952050c7cc63773f56249c4a1c551791
+inputs:
+  - >-
+    READ FIRST: `tests/conformance/baseline.py`'s `assert_no_new_failures`/`Baseline` in full, and
+    `tests/conformance/test_symbol_self_retrieval.py`'s `_measure_pilot`/
+    `test_symbol_self_retrieval_matches_the_committed_baseline`/`sample_items` in full. Confirm
+    directly (do not trust this card's own restated figures) that: (a) default mode's sample is a
+    fixed-seed, run-to-run-identical set; (b) sub-cases (a)-(f) key `case_id` on the real FQN; (c)
+    sub-case (g)'s two variants key `case_id` on a probe word computed from `sample[0]`/the sample's
+    own member-declaration order, which differs between default and exhaustive mode.
+  - >-
+    MEASURE, against the CURRENT committed baseline (re-run, do not reuse a cached figure): run the
+    real test in default mode and capture the exact set of `(pilot, case_id)` pairs
+    `assert_no_new_failures` reports as `new_failures` (there should be none - if there are, STOP
+    and report; do not proceed on an already-broken baseline) and, separately (by temporarily
+    setting a SCRATCH copy's `strict: true` and observing which known entries vanish from `observed`
+    - never edit the real committed file to test this), the stale set. Restrict the entries you
+    treat as "confirmed stale" to the 4 FQN-keyed sub-cases named in this card's purpose
+    (`prefix3-findable`, `digit-stripped-family-findable`, `bare-short-name-findable`,
+    `fabricated-fqn-false-exact`). For each, additionally spot-check at least 5 entries per
+    sub-case (20+ total, more than the prior session's 12) by directly re-calling
+    `search_symbols`/`get_symbol` and confirming the real output is actually correct now, not merely
+    "didn't appear in this run's failure list" - report your real spot-check results.
+  - >-
+    PRUNE only the confirmed-stale, confirmed-correct entries from those 4 sub-case categories out
+    of the real committed `tests/fixtures/conformance/baseline_symbol_self_retrieval.json`. Leave
+    every `bare-namespace-word-false-exact`/`bare-member-word-false-exact` entry in the file,
+    unchanged, regardless of whether exhaustive mode's own run reports it as stale (it is a known
+    false signal for this sub-case family, explained in this card's purpose text - do not prune
+    based on it). Leave every entry for the other 2 sub-cases (`exact-fqn-rank1`,
+    `get-symbol-resolves`) alone unless your own measurement in this run finds one of those
+    genuinely stale too (the prior session's investigation did not check these 2 - verify them with
+    the same rigor before touching them, prune if genuinely confirmed, leave alone if not).
+  - >-
+    DECIDE the `strict` flip with real evidence, not a guess: determine whether this repository's
+    own CI/gate-exit/review tooling, anywhere, ever runs this specific test with
+    `FOSS_MCP_CONFORMANCE_EXHAUSTIVE=1` as part of an AUTOMATED, unattended path that also depends
+    on this baseline's `strict` value being enforced (grep `.github/workflows/`, `ops/*.py`, and any
+    other automation for `FOSS_MCP_CONFORMANCE_EXHAUSTIVE` - report every hit and whether it is
+    automated/unattended or a manual, human-reviewed invocation). If NO automated, unattended path
+    runs exhaustive mode against this baseline, flip `strict: true` now (the guaranteed case-(g)
+    false alarm only ever surfaces to a human who would review it anyway) and document this
+    reasoning directly in the file's own structure or a code comment near where it's loaded. If such
+    an automated path DOES exist, do NOT flip `strict` in this card - leave it `false`, and record
+    this as the specific, now precisely-scoped remaining blocker for Q17's eventual closure (the
+    case-(g) identity-stability fix becomes its own future card).
+  - >-
+    Write/update tests proving: (a) the default-mode run against the pruned baseline reports zero
+    new failures and (if `strict` was flipped) zero stale entries; (b) the 2 still-untouched case-(g)
+    sub-cases are STILL present in the baseline and still genuinely reproduce under default mode
+    (a regression guard proving this card did not silently drop real tracked limitations); (c) a
+    sanity count of the baseline's own `known_failures` length before/after pruning, matching your
+    real measured delta exactly (report the real before/after counts - do not guess).
+  - >-
+    MEASURE: re-run the full `tests/conformance/` suite (not just this one file) before and after
+    your change, in BOTH default and exhaustive mode, and report real pass/fail counts for each.
+    Confirm no other conformance test that might also read this same baseline file is affected.
+actions:
+  - >-
+    Prune the real, confirmed-fixed, FQN-keyed `known_failures` entries from
+    `baseline_symbol_self_retrieval.json` (the 4 sub-case categories whose identity is stable across
+    sampling modes), leaving every mode-unstable case-(g) entry untouched and explicitly
+    undisturbed. Flip `strict: true` only if real evidence shows no automated, unattended path runs
+    exhaustive mode against this baseline; otherwise leave `strict: false` and record the precise,
+    now well-understood remaining blocker. This card does not claim full Q17 closure either way -
+    the sentence-wrapped baseline remains separately blocked on Q7/Q8.
+checks:
+  - command: '{python} -m pytest tests/conformance/test_symbol_self_retrieval.py -q -rfE -p no:cacheprovider'
+    expect: 'exit 0'
+    timeout_seconds: 300
+    junitxml: true
+    proves:
+      - REQ-G3-011
+  - command: '{python} -m pytest tests/conformance/ -q -rfE -p no:cacheprovider'
+    expect: 'exit 0'
+    timeout_seconds: 900
+    junitxml: true
+    proves:
+      - REQ-G3-011
+min_tests: 3
+requires:
+  - python
+network: false
+negative_control:
+  mutate: |
+    python -X utf8 -c "import pathlib, json; p = pathlib.Path('tests/fixtures/conformance/baseline_symbol_self_retrieval.json'); data = json.loads(p.read_text(encoding='utf-8')); kf = data.get('known_failures', []); assert kf, 'the baseline has no known_failures left to remove - if this card genuinely pruned every entry, re-anchor this mutate on something else (e.g. flip strict back to false) and note the substitution in your closeout'; data['known_failures'] = kf[1:]; p.write_text(json.dumps(data, indent=2) + chr(10), encoding='utf-8')"
+  rationale: >-
+    Removes one real, still-tracked known_failures entry from the pruned baseline, so the real
+    symbol-retrieval defect that entry names becomes an unexpected "new failure" the next time the
+    suite runs - `assert_no_new_failures` must raise, proving the baseline file's real content (not
+    merely its presence) gates this check.
+evidence:
+  - evidence/build/G3/TC-695/receipt.json
+closeout:
+  - >-
+    `baseline_symbol_self_retrieval.json`'s confirmed-fixed, FQN-keyed `known_failures` entries are
+    pruned (real before/after counts recorded). The mode-unstable case-(g) sub-cases
+    (`bare-namespace-word-false-exact`/`bare-member-word-false-exact`) are left deliberately
+    untouched - a real, now precisely diagnosed tracked limitation, not evidence this card missed.
+    `strict` is flipped to `true` only if evidenced safe against this repository's own real
+    automation; otherwise it stays `false` with the exact remaining blocker recorded. Q17 is NOT
+    closed in full by this card either way - the sentence-wrapped baseline remains separately
+    blocked on Q7/Q8's own landing.
+recovery: Re-run from a clean tree.
