@@ -1,0 +1,170 @@
+id: TC-690
+gate: G3
+lane: extraction
+purpose: >-
+  O6 (oracle disagreement remediation, Appendix D of the unified plan: "missing | TypeScript
+  constructor-parameter-properties (~240) | ~1% | extractor fix (O6)"). REPRODUCED directly
+  against the real production extractor: a hand-authored TypeScript class with a parameter-property
+  constructor (`constructor(public x: number, private secret: string, readonly z: boolean) {}`)
+  extracts via the real `api_surface.extract_api_surface` entrypoint with `properties: []` -
+  completely empty, even though real TypeScript semantics make `public x` and `readonly z` genuine
+  public instance properties of the class (accessible as `instance.x`, `instance.z`), on a par with
+  a regular `x: number;` field declaration.
+
+  Root cause, confirmed by walking the real parse tree directly: the class-member loop in
+  `api_surface.py` only ever iterates the class BODY's direct children (`cnode`'s `class_body`),
+  synthesizing a property for each `public_field_definition`/`property_declaration` found there.
+  A TypeScript constructor-parameter-property is never a `class_body` child at all - it lives
+  entirely inside the constructor's own `formal_parameters` (`required_parameter`/
+  `optional_parameter` nodes carrying an `accessibility_modifier` and/or a bare `readonly` token),
+  a different branch of the tree the member loop never descends into. Confirmed via a direct
+  tree-sitter parse: `required_parameter` nodes for `public x: number` and `readonly z: boolean`
+  each have exactly the fields `pattern`/`type` plus an `accessibility_modifier` child (`public`)
+  or a bare `readonly` token child respectively; `private secret: string`'s `required_parameter`
+  has an `accessibility_modifier` child whose text is `private`.
+
+  Confirmed the correct exclusion rule already exists for ORDINARY class fields and must be
+  mirrored here, not reinvented: `tree_helpers.py`'s `is_public()` (the TypeScript branch, ~line
+  493) already drops a regular field when its `accessibility_modifier` text is `private` or
+  `protected`, before it ever reaches the properties list - reproduced directly (`private secret:
+  number = 1; public visible: string = "a";` on a class body extracts `properties` containing only
+  `visible`). The fix for parameter properties must apply the IDENTICAL rule: `public` (explicit) or
+  bare `readonly` (no modifier at all - implicitly public in real TypeScript) synthesizes a
+  property; `private`/`protected` must NOT (even though they are still real parameter properties at
+  the language level, they are not part of the PUBLIC API surface this extractor serves).
+
+  Scoped narrowly, TypeScript-only, additive: when the member loop detects a TypeScript
+  `constructor` method (`is_ctor` is already computed at this exact point in the existing loop),
+  also walk that constructor's own raw parameter-list node and synthesize a property entry for each
+  qualifying (public-or-bare-readonly) parameter property, appended to the SAME `properties` list
+  the ordinary-field branch already builds. No other language's member loop, and no part of the
+  existing `methods`/parameter-dict extraction (`_ts_param`, `_extract_method_params`) for the
+  constructor itself, is touched - the constructor's own `methods` entry (listing `x`, `secret`,
+  `z` as ordinary parameters, as it already correctly does) is unaffected; this card only ADDS the
+  missing property entries alongside it, it does not change how the constructor is itself reported.
+depends_on:
+  - TC-570
+  - TC-689
+write_paths:
+  - src/foss_mcp/extraction/tree_sitter_engine/api_surface.py
+  - tests/extraction/test_ts_constructor_parameter_properties.py
+satisfies:
+  - REQ-G3-012
+source_refs:
+  - file: docs/DECISION_LOG.md
+    anchor: >-
+      ## 2026-11-02 — Round-3 independent re-audit adopted; a real regression found and given top
+      priority; the "no pilot ever gets worse" rule adopted project-wide (operator, supervisor)
+    sha256: b750b8bf0df25b17bf66d014895ecb42952050c7cc63773f56249c4a1c551791
+inputs:
+  - >-
+    READ FIRST: `tree_helpers.py`'s `is_public()` TypeScript branch (search for `"class_body",
+    "interface_body", "object_type"`, around line 493) to see the existing private/protected
+    exclusion rule for ordinary fields - this card's new rule must match it exactly, for
+    parameters instead of body members. Then `api_surface.py`'s class-member loop: find the exact
+    point where `is_ctor = (... or (language in ("typescript", "javascript") and mname ==
+    "constructor"))` is computed (search for that literal) - this is both where the constructor is
+    recognised AND where `mnode` (the raw tree-sitter constructor node) is still in scope. Also
+    read the existing `if language == "javascript" and is_ctor: for ctor_param in params: ...`
+    block a little further down in the same loop (search for `ctor_keys.extend`) as the precedent
+    for "do per-constructor-parameter work exactly here, append into a list already being built in
+    this same loop" - `properties` (not `ctor_keys`) is the list to extend for this card, and it is
+    already declared and populated earlier in this same function (search for `properties.append(prop_entry)`).
+  - >-
+    REPRODUCE FIRST: using the real `api_surface.extract_api_surface(get_parser("typescript"),
+    "typescript", <package_dir>, <tmp_path>, <family>)` entrypoint (see
+    `tests/extraction/test_round3_typescript_fidelity.py` or any other
+    `tests/extraction/test_*_typescript_extraction.py` file for the exact calling convention used
+    in this codebase), extract a class with a parameter-property constructor
+    (`constructor(public x: number, private secret: string, readonly z: boolean) {}`) and confirm
+    the CURRENT (unfixed) `properties` list is empty despite `x`/`z` being real public members by
+    TypeScript's own language rules. This proves the defect before you touch any production code.
+  - >-
+    FIX: add a new helper (your own name, e.g. `_ts_constructor_parameter_properties(ctor_node)`)
+    that reads the constructor node's own parameter-list field (`child_by_field(ctor_node,
+    "parameters")`, the same field name `_extract_method_params` already uses), and for each
+    `required_parameter`/`optional_parameter` child: skip it unless it has an
+    `accessibility_modifier` child OR a bare `readonly` child (a plain, non-property parameter is
+    not a parameter property at all); when it has an `accessibility_modifier` whose text is
+    `private` or `protected`, skip it (not part of the public surface, mirroring `is_public()`'s
+    existing rule); otherwise (explicit `public`, or bare `readonly` with no modifier at all)
+    synthesize `{"name": <the parameter's identifier text>, "type": <its type annotation text,
+    stripped of the leading colon, "" if none>, "doc": "", "line": <1-based line>, "writable": not
+    <has a readonly child>}` - keep this shape consistent with the existing ordinary-field
+    `prop_entry` shape used a few lines above in the same function (same keys: name/type/doc/line/
+    writable). Call this helper exactly where `is_ctor` is computed for `language == "typescript"`
+    and extend the already-in-scope `properties` list with its result - do not create a second,
+    separate properties list or a new return value threaded through the function signature.
+  - >-
+    Write real, deterministic tests in the new file proving: (a) `public x: number` and bare
+    `readonly z: boolean` constructor parameters are each synthesized as a real property with the
+    correct name/type/writable (writable True for `x`, False for `z`); (b) `private secret: string`
+    and a same-class `protected other: string` constructor parameter are NOT synthesized as
+    properties (the negative case - mirrors the existing ordinary-field private/protected
+    exclusion); (c) an ORDINARY (non-property) constructor parameter with no accessibility
+    modifier and no `readonly` (e.g. a plain `z: number` used only inside the constructor body) is
+    NOT synthesized as a property; (d) the constructor's own `methods` entry (its `params` list)
+    is byte-for-byte unaffected by this change - still lists every parameter, property or not,
+    exactly as it does today; (e) a class with an ordinary (non-parameter-property) constructor and
+    separately-declared `public_field_definition` fields (the existing, already-correct case) is
+    unaffected - re-run the existing private/public ordinary-field repro from this card's own
+    purpose text and confirm identical output before and after your change.
+  - >-
+    MEASURE: re-run the full real-pilot TypeScript extraction suite
+    (`tests/extraction/test_3d_typescript_extraction.py`,
+    `tests/extraction/test_cells_typescript_extraction.py`,
+    `tests/extraction/test_round3_typescript_fidelity.py`, and any other
+    `tests/extraction/test_*typescript*.py` file - grep `tests/extraction/` for the real list, do
+    not guess it) before and after your change and report real pass/fail counts; grep those same
+    files for any existing assertion on a class's `properties` list to confirm none of them pin an
+    empty-properties expectation for a class that (once you check) actually has a parameter-property
+    constructor in its real pinned fixture - if you find one that does, report it explicitly rather
+    than silently fixing or ignoring it. Do NOT regenerate any committed `tests/fixtures/*typescript*/
+    api_surface.json` file - that is `R1F`'s later, dedicated job (wave 24), not this card's.
+actions:
+  - >-
+    Add a TypeScript-only, additive fix in `api_surface.py`'s class-member loop: a constructor
+    parameter marked `public` (explicit) or bare `readonly` (implicitly public) is now synthesized
+    as a real class property, exactly as a same-shaped ordinary field declaration already is;
+    `private`/`protected` parameter properties and plain non-property parameters are correctly
+    excluded, mirroring the existing ordinary-field visibility rule. No other language and no part
+    of the constructor's own `methods`/`params` reporting is touched.
+checks:
+  - command: '{python} -m pytest tests/extraction/test_ts_constructor_parameter_properties.py -q -rfE -p no:cacheprovider'
+    expect: 'exit 0'
+    timeout_seconds: 120
+    junitxml: true
+    proves:
+      - REQ-G3-012
+  - command: '{python} -m pytest tests/extraction/test_3d_typescript_extraction.py tests/extraction/test_cells_typescript_extraction.py tests/extraction/test_round3_typescript_fidelity.py -q -rfE -p no:cacheprovider'
+    expect: 'exit 0'
+    timeout_seconds: 240
+    junitxml: true
+    proves:
+      - REQ-G3-012
+min_tests: 4
+requires:
+  - python
+network: false
+negative_control:
+  mutate: |
+    python -X utf8 -c "import pathlib; p = pathlib.Path('src/foss_mcp/extraction/tree_sitter_engine/api_surface.py'); s = p.read_text(encoding='utf-8'); old = 'accessibility_modifier'; assert s.count(old) >= 1, 'the required accessibility_modifier lookup was not found as expected - if your real code names this differently, anchor your own mutate on your own real literal instead and note the substitution in your closeout'; s2 = s.replace(old, 'accessibility_modifierDISABLED', s.count(old)); assert s2 != s; p.write_text(s2, encoding='utf-8')"
+  rationale: >-
+    Renames every reference to the `accessibility_modifier` node-type lookup this card's fix
+    depends on, so the new helper can no longer find the modifier it needs to decide public vs
+    private/protected parameter properties - this must make the new test file's public-parameter-
+    property assertions fail (no property synthesized at all, or the public/private distinction
+    collapses), proving the new mechanism, not just the file's import, is under test.
+evidence:
+  - evidence/build/G3/TC-690/receipt.json
+closeout:
+  - >-
+    A TypeScript constructor-parameter-property (`public x: number`, bare `readonly z: boolean`)
+    is now synthesized as a real class property, matching an ordinary same-shaped field
+    declaration - closes the O6 oracle-disagreement class (Appendix D: "TypeScript constructor-
+    parameter-properties, ~240, extractor fix"). `private`/`protected` parameter properties stay
+    correctly excluded from the public surface, mirroring the existing ordinary-field rule. The
+    constructor's own `methods`/`params` reporting and every other language's extraction are
+    unchanged. The real baked TypeScript `api_surface.json` fixtures are deliberately left stale
+    pending `R1F`'s later, dedicated regeneration step.
+recovery: Re-run from a clean tree.
