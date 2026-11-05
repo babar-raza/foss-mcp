@@ -101,7 +101,7 @@ requires:
 network: false
 negative_control:
   mutate: |
-    python -X utf8 -c "import pathlib; q = chr(34); p = pathlib.Path('config/public_api_definition/python.yaml'); s = p.read_text(encoding='utf-8'); old = q + 'docs' + q; assert s.count(old) == 1, 'the required literal was not found as expected - if your real file formats this differently (e.g. unquoted), anchor your own mutate on your own real literal instead and note the substitution in your closeout'; p.write_text(s.replace(old, q + 'ZZZ_NEVER_A_REAL_DIR' + q, 1), encoding='utf-8')"
+    python -X utf8 -c "import pathlib; p = pathlib.Path('config/public_api_definition/python.yaml'); s = p.read_text(encoding='utf-8'); old = chr(10) + '  - docs' + chr(10); assert s.count(old) == 1, 'the required real excluded_dirs list item was not found as expected (found elsewhere is the human-readable comment quoting \"docs\", which production code never reads - anchor on the real unquoted YAML list item, not the comment); if your real file formats this differently, anchor your own mutate on your own real literal instead and note the substitution in your closeout'; p.write_text(s.replace(old, chr(10) + '  - ZZZ_NEVER_A_REAL_DIR' + chr(10), 1), encoding='utf-8')"
   rationale: >-
     Renames "docs" to a string no real pilot's directory tree ever contains, so any file under a
     real "docs" directory stops being excluded if (and only if) production code genuinely reads
