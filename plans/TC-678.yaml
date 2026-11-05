@@ -1,0 +1,182 @@
+id: TC-678
+gate: G3
+lane: storage-retrieval
+purpose: >-
+  C4 (content-truth sub-program, section 2.4: "one fence-aware truncation helper naming `chunk_id`
+  + offset (reuse `response_budget.fence_blocks`)"). `src/foss_mcp/mcp/response_budget.py` (TC-515,
+  TC-563) already has exactly this: `fence_blocks()` detects fenced code-block membership per line,
+  `_documentation_excerpt()` snaps its cut point to never land inside an open fence
+  (`snap_end`/`starts_inside_block`), and `_doc_marker()` names the exact `search_docs` call,
+  `chunk_id` and offset needed to get the rest. CONFIRMED this mechanism is NOT what
+  `get_product_reference.py` actually uses for its own long-content truncation.
+
+  `get_product_reference.py` has its OWN SEPARATE, PARALLEL truncation helpers: `_cap_at_line`
+  (cuts at the nearest `\n` boundary) and `_cap_at_paragraph` (cuts at the nearest `\n\n` or `\n`
+  boundary), called at 6 real sites (`_limitations_from_readme`, the formats section, the install
+  recipe at two call sites including a C++-specific one, `agent_guidance`, and a fallback raw
+  README-text branch). NEITHER is fence-aware - both only ever look for a blank-line/newline
+  boundary, never checking fence state at all. Their marker, `_TRUNCATED_MARKER = "[truncated; use
+  search_docs for the rest]"`, is a single FIXED STRING - it never names a `chunk_id` or offset,
+  unlike `response_budget`'s own marker.
+
+  REPRODUCED directly (supervisor, this session): a synthetic limitations-style text (short prose
+  then a 300-line fenced python block) truncated via the real, unmodified `_cap_at_line` at a
+  600-character cap produces a result with exactly ONE ` ``` ` line (an opening fence with no
+  matching close) - a genuinely malformed, mid-fence-cut markdown block, with a marker that gives
+  no `chunk_id`/offset to retrieve the rest. No CURRENTLY COMMITTED pilot fixture happens to
+  trigger this today (checked directly against every `tests/fixtures/furnished/**/_index.md`
+  limitations/formats/install section: 0 of them currently combine a fence with a long-enough
+  section to trip it) - this is a real, armed defect waiting for the next long-fenced
+  limitations/install section, not a hypothetical. Fix it now, structurally, rather than waiting
+  for a real pilot to demonstrate it in production.
+
+  Fix: make `get_product_reference.py`'s truncation fence-aware and offset-naming by REUSING
+  `response_budget.fence_blocks` directly (never re-implementing fence detection), and extend its
+  marker to name a stable identifier of WHAT was cut (the section's own title/kind, since these
+  call sites do not carry a `chunk_id` the way a `search_docs` chunk does - use what identity IS
+  available, e.g. `README section '<title>'` plus a byte offset into that section, so a caller
+  still knows exactly how much was shown and where the rest starts even without a chunk_id to call
+  back with). This is a NARROWER ask than reusing the WHOLE `_documentation_excerpt` machinery
+  (which is built around `search_docs`-specific chunk metadata this module does not have) - reuse
+  only `fence_blocks` itself for the fence-awareness, write a new, small, local snap-to-fence-
+  boundary step for `_cap_at_line`/`_cap_at_paragraph`, and improve the marker to carry an offset.
+  Do not weaken either existing cap value or change what gets cut at (line vs paragraph boundary)
+  otherwise - only add the fence-safety and the offset.
+depends_on:
+  - TC-515
+  - TC-518
+  - TC-520
+  - TC-521
+  - TC-522
+  - TC-523
+  - TC-524
+  - TC-526
+  - TC-527
+  - TC-530
+  - TC-532
+  - TC-533
+  - TC-534
+  - TC-535
+  - TC-541
+  - TC-542
+  - TC-550
+  - TC-553
+  - TC-554
+  - TC-557
+  - TC-558
+  - TC-559
+  - TC-560
+  - TC-561
+  - TC-563
+  - TC-574
+  - TC-577
+  - TC-582
+  - TC-614
+  - TC-622
+  - TC-631
+  - TC-641
+  - TC-652
+  - TC-658
+write_paths:
+  - src/foss_mcp/mcp/tools/get_product_reference.py
+  - tests/mcp/tools/test_get_product_reference_fence_aware_truncation.py
+satisfies:
+  - REQ-G3-013
+source_refs:
+  - file: docs/DECISION_LOG.md
+    anchor: >-
+      ## 2026-11-02 — Round-3 independent re-audit adopted; a real regression found and given top
+      priority; the "no pilot ever gets worse" rule adopted project-wide (operator, supervisor)
+    sha256: b750b8bf0df25b17bf66d014895ecb42952050c7cc63773f56249c4a1c551791
+inputs:
+  - >-
+    READ FIRST: `src/foss_mcp/mcp/response_budget.py`'s `fence_blocks` in full (including its own
+    docstring and the `(first, last)` tuple-per-line shape it returns). Then
+    `get_product_reference.py`'s `_cap_at_line`, `_cap_at_paragraph`, `_TRUNCATED_MARKER`, and all 6
+    of their real call sites (grep the file for both function names). Confirm with your own eyes,
+    using a synthetic text of your own construction (a short prose lead then a long fenced code
+    block crossing a small cap), that the CURRENT, unmodified functions produce an unclosed fence
+    in their output before changing anything - this is your REPRODUCE-FIRST proof.
+  - >-
+    Modify `_cap_at_line` and `_cap_at_paragraph` so that after finding their existing boundary
+    (the last `\n` or `\n\n` at or before the cap), they ALSO call `fence_blocks` on the candidate
+    cut text's own lines and, if the cut point falls strictly inside an open (unclosed-within-the-
+    cut) fence, move the cut back to the start of that fence's own opening line instead (never
+    forward past the cap - only backward, so the cap is still respected; if backing off to the
+    fence's own start would leave nothing or almost nothing, it is acceptable to show just the
+    prose before the fence and omit the fence entirely, your call on the exact minimum - report
+    what you chose). Reuse `fence_blocks` exactly as it is, imported from `response_budget` -
+    never copy or reimplement its regex/logic locally.
+  - >-
+    Extend `_TRUNCATED_MARKER` (or replace it with a small marker-building function, your choice -
+    report which) so the marker names the real character offset the cut landed at, e.g.
+    `[truncated: showing N of M characters]` (matching the style `response_budget._doc_marker`
+    already uses for its own marker's "showing N of M characters" phrasing, for consistency - you
+    do not need a chunk_id/search_docs callback instruction, since this module's own call sites
+    have no chunk_id to offer; naming the real N/M is the achievable, honest improvement here).
+    Every one of the 6 real call sites must receive this improvement automatically through the
+    shared helper - do not special-case any of them individually.
+  - >-
+    Write real, deterministic unit tests in the new file proving: (a) your own REPRODUCE-FIRST
+    synthetic case (prose + long fence) is now cut WITHOUT an unclosed fence in the result,
+    verified by running `response_budget.fence_blocks` over the result's own lines and asserting
+    no line reports an unclosed block; (b) a case with NO fence at all is byte-for-byte unaffected
+    by your change (same cut point, same marker shape otherwise) - this card must not change
+    ordinary non-fenced truncation behavior; (c) the marker now names the real N/M character
+    counts; (d) a case where the fence starts very close to the cap (almost no prose before it) is
+    handled per whatever minimum-content rule you chose, without crashing or returning something
+    nonsensical; (e) at least one of the 6 real call sites (your choice) is exercised end-to-end
+    through its own real function (`_limitations_from_readme` or similar), proving the fix reaches
+    production through the shared helper, not just the helper functions in isolation.
+  - >-
+    MEASURE: re-run `tests/conformance/test_reference_content.py` and any other existing test file
+    that already exercises `get_product_reference`'s truncation behavior (grep `tests/` for
+    `_cap_at_line`/`_cap_at_paragraph`/`_TRUNCATED_MARKER` first - do not guess the list) BEFORE and
+    AFTER your change, and report both real pass/fail counts. Every existing non-fenced truncation
+    result must be byte-for-byte unchanged (Decision E: never regress).
+actions:
+  - >-
+    Make `get_product_reference.py`'s own truncation helpers fence-aware (reusing
+    `response_budget.fence_blocks`, never reimplementing it) and offset-naming, closing a real,
+    reproduced-but-not-yet-triggered-by-any-current-pilot defect before it bites a future README
+    re-ingest.
+checks:
+  - command: '{python} -m pytest tests/mcp/tools/test_get_product_reference_fence_aware_truncation.py -q -rfE -p no:cacheprovider'
+    expect: 'exit 0'
+    timeout_seconds: 180
+    junitxml: true
+    proves:
+      - REQ-G3-013
+  - command: '{python} -m pytest tests/conformance/test_reference_content.py -q -rfE -p no:cacheprovider'
+    expect: 'exit 0'
+    timeout_seconds: 300
+    junitxml: true
+    proves:
+      - REQ-G3-013
+min_tests: 5
+requires:
+  - python
+network: true
+# NOTE (supervisor): tests/conformance/test_reference_content.py (check 2) does not actually reach
+# the network - it contains a fixture string literal "git clone https://example.invalid/x.git"
+# inside a markdown-fenced test case, which cardlint's own blunt NETWORK_HINTS substring scan
+# cannot distinguish from a real invoked command. Declared network: true per the tool's own
+# suggested escape valve rather than weakening the shared heuristic (which still has real value
+# for a genuine case) for one false positive.
+negative_control:
+  mutate: |
+    python -X utf8 -c "import pathlib; q = chr(40); p = pathlib.Path('src/foss_mcp/mcp/tools/get_product_reference.py'); s = p.read_text(encoding='utf-8'); old = 'fence_blocks' + q; assert s.count(old) >= 1, 'the required call to fence_blocks(...) was not found as expected - if your real code reads differently, anchor your own mutate on your own real literal instead and note the substitution in your closeout'; s2 = s.replace(old, 'list' + q, s.count(old)); assert s2 != s, 'substitution had no effect'; p.write_text(s2, encoding='utf-8')"
+  rationale: >-
+    Replaces every live call to `fence_blocks(...)` with a no-op `list(...)` call, so the new
+    fence-snapping logic can never detect an open fence and the cut falls back to its old,
+    fence-unaware boundary. Any test proving a fenced block survives truncation intact must fail
+    under this mutation; a non-fenced truncation test is unaffected.
+evidence:
+  - evidence/build/G3/TC-678/receipt.json
+closeout:
+  - >-
+    `get_product_reference`'s own truncation is now fence-aware (reusing the existing, already-
+    reviewed `response_budget.fence_blocks` mechanism) and names a real character offset in its
+    marker, closing a real, armed-but-not-yet-triggered defect across all 6 of its real call sites
+    through one shared, tested helper.
+recovery: Re-run from a clean tree.
