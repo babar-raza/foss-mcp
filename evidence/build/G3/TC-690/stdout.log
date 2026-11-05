@@ -1,0 +1,80 @@
+
+===== CLEAN RUN 1 (host) =====
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-5c72e798a73c059a\Scripts\python.exe -m pytest tests/extraction/test_ts_constructor_parameter_properties.py -q -rfE -p no:cacheprovider "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-m7v2qj9l\.junit-0.xml"
+--- stdout ---
+.....                                                                    [100%]
+
+--- stderr ---
+
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-5c72e798a73c059a\Scripts\python.exe -m pytest tests/extraction/test_3d_typescript_extraction.py tests/extraction/test_cells_typescript_extraction.py tests/extraction/test_round3_typescript_fidelity.py -q -rfE -p no:cacheprovider "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-m7v2qj9l\.junit-1.xml"
+--- stdout ---
+.................................................                        [100%]
+
+--- stderr ---
+
+
+===== CLEAN RUN 2 (host) =====
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-5c72e798a73c059a\Scripts\python.exe -m pytest tests/extraction/test_ts_constructor_parameter_properties.py -q -rfE -p no:cacheprovider "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-m7v2qj9l\.junit-0.xml"
+--- stdout ---
+.....                                                                    [100%]
+
+--- stderr ---
+
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-5c72e798a73c059a\Scripts\python.exe -m pytest tests/extraction/test_3d_typescript_extraction.py tests/extraction/test_cells_typescript_extraction.py tests/extraction/test_round3_typescript_fidelity.py -q -rfE -p no:cacheprovider "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-m7v2qj9l\.junit-1.xml"
+--- stdout ---
+.................................................                        [100%]
+
+--- stderr ---
+
+
+===== NEGATIVE CONTROL (checks MUST now fail) =====
+mutated: M src/foss_mcp/extraction/tree_sitter_engine/api_surface.py, ?? .junit-0.xml, ?? .junit-1.xml
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-5c72e798a73c059a\Scripts\python.exe -m pytest tests/extraction/test_ts_constructor_parameter_properties.py -q -rfE -p no:cacheprovider "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-m7v2qj9l\.junit-0.xml"
+--- stdout ---
+F.F..                                                                    [100%]
+================================== FAILURES ===================================
+___ test_public_and_bare_readonly_constructor_parameters_become_properties ____
+
+tmp_path = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-20550/test_public_and_bare_readonly_0')
+
+    def test_public_and_bare_readonly_constructor_parameters_become_properties(tmp_path: Path) -> None:
+        # public x and bare-readonly z are real public instance members by TypeScript's own rules -
+        # before this fix, `properties` was completely empty for this class.
+        types = _extract(tmp_path, SOURCE)
+        props = {p["name"]: p for p in types["Foo"]["properties"]}
+>       assert props["x"]["type"] == "number"
+               ^^^^^^^^^^
+E       KeyError: 'x'
+
+tests\extraction\test_ts_constructor_parameter_properties.py:61: KeyError
+_____ test_a_plain_non_property_constructor_parameter_is_not_synthesized ______
+
+tmp_path = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-20550/test_a_plain_non_property_cons0')
+
+    def test_a_plain_non_property_constructor_parameter_is_not_synthesized(tmp_path: Path) -> None:
+        # w has neither an accessibility modifier nor a bare `readonly` - it is a completely ordinary
+        # constructor parameter, used only inside the constructor's own body, and must not become a
+        # property of any kind.
+        types = _extract(tmp_path, SOURCE)
+        props = {p["name"]: p for p in types["Foo"]["properties"]}
+        assert "w" not in props
+>       assert set(props) == {"x", "z"}
+E       AssertionError: assert {'z'} == {'x', 'z'}
+E         
+E         Extra items in the right set:
+E         'x'
+E         Use -v to get more diff
+
+tests\extraction\test_ts_constructor_parameter_properties.py:84: AssertionError
+=========================== short test summary info ===========================
+FAILED tests/extraction/test_ts_constructor_parameter_properties.py::test_public_and_bare_readonly_constructor_parameters_become_properties
+FAILED tests/extraction/test_ts_constructor_parameter_properties.py::test_a_plain_non_property_constructor_parameter_is_not_synthesized
+
+--- stderr ---
+
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-5c72e798a73c059a\Scripts\python.exe -m pytest tests/extraction/test_3d_typescript_extraction.py tests/extraction/test_cells_typescript_extraction.py tests/extraction/test_round3_typescript_fidelity.py -q -rfE -p no:cacheprovider "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-m7v2qj9l\.junit-1.xml"
+--- stdout ---
+.................................................                        [100%]
+
+--- stderr ---
+
