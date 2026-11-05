@@ -1,0 +1,119 @@
+
+===== CLEAN RUN 1 (host) =====
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-5c72e798a73c059a\Scripts\python.exe -m pytest tests/mcp/test_identity_content_type_counts.py tests/mcp/tools/test_search_docs_content_type_counts.py -q -rfE -p no:cacheprovider "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-f7ua1a9x\.junit-0.xml"
+--- stdout ---
+...........                                                              [100%]
+
+--- stderr ---
+
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-5c72e798a73c059a\Scripts\python.exe -m pytest tests/mcp/test_handshake_identity.py tests/mcp/test_server_identity.py tests/mcp/tools/test_search_docs_query_normalization.py tests/mcp/tools/test_search_docs_partial_tier.py -q -rfE -p no:cacheprovider "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-f7ua1a9x\.junit-1.xml"
+--- stdout ---
+........................................................................ [ 48%]
+........................................................................ [ 97%]
+....                                                                     [100%]
+============================== warnings summary ===============================
+..\venv-5c72e798a73c059a\Lib\site-packages\starlette\testclient.py:53
+  E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-5c72e798a73c059a\Lib\site-packages\starlette\testclient.py:53: DeprecationWarning: The anyio.abc.BlockingPortal alias is deprecated, use anyio.from_thread.BlockingPortal instead.
+    _PortalFactoryType = Callable[[], AbstractContextManager[anyio.abc.BlockingPortal]]
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+
+--- stderr ---
+
+
+===== CLEAN RUN 2 (host) =====
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-5c72e798a73c059a\Scripts\python.exe -m pytest tests/mcp/test_identity_content_type_counts.py tests/mcp/tools/test_search_docs_content_type_counts.py -q -rfE -p no:cacheprovider "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-f7ua1a9x\.junit-0.xml"
+--- stdout ---
+...........                                                              [100%]
+
+--- stderr ---
+
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-5c72e798a73c059a\Scripts\python.exe -m pytest tests/mcp/test_handshake_identity.py tests/mcp/test_server_identity.py tests/mcp/tools/test_search_docs_query_normalization.py tests/mcp/tools/test_search_docs_partial_tier.py -q -rfE -p no:cacheprovider "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-f7ua1a9x\.junit-1.xml"
+--- stdout ---
+........................................................................ [ 48%]
+........................................................................ [ 97%]
+....                                                                     [100%]
+============================== warnings summary ===============================
+..\venv-5c72e798a73c059a\Lib\site-packages\starlette\testclient.py:53
+  E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-5c72e798a73c059a\Lib\site-packages\starlette\testclient.py:53: DeprecationWarning: The anyio.abc.BlockingPortal alias is deprecated, use anyio.from_thread.BlockingPortal instead.
+    _PortalFactoryType = Callable[[], AbstractContextManager[anyio.abc.BlockingPortal]]
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+
+--- stderr ---
+
+
+===== NEGATIVE CONTROL (checks MUST now fail) =====
+mutated: M src/foss_mcp/mcp/identity.py, ?? .junit-0.xml, ?? .junit-1.xml
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-5c72e798a73c059a\Scripts\python.exe -m pytest tests/mcp/test_identity_content_type_counts.py tests/mcp/tools/test_search_docs_content_type_counts.py -q -rfE -p no:cacheprovider "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-f7ua1a9x\.junit-0.xml"
+--- stdout ---
+....FF.....                                                              [100%]
+================================== FAILURES ===================================
+_______________ test_neutral_facts_carries_the_all_zero_default _______________
+
+    def test_neutral_facts_carries_the_all_zero_default() -> None:
+>       assert NEUTRAL_FACTS.content_type_counts == dict.fromkeys(CONTENT_TYPES, 0)
+E       AssertionError: assert {} == {'getting_sta...: 0, 'faq': 0}
+E         
+E         Right contains 4 more items:
+E         {'developer_guide': 0, 'faq': 0, 'getting_started': 0, 'troubleshooting': 0}
+E         Use -v to get more diff
+
+tests\mcp\test_identity_content_type_counts.py:79: AssertionError
+______ test_default_factory_never_shares_a_mutable_dict_across_instances ______
+
+    def test_default_factory_never_shares_a_mutable_dict_across_instances() -> None:
+        # The dataclass default is built by a factory precisely so two facts never alias the same
+        # dict - mutating one's field must never leak into another's.
+        first = DeploymentFacts(None, None, None, "lexical-only")
+        second = DeploymentFacts(None, None, None, "lexical-only")
+>       assert first.content_type_counts == dict.fromkeys(CONTENT_TYPES, 0)
+E       AssertionError: assert {} == {'getting_sta...: 0, 'faq': 0}
+E         
+E         Right contains 4 more items:
+E         {'developer_guide': 0, 'faq': 0, 'getting_started': 0, 'troubleshooting': 0}
+E         Use -v to get more diff
+
+tests\mcp\test_identity_content_type_counts.py:87: AssertionError
+=========================== short test summary info ===========================
+FAILED tests/mcp/test_identity_content_type_counts.py::test_neutral_facts_carries_the_all_zero_default
+FAILED tests/mcp/test_identity_content_type_counts.py::test_default_factory_never_shares_a_mutable_dict_across_instances
+
+--- stderr ---
+
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-5c72e798a73c059a\Scripts\python.exe -m pytest tests/mcp/test_handshake_identity.py tests/mcp/test_server_identity.py tests/mcp/tools/test_search_docs_query_normalization.py tests/mcp/tools/test_search_docs_partial_tier.py -q -rfE -p no:cacheprovider "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-f7ua1a9x\.junit-1.xml"
+--- stdout ---
+........................................................................ [ 48%]
+......F................................................................. [ 97%]
+....                                                                     [100%]
+================================== FAILURES ===================================
+______________ test_neutral_facts_when_no_generation_is_readable ______________
+
+    def test_neutral_facts_when_no_generation_is_readable() -> None:
+        scope = Scope(family="pdf", platform="net")
+        for store in (_NoActiveStore(), _RaisingStore(), _FakeStore([])):
+            facts = read_deployment_facts(store, scope)
+>           assert facts == DeploymentFacts(None, None, None, "lexical-only")
+E           AssertionError: assert DeploymentFac... 0, 'faq': 0}) == DeploymentFac...ype_counts={})
+E             
+E             Omitting 4 identical items, use -vv to show
+E             Differing attributes:
+E             ['content_type_counts']
+E             
+E             Drill down into differing attribute content_type_counts:
+E               content_type_counts: {'getting_started': 0, 'developer_guide': 0, 'troubleshooting': 0, 'faq': 0} != {}...
+E             
+E             ...Full output truncated (3 lines hidden), use '-vv' to show
+
+tests\mcp\test_handshake_identity.py:389: AssertionError
+============================== warnings summary ===============================
+..\venv-5c72e798a73c059a\Lib\site-packages\starlette\testclient.py:53
+  E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-5c72e798a73c059a\Lib\site-packages\starlette\testclient.py:53: DeprecationWarning: The anyio.abc.BlockingPortal alias is deprecated, use anyio.from_thread.BlockingPortal instead.
+    _PortalFactoryType = Callable[[], AbstractContextManager[anyio.abc.BlockingPortal]]
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+=========================== short test summary info ===========================
+FAILED tests/mcp/test_handshake_identity.py::test_neutral_facts_when_no_generation_is_readable
+
+--- stderr ---
+
