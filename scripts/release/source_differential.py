@@ -597,6 +597,30 @@ def evaluate_ceilings(counts: DiffCounts, ceilings: Mapping[str, int]) -> list[s
     return reasons
 
 
+def evaluate_hollow_pass(counts: DiffCounts) -> list[str]:
+    """G3/TC-692: a separate, additive guard alongside ``evaluate_ceilings`` -- NOT a change to it.
+
+    ``checked`` is deliberately excluded from ``CATEGORIES``/ceiling evaluation (see
+    ``NON_CATEGORY_COUNT_FIELDS``'s own comment): it counts work done, never disagreements, so a
+    ceiling of 0 on it would be nonsensical. But that same exclusion means a pilot whose oracle run
+    compared zero real members (``checked == 0``) sails through ``evaluate_ceilings`` with every
+    category at 0 and is reported as a clean ``"pass"`` -- a HOLLOW pass: there was nothing to
+    disagree about because nothing was checked, not because the fixture is faithful (the real,
+    already-disclosed ``cells/typescript`` case: its upstream `package.json` "main" entry is a demo
+    script, not a library barrel, so the enumerator never reaches the real surface).
+
+    Scoped to EXACTLY ``checked == 0``. A pilot-specific floor for a PARTIAL-but-nonzero scope (e.g.
+    `tex/python`'s real ``checked=7``) is deliberately out of scope for this guard -- it needs real
+    per-pilot floor data that does not exist yet (a separate, future card).
+    """
+    if counts.checked == 0:
+        return [
+            "checked count is 0 - no real member was compared; this is a hollow fidelity check, "
+            "not a real fidelity confirmation"
+        ]
+    return []
+
+
 # ---------------------------------------------------------------------------------------------------------------
 # One pilot
 # ---------------------------------------------------------------------------------------------------------------
@@ -645,6 +669,7 @@ def verify_pilot(
     )
     total, findings = diff_language(symbols, fixture.get("types") or [])
     reasons = evaluate_ceilings(total, ceilings.get(language, {category: 0 for category in CATEGORIES}))
+    reasons = [*reasons, *evaluate_hollow_pass(total)]
     return PilotReport(
         pilot=pilot,
         language=language,

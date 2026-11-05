@@ -357,12 +357,18 @@ def test_verify_pilot_fails_on_a_stale_extractor_version_even_with_a_perfect_dif
 
 
 def test_verify_pilot_skips_the_version_gate_when_told_to():
-    fixture = {"types": []}  # no extractor_version key at all
+    # G3/TC-692: at least one real member must be compared (checked >= 1), or the new hollow-pass
+    # guard would fail this report for an unrelated reason and this test would no longer isolate
+    # the version-gate-skip behavior it's actually named for.
+    fixture = {
+        "types": [_baked_type("Widget", methods=[{"name": "build", "params": []}])]
+    }  # no extractor_version key
+    symbols = [OS("Widget", "class", members=(OM("build", "method"),))]
     report = sd.verify_pilot(
         pilot="pdf_python",
         language="python",
         fixture=fixture,
-        symbols=[],
+        symbols=symbols,
         ceilings=sd.LANGUAGE_ERROR_CEILINGS,
         require_extractor_version=False,
         current_extractor_version=5,
@@ -386,6 +392,128 @@ def test_verify_pilot_fails_when_a_ceiling_is_exceeded():
     assert report.passed is False
     assert any("missing" in reason for reason in report.reasons)
     assert report.findings and report.findings[0]["category"] == "missing"
+
+
+# --- evaluate_hollow_pass / verify_pilot: the hollow-pass guard (G3/TC-692) --------------------------
+# A pilot whose oracle run compares zero real members (``checked == 0``) sails through
+# ``evaluate_ceilings`` with every category at 0 -- that's not a real fidelity confirmation, it's a
+# HOLLOW pass (the real, already-disclosed ``cells/typescript`` case: its upstream `package.json`
+# "main" entry is a demo script, not a library barrel, so the enumerator never reaches the real
+# surface). ``evaluate_hollow_pass`` is a separate, additive guard alongside ``evaluate_ceilings`` --
+# it does NOT fold ``checked`` into ``CATEGORIES`` or change ``evaluate_ceilings`` itself.
+
+
+def test_evaluate_hollow_pass_fires_only_when_checked_is_zero():
+    zero = sd.DiffCounts(missing=0, extra=0, signature=0, static=0, default=0, enum_value=0, checked=0)
+    reasons = sd.evaluate_hollow_pass(zero)
+    assert reasons and "checked" in reasons[0] and "0" in reasons[0]
+
+    # the real cells/go shape: 79 real members compared, 0 disagreements -- genuinely clean, not hollow
+    nonzero = sd.DiffCounts(missing=0, extra=0, signature=0, static=0, default=0, enum_value=0, checked=79)
+    assert sd.evaluate_hollow_pass(nonzero) == []
+
+
+def test_verify_pilot_fails_when_checked_is_zero_even_with_every_category_at_zero():
+    """(a): the literal hollow-pass bug this card closes -- before this card, this reported "pass"."""
+    fixture = {"extractor_version": 5, "types": []}
+    report = sd.verify_pilot(
+        pilot="cells_typescript",
+        language="typescript",
+        fixture=fixture,
+        symbols=[],  # nothing for the oracle to compare -- checked stays 0
+        ceilings=sd.LANGUAGE_ERROR_CEILINGS,
+        require_extractor_version=True,
+        current_extractor_version=5,
+    )
+    assert report.counts["checked"] == 0
+    assert report.passed is False
+    assert report.as_dict()["status"] == "fail"
+    assert any("hollow" in reason or "checked count is 0" in reason for reason in report.reasons)
+
+
+def test_verify_pilot_still_passes_when_checked_is_nonzero_and_every_category_is_zero():
+    """(b): the normal, genuine clean-pass case (the real cells/go shape: checked=79, 0 disagreements)
+    must NOT regress -- a pilot that actually compared real members and found nothing wrong is a real
+    pass, not a hollow one."""
+    fixture = {
+        "extractor_version": 5,
+        "types": [_baked_type("Widget", methods=[{"name": "build", "params": []}])],
+    }
+    symbols = [OS("Widget", "class", members=(OM("build", "method"),))]  # checked becomes 1, 0 disagreements
+    report = sd.verify_pilot(
+        pilot="cells_go",
+        language="go",
+        fixture=fixture,
+        symbols=symbols,
+        ceilings=sd.LANGUAGE_ERROR_CEILINGS,
+        require_extractor_version=True,
+        current_extractor_version=5,
+    )
+    assert report.counts["checked"] >= 1
+    assert report.passed is True
+    assert report.as_dict()["status"] == "pass"
+    assert report.reasons == []
+
+
+def test_verify_pilot_checked_zero_with_a_real_category_disagreement_both_reasons_coexist():
+    """(c): a case that cannot happen in practice today (``checked`` increments once per real member
+    actually compared, so a nonzero category count implies a nonzero ``checked``) but, if it ever did,
+    must not silently drop or scramble either reason -- both simply sit side by side in ``reasons``."""
+    counts = sd.DiffCounts(missing=1, extra=0, signature=0, static=0, default=0, enum_value=0, checked=0)
+    ceiling_reasons = sd.evaluate_ceilings(counts, {category: 0 for category in sd.CATEGORIES})
+    hollow_reasons = sd.evaluate_hollow_pass(counts)
+    combined = [*ceiling_reasons, *hollow_reasons]
+    assert any("missing" in reason for reason in combined)
+    assert any("checked count is 0" in reason for reason in combined)
+    assert len(combined) == 2  # exactly the two reasons, nothing duplicated or merged
+
+
+def test_verify_pilot_cells_typescript_real_shape_now_fails_hollow():
+    """(d): the real, already-disclosed cells/typescript pilot (TC-595, docs/RELEASE.md's
+    REQ-G3-009 section) -- its upstream `package.json` "main" entry is a demo script, not a library
+    barrel, so the TypeScript enumerator never reaches the real surface and compares checked=0 real
+    members. This card's guard makes the oracle's own machine verdict stop contradicting that
+    already-disclosed prose finding."""
+    fixture = {
+        "extractor_version": 5,
+        "types": [_baked_type("Workbook", methods=[{"name": "save", "params": []}])],
+    }
+    report = sd.verify_pilot(
+        pilot="cells_typescript",
+        language="typescript",
+        fixture=fixture,
+        symbols=[],  # the real enumerator's own real finding: nothing reachable from "main" to compare
+        ceilings=sd.LANGUAGE_ERROR_CEILINGS,
+        require_extractor_version=True,
+        current_extractor_version=5,
+    )
+    assert report.counts["checked"] == 0
+    assert report.as_dict()["status"] == "fail"
+
+
+def test_verify_pilot_tex_python_real_shape_unaffected_by_this_card():
+    """(d): the real tex/python pilot genuinely compared checked=7 real classes (a PARTIAL, nonzero
+    scope, due to a real upstream syntax error already disclosed in docs/RELEASE.md) -- this card's
+    guard only fires on checked==0, so tex/python's real verdict is UNCHANGED, exactly as scoped. A
+    pilot-specific floor for this partial-but-nonzero case is deliberately deferred to a future card."""
+    members = tuple(OM(f"method_{i}", "method") for i in range(7))
+    fixture = {
+        "extractor_version": 5,
+        "types": [_baked_type("Report", methods=[{"name": m.name, "params": []} for m in members])],
+    }
+    symbols = [OS("Report", "class", members=members)]  # checked=7, every category still 0
+    report = sd.verify_pilot(
+        pilot="tex_python",
+        language="python",
+        fixture=fixture,
+        symbols=symbols,
+        ceilings=sd.LANGUAGE_ERROR_CEILINGS,
+        require_extractor_version=True,
+        current_extractor_version=5,
+    )
+    assert report.counts["checked"] == 7
+    assert report.as_dict()["status"] == "pass"  # unaffected: checked > 0, so the new guard never fires
+    assert report.reasons == []
 
 
 # --- per-language offline micro-libraries (acceptance (a)) -------------------------------------------
@@ -1989,18 +2117,29 @@ def test_default_enumerators_cover_every_platform_the_chart_actually_uses():
 
 
 def test_main_passes_a_matching_pilot_and_writes_the_report(tmp_path):
+    # G3/TC-692: the oracle must actually compare a real member (checked >= 1) for this to be a
+    # genuine match, not a hollow one -- a zero-member baked type vs. a zero-member oracle symbol
+    # checks nothing and is exactly the hollow-pass shape the new guard now correctly refuses to
+    # call "PASS".
     fixtures = tmp_path / "fixtures"
     key = sd.chart.pilot_key(sd.chart.load_pilots()[0])
     platform = sd.chart.load_pilots()[0]["platform"]
     (fixtures / key).mkdir(parents=True)
     (fixtures / key / "api_surface.json").write_text(
         json.dumps(
-            {"extractor_version": sd.run_extraction.EXTRACTOR_VERSION, "types": [_baked_type("Widget")]}
+            {
+                "extractor_version": sd.run_extraction.EXTRACTOR_VERSION,
+                "types": [_baked_type("Widget", methods=[{"name": "build", "params": []}])],
+            }
         ),
         encoding="utf-8",
     )
     report_dir = tmp_path / "report"
-    deps = sd.Deps(enumerators={platform: lambda repo, commit, lib: [OS("Widget", "class", members=())]})
+    deps = sd.Deps(
+        enumerators={
+            platform: lambda repo, commit, lib: [OS("Widget", "class", members=(OM("build", "method"),))]
+        }
+    )
     code = sd.main(["--fixtures", str(fixtures), "--only", key, "--report-dir", str(report_dir)], deps)
     assert code == 0
     document = json.loads((report_dir / sd.REPORT_NAME).read_text(encoding="utf-8"))
