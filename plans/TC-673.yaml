@@ -1,0 +1,143 @@
+id: TC-673
+gate: G3
+lane: storage-retrieval
+purpose: >-
+  Q13 (findability sub-program, section 2.2 item 6 of the plan: "rank type > member > namespace,
+  match_kind, namespace words never exact"). INVESTIGATED FIRST, against the real current code
+  (not the 3-day-old plan text): two of this item's three parts are ALREADY DONE and must not be
+  touched by this card.
+
+  (1) "rank type > member > namespace" is ALREADY the real behaviour: `search_symbols()`'s
+  `admitted` tuple already sorts ascending by an integer tier (0 = full-FQN equality, 1 =
+  final-segment equality, 2 = member-name match, 3 = bag-of-words, 4 = prefix - TC-278/TC-279/
+  TC-654's own work, read their docstrings in full), and a TYPE match (tier 0/1) always outranks a
+  MEMBER match (tier 2), which always outranks the weaker bag-of-words/prefix tiers (3/4). There is
+  no separate "namespace" tier to rank, because a namespace word is never itself POSITIVE matching
+  evidence anywhere in this tier system (see point 3).
+
+  (2) "namespace words never exact" is ALREADY the real behaviour, in the one place a namespace
+  word could ever matter: `_evidence_ranking`'s `_Scored.exact` property (around line 1002-1006)
+  already requires `not self.internal`, so the sentence-level evidence fallback stage (the LAST
+  resort, used only when every tier-based stage above finds nothing) never returns `MATCH_EXACT`
+  for a candidate living in an internal-looking namespace (`_INTERNAL_NAMESPACE`:
+  `.internal.`/`.core.`/`.xml.`/`.engine.`/`.impl.`). Do not touch `_Scored`, `_evidence_ranking`,
+  or `_INTERNAL_NAMESPACE` - they are already correct; add only a regression test pinning this
+  EXISTING behaviour (so a future card cannot silently break it without a test noticing), never a
+  code change to the mechanism itself.
+
+  (3) GENUINELY MISSING, confirmed by reading `SymbolMatch`'s own full field list (around line
+  608-636): there is NO `match_kind` field at all. `SymbolMatch` exposes `match_quality`
+  (`"exact"`/`"partial"`/`""`) but gives a caller no way to know WHICH of the five tiers, or which
+  of the three further fallback stages (inflected-name, sentence-evidence, per-token fallback),
+  actually produced a given hit - the one real, confirmed gap this card closes. This is additive
+  transparency on an already-correct ranking, never a ranking change: every existing ordering and
+  every existing `match_quality` value stays byte-for-byte unchanged.
+
+  Add `match_kind: str = ""` to `SymbolMatch` (same "additive, defaults to nothing said" pattern
+  every other field since TC-562 already follows - update the class docstring's own bullet list).
+  Populate it with one of these exact, honestly-named literal values, computed from information
+  `search_symbols()` already has in hand at each site (no new computation, only a new label):
+  `"exact_fqn"` (tier 0), `"final_segment"` (tier 1), `"member_declared"` / `"member_inherited"`
+  (tier 2, using the already-computed `inherits_only` flag), `"bag_of_words"` (tier 3),
+  `"prefix"` (tier 4), `"inflected_name"` (the `_inflected_name_ids` stage), `"evidence_sentence"`
+  (the `_evidence_ranking` fallback stage), `"token_fallback"` (the `_fallback_doc_ids` stage).
+  Build a `kinds: dict[str, str]` alongside the existing `qualities: dict[str, str]` in each of the
+  function's existing branches - do not restructure the branches themselves, only add the label
+  next to the quality label each already assigns.
+depends_on:
+  - TC-658
+  - TC-660
+  - TC-661
+write_paths:
+  - src/foss_mcp/mcp/tools/search_symbols.py
+  - tests/mcp/tools/test_search_symbols_match_kind.py
+satisfies:
+  - REQ-G3-011
+source_refs:
+  - file: docs/DECISION_LOG.md
+    anchor: >-
+      ## 2026-11-02 — Round-3 independent re-audit adopted; a real regression found and given top
+      priority; the "no pilot ever gets worse" rule adopted project-wide (operator, supervisor)
+    sha256: b750b8bf0df25b17bf66d014895ecb42952050c7cc63773f56249c4a1c551791
+inputs:
+  - >-
+    READ FIRST, in full: `src/foss_mcp/mcp/tools/search_symbols.py`'s module docstring (every
+    numbered TC-* paragraph - they are the real history of this tier system, not decoration),
+    `_match_tier`, `_member_declaration`, `search_symbols()` itself end to end, `SymbolMatch`'s
+    current field list, and `_evidence_ranking`/`_Scored.exact`. Do not guess the current tier
+    numbers or the admission branches' exact shape from this card's prose - read the real file,
+    confirm the five tiers and three fallback stages described above are what you actually find.
+  - >-
+    REPRODUCE FIRST: write a small script (or a pytest test, your choice) against the real
+    committed `infra/demo-manifests` data for at least 2 real pilots proving, with real queries,
+    that (a) a type-name query and a member-name query against the SAME pilot currently return
+    results with NO way to tell which tier matched (only `match_quality`, never which kind), and
+    (b) a query whose only plausible "evidence" is an internal-namespace word currently never
+    returns `MATCH_EXACT` (confirming point 2 above is already true before you touch anything).
+  - >-
+    Write real, deterministic unit tests in the new file proving: (a) a full-FQN query gets
+    `match_kind == "exact_fqn"`; (b) a final-segment-only query gets `"final_segment"`; (c) a
+    member-name query (reuse this module's own documented real example - "Dispose" declared on
+    multiple real types, or a declared-vs-inherited pair such as pdf/go's `SetPassword`) gets
+    `"member_declared"` or `"member_inherited"` correctly distinguished; (d) a bag-of-words-only
+    query gets `"bag_of_words"`; (e) a genuine prefix-only query (TC-654's own "Watermar"/
+    "AFRelation" examples, or your own equivalent) gets `"prefix"`; (f) every EXISTING
+    `match_quality` value for each of these cases is completely unchanged by your work (byte-for-
+    byte regression proof, not just a new assertion) - run the existing test files
+    (`test_search_symbols_prefix_tier.py`, `test_search_symbols_memberless_last.py`,
+    `test_known_defects_in_search_symbols.py`) unmodified and confirm they still pass; (g) a
+    regression test pinning the EXISTING internal-namespace-never-exact behaviour described in
+    point 2 above (a new test only - no code change to `_Scored`/`_evidence_ranking` themselves).
+  - >-
+    MEASURE, do not assume: re-run the full existing ratchet bundle
+    (`tests/mcp/test_search_symbols_honest_miss.py`, `tests/mcp/tools/test_search_symbols_prefix_tier.py`,
+    `tests/mcp/tools/test_search_symbols_memberless_last.py`,
+    `tests/mcp/tools/test_search_symbols_digit_words.py`,
+    `tests/mcp/tools/test_search_symbols_forgiveness.py`,
+    `tests/mcp/tools/test_search_symbols_query_normalization.py`,
+    `tests/mcp/tools/test_known_defects_in_search_symbols.py`) BEFORE your change and AFTER, and
+    report both real pass/fail counts in your closing report - every one must still pass unchanged
+    (Decision E: no card lowers a floor). This card adds a field and labels; it must not change a
+    single existing ranking decision or `match_quality` value anywhere in this bundle.
+actions:
+  - >-
+    Add an honestly-labelled `match_kind` field to `SymbolMatch`, populated from the tier/fallback-
+    stage information `search_symbols()` already computes, with zero change to ranking order or
+    existing `match_quality` values; add one regression test pinning the already-correct
+    "namespace words never exact" behaviour.
+checks:
+  - command: '{python} -m pytest tests/mcp/tools/test_search_symbols_match_kind.py -q -rfE -p no:cacheprovider'
+    expect: 'exit 0'
+    timeout_seconds: 180
+    junitxml: true
+    proves:
+      - REQ-G3-011
+  - command: '{python} -m pytest tests/mcp/test_search_symbols_honest_miss.py tests/mcp/tools/test_search_symbols_prefix_tier.py tests/mcp/tools/test_search_symbols_memberless_last.py tests/mcp/tools/test_search_symbols_digit_words.py tests/mcp/tools/test_search_symbols_forgiveness.py tests/mcp/tools/test_search_symbols_query_normalization.py tests/mcp/tools/test_known_defects_in_search_symbols.py -q -rfE -p no:cacheprovider'
+    expect: 'exit 0'
+    timeout_seconds: 600
+    junitxml: true
+    proves:
+      - REQ-G3-011
+min_tests: 7
+requires:
+  - python
+network: false
+negative_control:
+  mutate: |
+    python -X utf8 -c "import pathlib; q = chr(34); p = pathlib.Path('src/foss_mcp/mcp/tools/search_symbols.py'); s = p.read_text(encoding='utf-8'); old = 'match_kind: str = ' + q + q; assert s.count(old) == 1, 'the required field declaration literal was not found as expected - if your real code reads differently, anchor your own mutate on your own real literal instead and note the substitution in your closeout'; new = 'match_kind: str = ' + q + 'ignored' + q; p.write_text(s.replace(old, new, 1), encoding='utf-8')"
+  rationale: >-
+    Forces every `SymbolMatch`'s default `match_kind` to the literal "ignored" instead of the
+    empty string. Any test asserting a SPECIFIC real `match_kind` value (exact_fqn/final_segment/
+    member_declared/member_inherited/bag_of_words/prefix/etc.) must fail under this mutation
+    unless the real per-branch assignment also independently overrides the default correctly, which
+    is exactly what this card's own tests must prove; every pre-existing test that never inspects
+    `match_kind` at all is unaffected.
+evidence:
+  - evidence/build/G3/TC-673/receipt.json
+closeout:
+  - >-
+    `SymbolMatch` now honestly discloses WHICH tier or fallback stage produced each hit via a new
+    `match_kind` field, with zero change to ranking order or any existing `match_quality` value,
+    and the pre-existing "namespace words never exact" guarantee is now covered by a regression
+    test.
+recovery: Re-run from a clean tree.
