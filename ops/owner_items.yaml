@@ -329,3 +329,42 @@ owner_items:
     (.NET) and TC-594 (C++) needed no container (none of them write a fresh native Windows .exe), and TC-595 (the
     closing card) ran the oracle fleet-wide against all 32 pilots for real.'
   last_checked_at: '2026-10-27T06:00:00Z'
+
+- id: OWNER-17
+  status: OPEN
+  summary: 'RT4 (runtime/contract sub-program, section 2.7) latency measurement (2026-11-05) against the
+    real live stack - 32 mcp-<family>-<platform> containers, mcp-gateway (nginx, already versioned at
+    infra/hosting/nginx.conf by TC-685) and mcp-tunnel (a Cloudflare QUICK tunnel) - found a real,
+    reproducible multi-second stall, but located and ruled-in precisely: at N=48 concurrent MCP sessions
+    across 3 representative pilots (pdf/python, cells/net, page/python), per-call latency through the
+    PUBLIC tunnel hop clustered at 7.0-8.8 seconds, matching the round-2/round-3 audits'' reported ~7s
+    stall signature almost exactly. The IDENTICAL concurrent load through nginx alone (same 3 pilots, same
+    N, tunnel hop excluded) stayed flat at ~0.9s wall clock for all 24-48 calls - ruling OUT nginx''s
+    `worker_processes 1` and its per-request `resolver ... valid=10s` DNS lookup as the cause (both
+    already-known, already-versioned nginx properties the plan had flagged as the LEADING hypothesis).
+    Serial (non-concurrent) traffic showed no stall on any hop, on any pilot. `docker logs mcp-tunnel`
+    independently corroborates: two unprompted reconnects logged the same day ("datagram manager error",
+    "timeout: no recent network activity") - the quick tunnel itself, not the app or nginx config, is the
+    fragile component. This matches the plan''s own section 2.9/R9 contingency exactly: "if the quick
+    tunnel cannot meet the latency rule... the plan records the measured limitation and moves to the
+    fallback." A durable fix (a Cloudflare NAMED tunnel, which does not share the quick tunnel''s anonymous
+    concurrency ceiling, or a small dedicated VM running the same compose stack) needs an owner-provisioned
+    Cloudflare account/domain/billing - no agent can create or authorize either.'
+  resume_predicate: 'The operator provides either (a) a Cloudflare account with a named tunnel configured
+    for this stack (credentials for `cloudflared tunnel login`/a tunnel token), or (b) a small dedicated VM
+    (or equivalent) to run the same `docker-compose.demo.yml` stack with a non-quick-tunnel public ingress.
+    Then the identical RT4 concurrency probe (N=48 concurrent MCP sessions across 3 pilots) is re-run
+    against the new public ingress and confirms p95/p99 latency stays within the plan''s own R9 rule
+    (p95 <= max(2s, 8x warm median), max < 10s) under the same load that reproduced the 7-8.8s stall on the
+    quick tunnel.'
+  consumed_by:
+  - NONE
+  recorded_at: '2026-11-05T00:00:00Z'
+  note: 'Owner-only: a Cloudflare account/domain/billing decision, or a VM provisioning decision, neither of
+    which any agent can make or create. Does not block the main card loop - RT5''s own wave-table closure
+    is separately already blocked on KD11/XA19 (recorded 2026-11-05, DECISION_LOG), so this item is purely
+    additive evidence for whenever RT4/RT5 are picked up, not a new blocker on anything currently in
+    flight. The measurement itself (3 throwaway scripts, no repository file touched) is reproducible by any
+    future agent against the live stack without needing this item resolved first - only a PERMANENT fix
+    needs the owner action.'
+  last_checked_at: '2026-11-05T00:00:00Z'
