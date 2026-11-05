@@ -89,10 +89,16 @@ def test_the_working_class_says_which_exported_name_replaced_it() -> None:
 
 
 def test_a_shadowing_name_with_members_gets_no_placeholder_note() -> None:
-    text = _texts(_shadow_fixture(placeholder_has_members=True))[EXPORTED]
+    texts = _texts(_shadow_fixture(placeholder_has_members=True))
+    text = texts[EXPORTED]
     assert f"Shadows: {REAL}" in text.splitlines()
     assert "empty placeholder" not in text
-    assert "  - noop()" in text
+    # TC-686 (I4, REQ-G3-012): EXPORTED is a thin pointer to its own definition
+    # (PLACEHOLDER_DEFINITION) now - the definition's members (noop()) live on the
+    # definition's own chunk, not duplicated here.
+    assert "  - noop()" not in text
+    assert f"Defined-In: {PLACEHOLDER_DEFINITION}" in text.splitlines()
+    assert "  - noop()" in texts[PLACEHOLDER_DEFINITION]
 
 
 def test_an_unmarked_fixture_renders_without_any_shadow_line() -> None:

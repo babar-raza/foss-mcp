@@ -451,8 +451,14 @@ def test_the_chunks_state_the_enum_members_and_the_shadowing(pilot: str) -> None
         assert match is not None
         texts[match.group(1)] = chunk.text
     if pilot == "barcode_python":
-        lines = texts["aspose_barcode_foss.QrEncodeMode"].splitlines()
-        assert "  - KANJI = auto()" in lines and "  - AUTO = auto()" in lines
+        # TC-686 (I4, REQ-G3-012): the shell is now a thin pointer - Defined-In: names its
+        # definition, but the definition's own enum members are no longer duplicated onto the
+        # shell. The members still live, unchanged, on the definition's own chunk.
+        shell_lines = texts["aspose_barcode_foss.QrEncodeMode"].splitlines()
+        assert "Defined-In: aspose_barcode_foss.options.QrEncodeMode" in shell_lines
+        assert "  - KANJI = auto()" not in shell_lines and "  - AUTO = auto()" not in shell_lines
+        definition_lines = texts["aspose_barcode_foss.options.QrEncodeMode"].splitlines()
+        assert "  - KANJI = auto()" in definition_lines and "  - AUTO = auto()" in definition_lines
     else:
         placeholder = texts["aspose.threed.formats.FbxLoadOptions"]
         assert "Shadows: aspose.threed.formats.fbx.FbxLoadOptions.FbxLoadOptions" in placeholder

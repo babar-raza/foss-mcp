@@ -213,8 +213,12 @@ def test_legacy_heuristic_pairing_still_works() -> None:
     stub = _entry("Doc", "pkg.Doc", file="pkg/__init__.py", methods=[])
     definition = _entry("Doc", "pkg.doc.Doc", file="pkg/doc.py", methods=[_method("save", [])])
     assert chunk_builder._reexport_pairs([stub, definition]) == {0: 1}
-    stub_text, _ = _texts([stub, definition])
-    assert "Defined-In: pkg.doc.Doc" in stub_text and "  - save()" in stub_text
+    stub_text, definition_text = _texts([stub, definition])
+    # TC-686 (I4, REQ-G3-012): the stub is now a thin pointer - it names its definition via
+    # Defined-In: but no longer duplicates the definition's own methods.
+    assert "Defined-In: pkg.doc.Doc" in stub_text
+    assert "  - save()" not in stub_text
+    assert "  - save()" in definition_text
 
 
 def test_a_chain_of_reexports_ends_at_the_definition_and_a_loop_pairs_nothing() -> None:
@@ -229,7 +233,9 @@ def test_a_chain_of_reexports_ends_at_the_definition_and_a_loop_pairs_nothing() 
     assert chunk_builder._reexport_pairs([selfish]) == {}
 
 
-def test_rendered_shell_shows_the_definitions_own_methods() -> None:
+def test_rendered_shell_points_at_the_definitions_own_methods() -> None:
+    # TC-686 (I4, REQ-G3-012): the shell is now a thin pointer - Defined-In: names its
+    # definition but the definition's own methods are no longer duplicated onto the shell.
     shell = _entry(
         "PdfFileSecurity",
         "aspose_pdf.PdfFileSecurity",
@@ -248,9 +254,10 @@ def test_rendered_shell_shows_the_definitions_own_methods() -> None:
             ),
         ],
     )
-    shell_text, _ = _texts([shell, definition])
+    shell_text, definition_text = _texts([shell, definition])
     assert "Defined-In: aspose_pdf.facades.PdfFileSecurity" in shell_text
-    assert "  - encrypt_file(user, owner, *, permissions = 0)" in shell_text
+    assert "  - encrypt_file(user, owner, *, permissions = 0)" not in shell_text
+    assert "  - encrypt_file(user, owner, *, permissions = 0)" in definition_text
 
 
 def test_coverage_line_counts_entries_so_it_can_exceed_the_cap() -> None:

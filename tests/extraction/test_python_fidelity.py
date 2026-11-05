@@ -538,9 +538,12 @@ def _oracle_cases() -> list[Any]:
         cases.append(("samplepkg.models.Account", account[name]))
     base = _class_methods(FACADES_PY, "_Base")
     facade = _class_methods(FACADES_PY, "Facade")
-    for fqn in ("samplepkg.facades.Facade", "samplepkg.Facade"):
-        cases.append((fqn, facade["encrypt"]))
-        cases.append((fqn, base["bind"]))
+    # TC-686 (I4, REQ-G3-012): "samplepkg.Facade" is a re-export shell now rendered as a thin
+    # pointer - its own chunk no longer carries a Methods: block to check against the AST oracle,
+    # so only the real definition's fqn is measured here. The shell's thin rendering is checked
+    # directly below, in test_the_paired_facade_shell_chunk_points_at_its_definitions_own_methods.
+    cases.append(("samplepkg.facades.Facade", facade["encrypt"]))
+    cases.append(("samplepkg.facades.Facade", base["bind"]))
     util = _functions(UTIL_PY)
     for name in ("load", "fetch", "combine"):
         cases.append((f"samplepkg.util.{name}", util[name]))
@@ -618,8 +621,15 @@ def test_the_oracle_checks_something(chunk_texts: dict[str, str]) -> None:
     assert " [async]" in suffixes
 
 
-def test_the_paired_facade_shell_chunk_lists_its_definitions_own_methods(chunk_texts: dict[str, str]) -> None:
+def test_the_paired_facade_shell_chunk_points_at_its_definitions_own_methods(
+    chunk_texts: dict[str, str],
+) -> None:
+    # TC-686 (I4, REQ-G3-012): the shell is now a thin pointer - Defined-In: names its
+    # definition, but the definition's own methods are no longer duplicated onto the shell.
     shell = chunk_texts["samplepkg.Facade"]
+    definition = chunk_texts["samplepkg.facades.Facade"]
     assert "Defined-In: samplepkg.facades.Facade" in shell
-    assert "  - encrypt(user, owner, *, permissions = 0, keysize = 128)" in shell
-    assert "  - bind(path = None, *, overwrite = False)" in shell
+    assert "  - encrypt(user, owner, *, permissions = 0, keysize = 128)" not in shell
+    assert "  - bind(path = None, *, overwrite = False)" not in shell
+    assert "  - encrypt(user, owner, *, permissions = 0, keysize = 128)" in definition
+    assert "  - bind(path = None, *, overwrite = False)" in definition

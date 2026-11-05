@@ -132,8 +132,17 @@ def _is_exact_hit(result: object, fqn: str | None = None) -> bool:
 
 def _is_findable(result: object, fqn: str) -> bool:
     """True when *result* is a ``search_symbols`` match list containing *fqn* anywhere (not necessarily
-    first, not necessarily ``exact`` - sub-cases (c)/(d)/(e) only ask "is it in the top 10 at all")."""
-    return isinstance(result, list) and any(extract_fqn(match.text) == fqn for match in result)
+    first, not necessarily ``exact`` - sub-cases (c)/(d)/(e) only ask "is it in the top 10 at all").
+
+    TC-686 (I4+I5, REQ-G3-012): a real alias pair (a re-export shell and its definition) now
+    correctly collapses into ONE result instead of two separate hits, with the shell's fqn listed
+    in the kept result's own ``.aliases`` - so *fqn* is also "found" when it is the requested name
+    of a match whose primary ``extract_fqn(match.text)`` is a different, canonical fqn, as long as
+    *fqn* itself appears among that match's ``aliases``.
+    """
+    return isinstance(result, list) and any(
+        extract_fqn(match.text) == fqn or fqn in match.aliases for match in result
+    )
 
 
 def _measure_pilot(store: object, pilot: ConformancePilot, *, exhaustive: bool) -> list[str]:

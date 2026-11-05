@@ -113,10 +113,13 @@ def test_a_stub_in_another_package_pairs_with_the_one_definition() -> None:
     )
     shell = _by_fqn(texts, "pkg.annotations.InkAnnotation")
     definition = _by_fqn(texts, "pkg.InkAnnotation")
+    # TC-686 (I4, REQ-G3-012): the shell is now a thin pointer - Defined-In: names its
+    # definition, but the definition's own methods are no longer duplicated onto the shell.
     assert "Defined-In: pkg.InkAnnotation" in _lines(shell)
-    assert "Methods:" in _lines(shell)
-    assert any("save(" in line for line in _lines(shell))
+    assert "Methods:" not in _lines(shell)
+    assert not any("save(" in line for line in _lines(shell))
     assert "Exported-As: pkg.annotations.InkAnnotation" in _lines(definition)
+    assert any("save(" in line for line in _lines(definition))
 
 
 def test_a_stub_module_class_pairs_with_the_definition() -> None:
@@ -126,9 +129,13 @@ def test_a_stub_module_class_pairs_with_the_definition() -> None:
     ]
     texts = _texts(types)
     shell = _by_fqn(texts, "pkg.generated.document.Document")
+    definition = _by_fqn(texts, "pkg.document.Document")
+    # TC-686 (I4, REQ-G3-012): the shell is now a thin pointer - Defined-In: names its
+    # definition, but the definition's own methods are no longer duplicated onto the shell.
     assert "Defined-In: pkg.document.Document" in _lines(shell)
-    assert any("save(" in line for line in _lines(shell))
-    assert "Exported-As: pkg.generated.document.Document" in _lines(_by_fqn(texts, "pkg.document.Document"))
+    assert not any("save(" in line for line in _lines(shell))
+    assert "Exported-As: pkg.generated.document.Document" in _lines(definition)
+    assert any("save(" in line for line in _lines(definition))
 
 
 def test_two_definitions_of_the_same_name_leave_the_shell_unpaired() -> None:
@@ -238,17 +245,21 @@ def test_the_pair_is_one_slot_of_the_cap() -> None:
     assert "Exported-As: pkg.annotations.Ink" in _lines(_by_fqn(texts, "pkg.Ink"))
 
 
-def test_an_enum_shell_pairs_with_an_enum_definition_and_renders_its_members() -> None:
+def test_an_enum_shell_pairs_with_an_enum_definition_and_points_at_its_members() -> None:
     types = [
         _entry("Mode", "pkg.generated.mode.Mode", "pkg/generated/mode.py", kind="enum", members=False),
         _entry("Mode", "pkg.Mode", "pkg/mode.py", kind="enum"),
     ]
     texts = _texts(types)
     shell = _by_fqn(texts, "pkg.generated.mode.Mode")
+    definition = _by_fqn(texts, "pkg.Mode")
+    # TC-686 (I4, REQ-G3-012): the shell is now a thin pointer - Defined-In: names its
+    # definition, but the definition's own enum members are no longer duplicated onto the shell.
     assert "Defined-In: pkg.Mode" in _lines(shell)
-    assert "Members:" in _lines(shell)
-    assert any("ALPHA" in line for line in _lines(shell))
-    assert "Exported-As: pkg.generated.mode.Mode" in _lines(_by_fqn(texts, "pkg.Mode"))
+    assert "Members:" not in _lines(shell)
+    assert not any("ALPHA" in line for line in _lines(shell))
+    assert "Exported-As: pkg.generated.mode.Mode" in _lines(definition)
+    assert any("ALPHA" in line for line in _lines(definition))
 
 
 def test_the_deciding_line_appears_once_in_the_module() -> None:

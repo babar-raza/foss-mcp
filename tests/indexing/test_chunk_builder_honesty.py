@@ -327,15 +327,18 @@ def _reexport_fixture() -> dict[str, object]:
     )
 
 
-def test_a_reexport_stub_is_rendered_with_its_definitions_members() -> None:
+def test_a_reexport_stub_is_rendered_as_a_thin_pointer_to_its_definition() -> None:
+    # TC-686 (I4, REQ-G3-012): a re-export shell is now a thin pointer - it names its definition
+    # via Defined-In: but no longer duplicates the definition's own doc/members. The member
+    # content itself still lives, unchanged, on the definition's own chunk (see the test below).
     texts = _texts(_reexport_fixture())
     stub = next(t for t in texts if _fqn(t) == "pkg.charts.Cell")
     lines = stub.splitlines()
     assert lines[2] == "Defined-In: pkg.charts.Cell.Cell"
-    assert "A cell." in lines
-    assert "  - ABC" in lines
-    assert "  - get() -> int" in lines
-    assert "  - row: int" in lines
+    assert "A cell." not in lines
+    assert "  - ABC" not in lines
+    assert "  - get() -> int" not in lines
+    assert "  - row: int" not in lines
 
 
 def test_the_definition_keeps_its_fqn_and_names_its_export() -> None:
@@ -592,7 +595,10 @@ def test_real_pdf_go_and_pdf_typescript_fqns_are_unique() -> None:
     assert "Field" not in ts_fqns
 
 
-def test_real_slides_python_reexport_lists_the_definitions_methods() -> None:
+def test_real_slides_python_reexport_points_at_the_definitions_methods() -> None:
+    # TC-686 (I4, REQ-G3-012): the re-export shell no longer lists the definition's own
+    # methods/properties directly - it is a thin pointer. The member content (accessors the
+    # python reader files under "properties") lives only on the definition's own chunk now.
     fixture = _real("slides_python")
     definition = next(
         e
@@ -602,14 +608,13 @@ def test_real_slides_python_reexport_lists_the_definitions_methods() -> None:
     texts = _real_texts("slides_python")
     stub = next(t for t in texts if _fqn(t) == "aspose.slides_foss.charts.IChartDataCell")
     assert "Defined-In: aspose.slides_foss.charts.IChartDataCell.IChartDataCell" in stub.splitlines()
-    # The python reader now files accessors under ``properties`` (this class's four members are
-    # properties), so the re-export must list the definition's methods and properties alike.
-    member_lines = _block(stub, "Methods:") + _block(stub, "Properties:")
-    assert len(definition["methods"]) + len(definition["properties"]) == 4
-    assert len(member_lines) == 4
+    assert _block(stub, "Methods:") == []
+    assert _block(stub, "Properties:") == []
     defn = next(t for t in texts if _fqn(t) == "aspose.slides_foss.charts.IChartDataCell.IChartDataCell")
     assert "Exported-As: aspose.slides_foss.charts.IChartDataCell" in defn.splitlines()
-    assert _block(defn, "Methods:") + _block(defn, "Properties:") == member_lines
+    member_lines = _block(defn, "Methods:") + _block(defn, "Properties:")
+    assert len(definition["methods"]) + len(definition["properties"]) == 4
+    assert len(member_lines) == 4
 
 
 def test_real_pdf_net_chunks_state_the_coverage() -> None:
