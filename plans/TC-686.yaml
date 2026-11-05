@@ -1,0 +1,256 @@
+id: TC-686
+gate: G3
+lane: storage-retrieval
+purpose: >-
+  I4+I5 combined (index-truth sub-program, section 2.3: "alias pointer chunks" / "consume
+  canonical ids in get_symbol/search_symbols"). Carded TOGETHER, deliberately, not split across
+  two cards: a documented entanglement (recorded in this project's own memory before this session,
+  re-confirmed directly against the real committed code below) makes I4 alone unsafe to integrate
+  without I5 landing in the exact same commit - a world where chunk content has been thinned but
+  the readers still dedupe by rendered content would silently corrupt real symbol answers on main
+  between the two cards' acceptance points, which this project's "no pilot ever gets worse" rule
+  forbids even as a transient state.
+
+  CONFIRMED TODAY (supervisor, this session, reading the real code):
+
+  1. `chunk_builder._format_type_text` (`src/foss_mcp/indexing/chunk_builder.py`) already renders
+     a Python re-export shell with `members_from=<the real definition entry>`, so `source =
+     members_from` and EVERY member section (`Methods:`/`Properties:`/`Members:`/doc/etc.) is
+     built from the real definition's own fields - a FULL DUPLICATE of the definition's content,
+     not a pointer. `Defined-In: <fqn>` is already added as a marker line alongside this
+     duplicate, never instead of it.
+  2. `get_symbol._owners` (`src/foss_mcp/mcp/tools/get_symbol.py:266-298`) groups matched chunks
+     into "the same type" PRIMARILY by `other == members` - exact equality of
+     `_declared_members(chunk.text)`, the member dict re-parsed back out of rendered text - with
+     `chunk.is_reexport_shell` (a simple boolean: does `Defined-In:` appear at all) used only as a
+     secondary OR-gate for the already-both-empty case. If a shell's content is thinned to a
+     pointer with no declared members, `_declared_members` on it returns `{}`, which is NOT equal
+     to the real definition's non-empty member dict - `_owners` would then treat the shell as a
+     SEPARATE type, producing `len(owners) > 1` and an incorrectly "ambiguous" answer for a symbol
+     that has exactly one real definition.
+  3. `search_symbols._collapse_aliases` (`src/foss_mcp/mcp/tools/search_symbols.py:1297-1317`) has
+     the identical class of problem via a different mechanism: it keys by `(short.casefold(),
+     entry.body_hash)` - a hash of the WHOLE rendered chunk body. Thinning a shell's body changes
+     its hash, so it would stop collapsing with its definition entirely, surfacing as a spurious,
+     near-empty, duplicate "symbol" in search results.
+  4. `list_members.py` imports and reuses `get_symbol`'s own resolution machinery directly - it has
+     no independent entanglement and inherits whichever fix `_owners` gets, automatically.
+     `find_examples.py` has no alias-handling of its own either (confirmed, no matches for
+     `is_reexport_shell`/`Defined-In`/`body_hash`/`reexport` in either file).
+
+  THE GOOD NEWS, confirmed by reading `src/foss_mcp/indexing/symbol_identity.py` (I1, `TC-612`,
+  already accepted and integrated) in full: the hard part of this problem - deciding when two
+  extracted entries are "the same symbol" - is ALREADY SOLVED, pure, deterministic, and tested.
+  `compute_canonical_identities(entries)` returns one `SymbolIdentity(canonical_id, aliases,
+  is_definition)` per entry, built on top of `chunk_builder._reexport_pairs`/`_slot_units` (the
+  real, already-tuned grouping rules TC-382/522/532/541 established) - never re-deriving pairing
+  logic. Its own module docstring says explicitly: "This module's later siblings (I2-I5) are what
+  will let get_symbol/search_symbols consume the identity this module computes instead of
+  re-deriving it from rendered text." This card IS that consumption - I1 built the engine, this
+  card wires it to both ends (what chunk_builder renders, and what the two readers match on).
+depends_on:
+  - TC-017a
+  - TC-017b
+  - TC-062
+  - TC-064
+  - TC-065
+  - TC-071
+  - TC-076
+  - TC-079
+  - TC-120
+  - TC-143
+  - TC-199
+  - TC-202
+  - TC-210
+  - TC-238
+  - TC-261
+  - TC-278
+  - TC-279
+  - TC-382
+  - TC-386
+  - TC-396
+  - TC-473
+  - TC-493
+  - TC-514
+  - TC-515
+  - TC-516
+  - TC-520
+  - TC-521
+  - TC-522
+  - TC-523
+  - TC-524
+  - TC-525
+  - TC-526
+  - TC-527
+  - TC-530
+  - TC-531
+  - TC-532
+  - TC-533
+  - TC-534
+  - TC-535
+  - TC-536
+  - TC-539
+  - TC-540
+  - TC-541
+  - TC-545
+  - TC-550
+  - TC-553
+  - TC-554
+  - TC-557
+  - TC-558
+  - TC-559
+  - TC-562
+  - TC-571
+  - TC-585
+  - TC-604
+  - TC-607
+  - TC-610
+  - TC-612
+  - TC-614
+  - TC-618
+  - TC-620
+  - TC-624
+  - TC-631
+  - TC-637
+  - TC-639
+  - TC-642
+  - TC-654
+  - TC-658
+  - TC-659
+  - TC-660
+  - TC-661
+  - TC-673
+  - TC-675
+  - TC-684
+write_paths:
+  - src/foss_mcp/indexing/chunk_builder.py
+  - src/foss_mcp/mcp/tools/get_symbol.py
+  - src/foss_mcp/mcp/tools/search_symbols.py
+  - tests/indexing/test_chunk_builder_alias_pointer_chunks.py
+  - tests/mcp/tools/test_get_symbol_canonical_identity_dedup.py
+  - tests/mcp/tools/test_search_symbols_canonical_identity_collapse.py
+satisfies:
+  - REQ-G3-012
+source_refs:
+  - file: docs/DECISION_LOG.md
+    anchor: >-
+      ## 2026-11-02 — Round-3 independent re-audit adopted; a real regression found and given top
+      priority; the "no pilot ever gets worse" rule adopted project-wide (operator, supervisor)
+    sha256: b750b8bf0df25b17bf66d014895ecb42952050c7cc63773f56249c4a1c551791
+inputs:
+  - >-
+    READ FIRST, in this exact order: `src/foss_mcp/indexing/symbol_identity.py` in full (the
+    already-built, pure, tested identity engine this card consumes - do not re-derive or duplicate
+    its pairing logic anywhere); `chunk_builder._format_type_text`, `_reexport_pairs`,
+    `_slot_units` in full; `get_symbol._owners`, `_SymbolChunk`, `_declared_members` in full;
+    `search_symbols._collapse_aliases`, `_Entry` in full. Confirm with your own eyes, against a
+    real pilot with a known Python re-export (`slides/python` or `3d/python`, named directly in
+    `symbol_identity.py`'s own docstring as having a real `reexport_of` fixture), that today's
+    shell chunk duplicates its definition's full member content, exactly as this card's purpose
+    text describes.
+  - >-
+    PART 1 (chunk_builder.py): wire `compute_canonical_identities` into whichever code path
+    renders a chunk for an entry that unit identifies as NOT the definition
+    (`identity.is_definition is False`). For such an entry, render a THIN pointer chunk instead of
+    today's full-duplicate one: keep `FQN:`, `Kind:`, `Defined-In: <identity.canonical_id>`, and
+    any `Exported-As:` lines that already apply - drop `Methods:`/`Properties:`/`Members:`/the doc
+    paragraph/everything else that today comes from `members_from`. The DEFINITION entry's own
+    chunk (`identity.is_definition is True`) is rendered exactly as today, unchanged - this card
+    never touches how a real definition's content is built, only how a SHELL's content is built.
+    Confirm `compute_canonical_identities`'s own grouping agrees with `_reexport_pairs`' existing
+    `members_from`/`defined_in` plumbing before replacing the latter (they should, since the first
+    is built directly on top of the second) - if you find a real case where they disagree, STOP
+    and report it rather than silently picking one.
+  - >-
+    PART 2 (get_symbol.py): add a way for `_SymbolChunk` to expose the real VALUE of its own
+    `Defined-In:` line (not just whether one exists, which `is_reexport_shell` already gives you) -
+    a small regex extension of the existing `_DEFINED_IN_LINE` pattern, or an equivalent property,
+    your choice. Rewrite `_owners` to group matched chunks by canonical identity - a chunk's own
+    canonical id is its `Defined-In:` value if it is a shell, else its own `fqn` - instead of
+    `_declared_members(chunk.text)` equality. Two chunks with the same canonical id are one unit;
+    when a unit contains both a shell and its real definition among `matched`, the kept `owners`
+    entry must be the real definition (the one with real content), exactly mirroring the
+    precedence the existing `elif owners[twin].is_reexport_shell and not chunk.is_reexport_shell:
+    owners[twin] = chunk` line already establishes for the old mechanism - do not change that
+    precedence, only what decides two chunks are "the same type" in the first place. A memberless
+    type that genuinely has no alias at all must still behave exactly as it does today (a unit of
+    one, per `SymbolIdentity`'s own docstring).
+  - >-
+    PART 3 (search_symbols.py): add an equivalent canonical-identity signal to `_Entry` (parsed
+    from the chunk text the same way as Part 2, or via a small shared helper you factor out if
+    that avoids duplicating the regex - your choice, report which). Rewrite `_collapse_aliases`'s
+    key from `(short.casefold(), entry.body_hash)` to `(short.casefold(), canonical_id)`. Fix the
+    "which one is kept" ordering bug this change would otherwise introduce: today's code keeps
+    whichever doc_id appears FIRST in `ordered`, which was safe when only identical-body chunks
+    ever shared a key (order didn't matter, bodies were equal) - but once a shell and its
+    definition share a key via canonical id while having DIFFERENT (thin vs. full) bodies, the
+    kept one must always be the real definition, never whichever happened to sort first. Decide
+    and implement this precedence explicitly - report how.
+  - >-
+    Write real, deterministic unit tests across the three new files proving: (a) chunk_builder:
+    a real or representative re-export pair now renders the shell as a thin pointer (no member
+    sections) and the definition unchanged, full content; (b) get_symbol: a query naming the
+    SHELL's FQN still resolves to the real definition's full member list (not an empty one),
+    proving `_owners` correctly unifies them via canonical id even though their content now
+    differs; a query naming a real ambiguous case (two genuinely DIFFERENT types sharing a short
+    name, no alias relationship) still correctly reports ambiguity, unaffected; (c) search_symbols:
+    the shell's FQN is listed as an alias of the definition's result (not a separate match), and a
+    memberless type with no real alias is unaffected; (d) for ALL THREE files, a real pilot with
+    NO aliases at all (most pilots) produces byte-for-byte identical chunk text / resolution
+    results to before this card (Decision E).
+  - >-
+    MEASURE AGAINST ALL 32 REAL PILOTS, not a sample - this is the one card this session has
+    required full-fleet measurement for, given the blast radius. For every one of the 32 real
+    pilots (`infra/demo-manifests/*__self_extracted`), for every REAL symbol FQN that has at least
+    one alias today (grep the real committed chunk index for `Defined-In:` lines to enumerate
+    them - do not guess which pilots have aliases), call `get_symbol` and `search_symbols` on both
+    the shell's own FQN and the definition's own FQN, BEFORE this card's change (the real,
+    unmodified current behavior - capture it as a snapshot first) and AFTER, and assert the
+    externally-visible ANSWER (not the internal chunk representation) is unchanged: the same
+    member list, the same alias list, the same match/no-match verdict. Report the real count of
+    alias pairs measured across the fleet and confirm zero answer changes. This is the card's own
+    real acceptance bar, more important than any single synthetic test.
+actions:
+  - >-
+    Consume I1's already-built `compute_canonical_identities` to (a) thin a re-export shell's
+    rendered chunk to a pointer instead of a full content duplicate, and (b) rewrite both
+    `get_symbol._owners` and `search_symbols._collapse_aliases` to dedupe by canonical identity
+    instead of rendered-content equality - landed together in one commit, since either half alone
+    would corrupt real symbol answers for the other half's own duration. Verified against the
+    externally-visible answer for every real alias pair across all 32 pilots, not a sample.
+checks:
+  - command: '{python} -m pytest tests/indexing/test_chunk_builder_alias_pointer_chunks.py tests/mcp/tools/test_get_symbol_canonical_identity_dedup.py tests/mcp/tools/test_search_symbols_canonical_identity_collapse.py -q -rfE -p no:cacheprovider'
+    expect: 'exit 0'
+    timeout_seconds: 300
+    junitxml: true
+    proves:
+      - REQ-G3-012
+  - command: '{python} -m pytest tests/mcp/test_search_symbols_honest_miss.py tests/mcp/tools/test_retrieval_tools.py tests/mcp/tools/test_search_symbols_memberless_last.py tests/mcp/tools/test_search_symbols_prefix_tier.py tests/mcp/tools/test_search_symbols_forgiveness.py tests/mcp/tools/test_member_lookup.py tests/conformance/test_symbol_self_retrieval.py -q -rfE -p no:cacheprovider'
+    expect: 'exit 0'
+    timeout_seconds: 900
+    junitxml: true
+    proves:
+      - REQ-G3-012
+min_tests: 8
+requires:
+  - python
+network: false
+negative_control:
+  mutate: |
+    python -X utf8 -c "import pathlib; p = pathlib.Path('src/foss_mcp/indexing/symbol_identity.py'); s = p.read_text(encoding='utf-8'); old = 'is_definition=(index == definition_index)'; assert s.count(old) == 1, 'the required literal was not found as expected - if your real code reads differently, anchor your own mutate on your own real literal instead and note the substitution in your closeout'; p.write_text(s.replace(old, 'is_definition=True', 1), encoding='utf-8')"
+  rationale: >-
+    Forces every entry in every unit to report is_definition=True, so chunk_builder never thins
+    ANY shell to a pointer (every entry looks like a definition to it) and every real alias in the
+    fleet renders its old, full-duplicate content - any test proving a real shell is now a thin
+    pointer, or that get_symbol/search_symbols dedupe a thinned shell correctly, must fail under
+    this mutation; a pilot with no aliases at all is unaffected either way.
+evidence:
+  - evidence/build/G3/TC-686/receipt.json
+closeout:
+  - >-
+    A re-export/alias chunk is now a thin pointer naming its real definition's canonical id
+    (I1's own already-built, pure identity engine, consumed for the first time) instead of a full
+    content duplicate; get_symbol and search_symbols both dedupe by that canonical id instead of
+    re-parsing rendered content or hashing the whole body - closing I4 and I5 together, verified
+    answer-identical across every real alias pair in all 32 pilots, not a sample.
+recovery: Re-run from a clean tree.
