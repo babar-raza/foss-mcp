@@ -758,6 +758,29 @@ def _python_enum_bases(bases: list[Any]) -> bool:
     return bool(names & {"Enum", "IntEnum", "Flag", "IntFlag", "StrEnum"})
 
 
+def _python_is_enum_auto_call(value: Any) -> bool:
+    """``True`` when ``value`` is an ``_ast.Call`` invoking ``auto()`` -- either the bare name
+    (``from enum import auto; auto()``) or the attribute-access form (``enum.auto()``), mirroring
+    the identical bare-name/attribute-access recognition ``_python_enum_bases`` already applies to
+    enum base classes (G3/TC-682, REQ-G3-012, O4). ``enum.auto()`` is a sentinel the real ``Enum``
+    machinery resolves to an auto-incrementing integer at class-creation time -- a value this
+    static, no-import, no-exec oracle deliberately never computes (doing so would mean actually
+    importing and executing arbitrary pilot code); recognising the call shape is enough to record a
+    distinct, honest "this was auto()" marker instead of the misleading "unparseable, so None" the
+    pre-existing ``literal_eval``-failure path would otherwise produce for it.
+    """
+    import ast as _ast
+
+    if not isinstance(value, _ast.Call):
+        return False
+    func = value.func
+    if isinstance(func, _ast.Name):
+        return func.id == "auto"
+    if isinstance(func, _ast.Attribute):
+        return func.attr == "auto"
+    return False
+
+
 def _python_symbol_from_classdef(node: Any) -> OracleSymbol:
     import ast as _ast
 
@@ -767,6 +790,12 @@ def _python_symbol_from_classdef(node: Any) -> OracleSymbol:
         if is_enum and isinstance(item, _ast.Assign):
             for target in item.targets:
                 if isinstance(target, _ast.Name) and _is_public_python_name(target.id):
+                    if _python_is_enum_auto_call(item.value):
+                        # A distinct marker (G3/TC-682, REQ-G3-012, O4): never the generic
+                        # literal_eval-fails-to-None path below, which would make a bona fide
+                        # auto() value indistinguishable from a genuinely unparseable one.
+                        members.append(OracleMember(name=target.id, kind="enum_value", enum_value="auto()"))
+                        continue
                     value = None
                     try:
                         value = _ast.literal_eval(item.value)
@@ -788,11 +817,35 @@ def _python_symbol_from_classdef(node: Any) -> OracleSymbol:
             is_static = "staticmethod" in decorators or "classmethod" in decorators
             params = [arg.arg for arg in item.args.args if arg.arg != "self" and arg.arg != "cls"]
             defaulted = set(params[len(params) - len(item.args.defaults) :]) if item.args.defaults else set()
+            oracle_params = [OracleParam(name=p, has_default=p in defaulted) for p in params]
+            # *args (G3/TC-682, REQ-G3-012, O4): `item.args.vararg` sits positionally right after
+            # the plain positional-or-keyword params in a real Python signature (`def f(a, *args,
+            # ...)`), so the synthesized entry is appended here, before any keyword-only params --
+            # matching real declaration order, not just correctness. Synthesized as a named
+            # OracleParam (`*<real name>`) rather than a new OracleMember/OracleParam field: this
+            # keeps the dataclass shape every one of the other six enumerators (Go/Rust/TS/Java/
+            # .NET/C++) already relies on completely untouched, and flows straight through
+            # diff_symbol's existing params-by-name/has_default-by-position comparison with no new
+            # special case there. A vararg can never carry "a default" in Python, so has_default is
+            # always False for it.
+            if item.args.vararg is not None:
+                oracle_params.append(OracleParam(name=f"*{item.args.vararg.arg}", has_default=False))
+            # Keyword-only params (G3/TC-682, REQ-G3-012, O4): `item.args.kwonlyargs` pairs
+            # POSITIONALLY with `item.args.kw_defaults` from the START (confirmed directly against
+            # a real `ast.parse`'d fixture, not assumed -- unlike `args`/`defaults`, which pair from
+            # the END). A `None` entry in `kw_defaults` means that keyword-only parameter has no
+            # default; any non-None entry means it does, regardless of the default's own value.
+            for kwonly, kw_default in zip(item.args.kwonlyargs, item.args.kw_defaults, strict=True):
+                oracle_params.append(OracleParam(name=kwonly.arg, has_default=kw_default is not None))
+            # **kwargs: same synthesized-entry shape and rationale as *args above, appended last to
+            # match real declaration order (`def f(a, *args, b, **kwargs)`).
+            if item.args.kwarg is not None:
+                oracle_params.append(OracleParam(name=f"**{item.args.kwarg.arg}", has_default=False))
             members.append(
                 OracleMember(
                     name=item.name,
                     kind="method",
-                    params=tuple(OracleParam(name=p, has_default=p in defaulted) for p in params),
+                    params=tuple(oracle_params),
                     is_static=is_static,
                 )
             )

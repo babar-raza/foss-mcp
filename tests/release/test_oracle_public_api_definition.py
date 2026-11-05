@@ -299,3 +299,126 @@ def test_config_driven_exclusion_really_reads_the_file_at_runtime(tmp_path, monk
         )
     finally:
         sd._load_public_api_definition.cache_clear()
+
+
+# --- (4) G3/TC-682 (O4): kw-only params, *args/**kwargs, and enum.auto() signature completeness ---
+#
+# plans/TC-682.yaml's own fixture (reproduced directly against the unmodified code before this
+# card changed anything): a kw-only param and a **kwargs catch-all were COMPLETELY INVISIBLE in
+# `configure`'s params; *args was equally invisible in `varargs_method`; `Mode.RED = enum.auto()`
+# showed `enum_value=None`, identical to a genuinely unparseable/value-less constant, with zero
+# signal that this was `auto()` specifically. The five tests below prove: (a) a kw-only param is
+# now captured with its correct default-or-not status; (b) *args/**kwargs are now represented,
+# each as a synthesized OracleParam named `*<real name>`/`**<real name>` appended to the existing
+# `params` tuple IN REAL PYTHON DECLARATION ORDER (positional, then *args, then kw-only, then
+# **kwargs) - chosen over adding a new OracleMember/OracleParam field because it keeps the
+# dataclass shape every other six enumerators (Go/Rust/TS/Java/.NET/C++) already rely on completely
+# untouched, and flows straight through diff_symbol's existing params-by-name/has_default-by-
+# position comparison with no new special case needed there; (c) `enum.auto()` (both the bare
+# `auto()` and the `enum.auto()` attribute-access forms, mirroring `_python_enum_bases`' own
+# bare-name/attribute-access recognition) is now distinguished, via the distinct marker
+# `enum_value="auto()"`, from both a literal value and a genuinely unparseable one (represented
+# unchanged as `enum_value=None`); (d) a method using only plain positional-or-keyword params is
+# BYTE-FOR-BYTE unaffected - same OracleMember this card's predecessor code already produced; (e)
+# a literal enum value (`BLUE = 2`) is likewise BYTE-FOR-BYTE unaffected.
+
+
+def test_enumerate_python_reads_keyword_only_params_with_correct_default_status(tmp_path) -> None:
+    (tmp_path / ".git").mkdir()
+    (tmp_path / "widgets.py").write_text(
+        "class Widget:\n    def configure(self, a, *, b, c=2, **kwargs):\n        pass\n",
+        encoding="utf-8",
+    )
+    (widget,) = sd.enumerate_python("acme/widgets", "deadbeef", tmp_path)
+    (configure,) = widget.members
+    assert configure.params == (
+        sd.OracleParam("a"),
+        sd.OracleParam("b", has_default=False),  # kw-only, no default: kw_defaults entry is None
+        sd.OracleParam("c", has_default=True),  # kw-only, WITH a default
+        sd.OracleParam("**kwargs"),
+    )
+
+
+def test_enumerate_python_reads_varargs_and_kwargs_in_real_declaration_order(tmp_path) -> None:
+    (tmp_path / ".git").mkdir()
+    (tmp_path / "widgets.py").write_text(
+        "class Widget:\n"
+        "    def varargs_method(self, *args):\n"
+        "        pass\n"
+        "    def full_shape(self, a, *values, b, **opts):\n"
+        "        pass\n",
+        encoding="utf-8",
+    )
+    (widget,) = sd.enumerate_python("acme/widgets", "deadbeef", tmp_path)
+    by_name = {member.name: member for member in widget.members}
+    assert by_name["varargs_method"].params == (sd.OracleParam("*args"),)
+    # real declaration order: positional, then *args (named after the real variable, "values"),
+    # then kw-only "b", then **opts (named after the real variable, "opts") - never a hardcoded
+    # "*args"/"**kwargs" literal regardless of what the pilot actually named them.
+    assert by_name["full_shape"].params == (
+        sd.OracleParam("a"),
+        sd.OracleParam("*values"),
+        sd.OracleParam("b", has_default=False),
+        sd.OracleParam("**opts"),
+    )
+
+
+def test_enumerate_python_distinguishes_auto_from_literal_and_unparseable_enum_values(tmp_path) -> None:
+    (tmp_path / ".git").mkdir()
+    (tmp_path / "modes.py").write_text(
+        "import enum\n"
+        "from enum import Enum, auto\n\n"
+        "class Mode(Enum):\n"
+        "    ATTR_AUTO = enum.auto()\n"  # attribute-access form, mirrors _python_enum_bases
+        "    BARE_AUTO = auto()\n"  # bare-name form, mirrors _python_enum_bases
+        "    LITERAL = 2\n"
+        "    UNPARSEABLE = some_runtime_expression()\n",  # a real Call that is NOT auto()
+        encoding="utf-8",
+    )
+    (mode,) = sd.enumerate_python("acme/widgets", "deadbeef", tmp_path)
+    by_name = {member.name: member.enum_value for member in mode.members}
+    assert by_name["ATTR_AUTO"] == "auto()"
+    assert by_name["BARE_AUTO"] == "auto()"
+    assert by_name["LITERAL"] == "2"
+    # a genuinely unparseable, non-auto() call is unchanged from before this card: None, with no
+    # false "auto()" signal and no false literal value.
+    assert by_name["UNPARSEABLE"] is None
+
+
+def test_enumerate_python_plain_signature_method_is_byte_for_byte_unaffected(tmp_path) -> None:
+    """Decision E (plans/TC-682.yaml): a method using none of kw-only/vararg/kwarg must produce the
+    exact same OracleMember this card's predecessor code already produced."""
+    (tmp_path / ".git").mkdir()
+    (tmp_path / "widgets.py").write_text(
+        "class Gadget:\n"
+        "    def build(self, name, count=1):\n"
+        "        return name\n"
+        "    @staticmethod\n"
+        "    def make():\n"
+        "        return Gadget()\n",
+        encoding="utf-8",
+    )
+    (gadget,) = sd.enumerate_python("acme/widgets", "deadbeef", tmp_path)
+    by_name = {member.name: member for member in gadget.members}
+    assert by_name["build"] == sd.OracleMember(
+        name="build",
+        kind="method",
+        params=(sd.OracleParam("name"), sd.OracleParam("count", has_default=True)),
+        is_static=False,
+    )
+    assert by_name["make"] == sd.OracleMember(name="make", kind="method", params=(), is_static=True)
+
+
+def test_enumerate_python_literal_enum_value_is_byte_for_byte_unaffected(tmp_path) -> None:
+    """Decision E (plans/TC-682.yaml): a literal enum value (the BLUE = 2 case) must produce the
+    exact same OracleMember this card's predecessor code already produced."""
+    (tmp_path / ".git").mkdir()
+    (tmp_path / "colors.py").write_text(
+        "from enum import Enum\n\nclass Color(Enum):\n    Red = 1\n    Blue = 2\n",
+        encoding="utf-8",
+    )
+    (color,) = sd.enumerate_python("acme/widgets", "deadbeef", tmp_path)
+    assert color.members == (
+        sd.OracleMember(name="Red", kind="enum_value", enum_value="1"),
+        sd.OracleMember(name="Blue", kind="enum_value", enum_value="2"),
+    )
