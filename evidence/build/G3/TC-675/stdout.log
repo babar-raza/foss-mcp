@@ -1,0 +1,78 @@
+
+===== CLEAN RUN 1 (host) =====
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-5c72e798a73c059a\Scripts\python.exe -m pytest tests/mcp/tools/test_search_symbols_word_aware_suggestions.py -q -rfE -p no:cacheprovider "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-11gbl7_m\.junit-0.xml"
+--- stdout ---
+...........                                                              [100%]
+
+--- stderr ---
+
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-5c72e798a73c059a\Scripts\python.exe -m pytest tests/mcp/test_search_symbols_honest_miss.py tests/mcp/tools/test_retrieval_tools.py -q -rfE -p no:cacheprovider "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-11gbl7_m\.junit-1.xml"
+--- stdout ---
+..................................................                       [100%]
+
+--- stderr ---
+
+
+===== CLEAN RUN 2 (host) =====
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-5c72e798a73c059a\Scripts\python.exe -m pytest tests/mcp/tools/test_search_symbols_word_aware_suggestions.py -q -rfE -p no:cacheprovider "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-11gbl7_m\.junit-0.xml"
+--- stdout ---
+...........                                                              [100%]
+
+--- stderr ---
+
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-5c72e798a73c059a\Scripts\python.exe -m pytest tests/mcp/test_search_symbols_honest_miss.py tests/mcp/tools/test_retrieval_tools.py -q -rfE -p no:cacheprovider "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-11gbl7_m\.junit-1.xml"
+--- stdout ---
+..................................................                       [100%]
+
+--- stderr ---
+
+
+===== NEGATIVE CONTROL (checks MUST now fail) =====
+mutated: M src/foss_mcp/mcp/tools/search_symbols.py, ?? .junit-0.xml, ?? .junit-1.xml
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-5c72e798a73c059a\Scripts\python.exe -m pytest tests/mcp/tools/test_search_symbols_word_aware_suggestions.py -q -rfE -p no:cacheprovider "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-11gbl7_m\.junit-0.xml"
+--- stdout ---
+.F....F....                                                              [100%]
+================================== FAILURES ===================================
+_ test_a_separator_joined_word_order_swap_neither_prior_tier_catches_is_now_found _
+
+    def test_a_separator_joined_word_order_swap_neither_prior_tier_catches_is_now_found() -> None:
+        result = suggest_similar_fqns(_SEPARATOR_JOINED_LIST, "Condition_Format")
+    
+>       assert result == ("Aspose.Cells_FOSS.Format_Condition",)
+E       AssertionError: assert () == ('Aspose.Cell...t_Condition',)
+E         
+E         Right contains one more item: 'Aspose.Cells_FOSS.Format_Condition'
+E         Use -v to get more diff
+
+tests\mcp\tools\test_search_symbols_word_aware_suggestions.py:109: AssertionError
+_ test_get_symbol_notfound_suggestions_surfaces_a_word_order_swap_through_the_shared_function _
+
+    def test_get_symbol_notfound_suggestions_surfaces_a_word_order_swap_through_the_shared_function() -> None:
+        store = _InMemoryStore(
+            _type_chunk("Aspose.Cells_FOSS.Format_Condition"),
+            _type_chunk("Aspose.Pdf_FOSS.Document"),
+        )
+    
+        result = get_symbol(store, SCOPE, "Condition_Format")  # type: ignore[arg-type]
+    
+        assert isinstance(result, NotFound)
+        assert result.found is False
+>       assert result.suggestions == ("Aspose.Cells_FOSS.Format_Condition",)
+E       AssertionError: assert () == ('Aspose.Cell...t_Condition',)
+E         
+E         Right contains one more item: 'Aspose.Cells_FOSS.Format_Condition'
+E         Use -v to get more diff
+
+tests\mcp\tools\test_search_symbols_word_aware_suggestions.py:184: AssertionError
+=========================== short test summary info ===========================
+FAILED tests/mcp/tools/test_search_symbols_word_aware_suggestions.py::test_a_separator_joined_word_order_swap_neither_prior_tier_catches_is_now_found
+FAILED tests/mcp/tools/test_search_symbols_word_aware_suggestions.py::test_get_symbol_notfound_suggestions_surfaces_a_word_order_swap_through_the_shared_function
+
+--- stderr ---
+
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-5c72e798a73c059a\Scripts\python.exe -m pytest tests/mcp/test_search_symbols_honest_miss.py tests/mcp/tools/test_retrieval_tools.py -q -rfE -p no:cacheprovider "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-11gbl7_m\.junit-1.xml"
+--- stdout ---
+..................................................                       [100%]
+
+--- stderr ---
+
