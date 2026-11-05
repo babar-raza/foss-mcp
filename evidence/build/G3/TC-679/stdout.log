@@ -1,0 +1,96 @@
+
+===== CLEAN RUN 1 (host) =====
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-5c72e798a73c059a\Scripts\python.exe -m pytest tests/release/test_oracle_public_api_definition.py -q -rfE -p no:cacheprovider "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-gu2cfsrv\.junit-0.xml"
+--- stdout ---
+..........                                                               [100%]
+
+--- stderr ---
+
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-5c72e798a73c059a\Scripts\python.exe -m pytest tests/release/test_source_differential.py -q -rfE -p no:cacheprovider -k "python or enumerate_python" "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-gu2cfsrv\.junit-1.xml"
+--- stdout ---
+......                                                                   [100%]
+
+--- stderr ---
+
+
+===== CLEAN RUN 2 (host) =====
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-5c72e798a73c059a\Scripts\python.exe -m pytest tests/release/test_oracle_public_api_definition.py -q -rfE -p no:cacheprovider "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-gu2cfsrv\.junit-0.xml"
+--- stdout ---
+..........                                                               [100%]
+
+--- stderr ---
+
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-5c72e798a73c059a\Scripts\python.exe -m pytest tests/release/test_source_differential.py -q -rfE -p no:cacheprovider -k "python or enumerate_python" "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-gu2cfsrv\.junit-1.xml"
+--- stdout ---
+......                                                                   [100%]
+
+--- stderr ---
+
+
+===== NEGATIVE CONTROL (checks MUST now fail) =====
+mutated: M config/public_api_definition/python.yaml, ?? .junit-0.xml, ?? .junit-1.xml
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-5c72e798a73c059a\Scripts\python.exe -m pytest tests/release/test_oracle_public_api_definition.py -q -rfE -p no:cacheprovider "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-gu2cfsrv\.junit-0.xml"
+--- stdout ---
+.F.....FF.                                                               [100%]
+================================== FAILURES ===================================
+____________ test_python_definition_documents_the_real_oracle_rule ____________
+
+    def test_python_definition_documents_the_real_oracle_rule() -> None:
+        document = _config_document()
+        assert document["language"] == "python"
+        assert document["scope_roots"] == "module-level"
+>       assert document["excluded_dirs"] == ["tests", "test", "examples", "docs"]
+E       AssertionError: assert ['tests', 'te...R_A_REAL_DIR'] == ['tests', 'te...ples', 'docs']
+E         
+E         At index 3 diff: 'ZZZ_NEVER_A_REAL_DIR' != 'docs'
+E         Use -v to get more diff
+
+tests\release\test_oracle_public_api_definition.py:143: AssertionError
+_ test_new_config_driven_exclusion_matches_the_old_hardcoded_exclusion_across_every_measured_path _
+
+    def test_new_config_driven_exclusion_matches_the_old_hardcoded_exclusion_across_every_measured_path() -> None:
+        sd._load_public_api_definition.cache_clear()
+        mismatches = [
+            path
+            for path in _MEASURED_PATHS
+            if bool(any(part in sd._python_excluded_dirs() for part in path.parts))
+            != _excluded_dirs_v1_reference(path)
+        ]
+>       assert mismatches == [], (
+            f"config-driven excluded_dirs check diverged from the old hardcoded reference on "
+            f"{len(mismatches)} of {len(_MEASURED_PATHS)} measured paths: {mismatches!r}"
+        )
+E       AssertionError: config-driven excluded_dirs check diverged from the old hardcoded reference on 1 of 10 measured paths: [WindowsPath('acme/widgets/docs/good.py')]
+E       assert [WindowsPath(...ocs/good.py')] == []
+E         
+E         Left contains one more item: WindowsPath('acme/widgets/docs/good.py')
+E         Use -v to get more diff
+
+tests\release\test_oracle_public_api_definition.py:261: AssertionError
+__ test_config_driven_excluded_dirs_set_matches_the_real_committed_yaml_list __
+
+    def test_config_driven_excluded_dirs_set_matches_the_real_committed_yaml_list() -> None:
+        sd._load_public_api_definition.cache_clear()
+>       assert sd._python_excluded_dirs() == frozenset({"tests", "test", "examples", "docs"})
+E       AssertionError: assert frozenset({'Z...st', 'tests'}) == frozenset({'d...st', 'tests'})
+E         
+E         Extra items in the left set:
+E         'ZZZ_NEVER_A_REAL_DIR'
+E         Extra items in the right set:
+E         'docs'
+E         Use -v to get more diff
+
+tests\release\test_oracle_public_api_definition.py:269: AssertionError
+=========================== short test summary info ===========================
+FAILED tests/release/test_oracle_public_api_definition.py::test_python_definition_documents_the_real_oracle_rule
+FAILED tests/release/test_oracle_public_api_definition.py::test_new_config_driven_exclusion_matches_the_old_hardcoded_exclusion_across_every_measured_path
+FAILED tests/release/test_oracle_public_api_definition.py::test_config_driven_excluded_dirs_set_matches_the_real_committed_yaml_list
+
+--- stderr ---
+
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-5c72e798a73c059a\Scripts\python.exe -m pytest tests/release/test_source_differential.py -q -rfE -p no:cacheprovider -k "python or enumerate_python" "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-gu2cfsrv\.junit-1.xml"
+--- stdout ---
+......                                                                   [100%]
+
+--- stderr ---
+

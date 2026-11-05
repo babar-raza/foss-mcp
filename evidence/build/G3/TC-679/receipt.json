@@ -1,0 +1,111 @@
+{
+  "schema_version": 1,
+  "card": "TC-679",
+  "gate": "G3",
+  "generated_by": "gatectl",
+  "generated_at": "2026-11-05T08:07:36Z",
+  "base_rev": "d5639334b073afd8bcfa2f7082b482abd1a07d79",
+  "head_rev": "1c730ec615d0d2125122b14ba830c0c3b269c7b1",
+  "card_sha256": "56dd8d04502332f929f85b72c22b881a1d6aa02385d4c3ef648fc54976d86c32",
+  "fingerprint": {
+    "python": "3.13.2",
+    "platform": "Windows-11-10.0.26300-SP0",
+    "lock_sha256": "5c72e798a73c059a438e752e94a8d4c88c1bdf81a197f6e5c5fcecbc9466a691",
+    "env": {
+      "PYTHONHASHSEED": "0",
+      "PYTHONUTF8": "1",
+      "PYTHONDONTWRITEBYTECODE": "1",
+      "PYTHONIOENCODING": "utf-8",
+      "TZ": "UTC",
+      "LC_ALL": "C.UTF-8",
+      "SOURCE_DATE_EPOCH": "1700000000",
+      "verify_runner": "host"
+    }
+  },
+  "scope": {
+    "ok": true,
+    "changed_paths": [
+      "scripts/release/source_differential.py",
+      "tests/release/test_oracle_public_api_definition.py"
+    ],
+    "violations": [],
+    "evaluated": true
+  },
+  "runs": [
+    {
+      "run": 1,
+      "checks": [
+        {
+          "command": "{python} -m pytest tests/release/test_oracle_public_api_definition.py -q -rfE -p no:cacheprovider",
+          "exit_code": 0,
+          "duration_s": 1.382,
+          "stdout_sha256": "7040371af15613c02e821ec0eecc1d1330f691ace4cef93a41bfa358822c4103",
+          "tests": 10,
+          "skipped": 0,
+          "errors": 0,
+          "failures": 0
+        },
+        {
+          "command": "{python} -m pytest tests/release/test_source_differential.py -q -rfE -p no:cacheprovider -k \"python or enumerate_python\"",
+          "exit_code": 0,
+          "duration_s": 0.771,
+          "stdout_sha256": "700bc0322b00f8e8db3ce495047983b54ab27ab59ed1fedac05f3aeba47dae24",
+          "tests": 6,
+          "skipped": 0,
+          "errors": 0,
+          "failures": 0
+        }
+      ],
+      "all_passed": true
+    },
+    {
+      "run": 2,
+      "checks": [
+        {
+          "command": "{python} -m pytest tests/release/test_oracle_public_api_definition.py -q -rfE -p no:cacheprovider",
+          "exit_code": 0,
+          "duration_s": 0.688,
+          "stdout_sha256": "7040371af15613c02e821ec0eecc1d1330f691ace4cef93a41bfa358822c4103",
+          "tests": 10,
+          "skipped": 0,
+          "errors": 0,
+          "failures": 0
+        },
+        {
+          "command": "{python} -m pytest tests/release/test_source_differential.py -q -rfE -p no:cacheprovider -k \"python or enumerate_python\"",
+          "exit_code": 0,
+          "duration_s": 0.726,
+          "stdout_sha256": "700bc0322b00f8e8db3ce495047983b54ab27ab59ed1fedac05f3aeba47dae24",
+          "tests": 6,
+          "skipped": 0,
+          "errors": 0,
+          "failures": 0
+        }
+      ],
+      "all_passed": true
+    }
+  ],
+  "negative_control": {
+    "kind": "mutate",
+    "patch": "python -X utf8 -c \"import pathlib; p = pathlib.Path('config/public_api_definition/python.yaml'); s = p.read_text(encoding='utf-8'); old = chr(10) + '  - docs' + chr(10); assert s.count(old) == 1, 'the required real excluded_dirs list item was not found as expected (found elsewhere is the human-readable comment quoting \\\"docs\\\", which production code never reads - anchor on the real unquoted YAML list item, not the comment); if your real file formats this differently, anchor your own mutate on your own real literal instead and note the substitution in your closeout'; p.write_text(s.replace(old, chr(10) + '  - ZZZ_NEVER_A_REAL_DIR' + chr(10), 1), encoding='utf-8')\"\n",
+    "patch_sha256": "01db82e4fe74ddcc44dd8bb8ab95353f007fd5c6f4fb50ba6ca498b6133cb9ac",
+    "applied": true,
+    "patch_applied_failed": true,
+    "exit_codes": [
+      1,
+      0
+    ],
+    "tree_changed": [
+      "M config/public_api_definition/python.yaml",
+      "?? .junit-0.xml",
+      "?? .junit-1.xml"
+    ]
+  },
+  "holdout": {
+    "ran": false,
+    "passed": true,
+    "detail": "no holdout for this card"
+  },
+  "accepted": true,
+  "reason": "all gates passed"
+}
