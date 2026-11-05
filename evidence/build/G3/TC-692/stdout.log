@@ -1,28 +1,31 @@
 
 ===== CLEAN RUN 1 (host) =====
-$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-5c72e798a73c059a\Scripts\python.exe -m pytest tests/release/test_source_differential.py -q -rfE -p no:cacheprovider "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-8f_03as3\.junit-0.xml"
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-5c72e798a73c059a\Scripts\python.exe -m pytest tests/release/test_source_differential.py tests/release/test_oracle_shell_resolution.py tests/release/test_oracle_inherited_verification.py -q -rfE -p no:cacheprovider "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-i8j_c2_d\.junit-0.xml"
 --- stdout ---
-........................................................................ [ 53%]
-..............................................................           [100%]
+........................................................................ [ 49%]
+........................................................................ [ 99%]
+.                                                                        [100%]
 
 --- stderr ---
 
 
 ===== CLEAN RUN 2 (host) =====
-$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-5c72e798a73c059a\Scripts\python.exe -m pytest tests/release/test_source_differential.py -q -rfE -p no:cacheprovider "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-8f_03as3\.junit-0.xml"
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-5c72e798a73c059a\Scripts\python.exe -m pytest tests/release/test_source_differential.py tests/release/test_oracle_shell_resolution.py tests/release/test_oracle_inherited_verification.py -q -rfE -p no:cacheprovider "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-i8j_c2_d\.junit-0.xml"
 --- stdout ---
-........................................................................ [ 53%]
-..............................................................           [100%]
+........................................................................ [ 49%]
+........................................................................ [ 99%]
+.                                                                        [100%]
 
 --- stderr ---
 
 
 ===== NEGATIVE CONTROL (checks MUST now fail) =====
 mutated: M scripts/release/source_differential.py, ?? .junit-0.xml
-$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-5c72e798a73c059a\Scripts\python.exe -m pytest tests/release/test_source_differential.py -q -rfE -p no:cacheprovider "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-8f_03as3\.junit-0.xml"
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-5c72e798a73c059a\Scripts\python.exe -m pytest tests/release/test_source_differential.py tests/release/test_oracle_shell_resolution.py tests/release/test_oracle_inherited_verification.py -q -rfE -p no:cacheprovider "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-i8j_c2_d\.junit-0.xml"
 --- stdout ---
-..........................F..F.......................................... [ 53%]
-..............................................................           [100%]
+..........................F..F.......................................... [ 49%]
+.................................................................F.....F [ 99%]
+.                                                                        [100%]
 ================================== FAILURES ===================================
 __________ test_evaluate_hollow_pass_fires_only_when_checked_is_zero __________
 
@@ -46,9 +49,211 @@ _ test_verify_pilot_checked_zero_with_a_real_category_disagreement_both_reasons_
 E       AttributeError: module 'source_differential' has no attribute 'evaluate_hollow_pass'. Did you mean: 'evaluate_hollow_passDISABLED'?
 
 tests\release\test_source_differential.py:464: AttributeError
+______ test_existing_source_differential_suite_is_unaffected_by_this_fix ______
+
+    def test_existing_source_differential_suite_is_unaffected_by_this_fix() -> None:
+        """None of ``test_source_differential.py``'s own 134 tests build a bare-name shell/definition
+        collision through ``diff_language``/``verify_pilot`` (confirmed by inspection: its own
+        ``_baked_type`` helper never sets ``file``/``reexport_of``, so none of its synthetic baked
+        types are ever grouped as a shell by ``compute_canonical_identities`` -- every one of them
+        stays its own, unaliased, ``is_definition=True`` unit, exactly as the pre-fix bare dict
+        comprehension already treated it). This runs the real suite as a subprocess of the SAME
+        interpreter running this test (so the already-activated toolchain's PATH -- node/java/dotnet/
+        clang/Docker -- is inherited) and confirms the real, pinned test count still passes, unchanged.
+    
+        The result is read from a JUnit XML report (``--junitxml``), never from stdout text: this
+        repository's own ``pyproject.toml`` already sets ``addopts = "-q"``, and stacking a second,
+        explicit ``-q`` on top of it raises pytest's quiet level enough to drop the final "N passed in
+        Ys" summary line entirely -- confirmed directly against this very suite, not merely assumed.
+        """
+        with tempfile.TemporaryDirectory() as tmp:
+            report = Path(tmp) / "existing-suite.xml"
+            result = subprocess.run(
+                [
+                    sys.executable,
+                    "-m",
+                    "pytest",
+                    str(EXISTING_SUITE),
+                    "-p",
+                    "no:cacheprovider",
+                    f"--junitxml={report}",
+                ],
+                capture_output=True,
+                text=True,
+                cwd=str(REPO_ROOT),
+                timeout=280,
+            )
+>           assert result.returncode == 0, result.stdout + result.stderr
+E           AssertionError: ..........................F..F.......................................... [ 53%]
+E             ..............................................................           [100%]
+E             ================================== FAILURES ===================================
+E             __________ test_evaluate_hollow_pass_fires_only_when_checked_is_zero __________
+E             
+E                 def test_evaluate_hollow_pass_fires_only_when_checked_is_zero():
+E                     zero = sd.DiffCounts(missing=0, extra=0, signature=0, static=0, default=0, enum_value=0, checked=0)
+E             >       reasons = sd.evaluate_hollow_pass(zero)
+E                               ^^^^^^^^^^^^^^^^^^^^^^^
+E             E       AttributeError: module 'source_differential' has no attribute 'evaluate_hollow_pass'. Did you mean: 'evaluate_hollow_passDISABLED'?
+E             
+E             tests\release\test_source_differential.py:408: AttributeError
+E             _ test_verify_pilot_checked_zero_with_a_real_category_disagreement_both_reasons_coexist _
+E             
+E                 def test_verify_pilot_checked_zero_with_a_real_category_disagreement_both_reasons_coexist():
+E                     """(c): a case that cannot happen in practice today (``checked`` increments once per real member
+E                     actually compared, so a nonzero category count implies a nonzero ``checked``) but, if it ever did,
+E                     must not silently drop or scramble either reason -- both simply sit side by side in ``reasons``."""
+E                     counts = sd.DiffCounts(missing=1, extra=0, signature=0, static=0, default=0, enum_value=0, checked=0)
+E                     ceiling_reasons = sd.evaluate_ceilings(counts, {category: 0 for category in sd.CATEGORIES})
+E             >       hollow_reasons = sd.evaluate_hollow_pass(counts)
+E                                      ^^^^^^^^^^^^^^^^^^^^^^^
+E             E       AttributeError: module 'source_differential' has no attribute 'evaluate_hollow_pass'. Did you mean: 'evaluate_hollow_passDISABLED'?
+E             
+E             tests\release\test_source_differential.py:464: AttributeError
+E             =========================== short test summary info ===========================
+E             FAILED tests/release/test_source_differential.py::test_evaluate_hollow_pass_fires_only_when_checked_is_zero
+E             FAILED tests/release/test_source_differential.py::test_verify_pilot_checked_zero_with_a_real_category_disagreement_both_reasons_coexist
+E             2 failed, 132 passed in 63.38s (0:01:03)
+E             
+E           assert 1 == 0
+E            +  where 1 = CompletedProcess(args=['E:\\Users\\prora\\OneDrive\\Documents\\GitHub\\foss-mcp\\.gatectl-worktrees\\venv-5c72e798a73c...ed_zero_with_a_real_category_disagreement_both_reasons_coexist\n2 failed, 132 passed in 63.38s (0:01:03)\n', stderr='').returncode
+
+tests\release\test_oracle_shell_resolution.py:261: AssertionError
+______________ test_f_existing_suite_is_unaffected_by_this_card _______________
+
+    def test_f_existing_suite_is_unaffected_by_this_card() -> None:
+        """Run as a subprocess of the SAME interpreter running this test (so the already-activated
+        toolchain's PATH -- node/java/dotnet/clang/Docker -- is inherited), read from a JUnit XML
+        report (never from stdout text, for the same ``-q``-stacking reason TC-623's own
+        ``test_oracle_shell_resolution.py`` documents), and confirm the real, pinned test count across
+        BOTH existing files still passes, unchanged by this card.
+        """
+        with tempfile.TemporaryDirectory() as tmp:
+            report = Path(tmp) / "existing-suites.xml"
+            result = subprocess.run(
+                [
+                    sys.executable,
+                    "-m",
+                    "pytest",
+                    *[str(path) for path in EXISTING_SUITES],
+                    "-p",
+                    "no:cacheprovider",
+                    f"--junitxml={report}",
+                ],
+                capture_output=True,
+                text=True,
+                cwd=str(REPO_ROOT),
+                timeout=280,
+            )
+>           assert result.returncode == 0, result.stdout + result.stderr
+E           AssertionError: ..........................F..F.......................................... [ 52%]
+E             .................................................................F       [100%]
+E             ================================== FAILURES ===================================
+E             __________ test_evaluate_hollow_pass_fires_only_when_checked_is_zero __________
+E             
+E                 def test_evaluate_hollow_pass_fires_only_when_checked_is_zero():
+E                     zero = sd.DiffCounts(missing=0, extra=0, signature=0, static=0, default=0, enum_value=0, checked=0)
+E             >       reasons = sd.evaluate_hollow_pass(zero)
+E                               ^^^^^^^^^^^^^^^^^^^^^^^
+E             E       AttributeError: module 'source_differential' has no attribute 'evaluate_hollow_pass'. Did you mean: 'evaluate_hollow_passDISABLED'?
+E             
+E             tests\release\test_source_differential.py:408: AttributeError
+E             _ test_verify_pilot_checked_zero_with_a_real_category_disagreement_both_reasons_coexist _
+E             
+E                 def test_verify_pilot_checked_zero_with_a_real_category_disagreement_both_reasons_coexist():
+E                     """(c): a case that cannot happen in practice today (``checked`` increments once per real member
+E                     actually compared, so a nonzero category count implies a nonzero ``checked``) but, if it ever did,
+E                     must not silently drop or scramble either reason -- both simply sit side by side in ``reasons``."""
+E                     counts = sd.DiffCounts(missing=1, extra=0, signature=0, static=0, default=0, enum_value=0, checked=0)
+E                     ceiling_reasons = sd.evaluate_ceilings(counts, {category: 0 for category in sd.CATEGORIES})
+E             >       hollow_reasons = sd.evaluate_hollow_pass(counts)
+E                                      ^^^^^^^^^^^^^^^^^^^^^^^
+E             E       AttributeError: module 'source_differential' has no attribute 'evaluate_hollow_pass'. Did you mean: 'evaluate_hollow_passDISABLED'?
+E             
+E             tests\release\test_source_differential.py:464: AttributeError
+E             ______ test_existing_source_differential_suite_is_unaffected_by_this_fix ______
+E             
+E                 def test_existing_source_differential_suite_is_unaffected_by_this_fix() -> None:
+E                     """None of ``test_source_differential.py``'s own 134 tests build a bare-name shell/definition
+E                     collision through ``diff_language``/``verify_pilot`` (confirmed by inspection: its own
+E                     ``_baked_type`` helper never sets ``file``/``reexport_of``, so none of its synthetic baked
+E                     types are ever grouped as a shell by ``compute_canonical_identities`` -- every one of them
+E                     stays its own, unaliased, ``is_definition=True`` unit, exactly as the pre-fix bare dict
+E                     comprehension already treated it). This runs the real suite as a subprocess of the SAME
+E                     interpreter running this test (so the already-activated toolchain's PATH -- node/java/dotnet/
+E                     clang/Docker -- is inherited) and confirms the real, pinned test count still passes, unchanged.
+E                 
+E                     The result is read from a JUnit XML report (``--junitxml``), never from stdout text: this
+E                     repository's own ``pyproject.toml`` already sets ``addopts = "-q"``, and stacking a second,
+E                     explicit ``-q`` on top of it raises pytest's quiet level enough to drop the final "N passed in
+E                     Ys" summary line entirely -- confirmed directly against this very suite, not merely assumed.
+E                     """
+E                     with tempfile.TemporaryDirectory() as tmp:
+E                         report = Path(tmp) / "existing-suite.xml"
+E                         result = subprocess.run(
+E                             [
+E                                 sys.executable,
+E                                 "-m",
+E                                 "pytest",
+E                                 str(EXISTING_SUITE),
+E                                 "-p",
+E                                 "no:cacheprovider",
+E                                 f"--junitxml={report}",
+E                             ],
+E                             capture_output=True,
+E                             text=True,
+E                             cwd=str(REPO_ROOT),
+E                             timeout=280,
+E                         )
+E             >           assert result.returncode == 0, result.stdout + result.stderr
+E             E           AssertionError: ..........................F..F.......................................... [ 53%]
+E             E             ..............................................................           [100%]
+E             E             ================================== FAILURES ===================================
+E             E             __________ test_evaluate_hollow_pass_fires_only_when_checked_is_zero __________
+E             E             
+E             E                 def test_evaluate_hollow_pass_fires_only_when_checked_is_zero():
+E             E                     zero = sd.DiffCounts(missing=0, extra=0, signature=0, static=0, default=0, enum_value=0, checked=0)
+E             E             >       reasons = sd.evaluate_hollow_pass(zero)
+E             E                               ^^^^^^^^^^^^^^^^^^^^^^^
+E             E             E       AttributeError: module 'source_differential' has no attribute 'evaluate_hollow_pass'. Did you mean: 'evaluate_hollow_passDISABLED'?
+E             E             
+E             E             tests\release\test_source_differential.py:408: AttributeError
+E             E             _ test_verify_pilot_checked_zero_with_a_real_category_disagreement_both_reasons_coexist _
+E             E             
+E             E                 def test_verify_pilot_checked_zero_with_a_real_category_disagreement_both_reasons_coexist():
+E             E                     """(c): a case that cannot happen in practice today (``checked`` increments once per real member
+E             E                     actually compared, so a nonzero category count implies a nonzero ``checked``) but, if it ever did,
+E             E                     must not silently drop or scramble either reason -- both simply sit side by side in ``reasons``."""
+E             E                     counts = sd.DiffCounts(missing=1, extra=0, signature=0, static=0, default=0, enum_value=0, checked=0)
+E             E                     ceiling_reasons = sd.evaluate_ceilings(counts, {category: 0 for category in sd.CATEGORIES})
+E             E             >       hollow_reasons = sd.evaluate_hollow_pass(counts)
+E             E                                      ^^^^^^^^^^^^^^^^^^^^^^^
+E             E             E       AttributeError: module 'source_differential' has no attribute 'evaluate_hollow_pass'. Did you mean: 'evaluate_hollow_passDISABLED'?
+E             E             
+E             E             tests\release\test_source_differential.py:464: AttributeError
+E             E             =========================== short test summary info ===========================
+E             E             FAILED tests/release/test_source_differential.py::test_evaluate_hollow_pass_fires_only_when_checked_is_zero
+E             E             FAILED tests/release/test_source_differential.py::test_verify_pilot_checked_zero_with_a_real_category_disagreement_both_reasons_coexist
+E             E             2 failed, 132 passed in 64.24s (0:01:04)
+E             E             
+E             E           assert 1 == 0
+E             E            +  where 1 = CompletedProcess(args=['E:\\Users\\prora\\OneDrive\\Documents\\GitHub\\foss-mcp\\.gatectl-worktrees\\venv-5c72e798a73c...ed_zero_with_a_real_category_disagreement_both_reasons_coexist\n2 failed, 132 passed in 64.24s (0:01:04)\n', stderr='').returncode
+E             
+E             tests\release\test_oracle_shell_resolution.py:261: AssertionError
+E             =========================== short test summary info ===========================
+E             FAILED tests/release/test_source_differential.py::test_evaluate_hollow_pass_fires_only_when_checked_is_zero
+E             FAILED tests/release/test_source_differential.py::test_verify_pilot_checked_zero_with_a_real_category_disagreement_both_reasons_coexist
+E             FAILED tests/release/test_oracle_shell_resolution.py::test_existing_source_differential_suite_is_unaffected_by_this_fix
+E             3 failed, 135 passed in 126.10s (0:02:06)
+E             
+E           assert 1 == 0
+E            +  where 1 = CompletedProcess(args=['E:\\Users\\prora\\OneDrive\\Documents\\GitHub\\foss-mcp\\.gatectl-worktrees\\venv-5c72e798a73c..._existing_source_differential_suite_is_unaffected_by_this_fix\n3 failed, 135 passed in 126.10s (0:02:06)\n', stderr='').returncode
+
+tests\release\test_oracle_inherited_verification.py:367: AssertionError
 =========================== short test summary info ===========================
 FAILED tests/release/test_source_differential.py::test_evaluate_hollow_pass_fires_only_when_checked_is_zero
 FAILED tests/release/test_source_differential.py::test_verify_pilot_checked_zero_with_a_real_category_disagreement_both_reasons_coexist
+FAILED tests/release/test_oracle_shell_resolution.py::test_existing_source_differential_suite_is_unaffected_by_this_fix
+FAILED tests/release/test_oracle_inherited_verification.py::test_f_existing_suite_is_unaffected_by_this_card
 
 --- stderr ---
 
