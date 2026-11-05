@@ -124,14 +124,16 @@ requires:
 network: false
 negative_control:
   mutate: |
-    python -X utf8 -c "import pathlib; q = chr(34); p = pathlib.Path('src/foss_mcp/mcp/tools/search_symbols.py'); s = p.read_text(encoding='utf-8'); old = 'match_kind: str = ' + q + q; assert s.count(old) == 1, 'the required field declaration literal was not found as expected - if your real code reads differently, anchor your own mutate on your own real literal instead and note the substitution in your closeout'; new = 'match_kind: str = ' + q + 'ignored' + q; p.write_text(s.replace(old, new, 1), encoding='utf-8')"
+    python -X utf8 -c "import pathlib; q = chr(34); p = pathlib.Path('src/foss_mcp/mcp/tools/search_symbols.py'); s = p.read_text(encoding='utf-8'); old = '_TIER_KIND = {0: ' + q + 'exact_fqn' + q + ', 1: ' + q + 'final_segment' + q + ', 3: ' + q + 'bag_of_words' + q + ', 4: ' + q + 'prefix' + q + '}'; assert s.count(old) == 1, 'the real _TIER_KIND dict literal was not found as expected - if your implementation names these tiers differently (a different dict/helper shape), anchor your own mutate on your own real, actually-consulted literal instead and note the substitution in your closeout - a mutate on a dataclass field DEFAULT is not acceptable here, since every real construction site already passes match_kind explicitly and never falls back to that default'; new = '_TIER_KIND = {0: ' + q + 'broken' + q + ', 1: ' + q + 'broken' + q + ', 3: ' + q + 'broken' + q + ', 4: ' + q + 'broken' + q + '}'; p.write_text(s.replace(old, new, 1), encoding='utf-8')"
   rationale: >-
-    Forces every `SymbolMatch`'s default `match_kind` to the literal "ignored" instead of the
-    empty string. Any test asserting a SPECIFIC real `match_kind` value (exact_fqn/final_segment/
-    member_declared/member_inherited/bag_of_words/prefix/etc.) must fail under this mutation
-    unless the real per-branch assignment also independently overrides the default correctly, which
-    is exactly what this card's own tests must prove; every pre-existing test that never inspects
-    `match_kind` at all is unaffected.
+    Replaces every one of the four tier-to-label mappings an admitted tier-0/1/3/4 hit's
+    `match_kind` is actually looked up through with the same wrong literal "broken". Any test
+    asserting a SPECIFIC real `match_kind` value for a type-name, bag-of-words or prefix query
+    must fail under this mutation; a pre-existing test that never inspects `match_kind` is
+    unaffected. (Supervisor note, TC-673 attempt 1: the original mutate targeted the
+    `match_kind: str = ""` dataclass field default, which the worker correctly found is never
+    consulted at runtime - every real `SymbolMatch(...)` call always passes `match_kind=`
+    explicitly. Re-anchored on the real, consulted `_TIER_KIND` lookup table instead.)
 evidence:
   - evidence/build/G3/TC-673/receipt.json
 closeout:
