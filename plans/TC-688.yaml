@@ -34,22 +34,35 @@ purpose: >-
     behavior `tests/mcp/tools/test_find_examples_verified_only.py::test_confidence_is_not_applicable_outside_the_vector_branch`
     pins today.
 
-  The other two are narrower, lower-risk cleanups, not contract-breaking in the same sense (no
-  caller can reasonably depend on an internal AST node name or a specific free-text reason
-  string's exact spelling):
+  A third item, "no single reason enum for 'no verified example'", is also in scope and lower-risk
+  (no caller can reasonably depend on a free-text reason string's exact spelling): `find_examples.py`
+  has at least 4 distinct, independently-worded free-text reason strings for "nothing matched"
+  (`_NO_MATCH_REASON`, `NOT_CONFIGURED_REASON`, a bare field default, and "no verified example
+  exists in this generation" inline) - never unified into one named constant/enum a caller could
+  match against reliably.
 
-  - **`kind` leaks a raw tree-sitter/clang-AST node type**: `api_surface.py` has exactly 2 real
-    call sites (confirmed via `grep -n '"kind":' api_surface.py` - every OTHER `kind` value in
-    this file, 11+ sites, is already a clean, documented word: `"property"`, `"function"`,
-    `"constant"`, `"field"`, `"type_item"`, `"record_component"`) where `"kind": cnode.type` uses
-    the RAW tree-sitter node type string directly (e.g. `alias_declaration`/`type_definition` for
-    a C++ nested `using`/`typedef`), leaking an internal implementation detail into served API
-    responses.
-  - **No single reason enum for "no verified example"**: `find_examples.py` has at least 4
-    distinct, independently-worded free-text reason strings for "nothing matched" (`_NO_MATCH_REASON`,
-    `NOT_CONFIGURED_REASON`, a bare field default, and `"no verified example exists in this
-    generation"` inline) - never unified into one named constant/enum a caller could match against
-    reliably.
+  **AMENDMENT (post-dispatch, before acceptance): the 4th nominal item, "`kind` leaks a raw
+  tree-sitter/clang-AST node type" in `api_surface.py`, is EXCLUDED from this card's scope.** The
+  dispatched worker measured directly that both real `"kind": cnode.type` call sites are NOT the
+  low-risk edge case this card's purpose text originally assumed: one is pinned by 2 existing
+  tests outside this card's write_paths, and the other is the GENERAL class/struct/enum/interface/
+  record/delegate path for every language, serving 20+ distinct raw grammar strings already
+  committed and tested across the real 32-pilot fixture set. Changing it blind, with no test file
+  of its own inside this card's write_paths to prove a safe replacement, would be a real, broad,
+  unmeasured regression - correctly declined rather than forced. Left for its own dedicated future
+  card with write access to the affected extraction tests and a careful, per-language mapping.
+
+  **AMENDMENT (post-dispatch, before acceptance): widened write_paths to absorb a measured,
+  real collateral consequence of item 1's deliberate default-shape change.** The dispatched worker
+  found 10 real test failures (`test_member_lookup.py` x7, `test_round3_unsupported_markers.py`
+  x1, `test_response_envelope.py` x2) plus 3 real e2e tests
+  (`test_pdf_go_live_content.py`/`test_pdf_typescript_live_content.py`/
+  `test_slides_python_live_content.py`) that assume `raw_text` is always present without passing
+  `include_raw_text=True` - a real, Decision-E-relevant regression if left unfixed, not a false
+  positive. These 6 files are added to write_paths for a follow-up rework: for each, pass
+  `include_raw_text=True` at the specific call sites whose result is checked for `.raw_text`
+  content (the e2e tests via the real tool-call args dict; the unit tests via the real
+  `get_symbol(...)` call), never change what each test is actually verifying.
 depends_on:
   - TC-016
   - TC-017b
@@ -132,11 +145,16 @@ depends_on:
 write_paths:
   - src/foss_mcp/mcp/tools/get_symbol.py
   - src/foss_mcp/mcp/tools/find_examples.py
-  - src/foss_mcp/extraction/tree_sitter_engine/api_surface.py
   - src/foss_mcp/mcp/server.py
   - tests/mcp/tools/test_get_symbol_raw_text_opt_in.py
   - tests/mcp/tools/test_find_examples_verified_only.py
   - tests/mcp/test_tool_surface_truthful.py
+  - tests/mcp/tools/test_member_lookup.py
+  - tests/mcp/tools/test_round3_unsupported_markers.py
+  - tests/mcp/test_response_envelope.py
+  - tests/e2e/test_pdf_go_live_content.py
+  - tests/e2e/test_pdf_typescript_live_content.py
+  - tests/e2e/test_slides_python_live_content.py
 satisfies:
   - REQ-G3-016
 source_refs:
@@ -180,32 +198,40 @@ inputs:
     rewritten test's own docstring explaining this is a deliberate TC-688/RT3 reversal of TC-584's
     original scope, with a citation to this card.
   - >-
-    (3) `kind` leak fix: replace both `"kind": cnode.type` call sites in `api_surface.py` with a
-    clean, documented kind string consistent with this file's OWN existing convention (11+ other
-    call sites already use `"property"`/`"function"`/`"constant"`/`"field"`/`"type_item"`/
-    `"record_component"` - `"type_item"` at a sibling call site already covers a similar
-    type-declaration case; use it or justify a different, equally clean choice, report which).
-    Never leak `cnode.type` (or any other raw tree-sitter/clang node-type string) into a served
-    chunk again - grep the whole file for `cnode.type`/`.type` used as a `"kind"` value after your
-    change and confirm zero remaining raw leaks.
-  - >-
-    (4) one reason enum: add named constants unifying every "no verified example" reason string
+    (3) one reason enum: add named constants unifying every "no verified example" reason string
     behind one real, importable set (e.g. a small `Enum`/`Literal`/frozen set of named constants -
     your own choice of mechanism, report which and why) that every real call site in
     `find_examples.py` uses, replacing the 4 independently-worded strings you found. The caller-
     visible TEXT of each distinct reason may stay worded as it is today (do not invent new prose
     you have not measured against real pilot behavior) - the fix is giving each one a single,
     stable, named identity a caller can match against, not rewording the messages themselves.
+    The `kind`-leak item is explicitly OUT OF SCOPE for this card (see the purpose text's own
+    amendment note) - do not touch `api_surface.py`.
+  - >-
+    REWORK (post-amendment): fix the measured collateral consequence of item 1's default-shape
+    change in the 6 widened write_paths. In `tests/mcp/tools/test_member_lookup.py`,
+    `tests/mcp/tools/test_round3_unsupported_markers.py`, and `tests/mcp/test_response_envelope.py`:
+    for each real `get_symbol(...)` call whose result is checked for `.raw_text` content, add
+    `include_raw_text=True` to that specific call (never change what the test is actually
+    verifying). `test_response_envelope.py`'s `test_upstream_text_results_are_marked_untrusted` may
+    need `include_raw_text=True` added to make a text-shaped field exist again at all; if, even
+    with it added, there genuinely is no text-shaped field left to mark untrusted for some other
+    reason, say so explicitly rather than silently deleting the assertion. In the 3 e2e files
+    (`tests/e2e/test_pdf_go_live_content.py`, `tests/e2e/test_pdf_typescript_live_content.py`,
+    `tests/e2e/test_slides_python_live_content.py`): add `"include_raw_text": True` to the real
+    `session.call_tool("get_symbol", {...})` args dict at each call site whose result is checked
+    for `result["raw_text"]`. These 3 files need a live docker-compose stack to actually execute
+    and are not part of this card's own `checks:` - edit them correctly anyway, since they encode
+    a real production assumption that would otherwise silently break at the next live deploy; say
+    so explicitly in your closeout rather than claiming them "tested" by this card's own checks.
   - >-
     Write real, deterministic unit tests in the 3 named test files proving: (a) `get_symbol`
     without `include_raw_text` omits `raw_text` from the response, with `include_raw_text=True`
     byte-for-byte reproducing today's always-on output; (b) a real lexical `find_examples` match
     now gets a real, non-empty, documented confidence value, distinct from a vector match's own
     value; (c) the rewritten `test_confidence_is_not_applicable_outside_the_vector_branch` passes
-    against the new behavior with a clear docstring citing this card; (d) both `api_surface.py`
-    kind-leak call sites now emit the clean replacement string, verified against a real or
-    representative C++ `using`/`typedef`-alias fixture; (e) `find_examples`'s 4 real reason
-    call sites now each reference one of the new named constants, and
+    against the new behavior with a clear docstring citing this card; (d) `find_examples`'s 4 real
+    reason call sites now each reference one of the new named constants; (e)
     `tests/mcp/test_tool_surface_truthful.py` (if it checks response-shape/description content at
     all - read it first) is not broken by the `include_raw_text` parameter addition.
   - >-
@@ -213,21 +239,24 @@ inputs:
     `tests/mcp/tools/test_find_examples_title_anchor.py`,
     `tests/mcp/tools/test_find_examples_code_anchor.py`,
     `tests/mcp/tools/test_find_examples_symbol_aware_matching.py`,
-    `tests/mcp/test_tool_surface_truthful.py`, and any other existing test exercising `get_symbol`'s
-    `raw_text` field or `find_examples`'s `confidence` field (grep `tests/` for both names first -
-    do not guess the list) BEFORE and AFTER your change, and report real pass/fail counts.
-    Decision E (never regress) applies to everything EXCEPT the one test this card deliberately,
-    knowingly rewrites (`test_confidence_is_not_applicable_outside_the_vector_branch`) - name every
-    other test whose assertion changes, if any, and justify each one individually; an unplanned
-    change elsewhere is a real regression, not an acceptable side effect of this card.
+    `tests/mcp/test_tool_surface_truthful.py`, `tests/mcp/tools/test_member_lookup.py`,
+    `tests/mcp/tools/test_round3_unsupported_markers.py`, `tests/mcp/test_response_envelope.py`,
+    and any other existing test exercising `get_symbol`'s `raw_text` field or `find_examples`'s
+    `confidence` field (grep `tests/` for both names first - do not guess the list) BEFORE and
+    AFTER your change, and report real pass/fail counts. Decision E (never regress) applies to
+    everything EXCEPT the one test this card deliberately, knowingly rewrites
+    (`test_confidence_is_not_applicable_outside_the_vector_branch`) - name every other test whose
+    assertion changes, if any, and justify each one individually; an unplanned change elsewhere is
+    a real regression, not an acceptable side effect of this card.
 actions:
   - >-
-    Close RT3's 4 real, scoped contract items: make `get_symbol`'s `raw_text` opt-in (3D-NET-014),
+    Close RT3's 3 real, scoped contract items: make `get_symbol`'s `raw_text` opt-in (3D-NET-014),
     give every `find_examples` match a real confidence value (SLIDES-NET-005) - both explicitly
-    pre-authorized reversals of a 2026-11-01 deferral, not fresh unapproved risk - stop
-    `api_surface.py` from leaking 2 raw tree-sitter node-type strings as `kind`, and unify
+    pre-authorized reversals of a 2026-11-01 deferral, not fresh unapproved risk - and unify
     `find_examples`'s 4 independent "no verified example" reason strings behind one named set of
-    constants. "members documented/renamed" is excluded, too vague to scope safely here.
+    constants, while fixing the measured real collateral fallout of the raw_text default change
+    in 6 widened write_paths (3 unit test files, 3 real e2e files). "members documented/renamed"
+    and the `kind`-leak item are both excluded, left for their own future cards.
 checks:
   - command: '{python} -m pytest tests/mcp/tools/test_get_symbol_raw_text_opt_in.py tests/mcp/tools/test_find_examples_verified_only.py -q -rfE -p no:cacheprovider'
     expect: 'exit 0'
@@ -235,7 +264,7 @@ checks:
     junitxml: true
     proves:
       - REQ-G3-016
-  - command: '{python} -m pytest tests/mcp/tools/test_round3_retrieval_corpus.py tests/mcp/tools/test_find_examples_title_anchor.py tests/mcp/tools/test_find_examples_code_anchor.py tests/mcp/tools/test_find_examples_symbol_aware_matching.py tests/mcp/test_tool_surface_truthful.py -q -rfE -p no:cacheprovider'
+  - command: '{python} -m pytest tests/mcp/tools/test_round3_retrieval_corpus.py tests/mcp/tools/test_find_examples_title_anchor.py tests/mcp/tools/test_find_examples_code_anchor.py tests/mcp/tools/test_find_examples_symbol_aware_matching.py tests/mcp/test_tool_surface_truthful.py tests/mcp/tools/test_member_lookup.py tests/mcp/tools/test_round3_unsupported_markers.py tests/mcp/test_response_envelope.py -q -rfE -p no:cacheprovider'
     expect: 'exit 0'
     timeout_seconds: 900
     junitxml: true
@@ -251,19 +280,21 @@ negative_control:
   rationale: >-
     Renames every reference to the new `include_raw_text` parameter, so get_symbol can no longer
     accept it and any test exercising the opt-in behavior fails (NameError/TypeError at the call
-    site or a test asserting the new default-omitted behavior breaks). Tests of the other 3 items
-    (confidence, kind leak, reason enum) that do not depend on this exact name may be unaffected -
-    acceptable, since this card requires at least the raw_text-specific tests to fail, not every
-    test in the file.
+    site or a test asserting the new default-omitted behavior breaks). Tests of the other 2
+    in-scope items (confidence, reason enum) that do not depend on this exact name may be
+    unaffected - acceptable, since this card requires at least the raw_text-specific tests to
+    fail, not every test in the file.
 evidence:
   - evidence/build/G3/TC-688/receipt.json
 closeout:
   - >-
     `get_symbol`'s `raw_text` is now opt-in (default omitted, shrinking every default response)
     and every `find_examples` match now carries a real confidence value - both deliberate,
-    pre-authorized reversals of a 2026-11-01 deferral recorded for exactly this card. A raw
-    tree-sitter node-type leak in `api_surface.py`'s `kind` field is fixed at its only 2 real call
-    sites, and `find_examples`'s 4 independent "no verified example" reason strings are unified
-    behind one named set of constants. "members documented/renamed" remains open, deliberately
-    excluded as too vague to scope safely in this card.
+    pre-authorized reversals of a 2026-11-01 deferral recorded for exactly this card.
+    `find_examples`'s 4 independent "no verified example" reason strings are unified behind one
+    named set of constants. The real, measured collateral fallout of the raw_text default change
+    (6 files: 3 unit tests, 3 e2e tests) is fixed in the same card. "members documented/renamed"
+    and the `kind`-leak item in `api_surface.py` remain open, deliberately excluded - the former
+    too vague to scope safely, the latter a real, broad, unmeasured regression risk the dispatched
+    worker correctly declined to force without its own test coverage.
 recovery: Re-run from a clean tree.
