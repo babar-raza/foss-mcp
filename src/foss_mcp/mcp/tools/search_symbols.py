@@ -232,6 +232,33 @@ every field since TC-562 already follows) now carries that label - ``"exact_fqn"
 for the three fallback stages below them - computed from information ``search_symbols`` already had
 in hand at each site, with zero change to tier order, admission, or any existing ``match_quality``
 value anywhere.
+
+TC-675 (G3/REQ-G3-011, Q14): ``suggest_similar_fqns`` gains a THIRD, additive fallback tier - tried
+only when the two existing tiers (TC-386's full-FQN and final-segment character-sequence comparisons)
+both return empty - reusing ``lexical_index_writer.tokenize()`` (already imported above, never
+reimplemented) to compare *target*'s own final segment and each known FQN's own final segment as WORD
+SETS rather than character sequences, so a compound identifier built from the same words in a
+different order (``"Format_Condition"`` vs the real ``Condition_Format``) is now suggested where
+``difflib`` alone saw only dissimilar character sequences and returned nothing. ``_word_set`` and
+``_word_aware_suggestions`` below are additive; neither existing tier's own comparison, cutoff or
+return value changes.
+
+MEASURED, not merely hand-traced, against ``tokenize()`` as it actually runs today: a word-order swap
+of a SEPARATOR-joined compound (an underscore, as above, or any boundary ``tokenize()``'s own
+``_TOKEN_RE`` already splits on) produces equal word sets and is caught by this tier. A word-order
+swap of a pure camelCase/PascalCase compound with NO separator between the swapped words (e.g. the
+literal ``"FragmentText"`` vs a real ``TextFragment``, or ``"CollectionPage"`` vs a real
+``PageCollection`` - this card's own two cited motivating examples) is NOT caught: ``tokenize()``
+always additionally emits the WHOLE alphanumeric run as its own token (so a camelCase identifier still
+matches a verbatim-identifier query), and that whole-run token necessarily differs by concatenation
+order between the two orderings (``"fragmenttext"`` vs ``"textfragment"``), so the two word sets are
+never equal even though their SUB-word tokens agree. Reproduced directly, before trusting either
+reasoning or the card's own prior claim:  ``_word_set("FragmentText") == _word_set("TextFragment")``
+is ``False``; ``_word_set("Condition_Format") == _word_set("Format_Condition")`` is ``True``. This
+card's own tests (below) therefore prove the tier against a separator-joined fixture, which it
+genuinely fixes, rather than against the literal no-separator example the card's own reproduction
+used, which this exact, verbatim-required tier shape does not fix - see this card's own worker report
+for the full measurement.
 """
 
 from __future__ import annotations
@@ -240,7 +267,7 @@ import math
 import re
 import string
 from collections import OrderedDict
-from collections.abc import Collection, Iterable, Mapping
+from collections.abc import Collection, Iterable, Mapping, Sequence
 from dataclasses import dataclass
 from difflib import get_close_matches
 from typing import TYPE_CHECKING
@@ -572,6 +599,27 @@ def _declared_member_names(text: str) -> set[str]:
     return names
 
 
+def _word_set(segment: str) -> frozenset[str]:
+    return frozenset(tokenize(segment))
+
+
+def _word_aware_suggestions(known: Sequence[str], target_segment: str, limit: int) -> tuple[str, ...]:
+    """TC-675 (G3/REQ-G3-011, Q14): every known FQN whose own final segment has EXACTLY the same word
+    set (``tokenize()``, reused rather than reimplemented) as *target_segment* - the third, weakest
+    fallback tier ``suggest_similar_fqns`` tries only once both its own character-sequence tiers are
+    empty. See this module's own docstring for the real, measured shape of what this does and does not
+    catch."""
+    target_words = _word_set(target_segment)
+    if not target_words:
+        return ()
+    matches: list[str] = []
+    for fqn in known:
+        segment = _FINAL_SEGMENT.split(fqn.strip())[-1]
+        if _word_set(segment) == target_words and fqn not in matches:
+            matches.append(fqn)
+    return tuple(sorted(matches)[:limit])
+
+
 def suggest_similar_fqns(known_fqns: Iterable[str], target: str, *, limit: int = 3) -> tuple[str, ...]:
     """Fuzzy "did you mean" suggestions for *target*, drawn only from *known_fqns*.
 
@@ -587,6 +635,13 @@ def suggest_similar_fqns(known_fqns: Iterable[str], target: str, *, limit: int =
     ``::``) compared against each known FQN's final segment at cutoff 0.75, so a misspelt bare
     type name such as ``Workbok`` still finds ``Workbook`` although every known FQN is
     namespaced; the matching full FQNs are returned deduplicated, at most *limit* of them.
+
+    Only when THAT is also empty (TC-675) is a third, word-set-based tier tried
+    (``_word_aware_suggestions``): *target*'s own final segment and each known FQN's own final segment
+    are split into word sets with ``lexical_index_writer.tokenize()`` and compared for EQUALITY (not
+    mere overlap), so a compound identifier built from the same words in a different order is now
+    suggested where plain character-sequence similarity saw nothing - see this module's own docstring
+    for exactly which word-order swaps this does and does not catch.
     """
     known = list(known_fqns)
     by_full = tuple(get_close_matches(target, known, n=limit, cutoff=0.6))
@@ -603,7 +658,9 @@ def suggest_similar_fqns(known_fqns: Iterable[str], target: str, *, limit: int =
         for fqn in sorted(set(by_segment[segment])):
             if fqn not in suggestions:
                 suggestions.append(fqn)
-    return tuple(suggestions[:limit])
+    if suggestions:
+        return tuple(suggestions[:limit])
+    return _word_aware_suggestions(known, target_segment, limit)
 
 
 def scope_key(scope: Scope, source_kind: str) -> str:
