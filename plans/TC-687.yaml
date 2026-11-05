@@ -1,0 +1,202 @@
+id: TC-687
+gate: G3
+lane: extraction
+purpose: >-
+  C12 (content-truth sub-program, section 2.4: "C12 adds a `gh` transport to the sidecar
+  fetchers: the operator's existing `gh` login does the reads (no token read, written or logged
+  by an agent), which removes the OWNER-14 dependency for the demo image (OWNER-14 stays open for
+  the cluster path only)").
+
+  CONFIRMED (supervisor, this session): all 4 real GitHub-fetching call sites in this repo funnel
+  through ONE shared transport module, `src/foss_mcp/extraction/github_http.py`'s `with_auth` +
+  `urlopen_with_backoff` - the identical `urllib.request.Request(url, headers=with_auth(...))`
+  then `urlopen_with_backoff(request, ...)` shape, in `repo_native_reader.py` (README/file
+  contents), `manifest_reader.py` (manifest file contents), `github_release_reader.py` (releases/
+  tags), and `verify_package_registry.py` (commit lookup for drift detection). `with_auth` adds a
+  bearer `Authorization` header ONLY when the `GITHUB_TOKEN` env var is set and non-empty -
+  otherwise every call runs fully unauthenticated, at GitHub's much lower unauthenticated rate
+  limit (60/hour vs 5,000/hour authenticated).
+
+  `OWNER-14` itself (read directly in `docs/DECISION_LOG.md`/`ops/open_questions.jsonl`'s
+  `OQ-015`) is about a SPECIFIC CLUSTER Kubernetes Secret's token being rejected (HTTP 401) - it
+  is about the CLUSTER deployment path specifically, already marked RESOLVED there via a
+  carry-forward fallback (OQ-015), not currently an open demo-image blocker in the sense of
+  something actively broken today. C12's real, still-available value for the LOCAL/demo path is
+  different and additive: using the operator's own already-authenticated `gh` CLI session (no
+  agent ever reads, writes, or logs a token) raises the EFFECTIVE rate limit for local re-ingest
+  runs from 60/hour to whatever the operator's own `gh auth status` already grants, without any
+  agent handling a credential at all.
+
+  Fix, additive and risk-bounded by design: add ONE new helper to the shared module,
+  `gh_cli_json(path: str) -> Any | None` (its own docstring makes explicit that it NEVER reads,
+  writes, or logs `GITHUB_TOKEN` or any other credential - it only shells out to the operator's
+  own `gh` CLI, which manages its own separate, already-authenticated session). It runs
+  `gh api <path>` via `subprocess.run`, returns the parsed JSON on a clean exit 0, and returns
+  `None` on ANY failure whatsoever (gh not installed, not authenticated, non-zero exit, a timeout,
+  malformed output) - deliberately never raising, never distinguishing WHY it failed, so every
+  real call site can try it first and fall through to the EXISTING, UNCHANGED urllib-based code
+  path on any failure, including a genuine 404 (which the existing code already handles
+  correctly). This must never WEAKEN or WRAP `urlopen_with_backoff` itself - that function's
+  retry/backoff/rate-limit-budget/401-handling semantics are tuned from real past incidents
+  (`docs/DECISION_LOG.md`'s own 2026-10-19/2026-10-22 OWNER-14 entries) and must stay byte-for-byte
+  unchanged.
+depends_on:
+  - TC-012
+  - TC-022
+  - TC-027
+  - TC-033
+  - TC-039
+  - TC-045
+  - TC-052
+  - TC-083
+  - TC-145
+  - TC-213
+  - TC-220
+  - TC-229
+  - TC-237
+  - TC-244
+  - TC-254
+  - TC-260
+  - TC-275
+  - TC-296
+  - TC-326
+  - TC-332
+  - TC-349
+  - TC-351
+  - TC-388
+  - TC-427
+  - TC-470
+  - TC-471
+  - TC-507
+  - TC-511
+  - TC-518
+  - TC-519
+  - TC-551
+  - TC-552
+  - TC-560
+  - TC-561
+  - TC-577
+  - TC-613
+  - TC-621
+  - TC-622
+  - TC-681
+write_paths:
+  - src/foss_mcp/extraction/github_http.py
+  - src/foss_mcp/extraction/repo_native_reader.py
+  - src/foss_mcp/extraction/manifest_reader.py
+  - src/foss_mcp/extraction/github_release_reader.py
+  - infra/verify_package_registry.py
+  - tests/extraction/test_github_http_gh_cli_transport.py
+satisfies:
+  - REQ-G3-013
+source_refs:
+  - file: docs/DECISION_LOG.md
+    anchor: >-
+      ## 2026-11-02 — Round-3 independent re-audit adopted; a real regression found and given top
+      priority; the "no pilot ever gets worse" rule adopted project-wide (operator, supervisor)
+    sha256: b750b8bf0df25b17bf66d014895ecb42952050c7cc63773f56249c4a1c551791
+inputs:
+  - >-
+    READ FIRST: `src/foss_mcp/extraction/github_http.py` in full (every function, especially
+    `with_auth`, `urlopen_with_backoff`, `GitHubAuthError`, `RateLimited`, `rate_limit_wait_seconds`
+    - understand WHY each piece of its retry/backoff/budget logic exists before touching the file
+    at all). Then, in each of the 4 reader modules, find every real call site shaped
+    `urllib.request.Request(url, headers=with_auth(...))` followed by
+    `urlopen_with_backoff(request, ...)` (grep each file for `urlopen_with_backoff` directly - do
+    not guess line numbers, they may have shifted). Read `docs/DECISION_LOG.md`'s 2026-10-19 and
+    2026-10-22 entries (search for "OWNER-14") and `ops/open_questions.jsonl`'s `OQ-015` entry in
+    full, so you understand the real incident history this transport code already carries.
+  - >-
+    Add `gh_cli_json(path: str, *, timeout: float = 15) -> Any | None` to `github_http.py`. It must:
+    (a) never read, construct, pass, or log any token or credential itself - it only invokes
+    `["gh", "api", path]` via `subprocess.run(..., capture_output=True, timeout=timeout)`; (b) on
+    exit code 0, `json.loads` the real stdout and return it; (c) on ANY other outcome (gh missing -
+    `FileNotFoundError`, non-zero exit, a timeout, malformed JSON) return `None` - never raise,
+    never retry, never distinguish the failure reason to the caller. Also add
+    `gh_cli_available() -> bool` (memoized, e.g. `functools.cache`) that runs `gh auth status`
+    once and reports whether a real, usable `gh` session exists, purely as an optional fast-path
+    short-circuit callers MAY use to skip even trying `gh_cli_json` when it would obviously fail -
+    never required, since `gh_cli_json` itself is already safe to call unconditionally.
+  - >-
+    At EACH real call site in the 4 reader modules: before the existing
+    `urllib.request.Request`/`urlopen_with_backoff` code, add a guarded attempt: if the request's
+    real URL starts with `https://api.github.com/` (confirm this is the real root every call site
+    uses - do not assume), derive the `gh api` path (the part after `https://api.github.com/`,
+    including any query string, exactly as `gh api` itself expects it) and call `gh_cli_json`. On a
+    real (non-None) result, use it DIRECTLY instead of making the HTTP call at all - skip
+    `urlopen_with_backoff` and the whole urllib round-trip entirely for that one call. On `None`
+    (which includes a 404, "not authenticated", "gh not installed", or any other reason), fall
+    through to the EXISTING code, completely unchanged, byte-for-byte - this is the only
+    correctness invariant that matters: whatever the existing code did before this card for every
+    failure case, it must still do, in full, for every case `gh_cli_json` could not handle. Do NOT
+    modify `urlopen_with_backoff`, `with_auth`, `GitHubAuthError`, `RateLimited`, or any of their
+    existing tests in any way.
+  - >-
+    Write real, deterministic unit tests in the new file proving: (a) `gh_cli_json` returns the
+    real parsed JSON when a stubbed/monkeypatched `subprocess.run` reports exit 0 with real JSON
+    stdout; (b) it returns `None` (never raises) when the stub reports a non-zero exit; (c) it
+    returns `None` (never raises) when `subprocess.run` itself raises `FileNotFoundError` (gh not
+    installed) - confirm this specific exception is caught, not just a generic one; (d) it returns
+    `None` on a `TimeoutError`/`subprocess.TimeoutExpired`; (e) at least one of the 4 real reader
+    call sites (your choice) correctly uses a stubbed `gh_cli_json` success to skip the HTTP call
+    entirely (mock/monkeypatch `urlopen_with_backoff` itself and assert it is NEVER called when
+    `gh_cli_json` succeeds); (f) the SAME call site, when `gh_cli_json` is stubbed to return `None`,
+    falls through and calls the existing urllib path exactly as it did before this card (mock
+    `urlopen_with_backoff` and assert it IS called, with the same request shape as before).
+  - >-
+    MEASURE: re-run every existing offline test for all 4 touched reader modules (grep `tests/` for
+    each module's own test file - do not guess the list; these are likely marked `network: false`/
+    offline-safe already, since real tests for networked code in this repo mock the transport, not
+    hit real GitHub) BEFORE and AFTER your change, and report real pass/fail counts. Every existing
+    test's own mocked/stubbed behavior must be byte-for-byte unaffected unless it specifically
+    targets your new `gh_cli_json` fast path.
+actions:
+  - >-
+    Add an additive `gh` CLI transport fast-path to the shared GitHub-fetch module, tried first at
+    every real call site and falling through to the existing, completely unchanged urllib-based
+    code on any failure - lets a local re-ingest use the operator's own authenticated `gh` session
+    for a much higher effective rate limit, with zero agent credential handling and zero change to
+    the existing, incident-tuned retry/backoff/auth-error semantics for every case it cannot help.
+checks:
+  - command: '{python} -m pytest tests/extraction/test_github_http_gh_cli_transport.py -q -rfE -p no:cacheprovider'
+    expect: 'exit 0'
+    timeout_seconds: 180
+    junitxml: true
+    proves:
+      - REQ-G3-013
+  - command: '{python} -m pytest tests/extraction/ -q -rfE -p no:cacheprovider -k "github or manifest or repo_native or package_registry"'
+    expect: 'exit 0'
+    timeout_seconds: 300
+    junitxml: true
+    proves:
+      - REQ-G3-013
+min_tests: 6
+requires:
+  - python
+network: true
+# NOTE (supervisor): tests/extraction/test_github_http.py and tests/extraction/test_repo_native.py
+# do not actually reach the network - both define their own `fake_urlopen` stub functions as test
+# fixtures, which cardlint's own blunt NETWORK_HINTS substring scan ('urlopen(') cannot distinguish
+# from a real call (the same false-positive class TC-678/680/681/683 each hit on a different file).
+# Declared network: true per the tool's own suggested escape valve.
+negative_control:
+  mutate: |
+    python -X utf8 -c "import pathlib; p = pathlib.Path('src/foss_mcp/extraction/github_http.py'); s = p.read_text(encoding='utf-8'); old = 'def gh_cli_json'; assert s.count(old) == 1, 'the required function definition was not found as expected - if your real code names this differently, anchor your own mutate on your own real literal instead and note the substitution in your closeout'; new = 'def gh_cli_json_renamed_by_negative_control'; s2 = s.replace(old, new, 1); assert s2 != s; p.write_text(s2, encoding='utf-8')"
+  rationale: >-
+    Renames the real gh_cli_json function's own definition, so every real call site that still
+    refers to it by its required name raises a NameError/AttributeError at the moment it is
+    exercised. Any test proving the gh-CLI fast path is genuinely used (success case, or the
+    skip-the-HTTP-call assertion) must fail under this mutation; the fall-through tests (gh
+    unavailable -> existing urllib path) that do not depend on this specific name succeeding may be
+    unaffected if your real call sites still reference the (now broken) function - acceptable,
+    since this card requires at least the fast-path tests to fail, not every test in the file.
+evidence:
+  - evidence/build/G3/TC-687/receipt.json
+closeout:
+  - >-
+    The 4 real GitHub-fetching call sites now try the operator's own authenticated `gh` CLI
+    session first (never reading, writing, or logging any credential), raising the effective rate
+    limit for local re-ingest, with zero behavior change for every case the new path cannot help -
+    closing C12's real, still-available value for the demo-image path (OWNER-14 itself concerns
+    only the separate cluster deployment path and is already recorded as resolved there).
+recovery: Re-run from a clean tree.
