@@ -1,0 +1,122 @@
+id: TC-679
+gate: G3
+lane: verification
+purpose: >-
+  O3 (oracle sub-program, section 2.3: "oracle honours the definition" - the follow-on to O2/
+  TC-676, which wired only `visibility` into production and explicitly left `scope_roots`,
+  `excluded_dirs`, `kind_model`, `member_kinds` as documentation-only). Of those 4 remaining
+  fields, 3 are NOT real wiring opportunities: `scope_roots: module-level` is prose (Python's own
+  oracle has no sub-package glob to apply); `kind_model`/`member_kinds` are structurally DERIVED
+  from AST inspection inside `_python_symbol_from_classdef` (whether something is "enum" vs
+  "class" depends on checking real base-class names, not a lookup table a config list could
+  drive) - wiring either would not change any real decision, only restate it. The one genuine,
+  O2-shaped wiring opportunity: `enumerate_python`'s directory-exclusion check
+  (`scripts/release/source_differential.py:810`) hardcodes
+  `{"tests", "test", "examples", "docs"}` as a Python set literal - the EXACT same set
+  `config/public_api_definition/python.yaml`'s own `excluded_dirs` field already documents, but
+  does not yet drive.
+
+  This card wires `excluded_dirs` into that one real production decision, mirroring O2's own
+  precedent exactly: `_load_public_api_definition("python")` (already built, used by
+  `_is_public_python_name`) is reused to read the list, converted to a set, and the `any(part in
+  {...} for part in path.parts)` check consults it instead of the hardcoded literal - proved
+  byte-for-byte identical across a real measured corpus of paths before/after.
+depends_on:
+  - TC-676
+write_paths:
+  - scripts/release/source_differential.py
+  - tests/release/test_oracle_public_api_definition.py
+satisfies:
+  - REQ-G3-012
+source_refs:
+  - file: docs/DECISION_LOG.md
+    anchor: >-
+      ## 2026-11-02 — Round-3 independent re-audit adopted; a real regression found and given top
+      priority; the "no pilot ever gets worse" rule adopted project-wide (operator, supervisor)
+    sha256: b750b8bf0df25b17bf66d014895ecb42952050c7cc63773f56249c4a1c551791
+inputs:
+  - >-
+    READ FIRST: `scripts/release/source_differential.py`'s `enumerate_python` (the directory-
+    exclusion check at its own real current line, confirm it has not shifted),
+    `_load_public_api_definition`, `_is_public_python_name` (O2's own wiring, the pattern to
+    follow exactly). Read `config/public_api_definition/python.yaml`'s `excluded_dirs` field and
+    its own comment in full.
+  - >-
+    REPRODUCE FIRST: confirm with your own eyes, by reading the real committed code, that
+    `enumerate_python`'s exclusion check today is the literal Python set
+    `{"tests", "test", "examples", "docs"}`, hardcoded inline, never reading the YAML file.
+  - >-
+    Wire it: replace the hardcoded set literal with one built from
+    `_load_public_api_definition("python")["excluded_dirs"]` (a list in the YAML; convert to a
+    `frozenset`/`set` once - your choice whether at call time or memoized alongside the existing
+    `_load_public_api_definition` cache, report which and why). The membership check itself
+    (`any(part in <set> for part in path.parts)`) stays exactly as it is - only where the set of
+    names comes from changes.
+  - >-
+    Prove byte-for-byte identical behavior: construct a real, representative list of `Path`
+    objects (both real excluded-dir shapes - `.../tests/foo.py`, `.../examples/bar.py`, etc. - and
+    real non-excluded shapes drawn from this repo's own committed oracle test fixtures, grep
+    `tests/release/test_source_differential.py` for real path strings already used in its own
+    `enumerate_python` tests) and assert the OLD hardcoded check and the NEW config-driven check
+    agree on every one of them. Keep the old hardcoded check as a test-only reference copy
+    (e.g. `_excluded_dirs_v1_reference`, test file only, never in production), the same pattern
+    O2's own test used for `_is_public_python_name_v1_reference`.
+  - >-
+    Add a schema-validation-adjacent test proving `excluded_dirs` in the real committed
+    `python.yaml` is a non-empty list of strings and that your new production code actually reads
+    it (a live-read-not-cached proof: monkeypatch `PUBLIC_API_DEFINITION_DIR` to a synthetic
+    directory with a different `excluded_dirs` list, clear `_load_public_api_definition`'s cache,
+    and confirm the exclusion check's real behavior changes accordingly) - the same style O2's own
+    test used for its own live-read proof.
+  - >-
+    MEASURE: re-run every existing test in `tests/release/test_source_differential.py` that
+    exercises `enumerate_python` (grep for the function name) BEFORE and AFTER your change, and
+    report both real pass/fail counts. Every existing enumeration result must be byte-for-byte
+    unchanged (Decision E: never regress). `enumerate_python`'s own Go/Rust/dotnet enumerator
+    siblings (unrelated to this field) must not be touched at all - this card is Python's
+    directory-exclusion check only.
+actions:
+  - >-
+    Wire `config/public_api_definition/python.yaml`'s `excluded_dirs` field into
+    `enumerate_python`'s real production directory-exclusion decision, replacing the hardcoded set
+    literal, with a measured identical-behavior proof and a live-read-not-cached proof - closing
+    the one genuine remaining O3 wiring opportunity for Python (the other 3 undocumented fields
+    are structural, not wireable, per this card's own purpose text).
+checks:
+  - command: '{python} -m pytest tests/release/test_oracle_public_api_definition.py -q -rfE -p no:cacheprovider'
+    expect: 'exit 0'
+    timeout_seconds: 180
+    junitxml: true
+    proves:
+      - REQ-G3-012
+  - command: '{python} -m pytest tests/release/test_source_differential.py -q -rfE -p no:cacheprovider -k "python or enumerate_python"'
+    expect: 'exit 0'
+    timeout_seconds: 300
+    junitxml: true
+    proves:
+      - REQ-G3-012
+min_tests: 4
+requires:
+  - python
+network: false
+negative_control:
+  mutate: |
+    python -X utf8 -c "import pathlib; q = chr(34); p = pathlib.Path('config/public_api_definition/python.yaml'); s = p.read_text(encoding='utf-8'); old = q + 'docs' + q; assert s.count(old) == 1, 'the required literal was not found as expected - if your real file formats this differently (e.g. unquoted), anchor your own mutate on your own real literal instead and note the substitution in your closeout'; p.write_text(s.replace(old, q + 'ZZZ_NEVER_A_REAL_DIR' + q, 1), encoding='utf-8')"
+  rationale: >-
+    Renames "docs" to a string no real pilot's directory tree ever contains, so any file under a
+    real "docs" directory stops being excluded if (and only if) production code genuinely reads
+    this file at runtime rather than a cached/hardcoded copy. Any test proving a docs-directory
+    path is still correctly excluded must fail under this mutation; a test using only tests/test/
+    examples paths is unaffected (only the docs entry was mutated), proving the wiring reads the
+    real list rather than a single hardcoded boolean.
+evidence:
+  - evidence/build/G3/TC-679/receipt.json
+closeout:
+  - >-
+    `enumerate_python`'s directory-exclusion check now reads `config/public_api_definition/
+    python.yaml`'s own `excluded_dirs` field at runtime instead of a hardcoded set literal, proved
+    byte-for-byte identical to the old behavior and proved to genuinely read the file (not a cached
+    copy) - closing O3's one real Python wiring opportunity; the other 3 undocumented fields
+    (scope_roots, kind_model, member_kinds) are confirmed structural, not wireable, and need no
+    further card for Python.
+recovery: Re-run from a clean tree.
