@@ -288,6 +288,52 @@ def _named_symbols(store: GenerationManifestStore, scope: Scope, query: str) -> 
     )
 
 
+def _suggested_symbols(
+    store: GenerationManifestStore, scope: Scope, suggestions: tuple[str, ...]
+) -> tuple[SymbolMatch, ...]:
+    """G3/TC-684 (REQ-G3-011, WORDS-NET-004): the real symbol chunk(s) ``search_symbols`` itself already
+    named as a did-you-mean ``Miss.suggestions`` (TC-143) for a dotted/scoped identifier-like query
+    (e.g. ``"StyleIdentifier.Normal"`` suggesting ``"Aspose.Words.StyleIdentifier"``), looked up by exact
+    FQN the same way ``_named_symbols`` above reads the lexical index - so a real suggestion is surfaced
+    as a genuine, labelled-``partial`` symbol instead of being silently discarded when a lower-confidence
+    docs/example answer happens to exist. ``()`` when *suggestions* is empty or names nothing indexed
+    (never fabricated); at most ``_MAX_NAMED_SYMBOLS``, in *suggestions*' own order.
+    """
+    if not suggestions:
+        return ()
+    key = scope_key(scope, SOURCE_KIND)
+    generation_id = store.read_active(key)
+    if generation_id is None:
+        return ()
+    payload = store.read_generation(key, generation_id).payload.get("lexical_index") or {}
+    documents = payload.get("documents") or {}
+    by_fqn: dict[str, str] = {}
+    for doc_id, document in documents.items():
+        text = document["text"]
+        if chunk_kind(text) != SYMBOL:
+            continue
+        fqn = extract_fqn(text)
+        if fqn is not None and fqn not in by_fqn:
+            by_fqn[fqn] = doc_id
+    chosen: list[SymbolMatch] = []
+    for suggestion in suggestions:
+        doc_id = by_fqn.get(suggestion)
+        if doc_id is None or len(chosen) >= _MAX_NAMED_SYMBOLS:
+            continue
+        chosen.append(
+            SymbolMatch(
+                scope=scope,
+                generation_id=generation_id,
+                doc_id=doc_id,
+                chunk_id=documents[doc_id]["chunk_id"],
+                text=documents[doc_id]["text"],
+                match_quality=MATCH_PARTIAL,
+                limitation=limitation_line(documents[doc_id]["text"]),
+            )
+        )
+    return tuple(chosen)
+
+
 # TC-562: the words of a paragraph that says something is NOT available in this build.
 _NEGATION_CUES = (
     "not supported",
@@ -592,6 +638,16 @@ def lookup(
 
     task_answer = _compose_from_docs()
     if task_answer is not None:
+        # G3/TC-684 (REQ-G3-011, WORDS-NET-004): this bare, identifier-like query (not a task
+        # question - see the branch above) got a real "did you mean" suggestion directly from
+        # search_symbols itself, and nothing has already named a symbol for it (named_symbols/
+        # explained_symbols both empty) - surface that suggestion in the answer's own ``symbols``
+        # field, labelled ``partial`` (it is a hint, not a confirmed resolution), rather than
+        # silently losing it to a merely-partial docs/example answer.
+        if isinstance(symbol_result, Miss) and symbol_result.suggestions and not task_answer.symbols:
+            suggested = _suggested_symbols(store, scope, symbol_result.suggestions)
+            if suggested:
+                task_answer = replace(task_answer, symbols=suggested)
         return task_answer
 
     return _answer_naming_a_type() or _lookup_miss(symbol_result, query)

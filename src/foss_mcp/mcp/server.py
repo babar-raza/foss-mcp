@@ -468,7 +468,10 @@ TOOL_DESCRIPTIONS: dict[str, str] = {
         "next page; if the response says lower-ranked items were left out, set offset to the "
         "number of matches you received. Caveat: the API index may hold only part of a library's types, so a miss does "
         "not prove a type is absent upstream; report_index_freshness says how many types the "
-        "index holds when that is known."
+        "index holds when that is known. On a Go or Rust pilot, a matched chunk's own Qualified: "
+        "line shows the symbol's package- or crate-qualified display form for readability only - "
+        "query and fqn always take the bare identifier shown on that same chunk's FQN: line, "
+        "never the Qualified: form."
     ),
     "get_symbol": (
         "Return the exact signature - kind, bases, methods, properties, members - for ONE "
@@ -486,7 +489,9 @@ TOOL_DESCRIPTIONS: dict[str, str] = {
         "contain. PREFERRED one-shot call once you know the exact FQN - no need to chain "
         "search_symbols first in that case. Caveat: a Go, Rust or TypeScript symbol name is not "
         "an import path - use get_product_reference with section='install' and the product "
-        "README for imports."
+        "README for imports. On a Go or Rust pilot, a chunk's own Qualified: line shows the "
+        "symbol's package- or crate-qualified display form for readability only - fqn is always "
+        "the bare identifier shown on that same chunk's FQN: line, never the Qualified: form."
     ),
     "list_members": (
         "List every method, property, and enum member a TYPE declares, in declaration order "
