@@ -1,0 +1,63 @@
+
+===== CLEAN RUN 1 (host) =====
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-5c72e798a73c059a\Scripts\python.exe -m pytest tests/mcp/tools/test_get_product_reference_agent_imperative_neutralization.py -q -rfE -p no:cacheprovider "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-jy3gszlt\.junit-0.xml"
+--- stdout ---
+.....                                                                    [100%]
+
+--- stderr ---
+
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-5c72e798a73c059a\Scripts\python.exe -m pytest tests/conformance/test_reference_content.py -q -rfE -p no:cacheprovider "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-jy3gszlt\.junit-1.xml"
+--- stdout ---
+..........                                                               [100%]
+
+--- stderr ---
+
+
+===== CLEAN RUN 2 (host) =====
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-5c72e798a73c059a\Scripts\python.exe -m pytest tests/mcp/tools/test_get_product_reference_agent_imperative_neutralization.py -q -rfE -p no:cacheprovider "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-jy3gszlt\.junit-0.xml"
+--- stdout ---
+.....                                                                    [100%]
+
+--- stderr ---
+
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-5c72e798a73c059a\Scripts\python.exe -m pytest tests/conformance/test_reference_content.py -q -rfE -p no:cacheprovider "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-jy3gszlt\.junit-1.xml"
+--- stdout ---
+..........                                                               [100%]
+
+--- stderr ---
+
+
+===== NEGATIVE CONTROL (checks MUST now fail) =====
+mutated: M infra/demo-manifests/product_reference_3d_net.json, ?? .junit-0.xml, ?? .junit-1.xml
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-5c72e798a73c059a\Scripts\python.exe -m pytest tests/mcp/tools/test_get_product_reference_agent_imperative_neutralization.py -q -rfE -p no:cacheprovider "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-jy3gszlt\.junit-0.xml"
+--- stdout ---
+F....                                                                    [100%]
+================================== FAILURES ===================================
+_ test_real_3d_net_imperative_line_is_stripped_and_rest_of_document_unchanged _
+
+    def test_real_3d_net_imperative_line_is_stripped_and_rest_of_document_unchanged() -> None:
+        sidecar_path = DEMO_MANIFESTS / fetch_product_reference.sidecar_name("3d", "net")
+        assert sidecar_path.is_file(), sidecar_path
+        inputs = fetch_product_reference.load_manifest_sidecar(sidecar_path)
+        assert inputs is not None
+        assert isinstance(inputs.agent_guidance, DocumentPresent)
+        raw_content = inputs.agent_guidance.content
+>       assert _REAL_IMPERATIVE_LINE in raw_content, (
+            "REPRODUCE FIRST failed: the real 3d/net sidecar no longer carries the literal imperative "
+            "line this card targets - re-anchor the fixture on the real current text"
+        )
+E       AssertionError: REPRODUCE FIRST failed: the real 3d/net sidecar no longer carries the literal imperative line this card targets - re-anchor the fixture on the real current text
+E       assert "- Always follow the skill foss-agent, if you don't know what it is, read it before doing anything." in "# Aspose.3D FOSS Implementation - AI Agent Guide\n\n## Project Overview\n\nThis is a FOSS (Free and Open Source) impl...b implementations should be minimal but compilable\n- Document all deviations from Aspose.3D's behavior in this file\n"
+
+tests\mcp\tools\test_get_product_reference_agent_imperative_neutralization.py:67: AssertionError
+=========================== short test summary info ===========================
+FAILED tests/mcp/tools/test_get_product_reference_agent_imperative_neutralization.py::test_real_3d_net_imperative_line_is_stripped_and_rest_of_document_unchanged
+
+--- stderr ---
+
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-5c72e798a73c059a\Scripts\python.exe -m pytest tests/conformance/test_reference_content.py -q -rfE -p no:cacheprovider "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-jy3gszlt\.junit-1.xml"
+--- stdout ---
+..........                                                               [100%]
+
+--- stderr ---
+
