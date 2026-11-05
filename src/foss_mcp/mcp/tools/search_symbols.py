@@ -949,6 +949,12 @@ class _Entry:
     member_wholes: frozenset[str]
     has_members: bool
     body_hash: int
+    # TC-686 (I5, REQ-G3-012): this chunk's own canonical identity - its ``Defined-In:`` value when
+    # it is a re-export shell, else its own ``fqn`` (the same convention ``get_symbol._SymbolChunk.
+    # canonical_id`` reads, via the shared ``get_symbol.extract_defined_in`` helper so both readers
+    # parse the one ``Defined-In:`` line convention identically).
+    canonical_id: str
+    is_shell: bool
 
 
 # A generation is read once per process; the cache holds the generation's own documents object so an id can never
@@ -970,7 +976,7 @@ def _whole_key(name: str) -> str:
 
 
 def _entries(documents: Mapping[str, Mapping[str, str]]) -> list[_Entry]:
-    from foss_mcp.mcp.tools.get_symbol import _extract_block, extract_fqn
+    from foss_mcp.mcp.tools.get_symbol import _extract_block, extract_defined_in, extract_fqn
     from foss_mcp.mcp.tools.relevance import canon
 
     cached = _entry_cache.get(id(documents))
@@ -995,10 +1001,12 @@ def _entries(documents: Mapping[str, Mapping[str, str]]) -> list[_Entry]:
                 if found is not None and found.group(0) != "this":
                     names.append(found.group(0))
         body = "\n".join(line for line in text.splitlines() if not line.startswith(_BODY_SKIPPED_PREFIXES))
+        fqn = fqn.strip()
+        defined_in = extract_defined_in(text)
         entries.append(
             _Entry(
                 doc_id=doc_id,
-                fqn=fqn.strip(),
+                fqn=fqn,
                 short=short,
                 type_keys=frozenset(canon(word) for word in _words_of(short)),
                 whole_key=_whole_key(short),
@@ -1006,6 +1014,8 @@ def _entries(documents: Mapping[str, Mapping[str, str]]) -> list[_Entry]:
                 member_wholes=frozenset(_whole_key(name) for name in names),
                 has_members=bool(names),
                 body_hash=hash(body),
+                canonical_id=defined_in or fqn,
+                is_shell=defined_in is not None,
             )
         )
     _entry_cache[id(documents)] = (documents, entries)
@@ -1295,25 +1305,63 @@ def _tier_match_kind(tier: int, inherits_only: int) -> str:
 
 
 def _collapse_aliases(
-    entries_by_doc: Mapping[str, _Entry], ordered: list[str]
+    entries_by_doc: Mapping[str, _Entry], ordered: list[str], kinds: Mapping[str, str] | None = None
 ) -> tuple[list[str], dict[str, tuple[str, ...]]]:
-    """Drops the later chunks that are the same type under another name (the same short name and body, such as a
-    Python re-export), keeping the first; returns the kept ids and each kept id's alias FQNs."""
+    """Drops the later chunks that are the same type under another name - the same short name and
+    canonical identity (TC-686, I5, REQ-G3-012: a chunk's own ``Defined-In:`` value when it is a
+    re-export shell, else its own ``fqn`` - I1's `symbol_identity.compute_canonical_identities`,
+    consumed here via each `_Entry`'s own `canonical_id`, never a hash of rendered content, which
+    no longer tells a shell and its definition apart now that I4 thins a shell's body). Returns the
+    kept ids and each kept id's alias FQNs.
+
+    The kept id for a unit is normally its real DEFINITION, never whichever doc_id happened to rank
+    first within a tied tier: a shell and its definition now share a key while carrying DIFFERENT
+    (thin vs. full) bodies, so "first wins" would silently surface the thin pointer's content
+    instead of the real one. When the first-seen chunk of a unit is later found to be a shell and a
+    later one is its definition, the kept slot's doc_id is swapped to the definition and the shell
+    becomes one of its aliases.
+
+    EXCEPT when *kinds* says the kept slot's own occupant was admitted by ``"exact_fqn"`` (tier 0,
+    full-FQN equality) - measured directly against the real committed `slides__python` fixture
+    (`aspose.slides_foss.slideshow.TransitionMorphType`, a shell whose own, unrelated
+    `TransitionMorphType.TransitionMorphType` definition ALSO independently bag-of-words-matches
+    the identical query, purely because the definition's own dotted name repeats the shell's short
+    name): since `ordered` is already tier-sorted, the slot's first-seen occupant is never weaker
+    than anything that can share its key afterward, so only an ``exact_fqn`` occupant can ever face
+    a weaker-tier "definition" arriving later - and swapping a caller's own EXACT, literal FQN
+    query away from the one chunk that IS that FQN, onto a different chunk that only matched by
+    weak coincidence, would silently answer a different question than the one asked. The weaker
+    arrival is still folded in as an alias either way - only the swap itself is skipped.
+    """
+    kinds = kinds or {}
     kept: list[str] = []
-    seen: dict[tuple[str, int], str] = {}
+    slot_of: dict[tuple[str, str], int] = {}
     aliases: dict[str, list[str]] = {}
     for doc_id in ordered:
         entry = entries_by_doc.get(doc_id)
         if entry is None:
             kept.append(doc_id)
             continue
-        key = (entry.short.casefold(), entry.body_hash)
-        first = seen.get(key)
-        if first is None:
-            seen[key] = doc_id
+        key = (entry.short.casefold(), entry.canonical_id)
+        slot = slot_of.get(key)
+        if slot is None:
+            slot_of[key] = len(kept)
             kept.append(doc_id)
+            continue
+        kept_doc_id = kept[slot]
+        kept_entry = entries_by_doc.get(kept_doc_id)
+        if (
+            kept_entry is not None
+            and kept_entry.is_shell
+            and not entry.is_shell
+            and kinds.get(kept_doc_id) != "exact_fqn"
+        ):
+            # The slot's real definition arrived after its shell: promote it, and the shell (plus
+            # anything already aliased to it) becomes an alias of the definition instead.
+            kept[slot] = doc_id
+            aliases[doc_id] = [*aliases.pop(kept_doc_id, []), kept_entry.fqn]
         else:
-            aliases.setdefault(first, []).append(entry.fqn)
+            aliases.setdefault(kept_doc_id, []).append(entry.fqn)
     return kept, {doc_id: tuple(names) for doc_id, names in aliases.items()}
 
 
@@ -1516,7 +1564,7 @@ def search_symbols(
         )
 
     entries_by_doc = {entry.doc_id: entry for entry in _entries(documents)}
-    ordered, aliases = _collapse_aliases(entries_by_doc, ordered)
+    ordered, aliases = _collapse_aliases(entries_by_doc, ordered, kinds)
     total = len(ordered)
     page = ordered[offset : offset + top_k]
     if not page:

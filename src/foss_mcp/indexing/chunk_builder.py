@@ -372,6 +372,7 @@ def _format_type_text(
     defined_in: str | None = None,
     exported_as: Sequence[str] = (),
     coverage: str | None = None,
+    thin: bool = False,
 ) -> str:
     """The real ``FQN:``/``Kind:``/``Bases:``/``Methods:``/``Properties:``/``Members:``
     convention ``get_symbol``/``list_members`` parse, built from *entry*'s real fields. Each
@@ -383,6 +384,17 @@ def _format_type_text(
     *members_from* is the definition a Python re-export stub is rendered with (*defined_in* is
     that definition's FQN); *exported_as* lists the re-export stubs naming this definition;
     *coverage* is the ``API-Coverage:`` line's value.
+
+    TC-686 (I4, REQ-G3-012): *thin* renders a re-export shell (an entry I1's identity engine marks
+    `is_definition=False`) as a pointer - every line this function would otherwise emit from the
+    entry's OWN fields (`Deprecated:`/`Limitation:`/`Defined-In:`/`Exported-As:`/`Shadows:`/
+    `Shadowed-By:`/`Note:`/`API-Coverage:`) is kept unchanged, exactly as before; every section
+    built from *members_from* content (`Bases:`/`Generics:`/`Derives:`/`Underlying:`/`Value:`/the
+    doc paragraph/`Methods:`/`Properties:`/`Members:`) is skipped - confirmed against the real
+    committed `3d_python` fixture (ten real shells also carry a `shadows` marker) and
+    `tests/indexing/test_round3_unsupported_markers.py`'s own `Limitation:` contract (a shell must
+    still disclose a definition it points to is unimplemented) that neither of those two is content
+    duplicated FROM the definition in the sense this card's purpose means to retire.
     """
     source = entry if members_from is None else members_from
     lines = [f"FQN: {fqn if fqn is not None else _entry_fqn(entry)}", f"Kind: {entry.get('kind', '')}"]
@@ -413,70 +425,71 @@ def _format_type_text(
     if alias_of:
         lines.append(f"Alias-Of: {alias_of}")  # TC-523: a TypeScript type alias's right-hand side
     lines.extend(_package_lines(entry))
-    generic_text = _generics_text(source)
-    if (
-        generic_text and entry.get("kind") != "function"
-    ):  # a function's own generics ride on its signature line
-        lines.append(f"Generics: {generic_text}")  # TC-535: a Rust type's parameters and bounds
-    derives = [str(item).strip() for item in _items(source.get("derives")) if str(item).strip()]
-    if derives:
-        lines.append(f"Derives: {', '.join(derives)}")  # TC-535: derived traits are not bases
-    underlying = " ".join(str(source.get("underlying") or "").split())
-    if underlying:
-        lines.append(f"Underlying: {underlying}")  # TC-535: a Go function / map / slice type's signature
+    if not thin:
+        generic_text = _generics_text(source)
+        if (
+            generic_text and entry.get("kind") != "function"
+        ):  # a function's own generics ride on its signature line
+            lines.append(f"Generics: {generic_text}")  # TC-535: a Rust type's parameters and bounds
+        derives = [str(item).strip() for item in _items(source.get("derives")) if str(item).strip()]
+        if derives:
+            lines.append(f"Derives: {', '.join(derives)}")  # TC-535: derived traits are not bases
+        underlying = " ".join(str(source.get("underlying") or "").split())
+        if underlying:
+            lines.append(f"Underlying: {underlying}")  # TC-535: a Go function / map / slice type's signature
 
-    doc = entry.get("doc") or (source.get("doc") if members_from is not None else "") or ""
-    if doc:
-        lines.append(str(doc))
+        doc = entry.get("doc") or (source.get("doc") if members_from is not None else "") or ""
+        if doc:
+            lines.append(str(doc))
 
-    # pdf_typescript's real "constant" entries (e.g. AES_WRAP_OID) carry a real type/value
-    # directly on the entry itself - previously silently dropped entirely. Checking for a real
-    # "value" key (rather than only kind == "constant") catches this robustly even if some
-    # other pilot's constant-shaped entry omits the kind label.
-    if entry.get("kind") == "constant" or "value" in entry:
-        raw_value = entry.get("value", "")
-        raw_value = "" if raw_value is None else str(raw_value)
-        if len(raw_value) > 200:
-            raw_value = raw_value[:200] + "..."
-        lines.append("")
-        if entry.get("package"):
-            # TC-535: a Go constant or variable states its declared type and its value when it has them.
-            declared = _clean_type(entry.get("type"))
-            valued = f"= {raw_value}" if raw_value else ""
-            lines.append(f"Value: {' '.join(part for part in (declared, valued) if part)}".rstrip())
-        else:
-            lines.append(f"Value: {entry.get('type', '')} = {raw_value}")
+        # pdf_typescript's real "constant" entries (e.g. AES_WRAP_OID) carry a real type/value
+        # directly on the entry itself - previously silently dropped entirely. Checking for a real
+        # "value" key (rather than only kind == "constant") catches this robustly even if some
+        # other pilot's constant-shaped entry omits the kind label.
+        if entry.get("kind") == "constant" or "value" in entry:
+            raw_value = entry.get("value", "")
+            raw_value = "" if raw_value is None else str(raw_value)
+            if len(raw_value) > 200:
+                raw_value = raw_value[:200] + "..."
+            lines.append("")
+            if entry.get("package"):
+                # TC-535: a Go constant or variable states its declared type and its value when it has them.
+                declared = _clean_type(entry.get("type"))
+                valued = f"= {raw_value}" if raw_value else ""
+                lines.append(f"Value: {' '.join(part for part in (declared, valued) if part)}".rstrip())
+            else:
+                lines.append(f"Value: {entry.get('type', '')} = {raw_value}")
 
-    bases = _items(source.get("bases"))
-    if bases:
-        lines.append("")
-        lines.append("Bases:")
-        lines.extend(f"  - {base}" for base in bases)
+        bases = _items(source.get("bases"))
+        if bases:
+            lines.append("")
+            lines.append("Bases:")
+            lines.extend(f"  - {base}" for base in bases)
 
-    # pdf_go, cells_rust, and pdf_typescript's real free-function entries carry
-    # params/return_type directly on the type entry itself (kind == "function", methods == []) -
-    # e.g. pdf_go's real AddFontFile. Treat such an entry as its own single method so its real
-    # signature is not silently dropped down to a bare "Kind: function" header.
-    methods = _items(source.get("methods"))
-    if not methods and ("params" in source or "return_type" in source):
-        methods = [source]
-    method_lines = _method_lines(methods)
-    if method_lines:
-        lines.append("")
-        lines.append("Methods:")
-        lines.extend(method_lines)
+        # pdf_go, cells_rust, and pdf_typescript's real free-function entries carry
+        # params/return_type directly on the type entry itself (kind == "function", methods == []) -
+        # e.g. pdf_go's real AddFontFile. Treat such an entry as its own single method so its real
+        # signature is not silently dropped down to a bare "Kind: function" header.
+        methods = _items(source.get("methods"))
+        if not methods and ("params" in source or "return_type" in source):
+            methods = [source]
+        method_lines = _method_lines(methods)
+        if method_lines:
+            lines.append("")
+            lines.append("Methods:")
+            lines.extend(method_lines)
 
-    property_lines = _property_lines(_items(source.get("properties")))
-    if property_lines:
-        lines.append("")
-        lines.append("Properties:")
-        lines.extend(property_lines)
+        property_lines = _property_lines(_items(source.get("properties")))
+        if property_lines:
+            lines.append("")
+            lines.append("Properties:")
+            lines.extend(property_lines)
 
-    enum_members = _items(source.get("enum_members"))
-    if enum_members:
-        lines.append("")
-        lines.append("Members:")
-        lines.extend(_member_line(member) for member in enum_members)
+        enum_members = _items(source.get("enum_members"))
+        if enum_members:
+            lines.append("")
+            lines.append("Members:")
+            lines.extend(_member_line(member) for member in enum_members)
 
     if coverage is not None:
         lines.append("")
@@ -800,6 +813,13 @@ def build_chunks_from_api_surface(
     sections = []
     for index, entry in enumerate(entries):
         target = pairs.get(index)
+        # TC-686 (I4+I5, REQ-G3-012): an entry I1's identity engine marks NOT the definition of its
+        # unit renders `thin` (no duplicated member content) instead of today's `members_from`-built
+        # full duplicate. Confirmed (this card's own closeout) that `identities[index].is_definition`
+        # always agrees with `target is None` on every real Python pilot fixture - `target` (the
+        # existing `_reexport_pairs`/`_slot_units` plumbing) still supplies `defined_in`'s value here
+        # rather than `identities[index].canonical_id`, since both are confirmed identical and
+        # `fqns[target]` is already the exact value `get_symbol`'s own resolution reads off this chunk.
         text = _format_type_text(
             entry,
             fqn=fqns[index],
@@ -807,6 +827,7 @@ def build_chunks_from_api_surface(
             defined_in=fqns[target] if target is not None else None,
             exported_as=exported_as.get(index, ()),
             coverage=coverage,
+            thin=target is not None and not identities[index].is_definition,
         )
         sections.append(f"## {fqns[index]}{_deprecated_suffix(entry)}\n\n{text}")
     doc = make_document(

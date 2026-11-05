@@ -37,7 +37,7 @@ _NO_GENERATION_REASON = "no published generation for this scope"
 _FQN_LINE = re.compile(r"^FQN:\s*(.+)$", re.MULTILINE)
 _KIND_LINE = re.compile(r"^Kind:\s*(.+)$", re.MULTILINE)
 _BULLET_PREFIX = "  - "
-_DEFINED_IN_LINE = re.compile(r"^Defined-In:\s*\S", re.MULTILINE)
+_DEFINED_IN_LINE = re.compile(r"^Defined-In:\s*(\S.*)$", re.MULTILINE)
 _MEMBER_BLOCKS = ("Methods:", "Properties:", "Members:")
 _ENUM_VALUE_SEPARATOR = " = "
 _NAME_END = re.compile(r"[\s\[]")
@@ -118,6 +118,15 @@ class NotFound:
 def extract_fqn(text: str) -> str | None:
     """The exact FQN a self-extracted chunk's ``FQN:`` line names, or ``None`` if it has none."""
     match = _FQN_LINE.search(text)
+    return match.group(1).strip() if match is not None else None
+
+
+def extract_defined_in(text: str) -> str | None:
+    """TC-686 (I5, REQ-G3-012): the real VALUE of a chunk's own ``Defined-In:`` line - its
+    canonical definition's FQN - or ``None`` when the chunk carries no such line at all (it is not
+    a re-export shell). Reused by ``_SymbolChunk.defined_in`` and ``search_symbols._Entry`` so
+    both readers parse this one convention identically."""
+    match = _DEFINED_IN_LINE.search(text)
     return match.group(1).strip() if match is not None else None
 
 
@@ -240,8 +249,20 @@ class _SymbolChunk:
     text: str
 
     @property
+    def defined_in(self) -> str | None:
+        """TC-686 (I5): the real VALUE of this chunk's own ``Defined-In:`` line - its canonical
+        definition's FQN - or ``None`` when it carries none at all."""
+        return extract_defined_in(self.text)
+
+    @property
     def is_reexport_shell(self) -> bool:
-        return _DEFINED_IN_LINE.search(self.text) is not None
+        return self.defined_in is not None
+
+    @property
+    def canonical_id(self) -> str:
+        """TC-686 (I5): this chunk's own canonical identity - its ``Defined-In:`` value when it is
+        a re-export shell, else its own ``fqn``. Two chunks sharing a canonical id are one unit."""
+        return self.defined_in or self.fqn
 
 
 def _declared_members(text: str) -> dict[str, list[str]]:
@@ -270,29 +291,23 @@ def _owners(
     collapsing.
 
     The chunk whose FQN equals *owner_text* is the owner; otherwise every chunk whose FQN ends with it
-    at a dot or ``::`` boundary. Chunks with identical declared members (a Python re-export shell and
-    its definition) count as one type, kept as the one without a ``Defined-In:`` line.
+    at a dot or ``::`` boundary. TC-686 (I5, REQ-G3-012): two chunks sharing a canonical id - a
+    chunk's own ``Defined-In:`` value when it is a re-export shell, else its own ``fqn`` (I1's
+    `symbol_identity.compute_canonical_identities`, consumed here via each chunk's own
+    `canonical_id`, never by re-parsing rendered member content) - count as one type, kept as the
+    real definition whenever both a shell and its definition are both present.
     """
     matched = [chunk for chunk in symbols if chunk.fqn == owner_text] or [
         chunk for chunk in symbols if chunk.fqn.endswith(("." + owner_text, "::" + owner_text))
     ]
     owners: list[_SymbolChunk] = []
-    owner_members: list[dict[str, list[str]]] = []
+    owner_ids: list[str] = []
     for chunk in matched:
-        members = _declared_members(chunk.text)
-        twin = next(
-            (
-                index
-                for index, other in enumerate(owner_members)
-                # Two memberless types sharing a short name are two types, unless one is a re-export shell.
-                if other == members
-                and (members or chunk.is_reexport_shell or owners[index].is_reexport_shell)
-            ),
-            None,
-        )
+        canonical_id = chunk.canonical_id
+        twin = next((index for index, other_id in enumerate(owner_ids) if other_id == canonical_id), None)
         if twin is None:
             owners.append(chunk)
-            owner_members.append(members)
+            owner_ids.append(canonical_id)
         elif owners[twin].is_reexport_shell and not chunk.is_reexport_shell:
             owners[twin] = chunk
     return owners, matched
