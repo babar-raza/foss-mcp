@@ -1,0 +1,111 @@
+{
+  "schema_version": 1,
+  "card": "TC-689",
+  "gate": "G3",
+  "generated_by": "gatectl",
+  "generated_at": "2026-11-05T18:07:06Z",
+  "base_rev": "fc636aee72a248cd72e6489c6830c01e32a3edbf",
+  "head_rev": "8a4cdc2abc342f179ddbdea71b44774f328b645c",
+  "card_sha256": "60e68c0360abca9bc05d1029e78b74850c59c1b782edf8d960b69b44521cd0d0",
+  "fingerprint": {
+    "python": "3.13.2",
+    "platform": "Windows-11-10.0.26300-SP0",
+    "lock_sha256": "5c72e798a73c059a438e752e94a8d4c88c1bdf81a197f6e5c5fcecbc9466a691",
+    "env": {
+      "PYTHONHASHSEED": "0",
+      "PYTHONUTF8": "1",
+      "PYTHONDONTWRITEBYTECODE": "1",
+      "PYTHONIOENCODING": "utf-8",
+      "TZ": "UTC",
+      "LC_ALL": "C.UTF-8",
+      "SOURCE_DATE_EPOCH": "1700000000",
+      "verify_runner": "host"
+    }
+  },
+  "scope": {
+    "ok": true,
+    "changed_paths": [
+      "src/foss_mcp/extraction/tree_sitter_engine/tree_helpers.py",
+      "tests/extraction/test_java_enum_constant_arguments.py"
+    ],
+    "violations": [],
+    "evaluated": true
+  },
+  "runs": [
+    {
+      "run": 1,
+      "checks": [
+        {
+          "command": "{python} -m pytest tests/extraction/test_java_enum_constant_arguments.py -q -rfE -p no:cacheprovider",
+          "exit_code": 0,
+          "duration_s": 1.118,
+          "stdout_sha256": "c4b808d34f4db00b333696dec1f3a43a2887d8bfe0cb7af07a3cb98ff43a7830",
+          "tests": 4,
+          "skipped": 0,
+          "errors": 0,
+          "failures": 0
+        },
+        {
+          "command": "{python} -m pytest tests/extraction/test_pdf_java_extraction.py tests/extraction/test_slides_java_extraction.py tests/extraction/test_3d_java_extraction.py tests/extraction/test_cells_java_extraction.py tests/extraction/test_round3_java_fidelity.py -q -rfE -p no:cacheprovider",
+          "exit_code": 0,
+          "duration_s": 3.683,
+          "stdout_sha256": "ac495f87c93297f7a6b6576302f0c026457a444008c68b065caf82d3eed780d0",
+          "tests": 78,
+          "skipped": 0,
+          "errors": 0,
+          "failures": 0
+        }
+      ],
+      "all_passed": true
+    },
+    {
+      "run": 2,
+      "checks": [
+        {
+          "command": "{python} -m pytest tests/extraction/test_java_enum_constant_arguments.py -q -rfE -p no:cacheprovider",
+          "exit_code": 0,
+          "duration_s": 0.592,
+          "stdout_sha256": "c4b808d34f4db00b333696dec1f3a43a2887d8bfe0cb7af07a3cb98ff43a7830",
+          "tests": 4,
+          "skipped": 0,
+          "errors": 0,
+          "failures": 0
+        },
+        {
+          "command": "{python} -m pytest tests/extraction/test_pdf_java_extraction.py tests/extraction/test_slides_java_extraction.py tests/extraction/test_3d_java_extraction.py tests/extraction/test_cells_java_extraction.py tests/extraction/test_round3_java_fidelity.py -q -rfE -p no:cacheprovider",
+          "exit_code": 0,
+          "duration_s": 1.823,
+          "stdout_sha256": "ac495f87c93297f7a6b6576302f0c026457a444008c68b065caf82d3eed780d0",
+          "tests": 78,
+          "skipped": 0,
+          "errors": 0,
+          "failures": 0
+        }
+      ],
+      "all_passed": true
+    }
+  ],
+  "negative_control": {
+    "kind": "mutate",
+    "patch": "python -X utf8 -c \"import pathlib; p = pathlib.Path('src/foss_mcp/extraction/tree_sitter_engine/tree_helpers.py'); s = p.read_text(encoding='utf-8'); old = 'def _extract_enum_members(node, language: str) -> list[dict[str, str]]:'; assert s.count(old) == 1; new = old + chr(10) + '    return []  # TC-689 negative control: disable enum member extraction entirely'; s2 = s.replace(old, new, 1); assert s2 != s; p.write_text(s2, encoding='utf-8')\"\n",
+    "patch_sha256": "04e8ba104cd46c288d254d5205c88a8e41d50c10e70f1719858c9f6f355ac91e",
+    "applied": true,
+    "patch_applied_failed": true,
+    "exit_codes": [
+      1,
+      0
+    ],
+    "tree_changed": [
+      "M src/foss_mcp/extraction/tree_sitter_engine/tree_helpers.py",
+      "?? .junit-0.xml",
+      "?? .junit-1.xml"
+    ]
+  },
+  "holdout": {
+    "ran": false,
+    "passed": true,
+    "detail": "no holdout for this card"
+  },
+  "accepted": true,
+  "reason": "all gates passed"
+}

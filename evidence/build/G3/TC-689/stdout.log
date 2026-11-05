@@ -1,0 +1,155 @@
+
+===== CLEAN RUN 1 (host) =====
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-5c72e798a73c059a\Scripts\python.exe -m pytest tests/extraction/test_java_enum_constant_arguments.py -q -rfE -p no:cacheprovider "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-ztbd1ind\.junit-0.xml"
+--- stdout ---
+....                                                                     [100%]
+
+--- stderr ---
+
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-5c72e798a73c059a\Scripts\python.exe -m pytest tests/extraction/test_pdf_java_extraction.py tests/extraction/test_slides_java_extraction.py tests/extraction/test_3d_java_extraction.py tests/extraction/test_cells_java_extraction.py tests/extraction/test_round3_java_fidelity.py -q -rfE -p no:cacheprovider "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-ztbd1ind\.junit-1.xml"
+--- stdout ---
+........................................................................ [ 92%]
+......                                                                   [100%]
+
+--- stderr ---
+
+
+===== CLEAN RUN 2 (host) =====
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-5c72e798a73c059a\Scripts\python.exe -m pytest tests/extraction/test_java_enum_constant_arguments.py -q -rfE -p no:cacheprovider "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-ztbd1ind\.junit-0.xml"
+--- stdout ---
+....                                                                     [100%]
+
+--- stderr ---
+
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-5c72e798a73c059a\Scripts\python.exe -m pytest tests/extraction/test_pdf_java_extraction.py tests/extraction/test_slides_java_extraction.py tests/extraction/test_3d_java_extraction.py tests/extraction/test_cells_java_extraction.py tests/extraction/test_round3_java_fidelity.py -q -rfE -p no:cacheprovider "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-ztbd1ind\.junit-1.xml"
+--- stdout ---
+........................................................................ [ 92%]
+......                                                                   [100%]
+
+--- stderr ---
+
+
+===== NEGATIVE CONTROL (checks MUST now fail) =====
+mutated: M src/foss_mcp/extraction/tree_sitter_engine/tree_helpers.py, ?? .junit-0.xml, ?? .junit-1.xml
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-5c72e798a73c059a\Scripts\python.exe -m pytest tests/extraction/test_java_enum_constant_arguments.py -q -rfE -p no:cacheprovider "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-ztbd1ind\.junit-0.xml"
+--- stdout ---
+FFFF                                                                     [100%]
+================================== FAILURES ===================================
+__ test_a_constant_with_constructor_arguments_carries_its_real_argument_text __
+
+tmp_path = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-20539/test_a_constant_with_construct0')
+
+    def test_a_constant_with_constructor_arguments_carries_its_real_argument_text(tmp_path: Path) -> None:
+        # RED(255, 0, 0) declares a real argument_list in the parse tree; before this fix it was
+        # always dropped and served as "value": "".
+        types = _extract(
+            tmp_path,
+            """
+    package p;
+    public enum Color {
+        RED(255, 0, 0);
+    
+        Color(int r, int g, int b) {}
+    }
+    """,
+        )
+        members = {m["name"]: m for m in types["Color"]["enum_members"]}
+>       assert members["RED"]["value"] == "(255, 0, 0)"
+               ^^^^^^^^^^^^^^
+E       KeyError: 'RED'
+
+tests\extraction\test_java_enum_constant_arguments.py:52: KeyError
+___ test_a_sibling_constant_with_no_arguments_in_the_same_enum_stays_empty ____
+
+tmp_path = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-20539/test_a_sibling_constant_with_n0')
+
+    def test_a_sibling_constant_with_no_arguments_in_the_same_enum_stays_empty(tmp_path: Path) -> None:
+        # Negative case in the same enum, same extraction call: proves the fix is additive to the
+        # one constant that actually has arguments, not a blanket change to every member.
+        types = _extract(
+            tmp_path,
+            """
+    package p;
+    public enum Color {
+        RED(255, 0, 0), PLAIN;
+    
+        Color() {}
+        Color(int r, int g, int b) {}
+    }
+    """,
+        )
+        members = {m["name"]: m for m in types["Color"]["enum_members"]}
+>       assert members["RED"]["value"] == "(255, 0, 0)"
+               ^^^^^^^^^^^^^^
+E       KeyError: 'RED'
+
+tests\extraction\test_java_enum_constant_arguments.py:71: KeyError
+___________ test_a_constant_with_an_empty_argument_list_stays_empty ___________
+
+tmp_path = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-20539/test_a_constant_with_an_empty_0')
+
+    def test_a_constant_with_an_empty_argument_list_stays_empty(tmp_path: Path) -> None:
+        # PLAIN() with explicit-but-empty parens must not synthesize a fake non-empty value either.
+        types = _extract(
+            tmp_path,
+            """
+    package p;
+    public enum Color {
+        PLAIN();
+    
+        Color() {}
+    }
+    """,
+        )
+        members = {m["name"]: m for m in types["Color"]["enum_members"]}
+>       assert members["PLAIN"]["value"] == ""
+               ^^^^^^^^^^^^^^^^
+E       KeyError: 'PLAIN'
+
+tests\extraction\test_java_enum_constant_arguments.py:89: KeyError
+______ test_a_plain_enum_with_only_parameterless_constants_is_unaffected ______
+
+tmp_path = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-20539/test_a_plain_enum_with_only_pa0')
+
+    def test_a_plain_enum_with_only_parameterless_constants_is_unaffected(tmp_path: Path) -> None:
+        # The common case, modeled on the real pdf_java fixture's HorizontalAlignment (Left,
+        # Right, Center - no constructor arguments on any constant): extracted live here (not read
+        # from the committed tests/fixtures/pdf_java/api_surface.json), every member's value must
+        # still be "", exactly as before this fix.
+        types = _extract(
+            tmp_path,
+            """
+    package p;
+    public enum HorizontalAlignment {
+        Left,
+        Right,
+        Center
+    }
+    """,
+        )
+        members = {m["name"]: m for m in types["HorizontalAlignment"]["enum_members"]}
+>       assert {"Left", "Right", "Center"} == set(members)
+E       AssertionError: assert {'Center', 'Left', 'Right'} == set()
+E         
+E         Extra items in the left set:
+E         'Center'
+E         'Right'
+E         'Left'
+E         Use -v to get more diff
+
+tests\extraction\test_java_enum_constant_arguments.py:109: AssertionError
+=========================== short test summary info ===========================
+FAILED tests/extraction/test_java_enum_constant_arguments.py::test_a_constant_with_constructor_arguments_carries_its_real_argument_text
+FAILED tests/extraction/test_java_enum_constant_arguments.py::test_a_sibling_constant_with_no_arguments_in_the_same_enum_stays_empty
+FAILED tests/extraction/test_java_enum_constant_arguments.py::test_a_constant_with_an_empty_argument_list_stays_empty
+FAILED tests/extraction/test_java_enum_constant_arguments.py::test_a_plain_enum_with_only_parameterless_constants_is_unaffected
+
+--- stderr ---
+
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-5c72e798a73c059a\Scripts\python.exe -m pytest tests/extraction/test_pdf_java_extraction.py tests/extraction/test_slides_java_extraction.py tests/extraction/test_3d_java_extraction.py tests/extraction/test_cells_java_extraction.py tests/extraction/test_round3_java_fidelity.py -q -rfE -p no:cacheprovider "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-ztbd1ind\.junit-1.xml"
+--- stdout ---
+........................................................................ [ 92%]
+......                                                                   [100%]
+
+--- stderr ---
+
