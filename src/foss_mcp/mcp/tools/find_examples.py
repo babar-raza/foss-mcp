@@ -108,6 +108,23 @@ the matched example's own CODE SNIPPET for a real symbol name (the same mechanis
 code anchor above) and discloses every committed known-defect entry that applies to it, through the
 real ``get_symbol.known_defect_lines`` - never the example's own pseudo ``Example: <title>`` FQN,
 which no real registry entry ever names.
+
+TC-672 (Q10b, G3/REQ-G3-011) adds a THIRD additive admission path beside the title anchor, the
+prefix anchor, and the identifier/symbol code anchor above (TC-635/TC-670) - never replacing or
+weakening any of them, never touching the coverage floor itself. A query's plain, ordinary word
+(``formula``, not identifier-shaped and not a registered real symbol short name) now also anchors
+via the example's own CODE SNIPPET when it is RARE within this scope's OWN example corpus: present
+in strictly fewer than half of this scope's own example documents' code (the strict inequality
+computed fresh every call from this scope's own ``example_doc_ids``, never cached across calls or
+scopes - see the rarity check itself, just below the identifier/symbol anchor's own computation).
+This closes the real
+cells/java ``"formula"`` miss (round-2's #1 cross-cutting finding, still real after TC-635/TC-670:
+see ``docs/round2/HANDOFF.md``) without opening a boilerplate false-positive hole - a word present
+in half or more of the scope's own example documents' code (``save``, ``workbook``) never qualifies.
+A match admitted by this rarity-gated path ALONE (the narrower identifier/symbol anchor would not
+have admitted the same document) carries the new, honestly-labelled
+``MATCH_BASIS_RARE_CODE_WORD``; every existing ``MATCH_BASIS_CODE_WORD`` case keeps that exact
+label, unchanged.
 """
 
 from __future__ import annotations
@@ -313,6 +330,51 @@ MATCH_BASIS_EMBEDDING = "embedding_similarity"
 # own - never when either of those two would already have admitted the same document, so this basis
 # never double-counts a match the existing title-anchor machinery already explains.
 MATCH_BASIS_CODE_WORD = "code_identifier_in_example_code"
+# TC-672 (Q10b, G3/REQ-G3-011): set ONLY when admission depended on the new rarity-gated plain-word
+# code anchor (``rare_code_required`` below) and would NOT have happened through the existing
+# identifier/symbol code anchor (``required | symbol_required``) alone - i.e.
+# ``code_anchored(required | symbol_required, example_code_tokens[doc_id])`` is False for that
+# document even though the wider, rarity-widened ``code_anchor_required`` check admitted it. Every
+# existing ``MATCH_BASIS_CODE_WORD`` case keeps that exact label, unchanged - this is a new label
+# for a genuinely new class of match only, never a relabelling of an existing one.
+MATCH_BASIS_RARE_CODE_WORD = "rare_code_word_in_example_code"
+
+# TC-672: measured directly this session, re-running this card's own ratchet bundle
+# (test_find_examples_title_anchor.py) against the real 40-pilot fleet: a per-SCOPE code-document
+# frequency ratio alone - even combined with a minimum-corpus-size floor - cannot separate a
+# genuinely distinctive word from one of these 8 generic verbs, because the two can be numerically
+# IDENTICAL within the very same scope. Measured example: in the real cells/java generation (3
+# example documents), "formula" (this card's own target case) and "document" (one of the 8 below)
+# BOTH sit at exactly 1 of 3 - no function of (count, len(example_doc_ids)) tells them apart. These
+# are the exact 8 words TC-543 already measured dangerous over the real 40-pilot fleet
+# (test_find_examples_title_anchor.py's own GENERIC_WORDS: "measured with the real function over
+# the 40 committed pilots on main d7b594fd: the eight generic words ... returned 443 examples
+# before the rule and 64 after"); re-running the ratchet bundle against this card's own change (see
+# this card's own worker report for the real before/after numbers) showed every one of them
+# manufacturing a code-only false match on at least one real pilot whose own corpus happened to be
+# small enough that the word was locally rare there (3d/java, cells/net, note/python,
+# barcode/python, cells/java). Excluded from this new path ALONE - never from the title anchor
+# itself or the existing identifier/symbol code anchor (TC-635/TC-670), which already handle these
+# words correctly.
+_RARE_CODE_WORD_EXCLUDED_TERMS = frozenset(
+    stem_token(word) for word in ("save", "open", "create", "page", "add", "text", "document", "load")
+)
+
+# TC-672: measured directly this session, re-running the full retrieval corpus
+# (test_round3_retrieval_corpus.py, 729 cases) against this card's own change: a rare word present
+# in exactly one example document, even one that recurs more than once in that one document's own
+# code (see the per-document admission decision's own guard below), can still be a purely
+# coincidental mention once the scope's own example corpus is large enough that a handful of
+# unrelated topics are bound to share a stray word - reproduced on the real slides/net generation
+# (8 example documents): "layout" sits at 1 of 8, recurs twice in the one document that has it
+# ("Sections"), yet that document is not about slide layouts at all; the query's genuinely correct
+# target ("Example: ...LayoutSlide...") scores no match on any mechanism this card can safely use.
+# The real, committed corpus-size distribution across all 32 pilots' own example corpora (this
+# worker's own measurement, this session) is heavily weighted toward SMALL corpora (median 4-6,
+# most under 9) with a handful of larger ones (8, 9, 11, 14) - cells/java (this card's own primary,
+# measured-correct target, 3 example documents) sits with real margin below this ceiling, and every
+# real false match this worker measured this session sits at or above it (slides/net's 8).
+_RARE_CODE_WORD_MAX_SCOPE_EXAMPLES = 6
 
 
 def is_verified_example_text(text: str) -> bool:
@@ -707,16 +769,87 @@ def find_examples(
     # mechanism, only an exact-case "Workbook" in the query does.
     symbol_names = known_symbol_names(documents)
     symbol_required = frozenset(stem_token(word) for word in symbol_words(query) if word in symbol_names)
-    code_anchor_required = required | symbol_required
+    # TC-672 (Q10b, G3/REQ-G3-011): the narrower identifier/symbol anchor alone (TC-635/TC-670),
+    # kept separately so the per-document loop below can tell whether admission would ALREADY have
+    # happened through it alone, before the new rarity-gated word below ever widens it further.
+    narrow_code_anchor_required = required | symbol_required
+    # TC-672: a THIRD additive admission path - a rarity-gated plain-code-word anchor - beside the
+    # title anchor, the prefix anchor and the identifier/symbol code anchor above. A query's plain,
+    # ordinary distinctive term (``formula``) anchors through this path only when it is RARE within
+    # THIS SCOPE'S OWN example corpus: present in strictly fewer than half of this scope's own
+    # example documents' own CODE SNIPPET specifically (the same ``_extract_example(text)`` +
+    # ``tokenize()`` scoping ``code_anchored`` already uses). Computed fresh every call from this
+    # scope's own ``example_doc_ids`` alone - never cached across calls or scopes, never mixed with
+    # any other scope's corpus.
+    code_example_frequency: dict[str, int] = {}
+    example_code_tokens: dict[str, frozenset[str]] = {}
+    # TC-672: a per-document, per-term RAW occurrence count (never deduplicated) - additive beside
+    # ``example_code_tokens`` above, used only by the rare-code-word admission decision below to
+    # tell a term genuinely woven into an example's own code (named more than once, e.g.
+    # ``setFormula1``/``setFormula2``) from one that merely happens to appear once in passing (see
+    # that decision's own comment for the real measured regression this guards against).
+    example_code_token_counts: dict[str, dict[str, int]] = {}
+    for _doc_id in example_doc_ids:
+        _code_tok_list = [
+            stem_token(_tok) for _tok in tokenize(_extract_example(documents[_doc_id]["text"]) or "")
+        ]
+        _code_toks = frozenset(_code_tok_list)
+        example_code_tokens[_doc_id] = _code_toks
+        _counts: dict[str, int] = {}
+        for _tok in _code_tok_list:
+            _counts[_tok] = _counts.get(_tok, 0) + 1
+        example_code_token_counts[_doc_id] = _counts
+        for _tok in _code_toks:
+            code_example_frequency[_tok] = code_example_frequency.get(_tok, 0) + 1
+    # TC-672: two measured safety guards beside the card's own rarity comparison (both real
+    # regressions this worker found by re-running the ratchet bundle, reported in this card's own
+    # worker report):
+    #
+    # (1) a term with ZERO occurrences in this scope's own example code is trivially "rare" by the
+    # comparison alone (0 * 2 < n for any n >= 1), which would make ``code_anchor_required``
+    # non-empty for almost every query - silently breaking the pre-existing, deliberate "the call
+    # itself is skipped, not just trivially False" guarantee TC-670 documents just below. A term
+    # absent everywhere can never admit through ``code_anchored`` anyway (no document's code has
+    # it), so requiring a real, strictly-positive count costs no real admission.
+    #
+    # (2) this path is eligible only for a query with AT MOST ONE distinctive term, and never for
+    # one of the 8 measured-dangerous generic verbs (``_RARE_CODE_WORD_EXCLUDED_TERMS`` above) -
+    # without this, a query of several terms where only ONE happens to be locally rare (e.g. "set
+    # password" against the real pdf/go generation, where "password" sits at 1 of 6 example
+    # documents) admits a document whose TITLE shares no word with the query at all, through
+    # ``code_anchored``'s own "any required term present" semantics - exactly the single-shared-
+    # word false-positive risk TC-543's title anchor exists to close for a short query, and a real
+    # pinned-test regression this worker measured and is narrowing the mechanism to avoid, per this
+    # card's own instruction.
+    #
+    # (3) this path is eligible only when this scope's own example corpus has at most
+    # ``_RARE_CODE_WORD_MAX_SCOPE_EXAMPLES`` documents - see that constant's own comment for the
+    # real measured regression (slides/net, 8 example documents) this guards against.
+    rare_code_required = (
+        frozenset(
+            t
+            for t in terms
+            if t not in _RARE_CODE_WORD_EXCLUDED_TERMS
+            and code_example_frequency.get(t, 0) > 0
+            and code_example_frequency.get(t, 0) * 2 < len(example_doc_ids)
+        )
+        if len(distinctive_terms(query, scope.family, platform=scope.platform)) <= 1
+        and len(example_doc_ids) <= _RARE_CODE_WORD_MAX_SCOPE_EXAMPLES
+        else frozenset()
+    )
+    code_anchor_required = required | symbol_required | rare_code_required
     bm25 = dict(query_lexical_index_scored(lexical_payload, query, top_k=len(documents)))
     # TC-635 (Q10, G3/REQ-G3-011): two more, strictly additive admission paths beside the existing
     # title anchor - a code-identifier anchor and a bounded prefix title match - never replacing or
-    # weakening the title anchor itself, nor the coverage floor above. ``code_only`` records, per
-    # document, whether admission rests on the code anchor ALONE (title_anchored and
-    # title_prefix_anchored both False for that document): the one case ``MATCH_BASIS_CODE_WORD`` is
-    # ever assigned, so it never double-counts a match the existing title-anchor machinery already
-    # explains.
-    scored: list[tuple[float, float, str, bool]] = []
+    # weakening the title anchor itself, nor the coverage floor above. ``code_basis`` records, per
+    # document, WHICH code anchor admission rests on ALONE (title_anchored and title_prefix_anchored
+    # both False for that document): ``"identifier"`` for the existing identifier/symbol anchor
+    # (TC-635/TC-670, ``MATCH_BASIS_CODE_WORD``), ``"rare"`` for the new rarity-gated plain-word
+    # anchor (TC-672, ``MATCH_BASIS_RARE_CODE_WORD``) that would NOT have admitted through the
+    # identifier/symbol anchor alone, and ``""`` when neither admits - so neither basis ever
+    # double-counts a match the existing title-anchor machinery already explains, and the new label
+    # is never assigned to a match the narrower, pre-existing mechanism already explains on its own.
+    scored: list[tuple[float, float, str, str]] = []
     for doc_id in example_doc_ids:
         doc_coverage = guarded_coverage(terms, documents[doc_id]["tokens"], required, weights)
         text = documents[doc_id]["text"]
@@ -724,23 +857,44 @@ def find_examples(
         title_hit = title_anchored(query, scope.family, title)
         prefix_hit = not title_hit and title_prefix_anchored(query, scope.family, title)
         # ``code_anchor_required`` (the compound-identifier check widened by the real-symbol-name
-        # check, TC-670) is checked FIRST so that a query with no eligible term never even calls
-        # ``code_anchored`` - not merely a trivially False result, but the call itself skipped,
-        # exactly like every query that reached this gate before either card.
-        code_only = bool(code_anchor_required) and not title_hit and not prefix_hit
-        if code_only:
-            code_only = code_anchored(code_anchor_required, tokenize(_extract_example(text) or ""))
+        # check, TC-670, and by the rarity-gated plain word, TC-672) is checked FIRST so that a
+        # query with no eligible term never even calls ``code_anchored`` - not merely a trivially
+        # False result, but the call itself skipped, exactly like every query that reached this gate
+        # before any of these cards. TC-672 reuses ``example_code_tokens[doc_id]`` (computed once,
+        # above) instead of re-tokenizing ``_extract_example(text)`` a second time here.
+        code_basis = ""
+        if code_anchor_required and not title_hit and not prefix_hit:
+            code_tokens = example_code_tokens[doc_id]
+            if narrow_code_anchor_required and code_anchored(narrow_code_anchor_required, code_tokens):
+                code_basis = "identifier"
+            elif code_anchored(code_anchor_required, code_tokens):
+                # TC-672: a THIRD measured safety guard, beside the two above - a real regression
+                # this worker found re-running the full ratchet bundle (test_round3_retrieval_corpus.py):
+                # a rare word present only ONCE in this one document's own code can still be a purely
+                # incidental mention (e.g. "recipient" named once while building an unrelated message,
+                # or "layout" named once in an example about something else entirely), wrongly
+                # outranking the document the query actually meant - "formula"'s own measured, genuine
+                # case names its concept TWICE (``setFormula1``/``setFormula2``). Requiring the rare
+                # term to recur at least twice in the SAME document's own code - never merely present -
+                # is a real, measured additional bar this card's own worker report states in full,
+                # with the real wrong_conf numbers before and after.
+                rare_hits = rare_code_required & code_tokens
+                if rare_hits and any(
+                    example_code_token_counts[doc_id].get(_term, 0) >= 2 for _term in rare_hits
+                ):
+                    code_basis = "rare"
+        code_only = code_basis != ""
         if doc_coverage >= RELEVANCE_THRESHOLD and (title_hit or prefix_hit or code_only):
-            scored.append((doc_coverage, bm25.get(doc_id, 0.0), doc_id, code_only))
+            scored.append((doc_coverage, bm25.get(doc_id, 0.0), doc_id, code_basis))
     # TC-565: an example whose run failed or produced nothing is served after every other one, and one
     # example held by several chunks is answered once, by its highest-scoring chunk.
     scored.sort(key=lambda item: (_runtime_rank(documents[item[2]]["text"]), -item[0], -item[1], item[2]))
-    hits: list[tuple[str, float, bool]] = []
+    hits: list[tuple[str, float, str]] = []
     seen_fqns: set[str] = set()
-    for doc_coverage, _score, doc_id, code_only in scored:
+    for doc_coverage, _score, doc_id, code_basis in scored:
         if _same_example(seen_fqns, extract_fqn(documents[doc_id]["text"]) or ""):
             continue
-        hits.append((doc_id, doc_coverage, code_only))
+        hits.append((doc_id, doc_coverage, code_basis))
         if len(hits) >= top_k:
             break
     if not hits:
@@ -763,9 +917,15 @@ def find_examples(
     # for every document of this one generation.
     fqns_by_short = _real_symbol_fqns(documents)
     matches = []
-    for doc_id, doc_coverage, code_only in hits:
+    for doc_id, doc_coverage, code_basis in hits:
         text = documents[doc_id]["text"]
         lexical_code = _extract_example(text) or ""
+        if code_basis == "identifier":
+            match_basis = MATCH_BASIS_CODE_WORD
+        elif code_basis == "rare":
+            match_basis = MATCH_BASIS_RARE_CODE_WORD
+        else:
+            match_basis = lexical_basis
         matches.append(
             ExampleMatch(
                 scope=scope,
@@ -775,7 +935,7 @@ def find_examples(
                 coverage=doc_coverage,
                 source="lexical",
                 provenance=_provenance(text),
-                match_basis=MATCH_BASIS_CODE_WORD if code_only else lexical_basis,
+                match_basis=match_basis,
                 language=_PLATFORM_LANGUAGE.get(scope.platform, ""),
                 source_commit=_source_commit(text),
                 verification=_verification_note(text),
