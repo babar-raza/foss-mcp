@@ -1,0 +1,191 @@
+id: TC-672
+gate: G3
+lane: storage-retrieval
+purpose: >-
+  Q10b (findability sub-program, follow-on to Q10/TC-635). Round-2's own #1 cross-cutting finding
+  (`docs/round2/HANDOFF.md`: "find_examples matches on example title words only, not body/code
+  content... fixing the matcher to index body text is likely the highest-value change available")
+  is STILL REAL after TC-635 (code-identifier/prefix-title anchor) and TC-670 (real-symbol-name
+  widening): both of those only widen admission for IDENTIFIER-SHAPED or KNOWN-REAL-SYMBOL query
+  words (`Workbook`, `WatermarkArtifact`). A plain, ordinary distinctive word that is genuinely
+  meaningful to a pilot's own small example corpus but happens not to be a registered symbol name
+  (`formula`, `autofit`) is still rejected outright, even when its weighted coverage is 1.0.
+
+  REPRODUCED LIVE, right now, against the real committed `infra/demo-manifests` data (not a
+  synthetic claim): `find_examples(Scope("cells","java"), "formula")` returns `NoExampleFound`
+  even though one of cells/java's 3 real example documents (`Example: Additional Examples`, a
+  `FormatCondition`/`setFormula1`/`setFormula2` example) tokenizes to include `formula` with
+  `guarded_coverage(...) == 1.0` - well above `RELEVANCE_THRESHOLD` (0.6). It is rejected solely
+  because `title_anchored` is False ("Additional Examples" shares no word with "formula"),
+  `title_prefix_anchored` is False, and `code_anchored` is False (the word "formula" is not an
+  identifier-shaped `required_terms` member and is not a registered real symbol short name, so
+  `symbol_required` never includes it either).
+
+  `slides/cpp`'s round-2-reported "watermark" miss is explicitly OUT OF SCOPE for this card: the
+  real committed corpus has only 2 examples ("Comments and Replies", "Document Properties") and
+  the literal substring "watermark" does not occur anywhere in either one (confirmed directly: 0 of
+  2 example documents contain it, case-insensitive). That is a missing-corpus-data problem (the
+  XA/AD-slides-cpp example-adoption program's job), not a matcher defect - do not attempt to "fix"
+  it here by any means (no hardcoded pilot-specific text, no corpus editing - this card's
+  write_paths do not include any corpus/fixture data).
+
+  MEASURED (supervisor, this session, directly against 5 real pilots' committed example corpora -
+  the real discriminator this card's threshold is built on, not a guess): a word that is genuine
+  boilerplate for a product's typical example code sits at or near 100% document frequency within
+  that pilot's OWN example corpus (`save`/`workbook` in cells/java 3/3, cells/net 8/8, cells/python
+  5-6/6; `import` 3/3 or 6/6 where present), while a word that is genuinely distinctive to a
+  specific example sits in a clear minority (`formula` 1/3 cells/java, 2/8 cells/net, 1/6
+  cells/python; `create`/`example` similarly 1/3, 2/8, 0-1/6). A majority-vs-minority split within
+  the SCOPE'S OWN example corpus (never cross-pilot, never the whole generation's doc_freq, which
+  mixes in docs/symbols chunks and is dominated by WEIGHT_FLOOR/WEIGHT_KNOWN_CEILING clipping that
+  cannot tell "always present" apart from "present in a third of examples" - verify this yourself
+  against `relevance.term_weights`'s own clipping behavior before relying on it for anything) is a
+  safe, auditable, measured discriminator. Use it; do not invent a different one without your own
+  equivalent measurement reported in your closeout.
+
+  Mechanism: a THIRD additive admission path beside the existing title anchor, prefix anchor, and
+  identifier/symbol code anchor (TC-635/TC-670) - never replacing or weakening any of them, never
+  touching the coverage floor (`RELEVANCE_THRESHOLD`) itself. A query's plain distinctive term
+  anchors via this new path when (a) it is present in the example's OWN CODE SNIPPET specifically
+  (the same `_extract_example(text)` + `tokenize()` scoping `code_anchored` already uses - a term
+  appearing only in surrounding prose/title never qualifies here either), AND (b) it is RARE within
+  THIS SCOPE'S OWN example corpus: present in strictly fewer than half of this scope's own example
+  documents' code (`2 * count < len(example_doc_ids)`, computed once per `find_examples` call from
+  this scope's own `example_doc_ids`, never cached across calls or scopes).
+depends_on:
+  - TC-670
+write_paths:
+  - src/foss_mcp/mcp/tools/find_examples.py
+  - tests/mcp/tools/test_find_examples_rare_code_word.py
+satisfies:
+  - REQ-G3-011
+source_refs:
+  - file: docs/DECISION_LOG.md
+    anchor: >-
+      ## 2026-11-02 — Round-3 independent re-audit adopted; a real regression found and given top
+      priority; the "no pilot ever gets worse" rule adopted project-wide (operator, supervisor)
+    sha256: b750b8bf0df25b17bf66d014895ecb42952050c7cc63773f56249c4a1c551791
+inputs:
+  - >-
+    READ FIRST: `src/foss_mcp/mcp/tools/find_examples.py`'s `find_examples()` function in full,
+    especially how `required`, `symbol_required`, `code_anchor_required`, `code_only`, and
+    `match_basis` are currently computed (TC-635/TC-670's own work - do not re-derive their
+    mechanism, only add beside it). Also read `relevance.code_anchored`, `relevance.present_terms`,
+    `relevance.term_weights`, `relevance.coverage`/`guarded_coverage` in full, including their own
+    docstrings, so you understand WHY a single-term query trivially gets `coverage == 1.0`
+    regardless of how common the word is (this is exactly why admission needs a real rarity gate,
+    not just a coverage check) and why `term_weights`'s own [0.5, 1.0] clipping is too coarse to
+    serve as that gate on its own.
+  - >-
+    REPRODUCE FIRST (pin the failing fixture, per this project's own standing rule): write a test
+    against the REAL committed `infra/demo-manifests` data for `Scope("cells","java")` proving
+    `find_examples(store, scope, "formula")` currently (before your change) returns
+    `NoExampleFound`, using the same `GenerationManifestStore`/`scope_key`/`store.read_active`/
+    `store.read_generation` pattern the existing `tests/conformance/*.py` files already use against
+    this same committed data (do not invent a different loading pattern). Confirm it is a real,
+    reproducible failure in your own run before you change any production code.
+  - >-
+    Add this exact block to `find_examples()` (verbatim shape required - the supervisor's negative
+    control anchors on the comparison literal shown; you may add your own comments, and may factor
+    the loop into a small private helper if you prefer, but the comparison itself,
+    `code_example_frequency.get(t, 0) * 2 < len(example_doc_ids)`, must appear character-for-
+    character somewhere in the committed file), placed after `symbol_required`/`code_anchor_required`
+    are computed and before the per-document scoring loop:
+
+        code_example_frequency: dict[str, int] = {}
+        example_code_tokens: dict[str, frozenset[str]] = {}
+        for _doc_id in example_doc_ids:
+            _code_toks = frozenset(
+                stem_token(_tok) for _tok in tokenize(_extract_example(documents[_doc_id]["text"]) or "")
+            )
+            example_code_tokens[_doc_id] = _code_toks
+            for _tok in _code_toks:
+                code_example_frequency[_tok] = code_example_frequency.get(_tok, 0) + 1
+        rare_code_required = frozenset(
+            t for t in terms if code_example_frequency.get(t, 0) * 2 < len(example_doc_ids)
+        )
+        code_anchor_required = required | symbol_required | rare_code_required
+
+    Reuse `example_code_tokens[doc_id]` in the per-document loop instead of re-tokenizing
+    `_extract_example(text)` a second time, for every `doc_id` in `example_doc_ids` (a free
+    efficiency win, not optional - the per-document loop already iterates `example_doc_ids`).
+  - >-
+    Add a new constant `MATCH_BASIS_RARE_CODE_WORD` (your own literal string, following the
+    existing `MATCH_BASIS_CODE_WORD` naming pattern, e.g. `"rare_code_word_in_example_code"`) and
+    assign it - INSTEAD OF `MATCH_BASIS_CODE_WORD` - precisely when admission depended on
+    `rare_code_required` and would NOT have happened through `required | symbol_required` alone
+    (i.e. `code_anchored(required | symbol_required, example_code_tokens[doc_id])` is False for
+    that document even though the wider `code_anchor_required` check admitted it). Every case
+    TC-635/TC-670 already label `MATCH_BASIS_CODE_WORD` must keep that exact label, unchanged -
+    this is a new label for a genuinely new class of match only, never a relabelling of an existing
+    one.
+  - >-
+    Write real, deterministic unit tests in the new file proving: (a) the real cells/java
+    `"formula"` case above now returns a hit labelled `MATCH_BASIS_RARE_CODE_WORD`, against the
+    real committed data (your REPRODUCE-FIRST test, now updated to assert the fixed behavior); (b)
+    a synthetic fixture where a word is present in the code of 3 of 3 example documents is NOT
+    admitted via this mechanism for a query naming only that word (the majority/boilerplate
+    precision guard - this is the test the project's own `AGENTS.md` "no pilot ever gets worse"
+    rule most directly depends on: get this wrong and `save`/`workbook`/`open` start falsely
+    matching every example in every pilot); (c) a synthetic fixture where a word is present in
+    exactly half of the example documents' code (e.g. 1 of 2, or 3 of 6) is NOT admitted (the exact
+    boundary - `2 * count < n`, never `<=`); (d) a synthetic fixture where a rare word appears only
+    in an example's surrounding PROSE/title, never its code, is NOT admitted by this mechanism
+    (reuses the same code-only scoping guarantee `code_anchored` already has - prove it still
+    holds for this wider required set too); (e) a query that already satisfies the title anchor,
+    the prefix anchor, or the existing identifier/symbol code anchor is completely unaffected -
+    same `MATCH_BASIS_*` label as before this card, byte-for-byte (no relabelling of existing
+    matches).
+  - >-
+    MEASURE, do not assume: re-run the full existing ratchet bundle
+    (`test_find_examples_title_anchor.py`, `test_find_examples_code_anchor.py`,
+    `test_find_examples_symbol_aware_matching.py`, `test_forgiveness_acceptance.py`,
+    `test_round3_retrieval_corpus.py`) BEFORE your change (baseline) and AFTER, and report both
+    real number sets (hit@3, wrong-confident rate, the 26-pilot verbose-hit count against
+    `MIN_VERBOSE_HITS` if that test exists in this bundle) in your closing report. Every existing
+    floor must hold or improve, never regress (Decision E). If your measurement finds a regression,
+    narrow the rarity threshold (e.g. require strictly less than a THIRD rather than a HALF, or add
+    a minimum corpus-size floor below which this mechanism never fires) until it does not, and
+    report the real numbers behind whatever threshold you land on - the `< half` starting point
+    above is the plan's own measured suggestion, not a frozen requirement.
+actions:
+  - >-
+    Add a third additive admission path to `find_examples` (a rarity-gated plain-code-word anchor,
+    scoped to each query's own scope and measured against real corpus data), with a new honestly-
+    labelled `MATCH_BASIS_RARE_CODE_WORD`, fixing the real cells/java `"formula"` miss without
+    reintroducing boilerplate false positives.
+checks:
+  - command: '{python} -m pytest tests/mcp/tools/test_find_examples_rare_code_word.py -q -rfE -p no:cacheprovider'
+    expect: 'exit 0'
+    timeout_seconds: 180
+    junitxml: true
+    proves:
+      - REQ-G3-011
+  - command: '{python} -m pytest tests/mcp/tools/test_find_examples_title_anchor.py tests/mcp/tools/test_find_examples_code_anchor.py tests/mcp/tools/test_find_examples_symbol_aware_matching.py tests/mcp/tools/test_forgiveness_acceptance.py tests/mcp/tools/test_round3_retrieval_corpus.py -q -rfE -p no:cacheprovider'
+    expect: 'exit 0'
+    timeout_seconds: 900
+    junitxml: true
+    proves:
+      - REQ-G3-011
+min_tests: 5
+requires:
+  - python
+network: false
+negative_control:
+  mutate: |
+    python -X utf8 -c "import pathlib; p = pathlib.Path('src/foss_mcp/mcp/tools/find_examples.py'); s = p.read_text(encoding='utf-8'); old = 'code_example_frequency.get(t, 0) * 2 < len(example_doc_ids)'; assert s.count(old) == 1, 'the required literal comparison was not found as expected - if your real code reads differently, anchor your own mutate on your own real literal instead and note the substitution in your closeout'; p.write_text(s.replace(old, 'False', 1), encoding='utf-8')"
+  rationale: >-
+    Forces `rare_code_required` to always be empty (the comparison that decides rarity is replaced
+    with the literal `False`), disabling only this card's new admission path without touching the
+    title anchor, the prefix anchor, or the existing identifier/symbol code anchor. Any test proving
+    admission through the rare-code-word path alone (one the other three mechanisms would all
+    refuse) must fail under this mutation; every test of an existing mechanism is unaffected.
+evidence:
+  - evidence/build/G3/TC-672/receipt.json
+closeout:
+  - >-
+    `find_examples` now admits a real, previously-missed class of plain-word, code-anchored
+    examples when the word is genuinely rare within its own pilot's example corpus - fixing the
+    real cells/java `"formula"` case - without opening a boilerplate false-positive hole, with the
+    real before/after ratchet numbers stated in your report.
+recovery: Re-run from a clean tree.
