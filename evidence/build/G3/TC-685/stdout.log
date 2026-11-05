@@ -1,0 +1,47 @@
+
+===== CLEAN RUN 1 (host) =====
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-5c72e798a73c059a\Scripts\python.exe -m pytest tests/infra/test_hosting_config.py -q -rfE -p no:cacheprovider "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-ntq0n0gq\.junit-0.xml"
+--- stdout ---
+....                                                                     [100%]
+
+--- stderr ---
+
+
+===== CLEAN RUN 2 (host) =====
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-5c72e798a73c059a\Scripts\python.exe -m pytest tests/infra/test_hosting_config.py -q -rfE -p no:cacheprovider "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-ntq0n0gq\.junit-0.xml"
+--- stdout ---
+....                                                                     [100%]
+
+--- stderr ---
+
+
+===== NEGATIVE CONTROL (checks MUST now fail) =====
+mutated: M infra/hosting/nginx.conf, ?? .junit-0.xml
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-5c72e798a73c059a\Scripts\python.exe -m pytest tests/infra/test_hosting_config.py -q -rfE -p no:cacheprovider "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-ntq0n0gq\.junit-0.xml"
+--- stdout ---
+F...                                                                     [100%]
+================================== FAILURES ===================================
+________ test_nginx_conf_contains_the_three_real_diagnostic_directives ________
+
+    def test_nginx_conf_contains_the_three_real_diagnostic_directives():
+        """Pin the literal diagnostic facts that explain the gateway's tail latency.
+    
+        These three facts (one worker, per-request DNS re-resolution via a short
+        resolver TTL, and a variable proxy_pass that defeats connection pooling)
+        are the real, read evidence this card's purpose text records for RT4's
+        future fix. The negative control mutates the first of these away from
+        its real operator-local value to prove this test reads committed file
+        content, not a hardcoded expectation.
+        """
+        content = NGINX_CONF.read_text(encoding="utf-8")
+    
+>       assert "worker_processes 1;" in content, "nginx.conf must pin the real single-worker directive"
+E       AssertionError: nginx.conf must pin the real single-worker directive
+E       assert 'worker_processes 1;' in 'worker_processes 4;\npid /tmp/nginx.pid;\nevents { worker_connections 1024; }\nhttp {\n    access_log /dev/stdout;\n ..._set_header Host mcp-$pilot;\n            proxy_pass http://mcp-$pilot:8080/$rest$is_args$args;\n        }\n    }\n}\n'
+
+tests\infra\test_hosting_config.py:60: AssertionError
+=========================== short test summary info ===========================
+FAILED tests/infra/test_hosting_config.py::test_nginx_conf_contains_the_three_real_diagnostic_directives
+
+--- stderr ---
+

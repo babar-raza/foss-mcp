@@ -1,0 +1,92 @@
+{
+  "schema_version": 1,
+  "card": "TC-685",
+  "gate": "G3",
+  "generated_by": "gatectl",
+  "generated_at": "2026-11-05T11:18:06Z",
+  "base_rev": "8e87c1c78b247b24ba1e341887acfceeb0dcc832",
+  "head_rev": "0e047042b2e999944784f21ac6b1baac6a962216",
+  "card_sha256": "32d0672225f804c52a0e4530f3aa4b3cb4aa9782cb6d64096deb2dc4e3651d1c",
+  "fingerprint": {
+    "python": "3.13.2",
+    "platform": "Windows-11-10.0.26300-SP0",
+    "lock_sha256": "5c72e798a73c059a438e752e94a8d4c88c1bdf81a197f6e5c5fcecbc9466a691",
+    "env": {
+      "PYTHONHASHSEED": "0",
+      "PYTHONUTF8": "1",
+      "PYTHONDONTWRITEBYTECODE": "1",
+      "PYTHONIOENCODING": "utf-8",
+      "TZ": "UTC",
+      "LC_ALL": "C.UTF-8",
+      "SOURCE_DATE_EPOCH": "1700000000",
+      "verify_runner": "host"
+    }
+  },
+  "scope": {
+    "ok": true,
+    "changed_paths": [
+      "infra/hosting/README.md",
+      "infra/hosting/compose.yaml",
+      "infra/hosting/nginx.conf",
+      "infra/hosting/pilots.txt",
+      "tests/infra/test_hosting_config.py"
+    ],
+    "violations": [],
+    "evaluated": true
+  },
+  "runs": [
+    {
+      "run": 1,
+      "checks": [
+        {
+          "command": "{python} -m pytest tests/infra/test_hosting_config.py -q -rfE -p no:cacheprovider",
+          "exit_code": 0,
+          "duration_s": 0.503,
+          "stdout_sha256": "c4b808d34f4db00b333696dec1f3a43a2887d8bfe0cb7af07a3cb98ff43a7830",
+          "tests": 4,
+          "skipped": 0,
+          "errors": 0,
+          "failures": 0
+        }
+      ],
+      "all_passed": true
+    },
+    {
+      "run": 2,
+      "checks": [
+        {
+          "command": "{python} -m pytest tests/infra/test_hosting_config.py -q -rfE -p no:cacheprovider",
+          "exit_code": 0,
+          "duration_s": 0.426,
+          "stdout_sha256": "c4b808d34f4db00b333696dec1f3a43a2887d8bfe0cb7af07a3cb98ff43a7830",
+          "tests": 4,
+          "skipped": 0,
+          "errors": 0,
+          "failures": 0
+        }
+      ],
+      "all_passed": true
+    }
+  ],
+  "negative_control": {
+    "kind": "mutate",
+    "patch": "python -X utf8 -c \"import pathlib; p = pathlib.Path('infra/hosting/nginx.conf'); s = p.read_text(encoding='utf-8'); old = 'worker_processes 1;'; assert s.count(old) == 1, 'the required literal was not found as expected - if your real committed file formats this differently, anchor your own mutate on your own real literal instead and note the substitution in your closeout'; p.write_text(s.replace(old, 'worker_processes 4;', 1), encoding='utf-8')\"\n",
+    "patch_sha256": "9ca806922626ec4a4f0f4201afe104a26e964e70466ab9b8ff3b443a52a559c5",
+    "applied": true,
+    "patch_applied_failed": true,
+    "exit_codes": [
+      1
+    ],
+    "tree_changed": [
+      "M infra/hosting/nginx.conf",
+      "?? .junit-0.xml"
+    ]
+  },
+  "holdout": {
+    "ran": false,
+    "passed": true,
+    "detail": "no holdout for this card"
+  },
+  "accepted": true,
+  "reason": "all gates passed"
+}
