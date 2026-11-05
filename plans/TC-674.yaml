@@ -1,0 +1,165 @@
+id: TC-674
+gate: G3
+lane: extraction
+purpose: >-
+  I9 (index-truth sub-program, section 2.3 of the plan: "Python module symbols, star imports,
+  `try`/`if` imports, constant re-exports" - extractor fidelity). Narrowly scoped to the ONE real,
+  confirmed gap of the four items this plan entry names: a module-level re-export import written
+  inside a `try`/`except` or `if`/`else` block (the common "fast implementation with a pure-Python
+  fallback" or "Python-version-conditional" idiom) is silently invisible to
+  `python_surface.py`'s public-surface scan - not resolved as a re-export, and NOT even recorded
+  as `unresolved` (unlike a star import or an unresolvable relative import, both of which ARE
+  honestly disclosed per this file's own stated design). The other three items in this plan entry
+  were checked directly against the real current code and are each either already correct or
+  already handled by deliberate, disclosed design - do not re-touch them:
+    - Module symbols: already thorough (`_module_symbols` walks every top-level class/function).
+    - Star imports (`from x import *`): already correct BY DESIGN - recorded as `unresolved`
+      (`"{module}:{lineno}:from .core import *"`), never guessed, exactly as the module's own
+      docstring states ("Star imports... are recorded as unresolved, never guessed"). Confirmed
+      live: `inspect_public_surface` on a synthetic `from .core import *` package returns the
+      star import in `surface.unresolved`, not silently dropped.
+    - Constant re-exports at plain module top level (`from .consts import MAX_SIZE` in a package
+      `__init__.py` or any module with an explicit `__all__`): already correctly captured via the
+      SAME `ast.ImportFrom` handling in `_module_symbols` (confirmed live: `pkg.MAX_SIZE` appears
+      with `public_by="reexport"` and the right `reexported_from`).
+
+  REPRODUCED LIVE (not a guess): `_module_symbols()`'s only per-statement loop that recognises a
+  re-export import is `for index, node in enumerate(tree.body): ... elif isinstance(node,
+  ast.ImportFrom) and (is_package or explicit is not None): ...` (currently around line 553-610) -
+  this inspects ONLY statements that are DIRECT children of the module's top-level `tree.body`
+  list. An `ast.ImportFrom` one level inside an `ast.Try` (`.body`/`.handlers[*].body`/`.orelse`/
+  `.finalbody`) or an `ast.If` (`.body`/`.orelse`) at module top level is a CHILD of that `Try`/
+  `If` node, never itself a direct element of `tree.body`, so the loop's `isinstance(node,
+  ast.ImportFrom)` check never even sees it. Confirmed with two synthetic fixtures built the same
+  way this file's own existing tests build theirs (`tests/extraction/tree_sitter_engine/
+  test_python_surface.py`'s `_write`/`inspect_public_surface` pattern):
+
+      # pkg/__init__.py
+      try:
+          from ._fast import FastThing
+      except ImportError:
+          from ._pure import FastThing
+
+  and the `if sys.version_info >= (3, 8): ... else: ...` equivalent. In BOTH cases,
+  `inspect_public_surface(...).symbols` contains only the bare module symbol `pkg` - `FastThing`
+  is completely absent, not resolved AND not disclosed as `unresolved` either. This is a strictly
+  worse outcome than the star-import case (silent loss vs. honest non-resolution) and a real,
+  reproducible extractor-fidelity gap for a common, legitimate Python packaging idiom.
+
+  Fix: extend the SAME re-export recognition `_module_symbols` already applies to a direct
+  top-level `ast.ImportFrom`, to ALSO recognise one nested exactly one level inside a module-top-
+  level `ast.Try` (its `body`, every `handlers[*].body`, `orelse`, `finalbody`) or `ast.If` (its
+  `body`, `orelse`) - never any DEEPER nesting (an import inside a function body, a nested class,
+  or a `Try`/`If` nested inside another `Try`/`If` stays exactly as invisible as it is today; this
+  card is scoped to the one real, common idiom confirmed above, not a general statement-walker
+  rewrite). When the SAME name is bound by imports in more than one branch (the common try/except
+  or if/else shape, each branch providing an alternative source for the same public name), resolve
+  it exactly like this file's own pre-existing "a name bound more than once is its LAST binding"
+  rule already does for module-level redefinitions (TC-532, see `_last_binding`'s own docstring
+  and precedent) - walking the branches in the SAME order Python would actually execute them is
+  not required (this extractor never executes anything); walking in a fixed, deterministic,
+  documented order (e.g. `try` body before `except` handlers before `else` before `finally` for
+  `Try`; `body` before `orelse` for `If`) and keeping the LAST one seen in that order is sufficient
+  and consistent with the rest of this file's static-analysis-only philosophy. State your exact
+  chosen order in your closing report. An import whose origin cannot be resolved inside a
+  try/if block is disclosed as `unresolved`, exactly like an unresolvable top-level one already is
+  - never silently dropped, never guessed.
+depends_on:
+  - TC-555
+  - TC-620
+write_paths:
+  - src/foss_mcp/extraction/tree_sitter_engine/python_surface.py
+  - tests/extraction/tree_sitter_engine/test_python_surface_conditional_imports.py
+satisfies:
+  - REQ-G3-012
+source_refs:
+  - file: docs/DECISION_LOG.md
+    anchor: >-
+      ## 2026-11-02 — Round-3 independent re-audit adopted; a real regression found and given top
+      priority; the "no pilot ever gets worse" rule adopted project-wide (operator, supervisor)
+    sha256: b750b8bf0df25b17bf66d014895ecb42952050c7cc63773f56249c4a1c551791
+inputs:
+  - >-
+    READ FIRST: `src/foss_mcp/extraction/tree_sitter_engine/python_surface.py` in full, especially
+    `_module_symbols` (the top-level per-statement loop), `_resolved_relative`, `_public_name`, and
+    the module's own leading docstring (its stated design principles - "nothing is imported or
+    executed", "star imports... recorded as unresolved, never guessed" - govern how you must
+    extend it; never weaken either guarantee). Also read `_last_binding`'s docstring (TC-532's
+    "last binding wins" precedent) before designing your own branch-resolution order.
+  - >-
+    REPRODUCE FIRST (pin the failing fixture, per this project's own standing rule): using the
+    exact `_write`/`inspect_public_surface` pattern `tests/extraction/tree_sitter_engine/
+    test_python_surface.py`'s existing tests already use, write a test proving that a
+    try/except-guarded re-export (the `FastThing` example above) currently returns NO symbol
+    named `FastThing` and NO `unresolved` entry mentioning it either - confirm this is a real,
+    reproducible gap in your own run before changing any production code.
+  - >-
+    Extend `_module_symbols` (or a small helper it calls) to also recognise an `ast.ImportFrom`
+    nested one level inside a module-top-level `ast.Try` or `ast.If`, resolving/disclosing it by
+    the EXACT SAME rules (`_resolved_relative`, `is_package or explicit is not None`,
+    `_public_name`, the `unresolved` disclosure path) already applied to a direct top-level one -
+    do not duplicate that logic; factor it so both call sites share it. Never recurse into a
+    `Try`/`If` nested inside ANOTHER `Try`/`If`, nor into a function or class body - scope is
+    exactly one level inside a module-top-level `Try`/`If`, nothing deeper.
+  - >-
+    Write real tests in the new file proving: (a) the try/except `FastThing` case now resolves
+    correctly (public re-export symbol present, right `reexported_from`); (b) the if/else
+    `sys.version_info`-style case resolves the same way; (c) when only ONE branch's import can be
+    resolved (the other names a module that does not exist in the fixture), the resolvable one
+    still works correctly (does not matter which branch - state in your report which one you
+    chose to make resolvable and why, so your own test is unambiguous); (d) an import nested TWO
+    levels deep (inside a `Try` nested inside another `Try`, or inside a function body within an
+    `if` block) stays exactly as invisible as it is today - no behavior change for deeper nesting,
+    proving your fix's scope boundary is real, not accidental; (e) the existing star-import and
+    plain-top-level-reexport behaviors (both already correct) are completely unaffected - re-run
+    `tests/extraction/tree_sitter_engine/test_python_surface.py`'s existing suite unchanged.
+  - >-
+    MEASURE: re-run the FULL existing extractor test suite (`tests/extraction/tree_sitter_engine/
+    test_python_surface.py`, `test_python_surface_attributes.py`,
+    `test_python_surface_class_constants.py`, `test_python_surface_members.py`,
+    `test_python_surface_mixins.py`, `test_python_surface_repair.py`,
+    `test_python_surface_round3.py`) BEFORE your change (confirm it's green on unmodified code)
+    and AFTER (confirm zero regression - every test that passed before still passes). Report both
+    results in your closing report, per Decision E (no card lowers a floor).
+actions:
+  - >-
+    Extend `python_surface.py`'s module-level re-export recognition to also resolve (or honestly
+    disclose as unresolved, never silently drop) an import nested one level inside a module-top-
+    level `try`/`except` or `if`/`else` block, using the file's own pre-existing "last binding
+    wins" convention to pick among multiple branches that bind the same name.
+checks:
+  - command: '{python} -m pytest tests/extraction/tree_sitter_engine/test_python_surface_conditional_imports.py -q -rfE -p no:cacheprovider'
+    expect: 'exit 0'
+    timeout_seconds: 120
+    junitxml: true
+    proves:
+      - REQ-G3-012
+  - command: '{python} -m pytest tests/extraction/tree_sitter_engine/test_python_surface.py tests/extraction/tree_sitter_engine/test_python_surface_attributes.py tests/extraction/tree_sitter_engine/test_python_surface_class_constants.py tests/extraction/tree_sitter_engine/test_python_surface_members.py tests/extraction/tree_sitter_engine/test_python_surface_mixins.py tests/extraction/tree_sitter_engine/test_python_surface_repair.py tests/extraction/tree_sitter_engine/test_python_surface_round3.py -q -rfE -p no:cacheprovider'
+    expect: 'exit 0'
+    timeout_seconds: 300
+    junitxml: true
+    proves:
+      - REQ-G3-012
+min_tests: 5
+requires:
+  - python
+network: false
+negative_control:
+  mutate: |
+    python -X utf8 -c "import pathlib; p = pathlib.Path('src/foss_mcp/extraction/tree_sitter_engine/python_surface.py'); s = p.read_text(encoding='utf-8'); old = 'isinstance(node, ast.ImportFrom)'; assert s.count(old) >= 1, 'the literal isinstance check was not found as expected - if your real code reads differently (e.g. you named the nested-statement variable something else, or factored the check into a differently-named helper), anchor your own mutate on your own real literal instead and note the substitution in your closeout'; import re as _re; n = len(_re.findall(_re.escape(old), s)); assert n >= 1; p.write_text(s.replace(old, 'isinstance(node, ast.ImportFrom) and False', 1), encoding='utf-8')"
+  rationale: >-
+    Disables the FIRST `isinstance(node, ast.ImportFrom)` check the committed file contains (the
+    worker's own new or refactored re-export-recognition check, by construction of this card) by
+    forcing it to always evaluate False. Any test proving this card's new try/except or if/else
+    resolution must fail under this mutation. If the worker's real implementation structures the
+    check differently such that the FIRST occurrence is not the new/shared logic, the worker must
+    say so in their closeout and the supervisor will re-anchor the mutate on the real controlling
+    literal before accepting.
+evidence:
+  - evidence/build/G3/TC-674/receipt.json
+closeout:
+  - >-
+    `python_surface.py` now resolves (or honestly discloses as unresolved) a module-level
+    re-export written inside a `try`/`except` or `if`/`else` block - a common, previously silently
+    invisible packaging idiom - with zero change to any other extraction behavior.
+recovery: Re-run from a clean tree.
