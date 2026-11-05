@@ -1,0 +1,136 @@
+id: TC-682
+gate: G3
+lane: extraction
+purpose: >-
+  O4 (oracle sub-program, section 2.3: "oracle enumerators read kw-only/varargs/fields/`auto()`/
+  enum-constant arguments"). Of these 5 nominal items, the Java-specific "enum constants with
+  arguments" (Appendix D's 1,300-count `enum_value` bucket) is out of scope for this card - O2/O3
+  already established this program is Python-only for now, and that item is a Java/Kotlin idiom
+  with no Python analogue. "fields" (class-level attributes on a NON-enum class) is ALSO deferred
+  to a separate follow-up card, deliberately: unlike the other 3 items below, adding field members
+  to non-enum classes introduces a BRAND NEW member kind the oracle has never produced before,
+  which would change real pilot MEMBER COUNTS in oracle-vs-extractor comparisons - a bigger-
+  blast-radius change than this card's 3 pure signature-completeness fixes (which only add detail
+  to members the oracle ALREADY produces, never add or remove a member).
+
+  REPRODUCED directly (supervisor, this session) against the real, unmodified
+  `_python_symbol_from_classdef` in `scripts/release/source_differential.py`, with a hand-authored
+  fixture:
+
+      class Widget:
+          def configure(self, a, *, b, **kwargs): pass
+          def varargs_method(self, *args): pass
+
+      class Mode(enum.Enum):
+          RED = enum.auto()
+          BLUE = 2
+
+  Result: `configure`'s member shows `params=(OracleParam(name='a', has_default=False),)` - the
+  keyword-only parameter `b` and the `**kwargs` catch-all are COMPLETELY INVISIBLE, not merely
+  unresolved-and-disclosed. `varargs_method` shows `params=()` - `*args` is equally invisible. This
+  matches Appendix D's own "kw-only/varargs not read by oracle (169 Python)" signature-bucket
+  finding exactly, confirmed still real today. `Mode.RED`'s member shows `enum_value=None` -
+  identical to how a genuinely value-less or unparseable constant would appear, with zero signal
+  that this was `auto()` specifically (`BLUE`, by contrast, correctly shows `enum_value='2'`) - a
+  real information loss, not a crash, confirmed by the same fixture.
+
+  Fix: extend `_python_symbol_from_classdef`'s existing per-method branch to ALSO read
+  `item.args.kwonlyargs` (each contributing an `OracleParam`, defaulted per
+  `item.args.kw_defaults`, which pairs positionally with `kwonlyargs` and uses `None` for "no
+  default" - confirm this pairing with your own eyes before relying on it, it is easy to get
+  backwards) and to record `item.args.vararg`/`item.args.kwarg` (your own choice of shape - a
+  boolean flag per parameter list, or a synthesized `*args`/`**kwargs`-named `OracleParam` entry,
+  report which and why). Extend the enum-value branch to special-case an `_ast.Call` whose func is
+  `enum.auto` (bare `auto` name or `enum.auto` attribute access, mirroring how
+  `_python_enum_bases` already recognises both bare-name and attribute-access base forms) and
+  record a distinct marker (e.g. `enum_value="auto()"` or a new field - your choice, report which)
+  rather than falling through to the existing `literal_eval`-fails-silently-to-None path.
+depends_on:
+  - TC-676
+  - TC-679
+write_paths:
+  - scripts/release/source_differential.py
+  - tests/release/test_oracle_public_api_definition.py
+satisfies:
+  - REQ-G3-012
+source_refs:
+  - file: docs/DECISION_LOG.md
+    anchor: >-
+      ## 2026-11-02 — Round-3 independent re-audit adopted; a real regression found and given top
+      priority; the "no pilot ever gets worse" rule adopted project-wide (operator, supervisor)
+    sha256: b750b8bf0df25b17bf66d014895ecb42952050c7cc63773f56249c4a1c551791
+inputs:
+  - >-
+    READ FIRST: `scripts/release/source_differential.py`'s `_python_symbol_from_classdef` in full,
+    including its own existing method-parameter loop (`item.args.args`/`item.args.defaults`) and
+    its existing enum-value branch (`_ast.Assign` + `literal_eval`). Read Python's own `ast.arguments`
+    node shape (`args`, `kwonlyargs`, `kw_defaults`, `vararg`, `kwarg`) directly from the `ast`
+    module's own documentation or by introspecting a real parsed function - do not guess the
+    pairing between `kwonlyargs` and `kw_defaults` (a common, easy-to-get-backwards mistake: unlike
+    `args`/`defaults` which pair from the END, `kwonlyargs`/`kw_defaults` pair POSITIONALLY from
+    the START, with `None` entries for parameters that have no default).
+  - >-
+    REPRODUCE FIRST: confirm with your own eyes, running the exact fixture in this card's purpose
+    text (or an equivalent one of your own), that the CURRENT, unmodified code drops kw-only params,
+    varargs, and the auto() signal, before changing anything.
+  - >-
+    Write real, deterministic unit tests in `tests/release/test_oracle_public_api_definition.py`
+    (the existing O2/O3 test file - add a new section, do not touch the existing sections) proving:
+    (a) a kw-only parameter is now captured, with its correct default-or-not status; (b) `*args`
+    and `**kwargs` are now represented (whatever shape you chose); (c) `enum.auto()` is now
+    distinguished from both a literal value and a genuinely unparseable one; (d) a method with NONE
+    of these (only plain positional-or-keyword params) is byte-for-byte unaffected - same
+    `OracleMember` as before this card; (e) an enum constant with a literal int/str value (the
+    `BLUE = 2` case) is also byte-for-byte unaffected.
+  - >-
+    MEASURE: re-run every existing test in `tests/release/test_source_differential.py` that
+    exercises `enumerate_python`/`_python_symbol_from_classdef` (grep for both names first) BEFORE
+    and AFTER your change, and report real pass/fail counts - every existing member's signature for
+    a function with NO kw-only/vararg/auto() must be byte-for-byte unchanged (Decision E). Also
+    measure against this repo's own real committed Python extractor fixtures if any contain a
+    kw-only/vararg/auto() case (grep `tests/fixtures/**/python/**` or wherever extractor fixtures
+    live) and report whether the oracle's new output now agrees with the independent extractor's
+    own (separately-measured) handling of the same construct - do not force agreement if they
+    genuinely differ, just report the real comparison per this program's own disclosed-divergence
+    precedent (TC-676's dunder finding).
+actions:
+  - >-
+    Extend the Python oracle's method-signature and enum-value extraction to capture kw-only
+    parameters, varargs/kwargs, and `enum.auto()` - three real, previously-silent information-loss
+    gaps in `_python_symbol_from_classdef` - with zero change to any member or signature that does
+    not use these constructs.
+checks:
+  - command: '{python} -m pytest tests/release/test_oracle_public_api_definition.py -q -rfE -p no:cacheprovider'
+    expect: 'exit 0'
+    timeout_seconds: 180
+    junitxml: true
+    proves:
+      - REQ-G3-012
+  - command: '{python} -m pytest tests/release/test_source_differential.py -q -rfE -p no:cacheprovider -k "python or enumerate_python"'
+    expect: 'exit 0'
+    timeout_seconds: 300
+    junitxml: true
+    proves:
+      - REQ-G3-012
+min_tests: 5
+requires:
+  - python
+network: false
+negative_control:
+  mutate: |
+    python -X utf8 -c "import pathlib; p = pathlib.Path('scripts/release/source_differential.py'); s = p.read_text(encoding='utf-8'); old = 'kwonlyargs'; assert s.count(old) >= 1, 'the required kwonlyargs reference was not found as expected - if your real code reads differently, anchor your own mutate on your own real literal instead and note the substitution in your closeout'; s2 = s.replace(old, 'kwonlyargsDISABLED', s.count(old)); assert s2 != s; p.write_text(s2, encoding='utf-8')"
+  rationale: >-
+    Renames every reference to `kwonlyargs` to a nonexistent attribute, so any code path reading
+    keyword-only parameters raises an AttributeError the moment it is exercised. Any test proving a
+    kw-only parameter is now captured must fail under this mutation; a test using only
+    positional-or-keyword parameters, varargs, or auto() is unaffected.
+evidence:
+  - evidence/build/G3/TC-682/receipt.json
+closeout:
+  - >-
+    The Python oracle's enumerator now captures kw-only parameters, varargs/kwargs, and
+    `enum.auto()` values instead of silently dropping them, closing 3 of O4's 5 nominal items for
+    Python (the Java-specific enum-constant-arguments item is not applicable; the "fields on a
+    non-enum class" item is deliberately deferred to its own card given its bigger real-pilot
+    member-count impact).
+recovery: Re-run from a clean tree.
