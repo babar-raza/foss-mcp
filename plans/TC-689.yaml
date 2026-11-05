@@ -1,0 +1,151 @@
+id: TC-689
+gate: G3
+lane: extraction
+purpose: >-
+  O5 (oracle disagreement remediation, Appendix D of the unified plan: "enum_value | Java
+  constants with arguments stored empty (1,300) | 95% | extractor fix (O5)"). REPRODUCED directly
+  against the real production extractor (not guessed from the plan's prose): a hand-authored Java
+  enum with constructor-argument constants (`RED(255, 0, 0)`) extracts with `enum_members`
+  `"value": ""` for every constant, even though the real `argument_list` node is present in the
+  parse tree. Root cause: `tree_helpers.py`'s `_extract_enum_members` reads only a node's `value`
+  field (`child_by_field(ch, "value")`) for every language uniformly; tree-sitter-java's
+  `enum_constant` grammar node has no `value` field at all - only `name`, `arguments` and `body` -
+  so the lookup always misses and the constant's real constructor arguments are silently dropped
+  from served content. Confirmed this is the CURRENT real-pilot state, not just a synthetic case:
+  all 4 real Java pilots with committed `enum_members` fixtures (cells_java 330 members, pdf_java
+  989, slides_java 937, 3d_java 221 - 2,477 total) show `"value": ""` on every single entry with
+  zero exceptions across all 4 files, consistent with the plan's own ~1,300-affected estimate being
+  an undercount rather than an overcount for the subset that actually has constructor arguments.
+
+  Scoped narrowly to the one real mechanism: when a Java `enum_constant` node has no `value` field
+  (always true) but DOES have a populated `arguments` field (an `argument_list` node, i.e. the
+  constant was declared with constructor arguments), capture that field's text as the member's
+  `value` instead of leaving it empty. A constant with no arguments (`PLAIN` with no parens) must
+  keep `value == ""`, exactly as today - this is additive, not a reinterpretation of what "value"
+  means for a parameterless constant.
+
+  No other language's `_extract_enum_members` branch is touched: C's/C++'s `enumerator` node has
+  a real `value` field (`RED = 1`) that already works; Rust enums are handled by a wholly separate
+  code path (`lang.rust.enum_variants`, untouched); Python enums use `_extract_python_enum_members`
+  (a different function entirely, untouched); TypeScript/C# enum nodes were not found to reach this
+  Java-only fix (gated explicitly on `language == "java"` and `ch.type == "enum_constant"`).
+
+  This is a production-extractor fix (`AS`/`tree_helpers.py`, consumed by `api_surface.py`), not an
+  oracle-script change - `scripts/release/source_differential.py` is untouched by this card, per
+  the project's deliberate oracle/extractor independence (a shared-logic bug would otherwise
+  silently agree on the same wrong answer). Checked that no existing test pins the current empty
+  value as correct for a real enum constant with arguments: the only real-pilot assertions on
+  `enum_members` in `tests/extraction/test_pdf_java_extraction.py`, `test_slides_java_extraction.py`
+  and `test_3d_java_extraction.py` check member NAMES only (a `{m["name"] for m in ...}` set
+  comparison), never `value` - so this fix needs no collateral changes to any existing test file.
+  Regenerating the 4 real baked `api_surface.json` fixtures with the fixed values is explicitly OUT
+  OF SCOPE - that is `R1B`'s own job (wave 24, after `I10,I13,O6,H8`), a deliberate later release
+  step, not this card's.
+depends_on:
+  - TC-559
+  - TC-676
+write_paths:
+  - src/foss_mcp/extraction/tree_sitter_engine/tree_helpers.py
+  - tests/extraction/test_java_enum_constant_arguments.py
+satisfies:
+  - REQ-G3-012
+source_refs:
+  - file: docs/DECISION_LOG.md
+    anchor: >-
+      ## 2026-11-02 — Round-3 independent re-audit adopted; a real regression found and given top
+      priority; the "no pilot ever gets worse" rule adopted project-wide (operator, supervisor)
+    sha256: b750b8bf0df25b17bf66d014895ecb42952050c7cc63773f56249c4a1c551791
+inputs:
+  - >-
+    READ FIRST: `tree_helpers.py`'s `_extract_enum_members` (search for that exact function name) in
+    full, and the real tree-sitter-java grammar shape of an `enum_constant` node - confirm for
+    yourself (e.g. by parsing a small real Java enum with the project's own `tree_sitter_language_pack`
+    parser and walking the node, exactly as this card's own purpose text did) that the node has
+    fields `name`, `arguments`, `body` and NOT `value`, before changing anything. Also read the
+    call site at `api_surface.py` (search for `_extract_enum_members(`) to confirm how the returned
+    `enum_members` list reaches `chunk_builder.py`'s `_member_line` (search for that name): a
+    non-empty `value` renders as `  - RED = <value>` in served content; an empty one renders as
+    `  - RED` with no `=` suffix - this is the real, user-visible effect of this fix.
+  - >-
+    REPRODUCE FIRST: write a throwaway script (not committed) that extracts a hand-authored Java
+    enum with at least one constructor-argument constant (e.g. `RED(255, 0, 0)`) and at least one
+    plain constant with no arguments (e.g. `PLAIN`), using the real
+    `api_surface.extract_api_surface(get_parser("java"), "java", <package_dir>, <tmp_path>, <family>)`
+    entrypoint (see `tests/extraction/test_round3_java_fidelity.py`'s own `_extract` helper for the
+    exact calling convention). Confirm the CURRENT (unfixed) output: the argument constant's
+    `enum_members` entry has `"value": ""` despite having real constructor arguments; only after
+    your fix does it show the real argument text. This proves the defect is real before you touch
+    any production code.
+  - >-
+    FIX: in `_extract_enum_members`, when `ch.type == "enum_constant"` and `language == "java"` and
+    the existing `value` lookup (`child_by_field(ch, "value")`) found nothing, additionally check
+    `child_by_field(ch, "arguments")`; if that field is present (an `argument_list` node with at
+    least one child), use its node text as the member's `value` (your own choice of whether to keep
+    the surrounding parentheses or strip them - report which and why; keeping them, e.g.
+    `"(255, 0, 0)"`, is simplest and matches how Rust's `payload` is rendered verbatim elsewhere in
+    this file). A constant with NO `arguments` field, or an empty `argument_list`, must still yield
+    `value == ""` exactly as today - do not synthesize a fake value for a parameterless constant.
+    Gate the new branch narrowly (`language == "java"` and this exact node type) so no other
+    language's existing, already-correct behavior (C/C++ `enumerator`'s real `value` field, Rust's
+    separate `enum_variants` path, Python's separate `_extract_python_enum_members`) is touched.
+  - >-
+    Write real, deterministic tests in the new file proving: (a) a Java enum constant with
+    constructor arguments (`RED(255, 0, 0)`) now carries the real argument text as its `value`,
+    verified through the real `extract_api_surface` entrypoint (not a direct call to the private
+    helper); (b) a sibling constant with NO arguments in the SAME enum still yields `value == ""`
+    (the negative case, proving this is additive, not a blanket change); (c) a plain enum with only
+    parameterless constants (the common case, e.g. `HorizontalAlignment` in the real pdf_java
+    fixture) is byte-for-byte unaffected - extract it live and confirm every member's `value` is
+    still `""`.
+  - >-
+    MEASURE: confirm the existing real-pilot extraction tests that touch Java enums
+    (`tests/extraction/test_pdf_java_extraction.py`, `test_slides_java_extraction.py`,
+    `test_3d_java_extraction.py`, `test_cells_java_extraction.py`, `test_round3_java_fidelity.py`)
+    all still pass unchanged after your fix (they assert member names, never `value` - confirmed
+    before authoring this card, but verify it yourself and report the real before/after counts). Do
+    NOT regenerate any committed `tests/fixtures/*java*/api_surface.json` file - that is `R1B`'s
+    later, deliberate job, not this card's; a live re-extraction producing a different, richer
+    `value` than the stale committed JSON is the EXPECTED and CORRECT state until R1B runs.
+actions:
+  - >-
+    Fix `_extract_enum_members` in `tree_helpers.py` so a Java enum constant's constructor
+    arguments (e.g. `RED(255, 0, 0)`), previously always dropped as an empty `value`, are captured
+    from the node's real `arguments` field - additive, Java-only, leaves every other language's
+    enum-member extraction and every parameterless Java constant's `value == ""` unchanged.
+checks:
+  - command: '{python} -m pytest tests/extraction/test_java_enum_constant_arguments.py -q -rfE -p no:cacheprovider'
+    expect: 'exit 0'
+    timeout_seconds: 120
+    junitxml: true
+    proves:
+      - REQ-G3-012
+  - command: '{python} -m pytest tests/extraction/test_pdf_java_extraction.py tests/extraction/test_slides_java_extraction.py tests/extraction/test_3d_java_extraction.py tests/extraction/test_cells_java_extraction.py tests/extraction/test_round3_java_fidelity.py -q -rfE -p no:cacheprovider'
+    expect: 'exit 0'
+    timeout_seconds: 240
+    junitxml: true
+    proves:
+      - REQ-G3-012
+min_tests: 3
+requires:
+  - python
+network: false
+negative_control:
+  mutate: |
+    python -X utf8 -c "import pathlib; p = pathlib.Path('src/foss_mcp/extraction/tree_sitter_engine/tree_helpers.py'); s = p.read_text(encoding='utf-8'); old = 'def _extract_enum_members(node, language: str) -> list[dict[str, str]]:'; assert s.count(old) == 1; new = old + chr(10) + '    return []  # TC-689 negative control: disable enum member extraction entirely'; s2 = s.replace(old, new, 1); assert s2 != s; p.write_text(s2, encoding='utf-8')"
+  rationale: >-
+    Makes `_extract_enum_members` return an empty list unconditionally, so no enum - neither a
+    synthetic argument-constant one nor any real pilot's plain enum - ever gets any members at all.
+    This must fail the new test file's assertions that a real argument-constant constant's `value`
+    is captured (there would be no member entries left to check), proving the new mechanism, not
+    just the file's import, is under test.
+evidence:
+  - evidence/build/G3/TC-689/receipt.json
+closeout:
+  - >-
+    Java enum constants declared with constructor arguments (e.g. `RED(255, 0, 0)`) now carry their
+    real argument text as `enum_members[].value` instead of always being silently empty - closes
+    the O5 oracle-disagreement class (Appendix D: "Java constants with arguments stored empty,
+    ~1,300, 95%, extractor fix"). Parameterless Java constants and every other language's enum
+    extraction are unchanged. The 4 real baked `api_surface.json` fixtures are deliberately left
+    stale pending `R1B`'s later, dedicated regeneration step.
+recovery: Re-run from a clean tree.
