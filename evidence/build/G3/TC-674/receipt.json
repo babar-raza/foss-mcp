@@ -1,0 +1,111 @@
+{
+  "schema_version": 1,
+  "card": "TC-674",
+  "gate": "G3",
+  "generated_by": "gatectl",
+  "generated_at": "2026-11-05T05:36:04Z",
+  "base_rev": "da9d6507472ad2c635b2f314958010873a0e95d2",
+  "head_rev": "ca5dbf5fc9c901bdeaa82b0be0a8681e0aa58f1b",
+  "card_sha256": "13d1d76106637b894de8e027786b5fcef593b4cba657db29b47a3a1c99f017f9",
+  "fingerprint": {
+    "python": "3.13.2",
+    "platform": "Windows-11-10.0.26300-SP0",
+    "lock_sha256": "5c72e798a73c059a438e752e94a8d4c88c1bdf81a197f6e5c5fcecbc9466a691",
+    "env": {
+      "PYTHONHASHSEED": "0",
+      "PYTHONUTF8": "1",
+      "PYTHONDONTWRITEBYTECODE": "1",
+      "PYTHONIOENCODING": "utf-8",
+      "TZ": "UTC",
+      "LC_ALL": "C.UTF-8",
+      "SOURCE_DATE_EPOCH": "1700000000",
+      "verify_runner": "host"
+    }
+  },
+  "scope": {
+    "ok": true,
+    "changed_paths": [
+      "src/foss_mcp/extraction/tree_sitter_engine/python_surface.py",
+      "tests/extraction/tree_sitter_engine/test_python_surface_conditional_imports.py"
+    ],
+    "violations": [],
+    "evaluated": true
+  },
+  "runs": [
+    {
+      "run": 1,
+      "checks": [
+        {
+          "command": "{python} -m pytest tests/extraction/tree_sitter_engine/test_python_surface_conditional_imports.py -q -rfE -p no:cacheprovider",
+          "exit_code": 0,
+          "duration_s": 0.683,
+          "stdout_sha256": "4d2df7a96ce4a667da3ccf295f2d16c728a65ed0e861a3baa919f7bb469b02b5",
+          "tests": 5,
+          "skipped": 0,
+          "errors": 0,
+          "failures": 0
+        },
+        {
+          "command": "{python} -m pytest tests/extraction/tree_sitter_engine/test_python_surface.py tests/extraction/tree_sitter_engine/test_python_surface_attributes.py tests/extraction/tree_sitter_engine/test_python_surface_class_constants.py tests/extraction/tree_sitter_engine/test_python_surface_members.py tests/extraction/tree_sitter_engine/test_python_surface_mixins.py tests/extraction/tree_sitter_engine/test_python_surface_repair.py tests/extraction/tree_sitter_engine/test_python_surface_round3.py -q -rfE -p no:cacheprovider",
+          "exit_code": 0,
+          "duration_s": 24.545,
+          "stdout_sha256": "9405616d40158ed5f33068c29d4091c3ba6ba9100972d3eb01ea2906303362ea",
+          "tests": 163,
+          "skipped": 0,
+          "errors": 0,
+          "failures": 0
+        }
+      ],
+      "all_passed": true
+    },
+    {
+      "run": 2,
+      "checks": [
+        {
+          "command": "{python} -m pytest tests/extraction/tree_sitter_engine/test_python_surface_conditional_imports.py -q -rfE -p no:cacheprovider",
+          "exit_code": 0,
+          "duration_s": 0.445,
+          "stdout_sha256": "4d2df7a96ce4a667da3ccf295f2d16c728a65ed0e861a3baa919f7bb469b02b5",
+          "tests": 5,
+          "skipped": 0,
+          "errors": 0,
+          "failures": 0
+        },
+        {
+          "command": "{python} -m pytest tests/extraction/tree_sitter_engine/test_python_surface.py tests/extraction/tree_sitter_engine/test_python_surface_attributes.py tests/extraction/tree_sitter_engine/test_python_surface_class_constants.py tests/extraction/tree_sitter_engine/test_python_surface_members.py tests/extraction/tree_sitter_engine/test_python_surface_mixins.py tests/extraction/tree_sitter_engine/test_python_surface_repair.py tests/extraction/tree_sitter_engine/test_python_surface_round3.py -q -rfE -p no:cacheprovider",
+          "exit_code": 0,
+          "duration_s": 24.555,
+          "stdout_sha256": "9405616d40158ed5f33068c29d4091c3ba6ba9100972d3eb01ea2906303362ea",
+          "tests": 163,
+          "skipped": 0,
+          "errors": 0,
+          "failures": 0
+        }
+      ],
+      "all_passed": true
+    }
+  ],
+  "negative_control": {
+    "kind": "mutate",
+    "patch": "python -X utf8 -c \"import pathlib; p = pathlib.Path('src/foss_mcp/extraction/tree_sitter_engine/python_surface.py'); s = p.read_text(encoding='utf-8'); old = 'isinstance(node, ast.Try | ast.If)'; assert s.count(old) == 1, 'the literal isinstance check gating the new Try/If branch was not found exactly once as expected - if your real code reads differently, anchor your own mutate on your own real literal instead and note the substitution in your closeout'; p.write_text(s.replace(old, 'isinstance(node, ast.Try | ast.If) and False', 1), encoding='utf-8')\"\n",
+    "patch_sha256": "40ed9e804bfb0c3f7245a78e586399c770645f63b26a8542e30849e58a0f6504",
+    "applied": true,
+    "patch_applied_failed": true,
+    "exit_codes": [
+      1,
+      0
+    ],
+    "tree_changed": [
+      "M src/foss_mcp/extraction/tree_sitter_engine/python_surface.py",
+      "?? .junit-0.xml",
+      "?? .junit-1.xml"
+    ]
+  },
+  "holdout": {
+    "ran": false,
+    "passed": true,
+    "detail": "no holdout for this card"
+  },
+  "accepted": true,
+  "reason": "all gates passed"
+}

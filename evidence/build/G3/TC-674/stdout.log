@@ -1,0 +1,126 @@
+
+===== CLEAN RUN 1 (host) =====
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-5c72e798a73c059a\Scripts\python.exe -m pytest tests/extraction/tree_sitter_engine/test_python_surface_conditional_imports.py -q -rfE -p no:cacheprovider "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-wzo5bcax\.junit-0.xml"
+--- stdout ---
+.....                                                                    [100%]
+
+--- stderr ---
+
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-5c72e798a73c059a\Scripts\python.exe -m pytest tests/extraction/tree_sitter_engine/test_python_surface.py tests/extraction/tree_sitter_engine/test_python_surface_attributes.py tests/extraction/tree_sitter_engine/test_python_surface_class_constants.py tests/extraction/tree_sitter_engine/test_python_surface_members.py tests/extraction/tree_sitter_engine/test_python_surface_mixins.py tests/extraction/tree_sitter_engine/test_python_surface_repair.py tests/extraction/tree_sitter_engine/test_python_surface_round3.py -q -rfE -p no:cacheprovider "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-wzo5bcax\.junit-1.xml"
+--- stdout ---
+........................................................................ [ 44%]
+........................................................................ [ 88%]
+...................                                                      [100%]
+
+--- stderr ---
+
+
+===== CLEAN RUN 2 (host) =====
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-5c72e798a73c059a\Scripts\python.exe -m pytest tests/extraction/tree_sitter_engine/test_python_surface_conditional_imports.py -q -rfE -p no:cacheprovider "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-wzo5bcax\.junit-0.xml"
+--- stdout ---
+.....                                                                    [100%]
+
+--- stderr ---
+
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-5c72e798a73c059a\Scripts\python.exe -m pytest tests/extraction/tree_sitter_engine/test_python_surface.py tests/extraction/tree_sitter_engine/test_python_surface_attributes.py tests/extraction/tree_sitter_engine/test_python_surface_class_constants.py tests/extraction/tree_sitter_engine/test_python_surface_members.py tests/extraction/tree_sitter_engine/test_python_surface_mixins.py tests/extraction/tree_sitter_engine/test_python_surface_repair.py tests/extraction/tree_sitter_engine/test_python_surface_round3.py -q -rfE -p no:cacheprovider "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-wzo5bcax\.junit-1.xml"
+--- stdout ---
+........................................................................ [ 44%]
+........................................................................ [ 88%]
+...................                                                      [100%]
+
+--- stderr ---
+
+
+===== NEGATIVE CONTROL (checks MUST now fail) =====
+mutated: M src/foss_mcp/extraction/tree_sitter_engine/python_surface.py, ?? .junit-0.xml, ?? .junit-1.xml
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-5c72e798a73c059a\Scripts\python.exe -m pytest tests/extraction/tree_sitter_engine/test_python_surface_conditional_imports.py -q -rfE -p no:cacheprovider "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-wzo5bcax\.junit-0.xml"
+--- stdout ---
+FFF..                                                                    [100%]
+================================== FAILURES ===================================
+_______________ test_a_try_except_guarded_reexport_now_resolves _______________
+
+tmp_path = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-20078/test_a_try_except_guarded_reex0')
+
+    def test_a_try_except_guarded_reexport_now_resolves(tmp_path: Path) -> None:
+        """(a) The "fast implementation with a pure-Python fallback" idiom: both branches bind the
+        same name. Per the stated order, the ``except`` handler (read after the ``try`` body) wins."""
+        _write(
+            tmp_path,
+            "pkg/__init__.py",
+            "try:\n    from ._fast import FastThing\nexcept ImportError:\n    from ._pure import FastThing\n",
+        )
+        _write(tmp_path, "pkg/_fast.py", "class FastThing:\n    '''The fast one.'''\n")
+        _write(tmp_path, "pkg/_pure.py", "class FastThing:\n    '''The pure one.'''\n")
+    
+        surface = inspect_public_surface(tmp_path, ["pkg"])
+        by_name = {s.qualified_name: s for s in surface.symbols}
+    
+>       assert "pkg.FastThing" in by_name
+E       AssertionError: assert 'pkg.FastThing' in {'pkg': PublicSymbol(qualified_name='pkg', module='pkg', name='pkg', kind='module', source_path='pkg/__init__.py', lin...d_from=None, enum_members=(), value=None, base_origins=(), shadows=None, shadowed_by=None, stub=False, stub_reason='')}
+
+tests\extraction\tree_sitter_engine\test_python_surface_conditional_imports.py:46: AssertionError
+_____ test_an_if_else_version_conditional_reexport_resolves_the_same_way ______
+
+tmp_path = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-20078/test_an_if_else_version_condit0')
+
+    def test_an_if_else_version_conditional_reexport_resolves_the_same_way(tmp_path: Path) -> None:
+        """(b) The ``sys.version_info``-style idiom. Per the stated order, the ``else`` branch (read
+        after the ``if`` body) wins."""
+        _write(
+            tmp_path,
+            "pkg/__init__.py",
+            "import sys\n"
+            "if sys.version_info >= (3, 8):\n"
+            "    from ._new import Thing\n"
+            "else:\n"
+            "    from ._old import Thing\n",
+        )
+        _write(tmp_path, "pkg/_new.py", "class Thing:\n    pass\n")
+        _write(tmp_path, "pkg/_old.py", "class Thing:\n    pass\n")
+    
+        surface = inspect_public_surface(tmp_path, ["pkg"])
+        by_name = {s.qualified_name: s for s in surface.symbols}
+    
+>       assert "pkg.Thing" in by_name
+E       AssertionError: assert 'pkg.Thing' in {'pkg': PublicSymbol(qualified_name='pkg', module='pkg', name='pkg', kind='module', source_path='pkg/__init__.py', lin...d_from=None, enum_members=(), value=None, base_origins=(), shadows=None, shadowed_by=None, stub=False, stub_reason='')}
+
+tests\extraction\tree_sitter_engine\test_python_surface_conditional_imports.py:74: AssertionError
+____________ test_only_the_resolvable_branch_of_two_still_resolves ____________
+
+tmp_path = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-20078/test_only_the_resolvable_branc0')
+
+    def test_only_the_resolvable_branch_of_two_still_resolves(tmp_path: Path) -> None:
+        """(c) The try body names a module that does not exist in this fixture at all; the except
+        handler (read LAST, so it provides the final binding regardless) names a real one. Made the
+        except branch the resolvable one deliberately, so the "last one wins" order and "the resolvable
+        branch wins" are the same outcome here and the test is unambiguous either way."""
+        _write(
+            tmp_path,
+            "pkg/__init__.py",
+            "try:\n    from ._missing import Thing\nexcept ImportError:\n    from ._real import Thing\n",
+        )
+        _write(tmp_path, "pkg/_real.py", "class Thing:\n    pass\n")
+        # Deliberately no pkg/_missing.py on disk.
+    
+        surface = inspect_public_surface(tmp_path, ["pkg"])
+        by_name = {s.qualified_name: s for s in surface.symbols}
+    
+>       assert "pkg.Thing" in by_name
+E       AssertionError: assert 'pkg.Thing' in {'pkg': PublicSymbol(qualified_name='pkg', module='pkg', name='pkg', kind='module', source_path='pkg/__init__.py', lin...d_from=None, enum_members=(), value=None, base_origins=(), shadows=None, shadowed_by=None, stub=False, stub_reason='')}
+
+tests\extraction\tree_sitter_engine\test_python_surface_conditional_imports.py:99: AssertionError
+=========================== short test summary info ===========================
+FAILED tests/extraction/tree_sitter_engine/test_python_surface_conditional_imports.py::test_a_try_except_guarded_reexport_now_resolves
+FAILED tests/extraction/tree_sitter_engine/test_python_surface_conditional_imports.py::test_an_if_else_version_conditional_reexport_resolves_the_same_way
+FAILED tests/extraction/tree_sitter_engine/test_python_surface_conditional_imports.py::test_only_the_resolvable_branch_of_two_still_resolves
+
+--- stderr ---
+
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-5c72e798a73c059a\Scripts\python.exe -m pytest tests/extraction/tree_sitter_engine/test_python_surface.py tests/extraction/tree_sitter_engine/test_python_surface_attributes.py tests/extraction/tree_sitter_engine/test_python_surface_class_constants.py tests/extraction/tree_sitter_engine/test_python_surface_members.py tests/extraction/tree_sitter_engine/test_python_surface_mixins.py tests/extraction/tree_sitter_engine/test_python_surface_repair.py tests/extraction/tree_sitter_engine/test_python_surface_round3.py -q -rfE -p no:cacheprovider "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-wzo5bcax\.junit-1.xml"
+--- stdout ---
+........................................................................ [ 44%]
+........................................................................ [ 88%]
+...................                                                      [100%]
+
+--- stderr ---
+
