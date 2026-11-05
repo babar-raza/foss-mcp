@@ -1,0 +1,89 @@
+{
+  "schema_version": 1,
+  "card": "TC-692",
+  "gate": "G3",
+  "generated_by": "gatectl",
+  "generated_at": "2026-11-05T19:44:33Z",
+  "base_rev": "1f7fb05afa3008ee19d7390956a2cdf36daaad5e",
+  "head_rev": "e415d0d860ac19c9cd303d92d2b51b5972640a6b",
+  "card_sha256": "9cd372d11289c6ad61fe2254cf94457bf5d7a8f57683d88653f97332882e4d05",
+  "fingerprint": {
+    "python": "3.13.2",
+    "platform": "Windows-11-10.0.26300-SP0",
+    "lock_sha256": "5c72e798a73c059a438e752e94a8d4c88c1bdf81a197f6e5c5fcecbc9466a691",
+    "env": {
+      "PYTHONHASHSEED": "0",
+      "PYTHONUTF8": "1",
+      "PYTHONDONTWRITEBYTECODE": "1",
+      "PYTHONIOENCODING": "utf-8",
+      "TZ": "UTC",
+      "LC_ALL": "C.UTF-8",
+      "SOURCE_DATE_EPOCH": "1700000000",
+      "verify_runner": "host"
+    }
+  },
+  "scope": {
+    "ok": true,
+    "changed_paths": [
+      "scripts/release/source_differential.py",
+      "tests/release/test_source_differential.py"
+    ],
+    "violations": [],
+    "evaluated": true
+  },
+  "runs": [
+    {
+      "run": 1,
+      "checks": [
+        {
+          "command": "{python} -m pytest tests/release/test_source_differential.py -q -rfE -p no:cacheprovider",
+          "exit_code": 0,
+          "duration_s": 82.915,
+          "stdout_sha256": "9fcce73e834531098154ea2022611027a5c3349e89417dad5925d5d12fc4979e",
+          "tests": 134,
+          "skipped": 0,
+          "errors": 0,
+          "failures": 0
+        }
+      ],
+      "all_passed": true
+    },
+    {
+      "run": 2,
+      "checks": [
+        {
+          "command": "{python} -m pytest tests/release/test_source_differential.py -q -rfE -p no:cacheprovider",
+          "exit_code": 0,
+          "duration_s": 62.393,
+          "stdout_sha256": "9fcce73e834531098154ea2022611027a5c3349e89417dad5925d5d12fc4979e",
+          "tests": 134,
+          "skipped": 0,
+          "errors": 0,
+          "failures": 0
+        }
+      ],
+      "all_passed": true
+    }
+  ],
+  "negative_control": {
+    "kind": "mutate",
+    "patch": "python -X utf8 -c \"import pathlib; p = pathlib.Path('scripts/release/source_differential.py'); s = p.read_text(encoding='utf-8'); old = 'evaluate_hollow_pass'; assert s.count(old) >= 1, 'the required evaluate_hollow_pass function was not found as expected - if your real code names this differently despite the card requiring this exact name, anchor your own mutate on your own real literal instead and note the substitution in your closeout'; s2 = s.replace(old, 'evaluate_hollow_passDISABLED', s.count(old)); assert s2 != s; p.write_text(s2, encoding='utf-8')\"\n",
+    "patch_sha256": "2898c5ad373b5038da01c8d26df8970d6918afd06ac381bc898a6e0fe20b43d3",
+    "applied": true,
+    "patch_applied_failed": true,
+    "exit_codes": [
+      1
+    ],
+    "tree_changed": [
+      "M scripts/release/source_differential.py",
+      "?? .junit-0.xml"
+    ]
+  },
+  "holdout": {
+    "ran": false,
+    "passed": true,
+    "detail": "no holdout for this card"
+  },
+  "accepted": false,
+  "reason": "offline tests of files this card touches fail at the head: finition"
+}

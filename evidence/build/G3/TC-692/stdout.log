@@ -1,0 +1,54 @@
+
+===== CLEAN RUN 1 (host) =====
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-5c72e798a73c059a\Scripts\python.exe -m pytest tests/release/test_source_differential.py -q -rfE -p no:cacheprovider "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-8f_03as3\.junit-0.xml"
+--- stdout ---
+........................................................................ [ 53%]
+..............................................................           [100%]
+
+--- stderr ---
+
+
+===== CLEAN RUN 2 (host) =====
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-5c72e798a73c059a\Scripts\python.exe -m pytest tests/release/test_source_differential.py -q -rfE -p no:cacheprovider "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-8f_03as3\.junit-0.xml"
+--- stdout ---
+........................................................................ [ 53%]
+..............................................................           [100%]
+
+--- stderr ---
+
+
+===== NEGATIVE CONTROL (checks MUST now fail) =====
+mutated: M scripts/release/source_differential.py, ?? .junit-0.xml
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-5c72e798a73c059a\Scripts\python.exe -m pytest tests/release/test_source_differential.py -q -rfE -p no:cacheprovider "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-8f_03as3\.junit-0.xml"
+--- stdout ---
+..........................F..F.......................................... [ 53%]
+..............................................................           [100%]
+================================== FAILURES ===================================
+__________ test_evaluate_hollow_pass_fires_only_when_checked_is_zero __________
+
+    def test_evaluate_hollow_pass_fires_only_when_checked_is_zero():
+        zero = sd.DiffCounts(missing=0, extra=0, signature=0, static=0, default=0, enum_value=0, checked=0)
+>       reasons = sd.evaluate_hollow_pass(zero)
+                  ^^^^^^^^^^^^^^^^^^^^^^^
+E       AttributeError: module 'source_differential' has no attribute 'evaluate_hollow_pass'. Did you mean: 'evaluate_hollow_passDISABLED'?
+
+tests\release\test_source_differential.py:408: AttributeError
+_ test_verify_pilot_checked_zero_with_a_real_category_disagreement_both_reasons_coexist _
+
+    def test_verify_pilot_checked_zero_with_a_real_category_disagreement_both_reasons_coexist():
+        """(c): a case that cannot happen in practice today (``checked`` increments once per real member
+        actually compared, so a nonzero category count implies a nonzero ``checked``) but, if it ever did,
+        must not silently drop or scramble either reason -- both simply sit side by side in ``reasons``."""
+        counts = sd.DiffCounts(missing=1, extra=0, signature=0, static=0, default=0, enum_value=0, checked=0)
+        ceiling_reasons = sd.evaluate_ceilings(counts, {category: 0 for category in sd.CATEGORIES})
+>       hollow_reasons = sd.evaluate_hollow_pass(counts)
+                         ^^^^^^^^^^^^^^^^^^^^^^^
+E       AttributeError: module 'source_differential' has no attribute 'evaluate_hollow_pass'. Did you mean: 'evaluate_hollow_passDISABLED'?
+
+tests\release\test_source_differential.py:464: AttributeError
+=========================== short test summary info ===========================
+FAILED tests/release/test_source_differential.py::test_evaluate_hollow_pass_fires_only_when_checked_is_zero
+FAILED tests/release/test_source_differential.py::test_verify_pilot_checked_zero_with_a_real_category_disagreement_both_reasons_coexist
+
+--- stderr ---
+
