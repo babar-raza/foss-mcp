@@ -18,11 +18,15 @@ the project's own committed F6 conformance test (``tests/conformance/test_precis
 HONEST MEASURED CLOSEOUT for the three F6-named false-exact cases, confirmed live against the real
 corpus below (test (f)), never forced either way:
 
-- CELLS-RUST-001 ("how do I create a pivot table" on cells/rust) STILL reproduces - it is caused by
-  ``search_symbols.py``'s own ``via_member`` scoring shortcut, a file this card never writes to, and this
-  worker's own measurement confirms ``lookup`` returns the IDENTICAL ``list[SymbolMatch]`` (never even a
-  ``TaskAnswer``) before and after this card's fix, with the top match's own ``match_quality == "exact"``
-  unaffected either way. Explicitly out of scope; left for a future card.
+- CELLS-RUST-001 ("how do I create a pivot table" on cells/rust) STILL reproduced as of this card
+  (TC-628) - it was caused by ``search_symbols.py``'s own ``via_member`` scoring shortcut, a file this
+  card never wrote to, and this worker's own measurement confirmed ``lookup`` returned the IDENTICAL
+  ``list[SymbolMatch]`` (never even a ``TaskAnswer``) before and after this card's fix, with the top
+  match's own ``match_quality == "exact"`` unaffected either way. Explicitly out of scope at the time;
+  left for a future card. G3/TC-703 IS that future card: it requires a nonzero name-fit even on the
+  ``via_member`` exact-match path in ``_Scored.exact``, closing this finding (and its siblings
+  CELLS-CPP-007/CELLS-NET-009) - see ``test_cells_rust_001_still_reproduces_unaffected_by_this_card``
+  below, whose own docstring and assertion TC-703 updated to pin the fixed, honest behavior.
 - HTML-PY-007 ("how do I render HTML to an image" on html/python) and PDF-JAVA-005 ("convert PDF to PNG
   image" on pdf/java), run through the real, fixed ``lookup`` with their own LITERAL, originally-named
   phrasing, STILL measure ``match_quality == "exact"`` - but no longer via the blind, unconditional force
@@ -282,17 +286,22 @@ def test_is_table_dominated_stays_importable_from_lookup_by_its_own_name_and_beh
 
 
 def test_cells_rust_001_still_reproduces_unaffected_by_this_card(corpus: ConformanceCorpus) -> None:
-    """CELLS-RUST-001 is caused by ``search_symbols.py``'s own ``via_member`` scoring shortcut - a file
-    this card never writes to. Measured, honestly: ``lookup`` still returns a ``list[SymbolMatch]``
-    (never even reaching a ``TaskAnswer``, so this card's own ``_answer_quality`` fix cannot touch it
-    either way), and the top match's own ``match_quality`` is still ``"exact"`` - explicitly out of
-    scope, left for a future card, confirmed still reproducing."""
+    """G3/TC-703 UPDATE: CELLS-RUST-001 was caused by ``search_symbols.py``'s own ``via_member``
+    scoring shortcut - a file TC-628 (which authored this test) never wrote to, but which TC-703
+    (REQ-G3-011) now fixes directly: ``_Scored.exact`` requires a nonzero name-fit even on the
+    ``via_member`` path, so ``WorksheetProtection`` (matched for "pivot table" only through its
+    unrelated ``pivot_tables`` member, never through its own name) no longer qualifies as exact.
+    Measured, honestly, after TC-703's fix: ``lookup`` still returns a ``list[SymbolMatch]`` (never
+    even reaching a ``TaskAnswer``), but the top match's own ``match_quality`` is now ``"partial"``,
+    not ``"exact"`` - this test's own name is left unchanged (it is named verbatim in
+    ``plans/TC-703.yaml``, outside this card's write_paths) but its assertion now pins the FIXED,
+    honest behavior: CELLS-RUST-001 no longer reproduces."""
     pilot = corpus.pilots["cells__rust"]
     answer = lookup(corpus.store, pilot.scope, "how do I create a pivot table")
 
     assert isinstance(answer, list)
     assert all(isinstance(item, SymbolMatch) for item in answer)
-    assert answer and answer[0].match_quality == MATCH_EXACT
+    assert answer and answer[0].match_quality == MATCH_PARTIAL
 
 
 def test_html_py_007_and_pdf_java_005_literal_queries_measured_honestly(corpus: ConformanceCorpus) -> None:

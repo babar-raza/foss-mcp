@@ -1091,8 +1091,17 @@ class _Scored:
     @property
     def exact(self) -> bool:
         """Every strong word explained AND the type is plausibly what was asked for: its name is at least half
-        made of the words asked, or a member it declares explains one, and it is not an internal helper."""
-        return not self.unexplained and (self.fit >= 0.5 or self.via_member) and not self.internal
+        made of the words asked, or (G3/TC-703, closing CELLS-RUST-001/CELLS-CPP-007/CELLS-NET-009) a member
+        it declares explains one AND its own name genuinely shares at least one word with the question
+        (``fit > 0.0``) - never unconditionally on ``via_member`` alone, which previously let a type whose
+        own name shares ZERO words with the query (``WorksheetProtection`` for "pivot table", matched only
+        through its unrelated ``pivot_tables`` member) claim ``exact`` with no real evidence it is what was
+        asked for. And it is not an internal helper."""
+        return (
+            not self.unexplained
+            and (self.fit >= 0.5 or (self.via_member and self.fit > 0.0))
+            and not self.internal
+        )
 
 
 @dataclass(frozen=True)

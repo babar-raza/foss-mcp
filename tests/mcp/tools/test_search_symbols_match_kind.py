@@ -270,12 +270,37 @@ def test_internal_namespace_word_never_reaches_match_exact_via_evidence_sentence
     assert result[0].match_quality == MATCH_PARTIAL  # never MATCH_EXACT for an internal namespace hit
 
 
-def test_the_same_member_evidence_is_match_exact_once_the_type_is_not_internal() -> None:
-    """Same evidence, same member, no internal namespace this time - a sanity control proving the
-    difference above is really the namespace check, not some other accident of this fixture."""
+def test_the_same_member_evidence_is_match_partial_once_the_type_is_not_internal_but_has_zero_fit() -> None:
+    """G3/TC-703 UPDATE: same evidence, same member, no internal namespace this time - originally a
+    sanity control proving the difference above was really the namespace check, not some other
+    accident of this fixture, back when ``_Scored.exact`` granted ``exact`` via ``via_member`` alone
+    with no name-fit threshold at all. TC-703 (REQ-G3-011, closing CELLS-RUST-001/CELLS-CPP-007/
+    CELLS-NET-009) now requires ``fit > 0.0`` even on the ``via_member`` path. This fixture's own fit
+    is genuinely 0 - no word of ``SecurityHelper``'s own name matches "protect"/"password"; the
+    member-only evidence is the type's SOLE explanation - so even with the internal-namespace
+    variable controlled away (removed here, unlike the sibling test above), the honest result is now
+    MATCH_PARTIAL, never MATCH_EXACT: removing the internal-namespace penalty no longer rescues a
+    zero-fit via_member hit on its own."""
     store = _InMemoryStore(_type_chunk("Sample.SecurityHelper", "SetPassword()"))
 
     result = _matches(_search(store, "protect"))
+
+    assert len(result) == 1
+    assert result[0].match_kind == "evidence_sentence"
+    assert result[0].match_quality == MATCH_PARTIAL
+
+
+def test_a_nonzero_fit_via_member_hit_still_reaches_match_exact_once_not_internal() -> None:
+    """G3/TC-703's own positive-branch proof: ``_Scored.exact``'s new condition is
+    ``fit >= 0.5 or (via_member and fit > 0.0)`` - the sibling test above pins the negative branch
+    (via_member with fit == 0 stays partial); this one pins that a via_member hit with GENUINE,
+    nonzero (but sub-0.5) name fit still reaches MATCH_EXACT once the type is not internal, so the
+    fix narrows the via_member shortcut rather than deleting it. The fixture explains "workbook" via
+    the type's own name directly (contributing real, nonzero fit) and "password" only via its
+    declared ``SetPassword`` member (``via_member=True``), so fit is nonzero but well under 0.5."""
+    store = _InMemoryStore(_type_chunk("Sample.WorkbookSecurityHelper", "SetPassword()"))
+
+    result = _matches(_search(store, "workbook password"))
 
     assert len(result) == 1
     assert result[0].match_kind == "evidence_sentence"
