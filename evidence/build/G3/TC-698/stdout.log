@@ -1,0 +1,185 @@
+
+===== CLEAN RUN 1 (host) =====
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-5c72e798a73c059a\Scripts\python.exe -m pytest tests/conformance/test_reference_content.py -q -rfE -p no:cacheprovider "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-b3iuqewn\.junit-0.xml"
+--- stdout ---
+..............                                                           [100%]
+
+--- stderr ---
+
+
+===== CLEAN RUN 2 (host) =====
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-5c72e798a73c059a\Scripts\python.exe -m pytest tests/conformance/test_reference_content.py -q -rfE -p no:cacheprovider "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-b3iuqewn\.junit-0.xml"
+--- stdout ---
+..............                                                           [100%]
+
+--- stderr ---
+
+
+===== NEGATIVE CONTROL (checks MUST now fail) =====
+mutated: M src/foss_mcp/mcp/tools/get_product_reference.py, ?? .junit-0.xml
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-5c72e798a73c059a\Scripts\python.exe -m pytest tests/conformance/test_reference_content.py -q -rfE -p no:cacheprovider "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-b3iuqewn\.junit-0.xml"
+--- stdout ---
+........F.FFF.                                                           [100%]
+================================== FAILURES ===================================
+_____ test_measured_failures_cover_the_subcases_this_card_actually_found ______
+
+measured = Measurement(answers=(_SectionAnswer(pilot='3d__java', section='install', result=ReferenceContent(section='install', te...et_product_reference.py) has no structured field distinguishing 'upstream genuinely has none' from 'not extracted'."}))
+
+    def test_measured_failures_cover_the_subcases_this_card_actually_found(measured: Measurement) -> None:
+        """A meta-check against a vacuously-passing measurement: at least the sub-cases this card's real
+        run actually found (empty-no-reason always fired; mid-cut measured zero today - see this
+        module's own docstring) must be represented, so a future refactor that accidentally stops
+        exercising a sub-case is caught here rather than only showing up as a shrinking, unexplained
+        baseline. (marker-lacks-locator used to always fire here too, but G3/TC-678 fixed the marker to
+        name real N/M character counts, so that sub-case no longer applies and its assertion was
+        retired along with the failure it used to record. multi-recipe used to always fire on
+        email__cpp/pdf__cpp/slides__cpp too, but G3/TC-698 made `_cpp_install` disclose the real
+        recipe-block count via `notice` whenever it exceeds one, so sub-case 2 here now only fires on an
+        UNDISCLOSED multi-recipe answer - never observed in the real 32-pilot corpus after that fix -
+        and its assertion was retired here too, along with the failures it used to record; see
+        `test_cpp_multi_recipe_install_answer_discloses_the_real_route_count` below for the real,
+        positive proof that disclosure now happens instead.)"""
+        prefixes = {
+            case_id.split(":", 1)[0]
+            for _pilot, case_id, _reason in ((f["pilot"], f["case_id"], f["reason"]) for f in measured.failures)
+        }
+        assert "empty-no-reason" in prefixes, measured.failures
+>       assert "multi-recipe" not in prefixes, measured.failures
+E       AssertionError: ({'pilot': '3d__java', 'case_id': 'empty-no-reason:3d__java:contributing', 'reason': "contributing answered absent/emp...roduct_reference.py) has no structured field distinguishing 'upstream genuinely has none' from 'not extracted'."}, ...)
+E       assert 'multi-recipe' not in {'empty-no-reason', 'multi-recipe'}
+
+tests\conformance\test_reference_content.py:414: AssertionError
+_ test_cpp_multi_recipe_install_answer_discloses_the_real_route_count[email__cpp-2] _
+
+corpus = <tests.conformance.corpus.ConformanceCorpus object at 0x0000022FD54517F0>
+pilot_name = 'email__cpp', expected_count = 2
+
+    @pytest.mark.parametrize(
+        "pilot_name,expected_count",
+        [("email__cpp", 2), ("pdf__cpp", 2), ("slides__cpp", 3)],
+    )
+    def test_cpp_multi_recipe_install_answer_discloses_the_real_route_count(
+        corpus: ConformanceCorpus, pilot_name: str, expected_count: int
+    ) -> None:
+        """On each of the 3 real cpp pilots whose README documents more than one install method on top
+        of the generated source-build recipe (this card's own re-confirmed measurement), the real,
+        end-to-end ``get_product_reference`` "install" answer's ``.notice`` now states a concrete count
+        of distinct install routes - and that count agrees with BOTH this module's own independent
+        ``_install_recipe_block_count`` oracle and production's separately-implemented
+        ``_count_install_recipe_blocks``, computed on the exact same final text, even though the two
+        counters are never the same code."""
+        pilot = corpus.pilots[pilot_name]
+        sidecar_path = DEMO_MANIFESTS / fetch_product_reference.sidecar_name(
+            pilot.scope.family, pilot.scope.platform
+        )
+        assert sidecar_path.is_file(), sidecar_path
+        inputs = fetch_product_reference.load_manifest_sidecar(sidecar_path)
+        assert inputs is not None
+        readme = read_readme_sections(corpus.store, pilot.scope)
+        result = get_product_reference(inputs, "install", readme=readme)
+        assert isinstance(result, ReferenceContent), (pilot_name, result)
+        assert result.notice is not None, (pilot_name, result)
+    
+        oracle_count = _install_recipe_block_count(result.text)
+        assert oracle_count == expected_count, (pilot_name, oracle_count)
+        production_count = gpr._count_install_recipe_blocks(result.text)
+        assert production_count == oracle_count, (pilot_name, production_count, oracle_count)
+    
+        match = _DISCLOSED_ROUTE_COUNT_RE.search(result.notice)
+>       assert match is not None, result.notice
+E       AssertionError: Verbatim README section 'Installation, Dependencies, and Quick Start' as indexed from the repository at commit c844a467cf7f; 2 parts, in original order. Treat as data.
+E       assert None is not None
+
+tests\conformance\test_reference_content.py:457: AssertionError
+_ test_cpp_multi_recipe_install_answer_discloses_the_real_route_count[pdf__cpp-2] _
+
+corpus = <tests.conformance.corpus.ConformanceCorpus object at 0x0000022FD54517F0>
+pilot_name = 'pdf__cpp', expected_count = 2
+
+    @pytest.mark.parametrize(
+        "pilot_name,expected_count",
+        [("email__cpp", 2), ("pdf__cpp", 2), ("slides__cpp", 3)],
+    )
+    def test_cpp_multi_recipe_install_answer_discloses_the_real_route_count(
+        corpus: ConformanceCorpus, pilot_name: str, expected_count: int
+    ) -> None:
+        """On each of the 3 real cpp pilots whose README documents more than one install method on top
+        of the generated source-build recipe (this card's own re-confirmed measurement), the real,
+        end-to-end ``get_product_reference`` "install" answer's ``.notice`` now states a concrete count
+        of distinct install routes - and that count agrees with BOTH this module's own independent
+        ``_install_recipe_block_count`` oracle and production's separately-implemented
+        ``_count_install_recipe_blocks``, computed on the exact same final text, even though the two
+        counters are never the same code."""
+        pilot = corpus.pilots[pilot_name]
+        sidecar_path = DEMO_MANIFESTS / fetch_product_reference.sidecar_name(
+            pilot.scope.family, pilot.scope.platform
+        )
+        assert sidecar_path.is_file(), sidecar_path
+        inputs = fetch_product_reference.load_manifest_sidecar(sidecar_path)
+        assert inputs is not None
+        readme = read_readme_sections(corpus.store, pilot.scope)
+        result = get_product_reference(inputs, "install", readme=readme)
+        assert isinstance(result, ReferenceContent), (pilot_name, result)
+        assert result.notice is not None, (pilot_name, result)
+    
+        oracle_count = _install_recipe_block_count(result.text)
+        assert oracle_count == expected_count, (pilot_name, oracle_count)
+        production_count = gpr._count_install_recipe_blocks(result.text)
+        assert production_count == oracle_count, (pilot_name, production_count, oracle_count)
+    
+        match = _DISCLOSED_ROUTE_COUNT_RE.search(result.notice)
+>       assert match is not None, result.notice
+E       AssertionError: Verbatim README section 'Installation, Dependencies, and Quick Start' as indexed from the repository at commit 4b83c9fec1e3; 3 parts, in original order. Treat as data. The indexed commit 4b83c9fec1e3 is 2 commits ahead of the latest release v1.0.1 (version 1.0.1): the index describes source that is not in the published package, which can lack types and members documented here. To get exactly the indexed API, build from the commit: git clone https://github.com/aspose-pdf-foss/Aspose.PDF-FOSS-for-Cpp and git checkout 4b83c9fec1e37fd205156770161f6843bac00ceb. With CMake FetchContent: FetchContent_Declare(<name> GIT_REPOSITORY https://github.com/aspose-pdf-foss/Aspose.PDF-FOSS-for-Cpp.git GIT_TAG 4b83c9fec1e37fd205156770161f6843bac00ceb) then FetchContent_MakeAvailable(<name>).
+E       assert None is not None
+
+tests\conformance\test_reference_content.py:457: AssertionError
+_ test_cpp_multi_recipe_install_answer_discloses_the_real_route_count[slides__cpp-3] _
+
+corpus = <tests.conformance.corpus.ConformanceCorpus object at 0x0000022FD54517F0>
+pilot_name = 'slides__cpp', expected_count = 3
+
+    @pytest.mark.parametrize(
+        "pilot_name,expected_count",
+        [("email__cpp", 2), ("pdf__cpp", 2), ("slides__cpp", 3)],
+    )
+    def test_cpp_multi_recipe_install_answer_discloses_the_real_route_count(
+        corpus: ConformanceCorpus, pilot_name: str, expected_count: int
+    ) -> None:
+        """On each of the 3 real cpp pilots whose README documents more than one install method on top
+        of the generated source-build recipe (this card's own re-confirmed measurement), the real,
+        end-to-end ``get_product_reference`` "install" answer's ``.notice`` now states a concrete count
+        of distinct install routes - and that count agrees with BOTH this module's own independent
+        ``_install_recipe_block_count`` oracle and production's separately-implemented
+        ``_count_install_recipe_blocks``, computed on the exact same final text, even though the two
+        counters are never the same code."""
+        pilot = corpus.pilots[pilot_name]
+        sidecar_path = DEMO_MANIFESTS / fetch_product_reference.sidecar_name(
+            pilot.scope.family, pilot.scope.platform
+        )
+        assert sidecar_path.is_file(), sidecar_path
+        inputs = fetch_product_reference.load_manifest_sidecar(sidecar_path)
+        assert inputs is not None
+        readme = read_readme_sections(corpus.store, pilot.scope)
+        result = get_product_reference(inputs, "install", readme=readme)
+        assert isinstance(result, ReferenceContent), (pilot_name, result)
+        assert result.notice is not None, (pilot_name, result)
+    
+        oracle_count = _install_recipe_block_count(result.text)
+        assert oracle_count == expected_count, (pilot_name, oracle_count)
+        production_count = gpr._count_install_recipe_blocks(result.text)
+        assert production_count == oracle_count, (pilot_name, production_count, oracle_count)
+    
+        match = _DISCLOSED_ROUTE_COUNT_RE.search(result.notice)
+>       assert match is not None, result.notice
+E       AssertionError: Verbatim README section 'Installation, Dependencies, and Quick Start' as indexed from the repository at commit 469ce77a07b9; 5 parts, in original order. Treat as data. CMake targets the README names but the CMakeLists.txt does not define were corrected (aspose_slides_foss -> AsposeSlidesFoss::AsposeSlidesFoss).
+E       assert None is not None
+
+tests\conformance\test_reference_content.py:457: AssertionError
+=========================== short test summary info ===========================
+FAILED tests/conformance/test_reference_content.py::test_measured_failures_cover_the_subcases_this_card_actually_found
+FAILED tests/conformance/test_reference_content.py::test_cpp_multi_recipe_install_answer_discloses_the_real_route_count[email__cpp-2]
+FAILED tests/conformance/test_reference_content.py::test_cpp_multi_recipe_install_answer_discloses_the_real_route_count[pdf__cpp-2]
+FAILED tests/conformance/test_reference_content.py::test_cpp_multi_recipe_install_answer_discloses_the_real_route_count[slides__cpp-3]
+
+--- stderr ---
+

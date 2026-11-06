@@ -1,0 +1,89 @@
+{
+  "schema_version": 1,
+  "card": "TC-698",
+  "gate": "G3",
+  "generated_by": "gatectl",
+  "generated_at": "2026-11-06T02:05:32Z",
+  "base_rev": "d94e6a2de19e1929edd9368fb70a98e12c7ef41b",
+  "head_rev": "816ee931e5676900e130686f4f3e6296e81a0874",
+  "card_sha256": "67f41e6d052f4d2aea7acd47459fb7088b4cb39493d03fc23ac29b9e9ca8a20c",
+  "fingerprint": {
+    "python": "3.13.2",
+    "platform": "Windows-11-10.0.26300-SP0",
+    "lock_sha256": "5c72e798a73c059a438e752e94a8d4c88c1bdf81a197f6e5c5fcecbc9466a691",
+    "env": {
+      "PYTHONHASHSEED": "0",
+      "PYTHONUTF8": "1",
+      "PYTHONDONTWRITEBYTECODE": "1",
+      "PYTHONIOENCODING": "utf-8",
+      "TZ": "UTC",
+      "LC_ALL": "C.UTF-8",
+      "SOURCE_DATE_EPOCH": "1700000000",
+      "verify_runner": "host"
+    }
+  },
+  "scope": {
+    "ok": true,
+    "changed_paths": [
+      "src/foss_mcp/mcp/tools/get_product_reference.py",
+      "tests/conformance/test_reference_content.py"
+    ],
+    "violations": [],
+    "evaluated": true
+  },
+  "runs": [
+    {
+      "run": 1,
+      "checks": [
+        {
+          "command": "{python} -m pytest tests/conformance/test_reference_content.py -q -rfE -p no:cacheprovider",
+          "exit_code": 0,
+          "duration_s": 11.469,
+          "stdout_sha256": "fe9dca0451129aaabdd76ea13e310b61a52091a146a1f9fe5b72b851eb33547f",
+          "tests": 14,
+          "skipped": 0,
+          "errors": 0,
+          "failures": 0
+        }
+      ],
+      "all_passed": true
+    },
+    {
+      "run": 2,
+      "checks": [
+        {
+          "command": "{python} -m pytest tests/conformance/test_reference_content.py -q -rfE -p no:cacheprovider",
+          "exit_code": 0,
+          "duration_s": 11.167,
+          "stdout_sha256": "fe9dca0451129aaabdd76ea13e310b61a52091a146a1f9fe5b72b851eb33547f",
+          "tests": 14,
+          "skipped": 0,
+          "errors": 0,
+          "failures": 0
+        }
+      ],
+      "all_passed": true
+    }
+  ],
+  "negative_control": {
+    "kind": "mutate",
+    "patch": "python -X utf8 -c \"import pathlib; p = pathlib.Path('src/foss_mcp/mcp/tools/get_product_reference.py'); s = p.read_text(encoding='utf-8'); old = 'if recipe_block_count > 1:'; assert s.count(old) == 1, 'the required disclosure guard was not found verbatim as expected - if your real code differs, anchor your own mutate on your own real literal instead and note the substitution in your closeout'; s2 = s.replace(old, 'if recipe_block_count > 999999:', 1); assert s2 != s; p.write_text(s2, encoding='utf-8')\"\n",
+    "patch_sha256": "64b12dc97ec4cae0d5440769d892b9f5edc1e99e48abe1097f09c39f711fcea9",
+    "applied": true,
+    "patch_applied_failed": true,
+    "exit_codes": [
+      1
+    ],
+    "tree_changed": [
+      "M src/foss_mcp/mcp/tools/get_product_reference.py",
+      "?? .junit-0.xml"
+    ]
+  },
+  "holdout": {
+    "ran": false,
+    "passed": true,
+    "detail": "no holdout for this card"
+  },
+  "accepted": true,
+  "reason": "all gates passed"
+}
