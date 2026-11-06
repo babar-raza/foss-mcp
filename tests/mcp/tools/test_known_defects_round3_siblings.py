@@ -111,7 +111,7 @@ def test_load_known_defects_returns_eml_net_003_with_the_real_shape() -> None:
     (defect,) = load_known_defects("email", "net")
     assert defect.id == "EML-NET-003"
     assert defect.subject.kind == "method"
-    assert defect.subject.refs == ("MapiMessage",)
+    assert defect.subject.refs == ("Aspose.Email.Foss.Msg.MapiMessage",)
     assert defect.status == "open"
     assert defect.applies_to.package_versions == ("26.7.0",)
     assert defect.evidence.verified_on.package == "Aspose.Email.Foss"
@@ -121,7 +121,7 @@ def test_load_known_defects_returns_pdf_net_003_with_the_real_shape() -> None:
     (defect,) = load_known_defects("pdf", "net")
     assert defect.id == "PDF-NET-003"
     assert defect.subject.kind == "method"
-    assert defect.subject.refs == ("TableAbsorber",)
+    assert defect.subject.refs == ("Aspose.Pdf.Text.TableAbsorber",)
     assert defect.status == "open"
     assert defect.applies_to.package_versions == ("26.10.0",)
     assert defect.evidence.verified_on.package == "Aspose.PDF.FOSS"
@@ -219,7 +219,7 @@ def _mapi_message_symbol_body() -> str:
     lines = [
         "## MapiMessage",
         "",
-        "FQN: MapiMessage",
+        "FQN: Aspose.Email.Foss.Msg.MapiMessage",
         "Kind: class_declaration",
         "",
         "Methods:",
@@ -232,7 +232,7 @@ def _table_absorber_symbol_body() -> str:
     lines = [
         "## TableAbsorber",
         "",
-        "FQN: TableAbsorber",
+        "FQN: Aspose.Pdf.Text.TableAbsorber",
         "Kind: class_declaration",
         "",
         "Methods:",
@@ -246,10 +246,10 @@ def test_get_symbol_end_to_end_surfaces_eml_net_003() -> None:
         "aspose-email-foss/Aspose.Email-FOSS-for-.Net", "gen-tc656-email", (_mapi_message_symbol_body(),)
     )
 
-    result = get_symbol(store, EMAIL_NET_SCOPE, "MapiMessage")  # type: ignore[arg-type]
+    result = get_symbol(store, EMAIL_NET_SCOPE, "Aspose.Email.Foss.Msg.MapiMessage")  # type: ignore[arg-type]
 
     assert isinstance(result, SymbolSignature)
-    assert result.fqn == "MapiMessage"
+    assert result.fqn == "Aspose.Email.Foss.Msg.MapiMessage"
     assert len(result.known_defects) == 1
     assert "bcc" in result.known_defects[0].lower()
 
@@ -259,10 +259,10 @@ def test_get_symbol_resolved_member_savetoeml_also_surfaces_eml_net_003() -> Non
         "aspose-email-foss/Aspose.Email-FOSS-for-.Net", "gen-tc656-email", (_mapi_message_symbol_body(),)
     )
 
-    result = get_symbol(store, EMAIL_NET_SCOPE, "MapiMessage.SaveToEml")  # type: ignore[arg-type]
+    result = get_symbol(store, EMAIL_NET_SCOPE, "Aspose.Email.Foss.Msg.MapiMessage.SaveToEml")  # type: ignore[arg-type]
 
     assert isinstance(result, ResolvedSignature)
-    assert result.fqn == "MapiMessage"
+    assert result.fqn == "Aspose.Email.Foss.Msg.MapiMessage"
     assert len(result.known_defects) == 1
 
 
@@ -271,7 +271,7 @@ def test_search_symbols_end_to_end_surfaces_eml_net_003() -> None:
         "aspose-email-foss/Aspose.Email-FOSS-for-.Net", "gen-tc656-email", (_mapi_message_symbol_body(),)
     )
 
-    result = search_symbols(store, EMAIL_NET_SCOPE, "MapiMessage")  # type: ignore[arg-type]
+    result = search_symbols(store, EMAIL_NET_SCOPE, "Aspose.Email.Foss.Msg.MapiMessage")  # type: ignore[arg-type]
 
     assert isinstance(result, list), f"expected a real symbol hit, got a Miss: {result!r}"
     matches: list[SymbolMatch] = result
@@ -285,10 +285,10 @@ def test_get_symbol_end_to_end_surfaces_pdf_net_003() -> None:
         "aspose-pdf-foss/Aspose.PDF-FOSS-for-.NET", "gen-tc656-pdf", (_table_absorber_symbol_body(),)
     )
 
-    result = get_symbol(store, PDF_NET_SCOPE, "TableAbsorber")  # type: ignore[arg-type]
+    result = get_symbol(store, PDF_NET_SCOPE, "Aspose.Pdf.Text.TableAbsorber")  # type: ignore[arg-type]
 
     assert isinstance(result, SymbolSignature)
-    assert result.fqn == "TableAbsorber"
+    assert result.fqn == "Aspose.Pdf.Text.TableAbsorber"
     assert len(result.known_defects) == 1
     assert "border" in result.known_defects[0].lower()
 
@@ -298,7 +298,7 @@ def test_search_symbols_end_to_end_surfaces_pdf_net_003() -> None:
         "aspose-pdf-foss/Aspose.PDF-FOSS-for-.NET", "gen-tc656-pdf", (_table_absorber_symbol_body(),)
     )
 
-    result = search_symbols(store, PDF_NET_SCOPE, "TableAbsorber")  # type: ignore[arg-type]
+    result = search_symbols(store, PDF_NET_SCOPE, "Aspose.Pdf.Text.TableAbsorber")  # type: ignore[arg-type]
 
     assert isinstance(result, list), f"expected a real symbol hit, got a Miss: {result!r}"
     matches: list[SymbolMatch] = result

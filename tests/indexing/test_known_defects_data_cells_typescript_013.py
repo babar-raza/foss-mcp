@@ -109,7 +109,7 @@ def test_the_new_entry_is_present_exactly_once_in_the_raw_document() -> None:
 def test_load_known_defects_returns_an_entry_with_the_real_id_and_subject_refs() -> None:
     defect = _real_defect()
     assert defect.id == DEFECT_ID
-    assert defect.subject.refs == ("Workbook",)
+    assert defect.subject.refs == ("aspose_cells.workbook.Workbook",)
     assert defect.subject.kind == "method"
     assert defect.status == "open"
 
@@ -205,7 +205,7 @@ def _workbook_symbol_body() -> str:
     lines = [
         "## Workbook",
         "",
-        "FQN: Workbook",
+        "FQN: aspose_cells.workbook.Workbook",
         "Kind: class_declaration",
         "",
         "Methods:",
@@ -220,13 +220,13 @@ def store() -> _InMemoryStore:
 
 
 def test_get_symbol_end_to_end_surfaces_the_real_written_defect(store: _InMemoryStore) -> None:
-    """``get_symbol(fqn='Workbook')`` for the real ``cells/typescript`` scope must carry the real
-    ``CELLS-TYPESCRIPT-013`` disclosure, loaded from the REAL, committed registry file this card
-    wrote - nothing monkeypatched."""
-    result = get_symbol(store, SCOPE, "Workbook")  # type: ignore[arg-type]
+    """``get_symbol(fqn='aspose_cells.workbook.Workbook')`` for the real ``cells/typescript`` scope
+    must carry the real ``CELLS-TYPESCRIPT-013`` disclosure, loaded from the REAL, committed
+    registry file this card wrote - nothing monkeypatched."""
+    result = get_symbol(store, SCOPE, "aspose_cells.workbook.Workbook")  # type: ignore[arg-type]
 
     assert isinstance(result, SymbolSignature)
-    assert result.fqn == "Workbook"
+    assert result.fqn == "aspose_cells.workbook.Workbook"
     assert len(result.known_defects) == 1
     line = result.known_defects[0]
     assert "save" in line.lower()
@@ -236,19 +236,20 @@ def test_get_symbol_end_to_end_surfaces_the_real_written_defect(store: _InMemory
 def test_get_symbol_resolved_member_save_also_surfaces_the_real_defect(store: _InMemoryStore) -> None:
     """Resolving the member name ``Workbook.save`` (TC-540's member-resolution path) must carry
     the same disclosure, since ``known_defect_lines`` matches on the OWNING type's fqn."""
-    result = get_symbol(store, SCOPE, "Workbook.save")  # type: ignore[arg-type]
+    result = get_symbol(store, SCOPE, "aspose_cells.workbook.Workbook.save")  # type: ignore[arg-type]
 
     assert isinstance(result, ResolvedSignature)
-    assert result.fqn == "Workbook"
+    assert result.fqn == "aspose_cells.workbook.Workbook"
     assert len(result.known_defects) == 1
     assert "save" in result.known_defects[0].lower()
 
 
 def test_search_symbols_end_to_end_surfaces_the_real_written_defect(store: _InMemoryStore) -> None:
-    """``search_symbols('Workbook')`` for the real ``cells/typescript`` scope must carry the same
-    real ``CELLS-TYPESCRIPT-013`` disclosure on its ``SymbolMatch.known_defects`` field (KD3),
-    loaded from the REAL, committed registry file - nothing monkeypatched."""
-    result = search_symbols(store, SCOPE, "Workbook")  # type: ignore[arg-type]
+    """``search_symbols('aspose_cells.workbook.Workbook')`` for the real ``cells/typescript`` scope
+    must carry the same real ``CELLS-TYPESCRIPT-013`` disclosure on its
+    ``SymbolMatch.known_defects`` field (KD3), loaded from the REAL, committed registry file -
+    nothing monkeypatched."""
+    result = search_symbols(store, SCOPE, "aspose_cells.workbook.Workbook")  # type: ignore[arg-type]
 
     assert isinstance(result, list), f"expected a real symbol hit, got a Miss: {result!r}"
     matches: list[SymbolMatch] = result

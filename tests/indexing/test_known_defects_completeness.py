@@ -63,7 +63,11 @@ from pathlib import Path
 from typing import Any
 
 import jsonschema
+import pytest
 import yaml
+
+from foss_mcp.mcp.tools.get_symbol import extract_fqn
+from tests.conformance.corpus import ConformanceCorpus, load_demo_manifests_corpus
 
 REPO_ROOT = Path(__file__).resolve().parent.parent.parent
 SCHEMA_PATH = REPO_ROOT / "schemas" / "product" / "known_defects.schema.json"
@@ -265,3 +269,90 @@ def test_every_registry_id_matches_its_real_issue_id_exactly() -> None:
                 f"{path.name}: id {raw_id!r} matches a real round2/round3 issue id only after "
                 "case-folding - the exact case must match the audit's own issues.json verbatim"
             )
+
+
+# --------------------------------------------------------------------------------------------
+# G3/TC-702 (REQ-G3-015): the PERMANENT corpus-wide ref-completeness lock.
+#
+# Every point above proves the registry agrees with docs/round2+round3's own issue data and with
+# its own schema - but none of it ever checks a `subject.refs` value against anything that could
+# actually be WRONG as a string. TC-702 found, by a real script run against the real
+# `infra/demo-manifests` corpus, that 11 of 46 real `subject.kind: method` refs across this
+# registry never matched any real indexed FQN for their own pilot - including
+# `CELLS-TYPESCRIPT-013`, the round-3 re-audit's own #1 priority finding (`Workbook.save()`
+# silently drops worksheets past the 2nd) - so a live `get_symbol`/`search_symbols` call for any
+# of those 11 bare/wrong names returned ZERO known-defect disclosures, despite the entry parsing,
+# validating, and even having its own dedicated (but synthetic-FQN, by-construction-passing) test
+# file. This happened TWICE (TC-660 and TC-668 each hand-fixed a named list of entries, and every
+# entry added by a LATER card silently reintroduced the same defect class) specifically because
+# nothing checked a ref against the real corpus as a cross-cutting whole. This test is that check,
+# added here because it is squarely `KD10`'s own already-established scope (completeness against
+# the real data), just not yet built against the real indexed FQN set specifically.
+#
+# The real indexed FQN set is loaded from the real, committed `infra/demo-manifests` directory via
+# `tests.conformance.corpus.load_demo_manifests_corpus` - the exact pattern
+# `tests/mcp/tools/test_known_defects_refs_population.py` (TC-660/TC-668) already established -
+# copied to a temp directory first; the real repository is never written to. A registry file's own
+# stem (e.g. `cells__typescript` from `cells__typescript.yaml`) is exactly `ConformanceCorpus.pilots`'
+# own dict key format (`f"{family}__{platform}"`), so no separate family/platform parsing is needed.
+# --------------------------------------------------------------------------------------------
+
+
+@pytest.fixture(scope="module")
+def corpus(tmp_path_factory: pytest.TempPathFactory) -> ConformanceCorpus:
+    """The real, committed ``infra/demo-manifests`` loaded through a temp-directory copy - the
+    exact pattern ``tests/mcp/tools/test_known_defects_refs_population.py`` already established.
+    Nothing in the real repository is ever written to; reading it is always allowed."""
+    root = tmp_path_factory.mktemp("tc702-known-defects-completeness-corpus")
+    return load_demo_manifests_corpus(root)
+
+
+def _real_indexed_fqns(corpus: ConformanceCorpus, pilot_key: str) -> frozenset[str]:
+    """Every real FQN indexed for *pilot_key* (e.g. ``"cells__typescript"``) - the exact
+    ``extract_fqn`` over ``symbol_chunks()`` pattern ``tests/conformance/test_symbol_self_retrieval.py``'s
+    own ``_symbol_texts`` helper, and ``test_known_defects_refs_population.py``, both already use."""
+    pilot = corpus.pilots[pilot_key]
+    fqns: set[str] = set()
+    for chunk in pilot.symbol_chunks():
+        fqn = extract_fqn(chunk["text"])
+        if fqn:
+            fqns.add(fqn)
+    return frozenset(fqns)
+
+
+def test_every_method_or_class_kind_ref_matches_a_real_indexed_fqn(corpus: ConformanceCorpus) -> None:
+    """The PERMANENT completeness lock this card (TC-702) exists to add: every real registry entry
+    whose ``subject.kind`` is ``"method"`` or ``"class"`` must have every one of its ``subject.refs``
+    match a real indexed FQN for its own pilot, loaded from the real, committed
+    ``infra/demo-manifests`` corpus (never a synthetic/``tmp_path``-only stand-in). A registry ref
+    that never matches any real indexed FQN is a disclosure that can NEVER surface through a live
+    ``get_symbol``/``search_symbols`` call, regardless of how well-formed and schema-valid its YAML
+    entry is - exactly the silent-failure class this card fixed 11 real, live instances of (see
+    ``docs/DECISION_LOG.md``'s ``## 2026-11-02`` entry), which had already recurred once despite two
+    prior hand-curated fix passes (``TC-660``, ``TC-668``). Confirmed directly by this card's own
+    worker, in scratch work never committed, that this exact assertion fails against the unfixed
+    registry content and names all 11 real mismatches - proof the mechanism actually works, not
+    merely that it exists."""
+    failures: list[str] = []
+    for path, defect in _all_registry_entries():
+        subject = defect.get("subject", {})
+        if subject.get("kind") not in ("method", "class"):
+            continue
+        pilot_key = path.stem  # e.g. "cells__typescript" - matches ConformanceCorpus.pilots' own key
+        if pilot_key not in corpus.pilots:
+            failures.append(
+                f"{path.name}: defect {defect.get('id')!r} - no real corpus pilot {pilot_key!r} "
+                "exists to check its refs against"
+            )
+            continue
+        real_fqns = _real_indexed_fqns(corpus, pilot_key)
+        for ref in subject.get("refs", []):
+            if ref not in real_fqns:
+                failures.append(
+                    f"{path.name}: defect {defect.get('id')!r} subject.refs entry {ref!r} does not "
+                    f"match any real indexed FQN for pilot {pilot_key!r}"
+                )
+    assert failures == [], (
+        "known_defects subject.refs entries that never match a real indexed FQN (a disclosure "
+        "that can never surface through a live get_symbol/search_symbols call):\n" + "\n".join(failures)
+    )
