@@ -1,0 +1,152 @@
+id: TC-699
+gate: G3
+lane: verification
+purpose: >-
+  Closes a real latent fragility this session's own Q17/`TC-695` investigation surfaced but
+  deliberately did not touch: `_measure_pilot`'s case-(g) sub-cases
+  (`bare-namespace-word-false-exact`, `bare-member-word-false-exact`,
+  `tests/conformance/test_symbol_self_retrieval.py` around line 207-221) derive their probe word
+  from `sample[0]`/`_first_declared_member(texts, sample)` - and `sample` differs between default
+  (fixed-seed, 3-per-pilot) and exhaustive (full-sweep) mode, so the SAME real defect produces a
+  DIFFERENT literal `case_id` string depending on which mode measured it. `TC-695` just flipped
+  this baseline file's `strict` to `true`; `assert_no_new_failures` ALWAYS fails on a genuinely new
+  `(pilot, case_id)` pair regardless of `strict` - so this instability is no longer a cosmetic
+  curiosity, it is a live risk that any future, unrelated change to a pilot's real symbol set
+  (new/removed/reordered members) could silently shift a case-(g) probe word and trip a spurious
+  "new failure not in the baseline" gate failure on an unrelated card, purely from re-labeling an
+  already-known, unchanged defect.
+
+  RE-VERIFIED directly against all 32 real pilots before carding (not estimated): the module's own
+  comment claims "every real FQN in a pilot shares the same first namespace segment" (implying
+  `namespace_word` is already mode-stable) - this is FALSE for 5 of 32 pilots (`cells/go`,
+  `cells/rust`, `cells/typescript`, `pdf/go`, `pdf/typescript` - all package/module-level languages
+  with no single shared root namespace; e.g. `cells/go`'s `sample[0]` vs its full-sort first FQN
+  disagree: `AlignRight` vs `AlignBottom`). `member_word` is far more unstable: switching
+  `_first_declared_member`'s input from the 3-item default sample to the full sorted FQN list
+  changes the literal word for 22 of 32 pilots (e.g. `pdf/java`: `getDegrees` -> `Artifact`;
+  `words/python`: `parse_shape_line_map` -> `__init__`). Combined: 27 of the baseline's 64 case-(g)
+  entries would get a different literal `case_id` key under a mode-stable identity scheme; the
+  other 37 already agree and need no change.
+
+  FIX MECHANISM (test file only, no production code): make both probe words a pure function of
+  the pilot's fixed, already-computed `ordered_fqns` (the full sorted FQN list, identical
+  regardless of `exhaustive` - already computed earlier in `_measure_pilot`, confirmed cheap: pure
+  text parsing with early-exit, no new `search_symbols` calls, even on the largest real pilot,
+  ~1,239 FQNs) instead of `sample`. This does NOT change which real defect is being measured (still
+  "does a bare namespace word / bare declared-member word falsely resolve as `exact`") - it only
+  changes WHICH representative word is chosen to probe it, so the same real defect gets the same
+  `case_id` under either mode, forever, regardless of future unrelated symbol-count drift.
+
+  CRITICAL RISK THIS CARD MUST VERIFY, NOT ASSUME: switching to a different representative word
+  can change whether the false-exact defect reproduces AT ALL for that pilot - a different member
+  name might not trip the same over-matching bug the old word happened to trip. For every one of
+  the 27 pilots whose word changes, the worker must directly re-run the real check with the NEW
+  word and confirm it still reproduces the false-exact failure before migrating that baseline
+  entry; if it genuinely does not reproduce under the new word, that is itself a real, new finding
+  to report in full (do not force a migration that doesn't hold), following exactly the rigor
+  `TC-695`'s own worker already applied when pruning this same file.
+depends_on:
+  - TC-695
+write_paths:
+  - tests/conformance/test_symbol_self_retrieval.py
+  - tests/fixtures/conformance/baseline_symbol_self_retrieval.json
+satisfies:
+  - REQ-G3-011
+source_refs:
+  - file: docs/DECISION_LOG.md
+    anchor: >-
+      ## 2026-11-02 — Round-3 independent re-audit adopted; a real regression found and given top
+      priority; the "no pilot ever gets worse" rule adopted project-wide (operator, supervisor)
+    sha256: b750b8bf0df25b17bf66d014895ecb42952050c7cc63773f56249c4a1c551791
+inputs:
+  - >-
+    READ FIRST: `_measure_pilot`'s case-(g) block and `_first_declared_member`
+    (`tests/conformance/test_symbol_self_retrieval.py`, around lines 107-223) in full, and every one
+    of the baseline's current `bare-namespace-word-false-exact:*`/`bare-member-word-false-exact:*`
+    entries in `tests/fixtures/conformance/baseline_symbol_self_retrieval.json` (32 of each, 64
+    total). Confirm for yourself, directly against the real 32-pilot corpus (do not trust this
+    card's own figures blindly), which pilots' `namespace_word`/`member_word` actually change
+    between today's `sample[0]`/`_first_declared_member(texts, sample)` and the proposed
+    `ordered_fqns[0]`/`_first_declared_member(texts, ordered_fqns)` - this card's own text claims 5
+    namespace changes and 22 member changes (27 total, some pilots in both sets); re-derive this
+    table yourself before migrating anything.
+  - >-
+    FIX: change exactly two lines in the case-(g) block to read, verbatim:
+    `namespace_word = _FINAL_SEGMENT.split(ordered_fqns[0].strip())[0]` and
+    `member_word = _first_declared_member(texts, ordered_fqns)` (these exact literals are required
+    so this card's own negative control can anchor on them without ambiguity; if you have a strong,
+    specific reason to deviate, you may, but then you must correct the negative control yourself
+    before reporting done, exactly as earlier cards this session have done when a negative
+    control's assumed literal didn't match the real code). Do not touch `sample`'s own definition,
+    sub-cases (a)-(f), or anything else in this file outside the case-(g) block.
+  - >-
+    VERIFY mode-stability directly: for every real pilot, run `_measure_pilot` in BOTH default and
+    exhaustive mode after your fix and confirm the case-(g) `case_id` strings it reports are now
+    IDENTICAL between the two modes (this is the actual defect this card closes - prove it closed,
+    don't just assume the code change achieves it).
+  - >-
+    MIGRATE the baseline, one pilot at a time, for every one of the (up to 27) pilots whose word
+    changes: (1) compute the new word directly; (2) re-run the real `search_symbols` false-exact
+    check with the NEW word on that real pilot and confirm it still reproduces the failure (per
+    this card's own "CRITICAL RISK" paragraph above); (3) only if it reproduces, replace that
+    pilot's old `case_id` key with the new one in the baseline JSON, preserving (or lightly
+    updating, if genuinely more accurate) the entry's own failure-reason prose; (4) if it does NOT
+    reproduce under the new word, do not force it - report this as a new finding in full (which
+    pilot, old word, new word, what you observed) and leave that specific entry out of your
+    migration, flagging it for the supervisor to decide (prune vs. find a different still-failing
+    representative word vs. leave the old entry in place with a documented justification). The 37
+    entries whose word does NOT change need no edit.
+  - >-
+    Add at least 2 new tests to `test_symbol_self_retrieval.py` proving the fix directly: (a) for a
+    representative sample of real pilots (at least the 5 namespace-unstable and a handful of the
+    22 member-unstable ones you identified), assert `_measure_pilot(..., exhaustive=False)` and
+    `_measure_pilot(..., exhaustive=True)` report the SAME case-(g) `case_id` strings for that
+    pilot; (b) a regression guard proving the fix is actually exercised (not vacuously true because
+    both modes happened to already agree) - e.g. assert directly that `ordered_fqns[0]` differs
+    from the default-mode `sample[0]` for at least one of the 5 namespace-unstable pilots you found,
+    so the test would have caught the OLD, unfixed behavior failing to agree.
+  - >-
+    MEASURE: re-run the full `tests/conformance/test_symbol_self_retrieval.py` suite before and
+    after your change (both default mode via the normal check, and a manual exhaustive-mode run for
+    your own verification only - exhaustive mode is NOT required to pass as a check per this card,
+    same as every other card touching this file). Report real before/after pass counts and confirm
+    zero new, unexplained failures in default mode (the mode the one real CI path actually runs,
+    per `TC-695`'s own confirmed grep of `.github/workflows/ci.yml`).
+actions:
+  - >-
+    Make case-(g)'s probe-word derivation a pure function of each pilot's fixed FQN set instead of
+    the sampled subset, so the same real defect gets the same `case_id` under both default and
+    exhaustive mode - closing a latent baseline-fragility risk this session's own `strict: true`
+    flip (`TC-695`) made live - and migrate the baseline's affected entries with per-pilot
+    re-verification, not a blind relabel.
+checks:
+  - command: '{python} -m pytest tests/conformance/test_symbol_self_retrieval.py -q -rfE -p no:cacheprovider'
+    expect: 'exit 0'
+    timeout_seconds: 900
+    junitxml: true
+    proves:
+      - REQ-G3-011
+min_tests: 2
+requires:
+  - python
+network: false
+negative_control:
+  mutate: |
+    python -X utf8 -c "import pathlib; p = pathlib.Path('tests/conformance/test_symbol_self_retrieval.py'); s = p.read_text(encoding='utf-8'); old1 = 'namespace_word = _FINAL_SEGMENT.split(ordered_fqns[0].strip())[0]'; old2 = 'member_word = _first_declared_member(texts, ordered_fqns)'; assert s.count(old1) == 1 and s.count(old2) == 1, 'the required mode-stable probe-word lines were not found verbatim as expected - if your real code differs, anchor your own mutate on your own real literals instead and note the substitution in your closeout'; s2 = s.replace(old1, 'namespace_word = _FINAL_SEGMENT.split(sample[0].strip())[0]', 1).replace(old2, 'member_word = _first_declared_member(texts, sample)', 1); assert s2 != s; p.write_text(s2, encoding='utf-8')"
+  rationale: >-
+    Reverts both probe-word lines from the new, mode-stable `ordered_fqns`-based derivation back to
+    the old, mode-dependent `sample`-based one - restoring exactly the instability this card closes,
+    which must make the new mode-stability tests fail (they assert default and exhaustive mode
+    report the same case_id; the old derivation cannot guarantee that). Not a function rename
+    (`TC-696`'s own review found renaming a def and its only call site in lockstep can be vacuous);
+    this swaps which already-existing variable is referenced at two specific call sites.
+evidence:
+  - evidence/build/G3/TC-699/receipt.json
+closeout:
+  - >-
+    Case-(g)'s `bare-namespace-word-false-exact`/`bare-member-word-false-exact` probe words are now
+    a pure function of each pilot's fixed FQN set, identical under default and exhaustive mode -
+    closing a latent fragility in the now-`strict: true` symbol-self-retrieval baseline. Baseline
+    entries whose word changed were migrated only after re-confirming the same real defect still
+    reproduces under the new word.
+recovery: Re-run from a clean tree.
