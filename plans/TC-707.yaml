@@ -1,0 +1,124 @@
+id: TC-707
+gate: G3
+lane: verification
+purpose: >-
+  Closes 3D-NET-001 (round-2, `docs/round2/issues.json`, severity P0, category "reference-section",
+  confirmed STILL BROKEN by this session's own 2026-11-06 reconciliation): `get_product_reference`'s
+  "formats" section unconditionally claims RVM, AMF, and HTML5/"Aspose 3D Web" viewer export work,
+  with zero caveat anywhere (including the "limitations" section), even though round-2 already
+  confirmed (via a real `dotnet build+run` against the actually-installed `Aspose.3D.FOSS` package)
+  that every one of `Scene.Save(path, FileFormat.RvmText)`, `.RvmBinary`, `.AMF`, `.Aspose3DWeb`,
+  and `.HTML5` throws `NotImplementedException` ("Save options not implemented for ..."), and that
+  extension-based `Scene.Save("x.rvm"/"x.amf"/"x.html5"/"x.a3dw")` throws `ArgumentException`
+  ("Unsupported file format"). Read the real finding yourself first:
+  `docs/round2/issues.json`, id `3D-NET-001` (full `repro`/`expected`/`actual`/`suggested_fix`
+  fields are the ground truth - note the finding's own `actual` field ALSO names "Universal"
+  (U3D) as having no public `FileFormat` field at all in the installed package, a related but
+  distinct claim; the finding's own TITLE additionally names "PLY" as falsely claimed working,
+  which does not match the `suggested_fix` field's own statement that the real dispatcher table
+  supports `ply` - resolve this apparent internal inconsistency yourself via real re-verification,
+  do not guess which is right).
+
+  REPRODUCE FIRST: confirm this is still real on current `main` before writing any fix. Resolve
+  the real pinned `Aspose.3D.FOSS` NuGet package (check `config/known_defects/3d__net.yaml`'s
+  existing 4 entries for the real currently-pinned version - they all cite `26.1.0`; confirm this
+  is still the real version this repo indexes against today via `config/products/3d/net.yaml` /
+  `infra/demo-manifests/3d__net__self_extracted/` before trusting it) and write a small,
+  throwaway .NET console program (the pinned toolchain has dotnet 8/10) that calls
+  `scene.Save(path, FileFormat.RvmText)`, `.RvmBinary`, `.AMF`, `.Aspose3DWeb`, `.HTML5`, and
+  checks for a public `FileFormat.Universal` field at all - exactly round-2's own repro steps.
+  Record the real exception type and message for each. Separately confirm `get_product_reference`
+  (`section="formats"` and `section="limitations"`) on current `main` still states these claims
+  with no caveat, using the real `3d_net` scope against the real committed
+  `infra/demo-manifests/3d__net__self_extracted/` manifest (or the loader
+  `tests.conformance.corpus.load_demo_manifests_corpus` already uses elsewhere this session).
+
+  FIX (data-only, reuses the proven KD1-KD10 disclosure mechanism - `get_product_reference.py`
+  already merges a `kind: "package"` known_defects entry into its "limitations" section via the
+  existing `KnownHazard`/`_known_defect_as_hazard`/`_with_known_hazards` path, the SAME path
+  `3D-NET-004/006/008`'s own existing entries already use; confirmed by this card's own author via
+  `tests/mcp/tools/test_known_defects_in_product_reference.py`'s docstring before writing this
+  card - do not modify `get_product_reference.py` itself): add one new entry to
+  `config/known_defects/3d__net.yaml` (read its 4 existing entries first, they are your exact
+  template), `subject.kind: "package"`, `subject.refs: ["Aspose.3D.FOSS"]` (matching the existing
+  entries' own convention exactly), disclosing plainly, for every format you personally
+  re-confirmed broken: that `Scene.Save()` throws for RVM/AMF/HTML5("Aspose 3D Web" viewer) export
+  despite the formats section naming them as supported, with the real exception text you observed
+  as evidence. Decide the real id yourself - either reuse the literal ledger id `3D-NET-001`
+  (matching this family's own established convention of using the round-2 id as the registry id,
+  e.g. `3D-JAVA-001` in the sibling card `TC-706`) or split into per-format entries if your own
+  re-verification finds meaningfully different failure modes worth distinguishing - report your
+  choice and why. If your real re-verification finds "Universal"/PLY behave differently from the
+  finding's own text, disclose exactly what you actually observed, never the finding's unverified
+  claim.
+
+  3D-NET-001's round-2 `category` is "reference-section", not "upstream-library-bug" - same gap
+  `TC-706` (the sibling card for 3D-JAVA-001, already integrated - read its final diff first, it
+  already widened both completeness locks with an explicit `_ADDITIONAL_DISCLOSABLE_IDS`-shaped
+  allowlist seeded with `{"3D-JAVA-001"}`) hit and fixed. This card only needs to ADD your real new
+  id(s) to that SAME already-existing allowlist in both
+  `tests/indexing/test_known_defects_completeness.py` and (only if you also choose to touch the
+  3d-family-local file - check whether `test_known_defects_data_3d.py`'s own widening from TC-706
+  already generalizes cleanly to a second id, or needs its own small extension) - do not
+  reintroduce a second, parallel mechanism. Update the sanity-anchor counts in both files to the
+  real new total you compute.
+depends_on:
+  - TC-706
+write_paths:
+  - config/known_defects/3d__net.yaml
+  - tests/indexing/test_known_defects_completeness.py
+  - tests/indexing/test_known_defects_data_3d.py
+  - tests/mcp/tools/test_known_defects_in_product_reference.py
+satisfies:
+  - REQ-G3-015
+source_refs:
+  - file: docs/DECISION_LOG.md
+    anchor: >-
+      ## 2026-11-02 — Round-3 independent re-audit adopted; a real regression found and given top
+      priority; the "no pilot ever gets worse" rule adopted project-wide (operator, supervisor)
+    sha256: b750b8bf0df25b17bf66d014895ecb42952050c7cc63773f56249c4a1c551791
+inputs:
+  - >-
+    READ FIRST: `docs/round2/issues.json` id `3D-NET-001` in full. Then `TC-706`'s own final
+    committed diff (already integrated when you start, since it is this card's own dependency) -
+    reuse its exact widening pattern for the completeness locks rather than inventing a new one.
+    Then the 4 real entries in `config/known_defects/3d__net.yaml`.
+  - >-
+    REPRODUCE FIRST (do not skip): a real `dotnet` program against the real pinned package,
+    exactly as described above. Report the real exception text you observed for each format,
+    verbatim, in your closeout - do not paraphrase from round-2's own text without re-confirming.
+  - >-
+    Never weaken either completeness lock's actual guarantee. The widening is additive and
+    explicit, building on TC-706's own already-widened mechanism.
+actions:
+  - >-
+    Add the new 3d/net known_defects entry/entries for the real formats you confirmed broken;
+    extend the already-existing completeness-lock allowlist with the new id(s); add end-to-end
+    coverage proving `get_product_reference` now discloses this.
+checks:
+  - command: '{python} -m pytest tests/indexing/test_known_defects_completeness.py tests/indexing/test_known_defects_data_3d.py tests/mcp/tools/test_known_defects_in_product_reference.py -q -rfE -p no:cacheprovider'
+    expect: 'exit 0'
+    timeout_seconds: 300
+    junitxml: true
+    proves:
+      - REQ-G3-015
+min_tests: 25
+requires:
+  - python
+network: false
+negative_control:
+  mutate: |
+    python -X utf8 -c "import pathlib; p = pathlib.Path('config/known_defects/3d__net.yaml'); s = p.read_text(encoding='utf-8'); old = 'Aspose.3D.FOSS'; count = s.count(old); assert count >= 5, f'expected at least 5 occurrences (4 existing entries + >=1 new), found {count} - if your real fix differs, anchor your own mutate on your own real literal instead and note the substitution in your closeout'; lines = s.splitlines(keepends=True); target_idx = max(i for i, line in enumerate(lines) if old in line); lines[target_idx] = lines[target_idx].replace(old, 'Aspose.3D.FOSS.NOTREAL', 1); p.write_text(''.join(lines), encoding='utf-8')"
+  rationale: >-
+    Corrupts the new entry's own package ref string so it no longer resolves via
+    `load_known_defects`/the real pilot's known package name, which must make the new
+    end-to-end `get_product_reference` disclosure test fail (the disclosure silently stops
+    surfacing) - a pure data mutation targeting the LAST occurrence of the literal (the new
+    entry, added after the 4 existing ones), immune to the lockstep-rename vacuousness class
+    this session's earlier reviews found.
+evidence:
+  - evidence/build/G3/TC-707/receipt.json
+closeout:
+  - 3D-NET-001's RVM/AMF/HTML5 false claims are disclosed via the existing known_defects mechanism.
+  - The completeness-lock allowlist (from TC-706) is extended, never duplicated; exact-equality holds.
+recovery: Re-run from a clean tree.

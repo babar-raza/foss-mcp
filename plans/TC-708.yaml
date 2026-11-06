@@ -1,0 +1,124 @@
+id: TC-708
+gate: G3
+lane: storage-retrieval
+purpose: >-
+  Closes NOTE-PY-005 (round-2, `docs/round2/issues.json`, severity P2, category "honesty",
+  confirmed STILL BROKEN by this session's own 2026-11-06 reconciliation and by a dedicated
+  investigation fork the same day): `lookup("how do I save a document as .one file")` on the real
+  note/python pilot never surfaces the plain fact that writing `.one` is unsupported
+  (`Document.Save()` raises `UnsupportedSaveFormatException` for anything other than
+  `SaveFormat.Pdf`) - it returns `Document.Save()`'s generic, format-agnostic-looking signature
+  plus an unrelated "Export to PDF With Custom Options" example, and the real answer is only
+  discoverable buried as one row of a 29-row generic API-reference table. Read the real finding
+  yourself first: `docs/round2/issues.json` id `NOTE-PY-005`.
+
+  Root cause, already located by this session's own investigation fork (re-verify it yourself
+  before trusting it - do not take it on faith): `src/foss_mcp/mcp/tools/lookup.py`'s
+  `_limitation_coverage()` (around line 372) requires >= 2 matched query terms WITHIN A SINGLE
+  negation paragraph (`_LIMITATION_MIN_TERMS = 2`, line 364) before a limitations document is even
+  considered a candidate. The real note/python `limitations.md` chunk splits the actual answer
+  across TWO separate negation paragraphs - "Writing back to `.one` is not implemented" and
+  "`SaveFormat` ... only Pdf" - so neither paragraph alone clears 2 matched query terms, and the
+  real, dedicated limitations document is excluded from `_limitation_docs`'s candidate set
+  entirely. A different, generic "Key Capabilities and API Reference" table document is picked up
+  instead, because one of its 29 rows happens to match 2 terms - reproducing the original
+  finding's own exact complaint (buried in a table row).
+
+  FIX (minimal, title-scoped, non-regressing): in `_limitation_docs`/`_limitation_coverage`, when
+  (and ONLY when) a candidate document's own title already matches `_LIMITATION_TITLE` (i.e. it is
+  the pilot's own dedicated limitations/scope/known-issue document - the exact same title check
+  `_limitation_docs` already uses at line ~426 to break ties), compute coverage across ALL of that
+  document's own negation paragraphs COMBINED (union of matched terms across every negation
+  paragraph in the doc, not just its single best paragraph), applying the existing
+  `_LIMITATION_MIN_TERMS`/`RELEVANCE_THRESHOLD` floors to that combined figure instead. For every
+  OTHER document (not title-matched), behavior must stay completely unchanged - this is a narrow,
+  additive relaxation for the one case where a document is ALREADY structurally known to be the
+  authoritative limitations source, not a general loosening of the matching floor everywhere.
+
+  This touches a SHARED mechanism used identically by `lookup` for all 32 pilots, not just
+  note/python - the same blast-radius class as `Q6`/`TC-632`'s doc-scope weight change and
+  `TC-686`'s alias-identity change. Before writing the fix, run `_limitation_docs` against every
+  one of the 32 real pilots (via `tests.conformance.corpus`'s `ConformanceCorpus`/
+  `load_demo_manifests_corpus`) for a representative sample of queries each pilot's own existing
+  tests already use, and record the exact candidate-document set returned per pilot BEFORE your
+  change. After your change, re-run the identical queries and diff the before/after sets:
+  every answer change must be either (a) note/python's own intended fix, or (b) individually
+  inspected and confirmed as a genuine, correct improvement (the same document, now found for the
+  same reason, on another pilot whose limitations doc happens to share the same split-paragraph
+  shape) - never an unintended regression. Report the full measured table in your closeout, the
+  same rigor `TC-686`'s own 1379-alias-pair measurement used.
+depends_on:
+  - TC-684
+write_paths:
+  - src/foss_mcp/mcp/tools/lookup.py
+  - tests/mcp/tools/test_lookup_forgiveness.py
+  - tests/mcp/tools/test_known_defects_in_product_reference.py
+satisfies:
+  - REQ-G3-011
+source_refs:
+  - file: docs/DECISION_LOG.md
+    anchor: >-
+      ## 2026-11-02 — Round-3 independent re-audit adopted; a real regression found and given top
+      priority; the "no pilot ever gets worse" rule adopted project-wide (operator, supervisor)
+    sha256: b750b8bf0df25b17bf66d014895ecb42952050c7cc63773f56249c4a1c551791
+inputs:
+  - >-
+    READ FIRST: `docs/round2/issues.json` id `NOTE-PY-005` in full. Then `lookup.py`'s
+    `_limitation_coverage`/`_limitation_docs`/`_LIMITATION_TITLE`/`_LIMITATION_MIN_TERMS`
+    (around lines 360-430) - read the real current code yourself, do not trust this card's line
+    numbers as exact after any prior edit.
+  - >-
+    REPRODUCE FIRST: confirm the real note/python `limitations.md` chunk genuinely splits the
+    `.one`-save answer across two separate negation paragraphs as described, and that
+    `lookup(note_python_scope, "how do I save a document as .one file")` on current `main`
+    genuinely still returns the generic table row, not a direct limitations-sourced answer.
+  - >-
+    MEASURE the 32-pilot before/after impact as described above before considering this done.
+    Never weaken `_LIMITATION_MIN_TERMS`/`RELEVANCE_THRESHOLD` for the general (non-title-matched)
+    case - only the title-matched combined-coverage path is new.
+  - >-
+    `tests/mcp/tools/test_known_defects_in_product_reference.py`'s own `test_lookup_disconnect`
+    test (written by an earlier card, KD4/TC-641) documents a DIFFERENT, already-known limitation
+    of `lookup` (it never surfaces a `get_symbol`-sourced `known_defects` disclosure through its
+    own `symbols` field) - do not confuse this with NOTE-PY-005's own, separate root cause; do not
+    touch that test's own assertions unless your change genuinely affects them (re-run it to
+    check, report either way).
+actions:
+  - >-
+    Add the title-matched combined-paragraph-coverage path to `_limitation_coverage`/
+    `_limitation_docs`; measure the real 32-pilot before/after impact; add regression tests for
+    both the note/python fix and the unchanged-for-non-title-matched-docs guarantee.
+checks:
+  - command: '{python} -m pytest tests/mcp/tools/test_lookup_forgiveness.py tests/mcp/tools/test_lookup_query_normalization.py tests/mcp/tools/test_lookup_vector_fallback.py tests/mcp/tools/test_relevance_doc_scope_weights_enabled.py tests/mcp/tools/test_known_defects_in_product_reference.py -q -rfE -p no:cacheprovider'
+    expect: 'exit 0'
+    timeout_seconds: 600
+    junitxml: true
+    proves:
+      - REQ-G3-011
+  - command: '{python} -m pytest tests/mcp/tools/test_round3_retrieval_corpus.py tests/conformance/ -q -rfE -p no:cacheprovider -m "not exhaustive"'
+    expect: 'exit 0'
+    timeout_seconds: 900
+    junitxml: true
+    proves:
+      - REQ-G3-011
+min_tests: 55
+requires:
+  - python
+network: false
+negative_control:
+  mutate: |
+    python -X utf8 -c "import pathlib; p = pathlib.Path('src/foss_mcp/mcp/tools/lookup.py'); s = p.read_text(encoding='utf-8'); old = '_LIMITATION_MIN_TERMS = 2'; assert s.count(old) == 1; s2 = s.replace(old, '_LIMITATION_MIN_TERMS = 999', 1); assert s2 != s; p.write_text(s2, encoding='utf-8')"
+  rationale: >-
+    Raises the matched-term floor so high that no real paragraph (combined or not) can ever clear
+    it, which must make the new note/python regression test (and likely several pre-existing
+    `_limitation_docs` tests) fail - a pure literal-threshold mutation, immune to the
+    lockstep-rename vacuousness class this session's earlier reviews found. If your real fix
+    restructures the function such that this exact literal no longer gates the title-matched
+    path, re-anchor your own mutate on your own real literal and note the substitution in your
+    closeout.
+evidence:
+  - evidence/build/G3/TC-708/receipt.json
+closeout:
+  - NOTE-PY-005's direct answer now surfaces via lookup for the title-matched limitations case.
+  - 32-pilot before/after measurement recorded; no unintended regression.
+recovery: Re-run from a clean tree.

@@ -1,0 +1,144 @@
+id: TC-706
+gate: G3
+lane: verification
+purpose: >-
+  Closes 3D-JAVA-001 (round-2, `docs/round2/issues.json`, severity P0, category "coverage-gap",
+  confirmed STILL BROKEN by this session's own 2026-11-06 reconciliation): `get_symbol`/
+  `search_symbols` resolve phantom rendering-engine type names (`Renderer`, `ShaderSource`, and
+  ~35 siblings) as confident real symbols with full signatures and zero caveat, even though none
+  of them exist anywhere in the real published `org.aspose:aspose-3d-foss` Maven artifact this
+  pilot's own install instructions tell a user to add - they are present only in the INDEXED
+  SOURCE commit (a commercial-only rendering module compiled out of the real FOSS jar). Read the
+  real finding yourself first: `docs/round2/issues.json`, id `3D-JAVA-001` (`repro` lists all 37
+  sampled names round-2 confirmed phantom via `javap` against the real jar; `expected`/`actual`
+  describe the exact harm). Do not trust that list blindly - re-verify independently, per name,
+  against the CURRENT pinned package version before writing anything (package versions drift;
+  round-2's 26.5.0 pin may no longer be current - check `config/products/3d/java.yaml` for the
+  real pinned version this repo indexes against today and use that version, not round-2's).
+
+  REPRODUCE FIRST: confirm this is still real on current `main` before writing any fix. Resolve
+  the real pinned `org.aspose:aspose-3d-foss` artifact from Maven Central (`mvn dependency:get` or
+  `dependency:resolve`), then for each of round-2's 37 candidate names run `javap -public -cp
+  <jar> com.aspose.threed.<Name>` (confirm the real package prefix yourself - round-2's own repro
+  cites `com.aspose.threed.Renderer` for at least one) and record which ones genuinely produce
+  "class not found" / do not appear in `jar tf <jar> | grep '\.class$'`. Separately confirm
+  `get_symbol(fqn=...)` for 2-3 of them on current `main` still returns `found: true` with no
+  caveat, using the real indexed 3d/java corpus (`tests.conformance.corpus`
+  `load_demo_manifests_corpus`, pilot key likely `3d_java` - confirm the real key format from the
+  loader yourself) or an in-memory chunk store built the same way
+  `tests/mcp/tools/test_known_defects_in_get_symbol.py` already does for this exact pilot (no
+  committed queryable chunk corpus exists for 3d/java locally - check which is actually true on
+  current `main` before picking a method).
+
+  FIX (data-only, reuses the proven KD1-KD10 disclosure mechanism, same shape as
+  `config/known_defects/3d__java.yaml`'s existing `3D-JAVA-002/003/004/006/014` entries - read them
+  first, they are your template): add ONE new entry, `id: 3D-JAVA-001`, `subject.kind: "class"`,
+  `subject.refs` listing every name you independently re-confirmed phantom (full FQN, e.g.
+  `com.aspose.threed.Renderer`) - do not include a name you could not personally re-verify absent
+  from the real jar, and do not silently drop a name that WAS confirmed phantom just because
+  round-2's 74-name sample happened to hit it. `summary` must state plainly: these type names
+  exist in the indexed source commit but are absent from the real published package this pilot's
+  own install section names; code written against them will not compile/resolve against the
+  actual artifact. `user_action`: do not trust a confident `get_symbol`/`search_symbols` hit alone
+  for a 3d/java rendering-related type - cross-check it is present in the real published jar
+  before depending on it. `applies_to.package_versions`: the real current pinned version you
+  verified against (confirm from `config/products/3d/java.yaml`, not round-2's own pin if it has
+  since changed). `status: open`.
+
+  This card does NOT fix `report_index_freshness`'s inflated `indexed_types`/`total_types`
+  (counting indexed-source types as if they were all in the installable package) - that is a
+  separate, larger I6-I8/O-program structural fix (comparing the indexed commit against the real
+  registry artifact's own type list at ingestion time), explicitly out of scope here. This card
+  closes only the "resolves with zero caveat" harm via the existing, proven disclosure surfaces
+  (`get_symbol`, `search_symbols`, `list_members` already call `load_known_defects`/
+  `known_defect_lines` correctly - do not modify any of those three files).
+
+  3D-JAVA-001's round-2 `category` is "coverage-gap", not "upstream-library-bug" - the two global
+  completeness locks (`tests/indexing/test_known_defects_completeness.py`'s
+  `_real_upstream_library_bug_ids()` and `tests/indexing/test_known_defects_data_3d.py`'s
+  `_real_3d_upstream_library_bug_ids()`) both filter strictly on `category == "upstream-library-bug"`
+  and would reject this entry as an "orphan" with no matching finding. Widen BOTH functions the
+  same deliberate way `TC-656`'s own rework widened them from round2-only to round2-union-round3:
+  add a small, explicit, hand-reviewed, comment-documented `_ADDITIONAL_DISCLOSABLE_IDS` (or your
+  own clearer name) frozenset unioned into the returned id set, seeded with exactly
+  `{"3D-JAVA-001"}` for now, with a comment explaining precisely why (a real, cited, committed
+  audit finding that is a genuine index-truth/disclosure gap but was not categorized
+  "upstream-library-bug" in the original audit). This is a widening of what the lock admits, never
+  a weakening of what it actually checks - every id in that set still must trace to one real,
+  cited, committed audit record (never invented), and the exact-equality assertions
+  (`test_registry_ids_exactly_equal_the_real_upstream_library_bug_issue_ids`,
+  `test_registry_entry_count_equals_upstream_library_bug_issue_count`,
+  `test_every_registry_id_matches_its_real_issue_id_exactly`) must still hold exactly, just against
+  the new, slightly wider set. Update the `== 53`/`== 54` sanity anchors in both files to the real
+  new count you compute (do not hardcode a guess - confirm it directly). Also widen
+  `test_known_defects_data_3d.py`'s own `test_every_subject_kind_is_method_or_package` (rename if
+  you widen its assertion) to also allow `"class"`, since this entry's own kind is `class`, not
+  `method`/`package` - every one of the existing 15 entries must still pass unchanged.
+
+  Write at least 2 new end-to-end tests proving the real, committed registry entry (never a
+  monkeypatched `tmp_path` stand-in) surfaces through `get_symbol` AND `search_symbols` for at
+  least one of the confirmed-phantom names, using whichever real-corpus-or-synthetic-store method
+  your own REPRODUCE-FIRST investigation determined is actually correct for this pilot today.
+depends_on:
+  - TC-702
+  - TC-660
+write_paths:
+  - config/known_defects/3d__java.yaml
+  - tests/indexing/test_known_defects_completeness.py
+  - tests/indexing/test_known_defects_data_3d.py
+satisfies:
+  - REQ-G3-015
+source_refs:
+  - file: docs/DECISION_LOG.md
+    anchor: >-
+      ## 2026-11-02 — Round-3 independent re-audit adopted; a real regression found and given top
+      priority; the "no pilot ever gets worse" rule adopted project-wide (operator, supervisor)
+    sha256: b750b8bf0df25b17bf66d014895ecb42952050c7cc63773f56249c4a1c551791
+inputs:
+  - >-
+    READ FIRST: `docs/round2/issues.json` id `3D-JAVA-001` in full (its own `repro`/`expected`/
+    `actual`/`suggested_fix` fields are the ground truth, not this card's paraphrase). Then the 5
+    real, already-committed entries in `config/known_defects/3d__java.yaml` (your exact template
+    for shape, tone, and evidence detail). Then both completeness test files in full, including
+    their own module docstrings explaining the TC-656 widening precedent you are extending.
+  - >-
+    REPRODUCE FIRST (do not skip): independently re-verify, against the real current pinned
+    package version, which of round-2's 37 sampled names are genuinely absent from the real jar
+    today - do not copy the list unchecked. If the real current count differs from 37 (package
+    version changed, or you find a transcription issue in round-2's own list), use your own real,
+    independently-verified count and say so plainly in your report.
+  - >-
+    Never weaken either completeness lock's actual guarantee (every id still traces to one real,
+    cited, committed finding; no silent orphans; exact-equality still holds). The widening is
+    additive and explicit, not a loosened filter.
+actions:
+  - >-
+    Add the `3D-JAVA-001` known_defects entry; widen both completeness locks' id-source functions
+    with an explicit, documented allowlist union; add end-to-end coverage; re-run every existing
+    test in all three touched files twice to confirm nothing else broke.
+checks:
+  - command: '{python} -m pytest tests/indexing/test_known_defects_completeness.py tests/indexing/test_known_defects_data_3d.py tests/mcp/tools/test_known_defects_in_get_symbol.py tests/mcp/tools/test_known_defects_round3_siblings.py -q -rfE -p no:cacheprovider'
+    expect: 'exit 0'
+    timeout_seconds: 300
+    junitxml: true
+    proves:
+      - REQ-G3-015
+min_tests: 25
+requires:
+  - python
+network: false
+negative_control:
+  mutate: |
+    python -X utf8 -c "import pathlib; p = pathlib.Path('config/known_defects/3d__java.yaml'); s = p.read_text(encoding='utf-8'); old = '- id: 3D-JAVA-001'; assert s.count(old) == 1, 'the new entry id was not found verbatim as expected - if your real fix differs, anchor your own mutate on your own real literal instead and note the substitution in your closeout'; s2 = s.replace(old, '- id: 3D-JAVA-999', 1); assert s2 != s; p.write_text(s2, encoding='utf-8')"
+  rationale: >-
+    Renames the new entry's id so it no longer matches the widened completeness locks' expected
+    id set, which must make `test_registry_ids_exactly_equal_the_real_upstream_library_bug_issue_ids`
+    (and/or its 3d-family-local counterpart) fail with a reported orphan/missing-entry mismatch -
+    a pure data mutation, immune to the lockstep-rename vacuousness class this session's earlier
+    reviews found (there is no function or call site to rename here, only a registry id literal).
+evidence:
+  - evidence/build/G3/TC-706/receipt.json
+closeout:
+  - 3D-JAVA-001 is disclosed via the existing, proven known_defects mechanism with zero new code.
+  - Both completeness locks widened explicitly and documented; exact-equality still holds.
+recovery: Re-run from a clean tree.
