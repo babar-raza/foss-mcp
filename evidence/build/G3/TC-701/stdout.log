@@ -1,0 +1,115 @@
+
+===== CLEAN RUN 1 (host) =====
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-5c72e798a73c059a\Scripts\python.exe -m pytest tests/indexing/test_example_fixtures.py -q -rfE -p no:cacheprovider "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-6033rybf\.junit-0.xml"
+--- stdout ---
+........................................................................ [100%]
+
+--- stderr ---
+
+
+===== CLEAN RUN 2 (host) =====
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-5c72e798a73c059a\Scripts\python.exe -m pytest tests/indexing/test_example_fixtures.py -q -rfE -p no:cacheprovider "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-6033rybf\.junit-0.xml"
+--- stdout ---
+........................................................................ [100%]
+
+--- stderr ---
+
+
+===== NEGATIVE CONTROL (checks MUST now fail) =====
+mutated: M src/foss_mcp/indexing/example_fixtures.py, ?? .junit-0.xml
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-5c72e798a73c059a\Scripts\python.exe -m pytest tests/indexing/test_example_fixtures.py -q -rfE -p no:cacheprovider "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-6033rybf\.junit-0.xml"
+--- stdout ---
+...........................FFFF.FFFF.................................... [100%]
+================================== FAILURES ===================================
+__ test_every_generated_fixture_is_at_most_1024_bytes_and_deterministic[zip] __
+
+extension = 'zip'
+
+    @pytest.mark.parametrize("extension", _GENERATED_EXTENSIONS)
+    def test_every_generated_fixture_is_at_most_1024_bytes_and_deterministic(extension: str) -> None:
+        first = ef.generated_fixture(extension)
+        second = ef.generated_fixture(extension)
+>       assert first is not None
+E       assert None is not None
+
+tests\indexing\test_example_fixtures.py:185: AssertionError
+_ test_every_generated_fixture_is_at_most_1024_bytes_and_deterministic[docx] __
+
+extension = 'docx'
+
+    @pytest.mark.parametrize("extension", _GENERATED_EXTENSIONS)
+    def test_every_generated_fixture_is_at_most_1024_bytes_and_deterministic(extension: str) -> None:
+        first = ef.generated_fixture(extension)
+        second = ef.generated_fixture(extension)
+>       assert first is not None
+E       assert None is not None
+
+tests\indexing\test_example_fixtures.py:185: AssertionError
+_ test_the_generated_xlsx_and_pptx_are_deterministic_and_fit_their_own_ceiling[xlsx] _
+
+extension = 'xlsx'
+
+    @pytest.mark.parametrize("extension", ("xlsx", "pptx"))
+    def test_the_generated_xlsx_and_pptx_are_deterministic_and_fit_their_own_ceiling(extension: str) -> None:
+        first = ef.generated_fixture(extension)
+        second = ef.generated_fixture(extension)
+>       assert first is not None
+E       assert None is not None
+
+tests\indexing\test_example_fixtures.py:198: AssertionError
+_ test_the_generated_xlsx_and_pptx_are_deterministic_and_fit_their_own_ceiling[pptx] _
+
+extension = 'pptx'
+
+    @pytest.mark.parametrize("extension", ("xlsx", "pptx"))
+    def test_the_generated_xlsx_and_pptx_are_deterministic_and_fit_their_own_ceiling(extension: str) -> None:
+        first = ef.generated_fixture(extension)
+        second = ef.generated_fixture(extension)
+>       assert first is not None
+E       assert None is not None
+
+tests\indexing\test_example_fixtures.py:198: AssertionError
+_____________ test_the_generated_zip_is_a_real_non_empty_archive ______________
+
+    def test_the_generated_zip_is_a_real_non_empty_archive() -> None:
+>       _, data = ef.generated_fixture("zip")
+        ^^^^^^^
+E       TypeError: cannot unpack non-iterable NoneType object
+
+tests\indexing\test_example_fixtures.py:213: TypeError
+___________ test_the_generated_docx_is_a_real_openable_word_package ___________
+
+    def test_the_generated_docx_is_a_real_openable_word_package() -> None:
+>       _, data = ef.generated_fixture("docx")
+        ^^^^^^^
+E       TypeError: cannot unpack non-iterable NoneType object
+
+tests\indexing\test_example_fixtures.py:222: TypeError
+_________ test_the_generated_xlsx_is_a_real_openable_workbook_package _________
+
+    def test_the_generated_xlsx_is_a_real_openable_workbook_package() -> None:
+>       _, data = ef.generated_fixture("xlsx")
+        ^^^^^^^
+E       TypeError: cannot unpack non-iterable NoneType object
+
+tests\indexing\test_example_fixtures.py:230: TypeError
+_______ test_the_generated_pptx_is_a_real_openable_presentation_package _______
+
+    def test_the_generated_pptx_is_a_real_openable_presentation_package() -> None:
+>       _, data = ef.generated_fixture("pptx")
+        ^^^^^^^
+E       TypeError: cannot unpack non-iterable NoneType object
+
+tests\indexing\test_example_fixtures.py:238: TypeError
+=========================== short test summary info ===========================
+FAILED tests/indexing/test_example_fixtures.py::test_every_generated_fixture_is_at_most_1024_bytes_and_deterministic[zip]
+FAILED tests/indexing/test_example_fixtures.py::test_every_generated_fixture_is_at_most_1024_bytes_and_deterministic[docx]
+FAILED tests/indexing/test_example_fixtures.py::test_the_generated_xlsx_and_pptx_are_deterministic_and_fit_their_own_ceiling[xlsx]
+FAILED tests/indexing/test_example_fixtures.py::test_the_generated_xlsx_and_pptx_are_deterministic_and_fit_their_own_ceiling[pptx]
+FAILED tests/indexing/test_example_fixtures.py::test_the_generated_zip_is_a_real_non_empty_archive
+FAILED tests/indexing/test_example_fixtures.py::test_the_generated_docx_is_a_real_openable_word_package
+FAILED tests/indexing/test_example_fixtures.py::test_the_generated_xlsx_is_a_real_openable_workbook_package
+FAILED tests/indexing/test_example_fixtures.py::test_the_generated_pptx_is_a_real_openable_presentation_package
+
+--- stderr ---
+
