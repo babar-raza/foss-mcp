@@ -217,7 +217,7 @@ def test_real_cells_typescript_013_still_surfaces_through_get_symbol_after_migra
     """A second real, already-committed, independently-migrated pilot - cells/typescript's
     CELLS-TYPESCRIPT-013, the pilot the round-3 audit scored worst (F) for exactly this defect."""
     scope = Scope(family="cells", platform="typescript")
-    fqn = "Workbook"
+    fqn = "aspose_cells.workbook.Workbook"
 
     lines = get_symbol_known_defect_lines(scope, fqn, _symbol_text(fqn))
 

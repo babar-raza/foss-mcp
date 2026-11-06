@@ -245,7 +245,7 @@ def test_cells_python_workbook_surfaces_cells_py_005_via_get_symbol(corpus: Conf
     assert isinstance(result, SymbolSignature) and result.found
     assert result.fqn == "aspose.cells_foss.workbook.Workbook"
     defects = load_known_defects("cells", "python")
-    assert _defect_ids(result.known_defects, defects) == {"CELLS-PY-005"}
+    assert _defect_ids(result.known_defects, defects) == {"CELLS-PY-003", "CELLS-PY-005"}
 
 
 def test_cells_python_workbook_surfaces_cells_py_005_via_search_symbols(corpus: ConformanceCorpus) -> None:
@@ -255,7 +255,7 @@ def test_cells_python_workbook_surfaces_cells_py_005_via_search_symbols(corpus: 
     hit_ids: set[str] = set()
     for match in result:
         hit_ids |= _defect_ids(match.known_defects, defects)
-    assert hit_ids == {"CELLS-PY-005"}
+    assert hit_ids == {"CELLS-PY-003", "CELLS-PY-005"}
 
 
 # --------------------------------------------------------------------------------------------
