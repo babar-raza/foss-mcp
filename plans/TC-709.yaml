@@ -1,0 +1,118 @@
+id: TC-709
+gate: G3
+lane: verification
+purpose: >-
+  REQ-G3-009. Fixes a real, confirmed liveness gap in scripts/release/fleet_live_smoke.py (built by
+  TC-566 alongside scripts/release/image_workflow_gate.py and scripts/release/adversarial_suite.py):
+  its CLI entrypoint `main()` builds a default `Deps()` with `client_factory=None` and hardcodes
+  `proof=None` in the `Context` it constructs, so `run_pilot_smoke`'s `elif ctx.deps.client_factory
+  is None:` branch fires unconditionally for every pilot when the script is run the documented way
+  (`python scripts/release/fleet_live_smoke.py --image <tag>` with no injected deps), producing
+  "no client_factory was supplied; cannot query the container" for all 32 pilots and a hard FAIL
+  verdict, even against a perfectly healthy, fully-passing image. Confirmed directly on
+  2026-11-06 against a demo image that `image_workflow_gate.py` (32/32 PASS) and
+  `adversarial_suite.py` both verified cleanly on the same real containers - fleet_live_smoke.py is
+  the one outlier among the three scripts. `image_workflow_gate.py`'s own `main()` (line ~1148) and
+  `adversarial_suite.py`'s own `main()` (line ~1722) both call `proof=gate._load_proof_module()` (or
+  the local equivalent) when constructing their default Context, and `image_workflow_gate.py`'s own
+  `run_pilot` (line ~575) falls back with `factory = self.deps.client_factory or self.proof.open_live_client`
+  instead of failing outright - fleet_live_smoke.py never adopted either pattern when it was written.
+  This is exactly the class of defect AGENTS.md's "Integration and liveness" section warns about: a
+  correctly-tested module (tests/release/test_fleet_live_smoke.py's 25 existing tests all pass
+  because every one of them injects its own fake `deps` with a real `client_factory` - none of them
+  exercises the bare CLI path with the real default `Deps()`) that is silently never wired to a real
+  call site, so the gap went undetected through its own card's acceptance and every later gate run
+  that happened to only run image_workflow_gate.py/adversarial_suite.py instead of this script.
+depends_on:
+- TC-566
+write_paths:
+- scripts/release/fleet_live_smoke.py
+- tests/release/test_fleet_live_smoke.py
+satisfies:
+- REQ-G3-009
+source_refs:
+- file: docs/DECISION_LOG.md
+  anchor: >-
+    ## 2026-11-06 — PDF-JAVA-005 investigated: a measured fix exists but regresses a ratchet floor; declined, not carded (supervisor)
+  sha256: bb8002c9c4ba750378941c5b7038f54730da01a8c78ec2fb0023047f3c90e6a0
+inputs:
+- >-
+  READ FIRST: scripts/release/fleet_live_smoke.py in full, then scripts/release/image_workflow_gate.py's
+  `Deps` dataclass (~line 207), `Context.run_proof`/the `factory = self.deps.client_factory or
+  self.proof.open_live_client` fallback (~line 575), and `main()`'s `proof=_load_proof_module()`
+  (~line 1148) - and scripts/release/adversarial_suite.py's own `main()` (~line 1722), which already
+  does the same thing correctly for its own script. Activate the toolchain
+  (scripts/toolchain/activate.ps1) in the SAME shell command as every python or pytest call. Run
+  ruff format and ruff check on every Python file you change. Reproduce the bug first: run
+  `python scripts/release/fleet_live_smoke.py --image <any locally built foss-mcp-serving:demo-* or
+  rev-* tag> --only pdf_net` against a real image and confirm it fails with "no client_factory was
+  supplied" before changing anything, exactly as this card's purpose section describes; record the
+  exact repro output in your report.
+- >-
+  FIX: in `main()`, construct the `Context` with `proof=gate._load_proof_module()` instead of the
+  literal `proof=None` (reuse the function `image_workflow_gate.py` already exports for this exact
+  purpose - do not copy its body). In `run_pilot_smoke`, replace the
+  `elif ctx.deps.client_factory is None: reasons.append("no client_factory was supplied; cannot query
+  the container")` / `else: client = ctx.deps.client_factory(url)` pair with the same fallback shape
+  `image_workflow_gate.py`'s own `run_pilot` already uses: resolve
+  `factory = ctx.deps.client_factory or ctx.proof.open_live_client` once, keep the `plan.facts`
+  empty-check and the per-fact loop exactly as they are now, and only fail with a "no client_factory"
+  style reason if `factory` itself is still `None` after that fallback (it should never be, in
+  practice, once `proof` is real - but never silently swallow the case). Do not change
+  `image_workflow_gate.py` or `adversarial_suite.py`: they are already correct and are not in this
+  card's write_paths.
+- >-
+  TEST: add at least one new regression test to tests/release/test_fleet_live_smoke.py that calls
+  `smoke.main([...])` with NO injected `deps` override (i.e. relying on `main()`'s own default
+  `Deps()`, the exact path every existing test bypasses by injecting `world.deps()`), monkeypatching
+  only `gate._load_proof_module` (or the module-level name fleet_live_smoke.py actually imports it
+  under) to return a fake proof object whose `open_live_client` is a test double, and asserting that
+  this fake factory - not a hardcoded failure reason - is what gets called. A second test should
+  cover the genuinely-still-unreachable case (both `deps.client_factory` and `proof.open_live_client`
+  absent) to prove the safety-net failure reason, if any remains, still fires correctly and is never
+  silently skipped. Never weaken, delete, or change the meaning of any of the 25 existing tests - all
+  of them already pass today and must keep passing unchanged.
+- >-
+  ACCEPTANCE: re-run the exact repro command from the READ FIRST step against the same real image
+  used to reproduce the bug; it must now report real `pass`/`fail` facts per pilot instead of "no
+  client_factory was supplied" for every one of them. Paste the before/after output in your report.
+actions:
+- >-
+  Wire fleet_live_smoke.py's main() to the same proof-module-loading and client-factory-fallback
+  pattern image_workflow_gate.py and adversarial_suite.py already use, so the documented CLI
+  invocation can actually query a real running container instead of failing unconditionally.
+checks:
+- command: >-
+    {python} -m pytest tests/release/test_fleet_live_smoke.py -q -rfE -p no:cacheprovider
+  expect: exit 0
+  timeout_seconds: 300
+  junitxml: true
+  proves:
+  - REQ-G3-009
+- command: >-
+    {python} -m pytest tests/deploy/test_image_workflow_gate.py tests/deploy/test_adversarial_suite.py -q -rfE -p no:cacheprovider
+  expect: exit 0
+  timeout_seconds: 900
+  junitxml: true
+  proves:
+  - REQ-G3-009
+min_tests: 25
+network: false
+requires:
+- python
+negative_control:
+  mutate: |
+    python -X utf8 -c "import pathlib; p = pathlib.Path('scripts/release/fleet_live_smoke.py'); s = p.read_text(encoding='utf-8'); old = 'proof=gate._load_proof_module(),'; assert s.count(old) == 1; p.write_text(s.replace(old, 'proof=None,', 1), encoding='utf-8')"
+  rationale: >-
+    Reverts main()'s Context construction back to the original, broken `proof=None`, so the
+    client_factory fallback this card adds has nothing to fall back to and the new regression test
+    (which asserts the fallback's fake open_live_client is actually invoked) fails again. A real
+    break of the card's own claim that the documented CLI path can now query a live container.
+evidence:
+- evidence/build/G3/TC-709/receipt.json
+closeout:
+- >-
+  scripts/release/fleet_live_smoke.py's documented CLI invocation can now actually query a real
+  running container, matching the already-correct pattern of image_workflow_gate.py and
+  adversarial_suite.py; all 25 pre-existing tests are unchanged and still pass.
+recovery: Re-run from a clean tree.
