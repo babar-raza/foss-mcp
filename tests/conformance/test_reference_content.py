@@ -111,6 +111,14 @@ def _install_recipe_block_count(text: str) -> int:
     return sum(1 for body in _FENCE_BLOCK_RE.findall(text) if _RECIPE_SIGNAL_RE.search(body))
 
 
+# G3/TC-698: the disclosure sentence `_cpp_install` (get_product_reference.py) now appends to
+# `notice` whenever its own, independently-implemented `_count_install_recipe_blocks` finds more
+# than one recipe block - "This install answer combines N distinct install routes: ...". Used both
+# to tell sub-case 2 below an "undisclosed" multi-recipe answer from a disclosed one, and by this
+# module's own new tests to check the disclosed count against this module's independent oracle.
+_DISCLOSED_ROUTE_COUNT_RE = re.compile(r"combines\s+(\d+)\s+distinct install routes", re.IGNORECASE)
+
+
 @pytest.fixture(autouse=True)
 def _no_embedding_gateway(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.delenv(_ENDPOINT_ENV, raising=False)
@@ -231,16 +239,22 @@ def _build_failures(
                 "word rather than landing on whitespace or punctuation.",
             )
 
-    # Sub-case 2 (install only): more than one distinct, complete fenced install-recipe block.
+    # Sub-case 2 (install only): more than one distinct, complete fenced install-recipe block, with
+    # no disclosure that more than one route exists. G3/TC-698: `_cpp_install` now appends a
+    # disclosure sentence to `notice` whenever its own, independently-implemented recipe-block
+    # count exceeds one, so a real multi-recipe install answer is no longer a failure by itself -
+    # only an UNDISCLOSED one is (reusing `reconcile_format_claims`'s "disclose, never silently
+    # resolve" pattern, extended here to the install section's own multi-recipe case).
     for answer in answers:
         if answer.section != "install" or not isinstance(answer.result, ReferenceContent):
             continue
         count = _install_recipe_block_count(answer.result.text)
-        if count > 1:
+        if count > 1 and _DISCLOSED_ROUTE_COUNT_RE.search(answer.result.notice or "") is None:
             record(
                 answer.pilot,
                 f"multi-recipe:{answer.pilot}:install",
-                f"the install answer carries {count} distinct fenced install-recipe blocks, not one.",
+                f"the install answer carries {count} distinct fenced install-recipe blocks, not one, "
+                "with no disclosure in its notice that more than one route exists.",
             )
 
     # Sub-case 3: empty/absent with no structured reason. NotAvailable carries only a free-text
@@ -380,20 +394,89 @@ def test_every_measured_answer_is_content_or_an_explicit_absence(measured: Measu
 
 def test_measured_failures_cover_the_subcases_this_card_actually_found(measured: Measurement) -> None:
     """A meta-check against a vacuously-passing measurement: at least the sub-cases this card's real
-    run actually found (empty-no-reason always fired; multi-recipe fired on the real cpp pilots;
-    mid-cut measured zero today - see this module's own docstring) must be represented, so a future
-    refactor that accidentally stops exercising a sub-case is caught here rather than only showing up
-    as a shrinking, unexplained baseline. (marker-lacks-locator used to always fire here too, but
-    G3/TC-678 fixed the marker to name real N/M character counts, so that sub-case no longer applies
-    and its assertion was retired along with the failure it used to record.)"""
+    run actually found (empty-no-reason always fired; mid-cut measured zero today - see this
+    module's own docstring) must be represented, so a future refactor that accidentally stops
+    exercising a sub-case is caught here rather than only showing up as a shrinking, unexplained
+    baseline. (marker-lacks-locator used to always fire here too, but G3/TC-678 fixed the marker to
+    name real N/M character counts, so that sub-case no longer applies and its assertion was
+    retired along with the failure it used to record. multi-recipe used to always fire on
+    email__cpp/pdf__cpp/slides__cpp too, but G3/TC-698 made `_cpp_install` disclose the real
+    recipe-block count via `notice` whenever it exceeds one, so sub-case 2 here now only fires on an
+    UNDISCLOSED multi-recipe answer - never observed in the real 32-pilot corpus after that fix -
+    and its assertion was retired here too, along with the failures it used to record; see
+    `test_cpp_multi_recipe_install_answer_discloses_the_real_route_count` below for the real,
+    positive proof that disclosure now happens instead.)"""
     prefixes = {
         case_id.split(":", 1)[0]
         for _pilot, case_id, _reason in ((f["pilot"], f["case_id"], f["reason"]) for f in measured.failures)
     }
     assert "empty-no-reason" in prefixes, measured.failures
-    assert "multi-recipe" in prefixes, measured.failures
+    assert "multi-recipe" not in prefixes, measured.failures
 
 
 def test_reference_content_matches_the_committed_baseline(measured: Measurement) -> None:
     baseline = load_baseline(BASELINE_PATH)
     assert_no_new_failures(baseline, measured.failures)
+
+
+# ---- (d) G3/TC-698: the install section's own multi-recipe disclosure ----------------------------
+
+
+@pytest.mark.parametrize(
+    "pilot_name,expected_count",
+    [("email__cpp", 2), ("pdf__cpp", 2), ("slides__cpp", 3)],
+)
+def test_cpp_multi_recipe_install_answer_discloses_the_real_route_count(
+    corpus: ConformanceCorpus, pilot_name: str, expected_count: int
+) -> None:
+    """On each of the 3 real cpp pilots whose README documents more than one install method on top
+    of the generated source-build recipe (this card's own re-confirmed measurement), the real,
+    end-to-end ``get_product_reference`` "install" answer's ``.notice`` now states a concrete count
+    of distinct install routes - and that count agrees with BOTH this module's own independent
+    ``_install_recipe_block_count`` oracle and production's separately-implemented
+    ``_count_install_recipe_blocks``, computed on the exact same final text, even though the two
+    counters are never the same code."""
+    pilot = corpus.pilots[pilot_name]
+    sidecar_path = DEMO_MANIFESTS / fetch_product_reference.sidecar_name(
+        pilot.scope.family, pilot.scope.platform
+    )
+    assert sidecar_path.is_file(), sidecar_path
+    inputs = fetch_product_reference.load_manifest_sidecar(sidecar_path)
+    assert inputs is not None
+    readme = read_readme_sections(corpus.store, pilot.scope)
+    result = get_product_reference(inputs, "install", readme=readme)
+    assert isinstance(result, ReferenceContent), (pilot_name, result)
+    assert result.notice is not None, (pilot_name, result)
+
+    oracle_count = _install_recipe_block_count(result.text)
+    assert oracle_count == expected_count, (pilot_name, oracle_count)
+    production_count = gpr._count_install_recipe_blocks(result.text)
+    assert production_count == oracle_count, (pilot_name, production_count, oracle_count)
+
+    match = _DISCLOSED_ROUTE_COUNT_RE.search(result.notice)
+    assert match is not None, result.notice
+    assert int(match.group(1)) == oracle_count, (pilot_name, match.group(1), oracle_count)
+
+
+def test_cpp_single_recipe_install_answer_gets_no_added_disclosure(corpus: ConformanceCorpus) -> None:
+    """``cells__cpp`` - a real cpp pilot measured to carry exactly 1 fenced install-recipe block,
+    the already-correct, single-route case - must get NO added multi-route disclosure sentence:
+    this card closes a real undisclosed-multiplicity gap, it must not add noise to a pilot that
+    never had that gap."""
+    pilot_name = "cells__cpp"
+    pilot = corpus.pilots[pilot_name]
+    sidecar_path = DEMO_MANIFESTS / fetch_product_reference.sidecar_name(
+        pilot.scope.family, pilot.scope.platform
+    )
+    assert sidecar_path.is_file(), sidecar_path
+    inputs = fetch_product_reference.load_manifest_sidecar(sidecar_path)
+    assert inputs is not None
+    readme = read_readme_sections(corpus.store, pilot.scope)
+    result = get_product_reference(inputs, "install", readme=readme)
+    assert isinstance(result, ReferenceContent), (pilot_name, result)
+    assert result.notice is not None, (pilot_name, result)
+
+    oracle_count = _install_recipe_block_count(result.text)
+    assert oracle_count == 1, (pilot_name, oracle_count, "expected a real single-recipe cpp pilot")
+    assert gpr._count_install_recipe_blocks(result.text) == 1, pilot_name
+    assert _DISCLOSED_ROUTE_COUNT_RE.search(result.notice) is None, result.notice

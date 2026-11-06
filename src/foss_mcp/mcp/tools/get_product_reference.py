@@ -1201,6 +1201,30 @@ def _strip_agent_imperative_lines(content: str) -> str:
 
 _README_INSTALL_LEAD = "The repository README's installation section"
 
+# G3/TC-698: the SAME heuristic as tests/conformance/test_reference_content.py's own, independent
+# `_install_recipe_block_count`/`_FENCE_BLOCK_RE`/`_RECIPE_SIGNAL_RE` (a fenced block counts as its
+# own install recipe only when it carries an install-shaped signal - a clone/package-manager/
+# FetchContent/PackageReference-style command - not a bare "how to use it" continuation block, e.g.
+# the find_package/target_link_libraries half of the cpp "broken embedding" guidance) - but with its
+# own regex literals, deliberately not an import of that test module's private helpers, so this
+# production counter and the conformance suite's independent oracle stay structurally separate.
+_INSTALL_FENCE_BLOCK_RE = re.compile(r"```[^\n]*\n(.*?)```", re.DOTALL)
+_INSTALL_RECIPE_SIGNAL_RE = re.compile(
+    r"\binstall\b|\badd\s+package\b|PackageReference|<dependency>|<artifactId>|\brequire\b|\bnpm\s+i\b"
+    r"|FetchContent_Declare|FetchContent_MakeAvailable|pip\s+install|conda\s+install|cargo\s+add"
+    r"|yarn\s+add|go\s+get|Install-Package|nuget\s+install",
+    re.IGNORECASE,
+)
+
+
+def _count_install_recipe_blocks(text: str) -> int:
+    """How many of *text*'s fenced code blocks each independently look like a standalone install
+    recipe (``_INSTALL_RECIPE_SIGNAL_RE`` matches somewhere in the block) - a block that only shows
+    how to USE an already-installed library (e.g. a bare ``find_package``/``target_link_libraries``
+    pair) is a continuation, not its own recipe, and does not count."""
+    return sum(1 for body in _INSTALL_FENCE_BLOCK_RE.findall(text) if _INSTALL_RECIPE_SIGNAL_RE.search(body))
+
+
 _CMAKE_COMMENT_RE = re.compile(r"#[^\n]*")
 _CMAKE_ADD_LIBRARY_RE = re.compile(r"\badd_library\s*\(\s*([^\s()]+)([^()]*)\)", re.IGNORECASE)
 _CMAKE_PROJECT_RE = re.compile(r"\bproject\s*\(\s*([^\s()]+)([^()]*)\)", re.IGNORECASE)
@@ -1567,9 +1591,22 @@ def _cpp_install(
     if corrections:
         fixed = "; ".join(f"{wrong} -> {right}" for wrong, right in corrections.items())
         notice += f" CMake targets the README names but the CMakeLists.txt does not define were corrected ({fixed})."
+    install_text = f"{guidance}\n\n{_README_INSTALL_LEAD}{how}:\n\n{recipe}"
+    # G3/TC-698: on email/cpp, pdf/cpp, and slides/cpp (measured), the README's own install section
+    # independently documents more than one method, so this concatenation can carry more than one
+    # distinct install-recipe block with no indication of that to the reader. Reusing
+    # `reconcile_format_claims`'s established pattern (G3/TC-680, C5) - disclose, never silently
+    # merge or pick one - this names the real count via `notice` instead of leaving it undisclosed.
+    recipe_block_count = _count_install_recipe_blocks(install_text)
+    if recipe_block_count > 1:
+        notice += (
+            f" This install answer combines {recipe_block_count} distinct install routes: the "
+            "generated source-build recipe above plus the README's own documented method(s); none "
+            "is dropped, merged, or preferred."
+        )
     return ReferenceContent(
         "install",
-        f"{guidance}\n\n{_README_INSTALL_LEAD}{how}:\n\n{recipe}",
+        install_text,
         untrusted_upstream_content=True,
         notice=notice,
     )
