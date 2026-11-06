@@ -1,0 +1,139 @@
+id: TC-698
+gate: G3
+lane: storage-retrieval
+purpose: >-
+  Closes the "multi-install-recipe reconciliation (cpp)" gap flagged, not carded, during `TC-681`'s
+  (C6) own scoping (2026-11-05): "needs its own future card... different root cause from TC-681's
+  extras fix." RE-CONFIRMED real and still reproducible today, not merely historical: the real,
+  committed test-corpus measurement (`tests/conformance/test_reference_content.py`'s own
+  `_install_recipe_block_count` sub-case, "multi-recipe") still fires on 3 real cpp pilots -
+  `email/cpp` (2 blocks), `pdf/cpp` (2 blocks), `slides/cpp` (3 blocks) - and is still present in
+  `tests/fixtures/conformance/baseline_reference_content.json` (`strict: false`, so this is a
+  currently-tolerated, disclosed-but-unactioned gap, not a passing invariant).
+
+  Root cause (`get_product_reference.py`'s `_cpp_install`, around line 1528-1575): for a cpp pilot
+  with real CMakeLists.txt facts AND no prior successful embedding, the generated source-build
+  guidance (`_cpp_build_guidance`, itself 1-2 fenced blocks: a `FetchContent` route, or a
+  `git clone` + `cmake --install` + `find_package` pair when embedding is broken) is concatenated
+  with the README's OWN install section (which, on these 3 pilots, independently documents more
+  than one real install method) at line 1572 with zero disclosure that the reader is being handed
+  multiple, possibly-redundant install routes with no guidance on which to prefer. This is the same
+  class of problem `TC-680` (C5) already solved for contradictory FORMAT claims via
+  `reconcile_format_claims` - disclose, never silently merge or pick one - just never extended to
+  the INSTALL section's own multi-recipe case. This card reuses that established pattern rather
+  than inventing a new one.
+depends_on:
+  - TC-683
+write_paths:
+  - src/foss_mcp/mcp/tools/get_product_reference.py
+  - tests/conformance/test_reference_content.py
+satisfies:
+  - REQ-G3-013
+source_refs:
+  - file: docs/DECISION_LOG.md
+    anchor: >-
+      ## 2026-11-02 — Round-3 independent re-audit adopted; a real regression found and given top
+      priority; the "no pilot ever gets worse" rule adopted project-wide (operator, supervisor)
+    sha256: b750b8bf0df25b17bf66d014895ecb42952050c7cc63773f56249c4a1c551791
+inputs:
+  - >-
+    READ FIRST: `_cpp_install` (`get_product_reference.py`, around line 1528) and
+    `reconcile_format_claims` (around line 853, the established "disclose via `notice`, never
+    silently resolve" pattern this card reuses) in full. Also read
+    `tests/conformance/test_reference_content.py`'s `_FENCE_BLOCK_RE`/`_RECIPE_SIGNAL_RE`/
+    `_install_recipe_block_count` (around line 91-111) and the "Sub-case 2 (install only)" block in
+    `_build_failures` (around line 234-244) in full - this is the real, independent measurement
+    that already proves the gap exists; your production fix must make its own real pilots'
+    answers carry a disclosure that this measurement can observe, without changing how the
+    measurement itself counts blocks (do not edit `_install_recipe_block_count` or its regexes -
+    they are the independent oracle checking your fix, not code under test).
+  - >-
+    REPRODUCE FIRST: call `get_product_reference` yourself for the `install` section on real,
+    committed baked data for `email/cpp`, `pdf/cpp`, and `slides/cpp` (same loading pattern as
+    `tests/conformance/test_reference_content.py`'s own `_collect_answers` - real
+    `infra/demo-manifests` sidecars, real `read_readme_sections`), run the test file's own
+    `_install_recipe_block_count` against each real result's `.text`, and confirm for yourself all
+    3 report `count > 1` today, with zero mention anywhere in `.notice` that more than one route
+    exists. Only once you've seen this directly should you change anything.
+  - >-
+    FIX (`get_product_reference.py` only): add a new helper (your own name, e.g.
+    `_count_install_recipe_blocks(text: str) -> int`) implementing the SAME heuristic as the test's
+    independent `_install_recipe_block_count` (a fenced block counts as its own recipe only if it
+    contains an install-shaped signal - a clone/package-manager/FetchContent/PackageReference-style
+    command - not a bare "how to use it" continuation block) - your own regex literals, not an
+    import of the test's private helpers (keep production and the test's independent check
+    structurally separate, the same way the oracle program keeps the extractor and
+    `source_differential.py` independent). Call it on the FINAL assembled install text right before
+    `_cpp_install` returns (the `f"{guidance}\n\n{_README_INSTALL_LEAD}{how}:\n\n{recipe}"` case,
+    around line 1570-1575 today), store the result in a variable named EXACTLY
+    `recipe_block_count` and guard the disclosure with a comparison written EXACTLY as
+    `if recipe_block_count > 1:` (this exact literal is required so this card's own negative
+    control can anchor on it without ambiguity; if you have a strong, specific reason to name the
+    variable or write the guard differently, you may, but then you must correct the negative
+    control yourself before reporting done - exactly as earlier cards this session have done when
+    a negative control's assumed literal didn't match their real code, e.g. `TC-679`, `TC-694`).
+    Inside that guard, append one factual sentence to `notice` naming that N distinct install
+    routes are present (the generated source-build recipe plus the README's own documented
+    method(s)) - never drop, merge, or silently prefer one over another. Leave the
+    `guidance is None or facts is None` early-return path and the `install is None` path
+    untouched - both already produce exactly one recipe today (confirm this yourself) and are out
+    of this card's scope.
+  - >-
+    Add real, deterministic tests to `test_reference_content.py` proving: (a) on each of the 3 real
+    pilots named above, the real `get_product_reference(..., "install", ...)` answer's `.notice`
+    now states a concrete, correct count of distinct install routes (assert the real count your
+    own fix computes matches the test's own independent `_install_recipe_block_count` result on the
+    same text - these must agree, since they are measuring the exact same final text, even though
+    they are separately implemented); (b) a pilot whose combined install text has exactly one real
+    recipe block (pick one from the existing corpus, or construct a minimal synthetic case) gets NO
+    added disclosure sentence - this card must not add noise to the already-correct single-recipe
+    case.
+  - >-
+    MEASURE: re-run the full `tests/conformance/test_reference_content.py` suite before and after
+    your change. The "multi-recipe" sub-case failures recorded by `_build_failures` for
+    `email/cpp`/`pdf/cpp`/`slides/cpp` are expected to disappear from the measured failure set after
+    your fix (the install text itself still legitimately carries >1 recipe block - that has not
+    changed and is not this card's job to change - but it is no longer UNDISCLOSED, which is what
+    the sub-case actually measures: read `_build_failures`'s own comment for case 2 again if this
+    is unclear before assuming the sub-case's semantics). Confirm `tests/fixtures/conformance/
+    baseline_reference_content.json`'s `strict` flag (today `false`) means this is safe without any
+    baseline edit; report whether you needed to touch that JSON file at all (expected: no, since a
+    shrinking failure set passes automatically under `strict: false` - the same pattern `TC-678`'s
+    own closeout documents for its own now-obsolete baseline entries).
+actions:
+  - >-
+    Make `_cpp_install` disclose, via `notice`, when its answer carries more than one distinct
+    install-recipe block (generated source-build guidance plus the README's own documented
+    method(s)) instead of silently concatenating them with no indication multiple routes exist -
+    closing the real, currently-measured "multi-recipe" gap on `email/cpp`/`pdf/cpp`/`slides/cpp`.
+checks:
+  - command: '{python} -m pytest tests/conformance/test_reference_content.py -q -rfE -p no:cacheprovider'
+    expect: 'exit 0'
+    timeout_seconds: 600
+    junitxml: true
+    proves:
+      - REQ-G3-013
+min_tests: 2
+requires:
+  - python
+network: false
+negative_control:
+  mutate: |
+    python -X utf8 -c "import pathlib; p = pathlib.Path('src/foss_mcp/mcp/tools/get_product_reference.py'); s = p.read_text(encoding='utf-8'); old = 'if recipe_block_count > 1:'; assert s.count(old) == 1, 'the required disclosure guard was not found verbatim as expected - if your real code differs, anchor your own mutate on your own real literal instead and note the substitution in your closeout'; s2 = s.replace(old, 'if recipe_block_count > 999999:', 1); assert s2 != s; p.write_text(s2, encoding='utf-8')"
+  rationale: >-
+    Raises the disclosure guard's threshold to an unreachable value, so the multi-route sentence
+    never gets appended to `notice` regardless of how many real recipe blocks are present - this
+    must make this card's new tests (which assert the notice's content when count > 1) fail,
+    proving the new disclosure mechanism is genuinely under test. Deliberately NOT a function-name
+    rename: `TC-696`'s own review found that renaming a helper's `def` and every call site in
+    lockstep leaves the function fully working under its new name (a vacuous falsifier) - this
+    mutate instead corrupts one literal comparison threshold, which cannot be satisfied by any
+    consistent renaming.
+evidence:
+  - evidence/build/G3/TC-698/receipt.json
+closeout:
+  - >-
+    `_cpp_install` now discloses, via `notice`, when its answer carries more than one distinct
+    install-recipe block - closes the real "multi-recipe" gap on `email/cpp`/`pdf/cpp`/`slides/cpp`,
+    reusing `TC-680`'s established "disclose, never silently resolve" pattern.
+recovery: Re-run from a clean tree.
