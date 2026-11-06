@@ -209,12 +209,12 @@ def _measure_pilot(store: object, pilot: ConformancePilot, *, exhaustive: bool) 
     # namespace segment, and the member-declaration tier (see search_symbols.py's own module docstring,
     # TC-279) treats every admitted member-name hit as "exact" the same way regardless of which real
     # member supplied it.
-    namespace_word = _FINAL_SEGMENT.split(sample[0].strip())[0]
+    namespace_word = _FINAL_SEGMENT.split(ordered_fqns[0].strip())[0]
     result_g_namespace = search_symbols(store, scope, namespace_word, top_k=10)  # type: ignore[arg-type]
     if _is_exact_hit(result_g_namespace):
         failures.append(f"bare-namespace-word-false-exact:{namespace_word}")
 
-    member_word = _first_declared_member(texts, sample)
+    member_word = _first_declared_member(texts, ordered_fqns)
     if member_word is not None:
         result_g_member = search_symbols(store, scope, member_word, top_k=10)  # type: ignore[arg-type]
         if _is_exact_hit(result_g_member):
@@ -362,3 +362,68 @@ def test_case_g_entries_remain_untouched_and_still_reproduce_under_default_mode(
                 sub,
                 "case-(g) entry no longer reproduces under default mode",
             )
+
+
+# TC-699 (REQ-G3-011): a representative sample of real pilots for the mode-stability tests below -
+# re-derived directly against the real 32-pilot corpus as part of this card (not estimated): all 5
+# pilots whose ``namespace_word`` differs between ``sample[0]`` and ``ordered_fqns[0]``
+# (``cells__go``, ``cells__rust``, ``cells__typescript``, ``pdf__go``, ``pdf__typescript`` - every
+# one of them a package/module-level language with no single shared root namespace), plus 4 small,
+# fast pilots (3-29 real symbols each) whose ``member_word`` alone differs under
+# ``_first_declared_member(texts, sample)`` vs. ``_first_declared_member(texts, ordered_fqns)``
+# (``imaging__net``, ``tex__python``, ``email__cpp``, ``email__net``). Kept deliberately small so this
+# file's one real check (default mode) stays fast even though exhaustive mode is also exercised here.
+MODE_STABILITY_SAMPLE_PILOTS = (
+    "cells__go",
+    "cells__rust",
+    "cells__typescript",
+    "pdf__go",
+    "pdf__typescript",
+    "imaging__net",
+    "tex__python",
+    "email__cpp",
+    "email__net",
+)
+
+
+def _case_g_failures(failures: Sequence[str]) -> list[str]:
+    """Just the case-(g) ``case_id`` strings from a ``_measure_pilot`` result, sorted for a stable
+    comparison."""
+    return sorted(
+        failure
+        for failure in failures
+        if failure.startswith("bare-namespace-word-false-exact:")
+        or failure.startswith("bare-member-word-false-exact:")
+    )
+
+
+def test_case_g_case_ids_agree_between_default_and_exhaustive_mode(corpus: ConformanceCorpus) -> None:
+    """TC-699 (REQ-G3-011): the actual fix this card closes, proved directly rather than assumed - now
+    that both case-(g) probe words are a pure function of each pilot's fixed ``ordered_fqns`` (the full
+    sorted FQN list, identical regardless of mode) instead of the mode-dependent ``sample``, the SAME
+    real defect must get the SAME ``case_id`` whether a pilot was measured under default (seeded,
+    3-per-pilot) or exhaustive (full-sweep) mode. Covers every one of the 5 pilots whose
+    ``namespace_word`` differs between the two derivations, plus 4 pilots whose ``member_word`` alone
+    differs - see ``MODE_STABILITY_SAMPLE_PILOTS``'s own comment for how this set was chosen."""
+    for name in MODE_STABILITY_SAMPLE_PILOTS:
+        pilot = corpus.pilots[name]
+        default_ids = _case_g_failures(_measure_pilot(corpus.store, pilot, exhaustive=False))
+        exhaustive_ids = _case_g_failures(_measure_pilot(corpus.store, pilot, exhaustive=True))
+        assert default_ids == exhaustive_ids, (name, default_ids, exhaustive_ids)
+
+
+def test_mode_stability_fix_is_not_vacuous_for_a_namespace_unstable_pilot(corpus: ConformanceCorpus) -> None:
+    """A regression guard proving the test above would have CAUGHT the old, unfixed behaviour, not
+    merely pass because both modes already happened to agree: for ``cells__go`` (a real pilot with no
+    single shared root namespace segment), the default mode's own ``sample[0]`` and the full sort's
+    ``ordered_fqns[0]`` are genuinely different real FQNs, so the OLD (``sample[0]``-based)
+    ``namespace_word`` derivation would have disagreed between modes - exactly the instability this
+    card's fix (switching to ``ordered_fqns[0]``) closes."""
+    pilot = corpus.pilots["cells__go"]
+    texts = _symbol_texts(pilot)
+    ordered_fqns = sorted(texts)
+    sample = sample_items(ordered_fqns, seed=SEED, n=min(SAMPLE_SIZE, len(ordered_fqns)))
+    assert ordered_fqns[0] != sample[0], (ordered_fqns[0], sample[0])
+    old_namespace_word = _FINAL_SEGMENT.split(sample[0].strip())[0]
+    new_namespace_word = _FINAL_SEGMENT.split(ordered_fqns[0].strip())[0]
+    assert old_namespace_word != new_namespace_word, (old_namespace_word, new_namespace_word)
