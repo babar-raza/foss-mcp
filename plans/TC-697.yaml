@@ -1,0 +1,96 @@
+id: TC-697
+gate: G3
+lane: extraction
+purpose: >-
+  Closes a real, confirmed test-coverage gap flagged by this session's own I13 investigation
+  (2026-11-05): C#'s partial-class consolidation (`api_surface.py`'s `_merge_members`, used when a
+  `partial class Doc : IDisposable` / `partial class Doc : IFoo` declaration is split across files)
+  already correctly union-merges the `bases` list from both fragments - reproduced live at the
+  time and confirmed correct - but NO existing test asserts the case where the two fragments'
+  `bases` lists are both non-empty AND differ (the only existing test,
+  `test_consolidate_classes_free_functions.py::test_partial_classes_still_merge_unaffected`, uses
+  `bases: []` on both fragments). RE-CONFIRMED this gap still holds today, directly, before
+  authoring: grepped every test file under `tests/extraction/tree_sitter_engine/` for
+  `_merge_members` and `bases` together and found no case exercising two differing non-empty
+  `bases` lists on the same merge.
+
+  This is a test-only card: `_merge_members`'s own union-merge logic (`api_surface.py:4401-4406`,
+  `existing_bases = set(target.get("bases", []))`; append any `source` base not already present,
+  preserving order and de-duplicating) is NOT changed - it is already correct by direct inspection
+  and this card's own new assertions confirm it, closing the coverage gap without touching
+  production code (no behavior change, no regression risk).
+depends_on:
+  - TC-524
+write_paths:
+  - tests/extraction/tree_sitter_engine/test_consolidate_classes_free_functions.py
+satisfies:
+  - REQ-G3-012
+source_refs:
+  - file: docs/DECISION_LOG.md
+    anchor: >-
+      ## 2026-11-02 — Round-3 independent re-audit adopted; a real regression found and given top
+      priority; the "no pilot ever gets worse" rule adopted project-wide (operator, supervisor)
+    sha256: b750b8bf0df25b17bf66d014895ecb42952050c7cc63773f56249c4a1c551791
+inputs:
+  - >-
+    READ FIRST: `_merge_members` in `src/foss_mcp/extraction/tree_sitter_engine/api_surface.py`
+    (around line 4374, the "Bases: dedup" block around line 4401) and
+    `test_partial_classes_still_merge_unaffected` in
+    `tests/extraction/tree_sitter_engine/test_consolidate_classes_free_functions.py` (around line
+    161) in full - this is your only existing model for how a C# partial-class fragment pair is
+    constructed and passed through `consolidate_classes(entries, "csharp")` in a test.
+  - >-
+    CONFIRM FIRST: grep the whole `tests/extraction/tree_sitter_engine/` directory for
+    `_merge_members` and for `"bases"` yourself before writing anything, and confirm independently
+    that no existing test passes two fragments with differing, non-empty `bases` lists into a
+    merge - this card's own claim must hold on your own re-check, not be trusted from this text.
+  - >-
+    Add at least 2 new tests to `test_consolidate_classes_free_functions.py`, same style as the
+    existing `test_partial_classes_still_merge_unaffected` (construct two `is_partial: True`
+    fragments sharing the same `name`/`canonical_namespace`, call
+    `consolidate_classes([fragment_a, fragment_b], "csharp")`): (a) fragment A has
+    `bases: ["IDisposable"]`, fragment B has `bases: ["IFoo"]` (completely disjoint, non-empty,
+    differing) - assert the merged result's `bases` contains both, in a stable order you assert
+    exactly (not just as a set) and with no duplicates; (b) fragment A has
+    `bases: ["IDisposable", "IFoo"]`, fragment B has `bases: ["IFoo", "IBar"]` (partial overlap) -
+    assert the merged result is the de-duplicated union (`IDisposable`, `IFoo`, `IBar`, each
+    exactly once) in the order the real merge logic produces, not an order you assume.
+  - >-
+    Do not modify `_merge_members`, `consolidate_classes`, or any other production code - if your
+    new tests fail against the current, unmodified code, that is itself a real finding to report
+    in full (do not force a test to pass by weakening its assertion); the card's own purpose
+    statement claims this logic is already correct, and your job is to verify that claim with real
+    coverage, not to assume it.
+actions:
+  - >-
+    Add real test coverage for C#'s partial-class base-list union-merge when both fragments'
+    `bases` lists are non-empty and differ (disjoint and partially-overlapping cases) - a gap this
+    session's own I13 investigation flagged but did not close.
+checks:
+  - command: '{python} -m pytest tests/extraction/tree_sitter_engine/test_consolidate_classes_free_functions.py -q -rfE -p no:cacheprovider'
+    expect: 'exit 0'
+    timeout_seconds: 120
+    junitxml: true
+    proves:
+      - REQ-G3-012
+min_tests: 2
+requires:
+  - python
+network: false
+negative_control:
+  mutate: |
+    python -X utf8 -c "import pathlib; p = pathlib.Path('src/foss_mcp/extraction/tree_sitter_engine/api_surface.py'); s = p.read_text(encoding='utf-8'); old = '    existing_bases = set(target.get(\"bases\", []))\n    for b in source.get(\"bases\", []):\n        if b not in existing_bases:\n            target.setdefault(\"bases\", []).append(b)\n            existing_bases.add(b)'; assert s.count(old) == 1, 'the required bases-merge block was not found verbatim as expected - if your real code differs, anchor your own mutate on your own real literal instead and note the substitution in your closeout'; s2 = s.replace(old, '    pass  # TC-697 negative control: bases merge disabled', 1); assert s2 != s; p.write_text(s2, encoding='utf-8')"
+  rationale: >-
+    Disables `_merge_members`'s own bases-union-merge block entirely (production code, outside
+    this card's own `write_paths` - acceptable only inside a `negative_control.mutate`, which is a
+    scratch-copy falsifier run by `gatectl`, never a worker edit), so a merged partial class no
+    longer gains any base from its sibling fragment - this must make this card's new
+    differing-non-empty-bases tests fail, proving they genuinely exercise the merge logic rather
+    than passing vacuously.
+evidence:
+  - evidence/build/G3/TC-697/receipt.json
+closeout:
+  - >-
+    C#'s partial-class base-list union-merge now has real test coverage for differing, non-empty
+    `bases` lists (disjoint and partially-overlapping) - confirmed already correct, not changed.
+recovery: Re-run from a clean tree.
