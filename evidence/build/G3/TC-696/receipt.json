@@ -1,0 +1,89 @@
+{
+  "schema_version": 1,
+  "card": "TC-696",
+  "gate": "G3",
+  "generated_by": "gatectl",
+  "generated_at": "2026-11-06T01:17:43Z",
+  "base_rev": "24ea10367b2fc89ded7620ea5cdf227789ae3595",
+  "head_rev": "19f94fb9475039dc3d23b29fdd5675b302e46e5b",
+  "card_sha256": "3fd18bb6a315afc2770baa412d8a14aeff7e6af0cfcb0c8fca495d1337278162",
+  "fingerprint": {
+    "python": "3.13.2",
+    "platform": "Windows-11-10.0.26300-SP0",
+    "lock_sha256": "5c72e798a73c059a438e752e94a8d4c88c1bdf81a197f6e5c5fcecbc9466a691",
+    "env": {
+      "PYTHONHASHSEED": "0",
+      "PYTHONUTF8": "1",
+      "PYTHONDONTWRITEBYTECODE": "1",
+      "PYTHONIOENCODING": "utf-8",
+      "TZ": "UTC",
+      "LC_ALL": "C.UTF-8",
+      "SOURCE_DATE_EPOCH": "1700000000",
+      "verify_runner": "host"
+    }
+  },
+  "scope": {
+    "ok": true,
+    "changed_paths": [
+      "tests/release/test_oracle_inherited_verification.py",
+      "tests/release/test_oracle_shell_resolution.py"
+    ],
+    "violations": [],
+    "evaluated": true
+  },
+  "runs": [
+    {
+      "run": 1,
+      "checks": [
+        {
+          "command": "{python} -m pytest tests/release/test_oracle_shell_resolution.py tests/release/test_oracle_inherited_verification.py -q -rfE -p no:cacheprovider",
+          "exit_code": 0,
+          "duration_s": 227.243,
+          "stdout_sha256": "cfc14fd2dc11c362cccf5421245ca5ab0e9d286b54a604a80bd2dd5522f6feb9",
+          "tests": 13,
+          "skipped": 0,
+          "errors": 0,
+          "failures": 0
+        }
+      ],
+      "all_passed": true
+    },
+    {
+      "run": 2,
+      "checks": [
+        {
+          "command": "{python} -m pytest tests/release/test_oracle_shell_resolution.py tests/release/test_oracle_inherited_verification.py -q -rfE -p no:cacheprovider",
+          "exit_code": 0,
+          "duration_s": 215.012,
+          "stdout_sha256": "cfc14fd2dc11c362cccf5421245ca5ab0e9d286b54a604a80bd2dd5522f6feb9",
+          "tests": 13,
+          "skipped": 0,
+          "errors": 0,
+          "failures": 0
+        }
+      ],
+      "all_passed": true
+    }
+  ],
+  "negative_control": {
+    "kind": "mutate",
+    "patch": "python -X utf8 -c \"import pathlib; p = pathlib.Path('tests/release/test_oracle_shell_resolution.py'); s = p.read_text(encoding='utf-8'); old = 'expected = _collect_test_count([EXISTING_SUITE])'; assert s.count(old) == 1, 'the required live-collection comparison line was not found as expected - if your real code differs, anchor your own mutate on your own real literal instead and note the substitution in your closeout'; s2 = s.replace(old, 'expected = _collect_test_count([EXISTING_SUITE]) + 1', 1); assert s2 != s; p.write_text(s2, encoding='utf-8')\"\n",
+    "patch_sha256": "337d9d9f8e87e2d3d4c4164cb322061e5045ecff23a52cb2bdb5d6536ec0c01c",
+    "applied": true,
+    "patch_applied_failed": true,
+    "exit_codes": [
+      1
+    ],
+    "tree_changed": [
+      "M tests/release/test_oracle_shell_resolution.py",
+      "?? .junit-0.xml"
+    ]
+  },
+  "holdout": {
+    "ran": false,
+    "passed": true,
+    "detail": "no holdout for this card"
+  },
+  "accepted": true,
+  "reason": "all gates passed"
+}

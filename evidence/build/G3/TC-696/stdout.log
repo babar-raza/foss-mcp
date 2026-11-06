@@ -1,0 +1,181 @@
+
+===== CLEAN RUN 1 (host) =====
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-5c72e798a73c059a\Scripts\python.exe -m pytest tests/release/test_oracle_shell_resolution.py tests/release/test_oracle_inherited_verification.py -q -rfE -p no:cacheprovider "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-3pr6o70i\.junit-0.xml"
+--- stdout ---
+.............                                                            [100%]
+
+--- stderr ---
+
+
+===== CLEAN RUN 2 (host) =====
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-5c72e798a73c059a\Scripts\python.exe -m pytest tests/release/test_oracle_shell_resolution.py tests/release/test_oracle_inherited_verification.py -q -rfE -p no:cacheprovider "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-3pr6o70i\.junit-0.xml"
+--- stdout ---
+.............                                                            [100%]
+
+--- stderr ---
+
+
+===== NEGATIVE CONTROL (checks MUST now fail) =====
+mutated: M tests/release/test_oracle_shell_resolution.py, ?? .junit-0.xml
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-5c72e798a73c059a\Scripts\python.exe -m pytest tests/release/test_oracle_shell_resolution.py tests/release/test_oracle_inherited_verification.py -q -rfE -p no:cacheprovider "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-3pr6o70i\.junit-0.xml"
+--- stdout ---
+...F......F..                                                            [100%]
+================================== FAILURES ===================================
+______ test_existing_source_differential_suite_is_unaffected_by_this_fix ______
+
+    def test_existing_source_differential_suite_is_unaffected_by_this_fix() -> None:
+        """None of ``test_source_differential.py``'s own 137 tests build a bare-name shell/definition
+        collision through ``diff_language``/``verify_pilot`` (confirmed by inspection: its own
+        ``_baked_type`` helper never sets ``file``/``reexport_of``, so none of its synthetic baked
+        types are ever grouped as a shell by ``compute_canonical_identities`` -- every one of them
+        stays its own, unaliased, ``is_definition=True`` unit, exactly as the pre-fix bare dict
+        comprehension already treated it). This runs the real suite as a subprocess of the SAME
+        interpreter running this test (so the already-activated toolchain's PATH -- node/java/dotnet/
+        clang/Docker -- is inherited) and confirms the real, live-collected test count still passes,
+        unchanged (G3/TC-696: no longer a hand-maintained literal).
+    
+        The result is read from a JUnit XML report (``--junitxml``), never from stdout text: this
+        repository's own ``pyproject.toml`` already sets ``addopts = "-q"``, and stacking a second,
+        explicit ``-q`` on top of it raises pytest's quiet level enough to drop the final "N passed in
+        Ys" summary line entirely -- confirmed directly against this very suite, not merely assumed.
+        """
+        with tempfile.TemporaryDirectory() as tmp:
+            report = Path(tmp) / "existing-suite.xml"
+>           result = subprocess.run(
+                [
+                    sys.executable,
+                    "-m",
+                    "pytest",
+                    str(EXISTING_SUITE),
+                    "-p",
+                    "no:cacheprovider",
+                    f"--junitxml={report}",
+                ],
+                capture_output=True,
+                text=True,
+                cwd=str(REPO_ROOT),
+                timeout=280,
+            )
+
+tests\release\test_oracle_shell_resolution.py:290: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+C:\dev-tools\foss-mcp\python313\Lib\subprocess.py:558: in run
+    stdout, stderr = process.communicate(input, timeout=timeout)
+                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+C:\dev-tools\foss-mcp\python313\Lib\subprocess.py:1221: in communicate
+    stdout, stderr = self._communicate(input, endtime, timeout)
+                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+self = <Popen: returncode: 1 args: ['E:\\Users\\prora\\OneDrive\\Documents\\GitHub\...>
+input = None, endtime = 74536.5180794, orig_timeout = 280
+
+    def _communicate(self, input, endtime, orig_timeout):
+        # Start reader threads feeding into a list hanging off of this
+        # object, unless they've already been started.
+        if self.stdout and not hasattr(self, "_stdout_buff"):
+            self._stdout_buff = []
+            self.stdout_thread = \
+                    threading.Thread(target=self._readerthread,
+                                     args=(self.stdout, self._stdout_buff))
+            self.stdout_thread.daemon = True
+            self.stdout_thread.start()
+        if self.stderr and not hasattr(self, "_stderr_buff"):
+            self._stderr_buff = []
+            self.stderr_thread = \
+                    threading.Thread(target=self._readerthread,
+                                     args=(self.stderr, self._stderr_buff))
+            self.stderr_thread.daemon = True
+            self.stderr_thread.start()
+    
+        if self.stdin:
+            self._stdin_write(input)
+    
+        # Wait for the reader threads, or time out.  If we time out, the
+        # threads remain reading and the fds left open in case the user
+        # calls communicate again.
+        if self.stdout is not None:
+            self.stdout_thread.join(self._remaining_time(endtime))
+            if self.stdout_thread.is_alive():
+>               raise TimeoutExpired(self.args, orig_timeout)
+E               subprocess.TimeoutExpired: Command '['E:\\Users\\prora\\OneDrive\\Documents\\GitHub\\foss-mcp\\.gatectl-worktrees\\venv-5c72e798a73c059a\\Scripts\\python.exe', '-m', 'pytest', 'E:\\Users\\prora\\OneDrive\\Documents\\GitHub\\foss-mcp\\.gatectl-worktrees\\wt-3pr6o70i\\tests\\release\\test_source_differential.py', '-p', 'no:cacheprovider', '--junitxml=C:\\Users\\babar\\AppData\\Local\\Temp\\tmpfnrpf3bn\\existing-suite.xml']' timed out after 280 seconds
+
+C:\dev-tools\foss-mcp\python313\Lib\subprocess.py:1642: TimeoutExpired
+______________ test_f_existing_suite_is_unaffected_by_this_card _______________
+
+    def test_f_existing_suite_is_unaffected_by_this_card() -> None:
+        """Run as a subprocess of the SAME interpreter running this test (so the already-activated
+        toolchain's PATH -- node/java/dotnet/clang/Docker -- is inherited), read from a JUnit XML
+        report (never from stdout text, for the same ``-q``-stacking reason TC-623's own
+        ``test_oracle_shell_resolution.py`` documents), and confirm the real, live-collected test count
+        across BOTH existing files still passes, unchanged by this card (G3/TC-696: no longer a
+        hand-maintained literal).
+        """
+        with tempfile.TemporaryDirectory() as tmp:
+            report = Path(tmp) / "existing-suites.xml"
+>           result = subprocess.run(
+                [
+                    sys.executable,
+                    "-m",
+                    "pytest",
+                    *[str(path) for path in EXISTING_SUITES],
+                    "-p",
+                    "no:cacheprovider",
+                    f"--junitxml={report}",
+                ],
+                capture_output=True,
+                text=True,
+                cwd=str(REPO_ROOT),
+                timeout=280,
+            )
+
+tests\release\test_oracle_inherited_verification.py:396: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+C:\dev-tools\foss-mcp\python313\Lib\subprocess.py:558: in run
+    stdout, stderr = process.communicate(input, timeout=timeout)
+                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+C:\dev-tools\foss-mcp\python313\Lib\subprocess.py:1221: in communicate
+    stdout, stderr = self._communicate(input, endtime, timeout)
+                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+self = <Popen: returncode: 1 args: ['E:\\Users\\prora\\OneDrive\\Documents\\GitHub\...>
+input = None, endtime = 74818.4622561, orig_timeout = 280
+
+    def _communicate(self, input, endtime, orig_timeout):
+        # Start reader threads feeding into a list hanging off of this
+        # object, unless they've already been started.
+        if self.stdout and not hasattr(self, "_stdout_buff"):
+            self._stdout_buff = []
+            self.stdout_thread = \
+                    threading.Thread(target=self._readerthread,
+                                     args=(self.stdout, self._stdout_buff))
+            self.stdout_thread.daemon = True
+            self.stdout_thread.start()
+        if self.stderr and not hasattr(self, "_stderr_buff"):
+            self._stderr_buff = []
+            self.stderr_thread = \
+                    threading.Thread(target=self._readerthread,
+                                     args=(self.stderr, self._stderr_buff))
+            self.stderr_thread.daemon = True
+            self.stderr_thread.start()
+    
+        if self.stdin:
+            self._stdin_write(input)
+    
+        # Wait for the reader threads, or time out.  If we time out, the
+        # threads remain reading and the fds left open in case the user
+        # calls communicate again.
+        if self.stdout is not None:
+            self.stdout_thread.join(self._remaining_time(endtime))
+            if self.stdout_thread.is_alive():
+>               raise TimeoutExpired(self.args, orig_timeout)
+E               subprocess.TimeoutExpired: Command '['E:\\Users\\prora\\OneDrive\\Documents\\GitHub\\foss-mcp\\.gatectl-worktrees\\venv-5c72e798a73c059a\\Scripts\\python.exe', '-m', 'pytest', 'E:\\Users\\prora\\OneDrive\\Documents\\GitHub\\foss-mcp\\.gatectl-worktrees\\wt-3pr6o70i\\tests\\release\\test_source_differential.py', 'E:\\Users\\prora\\OneDrive\\Documents\\GitHub\\foss-mcp\\.gatectl-worktrees\\wt-3pr6o70i\\tests\\release\\test_oracle_shell_resolution.py', '-p', 'no:cacheprovider', '--junitxml=C:\\Users\\babar\\AppData\\Local\\Temp\\tmpidgwmnpq\\existing-suites.xml']' timed out after 280 seconds
+
+C:\dev-tools\foss-mcp\python313\Lib\subprocess.py:1642: TimeoutExpired
+=========================== short test summary info ===========================
+FAILED tests/release/test_oracle_shell_resolution.py::test_existing_source_differential_suite_is_unaffected_by_this_fix
+FAILED tests/release/test_oracle_inherited_verification.py::test_f_existing_suite_is_unaffected_by_this_card
+
+--- stderr ---
+
