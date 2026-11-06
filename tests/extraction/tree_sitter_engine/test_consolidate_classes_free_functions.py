@@ -188,6 +188,73 @@ def test_partial_classes_still_merge_unaffected() -> None:
     assert method_names == {"Foo", "Bar"}
 
 
+def test_partial_classes_merge_disjoint_nonempty_bases() -> None:
+    """TC-697: both partial-class fragments have non-empty, DISJOINT `bases`
+    lists (e.g. `partial class Widget : IDisposable` in one file and
+    `partial class Widget : IFoo` in another). `_merge_members`'s bases-dedup
+    block must union both onto the surviving fragment, in the stable order it
+    actually produces (observed directly against this unmodified code:
+    fragment_a's own bases first, then any of fragment_b's bases not already
+    present, in fragment_b's own order), not merely as an unordered set.
+    """
+    fragment_a = {
+        "name": "Widget",
+        "kind": "class",
+        "canonical_namespace": "ns",
+        "is_partial": True,
+        "bases": ["IDisposable"],
+        "methods": [{"name": "Foo", "params": []}],
+        "properties": [],
+    }
+    fragment_b = {
+        "name": "Widget",
+        "kind": "class",
+        "canonical_namespace": "ns",
+        "is_partial": True,
+        "bases": ["IFoo"],
+        "methods": [{"name": "Bar", "params": []}],
+        "properties": [],
+    }
+
+    result = consolidate_classes([fragment_a, fragment_b], "csharp")
+
+    assert len(result) == 1
+    assert result[0]["bases"] == ["IDisposable", "IFoo"]
+
+
+def test_partial_classes_merge_partially_overlapping_bases() -> None:
+    """TC-697: both partial-class fragments have non-empty `bases` lists that
+    PARTIALLY OVERLAP (`IFoo` appears in both). The merge must produce the
+    de-duplicated union with each base exactly once, in the stable order
+    actually produced (observed directly: fragment_a's own bases first, then
+    fragment_b's `IBar` -- its `IFoo` is skipped as already present).
+    """
+    fragment_a = {
+        "name": "Gadget",
+        "kind": "class",
+        "canonical_namespace": "ns",
+        "is_partial": True,
+        "bases": ["IDisposable", "IFoo"],
+        "methods": [{"name": "Foo", "params": []}],
+        "properties": [],
+    }
+    fragment_b = {
+        "name": "Gadget",
+        "kind": "class",
+        "canonical_namespace": "ns",
+        "is_partial": True,
+        "bases": ["IFoo", "IBar"],
+        "methods": [{"name": "Bar", "params": []}],
+        "properties": [],
+    }
+
+    result = consolidate_classes([fragment_a, fragment_b], "csharp")
+
+    assert len(result) == 1
+    assert result[0]["bases"] == ["IDisposable", "IFoo", "IBar"]
+    assert len(result[0]["bases"]) == len(set(result[0]["bases"]))
+
+
 def test_stub_vs_full_class_still_discards_stub_unaffected() -> None:
     """Category 2 (same namespace + stub (no bases) -> KEEP full, discard
     stub), exercised exactly as it behaved before this change.
