@@ -1,0 +1,85 @@
+
+===== CLEAN RUN 1 (host) =====
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-5c72e798a73c059a\Scripts\python.exe -m pytest tests/mcp/tools/test_search_symbols_match_kind.py tests/mcp/tools/test_search_symbols_forgiveness.py tests/mcp/tools/test_lookup_table_guard_and_exact_predicate.py tests/mcp/tools/test_round3_retrieval_corpus.py tests/conformance/test_precision_and_size_budget.py -q -rfE -p no:cacheprovider "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-4tgn_rl8\.junit-0.xml"
+--- stdout ---
+........................................................................ [ 79%]
+...................                                                      [100%]
+
+--- stderr ---
+
+
+===== CLEAN RUN 2 (host) =====
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-5c72e798a73c059a\Scripts\python.exe -m pytest tests/mcp/tools/test_search_symbols_match_kind.py tests/mcp/tools/test_search_symbols_forgiveness.py tests/mcp/tools/test_lookup_table_guard_and_exact_predicate.py tests/mcp/tools/test_round3_retrieval_corpus.py tests/conformance/test_precision_and_size_budget.py -q -rfE -p no:cacheprovider "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-4tgn_rl8\.junit-0.xml"
+--- stdout ---
+........................................................................ [ 79%]
+...................                                                      [100%]
+
+--- stderr ---
+
+
+===== NEGATIVE CONTROL (checks MUST now fail) =====
+mutated: M src/foss_mcp/mcp/tools/search_symbols.py, ?? .junit-0.xml
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-5c72e798a73c059a\Scripts\python.exe -m pytest tests/mcp/tools/test_search_symbols_match_kind.py tests/mcp/tools/test_search_symbols_forgiveness.py tests/mcp/tools/test_lookup_table_guard_and_exact_predicate.py tests/mcp/tools/test_round3_retrieval_corpus.py tests/conformance/test_precision_and_size_budget.py -q -rfE -p no:cacheprovider "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-4tgn_rl8\.junit-0.xml"
+--- stdout ---
+...........F...........................F................................ [ 79%]
+...................                                                      [100%]
+================================== FAILURES ===================================
+_ test_the_same_member_evidence_is_match_partial_once_the_type_is_not_internal_but_has_zero_fit _
+
+    def test_the_same_member_evidence_is_match_partial_once_the_type_is_not_internal_but_has_zero_fit() -> None:
+        """G3/TC-703 UPDATE: same evidence, same member, no internal namespace this time - originally a
+        sanity control proving the difference above was really the namespace check, not some other
+        accident of this fixture, back when ``_Scored.exact`` granted ``exact`` via ``via_member`` alone
+        with no name-fit threshold at all. TC-703 (REQ-G3-011, closing CELLS-RUST-001/CELLS-CPP-007/
+        CELLS-NET-009) now requires ``fit > 0.0`` even on the ``via_member`` path. This fixture's own fit
+        is genuinely 0 - no word of ``SecurityHelper``'s own name matches "protect"/"password"; the
+        member-only evidence is the type's SOLE explanation - so even with the internal-namespace
+        variable controlled away (removed here, unlike the sibling test above), the honest result is now
+        MATCH_PARTIAL, never MATCH_EXACT: removing the internal-namespace penalty no longer rescues a
+        zero-fit via_member hit on its own."""
+        store = _InMemoryStore(_type_chunk("Sample.SecurityHelper", "SetPassword()"))
+    
+        result = _matches(_search(store, "protect"))
+    
+        assert len(result) == 1
+        assert result[0].match_kind == "evidence_sentence"
+>       assert result[0].match_quality == MATCH_PARTIAL
+E       AssertionError: assert 'exact' == 'partial'
+E         
+E         - partial
+E         + exact
+
+tests\mcp\tools\test_search_symbols_match_kind.py:290: AssertionError
+________ test_cells_rust_001_still_reproduces_unaffected_by_this_card _________
+
+corpus = <tests.conformance.corpus.ConformanceCorpus object at 0x0000020BA016B4D0>
+
+    def test_cells_rust_001_still_reproduces_unaffected_by_this_card(corpus: ConformanceCorpus) -> None:
+        """G3/TC-703 UPDATE: CELLS-RUST-001 was caused by ``search_symbols.py``'s own ``via_member``
+        scoring shortcut - a file TC-628 (which authored this test) never wrote to, but which TC-703
+        (REQ-G3-011) now fixes directly: ``_Scored.exact`` requires a nonzero name-fit even on the
+        ``via_member`` path, so ``WorksheetProtection`` (matched for "pivot table" only through its
+        unrelated ``pivot_tables`` member, never through its own name) no longer qualifies as exact.
+        Measured, honestly, after TC-703's fix: ``lookup`` still returns a ``list[SymbolMatch]`` (never
+        even reaching a ``TaskAnswer``), but the top match's own ``match_quality`` is now ``"partial"``,
+        not ``"exact"`` - this test's own name is left unchanged (it is named verbatim in
+        ``plans/TC-703.yaml``, outside this card's write_paths) but its assertion now pins the FIXED,
+        honest behavior: CELLS-RUST-001 no longer reproduces."""
+        pilot = corpus.pilots["cells__rust"]
+        answer = lookup(corpus.store, pilot.scope, "how do I create a pivot table")
+    
+        assert isinstance(answer, list)
+        assert all(isinstance(item, SymbolMatch) for item in answer)
+>       assert answer and answer[0].match_quality == MATCH_PARTIAL
+E       AssertionError: assert ([SymbolMatch(scope=Scope(family='cells', platform='rust', source_kind='self_extracted'), generation_id='cells::rust::s...ms=(), total_matches=2, next_offset=None, aliases=(), limitation='', known_defects=(), match_kind='evidence_sentence')] and 'exact' == 'partial'
+E         
+E         - partial
+E         + exact)
+
+tests\mcp\tools\test_lookup_table_guard_and_exact_predicate.py:304: AssertionError
+=========================== short test summary info ===========================
+FAILED tests/mcp/tools/test_search_symbols_match_kind.py::test_the_same_member_evidence_is_match_partial_once_the_type_is_not_internal_but_has_zero_fit
+FAILED tests/mcp/tools/test_lookup_table_guard_and_exact_predicate.py::test_cells_rust_001_still_reproduces_unaffected_by_this_card
+
+--- stderr ---
+
