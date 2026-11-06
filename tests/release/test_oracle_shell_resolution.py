@@ -29,10 +29,11 @@ Four cases, exactly as the card's own ``inputs`` section describes them:
       ``__init__.py`` re-export shell, member-less, ``reexport_of`` the definition's own
       ``class_import``) -- the shell iterates immediately AFTER its definition in the fixture's own
       committed list, reproducing the exact bug case (a) reproduces synthetically.
-  (d) the full, existing 137-test ``tests/release/test_source_differential.py`` suite is unaffected
-      by this fix (137, not the original 128, after TC-692's own 6 added hollow-pass-guard tests
-      and TC-694's own 3 added NPM_CONFIG_PREFIX-resolution tests -- the collateral, mechanical
-      update this file's own pinned count below reflects too).
+  (d) the full, existing ``tests/release/test_source_differential.py`` suite is unaffected by this
+      fix (137 tests as of this card's authoring, not the original 128, after TC-692's own 6 added
+      hollow-pass-guard tests and TC-694's own 3 added NPM_CONFIG_PREFIX-resolution tests -- G3/
+      TC-696 later made the expected count below self-computing via ``--collect-only``, so a future
+      change to that count no longer requires hand-editing this file).
 
 No mocks anywhere below; (c) reads the real, committed fixture under ``tests/fixtures/`` and never
 writes to it.
@@ -51,17 +52,54 @@ REPO_ROOT = Path(__file__).resolve().parents[2]
 RELEASE_DIR = REPO_ROOT / "scripts" / "release"
 FIXTURES_DIR = REPO_ROOT / "tests" / "fixtures"
 EXISTING_SUITE = REPO_ROOT / "tests" / "release" / "test_source_differential.py"
-# The real, confirmed count (2026-10-31, against this worktree's committed suite) as of this
-# card's authoring -- the card's own `inputs` section names this exact figure. Updated to 134
-# (from 128) by TC-692's own collateral rework, after TC-692 added 6 new tests to
-# `test_source_differential.py` for the independent oracle's hollow-pass guard. Updated again to
-# 137 (from 134) by TC-694's own collateral rework, after TC-694 added 3 new tests to
-# `test_source_differential.py` for the NPM_CONFIG_PREFIX-based TypeScript package dir resolution.
-EXISTING_SUITE_PINNED_TEST_COUNT = 137
+# G3/TC-696: this used to be a hand-maintained literal pin of test_source_differential.py's exact
+# test count (128 -> 134 -> 137 across TC-692/TC-694), which required a mid-review rework of this
+# unrelated file every time an unrelated card changed that count. It is now collected live, below,
+# via `_collect_test_count`, so this file no longer needs editing when that count moves again.
 
 sys.path.insert(0, str(RELEASE_DIR))
 
 import source_differential as sd  # noqa: E402
+
+
+def _collect_test_count(paths: list[Path]) -> int:
+    """Live-collects the real, current number of tests ``paths`` contains via
+    ``pytest --collect-only``, so callers can compare a real run's reported total against the
+    SAME suite collected at the SAME commit instead of a hand-maintained literal that goes stale
+    the moment an unrelated card adds a test to it (TC-692, TC-694 both hit this).
+
+    Deliberately passes no explicit ``-q``: this repository's own ``pyproject.toml`` sets
+    ``addopts = "-q"`` already, and confirming this card's own instructions directly (not merely
+    assuming them) showed that stacking a SECOND, explicit ``-q`` on top of it raises the quiet
+    level enough that ``--collect-only`` stops printing one node-id line per collected test
+    (each containing ``"::"``) and instead prints a single collapsed ``"<file>: N"`` summary line
+    per file -- which would make the ``"::"``-counting approach below silently count zero. This is
+    the same ``-q``-stacking hazard this file's own ``test_existing_source_differential_suite_is_unaffected_by_this_fix``
+    already documents for the real run's final summary line, now shown to apply to
+    ``--collect-only``'s per-test lines too, specifically when an explicit ``-q`` is added on top
+    of it. Relying on just the single ``-q`` ``addopts`` already supplies keeps the per-test
+    node-id lines intact -- confirmed directly against this real suite before relying on it.
+    """
+    result = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "pytest",
+            *(str(path) for path in paths),
+            "--collect-only",
+            "-p",
+            "no:cacheprovider",
+        ],
+        capture_output=True,
+        text=True,
+        cwd=str(REPO_ROOT),
+        timeout=120,
+    )
+    assert result.returncode == 0, result.stdout + result.stderr
+    count = sum(1 for line in result.stdout.splitlines() if "::" in line)
+    assert count > 0, f"expected at least one collected test node id, got none:\n{result.stdout}"
+    return count
+
 
 OM = sd.OracleMember
 OP = sd.OracleParam
@@ -222,11 +260,12 @@ def test_real_3d_python_fixture_propertycollection_shell_definition_collision() 
 
 
 # ---------------------------------------------------------------------------------------------------
-# (d) The full, existing 137-test tests/release/test_source_differential.py suite is unaffected by
-# this fix: it is run for real (never imported and iterated in-process, since several of its own
-# tests really shell out to node/java/dotnet/clang/Docker) and every pinned result still holds.
-# (137, not the original 128, after TC-692's own 6 added hollow-pass-guard tests and TC-694's own
-# 3 added NPM_CONFIG_PREFIX-resolution tests.)
+# (d) The full, existing tests/release/test_source_differential.py suite (137 tests as of this
+# card's authoring, not the original 128, after TC-692's own 6 added hollow-pass-guard tests and
+# TC-694's own 3 added NPM_CONFIG_PREFIX-resolution tests) is unaffected by this fix: it is run for
+# real (never imported and iterated in-process, since several of its own tests really shell out to
+# node/java/dotnet/clang/Docker) and its result still holds against a live `--collect-only` count
+# of the same suite (G3/TC-696), not a hand-maintained literal.
 # ---------------------------------------------------------------------------------------------------
 
 
@@ -238,7 +277,8 @@ def test_existing_source_differential_suite_is_unaffected_by_this_fix() -> None:
     stays its own, unaliased, ``is_definition=True`` unit, exactly as the pre-fix bare dict
     comprehension already treated it). This runs the real suite as a subprocess of the SAME
     interpreter running this test (so the already-activated toolchain's PATH -- node/java/dotnet/
-    clang/Docker -- is inherited) and confirms the real, pinned test count still passes, unchanged.
+    clang/Docker -- is inherited) and confirms the real, live-collected test count still passes,
+    unchanged (G3/TC-696: no longer a hand-maintained literal).
 
     The result is read from a JUnit XML report (``--junitxml``), never from stdout text: this
     repository's own ``pyproject.toml`` already sets ``addopts = "-q"``, and stacking a second,
@@ -270,7 +310,33 @@ def test_existing_source_differential_suite_is_unaffected_by_this_fix() -> None:
         failures = int(testsuite.get("failures", "0"))
         errors = int(testsuite.get("errors", "0"))
     assert failures == 0 and errors == 0, (failures, errors, result.stdout + result.stderr)
-    assert total == EXISTING_SUITE_PINNED_TEST_COUNT, (
-        f"expected the pinned {EXISTING_SUITE_PINNED_TEST_COUNT} tests to still all pass unchanged, "
-        f"got {total} tests ({failures} failures, {errors} errors)"
+    expected = _collect_test_count([EXISTING_SUITE])
+    assert total == expected, (
+        f"expected all {expected} tests `pytest --collect-only` reports for this suite right now "
+        f"to still all pass unchanged, got {total} tests ({failures} failures, {errors} errors)"
     )
+
+
+# ---------------------------------------------------------------------------------------------------
+# New, isolated coverage of `_collect_test_count` itself (G3/TC-696): proves the helper this card
+# adds genuinely counts real collected tests, on a trivially small, already-collectible real suite
+# -- this file itself -- rather than merely restating the "existing suite is unaffected" test above.
+# ---------------------------------------------------------------------------------------------------
+
+
+def test_collect_test_count_helper_matches_an_independent_count_of_this_own_file() -> None:
+    """``_collect_test_count`` run against THIS file must return a sane positive integer that
+    matches an independent count of this file's own top-level ``def test_...`` lines -- a
+    cross-check computed a completely different way (static text scanning, never pytest itself),
+    so this test cannot pass merely because both counting methods share the same bug."""
+    this_file = Path(__file__)
+    independent_count = sum(
+        1 for line in this_file.read_text(encoding="utf-8").splitlines() if line.startswith("def test_")
+    )
+    assert independent_count > 0
+
+    collected = _collect_test_count([this_file])
+
+    assert isinstance(collected, int)
+    assert collected > 0
+    assert collected == independent_count

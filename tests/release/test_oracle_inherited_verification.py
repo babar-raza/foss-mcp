@@ -33,11 +33,12 @@ confirmation test:
   (e) a method name and a property name sharing the same bare name on the SAME ancestor
       (constructed synthetically, since no real fixture has this) -- confirms the kind-matching
       requirement actually prevents a false cross-kind verification.
-  (f) the full, existing ``tests/release/test_source_differential.py`` (137 tests, not the original
-      128, after TC-692's own 6 added hollow-pass-guard tests and TC-694's own 3 added
-      NPM_CONFIG_PREFIX-resolution tests) PLUS TC-623's own
-      ``tests/release/test_oracle_shell_resolution.py`` (4 tests) are run for real and every pinned
-      result still holds, unchanged by this card.
+  (f) the full, existing ``tests/release/test_source_differential.py`` (137 tests as of this
+      card's authoring, not the original 128, after TC-692's own 6 added hollow-pass-guard tests
+      and TC-694's own 3 added NPM_CONFIG_PREFIX-resolution tests) PLUS TC-623's own
+      ``tests/release/test_oracle_shell_resolution.py`` are run for real and every result still
+      holds, unchanged by this card -- the expected combined count is collected live via
+      ``--collect-only`` (G3/TC-696), no longer a hand-maintained literal.
   (extra) ``evaluate_ceilings`` still iterates ``CATEGORIES`` only -- the two new fields can never
       gate a release, confirmed directly even when they are large.
 
@@ -61,14 +62,11 @@ EXISTING_SUITES = (
     REPO_ROOT / "tests" / "release" / "test_source_differential.py",
     REPO_ROOT / "tests" / "release" / "test_oracle_shell_resolution.py",
 )
-# The real, confirmed counts (2026-10-31, against this worktree's committed suite) as of this
-# card's authoring: 128 (test_source_differential.py) + TC-623's own 4 (test_oracle_shell_resolution.py).
-# Updated to 138 (from 132) by TC-692's own collateral rework: test_source_differential.py grew from
-# 128 to 134 tests after TC-692 added 6 new tests for the independent oracle's hollow-pass guard, so
-# 134 + TC-623's own 4 = 138. Updated again to 141 (from 138) by TC-694's own collateral rework:
-# test_source_differential.py grew from 134 to 137 tests after TC-694 added 3 new tests for the
-# NPM_CONFIG_PREFIX-based TypeScript package dir resolution, so 137 + TC-623's own 4 = 141.
-EXISTING_SUITES_PINNED_TEST_COUNT = 141
+# G3/TC-696: this used to be a hand-maintained literal pin of EXISTING_SUITES' combined test count
+# (132 -> 138 -> 141 across TC-692/TC-694), which required a mid-review rework of this unrelated
+# file every time an unrelated card changed test_source_differential.py's own count. It is now
+# collected live, below, via `_collect_test_count`, so this file no longer needs editing when that
+# count moves again.
 
 sys.path.insert(0, str(RELEASE_DIR))
 
@@ -76,6 +74,47 @@ import source_differential as sd  # noqa: E402
 
 OM = sd.OracleMember
 OS = sd.OracleSymbol
+
+
+def _collect_test_count(paths: tuple[Path, ...]) -> int:
+    """Live-collects the real, current number of tests ``paths`` contains via
+    ``pytest --collect-only``, so callers can compare a real run's reported total against the
+    SAME suite(s) collected at the SAME commit instead of a hand-maintained literal that goes
+    stale the moment an unrelated card adds a test to ``test_source_differential.py`` (TC-692,
+    TC-694 both hit this).
+
+    Deliberately passes no explicit ``-q``: this repository's own ``pyproject.toml`` sets
+    ``addopts = "-q"`` already, and confirming this card's own instructions directly (not merely
+    assuming them) showed that stacking a SECOND, explicit ``-q`` on top of it raises the quiet
+    level enough that ``--collect-only`` stops printing one node-id line per collected test (each
+    containing ``"::"``) and instead prints a single collapsed ``"<file>: N"`` summary line per
+    file -- which would make the ``"::"``-counting approach below silently count zero. This is the
+    same ``-q``-stacking hazard ``test_oracle_shell_resolution.py``'s own
+    ``test_existing_source_differential_suite_is_unaffected_by_this_fix`` already documents for the
+    real run's final summary line, now shown to apply to ``--collect-only``'s per-test lines too,
+    specifically when an explicit ``-q`` is added on top of it. Relying on just the single ``-q``
+    ``addopts`` already supplies keeps the per-test node-id lines intact -- confirmed directly
+    against this real suite before relying on it.
+    """
+    result = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "pytest",
+            *(str(path) for path in paths),
+            "--collect-only",
+            "-p",
+            "no:cacheprovider",
+        ],
+        capture_output=True,
+        text=True,
+        cwd=str(REPO_ROOT),
+        timeout=120,
+    )
+    assert result.returncode == 0, result.stdout + result.stderr
+    count = sum(1 for line in result.stdout.splitlines() if "::" in line)
+    assert count > 0, f"expected at least one collected test node id, got none:\n{result.stdout}"
+    return count
 
 
 def _baked_type(
@@ -337,10 +376,10 @@ def test_e_kind_matching_prevents_a_false_cross_kind_verification() -> None:
 
 
 # ---------------------------------------------------------------------------------------------------
-# (f) The full, existing test_source_differential.py (137 tests, not the original 128, after TC-692's
-# own 6 added hollow-pass-guard tests and TC-694's own 3 added NPM_CONFIG_PREFIX-resolution tests) +
-# TC-623's own test_oracle_shell_resolution.py (4 tests) are run for real and every pinned result
-# still holds.
+# (f) The full, existing test_source_differential.py (137 tests as of this card's authoring, not
+# the original 128, after TC-692's own 6 added hollow-pass-guard tests and TC-694's own 3 added
+# NPM_CONFIG_PREFIX-resolution tests) + TC-623's own test_oracle_shell_resolution.py are run for
+# real and every result still holds, compared against a live `--collect-only` count (G3/TC-696).
 # ---------------------------------------------------------------------------------------------------
 
 
@@ -348,8 +387,9 @@ def test_f_existing_suite_is_unaffected_by_this_card() -> None:
     """Run as a subprocess of the SAME interpreter running this test (so the already-activated
     toolchain's PATH -- node/java/dotnet/clang/Docker -- is inherited), read from a JUnit XML
     report (never from stdout text, for the same ``-q``-stacking reason TC-623's own
-    ``test_oracle_shell_resolution.py`` documents), and confirm the real, pinned test count across
-    BOTH existing files still passes, unchanged by this card.
+    ``test_oracle_shell_resolution.py`` documents), and confirm the real, live-collected test count
+    across BOTH existing files still passes, unchanged by this card (G3/TC-696: no longer a
+    hand-maintained literal).
     """
     with tempfile.TemporaryDirectory() as tmp:
         report = Path(tmp) / "existing-suites.xml"
@@ -376,9 +416,10 @@ def test_f_existing_suite_is_unaffected_by_this_card() -> None:
         failures = int(testsuite.get("failures", "0"))
         errors = int(testsuite.get("errors", "0"))
     assert failures == 0 and errors == 0, (failures, errors, result.stdout + result.stderr)
-    assert total == EXISTING_SUITES_PINNED_TEST_COUNT, (
-        f"expected the pinned {EXISTING_SUITES_PINNED_TEST_COUNT} tests to still all pass unchanged, "
-        f"got {total} tests ({failures} failures, {errors} errors)"
+    expected = _collect_test_count(EXISTING_SUITES)
+    assert total == expected, (
+        f"expected all {expected} tests `pytest --collect-only` reports for these suites right now "
+        f"to still all pass unchanged, got {total} tests ({failures} failures, {errors} errors)"
     )
 
 
@@ -394,3 +435,29 @@ def test_evaluate_ceilings_never_gates_on_the_two_new_fields() -> None:
     counts = sd.DiffCounts(inherited_mismatch=50, unverified_inherited=50)
     reasons = sd.evaluate_ceilings(counts, {category: 0 for category in sd.CATEGORIES})
     assert reasons == []
+
+
+# ---------------------------------------------------------------------------------------------------
+# New, isolated coverage of `_collect_test_count` itself (G3/TC-696): proves the helper this card
+# adds genuinely counts real collected tests, on a trivially small, already-collectible real suite
+# -- TC-623's own test_oracle_shell_resolution.py -- rather than merely restating test (f) above.
+# ---------------------------------------------------------------------------------------------------
+
+
+def test_collect_test_count_helper_matches_an_independent_count_of_a_small_real_suite() -> None:
+    """``_collect_test_count`` run against ``test_oracle_shell_resolution.py`` must return a sane
+    positive integer that matches an independent count of that file's own top-level
+    ``def test_...`` lines -- a cross-check computed a completely different way (static text
+    scanning, never pytest itself), so this test cannot pass merely because both counting methods
+    share the same bug."""
+    small_suite = REPO_ROOT / "tests" / "release" / "test_oracle_shell_resolution.py"
+    independent_count = sum(
+        1 for line in small_suite.read_text(encoding="utf-8").splitlines() if line.startswith("def test_")
+    )
+    assert independent_count > 0
+
+    collected = _collect_test_count((small_suite,))
+
+    assert isinstance(collected, int)
+    assert collected > 0
+    assert collected == independent_count
