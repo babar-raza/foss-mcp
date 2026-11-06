@@ -1,0 +1,90 @@
+{
+  "schema_version": 1,
+  "card": "TC-706",
+  "gate": "G3",
+  "generated_by": "gatectl",
+  "generated_at": "2026-11-06T10:57:23Z",
+  "base_rev": "871d986c9d2463183e43595a763a20a807cb4c4a",
+  "head_rev": "9b5f964b7182eca7a8a8e17b73a3fa0b883be1bd",
+  "card_sha256": "ce9feb801c4ce0fcbd35dd81a31709d7dcc013ee27d3aad625c3c71c55682187",
+  "fingerprint": {
+    "python": "3.13.2",
+    "platform": "Windows-11-10.0.26300-SP0",
+    "lock_sha256": "5c72e798a73c059a438e752e94a8d4c88c1bdf81a197f6e5c5fcecbc9466a691",
+    "env": {
+      "PYTHONHASHSEED": "0",
+      "PYTHONUTF8": "1",
+      "PYTHONDONTWRITEBYTECODE": "1",
+      "PYTHONIOENCODING": "utf-8",
+      "TZ": "UTC",
+      "LC_ALL": "C.UTF-8",
+      "SOURCE_DATE_EPOCH": "1700000000",
+      "verify_runner": "host"
+    }
+  },
+  "scope": {
+    "ok": true,
+    "changed_paths": [
+      "config/known_defects/3d__java.yaml",
+      "tests/indexing/test_known_defects_completeness.py",
+      "tests/indexing/test_known_defects_data_3d.py"
+    ],
+    "violations": [],
+    "evaluated": true
+  },
+  "runs": [
+    {
+      "run": 1,
+      "checks": [
+        {
+          "command": "{python} -m pytest tests/indexing/test_known_defects_completeness.py tests/indexing/test_known_defects_data_3d.py tests/mcp/tools/test_known_defects_in_get_symbol.py tests/mcp/tools/test_known_defects_round3_siblings.py -q -rfE -p no:cacheprovider",
+          "exit_code": 0,
+          "duration_s": 10.297,
+          "stdout_sha256": "6dd786dc72d45e02d32f9a2c96fbee7f0ea69261b610e86a41d1a671dd0186ef",
+          "tests": 48,
+          "skipped": 0,
+          "errors": 0,
+          "failures": 0
+        }
+      ],
+      "all_passed": true
+    },
+    {
+      "run": 2,
+      "checks": [
+        {
+          "command": "{python} -m pytest tests/indexing/test_known_defects_completeness.py tests/indexing/test_known_defects_data_3d.py tests/mcp/tools/test_known_defects_in_get_symbol.py tests/mcp/tools/test_known_defects_round3_siblings.py -q -rfE -p no:cacheprovider",
+          "exit_code": 0,
+          "duration_s": 7.909,
+          "stdout_sha256": "6dd786dc72d45e02d32f9a2c96fbee7f0ea69261b610e86a41d1a671dd0186ef",
+          "tests": 48,
+          "skipped": 0,
+          "errors": 0,
+          "failures": 0
+        }
+      ],
+      "all_passed": true
+    }
+  ],
+  "negative_control": {
+    "kind": "mutate",
+    "patch": "python -X utf8 -c \"import pathlib; p = pathlib.Path('config/known_defects/3d__java.yaml'); s = p.read_text(encoding='utf-8'); old = '- id: 3D-JAVA-001'; assert s.count(old) == 1, 'the new entry id was not found verbatim as expected - if your real fix differs, anchor your own mutate on your own real literal instead and note the substitution in your closeout'; s2 = s.replace(old, '- id: 3D-JAVA-999', 1); assert s2 != s; p.write_text(s2, encoding='utf-8')\"\n",
+    "patch_sha256": "d13082e683a075b9bf881848d15457a0f1f051aa1f907f84fe4d4370406104a4",
+    "applied": true,
+    "patch_applied_failed": true,
+    "exit_codes": [
+      1
+    ],
+    "tree_changed": [
+      "M config/known_defects/3d__java.yaml",
+      "?? .junit-0.xml"
+    ]
+  },
+  "holdout": {
+    "ran": false,
+    "passed": true,
+    "detail": "no holdout for this card"
+  },
+  "accepted": true,
+  "reason": "all gates passed"
+}
