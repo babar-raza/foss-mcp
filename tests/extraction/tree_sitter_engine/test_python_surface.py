@@ -521,3 +521,112 @@ def test_a_plain_unannotated_method_stays_a_method(tmp_path: Path) -> None:
     render = by_name["pkg.cells.Cell.render"]
     assert render.kind == "method"
     assert render.writable is None
+
+
+# --- TC-700: a bare module-top-level constant assignment ---------------------------------------
+
+
+def test_a_bare_module_level_constant_is_extracted_without_all(tmp_path: Path) -> None:
+    """Before TC-700, ``MAX_RETRIES`` here produced NEITHER a symbol NOR an unresolved entry -
+    completely invisible with no disclosure anywhere, even without an ``__all__`` to exclude it."""
+    _write(tmp_path, "lib/__init__.py", "")
+    _write(tmp_path, "lib/settings.py", "MAX_RETRIES = 3\n\n\ndef helper():\n    pass\n")
+    surface = inspect_public_surface(tmp_path, ["lib"])
+    by_name = {symbol.qualified_name: symbol for symbol in surface.symbols}
+    constant = by_name["lib.settings.MAX_RETRIES"]
+    assert constant.kind == "constant"
+    assert constant.value == "3"
+    assert constant.return_type == "int"
+    assert constant.public_by == "name"
+    assert not surface.unresolved
+
+
+def test_a_bare_module_level_constant_named_in_all_is_extracted(tmp_path: Path) -> None:
+    """The same gap, reproduced with the constant explicitly named in ``__all__`` - even an
+    explicit public export was, before TC-700, still completely invisible."""
+    _write(tmp_path, "lib/__init__.py", "")
+    _write(
+        tmp_path,
+        "lib/settings.py",
+        "__all__ = ['MAX_RETRIES', 'helper']\n\nMAX_RETRIES = 3\n\n\ndef helper():\n    pass\n",
+    )
+    surface = inspect_public_surface(tmp_path, ["lib"])
+    by_name = {symbol.qualified_name: symbol for symbol in surface.symbols}
+    constant = by_name["lib.settings.MAX_RETRIES"]
+    assert constant.kind == "constant"
+    assert constant.value == "3"
+    assert constant.return_type == "int"
+    assert constant.public_by == "__all__"
+
+
+def test_a_bare_module_level_constant_not_named_in_all_is_excluded(tmp_path: Path) -> None:
+    """When ``__all__`` is present and does not name the constant, it is excluded exactly as an
+    unlisted class or function already is - no symbol, no unresolved entry."""
+    _write(tmp_path, "lib/__init__.py", "")
+    _write(
+        tmp_path,
+        "lib/settings.py",
+        "__all__ = ['helper']\n\nMAX_RETRIES = 3\n\n\ndef helper():\n    pass\n",
+    )
+    surface = inspect_public_surface(tmp_path, ["lib"])
+    by_name = {symbol.qualified_name: symbol for symbol in surface.symbols}
+    assert "lib.settings.MAX_RETRIES" not in by_name
+    assert not surface.unresolved
+
+
+def test_an_underscore_prefixed_bare_constant_stays_private(tmp_path: Path) -> None:
+    _write(tmp_path, "lib/__init__.py", "")
+    _write(tmp_path, "lib/settings.py", "_PRIVATE = 1\n")
+    surface = inspect_public_surface(tmp_path, ["lib"])
+    by_name = {symbol.qualified_name: symbol for symbol in surface.symbols}
+    assert "lib.settings._PRIVATE" not in by_name
+    assert not surface.unresolved
+
+
+def test_a_reassigned_bare_constant_keeps_only_the_last_binding(tmp_path: Path) -> None:
+    """TC-532's 'last binding wins' convention, extended to a constant reassigned at module level."""
+    _write(tmp_path, "lib/__init__.py", "")
+    _write(tmp_path, "lib/settings.py", "MAX_RETRIES = 3\nMAX_RETRIES = 5\n")
+    surface = inspect_public_surface(tmp_path, ["lib"])
+    by_name = {symbol.qualified_name: symbol for symbol in surface.symbols}
+    assert by_name["lib.settings.MAX_RETRIES"].value == "5"
+    assert len([s for s in surface.symbols if s.name == "MAX_RETRIES"]) == 1
+
+
+def test_a_name_reassigned_from_a_function_to_a_constant_keeps_only_the_constant(
+    tmp_path: Path,
+) -> None:
+    """The rarer cross-kind case: a name first a function, later reassigned to a literal - the
+    LAST binding wins, whichever kind it is; no crash, no duplicate symbol for the earlier kind."""
+    _write(tmp_path, "lib/__init__.py", "")
+    _write(tmp_path, "lib/settings.py", "def Thing():\n    return 1\n\n\nThing = 42\n")
+    surface = inspect_public_surface(tmp_path, ["lib"])
+    matches = [s for s in surface.symbols if s.name == "Thing"]
+    assert len(matches) == 1
+    assert matches[0].kind == "constant"
+    assert matches[0].value == "42"
+
+
+def test_a_name_reassigned_from_a_constant_to_a_class_keeps_only_the_class(tmp_path: Path) -> None:
+    """The reverse cross-kind case: a bare constant later replaced by a class of the same name."""
+    _write(tmp_path, "lib/__init__.py", "")
+    _write(tmp_path, "lib/settings.py", "OTHER = 'a'\n\n\nclass OTHER:\n    pass\n")
+    surface = inspect_public_surface(tmp_path, ["lib"])
+    matches = [s for s in surface.symbols if s.name == "OTHER"]
+    assert len(matches) == 1
+    assert matches[0].kind == "class"
+
+
+def test_a_non_literal_bare_assignment_produces_nothing(tmp_path: Path) -> None:
+    """Scope boundary: a bare assignment to a function call (or any non-literal expression) is
+    out of this card's scope and stays exactly as unextracted as it was before TC-700."""
+    _write(tmp_path, "lib/__init__.py", "")
+    _write(
+        tmp_path,
+        "lib/settings.py",
+        "def some_function():\n    return 1\n\n\nX = some_function()\n",
+    )
+    surface = inspect_public_surface(tmp_path, ["lib"])
+    by_name = {symbol.qualified_name: symbol for symbol in surface.symbols}
+    assert "lib.settings.X" not in by_name
+    assert not [note for note in surface.unresolved if "X" in note]

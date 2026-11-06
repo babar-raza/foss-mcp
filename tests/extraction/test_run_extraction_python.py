@@ -325,6 +325,106 @@ def _method_symbol(
     )
 
 
+def _constant_symbol(
+    qualified_name: str, *, value: str, return_type: str | None = "", docstring: str | None = None
+) -> PublicSymbol:
+    module, name = qualified_name.rsplit(".", 1)
+    return PublicSymbol(
+        qualified_name,
+        module,
+        name,
+        "constant",
+        "pkg/mod.py",
+        9,
+        "name",
+        docstring=docstring,
+        return_type=return_type,
+        value=value,
+    )
+
+
+def test_python_types_from_surface_builds_the_real_ts_go_constant_shape() -> None:
+    """TC-700: a ``kind == "constant"`` symbol must become a top-level entry in EXACTLY the same
+    shape Go/TypeScript's own constant entries already use (tests/fixtures/pdf_typescript/
+    api_surface.json's real top-level "MATHML_NS"/"IMAGE_FORMATS"-style entries) - asserted as a
+    literal dict, not merely key presence, so a stray extra or missing field is caught. Unlike a
+    class/function entry, it carries no "visibility"/"deprecated"/"class_import"/
+    "canonical_namespace" - those never appear on a real TS/Go constant entry either.
+    """
+    surface = PublicSurface(
+        symbols=(_constant_symbol("pkg.mod.MAX_RETRIES", value="3", return_type="int"),),
+        unresolved=(),
+    )
+    types = run_extraction._python_types_from_surface(surface)
+    assert types == [
+        {
+            "name": "MAX_RETRIES",
+            "kind": "constant",
+            "doc": "",
+            "file": "pkg/mod.py",
+            "line": 9,
+            "type": "int",
+            "value": "3",
+            "bases": [],
+            "methods": [],
+            "properties": [],
+        }
+    ]
+
+
+def test_python_types_from_surface_constant_never_crashes_with_no_docstring_or_type() -> None:
+    """A bare assignment almost never has its own docstring, and a literal ``None`` constant's
+    inferred type is the empty string (``_constant_type_text``'s own convention) - neither must
+    ever raise or produce a ``None`` where a string is expected downstream."""
+    surface = PublicSurface(
+        symbols=(_constant_symbol("pkg.mod.NOTHING", value="None", return_type=None),),
+        unresolved=(),
+    )
+    types = run_extraction._python_types_from_surface(surface)
+    assert types == [
+        {
+            "name": "NOTHING",
+            "kind": "constant",
+            "doc": "",
+            "file": "pkg/mod.py",
+            "line": 9,
+            "type": "",
+            "value": "None",
+            "bases": [],
+            "methods": [],
+            "properties": [],
+        }
+    ]
+
+
+def test_extract_from_clone_produces_the_real_constant_shape_for_a_bare_module_constant(
+    tmp_path: Path,
+) -> None:
+    """End to end through ``extract_from_clone`` (not a hand-built ``PublicSymbol``): a real bare
+    module-level constant on disk reaches the same literal dict shape as the unit test above."""
+    (tmp_path / "pyproject.toml").write_text('[project]\nname = "widgets"\n', encoding="utf-8")
+    pkg = tmp_path / "src" / "widgets"
+    pkg.mkdir(parents=True)
+    (pkg / "__init__.py").write_text("", encoding="utf-8")
+    (pkg / "settings.py").write_text('"""Settings."""\n\nMAX_RETRIES = 3\n', encoding="utf-8")
+
+    types, unresolved = run_extraction.extract_from_clone(tmp_path, _manifest())
+    constant = next(entry for entry in types if entry["name"] == "MAX_RETRIES")
+    assert constant == {
+        "name": "MAX_RETRIES",
+        "kind": "constant",
+        "doc": "",
+        "file": "src/widgets/settings.py",
+        "line": 3,
+        "type": "int",
+        "value": "3",
+        "bases": [],
+        "methods": [],
+        "properties": [],
+    }
+    assert not unresolved
+
+
 def test_python_types_from_surface_makes_centrality_ranking_non_degenerate() -> None:
     """TC-265's whole point: a Python-sourced base-class/return-type reference must make the
     referenced class score higher under ``_centrality_scores()`` than a type nothing else ever

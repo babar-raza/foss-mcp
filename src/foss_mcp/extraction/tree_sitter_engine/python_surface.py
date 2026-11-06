@@ -25,6 +25,12 @@ class include those of its underscore-prefixed bases and of the public ancestors
 (``inherited_from``), attributes built by ``property(...)`` or by a factory function, the ``__init__``
 that ``@dataclass`` / ``NamedTuple`` generate, enum members built with ``auto()`` and the literal values
 of attributes.
+
+TC-700: a bare module-top-level assignment to a single plain name, whose value is a literal
+(``ast.literal_eval`` succeeds), is public by the same name/``__all__`` rule and is a ``constant``
+symbol carrying its inferred type (``return_type``) and literal text (``value``); it too keeps only
+its LAST binding when the name is assigned more than once, even across kinds. A call, a name, or
+any other non-literal right-hand side is out of scope and stays unextracted.
 """
 
 from __future__ import annotations
@@ -37,7 +43,7 @@ from dataclasses import dataclass, field, replace
 from pathlib import Path
 from typing import Any, Literal
 
-SymbolKind = Literal["module", "class", "enum", "function", "method", "property", "unknown"]
+SymbolKind = Literal["module", "class", "enum", "function", "method", "property", "constant", "unknown"]
 _ENUM_BASES = frozenset({"Enum", "IntEnum", "StrEnum", "Flag", "IntFlag", "ReprEnum"})
 # TC-532: the calls that give an enum member its value automatically. Such a member is recorded under
 # the marker value ``auto()``, because the real value is only known when the class is created.
@@ -598,12 +604,21 @@ def _module_symbols(
         _repaired_entry(module, relative, first_line, count) for first_line, count in repairs.values()
     ]
     context = _Context(module, source_root, _module_functions(tree))
-    # TC-532: a name defined twice at the top level is the LAST definition.
-    last_definition = {
-        node.name: index
-        for index, node in enumerate(tree.body)
-        if isinstance(node, ast.ClassDef | ast.FunctionDef | ast.AsyncFunctionDef)
-    }
+    # TC-532: a name defined twice at the top level is the LAST definition. TC-700: this now also
+    # covers a bare module-level constant assignment among its own repeats, and across kinds - a
+    # name first bound as a function/class and later reassigned to a literal (or the reverse) keeps
+    # only the LAST binding, whichever kind it is; the earlier one is skipped below, never duplicated.
+    last_definition: dict[str, int] = {}
+    for index, node in enumerate(tree.body):
+        if isinstance(node, ast.ClassDef | ast.FunctionDef | ast.AsyncFunctionDef):
+            last_definition[node.name] = index
+        elif (
+            isinstance(node, ast.Assign)
+            and len(node.targets) == 1
+            and isinstance(node.targets[0], ast.Name)
+            and _constant_type_text(node.value) is not None
+        ):
+            last_definition[node.targets[0].id] = index
     for index, node in enumerate(tree.body):
         if isinstance(node, ast.ClassDef | ast.FunctionDef | ast.AsyncFunctionDef):
             if last_definition[node.name] != index:
@@ -659,6 +674,34 @@ def _module_symbols(
                 branch_symbols.update(found)
                 unresolved.extend(failed)
             symbols.extend(branch_symbols.values())
+        elif (
+            isinstance(node, ast.Assign) and len(node.targets) == 1 and isinstance(node.targets[0], ast.Name)
+        ):
+            # TC-700: a bare module-top-level constant assignment (``MAX_RETRIES = 3``) - in scope
+            # only when the value is a literal (``ast.literal_eval`` succeeds, via
+            # ``_constant_type_text``, the same test already used for a class-level constant); a
+            # call, a name, or any other non-literal expression is out of scope and stays
+            # unextracted, exactly as today. Never guessed, never disclosed as "unresolved" either -
+            # this card closes the symbol gap only, not the broader non-literal case.
+            const_name = node.targets[0].id
+            constant_type = _constant_type_text(node.value)
+            if constant_type is None or last_definition.get(const_name) != index:
+                continue
+            public, public_by = _public_name(const_name, explicit)
+            if public:
+                symbols.append(
+                    PublicSymbol(
+                        f"{module}.{const_name}",
+                        module,
+                        const_name,
+                        "constant",
+                        relative,
+                        node.lineno,
+                        public_by,
+                        return_type=constant_type or None,
+                        value=_literal_text(node.value),
+                    )
+                )
     return symbols, unresolved
 
 

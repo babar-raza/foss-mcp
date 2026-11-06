@@ -218,11 +218,36 @@ def _python_types_from_surface(surface: python_surface.PublicSurface) -> list[di
     ``enum_members`` is left empty here (this adapter sees symbols, not class bodies);
     ``fill_python_enum_members`` fills it from the source, and ``extract_pinned_repository``
     runs that for every python artifact it produces.
+
+    TC-700: a ``kind == "constant"`` symbol (a bare module-level literal assignment) becomes a
+    top-level entry in the same shape Go/TypeScript's own constant entries already use - this is
+    a different, simpler shape than a class/function entry (no ``visibility``/``deprecated``/
+    ``class_import``/``canonical_namespace``), handled before the shared entry builder below.
     """
     entries: dict[str, dict[str, Any]] = {}
     order: list[str] = []
     for symbol in surface.symbols:
-        if symbol.kind not in ("class", "enum", "function"):
+        if symbol.kind not in ("class", "enum", "function", "constant"):
+            continue
+        if symbol.kind == "constant":
+            # TC-700: a bare module-level constant - the SAME entry shape Go/TypeScript's own
+            # constant entries already use (e.g. pdf_typescript's real top-level "MATHML_NS"/
+            # "AES_WRAP_OID"-style entries), deliberately simpler than a class/function entry: no
+            # "visibility"/"deprecated"/"class_import"/"canonical_namespace" - those never appear
+            # on a real TS/Go constant entry either.
+            entries[symbol.qualified_name] = {
+                "name": symbol.name,
+                "kind": "constant",
+                "doc": symbol.docstring or "",
+                "file": symbol.source_path,
+                "line": symbol.line,
+                "type": symbol.return_type or "",
+                "value": symbol.value or "",
+                "bases": [],
+                "methods": [],
+                "properties": [],
+            }
+            order.append(symbol.qualified_name)
             continue
         entry: dict[str, Any] = {
             "name": symbol.name,
