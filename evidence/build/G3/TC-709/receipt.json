@@ -1,0 +1,111 @@
+{
+  "schema_version": 1,
+  "card": "TC-709",
+  "gate": "G3",
+  "generated_by": "gatectl",
+  "generated_at": "2026-11-06T15:08:18Z",
+  "base_rev": "a3f5ae7081d3db60292ca54a461297a15530ede6",
+  "head_rev": "549ec74d1581b4d291e79e79e2e228ba34f6e620",
+  "card_sha256": "cad5c5c9235c5e22cddf021ec4ab45f6cb1ffd0cb48b6335c146b1c7a754eb63",
+  "fingerprint": {
+    "python": "3.13.2",
+    "platform": "Windows-11-10.0.26300-SP0",
+    "lock_sha256": "5c72e798a73c059a438e752e94a8d4c88c1bdf81a197f6e5c5fcecbc9466a691",
+    "env": {
+      "PYTHONHASHSEED": "0",
+      "PYTHONUTF8": "1",
+      "PYTHONDONTWRITEBYTECODE": "1",
+      "PYTHONIOENCODING": "utf-8",
+      "TZ": "UTC",
+      "LC_ALL": "C.UTF-8",
+      "SOURCE_DATE_EPOCH": "1700000000",
+      "verify_runner": "host"
+    }
+  },
+  "scope": {
+    "ok": true,
+    "changed_paths": [
+      "scripts/release/fleet_live_smoke.py",
+      "tests/release/test_fleet_live_smoke.py"
+    ],
+    "violations": [],
+    "evaluated": true
+  },
+  "runs": [
+    {
+      "run": 1,
+      "checks": [
+        {
+          "command": "{python} -m pytest tests/release/test_fleet_live_smoke.py -q -rfE -p no:cacheprovider",
+          "exit_code": 0,
+          "duration_s": 1.379,
+          "stdout_sha256": "a82a0b51cd86fa0131904e08c34ef556963104f0e3677f688117e093ebf2d3fe",
+          "tests": 27,
+          "skipped": 0,
+          "errors": 0,
+          "failures": 0
+        },
+        {
+          "command": "{python} -m pytest tests/deploy/test_image_workflow_gate.py tests/deploy/test_adversarial_suite.py -q -rfE -p no:cacheprovider",
+          "exit_code": 0,
+          "duration_s": 85.209,
+          "stdout_sha256": "e9755e389aace1cd755b2ca44cb6cf8968d4a6ca42eb2723d93a708f888d0fd5",
+          "tests": 178,
+          "skipped": 0,
+          "errors": 0,
+          "failures": 0
+        }
+      ],
+      "all_passed": true
+    },
+    {
+      "run": 2,
+      "checks": [
+        {
+          "command": "{python} -m pytest tests/release/test_fleet_live_smoke.py -q -rfE -p no:cacheprovider",
+          "exit_code": 0,
+          "duration_s": 1.33,
+          "stdout_sha256": "a82a0b51cd86fa0131904e08c34ef556963104f0e3677f688117e093ebf2d3fe",
+          "tests": 27,
+          "skipped": 0,
+          "errors": 0,
+          "failures": 0
+        },
+        {
+          "command": "{python} -m pytest tests/deploy/test_image_workflow_gate.py tests/deploy/test_adversarial_suite.py -q -rfE -p no:cacheprovider",
+          "exit_code": 0,
+          "duration_s": 84.049,
+          "stdout_sha256": "e9755e389aace1cd755b2ca44cb6cf8968d4a6ca42eb2723d93a708f888d0fd5",
+          "tests": 178,
+          "skipped": 0,
+          "errors": 0,
+          "failures": 0
+        }
+      ],
+      "all_passed": true
+    }
+  ],
+  "negative_control": {
+    "kind": "mutate",
+    "patch": "python -X utf8 -c \"import pathlib; p = pathlib.Path('scripts/release/fleet_live_smoke.py'); s = p.read_text(encoding='utf-8'); old = 'proof=gate._load_proof_module(),'; assert s.count(old) == 1; p.write_text(s.replace(old, 'proof=None,', 1), encoding='utf-8')\"\n",
+    "patch_sha256": "85423b250684dce170b86d2e7389f330f5fd90d3ad28acae74ed803d13cabb08",
+    "applied": true,
+    "patch_applied_failed": true,
+    "exit_codes": [
+      1,
+      0
+    ],
+    "tree_changed": [
+      "M scripts/release/fleet_live_smoke.py",
+      "?? .junit-0.xml",
+      "?? .junit-1.xml"
+    ]
+  },
+  "holdout": {
+    "ran": false,
+    "passed": true,
+    "detail": "no holdout for this card"
+  },
+  "accepted": true,
+  "reason": "all gates passed"
+}
