@@ -3391,3 +3391,32 @@ separately already blocked on KD11/XA19, recorded 2026-11-05). No code change wa
 for this specific defect class. The measurement itself (3 throwaway scripts, no repository file
 touched, real live infrastructure) is reproducible by any future agent without this owner item
 being resolved first.
+
+
+## 2026-11-06 — PDF-JAVA-005 investigated: a measured fix exists but regresses a ratchet floor; declined, not carded (supervisor)
+
+PDF-JAVA-005 ("the 40KB multi-table PNG-conversion dump still buries `PngDevice`") was one of six
+round-2 findings this session's own 2026-11-06 reconciliation confirmed still open despite the
+plan marking their workstream closed. `TC-628`'s own committed test already proved the SEPARATE
+honesty concern (an undeserved `match_quality == "exact"`) is fixed for this exact query - the
+remaining real gap is narrower than the original finding's title suggests: `devices.PngDevice`
+(the one purpose-built class for "convert PDF to PNG") never appears in `lookup()`'s `symbols`
+field at all, because `lookup.py`'s `_MAX_EXPLAINING_SYMBOLS = 2` cap discards it (it ranks 3rd
+behind `Image`/`ImageFormat`, which explain more of the query's words but are less precise).
+
+**Measured, not assumed**: a dedicated investigation fork raised the cap to 3, confirmed this is
+provably safe for `TaskAnswer.match_quality`/`unmatched_terms` (both only ever read `symbols[0]`,
+unchanged for every existing query on every pilot), but found it **regresses the real `hit@3`
+retrieval ratchet** (0.8422 measured vs. the required 0.85 floor) elsewhere in the corpus - a
+genuine floor violation, not a formality. Per this project's own "never weaken a check to make it
+pass" rule and the "no pilot ever gets worse" directive, a fix that lowers an established ratchet
+floor anywhere in the fleet is not shipped, regardless of the local improvement it buys.
+
+**Decision**: declined as currently scoped, not carded. The investigation (and its reverted
+scratch change) is preserved here so a future card does not have to re-derive this from scratch:
+the `_MAX_EXPLAINING_SYMBOLS` cap-raise approach is a dead end at `cap=3`; a real fix needs either
+a narrower trigger (e.g. only extend the cap when a lower-ranked candidate's own name contains a
+query word the top-ranked candidates' names do not, rather than raising the cap globally) or a
+different mechanism entirely. Left open, not owner-item'd (no credential/authority blocker, just
+unsolved engineering) - a future card should start from this record rather than re-measuring the
+same dead end.
