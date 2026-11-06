@@ -1,0 +1,111 @@
+id: TC-703
+gate: G3
+lane: storage-retrieval
+purpose: >-
+  Closes CELLS-RUST-001 (round-2, `docs/round2/issues.json`, severity P1, category "honesty";
+  round-3 `docs/round3/issues.json` confirms `round3_verdict: "STILL BROKEN"`; this session's own
+  2026-11-06 reconciliation and a dedicated investigation fork confirmed it still real today):
+  `search_symbols`/`lookup` on the real cells/rust pilot label a query for a feature the library
+  genuinely does not have ("pivot table") `match_quality == "exact"`, with no caveat, because the
+  top-ranked hit (`WorksheetProtection`) is matched only via an unrelated member
+  (`pivot_tables`, a boolean flag with no connection to the word "pivot" the user actually typed)
+  - not because its own name or any real evidence genuinely supports "exact". This is already
+  pinned, deliberately, as a KNOWN, EXPECTED-TO-FAIL-UNTIL-FIXED regression in
+  `tests/mcp/tools/test_lookup_table_guard_and_exact_predicate.py`'s own
+  `test_cells_rust_001_still_reproduces_unaffected_by_this_card` (read its docstring first - it
+  already names the exact root cause and file this card now fixes, left out of scope by `TC-628`
+  on purpose).
+
+  ROOT CAUSE, independently confirmed by a dedicated investigation fork this session (re-verify it
+  yourself before trusting it): `src/foss_mcp/mcp/tools/search_symbols.py`'s `_Scored.exact`
+  property (around line 1092): `return not self.unexplained and (self.fit >= 0.5 or
+  self.via_member) and not self.internal`. The `via_member` branch grants `exact` with **no fit
+  threshold at all** - a type whose own NAME shares zero words with the query, matched only
+  because one of its MEMBERS happens to explain a concept, is marked exact unconditionally. This
+  is the identical root cause behind the sibling findings `CELLS-CPP-007` (P3, "pivot ranking no
+  caveat") and `CELLS-NET-009` (P2, `search_symbols(PivotTable)` returns `WorksheetProtection` as
+  exact) in `docs/round3/issues.json` - read both, your fix is expected to close all three
+  simultaneously (confirm this directly, do not assume).
+
+  FIX, already measured safe by the same investigation fork (re-verify the measurement yourself,
+  do not simply copy the conclusion): require `fit > 0.0` even on the `via_member` path - i.e.
+  `(self.fit >= 0.5 or (self.via_member and self.fit > 0.0))`. The fork ran the full ratchet bundle
+  below before and after this exact change and found zero regressions beyond 2 EXPECTED assertion
+  flips, both already-identified pinned-wrong-behavior tests (one is
+  `test_cells_rust_001_still_reproduces_unaffected_by_this_card` itself, whose own docstring says
+  this exact bug is "left for a future card" - this card IS that future card, so this test's
+  assertion must now flip from pinning the bug to pinning the fix, and its docstring must be
+  corrected to say so). Find the second flipped test yourself (do not assume which one) and update
+  it the same way - fix the ASSERTION to the new, honest behavior, never weaken or delete the test.
+
+  MEASURE, not assume: re-run this card's own change against the full ratchet bundle in `checks`
+  below, record the real before/after result for CELLS-CPP-007 and CELLS-NET-009 (do those two
+  sibling findings' own underlying queries ALSO now resolve honestly, or do they need their own
+  separate fix - report the real answer), and confirm directly, by inspection, whether any OTHER
+  currently-passing test's own `match_quality` output silently changes for any OTHER query/pilot
+  (not just whether the suite is still green).
+depends_on:
+  - TC-686
+write_paths:
+  - src/foss_mcp/mcp/tools/search_symbols.py
+  - tests/mcp/tools/test_lookup_table_guard_and_exact_predicate.py
+  - tests/mcp/tools/test_search_symbols_match_kind.py
+  - tests/mcp/tools/test_search_symbols_forgiveness.py
+satisfies:
+  - REQ-G3-011
+source_refs:
+  - file: docs/DECISION_LOG.md
+    anchor: >-
+      ## 2026-11-02 — Round-3 independent re-audit adopted; a real regression found and given top
+      priority; the "no pilot ever gets worse" rule adopted project-wide (operator, supervisor)
+    sha256: b750b8bf0df25b17bf66d014895ecb42952050c7cc63773f56249c4a1c551791
+inputs:
+  - >-
+    READ FIRST: `docs/round2/issues.json` id `CELLS-RUST-001` and `docs/round3/issues.json`'s
+    `CELLS-RUST-001`/`CELLS-CPP-007`/`CELLS-NET-009` entries, all three in full. Then
+    `search_symbols.py`'s `_Scored.exact`/`_evidence_ranking` (around lines 1076-1270) in full -
+    read the real current code yourself, line numbers may have shifted since this card was
+    authored.
+  - >-
+    REPRODUCE FIRST: confirm `lookup(corpus.store, cells_rust_scope, "how do I create a pivot
+    table")` on current `main` still returns `WorksheetProtection` (or whichever symbol ranks
+    first today) with `match_quality == "exact"`, via `test_lookup_table_guard_and_exact_predicate.py`'s
+    own existing `test_cells_rust_001_still_reproduces_unaffected_by_this_card` test (it should
+    currently PASS, proving the bug reproduces, before you touch anything).
+  - >-
+    MEASURE the real fleet-wide impact (all 32 pilots, not just cells/rust) before considering
+    this done - run the full ratchet bundle below before and after your one-line change, and
+    report every real assertion that flips, not just whether the suite is green.
+  - Never weaken, skip, or narrow any existing check to make this pass.
+actions:
+  - >-
+    Require a nonzero name-fit even on the `via_member` exact-match path in `search_symbols.py`'s
+    `_Scored.exact`; flip the 1-2 tests that were pinning this exact bug as expected behavior to
+    pin the new, honest behavior instead; measure the real fleet-wide before/after impact.
+checks:
+  - command: '{python} -m pytest tests/mcp/tools/test_search_symbols_match_kind.py tests/mcp/tools/test_search_symbols_forgiveness.py tests/mcp/tools/test_lookup_table_guard_and_exact_predicate.py tests/mcp/tools/test_round3_retrieval_corpus.py tests/conformance/test_precision_and_size_budget.py -q -rfE -p no:cacheprovider'
+    expect: 'exit 0'
+    timeout_seconds: 900
+    junitxml: true
+    proves:
+      - REQ-G3-011
+min_tests: 60
+requires:
+  - python
+network: false
+negative_control:
+  mutate: |
+    python -X utf8 -c "import pathlib; p = pathlib.Path('src/foss_mcp/mcp/tools/search_symbols.py'); s = p.read_text(encoding='utf-8'); old = 'self.fit >= 0.5 or (self.via_member and self.fit > 0.0)'; assert s.count(old) == 1, 'the required post-fix literal was not found verbatim - if your real fix differs, anchor your own mutate on your own real literal instead and note the substitution in your closeout'; s2 = s.replace(old, 'self.fit >= 0.5 or self.via_member', 1); assert s2 != s; p.write_text(s2, encoding='utf-8')"
+  rationale: >-
+    Reverts the fit threshold on the via_member path back to unconditional, which must make the
+    flipped CELLS-RUST-001 test (now asserting the honest, non-exact result) fail again - a pure
+    literal-condition mutation, not a function/name rename, immune to the lockstep-rename
+    vacuousness class this session's earlier reviews found.
+evidence:
+  - evidence/build/G3/TC-703/receipt.json
+closeout:
+  - >-
+    `search_symbols`'s via_member exact-match shortcut now requires genuine nonzero name fit,
+    closing CELLS-RUST-001's false-confidence disclosure and (if measured to apply) its siblings
+    CELLS-CPP-007/CELLS-NET-009; fleet-wide before/after impact measured and reported.
+recovery: Re-run from a clean tree.
