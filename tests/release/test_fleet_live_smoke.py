@@ -475,6 +475,78 @@ def test_a_missing_image_fails_before_any_container_starts(world, tmp_path):
     assert world.running == set()
 
 
+# --- the client_factory fallback (G3/TC-709): the default Deps() path every test above bypasses -------
+
+
+def test_main_falls_back_to_the_proof_modules_open_live_client_with_no_injected_deps(monkeypatch, tmp_path):
+    """The exact path every other test bypasses: ``smoke.main()`` called with NO ``deps`` argument at
+    all, so ``main()``'s own default ``Deps()`` (``client_factory=None``) is what's live. Only the
+    proof-module loader is faked -- docker/readiness are faked too so this stays a hermetic unit test,
+    but no ``deps`` override and no ``client_factory`` override are ever given. The fallback chain
+    (``ctx.deps.client_factory or ctx.proof.open_live_client``) must reach a real client factory, not
+    the hardcoded "no client_factory" failure reason, which is exactly the bug TC-709 fixes.
+    """
+    fixtures = tmp_path / "fixtures"
+    _write_fixture(fixtures, FIRST, _FULL_FIXTURE)
+    calls: list[str] = []
+
+    class FakeProof:
+        @staticmethod
+        def open_live_client(url: str) -> Any:
+            calls.append(url)
+            return ScriptedClient(
+                {
+                    "Workbook": {"raw_text": "FQN: Workbook\nMethods:\n  - Save(path) -> void"},
+                    "__init__": [{"text": "FQN: Workbook.__init__"}],
+                    "Xlsx": [{"text": "FQN: SaveFormat.Xlsx"}],
+                    "Create": [{"text": "FQN: Workbook.Create"}],
+                }
+            )
+
+    monkeypatch.setattr(gate, "_load_proof_module", lambda: FakeProof)
+    monkeypatch.setattr(gate, "inspect_image", lambda deps, image: (IMAGE_ID, 123))
+    monkeypatch.setattr(
+        gate, "run_docker", lambda deps, args, **kwargs: gate.DockerResult(0, "127.0.0.1:41999\n", "")
+    )
+    monkeypatch.setattr(gate, "wait_until_ready", lambda ctx, name, url: None)
+
+    report_dir = tmp_path / "report"
+    code = smoke.main(
+        ["--image", IMAGE, "--fixtures", str(fixtures), "--only", FIRST, "--report-dir", str(report_dir)]
+    )
+    assert code == 0, (report_dir / smoke.REPORT_NAME).read_text()
+    assert calls == ["http://127.0.0.1:41999"], "proof.open_live_client was never reached as the factory"
+    document = json.loads((report_dir / smoke.REPORT_NAME).read_text(encoding="utf-8"))
+    pilot = document["pilots"][0]
+    assert pilot["status"] == "pass", pilot["reasons"]
+    assert all("no client_factory" not in reason for reason in pilot["reasons"])
+
+
+def test_the_safety_net_reason_still_fires_when_both_factory_sources_are_absent(world, tmp_path, monkeypatch):
+    """Even with the fallback wired, a client factory can in principle still be unavailable (both
+    ``deps.client_factory`` and ``proof.open_live_client`` absent) -- that case must still produce the
+    "no client_factory" reason, never a silent skip or a crash.
+    """
+    fixtures = tmp_path / "fixtures"
+    _write_fixture(fixtures, FIRST, _FULL_FIXTURE)
+
+    class EmptyProof:
+        open_live_client = None
+
+    monkeypatch.setattr(gate, "_load_proof_module", lambda: EmptyProof)
+    deps = world.deps(client_factory=None)
+    report_dir = tmp_path / "report"
+    code = smoke.main(
+        ["--image", IMAGE, "--fixtures", str(fixtures), "--only", FIRST, "--report-dir", str(report_dir)],
+        deps,
+    )
+    assert code == smoke.EXIT_FAILED
+    document = json.loads((report_dir / smoke.REPORT_NAME).read_text(encoding="utf-8"))
+    pilot = document["pilots"][0]
+    assert pilot["status"] == "fail"
+    assert any("no client_factory was supplied" in reason for reason in pilot["reasons"])
+
+
 # --- source hygiene -------------------------------------------------------------------------------------
 
 

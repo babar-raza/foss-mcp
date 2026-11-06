@@ -285,17 +285,19 @@ def run_pilot_smoke(entry: dict[str, Any], plan: PilotPlan, ctx: Any) -> dict[st
                 not_ready = gate.wait_until_ready(ctx, name, url)
                 if not_ready is not None:
                     reasons.append(f"the container never became ready: {not_ready}")
-                elif ctx.deps.client_factory is None:
-                    reasons.append("no client_factory was supplied; cannot query the container")
                 else:
-                    client = ctx.deps.client_factory(url)
-                    if not plan.facts:
-                        reasons.append("no language-appropriate fact could be derived from the fixture")
-                    for fact in plan.facts:
-                        outcome = fact_result(client, fact)
-                        results.append(outcome)
-                        if outcome["status"] == "fail":
-                            reasons.append(f"{outcome['id']} failed: {outcome['reason']}")
+                    factory = ctx.deps.client_factory or ctx.proof.open_live_client
+                    if factory is None:
+                        reasons.append("no client_factory was supplied; cannot query the container")
+                    else:
+                        client = factory(url)
+                        if not plan.facts:
+                            reasons.append("no language-appropriate fact could be derived from the fixture")
+                        for fact in plan.facts:
+                            outcome = fact_result(client, fact)
+                            results.append(outcome)
+                            if outcome["status"] == "fail":
+                                reasons.append(f"{outcome['id']} failed: {outcome['reason']}")
     finally:
         ctx.containers.remove(name)
     status = "fail" if reasons else "pass"
@@ -409,7 +411,7 @@ def main(argv: list[str] | None = None, deps: Deps | None = None) -> int:
         with_gateway=False,
         run_id=run_id,
         deps=deps,
-        proof=None,
+        proof=gate._load_proof_module(),
         containers=containers,
         redact=gate.Redactor([]),
     )
