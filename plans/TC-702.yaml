@@ -66,6 +66,8 @@ write_paths:
   - tests/indexing/test_known_defects_data_cells_typescript_013.py
   - tests/mcp/tools/test_known_defects_round3_siblings.py
   - tests/indexing/test_known_defects_completeness.py
+  - tests/mcp/tools/test_known_defects_multi_ref.py
+  - tests/mcp/tools/test_known_defects_refs_population.py
 satisfies:
   - REQ-G3-015
 source_refs:
@@ -134,6 +136,26 @@ inputs:
     the UNFIXED registry (temporarily, in your own scratch work, never committed) to confirm it
     would have caught all 11 real mismatches before your fix - this is the proof the new mechanism
     actually works, not merely that it exists.
+  - >-
+    AMENDMENT (post-dispatch, before acceptance): the first attempt's own worker correctly found
+    and reported, rather than silently working around, 3 real collateral test failures outside its
+    original `write_paths` - a correct fix for this card's own scope making a previously-wrong,
+    previously-unreachable disclosure now genuinely reachable, which 2 OTHER cards' tests had
+    baked in as an assumption at a time when the bug made that assumption harmless:
+    `tests/mcp/tools/test_known_defects_multi_ref.py::test_real_cells_typescript_013_still_
+    surfaces_through_get_symbol_after_migration` calls `known_defect_lines(scope, fqn, text)`
+    directly with the literal bare string `fqn = "Workbook"` (and a synthetic chunk text built
+    from that same bare string via `_symbol_text(fqn)`) - change this ONE test function's `fqn`
+    local variable to the real corrected FQN, `"aspose_cells.workbook.Workbook"` (nothing else in
+    this file; every other test function's own fqn is for a different pilot/defect and is
+    unaffected). `tests/mcp/tools/test_known_defects_refs_population.py`'s
+    `test_cells_python_workbook_surfaces_cells_py_005_via_get_symbol`/`..._via_search_symbols`
+    assert that querying "Workbook" in cells/python surfaces exactly `{"CELLS-PY-005"}` - now that
+    `CELLS-PY-003`'s ref is correctly fixed to include `aspose.cells_foss.Workbook`/
+    `aspose.cells_foss.workbook.Workbook` (both genuinely real, applicable Workbook defects),
+    widen both assertions to `{"CELLS-PY-003", "CELLS-PY-005"}`. Do not change anything else in
+    either file - both are otherwise correct and exercise real, separate behavior this card does
+    not touch.
 actions:
   - >-
     Correct 11 real known_defects registry entries whose `refs` never matched any real indexed
@@ -141,7 +163,7 @@ actions:
     and add a permanent, corpus-wide completeness check so this silent-failure class, having
     already recurred once despite two prior hand-curated fixes, cannot recur undetected again.
 checks:
-  - command: '{python} -m pytest tests/indexing/test_known_defects_completeness.py tests/indexing/test_known_defects_data_cells_typescript_013.py tests/mcp/tools/test_known_defects_round3_siblings.py -q -rfE -p no:cacheprovider'
+  - command: '{python} -m pytest tests/indexing/test_known_defects_completeness.py tests/indexing/test_known_defects_data_cells_typescript_013.py tests/mcp/tools/test_known_defects_round3_siblings.py tests/mcp/tools/test_known_defects_multi_ref.py tests/mcp/tools/test_known_defects_refs_population.py -q -rfE -p no:cacheprovider'
     expect: 'exit 0'
     timeout_seconds: 300
     junitxml: true
