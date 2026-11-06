@@ -132,14 +132,24 @@ requires:
 network: false
 negative_control:
   mutate: |
-    python -X utf8 -c "import pathlib; p = pathlib.Path('tests/conformance/test_symbol_self_retrieval.py'); s = p.read_text(encoding='utf-8'); old1 = 'namespace_word = _FINAL_SEGMENT.split(ordered_fqns[0].strip())[0]'; old2 = 'member_word = _first_declared_member(texts, ordered_fqns)'; assert s.count(old1) == 1 and s.count(old2) == 1, 'the required mode-stable probe-word lines were not found verbatim as expected - if your real code differs, anchor your own mutate on your own real literals instead and note the substitution in your closeout'; s2 = s.replace(old1, 'namespace_word = _FINAL_SEGMENT.split(sample[0].strip())[0]', 1).replace(old2, 'member_word = _first_declared_member(texts, sample)', 1); assert s2 != s; p.write_text(s2, encoding='utf-8')"
+    python -X utf8 -c "import pathlib; p = pathlib.Path('tests/conformance/test_symbol_self_retrieval.py'); s = p.read_text(encoding='utf-8'); old1 = '    namespace_word = _FINAL_SEGMENT.split(ordered_fqns[0].strip())[0]'; old2 = '    member_word = _first_declared_member(texts, ordered_fqns)'; assert s.count(old1) == 1 and s.count(old2) == 1, 'the required mode-stable probe-word lines were not found verbatim (with their 4-space indent) as expected - if your real code differs, anchor your own mutate on your own real literals instead and note the substitution in your closeout'; s2 = s.replace(old1, '    namespace_word = _FINAL_SEGMENT.split(sample[0].strip())[0]', 1).replace(old2, '    member_word = _first_declared_member(texts, sample)', 1); assert s2 != s; p.write_text(s2, encoding='utf-8')"
   rationale: >-
-    Reverts both probe-word lines from the new, mode-stable `ordered_fqns`-based derivation back to
-    the old, mode-dependent `sample`-based one - restoring exactly the instability this card closes,
-    which must make the new mode-stability tests fail (they assert default and exhaustive mode
-    report the same case_id; the old derivation cannot guarantee that). Not a function rename
-    (`TC-696`'s own review found renaming a def and its only call site in lockstep can be vacuous);
-    this swaps which already-existing variable is referenced at two specific call sites.
+    AMENDMENT (post-review): the original mutate anchored on these two literals WITHOUT a leading
+    indent, which `gatectl review`'s first run correctly caught as "negative-control patch did not
+    apply" - the worker's own regression-guard test (`test_mode_stability_fix_is_not_vacuous_for_a_
+    namespace_unstable_pilot`) legitimately writes a local variable named
+    `new_namespace_word = _FINAL_SEGMENT.split(ordered_fqns[0].strip())[0]`, and the un-indented
+    literal `namespace_word = _FINAL_SEGMENT.split(...)` matches as a SUBSTRING of
+    `new_namespace_word = _FINAL_SEGMENT.split(...)` too, making `s.count(old1) == 1` false (count
+    was 2) and the whole mutate script raise before writing anything. Adding the real 4-space
+    indent to both anchors (confirmed verbatim against the real committed file) disambiguates them:
+    `    new_namespace_word = ...` does NOT contain `    namespace_word = ...` as a substring,
+    since "new_" sits between the indent and the name. Reverts both probe-word lines from the new,
+    mode-stable `ordered_fqns`-based derivation back to the old, mode-dependent `sample`-based one -
+    restoring exactly the instability this card closes, which must make the new mode-stability
+    tests fail. Not a function rename (`TC-696`'s own review found renaming a def and its only call
+    site in lockstep can be vacuous); this swaps which already-existing variable is referenced at
+    two specific call sites.
 evidence:
   - evidence/build/G3/TC-699/receipt.json
 closeout:
