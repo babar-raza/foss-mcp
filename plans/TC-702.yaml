@@ -1,0 +1,173 @@
+id: TC-702
+gate: G3
+lane: verification
+purpose: >-
+  Closes a real, LIVE regression found by a dedicated reconciliation pass (2026-11-06) re-checking
+  both audit rounds' findings against real running code rather than trusting this project's own
+  prior "DONE" claims. The known_defects disclosure MECHANISM (`get_symbol`/`search_symbols` both
+  call `load_known_defects` and match on `fqn in defect.subject.refs`) is correctly built and was
+  already independently re-verified working for many entries (`TC-660`'s own
+  `test_known_defects_refs_population.py`, `TC-668`'s OQ-028 addendum there) - but those two cards
+  each fixed a NAMED, hand-curated list of entries, never a full sweep, and every entry added
+  AFTER them by a later card (`TC-656`'s round-3 disclosures, plus one pre-existing entry those two
+  cards' named lists happened to skip) silently reintroduced the exact same defect class with
+  nothing automated to catch it.
+
+  CONFIRMED by a real script run against the real `infra/demo-manifests` corpus (not estimated):
+  of 46 real `subject.kind: method` refs across 25 registry files, 11 do not match any real
+  indexed FQN for their pilot - including `CELLS-TYPESCRIPT-013`, the single highest-priority
+  finding of the whole round-3 re-audit (`Workbook.save()` silently drops worksheets past the
+  2nd). Its registry entry's bare `refs: [Workbook]` NEVER matches the real indexed FQN
+  (`aspose_cells.workbook.Workbook`), so a live `get_symbol`/`search_symbols` call for "Workbook" on
+  the real cells/typescript corpus returns ZERO known-defect disclosures today, despite this
+  project's own plan document and `TC-656`'s own test file (`test_known_defects_data_cells_
+  typescript_013.py`) believing this is closed - that test file's own end-to-end assertions only
+  ever exercised a SYNTHETIC in-memory chunk whose hand-authored FQN is literally the bare string
+  `"Workbook"` (matching the registry's own wrong value by construction), never the real baked
+  corpus, so it could not have caught this.
+
+  The 11 real mismatches, each resolved by directly reading the real indexed symbol content for
+  that pilot (not guessed) - 7 are unambiguous (exactly one real FQN with that short name), 2 are
+  genuine shell/definition alias pairs (`Exported-As`/`Defined-In` cross-references in the real
+  chunk text - both forms should be listed, the same multi-ref pattern this registry's schema
+  already supports and other entries already use), 1 (`CELLS-TYPESCRIPT-008`) has two real,
+  NON-aliased classes sharing the short name `Style` and was disambiguated by reading the defect's
+  own summary text (`Style.setNumberFormat()` is a method, matching the `class_declaration` form,
+  never the `interface_declaration` form with no methods):
+
+    - 3D-JAVA-014 (3d/java): `Scene` -> `com.aspose.threed.Scene`
+    - CELLS-PY-003 (cells/python): `Workbook` -> `[aspose.cells_foss.Workbook, aspose.cells_foss.workbook.Workbook]`
+    - CELLS-TYPESCRIPT-003 (cells/typescript): `Worksheet` -> `aspose_cells.worksheet.Worksheet`
+    - CELLS-TYPESCRIPT-004 (cells/typescript): `Cell` -> `aspose_cells.cell.Cell`
+    - CELLS-TYPESCRIPT-005 (cells/typescript): `Worksheet` -> `aspose_cells.worksheet.Worksheet`
+    - CELLS-TYPESCRIPT-008 (cells/typescript): `Style` -> `aspose_cells.style.Style`
+    - CELLS-TYPESCRIPT-011 (cells/typescript): `Cell` -> `aspose_cells.cell.Cell`
+    - CELLS-TYPESCRIPT-013 (cells/typescript): `Workbook` -> `aspose_cells.workbook.Workbook`
+    - EML-NET-003 (email/net): `MapiMessage` -> `Aspose.Email.Foss.Msg.MapiMessage`
+    - PAGE-PYTHON-010 (page/python): `PsDocument` -> `[aspose.page.ps.PsDocument, aspose.page.ps.document.PsDocument]`
+    - PDF-NET-003 (pdf/net): `TableAbsorber` -> `Aspose.Pdf.Text.TableAbsorber`
+
+  The PRIMARY, durable deliverable is a NEW, PERMANENT completeness check (reusing
+  `tests/indexing/test_known_defects_completeness.py`, the `KD10` file - this is its exact kind of
+  existing responsibility, extended rather than duplicated) that validates every real `method`/
+  `class`-kind ref, across ALL registry files, against the real indexed FQN set loaded from
+  `infra/demo-manifests` - so this exact silent-failure class, having now recurred twice despite
+  two prior hand-curated fix passes (`TC-660`, `TC-668`), can never recur a third time undetected.
+depends_on:
+  - TC-658
+  - TC-668
+write_paths:
+  - config/known_defects/3d__java.yaml
+  - config/known_defects/cells__python.yaml
+  - config/known_defects/cells__typescript.yaml
+  - config/known_defects/email__net.yaml
+  - config/known_defects/page__python.yaml
+  - config/known_defects/pdf__net.yaml
+  - tests/indexing/test_known_defects_data_cells_typescript_013.py
+  - tests/mcp/tools/test_known_defects_round3_siblings.py
+  - tests/indexing/test_known_defects_completeness.py
+satisfies:
+  - REQ-G3-015
+source_refs:
+  - file: docs/DECISION_LOG.md
+    anchor: >-
+      ## 2026-11-02 — Round-3 independent re-audit adopted; a real regression found and given top
+      priority; the "no pilot ever gets worse" rule adopted project-wide (operator, supervisor)
+    sha256: b750b8bf0df25b17bf66d014895ecb42952050c7cc63773f56249c4a1c551791
+inputs:
+  - >-
+    READ FIRST: `tests/mcp/tools/test_known_defects_refs_population.py` (`TC-660`/`TC-668`) in full
+    - it is your exact model for live FQN verification (the `_pilot_get_symbol`/
+    `_pilot_search_symbols` helpers via `server_module._wrap_get_symbol`/`_wrap_search_symbols`,
+    and `ConformanceCorpus`/`load_demo_manifests_corpus` from `tests.conformance.corpus`). Also
+    read `tests/indexing/test_known_defects_completeness.py`'s full module (its
+    `_registry_files`/`_all_registry_entries`/`_load_registry_document` helpers - reuse them, do
+    not duplicate), and `src/foss_mcp/indexing/known_defects.py`'s `Subject`/`KnownDefect`
+    dataclasses and `load_known_defects`.
+  - >-
+    REPRODUCE FIRST: write a scratch script (not committed) that, for every real registry file,
+    loads its defects, and for every `subject.kind in ("method", "class")` ref, checks it against
+    the real indexed FQN set for that pilot (loaded via `load_demo_manifests_corpus` + each
+    pilot's `symbol_chunks()` + `extract_fqn` on each chunk's text - the exact pattern
+    `tests/conformance/test_symbol_self_retrieval.py`'s own `_symbol_texts` already uses). Confirm
+    for yourself, directly, that the 11 mismatches this card's own purpose field lists are real
+    today, and that no other `method`/`class`-kind ref beyond those 11 is also broken (this card's
+    own audit may not be perfectly exhaustive - if you find a 12th, fix it the same way and report
+    it; if you find the 11 are not all genuinely broken, report that too, do not force a "fix" that
+    isn't needed).
+  - >-
+    FIX the 6 registry YAML files: for each of the 11 listed entries, replace its `refs:` list
+    with the real FQN(s) given above, re-confirming each one's correctness yourself (do not
+    copy-paste this card's own answers uncritically - re-derive at least the ambiguous ones
+    yourself: `CELLS-PY-003`, `PAGE-PYTHON-010`, `CELLS-TYPESCRIPT-008`). Change nothing else in
+    any of these 6 files (no summary/user_action/evidence text, no other entry's refs, no id).
+  - >-
+    FIX the 2 stale test files whose assertions currently PIN the wrong, now-corrected literal as
+    "correct": `tests/indexing/test_known_defects_data_cells_typescript_013.py` line ~112
+    (`assert defect.subject.refs == ("Workbook",)`) and `tests/mcp/tools/
+    test_known_defects_round3_siblings.py` lines ~114/124 (`== ("MapiMessage",)` /
+    `== ("TableAbsorber",)`) - update each to the real, corrected FQN. CRITICALLY: both files also
+    build a SYNTHETIC in-memory chunk store whose hand-authored chunk FQN is the bare short name
+    (`_workbook_symbol_body()`'s `"FQN: Workbook"`; `_mapi_message_symbol_body()`'s
+    `"FQN: MapiMessage"`; `_table_absorber_symbol_body()`'s `"FQN: TableAbsorber"`) - THIS is
+    exactly the blind spot that let the real bug ship undetected (the synthetic FQN always matched
+    the registry's own wrong value by construction, so these tests could never have caught the
+    real mismatch). Update each synthetic chunk's `FQN:` line to the real corrected FQN too, so
+    these tests genuinely exercise the fix going forward, and update every call site in these two
+    files that queries the OLD bare name (`get_symbol(store, SCOPE, "Workbook")` etc.) to query the
+    real FQN instead, confirming each still passes.
+  - >-
+    Add the new PERMANENT completeness check to `tests/indexing/test_known_defects_completeness.py`:
+    a new test (your own name) that, for every real registry entry whose `subject.kind` is
+    `"method"` or `"class"`, loads the real indexed FQN set for that entry's pilot (via
+    `load_demo_manifests_corpus`, reusing the exact pattern from `test_known_defects_refs_
+    population.py`) and asserts every one of its `refs` is a member of that set - failing with a
+    clear message naming the pilot, defect id, and the exact bad ref if not. This MUST run against
+    the real, committed `infra/demo-manifests` corpus (never a synthetic/`tmp_path`-only stand-in)
+    to have any value; copy the real `ConformanceCorpus`/`load_demo_manifests_corpus(tmp_path)`
+    pattern exactly. Add this test to the SAME file (do not create a new module) - it is squarely
+    within `KD10`'s own already-established scope (completeness against the real data), just not
+    yet built there.
+  - >-
+    MEASURE: run every one of the 9 affected files' full test suites before and after your change
+    and report real pass/fail counts; separately, run the new permanent completeness check against
+    the UNFIXED registry (temporarily, in your own scratch work, never committed) to confirm it
+    would have caught all 11 real mismatches before your fix - this is the proof the new mechanism
+    actually works, not merely that it exists.
+actions:
+  - >-
+    Correct 11 real known_defects registry entries whose `refs` never matched any real indexed
+    FQN - including the round-3 re-audit's own highest-priority finding, `CELLS-TYPESCRIPT-013` -
+    and add a permanent, corpus-wide completeness check so this silent-failure class, having
+    already recurred once despite two prior hand-curated fixes, cannot recur undetected again.
+checks:
+  - command: '{python} -m pytest tests/indexing/test_known_defects_completeness.py tests/indexing/test_known_defects_data_cells_typescript_013.py tests/mcp/tools/test_known_defects_round3_siblings.py -q -rfE -p no:cacheprovider'
+    expect: 'exit 0'
+    timeout_seconds: 300
+    junitxml: true
+    proves:
+      - REQ-G3-015
+min_tests: 8
+requires:
+  - python
+network: false
+negative_control:
+  mutate: |
+    python -X utf8 -c "import pathlib; p = pathlib.Path('config/known_defects/cells__typescript.yaml'); s = p.read_text(encoding='utf-8'); old = '    - aspose_cells.workbook.Workbook'; assert s.count(old) >= 1, 'the required corrected CELLS-TYPESCRIPT-013 ref line was not found verbatim as expected - if your real fix differs, anchor your own mutate on your own real literal instead and note the substitution in your closeout'; s2 = s.replace(old, '    - Workbook', 1); assert s2 != s; p.write_text(s2, encoding='utf-8')"
+  rationale: >-
+    Reverts CELLS-TYPESCRIPT-013's own corrected ref back to the real, live-broken bare value this
+    card closes - the single highest-priority finding this card exists to fix - which must make
+    the new permanent completeness check fail (it loads the real corpus and checks every ref
+    against it, so a real data-level regression like this is exactly what it exists to catch).
+    Deliberately a DATA mutation, not a code/function mutation - immune to the lockstep-rename
+    vacuousness `TC-696`'s review found earlier this session, since there is no function or name to
+    rename here, only a literal registry value to corrupt.
+evidence:
+  - evidence/build/G3/TC-702/receipt.json
+closeout:
+  - >-
+    11 known_defects entries - including the round-3 re-audit's own highest-priority finding,
+    CELLS-TYPESCRIPT-013 - now carry refs that genuinely match their real indexed FQN, confirmed
+    live against the real corpus; a new permanent completeness check in
+    tests/indexing/test_known_defects_completeness.py closes this silent-failure class for good.
+recovery: Re-run from a clean tree.
