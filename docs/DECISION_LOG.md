@@ -3420,3 +3420,56 @@ query word the top-ranked candidates' names do not, rather than raising the cap 
 different mechanism entirely. Left open, not owner-item'd (no credential/authority blocker, just
 unsolved engineering) - a future card should start from this record rather than re-measuring the
 same dead end.
+
+## 2026-11-06 — PDF-NET-002/EML-NET-002 investigated: a correct fix exists but is structurally inert against TC-543's own invariant; declined, not integrated (supervisor)
+
+`PDF-NET-002` ("find_examples' lexical matcher misses an example for queries that exactly describe
+the example's own snippet body") and the 7 words `EML-NET-002` still missed after TC-670/TC-672
+(`Subject`, `roundtrip`, `recipient`, `body`, `html`, `validation`, `load`) were carded as `TC-710`
+(Q10c), dispatched to a worker, and the resulting work is recorded here rather than integrated,
+for the reasons below.
+
+**What was built and measured**: a fourth additive admission path for `find_examples`, gated by a
+strict scope-wide uniqueness test (`code_example_frequency.get(t, 0) == 1`, recurring at least
+twice in that one document's own code - strictly tighter than TC-672's own `< half` rarity test),
+targeting exactly the 8 words TC-672 already excludes from its own rarity anchor
+(`_RARE_CODE_WORD_EXCLUDED_TERMS`). The worker reproduced every repro live against the real
+`infra/demo-manifests` data first, implemented the mechanism exactly as specified, and measured
+rigorously: an unguarded version regressed `test_round3_retrieval_corpus.py`'s wrong-confident
+ratchet (0.0576 -> 0.0617 vs. the 0.059 floor) via 3 new false matches on `"add"` (cells/java,
+pdf/java); declining `"add"` alone restored the ratchet exactly to baseline.
+
+**The real, structural blocker, found only by running the full existing test suite (not by
+measuring the retrieval ratchet alone)**: `test_find_examples_title_anchor.py`'s
+`test_generic_one_word_queries_return_only_title_anchored_examples` (TC-543) is a blanket, fleet-
+wide invariant that none of these 8 words may EVER be admitted by anything but a title anchor. The
+new path's own gating condition (`not title_hit and not prefix_hit`, shared with the pre-existing
+`identifier`/`rare` branches) makes every admission through it, for any of the 8 words, on any
+pilot, BY CONSTRUCTION non-title-anchored - so it violates TC-543's own invariant unconditionally,
+not as a per-pilot statistical risk a narrower rarity/corpus-size threshold could reduce. `"page"`
+and `"text"` happened not to trip a visible failure only because no real pilot's current data
+makes either of them scope-unique-and-recurring-twice outside a title-anchored document today -
+fleet luck, not a structural safety difference from the other 6.
+
+**Per-word findings** (each checked directly against the real corpus, not assumed): `PDF-NET-002`'s
+`"create"` would satisfy the new mechanism (freq=1 of 3, recurs twice) but is blocked by the
+TC-543 conflict above; `"save"` is independently an honest miss anyway (recurs only once, failing
+the existing `>= 2` guard); `"hello world"` was never in scope (not one of the 8 candidate words).
+Of `EML-NET-002`'s 7 remaining words: `"html"`/`"validation"` do not occur in any example's own
+code body at all (a missing-corpus-data gap, the same class as `slides/cpp`'s "watermark", not
+this mechanism's job); `"Subject"`/`"roundtrip"`/`"recipient"`/`"body"`/`"load"` each occur in
+exactly one document's code but recur only once there, the same recurrence shortfall as `"save"`.
+
+**Decision**: declined in full, nothing integrated. Per "never weaken a check to make it pass" and
+"no pilot ever gets worse", TC-543's own invariant is not weakened to let this path through, and
+the mechanism is not shipped in a permanently-inert state (dead code adds real maintenance cost
+for zero production benefit - the worker's own branch correctly declined all 8 candidate words,
+making the new path provably unreachable, and was not integrated on that basis). The branch
+(`worker/TC-710`, commit `db51a4ec`) and its worktree were discarded; `plans/TC-710.yaml` was
+removed from `main` in the same commit as this entry, since the card was dispatched but never
+accepted and nothing should re-attempt it unchanged. A future attempt at `PDF-NET-002`/the
+remaining `EML-NET-002` words needs either a narrower trigger that only fires for a document
+TC-543's own test does not cover (e.g. restricted to pilots/queries TC-543's test doesn't probe,
+if any exist) or a revision to TC-543's own invariant itself (a deliberate, separately-justified
+scope change, not a side effect of this mechanism) - this record exists so neither has to be
+re-discovered from scratch.
