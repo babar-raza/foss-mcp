@@ -1,0 +1,88 @@
+{
+  "schema_version": 1,
+  "card": "TC-697",
+  "gate": "G3",
+  "generated_by": "gatectl",
+  "generated_at": "2026-11-06T01:32:37Z",
+  "base_rev": "1fc6ba8278200c61601525120d8d7c9c0b957eca",
+  "head_rev": "eda192e163a0a589b348d139f042a7b168fb2a3b",
+  "card_sha256": "8f93af61728bddc12605719c0d6f18ca6ff8dae3959f62aba1cf5a0d06f0e994",
+  "fingerprint": {
+    "python": "3.13.2",
+    "platform": "Windows-11-10.0.26300-SP0",
+    "lock_sha256": "5c72e798a73c059a438e752e94a8d4c88c1bdf81a197f6e5c5fcecbc9466a691",
+    "env": {
+      "PYTHONHASHSEED": "0",
+      "PYTHONUTF8": "1",
+      "PYTHONDONTWRITEBYTECODE": "1",
+      "PYTHONIOENCODING": "utf-8",
+      "TZ": "UTC",
+      "LC_ALL": "C.UTF-8",
+      "SOURCE_DATE_EPOCH": "1700000000",
+      "verify_runner": "host"
+    }
+  },
+  "scope": {
+    "ok": true,
+    "changed_paths": [
+      "tests/extraction/tree_sitter_engine/test_consolidate_classes_free_functions.py"
+    ],
+    "violations": [],
+    "evaluated": true
+  },
+  "runs": [
+    {
+      "run": 1,
+      "checks": [
+        {
+          "command": "{python} -m pytest tests/extraction/tree_sitter_engine/test_consolidate_classes_free_functions.py -q -rfE -p no:cacheprovider",
+          "exit_code": 0,
+          "duration_s": 12.14,
+          "stdout_sha256": "511fb971caf59261241ec2a3919d9d10c7dcb9ec044ee07d50b2db465184f057",
+          "tests": 15,
+          "skipped": 0,
+          "errors": 0,
+          "failures": 0
+        }
+      ],
+      "all_passed": true
+    },
+    {
+      "run": 2,
+      "checks": [
+        {
+          "command": "{python} -m pytest tests/extraction/tree_sitter_engine/test_consolidate_classes_free_functions.py -q -rfE -p no:cacheprovider",
+          "exit_code": 0,
+          "duration_s": 5.638,
+          "stdout_sha256": "511fb971caf59261241ec2a3919d9d10c7dcb9ec044ee07d50b2db465184f057",
+          "tests": 15,
+          "skipped": 0,
+          "errors": 0,
+          "failures": 0
+        }
+      ],
+      "all_passed": true
+    }
+  ],
+  "negative_control": {
+    "kind": "mutate",
+    "patch": "python -X utf8 -c \"import pathlib; p = pathlib.Path('src/foss_mcp/extraction/tree_sitter_engine/api_surface.py'); s = p.read_text(encoding='utf-8'); old = '    existing_bases = set(target.get(\\\"bases\\\", []))\\n    for b in source.get(\\\"bases\\\", []):\\n        if b not in existing_bases:\\n            target.setdefault(\\\"bases\\\", []).append(b)\\n            existing_bases.add(b)'; assert s.count(old) == 1, 'the required bases-merge block was not found verbatim as expected - if your real code differs, anchor your own mutate on your own real literal instead and note the substitution in your closeout'; s2 = s.replace(old, '    pass  # TC-697 negative control: bases merge disabled', 1); assert s2 != s; p.write_text(s2, encoding='utf-8')\"\n",
+    "patch_sha256": "1b1eb6888fa13eb0c88b90c05ba4f957cbcadff5c8cd180fe80af469c8d069aa",
+    "applied": true,
+    "patch_applied_failed": true,
+    "exit_codes": [
+      1
+    ],
+    "tree_changed": [
+      "M src/foss_mcp/extraction/tree_sitter_engine/api_surface.py",
+      "?? .junit-0.xml"
+    ]
+  },
+  "holdout": {
+    "ran": false,
+    "passed": true,
+    "detail": "no holdout for this card"
+  },
+  "accepted": true,
+  "reason": "all gates passed"
+}
