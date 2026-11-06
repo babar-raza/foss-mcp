@@ -1,0 +1,118 @@
+id: TC-696
+gate: G3
+lane: verification
+purpose: >-
+  Closes a recurring collateral class flagged twice this session (`TC-692`'s and `TC-694`'s own
+  closeout notes): `tests/release/test_oracle_shell_resolution.py`'s `EXISTING_SUITE_PINNED_TEST_COUNT`
+  and `tests/release/test_oracle_inherited_verification.py`'s `EXISTING_SUITES_PINNED_TEST_COUNT` are
+  hand-maintained literal pins of `test_source_differential.py`'s exact test count (128->134->137
+  across the two prior cards). Neither card that moved the count had these 2 files in its own
+  `write_paths`, so each time required a mid-review amendment (widen `write_paths`) plus a full
+  rework dispatch - pure process overhead, not a real defect caught either time. TC-694's own
+  closeout explicitly flagged this: "expect this same collateral a third time unless a future card
+  makes those 2 pinned counts self-computing (e.g. via `--collect-only`) instead of hand-maintained
+  literals."
+
+  CONFIRMED by direct inspection (not guessed): both assertions already separately check
+  `failures == 0 and errors == 0` *before* the exact-count assertion
+  (`test_oracle_shell_resolution.py:265-276`, `test_oracle_inherited_verification.py:371-382`) - the
+  exact-count check is not this card's own regression guard against a real defect in
+  `source_differential.py`; it is a secondary sanity check against a test silently being skipped or
+  dropped from collection while the suite still reports green (0 failures). That real purpose is
+  preserved, not weakened (AGENTS.md: "never weaken a check"), by comparing the real run's reported
+  `total` against a count collected from the SAME suite at the SAME commit via
+  `pytest --collect-only -q`, instead of against a historical literal. This still fails if a test
+  silently vanishes from collection relative to what pytest itself says it collected; it no longer
+  fails merely because an unrelated, later card added tests to `test_source_differential.py` without
+  touching these 2 files.
+depends_on:
+  - TC-694
+write_paths:
+  - tests/release/test_oracle_shell_resolution.py
+  - tests/release/test_oracle_inherited_verification.py
+satisfies:
+  - REQ-G3-012
+source_refs:
+  - file: docs/DECISION_LOG.md
+    anchor: >-
+      ## 2026-11-02 — Round-3 independent re-audit adopted; a real regression found and given top
+      priority; the "no pilot ever gets worse" rule adopted project-wide (operator, supervisor)
+    sha256: b750b8bf0df25b17bf66d014895ecb42952050c7cc63773f56249c4a1c551791
+inputs:
+  - >-
+    READ FIRST: `test_existing_source_differential_suite_is_unaffected_by_this_fix` in
+    `tests/release/test_oracle_shell_resolution.py` (around line 233) and
+    `test_f_existing_suite_is_unaffected_by_this_card` in
+    `tests/release/test_oracle_inherited_verification.py` (around line 347) in full, including the
+    `-q`-stacking docstring note in the first one (`pyproject.toml`'s own `addopts = "-q"` already
+    drops pytest's final "N passed in Ys" line when a second `-q` is stacked on top - confirmed by
+    the card that wrote it, not merely asserted). Confirm for yourself that `--collect-only -q`'s
+    per-test node-id lines (one per collected test, containing `::`) are NOT suppressed by the same
+    stacking before relying on counting them - run it yourself against a small real suite and look
+    at the raw stdout.
+  - >-
+    FIX (both files, independently - do not create a new shared module, neither file's own
+    `write_paths` entry here includes one, and duplicating ~10 lines is consistent with this pair's
+    existing duplicated JUnit-parsing structure): add a small helper (your own name, e.g.
+    `_collect_test_count(paths: list[Path]) -> int`) that runs
+    `{python} -m pytest <paths> --collect-only -q -p no:cacheprovider` as a subprocess (same
+    pattern - `subprocess.run`, `capture_output=True`, `text=True`, `cwd=str(REPO_ROOT)`, a
+    timeout - as the existing real-run call right below it), asserts `returncode == 0`, counts the
+    stdout lines containing `"::"` (each one a collected test node id), asserts that count is
+    nonzero, and returns it. Replace `EXISTING_SUITE_PINNED_TEST_COUNT` /
+    `EXISTING_SUITES_PINNED_TEST_COUNT`'s role in the final assertion: call your new helper with the
+    SAME path(s) the real run already uses, and assert `total == <your helper's result>` instead of
+    `total == <the old literal>`. You may delete the now-unused literal constant(s) entirely, or
+    keep them only as a documentation comment of today's count - your choice, report which.
+  - >-
+    Do not change the `failures == 0 and errors == 0` assertions, the JUnit-XML-based result
+    reading, the `-p no:cacheprovider` flag, or either file's own test suite(s) in any other way -
+    this card is a maintenance fix to ONE assertion's source of truth per file, nothing else.
+  - >-
+    MEASURE: before your change, record the real current `total` both files' existing tests report
+    (should be 137 for the first file, 141 for the second, matching the literals you are about to
+    remove - confirm this yourself, do not trust the card's own numbers). After your change, confirm
+    the same two tests still pass, and confirm each one's `total == <collected count>` comparison is
+    genuinely exercised (not vacuously true) by temporarily breaking it one way during your own
+    development (e.g. a stray skip) and watching it fail, then reverting.
+  - >-
+    Add one small new test per file proving your own new helper works in isolation on a trivially
+    small, already-collectible real suite (e.g. the test file containing the new test itself, or
+    any other small real test file already in this repo) and returns a sane positive integer -
+    this is new, real coverage of the mechanism this card adds, not a restatement of the existing
+    "existing suite is unaffected" test.
+actions:
+  - >-
+    Replace the two hand-maintained literal test-count pins in
+    `test_oracle_shell_resolution.py`/`test_oracle_inherited_verification.py` with a count collected
+    live from `pytest --collect-only` against the same real suite(s) each test already runs - so a
+    future card that changes `test_source_differential.py`'s own test count no longer needs to widen
+    its `write_paths` and rework these 2 unrelated files just to update a literal.
+checks:
+  - command: '{python} -m pytest tests/release/test_oracle_shell_resolution.py tests/release/test_oracle_inherited_verification.py -q -rfE -p no:cacheprovider'
+    expect: 'exit 0'
+    timeout_seconds: 900
+    junitxml: true
+    proves:
+      - REQ-G3-012
+min_tests: 6
+requires:
+  - python
+network: false
+negative_control:
+  mutate: |
+    python -X utf8 -c "import pathlib; p = pathlib.Path('tests/release/test_oracle_shell_resolution.py'); s = p.read_text(encoding='utf-8'); old = '_collect_test_count'; assert s.count(old) >= 1, 'the required _collect_test_count helper was not found as expected - if your real code names this differently, anchor your own mutate on your own real literal instead and note the substitution in your closeout'; s2 = s.replace(old, '_collect_test_countDISABLED', s.count(old)); assert s2 != s; p.write_text(s2, encoding='utf-8')"
+  rationale: >-
+    Renames every reference to the new `_collect_test_count` helper this card's fix depends on in
+    `test_oracle_shell_resolution.py`, so the test that calls it raises `NameError` instead of
+    comparing a live-collected count - proving the new self-computing mechanism, not just an
+    import, is genuinely under test.
+evidence:
+  - evidence/build/G3/TC-696/receipt.json
+closeout:
+  - >-
+    Both pinned-test-count assertions now derive their expected value from a live
+    `pytest --collect-only` of the same suite they already run, instead of a hand-maintained
+    literal - a future card that changes `test_source_differential.py`'s own test count no longer
+    needs to widen its `write_paths` or trigger a rework of these 2 unrelated files.
+recovery: Re-run from a clean tree.
