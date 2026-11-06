@@ -1,0 +1,128 @@
+id: TC-701
+gate: G3
+lane: extraction
+purpose: >-
+  First real, scoped slice of the wave plan's `XA8` ("fixture generators, data staging" - the
+  next unstarted foundational step before the P4 example-corpus program's per-language verifiers
+  and 32-pilot adoption cards can proceed). RE-SCOPED by a dedicated investigation before carding:
+  `XA8`'s own name suggested a new module; `src/foss_mcp/indexing/example_fixtures.py` (TC-459,
+  `REQ-G3-007`) ALREADY EXISTS and already does real-sample staging plus synthetic generation for
+  13 formats (txt/md/json/csv/html/htm/eml/obj/stl/ps/eps/png/pdf) - confirmed via its own
+  `_GENERATORS` dict (line 250) and `DOCUMENT_EXTENSIONS` frozenset (line 28, which already lists
+  `docx`/`xlsx`/`pptx`/`zip`/`msg` as document extensions a candidate MAY reference, even though no
+  generator for them exists yet). This is additive extension of existing, tested machinery, not a
+  new foundation.
+
+  CONFIRMED the real, still-open gap directly: `generated_fixture("docx")` returns `None` today
+  (pinned by an EXISTING test, `test_an_unknown_extension_gives_none`, which literally asserts
+  `ef.generated_fixture("docx") is None` - this card must change that assertion, not merely add a
+  generator and leave a stale pin). Of the 5 document-container extensions with no generator
+  (`zip`, `docx`, `xlsx`, `pptx`, `msg`), 4 are ordinary zip archives (OOXML's own container
+  format) and tractable with the stdlib `zipfile` module alone - CONFIRMED a minimal, real,
+  openable `.docx` (a valid `[Content_Types].xml` + `_rels/.rels` + `word/document.xml`) fits in
+  795 bytes, comfortably under the existing `generated_fixture` contract's own 1024-byte ceiling
+  (`test_every_generated_fixture_is_at_most_1024_bytes_and_deterministic`, which this card's new
+  generators must also satisfy, not weaken). `.msg` is a compound binary (OLE/CFBF) format,
+  meaningfully harder to hand-roll correctly without a library - DELIBERATELY EXCLUDED from this
+  card's scope, left as a documented follow-up, the same way this session's other O-series cards
+  (e.g. `O7`) excluded a harder sub-case rather than force an unverified fix.
+depends_on:
+  - TC-565
+  - TC-459
+write_paths:
+  - src/foss_mcp/indexing/example_fixtures.py
+  - tests/indexing/test_example_fixtures.py
+satisfies:
+  - REQ-G3-014
+source_refs:
+  - file: docs/DECISION_LOG.md
+    anchor: >-
+      ## 2026-11-02 — Round-3 independent re-audit adopted; a real regression found and given top
+      priority; the "no pilot ever gets worse" rule adopted project-wide (operator, supervisor)
+    sha256: b750b8bf0df25b17bf66d014895ecb42952050c7cc63773f56249c4a1c551791
+inputs:
+  - >-
+    READ FIRST: `example_fixtures.py`'s module docstring, `DOCUMENT_EXTENSIONS`, `_GENERATORS`
+    (line 250), `generated_fixture` (line 267), and the existing `_generate_png`/`_generate_pdf`
+    functions (precedent for a non-lambda generator) in full. Then read
+    `tests/indexing/test_example_fixtures.py`'s `_GENERATED_EXTENSIONS` tuple (a STATIC list, NOT
+    derived from `_GENERATORS.keys()` - you must add your 4 new extensions to it yourself or the
+    parametrized 1024-byte/determinism test will never exercise them),
+    `test_every_generated_fixture_is_at_most_1024_bytes_and_deterministic`, and
+    `test_an_unknown_extension_gives_none` (which currently pins `generated_fixture("docx") is
+    None` - you must remove `"docx"` from that assertion while leaving `"xps"`/`"msg"` there,
+    since those stay genuinely unsupported).
+  - >-
+    REPRODUCE FIRST: confirm for yourself, directly, that `generated_fixture("docx")`/
+    `("xlsx")`/`("pptx")`/`("zip")` all return `None` today, before writing anything. Separately,
+    make a real, honest effort to find whether any of the 32 real pilots' candidate code (grep
+    README-derived example sources, or run the existing `input_literals`/fixture-planning path
+    against a few real pilots) currently names a `.docx`/`.xlsx`/`.pptx`/`.zip` input file that
+    ends up in this module's `missing` list for lack of a generator - report what you find either
+    way (a real current need, or none found yet); this card closes the module's own declared
+    capability gap regardless of today's measured real-world hit rate, but the finding is useful
+    context for whoever scopes the next `XA*`/`AD-*` card.
+  - >-
+    FIX: add 4 new generator functions (your own names, e.g. `_generate_docx`/`_generate_xlsx`/
+    `_generate_pptx`/`_generate_zip`), each building a minimal, REAL, byte-valid file using the
+    stdlib `zipfile` module - `docx`/`xlsx`/`pptx` each need their own format's minimum required
+    internal parts (confirm the exact minimum by testing that a real library or tool - `zipfile`
+    itself at minimum, ideally also confirm the result opens if any OOXML-aware tool is available
+    in this environment - can read it back without error); `zip` is simply a valid, non-empty zip
+    archive with one small member. Register all 4 in `_GENERATORS`, keeping the dict's existing
+    entries completely unchanged, with your 4 new entries added as the LAST four dict items
+    (`"zip"`, `"docx"`, `"xlsx"`, `"pptx"`, in that order, each value your new function - not a
+    lambda, for these, to allow a real docstring per the `_generate_png`/`_generate_pdf`
+    precedent). Do not touch `DOCUMENT_EXTENSIONS`, `_is_relative_document_literal`, or any other
+    part of this file.
+  - >-
+    Update `tests/indexing/test_example_fixtures.py`: add `"zip"`, `"docx"`, `"xlsx"`, `"pptx"` to
+    `_GENERATED_EXTENSIONS` (so the existing parametrized size/determinism test covers them
+    automatically); remove `"docx"` from `test_an_unknown_extension_gives_none`'s assertions
+    (leave `"xps"` there, and ADD `"msg"` there explicitly, documenting that it remains
+    unsupported by design, not by oversight). Add real format-validity tests per new extension
+    (not just "is not None") - e.g. `zipfile.is_zipfile` on the generated bytes for all 4, plus a
+    check that `docx`/`xlsx`/`pptx` each contain their own format-defining required part
+    (`word/document.xml`, `xl/workbook.xml`, `ppt/presentation.xml` respectively) when read back
+    with `zipfile.ZipFile`.
+  - >-
+    MEASURE: run the full `tests/indexing/test_example_fixtures.py` suite before and after;
+    report exact before/after counts and confirm the existing 13-extension coverage is completely
+    unaffected (same bytes, same names) by diffing `generated_fixture(ext)`'s output for every
+    pre-existing extension before and after your change.
+actions:
+  - >-
+    Extend `example_fixtures.py`'s existing synthetic-generator registry with minimal, real,
+    byte-valid `zip`/`docx`/`xlsx`/`pptx` fixtures (zip-container formats, tractable with the
+    stdlib `zipfile` module), closing 4 of the 5 document-container extensions that currently have
+    no generator - `msg` (a harder compound-binary format) is deliberately left for a documented
+    follow-up.
+checks:
+  - command: '{python} -m pytest tests/indexing/test_example_fixtures.py -q -rfE -p no:cacheprovider'
+    expect: 'exit 0'
+    timeout_seconds: 120
+    junitxml: true
+    proves:
+      - REQ-G3-014
+min_tests: 4
+requires:
+  - python
+network: false
+negative_control:
+  mutate: |
+    python -X utf8 -c "import pathlib; p = pathlib.Path('src/foss_mcp/indexing/example_fixtures.py'); s = p.read_text(encoding='utf-8'); old = '    \"zip\": _generate_zip,\n    \"docx\": _generate_docx,\n    \"xlsx\": _generate_xlsx,\n    \"pptx\": _generate_pptx,\n}'; assert s.count(old) == 1, 'the required 4-entry registration block was not found verbatim (exact names/order) as expected - if your real code differs, anchor your own mutate on your own real literal instead and note the substitution in your closeout'; s2 = s.replace(old, '}', 1); assert s2 != s; p.write_text(s2, encoding='utf-8')"
+  rationale: >-
+    Deletes all 4 new `_GENERATORS` registrations in one block (leaving every pre-existing entry,
+    and the 4 new functions' own definitions, completely untouched) - `generated_fixture` reverts
+    to returning `None` for `zip`/`docx`/`xlsx`/`pptx` exactly as it does today, which must make
+    this card's new tests (asserting a real generated fixture for each) fail. Anchored on the
+    literal registration block, not a function rename, so a consistent rename cannot make this
+    vacuous (the lesson from this session's `TC-696` review).
+evidence:
+  - evidence/build/G3/TC-701/receipt.json
+closeout:
+  - >-
+    `example_fixtures.py` now generates minimal, real, byte-valid `zip`/`docx`/`xlsx`/`pptx`
+    fixtures (closing 4 of 5 document-container extensions that previously had none) - `msg`
+    remains a documented follow-up (compound binary format, harder to hand-roll).
+recovery: Re-run from a clean tree.
