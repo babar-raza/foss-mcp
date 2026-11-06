@@ -72,6 +72,74 @@ defects:
       version: 26.5.0
       date: '2026-10-29'
   status: open
+- id: 3D-JAVA-001
+  subject:
+    kind: class
+    refs:
+    - com.aspose.threed.Renderer
+    - com.aspose.threed.ShaderProgram
+    - com.aspose.threed.WindowHandle
+    - com.aspose.threed.CubeFace
+    - com.aspose.threed.RectangleShape
+    - com.aspose.threed.IPipeline
+    - com.aspose.threed.IRenderQueue
+    - com.aspose.threed.IRenderTarget
+    - com.aspose.threed.IRenderTexture
+    - com.aspose.threed.IRenderWindow
+    - com.aspose.threed.IBuffer
+    - com.aspose.threed.IDescriptorSet
+    - com.aspose.threed.ITextureUnit
+    - com.aspose.threed.IVertexBuffer
+    - com.aspose.threed.RenderFactory
+    - com.aspose.threed.RenderState
+    - com.aspose.threed.RenderStage
+    - com.aspose.threed.RenderParameters
+    - com.aspose.threed.RenderResource
+    - com.aspose.threed.RenderQueueGroupId
+    - com.aspose.threed.RendererException
+    - com.aspose.threed.RendererVariableManager
+    - com.aspose.threed.BlendFactor
+    - com.aspose.threed.CompareFunction
+    - com.aspose.threed.CullFaceMode
+    - com.aspose.threed.FrontFace
+    - com.aspose.threed.IndexDataType
+    - com.aspose.threed.InitializationException
+    - com.aspose.threed.NurbsDirection
+    - com.aspose.threed.PresetShaders
+    - com.aspose.threed.ShaderSource
+    - com.aspose.threed.TextureType
+    - com.aspose.threed.TrapeziumShape
+    - com.aspose.threed.ZShape
+    - com.aspose.threed.UShape
+    - com.aspose.threed.TShape
+    - com.aspose.threed.LShape
+    - com.aspose.threed.HShape
+    - com.aspose.threed.CShape
+  applies_to:
+    package_versions:
+    - 26.5.0
+  summary: 39 rendering-engine type names resolve via get_symbol/search_symbols as confident real classes
+    but are absent from the published org.aspose:aspose-3d-foss 26.5.0 jar; present only in the indexed
+    source commit, a commercial-only module.
+  user_action: Do not trust a confident get_symbol/search_symbols hit alone for a 3d/java rendering-related
+    type name; cross-check it exists in the real published jar (for example via javap or jar tf) before
+    writing code against it, since it will not compile or resolve against the real artifact.
+  evidence:
+    repro: Round-2 (docs/round2/issues.json, id 3D-JAVA-001) names 39 candidate type names in its own
+      repro field (Renderer plus the 38 named in its own Repeat for sentence), though its prose says 37
+      - a transcription discrepancy, corrected here by re-verifying every one of the 39 names it actually
+      lists. Resolved org.aspose:aspose-3d-foss:26.5.0 from Maven Central (the only version published
+      - confirmed via its real maven-metadata.xml), ran jar tf for the real top-level class list (204
+      entries, 201 under com.aspose.threed) and javap -public per candidate name; all 39 are class not
+      found against the real jar, while a real type (Mesh) resolves correctly as a sanity check. All 39
+      ARE present in this repository own indexed infra-demo-manifests corpus for 3d-java (get_symbol returns
+      found true with zero caveat for Renderer, ShaderSource and CShape against that real corpus on current
+      main, before this fix).
+    verified_on:
+      package: org.aspose:aspose-3d-foss
+      version: 26.5.0
+      date: '2026-11-06'
+  status: open
 - id: 3D-JAVA-014
   subject:
     kind: method

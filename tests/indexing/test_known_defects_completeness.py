@@ -54,6 +54,25 @@ count under ``config/known_defects/`` once TC-644/645/646/647 are all present - 
 the brand-new ``email__net.yaml`` and ``pdf__net.yaml``). This module's own file-count sanity test
 therefore asserts the real current total, 25, with the same "not a floor on the future" caveat the
 card's own text uses for the (evidently miscopied) "8".
+
+**Widened again (TC-706, 2026-11-06):** ``3D-JAVA-001`` (round-2, ``docs/round2/issues.json``,
+severity P0, category ``"coverage-gap"`` - NOT ``"upstream-library-bug"``) is a real, cited,
+committed audit finding this module's own category-filtered id source would otherwise never admit.
+TC-706 independently re-verified the finding against the real, currently-pinned
+``org.aspose:aspose-3d-foss:26.5.0`` Maven Central artifact (confirmed current directly via its own
+real ``maven-metadata.xml``, not assumed from round-2's pin) and found 39 - not round-2's claimed
+37, a transcription discrepancy in round-2's own ``repro`` field, corrected here - rendering-engine
+type names that resolve via ``get_symbol``/``search_symbols`` as confident real classes with zero
+caveat, yet are genuinely absent from the real published jar. This module's own
+``_real_upstream_library_bug_ids`` is widened the same deliberate, additive way TC-656 widened it
+from round2-only to round2-union-round3: a small, hand-reviewed, comment-documented
+``_ADDITIONAL_DISCLOSABLE_IDS`` frozenset, seeded with exactly ``{"3D-JAVA-001"}``, unioned into
+the returned id set - never a loosened filter, only an explicit addition to what the lock admits.
+Every id in that set still traces to one real, cited, committed audit record. The real new union
+count is 54 (not 53): both equality assertions (``test_registry_ids_exactly_equal_the_real_upstream_
+library_bug_issue_ids`` and ``test_registry_entry_count_equals_upstream_library_bug_issue_count``)
+still hold exactly, just against this slightly wider set; the real registry file count is unchanged
+at 25 (this entry lands in the already-existing ``3d__java.yaml``, not a new file).
 """
 
 from __future__ import annotations
@@ -130,6 +149,23 @@ def _real_round3_issues() -> list[dict[str, Any]]:
     return issues
 
 
+# TC-706 (G3, workstream J, REQ-G3-015): an explicit, hand-reviewed, additive allowlist of real,
+# cited, committed audit findings that this module's own category-filtered id source would
+# otherwise never admit, because their recorded ``category`` is not ``"upstream-library-bug"`` -
+# the same deliberate widening shape this module's own TC-656 rework already used to go from
+# round2-only to round2-union-round3. Each id here still traces to one real, cited, committed
+# audit record; this is never a loosened filter, only an explicit addition to what the lock
+# admits.
+#
+# - ``3D-JAVA-001`` (round-2, ``docs/round2/issues.json``, severity P0, category
+#   ``"coverage-gap"``): 39 phantom rendering-engine type names (independently re-verified by
+#   TC-706 against the real, currently-pinned ``org.aspose:aspose-3d-foss:26.5.0`` jar) resolve
+#   via ``get_symbol``/``search_symbols`` as confident real classes with zero caveat - a genuine
+#   index-truth/disclosure gap, just not categorized ``"upstream-library-bug"`` in the original
+#   audit.
+_ADDITIONAL_DISCLOSABLE_IDS: frozenset[str] = frozenset({"3D-JAVA-001"})
+
+
 def _real_upstream_library_bug_ids() -> set[str]:
     """The real, algorithmic answer to "which findings, from EITHER committed audit round, must
     have a known-defect entry" - the union of every ``docs/round2/issues.json`` entry and every
@@ -147,7 +183,7 @@ def _real_upstream_library_bug_ids() -> set[str]:
     round3_ids = {
         issue["id"] for issue in _real_round3_issues() if issue.get("category") == "upstream-library-bug"
     }
-    return round2_ids | round3_ids
+    return round2_ids | round3_ids | _ADDITIONAL_DISCLOSABLE_IDS
 
 
 # --------------------------------------------------------------------------------------------
@@ -205,10 +241,11 @@ def test_no_id_appears_in_more_than_one_registry_file_globally() -> None:
 
 # --------------------------------------------------------------------------------------------
 # point 6: the real, current registry entry count equals the real, current upstream-library-bug
-# issue count - both derived from the real data at test time, never hardcoded to 53 as the actual
-# assertion (only this module's docstring and the sanity comment below name 53, the real round2
-# union round3 count as of today, 2026-11-02 - see this module's own docstring for why this is 53,
-# not the round2-only 47 a narrower view would give)
+# issue count - both derived from the real data at test time, never hardcoded to 54 as the actual
+# assertion (only this module's docstring and the sanity comment below name 54, the real round2
+# union round3 union _ADDITIONAL_DISCLOSABLE_IDS count as of today, 2026-11-06 - see this module's
+# own docstring for why this is 54, not the round2-only 47 a narrower view would give, nor the 53
+# TC-656 computed before TC-706's own additive widening)
 # --------------------------------------------------------------------------------------------
 
 
@@ -224,12 +261,13 @@ def test_registry_entry_count_equals_upstream_library_bug_issue_count() -> None:
         f"issue count ({len(upstream_issue_ids)})"
     )
 
-    # Sanity anchor only, not a floor on the future: as of today (2026-11-02) this real union
-    # count is 53 (47 round2 + 6 genuinely-new-in-round3, see this module's docstring for the id
-    # list). A future card adding or retiring a confirmed upstream-library-bug finding (and its
-    # matching entry) is expected to move both sides together and may need to update this comment
-    # and number; the equality assertion above is the one that must hold forever.
-    assert len(upstream_issue_ids) == 53
+    # Sanity anchor only, not a floor on the future: as of today (2026-11-06) this real union
+    # count is 54 (53 round2-union-round3 as of TC-656, see this module's docstring for that id
+    # list, plus TC-706's own additive ``_ADDITIONAL_DISCLOSABLE_IDS`` entry ``3D-JAVA-001``). A
+    # future card adding or retiring a confirmed upstream-library-bug finding (and its matching
+    # entry) is expected to move both sides together and may need to update this comment and
+    # number; the equality assertion above is the one that must hold forever.
+    assert len(upstream_issue_ids) == 54
 
 
 # --------------------------------------------------------------------------------------------
