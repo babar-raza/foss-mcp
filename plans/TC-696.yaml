@@ -101,12 +101,16 @@ requires:
 network: false
 negative_control:
   mutate: |
-    python -X utf8 -c "import pathlib; p = pathlib.Path('tests/release/test_oracle_shell_resolution.py'); s = p.read_text(encoding='utf-8'); old = '_collect_test_count'; assert s.count(old) >= 1, 'the required _collect_test_count helper was not found as expected - if your real code names this differently, anchor your own mutate on your own real literal instead and note the substitution in your closeout'; s2 = s.replace(old, '_collect_test_countDISABLED', s.count(old)); assert s2 != s; p.write_text(s2, encoding='utf-8')"
+    python -X utf8 -c "import pathlib; p = pathlib.Path('tests/release/test_oracle_shell_resolution.py'); s = p.read_text(encoding='utf-8'); old = 'expected = _collect_test_count([EXISTING_SUITE])'; assert s.count(old) == 1, 'the required live-collection comparison line was not found as expected - if your real code differs, anchor your own mutate on your own real literal instead and note the substitution in your closeout'; s2 = s.replace(old, 'expected = _collect_test_count([EXISTING_SUITE]) + 1', 1); assert s2 != s; p.write_text(s2, encoding='utf-8')"
   rationale: >-
-    Renames every reference to the new `_collect_test_count` helper this card's fix depends on in
-    `test_oracle_shell_resolution.py`, so the test that calls it raises `NameError` instead of
-    comparing a live-collected count - proving the new self-computing mechanism, not just an
-    import, is genuinely under test.
+    AMENDMENT (post-review): the original mutate renamed every occurrence of `_collect_test_count`
+    (both its `def` and every call site) in lockstep, which left the renamed function fully working
+    under its new name - a vacuous falsifier (confirmed: `gatectl review`'s first run reported
+    `made_checks_fail=False`). This replacement instead corrupts only the ONE call site that feeds
+    the real regression test's expected value (`expected = _collect_test_count([EXISTING_SUITE])`),
+    forcing an off-by-one mismatch against the real collected total - the helper itself, and its
+    separate isolation-test call site, are untouched, so this isolates the real mechanism
+    (`total == expected`) under test rather than merely breaking an import/name resolution.
 evidence:
   - evidence/build/G3/TC-696/receipt.json
 closeout:
