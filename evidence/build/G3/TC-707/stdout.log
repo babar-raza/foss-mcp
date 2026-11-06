@@ -1,0 +1,53 @@
+
+===== CLEAN RUN 1 (host) =====
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-5c72e798a73c059a\Scripts\python.exe -m pytest tests/indexing/test_known_defects_completeness.py tests/indexing/test_known_defects_data_3d.py tests/mcp/tools/test_known_defects_in_product_reference.py -q -rfE -p no:cacheprovider "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-cmxr9t_v\.junit-0.xml"
+--- stdout ---
+.......................................                                  [100%]
+
+--- stderr ---
+
+
+===== CLEAN RUN 2 (host) =====
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-5c72e798a73c059a\Scripts\python.exe -m pytest tests/indexing/test_known_defects_completeness.py tests/indexing/test_known_defects_data_3d.py tests/mcp/tools/test_known_defects_in_product_reference.py -q -rfE -p no:cacheprovider "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-cmxr9t_v\.junit-0.xml"
+--- stdout ---
+.......................................                                  [100%]
+
+--- stderr ---
+
+
+===== NEGATIVE CONTROL (checks MUST now fail) =====
+mutated: M config/known_defects/3d__net.yaml, ?? .junit-0.xml
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-5c72e798a73c059a\Scripts\python.exe -m pytest tests/indexing/test_known_defects_completeness.py tests/indexing/test_known_defects_data_3d.py tests/mcp/tools/test_known_defects_in_product_reference.py -q -rfE -p no:cacheprovider "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-cmxr9t_v\.junit-0.xml"
+--- stdout ---
+....................F..................                                  [100%]
+================================== FAILURES ===================================
+__ test_every_3d_net_entry_is_verified_against_the_real_pinned_package_name ___
+
+    def test_every_3d_net_entry_is_verified_against_the_real_pinned_package_name() -> None:
+        """Every real ``3d/net`` registry entry (all five, including this card's own new
+        ``3D-NET-001``) names ``evidence.verified_on.package`` as exactly ``"Aspose.3D.FOSS"`` - the
+        one real, currently-pinned package every entry in this file is confirmed against (see
+        ``config/products/3d/net.yaml``). This is a real, true invariant of this file's own data
+        today, not an arbitrary assertion: it exists so a future corruption of a single entry's own
+        ``verified_on.package`` string (for example to a typo'd or non-existent package name) is
+        caught here, even though that field is never itself rendered by ``get_product_reference`` (it
+        is informational provenance, not disclosure text) and so would otherwise pass every other
+        check in this module silently."""
+        for defect in load_known_defects("3d", "net"):
+>           assert defect.evidence.verified_on.package == "Aspose.3D.FOSS", (
+                f"{defect.id}: expected evidence.verified_on.package == 'Aspose.3D.FOSS', "
+                f"got {defect.evidence.verified_on.package!r}"
+            )
+E           AssertionError: 3D-NET-001: expected evidence.verified_on.package == 'Aspose.3D.FOSS', got 'Aspose.3D.FOSS.NOTREAL'
+E           assert 'Aspose.3D.FOSS.NOTREAL' == 'Aspose.3D.FOSS'
+E             
+E             - Aspose.3D.FOSS
+E             + Aspose.3D.FOSS.NOTREAL
+E             ?               ++++++++
+
+tests\indexing\test_known_defects_data_3d.py:286: AssertionError
+=========================== short test summary info ===========================
+FAILED tests/indexing/test_known_defects_data_3d.py::test_every_3d_net_entry_is_verified_against_the_real_pinned_package_name
+
+--- stderr ---
+
