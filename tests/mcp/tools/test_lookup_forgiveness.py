@@ -21,12 +21,13 @@ from foss_mcp.mcp.routing import Scope
 from foss_mcp.mcp.tools import find_examples as find_examples_module
 from foss_mcp.mcp.tools import search_docs as search_docs_module
 from foss_mcp.mcp.tools.get_symbol import extract_fqn
-from foss_mcp.mcp.tools.lookup import TaskAnswer, _is_table_dominated, lookup
+from foss_mcp.mcp.tools.lookup import TaskAnswer, _is_table_dominated, _limitation_docs, lookup
 from foss_mcp.mcp.tools.search_symbols import Miss, SymbolMatch
 
 REPO_ROOT = Path(__file__).resolve().parents[3]
 DEMO_MANIFESTS = REPO_ROOT / "infra" / "demo-manifests"
 CELLS_NET = Scope(family="cells", platform="net")
+NOTE_PYTHON = Scope(family="note", platform="python")
 SYNTHETIC_SCOPE = Scope(family="pdf", platform="net")
 _GENERATION_ID = "gen-tc516-lookup"
 
@@ -48,6 +49,13 @@ def _no_embedding_gateway(monkeypatch: pytest.MonkeyPatch) -> None:
 def cells_net_store(tmp_path_factory: pytest.TempPathFactory) -> GenerationManifestStore:
     root = tmp_path_factory.mktemp("lookup_forgiveness_cells_net")
     shutil.copytree(DEMO_MANIFESTS / "cells__net__self_extracted", root / "cells__net__self_extracted")
+    return GenerationManifestStore(root)
+
+
+@pytest.fixture(scope="module")
+def note_python_store(tmp_path_factory: pytest.TempPathFactory) -> GenerationManifestStore:
+    root = tmp_path_factory.mktemp("lookup_forgiveness_note_python")
+    shutil.copytree(DEMO_MANIFESTS / "note__python__self_extracted", root / "note__python__self_extracted")
     return GenerationManifestStore(root)
 
 
@@ -294,3 +302,83 @@ def test_documentation_search_keeps_the_bare_family_word_query() -> None:
 
     assert isinstance(result, list)
     assert result
+
+
+# ---- TC-708 (NOTE-PY-005): a limitations answer split across two negation paragraphs -----------------
+
+
+def test_note_python_dot_one_save_question_surfaces_the_real_limitations_answer(
+    note_python_store: GenerationManifestStore,
+) -> None:
+    """NOTE-PY-005 (round-2 issues.json, P2, honesty): the real note/python pilot's own "Scope and
+    Limitations" document states the direct, correct answer - writing `.one` is unimplemented and
+    ``Document.Save()`` only accepts ``SaveFormat.Pdf`` - across two SEPARATE negation bullets,
+    neither of which alone holds enough of the question's terms to clear the relevance floor.
+    Before TC-708, ``lookup`` answered with the generic, table-only "Key Capabilities and API
+    Reference" document instead (one buried row of 29), reproducing the issue's own exact
+    complaint; it must now lead with the real, dedicated limitations document."""
+    result = lookup(note_python_store, NOTE_PYTHON, "how do I save a document as .one file")
+
+    assert isinstance(result, TaskAnswer)
+    assert result.doc_matches
+    assert extract_fqn(result.doc_matches[0].text) == "Doc: Scope and Limitations"
+
+
+def test_limitation_docs_combines_two_insufficient_paragraphs_of_a_title_matched_document() -> None:
+    """The same split-bullet shape as NOTE-PY-005, built synthetically: a document titled "Scope and
+    Limitations" (so ``_LIMITATION_TITLE`` recognizes it as the pilot's own authoritative source)
+    states its answer across two bullets, each alone short of the 2-term floor; a generic table
+    that happens to mention every query word in one chunk must not win instead."""
+    store = _InMemoryStore(
+        _doc_chunk(
+            "Scope and Limitations",
+            "- Writing back to .one is not implemented; this library only reads OneNote files.",
+            "- SaveFormat only declares Pdf; Document.Save() raises an error for anything else.",
+        ),
+        _table_chunk("Key Capabilities and API Reference", "save", "document", "one", "file"),
+    )
+
+    docs = _limitation_docs(store, SYNTHETIC_SCOPE, "how do I save a document as .one file")  # type: ignore[arg-type]
+
+    assert docs
+    assert extract_fqn(docs[0].text) == "Doc: Scope and Limitations"
+
+
+def test_limitation_docs_does_not_combine_paragraphs_of_a_non_title_matched_document() -> None:
+    """The identical split-bullet shape, but under a plain title ``_LIMITATION_TITLE`` was never
+    meant to recognize: TC-708's relaxation is title-scoped, so neither bullet alone clearing the
+    floor means this document is still never returned - ``_limitation_coverage``'s own
+    best-single-paragraph rule is completely unchanged for every non-title-matched document."""
+    store = _InMemoryStore(
+        _doc_chunk(
+            "Saving Files",
+            "- Writing back to .one is not implemented; this library only reads OneNote files.",
+            "- SaveFormat only declares Pdf; Document.Save() raises an error for anything else.",
+        ),
+    )
+
+    docs = _limitation_docs(store, SYNTHETIC_SCOPE, "how do I save a document as .one file")  # type: ignore[arg-type]
+
+    assert docs == ()
+
+
+def test_limitation_docs_never_credits_the_enterprise_edition_upsell_paragraph() -> None:
+    """Almost every real pilot's own "Scope and Limitations" document closes with a boilerplate
+    disclaimer comparing the FOSS edition to the commercial one ("These limitations don't apply to
+    ... Enterprise Edition, which adds ..."); it is a negation paragraph by cue, but it is
+    marketing copy, not a statement of what this edition lacks, and this card's own 32-pilot
+    before/after measurement found it can coincidentally share a query word. One real but
+    insufficient bullet plus this disclaimer must never combine to cross the floor."""
+    store = _InMemoryStore(
+        _doc_chunk(
+            "Scope and Limitations",
+            "- Removing the last gadget is not implemented; the API refuses the call.",
+            "",
+            "These limitations don't apply to Aspose.Widgets - Enterprise Edition, which adds "
+            "support for generating additional gadget formats.",
+        ),
+    )
+
+    docs = _limitation_docs(store, SYNTHETIC_SCOPE, "generate a new gadget")  # type: ignore[arg-type]
+
+    assert docs == ()

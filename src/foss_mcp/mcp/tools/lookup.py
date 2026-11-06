@@ -362,6 +362,16 @@ _PARAGRAPH_BREAK = re.compile(r"\n\s*\n|\n(?=\s*[-*] )")
 _LIMITATION_TITLE = re.compile(r"limitation|unsupported|known issue|scope", re.IGNORECASE)
 _MAX_LIMITATION_DOCS = 2
 _LIMITATION_MIN_TERMS = 2
+# TC-708: 27 of the 32 real pilots close their own "Scope and Limitations" document with a
+# boilerplate paragraph comparing the FOSS edition to the commercial one ("These limitations
+# don't apply to [Aspose.X - Enterprise Edition](...), which adds ..."). It is a negation
+# paragraph by ``_says_not_available``'s own cue list ("don't"/"do not"), but it states nothing
+# about what THIS edition cannot do - it is marketing copy that happens to drop format/feature
+# names (acronyms, verbs like "open"/"add") that can coincidentally share a word with an unrelated
+# query. ``_limitation_coverage_combined`` below excludes it from its union so that a real answer
+# is never reachable ONLY through this paragraph's incidental overlap - confirmed necessary by
+# this card's own 32-pilot before/after measurement, which found this exact failure mode.
+_LIMITATION_UPSELL_PARAGRAPH = re.compile(r"enterprise edition", re.IGNORECASE)
 
 
 def _says_not_available(paragraph: str) -> bool:
@@ -385,6 +395,41 @@ def _limitation_coverage(text: str, terms: frozenset[str], weights: dict[str, fl
     return best
 
 
+def _limitation_coverage_combined(
+    text: str, terms: frozenset[str], weights: dict[str, float]
+) -> tuple[float, int]:
+    """TC-708 (NOTE-PY-005): like ``_limitation_coverage``, but scored over the UNION of every negation
+    paragraph's tokens in *text*, instead of crediting only that text's single best paragraph. A pilot's
+    own dedicated limitations document can state one answer as two separate bullets - e.g. note/python's
+    "Writing back to `.one` is not implemented" and "`SaveFormat` ... only Pdf" - each of which alone holds
+    too few of the question's terms to clear ``_LIMITATION_MIN_TERMS``/``RELEVANCE_THRESHOLD``, even though
+    together they are exactly the real, correct, direct answer. The generic "upgrade to the Enterprise
+    Edition" disclaimer paragraph (``_LIMITATION_UPSELL_PARAGRAPH``) is never pooled in: it is marketing
+    comparison copy, not a statement of what this edition lacks, and this card's own 32-pilot before/after
+    measurement found that pooling it in produced real false-positive matches (a query term coincidentally
+    shared with the disclaimer's own feature-name-dropping, combined with one real but insufficient bullet).
+    Because that exclusion means this function can, in principle, score a document LOWER than
+    ``_limitation_coverage`` would (when the disclaimer paragraph alone was ``_limitation_coverage``'s own
+    best paragraph), ``_limitation_docs`` never calls this function as a replacement - it takes the higher
+    of this score and ``_limitation_coverage``'s own, so the change to a title-matched document's own score
+    is a pure relaxation, never a reduction. ``_limitation_docs`` calls this ONLY for a document it already
+    recognizes by title (``_LIMITATION_TITLE``) as the pilot's own dedicated limitations/scope/known-issue
+    document - every other document keeps using ``_limitation_coverage``'s own best-single-paragraph rule,
+    unchanged."""
+    combined_tokens: list[str] = []
+    for paragraph in _PARAGRAPH_BREAK.split(text):
+        if not _says_not_available(paragraph):
+            continue
+        if _LIMITATION_UPSELL_PARAGRAPH.search(paragraph):
+            continue
+        combined_tokens.extend(tokenize(paragraph))
+    if not combined_tokens:
+        return 0.0, 0
+    found = coverage(terms, combined_tokens, weights=weights)
+    matched = len(present_terms(terms, combined_tokens))
+    return found, matched
+
+
 def _payload_of(store: GenerationManifestStore, scope: Scope) -> tuple[str | None, dict]:
     key = scope_key(scope, SOURCE_KIND)
     generation_id = store.read_active(key)
@@ -402,7 +447,17 @@ def _limitation_docs(store: GenerationManifestStore, scope: Scope, query: str) -
     """TC-562: the documentation chunks that say a capability the question names is NOT available - a paragraph
     with a negation cue ("not supported", "not implemented", "no PDF export", "throws") that holds at least two
     of the question's terms and at least 60 percent of them - best first, a chunk titled as a limitation or scope
-    document ahead of an equal one that is not. At most two. ``()`` when none: nothing is invented."""
+    document ahead of an equal one that is not. At most two. ``()`` when none: nothing is invented.
+
+    TC-708 (NOTE-PY-005): a document already recognized by title (``_LIMITATION_TITLE``) as the pilot's OWN
+    dedicated limitations/scope/known-issue document is scored by ``_limitation_coverage_combined`` - the
+    union of every one of its own negation paragraphs, not just its single best one - because that document
+    is already structurally known to be the authoritative limitations source for this pilot: an answer it
+    states across two separate bullets (e.g. "writing `.one` is not implemented" and "`SaveFormat` only
+    declares Pdf") should not be excluded just because neither bullet alone holds enough of the question's
+    terms. Every OTHER document keeps using ``_limitation_coverage``'s own best-single-paragraph rule,
+    completely unchanged - this is a narrow, additive relaxation for the one case where the document is
+    already known to be authoritative, never a general loosening of the matching floor."""
     terms = query_terms(query, scope.family, platform=scope.platform)
     if (
         len(distinctive_terms(query, scope.family, platform=scope.platform)) < _LIMITATION_MIN_TERMS
@@ -419,11 +474,26 @@ def _limitation_docs(store: GenerationManifestStore, scope: Scope, query: str) -
         text = document["text"]
         if chunk_kind(text) != DOCUMENTATION:
             continue
-        fraction, matched = _limitation_coverage(text, terms, weights)
+        title = (extract_fqn(text) or "")[len("Doc: ") :]
+        is_authoritative = bool(_LIMITATION_TITLE.search(title))
+        # TC-708: for the authoritative (title-matched) case, take whichever of the two scores is
+        # higher - the original best-single-paragraph score, or the new combined-paragraph score -
+        # rather than replacing one with the other. This keeps the change a pure relaxation: any
+        # document that already cleared the floor under the old, unchanged rule keeps clearing it
+        # (``_limitation_coverage`` is still evaluated and can still win), while a document whose
+        # real answer is split across two paragraphs (neither alone sufficient) can now also clear
+        # it via the combined score. For every non-title-matched document, nothing changes at all.
+        fraction, matched = (
+            max(
+                _limitation_coverage(text, terms, weights),
+                _limitation_coverage_combined(text, terms, weights),
+            )
+            if is_authoritative
+            else _limitation_coverage(text, terms, weights)
+        )
         if matched < min(_LIMITATION_MIN_TERMS, len(terms)) or fraction < RELEVANCE_THRESHOLD:
             continue
-        title = (extract_fqn(text) or "")[len("Doc: ") :]
-        found.append((-fraction, 0 if _LIMITATION_TITLE.search(title) else 1, doc_id, text))
+        found.append((-fraction, 0 if is_authoritative else 1, doc_id, text))
     found.sort()
     return tuple(
         DocMatch(
