@@ -15,9 +15,11 @@ actually opens the file, never the exit code comparison that decides ``verified`
 from __future__ import annotations
 
 import hashlib
+import io
 import re
 import shutil
 import struct
+import zipfile
 import zlib
 from collections.abc import Callable, Sequence
 from dataclasses import dataclass
@@ -247,6 +249,183 @@ def _generate_pdf() -> bytes:
     return bytes(body + xref + trailer)
 
 
+# --- zip-container fixtures (zip/docx/xlsx/pptx) ---------------------------------
+#
+# docx/xlsx/pptx are OOXML: a zip archive of XML parts. Each generator below builds
+# the real minimum set of parts its format needs ([Content_Types].xml, the package's
+# root relationship, the format's own main part, and - for xlsx/pptx only, since a
+# workbook/presentation's real content lives in a separate worksheet/slide part - that
+# part's own relationship and the part itself), so the result is genuinely openable,
+# not merely a zip that happens to carry the right extension. ``msg`` (compound
+# binary/OLE, not a zip container) is deliberately left unsupported - a documented
+# follow-up, not an oversight.
+
+_ZIP_FIXTURE_DATE_TIME = (1980, 1, 1, 0, 0, 0)
+
+
+def _zip_entry_size(name: str, data: bytes, compress_type: int) -> int:
+    buffer = io.BytesIO()
+    with zipfile.ZipFile(buffer, "w") as archive:
+        info = zipfile.ZipInfo(name, date_time=_ZIP_FIXTURE_DATE_TIME)
+        info.compress_type = compress_type
+        archive.writestr(info, data, compresslevel=9)
+    return len(buffer.getvalue())
+
+
+def _build_zip_fixture(parts: Sequence[tuple[str, bytes]]) -> bytes:
+    """A deterministic zip archive containing exactly ``parts``, in order.
+
+    Every entry gets a fixed ``date_time`` (so the bytes never depend on the wall
+    clock a generator happens to run at) and whichever of stored/deflated compression
+    is smaller for that entry's own content, chosen per entry to keep the archive as
+    small as it can be.
+    """
+    buffer = io.BytesIO()
+    with zipfile.ZipFile(buffer, "w") as archive:
+        for name, data in parts:
+            stored = _zip_entry_size(name, data, zipfile.ZIP_STORED)
+            deflated = _zip_entry_size(name, data, zipfile.ZIP_DEFLATED)
+            method = zipfile.ZIP_DEFLATED if deflated < stored else zipfile.ZIP_STORED
+            info = zipfile.ZipInfo(name, date_time=_ZIP_FIXTURE_DATE_TIME)
+            info.compress_type = method
+            info.external_attr = 0o600 << 16
+            archive.writestr(info, data, compresslevel=9)
+    return buffer.getvalue()
+
+
+_OPC_CONTENT_TYPES_NS = "http://schemas.openxmlformats.org/package/2006/content-types"
+_OPC_RELATIONSHIPS_NS = "http://schemas.openxmlformats.org/package/2006/relationships"
+_OPC_OFFICE_DOCUMENT_REL = (
+    "http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument"
+)
+_XML_DECLARATION = b'<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
+
+
+def _opc_relationships_xml(target: str, rel_type: str) -> bytes:
+    return _XML_DECLARATION + (
+        f'<Relationships xmlns="{_OPC_RELATIONSHIPS_NS}">'
+        f'<Relationship Id="rId1" Type="{rel_type}" Target="{target}"/></Relationships>'
+    ).encode("ascii")
+
+
+def _generate_zip() -> bytes:
+    """A real, non-empty zip archive with one small member."""
+    return _build_zip_fixture([("minimal.txt", b"minimal fixture\n")])
+
+
+def _generate_docx() -> bytes:
+    """A minimal, real, openable ``.docx``: Word's own OOXML wordprocessing package.
+
+    Three parts, the real minimum a wordprocessing package needs: the content-types
+    declaration, the package's root relationship (pointing at the document part), and
+    ``word/document.xml`` itself - one paragraph of real text, no styles/theme parts,
+    which a wordprocessing document does not require to be genuinely openable.
+    """
+    content_types = _XML_DECLARATION + (
+        f'<Types xmlns="{_OPC_CONTENT_TYPES_NS}">'
+        '<Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/>'
+        '<Override PartName="/word/document.xml" '
+        'ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.document.main+xml"/>'
+        "</Types>"
+    ).encode("ascii")
+    document_xml = _XML_DECLARATION + (
+        b'<w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main">'
+        b"<w:body><w:p><w:r><w:t>minimal fixture</w:t></w:r></w:p></w:body></w:document>"
+    )
+    return _build_zip_fixture(
+        [
+            ("[Content_Types].xml", content_types),
+            ("_rels/.rels", _opc_relationships_xml("word/document.xml", _OPC_OFFICE_DOCUMENT_REL)),
+            ("word/document.xml", document_xml),
+        ]
+    )
+
+
+def _generate_xlsx() -> bytes:
+    """A minimal, real, openable ``.xlsx``: one workbook with one empty worksheet.
+
+    Five parts, the real minimum a spreadsheet package needs: the content-types
+    declaration, the package's root relationship, ``xl/workbook.xml`` itself, that
+    workbook's own relationship to its one worksheet (a ``<sheet>`` entry's ``r:id``
+    is a required reference, not decoration - omitting it would make the sheet
+    unreachable), and the worksheet part the workbook actually names.
+    """
+    content_types = _XML_DECLARATION + (
+        f'<Types xmlns="{_OPC_CONTENT_TYPES_NS}">'
+        '<Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/>'
+        '<Override PartName="/xl/workbook.xml" '
+        'ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/>'
+        '<Override PartName="/xl/worksheets/sheet1.xml" '
+        'ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/>'
+        "</Types>"
+    ).encode("ascii")
+    workbook_xml = _XML_DECLARATION + (
+        b'<workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" '
+        b'xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships">'
+        b'<sheets><sheet name="Sheet1" sheetId="1" r:id="rId1"/></sheets></workbook>'
+    )
+    workbook_rels = _opc_relationships_xml(
+        "worksheets/sheet1.xml",
+        "http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet",
+    )
+    sheet1_xml = _XML_DECLARATION + (
+        b'<worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">'
+        b"<sheetData/></worksheet>"
+    )
+    return _build_zip_fixture(
+        [
+            ("[Content_Types].xml", content_types),
+            ("_rels/.rels", _opc_relationships_xml("xl/workbook.xml", _OPC_OFFICE_DOCUMENT_REL)),
+            ("xl/workbook.xml", workbook_xml),
+            ("xl/_rels/workbook.xml.rels", workbook_rels),
+            ("xl/worksheets/sheet1.xml", sheet1_xml),
+        ]
+    )
+
+
+def _generate_pptx() -> bytes:
+    """A minimal, real, openable ``.pptx``: one presentation with one empty slide.
+
+    Five parts, the real minimum a presentation package needs: the content-types
+    declaration, the package's root relationship, ``ppt/presentation.xml`` itself
+    (naming its one slide via ``<p:sldId>`` and declaring a real slide size), that
+    presentation's own relationship to its one slide, and the slide part itself (an
+    empty-but-real shape tree, the minimum ``<p:sld>`` body the schema allows).
+    """
+    content_types = _XML_DECLARATION + (
+        f'<Types xmlns="{_OPC_CONTENT_TYPES_NS}">'
+        '<Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/>'
+        '<Override PartName="/ppt/presentation.xml" '
+        'ContentType="application/vnd.openxmlformats-officedocument.presentationml.presentation.main+xml"/>'
+        '<Override PartName="/ppt/slides/slide1.xml" '
+        'ContentType="application/vnd.openxmlformats-officedocument.presentationml.slide+xml"/>'
+        "</Types>"
+    ).encode("ascii")
+    presentation_xml = _XML_DECLARATION + (
+        b'<p:presentation xmlns:p="http://schemas.openxmlformats.org/presentationml/2006/main" '
+        b'xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships">'
+        b'<p:sldIdLst><p:sldId id="256" r:id="rId1"/></p:sldIdLst>'
+        b'<p:sldSz cx="9144000" cy="6858000"/></p:presentation>'
+    )
+    presentation_rels = _opc_relationships_xml(
+        "slides/slide1.xml", "http://schemas.openxmlformats.org/officeDocument/2006/relationships/slide"
+    )
+    slide1_xml = _XML_DECLARATION + (
+        b'<p:sld xmlns:p="http://schemas.openxmlformats.org/presentationml/2006/main">'
+        b'<p:cSld><p:spTree><p:nvGrpSpPr><p:cNvPr id="1" name=""/><p:cNvGrpSpPr/><p:nvPr/>'
+        b"</p:nvGrpSpPr><p:grpSpPr/></p:spTree></p:cSld></p:sld>"
+    )
+    return _build_zip_fixture(
+        [
+            ("[Content_Types].xml", content_types),
+            ("_rels/.rels", _opc_relationships_xml("ppt/presentation.xml", _OPC_OFFICE_DOCUMENT_REL)),
+            ("ppt/presentation.xml", presentation_xml),
+            ("ppt/_rels/presentation.xml.rels", presentation_rels),
+            ("ppt/slides/slide1.xml", slide1_xml),
+        ]
+    )
+
+
 _GENERATORS: dict[str, Callable[[], bytes]] = {
     "txt": lambda: _TXT_BYTES,
     "md": lambda: _MD_BYTES,
@@ -261,6 +440,10 @@ _GENERATORS: dict[str, Callable[[], bytes]] = {
     "eps": lambda: _EPS_BYTES,
     "png": _generate_png,
     "pdf": _generate_pdf,
+    "zip": _generate_zip,
+    "docx": _generate_docx,
+    "xlsx": _generate_xlsx,
+    "pptx": _generate_pptx,
 }
 
 

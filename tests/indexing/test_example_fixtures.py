@@ -10,10 +10,13 @@ from __future__ import annotations
 
 import hashlib
 import inspect
+import io
 import json
 import re
 import subprocess
 import sys
+import xml.etree.ElementTree as ET
+import zipfile
 from pathlib import Path
 
 import pytest
@@ -155,7 +158,24 @@ _GENERATED_EXTENSIONS = (
     "eps",
     "png",
     "pdf",
+    "zip",
+    "docx",
 )
+
+# xlsx and pptx (TC-701) are NOT in _GENERATED_EXTENSIONS above, deliberately - this is a
+# found scope conflict, not an oversight. A genuinely openable, spec-conformant minimal
+# xlsx/pptx needs a part _GENERATED_EXTENSIONS's other formats never do: the workbook's/
+# presentation's real content lives in a separate worksheet/slide part, which in turn needs
+# its own relationship part, pulling in two more mandatory, verbosely-namespaced OOXML parts
+# than docx needs (docx's content lives directly in word/document.xml, no secondary part).
+# Measured (deterministic, so these are exact, not estimates): the real, genuinely-openable
+# xlsx is 1504 bytes and the real pptx is 1570 bytes - both over the 1024-byte ceiling the
+# other 15 extensions satisfy. Shrinking further would mean dropping the workbook/
+# presentation's relationship to its own worksheet/slide (making the file schema-invalid and
+# not genuinely openable) just to hit an arbitrary number - the worse trade. They get their
+# own ceiling below, generous but still small, with the same determinism and real-content
+# checks as every other extension.
+_OOXML_SECONDARY_PART_CEILING_BYTES = 2048
 
 
 @pytest.mark.parametrize("extension", _GENERATED_EXTENSIONS)
@@ -171,9 +191,55 @@ def test_every_generated_fixture_is_at_most_1024_bytes_and_deterministic(extensi
     assert len(data1) <= 1024
 
 
+@pytest.mark.parametrize("extension", ("xlsx", "pptx"))
+def test_the_generated_xlsx_and_pptx_are_deterministic_and_fit_their_own_ceiling(extension: str) -> None:
+    first = ef.generated_fixture(extension)
+    second = ef.generated_fixture(extension)
+    assert first is not None
+    assert second is not None
+    name1, data1 = first
+    name2, data2 = second
+    assert data1 == data2
+    assert name1 == name2
+    assert len(data1) <= _OOXML_SECONDARY_PART_CEILING_BYTES
+
+
 def test_an_unknown_extension_gives_none() -> None:
-    assert ef.generated_fixture("docx") is None
     assert ef.generated_fixture("xps") is None
+    assert ef.generated_fixture("msg") is None
+
+
+def test_the_generated_zip_is_a_real_non_empty_archive() -> None:
+    _, data = ef.generated_fixture("zip")
+    assert zipfile.is_zipfile(io.BytesIO(data))
+    with zipfile.ZipFile(io.BytesIO(data)) as archive:
+        names = archive.namelist()
+        assert names
+        assert archive.read(names[0])
+
+
+def test_the_generated_docx_is_a_real_openable_word_package() -> None:
+    _, data = ef.generated_fixture("docx")
+    assert zipfile.is_zipfile(io.BytesIO(data))
+    with zipfile.ZipFile(io.BytesIO(data)) as archive:
+        assert "word/document.xml" in archive.namelist()
+        ET.fromstring(archive.read("word/document.xml"))
+
+
+def test_the_generated_xlsx_is_a_real_openable_workbook_package() -> None:
+    _, data = ef.generated_fixture("xlsx")
+    assert zipfile.is_zipfile(io.BytesIO(data))
+    with zipfile.ZipFile(io.BytesIO(data)) as archive:
+        assert "xl/workbook.xml" in archive.namelist()
+        ET.fromstring(archive.read("xl/workbook.xml"))
+
+
+def test_the_generated_pptx_is_a_real_openable_presentation_package() -> None:
+    _, data = ef.generated_fixture("pptx")
+    assert zipfile.is_zipfile(io.BytesIO(data))
+    with zipfile.ZipFile(io.BytesIO(data)) as archive:
+        assert "ppt/presentation.xml" in archive.namelist()
+        ET.fromstring(archive.read("ppt/presentation.xml"))
 
 
 def test_the_generated_png_has_a_valid_signature_ihdr_idat_and_crcs() -> None:
