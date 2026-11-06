@@ -1,0 +1,117 @@
+
+===== CLEAN RUN 1 (host) =====
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-5c72e798a73c059a\Scripts\python.exe -m pytest tests/extraction/tree_sitter_engine/test_python_surface.py tests/extraction/test_run_extraction_python.py -q -rfE -p no:cacheprovider "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-5ls769s_\.junit-0.xml"
+--- stdout ---
+.................................................                        [100%]
+
+--- stderr ---
+
+
+===== CLEAN RUN 2 (host) =====
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-5c72e798a73c059a\Scripts\python.exe -m pytest tests/extraction/tree_sitter_engine/test_python_surface.py tests/extraction/test_run_extraction_python.py -q -rfE -p no:cacheprovider "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-5ls769s_\.junit-0.xml"
+--- stdout ---
+.................................................                        [100%]
+
+--- stderr ---
+
+
+===== NEGATIVE CONTROL (checks MUST now fail) =====
+mutated: M src/foss_mcp/extraction/run_extraction.py, ?? .junit-0.xml
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-5c72e798a73c059a\Scripts\python.exe -m pytest tests/extraction/tree_sitter_engine/test_python_surface.py tests/extraction/test_run_extraction_python.py -q -rfE -p no:cacheprovider "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-5ls769s_\.junit-0.xml"
+--- stdout ---
+.........................................FFF.....                        [100%]
+================================== FAILURES ===================================
+_____ test_python_types_from_surface_builds_the_real_ts_go_constant_shape _____
+
+    def test_python_types_from_surface_builds_the_real_ts_go_constant_shape() -> None:
+        """TC-700: a ``kind == "constant"`` symbol must become a top-level entry in EXACTLY the same
+        shape Go/TypeScript's own constant entries already use (tests/fixtures/pdf_typescript/
+        api_surface.json's real top-level "MATHML_NS"/"IMAGE_FORMATS"-style entries) - asserted as a
+        literal dict, not merely key presence, so a stray extra or missing field is caught. Unlike a
+        class/function entry, it carries no "visibility"/"deprecated"/"class_import"/
+        "canonical_namespace" - those never appear on a real TS/Go constant entry either.
+        """
+        surface = PublicSurface(
+            symbols=(_constant_symbol("pkg.mod.MAX_RETRIES", value="3", return_type="int"),),
+            unresolved=(),
+        )
+        types = run_extraction._python_types_from_surface(surface)
+>       assert types == [
+            {
+                "name": "MAX_RETRIES",
+                "kind": "constant",
+                "doc": "",
+                "file": "pkg/mod.py",
+                "line": 9,
+                "type": "int",
+                "value": "3",
+                "bases": [],
+                "methods": [],
+                "properties": [],
+            }
+        ]
+E       AssertionError: assert [] == [{'name': 'MA...mod.py', ...}]
+E         
+E         Right contains one more item: {'name': 'MAX_RETRIES', 'kind': 'constant', 'doc': '', 'file': 'pkg/mod.py', ...}
+E         Use -v to get more diff
+
+tests\extraction\test_run_extraction_python.py:359: AssertionError
+_ test_python_types_from_surface_constant_never_crashes_with_no_docstring_or_type _
+
+    def test_python_types_from_surface_constant_never_crashes_with_no_docstring_or_type() -> None:
+        """A bare assignment almost never has its own docstring, and a literal ``None`` constant's
+        inferred type is the empty string (``_constant_type_text``'s own convention) - neither must
+        ever raise or produce a ``None`` where a string is expected downstream."""
+        surface = PublicSurface(
+            symbols=(_constant_symbol("pkg.mod.NOTHING", value="None", return_type=None),),
+            unresolved=(),
+        )
+        types = run_extraction._python_types_from_surface(surface)
+>       assert types == [
+            {
+                "name": "NOTHING",
+                "kind": "constant",
+                "doc": "",
+                "file": "pkg/mod.py",
+                "line": 9,
+                "type": "",
+                "value": "None",
+                "bases": [],
+                "methods": [],
+                "properties": [],
+            }
+        ]
+E       AssertionError: assert [] == [{'name': 'NO...mod.py', ...}]
+E         
+E         Right contains one more item: {'name': 'NOTHING', 'kind': 'constant', 'doc': '', 'file': 'pkg/mod.py', ...}
+E         Use -v to get more diff
+
+tests\extraction\test_run_extraction_python.py:384: AssertionError
+_ test_extract_from_clone_produces_the_real_constant_shape_for_a_bare_module_constant _
+
+tmp_path = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-20801/test_extract_from_clone_produc0')
+
+    def test_extract_from_clone_produces_the_real_constant_shape_for_a_bare_module_constant(
+        tmp_path: Path,
+    ) -> None:
+        """End to end through ``extract_from_clone`` (not a hand-built ``PublicSymbol``): a real bare
+        module-level constant on disk reaches the same literal dict shape as the unit test above."""
+        (tmp_path / "pyproject.toml").write_text('[project]\nname = "widgets"\n', encoding="utf-8")
+        pkg = tmp_path / "src" / "widgets"
+        pkg.mkdir(parents=True)
+        (pkg / "__init__.py").write_text("", encoding="utf-8")
+        (pkg / "settings.py").write_text('"""Settings."""\n\nMAX_RETRIES = 3\n', encoding="utf-8")
+    
+        types, unresolved = run_extraction.extract_from_clone(tmp_path, _manifest())
+>       constant = next(entry for entry in types if entry["name"] == "MAX_RETRIES")
+                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       StopIteration
+
+tests\extraction\test_run_extraction_python.py:412: StopIteration
+=========================== short test summary info ===========================
+FAILED tests/extraction/test_run_extraction_python.py::test_python_types_from_surface_builds_the_real_ts_go_constant_shape
+FAILED tests/extraction/test_run_extraction_python.py::test_python_types_from_surface_constant_never_crashes_with_no_docstring_or_type
+FAILED tests/extraction/test_run_extraction_python.py::test_extract_from_clone_produces_the_real_constant_shape_for_a_bare_module_constant
+
+--- stderr ---
+
