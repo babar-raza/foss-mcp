@@ -1,0 +1,120 @@
+
+===== CLEAN RUN 1 (host) =====
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-5c72e798a73c059a\Scripts\python.exe -m pytest tests/conformance/test_symbol_self_retrieval.py -q -rfE -p no:cacheprovider "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-6gz8tmv7\.junit-0.xml"
+--- stdout ---
+..........                                                               [100%]
+
+--- stderr ---
+
+
+===== CLEAN RUN 2 (host) =====
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-5c72e798a73c059a\Scripts\python.exe -m pytest tests/conformance/test_symbol_self_retrieval.py -q -rfE -p no:cacheprovider "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-6gz8tmv7\.junit-0.xml"
+--- stdout ---
+..........                                                               [100%]
+
+--- stderr ---
+
+
+===== NEGATIVE CONTROL (checks MUST now fail) =====
+mutated: M tests/conformance/test_symbol_self_retrieval.py, ?? .junit-0.xml
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-5c72e798a73c059a\Scripts\python.exe -m pytest tests/conformance/test_symbol_self_retrieval.py -q -rfE -p no:cacheprovider "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-6gz8tmv7\.junit-0.xml"
+--- stdout ---
+....F.F.F.                                                               [100%]
+================================== FAILURES ===================================
+__________ test_symbol_self_retrieval_matches_the_committed_baseline __________
+
+corpus = <tests.conformance.corpus.ConformanceCorpus object at 0x00000191CECC1BE0>
+
+    def test_symbol_self_retrieval_matches_the_committed_baseline(corpus: ConformanceCorpus) -> None:
+        """The one real measurement this card exists to pin: every (pilot, case_id) failure observed on
+        THIS run must already be known to the committed baseline - a failure outside it is a genuine new
+        regression (or, if the behaviour genuinely improved, the baseline may simply be ahead; see
+        ``assert_no_new_failures``'s own docstring for the non-strict/strict distinction)."""
+        exhaustive = exhaustive_enabled()
+        observed: list[tuple[str, str]] = []
+        for name in sorted(corpus.pilots):
+            pilot = corpus.pilots[name]
+            for case_id in _measure_pilot(corpus.store, pilot, exhaustive=exhaustive):
+                observed.append((name, case_id))
+        baseline = load_baseline(BASELINE_PATH)
+>       assert_no_new_failures(baseline, observed)
+
+tests\conformance\test_symbol_self_retrieval.py:287: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+baseline = Baseline(strict=True, known_failures=(KnownFailure(pilot='3d__java', case_id='bare-member-word-false-exact:A3DObject',...ose.words_foss.doc_reader.images.parse_shape_line_map', reason='measured, not yet fixed (TC-604, Q11-Q16 to shrink)')))
+observed_failures = [('3d__java', 'prefix3-findable:com.aspose.threed.IRenderQueue'), ('3d__java', 'digit-stripped-family-findable:com.asp..., ('3d__java', 'bare-member-word-false-exact:ShaderSource'), ('3d__net', 'prefix3-findable:Aspose.ThreeD.Entity'), ...]
+
+    def assert_no_new_failures(baseline: Baseline, observed_failures: Iterable[Any]) -> None:
+        """Raise ``AssertionError`` if *observed_failures* contains a ``(pilot, case_id)`` the baseline does
+        not already know about, naming exactly which case(s) are new. When ``baseline.strict`` is ``True``,
+        also raise if a baseline entry is NOT present in *observed_failures* (i.e. it now passes and the
+        baseline must be tightened); when ``baseline.strict`` is ``False`` (the default), that same absence
+        never fails - a baseline may always be ahead of what is currently observed."""
+        observed_keys = frozenset(_observed_key(failure) for failure in observed_failures)
+        known_keys = baseline.known_keys()
+    
+        new_failures = observed_keys - known_keys
+        if new_failures:
+            named = ", ".join(f"{pilot}:{case_id}" for pilot, case_id in sorted(new_failures))
+>           raise AssertionError(f"new failure(s) not present in the baseline: {named}")
+E           AssertionError: new failure(s) not present in the baseline: 3d__java:bare-member-word-false-exact:ShaderSource, 3d__net:bare-member-word-false-exact:Segment, cells__cpp:bare-member-word-false-exact:Cell, cells__go:bare-member-word-false-exact:Type, cells__go:bare-namespace-word-false-exact:AlignRight, cells__java:bare-member-word-false-exact:isEnabled, cells__rust:bare-member-word-false-exact:get_enabled, cells__rust:bare-namespace-word-false-exact:AutoFilterTop10, cells__typescript:bare-member-word-false-exact:renderChart, cells__typescript:bare-namespace-word-false-exact:aspose_cells, email__cpp:bare-member-word-false-exact:~cfb_node, email__net:bare-member-word-false-exact:CfbException, html__python:bare-member-word-false-exact:__init__, imaging__net:bare-member-word-false-exact:DetectFormat, pdf__cpp:bare-member-word-false-exact:FitRExplicitDestination, pdf__go:bare-member-word-false-exact:NewDestinationXYZUnchanged, pdf__go:bare-namespace-word-false-exact:CertifyPermission, pdf__java:bare-member-word-false-exact:getDegrees, pdf__net:bare-member-word-false-exact:Measure, pdf__typescript:bare-member-word-false-exact:country, pdf__typescript:bare-namespace-word-false-exact:cms, slides__cpp:bare-member-word-false-exact:Color, slides__java:bare-member-word-false-exact:getValue, slides__net:bare-member-word-false-exact:EffectFormat, tex__python:bare-member-word-false-exact:read_line, words__net:bare-member-word-false-exact:AxisScaling, words__python:bare-member-word-false-exact:parse_shape_line_map
+
+tests\conformance\baseline.py:80: AssertionError
+_______ test_strict_baseline_has_zero_stale_entries_under_default_mode ________
+
+corpus = <tests.conformance.corpus.ConformanceCorpus object at 0x00000191CECC1BE0>
+
+    def test_strict_baseline_has_zero_stale_entries_under_default_mode(corpus: ConformanceCorpus) -> None:
+        """The real evidence TC-695's ``strict: true`` flip is safe today: every remaining known_failures
+        entry still reproduces exactly under the real default-mode measurement, so flipping ``strict``
+        does not, by itself, turn an ordinary default-mode CI run red. (``assert_no_new_failures``'s own
+        stale check - exercised by ``test_symbol_self_retrieval_matches_the_committed_baseline`` now that
+        ``strict`` is ``True`` - already enforces this; this test makes the same evidence explicit and
+        independently re-derived, so a regression here is diagnosed directly rather than discovered only
+        as an opaque assertion failure in the shared baseline module.)"""
+        observed: set[tuple[str, str]] = set()
+        for name in sorted(corpus.pilots):
+            pilot = corpus.pilots[name]
+            for case_id in _measure_pilot(corpus.store, pilot, exhaustive=False):
+                observed.add((name, case_id))
+        baseline = load_baseline(BASELINE_PATH)
+        known = baseline.known_keys()
+        stale = known - observed
+        new = observed - known
+>       assert not stale, sorted(stale)
+E       AssertionError: [('3d__java', 'bare-member-word-false-exact:A3DObject'), ('3d__net', 'bare-member-word-false-exact:A3DObject'), ('cell...ls__go', 'bare-namespace-word-false-exact:AlignBottom'), ('cells__java', 'bare-member-word-false-exact:getRange'), ...]
+E       assert not frozenset({('3d__java', 'bare-member-word-false-exact:A3DObject'), ('3d__net', 'bare-member-word-false-exact:A3DObject...s__go', 'bare-namespace-word-false-exact:AlignBottom'), ('cells__java', 'bare-member-word-false-exact:getRange'), ...})
+
+tests\conformance\test_symbol_self_retrieval.py:335: AssertionError
+_______ test_case_g_case_ids_agree_between_default_and_exhaustive_mode ________
+
+corpus = <tests.conformance.corpus.ConformanceCorpus object at 0x00000191CECC1BE0>
+
+    def test_case_g_case_ids_agree_between_default_and_exhaustive_mode(corpus: ConformanceCorpus) -> None:
+        """TC-699 (REQ-G3-011): the actual fix this card closes, proved directly rather than assumed - now
+        that both case-(g) probe words are a pure function of each pilot's fixed ``ordered_fqns`` (the full
+        sorted FQN list, identical regardless of mode) instead of the mode-dependent ``sample``, the SAME
+        real defect must get the SAME ``case_id`` whether a pilot was measured under default (seeded,
+        3-per-pilot) or exhaustive (full-sweep) mode. Covers every one of the 5 pilots whose
+        ``namespace_word`` differs between the two derivations, plus 4 pilots whose ``member_word`` alone
+        differs - see ``MODE_STABILITY_SAMPLE_PILOTS``'s own comment for how this set was chosen."""
+        for name in MODE_STABILITY_SAMPLE_PILOTS:
+            pilot = corpus.pilots[name]
+            default_ids = _case_g_failures(_measure_pilot(corpus.store, pilot, exhaustive=False))
+            exhaustive_ids = _case_g_failures(_measure_pilot(corpus.store, pilot, exhaustive=True))
+>           assert default_ids == exhaustive_ids, (name, default_ids, exhaustive_ids)
+E           AssertionError: ('cells__go', ['bare-member-word-false-exact:Type', 'bare-namespace-word-false-exact:AlignRight'], ['bare-member-word-false-exact:Horizontal', 'bare-namespace-word-false-exact:AlignBottom'])
+E           assert ['bare-member...t:AlignRight'] == ['bare-member...:AlignBottom']
+E             
+E             At index 0 diff: 'bare-member-word-false-exact:Type' != 'bare-member-word-false-exact:Horizontal'
+E             Use -v to get more diff
+
+tests\conformance\test_symbol_self_retrieval.py:412: AssertionError
+=========================== short test summary info ===========================
+FAILED tests/conformance/test_symbol_self_retrieval.py::test_symbol_self_retrieval_matches_the_committed_baseline
+FAILED tests/conformance/test_symbol_self_retrieval.py::test_strict_baseline_has_zero_stale_entries_under_default_mode
+FAILED tests/conformance/test_symbol_self_retrieval.py::test_case_g_case_ids_agree_between_default_and_exhaustive_mode
+
+--- stderr ---
+

@@ -1,0 +1,89 @@
+{
+  "schema_version": 1,
+  "card": "TC-699",
+  "gate": "G3",
+  "generated_by": "gatectl",
+  "generated_at": "2026-11-06T03:43:39Z",
+  "base_rev": "4a1f3993b7f7a70f80fb1fac88d54ed4fa49e227",
+  "head_rev": "e34210523b39aa0d962d5469c9be3c5f5daea8fd",
+  "card_sha256": "b3a3dc433a7d361d2b4bc86625c16085efc2a2245e8f328fb249337eb591289d",
+  "fingerprint": {
+    "python": "3.13.2",
+    "platform": "Windows-11-10.0.26300-SP0",
+    "lock_sha256": "5c72e798a73c059a438e752e94a8d4c88c1bdf81a197f6e5c5fcecbc9466a691",
+    "env": {
+      "PYTHONHASHSEED": "0",
+      "PYTHONUTF8": "1",
+      "PYTHONDONTWRITEBYTECODE": "1",
+      "PYTHONIOENCODING": "utf-8",
+      "TZ": "UTC",
+      "LC_ALL": "C.UTF-8",
+      "SOURCE_DATE_EPOCH": "1700000000",
+      "verify_runner": "host"
+    }
+  },
+  "scope": {
+    "ok": true,
+    "changed_paths": [
+      "tests/conformance/test_symbol_self_retrieval.py",
+      "tests/fixtures/conformance/baseline_symbol_self_retrieval.json"
+    ],
+    "violations": [],
+    "evaluated": true
+  },
+  "runs": [
+    {
+      "run": 1,
+      "checks": [
+        {
+          "command": "{python} -m pytest tests/conformance/test_symbol_self_retrieval.py -q -rfE -p no:cacheprovider",
+          "exit_code": 0,
+          "duration_s": 132.77,
+          "stdout_sha256": "7040371af15613c02e821ec0eecc1d1330f691ace4cef93a41bfa358822c4103",
+          "tests": 10,
+          "skipped": 0,
+          "errors": 0,
+          "failures": 0
+        }
+      ],
+      "all_passed": true
+    },
+    {
+      "run": 2,
+      "checks": [
+        {
+          "command": "{python} -m pytest tests/conformance/test_symbol_self_retrieval.py -q -rfE -p no:cacheprovider",
+          "exit_code": 0,
+          "duration_s": 93.233,
+          "stdout_sha256": "7040371af15613c02e821ec0eecc1d1330f691ace4cef93a41bfa358822c4103",
+          "tests": 10,
+          "skipped": 0,
+          "errors": 0,
+          "failures": 0
+        }
+      ],
+      "all_passed": true
+    }
+  ],
+  "negative_control": {
+    "kind": "mutate",
+    "patch": "python -X utf8 -c \"import pathlib; p = pathlib.Path('tests/conformance/test_symbol_self_retrieval.py'); s = p.read_text(encoding='utf-8'); old1 = '    namespace_word = _FINAL_SEGMENT.split(ordered_fqns[0].strip())[0]'; old2 = '    member_word = _first_declared_member(texts, ordered_fqns)'; assert s.count(old1) == 1 and s.count(old2) == 1, 'the required mode-stable probe-word lines were not found verbatim (with their 4-space indent) as expected - if your real code differs, anchor your own mutate on your own real literals instead and note the substitution in your closeout'; s2 = s.replace(old1, '    namespace_word = _FINAL_SEGMENT.split(sample[0].strip())[0]', 1).replace(old2, '    member_word = _first_declared_member(texts, sample)', 1); assert s2 != s; p.write_text(s2, encoding='utf-8')\"\n",
+    "patch_sha256": "f9f1bf893f26fe081fccf56a64047300efa2edf986c1146f2c234f26c69d879f",
+    "applied": true,
+    "patch_applied_failed": true,
+    "exit_codes": [
+      1
+    ],
+    "tree_changed": [
+      "M tests/conformance/test_symbol_self_retrieval.py",
+      "?? .junit-0.xml"
+    ]
+  },
+  "holdout": {
+    "ran": false,
+    "passed": true,
+    "detail": "no holdout for this card"
+  },
+  "accepted": true,
+  "reason": "all gates passed"
+}
