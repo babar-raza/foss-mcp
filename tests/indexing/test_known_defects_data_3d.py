@@ -52,7 +52,25 @@ comment-documented ``_ADDITIONAL_DISCLOSABLE_3D_IDS`` frozenset, seeded with exa
 ``{"3D-JAVA-001"}``, unioned into the returned id set. This never weakens either exact-equality
 assertion below - every id in that set still traces to one real, cited, committed audit record
 (never invented) - it only widens what the lock admits. The real new total is 16 entries (15 + this
-card's own ``3D-JAVA-001``), all in the ``java`` pilot file (5 -> 6)."""
+card's own ``3D-JAVA-001``), all in the ``java`` pilot file (5 -> 6).
+
+**Widened again (TC-707, 2026-11-06):** ``3D-NET-001`` (round-2, ``docs/round2/issues.json``,
+severity P0, category ``"reference-section"`` - NOT ``"upstream-library-bug"``, the same category
+gap as ``3D-JAVA-001``) is another real, cited, committed audit finding this module's own
+category-filtered id source would otherwise never admit. TC-707 independently re-ran round-2's own
+repro against the real, currently-pinned ``Aspose.3D.FOSS 26.1.0`` NuGet package (confirmed still
+the real pin via this file's own 4 pre-existing entries and ``config/products/3d/net.yaml``) via a
+throwaway dotnet 8 console app, run twice for determinism, and confirmed ``Scene.Save()`` genuinely
+throws ``System.NotImplementedException`` for RVM (``RvmText``/``RvmBinary``), AMF, and HTML5/
+``Aspose3DWeb``, and that reflection finds no public ``FileFormat.Universal``/``U3D`` field at all -
+matching round-2's own ``actual`` field. Round-2's own finding TITLE also names PLY as falsely
+claimed working, but its own ``suggested_fix`` field says the real dispatcher table supports
+``ply``; TC-707's re-verification resolves that inconsistency in favor of ``suggested_fix`` -
+``Scene.Save("x.ply")`` (the real, documented API path) succeeds and writes a real file with no
+exception, so PLY is deliberately excluded from the new entry. ``_ADDITIONAL_DISCLOSABLE_3D_IDS``
+is widened the same deliberate, additive way, now seeded with ``{"3D-JAVA-001", "3D-NET-001"}``.
+The real new total is 17 entries (16 + this card's own ``3D-NET-001``), all in the ``net`` pilot
+file (4 -> 5)."""
 
 from __future__ import annotations
 
@@ -90,10 +108,10 @@ _FILES_BY_PLATFORM = {
     "python": "3d__python.yaml",
     "typescript": "3d__typescript.yaml",
 }
-# The real entry count actually WRITTEN per pilot (6 + 4 + 5 + 1 = 16): the 14 real round-2
-# findings TC-644 wrote, plus TC-656's own 3D-JAVA-014 (java 4 -> 5), plus this card's (TC-706)
-# own 3D-JAVA-001 (java 5 -> 6).
-_EXPECTED_COUNTS = {"java": 6, "net": 4, "python": 5, "typescript": 1}
+# The real entry count actually WRITTEN per pilot (6 + 5 + 5 + 1 = 17): the 14 real round-2
+# findings TC-644 wrote, plus TC-656's own 3D-JAVA-014 (java 4 -> 5), plus TC-706's own
+# 3D-JAVA-001 (java 5 -> 6), plus this card's (TC-707) own 3D-NET-001 (net 4 -> 5).
+_EXPECTED_COUNTS = {"java": 6, "net": 5, "python": 5, "typescript": 1}
 
 # TC-706 (G3, workstream J, REQ-G3-015): an explicit, hand-reviewed, additive allowlist of real,
 # cited, committed audit findings that this module's own category-filtered id source would
@@ -109,7 +127,16 @@ _EXPECTED_COUNTS = {"java": 6, "net": 4, "python": 5, "typescript": 1}
 #   via ``get_symbol``/``search_symbols`` as confident real classes with zero caveat - a genuine
 #   index-truth/disclosure gap, just not categorized ``"upstream-library-bug"`` in the original
 #   audit.
-_ADDITIONAL_DISCLOSABLE_3D_IDS: frozenset[str] = frozenset({"3D-JAVA-001"})
+# - ``3D-NET-001`` (round-2, ``docs/round2/issues.json``, severity P0, category
+#   ``"reference-section"``): the "formats" reference text claims RVM, AMF, HTML5/Aspose 3D Web
+#   viewer, and Universal/U3D export all work; independently re-verified by TC-707 against the
+#   real, currently-pinned ``Aspose.3D.FOSS 26.1.0`` NuGet package that ``Scene.Save()`` throws
+#   ``NotImplementedException`` for every one of them and that ``FileFormat`` has no public
+#   ``Universal``/``U3D`` field at all - a genuine reference-text/disclosure gap, just not
+#   categorized ``"upstream-library-bug"`` in the original audit. PLY, named in round-2's own
+#   TITLE but not its ``suggested_fix``/``actual`` fields, was independently re-verified and found
+#   NOT broken (``Scene.Save("x.ply")`` succeeds); PLY is deliberately excluded from this entry.
+_ADDITIONAL_DISCLOSABLE_3D_IDS: frozenset[str] = frozenset({"3D-JAVA-001", "3D-NET-001"})
 
 
 def _load_schema() -> dict:
@@ -172,11 +199,11 @@ def test_load_known_defects_returns_the_real_written_count_for_this_pilot(platfo
     )
 
 
-def test_sixteen_entries_total_across_all_four_3d_pilots() -> None:
+def test_seventeen_entries_total_across_all_four_3d_pilots() -> None:
     total = sum(
         len(load_known_defects("3d", platform)) for platform in ("java", "net", "python", "typescript")
     )
-    assert total == 16
+    assert total == 17
 
 
 def test_no_duplicate_ids_across_the_entire_3d_family() -> None:
@@ -219,10 +246,11 @@ def test_every_real_3d_upstream_library_bug_finding_has_a_written_entry() -> Non
         f"real 3d upstream-library-bug findings (round2 union round3) with no written entry: "
         f"{expected_ids - written_ids}"
     )
-    # Both sets equal, and both have exactly 16 members - the real union count as of 2026-11-06
-    # (15 as of 2026-11-02, plus this card's own additive 3D-JAVA-001).
+    # Both sets equal, and both have exactly 17 members - the real union count as of 2026-11-06
+    # (15 as of 2026-11-02, plus TC-706's additive 3D-JAVA-001, plus this card's (TC-707) own
+    # additive 3D-NET-001).
     assert expected_ids == written_ids
-    assert len(expected_ids) == 16
+    assert len(expected_ids) == 17
 
 
 # --------------------------------------------------------------------------------------------
@@ -242,6 +270,23 @@ def test_every_entry_is_status_open_and_scoped_by_package_versions_only() -> Non
             assert defect.applies_to.indexed_commit is None, (
                 f"{defect.id}: expected no indexed_commit scope (version-scoped findings only)"
             )
+
+
+def test_every_3d_net_entry_is_verified_against_the_real_pinned_package_name() -> None:
+    """Every real ``3d/net`` registry entry (all five, including this card's own new
+    ``3D-NET-001``) names ``evidence.verified_on.package`` as exactly ``"Aspose.3D.FOSS"`` - the
+    one real, currently-pinned package every entry in this file is confirmed against (see
+    ``config/products/3d/net.yaml``). This is a real, true invariant of this file's own data
+    today, not an arbitrary assertion: it exists so a future corruption of a single entry's own
+    ``verified_on.package`` string (for example to a typo'd or non-existent package name) is
+    caught here, even though that field is never itself rendered by ``get_product_reference`` (it
+    is informational provenance, not disclosure text) and so would otherwise pass every other
+    check in this module silently."""
+    for defect in load_known_defects("3d", "net"):
+        assert defect.evidence.verified_on.package == "Aspose.3D.FOSS", (
+            f"{defect.id}: expected evidence.verified_on.package == 'Aspose.3D.FOSS', "
+            f"got {defect.evidence.verified_on.package!r}"
+        )
 
 
 def test_every_subject_kind_is_method_or_package_or_class() -> None:
@@ -336,6 +381,32 @@ def test_get_product_reference_end_to_end_surfaces_real_written_python_package_d
     assert isinstance(result, ReferenceContent)
     assert "Scene.save() to OBJ in aspose-3d-foss 26.1.0 always raises TypeError" in result.text
     assert "aspose-3d-foss" in result.text
+    assert result.untrusted_upstream_content is False
+
+
+# --------------------------------------------------------------------------------------------
+# TC-707 (3D-NET-001): real end-to-end coverage proving get_product_reference discloses the new
+# entry, against the REAL, committed config/known_defects/3d__net.yaml this card wrote - nothing
+# monkeypatched, the same "package"-kind -> "limitations" merge path 3D-NET-004/006/008 already
+# use.
+# --------------------------------------------------------------------------------------------
+
+
+def test_get_product_reference_end_to_end_surfaces_real_written_net_3d_net_001_defect() -> None:
+    """``3D-NET-001`` is ``subject.kind: "package"``, so it must surface in
+    ``get_product_reference``'s "limitations" section for the real ``3d/net`` scope, loaded from
+    the REAL ``config/known_defects/3d__net.yaml`` this card wrote - nothing monkeypatched. This
+    proves the actual, real-world disclosure this card's purpose closes: a caller asking this
+    project's own "limitations" section now learns RVM/AMF/HTML5/Universal export is broken on the
+    installed 26.1.0 package, which it did not before this card."""
+    inputs = ProductReferenceInputs(platform="net", family="3d", readme_document=None)
+
+    result = get_product_reference(inputs, "limitations", readme=None)
+
+    assert isinstance(result, ReferenceContent)
+    assert "RVM, AMF, HTML5/Aspose 3D Web viewer, and Universal/U3D export all work" in result.text
+    assert "System.NotImplementedException" in result.text  # the repro evidence text itself
+    assert "Aspose.3D.FOSS" in result.text
     assert result.untrusted_upstream_content is False
 
 

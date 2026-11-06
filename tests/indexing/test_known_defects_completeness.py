@@ -73,6 +73,31 @@ count is 54 (not 53): both equality assertions (``test_registry_ids_exactly_equa
 library_bug_issue_ids`` and ``test_registry_entry_count_equals_upstream_library_bug_issue_count``)
 still hold exactly, just against this slightly wider set; the real registry file count is unchanged
 at 25 (this entry lands in the already-existing ``3d__java.yaml``, not a new file).
+
+**Widened again (TC-707, 2026-11-06):** ``3D-NET-001`` (round-2, ``docs/round2/issues.json``,
+severity P0, category ``"reference-section"`` - NOT ``"upstream-library-bug"``, the same category
+gap TC-706 hit for ``3D-JAVA-001``) is a real, cited, committed audit finding this module's own
+category-filtered id source would otherwise never admit. TC-707 independently re-ran round-2's own
+repro against the real, currently-pinned ``Aspose.3D.FOSS 26.1.0`` NuGet package (confirmed still
+the real pin via ``config/products/3d/net.yaml``/``config/known_defects/3d__net.yaml``'s own 4
+pre-existing entries, not assumed from round-2's own text) via a throwaway dotnet 8 console app,
+run twice for determinism, and confirmed ``Scene.Save()`` genuinely throws
+``System.NotImplementedException`` for RVM (``RvmText``/``RvmBinary``), AMF, and HTML5/
+``Aspose3DWeb``, and that reflection finds no public ``FileFormat.Universal``/``U3D`` field at all -
+exactly round-2's own ``actual`` field, reused here verbatim as this entry's evidence. Round-2's own
+finding TITLE also names PLY as falsely claimed working, but its own ``suggested_fix`` field says
+the real dispatcher table supports ``ply`` - TC-707's own re-verification resolves that internal
+inconsistency in favor of ``suggested_fix``: ``Scene.Save("x.ply")`` (the real, documented API path)
+succeeds and writes a real file with no exception on this same real package; only the separate,
+non-dispatched ``FileFormat.PLY`` enum value throws ``NotImplementedException``, matching this
+project's own existing ``config/products/3d/net.yaml`` "Scope and Limitations" text already
+correctly disclosing that PLY gotcha. PLY is therefore deliberately NOT part of this entry. This
+module's own ``_ADDITIONAL_DISCLOSABLE_IDS`` is widened the same deliberate, additive way, now
+seeded with ``{"3D-JAVA-001", "3D-NET-001"}``; every id in that set still traces to one real, cited,
+committed audit record, independently re-verified against the real currently-published package.
+The real new union count is 55 (not 54): both equality assertions above still hold exactly, just
+against this slightly wider set; the real registry file count is unchanged at 25 (this entry lands
+in the already-existing ``3d__net.yaml``, not a new file).
 """
 
 from __future__ import annotations
@@ -163,7 +188,17 @@ def _real_round3_issues() -> list[dict[str, Any]]:
 #   via ``get_symbol``/``search_symbols`` as confident real classes with zero caveat - a genuine
 #   index-truth/disclosure gap, just not categorized ``"upstream-library-bug"`` in the original
 #   audit.
-_ADDITIONAL_DISCLOSABLE_IDS: frozenset[str] = frozenset({"3D-JAVA-001"})
+# - ``3D-NET-001`` (round-2, ``docs/round2/issues.json``, severity P0, category
+#   ``"reference-section"``): the "formats" reference text claims RVM, AMF, HTML5/Aspose 3D Web
+#   viewer, and Universal/U3D export all work; independently re-verified by TC-707 against the
+#   real, currently-pinned ``Aspose.3D.FOSS 26.1.0`` NuGet package that ``Scene.Save()`` throws
+#   ``NotImplementedException`` for every one of them and that ``FileFormat`` has no public
+#   ``Universal``/``U3D`` field at all - a genuine reference-text/disclosure gap, just not
+#   categorized ``"upstream-library-bug"`` in the original audit. PLY, which round-2's own TITLE
+#   (but not its ``suggested_fix``/``actual`` fields) names as also falsely claimed, was
+#   independently re-verified and found NOT broken (``Scene.Save("x.ply")`` succeeds); PLY is
+#   deliberately excluded from this id's own registry entry.
+_ADDITIONAL_DISCLOSABLE_IDS: frozenset[str] = frozenset({"3D-JAVA-001", "3D-NET-001"})
 
 
 def _real_upstream_library_bug_ids() -> set[str]:
@@ -241,11 +276,11 @@ def test_no_id_appears_in_more_than_one_registry_file_globally() -> None:
 
 # --------------------------------------------------------------------------------------------
 # point 6: the real, current registry entry count equals the real, current upstream-library-bug
-# issue count - both derived from the real data at test time, never hardcoded to 54 as the actual
-# assertion (only this module's docstring and the sanity comment below name 54, the real round2
+# issue count - both derived from the real data at test time, never hardcoded to 55 as the actual
+# assertion (only this module's docstring and the sanity comment below name 55, the real round2
 # union round3 union _ADDITIONAL_DISCLOSABLE_IDS count as of today, 2026-11-06 - see this module's
-# own docstring for why this is 54, not the round2-only 47 a narrower view would give, nor the 53
-# TC-656 computed before TC-706's own additive widening)
+# own docstring for why this is 55, not the round2-only 47 a narrower view would give, nor the 53
+# TC-656 computed before TC-706/TC-707's own additive widening, nor the 54 TC-706 alone computed)
 # --------------------------------------------------------------------------------------------
 
 
@@ -262,12 +297,13 @@ def test_registry_entry_count_equals_upstream_library_bug_issue_count() -> None:
     )
 
     # Sanity anchor only, not a floor on the future: as of today (2026-11-06) this real union
-    # count is 54 (53 round2-union-round3 as of TC-656, see this module's docstring for that id
-    # list, plus TC-706's own additive ``_ADDITIONAL_DISCLOSABLE_IDS`` entry ``3D-JAVA-001``). A
-    # future card adding or retiring a confirmed upstream-library-bug finding (and its matching
-    # entry) is expected to move both sides together and may need to update this comment and
-    # number; the equality assertion above is the one that must hold forever.
-    assert len(upstream_issue_ids) == 54
+    # count is 55 (53 round2-union-round3 as of TC-656, see this module's docstring for that id
+    # list, plus TC-706's own additive ``_ADDITIONAL_DISCLOSABLE_IDS`` entry ``3D-JAVA-001`` and
+    # TC-707's own additive entry ``3D-NET-001``). A future card adding or retiring a confirmed
+    # upstream-library-bug finding (and its matching entry) is expected to move both sides
+    # together and may need to update this comment and number; the equality assertion above is
+    # the one that must hold forever.
+    assert len(upstream_issue_ids) == 55
 
 
 # --------------------------------------------------------------------------------------------

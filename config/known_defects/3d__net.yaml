@@ -9,17 +9,16 @@ defects:
   applies_to:
     package_versions:
     - 26.1.0
-  summary: 'Scene.Save() to FBX in Aspose.3D.FOSS 26.1.0 silently loses all scene
-    content on reopen: a saved 3483-byte file reopens with children=0, meshes=0, verts=0
-    and no exception; every open also prints an undocumented debug line to stdout.'
-  user_action: Do not rely on FBX export/reimport round-trips in Aspose.3D.FOSS 26.1.0
-    to preserve scene content; verify the reopened scene's node/mesh counts, and expect
-    stray debug output on stdout from every Scene.Open call.
+  summary: 'Scene.Save() to FBX in Aspose.3D.FOSS 26.1.0 silently loses all scene content on reopen:
+    a saved 3483-byte file reopens with children=0, meshes=0, verts=0 and no exception; every open also
+    prints an undocumented debug line to stdout.'
+  user_action: Do not rely on FBX export/reimport round-trips in Aspose.3D.FOSS 26.1.0 to preserve scene
+    content; verify the reopened scene's node/mesh counts, and expect stray debug output on stdout from
+    every Scene.Open call.
   evidence:
-    repro: 'scene.Save("sweep.fbx") then new Scene().Open("sweep.fbx"): reopened scene
-      has 0 children/meshes/verts despite a 3483-byte file being written and no exception
-      thrown. Every Open additionally printed ''ParseScene: objectsElement=False,
-      Compound=False'' to stdout.'
+    repro: 'scene.Save("sweep.fbx") then new Scene().Open("sweep.fbx"): reopened scene has 0 children/meshes/verts
+      despite a 3483-byte file being written and no exception thrown. Every Open additionally printed
+      ''ParseScene: objectsElement=False, Compound=False'' to stdout.'
     verified_on:
       package: Aspose.3D.FOSS
       version: 26.1.0
@@ -33,17 +32,15 @@ defects:
   applies_to:
     package_versions:
     - 26.1.0
-  summary: Scene.Save() to glTF/GLB in Aspose.3D.FOSS 26.1.0 writes primitives.indices
-    as an inline object instead of an integer accessor index, which is spec-invalid;
-    the library's own reader throws InvalidOperationException reopening its own output.
-  user_action: Do not round-trip glTF/GLB files written by Aspose.3D.FOSS 26.1.0 through
-    this library's own reader, and do not assume the written file is spec-conformant
-    glTF 2.0 for other consumers.
+  summary: Scene.Save() to glTF/GLB in Aspose.3D.FOSS 26.1.0 writes primitives.indices as an inline
+    object instead of an integer accessor index, which is spec-invalid; the library's own reader throws
+    InvalidOperationException reopening its own output.
+  user_action: Do not round-trip glTF/GLB files written by Aspose.3D.FOSS 26.1.0 through this library's
+    own reader, and do not assume the written file is spec-conformant glTF 2.0 for other consumers.
   evidence:
     repro: scene.Save("repro.gltf") then new Scene().Open("repro.gltf") threw InvalidOperationException.
-      Inspecting the raw JSON showed meshes[].primitives[].indices was a literal embedded
-      object instead of an integer accessor index; the identical structure reproduced
-      for .glb.
+      Inspecting the raw JSON showed meshes[].primitives[].indices was a literal embedded object instead
+      of an integer accessor index; the identical structure reproduced for .glb.
     verified_on:
       package: Aspose.3D.FOSS
       version: 26.1.0
@@ -57,17 +54,16 @@ defects:
   applies_to:
     package_versions:
     - 26.1.0
-  summary: COLLADA (.dae) export in Aspose.3D.FOSS 26.1.0 writes duplicate 'node-0'
-    ids for every node, both referencing one geometry; the second node's real geometry
-    is never written, masked by a plausible vertex count on reload.
-  user_action: Do not trust per-node geometry fidelity from Aspose.3D.FOSS 26.1.0's
-    COLLADA export for scenes with more than one node; verify geometry content directly
-    rather than relying on reloaded node/vertex counts.
+  summary: COLLADA (.dae) export in Aspose.3D.FOSS 26.1.0 writes duplicate 'node-0' ids for every node,
+    both referencing one geometry; the second node's real geometry is never written, masked by a plausible
+    vertex count on reload.
+  user_action: Do not trust per-node geometry fidelity from Aspose.3D.FOSS 26.1.0's COLLADA export for
+    scenes with more than one node; verify geometry content directly rather than relying on reloaded
+    node/vertex counts.
   evidence:
-    repro: Saved a 2-node scene (BoxNode 2x2x2, SmallBox 1x1x1) to COLLADA; the written
-      XML had two <node> elements both with id="node-0" and both <instance_geometry>
-      elements referencing the single <geometry id="geometry-0">, so SmallBox's distinct
-      geometry was never written.
+    repro: Saved a 2-node scene (BoxNode 2x2x2, SmallBox 1x1x1) to COLLADA; the written XML had two
+      <node> elements both with id="node-0" and both <instance_geometry> elements referencing the single
+      <geometry id="geometry-0">, so SmallBox's distinct geometry was never written.
     verified_on:
       package: Aspose.3D.FOSS
       version: 26.1.0
@@ -81,18 +77,56 @@ defects:
   applies_to:
     package_versions:
     - 26.1.0
-  summary: 'Binary STL files written by Aspose.3D.FOSS 26.1.0 have an internally inconsistent
-    header: the declared triangle count implies 1284 bytes, but the actual written
-    file is 1572 bytes (288 bytes unaccounted for).'
-  user_action: Do not assume a binary STL file's header triangle count matches its
-    actual size when written by Aspose.3D.FOSS 26.1.0; verify file size independently
-    if downstream tooling checks header consistency.
+  summary: 'Binary STL files written by Aspose.3D.FOSS 26.1.0 have an internally inconsistent header:
+    the declared triangle count implies 1284 bytes, but the actual written file is 1572 bytes (288 bytes
+    unaccounted for).'
+  user_action: Do not assume a binary STL file's header triangle count matches its actual size when
+    written by Aspose.3D.FOSS 26.1.0; verify file size independently if downstream tooling checks header
+    consistency.
   evidence:
-    repro: scene.Save("repro.stl") then read the 80-84 byte header's little-endian
-      triangle count (24, implying 84+24*50=1284 bytes) and compared it to the real
-      file size (1572 bytes).
+    repro: scene.Save("repro.stl") then read the 80-84 byte header's little-endian triangle count (24,
+      implying 84+24*50=1284 bytes) and compared it to the real file size (1572 bytes).
     verified_on:
       package: Aspose.3D.FOSS
       version: 26.1.0
       date: '2026-10-29'
+  status: open
+- id: 3D-NET-001
+  subject:
+    kind: package
+    refs:
+    - Aspose.3D.FOSS
+  applies_to:
+    package_versions:
+    - 26.1.0
+  summary: This project's own "formats" text claims RVM, AMF, HTML5/Aspose 3D Web viewer, and Universal/U3D
+    export all work, but Scene.Save() throws for every one of them on the installed Aspose.3D.FOSS 26.1.0
+    package.
+  user_action: 'Do not rely on RVM, AMF, HTML5/Aspose 3D Web viewer, or Universal/U3D export from Aspose.3D.FOSS
+    26.1.0 - every one throws at Scene.Save() time. Export only to the formats this project''s own re-verification
+    found functional through the standard Scene.Save(path) API (for example FBX, glTF, OBJ, STL, COLLADA,
+    3MF, and PLY - PLY itself is NOT affected by this entry, see evidence.repro). This project''s own
+    existing limitations text''s RVM caveat ("RvmFormat.LoadAttributes is not implemented") is also
+    incomplete: RVM export fails entirely, not only attribute loading.'
+  evidence:
+    repro: 'Independently re-ran round-2''s own repro (docs/round2/issues.json, id 3D-NET-001) against
+      the real, currently-pinned Aspose.3D.FOSS 26.1.0 NuGet package via a throwaway dotnet 8 console
+      app, run twice for determinism: a minimal Scene().Save(path, FileFormat.X) call for every claimed-working
+      format. FileFormat.RvmText and FileFormat.RvmBinary both throw System.NotImplementedException
+      ("Save options not implemented for rvm"); FileFormat.AMF throws System.NotImplementedException
+      ("Save options not implemented for .amf"); FileFormat.Aspose3DWeb and FileFormat.HTML5 both throw
+      System.NotImplementedException ("Save options not implemented for .html"). Extension-based Scene.Save("x.rvm"/"x.amf"/"x.html5"/"x.a3dw"/"x.u3d")
+      throws System.ArgumentException ("Unsupported file format: .<ext>") for every one of those extensions.
+      Reflection over FileFormat''s own public static fields found no "Universal" or "U3D" field at
+      all, so Universal/U3D export has no public entry point whatsoever, confirming round-2''s own actual
+      field. PLY was separately re-verified and found NOT broken by this entry: Scene.Save("x.ply")
+      (the real, documented API path) succeeds and writes a real file with no exception; only the separate,
+      non-dispatched FileFormat.PLY enum value throws NotImplementedException, matching this project''s
+      own existing limitations text already correctly disclosing that PLY gotcha - round-2''s own title
+      names PLY but its own suggested_fix and actual fields do not, and this re-verification sides with
+      the latter.'
+    verified_on:
+      package: Aspose.3D.FOSS
+      version: 26.1.0
+      date: '2026-11-06'
   status: open
