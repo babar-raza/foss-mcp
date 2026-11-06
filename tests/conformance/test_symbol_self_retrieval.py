@@ -285,3 +285,80 @@ def test_symbol_self_retrieval_matches_the_committed_baseline(corpus: Conformanc
             observed.append((name, case_id))
     baseline = load_baseline(BASELINE_PATH)
     assert_no_new_failures(baseline, observed)
+
+
+def test_pruned_baseline_has_exactly_the_expected_known_failures_count() -> None:
+    """TC-695 (Q17a, REQ-G3-011): a sanity count matching the real measured prune delta exactly. This
+    card removed 104 confirmed-fixed, FQN-keyed entries (54 ``prefix3-findable`` + 37
+    ``digit-stripped-family-findable`` + 13 ``bare-short-name-findable``, each independently
+    re-measured true under BOTH default and exhaustive mode, not merely exhaustive-mode-stale - 3
+    ``fabricated-fqn-false-exact`` entries that looked stale under exhaustive mode alone were excluded
+    from the prune because they still genuinely reproduce under default mode, the mode this
+    baseline's ``strict`` flag is actually enforced against) from the prior 223-entry baseline,
+    leaving 119. Every other sub-case, including all 4 ``fabricated-fqn-false-exact`` entries and all
+    64 case-(g) entries (``bare-namespace-word-false-exact``/``bare-member-word-false-exact``), is
+    left untouched - a regression here means a future edit silently pruned (or re-grew) something
+    this card deliberately did not touch."""
+    baseline = load_baseline(BASELINE_PATH)
+    assert baseline.strict is True
+    assert len(baseline.known_failures) == 119
+    by_subcase: dict[str, int] = {}
+    for failure in baseline.known_failures:
+        sub = failure.case_id.split(":", 1)[0]
+        by_subcase[sub] = by_subcase.get(sub, 0) + 1
+    assert by_subcase == {
+        "bare-member-word-false-exact": 32,
+        "bare-namespace-word-false-exact": 32,
+        "digit-stripped-family-findable": 23,
+        "fabricated-fqn-false-exact": 4,
+        "prefix3-findable": 28,
+    }
+
+
+def test_strict_baseline_has_zero_stale_entries_under_default_mode(corpus: ConformanceCorpus) -> None:
+    """The real evidence TC-695's ``strict: true`` flip is safe today: every remaining known_failures
+    entry still reproduces exactly under the real default-mode measurement, so flipping ``strict``
+    does not, by itself, turn an ordinary default-mode CI run red. (``assert_no_new_failures``'s own
+    stale check - exercised by ``test_symbol_self_retrieval_matches_the_committed_baseline`` now that
+    ``strict`` is ``True`` - already enforces this; this test makes the same evidence explicit and
+    independently re-derived, so a regression here is diagnosed directly rather than discovered only
+    as an opaque assertion failure in the shared baseline module.)"""
+    observed: set[tuple[str, str]] = set()
+    for name in sorted(corpus.pilots):
+        pilot = corpus.pilots[name]
+        for case_id in _measure_pilot(corpus.store, pilot, exhaustive=False):
+            observed.add((name, case_id))
+    baseline = load_baseline(BASELINE_PATH)
+    known = baseline.known_keys()
+    stale = known - observed
+    new = observed - known
+    assert not stale, sorted(stale)
+    assert not new, sorted(new)
+
+
+def test_case_g_entries_remain_untouched_and_still_reproduce_under_default_mode(
+    corpus: ConformanceCorpus,
+) -> None:
+    """A regression guard proving this card did not silently drop the real, deliberately-unresolved
+    case-(g) tracked limitation (``bare-namespace-word-false-exact``/``bare-member-word-false-exact``):
+    every pilot with a known case-(g) entry still measures that same failing sub-case under default
+    mode today. Case-(g)'s own identity is mode-unstable (TC-695's own purpose text / this module's
+    ``_measure_pilot`` docstring explain why), which is exactly why this card never prunes based on
+    exhaustive-mode's signal for it - only a default-mode reproduction, as checked here, counts."""
+    baseline = load_baseline(BASELINE_PATH)
+    case_g_known: dict[str, set[str]] = {}
+    for failure in baseline.known_failures:
+        sub = failure.case_id.split(":", 1)[0]
+        if sub in ("bare-namespace-word-false-exact", "bare-member-word-false-exact"):
+            case_g_known.setdefault(failure.pilot, set()).add(sub)
+    assert case_g_known, "expected case-(g) entries to remain in the baseline"
+    for pilot_name, expected_subs in case_g_known.items():
+        pilot = corpus.pilots[pilot_name]
+        failures = _measure_pilot(corpus.store, pilot, exhaustive=False)
+        observed_subs = {failure.split(":", 1)[0] for failure in failures}
+        for sub in expected_subs:
+            assert sub in observed_subs, (
+                pilot_name,
+                sub,
+                "case-(g) entry no longer reproduces under default mode",
+            )
