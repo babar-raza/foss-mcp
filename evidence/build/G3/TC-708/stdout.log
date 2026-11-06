@@ -1,0 +1,206 @@
+
+===== CLEAN RUN 1 (host) =====
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-5c72e798a73c059a\Scripts\python.exe -m pytest tests/mcp/tools/test_lookup_forgiveness.py tests/mcp/tools/test_lookup_query_normalization.py tests/mcp/tools/test_lookup_vector_fallback.py tests/mcp/tools/test_relevance_doc_scope_weights_enabled.py tests/mcp/tools/test_known_defects_in_product_reference.py -q -rfE -p no:cacheprovider "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-u0oh4ik_\.junit-0.xml"
+--- stdout ---
+..............................................................           [100%]
+
+--- stderr ---
+
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-5c72e798a73c059a\Scripts\python.exe -m pytest tests/mcp/tools/test_round3_retrieval_corpus.py tests/conformance/test_conformance_core.py tests/conformance/test_precision_and_size_budget.py tests/conformance/test_sentence_wrapped_retrieval.py tests/conformance/test_symbol_self_retrieval.py tests/conformance/test_index_honesty.py -q -rfE -p no:cacheprovider -m "not exhaustive" "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-u0oh4ik_\.junit-1.xml"
+--- stdout ---
+........................................................................ [ 76%]
+......................                                                   [100%]
+
+--- stderr ---
+
+
+===== CLEAN RUN 2 (host) =====
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-5c72e798a73c059a\Scripts\python.exe -m pytest tests/mcp/tools/test_lookup_forgiveness.py tests/mcp/tools/test_lookup_query_normalization.py tests/mcp/tools/test_lookup_vector_fallback.py tests/mcp/tools/test_relevance_doc_scope_weights_enabled.py tests/mcp/tools/test_known_defects_in_product_reference.py -q -rfE -p no:cacheprovider "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-u0oh4ik_\.junit-0.xml"
+--- stdout ---
+..............................................................           [100%]
+
+--- stderr ---
+
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-5c72e798a73c059a\Scripts\python.exe -m pytest tests/mcp/tools/test_round3_retrieval_corpus.py tests/conformance/test_conformance_core.py tests/conformance/test_precision_and_size_budget.py tests/conformance/test_sentence_wrapped_retrieval.py tests/conformance/test_symbol_self_retrieval.py tests/conformance/test_index_honesty.py -q -rfE -p no:cacheprovider -m "not exhaustive" "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-u0oh4ik_\.junit-1.xml"
+--- stdout ---
+........................................................................ [ 76%]
+......................                                                   [100%]
+
+--- stderr ---
+
+
+===== NEGATIVE CONTROL (checks MUST now fail) =====
+mutated: M src/foss_mcp/mcp/tools/lookup.py, ?? .junit-0.xml, ?? .junit-1.xml
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-5c72e798a73c059a\Scripts\python.exe -m pytest tests/mcp/tools/test_lookup_forgiveness.py tests/mcp/tools/test_lookup_query_normalization.py tests/mcp/tools/test_lookup_vector_fallback.py tests/mcp/tools/test_relevance_doc_scope_weights_enabled.py tests/mcp/tools/test_known_defects_in_product_reference.py -q -rfE -p no:cacheprovider "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-u0oh4ik_\.junit-0.xml"
+--- stdout ---
+.......................FF...F...............F.................           [100%]
+================================== FAILURES ===================================
+_ test_note_python_dot_one_save_question_surfaces_the_real_limitations_answer _
+
+note_python_store = <foss_mcp.indexing.generation_manifest.GenerationManifestStore object at 0x000001F2B569E850>
+
+    def test_note_python_dot_one_save_question_surfaces_the_real_limitations_answer(
+        note_python_store: GenerationManifestStore,
+    ) -> None:
+        """NOTE-PY-005 (round-2 issues.json, P2, honesty): the real note/python pilot's own "Scope and
+        Limitations" document states the direct, correct answer - writing `.one` is unimplemented and
+        ``Document.Save()`` only accepts ``SaveFormat.Pdf`` - across two SEPARATE negation bullets,
+        neither of which alone holds enough of the question's terms to clear the relevance floor.
+        Before TC-708, ``lookup`` answered with the generic, table-only "Key Capabilities and API
+        Reference" document instead (one buried row of 29), reproducing the issue's own exact
+        complaint; it must now lead with the real, dedicated limitations document."""
+        result = lookup(note_python_store, NOTE_PYTHON, "how do I save a document as .one file")
+    
+        assert isinstance(result, TaskAnswer)
+        assert result.doc_matches
+>       assert extract_fqn(result.doc_matches[0].text) == "Doc: Scope and Limitations"
+E       AssertionError: assert 'Doc: Install...d Quick Start' == 'Doc: Scope and Limitations'
+E         
+E         - Doc: Scope and Limitations
+E         + Doc: Installation, Dependencies, and Quick Start
+
+tests\mcp\tools\test_lookup_forgiveness.py:324: AssertionError
+_ test_limitation_docs_combines_two_insufficient_paragraphs_of_a_title_matched_document _
+
+    def test_limitation_docs_combines_two_insufficient_paragraphs_of_a_title_matched_document() -> None:
+        """The same split-bullet shape as NOTE-PY-005, built synthetically: a document titled "Scope and
+        Limitations" (so ``_LIMITATION_TITLE`` recognizes it as the pilot's own authoritative source)
+        states its answer across two bullets, each alone short of the 2-term floor; a generic table
+        that happens to mention every query word in one chunk must not win instead."""
+        store = _InMemoryStore(
+            _doc_chunk(
+                "Scope and Limitations",
+                "- Writing back to .one is not implemented; this library only reads OneNote files.",
+                "- SaveFormat only declares Pdf; Document.Save() raises an error for anything else.",
+            ),
+            _table_chunk("Key Capabilities and API Reference", "save", "document", "one", "file"),
+        )
+    
+        docs = _limitation_docs(store, SYNTHETIC_SCOPE, "how do I save a document as .one file")  # type: ignore[arg-type]
+    
+>       assert docs
+E       assert ()
+
+tests\mcp\tools\test_lookup_forgiveness.py:343: AssertionError
+__ test_platform_exclusion_narrows_lookups_own_doc_matches_on_the_real_pilot __
+
+pdf_net_store = <foss_mcp.indexing.generation_manifest.GenerationManifestStore object at 0x000001F286EE6FD0>
+simulate_platform_unaware_lookup = <function simulate_platform_unaware_lookup.<locals>._apply at 0x000001F2B6C647C0>
+
+    def test_platform_exclusion_narrows_lookups_own_doc_matches_on_the_real_pilot(
+        pdf_net_store: GenerationManifestStore,
+        simulate_platform_unaware_lookup,
+    ) -> None:
+        """The same narrowing TC-617's own ``search_docs`` test file measures directly (4 chunks before,
+        2 after) surfaces through ``lookup``'s own composed ``TaskAnswer.doc_matches`` too, since
+        ``lookup``'s doc-composition path calls ``search_docs`` directly for each content category.
+        Measured directly: ``doc_matches`` drops from 4 to 3 (``_without_unsupported_tables`` and the
+        other threaded helpers are not the dominant effect here; ``search_docs``'s own narrowing is) -
+        ``symbols``, ``example`` and ``match_quality`` are unaffected for this query."""
+        after = lookup(pdf_net_store, PDF_NET, PLATFORM_WORD_QUERY)
+        assert isinstance(after, TaskAnswer)
+    
+        simulate_platform_unaware_lookup()
+        before = lookup(pdf_net_store, PDF_NET, PLATFORM_WORD_QUERY)
+        assert isinstance(before, TaskAnswer)
+    
+>       assert len(before.doc_matches) == 4
+E       assert 3 == 4
+E        +  where 3 = len((DocMatch(scope=Scope(family='pdf', platform='net', source_kind='self_extracted'), generation_id='pdf::net::self_extra...e-Commit: b7172877651413cff57a8bfe41fb8a8befb2406b", match_quality='exact', unmatched_terms=(), match_basis='lexical')))
+E        +    where (DocMatch(scope=Scope(family='pdf', platform='net', source_kind='self_extracted'), generation_id='pdf::net::self_extra...e-Commit: b7172877651413cff57a8bfe41fb8a8befb2406b", match_quality='exact', unmatched_terms=(), match_basis='lexical')) = TaskAnswer(scope=Scope(family='pdf', platform='net', source_kind='self_extracted'), symbols=(SymbolMatch(scope=Scope(f...b2406b", match_quality='exact', unmatched_terms=(), match_basis='lexical')), match_quality='exact', unmatched_terms=()).doc_matches
+
+tests\mcp\tools\test_lookup_query_normalization.py:197: AssertionError
+_ test_the_full_ratchet_bundle_passes_completely_through_the_real_wired_search_docs_and_lookup _
+
+    def test_the_full_ratchet_bundle_passes_completely_through_the_real_wired_search_docs_and_lookup() -> None:
+        """A LIVE re-run (not a restatement) of the exact bundle named in this card's own second check
+        command, against the real, current, committed source tree where ``search_docs._rule_for`` and
+        ``lookup._limitation_docs`` are both genuinely wired to ``doc_scope_term_weights``. Must exit 0
+        with zero failures and zero errors - the end-state confirmation of the isolated, by-call-site
+        measurements this worker performed by hand before committing (see module docstring)."""
+        # TC-671: 1200s (20 min) replaces the prior 300s budget, which was too tight on this host -
+        # the supervisor measured 464s for a subset and 736s for the full bundle, both passing cleanly.
+        result = _run_pytest(list(RATCHET_BUNDLE), timeout=1200)
+>       assert result.returncode == 0, (
+            f"the ratchet bundle regressed with doc-scope weights wired into search_docs/lookup "
+            f"(exit {result.returncode}):\n{result.stdout[-4000:]}\n{result.stderr[-2000:]}"
+        )
+E       AssertionError: the ratchet bundle regressed with doc-scope weights wired into search_docs/lookup (exit 1):
+E         ........................................................................ [ 19%]
+E         ........................................................................ [ 39%]
+E         ........................................................................ [ 59%]
+E         ........................................................................ [ 78%]
+E         ........................FF.............................................. [ 98%]
+E         .....                                                                    [100%]
+E         ================================== FAILURES ===================================
+E         _ test_note_python_dot_one_save_question_surfaces_the_real_limitations_answer _
+E         
+E         note_python_store = <foss_mcp.indexing.generation_manifest.GenerationManifestStore object at 0x000001697F48C280>
+E         
+E             def test_note_python_dot_one_save_question_surfaces_the_real_limitations_answer(
+E                 note_python_store: GenerationManifestStore,
+E             ) -> None:
+E                 """NOTE-PY-005 (round-2 issues.json, P2, honesty): the real note/python pilot's own "Scope and
+E                 Limitations" document states the direct, correct answer - writing `.one` is unimplemented and
+E                 ``Document.Save()`` only accepts ``SaveFormat.Pdf`` - across two SEPARATE negation bullets,
+E                 neither of which alone holds enough of the question's terms to clear the relevance floor.
+E                 Before TC-708, ``lookup`` answered with the generic, table-only "Key Capabilities and API
+E                 Reference" document instead (one buried row of 29), reproducing the issue's own exact
+E                 complaint; it must now lead with the real, dedicated limitations document."""
+E                 result = lookup(note_python_store, NOTE_PYTHON, "how do I save a document as .one file")
+E             
+E                 assert isinstance(result, TaskAnswer)
+E                 assert result.doc_matches
+E         >       assert extract_fqn(result.doc_matches[0].text) == "Doc: Scope and Limitations"
+E         E       AssertionError: assert 'Doc: Install...d Quick Start' == 'Doc: Scope and Limitations'
+E         E         
+E         E         - Doc: Scope and Limitations
+E         E         + Doc: Installation, Dependencies, and Quick Start
+E         
+E         tests\mcp\tools\test_lookup_forgiveness.py:324: AssertionError
+E         _ test_limitation_docs_combines_two_insufficient_paragraphs_of_a_title_matched_document _
+E         
+E             def test_limitation_docs_combines_two_insufficient_paragraphs_of_a_title_matched_document() -> None:
+E                 """The same split-bullet shape as NOTE-PY-005, built synthetically: a document titled "Scope and
+E                 Limitations" (so ``_LIMITATION_TITLE`` recognizes it as the pilot's own authoritative source)
+E                 states its answer across two bullets, each alone short of the 2-term floor; a generic table
+E                 that happens to mention every query word in one chunk must not win instead."""
+E                 store = _InMemoryStore(
+E                     _doc_chunk(
+E                         "Scope and Limitations",
+E                         "- Writing back to .one is not implemented; this library only reads OneNote files.",
+E                         "- SaveFormat only declares Pdf; Document.Save() raises an error for anything else.",
+E                     ),
+E                     _table_chunk("Key Capabilities and API Reference", "save", "document", "one", "file"),
+E                 )
+E             
+E                 docs = _limitation_docs(store, SYNTHETIC_SCOPE, "how do I save a document as .one file")  # type: ignore[arg-type]
+E             
+E         >       assert docs
+E         E       assert ()
+E         
+E         tests\mcp\tools\test_lookup_forgiveness.py:343: AssertionError
+E         =========================== short test summary info ===========================
+E         FAILED tests/mcp/tools/test_lookup_forgiveness.py::test_note_python_dot_one_save_question_surfaces_the_real_limitations_answer
+E         FAILED tests/mcp/tools/test_lookup_forgiveness.py::test_limitation_docs_combines_two_insufficient_paragraphs_of_a_title_matched_document
+E         
+E         
+E       assert 1 == 0
+E        +  where 1 = CompletedProcess(args=['E:\\Users\\prora\\OneDrive\\Documents\\GitHub\\foss-mcp\\.gatectl-worktrees\\venv-5c72e798a73c...up_forgiveness.py::test_limitation_docs_combines_two_insufficient_paragraphs_of_a_title_matched_document\n', stderr='').returncode
+
+tests\mcp\tools\test_relevance_doc_scope_weights_enabled.py:129: AssertionError
+=========================== short test summary info ===========================
+FAILED tests/mcp/tools/test_lookup_forgiveness.py::test_note_python_dot_one_save_question_surfaces_the_real_limitations_answer
+FAILED tests/mcp/tools/test_lookup_forgiveness.py::test_limitation_docs_combines_two_insufficient_paragraphs_of_a_title_matched_document
+FAILED tests/mcp/tools/test_lookup_query_normalization.py::test_platform_exclusion_narrows_lookups_own_doc_matches_on_the_real_pilot
+FAILED tests/mcp/tools/test_relevance_doc_scope_weights_enabled.py::test_the_full_ratchet_bundle_passes_completely_through_the_real_wired_search_docs_and_lookup
+
+--- stderr ---
+
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-5c72e798a73c059a\Scripts\python.exe -m pytest tests/mcp/tools/test_round3_retrieval_corpus.py tests/conformance/test_conformance_core.py tests/conformance/test_precision_and_size_budget.py tests/conformance/test_sentence_wrapped_retrieval.py tests/conformance/test_symbol_self_retrieval.py tests/conformance/test_index_honesty.py -q -rfE -p no:cacheprovider -m "not exhaustive" "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-u0oh4ik_\.junit-1.xml"
+--- stdout ---
+........................................................................ [ 76%]
+......................                                                   [100%]
+
+--- stderr ---
+

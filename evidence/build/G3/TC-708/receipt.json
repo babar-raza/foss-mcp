@@ -1,0 +1,111 @@
+{
+  "schema_version": 1,
+  "card": "TC-708",
+  "gate": "G3",
+  "generated_by": "gatectl",
+  "generated_at": "2026-11-06T13:45:09Z",
+  "base_rev": "812a02e76ed8b58d77a39440fc33ce474641aeda",
+  "head_rev": "5176a62af6b489670b0d3c8628b6161b5a1f588b",
+  "card_sha256": "12aff1279f15cea248a696dfd60d5f4fa03d19069cd3ee9eb0fc9999bf43d813",
+  "fingerprint": {
+    "python": "3.13.2",
+    "platform": "Windows-11-10.0.26300-SP0",
+    "lock_sha256": "5c72e798a73c059a438e752e94a8d4c88c1bdf81a197f6e5c5fcecbc9466a691",
+    "env": {
+      "PYTHONHASHSEED": "0",
+      "PYTHONUTF8": "1",
+      "PYTHONDONTWRITEBYTECODE": "1",
+      "PYTHONIOENCODING": "utf-8",
+      "TZ": "UTC",
+      "LC_ALL": "C.UTF-8",
+      "SOURCE_DATE_EPOCH": "1700000000",
+      "verify_runner": "host"
+    }
+  },
+  "scope": {
+    "ok": true,
+    "changed_paths": [
+      "src/foss_mcp/mcp/tools/lookup.py",
+      "tests/mcp/tools/test_lookup_forgiveness.py"
+    ],
+    "violations": [],
+    "evaluated": true
+  },
+  "runs": [
+    {
+      "run": 1,
+      "checks": [
+        {
+          "command": "{python} -m pytest tests/mcp/tools/test_lookup_forgiveness.py tests/mcp/tools/test_lookup_query_normalization.py tests/mcp/tools/test_lookup_vector_fallback.py tests/mcp/tools/test_relevance_doc_scope_weights_enabled.py tests/mcp/tools/test_known_defects_in_product_reference.py -q -rfE -p no:cacheprovider",
+          "exit_code": 0,
+          "duration_s": 361.065,
+          "stdout_sha256": "de0615cf37b5c81f3262e96c1af6d39e3e1ed022fb623f364a1d3c083a4e551f",
+          "tests": 62,
+          "skipped": 0,
+          "errors": 0,
+          "failures": 0
+        },
+        {
+          "command": "{python} -m pytest tests/mcp/tools/test_round3_retrieval_corpus.py tests/conformance/test_conformance_core.py tests/conformance/test_precision_and_size_budget.py tests/conformance/test_sentence_wrapped_retrieval.py tests/conformance/test_symbol_self_retrieval.py tests/conformance/test_index_honesty.py -q -rfE -p no:cacheprovider -m \"not exhaustive\"",
+          "exit_code": 0,
+          "duration_s": 471.577,
+          "stdout_sha256": "1482c412af7ca7ec55670b6807842ce239a7580855527c91d32357b21d8fae19",
+          "tests": 94,
+          "skipped": 0,
+          "errors": 0,
+          "failures": 0
+        }
+      ],
+      "all_passed": true
+    },
+    {
+      "run": 2,
+      "checks": [
+        {
+          "command": "{python} -m pytest tests/mcp/tools/test_lookup_forgiveness.py tests/mcp/tools/test_lookup_query_normalization.py tests/mcp/tools/test_lookup_vector_fallback.py tests/mcp/tools/test_relevance_doc_scope_weights_enabled.py tests/mcp/tools/test_known_defects_in_product_reference.py -q -rfE -p no:cacheprovider",
+          "exit_code": 0,
+          "duration_s": 293.489,
+          "stdout_sha256": "de0615cf37b5c81f3262e96c1af6d39e3e1ed022fb623f364a1d3c083a4e551f",
+          "tests": 62,
+          "skipped": 0,
+          "errors": 0,
+          "failures": 0
+        },
+        {
+          "command": "{python} -m pytest tests/mcp/tools/test_round3_retrieval_corpus.py tests/conformance/test_conformance_core.py tests/conformance/test_precision_and_size_budget.py tests/conformance/test_sentence_wrapped_retrieval.py tests/conformance/test_symbol_self_retrieval.py tests/conformance/test_index_honesty.py -q -rfE -p no:cacheprovider -m \"not exhaustive\"",
+          "exit_code": 0,
+          "duration_s": 469.064,
+          "stdout_sha256": "1482c412af7ca7ec55670b6807842ce239a7580855527c91d32357b21d8fae19",
+          "tests": 94,
+          "skipped": 0,
+          "errors": 0,
+          "failures": 0
+        }
+      ],
+      "all_passed": true
+    }
+  ],
+  "negative_control": {
+    "kind": "mutate",
+    "patch": "python -X utf8 -c \"import pathlib; p = pathlib.Path('src/foss_mcp/mcp/tools/lookup.py'); s = p.read_text(encoding='utf-8'); old = '_LIMITATION_MIN_TERMS = 2'; assert s.count(old) == 1; s2 = s.replace(old, '_LIMITATION_MIN_TERMS = 999', 1); assert s2 != s; p.write_text(s2, encoding='utf-8')\"\n",
+    "patch_sha256": "83c8a81292c7df533017339c2c0b64692c8b5701d6f4bf62714978134d38cec0",
+    "applied": true,
+    "patch_applied_failed": true,
+    "exit_codes": [
+      1,
+      0
+    ],
+    "tree_changed": [
+      "M src/foss_mcp/mcp/tools/lookup.py",
+      "?? .junit-0.xml",
+      "?? .junit-1.xml"
+    ]
+  },
+  "holdout": {
+    "ran": false,
+    "passed": true,
+    "detail": "no holdout for this card"
+  },
+  "accepted": true,
+  "reason": "all gates passed"
+}
