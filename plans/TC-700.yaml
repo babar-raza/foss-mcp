@@ -1,0 +1,151 @@
+id: TC-700
+gate: G3
+lane: extraction
+purpose: >-
+  Closes a real gap flagged, not carded, during this session's own I10 investigation
+  (2026-11-05): "a BARE module-level constant (not inside a class, e.g. `MAX_RETRIES = 3` at
+  module top level) gets no symbol at its own module-qualified name at all - only indirectly,
+  partially disclosed as `unresolved-reexport` when something else re-exports it."
+
+  CONFIRMED directly, not estimated: `python_surface.py`'s `_module_symbols` loop (around line
+  607-661) only handles `ast.ClassDef`/`ast.FunctionDef`/`ast.AsyncFunctionDef`,
+  `ast.ImportFrom`, and `ast.Try`/`ast.If` top-level nodes - a bare `ast.Assign` at module scope
+  is never matched by any branch, so it produces NEITHER a symbol NOR an `unresolved` entry: it is
+  completely invisible, silently, with no trace anywhere. Reproduced with a hand-authored fixture
+  module (`MAX_RETRIES = 3` at top level, with and without an explicit `__all__ = ["MAX_RETRIES"]`
+  naming it): `_module_symbols` returns zero symbols and zero unresolved entries for it either
+  way - even when the module's own author explicitly names it a public export via `__all__`, it
+  disappears without disclosure. This is a genuine extractor fidelity gap, the same class this
+  session already closed for O5 (`TC-689`, Java enum constants) and O6 (`TC-690`, TypeScript
+  constructor-parameter-properties) - reproduced first, fixed additively, zero collateral on
+  existing behavior.
+
+  The downstream pipeline ALREADY supports a top-level `"constant"` kind entry generically - Go
+  and TypeScript's own enumerators already produce one (`api_surface.py`'s TS constant entries,
+  e.g. real pilot data for `AES_WRAP_OID`; Go's package-level `const`/`var` declarations), and
+  `chunk_builder.py` (around line 445-449) already renders any entry carrying
+  `kind == "constant"` OR a `"value"` key - confirmed this generic rendering path exists and needs
+  NO changes. This card's job is narrower than it first looks: make Python's own extractor and
+  `_python_types_from_surface` adapter produce an entry in that SAME already-supported shape
+  (`{"name", "kind": "constant", "doc", "file", "line", "type", "value", "bases": [], "methods":
+  [], "properties": []}`, matching the TS/Go shape exactly) for a bare module-level constant -
+  wiring a new PRODUCER into an existing CONSUMER, not building new indexing machinery.
+
+  SCOPE, deliberately narrow and explicit: only a module-top-level `ast.Assign` with EXACTLY ONE
+  target, that target a plain `ast.Name` (never a tuple/list-unpacking target, a subscript, or an
+  attribute), whose value passes `ast.literal_eval` (the same test `_literal_text`/
+  `_constant_type_text` - both already defined at module scope, lines 995/1045, and already
+  reused for CLASS-level constants - already apply). A bare assignment to a function call, a class
+  instance, or any other non-literal expression (a type alias, a computed default, a factory
+  call) is OUT of scope and stays exactly as unextracted as it is today - this card does not claim
+  to solve that harder, genuinely ambiguous category.
+depends_on:
+  - TC-676
+  - TC-667
+write_paths:
+  - src/foss_mcp/extraction/tree_sitter_engine/python_surface.py
+  - src/foss_mcp/extraction/run_extraction.py
+  - tests/extraction/tree_sitter_engine/test_python_surface.py
+  - tests/extraction/test_run_extraction_python.py
+satisfies:
+  - REQ-G3-012
+source_refs:
+  - file: docs/DECISION_LOG.md
+    anchor: >-
+      ## 2026-11-02 — Round-3 independent re-audit adopted; a real regression found and given top
+      priority; the "no pilot ever gets worse" rule adopted project-wide (operator, supervisor)
+    sha256: b750b8bf0df25b17bf66d014895ecb42952050c7cc63773f56249c4a1c551791
+inputs:
+  - >-
+    READ FIRST: `_module_symbols` (`python_surface.py`, around line 572-662), `PublicSymbol`'s own
+    dataclass fields (around line 75-120, especially the existing `value` field - "the literal a
+    property is assigned" - already reusable for a constant's value text), `_literal_text`/
+    `_constant_type_text` (lines 995/1045, already written for class-level constants, operate on a
+    plain `ast.expr` with no class-body coupling - directly reusable here), and the
+    `SymbolKind` type alias (line 40). Then read `_python_types_from_surface`
+    (`run_extraction.py`, around line 205-262, especially the `if symbol.kind not in ("class",
+    "enum", "function"): continue` guard at line 225) and a real TypeScript constant entry's exact
+    shape (grep `"kind": "constant"` in `api_surface.py` around line 2652-2662) and
+    `chunk_builder.py`'s generic constant-rendering check (around line 445-449) - confirm for
+    yourself these already exist and already work for Go/TypeScript before writing anything new.
+  - >-
+    REPRODUCE FIRST: write a small scratch fixture module (not committed) with a bare top-level
+    constant (with and without `__all__` naming it) and confirm with your own eyes, calling
+    `_module_symbols` directly, that today it produces zero symbols and zero unresolved entries for
+    it - exactly as this card's purpose field describes. Only once you've seen this yourself should
+    you change anything.
+  - >-
+    FIX, `python_surface.py`: add `"constant"` to the `SymbolKind` `Literal` (line 40). In
+    `_module_symbols`'s main loop, add a new branch matching a module-top-level `ast.Assign` with
+    exactly one target, that target a plain `ast.Name`, whose value passes `ast.literal_eval` (use
+    `_literal_text`/`_constant_type_text` exactly as the class-level code already does, do not
+    reimplement the literal check). Apply the SAME `_public_name(name, explicit)` visibility check
+    already used for classes/functions. Extend the existing `last_definition`-style "last binding
+    wins" convention (TC-532) to cover these constant assignments among themselves (a name
+    reassigned twice at module level keeps the LAST literal value) - report how you handled the
+    rarer cross-kind case (e.g. a name that is first a function, later reassigned to a constant, or
+    vice versa) if you encounter it; this card does not require solving that ambiguity perfectly,
+    only not crashing or silently duplicating symbols for it. Decide, and clearly document in your
+    closeout, where the inferred type text (`_constant_type_text`'s result) is carried through to
+    `run_extraction.py` - a new optional `PublicSymbol` field, or reuse of an existing one (e.g.
+    `return_type`) - either is acceptable, your choice, reported.
+  - >-
+    FIX, `run_extraction.py`: in `_python_types_from_surface`, add `"constant"` to the acceptance
+    tuple at line 225 and build a top-level entry for it in EXACTLY the same shape Go/TypeScript's
+    own constant entries already use (`{"name", "kind": "constant", "doc", "file", "line", "type",
+    "value", "bases": [], "methods": [], "properties": []}` - confirm this against a real
+    TypeScript pilot's own baked `api_surface.json` constant entry before committing to the shape,
+    do not guess it). `doc` is the constant's own docstring if any (likely always empty for a bare
+    assignment - confirm), never crash if `symbol.docstring` is `None`.
+  - >-
+    Add real tests to both test files: (a) `test_python_surface.py` - a bare module-level
+    constant with and without `__all__` now produces a real `PublicSymbol` with
+    `kind == "constant"`, the correct `value`/type text, and respects "last binding wins" when
+    reassigned; a non-literal bare assignment (e.g. `X = some_function()`) still produces NOTHING,
+    confirming this card's own scope boundary holds; (b) `test_run_extraction_python.py` -
+    `_python_types_from_surface` turns such a symbol into a top-level dict entry matching the
+    real TS/Go constant shape exactly (assert the literal dict, not just presence of keys).
+  - >-
+    MEASURE: run the full extraction test suites for both changed files before and after your
+    change, and separately confirm zero change to any of the 32 real pilots' already-baked
+    `api_surface.json` fixtures (this card changes LIVE extraction behavior, not the committed
+    fixtures - per this program's established convention, fixture regeneration is a separate,
+    later `R1*` step; confirm no existing test asserts a frozen, complete inventory of a real
+    pilot's top-level entries that your new constant-producing code would silently grow - if you
+    find one, report it, do not force a workaround).
+actions:
+  - >-
+    Extract a bare module-level Python constant (a plain-name assignment to a literal value) as a
+    real `kind: "constant"` symbol, reusing the exact entry shape Go/TypeScript's enumerators and
+    `chunk_builder.py`'s existing rendering path already support - closing a gap where such a
+    constant, even one explicitly named in `__all__`, was completely invisible with no disclosure.
+checks:
+  - command: '{python} -m pytest tests/extraction/tree_sitter_engine/test_python_surface.py tests/extraction/test_run_extraction_python.py -q -rfE -p no:cacheprovider'
+    expect: 'exit 0'
+    timeout_seconds: 300
+    junitxml: true
+    proves:
+      - REQ-G3-012
+min_tests: 4
+requires:
+  - python
+network: false
+negative_control:
+  mutate: |
+    python -X utf8 -c "import pathlib; p = pathlib.Path('src/foss_mcp/extraction/run_extraction.py'); s = p.read_text(encoding='utf-8'); old = '        if symbol.kind not in (\"class\", \"enum\", \"function\"):'; assert s.count(old) == 1, 'the required top-level-kind guard was not found verbatim as expected - if your real code differs (e.g. a differently-worded guard, or you handle constant entries in a separate loop), anchor your own mutate on your own real literal instead and note the substitution in your closeout'; s2 = s.replace(old, '        if symbol.kind not in (\"class\", \"enum\", \"function\", \"constant\") or symbol.kind == \"constant\":', 1); assert s2 != s; p.write_text(s2, encoding='utf-8')"
+  rationale: >-
+    Makes the acceptance guard skip every `kind == \"constant\"` symbol again (a double-negative
+    condition that is equivalent to the ORIGINAL unfixed guard for that one kind, while leaving
+    class/enum/function entries completely unaffected) - restoring exactly the silent-invisibility
+    defect this card closes, which must make the new tests asserting a real top-level constant
+    entry appears fail. Anchored on the exact guard line, not a renamed symbol, so a consistent
+    rename cannot make this vacuous.
+evidence:
+  - evidence/build/G3/TC-700/receipt.json
+closeout:
+  - >-
+    A bare module-level Python constant (a plain-name assignment to a literal value) is now
+    extracted as a real `kind: "constant"` symbol, in the same shape Go/TypeScript's own
+    enumerators already produce - closing a gap where such a constant, even one explicitly
+    exported via `__all__`, was previously completely invisible with zero disclosure.
+recovery: Re-run from a clean tree.
