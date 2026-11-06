@@ -1,0 +1,187 @@
+
+===== CLEAN RUN 1 (host) =====
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-5c72e798a73c059a\Scripts\python.exe -m pytest tests/indexing/test_known_defects_completeness.py tests/indexing/test_known_defects_data_cells_typescript_013.py tests/mcp/tools/test_known_defects_round3_siblings.py tests/mcp/tools/test_known_defects_multi_ref.py tests/mcp/tools/test_known_defects_refs_population.py -q -rfE -p no:cacheprovider "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-bzw5xjfm\.junit-0.xml"
+--- stdout ---
+........................................................................ [ 88%]
+.........                                                                [100%]
+
+--- stderr ---
+
+
+===== CLEAN RUN 2 (host) =====
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-5c72e798a73c059a\Scripts\python.exe -m pytest tests/indexing/test_known_defects_completeness.py tests/indexing/test_known_defects_data_cells_typescript_013.py tests/mcp/tools/test_known_defects_round3_siblings.py tests/mcp/tools/test_known_defects_multi_ref.py tests/mcp/tools/test_known_defects_refs_population.py -q -rfE -p no:cacheprovider "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-bzw5xjfm\.junit-0.xml"
+--- stdout ---
+........................................................................ [ 88%]
+.........                                                                [100%]
+
+--- stderr ---
+
+
+===== NEGATIVE CONTROL (checks MUST now fail) =====
+mutated: M config/known_defects/cells__typescript.yaml, ?? .junit-0.xml
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-5c72e798a73c059a\Scripts\python.exe -m pytest tests/indexing/test_known_defects_completeness.py tests/indexing/test_known_defects_data_cells_typescript_013.py tests/mcp/tools/test_known_defects_round3_siblings.py tests/mcp/tools/test_known_defects_multi_ref.py tests/mcp/tools/test_known_defects_refs_population.py -q -rfE -p no:cacheprovider "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-bzw5xjfm\.junit-0.xml"
+--- stdout ---
+......F..F....FFFF.......................F.............................. [ 88%]
+.........                                                                [100%]
+================================== FAILURES ===================================
+_______ test_every_method_or_class_kind_ref_matches_a_real_indexed_fqn ________
+
+corpus = <tests.conformance.corpus.ConformanceCorpus object at 0x0000021DF7A317F0>
+
+    def test_every_method_or_class_kind_ref_matches_a_real_indexed_fqn(corpus: ConformanceCorpus) -> None:
+        """The PERMANENT completeness lock this card (TC-702) exists to add: every real registry entry
+        whose ``subject.kind`` is ``"method"`` or ``"class"`` must have every one of its ``subject.refs``
+        match a real indexed FQN for its own pilot, loaded from the real, committed
+        ``infra/demo-manifests`` corpus (never a synthetic/``tmp_path``-only stand-in). A registry ref
+        that never matches any real indexed FQN is a disclosure that can NEVER surface through a live
+        ``get_symbol``/``search_symbols`` call, regardless of how well-formed and schema-valid its YAML
+        entry is - exactly the silent-failure class this card fixed 11 real, live instances of (see
+        ``docs/DECISION_LOG.md``'s ``## 2026-11-02`` entry), which had already recurred once despite two
+        prior hand-curated fix passes (``TC-660``, ``TC-668``). Confirmed directly by this card's own
+        worker, in scratch work never committed, that this exact assertion fails against the unfixed
+        registry content and names all 11 real mismatches - proof the mechanism actually works, not
+        merely that it exists."""
+        failures: list[str] = []
+        for path, defect in _all_registry_entries():
+            subject = defect.get("subject", {})
+            if subject.get("kind") not in ("method", "class"):
+                continue
+            pilot_key = path.stem  # e.g. "cells__typescript" - matches ConformanceCorpus.pilots' own key
+            if pilot_key not in corpus.pilots:
+                failures.append(
+                    f"{path.name}: defect {defect.get('id')!r} - no real corpus pilot {pilot_key!r} "
+                    "exists to check its refs against"
+                )
+                continue
+            real_fqns = _real_indexed_fqns(corpus, pilot_key)
+            for ref in subject.get("refs", []):
+                if ref not in real_fqns:
+                    failures.append(
+                        f"{path.name}: defect {defect.get('id')!r} subject.refs entry {ref!r} does not "
+                        f"match any real indexed FQN for pilot {pilot_key!r}"
+                    )
+>       assert failures == [], (
+            "known_defects subject.refs entries that never match a real indexed FQN (a disclosure "
+            "that can never surface through a live get_symbol/search_symbols call):\n" + "\n".join(failures)
+        )
+E       AssertionError: known_defects subject.refs entries that never match a real indexed FQN (a disclosure that can never surface through a live get_symbol/search_symbols call):
+E         cells__typescript.yaml: defect 'CELLS-TYPESCRIPT-013' subject.refs entry 'Workbook' does not match any real indexed FQN for pilot 'cells__typescript'
+E       assert ["cells__type..._typescript'"] == []
+E         
+E         Left contains one more item: "cells__typescript.yaml: defect 'CELLS-TYPESCRIPT-013' subject.refs entry 'Workbook' does not match any real indexed FQN for pilot 'cells__typescript'"
+E         Use -v to get more diff
+
+tests\indexing\test_known_defects_completeness.py:355: AssertionError
+_ test_load_known_defects_returns_an_entry_with_the_real_id_and_subject_refs __
+
+    def test_load_known_defects_returns_an_entry_with_the_real_id_and_subject_refs() -> None:
+        defect = _real_defect()
+        assert defect.id == DEFECT_ID
+>       assert defect.subject.refs == ("aspose_cells.workbook.Workbook",)
+E       AssertionError: assert ('Workbook',) == ('aspose_cell...ok.Workbook',)
+E         
+E         At index 0 diff: 'Workbook' != 'aspose_cells.workbook.Workbook'
+E         Use -v to get more diff
+
+tests\indexing\test_known_defects_data_cells_typescript_013.py:112: AssertionError
+_________ test_get_symbol_end_to_end_surfaces_the_real_written_defect _________
+
+store = <tests.indexing.test_known_defects_data_cells_typescript_013._InMemoryStore object at 0x0000021DB15A3E00>
+
+    def test_get_symbol_end_to_end_surfaces_the_real_written_defect(store: _InMemoryStore) -> None:
+        """``get_symbol(fqn='aspose_cells.workbook.Workbook')`` for the real ``cells/typescript`` scope
+        must carry the real ``CELLS-TYPESCRIPT-013`` disclosure, loaded from the REAL, committed
+        registry file this card wrote - nothing monkeypatched."""
+        result = get_symbol(store, SCOPE, "aspose_cells.workbook.Workbook")  # type: ignore[arg-type]
+    
+        assert isinstance(result, SymbolSignature)
+        assert result.fqn == "aspose_cells.workbook.Workbook"
+>       assert len(result.known_defects) == 1
+E       AssertionError: assert 0 == 1
+E        +  where 0 = len(())
+E        +    where () = SymbolSignature(scope=Scope(family='cells', platform='typescript', source_kind='self_extracted'), generation_id='gen-t...aw_text omitted: pass include_raw_text=True to get_symbol to include it>, found=True, limitations=(), known_defects=()).known_defects
+
+tests\indexing\test_known_defects_data_cells_typescript_013.py:230: AssertionError
+_____ test_get_symbol_resolved_member_save_also_surfaces_the_real_defect ______
+
+store = <tests.indexing.test_known_defects_data_cells_typescript_013._InMemoryStore object at 0x0000021DB15A3E00>
+
+    def test_get_symbol_resolved_member_save_also_surfaces_the_real_defect(store: _InMemoryStore) -> None:
+        """Resolving the member name ``Workbook.save`` (TC-540's member-resolution path) must carry
+        the same disclosure, since ``known_defect_lines`` matches on the OWNING type's fqn."""
+        result = get_symbol(store, SCOPE, "aspose_cells.workbook.Workbook.save")  # type: ignore[arg-type]
+    
+        assert isinstance(result, ResolvedSignature)
+        assert result.fqn == "aspose_cells.workbook.Workbook"
+>       assert len(result.known_defects) == 1
+E       AssertionError: assert 0 == 1
+E        +  where 0 = len(())
+E        +    where () = ResolvedSignature(scope=Scope(family='cells', platform='typescript', source_kind='self_extracted'), generation_id='gen...', member_lines=('save(filePath: string, options?: { password?: string; saveFormat?: SaveFormat }) -> Promise<void>',)).known_defects
+
+tests\indexing\test_known_defects_data_cells_typescript_013.py:243: AssertionError
+_______ test_search_symbols_end_to_end_surfaces_the_real_written_defect _______
+
+store = <tests.indexing.test_known_defects_data_cells_typescript_013._InMemoryStore object at 0x0000021DB15A3E00>
+
+    def test_search_symbols_end_to_end_surfaces_the_real_written_defect(store: _InMemoryStore) -> None:
+        """``search_symbols('aspose_cells.workbook.Workbook')`` for the real ``cells/typescript`` scope
+        must carry the same real ``CELLS-TYPESCRIPT-013`` disclosure on its
+        ``SymbolMatch.known_defects`` field (KD3), loaded from the REAL, committed registry file -
+        nothing monkeypatched."""
+        result = search_symbols(store, SCOPE, "aspose_cells.workbook.Workbook")  # type: ignore[arg-type]
+    
+        assert isinstance(result, list), f"expected a real symbol hit, got a Miss: {result!r}"
+        matches: list[SymbolMatch] = result
+        assert len(matches) == 1
+>       assert len(matches[0].known_defects) == 1
+E       AssertionError: assert 0 == 1
+E        +  where 0 = len(())
+E        +    where () = SymbolMatch(scope=Scope(family='cells', platform='typescript', source_kind='self_extracted'), generation_id='gen-tc656...tched_terms=(), total_matches=1, next_offset=None, aliases=(), limitation='', known_defects=(), match_kind='exact_fqn').known_defects
+
+tests\indexing\test_known_defects_data_cells_typescript_013.py:257: AssertionError
+______ test_search_symbols_by_save_also_surfaces_the_real_written_defect ______
+
+store = <tests.indexing.test_known_defects_data_cells_typescript_013._InMemoryStore object at 0x0000021DB15A3E00>
+
+    def test_search_symbols_by_save_also_surfaces_the_real_written_defect(store: _InMemoryStore) -> None:
+        """``search_symbols('save')`` must also resolve to the ``Workbook`` type and carry the same
+        disclosure - proving the defect surfaces regardless of whether the caller searched by type
+        name or by the affected method name."""
+        result = search_symbols(store, SCOPE, "save")  # type: ignore[arg-type]
+    
+        assert isinstance(result, list), f"expected a real symbol hit, got a Miss: {result!r}"
+        matches: list[SymbolMatch] = result
+>       assert any(match.known_defects for match in matches), (
+            "search_symbols('save') must surface the Workbook-scoped CELLS-TYPESCRIPT-013 disclosure"
+        )
+E       AssertionError: search_symbols('save') must surface the Workbook-scoped CELLS-TYPESCRIPT-013 disclosure
+E       assert False
+E        +  where False = any(<generator object test_search_symbols_by_save_also_surfaces_the_real_written_defect.<locals>.<genexpr> at 0x0000021DB0865A80>)
+
+tests\indexing\test_known_defects_data_cells_typescript_013.py:271: AssertionError
+_ test_real_cells_typescript_013_still_surfaces_through_get_symbol_after_migration _
+
+    def test_real_cells_typescript_013_still_surfaces_through_get_symbol_after_migration() -> None:
+        """A second real, already-committed, independently-migrated pilot - cells/typescript's
+        CELLS-TYPESCRIPT-013, the pilot the round-3 audit scored worst (F) for exactly this defect."""
+        scope = Scope(family="cells", platform="typescript")
+        fqn = "aspose_cells.workbook.Workbook"
+    
+        lines = get_symbol_known_defect_lines(scope, fqn, _symbol_text(fqn))
+    
+>       assert len(lines) == 1
+E       assert 0 == 1
+E        +  where 0 = len(())
+
+tests\mcp\tools\test_known_defects_multi_ref.py:224: AssertionError
+=========================== short test summary info ===========================
+FAILED tests/indexing/test_known_defects_completeness.py::test_every_method_or_class_kind_ref_matches_a_real_indexed_fqn
+FAILED tests/indexing/test_known_defects_data_cells_typescript_013.py::test_load_known_defects_returns_an_entry_with_the_real_id_and_subject_refs
+FAILED tests/indexing/test_known_defects_data_cells_typescript_013.py::test_get_symbol_end_to_end_surfaces_the_real_written_defect
+FAILED tests/indexing/test_known_defects_data_cells_typescript_013.py::test_get_symbol_resolved_member_save_also_surfaces_the_real_defect
+FAILED tests/indexing/test_known_defects_data_cells_typescript_013.py::test_search_symbols_end_to_end_surfaces_the_real_written_defect
+FAILED tests/indexing/test_known_defects_data_cells_typescript_013.py::test_search_symbols_by_save_also_surfaces_the_real_written_defect
+FAILED tests/mcp/tools/test_known_defects_multi_ref.py::test_real_cells_typescript_013_still_surfaces_through_get_symbol_after_migration
+
+--- stderr ---
+
