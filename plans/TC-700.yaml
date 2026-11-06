@@ -132,14 +132,17 @@ requires:
 network: false
 negative_control:
   mutate: |
-    python -X utf8 -c "import pathlib; p = pathlib.Path('src/foss_mcp/extraction/run_extraction.py'); s = p.read_text(encoding='utf-8'); old = '        if symbol.kind not in (\"class\", \"enum\", \"function\"):'; assert s.count(old) == 1, 'the required top-level-kind guard was not found verbatim as expected - if your real code differs (e.g. a differently-worded guard, or you handle constant entries in a separate loop), anchor your own mutate on your own real literal instead and note the substitution in your closeout'; s2 = s.replace(old, '        if symbol.kind not in (\"class\", \"enum\", \"function\", \"constant\") or symbol.kind == \"constant\":', 1); assert s2 != s; p.write_text(s2, encoding='utf-8')"
+    python -X utf8 -c "import pathlib; p = pathlib.Path('src/foss_mcp/extraction/run_extraction.py'); s = p.read_text(encoding='utf-8'); old = '        if symbol.kind not in (\"class\", \"enum\", \"function\", \"constant\"):'; assert s.count(old) == 1, 'the required top-level-kind guard was not found verbatim as expected - if your real code differs (e.g. a differently-worded guard, or you handle constant entries in a separate loop), anchor your own mutate on your own real literal instead and note the substitution in your closeout'; s2 = s.replace(old, '        if symbol.kind not in (\"class\", \"enum\", \"function\", \"constant\") or symbol.kind == \"constant\":', 1); assert s2 != s; p.write_text(s2, encoding='utf-8')"
   rationale: >-
-    Makes the acceptance guard skip every `kind == \"constant\"` symbol again (a double-negative
-    condition that is equivalent to the ORIGINAL unfixed guard for that one kind, while leaving
-    class/enum/function entries completely unaffected) - restoring exactly the silent-invisibility
-    defect this card closes, which must make the new tests asserting a real top-level constant
-    entry appears fail. Anchored on the exact guard line, not a renamed symbol, so a consistent
-    rename cannot make this vacuous.
+    AMENDMENT (post-dispatch, before review): the worker correctly flagged that the original
+    anchor (without `, "constant"` in the tuple) no longer matches the real committed line, since
+    the real fix's own `inputs`-prescribed approach is to add `"constant"` directly into this same
+    tuple. Re-anchored on the real line as committed. Makes the acceptance guard skip every
+    `kind == "constant"` symbol again (a double-negative condition equivalent to the ORIGINAL
+    unfixed guard for that one kind, while leaving class/enum/function entries completely
+    unaffected) - restoring exactly the silent-invisibility defect this card closes, which must
+    make the new tests asserting a real top-level constant entry appears fail. Anchored on the
+    exact guard line, not a renamed symbol, so a consistent rename cannot make this vacuous.
 evidence:
   - evidence/build/G3/TC-700/receipt.json
 closeout:
