@@ -1,0 +1,89 @@
+{
+  "schema_version": 1,
+  "card": "TC-723",
+  "gate": "G3",
+  "generated_by": "gatectl",
+  "generated_at": "2026-11-07T17:40:59Z",
+  "base_rev": "144c9306cc6caf0ba455ba31ee10af2aab9c0f17",
+  "head_rev": "8e538dceac87acd09ba4f303522e86eee8065753",
+  "card_sha256": "28b93ce5b8c9abcf6386e87218a37d8babd01b3d963ee2e480d47b7d2220baf4",
+  "fingerprint": {
+    "python": "3.13.2",
+    "platform": "Windows-11-10.0.26300-SP0",
+    "lock_sha256": "5c72e798a73c059a438e752e94a8d4c88c1bdf81a197f6e5c5fcecbc9466a691",
+    "env": {
+      "PYTHONHASHSEED": "0",
+      "PYTHONUTF8": "1",
+      "PYTHONDONTWRITEBYTECODE": "1",
+      "PYTHONIOENCODING": "utf-8",
+      "TZ": "UTC",
+      "LC_ALL": "C.UTF-8",
+      "SOURCE_DATE_EPOCH": "1700000000",
+      "verify_runner": "host"
+    }
+  },
+  "scope": {
+    "ok": true,
+    "changed_paths": [
+      "config/products/slides/cpp.yaml",
+      "tests/mcp/tools/test_known_hazards_round2_disclosures.py"
+    ],
+    "violations": [],
+    "evaluated": true
+  },
+  "runs": [
+    {
+      "run": 1,
+      "checks": [
+        {
+          "command": "{python} -m pytest tests/mcp/tools/test_known_hazards_round2_disclosures.py -q -rfE -p no:cacheprovider",
+          "exit_code": 0,
+          "duration_s": 3.482,
+          "stdout_sha256": "5cba8a0d336f6301764b9e7cb54d2168880bd1238a4afa7c45b0666fad715409",
+          "tests": 32,
+          "skipped": 0,
+          "errors": 0,
+          "failures": 0
+        }
+      ],
+      "all_passed": true
+    },
+    {
+      "run": 2,
+      "checks": [
+        {
+          "command": "{python} -m pytest tests/mcp/tools/test_known_hazards_round2_disclosures.py -q -rfE -p no:cacheprovider",
+          "exit_code": 0,
+          "duration_s": 6.336,
+          "stdout_sha256": "5cba8a0d336f6301764b9e7cb54d2168880bd1238a4afa7c45b0666fad715409",
+          "tests": 32,
+          "skipped": 0,
+          "errors": 0,
+          "failures": 0
+        }
+      ],
+      "all_passed": true
+    }
+  ],
+  "negative_control": {
+    "kind": "mutate",
+    "patch": "python -X utf8 -c \"import pathlib; p = pathlib.Path('config/products/slides/cpp.yaml'); s = p.read_text(encoding='utf-8'); old = 'ShapeCollection'; count = s.count(old); assert count >= 1, 'the expected ShapeCollection literal was not found - if your real hazard text phrases this differently, anchor your own mutate on your own real literal instead and note the substitution in your closeout'; s2 = s.replace(old, 'ShapeCollectionNOTREAL', 1); assert s2 != s; p.write_text(s2, encoding='utf-8')\"\n",
+    "patch_sha256": "c86cfcea1c48616eb6e5d99a48233a2e6e941a74e9e651c38a2244d6cd89ce12",
+    "applied": true,
+    "patch_applied_failed": true,
+    "exit_codes": [
+      1
+    ],
+    "tree_changed": [
+      "M config/products/slides/cpp.yaml",
+      "?? .junit-0.xml"
+    ]
+  },
+  "holdout": {
+    "ran": false,
+    "passed": true,
+    "detail": "no holdout for this card"
+  },
+  "accepted": true,
+  "reason": "all gates passed"
+}
