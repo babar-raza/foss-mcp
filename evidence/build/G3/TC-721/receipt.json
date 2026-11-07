@@ -1,0 +1,89 @@
+{
+  "schema_version": 1,
+  "card": "TC-721",
+  "gate": "G3",
+  "generated_by": "gatectl",
+  "generated_at": "2026-11-07T16:47:44Z",
+  "base_rev": "ba2171e617e2d576e67ee4b0e66186e931f9c4d4",
+  "head_rev": "18bf0e9baa6d62f2c30d8f5e5248bebed5ca753b",
+  "card_sha256": "49264dd1ede89d570ddef1010d67b94ac414deb2e792582af892bc98784bc53f",
+  "fingerprint": {
+    "python": "3.13.2",
+    "platform": "Windows-11-10.0.26300-SP0",
+    "lock_sha256": "5c72e798a73c059a438e752e94a8d4c88c1bdf81a197f6e5c5fcecbc9466a691",
+    "env": {
+      "PYTHONHASHSEED": "0",
+      "PYTHONUTF8": "1",
+      "PYTHONDONTWRITEBYTECODE": "1",
+      "PYTHONIOENCODING": "utf-8",
+      "TZ": "UTC",
+      "LC_ALL": "C.UTF-8",
+      "SOURCE_DATE_EPOCH": "1700000000",
+      "verify_runner": "host"
+    }
+  },
+  "scope": {
+    "ok": true,
+    "changed_paths": [
+      "config/products/cells/python.yaml",
+      "tests/mcp/tools/test_known_hazards_round2_disclosures.py"
+    ],
+    "violations": [],
+    "evaluated": true
+  },
+  "runs": [
+    {
+      "run": 1,
+      "checks": [
+        {
+          "command": "{python} -m pytest tests/mcp/tools/test_known_hazards_round2_disclosures.py -q -rfE -p no:cacheprovider",
+          "exit_code": 0,
+          "duration_s": 2.991,
+          "stdout_sha256": "a4ba55c7ec7daeede2ecfea3dda9a793665ee142066911215af4f033a9e8412a",
+          "tests": 28,
+          "skipped": 0,
+          "errors": 0,
+          "failures": 0
+        }
+      ],
+      "all_passed": true
+    },
+    {
+      "run": 2,
+      "checks": [
+        {
+          "command": "{python} -m pytest tests/mcp/tools/test_known_hazards_round2_disclosures.py -q -rfE -p no:cacheprovider",
+          "exit_code": 0,
+          "duration_s": 1.386,
+          "stdout_sha256": "a4ba55c7ec7daeede2ecfea3dda9a793665ee142066911215af4f033a9e8412a",
+          "tests": 28,
+          "skipped": 0,
+          "errors": 0,
+          "failures": 0
+        }
+      ],
+      "all_passed": true
+    }
+  ],
+  "negative_control": {
+    "kind": "mutate",
+    "patch": "python -X utf8 -c \"import pathlib; p = pathlib.Path('config/products/cells/python.yaml'); s = p.read_text(encoding='utf-8'); old = 'FormulaEvaluator'; count = s.count(old); assert count >= 1, 'the expected FormulaEvaluator literal was not found - if your real hazard text phrases this differently, anchor your own mutate on your own real literal instead and note the substitution in your closeout'; s2 = s.replace(old, 'FormulaEvaluatorNOTREAL', 1); assert s2 != s; p.write_text(s2, encoding='utf-8')\"\n",
+    "patch_sha256": "3154c515245915de563a8a6af1fd89c45845b012f21fa802d4223d4aed1f6317",
+    "applied": true,
+    "patch_applied_failed": true,
+    "exit_codes": [
+      1
+    ],
+    "tree_changed": [
+      "M config/products/cells/python.yaml",
+      "?? .junit-0.xml"
+    ]
+  },
+  "holdout": {
+    "ran": false,
+    "passed": true,
+    "detail": "no holdout for this card"
+  },
+  "accepted": true,
+  "reason": "all gates passed"
+}
