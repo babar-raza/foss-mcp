@@ -253,3 +253,57 @@ def test_real_data_a_type_the_scope_page_names_is_flagged_for_every_tool(real_3d
         assert result.limitations[0].startswith("Limitation: " + NOT_IMPLEMENTED_PHRASE)
         members = list_members(real_3d_net_store, SCOPE, fqn)  # type: ignore[arg-type]
         assert not isinstance(members, NotFound) and members[0] == result.limitations[0]
+
+
+# G3/TC-716 (3D-JAVA-007): the same real-data proof as above, for 3d/java's own
+# ``Mesh.isManifold()`` - a confirmed stub (always returns ``false``, never throws) that
+# ``mark_documented_unsupported`` now marks from this pilot's own corrected furnished-page
+# disclosure, closing the round-2 finding that it was served with no caveat at all, unlike
+# ``License.setLicense``/``Torus.toMesh``.
+SCOPE_3D_JAVA = Scope(family="3d", platform="java")
+
+
+@pytest.fixture(scope="module")
+def real_3d_java_store() -> _Store:
+    fixture = json.loads((FIXTURES / "3d_java" / "api_surface.json").read_text(encoding="utf-8"))
+    chunks = build_chunks_from_api_surface(fixture, title="3d", max_types=1000)
+    return _Store([chunk.text for chunk in chunks])
+
+
+def test_real_data_get_symbol_and_list_members_agree_on_3d_java_mesh_is_manifold(
+    real_3d_java_store: _Store,
+) -> None:
+    exact = get_symbol(real_3d_java_store, SCOPE_3D_JAVA, "com.aspose.threed.Mesh")  # type: ignore[arg-type]
+    assert isinstance(exact, SymbolSignature)
+    is_manifold_lines = [line for line in exact.limitations if line.startswith("isManifold(")]
+    assert len(is_manifold_lines) == 1
+    assert NOT_IMPLEMENTED_PHRASE in is_manifold_lines[0]
+
+    lines = list_members(real_3d_java_store, SCOPE_3D_JAVA, "com.aspose.threed.Mesh.isManifold")  # type: ignore[arg-type]
+    assert not isinstance(lines, NotFound) and len(lines) == 1
+    assert NOT_IMPLEMENTED_PHRASE in lines[0]
+    assert lines[0] == is_manifold_lines[0]
+
+    # Torus.toMesh is a real, pre-existing stub too (mechanism (1), throw-detection) - still
+    # flagged, untouched by this card's fix.
+    torus = get_symbol(real_3d_java_store, SCOPE_3D_JAVA, "com.aspose.threed.Torus")  # type: ignore[arg-type]
+    assert isinstance(torus, SymbolSignature)
+    assert any(line.startswith("toMesh(") and NOT_IMPLEMENTED_PHRASE in line for line in torus.limitations)
+
+    # A genuine, unrelated sibling method of Mesh is never flagged.
+    working = list_members(real_3d_java_store, SCOPE_3D_JAVA, "com.aspose.threed.Mesh.getPolygonCount")  # type: ignore[arg-type]
+    assert not isinstance(working, NotFound) and working
+    assert not any(NOT_IMPLEMENTED_PHRASE in line for line in working)
+
+
+def test_real_data_mesh_is_manifold_is_flagged_for_every_tool(real_3d_java_store: _Store) -> None:
+    resolved = get_symbol(real_3d_java_store, SCOPE_3D_JAVA, "com.aspose.threed.Mesh.isManifold")  # type: ignore[arg-type]
+    assert isinstance(resolved, ResolvedSignature) and resolved.member == "isManifold"
+    assert len(resolved.member_lines) == 1 and NOT_IMPLEMENTED_PHRASE in resolved.member_lines[0]
+    assert resolved.limitations == resolved.member_lines
+
+    members = list_members(real_3d_java_store, SCOPE_3D_JAVA, "com.aspose.threed.Mesh.isManifold")  # type: ignore[arg-type]
+    assert not isinstance(members, NotFound) and len(members) == 1
+    assert members[0] == resolved.member_lines[0]
+    assert "not implemented in this build" in members[0]
+    assert "the scope documentation lists it as not implemented" in members[0]

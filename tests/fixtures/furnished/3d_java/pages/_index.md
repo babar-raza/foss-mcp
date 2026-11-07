@@ -485,6 +485,7 @@ content:
       - Several of the recognized-but-unfinished formats above fail silently rather than with an error: loading or saving through them can return successfully while producing no real data, so don't rely on catching an exception to detect the gap — check the actual output.
       - Additional format coverage beyond STL (including proprietary and high-performance formats) is a commercial-edition feature; see the closing note below.
       - A handful of primitive-shape classes have a mesh-conversion method that is present but not yet implemented; `Box`, `Cylinder`, `Sphere`, and `Dish` are confirmed to convert correctly.
+      - `Mesh.isManifold()` is also not yet implemented: it always returns `false`, even for an input mesh that is genuinely manifold.
       - `NurbsCurve` exposes its full control-point/knot/degree data model, but sampling points along the curve is not yet implemented.
       - `PbrSpecularMaterial`'s accessors are unimplemented in this edition; the PBR material capability described above uses the alternative that works.
       - Licensing, trial, and DRM-related functionality (`License`, `Metered`) is intentionally excluded, as are cryptographic helpers and ZIP-packaged file-system read/write — none of these apply to the FOSS edition.
