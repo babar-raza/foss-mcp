@@ -1,0 +1,89 @@
+{
+  "schema_version": 1,
+  "card": "TC-724",
+  "gate": "G3",
+  "generated_by": "gatectl",
+  "generated_at": "2026-11-07T18:03:19Z",
+  "base_rev": "dc3e34f332ff306b3b1bb86b31aeef9a61eb6710",
+  "head_rev": "bac2a8b9a848b0b10390b90bd57f8047feea69f7",
+  "card_sha256": "6aad54cf0e66ea15a0bffc6f180e71f7a30f9271626a676ff2fbcda1af230aa6",
+  "fingerprint": {
+    "python": "3.13.2",
+    "platform": "Windows-11-10.0.26300-SP0",
+    "lock_sha256": "5c72e798a73c059a438e752e94a8d4c88c1bdf81a197f6e5c5fcecbc9466a691",
+    "env": {
+      "PYTHONHASHSEED": "0",
+      "PYTHONUTF8": "1",
+      "PYTHONDONTWRITEBYTECODE": "1",
+      "PYTHONIOENCODING": "utf-8",
+      "TZ": "UTC",
+      "LC_ALL": "C.UTF-8",
+      "SOURCE_DATE_EPOCH": "1700000000",
+      "verify_runner": "host"
+    }
+  },
+  "scope": {
+    "ok": true,
+    "changed_paths": [
+      "config/products/3d/typescript.yaml",
+      "tests/mcp/tools/test_known_hazards_round2_disclosures.py"
+    ],
+    "violations": [],
+    "evaluated": true
+  },
+  "runs": [
+    {
+      "run": 1,
+      "checks": [
+        {
+          "command": "{python} -m pytest tests/mcp/tools/test_known_hazards_round2_disclosures.py -q -rfE -p no:cacheprovider",
+          "exit_code": 0,
+          "duration_s": 2.849,
+          "stdout_sha256": "1e6b4fbe33d23cc880df779e2dd0330dd0359555faab7d7943e31674e2319fe8",
+          "tests": 34,
+          "skipped": 0,
+          "errors": 0,
+          "failures": 0
+        }
+      ],
+      "all_passed": true
+    },
+    {
+      "run": 2,
+      "checks": [
+        {
+          "command": "{python} -m pytest tests/mcp/tools/test_known_hazards_round2_disclosures.py -q -rfE -p no:cacheprovider",
+          "exit_code": 0,
+          "duration_s": 1.434,
+          "stdout_sha256": "1e6b4fbe33d23cc880df779e2dd0330dd0359555faab7d7943e31674e2319fe8",
+          "tests": 34,
+          "skipped": 0,
+          "errors": 0,
+          "failures": 0
+        }
+      ],
+      "all_passed": true
+    }
+  ],
+  "negative_control": {
+    "kind": "mutate",
+    "patch": "python -X utf8 -c \"import pathlib; p = pathlib.Path('config/products/3d/typescript.yaml'); s = p.read_text(encoding='utf-8'); old = 'FbxElement'; count = s.count(old); assert count >= 1, 'the expected FbxElement literal was not found - if your real hazard text phrases this differently, anchor your own mutate on your own real literal instead and note the substitution in your closeout'; s2 = s.replace(old, 'FbxElementNOTREAL', 1); assert s2 != s; p.write_text(s2, encoding='utf-8')\"\n",
+    "patch_sha256": "aa10a22437c50119b8374289b50bb76118857ff8909ed6a3aca8196485d7de5b",
+    "applied": true,
+    "patch_applied_failed": true,
+    "exit_codes": [
+      1
+    ],
+    "tree_changed": [
+      "M config/products/3d/typescript.yaml",
+      "?? .junit-0.xml"
+    ]
+  },
+  "holdout": {
+    "ran": false,
+    "passed": true,
+    "detail": "no holdout for this card"
+  },
+  "accepted": true,
+  "reason": "all gates passed"
+}
