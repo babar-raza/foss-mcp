@@ -1,0 +1,117 @@
+id: TC-725
+gate: G3
+lane: transport-deployment
+purpose: >-
+  Closes CELLS-RUST-003 (round-2, `docs/round2/issues.json`, severity P1, category
+  "coverage-gap" - confirmed STILL OPEN by a dedicated 2026-11-07 supervisor investigation):
+  `cells/rust` has NO formula-calculation engine anywhere in its real indexed API - no
+  `recalculate`, `evaluate`, or `calculate_formula` method exists on `Workbook` or anywhere else -
+  and this fact is never surfaced by `get_product_reference(limitations)`, `search_docs`, or
+  `search_symbols`. The library's only formula-related mechanism,
+  `put_formula_with_cached_value`, REQUIRES the caller to supply an already-computed value and
+  never recomputes anything itself. An agent who writes a formula via this method, then later
+  changes an input cell the formula depends on, will silently ship a stale cached result with no
+  warning anywhere - Excel or any other reader displays whatever number was last cached, not a
+  recalculated one.
+
+  REPRODUCE FIRST: confirm this is still real. Search the real committed
+  `tests/fixtures/cells_rust/api_surface.json` directly for any method literally named
+  `recalculate`, `evaluate`, or `calculate_formula` across all 1058+ real methods (there should be
+  none). Confirm the only "calculation"-named members are configuration SETTINGS (e.g.
+  `calculation_mode`, `force_full_calculation`, `calculation_on_save`) - flags, never an actual
+  compute engine - and that `put_formula_with_cached_value` is the library's only formula-writing
+  mechanism, requiring a pre-computed value as its own parameter. Confirm
+  `get_product_reference(section=limitations)` for `cells/rust` says nothing about this. Report
+  the real counts/names you observed, verbatim, in your closeout.
+
+  FIX (pure additive data, zero code change - same mechanism this project already uses for
+  `cells/go`/`page/python`/`cells/python`/`email/cpp`/`slides/cpp`/`3d/typescript`'s own entries;
+  `cells/rust` has no `known_hazards` key yet): add a NEW `known_hazards` key to
+  `config/products/cells/rust.yaml` (as the LAST top-level key, matching the established
+  file-level comment convention), with ONE entry stating plainly: the real trigger (writing a
+  formula via `put_formula_with_cached_value`, or trusting that "formulas and calculation" being an
+  advertised capability means the library computes results), the real observed behavior (there is
+  NO recalculation mechanism anywhere in the real indexed API - the cached value you supply is the
+  only value that will ever be read back, forever, even after the inputs it depends on change),
+  and the safe pattern (recompute the formula's real result yourself, in your own code, every time
+  a dependency changes, and re-supply it via `put_formula_with_cached_value`; never assume this
+  library will recalculate anything on your behalf).
+depends_on:
+  - TC-001
+  - TC-003
+  - TC-031
+  - TC-650
+  - TC-720
+  - TC-721
+  - TC-722
+  - TC-723
+  - TC-724
+write_paths:
+  - config/products/cells/rust.yaml
+  - tests/mcp/tools/test_known_hazards_round2_disclosures.py
+satisfies:
+  - REQ-G3-015
+source_refs:
+  - file: docs/DECISION_LOG.md
+    anchor: >-
+      ## 2026-11-07 — CELLS-CPP-005 confirmed already fixed; the round-2 finding is stale (supervisor)
+    sha256: 991caa8a95ffcb674b6a4e39b368ce56b3146603d9ffb56575202ac94974f9bc
+inputs:
+  - >-
+    READ FIRST: `docs/round2/issues.json` id `CELLS-RUST-003` in full. Then
+    `config/products/cells/go.yaml`'s own `known_hazards` entry (your template) and
+    `tests/mcp/tools/test_known_hazards_round2_disclosures.py` in full, especially the most recent
+    widening for `TC-724`/`3D-TYPESCRIPT-006` (search for "3D-TYPESCRIPT-006" in that file) as your
+    direct, most-recent template for adding a 13th entry cleanly - that worker's own report
+    explicitly documents how it caught and fixed a near-vacuous negative control before
+    committing; read that reasoning and apply the same discipline here.
+  - >-
+    REPRODUCE FIRST (do not skip): a real search of the real committed fixture confirming zero
+    `recalculate`/`evaluate`/`calculate_formula` methods exist, and confirming
+    `put_formula_with_cached_value`'s own real signature requires a pre-computed value. Report the
+    real observations, verbatim, in your closeout.
+  - >-
+    This is a project-authored disclosure, not an upstream quote - write the hazard in your own
+    words, matching the house style of every other `known_hazards` entry already committed.
+  - >-
+    Before committing, manually run this card's own `negative_control.mutate` script against your
+    real committed file and confirm it actually makes your new test fail. The mutate APPENDS
+    "NOTREAL" onto the matched text, so a trace token that is only a PREFIX of the mutated phrase
+    (or a substring of it appearing elsewhere in your own text) remains matching after mutation and
+    makes the control vacuous - follow `TC-723`/`TC-724`'s own worked examples of using a
+    straddling phrase rather than a bare name/term as the trace token.
+actions:
+  - >-
+    Disclose the real absence of any formula-calculation engine in cells/rust via a new
+    known_hazards entry, reusing the already-proven, already-wired mechanism with zero code
+    change.
+checks:
+  - command: '{python} -m pytest tests/mcp/tools/test_known_hazards_round2_disclosures.py -q -rfE -p no:cacheprovider'
+    expect: 'exit 0'
+    timeout_seconds: 300
+    junitxml: true
+    proves:
+      - REQ-G3-015
+min_tests: 34
+requires:
+  - python
+network: false
+negative_control:
+  mutate: |
+    python -X utf8 -c "import pathlib; p = pathlib.Path('config/products/cells/rust.yaml'); s = p.read_text(encoding='utf-8'); old = 'put_formula_with_cached_value'; count = s.count(old); assert count >= 1, 'the expected put_formula_with_cached_value literal was not found - if your real hazard text phrases this differently, anchor your own mutate on your own real literal instead and note the substitution in your closeout'; s2 = s.replace(old, 'put_formula_with_cached_valueNOTREAL', 1); assert s2 != s; p.write_text(s2, encoding='utf-8')"
+  rationale: >-
+    Corrupts the real hazard text's own subject method name so it no longer matches the real
+    identifier the new regression test asserts on, which must make that test fail - a pure data
+    mutation, immune to the lockstep-rename vacuousness class this session's earlier reviews
+    found, and it never touches any code path. If your real hazard text repeats
+    "put_formula_with_cached_value" more than once before the mutate's target occurrence, or your
+    chosen trace token is only a prefix of it (and so remains a substring of the mutated text),
+    re-anchor the mutate or your trace token - follow `TC-723`/`TC-724`'s own worked examples of a
+    straddling phrase instead of a bare identifier to avoid exactly this.
+evidence:
+  - evidence/build/G3/TC-725/receipt.json
+closeout:
+  - >-
+    `cells/rust`'s real absence of any formula-calculation engine is now disclosed via a new
+    project-authored known_hazards entry, closing CELLS-RUST-003 with zero code change.
+recovery: Re-run from a clean tree.
