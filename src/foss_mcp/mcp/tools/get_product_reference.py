@@ -442,7 +442,9 @@ def _install_pin_notice(
     return notice
 
 
-def _drift_notice(inputs: ProductReferenceInputs, ecosystem: str) -> str | None:
+def _drift_notice(
+    inputs: ProductReferenceInputs, ecosystem: str, *, embedding_broken: bool = False
+) -> str | None:
     """G3/TC-560: the sentences that disclose index-versus-package drift in an install notice, or None.
 
     Reads ``inputs.drift`` (the recorded ancestry of ``source_ref`` against the latest release/tag) through
@@ -451,7 +453,14 @@ def _drift_notice(inputs: ProductReferenceInputs, ecosystem: str) -> str | None:
     and spells out how to get the indexed API: ``git clone`` and checkout of the commit, plus
     ``FetchContent`` at the commit for C++ (the Go ``go get <module>@<commit>`` form is already in the
     pin notice this is appended to). When the package is
-    ahead it says the index can lack members. No record, an unknown or in-sync record: None."""
+    ahead it says the index can lack members. No record, an unknown or in-sync record: None.
+
+    G3/TC-719 (PDF-CPP-004): ``embedding_broken`` is True when THIS SAME pilot's own install recipe
+    already disclosed (via ``_BROKEN_EMBEDDING_NOTE``) that ``add_subdirectory``/``FetchContent`` do
+    not work at the indexed commit. The ``FetchContent_Declare``/``FetchContent_MakeAvailable``
+    sentence below is then skipped - it would otherwise contradict that disclosure in the very same
+    response - while the ``git clone``/``git checkout`` sentence (always valid, regardless of whether
+    embedding works) and every other ecosystem's behavior stay exactly as before."""
     from foss_mcp.mcp.tools.release_alignment import (  # noqa: PLC0415 - release_alignment imports this module.
         DRIFT_DIVERGED,
         INDEX_AHEAD,
@@ -476,10 +485,11 @@ def _drift_notice(inputs: ProductReferenceInputs, ecosystem: str) -> str | None:
     commit = inputs.source_ref
     notice += f" To get exactly the indexed API, build from the commit: git clone {repository_url} and git checkout {commit}."
     if ecosystem == "cmake":
-        notice += (
-            f" With CMake FetchContent: FetchContent_Declare(<name> GIT_REPOSITORY {repository_url}.git "
-            f"GIT_TAG {commit}) then FetchContent_MakeAvailable(<name>)."
-        )
+        if not embedding_broken:
+            notice += (
+                f" With CMake FetchContent: FetchContent_Declare(<name> GIT_REPOSITORY {repository_url}.git "
+                f"GIT_TAG {commit}) then FetchContent_MakeAvailable(<name>)."
+            )
     return notice
 
 
@@ -2150,7 +2160,16 @@ def _answer(
             recipe = _cpp_install(inputs, content, readme)
             # G3/TC-560: a C++ product has no registry package; when the index is past the latest release
             # the answer still says so and how to take the library at the indexed commit.
-            cmake_drift = _drift_notice(inputs, "cmake")
+            # G3/TC-719 (PDF-CPP-004): reuse `recipe`'s own already-computed broken-embedding
+            # disclosure (never re-derive it) so the drift notice does not recommend the exact
+            # FetchContent route the recipe just said does not work at this commit. `recipe` can be
+            # None (no CMakeLists facts, or no README install section) - that case has no text to
+            # check and is not embedding_broken.
+            cmake_drift = _drift_notice(
+                inputs,
+                "cmake",
+                embedding_broken=recipe is not None and _BROKEN_EMBEDDING_NOTE in recipe.text,
+            )
             if recipe is not None:
                 if cmake_drift:
                     recipe = dataclasses.replace(recipe, notice=_join_notice(recipe.notice, cmake_drift))

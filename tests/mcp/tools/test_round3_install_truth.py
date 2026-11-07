@@ -17,6 +17,7 @@ from pathlib import Path
 
 import pytest
 
+from foss_mcp.extraction.github_release_reader import DriftRecord
 from foss_mcp.extraction.repo_native_reader import DocumentNotPresent, DocumentPresent
 from foss_mcp.mcp.tools import get_product_reference as product_reference
 from foss_mcp.mcp.tools.get_product_reference import (
@@ -168,6 +169,63 @@ def test_pdf_cpp_leads_with_the_find_package_route_and_drops_the_broken_subdirec
     assert "aspose_pdf_foss::aspose_pdf_foss" in text
     assert pin["commit"] in text.split("find_package(")[0]
     assert "Aspose.PDF.Cpp.FOSS" in text  # the NuGet package the README documents
+
+
+def test_pdf_cpp_drift_notice_no_longer_recommends_fetchcontent_once_embedding_is_disclosed_broken() -> None:
+    """PDF-CPP-004 (round-2, P1, mcp-content-wrong): the body already states (twice) that
+    add_subdirectory/FetchContent do not work at this commit - the real
+    ``_annotate_broken_embedding`` disclosure above already proved present in ``result.text`` by the
+    sibling test above. Before G3/TC-719, the SAME response's ``notice`` (built independently by
+    ``_drift_notice`` from the index-versus-package drift this pilot's real production sidecar
+    recorded - ``infra/demo-manifests/product_reference_pdf_cpp.json``: indexed commit 2 commits
+    ahead of released tag v1.0.1) then instructed the reader to use exactly that broken route via
+    ``FetchContent_Declare``/``FetchContent_MakeAvailable``. This pins the real recorded drift
+    values (this fixture's own ``PIN.json`` carries no drift field, so they are supplied here) and
+    proves the contradiction is gone: the always-valid ``git clone``/``git checkout`` sentence and
+    the broken-embedding disclosure both stay, the FetchContent sentence does not."""
+    drift = DriftRecord(
+        indexed_commit="4b83c9fec1e37fd205156770161f6843bac00ceb",
+        tag="v1.0.1",
+        tag_commit="f31c812c46a6568856681c0991fff786905c5c41",
+        ahead_by=2,
+        behind_by=0,
+        status="ahead",
+    )
+
+    result = _answer(_inputs("pdf_cpp", drift=drift), "install")
+
+    # the body's own broken-embedding disclosure is still present, unchanged by this card.
+    assert "add_subdirectory and FetchContent do not work at this commit" in result.text
+    assert "(Removed: add_subdirectory and FetchContent do not work at this commit" in result.text
+
+    assert result.notice is not None
+    # the git clone/checkout sentence is always valid (cloning works regardless of embedding) and
+    # must stay.
+    assert "git clone https://github.com/aspose-pdf-foss/Aspose.PDF-FOSS-for-Cpp" in result.notice
+    assert "git checkout 4b83c9fec1e37fd205156770161f6843bac00ceb" in result.notice
+    # PDF-CPP-004: the notice no longer recommends the exact route the body just said is broken.
+    assert "FetchContent_Declare" not in result.notice
+    assert "FetchContent_MakeAvailable" not in result.notice
+
+
+def test_cells_cpp_drift_notice_still_recommends_fetchcontent_without_a_broken_embedding_disclosure() -> None:
+    """Negative control for G3/TC-719's fix: cells/cpp's real CMakeLists.txt never refers to
+    ``${CMAKE_SOURCE_DIR}`` (``parse_cmake_facts(...).embedding_broken is False`` -
+    ``test_cmake_facts_of_the_real_files`` above), so its install recipe never carries
+    ``_BROKEN_EMBEDDING_NOTE``. A pilot in this situation must keep recommending FetchContent in its
+    drift notice exactly as before this card - the fix must not silence the sentence for every cpp
+    pilot, only for the one that disclosed embedding is broken. cells/cpp's own production sidecar
+    never recorded real drift (``infra/demo-manifests/product_reference_cells_cpp.json``), so this
+    uses the narrowest synthetic ``DriftRecord`` needed to exercise the index-ahead branch, the same
+    way ``tests/mcp/tools/test_compatibility_drift_notice.py`` already does for this exact helper."""
+    drift = DriftRecord(indexed_commit=_pin("cells_cpp")["commit"], tag="v1.0.0", ahead_by=3, behind_by=0)
+
+    result = _answer(_inputs("cells_cpp", drift=drift), "install")
+
+    assert result.notice is not None
+    assert "git clone" in result.notice and "git checkout" in result.notice
+    assert "FetchContent_Declare" in result.notice
+    assert "FetchContent_MakeAvailable" in result.notice
 
 
 def test_email_cpp_has_a_cloneable_url_and_the_real_target() -> None:
