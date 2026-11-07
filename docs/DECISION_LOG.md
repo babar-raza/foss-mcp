@@ -3676,3 +3676,48 @@ Recorded as a reminder: a survey agent's own "I checked X and found nothing" cla
 verification by itself - re-confirm directly before carding, exactly as this project's own
 "before recommending from memory" discipline already requires. This is the third time this session
 a sub-investigation's negative closure-check turned out to be wrong on direct re-verification.
+
+## 2026-11-07 — WORDS-PY-002 investigated: not stale served data as reported, a real design tension in the `__all__`-based public-name rule; a supervisor decision, not a quick fix (supervisor)
+
+A survey fork recommended `WORDS-PY-002` (round-2, P1, mcp-content-missing: `get_symbol` fails on
+the bare top-level FQN for 11 of 17 re-exported `words/python` enum classes, e.g.
+`aspose.words_foss.CellMerge`, resolving only via an internal module path) as a pure
+re-ingestion fix - "the fixture is already correct, the baked generation just needs regenerating,"
+the same shape as this session's `TC-659`/`TC-713`/`TC-715` closures.
+
+**That diagnosis is wrong, re-checked directly before carding anything.** The real committed
+`tests/fixtures/words_python/api_surface.json` has only TWO `CellMerge` entries - the real
+definition (`aspose.words_foss.model.enums.table.CellMerge`) and a one-hop shell
+(`aspose.words_foss.model.enums.CellMerge`, `reexport_of` pointing at the definition) - NO third
+entry for the actual top-level path the finding complains about
+(`aspose.words_foss.CellMerge`) exists anywhere in the fixture at all. Re-ingesting the current
+fixture would reproduce the exact same gap; there is nothing stale to regenerate.
+
+**Real root cause, traced to source**: the real upstream `aspose/words_foss/__init__.py`
+(fetched live via `gh api` at the real pinned commit) DOES import `CellMerge` directly from
+`aspose.words_foss.model.enums` (`from aspose.words_foss.model.enums import (CellMerge, ...)`,
+with the comment `# re-export for aw.ParagraphAlignment etc.`) - a real, second re-export hop the
+real package genuinely has, confirming Python itself would resolve `aspose.words_foss.CellMerge`
+at runtime with no error. But that same `__init__.py` declares an explicit `__all__` list that
+does NOT include `CellMerge` (or the other 10 of the finding's 17 names) - and
+`python_surface.py`'s own module-symbol visibility rule (`PublicBy = Literal["name", "__all__",
+"reexport"]`, documented at the top of that file: "a module's each symbol... is listed there"
+whenever the module declares a literal `__all__`) is a DELIBERATE design choice: when a module has
+an `__all__`, membership in it - not mere importability - is this project's chosen definition of
+"public." The 11 missing names are imported-but-not-`__all__`-listed; the 6 that DO resolve are
+presumably the ones that also made `__all__`. This is not an oversight in `_last_binding`/
+`_forwarded_origin`/`_reexport_kind` (all three traced directly and all behave as designed) - it is
+the `__all__`-is-authoritative rule colliding with a real name a user really can type and really
+gets a real object back for.
+
+**Decision**: not carded as a quick fix. Changing "what counts as public" for every Python pilot
+with an `__all__` list is a fundamental, high-blast-radius definitional change (every name any
+Python package imports-but-excludes-from-`__all__`, across all 11 Python pilots, would newly
+become visible) - the same category of decision `O2`/`config/public_api_definition/python.yaml`
+(`TC-676`) already exists to resolve for exactly this kind of oracle/extractor visibility tension,
+not something to patch ad hoc for one finding on one pilot. A future card should either (a) extend
+the existing public-API-definition mechanism to record this as a deliberate, disclosed limitation
+(real importable names outside `__all__` are not indexed as public), or (b) if the operator decides
+real importability should win over `__all__` membership, design that change with the same rigor
+`O2`/`O3`/`O4` already used, measuring its real effect across all Python pilots before committing to
+it - not something this entry decides on its own authority.
