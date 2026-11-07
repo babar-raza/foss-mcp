@@ -3536,3 +3536,72 @@ the real pinned commit; round-2's own reflection ran against the one-commit-newe
 **Decision**: no extractor or coverage fix is warranted, for the identical reason recorded in this
 file's `PDF-NET-001` entry above - this is a version-drift/freshness question, not a parsing defect.
 Not carded. Recorded here so a future survey does not re-propose it as an extractor coverage gap.
+
+## 2026-11-07 — five more round-2 findings investigated: real, but none boundable as a quick card without more design work (supervisor)
+
+Investigated in the same 2026-11-07 session that closed TC-713 through TC-717. Each is real and
+reproduced directly (not trusted from the finding's own old evidence); none is a quick, low-risk
+fix like the data-regeneration or additive-disclosure cards this session closed - each needs either
+a cross-cutting design decision or a deeper trace before a card could be written safely.
+
+**CELLS-GO-006** (coverage-wording): `summarize_symbols()`
+(`run_extraction.py:618`) deliberately buckets Go's `type_spec` and `constant` nodes into one
+"types" count for honest-coverage reporting - a cross-cutting, documented 2-bucket model used
+identically by all 32 pilots, not a cells/go-specific bug. A 3-bucket split (or a rename) touches
+`chunk_builder.py`'s rendering, `coverage_note.py`'s own regex parser, and every pilot's served
+text - needs its own cross-cutting design card, not a one-pilot patch.
+
+**NOTE-PY-007**: `get_symbol`/`list_members` leak the private dataclass field `_children` as the
+first constructor parameter for `Page`/`Outline`/`OutlineElement`/`TableCell`/`TableRow` (confirmed
+in `tests/fixtures/note_python/api_surface.json`; these ARE real `@dataclass`-generated
+`__init__`s via `python_surface.py`'s `_init_fields`/`_synthesized_init`, matching the repro's own
+`<factory>` marker exactly). The naive fix (flag any leading-underscore parameter name as
+"internal" at render time in `chunk_builder.py`'s `_param_text`) was measured directly against the
+real corpus before writing any code: 115 leading-underscore parameters exist across 8 pilots,
+83 of them in `3d/typescript` alone - a convention whose real semantics in TypeScript were not
+verified, so a blanket cross-language rule risks mislabeling dozens of legitimate TypeScript
+parameters as "internal" with zero verification. A safe fix needs to be scoped specifically to
+Python's dataclass-synthesized `__init__` path (threading a new flag through `_InitField` ->
+`_synthesized_init`'s `PublicSymbol` construction -> whatever converts it to the final JSON `params`
+list `chunk_builder.py` renders) - a real, multi-hop plumbing change, not the single-function fix
+this card's first read suggested. Not carded; a future card should trace that exact conversion path
+before writing the fix, and must NOT touch the generic `_param_text` for any other language.
+
+**EMAIL-PY-005**: the repro's own `MapiAttachment`/`MapiNamedProperty`/`MapiProperty`/`MapiRecipient`/
+`MapiMessage` siblings each already have a public re-export shell with `reexport_of` pointing at the
+canonical definition (`TC-686`'s I4+I5 mechanism, already integrated) - directly confirmed in
+`tests/fixtures/email_python/api_surface.json`. One real residual gap found while checking this:
+`MapiPropertyCollection` has NO public shell at all (every sibling has one) - plausibly a genuine
+leftover gap, or plausibly correct if the real upstream `__all__` genuinely omits it (not checked).
+Not carded - needs one live `search_symbols`/`get_symbol` call against the real corpus (or a check of
+the real upstream `__init__.py`'s `__all__`) to confirm `MapiPropertyCollection` is really missing a
+shell before writing a fix, not a hand-wave from the fixture alone.
+
+**WORDS-NET-005**: confirmed real and NOT the `TC-717` preprocessor-guard mechanism -
+`Document.Save(HttpResponse, ...)` in the real upstream source has no `#if` guard at all; it's an
+unconditional method whose parameter type (`System.Web.HttpResponse`) simply doesn't exist outside
+.NET Framework. The real exclusion (if any) must happen via multi-targeting in the project's own
+`.csproj`(s), not a preprocessor directive - the specific `.csproj`/target-framework-conditional
+mechanism that would explain why this method is (or should be) absent from the net8.0 packaged
+build was not located before this investigation's budget ran out. Not carded; needs that tracing
+done first.
+
+**PDF-CPP-003** (P1, mcp-content-wrong): `search_docs(content_type=developer_guide)` serves a
+README-quoted sentence claiming "244 public types across 5 modules", while the SAME commit's
+`get_symbol`/`list_members` `API-Coverage:` footer independently reports "263 of 263 types (100%)".
+Traced both sources: the 263 figure is `chunk_builder._coverage_line`'s own `symbol_counts.types`
+field - the extraction's own self-reported type count, matching the extractor's own real output (not
+a fabrication, not the tautology-of-nothing F7 was built to catch - `263 of 263` is comparing the
+extractor's kept-count against its OWN total, both real). The 244 figure is separately-sourced
+quoted README prose, rendered by a completely different subsystem (the developer_guide doc chunk,
+not `chunk_builder.py`'s symbol-chunk rendering) - the two numbers are real, independently-correct
+measurements under two different definitions of "public type" (README prose vs. the extractor's own
+model), not one subsystem lying. Closing this the way `TC-680`'s `reconcile_format_claims` closed a
+similar contradiction is NOT a drop-in fit: that fix operated within one function in
+`get_product_reference.py`; here the two conflicting numbers live in architecturally distant
+subsystems (`chunk_builder.py`, shared by every pilot's every symbol chunk, has no access to README
+content at all today) - threading README-awareness into that universally-shared, maximum-blast-radius
+file is a bigger, riskier change than this one P1 finding on one pilot justifies without further
+design. Not carded; a future card should design where the cross-reference disclosure belongs (most
+likely a short note on the developer_guide chunk itself, since it is the one authored specifically
+about this pilot, not a change to the shared symbol-chunk renderer) before writing it.
