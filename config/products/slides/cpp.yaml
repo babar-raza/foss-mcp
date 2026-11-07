@@ -25,3 +25,25 @@ schedule:
   cron: "0 7 * * *"
   timezone: UTC
 storage_topology: embedded
+
+# G3/TC-723: a project-authored, project-verified hazard closing round-2 finding SLIDES-CPP-003
+# (docs/round2/issues.json). This project's own served search_docs "Key Capabilities and API
+# Reference" text (content_type=developer_guide) describes add_table() alongside
+# add_auto_shape()/add_connector()/add_picture_frame() with no indication that Table is the one
+# shape kind excluded from the uniform shapes() collection - a real, confirmed-still-open gap in
+# this project's own served prose, not an upstream defect. Keep this the LAST top-level key.
+known_hazards:
+  - text: >-
+      Calling `ShapeCollection::add_table()` genuinely adds a table to the slide - it is
+      physically written to the saved PPTX's `ppt/slides/slideN.xml`, including after a
+      save+reload round trip - but the table is silently excluded from the uniform `shapes()`
+      collection forever: `shapes().size()/operator[]` and any `shapes()`-based iteration never
+      grow to include it and never did, unlike `add_auto_shape()`, `add_connector()`, and
+      `add_picture_frame()`, each of which genuinely does grow `shapes().size()` by one. There is
+      no error, no warning, and no exception at the add_table() call site or anywhere else. The
+      real, correct way to read tables back is a separate, parallel accessor pair that is never
+      folded into shapes(): `table_count()/table_at()`. The safe pattern: never rely on a
+      `shapes()`-based loop to discover or count tables on a slide; check `table_count()` and
+      iterate via `table_at()` as its own, distinct pass over the slide, never assuming `shapes()`
+      already covers it.
+    verified_at: "2026-11-07"
