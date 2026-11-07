@@ -3512,3 +3512,27 @@ README inaccuracy) is already disclosed - `config/products/html/python.yaml`'s o
 list already carries this exact finding, closed by `TC-650` on 2026-10-29, verbatim down to the real
 pseudo-class list. Neither needed a new card; both are recorded here only so a future survey does not
 re-propose them as open.
+
+## 2026-11-07 — CELLS-NET-001 confirmed the same version-drift class as PDF-NET-001; not an extractor defect (supervisor)
+
+Round-2's `CELLS-NET-001` (P1, coverage-gap) claims `get_symbol`/`list_members` for `cells/net` omit
+a real public property, `PdfSaveOptions.ConditionalFormattingEvaluationDate`, that the finding's own
+repro reflected off a live-installed `Aspose.Cells.FOSS` NuGet package (its own text says "installs
+26.10.0"). An earlier same-day survey flagged this as possibly the same class as `PDF-NET-001` but
+could not confirm it (a `gh api compare` call 404'd on a malformed repository name/tag case).
+
+**Re-verified directly**: the real pinned indexed commit is `941814fd` (`infra/demo-manifests/
+product_reference_cells_net.json`'s own `source_ref`); the real repository is
+`aspose-cells-foss/Aspose.Cells-FOSS-for-.NET` (`config/products/cells/net.yaml`); the real upstream
+tag is capitalized `V26.10.0`, not `v26.10.0` (case-sensitive on GitHub's compare API, the earlier
+404's actual cause). `gh api repos/aspose-cells-foss/Aspose.Cells-FOSS-for-.NET/compare/941814fd...V26.10.0`
+returns `"status": "ahead", "ahead_by": 1, "behind_by": 0` - `V26.10.0` is exactly one real commit
+ahead of the commit this project indexes. The real `PdfSaveOptions.cs` at the pinned commit
+(independently fetched via `gh api .../contents/...?ref=941814fd`) has only 3 properties
+(`OnePagePerSheet`, `AllColumnsInOnePagePerSheet`, `DefaultFont`) - `ConditionalFormattingEvaluationDate`
+does not exist there. The extractor's output is a faithful, correct extraction of the real source at
+the real pinned commit; round-2's own reflection ran against the one-commit-newer published package.
+
+**Decision**: no extractor or coverage fix is warranted, for the identical reason recorded in this
+file's `PDF-NET-001` entry above - this is a version-drift/freshness question, not a parsing defect.
+Not carded. Recorded here so a future survey does not re-propose it as an extractor coverage gap.
