@@ -1,0 +1,131 @@
+id: TC-713
+gate: G3
+lane: transport-deployment
+purpose: >-
+  Closes NOTE-PY-003 (round-2, `docs/round2/issues.json`, severity P1, category "mcp-content-missing"
+  - re-confirmed STILL OPEN by a dedicated 2026-11-07 supervisor investigation): `list_recent_changes`
+  for `note/python` returns only 2 entries (`v26.3.2`, `v26.3.1`, both `source="release"`), silently
+  omitting all 15 plain tags the repository actually has - including `v26.9.0`, the CURRENTLY
+  INSTALLED version this very pilot's own `pip show aspose-note-foss` names. This is a pure DATA
+  staleness gap, not a logic bug: `infra/fetch_recent_releases.py`'s `pad_with_older_tags()` (its own
+  docstring literally cites "NOTE-PY-003") already implements the exact fix this finding calls for,
+  and was already wired into `main()` by a prior card (`TC-655`, already integrated - its own
+  `tests/infra/test_round3_release_tags.py` tests already assert the function's behavior against a
+  synthetic `tmp_path` sidecar). The real gap: `infra/demo-manifests/recent_releases_note_python.json`
+  - the actual SERVED data baked into the demo image - was never regenerated after `TC-655` landed,
+  so it still has the pre-fix 2-entry shape. A live `list_recent_changes` call against the real
+  running note/python container today still reproduces the original defect even though the code that
+  would fix it has been correct and tested for several cards already.
+
+  REPRODUCE FIRST: confirm this is still real before touching anything. Read the real committed
+  `infra/demo-manifests/recent_releases_note_python.json` directly and confirm it has exactly 2
+  entries, both `"source"` implied by a populated `"body"` field (i.e. real GitHub Releases, not
+  tag-only entries). Then confirm the fix path is real and already correct (do not re-derive it -
+  `TC-655` already built and tested it): read `infra/fetch_recent_releases.py`'s `pad_with_older_tags()`
+  function (around line 444) and its own docstring, and `main()`'s call to it (around line 540).
+  Then run the real regeneration **into a throwaway path first** (never overwrite the real file until
+  you have inspected the result): `{python} infra/fetch_recent_releases.py --repository
+  aspose-note-foss/Aspose.Note-FOSS-for-Python --limit 20 --output <a scratch path, NOT the real
+  demo-manifests path> --family note --platform python` (a real network call - this repository's
+  pin and identity are independently re-verified in `config/products/note/python.yaml`'s own comment,
+  dated 2026-10-01: confirm it is still the real repository before trusting it, do not skip this).
+  Confirm the scratch output now has around 17 entries (2 real releases + up to 15 padded tags,
+  newest tag-version first after the 2 releases), and that `v26.9.0` (the installed version named by
+  this very finding) is now present with `"source": "tag"` and no `"body"` text. Report the exact
+  real count and the real tag list you observed, verbatim, in your closeout - do not assume the
+  number stays exactly 17 (GitHub's live tag list may have changed since this card was authored).
+
+  FIX (pure data regeneration, no code change - the logic is already correct and already tested):
+  once you have confirmed the scratch output is correct, re-run the SAME command with `--output
+  infra/demo-manifests/recent_releases_note_python.json --force` (the real committed path - `--force`
+  is required because the existing sidecar is not new) to regenerate the real, served file in place.
+  Because this script also looks for a `product_reference_<family>_<platform>.json` sidecar beside
+  its `--output` path and may write a `drift` key into it as a side effect of resolving the indexed
+  commit (`_record_drift_in_product_reference`, around line 430) - read that function and
+  `_read_product_reference`/`_indexed_commit` first so you understand exactly what it can touch -
+  check `git diff infra/demo-manifests/product_reference_note_python.json` after the real run: if it
+  changed AT ALL beyond a `drift` key being added/updated, stop and report rather than committing an
+  unexplained change to that file; if only `drift` changed (or nothing changed), that is the expected,
+  harmless side effect and may be committed as-is. Do not hand-edit either JSON file - the committed
+  state must be the literal, unmodified output of the real script run.
+
+  TEST: add ONE new regression test to `tests/infra/test_round3_release_tags.py` (same file `TC-655`'s
+  own sibling tests already live in) that reads the REAL committed
+  `infra/demo-manifests/recent_releases_note_python.json` directly (never a synthetic `tmp_path`
+  fixture - this is specifically to catch a future re-staling of this exact file, the blind spot this
+  card closes) and asserts: more than 2 entries are present, and an entry whose `tag_name` resolves to
+  version `(26, 9, 0)` (reuse `_tag_version` or equivalent parsing, do not hardcode the literal string
+  `"v26.9.0"` alone without parsing - a future tag spelling change should not spuriously break this)
+  exists with `source == "tag"`. Keep every existing test in the file completely unchanged - none of
+  them reads the real committed file, so none should need to change.
+depends_on:
+  - TC-655
+  - TC-664
+write_paths:
+  - infra/demo-manifests/recent_releases_note_python.json
+  - infra/demo-manifests/product_reference_note_python.json
+  - tests/infra/test_round3_release_tags.py
+satisfies:
+  - REQ-G3-017
+source_refs:
+  - file: docs/DECISION_LOG.md
+    anchor: >-
+      ## 2026-11-06 — PDF-NET-002/EML-NET-002 investigated: a correct fix exists but is structurally inert against TC-543's own invariant; declined, not integrated (supervisor)
+    sha256: ce92e388e50e1f33bb6ea845e51aed931be8deec21d65b768acbc296916e1e9a
+inputs:
+  - >-
+    READ FIRST: `docs/round2/issues.json` id `NOTE-PY-003` in full (its own `repro` field gives the
+    exact `mcpraw`/`gh api`/`pip show` commands used - reuse them to re-confirm, do not invent a
+    different verification method). Then `infra/fetch_recent_releases.py`'s `pad_with_older_tags()`
+    and `main()` in full, and `tests/infra/test_round3_release_tags.py`'s existing `TC-655`-authored
+    tests (search for "NOTE-PY-003" in that file) - they are your proof the mechanism is already
+    correct; you are not re-implementing anything, only regenerating stale served data and adding one
+    test that would have caught the staleness.
+  - >-
+    REPRODUCE FIRST (do not skip): a real network call against the real pinned repository, into a
+    scratch path first, never directly overwriting the real committed file until you have inspected
+    the scratch result. Report the real count and real tag list observed, verbatim, in your closeout.
+  - >-
+    Never hand-edit the regenerated JSON files - they must be the literal output of the real script
+    run. If the product-reference sidecar changes in any way beyond its `drift` key, stop and report
+    rather than committing it.
+actions:
+  - >-
+    Regenerate `infra/demo-manifests/recent_releases_note_python.json` with the already-correct,
+    already-tested `pad_with_older_tags()` mechanism so the served data includes the real tags
+    GitHub Releases omits, closing NOTE-PY-003 without any code change; add a real-file regression
+    test that would catch this exact staleness recurring.
+checks:
+  - command: '{python} -m pytest tests/infra/test_round3_release_tags.py -q -rfE -p no:cacheprovider'
+    expect: 'exit 0'
+    timeout_seconds: 300
+    junitxml: true
+    proves:
+      - REQ-G3-017
+  - command: '{python} -m pytest tests/mcp/tools/test_release_index_baked.py tests/mcp/tools/test_round3_drift.py tests/mcp/test_empty_release_note.py -q -rfE -p no:cacheprovider'
+    expect: 'exit 0'
+    timeout_seconds: 300
+    junitxml: true
+    proves:
+      - REQ-G3-017
+min_tests: 45
+requires:
+  - python
+network: true
+negative_control:
+  mutate: |
+    python -X utf8 -c "import json, pathlib; p = pathlib.Path('infra/demo-manifests/recent_releases_note_python.json'); d = json.loads(p.read_text(encoding='utf-8')); assert len(d) > 2, 'the real post-fix entry count was not greater than 2 as expected - if your real regeneration produced a different shape, anchor your own mutate on your own real observed count instead and note the substitution in your closeout'; p.write_text(json.dumps(d[:2]), encoding='utf-8')"
+  rationale: >-
+    Truncates the regenerated sidecar back to its pre-fix 2-entry shape (both original GitHub
+    Releases, zero padded tags), which must make the new regression test fail (no entry resolves to
+    version (26, 9, 0) once truncated) - a pure data mutation, immune to the lockstep-rename
+    vacuousness class this session's earlier reviews found, and it never touches
+    `pad_with_older_tags()` or any other code path.
+evidence:
+  - evidence/build/G3/TC-713/receipt.json
+closeout:
+  - >-
+    `infra/demo-manifests/recent_releases_note_python.json` now includes the real tag-padded entries
+    (including the currently-installed `v26.9.0`), closing NOTE-PY-003 by regenerating already-correct,
+    already-tested logic's served output - no code changed.
+recovery: Re-run from a clean tree.

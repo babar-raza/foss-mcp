@@ -1,0 +1,144 @@
+id: TC-714
+gate: G3
+lane: storage-retrieval
+purpose: >-
+  Closes CELLS-NET-005 (round-2, `docs/round2/issues.json`, severity P2, category
+  "reference-section-wrong" - re-confirmed STILL OPEN by a dedicated 2026-11-07 supervisor
+  investigation, which also found a second, previously-undiscovered sibling pilot with the
+  IDENTICAL defect: `cells/typescript`): `get_product_reference(section=agent_guidance)` serves the
+  real contributor-only `AGENTS.md`/`agents.md` verbatim, unlabelled, for `cells/net` and
+  `cells/typescript`, with none of the `"[contributor guidance for the library's own repository, not
+  instructions for using it]"` label and cap every OTHER contributor-guidance file already gets. Both
+  real documents are unambiguous repo-contributor instructions, not library-usage information: the
+  real committed `cells/net` text (`infra/demo-manifests/product_reference_cells_net.json`, path
+  `agents.md`) opens "# AGENTS.md\n\n## Purpose\n\nThis file defines how agents should work in this
+  checkout of `Aspose.Cells_FOSS`...", and the real committed `cells/typescript` text (same manifest
+  file pattern, path `agents.md`) opens "# AGENTS.md\n\n## Purpose\n\nThis file defines how agents
+  should produce and modify code for `Aspose.Cells FOSS for TypeScript`...".
+
+  ROOT CAUSE (independently re-verified, not assumed from the finding text): `get_product_reference.py`'s
+  `_is_contributor_guidance()` (around line 1744) classifies a document as contributor guidance ONLY
+  via its filename (`== "claude.md"`, case-insensitive) or a regex match on the document's FIRST
+  non-empty line (`_CONTRIBUTOR_FIRST_LINE_RE`, matching `"your job is to"` / `"this file provides
+  guidance to claude code"`). Both real `cells/net` and `cells/typescript` documents are named
+  `agents.md` (not `claude.md`) and their first non-empty line is the generic, uninformative
+  `"# AGENTS.md"` - the actual contributor-identifying sentence sits a few lines LATER, inside a
+  `"## Purpose"` paragraph, which `_is_contributor_guidance` never looks at. The finding's own
+  original scope (round-2) only named `cells/net`; `cells/typescript` was found during this card's
+  own re-investigation by directly reading every one of the 32 real committed
+  `agent_guidance.content` fields and searching for the shared real phrase - confirmed to be the
+  ONLY two pilots that share it (zero other matches across all 32), so this card closes both with one
+  mechanism, not two separate fixes.
+
+  IMPORTANT GOTCHA, already measured - do not regress this: `3d/net`'s real `AGENTS.md`
+  (`infra/demo-manifests/product_reference_3d_net.json`) is ALSO a generic, unlabelled-by-filename
+  document ("# Aspose.3D FOSS Implementation - AI Agent Guide...") but is DELIBERATELY NOT classified
+  as contributor guidance today - it is genuinely consumer-facing (an implementation/API-classification
+  guide useful to a library USER, not instructions for people modifying the repo itself), and
+  `_agent_guidance_section`'s own existing code comment explicitly relies on 3d/net staying
+  unclassified. Your fix must be based on the real, specific, measured phrase these two documents
+  share ("this file defines how agents should"), NEVER a broader heuristic (e.g. "mentions AI
+  agents", "generic AGENTS.md title", or any filename-based rule) that would also catch 3d/net or any
+  other of the 30 other real committed agent_guidance documents. Confirm 3d/net (and all 30 others)
+  stay unclassified after your fix, not just that cells/net and cells/typescript become classified.
+
+  FIX (surgical, additive, content-based, never filename-based): add a new module-level regex
+  `_CONTRIBUTOR_PURPOSE_RE = re.compile(r"this (?:file|document) defines how agents should",
+  re.IGNORECASE)` beside the existing `_CONTRIBUTOR_FIRST_LINE_RE` (around line 1148), and widen
+  `_is_contributor_guidance()`'s return expression with one more `or` clause:
+  `bool(_CONTRIBUTOR_PURPOSE_RE.search(document.content))` - searching the WHOLE content (unlike the
+  existing first-line-only check, since the real identifying sentence is not on line 1), never just
+  the first line. Keep the existing `claude.md`-filename and first-line checks completely unchanged;
+  this is purely one more `or` branch.
+
+  TEST: add real-fixture-backed test coverage in `tests/mcp/tools/test_round3_install_truth.py`
+  (reuse the file's own existing `_upstream`/`_guidance`/`_answer` helpers and `CONTRIBUTOR_LABEL`
+  constant - see `test_the_two_3d_porting_prompts_carry_the_contributor_label` as your direct
+  template) proving: (1) `cells/net`'s real `agents.md` now carries the contributor label via
+  `get_product_reference`; (2) `cells/typescript`'s real `agents.md` now carries it too; (3) a
+  regression guard that `3d/net`'s real `AGENTS.md` (and ideally one or two more of the other 30
+  real pilots, e.g. `cells/cpp` and `pdf/java`, which also happen to have a bare "# AGENTS.md" first
+  line but genuinely consumer-facing bodies) still does NOT carry the label - this is the test that
+  would catch a future over-broad fix regressing the 3d/net exception. Never touch
+  `test_an_ordinary_agents_md_is_served_verbatim_and_unlabelled` (its synthetic document's body does
+  not contain the real phrase, so it is unaffected and must stay passing unchanged) or
+  `test_the_two_3d_porting_prompts_carry_the_contributor_label` (a different, unrelated detection
+  path, already passing, must stay unchanged).
+depends_on:
+  - TC-658
+  - TC-678
+  - TC-680
+  - TC-681
+  - TC-683
+  - TC-698
+write_paths:
+  - src/foss_mcp/mcp/tools/get_product_reference.py
+  - tests/mcp/tools/test_round3_install_truth.py
+satisfies:
+  - REQ-G3-013
+source_refs:
+  - file: docs/DECISION_LOG.md
+    anchor: >-
+      ## 2026-11-06 — PDF-NET-002/EML-NET-002 investigated: a correct fix exists but is structurally inert against TC-543's own invariant; declined, not integrated (supervisor)
+    sha256: ce92e388e50e1f33bb6ea845e51aed931be8deec21d65b768acbc296916e1e9a
+inputs:
+  - >-
+    READ FIRST: `docs/round2/issues.json` id `CELLS-NET-005` in full. Then `get_product_reference.py`'s
+    `_is_contributor_guidance()` and `_agent_guidance_section()` (around lines 1744-1775) in full,
+    including `_agent_guidance_section`'s own code comment naming the 3d/net exception explicitly -
+    that comment is the single most important thing to understand before touching this function.
+  - >-
+    REPRODUCE FIRST (do not skip): read the real committed `agent_guidance.content` field of ALL 32
+    `infra/demo-manifests/product_reference_*.json` files directly (a short Python script with
+    `json.load` over a `glob`, not a sample) and confirm independently that exactly two pilots
+    (`cells_net`, `cells_typescript`) share the real phrase "this file defines how agents should",
+    and that `3d_net`'s real content does not contain it. Report the exact real phrase and pilot
+    count you independently observed, verbatim, in your closeout - do not trust this card's own
+    claim of "exactly two" without re-running the scan yourself, in case the committed data has
+    since changed.
+  - >-
+    Never weaken or broaden the fix beyond the one measured, specific phrase. Never make the
+    detection filename-based (several legitimately consumer-facing pilots also use a bare generic
+    "# AGENTS.md" first line, e.g. 3d/net, cells/cpp, pdf/java - filename or first-line-shape alone
+    would misclassify them).
+actions:
+  - >-
+    Widen `_is_contributor_guidance` with one additive, content-based regex so `cells/net`'s and
+    `cells/typescript`'s real contributor-only `agents.md` files are correctly labelled and capped,
+    while every other pilot's agent_guidance classification (including the deliberate 3d/net
+    exception) stays exactly as it is today.
+checks:
+  - command: '{python} -m pytest tests/mcp/tools/test_round3_install_truth.py -q -rfE -p no:cacheprovider'
+    expect: 'exit 0'
+    timeout_seconds: 300
+    junitxml: true
+    proves:
+      - REQ-G3-013
+  - command: '{python} -m pytest tests/conformance/test_reference_content.py -q -rfE -p no:cacheprovider -m "not live"'
+    expect: 'exit 0'
+    timeout_seconds: 300
+    junitxml: true
+    proves:
+      - REQ-G3-013
+min_tests: 14
+requires:
+  - python
+network: true
+negative_control:
+  mutate: |
+    python -X utf8 -c "import pathlib; p = pathlib.Path('src/foss_mcp/mcp/tools/get_product_reference.py'); s = p.read_text(encoding='utf-8'); old = 'this (?:file|document) defines how agents should'; assert s.count(old) == 1, 'the expected literal was not found exactly once - if your real fix uses a different exact regex text, anchor your own mutate on your own real literal instead and note the substitution in your closeout'; p.write_text(s.replace(old, 'this (?:file|document) defines how NOBODY should', 1), encoding='utf-8')"
+  rationale: >-
+    Breaks the new regex so it never matches the real cells/net or cells/typescript content, which
+    must make the new end-to-end `get_product_reference` disclosure tests fail (neither pilot's
+    agent_guidance carries the contributor label any more) - a pure literal mutation of the new
+    regex's own pattern text, never touching `_CONTRIBUTOR_FIRST_LINE_RE`, the claude.md filename
+    check, or any other existing behavior.
+evidence:
+  - evidence/build/G3/TC-714/receipt.json
+closeout:
+  - >-
+    `cells/net`'s and `cells/typescript`'s real contributor-only `agents.md` files now carry the
+    same contributor-guidance label and cap every other such file already gets, closing
+    CELLS-NET-005 (and its previously-undiscovered sibling) without changing classification for any
+    of the other 30 pilots, including the deliberate 3d/net exception.
+recovery: Re-run from a clean tree.
