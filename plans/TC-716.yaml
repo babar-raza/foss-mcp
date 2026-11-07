@@ -1,0 +1,184 @@
+id: TC-716
+gate: G3
+lane: extraction
+purpose: >-
+  Closes 3D-JAVA-007 (round-2, `docs/round2/issues.json`, severity P1, category "mcp-content-wrong"
+  - confirmed STILL OPEN by a dedicated 2026-11-07 supervisor investigation): `Mesh.isManifold()` in
+  `com.aspose.threed.Mesh` always returns `false` regardless of input (a confirmed stub, per this
+  pilot's own `agent_guidance`/`AGENTS.md` stub table and a live repro with a closed box, which IS a
+  manifold mesh yet still reports `false`), but `get_symbol`/`list_members` present it identically to
+  a fully working method, with zero caveat - unlike `License.setLicense` and `Torus.toMesh`, which
+  this project's existing mechanism already correctly flags with `"  (not implemented in this build)"`.
+
+  ROOT CAUSE (independently re-verified): this project has TWO separate, independent stub-detection
+  mechanisms feeding the same `"stub": true` / `"stub_reason"` fields (`chunk_builder.py`'s
+  `_stub_text`, which is what `get_symbol`/`list_members` actually render): (1) `_is_stub_throw`
+  (api_surface.py) - a method body that only throws; confirmed this is how `License.setLicense` AND
+  `Torus.toMesh` are ALREADY correctly marked today (both have `"stub": true` with no
+  `"stub_reason"` key - the throw-path signature, not the doc-path signature). (2)
+  `mark_documented_unsupported` (`run_extraction.py:1589`, `DOC_UNSUPPORTED_REASON = "the scope
+  documentation lists it as not implemented"`) - reads the pilot's own furnished page
+  (`tests/fixtures/furnished/<pilot>/pages/_index.md`) for an explicit claim naming a dotted
+  `Type.member` (or a bare member clearly owned by a type named in the same sentence/section) as
+  not-implemented, and marks exactly that member. `isManifold()` NEVER THROWS (confirmed: it
+  unconditionally returns `false`), so mechanism (1) cannot and does not catch it. Mechanism (2)
+  COULD catch it, but `tests/fixtures/furnished/3d_java/pages/_index.md`'s own "Scope and
+  Limitations" section currently contains only a vague, unnamed sentence about "a handful of
+  primitive-shape classes" having an unimplemented mesh-conversion method (line 487) - it never
+  names `Mesh.isManifold()` specifically, so mechanism (2) has nothing to match. This is a
+  documentation-completeness gap in the furnished page, not a defect in either detection mechanism.
+
+  REPRODUCE FIRST: confirm this is still real on current `main`. Load the real committed
+  `tests/fixtures/3d_java/api_surface.json`, find the `Mesh` type's `isManifold` method entry, and
+  confirm it has no `"stub"` key at all (while `Torus`'s `toMesh` entry, in the same file, has
+  `"stub": true`, confirming mechanism (1) IS active in this fixture and this is specifically an
+  `isManifold` gap, not a whole-mechanism failure). Confirm the real served chunk index
+  (`infra/demo-manifests/3d__java__self_extracted/`) agrees (grep it for `"isManifold"` - it is
+  present, unflagged). Read `docs/round2/issues.json` id `3D-JAVA-007` in full for the exact repro
+  steps and quoted agent_guidance stub-table text.
+
+  REAL WORKING PRECEDENT (study this before writing anything): the SAME mechanism (2) already fires
+  correctly for a comparable case in a SIBLING pilot - `tests/fixtures/3d_net/api_surface.json`'s
+  `NurbsSurface.ToMesh` has `"stub_reason": "the scope documentation lists it as not implemented"`
+  (the doc-path signature), triggered by `tests/fixtures/furnished/3d_net/pages/_index.md`'s own
+  line (search for "NurbsSurface.ToMesh" in that file): "`NurbsCurve.Evaluate`/`EvaluateAt` and
+  `NurbsSurface.ToMesh` throw `NotImplementedException` —". This is your real, proven template for
+  the dotted-`Type.member`-plus-cue-phrase shape the claims parser
+  (`run_extraction.documented_unsupported_claims`) actually recognizes. **Important difference**:
+  `isManifold()` does NOT throw (confirmed by the round-2 repro and by `Mesh.isManifold()`'s own
+  real source body, which only returns a hardcoded `false`) - do NOT write a sentence claiming it
+  throws `NotImplementedException` (that would be a new false claim, exactly the kind of error this
+  card exists to prevent). Use one of this same file's own "is not yet implemented" / "is not
+  implemented" cue phrases instead (e.g. lines 134, 442, 487-488 of
+  `tests/fixtures/furnished/3d_java/pages/_index.md` show the established local convention), paired
+  with the real observed behavior ("always returns `false`"), in a dotted `Mesh.isManifold()` form.
+
+  FIX (four real steps, matching the exact precedent `TC-659`'s commit `bb31d2fc` already used for
+  `CELLS-CPP-010` - read that commit's message and diff in full first, it is your direct template for
+  steps 2-3 below):
+  1. Add ONE new, factually accurate sentence to `tests/fixtures/furnished/3d_java/pages/_index.md`'s
+     "Scope and Limitations" section (near the existing line 487 primitive-mesh-conversion bullet,
+     or its own new bullet) naming `Mesh.isManifold()` explicitly as not implemented, stating the
+     real observed behavior (always returns `false`, confirmed live against a real closed box which
+     IS genuinely manifold). Before touching anything else, call
+     `run_extraction.documented_unsupported_claims("tests/fixtures/furnished/3d_java/pages/_index.md")`
+     directly (a quick throwaway script, pure Python, no toolchain needed) and confirm your new
+     sentence produces a claim naming `Mesh`/`isManifold` - do not proceed until this is confirmed;
+     if your first phrasing is not detected, adjust it to more closely match the real working
+     `NurbsSurface.ToMesh` precedent's cue-phrase shape, never bypass the parser by hand-editing the
+     fixture's `"stub"` field directly.
+  2. Call `run_extraction.mark_documented_unsupported` against the real committed
+     `tests/fixtures/3d_java/api_surface.json`'s `types` list with the updated furnished page, and
+     confirm it marks exactly `Mesh.isManifold` (and nothing else newly marked) - diff the fixture
+     before/after and confirm the ONLY change is `isManifold` gaining `"stub": true` plus a
+     `"stub_reason"` of exactly `"the scope documentation lists it as not implemented"`.
+  3. Re-ingest `infra/demo-manifests/3d__java__self_extracted/` for real (never hand-edit the baked
+     generation JSON): run the real `infra/build_chunks.py` doc/symbol chunk builder against the
+     corrected fixture and furnished page (no Java toolchain is needed for this step - confirmed by
+     `TC-659`'s own precedent for an analogous C++ case; the existing example chunks, if any, are
+     carried forward unchanged since their content is untouched by this fix), then publish through
+     the real `infra/ingest.py` + `scripts/release/compact_demo_manifests.py` pipeline exactly as
+     `TC-659`'s commit did for `cells/cpp`. Diff the new generation file against the old one and
+     confirm the ONLY real content change is `isManifold`'s member line gaining the
+     `"  (not implemented in this build: the scope documentation lists it as not implemented)"`
+     suffix - report any other difference you find rather than assuming it is benign.
+  4. Add end-to-end tests to `tests/mcp/tools/test_round3_unsupported_markers.py` proving
+     `get_symbol(fqn="com.aspose.threed.Mesh.isManifold")` and
+     `list_members(fqn="com.aspose.threed.Mesh")` now render the stub suffix for `isManifold`. That
+     file already has the exact real-data template to follow:
+     `test_real_data_get_symbol_and_list_members_agree_on_3d_net_scene_render` and
+     `test_real_data_a_type_the_scope_page_names_is_flagged_for_every_tool` (both for `3d/net`'s own
+     `Scene.Render` - real corpus, real registry, not a synthetic in-memory fixture, the discipline
+     this session's own `TC-702` investigation found missing elsewhere). Write the `3d/java`
+     equivalent against the real post-fix corpus.
+depends_on:
+  - TC-001
+  - TC-013
+  - TC-018
+  - TC-234
+  - TC-298
+  - TC-329
+  - TC-333
+  - TC-346
+  - TC-354
+  - TC-372
+  - TC-551
+  - TC-557
+  - TC-559
+  - TC-688
+write_paths:
+  - tests/fixtures/furnished/3d_java/pages/_index.md
+  - tests/fixtures/3d_java/api_surface.json
+  - infra/demo-manifests/3d__java__self_extracted/**
+  - tests/mcp/tools/test_round3_unsupported_markers.py
+satisfies:
+  - REQ-G3-012
+source_refs:
+  - file: docs/DECISION_LOG.md
+    anchor: >-
+      ## 2026-11-07 — PDF-NET-001 investigated: genuine upstream source drift between the finding's own verification version and the pinned indexed commit, not an extractor defect (supervisor)
+    sha256: 2f21ad8ac39a222ac9bc5d79261c2b241e107d40d3710f1a82dd912bd069f406
+inputs:
+  - >-
+    READ FIRST: `docs/round2/issues.json` id `3D-JAVA-007` in full. Then git commit `bb31d2fc` in
+    full (`git show bb31d2fc`) - this is your exact template for steps 2-3 of the fix (re-ingesting
+    one pilot's baked generation from a corrected fixture, without a toolchain). Then
+    `run_extraction.py`'s `mark_documented_unsupported`/`documented_unsupported_claims`/`_mark`
+    functions (around lines 1460-1630) in full, and the real working precedent in
+    `tests/fixtures/furnished/3d_net/pages/_index.md` (search "NurbsSurface.ToMesh") plus its
+    resulting fixture entry in `tests/fixtures/3d_net/api_surface.json`.
+  - >-
+    REPRODUCE FIRST (do not skip): confirm the real current gap in the committed fixture and served
+    chunk index exactly as described above, and confirm your new furnished-page sentence is actually
+    detected by `documented_unsupported_claims` BEFORE marking anything. Report both real
+    observations, verbatim, in your closeout.
+  - >-
+    Never claim `isManifold()` throws an exception - it does not, and that would be a new false
+    claim. Never hand-edit the baked generation JSON directly; it must be the real output of
+    `build_chunks.py` + `infra/ingest.py` + `compact_demo_manifests.py` run against the corrected
+    fixture and furnished page, matching `TC-659`'s own precedent. Confirm no other member or pilot
+    is affected by your furnished-page edit.
+actions:
+  - >-
+    Add the missing furnished-page disclosure for `Mesh.isManifold()`, let the existing
+    `mark_documented_unsupported` mechanism mark it as a stub, re-ingest 3d/java's baked generation
+    for real, and add end-to-end test coverage proving `get_symbol`/`list_members` now disclose it.
+checks:
+  - command: '{python} -m pytest tests/mcp/tools/test_round3_unsupported_markers.py -q -rfE -p no:cacheprovider'
+    expect: 'exit 0'
+    timeout_seconds: 300
+    junitxml: true
+    proves:
+      - REQ-G3-012
+  - command: '{python} -m pytest tests/extraction/test_round3_stub_detection.py -q -rfE -p no:cacheprovider'
+    expect: 'exit 0'
+    timeout_seconds: 300
+    junitxml: true
+    proves:
+      - REQ-G3-012
+min_tests: 12
+requires:
+  - python
+network: false
+negative_control:
+  mutate: |
+    python -X utf8 -c "import pathlib; q = chr(34); p = pathlib.Path('tests/fixtures/3d_java/api_surface.json'); s = p.read_text(encoding='utf-8'); anchor = q + 'name' + q + ': ' + q + 'isManifold' + q; i = s.find(anchor); assert i >= 0, 'the expected isManifold name literal was not found - if your real fixture renders the name entry differently, anchor your own mutate on your own real literal instead and note the substitution in your closeout'; window_end = i + 400; window = s[i:window_end]; needle = q + 'stub' + q + ': true'; j = window.find(needle); assert j >= 0, 'no stub: true literal was found within 400 chars after the isManifold name - the real fix may place it further away or the mutate window is too small; adjust this mutate and note the substitution in your closeout'; abs_j = i + j; s2 = s[:abs_j] + q + 'stub' + q + ': false' + s[abs_j + len(needle):]; assert s2 != s; p.write_text(s2, encoding='utf-8')"
+  rationale: >-
+    Flips the real `isManifold` fixture entry's `"stub": true` back to `"stub": false` (a plain
+    substring replace, no regex, immune to the earlier backslash-in-mutate issue this session
+    already hit once), which must make the new end-to-end `get_symbol`/`list_members` disclosure
+    test fail (the stub suffix no longer renders) - a pure data mutation, immune to the
+    lockstep-rename vacuousness class this session's earlier reviews found, and it never touches
+    `mark_documented_unsupported` or any other code path. If the real fixture's formatting puts the
+    `stub` field further than 400 characters after the `name` field, the worker must widen the
+    window or re-anchor and note the substitution in their closeout.
+evidence:
+  - evidence/build/G3/TC-716/receipt.json
+closeout:
+  - >-
+    `Mesh.isManifold()` is now disclosed as a stub (`"  (not implemented in this build: ...)"`) by
+    `get_symbol`/`list_members` for `3d/java`, closing 3D-JAVA-007 via the existing, already-proven
+    `mark_documented_unsupported` mechanism (same mechanism already correctly flagging
+    `License.setLicense`/`Torus.toMesh`), with the real baked generation re-ingested from the
+    corrected furnished page - not a hand patch.
+recovery: Re-run from a clean tree.
