@@ -1,0 +1,116 @@
+id: TC-715
+gate: G3
+lane: transport-deployment
+purpose: >-
+  Closes CELLS-GO-004 (round-2, `docs/round2/issues.json`, severity P1, category
+  "mcp-content-wrong" - confirmed STILL OPEN and confirmed to be the IDENTICAL root cause as
+  `TC-713`'s own `NOTE-PY-003` fix, by a dedicated 2026-11-07 supervisor investigation):
+  `report_index_freshness`/`list_recent_changes` for `cells/go` report `v26.7.0` as the latest
+  known version, silently missing the real `v26.7.1` tag the upstream repository actually has (no
+  GitHub Release was ever cut for it, only a plain tag). Traced directly: `report_index_freshness.py`'s
+  `latest_release_tag` field is `releases[0].tag_name`, where `releases` is loaded from the SAME
+  `recent_releases_<family>_<platform>.json` sidecar `list_recent_changes` itself reads - there is
+  no separate "check the registry's actual tag list" code path as the finding's own wording might
+  suggest; it is the exact same stale-served-data gap `TC-713` closes for `note/python`, on a
+  different pilot.
+
+  REPRODUCE FIRST: confirm this is still real before touching anything. Read the real committed
+  `infra/demo-manifests/recent_releases_cells_go.json` directly and confirm it has exactly 1 entry
+  (`v26.7.0`, a real GitHub Release with a populated `"body"`). Confirm the real repository identity
+  from `config/products/cells/go.yaml`'s own comment (re-verified there on 2026-10-01:
+  `aspose-cells-foss/Aspose.Cells-FOSS-for-Go`) before trusting it. Then, exactly as `TC-713` did,
+  run `{python} infra/fetch_recent_releases.py --repository aspose-cells-foss/Aspose.Cells-FOSS-for-Go
+  --limit 20 --output <a scratch path, NOT the real demo-manifests path> --family cells --platform go`
+  (a real network call) and confirm the scratch output now includes a `v26.7.1` entry with
+  `"source": "tag"` and no `"body"` text, after the real `v26.7.0` release entry. Report the exact
+  real output you observed, verbatim, in your closeout - the live tag list may have changed since
+  this card was authored.
+
+  FIX (pure data regeneration, no code change - `pad_with_older_tags()` is already correct and
+  already tested by `TC-655`/`TC-664`'s own tests, exactly as for `TC-713`): once the scratch run is
+  confirmed correct, re-run the same command with `--output
+  infra/demo-manifests/recent_releases_cells_go.json --force` to regenerate the real, served file in
+  place. Check whether `infra/demo-manifests/product_reference_cells_go.json` changed as a side
+  effect of the run (only a `drift` key is expected to change, if anything, via
+  `_record_drift_in_product_reference` - read that function in `infra/fetch_recent_releases.py`
+  first); stop and report rather than committing if anything else in that file changed. Never
+  hand-edit either JSON file - the committed state must be the literal output of the real script run.
+
+  TEST: add ONE new regression test to `tests/infra/test_round3_release_tags.py` (the same file
+  `TC-713`'s own sibling test lives in - if `TC-713` has already been integrated when you start,
+  follow its exact test shape and naming convention for consistency; if not, follow
+  `TC-655`/`TC-664`'s existing tests in the same file as your template instead) that reads the REAL
+  committed `infra/demo-manifests/recent_releases_cells_go.json` directly (never a synthetic
+  `tmp_path` fixture) and asserts: more than 1 entry is present, and an entry whose `tag_name`
+  resolves to version `(26, 7, 1)` (parse it properly, do not hardcode the bare string `"v26.7.1"`
+  without parsing) exists with `source == "tag"`. Keep every existing test in the file unchanged.
+depends_on:
+  - TC-655
+  - TC-664
+  - TC-713
+write_paths:
+  - infra/demo-manifests/recent_releases_cells_go.json
+  - infra/demo-manifests/product_reference_cells_go.json
+  - tests/infra/test_round3_release_tags.py
+satisfies:
+  - REQ-G3-017
+source_refs:
+  - file: docs/DECISION_LOG.md
+    anchor: >-
+      ## 2026-11-06 — PDF-NET-002/EML-NET-002 investigated: a correct fix exists but is structurally inert against TC-543's own invariant; declined, not integrated (supervisor)
+    sha256: ce92e388e50e1f33bb6ea845e51aed931be8deec21d65b768acbc296916e1e9a
+inputs:
+  - >-
+    READ FIRST: `docs/round2/issues.json` id `CELLS-GO-004` in full. Then `TC-713`'s own final
+    committed diff if it has landed by the time you start (same mechanism, different pilot - your
+    exact template); if it has not landed yet, read `infra/fetch_recent_releases.py`'s
+    `pad_with_older_tags()` and `main()` directly instead, and `tests/infra/test_round3_release_tags.py`'s
+    existing `TC-655`/`TC-664`-authored tests (search for "NOTE-PY-003" in that file).
+  - >-
+    REPRODUCE FIRST (do not skip): a real network call against the real pinned repository, into a
+    scratch path first, never directly overwriting the real committed file until you have inspected
+    the scratch result. Report the real output observed, verbatim, in your closeout.
+  - >-
+    Never hand-edit the regenerated JSON files - they must be the literal output of the real script
+    run. If the product-reference sidecar changes in any way beyond its `drift` key, stop and
+    report rather than committing it.
+actions:
+  - >-
+    Regenerate `infra/demo-manifests/recent_releases_cells_go.json` with the already-correct,
+    already-tested `pad_with_older_tags()` mechanism so the served data includes the real `v26.7.1`
+    tag GitHub Releases omits, closing CELLS-GO-004 without any code change; add a real-file
+    regression test that would catch this exact staleness recurring.
+checks:
+  - command: '{python} -m pytest tests/infra/test_round3_release_tags.py -q -rfE -p no:cacheprovider'
+    expect: 'exit 0'
+    timeout_seconds: 300
+    junitxml: true
+    proves:
+      - REQ-G3-017
+  - command: '{python} -m pytest tests/mcp/tools/test_release_index_baked.py tests/mcp/tools/test_round3_drift.py tests/mcp/test_empty_release_note.py -q -rfE -p no:cacheprovider'
+    expect: 'exit 0'
+    timeout_seconds: 300
+    junitxml: true
+    proves:
+      - REQ-G3-017
+min_tests: 45
+requires:
+  - python
+network: true
+negative_control:
+  mutate: |
+    python -X utf8 -c "import json, pathlib; p = pathlib.Path('infra/demo-manifests/recent_releases_cells_go.json'); d = json.loads(p.read_text(encoding='utf-8')); assert len(d) > 1, 'the real post-fix entry count was not greater than 1 as expected - if your real regeneration produced a different shape, anchor your own mutate on your own real observed count instead and note the substitution in your closeout'; p.write_text(json.dumps(d[:1]), encoding='utf-8')"
+  rationale: >-
+    Truncates the regenerated sidecar back to its pre-fix 1-entry shape (the original GitHub
+    Release only, zero padded tags), which must make the new regression test fail (no entry
+    resolves to version (26, 7, 1) once truncated) - a pure data mutation, immune to the
+    lockstep-rename vacuousness class this session's earlier reviews found, and it never touches
+    `pad_with_older_tags()` or any other code path.
+evidence:
+  - evidence/build/G3/TC-715/receipt.json
+closeout:
+  - >-
+    `infra/demo-manifests/recent_releases_cells_go.json` now includes the real `v26.7.1` tag entry,
+    closing CELLS-GO-004 by regenerating already-correct, already-tested logic's served output - no
+    code changed.
+recovery: Re-run from a clean tree.
