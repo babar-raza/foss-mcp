@@ -570,9 +570,12 @@ def _rendered_line(text: str, name: str) -> tuple[str, str]:
     """``(parameter list, modifier suffix)`` of the ``Methods:`` line that defines *name*."""
     block = text.split("Methods:\n", 1)[1]
     for line in block.splitlines():
-        # TC-532: a member of a private base ends in "  (inherited from <base>)"
+        # TC-532: a member of a private base ends in "  (inherited from <base>)".
+        # TC-727 (PDF-TS-002): a method's own doc summary now ends the line the same way, as
+        # "  (<doc text>)" - neither is part of what this helper compares (params + modifier
+        # suffix only), so both are swallowed by the same general trailing-parenthetical group.
         match = re.fullmatch(
-            rf"  - {re.escape(name)}\((.*?)\)(?: -> [^\[]*?)?( \[[a-z, ]+\])?(?:  \(inherited from [^)]*\))?",
+            rf"  - {re.escape(name)}\((.*?)\)(?: -> [^\[]*?)?( \[[a-z, ]+\])?(?:  \(.*\))?",
             line,
         )
         if match is not None:

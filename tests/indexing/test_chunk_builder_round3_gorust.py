@@ -63,7 +63,13 @@ def test_a_pdf_go_ai_function_says_its_package_its_import_path_and_its_call_form
     assert "Package: ai" in lines
     assert "Import: github.com/aspose-pdf-foss/aspose-pdf-foss-for-go/ai" in lines
     assert "Qualified: ai.NewChatCopilot" in lines
-    assert "  - NewChatCopilot(client: AIClient, opts: ChatOptions) -> *ChatCopilot" in lines
+    # TC-727 (PDF-TS-002): NewChatCopilot carries the real fixture's own doc field, now
+    # surfaced as an additive suffix.
+    assert (
+        "  - NewChatCopilot(client: AIClient, opts: ChatOptions) -> *ChatCopilot"
+        "  (NewChatCopilot returns a copilot that answers questions about the content in opts via client.)"
+        in lines
+    )
 
 
 def test_a_pdf_go_root_symbol_is_called_through_the_root_package_name() -> None:
@@ -113,10 +119,17 @@ def test_a_cells_rust_method_says_its_receiver_and_its_generic_bounds() -> None:
     # Workbook.rs:216 -- `pub fn add_worksheet(&mut self, name: impl Into<String>) -> Result<usize, CellsError>`
     # Workbook.rs:565 -- `pub fn save_xlsx_to_stream<W: Write + Seek>(&self, stream: W) -> Result<(), CellsError>`
     lines = _chunk_text("cells_rust", "Workbook").splitlines()
-    assert "  - add_worksheet(&mut self, name: impl Into<String>) -> Result<usize, CellsError>" in lines
+    # TC-727 (PDF-TS-002): add_worksheet carries the real fixture's own doc field, now
+    # surfaced as an additive suffix.
+    assert (
+        "  - add_worksheet(&mut self, name: impl Into<String>) -> Result<usize, CellsError>"
+        "  (Adds an item.)" in lines
+    )
+    # TC-727 (PDF-TS-002): save_xlsx_to_stream carries the real fixture's own doc field, now
+    # surfaced as an additive suffix.
     assert (
         "  - save_xlsx_to_stream(&self, stream: W) -> Result<(), CellsError>  [generic <W: Write + Seek>]"
-        in lines
+        "  (Saves the workbook to a stream using default save options.)" in lines
     )
 
 

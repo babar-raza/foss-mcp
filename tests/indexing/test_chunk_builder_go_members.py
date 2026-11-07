@@ -45,7 +45,12 @@ def test_enum_constants_render_as_members_lines() -> None:
 
 def test_pointer_receiver_method_renders_with_its_signature() -> None:
     document = _chunk_for(_texts(), "Document")
-    assert "  - Save(w: io.Writer, format: SaveFormat) -> error" in document.splitlines()
+    # TC-727 (PDF-TS-002): Save carries the sample's own doc comment, now surfaced as an
+    # additive suffix.
+    assert (
+        "  - Save(w: io.Writer, format: SaveFormat) -> error"
+        "  (Save writes the document to w, for example a file or a buffer.)" in document.splitlines()
+    )
 
 
 def test_unattached_method_renders_its_receiver() -> None:

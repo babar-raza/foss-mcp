@@ -243,6 +243,32 @@ def _stub_suffix(entry: Mapping[str, object]) -> str:
     return f"  ({text})" if text else ""
 
 
+# TC-727 (PDF-TS-002, REQ-G3-013): a method's own leading JSDoc/docstring summary (e.g.
+# ``pdf/typescript``'s real ``Document.New`` - "Create a new document from scratch: zero pages
+# when `format` is omitted, or one blank page of that size when given.") - the extraction already
+# captures this correctly in ``method.get("doc")`` for 321 of 433 real methods in that one pilot
+# alone, but until this card nothing ever read the field back out. Mirrors ``_STUB_REASON_LIMIT``'s
+# own cap/truncation convention exactly, as its own, independent constant - the two are unrelated
+# fields and must not share a limit by coincidence.
+_DOC_SUMMARY_LIMIT = 120
+
+
+def _doc_text(entry: Mapping[str, object]) -> str:
+    """A method's own doc summary with internal whitespace collapsed, capped at
+    ``_DOC_SUMMARY_LIMIT``; empty when ``entry.get("doc")`` is empty or missing."""
+    text = " ".join(str(entry.get("doc") or "").split())
+    if len(text) > _DOC_SUMMARY_LIMIT:
+        text = text[: _DOC_SUMMARY_LIMIT - 3] + "..."
+    return text
+
+
+def _doc_suffix(entry: Mapping[str, object]) -> str:
+    """``  (<doc summary>)`` at the end of a member line; empty when there is no doc summary,
+    so a method without one renders exactly as before."""
+    text = _doc_text(entry)
+    return f"  ({text})" if text else ""
+
+
 def _method_line(method: Mapping[str, object]) -> str:
     params = _param_list_text(_items(method.get("params")))
     # TC-535 (RD3-031): a Rust method's receiver (``&self``, ``&mut self``, ``self``) leads its parameter list.
@@ -255,6 +281,7 @@ def _method_line(method: Mapping[str, object]) -> str:
         f"  - {method.get('name', '')}({params}){arrow}{_throws_suffix(method)}"
         f"{_modifiers_suffix(method)}{_generics_suffix(method)}{_mixin_suffix(method)}"
         f"{_inherited_from_suffix(method)}{_deprecated_suffix(method)}{_stub_suffix(method)}"
+        f"{_doc_suffix(method)}"
     )
 
 

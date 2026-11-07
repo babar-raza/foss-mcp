@@ -168,22 +168,42 @@ def test_a_record_renders_its_components_canonical_constructor_and_accessors() -
 def test_pdf_java_document_renders_the_ioexception_its_save_declares() -> None:
     # upstream org/aspose/pdf/Document.java line 1502: ``public void save(String filePath) throws IOException``
     lines = _lines(_text_of("pdf", "org.aspose.pdf.Document"))
-    assert "  - save(filePath: String) -> void throws IOException" in lines
+    # TC-727 (PDF-TS-002): save's own real Javadoc is long enough to hit `_DOC_SUMMARY_LIMIT`
+    # and is truncated with "...", exactly like `_stub_suffix`'s own convention.
+    assert (
+        "  - save(filePath: String) -> void throws IOException"
+        "  (@param filePath the output file path @throws IOException if writing fails"
+        " @throws IllegalArgumentException if filePat...)"
+    ) in lines
     # line 1153: ``public PdfDictionary getCatalog() throws IOException``
-    assert "  - getCatalog() -> PdfDictionary throws IOException" in lines
+    assert (
+        "  - getCatalog() -> PdfDictionary throws IOException  (Returns the root catalog dictionary.)"
+        in lines
+    )
 
 
 def test_pdf_java_compaction_options_renders_set_pages_as_varargs_and_the_implicit_constructor() -> None:
     # upstream org/aspose/pdf/CompactionOptions.java line 39 (``int... pages``); the class declares no constructor
     lines = _lines(_text_of("pdf", "org.aspose.pdf.CompactionOptions"))
-    assert "  - setPages(pages: int...) -> CompactionOptions" in lines
+    # TC-727 (PDF-TS-002): setPages carries the real fixture's own Javadoc, now surfaced as
+    # an additive suffix; the implicit constructor has none.
+    assert (
+        "  - setPages(pages: int...) -> CompactionOptions"
+        "  (Limits compaction to the given 1-based page numbers; pages outside the scope are byte-untouched.)"
+        in lines
+    )
     assert "  - CompactionOptions() [implicit]" in lines
 
 
 def test_3d_java_line_renders_from_points_as_a_static_varargs_method() -> None:
     # upstream com/aspose/threed/Line.java line 59
     lines = _lines(_text_of("3d", "com.aspose.threed.Line"))
-    assert "  - fromPoints(points: Vector3...) -> Line [static]" in lines
+    # TC-727 (PDF-TS-002): fromPoints carries the real fixture's own Javadoc, now surfaced as
+    # an additive suffix.
+    assert (
+        "  - fromPoints(points: Vector3...) -> Line [static]"
+        "  (Construct a Line instance from a set of points.)" in lines
+    )
     assert not any(line.startswith("  - fromPoints()") for line in lines)
 
 
@@ -197,10 +217,17 @@ def test_3d_java_vector3_renders_its_public_instance_fields() -> None:
 def test_slides_java_color_marks_from_argb_static_and_font_data_is_a_record() -> None:
     # upstream org/aspose/slides/foss/drawing/Color.java lines 129, 141, 151; FontData.java line 10
     color = _lines(_text_of("slides", "org.aspose.slides.foss.drawing.Color"))
-    assert "  - fromArgb(argb: int) -> Color [static]" in color
+    # TC-727 (PDF-TS-002): the single-int fromArgb overload carries the real fixture's own
+    # Javadoc, now surfaced as an additive suffix.
+    assert (
+        "  - fromArgb(argb: int) -> Color [static]"
+        "  (Creates a new Color from a packed 32-bit ARGB value.)" in color
+    )
     font = _lines(_text_of("slides", "org.aspose.slides.foss.FontData"))
     assert "Kind: record_declaration" in font
-    assert "  - FontData(fontName: String)" in font
+    # TC-727 (PDF-TS-002): the FontData constructor carries the real fixture's own Javadoc,
+    # now surfaced as an additive suffix.
+    assert "  - FontData(fontName: String)  (Creates a new FontData with the given font name.)" in font
     assert "  - fontName: String (read-only)" in font
 
 
@@ -208,7 +235,10 @@ def test_cells_java_renders_a_declared_checked_exception() -> None:
     # upstream org/aspose/cells_foss/XlsxWorkbookSerializer.java line 486:
     # ``public static WorkbookModel load(InputStream stream, LoadOptions options, LoadDiagnostics diagnostics) throws IOException``
     lines = _lines(_text_of("cells", "org.aspose.cells_foss.XlsxWorkbookSerializer"))
+    # TC-727 (PDF-TS-002): load carries the real fixture's own Javadoc, now surfaced as an
+    # additive suffix.
     assert (
         "  - load(stream: InputStream, options: LoadOptions, diagnostics: LoadDiagnostics) -> WorkbookModel"
         " throws IOException [static]"
+        "  (Loads the current content.)"
     ) in lines

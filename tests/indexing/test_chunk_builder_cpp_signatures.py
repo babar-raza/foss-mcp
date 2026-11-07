@@ -31,8 +31,13 @@ def _lines() -> list[str]:
 
 def test_chunk_renders_reference_const_and_static_for_cpp() -> None:
     lines = _lines()
-    assert "  - Save(stream: std::vector<std::uint8_t>&, format: SaveFormat) -> void [const]" in lines
-    assert "  - GetWorksheets() -> WorksheetCollection&" in lines
+    # TC-727 (PDF-TS-002): Save and the first GetWorksheets overload carry the sample's own
+    # doc comment, now surfaced as an additive suffix; the [const] overload has none.
+    assert (
+        "  - Save(stream: std::vector<std::uint8_t>&, format: SaveFormat) -> void [const]"
+        "  (Saves the workbook to a stream.)" in lines
+    )
+    assert "  - GetWorksheets() -> WorksheetCollection&  (Gets the worksheets.)" in lines
     assert "  - GetWorksheets() -> const WorksheetCollection& [const]" in lines
     assert (
         "  - Open(path: const std::string&, password: const char* = nullptr) -> Workbook [static, noexcept]"
@@ -42,8 +47,13 @@ def test_chunk_renders_reference_const_and_static_for_cpp() -> None:
 
 def test_chunk_renders_explicit_constructor_without_arrow() -> None:
     lines = _lines()
-    assert "  - Workbook(path: std::string_view) [explicit]" in lines
-    assert "  - Workbook()" in lines
+    # TC-727 (PDF-TS-002): the explicit and default constructors carry the sample's own doc
+    # comment, now surfaced as an additive suffix; the byte-array constructor has none.
+    assert (
+        "  - Workbook(path: std::string_view) [explicit]  (Opens the workbook stored at the given path.)"
+        in lines
+    )
+    assert "  - Workbook()  (Creates an empty workbook.)" in lines
     assert "  - Workbook(data: const std::vector<std::uint8_t>&, flags: int = 0)" in lines
 
 

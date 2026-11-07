@@ -68,7 +68,12 @@ def test_a_pdf_this_return_a_default_and_a_one_item_generic_base_are_rendered() 
     fixture = _fixture("pdf_typescript")
     # src/flow.ts:1256 -- `AddParagraph(text: FlowText, options: FlowParagraphOptions = {}): this`
     flow = _chunk_text(fixture, "flow.Flow")
-    assert "  - AddParagraph(text: FlowText, options: FlowParagraphOptions = {}) -> this" in flow.splitlines()
+    # TC-727 (PDF-TS-002): AddParagraph carries the real fixture's own JSDoc summary, now
+    # surfaced as an additive suffix.
+    assert (
+        "  - AddParagraph(text: FlowText, options: FlowParagraphOptions = {}) -> this"
+        "  (Append a word-wrapped paragraph.)" in flow.splitlines()
+    )
     # src/stamp.ts:396 -- `export interface TextBlockOptions extends Omit<StampOptions, 'align' | 'rotate'> {`
     options = _chunk_text(fixture, "stamp.TextBlockOptions")
     lines = options.splitlines()

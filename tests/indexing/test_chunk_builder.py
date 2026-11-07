@@ -228,7 +228,10 @@ def test_free_function_entry_is_synthesized_as_its_own_single_method() -> None:
     assert "FQN: AddFontFile" in all_text
     assert "Kind: function" in all_text
     assert "Methods:" in all_text
-    assert "  - AddFontFile(path: string)" in all_text.splitlines()
+    # TC-727 (PDF-TS-002): the entry's own "doc" field is now surfaced as an additive suffix.
+    assert (
+        "  - AddFontFile(path: string)  (AddFontFile registers a single font file.)" in all_text.splitlines()
+    )
 
 
 def test_constant_entry_gets_a_value_line() -> None:
@@ -434,7 +437,12 @@ def test_real_free_functions_get_real_signatures_across_the_three_affected_pilot
         pdf_go_fixture, title="pdf/go API surface", max_types=len(pdf_go_fixture["types"])
     )
     pdf_go_text = "\n".join(chunk.text for chunk in pdf_go_chunks)
-    assert "  - AddFontFile(path: string)" in pdf_go_text.splitlines()
+    # TC-727 (PDF-TS-002): the real fixture's own "doc" field ("AddFontFile registers a single
+    # font file.") is now surfaced as an additive suffix.
+    assert (
+        "  - AddFontFile(path: string)  (AddFontFile registers a single font file.)"
+        in pdf_go_text.splitlines()
+    )
 
     # cells_rust's real standalone "fmt" free-function entry (receiver_type: CellAddress,
     # trait_impl: std::fmt::Display, methods: [], params/return_type on the entry itself) -
@@ -470,9 +478,11 @@ def test_real_free_functions_get_real_signatures_across_the_three_affected_pilot
     # TC-533: `A(a: Float32Array, w, h, x, y) -> number` -> `image(data: Uint8Array, options: FlowImageOptions = {})
     # -> FlowElement[]`: `A` is an internal function of the package (not exported from src/index.ts), so the
     # fixture no longer holds it; `image` (src/flow.ts:1199) is exported and is a real free function entry.
+    # TC-727 (PDF-TS-002): image carries the real fixture's own JSDoc summary, now surfaced
+    # as an additive suffix.
     assert (
         "  - image(data: Uint8Array, options: FlowImageOptions = {}) -> FlowElement[]"
-        in pdf_typescript_text.splitlines()
+        "  (Build a raster image element (JPEG/PNG).)" in pdf_typescript_text.splitlines()
     )
 
     # pdf_typescript's real "M" constant (src/wmlns.ts) must also carry its real value now -

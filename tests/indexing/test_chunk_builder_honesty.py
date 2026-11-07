@@ -481,7 +481,12 @@ def test_real_pdf_net_has_no_invented_void_and_keeps_the_genuine_ones() -> None:
     assert expected_void == 2414
     assert len(void_lines) == 2414
     page = next(t for t in texts if _fqn(t) == "Aspose.Pdf.Page")
-    assert "  - SetRotation(degrees: int) -> void" in page.splitlines()
+    # TC-727 (PDF-TS-002): SetRotation carries the real fixture's own doc field, now surfaced
+    # as an additive suffix.
+    assert (
+        "  - SetRotation(degrees: int) -> void  (Set the page rotation in degrees (0, 90, 180, 270).)"
+        in page.splitlines()
+    )
     # every rendered void line comes from a method whose fixture return_type really is "void"
     real_void_names = {
         method["name"]

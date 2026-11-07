@@ -488,9 +488,14 @@ def test_rendered_sample_shows_every_mark(sample_types: list[dict[str, Any]]) ->
     lines = text.splitlines()
     assert "  - x: number [optional] (writable)" in lines
     assert "  - y: string (read-only)" in lines
-    assert "  - open(buf: Uint8Array, opts: OpenOptions = {}) -> Promise<Document> [static, async]" in lines
-    assert "  - save(path?: string, flag = true, ...rest: string[]) -> void" in lines
-    assert "  - constructor(createDefault: boolean = true)" in lines
+    # TC-727 (PDF-TS-002): open/save/constructor each carry the sample source's own JSDoc
+    # summary, now surfaced as an additive suffix.
+    assert (
+        "  - open(buf: Uint8Array, opts: OpenOptions = {}) -> Promise<Document> [static, async]"
+        "  (Open a document from a buffer.)" in lines
+    )
+    assert "  - save(path?: string, flag = true, ...rest: string[]) -> void  (Save the document.)" in lines
+    assert "  - constructor(createDefault: boolean = true)  (Create a document.)" in lines
     assert "Alias-Of: 'a' | 'b'" in lines
     assert "allocObject" not in text
     assert "HiddenThing" not in text
