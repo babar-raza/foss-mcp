@@ -42,3 +42,33 @@ known_hazards:
       real page count (len(doc.pages)) before deciding whether to call add_page() at all - use
       the page already provided instead of assuming a freshly created document is empty.
     verified_at: "2026-11-07"
+
+  # G3/TC-726: a second, unrelated project-authored hazard for this same pilot, closing
+  # PAGE-PYTHON-005 - a different class entirely (XpsGlyphs's silent font-fallback behavior, not
+  # a page count). Confirmed STILL OPEN by direct reproduction against the real installed
+  # aspose-page-foss 26.9.0 package: a real XpsDocument.create() -> add_page() -> appending an
+  # XpsGlyphs whose font reference attribute is set to "/Resources/Fonts/does-not-exist.odttf"
+  # (never registered as a real part anywhere in document.package.parts, confirmed empty of that
+  # path after save()) - save(), to_pdf(), and to_image() all succeed with no exception or
+  # warning, pypdf confirms the resulting PDF's extracted text is exactly "Hello XPS", and the
+  # PNG has 470 real non-white glyph pixels: the requested text genuinely renders, just via
+  # whichever fallback font the renderer silently substituted, never the one actually requested
+  # or any error about it. See the entry's own text below for the exact attribute name.
+  - text: >-
+      XpsGlyphs.font_uri accepts any string, including a path that was never registered as a real
+      part in the XpsDocument's own package - get_symbol('aspose.page.xps.editing.XpsGlyphs')
+      shows only font_uri: str (writable), with no validation, allowed-value list, or behavior
+      note attached. Setting font_uri to a nonexistent resource such as
+      "/Resources/Fonts/does-not-exist.odttf" never raises and never warns anywhere in the
+      pipeline, confirmed by direct reproduction against the real installed aspose-page-foss
+      26.9.0 package: save() (whose own _validate_page_images check only validates XpsImage
+      sources, never XpsGlyphs.font_uri), to_pdf(), and to_image() all succeed, and the requested
+      unicode_string genuinely renders - pypdf confirms the PDF's extracted text is exactly
+      "Hello XPS", and the rendered PNG has real, non-white glyph pixels. The library silently
+      substitutes a fallback font and still renders the requested text, never the font actually
+      named by font_uri. A successful to_pdf()/to_image() call is therefore NOT proof the
+      requested font was used: nothing in this library signals whether font_uri ever resolved to a
+      real font part. The safe pattern is to never assume font_uri resolved correctly just because
+      rendering succeeded with no error - independently verify the actual font/glyph shapes used
+      if that distinction matters to the caller, since this library gives no signal either way.
+    verified_at: "2026-11-07"

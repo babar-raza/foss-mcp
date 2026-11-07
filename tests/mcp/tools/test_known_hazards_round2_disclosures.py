@@ -81,6 +81,21 @@ recomputes anything, so a cached value never refreshes when the inputs it depend
 entries' shared ``ROUND2_VERIFIED_AT`` (2026-10-29) - so, like the five findings before it, it is
 layered on top via ``ALL_PILOTS`` rather than merged into ``PILOTS``.
 
+G3/TC-726 adds a 14th round-2 finding, ``PAGE-PYTHON-005`` (config/products/page/python.yaml),
+through the identical mechanism, but as a SECOND, unrelated entry on the SAME pilot ``TC-720``
+already added one for - a different class entirely: a real, confirmed-still-open silent
+font-fallback behavior confirmed by direct reproduction against the real installed
+``aspose-page-foss`` 26.9.0 package - ``XpsGlyphs.font_uri`` accepts any string, including a
+path never registered as a real part in the document's own package; ``save()``/``to_pdf()``/
+``to_image()`` all succeed with no exception or warning, pypdf confirms the resulting PDF's
+extracted text is exactly ``"Hello XPS"``, and the rendered PNG has real, non-white glyph pixels
+- the renderer silently substitutes a fallback font and still renders the requested text, never
+the font actually named by ``font_uri``, with no signal anywhere that the requested font was
+not the one used. Its ``verified_at`` is also its own real verification date (2026-11-07),
+distinct from the other 7 entries' shared ``ROUND2_VERIFIED_AT`` (2026-10-29) - so, like the six
+findings before it, it is layered on top of the existing ``PAGE_PYTHON_PILOT`` tuple's issue-id
+list (not a new ``ALL_PILOTS`` entry, since ``page/python`` already has one from ``TC-720``).
+
 This file proves, per pilot: (1) the manifest's new ``known_hazards`` entries validate against
 the real schema; (2) a real end-to-end ``get_product_reference(section="limitations")`` call
 against the REAL baked sidecar (``infra/demo-manifests``, the exact way the live server loads a
@@ -147,7 +162,19 @@ PILOT_IDS = [f"{family}/{platform}" for family, platform, _ in PILOTS]
 # date (the schema-validation and verified_at-date tests below) stay scoped to the original 7,
 # unchanged; tests that check per-entry disclosure (the "for each pilot" and "trace tokens"
 # tests) are extended to also cover this 8th entry via ALL_PILOTS/ALL_ISSUE_IDS below.
-PAGE_PYTHON_PILOT: tuple[str, str, tuple[str, ...]] = ("page", "python", ("PAGE-PYTHON-003",))
+#
+# G3/TC-726 adds a 14th round-2-sourced known_hazards entry, PAGE-PYTHON-005, as a SECOND entry
+# on this SAME page/python manifest (a different, unrelated class - XpsGlyphs.font_uri's silent
+# font fallback, not PAGE-PYTHON-003's page count) - so its issue id is appended directly into
+# this tuple's own issue-id tuple below, the identical multi-id-per-pilot pattern PILOTS already
+# uses for html/python's ("HTML-PY-001", "HTML-PY-005") and slides/java's
+# ("SLIDES-JAVA-001", "SLIDES-JAVA-002"), rather than creating a second, duplicate ALL_PILOTS
+# entry for the same (family, platform) pair.
+PAGE_PYTHON_PILOT: tuple[str, str, tuple[str, ...]] = (
+    "page",
+    "python",
+    ("PAGE-PYTHON-003", "PAGE-PYTHON-005"),
+)
 ALL_PILOTS: tuple[tuple[str, str, tuple[str, ...]], ...] = PILOTS + (PAGE_PYTHON_PILOT,)
 ALL_PILOT_IDS = PILOT_IDS + ["page/python"]
 ALL_ISSUE_IDS = ALL_ISSUE_IDS + PAGE_PYTHON_PILOT[2]
@@ -269,17 +296,18 @@ def test_manifest_known_hazards_entries_validate_against_the_real_schema(
         assert hazard.verified_at == ROUND2_VERIFIED_AT
 
 
-def test_total_known_hazards_entries_match_the_thirteen_round2_findings() -> None:
-    """Exactly 13 entries across the 11 pilots - one per round-2 issue id this card (plus G3/TC-720's
+def test_total_known_hazards_entries_match_the_fourteen_round2_findings() -> None:
+    """Exactly 14 entries across the 11 pilots - one per round-2 issue id this card (plus G3/TC-720's
     PAGE-PYTHON-003, G3/TC-721's CELLS-PY-004, G3/TC-722's EMAIL-CPP-004, G3/TC-723's
-    SLIDES-CPP-003, G3/TC-724's 3D-TYPESCRIPT-006, and G3/TC-725's CELLS-RUST-003) closes, no
-    more, no fewer."""
+    SLIDES-CPP-003, G3/TC-724's 3D-TYPESCRIPT-006, G3/TC-725's CELLS-RUST-003, and G3/TC-726's
+    PAGE-PYTHON-005, the latter a second entry on page/python alongside PAGE-PYTHON-003) closes,
+    no more, no fewer."""
     total = sum(
         len(known_hazards_from_manifest(_real_manifest(family, platform)))
         for family, platform, _ in ALL_PILOTS
     )
-    assert total == 13
-    assert len(ALL_ISSUE_IDS) == 13
+    assert total == 14
+    assert len(ALL_ISSUE_IDS) == 14
 
 
 # ------------------------------------------------------------- (2) end-to-end, real baked pilot
@@ -354,6 +382,11 @@ _HAZARD_TRACE_TOKENS: dict[str, tuple[str, ...]] = {
         "recalculate/evaluate/calculate_formula",
         "declares no member named calculate",
     ),
+    "PAGE-PYTHON-005": (
+        "font_uri accepts any string, including a path",
+        "font_uri: str (writable)",
+        "silently substitutes a fallback font",
+    ),
 }
 
 
@@ -395,11 +428,12 @@ def test_known_hazards_verified_at_is_a_real_valid_calendar_date(
         assert parsed <= datetime.date(2026, 11, 1)
 
 
-def test_round2_issues_json_actually_contains_the_thirteen_claimed_ids() -> None:
-    """Every one of the 13 issue ids this card (plus G3/TC-720's PAGE-PYTHON-003, G3/TC-721's
+def test_round2_issues_json_actually_contains_the_fourteen_claimed_ids() -> None:
+    """Every one of the 14 issue ids this card (plus G3/TC-720's PAGE-PYTHON-003, G3/TC-721's
     CELLS-PY-004, G3/TC-722's EMAIL-CPP-004, G3/TC-723's SLIDES-CPP-003, G3/TC-724's
-    3D-TYPESCRIPT-006, and G3/TC-725's CELLS-RUST-003) closes is a real record in
-    docs/round2/issues.json - the source this card's hazard text must be traceable to."""
+    3D-TYPESCRIPT-006, G3/TC-725's CELLS-RUST-003, and G3/TC-726's PAGE-PYTHON-005) closes is a
+    real record in docs/round2/issues.json - the source this card's hazard text must be
+    traceable to."""
     issues = json.loads(ROUND2_ISSUES_PATH.read_text(encoding="utf-8"))
     ids_present = {issue["id"] for issue in issues}
     for issue_id in ALL_ISSUE_IDS:
