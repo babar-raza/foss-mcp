@@ -1157,6 +1157,54 @@ def _in_excluded_preproc_branch(node, language: str) -> bool:
     return False
 
 
+def _in_excluded_preproc_branch_bounded(node, boundary) -> bool:
+    """Bounded variant of `_in_excluded_preproc_branch` for TC-717's C# enum-member
+    flatten: identical ancestor walk and identical definitely-false test, but the walk
+    never looks past `boundary` (the enum's own member-declaration-list body) -- it stops,
+    reporting "not excluded", the moment it reaches or passes `boundary`.
+
+    Needed because `_in_excluded_preproc_branch`'s own walk is unbounded: it keeps
+    climbing past the enum body, past the enum_declaration node itself, to whatever sits
+    above it. That is correct for its existing class/field/method call sites (a member's
+    only possible preproc ancestor there is inside that member's own class body), but it
+    is wrong for an enum whose *declaration* -- not any of its members -- happens to sit
+    inside an unrelated outer `#if`/`#else`. Found while implementing this fix, on the
+    real `Aspose.Words.DocumentPositionMovement` enum: tree-sitter-c-sharp cannot parse
+    `#if CPLUSPLUS public #else internal #endif` guarding the modifier before `enum`, and
+    recovers by nesting the ENTIRE `enum_declaration` inside one `preproc_if` node whose
+    condition text is bare `CPLUSPLUS` -- a known-false symbol. Calling the unbounded walk
+    from any of that enum's 6 members climbs straight past its own body to that outer
+    `preproc_if`, finds `CPLUSPLUS` definitely false, and wrongly excludes every member,
+    dropping the enum from 6 members to 0 on a raw parse.
+
+    In the real pipeline this exact pattern never actually reaches tree-sitter in that
+    shape: `lang.csharp.resolve_conditional_modifiers` (TC-558/RD3-055) already rewrites
+    an `#if COND / <modifiers> / #else / <modifiers> / #endif` block immediately before a
+    declaration keyword to the one branch the packaged library compiles, textually,
+    before parsing -- so `DocumentPositionMovement` is never extracted as public in the
+    first place (confirmed absent from the committed `words_net` fixture), and this
+    exact malformed tree shape is pre-empted before `_extract_enum_members` ever sees it.
+    This bounded walk is kept anyway as defense-in-depth against any other construct
+    that nests a whole enum_declaration inside an unrelated outer preprocessor wrapper
+    `resolve_conditional_modifiers`'s own narrower regex does not happen to cover -- it
+    can only make exclusion LESS aggressive than the unbounded function, never more, so
+    it carries no risk of masking a real DEBUG/JAVA/CPLUSPLUS leak inside the body itself.
+    """
+    boundary_id = boundary.id
+    ancestor = node.parent
+    while ancestor is not None and ancestor.id != boundary_id:
+        if ancestor.type == "preproc_else":
+            return False
+        if ancestor.type in _PREPROC_BRANCH_TYPES:
+            cond_node = ancestor.children[1] if len(ancestor.children) > 1 else None
+            if cond_node is not None:
+                condition_text = node_text(cond_node)
+                if _condition_definitely_false(condition_text):
+                    return True
+        ancestor = ancestor.parent
+    return False
+
+
 # ---------------------------------------------------------------------------
 # Interface-contract member synthesis (C#, TC-MT007-01 / backlog G-40)
 # ---------------------------------------------------------------------------
@@ -1333,7 +1381,40 @@ def _extract_enum_members(node, language: str) -> list[dict[str, str]]:
     if body is None:
         body = node
 
-    for ch in body.children:
+    # WORDS-NET-006 (G3/TC-717): a C# enum constant guarded by a `#if`/`#elif`/`#else`
+    # preprocessor block (e.g. `SaveFormat.WebP`) sits inside a `preproc_if`/
+    # `preproc_elif`/`preproc_else` wrapper node at this position in the tree, not as a
+    # direct `enum_member_declaration` child -- so the plain `for ch in body.children`
+    # loop below never saw it at all, silently dropping the constant (and everything
+    # else in that `#if` block). Reuses the exact one-level-at-a-time stack-based
+    # flatten `lang.csharp.member_nodes` already applies to class/struct bodies
+    # (replicated inline here, rather than imported, because `lang.csharp` itself
+    # imports from this module -- importing it back would be circular), then drops any
+    # flattened node whose enclosing `#if`/`#elif` condition is definitely false for a
+    # real .NET Release build, via `_in_excluded_preproc_branch_bounded` -- a bounded
+    # variant of `_in_excluded_preproc_branch` scoped to this `body`, not that unbounded
+    # function itself (see its own docstring for the real regression -- the malformed
+    # parse of `Aspose.Words.DocumentPositionMovement`, whose entire `enum_declaration`
+    # sits inside an unrelated outer `#if CPLUSPLUS` -- calling the unbounded ancestor
+    # walk here is proven to cause). C#-only: every other language keeps iterating
+    # `body.children` directly, exactly as before, and a C# enum with no preprocessor
+    # directives at all produces the identical direct-children list (the flatten is a
+    # no-op when there is nothing to flatten).
+    if language == "csharp":
+        children: list = []
+        stack = list(reversed(body.children))
+        while stack:
+            child = stack.pop()
+            if child.type in ("preproc_if", "preproc_elif", "preproc_else"):
+                stack.extend(reversed(child.children))
+            else:
+                children.append(child)
+    else:
+        children = list(body.children)
+
+    for ch in children:
+        if language == "csharp" and _in_excluded_preproc_branch_bounded(ch, body):
+            continue
         if ch.type in (
             "enum_constant",
             "enum_member_declaration",
