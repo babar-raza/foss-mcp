@@ -1,0 +1,69 @@
+
+===== CLEAN RUN 1 (host) =====
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-5c72e798a73c059a\Scripts\python.exe -m pytest tests/mcp/tools/test_round3_install_truth.py -q -rfE -p no:cacheprovider "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-vjjseaxq\.junit-0.xml"
+--- stdout ---
+..............................................................           [100%]
+
+--- stderr ---
+
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-5c72e798a73c059a\Scripts\python.exe -m pytest tests/mcp/tools/test_product_reference_cpp_install.py -q -rfE -p no:cacheprovider "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-vjjseaxq\.junit-1.xml"
+--- stdout ---
+.......                                                                  [100%]
+
+--- stderr ---
+
+
+===== CLEAN RUN 2 (host) =====
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-5c72e798a73c059a\Scripts\python.exe -m pytest tests/mcp/tools/test_round3_install_truth.py -q -rfE -p no:cacheprovider "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-vjjseaxq\.junit-0.xml"
+--- stdout ---
+..............................................................           [100%]
+
+--- stderr ---
+
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-5c72e798a73c059a\Scripts\python.exe -m pytest tests/mcp/tools/test_product_reference_cpp_install.py -q -rfE -p no:cacheprovider "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-vjjseaxq\.junit-1.xml"
+--- stdout ---
+.......                                                                  [100%]
+
+--- stderr ---
+
+
+===== NEGATIVE CONTROL (checks MUST now fail) =====
+mutated: M src/foss_mcp/mcp/tools/get_product_reference.py, ?? .junit-0.xml, ?? .junit-1.xml
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-5c72e798a73c059a\Scripts\python.exe -m pytest tests/mcp/tools/test_round3_install_truth.py -q -rfE -p no:cacheprovider "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-vjjseaxq\.junit-0.xml"
+--- stdout ---
+.....F........................................................           [100%]
+================================== FAILURES ===================================
+_ test_cells_cpp_drift_notice_still_recommends_fetchcontent_without_a_broken_embedding_disclosure _
+
+    def test_cells_cpp_drift_notice_still_recommends_fetchcontent_without_a_broken_embedding_disclosure() -> None:
+        """Negative control for G3/TC-719's fix: cells/cpp's real CMakeLists.txt never refers to
+        ``${CMAKE_SOURCE_DIR}`` (``parse_cmake_facts(...).embedding_broken is False`` -
+        ``test_cmake_facts_of_the_real_files`` above), so its install recipe never carries
+        ``_BROKEN_EMBEDDING_NOTE``. A pilot in this situation must keep recommending FetchContent in its
+        drift notice exactly as before this card - the fix must not silence the sentence for every cpp
+        pilot, only for the one that disclosed embedding is broken. cells/cpp's own production sidecar
+        never recorded real drift (``infra/demo-manifests/product_reference_cells_cpp.json``), so this
+        uses the narrowest synthetic ``DriftRecord`` needed to exercise the index-ahead branch, the same
+        way ``tests/mcp/tools/test_compatibility_drift_notice.py`` already does for this exact helper."""
+        drift = DriftRecord(indexed_commit=_pin("cells_cpp")["commit"], tag="v1.0.0", ahead_by=3, behind_by=0)
+    
+        result = _answer(_inputs("cells_cpp", drift=drift), "install")
+    
+        assert result.notice is not None
+        assert "git clone" in result.notice and "git checkout" in result.notice
+>       assert "FetchContent_Declare" in result.notice
+E       assert 'FetchContent_Declare' in "Verbatim README section 'Installation' as indexed from the repository at commit 9f852d0ff1cf; 1 part, in original ord...ps://github.com/aspose-cells-foss/Aspose.Cells-FOSS-for-Cpp and git checkout 9f852d0ff1cfdad2d661556d6b87a8eff8c063a2."
+E        +  where "Verbatim README section 'Installation' as indexed from the repository at commit 9f852d0ff1cf; 1 part, in original ord...ps://github.com/aspose-cells-foss/Aspose.Cells-FOSS-for-Cpp and git checkout 9f852d0ff1cfdad2d661556d6b87a8eff8c063a2." = ReferenceContent(section='install', text='Build from source with CMake. Repository: https://github.com/aspose-cells-fo...s://github.com/aspose-cells-foss/Aspose.Cells-FOSS-for-Cpp and git checkout 9f852d0ff1cfdad2d661556d6b87a8eff8c063a2.").notice
+
+tests\mcp\tools\test_round3_install_truth.py:227: AssertionError
+=========================== short test summary info ===========================
+FAILED tests/mcp/tools/test_round3_install_truth.py::test_cells_cpp_drift_notice_still_recommends_fetchcontent_without_a_broken_embedding_disclosure
+
+--- stderr ---
+
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-5c72e798a73c059a\Scripts\python.exe -m pytest tests/mcp/tools/test_product_reference_cpp_install.py -q -rfE -p no:cacheprovider "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-vjjseaxq\.junit-1.xml"
+--- stdout ---
+.......                                                                  [100%]
+
+--- stderr ---
+
