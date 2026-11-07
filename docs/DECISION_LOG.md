@@ -3756,3 +3756,67 @@ and risk for one card, same reasoning as `CELLS-GO-006`/`NOTE-PY-007`/`PDF-CPP-0
 session. A future pass should verify and disclose these in 2-3 smaller, independently-reviewable
 groups (e.g. "no multi-sheet creation" + "no PDF export" as one; "no merged-cell/named-range/
 number-format" as another), not attempt all six in a single card.
+
+## 2026-11-07 — PDF-TS-002 root-caused precisely (extraction already correct; it's a chunk_builder rendering gap), but deliberately not carded this round pending a design decision on where/how to surface it (supervisor)
+
+`PDF-TS-002` (round-2, P1, mcp-content-missing, `pdf/typescript`) claims method-level JSDoc
+summaries (e.g. `Document.New`'s own documented zero-page-vs-one-page distinction) are "never
+indexed for any method" and so never reach `get_symbol`/`list_members`. **Traced precisely, and
+the real situation is better than the finding's own framing**: the real committed
+`tests/fixtures/pdf_typescript/api_surface.json` already has the JSDoc text correctly extracted -
+321 of 433 real methods carry a non-empty `doc` field, and `Document.New`'s own entry reads
+`"doc": "Create a new document from scratch: zero pages when `format` is omitted, or one blank
+page of that size when given."` - word-for-word matching the real source JSDoc the finding quotes.
+**Extraction is not the gap; a brand-new re-extraction card is not needed.** The real gap is
+purely in rendering: `chunk_builder.py`'s `_method_line` (the ONE function every language's
+member-line rendering funnels through - the identical function this session's `TC-717` already
+touched for a different reason) never reads `method.get("doc")` at all; its return value is built
+entirely from name/params/return-type plus a fixed, already-established chain of OPTIONAL suffix
+functions (`_throws_suffix`, `_modifiers_suffix`, `_generics_suffix`, `_mixin_suffix`,
+`_inherited_from_suffix`, `_deprecated_suffix`, `_stub_suffix`) - a doc summary is simply never one
+of them, for any language, any pilot.
+
+**Why this is not carded this round despite being precisely diagnosed**: `_method_line` is the
+single most universally-shared rendering function in the whole codebase - every pilot's every
+method line, in every `list_members`/`get_symbol` response, runs through it. Appending doc text
+inline (as one more optional suffix, the obvious mechanical fix matching every sibling suffix's
+own additive pattern) would lengthen the member line for roughly 3 of every 4 real methods across
+most pilots (321/433 ≈ 74% in this one pilot alone) - a measured, cross-cutting blast radius this
+project's own discipline requires fully characterizing BEFORE writing the fix, not after: how many
+existing tests pin an EXACT member-line string anywhere in the 32-pilot corpus (plausibly dozens
+to hundreds, given how pervasively this one function is exercised), whether `list_members`'s bulk
+per-class view should render every member's full doc inline at all (a large class could balloon
+well past any sane response budget) versus `get_symbol`'s single-symbol view doing so safely, and
+whether a doc sentence needs its own length cap (mirroring `_stub_suffix`'s own
+`_STUB_REASON_LIMIT`). None of this was measured this round - deliberately, to avoid repeating the
+mistake of dispatching a worker at a universally-shared function without first bounding the real
+blast radius, the exact caution this project's own `TC-717` card (the last time `_method_line`-
+adjacent code was touched) was written with.
+
+A future card should: (1) measure how many committed tests across all 32 pilots assert an EXACT
+member-line string (not just this one pilot) before writing any code; (2) decide where doc text
+surfaces - most likely `get_symbol`'s single-symbol view only, as a new, separate line/block
+analogous to how `known_defect_lines` already appends separate disclosure lines rather than
+inlining into the signature itself, leaving `list_members`'s bulk view and every pinned test
+byte-for-byte unchanged; (3) decide a length cap. The adjacent, smaller sibling gap the same
+finding's own text names (`PDF-TS-004`: a class/interface-level JSDoc summary is truncated at the
+first sentence or the first `{@link...}` token, dropping a real behavioral constraint) is a
+SEPARATE, likely much narrower fix (a single truncation-point bug in whatever extracts the
+class-level summary, not the member-line renderer) - worth its own, separate, smaller future card
+rather than bundling with this one.
+
+**Four other findings checked the same round, all confirmed open but none cleanly bounded,
+recorded briefly so they aren't re-investigated from scratch**: `CELLS-CPP-004` (its own `actual`
+field says the real root cause is a separate, already-tracked bug, `CELLS-CPP-002` - entangled,
+not independently actionable). `EMAIL-PY-003` (a findability gap - the right answer exists in one
+doc chunk but `find_examples`/`search_symbols` can't reach it - overlaps `find_examples` territory
+this session's `TC-710` already found mostly dead-ended). `SLIDES-PY-003` (`AutoShape` resolves to
+two byte-identical chunks under two FQNs that don't match the standard re-export shape `TC-686`
+already covers - touches the same identity-collapse logic this project has flagged as an
+entanglement risk before; needs its own careful trace, not a quick patch). `TEX-PYTHON-002`
+(the project's own parse-failure coverage note undercounts real failures 13-of-≥35; likely needs
+touching `coverage_note.py`'s shared, cross-pilot counting function, and `tex/python`'s extraction
+already has deep, separately-tracked, `BLOCKED_UPSTREAM`-adjacent issues elsewhere in this
+project's history - not a narrow fix). Also: `PDF-JAVA-003` was independently re-confirmed as
+already closed by `TC-650` (2026-10-29) - a grep-only check would have missed it; the direct diff
+read confirmed the match.
