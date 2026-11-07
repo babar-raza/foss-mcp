@@ -1,0 +1,152 @@
+id: TC-719
+gate: G3
+lane: storage-retrieval
+purpose: >-
+  Closes PDF-CPP-004 (round-2, `docs/round2/issues.json`, severity P1, category "mcp-content-wrong"
+  - confirmed STILL OPEN by a dedicated 2026-11-07 supervisor investigation):
+  `get_product_reference(section=install)` for `pdf/cpp` directly contradicts itself in ONE
+  response: the body text states (twice) that `add_subdirectory`/`FetchContent` do NOT work at the
+  indexed commit (`${CMAKE_SOURCE_DIR}` refers to the consuming project, not the library - the
+  already-correct, already-working `_annotate_broken_embedding`/`_BROKEN_EMBEDDING_NOTE` mechanism,
+  `get_product_reference.py` around line 1389, replaces the broken embedding code block with this
+  exact disclosure), but the SAME response's trailing `notice` field (built independently by
+  `_drift_notice`) then instructs the reader to use exactly that broken route:
+  `FetchContent_Declare(<name> GIT_REPOSITORY ... GIT_TAG <commit>)` then `FetchContent_MakeAvailable(<name>)`.
+  A reader who trusts the notice (which appears last, and reads as more actionable) hits the exact
+  `${CMAKE_SOURCE_DIR}` failure the body already warned about.
+
+  ROOT CAUSE (independently traced): `_drift_notice(inputs, ecosystem)` (around line 445) is a
+  GENERIC, pilot-agnostic helper that appends a `FetchContent_Declare(...)`-shaped sentence
+  whenever `ecosystem == "cmake"` AND the pilot's indexed commit is ahead of (or diverged from) its
+  latest release/tag - with zero awareness of whether THIS SPECIFIC pilot's own install recipe
+  already disclosed that embedding is broken at this exact commit. The `cpp` branch's own call site
+  (around line 2150-2157) computes `recipe = _cpp_install(inputs, content, readme)` FIRST (which
+  already correctly runs `_annotate_broken_embedding` and would have replaced the broken block with
+  `_BROKEN_EMBEDDING_NOTE` if applicable), THEN separately computes `cmake_drift =
+  _drift_notice(inputs, "cmake")` and appends it to `recipe.notice` via `_join_notice` with no
+  cross-check between the two - the information needed to avoid the contradiction (whether
+  `recipe`'s own text already contains `_BROKEN_EMBEDDING_NOTE`) is already sitting right there at
+  the call site, just never consulted.
+
+  REPRODUCE FIRST: confirm this is still real on current `main`. Call
+  `get_product_reference(section="install")` for `pdf/cpp` against the real committed data (same
+  pattern this session's other `get_product_reference` cards used) and confirm the body contains
+  `_BROKEN_EMBEDDING_NOTE`'s disclosure text while the `notice` field simultaneously recommends
+  `FetchContent_Declare`. Report the real observed text, verbatim, in your closeout.
+
+  FIX (narrow, additive, touches only the `cpp` branch's own call site and `_drift_notice`'s own
+  signature - never changes the drift-detection logic, the `git clone`+`git checkout` sentence
+  which is ALWAYS valid regardless of whether FetchContent/add_subdirectory work, or any other
+  ecosystem's behavior): add an optional keyword parameter to `_drift_notice`, e.g.
+  `embedding_broken: bool = False`, defaulting to the exact current behavior for every existing
+  caller (the two OTHER call sites, around lines 2032 and 2235, must stay byte-for-byte unchanged -
+  do not touch them). When `embedding_broken` is True AND `ecosystem == "cmake"`, skip appending
+  the `FetchContent_Declare(...)`/`FetchContent_MakeAvailable(...)` sentence specifically, keeping
+  the `git clone`/`git checkout` sentence (always correct) and the rest of the drift message
+  unchanged. At the `cpp` branch's own call site (around line 2153), pass
+  `embedding_broken=_BROKEN_EMBEDDING_NOTE in recipe.text` (computed from `recipe`, which is already
+  available at that point, built moments earlier) - reusing the existing broken-embedding detection
+  this project already trusts, never re-deriving it with a second, parallel check.
+
+  TEST: add a real-fixture-backed regression test to `tests/mcp/tools/test_round3_install_truth.py`
+  (or the appropriate existing C++ install test file - check whether `cpp` install drift already has
+  dedicated tests in that file or in `test_product_reference_cpp_install.py`, and follow whichever
+  file's own existing convention) proving `pdf/cpp`'s real install answer no longer recommends
+  `FetchContent_Declare` when the body already discloses broken embedding, while the `git
+  clone`/`git checkout` sentence and the broken-embedding disclosure itself are both still present
+  and unchanged. Also prove (negative case) that a C++ pilot WITHOUT a broken-embedding disclosure
+  (if one with real drift exists in the committed corpus; if none does, construct the narrowest
+  possible synthetic case for just this one negative assertion, matching this file's own existing
+  conventions for similar edge cases) still gets the `FetchContent_Declare` sentence exactly as
+  before - this is the "do not weaken the check for any other pilot" proof.
+depends_on:
+  - TC-275
+  - TC-353
+  - TC-387
+  - TC-427
+  - TC-470
+  - TC-471
+  - TC-507
+  - TC-518
+  - TC-542
+  - TC-560
+  - TC-561
+  - TC-574
+  - TC-577
+  - TC-582
+  - TC-622
+  - TC-641
+  - TC-652
+  - TC-658
+  - TC-678
+  - TC-680
+  - TC-681
+  - TC-683
+  - TC-698
+  - TC-714
+  - TC-718
+write_paths:
+  - src/foss_mcp/mcp/tools/get_product_reference.py
+  - tests/mcp/tools/test_round3_install_truth.py
+satisfies:
+  - REQ-G3-013
+source_refs:
+  - file: docs/DECISION_LOG.md
+    anchor: >-
+      ## 2026-11-07 — WORDS-PY-002 investigated: not stale served data as reported, a real design tension in the `__all__`-based public-name rule; a supervisor decision, not a quick fix (supervisor)
+    sha256: facf53870f4293b1ad12582511aca9b9f228dc2e98dc7274e91c5a6c6f1152cc
+inputs:
+  - >-
+    READ FIRST: `docs/round2/issues.json` id `PDF-CPP-004` in full. Then `get_product_reference.py`'s
+    `_drift_notice` (around line 445), `_annotate_broken_embedding`/`_BROKEN_EMBEDDING_NOTE` (around
+    line 1389), and `_cpp_install`'s own `platform == "cpp"` call site (around lines 2134-2159) in
+    full - the exact place where `recipe` and `cmake_drift` are both already computed, moments
+    apart, with no cross-check between them today.
+  - >-
+    REPRODUCE FIRST (do not skip): a real call against the real committed pdf/cpp data, confirming
+    both halves of the contradiction exist today. Report the real observed text, verbatim, in your
+    closeout.
+  - >-
+    Never change `_drift_notice`'s default behavior for its other two existing call sites, and
+    never remove the `git clone`/`git checkout` sentence, which is valid regardless of whether
+    FetchContent/add_subdirectory work for this pilot.
+actions:
+  - >-
+    Make the generic drift-notice's FetchContent suggestion aware of the same pilot's own
+    already-computed broken-embedding disclosure, closing PDF-CPP-004's self-contradiction without
+    touching any other ecosystem or call site.
+checks:
+  - command: '{python} -m pytest tests/mcp/tools/test_round3_install_truth.py -q -rfE -p no:cacheprovider'
+    expect: 'exit 0'
+    timeout_seconds: 300
+    junitxml: true
+    proves:
+      - REQ-G3-013
+  - command: '{python} -m pytest tests/mcp/tools/test_product_reference_cpp_install.py -q -rfE -p no:cacheprovider'
+    expect: 'exit 0'
+    timeout_seconds: 300
+    junitxml: true
+    proves:
+      - REQ-G3-013
+min_tests: 7
+requires:
+  - python
+network: false
+negative_control:
+  mutate: |
+    python -X utf8 -c "import pathlib; p = pathlib.Path('src/foss_mcp/mcp/tools/get_product_reference.py'); s = p.read_text(encoding='utf-8'); old = 'embedding_broken'; count = s.count(old); assert count >= 1, 'the expected parameter name was not found - if your real fix uses a different name, anchor your own mutate on your own real literal instead and note the substitution in your closeout'; new_old = 'if ecosystem == ' + chr(34) + 'cmake' + chr(34) + ':'; count2 = s.count(new_old); assert count2 >= 1, 'the expected cmake-branch literal was not found - anchor your own mutate on your own real literal instead'; s2 = s.replace(new_old, 'if False and ecosystem == ' + chr(34) + 'cmake' + chr(34) + ':', 1); assert s2 != s; p.write_text(s2, encoding='utf-8')"
+  rationale: >-
+    Disables the whole `cmake`-branch of `_drift_notice` outright (`if ecosystem == "cmake"` ->
+    `if False and ...`), which must make the new regression test fail (the FetchContent sentence
+    never appears at all any more, including for the pilot that SHOULD still get it) - if your real
+    fix structures the condition differently, anchor your own mutate on your own real post-fix
+    literal instead and note the substitution in your closeout.
+evidence:
+  - evidence/build/G3/TC-719/receipt.json
+closeout:
+  - >-
+    `get_product_reference(section=install)` for `pdf/cpp` no longer recommends `FetchContent` in
+    its drift notice when the body already discloses that embedding is broken at the indexed
+    commit, closing PDF-CPP-004 without changing `_drift_notice`'s behavior for any other pilot or
+    call site.
+recovery: Re-run from a clean tree.
