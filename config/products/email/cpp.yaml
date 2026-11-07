@@ -21,3 +21,28 @@ schedule:
   cron: "0 10 * * *"
   timezone: UTC
 storage_topology: embedded
+
+# G3/TC-722: a project-authored, project-verified hazard the real upstream library's own source
+# and headers carry no caveat for (get_symbol/list_members show only the bare reference return
+# type, never any reference-stability note) - a confirmed upstream documentation gap, verified
+# 2026-11-07 by reading the real pinned commit's source directly (no reserve() call anywhere in
+# the class), not a foss-mcp defect. Keep this the LAST top-level key.
+known_hazards:
+  - text: >-
+      The reference returned by add_attachment, add_recipient, or add_embedded_message_attachment
+      is only valid until the next add_* call on the same mapi_message. Making any further such
+      call before finishing with an earlier reference reads back silently-corrupted (empty) data
+      through that reference - no crash, no exception, no diagnostic. The real mechanism,
+      confirmed by reading the real pinned commit's src/msg/mapi_message.cpp and the header
+      declaring these methods directly:
+      all three methods append the new attachment or recipient onto an internal std::vector
+      member with push_back and return a reference to that vector's freshly-added element via
+      .back(); no reserve() call exists anywhere in the class, so the vector's capacity is never
+      pre-allocated, and an ordinary further add_attachment/add_recipient/add_embedded_message_attachment
+      call can - and does - trigger a reallocation that copies every existing element into a new
+      buffer, leaving every reference an earlier call returned pointing at freed memory. The safe
+      pattern: never hold onto a returned mapi_attachment& or mapi_recipient& across a further
+      add_attachment/add_recipient/add_embedded_message_attachment call on the same message -
+      finish configuring each one immediately after the call that created it, or re-fetch it
+      afterward by index from attachments()/recipients(), before adding the next.
+    verified_at: "2026-11-07"

@@ -29,6 +29,18 @@ served content never disclosed. Its ``verified_at`` is also its own real verific
 other 7 entries' shared ``ROUND2_VERIFIED_AT`` (2026-10-29) - so, like ``PAGE-PYTHON-003``
 before it, it is layered on top via ``ALL_PILOTS`` rather than merged into ``PILOTS``.
 
+G3/TC-722 adds a 10th round-2 finding, ``EMAIL-CPP-004`` (config/products/email/cpp.yaml),
+through the identical mechanism: a real reference-invalidation hazard confirmed by reading the
+real pinned commit's ``src/msg/mapi_message.cpp`` and header directly - ``add_attachment``,
+``add_recipient``, and ``add_embedded_message_attachment`` each ``push_back`` onto an internal
+``std::vector`` member and return a reference to its ``.back()``, with no ``reserve()`` call
+anywhere in the class, so any further ``add_*`` call on the same message can reallocate the
+vector and silently invalidate every reference an earlier call returned - that this project's
+own served content never disclosed. Its ``verified_at`` is also its own real verification date
+(2026-11-07, by direct reading of the real pinned source), distinct from the other 7 entries'
+shared ``ROUND2_VERIFIED_AT`` (2026-10-29) - so, like ``PAGE-PYTHON-003`` and ``CELLS-PY-004``
+before it, it is layered on top via ``ALL_PILOTS`` rather than merged into ``PILOTS``.
+
 This file proves, per pilot: (1) the manifest's new ``known_hazards`` entries validate against
 the real schema; (2) a real end-to-end ``get_product_reference(section="limitations")`` call
 against the REAL baked sidecar (``infra/demo-manifests``, the exact way the live server loads a
@@ -112,6 +124,19 @@ ALL_PILOTS = ALL_PILOTS + (CELLS_PYTHON_PILOT,)
 ALL_PILOT_IDS = ALL_PILOT_IDS + ["cells/python"]
 ALL_ISSUE_IDS = ALL_ISSUE_IDS + CELLS_PYTHON_PILOT[2]
 
+# G3/TC-722: the 10th round-2-sourced known_hazards entry, EMAIL-CPP-004 (email/cpp). Layered
+# on top of ALL_PILOTS the same way G3/TC-720's PAGE_PYTHON_PILOT and G3/TC-721's
+# CELLS_PYTHON_PILOT were, for the identical reason: its real verified_at (2026-11-07, this
+# card's own direct reading of the real pinned source) differs from the other 7 entries' shared
+# ROUND2_VERIFIED_AT (2026-10-29), so the schema-validation and verified_at-date tests below
+# (which assume one shared date) stay scoped to the original 7, unchanged, while the per-entry
+# disclosure tests ("for each pilot" and "trace tokens") extend to cover this 10th entry via
+# ALL_PILOTS/ALL_ISSUE_IDS.
+EMAIL_CPP_PILOT: tuple[str, str, tuple[str, ...]] = ("email", "cpp", ("EMAIL-CPP-004",))
+ALL_PILOTS = ALL_PILOTS + (EMAIL_CPP_PILOT,)
+ALL_PILOT_IDS = ALL_PILOT_IDS + ["email/cpp"]
+ALL_ISSUE_IDS = ALL_ISSUE_IDS + EMAIL_CPP_PILOT[2]
+
 
 def _schema() -> dict[str, Any]:
     return json.loads(SCHEMA_PATH.read_text(encoding="utf-8"))
@@ -166,15 +191,16 @@ def test_manifest_known_hazards_entries_validate_against_the_real_schema(
         assert hazard.verified_at == ROUND2_VERIFIED_AT
 
 
-def test_total_known_hazards_entries_match_the_nine_round2_findings() -> None:
-    """Exactly 9 entries across the 7 pilots - one per round-2 issue id this card (plus G3/TC-720's
-    PAGE-PYTHON-003 and G3/TC-721's CELLS-PY-004) closes, no more, no fewer."""
+def test_total_known_hazards_entries_match_the_ten_round2_findings() -> None:
+    """Exactly 10 entries across the 8 pilots - one per round-2 issue id this card (plus G3/TC-720's
+    PAGE-PYTHON-003, G3/TC-721's CELLS-PY-004, and G3/TC-722's EMAIL-CPP-004) closes, no more, no
+    fewer."""
     total = sum(
         len(known_hazards_from_manifest(_real_manifest(family, platform)))
         for family, platform, _ in ALL_PILOTS
     )
-    assert total == 9
-    assert len(ALL_ISSUE_IDS) == 9
+    assert total == 10
+    assert len(ALL_ISSUE_IDS) == 10
 
 
 # ------------------------------------------------------------- (2) end-to-end, real baked pilot
@@ -229,6 +255,11 @@ _HAZARD_TRACE_TOKENS: dict[str, tuple[str, ...]] = {
         "_evaluate_function",
         "b2+b3",
     ),
+    "EMAIL-CPP-004": (
+        "add_attachment/add_recipient/add_embedded_message_attachment",
+        "on the same mapi_message.",
+        "silently-corrupted",
+    ),
 }
 
 
@@ -270,10 +301,10 @@ def test_known_hazards_verified_at_is_a_real_valid_calendar_date(
         assert parsed <= datetime.date(2026, 11, 1)
 
 
-def test_round2_issues_json_actually_contains_the_nine_claimed_ids() -> None:
-    """Every one of the 9 issue ids this card (plus G3/TC-720's PAGE-PYTHON-003 and G3/TC-721's
-    CELLS-PY-004) closes is a real record in docs/round2/issues.json - the source this card's
-    hazard text must be traceable to."""
+def test_round2_issues_json_actually_contains_the_ten_claimed_ids() -> None:
+    """Every one of the 10 issue ids this card (plus G3/TC-720's PAGE-PYTHON-003, G3/TC-721's
+    CELLS-PY-004, and G3/TC-722's EMAIL-CPP-004) closes is a real record in
+    docs/round2/issues.json - the source this card's hazard text must be traceable to."""
     issues = json.loads(ROUND2_ISSUES_PATH.read_text(encoding="utf-8"))
     ids_present = {issue["id"] for issue in issues}
     for issue_id in ALL_ISSUE_IDS:
