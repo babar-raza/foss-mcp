@@ -1,0 +1,127 @@
+id: TC-726
+gate: G3
+lane: transport-deployment
+purpose: >-
+  Closes PAGE-PYTHON-005 (round-2, `docs/round2/issues.json`, severity P2, category
+  "mcp-docs-quality" - confirmed STILL OPEN by a dedicated 2026-11-07 supervisor investigation):
+  `XpsGlyphs.font_uri` accepts ANY string, including a path to a font that was never registered as
+  a real part in the XPS package's own parts dict - `get_symbol('aspose.page.xps.editing.XpsGlyphs')`
+  shows only `font_uri: str (writable)` with zero validation, allowed-value list, or behavior note.
+  The real, empirically-confirmed behavior: a nonexistent `font_uri` never raises - the library
+  silently substitutes a fallback font and still renders the requested text. `to_pdf()`/`to_image()`
+  both succeed; the finding's own repro confirms via `pypdf` that the rendered PDF page text is
+  correct and the PNG has real, non-white glyph pixels - text genuinely renders, just with
+  whichever fallback font the library silently chose, never the one actually requested. An agent
+  has no way to know, from anything this project serves, whether glyphs it just rendered actually
+  used the font it asked for or a silent substitute.
+
+  Note: `page/python` already has ONE `known_hazards` entry (added by `TC-720` this session,
+  closing `PAGE-PYTHON-003` - `PsDocument.create()`'s pre-populated page) - this is a DIFFERENT,
+  unrelated finding about a different class (`XpsGlyphs`) and a different behavior (silent font
+  fallback, not a page count). This card ADDS a second entry to the SAME existing list; it must
+  not touch, reword, or remove `TC-720`'s own entry.
+
+  REPRODUCE FIRST: confirm this is still real. Build a real `XpsDocument`, `create()` it, add a
+  page, and append an `XpsGlyphs` element whose `font_uri` points at a path never registered in
+  the document's own parts (e.g. `/Resources/Fonts/does-not-exist.odttf`). Confirm `to_pdf()`/
+  `to_image()` both succeed with no exception, and confirm (via `pypdf` for the PDF text, and a
+  basic non-white-pixel check for the PNG) that the requested text genuinely renders anyway -
+  proving the silent-fallback behavior rather than a loud failure. Report the real observed
+  behavior, verbatim, in your closeout - if your own reproduction finds the real current behavior
+  differs from this card's description (e.g. a newer package version now raises, or validates),
+  write the hazard to match what you actually observed and note the discrepancy.
+
+  FIX (pure additive data, zero code change - the SAME already-wired mechanism this project uses
+  for every other `known_hazards` entry; `page/python`'s file already HAS the key, so this is a
+  second LIST ITEM, not a new key): add a NEW entry to the EXISTING `known_hazards` list in
+  `config/products/page/python.yaml` (append it - do not replace or reorder `TC-720`'s existing
+  entry), stating plainly: the real trigger (setting `XpsGlyphs.font_uri` to any string, including
+  one that doesn't resolve to a real registered font part), the real observed behavior (no
+  exception, no warning - the renderer silently substitutes a fallback font and still renders the
+  requested text, so a successful `to_pdf()`/`to_image()` call is NOT proof the requested font was
+  actually used), and the safe pattern (never assume `font_uri` resolved correctly just because
+  rendering succeeded with no error; independently verify the actual font used if that distinction
+  matters, since this library gives no signal either way).
+depends_on:
+  - TC-001
+  - TC-003
+  - TC-156
+  - TC-650
+  - TC-720
+  - TC-721
+  - TC-722
+  - TC-723
+  - TC-724
+  - TC-725
+write_paths:
+  - config/products/page/python.yaml
+  - tests/mcp/tools/test_known_hazards_round2_disclosures.py
+satisfies:
+  - REQ-G3-015
+source_refs:
+  - file: docs/DECISION_LOG.md
+    anchor: >-
+      ## 2026-11-07 — CELLS-CPP-005 confirmed already fixed; the round-2 finding is stale (supervisor)
+    sha256: 991caa8a95ffcb674b6a4e39b368ce56b3146603d9ffb56575202ac94974f9bc
+inputs:
+  - >-
+    READ FIRST: `docs/round2/issues.json` id `PAGE-PYTHON-005` in full. Then the REAL, CURRENTLY
+    COMMITTED `config/products/page/python.yaml` in full (it already has a `known_hazards` key with
+    one entry from `TC-720` - read it so you append correctly, in the same style, without touching
+    it) and `tests/mcp/tools/test_known_hazards_round2_disclosures.py` in full, especially the most
+    recent widening for `TC-725`/`CELLS-RUST-003` (search for "CELLS-RUST-003") as your direct,
+    most-recent template for adding a 14th entry cleanly.
+  - >-
+    REPRODUCE FIRST (do not skip): a real `XpsGlyphs`/`XpsDocument` construction and render,
+    confirming the silent-fallback behavior. Report the real observations, verbatim, in your
+    closeout.
+  - >-
+    This is a project-authored disclosure, not an upstream quote - write the hazard in your own
+    words, matching the house style of every other `known_hazards` entry already committed. Append
+    to the existing list; do not replace, reorder, or reword `TC-720`'s own entry.
+  - >-
+    Before committing, manually run this card's own `negative_control.mutate` script against your
+    real committed file and confirm it actually makes your new test fail. The mutate APPENDS
+    "NOTREAL" onto the matched text, so a trace token that is only a PREFIX of the mutated phrase
+    (or a substring of it appearing elsewhere) remains matching after mutation and makes the
+    control vacuous - follow `TC-723`/`TC-724`/`TC-725`'s own worked examples of a straddling
+    phrase rather than a bare identifier.
+actions:
+  - >-
+    Disclose the real silent font-fallback behavior for XpsGlyphs.font_uri via a new known_hazards
+    list entry for page/python, appended alongside TC-720's existing entry, with zero code change.
+checks:
+  - command: '{python} -m pytest tests/mcp/tools/test_known_hazards_round2_disclosures.py -q -rfE -p no:cacheprovider'
+    expect: 'exit 0'
+    timeout_seconds: 300
+    junitxml: true
+    proves:
+      - REQ-G3-015
+min_tests: 36
+requires:
+  - python
+network: false
+negative_control:
+  mutate: |
+    python -X utf8 -c "import pathlib; p = pathlib.Path('config/products/page/python.yaml'); s = p.read_text(encoding='utf-8'); old = 'font_uri'; count = s.count(old); assert count >= 1, 'the expected font_uri literal was not found - if your real hazard text phrases this differently, anchor your own mutate on your own real literal instead and note the substitution in your closeout'; s2 = s.replace(old, 'font_uriNOTREAL', 1); assert s2 != s; p.write_text(s2, encoding='utf-8')"
+  rationale: >-
+    Corrupts the real hazard text's own subject attribute name so it no longer matches the real
+    identifier the new regression test asserts on, which must make that test fail - a pure data
+    mutation, immune to the lockstep-rename vacuousness class this session's earlier reviews
+    found, and it never touches any code path. If your real hazard text repeats "font_uri" more
+    than once before the mutate's target occurrence (likely, since the term appears naturally many
+    times in this hazard's own description), or your chosen trace token is only a prefix of it,
+    re-anchor the mutate or your trace token - follow `TC-723`/`TC-724`/`TC-725`'s own worked
+    examples of a straddling phrase instead of a bare identifier to avoid exactly this; note the
+    card's own mutate target (`font_uri` -> `font_uriNOTREAL`) will match the word's FIRST
+    occurrence in the whole file, which may be inside `TC-720`'s own unrelated entry if that entry
+    happens to mention `font_uri` at all (it should not, since it's about a different class) -
+    confirm this before relying on the mutate.
+evidence:
+  - evidence/build/G3/TC-726/receipt.json
+closeout:
+  - >-
+    `page/python`'s real silent font-fallback behavior for `XpsGlyphs.font_uri` is now disclosed
+    via a new known_hazards list entry, closing PAGE-PYTHON-005 with zero code change, alongside
+    `TC-720`'s own existing, unrelated entry for the same pilot.
+recovery: Re-run from a clean tree.
