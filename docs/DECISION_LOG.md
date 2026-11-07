@@ -3473,3 +3473,42 @@ TC-543's own test does not cover (e.g. restricted to pilots/queries TC-543's tes
 if any exist) or a revision to TC-543's own invariant itself (a deliberate, separately-justified
 scope change, not a side effect of this mechanism) - this record exists so neither has to be
 re-discovered from scratch.
+
+## 2026-11-07 — PDF-NET-001 investigated: genuine upstream source drift between the finding's own verification version and the pinned indexed commit, not an extractor defect (supervisor)
+
+Round-2's `PDF-NET-001` (P1, mcp-content-wrong) claims `pdf/net`'s `WatermarkAnnotation` class is
+indexed with `bases: []` when the real upstream class extends `Annotation` - framed as a C# base-list
+extraction defect. Investigated directly, independently of the finding's own text, by fetching the
+real pinned commit's source via `gh api` rather than trusting either side's claim.
+
+**Real result**: at the pilot's actual pinned indexed commit (`b7172877`, tag `v26.9.0`), BOTH real
+merged partial-class fragments (`src/Annotations/WatermarkAnnotation.cs:50`,
+`src/Annotations/AnnotationSelector.cs:900`) declare `public sealed partial class WatermarkAnnotation`
+with genuinely **no base class** - `bases: []` is the correct, faithful extraction of the real indexed
+source at that exact commit. At the next real upstream tag, `v26.10.0` (commit `10a363830`, confirmed
+via `gh api .../compare/...` to be exactly 2 commits ahead of the pin), the same class reads
+`public partial class WatermarkAnnotation : Annotation` - the base class was added upstream AFTER the
+version this project indexes. Round-2's own reflection-based verification was run against the
+published `v26.10.0+` package, not against the pinned `v26.9.0` commit it was supposed to be checking
+- the finding compared two different real versions of the same file and misdiagnosed the resulting
+difference as an extractor bug.
+
+**Decision**: no extractor fix is warranted - `api_surface.py`'s base-list extraction is already
+correct for the real source it was given. This is a version-drift/freshness disclosure question (the
+same class `TC-657`/`TC-712`/`TC-713`/`TC-715` already handle for registry-version drift elsewhere),
+not a parsing defect, and is NOT carded as "fix the base-list extractor" - that would be changing
+correct code to chase a symptom whose real cause is upstream's own commit history. A future, smaller,
+separately-scoped investigation could check whether `report_index_freshness` for `pdf/net` already
+discloses this specific sub-minor-version gap (`v26.9.0` pinned vs. `v26.10.0` real latest) - that is
+a different, narrower question than `PDF-NET-001`'s own text asks, and is not addressed by this entry.
+
+The same 2026-11-07 investigation also checked two other flagged-as-uninvestigated findings and found
+both already closed by earlier cards, not new candidates: `EMAIL-PY-004` (the `MutableMapiAttachment`/
+`MapiAttachment` alias-identity gap) is already resolved - the real committed
+`tests/fixtures/email_python/api_surface.json` already carries `MutableMapiAttachment`'s
+`"reexport_of": "aspose.email_foss.msg.mapi_message.MapiAttachment"`, the canonical-alias shape
+`TC-686` (I4+I5) built. `HTML-PY-005` (the `:hover`/`:focus`/`:visited` "raises NotImplementedError"
+README inaccuracy) is already disclosed - `config/products/html/python.yaml`'s own `known_hazards`
+list already carries this exact finding, closed by `TC-650` on 2026-10-29, verbatim down to the real
+pseudo-class list. Neither needed a new card; both are recorded here only so a future survey does not
+re-propose them as open.
