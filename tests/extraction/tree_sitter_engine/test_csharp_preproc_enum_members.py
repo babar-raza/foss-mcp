@@ -31,16 +31,29 @@ is already rewritten away, textually, before parsing, by
 `lang.csharp.resolve_conditional_modifiers` (TC-558/RD3-055) when going through the real
 pipeline -- so a full-pipeline test of that exact source text would never reach this
 code path at all.
+
+A final test, `test_real_words_net_fixture_has_webp_in_save_format`, reads the real
+committed `tests/fixtures/words_net/api_surface.json` directly and asserts the real
+`SaveFormat.WebP` member is present -- closing a negative-control gap found on review:
+every other test here exercises the extraction mechanism, not the regenerated fixture
+artifact itself, so a mutation corrupting the fixture's `WebP` name passed all of them
+untouched.
 """
 
 from __future__ import annotations
 
+import json
 from pathlib import Path
 
 from tree_sitter_language_pack import get_parser
 
 from foss_mcp.extraction.tree_sitter_engine import api_surface
 from foss_mcp.extraction.tree_sitter_engine.tree_helpers import _extract_enum_members
+
+# The real, committed words/net fixture (`tests/extraction/test_words_net_extraction.py`'s
+# own convention for locating it: `Path(__file__).parents[N] / "fixtures" / "words_net" /
+# "api_surface.json"`, N adjusted for this file's extra `tree_sitter_engine` directory level).
+WORDS_NET_FIXTURE = Path(__file__).parents[2] / "fixtures" / "words_net" / "api_surface.json"
 
 # (a) `#if NETSTANDARD ... #endif` guards the LAST member before the closing brace (no
 # trailing comma inside the guarded block) -- exactly the real `SaveFormat.WebP` shape
@@ -232,3 +245,35 @@ namespace P
     assert enum_node is not None, "test fixture source did not parse to an enum_declaration"
     members = _extract_enum_members(enum_node, "csharp")
     assert [m["name"] for m in members] == ["Alpha", "Beta", "Gamma"]
+
+
+def test_real_words_net_fixture_has_webp_in_save_format() -> None:
+    """Closes the exact gap a negative-control review found: every test above exercises
+    the extraction MECHANISM on hand-authored snippets, but none of them -- nor the
+    broader `tests/extraction/` sweep -- ever reads the real, committed
+    `tests/fixtures/words_net/api_surface.json` this card also regenerated. A mutation
+    that corrupts the real fixture's `WebP` member name (the negative control's own
+    mutate step) passed every other check in this file untouched, because nothing checked
+    the fixture itself.
+
+    Loads the real fixture directly (no extraction engine, no network -- matching
+    `tests/extraction/test_words_net_extraction.py`'s own offline convention for it),
+    finds the real `SaveFormat` enum, and asserts the real `WebP` member -- value `"107"`,
+    the genuine upstream value confirmed via `gh api` against the real pinned commit in
+    this card's own closeout -- is present with the exact stub marking this card set,
+    matching every other refused `SaveFormat` image/document format already in the
+    fixture (`WriterFactory.CreateWriter`'s `case SaveFormat.WebP:` falls into the same
+    `throw new NotSupportedException("FOSS")` group as `Emf`/`Tiff`/`Png`/`Bmp`/`Jpeg`/
+    `Gif`/`Eps`)."""
+    data = json.loads(WORDS_NET_FIXTURE.read_text(encoding="utf-8"))
+    types = data["types"]
+    save_format = next(
+        t for t in types if t.get("kind") == "enum_declaration" and t.get("name") == "SaveFormat"
+    )
+    members_by_name = {m["name"]: m for m in save_format["enum_members"]}
+
+    assert "WebP" in members_by_name, "SaveFormat.WebP missing from the real committed fixture"
+    webp = members_by_name["WebP"]
+    assert webp["value"] == "107"
+    assert webp["stub"] is True
+    assert webp["stub_reason"] == 'a switch case throws NotSupportedException("FOSS")'
