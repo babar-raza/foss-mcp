@@ -3846,3 +3846,19 @@ content (as the project already does for contributor-guidance documents) and rel
 `3D-NET-003`'s existing symbol-level disclosure as sufficient, accepting the gap for readers who
 only check `agent_guidance`. A future card should pick one deliberately rather than default to
 whichever is easiest to implement.
+
+## 2026-11-07 — CELLS-CPP-005 confirmed already fixed; the round-2 finding is stale (supervisor)
+
+`CELLS-CPP-005` (round-2, P1, install-guidance, `cells/cpp`) claims
+`get_product_reference(section=install)`'s generated `FetchContent` snippet silently configures
+then fails at link time, because the real CMakeLists.txt lives in subfolder
+`Aspose.Cells.Foss.Cpp`, not the repository root, and the generated snippet never names a
+`SOURCE_SUBDIR`. Traced `_cpp_source_subdir`/`_cpp_build_guidance` in `get_product_reference.py`
+directly: the mechanism to detect and emit `SOURCE_SUBDIR` already exists (reads the real README's
+own `add_subdirectory(Aspose.Cells.Foss.Cpp)` line when no manifest path points at a nested
+CMakeLists.txt) - and, more conclusively, `tests/mcp/tools/test_round3_install_truth.py` already
+has a dedicated, passing test for exactly this scenario:
+`test_cells_cpp_subdirectory_comes_from_the_readme_when_the_sidecar_has_no_manifest_path` asserts
+`"SOURCE_SUBDIR Aspose.Cells.Foss.Cpp" in text` directly. This finding is stale - whatever fixed it
+(not independently identified by card number in this pass) already landed before this session.
+Not carded; recorded here so a future survey does not re-propose it.
