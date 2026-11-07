@@ -1,0 +1,89 @@
+{
+  "schema_version": 1,
+  "card": "TC-712",
+  "gate": "G3",
+  "generated_by": "gatectl",
+  "generated_at": "2026-11-07T10:36:29Z",
+  "base_rev": "3ee747cf36dff2f594ca8f7a7742e0a6cfdebfac",
+  "head_rev": "94726daec8dcd1dca6140391f12afa29b92eb750",
+  "card_sha256": "ddc4a520b03c5c4580d60be9ba722d78a3ba013c4d5e29798990fa169f25c1c1",
+  "fingerprint": {
+    "python": "3.13.2",
+    "platform": "Windows-11-10.0.26300-SP0",
+    "lock_sha256": "5c72e798a73c059a438e752e94a8d4c88c1bdf81a197f6e5c5fcecbc9466a691",
+    "env": {
+      "PYTHONHASHSEED": "0",
+      "PYTHONUTF8": "1",
+      "PYTHONDONTWRITEBYTECODE": "1",
+      "PYTHONIOENCODING": "utf-8",
+      "TZ": "UTC",
+      "LC_ALL": "C.UTF-8",
+      "SOURCE_DATE_EPOCH": "1700000000",
+      "verify_runner": "host"
+    }
+  },
+  "scope": {
+    "ok": true,
+    "changed_paths": [
+      "src/foss_mcp/mcp/tools/report_index_freshness.py",
+      "tests/mcp/tools/test_round3_freshness_honesty_regressions.py"
+    ],
+    "violations": [],
+    "evaluated": true
+  },
+  "runs": [
+    {
+      "run": 1,
+      "checks": [
+        {
+          "command": "{python} -m pytest tests/mcp/tools/test_freshness_registry_version.py tests/mcp/tools/test_round3_freshness_honesty_regressions.py -q -rfE -p no:cacheprovider",
+          "exit_code": 0,
+          "duration_s": 53.429,
+          "stdout_sha256": "64576d99c4cef913eb9b9bd4e5a096807fe2289f77eb08a67c7de2e43fc6349d",
+          "tests": 26,
+          "skipped": 0,
+          "errors": 0,
+          "failures": 0
+        }
+      ],
+      "all_passed": true
+    },
+    {
+      "run": 2,
+      "checks": [
+        {
+          "command": "{python} -m pytest tests/mcp/tools/test_freshness_registry_version.py tests/mcp/tools/test_round3_freshness_honesty_regressions.py -q -rfE -p no:cacheprovider",
+          "exit_code": 0,
+          "duration_s": 2.825,
+          "stdout_sha256": "64576d99c4cef913eb9b9bd4e5a096807fe2289f77eb08a67c7de2e43fc6349d",
+          "tests": 26,
+          "skipped": 0,
+          "errors": 0,
+          "failures": 0
+        }
+      ],
+      "all_passed": true
+    }
+  ],
+  "negative_control": {
+    "kind": "mutate",
+    "patch": "python -X utf8 -c \"import pathlib; q = chr(34); p = pathlib.Path('src/foss_mcp/mcp/tools/report_index_freshness.py'); s = p.read_text(encoding='utf-8'); old = q + 'registry_served_version_major_mismatch' + q; assert s.count(old) == 1, 'the expected literal was not found exactly once - if your real fix uses a different exact basis string, anchor your own mutate on your own real literal instead and note the substitution in your closeout'; p.write_text(s.replace(old, q + 'none' + q, 1), encoding='utf-8')\"\n",
+    "patch_sha256": "3d4b6c74c8032e9537bfd151f3798288f6faf3be380bd95ae3788e4bfd2a0128",
+    "applied": true,
+    "patch_applied_failed": true,
+    "exit_codes": [
+      1
+    ],
+    "tree_changed": [
+      "M src/foss_mcp/mcp/tools/report_index_freshness.py",
+      "?? .junit-0.xml"
+    ]
+  },
+  "holdout": {
+    "ran": false,
+    "passed": true,
+    "detail": "no holdout for this card"
+  },
+  "accepted": true,
+  "reason": "all gates passed"
+}

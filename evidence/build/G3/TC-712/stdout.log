@@ -1,0 +1,122 @@
+
+===== CLEAN RUN 1 (host) =====
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-5c72e798a73c059a\Scripts\python.exe -m pytest tests/mcp/tools/test_freshness_registry_version.py tests/mcp/tools/test_round3_freshness_honesty_regressions.py -q -rfE -p no:cacheprovider "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-dfj1mxde\.junit-0.xml"
+--- stdout ---
+..........................                                               [100%]
+
+--- stderr ---
+
+
+===== CLEAN RUN 2 (host) =====
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-5c72e798a73c059a\Scripts\python.exe -m pytest tests/mcp/tools/test_freshness_registry_version.py tests/mcp/tools/test_round3_freshness_honesty_regressions.py -q -rfE -p no:cacheprovider "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-dfj1mxde\.junit-0.xml"
+--- stdout ---
+..........................                                               [100%]
+
+--- stderr ---
+
+
+===== NEGATIVE CONTROL (checks MUST now fail) =====
+mutated: M src/foss_mcp/mcp/tools/report_index_freshness.py, ?? .junit-0.xml
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-5c72e798a73c059a\Scripts\python.exe -m pytest tests/mcp/tools/test_freshness_registry_version.py tests/mcp/tools/test_round3_freshness_honesty_regressions.py -q -rfE -p no:cacheprovider "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-dfj1mxde\.junit-0.xml"
+--- stdout ---
+.....................FFF..                                               [100%]
+================================== FAILURES ===================================
+_____ test_eml_net_005_real_baked_sidecar_now_populates_published_version _____
+
+tmp_path = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-226/test_eml_net_005_real_baked_si0')
+
+    def test_eml_net_005_real_baked_sidecar_now_populates_published_version(tmp_path: Path) -> None:
+        """The real, reproducible EML-NET-005 case, against the same committed email/net sidecars as
+        EML-NET-007 above: before this card, ``published_version`` stayed ``None`` even though the
+        real registry-served version (26.7.0) was resolved and in scope the whole time - a pure
+        missing-fact gap, not a wrong-verdict bug (round-2's own finding: "zero practical harm", the
+        indexed API matched the installed 26.7.0 package exactly). The verdict stays "unknown",
+        unchanged; only published_version is now populated with the real registry text."""
+        config = DeploymentConfig(family="email", platform="net")
+        inputs = serve_http._serving_product_reference_inputs(DEMO_MANIFESTS, config)
+        assert inputs is not None
+        assert inputs.install_verified_served_version == "26.7.0"
+        assert package_version(inputs) == (0, 1, 0)
+    
+        manifests = tmp_path / "manifests"
+        shutil.copytree(DEMO_MANIFESTS / "email__net__self_extracted", manifests / "email__net__self_extracted")
+        store = GenerationManifestStore(manifests)
+        registry_served_version = parse_release_version(inputs.install_verified_served_version)
+    
+        report = report_index_freshness(
+            store,
+            Scope(family="email", platform="net"),
+            "self_extracted",
+            None,
+            pinned_library_commit=inputs.source_ref,
+            product_reference=inputs,
+            releases=(),
+            registry_served_version=registry_served_version,
+        )
+    
+        # The verdict EML-NET-007 established is untouched.
+        assert report.freshness_state == "unknown"
+        assert report.stale is True
+        # The real gap this card closes: published_version is no longer null.
+>       assert report.freshness_basis == "registry_served_version_major_mismatch"
+E       AssertionError: assert 'none' == 'registry_ser...ajor_mismatch'
+E         
+E         - registry_served_version_major_mismatch
+E         + none
+
+tests\mcp\tools\test_round3_freshness_honesty_regressions.py:241: AssertionError
+__ test_eml_net_007_major_mismatch_registry_higher_falls_through_to_unknown ___
+
+tmp_path = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-226/test_eml_net_007_major_mismatc0')
+
+    def test_eml_net_007_major_mismatch_registry_higher_falls_through_to_unknown(tmp_path: Path) -> None:
+        store = _single(tmp_path)
+        placeholder = ProductReferenceInputs(
+            manifest_text='[project]\nname = "x"\nversion = "0.1.0"\n', platform="python"
+        )
+    
+        report = _report(store, product_reference=placeholder, registry_served_version=(26, 7, 0))
+    
+        assert report.freshness_state == "unknown"
+        # G3/TC-712 (EML-NET-005): the verdict itself is still the honest "unknown" fallback this card
+        # (EML-NET-007) established - but the real registry-served version is now disclosed in
+        # published_version rather than silently staying null, via its own dedicated basis.
+>       assert report.freshness_basis == "registry_served_version_major_mismatch"
+E       AssertionError: assert 'none' == 'registry_ser...ajor_mismatch'
+E         
+E         - registry_served_version_major_mismatch
+E         + none
+
+tests\mcp\tools\test_round3_freshness_honesty_regressions.py:264: AssertionError
+_ test_eml_net_007_major_mismatch_registry_lower_also_falls_through_to_unknown _
+
+tmp_path = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-226/test_eml_net_007_major_mismatc1')
+
+    def test_eml_net_007_major_mismatch_registry_lower_also_falls_through_to_unknown(tmp_path: Path) -> None:
+        """The guard is symmetric: it does not matter which side has the "placeholder-looking"
+        major - a major mismatch in EITHER direction is untrustworthy, not just the direction the
+        real email/net case happens to exercise."""
+        store = _single(tmp_path)
+        inflated = ProductReferenceInputs(
+            manifest_text='[project]\nname = "x"\nversion = "99.0.0"\n', platform="python"
+        )
+    
+        report = _report(store, product_reference=inflated, registry_served_version=(26, 7, 0))
+    
+        assert report.freshness_state == "unknown"
+        # G3/TC-712: symmetric with the "registry lower" case above - the real registry version is
+        # still disclosed in published_version even when the mismatch runs in the other direction.
+>       assert report.freshness_basis == "registry_served_version_major_mismatch"
+E       AssertionError: assert 'none' == 'registry_ser...ajor_mismatch'
+E         
+E         - registry_served_version_major_mismatch
+E         + none
+
+tests\mcp\tools\test_round3_freshness_honesty_regressions.py:286: AssertionError
+=========================== short test summary info ===========================
+FAILED tests/mcp/tools/test_round3_freshness_honesty_regressions.py::test_eml_net_005_real_baked_sidecar_now_populates_published_version
+FAILED tests/mcp/tools/test_round3_freshness_honesty_regressions.py::test_eml_net_007_major_mismatch_registry_higher_falls_through_to_unknown
+FAILED tests/mcp/tools/test_round3_freshness_honesty_regressions.py::test_eml_net_007_major_mismatch_registry_lower_also_falls_through_to_unknown
+
+--- stderr ---
+
