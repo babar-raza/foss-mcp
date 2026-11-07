@@ -1,0 +1,89 @@
+{
+  "schema_version": 1,
+  "card": "TC-725",
+  "gate": "G3",
+  "generated_by": "gatectl",
+  "generated_at": "2026-11-07T18:25:04Z",
+  "base_rev": "6db308361ac6ee467b0f9fd627f051265a90ae39",
+  "head_rev": "2ea20dcc2f8ada9402c32b29ea4fe1c7f07b1fc5",
+  "card_sha256": "cf34522e91462c7f299779898937e28f526675b46f87add87d68a51378bde5cb",
+  "fingerprint": {
+    "python": "3.13.2",
+    "platform": "Windows-11-10.0.26300-SP0",
+    "lock_sha256": "5c72e798a73c059a438e752e94a8d4c88c1bdf81a197f6e5c5fcecbc9466a691",
+    "env": {
+      "PYTHONHASHSEED": "0",
+      "PYTHONUTF8": "1",
+      "PYTHONDONTWRITEBYTECODE": "1",
+      "PYTHONIOENCODING": "utf-8",
+      "TZ": "UTC",
+      "LC_ALL": "C.UTF-8",
+      "SOURCE_DATE_EPOCH": "1700000000",
+      "verify_runner": "host"
+    }
+  },
+  "scope": {
+    "ok": true,
+    "changed_paths": [
+      "config/products/cells/rust.yaml",
+      "tests/mcp/tools/test_known_hazards_round2_disclosures.py"
+    ],
+    "violations": [],
+    "evaluated": true
+  },
+  "runs": [
+    {
+      "run": 1,
+      "checks": [
+        {
+          "command": "{python} -m pytest tests/mcp/tools/test_known_hazards_round2_disclosures.py -q -rfE -p no:cacheprovider",
+          "exit_code": 0,
+          "duration_s": 7.665,
+          "stdout_sha256": "12a9a4a8915fb8d2bb5b4227220247cde267c1a0620203589fe47280d5be4a7f",
+          "tests": 36,
+          "skipped": 0,
+          "errors": 0,
+          "failures": 0
+        }
+      ],
+      "all_passed": true
+    },
+    {
+      "run": 2,
+      "checks": [
+        {
+          "command": "{python} -m pytest tests/mcp/tools/test_known_hazards_round2_disclosures.py -q -rfE -p no:cacheprovider",
+          "exit_code": 0,
+          "duration_s": 11.88,
+          "stdout_sha256": "12a9a4a8915fb8d2bb5b4227220247cde267c1a0620203589fe47280d5be4a7f",
+          "tests": 36,
+          "skipped": 0,
+          "errors": 0,
+          "failures": 0
+        }
+      ],
+      "all_passed": true
+    }
+  ],
+  "negative_control": {
+    "kind": "mutate",
+    "patch": "python -X utf8 -c \"import pathlib; p = pathlib.Path('config/products/cells/rust.yaml'); s = p.read_text(encoding='utf-8'); old = 'put_formula_with_cached_value'; count = s.count(old); assert count >= 1, 'the expected put_formula_with_cached_value literal was not found - if your real hazard text phrases this differently, anchor your own mutate on your own real literal instead and note the substitution in your closeout'; s2 = s.replace(old, 'put_formula_with_cached_valueNOTREAL', 1); assert s2 != s; p.write_text(s2, encoding='utf-8')\"\n",
+    "patch_sha256": "186ca5318934efb849a80c7f5ea48c543c4179a68811a0a00330043695e17263",
+    "applied": true,
+    "patch_applied_failed": true,
+    "exit_codes": [
+      1
+    ],
+    "tree_changed": [
+      "M config/products/cells/rust.yaml",
+      "?? .junit-0.xml"
+    ]
+  },
+  "holdout": {
+    "ran": false,
+    "passed": true,
+    "detail": "no holdout for this card"
+  },
+  "accepted": true,
+  "reason": "all gates passed"
+}
