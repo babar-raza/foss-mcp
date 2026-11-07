@@ -1,0 +1,110 @@
+id: TC-720
+gate: G3
+lane: transport-deployment
+purpose: >-
+  Closes PAGE-PYTHON-003 (round-2, `docs/round2/issues.json`, severity P1, category
+  "coverage-gap" - confirmed STILL OPEN by a dedicated 2026-11-07 supervisor investigation):
+  `PsDocument.create()` (and `PsDocument.create(is_eps=True)`) on the real installed
+  `aspose-page-foss` package silently start with ONE page already present
+  (`len(doc.pages) == 1` immediately after `create()`, before any `add_page()` call), while the
+  sibling `XpsDocument.create()` starts at zero pages - undocumented anywhere in this project's own
+  served content (`raw_text`, formats/limitations/troubleshooting sections, and every one of the 7
+  real doc/example queries the round-2 repro tried, including `search_docs query="add_page
+  duplicate first page"` and `find_examples query="create a new PS document and add a page"`, all
+  explicit misses). An agent that calls `PsDocument.create()` then `add_page()` expecting a
+  2-element result after one call gets a silent 2-page document on the FIRST call already, with no
+  warning anywhere this project serves.
+
+  REPRODUCE FIRST: re-run the real repro commands from `docs/round2/issues.json` id
+  `PAGE-PYTHON-003` against the real installed `aspose-page-foss` package (a real network
+  install/import, exactly as the finding's own repro does:
+  `python -c "import aspose.page.ps; from aspose.page.ps import PsDocument; d=PsDocument.create();
+  print(len(d.pages)); d.add_page(); print(len(d.pages))"` should print `1` then `2`; the sibling
+  `XpsDocument.create()` check should print `0`). Confirm the real currently-pinned version via
+  `config/products/page/python.yaml`'s own comment before trusting it. Report the real observed
+  output, verbatim, in your closeout - do not fabricate or assume the repro's own claimed numbers
+  without reproducing them yourself.
+
+  FIX (pure additive data, zero code change - same mechanism this project already uses for
+  `cells/go`'s own project-authored hazard in `config/products/cells/go.yaml`'s `known_hazards`
+  list, which `page/python` does not have yet): add a NEW `known_hazards` key (this pilot's config
+  file has none today) to `config/products/page/python.yaml`, with ONE entry stating plainly: the
+  real trigger (`PsDocument.create()`, with or without `is_eps=True`, always starts with exactly
+  one page already present - a caller must check `len(doc.pages)` before deciding whether to call
+  `add_page()`, never assume a freshly-created `PsDocument` is empty), the real contrast with
+  `XpsDocument.create()` (which genuinely starts at zero, confirmed by your own reproduction), and
+  the safe pattern (check the real page count first, or use the existing page already present
+  instead of always calling `add_page()` unconditionally). Follow `cells/go.yaml`'s own entry as
+  your exact template for `text`/`verified_at` shape and the file-level comment convention ("Keep
+  this the LAST top-level key").
+depends_on:
+  - TC-001
+  - TC-003
+  - TC-156
+  - TC-650
+write_paths:
+  - config/products/page/python.yaml
+  - tests/mcp/tools/test_known_hazards_round2_disclosures.py
+satisfies:
+  - REQ-G3-015
+source_refs:
+  - file: docs/DECISION_LOG.md
+    anchor: >-
+      ## 2026-11-07 — HTML-PY-003 investigated: correct extractor behavior, upstream itself calls these names internal (supervisor)
+    sha256: 1cb3ca68037e87650d3fd3e2fe608d4c0b63811c68f3a26e8f8608d23c99bf6c
+inputs:
+  - >-
+    READ FIRST: `docs/round2/issues.json` id `PAGE-PYTHON-003` in full. Then
+    `config/products/cells/go.yaml`'s own `known_hazards` entry (the project's own existing template
+    for a project-authored, project-verified hazard the upstream repository does not document) and
+    `schemas/product/product-manifest.schema.json`'s `known_hazards` definition (around line 47) for
+    the exact required field shape (`text`, `verified_at`). Then
+    `tests/mcp/tools/test_known_hazards_round2_disclosures.py` in full - it already tests the SEVEN
+    existing round-2-sourced `known_hazards` entries end-to-end, and two of its tests
+    (`test_total_known_hazards_entries_match_the_seven_round2_findings`,
+    `test_round2_issues_json_actually_contains_the_seven_claimed_ids`) hardcode the literal count
+    "seven" - these must become "eight" once your new entry is the 8th, and the parametrized test
+    `test_get_product_reference_limitations_surfaces_the_real_hazard_for_each_pilot` (and the
+    sibling `test_hazard_text_carries_the_real_issue_specific_trace_tokens`) need a new
+    parametrize case for `page/python`/`PAGE-PYTHON-003`, following the exact shape of its 7
+    existing cases.
+  - >-
+    REPRODUCE FIRST (do not skip): a real install + import + call of the real package, exactly as
+    described above - a genuine network action, report the real printed output verbatim in your
+    closeout.
+  - >-
+    This is a project-authored disclosure, not an upstream quote - write the hazard in your own
+    words, stating the real trigger and the real safe pattern, matching the house style of every
+    other `known_hazards` entry already committed in this repository.
+actions:
+  - >-
+    Disclose the real, undocumented PsDocument.create() pre-populated-page behavior via a new
+    known_hazards entry for page/python, reusing the already-proven, already-wired mechanism with
+    zero code change.
+checks:
+  - command: '{python} -m pytest tests/mcp/tools/test_known_hazards_round2_disclosures.py -q -rfE -p no:cacheprovider'
+    expect: 'exit 0'
+    timeout_seconds: 300
+    junitxml: true
+    proves:
+      - REQ-G3-015
+min_tests: 24
+requires:
+  - python
+network: true
+negative_control:
+  mutate: |
+    python -X utf8 -c "import pathlib; q = chr(34); p = pathlib.Path('config/products/page/python.yaml'); s = p.read_text(encoding='utf-8'); old = 'PsDocument'; count = s.count(old); assert count >= 1, 'the expected PsDocument literal was not found - if your real hazard text phrases this differently, anchor your own mutate on your own real literal instead and note the substitution in your closeout'; s2 = s.replace(old, 'PsDocumentNOTREAL', 1); assert s2 != s; p.write_text(s2, encoding='utf-8')"
+  rationale: >-
+    Corrupts the real hazard text's own subject name so it no longer names the real class the new
+    regression test asserts on, which must make that test fail - a pure data mutation, immune to
+    the lockstep-rename vacuousness class this session's earlier reviews found, and it never
+    touches any code path.
+evidence:
+  - evidence/build/G3/TC-720/receipt.json
+closeout:
+  - >-
+    `page/python`'s real, undocumented `PsDocument.create()` pre-populated-page behavior is now
+    disclosed via a new project-authored known_hazards entry, closing PAGE-PYTHON-003 with zero
+    code change.
+recovery: Re-run from a clean tree.
