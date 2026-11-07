@@ -1,0 +1,78 @@
+
+===== CLEAN RUN 1 (host) =====
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-5c72e798a73c059a\Scripts\python.exe -m pytest tests/mcp/tools/test_round3_unsupported_markers.py -q -rfE -p no:cacheprovider "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-j4tj7728\.junit-0.xml"
+--- stdout ---
+..............                                                           [100%]
+
+--- stderr ---
+
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-5c72e798a73c059a\Scripts\python.exe -m pytest tests/extraction/test_round3_stub_detection.py -q -rfE -p no:cacheprovider "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-j4tj7728\.junit-1.xml"
+--- stdout ---
+....................................                                     [100%]
+1 live test(s) deselected; set FOSS_MCP_NETWORK_TESTS=1 to run them
+
+--- stderr ---
+
+
+===== CLEAN RUN 2 (host) =====
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-5c72e798a73c059a\Scripts\python.exe -m pytest tests/mcp/tools/test_round3_unsupported_markers.py -q -rfE -p no:cacheprovider "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-j4tj7728\.junit-0.xml"
+--- stdout ---
+..............                                                           [100%]
+
+--- stderr ---
+
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-5c72e798a73c059a\Scripts\python.exe -m pytest tests/extraction/test_round3_stub_detection.py -q -rfE -p no:cacheprovider "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-j4tj7728\.junit-1.xml"
+--- stdout ---
+....................................                                     [100%]
+1 live test(s) deselected; set FOSS_MCP_NETWORK_TESTS=1 to run them
+
+--- stderr ---
+
+
+===== NEGATIVE CONTROL (checks MUST now fail) =====
+mutated: M tests/fixtures/3d_java/api_surface.json, ?? .junit-0.xml, ?? .junit-1.xml
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-5c72e798a73c059a\Scripts\python.exe -m pytest tests/mcp/tools/test_round3_unsupported_markers.py -q -rfE -p no:cacheprovider "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-j4tj7728\.junit-0.xml"
+--- stdout ---
+............FF                                                           [100%]
+================================== FAILURES ===================================
+_ test_real_data_get_symbol_and_list_members_agree_on_3d_java_mesh_is_manifold _
+
+real_3d_java_store = <tests.mcp.tools.test_round3_unsupported_markers._Store object at 0x000001F0D3684130>
+
+    def test_real_data_get_symbol_and_list_members_agree_on_3d_java_mesh_is_manifold(
+        real_3d_java_store: _Store,
+    ) -> None:
+        exact = get_symbol(real_3d_java_store, SCOPE_3D_JAVA, "com.aspose.threed.Mesh")  # type: ignore[arg-type]
+        assert isinstance(exact, SymbolSignature)
+        is_manifold_lines = [line for line in exact.limitations if line.startswith("isManifold(")]
+>       assert len(is_manifold_lines) == 1
+E       assert 0 == 1
+E        +  where 0 = len([])
+
+tests\mcp\tools\test_round3_unsupported_markers.py:279: AssertionError
+__________ test_real_data_mesh_is_manifold_is_flagged_for_every_tool __________
+
+real_3d_java_store = <tests.mcp.tools.test_round3_unsupported_markers._Store object at 0x000001F0D3684130>
+
+    def test_real_data_mesh_is_manifold_is_flagged_for_every_tool(real_3d_java_store: _Store) -> None:
+        resolved = get_symbol(real_3d_java_store, SCOPE_3D_JAVA, "com.aspose.threed.Mesh.isManifold")  # type: ignore[arg-type]
+        assert isinstance(resolved, ResolvedSignature) and resolved.member == "isManifold"
+>       assert len(resolved.member_lines) == 1 and NOT_IMPLEMENTED_PHRASE in resolved.member_lines[0]
+E       AssertionError: assert (1 == 1 and 'not implemented in this build' in 'isManifold() -> boolean')
+E        +  where 1 = len(('isManifold() -> boolean',))
+E        +    where ('isManifold() -> boolean',) = ResolvedSignature(scope=Scope(family='3d', platform='java', source_kind='self_extracted'), generation_id='gen-tc559', ...',), resolved_from='com.aspose.threed.Mesh.isManifold', member='isManifold', member_lines=('isManifold() -> boolean',)).member_lines
+
+tests\mcp\tools\test_round3_unsupported_markers.py:302: AssertionError
+=========================== short test summary info ===========================
+FAILED tests/mcp/tools/test_round3_unsupported_markers.py::test_real_data_get_symbol_and_list_members_agree_on_3d_java_mesh_is_manifold
+FAILED tests/mcp/tools/test_round3_unsupported_markers.py::test_real_data_mesh_is_manifold_is_flagged_for_every_tool
+
+--- stderr ---
+
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-5c72e798a73c059a\Scripts\python.exe -m pytest tests/extraction/test_round3_stub_detection.py -q -rfE -p no:cacheprovider "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-j4tj7728\.junit-1.xml"
+--- stdout ---
+....................................                                     [100%]
+1 live test(s) deselected; set FOSS_MCP_NETWORK_TESTS=1 to run them
+
+--- stderr ---
+

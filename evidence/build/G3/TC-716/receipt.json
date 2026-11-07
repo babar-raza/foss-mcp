@@ -1,0 +1,115 @@
+{
+  "schema_version": 1,
+  "card": "TC-716",
+  "gate": "G3",
+  "generated_by": "gatectl",
+  "generated_at": "2026-11-07T14:29:57Z",
+  "base_rev": "4eef17917dbaba3ddefa6b1373a7159e49864e27",
+  "head_rev": "d3e0c48c97c353af0dd722d9da6f47fc72027f81",
+  "card_sha256": "e212891f89777bb799859f9f0bb0a79d7b889ab1489d2ffc742b7b2c46061b3b",
+  "fingerprint": {
+    "python": "3.13.2",
+    "platform": "Windows-11-10.0.26300-SP0",
+    "lock_sha256": "5c72e798a73c059a438e752e94a8d4c88c1bdf81a197f6e5c5fcecbc9466a691",
+    "env": {
+      "PYTHONHASHSEED": "0",
+      "PYTHONUTF8": "1",
+      "PYTHONDONTWRITEBYTECODE": "1",
+      "PYTHONIOENCODING": "utf-8",
+      "TZ": "UTC",
+      "LC_ALL": "C.UTF-8",
+      "SOURCE_DATE_EPOCH": "1700000000",
+      "verify_runner": "host"
+    }
+  },
+  "scope": {
+    "ok": true,
+    "changed_paths": [
+      "infra/demo-manifests/3d__java__self_extracted/active_pointer.json",
+      "infra/demo-manifests/3d__java__self_extracted/generation__20261023T094846709348Z-c010a257.json",
+      "infra/demo-manifests/3d__java__self_extracted/generation__20261107T135624998613Z-3017761a.json",
+      "tests/fixtures/3d_java/api_surface.json",
+      "tests/fixtures/furnished/3d_java/pages/_index.md",
+      "tests/mcp/tools/test_round3_unsupported_markers.py"
+    ],
+    "violations": [],
+    "evaluated": true
+  },
+  "runs": [
+    {
+      "run": 1,
+      "checks": [
+        {
+          "command": "{python} -m pytest tests/mcp/tools/test_round3_unsupported_markers.py -q -rfE -p no:cacheprovider",
+          "exit_code": 0,
+          "duration_s": 2.08,
+          "stdout_sha256": "fe9dca0451129aaabdd76ea13e310b61a52091a146a1f9fe5b72b851eb33547f",
+          "tests": 14,
+          "skipped": 0,
+          "errors": 0,
+          "failures": 0
+        },
+        {
+          "command": "{python} -m pytest tests/extraction/test_round3_stub_detection.py -q -rfE -p no:cacheprovider",
+          "exit_code": 0,
+          "duration_s": 3.902,
+          "stdout_sha256": "5af7e0794584c6afd9f681c1670877894e18110cc8cecca9ed173efd6a7e7b49",
+          "tests": 36,
+          "skipped": 0,
+          "errors": 0,
+          "failures": 0
+        }
+      ],
+      "all_passed": true
+    },
+    {
+      "run": 2,
+      "checks": [
+        {
+          "command": "{python} -m pytest tests/mcp/tools/test_round3_unsupported_markers.py -q -rfE -p no:cacheprovider",
+          "exit_code": 0,
+          "duration_s": 2.008,
+          "stdout_sha256": "fe9dca0451129aaabdd76ea13e310b61a52091a146a1f9fe5b72b851eb33547f",
+          "tests": 14,
+          "skipped": 0,
+          "errors": 0,
+          "failures": 0
+        },
+        {
+          "command": "{python} -m pytest tests/extraction/test_round3_stub_detection.py -q -rfE -p no:cacheprovider",
+          "exit_code": 0,
+          "duration_s": 1.254,
+          "stdout_sha256": "5af7e0794584c6afd9f681c1670877894e18110cc8cecca9ed173efd6a7e7b49",
+          "tests": 36,
+          "skipped": 0,
+          "errors": 0,
+          "failures": 0
+        }
+      ],
+      "all_passed": true
+    }
+  ],
+  "negative_control": {
+    "kind": "mutate",
+    "patch": "python -X utf8 -c \"import pathlib; q = chr(34); p = pathlib.Path('tests/fixtures/3d_java/api_surface.json'); s = p.read_text(encoding='utf-8'); anchor = q + 'name' + q + ': ' + q + 'isManifold' + q; i = s.find(anchor); assert i >= 0, 'the expected isManifold name literal was not found - if your real fixture renders the name entry differently, anchor your own mutate on your own real literal instead and note the substitution in your closeout'; window_end = i + 400; window = s[i:window_end]; needle = q + 'stub' + q + ': true'; j = window.find(needle); assert j >= 0, 'no stub: true literal was found within 400 chars after the isManifold name - the real fix may place it further away or the mutate window is too small; adjust this mutate and note the substitution in your closeout'; abs_j = i + j; s2 = s[:abs_j] + q + 'stub' + q + ': false' + s[abs_j + len(needle):]; assert s2 != s; p.write_text(s2, encoding='utf-8')\"\n",
+    "patch_sha256": "2a0153e9d17f581167f223d2e1d6506d5e998328fd57b2112d0060120aef31c3",
+    "applied": true,
+    "patch_applied_failed": true,
+    "exit_codes": [
+      1,
+      0
+    ],
+    "tree_changed": [
+      "M tests/fixtures/3d_java/api_surface.json",
+      "?? .junit-0.xml",
+      "?? .junit-1.xml"
+    ]
+  },
+  "holdout": {
+    "ran": false,
+    "passed": true,
+    "detail": "no holdout for this card"
+  },
+  "accepted": true,
+  "reason": "all gates passed"
+}
