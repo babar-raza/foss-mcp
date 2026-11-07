@@ -98,6 +98,29 @@ committed audit record, independently re-verified against the real currently-pub
 The real new union count is 55 (not 54): both equality assertions above still hold exactly, just
 against this slightly wider set; the real registry file count is unchanged at 25 (this entry lands
 in the already-existing ``3d__net.yaml``, not a new file).
+
+**Widened again (TC-711, 2026-11-07):** ``WORDS-NET-001`` (round-2, ``docs/round2/issues.json``,
+severity P1, category ``"coverage-gap"`` - the same category gap ``3D-JAVA-001``/TC-706 hit, NOT
+``"upstream-library-bug"``) is a real, cited, committed audit finding this module's own
+category-filtered id source would otherwise never admit. TC-711 independently re-ran round-2's own
+repro against the real, currently-pinned ``Aspose.Words.FOSS 26.3.0`` NuGet package: .NET reflection
+over ``Aspose.Words.Node`` in the real net8.0 DLL found exactly 2 ``GetAncestor`` overloads
+(``GetAncestor(Type)``, ``GetAncestor(NodeType)``) and zero methods named ``GetAncestorOf`` anywhere
+in the whole assembly, and a raw byte-string search of the real net462, net8.0, and netstandard2.0
+``Aspose.Words.FOSS.dll`` files each found zero occurrences of the literal ``GetAncestorOf`` -
+confirming round-2's own finding exactly. All 42 owning-type FQNs round-2's own finding names (the
+real ``Node`` base type plus 41 real subclasses) were independently re-derived from the real,
+committed ``tests/fixtures/words_net/api_surface.json`` fixture and cross-checked against the real
+indexed ``infra/demo-manifests/words__net__self_extracted`` manifest (the exact mechanism this
+module's own ``test_every_method_or_class_kind_ref_matches_a_real_indexed_fqn`` below already
+checks every ``subject.refs`` entry against); all 42 match exactly, with no correction needed. This
+module's own ``_ADDITIONAL_DISCLOSABLE_IDS`` is widened the same deliberate, additive way, now
+seeded with ``{"3D-JAVA-001", "3D-NET-001", "WORDS-NET-001"}``; every id in that set still traces to
+one real, cited, committed audit record, independently re-verified against the real currently-
+published package. The real new union count is 56 (not 55): both equality assertions above still
+hold exactly, just against this slightly wider set; the real registry file count is now 26 (not
+25): this entry lands in a brand-new ``words__net.yaml`` file, this pilot's first known-defects
+entry.
 """
 
 from __future__ import annotations
@@ -198,7 +221,17 @@ def _real_round3_issues() -> list[dict[str, Any]]:
 #   (but not its ``suggested_fix``/``actual`` fields) names as also falsely claimed, was
 #   independently re-verified and found NOT broken (``Scene.Save("x.ply")`` succeeds); PLY is
 #   deliberately excluded from this id's own registry entry.
-_ADDITIONAL_DISCLOSABLE_IDS: frozenset[str] = frozenset({"3D-JAVA-001", "3D-NET-001"})
+# - ``WORDS-NET-001`` (round-2, ``docs/round2/issues.json``, severity P1, category
+#   ``"coverage-gap"``): ``Node.GetAncestorOf<T>()`` is disclosed by ``get_symbol``/``list_members``
+#   as inherited by 42 real ``Aspose.Words``-namespace types (the base ``Node`` plus 41 real
+#   subclasses) with zero caveat; independently re-verified by TC-711 against the real,
+#   currently-pinned ``Aspose.Words.FOSS 26.3.0`` NuGet package via .NET reflection (only
+#   ``GetAncestor(Type)``/``GetAncestor(NodeType)`` exist on ``Node``, never ``GetAncestorOf``
+#   anywhere in the assembly) and a raw byte-string search of the real net462/net8.0/netstandard2.0
+#   DLLs (zero occurrences of the literal ``GetAncestorOf`` in any of the three) - a genuine
+#   index-truth/disclosure gap, just not categorized ``"upstream-library-bug"`` in the original
+#   audit.
+_ADDITIONAL_DISCLOSABLE_IDS: frozenset[str] = frozenset({"3D-JAVA-001", "3D-NET-001", "WORDS-NET-001"})
 
 
 def _real_upstream_library_bug_ids() -> set[str]:
@@ -296,30 +329,30 @@ def test_registry_entry_count_equals_upstream_library_bug_issue_count() -> None:
         f"issue count ({len(upstream_issue_ids)})"
     )
 
-    # Sanity anchor only, not a floor on the future: as of today (2026-11-06) this real union
-    # count is 55 (53 round2-union-round3 as of TC-656, see this module's docstring for that id
-    # list, plus TC-706's own additive ``_ADDITIONAL_DISCLOSABLE_IDS`` entry ``3D-JAVA-001`` and
-    # TC-707's own additive entry ``3D-NET-001``). A future card adding or retiring a confirmed
-    # upstream-library-bug finding (and its matching entry) is expected to move both sides
-    # together and may need to update this comment and number; the equality assertion above is
-    # the one that must hold forever.
-    assert len(upstream_issue_ids) == 55
+    # Sanity anchor only, not a floor on the future: as of today (2026-11-07) this real union
+    # count is 56 (53 round2-union-round3 as of TC-656, see this module's docstring for that id
+    # list, plus TC-706's own additive ``_ADDITIONAL_DISCLOSABLE_IDS`` entry ``3D-JAVA-001``,
+    # TC-707's own additive entry ``3D-NET-001``, and TC-711's own additive entry
+    # ``WORDS-NET-001``). A future card adding or retiring a confirmed upstream-library-bug finding
+    # (and its matching entry) is expected to move both sides together and may need to update this
+    # comment and number; the equality assertion above is the one that must hold forever.
+    assert len(upstream_issue_ids) == 56
 
 
 # --------------------------------------------------------------------------------------------
 # point 1 sanity check: the glob actually finds every real file currently under
-# config/known_defects/ - today that is 25 real pilot files (23 as of 2026-11-01, plus TC-656
-# attempt 3's two brand-new files, email__net.yaml and pdf__net.yaml; see this module's own
-# docstring for why this is 25, not the "8" named in TC-649's own original inputs text, which was
+# config/known_defects/ - today that is 26 real pilot files (25 as of TC-707, plus TC-711's own
+# brand-new words__net.yaml, this pilot's first known-defects entry; see this module's own
+# docstring for why this is 26, not the "8" named in TC-649's own original inputs text, which was
 # TC-647's own per-card file count, not the real running total)
 # --------------------------------------------------------------------------------------------
 
 
 def test_glob_finds_the_real_current_registry_file_count() -> None:
     files = _registry_files()
-    # Not a floor on the future: a later card adding a 26th family file is expected and welcome.
+    # Not a floor on the future: a later card adding a 27th family file is expected and welcome.
     # This only proves the glob pattern itself is correct against today's real, committed tree.
-    assert len(files) == 25, f"expected 25 real registry files today, found {len(files)}: {files}"
+    assert len(files) == 26, f"expected 26 real registry files today, found {len(files)}: {files}"
 
 
 # --------------------------------------------------------------------------------------------

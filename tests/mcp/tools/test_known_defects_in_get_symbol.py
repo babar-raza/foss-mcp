@@ -9,6 +9,16 @@ automatically once one lands, with no further code change. Never writes a real
 
 Offline and deterministic: in-memory generations built from hand-written type chunks, the same
 pattern ``tests/mcp/tools/test_member_lookup.py`` (TC-540) already established.
+
+**Added (TC-711, 2026-11-07):** a real end-to-end section at the bottom of this module proves the
+real, committed ``config/known_defects/words__net.yaml`` entry (``WORDS-NET-001``, the phantom
+``Node.GetAncestorOf<T>()`` method disclosed for 42 real ``Aspose.Words``-namespace types)
+surfaces through a live ``get_symbol`` call against the real, committed
+``infra/demo-manifests/words__net__self_extracted`` corpus - never a synthetic stand-in, and never
+the ``registry_dir``/``REGISTRY_DIR``-monkeypatched fixture every other test above uses, since the
+whole point is to prove the REAL registry file this card wrote actually wires through, exactly the
+same real-corpus end-to-end pattern TC-706/TC-707 already established in
+``tests/indexing/test_known_defects_data_3d.py`` for ``3D-JAVA-001``/``3D-NET-001``.
 """
 
 from __future__ import annotations
@@ -28,6 +38,7 @@ from foss_mcp.mcp.tools.get_symbol import NotFound, ResolvedSignature, SymbolSig
 from foss_mcp.mcp.tools.list_members import list_members
 from foss_mcp.normalization.chunker import chunk_document
 from foss_mcp.normalization.document_schema import Provenance, SourceKind, make_document
+from tests.conformance.corpus import load_demo_manifests_corpus
 
 SCOPE = Scope(family="pdf", platform="net")
 _GENERATION_ID = "gen-tc639"
@@ -271,3 +282,69 @@ def test_list_members_for_a_resolved_member_name_excludes_the_type_level_known_d
     assert isinstance(members, tuple)
     assert members == ("Save(path: string) -> void",)
     assert all("Summary describing PDF-NET-007." not in line for line in members)
+
+
+# --------------------------------------------------------------------------------------------
+# TC-711 (WORDS-NET-001): real end-to-end coverage against the REAL, committed
+# ``infra/demo-manifests/words__net__self_extracted`` corpus and the REAL, committed
+# ``config/known_defects/words__net.yaml`` registry file - never the ``registry_dir``-monkeypatched
+# fixture every test above uses, and never a synthetic/in-memory store. ``REGISTRY_DIR`` is left at
+# its real default here, so ``get_symbol``/``list_members`` read the actual file this card wrote,
+# exactly the same real-corpus end-to-end pattern TC-706/TC-707 already established in
+# ``tests/indexing/test_known_defects_data_3d.py`` for ``3D-JAVA-001``/``3D-NET-001``.
+# --------------------------------------------------------------------------------------------
+
+
+@pytest.fixture(scope="module")
+def _real_words_net_corpus(tmp_path_factory: pytest.TempPathFactory):
+    """The real, committed ``infra/demo-manifests`` corpus, loaded through a temp-directory copy -
+    the exact ``load_demo_manifests_corpus`` pattern ``tests/indexing/test_known_defects_completeness.py``'s
+    own TC-702 fixture already established. Nothing in the real repository is ever written to."""
+    root = tmp_path_factory.mktemp("tc711-known-defects-in-get-symbol-words-net-corpus")
+    return load_demo_manifests_corpus(root)
+
+
+def test_get_symbol_end_to_end_surfaces_the_real_written_words_net_001_defect(_real_words_net_corpus) -> None:
+    """``Aspose.Words.Body`` is one of the 42 real owning-type FQNs TC-711 independently
+    re-confirmed both declare the phantom ``GetAncestorOf`` method in the indexed source and are
+    genuinely absent of it from the real published ``Aspose.Words.FOSS 26.3.0`` package, so
+    ``get_symbol`` against the real, committed ``words__net.yaml`` this card wrote must surface
+    ``WORDS-NET-001``'s real disclosure text for it."""
+    pilot = _real_words_net_corpus.pilots["words__net"]
+
+    result = get_symbol(_real_words_net_corpus.store, pilot.scope, "Aspose.Words.Body")
+
+    assert isinstance(result, SymbolSignature)
+    assert result.found is True
+    assert len(result.known_defects) == 1
+    assert "does not exist in the real published Aspose.Words.FOSS 26.3.0 package" in result.known_defects[0]
+
+
+def test_list_members_end_to_end_surfaces_the_real_written_words_net_001_defect(
+    _real_words_net_corpus,
+) -> None:
+    """Same real corpus, same real registry entry, through ``list_members`` instead of
+    ``get_symbol`` - proving the disclosure surfaces through BOTH tools, per this card's own
+    title (``get_symbol``/``list_members`` both disclose the phantom method with zero caveat)."""
+    pilot = _real_words_net_corpus.pilots["words__net"]
+
+    members = list_members(_real_words_net_corpus.store, pilot.scope, "Aspose.Words.Body")
+
+    assert isinstance(members, tuple)
+    assert len(members) >= 1
+    assert "does not exist in the real published Aspose.Words.FOSS 26.3.0 package" in members[0]
+
+
+def test_get_symbol_end_to_end_surfaces_the_real_defect_for_node_itself(_real_words_net_corpus) -> None:
+    """``Aspose.Words.Node`` is the base type round-2's own finding names first; confirming it
+    separately from a subclass (``Body``, above) guards against a ref list that only matches
+    subclasses while silently missing the base type itself."""
+    pilot = _real_words_net_corpus.pilots["words__net"]
+
+    result = get_symbol(_real_words_net_corpus.store, pilot.scope, "Aspose.Words.Node")
+
+    assert isinstance(result, SymbolSignature)
+    assert result.found is True
+    assert len(result.known_defects) == 1
+    assert "GetAncestorOf" in result.known_defects[0]
+    assert "does not exist in the real published Aspose.Words.FOSS 26.3.0 package" in result.known_defects[0]

@@ -1,0 +1,82 @@
+schema_version: 1
+pilot: words_net
+defects:
+- id: WORDS-NET-001
+  subject:
+    kind: method
+    refs:
+    - Aspose.Words.AbsolutePositionTab
+    - Aspose.Words.Body
+    - Aspose.Words.BookmarkEnd
+    - Aspose.Words.BookmarkStart
+    - Aspose.Words.BuildingBlocks.BuildingBlock
+    - Aspose.Words.BuildingBlocks.GlossaryDocument
+    - Aspose.Words.Comment
+    - Aspose.Words.CommentRangeEnd
+    - Aspose.Words.CommentRangeStart
+    - Aspose.Words.CompositeNode
+    - Aspose.Words.Document
+    - Aspose.Words.DocumentBase
+    - Aspose.Words.Drawing.GroupShape
+    - Aspose.Words.Drawing.Shape
+    - Aspose.Words.Drawing.ShapeBase
+    - Aspose.Words.EditableRangeEnd
+    - Aspose.Words.EditableRangeStart
+    - Aspose.Words.Fields.FieldChar
+    - Aspose.Words.Fields.FieldEnd
+    - Aspose.Words.Fields.FieldSeparator
+    - Aspose.Words.Fields.FieldStart
+    - Aspose.Words.Fields.FormField
+    - Aspose.Words.HeaderFooter
+    - Aspose.Words.Inline
+    - Aspose.Words.InlineStory
+    - Aspose.Words.Markup.SmartTag
+    - Aspose.Words.Markup.StructuredDocumentTag
+    - Aspose.Words.Markup.StructuredDocumentTagRangeEnd
+    - Aspose.Words.Markup.StructuredDocumentTagRangeStart
+    - Aspose.Words.Math.OfficeMath
+    - Aspose.Words.Node
+    - Aspose.Words.Notes.Footnote
+    - Aspose.Words.Notes.FootnoteSeparator
+    - Aspose.Words.Paragraph
+    - Aspose.Words.Run
+    - Aspose.Words.Section
+    - Aspose.Words.SpecialChar
+    - Aspose.Words.Story
+    - Aspose.Words.SubDocument
+    - Aspose.Words.Tables.Cell
+    - Aspose.Words.Tables.Row
+    - Aspose.Words.Tables.Table
+  applies_to:
+    package_versions:
+    - 26.3.0
+  summary: Node.GetAncestorOf<T>() is disclosed as inherited by 42 real Aspose.Words.NET types in
+    the indexed source but does not exist in the real published Aspose.Words.FOSS 26.3.0 package;
+    only GetAncestor(Type) and GetAncestor(NodeType) exist.
+  user_action: Do not call GetAncestorOf<T>() on any Aspose.Words.NET node type (Body, Paragraph,
+    Document, Node itself, and 38 more); it does not exist in the real installed Aspose.Words.FOSS
+    26.3.0 package and will fail to compile. Use GetAncestor(Type) or GetAncestor(NodeType) instead
+    - both are real, documented methods declared on Node and inherited by every one of those types.
+  evidence:
+    repro: 'Independently re-ran round-2''s own repro (docs/round2/issues.json, id WORDS-NET-001)
+      against the real, currently-pinned Aspose.Words.FOSS 26.3.0 NuGet package (confirmed still the
+      real pin via this project''s own config/products/words/net.yaml, which already independently
+      cites 26.3.0 for the unrelated WORDS-NET-003 entry). .NET reflection (System.Reflection) over
+      Aspose.Words.Node in the real net8.0 DLL found exactly 2 GetAncestor overloads - GetAncestor(Type)
+      -> CompositeNode and GetAncestor(NodeType) -> CompositeNode - and zero methods named GetAncestorOf
+      anywhere in the whole assembly. A raw byte-string search (grep -ac GetAncestorOf) of the real
+      installed net462, net8.0, and netstandard2.0 Aspose.Words.FOSS.dll files each returned 0, while
+      grep -ac GetAncestor (matching both names as a substring) returned 1 for each - confirming the
+      literal string "GetAncestorOf" occurs nowhere in any of the three real shipped assemblies. On
+      current main, get_symbol(fqn) for Body, Story, Node, and Paragraph (each by its own FQN) against
+      the real indexed infra/demo-manifests words__net corpus still returns GetAncestorOf as an inherited method
+      with known_defects == (), confirming the undisclosed phantom is still live. The real committed
+      tests/fixtures/words_net/api_surface.json fixture independently confirms the same 42 owning-type
+      FQNs listed in subject.refs declare this method via inherited_from: Aspose.Words.Node, and all 42
+      are present as real indexed FQNs in the committed infra/demo-manifests/words__net__self_extracted
+      manifest.'
+    verified_on:
+      package: Aspose.Words.FOSS
+      version: 26.3.0
+      date: '2026-11-07'
+  status: open
