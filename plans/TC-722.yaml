@@ -1,0 +1,119 @@
+id: TC-722
+gate: G3
+lane: transport-deployment
+purpose: >-
+  Closes EMAIL-CPP-004 (round-2, `docs/round2/issues.json`, severity P2, category "coverage-gap"
+  - confirmed STILL OPEN by a dedicated 2026-11-07 supervisor investigation): `mapi_message`'s
+  `add_attachment`/`add_recipient`/`add_embedded_message_attachment` each return a REFERENCE
+  (`mapi_attachment&`/`mapi_recipient&`) into an internal `std::vector` member - a reference that
+  is silently invalidated the moment any SUBSEQUENT `add_*` call on the SAME `mapi_message` causes
+  that vector to grow and reallocate (standard, unavoidable `std::vector::push_back` semantics).
+  `get_symbol`/`list_members` show only the bare `mapi_attachment&`/`mapi_recipient&` return type
+  with zero reference-stability caveat. A caller who follows the natural pattern - capture the
+  returned reference, then call `add_attachment`/`add_recipient`/`add_embedded_message_attachment`
+  again to add a second item, then keep using the FIRST reference to continue configuring it -
+  silently reads corrupted/empty data with no crash and no diagnostic.
+
+  ROOT CAUSE (independently confirmed, not guessed): the real upstream source
+  (`src/msg/mapi_message.cpp`, fetched via `gh api` at the real pinned commit `c844a467`) shows
+  all three methods end with the identical pattern `attachments_.push_back(...); return
+  attachments_.back();` (or the `recipients_`-equivalent) with NO `reserve()` call anywhere in the
+  class - confirming the vector can and does reallocate on ordinary use, invalidating every
+  previously-returned reference. This is a genuine, confirmed upstream behavior, not a hypothetical.
+
+  REPRODUCE FIRST: confirm this is still real. Read the real pinned commit's `src/msg/mapi_message.cpp`
+  and `include/.../mapi_message.hpp` (or wherever the three methods' real declarations live) yourself
+  directly (via `gh api repos/<the real email/cpp repository, from config/products/email/cpp.yaml>/contents/...
+  ?ref=<the real source_ref>`) and confirm the exact same `push_back(...); return .back();` pattern
+  with no `reserve()` call, for all three methods. If a real, minimal C++ compile is available in
+  your environment (the pinned ingestion toolchain container), a live repro matching the finding's
+  own `work/main.cpp` style (capture a reference, call a second `add_*`, observe the first
+  reference's data is now corrupted/empty) is a stronger confirmation than the source read alone -
+  attempt it if practical, but the source-level confirmation above is sufficient to proceed if a
+  live compile isn't readily available; report which you did, and the real result, in your closeout.
+
+  FIX (pure additive data, zero code change - same mechanism this project already uses for
+  `cells/go`/`page/python`/`cells/python`'s own entries; `email/cpp` has no `known_hazards` key
+  yet): add a NEW `known_hazards` key to `config/products/email/cpp.yaml` (as the LAST top-level
+  key, matching the established file-level comment convention), with ONE entry stating plainly:
+  the real trigger (capturing the reference `add_attachment`/`add_recipient`/
+  `add_embedded_message_attachment` returns, then making ANY further `add_*` call on the same
+  `mapi_message` before finishing with that reference), the real mechanism (a `std::vector`
+  reallocation silently invalidates the earlier reference - no crash, no exception, just
+  corrupted/empty data read back), and the safe pattern (never hold onto a returned
+  `mapi_attachment&`/`mapi_recipient&` across a further `add_*` call on the same message; finish
+  configuring each one, or re-fetch it by index/position afterward, before adding the next).
+depends_on:
+  - TC-001
+  - TC-003
+  - TC-164
+  - TC-650
+  - TC-720
+  - TC-721
+write_paths:
+  - config/products/email/cpp.yaml
+  - tests/mcp/tools/test_known_hazards_round2_disclosures.py
+satisfies:
+  - REQ-G3-015
+source_refs:
+  - file: docs/DECISION_LOG.md
+    anchor: >-
+      ## 2026-11-07 — CELLS-GO-009 confirmed real but too large for one disclosure card; needs splitting (supervisor)
+    sha256: 050bc6314d3bbc8946dc8bf35f08216feaf9a7d57e8f99287a10b8e139add941
+inputs:
+  - >-
+    READ FIRST: `docs/round2/issues.json` id `EMAIL-CPP-004` in full. Then
+    `config/products/cells/go.yaml`'s own `known_hazards` entry (your template) and
+    `tests/mcp/tools/test_known_hazards_round2_disclosures.py` in full, especially the most recent
+    widening done for `TC-721`/`CELLS-PY-004` (search for "CELLS-PY-004" in that file) as your
+    direct, most-recent template for how a 10th entry was added cleanly, including that worker's
+    own note about proactively checking the negative control is non-vacuous before committing (a
+    real near-miss class `TC-720`'s own worker hit and fixed, worth re-reading).
+  - >-
+    REPRODUCE FIRST (do not skip): read the real pinned commit's real source directly via `gh api`
+    and confirm the exact `push_back(...); return .back();` pattern with no `reserve()` call, for
+    all three methods. Report the real source text you observed, verbatim, in your closeout. If a
+    real compile is practical in your environment, a live repro is a stronger proof - attempt it,
+    but the source-level read is sufficient to proceed either way.
+  - >-
+    This is a project-authored disclosure, not an upstream quote - write the hazard in your own
+    words, matching the house style of every other `known_hazards` entry already committed.
+  - >-
+    Before committing, manually run this card's own `negative_control.mutate` script against your
+    real committed file and confirm it actually makes your new test fail - do not assume it works
+    without checking, per the `TC-720` lesson already cited above.
+actions:
+  - >-
+    Disclose the real reference-invalidation hazard on mapi_message's add_attachment/add_recipient/
+    add_embedded_message_attachment via a new known_hazards entry for email/cpp, reusing the
+    already-proven, already-wired mechanism with zero code change.
+checks:
+  - command: '{python} -m pytest tests/mcp/tools/test_known_hazards_round2_disclosures.py -q -rfE -p no:cacheprovider'
+    expect: 'exit 0'
+    timeout_seconds: 300
+    junitxml: true
+    proves:
+      - REQ-G3-015
+min_tests: 28
+requires:
+  - python
+network: true
+negative_control:
+  mutate: |
+    python -X utf8 -c "import pathlib; p = pathlib.Path('config/products/email/cpp.yaml'); s = p.read_text(encoding='utf-8'); old = 'mapi_message'; count = s.count(old); assert count >= 1, 'the expected mapi_message literal was not found - if your real hazard text phrases this differently, anchor your own mutate on your own real literal instead and note the substitution in your closeout'; s2 = s.replace(old, 'mapi_messageNOTREAL', 1); assert s2 != s; p.write_text(s2, encoding='utf-8')"
+  rationale: >-
+    Corrupts the real hazard text's own subject name so it no longer names the real class the new
+    regression test asserts on, which must make that test fail - a pure data mutation, immune to
+    the lockstep-rename vacuousness class this session's earlier reviews found, and it never
+    touches any code path. If your real hazard text repeats "mapi_message" more than once before
+    the mutate's target occurrence, or your chosen trace token is a substring of another required
+    phrase, re-anchor the mutate or your trace token so the mutation genuinely breaks your new
+    test, per the TC-720 lesson cited above.
+evidence:
+  - evidence/build/G3/TC-722/receipt.json
+closeout:
+  - >-
+    `email/cpp`'s real reference-invalidation hazard on `add_attachment`/`add_recipient`/
+    `add_embedded_message_attachment` is now disclosed via a new project-authored known_hazards
+    entry, closing EMAIL-CPP-004 with zero code change.
+recovery: Re-run from a clean tree.
