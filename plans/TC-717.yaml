@@ -1,0 +1,159 @@
+id: TC-717
+gate: G3
+lane: extraction
+purpose: >-
+  Closes WORDS-NET-006 (round-2, `docs/round2/issues.json`, severity P2, category "coverage-gap" -
+  confirmed STILL OPEN by a dedicated 2026-11-07 supervisor investigation, and confirmed to be
+  caused by a REAL, PREVIOUSLY-UNDISCOVERED extractor blind spot that likely affects more than this
+  one symbol): `words/net`'s `SaveFormat` enum is indexed with 41 members, missing the real `WebP`
+  member the upstream source genuinely declares. Confirmed NOT the version-drift pattern that closed
+  `PDF-NET-001`/`CELLS-NET-001` earlier this session: `gh api .../compare/<pinned-commit>...v26.3.0`
+  reports `"status": "identical", "ahead_by": 0, "behind_by": 0` - the pinned indexed commit IS the
+  cited version, so this is a real extraction gap at the exact commit this project indexes, not a
+  symptom of indexing an older commit.
+
+  ROOT CAUSE (independently traced, not guessed): the real upstream source
+  (`Aspose.Words/Model/Document/SaveFormat.cs`) wraps the `WebP = 107` constant in a C#
+  preprocessor-conditional block: `#if NETSTANDARD || NET || NET462_OR_GREATER || JAVA ... #endif`.
+  `tree_helpers.py`'s `_extract_enum_members()` (around line 1321) - the one, language-agnostic
+  function every language's enum extraction funnels through - iterates ONLY the direct children of
+  the enum body (`for ch in body.children: if ch.type in ("enum_constant", ...)`), with ZERO
+  handling for a `preproc_if`/`preproc_elif`/`preproc_else` wrapper node sitting at that position in
+  the tree. When an enum constant is preprocessor-guarded, the enum body's direct child at that
+  position is a `preproc_if` node, not an `enum_constant` node directly - so the loop's own type
+  check never matches it, and the constant (and everything else inside that `#if` block) is
+  silently dropped. This is a GENERIC gap: this project's own C# FIELD/EVENT extraction already
+  solved the identical structural problem correctly (`api_surface.py`, the field/event extraction
+  function around line 1230-1247: `for member in lang.csharp.member_nodes(cnode): ... if
+  _in_excluded_preproc_branch(member, "csharp") or not _csharp_member_is_public(member, cnode):
+  continue`) - `lang/csharp.py`'s `member_nodes(cnode)` (around line 427) flattens `preproc_if`/
+  `preproc_elif`/`preproc_else` groups one level at a time (pushing their own children onto a
+  traversal stack instead of treating the wrapper as an opaque leaf), and
+  `tree_helpers._in_excluded_preproc_branch(node, language)` (around line 1117) conservatively
+  excludes a member only when its enclosing `#if`/`#elif` condition is DEFINITELY false for a real
+  .NET build (leaving an `#else` branch, and any condition whose truth depends on an unresolved
+  target-framework symbol, as reachable rather than guessed at) - exactly the right, already-proven,
+  already-tested answer for this exact structural problem, just never applied to enum bodies.
+  `WebP`'s own real condition (`NETSTANDARD || NET || NET462_OR_GREATER || JAVA`) is NOT definitely
+  false under this existing evaluator (confirmed by reading `_condition_definitely_false`'s own
+  docstring and symbol tables) - it should correctly resolve as reachable once wired in, matching
+  the member's real, confirmed presence in the published package.
+
+  REPRODUCE FIRST: confirm this is still real on current `main`. Load the real committed
+  `tests/fixtures/words_net/api_surface.json`, find the `SaveFormat` enum's `enum_members` list, and
+  confirm `WebP` is absent (41 members present). Separately, with a throwaway script, parse the real
+  upstream `SaveFormat.cs` source at the pinned commit (fetch it via `gh api
+  repos/<the real words/net repository, from config/products/words/net.yaml>/contents/<path>?ref=<the
+  real source_ref in infra/demo-manifests/product_reference_words_net.json>`) and confirm the exact
+  `#if`/`#endif` wrapping and the real integer value `107` you will need for your regression test.
+  Report the exact real source text you observed, verbatim, in your closeout.
+
+  FIX (additive, C#-only, reuses two already-proven, already-tested mechanisms - never invents a
+  third): make `tree_helpers._extract_enum_members` preprocessor-aware for `language == "csharp"`
+  ONLY: before the existing `for ch in body.children` loop, when the language is C#, flatten the
+  body's direct children through any `preproc_if`/`preproc_elif`/`preproc_else` wrapper (the exact
+  same one-level-at-a-time stack-based flatten `lang.csharp.member_nodes` already does for class
+  bodies - either call that function directly if `body` is structurally compatible, or replicate its
+  exact flattening logic inline in `tree_helpers.py` if importing `lang.csharp` from `tree_helpers.py`
+  would create an import-direction problem you must check for first), then for each flattened node,
+  skip it if `_in_excluded_preproc_branch(node, "csharp")` is True (reusing that function directly,
+  it already lives in the same file). Every OTHER language's enum extraction (Java, Rust, C++,
+  TypeScript, Python, Go) must be completely untouched - the existing direct-children loop stays
+  exactly as it is for every `language != "csharp"` call, and for a C# enum with no preprocessor
+  directives at all (the common case), the flattened list must be byte-identical to today's direct
+  children list, so no other C# pilot's enum extraction may change as a side effect. Verify this
+  explicitly: re-run extraction (or re-check the already-committed fixtures) for every OTHER C#
+  pilot's enums (`cells/net`, `email/net`, `imaging/net`, `pdf/net`, `slides/net`) and confirm zero
+  byte-level change to any of their `enum_members` lists before and after your fix.
+
+  This card is DELIBERATELY scoped to the extraction fix + its own fixture regeneration for
+  `words_net` only (the one real repro). A later card may re-run extraction for the other 5 real C#
+  pilots to check whether any of THEM has a sibling `#if`-guarded enum constant this fix newly
+  surfaces (plausible given the shared cause, not yet confirmed) - do not go hunting for that within
+  this card's own scope; note it in your closeout as a flagged follow-up if you notice anything
+  suggestive while doing the required zero-regression check above, but do not act on it.
+depends_on:
+  - TC-001
+  - TC-010
+  - TC-010b
+  - TC-058
+  - TC-059
+  - TC-166
+  - TC-168
+  - TC-259
+  - TC-269
+  - TC-276
+  - TC-316
+  - TC-392
+  - TC-395
+  - TC-530
+  - TC-557
+  - TC-558
+  - TC-559
+  - TC-689
+write_paths:
+  - src/foss_mcp/extraction/tree_sitter_engine/tree_helpers.py
+  - tests/fixtures/words_net/api_surface.json
+  - tests/extraction/tree_sitter_engine/test_csharp_preproc_enum_members.py
+satisfies:
+  - REQ-G3-012
+source_refs:
+  - file: docs/DECISION_LOG.md
+    anchor: >-
+      ## 2026-11-07 — CELLS-NET-001 confirmed the same version-drift class as PDF-NET-001; not an extractor defect (supervisor)
+    sha256: b4529c50546393df804de5be972ec4fceb0c1d0d7756cd83a309aee5df9eff84
+inputs:
+  - >-
+    READ FIRST: `docs/round2/issues.json` id `WORDS-NET-006` in full. Then
+    `tree_helpers.py`'s `_extract_enum_members` (around line 1321) and `_in_excluded_preproc_branch`/
+    `_condition_definitely_false` (around lines 1071-1150) in full. Then `lang/csharp.py`'s
+    `member_nodes` (around line 427) and its real, already-working call site in `api_surface.py`'s
+    field/event extraction function (around line 1230-1247) - this is your exact template for the
+    flatten-then-filter pattern, already proven correct and tested for class members; you are
+    applying the identical pattern to enum bodies, not inventing new preprocessor-evaluation logic.
+  - >-
+    REPRODUCE FIRST (do not skip): confirm the real current gap in the committed fixture, and fetch
+    the real upstream source text at the real pinned commit via `gh api`, exactly as described
+    above. Report both real observations, verbatim, in your closeout.
+  - >-
+    Scope this to C# only. Prove, not assume, that every other language's enum extraction and every
+    other C# pilot's enum extraction is byte-for-byte unaffected.
+actions:
+  - >-
+    Make C# enum-member extraction preprocessor-aware, reusing the already-proven flatten/filter
+    mechanism class and field extraction already use, closing the real `SaveFormat.WebP` gap for
+    `words/net` without affecting any other language or pilot.
+checks:
+  - command: '{python} -m pytest tests/extraction/tree_sitter_engine/test_csharp_preproc_enum_members.py -q -rfE -p no:cacheprovider'
+    expect: 'exit 0'
+    timeout_seconds: 300
+    junitxml: true
+    proves:
+      - REQ-G3-012
+  - command: '{python} -m pytest tests/extraction/ -q -rfE -p no:cacheprovider --ignore=tests/extraction/test_github_http.py --ignore=tests/extraction/test_github_http_gh_cli_transport.py --ignore=tests/extraction/test_repo_native.py'
+    expect: 'exit 0'
+    timeout_seconds: 900
+    junitxml: true
+    proves:
+      - REQ-G3-012
+min_tests: 1
+requires:
+  - python
+network: true
+negative_control:
+  mutate: |
+    python -X utf8 -c "import pathlib; q = chr(34); p = pathlib.Path('tests/fixtures/words_net/api_surface.json'); s = p.read_text(encoding='utf-8'); old = q + 'WebP' + q; count = s.count(old); assert count >= 1, 'the expected WebP literal was not found in the real fixture - if your real fix names it differently, anchor your own mutate on your own real literal instead and note the substitution in your closeout'; s2 = s.replace(old, q + 'WebPNOTREAL' + q, 1); assert s2 != s; p.write_text(s2, encoding='utf-8')"
+  rationale: >-
+    Corrupts the real `WebP` member name in the regenerated fixture so it no longer matches the
+    real upstream name your new regression test asserts on, which must make that test fail - a pure
+    data mutation, immune to the lockstep-rename vacuousness class this session's earlier reviews
+    found, and it never touches the extractor code path itself.
+evidence:
+  - evidence/build/G3/TC-717/receipt.json
+closeout:
+  - >-
+    C# enum-member extraction is now preprocessor-aware, closing WORDS-NET-006 (`SaveFormat.WebP`)
+    by reusing the already-proven flatten/filter mechanism class and field extraction already use -
+    every other language and every other C# pilot's enum extraction confirmed byte-for-byte
+    unaffected.
+recovery: Re-run from a clean tree.
