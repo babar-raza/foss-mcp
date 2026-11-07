@@ -1,0 +1,238 @@
+id: TC-727
+gate: G3
+lane: storage-retrieval
+purpose: >-
+  Closes PDF-TS-002 (round-2, `docs/round2/issues.json`, severity P1, category
+  "mcp-content-missing" - confirmed STILL OPEN by a dedicated 2026-11-07 supervisor investigation):
+  method-level JSDoc summaries (e.g. `pdf/typescript`'s own `Document.New` - "Create a new document
+  from scratch: zero pages when `format` is omitted, or one blank page of that size when given." -
+  the exact behavior distinction that caused a round-1 agent to need a runtime fix-iteration after
+  being surprised by an unexpected blank first page) are NEVER surfaced by `get_symbol`/
+  `list_members`, for ANY method, on ANY pilot - not because extraction is missing them (it is
+  not: the real committed `tests/fixtures/pdf_typescript/api_surface.json` fixture already has
+  321 of 433 real methods carrying a correct, non-empty `doc` field, `Document.New`'s own entry
+  matching the real source JSDoc word-for-word), but because `chunk_builder.py`'s `_method_line`
+  (the ONE function every language's member-line rendering funnels through) never reads
+  `method.get("doc")` at all. Its returned line is built entirely from name/params/return-type plus
+  a fixed, already-established chain of OPTIONAL suffix functions (`_throws_suffix`,
+  `_modifiers_suffix`, `_generics_suffix`, `_mixin_suffix`, `_inherited_from_suffix`,
+  `_deprecated_suffix`, `_stub_suffix`) - a doc summary is simply never one of them, for any
+  language, any pilot. This was investigated and deliberately NOT carded earlier in this same
+  session pending a measured blast-radius pass before committing to the fix; that measurement is
+  now done (see below) and the fix is ready to specify precisely.
+
+  MEASURED BLAST RADIUS (do this measurement yourself again, do not trust this number blindly -
+  re-confirm it, since fixtures may have changed since this card was authored): a supervisor-level
+  grep for the member-line-shaped literal pattern `"  - .*->"` across `tests/` found 25 files that
+  contain a hardcoded, exact member-line string, MANY using the fragile `"<exact line>" in
+  text.splitlines()` idiom (confirmed directly in `tests/indexing/test_chunk_builder_round3_typescript.py`:
+  `assert "  - fromFile(fileName: string) -> Scene [static]" in scene.splitlines()`) - this idiom
+  requires the asserted line to appear VERBATIM, so any method whose real fixture carries a
+  non-empty `doc` and is checked by one of these tests will break once a doc suffix is added,
+  unless that specific assertion is updated to include the new suffix.
+
+  FIX (additive, mirrors the EXACT pattern every sibling suffix in this file already uses - never
+  touches the fenced logic of any other suffix function): add a new `_doc_suffix(entry)` function
+  to `chunk_builder.py`, modeled directly on `_stub_suffix`/`_stub_text`'s own two-function shape
+  (a `_doc_text` helper returning "" when `entry.get("doc")` is empty/missing, else the doc text
+  with internal whitespace collapsed via `" ".join(text.split())` exactly like `_stub_text` already
+  does for `stub_reason`, capped at a new `_DOC_SUMMARY_LIMIT` constant mirroring `_STUB_REASON_LIMIT`'s
+  own value and truncation-with-"..." convention; then `_doc_suffix` wraps it as
+  `f"  ({text})"` exactly like `_stub_suffix` does). Call `_doc_suffix(method)` from `_method_line`
+  as one more term appended to the existing suffix chain (place it LAST, after `_stub_suffix`, so
+  every existing suffix's own relative ordering and content stays byte-for-byte unchanged, and a
+  method with no `doc` field renders its line exactly as before - confirm this explicitly: a
+  method with every OTHER suffix field present but no `doc` must produce byte-identical output to
+  today). Scope this card to METHODS ONLY (`_method_line`) - do not also change `_property_line`,
+  `_member_line`, or any other rendering function; a future card can extend this to properties if
+  warranted, once this one is proven safe in production.
+
+  THEN, for ALL 25 files this card's own grep found (re-discover the real, current list yourself -
+  do not trust this card's list is still complete or accurate), run the full affected test suite
+  WITH your fix applied and get the real, authoritative list of now-failing tests (do not guess
+  which ones break from reading alone - the grep only finds literal-string candidates, not which
+  ones actually correspond to a method with a real non-empty `doc` field). For EACH real failure:
+  if the test's own real fixture method has a non-empty `doc`, update ONLY that specific assertion
+  to include the new `_doc_suffix`'s real output (reusing the REAL doc text from the real fixture,
+  never inventing text) - every other assertion in that same test, and every other test in that
+  file, must stay byte-for-byte unchanged. If a test's own PURPOSE is specifically to pin the
+  ABSENCE of extra suffix content (e.g. a "no pilot ever gets worse"-style regression guard), do
+  not silently update it to tolerate new content - stop and report that specific case rather than
+  guessing whether it should change.
+
+  FINALLY, add new, real-corpus-backed end-to-end tests (in `tests/mcp/tools/`, following whichever
+  existing test file's own convention for real-pilot-data `get_symbol`/`list_members` assertions
+  most closely matches this shape - e.g. `test_round3_unsupported_markers.py`'s own real-data
+  template) proving the ORIGINAL round-2 case: `get_symbol`/`list_members` for `pdf/typescript`'s
+  real `Document.New` now shows its real doc summary text, and a method with no doc (pick a real
+  one from the same fixture) renders with no suffix at all, exactly as before.
+depends_on:
+  - TC-001
+  - TC-010
+  - TC-020
+  - TC-030
+  - TC-036
+  - TC-042
+  - TC-048
+  - TC-055
+  - TC-062
+  - TC-065
+  - TC-076
+  - TC-079
+  - TC-098
+  - TC-114
+  - TC-123
+  - TC-223
+  - TC-238
+  - TC-255
+  - TC-261
+  - TC-285
+  - TC-317
+  - TC-381
+  - TC-382
+  - TC-386
+  - TC-395
+  - TC-396
+  - TC-400
+  - TC-473
+  - TC-504
+  - TC-514
+  - TC-515
+  - TC-517
+  - TC-520
+  - TC-521
+  - TC-522
+  - TC-523
+  - TC-524
+  - TC-525
+  - TC-530
+  - TC-532
+  - TC-533
+  - TC-534
+  - TC-535
+  - TC-536
+  - TC-538
+  - TC-539
+  - TC-541
+  - TC-550
+  - TC-551
+  - TC-553
+  - TC-554
+  - TC-555
+  - TC-556
+  - TC-557
+  - TC-558
+  - TC-559
+  - TC-562
+  - TC-563
+  - TC-566
+  - TC-567
+  - TC-614
+  - TC-631
+  - TC-644
+  - TC-645
+  - TC-656
+  - TC-658
+  - TC-660
+  - TC-668
+  - TC-686
+  - TC-688
+  - TC-702
+  - TC-706
+  - TC-707
+write_paths:
+  - src/foss_mcp/indexing/chunk_builder.py
+  - tests/indexing/test_chunk_builder.py
+  - tests/indexing/test_chunk_builder_cpp_signatures.py
+  - tests/indexing/test_chunk_builder_go_members.py
+  - tests/indexing/test_chunk_builder_honesty.py
+  - tests/indexing/test_chunk_builder_modifiers.py
+  - tests/indexing/test_chunk_builder_python_signatures.py
+  - tests/indexing/test_chunk_builder_round3_cpp.py
+  - tests/indexing/test_chunk_builder_round3_dotnet.py
+  - tests/indexing/test_chunk_builder_round3_gorust.py
+  - tests/indexing/test_chunk_builder_round3_java.py
+  - tests/indexing/test_chunk_builder_round3_typescript.py
+  - tests/indexing/test_chunk_builder_single_line_members.py
+  - tests/indexing/test_chunk_builder_typescript_marks.py
+  - tests/indexing/test_known_defects_data_3d.py
+  - tests/indexing/test_known_defects_data_cells.py
+  - tests/indexing/test_known_defects_data_cells_typescript_013.py
+  - tests/indexing/test_round3_unsupported_markers.py
+  - tests/mcp/test_response_budget.py
+  - tests/mcp/test_tool_surface_truthful.py
+  - tests/mcp/tools/test_get_symbol_raw_text_opt_in.py
+  - tests/mcp/tools/test_known_defects_round3_siblings.py
+  - tests/deploy/test_served_provenance.py
+  - tests/e2e/test_pdf_typescript_live_content.py
+  - tests/extraction/test_python_fidelity.py
+  - tests/extraction/tree_sitter_engine/test_python_surface_attributes.py
+  - tests/extraction/tree_sitter_engine/test_ts_fidelity.py
+  - tests/mcp/tools/test_pdf_typescript_method_docs.py
+satisfies:
+  - REQ-G3-013
+source_refs:
+  - file: docs/DECISION_LOG.md
+    anchor: >-
+      ## 2026-11-07 — CELLS-CPP-005 confirmed already fixed; the round-2 finding is stale (supervisor)
+    sha256: 991caa8a95ffcb674b6a4e39b368ce56b3146603d9ffb56575202ac94974f9bc
+inputs:
+  - >-
+    READ FIRST: `docs/round2/issues.json` id `PDF-TS-002` in full, and this session's own
+    `docs/DECISION_LOG.md` entry titled "PDF-TS-002 root-caused precisely..." (search for
+    "PDF-TS-002" in that file) for the full earlier investigation this card builds directly on -
+    do not re-derive the root cause from scratch, it is already fully diagnosed there. Then
+    `chunk_builder.py`'s `_stub_text`/`_stub_suffix`/`_STUB_REASON_LIMIT` (around lines 225-243)
+    as your EXACT template, and `_method_line` (around line 246) where you add the new call.
+  - >-
+    REPRODUCE FIRST: confirm the real committed `tests/fixtures/pdf_typescript/api_surface.json`'s
+    `Document.New` entry still has its real, non-empty `doc` field, and confirm `get_symbol`/
+    `list_members` for it on current `main` still show no doc text anywhere in the member line.
+    Report the real observed before-state, verbatim, in your closeout.
+  - >-
+    This card's own write_paths list is a best-effort enumeration from a supervisor-level grep -
+    it may be incomplete or include files that turn out not to need any change once you actually
+    run the suite. If you find a test file that needs updating but is NOT in this list, that is a
+    scope violation per this project's own worker rules - stop and report it rather than editing
+    outside your declared write_paths; the supervisor will widen the card.
+  - >-
+    Never touch a test whose own purpose is to pin the ABSENCE of extra content - if you find one,
+    stop and report it rather than silently updating it to tolerate the new suffix.
+actions:
+  - >-
+    Add an additive `_doc_suffix` to chunk_builder.py's method-line rendering, fix every real
+    collateral test across the enumerated files, and add new end-to-end tests proving the real
+    pdf/typescript Document.New case now surfaces its doc text.
+checks:
+  - command: '{python} -m pytest tests/indexing/test_chunk_builder.py tests/indexing/test_chunk_builder_cpp_signatures.py tests/indexing/test_chunk_builder_go_members.py tests/indexing/test_chunk_builder_honesty.py tests/indexing/test_chunk_builder_modifiers.py tests/indexing/test_chunk_builder_python_signatures.py tests/indexing/test_chunk_builder_round3_cpp.py tests/indexing/test_chunk_builder_round3_dotnet.py tests/indexing/test_chunk_builder_round3_gorust.py tests/indexing/test_chunk_builder_round3_java.py tests/indexing/test_chunk_builder_round3_typescript.py tests/indexing/test_chunk_builder_single_line_members.py tests/indexing/test_chunk_builder_typescript_marks.py tests/indexing/test_known_defects_data_3d.py tests/indexing/test_known_defects_data_cells.py tests/indexing/test_known_defects_data_cells_typescript_013.py tests/indexing/test_round3_unsupported_markers.py tests/mcp/test_response_budget.py tests/mcp/test_tool_surface_truthful.py tests/mcp/tools/test_get_symbol_raw_text_opt_in.py tests/mcp/tools/test_known_defects_round3_siblings.py -q -rfE -p no:cacheprovider'
+    expect: 'exit 0'
+    timeout_seconds: 600
+    junitxml: true
+    proves:
+      - REQ-G3-013
+  - command: '{python} -m pytest tests/deploy/test_served_provenance.py tests/e2e/test_pdf_typescript_live_content.py tests/extraction/test_python_fidelity.py tests/extraction/tree_sitter_engine/test_python_surface_attributes.py tests/extraction/tree_sitter_engine/test_ts_fidelity.py tests/mcp/tools/test_pdf_typescript_method_docs.py -q -rfE -p no:cacheprovider'
+    expect: 'exit 0'
+    timeout_seconds: 600
+    junitxml: true
+    proves:
+      - REQ-G3-013
+min_tests: 186
+requires:
+  - python
+network: true
+negative_control:
+  mutate: |
+    python -X utf8 -c "import pathlib; p = pathlib.Path('src/foss_mcp/indexing/chunk_builder.py'); s = p.read_text(encoding='utf-8'); old = '_doc_suffix(method)'; count = s.count(old); assert count == 1, 'the expected call-site literal was not found exactly once - if your real fix calls this differently, anchor your own mutate on your own real literal instead and note the substitution in your closeout'; p.write_text(s.replace(old, '', 1), encoding='utf-8')"
+  rationale: >-
+    Removes the new doc-suffix call from `_method_line` entirely, which must make the new
+    end-to-end test for `Document.New` fail (its doc text no longer renders) - a targeted removal
+    of exactly the new behavior this card adds, never touching any pre-existing suffix function.
+evidence:
+  - evidence/build/G3/TC-727/receipt.json
+closeout:
+  - >-
+    `get_symbol`/`list_members` now surface a method's real doc summary (when one exists) via a
+    new, additive `_doc_suffix`, closing PDF-TS-002 for every language and pilot at once - every
+    pre-existing pinned test that needed updating was fixed individually against real fixture doc
+    text, never invented.
+recovery: Re-run from a clean tree.
