@@ -1,0 +1,112 @@
+{
+  "schema_version": 1,
+  "card": "TC-715",
+  "gate": "G3",
+  "generated_by": "gatectl",
+  "generated_at": "2026-11-07T13:11:47Z",
+  "base_rev": "833c971b2e0a96733578b8a0049d62cf9dd56a7f",
+  "head_rev": "e844ee95ea70ed367b0be35ca412243dbf04465c",
+  "card_sha256": "0463367571f08b912d2b9e4e5c69ae5b7e6b9044d4b7df0644ec8177f0f0c9d3",
+  "fingerprint": {
+    "python": "3.13.2",
+    "platform": "Windows-11-10.0.26300-SP0",
+    "lock_sha256": "5c72e798a73c059a438e752e94a8d4c88c1bdf81a197f6e5c5fcecbc9466a691",
+    "env": {
+      "PYTHONHASHSEED": "0",
+      "PYTHONUTF8": "1",
+      "PYTHONDONTWRITEBYTECODE": "1",
+      "PYTHONIOENCODING": "utf-8",
+      "TZ": "UTC",
+      "LC_ALL": "C.UTF-8",
+      "SOURCE_DATE_EPOCH": "1700000000",
+      "verify_runner": "host"
+    }
+  },
+  "scope": {
+    "ok": true,
+    "changed_paths": [
+      "infra/demo-manifests/product_reference_cells_go.json",
+      "infra/demo-manifests/recent_releases_cells_go.json",
+      "tests/infra/test_round3_release_tags.py"
+    ],
+    "violations": [],
+    "evaluated": true
+  },
+  "runs": [
+    {
+      "run": 1,
+      "checks": [
+        {
+          "command": "{python} -m pytest tests/infra/test_round3_release_tags.py -q -rfE -p no:cacheprovider",
+          "exit_code": 0,
+          "duration_s": 4.241,
+          "stdout_sha256": "325b7cf7b0d6ead544ebb7e833a08009fa10cf90ce29b8f9021e2ede461488f5",
+          "tests": 47,
+          "skipped": 0,
+          "errors": 0,
+          "failures": 0
+        },
+        {
+          "command": "{python} -m pytest tests/mcp/tools/test_release_index_baked.py tests/mcp/tools/test_round3_drift.py tests/mcp/test_empty_release_note.py -q -rfE -p no:cacheprovider",
+          "exit_code": 0,
+          "duration_s": 11.601,
+          "stdout_sha256": "4d23f7b2ccdb158ce92d66f7d94e2c5474e021483f72ddb1bc5310dc592e66eb",
+          "tests": 109,
+          "skipped": 0,
+          "errors": 0,
+          "failures": 0
+        }
+      ],
+      "all_passed": true
+    },
+    {
+      "run": 2,
+      "checks": [
+        {
+          "command": "{python} -m pytest tests/infra/test_round3_release_tags.py -q -rfE -p no:cacheprovider",
+          "exit_code": 0,
+          "duration_s": 4.534,
+          "stdout_sha256": "325b7cf7b0d6ead544ebb7e833a08009fa10cf90ce29b8f9021e2ede461488f5",
+          "tests": 47,
+          "skipped": 0,
+          "errors": 0,
+          "failures": 0
+        },
+        {
+          "command": "{python} -m pytest tests/mcp/tools/test_release_index_baked.py tests/mcp/tools/test_round3_drift.py tests/mcp/test_empty_release_note.py -q -rfE -p no:cacheprovider",
+          "exit_code": 0,
+          "duration_s": 9.517,
+          "stdout_sha256": "4d23f7b2ccdb158ce92d66f7d94e2c5474e021483f72ddb1bc5310dc592e66eb",
+          "tests": 109,
+          "skipped": 0,
+          "errors": 0,
+          "failures": 0
+        }
+      ],
+      "all_passed": true
+    }
+  ],
+  "negative_control": {
+    "kind": "mutate",
+    "patch": "python -X utf8 -c \"import json, pathlib; p = pathlib.Path('infra/demo-manifests/recent_releases_cells_go.json'); d = json.loads(p.read_text(encoding='utf-8')); assert len(d) > 1, 'the real post-fix entry count was not greater than 1 as expected - if your real regeneration produced a different shape, anchor your own mutate on your own real observed count instead and note the substitution in your closeout'; p.write_text(json.dumps(d[:1]), encoding='utf-8')\"\n",
+    "patch_sha256": "708c76ef12fb6412811caa7e6722dcb0da1f1072f5be265bde797e7999e9c7ef",
+    "applied": true,
+    "patch_applied_failed": true,
+    "exit_codes": [
+      1,
+      0
+    ],
+    "tree_changed": [
+      "M infra/demo-manifests/recent_releases_cells_go.json",
+      "?? .junit-0.xml",
+      "?? .junit-1.xml"
+    ]
+  },
+  "holdout": {
+    "ran": false,
+    "passed": true,
+    "detail": "no holdout for this card"
+  },
+  "accepted": true,
+  "reason": "all gates passed"
+}
