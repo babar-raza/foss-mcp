@@ -1,0 +1,465 @@
+
+===== CLEAN RUN 1 (host) =====
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-5c72e798a73c059a\Scripts\python.exe -m pytest tests/mcp/tools/test_round3_install_truth.py -q -rfE -p no:cacheprovider "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-_e6lq_tg\.junit-0.xml"
+--- stdout ---
+............................................................             [100%]
+
+--- stderr ---
+
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-5c72e798a73c059a\Scripts\python.exe -m pytest tests/conformance/test_reference_content.py -q -rfE -p no:cacheprovider -m "not live" "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-_e6lq_tg\.junit-1.xml"
+--- stdout ---
+..............                                                           [100%]
+
+--- stderr ---
+
+
+===== CLEAN RUN 2 (host) =====
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-5c72e798a73c059a\Scripts\python.exe -m pytest tests/mcp/tools/test_round3_install_truth.py -q -rfE -p no:cacheprovider "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-_e6lq_tg\.junit-0.xml"
+--- stdout ---
+............................................................             [100%]
+
+--- stderr ---
+
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-5c72e798a73c059a\Scripts\python.exe -m pytest tests/conformance/test_reference_content.py -q -rfE -p no:cacheprovider -m "not live" "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-_e6lq_tg\.junit-1.xml"
+--- stdout ---
+..............                                                           [100%]
+
+--- stderr ---
+
+
+===== NEGATIVE CONTROL (checks MUST now fail) =====
+mutated: M src/foss_mcp/mcp/tools/get_product_reference.py, ?? .junit-0.xml, ?? .junit-1.xml
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-5c72e798a73c059a\Scripts\python.exe -m pytest tests/mcp/tools/test_round3_install_truth.py -q -rfE -p no:cacheprovider "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-_e6lq_tg\.junit-0.xml"
+--- stdout ---
+.......FF.FFFFFF.F..........................................             [100%]
+================================== FAILURES ===================================
+_ test_imaging_net_install_never_quotes_the_command_for_the_package_the_registry_lacks _
+
+    def test_imaging_net_install_never_quotes_the_command_for_the_package_the_registry_lacks() -> None:
+        readme = _upstream("imaging_net", "README.md")
+        recorded = json.loads((MANIFESTS / "package_registry_imaging_net.json").read_text(encoding="utf-8"))
+        # the oracle: NuGet answered 404 for this package (recorded at ingestion) and the upstream README still says this
+        assert recorded["verified"] is False
+        assert "dotnet add package Aspose.Imaging.Foss" in readme
+    
+>       text = _text(_registry_says_absent("imaging_net"), "install")
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests\mcp\tools\test_round3_install_truth.py:212: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+tests\mcp\tools\test_round3_install_truth.py:92: in _text
+    result = get_product_reference(inputs, section)  # type: ignore[arg-type]
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+src\foss_mcp\mcp\tools\get_product_reference.py:1899: in get_product_reference
+    result = _answer(inputs, section, effective)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+src\foss_mcp\mcp\tools\get_product_reference.py:2202: in _answer
+    readme_text = _guard_unresolved_install(readme_text, coordinate, ecosystem)
+                  ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+src\foss_mcp\mcp\tools\get_product_reference.py:1451: in _guard_unresolved_install
+    text = _replace_fences(text, strip_block)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+src\foss_mcp\mcp\tools\get_product_reference.py:1370: in _replace_fences
+    replacement = keep(block)
+                  ^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+block = ['```', 'dotnet add package Aspose.Imaging.Foss', '```']
+
+    def strip_block(block: list[str]) -> list[str] | None:
+        inner = block[1:-1] if len(block) >= 2 else []
+        # G3/TC-718 (IMAGING-NET-006): a fenced line is only an install line when it ALSO looks
+        # install-shaped (``_INSTALL_LINE_VERBS_RE``) - matching *coordinate* alone let a plain code
+        # reference inside an unrelated fence (e.g. a Usage example's own
+        # ``using Aspose.Imaging.Foss;`` statement) be mistaken for a second install line to redact,
+        # inserting a second removal note for a real README line the registry-absent package names
+        # only once, in its own, separate Install fence.
+>       kept = [line for line in inner if not (pattern.search(line) and _INSTALL_LINE_VERBS_RE_DISABLED_FOR_TEST.search(line))]
+                                                                        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       NameError: name '_INSTALL_LINE_VERBS_RE_DISABLED_FOR_TEST' is not defined
+
+src\foss_mcp\mcp\tools\get_product_reference.py:1444: NameError
+_ test_imaging_net_install_answer_removes_the_real_install_line_exactly_once __
+
+tmp_path_factory = TempPathFactory(_given_basetemp=None, _trace=<pluggy._tracing.TagTracerSub object at 0x00000236DD7FBA80>, _basetemp=WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-354'), _retention_count=3, _retention_policy='all')
+
+    def test_imaging_net_install_answer_removes_the_real_install_line_exactly_once(
+        tmp_path_factory: pytest.TempPathFactory,
+    ) -> None:
+        """IMAGING-NET-006 (round-2, G3/TC-718): the real, committed production index chunk for
+        `imaging/net`'s install section merges the README's `## Install` and `## Usage` headings into
+        one "Installation and Quick Start" chunk (`infra/demo-manifests/imaging__net__self_extracted`,
+        built by `infra/build_chunks.py` from the furnished page) - the real nuget install line
+        (`dotnet add package Aspose.Imaging.Foss`) occurs in it exactly once, inside its own fence, and a
+        second, unrelated fence (the Usage code sample) merely references the namespace in a bare
+        `using Aspose.Imaging.Foss;` statement, never an install command. Before the fix, the removal-note
+        placeholder was inserted TWICE for this real data: once for the genuine install line, and once
+        for that unrelated `using` statement, which `_guard_unresolved_install`'s fence pass mistook for
+        a second install line to redact merely because it also named the coordinate. Counting the note's
+        occurrences (not just asserting a command is absent, which the existing cross-pilot test above
+        already does and did not catch this) is the one assertion that was always missing."""
+        root = tmp_path_factory.mktemp("tc718-imaging-net-corpus")
+        corpus = load_demo_manifests_corpus(root)
+        pilot = corpus.pilots["imaging__net"]
+        readme = sections_from_documents({str(index): document for index, document in enumerate(pilot.documents)})
+        assert readme.install is not None
+        # the real committed chunk really does merge Install and Usage, and really does name the nuget
+        # line exactly once - the premise this regression test depends on, not an assumption.
+        assert readme.install.text.count("dotnet add package Aspose.Imaging.Foss") == 1
+        assert readme.install.text.count("using Aspose.Imaging.Foss;") == 1
+    
+        inputs = _registry_says_absent("imaging_net")
+>       result = get_product_reference(inputs, "install", readme=readme)
+                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests\mcp\tools\test_round3_install_truth.py:247: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+src\foss_mcp\mcp\tools\get_product_reference.py:1899: in get_product_reference
+    result = _answer(inputs, section, effective)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+src\foss_mcp\mcp\tools\get_product_reference.py:2202: in _answer
+    readme_text = _guard_unresolved_install(readme_text, coordinate, ecosystem)
+                  ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+src\foss_mcp\mcp\tools\get_product_reference.py:1451: in _guard_unresolved_install
+    text = _replace_fences(text, strip_block)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+src\foss_mcp\mcp\tools\get_product_reference.py:1370: in _replace_fences
+    replacement = keep(block)
+                  ^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+block = ['```', 'dotnet add package Aspose.Imaging.Foss', '```']
+
+    def strip_block(block: list[str]) -> list[str] | None:
+        inner = block[1:-1] if len(block) >= 2 else []
+        # G3/TC-718 (IMAGING-NET-006): a fenced line is only an install line when it ALSO looks
+        # install-shaped (``_INSTALL_LINE_VERBS_RE``) - matching *coordinate* alone let a plain code
+        # reference inside an unrelated fence (e.g. a Usage example's own
+        # ``using Aspose.Imaging.Foss;`` statement) be mistaken for a second install line to redact,
+        # inserting a second removal note for a real README line the registry-absent package names
+        # only once, in its own, separate Install fence.
+>       kept = [line for line in inner if not (pattern.search(line) and _INSTALL_LINE_VERBS_RE_DISABLED_FOR_TEST.search(line))]
+                                                                        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       NameError: name '_INSTALL_LINE_VERBS_RE_DISABLED_FOR_TEST' is not defined
+
+src\foss_mcp\mcp\tools\get_product_reference.py:1444: NameError
+_ test_a_readme_install_line_for_an_absent_package_is_removed_and_the_rest_is_kept[pip] _
+
+ecosystem = 'pypi', coordinate = 'aspose-demo-foss'
+line = 'pip install aspose-demo-foss'
+
+    @pytest.mark.parametrize(("ecosystem", "coordinate", "line"), _ABSENT_INSTALL_LINES)
+    def test_a_readme_install_line_for_an_absent_package_is_removed_and_the_rest_is_kept(
+        ecosystem: str, coordinate: str, line: str
+    ) -> None:
+        readme = (
+            "## Installation\n\nBuild with the repository's own script first.\n\n"
+            f"```bash\n{line}\nmake build\n```\n\nThen run `make test`.\n"
+        )
+    
+>       guarded = product_reference._guard_unresolved_install(readme, coordinate, ecosystem)
+                  ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests\mcp\tools\test_round3_install_truth.py:285: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+src\foss_mcp\mcp\tools\get_product_reference.py:1451: in _guard_unresolved_install
+    text = _replace_fences(text, strip_block)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+src\foss_mcp\mcp\tools\get_product_reference.py:1370: in _replace_fences
+    replacement = keep(block)
+                  ^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+block = ['```bash', 'pip install aspose-demo-foss', 'make build', '```']
+
+    def strip_block(block: list[str]) -> list[str] | None:
+        inner = block[1:-1] if len(block) >= 2 else []
+        # G3/TC-718 (IMAGING-NET-006): a fenced line is only an install line when it ALSO looks
+        # install-shaped (``_INSTALL_LINE_VERBS_RE``) - matching *coordinate* alone let a plain code
+        # reference inside an unrelated fence (e.g. a Usage example's own
+        # ``using Aspose.Imaging.Foss;`` statement) be mistaken for a second install line to redact,
+        # inserting a second removal note for a real README line the registry-absent package names
+        # only once, in its own, separate Install fence.
+>       kept = [line for line in inner if not (pattern.search(line) and _INSTALL_LINE_VERBS_RE_DISABLED_FOR_TEST.search(line))]
+                                                                        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       NameError: name '_INSTALL_LINE_VERBS_RE_DISABLED_FOR_TEST' is not defined
+
+src\foss_mcp\mcp\tools\get_product_reference.py:1444: NameError
+_ test_a_readme_install_line_for_an_absent_package_is_removed_and_the_rest_is_kept[npm] _
+
+ecosystem = 'npm', coordinate = '@aspose/demo'
+line = 'npm install @aspose/demo'
+
+    @pytest.mark.parametrize(("ecosystem", "coordinate", "line"), _ABSENT_INSTALL_LINES)
+    def test_a_readme_install_line_for_an_absent_package_is_removed_and_the_rest_is_kept(
+        ecosystem: str, coordinate: str, line: str
+    ) -> None:
+        readme = (
+            "## Installation\n\nBuild with the repository's own script first.\n\n"
+            f"```bash\n{line}\nmake build\n```\n\nThen run `make test`.\n"
+        )
+    
+>       guarded = product_reference._guard_unresolved_install(readme, coordinate, ecosystem)
+                  ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests\mcp\tools\test_round3_install_truth.py:285: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+src\foss_mcp\mcp\tools\get_product_reference.py:1451: in _guard_unresolved_install
+    text = _replace_fences(text, strip_block)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+src\foss_mcp\mcp\tools\get_product_reference.py:1370: in _replace_fences
+    replacement = keep(block)
+                  ^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+block = ['```bash', 'npm install @aspose/demo', 'make build', '```']
+
+    def strip_block(block: list[str]) -> list[str] | None:
+        inner = block[1:-1] if len(block) >= 2 else []
+        # G3/TC-718 (IMAGING-NET-006): a fenced line is only an install line when it ALSO looks
+        # install-shaped (``_INSTALL_LINE_VERBS_RE``) - matching *coordinate* alone let a plain code
+        # reference inside an unrelated fence (e.g. a Usage example's own
+        # ``using Aspose.Imaging.Foss;`` statement) be mistaken for a second install line to redact,
+        # inserting a second removal note for a real README line the registry-absent package names
+        # only once, in its own, separate Install fence.
+>       kept = [line for line in inner if not (pattern.search(line) and _INSTALL_LINE_VERBS_RE_DISABLED_FOR_TEST.search(line))]
+                                                                        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       NameError: name '_INSTALL_LINE_VERBS_RE_DISABLED_FOR_TEST' is not defined
+
+src\foss_mcp\mcp\tools\get_product_reference.py:1444: NameError
+_ test_a_readme_install_line_for_an_absent_package_is_removed_and_the_rest_is_kept[nuget] _
+
+ecosystem = 'nuget', coordinate = 'Aspose.Demo.FOSS'
+line = 'dotnet add package Aspose.Demo.FOSS'
+
+    @pytest.mark.parametrize(("ecosystem", "coordinate", "line"), _ABSENT_INSTALL_LINES)
+    def test_a_readme_install_line_for_an_absent_package_is_removed_and_the_rest_is_kept(
+        ecosystem: str, coordinate: str, line: str
+    ) -> None:
+        readme = (
+            "## Installation\n\nBuild with the repository's own script first.\n\n"
+            f"```bash\n{line}\nmake build\n```\n\nThen run `make test`.\n"
+        )
+    
+>       guarded = product_reference._guard_unresolved_install(readme, coordinate, ecosystem)
+                  ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests\mcp\tools\test_round3_install_truth.py:285: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+src\foss_mcp\mcp\tools\get_product_reference.py:1451: in _guard_unresolved_install
+    text = _replace_fences(text, strip_block)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+src\foss_mcp\mcp\tools\get_product_reference.py:1370: in _replace_fences
+    replacement = keep(block)
+                  ^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+block = ['```bash', 'dotnet add package Aspose.Demo.FOSS', 'make build', '```']
+
+    def strip_block(block: list[str]) -> list[str] | None:
+        inner = block[1:-1] if len(block) >= 2 else []
+        # G3/TC-718 (IMAGING-NET-006): a fenced line is only an install line when it ALSO looks
+        # install-shaped (``_INSTALL_LINE_VERBS_RE``) - matching *coordinate* alone let a plain code
+        # reference inside an unrelated fence (e.g. a Usage example's own
+        # ``using Aspose.Imaging.Foss;`` statement) be mistaken for a second install line to redact,
+        # inserting a second removal note for a real README line the registry-absent package names
+        # only once, in its own, separate Install fence.
+>       kept = [line for line in inner if not (pattern.search(line) and _INSTALL_LINE_VERBS_RE_DISABLED_FOR_TEST.search(line))]
+                                                                        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       NameError: name '_INSTALL_LINE_VERBS_RE_DISABLED_FOR_TEST' is not defined
+
+src\foss_mcp\mcp\tools\get_product_reference.py:1444: NameError
+_ test_a_readme_install_line_for_an_absent_package_is_removed_and_the_rest_is_kept[nuget-powershell] _
+
+ecosystem = 'nuget', coordinate = 'Aspose.Demo.FOSS'
+line = 'Install-Package Aspose.Demo.FOSS'
+
+    @pytest.mark.parametrize(("ecosystem", "coordinate", "line"), _ABSENT_INSTALL_LINES)
+    def test_a_readme_install_line_for_an_absent_package_is_removed_and_the_rest_is_kept(
+        ecosystem: str, coordinate: str, line: str
+    ) -> None:
+        readme = (
+            "## Installation\n\nBuild with the repository's own script first.\n\n"
+            f"```bash\n{line}\nmake build\n```\n\nThen run `make test`.\n"
+        )
+    
+>       guarded = product_reference._guard_unresolved_install(readme, coordinate, ecosystem)
+                  ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests\mcp\tools\test_round3_install_truth.py:285: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+src\foss_mcp\mcp\tools\get_product_reference.py:1451: in _guard_unresolved_install
+    text = _replace_fences(text, strip_block)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+src\foss_mcp\mcp\tools\get_product_reference.py:1370: in _replace_fences
+    replacement = keep(block)
+                  ^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+block = ['```bash', 'Install-Package Aspose.Demo.FOSS', 'make build', '```']
+
+    def strip_block(block: list[str]) -> list[str] | None:
+        inner = block[1:-1] if len(block) >= 2 else []
+        # G3/TC-718 (IMAGING-NET-006): a fenced line is only an install line when it ALSO looks
+        # install-shaped (``_INSTALL_LINE_VERBS_RE``) - matching *coordinate* alone let a plain code
+        # reference inside an unrelated fence (e.g. a Usage example's own
+        # ``using Aspose.Imaging.Foss;`` statement) be mistaken for a second install line to redact,
+        # inserting a second removal note for a real README line the registry-absent package names
+        # only once, in its own, separate Install fence.
+>       kept = [line for line in inner if not (pattern.search(line) and _INSTALL_LINE_VERBS_RE_DISABLED_FOR_TEST.search(line))]
+                                                                        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       NameError: name '_INSTALL_LINE_VERBS_RE_DISABLED_FOR_TEST' is not defined
+
+src\foss_mcp\mcp\tools\get_product_reference.py:1444: NameError
+_ test_a_readme_install_line_for_an_absent_package_is_removed_and_the_rest_is_kept[cargo] _
+
+ecosystem = 'cargo', coordinate = 'aspose-demo', line = 'cargo add aspose-demo'
+
+    @pytest.mark.parametrize(("ecosystem", "coordinate", "line"), _ABSENT_INSTALL_LINES)
+    def test_a_readme_install_line_for_an_absent_package_is_removed_and_the_rest_is_kept(
+        ecosystem: str, coordinate: str, line: str
+    ) -> None:
+        readme = (
+            "## Installation\n\nBuild with the repository's own script first.\n\n"
+            f"```bash\n{line}\nmake build\n```\n\nThen run `make test`.\n"
+        )
+    
+>       guarded = product_reference._guard_unresolved_install(readme, coordinate, ecosystem)
+                  ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests\mcp\tools\test_round3_install_truth.py:285: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+src\foss_mcp\mcp\tools\get_product_reference.py:1451: in _guard_unresolved_install
+    text = _replace_fences(text, strip_block)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+src\foss_mcp\mcp\tools\get_product_reference.py:1370: in _replace_fences
+    replacement = keep(block)
+                  ^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+block = ['```bash', 'cargo add aspose-demo', 'make build', '```']
+
+    def strip_block(block: list[str]) -> list[str] | None:
+        inner = block[1:-1] if len(block) >= 2 else []
+        # G3/TC-718 (IMAGING-NET-006): a fenced line is only an install line when it ALSO looks
+        # install-shaped (``_INSTALL_LINE_VERBS_RE``) - matching *coordinate* alone let a plain code
+        # reference inside an unrelated fence (e.g. a Usage example's own
+        # ``using Aspose.Imaging.Foss;`` statement) be mistaken for a second install line to redact,
+        # inserting a second removal note for a real README line the registry-absent package names
+        # only once, in its own, separate Install fence.
+>       kept = [line for line in inner if not (pattern.search(line) and _INSTALL_LINE_VERBS_RE_DISABLED_FOR_TEST.search(line))]
+                                                                        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       NameError: name '_INSTALL_LINE_VERBS_RE_DISABLED_FOR_TEST' is not defined
+
+src\foss_mcp\mcp\tools\get_product_reference.py:1444: NameError
+__ test_a_fence_that_holds_only_the_absent_install_command_is_replaced_whole __
+
+    def test_a_fence_that_holds_only_the_absent_install_command_is_replaced_whole() -> None:
+>       guarded = product_reference._guard_unresolved_install(
+            "Install:\n\n```\ndotnet add package Aspose.Demo.FOSS\n```\n", "Aspose.Demo.FOSS", "nuget"
+        )
+
+tests\mcp\tools\test_round3_install_truth.py:294: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+src\foss_mcp\mcp\tools\get_product_reference.py:1451: in _guard_unresolved_install
+    text = _replace_fences(text, strip_block)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+src\foss_mcp\mcp\tools\get_product_reference.py:1370: in _replace_fences
+    replacement = keep(block)
+                  ^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+block = ['```', 'dotnet add package Aspose.Demo.FOSS', '```']
+
+    def strip_block(block: list[str]) -> list[str] | None:
+        inner = block[1:-1] if len(block) >= 2 else []
+        # G3/TC-718 (IMAGING-NET-006): a fenced line is only an install line when it ALSO looks
+        # install-shaped (``_INSTALL_LINE_VERBS_RE``) - matching *coordinate* alone let a plain code
+        # reference inside an unrelated fence (e.g. a Usage example's own
+        # ``using Aspose.Imaging.Foss;`` statement) be mistaken for a second install line to redact,
+        # inserting a second removal note for a real README line the registry-absent package names
+        # only once, in its own, separate Install fence.
+>       kept = [line for line in inner if not (pattern.search(line) and _INSTALL_LINE_VERBS_RE_DISABLED_FOR_TEST.search(line))]
+                                                                        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       NameError: name '_INSTALL_LINE_VERBS_RE_DISABLED_FOR_TEST' is not defined
+
+src\foss_mcp\mcp\tools\get_product_reference.py:1444: NameError
+______ test_every_pilot_the_registry_lacks_quotes_no_install_line_for_it ______
+
+    def test_every_pilot_the_registry_lacks_quotes_no_install_line_for_it() -> None:
+        checked = 0
+        for pilot_dir in sorted(ROUND3.iterdir()):
+            pilot = pilot_dir.name
+            recorded_path = MANIFESTS / f"package_registry_{pilot}.json"
+            if (
+                not recorded_path.exists()
+                or not (pilot_dir / "README.md").exists()
+                or _pin(pilot)["manifest_path"] is None
+            ):
+                continue
+            recorded = json.loads(recorded_path.read_text(encoding="utf-8"))
+            if recorded["verified"] is not False:
+                continue
+            inputs = _inputs(
+                pilot,
+                install_verified=False,
+                install_verified_coordinate=recorded["coordinate"],
+                install_verified_checked_at=recorded["checked_at"],
+            )
+            assert install_coordinate_for_verification(inputs) == (
+                recorded["ecosystem"],
+                recorded["coordinate"],
+            ), pilot
+>           result = get_product_reference(inputs, "install")
+                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests\mcp\tools\test_round3_install_truth.py:339: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+src\foss_mcp\mcp\tools\get_product_reference.py:1899: in get_product_reference
+    result = _answer(inputs, section, effective)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+src\foss_mcp\mcp\tools\get_product_reference.py:2202: in _answer
+    readme_text = _guard_unresolved_install(readme_text, coordinate, ecosystem)
+                  ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+src\foss_mcp\mcp\tools\get_product_reference.py:1451: in _guard_unresolved_install
+    text = _replace_fences(text, strip_block)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+src\foss_mcp\mcp\tools\get_product_reference.py:1370: in _replace_fences
+    replacement = keep(block)
+                  ^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+block = ['```', 'dotnet add package Aspose.Imaging.Foss', '```']
+
+    def strip_block(block: list[str]) -> list[str] | None:
+        inner = block[1:-1] if len(block) >= 2 else []
+        # G3/TC-718 (IMAGING-NET-006): a fenced line is only an install line when it ALSO looks
+        # install-shaped (``_INSTALL_LINE_VERBS_RE``) - matching *coordinate* alone let a plain code
+        # reference inside an unrelated fence (e.g. a Usage example's own
+        # ``using Aspose.Imaging.Foss;`` statement) be mistaken for a second install line to redact,
+        # inserting a second removal note for a real README line the registry-absent package names
+        # only once, in its own, separate Install fence.
+>       kept = [line for line in inner if not (pattern.search(line) and _INSTALL_LINE_VERBS_RE_DISABLED_FOR_TEST.search(line))]
+                                                                        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       NameError: name '_INSTALL_LINE_VERBS_RE_DISABLED_FOR_TEST' is not defined
+
+src\foss_mcp\mcp\tools\get_product_reference.py:1444: NameError
+=========================== short test summary info ===========================
+FAILED tests/mcp/tools/test_round3_install_truth.py::test_imaging_net_install_never_quotes_the_command_for_the_package_the_registry_lacks
+FAILED tests/mcp/tools/test_round3_install_truth.py::test_imaging_net_install_answer_removes_the_real_install_line_exactly_once
+FAILED tests/mcp/tools/test_round3_install_truth.py::test_a_readme_install_line_for_an_absent_package_is_removed_and_the_rest_is_kept[pip]
+FAILED tests/mcp/tools/test_round3_install_truth.py::test_a_readme_install_line_for_an_absent_package_is_removed_and_the_rest_is_kept[npm]
+FAILED tests/mcp/tools/test_round3_install_truth.py::test_a_readme_install_line_for_an_absent_package_is_removed_and_the_rest_is_kept[nuget]
+FAILED tests/mcp/tools/test_round3_install_truth.py::test_a_readme_install_line_for_an_absent_package_is_removed_and_the_rest_is_kept[nuget-powershell]
+FAILED tests/mcp/tools/test_round3_install_truth.py::test_a_readme_install_line_for_an_absent_package_is_removed_and_the_rest_is_kept[cargo]
+FAILED tests/mcp/tools/test_round3_install_truth.py::test_a_fence_that_holds_only_the_absent_install_command_is_replaced_whole
+FAILED tests/mcp/tools/test_round3_install_truth.py::test_every_pilot_the_registry_lacks_quotes_no_install_line_for_it
+
+--- stderr ---
+
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-5c72e798a73c059a\Scripts\python.exe -m pytest tests/conformance/test_reference_content.py -q -rfE -p no:cacheprovider -m "not live" "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-_e6lq_tg\.junit-1.xml"
+--- stdout ---
+..............                                                           [100%]
+
+--- stderr ---
+
