@@ -3721,3 +3721,22 @@ the existing public-API-definition mechanism to record this as a deliberate, dis
 real importability should win over `__all__` membership, design that change with the same rigor
 `O2`/`O3`/`O4` already used, measuring its real effect across all Python pilots before committing to
 it - not something this entry decides on its own authority.
+
+## 2026-11-07 — HTML-PY-003 investigated: correct extractor behavior, upstream itself calls these names internal (supervisor)
+
+`HTML-PY-003` (round-2, P1, mcp-content-missing) claims the whole `aspose_html.css` submodule
+(`Node`/`Element`/`SelectorList`) is invisible to `get_symbol`/`search_symbols`. Confirmed real
+(absent from `tests/fixtures/html_python/api_surface.json`) but NOT a bug: the real upstream
+`src/aspose_html/css/__init__.py` (fetched via `gh api` at the real pinned commit) imports `Node`/
+`Element`/`SelectorList` at module level but its own docstring states outright "Public API:
+select() and element_matches(). All other names are internal," with `__all__ = ["select",
+"element_matches"]` only - upstream itself, in its own words, calls these three names internal.
+The extractor's module scan of that file correctly found only the two declared-public functions;
+`Node`/`Element`/`SelectorList` are genuinely defined in underscore-prefixed submodules
+(`_ast.py` etc., confirmed via a real `gh api` directory listing), matching this exact pilot's own
+established "101 of 104 real modules use a private-impl/public-re-export convention" pattern
+(measured in this file's own earlier `_module_symbols` docstring context). This is the SAME
+`__all__`-is-authoritative design question already recorded for `WORDS-PY-002` above, with LESS
+ambiguity in this direction: there, a name was imported-but-unlisted with no stated reason; here
+upstream explicitly and unambiguously documents the exclusion as deliberate. Not carded - no code
+change is warranted on either side of that open design question for this specific finding.
