@@ -1,0 +1,146 @@
+id: TC-711
+gate: G3
+lane: verification
+purpose: >-
+  Closes WORDS-NET-001 (round-2, `docs/round2/issues.json`, severity P1, category "coverage-gap"
+  - the same category class as `3D-JAVA-001`/`TC-706`, not "upstream-library-bug"): `get_symbol`/
+  `list_members` disclose a phantom generic method `Node.GetAncestorOf<T>()` for every one of 42
+  real `Aspose.Words`-namespace classes (the base `Aspose.Words.Node` plus 41 real subclasses -
+  `Body`, `Paragraph`, `Run`, `Document`, `Section`, `Table`, `Row`, `Cell`, `HeaderFooter`,
+  `Comment`, `Drawing.Shape`, and 30 more), with zero caveat, even though this method does not
+  exist anywhere in the real published `Aspose.Words.FOSS` NuGet package this pilot's own install
+  instructions tell a user to add - only `GetAncestor(Type)` and `GetAncestor(NodeType)` exist.
+  Read the real finding yourself first: `docs/round2/issues.json`, id `WORDS-NET-001` (its own
+  `repro` field already gives the exact `dotnet`/reflection/`grep`-byte-count commands used to
+  confirm this against the real package - reuse them, do not invent a different verification
+  method).
+
+  REPRODUCE FIRST: confirm this is still real on current `main` before writing any fix. Resolve
+  the real pinned `Aspose.Words.FOSS` NuGet package version this repo's own install guidance names
+  (round-2's own repro cites `26.3.0` - confirm this is still the real, currently-cited version via
+  `get_product_reference`'s own install section for `words/net`, or `infra/fetch_product_reference.py`'s
+  own served data, before trusting it) and reproduce round-2's own steps: `dotnet add package
+  Aspose.Words.FOSS (<version>)`, reflect `Aspose.Words.Node` via `System.Reflection` and confirm
+  only `GetAncestor(Type)`/`GetAncestor(NodeType)` exist, never `GetAncestorOf`, and separately
+  confirm via a raw byte-string search (`grep -ac GetAncestorOf <dll>` or equivalent) of both the
+  `net8.0` and `net462` DLLs inside the installed package that the literal string does not occur
+  anywhere. Separately confirm `get_symbol(fqn="Aspose.Words.Body")` (and 2-3 more of the real
+  subclass FQNs below) on current `main` still return this phantom method with no caveat, using the
+  real indexed `words/net` corpus (`tests.conformance.corpus.load_demo_manifests_corpus`, pilot key
+  `words_net`, or the committed `tests/fixtures/words_net/api_surface.json` fixture directly - the
+  one in `tests/fixtures/words_net/api_surface.json` already contains this phantom method on 42
+  real types; confirm the committed `infra/demo-manifests/words__net__self_extracted/` manifest
+  agrees before trusting the fixture alone).
+
+  FIX (data-only, reuses the proven KD1-KD10 disclosure mechanism, same shape as `TC-706`'s
+  `3D-JAVA-001` and `TC-707`'s `3D-NET-001` - read both of their final committed diffs first, they
+  are your exact template; `config/known_defects/words__net.yaml` does not exist yet - this is a
+  BRAND NEW file for this pilot, same shape as `config/known_defects/words__python.yaml`'s existing
+  entries): add ONE new entry, `id: WORDS-NET-001`, `subject.kind: "method"`,
+  `subject.refs` listing the FULL set of real owning-type FQNs you independently re-confirm carry
+  this phantom method (start from the 42 names below, drop any you cannot personally re-verify,
+  add any real one you find that this card's own list missed - `known_defect_lines`'s own
+  docstring explains refs must be "the OWNING type's FQN for a resolved member, never the raw
+  member name" for exactly this reason): `Aspose.Words.Node`, `Aspose.Words.Fields.FieldEnd`,
+  `Aspose.Words.Fields.FieldSeparator`, `Aspose.Words.Fields.FieldStart`,
+  `Aspose.Words.DocumentBase`, `Aspose.Words.CompositeNode`, `Aspose.Words.Paragraph`,
+  `Aspose.Words.Document`, `Aspose.Words.Section`, `Aspose.Words.BuildingBlocks.BuildingBlock`,
+  `Aspose.Words.Drawing.Shape`, `Aspose.Words.Story`, `Aspose.Words.Tables.Row`,
+  `Aspose.Words.Drawing.ShapeBase`, `Aspose.Words.EditableRangeStart`, `Aspose.Words.Inline`,
+  `Aspose.Words.SpecialChar`, `Aspose.Words.Tables.Cell`, `Aspose.Words.Tables.Table`,
+  `Aspose.Words.BookmarkEnd`, `Aspose.Words.BookmarkStart`,
+  `Aspose.Words.BuildingBlocks.GlossaryDocument`, `Aspose.Words.EditableRangeEnd`,
+  `Aspose.Words.Fields.FieldChar`, `Aspose.Words.Fields.FormField`, `Aspose.Words.Body`,
+  `Aspose.Words.Comment`, `Aspose.Words.Drawing.GroupShape`, `Aspose.Words.HeaderFooter`,
+  `Aspose.Words.InlineStory`, `Aspose.Words.Markup.StructuredDocumentTag`,
+  `Aspose.Words.Markup.StructuredDocumentTagRangeEnd`, `Aspose.Words.Math.OfficeMath`,
+  `Aspose.Words.Notes.Footnote`, `Aspose.Words.Run`, `Aspose.Words.AbsolutePositionTab`,
+  `Aspose.Words.CommentRangeEnd`, `Aspose.Words.CommentRangeStart`,
+  `Aspose.Words.Markup.SmartTag`, `Aspose.Words.Markup.StructuredDocumentTagRangeStart`,
+  `Aspose.Words.Notes.FootnoteSeparator`, `Aspose.Words.SubDocument` (computed by the supervisor
+  from the real committed `tests/fixtures/words_net/api_surface.json` fixture, re-verify it
+  yourself against the real current fixture/manifest, do not trust this exact list blindly if the
+  real data has since changed). `subject.applies_to: {package_versions: [<the real version you
+  confirmed>]}`, matching `3D-JAVA-001`'s own convention of using `package_versions` even though
+  this pilot's own generation is `self_extracted` (the disclosure is about a published-package
+  mismatch, not a source-commit versioning concern - KD5/`report_index_freshness` handles the
+  commit-staleness question separately, not this entry). `summary` must state plainly that this
+  method exists in the indexed source but not in the real published package, naming the two real
+  methods that DO exist instead (`GetAncestor(Type)`, `GetAncestor(NodeType)`), with the real
+  exception/verification text you personally observed as evidence - never the round-2 finding's
+  own unverified wording without re-confirming it yourself.
+
+  WORDS-NET-001's round-2 `category` is "coverage-gap", the same gap `TC-706` (3D-JAVA-001, already
+  integrated - read its final diff first, it already widened both completeness locks with an
+  explicit `_ADDITIONAL_DISCLOSABLE_IDS`-shaped allowlist now seeded with `{"3D-JAVA-001",
+  "3D-NET-001"}` after `TC-707`) hit and fixed. This card only needs to ADD `WORDS-NET-001` to that
+  SAME already-existing allowlist in `tests/indexing/test_known_defects_completeness.py` - do not
+  reintroduce a second, parallel mechanism, and do not touch `tests/indexing/test_known_defects_data_3d.py`
+  (that file is 3d-family-specific and is not this card's concern). Update the sanity-anchor counts
+  in `test_known_defects_completeness.py` to the real new total you compute.
+depends_on:
+  - TC-658
+  - TC-707
+  - TC-708
+write_paths:
+  - config/known_defects/words__net.yaml
+  - tests/indexing/test_known_defects_completeness.py
+  - tests/mcp/tools/test_known_defects_in_get_symbol.py
+satisfies:
+  - REQ-G3-015
+source_refs:
+  - file: docs/DECISION_LOG.md
+    anchor: >-
+      ## 2026-11-06 — PDF-NET-002/EML-NET-002 investigated: a correct fix exists but is structurally inert against TC-543's own invariant; declined, not integrated (supervisor)
+    sha256: ce92e388e50e1f33bb6ea845e51aed931be8deec21d65b768acbc296916e1e9a
+inputs:
+  - >-
+    READ FIRST: `docs/round2/issues.json` id `WORDS-NET-001` in full. Then `TC-706`'s and `TC-707`'s
+    own final committed diffs (both already integrated when you start, since both are this card's
+    dependencies) - reuse their exact widening pattern for the completeness lock and their exact
+    known_defects entry shape rather than inventing a new one. Then `config/known_defects/words__python.yaml`'s
+    existing entries, as the template for a brand-new `words__net.yaml` file's own top-level shape
+    (`schema_version`, `pilot: words_net`, `defects: [...]`).
+  - >-
+    REPRODUCE FIRST (do not skip): the real reflection/byte-search steps against the real pinned
+    package, exactly as described above. Report the real version you confirmed, and the real
+    verification output (reflection member list and/or grep byte counts), verbatim, in your
+    closeout - do not paraphrase from round-2's own text without re-confirming.
+  - >-
+    Re-derive the full `subject.refs` list yourself from the real current
+    `tests/fixtures/words_net/api_surface.json` fixture (and cross-check against the real committed
+    `infra/demo-manifests/words__net__self_extracted/` manifest) rather than trusting this card's
+    own 42-name list unchanged - report any difference you find and why.
+  - >-
+    Never weaken the completeness lock's actual guarantee. The widening is additive and explicit,
+    building on `TC-706`'s already-widened mechanism.
+actions:
+  - >-
+    Add the new `words/net` known_defects entry for the real phantom `GetAncestorOf` method;
+    extend the already-existing completeness-lock allowlist with `WORDS-NET-001`; add end-to-end
+    coverage proving `get_symbol` now discloses this for at least one real affected class.
+checks:
+  - command: '{python} -m pytest tests/indexing/test_known_defects_completeness.py tests/mcp/tools/test_known_defects_in_get_symbol.py -q -rfE -p no:cacheprovider'
+    expect: 'exit 0'
+    timeout_seconds: 300
+    junitxml: true
+    proves:
+      - REQ-G3-015
+min_tests: 7
+requires:
+  - python
+network: false
+negative_control:
+  mutate: |
+    python -X utf8 -c "import pathlib; p = pathlib.Path('config/known_defects/words__net.yaml'); s = p.read_text(encoding='utf-8'); old = 'Aspose.Words.Body'; assert s.count(old) == 1, 'the expected literal was not found exactly once - if your real fix lists Aspose.Words.Body in a different exact form, anchor your own mutate on your own real literal instead and note the substitution in your closeout'; p.write_text(s.replace(old, 'Aspose.Words.Body.NOTREAL', 1), encoding='utf-8')"
+  rationale: >-
+    Corrupts one real ref (`Aspose.Words.Body`) in the new entry so it no longer matches the real
+    FQN `get_symbol` resolves for that class, which must make the new end-to-end `get_symbol`
+    disclosure test fail (the disclosure silently stops surfacing for that class) - a pure data
+    mutation, immune to the lockstep-rename vacuousness class this session's earlier reviews found.
+evidence:
+  - evidence/build/G3/TC-711/receipt.json
+closeout:
+  - WORDS-NET-001's phantom GetAncestorOf method is disclosed via the existing known_defects mechanism.
+  - The completeness-lock allowlist (from TC-706/TC-707) is extended, never duplicated; exact-equality holds.
+recovery: Re-run from a clean tree.
