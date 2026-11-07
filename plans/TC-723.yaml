@@ -1,0 +1,116 @@
+id: TC-723
+gate: G3
+lane: transport-deployment
+purpose: >-
+  Closes SLIDES-CPP-003 (round-2, `docs/round2/issues.json`, severity P1, category
+  "mcp-docs-quality" - confirmed STILL OPEN by a dedicated 2026-11-07 supervisor investigation):
+  `slides/cpp`'s `ShapeCollection::add_table()` is REAL and works (the table is genuinely added and
+  physically present in the saved PPTX's `ppt/slides/slide1.xml`), but Tables are silently excluded
+  from the uniform `shapes()` collection - `shapes().size()`/`shapes()[i]`/`operator[]` never grow
+  or include a table, before or after a save+reload round trip. This project's own served
+  `search_docs` "Key Capabilities and API Reference" text (`content_type=developer_guide`)
+  describes `add_table()` alongside `add_auto_shape()`/`add_connector()`/`add_picture_frame()` with
+  zero indication Table is the one shape kind excluded from the uniform list. `get_symbol`/
+  `list_members` for `ShapeCollection` ARE individually accurate (they correctly show
+  `table_count()`/`table_at()` as a separate accessor pair) - the gap is specifically that the
+  prose a reader is most likely to check FIRST never connects the two facts. An agent who mirrors
+  the `add_auto_shape`/`add_picture_frame` pattern with `add_table()`, then writes a
+  `shapes()`-based loop to read the presentation back, silently never sees any table added this
+  way, with no error and no warning.
+
+  REPRODUCE FIRST: confirm this is still real. Build the real repro the round-2 finding itself
+  used (its own `work/main2.cpp`/`evidence/t6_run_output.log` describe the exact steps): construct
+  a real `Presentation`, call `shapes().add_auto_shape(...)` (confirm `shapes().size()` becomes 1),
+  then `shapes().add_table(...)` (confirm `shapes().size()` STAYS at 1, unchanged), then
+  `shapes().add_picture_frame(...)` (confirm `shapes().size()` becomes 2 - the table was never
+  counted). Save to a real PPTX and confirm (via Python's `zipfile`, reading `ppt/slides/slide1.xml`
+  directly) that the table IS physically present in the saved file despite `shapes().size()` never
+  reflecting it. If a real C++ compile is practical in your environment (the pinned ingestion
+  toolchain), attempt this live; the round-2 finding's own already-detailed repro steps are
+  sufficient to proceed from if a live compile isn't readily available - report which you did and
+  the real result, verbatim, in your closeout.
+
+  FIX (pure additive data, zero code change - same mechanism this project already uses for `cells/go`/
+  `page/python`/`cells/python`/`email/cpp`'s own entries; `slides/cpp` has no `known_hazards` key
+  yet): add a NEW `known_hazards` key to `config/products/slides/cpp.yaml` (as the LAST top-level
+  key, matching the established file-level comment convention), with ONE entry stating plainly: the
+  real trigger (calling `ShapeCollection::add_table()` and then expecting the uniform `shapes()`
+  collection - `size()`/`operator[]`/any `shapes()`-based iteration - to include it, the way
+  `add_auto_shape()`/`add_connector()`/`add_picture_frame()` genuinely do), the real observed
+  behavior (the table is genuinely added and saved, but invisible to `shapes()` forever, even after
+  a save+reload round trip), the real correct accessor pair (`table_count()`/`table_at()`), and the
+  safe pattern (never rely on a `shapes()`-based loop to discover or count tables; check
+  `table_count()` separately).
+depends_on:
+  - TC-001
+  - TC-003
+  - TC-024
+  - TC-165
+  - TC-650
+  - TC-720
+  - TC-721
+  - TC-722
+write_paths:
+  - config/products/slides/cpp.yaml
+  - tests/mcp/tools/test_known_hazards_round2_disclosures.py
+satisfies:
+  - REQ-G3-015
+source_refs:
+  - file: docs/DECISION_LOG.md
+    anchor: >-
+      ## 2026-11-07 — 3D-NET-005 confirmed real but not carded this round; the right surface/mechanism isn't yet decided (supervisor)
+    sha256: e0e0a2bd638fbb56dd846f069fb4bd612a33e4d4fc85593016ddce397d217d17
+inputs:
+  - >-
+    READ FIRST: `docs/round2/issues.json` id `SLIDES-CPP-003` in full. Then
+    `config/products/cells/go.yaml`'s own `known_hazards` entry (your template) and
+    `tests/mcp/tools/test_known_hazards_round2_disclosures.py` in full, especially the most recent
+    widening for `TC-722`/`EMAIL-CPP-004` (search for "EMAIL-CPP-004" in that file) as your direct,
+    most-recent template for adding an 11th entry cleanly, including that worker's own hard-won
+    lesson about verifying the negative control is non-vacuous before committing.
+  - >-
+    REPRODUCE FIRST (do not skip): a real repro of the shapes()-excludes-tables behavior, and a
+    real confirmation via zipfile that the saved table is physically present in the PPTX despite
+    being invisible to shapes(). Report the real observed output, verbatim, in your closeout.
+  - >-
+    This is a project-authored disclosure, not an upstream quote - write the hazard in your own
+    words, matching the house style of every other `known_hazards` entry already committed.
+  - >-
+    Before committing, manually run this card's own `negative_control.mutate` script against your
+    real committed file and confirm it actually makes your new test fail - do not assume it works
+    without checking, per the `TC-720`/`TC-722` lesson already cited above.
+actions:
+  - >-
+    Disclose the real shapes()-excludes-tables behavior for slides/cpp's ShapeCollection via a new
+    known_hazards entry, reusing the already-proven, already-wired mechanism with zero code change.
+checks:
+  - command: '{python} -m pytest tests/mcp/tools/test_known_hazards_round2_disclosures.py -q -rfE -p no:cacheprovider'
+    expect: 'exit 0'
+    timeout_seconds: 300
+    junitxml: true
+    proves:
+      - REQ-G3-015
+min_tests: 30
+requires:
+  - python
+network: true
+negative_control:
+  mutate: |
+    python -X utf8 -c "import pathlib; p = pathlib.Path('config/products/slides/cpp.yaml'); s = p.read_text(encoding='utf-8'); old = 'ShapeCollection'; count = s.count(old); assert count >= 1, 'the expected ShapeCollection literal was not found - if your real hazard text phrases this differently, anchor your own mutate on your own real literal instead and note the substitution in your closeout'; s2 = s.replace(old, 'ShapeCollectionNOTREAL', 1); assert s2 != s; p.write_text(s2, encoding='utf-8')"
+  rationale: >-
+    Corrupts the real hazard text's own subject name so it no longer names the real class the new
+    regression test asserts on, which must make that test fail - a pure data mutation, immune to
+    the lockstep-rename vacuousness class this session's earlier reviews found, and it never
+    touches any code path. If your real hazard text repeats "ShapeCollection" more than once before
+    the mutate's target occurrence, or your chosen trace token is a substring of another required
+    phrase (note: the mutate appends "NOTREAL" onto the matched word, so a token that is only a
+    PREFIX of "ShapeCollection" would remain a substring of the mutated text and keep matching -
+    the exact TC-722 near-miss class), re-anchor the mutate or your trace token so the mutation
+    genuinely breaks your new test.
+evidence:
+  - evidence/build/G3/TC-723/receipt.json
+closeout:
+  - >-
+    `slides/cpp`'s real shapes()-excludes-tables behavior is now disclosed via a new
+    project-authored known_hazards entry, closing SLIDES-CPP-003 with zero code change.
+recovery: Re-run from a clean tree.
