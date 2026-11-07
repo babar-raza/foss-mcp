@@ -1,0 +1,127 @@
+id: TC-721
+gate: G3
+lane: transport-deployment
+purpose: >-
+  Closes CELLS-PY-004 (round-2, `docs/round2/issues.json`, severity P0, category
+  "mcp-content-missing" - confirmed STILL OPEN by a dedicated 2026-11-07 supervisor
+  investigation): `cells/python`'s `FormulaEvaluator.evaluate()` silently returns `None` (no
+  exception, no warning) for `SUM`, raw arithmetic (`B2+B3`), and `AVERAGE` - three of the most
+  commonly-expected spreadsheet formula operations - with zero documentation anywhere this project
+  serves of WHICH functions actually work. `get_symbol` on `FormulaEvaluator` shows only the class's
+  own generic docstring ("Basic formula evaluator ... not a full spreadsheet calculation engine")
+  and the bare `evaluate()` signature; `get_product_reference(section=limitations)` says nothing
+  about formula-function coverage at all. The round-2 finding's own direct read of the real
+  installed package's `_evaluate_function` source confirms the real, complete supported set is
+  exactly `CONCATENATE`, `CONCAT`, `TEXT`, `IF`, `AND`, `OR`, `NOT`, `LEN`, `TRIM`, `UPPER`,
+  `LOWER` - `SUM`/raw arithmetic/`AVERAGE` are simply absent from that implementation and the
+  function silently falls through to `None` instead of raising. An agent that calls
+  `evaluate("=SUM(A1:A3)")` expecting a number gets `None` with no signal anything went wrong.
+
+  REPRODUCE FIRST: confirm this is still real. Install the real, currently-pinned
+  `aspose-cells-foss` package (confirm the real pinned version via `config/products/cells/python.yaml`'s
+  own comment first) and run the real repro:
+  ```
+  from aspose.cells_foss.formula_evaluator import FormulaEvaluator
+  # construct however the real class requires, per its own real __init__ signature - read get_symbol's
+  # real output for the exact construction shape before writing your own repro script
+  ```
+  then call `evaluate()` with a `SUM`/arithmetic/`AVERAGE` formula and confirm it returns `None`
+  with no exception, while `evaluate("=CONCATENATE(...)")` or similar genuinely works. Report the
+  real observed output, verbatim, in your closeout - if the real currently-installed version's
+  behavior differs even slightly from the round-2 finding's own claimed function list (functions
+  added or removed since round-2 ran), report that honestly and write the hazard text to match what
+  you actually observed, never the finding's unverified claim.
+
+  FIX (pure additive data, zero code change - same mechanism this project already uses for
+  `cells/go`'s own project-authored hazard in `config/products/cells/go.yaml`'s `known_hazards`
+  list; `cells/python` has no `known_hazards` key yet): add a NEW `known_hazards` key to
+  `config/products/cells/python.yaml` (as the LAST top-level key, matching the established
+  file-level comment convention: "Keep this the LAST top-level key"), with ONE entry stating
+  plainly: the real trigger (calling `FormulaEvaluator.evaluate()` with `SUM`, raw arithmetic like
+  `B2+B3`, or `AVERAGE` - or whichever exact set you personally re-confirm as unsupported), the real
+  observed behavior (returns `None`, never raises), the real supported set you confirmed (the
+  `CONCATENATE`/`CONCAT`/`TEXT`/`IF`/`AND`/`OR`/`NOT`/`LEN`/`TRIM`/`UPPER`/`LOWER` functions, or
+  whatever you personally re-verify), and the safe pattern (never trust a `None` result as "zero"
+  or "empty" - check whether the formula's function is in the real supported list before relying on
+  a non-`None` result meaning the formula actually evaluated).
+depends_on:
+  - TC-001
+  - TC-003
+  - TC-031
+  - TC-160
+  - TC-650
+  - TC-720
+write_paths:
+  - config/products/cells/python.yaml
+  - tests/mcp/tools/test_known_hazards_round2_disclosures.py
+satisfies:
+  - REQ-G3-015
+source_refs:
+  - file: docs/DECISION_LOG.md
+    anchor: >-
+      ## 2026-11-07 — CELLS-GO-009 confirmed real but too large for one disclosure card; needs splitting (supervisor)
+    sha256: 050bc6314d3bbc8946dc8bf35f08216feaf9a7d57e8f99287a10b8e139add941
+inputs:
+  - >-
+    READ FIRST: `docs/round2/issues.json` id `CELLS-PY-004` in full. Then
+    `config/products/cells/go.yaml`'s own `known_hazards` entry (your exact template) and
+    `tests/mcp/tools/test_known_hazards_round2_disclosures.py` in full - it already tests the
+    EIGHT existing round-2-sourced `known_hazards` entries end-to-end (widened from seven to eight
+    by `TC-720`). Two of its tests hardcode the literal count ("eight" after `TC-720`'s own
+    widening) - these must become "nine" once your new entry is the 9th; the parametrized tests
+    (`test_get_product_reference_limitations_surfaces_the_real_hazard_for_each_pilot` and
+    `test_hazard_text_carries_the_real_issue_specific_trace_tokens`) need a new parametrize case
+    for `cells/python`/`CELLS-PY-004`. Read `TC-720`'s own final diff first (search for
+    "PAGE-PYTHON-003" in this test file) as your direct, most-recent template for exactly how a
+    9th-style widening was done cleanly, including its own note about why it layered the new pilot
+    on top of the original tuple rather than merging it in (a `verified_at` date mismatch).
+  - >-
+    REPRODUCE FIRST (do not skip): a real install + import + call of the real package, exactly as
+    described above - a genuine network action, report the real printed output verbatim in your
+    closeout. If your own re-verification finds the real supported/unsupported function list has
+    changed since round-2's own text, write the hazard to match what you observed, not the
+    finding's original claim, and note the discrepancy in your closeout.
+  - >-
+    This is a project-authored disclosure, not an upstream quote - write the hazard in your own
+    words, matching the house style of every other `known_hazards` entry already committed.
+  - >-
+    Learn from `TC-720`'s own negative-control near-miss (recorded in its commit/evidence): a trace
+    token that is a substring of another required phrase in the same hazard text, or a subject name
+    repeated more than once before the mutate's target occurrence, can make the negative control
+    vacuous. Run the card's own `negative_control.mutate` against your real committed file yourself
+    BEFORE declaring done, and confirm it actually makes your new test fail.
+actions:
+  - >-
+    Disclose the real, undocumented FormulaEvaluator function-support gap via a new known_hazards
+    entry for cells/python, reusing the already-proven, already-wired mechanism with zero code
+    change.
+checks:
+  - command: '{python} -m pytest tests/mcp/tools/test_known_hazards_round2_disclosures.py -q -rfE -p no:cacheprovider'
+    expect: 'exit 0'
+    timeout_seconds: 300
+    junitxml: true
+    proves:
+      - REQ-G3-015
+min_tests: 26
+requires:
+  - python
+network: true
+negative_control:
+  mutate: |
+    python -X utf8 -c "import pathlib; p = pathlib.Path('config/products/cells/python.yaml'); s = p.read_text(encoding='utf-8'); old = 'FormulaEvaluator'; count = s.count(old); assert count >= 1, 'the expected FormulaEvaluator literal was not found - if your real hazard text phrases this differently, anchor your own mutate on your own real literal instead and note the substitution in your closeout'; s2 = s.replace(old, 'FormulaEvaluatorNOTREAL', 1); assert s2 != s; p.write_text(s2, encoding='utf-8')"
+  rationale: >-
+    Corrupts the real hazard text's own subject name so it no longer names the real class the new
+    regression test asserts on, which must make that test fail - a pure data mutation, immune to
+    the lockstep-rename vacuousness class this session's earlier reviews found, and it never
+    touches any code path. If your real hazard text repeats "FormulaEvaluator" more than once before
+    your own chosen trace-token assertion, re-anchor this mutate (or your trace token) so the
+    mutation genuinely breaks your new test, per this card's own authoring convention and the
+    TC-720 lesson cited above.
+evidence:
+  - evidence/build/G3/TC-721/receipt.json
+closeout:
+  - >-
+    `cells/python`'s real, undocumented `FormulaEvaluator` function-support gap (SUM/arithmetic/
+    AVERAGE silently returning None) is now disclosed via a new project-authored known_hazards
+    entry, closing CELLS-PY-004 with zero code change.
+recovery: Re-run from a clean tree.
