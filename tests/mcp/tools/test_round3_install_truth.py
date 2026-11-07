@@ -550,6 +550,67 @@ def test_an_ordinary_agents_md_is_served_verbatim_and_unlabelled() -> None:
     assert CONTRIBUTOR_LABEL not in (result.notice or "")
 
 
+def _real_agent_guidance_document(pilot: str) -> DocumentPresent:
+    """The real, committed ``agent_guidance`` document for *pilot*, read directly from the manifest
+    sidecar ``infra/demo-manifests/product_reference_<pilot>.json`` (written by
+    ``infra/fetch_product_reference.py``). This pilot has no AGENTS.md/agents.md checked into
+    ``tests/fixtures/round3_readmes/``, so the committed manifest itself is the real, unmodified
+    source of truth (G3/TC-714, CELLS-NET-005 + sibling cells/typescript)."""
+    manifest = json.loads((MANIFESTS / f"product_reference_{pilot}.json").read_text(encoding="utf-8"))
+    guidance = manifest["agent_guidance"]
+    assert guidance["status"] == "present", pilot
+    return DocumentPresent(
+        path=guidance["path"], sha=guidance["sha"], size=guidance["size"], content=guidance["content"]
+    )
+
+
+def _guidance_from_manifest(pilot: str) -> ProductReferenceInputs:
+    return ProductReferenceInputs(
+        platform=_platform(pilot),
+        manifest_text="{}",
+        agent_guidance=_real_agent_guidance_document(pilot),
+    )
+
+
+@pytest.mark.parametrize("pilot", ["cells_net", "cells_typescript"])
+def test_cells_net_and_cells_typescript_real_agents_md_now_carry_the_contributor_label(pilot: str) -> None:
+    """G3/TC-714 (CELLS-NET-005 + sibling): both real documents open with a bare '# AGENTS.md' first
+    line and the contributor-identifying sentence ("this file defines how agents should ...") a few
+    lines later, inside a '## Purpose' paragraph - exactly the shape ``_CONTRIBUTOR_FIRST_LINE_RE``
+    (first-line-only) could never catch, and exactly what the new ``_CONTRIBUTOR_PURPOSE_RE`` does."""
+    document = _real_agent_guidance_document(pilot)
+    assert document.content.splitlines()[0].strip() == "# AGENTS.md"
+    assert "this file defines how agents should" in document.content.lower()
+
+    result = _answer(_guidance_from_manifest(pilot), "agent_guidance")
+
+    assert result.text.startswith(f"[{CONTRIBUTOR_LABEL}]")
+    assert "this file defines how agents should" in result.text.lower()
+    assert result.notice is not None and CONTRIBUTOR_LABEL in result.notice
+    assert result.untrusted_upstream_content is True
+
+
+@pytest.mark.parametrize("pilot", ["3d_net", "cells_cpp", "pdf_java"])
+def test_other_pilots_with_a_bare_or_generic_agents_md_still_do_not_carry_the_contributor_label(
+    pilot: str,
+) -> None:
+    """Regression guard for the IMPORTANT GOTCHA in TC-714: 3d/net is a deliberate exception (a
+    consumer-facing implementation guide), and cells/cpp and pdf/java also happen to share a bare
+    '# AGENTS.md' first line with cells/net and cells/typescript but are genuinely consumer-facing.
+    None of the three contains the new regex's real, specific phrase, so none must be reclassified."""
+    document = _real_agent_guidance_document(pilot)
+    assert "this file defines how agents should" not in document.content.lower()
+    # G3/TC-683 may strip a prompt-injection-shaped imperative line (the real 3d/net case) before
+    # this comparison - that stripping is pre-existing, unrelated behavior this card must not touch.
+    expected_text = product_reference._strip_agent_imperative_lines(document.content)
+
+    result = _answer(_guidance_from_manifest(pilot), "agent_guidance")
+
+    assert result.text == expected_text
+    assert CONTRIBUTOR_LABEL not in (result.notice or "")
+    assert not result.text.startswith(f"[{CONTRIBUTOR_LABEL}]")
+
+
 def test_a_missing_guidance_file_is_still_an_explicit_absence() -> None:
     inputs = ProductReferenceInputs(
         platform="python", manifest_text="x", agent_guidance=DocumentNotPresent("AGENTS.md")

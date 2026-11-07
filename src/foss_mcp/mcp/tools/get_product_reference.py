@@ -1148,6 +1148,15 @@ _CONTRIBUTOR_LABEL = "contributor guidance for the library's own repository, not
 _CONTRIBUTOR_FIRST_LINE_RE = re.compile(
     r"^\W*(?:your job is to\b|this file provides guidance to claude code\b)", re.IGNORECASE
 )
+# G3/TC-714 (CELLS-NET-005 + sibling cells/typescript): the real cells/net and cells/typescript
+# agents.md files are named "agents.md" (not "claude.md") and their first non-empty line is the
+# generic "# AGENTS.md" - the actual contributor-identifying sentence sits a few lines later,
+# inside a "## Purpose" paragraph, which _CONTRIBUTOR_FIRST_LINE_RE never looks at (it only checks
+# the first non-empty line). This regex is searched against the WHOLE document content instead.
+# MEASURED (all 32 real pilots' real agent_guidance.content): exactly cells/net and
+# cells/typescript contain this phrase; 3d/net's real AGENTS.md - deliberately NOT contributor
+# guidance, see _agent_guidance_section's comment - does not, nor does any of the other 29 pilots.
+_CONTRIBUTOR_PURPOSE_RE = re.compile(r"this (?:file|document) defines how agents should", re.IGNORECASE)
 _AGENT_GUIDANCE_CAP = 20000
 _CPP_INSTALL_CAP = 3000
 
@@ -1745,8 +1754,10 @@ def _is_contributor_guidance(document: DocumentPresent) -> bool:
     """True for a guidance file written for the people working ON the library (a Claude Code project file,
     or a porting prompt that starts "Your job is to ..."), not for the people using it."""
     first_line = next((line for line in document.content.splitlines() if line.strip()), "")
-    return document.path.rsplit("/", 1)[-1].lower() == "claude.md" or bool(
-        _CONTRIBUTOR_FIRST_LINE_RE.match(first_line)
+    return (
+        document.path.rsplit("/", 1)[-1].lower() == "claude.md"
+        or bool(_CONTRIBUTOR_FIRST_LINE_RE.match(first_line))
+        or bool(_CONTRIBUTOR_PURPOSE_RE.search(document.content))
     )
 
 
