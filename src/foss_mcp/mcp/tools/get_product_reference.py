@@ -1410,6 +1410,22 @@ def _coordinate_pattern(coordinate: str) -> re.Pattern[str]:
     return re.compile(rf"(?<![\w.-]){re.escape(coordinate)}(?![\w-]|\.\w)", re.IGNORECASE)
 
 
+def _install_command_pattern(coordinate: str) -> re.Pattern[str]:
+    """A genuine install-COMMAND-shaped line for *coordinate*: an install verb immediately followed
+    by *coordinate* (optionally quoted) - ``pip install x``, ``npm add x``, ``cargo add package x``,
+    ``npm i x``, ``dotnet add package x``. G3/TC-718 (IMAGING-NET-006): this is the exact command
+    shape ``test_every_pilot_the_registry_lacks_quotes_no_install_line_for_it``
+    (tests/mcp/tools/test_round3_install_truth.py) already verifies no genuine command survives with -
+    reused here, not reinvented, so the guard and that test's own oracle never diverge. A bare-line
+    scan that instead matched *coordinate* ANYWHERE on a line together with an install-shaped word
+    ANYWHERE else on that same line (the old, broader condition) also fired on ordinary prose that
+    merely mentions the package near a word like "install" without the two being adjacent."""
+    return re.compile(
+        rf"(?:\binstall|\badd(?:\s+package)?|\bi)\s+[\"']?{re.escape(coordinate)}(?![\w.-])",
+        re.IGNORECASE,
+    )
+
+
 def _guard_unresolved_install(text: str, coordinate: str, ecosystem: str) -> str:
     """*text* with every line that installs *coordinate* (a package ingestion found absent from its
     registry) replaced by one sentence saying the line was removed. A fenced block left with nothing is
@@ -1419,7 +1435,13 @@ def _guard_unresolved_install(text: str, coordinate: str, ecosystem: str) -> str
 
     def strip_block(block: list[str]) -> list[str] | None:
         inner = block[1:-1] if len(block) >= 2 else []
-        kept = [line for line in inner if pattern.search(line) is None]
+        # G3/TC-718 (IMAGING-NET-006): a fenced line is only an install line when it ALSO looks
+        # install-shaped (``_INSTALL_LINE_VERBS_RE``) - matching *coordinate* alone let a plain code
+        # reference inside an unrelated fence (e.g. a Usage example's own
+        # ``using Aspose.Imaging.Foss;`` statement) be mistaken for a second install line to redact,
+        # inserting a second removal note for a real README line the registry-absent package names
+        # only once, in its own, separate Install fence.
+        kept = [line for line in inner if not (pattern.search(line) and _INSTALL_LINE_VERBS_RE.search(line))]
         if len(kept) == len(inner):
             return None
         if not any(line.strip() for line in kept):
@@ -1427,12 +1449,13 @@ def _guard_unresolved_install(text: str, coordinate: str, ecosystem: str) -> str
         return [block[0], *kept, block[-1], note]
 
     text = _replace_fences(text, strip_block)
+    command_pattern = _install_command_pattern(coordinate)
     lines: list[str] = []
     in_fence = False
     for line in text.split("\n"):
         if _FENCE_LINE_RE.match(line):
             in_fence = not in_fence
-        elif not in_fence and pattern.search(line) and _INSTALL_LINE_VERBS_RE.search(line):
+        elif not in_fence and command_pattern.search(line):
             if not lines or lines[-1] != note:
                 lines.append(note)
             continue

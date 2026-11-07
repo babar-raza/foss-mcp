@@ -28,6 +28,7 @@ from foss_mcp.mcp.tools.get_product_reference import (
     parse_cmake_facts,
 )
 from foss_mcp.mcp.tools.readme_sections import ReadmeSections, sections_from_documents
+from tests.conformance.corpus import load_demo_manifests_corpus
 
 REPO_ROOT = Path(__file__).resolve().parents[3]
 ROUND3 = REPO_ROOT / "tests" / "fixtures" / "round3_readmes"
@@ -215,6 +216,40 @@ def test_imaging_net_install_never_quotes_the_command_for_the_package_the_regist
         r"^\s*(?:dotnet add package|Install-Package)\s+Aspose\.Imaging\.Foss", text, re.MULTILINE
     )
     assert "was not found there" in text
+
+
+def test_imaging_net_install_answer_removes_the_real_install_line_exactly_once(
+    tmp_path_factory: pytest.TempPathFactory,
+) -> None:
+    """IMAGING-NET-006 (round-2, G3/TC-718): the real, committed production index chunk for
+    `imaging/net`'s install section merges the README's `## Install` and `## Usage` headings into
+    one "Installation and Quick Start" chunk (`infra/demo-manifests/imaging__net__self_extracted`,
+    built by `infra/build_chunks.py` from the furnished page) - the real nuget install line
+    (`dotnet add package Aspose.Imaging.Foss`) occurs in it exactly once, inside its own fence, and a
+    second, unrelated fence (the Usage code sample) merely references the namespace in a bare
+    `using Aspose.Imaging.Foss;` statement, never an install command. Before the fix, the removal-note
+    placeholder was inserted TWICE for this real data: once for the genuine install line, and once
+    for that unrelated `using` statement, which `_guard_unresolved_install`'s fence pass mistook for
+    a second install line to redact merely because it also named the coordinate. Counting the note's
+    occurrences (not just asserting a command is absent, which the existing cross-pilot test above
+    already does and did not catch this) is the one assertion that was always missing."""
+    root = tmp_path_factory.mktemp("tc718-imaging-net-corpus")
+    corpus = load_demo_manifests_corpus(root)
+    pilot = corpus.pilots["imaging__net"]
+    readme = sections_from_documents({str(index): document for index, document in enumerate(pilot.documents)})
+    assert readme.install is not None
+    # the real committed chunk really does merge Install and Usage, and really does name the nuget
+    # line exactly once - the premise this regression test depends on, not an assumption.
+    assert readme.install.text.count("dotnet add package Aspose.Imaging.Foss") == 1
+    assert readme.install.text.count("using Aspose.Imaging.Foss;") == 1
+
+    inputs = _registry_says_absent("imaging_net")
+    result = get_product_reference(inputs, "install", readme=readme)
+
+    assert isinstance(result, ReferenceContent)
+    assert result.text.count(product_reference._REMOVED_NOTE_PREFIX) == 1
+    # the unrelated Usage statement is real content and must survive, unredacted.
+    assert "using Aspose.Imaging.Foss;" in result.text
 
 
 def test_the_guard_flag_is_what_removes_the_contradicting_readme_line(
