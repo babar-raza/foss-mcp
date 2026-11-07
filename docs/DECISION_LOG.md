@@ -3605,3 +3605,49 @@ file is a bigger, riskier change than this one P1 finding on one pilot justifies
 design. Not carded; a future card should design where the cross-reference disclosure belongs (most
 likely a short note on the developer_guide chunk itself, since it is the one authored specifically
 about this pilot, not a change to the shared symbol-chunk renderer) before writing it.
+
+## 2026-11-07 — two supervisor decisions recorded without a card: CELLS-CPP-006 (self_extracted freshness) and SLIDES-JAVA-007 (slides/java version-ahead-of-registry)
+
+**CELLS-CPP-006** (round-2, P2, mcp-content-wrong): `report_index_freshness` for `cells/cpp`
+always reports `freshness_state: "unknown"` (hence `stale: true` by the tool's own documented
+tri-state contract) even immediately after indexing and verifying the exact pinned commit
+(`pinned_matches_symbols: true` in the same response) - the finding's own words: "the tool can
+apparently never produce stale:false for this deployment kind, making the flag a constant rather
+than a measurement." Traced `report_index_freshness.py`'s docstring (lines 453-505): every path to
+a confident `"fresh"` verdict needs `current_source_commit`, `releases`, or
+`registry_served_version` - none of which a `self_extracted` pilot (no live upstream repository or
+package registry this project tracks) can ever have.
+
+**Decision**: `freshness_state: "unknown"` for every `self_extracted` pilot, unconditionally, is the
+honest answer today, not a bug, for exactly the reason `AGENTS.md`'s own "Before generalizing a
+measurement-based decision... confirm the measurement mechanism can actually produce more than one
+outcome" rule exists to guard against - BUT this specific case is different from a true dead-branch
+measurement, because a real, already-computed, independent signal (`pinned_matches_symbols`) DOES
+exist and is not currently used to inform the verdict at all. Not carded now (this needs the same
+careful tri-state-verdict design `TC-657` did, not a quick patch - a new, distinct verdict basis
+such as `"self_extracted_verified"` would need to be added to the existing freshness model without
+ever letting it masquerade as `"fresh"` against a live registry comparison that was never actually
+made). Flagged as a real, worthwhile future card, not a false alarm and not urgent.
+
+**SLIDES-JAVA-007** (round-2, P1, coverage-gap): the audit's own text explicitly frames this as "a
+scope/decision item for the supervisor, not something this audit is authorized to resolve": the
+pilot's indexed commit declares pom version `26.8.0`, newer than Maven Central's actually-served
+`26.7.0`, and two sibling findings (`SLIDES-JAVA-001`/`002`) suggest real behavioral differences
+between those versions (SaveFormat enforcement, slide-add registration) - a user who installs the
+served `26.7.0` package would not get what the index describes. The audit names two options: (a)
+re-point the index at the older, served `26.7.0` tag, or (b) keep indexing ahead-of-registry but add
+a per-claim "not present in the version you will install" flag.
+
+**Decision**: (b), consistent with every other version-drift decision this session has made
+(`PDF-NET-001`/`CELLS-NET-001`/`TC-657`'s whole freshness program) - disclose, never silently
+reindex to a different commit purely to dodge a drift disclosure; re-indexing is also the far
+larger, riskier action of the two. The generic install/compatibility notices already state the raw
+version-drift fact honestly today. What's still missing is connecting that general notice to the
+TWO SPECIFIC behavioral claims it actually affects - and this project already has the exact
+mechanism built for that: the `known_defects` per-symbol disclosure registry (`KD1-KD10`, already
+integrated, used by `WORDS-NET-001`/`3D-JAVA-001`/etc. this session). `SLIDES-JAVA-001` and
+`SLIDES-JAVA-002` (confirmed to have no existing `known_defects` entry yet) should each be
+independently investigated and, if still real and reproducible against the actual served `26.7.0`
+package, closed via a new `config/known_defects/slides__java.yaml` entry - at which point this
+finding (007) is substantively closed as a side effect, with no new generic flag mechanism needed.
+Not carded directly as 007 itself; the real next step is investigating 001/002 on their own merits.
