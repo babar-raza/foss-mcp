@@ -1,0 +1,127 @@
+id: TC-712
+gate: G3
+lane: storage-retrieval
+purpose: >-
+  Closes EML-NET-005 (round-2, `docs/round2/issues.json`, severity P3, category
+  "install-guidance" - confirmed STILL OPEN by a dedicated 2026-11-07 supervisor survey):
+  `report_index_freshness`'s `published_version` field is always `null` for `email/net`, even
+  though a real registry-served version (`26.7.0`) is in hand the whole time - `get_product_reference`
+  already honestly discloses the manifest/registry mismatch in its install notice, and round-2's
+  own finding explicitly states this causes "zero practical harm" (the indexed API matched the
+  installed `26.7.0` package exactly across all 29 types). This is a pure missing-fact gap, not a
+  wrong-verdict bug: `TC-657`'s own major-version-mismatch guard
+  (`report_index_freshness.py`, the block starting `if (registry_served_version is not None and
+  indexed_version is not None and registry_served_version[0] == indexed_version[0])`) correctly
+  withholds the CONFIDENT fresh/stale VERDICT when `email/net`'s `.csproj` declares a generic,
+  never-bumped placeholder version (`0.1.0`) next to a real served version (`26.7.0`) with a
+  different major - an honest, deliberate, already-correct scope boundary, confirmed by that
+  block's own code comment. But when the condition's `registry_served_version[0] ==
+  indexed_version[0]` check is False (the major-mismatch case specifically), execution falls
+  through PAST that whole block to the function's final two fallback lines (`if len(commits) > 1:
+  return build("unknown", ...); return build("unknown", ...)`), NEITHER of which passes a
+  `version_drift` dict - so `published_version` stays `None` even though `registry_served_version`
+  (the real string, already resolved and sitting in scope) was available the entire time. The
+  function already has the exact mechanism needed (`version_drift={**drift, "published_version":
+  ...}`-shaped dicts, used by the `_registry_version_drift` branch two cases above) - this card
+  only has to apply it to the major-mismatch fallthrough too, never touching the verdict itself.
+
+  REPRODUCE FIRST: confirm this is still real on current `main` before writing any fix. Call
+  `report_index_freshness` for the real `email/net` scope against the real committed
+  `infra/demo-manifests/email__net__self_extracted/` manifest (same pattern
+  `tests/mcp/tools/test_freshness_registry_version.py`/`test_round3_freshness_honesty_regressions.py`
+  already use) with a `registry_served_version` resolved to `(26, 7, 0)` (confirm this is still
+  the real, currently-served NuGet version via `python -I -c "import urllib.request,json;
+  print(json.load(urllib.request.urlopen('https://api.nuget.org/v3-flatcontainer/aspose.email.foss/index.json')))"`
+  - a real network call, note it in your closeout; do not fabricate the response) and confirm
+  `freshness_state == "unknown"` (correct, keep unchanged) AND `published_version is None`
+  (the real gap this card closes) on current `main`, before touching any code.
+
+  FIX (surgical, additive, never touches the verdict): immediately before the function's final
+  two fallback `return build("unknown", ...)` lines, add a new branch that fires ONLY when
+  `registry_served_version is not None and indexed_version is not None and
+  registry_served_version[0] != indexed_version[0]` (the exact negation of the existing
+  major-agreement guard's own condition - reuse `indexed_version`/`registry_served_version`
+  already in scope, do not recompute them) and returns `build("unknown", <a reason naming both
+  the real registry version and the real indexed/manifest version and stating plainly that the
+  manifest's own declared version is not a trustworthy freshness signal here>, "registry_served_version_major_mismatch",
+  version_drift={**drift, "published_version": ".".join(str(part) for part in
+  registry_served_version)})` - the `drift` variable already in scope (computed earlier in the
+  function from git ancestry, always `DRIFT_UNKNOWN` by the time this point is reached) merged
+  with ONLY the real registry text overriding `published_version`; every other field of `drift`
+  (the verdict-adjacent `drift`/`index_ahead_of_package`/`package_ahead_of_index`/`commit_distance`/
+  `message` keys) stays byte-for-byte unchanged - this card discloses a FACT, never upgrades a
+  verdict. This new branch must sit strictly BEFORE the existing major-version-AGREEMENT branch's
+  own `if` falls through to it (i.e., it only ever fires when that branch's own condition was
+  False) - do not change the existing branch's own condition, body, or ordering relative to the
+  `len(commits) > 1` check; only insert the new branch between them (or wherever correctly
+  precedes both legacy fallback lines without altering their own reachability for every OTHER
+  reason they are reached - e.g. no `registry_served_version` at all must still fall through to
+  them exactly as before, completely unaffected by this card).
+depends_on:
+  - TC-657
+write_paths:
+  - src/foss_mcp/mcp/tools/report_index_freshness.py
+  - tests/mcp/tools/test_freshness_registry_version.py
+  - tests/mcp/tools/test_round3_freshness_honesty_regressions.py
+satisfies:
+  - REQ-G3-012
+source_refs:
+  - file: docs/DECISION_LOG.md
+    anchor: >-
+      ## 2026-11-06 — PDF-NET-002/EML-NET-002 investigated: a correct fix exists but is structurally inert against TC-543's own invariant; declined, not integrated (supervisor)
+    sha256: ce92e388e50e1f33bb6ea845e51aed931be8deec21d65b768acbc296916e1e9a
+inputs:
+  - >-
+    READ FIRST: `docs/round2/issues.json` id `EML-NET-005` in full. Then
+    `src/foss_mcp/mcp/tools/report_index_freshness.py`'s `report_index_freshness` function in
+    full, especially the major-version-agreement branch's own code comment (names this exact
+    pilot, "G3/TC-657 (EML-NET-007)") and `_registry_version_drift`'s own dict shape (your
+    template for what a `version_drift` dict must contain - reuse it directly via dict-merge,
+    never hand-build a parallel shape). Also read `tests/mcp/tools/test_round3_freshness_honesty_regressions.py`
+    in full - it already has dedicated regression tests for 3 sibling freshness-honesty fixes from
+    the same `TC-657` card (`EML-NET-007`/`NOTE-PY-010`/`SLIDES-JAVA-004`); your new test for this
+    card belongs in the same file, same style, same real-committed-manifest discipline (never a
+    synthetic in-memory chunk whose values are authored to match by construction - this session's
+    own `TC-702` investigation found that exact class of self-matching test blind spot).
+  - >-
+    REPRODUCE FIRST (do not skip): a real `report_index_freshness` call against the real committed
+    `email/net` manifest, and a real network call to the NuGet flat-container API to confirm the
+    currently-served version, exactly as described above. Report both real outputs, verbatim, in
+    your closeout.
+  - >-
+    Never weaken or alter the existing major-version-agreement branch's own confident verdict
+    logic, nor the two legacy fallback lines' reachability for any OTHER case (no registry version
+    at all, etc.) - this card adds exactly one new, narrowly-scoped branch between them.
+actions:
+  - >-
+    Populate `published_version` with the real registry-served version string when a major-version
+    mismatch causes `report_index_freshness` to fall through to its honest "unknown" verdict,
+    without changing the verdict itself or any other field.
+checks:
+  - command: '{python} -m pytest tests/mcp/tools/test_freshness_registry_version.py tests/mcp/tools/test_round3_freshness_honesty_regressions.py -q -rfE -p no:cacheprovider'
+    expect: 'exit 0'
+    timeout_seconds: 300
+    junitxml: true
+    proves:
+      - REQ-G3-012
+min_tests: 11
+requires:
+  - python
+network: true
+negative_control:
+  mutate: |
+    python -X utf8 -c "import pathlib; q = chr(34); p = pathlib.Path('src/foss_mcp/mcp/tools/report_index_freshness.py'); s = p.read_text(encoding='utf-8'); old = q + 'registry_served_version_major_mismatch' + q; assert s.count(old) == 1, 'the expected literal was not found exactly once - if your real fix uses a different exact basis string, anchor your own mutate on your own real literal instead and note the substitution in your closeout'; p.write_text(s.replace(old, q + 'none' + q, 1), encoding='utf-8')"
+  rationale: >-
+    Changes the new branch's own freshness_basis literal, which your new regression test must
+    assert on directly (per this card's own instruction to follow the sibling EML-NET-007/
+    NOTE-PY-010/SLIDES-JAVA-004 tests' style, which assert on freshness_basis) - a real break of
+    this card's own new behavior, never touching the pre-existing major-agreement branch or the
+    legacy fallback lines.
+evidence:
+  - evidence/build/G3/TC-712/receipt.json
+closeout:
+  - >-
+    `report_index_freshness` now populates the real registry-served version in `published_version`
+    even when a major-version mismatch correctly withholds the confident fresh/stale verdict,
+    closing EML-NET-005 without changing any verdict logic.
+recovery: Re-run from a clean tree.
