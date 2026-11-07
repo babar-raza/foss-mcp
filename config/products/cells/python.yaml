@@ -20,3 +20,27 @@ schedule:
   cron: "0 6 * * *"
   timezone: UTC
 storage_topology: embedded
+
+# G3/TC-721: a project-authored, project-verified hazard the upstream repository does not
+# document anywhere (the real installed aspose-cells-foss 26.10.0 package's own class
+# docstring says only "Basic formula evaluator ... not a full spreadsheet calculation engine",
+# with zero mention of which functions it actually implements) - a confirmed upstream
+# documentation gap, re-checked 2026-11-07 by direct reproduction against the real installed
+# package, not a foss-mcp defect. Keep this the LAST top-level key.
+known_hazards:
+  - text: >-
+      Calling FormulaEvaluator.evaluate() with a SUM formula (e.g. "=SUM(A1:A3)"), raw
+      arithmetic (e.g. "=B2+B3"), or an AVERAGE formula (e.g. "=AVERAGE(A1:A3)") silently
+      returns None - no exception, no warning - confirmed by direct reproduction against the
+      real installed aspose-cells-foss 26.10.0 package on a real Workbook: all three formulas
+      returned None, while =CONCATENATE("foo","bar") on the same evaluator genuinely returned
+      'foobar'. Reading the installed package's own _evaluate_function source confirms why:
+      any formula whose top-level function is not in its real, complete supported set -
+      exactly CONCATENATE, CONCAT, TEXT, IF, AND, OR, NOT, LEN, TRIM, UPPER, and LOWER, nothing
+      else - falls straight through to an unconditional final `return None`, with SUM, bare
+      arithmetic operators, and AVERAGE simply absent from that implementation. The safe
+      pattern: never treat a None result from evaluate() as "the formula evaluated to
+      zero/empty" - first check whether the formula's top-level function is in this real
+      supported list, and treat None from any other function (including SUM, AVERAGE, and raw
+      arithmetic) as "not supported by this evaluator", never as a computed result.
+    verified_at: "2026-11-07"
