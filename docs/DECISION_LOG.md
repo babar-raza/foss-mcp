@@ -3651,3 +3651,28 @@ independently investigated and, if still real and reproducible against the actua
 package, closed via a new `config/known_defects/slides__java.yaml` entry - at which point this
 finding (007) is substantively closed as a side effect, with no new generic flag mechanism needed.
 Not carded directly as 007 itself; the real next step is investigating 001/002 on their own merits.
+
+## 2026-11-07 — SLIDES-JAVA-007's recommended next step already done: SLIDES-JAVA-001/002 were closed by TC-650 (2026-10-29), via known_hazards, not known_defects (supervisor)
+
+Following up directly on this file's own `SLIDES-JAVA-007` entry above (same day): a survey fork
+recommended carding `SLIDES-JAVA-001` (`Presentation.save()` silently ignores the `SaveFormat`
+argument on the real published `26.7.0` jar) and `SLIDES-JAVA-002` (`addEmptySlide`/
+`insertEmptySlide`/`addClone` produce an orphaned, unregistered slide part) as new
+`config/known_defects/slides__java.yaml` entries, reporting that neither id appears in
+`config/known_defects/` nor "in config/products/slides/java.yaml's known_hazards."
+
+**That last claim is wrong** - re-checked directly before carding anything: `config/products/
+slides/java.yaml`'s own `known_hazards` list already carries BOTH of these exact findings,
+closed by `TC-650` on 2026-10-29, cited explicitly in that file's own comment
+("G3/TC-650 (round-2 audit SLIDES-JAVA-001, SLIDES-JAVA-002)") - word-for-word matching the real
+trigger, the real sha256-identical save() output, and the real missing `<p:sldIdLst>`/
+`.rels`/`Content_Types.xml` registration the fork's own report described independently. No new
+card authored; nothing was duplicated. `SLIDES-JAVA-007`'s own recommended next step is therefore
+already complete, closing that finding's practical concern as a side effect - the version-drift
+disclosure itself (the generic install/compatibility notices) was already honest before this, and
+the two specific behavioral claims it worried about are both independently disclosed.
+
+Recorded as a reminder: a survey agent's own "I checked X and found nothing" claim is not
+verification by itself - re-confirm directly before carding, exactly as this project's own
+"before recommending from memory" discipline already requires. This is the third time this session
+a sub-investigation's negative closure-check turned out to be wrong on direct re-verification.
