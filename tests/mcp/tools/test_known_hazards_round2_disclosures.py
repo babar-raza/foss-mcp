@@ -53,6 +53,20 @@ is also its own real verification date (2026-11-07), distinct from the other 7 e
 ``ROUND2_VERIFIED_AT`` (2026-10-29) - so, like the three findings before it, it is layered on top
 via ``ALL_PILOTS`` rather than merged into ``PILOTS``.
 
+G3/TC-724 adds a 12th round-2 finding, ``3D-TYPESCRIPT-006`` (config/products/3d/typescript.yaml),
+through the identical mechanism: a real, confirmed-still-open barrel-export gap confirmed by a
+direct ``gh api`` read of the real pinned commit's own source - ``Axis`` (declared in
+``src/aspose/threed/Axis.ts``) and ``FbxElement``/``FbxProperty`` (both declared and exported
+inside ``src/aspose/threed/formats/fbx/parser.ts``) are real, declared, compiled, public classes
+with full, accurate ``get_symbol``/``search_symbols`` signatures, but none of the three is ever
+re-exported by any module barrel (``index.ts``) file - not ``src/aspose/threed/index.ts``, and
+not ``src/aspose/threed/formats/fbx/index.ts`` (which only re-exports
+``FbxParser``/``FbxTokenizer``/``BinaryTokenizer``) - so importing any of the three from the
+package's own declared public surface genuinely fails, with zero caveat anywhere this project
+serves. Its ``verified_at`` is also its own real verification date (2026-11-07), distinct from
+the other 7 entries' shared ``ROUND2_VERIFIED_AT`` (2026-10-29) - so, like the four findings
+before it, it is layered on top via ``ALL_PILOTS`` rather than merged into ``PILOTS``.
+
 This file proves, per pilot: (1) the manifest's new ``known_hazards`` entries validate against
 the real schema; (2) a real end-to-end ``get_product_reference(section="limitations")`` call
 against the REAL baked sidecar (``infra/demo-manifests``, the exact way the live server loads a
@@ -162,6 +176,19 @@ ALL_PILOTS = ALL_PILOTS + (SLIDES_CPP_PILOT,)
 ALL_PILOT_IDS = ALL_PILOT_IDS + ["slides/cpp"]
 ALL_ISSUE_IDS = ALL_ISSUE_IDS + SLIDES_CPP_PILOT[2]
 
+# G3/TC-724: the 12th round-2-sourced known_hazards entry, 3D-TYPESCRIPT-006 (3d/typescript).
+# Layered on top of ALL_PILOTS the same way G3/TC-720's PAGE_PYTHON_PILOT, G3/TC-721's
+# CELLS_PYTHON_PILOT, G3/TC-722's EMAIL_CPP_PILOT, and G3/TC-723's SLIDES_CPP_PILOT were, for the
+# identical reason: its real verified_at (2026-11-07, this card's own real verification date)
+# differs from the other 7 entries' shared ROUND2_VERIFIED_AT (2026-10-29), so the
+# schema-validation and verified_at-date tests below (which assume one shared date) stay scoped
+# to the original 7, unchanged, while the per-entry disclosure tests ("for each pilot" and
+# "trace tokens") extend to cover this 12th entry via ALL_PILOTS/ALL_ISSUE_IDS.
+THREED_TYPESCRIPT_PILOT: tuple[str, str, tuple[str, ...]] = ("3d", "typescript", ("3D-TYPESCRIPT-006",))
+ALL_PILOTS = ALL_PILOTS + (THREED_TYPESCRIPT_PILOT,)
+ALL_PILOT_IDS = ALL_PILOT_IDS + ["3d/typescript"]
+ALL_ISSUE_IDS = ALL_ISSUE_IDS + THREED_TYPESCRIPT_PILOT[2]
+
 
 def _schema() -> dict[str, Any]:
     return json.loads(SCHEMA_PATH.read_text(encoding="utf-8"))
@@ -216,16 +243,16 @@ def test_manifest_known_hazards_entries_validate_against_the_real_schema(
         assert hazard.verified_at == ROUND2_VERIFIED_AT
 
 
-def test_total_known_hazards_entries_match_the_eleven_round2_findings() -> None:
-    """Exactly 11 entries across the 9 pilots - one per round-2 issue id this card (plus G3/TC-720's
-    PAGE-PYTHON-003, G3/TC-721's CELLS-PY-004, G3/TC-722's EMAIL-CPP-004, and G3/TC-723's
-    SLIDES-CPP-003) closes, no more, no fewer."""
+def test_total_known_hazards_entries_match_the_twelve_round2_findings() -> None:
+    """Exactly 12 entries across the 10 pilots - one per round-2 issue id this card (plus G3/TC-720's
+    PAGE-PYTHON-003, G3/TC-721's CELLS-PY-004, G3/TC-722's EMAIL-CPP-004, G3/TC-723's
+    SLIDES-CPP-003, and G3/TC-724's 3D-TYPESCRIPT-006) closes, no more, no fewer."""
     total = sum(
         len(known_hazards_from_manifest(_real_manifest(family, platform)))
         for family, platform, _ in ALL_PILOTS
     )
-    assert total == 11
-    assert len(ALL_ISSUE_IDS) == 11
+    assert total == 12
+    assert len(ALL_ISSUE_IDS) == 12
 
 
 # ------------------------------------------------------------- (2) end-to-end, real baked pilot
@@ -290,6 +317,11 @@ _HAZARD_TRACE_TOKENS: dict[str, tuple[str, ...]] = {
         "table_count()/table_at()",
         "shapes().size()/operator[]",
     ),
+    "3D-TYPESCRIPT-006": (
+        "fbxelement or fbxproperty",
+        "axis.ts is never imported/re-exported",
+        "public entry point",
+    ),
 }
 
 
@@ -331,11 +363,11 @@ def test_known_hazards_verified_at_is_a_real_valid_calendar_date(
         assert parsed <= datetime.date(2026, 11, 1)
 
 
-def test_round2_issues_json_actually_contains_the_eleven_claimed_ids() -> None:
-    """Every one of the 11 issue ids this card (plus G3/TC-720's PAGE-PYTHON-003, G3/TC-721's
-    CELLS-PY-004, G3/TC-722's EMAIL-CPP-004, and G3/TC-723's SLIDES-CPP-003) closes is a real
-    record in docs/round2/issues.json - the source this card's hazard text must be traceable
-    to."""
+def test_round2_issues_json_actually_contains_the_twelve_claimed_ids() -> None:
+    """Every one of the 12 issue ids this card (plus G3/TC-720's PAGE-PYTHON-003, G3/TC-721's
+    CELLS-PY-004, G3/TC-722's EMAIL-CPP-004, G3/TC-723's SLIDES-CPP-003, and G3/TC-724's
+    3D-TYPESCRIPT-006) closes is a real record in docs/round2/issues.json - the source this
+    card's hazard text must be traceable to."""
     issues = json.loads(ROUND2_ISSUES_PATH.read_text(encoding="utf-8"))
     ids_present = {issue["id"] for issue in issues}
     for issue_id in ALL_ISSUE_IDS:

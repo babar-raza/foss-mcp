@@ -21,3 +21,36 @@ schedule:
   cron: "0 2 * * *"
   timezone: UTC
 storage_topology: embedded
+
+# G3/TC-724: a real, project-confirmed barrel-export gap (round-2 finding
+# 3D-TYPESCRIPT-006, re-verified 2026-11-07 by a direct `gh api` read of the real
+# pinned commit's own source). Keep this the LAST top-level key.
+known_hazards:
+  - text: >-
+      This package declares, compiles, and exports three public classes that are
+      never re-exported from any module barrel (`index.ts`) file, so they are
+      unreachable through the package's own declared public import surface even
+      though `get_symbol`/`search_symbols` still return full, accurate
+      method/property signatures for all three (confirmed against the real
+      `tests/fixtures/3d_typescript/api_surface.json` fixture, which marks each
+      `reachable: true`, with no caveat): `Axis` (declared in
+      `src/aspose/threed/Axis.ts`), and FbxElement or FbxProperty (both declared
+      and exported inside `src/aspose/threed/formats/fbx/parser.ts`). The real
+      trigger is any attempt to write `import { Axis } from '@aspose/3d'` or
+      `import { FbxElement, FbxProperty } from '@aspose/3d/formats/fbx'` after
+      reading those accurate signatures: a direct `gh api` read of the real pinned
+      commit confirms Axis.ts is never imported/re-exported by any barrel in the
+      package (not `src/aspose/threed/index.ts`, not any subfolder `index.ts`),
+      and `src/aspose/threed/formats/fbx/index.ts` only forwards
+      `FbxParser`/`FbxTokenizer`/`BinaryTokenizer` onward, forwarding neither of
+      the other two - so both imports genuinely fail at build/runtime, with zero
+      caveat anywhere this project serves, unlike the great majority of this
+      pilot's other public classes, which ARE reachable through a real barrel. The
+      safe pattern: never trust `get_symbol`'s accurate signature alone as proof a
+      class is importable from this package's declared public surface; before
+      writing `import` code against any `aspose.threed` class - especially
+      `Axis`, `FbxElement`, or `FbxProperty` - confirm it is actually re-exported
+      from a real `index.ts` barrel; a class not re-exported from the package's
+      public entry point is not safely importable, however accurate its
+      `get_symbol` signature looks.
+    verified_at: "2026-11-07"
