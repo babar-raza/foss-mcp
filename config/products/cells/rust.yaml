@@ -27,3 +27,30 @@ schedule:
   cron: "0 8 * * *"
   timezone: UTC
 storage_topology: embedded
+
+# G3/TC-725: a real, project-confirmed absence of any formula-calculation engine (round-2
+# finding CELLS-RUST-003, re-verified 2026-11-07 by a direct search of the real committed
+# tests/fixtures/cells_rust/api_surface.json fixture). Keep this the LAST top-level key.
+known_hazards:
+  - text: >-
+      cells/rust advertises formulas AND calculation as one of this family's capabilities, but
+      there is no formula-calculation engine anywhere in its real indexed API: a direct search of
+      the real committed api_surface.json fixture across all 1470 methods on all 122 indexed
+      types finds zero methods literally named recalculate/evaluate/calculate_formula. Workbook
+      itself declares no member named calculate, and the only "calculation"-named
+      members anywhere are configuration settings on CalculationProperties/WorkbookProperties
+      (calculation_mode, force_full_calculation, calculation_on_save, concurrent_calculation, and
+      similar) - flags describing how a downstream reader such as Excel should behave on open,
+      never an actual compute engine this library runs itself. The real trigger is writing a
+      formula via this library's only formula-writing mechanism, where
+      (put_formula_with_cached_value) requires a pre-computed value as its own cached_value
+      parameter and never computes anything itself, or simply trusting that the advertised
+      "formulas and calculation" capability means the library will recompute results on its own.
+      The real observed behavior: whatever cached value you supplied is the only value that will
+      ever be read back, forever, even after the inputs the formula depends on change - there is
+      no recalculation mechanism anywhere in the real indexed API to catch this, so Excel or any
+      other reader displays whatever number was last cached, not a recalculated one. The safe
+      pattern: recompute the formula's real result yourself, in your own code, every time a
+      dependency changes, and re-supply it via put_formula_with_cached_value; never assume this
+      library will recalculate anything on your behalf.
+    verified_at: "2026-11-07"

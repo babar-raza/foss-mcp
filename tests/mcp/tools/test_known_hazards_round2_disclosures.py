@@ -67,6 +67,20 @@ serves. Its ``verified_at`` is also its own real verification date (2026-11-07),
 the other 7 entries' shared ``ROUND2_VERIFIED_AT`` (2026-10-29) - so, like the four findings
 before it, it is layered on top via ``ALL_PILOTS`` rather than merged into ``PILOTS``.
 
+G3/TC-725 adds a 13th round-2 finding, ``CELLS-RUST-003`` (config/products/cells/rust.yaml),
+through the identical mechanism: a real, confirmed-still-open absence of any formula-calculation
+engine anywhere in the real indexed API, confirmed by a direct search of the real committed
+``tests/fixtures/cells_rust/api_surface.json`` fixture - zero of the 1470 real methods across all
+122 indexed types are literally named ``recalculate``, ``evaluate``, or ``calculate_formula``;
+``Workbook`` itself declares no member named ``calculate``; the only "calculation"-named members
+anywhere are configuration settings on ``CalculationProperties``/``WorkbookProperties`` (flags,
+never a compute engine); and ``put_formula_with_cached_value`` - the library's only
+formula-writing mechanism - requires a pre-computed ``CellValue`` as its own parameter and never
+recomputes anything, so a cached value never refreshes when the inputs it depends on change. Its
+``verified_at`` is also its own real verification date (2026-11-07), distinct from the other 7
+entries' shared ``ROUND2_VERIFIED_AT`` (2026-10-29) - so, like the five findings before it, it is
+layered on top via ``ALL_PILOTS`` rather than merged into ``PILOTS``.
+
 This file proves, per pilot: (1) the manifest's new ``known_hazards`` entries validate against
 the real schema; (2) a real end-to-end ``get_product_reference(section="limitations")`` call
 against the REAL baked sidecar (``infra/demo-manifests``, the exact way the live server loads a
@@ -189,6 +203,18 @@ ALL_PILOTS = ALL_PILOTS + (THREED_TYPESCRIPT_PILOT,)
 ALL_PILOT_IDS = ALL_PILOT_IDS + ["3d/typescript"]
 ALL_ISSUE_IDS = ALL_ISSUE_IDS + THREED_TYPESCRIPT_PILOT[2]
 
+# G3/TC-725: the 13th round-2-sourced known_hazards entry, CELLS-RUST-003 (cells/rust). Layered
+# on top of ALL_PILOTS the same way the six findings before it were, for the identical reason:
+# its real verified_at (2026-11-07, this card's own direct reproduction against the real
+# committed fixture) differs from the other 7 entries' shared ROUND2_VERIFIED_AT (2026-10-29), so
+# the schema-validation and verified_at-date tests below (which assume one shared date) stay
+# scoped to the original 7, unchanged, while the per-entry disclosure tests ("for each pilot" and
+# "trace tokens") extend to cover this 13th entry via ALL_PILOTS/ALL_ISSUE_IDS.
+CELLS_RUST_PILOT: tuple[str, str, tuple[str, ...]] = ("cells", "rust", ("CELLS-RUST-003",))
+ALL_PILOTS = ALL_PILOTS + (CELLS_RUST_PILOT,)
+ALL_PILOT_IDS = ALL_PILOT_IDS + ["cells/rust"]
+ALL_ISSUE_IDS = ALL_ISSUE_IDS + CELLS_RUST_PILOT[2]
+
 
 def _schema() -> dict[str, Any]:
     return json.loads(SCHEMA_PATH.read_text(encoding="utf-8"))
@@ -243,16 +269,17 @@ def test_manifest_known_hazards_entries_validate_against_the_real_schema(
         assert hazard.verified_at == ROUND2_VERIFIED_AT
 
 
-def test_total_known_hazards_entries_match_the_twelve_round2_findings() -> None:
-    """Exactly 12 entries across the 10 pilots - one per round-2 issue id this card (plus G3/TC-720's
+def test_total_known_hazards_entries_match_the_thirteen_round2_findings() -> None:
+    """Exactly 13 entries across the 11 pilots - one per round-2 issue id this card (plus G3/TC-720's
     PAGE-PYTHON-003, G3/TC-721's CELLS-PY-004, G3/TC-722's EMAIL-CPP-004, G3/TC-723's
-    SLIDES-CPP-003, and G3/TC-724's 3D-TYPESCRIPT-006) closes, no more, no fewer."""
+    SLIDES-CPP-003, G3/TC-724's 3D-TYPESCRIPT-006, and G3/TC-725's CELLS-RUST-003) closes, no
+    more, no fewer."""
     total = sum(
         len(known_hazards_from_manifest(_real_manifest(family, platform)))
         for family, platform, _ in ALL_PILOTS
     )
-    assert total == 12
-    assert len(ALL_ISSUE_IDS) == 12
+    assert total == 13
+    assert len(ALL_ISSUE_IDS) == 13
 
 
 # ------------------------------------------------------------- (2) end-to-end, real baked pilot
@@ -322,6 +349,11 @@ _HAZARD_TRACE_TOKENS: dict[str, tuple[str, ...]] = {
         "axis.ts is never imported/re-exported",
         "public entry point",
     ),
+    "CELLS-RUST-003": (
+        "put_formula_with_cached_value) requires a pre-computed value",
+        "recalculate/evaluate/calculate_formula",
+        "declares no member named calculate",
+    ),
 }
 
 
@@ -363,11 +395,11 @@ def test_known_hazards_verified_at_is_a_real_valid_calendar_date(
         assert parsed <= datetime.date(2026, 11, 1)
 
 
-def test_round2_issues_json_actually_contains_the_twelve_claimed_ids() -> None:
-    """Every one of the 12 issue ids this card (plus G3/TC-720's PAGE-PYTHON-003, G3/TC-721's
-    CELLS-PY-004, G3/TC-722's EMAIL-CPP-004, G3/TC-723's SLIDES-CPP-003, and G3/TC-724's
-    3D-TYPESCRIPT-006) closes is a real record in docs/round2/issues.json - the source this
-    card's hazard text must be traceable to."""
+def test_round2_issues_json_actually_contains_the_thirteen_claimed_ids() -> None:
+    """Every one of the 13 issue ids this card (plus G3/TC-720's PAGE-PYTHON-003, G3/TC-721's
+    CELLS-PY-004, G3/TC-722's EMAIL-CPP-004, G3/TC-723's SLIDES-CPP-003, G3/TC-724's
+    3D-TYPESCRIPT-006, and G3/TC-725's CELLS-RUST-003) closes is a real record in
+    docs/round2/issues.json - the source this card's hazard text must be traceable to."""
     issues = json.loads(ROUND2_ISSUES_PATH.read_text(encoding="utf-8"))
     ids_present = {issue["id"] for issue in issues}
     for issue_id in ALL_ISSUE_IDS:
