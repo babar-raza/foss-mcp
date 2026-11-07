@@ -3820,3 +3820,29 @@ already has deep, separately-tracked, `BLOCKED_UPSTREAM`-adjacent issues elsewhe
 project's history - not a narrow fix). Also: `PDF-JAVA-003` was independently re-confirmed as
 already closed by `TC-650` (2026-10-29) - a grep-only check would have missed it; the direct diff
 read confirmed the match.
+
+## 2026-11-07 — 3D-NET-005 confirmed real but not carded this round; the right surface/mechanism isn't yet decided (supervisor)
+
+`3D-NET-005` (round-2, P1, mcp-content-wrong, `3d/net`) finds `get_product_reference`'s real
+`agent_guidance` text self-contradicts about implementation status for two formats: it lists 3MF
+under "Stub Implementations," though round-2's own repro shows 3MF genuinely round-trips correctly
+(2 children/2 meshes/16 verts, exact match - NOT a stub); and it lists FBX under both "Full
+Implementation" AND, two paragraphs later in the same document, its own "Stub Implementations"
+table - a real self-contradiction within one served document. FBX's real behavior (silently
+returns empty data on export, confirmed in this project's own repro) is ALREADY disclosed via
+`3D-NET-003`'s existing `config/known_defects/3d__net.yaml` entry (`subject.refs: [Aspose.ThreeD.Scene]`)
+- but that disclosure surfaces through `get_symbol`/`list_members`'s `known_defect_lines` mechanism,
+a completely different code path from `get_product_reference(section=agent_guidance)`'s raw,
+verbatim-served document text. An agent who reads ONLY `agent_guidance` (the natural first stop for
+"what works here") never sees the correction.
+
+Not carded this round: the right fix location is genuinely unclear without more design thought -
+options include (a) wiring the existing `known_defects` disclosure mechanism to also annotate
+`agent_guidance` content when it mentions a format/symbol with an open defect (a real extension of
+KD4's existing `get_product_reference` wiring, not yet reaching this specific section); (b) a
+narrower, `reconcile_format_claims`-style (`TC-680`) contradiction annotation scoped specifically to
+this self-contradicting table; or (c) leaving `agent_guidance` as pure labelled raw upstream
+content (as the project already does for contributor-guidance documents) and relying on
+`3D-NET-003`'s existing symbol-level disclosure as sufficient, accepting the gap for readers who
+only check `agent_guidance`. A future card should pick one deliberately rather than default to
+whichever is easiest to implement.
