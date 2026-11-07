@@ -1,0 +1,57 @@
+
+===== CLEAN RUN 1 (host) =====
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-5c72e798a73c059a\Scripts\python.exe -m pytest tests/mcp/tools/test_known_hazards_round2_disclosures.py -q -rfE -p no:cacheprovider "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-q3bkdl2p\.junit-0.xml"
+--- stdout ---
+..............................                                           [100%]
+
+--- stderr ---
+
+
+===== CLEAN RUN 2 (host) =====
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-5c72e798a73c059a\Scripts\python.exe -m pytest tests/mcp/tools/test_known_hazards_round2_disclosures.py -q -rfE -p no:cacheprovider "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-q3bkdl2p\.junit-0.xml"
+--- stdout ---
+..............................                                           [100%]
+
+--- stderr ---
+
+
+===== NEGATIVE CONTROL (checks MUST now fail) =====
+mutated: M config/products/email/cpp.yaml, ?? .junit-0.xml
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-5c72e798a73c059a\Scripts\python.exe -m pytest tests/mcp/tools/test_known_hazards_round2_disclosures.py -q -rfE -p no:cacheprovider "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-q3bkdl2p\.junit-0.xml"
+--- stdout ---
+.......................F......                                           [100%]
+================================== FAILURES ===================================
+_ test_hazard_text_carries_the_real_issue_specific_trace_tokens[EMAIL-CPP-004] _
+
+issue_id = 'EMAIL-CPP-004'
+
+    @pytest.mark.parametrize("issue_id", ALL_ISSUE_IDS)
+    def test_hazard_text_carries_the_real_issue_specific_trace_tokens(issue_id: str) -> None:
+        """Each issue's distinctive technical tokens (drawn from its own real ``docs/round2/issues.json``
+        record) appear BOTH in that real issue record's own text AND in the matching manifest's hazard
+        text - proving the hazard text is not generic boilerplate, but is actually traceable to the
+        real issue it claims to disclose."""
+        issue = _real_issue(issue_id)
+        issue_text = _WHITESPACE_RE.sub(" ", json.dumps(issue).lower())
+        family, platform = issue["pilot"].split("/")
+        # yaml.safe_dump line-folds long scalars, inserting a newline+indent where the real text has a
+        # single space - collapse all whitespace runs to one space so a multi-word token still matches.
+        manifest_text = _WHITESPACE_RE.sub(" ", yaml.safe_dump(_real_manifest(family, platform)).lower())
+        for token in _HAZARD_TRACE_TOKENS[issue_id]:
+            assert token.lower() in issue_text, (issue_id, token, "token not even in the real issue record")
+>           assert token.lower() in manifest_text, (
+                issue_id,
+                token,
+                "token missing from the manifest's hazard text",
+            )
+E           AssertionError: ('EMAIL-CPP-004', 'on the same mapi_message.', "token missing from the manifest's hazard text")
+E           assert 'on the same mapi_message.' in "family: email known_hazards: - text: 'the reference returned by add_attachment, add_recipient, or add_embedded_messag...tory: aspose-email-foss/aspose.email-foss-for-cpp schedule: cron: 0 10 * * * timezone: utc storage_topology: embedded "
+E            +  where 'on the same mapi_message.' = <built-in method lower of str object at 0x0000014B25250E90>()
+E            +    where <built-in method lower of str object at 0x0000014B25250E90> = 'on the same mapi_message.'.lower
+
+tests\mcp\tools\test_known_hazards_round2_disclosures.py:280: AssertionError
+=========================== short test summary info ===========================
+FAILED tests/mcp/tools/test_known_hazards_round2_disclosures.py::test_hazard_text_carries_the_real_issue_specific_trace_tokens[EMAIL-CPP-004]
+
+--- stderr ---
+
