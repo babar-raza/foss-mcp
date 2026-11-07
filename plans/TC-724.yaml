@@ -1,0 +1,118 @@
+id: TC-724
+gate: G3
+lane: transport-deployment
+purpose: >-
+  Closes 3D-TYPESCRIPT-006 (round-2, `docs/round2/issues.json`, severity P2, category
+  "coverage-gap" - confirmed STILL OPEN by a dedicated 2026-11-07 supervisor investigation):
+  `3d/typescript`'s `Axis`, `FbxElement`, and `FbxProperty` are real, declared, compiled, public
+  classes - `get_symbol`/`search_symbols` return full, accurate signatures for them (method/
+  property lists match the real source exactly) - but none of the three is ever re-exported from
+  any module barrel (`index.ts`) file, so `import { Axis } from '@aspose/3d'` genuinely fails at
+  the real published package's actual public import surface, with zero caveat anywhere this
+  project serves. The round-2 finding's own static reads confirm this directly: `grep -rn "from
+  './Axis'" lib/src` returns zero results anywhere (no barrel ever imports/re-exports `Axis.ts`),
+  and `lib/src/aspose/threed/formats/fbx/index.ts` only re-exports `FbxParser`/`FbxTokenizer`/
+  `BinaryTokenizer`, never `FbxElement` or `FbxProperty` (both declared and exported inside
+  `parser.ts`, just never forwarded onward). An agent who sees `get_symbol`'s accurate signature
+  for `Axis` and writes `import { Axis } from '@aspose/3d'` gets a real import error with no prior
+  warning that this specific class, unlike the vast majority of this pilot's other public classes,
+  is unreachable through the package's own declared public surface.
+
+  REPRODUCE FIRST: confirm this is still real. Fetch the real pinned commit's real
+  `lib/src/aspose/threed/index.ts` (the top-level barrel) and `lib/src/aspose/threed/formats/fbx/index.ts`
+  directly via `gh api` (the real repository from `config/products/3d/typescript.yaml`, the real
+  `source_ref` from `infra/demo-manifests/product_reference_3d_typescript.json`) and confirm
+  neither file imports or re-exports `Axis`, `FbxElement`, or `FbxProperty` - a plain text search
+  for each name in both files should find no matching `export`/`import ... from` line naming them.
+  Separately confirm the real committed `tests/fixtures/3d_typescript/api_surface.json` fixture
+  still has real, non-empty method/property entries for all three (confirming `get_symbol` really
+  does serve an accurate, uncaveated signature for each). Report the real file contents you
+  observed, verbatim, in your closeout.
+
+  FIX (pure additive data, zero code change - same mechanism this project already uses for `cells/go`/
+  `page/python`/`cells/python`/`email/cpp`/`slides/cpp`'s own entries; `3d/typescript` has no
+  `known_hazards` key yet): add a NEW `known_hazards` key to `config/products/3d/typescript.yaml`
+  (as the LAST top-level key, matching the established file-level comment convention), with ONE
+  entry stating plainly: the real trigger (any attempt to `import { Axis }` / `import {
+  FbxElement }` / `import { FbxProperty }` from the package's own top-level or `formats/fbx`
+  module), the real observed behavior (the import fails - these three names are never re-exported
+  by any barrel file, unlike the great majority of this pilot's other public classes), and the safe
+  pattern (do not trust `get_symbol`'s accurate signature as proof a class is importable from the
+  package's declared public surface for these three specific names; confirm the class is actually
+  re-exported from a real `index.ts` barrel before writing import code against it).
+depends_on:
+  - TC-001
+  - TC-003
+  - TC-234
+  - TC-650
+  - TC-720
+  - TC-721
+  - TC-722
+  - TC-723
+write_paths:
+  - config/products/3d/typescript.yaml
+  - tests/mcp/tools/test_known_hazards_round2_disclosures.py
+satisfies:
+  - REQ-G3-015
+source_refs:
+  - file: docs/DECISION_LOG.md
+    anchor: >-
+      ## 2026-11-07 — CELLS-CPP-005 confirmed already fixed; the round-2 finding is stale (supervisor)
+    sha256: 991caa8a95ffcb674b6a4e39b368ce56b3146603d9ffb56575202ac94974f9bc
+inputs:
+  - >-
+    READ FIRST: `docs/round2/issues.json` id `3D-TYPESCRIPT-006` in full. Then
+    `config/products/cells/go.yaml`'s own `known_hazards` entry (your template) and
+    `tests/mcp/tools/test_known_hazards_round2_disclosures.py` in full, especially the most recent
+    widening for `TC-723`/`SLIDES-CPP-003` (search for "SLIDES-CPP-003" in that file) as your
+    direct, most-recent template for adding a 12th entry cleanly.
+  - >-
+    REPRODUCE FIRST (do not skip): fetch the real pinned commit's real barrel files via `gh api`
+    and confirm none of the three names is re-exported. Report the real file contents observed,
+    verbatim, in your closeout.
+  - >-
+    This is a project-authored disclosure, not an upstream quote - write the hazard in your own
+    words, matching the house style of every other `known_hazards` entry already committed.
+  - >-
+    Before committing, manually run this card's own `negative_control.mutate` script against your
+    real committed file and confirm it actually makes your new test fail. Remember: the mutate
+    APPENDS "NOTREAL" onto the matched word, so a trace token that is only a PREFIX of your mutated
+    subject name (or a substring of it elsewhere in your text) remains matching after mutation and
+    makes the control vacuous - the exact near-miss class `TC-720`/`TC-722` hit and `TC-723`
+    deliberately avoided by choosing a straddling phrase; follow that same discipline.
+actions:
+  - >-
+    Disclose the real barrel-export gap for Axis/FbxElement/FbxProperty via a new known_hazards
+    entry for 3d/typescript, reusing the already-proven, already-wired mechanism with zero code
+    change.
+checks:
+  - command: '{python} -m pytest tests/mcp/tools/test_known_hazards_round2_disclosures.py -q -rfE -p no:cacheprovider'
+    expect: 'exit 0'
+    timeout_seconds: 300
+    junitxml: true
+    proves:
+      - REQ-G3-015
+min_tests: 32
+requires:
+  - python
+network: true
+negative_control:
+  mutate: |
+    python -X utf8 -c "import pathlib; p = pathlib.Path('config/products/3d/typescript.yaml'); s = p.read_text(encoding='utf-8'); old = 'FbxElement'; count = s.count(old); assert count >= 1, 'the expected FbxElement literal was not found - if your real hazard text phrases this differently, anchor your own mutate on your own real literal instead and note the substitution in your closeout'; s2 = s.replace(old, 'FbxElementNOTREAL', 1); assert s2 != s; p.write_text(s2, encoding='utf-8')"
+  rationale: >-
+    Corrupts the real hazard text's own subject name so it no longer names the real class the new
+    regression test asserts on, which must make that test fail - a pure data mutation, immune to
+    the lockstep-rename vacuousness class this session's earlier reviews found, and it never
+    touches any code path. If your real hazard text repeats "FbxElement" more than once before the
+    mutate's target occurrence, or your chosen trace token is only a prefix of "FbxElement" (and so
+    remains a substring of "FbxElementNOTREAL" after mutation), re-anchor the mutate or your trace
+    token - follow TC-723's own worked example of choosing a straddling phrase instead of a bare
+    name to avoid exactly this.
+evidence:
+  - evidence/build/G3/TC-724/receipt.json
+closeout:
+  - >-
+    `3d/typescript`'s real barrel-export gap for `Axis`/`FbxElement`/`FbxProperty` is now disclosed
+    via a new project-authored known_hazards entry, closing 3D-TYPESCRIPT-006 with zero code
+    change.
+recovery: Re-run from a clean tree.
