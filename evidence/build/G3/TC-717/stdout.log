@@ -1,0 +1,194 @@
+
+===== CLEAN RUN 1 (host) =====
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-5c72e798a73c059a\Scripts\python.exe -m pytest tests/extraction/tree_sitter_engine/test_csharp_preproc_enum_members.py -q -rfE -p no:cacheprovider "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-g9qu3j_o\.junit-0.xml"
+--- stdout ---
+......                                                                   [100%]
+
+--- stderr ---
+
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-5c72e798a73c059a\Scripts\python.exe -m pytest tests/extraction/ -q -rfE -p no:cacheprovider --ignore=tests/extraction/test_github_http.py --ignore=tests/extraction/test_github_http_gh_cli_transport.py --ignore=tests/extraction/test_repo_native.py "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-g9qu3j_o\.junit-1.xml"
+--- stdout ---
+........................................................................ [  3%]
+........................................................................ [  7%]
+........................................................................ [ 11%]
+........................................................................ [ 14%]
+........................................................................ [ 18%]
+........................................................................ [ 22%]
+........................................................................ [ 26%]
+........................................................................ [ 29%]
+........................................................................ [ 33%]
+........................................................................ [ 37%]
+........................................................................ [ 41%]
+........................................................................ [ 44%]
+........................................................................ [ 48%]
+........................................................................ [ 52%]
+........................................................................ [ 55%]
+........................................................................ [ 59%]
+........................................................................ [ 63%]
+........................................................................ [ 67%]
+........................................................................ [ 70%]
+........................................................................ [ 74%]
+........................................................................ [ 78%]
+........................................................................ [ 82%]
+........................................................................ [ 85%]
+........................................................................ [ 89%]
+........................................................................ [ 93%]
+........................................................................ [ 96%]
+..........................................................               [100%]
+2 live test(s) deselected; set FOSS_MCP_NETWORK_TESTS=1 to run them
+
+--- stderr ---
+
+
+===== CLEAN RUN 2 (host) =====
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-5c72e798a73c059a\Scripts\python.exe -m pytest tests/extraction/tree_sitter_engine/test_csharp_preproc_enum_members.py -q -rfE -p no:cacheprovider "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-g9qu3j_o\.junit-0.xml"
+--- stdout ---
+......                                                                   [100%]
+
+--- stderr ---
+
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-5c72e798a73c059a\Scripts\python.exe -m pytest tests/extraction/ -q -rfE -p no:cacheprovider --ignore=tests/extraction/test_github_http.py --ignore=tests/extraction/test_github_http_gh_cli_transport.py --ignore=tests/extraction/test_repo_native.py "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-g9qu3j_o\.junit-1.xml"
+--- stdout ---
+........................................................................ [  3%]
+........................................................................ [  7%]
+........................................................................ [ 11%]
+........................................................................ [ 14%]
+........................................................................ [ 18%]
+........................................................................ [ 22%]
+........................................................................ [ 26%]
+........................................................................ [ 29%]
+........................................................................ [ 33%]
+........................................................................ [ 37%]
+........................................................................ [ 41%]
+........................................................................ [ 44%]
+........................................................................ [ 48%]
+........................................................................ [ 52%]
+........................................................................ [ 55%]
+........................................................................ [ 59%]
+........................................................................ [ 63%]
+........................................................................ [ 67%]
+........................................................................ [ 70%]
+........................................................................ [ 74%]
+........................................................................ [ 78%]
+........................................................................ [ 82%]
+........................................................................ [ 85%]
+........................................................................ [ 89%]
+........................................................................ [ 93%]
+........................................................................ [ 96%]
+..........................................................               [100%]
+2 live test(s) deselected; set FOSS_MCP_NETWORK_TESTS=1 to run them
+
+--- stderr ---
+
+
+===== NEGATIVE CONTROL (checks MUST now fail) =====
+mutated: M tests/fixtures/words_net/api_surface.json, ?? .junit-0.xml, ?? .junit-1.xml
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-5c72e798a73c059a\Scripts\python.exe -m pytest tests/extraction/tree_sitter_engine/test_csharp_preproc_enum_members.py -q -rfE -p no:cacheprovider "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-g9qu3j_o\.junit-0.xml"
+--- stdout ---
+.....F                                                                   [100%]
+================================== FAILURES ===================================
+_____________ test_real_words_net_fixture_has_webp_in_save_format _____________
+
+    def test_real_words_net_fixture_has_webp_in_save_format() -> None:
+        """Closes the exact gap a negative-control review found: every test above exercises
+        the extraction MECHANISM on hand-authored snippets, but none of them -- nor the
+        broader `tests/extraction/` sweep -- ever reads the real, committed
+        `tests/fixtures/words_net/api_surface.json` this card also regenerated. A mutation
+        that corrupts the real fixture's `WebP` member name (the negative control's own
+        mutate step) passed every other check in this file untouched, because nothing checked
+        the fixture itself.
+    
+        Loads the real fixture directly (no extraction engine, no network -- matching
+        `tests/extraction/test_words_net_extraction.py`'s own offline convention for it),
+        finds the real `SaveFormat` enum, and asserts the real `WebP` member -- value `"107"`,
+        the genuine upstream value confirmed via `gh api` against the real pinned commit in
+        this card's own closeout -- is present with the exact stub marking this card set,
+        matching every other refused `SaveFormat` image/document format already in the
+        fixture (`WriterFactory.CreateWriter`'s `case SaveFormat.WebP:` falls into the same
+        `throw new NotSupportedException("FOSS")` group as `Emf`/`Tiff`/`Png`/`Bmp`/`Jpeg`/
+        `Gif`/`Eps`)."""
+        data = json.loads(WORDS_NET_FIXTURE.read_text(encoding="utf-8"))
+        types = data["types"]
+        save_format = next(
+            t for t in types if t.get("kind") == "enum_declaration" and t.get("name") == "SaveFormat"
+        )
+        members_by_name = {m["name"]: m for m in save_format["enum_members"]}
+    
+>       assert "WebP" in members_by_name, "SaveFormat.WebP missing from the real committed fixture"
+E       AssertionError: SaveFormat.WebP missing from the real committed fixture
+E       assert 'WebP' in {'Unknown': {'name': 'Unknown', 'value': '0'}, 'Doc': {'name': 'Doc', 'stub': True, 'stub_reason': 'a switch case thro...n': 'a switch case throws NotSupportedException("FOSS")', 'value': '11'}, 'Docx': {'name': 'Docx', 'value': '20'}, ...}
+
+tests\extraction\tree_sitter_engine\test_csharp_preproc_enum_members.py:275: AssertionError
+=========================== short test summary info ===========================
+FAILED tests/extraction/tree_sitter_engine/test_csharp_preproc_enum_members.py::test_real_words_net_fixture_has_webp_in_save_format
+
+--- stderr ---
+
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-5c72e798a73c059a\Scripts\python.exe -m pytest tests/extraction/ -q -rfE -p no:cacheprovider --ignore=tests/extraction/test_github_http.py --ignore=tests/extraction/test_github_http_gh_cli_transport.py --ignore=tests/extraction/test_repo_native.py "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-g9qu3j_o\.junit-1.xml"
+--- stdout ---
+........................................................................ [  3%]
+........................................................................ [  7%]
+........................................................................ [ 11%]
+........................................................................ [ 14%]
+........................................................................ [ 18%]
+........................................................................ [ 22%]
+........................................................................ [ 26%]
+........................................................................ [ 29%]
+........................................................................ [ 33%]
+........................................................................ [ 37%]
+........................................................................ [ 41%]
+........................................................................ [ 44%]
+........................................................................ [ 48%]
+........................................................................ [ 52%]
+........................................................................ [ 55%]
+........................................................................ [ 59%]
+........................................................................ [ 63%]
+........................................................................ [ 67%]
+........................................................................ [ 70%]
+........................................................................ [ 74%]
+........................................................................ [ 78%]
+.............F.......................................................... [ 82%]
+........................................................................ [ 85%]
+........................................................................ [ 89%]
+........................................................................ [ 93%]
+........................................................................ [ 96%]
+..........................................................               [100%]
+================================== FAILURES ===================================
+_____________ test_real_words_net_fixture_has_webp_in_save_format _____________
+
+    def test_real_words_net_fixture_has_webp_in_save_format() -> None:
+        """Closes the exact gap a negative-control review found: every test above exercises
+        the extraction MECHANISM on hand-authored snippets, but none of them -- nor the
+        broader `tests/extraction/` sweep -- ever reads the real, committed
+        `tests/fixtures/words_net/api_surface.json` this card also regenerated. A mutation
+        that corrupts the real fixture's `WebP` member name (the negative control's own
+        mutate step) passed every other check in this file untouched, because nothing checked
+        the fixture itself.
+    
+        Loads the real fixture directly (no extraction engine, no network -- matching
+        `tests/extraction/test_words_net_extraction.py`'s own offline convention for it),
+        finds the real `SaveFormat` enum, and asserts the real `WebP` member -- value `"107"`,
+        the genuine upstream value confirmed via `gh api` against the real pinned commit in
+        this card's own closeout -- is present with the exact stub marking this card set,
+        matching every other refused `SaveFormat` image/document format already in the
+        fixture (`WriterFactory.CreateWriter`'s `case SaveFormat.WebP:` falls into the same
+        `throw new NotSupportedException("FOSS")` group as `Emf`/`Tiff`/`Png`/`Bmp`/`Jpeg`/
+        `Gif`/`Eps`)."""
+        data = json.loads(WORDS_NET_FIXTURE.read_text(encoding="utf-8"))
+        types = data["types"]
+        save_format = next(
+            t for t in types if t.get("kind") == "enum_declaration" and t.get("name") == "SaveFormat"
+        )
+        members_by_name = {m["name"]: m for m in save_format["enum_members"]}
+    
+>       assert "WebP" in members_by_name, "SaveFormat.WebP missing from the real committed fixture"
+E       AssertionError: SaveFormat.WebP missing from the real committed fixture
+E       assert 'WebP' in {'Unknown': {'name': 'Unknown', 'value': '0'}, 'Doc': {'name': 'Doc', 'stub': True, 'stub_reason': 'a switch case thro...n': 'a switch case throws NotSupportedException("FOSS")', 'value': '11'}, 'Docx': {'name': 'Docx', 'value': '20'}, ...}
+
+tests\extraction\tree_sitter_engine\test_csharp_preproc_enum_members.py:275: AssertionError
+2 live test(s) deselected; set FOSS_MCP_NETWORK_TESTS=1 to run them
+=========================== short test summary info ===========================
+FAILED tests/extraction/tree_sitter_engine/test_csharp_preproc_enum_members.py::test_real_words_net_fixture_has_webp_in_save_format
+
+--- stderr ---
+

@@ -1,0 +1,112 @@
+{
+  "schema_version": 1,
+  "card": "TC-717",
+  "gate": "G3",
+  "generated_by": "gatectl",
+  "generated_at": "2026-11-07T14:33:04Z",
+  "base_rev": "e5c07c668b1db6bdfd0c5741ee5d746237910789",
+  "head_rev": "ceb442c3560c82b5a9c5dcdc1caca38ee3466a27",
+  "card_sha256": "20f575f57eaf1a1e2cb9c59b3429c56b93d379f41c38769a09e1d8177e89f32b",
+  "fingerprint": {
+    "python": "3.13.2",
+    "platform": "Windows-11-10.0.26300-SP0",
+    "lock_sha256": "5c72e798a73c059a438e752e94a8d4c88c1bdf81a197f6e5c5fcecbc9466a691",
+    "env": {
+      "PYTHONHASHSEED": "0",
+      "PYTHONUTF8": "1",
+      "PYTHONDONTWRITEBYTECODE": "1",
+      "PYTHONIOENCODING": "utf-8",
+      "TZ": "UTC",
+      "LC_ALL": "C.UTF-8",
+      "SOURCE_DATE_EPOCH": "1700000000",
+      "verify_runner": "host"
+    }
+  },
+  "scope": {
+    "ok": true,
+    "changed_paths": [
+      "src/foss_mcp/extraction/tree_sitter_engine/tree_helpers.py",
+      "tests/extraction/tree_sitter_engine/test_csharp_preproc_enum_members.py",
+      "tests/fixtures/words_net/api_surface.json"
+    ],
+    "violations": [],
+    "evaluated": true
+  },
+  "runs": [
+    {
+      "run": 1,
+      "checks": [
+        {
+          "command": "{python} -m pytest tests/extraction/tree_sitter_engine/test_csharp_preproc_enum_members.py -q -rfE -p no:cacheprovider",
+          "exit_code": 0,
+          "duration_s": 2.268,
+          "stdout_sha256": "700bc0322b00f8e8db3ce495047983b54ab27ab59ed1fedac05f3aeba47dae24",
+          "tests": 6,
+          "skipped": 0,
+          "errors": 0,
+          "failures": 0
+        },
+        {
+          "command": "{python} -m pytest tests/extraction/ -q -rfE -p no:cacheprovider --ignore=tests/extraction/test_github_http.py --ignore=tests/extraction/test_github_http_gh_cli_transport.py --ignore=tests/extraction/test_repo_native.py",
+          "exit_code": 0,
+          "duration_s": 120.135,
+          "stdout_sha256": "16d7259ba1d4c4653488760189e4069a6eb471773cfb6c4a20f0a02f03d9e00b",
+          "tests": 1930,
+          "skipped": 0,
+          "errors": 0,
+          "failures": 0
+        }
+      ],
+      "all_passed": true
+    },
+    {
+      "run": 2,
+      "checks": [
+        {
+          "command": "{python} -m pytest tests/extraction/tree_sitter_engine/test_csharp_preproc_enum_members.py -q -rfE -p no:cacheprovider",
+          "exit_code": 0,
+          "duration_s": 0.849,
+          "stdout_sha256": "700bc0322b00f8e8db3ce495047983b54ab27ab59ed1fedac05f3aeba47dae24",
+          "tests": 6,
+          "skipped": 0,
+          "errors": 0,
+          "failures": 0
+        },
+        {
+          "command": "{python} -m pytest tests/extraction/ -q -rfE -p no:cacheprovider --ignore=tests/extraction/test_github_http.py --ignore=tests/extraction/test_github_http_gh_cli_transport.py --ignore=tests/extraction/test_repo_native.py",
+          "exit_code": 0,
+          "duration_s": 112.553,
+          "stdout_sha256": "16d7259ba1d4c4653488760189e4069a6eb471773cfb6c4a20f0a02f03d9e00b",
+          "tests": 1930,
+          "skipped": 0,
+          "errors": 0,
+          "failures": 0
+        }
+      ],
+      "all_passed": true
+    }
+  ],
+  "negative_control": {
+    "kind": "mutate",
+    "patch": "python -X utf8 -c \"import pathlib; q = chr(34); p = pathlib.Path('tests/fixtures/words_net/api_surface.json'); s = p.read_text(encoding='utf-8'); old = q + 'WebP' + q; count = s.count(old); assert count >= 1, 'the expected WebP literal was not found in the real fixture - if your real fix names it differently, anchor your own mutate on your own real literal instead and note the substitution in your closeout'; s2 = s.replace(old, q + 'WebPNOTREAL' + q, 1); assert s2 != s; p.write_text(s2, encoding='utf-8')\"\n",
+    "patch_sha256": "6e58cc9e471d41aeb03f5c852332e2deeb0e9bae71363ccb6368e5402fa13abd",
+    "applied": true,
+    "patch_applied_failed": true,
+    "exit_codes": [
+      1,
+      1
+    ],
+    "tree_changed": [
+      "M tests/fixtures/words_net/api_surface.json",
+      "?? .junit-0.xml",
+      "?? .junit-1.xml"
+    ]
+  },
+  "holdout": {
+    "ran": false,
+    "passed": true,
+    "detail": "no holdout for this card"
+  },
+  "accepted": true,
+  "reason": "all gates passed"
+}
