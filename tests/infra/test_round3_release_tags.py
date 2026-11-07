@@ -23,6 +23,7 @@ from foss_mcp.extraction import github_release_reader as reader
 from foss_mcp.extraction.github_release_reader import (
     DriftRecord,
     Release,
+    _tag_version,
     fetch_drift,
     merge_newer_tags,
     order_tags_newest_first,
@@ -33,6 +34,9 @@ SHA_A = "a" * 40
 SHA_B = "b" * 40
 SHA_C = "c" * 40
 SHA_INDEXED = "1234567890abcdef1234567890abcdef12345678"
+
+REPO_ROOT = Path(__file__).resolve().parents[2]
+REAL_NOTE_PYTHON_SIDECAR = REPO_ROOT / "infra" / "demo-manifests" / "recent_releases_note_python.json"
 
 
 def _release(tag: str) -> Release:
@@ -624,3 +628,27 @@ def test_the_named_live_pins_get_the_right_direction_and_published_version(
     assert verdict["drift"] == expected_drift
     assert verdict["published_version"] == expected_published
     assert verdict["latest_release_tag"] == tag
+
+
+# --- NOTE-PY-003 (G3/TC-713): the real committed served sidecar, not a tmp_path fixture -----------
+
+
+def test_the_real_committed_note_python_sidecar_is_not_stuck_at_two_releases() -> None:
+    # TC-655/TC-664 already proved pad_with_older_tags/_with_ancestry correct against synthetic
+    # data; this reads the REAL file infra/serve_http.py actually bakes into the demo image, so a
+    # future re-staling of that file (the regeneration never re-run after a later code change)
+    # fails here instead of silently reproducing NOTE-PY-003 again.
+    entries = json.loads(REAL_NOTE_PYTHON_SIDECAR.read_text(encoding="utf-8"))
+
+    assert len(entries) > 2
+
+    # _tag_version drops trailing-zero version components (its own documented contract), so the
+    # installed version is compared via the same parser rather than a hardcoded tuple - this stays
+    # correct even if _tag_version's normalization, or the tag's own spelling, changes later.
+    installed_version = _tag_version("v26.9.0")
+    matching = [
+        entry
+        for entry in entries
+        if _tag_version(entry.get("tag_name", "")) == installed_version and entry.get("source") == "tag"
+    ]
+    assert matching, f"expected a source=tag entry resolving to {installed_version} among {entries!r}"
