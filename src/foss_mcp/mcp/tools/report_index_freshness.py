@@ -672,6 +672,31 @@ def report_index_freshness(
             "registry_served_version",
             version_drift=version_drift,
         )
+    if (
+        registry_served_version is not None
+        and indexed_version is not None
+        and registry_served_version[0] != indexed_version[0]
+    ):
+        # G3/TC-712 (EML-NET-005): the major-version-agreement branch above correctly withholds a
+        # confident verdict here - the manifest's own declared version (indexed_version) is not a
+        # trustworthy freshness signal once its major disagrees with the registry's, exactly as
+        # that branch's own comment explains. But the real registry-served version
+        # (registry_served_version) is still known and still a real fact, just not one that can
+        # decide fresh/stale by itself. Disclose it in published_version without upgrading the
+        # verdict: reuse drift (always DRIFT_UNKNOWN by this point, same as the legacy fallback
+        # below) with only published_version overridden from the real registry text - every other
+        # evidence field (drift/index_ahead_of_package/package_ahead_of_index/commit_distance/
+        # message) stays exactly what the legacy fallback already carries.
+        indexed_text = ".".join(str(part) for part in indexed_version)
+        registry_text = ".".join(str(part) for part in registry_served_version)
+        return build(
+            "unknown",
+            f"the package registry serves version {registry_text}, but the indexed package "
+            f"version {indexed_text} has a different major version; the manifest's own declared "
+            "version is not a trustworthy freshness signal here",
+            "registry_served_version_major_mismatch",
+            version_drift={**drift, "published_version": registry_text},
+        )
     if len(commits) > 1:
         return build("unknown", _mixed_reason(commits, None), "none")
     return build("unknown", "current source commit is unknown; staleness cannot be ruled out", "none")

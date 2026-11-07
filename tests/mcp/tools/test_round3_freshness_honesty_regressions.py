@@ -201,6 +201,54 @@ def test_eml_net_007_real_baked_sidecar_now_reports_unknown_not_a_false_stale(tm
     assert "0.1.0" not in report.reason or "stale" not in report.reason.lower()
 
 
+# --- (3b) G3/TC-712, EML-NET-005: the real registry-served version is disclosed even though -----
+# --- EML-NET-007's own major-mismatch guard above correctly keeps the verdict "unknown" ----------
+
+
+def test_eml_net_005_real_baked_sidecar_now_populates_published_version(tmp_path: Path) -> None:
+    """The real, reproducible EML-NET-005 case, against the same committed email/net sidecars as
+    EML-NET-007 above: before this card, ``published_version`` stayed ``None`` even though the
+    real registry-served version (26.7.0) was resolved and in scope the whole time - a pure
+    missing-fact gap, not a wrong-verdict bug (round-2's own finding: "zero practical harm", the
+    indexed API matched the installed 26.7.0 package exactly). The verdict stays "unknown",
+    unchanged; only published_version is now populated with the real registry text."""
+    config = DeploymentConfig(family="email", platform="net")
+    inputs = serve_http._serving_product_reference_inputs(DEMO_MANIFESTS, config)
+    assert inputs is not None
+    assert inputs.install_verified_served_version == "26.7.0"
+    assert package_version(inputs) == (0, 1, 0)
+
+    manifests = tmp_path / "manifests"
+    shutil.copytree(DEMO_MANIFESTS / "email__net__self_extracted", manifests / "email__net__self_extracted")
+    store = GenerationManifestStore(manifests)
+    registry_served_version = parse_release_version(inputs.install_verified_served_version)
+
+    report = report_index_freshness(
+        store,
+        Scope(family="email", platform="net"),
+        "self_extracted",
+        None,
+        pinned_library_commit=inputs.source_ref,
+        product_reference=inputs,
+        releases=(),
+        registry_served_version=registry_served_version,
+    )
+
+    # The verdict EML-NET-007 established is untouched.
+    assert report.freshness_state == "unknown"
+    assert report.stale is True
+    # The real gap this card closes: published_version is no longer null.
+    assert report.freshness_basis == "registry_served_version_major_mismatch"
+    assert report.published_version == "26.7.0"
+    # No other evidence field is fabricated - the legacy DRIFT_UNKNOWN shape is kept verbatim
+    # apart from the one overridden key.
+    assert report.drift == "unknown"
+    assert report.index_ahead_of_package is None
+    assert report.package_ahead_of_index is None
+    assert report.drift_commit_distance is None
+    assert report.drift_message is None
+
+
 def test_eml_net_007_major_mismatch_registry_higher_falls_through_to_unknown(tmp_path: Path) -> None:
     store = _single(tmp_path)
     placeholder = ProductReferenceInputs(
@@ -210,9 +258,15 @@ def test_eml_net_007_major_mismatch_registry_higher_falls_through_to_unknown(tmp
     report = _report(store, product_reference=placeholder, registry_served_version=(26, 7, 0))
 
     assert report.freshness_state == "unknown"
-    assert report.freshness_basis == "none"
+    # G3/TC-712 (EML-NET-005): the verdict itself is still the honest "unknown" fallback this card
+    # (EML-NET-007) established - but the real registry-served version is now disclosed in
+    # published_version rather than silently staying null, via its own dedicated basis.
+    assert report.freshness_basis == "registry_served_version_major_mismatch"
+    assert report.published_version == "26.7.0"
     # No confident-but-meaningless verdict leaks through, and no fabricated drift evidence either.
-    assert report.published_version is None
+    assert report.drift == "unknown"
+    assert report.index_ahead_of_package is None
+    assert report.package_ahead_of_index is None
 
 
 def test_eml_net_007_major_mismatch_registry_lower_also_falls_through_to_unknown(tmp_path: Path) -> None:
@@ -227,7 +281,10 @@ def test_eml_net_007_major_mismatch_registry_lower_also_falls_through_to_unknown
     report = _report(store, product_reference=inflated, registry_served_version=(26, 7, 0))
 
     assert report.freshness_state == "unknown"
-    assert report.freshness_basis == "none"
+    # G3/TC-712: symmetric with the "registry lower" case above - the real registry version is
+    # still disclosed in published_version even when the mismatch runs in the other direction.
+    assert report.freshness_basis == "registry_served_version_major_mismatch"
+    assert report.published_version == "26.7.0"
 
 
 # --- (4) the mechanism is NOT blinded for pilots whose manifest version is real -------------------
