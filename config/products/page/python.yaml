@@ -21,3 +21,24 @@ schedule:
   cron: "0 7 * * *"
   timezone: UTC
 storage_topology: embedded
+
+# G3/TC-720: a project-authored, project-verified hazard the upstream repository does not
+# document anywhere (the real installed aspose-page-foss 26.9.0 package's own docstrings say
+# nothing about an initial page) - a confirmed upstream documentation gap, re-checked
+# 2026-11-07 by direct reproduction against the real installed package, not a foss-mcp defect.
+# Keep this the LAST top-level key.
+known_hazards:
+  - text: >-
+      PsDocument.create(is_eps=True) returns a document that already contains one page -
+      len(doc.pages) == 1 immediately, exactly as the plain PsDocument.create() does too,
+      confirmed by direct reproduction against the real installed aspose-page-foss 26.9.0
+      package (create() prints 1, then add_page() prints 2). This is asymmetric with the
+      sibling XpsDocument.create(), which genuinely starts at zero pages
+      (len(doc.builder.pages) == 0, also confirmed by direct reproduction) - the same
+      "create()" name behaves differently across the two classes. An agent following the
+      natural "create() then add_page() for the first page" pattern silently ends up with an
+      unwanted second, blank page on the very first call, and save()/to_pdf()/to_image() all
+      succeed without error, so nothing signals the mistake. The safe pattern is to check the
+      real page count (len(doc.pages)) before deciding whether to call add_page() at all - use
+      the page already provided instead of assuming a freshly created document is empty.
+    verified_at: "2026-11-07"

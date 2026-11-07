@@ -10,6 +10,15 @@ disproved by live reproduction against the actually-installed/published package:
 ``SLIDES-JAVA-001``/``SLIDES-JAVA-002`` (config/products/slides/java.yaml), and
 ``SLIDES-PY-002`` (config/products/slides/python.yaml).
 
+G3/TC-720 adds an 8th round-2 finding, ``PAGE-PYTHON-003`` (config/products/page/python.yaml),
+through the identical mechanism: a real, undocumented behavior of the actually-installed
+``aspose-page-foss`` package (``PsDocument.create()`` silently starts with one page already
+present) that this project's own served content never disclosed. Its ``verified_at`` is its
+own real verification date (2026-11-07, by direct reproduction against the real installed
+package), distinct from the other 7 entries' shared ``ROUND2_VERIFIED_AT`` (2026-10-29, the
+original round-2 audit's date) - so it is kept out of the shared ``PILOTS``/``ALL_ISSUE_IDS``
+tuples that assume that one shared date, and is instead layered on top via ``ALL_PILOTS``.
+
 This file proves, per pilot: (1) the manifest's new ``known_hazards`` entries validate against
 the real schema; (2) a real end-to-end ``get_product_reference(section="limitations")`` call
 against the REAL baked sidecar (``infra/demo-manifests``, the exact way the live server loads a
@@ -69,6 +78,18 @@ PILOTS: tuple[tuple[str, str, tuple[str, ...]], ...] = (
 ALL_ISSUE_IDS: tuple[str, ...] = tuple(issue_id for _, _, ids in PILOTS for issue_id in ids)
 PILOT_IDS = [f"{family}/{platform}" for family, platform, _ in PILOTS]
 
+# G3/TC-720: the 8th round-2-sourced known_hazards entry, PAGE-PYTHON-003 (page/python). Kept
+# separate from PILOTS above (rather than appended to it) because its real verified_at
+# (2026-11-07, this card's own direct reproduction) differs from the other 7 entries' shared
+# ROUND2_VERIFIED_AT (2026-10-29) - tests that assume every PILOTS entry shares one verified_at
+# date (the schema-validation and verified_at-date tests below) stay scoped to the original 7,
+# unchanged; tests that check per-entry disclosure (the "for each pilot" and "trace tokens"
+# tests) are extended to also cover this 8th entry via ALL_PILOTS/ALL_ISSUE_IDS below.
+PAGE_PYTHON_PILOT: tuple[str, str, tuple[str, ...]] = ("page", "python", ("PAGE-PYTHON-003",))
+ALL_PILOTS: tuple[tuple[str, str, tuple[str, ...]], ...] = PILOTS + (PAGE_PYTHON_PILOT,)
+ALL_PILOT_IDS = PILOT_IDS + ["page/python"]
+ALL_ISSUE_IDS = ALL_ISSUE_IDS + PAGE_PYTHON_PILOT[2]
+
 
 def _schema() -> dict[str, Any]:
     return json.loads(SCHEMA_PATH.read_text(encoding="utf-8"))
@@ -123,26 +144,31 @@ def test_manifest_known_hazards_entries_validate_against_the_real_schema(
         assert hazard.verified_at == ROUND2_VERIFIED_AT
 
 
-def test_total_known_hazards_entries_match_the_seven_round2_findings() -> None:
-    """Exactly 7 entries across the 5 pilots - one per round-2 issue id this card closes, no more,
-    no fewer."""
+def test_total_known_hazards_entries_match_the_eight_round2_findings() -> None:
+    """Exactly 8 entries across the 6 pilots - one per round-2 issue id this card (plus G3/TC-720's
+    PAGE-PYTHON-003) closes, no more, no fewer."""
     total = sum(
-        len(known_hazards_from_manifest(_real_manifest(family, platform))) for family, platform, _ in PILOTS
+        len(known_hazards_from_manifest(_real_manifest(family, platform)))
+        for family, platform, _ in ALL_PILOTS
     )
-    assert total == 7
-    assert len(ALL_ISSUE_IDS) == 7
+    assert total == 8
+    assert len(ALL_ISSUE_IDS) == 8
 
 
 # ------------------------------------------------------------- (2) end-to-end, real baked pilot
 
 
-@pytest.mark.parametrize("family,platform,issue_ids", PILOTS, ids=PILOT_IDS)
+@pytest.mark.parametrize("family,platform,issue_ids", ALL_PILOTS, ids=ALL_PILOT_IDS)
 def test_get_product_reference_limitations_surfaces_the_real_hazard_for_each_pilot(
     tmp_path: Path, family: str, platform: str, issue_ids: tuple[str, ...]
 ) -> None:
     """The REAL baked sidecar's "limitations" answer, with this pilot's manifest-sourced
     known_hazards merged in exactly as the live server does, discloses every one of this pilot's
-    round-2 hazards - distinctly framed, never marked untrusted_upstream_content."""
+    round-2 hazards - distinctly framed, never marked untrusted_upstream_content.
+
+    Asserts each hazard's OWN verified_at appears in the text (rather than the shared
+    ROUND2_VERIFIED_AT constant) because G3/TC-720's page/python entry (added via ALL_PILOTS)
+    carries its own real, later verification date."""
     inputs, readme = _load_baked(tmp_path, family, platform)
     manifest = _real_manifest(family, platform)
     hazards = known_hazards_from_manifest(manifest)
@@ -155,7 +181,8 @@ def test_get_product_reference_limitations_surfaces_the_real_hazard_for_each_pil
     assert result.section == "limitations"
     assert result.untrusted_upstream_content is False
     assert result.text.count(KNOWN_HAZARD_LEAD) == len(issue_ids)
-    assert ROUND2_VERIFIED_AT in result.text
+    for hazard in hazards:
+        assert hazard.verified_at in result.text
 
 
 # ------------------------------------------- (3) failure mode / trigger / safe pattern, per issue
@@ -170,6 +197,11 @@ _HAZARD_TRACE_TOKENS: dict[str, tuple[str, ...]] = {
     "SLIDES-JAVA-001": ("unsupportedoperationexception", "pptx, ppsx, potx", "export format"),
     "SLIDES-JAVA-002": ("sldidlst", "addemptyslide", "addclone"),
     "SLIDES-PY-002": ("pptm", "potx", "26.8.0"),
+    "PAGE-PYTHON-003": (
+        "psdocument.create(is_eps=true)",
+        "xpsdocument.create()",
+        "returns a document that already contains one page",
+    ),
 }
 
 
@@ -211,9 +243,10 @@ def test_known_hazards_verified_at_is_a_real_valid_calendar_date(
         assert parsed <= datetime.date(2026, 11, 1)
 
 
-def test_round2_issues_json_actually_contains_the_seven_claimed_ids() -> None:
-    """Every one of the 7 issue ids this card closes is a real record in
-    docs/round2/issues.json - the source this card's hazard text must be traceable to."""
+def test_round2_issues_json_actually_contains_the_eight_claimed_ids() -> None:
+    """Every one of the 8 issue ids this card (plus G3/TC-720's PAGE-PYTHON-003) closes is a real
+    record in docs/round2/issues.json - the source this card's hazard text must be traceable
+    to."""
     issues = json.loads(ROUND2_ISSUES_PATH.read_text(encoding="utf-8"))
     ids_present = {issue["id"] for issue in issues}
     for issue_id in ALL_ISSUE_IDS:
