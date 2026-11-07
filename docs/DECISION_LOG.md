@@ -3740,3 +3740,19 @@ established "101 of 104 real modules use a private-impl/public-re-export convent
 ambiguity in this direction: there, a name was imported-but-unlisted with no stated reason; here
 upstream explicitly and unambiguously documents the exclusion as deliberate. Not carded - no code
 change is warranted on either side of that open design question for this specific finding.
+
+## 2026-11-07 — CELLS-GO-009 confirmed real but too large for one disclosure card; needs splitting (supervisor)
+
+`CELLS-GO-009` (round-2, P2, coverage-gap, `cells/go`) names SIX independent, real capability gaps
+undisclosed in this project's own served limitations text: no merged-cell support, no named ranges,
+no number-format support, no multi-sheet creation, no chart API, no PDF export. Confirmed still
+open (zero hits in `docs/DECISION_LOG.md`, `config/known_defects/`, or
+`config/products/cells/go.yaml`'s own `known_hazards`, which already has one unrelated entry - the
+concurrent-mutation crash hazard - for this exact pilot). Each of the six needs its own independent
+verification against the real installed package before it can honestly be disclosed (this
+project's own discipline, re-learned several times this session: never disclose a claim that
+wasn't personally re-verified). Not carded as one combined entry - too large a single unit of work
+and risk for one card, same reasoning as `CELLS-GO-006`/`NOTE-PY-007`/`PDF-CPP-003` earlier this
+session. A future pass should verify and disclose these in 2-3 smaller, independently-reviewable
+groups (e.g. "no multi-sheet creation" + "no PDF export" as one; "no merged-cell/named-range/
+number-format" as another), not attempt all six in a single card.
