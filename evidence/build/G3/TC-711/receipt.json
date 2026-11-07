@@ -1,0 +1,90 @@
+{
+  "schema_version": 1,
+  "card": "TC-711",
+  "gate": "G3",
+  "generated_by": "gatectl",
+  "generated_at": "2026-11-07T09:33:13Z",
+  "base_rev": "90b8fd1d56b2aa513aa3e350e572b1d107dbc689",
+  "head_rev": "4d3b394166790a6736eb14bbe6cd9e0a9d889602",
+  "card_sha256": "21c4c00a7db1a8db55e7e2bbdf743595d9565bf523700df3077a57985600cb4f",
+  "fingerprint": {
+    "python": "3.13.2",
+    "platform": "Windows-11-10.0.26300-SP0",
+    "lock_sha256": "5c72e798a73c059a438e752e94a8d4c88c1bdf81a197f6e5c5fcecbc9466a691",
+    "env": {
+      "PYTHONHASHSEED": "0",
+      "PYTHONUTF8": "1",
+      "PYTHONDONTWRITEBYTECODE": "1",
+      "PYTHONIOENCODING": "utf-8",
+      "TZ": "UTC",
+      "LC_ALL": "C.UTF-8",
+      "SOURCE_DATE_EPOCH": "1700000000",
+      "verify_runner": "host"
+    }
+  },
+  "scope": {
+    "ok": true,
+    "changed_paths": [
+      "config/known_defects/words__net.yaml",
+      "tests/indexing/test_known_defects_completeness.py",
+      "tests/mcp/tools/test_known_defects_in_get_symbol.py"
+    ],
+    "violations": [],
+    "evaluated": true
+  },
+  "runs": [
+    {
+      "run": 1,
+      "checks": [
+        {
+          "command": "{python} -m pytest tests/indexing/test_known_defects_completeness.py tests/mcp/tools/test_known_defects_in_get_symbol.py -q -rfE -p no:cacheprovider",
+          "exit_code": 0,
+          "duration_s": 13.41,
+          "stdout_sha256": "0caf379acbcb845c31b98bf4efeffb865a66d527d27d5bb4f34018bea0099078",
+          "tests": 19,
+          "skipped": 0,
+          "errors": 0,
+          "failures": 0
+        }
+      ],
+      "all_passed": true
+    },
+    {
+      "run": 2,
+      "checks": [
+        {
+          "command": "{python} -m pytest tests/indexing/test_known_defects_completeness.py tests/mcp/tools/test_known_defects_in_get_symbol.py -q -rfE -p no:cacheprovider",
+          "exit_code": 0,
+          "duration_s": 12.061,
+          "stdout_sha256": "0caf379acbcb845c31b98bf4efeffb865a66d527d27d5bb4f34018bea0099078",
+          "tests": 19,
+          "skipped": 0,
+          "errors": 0,
+          "failures": 0
+        }
+      ],
+      "all_passed": true
+    }
+  ],
+  "negative_control": {
+    "kind": "mutate",
+    "patch": "python -X utf8 -c \"import pathlib; p = pathlib.Path('config/known_defects/words__net.yaml'); s = p.read_text(encoding='utf-8'); old = 'Aspose.Words.Body'; assert s.count(old) == 1, 'the expected literal was not found exactly once - if your real fix lists Aspose.Words.Body in a different exact form, anchor your own mutate on your own real literal instead and note the substitution in your closeout'; p.write_text(s.replace(old, 'Aspose.Words.Body.NOTREAL', 1), encoding='utf-8')\"\n",
+    "patch_sha256": "329a6f8b4867dfffc6402f0d885d8ba3c2df09e3e520b03945857dada2512214",
+    "applied": true,
+    "patch_applied_failed": true,
+    "exit_codes": [
+      1
+    ],
+    "tree_changed": [
+      "M config/known_defects/words__net.yaml",
+      "?? .junit-0.xml"
+    ]
+  },
+  "holdout": {
+    "ran": false,
+    "passed": true,
+    "detail": "no holdout for this card"
+  },
+  "accepted": true,
+  "reason": "all gates passed"
+}
