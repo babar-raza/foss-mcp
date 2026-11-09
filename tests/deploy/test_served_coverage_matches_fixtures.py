@@ -56,6 +56,7 @@ MIN_PILOTS = 32
 FUNCTION_KIND = "function"
 _ID_SEP = "::"
 _FQN_LINE = re.compile(r"^FQN:\s*(.+)$", re.MULTILINE)
+_DEFINED_IN_LINE = re.compile(r"^Defined-In:\s", re.MULTILINE)
 _COVERAGE_LINE = re.compile(r"^API-Coverage:.*$", re.MULTILINE)
 _COVERAGE_VALUE = re.compile(
     r"^API-Coverage: (\d+) of (\d+) types"
@@ -164,6 +165,24 @@ def served_counts(texts: Iterable[str]) -> tuple[int, int]:
     """(type chunks, function chunks) among the symbol chunks; ``Doc: `` and ``Example: `` chunks are ignored."""
     functions = sum(1 for text in symbol_texts(texts) if kind_of(text) == FUNCTION_KIND)
     return len(symbol_texts(texts)) - functions, functions
+
+
+def is_thin_type_chunk(text: str) -> bool:
+    """A thin re-export-shell chunk carries ``chunk_builder._format_type_text``'s own ``Defined-In:``
+    line (TC-686: emitted if and only if the chunk is thin, confirmed by direct read of its real
+    call site inside ``build_chunks_from_api_surface``). Python-only, by construction: no other
+    platform's extractor pairs a re-export shell with the definition it points to."""
+    return bool(_DEFINED_IN_LINE.search(text))
+
+
+def full_type_chunks_served(texts: Iterable[str]) -> int:
+    """TC-730: the number of FULL (non-thin) type chunks among the symbol chunks - chunk_builder's own
+    ``_coverage_line`` numerator convention (TC-614/686): one full chunk per canonical definition, a
+    real re-export shell excluded. This is NOT the same number as ``served_counts``'s raw type-chunk
+    count whenever a pilot has real shells; both are real, legitimately different numbers."""
+    return sum(
+        1 for text in symbol_texts(texts) if kind_of(text) != FUNCTION_KIND and not is_thin_type_chunk(text)
+    )
 
 
 def non_test_entries(fixture: Mapping[str, Any]) -> list[Mapping[str, Any]]:
@@ -279,9 +298,14 @@ def coverage_problems(fixture: Mapping[str, Any], texts: Sequence[str]) -> list[
     types, functions = served_counts(texts)
     want_types, want_functions = fixture_counts(fixture) if has_symbol_counts(fixture) else (0, 0)
     if has_symbol_counts(fixture):
-        if (line.types_indexed, line.types_total) != (types, want_types):
+        # TC-730: the line's N is chunk_builder's own DEDUPED numerator (one full chunk per canonical
+        # definition) - compare it against the full (non-thin) chunk count, not the raw ``types``
+        # (which includes real Python re-export shells and is never equal to N when any exist).
+        full_types = full_type_chunks_served(texts)
+        if (line.types_indexed, line.types_total) != (full_types, want_types):
             problems.append(
-                f"the line says {line.types_indexed} of {line.types_total} types; served {types}, fixture {want_types}"
+                f"the line says {line.types_indexed} of {line.types_total} types; served {full_types} full "
+                f"(non-thin) type chunks (of {types} total), fixture {want_types}"
             )
         if want_functions > 0:
             if line.functions_indexed is None:
@@ -410,7 +434,11 @@ def test_served_type_chunks_equal_the_fixture_types(key: str) -> None:
         assert served_types == line.types_indexed or line.functions_indexed is None
         assert is_really_stale(key), f"{key} is not stale: delete it from the table"
         return
-    fixture_types, _ = fixture_counts(load_fixture(key))
+    # TC-730: this test's own intent is "nothing silently dropped" - it needs the RAW recount of the
+    # fixture's entries (number 1, unconditionally), not whatever `fixture_counts` returns, which is
+    # the DEDUPED `symbol_counts.types` (number 3) for a fixture that has it - a real, different
+    # number from the raw served chunk count whenever a pilot has real re-export shells.
+    fixture_types, _ = recount(load_fixture(key)["types"])
     assert served_types == fixture_types, (
         f"{key}: serves {served_types} type chunks, the fixture has {fixture_types}"
     )
@@ -424,7 +452,9 @@ def test_served_function_chunks_equal_the_fixture_functions(key: str) -> None:
         assert not problems, problems
         assert is_really_stale(key), f"{key} is not stale: delete it from the table"
         return
-    _, fixture_functions = fixture_counts(load_fixture(key))
+    # TC-730: same reasoning as test_served_type_chunks_equal_the_fixture_types above - the RAW
+    # recount, not `fixture_counts`'s (possibly deduped) value.
+    _, fixture_functions = recount(load_fixture(key)["types"])
     assert served_functions == fixture_functions, (
         f"{key}: serves {served_functions} function chunks, the fixture has {fixture_functions}"
     )

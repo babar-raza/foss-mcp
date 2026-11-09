@@ -398,6 +398,21 @@ def _is_function_chunk(text: str) -> bool:
     return len(lines) > 1 and lines[1].strip() == "Kind: function"
 
 
+_DEFINED_IN_LINE = re.compile(r"^Defined-In:\s", re.MULTILINE)
+
+
+def _is_thin_type_chunk(text: str) -> bool:
+    """A thin re-export-shell chunk is one whose own rendered text carries a ``Defined-In:`` line.
+
+    `chunk_builder._format_type_text` (TC-686) emits this line if and only if the chunk is thin -
+    confirmed by direct read of its real call site inside `build_chunks_from_api_surface`
+    (`defined_in=fqns[target] if target is not None else None`, `thin=target is not None and not
+    identities[index].is_definition`: `defined_in` is truthy exactly when `thin` is true, on every
+    real pilot). Python-only, by construction: no other platform's extractor pairs a re-export
+    shell with the definition it points to."""
+    return bool(_DEFINED_IN_LINE.search(text))
+
+
 def coverage_problems(fixture: Mapping[str, Any], symbol_texts: Sequence[str]) -> list[str]:
     """Every symbol chunk states the one shared ``API-Coverage:`` line, and the line is honest about the fixture.
 
@@ -414,6 +429,14 @@ def coverage_problems(fixture: Mapping[str, Any], symbol_texts: Sequence[str]) -
     by_kind = isinstance(counts, Mapping) and _is_count(counts.get("types"))
     function_chunks = sum(1 for text in symbol_texts if _is_function_chunk(text))
     type_chunks = len(symbol_texts) - function_chunks
+    # TC-730: the coverage line's N is chunk_builder's own DEDUPED count (one full chunk per canonical
+    # definition, TC-614/686) - a real Python re-export shell renders as an extra, thin, non-function
+    # chunk that must not inflate the comparison below. The raw ``type_chunks`` above (shells included)
+    # stays the right number for completeness checking elsewhere and is left alone.
+    thin_type_chunks = sum(
+        1 for text in symbol_texts if not _is_function_chunk(text) and _is_thin_type_chunk(text)
+    )
+    full_type_chunks = type_chunks - thin_type_chunks
     seen: set[tuple[Any, ...]] = set()
     for text in symbol_texts:
         lines = _COVERAGE_LINE.findall(text)
@@ -433,8 +456,11 @@ def coverage_problems(fixture: Mapping[str, Any], symbol_texts: Sequence[str]) -
             counts_map = cast(Mapping[str, Any], counts)
             want_types = counts_map["types"]
             want_functions = counts_map["functions"] if _is_count(counts_map.get("functions")) else 0
-            if nt != type_chunks:
-                problems.append(f"API-Coverage says N={nt}, the generation holds {type_chunks} type chunks")
+            if nt != full_type_chunks:
+                problems.append(
+                    f"API-Coverage says N={nt}, the generation holds {full_type_chunks} full (non-thin) "
+                    f"type chunks (of {type_chunks} total, {thin_type_chunks} thin)"
+                )
             if mt != want_types:
                 problems.append(
                     f"API-Coverage says M={mt}, the fixture's symbol_counts.types is {want_types}"
