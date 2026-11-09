@@ -4208,3 +4208,59 @@ closing sentence ("the operator asked that this not be rounded off as done") is 
 supervisor's own earlier reasoning is not, and a quick, plausible-sounding redefinition is not a
 substitute for checking whether the question was already asked and deliberately left open on
 purpose.
+
+## 2026-11-09 — TC-727 saga closed: pdf_java's own coverage-line gap fixed test-side; the 11
+Python-family pilots re-ingested; STALE_BAKED_PILOTS/STALE_BY_MEMBERS re-pinned 15 -> {pdf_java} (supervisor)
+
+Closing the loop the three prior entries this day left open (`real regression found in the
+TC-727 re-ingest`, `TC-727 regression root-caused`, `TC-729's fixture backfill does not close the
+loop end-to-end`). `TC-730` (now integrated) fixed the test-side raw/full/deduped chunk-count
+conflation those entries identified; this is the supervisor-direct re-ingest and cleanup that
+follows from it, done as a data/release operation (no taskcard - nothing here touches `plans/`,
+`ops/instructions.jsonl`, or a taskcard file).
+
+**pdf_java's own, separate issue (0 API-Coverage lines), decided and fixed test-side.** Reproduced
+directly, by calling `chunk_builder.build_chunks_from_api_surface` against the real committed
+`pdf_java` fixture with its real chart `maxTypes` (1239), then `infra.build_chunks._sanitize_chunk_
+text` on the result: the real `org.aspose.pdf.engine.xfa.model.template.Proto` chunk is 28,043
+raw characters; the sanitizer's 24,000-char cap cuts it to 24,021 (head kept, a `Truncated: 4057
+characters omitted` line appended) - and because `_format_type_text` appends the `API-Coverage:`
+line LAST, the cut removes it entirely, byte for byte matching the previously-reported symptom.
+This chunk's oversize is already an accepted, disclosed truncation (`tests/extraction/
+test_reextracted_uncapped.py`'s `OVERSIZE_CHUNK_CEILING["pdf_java"] = 1`, TC-727) - the truncation
+marker IS the disclosure, so a coverage line is not also owed on a chunk already disclosed as cut.
+Fixed test-side only (`tests/deploy/test_fleet_consistency.py::coverage_problems` and
+`tests/deploy/test_served_coverage_matches_fixtures.py::shared_coverage`): both now skip a symbol
+chunk with zero `API-Coverage:` lines when it carries the sanitizer's own `Truncated: \d+
+characters omitted` line, via a new `_TRUNCATION_MARKER_LINE` regex in each file. Verified before
+committing: reproduced the 0-line failure against the real fixture before the change, confirmed
+the fix removes exactly `pdf_java`'s own failure, and a full run of the four-file check before/
+after showed the same 64 pre-existing, already-tracked failures (11 Python-family coverage
+mismatches + 14+14+14 non-Python stale-table entries) unchanged otherwise - a true no-op for every
+pilot without an oversized chunk. Committed as `1039a4a1`.
+
+**The 11 Python-family pilots re-ingested for real**, closing `TC-729`'s own gap: built `foss-mcp-
+serving`/`foss-mcp-ingestion:rev-1039a4a` from that HEAD, imported both into `kind-foss-mcp`'s
+control-plane node (`docker save` piped to `ctr -n k8s.io images import -`, since this host has no
+`kind` binary on PATH), ran `install_pilots.py --only <the 11> --image-tag rev-1039a4a --wait-for-
+jobs` (11 of 11 installed, every ingestion Job `Complete`), `snapshot_demo_from_cluster.py --only
+<the 11>` (11 of 11 written), `compact_demo_manifests.py --check` (all 32 scopes already compact).
+Committed as `9e2b066d`.
+
+**STALE_BAKED_PILOTS/STALE_BY_MEMBERS re-pinned**, the TC-536 precedent: re-verified each of the 15
+TC-727-listed pilots directly via `baked_is_stale()`. 14 of 15 (every one except `pdf_java`)
+confirm `False` - their baked generations have matched their fixtures since TC-727's own original
+re-ingest (`6053716b`); only `pdf_java` confirms `True`, for its own, unrelated, still-genuine doc-
+suffix staleness (not the coverage-line issue fixed above). Both tables re-pinned 15 -> `{pdf_java}`.
+The full four-file check (`test_served_provenance`, `test_fleet_consistency`,
+`test_served_coverage_matches_fixtures`, `test_symbol_counts_dedup_consistency`) now passes
+completely clean, run twice identically: 0 failures.
+
+**A process note, not a defect**: a separate, concurrent supervisor process had two cards open
+during this work (`TC-731`, `TC-732`, each in its own worktree, neither touching
+`tests/deploy/test_fleet_consistency.py`) - `gatectl commit-guard`'s coarse heuristic blocks any
+non-governance path while ANY dispatch is open fleet-wide, so the second commit above waited for
+`TC-731` to reach `ACCEPTED` and, if needed, for `TC-732` to close too, rather than using
+`--no-verify` (declined; not a sanctioned override for this acknowledged false-positive class, and
+this session's sandbox independently refused it). No taskcard, plan, or `ops/instructions.jsonl`
+entry was touched by this entry's work.

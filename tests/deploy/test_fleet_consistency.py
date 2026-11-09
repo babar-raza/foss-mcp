@@ -109,25 +109,11 @@ COVERAGE_EXCEPTIONS: dict[str, str] = {}
 # served lines against the fixture rendered fresh through the real chunk builder) now genuinely disagrees for each of
 # them; this table is how that disagreement is disclosed rather than silently tolerated or worked around in
 # chunk_builder.py itself. Removed once the supervisor re-ingests and each pilot's baked generation matches again.
+# re-pinned 2026-11-09 (supervisor, TC-727 saga close-out): 15 -> {pdf_java} (14 of 15 confirmed via baked_is_stale()
+# to genuinely no longer be stale - TC-727's own original re-ingest, commit 6053716b, already correctly baked them;
+# only pdf_java's own baked generation still pre-dates the doc-suffix fix, for its own reason, unchanged below).
 STALE_BAKED_PILOTS: dict[str, str] = {
-    "3d_java": "TC-727: baked generation pre-dates the doc-suffix fix; its fixture has real doc text the bake lacks.",
-    "3d_net": "TC-727: baked generation pre-dates the doc-suffix fix; its fixture has real doc text the bake lacks.",
-    "cells_cpp": "TC-727: baked generation pre-dates the doc-suffix fix; its fixture has real doc text the bake lacks.",
-    "cells_go": "TC-727: baked generation pre-dates the doc-suffix fix; its fixture has real doc text the bake lacks.",
-    "cells_java": "TC-727: baked generation pre-dates the doc-suffix fix; its fixture has real doc text the bake lacks.",
-    "cells_net": "TC-727: baked generation pre-dates the doc-suffix fix; its fixture has real doc text the bake lacks.",
-    "cells_rust": "TC-727: baked generation pre-dates the doc-suffix fix; its fixture has real doc text the bake lacks.",
-    "pdf_go": "TC-727: baked generation pre-dates the doc-suffix fix; its fixture has real doc text the bake lacks.",
     "pdf_java": "TC-727: baked generation pre-dates the doc-suffix fix; its fixture has real doc text the bake lacks.",
-    "pdf_net": "TC-727: baked generation pre-dates the doc-suffix fix; its fixture has real doc text the bake lacks.",
-    "pdf_typescript": (
-        "TC-727: baked generation pre-dates the doc-suffix fix; its fixture has real doc text the bake lacks "
-        "(the original PDF-TS-002 pilot - Document.New's own JSDoc summary)."
-    ),
-    "slides_cpp": "TC-727: baked generation pre-dates the doc-suffix fix; its fixture has real doc text the bake lacks.",
-    "slides_java": "TC-727: baked generation pre-dates the doc-suffix fix; its fixture has real doc text the bake lacks.",
-    "slides_net": "TC-727: baked generation pre-dates the doc-suffix fix; its fixture has real doc text the bake lacks.",
-    "words_net": "TC-727: baked generation pre-dates the doc-suffix fix; its fixture has real doc text the bake lacks.",
 }
 # TC-536: emptied with STALE_BAKED_PILOTS above (every member-stale pilot is resolved). Kept defined, not removed, because
 # baked_is_stale() below still names it and tests/deploy/test_served_coverage_matches_fixtures.py reaches baked_is_stale
@@ -138,25 +124,9 @@ STALE_BAKED_PILOTS: dict[str, str] = {
 # did not move... by the member lines it renders"). Listing them here switches baked_is_stale to the member-line
 # comparison, which does differ (the fixture now renders a doc suffix on at least one sampled method's member line that
 # the baked generation lacks). Removed once the supervisor re-ingests and each pilot's baked generation matches again.
-STALE_BY_MEMBERS: frozenset[str] = frozenset(
-    {
-        "3d_java",
-        "3d_net",
-        "cells_cpp",
-        "cells_go",
-        "cells_java",
-        "cells_net",
-        "cells_rust",
-        "pdf_go",
-        "pdf_java",
-        "pdf_net",
-        "pdf_typescript",
-        "slides_cpp",
-        "slides_java",
-        "slides_net",
-        "words_net",
-    }
-)
+# re-pinned 2026-11-09 (supervisor, TC-727 saga close-out): same 15 -> {pdf_java}, for the identical reason as the
+# table above (this frozenset and STALE_BAKED_PILOTS are re-pinned together; see its comment).
+STALE_BY_MEMBERS: frozenset[str] = frozenset({"pdf_java"})
 # pilot -> why it may sit below the composition floor. Empty: every pilot meets it.
 COMPOSITION_EXCEPTIONS: dict[str, str] = {}
 
