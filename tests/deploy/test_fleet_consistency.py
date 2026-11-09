@@ -132,7 +132,31 @@ STALE_BAKED_PILOTS: dict[str, str] = {
 # TC-536: emptied with STALE_BAKED_PILOTS above (every member-stale pilot is resolved). Kept defined, not removed, because
 # baked_is_stale() below still names it and tests/deploy/test_served_coverage_matches_fixtures.py reaches baked_is_stale
 # through this module.
-STALE_BY_MEMBERS: frozenset[str] = frozenset()
+# TC-727 (2026-11-09): the same 15 pilots listed in STALE_BAKED_PILOTS above have a baked generation whose API-Coverage
+# COUNTS still match the fixture (the doc-suffix fix never changes a count), so baked_is_stale's count-only branch would
+# see them as "not stale" - exactly the TC-557 precedent this module's own docstring names ("a Java pilot whose counts
+# did not move... by the member lines it renders"). Listing them here switches baked_is_stale to the member-line
+# comparison, which does differ (the fixture now renders a doc suffix on at least one sampled method's member line that
+# the baked generation lacks). Removed once the supervisor re-ingests and each pilot's baked generation matches again.
+STALE_BY_MEMBERS: frozenset[str] = frozenset(
+    {
+        "3d_java",
+        "3d_net",
+        "cells_cpp",
+        "cells_go",
+        "cells_java",
+        "cells_net",
+        "cells_rust",
+        "pdf_go",
+        "pdf_java",
+        "pdf_net",
+        "pdf_typescript",
+        "slides_cpp",
+        "slides_java",
+        "slides_net",
+        "words_net",
+    }
+)
 # pilot -> why it may sit below the composition floor. Empty: every pilot meets it.
 COMPOSITION_EXCEPTIONS: dict[str, str] = {}
 

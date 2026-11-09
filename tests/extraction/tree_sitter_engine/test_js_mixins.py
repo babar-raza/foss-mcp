@@ -511,5 +511,10 @@ def test_list_members_of_the_owner_is_not_empty(sample_types: list[dict[str, Any
     assert {"listMailboxes", "createMailbox", "connect"} <= names
     assert len(methods_block) > 6
     listed = next(item for item in methods_block if item.startswith("listMailboxes"))
-    assert listed.endswith("[async]  (mixin MailClientMixin, src/client-mail.js)")
+    # TC-727: the method's real JSDoc summary ("List the mailboxes of an account.") now renders as an additive
+    # doc suffix, LAST in the chain, after the pre-existing mixin suffix - confirmed against the real fixture
+    # source (tests/fixtures/js_mixin_sample/src/client-mail.js).
+    assert listed.endswith(
+        "[async]  (mixin MailClientMixin, src/client-mail.js)  (List the mailboxes of an account.)"
+    )
     assert "API-Coverage: " in owner.text

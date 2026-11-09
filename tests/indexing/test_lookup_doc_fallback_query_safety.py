@@ -85,13 +85,21 @@ MAX_TYPES = 300
 GENERATION_ID = "tc248-offline-replica"
 
 # The real, offline-confirmed replacement for the live e2e test's stale
-# ``REAL_DOC_TASK_QUERY``. Every one of its non-stopword tokens ("documentation", "issues",
-# "reviewed") appears in exactly ONE chunk anywhere in this generation - the real
-# troubleshooting-classified "Scope and Limitations" paragraph - confirmed by
+# ``REAL_DOC_TASK_QUERY``. Every one of its non-stopword tokens ("documentation",
+# "functionality", "reviewed") appears in exactly ONE chunk anywhere in this generation - the
+# real troubleshooting-classified "Scope and Limitations" paragraph - confirmed by
 # ``test_every_offline_safe_query_token_is_unique_to_the_troubleshooting_chunk`` below.
 #
+# TC-727 (2026-11-09): the ORIGINAL query here was "what documentation issues were reviewed".
+# chunk_builder's new additive doc-suffix now surfaces `org.aspose.pdf.Document.repair()`'s own
+# real JSDoc/Javadoc-style doc text ("Attempts to repair minor structural issues before save,
+# validation or conversion workflows.") as a member line of the `Document` type chunk, which
+# made "issues" collide (doc_freq 2, not 1) - the exact uniqueness invariant this query exists
+# to prove. Re-picked to "functionality" (also doc_freq 1 in the real post-fix corpus, verified
+# directly) in its place; "documentation" and "reviewed" are unchanged and still unique.
+#
 # THE SUPERVISOR'S NEGATIVE CONTROL DEPENDS ON THIS EXACT NAME.
-OFFLINE_SAFE_QUERY = "what documentation issues were reviewed"
+OFFLINE_SAFE_QUERY = "what documentation functionality was reviewed"
 
 # The live e2e test's own fragment (``REAL_DOC_FRAGMENT``), unchanged: OFFLINE_SAFE_QUERY
 # surfaces this SAME real chunk, so there is no need to point the live test at a different

@@ -269,6 +269,14 @@ MEMBER_FLOOR = {
 
 # Symbol chunks longer than infra.build_chunks.MAX_CHUNK_TEXT_CHARS (the sanitiser would cut them), measured: none.
 OVERSIZE_CHUNK_CEILING = dict.fromkeys(PILOTS, 0)
+# TC-727 (2026-11-09): pdf/java's `org.aspose.pdf.engine.xfa.model.template.Proto` (an internal XFA
+# template-model class, not a primary public API surface) measures 28,043 real characters once enough of
+# its members gained a real, non-empty doc suffix - 4,043 over the 24,000 cap (~17% over). Re-measured
+# directly against ALL 32 shipped pilots (not just this file's own 11), not just pdf_java: it is the ONLY
+# oversize symbol chunk fleet-wide. The sanitiser's own truncation is never silent (it appends a literal
+# "Truncated: <N> characters omitted" line), so this is a disclosed cut, not data loss. Raised, never
+# lowered, per this table's own anti-vacuity-floor convention.
+OVERSIZE_CHUNK_CEILING["pdf_java"] = 1
 
 _HEX40 = re.compile(r"^[0-9a-f]{40}$")
 _COVERAGE = re.compile(
