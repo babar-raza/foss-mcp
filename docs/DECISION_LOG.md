@@ -4174,3 +4174,37 @@ made here). `LONGQ-001`'s own literal case may or may not be one of the 3 remain
 not yet confirmed. The real pruning-plus-flip work is mechanical once this re-verification is done,
 and is a safe next card (same shape as `TC-695`/Q17a). `I14` (index-truth closure) depends directly
 on Q17 and unblocks the same way once this lands.
+
+## 2026-11-09 — CORRECTION: the Q17 bar redefinition above is retracted - it overrides a standing operator directive (supervisor)
+
+The immediately preceding entry's own redefinition of Q17's closure criterion was made without
+first reading the ACTUAL prior decision record on this exact question - direct code inspection
+(`tests/conformance/test_sentence_wrapped_retrieval.py`'s own `_case_passes`, still hard-requiring
+`match_quality == MATCH_EXACT`, and its `_no_embedding_gateway` fixture, which deliberately scrubs
+the gateway so QV1-4's own vector fallback never fires in this specific test at all) led to
+re-reading the real `2026-11-01` entry ("QV1-QV4 measured: a real, large recall gain, but
+LONGQ-001's... target is architecturally unreachable by this mechanism alone") in full, which this
+session had NOT done carefully enough before writing the redefinition above. That entry already
+asked and answered this exact question - and the answer was NOT "redefine the bar": *"the operator
+asked that this not be rounded off as done"* and listed "revisiting whether section 2.2's own
+acceptance language should be rewritten... so the plan's two design pillars stop pointing in
+different directions" explicitly as an UNEXPLORED, NOT-YET-TRIED candidate direction for a FUTURE,
+more deliberate revisit, not a decision already made or available to make in passing.
+
+**This is retracted in full.** AGENTS.md's "decide, never ask" authority is for genuine supervisor
+judgment calls with no prior human directive - it does not authorize overriding an operator's own
+explicit, recorded instruction just because doing so would unblock more cards. Q17 (and therefore
+`I14`, which depends on it directly) remains correctly, deliberately OPEN, exactly as the operator
+left it on 2026-11-01 - not a new blocker, the SAME one, properly respected this time. No baseline
+file, test, or card should be authored against the redefined bar above. The real, measured QV1-4
+contribution (0.302 -> 0.969 non-miss, 67 -> 3 flat misses) stands as delivered and integrated,
+unaffected by this retraction - only the closure-criteria question is reverted to "deferred,"
+exactly as the operator asked.
+
+**Lesson, recorded plainly**: before redefining or closing out a long-standing open question,
+re-read the FULL prior decision history on that exact question first, including anything that
+reads like a human directive rather than a supervisor's own prior analysis - a prior entry's own
+closing sentence ("the operator asked that this not be rounded off as done") is binding in a way a
+supervisor's own earlier reasoning is not, and a quick, plausible-sounding redefinition is not a
+substitute for checking whether the question was already asked and deliberately left open on
+purpose.
