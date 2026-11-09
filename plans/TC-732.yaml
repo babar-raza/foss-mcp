@@ -1,0 +1,115 @@
+id: TC-732
+gate: G3
+lane: verification
+purpose: >-
+  O10 prep (oracle program closure, REQ-G3-012). `docs/ORACLE_TRIAGE.md` (`TC-691`) already
+  classifies all 7 real Go/Rust/C++ oracle-disagreement pilots, but honestly states that 3 of them
+  - `cells/cpp` (signature=13), `slides/cpp` (extra=153, signature=37), `email/cpp` (extra=24,
+  signature=7) - are "not individually root-caused by any existing `OQ` entry," only "consistent
+  with, but not individually confirmed to be," the same two cross-cutting buckets
+  (inheritance-flattening; bare-name/overload-unaware matching) already proven for `pdf/cpp`
+  (`OQ-022`). The master plan's own closure rule for the oracle program is explicit: an oracle
+  class may end only `FIXED` or `DEFINITIONAL` - "disclosed limitation" (which is what "by
+  inspection alone" currently is) is NOT an allowed closure. This card finishes the real,
+  individual root-causing for these 3 pilots, the same way `OQ-018`/`OQ-020`/`OQ-021`/`OQ-022`
+  already did for Rust/Java/.NET/`pdf/cpp`, and the same way `TC-691` itself traced `pdf/go`'s
+  previously-untraced extra=480 - documentation/classification only, no code or oracle-script
+  change.
+
+  METHOD (mirror `OQ-022`'s own proven approach for `pdf/cpp`, and `TC-691`'s own `pdf/go` tracing):
+  for each of the 3 pilots, fetch the real pinned commit's real C++ source via `gh api` (the real
+  `repository` from `config/products/<family>/cpp.yaml` - `aspose-cells-foss/Aspose.Cells-FOSS-for-
+  Cpp`, `aspose-slides-foss/Aspose.Slides-FOSS-for-Cpp`, `aspose-email-foss/Aspose.Email-FOSS-for-
+  Cpp` - at the exact commit named in the real committed `tests/fixtures/<pilot>/api_surface.json`'s
+  own provenance, never the live default branch), sample a real, representative subset of the
+  pilot's own `extra`/`signature` oracle-disagreement entries (from the real committed fixture or
+  oracle run output - re-derive which entries these are yourself, do not guess), and confirm
+  directly against the real source whether each one is genuinely a class-inheritance-flattened
+  member (bucket 1) or a bare-name/overload collision (getter/setter pair, multiple overloads
+  sharing one name - bucket 2), exactly as `OQ-022` did for `pdf/cpp`. `cells/cpp`'s own signature-
+  only shape (no `extra`/`missing`) means bucket 1 almost certainly does NOT apply there (per
+  `ORACLE_TRIAGE.md`'s own already-stated reasoning) - confirm this rather than assume it, and
+  focus your real tracing effort on bucket 2 for this one pilot.
+
+  For each pilot, either confirm a real bucket assignment (citing real, named symbols you
+  personally verified against the real pinned source, the same rigor `OQ-022`'s own `Annotation :
+  BaseParagraph`/C++-getter-setter examples used) or, if a genuine remainder doesn't fit either
+  bucket after real investigation, name it as its own real, newly-identified pattern (do not force
+  a wrong fit) or explicitly say "still untraced after real investigation" - never silently keep
+  the current "by inspection alone" language unchanged while claiming this card did the tracing.
+
+  UPDATE `docs/ORACLE_TRIAGE.md` to reflect the real, individually-confirmed findings (replacing
+  the current "not individually traced"/"by inspection alone" language for whichever of the 3
+  pilots you successfully traced - leave honestly in place whatever genuinely remains untraced
+  after a real attempt), and update its own test file (`tests/release/test_oracle_triage_doc.py`)
+  to assert the new, real findings are present, following that file's own existing convention
+  exactly (hardcoded ground-truth assertions, never read back from the document itself).
+depends_on:
+  - TC-691
+write_paths:
+  - docs/ORACLE_TRIAGE.md
+  - tests/release/test_oracle_triage_doc.py
+satisfies:
+  - REQ-G3-012
+source_refs:
+  - file: docs/DECISION_LOG.md
+    anchor: >-
+      ## 2026-11-09 — CORRECTION: the Q17 bar redefinition above is retracted - it overrides a standing operator directive (supervisor)
+    sha256: ededa4e4552e425be82b2bff6c820922a46d4ba612a72cd98e49e263022405d5
+inputs:
+  - >-
+    READ FIRST: `docs/ORACLE_TRIAGE.md` in full (especially its own "not individually traced"
+    section naming these 3 pilots), `ops/open_questions.jsonl`'s `OQ-022` in full (your exact
+    methodology template for C++), and `TC-691`'s own `pdf/go` tracing work (same card, same
+    document) as your second template, for how a genuinely new finding gets written up honestly.
+  - >-
+    REPRODUCE FIRST: fetch the real pinned source for all 3 pilots via `gh api` at their real
+    pinned commits (never the live default branch - confirm the exact commit from the real
+    committed fixture's own provenance field first). Sample real oracle-disagreement entries and
+    verify each against the real source directly. Report your real findings, verbatim, including
+    any case where real investigation did NOT confirm a clean bucket fit - in your closeout.
+  - >-
+    No code or oracle-script change - this card is documentation/classification only, exactly like
+    `TC-691`. If your own investigation finds a genuine oracle-script or extraction defect (not
+    just a disclosed, correctly-refused-by-design gap), stop and report it rather than fixing it
+    here - that would need its own separate card with a negative control.
+  - >-
+    This card does not claim O10 (the full oracle-program closure) is done - O10 also depends on
+    `I14`, which is separately still open (recorded in `docs/DECISION_LOG.md`, 2026-11-09). Scope
+    your closeout to exactly what this card did: finished the individual root-causing for 3 real
+    C++ pilots.
+actions:
+  - >-
+    Individually root-cause cells/cpp's, slides/cpp's, and email/cpp's real oracle disagreements
+    against their real pinned source, replacing "by inspection alone" with a real, confirmed
+    classification wherever the evidence supports one.
+checks:
+  - command: '{python} -m pytest tests/release/test_oracle_triage_doc.py -q -rfE -p no:cacheprovider'
+    expect: 'exit 0'
+    timeout_seconds: 60
+    junitxml: true
+    proves:
+      - REQ-G3-012
+min_tests: 4
+requires:
+  - python
+network: true
+negative_control:
+  mutate: |
+    python -X utf8 -c "import pathlib; p = pathlib.Path('docs/ORACLE_TRIAGE.md'); s = p.read_text(encoding='utf-8'); old = 'cells/cpp'; count = s.count(old); assert count >= 1, 'the required cells/cpp pilot name was not found - if your real doc names this differently, anchor your own mutate on your own real literal instead and note the substitution in your closeout'; s2 = s.replace(old, 'cells-cpp-DISABLED', count); assert s2 != s; p.write_text(s2, encoding='utf-8')"
+  rationale: >-
+    Renames every mention of the `cells/cpp` pilot in the document, so the test asserting this
+    pilot's name (and your new, real finding about it) appears must fail - proving the test
+    actually reads the document's real content. If your real investigation ends up focusing its
+    strongest new finding on a different one of the 3 pilots, re-anchor the mutate on that pilot's
+    name instead and verify by hand it is non-vacuous before committing.
+evidence:
+  - evidence/build/G3/TC-732/receipt.json
+closeout:
+  - >-
+    `cells/cpp`'s, `slides/cpp`'s, and `email/cpp`'s real oracle disagreements are individually
+    root-caused against their real pinned source (or honestly left as "still untraced after real
+    investigation" where the evidence didn't support a confident bucket assignment), replacing
+    `docs/ORACLE_TRIAGE.md`'s prior "by inspection alone" language - real prep toward O10's
+    eventual closure, which still separately waits on I14.
+recovery: Re-run from a clean tree.
