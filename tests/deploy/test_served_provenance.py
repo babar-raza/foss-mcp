@@ -625,7 +625,12 @@ def drop_last_parameter(line: str) -> str:
 
 
 def test_p2_fails_when_a_served_generation_was_edited_after_the_fact(tmp_path):
-    key, family, platform = "cells_net", "cells", "net"
+    # TC-727 (2026-11-09): was "cells_net", "cells", "net" - the new chunk_builder doc suffix made cells_net's
+    # STALE_BAKED_PILOTS-listed baked generation diverge from this test's own freshly-rendered "unedited" line
+    # before the edit under test even happens. Re-pointed at cells_typescript, a real, verified-fresh pilot whose
+    # sampled line (constructor(name: string, index: number)) has a real parameter to drop; the invariant asserted
+    # below (a post-hoc edit to a served generation is detected) is unchanged and pilot-agnostic.
+    key, family, platform = "cells_typescript", "cells", "typescript"
     entry = CHART[key]
     fixture = json.loads((FIXTURES / key / "api_surface.json").read_text(encoding="utf-8-sig"))
     fqn, line = sp.sample_method_pairs(fixture, max_types=int(entry["maxTypes"]))[0]

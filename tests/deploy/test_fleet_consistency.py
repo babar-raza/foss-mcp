@@ -101,7 +101,34 @@ COVERAGE_EXCEPTIONS: dict[str, str] = {}
 # and tests/poc/test_pilot_workflow_proof_content.py import this name directly (``from ... import STALE_BAKED_PILOTS``) and
 # were written to take the "no longer stale" branch once it is empty - removing the name outright would break their import,
 # which is outside this card's write_paths.
-STALE_BAKED_PILOTS: dict[str, str] = {}
+# TC-727 (2026-11-09): chunk_builder._method_line now renders a method's real `doc` field as an additive suffix
+# (closing PDF-TS-002). This is a fixture/renderer-ahead-of-baked-generation gap of the exact TC-533/TC-536 shape:
+# the 15 pilots below each have a committed fixture with real, non-empty `doc` text on at least one sampled method,
+# but their baked infra/demo-manifests generation was built before this fix and so still renders that method's line
+# without the new suffix. tests/deploy/test_served_provenance.py's P2 probe (which compares the baked generation's
+# served lines against the fixture rendered fresh through the real chunk builder) now genuinely disagrees for each of
+# them; this table is how that disagreement is disclosed rather than silently tolerated or worked around in
+# chunk_builder.py itself. Removed once the supervisor re-ingests and each pilot's baked generation matches again.
+STALE_BAKED_PILOTS: dict[str, str] = {
+    "3d_java": "TC-727: baked generation pre-dates the doc-suffix fix; its fixture has real doc text the bake lacks.",
+    "3d_net": "TC-727: baked generation pre-dates the doc-suffix fix; its fixture has real doc text the bake lacks.",
+    "cells_cpp": "TC-727: baked generation pre-dates the doc-suffix fix; its fixture has real doc text the bake lacks.",
+    "cells_go": "TC-727: baked generation pre-dates the doc-suffix fix; its fixture has real doc text the bake lacks.",
+    "cells_java": "TC-727: baked generation pre-dates the doc-suffix fix; its fixture has real doc text the bake lacks.",
+    "cells_net": "TC-727: baked generation pre-dates the doc-suffix fix; its fixture has real doc text the bake lacks.",
+    "cells_rust": "TC-727: baked generation pre-dates the doc-suffix fix; its fixture has real doc text the bake lacks.",
+    "pdf_go": "TC-727: baked generation pre-dates the doc-suffix fix; its fixture has real doc text the bake lacks.",
+    "pdf_java": "TC-727: baked generation pre-dates the doc-suffix fix; its fixture has real doc text the bake lacks.",
+    "pdf_net": "TC-727: baked generation pre-dates the doc-suffix fix; its fixture has real doc text the bake lacks.",
+    "pdf_typescript": (
+        "TC-727: baked generation pre-dates the doc-suffix fix; its fixture has real doc text the bake lacks "
+        "(the original PDF-TS-002 pilot - Document.New's own JSDoc summary)."
+    ),
+    "slides_cpp": "TC-727: baked generation pre-dates the doc-suffix fix; its fixture has real doc text the bake lacks.",
+    "slides_java": "TC-727: baked generation pre-dates the doc-suffix fix; its fixture has real doc text the bake lacks.",
+    "slides_net": "TC-727: baked generation pre-dates the doc-suffix fix; its fixture has real doc text the bake lacks.",
+    "words_net": "TC-727: baked generation pre-dates the doc-suffix fix; its fixture has real doc text the bake lacks.",
+}
 # TC-536: emptied with STALE_BAKED_PILOTS above (every member-stale pilot is resolved). Kept defined, not removed, because
 # baked_is_stale() below still names it and tests/deploy/test_served_coverage_matches_fixtures.py reaches baked_is_stale
 # through this module.
