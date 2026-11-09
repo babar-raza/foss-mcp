@@ -3979,3 +3979,64 @@ whole re-ingest.
 **Root cause not yet found** - under investigation. Recorded here immediately per this project's
 own "no pilot ever gets worse" rule, before further diagnosis, so the regression and the rollback
 are both on record even if investigation takes longer than expected.
+
+## 2026-11-09 — TC-727 regression root-caused: a production serving-code bug, not the re-ingest tooling; no direct fix taken (supervisor)
+
+Root cause of the `6053716b` coverage-line regression (previous entry) found and confirmed by
+direct, offline reproduction - no cluster, no snapshot tool, no re-ingest script involved.
+
+**Reproduction**: calling `src/foss_mcp/indexing/chunk_builder.py`'s own
+`build_chunks_from_api_surface(fixture, title=..., max_types=<that pilot's real Helm
+`maxTypes`>)` directly against the committed `tests/fixtures/<pilot>/api_surface.json` -
+nothing else, no cluster, no ingestion job, no snapshot tool - reproduces the exact wrong
+`API-Coverage:` line baked by the re-ingest, byte for byte, for all 10 affected Python pilots
+(`slides_python` 516/1022, `words_python` 190/272, `cells_python` 130/186, `pdf_python`
+356/543, `email_python` 30/60, `barcode_python` 26/52, `html_python` 218/305, `page_python`
+139/146, `3d_python` 343/697, `tex_python` 14/21). This proves the bug lives entirely in
+`src/foss_mcp/indexing/chunk_builder.py` as committed on `main` right now - the re-ingest
+tooling (`scripts/release/snapshot_demo_from_cluster.py`, `scripts/deploy/install_pilots.py`)
+merely ran the normal ingestion path and faithfully baked what that code already produces. It
+is **production serving code**, not build/ops tooling.
+
+**Mechanism**: `_coverage_line`'s numerator (`kept_types`) counts each Python re-export
+shell/definition pair ONCE via `compute_canonical_identities(...).is_definition` - a dedup
+added by `TC-614`/`TC-686` specifically so a shell does not inflate the count. The line's
+denominator (`counts['types']`) is read verbatim from the fixture's own `symbol_counts.types`
+field. `TC-620` (`06d59f14`, 2026-10-31) taught `run_extraction.summarize_symbols` to compute
+that SAME denominator with the SAME dedup, intending numerator and denominator to agree - but
+that only takes effect when a fixture is freshly re-extracted from its pinned repository.
+Every affected pilot's `tests/fixtures/<pilot>/api_surface.json` was extracted and committed
+*before* `TC-620` landed, so its `symbol_counts.types` field is still the OLD, undeduped value
+(confirmed directly for `cells_python`: `204` raw entries minus `18` functions = the fixture's
+own stored `186`, while `compute_canonical_identities` on that same fixture's entries finds
+`56` of them are re-export shells, giving a deduped `130`). Numerator and denominator are each
+internally consistent with their own convention; they disagree with each other because one
+side's input data predates the code change that was meant to keep them in lockstep. The
+`11`th pilot the previous entry listed, `pdf_java`'s "a symbol chunk has 0 API-Coverage lines"
+symptom, does **not** reproduce from `build_chunks_from_api_surface` on the committed fixture
+(the same call renders that exact `Proto` FQN with a correct, present `1239 of 1239 types`
+line) - it is a different-shaped defect, most likely a large-chunk splitting behaviour
+downstream of this function, and needs its own separate investigation; it is not part of this
+root cause and not analyzed further here.
+
+**Why this was not already visible**: dedup is a no-op for any fixture whose Python entries
+have zero re-export shells (confirmed for `note_python`, currently serving a correct,
+untouched `74 of 74` - its fixture happens to have none), and no fixture with real shells had
+been fully re-ingested since `TC-614`/`TC-620` landed until this `TC-727` re-ingest forced the
+first full rebake of all 10 of them at once. The bug has been latent in `main` since `TC-620`
+(2026-10-31); `TC-727`'s re-ingest merely baked it into served content for the first time.
+
+**Decision - no direct fix**: per this session's own instructions and `AGENTS.md`'s role
+separation ("Supervisor... Never writes product code"), a fix here means either (a) changing
+`src/foss_mcp/indexing/chunk_builder.py` and/or `src/foss_mcp/extraction/run_extraction.py`
+(production serving code - needs a taskcard with a negative control, not a supervisor-direct
+patch), or (b) re-extracting 10 pilots' `tests/fixtures/*/api_surface.json` from their pinned
+repositories to regenerate `symbol_counts` with the current dedup convention (a real-network,
+wide-blast-radius data operation that could shift unrelated fixture fields and needs its own
+deliberate review, not an improvised supervisor action). Neither is taken here. The local
+hosting fleet and public tunnel remain on `foss-mcp-serving:demo-8909ed53` (unchanged, still
+healthy, still predates both `TC-620` and `TC-727`). `main` is not touched by this entry beyond
+this record. No image was built, no redeploy was attempted, and the `tests/deploy/
+test_fleet_consistency.py` `STALE_BAKED_PILOTS`/`STALE_BY_MEMBERS` cleanup described for this
+same investigation is deferred until a real fix (taskcard or reviewed fixture regeneration)
+lands and the three offline test files are confirmed fully green.
