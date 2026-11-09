@@ -1,0 +1,138 @@
+
+===== CLEAN RUN 1 (host) =====
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-5c72e798a73c059a\Scripts\python.exe -m pytest tests/indexing/test_authored_examples.py tests/indexing/test_authored_examples_email_net.py tests/infra/test_authored_examples_fixtures.py -q -rfE -p no:cacheprovider "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-m91zmfmg\.junit-0.xml"
+--- stdout ---
+........................................................................ [ 32%]
+........................................................................ [ 65%]
+........................................................................ [ 98%]
+...                                                                      [100%]
+
+--- stderr ---
+
+
+===== CLEAN RUN 2 (host) =====
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-5c72e798a73c059a\Scripts\python.exe -m pytest tests/indexing/test_authored_examples.py tests/indexing/test_authored_examples_email_net.py tests/infra/test_authored_examples_fixtures.py -q -rfE -p no:cacheprovider "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-m91zmfmg\.junit-0.xml"
+--- stdout ---
+........................................................................ [ 32%]
+........................................................................ [ 65%]
+........................................................................ [ 98%]
+...                                                                      [100%]
+
+--- stderr ---
+
+
+===== NEGATIVE CONTROL (checks MUST now fail) =====
+mutated: M tests/fixtures/furnished/email_net/authored_examples.yaml, ?? .junit-0.xml
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-5c72e798a73c059a\Scripts\python.exe -m pytest tests/indexing/test_authored_examples.py tests/indexing/test_authored_examples_email_net.py tests/infra/test_authored_examples_fixtures.py -q -rfE -p no:cacheprovider "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-m91zmfmg\.junit-0.xml"
+--- stdout ---
+........................................................................ [ 32%]
+........................................................................ [ 65%]
+.........................F.F...F...................................F.... [ 98%]
+...                                                                      [100%]
+================================== FAILURES ===================================
+_____ test_the_sidecar_loads_and_yields_exactly_five_authored_candidates ______
+
+    def test_the_sidecar_loads_and_yields_exactly_five_authored_candidates() -> None:
+>       candidates = _candidates()
+                     ^^^^^^^^^^^^^
+
+tests\indexing\test_authored_examples_email_net.py:103: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+tests\indexing\test_authored_examples_email_net.py:85: in _candidates
+    return load_authored_examples(
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+path = WindowsPath('E:/Users/prora/OneDrive/Documents/GitHub/foss-mcp/.gatectl-worktrees/wt-m91zmfmg/tests/fixtures/furnished/email_net/authored_examples.yaml')
+pilot = 'email_net', library_platform = 'dotnet'
+library_commit = '59125b4732df0eedbc4d4c2ab978698ed4348eb7'
+api_types = [{'bases': [], 'canonical_namespace': 'Aspose.Email.Foss.Msg', 'class_import': 'Aspose.Email.Foss.Msg.MapiPropertyColl...namespace': 'Aspose.Email.Foss.Cfb', 'class_import': 'Aspose.Email.Foss.Cfb.CfbReader', 'deprecated': False, ...}, ...]
+
+    def load_authored_examples(
+        path: Path,
+        *,
+        pilot: str,
+        library_platform: str,
+        library_commit: str,
+        api_types: Sequence[Mapping[str, object]],
+    ) -> tuple[CandidateExample, ...]:
+        """Load and validate the sidecar at ``path``; one authored ``CandidateExample`` per example.
+    
+        The candidates are in file order, with ``provenance`` ``"authored"``, ``source`` ``"sidecar"``,
+        ``starts_example`` True, ``imports_only`` False, an empty ``import_prefix``, a ``page_code``
+        holding only their own code and the sidecar's ``code_sha256``. Raises ``AuthoredExamplesError``
+        whose message lists every problem when the file cannot be read or parsed or any rule of
+        ``validate_authored_examples`` fails. The code is never imported, compiled or run here.
+        """
+        try:
+            text = Path(path).read_bytes().decode("utf-8")
+        except (OSError, UnicodeDecodeError) as exc:
+            raise AuthoredExamplesError(f"cannot read {SIDECAR_NAME}: {type(exc).__name__}") from exc
+        try:
+            document = yaml.safe_load(text)
+        except yaml.YAMLError as exc:
+            raise AuthoredExamplesError(f"{SIDECAR_NAME} is not valid YAML: {type(exc).__name__}") from exc
+    
+        problems = validate_authored_examples(
+            document,
+            pilot=pilot,
+            library_platform=library_platform,
+            library_commit=library_commit,
+            api_types=api_types,
+        )
+        if problems:
+>           raise AuthoredExamplesError("; ".join(problems))
+E           foss_mcp.indexing.authored_examples.AuthoredExamplesError: rule 1 (structure): example 1: code_sha256 must be 64 lowercase hex characters
+
+src\foss_mcp\indexing\authored_examples.py:343: AuthoredExamplesError
+_________________ test_the_sidecar_has_no_validation_problems _________________
+
+    def test_the_sidecar_has_no_validation_problems() -> None:
+        library = _pilot_library()
+        problems = validate_authored_examples(
+            _document(),
+            pilot=PILOT,
+            library_platform=library["platform"],
+            library_commit=library["commit"],
+            api_types=_api_types(),
+        )
+>       assert problems == []
+E       AssertionError: assert ['rule 1 (str...x characters'] == []
+E         
+E         Left contains one more item: 'rule 1 (structure): example 1: code_sha256 must be 64 lowercase hex characters'
+E         Use -v to get more diff
+
+tests\indexing\test_authored_examples_email_net.py:129: AssertionError
+________________________ test_the_code_hash_matches[1] ________________________
+
+number = 1
+
+    @pytest.mark.parametrize("number", EXAMPLE_NUMBERS)
+    def test_the_code_hash_matches(number: int) -> None:
+        example = _example(number)
+>       assert example["code_sha256"] == normalised_code_sha256(example["code"])
+E       assert 0 == '9496b7bcffe794ee2be3508d14ccb5e437132b92803077b14ae01b12ce73f5a7'
+E        +  where '9496b7bcffe794ee2be3508d14ccb5e437132b92803077b14ae01b12ce73f5a7' = normalised_code_sha256('// Authored example: create a message with recipients and attachments, then reload it from memory\nusing Aspose.Email...Count != 1 || loaded.Attachments[0].Filename != "report.txt")\n{\n    throw new Exception("attachment mismatch");\n}\n')
+
+tests\indexing\test_authored_examples_email_net.py:164: AssertionError
+_____________ test_every_committed_sidecar_is_valid_for_its_pilot _____________
+
+    def test_every_committed_sidecar_is_valid_for_its_pilot() -> None:
+        failures: list[str] = []
+        for path in sorted(FURNISHED.glob(f"*/{SIDECAR_NAME}")):
+            pilot_name = path.parent.name
+            failures += [f"{pilot_name}: {problem}" for problem in sidecar_problems(path, pilot_name)]
+>       assert not failures, "invalid authored-example sidecars:\n" + "\n".join(failures)
+E       AssertionError: invalid authored-example sidecars:
+E         email_net: schema: examples/0/code_sha256: 0 is not of type 'string'
+E         email_net: rule 1 (structure): example 1: code_sha256 must be 64 lowercase hex characters
+E       assert not ["email_net: schema: examples/0/code_sha256: 0 is not of type 'string'", 'email_net: rule 1 (structure): example 1: code_sha256 must be 64 lowercase hex characters']
+
+tests\infra\test_authored_examples_fixtures.py:98: AssertionError
+=========================== short test summary info ===========================
+FAILED tests/indexing/test_authored_examples_email_net.py::test_the_sidecar_loads_and_yields_exactly_five_authored_candidates
+FAILED tests/indexing/test_authored_examples_email_net.py::test_the_sidecar_has_no_validation_problems
+FAILED tests/indexing/test_authored_examples_email_net.py::test_the_code_hash_matches[1]
+FAILED tests/infra/test_authored_examples_fixtures.py::test_every_committed_sidecar_is_valid_for_its_pilot
+
+--- stderr ---
+
