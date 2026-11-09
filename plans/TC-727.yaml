@@ -97,6 +97,74 @@ purpose: >-
   edit to a served generation is detected) is pilot-agnostic, so this is a scope-preserving subject
   swap, never a weakening of what the test actually asserts. Do NOT silently touch
   `chunk_builder.py` or any other production file to "fix" this - it is not a code defect.
+
+  ADDED after attempt 2 (same card, widened again - `gatectl review`'s own "offline tests of files
+  this card touches" sweep, run by the supervisor against attempt 2's real commit `cd7d3728`,
+  found 4 MORE real, newly-broken failures beyond the 16 attempt 2 fixed; confirmed by the
+  supervisor directly: all 4 pass cleanly on a clean `main` checkout, same command, so they are
+  real consequences of this card's own fix, not pre-existing noise):
+
+  (A) `tests/deploy/test_served_coverage_matches_fixtures.py` fails
+  `test_served_function_chunks_equal_the_fixture_functions[<pilot>]` and
+  `test_served_coverage_line_states_the_same_counts[<pilot>]` for the SAME 15 pilots, with the
+  message "<pilot> is not stale: delete it from the table" - a DIFFERENT staleness mechanism than
+  `STALE_BAKED_PILOTS` (that file's own `is_really_stale`/`baked_is_stale` checks `STALE_BY_MEMBERS`
+  - a separate, currently-empty `frozenset[str]` in the same `test_fleet_consistency.py` - and only
+  falls back to comparing member-line CONTENT when the key is in `STALE_BY_MEMBERS`; otherwise it
+  only compares API-Coverage COUNTS, which this card's fix never changes, so it sees "not stale").
+  This is the EXACT TC-557 precedent already named in that file's own docstring ("a Java pilot
+  whose counts did not move... by the member lines it renders") - add the same 15 real affected
+  keys to `STALE_BY_MEMBERS` too (re-verify which keys are actually needed here - it may not be
+  exactly the same 15, confirm against this specific test's own failures, not assumed from (part
+  one)'s list).
+
+  (B) `tests/extraction/tree_sitter_engine/test_js_mixins.py::test_list_members_of_the_owner_is_not_empty`
+  pins an exact `.endswith("[async]  (mixin MailClientMixin, src/client-mail.js)")` assertion for
+  `listMailboxes` that is now a true prefix of the real line (which gained a doc suffix after the
+  mixin suffix) - this file is NOT yet in `write_paths`, add it. Fix the ONE assertion using the
+  REAL doc text from the real fixture (never invented), following this card's own established
+  "update only the specific assertion, against real fixture text" rule.
+
+  (C) `tests/indexing/test_lookup_doc_fallback_query_safety.py` (also not yet in `write_paths`, add
+  it) has 2 failing tests because its own `OFFLINE_SAFE_QUERY` constant ("what documentation issues
+  were reviewed") was deliberately picked so its real BM25 tokens have document frequency exactly 1
+  across the real `pdf_java` fixture-plus-furnished-page corpus (see the file's own extensive
+  docstring) - this card's fix additively surfaced a real `doc` field on some OTHER pdf_java
+  method/type that happens to contain the word "issues", breaking that uniqueness invariant
+  (`doc_freq["issues"] == 2` now, not 1). This is a test-fixture-design update, not a "pin the
+  absence of suffix content" guard: find and verify a NEW safe query string (3-5 words, following
+  the file's own documented method for picking one) whose real tokens are STILL uniquely
+  doc_freq=1 in the real post-fix corpus, and update `OFFLINE_SAFE_QUERY` (plus
+  `REAL_DOC_FRAGMENT` only if it also needs to change, which it should not) accordingly. Verify
+  directly against the real fixture before committing, do not guess a replacement query.
+
+  (D) `tests/extraction/test_reextracted_uncapped.py::test_no_symbol_chunk_is_cut_by_the_sanitiser_cap[pdf_java]`
+  (not yet in `write_paths`, add it) fails because exactly one real pdf_java symbol chunk
+  (`org.aspose.pdf.engine.xfa.model.template.Proto`, an internal XFA template-model class, NOT a
+  primary public API surface) now measures 28,043 real characters - 4,043 over
+  `infra.build_chunks.MAX_CHUNK_TEXT_CHARS` (24,000) - because this one class has enough members
+  with real, non-empty `doc` fields that their combined new suffixes pushed its single rendered
+  chunk over the cap for the first time ever (this file's own `OVERSIZE_CHUNK_CEILING` has been a
+  strict 0 for every one of the 32 pilots, with zero exceptions, for this invariant's whole
+  history). Re-verify this measurement yourself (re-run `_symbol_chunks('pdf_java')` and confirm
+  the real chunk name and real overage - do not trust the supervisor's numbers blindly), and
+  confirm it is the ONLY oversize chunk across ALL 32 pilots (run the full parametrized test, not
+  just pdf_java). The cap's own sanitiser (`infra/build_chunks.py::_sanitize_chunk_text`) already
+  truncates HONESTLY (appends a literal `Truncated: <N> characters omitted` line - this is never
+  silent data loss, just a disclosed cut) - if your re-verification confirms it is genuinely just
+  this one obscure internal class, by a modest ~17% overage, raise
+  `OVERSIZE_CHUNK_CEILING["pdf_java"]` from `0` to `1` with a dated comment citing this card, the
+  real class name, and the real measured overage, following this same file's own established
+  "anti-vacuity floor: re-measure, never lower, only raise, with the real measurement cited"
+  convention used for its other floors (`MIN_PILOTS_WITH_FUNCTIONS` etc.). If your own
+  re-verification finds this is WORSE than described here (more than one chunk, a much larger
+  pilot, or you judge the disclosed truncation is a real practical regression rather than an
+  acceptable one-off on an obscure internal class), STOP and report rather than raising the ceiling
+  - per this card's own rule 6 and AGENTS.md's "no pilot ever gets worse."
+
+  After all four are fixed, re-run `gatectl review`'s own full related-files sweep yourself first
+  (not just this card's own two declared checks) to confirm nothing else is still broken before
+  committing - the supervisor will re-run it independently afterward regardless.
 depends_on:
   - TC-001
   - TC-010
@@ -147,6 +215,7 @@ depends_on:
   - TC-541
   - TC-550
   - TC-551
+  - TC-552
   - TC-553
   - TC-554
   - TC-555
@@ -196,10 +265,14 @@ write_paths:
   - tests/mcp/tools/test_known_defects_round3_siblings.py
   - tests/deploy/test_served_provenance.py
   - tests/deploy/test_fleet_consistency.py
+  - tests/deploy/test_served_coverage_matches_fixtures.py
   - tests/e2e/test_pdf_typescript_live_content.py
   - tests/extraction/test_python_fidelity.py
+  - tests/extraction/test_reextracted_uncapped.py
   - tests/extraction/tree_sitter_engine/test_python_surface_attributes.py
   - tests/extraction/tree_sitter_engine/test_ts_fidelity.py
+  - tests/extraction/tree_sitter_engine/test_js_mixins.py
+  - tests/indexing/test_lookup_doc_fallback_query_safety.py
   - tests/mcp/tools/test_pdf_typescript_method_docs.py
 satisfies:
   - REQ-G3-013
@@ -236,13 +309,13 @@ actions:
     collateral test across the enumerated files, and add new end-to-end tests proving the real
     pdf/typescript Document.New case now surfaces its doc text.
 checks:
-  - command: '{python} -m pytest tests/indexing/test_chunk_builder.py tests/indexing/test_chunk_builder_cpp_signatures.py tests/indexing/test_chunk_builder_go_members.py tests/indexing/test_chunk_builder_honesty.py tests/indexing/test_chunk_builder_modifiers.py tests/indexing/test_chunk_builder_python_signatures.py tests/indexing/test_chunk_builder_round3_cpp.py tests/indexing/test_chunk_builder_round3_dotnet.py tests/indexing/test_chunk_builder_round3_gorust.py tests/indexing/test_chunk_builder_round3_java.py tests/indexing/test_chunk_builder_round3_typescript.py tests/indexing/test_chunk_builder_single_line_members.py tests/indexing/test_chunk_builder_typescript_marks.py tests/indexing/test_known_defects_data_3d.py tests/indexing/test_known_defects_data_cells.py tests/indexing/test_known_defects_data_cells_typescript_013.py tests/indexing/test_round3_unsupported_markers.py tests/mcp/test_response_budget.py tests/mcp/test_tool_surface_truthful.py tests/mcp/tools/test_get_symbol_raw_text_opt_in.py tests/mcp/tools/test_known_defects_round3_siblings.py tests/deploy/test_fleet_consistency.py -q -rfE -p no:cacheprovider'
+  - command: '{python} -m pytest tests/indexing/test_chunk_builder.py tests/indexing/test_chunk_builder_cpp_signatures.py tests/indexing/test_chunk_builder_go_members.py tests/indexing/test_chunk_builder_honesty.py tests/indexing/test_chunk_builder_modifiers.py tests/indexing/test_chunk_builder_python_signatures.py tests/indexing/test_chunk_builder_round3_cpp.py tests/indexing/test_chunk_builder_round3_dotnet.py tests/indexing/test_chunk_builder_round3_gorust.py tests/indexing/test_chunk_builder_round3_java.py tests/indexing/test_chunk_builder_round3_typescript.py tests/indexing/test_chunk_builder_single_line_members.py tests/indexing/test_chunk_builder_typescript_marks.py tests/indexing/test_known_defects_data_3d.py tests/indexing/test_known_defects_data_cells.py tests/indexing/test_known_defects_data_cells_typescript_013.py tests/indexing/test_round3_unsupported_markers.py tests/mcp/test_response_budget.py tests/mcp/test_tool_surface_truthful.py tests/mcp/tools/test_get_symbol_raw_text_opt_in.py tests/mcp/tools/test_known_defects_round3_siblings.py tests/deploy/test_fleet_consistency.py tests/deploy/test_served_coverage_matches_fixtures.py tests/indexing/test_lookup_doc_fallback_query_safety.py -q -rfE -p no:cacheprovider'
     expect: 'exit 0'
     timeout_seconds: 600
     junitxml: true
     proves:
       - REQ-G3-013
-  - command: '{python} -m pytest tests/deploy/test_served_provenance.py tests/e2e/test_pdf_typescript_live_content.py tests/extraction/test_python_fidelity.py tests/extraction/tree_sitter_engine/test_python_surface_attributes.py tests/extraction/tree_sitter_engine/test_ts_fidelity.py tests/mcp/tools/test_pdf_typescript_method_docs.py -q -rfE -p no:cacheprovider'
+  - command: '{python} -m pytest tests/deploy/test_served_provenance.py tests/e2e/test_pdf_typescript_live_content.py tests/extraction/test_python_fidelity.py tests/extraction/test_reextracted_uncapped.py tests/extraction/tree_sitter_engine/test_python_surface_attributes.py tests/extraction/tree_sitter_engine/test_ts_fidelity.py tests/extraction/tree_sitter_engine/test_js_mixins.py tests/mcp/tools/test_pdf_typescript_method_docs.py -q -rfE -p no:cacheprovider'
     expect: 'exit 0'
     timeout_seconds: 600
     junitxml: true
