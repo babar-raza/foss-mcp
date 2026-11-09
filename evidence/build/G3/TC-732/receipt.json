@@ -1,0 +1,89 @@
+{
+  "schema_version": 1,
+  "card": "TC-732",
+  "gate": "G3",
+  "generated_by": "gatectl",
+  "generated_at": "2026-11-09T18:54:31Z",
+  "base_rev": "c5abbe41788d1882a8fe430bbeff7e21dfc1d16a",
+  "head_rev": "e316409383a19252f359d2a1f6c006a3ccb1664f",
+  "card_sha256": "fef29db3a3ecdc1cb378ccbef5c6a00ee4b08dfc935148188102afd6507e58d0",
+  "fingerprint": {
+    "python": "3.13.2",
+    "platform": "Windows-11-10.0.26300-SP0",
+    "lock_sha256": "5c72e798a73c059a438e752e94a8d4c88c1bdf81a197f6e5c5fcecbc9466a691",
+    "env": {
+      "PYTHONHASHSEED": "0",
+      "PYTHONUTF8": "1",
+      "PYTHONDONTWRITEBYTECODE": "1",
+      "PYTHONIOENCODING": "utf-8",
+      "TZ": "UTC",
+      "LC_ALL": "C.UTF-8",
+      "SOURCE_DATE_EPOCH": "1700000000",
+      "verify_runner": "host"
+    }
+  },
+  "scope": {
+    "ok": true,
+    "changed_paths": [
+      "docs/ORACLE_TRIAGE.md",
+      "tests/release/test_oracle_triage_doc.py"
+    ],
+    "violations": [],
+    "evaluated": true
+  },
+  "runs": [
+    {
+      "run": 1,
+      "checks": [
+        {
+          "command": "{python} -m pytest tests/release/test_oracle_triage_doc.py -q -rfE -p no:cacheprovider",
+          "exit_code": 0,
+          "duration_s": 1.049,
+          "stdout_sha256": "08faea39fd19189f6544839f505d91d76ecb1367e219f5db362cdf22916ef869",
+          "tests": 11,
+          "skipped": 0,
+          "errors": 0,
+          "failures": 0
+        }
+      ],
+      "all_passed": true
+    },
+    {
+      "run": 2,
+      "checks": [
+        {
+          "command": "{python} -m pytest tests/release/test_oracle_triage_doc.py -q -rfE -p no:cacheprovider",
+          "exit_code": 0,
+          "duration_s": 0.688,
+          "stdout_sha256": "08faea39fd19189f6544839f505d91d76ecb1367e219f5db362cdf22916ef869",
+          "tests": 11,
+          "skipped": 0,
+          "errors": 0,
+          "failures": 0
+        }
+      ],
+      "all_passed": true
+    }
+  ],
+  "negative_control": {
+    "kind": "mutate",
+    "patch": "python -X utf8 -c \"import pathlib; p = pathlib.Path('docs/ORACLE_TRIAGE.md'); s = p.read_text(encoding='utf-8'); old = 'cells/cpp'; count = s.count(old); assert count >= 1, 'the required cells/cpp pilot name was not found - if your real doc names this differently, anchor your own mutate on your own real literal instead and note the substitution in your closeout'; s2 = s.replace(old, 'cells-cpp-DISABLED', count); assert s2 != s; p.write_text(s2, encoding='utf-8')\"\n",
+    "patch_sha256": "c2f8bcc6a9f82e0215da5a8555873873d8c335d45dc37588bbbf28eade40ad81",
+    "applied": true,
+    "patch_applied_failed": true,
+    "exit_codes": [
+      1
+    ],
+    "tree_changed": [
+      "M docs/ORACLE_TRIAGE.md",
+      "?? .junit-0.xml"
+    ]
+  },
+  "holdout": {
+    "ran": false,
+    "passed": true,
+    "detail": "no holdout for this card"
+  },
+  "accepted": true,
+  "reason": "all gates passed"
+}

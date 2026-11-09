@@ -1,0 +1,52 @@
+
+===== CLEAN RUN 1 (host) =====
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-5c72e798a73c059a\Scripts\python.exe -m pytest tests/release/test_oracle_triage_doc.py -q -rfE -p no:cacheprovider "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-1l8ky_lo\.junit-0.xml"
+--- stdout ---
+...........                                                              [100%]
+
+--- stderr ---
+
+
+===== CLEAN RUN 2 (host) =====
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-5c72e798a73c059a\Scripts\python.exe -m pytest tests/release/test_oracle_triage_doc.py -q -rfE -p no:cacheprovider "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-1l8ky_lo\.junit-0.xml"
+--- stdout ---
+...........                                                              [100%]
+
+--- stderr ---
+
+
+===== NEGATIVE CONTROL (checks MUST now fail) =====
+mutated: M docs/ORACLE_TRIAGE.md, ?? .junit-0.xml
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-5c72e798a73c059a\Scripts\python.exe -m pytest tests/release/test_oracle_triage_doc.py -q -rfE -p no:cacheprovider "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-1l8ky_lo\.junit-0.xml"
+--- stdout ---
+F.....F....                                                              [100%]
+================================== FAILURES ===================================
+___________________ test_doc_exists_and_names_all_7_pilots ____________________
+
+    def test_doc_exists_and_names_all_7_pilots() -> None:
+        text = _read_doc()
+        for pilot in PILOT_COUNTS:
+>           assert pilot in text, f"pilot {pilot!r} is never named in {DOC}"
+E           AssertionError: pilot 'cells/cpp' is never named in E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-1l8ky_lo\docs\ORACLE_TRIAGE.md
+E           assert 'cells/cpp' in '# Oracle disagreement triage: Go, Rust, C++ (G3/TC-691, extended by G3/TC-732)\n\n## Scope and provenance\n\nThis doc...action work, if ever re-prioritized, for bucket 1), plus the two new\n  header-resolution gaps `TC-732` found above.\n'
+
+tests\release\test_oracle_triage_doc.py:49: AssertionError
+_ test_the_three_non_pdf_cpp_c_plus_plus_pilots_are_now_individually_root_caused_by_tc_732 _
+
+    def test_the_three_non_pdf_cpp_c_plus_plus_pilots_are_now_individually_root_caused_by_tc_732() -> None:
+        """G3/TC-732: cells/cpp, slides/cpp, and email/cpp were left "by inspection alone" by TC-691 --
+        TC-732 finished individually root-causing all three against their real pinned source. The document
+        must now credit TC-732 for this, by name, not merely still carry TC-691's older disclosure
+        unchanged."""
+        text = _read_doc()
+        for pilot in ("cells/cpp", "slides/cpp", "email/cpp"):
+>           assert pilot in text
+E           AssertionError: assert 'cells/cpp' in '# Oracle disagreement triage: Go, Rust, C++ (G3/TC-691, extended by G3/TC-732)\n\n## Scope and provenance\n\nThis doc...action work, if ever re-prioritized, for bucket 1), plus the two new\n  header-resolution gaps `TC-732` found above.\n'
+
+tests\release\test_oracle_triage_doc.py:127: AssertionError
+=========================== short test summary info ===========================
+FAILED tests/release/test_oracle_triage_doc.py::test_doc_exists_and_names_all_7_pilots
+FAILED tests/release/test_oracle_triage_doc.py::test_the_three_non_pdf_cpp_c_plus_plus_pilots_are_now_individually_root_caused_by_tc_732
+
+--- stderr ---
+
