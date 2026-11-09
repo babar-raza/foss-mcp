@@ -214,15 +214,19 @@ requires:
 network: false
 negative_control:
   mutate: |
-    python -X utf8 -c "import pathlib; p = pathlib.Path('tests/deploy/test_fleet_consistency.py'); s = p.read_text(encoding='utf-8'); old = 'full_type_chunks'; count = s.count(old); assert count >= 1, 'the expected helper name was not found - if your real fix names this differently, anchor your own mutate on your own real literal instead and note the substitution in your closeout'; s2 = s.replace(old, 'type_chunks', 1); assert s2 != s; p.write_text(s2, encoding='utf-8')"
+    python -X utf8 -c "import pathlib; p = pathlib.Path('tests/deploy/test_served_coverage_matches_fixtures.py'); s = p.read_text(encoding='utf-8'); old = 'kind_of(text) != FUNCTION_KIND and not is_thin_type_chunk(text)'; count = s.count(old); assert count == 1, 'the expected full_type_chunks_served filter literal was not found exactly once - if your real fix phrases this differently, anchor your own mutate on your own real literal instead and note the substitution in your closeout'; s2 = s.replace(old, 'kind_of(text) != FUNCTION_KIND and is_thin_type_chunk(text)', 1); assert s2 != s; p.write_text(s2, encoding='utf-8')"
   rationale: >-
-    Replaces your new fix's own thin-aware count with the OLD raw count at its first real use
-    site, which must reintroduce the exact "API-Coverage says N=X, the generation holds Y type
-    chunks" failure class for any real shelled pilot already re-ingested at review time (or for a
-    synthetic shelled fixture your own tests construct) - a targeted removal of exactly the new
-    behavior this card adds. If your real fix uses a different name or structure, re-anchor the
-    mutate on your own real literal and note the substitution in your closeout, confirming by hand
-    that it still breaks the check non-vacuously before committing.
+    Flips `full_type_chunks_served`'s own filter to count ONLY thin chunks instead of excluding
+    them, which must make `test_coverage_problems_is_clean_on_a_fresh_shelled_generation` (the one
+    test in this card's narrowed check that directly exercises `coverage_problems`/
+    `full_type_chunks_served`) fail non-vacuously on the real `cells_python` fixture (56 thin vs.
+    130 full - a large, unmistakable mismatch) - a targeted inversion of exactly the new behavior
+    this card adds, in the exact file this card's narrowed check actually runs. The card's
+    previous negative control (targeting `tests/deploy/test_fleet_consistency.py`) was VACUOUS
+    against the narrowed check, since that file is no longer exercised by any of the 3 named
+    tests - this one is anchored correctly in the file the check actually covers. If your real fix
+    phrases the filter differently, re-anchor on your own real literal and verify by hand it is
+    non-vacuous before committing.
 evidence:
   - evidence/build/G3/TC-730/receipt.json
 closeout:
