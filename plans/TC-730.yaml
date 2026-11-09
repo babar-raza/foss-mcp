@@ -1,0 +1,168 @@
+id: TC-730
+gate: G3
+lane: verification
+purpose: >-
+  Fixes a real, precisely root-caused test-logic defect in 2 files, found while attempting to
+  re-ingest the 11 pilots TC-729 just fixed (read `docs/DECISION_LOG.md`'s 2026-11-09 entry "TC-729
+  fixture backfill does not close the loop end-to-end" in full first - the investigation is already
+  complete, confirmed independently twice more by direct code reads; do not re-derive it).
+
+  There are THREE distinct numbers that matter for a Python pilot with real re-export shells
+  (confirmed: this situation is Python-only among all 32 pilots, by construction - no other
+  language has this shell/definition pairing), and this project's tests currently conflate two of
+  them that must stay separate:
+
+  1. RAW total entries (definitions + shells) - the right number for "nothing was silently dropped
+  or duplicated" completeness checking. Already correctly handled, untouched, still correct
+  (`test_served_symbol_fqns_are_exactly_the_fixture_entries`/`multiset_problems`, which compare
+  against `expected_pairs`/`non_test_entries` directly from the fixture's raw `types` array, never
+  through `symbol_counts`).
+
+  2. FULL (non-thin) chunk count - the count of chunks that carry a type's REAL, full rendering
+  (members, bases, doc) rather than a lightweight alias-pointer rendering. `chunk_builder.py`'s own
+  `_format_type_text` (confirmed by direct read, line ~435-436) appends a `Defined-In: <fqn>` line
+  to a chunk if and ONLY if it is thin (confirmed by direct read of the real call site, line
+  ~850-858: `defined_in=fqns[target] if target is not None else None`, `thin=target is not None and
+  not identities[index].is_definition` - `defined_in` is truthy exactly when `thin` is true, on
+  every real pilot). This number equals `chunk_builder._coverage_line`'s own live-computed,
+  DEDUPED numerator (`kept_types`, via `symbol_identity.compute_canonical_identities(...)
+  .is_definition`, TC-614) BY CONSTRUCTION - one full chunk per canonical definition, nothing else.
+
+  3. The fixture's own stored `symbol_counts.types` - now (since TC-729) correctly populated with
+  the SAME deduped count as (2), used as `_coverage_line`'s DENOMINATOR. This consumption is
+  ALREADY correct and does not need to change.
+
+  THE BUG: `tests/deploy/test_fleet_consistency.py::coverage_problems` (its own `type_chunks`
+  local, a RAW count of every non-function symbol chunk, shells included) and `tests/deploy/
+  test_served_coverage_matches_fixtures.py::coverage_problems`/`served_counts` (the same RAW
+  concept under a different name) both compare the coverage line's NUMERATOR (deduped, = (2))
+  against a RAW chunk count that includes shells - these have never been equal for any pilot with
+  real shells, regardless of what the fixture says; TC-729 didn't create this mismatch, it just
+  made the DENOMINATOR side correct for the first time, which is what finally exposed this
+  separate, pre-existing comparison error (TC-614/620/686 all landed without ever fully re-ingesting
+  a real shelled pilot against this exact check).
+
+  SEPARATELY, `tests/deploy/test_served_coverage_matches_fixtures.py::test_served_type_chunks_
+  equal_the_fixture_types` and `test_served_function_chunks_equal_the_fixture_functions` compare
+  `served_counts(...)` (RAW, number 1 above) against `fixture_counts(...)` - but `fixture_counts`
+  now returns `symbol_counts.types` (DEDUPED, number 3) whenever a fixture has that field (every
+  Python pilot does, post-TC-729), when these two tests' own stated purpose ("nothing was silently
+  dropped") genuinely needs number 1 (RAW), not number 3. This conflation inside `fixture_counts`
+  predates TC-729 (it was simply never exercised for a shelled, symbol_counts-bearing fixture
+  before now) and is the second half of the same root defect class.
+
+  FIX (test-logic only - do NOT touch `chunk_builder.py`, `run_extraction.py`, or
+  `symbol_identity.py`; this is a pure test-correctness fix, the production code's own dedup
+  design, confirmed correct and deliberate by TC-614/686, is not in question):
+
+  In `tests/deploy/test_fleet_consistency.py::coverage_problems`: add a helper that identifies a
+  thin/shell chunk from its own rendered text (a line matching `^Defined-In: ` - reuse or mirror
+  the exact pattern `_is_function_chunk`'s own regex style already uses in that same file),
+  compute a NEW `full_type_chunks` value (type_chunks minus thin ones), and use `full_type_chunks`
+  - not raw `type_chunks` - in the `nt != type_chunks` comparison (the `mt != want_types`
+  comparison already correctly uses the deduped `symbol_counts.types` and must stay unchanged).
+
+  In `tests/deploy/test_served_coverage_matches_fixtures.py::coverage_problems`: the identical fix
+  for its own `types` variable (from `served_counts`) in its own analogous `(line.types_indexed,
+  line.types_total) != (types, want_types)` comparison - introduce the same thin-chunk-excluding
+  count and use it only for this ONE comparison.
+
+  In the SAME file's `test_served_type_chunks_equal_the_fixture_types` and `test_served_function_
+  chunks_equal_the_fixture_functions`: these need the RAW recount (number 1), not whatever
+  `fixture_counts` returns when `symbol_counts` is present. Add a way to get the raw recount
+  unconditionally (the existing `recount(fixture["types"])` function already does exactly this -
+  it is `fixture_counts`'s own un-taken fallback branch) and use THAT for these two tests'
+  comparisons, leaving `fixture_counts` itself and every OTHER caller of it (including inside
+  `coverage_problems`'s own, correct, `want_types`/`mt` comparison) completely unchanged.
+
+  MEASURE, do not assume: for every one of the 32 real pilots, confirm your fix changes NOTHING
+  for the 21 pilots with zero real shells (full_type_chunks == type_chunks, a true no-op there),
+  and confirm it correctly resolves the real mismatch for exactly the 11 real Python-family pilots
+  with shells (the same 11 TC-729 fixed: slides_python, words_python, cells_python, pdf_python,
+  email_python, barcode_python, html_python, page_python, 3d_python, tex_python, note_python).
+  `pdf_java`'s own separate, already-flagged, unrelated defect (one oversized symbol chunk serving
+  zero API-Coverage lines) stays explicitly out of scope here too - do not touch it, do not go
+  looking for its cause.
+
+  REPRODUCE FIRST: before your fix, actually run the full `tests/deploy/test_served_provenance.py
+  tests/deploy/test_fleet_consistency.py tests/deploy/test_served_coverage_matches_fixtures.py
+  tests/extraction/test_symbol_counts_dedup_consistency.py` suite against a SCRATCH re-ingest of
+  at least 2-3 of the 11 pilots (or, if a live re-ingest isn't practical from inside your
+  worktree, construct a minimal synthetic generation with a real shell/definition pair and confirm
+  your fix's helper correctly distinguishes a thin chunk from a full one against REAL rendered
+  text, via `chunk_builder.build_chunks_from_api_surface` itself - never hand-write a fake
+  `Defined-In:` line). Report the real before/after behavior, verbatim, in your closeout.
+depends_on:
+  - TC-614
+  - TC-686
+  - TC-727
+  - TC-729
+write_paths:
+  - tests/deploy/test_fleet_consistency.py
+  - tests/deploy/test_served_coverage_matches_fixtures.py
+satisfies:
+  - REQ-G3-012
+source_refs:
+  - file: docs/DECISION_LOG.md
+    anchor: >-
+      ## 2026-11-09 — real regression found in the TC-727 re-ingest (commit 6053716b); public demo rolled back (supervisor)
+    sha256: 5f706013f15c76a245c50438e9065725c8f08f99475f874f34726ff2dcd72218
+inputs:
+  - >-
+    READ FIRST: `docs/DECISION_LOG.md`'s most recent 2026-11-09 entries in full, in order - the
+    rollback, the root-cause-of-the-coverage-line-bug entry, and the "does not close the loop"
+    entry that found THIS card's own real defect. The investigation (including the exact line
+    numbers in `chunk_builder.py` confirming `Defined-In:` is unconditional-on-thin) is already
+    complete and independently re-verified by the supervisor - do not re-derive it from scratch,
+    confirm it against the real current code instead.
+  - >-
+    `src/foss_mcp/indexing/chunk_builder.py`'s `_format_type_text` (around line 394-460) and its
+    real call site inside `build_chunks_from_api_surface` (around line 840-858) are your exact
+    reference for how a thin chunk is identifiable from its own rendered text - read them, do not
+    guess the shape of `Defined-In:`'s line.
+  - >-
+    Do not touch `chunk_builder.py`, `run_extraction.py`, or `symbol_identity.py` - this is a
+    test-only fix. If your own investigation finds a reason the production code itself needs to
+    change, stop and report it rather than editing outside your declared write_paths.
+  - >-
+    Measure the full blast radius before committing: every OTHER existing test in both files that
+    calls `coverage_problems`/`served_counts`/`fixture_counts`/`type_chunks`-shaped helpers must
+    stay passing, unchanged, for every pilot with zero real shells (21 of 32) - your fix must be
+    a true no-op there. Confirm this by running BOTH full files, not just the ones you expect to
+    change.
+actions:
+  - >-
+    Separate "raw entry count" (completeness), "full/non-thin chunk count" (coverage-line numerator
+    parity), and "deduped fixture-stored count" (coverage-line denominator parity) into their own
+    correctly-routed comparisons in both affected test files, without changing any production code.
+checks:
+  - command: '{python} -m pytest tests/deploy/test_fleet_consistency.py tests/deploy/test_served_coverage_matches_fixtures.py -q -rfE -p no:cacheprovider'
+    expect: 'exit 0'
+    timeout_seconds: 300
+    junitxml: true
+    proves:
+      - REQ-G3-012
+min_tests: 250
+requires:
+  - python
+network: false
+negative_control:
+  mutate: |
+    python -X utf8 -c "import pathlib; p = pathlib.Path('tests/deploy/test_fleet_consistency.py'); s = p.read_text(encoding='utf-8'); old = 'full_type_chunks'; count = s.count(old); assert count >= 1, 'the expected helper name was not found - if your real fix names this differently, anchor your own mutate on your own real literal instead and note the substitution in your closeout'; s2 = s.replace(old, 'type_chunks', 1); assert s2 != s; p.write_text(s2, encoding='utf-8')"
+  rationale: >-
+    Replaces your new fix's own thin-aware count with the OLD raw count at its first real use
+    site, which must reintroduce the exact "API-Coverage says N=X, the generation holds Y type
+    chunks" failure class for any real shelled pilot already re-ingested at review time (or for a
+    synthetic shelled fixture your own tests construct) - a targeted removal of exactly the new
+    behavior this card adds. If your real fix uses a different name or structure, re-anchor the
+    mutate on your own real literal and note the substitution in your closeout, confirming by hand
+    that it still breaks the check non-vacuously before committing.
+evidence:
+  - evidence/build/G3/TC-730/receipt.json
+closeout:
+  - >-
+    `tests/deploy/test_fleet_consistency.py` and `tests/deploy/test_served_coverage_matches_
+    fixtures.py` now correctly distinguish raw entry count, full/non-thin chunk count, and the
+    fixture's deduped stored count - closing the real gap TC-729's own re-ingest attempt found,
+    with zero production-code change and zero behavior change for any pilot without real shells.
+recovery: Re-run from a clean tree.
