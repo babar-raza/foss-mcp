@@ -1,0 +1,293 @@
+schema_version: 1
+pilot: email_cpp
+library_repository: aspose-email-foss/Aspose.Email-FOSS-for-Cpp
+library_commit: c844a467cf7f2503819b655f4d6ceaef91056c40
+language: cpp
+examples:
+- title: Create a Message, Save It to Memory, and Reload It From Bytes
+  description: Creates a message with a sender, a recipient and an attachment, saves it to an in-memory byte buffer with mapi_message::save, reloads it from those bytes with mapi_message::from_stream and checks the subject, sender, recipient count and attachment filename on the reloaded copy.
+  symbols:
+  - mapi_message
+  - mapi_message.create
+  - mapi_message.set_sender_name
+  - mapi_message.set_sender_email_address
+  - mapi_message.add_recipient
+  - mapi_message.add_attachment
+  - mapi_message.save
+  - mapi_message.from_stream
+  - mapi_message.subject
+  - mapi_message.recipients
+  - mapi_message.attachments
+  - mapi_attachment.filename
+  code: |
+    // Authored example: create a message, save it to memory, and reload it from the saved bytes.
+    #include <cassert>
+    #include <iostream>
+    #include <sstream>
+    #include <string>
+    #include <vector>
+
+    #include "aspose/email/foss/msg/mapi_message.hpp"
+
+    using aspose::email::foss::msg::mapi_message;
+
+    int main()
+    {
+        auto message = mapi_message::create("Weekly digest", "See attached notes.");
+        message.set_sender_name("Dana Ops");
+        message.set_sender_email_address("dana@example.com");
+        message.add_recipient("eve@example.com", "Eve Example");
+        message.add_attachment("notes.txt", std::vector<std::uint8_t> {'h', 'i'}, "text/plain");
+
+        const auto bytes = message.save();
+        const std::string blob(bytes.begin(), bytes.end());
+        std::istringstream stream(blob);
+        auto loaded = mapi_message::from_stream(stream);
+
+        std::cout << "subject: " << loaded.subject() << '\n';
+        std::cout << "sender: " << loaded.sender_name() << " <" << loaded.sender_email_address() << ">\n";
+        std::cout << "recipients: " << loaded.recipients().size() << '\n';
+        std::cout << "attachments: " << loaded.attachments().size() << '\n';
+
+        assert(loaded.subject() == "Weekly digest");
+        assert(loaded.sender_name() == "Dana Ops");
+        assert(loaded.recipients().size() == 1);
+        assert(loaded.attachments().size() == 1);
+        assert(loaded.attachments()[0].filename == "notes.txt");
+        return 0;
+    }
+  code_sha256: 35e695a5a19ae882a147de075f73cd543329e30d4dac6056390b631c045fb241
+- title: Save a Message as EML and Load It Back
+  description: Creates a message with a subject and a plain-text body, serialises it to an in-memory EML byte buffer with mapi_message::save_to_eml, loads it back from those bytes with mapi_message::load_from_eml and checks that the subject and body survive the round trip.
+  symbols:
+  - mapi_message.create
+  - mapi_message.set_sender_email_address
+  - mapi_message.save_to_eml
+  - mapi_message.load_from_eml
+  - mapi_message.subject
+  - mapi_message.body
+  code: |
+    // Authored example: save a message as EML and load it back from memory.
+    #include <cassert>
+    #include <iostream>
+    #include <sstream>
+    #include <string>
+
+    #include "aspose/email/foss/msg/mapi_message.hpp"
+
+    using aspose::email::foss::msg::mapi_message;
+
+    int main()
+    {
+        auto message = mapi_message::create("Release notes", "Plain text body.");
+        message.set_sender_email_address("builds@example.com");
+
+        const auto eml_bytes = message.save_to_eml();
+        const std::string blob(eml_bytes.begin(), eml_bytes.end());
+        std::istringstream stream(blob);
+        auto loaded = mapi_message::load_from_eml(stream);
+
+        std::cout << "subject: " << loaded.subject() << '\n';
+        std::cout << "body: " << loaded.body() << '\n';
+
+        assert(loaded.subject() == "Release notes");
+        assert(loaded.body() == "Plain text body.");
+        return 0;
+    }
+  code_sha256: bad05b4a89159e8a61cb8c65d97ccc05b23c2c4c8602178d29f701f09b007945
+- title: Round-trip an Arbitrary MAPI Property With set_property and get_property_value
+  description: Sets an arbitrary MAPI property by numeric id and type with mapi_message::set_property, reads it back two ways through mapi_message::get_property_value and through the message's own property collection, and checks both the decoded value and the stored property's combined property_tag.
+  symbols:
+  - mapi_message.create
+  - mapi_message.set_property
+  - mapi_message.get_property_value
+  - mapi_message.properties
+  - common_message_property_id
+  - property_type_code
+  - mapi_property_collection.get
+  - mapi_property.property_tag
+  code: |
+    // Authored example: set and read an arbitrary MAPI property by id and type.
+    #include <any>
+    #include <cassert>
+    #include <iostream>
+    #include <string>
+    #include <type_traits>
+
+    #include "aspose/email/foss/msg/common_message_property_id.hpp"
+    #include "aspose/email/foss/msg/mapi_message.hpp"
+    #include "aspose/email/foss/msg/property_type_code.hpp"
+
+    namespace
+    {
+    template <typename Enum>
+    constexpr auto to_underlying(const Enum value) noexcept
+    {
+        return static_cast<std::underlying_type_t<Enum>>(value);
+    }
+    } // namespace
+
+    using aspose::email::foss::msg::common_message_property_id;
+    using aspose::email::foss::msg::mapi_message;
+    using aspose::email::foss::msg::property_type_code;
+
+    int main()
+    {
+        auto message = mapi_message::create("Build notification", "The nightly build passed.");
+        message.set_property(
+            to_underlying(common_message_property_id::internet_message_id),
+            to_underlying(property_type_code::ptyp_string),
+            std::string("<nightly-001@example.com>"));
+
+        const auto* stored = message.get_property_value(
+            to_underlying(common_message_property_id::internet_message_id),
+            to_underlying(property_type_code::ptyp_string));
+        assert(stored != nullptr);
+        const auto message_id = std::any_cast<std::string>(*stored);
+        std::cout << "internet_message_id: " << message_id << '\n';
+
+        auto& collection = message.properties();
+        const auto* entry = collection.get(
+            to_underlying(common_message_property_id::internet_message_id),
+            to_underlying(property_type_code::ptyp_string));
+        assert(entry != nullptr);
+        std::cout << "property_tag: 0x" << std::hex << entry->property_tag() << std::dec << '\n';
+
+        assert(message_id == "<nightly-001@example.com>");
+        return 0;
+    }
+  code_sha256: 5fcb6555b18a9cc86f7c8ca05ac27ea1362babbaa29c167f802f3eaebaa52280
+- title: Build a CFB Container From Scratch and Read It Back With cfb_reader
+  description: Builds a Compound File Binary container directly from cfb_storage and cfb_stream nodes, serialises it to bytes with cfb_writer::to_bytes, re-parses those bytes with cfb_reader::from_bytes and walks the resulting directory_entry tree to find the stream by name and check its payload byte-for-byte.
+  symbols:
+  - cfb_storage
+  - cfb_storage.add_stream
+  - cfb_stream
+  - cfb_document
+  - cfb_writer.to_bytes
+  - cfb_reader.from_bytes
+  - cfb_reader.root_entry
+  - cfb_reader.child_ids
+  - cfb_reader.get_entry
+  - cfb_reader.get_stream_data
+  - directory_entry
+  - directory_entry.is_root
+  code: |
+    // Authored example: build a CFB container from scratch and read it back with cfb_reader.
+    #include <cassert>
+    #include <cstdint>
+    #include <iostream>
+    #include <string>
+    #include <vector>
+
+    #include "aspose/email/foss/cfb/cfb_document.hpp"
+    #include "aspose/email/foss/cfb/cfb_reader.hpp"
+    #include "aspose/email/foss/cfb/cfb_storage.hpp"
+    #include "aspose/email/foss/cfb/cfb_stream.hpp"
+    #include "aspose/email/foss/cfb/cfb_writer.hpp"
+    #include "aspose/email/foss/cfb/directory_entry.hpp"
+
+    using namespace aspose::email::foss::cfb;
+
+    int main()
+    {
+        cfb_storage root("Root Entry");
+        const std::vector<std::uint8_t> payload {'p', 'a', 'y', 'l', 'o', 'a', 'd'};
+        root.add_stream(cfb_stream("MyStream", payload));
+
+        cfb_document document(std::move(root));
+        const auto bytes = cfb_writer::to_bytes(document);
+        std::cout << "written bytes: " << bytes.size() << '\n';
+
+        const auto reader = cfb_reader::from_bytes(bytes);
+        const aspose::email::foss::cfb::directory_entry& top = reader.root_entry();
+        assert(top.is_root());
+
+        bool found = false;
+        for (const auto child_id : reader.child_ids(top.stream_id))
+        {
+            const aspose::email::foss::cfb::directory_entry& entry = reader.get_entry(child_id);
+            if (entry.name == "MyStream")
+            {
+                found = true;
+                const auto& data = reader.get_stream_data(child_id);
+                std::cout << "MyStream size: " << data.size() << '\n';
+                assert(data == payload);
+            }
+        }
+
+        assert(found);
+        return 0;
+    }
+  code_sha256: f1f9ac5efa2bdf1daff20390aa38a2dfe4055d5152f06bf9fe4fa96b0bc45d41
+- title: Dump the Low-Level MSG Storage Tree of a Saved Message
+  description: Creates a message with two recipients and an attachment, saves it, re-reads the saved bytes at the low level with msg_reader::from_stream and msg_document::from_reader, and counts the recipient and attachment storages under the MSG document's root, checking the reader reported no validation issues.
+  symbols:
+  - mapi_message.create
+  - mapi_message.add_recipient
+  - mapi_message.add_attachment
+  - mapi_message.save
+  - msg_reader.from_stream
+  - msg_reader.validation_issues
+  - msg_document.from_reader
+  - msg_document.root
+  - msg_storage_role
+  - msg_storage.storages
+  code: |
+    // Authored example: dump the low-level MSG storage tree of a saved message.
+    #include <cassert>
+    #include <cstdint>
+    #include <iostream>
+    #include <sstream>
+    #include <string>
+    #include <vector>
+
+    #include "aspose/email/foss/msg/mapi_message.hpp"
+    #include "aspose/email/foss/msg/msg_document.hpp"
+    #include "aspose/email/foss/msg/msg_reader.hpp"
+    #include "aspose/email/foss/msg/msg_storage_role.hpp"
+
+    using aspose::email::foss::msg::mapi_message;
+    using aspose::email::foss::msg::msg_document;
+    using aspose::email::foss::msg::msg_reader;
+    using aspose::email::foss::msg::msg_storage_role;
+
+    int main()
+    {
+        auto message = mapi_message::create("Shipping confirmation", "Your order has shipped.");
+        message.add_recipient("f@example.com", "Frank Example");
+        message.add_recipient("g@example.com", "Grace Example");
+        message.add_attachment("label.txt", std::vector<std::uint8_t> {'L'}, "text/plain");
+
+        const auto bytes = message.save();
+        const std::string blob(bytes.begin(), bytes.end());
+        std::istringstream stream(blob);
+
+        const auto reader = msg_reader::from_stream(stream);
+        const auto document = msg_document::from_reader(reader);
+        const auto& root = document.root();
+
+        std::size_t recipient_storages = 0;
+        std::size_t attachment_storages = 0;
+        for (const auto& storage : root.storages)
+        {
+            if (storage.role == msg_storage_role::recipient)
+            {
+                ++recipient_storages;
+            }
+            else if (storage.role == msg_storage_role::attachment)
+            {
+                ++attachment_storages;
+            }
+        }
+
+        std::cout << "validation_issues: " << reader.validation_issues().size() << '\n';
+        std::cout << "recipient_storages: " << recipient_storages << '\n';
+        std::cout << "attachment_storages: " << attachment_storages << '\n';
+
+        assert(reader.validation_issues().empty());
+        assert(recipient_storages == 2);
+        assert(attachment_storages == 1);
+        return 0;
+    }
+  code_sha256: f6fc303897461754b10d8eb8f933d6180bc00f3f4e94f4ee31f10e3cc617838b
