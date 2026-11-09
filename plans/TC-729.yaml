@@ -68,11 +68,62 @@ purpose: >-
   SEPARATE, later step (the supervisor's own job, following the exact TC-536 precedent in that
   same file, re-verifying each entry is genuinely no longer stale before removing it), not this
   card's write_paths or responsibility. Do not touch that file.
+
+  ADDED after attempt 1 (same card, widened and corrected - not a new card, since the real root
+  cause and fix mechanism are unchanged; attempt 1's own worker correctly found two real scope
+  errors in this card's ORIGINAL text and stopped rather than guess past them, per AGENTS.md rule
+  5 - full credit to that report, both corrections below come directly from it, independently
+  re-verified by the supervisor before widening):
+
+  (1) **An 11th real pilot, `note_python`, has the identical bug** - this card's own ORIGINAL
+  premise ("dedup is a no-op for `note_python`, it has zero re-export shells, already correctly
+  serves 74 of 74") was WRONG. Re-verified directly: `note_python`'s fixture has 75 raw entries (1
+  function, 74 non-function) and genuinely has 37 real re-export shell/definition pairs (its
+  `src/aspose/note/__init__.py` shell re-exports `DocumentVisitor`/`Document`/`Node`/`SaveFormat`/
+  `NoteTag`/etc. from real submodules - the exact pattern TC-614/686's dedup targets). The real,
+  correct, fully-deduped count for `note_python` is `{"types": 37, "functions": 1}`, not the
+  stored `{"types": 74, "functions": 1}`. Fix it with the SAME mechanism as the other 10 (now 11
+  total real affected pilots): `slides_python`, `words_python`, `cells_python`, `pdf_python`,
+  `email_python`, `barcode_python`, `html_python`, `page_python`, `3d_python`, `tex_python`,
+  `note_python`.
+
+  (2) **Check 2, as originally written, cannot pass without a real live re-ingest this card never
+  scoped or authorized.** `tests/deploy/test_fleet_consistency.py`/`test_served_coverage_matches_
+  fixtures.py` read the STATIC, already-baked `infra/demo-manifests/<pilot>/generation__*.json`
+  content, never a live render - fixing a fixture's `symbol_counts` field changes which number the
+  served line's stated numerator disagrees with the SERVED CHUNK COUNT by, but the served chunk
+  count itself (one real chunk per raw entry, shells included, since `chunk_builder` only dedups
+  the *stated number* in the coverage line's own text, never the actual list of served chunks)
+  can never equal the fixture's own deduped numerator for ANY pilot with real shells, regardless
+  of what the fixture says - that gap can only be closed by an actual re-ingest/rebake of
+  `infra/demo-manifests/` against the now-corrected fixtures, which is its own real, live-cluster-
+  touching operation (see this session's own prior supervisor-direct re-ingest actions for the
+  established shape of that work) - explicitly OUT OF THIS CARD's scope and write_paths, to be
+  done as a separate supervisor step once this card lands. Check 2 is corrected below to verify
+  ONLY what this card's own write_paths can actually prove offline: the new guard test (now
+  covering all 11 real pilots) plus the real, pre-existing collateral tests this fix legitimately
+  changes the expected values of (see below) - never the live-served-data comparison, which this
+  card cannot make pass and must not pretend to.
+
+  (3) **Real, legitimate collateral**: fixing the 11 fixtures' `symbol_counts` breaks 22
+  pre-existing tests in 4 files that hardcode the OLD (now-stale) numbers as their own expected
+  values - `tests/extraction/test_reextracted_uncapped.py` (15 cases across pdf/slides/html/3d/
+  words_python), `tests/extraction/test_run_extraction_canonical_counts.py` (2 cases, both
+  slides_python), `tests/indexing/test_chunk_builder_coverage_line.py` (4 cases, tex_python/
+  slides_python), `tests/infra/test_build_chunks_parse_failures_notice.py` (1 case, tex_python).
+  Several of these tests' own comments already name the OLD numbers as a known, anticipated
+  follow-up pending exactly this backfill - re-verify each one's real pinned value against the
+  real pilot's new correct number (never invent one) and update it precisely; every other
+  assertion in each of these files, and every pilot/case this fix does not touch, must stay
+  byte-for-byte unchanged.
 depends_on:
   - TC-532
   - TC-550
   - TC-555
   - TC-559
+  - TC-614
+  - TC-667
+  - TC-727
 write_paths:
   - tests/fixtures/slides_python/api_surface.json
   - tests/fixtures/words_python/api_surface.json
@@ -84,7 +135,12 @@ write_paths:
   - tests/fixtures/page_python/api_surface.json
   - tests/fixtures/3d_python/api_surface.json
   - tests/fixtures/tex_python/api_surface.json
+  - tests/fixtures/note_python/api_surface.json
   - tests/extraction/test_symbol_counts_dedup_consistency.py
+  - tests/extraction/test_reextracted_uncapped.py
+  - tests/extraction/test_run_extraction_canonical_counts.py
+  - tests/indexing/test_chunk_builder_coverage_line.py
+  - tests/infra/test_build_chunks_parse_failures_notice.py
 satisfies:
   - REQ-G3-012
 source_refs:
@@ -110,24 +166,30 @@ inputs:
     text estimated (numbers may have drifted since this card was authored), use the REAL number you
     measure, not this card's own estimate.
   - >-
-    Do not touch `pdf_java`'s fixture or `chunk_builder.py`/`run_extraction.py`/`symbol_identity.py`
-    themselves - this card changes ONLY the 10 named fixtures' `symbol_counts` field plus adds one
-    new test file. If your own investigation suggests a DIFFERENT file needs to change, stop and
-    report it rather than editing outside your declared write_paths.
+    Do not touch `pdf_java`'s fixture, `tests/deploy/test_fleet_consistency.py`/
+    `test_served_coverage_matches_fixtures.py`, or `chunk_builder.py`/`run_extraction.py`/
+    `symbol_identity.py` themselves - this card changes ONLY the 11 named fixtures' `symbol_counts`
+    field, adds one new permanent test file, and corrects the 4 named pre-existing collateral test
+    files' own stale hardcoded expectations. If your own investigation suggests a DIFFERENT file
+    needs to change, stop and report it rather than editing outside your declared write_paths -
+    exactly as attempt 1's own worker correctly did for the two real scope gaps this card's own
+    text now incorporates.
   - >-
     `tests/extraction/test_symbol_counts_dedup_consistency.py` is a brand-new file - expect
     approximately 30-35 new tests (one parametrized case per real pilot whose committed fixture
-    currently carries a `symbol_counts` field, which is most but not necessarily all of the 32,
-    plus 1-2 static sanity tests of your own choosing) to satisfy `min_tests: 10` comfortably; the
-    exact count depends on how many real fixtures have the field, which you should confirm
-    directly rather than assume.
+    currently carries a `symbol_counts` field, which attempt 1 confirmed is all 32, plus 1-2 static
+    sanity tests of your own choosing) to satisfy `min_tests: 10` comfortably. Re-verify `note_python`
+    now passes it too once its fixture is fixed (it was the one real pre-existing failure attempt 1
+    found and correctly declined to paper over).
   - >-
-    Check 2 deliberately targets ONLY the 10 pilots this card fixes, by explicit parametrized node
-    id - the other 15 pilots already listed in `tests/deploy/test_fleet_consistency.py`'s
-    `STALE_BAKED_PILOTS`/`STALE_BY_MEMBERS` tables will keep failing their own "is not stale:
-    delete it from the table" assertion if you run the FULL file (expected, a separate, later
-    supervisor cleanup step, not this card's job) - do not widen check 2 to the full file, and do
-    not touch that table.
+    Check 2 now runs the 4 real pre-existing collateral files this fix legitimately changes -
+    update ONLY the specific pinned values the real new `symbol_counts` numbers affect (re-verify
+    each against the real, current, correct number - do not copy attempt 1's own numbers blindly,
+    confirm them yourself), leaving every other assertion, pilot, and case in those files
+    byte-for-byte unchanged. It deliberately does NOT attempt to make
+    `test_fleet_consistency.py`/`test_served_coverage_matches_fixtures.py` pass - that is
+    impossible without a live re-ingest this card does not do (see the "ADDED after attempt 1"
+    purpose text) - do not add those files to check 2 or to write_paths.
 actions:
   - >-
     Backfill TC-620's own dedup convention onto 10 pre-existing fixtures' symbol_counts, and add a
@@ -139,7 +201,7 @@ checks:
     junitxml: true
     proves:
       - REQ-G3-012
-  - command: '{python} -m pytest "tests/deploy/test_fleet_consistency.py::test_api_coverage_lines_are_present_and_honest[slides_python]" "tests/deploy/test_fleet_consistency.py::test_api_coverage_lines_are_present_and_honest[words_python]" "tests/deploy/test_fleet_consistency.py::test_api_coverage_lines_are_present_and_honest[cells_python]" "tests/deploy/test_fleet_consistency.py::test_api_coverage_lines_are_present_and_honest[pdf_python]" "tests/deploy/test_fleet_consistency.py::test_api_coverage_lines_are_present_and_honest[email_python]" "tests/deploy/test_fleet_consistency.py::test_api_coverage_lines_are_present_and_honest[barcode_python]" "tests/deploy/test_fleet_consistency.py::test_api_coverage_lines_are_present_and_honest[html_python]" "tests/deploy/test_fleet_consistency.py::test_api_coverage_lines_are_present_and_honest[page_python]" "tests/deploy/test_fleet_consistency.py::test_api_coverage_lines_are_present_and_honest[3d_python]" "tests/deploy/test_fleet_consistency.py::test_api_coverage_lines_are_present_and_honest[tex_python]" "tests/deploy/test_served_coverage_matches_fixtures.py::test_served_coverage_line_states_the_same_counts[slides_python]" "tests/deploy/test_served_coverage_matches_fixtures.py::test_served_coverage_line_states_the_same_counts[words_python]" "tests/deploy/test_served_coverage_matches_fixtures.py::test_served_coverage_line_states_the_same_counts[cells_python]" "tests/deploy/test_served_coverage_matches_fixtures.py::test_served_coverage_line_states_the_same_counts[pdf_python]" "tests/deploy/test_served_coverage_matches_fixtures.py::test_served_coverage_line_states_the_same_counts[email_python]" "tests/deploy/test_served_coverage_matches_fixtures.py::test_served_coverage_line_states_the_same_counts[barcode_python]" "tests/deploy/test_served_coverage_matches_fixtures.py::test_served_coverage_line_states_the_same_counts[html_python]" "tests/deploy/test_served_coverage_matches_fixtures.py::test_served_coverage_line_states_the_same_counts[page_python]" "tests/deploy/test_served_coverage_matches_fixtures.py::test_served_coverage_line_states_the_same_counts[3d_python]" "tests/deploy/test_served_coverage_matches_fixtures.py::test_served_coverage_line_states_the_same_counts[tex_python]" -q -rfE -p no:cacheprovider'
+  - command: '{python} -m pytest tests/extraction/test_reextracted_uncapped.py tests/extraction/test_run_extraction_canonical_counts.py tests/indexing/test_chunk_builder_coverage_line.py tests/infra/test_build_chunks_parse_failures_notice.py -q -rfE -p no:cacheprovider'
     expect: 'exit 0'
     timeout_seconds: 180
     junitxml: true
@@ -165,8 +227,11 @@ evidence:
   - evidence/build/G3/TC-729/receipt.json
 closeout:
   - >-
-    10 pre-existing Python-pilot fixtures' `symbol_counts` are now in lockstep with
+    11 pre-existing Python-pilot fixtures' `symbol_counts` are now in lockstep with
     `chunk_builder.py`'s live-rendered, deduped coverage count, closing the real regression found
     during TC-727's own re-ingest; a new permanent fleet-wide test guards against this exact
-    staleness class recurring for any pilot, not just these 10.
+    staleness class recurring for any pilot, not just these 11. The remaining gap between these
+    now-correct fixtures and the still-stale baked `infra/demo-manifests/` content is a known,
+    separate, deliberately out-of-scope follow-up (a supervisor-direct re-ingest), not silently
+    left unresolved.
 recovery: Re-run from a clean tree.
