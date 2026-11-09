@@ -1,0 +1,123 @@
+
+===== CLEAN RUN 1 (host) =====
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-5c72e798a73c059a\Scripts\python.exe -m pytest tests/indexing/test_known_defects_completeness.py tests/indexing/test_known_defects_data_pdf_slides.py tests/mcp/tools/test_known_defects_in_get_symbol.py -q -rfE -p no:cacheprovider "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-56m88l0y\.junit-0.xml"
+--- stdout ---
+.............................................                            [100%]
+
+--- stderr ---
+
+
+===== CLEAN RUN 2 (host) =====
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-5c72e798a73c059a\Scripts\python.exe -m pytest tests/indexing/test_known_defects_completeness.py tests/indexing/test_known_defects_data_pdf_slides.py tests/mcp/tools/test_known_defects_in_get_symbol.py -q -rfE -p no:cacheprovider "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-56m88l0y\.junit-0.xml"
+--- stdout ---
+.............................................                            [100%]
+
+--- stderr ---
+
+
+===== NEGATIVE CONTROL (checks MUST now fail) =====
+mutated: M config/known_defects/slides__java.yaml, ?? .junit-0.xml
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-5c72e798a73c059a\Scripts\python.exe -m pytest tests/indexing/test_known_defects_completeness.py tests/indexing/test_known_defects_data_pdf_slides.py tests/mcp/tools/test_known_defects_in_get_symbol.py -q -rfE -p no:cacheprovider "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-56m88l0y\.junit-0.xml"
+--- stdout ---
+......F.................................F..F.                            [100%]
+================================== FAILURES ===================================
+_______ test_every_method_or_class_kind_ref_matches_a_real_indexed_fqn ________
+
+corpus = <tests.conformance.corpus.ConformanceCorpus object at 0x000001DE922217F0>
+
+    def test_every_method_or_class_kind_ref_matches_a_real_indexed_fqn(corpus: ConformanceCorpus) -> None:
+        """The PERMANENT completeness lock this card (TC-702) exists to add: every real registry entry
+        whose ``subject.kind`` is ``"method"`` or ``"class"`` must have every one of its ``subject.refs``
+        match a real indexed FQN for its own pilot, loaded from the real, committed
+        ``infra/demo-manifests`` corpus (never a synthetic/``tmp_path``-only stand-in). A registry ref
+        that never matches any real indexed FQN is a disclosure that can NEVER surface through a live
+        ``get_symbol``/``search_symbols`` call, regardless of how well-formed and schema-valid its YAML
+        entry is - exactly the silent-failure class this card fixed 11 real, live instances of (see
+        ``docs/DECISION_LOG.md``'s ``## 2026-11-02`` entry), which had already recurred once despite two
+        prior hand-curated fix passes (``TC-660``, ``TC-668``). Confirmed directly by this card's own
+        worker, in scratch work never committed, that this exact assertion fails against the unfixed
+        registry content and names all 11 real mismatches - proof the mechanism actually works, not
+        merely that it exists."""
+        failures: list[str] = []
+        for path, defect in _all_registry_entries():
+            subject = defect.get("subject", {})
+            if subject.get("kind") not in ("method", "class"):
+                continue
+            pilot_key = path.stem  # e.g. "cells__typescript" - matches ConformanceCorpus.pilots' own key
+            if pilot_key not in corpus.pilots:
+                failures.append(
+                    f"{path.name}: defect {defect.get('id')!r} - no real corpus pilot {pilot_key!r} "
+                    "exists to check its refs against"
+                )
+                continue
+            real_fqns = _real_indexed_fqns(corpus, pilot_key)
+            for ref in subject.get("refs", []):
+                if ref not in real_fqns:
+                    failures.append(
+                        f"{path.name}: defect {defect.get('id')!r} subject.refs entry {ref!r} does not "
+                        f"match any real indexed FQN for pilot {pilot_key!r}"
+                    )
+>       assert failures == [], (
+            "known_defects subject.refs entries that never match a real indexed FQN (a disclosure "
+            "that can never surface through a live get_symbol/search_symbols call):\n" + "\n".join(failures)
+        )
+E       AssertionError: known_defects subject.refs entries that never match a real indexed FQN (a disclosure that can never surface through a live get_symbol/search_symbols call):
+E         slides__java.yaml: defect 'SLIDES-JAVA-010' subject.refs entry 'org.aspose.slides.foss.PresentationNOTREAL' does not match any real indexed FQN for pilot 'slides__java'
+E       assert ["slides__jav...lides__java'"] == []
+E         
+E         Left contains one more item: "slides__java.yaml: defect 'SLIDES-JAVA-010' subject.refs entry 'org.aspose.slides.foss.PresentationNOTREAL' does not match any real indexed FQN for pilot 'slides__java'"
+E         Use -v to get more diff
+
+tests\indexing\test_known_defects_completeness.py:511: AssertionError
+_ test_get_symbol_end_to_end_surfaces_the_real_written_slides_java_010_defect_for_presentation _
+
+_real_slides_java_corpus = <tests.conformance.corpus.ConformanceCorpus object at 0x000001DE97D61BD0>
+
+    def test_get_symbol_end_to_end_surfaces_the_real_written_slides_java_010_defect_for_presentation(
+        _real_slides_java_corpus,
+    ) -> None:
+        """``org.aspose.slides.foss.Presentation`` is ``SLIDES-JAVA-010``'s own ``subject.refs`` entry
+        for the ``save()``/``SaveFormat`` bug - already independently verified by TC-650 (2026-10-29)
+        against the real published ``org.aspose:aspose-slides-foss`` 26.7.0 jar - so ``get_symbol``
+        against the real, committed ``slides__java.yaml`` this card wrote must surface
+        ``SLIDES-JAVA-010``'s real disclosure text for it."""
+        pilot = _real_slides_java_corpus.pilots["slides__java"]
+    
+        result = get_symbol(_real_slides_java_corpus.store, pilot.scope, "org.aspose.slides.foss.Presentation")
+    
+        assert isinstance(result, SymbolSignature)
+        assert result.found is True
+>       assert len(result.known_defects) == 1
+E       assert 0 == 1
+E        +  where 0 = len(())
+E        +    where () = SymbolSignature(scope=Scope(family='slides', platform='java', source_kind='self_extracted'), generation_id='slides::ja...ld: throws UnsupportedOperationException: "save(ISaveOptions) requires an output path or stream")',), known_defects=()).known_defects
+
+tests\mcp\tools\test_known_defects_in_get_symbol.py:397: AssertionError
+_ test_list_members_end_to_end_surfaces_the_real_written_slides_java_010_defect _
+
+_real_slides_java_corpus = <tests.conformance.corpus.ConformanceCorpus object at 0x000001DE97D61BD0>
+
+    def test_list_members_end_to_end_surfaces_the_real_written_slides_java_010_defect(
+        _real_slides_java_corpus,
+    ) -> None:
+        """Same real corpus, same real ``SLIDES-JAVA-010`` registry entry, through ``list_members``
+        instead of ``get_symbol`` - proving the disclosure surfaces through BOTH tools, the same proof
+        TC-711's own ``test_list_members_end_to_end_surfaces_the_real_written_words_net_001_defect``
+        already established for ``WORDS-NET-001``."""
+        pilot = _real_slides_java_corpus.pilots["slides__java"]
+    
+        members = list_members(_real_slides_java_corpus.store, pilot.scope, "org.aspose.slides.foss.Presentation")
+    
+        assert isinstance(members, tuple)
+        assert len(members) >= 1
+>       assert "SaveFormat" in members[0]
+E       AssertionError: assert 'SaveFormat' in 'Presentation()'
+
+tests\mcp\tools\test_known_defects_in_get_symbol.py:456: AssertionError
+=========================== short test summary info ===========================
+FAILED tests/indexing/test_known_defects_completeness.py::test_every_method_or_class_kind_ref_matches_a_real_indexed_fqn
+FAILED tests/mcp/tools/test_known_defects_in_get_symbol.py::test_get_symbol_end_to_end_surfaces_the_real_written_slides_java_010_defect_for_presentation
+FAILED tests/mcp/tools/test_known_defects_in_get_symbol.py::test_list_members_end_to_end_surfaces_the_real_written_slides_java_010_defect
+
+--- stderr ---
+
