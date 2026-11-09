@@ -139,7 +139,14 @@ def test_cells_cpp_signature_13_is_confirmed_bucket_2_with_real_symbols() -> Non
     never merely assumed from the category shape."""
     text = _read_doc()
     assert "9f852d0ff1cfdad2d661556d6b87a8eff8c063a2" in text
-    for symbol in ("CellArea", "CreateCellArea", "CellsException", "CellValue", "WorkbookSettings", "MakeElement"):
+    for symbol in (
+        "CellArea",
+        "CreateCellArea",
+        "CellsException",
+        "CellValue",
+        "WorkbookSettings",
+        "MakeElement",
+    ):
         assert symbol in text, f"real cells/cpp bucket-2 symbol {symbol!r} missing from {DOC}"
     assert "bucket 1 does" in text.lower() and "not apply" in text.lower(), (
         "the document must say bucket 1 was confirmed inapplicable to cells/cpp, not merely silent"
@@ -154,7 +161,9 @@ def test_email_cpp_extra_24_is_confirmed_bucket_1_with_exact_zero_remainder() ->
     assert "c844a467cf7f2503819b655f4d6ceaef91056c40" in text
     for symbol in ("cfb_node", "cfb_storage", "cfb_stream"):
         assert symbol in text, f"real email/cpp bucket-1 symbol {symbol!r} missing from {DOC}"
-    assert "zero remainder" in text.lower() or "0 remainder" in text.lower() or "zero-remainder" in text.lower()
+    assert (
+        "zero remainder" in text.lower() or "0 remainder" in text.lower() or "zero-remainder" in text.lower()
+    )
     # the 7 real bucket-2 signature findings must also be named, not only the bucket-1 extra ones
     for symbol in ("cfb_document", "load_from_eml", "add_attachment"):
         assert symbol in text, f"real email/cpp bucket-2 symbol {symbol!r} missing from {DOC}"
