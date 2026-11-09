@@ -1,0 +1,120 @@
+id: TC-731
+gate: G3
+lane: verification
+purpose: >-
+  C11 prep (content-truth program, REQ-G3-013) - the exact same shape of work `TC-695` already did
+  for Q17a: `tests/fixtures/conformance/baseline_reference_content.json` carries 52
+  `known_failures` entries at `strict: false`, never re-verified or pruned since several of the
+  cards that would have resolved some of them landed (TC-678's fence-aware truncation fix, TC-698's
+  multi-recipe disclosure). This card does NOT close C11 in full - C11's own formal closure
+  additionally depends on `I14`/`O10`, both still genuinely open (recorded in
+  `docs/DECISION_LOG.md`, 2026-11-09) - it only does the real, bounded, independently-valuable prep
+  work of re-verifying and pruning THIS ONE baseline file, exactly as `TC-695` did for Q17a without
+  claiming Q17 itself was done.
+
+  The 52 entries split into two shapes, by `case_id` prefix:
+
+  1. `empty-no-reason` (46 entries, ALL `*:contributing`): these describe a PERMANENT, BY-DESIGN
+  condition, already investigated and deliberately left unfixed (`C10`, 2026-11-06: "0 of 24 real
+  pilots have a CONTRIBUTING file anywhere... correctly left unfixed... `NotAvailable` has no
+  structured field distinguishing 'genuinely has none' from 'not extracted', by design"). These are
+  EXPECTED to all still genuinely reproduce today - re-verify a representative sample (not
+  necessarily all 46, given they share one root cause) directly against live `get_product_reference`
+  output, and confirm none of them has become stale for a DIFFERENT reason you discover along the
+  way; do not assume "by design" means "automatically still true forever" without checking.
+
+  2. `multi-recipe` (3 entries: `email__cpp`/`pdf__cpp`/`slides__cpp` install) and
+  `marker-lacks-locator` (3 entries: `pdf__cpp` install, `slides__cpp` install, `slides__cpp`
+  limitations): these are the real candidates for pruning. `marker-lacks-locator`'s own reason text
+  cites the exact old marker format (`_TRUNCATED_MARKER`, no locator) that `TC-678`'s own fix
+  replaced with a real, offset-naming marker (confirmed by direct code read:
+  `get_product_reference.py`'s `_cap_at_line`/`_cap_at_paragraph` now return
+  `"[truncated: showing N of M characters]"`, not the old bare string) - these 3 are STRONG
+  candidates to be stale/resolved; verify this directly, do not assume. `multi-recipe`'s own reason
+  text just states a fact (N distinct recipe blocks) with no assertion that this is itself the
+  failure - re-read `test_reference_content.py`'s own test that produces this `case_id` to confirm
+  exactly what it asserts today, and whether `TC-698`'s own disclosure-only fix (adds a `notice`,
+  never reduces the real recipe count) actually satisfies that assertion now or still doesn't.
+
+  REPRODUCE FIRST: for every one of the 52 entries (or the representative sample for the 46
+  `empty-no-reason` ones), call the real `test_reference_content.py` machinery (or `get_product_
+  reference` directly) against the real committed `infra/demo-manifests` data and confirm, case by
+  case, whether it still genuinely reproduces. Prune ONLY the entries you confirm no longer
+  reproduce; leave every genuinely-still-reproducing entry untouched, with its original reason text
+  unchanged. Do NOT flip `strict: true` unless you have individually confirmed EVERY remaining
+  entry (after pruning) still genuinely reproduces - a baseline with even one stale entry left in
+  under `strict: true` will spuriously fail on a future unrelated change, the exact failure class
+  this whole prep effort exists to prevent.
+depends_on:
+  - TC-608
+  - TC-678
+  - TC-695
+  - TC-698
+write_paths:
+  - tests/fixtures/conformance/baseline_reference_content.json
+  - tests/conformance/test_reference_content.py
+satisfies:
+  - REQ-G3-013
+source_refs:
+  - file: docs/DECISION_LOG.md
+    anchor: >-
+      ## 2026-11-09 — CORRECTION: the Q17 bar redefinition above is retracted - it overrides a standing operator directive (supervisor)
+    sha256: ededa4e4552e425be82b2bff6c820922a46d4ba612a72cd98e49e263022405d5
+inputs:
+  - >-
+    READ FIRST: `tests/fixtures/conformance/baseline_reference_content.json` in full (52 entries),
+    `tests/conformance/test_reference_content.py` in full, and `TC-695`'s own closeout (search
+    `docs/DECISION_LOG.md`/the card itself) as your direct template for this exact shape of
+    re-verify-then-prune-then-maybe-flip work. Then `get_product_reference.py`'s `_cap_at_line`/
+    `_cap_at_paragraph`/`_offset_marker`-equivalent function (around line 505-520) to confirm the
+    real current truncation-marker format yourself before trusting this card's own claim that it
+    changed.
+  - >-
+    REPRODUCE FIRST (do not skip, do not batch-assume): confirm, case by case, which of the 52
+    entries still genuinely reproduce today. Report the real before/after counts, verbatim, in
+    your closeout.
+  - >-
+    This card does NOT close C11 - do not write a C11 closure entry, do not claim the content-truth
+    program is done. Scope your closeout to exactly what this card did: re-verified and pruned one
+    baseline file, flipped its own `strict` flag if and only if everything remaining genuinely
+    reproduces.
+  - >-
+    If you find a case that's ambiguous (neither clearly still-reproducing nor clearly resolved),
+    leave it in the baseline untouched and report it rather than guessing either way - this mirrors
+    `TC-695`'s own discipline for its case-(g) entries.
+actions:
+  - >-
+    Re-verify all 52 known_failures entries in baseline_reference_content.json against live
+    get_product_reference output, prune genuinely-resolved ones, and flip strict only if safe.
+checks:
+  - command: '{python} -m pytest tests/conformance/test_reference_content.py -q -rfE -p no:cacheprovider'
+    expect: 'exit 0'
+    timeout_seconds: 300
+    junitxml: true
+    proves:
+      - REQ-G3-013
+min_tests: 14
+requires:
+  - python
+network: false
+negative_control:
+  mutate: |
+    python -X utf8 -c "import json, pathlib; p = pathlib.Path('tests/fixtures/conformance/baseline_reference_content.json'); d = json.loads(p.read_text(encoding='utf-8')); kf = d.get('known_failures', []); assert kf, 'no known_failures entries remain to corrupt - if you pruned all of them, pick a different, real, still-reproducing case_id from your own final file and adjust this mutate to delete IT instead'; removed = kf.pop(0); p.write_text(json.dumps(d), encoding='utf-8'); print('removed:', removed['case_id'])"
+  rationale: >-
+    Deletes one real, still-genuinely-reproducing known_failures entry from the baseline, which
+    must make the suite fail (that pilot's case is no longer tolerated, so its real, still-
+    reproducing failure becomes an unexpected new failure) - a pure data mutation, immune to the
+    lockstep-rename vacuousness class this session's earlier reviews found. If your own final file
+    has `strict: true`, confirm this mutate still produces a real, non-vacuous failure under strict
+    mode too (it should, by the same mechanism) before trusting it.
+evidence:
+  - evidence/build/G3/TC-731/receipt.json
+closeout:
+  - >-
+    `baseline_reference_content.json`'s 52 known_failures entries are re-verified against live
+    data; genuinely-resolved ones (likely the 3 marker-lacks-locator entries TC-678's fix already
+    addressed) are pruned, the 46 by-design contributing-related entries are confirmed still
+    correctly reproducing, and strict is flipped if and only if every remaining entry is confirmed
+    safe - real, bounded prep for C11's eventual full closure, which still separately waits on
+    I14/O10.
+recovery: Re-run from a clean tree.
