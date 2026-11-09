@@ -1,0 +1,423 @@
+schema_version: 1
+pilot: pdf_go
+library_repository: aspose-pdf-foss/Aspose-PDF-FOSS-for-Go
+library_commit: cdf43df10c8c565ecaa978428b1fe66ad6685f8d
+language: go
+examples:
+- title: Build a table of contents from outline bookmarks
+  description: >-
+    Adds four section pages with headings and outline bookmarks, generates a linked table of
+    contents with GenerateTOC, saves the document to a temporary file and checks the number of
+    TOC pages inserted, the resulting total page count, and the saved file's size.
+  symbols:
+  - NewDocumentFromFormat
+  - Document.Outlines
+  - NewOutlineItemCollection
+  - OutlineItemCollection.Add
+  - Document.GenerateTOC
+  - Document.Save
+  code: |
+    // Authored example: build a multi-section report with outline bookmarks and generate a linked table of contents.
+    package main
+
+    import (
+    	"fmt"
+    	"log"
+    	"os"
+    	"path/filepath"
+
+    	pdf "github.com/aspose-pdf-foss/aspose-pdf-foss-for-go"
+    )
+
+    func main() {
+    	doc := pdf.NewDocumentFromFormat(pdf.PageFormatA4)
+
+    	sections := []string{"Introduction", "Methodology", "Results", "Conclusion"}
+    	root := doc.Outlines()
+    	for i, title := range sections {
+    		if i > 0 {
+    			if err := doc.AddBlankPageFromFormat(pdf.PageFormatA4); err != nil {
+    				log.Fatalf("add page: %v", err)
+    			}
+    		}
+    		page, err := doc.Page(doc.PageCount())
+    		if err != nil {
+    			log.Fatalf("page: %v", err)
+    		}
+    		if err := page.AddText(title, pdf.TextStyle{
+    			Font: pdf.FontHelveticaBold, Size: 22, Color: &pdf.Color{A: 1},
+    		}, pdf.Rectangle{LLX: 54, LLY: 760, URX: 541, URY: 800}); err != nil {
+    			log.Fatalf("heading: %v", err)
+    		}
+
+    		item := pdf.NewOutlineItemCollection(doc)
+    		item.SetTitle(title)
+    		item.SetDestination(pdf.NewDestinationFit(page))
+    		if err := root.Add(item); err != nil {
+    			log.Fatalf("outline add: %v", err)
+    		}
+    	}
+
+    	bodyPages := doc.PageCount()
+
+    	added, err := doc.GenerateTOC(pdf.TOCOptions{Title: "Table of Contents"})
+    	if err != nil {
+    		log.Fatalf("GenerateTOC: %v", err)
+    	}
+
+    	outPath := filepath.Join(os.TempDir(), "authored_toc_example.pdf")
+    	if err := doc.Save(outPath); err != nil {
+    		log.Fatalf("save: %v", err)
+    	}
+    	defer os.Remove(outPath)
+
+    	info, err := os.Stat(outPath)
+    	if err != nil {
+    		log.Fatalf("stat: %v", err)
+    	}
+
+    	fmt.Printf("body pages: %d, TOC pages added: %d, total pages: %d, file bytes: %d\n",
+    		bodyPages, added, doc.PageCount(), info.Size())
+
+    	if added < 1 {
+    		log.Fatalf("expected at least one generated TOC page, got %d", added)
+    	}
+    	if doc.PageCount() != bodyPages+added {
+    		log.Fatalf("expected %d total pages, got %d", bodyPages+added, doc.PageCount())
+    	}
+    	if info.Size() == 0 {
+    		log.Fatalf("expected a non-empty saved file")
+    	}
+    }
+  code_sha256: 240e496799389649daea70ede2e65940cd67703ae2789b9b1d473b33ecba3126
+- title: Build an AcroForm with a text field, checkbox and radio group
+  description: >-
+    Adds a required text field, a checked checkbox and a radio group to a new page, saves the
+    document to a temporary file, reopens it and checks the field count, the text field's value,
+    the checkbox's checked state and the selected radio option.
+  symbols:
+  - Document.Form
+  - Form.AddTextField
+  - TextBoxField.SetMaxLen
+  - TextBoxField.SetValue
+  - Form.AddCheckbox
+  - CheckboxField.SetChecked
+  - Form.AddRadioGroup
+  - RadioButtonOptionField.SetSelected
+  - Form.Fields
+  code: |
+    // Authored example: build an AcroForm with a text field, a checkbox and a radio group, then read the values back.
+    package main
+
+    import (
+    	"fmt"
+    	"log"
+    	"os"
+    	"path/filepath"
+
+    	pdf "github.com/aspose-pdf-foss/aspose-pdf-foss-for-go"
+    )
+
+    func main() {
+    	doc := pdf.NewDocumentFromFormat(pdf.PageFormatA4)
+    	page, err := doc.Page(1)
+    	if err != nil {
+    		log.Fatalf("page: %v", err)
+    	}
+
+    	form := doc.Form()
+
+    	name, err := form.AddTextField(1, pdf.Rectangle{LLX: 200, LLY: 650, URX: 545, URY: 675}, "name")
+    	if err != nil {
+    		log.Fatalf("name field: %v", err)
+    	}
+    	name.SetMaxLen(80)
+    	name.SetRequired(true)
+    	if err := name.SetValue("Ada Lovelace"); err != nil {
+    		log.Fatalf("set name: %v", err)
+    	}
+
+    	subscribe, err := form.AddCheckbox(1, pdf.Rectangle{LLX: 50, LLY: 510, URX: 70, URY: 525}, "subscribe")
+    	if err != nil {
+    		log.Fatalf("subscribe: %v", err)
+    	}
+    	subscribe.SetChecked(true)
+
+    	plan, err := form.AddRadioGroup("plan", []pdf.RadioItem{
+    		{PageNum: 1, Rect: pdf.Rectangle{LLX: 200, LLY: 480, URX: 215, URY: 495}, Export: "basic"},
+    		{PageNum: 1, Rect: pdf.Rectangle{LLX: 290, LLY: 480, URX: 305, URY: 495}, Export: "premium"},
+    	})
+    	if err != nil {
+    		log.Fatalf("plan: %v", err)
+    	}
+    	plan.Options()[1].SetSelected(true)
+
+    	if err := page.AddText("Subscription Application", pdf.TextStyle{
+    		Font: pdf.FontHelveticaBold, Size: 24, HAlign: pdf.HAlignCenter,
+    	}, pdf.Rectangle{LLX: 50, LLY: 770, URX: 545, URY: 810}); err != nil {
+    		log.Fatalf("title: %v", err)
+    	}
+
+    	outPath := filepath.Join(os.TempDir(), "authored_acroform_example.pdf")
+    	if err := doc.Save(outPath); err != nil {
+    		log.Fatalf("save: %v", err)
+    	}
+    	defer os.Remove(outPath)
+
+    	loaded, err := pdf.Open(outPath)
+    	if err != nil {
+    		log.Fatalf("reopen: %v", err)
+    	}
+    	loadedForm := loaded.Form()
+    	fields := loadedForm.Fields()
+
+    	fmt.Printf("fields: %d, name=%q, subscribed=%v, selected plan=%q\n",
+    		len(fields), name.Value(), subscribe.Checked(), plan.Value())
+
+    	if len(fields) != 3 {
+    		log.Fatalf("expected 3 fields, got %d", len(fields))
+    	}
+    	if name.Value() != "Ada Lovelace" {
+    		log.Fatalf("expected name %q, got %q", "Ada Lovelace", name.Value())
+    	}
+    	if !subscribe.Checked() {
+    		log.Fatalf("expected subscribe checked")
+    	}
+    	if plan.Value() != "/premium" {
+    		log.Fatalf("expected plan %q, got %q", "/premium", plan.Value())
+    	}
+    }
+  code_sha256: 5f1d3340fe4920872098d0603095f4913d6085a792b560cd4911a1ab555e4531
+- title: Set and read back document Info metadata
+  description: >-
+    Sets the Info dictionary of a new document with SetInfo, including a custom entry, saves it
+    to a temporary file, reopens it and checks every standard and custom field round-trips, then
+    calls ClearInfo and checks the title is empty afterward.
+  symbols:
+  - DocumentInfo
+  - Document.SetInfo
+  - Document.Info
+  - Document.ClearInfo
+  - Document.Save
+  - Open
+  code: |
+    // Authored example: set the Info dictionary metadata on a new document, round-trip it through a save and reload, then clear it.
+    package main
+
+    import (
+    	"fmt"
+    	"log"
+    	"os"
+    	"path/filepath"
+
+    	pdf "github.com/aspose-pdf-foss/aspose-pdf-foss-for-go"
+    )
+
+    func main() {
+    	doc := pdf.NewDocumentFromFormat(pdf.PageFormatA4)
+    	page, err := doc.Page(1)
+    	if err != nil {
+    		log.Fatalf("page: %v", err)
+    	}
+    	if err := page.AddText("Quarterly Report", pdf.TextStyle{
+    		Font: pdf.FontHelveticaBold, Size: 24,
+    	}, pdf.Rectangle{LLX: 50, LLY: 760, URX: 545, URY: 800}); err != nil {
+    		log.Fatalf("heading: %v", err)
+    	}
+
+    	doc.SetInfo(pdf.DocumentInfo{
+    		Title:    "Quarterly Report",
+    		Author:   "Finance Team",
+    		Subject:  "Q3 Results",
+    		Keywords: "finance, quarterly, report",
+    		Custom:   map[string]string{"Department": "Finance"},
+    	})
+
+    	outPath := filepath.Join(os.TempDir(), "authored_metadata_example.pdf")
+    	if err := doc.Save(outPath); err != nil {
+    		log.Fatalf("save: %v", err)
+    	}
+    	defer os.Remove(outPath)
+
+    	loaded, err := pdf.Open(outPath)
+    	if err != nil {
+    		log.Fatalf("reopen: %v", err)
+    	}
+
+    	info, err := loaded.Info()
+    	if err != nil {
+    		log.Fatalf("info: %v", err)
+    	}
+    	fmt.Printf("title=%q author=%q subject=%q custom[Department]=%q\n",
+    		info.Title, info.Author, info.Subject, info.Custom["Department"])
+
+    	if info.Title != "Quarterly Report" {
+    		log.Fatalf("expected title %q, got %q", "Quarterly Report", info.Title)
+    	}
+    	if info.Author != "Finance Team" {
+    		log.Fatalf("expected author %q, got %q", "Finance Team", info.Author)
+    	}
+    	if info.Custom["Department"] != "Finance" {
+    		log.Fatalf("expected custom Department %q, got %q", "Finance", info.Custom["Department"])
+    	}
+
+    	loaded.ClearInfo()
+    	cleared, err := loaded.Info()
+    	if err != nil {
+    		log.Fatalf("info after clear: %v", err)
+    	}
+    	fmt.Printf("after ClearInfo: title=%q\n", cleared.Title)
+    	if cleared.Title != "" {
+    		log.Fatalf("expected empty title after ClearInfo, got %q", cleared.Title)
+    	}
+    }
+  code_sha256: f5874c266a8c35570a57feaade37d36949ee870db7a519f728c483adae0537fc
+- title: Encrypt a document with a password and reopen it
+  description: >-
+    Encrypts a new document with SetPassword, saves it to a temporary file, checks that opening
+    it without a password fails, then reopens it with OpenWithPassword and checks the page count
+    and the extracted text of the one page.
+  symbols:
+  - Document.SetPassword
+  - Document.Save
+  - Open
+  - OpenWithPassword
+  - Document.PageCount
+  - Page.ExtractText
+  code: |
+    // Authored example: encrypt a new document with a user and owner password, then reopen it with the user password.
+    package main
+
+    import (
+    	"fmt"
+    	"log"
+    	"os"
+    	"path/filepath"
+
+    	pdf "github.com/aspose-pdf-foss/aspose-pdf-foss-for-go"
+    )
+
+    func main() {
+    	doc := pdf.NewDocumentFromFormat(pdf.PageFormatA4)
+    	page, err := doc.Page(1)
+    	if err != nil {
+    		log.Fatalf("page: %v", err)
+    	}
+    	if err := page.AddText("Confidential", pdf.TextStyle{
+    		Font: pdf.FontHelveticaBold, Size: 28,
+    	}, pdf.Rectangle{LLX: 50, LLY: 760, URX: 545, URY: 800}); err != nil {
+    		log.Fatalf("heading: %v", err)
+    	}
+
+    	doc.SetPassword("secret", "owner-secret")
+
+    	outPath := filepath.Join(os.TempDir(), "authored_password_example.pdf")
+    	if err := doc.Save(outPath); err != nil {
+    		log.Fatalf("save: %v", err)
+    	}
+    	defer os.Remove(outPath)
+
+    	if _, err := pdf.Open(outPath); err == nil {
+    		log.Fatalf("expected opening the encrypted file without a password to fail")
+    	}
+
+    	opened, err := pdf.OpenWithPassword(outPath, "secret")
+    	if err != nil {
+    		log.Fatalf("open with password: %v", err)
+    	}
+
+    	text, err := opened.Page(1)
+    	if err != nil {
+    		log.Fatalf("page: %v", err)
+    	}
+    	extracted, err := text.ExtractText()
+    	if err != nil {
+    		log.Fatalf("extract: %v", err)
+    	}
+
+    	fmt.Printf("page count: %d, extracted text contains %q: %v\n",
+    		opened.PageCount(), "Confidential", contains(extracted, "Confidential"))
+
+    	if opened.PageCount() != 1 {
+    		log.Fatalf("expected 1 page, got %d", opened.PageCount())
+    	}
+    	if !contains(extracted, "Confidential") {
+    		log.Fatalf("expected extracted text to contain %q, got %q", "Confidential", extracted)
+    	}
+    }
+
+    func contains(haystack, needle string) bool {
+    	for i := 0; i+len(needle) <= len(haystack); i++ {
+    		if haystack[i:i+len(needle)] == needle {
+    			return true
+    		}
+    	}
+    	return false
+    }
+  code_sha256: e7f2afa1b2dbc524e76319ff9dedb7cd7257e67a1f968398ba8d51a4e3c7a4ff
+- title: Search a document for text across pages
+  description: >-
+    Writes the word marketing onto two different pages in different cases, searches the whole
+    document case-insensitively with SearchText, and checks that both pages are reported as
+    matches.
+  symbols:
+  - Document.SearchText
+  - SearchOptions.CaseInsensitive
+  - TextMatch.PageNumber
+  - TextMatch.Text
+  - Document.AddBlankPageFromFormat
+  - Document.Page
+  code: |
+    // Authored example: write known text onto a page and search the document for it, case-insensitively.
+    package main
+
+    import (
+    	"fmt"
+    	"log"
+
+    	pdf "github.com/aspose-pdf-foss/aspose-pdf-foss-for-go"
+    )
+
+    func main() {
+    	doc := pdf.NewDocumentFromFormat(pdf.PageFormatA4)
+    	page, err := doc.Page(1)
+    	if err != nil {
+    		log.Fatalf("page: %v", err)
+    	}
+    	if err := page.AddText("Quarterly Marketing Summary", pdf.TextStyle{
+    		Font: pdf.FontHelveticaBold, Size: 20,
+    	}, pdf.Rectangle{LLX: 50, LLY: 760, URX: 545, URY: 800}); err != nil {
+    		log.Fatalf("heading: %v", err)
+    	}
+    	if err := doc.AddBlankPageFromFormat(pdf.PageFormatA4); err != nil {
+    		log.Fatalf("add page: %v", err)
+    	}
+    	page2, err := doc.Page(2)
+    	if err != nil {
+    		log.Fatalf("page 2: %v", err)
+    	}
+    	if err := page2.AddText("See marketing appendix for details.", pdf.TextStyle{
+    		Font: pdf.FontHelvetica, Size: 14,
+    	}, pdf.Rectangle{LLX: 50, LLY: 700, URX: 545, URY: 740}); err != nil {
+    		log.Fatalf("body: %v", err)
+    	}
+
+    	found, err := doc.SearchText("marketing", pdf.SearchOptions{CaseInsensitive: true})
+    	if err != nil {
+    		log.Fatalf("search: %v", err)
+    	}
+
+    	pages := map[int]bool{}
+    	for _, m := range found {
+    		pages[m.PageNumber] = true
+    		fmt.Printf("match on page %d: %q\n", m.PageNumber, m.Text)
+    	}
+
+    	if len(found) != 2 {
+    		log.Fatalf("expected 2 matches, got %d", len(found))
+    	}
+    	if !pages[1] || !pages[2] {
+    		log.Fatalf("expected a match on both page 1 and page 2, got pages %v", pages)
+    	}
+    }
+  code_sha256: b9372cf71fdcf98f94893de52860480530d6bf679b55701fc9f72bdffbca3ddd
