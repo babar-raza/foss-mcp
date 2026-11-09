@@ -4040,3 +4040,80 @@ this record. No image was built, no redeploy was attempted, and the `tests/deplo
 test_fleet_consistency.py` `STALE_BAKED_PILOTS`/`STALE_BY_MEMBERS` cleanup described for this
 same investigation is deferred until a real fix (taskcard or reviewed fixture regeneration)
 lands and the three offline test files are confirmed fully green.
+
+## 2026-11-09 — TC-729's fixture backfill does not close the loop end-to-end; re-ingest attempt
+stopped before commit, nothing redeployed (supervisor)
+
+Attempted the consolidation re-ingest of the 11 Python-family pilots (`slides_python`,
+`words_python`, `cells_python`, `pdf_python`, `email_python`, `barcode_python`, `html_python`,
+`page_python`, `3d_python`, `tex_python`, `note_python`) against `TC-729`'s now-corrected
+fixtures, via the real pipeline (`build_images.py` at HEAD `3ad021b3` ->
+`foss-mcp-ingestion:rev-3ad021b`/`foss-mcp-serving:rev-3ad021b` -> imported into `kind-foss-mcp`'s
+control-plane node -> `install_pilots.py --only <these 11> --image-tag rev-3ad021b
+--wait-for-jobs`, 11 of 11 installed -> `snapshot_demo_from_cluster.py --only <these 11>`, 11 of
+11 written, none needed `--allow-missing-sidecars`; `compact_demo_manifests.py --check` reported
+all 32 scopes already compact). The full required verification (`test_served_provenance.py` +
+`test_fleet_consistency.py` + `test_served_coverage_matches_fixtures.py` +
+`test_symbol_counts_dedup_consistency.py`) was run before any commit, per this session's own
+instruction to stop on any failure resembling the original "N of M" dishonesty for these 11
+pilots or for `pdf_java` - and it found exactly that, for all 11.
+
+**What actually happened**: `TC-729` backfilled each fixture's `symbol_counts.types` from the old,
+undeduped raw count (which happened to equal the real served chunk count, e.g. `cells_python`
+186) to the new, deduped count (`chunk_builder.py`'s own `kept_types` convention, e.g.
+`cells_python` 130) - matching `chunk_builder._coverage_line`'s NUMERATOR convention exactly, as
+intended. But the real ingestion pipeline still bakes one symbol chunk per raw `api_surface.json`
+entry regardless of dedup (`build_chunks_from_api_surface` only dedups the numerator text, never
+the actual chunk count emitted) - so the real served type-chunk count for every one of the 11 is
+still the OLD raw number (`cells_python` serves 186 type chunks, `slides_python` 1022,
+`words_python` 272, `pdf_python` 543, `email_python` 60, `barcode_python` 52, `html_python` 305,
+`page_python` 146, `3d_python` 697, `tex_python` 21, `note_python` 74 - all confirmed directly via
+`served_counts()` against the live snapshot). The denominator now being deduped too means the
+coverage line moved from "honestly denominated, dishonestly numerated" (the original regression:
+M matched real served count, N undercounted it) to "honestly numerated, dishonestly denominated"
+(now: N matches the live `_coverage_line` numerator's own convention, but M no longer matches the
+real served count at all) - a different-shaped instance of the exact same dishonest-summary-line
+defect class, not a fix of it. `test_fixture_is_complete_and_has_no_test_file_entries` additionally
+flagged every one of the 11 fixtures as now internally inconsistent in a NEW way:
+`symbol_counts.types + symbol_counts.functions != type_count`, and `symbol_counts` disagreeing
+with a fresh recount of the entries by kind (e.g. `slides_python`: `516 + 1 != 1023`; recount says
+`(1022, 1)` against stored `(516, 1)`) - `TC-729` changed `symbol_counts.types` alone and did not
+reconcile it against `type_count` or the entries themselves. `pdf_java` (one of the untouched 15,
+not re-ingested this round) still shows its own separate, previously-flagged, not-yet-investigated
+"a symbol chunk has 0 API-Coverage lines" defect, unchanged - confirming that symptom really is
+independent of this investigation, exactly as the prior entry said. `test_symbol_counts_dedup_consistency.py` (`TC-729`'s own new regression guard) passed throughout -
+it checks fixture-vs-`chunk_builder` agreement in isolation and cannot see this, because the
+disagreement only exists between the fixture and the REAL served chunk count from a live
+ingestion, which that guard never exercises.
+
+**Root cause, one level deeper than the prior entry's**: `chunk_builder.py`'s dedup (`TC-614`/
+`TC-686`) was written assuming the numerator is the only thing that needed deduping to make N==M
+at full coverage; nothing in the codebase ever deduped (or needed to dedupe) the DENOMINATOR
+against the real served chunk count, because until this round, no fresh Python-shell-bearing
+pilot had ever been re-ingested since TC-614 landed, so the disagreement between "real served
+chunks = raw count" and "coverage line's own convention = deduped count" was never exercised
+end-to-end for any currently-fresh pilot. `TC-729` fixed the fixture-to-`chunk_builder`-numerator
+agreement (its own stated, narrower goal) but the real fix - making the real served chunk count,
+the numerator, and the denominator all agree with ONE consistent convention (either dedupe chunk
+emission too, or stop deduping the numerator) - is a `chunk_builder.py` production-code change,
+which is out of scope for a supervisor-direct fixture backfill and was never `TC-729`'s mandate.
+
+**Action taken**: stopped per instruction before any commit. `git checkout --
+infra/demo-manifests/` + `git clean -fd infra/demo-manifests/` reverted the working tree to HEAD
+`3ad021b3` exactly (confirmed clean `git status`) - nothing from this attempt is committed. The
+`kind-foss-mcp` dev cluster's 11 pilot releases remain installed at `rev-3ad021b` (a disposable
+build/ingestion scratch cluster, not user-facing; left as-is, not rolled back, since nothing
+reads from it directly). The LOCAL hosting fleet and public tunnel are untouched throughout this
+attempt and remain on `foss-mcp-serving:demo-8909ed53`, unchanged since the prior entry. No image
+was built from this attempt's content, no gate or adversarial suite was run, no new commit exists.
+The `STALE_BAKED_PILOTS`/`STALE_BY_MEMBERS` cleanup remains deferred - 14 of the 15 listed pilots
+did verify as genuinely no-longer-stale in this run's offline check (`pdf_java` did not, for its
+own separate reason), but cleaning the tables now would be premature: a future re-ingest of the
+same 11 Python pilots needs to happen again anyway once a real `chunk_builder.py` fix lands, and
+doing the table cleanup in a separate commit first (then another re-ingest later) risks a second
+churn cycle on the same files for no benefit. Needs a real taskcard (negative-control patch
+required) against `src/foss_mcp/indexing/chunk_builder.py` and/or
+`src/foss_mcp/extraction/run_extraction.py` deciding, deliberately and once, whether served type
+chunks should be deduped to match the numerator, or the numerator should stop deduping to match
+real served chunks - then a fresh re-ingest of all 11 pilots against that fix, verified by this
+same four-file check, before any of this is committed or redeployed.
