@@ -1,0 +1,257 @@
+schema_version: 1
+pilot: words_net
+library_repository: aspose-words-foss/Aspose.Words-FOSS-for-.NET
+library_commit: 0d3f1add920f5294d726b4f286c2d6ba7c3ae22c
+language: csharp
+examples:
+- title: "Store built-in and custom document properties, then read them back"
+  description: "Sets the built-in Title and Author properties and two custom properties (a string and a double) on a new document, round-trips it through an in-memory MemoryStream and reads every value back from the reloaded document's BuiltInDocumentProperties and CustomDocumentProperties."
+  symbols:
+  - Document.BuiltInDocumentProperties
+  - BuiltInDocumentProperties.Title
+  - BuiltInDocumentProperties.Author
+  - Document.CustomDocumentProperties
+  - CustomDocumentProperties.Add
+  - CustomDocumentProperties.Count
+  - DocumentProperty.ToDouble
+  code: |
+    // Authored example: store built-in and custom document properties, then read them back
+    using Aspose.Words;
+
+    var doc = new Document();
+    var builder = new DocumentBuilder(doc);
+    builder.Writeln("Quarterly roadmap draft.");
+
+    doc.BuiltInDocumentProperties.Title = "Quarterly Roadmap";
+    doc.BuiltInDocumentProperties.Author = "Planning Team";
+    doc.CustomDocumentProperties.Add("ReviewCycle", "Q3-2026");
+    doc.CustomDocumentProperties.Add("ApprovedBudget", 125000.0);
+
+    using var stream = new MemoryStream();
+    doc.Save(stream, SaveFormat.Docx);
+    stream.Position = 0;
+    var loaded = new Document(stream);
+
+    var reviewCycle = loaded.CustomDocumentProperties["ReviewCycle"];
+    var approvedBudget = loaded.CustomDocumentProperties["ApprovedBudget"];
+
+    Console.WriteLine("title: " + loaded.BuiltInDocumentProperties.Title);
+    Console.WriteLine("author: " + loaded.BuiltInDocumentProperties.Author);
+    Console.WriteLine("review cycle: " + reviewCycle.ToString());
+    Console.WriteLine("approved budget: " + approvedBudget.ToDouble());
+    Console.WriteLine("custom property count: " + loaded.CustomDocumentProperties.Count);
+
+    if (loaded.BuiltInDocumentProperties.Title != "Quarterly Roadmap")
+    {
+        throw new Exception("title mismatch");
+    }
+    if (loaded.BuiltInDocumentProperties.Author != "Planning Team")
+    {
+        throw new Exception("author mismatch");
+    }
+    if (loaded.CustomDocumentProperties.Count != 2)
+    {
+        throw new Exception("expected exactly two custom properties");
+    }
+    if (approvedBudget.ToDouble() != 125000.0)
+    {
+        throw new Exception("approved budget mismatch");
+    }
+  code_sha256: ec4c081b22754ce293892282dedd07a16e3d33edbc0470754b660ac029077e35
+- title: "Insert a bookmark with DocumentBuilder and read its text back"
+  description: "Wraps a run of text in a named bookmark with DocumentBuilder.StartBookmark/EndBookmark, writes trailing text outside it, round-trips the document through an in-memory MemoryStream and reads the bookmark back by name from the reloaded document's Range.Bookmarks, checking its text and that the count is exactly one."
+  symbols:
+  - DocumentBuilder.StartBookmark
+  - DocumentBuilder.EndBookmark
+  - Range.Bookmarks
+  - BookmarkCollection.Count
+  - Bookmark.Name
+  - Bookmark.Text
+  code: |
+    // Authored example: insert a bookmark with DocumentBuilder and read its text back
+    using Aspose.Words;
+
+    var doc = new Document();
+    var builder = new DocumentBuilder(doc);
+    builder.StartBookmark("Greeting");
+    builder.Write("Hello from a bookmarked range.");
+    builder.EndBookmark("Greeting");
+    builder.Writeln();
+    builder.Write("Text outside the bookmark.");
+
+    using var stream = new MemoryStream();
+    doc.Save(stream, SaveFormat.Docx);
+    stream.Position = 0;
+    var loaded = new Document(stream);
+
+    var bookmarks = loaded.Range.Bookmarks;
+    var greeting = bookmarks["Greeting"];
+
+    Console.WriteLine("bookmark count: " + bookmarks.Count);
+    Console.WriteLine("name: " + greeting.Name);
+    Console.WriteLine("text: " + greeting.Text);
+
+    if (bookmarks.Count != 1)
+    {
+        throw new Exception("expected exactly one bookmark");
+    }
+    if (greeting.Text != "Hello from a bookmarked range.")
+    {
+        throw new Exception("bookmark text mismatch");
+    }
+    if (!loaded.Range.Text.Contains("Text outside the bookmark."))
+    {
+        throw new Exception("expected the trailing text outside the bookmark to survive the round trip");
+    }
+  code_sha256: f311fc3df8d024a0da4a2729ece1553c93c25a08574a6277d93b6357d2ce5a9a
+- title: "Build a two-row table with DocumentBuilder and read it back"
+  description: "Builds a two-column, two-row table with DocumentBuilder.StartTable/InsertCell/EndRow/EndTable, round-trips the document through an in-memory MemoryStream and reads the row count and cell text back from the reloaded document's first table."
+  symbols:
+  - DocumentBuilder.StartTable
+  - DocumentBuilder.InsertCell
+  - DocumentBuilder.EndRow
+  - DocumentBuilder.EndTable
+  - Table.Rows
+  - Row.Cells
+  code: |
+    // Authored example: build a two-row table with DocumentBuilder and read it back
+    using Aspose.Words;
+    using Aspose.Words.Tables;
+
+    var doc = new Document();
+    var builder = new DocumentBuilder(doc);
+    builder.StartTable();
+    builder.InsertCell();
+    builder.Write("Name");
+    builder.InsertCell();
+    builder.Write("Role");
+    builder.EndRow();
+    builder.InsertCell();
+    builder.Write("Ada");
+    builder.InsertCell();
+    builder.Write("Engineer");
+    builder.EndRow();
+    builder.EndTable();
+
+    using var stream = new MemoryStream();
+    doc.Save(stream, SaveFormat.Docx);
+    stream.Position = 0;
+    var loaded = new Document(stream);
+
+    Table loadedTable = loaded.FirstSection.Body.Tables[0];
+
+    Console.WriteLine("row count: " + loadedTable.Rows.Count);
+    Console.WriteLine(loadedTable.Rows[0].Cells[0].GetText().Trim() + " / " + loadedTable.Rows[0].Cells[1].GetText().Trim());
+    Console.WriteLine(loadedTable.Rows[1].Cells[0].GetText().Trim() + " / " + loadedTable.Rows[1].Cells[1].GetText().Trim());
+
+    if (loadedTable.Rows.Count != 2)
+    {
+        throw new Exception("expected exactly two rows");
+    }
+    if (!loadedTable.Rows[0].Cells[0].GetText().Contains("Name"))
+    {
+        throw new Exception("header cell mismatch");
+    }
+    if (!loadedTable.Rows[1].Cells[0].GetText().Contains("Ada"))
+    {
+        throw new Exception("data cell mismatch");
+    }
+  code_sha256: f801ddb7b44c305d0ae6de609628a0a32ef12e419f0255efe64de7b2b7736eb1
+- title: "Find and replace with a regex capture group read through a replacing callback"
+  description: "Replaces every dollar-amount in a document matched by a regular expression with a reformatted value built from the match's own capture group inside an IReplacingCallback, round-trips the document through an in-memory MemoryStream and reads the replacement count and resulting text back from the reloaded document."
+  symbols:
+  - Range.Replace
+  - FindReplaceOptions
+  - IReplacingCallback
+  - ReplacingArgs.Replacement
+  - ReplacingArgs.Match
+  - ReplaceAction.Replace
+  code: |
+    // Authored example: find and replace with a regex capture group read through a replacing callback
+    using Aspose.Words;
+    using Aspose.Words.Replacing;
+
+    var doc = new Document();
+    var builder = new DocumentBuilder(doc);
+    builder.Writeln("Invoice total: $100.00");
+    builder.Writeln("Previous total: $50.00");
+
+    var options = new FindReplaceOptions(new CurrencyCallback());
+    int replacements = doc.Range.Replace(new System.Text.RegularExpressions.Regex(@"\$(\d+\.\d{2})"), "", options);
+
+    using var stream = new MemoryStream();
+    doc.Save(stream, SaveFormat.Docx);
+    stream.Position = 0;
+    var loaded = new Document(stream);
+
+    Console.WriteLine("replacements: " + replacements);
+    Console.WriteLine(loaded.Range.Text);
+
+    if (replacements != 2)
+    {
+        throw new Exception("expected exactly two replacements");
+    }
+    if (!loaded.Range.Text.Contains("USD 100.00"))
+    {
+        throw new Exception("expected the first regex replacement to survive the round trip");
+    }
+    if (!loaded.Range.Text.Contains("USD 50.00"))
+    {
+        throw new Exception("expected the second regex replacement to survive the round trip");
+    }
+
+    class CurrencyCallback : IReplacingCallback
+    {
+        public ReplaceAction Replacing(ReplacingArgs args)
+        {
+            args.Replacement = "USD " + args.Match.Groups[1].Value;
+            return ReplaceAction.Replace;
+        }
+    }
+  code_sha256: a2788d22c304b36554b5b01052434ebd4d09a869a8a63bd7e3b4b601724b1e9c
+- title: "Write a primary header and footer and read them back from memory"
+  description: "Writes text into the primary header and primary footer with DocumentBuilder.MoveToHeaderFooter, round-trips the document through an in-memory MemoryStream and reads both back from the reloaded document's first section HeadersFooters collection by HeaderFooterType."
+  symbols:
+  - DocumentBuilder.MoveToHeaderFooter
+  - HeaderFooterType.HeaderPrimary
+  - HeaderFooterType.FooterPrimary
+  - Section.HeadersFooters
+  - HeaderFooter.GetText
+  - HeaderFooterCollection.Count
+  code: |
+    // Authored example: write a primary header and footer and read them back from memory
+    using Aspose.Words;
+
+    var doc = new Document();
+    var builder = new DocumentBuilder(doc);
+    builder.MoveToHeaderFooter(HeaderFooterType.HeaderPrimary);
+    builder.Write("Acme Corp - Confidential");
+    builder.MoveToHeaderFooter(HeaderFooterType.FooterPrimary);
+    builder.Write("Page footer text");
+
+    using var stream = new MemoryStream();
+    doc.Save(stream, SaveFormat.Docx);
+    stream.Position = 0;
+    var loaded = new Document(stream);
+
+    var headersFooters = loaded.FirstSection.HeadersFooters;
+    var header = headersFooters[HeaderFooterType.HeaderPrimary];
+    var footer = headersFooters[HeaderFooterType.FooterPrimary];
+
+    Console.WriteLine("count: " + headersFooters.Count);
+    Console.WriteLine("header: " + header.GetText().Trim());
+    Console.WriteLine("footer: " + footer.GetText().Trim());
+
+    if (headersFooters.Count < 2)
+    {
+        throw new Exception("expected at least a header and a footer");
+    }
+    if (!header.GetText().Contains("Acme Corp"))
+    {
+        throw new Exception("header text mismatch");
+    }
+    if (!footer.GetText().Contains("Page footer text"))
+    {
+        throw new Exception("footer text mismatch");
+    }
+  code_sha256: 8343bd6385a1cb814d091417a3386278878ebfe9351be797ad2b755d3e8378d2
