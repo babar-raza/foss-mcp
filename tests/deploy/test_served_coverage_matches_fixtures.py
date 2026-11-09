@@ -36,7 +36,9 @@ from typing import Any, NamedTuple
 import pytest
 import yaml
 
-from foss_mcp.indexing.chunk_builder import _is_test_source, _unique_fqns
+from foss_mcp.extraction.run_extraction import summarize_symbols
+from foss_mcp.indexing.chunk_builder import _is_test_source, _unique_fqns, build_chunks_from_api_surface
+from foss_mcp.indexing.symbol_identity import compute_canonical_identities
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 VALUES = REPO_ROOT / "infra" / "helm" / "foss-mcp" / "values.yaml"
@@ -367,12 +369,20 @@ def fixture_completeness_problems(fixture: Mapping[str, Any]) -> list[str]:
     if test_entries:
         problems.append(f"{len(test_entries)} test-source entries, e.g. {test_entries[0].get('file')!r}")
     if has_symbol_counts(fixture):
+        # TC-730: `symbol_counts` is the DEDUPED count (TC-614/686/729: one entry per canonical
+        # definition, a real Python re-export shell excluded) while `type_count` (checked above
+        # against the raw `len(entries)`) is deliberately the RAW entry count - these legitimately
+        # differ for a pilot with real shells, so they are no longer compared against each other.
+        # The recount comparison below uses the SAME dedup-aware computation TC-729's own
+        # `test_symbol_counts_dedup_consistency.py` guard uses, instead of a raw `recount`, so this
+        # stays a real, correct check (meaningfully redundant with that guard for a Python pilot,
+        # and unchanged in behaviour for every other pilot, where raw and deduped are identical).
         types, functions = fixture_counts(fixture)
-        if types + functions != fixture.get("type_count"):
-            problems.append(f"symbol_counts {types} + {functions} != type_count {fixture.get('type_count')}")
-        if recount(entries) != (types, functions):
+        fresh = summarize_symbols(entries, identities=compute_canonical_identities(entries))
+        if (types, functions) != (fresh["types"], fresh["functions"]):
             problems.append(
-                f"symbol_counts {(types, functions)} != the recount of the entries by kind {recount(entries)}"
+                f"symbol_counts {(types, functions)} != the live dedup recomputation "
+                f"{(fresh['types'], fresh['functions'])}"
             )
     return problems
 
@@ -481,6 +491,23 @@ def test_served_coverage_line_states_the_same_counts(key: str) -> None:
         return
     problems = coverage_problems(load_fixture(key), texts)
     assert not problems, problems
+
+
+def test_coverage_problems_is_clean_on_a_fresh_shelled_generation() -> None:
+    """TC-730: proves the fix correct independent of any baked-data staleness - a REAL generation
+    built right now, from `cells_python`'s own committed fixture (which has real Python re-export
+    shells), through the real `chunk_builder.build_chunks_from_api_surface`, must carry zero
+    coverage problems. This is the exact reproduction attempt 1's own closeout report already ran
+    by hand; it is now a permanent, committed test so a future re-ingest's own live check (once the
+    deferred `infra/demo-manifests` re-ingest happens) has nothing new to prove here."""
+    fixture = load_fixture("cells_python")
+    chunks = build_chunks_from_api_surface(fixture, title="cells/python", max_types=100_000)
+    texts = [chunk.text for chunk in chunks]
+    assert any(is_thin_type_chunk(text) for text in texts), (
+        "cells_python's fixture is expected to have at least one real re-export shell - "
+        "this test is meant to exercise a shelled pilot, not a shell-free one"
+    )
+    assert coverage_problems(fixture, texts) == []
 
 
 # -- anti-vacuity: every helper fails when it should ---------------------------------------------------------------------------
