@@ -1,0 +1,244 @@
+schema_version: 1
+pilot: email_net
+library_repository: aspose-email-foss/Aspose.Email-FOSS-for-.Net
+library_commit: 59125b4732df0eedbc4d4c2ab978698ed4348eb7
+language: csharp
+examples:
+- title: "Create a message with recipients and attachments, then reload it from memory"
+  description: "Creates a message with MapiMessage.Create, sets the sender, adds a To and a Cc recipient with AddRecipient and a text attachment with AddAttachment, saves it to an in-memory MemoryStream and reloads it with MapiMessage.FromStream, then checks the reloaded subject, recipient count, the Cc recipient's RecipientType and the attachment filename."
+  symbols:
+  - MapiMessage
+  - MapiMessage.Create
+  - MapiMessage.AddRecipient
+  - MapiMessage.AddAttachment
+  - MapiMessage.Save
+  - MapiMessage.FromStream
+  - MapiMessage.Recipients
+  - MapiMessage.Attachments
+  - MapiMessage.RecipientTypeCc
+  code: |
+    // Authored example: create a message with recipients and attachments, then reload it from memory
+    using Aspose.Email.Foss.Msg;
+
+    var message = MapiMessage.Create("Quarterly status update", "See the attached report.");
+    message.SenderName = "Build Agent";
+    message.SenderEmailAddress = "build.agent@example.com";
+    message.AddRecipient("alice@example.com", "Alice Example", MapiMessage.RecipientTypeTo);
+    message.AddRecipient("carol@example.com", "Carol Example", MapiMessage.RecipientTypeCc);
+    message.AddAttachment("report.txt", System.Text.Encoding.UTF8.GetBytes("quarterly numbers"), "text/plain");
+
+    using var stream = new MemoryStream();
+    message.Save(stream);
+    stream.Position = 0;
+    using var loaded = MapiMessage.FromStream(stream);
+
+    Console.WriteLine("subject: " + loaded.Subject);
+    Console.WriteLine("recipients: " + loaded.Recipients.Count);
+    Console.WriteLine("attachments: " + loaded.Attachments.Count);
+    Console.WriteLine(loaded.Recipients[0].DisplayName + " type=" + loaded.Recipients[0].RecipientType);
+    Console.WriteLine(loaded.Attachments[0].Filename);
+
+    if (loaded.Subject != "Quarterly status update")
+    {
+        throw new Exception("subject mismatch");
+    }
+    if (loaded.Recipients.Count != 2)
+    {
+        throw new Exception("expected exactly two recipients");
+    }
+    if (loaded.Recipients[1].RecipientType != MapiMessage.RecipientTypeCc)
+    {
+        throw new Exception("second recipient should be Cc");
+    }
+    if (loaded.Attachments.Count != 1 || loaded.Attachments[0].Filename != "report.txt")
+    {
+        throw new Exception("attachment mismatch");
+    }
+  code_sha256: 9496b7bcffe794ee2be3508d14ccb5e437132b92803077b14ae01b12ce73f5a7
+- title: "Round-trip a message through EML bytes entirely in memory"
+  description: "Creates a message with a sender and a recipient, serialises it to EML bytes with MapiMessage.SaveToEml and parses those bytes back into a message with MapiMessage.LoadFromEml, then checks the reloaded subject, sender address and body text - no file on disk is involved at any point."
+  symbols:
+  - MapiMessage.SaveToEml
+  - MapiMessage.LoadFromEml
+  - MapiMessage.Subject
+  - MapiMessage.SenderEmailAddress
+  - MapiMessage.Body
+  code: |
+    // Authored example: round-trip a message through EML bytes entirely in memory
+    using Aspose.Email.Foss.Msg;
+
+    var message = MapiMessage.Create("Rollout plan", "Hello team,\n\nSee the rollout plan attached.");
+    message.SenderName = "Engineering";
+    message.SenderEmailAddress = "engineering@example.com";
+    message.AddRecipient("ops@example.com", "Ops Team", MapiMessage.RecipientTypeTo);
+
+    byte[] emlBytes = message.SaveToEml();
+    var reloaded = MapiMessage.LoadFromEml(emlBytes);
+
+    Console.WriteLine("eml bytes: " + emlBytes.Length);
+    Console.WriteLine("subject: " + reloaded.Subject);
+    Console.WriteLine("sender: " + reloaded.SenderName + " <" + reloaded.SenderEmailAddress + ">");
+    Console.WriteLine("body starts with: " + (reloaded.Body ?? string.Empty)[..Math.Min(10, (reloaded.Body ?? string.Empty).Length)]);
+
+    if (emlBytes.Length == 0)
+    {
+        throw new Exception("expected non-empty EML bytes");
+    }
+    if (reloaded.Subject != "Rollout plan")
+    {
+        throw new Exception("subject mismatch");
+    }
+    if (reloaded.SenderEmailAddress != "engineering@example.com")
+    {
+        throw new Exception("sender mismatch");
+    }
+    if (reloaded.Body is null || !reloaded.Body.Contains("rollout plan"))
+    {
+        throw new Exception("body mismatch");
+    }
+  code_sha256: df7ea500dbc1c69aff2872bb4b5206569fb9949dde4bf7a594f7e160bbbc79d4
+- title: "Set and read an arbitrary MAPI property beyond the strongly-typed ones"
+  description: "Sets a custom MAPI property with MapiMessage.SetProperty using a CommonMessagePropertyId/PropertyTypeCode pair that has no dedicated strongly-typed property, round-trips the message through an in-memory MemoryStream and reads the value back with GetPropertyValue, checking both the set value, that an unset tag comes back null, and that IterPropertyKeys reports at least one key."
+  symbols:
+  - MapiMessage.SetProperty
+  - MapiMessage.GetPropertyValue
+  - MapiMessage.IterPropertyKeys
+  - CommonMessagePropertyId.ExampleTag100A
+  - PropertyTypeCode.PtypString
+  code: |
+    // Authored example: set and read an arbitrary MAPI property beyond the strongly-typed ones
+    using Aspose.Email.Foss.Msg;
+
+    var message = MapiMessage.Create("Build status", "Build 4821 finished.");
+    message.SetProperty(
+        (ushort)CommonMessagePropertyId.ExampleTag100A,
+        (ushort)PropertyTypeCode.PtypString,
+        "ci-pipeline-4821");
+
+    using var stream = new MemoryStream();
+    message.Save(stream);
+    stream.Position = 0;
+    using var loaded = MapiMessage.FromStream(stream);
+
+    var value = loaded.GetPropertyValue(
+        (ushort)CommonMessagePropertyId.ExampleTag100A,
+        (ushort)PropertyTypeCode.PtypString);
+    var missing = loaded.GetPropertyValue(
+        (ushort)CommonMessagePropertyId.ExampleTag101D,
+        (ushort)PropertyTypeCode.PtypString);
+    var keyCount = loaded.IterPropertyKeys().Count();
+
+    Console.WriteLine("custom property value: " + value);
+    Console.WriteLine("missing property value: " + (missing ?? "<null>"));
+    Console.WriteLine("property key count: " + keyCount);
+
+    if ((value as string) != "ci-pipeline-4821")
+    {
+        throw new Exception("custom property value mismatch");
+    }
+    if (missing is not null)
+    {
+        throw new Exception("expected the unset tag to come back null");
+    }
+    if (keyCount == 0)
+    {
+        throw new Exception("expected at least one property key");
+    }
+  code_sha256: 3b995a10062b3267a8937bf557e57d4be2ad5feed52ec7839fd2cd3459e79c6e
+- title: "Add an embedded message as an attachment and read it back from memory"
+  description: "Builds an inner message and attaches it to an outer message with MapiMessage.AddEmbeddedMessageAttachment, round-trips the outer message through an in-memory MemoryStream and reads the first attachment's IsEmbeddedMessage flag and its EmbeddedMessage back, checking the embedded message's own subject and sender survive the round trip."
+  symbols:
+  - MapiMessage.AddEmbeddedMessageAttachment
+  - MapiAttachment.IsEmbeddedMessage
+  - MapiAttachment.EmbeddedMessage
+  code: |
+    // Authored example: add an embedded message as an attachment and read it back from memory
+    using Aspose.Email.Foss.Msg;
+
+    var inner = MapiMessage.Create("Forwarded receipt", "Order #9921 confirmed.");
+    inner.SenderEmailAddress = "billing@example.com";
+
+    var outer = MapiMessage.Create("Fwd: receipt", "See the forwarded message below.");
+    outer.AddEmbeddedMessageAttachment(inner, "receipt.msg", "message/rfc822");
+
+    using var stream = new MemoryStream();
+    outer.Save(stream);
+    stream.Position = 0;
+    using var loaded = MapiMessage.FromStream(stream);
+    var attachment = loaded.Attachments[0];
+
+    Console.WriteLine("attachment count: " + loaded.Attachments.Count);
+    Console.WriteLine("is embedded message: " + attachment.IsEmbeddedMessage);
+    Console.WriteLine("embedded subject: " + attachment.EmbeddedMessage?.Subject);
+    Console.WriteLine("embedded sender: " + attachment.EmbeddedMessage?.SenderEmailAddress);
+
+    if (loaded.Attachments.Count != 1)
+    {
+        throw new Exception("expected exactly one attachment");
+    }
+    if (!attachment.IsEmbeddedMessage)
+    {
+        throw new Exception("expected the attachment to be an embedded message");
+    }
+    if (attachment.EmbeddedMessage is null || attachment.EmbeddedMessage.Subject != "Forwarded receipt")
+    {
+        throw new Exception("embedded message subject mismatch");
+    }
+    if (attachment.EmbeddedMessage.SenderEmailAddress != "billing@example.com")
+    {
+        throw new Exception("embedded message sender mismatch");
+    }
+  code_sha256: e9a6662ac947029889086c94ecfe2e74deec26b72c966644ade11f43ba88adcf
+- title: "Build a CFB container by hand and read it back with CfbReader"
+  description: "Builds a CfbStorage/CfbStream tree directly (a nested storage holding one stream, plus a top-level stream), wraps it in a CfbDocument, serialises it with CfbWriter.ToBytes and reads the resulting bytes back with the CfbReader(byte[]) constructor, walking CfbReader.IterTree to confirm every hand-built storage and stream round-trips."
+  symbols:
+  - CfbStorage
+  - CfbStorage.AddStorage
+  - CfbStorage.AddStream
+  - CfbStream
+  - CfbDocument
+  - CfbWriter.ToBytes
+  - CfbReader
+  - CfbReader.IterTree
+  - CfbReader.DirectoryEntryCount
+  code: |
+    // Authored example: build a CFB container by hand and read it back with CfbReader
+    using Aspose.Email.Foss.Cfb;
+
+    var root = new CfbStorage("Root Entry");
+    var folder = new CfbStorage("Folder");
+    folder.AddStream(new CfbStream("notes.txt", System.Text.Encoding.UTF8.GetBytes("hand-built CFB entry")));
+    root.AddStorage(folder);
+    root.AddStream(new CfbStream("manifest.txt", System.Text.Encoding.UTF8.GetBytes("v1")));
+
+    var document = new CfbDocument(root);
+    byte[] bytes = CfbWriter.ToBytes(document);
+
+    using var reader = new CfbReader(bytes);
+    var names = new List<string>();
+    foreach (var (depth, entry) in reader.IterTree())
+    {
+        names.Add(new string(' ', depth * 2) + entry.Name);
+    }
+
+    Console.WriteLine("cfb bytes: " + bytes.Length);
+    Console.WriteLine("directory entries: " + reader.DirectoryEntryCount);
+    Console.WriteLine(string.Join(Environment.NewLine, names));
+
+    if (bytes.Length == 0)
+    {
+        throw new Exception("expected non-empty CFB bytes");
+    }
+    if (!names.Any(name => name.Contains("Folder")))
+    {
+        throw new Exception("expected the Folder storage to round-trip");
+    }
+    if (!names.Any(name => name.Contains("notes.txt")))
+    {
+        throw new Exception("expected the nested notes.txt stream to round-trip");
+    }
+    if (!names.Any(name => name.Contains("manifest.txt")))
+    {
+        throw new Exception("expected the top-level manifest.txt stream to round-trip");
+    }
+  code_sha256: a08aa0362692275c3838c770a9d44277525bbfc5792aac63d32b470f8b8b1d5b
