@@ -1,0 +1,88 @@
+
+===== CLEAN RUN 1 (host) =====
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-5c72e798a73c059a\Scripts\python.exe -m pytest tests/extraction/test_symbol_counts_dedup_consistency.py -q -rfE -p no:cacheprovider "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-2xilksg6\.junit-0.xml"
+--- stdout ---
+..................................                                       [100%]
+
+--- stderr ---
+
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-5c72e798a73c059a\Scripts\python.exe -m pytest tests/extraction/test_reextracted_uncapped.py tests/extraction/test_run_extraction_canonical_counts.py tests/indexing/test_chunk_builder_coverage_line.py tests/infra/test_build_chunks_parse_failures_notice.py -q -rfE -p no:cacheprovider "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-2xilksg6\.junit-1.xml"
+--- stdout ---
+........................................................................ [ 31%]
+........................................................................ [ 63%]
+........................................................................ [ 95%]
+..........                                                               [100%]
+
+--- stderr ---
+
+
+===== CLEAN RUN 2 (host) =====
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-5c72e798a73c059a\Scripts\python.exe -m pytest tests/extraction/test_symbol_counts_dedup_consistency.py -q -rfE -p no:cacheprovider "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-2xilksg6\.junit-0.xml"
+--- stdout ---
+..................................                                       [100%]
+
+--- stderr ---
+
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-5c72e798a73c059a\Scripts\python.exe -m pytest tests/extraction/test_reextracted_uncapped.py tests/extraction/test_run_extraction_canonical_counts.py tests/indexing/test_chunk_builder_coverage_line.py tests/infra/test_build_chunks_parse_failures_notice.py -q -rfE -p no:cacheprovider "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-2xilksg6\.junit-1.xml"
+--- stdout ---
+........................................................................ [ 31%]
+........................................................................ [ 63%]
+........................................................................ [ 95%]
+..........                                                               [100%]
+
+--- stderr ---
+
+
+===== NEGATIVE CONTROL (checks MUST now fail) =====
+mutated: M tests/fixtures/cells_python/api_surface.json, ?? .junit-0.xml, ?? .junit-1.xml
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-5c72e798a73c059a\Scripts\python.exe -m pytest tests/extraction/test_symbol_counts_dedup_consistency.py -q -rfE -p no:cacheprovider "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-2xilksg6\.junit-0.xml"
+--- stdout ---
+................F.................                                       [100%]
+================================== FAILURES ===================================
+__ test_stored_symbol_counts_matches_fresh_dedup_recomputation[cells_python] __
+
+key = 'cells_python'
+
+    @pytest.mark.parametrize("key", PILOTS_WITH_SYMBOL_COUNTS)
+    def test_stored_symbol_counts_matches_fresh_dedup_recomputation(key: str) -> None:
+        """The real guard: a fixture's stored `symbol_counts` must equal, right now, what the live
+        dedup algorithm (`summarize_symbols` + `compute_canonical_identities`, the exact two functions
+        `chunk_builder._coverage_line` relies on at render time) computes fresh from that same
+        fixture's own `types` array. A fixture whose cached field drifts out of lockstep with that
+        live algorithm - the TC-729 staleness class - fails here immediately."""
+        fixture = load_fixture(key)
+        types = fixture["types"]
+        stored = fixture["symbol_counts"]
+    
+        identities = compute_canonical_identities(types)
+        fresh = summarize_symbols(types, identities=identities)
+    
+>       assert stored == fresh, (
+            f"{key}: fixture's committed symbol_counts {stored} has drifted out of lockstep with the "
+            f"live dedup recomputation {fresh} - this is exactly the TC-729 staleness class; re-run the "
+            "backfill (summarize_symbols(types, identities=compute_canonical_identities(types))) and "
+            "overwrite ONLY this fixture's symbol_counts field."
+        )
+E       AssertionError: cells_python: fixture's committed symbol_counts {'functions': 18, 'types': 131} has drifted out of lockstep with the live dedup recomputation {'types': 130, 'functions': 18} - this is exactly the TC-729 staleness class; re-run the backfill (summarize_symbols(types, identities=compute_canonical_identities(types))) and overwrite ONLY this fixture's symbol_counts field.
+E       assert {'functions':... 'types': 131} == {'types': 130...unctions': 18}
+E         
+E         Omitting 1 identical items, use -vv to show
+E         Differing items:
+E         {'types': 131} != {'types': 130}
+E         Use -v to get more diff
+
+tests\extraction\test_symbol_counts_dedup_consistency.py:95: AssertionError
+=========================== short test summary info ===========================
+FAILED tests/extraction/test_symbol_counts_dedup_consistency.py::test_stored_symbol_counts_matches_fresh_dedup_recomputation[cells_python]
+
+--- stderr ---
+
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-5c72e798a73c059a\Scripts\python.exe -m pytest tests/extraction/test_reextracted_uncapped.py tests/extraction/test_run_extraction_canonical_counts.py tests/indexing/test_chunk_builder_coverage_line.py tests/infra/test_build_chunks_parse_failures_notice.py -q -rfE -p no:cacheprovider "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-2xilksg6\.junit-1.xml"
+--- stdout ---
+........................................................................ [ 31%]
+........................................................................ [ 63%]
+........................................................................ [ 95%]
+..........                                                               [100%]
+
+--- stderr ---
+

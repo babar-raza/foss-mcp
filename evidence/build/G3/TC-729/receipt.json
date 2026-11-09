@@ -1,0 +1,125 @@
+{
+  "schema_version": 1,
+  "card": "TC-729",
+  "gate": "G3",
+  "generated_by": "gatectl",
+  "generated_at": "2026-11-09T14:49:37Z",
+  "base_rev": "8b6169cae08d0770acae2431ed0cce9f13e58128",
+  "head_rev": "01fc43a87a96463d8c2cd1054c7eccf89fe3555a",
+  "card_sha256": "44b28805d136b0a3b428235d435ee2cdfbae2d80b4fbed9aee38b7a1d7827b35",
+  "fingerprint": {
+    "python": "3.13.2",
+    "platform": "Windows-11-10.0.26300-SP0",
+    "lock_sha256": "5c72e798a73c059a438e752e94a8d4c88c1bdf81a197f6e5c5fcecbc9466a691",
+    "env": {
+      "PYTHONHASHSEED": "0",
+      "PYTHONUTF8": "1",
+      "PYTHONDONTWRITEBYTECODE": "1",
+      "PYTHONIOENCODING": "utf-8",
+      "TZ": "UTC",
+      "LC_ALL": "C.UTF-8",
+      "SOURCE_DATE_EPOCH": "1700000000",
+      "verify_runner": "host"
+    }
+  },
+  "scope": {
+    "ok": true,
+    "changed_paths": [
+      "tests/extraction/test_reextracted_uncapped.py",
+      "tests/extraction/test_run_extraction_canonical_counts.py",
+      "tests/extraction/test_symbol_counts_dedup_consistency.py",
+      "tests/fixtures/3d_python/api_surface.json",
+      "tests/fixtures/barcode_python/api_surface.json",
+      "tests/fixtures/cells_python/api_surface.json",
+      "tests/fixtures/email_python/api_surface.json",
+      "tests/fixtures/html_python/api_surface.json",
+      "tests/fixtures/note_python/api_surface.json",
+      "tests/fixtures/page_python/api_surface.json",
+      "tests/fixtures/pdf_python/api_surface.json",
+      "tests/fixtures/slides_python/api_surface.json",
+      "tests/fixtures/tex_python/api_surface.json",
+      "tests/fixtures/words_python/api_surface.json",
+      "tests/indexing/test_chunk_builder_coverage_line.py",
+      "tests/infra/test_build_chunks_parse_failures_notice.py"
+    ],
+    "violations": [],
+    "evaluated": true
+  },
+  "runs": [
+    {
+      "run": 1,
+      "checks": [
+        {
+          "command": "{python} -m pytest tests/extraction/test_symbol_counts_dedup_consistency.py -q -rfE -p no:cacheprovider",
+          "exit_code": 0,
+          "duration_s": 5.052,
+          "stdout_sha256": "1e6b4fbe33d23cc880df779e2dd0330dd0359555faab7d7943e31674e2319fe8",
+          "tests": 34,
+          "skipped": 0,
+          "errors": 0,
+          "failures": 0
+        },
+        {
+          "command": "{python} -m pytest tests/extraction/test_reextracted_uncapped.py tests/extraction/test_run_extraction_canonical_counts.py tests/indexing/test_chunk_builder_coverage_line.py tests/infra/test_build_chunks_parse_failures_notice.py -q -rfE -p no:cacheprovider",
+          "exit_code": 0,
+          "duration_s": 6.273,
+          "stdout_sha256": "6cebfcca89b970b4fcea1dc7afc5dfeec894828f68abf2eddb85b0192f3c52f4",
+          "tests": 226,
+          "skipped": 0,
+          "errors": 0,
+          "failures": 0
+        }
+      ],
+      "all_passed": true
+    },
+    {
+      "run": 2,
+      "checks": [
+        {
+          "command": "{python} -m pytest tests/extraction/test_symbol_counts_dedup_consistency.py -q -rfE -p no:cacheprovider",
+          "exit_code": 0,
+          "duration_s": 1.445,
+          "stdout_sha256": "1e6b4fbe33d23cc880df779e2dd0330dd0359555faab7d7943e31674e2319fe8",
+          "tests": 34,
+          "skipped": 0,
+          "errors": 0,
+          "failures": 0
+        },
+        {
+          "command": "{python} -m pytest tests/extraction/test_reextracted_uncapped.py tests/extraction/test_run_extraction_canonical_counts.py tests/indexing/test_chunk_builder_coverage_line.py tests/infra/test_build_chunks_parse_failures_notice.py -q -rfE -p no:cacheprovider",
+          "exit_code": 0,
+          "duration_s": 6.197,
+          "stdout_sha256": "6cebfcca89b970b4fcea1dc7afc5dfeec894828f68abf2eddb85b0192f3c52f4",
+          "tests": 226,
+          "skipped": 0,
+          "errors": 0,
+          "failures": 0
+        }
+      ],
+      "all_passed": true
+    }
+  ],
+  "negative_control": {
+    "kind": "mutate",
+    "patch": "python -X utf8 -c \"import json, pathlib; p = pathlib.Path('tests/fixtures/cells_python/api_surface.json'); d = json.loads(p.read_text(encoding='utf-8-sig')); d['symbol_counts']['types'] = d['symbol_counts']['types'] + 1; p.write_text(json.dumps(d), encoding='utf-8')\"\n",
+    "patch_sha256": "d9c7df8937cab73c7c3170ec97038371ba1bb9f29937de811e96a387e2cca490",
+    "applied": true,
+    "patch_applied_failed": true,
+    "exit_codes": [
+      1,
+      0
+    ],
+    "tree_changed": [
+      "M tests/fixtures/cells_python/api_surface.json",
+      "?? .junit-0.xml",
+      "?? .junit-1.xml"
+    ]
+  },
+  "holdout": {
+    "ran": false,
+    "passed": true,
+    "detail": "no holdout for this card"
+  },
+  "accepted": true,
+  "reason": "all gates passed"
+}
