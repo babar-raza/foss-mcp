@@ -1,0 +1,322 @@
+schema_version: 1
+pilot: pdf_cpp
+library_repository: aspose-pdf-foss/Aspose.PDF-FOSS-for-Cpp
+library_commit: 4b83c9fec1e37fd205156770161f6843bac00ceb
+language: cpp
+examples:
+- title: Build Positioned Text and Recover It With TextFragmentAbsorber After a Save and Reload Round Trip
+  description: Builds a from-scratch document with one positioned text fragment via TextBuilder and FontRepository, saves it, reopens the saved file as a fresh Document, and recovers the exact text with a phrase-search TextFragmentAbsorber, checking both the match count and the recovered text.
+  symbols:
+  - Document
+  - PageCollection.Add
+  - Page.SetPageSize
+  - TextFragment
+  - TextBuilder.AppendText
+  - FontRepository.FindFont
+  - TextFragmentAbsorber
+  - TextFragmentAbsorber.Visit
+  - TextFragmentAbsorber.TextFragments
+  - TextFragmentCollection.Count
+  - TextFragment.Text
+  code: |
+    // Authored example: build positioned text from scratch, save, reload, and recover it with TextFragmentAbsorber.
+    #include <cassert>
+    #include <iostream>
+    #include <string>
+
+    #include <aspose/pdf/document.hpp>
+    #include <aspose/pdf/font_repository.hpp>
+    #include <aspose/pdf/page.hpp>
+    #include <aspose/pdf/page_collection.hpp>
+    #include <aspose/pdf/position.hpp>
+    #include <aspose/pdf/text_builder.hpp>
+    #include <aspose/pdf/text_fragment.hpp>
+    #include <aspose/pdf/text_fragment_absorber.hpp>
+    #include <aspose/pdf/text_fragment_collection.hpp>
+
+    using namespace Aspose::Pdf;
+
+    int main() {
+        const std::string path = "authored_text_roundtrip.pdf";
+
+        {
+            Document doc;
+            Page page = doc.Pages().Add();
+            page.SetPageSize(595.0, 842.0);
+
+            Text::TextFragment frag("Hello from a from-scratch PDF");
+            frag.TextState().Font(Text::FontRepository::FindFont("Helvetica"));
+            frag.TextState().FontSize(16.0f);
+            frag.Position(Text::Position(60.0, 760.0));
+            Text::TextBuilder{page}.AppendText(frag);
+
+            doc.Save(path);
+        }
+
+        Document reloaded(path);
+        Text::TextFragmentAbsorber absorber("Hello from a from-scratch PDF");
+        absorber.Visit(reloaded);
+
+        Text::TextFragmentCollection& fragments = absorber.TextFragments();
+        std::cout << "matches: " << fragments.Count() << '\n';
+        std::cout << "text: " << fragments[1].Text() << '\n';
+
+        assert(fragments.Count() == 1);
+        assert(fragments[1].Text() == "Hello from a from-scratch PDF");
+        return 0;
+    }
+  code_sha256: e1fc2cbc2092451a78a08e2f65c586fe7219631c5495c93d15920fe2e392b858
+- title: Create AcroForm Text and Checkbox Fields, Save, and Read Their Values Back After Reload
+  description: Adds a TextBoxField and a CheckboxField to a from-scratch document through Document::Form, saves it, reopens the saved file, walks the reloaded Form's Fields() by PartialName and checks that the text value and the checkbox state both survive the round trip.
+  symbols:
+  - Document.Form
+  - TextBoxField
+  - TextBoxField.PartialName
+  - TextBoxField.Value
+  - CheckboxField
+  - CheckboxField.PartialName
+  - CheckboxField.Checked
+  - Form.Add
+  - Form.Fields
+  - Field.Value
+  code: |
+    // Authored example: create AcroForm text and checkbox fields, save, and read their values back after reload.
+    #include <cassert>
+    #include <iostream>
+    #include <string>
+
+    #include <aspose/pdf/document.hpp>
+    #include <aspose/pdf/forms/checkbox_field.hpp>
+    #include <aspose/pdf/forms/field.hpp>
+    #include <aspose/pdf/forms/form.hpp>
+    #include <aspose/pdf/forms/text_box_field.hpp>
+    #include <aspose/pdf/page.hpp>
+    #include <aspose/pdf/page_collection.hpp>
+    #include <aspose/pdf/rectangle.hpp>
+
+    using namespace Aspose::Pdf;
+
+    int main() {
+        const std::string path = "authored_acroform_roundtrip.pdf";
+
+        {
+            Document doc;
+            Page page = doc.Pages().Add();
+            page.SetPageSize(595.0, 842.0);
+
+            Forms::TextBoxField name(doc, Rectangle(190.0, 700.0, 470.0, 720.0, true));
+            name.PartialName("fullName");
+            name.Value("Alice Sample");
+            doc.Form().Add(name, 1);
+
+            Forms::CheckboxField subscribe(doc, Rectangle(190.0, 650.0, 208.0, 668.0, true));
+            subscribe.PartialName("subscribe");
+            subscribe.Checked(true);
+            doc.Form().Add(subscribe, 1);
+
+            doc.Save(path);
+        }
+
+        Document reloaded(path);
+        Forms::Form& form = reloaded.Form();
+        std::cout << "field count: " << form.Count() << '\n';
+        assert(form.Count() == 2);
+
+        Forms::Field* nameField = nullptr;
+        Forms::Field* checkField = nullptr;
+        for (Forms::Field* field : form.Fields()) {
+            if (field->PartialName() == "fullName") nameField = field;
+            if (field->PartialName() == "subscribe") checkField = field;
+        }
+
+        assert(nameField != nullptr);
+        assert(checkField != nullptr);
+        std::cout << "fullName value: " << nameField->Value() << '\n';
+        assert(nameField->Value() == "Alice Sample");
+
+        auto* checkbox = dynamic_cast<Forms::CheckboxField*>(checkField);
+        assert(checkbox != nullptr);
+        std::cout << "subscribe checked: " << std::boolalpha << checkbox->Checked() << '\n';
+        assert(checkbox->Checked());
+        return 0;
+    }
+  code_sha256: d8f285098b4a7cd952c07ac3fe83a6238f4200f7080cb8ad5a0dae227d1eb280
+- title: Add a Highlight Annotation and Read Its Contents and Color Back After Save and Reload
+  description: Adds a HighlightAnnotation with a color and contents string to a from-scratch page, saves the document, reopens the saved file, walks the reloaded page's AnnotationCollection and checks that the annotation's type, contents and the fact that there is exactly one annotation all survive the round trip.
+  symbols:
+  - Page.Annotations
+  - HighlightAnnotation
+  - AnnotationCollection.Add
+  - AnnotationCollection.Count
+  - Annotation.Color
+  - Annotation.Contents
+  - Annotation.AnnotationType
+  - AnnotationType.Highlight
+  code: |
+    // Authored example: add a highlight annotation and read its contents and color back after save and reload.
+    #include <cassert>
+    #include <iostream>
+    #include <string>
+
+    #include <aspose/pdf/annotations/annotation.hpp>
+    #include <aspose/pdf/annotations/annotation_collection.hpp>
+    #include <aspose/pdf/annotations/annotation_type.hpp>
+    #include <aspose/pdf/annotations/highlight_annotation.hpp>
+    #include <aspose/pdf/color.hpp>
+    #include <aspose/pdf/document.hpp>
+    #include <aspose/pdf/page.hpp>
+    #include <aspose/pdf/page_collection.hpp>
+    #include <aspose/pdf/rectangle.hpp>
+
+    using namespace Aspose::Pdf;
+
+    int main() {
+        const std::string path = "authored_annotation_roundtrip.pdf";
+
+        {
+            Document doc;
+            Page page = doc.Pages().Add();
+            page.SetPageSize(595.0, 842.0);
+
+            Annotations::HighlightAnnotation highlight(page, Rectangle(60.0, 700.0, 210.0, 716.0, true));
+            highlight.Color(Color::FromRgb(1.0, 0.95, 0.0));
+            highlight.Contents("Important phrase");
+            page.Annotations().Add(highlight);
+
+            doc.Save(path);
+        }
+
+        Document reloaded(path);
+        Page page = reloaded.Pages()[1];
+        Annotations::AnnotationCollection& annots = page.Annotations();
+        std::cout << "annotation count: " << annots.Count() << '\n';
+        assert(annots.Count() == 1);
+
+        Annotations::Annotation& loaded = annots[0];
+        std::cout << "type: " << static_cast<int>(loaded.AnnotationType()) << '\n';
+        std::cout << "contents: " << loaded.Contents() << '\n';
+
+        assert(loaded.AnnotationType() == Annotations::AnnotationType::Highlight);
+        assert(loaded.Contents() == "Important phrase");
+        return 0;
+    }
+  code_sha256: 5f7a2e929663247a6255628a7b1ad0cfe19df4b232f81429d5018072e992fea7
+- title: Build an Outline (Bookmark) Tree, Save, and Walk It Back After Reload
+  description: Builds a two-page from-scratch document with one bookmark pointing at page 2 via XYZExplicitDestination, saves it, reopens the saved file, and walks the reloaded Document's OutlineCollection, checking the bookmark's title, bold flag and destination page number all survive the round trip.
+  symbols:
+  - Document.Outlines
+  - PageCollection.Add
+  - OutlineCollection.Add
+  - OutlineCollection.Count
+  - OutlineItemCollection
+  - OutlineItemCollection.Title
+  - OutlineItemCollection.Bold
+  - OutlineItemCollection.Destination
+  - XYZExplicitDestination
+  - ExplicitDestination.PageNumber
+  code: |
+    // Authored example: build an outline (bookmark) tree, save, and walk it back after reload.
+    #include <cassert>
+    #include <iostream>
+    #include <string>
+
+    #include <aspose/pdf/annotations/explicit_destination.hpp>
+    #include <aspose/pdf/annotations/xyz_explicit_destination.hpp>
+    #include <aspose/pdf/document.hpp>
+    #include <aspose/pdf/outline_collection.hpp>
+    #include <aspose/pdf/outline_item_collection.hpp>
+    #include <aspose/pdf/page.hpp>
+    #include <aspose/pdf/page_collection.hpp>
+
+    using namespace Aspose::Pdf;
+
+    int main() {
+        const std::string path = "authored_outline_roundtrip.pdf";
+
+        {
+            Document doc;
+            Page page1 = doc.Pages().Add();
+            page1.SetPageSize(595.0, 842.0);
+            Page page2 = doc.Pages().Add();
+            page2.SetPageSize(595.0, 842.0);
+
+            OutlineCollection& root = doc.Outlines();
+            OutlineItemCollection chapter(root);
+            chapter.Title("Chapter Two");
+            chapter.Bold(true);
+            chapter.Destination(Annotations::XYZExplicitDestination(2, 0.0, 842.0, 0.0));
+            root.Add(chapter);
+
+            doc.Save(path);
+        }
+
+        Document reloaded(path);
+        OutlineCollection& outlines = reloaded.Outlines();
+        std::cout << "outline count: " << outlines.Count() << '\n';
+        assert(outlines.Count() == 1);
+
+        OutlineItemCollection& item = outlines[1];
+        std::cout << "title: " << item.Title() << '\n';
+        std::cout << "bold: " << std::boolalpha << item.Bold() << '\n';
+        assert(item.Title() == "Chapter Two");
+        assert(item.Bold());
+
+        auto* destination = dynamic_cast<Annotations::ExplicitDestination*>(item.Destination());
+        assert(destination != nullptr);
+        std::cout << "destination page: " << destination->PageNumber() << '\n';
+        assert(destination->PageNumber() == 2);
+        return 0;
+    }
+  code_sha256: dc4e07a33924dcc0c0bcb1b9d63aa0dfe39e61a3e01dbd9e780d8f45b37758ed
+- title: Encrypt a Document With AES-256 and Open It Back With the Correct Password
+  description: Encrypts a from-scratch document with Document::Encrypt and CryptoAlgorithm::AESx256, saves it, then reopens the saved file both with the correct user password (checking IsEncrypted and that the page count is readable) and with a wrong password (checking that the constructor throws).
+  symbols:
+  - Document.Encrypt
+  - Document.IsEncrypted
+  - Document.Pages
+  - PageCollection.Count
+  - Permissions
+  - CryptoAlgorithm.AESx256
+  code: |
+    // Authored example: encrypt a document with AES-256 and open it back with the correct password.
+    #include <cassert>
+    #include <iostream>
+    #include <stdexcept>
+    #include <string>
+
+    #include <aspose/pdf/crypto_algorithm.hpp>
+    #include <aspose/pdf/document.hpp>
+    #include <aspose/pdf/page.hpp>
+    #include <aspose/pdf/page_collection.hpp>
+    #include <aspose/pdf/permissions.hpp>
+
+    using namespace Aspose::Pdf;
+
+    int main() {
+        const std::string path = "authored_encrypted_roundtrip.pdf";
+
+        {
+            Document doc;
+            Page page = doc.Pages().Add();
+            page.SetPageSize(595.0, 842.0);
+            doc.Encrypt("user-secret", "owner-secret", Permissions(), CryptoAlgorithm::AESx256);
+            doc.Save(path);
+        }
+
+        Document locked(path, "user-secret");
+        std::cout << "is encrypted: " << std::boolalpha << locked.IsEncrypted() << '\n';
+        assert(locked.IsEncrypted());
+        assert(locked.Pages().Count() == 1);
+
+        bool wrongPasswordRejected = false;
+        try {
+            Document rejected(path, "not-the-password");
+            (void)rejected;
+        } catch (const std::runtime_error&) {
+            wrongPasswordRejected = true;
+        }
+        std::cout << "wrong password rejected: " << std::boolalpha << wrongPasswordRejected << '\n';
+        assert(wrongPasswordRejected);
+        return 0;
+    }
+  code_sha256: 32d48a3e8b655de00a59508ee658edb3eb79e2488b31d4f3ca6ca88b84375f90
