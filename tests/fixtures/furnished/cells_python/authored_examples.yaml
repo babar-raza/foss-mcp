@@ -1,0 +1,252 @@
+schema_version: 1
+pilot: cells_python
+library_repository: aspose-cells-foss/Aspose.Cells-FOSS-for-Python
+library_commit: 4f6768a7b349a1309644f456eb43bc35f70c16d7
+language: python
+examples:
+- title: Merge a title row and a label range, then unmerge them
+  description: Merges a title row and a second labelled range using both spellings of the merge API (merge/Merge), saves the workbook, reloads it and confirms the merged ranges survive the round trip, then unmerges both ranges with unmerge/UnMerge and confirms they are gone.
+  symbols:
+  - Workbook
+  - Workbook.save
+  - Worksheet.merged_cells
+  - Cells.merge
+  - Cells.Merge
+  - Cells.unmerge
+  - Cells.UnMerge
+  code: |
+    # Authored example: merge a title row and a label range, save, reload and unmerge both ranges.
+    from aspose.cells_foss import Workbook
+
+    workbook = Workbook()
+    worksheet = workbook.worksheets[0]
+    worksheet.name = "MergeDemo"
+    worksheet.cells["A1"].value = "Quarterly Report"
+    worksheet.cells["A3"].value = "Region"
+    worksheet.cells["B3"].value = "Q1"
+    worksheet.cells["A4"].value = "North"
+    worksheet.cells["B4"].value = 120
+    worksheet.cells["A6"].value = "Merged note"
+
+    # Merge the title row and a second range, using the two equivalent spellings of the same API.
+    worksheet.cells.merge(0, 0, 1, 5)  # A1:E1
+    worksheet.cells.Merge(5, 0, 1, 2)  # A6:B6 (alias API)
+    print("merged ranges:", worksheet.merged_cells)
+    assert worksheet.merged_cells == ["A1:E1", "A6:B6"]
+
+    import os
+    import tempfile
+
+    path = os.path.join(tempfile.gettempdir(), "authored_merge_cells_example.xlsx")
+    workbook.save(path)
+
+    reloaded = Workbook(path)
+    reloaded_sheet = reloaded.worksheets[0]
+    print("reloaded merged ranges:", reloaded_sheet.merged_cells)
+    assert reloaded_sheet.merged_cells == ["A1:E1", "A6:B6"]
+
+    # Unmerge both ranges and confirm they are gone.
+    reloaded_sheet.cells.unmerge(0, 0, 1, 5)
+    reloaded_sheet.cells.UnMerge(5, 0, 1, 2)  # alias API
+    print("after unmerge:", reloaded_sheet.merged_cells)
+    assert reloaded_sheet.merged_cells == []
+
+    os.remove(path)
+    print("OK")
+  code_sha256: d9beaf370bcc493f9390e14607bab197ea9373026a15b839e48c70adaba899d4
+- title: Add an external hyperlink and verify its properties
+  description: Adds an external web hyperlink to a cell, sets its display text and screen tip, and checks the hyperlink's range, address, text, tip and type, plus the worksheet's hyperlink count, before saving the workbook.
+  symbols:
+  - Workbook
+  - Worksheet.hyperlinks
+  - Hyperlinks.add
+  - Hyperlinks.count
+  - Hyperlink.range
+  - Hyperlink.address
+  - Hyperlink.type
+  code: |
+    # Authored example: add an external hyperlink to a cell and confirm its properties and the collection count.
+    import os
+    import tempfile
+
+    from aspose.cells_foss import Workbook
+
+    workbook = Workbook()
+    worksheet = workbook.worksheets[0]
+    worksheet.name = "Hyperlinks"
+
+    link = worksheet.hyperlinks.add("A1", "https://www.example.com")
+    link.text_to_display = "Visit Example"
+    link.screen_tip = "Click to visit example.com"
+    worksheet.cells["A1"].value = "Visit Example"
+
+    print("range:", link.range, "address:", link.address, "type:", link.type)
+    assert link.range == "A1"
+    assert link.address == "https://www.example.com"
+    assert link.text_to_display == "Visit Example"
+    assert link.screen_tip == "Click to visit example.com"
+    assert link.type == "External"
+    assert worksheet.hyperlinks.count == 1
+
+    path = os.path.join(tempfile.gettempdir(), "authored_hyperlink_example.xlsx")
+    workbook.save(path)
+    assert os.path.exists(path)
+    os.remove(path)
+    print("OK")
+  code_sha256: 228b7f9f5d96ca6667df09fe73d7a6db4bc3553cd05bab28e86f908806946516
+- title: Set a number format two ways and look up a built-in format
+  description: Sets a custom number format and a built-in number format by ID on two cells, then uses NumberFormat's static helpers to look a built-in format code up by ID, check whether a string is a built-in format code, and look an ID up from its code.
+  symbols:
+  - Cell
+  - Cell.style
+  - Style.set_number_format
+  - Style.set_builtin_number_format
+  - NumberFormat.get_builtin_format
+  - NumberFormat.is_builtin_format
+  - NumberFormat.lookup_builtin_format
+  code: |
+    # Authored example: set a number format two ways and look a built-in format up by code and by ID.
+    from aspose.cells_foss import Cell, NumberFormat
+
+    cell = Cell(1234.567)
+    cell.style.set_number_format("#,##0.00")
+    print("custom format:", cell.style.number_format)
+    assert cell.style.number_format == "#,##0.00"
+
+    cell = Cell(1234.567)
+    cell.style.set_builtin_number_format(4)
+    print("builtin format 4:", cell.style.number_format)
+    assert cell.style.number_format == "#,##0.00"
+
+    format_code = NumberFormat.get_builtin_format(9)
+    print("builtin format 9:", format_code)
+    assert format_code == "0%"
+
+    assert NumberFormat.is_builtin_format("0%") is True
+    assert NumberFormat.is_builtin_format("custom_format") is False
+
+    format_id = NumberFormat.lookup_builtin_format("0%")
+    print("format id for '0%':", format_id)
+    assert format_id == 9
+    print("OK")
+  code_sha256: de76a64487055af5fab4212c48b08ecc8a58aada92733bb1e8267aa06ae8ab02
+- title: Add line sparklines over a small sales table
+  description: Fills a two-row sales table and adds a line sparkline group spanning both rows, saves the workbook, reloads it and confirms the sparkline group and its sparkline count survive the round trip.
+  symbols:
+  - Workbook
+  - Worksheet.sparkline_groups
+  - SparklineGroupCollection.add
+  - SparklineGroup.count
+  - SparklineGroup.color_series
+  - SparklineType.LINE
+  code: |
+    # Authored example: fill a small table with monthly sales and add line sparklines next to each row.
+    import os
+    import tempfile
+
+    from aspose.cells_foss import SparklineType, Workbook
+
+    workbook = Workbook()
+    worksheet = workbook.worksheets[0]
+    worksheet.name = "LineSparklines"
+
+    worksheet.cells["A1"].value = "Store"
+    worksheet.cells["B1"].value = "January"
+    worksheet.cells["C1"].value = "February"
+    worksheet.cells["D1"].value = "March"
+    worksheet.cells["G1"].value = "Trend"
+
+    dummy_data = [
+        ["Houston", 4873, 11776, 8355],
+        ["San Diego", 9575, 7135, 5575],
+    ]
+    for row_idx, row_data in enumerate(dummy_data, start=2):
+        for col_idx, value in enumerate(row_data):
+            worksheet.cells[f"{chr(65 + col_idx)}{row_idx}"].value = value
+
+    sparkline_group = worksheet.sparkline_groups.add(
+        sparkline_type=SparklineType.LINE,
+        data_range=f"{worksheet.name}!B2:D3",
+        is_vertical=False,
+        location_range="G2:G3",
+    )
+    sparkline_group.color_series = "0070C0"
+    print("sparklines added:", sparkline_group.count)
+    assert sparkline_group.count == 2
+
+    path = os.path.join(tempfile.gettempdir(), "authored_sparklines_example.xlsx")
+    workbook.save(path)
+
+    reloaded = Workbook(path)
+    reloaded_sheet = reloaded.worksheets[0]
+    print("reloaded sparkline groups:", reloaded_sheet.sparkline_groups.count)
+    assert reloaded_sheet.sparkline_groups.count == 1
+    reloaded_group = reloaded_sheet.sparkline_groups[0]
+    print("reloaded sparkline count:", reloaded_group.count)
+    assert reloaded_group.count == 2
+
+    os.remove(path)
+    print("OK")
+  code_sha256: 8d8a21de0ba6465f0c48705e21080f83a22f43a718f1c1681eabddd0b3f6ba18
+- title: Restrict a range to whole numbers and verify the rule after reload
+  description: Adds a whole-number-between data validation rule to a range with an error title and message, saves the workbook, reloads it and confirms every property of the rule, including its type, operator, formulas and messages, survived the round trip.
+  symbols:
+  - Workbook
+  - Worksheet.data_validations
+  - DataValidationCollection.add
+  - DataValidationCollection.count
+  - DataValidation.type
+  - DataValidation.operator
+  - DataValidationType.WHOLE_NUMBER
+  - DataValidationOperator.BETWEEN
+  code: |
+    # Authored example: restrict a range to whole numbers 1-100, save, reload and confirm the rule persisted.
+    import os
+    import tempfile
+
+    from aspose.cells_foss import DataValidationOperator, DataValidationType, Workbook
+
+    workbook = Workbook()
+    worksheet = workbook.worksheets[0]
+    worksheet.cells["A1"].value = "Data Validation: Whole Number (1-100)"
+    worksheet.cells["A3"].value = "Try entering: 50 (valid)"
+
+    validation = worksheet.data_validations.add("A3:A10")
+    validation.type = DataValidationType.WHOLE_NUMBER
+    validation.operator = DataValidationOperator.BETWEEN
+    validation.formula1 = "1"
+    validation.formula2 = "100"
+    validation.allow_blank = True
+    validation.show_error_message = True
+    validation.error_title = "Invalid"
+    validation.error_message = "Enter 1-100"
+
+    path = os.path.join(tempfile.gettempdir(), "authored_data_validation_example.xlsx")
+    workbook.save(path)
+
+    reloaded = Workbook(path)
+    reloaded_sheet = reloaded.worksheets[0]
+    print("validation count:", reloaded_sheet.data_validations.count)
+    assert reloaded_sheet.data_validations.count == 1
+
+    reloaded_validation = reloaded_sheet.data_validations[0]
+    print(
+        "sqref:", reloaded_validation.sqref,
+        "type:", reloaded_validation.type,
+        "operator:", reloaded_validation.operator,
+        "formula1:", reloaded_validation.formula1,
+        "formula2:", reloaded_validation.formula2,
+    )
+    assert reloaded_validation.sqref == "A3:A10"
+    assert reloaded_validation.type == DataValidationType.WHOLE_NUMBER
+    assert reloaded_validation.operator == DataValidationOperator.BETWEEN
+    assert reloaded_validation.formula1 == "1"
+    assert reloaded_validation.formula2 == "100"
+    assert reloaded_validation.allow_blank is True
+    assert reloaded_validation.show_error_message is True
+    assert reloaded_validation.error_title == "Invalid"
+    assert reloaded_validation.error_message == "Enter 1-100"
+
+    os.remove(path)
+    print("OK")
+  code_sha256: 4c7d702e1ae3a47e06670737a135ffb2f3cba7b67b4e465478c98823edefafce
