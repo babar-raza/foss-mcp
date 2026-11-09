@@ -19,7 +19,9 @@ from typing import Any
 
 import pytest
 
+from foss_mcp.extraction.run_extraction import summarize_symbols
 from foss_mcp.indexing.chunk_builder import build_chunks_from_api_surface
+from foss_mcp.indexing.symbol_identity import compute_canonical_identities
 from infra.build_chunks import MAX_CHUNK_TEXT_CHARS
 from tests.extraction import docs_identifiers
 from tests.extraction import reextraction_checks as rc
@@ -377,6 +379,13 @@ def test_ingestion_slice_keeps_every_extracted_entry(key: str) -> None:
     assert rc.ingestion_slice_problems(key) == []
 
 
+# TC-729: these 5 pilots' fixtures predated TC-620's canonical-identity dedup convention for
+# `symbol_counts.types` and were backfilled by TC-729 - their stored `types` count is now the
+# deduped count of canonical units (strictly below the raw per-entry recount, since each has real
+# Python re-export shell/definition pairs), not the raw recount every other pilot still matches.
+DEDUPED_SYMBOL_COUNTS = {"pdf_python", "slides_python", "html_python", "3d_python", "words_python"}
+
+
 @pytest.mark.parametrize("key", PILOTS)
 def test_surface_is_complete_and_not_truncated(key: str) -> None:
     fixture = rc.load_fixture(key)
@@ -384,7 +393,14 @@ def test_surface_is_complete_and_not_truncated(key: str) -> None:
     assert fixture["type_count"] == fixture["reduced_type_count"] == len(fixture["types"])
     assert rc.chart_max_types(key) == max(fixture["type_count"], 300)
     counts = fixture["symbol_counts"]
-    assert counts["types"] + counts["functions"] == fixture["type_count"]
+    if key in DEDUPED_SYMBOL_COUNTS:
+        # Nothing is missing from `types` itself - that is proven against the RAW, undeduped recount;
+        # `counts["types"]` is the canonical-identity dedup count, strictly at or below it.
+        raw_types = sum(1 for e in fixture["types"] if e.get("kind") != "function")
+        assert raw_types + counts["functions"] == fixture["type_count"]
+        assert counts["types"] <= raw_types
+    else:
+        assert counts["types"] + counts["functions"] == fixture["type_count"]
 
 
 @pytest.mark.parametrize("key", PILOTS)
@@ -393,7 +409,13 @@ def test_symbol_counts_and_counts_agree_with_the_entries(key: str) -> None:
     entries = fixture["types"]
     functions = sum(1 for e in entries if e.get("kind") == "function")
     methods = sum(len(e.get("methods") or []) for e in entries)
-    assert fixture["symbol_counts"] == {"types": len(entries) - functions, "functions": functions}
+    if key in DEDUPED_SYMBOL_COUNTS:
+        # TC-729: re-derive with the identical dedup function the fixture was backfilled with, instead
+        # of the raw per-entry recount every other pilot (with no real re-export shells) still matches.
+        identities = compute_canonical_identities(entries)
+        assert fixture["symbol_counts"] == summarize_symbols(entries, identities=identities)
+    else:
+        assert fixture["symbol_counts"] == {"types": len(entries) - functions, "functions": functions}
     assert fixture["counts"] == {
         "types": len(entries) - functions,
         "functions": functions,
@@ -402,16 +424,15 @@ def test_symbol_counts_and_counts_agree_with_the_entries(key: str) -> None:
 
 
 # TC-614 (I2, REQ-G3-012): these 5 python pilots have real re-export shell/definition pairs, so the
-# deduplicated numerator now honestly reports below the (still-inflated until I3 lands) denominator;
-# each is a concrete, measured-fresh assertion, not a loosened one. Every pilot NOT in this table has
-# zero real aliased pairs and legitimately stays 100%-complete, so its assertion is unchanged.
-PARTIAL_COVERAGE_AFTER_DEDUP = {
-    "pdf_python": "API-Coverage: 356 of 543 types; 324 of 324 functions",  # TC-614: 543 of 543 -> 356 of 543
-    "slides_python": "API-Coverage: 516 of 1022 types; 1 of 1 functions",  # TC-614: 1022 of 1022 -> 516 of 1022
-    "html_python": "API-Coverage: 218 of 305 types; 18 of 18 functions",  # TC-614: 305 of 305 -> 218 of 305
-    "3d_python": "API-Coverage: 343 of 697 types",  # TC-614: 697 of 697 -> 343 of 697
-    "words_python": "API-Coverage: 190 of 272 types; 119 of 119 functions",  # TC-614: 272 of 272 -> 190 of 272
-}
+# deduplicated numerator honestly reported below the (still-inflated until I3/TC-620 landed, and until
+# TC-729 backfilled it onto these pre-existing fixtures) denominator - each was a concrete,
+# measured-fresh assertion, not a loosened one.
+# TC-729 (2026-11-09): emptied, not removed (TC-536 precedent) - now that `symbol_counts.types` is
+# itself backfilled with the identical dedup, numerator and denominator agree again (measured fresh:
+# "356 of 356", "516 of 516", "218 of 218", "343 of 343", "190 of 190" respectively) and every pilot
+# of PILOTS legitimately takes the `_coverage_is_complete` branch below. Kept defined (empty), not
+# removed, in case a future re-extraction widens a real alias gap again.
+PARTIAL_COVERAGE_AFTER_DEDUP: dict[str, str] = {}
 
 
 @pytest.mark.parametrize("key", PILOTS)

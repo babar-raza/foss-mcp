@@ -121,7 +121,9 @@ def test_main_on_the_committed_tex_fixture_ends_symbol_chunks_with_the_coverage_
     # PdfDevice, SvgDevice, TeXJob) - 21 raw type entries collapse to 14 canonical units. The chunk
     # count above (23 = 21 types + 2 functions, pre-dedup) is unaffected; only the coverage-line
     # numerator changes.
-    expected = "API-Coverage: 14 of 21 types; 2 of 2 functions; 11 of 45 source files could not be parsed"
+    # TC-729 (2026-11-09): 14 of 21 -> 14 of 14 - the fixture's own `symbol_counts.types` denominator
+    # was backfilled to the identical dedup count, closing the gap TC-667's comment named above.
+    expected = "API-Coverage: 14 of 14 types; 2 of 2 functions; 11 of 45 source files could not be parsed"
     for chunk in symbols:
         lines = chunk["text"].splitlines()
         assert lines[-2] == expected

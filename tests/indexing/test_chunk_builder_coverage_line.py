@@ -202,8 +202,11 @@ def test_committed_tex_python_fixture_states_the_unparsed_files_in_every_chunk()
     # private files it cannot repair are: TC-555 rework 2, 35 of 45 -> 11 of 45).
     # TC-614 (I2): the types numerator now counts each alias group once - tex/python has real
     # shell/definition pairs too (not only slides/python), measured fresh here: 21 -> 14.
+    # TC-729 (2026-11-09): tex_python's own `symbol_counts.types` was backfilled to the identical
+    # dedup count (21 -> 14), so the denominator now agrees with the numerator: 14 of 14, not 14 of
+    # 21.
     assert len(texts) == 23
-    expected = "API-Coverage: 14 of 21 types; 2 of 2 functions; 11 of 45 source files could not be parsed"
+    expected = "API-Coverage: 14 of 14 types; 2 of 2 functions; 11 of 45 source files could not be parsed"
     assert all(text.splitlines()[-1] == expected for text in texts)
 
 
@@ -240,8 +243,9 @@ def test_the_line_stays_the_last_line_before_the_source_commit_is_appended() -> 
     for text in _texts(fixture):
         appended = f"{text}\nSource-Commit: {fixture['source_commit']}"
         assert appended.splitlines()[-2].startswith(
-            "API-Coverage: 14 of 21 types"
-        )  # TC-555: 4 of 4 -> 21 of 21; TC-614: 21 of 21 -> 14 of 21 (dedup)
+            "API-Coverage: 14 of 14 types"
+        )  # TC-555: 4 of 4 -> 21 of 21; TC-614: 21 of 21 -> 14 of 21 (dedup); TC-729: 14 of 21 -> 14 of 14
+        # (denominator backfilled to the identical dedup)
 
 
 # ---------------------------------------------------------------- TC-614 (I2, REQ-G3-012): dedup
@@ -336,16 +340,28 @@ def test_c_real_slides_python_regression_numerator_drops_with_identities() -> No
     definitions (the fixture's one function entry keeps its own, separate, unaffected clause) -
     AFTER this card, the numerator is 516, not 517, because `kind == "function"` is excluded from
     the types-clause dedup count exactly as REQ-G3-012 specifies.
+
+    TC-729 (2026-11-09): the fixture's own `symbol_counts.types` was backfilled onto the identical
+    dedup count (1022 -> 516), so the AFTER line is now fully honest ("516 of 516", not "516 of
+    1022"). The BEFORE reconstruction below is built with the fixture's OLD, un-deduplicated
+    `symbol_counts` (the real value it carried until TC-729), since the real committed fixture no
+    longer carries it - this is the exact real line the already-committed generation manifest
+    carried before TC-614/TC-729.
     """
     fixture = _real("slides_python")
     after_lines = _last_lines(fixture)
-    assert after_lines == {"API-Coverage: 516 of 1022 types; 1 of 1 functions"}
+    assert after_lines == {"API-Coverage: 516 of 516 types; 1 of 1 functions"}
 
-    # The BEFORE rendering (pre-TC-614: `identities=None`), reproduced directly against the same,
-    # real, non-test-filtered entries this module itself computes - this is the exact real line the
-    # already-committed generation manifest carries today.
+    # The BEFORE rendering (pre-TC-614: `identities=None`; pre-TC-729: the fixture's own
+    # un-backfilled `symbol_counts`), reconstructed against the same, real, non-test-filtered
+    # entries this module itself computes.
     candidates = [entry for entry in fixture["types"] if not _is_test_source(entry.get("file"))]
-    before = _coverage_line(fixture, candidates)
+    functions = sum(1 for entry in candidates if entry.get("kind") == "function")
+    old_fixture = {
+        **fixture,
+        "symbol_counts": {"types": len(candidates) - functions, "functions": functions},
+    }
+    before = _coverage_line(old_fixture, candidates)
     assert before == "1022 of 1022 types; 1 of 1 functions"
 
 
@@ -356,14 +372,29 @@ def test_d_coverage_note_from_text_now_fires_for_slides_python_after_the_fix() -
     it was simply never exercised on a real pilot before this card, because the numerator was never
     honestly below 100% for slides/python. Calling the real, unmodified function against the real
     rendered AFTER line proves the revival; calling it against the real rendered BEFORE line proves
-    it correctly returned `None` previously (the ratio was 100% "by construction")."""
-    fixture = _real("slides_python")
-    after_text = next(iter(_texts(fixture)))
-    after_note = coverage_note_from_text(after_text)
-    assert after_note is not None
-    assert "516 of 1022 types" in after_note
-    assert "a type missing from it may still exist upstream" in after_note
+    it correctly returned `None` previously (the ratio was 100% "by construction").
 
+    TC-729 (2026-11-09): the real, committed fixture's own `symbol_counts` is now ALSO backfilled
+    (TC-620's denominator convention, TC-729's backfill), so the real, live rendered line is fully
+    honest ("516 of 516") and `coverage_note_from_text` correctly returns `None` against it directly
+    - proven below with no reconstruction needed. The caveat-FIRING demonstration (I2's numerator
+    dedup landed, I3/TC-729's denominator backfill not yet applied - the exact regression this card
+    closes) is reconstructed from the fixture's OLD, un-deduplicated `symbol_counts`, since the real
+    committed fixture no longer carries it.
+    """
+    fixture = _real("slides_python")
     candidates = [entry for entry in fixture["types"] if not _is_test_source(entry.get("file"))]
-    before_line = f"API-Coverage: {_coverage_line(fixture, candidates)}"
-    assert coverage_note_from_text(before_line) is None
+    functions = sum(1 for entry in candidates if entry.get("kind") == "function")
+    old_fixture = {
+        **fixture,
+        "symbol_counts": {"types": len(candidates) - functions, "functions": functions},
+    }
+
+    partial_text = next(iter(_texts(old_fixture)))
+    partial_note = coverage_note_from_text(partial_text)
+    assert partial_note is not None
+    assert "516 of 1022 types" in partial_note
+    assert "a type missing from it may still exist upstream" in partial_note
+
+    complete_text = next(iter(_texts(fixture)))
+    assert coverage_note_from_text(complete_text) is None
