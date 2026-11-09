@@ -1,0 +1,172 @@
+id: TC-729
+gate: G3
+lane: extraction
+purpose: >-
+  Fixes a real, root-caused production bug, independently confirmed twice this session (first by
+  a live-gate rebuild, then by a direct offline reproduction recorded in `docs/DECISION_LOG.md`'s
+  2026-11-09 entry "TC-727 regression root-caused to chunk_builder.py, not re-ingest tooling" -
+  read that entry in full first, do not re-derive the root cause from scratch, it is already
+  diagnosed precisely there): `chunk_builder.py`'s `_coverage_line` numerator (`kept_types`) dedups
+  Python re-export shell/definition pairs via `symbol_identity.compute_canonical_identities(...)
+  .is_definition` (TC-614/TC-686), but its denominator comes verbatim from the fixture's own
+  committed `symbol_counts.types` field. `run_extraction.summarize_symbols` (TC-620, 2026-10-31)
+  already knows how to compute that field WITH the identical dedup when given `identities=
+  compute_canonical_identities(types)` - but this was only ever applied going forward, to freshly
+  re-extracted fixtures, never backfilled onto fixtures already committed before TC-620 landed. 10
+  real Python-pilot fixtures predate TC-620 and still carry the OLD, undeduped `symbol_counts.types`
+  value, so their served `API-Coverage:` line (computed fresh, with dedup, every time a chunk is
+  rendered) now disagrees with their own fixture's stale stored denominator - e.g. `cells_python`
+  serves "130 of 186 types" when the real, correct, fully-deduped count is 130 of 130 (its fixture's
+  204 raw entries minus 18 functions minus 56 real re-export shells). This bug has been LATENT on
+  `main` since TC-620 (2026-10-31) - it was invisible until a 2026-11-09 supervisor-direct re-ingest
+  (commit `6053716b`, fixing TC-727's own doc-suffix staleness) forced the first full rebake of all
+  10 shelled Python fixtures at once, since dedup is a no-op for any fixture with zero re-export
+  shells (confirmed: `note_python`, no shells, already correctly serves "74 of 74").
+
+  REPRODUCE FIRST (confirm the real, current numbers yourself - do not trust this card's numbers
+  blindly, they may have drifted): for each of the 10 real affected pilots
+  (`slides_python`, `words_python`, `cells_python`, `pdf_python`, `email_python`, `barcode_python`,
+  `html_python`, `page_python`, `3d_python`, `tex_python`), call
+  `chunk_builder.build_chunks_from_api_surface` (or just
+  `run_extraction.summarize_symbols(fixture['types'], symbol_identity.compute_canonical_identities(
+  fixture['types']))`) directly against the real, already-committed
+  `tests/fixtures/<pilot>/api_surface.json` and confirm the real deduped count differs from the
+  fixture's own currently-stored `symbol_counts.types`. Report the real before/after numbers,
+  verbatim, in your closeout.
+
+  FIX (pure, offline, zero-network DATA correction - no re-extraction from any upstream repository
+  is needed, and none should be attempted): for each of the 10 real affected fixtures, recompute
+  `symbol_counts` using the EXACT SAME already-existing, already-correct function
+  (`run_extraction.summarize_symbols(types, compute_canonical_identities(types))`, called directly
+  against the fixture's own already-committed `types` array - no other field of the fixture
+  changes) and overwrite ONLY the `symbol_counts` object with the newly-correct value. This
+  restores the exact lockstep TC-620 already intended between `chunk_builder`'s live-rendered
+  numerator and the fixture's own stored denominator - it is a backfill of TC-620's own convention
+  onto fixtures that predate it, never a new convention or a new algorithm.
+
+  THEN add a new, PERMANENT, fleet-wide regression guard (a new test file) asserting, for EVERY
+  one of the 32 real pilots that HAS a `symbol_counts` field in its committed fixture, that the
+  stored `symbol_counts.types`/`symbol_counts.functions` exactly equals what
+  `run_extraction.summarize_symbols(types, compute_canonical_identities(types))` computes fresh
+  from that same fixture's own `types` array right now - so this exact staleness class (a fixture's
+  cached derived field drifting out of lockstep with the live dedup algorithm that produces the
+  served coverage line) can never silently recur for any pilot, not just these 10.
+
+  OUT OF SCOPE, deliberately: `pdf_java`'s own separate, differently-shaped symptom (one giant
+  symbol chunk, `org.aspose.pdf.engine.xfa.model.template.Proto`, serving ZERO API-Coverage lines
+  instead of one) does NOT reproduce from this same root cause (confirmed by the prior
+  investigation: calling the same function against `pdf_java`'s own fixture renders that exact
+  chunk correctly) - it is a different, unexplained defect, most likely related to large-chunk
+  splitting given that chunk's own ~28KB size (see this session's own TC-727 attempt-3 work on
+  `OVERSIZE_CHUNK_CEILING` for related context). Do NOT attempt to fix it here; if your own
+  reproduction work stumbles onto its real cause incidentally, report it in your closeout rather
+  than silently fixing or ignoring it, but do not go looking for it.
+
+  ALSO OUT OF SCOPE: `tests/deploy/test_fleet_consistency.py`'s `STALE_BAKED_PILOTS`/
+  `STALE_BY_MEMBERS` tables still list their original 15 TC-727-disclosed pilots, now genuinely
+  fresh (confirmed by a separate investigation) - cleaning those tables up is explicitly a
+  SEPARATE, later step (the supervisor's own job, following the exact TC-536 precedent in that
+  same file, re-verifying each entry is genuinely no longer stale before removing it), not this
+  card's write_paths or responsibility. Do not touch that file.
+depends_on:
+  - TC-532
+  - TC-550
+  - TC-555
+  - TC-559
+write_paths:
+  - tests/fixtures/slides_python/api_surface.json
+  - tests/fixtures/words_python/api_surface.json
+  - tests/fixtures/cells_python/api_surface.json
+  - tests/fixtures/pdf_python/api_surface.json
+  - tests/fixtures/email_python/api_surface.json
+  - tests/fixtures/barcode_python/api_surface.json
+  - tests/fixtures/html_python/api_surface.json
+  - tests/fixtures/page_python/api_surface.json
+  - tests/fixtures/3d_python/api_surface.json
+  - tests/fixtures/tex_python/api_surface.json
+  - tests/extraction/test_symbol_counts_dedup_consistency.py
+satisfies:
+  - REQ-G3-012
+source_refs:
+  - file: docs/DECISION_LOG.md
+    anchor: >-
+      ## 2026-11-09 — real regression found in the TC-727 re-ingest (commit 6053716b); public demo rolled back (supervisor)
+    sha256: 5f706013f15c76a245c50438e9065725c8f08f99475f874f34726ff2dcd72218
+inputs:
+  - >-
+    READ FIRST: `docs/DECISION_LOG.md`'s two most recent 2026-11-09 entries about this (the rollback
+    entry, then the root-cause entry immediately after it) in full - the investigation is already
+    complete, do not re-derive it. Then `src/foss_mcp/extraction/run_extraction.py`'s
+    `summarize_symbols` function and its own docstring (around line 618) as your exact tool, and
+    `src/foss_mcp/indexing/symbol_identity.py`'s `compute_canonical_identities` as the identical
+    function `chunk_builder._coverage_line` already calls at render time - you are calling the SAME
+    two functions, in the SAME order, offline, against already-committed data.
+  - >-
+    REPRODUCE FIRST (do not skip): confirm the real, current before-values for all 10 fixtures and
+    the real, correct after-values your fix produces. Report both, verbatim, in your closeout.
+  - >-
+    This is a pure data-correctness backfill, not a new algorithm or a new convention - if your own
+    reproduction finds that a fixture's REAL correct deduped count is NOT what this card's purpose
+    text estimated (numbers may have drifted since this card was authored), use the REAL number you
+    measure, not this card's own estimate.
+  - >-
+    Do not touch `pdf_java`'s fixture or `chunk_builder.py`/`run_extraction.py`/`symbol_identity.py`
+    themselves - this card changes ONLY the 10 named fixtures' `symbol_counts` field plus adds one
+    new test file. If your own investigation suggests a DIFFERENT file needs to change, stop and
+    report it rather than editing outside your declared write_paths.
+  - >-
+    `tests/extraction/test_symbol_counts_dedup_consistency.py` is a brand-new file - expect
+    approximately 30-35 new tests (one parametrized case per real pilot whose committed fixture
+    currently carries a `symbol_counts` field, which is most but not necessarily all of the 32,
+    plus 1-2 static sanity tests of your own choosing) to satisfy `min_tests: 10` comfortably; the
+    exact count depends on how many real fixtures have the field, which you should confirm
+    directly rather than assume.
+  - >-
+    Check 2 deliberately targets ONLY the 10 pilots this card fixes, by explicit parametrized node
+    id - the other 15 pilots already listed in `tests/deploy/test_fleet_consistency.py`'s
+    `STALE_BAKED_PILOTS`/`STALE_BY_MEMBERS` tables will keep failing their own "is not stale:
+    delete it from the table" assertion if you run the FULL file (expected, a separate, later
+    supervisor cleanup step, not this card's job) - do not widen check 2 to the full file, and do
+    not touch that table.
+actions:
+  - >-
+    Backfill TC-620's own dedup convention onto 10 pre-existing fixtures' symbol_counts, and add a
+    permanent fleet-wide guard preventing this exact staleness class from recurring for any pilot.
+checks:
+  - command: '{python} -m pytest tests/extraction/test_symbol_counts_dedup_consistency.py -q -rfE -p no:cacheprovider'
+    expect: 'exit 0'
+    timeout_seconds: 180
+    junitxml: true
+    proves:
+      - REQ-G3-012
+  - command: '{python} -m pytest "tests/deploy/test_fleet_consistency.py::test_api_coverage_lines_are_present_and_honest[slides_python]" "tests/deploy/test_fleet_consistency.py::test_api_coverage_lines_are_present_and_honest[words_python]" "tests/deploy/test_fleet_consistency.py::test_api_coverage_lines_are_present_and_honest[cells_python]" "tests/deploy/test_fleet_consistency.py::test_api_coverage_lines_are_present_and_honest[pdf_python]" "tests/deploy/test_fleet_consistency.py::test_api_coverage_lines_are_present_and_honest[email_python]" "tests/deploy/test_fleet_consistency.py::test_api_coverage_lines_are_present_and_honest[barcode_python]" "tests/deploy/test_fleet_consistency.py::test_api_coverage_lines_are_present_and_honest[html_python]" "tests/deploy/test_fleet_consistency.py::test_api_coverage_lines_are_present_and_honest[page_python]" "tests/deploy/test_fleet_consistency.py::test_api_coverage_lines_are_present_and_honest[3d_python]" "tests/deploy/test_fleet_consistency.py::test_api_coverage_lines_are_present_and_honest[tex_python]" "tests/deploy/test_served_coverage_matches_fixtures.py::test_served_coverage_line_states_the_same_counts[slides_python]" "tests/deploy/test_served_coverage_matches_fixtures.py::test_served_coverage_line_states_the_same_counts[words_python]" "tests/deploy/test_served_coverage_matches_fixtures.py::test_served_coverage_line_states_the_same_counts[cells_python]" "tests/deploy/test_served_coverage_matches_fixtures.py::test_served_coverage_line_states_the_same_counts[pdf_python]" "tests/deploy/test_served_coverage_matches_fixtures.py::test_served_coverage_line_states_the_same_counts[email_python]" "tests/deploy/test_served_coverage_matches_fixtures.py::test_served_coverage_line_states_the_same_counts[barcode_python]" "tests/deploy/test_served_coverage_matches_fixtures.py::test_served_coverage_line_states_the_same_counts[html_python]" "tests/deploy/test_served_coverage_matches_fixtures.py::test_served_coverage_line_states_the_same_counts[page_python]" "tests/deploy/test_served_coverage_matches_fixtures.py::test_served_coverage_line_states_the_same_counts[3d_python]" "tests/deploy/test_served_coverage_matches_fixtures.py::test_served_coverage_line_states_the_same_counts[tex_python]" -q -rfE -p no:cacheprovider'
+    expect: 'exit 0'
+    timeout_seconds: 180
+    junitxml: true
+    proves:
+      - REQ-G3-012
+min_tests: 10
+requires:
+  - python
+network: false
+negative_control:
+  mutate: |
+    python -X utf8 -c "import json, pathlib; p = pathlib.Path('tests/fixtures/cells_python/api_surface.json'); d = json.loads(p.read_text(encoding='utf-8-sig')); d['symbol_counts']['types'] = d['symbol_counts']['types'] + 1; p.write_text(json.dumps(d), encoding='utf-8')"
+  rationale: >-
+    Corrupts the real, just-fixed `cells_python` fixture's own `symbol_counts.types` value by +1,
+    which must make the new permanent regression guard fail (its own fresh recomputation from the
+    fixture's `types` array will no longer match the corrupted stored value) - a pure data
+    mutation, immune to the lockstep-rename vacuousness class this session's earlier reviews found,
+    and it never touches any code path. If your real fix changes `cells_python`'s real correct
+    value to something other than this card's own estimate, the mutate still applies correctly
+    (it offsets by +1 from whatever the real committed value is, not from a hardcoded number) -
+    confirm this directly before trusting it.
+evidence:
+  - evidence/build/G3/TC-729/receipt.json
+closeout:
+  - >-
+    10 pre-existing Python-pilot fixtures' `symbol_counts` are now in lockstep with
+    `chunk_builder.py`'s live-rendered, deduped coverage count, closing the real regression found
+    during TC-727's own re-ingest; a new permanent fleet-wide test guards against this exact
+    staleness class recurring for any pilot, not just these 10.
+recovery: Re-run from a clean tree.
