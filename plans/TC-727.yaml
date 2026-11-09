@@ -66,6 +66,37 @@ purpose: >-
   template) proving the ORIGINAL round-2 case: `get_symbol`/`list_members` for `pdf/typescript`'s
   real `Document.New` now shows its real doc summary text, and a method with no doc (pick a real
   one from the same fixture) renders with no suffix at all, exactly as before.
+
+  ADDED after attempt 1 (same card, widened - not a new card, per the supervisor's own
+  "never weaken a check" rule): attempt 1's real fix is correct and complete, but
+  `tests/deploy/test_served_provenance.py`'s own `test_p1_and_p2_over_the_committed_data_of_every_pilot`
+  now genuinely fails for 15 real pilots (`3d_java`, `3d_net`, `cells_cpp`, `cells_go`, `cells_java`,
+  `cells_net`, `cells_rust`, `pdf_go`, `pdf_java`, `pdf_net`, `pdf_typescript`, `slides_cpp`,
+  `slides_java`, `slides_net`, `words_net`) - confirmed by the supervisor running it directly in
+  both the TC-727 worktree (16 failures) and a clean `main` checkout (0 failures, same command) -
+  because each pilot's committed BAKED `infra/demo-manifests` generation was built before this
+  card's fix and so lacks the new doc-suffix text its own fixture's `doc` field would now produce;
+  this is a genuine, already-precedented infra-staleness gap (TC-533/TC-536's own documented
+  pattern: fixture/renderer correctly ahead of a baked generation, the baked data not yet
+  re-ingested), never a code defect to fix in `chunk_builder.py` itself. A 16th failure
+  (`test_p2_fails_when_a_served_generation_was_edited_after_the_fact`, hardcoded to `cells_net`
+  specifically, not parametrized) fails for the identical root cause: its own "unedited" expected
+  line now includes a doc suffix that `cells_net`'s stale baked generation does not yet have.
+
+  FIX (reusing the EXISTING, already-wired `STALE_BAKED_PILOTS` mechanism in
+  `tests/deploy/test_fleet_consistency.py` - `tests/deploy/test_served_provenance.py` already
+  imports and consults it at its own line ~580; do not invent a new mechanism): add all 15 real
+  affected pilot keys to `STALE_BAKED_PILOTS` with a dated reason citing this card and the real
+  root cause (re-verify the real 15 yourself - do not trust this list blindly, re-run the
+  parametrized test first to get the authoritative current list). For the 16th, hardcoded-pilot
+  test: re-verify independently which of the 17 unaffected pilots' first `sample_method_pairs`
+  entry is unaffected (the supervisor's own quick check suggests `cells_python`, but confirm this
+  yourself before committing to it - do not swap to a pilot that turns out to also be stale), then
+  change the test's hardcoded `key, family, platform = "cells_net", ...` tuple to that pilot, with
+  a one-line comment citing this card and explaining why - the test's own invariant (a post-hoc
+  edit to a served generation is detected) is pilot-agnostic, so this is a scope-preserving subject
+  swap, never a weakening of what the test actually asserts. Do NOT silently touch
+  `chunk_builder.py` or any other production file to "fix" this - it is not a code defect.
 depends_on:
   - TC-001
   - TC-010
@@ -164,6 +195,7 @@ write_paths:
   - tests/mcp/tools/test_get_symbol_raw_text_opt_in.py
   - tests/mcp/tools/test_known_defects_round3_siblings.py
   - tests/deploy/test_served_provenance.py
+  - tests/deploy/test_fleet_consistency.py
   - tests/e2e/test_pdf_typescript_live_content.py
   - tests/extraction/test_python_fidelity.py
   - tests/extraction/tree_sitter_engine/test_python_surface_attributes.py
@@ -204,7 +236,7 @@ actions:
     collateral test across the enumerated files, and add new end-to-end tests proving the real
     pdf/typescript Document.New case now surfaces its doc text.
 checks:
-  - command: '{python} -m pytest tests/indexing/test_chunk_builder.py tests/indexing/test_chunk_builder_cpp_signatures.py tests/indexing/test_chunk_builder_go_members.py tests/indexing/test_chunk_builder_honesty.py tests/indexing/test_chunk_builder_modifiers.py tests/indexing/test_chunk_builder_python_signatures.py tests/indexing/test_chunk_builder_round3_cpp.py tests/indexing/test_chunk_builder_round3_dotnet.py tests/indexing/test_chunk_builder_round3_gorust.py tests/indexing/test_chunk_builder_round3_java.py tests/indexing/test_chunk_builder_round3_typescript.py tests/indexing/test_chunk_builder_single_line_members.py tests/indexing/test_chunk_builder_typescript_marks.py tests/indexing/test_known_defects_data_3d.py tests/indexing/test_known_defects_data_cells.py tests/indexing/test_known_defects_data_cells_typescript_013.py tests/indexing/test_round3_unsupported_markers.py tests/mcp/test_response_budget.py tests/mcp/test_tool_surface_truthful.py tests/mcp/tools/test_get_symbol_raw_text_opt_in.py tests/mcp/tools/test_known_defects_round3_siblings.py -q -rfE -p no:cacheprovider'
+  - command: '{python} -m pytest tests/indexing/test_chunk_builder.py tests/indexing/test_chunk_builder_cpp_signatures.py tests/indexing/test_chunk_builder_go_members.py tests/indexing/test_chunk_builder_honesty.py tests/indexing/test_chunk_builder_modifiers.py tests/indexing/test_chunk_builder_python_signatures.py tests/indexing/test_chunk_builder_round3_cpp.py tests/indexing/test_chunk_builder_round3_dotnet.py tests/indexing/test_chunk_builder_round3_gorust.py tests/indexing/test_chunk_builder_round3_java.py tests/indexing/test_chunk_builder_round3_typescript.py tests/indexing/test_chunk_builder_single_line_members.py tests/indexing/test_chunk_builder_typescript_marks.py tests/indexing/test_known_defects_data_3d.py tests/indexing/test_known_defects_data_cells.py tests/indexing/test_known_defects_data_cells_typescript_013.py tests/indexing/test_round3_unsupported_markers.py tests/mcp/test_response_budget.py tests/mcp/test_tool_surface_truthful.py tests/mcp/tools/test_get_symbol_raw_text_opt_in.py tests/mcp/tools/test_known_defects_round3_siblings.py tests/deploy/test_fleet_consistency.py -q -rfE -p no:cacheprovider'
     expect: 'exit 0'
     timeout_seconds: 600
     junitxml: true
@@ -235,4 +267,9 @@ closeout:
     new, additive `_doc_suffix`, closing PDF-TS-002 for every language and pilot at once - every
     pre-existing pinned test that needed updating was fixed individually against real fixture doc
     text, never invented.
+  - >-
+    The real baked-generation staleness this fix exposed for 15 pilots is disclosed via the
+    existing `STALE_BAKED_PILOTS` mechanism (never silently worked around), with the hardcoded
+    single-pilot edit-detection test re-pointed at a real, verified-unaffected pilot so its own
+    invariant keeps being exercised.
 recovery: Re-run from a clean tree.
