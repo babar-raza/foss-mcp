@@ -1,0 +1,305 @@
+schema_version: 1
+pilot: cells_net
+library_repository: aspose-cells-foss/Aspose.Cells-FOSS-for-.NET
+library_commit: 941814fd138dc28cf47123d48194f329f283498d
+language: csharp
+examples:
+- title: Attach legacy comments to worksheet cells
+  description: Adds two legacy cell comments with Worksheet.Comments.Add, sets author, note and visibility on each, round-trips the workbook through an in-memory XLSX stream and reads the comment count, author, note and visibility back from the reloaded sheet.
+  symbols:
+  - Worksheet.Comments
+  - CommentCollection.Add
+  - CommentCollection.Count
+  - Comment.Author
+  - Comment.Note
+  - Comment.IsVisible
+  code: |
+    // Authored example: attach legacy comments to worksheet cells
+    using Aspose.Cells_FOSS;
+
+    var workbook = new Workbook();
+    var sheet = workbook.Worksheets[0];
+    sheet.Cells["A1"].PutValue("Task");
+    sheet.Cells["A2"].PutValue("Design UI");
+    sheet.Cells["A3"].PutValue("Write tests");
+
+    var designComment = sheet.Comments.Add("A2");
+    designComment.Author = "Reviewer";
+    designComment.Note = "Confirm the color palette before merging.";
+    designComment.IsVisible = true;
+
+    var testsComment = sheet.Comments.Add("A3");
+    testsComment.Author = "QA";
+    testsComment.Note = "Covers the happy path only so far.";
+    testsComment.IsVisible = false;
+
+    using var stream = new MemoryStream();
+    workbook.Save(stream, SaveFormat.Xlsx);
+    stream.Position = 0;
+    var loaded = new Workbook(stream);
+    var loadedSheet = loaded.Worksheets[0];
+
+    Console.WriteLine("comment count: " + loadedSheet.Comments.Count);
+    Console.WriteLine(loadedSheet.Comments["A2"].Author + ": " + loadedSheet.Comments["A2"].Note);
+    Console.WriteLine("A3 visible: " + loadedSheet.Comments["A3"].IsVisible);
+
+    if (loadedSheet.Comments.Count != 2)
+    {
+        throw new Exception("expected exactly two comments");
+    }
+    if (loadedSheet.Comments["A2"].Author != "Reviewer")
+    {
+        throw new Exception("author mismatch");
+    }
+    if (loadedSheet.Comments["A3"].IsVisible)
+    {
+        throw new Exception("A3 should not be visible");
+    }
+  code_sha256: c026aca6245ed56ac72c7bfa16b7ce4e37ae6eb414afa412731585be1c467d68
+- title: Store document metadata in the core and extended property sets
+  description: Sets the shared document properties plus the OOXML core (Creator, LastModifiedBy) and extended (Company, Manager) property sets on a new workbook, round-trips it through an in-memory XLSX stream and reads each value back from the reloaded workbook's DocumentProperties.
+  symbols:
+  - Workbook.DocumentProperties
+  - DocumentProperties.Title
+  - CoreDocumentProperties.Creator
+  - ExtendedDocumentProperties.Company
+  code: |
+    // Authored example: store document metadata in the core and extended property sets
+    using Aspose.Cells_FOSS;
+
+    var workbook = new Workbook();
+    var sheet = workbook.Worksheets[0];
+    sheet.Cells["A1"].PutValue("Quarterly Report");
+
+    var properties = workbook.DocumentProperties;
+    properties.Title = "Quarterly Sales Report";
+    properties.Subject = "Regional performance";
+    properties.Author = "Finance Team";
+    properties.Keywords = "sales, quarterly, finance";
+    properties.Category = "Reports";
+    properties.Core.Creator = "Finance Team";
+    properties.Core.LastModifiedBy = "Finance Team";
+    properties.Extended.Company = "Acme Corporation";
+    properties.Extended.Manager = "Jane Smith";
+
+    using var stream = new MemoryStream();
+    workbook.Save(stream, SaveFormat.Xlsx);
+    stream.Position = 0;
+    var loaded = new Workbook(stream);
+    var loadedProperties = loaded.DocumentProperties;
+
+    Console.WriteLine("Title: " + loadedProperties.Title);
+    Console.WriteLine("Core creator: " + loadedProperties.Core.Creator);
+    Console.WriteLine("Extended company: " + loadedProperties.Extended.Company);
+
+    if (loadedProperties.Title != "Quarterly Sales Report")
+    {
+        throw new Exception("title mismatch");
+    }
+    if (loadedProperties.Core.Creator != "Finance Team")
+    {
+        throw new Exception("creator mismatch");
+    }
+    if (loadedProperties.Extended.Company != "Acme Corporation")
+    {
+        throw new Exception("company mismatch");
+    }
+  code_sha256: f55f33b597f8c1e8e18f6c85a40c506257ff31f964aa312acbd539921986a6ae
+- title: Embed pictures anchored to worksheet cells
+  description: Builds a minimal PNG byte array in memory, anchors it to a worksheet with Worksheet.Pictures.Add, names the picture, round-trips the workbook through an in-memory XLSX stream and reads the picture count, name, image type and anchor back from the reloaded sheet.
+  symbols:
+  - Worksheet.Pictures
+  - PictureCollection.Add
+  - Picture.Name
+  - Picture.ImageType
+  code: |
+    // Authored example: embed pictures anchored to worksheet cells
+    using Aspose.Cells_FOSS;
+
+    var workbook = new Workbook();
+    var sheet = workbook.Worksheets[0];
+    sheet.Cells["A1"].PutValue("Logo");
+
+    byte[] pngBytes = CreateTinyPng();
+
+    var pictureIndex = sheet.Pictures.Add(1, 1, 4, 4, pngBytes);
+    var picture = sheet.Pictures[pictureIndex];
+    picture.Name = "Logo Image";
+
+    using var stream = new MemoryStream();
+    workbook.Save(stream, SaveFormat.Xlsx);
+    stream.Position = 0;
+    var loaded = new Workbook(stream);
+    var loadedSheet = loaded.Worksheets[0];
+
+    Console.WriteLine("picture count: " + loadedSheet.Pictures.Count);
+    Console.WriteLine(loadedSheet.Pictures[0].Name + " (" + loadedSheet.Pictures[0].ImageType + ")");
+    Console.WriteLine("anchor: R" + loadedSheet.Pictures[0].UpperLeftRow + "C" + loadedSheet.Pictures[0].UpperLeftColumn);
+
+    if (loadedSheet.Pictures.Count != 1)
+    {
+        throw new Exception("expected exactly one picture");
+    }
+    if (loadedSheet.Pictures[0].Name != "Logo Image")
+    {
+        throw new Exception("name mismatch");
+    }
+    if (loadedSheet.Pictures[0].ImageType != ImageType.Png)
+    {
+        throw new Exception("image type mismatch");
+    }
+
+    static byte[] CreateTinyPng()
+    {
+        using var ms = new MemoryStream();
+        byte[] header = { 0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A };
+        ms.Write(header, 0, header.Length);
+        WriteChunk(ms, "IHDR", new byte[] { 0x00, 0x00, 0x00, 0x01, 0x00, 0x00, 0x00, 0x01, 0x08, 0x02, 0x00, 0x00, 0x00 });
+        WriteChunk(ms, "IDAT", new byte[] { 0x78, 0x9C, 0x62, 0x00, 0x02, 0x00, 0x00, 0x05, 0x00, 0x01, 0x0D });
+        WriteChunk(ms, "IEND", Array.Empty<byte>());
+        return ms.ToArray();
+    }
+
+    static void WriteChunk(MemoryStream ms, string type, byte[] data)
+    {
+        byte[] lengthBytes = BitConverter.GetBytes(data.Length);
+        if (BitConverter.IsLittleEndian)
+        {
+            Array.Reverse(lengthBytes);
+        }
+        ms.Write(lengthBytes, 0, 4);
+        byte[] typeBytes = System.Text.Encoding.ASCII.GetBytes(type);
+        ms.Write(typeBytes, 0, 4);
+        if (data.Length > 0)
+        {
+            ms.Write(data, 0, data.Length);
+        }
+        uint crc = Crc32(typeBytes, data);
+        byte[] crcBytes = BitConverter.GetBytes(crc);
+        if (BitConverter.IsLittleEndian)
+        {
+            Array.Reverse(crcBytes);
+        }
+        ms.Write(crcBytes, 0, 4);
+    }
+
+    static uint Crc32(byte[] typeBytes, byte[] data)
+    {
+        uint crc = 0xFFFFFFFF;
+        byte[] buffer = new byte[typeBytes.Length + data.Length];
+        Buffer.BlockCopy(typeBytes, 0, buffer, 0, typeBytes.Length);
+        Buffer.BlockCopy(data, 0, buffer, typeBytes.Length, data.Length);
+        foreach (byte b in buffer)
+        {
+            crc ^= b;
+            for (int i = 0; i < 8; i++)
+            {
+                crc = (crc & 1) != 0 ? (crc >> 1) ^ 0xEDB88320 : crc >> 1;
+            }
+        }
+        return ~crc;
+    }
+  code_sha256: 4f3d22034c2c448f2a71c103b8efeb60ec79ec5e274fd648c4c55bd70634619c
+- title: Draw auto shapes anchored to worksheet cells
+  description: Adds a rectangle, a five-point star and a right-arrow auto shape to a worksheet with Worksheet.Shapes.Add, names each one, round-trips the workbook through an in-memory XLSX stream and reads the shape count, names and AutoShapeType values back from the reloaded sheet.
+  symbols:
+  - Worksheet.Shapes
+  - ShapeCollection.Add
+  - Shape.Name
+  - Shape.AutoShapeType
+  - AutoShapeType.Rectangle
+  - AutoShapeType.Star5Point
+  - AutoShapeType.RightArrow
+  code: |
+    // Authored example: draw auto shapes anchored to worksheet cells
+    using Aspose.Cells_FOSS;
+
+    var workbook = new Workbook();
+    var sheet = workbook.Worksheets[0];
+
+    var rectangleIndex = sheet.Shapes.Add(0, 0, 2, 2, AutoShapeType.Rectangle);
+    sheet.Shapes[rectangleIndex].Name = "Rectangle Box";
+
+    var starIndex = sheet.Shapes.Add(0, 3, 2, 5, AutoShapeType.Star5Point);
+    sheet.Shapes[starIndex].Name = "5-Point Star";
+
+    var arrowIndex = sheet.Shapes.Add(3, 0, 5, 2, AutoShapeType.RightArrow);
+    sheet.Shapes[arrowIndex].Name = "Right Arrow";
+
+    using var stream = new MemoryStream();
+    workbook.Save(stream, SaveFormat.Xlsx);
+    stream.Position = 0;
+    var loaded = new Workbook(stream);
+    var loadedSheet = loaded.Worksheets[0];
+
+    Console.WriteLine("shape count: " + loadedSheet.Shapes.Count);
+    Console.WriteLine(loadedSheet.Shapes[0].Name + " (" + loadedSheet.Shapes[0].AutoShapeType + ")");
+    Console.WriteLine(loadedSheet.Shapes[1].Name + " (" + loadedSheet.Shapes[1].AutoShapeType + ")");
+    Console.WriteLine(loadedSheet.Shapes[2].Name + " (" + loadedSheet.Shapes[2].AutoShapeType + ")");
+
+    if (loadedSheet.Shapes.Count != 3)
+    {
+        throw new Exception("expected exactly three shapes");
+    }
+    if (loadedSheet.Shapes[1].AutoShapeType != AutoShapeType.Star5Point)
+    {
+        throw new Exception("shape type mismatch");
+    }
+    if (loadedSheet.Shapes[2].AutoShapeType != AutoShapeType.RightArrow)
+    {
+        throw new Exception("shape type mismatch");
+    }
+  code_sha256: 5f1d467c81c9b2ee432e38806217be213848352242900b8a197ba79f4379112f
+- title: Configure worksheet protection, layout, and merged cells
+  description: Protects a worksheet, hides its gridlines, sets a row height and column width, and merges a cell range with Cells.Merge; round-trips the workbook through an in-memory XLSX stream and reads the protection state, gridline visibility and merged-region count back from the reloaded sheet.
+  symbols:
+  - Worksheet.Protect
+  - WorksheetProtection.InsertRows
+  - WorksheetProtection.IsProtected
+  - Cells.Merge
+  - Cells.MergedCells
+  - Row.Height
+  - Column.Width
+  code: |
+    // Authored example: configure worksheet protection, layout, and merged cells
+    using Aspose.Cells_FOSS;
+
+    var workbook = new Workbook();
+    var sheet = workbook.Worksheets[0];
+    sheet.Name = "Layout";
+    sheet.TabColor = Color.FromArgb(255, 34, 68, 102);
+    sheet.ShowGridlines = false;
+    sheet.Zoom = 85;
+    sheet.Protect();
+    sheet.Protection.InsertRows = true;
+    sheet.Protection.SelectLockedCells = true;
+
+    sheet.Cells["A1"].PutValue("Merged Header");
+    sheet.Cells.Rows[0].Height = 24.0;
+    sheet.Cells.Columns[0].Width = 20.0;
+    sheet.Cells.Merge(0, 0, 1, 3);
+
+    using var stream = new MemoryStream();
+    workbook.Save(stream, SaveFormat.Xlsx);
+    stream.Position = 0;
+    var loaded = new Workbook(stream);
+    var loadedSheet = loaded.Worksheets["Layout"];
+
+    Console.WriteLine("gridlines: " + loadedSheet.ShowGridlines);
+    Console.WriteLine("protected: " + loadedSheet.Protection.IsProtected);
+    Console.WriteLine("insert rows blocked: " + loadedSheet.Protection.InsertRows);
+    Console.WriteLine("merged regions: " + loadedSheet.Cells.MergedCells.Count);
+
+    if (loadedSheet.ShowGridlines)
+    {
+        throw new Exception("gridlines should be hidden");
+    }
+    if (!loadedSheet.Protection.IsProtected)
+    {
+        throw new Exception("worksheet should be protected");
+    }
+    if (loadedSheet.Cells.MergedCells.Count != 1)
+    {
+        throw new Exception("expected exactly one merged region");
+    }
+  code_sha256: b5bac481598e310b3d60919a8b1a63c2b1172687e07e5cad0fe5d399e63f34f4
