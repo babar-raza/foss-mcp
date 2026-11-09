@@ -1,0 +1,167 @@
+id: TC-728
+gate: G3
+lane: storage-retrieval
+purpose: >-
+  Closes SLIDES-JAVA-010 (round-3, `docs/round3/issues.json`, severity P1, category
+  "mcp-content-missing", `round3_verdict: "NEW"`, `round2_status: null`): "known_defects empty for
+  Presentation/SaveFormat/ISlideCollection despite limitations text documenting both P0s." Both
+  P0s this finding names were ALREADY independently verified against the real published
+  `org.aspose:aspose-slides-foss` 26.7.0 jar by `TC-650` (2026-10-29) and are already disclosed via
+  a DIFFERENT, project-authored `known_hazards` prose mechanism in
+  `config/products/slides/java.yaml` - but `known_hazards` text only ever surfaces inside
+  `get_product_reference`'s limitations section, never per-symbol via `get_symbol`/
+  `search_symbols`/`find_examples`, which is exactly what the separate `known_defects` registry
+  mechanism (KD1-KD10, `config/known_defects/<family>__<platform>.yaml`) is for. `slides/java` has
+  NO `config/known_defects/slides__java.yaml` file at all - confirmed by listing
+  `config/known_defects/` directly (26 files, none for slides/java) - so an agent calling
+  `get_symbol('org.aspose.slides.foss.Presentation')` sees zero defect disclosure today, even
+  though the fact is already fully verified and sitting in this project's own committed data.
+
+  Both already-verified P0s, reused verbatim from `config/products/slides/java.yaml`'s own
+  `known_hazards` list (read it in full first - do not re-derive or re-verify the upstream facts
+  from scratch, they are already confirmed; this card is purely about ALSO surfacing them via the
+  per-symbol `known_defects` mechanism):
+
+  1. `Presentation.save()` on the published 26.7.0 jar ignores the `SaveFormat` argument entirely
+  and never throws, even though this project's own limitations text claims it raises
+  `UnsupportedOperationException` for any of 22 non-PPTX/PPSX/POTX formats. Calling
+  `save(path, fmt)` for any non-native format returns normally and silently writes plain-PPTX
+  content regardless of the requested format.
+
+  2. `Presentation.getSlides().addEmptySlide(layout)` / `insertEmptySlide(index, layout)` /
+  `addClone(slide)` on the published 26.7.0 jar each produce an orphaned, unregistered slide part -
+  `getSlides().size()` reports the new count (matching this project's own misleading
+  agent_guidance example) while a conformant reader sees the slide added but never actually
+  registered in the saved file's own `sldIdLst`/rels/Content_Types.
+
+  REPRODUCE FIRST (confirm the real indexed FQNs, not the already-verified upstream facts, which
+  this card reuses as-is): confirm the real committed `infra/demo-manifests/
+  slides__java__self_extracted` generation's own served FQNs for these three symbols are exactly
+  `org.aspose.slides.foss.Presentation`, `org.aspose.slides.foss.export.SaveFormat`, and
+  `org.aspose.slides.foss.ISlideCollection` (the supervisor measured this directly; re-verify
+  yourself, do not trust blindly), and confirm `get_symbol`/`search_symbols` for each currently
+  shows zero `known_defects` entries.
+
+  FIX (pure additive data, zero code change - the SAME already-wired KD1-KD10 mechanism this
+  project uses for every other `known_defects` entry): create
+  `config/known_defects/slides__java.yaml` (new file, this pilot's first), with either ONE entry
+  covering all three symbols (if you can write an honest, non-conflated `summary`/`evidence.repro`
+  within the schema's 240-char summary limit) or TWO entries - one per genuinely distinct causal
+  chain (the `save()`/`SaveFormat` bug and the `addEmptySlide`/`ISlideCollection` bug are NOT the
+  same bug, just the same pilot and same round-3 finding id; `config/known_defects/pdf__java.yaml`'s
+  own `PDF-JAVA-001`/`PDF-JAVA-002` is the precedent for two separate ids on two separate bugs in
+  one pilot). Your call which shape fits the real facts better - never conflate two distinct causal
+  chains into one summary just to avoid a second id. Reuse `applies_to.package_versions: ["26.7.0"]`
+  and `evidence.verified_on` (package `org.aspose:aspose-slides-foss`, version `26.7.0`, date
+  `2026-10-29`) exactly as `TC-650` already established - these facts were verified once, do not
+  re-verify the upstream behavior itself, only the real FQNs the entries point at.
+
+  Because this finding's category is `"mcp-content-missing"`, not `"upstream-library-bug"`,
+  `tests/indexing/test_known_defects_completeness.py`'s own category-filtered id source will never
+  admit it automatically - widen that module's own `_ADDITIONAL_DISCLOSABLE_IDS` frozenset
+  additively (the exact same deliberate pattern `TC-706`/`TC-707`/`TC-711` already used for
+  `3D-JAVA-001`/`3D-NET-001`/`WORDS-NET-001`, all for the identical category-gap reason) with
+  whichever id(s) you actually wrote, update the module's own sanity-anchor counts and docstring
+  (re-derive the real new union count yourself, do not hardcode a guess), and re-run
+  `test_registry_ids_exactly_equal_the_real_upstream_library_bug_issue_ids` /
+  `test_registry_entry_count_equals_upstream_library_bug_issue_count` to confirm both still hold.
+
+  `tests/indexing/test_known_defects_data_pdf_slides.py`'s own docstring (lines 9-13) currently
+  states "`slides/java` have none and correctly have no registry file at all" - this becomes
+  stale prose (not a broken assertion; its own `_PILOTS` tuple never iterates `slides/java`, so
+  nothing there actually fails) once this card lands. Correct that one sentence with a dated note
+  explaining `slides/java` now has a registry file via a DIFFERENT, round-3-sourced finding outside
+  this module's own round-2-only scope - do not touch any of this file's actual logic, assertions,
+  or its `_PILOTS`/`_FILES_BY_PILOT`/`_EXPECTED_COUNTS` tables.
+
+  FINALLY, add new, real-corpus-backed end-to-end tests to the existing
+  `tests/mcp/tools/test_known_defects_in_get_symbol.py` (follow `TC-711`'s own most recent
+  template in that exact file - search for "WORDS-NET-001" there - which builds a real corpus
+  fixture from the real committed `infra/demo-manifests/slides__java__self_extracted` generation,
+  never a `tmp_path`-monkeypatched one) proving `get_symbol`/`list_members` for the real
+  `Presentation` (and `SaveFormat`/`ISlideCollection` if you split into two entries) now surface
+  the new disclosure end to end.
+depends_on:
+  - TC-650
+  - TC-658
+  - TC-660
+  - TC-702
+  - TC-706
+  - TC-707
+  - TC-711
+write_paths:
+  - config/known_defects/slides__java.yaml
+  - tests/indexing/test_known_defects_completeness.py
+  - tests/indexing/test_known_defects_data_pdf_slides.py
+  - tests/mcp/tools/test_known_defects_in_get_symbol.py
+satisfies:
+  - REQ-G3-015
+source_refs:
+  - file: docs/DECISION_LOG.md
+    anchor: >-
+      ## 2026-11-07 — CELLS-CPP-005 confirmed already fixed; the round-2 finding is stale (supervisor)
+    sha256: 991caa8a95ffcb674b6a4e39b368ce56b3146603d9ffb56575202ac94974f9bc
+inputs:
+  - >-
+    READ FIRST: `docs/round3/issues.json`'s `slides/java` pilot entry, id `SLIDES-JAVA-010`, in
+    full. Then `config/products/slides/java.yaml`'s own `known_hazards` list in full (both entries,
+    both dated `2026-10-29`, both citing `TC-650`) - these are the already-verified upstream facts
+    this card reuses; do not re-derive or re-run any upstream reproduction yourself. Then
+    `config/known_defects/pdf__java.yaml` (the two-ids-one-pilot precedent) and
+    `tests/indexing/test_known_defects_completeness.py`'s own docstring in full, especially the
+    "Widened again (TC-711, 2026-11-07)" paragraph, as your direct, most-recent template for
+    widening `_ADDITIONAL_DISCLOSABLE_IDS` cleanly.
+  - >-
+    REPRODUCE FIRST (the real indexed FQNs only, not the already-verified upstream behavior):
+    confirm the real committed `infra/demo-manifests/slides__java__self_extracted` generation's
+    served FQNs for `Presentation`, `SaveFormat`, `ISlideCollection` match this card's own text
+    above, and confirm `get_symbol` for each currently shows zero `known_defects`. Report the real
+    observations, verbatim, in your closeout.
+  - >-
+    Validate your new registry file directly against `schemas/product/known_defects.schema.json`
+    before committing (the loader enforces the same rules in plain Python; schema validation alone
+    is not a substitute for `load_known_defects` actually returning your entry/entries).
+  - >-
+    This card's own write_paths list is a best-effort enumeration - if you find a file that needs
+    updating but is NOT in this list (for example if widening `_ADDITIONAL_DISCLOSABLE_IDS`
+    cascades into a file this card did not anticipate), stop and report it rather than editing
+    outside your declared write_paths; the supervisor will widen the card.
+actions:
+  - >-
+    Disclose the already-verified Presentation/SaveFormat/ISlideCollection defects for slides/java
+    via a new known_defects registry file, widen the completeness lock's additive allowlist, and
+    add real-corpus end-to-end coverage - zero code change.
+checks:
+  - command: '{python} -m pytest tests/indexing/test_known_defects_completeness.py tests/indexing/test_known_defects_data_pdf_slides.py tests/mcp/tools/test_known_defects_in_get_symbol.py -q -rfE -p no:cacheprovider'
+    expect: 'exit 0'
+    timeout_seconds: 300
+    junitxml: true
+    proves:
+      - REQ-G3-015
+min_tests: 40
+requires:
+  - python
+network: false
+negative_control:
+  mutate: |
+    python -X utf8 -c "import pathlib; p = pathlib.Path('config/known_defects/slides__java.yaml'); s = p.read_text(encoding='utf-8'); old = 'org.aspose.slides.foss.Presentation'; count = s.count(old); assert count >= 1, 'the expected Presentation FQN literal was not found - if your real entries phrase this differently, anchor your own mutate on your own real literal instead and note the substitution in your closeout'; s2 = s.replace(old, 'org.aspose.slides.foss.PresentationNOTREAL', 1); assert s2 != s; p.write_text(s2, encoding='utf-8')"
+  rationale: >-
+    Corrupts the new registry entry's own subject FQN so it no longer matches the real indexed
+    symbol the new end-to-end test resolves against, which must make that test fail - a pure data
+    mutation, immune to the lockstep-rename vacuousness class this session's earlier reviews found,
+    and it never touches any code path. If your real entry repeats
+    "org.aspose.slides.foss.Presentation" more than once before the mutate's target occurrence, or
+    you split into two entries and this FQN only appears in one of them, re-anchor the mutate or
+    confirm which occurrence it hits and that the resulting test failure is real, not vacuous -
+    manually run this mutate against your real committed file and confirm it actually breaks the
+    check before committing, following this session's own established discipline for this exact
+    failure class.
+evidence:
+  - evidence/build/G3/TC-728/receipt.json
+closeout:
+  - >-
+    `slides/java`'s already-verified Presentation/SaveFormat/ISlideCollection defects (TC-650,
+    2026-10-29) are now ALSO disclosed via the per-symbol known_defects mechanism, closing
+    SLIDES-JAVA-010 with zero code change and zero re-verification of the underlying upstream
+    facts.
+recovery: Re-run from a clean tree.
