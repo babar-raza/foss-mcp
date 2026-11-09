@@ -84,7 +84,13 @@ def test_the_fixture_contains_real_python_type_names() -> None:
     # Real Aspose.Cells-FOSS-for-Python classes/enums/functions, not placeholders - would not
     # survive an empty or synthetic fixture.
     assert {"Cell", "Cells", "Chart", "ChartType", "AgileEncryptionParameters"} <= names
-    assert all(entry["class_import"].startswith("aspose.cells_foss") for entry in data["types"])
+    # TC-700: a bare module-level constant entry (e.g. AVG_COL_WIDTH_PT) carries no "class_import"
+    # at all - it is not a class/enum/function. Checked only for entries that have the key.
+    assert all(
+        entry["class_import"].startswith("aspose.cells_foss")
+        for entry in data["types"]
+        if "class_import" in entry
+    )
     assert all(entry["file"].endswith(".py") for entry in data["types"])
 
 
@@ -94,7 +100,10 @@ def test_every_entry_is_a_real_python_surface_kind() -> None:
     # Observed directly from the live pure-ast reader's output for this repository - not
     # a tree-sitter grammar's node-type vocabulary, and not guessed. Unlike slides/python,
     # this repository's reduced fixture also contains top-level module functions.
-    assert kinds == {"class", "enum", "function"}
+    # TC-700: plus "constant" - four bare module-level literal assignments in
+    # aspose/cells_foss/comment_xml.py (DEFAULT_COMMENT_WIDTH, DEFAULT_COMMENT_HEIGHT,
+    # AVG_COL_WIDTH_PT, AVG_ROW_HEIGHT_PT), the same kind Go/TypeScript constants already use.
+    assert kinds == {"class", "enum", "function", "constant"}
 
 
 def test_the_fixture_now_carries_real_bases_under_the_full_inheritance_pipeline() -> None:

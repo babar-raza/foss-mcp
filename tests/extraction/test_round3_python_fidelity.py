@@ -87,7 +87,11 @@ def fixture(pilot: str) -> dict[str, Any]:
 
 
 def entries(pilot: str) -> dict[str, dict[str, Any]]:
-    return {entry["class_import"]: entry for entry in fixture(pilot)["types"]}
+    # TC-700: a bare module-level constant entry (``kind == "constant"``, e.g. cells_python's
+    # AVG_COL_WIDTH_PT) carries no "class_import" at all - it is not a class/enum/function and
+    # has no class-level identity for this file's class_import-keyed lookups (unique imports,
+    # enum members, shadowing, inheritance) to apply to. Skipped here, not given a fabricated key.
+    return {entry["class_import"]: entry for entry in fixture(pilot)["types"] if "class_import" in entry}
 
 
 def entry(pilot: str, class_import: str) -> dict[str, Any]:
@@ -145,7 +149,8 @@ def test_the_counts_agree_with_the_entries(pilot: str) -> None:
 
 @pytest.mark.parametrize("pilot", PILOTS)
 def test_every_class_import_is_unique(pilot: str) -> None:
-    imports = [item["class_import"] for item in fixture(pilot)["types"]]
+    # TC-700: a bare module-level constant entry has no "class_import" (see entries() above).
+    imports = [item["class_import"] for item in fixture(pilot)["types"] if "class_import" in item]
     assert len(imports) == len(set(imports))
 
 
