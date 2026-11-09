@@ -9,8 +9,20 @@ by a hand-copied id list that could silently drift from the audit's own data), t
 pdf/slides platforms in that file (pdf: cpp/go/java/net/python/typescript; slides:
 cpp/java/net/python), exactly these 6 findings carry that category - this card writes one entry
 per finding, for the five pilots that have any (``pdf/cpp``, ``pdf/java`` x2, ``slides/cpp``,
-``slides/net``, ``slides/python``); ``pdf/go``, ``pdf/net``, ``pdf/python``, ``pdf/typescript``,
-and ``slides/java`` have none and correctly have no registry file at all.
+``slides/net``, ``slides/python``); ``pdf/go``, ``pdf/net``, ``pdf/python``, and ``pdf/typescript``
+had no round-2 ``upstream-library-bug`` finding and correctly have no registry file at all as of
+this card's own round-2-only scope.
+
+Stale-prose note (TC-728, 2026-11-09): ``slides/java`` is no longer among the pilots with "no
+registry file at all" that this sentence used to name here - this module's own ``_PILOTS``/
+``_FILES_BY_PILOT``/``_EXPECTED_COUNTS`` tables below never iterated ``slides/java`` (it had no
+round-2 ``upstream-library-bug`` finding, which is the only thing this module's own scope ever
+covered), so nothing in this module's actual logic or assertions changed, or needed to. TC-728 gave
+``slides/java`` its own, brand-new ``config/known_defects/slides__java.yaml`` registry file for a
+DIFFERENT, round-3-sourced finding (``SLIDES-JAVA-010``/``SLIDES-JAVA-010B``, category
+``"mcp-content-missing"``, not ``"upstream-library-bug"``) that this module's round-2-only scope
+was never designed to admit - see ``tests/indexing/test_known_defects_completeness.py``'s own
+``_ADDITIONAL_DISCLOSABLE_IDS`` widening for where that finding is actually proven complete.
 
 This module reads the real, committed ``config/known_defects/`` directory - never a
 ``tmp_path``-monkeypatched one - because the whole point is to prove the REAL data this card wrote

@@ -121,6 +121,34 @@ published package. The real new union count is 56 (not 55): both equality assert
 hold exactly, just against this slightly wider set; the real registry file count is now 26 (not
 25): this entry lands in a brand-new ``words__net.yaml`` file, this pilot's first known-defects
 entry.
+
+**Widened again (TC-728, 2026-11-09):** ``SLIDES-JAVA-010`` (round-3, ``docs/round3/issues.json``,
+severity P1, category ``"mcp-content-missing"``, ``round3_verdict: "NEW"``, same category gap
+``3D-JAVA-001``/``3D-NET-001``/``WORDS-NET-001`` already hit) is a real, cited, committed audit
+finding this module's own category-filtered id source would otherwise never admit. Unlike those
+three prior widenings, the underlying upstream facts were NOT re-derived by TC-728 - both P0s this
+finding names (``Presentation.save()`` ignoring ``SaveFormat`` and never throwing;
+``ISlideCollection.addEmptySlide()``/``insertEmptySlide()``/``addClone()`` each producing an
+orphaned, unregistered slide part) were already independently verified by TC-650 (2026-10-29)
+against the real published ``org.aspose:aspose-slides-foss`` 26.7.0 jar and already disclosed via
+``config/products/slides/java.yaml``'s own ``known_hazards`` prose, which this card reused verbatim
+- the real gap TC-728 closed is that ``known_hazards`` prose only ever surfaces inside
+``get_product_reference``'s limitations section, never per-symbol via ``get_symbol``/
+``search_symbols``/``find_examples``. TC-728 confirmed the real indexed FQNs directly
+(``org.aspose.slides.foss.Presentation``, ``org.aspose.slides.foss.export.SaveFormat``,
+``org.aspose.slides.foss.ISlideCollection``, each present in the real, committed
+``infra/demo-manifests/slides__java__self_extracted`` generation) and split the one round-3 finding
+id into TWO registry ids, ``SLIDES-JAVA-010`` and ``SLIDES-JAVA-010B``, because the two P0s are
+genuinely distinct causal chains sharing only the same pilot and the same round-3 finding id -
+``config/known_defects/pdf__java.yaml``'s own ``PDF-JAVA-001``/``PDF-JAVA-002`` is the precedent for
+two separate ids on one pilot. ``SLIDES-JAVA-010B`` is a project-minted id, not a second real
+audit-cited finding id (round-3's own ``issues.json`` names only ``SLIDES-JAVA-010`` for both facts
+combined). This module's own ``_ADDITIONAL_DISCLOSABLE_IDS`` is widened the same deliberate,
+additive way, now seeded with ``{"3D-JAVA-001", "3D-NET-001", "WORDS-NET-001", "SLIDES-JAVA-010",
+"SLIDES-JAVA-010B"}``; every id in that set still traces to one real, cited, committed audit record.
+The real new union count is 58 (not 56): both equality assertions above still hold exactly, just
+against this slightly wider set; the real registry file count is now 27 (not 26): these two entries
+land in a brand-new ``slides__java.yaml`` file, this pilot's first known-defects entry.
 """
 
 from __future__ import annotations
@@ -231,7 +259,26 @@ def _real_round3_issues() -> list[dict[str, Any]]:
 #   DLLs (zero occurrences of the literal ``GetAncestorOf`` in any of the three) - a genuine
 #   index-truth/disclosure gap, just not categorized ``"upstream-library-bug"`` in the original
 #   audit.
-_ADDITIONAL_DISCLOSABLE_IDS: frozenset[str] = frozenset({"3D-JAVA-001", "3D-NET-001", "WORDS-NET-001"})
+# - ``SLIDES-JAVA-010`` / ``SLIDES-JAVA-010B`` (round-3, ``docs/round3/issues.json``, severity P1,
+#   category ``"mcp-content-missing"``, ``round3_verdict: "NEW"``): "known_defects empty for
+#   Presentation/SaveFormat/ISlideCollection despite limitations text documenting both P0s." Both
+#   P0s were already independently verified by TC-650 (2026-10-29) against the real published
+#   ``org.aspose:aspose-slides-foss`` 26.7.0 jar and already disclosed via
+#   ``config/products/slides/java.yaml``'s own ``known_hazards`` prose - which never surfaces
+#   per-symbol, only inside ``get_product_reference``'s limitations section - a genuine
+#   index-truth/disclosure gap, just not categorized ``"upstream-library-bug"`` in the original
+#   audit. TC-728 split the one round-3 finding id into TWO registry ids because the underlying
+#   facts are two genuinely distinct causal chains, not one bug: ``SLIDES-JAVA-010`` is
+#   ``Presentation.save(path, SaveFormat)`` silently ignoring the requested format and never
+#   throwing; ``SLIDES-JAVA-010B`` is ``ISlideCollection.addEmptySlide()``/``insertEmptySlide()``/
+#   ``addClone()`` each adding an orphaned, never-registered slide part. ``SLIDES-JAVA-010B`` is a
+#   project-minted id (round-3's own ``issues.json`` names only one id, ``SLIDES-JAVA-010``, for
+#   both facts combined), chosen over a bare sequential ``SLIDES-JAVA-011`` so it reads as a
+#   deliberate split of ``SLIDES-JAVA-010``, never as an 11th independently audited finding that
+#   was never actually recorded.
+_ADDITIONAL_DISCLOSABLE_IDS: frozenset[str] = frozenset(
+    {"3D-JAVA-001", "3D-NET-001", "WORDS-NET-001", "SLIDES-JAVA-010", "SLIDES-JAVA-010B"}
+)
 
 
 def _real_upstream_library_bug_ids() -> set[str]:
@@ -310,10 +357,11 @@ def test_no_id_appears_in_more_than_one_registry_file_globally() -> None:
 # --------------------------------------------------------------------------------------------
 # point 6: the real, current registry entry count equals the real, current upstream-library-bug
 # issue count - both derived from the real data at test time, never hardcoded to 55 as the actual
-# assertion (only this module's docstring and the sanity comment below name 55, the real round2
-# union round3 union _ADDITIONAL_DISCLOSABLE_IDS count as of today, 2026-11-06 - see this module's
-# own docstring for why this is 55, not the round2-only 47 a narrower view would give, nor the 53
-# TC-656 computed before TC-706/TC-707's own additive widening, nor the 54 TC-706 alone computed)
+# assertion (only this module's docstring and the sanity comment below name 58, the real round2
+# union round3 union _ADDITIONAL_DISCLOSABLE_IDS count as of today, 2026-11-09 - see this module's
+# own docstring for why this is 58, not the round2-only 47 a narrower view would give, nor the 53
+# TC-656 computed before TC-706/TC-707's own additive widening, nor the 54 TC-706 alone computed,
+# nor the 56 TC-711 computed before TC-728's own additive widening)
 # --------------------------------------------------------------------------------------------
 
 
@@ -329,30 +377,31 @@ def test_registry_entry_count_equals_upstream_library_bug_issue_count() -> None:
         f"issue count ({len(upstream_issue_ids)})"
     )
 
-    # Sanity anchor only, not a floor on the future: as of today (2026-11-07) this real union
-    # count is 56 (53 round2-union-round3 as of TC-656, see this module's docstring for that id
-    # list, plus TC-706's own additive ``_ADDITIONAL_DISCLOSABLE_IDS`` entry ``3D-JAVA-001``,
-    # TC-707's own additive entry ``3D-NET-001``, and TC-711's own additive entry
-    # ``WORDS-NET-001``). A future card adding or retiring a confirmed upstream-library-bug finding
-    # (and its matching entry) is expected to move both sides together and may need to update this
-    # comment and number; the equality assertion above is the one that must hold forever.
-    assert len(upstream_issue_ids) == 56
+    # Sanity anchor only, not a floor on the future: as of today (2026-11-09) this real union
+    # count is 58 (56 round2-union-round3-union-_ADDITIONAL_DISCLOSABLE_IDS as of TC-711, see this
+    # module's docstring for that id list, plus TC-728's own additive ``_ADDITIONAL_DISCLOSABLE_IDS``
+    # entries ``SLIDES-JAVA-010`` and ``SLIDES-JAVA-010B``, two registry ids for one round-3 finding
+    # id, split because the underlying facts are two genuinely distinct causal chains). A future card
+    # adding or retiring a confirmed upstream-library-bug finding (and its matching entry) is
+    # expected to move both sides together and may need to update this comment and number; the
+    # equality assertion above is the one that must hold forever.
+    assert len(upstream_issue_ids) == 58
 
 
 # --------------------------------------------------------------------------------------------
 # point 1 sanity check: the glob actually finds every real file currently under
-# config/known_defects/ - today that is 26 real pilot files (25 as of TC-707, plus TC-711's own
-# brand-new words__net.yaml, this pilot's first known-defects entry; see this module's own
-# docstring for why this is 26, not the "8" named in TC-649's own original inputs text, which was
+# config/known_defects/ - today that is 27 real pilot files (26 as of TC-711, plus TC-728's own
+# brand-new slides__java.yaml, this pilot's first known-defects entry; see this module's own
+# docstring for why this is 27, not the "8" named in TC-649's own original inputs text, which was
 # TC-647's own per-card file count, not the real running total)
 # --------------------------------------------------------------------------------------------
 
 
 def test_glob_finds_the_real_current_registry_file_count() -> None:
     files = _registry_files()
-    # Not a floor on the future: a later card adding a 27th family file is expected and welcome.
+    # Not a floor on the future: a later card adding a 28th family file is expected and welcome.
     # This only proves the glob pattern itself is correct against today's real, committed tree.
-    assert len(files) == 26, f"expected 26 real registry files today, found {len(files)}: {files}"
+    assert len(files) == 27, f"expected 27 real registry files today, found {len(files)}: {files}"
 
 
 # --------------------------------------------------------------------------------------------

@@ -1,0 +1,65 @@
+schema_version: 1
+pilot: slides_java
+# G3/TC-728 (round-3 audit SLIDES-JAVA-010, category "mcp-content-missing", severity P1): both
+# entries below reuse, verbatim, the already-independently-verified upstream facts TC-650
+# (2026-10-29) established and already disclosed via config/products/slides/java.yaml's own
+# known_hazards prose - this file ALSO surfaces them via the per-symbol known_defects mechanism,
+# which known_hazards text never reaches (it only ever surfaces inside get_product_reference's
+# limitations section). Two entries, not one: the save()/SaveFormat bug and the
+# addEmptySlide/insertEmptySlide/addClone bug are two genuinely distinct causal chains that happen
+# to share one round-3 finding id and one pilot - config/known_defects/pdf__java.yaml's own
+# PDF-JAVA-001/PDF-JAVA-002 is the precedent for two separate ids on one pilot. SLIDES-JAVA-010B is
+# a project-minted id (round-3's own issues.json names only one id, SLIDES-JAVA-010, for both
+# facts combined) - not a second real audit-cited finding id - chosen over a bare sequential
+# "SLIDES-JAVA-011" specifically so it reads as a deliberate split of SLIDES-JAVA-010, never as an
+# 11th independently audited finding that was never actually recorded.
+defects:
+  - id: SLIDES-JAVA-010
+    subject:
+      kind: method
+      refs:
+        - org.aspose.slides.foss.Presentation
+        - org.aspose.slides.foss.export.SaveFormat
+    applies_to:
+      package_versions:
+        - "26.7.0"
+    summary: Presentation.save(path, SaveFormat) ignores the SaveFormat argument and never throws
+      for non-native formats; it writes plain PPTX content regardless of the requested format.
+    user_action: Do not trust the documented UnsupportedOperationException as a safety net for an
+      unsupported SaveFormat on 26.7.0; after calling save(), independently verify the written
+      file's actual content type matches the format you asked for.
+    evidence:
+      repro: Calling save(path, fmt) for fmt in {PDF, PPT, GIF, HTML, PNG, XML} (or PPTX/PPSX/POTX
+        themselves) all return normally and write byte-for-byte identical, plain-PPTX content (same
+        sha256, same [Content_Types].xml main part) regardless of the requested format - PPSX and
+        POTX do not even get their own content type.
+      verified_on:
+        package: org.aspose:aspose-slides-foss
+        version: "26.7.0"
+        date: "2026-10-29"
+    status: open
+  - id: SLIDES-JAVA-010B
+    subject:
+      kind: method
+      refs:
+        - org.aspose.slides.foss.ISlideCollection
+    applies_to:
+      package_versions:
+        - "26.7.0"
+    summary: ISlideCollection.addEmptySlide()/insertEmptySlide()/addClone() add an orphaned slide
+      part never registered in the saved file's sldIdLst, rels, or Content_Types, though size()
+      reports it added.
+    user_action: After calling addEmptySlide, insertEmptySlide, or addClone on 26.7.0, do not trust
+      size() alone; independently verify the saved file's sldIdLst, presentation.xml.rels, and
+      Content_Types.xml actually register the new slide part.
+    evidence:
+      repro: The new ppt/slides/slideN.xml part is never added to <p:sldIdLst> in
+        ppt/presentation.xml, never given a relationship in ppt/_rels/presentation.xml.rels, never
+        given its own ppt/slides/_rels/slideN.xml.rels, and never given a Content_Types.xml
+        Override, so getSlides().size() reports the new count while a conformant reader
+        (PowerPoint, Apache POI, or a from-scratch sldIdLst walk) sees only the original slide(s).
+      verified_on:
+        package: org.aspose:aspose-slides-foss
+        version: "26.7.0"
+        date: "2026-10-29"
+    status: open

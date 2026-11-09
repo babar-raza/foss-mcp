@@ -19,6 +19,17 @@ the ``registry_dir``/``REGISTRY_DIR``-monkeypatched fixture every other test abo
 whole point is to prove the REAL registry file this card wrote actually wires through, exactly the
 same real-corpus end-to-end pattern TC-706/TC-707 already established in
 ``tests/indexing/test_known_defects_data_3d.py`` for ``3D-JAVA-001``/``3D-NET-001``.
+
+**Added (TC-728, 2026-11-09):** a second real end-to-end section at the bottom of this module,
+following TC-711's own template immediately above, proves the real, committed
+``config/known_defects/slides__java.yaml`` entries (``SLIDES-JAVA-010``, ``Presentation.save()``
+silently ignoring the requested ``SaveFormat``; ``SLIDES-JAVA-010B``,
+``ISlideCollection.addEmptySlide()``/``insertEmptySlide()``/``addClone()`` each producing an
+orphaned, unregistered slide part - both already independently verified by TC-650, 2026-10-29,
+against the real published ``org.aspose:aspose-slides-foss`` 26.7.0 jar) surface through live
+``get_symbol``/``list_members`` calls against the real, committed
+``infra/demo-manifests/slides__java__self_extracted`` corpus - never a synthetic stand-in, and never
+the ``registry_dir``/``REGISTRY_DIR``-monkeypatched fixture every test above uses.
 """
 
 from __future__ import annotations
@@ -348,3 +359,115 @@ def test_get_symbol_end_to_end_surfaces_the_real_defect_for_node_itself(_real_wo
     assert len(result.known_defects) == 1
     assert "GetAncestorOf" in result.known_defects[0]
     assert "does not exist in the real published Aspose.Words.FOSS 26.3.0 package" in result.known_defects[0]
+
+
+# --------------------------------------------------------------------------------------------
+# TC-728 (SLIDES-JAVA-010 / SLIDES-JAVA-010B): real end-to-end coverage against the REAL,
+# committed ``infra/demo-manifests/slides__java__self_extracted`` corpus and the REAL, committed
+# ``config/known_defects/slides__java.yaml`` registry file - never the
+# ``registry_dir``-monkeypatched fixture every test above uses, and never a synthetic/in-memory
+# store. ``REGISTRY_DIR`` is left at its real default here, so ``get_symbol``/``list_members`` read
+# the actual file this card wrote, following TC-711's own immediately-preceding template.
+# --------------------------------------------------------------------------------------------
+
+
+@pytest.fixture(scope="module")
+def _real_slides_java_corpus(tmp_path_factory: pytest.TempPathFactory):
+    """The real, committed ``infra/demo-manifests`` corpus, loaded through a temp-directory copy -
+    the exact ``load_demo_manifests_corpus`` pattern TC-711's own ``_real_words_net_corpus`` fixture
+    immediately above already established. Nothing in the real repository is ever written to."""
+    root = tmp_path_factory.mktemp("tc728-known-defects-in-get-symbol-slides-java-corpus")
+    return load_demo_manifests_corpus(root)
+
+
+def test_get_symbol_end_to_end_surfaces_the_real_written_slides_java_010_defect_for_presentation(
+    _real_slides_java_corpus,
+) -> None:
+    """``org.aspose.slides.foss.Presentation`` is ``SLIDES-JAVA-010``'s own ``subject.refs`` entry
+    for the ``save()``/``SaveFormat`` bug - already independently verified by TC-650 (2026-10-29)
+    against the real published ``org.aspose:aspose-slides-foss`` 26.7.0 jar - so ``get_symbol``
+    against the real, committed ``slides__java.yaml`` this card wrote must surface
+    ``SLIDES-JAVA-010``'s real disclosure text for it."""
+    pilot = _real_slides_java_corpus.pilots["slides__java"]
+
+    result = get_symbol(_real_slides_java_corpus.store, pilot.scope, "org.aspose.slides.foss.Presentation")
+
+    assert isinstance(result, SymbolSignature)
+    assert result.found is True
+    assert len(result.known_defects) == 1
+    assert "SaveFormat" in result.known_defects[0]
+    assert "never throws" in result.known_defects[0]
+
+
+def test_get_symbol_end_to_end_surfaces_the_real_written_slides_java_010_defect_for_saveformat(
+    _real_slides_java_corpus,
+) -> None:
+    """``org.aspose.slides.foss.export.SaveFormat`` is ``SLIDES-JAVA-010``'s own second
+    ``subject.refs`` sibling entry - confirming the same disclosure surfaces for both real FQNs the
+    entry names, not only the first one in the list."""
+    pilot = _real_slides_java_corpus.pilots["slides__java"]
+
+    result = get_symbol(
+        _real_slides_java_corpus.store, pilot.scope, "org.aspose.slides.foss.export.SaveFormat"
+    )
+
+    assert isinstance(result, SymbolSignature)
+    assert result.found is True
+    assert len(result.known_defects) == 1
+    assert "SaveFormat" in result.known_defects[0]
+
+
+def test_get_symbol_end_to_end_surfaces_the_real_written_slides_java_010b_defect_for_islidecollection(
+    _real_slides_java_corpus,
+) -> None:
+    """``org.aspose.slides.foss.ISlideCollection`` is ``SLIDES-JAVA-010B``'s own ``subject.refs``
+    entry for the ``addEmptySlide``/``insertEmptySlide``/``addClone`` orphaned-slide-part bug -
+    already independently verified by TC-650 (2026-10-29) against the real published
+    ``org.aspose:aspose-slides-foss`` 26.7.0 jar - a genuinely distinct causal chain from
+    ``SLIDES-JAVA-010``, so this must surface its OWN disclosure text, not the save()/SaveFormat
+    one."""
+    pilot = _real_slides_java_corpus.pilots["slides__java"]
+
+    result = get_symbol(
+        _real_slides_java_corpus.store, pilot.scope, "org.aspose.slides.foss.ISlideCollection"
+    )
+
+    assert isinstance(result, SymbolSignature)
+    assert result.found is True
+    assert len(result.known_defects) == 1
+    assert "addEmptySlide" in result.known_defects[0]
+    assert "sldIdLst" in result.known_defects[0]
+    assert "SaveFormat" not in result.known_defects[0]
+
+
+def test_list_members_end_to_end_surfaces_the_real_written_slides_java_010_defect(
+    _real_slides_java_corpus,
+) -> None:
+    """Same real corpus, same real ``SLIDES-JAVA-010`` registry entry, through ``list_members``
+    instead of ``get_symbol`` - proving the disclosure surfaces through BOTH tools, the same proof
+    TC-711's own ``test_list_members_end_to_end_surfaces_the_real_written_words_net_001_defect``
+    already established for ``WORDS-NET-001``."""
+    pilot = _real_slides_java_corpus.pilots["slides__java"]
+
+    members = list_members(_real_slides_java_corpus.store, pilot.scope, "org.aspose.slides.foss.Presentation")
+
+    assert isinstance(members, tuple)
+    assert len(members) >= 1
+    assert "SaveFormat" in members[0]
+    assert "never throws" in members[0]
+
+
+def test_list_members_end_to_end_surfaces_the_real_written_slides_java_010b_defect(
+    _real_slides_java_corpus,
+) -> None:
+    """Same real corpus, same real ``SLIDES-JAVA-010B`` registry entry, through ``list_members``."""
+    pilot = _real_slides_java_corpus.pilots["slides__java"]
+
+    members = list_members(
+        _real_slides_java_corpus.store, pilot.scope, "org.aspose.slides.foss.ISlideCollection"
+    )
+
+    assert isinstance(members, tuple)
+    assert len(members) >= 1
+    assert "addEmptySlide" in members[0]
+    assert "sldIdLst" in members[0]
