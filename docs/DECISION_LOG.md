@@ -3862,3 +3862,27 @@ has a dedicated, passing test for exactly this scenario:
 `"SOURCE_SUBDIR Aspose.Cells.Foss.Cpp" in text` directly. This finding is stale - whatever fixed it
 (not independently identified by card number in this pass) already landed before this session.
 Not carded; recorded here so a future survey does not re-propose it.
+
+## 2026-11-09 — PDF-TS-011 declined: no genuine still-open upstream defect found (supervisor)
+
+`PDF-TS-011` (round-3, `docs/round3/issues.json`, P2, `pdf/typescript`) claims `known_defects`
+is never populated for `pdf/typescript` "despite 3 genuine still-open upstream defects in the
+CHANGELOG." Investigated directly against the real pinned commit (`155bfc7a33f0ba23fb4252b6ba2
+01828b02a5b9d`, confirmed via `config/products/pdf/typescript.yaml`/`infra/demo-manifests/
+product_reference_pdf_typescript.json`'s own `source_ref` - not assumed from the finding's text):
+fetched and read the full 2455-line `CHANGELOG.md` at that exact commit closely, not just
+grepped. Every entry is one of two shapes: (a) a historical bug, closed, documented with "used to
+silently X, now does Y" framing (dozens of these - encryption-preservation on save, OOM/DoS
+limits, nested-structure crashes, all fixed), or (b) a new feature shipping with an explicitly
+disclosed, refused-and-reported scope boundary (e.g. `ConvertXfaToAcroForm`'s flow-layout XFA
+sub-cases 164g.13/15/19/20 - every geometry refusal is reported instead of silently mishandled,
+and signed/certified fields throw `UnsupportedFeatureError` rather than producing a wrong result).
+Neither shape is a genuine, silent, still-open defect - this project's own bar for a
+`known_defects` entry (KD1-KD10) is an undisclosed wrongness, not a disclosed refusal. Cross-
+checked the real upstream repository's own GitHub Issues directly (`gh api .../issues?state=
+open`): zero open issues - this project tracks completed work by issue id inside the changelog
+itself, with no separate "still open" tracker to corroborate the claim against. A full-text search
+for present-tense "still broken"/"currently incorrect"/"remains wrong" phrasing found no hits.
+**Conclusion: the round-3 auditor over-read disclosed scope-boundary language as silent defects.**
+Declined, not carded - parallel to `CELLS-CPP-005`'s own stale-finding precedent above; recorded
+here so a future survey does not re-propose it without new evidence.
