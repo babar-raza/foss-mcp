@@ -3941,3 +3941,41 @@ item (`kind` leaking tree-sitter names) `TC-688` itself measured and deliberatel
 than assumed. Not carded this round - a real, legitimate candidate for a future `RT3`-shaped
 contract card (measure every real caller of `list_members` first, as `TC-688` did), not a quick
 win and not safe to force through without that same rigor.
+
+## 2026-11-09 — real regression found in the TC-727 re-ingest (commit 6053716b); public demo rolled back (supervisor)
+
+The supervisor-direct re-ingest that fixed TC-727's doc-suffix staleness for 25 pilots (commit
+`6053716b`, released as `demo-6053716`, gated 32/32 by `image_workflow_gate.py` and redeployed to
+the local hosting fleet and public tunnel) introduced a REAL, DIFFERENT regression the live gate's
+own narrower check never exercised: the `API-Coverage:` line text baked into at least 11 pilots'
+served chunks (confirmed so far: `slides_python`, `words_python`, `cells_python`, `pdf_python`,
+`email_python`, `barcode_python`, `html_python`, `page_python`, `3d_python`, `tex_python`, and
+`pdf_java`) now states a WRONG, UNDERCOUNTED total (e.g. `cells_python` says "130 of 186 types"
+while the real served document count - confirmed directly - is genuinely 186, matching the
+fixture exactly). This is NOT missing content (every real symbol chunk is present and correct);
+it is a dishonest SUMMARY LINE, which is exactly the class of defect `tests/deploy/
+test_fleet_consistency.py::test_api_coverage_lines_are_present_and_honest` and `tests/deploy/
+test_served_coverage_matches_fixtures.py::test_served_coverage_line_states_the_same_counts` exist
+to catch - and did catch, offline, immediately after the re-ingest, before this was discovered any
+other way. Confirmed via `git show` on the PRE-re-ingest generation (`ad8c2329`, 2026-10-21) that
+the coverage line was correct ("186 of 186 types") before this re-ingest - so this is a real,
+newly-introduced bug in whatever counting step the re-ingest pipeline used, not a pre-existing
+condition.
+
+**Immediate action taken**: rolled the LOCAL hosting fleet (`C:\Users\babar\.foss-mcp-tools\
+hosting\compose.yaml`, all 32 `image:` lines) and the public tunnel back to the last fully-
+verified-good image, `foss-mcp-serving:demo-8909ed53` (the image that predates TC-727 entirely,
+last gated 32/32 with no known defects) - confirmed all 32 containers healthy on the old image,
+`mcp-gateway`/`mcp-tunnel` untouched. `demo-6053716`'s own evidence/release commit is NOT reverted
+(it stays as a historical record of what was attempted and what the local gate did verify at the
+time), but it must not be treated as "the current good image" until the coverage-line regression
+is found and fixed, then re-verified against the FULL offline test suite (not just
+`image_workflow_gate.py`'s narrower live check) before any redeploy. `main`'s own `infra/
+demo-manifests/` content at `6053716b` is NOT rolled back in git (the TC-727 doc-suffix staleness
+fix for those 25 pilots is real and still correct in the generation CONTENT; only this one summary
+line is wrong) - a fix should correct the coverage-line computation and re-verify, not discard the
+whole re-ingest.
+
+**Root cause not yet found** - under investigation. Recorded here immediately per this project's
+own "no pilot ever gets worse" rule, before further diagnosis, so the regression and the rollback
+are both on record even if investigation takes longer than expected.
