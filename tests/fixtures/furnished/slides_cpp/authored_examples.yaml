@@ -1,0 +1,271 @@
+schema_version: 1
+pilot: slides_cpp
+library_repository: aspose-slides-foss/Aspose.Slides-FOSS-for-Cpp
+library_commit: 469ce77a07b988c49deb930632b8276c89ec6b66
+language: cpp
+examples:
+- title: Add Three Shapes, Find One With index_of, Then Save
+  description: Adds a rectangle, a triangle and a rounded rectangle to the first slide, names each one, confirms the triangle's position in the collection with index_of, then saves the presentation to a temporary .pptx file and checks it is non-empty before deleting it.
+  symbols:
+  - ShapeCollection
+  - ShapeCollection.add_auto_shape
+  - ShapeCollection.size
+  - ShapeCollection.index_of
+  - AutoShape.set_name
+  - Presentation.save
+  code: |
+    // Authored example: add three auto shapes, find one by reference with index_of, save and reload.
+    #include <cassert>
+    #include <filesystem>
+    #include <iostream>
+    #include <string>
+
+    #include <Aspose/Slides/Foss/auto_shape.h>
+    #include <Aspose/Slides/Foss/export/save_format.h>
+    #include <Aspose/Slides/Foss/presentation.h>
+    #include <Aspose/Slides/Foss/shape_collection.h>
+    #include <Aspose/Slides/Foss/shape_type.h>
+    #include <Aspose/Slides/Foss/slide.h>
+
+    using namespace Aspose::Slides::Foss;
+
+    int main() {
+        const std::string path = "authored_three_shapes.pptx";
+
+        Presentation pres;
+        ShapeCollection& shapes = pres.slides()[0].shapes();
+        auto& rect = shapes.add_auto_shape(ShapeType::RECTANGLE, 10, 10, 100, 60);
+        rect.set_name("Rect1");
+        auto& triangle = shapes.add_auto_shape(ShapeType::TRIANGLE, 150, 10, 100, 60);
+        triangle.set_name("Tri1");
+        auto& rounded = shapes.add_auto_shape(ShapeType::ROUND_CORNER_RECTANGLE, 300, 10, 100, 60);
+        rounded.set_name("Round1");
+
+        std::cout << "shapes: " << shapes.size() << '\n';
+        assert(shapes.size() == 3);
+
+        auto triangle_index = shapes.index_of(triangle);
+        std::cout << "triangle index: " << triangle_index << '\n';
+        assert(triangle_index == 1);
+
+        pres.save(path, SaveFormat::PPTX);
+        auto file_size = std::filesystem::file_size(path);
+        std::cout << "saved bytes: " << file_size << '\n';
+        assert(file_size > 0);
+        std::filesystem::remove(path);
+
+        return 0;
+    }
+  code_sha256: 1d6977ce6e3a0041b7bb6373a47e6749ac80f3d1287678736bbaa83bfc4978d2
+- title: Table Shapes Are Invisible to shapes() but Reachable via table_count/table_at
+  description: Adds a table to a slide's shape collection and shows the real, documented hazard of this pilot's shapes() model directly, that a table never grows shapes().size() the way an AutoShape or Connector does, and the only correct way to reach it back is the separate table_count()/table_at() pair; also writes and reads back real cell text through Cell.text_frame().
+  symbols:
+  - ShapeCollection.add_table
+  - ShapeCollection.size
+  - ShapeCollection.table_count
+  - ShapeCollection.table_at
+  - Table.cell
+  - Cell.text_frame
+  - TextFrame.set_text
+  - TextFrame.text
+  code: |
+    // Authored example: add a table and show it never grows shapes() but is reachable via table_count/table_at.
+    #include <cassert>
+    #include <iostream>
+    #include <vector>
+
+    #include <Aspose/Slides/Foss/cell.h>
+    #include <Aspose/Slides/Foss/presentation.h>
+    #include <Aspose/Slides/Foss/shape_collection.h>
+    #include <Aspose/Slides/Foss/slide.h>
+    #include <Aspose/Slides/Foss/table.h>
+    #include <Aspose/Slides/Foss/text_frame.h>
+
+    using namespace Aspose::Slides::Foss;
+
+    int main() {
+        Presentation pres;
+        auto& shapes = pres.slides()[0].shapes();
+
+        const std::vector<double> column_widths{120.0, 120.0};
+        const std::vector<double> row_heights{30.0, 30.0};
+        auto& table = shapes.add_table(20, 20, column_widths, row_heights);
+        table.cell(0, 0).text_frame()->set_text("Name");
+        table.cell(0, 1).text_frame()->set_text("Score");
+        table.cell(1, 0).text_frame()->set_text("Ada");
+        table.cell(1, 1).text_frame()->set_text("98");
+
+        std::cout << "shapes().size(): " << shapes.size() << '\n';
+        std::cout << "table_count(): " << shapes.table_count() << '\n';
+        std::cout << "cell(1,1): " << table.cell(1, 1).text_frame()->text() << '\n';
+
+        assert(shapes.size() == 0);
+        assert(shapes.table_count() == 1);
+        assert(&shapes.table_at(0) == &table);
+        assert(table.cell(1, 1).text_frame()->text() == "98");
+        return 0;
+    }
+  code_sha256: 1ac490e35e26ca37f31f34114aebf295970a77c3998ee90e46577bf177fc7276
+- title: Picture Frame from an In-Memory Image, Read Back by Pixel Size
+  description: Builds a tiny PNG byte buffer in memory (just a valid signature and IHDR chunk, enough for the pilot's own header-only dimension reader), adds it to the presentation's image collection, places it on the slide as a PictureFrame, and checks the image's own pixel dimensions and the frame's on-slide size are both read back correctly.
+  symbols:
+  - ImageCollection.add_image
+  - ImageCollection.size
+  - PPImage.width
+  - PPImage.height
+  - ShapeCollection.add_picture_frame
+  - PictureFrame.pp_image
+  - PictureFrame.width
+  - PictureFrame.height
+  code: |
+    // Authored example: add an in-memory image and a picture frame, then read the image's pixel dimensions back.
+    #include <cassert>
+    #include <cstdint>
+    #include <iostream>
+    #include <vector>
+
+    #include <Aspose/Slides/Foss/picture_frame.h>
+    #include <Aspose/Slides/Foss/pp_image.h>
+    #include <Aspose/Slides/Foss/presentation.h>
+    #include <Aspose/Slides/Foss/shape_collection.h>
+    #include <Aspose/Slides/Foss/shape_type.h>
+    #include <Aspose/Slides/Foss/slide.h>
+
+    using namespace Aspose::Slides::Foss;
+
+    namespace {
+    std::vector<std::uint8_t> minimal_png(std::uint32_t width, std::uint32_t height) {
+        std::vector<std::uint8_t> bytes{0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A};
+        auto push_be32 = [&bytes](std::uint32_t value) {
+            bytes.push_back(static_cast<std::uint8_t>((value >> 24) & 0xFF));
+            bytes.push_back(static_cast<std::uint8_t>((value >> 16) & 0xFF));
+            bytes.push_back(static_cast<std::uint8_t>((value >> 8) & 0xFF));
+            bytes.push_back(static_cast<std::uint8_t>(value & 0xFF));
+        };
+        push_be32(13);
+        bytes.insert(bytes.end(), {'I', 'H', 'D', 'R'});
+        push_be32(width);
+        push_be32(height);
+        bytes.insert(bytes.end(), {8, 2, 0, 0, 0});  // bit depth, color type, compression, filter, interlace
+        push_be32(0);  // CRC placeholder; the pilot's own dimension reader never checks it
+        return bytes;
+    }
+    }  // namespace
+
+    int main() {
+        Presentation pres;
+        auto png_bytes = minimal_png(64, 32);
+        auto& image = pres.images().add_image(png_bytes);
+        std::cout << "image size: " << image.width() << "x" << image.height() << '\n';
+        assert(image.width() == 64);
+        assert(image.height() == 32);
+
+        auto& frame = pres.slides()[0].shapes().add_picture_frame(
+            ShapeType::RECTANGLE, 40, 40, 160, 80, image);
+        std::cout << "frame size: " << frame.width() << "x" << frame.height() << '\n';
+        assert(frame.pp_image() == &image);
+        assert(frame.width() == 160);
+        assert(frame.height() == 80);
+        assert(pres.images().size() == 1);
+        return 0;
+    }
+  code_sha256: 1a481372bc3d0634de3dcd7676809a2a714e1996a902e71d9741a8c7e9f9d9c4
+- title: Wire a Connector to Two Shapes by Connection Site
+  description: Adds two rectangles and a straight connector, points the connector's start and end at each rectangle by a specific connection-site index, and checks that start_shape_connected_to/end_shape_connected_to and the two site-index accessors report back exactly what was set, while the connector itself still counts as a normal member of shapes().
+  symbols:
+  - ShapeCollection.add_connector
+  - Connector.set_start_shape_connected_to
+  - Connector.start_shape_connected_to
+  - Connector.set_start_shape_connection_site_index
+  - Connector.start_shape_connection_site_index
+  - Connector.set_end_shape_connected_to
+  - Connector.end_shape_connected_to
+  - Connector.set_end_shape_connection_site_index
+  - Connector.end_shape_connection_site_index
+  code: |
+    // Authored example: connect two shapes with a connector and verify what it stores.
+    #include <cassert>
+    #include <iostream>
+
+    #include <Aspose/Slides/Foss/auto_shape.h>
+    #include <Aspose/Slides/Foss/connector.h>
+    #include <Aspose/Slides/Foss/presentation.h>
+    #include <Aspose/Slides/Foss/shape_collection.h>
+    #include <Aspose/Slides/Foss/shape_type.h>
+    #include <Aspose/Slides/Foss/slide.h>
+
+    using namespace Aspose::Slides::Foss;
+
+    int main() {
+        Presentation pres;
+        auto& shapes = pres.slides()[0].shapes();
+        auto& box_a = shapes.add_auto_shape(ShapeType::RECTANGLE, 0, 0, 100, 60);
+        auto& box_b = shapes.add_auto_shape(ShapeType::RECTANGLE, 300, 0, 100, 60);
+
+        auto& connector = shapes.add_connector(ShapeType::STRAIGHT_CONNECTOR1, 100, 30, 200, 0);
+        connector.set_start_shape_connected_to(&box_a);
+        connector.set_start_shape_connection_site_index(3);
+        connector.set_end_shape_connected_to(&box_b);
+        connector.set_end_shape_connection_site_index(1);
+
+        std::cout << "connected: " << (connector.start_shape_connected_to() == &box_a) << ' '
+                  << (connector.end_shape_connected_to() == &box_b) << '\n';
+
+        assert(connector.start_shape_connected_to() == &box_a);
+        assert(connector.end_shape_connected_to() == &box_b);
+        assert(connector.start_shape_connection_site_index() == 3);
+        assert(connector.end_shape_connection_site_index() == 1);
+        assert(shapes.size() == 3);
+        return 0;
+    }
+  code_sha256: 8ef0136cb4adf643b196362b7ae607ecedbc2598ac5d47b0e8d5e1b9bcbe7a95
+- title: Document Properties Round Trip Through Save and Reload
+  description: Sets the title, author and subject core document properties on a new presentation, saves it to a temporary .pptx file, reloads it with the file-path constructor and checks all three properties read back exactly, before deleting the temporary file.
+  symbols:
+  - DocumentProperties.set_title
+  - DocumentProperties.title
+  - DocumentProperties.set_author
+  - DocumentProperties.author
+  - DocumentProperties.set_subject
+  - DocumentProperties.subject
+  - Presentation.document_properties
+  - Presentation.save
+  code: |
+    // Authored example: set document properties, save, reload, and read them back.
+    #include <cassert>
+    #include <filesystem>
+    #include <iostream>
+    #include <string>
+
+    #include <Aspose/Slides/Foss/document_properties.h>
+    #include <Aspose/Slides/Foss/export/save_format.h>
+    #include <Aspose/Slides/Foss/presentation.h>
+
+    using namespace Aspose::Slides::Foss;
+
+    int main() {
+        const std::string path = "authored_properties.pptx";
+
+        {
+            Presentation pres;
+            auto& props = pres.document_properties();
+            props.set_title("Quarterly Review");
+            props.set_author("Dana Ops");
+            props.set_subject("Q3 results");
+            pres.save(path, SaveFormat::PPTX);
+        }
+
+        Presentation reloaded(path);
+        auto& props = reloaded.document_properties();
+        std::cout << "title: " << props.title() << '\n';
+        std::cout << "author: " << props.author() << '\n';
+        std::cout << "subject: " << props.subject() << '\n';
+
+        assert(props.title() == "Quarterly Review");
+        assert(props.author() == "Dana Ops");
+        assert(props.subject() == "Q3 results");
+
+        std::filesystem::remove(path);
+        return 0;
+    }
+  code_sha256: 681bc995800f53be19333cec8d87beba4f44fc8206ea48c66796ecb9e4bef784
