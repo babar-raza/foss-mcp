@@ -3903,3 +3903,41 @@ actually pinned and served. No round-2 predecessor finding exists. Declined, not
 natural pickup only if/when `cells/python`'s own pin is deliberately bumped for an unrelated
 reason, not worth a card on its own; recorded here so a future survey does not re-propose it
 without a real pin change.
+
+## 2026-11-09 — PDF-NET-010 confirmed real but not carded: no safe narrow fix exists (supervisor)
+
+`PDF-NET-010` (round-3, P3, mcp-ranking, `pdf/net`): `search_symbols("Doc")` ranks `Document` 5th
+of 10, behind `DocMDPSignature`/`DocMDPAccessPermissions` (both `match_quality="exact"`,
+`match_kind="bag_of_words"` - "Doc" is the exact first camelCase segment of `DocMDP...`) and behind
+`SideBySideDocsComparisonResult`/`DocumentCollection` (both `match_kind="prefix"`, scoring higher
+on BM25). Root-caused precisely: `search_symbols.py`'s `_match_tier` deliberately ranks tier 2
+(exact bag-of-words) above tier 3 (prefix) UNIVERSALLY, across all 32 pilots - this is the tiering
+system working exactly as designed (`Doc` truly IS an exact bag-of-words match for `DocMDP...` and
+only a prefix of `Document`), not a bug with an isolated, narrow carve-out. No safe fix exists
+without changing the shared, cross-pilot tier-ordering policy itself (`TC-672`/`TC-673`'s own
+measured, fleet-wide ratchet-floor discipline for exactly this kind of change) - the same high-
+blast-radius class already flagged, and declined for the same reason, for `PDF-JAVA-005` earlier
+this session (`TC-682`'s own companion investigation, 2026-11-06). Not carded this round; worth
+revisiting only alongside a deliberate, measured tiering-policy card, never as an isolated patch
+for this one pilot's one query.
+
+## 2026-11-09 — IMAGING-NET-013 confirmed real, but it is an existing, documented tradeoff, not a secret bug (supervisor)
+
+`IMAGING-NET-013` (round-3, P1, mcp-contract, `imaging/net`): "`list_members` interleaves
+`known_defects` prose strings into the plain member-name array with no distinguishing field."
+Confirmed real and real for EVERY pilot with a type-level `known_defects` entry, not just
+`imaging/net` - `src/foss_mcp/mcp/tools/list_members.py`'s own return type is a flat
+`tuple[str, ...]`, and its own docstring (written by `TC-639`/KD2, 2026-10-30-ish) says exactly
+why: "this tool's return shape is a flat `tuple[str, ...]` - it has no field to add a
+`known_defects` list to without breaking its existing, simple contract," so a type-level defect
+line is deliberately PREPENDED into the same tuple, mirroring the pre-existing `Limitation:` line
+convention (`TC-559`). This is NOT an oversight - it is a consciously chosen, already-documented
+tradeoff, re-discovered by the round-3 auditor without apparent awareness of (or agreement with)
+that rationale. Fixing it FOR REAL (a structured return shape distinguishing a member line from a
+disclosure line) is a genuine breaking-contract change - the same risk class `RT3`/`TC-688` already
+handled carefully for `raw_text` (opt-in) and `find_examples`'s new `ExampleMissReason` enum, which
+needed full blast-radius measurement across every caller and test before landing, including one
+item (`kind` leaking tree-sitter names) `TC-688` itself measured and deliberately DROPPED as riskier
+than assumed. Not carded this round - a real, legitimate candidate for a future `RT3`-shaped
+contract card (measure every real caller of `list_members` first, as `TC-688` did), not a quick
+win and not safe to force through without that same rigor.
