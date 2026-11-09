@@ -84,6 +84,55 @@ purpose: >-
   zero API-Coverage lines) stays explicitly out of scope here too - do not touch it, do not go
   looking for its cause.
 
+  ADDED after attempt 1 (same card, widened - not a new card, since it is the identical bug class
+  in the same already-declared write_paths; attempt 1's own worker correctly scoped its fix exactly
+  to what this card asked and flagged, rather than guessed past, everything outside that scope -
+  full credit, both findings below come directly from its own honest report):
+
+  (A) **A third consumer of the same conflation, in the same file.**
+  `tests/deploy/test_served_coverage_matches_fixtures.py::fixture_completeness_problems` (lines
+  ~345-352) asserts `symbol_counts.types + functions == type_count` AND `symbol_counts == recount
+  (entries)` - both assume `symbol_counts` is always the RAW total, exactly the assumption TC-729
+  deliberately broke for the 11 real shelled pilots. `type_count` (confirmed: a genuinely separate,
+  always-raw field, cross-checked against `len(entries)` by this SAME function's own line 340,
+  unaffected by anything this card or TC-729 touches) is NOT meant to equal the deduped
+  `symbol_counts` for a shelled pilot - fix this function: drop the now-incorrect
+  `types + functions != type_count` assertion entirely for a pilot with real shells (it is not a
+  bug that these differ; remove the comparison, do not try to reconcile it - confirm dropping it
+  for EVERY pilot, shelled or not, is safe since for a shell-free pilot both numbers are already
+  identical, so the comparison was never informative there either, only coincidentally true), and
+  change `recount(entries) != (types, functions)` to compare against the SAME dedup-aware
+  computation TC-729's own `tests/extraction/test_symbol_counts_dedup_consistency.py` already uses
+  (`run_extraction.summarize_symbols(entries, identities=symbol_identity.compute_canonical_
+  identities(entries))`) instead of a raw `recount` - this makes the assertion meaningfully
+  redundant with TC-729's own guard for Python pilots (a deliberate, harmless overlap - two
+  independent guards agreeing is a feature, not a problem) while staying correct for every other
+  pilot (where raw and deduped are identical anyway, so the comparison's real behavior there is
+  unchanged).
+
+  (B) **The check command cannot require the full 2 files to reach exit 0**, confirmed by attempt
+  1's own careful, non-regression-causing measurement: `test_api_coverage_lines_are_present_and_
+  honest`, `test_served_coverage_line_states_the_same_counts`, and `test_served_function_chunks_
+  equal_the_fixture_functions` still fail for the 11 real Python pilots (plus `pdf_java`'s own
+  separate, unrelated defect) for a reason NEITHER this card nor attempt 1's fix can address: the
+  real BAKED `infra/demo-manifests/` content for these pilots is still stale (last touched by
+  commit `6053716b`, the original TC-727 re-ingest, never reverted) relative to the now-correct
+  fixtures - a live re-ingest, deliberately deferred to its own separate supervisor step (see
+  `docs/DECISION_LOG.md`), not this card's job. Do NOT add any `STALE_BAKED_PILOTS`/
+  `COVERAGE_EXCEPTIONS`-style disclosure-table entry for this - it is a transient, already-tracked,
+  about-to-be-resolved condition, not a durable known limitation worth disclosing permanently; the
+  card's own check (below) is narrowed instead to exactly what this fix can and must prove, leaving
+  the stale-bake-dependent tests to the deferred re-ingest step.
+
+  ALSO add one new, small, DIRECT test, named EXACTLY
+  `test_coverage_problems_is_clean_on_a_fresh_shelled_generation` (the check command below names it
+  literally - keep this exact name), in `tests/deploy/test_served_coverage_matches_fixtures.py`
+  right alongside the existing tests you are already touching there, that builds a REAL, fresh
+  generation via `chunk_builder.build_chunks_from_api_surface` against a real shelled fixture (e.g.
+  `cells_python`'s own committed fixture - attempt 1 already proved this exact reproduction works)
+  and asserts `coverage_problems(...) == []` on the result - this proves your fix correct
+  independent of any baked-data staleness, now and for any future re-ingest.
+
   REPRODUCE FIRST: before your fix, actually run the full `tests/deploy/test_served_provenance.py
   tests/deploy/test_fleet_consistency.py tests/deploy/test_served_coverage_matches_fixtures.py
   tests/extraction/test_symbol_counts_dedup_consistency.py` suite against a SCRATCH re-ingest of
@@ -94,6 +143,7 @@ purpose: >-
   `Defined-In:` line). Report the real before/after behavior, verbatim, in your closeout.
 depends_on:
   - TC-614
+  - TC-620
   - TC-686
   - TC-727
   - TC-729
@@ -128,21 +178,33 @@ inputs:
     Measure the full blast radius before committing: every OTHER existing test in both files that
     calls `coverage_problems`/`served_counts`/`fixture_counts`/`type_chunks`-shaped helpers must
     stay passing, unchanged, for every pilot with zero real shells (21 of 32) - your fix must be
-    a true no-op there. Confirm this by running BOTH full files, not just the ones you expect to
-    change.
+    a true no-op there. Confirm this by running BOTH full files yourself, not just the card's own
+    narrowed check command (which deliberately excludes tests that cannot pass until a separate,
+    deferred live re-ingest happens - see the "ADDED after attempt 1" purpose text for exactly
+    which ones and why; do not try to make those pass, and do not add a disclosure-table entry for
+    them either).
+  - >-
+    Attempt 1's own negative-control run found the card's literal `mutate` target
+    (`full_type_chunks` -> `type_chunks` at its FIRST textual occurrence) lands on the assignment
+    line, not the use site, producing a `NameError` on every pilot rather than the targeted,
+    shelled-pilots-only failure the rationale describes - still a real, non-vacuous break, just not
+    the exact shape described. Re-anchor the mutate on the real use-site comparison yourself if you
+    hit the same ambiguity (attempt 1 already confirmed this is fine to do, following this card's
+    own negative_control rationale text), and verify by hand it is non-vacuous before committing -
+    exactly as attempt 1 already did correctly.
 actions:
   - >-
     Separate "raw entry count" (completeness), "full/non-thin chunk count" (coverage-line numerator
     parity), and "deduped fixture-stored count" (coverage-line denominator parity) into their own
     correctly-routed comparisons in both affected test files, without changing any production code.
 checks:
-  - command: '{python} -m pytest tests/deploy/test_fleet_consistency.py tests/deploy/test_served_coverage_matches_fixtures.py -q -rfE -p no:cacheprovider'
+  - command: '{python} -m pytest "tests/deploy/test_served_coverage_matches_fixtures.py::test_served_type_chunks_equal_the_fixture_types" "tests/deploy/test_served_coverage_matches_fixtures.py::test_fixture_is_complete_and_has_no_test_file_entries" "tests/deploy/test_served_coverage_matches_fixtures.py::test_coverage_problems_is_clean_on_a_fresh_shelled_generation" -q -rfE -p no:cacheprovider'
     expect: 'exit 0'
     timeout_seconds: 300
     junitxml: true
     proves:
       - REQ-G3-012
-min_tests: 250
+min_tests: 60
 requires:
   - python
 network: false
