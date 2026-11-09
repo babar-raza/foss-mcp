@@ -1,0 +1,138 @@
+
+===== CLEAN RUN 1 (host) =====
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-5c72e798a73c059a\Scripts\python.exe -m pytest tests/indexing/test_authored_examples.py tests/indexing/test_authored_examples_cells_python.py tests/infra/test_authored_examples_fixtures.py -q -rfE -p no:cacheprovider "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-qp279kvn\.junit-0.xml"
+--- stdout ---
+........................................................................ [ 33%]
+........................................................................ [ 66%]
+........................................................................ [ 99%]
+.                                                                        [100%]
+
+--- stderr ---
+
+
+===== CLEAN RUN 2 (host) =====
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-5c72e798a73c059a\Scripts\python.exe -m pytest tests/indexing/test_authored_examples.py tests/indexing/test_authored_examples_cells_python.py tests/infra/test_authored_examples_fixtures.py -q -rfE -p no:cacheprovider "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-qp279kvn\.junit-0.xml"
+--- stdout ---
+........................................................................ [ 33%]
+........................................................................ [ 66%]
+........................................................................ [ 99%]
+.                                                                        [100%]
+
+--- stderr ---
+
+
+===== NEGATIVE CONTROL (checks MUST now fail) =====
+mutated: M tests/fixtures/furnished/cells_python/authored_examples.yaml, ?? .junit-0.xml
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-5c72e798a73c059a\Scripts\python.exe -m pytest tests/indexing/test_authored_examples.py tests/indexing/test_authored_examples_cells_python.py tests/infra/test_authored_examples_fixtures.py -q -rfE -p no:cacheprovider "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-qp279kvn\.junit-0.xml"
+--- stdout ---
+........................................................................ [ 33%]
+........................................................................ [ 66%]
+.........................F.F..F..................................F...... [ 99%]
+.                                                                        [100%]
+================================== FAILURES ===================================
+_____ test_the_sidecar_loads_and_yields_exactly_five_authored_candidates ______
+
+    def test_the_sidecar_loads_and_yields_exactly_five_authored_candidates() -> None:
+>       candidates = _candidates()
+                     ^^^^^^^^^^^^^
+
+tests\indexing\test_authored_examples_cells_python.py:95: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+tests\indexing\test_authored_examples_cells_python.py:77: in _candidates
+    return load_authored_examples(
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+path = WindowsPath('E:/Users/prora/OneDrive/Documents/GitHub/foss-mcp/.gatectl-worktrees/wt-qp279kvn/tests/fixtures/furnished/cells_python/authored_examples.yaml')
+pilot = 'cells_python', library_platform = 'python'
+library_commit = '4f6768a7b349a1309644f456eb43bc35f70c16d7'
+api_types = [{'bases': [], 'canonical_namespace': 'aspose.cells_foss.encryption_params', 'class_import': 'aspose.cells_foss.encryp...s_foss.json_handler', 'class_import': 'aspose.cells_foss.json_handler.JsonSaveOptions', 'deprecated': False, ...}, ...]
+
+    def load_authored_examples(
+        path: Path,
+        *,
+        pilot: str,
+        library_platform: str,
+        library_commit: str,
+        api_types: Sequence[Mapping[str, object]],
+    ) -> tuple[CandidateExample, ...]:
+        """Load and validate the sidecar at ``path``; one authored ``CandidateExample`` per example.
+    
+        The candidates are in file order, with ``provenance`` ``"authored"``, ``source`` ``"sidecar"``,
+        ``starts_example`` True, ``imports_only`` False, an empty ``import_prefix``, a ``page_code``
+        holding only their own code and the sidecar's ``code_sha256``. Raises ``AuthoredExamplesError``
+        whose message lists every problem when the file cannot be read or parsed or any rule of
+        ``validate_authored_examples`` fails. The code is never imported, compiled or run here.
+        """
+        try:
+            text = Path(path).read_bytes().decode("utf-8")
+        except (OSError, UnicodeDecodeError) as exc:
+            raise AuthoredExamplesError(f"cannot read {SIDECAR_NAME}: {type(exc).__name__}") from exc
+        try:
+            document = yaml.safe_load(text)
+        except yaml.YAMLError as exc:
+            raise AuthoredExamplesError(f"{SIDECAR_NAME} is not valid YAML: {type(exc).__name__}") from exc
+    
+        problems = validate_authored_examples(
+            document,
+            pilot=pilot,
+            library_platform=library_platform,
+            library_commit=library_commit,
+            api_types=api_types,
+        )
+        if problems:
+>           raise AuthoredExamplesError("; ".join(problems))
+E           foss_mcp.indexing.authored_examples.AuthoredExamplesError: rule 1 (structure): example 1: code_sha256 must be 64 lowercase hex characters
+
+src\foss_mcp\indexing\authored_examples.py:343: AuthoredExamplesError
+_________________ test_the_sidecar_has_no_validation_problems _________________
+
+    def test_the_sidecar_has_no_validation_problems() -> None:
+        library = _pilot_library()
+        problems = validate_authored_examples(
+            _document(),
+            pilot=PILOT,
+            library_platform=library["platform"],
+            library_commit=library["commit"],
+            api_types=_api_types(),
+        )
+>       assert problems == []
+E       AssertionError: assert ['rule 1 (str...x characters'] == []
+E         
+E         Left contains one more item: 'rule 1 (structure): example 1: code_sha256 must be 64 lowercase hex characters'
+E         Use -v to get more diff
+
+tests\indexing\test_authored_examples_cells_python.py:121: AssertionError
+________________________ test_the_code_hash_matches[0] ________________________
+
+index = 0
+
+    @pytest.mark.parametrize("index", EXAMPLE_INDEXES)
+    def test_the_code_hash_matches(index: int) -> None:
+        example = _example(index)
+>       assert example["code_sha256"] == normalised_code_sha256(example["code"])
+E       assert 0 == 'd9beaf370bcc493f9390e14607bab197ea9373026a15b839e48c70adaba899d4'
+E        +  where 'd9beaf370bcc493f9390e14607bab197ea9373026a15b839e48c70adaba899d4' = normalised_code_sha256('# Authored example: merge a title row and a label range, save, reload and unmerge both ranges.\nfrom aspose.cells_fos...er unmerge:", reloaded_sheet.merged_cells)\nassert reloaded_sheet.merged_cells == []\n\nos.remove(path)\nprint("OK")\n')
+
+tests\indexing\test_authored_examples_cells_python.py:152: AssertionError
+_____________ test_every_committed_sidecar_is_valid_for_its_pilot _____________
+
+    def test_every_committed_sidecar_is_valid_for_its_pilot() -> None:
+        failures: list[str] = []
+        for path in sorted(FURNISHED.glob(f"*/{SIDECAR_NAME}")):
+            pilot_name = path.parent.name
+            failures += [f"{pilot_name}: {problem}" for problem in sidecar_problems(path, pilot_name)]
+>       assert not failures, "invalid authored-example sidecars:\n" + "\n".join(failures)
+E       AssertionError: invalid authored-example sidecars:
+E         cells_python: schema: examples/0/code_sha256: 0 is not of type 'string'
+E         cells_python: rule 1 (structure): example 1: code_sha256 must be 64 lowercase hex characters
+E       assert not ["cells_python: schema: examples/0/code_sha256: 0 is not of type 'string'", 'cells_python: rule 1 (structure): example 1: code_sha256 must be 64 lowercase hex characters']
+
+tests\infra\test_authored_examples_fixtures.py:98: AssertionError
+=========================== short test summary info ===========================
+FAILED tests/indexing/test_authored_examples_cells_python.py::test_the_sidecar_loads_and_yields_exactly_five_authored_candidates
+FAILED tests/indexing/test_authored_examples_cells_python.py::test_the_sidecar_has_no_validation_problems
+FAILED tests/indexing/test_authored_examples_cells_python.py::test_the_code_hash_matches[0]
+FAILED tests/infra/test_authored_examples_fixtures.py::test_every_committed_sidecar_is_valid_for_its_pilot
+
+--- stderr ---
+
