@@ -1,0 +1,178 @@
+schema_version: 1
+pilot: barcode_python
+library_repository: aspose-barcode-foss/Aspose.BarCode-FOSS-for-Python
+library_commit: 06eca5c01e13ed6d59a640f1cf330c1c5a57d151
+language: python
+examples:
+- title: Generate a Code 128 barcode and a QR code and verify their SVG and PNG output
+  description: Adapted from the upstream examples/quickstart.py script. Generates a Code 128 barcode and renders it to SVG, then generates a QR Code and renders it to PNG, checking the real SVG markup shape and the real PNG magic bytes of each output.
+  symbols:
+  - code128
+  - qr
+  - Barcode.to_svg
+  - Barcode.to_png
+  code: |
+    # Authored example: generate a Code 128 barcode and a QR code and verify their SVG and PNG output.
+    from aspose_barcode_foss import code128, qr
+
+    code128_barcode = code128("ABC-12345")
+    svg = code128_barcode.to_svg()
+    print("code128 svg length:", len(svg))
+    assert svg.startswith("<svg ")
+    assert "viewBox" in svg
+    assert svg.rstrip().endswith("</svg>")
+
+    qr_barcode = qr("https://example.com")
+    png = qr_barcode.to_png()
+    print("qr png length:", len(png))
+    assert png.startswith(b"\x89PNG\r\n\x1a\n")
+    assert len(png) > 100
+    print("OK")
+  code_sha256: 3d4094f947f0b521a981bc898b1e64fe395b38fe374ec25160bfa0dc9aab0d85
+- title: Generate every supported symbology and compare their module grid shapes
+  description: Adapted from the upstream examples/all_symbologies.py script. Encodes one sample per symbology through its dedicated helper and checks that the linear symbologies (Code 128, Code 39, Code 39 Extended) encode as a single module row, the retail symbologies (EAN-13, UPC-A) encode as two module rows, and QR Code encodes as a genuine square 2D matrix taller than any linear row.
+  symbols:
+  - code128
+  - code39
+  - code39ext
+  - ean13
+  - ean8
+  - upca
+  - upce
+  - qr
+  code: |
+    # Authored example: generate every supported symbology and compare their module grid shapes.
+    from aspose_barcode_foss import code128, code39, code39ext, ean8, ean13, qr, upca, upce
+
+    SAMPLES = [
+        ("Code 128", code128, "ABC-12345"),
+        ("Code 39", code39, "ABC-123"),
+        ("Code 39 Extended", code39ext, "Item #42"),
+        ("EAN-13", ean13, "590123412345"),
+        ("EAN-8", ean8, "1234567"),
+        ("UPC-A", upca, "01234567890"),
+        ("UPC-E", upce, "01234500005"),
+        ("QR Code", qr, "https://example.com"),
+    ]
+
+    shapes = {}
+    for label, factory, data in SAMPLES:
+        matrix = factory(data).symbol.matrix
+        print(f"{label:18} {data!r:18} -> {matrix.width}x{matrix.height} modules")
+        shapes[label] = (matrix.width, matrix.height)
+
+    # Every linear symbology (Code 128/39) encodes as a single module row.
+    assert shapes["Code 128"][1] == 1
+    assert shapes["Code 39"][1] == 1
+    assert shapes["Code 39 Extended"][1] == 1
+    # The retail symbologies (EAN/UPC) encode as two module rows.
+    assert shapes["EAN-13"][1] == 2
+    assert shapes["UPC-A"][1] == 2
+    # QR Code is a genuine 2D matrix: square, and taller than any linear symbology's single row.
+    qr_width, qr_height = shapes["QR Code"]
+    assert qr_width == qr_height
+    assert qr_height > 1
+    print("OK")
+  code_sha256: 55b27e1531cb35dad44c0149d20548113a48af8e75ad3b4ddc95553df6ad2628
+- title: Handle invalid input and an unknown symbology from the typed exceptions
+  description: Adapted from the upstream examples/error_handling.py script. Triggers InvalidInputError for an empty Code 128 payload and for an EAN-13 payload with the wrong digit count, and SymbologyNotFoundError for an unknown symbology name passed to generate, checking each exception's real message text.
+  symbols:
+  - InvalidInputError
+  - SymbologyNotFoundError
+  - code128
+  - ean13
+  - generate
+  code: |
+    # Authored example: handle invalid input and an unknown symbology from the typed exceptions.
+    from aspose_barcode_foss import InvalidInputError, SymbologyNotFoundError, code128, ean13, generate
+
+    try:
+        code128("")  # empty input
+        raise AssertionError("expected InvalidInputError for empty Code 128 input")
+    except InvalidInputError as error:
+        print(f"InvalidInputError: {error}")
+        assert "empty" in str(error)
+
+    try:
+        ean13("123")  # wrong number of digits
+        raise AssertionError("expected InvalidInputError for a short EAN-13 payload")
+    except InvalidInputError as error:
+        print(f"InvalidInputError: {error}")
+        assert "12 or 13 digits" in str(error)
+        assert "got 3" in str(error)
+
+    try:
+        generate("datamatrix", "data")  # unknown symbology
+        raise AssertionError("expected SymbologyNotFoundError for an unknown symbology")
+    except SymbologyNotFoundError as error:
+        print(f"SymbologyNotFoundError: {error}")
+        assert "datamatrix" in str(error)
+    print("OK")
+  code_sha256: ae542ba39f110ab1504a7c0f20b86651e27c179f2212ceff90d89f9183abd3c9
+- title: Style rendered output with RenderOptions and confirm a direct Renderer call matches the convenience wrapper
+  description: Adapted from the upstream examples/render_options.py script. Renders a Code 128 barcode through to_svg(options=...) and through render(SvgRenderer(), options=...) directly, checks both produce identical output, that the requested foreground and background colors appear in the SVG markup, and that the styled output differs from the unstyled default.
+  symbols:
+  - RenderOptions
+  - SvgRenderer
+  - Barcode.render
+  - Barcode.to_svg
+  code: |
+    # Authored example: style rendered output with RenderOptions and confirm a direct Renderer call matches the convenience wrapper.
+    from aspose_barcode_foss import RenderOptions, SvgRenderer, code128
+
+    barcode = code128("Hello-World")
+
+    options = RenderOptions(
+        scale=2.0,
+        foreground_color="#224466",
+        background_color="#fff8f0",
+        show_text=True,
+        font_size=9.0,
+    )
+
+    # to_svg() is a convenience wrapper around render(SvgRenderer(), ...).
+    svg = barcode.to_svg(options=options)
+    artifact = barcode.render(SvgRenderer(), options=options)
+    print("artifact matches to_svg:", artifact.data == svg)
+    assert artifact.data == svg
+    assert "#224466" in svg
+    assert "#fff8f0" in svg
+
+    default_svg = barcode.to_svg()
+    print("styled output differs from the default rendering:", svg != default_svg)
+    assert svg != default_svg
+    print("OK")
+  code_sha256: 5489f3776f3afa0ecaa8875099442e93d382d11491b733a0c7b8eac133a40530
+- title: Control QR Code version and error correction level with QrOptions
+  description: Written against the public API surface (no single upstream sample demonstrates this); the upstream samples only use QR Code at its default settings. Generates a default QR Code, then an explicit version-5, error-correction-level-H QR Code, and checks the resulting module grid is square and matches the ISO/IEC 18004 size formula for version 5.
+  symbols:
+  - QrOptions
+  - QrErrorCorrectionLevel
+  - QrEncodeMode
+  - qr
+  code: |
+    # Authored example: control QR Code version and error correction level with QrOptions.
+    from aspose_barcode_foss import QrEncodeMode, QrErrorCorrectionLevel, QrOptions, qr
+
+    default_barcode = qr("PAYLOAD")
+    default_size = default_barcode.symbol.matrix.width
+    print("default version size:", default_size)
+
+    explicit_barcode = qr(
+        "PAYLOAD",
+        encode=QrOptions(
+            version=5,
+            error_correction_level=QrErrorCorrectionLevel.H,
+            encoding_mode=QrEncodeMode.ALPHANUMERIC,
+        ),
+    )
+    matrix = explicit_barcode.symbol.matrix
+    print("explicit version=5 size:", matrix.width, matrix.height)
+
+    # Each QR version adds 4 modules per side over the previous one (ISO/IEC 18004: 21 + 4*(version-1)).
+    expected_size = 21 + 4 * (5 - 1)
+    assert matrix.width == expected_size
+    assert matrix.height == expected_size
+    assert matrix.width > default_size
+    print("OK")
+  code_sha256: 4156abbf751fd406b4656d75b8c6841d0a6e03a2757b20d39c35f0134b776ffa
