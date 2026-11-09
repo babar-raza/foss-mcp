@@ -3886,3 +3886,20 @@ for present-tense "still broken"/"currently incorrect"/"remains wrong" phrasing 
 **Conclusion: the round-3 auditor over-read disclosed scope-boundary language as silent defects.**
 Declined, not carded - parallel to `CELLS-CPP-005`'s own stale-finding precedent above; recorded
 here so a future survey does not re-propose it without new evidence.
+
+## 2026-11-09 — CELLS-PY-012 declined: a version-drift false positive, not a real defect (supervisor)
+
+`CELLS-PY-012` (round-3, `docs/round3/issues.json`, P2, coverage-gap, `cells/python`) claims
+`RichTextRun` is "entirely unindexed (phantom-missing)." Investigated directly: `RichTextRun` is
+absent from the real committed `tests/fixtures/cells_python/api_surface.json` (0 of 204 types) -
+but also absent from the real pinned upstream commit this project actually indexes
+(`4f6768a7b349a1309644f456eb43bc35f70c16d7`, 2026-09-12 - checked the full 97-file tree
+recursively via `gh api`, zero files matching "rich" anywhere). The real upstream repository's
+CURRENT default branch does have a `rich_text.py` defining `RichTextRun`, but it was added to the
+library strictly after the commit this project pins. The extractor correctly extracted everything
+that existed at the pinned commit; there is nothing to fix in `python_surface.py` or
+`chunk_builder.py` - the round-3 auditor tested against a newer upstream version than what is
+actually pinned and served. No round-2 predecessor finding exists. Declined, not carded - a
+natural pickup only if/when `cells/python`'s own pin is deliberately bumped for an unrelated
+reason, not worth a card on its own; recorded here so a future survey does not re-propose it
+without a real pin change.
