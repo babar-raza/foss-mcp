@@ -1,0 +1,88 @@
+{
+  "schema_version": 1,
+  "card": "TC-731",
+  "gate": "G3",
+  "generated_by": "gatectl",
+  "generated_at": "2026-11-09T16:51:48Z",
+  "base_rev": "b6c0d8ad41d074f428d8122252cbbe0b86e93243",
+  "head_rev": "b2845ee8aa0781b4f0863c0ab78d9475f7171be3",
+  "card_sha256": "0c69fbc9ab085cec4bf5c0f0324dbcb0a95f43051a9156b2416844672d3fcbeb",
+  "fingerprint": {
+    "python": "3.13.2",
+    "platform": "Windows-11-10.0.26300-SP0",
+    "lock_sha256": "5c72e798a73c059a438e752e94a8d4c88c1bdf81a197f6e5c5fcecbc9466a691",
+    "env": {
+      "PYTHONHASHSEED": "0",
+      "PYTHONUTF8": "1",
+      "PYTHONDONTWRITEBYTECODE": "1",
+      "PYTHONIOENCODING": "utf-8",
+      "TZ": "UTC",
+      "LC_ALL": "C.UTF-8",
+      "SOURCE_DATE_EPOCH": "1700000000",
+      "verify_runner": "host"
+    }
+  },
+  "scope": {
+    "ok": true,
+    "changed_paths": [
+      "tests/fixtures/conformance/baseline_reference_content.json"
+    ],
+    "violations": [],
+    "evaluated": true
+  },
+  "runs": [
+    {
+      "run": 1,
+      "checks": [
+        {
+          "command": "{python} -m pytest tests/conformance/test_reference_content.py -q -rfE -p no:cacheprovider",
+          "exit_code": 0,
+          "duration_s": 9.09,
+          "stdout_sha256": "fe9dca0451129aaabdd76ea13e310b61a52091a146a1f9fe5b72b851eb33547f",
+          "tests": 14,
+          "skipped": 0,
+          "errors": 0,
+          "failures": 0
+        }
+      ],
+      "all_passed": true
+    },
+    {
+      "run": 2,
+      "checks": [
+        {
+          "command": "{python} -m pytest tests/conformance/test_reference_content.py -q -rfE -p no:cacheprovider",
+          "exit_code": 0,
+          "duration_s": 6.618,
+          "stdout_sha256": "fe9dca0451129aaabdd76ea13e310b61a52091a146a1f9fe5b72b851eb33547f",
+          "tests": 14,
+          "skipped": 0,
+          "errors": 0,
+          "failures": 0
+        }
+      ],
+      "all_passed": true
+    }
+  ],
+  "negative_control": {
+    "kind": "mutate",
+    "patch": "python -X utf8 -c \"import json, pathlib; p = pathlib.Path('tests/fixtures/conformance/baseline_reference_content.json'); d = json.loads(p.read_text(encoding='utf-8')); kf = d.get('known_failures', []); assert kf, 'no known_failures entries remain to corrupt - if you pruned all of them, pick a different, real, still-reproducing case_id from your own final file and adjust this mutate to delete IT instead'; removed = kf.pop(0); p.write_text(json.dumps(d), encoding='utf-8'); print('removed:', removed['case_id'])\"\n",
+    "patch_sha256": "5c654a2561e9275d72658afa9bc7bb8200af1d9acb8f9a831a35d5b948440777",
+    "applied": true,
+    "patch_applied_failed": true,
+    "exit_codes": [
+      1
+    ],
+    "tree_changed": [
+      "M tests/fixtures/conformance/baseline_reference_content.json",
+      "?? .junit-0.xml"
+    ]
+  },
+  "holdout": {
+    "ran": false,
+    "passed": true,
+    "detail": "no holdout for this card"
+  },
+  "accepted": true,
+  "reason": "all gates passed"
+}
