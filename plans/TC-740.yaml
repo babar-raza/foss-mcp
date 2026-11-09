@@ -1,0 +1,103 @@
+id: TC-740
+gate: G3
+lane: storage-retrieval
+purpose: >-
+  P4 example-corpus program (REQ-G3-014), a seventh real pilot-adoption win via the EXISTING,
+  already-wired `authored_examples.yaml` mechanism (`TC-460`/`TC-565`/`TC-566`) - the exact same
+  mechanism six sibling cards already proved for six other pilots this session (different pilots,
+  zero file overlap - do not touch anything any of them touch). Confirmed needing ZERO code
+  change: `infra/build_chunks.py`'s `_load_authored_candidates` already auto-loads
+  `tests/fixtures/furnished/<pilot>/authored_examples.yaml`, merges it with README-derived
+  candidates, and runs every entry through the exact same `verify_dotnet_example` pipeline
+  `TC-736` already proved for `cells/net`, publishing only the ones that pass.
+
+  `email/net` currently serves only 4 real example chunks (confirmed directly against the real
+  committed `infra/demo-manifests/email__net__self_extracted` generation). Its real pinned
+  repository is `aspose-email-foss/Aspose.Email-FOSS-for-.Net` (re-confirm the exact pinned commit
+  yourself from `config/products/email/net.yaml`/`infra/helm/foss-mcp/values.yaml` - do not trust
+  this card's own citation blindly). The real upstream repository has a real `examples/` directory
+  of roughly 3 real C# sample projects (per this project's own Appendix-C style accounting for
+  this pilot) - CONFIRM their real shape directly by reading them yourself, and since this alone
+  is unlikely to reach 5 genuinely distinct operations, also read the real public API surface
+  (`tests/fixtures/email_net/api_surface.json`) for additional real, valuable, self-contained
+  operations - the same sample-plus-API-surface mix `TC-736`'s own `cells/net` card and `TC-737`'s
+  own `email/cpp` card already used successfully.
+
+  `_MAX_EXAMPLES = 5` (`src/foss_mcp/indexing/authored_examples.py`) is a hard, already-enforced
+  ceiling - this card raises `email/net` from 4 to AT MOST 9 served examples, not to its own real
+  floor (6-9, Appendix C - this card may fully close this pilot's floor if enough real examples
+  verify, report honestly either way); closing any remaining gap needs the P4 program's own later,
+  larger per-language-sample-adapter work, explicitly out of this card's scope. This card's job is
+  the real, bounded, immediately shippable slice: up to 5 new, real, individually-verified
+  authored examples, each passing the real ingestion verifier before being trusted to publish.
+depends_on:
+  - TC-460
+  - TC-565
+  - TC-566
+write_paths:
+  - tests/fixtures/furnished/email_net/authored_examples.yaml
+  - tests/indexing/test_authored_examples_email_net.py
+satisfies:
+  - REQ-G3-014
+source_refs:
+  - file: docs/DECISION_LOG.md
+    anchor: >-
+      ## 2026-11-09 — TC-727 saga closed: pdf_java's own coverage-line gap fixed test-side; the 11
+    sha256: 798801d5285b8fca9bd9c16e5b39a783987b36adfcfa56fe6d99de92e96e48ad
+inputs:
+  - >-
+    READ FIRST: `tests/fixtures/furnished/cells_net/authored_examples.yaml`/`tests/indexing/
+    test_authored_examples_cells_net.py` (the closest same-language sibling template, from
+    `TC-736`) AND `tests/fixtures/furnished/cells_rust/authored_examples.yaml` (the general schema
+    convention). Also read `src/foss_mcp/indexing/authored_examples.py` in full (every structural
+    rule - `_MAX_EXAMPLES`, `_MAX_TITLE_CHARS`, `FORBIDDEN_CODE_PATTERNS`, `code_sha256` must equal
+    `normalised_code_sha256(code)`, `symbols` must be real FQNs, `library_commit` must be the real
+    40-hex pinned commit), `src/foss_mcp/indexing/example_verifier.py`'s `verify_dotnet_example`/
+    `_assemble_dotnet_source`, and `infra/build_chunks.py`'s `_load_authored_candidates`.
+  - >-
+    REPRODUCE FIRST: confirm `email/net`'s real current served example count (4) and real pinned
+    repository/commit yourself. Fetch the real upstream `examples/` directory at that exact commit
+    and read all of it, plus enough of the real API surface to find additional real operations.
+  - >-
+    VERIFY EACH EXAMPLE YOURSELF before committing: fetch the real pinned package, actually build
+    and run each of your adapted programs, confirm each one's real output matches what you claim.
+    Do not submit an example you have not personally run successfully.
+  - >-
+    `FORBIDDEN_CODE_PATTERNS` blocks environment/credential access, process spawning, raw network
+    clients, and interactive input - confirm none of your examples trips any of these patterns.
+  - >-
+    This card does NOT claim `email/net`'s example-corpus work is complete, even if it happens to
+    reach this pilot's own floor - say so honestly either way, and do not pad with unverified
+    examples just to hit a round number.
+actions:
+  - >-
+    Author up to 5 new, real, individually-verified examples for email/net via the existing
+    authored_examples.yaml mechanism, raising its served example count from 4 toward 9.
+checks:
+  - command: '{python} -m pytest tests/indexing/test_authored_examples.py tests/indexing/test_authored_examples_email_net.py tests/infra/test_authored_examples_fixtures.py -q -rfE -p no:cacheprovider'
+    expect: 'exit 0'
+    timeout_seconds: 300
+    junitxml: true
+    proves:
+      - REQ-G3-014
+min_tests: 5
+requires:
+  - python
+network: false
+negative_control:
+  mutate: |
+    python -X utf8 -c "import pathlib; p = pathlib.Path('tests/fixtures/furnished/email_net/authored_examples.yaml'); s = p.read_text(encoding='utf-8'); assert s, 'the sidecar file is empty or missing - this card must create it with real content before this mutate can run'; old = 'code_sha256:'; count = s.count(old); assert count >= 1, 'no code_sha256 field found - the file does not match the expected schema'; import re; s2 = re.sub(r'code_sha256: [0-9a-f]{64}', 'code_sha256: ' + '0'*64, s, count=1); assert s2 != s; p.write_text(s2, encoding='utf-8')"
+  rationale: >-
+    Corrupts the first example's own `code_sha256` to a value that cannot match the real code's
+    hash, which must make `load_authored_examples`'s own validation reject the whole sidecar file -
+    a pure data mutation, immune to the lockstep-rename vacuousness class this session's earlier
+    reviews found, and it never touches any code path. Confirm by hand that the check files you
+    named actually exercise this validation path before trusting it.
+evidence:
+  - evidence/build/G3/TC-740/receipt.json
+closeout:
+  - >-
+    email/net gains up to 5 new, real, individually-verified authored examples via the existing,
+    already-wired authored_examples.yaml mechanism (zero code change), raising its served example
+    count from 4 toward 9 - real, bounded progress reported honestly against its own floor.
+recovery: Re-run from a clean tree.
