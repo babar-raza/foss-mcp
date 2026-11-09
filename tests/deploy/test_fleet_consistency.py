@@ -173,6 +173,10 @@ _COVERAGE_VALUE = re.compile(
     r"(?:; (?:(\d+) of (\d+) source files could not be parsed|at least (\d+) source files could not be parsed))?$"
 )
 _SOURCE_COMMIT_LINE = re.compile(r"^Source-Commit:[ \t]*(\S*)[ \t]*$", re.MULTILINE)
+# infra.build_chunks._sanitize_chunk_text's own truncation marker line, verbatim. A chunk that carries
+# this line already discloses its own cut; one real pilot (pdf/java's `...xfa.model.template.Proto`,
+# TC-727) is large enough that the cut removes the API-Coverage line `_format_type_text` appends last.
+_TRUNCATION_MARKER_LINE = re.compile(r"^Truncated: \d+ characters omitted$", re.MULTILINE)
 
 SYMBOL = "symbol"
 DOCUMENTATION = "documentation"
@@ -441,6 +445,11 @@ def coverage_problems(fixture: Mapping[str, Any], symbol_texts: Sequence[str]) -
     for text in symbol_texts:
         lines = _COVERAGE_LINE.findall(text)
         if len(lines) != 1:
+            if len(lines) == 0 and _TRUNCATION_MARKER_LINE.search(text):
+                # the sanitizer's cap cut this chunk before its own appended API-Coverage line; the
+                # truncation marker left behind IS the disclosure - a chunk that already discloses its
+                # own cut is not also expected to carry a coverage line that sat past the cut.
+                continue
             problems.append(
                 f"a symbol chunk has {len(lines)} API-Coverage lines, expected 1: {text.split(chr(10), 1)[0][:60]!r}"
             )
