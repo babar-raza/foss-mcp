@@ -1,0 +1,271 @@
+schema_version: 1
+pilot: slides_net
+library_repository: aspose-slides-foss/Aspose.Slides-FOSS-for-.NET
+library_commit: 86c441b5d81e707f2ea9e01b197dbb6ff7a3859b
+language: csharp
+examples:
+- title: Build a linear gradient fill with two colour stops and read it back
+  description: Creates a one-shape presentation and sets its FillFormat.FillType to Gradient, then sets
+    the GradientFormat's LinearGradientAngle and adds two colour stops with GradientStopCollection.Add,
+    round-trips the presentation through a MemoryStream with Presentation.Save and the Presentation(Stream)
+    constructor, and checks the reloaded fill type, stop count and angle.
+  symbols:
+  - FillFormat.FillType
+  - FillFormat.GradientFormat
+  - GradientFormat.LinearGradientAngle
+  - GradientFormat.GradientStops
+  - GradientStopCollection.Add
+  - GradientStopCollection.Count
+  code: |
+    // Authored example: build a linear gradient fill with two colour stops and read it back
+    using Aspose.Slides.Foss;
+    using Aspose.Slides.Foss.Drawing;
+    using Aspose.Slides.Foss.Export;
+
+    using var presentation = new Presentation();
+    IAutoShape shape = presentation.Slides[0].Shapes!.AddAutoShape(ShapeType.Rectangle, 50, 50, 300, 120);
+
+    shape.FillFormat.FillType = FillType.Gradient;
+    IGradientFormat gradient = shape.FillFormat.GradientFormat;
+    gradient.LinearGradientAngle = 45f;
+    gradient.GradientStops.Add(0.0f, Color.FromArgb(255, 0, 112, 192));
+    gradient.GradientStops.Add(1.0f, Color.White);
+
+    using var buffer = new MemoryStream();
+    presentation.Save(buffer, SaveFormat.Pptx);
+    buffer.Position = 0;
+
+    using var reopened = new Presentation(buffer);
+    IFillFormat reloadedFill = reopened.Slides[0].Shapes![0].FillFormat;
+    IGradientFormat reloadedGradient = reloadedFill.GradientFormat;
+
+    Console.WriteLine("fill type: " + reloadedFill.FillType);
+    Console.WriteLine("stop count: " + reloadedGradient.GradientStops.Count);
+    Console.WriteLine("angle: " + reloadedGradient.LinearGradientAngle);
+
+    if (reloadedFill.FillType != FillType.Gradient)
+    {
+        throw new Exception("expected a gradient fill");
+    }
+    if (reloadedGradient.GradientStops.Count != 2)
+    {
+        throw new Exception("expected exactly two gradient stops");
+    }
+    if (Math.Abs(reloadedGradient.LinearGradientAngle - 45f) > 0.5f)
+    {
+        throw new Exception("gradient angle mismatch");
+    }
+  code_sha256: 32106845ee104e56b3457a12893dc42b794c9319c3978af6b86133bfcb845b98
+- title: Style a connector's line with a dash pattern and arrowheads at both ends
+  description: Adds a straight connector with ShapeCollection.AddConnector and sets its LineFormat's Width,
+    DashStyle, CapStyle, BeginArrowheadStyle and EndArrowheadStyle, round-trips the presentation through
+    a MemoryStream, and checks each of the five values on the reloaded line.
+  symbols:
+  - ShapeCollection.AddConnector
+  - LineFormat.Width
+  - LineFormat.DashStyle
+  - LineFormat.CapStyle
+  - LineFormat.BeginArrowheadStyle
+  - LineFormat.EndArrowheadStyle
+  code: |
+    // Authored example: style a connector's line with a dash pattern and arrowheads at both ends
+    using Aspose.Slides.Foss;
+    using Aspose.Slides.Foss.Drawing;
+    using Aspose.Slides.Foss.Export;
+
+    using var presentation = new Presentation();
+    IConnector connector = presentation.Slides[0].Shapes!.AddConnector(ShapeType.StraightConnector1, 50, 50, 150, 0);
+
+    connector.LineFormat.Width = 3.0f;
+    connector.LineFormat.DashStyle = LineDashStyle.Dash;
+    connector.LineFormat.CapStyle = LineCapStyle.Round;
+    connector.LineFormat.BeginArrowheadStyle = LineArrowheadStyle.Oval;
+    connector.LineFormat.EndArrowheadStyle = LineArrowheadStyle.Triangle;
+
+    using var buffer = new MemoryStream();
+    presentation.Save(buffer, SaveFormat.Pptx);
+    buffer.Position = 0;
+
+    using var reopened = new Presentation(buffer);
+    var reloadedLine = reopened.Slides[0].Shapes![0].LineFormat;
+
+    Console.WriteLine("width: " + reloadedLine.Width);
+    Console.WriteLine("dash style: " + reloadedLine.DashStyle);
+    Console.WriteLine("cap style: " + reloadedLine.CapStyle);
+    Console.WriteLine("begin arrow: " + reloadedLine.BeginArrowheadStyle);
+    Console.WriteLine("end arrow: " + reloadedLine.EndArrowheadStyle);
+
+    if (Math.Abs(reloadedLine.Width - 3.0f) > 0.01)
+    {
+        throw new Exception("line width mismatch");
+    }
+    if (reloadedLine.DashStyle != LineDashStyle.Dash)
+    {
+        throw new Exception("dash style mismatch");
+    }
+    if (reloadedLine.BeginArrowheadStyle != LineArrowheadStyle.Oval)
+    {
+        throw new Exception("begin arrowhead mismatch");
+    }
+    if (reloadedLine.EndArrowheadStyle != LineArrowheadStyle.Triangle)
+    {
+        throw new Exception("end arrowhead mismatch");
+    }
+  code_sha256: 8cac55c9e8338f24d178ad7435bee25d591730c5058be962832d1ccc64d2a438
+- title: Apply a 3-D bevel, camera preset and light rig, then read them back
+  description: Reads an AutoShape's ThreeDFormat and sets BevelTop.BevelType, Camera.CameraType and LightRig.LightType,
+    round-trips the presentation through a MemoryStream, and checks that all three preset values survive
+    the round trip.
+  symbols:
+  - AutoShape.ThreeDFormat
+  - ThreeDFormat.BevelTop
+  - ShapeBevel.BevelType
+  - ThreeDFormat.Camera
+  - Camera.CameraType
+  - ThreeDFormat.LightRig
+  - LightRig.LightType
+  code: |
+    // Authored example: apply a 3-D bevel, camera preset and light rig, then read them back
+    using Aspose.Slides.Foss;
+    using Aspose.Slides.Foss.Drawing;
+    using Aspose.Slides.Foss.Export;
+
+    using var presentation = new Presentation();
+    IAutoShape shape = presentation.Slides[0].Shapes!.AddAutoShape(ShapeType.Rectangle, 50, 50, 200, 150);
+
+    IThreeDFormat threeD = shape.ThreeDFormat;
+    threeD.BevelTop.BevelType = BevelPresetType.Circle;
+    threeD.BevelTop.Width = 6;
+    threeD.BevelTop.Height = 6;
+    threeD.Camera.CameraType = CameraPresetType.IsometricTopUp;
+    threeD.LightRig.LightType = LightRigPresetType.ThreePt;
+
+    using var buffer = new MemoryStream();
+    presentation.Save(buffer, SaveFormat.Pptx);
+    buffer.Position = 0;
+
+    using var reopened = new Presentation(buffer);
+    IThreeDFormat reloaded = reopened.Slides[0].Shapes![0].ThreeDFormat;
+
+    Console.WriteLine("bevel type: " + reloaded.BevelTop.BevelType);
+    Console.WriteLine("camera type: " + reloaded.Camera.CameraType);
+    Console.WriteLine("light type: " + reloaded.LightRig.LightType);
+
+    if (reloaded.BevelTop.BevelType != BevelPresetType.Circle)
+    {
+        throw new Exception("bevel type mismatch");
+    }
+    if (reloaded.Camera.CameraType != CameraPresetType.IsometricTopUp)
+    {
+        throw new Exception("camera type mismatch");
+    }
+    if (reloaded.LightRig.LightType != LightRigPresetType.ThreePt)
+    {
+        throw new Exception("light rig type mismatch");
+    }
+  code_sha256: 612818e17383fb75db4c68ea34faed37e6285ee3bf013c2ef90bbf06e6d4d1c3
+- title: Set core and custom document properties and read them back
+  description: Sets Presentation.DocumentProperties' Title and Author and a custom property with DocumentProperties.SetCustomPropertyValue,
+    round-trips the presentation through a MemoryStream, and reads the custom property back with DocumentProperties.GetCustomPropertyValue
+    alongside the two core properties.
+  symbols:
+  - Presentation.DocumentProperties
+  - DocumentProperties.Title
+  - DocumentProperties.Author
+  - DocumentProperties.SetCustomPropertyValue
+  - DocumentProperties.GetCustomPropertyValue
+  code: |
+    // Authored example: set core and custom document properties and read them back
+    using Aspose.Slides.Foss;
+    using Aspose.Slides.Foss.Drawing;
+    using Aspose.Slides.Foss.Export;
+
+    using var presentation = new Presentation();
+    presentation.Slides[0].Shapes!.AddAutoShape(ShapeType.Rectangle, 10, 10, 100, 50);
+
+    IDocumentProperties properties = presentation.DocumentProperties;
+    properties.Title = "Quarterly Review";
+    properties.Author = "Jane Smith";
+    properties.SetCustomPropertyValue("ReviewStatus", "Draft");
+
+    using var buffer = new MemoryStream();
+    presentation.Save(buffer, SaveFormat.Pptx);
+    buffer.Position = 0;
+
+    using var reopened = new Presentation(buffer);
+    IDocumentProperties reloaded = reopened.DocumentProperties;
+    object customValue = reloaded.GetCustomPropertyValue("ReviewStatus")!;
+
+    Console.WriteLine("title: " + reloaded.Title);
+    Console.WriteLine("author: " + reloaded.Author);
+    Console.WriteLine("custom: " + customValue);
+
+    if (reloaded.Title != "Quarterly Review")
+    {
+        throw new Exception("title mismatch");
+    }
+    if (reloaded.Author != "Jane Smith")
+    {
+        throw new Exception("author mismatch");
+    }
+    if (customValue.ToString() != "Draft")
+    {
+        throw new Exception("custom property mismatch");
+    }
+  code_sha256: 3af5bc8f97ac930dbaa929a11424b5f93aee5457fbd731046f244b793392ec99
+- title: Bind a connector between two shapes by connection site and reorder shapes
+  description: Adds two rectangles and a connector, binds the connector's StartShapeConnectedTo and EndShapeConnectedTo
+    with explicit StartShapeConnectionSiteIndex/EndShapeConnectionSiteIndex values, moves it to the front
+    with ShapeCollection.Reorder, round-trips the presentation through a MemoryStream, and checks the
+    reloaded shape count and both connection site indices.
+  symbols:
+  - ShapeCollection.AddConnector
+  - Connector.StartShapeConnectedTo
+  - Connector.StartShapeConnectionSiteIndex
+  - Connector.EndShapeConnectedTo
+  - Connector.EndShapeConnectionSiteIndex
+  - ShapeCollection.Reorder
+  code: |
+    // Authored example: bind a connector between two shapes by connection site and reorder shapes
+    using Aspose.Slides.Foss;
+    using Aspose.Slides.Foss.Drawing;
+    using Aspose.Slides.Foss.Export;
+
+    using var presentation = new Presentation();
+    IShapeCollection shapes = presentation.Slides[0].Shapes!;
+    IAutoShape first = shapes.AddAutoShape(ShapeType.Rectangle, 50, 50, 100, 60);
+    IAutoShape second = shapes.AddAutoShape(ShapeType.Rectangle, 250, 50, 100, 60);
+    IConnector connector = shapes.AddConnector(ShapeType.StraightConnector1, 150, 80, 100, 0);
+
+    connector.StartShapeConnectedTo = first;
+    connector.StartShapeConnectionSiteIndex = 2;
+    connector.EndShapeConnectedTo = second;
+    connector.EndShapeConnectionSiteIndex = 0;
+
+    shapes.Reorder(0, connector);
+
+    using var buffer = new MemoryStream();
+    presentation.Save(buffer, SaveFormat.Pptx);
+    buffer.Position = 0;
+
+    using var reopened = new Presentation(buffer);
+    IShapeCollection reloadedShapes = reopened.Slides[0].Shapes!;
+    var reloadedConnector = (IConnector)reloadedShapes[0];
+
+    Console.WriteLine("shape count: " + reloadedShapes.Count);
+    Console.WriteLine("start site: " + reloadedConnector.StartShapeConnectionSiteIndex);
+    Console.WriteLine("end site: " + reloadedConnector.EndShapeConnectionSiteIndex);
+
+    if (reloadedShapes.Count != 3)
+    {
+        throw new Exception("expected exactly three shapes");
+    }
+    if (reloadedConnector.StartShapeConnectionSiteIndex != 2)
+    {
+        throw new Exception("start connection site mismatch");
+    }
+    if (reloadedConnector.EndShapeConnectionSiteIndex != 0)
+    {
+        throw new Exception("end connection site mismatch");
+    }
+  code_sha256: bbc4b7937681c4f22dab74dde03f303717810b05b0e673de1a355e24b63a755c
