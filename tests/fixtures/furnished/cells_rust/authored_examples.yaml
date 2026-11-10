@@ -137,3 +137,132 @@ examples:
         Ok(())
     }
   code_sha256: aef1a852cfd3551a0a14d948b87c8574f985790044ce9e9d3bc2720c47114376
+- title: Set and read back document metadata properties
+  description: Sets the title, author and subject on a new workbook's document properties, serialises it to XLSX bytes, loads the bytes back and checks each property's stored value without touching the disk.
+  symbols:
+  - Workbook
+  - Workbook.get_document_properties_mut
+  - Workbook.get_document_properties
+  - DocumentProperties.set_title
+  - DocumentProperties.get_title
+  - DocumentProperties.set_author
+  - DocumentProperties.get_author
+  - DocumentProperties.set_subject
+  - DocumentProperties.get_subject
+  code: |
+    // Authored example: set and read back core document properties after a save and reload.
+    use aspose_cells_foss_rust::Workbook;
+    use std::error::Error;
+
+    fn main() -> Result<(), Box<dyn Error>> {
+        let mut workbook = Workbook::new();
+        {
+            let properties = workbook.get_document_properties_mut();
+            properties.set_title("Quarterly Report");
+            properties.set_author("Finance Team");
+            properties.set_subject("Q1 Results");
+        }
+
+        let bytes = workbook.save_xlsx_to_bytes()?;
+        let loaded = Workbook::load_xlsx_from_bytes(&bytes)?;
+        let properties = loaded.get_document_properties();
+
+        println!("title: {}", properties.get_title());
+        println!("author: {}", properties.get_author());
+        println!("subject: {}", properties.get_subject());
+
+        assert_eq!(properties.get_title(), "Quarterly Report");
+        assert_eq!(properties.get_author(), "Finance Team");
+        assert_eq!(properties.get_subject(), "Q1 Results");
+        Ok(())
+    }
+  code_sha256: dffa6fc6f72eee5ea624e4e023b85fc9c0b0028d125387d575ec7b599394a790
+- title: Add list and decimal range data validations
+  description: Adds a list validation restricted to two choices and a decimal range validation with a Between operator to two cell areas, saves the workbook to bytes, reloads it and reads each validation's type, operator and formulas back from the reloaded sheet.
+  symbols:
+  - Workbook
+  - CellArea.create_cell_area_a1
+  - Worksheet.get_validations
+  - ValidationCollection.add
+  - ValidationCollection.count
+  - ValidationCollection.get_validation_in_cell
+  - ValidationType
+  - Validation.set_type
+  - Validation.get_type
+  - OperatorType
+  - Validation.set_operator
+  - Validation.get_operator
+  - Validation.set_formula1
+  - Validation.get_formula1
+  - Validation.set_formula2
+  - Validation.get_formula2
+  code: |
+    // Authored example: add a list data validation and a decimal range validation, then read them back.
+    use aspose_cells_foss_rust::{CellArea, OperatorType, ValidationType, Workbook};
+    use std::error::Error;
+
+    fn main() -> Result<(), Box<dyn Error>> {
+        let mut workbook = Workbook::new();
+        {
+            let mut worksheets = workbook.get_worksheets_mut();
+            let sheet = worksheets.get(0)?;
+            let mut cells = sheet.get_cells_mut();
+            cells.get("A1")?.put_value_string("Open")?;
+            cells.get("B2")?.put_value_i32(5)?;
+
+            let mut validations = sheet.get_validations();
+            let list_index = validations.add(CellArea::create_cell_area_a1("A1", "A3")?)?;
+            let mut list_validation = validations.get(list_index).expect("validation should exist");
+            list_validation.set_type(ValidationType::List);
+            list_validation.set_formula1("\"Open,Closed\"");
+
+            let decimal_index = validations.add(CellArea::create_cell_area_a1("B2", "B3")?)?;
+            let mut decimal_validation = validations
+                .get(decimal_index)
+                .expect("validation should exist");
+            decimal_validation.set_type(ValidationType::Decimal);
+            decimal_validation.set_operator(OperatorType::Between);
+            decimal_validation.set_formula1("1.5");
+            decimal_validation.set_formula2("9.5");
+        }
+
+        let bytes = workbook.save_xlsx_to_bytes()?;
+        let mut loaded = Workbook::load_xlsx_from_bytes(&bytes)?;
+        let mut sheets = loaded.get_worksheets_mut();
+        let sheet = sheets.get(0)?;
+        let mut validations = sheet.get_validations();
+        let validation_count = validations.count();
+
+        let (a1_type, a1_formula1) = {
+            let a1 = validations
+                .get_validation_in_cell(0, 0)?
+                .expect("A1 validation should exist");
+            (a1.get_type(), a1.get_formula1().to_string())
+        };
+        let (b2_type, b2_operator, b2_formula1, b2_formula2) = {
+            let b2 = validations
+                .get_validation_in_cell(1, 1)?
+                .expect("B2 validation should exist");
+            (
+                b2.get_type(),
+                b2.get_operator(),
+                b2.get_formula1().to_string(),
+                b2.get_formula2().to_string(),
+            )
+        };
+
+        println!("validation count: {}", validation_count);
+        println!("A1 type: {:?} formula1: {}", a1_type, a1_formula1);
+        println!(
+            "B2 type: {:?} formula1: {} formula2: {}",
+            b2_type, b2_formula1, b2_formula2
+        );
+
+        assert_eq!(validation_count, 2);
+        assert_eq!(a1_type, ValidationType::List);
+        assert_eq!(a1_formula1, "\"Open,Closed\"");
+        assert_eq!(b2_type, ValidationType::Decimal);
+        assert_eq!(b2_operator, OperatorType::Between);
+        Ok(())
+    }
+  code_sha256: 7cf9b1f1ab7412755476adce4acbf7720cde12e951d7641af71b91563c171a84

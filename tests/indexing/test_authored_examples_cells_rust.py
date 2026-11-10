@@ -1,10 +1,13 @@
-"""Offline checks of the cells/rust authored-example sidecar (TC-501, REQ-G3-007).
+"""Offline checks of the cells/rust authored-example sidecar (TC-501, REQ-G3-007; extended by TC-743).
 
-``tests/fixtures/furnished/cells_rust/authored_examples.yaml`` holds exactly three minimal, labelled
-examples written against the real public API of ``aspose_cells_foss_rust`` at the pinned commit. This
-file proves they are well-formed, labelled, tied to the chart's pinned commit and use only symbols that
-resolve in the pilot's extraction. Whether they compile or run is decided later by the ingestion
-verifier, never here: nothing in this file imports the library, runs an example, or reaches a network.
+``tests/fixtures/furnished/cells_rust/authored_examples.yaml`` holds five minimal, labelled examples
+written against the real public API of ``aspose_cells_foss_rust`` at the pinned commit: three from
+TC-501/TC-535 (in-memory typed values, number formats, a second worksheet) plus two added by TC-743
+(document metadata properties, list/decimal data validations), each individually built and run by
+TC-743's author against the real pinned crate before being committed here. This file proves they are
+well-formed, labelled, tied to the chart's pinned commit and use only symbols that resolve in the
+pilot's extraction. Whether they compile or run is decided later by the ingestion verifier, never
+here: nothing in this file imports the library, runs an example, or reaches a network.
 
 The README's own Rust fragments fail because they use variables and types they never declare
 (``sheet``, ``ChartType``); the pilot-specific tests below pin that the authored examples do not.
@@ -45,8 +48,8 @@ PAGE = FIXTURES / "furnished" / PILOT / "pages" / "_index.md"
 API_SURFACE = FIXTURES / PILOT / "api_surface.json"
 CHART_VALUES = REPO_ROOT / "infra" / "helm" / "foss-mcp" / "values.yaml"
 
-EXPECTED_EXAMPLES = 3
-EXAMPLE_NUMBERS = [1, 2, 3]
+EXPECTED_EXAMPLES = 5
+EXAMPLE_NUMBERS = [1, 2, 3, 4, 5]
 
 _USE_RE = re.compile(r"(?m)^[ \t]*use\s+([^;]*);")
 _DECLARES_SHEET_RE = re.compile(r"\blet\s+(?:mut\s+)?sheet\b")
@@ -96,7 +99,7 @@ def _readme_titles() -> set[str]:
     return titles
 
 
-def test_the_sidecar_loads_and_yields_exactly_three_authored_candidates() -> None:
+def test_the_sidecar_loads_and_yields_exactly_five_authored_candidates() -> None:
     candidates = _candidates()
     assert len(candidates) == EXPECTED_EXAMPLES
     assert {candidate.provenance for candidate in candidates} == {"authored"}
