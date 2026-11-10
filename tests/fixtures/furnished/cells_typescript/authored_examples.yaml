@@ -1,0 +1,233 @@
+schema_version: 1
+pilot: cells_typescript
+library_repository: aspose-cells-foss/Aspose.Cells-FOSS-for-TypeScript
+library_commit: fc186507e5b7124f4664aa6035f25cfd3112367d
+language: typescript
+examples:
+- title: Write typed values and a formula, then reload and read the values back
+  description: Writes a string, two numbers and a formula into a worksheet, checks the formula in memory, saves the workbook to a temporary file, reloads it and reads each typed value back from the reloaded sheet.
+  symbols:
+  - Workbook
+  - Workbook.save
+  - Workbook.load
+  - Worksheet.putValue
+  - Worksheet.getCell2
+  - Cell.setFormula
+  - Cell.formula
+  - Cell.value
+  code: |
+    // Authored example: write typed values and a formula into a worksheet, save and reload it, and read the saved values back.
+    import { Workbook } from "./aspose_cells";
+
+    async function main() {
+      const workbook = new Workbook();
+      const worksheet = workbook.worksheets.get(0)!;
+
+      worksheet.putValue("A1", "Widgets");
+      worksheet.putValue("B1", 42);
+      worksheet.putValue("C1", 19.99);
+      const total = worksheet.getCell2("D1");
+      total.setFormula("B1*C1");
+
+      console.log("formula before save:", total.formula);
+      if (total.formula !== "B1*C1") throw new Error(`expected formula B1*C1, got ${total.formula}`);
+
+      const path = "outputfiles/cand1.xlsx";
+      await workbook.save(path);
+
+      const loaded = await Workbook.load(path);
+      const loadedSheet = loaded.worksheets.get(0)!;
+      const name = loadedSheet.getCell2("A1").value;
+      const quantity = loadedSheet.getCell2("B1").value;
+      const price = loadedSheet.getCell2("C1").value;
+
+      console.log("name:", name, "quantity:", quantity, "price:", price);
+
+      if (name !== "Widgets") throw new Error(`expected name Widgets, got ${name}`);
+      if (quantity !== 42) throw new Error(`expected quantity 42, got ${quantity}`);
+      if (price !== 19.99) throw new Error(`expected price 19.99, got ${price}`);
+      console.log("cand1 OK");
+    }
+
+    main();
+  code_sha256: 6e3584f1311407cc4ee5fcb44a3c0970fce0116278759918778cb786401e1fc6
+- title: Set hyperlinks of different kinds on cells and read them back
+  description: Sets a web, an email and an internal hyperlink on three cells with Cell.setHyperlink and reads each stored address back from Cell.hyperlink without saving or reloading the workbook.
+  symbols:
+  - Workbook
+  - Worksheet.putValue
+  - Worksheet.getCell2
+  - Cell.setHyperlink
+  - Cell.hyperlink
+  code: |
+    // Authored example: set hyperlinks of different kinds on three cells and read each stored address back.
+    import { Workbook } from "./aspose_cells";
+
+    function main() {
+      const workbook = new Workbook();
+      const worksheet = workbook.worksheets.get(0)!;
+
+      worksheet.putValue("A1", "Visit site");
+      worksheet.getCell2("A1").setHyperlink("https://www.example.com");
+
+      worksheet.putValue("A2", "Email us");
+      worksheet.getCell2("A2").setHyperlink("mailto:support@example.com");
+
+      worksheet.putValue("A3", "Jump to Totals");
+      worksheet.getCell2("A3").setHyperlink("#Totals!A1");
+
+      const site = worksheet.getCell2("A1").hyperlink;
+      const email = worksheet.getCell2("A2").hyperlink;
+      const internal = worksheet.getCell2("A3").hyperlink;
+
+      console.log("site:", site, "email:", email, "internal:", internal);
+
+      if (site !== "https://www.example.com") throw new Error(`unexpected site hyperlink: ${site}`);
+      if (email !== "mailto:support@example.com") throw new Error(`unexpected email hyperlink: ${email}`);
+      if (internal !== "#Totals!A1") throw new Error(`unexpected internal hyperlink: ${internal}`);
+      console.log("cand2 OK");
+    }
+
+    main();
+  code_sha256: 4a6b7e68601fb49b3369709a61e47ca70cdfadff504eaa122fda78d18becc690
+- title: Apply font, fill and alignment style settings to a cell and read them back
+  description: Builds a Style with bold text, a font name and color, a solid foreground fill color and a centered, wrapped alignment, applies it to a cell with Cell.setStyle, and reads each setting back through the applied style's own font, fill and alignment fields.
+  symbols:
+  - Workbook
+  - Worksheet.getCell2
+  - Style
+  - Style.setBold
+  - Style.setFontName
+  - Style.setFontColor
+  - Style.setForegroundColor
+  - Style.setHorizontalAlignment
+  - Style.setWrapText
+  - Cell.setStyle
+  - Cell.style
+  code: |
+    // Authored example: apply font, fill and alignment style settings to a cell and read every setting back.
+    import { Workbook, Style } from "./aspose_cells";
+
+    function main() {
+      const workbook = new Workbook();
+      const worksheet = workbook.worksheets.get(0)!;
+
+      const style = new Style();
+      style.setBold(true);
+      style.setFontName("Arial");
+      style.setFontColor("FFFFFFFF");
+      style.setForegroundColor("FF2278D4");
+      style.setHorizontalAlignment("center");
+      style.setWrapText(true);
+
+      const header = worksheet.getCell2("A1");
+      header.putValue("Header");
+      header.setStyle(style);
+
+      const applied = header.style!;
+      const bold = applied.font?.bold;
+      const fontName = applied.font?.name;
+      const fontColor = applied.font?.color;
+      const foreground = applied.fill?.fgColor;
+      const horizontal = applied.alignment?.horizontal;
+      const wrapText = applied.alignment?.wrapText;
+
+      console.log("bold:", bold, "font:", fontName, "fontColor:", fontColor, "fg:", foreground, "halign:", horizontal, "wrap:", wrapText);
+
+      if (bold !== true) throw new Error("expected bold style to be set");
+      if (fontName !== "Arial") throw new Error(`expected font Arial, got ${fontName}`);
+      if (fontColor !== "FFFFFFFF") throw new Error(`expected font color FFFFFFFF, got ${fontColor}`);
+      if (foreground !== "FF2278D4") throw new Error(`expected foreground FF2278D4, got ${foreground}`);
+      if (horizontal !== "center") throw new Error(`expected center alignment, got ${horizontal}`);
+      if (wrapText !== true) throw new Error("expected wrapText to be set");
+      console.log("cand3 OK");
+    }
+
+    main();
+  code_sha256: 4aafab4c4b1d49c4f4ccdad12b4929ea9af18e3efe1323f02e935a46c743923c
+- title: Add, rename and remove worksheets, then read the final names back after a reload
+  description: Renames the default worksheet, adds two more, removes one by index, saves the workbook to a temporary file, reloads it and reads the surviving worksheet names and count back from the reloaded workbook.
+  symbols:
+  - Workbook
+  - Workbook.save
+  - Workbook.load
+  - Worksheet.putValue
+  - Worksheet.name
+  - WorksheetCollection.addWorksheet
+  - WorksheetCollection.removeWorksheet
+  - WorksheetCollection.get
+  - WorksheetCollection.worksheets
+  - WorksheetCollection.length
+  code: |
+    // Authored example: add, rename and remove worksheets, then read the final worksheet names back after a reload.
+    import { Workbook } from "./aspose_cells";
+
+    async function main() {
+      const workbook = new Workbook();
+      workbook.worksheets.get(0)!.name = "Summary";
+
+      const data = workbook.worksheets.addWorksheet("Data");
+      data.putValue("A1", "Row count");
+      data.putValue("B1", 3);
+
+      workbook.worksheets.addWorksheet("Scratch");
+      const removed = workbook.worksheets.removeWorksheet(2);
+
+      const path = "outputfiles/cand4.xlsx";
+      await workbook.save(path);
+
+      const loaded = await Workbook.load(path);
+      const names = loaded.worksheets.worksheets.map((sheet) => sheet.name);
+      console.log("removed:", removed, "worksheets:", names, "count:", loaded.worksheets.length);
+
+      if (!removed) throw new Error("expected removeWorksheet to report success");
+      if (loaded.worksheets.length !== 2) throw new Error(`expected 2 worksheets, got ${loaded.worksheets.length}`);
+      if (names[0] !== "Summary" || names[1] !== "Data") {
+        throw new Error(`expected [Summary, Data], got ${names.join(",")}`);
+      }
+      console.log("cand4 OK");
+    }
+
+    main();
+  code_sha256: f75b854b9faaba81a2e7e711380f26b1e2be8cd7375c97b740377feb2a9af8fb
+- title: Export a workbook's data as JSON and Markdown text
+  description: Fills a small table of names and ages, calls Workbook.toJson and Workbook.toMarkdown to export the data as text without touching the disk, and checks the parsed JSON cells and the rendered Markdown table.
+  symbols:
+  - Workbook
+  - Worksheet.putValue
+  - Workbook.toJson
+  - Workbook.toMarkdown
+  code: |
+    // Authored example: export a workbook's data as JSON and Markdown text without touching the disk.
+    import { Workbook } from "./aspose_cells";
+
+    function main() {
+      const workbook = new Workbook();
+      const worksheet = workbook.worksheets.get(0)!;
+
+      worksheet.putValue("A1", "Name");
+      worksheet.putValue("B1", "Age");
+      worksheet.putValue("A2", "Alice");
+      worksheet.putValue("B2", 25);
+      worksheet.putValue("A3", "Bob");
+      worksheet.putValue("B3", 30);
+
+      const json = workbook.toJson();
+      const markdown = workbook.toMarkdown();
+
+      console.log("json:", json);
+      console.log("markdown:\n", markdown);
+
+      const parsed = JSON.parse(json);
+      if (parsed[0].sheetName !== "Sheet1") throw new Error(`unexpected JSON export: ${json}`);
+      if (parsed[0].cells.A2 !== "Alice" || parsed[0].cells.B2 !== 25) {
+        throw new Error(`unexpected JSON export cells: ${json}`);
+      }
+      if (!markdown.includes("Alice") || !markdown.includes("|")) {
+        throw new Error(`unexpected Markdown export: ${markdown}`);
+      }
+      console.log("cand5 OK");
+    }
+
+    main();
+  code_sha256: fb58e426d83b55905cdbd8f998db059eab12bb9f3c3e8f849ef2445ca0fb91fa
