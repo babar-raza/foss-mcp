@@ -107,3 +107,83 @@ examples:
         return 0;
     }
   code_sha256: 0ef730539669f5498fdfd65e0d915ee411c9e604927f1e80aa893f0fa6524b3a
+- title: Merge a Cell Range and Set a Row Height and Column Width
+  description: Merges three cells into one header cell, then sets an explicit height on the first row and an explicit width on the first column, printing both values back and saving the workbook.
+  symbols:
+  - Cells
+  - Cells.Merge
+  - Row
+  - Row.SetHeight
+  - Column
+  - Column.SetWidth
+  code: |
+    // Authored example: merge a cell range and set a custom row height and column width.
+    #include "aspose/cells_foss/Workbook.h"
+    #include "aspose/cells_foss/WorksheetCollection.h"
+    #include "aspose/cells_foss/Worksheet.h"
+    #include "aspose/cells_foss/Cells.h"
+    #include "aspose/cells_foss/Cell.h"
+    #include "aspose/cells_foss/Row.h"
+    #include "aspose/cells_foss/Column.h"
+
+    #include <iostream>
+
+    using namespace Aspose::Cells_FOSS;
+
+    int main() {
+        Workbook workbook;
+        Worksheet& sheet = workbook.GetWorksheets()[0];
+        Cells& cells = sheet.GetCells();
+        cells["A1"].PutValue("Merged Title");
+        cells.Merge(0, 0, 1, 3);
+
+        Row row = cells.GetRows()[0];
+        row.SetHeight(30.0);
+
+        Column column = cells.GetColumns()[0];
+        column.SetWidth(20.0);
+
+        std::cout << row.GetHeight().value() << " " << column.GetWidth().value() << std::endl;
+
+        workbook.Save("authored_merge_and_size.xlsx");
+        return 0;
+    }
+  code_sha256: a6cdbe1a31c8689c96c7bdbf977bc15c881b6a864fbed977c7807853524cfa99
+- title: Add a Hyperlink to a Worksheet and Read It Back
+  description: Adds a hyperlink anchored at a cell, sets its display text, then reads the hyperlink count, address and display text back and saves the workbook.
+  symbols:
+  - Worksheet.GetHyperlinks
+  - HyperlinkCollection.Add
+  - HyperlinkCollection.GetCount
+  - Hyperlink.SetTextToDisplay
+  - Hyperlink.GetAddress
+  code: |
+    // Authored example: add a hyperlink to a worksheet and read its address back.
+    #include "aspose/cells_foss/Workbook.h"
+    #include "aspose/cells_foss/WorksheetCollection.h"
+    #include "aspose/cells_foss/Worksheet.h"
+    #include "aspose/cells_foss/Cells.h"
+    #include "aspose/cells_foss/Cell.h"
+    #include "aspose/cells_foss/HyperlinkCollection.h"
+    #include "aspose/cells_foss/Hyperlink.h"
+
+    #include <iostream>
+
+    using namespace Aspose::Cells_FOSS;
+
+    int main() {
+        Workbook workbook;
+        Worksheet& sheet = workbook.GetWorksheets()[0];
+        sheet.GetCells()["A1"].PutValue("Project homepage");
+
+        HyperlinkCollection& hyperlinks = sheet.GetHyperlinks();
+        int index = hyperlinks.Add("A1", 1, 1, "https://example.com/");
+
+        Hyperlink link = hyperlinks[index];
+        link.SetTextToDisplay("Project homepage");
+        std::cout << hyperlinks.GetCount() << " " << link.GetAddress() << " " << link.GetTextToDisplay() << std::endl;
+
+        workbook.Save("authored_hyperlink.xlsx");
+        return 0;
+    }
+  code_sha256: 116cac644e7158cd96fbe281c14ece8e03103e9bafcf75b2f32e9bb6db45df57

@@ -1,9 +1,13 @@
-"""Offline checks of the cells/cpp authored-example sidecar (TC-462, REQ-G3-007).
+"""Offline checks of the cells/cpp authored-example sidecar (TC-462, REQ-G3-007; extended by TC-744).
 
-``tests/fixtures/furnished/cells_cpp/authored_examples.yaml`` holds exactly three minimal, labelled
-examples written against the real public API of the pinned library commit. This file proves they
-are well-formed, labelled, tied to the chart's pinned commit and use only symbols and headers that
-really exist. Whether they compile or run is decided later by the ingestion verifier, never here.
+``tests/fixtures/furnished/cells_cpp/authored_examples.yaml`` holds five minimal, labelled examples
+written against the real public API of the pinned library commit: three from TC-462/TC-534/TC-550
+(writing values, bold/number-format styling, a save-and-reload round trip) plus two added by TC-744
+(merging a cell range with an explicit row height and column width, adding and reading back a
+worksheet hyperlink), each individually built and linked by TC-744's author against the real pinned
+library before being committed here. This file proves they are well-formed, labelled, tied to the
+chart's pinned commit and use only symbols and headers that really exist. Whether they compile or run
+is decided later by the ingestion verifier, never here.
 
 Nothing here reaches a network or a loopback server. The rules and constants come from
 ``foss_mcp.indexing.authored_examples`` and are imported, never retyped.
@@ -43,7 +47,7 @@ PINNED_ROOT = FIXTURES / "cells_cpp_pinned_source" / "Aspose.Cells.Foss.Cpp"
 INCLUDE_ROOT = PINNED_ROOT / "include"
 WORKSHEET_COLLECTION_HEADER = INCLUDE_ROOT / "aspose" / "cells_foss" / "WorksheetCollection.h"
 
-EXPECTED_EXAMPLES = 3
+EXPECTED_EXAMPLES = 5
 _INCLUDE_RE = re.compile(r'^\s*#\s*include\s*([<"])([^>"]+)[>"]', re.MULTILINE)
 _INTEGER_INDEX_OPERATOR_RE = re.compile(r"operator\s*\[\s*\]\s*\(\s*int\b")
 
@@ -88,7 +92,7 @@ def _readme_titles() -> set[str]:
 EXAMPLE_INDEXES = list(range(EXPECTED_EXAMPLES))
 
 
-def test_the_sidecar_loads_as_three_authored_candidates() -> None:
+def test_the_sidecar_loads_as_five_authored_candidates() -> None:
     candidates = _load()
     assert len(candidates) == EXPECTED_EXAMPLES
     assert {candidate.provenance for candidate in candidates} == {"authored"}
