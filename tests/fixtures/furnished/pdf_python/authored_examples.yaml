@@ -1,0 +1,241 @@
+schema_version: 1
+pilot: pdf_python
+library_repository: aspose-pdf-foss/Aspose-PDF-FOSS-for-Python
+library_commit: c391ee72ca153070e5ba0c62d42484861070debc
+language: python
+examples:
+- title: Draw an Invoice Table on a Page and Verify Its Text Order on Reload
+  description: Adapted from the upstream tests/test_tables.py suite. Builds a three-column invoice table with a header row and two data rows, draws it on a page with Page.add_table, saves the document and reopens it, then confirms the extracted text keeps the header-before-data reading order and both prices survived the round trip.
+  symbols:
+  - Document
+  - Document.save
+  - Document.pages
+  - Page.add_table
+  - Table
+  - Table.add_header_row
+  - Table.add_row
+  - Page.extract_text
+  code: |
+    # Authored example: draw an invoice table on a page, save/reload, confirm text order and totals
+    import os
+    import tempfile
+
+    from aspose_pdf import Document, PageSize, Table
+
+    with Document() as document:
+        page = document.pages.add(PageSize.A4)
+
+        table = Table(column_widths=[220, 70, 90], padding=5)
+        table.add_header_row(["Item", "Qty", "Price"])
+        table.add_row(["Widget", "2", "9.99"])
+        table.add_row(["Grommet", "14", "0.40"])
+
+        placement = page.add_table(table, 60, 760)
+        print("pages:", placement["pages"], "rows:", placement["rows"], "bottom:", placement["bottom"])
+        assert placement["pages"] == [0]
+        assert placement["rows"] == 3
+        assert placement["bottom"] < 760
+
+        path = os.path.join(tempfile.gettempdir(), "authored_table_example.pdf")
+        document.save(path)
+
+    with Document(path) as reloaded:
+        text = reloaded.pages[0].extract_text()
+        print("extracted text snippet:", text[:80].replace("\n", " "))
+        assert text.index("Item") < text.index("Widget") < text.index("Grommet")
+        assert "9.99" in text and "0.40" in text
+
+    os.remove(path)
+    print("OK")
+  code_sha256: 83ab5c240c2fde72043f38ae93299a0ca91b26d5ccc7769f33791ce557b179a2
+- title: Merge Three Documents and Confirm Their Pages Arrive in Order
+  description: Adapted from the upstream tests/test_merge.py suite. Builds three single-page documents, each labelled with its own text, merges the second and third into the first with Document.merge, saves and reopens the result, then confirms the page count and the extracted text of every page landed in the order the documents were merged.
+  symbols:
+  - Document
+  - Document.pages
+  - Page.add_text
+  - Document.merge
+  - Document.save
+  - Document.page_count
+  - Page.extract_text
+  code: |
+    # Authored example: merge three documents into one and confirm their pages arrive in order
+    import os
+    import tempfile
+
+    from aspose_pdf import Document
+
+    doc_a = Document()
+    doc_a.pages.add().add_text("A0", 72, 700, font_size=36)
+
+    doc_b = Document()
+    doc_b.pages.add().add_text("B0", 72, 700, font_size=36)
+
+    doc_c = Document()
+    doc_c.pages.add().add_text("C0", 72, 700, font_size=36)
+
+    doc_a.merge(doc_b, doc_c)
+    print("page_count:", doc_a.page_count)
+    assert doc_a.page_count == 3
+
+    path = os.path.join(tempfile.gettempdir(), "authored_merge_example.pdf")
+    doc_a.save(path)
+    doc_a.close()
+    doc_b.close()
+    doc_c.close()
+
+    with Document(path) as reloaded:
+        labels = [reloaded.pages[index].extract_text().strip() for index in range(reloaded.page_count)]
+        print("labels:", labels)
+        assert labels == ["A0", "B0", "C0"]
+
+    os.remove(path)
+    print("OK")
+  code_sha256: 5d24bb03645f02ca6c1b222ff06bc9295f2279b3ed825c693d3f98ca3be85526
+- title: Create a Text Field and a Checkbox and Edit Their Values Across a Save/Reload Round Trip
+  description: Adapted from the upstream tests/test_form_creation.py suite. Adds a required text field and a checked checkbox to a page with Form.add_text_field and Form.add_checkbox, saves and reopens the document, edits both field values and regenerates their appearances, then confirms a second save/reload round trip keeps the edited values.
+  symbols:
+  - Document
+  - Document.form
+  - Form.add_text_field
+  - Form.add_checkbox
+  - Form.fields
+  - Field.name
+  - Field.value
+  - Form.generate_appearances
+  code: |
+    # Authored example: create a text field and a checkbox, edit their values, and confirm a save/reload round trip
+    import os
+    import tempfile
+
+    from aspose_pdf import Document
+
+    with Document() as document:
+        page = document.pages.add()
+        form = document.form
+        form.add_text_field("person.name", page, (40, 700, 240, 725), value="Alice", required=True)
+        form.add_checkbox("accepted", page, (40, 660, 56, 676), checked=True, on_value="Accepted")
+
+        names = [field.name for field in form.fields]
+        print("field names:", names)
+        assert names == ["person.name", "accepted"]
+
+        path = os.path.join(tempfile.gettempdir(), "authored_form_example.pdf")
+        document.save(path)
+
+    with Document(path) as reloaded:
+        fields = {field.name: field for field in reloaded.form.fields}
+        print("reloaded name value:", fields["person.name"].value, "accepted value:", fields["accepted"].value)
+        assert fields["person.name"].value == "Alice"
+        assert fields["accepted"].value is True
+
+        fields["person.name"].value = "Bob"
+        fields["accepted"].value = False
+        assert reloaded.form.generate_appearances() == 2
+
+        second_path = os.path.join(tempfile.gettempdir(), "authored_form_example_edited.pdf")
+        reloaded.save(second_path)
+
+    with Document(second_path) as edited:
+        edited_fields = {field.name: field for field in edited.form.fields}
+        print("edited name value:", edited_fields["person.name"].value, "accepted value:", edited_fields["accepted"].value)
+        assert edited_fields["person.name"].value == "Bob"
+        assert edited_fields["accepted"].value is False
+
+    os.remove(path)
+    os.remove(second_path)
+    print("OK")
+  code_sha256: efc1a1b5676c5e1457cace123b2349844cb6f3bda18d8cceeeab737f7f0be217
+- title: Build a Bookmark Outline With a Nested Child and Confirm It Survives a Save/Reload Round Trip
+  description: Adapted from the upstream tests/test_document_metadata.py and tests/test_merge.py outline coverage. Builds a bold top-level OutlineItem pointing at page 0 with a nested child OutlineItem pointing at page 1, adds it to Document.outlines, saves and reopens the document, then confirms the title, bold flag, page indexes and the parent/child nesting all survived the round trip.
+  symbols:
+  - Document
+  - Document.outlines
+  - OutlineItem
+  - OutlineItem.add
+  - OutlineItem.children
+  - OutlineItem.is_bold
+  - OutlineItem.page_index
+  code: |
+    # Authored example: build a bookmark outline with a nested child and confirm it survives a save/reload round trip
+    import os
+    import tempfile
+
+    from aspose_pdf import Document
+    from aspose_pdf.outlines import OutlineItem
+
+    with Document() as document:
+        for _ in range(3):
+            document.pages.add()
+
+        chapter = OutlineItem("Chapter 1", 0, is_bold=True)
+        section = OutlineItem("Section 1.1", 1)
+        chapter.add(section)
+        document.outlines.add(chapter)
+
+        top_level = list(document.outlines)
+        print("top level:", [item.title for item in top_level], "bold:", top_level[0].is_bold)
+        assert [item.title for item in top_level] == ["Chapter 1"]
+        assert top_level[0].is_bold is True
+        assert [child.title for child in top_level[0].children] == ["Section 1.1"]
+
+        path = os.path.join(tempfile.gettempdir(), "authored_outline_example.pdf")
+        document.save(path)
+
+    with Document(path) as reloaded:
+        reloaded_top = list(reloaded.outlines)
+        print("reloaded top level:", [item.title for item in reloaded_top])
+        assert [item.title for item in reloaded_top] == ["Chapter 1"]
+        assert reloaded_top[0].page_index == 0
+        assert reloaded_top[0].is_bold is True
+        reloaded_children = list(reloaded_top[0].children)
+        print("reloaded children:", [child.title for child in reloaded_children])
+        assert [child.title for child in reloaded_children] == ["Section 1.1"]
+        assert reloaded_children[0].page_index == 1
+
+    os.remove(path)
+    print("OK")
+  code_sha256: 643d1e5c746955fc7a9fe4f452aa91a9dd1d2abaff7a2decb9e7d177be544dd5
+- title: Set Document Info Metadata and Confirm the File ID Stays Stable Across a Re-save
+  description: Adapted from the upstream tests/test_document_metadata.py suite. Sets Title and Author entries in Document.info, saves the document, then confirms they round trip and that Document.id (the file's /ID) stays the same across a second save of the reloaded document rather than being regenerated.
+  symbols:
+  - Document
+  - Document.info
+  - Document.save
+  - Document.id
+  code: |
+    # Authored example: set document info metadata and confirm the file ID stays stable across a re-save
+    import os
+    import tempfile
+
+    from aspose_pdf import Document, PageSize
+
+    with Document() as document:
+        document.pages.add(PageSize.A4)
+        document.info["Title"] = "Quarterly Report"
+        document.info["Author"] = "Jane Doe"
+
+        path = os.path.join(tempfile.gettempdir(), "authored_metadata_example.pdf")
+        document.save(path)
+
+    with Document(path) as reloaded:
+        print("info:", reloaded.info.get("Title"), reloaded.info.get("Author"))
+        assert reloaded.info.get("Title") == "Quarterly Report"
+        assert reloaded.info.get("Author") == "Jane Doe"
+
+        first_id = reloaded.id
+        print("first id:", first_id)
+        assert first_id is not None
+
+        second_path = os.path.join(tempfile.gettempdir(), "authored_metadata_example_resaved.pdf")
+        reloaded.save(second_path)
+
+    with Document(second_path) as resaved:
+        second_id = resaved.id
+        print("second id:", second_id)
+        assert second_id == first_id
+
+    os.remove(path)
+    os.remove(second_path)
+    print("OK")
+  code_sha256: 006def011bf6fc7e9ca3766c8f52f8aa8511792313645362296836b6015c58dc
