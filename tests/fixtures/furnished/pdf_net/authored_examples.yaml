@@ -1,0 +1,237 @@
+schema_version: 1
+pilot: pdf_net
+library_repository: aspose-pdf-foss/Aspose.PDF-FOSS-for-.NET
+library_commit: b7172877651413cff57a8bfe41fb8a8befb2406b
+language: csharp
+examples:
+- title: "Encrypt a document and reject the wrong password on reopen"
+  description: "Creates a one-page document and encrypts it with Document.Encrypt using Permissions.PrintDocument and Permissions.ModifyContent under CryptoAlgorithm.AESx256, round-trips it through a byte array with Document.ToArray, reopens it with Document.Open and the correct user password, checks PageCount and IsEncrypted, then confirms that reopening the same bytes with the wrong password throws InvalidPasswordException."
+  symbols:
+  - Document.Encrypt
+  - Document.ToArray
+  - Document.Open
+  - Document.PageCount
+  - Document.IsEncrypted
+  - Permissions.PrintDocument
+  - Permissions.ModifyContent
+  - CryptoAlgorithm.AESx256
+  - InvalidPasswordException
+  code: |
+    // Authored example: encrypt a document and reject the wrong password on reopen
+    using Aspose.Pdf;
+
+    using var doc = Document.Create();
+    doc.Pages.Add();
+    doc.Encrypt("user-secret", "owner-secret", Permissions.PrintDocument | Permissions.ModifyContent, CryptoAlgorithm.AESx256);
+    byte[] encrypted = doc.ToArray();
+
+    using var reopened = Document.Open(encrypted, "user-secret");
+    Console.WriteLine("page count: " + reopened.PageCount);
+    Console.WriteLine("is encrypted: " + reopened.IsEncrypted);
+
+    bool wrongPasswordRejected = false;
+    try
+    {
+        Document.Open(encrypted, "wrong-password");
+    }
+    catch (InvalidPasswordException)
+    {
+        wrongPasswordRejected = true;
+    }
+
+    if (reopened.PageCount != 1)
+    {
+        throw new Exception("expected exactly one page");
+    }
+    if (!reopened.IsEncrypted)
+    {
+        throw new Exception("expected the reopened document to report encrypted");
+    }
+    if (!wrongPasswordRejected)
+    {
+        throw new Exception("expected the wrong password to be rejected");
+    }
+  code_sha256: e9b5a24fe07a5cfb069937643d2aa69b266a9419736e13321c845ebebb58f82a
+- title: "Add an AcroForm text box field, fill it, and read the value back"
+  description: "Creates a one-page document, adds a TextBoxField bound to it with a partial name and a value, registers it with Document.Form via Form.Add, round-trips the document through a byte array, looks the field up again with Form.FindByName and checks both the reloaded Form.Fields count and the field's Value."
+  symbols:
+  - TextBoxField
+  - TextBoxField.PartialName
+  - TextBoxField.Value
+  - Form.Add
+  - Form.FindByName
+  - Form.Fields
+  code: |
+    // Authored example: add an AcroForm text box field, fill it, and read the value back
+    using Aspose.Pdf;
+    using Aspose.Pdf.Forms;
+
+    using var doc = Document.Create();
+    doc.Pages.Add();
+
+    var field = new TextBoxField(doc, new Rectangle(100, 700, 300, 720));
+    field.PartialName = "ReviewerEmail";
+    field.Value = "reviewer@example.org";
+    doc.Form!.Add(field);
+
+    byte[] saved = doc.ToArray();
+    using var reloaded = Document.Open(saved);
+
+    var loadedField = (TextBoxField)reloaded.Form!.FindByName("ReviewerEmail")!;
+    Console.WriteLine("field count: " + reloaded.Form!.Fields.Length);
+    Console.WriteLine("value: " + loadedField.Value);
+
+    if (reloaded.Form!.Fields.Length != 1)
+    {
+        throw new Exception("expected exactly one field");
+    }
+    if (loadedField.Value != "reviewer@example.org")
+    {
+        throw new Exception("field value mismatch");
+    }
+  code_sha256: 628edfa1019bde6edbb6fd12ac4262e1afa465400a7a0aaf4d40deeefd27e438
+- title: "Build a nested bookmark outline with OutlineBuilder and read it back"
+  description: "Creates a two-page document and builds a nested bookmark outline with OutlineBuilder: a top-level Chapter 1 item carrying two children added with OutlineItemBuilder.AddChild, and a plain Chapter 2 item, then round-trips the document through a byte array and checks Document.HasOutlines, Document.Outlines.Count and the first chapter's Children, including the first child's Title."
+  symbols:
+  - OutlineBuilder
+  - OutlineBuilder.Add
+  - OutlineItemBuilder.AddChild
+  - Document.HasOutlines
+  - Document.Outlines
+  - OutlineCollection.Items
+  - OutlineItem.Children
+  - OutlineItem.Title
+  code: |
+    // Authored example: build a nested bookmark outline with OutlineBuilder and read it back
+    using Aspose.Pdf;
+
+    using var doc = Document.Create();
+    doc.Pages.Add();
+    doc.Pages.Add();
+
+    var builder = new OutlineBuilder(doc);
+    var chapter = builder.Add("Chapter 1", 0);
+    chapter.AddChild("Section 1.1", 0);
+    chapter.AddChild("Section 1.2", 1);
+    builder.Add("Chapter 2", 1);
+
+    byte[] saved = doc.ToArray();
+    using var reloaded = Document.Open(saved);
+
+    Console.WriteLine("has outlines: " + reloaded.HasOutlines);
+    Console.WriteLine("top-level bookmarks: " + reloaded.Outlines!.Count);
+    Console.WriteLine("chapter 1 children: " + reloaded.Outlines.Items[0].Children.Count);
+
+    if (!reloaded.HasOutlines)
+    {
+        throw new Exception("expected the document to report outlines");
+    }
+    if (reloaded.Outlines!.Count != 2)
+    {
+        throw new Exception("expected exactly two top-level bookmarks");
+    }
+    if (reloaded.Outlines.Items[0].Children.Count != 2)
+    {
+        throw new Exception("expected chapter 1 to have two children");
+    }
+    if (reloaded.Outlines.Items[0].Children[0].Title != "Section 1.1")
+    {
+        throw new Exception("first child title mismatch");
+    }
+  code_sha256: 13dea174c9b204d26793f776ca8c2d890661446486a6dfa3ecc5a6739478ca43
+- title: "Build visible and hidden optional-content layers and read them back"
+  description: "Creates a one-page document and builds two optional-content layers with OptionalContentBuilder.AddLayer, one visible and one hidden, then round-trips the document through a byte array and checks Document.HasLayers, the reloaded OptionalContentProperties.Count and each layer's IsVisible found with OptionalContentProperties.FindByName."
+  symbols:
+  - OptionalContentBuilder
+  - OptionalContentBuilder.AddLayer
+  - OptionalContentBuilder.Build
+  - Document.HasLayers
+  - OptionalContentProperties.Count
+  - OptionalContentProperties.FindByName
+  - OptionalContentGroup.IsVisible
+  code: |
+    // Authored example: build visible and hidden optional-content layers and read them back
+    using Aspose.Pdf;
+
+    using var doc = Document.Create();
+    doc.Pages.Add();
+
+    var builder = new OptionalContentBuilder(doc);
+    builder.AddLayer("Diagram");
+    builder.AddLayer("Draft Notes", visible: false);
+    builder.Build();
+
+    byte[] saved = doc.ToArray();
+    using var reloaded = Document.Open(saved);
+
+    Console.WriteLine("has layers: " + reloaded.HasLayers);
+    Console.WriteLine("layer count: " + reloaded.OptionalContent!.Count);
+    Console.WriteLine("draft notes visible: " + reloaded.OptionalContent.FindByName("Draft Notes")!.IsVisible);
+
+    if (!reloaded.HasLayers)
+    {
+        throw new Exception("expected the document to report layers");
+    }
+    if (reloaded.OptionalContent!.Count != 2)
+    {
+        throw new Exception("expected exactly two layers");
+    }
+    if (!reloaded.OptionalContent.FindByName("Diagram")!.IsVisible)
+    {
+        throw new Exception("expected Diagram to be visible");
+    }
+    if (reloaded.OptionalContent.FindByName("Draft Notes")!.IsVisible)
+    {
+        throw new Exception("expected Draft Notes to be hidden");
+    }
+  code_sha256: ea670892b9a0f35f9a13bb2be6a201f153afa723ee9c4a152788a77568606d9c
+- title: "Embed files with metadata and read them back by name"
+  description: "Creates a one-page document and embeds two files with Document.AddEmbeddedFile - one with a description and MIME type, one with neither - then round-trips the document through a byte array and looks each one up by name from Document.EmbeddedFiles, checking Document.HasEmbeddedFiles, the count, FileSpecification.Description, FileSpecification.MimeType and the raw bytes returned by FileSpecification.GetData."
+  symbols:
+  - Document.AddEmbeddedFile
+  - Document.HasEmbeddedFiles
+  - Document.EmbeddedFiles
+  - FileSpecification.Description
+  - FileSpecification.MimeType
+  - FileSpecification.GetData
+  code: |
+    // Authored example: embed files with metadata and read them back by name
+    using Aspose.Pdf;
+
+    using var doc = Document.Create();
+    doc.Pages.Add();
+
+    doc.AddEmbeddedFile("summary.txt", System.Text.Encoding.UTF8.GetBytes("Quarterly summary attached."),
+        description: "Quarterly summary", mimeType: "text/plain");
+    doc.AddEmbeddedFile("report.bin", new byte[] { 1, 2, 3, 4, 5 });
+
+    byte[] saved = doc.ToArray();
+    using var reloaded = Document.Open(saved);
+
+    var summary = reloaded.EmbeddedFiles!["summary.txt"];
+    var report = reloaded.EmbeddedFiles!["report.bin"];
+
+    Console.WriteLine("has embedded files: " + reloaded.HasEmbeddedFiles);
+    Console.WriteLine("embedded file count: " + reloaded.EmbeddedFiles!.Count);
+    Console.WriteLine("summary description: " + summary?.Description);
+    Console.WriteLine("summary mime type: " + summary?.MimeType);
+    Console.WriteLine("report bytes: " + (report?.GetData()?.Length ?? -1));
+
+    if (reloaded.EmbeddedFiles!.Count != 2)
+    {
+        throw new Exception("expected exactly two embedded files");
+    }
+    if (summary is null || summary.Description != "Quarterly summary")
+    {
+        throw new Exception("summary file description mismatch");
+    }
+    if (summary.MimeType != "text/plain")
+    {
+        throw new Exception("summary file mime type mismatch");
+    }
+    var reportData = report?.GetData();
+    if (reportData is null || reportData.Length != 5)
+    {
+        throw new Exception("report file data mismatch");
+    }
+  code_sha256: 30cc3d5b4a6c179f7392860ba02034ffc026dddb641dfab2292df7520d431241
