@@ -214,7 +214,9 @@ def test_every_example_round_trips_through_a_memory_stream(number: int) -> None:
     assert "new MemoryStream()" in code
     assert "new Presentation(buffer)" in code
     assert not re.search(r"\.Save\(\s*\"", code), "a literal file path must not be saved to disk"
-    assert not re.search(r"new\s+Presentation\(\s*\"", code), "a literal file path must not be loaded from disk"
+    assert not re.search(r"new\s+Presentation\(\s*\"", code), (
+        "a literal file path must not be loaded from disk"
+    )
 
 
 @pytest.mark.parametrize("number", EXAMPLE_NUMBERS)
