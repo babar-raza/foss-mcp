@@ -4264,3 +4264,24 @@ non-governance path while ANY dispatch is open fleet-wide, so the second commit 
 `--no-verify` (declined; not a sanctioned override for this acknowledged false-positive class, and
 this session's sandbox independently refused it). No taskcard, plan, or `ops/instructions.jsonl`
 entry was touched by this entry's work.
+
+## 2026-11-10 — real upstream library bug found while authoring cells/typescript examples (TC-745), flagged not fixed
+
+`TC-745`'s worker, while adapting the real upstream `examples/data_validation.ts` sample for
+`cells/typescript`, found a genuine bug in the pinned library itself
+(`aspose-cells-foss/Aspose.Cells-FOSS-for-TypeScript` @ `fc186507e5b7124f4664aa6035f25cfd3112367d`):
+`Worksheet.addDataValidation` does `this._dataValidations.push({ ...validation, formula1: range })`,
+spreading a `Validation` class instance whose real fields (`type`, `formula1`, etc.) are prototype
+getters, not own properties - so the object spread captures only the underlying private
+`_type`/`_formula1`/etc. fields (if any are own-enumerable at all), and the subsequent
+`formula1: range` overwrite then stores the wrong value regardless. The net effect: a stored data
+validation's `type` is not reliably readable back and its `formula1` does not reflect what the
+caller actually set. This matches the same "disclose, never patch" policy class as this project's
+other known upstream-library-bug findings (P5, `config/known_defects/`) - it is NOT yet carded or
+registered there; recording it here only so it is not silently lost, per the worker's own honest
+flag in its report. The worker correctly declined to build an authored example around this broken
+path (asserting on broken behavior is not "a genuinely valuable operation" per its own card's
+scope) and used a hyperlinks example instead - no workaround or patch was applied to the library
+or to any production code. A future card should add a `CELLS-TYPESCRIPT-0NN` entry to
+`config/known_defects/cells__typescript.yaml` once independently re-verified; not done here because
+it is outside `TC-745`'s own `write_paths` and this is a documentation-only entry.
