@@ -1,0 +1,245 @@
+schema_version: 1
+pilot: slides_python
+library_repository: aspose-slides-foss/Aspose.Slides-FOSS-for-Python
+library_commit: 4e63447ba79d1c27a5192844847d9f872c5b92ad
+language: python
+examples:
+- title: Create a Table, Merge Cells and Verify Round-Trip Persistence
+  description: Adapted from the upstream tests/test_table.py suite. Creates a table, sets cell text, merges two header cells, turns on the first-row and horizontal-banding style flags, saves the presentation and reopens it, then confirms the cell text, merge and style flags all survived the round trip.
+  symbols:
+  - Presentation
+  - Presentation.save
+  - ShapeCollection.add_table
+  - Table.merge_cells
+  - Cell.is_merged_cell
+  - Cell.col_span
+  code: |
+    # Authored example: create a table, merge two cells and confirm cell text, merge and style survive a save/reload round trip.
+    import os
+    import tempfile
+
+    from aspose.slides_foss import Presentation
+    from aspose.slides_foss.export import SaveFormat
+
+    with Presentation() as prs:
+        slide = prs.slides[0]
+        slide.shapes.clear()
+
+        table = slide.shapes.add_table(50, 50, [150, 150, 150], [40, 40])
+        table.rows[0][0].text_frame.text = "Region"
+        table.rows[0][1].text_frame.text = "Q1"
+        table.rows[0][2].text_frame.text = "Q2"
+        table.rows[1][0].text_frame.text = "North"
+
+        table.merge_cells(table.rows[0][1], table.rows[0][2], False)
+        print("merged:", table.rows[0][1].is_merged_cell, "col_span:", table.rows[0][1].col_span)
+        assert table.rows[0][1].is_merged_cell is True
+        assert table.rows[0][1].col_span == 2
+
+        table.first_row = True
+        table.horizontal_banding = True
+
+        path = os.path.join(tempfile.gettempdir(), "authored_table_example.pptx")
+        prs.save(path, SaveFormat.PPTX)
+
+    with Presentation(path) as reloaded:
+        reloaded_table = reloaded.slides[0].shapes[0]
+        print("reloaded cell text:", reloaded_table.rows[0][0].text_frame.text)
+        assert reloaded_table.rows[0][0].text_frame.text == "Region"
+        assert reloaded_table.rows[0][1].is_merged_cell is True
+        assert reloaded_table.first_row is True
+        assert reloaded_table.horizontal_banding is True
+
+    os.remove(path)
+    print("OK")
+  code_sha256: 1a1e3793f2ac3a8df6f23125790ae01f20c0a2c991a453855e4055f901c09804
+- title: Add Comments From Two Authors and Filter a Slide's Comments by Author
+  description: Adapted from the upstream tests/test_comments.py suite. Adds two comment authors to a presentation, adds a comment from each on the first slide, uses Slide.get_slide_comments to filter down to one author's own comment, saves and reopens the presentation, then confirms both authors and their comments survived the round trip.
+  symbols:
+  - CommentAuthorCollection.add_author
+  - CommentCollection.add_comment
+  - Slide.get_slide_comments
+  - Comment.text
+  - CommentAuthor.comments
+  code: |
+    # Authored example: add two comment authors, add a comment from each, filter a slide's comments by author, then confirm the comment and authors survive a save/reload round trip.
+    import datetime
+    import os
+    import tempfile
+
+    from aspose.slides_foss import Presentation
+    from aspose.slides_foss.drawing import PointF
+    from aspose.slides_foss.export import SaveFormat
+
+    with Presentation() as prs:
+        slide = prs.slides[0]
+        alice = prs.comment_authors.add_author("Alice", "A")
+        bob = prs.comment_authors.add_author("Bob", "B")
+        when = datetime.datetime(2026, 1, 15, 12, 0, 0)
+        alice.comments.add_comment("Looks good", slide, PointF(1.0, 1.0), when)
+        bob.comments.add_comment("Needs a title", slide, PointF(2.0, 2.0), when)
+
+        bob_comments = slide.get_slide_comments(bob)
+        print("bob's comments:", [c.text for c in bob_comments])
+        assert len(bob_comments) == 1
+        assert bob_comments[0].text == "Needs a title"
+        assert len(prs.comment_authors) == 2
+
+        path = os.path.join(tempfile.gettempdir(), "authored_comments_example.pptx")
+        prs.save(path, SaveFormat.PPTX)
+
+    with Presentation(path) as reloaded:
+        print("reloaded authors:", len(reloaded.comment_authors))
+        assert len(reloaded.comment_authors) == 2
+        reloaded_alice = next(a for a in reloaded.comment_authors if a.name == "Alice")
+        print("reloaded alice comments:", [c.text for c in reloaded_alice.comments])
+        assert len(reloaded_alice.comments) == 1
+        assert reloaded_alice.comments[0].text == "Looks good"
+
+    os.remove(path)
+    print("OK")
+  code_sha256: bc41d42d3a6635a6a26487d9bca62d96f2e553c902e2d73642ae3719746ac0db
+- title: Set Core and Custom Document Properties and Remove One
+  description: Adapted from the upstream tests/test_document_properties.py suite. Sets core document properties and three custom properties, removes one custom property and checks the count and presence of the rest, saves and reopens the presentation, then confirms the core properties and the surviving custom properties round-tripped.
+  symbols:
+  - DocumentProperties.title
+  - DocumentProperties.set_custom_property_value
+  - DocumentProperties.count_of_custom_properties
+  - DocumentProperties.remove_custom_property
+  - DocumentProperties.contains_custom_property
+  - DocumentProperties.get_custom_property_value
+  code: |
+    # Authored example: set core and custom document properties, remove one custom property, then confirm the rest survive a save/reload round trip.
+    import os
+    import tempfile
+
+    from aspose.slides_foss import Presentation
+    from aspose.slides_foss.export import SaveFormat
+
+    with Presentation() as prs:
+        props = prs.document_properties
+        props.title = "Quarterly Review"
+        props.author = "Jane Doe"
+        props.category = "Finance"
+        props.set_custom_property_value("Reviewed", True)
+        props.set_custom_property_value("Revision", 3)
+        props.set_custom_property_value("Draft", "no")
+
+        print("custom property count before remove:", props.count_of_custom_properties)
+        assert props.count_of_custom_properties == 3
+        props.remove_custom_property("Draft")
+        print("custom property count after remove:", props.count_of_custom_properties)
+        assert props.count_of_custom_properties == 2
+        assert props.contains_custom_property("Draft") is False
+        assert props.contains_custom_property("Revision") is True
+
+        path = os.path.join(tempfile.gettempdir(), "authored_document_properties_example.pptx")
+        prs.save(path, SaveFormat.PPTX)
+
+    with Presentation(path) as reloaded:
+        reloaded_props = reloaded.document_properties
+        print("reloaded title:", reloaded_props.title, "author:", reloaded_props.author)
+        assert reloaded_props.title == "Quarterly Review"
+        assert reloaded_props.author == "Jane Doe"
+        assert reloaded_props.category == "Finance"
+        assert reloaded_props.count_of_custom_properties == 2
+
+        revision_out = [None]
+        reloaded_props.get_custom_property_value("Revision", revision_out)
+        print("reloaded revision:", revision_out[0])
+        assert revision_out[0] == 3
+
+    os.remove(path)
+    print("OK")
+  code_sha256: 6448dbd7c3f5d7a833b5d2689e942e6837795b751aafa9553b399f32966e371f
+- title: Group Two Auto Shapes and Lock the Group Against Ungrouping
+  description: Adapted from the upstream tests/test_group_shape.py suite. Groups two auto shapes added inside a group shape, sets the group's name and locks it against ungrouping, saves and reopens the presentation, then confirms the group, its two children and the lock flag all survived the round trip.
+  symbols:
+  - ShapeCollection.add_group_shape
+  - ShapeCollection.add_auto_shape
+  - GroupShape.name
+  - GroupShapeLock.ungrouping_locked
+  - GroupShapeLock.no_locks
+  code: |
+    # Authored example: group two auto shapes, lock the group against ungrouping, and confirm the group, its children and the lock survive a save/reload round trip.
+    import os
+    import tempfile
+
+    from aspose.slides_foss import GroupShape, Presentation, ShapeType
+    from aspose.slides_foss.export import SaveFormat
+
+    with Presentation() as prs:
+        slide = prs.slides[0]
+        slide.shapes.clear()
+
+        group = slide.shapes.add_group_shape()
+        group.name = "LogoGroup"
+        group.shapes.add_auto_shape(ShapeType.RECTANGLE, 100, 100, 200, 100)
+        group.shapes.add_auto_shape(ShapeType.ELLIPSE, 350, 100, 150, 150)
+        group.group_shape_lock.ungrouping_locked = True
+
+        print("children:", len(group.shapes), "locked:", group.group_shape_lock.ungrouping_locked)
+        assert len(group.shapes) == 2
+        assert group.group_shape_lock.ungrouping_locked is True
+        assert group.group_shape_lock.no_locks is False
+
+        path = os.path.join(tempfile.gettempdir(), "authored_group_shape_example.pptx")
+        prs.save(path, SaveFormat.PPTX)
+
+    with Presentation(path) as reloaded:
+        reloaded_shape = reloaded.slides[0].shapes[0]
+        print("reloaded is GroupShape:", isinstance(reloaded_shape, GroupShape), "name:", reloaded_shape.name)
+        assert isinstance(reloaded_shape, GroupShape)
+        assert reloaded_shape.name == "LogoGroup"
+        assert len(reloaded_shape.shapes) == 2
+        assert reloaded_shape.group_shape_lock.ungrouping_locked is True
+
+    os.remove(path)
+    print("OK")
+  code_sha256: 760b087e22e8f34b92ceef2983c8057a161d60b3ca4c07253d6ba4181e9bfffa
+- title: Apply a Circle Slide Transition With a Timed Automatic Advance
+  description: Adapted from the upstream tests/test_transitions.py suite. Applies a circle slide transition that advances automatically after a timed delay instead of on click, saves and reopens the presentation, then confirms the transition type, click-advance flag and timed-advance duration all survived the round trip.
+  symbols:
+  - Slide.slide_show_transition
+  - SlideShowTransition.type
+  - SlideShowTransition.advance_on_click
+  - SlideShowTransition.advance_after_time
+  - SlideShowTransition.advance_after
+  code: |
+    # Authored example: apply a circle slide transition that advances automatically after a timed delay, then confirm the transition type and timing survive a save/reload round trip.
+    import os
+    import tempfile
+
+    from aspose.slides_foss import Presentation
+    from aspose.slides_foss.export import SaveFormat
+    from aspose.slides_foss.slideshow import TransitionType
+
+    with Presentation() as prs:
+        transition = prs.slides[0].slide_show_transition
+        transition.type = TransitionType.CIRCLE
+        transition.advance_on_click = False
+        transition.advance_after_time = 4000
+
+        print("type:", transition.type, "advance_on_click:", transition.advance_on_click)
+        assert transition.type == TransitionType.CIRCLE
+        assert transition.advance_on_click is False
+        assert transition.advance_after_time == 4000
+        assert transition.advance_after is True
+
+        path = os.path.join(tempfile.gettempdir(), "authored_transition_example.pptx")
+        prs.save(path, SaveFormat.PPTX)
+
+    with Presentation(path) as reloaded:
+        reloaded_transition = reloaded.slides[0].slide_show_transition
+        print(
+            "reloaded type:", reloaded_transition.type,
+            "advance_after_time:", reloaded_transition.advance_after_time,
+        )
+        assert reloaded_transition.type == TransitionType.CIRCLE
+        assert reloaded_transition.advance_on_click is False
+        assert reloaded_transition.advance_after_time == 4000
+        assert reloaded_transition.advance_after is True
+
+    os.remove(path)
+    print("OK")
+  code_sha256: 10987d1fe095b65be6fffb57c665da59ef2d264dc5e614b1deed103af01f3fc9
