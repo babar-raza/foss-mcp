@@ -1,0 +1,385 @@
+schema_version: 1
+pilot: cells_go
+library_repository: aspose-cells-foss/Aspose.Cells-FOSS-for-Go
+library_commit: fa4e890e46c509efd22d09b97411202c2b0b8a67
+language: go
+examples:
+- title: Encrypt a workbook with a password and reopen it
+  description: >-
+    Sets a password with Workbook.SetPassword and saves the workbook, checks that Load fails on
+    the encrypted file and that LoadWithPassword fails with the wrong password, then reopens it
+    with the correct password and checks VerifyPassword for both the right and the wrong password.
+  symbols:
+  - Workbook.SetPassword
+  - Workbook.Save
+  - Load
+  - LoadWithPassword
+  - Workbook.VerifyPassword
+  code: |
+    // Authored example: encrypt a workbook with SetPassword, then reopen it with LoadWithPassword and verify the password.
+    package main
+
+    import (
+    	"fmt"
+    	"log"
+    	"os"
+    	"path/filepath"
+
+    	cells_foss "github.com/aspose-cells-foss/Aspose.Cells-FOSS-for-Go/v26/aspose/cells_foss"
+    )
+
+    func main() {
+    	wb := cells_foss.NewWorkbook()
+    	ws := wb.Worksheets[0]
+    	if err := ws.Cells().Set("A1", "Confidential Report"); err != nil {
+    		log.Fatalf("set cell: %v", err)
+    	}
+
+    	if err := wb.SetPassword("s3cr3t"); err != nil {
+    		log.Fatalf("set password: %v", err)
+    	}
+
+    	outPath := filepath.Join(os.TempDir(), "authored_password_example.xlsx")
+    	if err := wb.Save(outPath); err != nil {
+    		log.Fatalf("save: %v", err)
+    	}
+    	defer os.Remove(outPath)
+
+    	if _, err := cells_foss.Load(outPath); err == nil {
+    		log.Fatalf("expected Load to fail on an encrypted workbook without a password")
+    	}
+
+    	if _, err := cells_foss.LoadWithPassword(outPath, "wrong-password"); err == nil {
+    		log.Fatalf("expected LoadWithPassword to fail with the wrong password")
+    	}
+
+    	loaded, err := cells_foss.LoadWithPassword(outPath, "s3cr3t")
+    	if err != nil {
+    		log.Fatalf("load with password: %v", err)
+    	}
+
+    	cell, err := loaded.Worksheets[0].Cells().Get("A1")
+    	if err != nil {
+    		log.Fatalf("get A1: %v", err)
+    	}
+
+    	fmt.Printf("value=%q verified=%v wrong-verified=%v\n",
+    		cell.Value, loaded.VerifyPassword("s3cr3t"), loaded.VerifyPassword("wrong-password"))
+
+    	if cell.Value != "Confidential Report" {
+    		log.Fatalf("expected %q, got %q", "Confidential Report", cell.Value)
+    	}
+    	if !loaded.VerifyPassword("s3cr3t") {
+    		log.Fatalf("expected VerifyPassword to report true for the correct password")
+    	}
+    	if loaded.VerifyPassword("wrong-password") {
+    		log.Fatalf("expected VerifyPassword to report false for the wrong password")
+    	}
+    }
+  code_sha256: b05dc82a2eb2d07ca0ce9fb925b07931b820ca5ea602156805aa5900b8ff1319
+- title: Round-trip a cell's font, fill and border style through save and reload
+  description: >-
+    Applies a Style with a bold red font, a yellow solid Fill and a top/bottom Border to a cell
+    with Cell.SetStyle, saves the workbook, reloads it, reads the same cell's style back with
+    Cell.GetStyle and checks that every property survived the round trip.
+  symbols:
+  - Cell.SetStyle
+  - Cell.GetStyle
+  - NewStyle
+  - Fill
+  - Border
+  - FillTypeSolid
+  - Load
+  code: |
+    // Authored example: round-trip a cell's font, fill and border style through a save and reload.
+    package main
+
+    import (
+    	"fmt"
+    	"log"
+    	"os"
+    	"path/filepath"
+
+    	cells_foss "github.com/aspose-cells-foss/Aspose.Cells-FOSS-for-Go/v26/aspose/cells_foss"
+    )
+
+    func main() {
+    	wb := cells_foss.NewWorkbook()
+    	ws := wb.Worksheets[0]
+    	if err := ws.Cells().Set("A1", "Total"); err != nil {
+    		log.Fatalf("set cell: %v", err)
+    	}
+    	cell, err := ws.Cells().Get("A1")
+    	if err != nil {
+    		log.Fatalf("get cell: %v", err)
+    	}
+
+    	style := cells_foss.NewStyle()
+    	style.Font.Bold = true
+    	style.Font.Color = "FFFF0000"
+    	style.Fill = &cells_foss.Fill{Type: cells_foss.FillTypeSolid, Color: "FFFFFF00"}
+    	style.Border = &cells_foss.Border{Top: true, Bottom: true}
+
+    	if err := cell.SetStyle(style); err != nil {
+    		log.Fatalf("set style: %v", err)
+    	}
+
+    	outPath := filepath.Join(os.TempDir(), "authored_style_roundtrip_example.xlsx")
+    	if err := wb.Save(outPath); err != nil {
+    		log.Fatalf("save: %v", err)
+    	}
+    	defer os.Remove(outPath)
+
+    	loaded, err := cells_foss.Load(outPath)
+    	if err != nil {
+    		log.Fatalf("load: %v", err)
+    	}
+
+    	reloadedCell, err := loaded.Worksheets[0].Cells().Get("A1")
+    	if err != nil {
+    		log.Fatalf("get reloaded cell: %v", err)
+    	}
+    	reloadedStyle := reloadedCell.GetStyle()
+    	if reloadedStyle == nil {
+    		log.Fatalf("expected GetStyle to resolve a style after reload")
+    	}
+
+    	fmt.Printf("bold=%v color=%q fill=%q top-border=%v\n",
+    		reloadedStyle.Font.Bold, reloadedStyle.Font.Color, reloadedStyle.Fill.Color, reloadedStyle.Border.Top)
+
+    	if !reloadedStyle.Font.Bold {
+    		log.Fatalf("expected the reloaded font to be bold")
+    	}
+    	if reloadedStyle.Font.Color != "FFFF0000" {
+    		log.Fatalf("expected font color %q, got %q", "FFFF0000", reloadedStyle.Font.Color)
+    	}
+    	if reloadedStyle.Fill == nil || reloadedStyle.Fill.Color != "FFFFFF00" {
+    		log.Fatalf("expected fill color %q, got %+v", "FFFFFF00", reloadedStyle.Fill)
+    	}
+    	if reloadedStyle.Border == nil || !reloadedStyle.Border.Top {
+    		log.Fatalf("expected the reloaded border to keep its top edge, got %+v", reloadedStyle.Border)
+    	}
+    }
+  code_sha256: 5b2e3d736fa4689562a135fcd3fe47b0ffed45a1445bf64c0790f602d42b2379
+- title: Build a structured table and look it up again with GetTable
+  description: >-
+    Adds a structured Table with Worksheet.AddTable, saves and reloads the workbook, then finds
+    the same table again by name with Worksheet.GetTable and checks its Range and HasHeaderRow
+    survived the round trip, and that looking up a name that does not exist returns nil.
+  symbols:
+  - Worksheet.AddTable
+  - Worksheet.GetTable
+  - Table
+  - Load
+  - Workbook.Save
+  code: |
+    // Authored example: build a structured table, save and reload the workbook, then look it up again with GetTable.
+    package main
+
+    import (
+    	"fmt"
+    	"log"
+    	"os"
+    	"path/filepath"
+
+    	cells_foss "github.com/aspose-cells-foss/Aspose.Cells-FOSS-for-Go/v26/aspose/cells_foss"
+    )
+
+    func main() {
+    	wb := cells_foss.NewWorkbook()
+    	ws := wb.Worksheets[0]
+
+    	headers := []string{"Product", "Units", "Revenue"}
+    	for i, h := range headers {
+    		ref := string(rune('A'+i)) + "1"
+    		if err := ws.Cells().Set(ref, h); err != nil {
+    			log.Fatalf("set header: %v", err)
+    		}
+    	}
+    	ws.Cells().Set("A2", "Widget")
+    	ws.Cells().Set("B2", 10)
+    	ws.Cells().Set("A3", "Gizmo")
+    	ws.Cells().Set("B3", 7)
+
+    	var tbl *cells_foss.Table = ws.AddTable("A1:C3")
+    	tbl.HasHeaderRow = true
+    	tbl.StyleName = "TableStyleMedium2"
+
+    	outPath := filepath.Join(os.TempDir(), "authored_table_lookup_example.xlsx")
+    	if err := wb.Save(outPath); err != nil {
+    		log.Fatalf("save: %v", err)
+    	}
+    	defer os.Remove(outPath)
+
+    	loaded, err := cells_foss.Load(outPath)
+    	if err != nil {
+    		log.Fatalf("load: %v", err)
+    	}
+    	loadedWs := loaded.Worksheets[0]
+
+    	found := loadedWs.GetTable(tbl.Name)
+    	if found == nil {
+    		log.Fatalf("expected GetTable to find %q after reload", tbl.Name)
+    	}
+    	missing := loadedWs.GetTable("NotATable")
+
+    	fmt.Printf("table=%q range=%q header=%v style-non-empty=%v missing-lookup-nil=%v\n",
+    		found.Name, found.Range, found.HasHeaderRow, found.StyleName != "", missing == nil)
+
+    	if found.Range != "A1:C3" {
+    		log.Fatalf("expected range %q, got %q", "A1:C3", found.Range)
+    	}
+    	if !found.HasHeaderRow {
+    		log.Fatalf("expected HasHeaderRow true after reload")
+    	}
+    	if found.StyleName == "" {
+    		log.Fatalf("expected a non-empty StyleName after reload")
+    	}
+    	if missing != nil {
+    		log.Fatalf("expected GetTable to return nil for a missing table name")
+    	}
+    }
+  code_sha256: 9782fd3500b76c1e6e1b93ec570828aa324d18b03270714a8a0f2d57ed7e6a74
+- title: Add and remove data validation rules on a worksheet
+  description: >-
+    Adds a list-type and a whole-number data-validation rule to a worksheet with
+    Worksheet.AddDataValidation, removes the first rule by its range reference with
+    Worksheet.RemoveDataValidation, checks the rule count and the remaining rule's type, then
+    checks that removing the same (already removed) reference again fails.
+  symbols:
+  - Worksheet.AddDataValidation
+  - Worksheet.RemoveDataValidation
+  - DataValidationTypeList
+  - DataValidationTypeWhole
+  - ErrorStyleStop
+  - ErrorStyleWarning
+  code: |
+    // Authored example: add two data-validation rules to a worksheet, then remove one by its range reference.
+    package main
+
+    import (
+    	"fmt"
+    	"log"
+
+    	cells_foss "github.com/aspose-cells-foss/Aspose.Cells-FOSS-for-Go/v26/aspose/cells_foss"
+    )
+
+    func main() {
+    	wb := cells_foss.NewWorkbook()
+    	ws := wb.Worksheets[0]
+
+    	ws.Cells().Set("A1", "Status")
+    	statusRule := &cells_foss.DataValidation{
+    		Type:             cells_foss.DataValidationTypeList,
+    		Formula1:         `"Open,Closed,Pending"`,
+    		ShowErrorMessage: true,
+    		ErrorStyle:       cells_foss.ErrorStyleStop,
+    	}
+    	if err := ws.AddDataValidation("A2:A20", statusRule); err != nil {
+    		log.Fatalf("add status rule: %v", err)
+    	}
+
+    	ws.Cells().Set("B1", "Score")
+    	scoreRule := &cells_foss.DataValidation{
+    		Type:             cells_foss.DataValidationTypeWhole,
+    		Formula1:         "0",
+    		Formula2:         "10",
+    		ShowErrorMessage: true,
+    		ErrorStyle:       cells_foss.ErrorStyleWarning,
+    	}
+    	if err := ws.AddDataValidation("B2:B20", scoreRule); err != nil {
+    		log.Fatalf("add score rule: %v", err)
+    	}
+
+    	before := len(ws.DataValidations)
+
+    	if err := ws.RemoveDataValidation("A2:A20"); err != nil {
+    		log.Fatalf("remove status rule: %v", err)
+    	}
+    	after := len(ws.DataValidations)
+
+    	repeatErr := ws.RemoveDataValidation("A2:A20")
+
+    	fmt.Printf("before=%d after=%d remaining-type=%q remove-again-error=%v\n",
+    		before, after, ws.DataValidations[0].Type, repeatErr != nil)
+
+    	if before != 2 {
+    		log.Fatalf("expected 2 rules before removal, got %d", before)
+    	}
+    	if after != 1 {
+    		log.Fatalf("expected 1 rule after removal, got %d", after)
+    	}
+    	if ws.DataValidations[0].Type != cells_foss.DataValidationTypeWhole {
+    		log.Fatalf("expected the remaining rule to be %q, got %q", cells_foss.DataValidationTypeWhole, ws.DataValidations[0].Type)
+    	}
+    	if repeatErr == nil {
+    		log.Fatalf("expected removing an already-removed ref to fail")
+    	}
+    }
+  code_sha256: cb2d519e567dc2c15a28f4c9c62f57f1b978bb540002f6be7a6b8120b986be9f
+- title: Convert a worksheet to and from an in-memory CSV grid
+  description: >-
+    Converts a populated worksheet's cells to a 2D string grid with Worksheet.ToCSV (no file
+    involved), then rebuilds a second, separate worksheet from that same grid with
+    Worksheet.FromCSV and checks the row count and one rebuilt cell's value.
+  symbols:
+  - Worksheet.ToCSV
+  - Worksheet.FromCSV
+  - NewWorkbook
+  - Cells.Set
+  - Cells.Get
+  code: |
+    // Authored example: convert a worksheet to an in-memory CSV grid with ToCSV, then rebuild another worksheet from it with FromCSV.
+    package main
+
+    import (
+    	"fmt"
+    	"log"
+
+    	cells_foss "github.com/aspose-cells-foss/Aspose.Cells-FOSS-for-Go/v26/aspose/cells_foss"
+    )
+
+    func main() {
+    	source := cells_foss.NewWorkbook()
+    	sourceWs := source.Worksheets[0]
+
+    	rows := [][]string{
+    		{"Name", "Department"},
+    		{"Ada Lovelace", "Engineering"},
+    		{"Grace Hopper", "Research"},
+    	}
+    	for r, row := range rows {
+    		for c, val := range row {
+    			ref := string(rune('A'+c)) + fmt.Sprint(r+1)
+    			if err := sourceWs.Cells().Set(ref, val); err != nil {
+    				log.Fatalf("set %s: %v", ref, err)
+    			}
+    		}
+    	}
+
+    	grid, err := sourceWs.ToCSV(',')
+    	if err != nil {
+    		log.Fatalf("to csv: %v", err)
+    	}
+
+    	destination := cells_foss.NewWorkbook()
+    	destinationWs := destination.Worksheets[0]
+    	if err := destinationWs.FromCSV(grid, ','); err != nil {
+    		log.Fatalf("from csv: %v", err)
+    	}
+
+    	cell, err := destinationWs.Cells().Get("B2")
+    	if err != nil {
+    		log.Fatalf("get B2: %v", err)
+    	}
+
+    	fmt.Printf("rows=%d cols=%d B2=%q\n", len(grid), len(grid[0]), cell.Value)
+
+    	if len(grid) != 3 {
+    		log.Fatalf("expected 3 rows from ToCSV, got %d", len(grid))
+    	}
+    	if cell.Value != "Engineering" {
+    		log.Fatalf("expected B2 %q, got %q", "Engineering", cell.Value)
+    	}
+    }
+  code_sha256: 9b170d7f88847b7f2a45bf42f7900cd6e45d66b01f175ade3f6c6b7f55996538
