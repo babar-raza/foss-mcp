@@ -1,0 +1,226 @@
+schema_version: 1
+pilot: pdf_typescript
+library_repository: aspose-pdf-foss/Aspose.PDF-FOSS-for-TypeScript
+library_commit: 155bfc7a33f0ba23fb4252b6ba201828b02a5b9d
+language: typescript
+examples:
+- title: Create a document, add text to a page, save and reload it, and extract the text back
+  description: Creates a new A4 document with Document.New, stamps two lines of text onto the default page with Page.AddText, writes the document to a temporary file, reopens it with Document.OpenFile and reads the text back with Page.GetText.
+  symbols:
+  - Document
+  - Document.New
+  - PageFormat
+  - Page.AddText
+  - Document.WriteTo
+  - Document.OpenFile
+  - Page.GetText
+  code: |
+    // Authored example: create a document, add text to a page, save and reload it, and extract the text back.
+    import { Document, PageFormat } from "@asposefoss/pdf";
+
+    function main(): void {
+      const doc = Document.New(PageFormat.A4);
+      const page = doc.Pages[0];
+      page.AddText("Quarterly Report", 72, 760, { font: "Helvetica-Bold", fontSize: 18 });
+      page.AddText("Prepared by the FOSS team", 72, 736, { fontSize: 11 });
+
+      const path = "outputfiles/cand1.pdf";
+      doc.WriteTo(path);
+
+      const reloaded = Document.OpenFile(path);
+      const text = reloaded.Pages[0].GetText();
+      console.log("extracted text:", text);
+
+      if (!text.includes("Quarterly Report")) throw new Error(`expected "Quarterly Report" in extracted text, got: ${text}`);
+      if (!text.includes("Prepared by the FOSS team")) throw new Error(`expected author line in extracted text, got: ${text}`);
+      console.log("cand1 OK");
+    }
+
+    main();
+  code_sha256: cff68ffec1e92003fe65fedd66088845923a1133ce50a5894f63e3d793932a8b
+- title: Add and fill a text field and a checkbox on an AcroForm, save and reload, and read each value back
+  description: Adds a text field and a checked checkbox to a page with Page.AddTextField and Page.AddCheckbox, writes the document, reopens it, looks each field up through the reloaded document's Form with Form.Get, and reads each field's Value back.
+  symbols:
+  - Document
+  - Document.New
+  - PageFormat
+  - Page.AddTextField
+  - Page.AddCheckbox
+  - Document.WriteTo
+  - Document.OpenFile
+  - Document.Form
+  - Form.Get
+  - Field.Value
+  code: |
+    // Authored example: add and fill a text field and a checkbox on an AcroForm, save and reload, and read each value back.
+    import { Document, PageFormat } from "@asposefoss/pdf";
+
+    function main(): void {
+      const doc = Document.New(PageFormat.A4);
+      const page = doc.Pages[0];
+
+      page.AddTextField({ rect: [100, 700, 350, 720], name: "FullName", value: "Alice Sample" });
+      page.AddCheckbox({ rect: [100, 670, 118, 688], name: "Subscribe", checked: true });
+
+      const path = "outputfiles/cand2.pdf";
+      doc.WriteTo(path);
+
+      const reloaded = Document.OpenFile(path);
+      const form = reloaded.Form;
+      const nameField = form.Get("FullName");
+      const subscribeField = form.Get("Subscribe");
+      if (!nameField) throw new Error("expected FullName field to survive the reload");
+      if (!subscribeField) throw new Error("expected Subscribe field to survive the reload");
+
+      console.log("name field value:", nameField.Value, "subscribe field value:", subscribeField.Value);
+
+      if (nameField.Value !== "Alice Sample") throw new Error(`expected name value Alice Sample, got ${nameField.Value}`);
+      if (subscribeField.Value !== true) throw new Error(`expected subscribe checkbox to be checked, got ${subscribeField.Value}`);
+      console.log("cand2 OK");
+    }
+
+    main();
+  code_sha256: 42973a401da4fb5fee40c2cbd829195c7724aaec51785e5d3d86f297c9edeefd
+- title: Add a sticky note and a highlight annotation to a page, save and reload, and read both back
+  description: Adds a TextAnnotation sticky note with Page.AddTextNote and a MarkupAnnotation highlight with Page.AddHighlight, writes and reopens the document, reads both back through Page.Annotations, and checks each one's Contents.
+  symbols:
+  - Document
+  - Document.New
+  - PageFormat
+  - Page.AddTextNote
+  - Page.AddHighlight
+  - Document.WriteTo
+  - Document.OpenFile
+  - Page.Annotations
+  - TextAnnotation
+  - MarkupAnnotation
+  - Annotation.Contents
+  code: |
+    // Authored example: add a sticky note and a highlight annotation to a page, save and reload, and read both back.
+    import { Document, PageFormat, TextAnnotation, MarkupAnnotation } from "@asposefoss/pdf";
+
+    function main(): void {
+      const doc = Document.New(PageFormat.A4);
+      const page = doc.Pages[0];
+
+      page.AddTextNote({ rect: [400, 760, 424, 784], contents: "Check these numbers", icon: "Comment" });
+      page.AddHighlight({ quads: [72, 740, 200, 740, 72, 726, 200, 726], color: [1, 1, 0], contents: "important total" });
+
+      const path = "outputfiles/cand3.pdf";
+      doc.WriteTo(path);
+
+      const reloaded = Document.OpenFile(path);
+      const annotations = reloaded.Pages[0].Annotations;
+      console.log("annotation count:", annotations.length, "subtypes:", annotations.map((a) => a.Subtype));
+
+      if (annotations.length !== 2) throw new Error(`expected 2 annotations, got ${annotations.length}`);
+      const note = annotations.find((a) => a instanceof TextAnnotation);
+      const highlight = annotations.find((a) => a instanceof MarkupAnnotation);
+      if (!note) throw new Error("expected a TextAnnotation (sticky note) after reload");
+      if (!highlight) throw new Error("expected a MarkupAnnotation (highlight) after reload");
+
+      if (note.Contents !== "Check these numbers") throw new Error(`unexpected note contents: ${note.Contents}`);
+      if (highlight.Contents !== "important total") throw new Error(`unexpected highlight contents: ${highlight.Contents}`);
+      console.log("cand3 OK");
+    }
+
+    main();
+  code_sha256: 2fde22cc6a98f19b7e2f2f5575f6f218568b7f598355c49bdd3f1b15094bca89
+- title: Set a two-level bookmark outline on a document, save and reload, and read the outline back
+  description: Builds a two-item outline tree (one with a nested child) with Document.SetOutlines across three pages added with Document.AddPage, writes and reopens the document, and reads the surviving titles, nesting and page destination back with Document.GetOutlines.
+  symbols:
+  - Document
+  - Document.New
+  - Document.AddPage
+  - PageFormat
+  - Document.SetOutlines
+  - Document.WriteTo
+  - Document.OpenFile
+  - Document.GetOutlines
+  code: |
+    // Authored example: set a two-level bookmark outline on a document, save and reload, and read the outline back.
+    import { Document, PageFormat } from "@asposefoss/pdf";
+
+    function main(): void {
+      const doc = Document.New(PageFormat.A4);
+      doc.AddPage(PageFormat.A4);
+      doc.AddPage(PageFormat.A4);
+
+      doc.SetOutlines([
+        {
+          Title: "Chapter 1",
+          Dest: { page: 1 },
+          Children: [{ Title: "Section 1.1", Dest: { page: 2 } }],
+        },
+        { Title: "Chapter 2", Dest: { page: 3 } },
+      ]);
+
+      const path = "outputfiles/cand4.pdf";
+      doc.WriteTo(path);
+
+      const reloaded = Document.OpenFile(path);
+      const outlines = reloaded.GetOutlines();
+      console.log("outline titles:", outlines.map((item) => item.Title));
+
+      if (outlines.length !== 2) throw new Error(`expected 2 top-level outline items, got ${outlines.length}`);
+      if (outlines[0].Title !== "Chapter 1") throw new Error(`expected first title Chapter 1, got ${outlines[0].Title}`);
+      if (outlines[1].Title !== "Chapter 2") throw new Error(`expected second title Chapter 2, got ${outlines[1].Title}`);
+      const children = outlines[0].Children ?? [];
+      if (children.length !== 1 || children[0].Title !== "Section 1.1") {
+        throw new Error(`expected one child titled Section 1.1, got ${JSON.stringify(children)}`);
+      }
+      const firstDest = outlines[0].Dest;
+      if (!firstDest || !("page" in firstDest) || firstDest.page !== 1) {
+        throw new Error(`expected Chapter 1 to point at page 1, got ${JSON.stringify(firstDest)}`);
+      }
+      console.log("cand4 OK");
+    }
+
+    main();
+  code_sha256: acaa31732af86d02c8e8ad2365b1eff690af9e4f52779edc916ba0cade68c659
+- title: Generate a QR matrix barcode and a Code128 linear barcode and check their real geometry
+  description: Generates a MatrixBarcode with makeQr and a LinearBarcode with makeCode128, checks the real module counts and dark/light mix of the QR matrix and the stored payload of the Code128 symbol, then places the QR on a page with Page.AddBarcode and confirms the document still saves and reloads with one page.
+  symbols:
+  - makeQr
+  - makeCode128
+  - Document
+  - Document.New
+  - PageFormat
+  - Page.AddBarcode
+  - Document.WriteTo
+  - Document.OpenFile
+  code: |
+    // Authored example: generate a QR matrix barcode and a Code128 linear barcode, place the QR on a page, and check their real geometry.
+    import { Document, PageFormat, makeQr, makeCode128 } from "@asposefoss/pdf";
+
+    function main(): void {
+      const qr = makeQr("https://example.com/invoice/42");
+      const code128 = makeCode128("INVOICE-0042");
+
+      console.log("qr size:", qr.size, "dark modules:", qr.dark.filter(Boolean).length);
+      console.log("code128 module count:", code128.modules.length);
+
+      if (qr.kind !== "matrix") throw new Error(`expected a matrix barcode, got ${qr.kind}`);
+      if (qr.size <= 0) throw new Error(`expected a positive QR size, got ${qr.size}`);
+      if (qr.dark.length !== qr.size * qr.size) throw new Error(`expected ${qr.size * qr.size} modules, got ${qr.dark.length}`);
+      const darkCount = qr.dark.filter(Boolean).length;
+      if (darkCount === 0 || darkCount === qr.dark.length) throw new Error(`expected a mix of dark and light QR modules, got ${darkCount} dark of ${qr.dark.length}`);
+
+      if (code128.kind !== "linear") throw new Error(`expected a linear barcode, got ${code128.kind}`);
+      if (code128.modules.length === 0) throw new Error("expected code128 to produce at least one module width");
+      if (code128.text !== "INVOICE-0042") throw new Error(`expected stored text INVOICE-0042, got ${code128.text}`);
+
+      const doc = Document.New(PageFormat.A4);
+      const page = doc.Pages[0];
+      page.AddBarcode({ type: "qr", data: "https://example.com/invoice/42" }, [72, 700, 172, 800]);
+
+      const path = "outputfiles/cand5.pdf";
+      doc.WriteTo(path);
+
+      const reloaded = Document.OpenFile(path);
+      if (reloaded.Pages.length !== 1) throw new Error(`expected 1 page after reload, got ${reloaded.Pages.length}`);
+      console.log("cand5 OK");
+    }
+
+    main();
+  code_sha256: 778fe244d93ec1cd584bdaad131c3084687597ba0945dfe1bf122efa47840bdd
