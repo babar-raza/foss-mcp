@@ -1,0 +1,227 @@
+schema_version: 1
+pilot: pdf_java
+library_repository: aspose-pdf-foss/Aspose.PDF-FOSS-for-Java
+library_commit: 736cedaa2922e4952f429364bdb9a4bbb1d97863
+language: java
+examples:
+- title: Add a text fragment to a page and read it back with TextAbsorber
+  description: Adds a TextFragment paragraph to a new page, saves the document to memory, reloads it from the saved bytes and uses TextAbsorber to extract the page's text, checking that the extracted text contains the fragment that was written.
+  symbols:
+  - Document
+  - Document.save
+  - Page.getParagraphs
+  - Page.accept
+  - TextFragment
+  - TextAbsorber
+  - TextAbsorber.getText
+  code: |
+    // Authored example: add a text fragment to a new page and extract it back with TextAbsorber
+    import java.io.ByteArrayInputStream;
+    import java.io.ByteArrayOutputStream;
+    import org.aspose.pdf.Document;
+    import org.aspose.pdf.Page;
+    import org.aspose.pdf.text.TextFragment;
+    import org.aspose.pdf.text.TextAbsorber;
+
+    public class TextFragmentRoundtripExample {
+        public static void main(String[] args) throws Exception {
+            Document document = new Document();
+            Page page = document.getPages().add();
+            page.getParagraphs().add(new TextFragment("Quarterly report ready"));
+
+            ByteArrayOutputStream savedBytes = new ByteArrayOutputStream();
+            document.save(savedBytes);
+
+            Document reloaded = new Document(new ByteArrayInputStream(savedBytes.toByteArray()));
+            TextAbsorber absorber = new TextAbsorber();
+            reloaded.getPages().get(1).accept(absorber);
+            String extracted = absorber.getText();
+
+            System.out.println("extracted text: " + extracted);
+            if (!extracted.contains("Quarterly report ready")) {
+                throw new AssertionError("expected extracted text to contain the fragment we wrote");
+            }
+        }
+    }
+  code_sha256: 485d6b503f652c1b8e52b4e19e246d4dc90b70e995137f93280acd035dd92e18
+- title: Fill an AcroForm text field and read its value after a save and reload
+  description: Creates a TextBoxField on a page, adds it to the document's AcroForm, sets its value, saves the document to memory, reloads it and reads the field's value back by name through the reloaded document's Form.
+  symbols:
+  - Document
+  - Document.getForm
+  - Page
+  - Rectangle
+  - TextBoxField
+  - TextBoxField.setValue
+  - Field
+  - Field.setPartialName
+  - Field.getValue
+  - Form.add
+  - Form.get
+  code: |
+    // Authored example: create an AcroForm text box field, set its value, then read it back after a save and reload
+    import java.io.ByteArrayInputStream;
+    import java.io.ByteArrayOutputStream;
+    import org.aspose.pdf.Document;
+    import org.aspose.pdf.Page;
+    import org.aspose.pdf.Rectangle;
+    import org.aspose.pdf.forms.Field;
+    import org.aspose.pdf.forms.Form;
+    import org.aspose.pdf.forms.TextBoxField;
+
+    public class TextBoxFieldRoundtripExample {
+        public static void main(String[] args) throws Exception {
+            Document document = new Document();
+            Page page = document.getPages().add();
+
+            TextBoxField textBox = new TextBoxField(page, new Rectangle(50, 700, 250, 720));
+            textBox.setPartialName("customerName");
+            textBox.setValue("Jordan Lee");
+            document.getForm().add(textBox);
+
+            ByteArrayOutputStream savedBytes = new ByteArrayOutputStream();
+            document.save(savedBytes);
+
+            Document reloaded = new Document(new ByteArrayInputStream(savedBytes.toByteArray()));
+            Form form = reloaded.getForm();
+            Field field = form.get("customerName");
+
+            System.out.println("field value: " + field.getValue());
+            if (!"Jordan Lee".equals(field.getValue())) {
+                throw new AssertionError("expected the reloaded field value to be Jordan Lee");
+            }
+        }
+    }
+  code_sha256: 380bb020dcb2396000fe2c924cbddf75baf23e767cb6903210704c6c9aa0c523
+- title: Render a PDF page to a PNG image and verify its signature
+  description: Adds a text fragment to a new page, renders that page to an in-memory PNG raster with PngDevice at a fixed Resolution, and checks that the produced bytes carry the real PNG signature.
+  symbols:
+  - Document
+  - Page.getParagraphs
+  - TextFragment
+  - PngDevice
+  - PngDevice.process
+  - Resolution
+  code: |
+    // Authored example: render a PDF page to a PNG raster image with PngDevice and check its byte signature
+    import java.io.ByteArrayOutputStream;
+    import org.aspose.pdf.Document;
+    import org.aspose.pdf.Page;
+    import org.aspose.pdf.text.TextFragment;
+    import org.aspose.pdf.devices.PngDevice;
+    import org.aspose.pdf.devices.Resolution;
+
+    public class PngRenderExample {
+        public static void main(String[] args) throws Exception {
+            Document document = new Document();
+            Page page = document.getPages().add();
+            page.getParagraphs().add(new TextFragment("Render me to PNG"));
+
+            PngDevice device = new PngDevice(new Resolution(150));
+            ByteArrayOutputStream pngBytes = new ByteArrayOutputStream();
+            device.process(page, pngBytes);
+            byte[] rendered = pngBytes.toByteArray();
+
+            System.out.println("PNG byte count: " + rendered.length);
+            boolean isPngSignature = rendered.length > 8
+                    && (rendered[0] & 0xFF) == 0x89
+                    && rendered[1] == 'P' && rendered[2] == 'N' && rendered[3] == 'G';
+            if (!isPngSignature) {
+                throw new AssertionError("expected the rendered bytes to start with the PNG signature");
+            }
+        }
+    }
+  code_sha256: a6b2ce439323ab9a3b78ef766f93d1ad845830e2a39b5c109bc2ddd29fd1a0d1
+- title: Set document title and author and read them back after a reload
+  description: Sets the title and author on a new document's DocumentInfo, saves the document to memory, reloads it and reads both properties back from the reloaded document's DocumentInfo.
+  symbols:
+  - Document
+  - Document.getInfo
+  - Document.save
+  - DocumentInfo
+  - DocumentInfo.setTitle
+  - DocumentInfo.getTitle
+  - DocumentInfo.setAuthor
+  - DocumentInfo.getAuthor
+  code: |
+    // Authored example: set the document title and author, then read them back after a save and reload
+    import java.io.ByteArrayInputStream;
+    import java.io.ByteArrayOutputStream;
+    import org.aspose.pdf.Document;
+    import org.aspose.pdf.DocumentInfo;
+
+    public class DocumentInfoRoundtripExample {
+        public static void main(String[] args) throws Exception {
+            Document document = new Document();
+            document.getPages().add();
+            DocumentInfo info = document.getInfo();
+            info.setTitle("Quarterly Report");
+            info.setAuthor("Finance Team");
+
+            ByteArrayOutputStream savedBytes = new ByteArrayOutputStream();
+            document.save(savedBytes);
+
+            Document reloaded = new Document(new ByteArrayInputStream(savedBytes.toByteArray()));
+            DocumentInfo reloadedInfo = reloaded.getInfo();
+
+            System.out.println("title: " + reloadedInfo.getTitle());
+            System.out.println("author: " + reloadedInfo.getAuthor());
+            if (!"Quarterly Report".equals(reloadedInfo.getTitle())) {
+                throw new AssertionError("expected the reloaded title to be Quarterly Report");
+            }
+            if (!"Finance Team".equals(reloadedInfo.getAuthor())) {
+                throw new AssertionError("expected the reloaded author to be Finance Team");
+            }
+        }
+    }
+  code_sha256: 9b580eb0fa05e37dfa151c575a59229bfc1b3d57e8c1e4dd9d6e93daae24adf5
+- title: Build a table row on a page and read its cell text back after a reload
+  description: Adds a Table to a page with one Row holding two cells, saves the document to memory, reloads it and uses TextAbsorber to confirm both cell values are present in the reloaded page's extracted text.
+  symbols:
+  - Document
+  - Page.getParagraphs
+  - Page.accept
+  - Table
+  - Table.getRows
+  - Row
+  - Row.getCells
+  - Rows.add
+  - Cells.add
+  - TextAbsorber
+  - TextAbsorber.getText
+  code: |
+    // Authored example: build a two-cell table row on a page and read the cell text back after a save and reload
+    import java.io.ByteArrayInputStream;
+    import java.io.ByteArrayOutputStream;
+    import org.aspose.pdf.Document;
+    import org.aspose.pdf.Page;
+    import org.aspose.pdf.Table;
+    import org.aspose.pdf.Row;
+    import org.aspose.pdf.text.TextAbsorber;
+
+    public class TableRoundtripExample {
+        public static void main(String[] args) throws Exception {
+            Document document = new Document();
+            Page page = document.getPages().add();
+
+            Table table = new Table();
+            page.getParagraphs().add(table);
+            Row row = table.getRows().add();
+            row.getCells().add("Quarter");
+            row.getCells().add("Revenue");
+
+            ByteArrayOutputStream savedBytes = new ByteArrayOutputStream();
+            document.save(savedBytes);
+
+            Document reloaded = new Document(new ByteArrayInputStream(savedBytes.toByteArray()));
+            TextAbsorber absorber = new TextAbsorber();
+            reloaded.getPages().get(1).accept(absorber);
+            String extracted = absorber.getText();
+
+            System.out.println("extracted text: " + extracted);
+            if (!extracted.contains("Quarter") || !extracted.contains("Revenue")) {
+                throw new AssertionError("expected both cell values to be present in the extracted text");
+            }
+        }
+    }
+  code_sha256: bc186a8eea83e5e2268d7065c74c3496b67007bdc20e85cf4caebce9abc37718
