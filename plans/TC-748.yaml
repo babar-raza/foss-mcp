@@ -1,0 +1,113 @@
+id: TC-748
+gate: G3
+lane: storage-retrieval
+purpose: >-
+  P4 example-corpus program (REQ-G3-014), a fifteenth real pilot-adoption win via the EXISTING,
+  already-wired `authored_examples.yaml` mechanism (`TC-460`/`TC-565`/`TC-566`) - the exact same
+  mechanism fourteen sibling cards already proved for fourteen other pilots this session
+  (different pilots, zero file overlap - do not touch anything any of them touch). Confirmed
+  needing ZERO code change: `infra/build_chunks.py`'s `_load_authored_candidates` already
+  auto-loads `tests/fixtures/furnished/<pilot>/authored_examples.yaml`, merges it with
+  README-derived candidates, and runs every entry through `verify_java_example`, the pipeline
+  this mechanism has not yet exercised for a Java pilot this session - this is the FIRST Java
+  card for this mechanism, so do not assume any prior sibling's exact toolchain shape applies
+  unchanged.
+
+  `pdf/java` currently serves only 4 real example chunks (confirmed directly against the real
+  committed `infra/demo-manifests/pdf__java__self_extracted` generation) - the largest remaining
+  real floor gap of any pilot touched this session (own floor 15-40, Appendix C). Its real pinned
+  repository is `aspose-pdf-foss/Aspose.PDF-FOSS-for-Java` (re-confirm the exact pinned commit
+  yourself from `config/products/pdf/java.yaml`/`infra/helm/foss-mcp/values.yaml` - do not trust
+  this card's own citation blindly). Note: this exact pilot was the subject of a significant
+  regression saga earlier this session (`TC-727`/`TC-729`/`TC-730`, see `docs/DECISION_LOG.md`'s
+  "TC-727 saga closed" entry) concerning its own coverage-line computation - that issue is fully
+  closed and test-side fixed, and is UNRELATED to this card's scope (adding examples, not
+  touching coverage/chunk-count logic), but re-read that entry before touching anything to
+  understand why `pdf_java` is specifically excluded from `STALE_BAKED_PILOTS` cleanup elsewhere -
+  that exclusion does not block this card.
+
+  Check whether the real upstream repository ships a dedicated `examples/`-style sample directory
+  at the pinned commit - CONFIRM this directly yourself rather than assuming. If it does not (or
+  is too thin to yield 5 distinct operations), author examples directly from the real public API
+  surface (`tests/fixtures/pdf_java/api_surface.json`) instead, the same approach several sibling
+  cards already used this session when samples ran thin or absent.
+
+  `_MAX_EXAMPLES = 5` (`src/foss_mcp/indexing/authored_examples.py`) is a hard, already-enforced
+  ceiling - this card raises `pdf/java` from 4 to AT MOST 9 served examples, not to its own real
+  floor; closing that fully needs the P4 program's own later, larger per-language-sample-adapter
+  work, explicitly out of this card's scope. This card's job is the real, bounded, immediately
+  shippable slice: up to 5 new, real, individually-verified authored examples, each passing the
+  real ingestion verifier before being trusted to publish.
+depends_on:
+  - TC-460
+  - TC-565
+  - TC-566
+write_paths:
+  - tests/fixtures/furnished/pdf_java/authored_examples.yaml
+  - tests/indexing/test_authored_examples_pdf_java.py
+satisfies:
+  - REQ-G3-014
+source_refs:
+  - file: docs/DECISION_LOG.md
+    anchor: >-
+      ## 2026-11-10 — real upstream library bug found while authoring cells/typescript examples
+    sha256: 8df3a8bfc66641638fb11bd910058364faec2ebd735110b2195366ff985e1812
+inputs:
+  - >-
+    READ FIRST: `tests/fixtures/furnished/cells_rust/authored_examples.yaml` (the general schema
+    convention - closest available template despite being a different language, since no Java
+    pilot has an existing sidecar yet). Also read `src/foss_mcp/indexing/authored_examples.py` in
+    full (every structural rule - `_MAX_EXAMPLES`, `_MAX_TITLE_CHARS`, `FORBIDDEN_CODE_PATTERNS`,
+    `code_sha256` must equal `normalised_code_sha256(code)`, `symbols` must be real FQNs,
+    `library_commit` must be the real 40-hex pinned commit, `LANGUAGE_BY_PLATFORM` maps `java` ->
+    `java`), `src/foss_mcp/indexing/example_verifier.py`'s `verify_java_example` in full, and
+    `infra/build_chunks.py`'s `_load_authored_candidates`.
+  - >-
+    REPRODUCE FIRST: confirm `pdf/java`'s real current served example count (4) and real pinned
+    repository/commit yourself. Fetch the real upstream repository tree at that exact commit and
+    determine its real shape (samples directory, or API-surface/README-fences-only) before
+    planning your examples.
+  - >-
+    VERIFY EACH EXAMPLE YOURSELF before committing: confirm a working JDK/Maven toolchain, fetch/
+    build the real pinned package, actually compile and RUN each program, confirm each one's real
+    output matches what you claim. Do not submit an example you have not personally run
+    successfully.
+  - >-
+    `FORBIDDEN_CODE_PATTERNS` blocks environment/credential access, process spawning, raw network
+    clients, and interactive input - confirm none of your examples trips any of these patterns.
+  - >-
+    This card does NOT claim `pdf/java`'s example-corpus work is complete - it has the largest
+    remaining real floor gap of any pilot touched this session (15-40). If fewer than 5 real
+    candidates verify cleanly, submit the real number you got and say so honestly.
+actions:
+  - >-
+    Author up to 5 new, real, individually-verified examples for pdf/java via the existing
+    authored_examples.yaml mechanism, raising its served example count from 4 toward 9.
+checks:
+  - command: '{python} -m pytest tests/indexing/test_authored_examples.py tests/indexing/test_authored_examples_pdf_java.py tests/infra/test_authored_examples_fixtures.py -q -rfE -p no:cacheprovider'
+    expect: 'exit 0'
+    timeout_seconds: 300
+    junitxml: true
+    proves:
+      - REQ-G3-014
+min_tests: 5
+requires:
+  - python
+network: false
+negative_control:
+  mutate: |
+    python -X utf8 -c "import pathlib; p = pathlib.Path('tests/fixtures/furnished/pdf_java/authored_examples.yaml'); s = p.read_text(encoding='utf-8'); assert s, 'the sidecar file is empty or missing - this card must create it with real content before this mutate can run'; old = 'code_sha256:'; count = s.count(old); assert count >= 1, 'no code_sha256 field found - the file does not match the expected schema'; import re; s2 = re.sub(r'code_sha256: [0-9a-f]{64}', 'code_sha256: ' + '0'*64, s, count=1); assert s2 != s; p.write_text(s2, encoding='utf-8')"
+  rationale: >-
+    Corrupts the first example's own `code_sha256` to a value that cannot match the real code's
+    hash, which must make `load_authored_examples`'s own validation reject the whole sidecar file -
+    a pure data mutation, immune to the lockstep-rename vacuousness class this session's earlier
+    reviews found, and it never touches any code path. Confirm by hand that the check files you
+    named actually exercise this validation path before trusting it.
+evidence:
+  - evidence/build/G3/TC-748/receipt.json
+closeout:
+  - >-
+    pdf/java gains up to 5 new, real, individually-verified authored examples via the existing,
+    already-wired authored_examples.yaml mechanism (zero code change), raising its served example
+    count from 4 toward 9 - real, bounded progress toward its own much larger (15-40) floor.
+recovery: Re-run from a clean tree.
