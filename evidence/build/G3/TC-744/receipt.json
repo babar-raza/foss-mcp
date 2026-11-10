@@ -1,0 +1,89 @@
+{
+  "schema_version": 1,
+  "card": "TC-744",
+  "gate": "G3",
+  "generated_by": "gatectl",
+  "generated_at": "2026-11-10T06:10:46Z",
+  "base_rev": "dde4fe0070810ddcc76897e4dd6e82e93a672d66",
+  "head_rev": "c1e4f0db3a4deef59caadeac269f4c4ba3900b84",
+  "card_sha256": "bc4e835aeaff29a261384fa4c00f6c470ad04733abf9587029c3a0df1bdc0d9b",
+  "fingerprint": {
+    "python": "3.13.2",
+    "platform": "Windows-11-10.0.26300-SP0",
+    "lock_sha256": "5c72e798a73c059a438e752e94a8d4c88c1bdf81a197f6e5c5fcecbc9466a691",
+    "env": {
+      "PYTHONHASHSEED": "0",
+      "PYTHONUTF8": "1",
+      "PYTHONDONTWRITEBYTECODE": "1",
+      "PYTHONIOENCODING": "utf-8",
+      "TZ": "UTC",
+      "LC_ALL": "C.UTF-8",
+      "SOURCE_DATE_EPOCH": "1700000000",
+      "verify_runner": "host"
+    }
+  },
+  "scope": {
+    "ok": true,
+    "changed_paths": [
+      "tests/fixtures/furnished/cells_cpp/authored_examples.yaml",
+      "tests/indexing/test_authored_examples_cells_cpp.py"
+    ],
+    "violations": [],
+    "evaluated": true
+  },
+  "runs": [
+    {
+      "run": 1,
+      "checks": [
+        {
+          "command": "{python} -m pytest tests/indexing/test_authored_examples.py tests/indexing/test_authored_examples_cells_cpp.py tests/infra/test_authored_examples_fixtures.py -q -rfE -p no:cacheprovider",
+          "exit_code": 0,
+          "duration_s": 12.17,
+          "stdout_sha256": "3116fdd4b4bfa436e047b00d191af910003202f0641973709741230b402b2523",
+          "tests": 217,
+          "skipped": 0,
+          "errors": 0,
+          "failures": 0
+        }
+      ],
+      "all_passed": true
+    },
+    {
+      "run": 2,
+      "checks": [
+        {
+          "command": "{python} -m pytest tests/indexing/test_authored_examples.py tests/indexing/test_authored_examples_cells_cpp.py tests/infra/test_authored_examples_fixtures.py -q -rfE -p no:cacheprovider",
+          "exit_code": 0,
+          "duration_s": 10.397,
+          "stdout_sha256": "3116fdd4b4bfa436e047b00d191af910003202f0641973709741230b402b2523",
+          "tests": 217,
+          "skipped": 0,
+          "errors": 0,
+          "failures": 0
+        }
+      ],
+      "all_passed": true
+    }
+  ],
+  "negative_control": {
+    "kind": "mutate",
+    "patch": "python -X utf8 -c \"import pathlib; p = pathlib.Path('tests/fixtures/furnished/cells_cpp/authored_examples.yaml'); s = p.read_text(encoding='utf-8'); assert s, 'the sidecar file is empty or missing'; old = 'code_sha256:'; count = s.count(old); assert count >= 4, 'fewer than 4 code_sha256 fields found - fewer than 1 new example was added on top of the 3 existing ones'; import re; s2 = re.sub(r'code_sha256: [0-9a-f]{64}', 'code_sha256: ' + '0'*64, s, count=1); assert s2 != s; p.write_text(s2, encoding='utf-8')\"\n",
+    "patch_sha256": "9d30b8c654ad5bb464453221924fa3730ba0f08469d13313d63c20f31a9f3680",
+    "applied": true,
+    "patch_applied_failed": true,
+    "exit_codes": [
+      1
+    ],
+    "tree_changed": [
+      "M tests/fixtures/furnished/cells_cpp/authored_examples.yaml",
+      "?? .junit-0.xml"
+    ]
+  },
+  "holdout": {
+    "ran": false,
+    "passed": true,
+    "detail": "no holdout for this card"
+  },
+  "accepted": true,
+  "reason": "all gates passed"
+}
