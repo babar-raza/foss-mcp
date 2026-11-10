@@ -1,0 +1,143 @@
+id: TC-744
+gate: G3
+lane: storage-retrieval
+purpose: >-
+  P4 example-corpus program (REQ-G3-014), an eleventh real pilot-adoption win via the EXISTING,
+  already-wired `authored_examples.yaml` mechanism (`TC-460`/`TC-565`/`TC-566`) - the exact same
+  mechanism ten sibling cards already proved for ten other pilots this session, including the
+  identical "top up an existing sidecar" shape `TC-743` just proved for `cells/rust` (different
+  pilot, zero file overlap - do not touch anything any of them touch). Confirmed needing ZERO
+  code change: `infra/build_chunks.py`'s `_load_authored_candidates` already auto-loads
+  `tests/fixtures/furnished/<pilot>/authored_examples.yaml`, merges it with README-derived
+  candidates, and runs every entry through the exact same `verify_cpp_example` pipeline
+  `TC-737`/`TC-739`/`TC-742` already proved for `email/cpp`/`slides/cpp`/`pdf/cpp`, publishing only
+  the ones that pass.
+
+  Like `cells/rust`, `cells/cpp` already HAS an existing `authored_examples.yaml` (originally
+  authored by `TC-462`, most recently re-claimed in `write_paths` by `TC-534`/`TC-550` for the
+  sibling test file - re-confirm both files' real current content yourself before touching
+  anything, do not assume `TC-462`'s original content is still exactly what is on disk). It
+  currently has only 3 of the mechanism's `_MAX_EXAMPLES = 5` slots used, and serves 6 real
+  example chunks today (confirmed directly against the real committed
+  `infra/demo-manifests/cells__cpp__self_extracted` generation) - already past its own real floor
+  of 5 (Appendix C of the master plan: class B, min 5, stretch 10), but there is real additional
+  headroom toward the stretch target with only 2 new slots to fill, not 5. Its real pinned
+  repository is `aspose-cells-foss/Aspose.Cells-FOSS-for-Cpp` (re-confirm the exact pinned commit
+  yourself from `config/products/cells/cpp.yaml`/`infra/helm/foss-mcp/values.yaml` - do not trust
+  this card's own citation blindly, and do not assume it matches the commit already pinned in the
+  3 existing sidecar entries without checking). The real upstream repository has a real but thin
+  `samples/` directory (per this project's own Appendix-C style accounting for this pilot, roughly
+  1 real sample program) - read it, and since this alone is very unlikely to yield 2 more
+  genuinely distinct operations beyond the 3 existing entries, also read the real public
+  headers/API surface (`tests/fixtures/cells_cpp/api_surface.json`) for additional real, valuable,
+  self-contained operations not already covered - the same sample-plus-API-surface mix
+  `TC-737`'s own `email/cpp` card and `TC-739`'s own `slides/cpp` card already used successfully.
+
+  `_MAX_EXAMPLES = 5` is a hard, already-enforced ceiling - this card raises `cells/cpp` from 6 to
+  AT MOST 8 served examples (3 existing authored + up to 2 new = at most 5 authored total), not to
+  its own stretch target of 10; closing that fully needs the P4 program's own later, larger
+  per-language-sample-adapter work, explicitly out of this card's scope. This card's job is the
+  real, bounded, immediately shippable slice: up to 2 new, real, individually-verified authored
+  examples, each passing the real ingestion verifier before being trusted to publish, appended to
+  (never replacing or reordering) the 3 that already exist.
+
+  VERIFY EACH NEW EXAMPLE YOURSELF - this pilot's real verification toolchain needs a real C++
+  compiler/CMake build against the real pinned library source (read `example_verifier.py`'s
+  `prepare_cpp_library`/`verify_cpp_example` to confirm exactly what the real pipeline needs; this
+  session's prior C++ cards (`TC-737`/`TC-739`/`TC-742`) all found Docker with a real `gcc:13-
+  bookworm` + a modern CMake the practical path on this host, and all found a real, subtle trap
+  worth repeating here: `CMAKE_BUILD_TYPE=Release` defines `NDEBUG`, silently turning every bare
+  `assert()` into a no-op - build and run in Debug mode, or verify your assertions some other way
+  that cannot be silently skipped, and confirm this explicitly (e.g. by checking `CMakeCache.txt`'s
+  real `CMAKE_CXX_FLAGS_DEBUG` has no `-DNDEBUG`) before trusting any example "passed"). Note this
+  pilot uses MSVC-specific paths in some of this project's own tooling (`_msvc_environment` in
+  `example_verifier.py`) - confirm which real toolchain path the verifier actually takes for
+  cells/cpp before assuming it matches the gcc/Docker pattern of the other C++ pilots.
+depends_on:
+  - TC-460
+  - TC-565
+  - TC-566
+  - TC-462
+  - TC-534
+  - TC-550
+write_paths:
+  - tests/fixtures/furnished/cells_cpp/authored_examples.yaml
+  - tests/indexing/test_authored_examples_cells_cpp.py
+satisfies:
+  - REQ-G3-014
+source_refs:
+  - file: docs/DECISION_LOG.md
+    anchor: >-
+      ## 2026-11-09 — TC-727 saga closed: pdf_java's own coverage-line gap fixed test-side; the 11
+    sha256: 798801d5285b8fca9bd9c16e5b39a783987b36adfcfa56fe6d99de92e96e48ad
+inputs:
+  - >-
+    READ FIRST: the real, current `tests/fixtures/furnished/cells_cpp/authored_examples.yaml` and
+    `tests/indexing/test_authored_examples_cells_cpp.py` in full (your exact starting point - this
+    is an EXTEND, not a from-scratch author; preserve all 3 existing entries byte-for-byte unless
+    you find and report a real defect in one). Also read `src/foss_mcp/indexing/
+    authored_examples.py` in full (every structural rule - `_MAX_EXAMPLES`, `_MAX_TITLE_CHARS`,
+    `FORBIDDEN_CODE_PATTERNS`, `code_sha256` must equal `normalised_code_sha256(code)`, `symbols`
+    must be real FQNs, `library_commit` must be the real 40-hex pinned commit, and must match the
+    existing 3 entries' own `library_commit` unless the real pin has genuinely moved - check this
+    explicitly), and `src/foss_mcp/indexing/example_verifier.py`'s C++ functions in full
+    (`prepare_cpp_library`, `verify_cpp_example`, `_msvc_environment`), and
+    `infra/build_chunks.py`'s `_load_authored_candidates`.
+  - >-
+    REPRODUCE FIRST: confirm `cells/cpp`'s real current served example count (6) and real pinned
+    repository/commit yourself (cross-check against the 3 existing sidecar entries' own
+    `library_commit` field - do not assume they still match today's real pin without checking).
+    Fetch the real upstream `samples/` content at that exact commit, and read enough of the real
+    public API surface to find up to 2 more real, genuinely distinct, valuable operations not
+    already covered by the 3 existing entries' own `symbols`/`title` fields.
+  - >-
+    VERIFY EACH NEW EXAMPLE YOURSELF before committing: confirm a working C++ toolchain (Docker
+    with a real gcc/CMake image has been the proven path for this pilot's C++ siblings this
+    session - confirm whether cells/cpp's own verifier path matches or genuinely needs MSVC),
+    fetch/build the real pinned library, actually compile and RUN each program in a build mode
+    where assertions are NOT silently disabled, confirm each one's real output matches what you
+    claim. Do not submit an example you have not personally run successfully.
+  - >-
+    `FORBIDDEN_CODE_PATTERNS` blocks environment/credential access, process spawning, raw network
+    clients, and interactive input - confirm none of your new examples trips any of these patterns.
+  - >-
+    This card does NOT claim `cells/cpp`'s example-corpus work is complete, even if it happens to
+    reach this pilot's own stretch target - say so honestly either way. If fewer than 2 new
+    candidates verify cleanly, submit the real number you got (which may be 0 or 1) rather than
+    padding to hit a round number.
+actions:
+  - >-
+    Author up to 2 new, real, individually-verified examples for cells/cpp via the existing
+    authored_examples.yaml mechanism, appended after the 3 existing entries, raising its served
+    example count from 6 toward 8.
+checks:
+  - command: '{python} -m pytest tests/indexing/test_authored_examples.py tests/indexing/test_authored_examples_cells_cpp.py tests/infra/test_authored_examples_fixtures.py -q -rfE -p no:cacheprovider'
+    expect: 'exit 0'
+    timeout_seconds: 300
+    junitxml: true
+    proves:
+      - REQ-G3-014
+min_tests: 5
+requires:
+  - python
+network: false
+negative_control:
+  mutate: |
+    python -X utf8 -c "import pathlib; p = pathlib.Path('tests/fixtures/furnished/cells_cpp/authored_examples.yaml'); s = p.read_text(encoding='utf-8'); assert s, 'the sidecar file is empty or missing'; old = 'code_sha256:'; count = s.count(old); assert count >= 4, 'fewer than 4 code_sha256 fields found - fewer than 1 new example was added on top of the 3 existing ones'; import re; s2 = re.sub(r'code_sha256: [0-9a-f]{64}', 'code_sha256: ' + '0'*64, s, count=1); assert s2 != s; p.write_text(s2, encoding='utf-8')"
+  rationale: >-
+    Corrupts the first example's own `code_sha256` to a value that cannot match the real code's
+    hash, which must make `load_authored_examples`'s own validation reject the whole sidecar file -
+    a pure data mutation, immune to the lockstep-rename vacuousness class this session's earlier
+    reviews found, and it never touches any code path. The count>=4 assertion also guards against
+    a vacuous pass where the worker reported 0 new examples but the check commands still happen to
+    pass trivially - confirm by hand that the check files you named actually exercise this
+    validation path before trusting it.
+evidence:
+  - evidence/build/G3/TC-744/receipt.json
+closeout:
+  - >-
+    cells/cpp gains up to 2 new, real, individually-verified authored examples appended to its 3
+    existing ones via the existing, already-wired authored_examples.yaml mechanism (zero code
+    change), raising its served example count from 6 toward 8 - real, bounded progress reported
+    honestly against its own 5/10 floor/stretch.
+recovery: Re-run from a clean tree.
