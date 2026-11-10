@@ -1,0 +1,239 @@
+schema_version: 1
+pilot: cells_java
+library_repository: aspose-cells-foss/Aspose.Cells-FOSS-for-Java
+library_commit: c65329e7257b1311abb9686d7e4957a8cc002955
+language: java
+examples:
+- title: Add a hyperlink with a screen tip and read it back after a save and reload
+  description: Adds a hyperlink to a cell with its own display text and screen tip via HyperlinkCollection.add, saves the workbook to memory, reloads it and reads the hyperlink's address, display text and screen tip back from the reloaded worksheet.
+  symbols:
+  - Workbook
+  - Workbook.save
+  - Worksheet.getHyperlinks
+  - HyperlinkCollection.add
+  - Hyperlink.getAddress
+  - Hyperlink.getTextToDisplay
+  - Hyperlink.getScreenTip
+  code: |
+    // Authored example: add a hyperlink with display text and a screen tip, then read them back after a save and reload
+    import java.io.ByteArrayInputStream;
+    import java.io.ByteArrayOutputStream;
+    import org.aspose.cells_foss.Hyperlink;
+    import org.aspose.cells_foss.SaveFormat;
+    import org.aspose.cells_foss.Workbook;
+    import org.aspose.cells_foss.Worksheet;
+
+    public class HyperlinkRoundtripExample {
+        public static void main(String[] args) throws Exception {
+            ByteArrayOutputStream savedBytes = new ByteArrayOutputStream();
+            try (Workbook workbook = new Workbook()) {
+                Worksheet sheet = workbook.getWorksheets().get(0);
+                sheet.getCells().get("A1").putValue("Project status");
+                sheet.getHyperlinks().add("A1", "A1", "https://example.com/status", "Click here", "Open the status page");
+                workbook.save(savedBytes, SaveFormat.XLSX);
+            }
+
+            try (Workbook reloaded = new Workbook(new ByteArrayInputStream(savedBytes.toByteArray()))) {
+                Hyperlink link = reloaded.getWorksheets().get(0).getHyperlinks().get(0);
+                System.out.println("address: " + link.getAddress());
+                System.out.println("textToDisplay: " + link.getTextToDisplay());
+                System.out.println("screenTip: " + link.getScreenTip());
+                if (!"https://example.com/status".equals(link.getAddress())) {
+                    throw new AssertionError("expected the reloaded hyperlink address to be https://example.com/status");
+                }
+                if (!"Click here".equals(link.getTextToDisplay())) {
+                    throw new AssertionError("expected the reloaded hyperlink text to be Click here");
+                }
+                if (!"Open the status page".equals(link.getScreenTip())) {
+                    throw new AssertionError("expected the reloaded hyperlink screen tip to be Open the status page");
+                }
+            }
+        }
+    }
+  code_sha256: ea0fde010fe3bcf1fb9dea78fa7c2689d55effdee0015a856cb34efb9ee7499a
+- title: Set a workbook's title, subject and company and read them back after a reload
+  description: Sets the title, subject and company on a new workbook's DocumentProperties, saves the workbook to memory, reloads it and reads all three properties back from the reloaded workbook's DocumentProperties.
+  symbols:
+  - Workbook
+  - Workbook.getDocumentProperties
+  - DocumentProperties.setTitle
+  - DocumentProperties.getTitle
+  - DocumentProperties.setSubject
+  - DocumentProperties.getSubject
+  - DocumentProperties.setCompany
+  - DocumentProperties.getCompany
+  code: |
+    // Authored example: set document title, subject and company, then read them back after a save and reload
+    import java.io.ByteArrayInputStream;
+    import java.io.ByteArrayOutputStream;
+    import org.aspose.cells_foss.DocumentProperties;
+    import org.aspose.cells_foss.SaveFormat;
+    import org.aspose.cells_foss.Workbook;
+
+    public class DocumentPropertiesRoundtripExample {
+        public static void main(String[] args) throws Exception {
+            ByteArrayOutputStream savedBytes = new ByteArrayOutputStream();
+            try (Workbook workbook = new Workbook()) {
+                DocumentProperties properties = workbook.getDocumentProperties();
+                properties.setTitle("Quarterly Spreadsheet");
+                properties.setSubject("Finance Summary");
+                properties.setCompany("Acme Corp");
+                workbook.save(savedBytes, SaveFormat.XLSX);
+            }
+
+            try (Workbook reloaded = new Workbook(new ByteArrayInputStream(savedBytes.toByteArray()))) {
+                DocumentProperties properties = reloaded.getDocumentProperties();
+                System.out.println("title: " + properties.getTitle());
+                System.out.println("subject: " + properties.getSubject());
+                System.out.println("company: " + properties.getCompany());
+                if (!"Quarterly Spreadsheet".equals(properties.getTitle())) {
+                    throw new AssertionError("expected the reloaded title to be Quarterly Spreadsheet");
+                }
+                if (!"Finance Summary".equals(properties.getSubject())) {
+                    throw new AssertionError("expected the reloaded subject to be Finance Summary");
+                }
+                if (!"Acme Corp".equals(properties.getCompany())) {
+                    throw new AssertionError("expected the reloaded company to be Acme Corp");
+                }
+            }
+        }
+    }
+  code_sha256: d1cdedd3cbc3b5709af3a70cf867a2e5ab347b20d934921661520372a283886f
+- title: Set a row's outline group level and collapsed flag and read them back after a reload
+  description: Sets a row's outline group level and collapsed flag via Row.setGroupLevel and Row.setCollapsed, saves the workbook to memory, reloads it and reads both values back from the reloaded row.
+  symbols:
+  - Workbook
+  - Worksheet.getCells
+  - Cells.getRows
+  - Row.setGroupLevel
+  - Row.getGroupLevel
+  - Row.setCollapsed
+  - Row.isCollapsed
+  code: |
+    // Authored example: set a row's outline group level and collapsed flag, then read them back after a save and reload
+    import java.io.ByteArrayInputStream;
+    import java.io.ByteArrayOutputStream;
+    import org.aspose.cells_foss.Row;
+    import org.aspose.cells_foss.SaveFormat;
+    import org.aspose.cells_foss.Workbook;
+    import org.aspose.cells_foss.Worksheet;
+
+    public class RowOutlineGroupRoundtripExample {
+        public static void main(String[] args) throws Exception {
+            ByteArrayOutputStream savedBytes = new ByteArrayOutputStream();
+            try (Workbook workbook = new Workbook()) {
+                Worksheet sheet = workbook.getWorksheets().get(0);
+                Row row = sheet.getCells().getRows().get(2);
+                row.setGroupLevel(2);
+                row.setCollapsed(true);
+                workbook.save(savedBytes, SaveFormat.XLSX);
+            }
+
+            try (Workbook reloaded = new Workbook(new ByteArrayInputStream(savedBytes.toByteArray()))) {
+                Row row = reloaded.getWorksheets().get(0).getCells().getRows().get(2);
+                System.out.println("groupLevel: " + row.getGroupLevel());
+                System.out.println("collapsed: " + row.isCollapsed());
+                if (row.getGroupLevel() != 2) {
+                    throw new AssertionError("expected the reloaded row's group level to be 2");
+                }
+                if (!row.isCollapsed()) {
+                    throw new AssertionError("expected the reloaded row to be collapsed");
+                }
+            }
+        }
+    }
+  code_sha256: 7b0e79dff99a93e77dc7428795be009f07f9bddc109c00e1d69ebc64051f5d43
+- title: Merge a block of cells and read the merged region's coordinates back after a reload
+  description: Merges a 2x3 block of cells with Cells.merge, saves the workbook to memory, reloads it and reads the merged region's first row, first column, total rows and total columns back from the reloaded worksheet's CellArea.
+  symbols:
+  - Workbook
+  - Worksheet.getCells
+  - Cells.merge
+  - Cells.getMergedCells
+  - CellArea.getFirstRow
+  - CellArea.getFirstColumn
+  - CellArea.getTotalRows
+  - CellArea.getTotalColumns
+  code: |
+    // Authored example: merge a block of cells and read the merged region's coordinates back after a save and reload
+    import java.io.ByteArrayInputStream;
+    import java.io.ByteArrayOutputStream;
+    import org.aspose.cells_foss.CellArea;
+    import org.aspose.cells_foss.SaveFormat;
+    import org.aspose.cells_foss.Workbook;
+    import org.aspose.cells_foss.Worksheet;
+
+    public class MergedCellRoundtripExample {
+        public static void main(String[] args) throws Exception {
+            ByteArrayOutputStream savedBytes = new ByteArrayOutputStream();
+            try (Workbook workbook = new Workbook()) {
+                Worksheet sheet = workbook.getWorksheets().get(0);
+                sheet.getCells().get("B2").putValue("Merged header");
+                sheet.getCells().merge(1, 1, 2, 3);
+                workbook.save(savedBytes, SaveFormat.XLSX);
+            }
+
+            try (Workbook reloaded = new Workbook(new ByteArrayInputStream(savedBytes.toByteArray()))) {
+                CellArea area = reloaded.getWorksheets().get(0).getCells().getMergedCells().get(0);
+                System.out.println("firstRow: " + area.getFirstRow());
+                System.out.println("firstColumn: " + area.getFirstColumn());
+                System.out.println("totalRows: " + area.getTotalRows());
+                System.out.println("totalColumns: " + area.getTotalColumns());
+                if (area.getFirstRow() != 1 || area.getFirstColumn() != 1) {
+                    throw new AssertionError("expected the reloaded merge region to start at row 1, column 1");
+                }
+                if (area.getTotalRows() != 2 || area.getTotalColumns() != 3) {
+                    throw new AssertionError("expected the reloaded merge region to span 2 rows and 3 columns");
+                }
+            }
+        }
+    }
+  code_sha256: 1dc5b29ed7a732de1a92aaef2c75fdc5c08627c63433796dd8b50f7a07de9320
+- title: Add a workbook-scoped defined name with a comment and read it back after a reload
+  description: Adds a workbook-scoped defined name with a SUM formula and a comment via DefinedNameCollection.add and DefinedName.setComment, saves the workbook to memory, reloads it and reads the name, formula and comment back from the reloaded DefinedName.
+  symbols:
+  - Workbook
+  - Workbook.getDefinedNames
+  - DefinedNameCollection.add
+  - DefinedName.getName
+  - DefinedName.getFormula
+  - DefinedName.setComment
+  - DefinedName.getComment
+  code: |
+    // Authored example: add a workbook-scoped defined name with a comment, then read it back after a save and reload
+    import java.io.ByteArrayInputStream;
+    import java.io.ByteArrayOutputStream;
+    import org.aspose.cells_foss.DefinedName;
+    import org.aspose.cells_foss.SaveFormat;
+    import org.aspose.cells_foss.Workbook;
+
+    public class DefinedNameRoundtripExample {
+        public static void main(String[] args) throws Exception {
+            ByteArrayOutputStream savedBytes = new ByteArrayOutputStream();
+            try (Workbook workbook = new Workbook()) {
+                workbook.getWorksheets().get(0).setName("Data");
+                workbook.getWorksheets().get(0).getCells().get("A1").putValue(10);
+                int index = workbook.getDefinedNames().add("Total", "=SUM(Data!$A$1:$A$10)");
+                DefinedName total = workbook.getDefinedNames().get(index);
+                total.setComment("Workbook total");
+                workbook.save(savedBytes, SaveFormat.XLSX);
+            }
+
+            try (Workbook reloaded = new Workbook(new ByteArrayInputStream(savedBytes.toByteArray()))) {
+                DefinedName total = reloaded.getDefinedNames().get(0);
+                System.out.println("name: " + total.getName());
+                System.out.println("formula: " + total.getFormula());
+                System.out.println("comment: " + total.getComment());
+                if (!"Total".equals(total.getName())) {
+                    throw new AssertionError("expected the reloaded defined name to be Total");
+                }
+                if (!total.getFormula().contains("SUM")) {
+                    throw new AssertionError("expected the reloaded formula to contain SUM");
+                }
+                if (!"Workbook total".equals(total.getComment())) {
+                    throw new AssertionError("expected the reloaded comment to be Workbook total");
+                }
+            }
+        }
+    }
+  code_sha256: c63a40ae6988aa0a067388770be782a9a7cce5e55bc4fb8988ef822dfc103419
