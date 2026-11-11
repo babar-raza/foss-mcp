@@ -1,0 +1,113 @@
+id: TC-758
+gate: G3
+lane: verification
+purpose: >-
+  P5 upstream-defect disclosure (REQ-G3-015), the successor to the retired TC-757 (see
+  `docs/DECISION_LOG.md`, 2026-11-11 "TC-757 retired before acceptance"). Disclose two confirmed,
+  previously undisclosed defects of the pinned 3d/typescript upstream library at
+  `66cb26df23b031f0bf6976d4e88dc89721983afa4`, independently reproduced on 2026-11-11:
+  (1) STL-SAVE: `Scene.save('x.stl')` writes each polygon's vertex INDICES (for example `vertex 0 1 2`)
+  instead of vertex coordinates, silently; triangulating first does not fix it; the README does not
+  disclose it. (2) FBX-SAVE: `Scene.save('x.fbx')` has no FBX branch and falls through to the OBJ
+  exporter; for geometry under a child node it writes 0 bytes silently, and for root-level geometry it
+  writes OBJ text inside a file named `.fbx`. Disclosure only: do NOT patch library code, do NOT edit
+  served README text, do NOT touch any authored example.
+depends_on:
+  - TC-001
+  - TC-003
+  - TC-644
+  - TC-649
+  - TC-656
+  - TC-658
+  - TC-660
+  - TC-702
+  - TC-706
+  - TC-707
+  - TC-711
+  - TC-727
+  - TC-728
+write_paths:
+  - config/known_defects/3d__typescript.yaml
+  - tests/mcp/tools/test_known_defects_3d_typescript_stl.py
+  - tests/indexing/test_known_defects_completeness.py
+  - tests/indexing/test_known_defects_data_3d.py
+satisfies:
+  - REQ-G3-015
+source_refs:
+  - file: docs/DECISION_LOG.md
+    anchor: >-
+      ## 2026-11-11 — candidate undisclosed STL-export defect in 3d/typescript
+    sha256: 2e61510558cd7de5c07c1d889b46cf270ae74251aba70e99c572ee2945fe4edd
+inputs:
+  - >-
+    READ FIRST: `config/known_defects/3d__typescript.yaml` (the entry 3D-TYPESCRIPT-008 is the exact
+    format template), `schemas/product/known_defects.schema.json` (defect `id` pattern is
+    `^[A-Za-z0-9][A-Za-z0-9._-]*$`; every required field), and `docs/DECISION_LOG.md`'s 2026-11-11
+    STL entry and its "TC-757 retired" entry.
+  - >-
+    NEW IDS, DO NOT REUSE OTHERS: use `3D-TYPESCRIPT-STL-001` and `3D-TYPESCRIPT-FBX-001`. Do NOT use
+    `3D-TYPESCRIPT-009` or `-010`: those are existing round-2/round-3 audit ids about unrelated issues.
+    Verify neither new id exists anywhere under `config/known_defects/` or `docs/round2/`/`docs/round3/`.
+  - >-
+    COMPLETENESS LOCKS: `tests/indexing/test_known_defects_completeness.py` requires registry ids to
+    equal the audit's upstream-library-bug ids, with a deliberate, additive `_ADDITIONAL_DISCLOSABLE_IDS`
+    allowlist for entries the audit did not itemise (see the TC-706 entry and its docstrings in that
+    file). Add the two new ids to that allowlist exactly the way 3D-JAVA-001 / 3D-NET-001 / WORDS-NET-001
+    were added, and update the count assertions that change. `tests/indexing/test_known_defects_data_3d.py`
+    pins the per-pilot entry count and the 3d-family total (currently 17 for 3d-family plus the new
+    entries). Update those counts only by the number of entries you add, and report every count you
+    changed. Do NOT change docs/round2 or docs/round3 data.
+  - >-
+    SUMMARY TEXT (use these exact phrases, which the negative control depends on): for STL-001 the
+    summary must contain the exact sentence `Scene.save to .stl writes polygon vertex indices instead of
+    vertex coordinates`; for FBX-001 it must contain `Scene.save to .fbx falls through to the OBJ exporter`.
+    Each summary <= 240 characters. `subject.kind: method`, `subject.refs` a real FQN in
+    `tests/fixtures/3d_typescript/api_surface.json` (the `aspose.threed.Scene.Scene` class FQN is the
+    convention used by the existing 3D entries; verify it resolves), `status: open`, `applies_to.package_versions`
+    = the real `version` in the library's `package.json` at the pin (read it; do not copy 24.12.0 blindly),
+    `evidence.verified_on` = {package `@aspose/3d`, that version, date 2026-11-11}.
+  - >-
+    A previous worker's uncommitted diff for this same registry edit is saved for reference ONLY at
+    `C:/Users/babar/AppData/Local/Temp/claude/ba7a97aae65a293e/697bcd44-50ef-4b4a-9cc0-f2541ed92371/scratchpad/TC-757-worker-attempt.patch`
+    and its test file alongside it. You may reuse its wording. It is not authoritative; verify everything.
+  - >-
+    The test file `tests/mcp/tools/test_known_defects_3d_typescript_stl.py` must have at least 5 test
+    functions: (1) schema validity of the registry file, (2) STL-001 entry exists and its summary contains
+    `indices` and `.stl`, (3) FBX-001 entry exists and its summary contains `.fbx` and `OBJ`, (4) every new
+    `subject.refs` FQN resolves in the api_surface, (5) both new ids are unique in the file. Do NOT import or
+    run the library.
+  - >-
+    Run `ruff format` and `ruff check` on every Python file you touch before committing.
+checks:
+  - command: '{python} -m pytest tests/mcp/tools/test_known_defects_3d_typescript_stl.py -q -rfE -p no:cacheprovider'
+    expect: 'exit 0'
+    timeout_seconds: 300
+    junitxml: true
+    proves:
+      - REQ-G3-015
+  - command: '{python} -m pytest tests/indexing/test_known_defects_completeness.py tests/indexing/test_known_defects_data_3d.py -q -rfE -p no:cacheprovider'
+    expect: 'exit 0'
+    timeout_seconds: 600
+    junitxml: true
+    proves:
+      - REQ-G3-015
+min_tests: 5
+requires:
+  - python
+network: false
+negative_control:
+  mutate: |
+    python -X utf8 -c "import pathlib; p = pathlib.Path('config/known_defects/3d__typescript.yaml'); s = p.read_text(encoding='utf-8'); old = 'Scene.save to .stl writes polygon vertex indices instead of vertex coordinates'; assert s.count(old) == 1, 'the STL-001 summary sentence must appear exactly once - the registry entry is missing or does not match this card'; p.write_text(s.replace(old, 'Scene.save to .stl writes vertex coordinates', 1), encoding='utf-8')"
+  rationale: >-
+    Replaces the STL-001 defect sentence with a correct-behaviour sentence, so the entry no longer
+    discloses the defect. The test in test_known_defects_3d_typescript_stl.py that asserts the entry
+    names `indices` and `.stl` must then fail. Pure data mutation, no code path touched. Confirm by hand
+    that this test really asserts the STL-001 summary before trusting it.
+evidence:
+  - evidence/build/G3/TC-758/receipt.json
+closeout:
+  - >-
+    3d/typescript's two previously undisclosed upstream defects (STL index-export silent data loss,
+    and the FBX-save fall-through) are disclosed in its known-defects registry under non-colliding ids,
+    locked by a test, and the completeness and count locks pass with the allowlist updated.
+recovery: Re-run from a clean tree.
