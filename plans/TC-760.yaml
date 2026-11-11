@@ -1,0 +1,197 @@
+id: TC-760
+gate: G3
+lane: storage-retrieval
+purpose: >-
+  Remediate the find_examples wrong-confident regression this session's P4 authored-examples
+  campaign introduced (see `docs/DECISION_LOG.md`, 2026-11-11 "find_examples wrong-confident
+  regression, full scope: 46 new wrong cases across 14 titles"). Retitle (and, only where helpful
+  for clarity, lightly reword the `description`) exactly the 18 authored examples named below,
+  across 18 pilots' sidecars, so their titles no longer share a generic domain noun with an
+  unrelated query for the same pilot. Do NOT touch any example's `code`, `symbols`, or
+  `code_sha256` - a title/description-only change needs no re-verification against any pinned
+  library, and no other example in any of these sidecars may be touched. This card does NOT bake
+  the served generation: a supervisor re-ingest of all 18 pilots follows integration, and only
+  then does the fleet-wide ratchet (`tests/mcp/tools/test_round3_retrieval_corpus.py::
+  test_find_examples_non_empty_answers_that_miss_the_intended_api_stay_rare`) measure the real fix.
+depends_on:
+  - TC-460
+  - TC-565
+  - TC-566
+  - TC-735
+  - TC-736
+  - TC-737
+  - TC-740
+  - TC-741
+  - TC-743
+  - TC-744
+  - TC-745
+  - TC-747
+  - TC-748
+  - TC-749
+  - TC-750
+  - TC-751
+  - TC-753
+  - TC-754
+  - TC-755
+  - TC-756
+write_paths:
+  - tests/fixtures/furnished/cells_net/authored_examples.yaml
+  - tests/fixtures/furnished/cells_java/authored_examples.yaml
+  - tests/fixtures/furnished/cells_go/authored_examples.yaml
+  - tests/fixtures/furnished/cells_cpp/authored_examples.yaml
+  - tests/fixtures/furnished/cells_rust/authored_examples.yaml
+  - tests/fixtures/furnished/cells_typescript/authored_examples.yaml
+  - tests/fixtures/furnished/pdf_go/authored_examples.yaml
+  - tests/fixtures/furnished/pdf_cpp/authored_examples.yaml
+  - tests/fixtures/furnished/pdf_java/authored_examples.yaml
+  - tests/fixtures/furnished/pdf_net/authored_examples.yaml
+  - tests/fixtures/furnished/pdf_python/authored_examples.yaml
+  - tests/fixtures/furnished/email_cpp/authored_examples.yaml
+  - tests/fixtures/furnished/email_net/authored_examples.yaml
+  - tests/fixtures/furnished/email_python/authored_examples.yaml
+  - tests/fixtures/furnished/3d_typescript/authored_examples.yaml
+  - tests/fixtures/furnished/slides_java/authored_examples.yaml
+  - tests/fixtures/furnished/slides_python/authored_examples.yaml
+  - tests/fixtures/furnished/words_net/authored_examples.yaml
+satisfies:
+  - REQ-G3-014
+source_refs:
+  - file: docs/DECISION_LOG.md
+    anchor: >-
+      ## 2026-11-11 — find_examples wrong-confident regression, full scope: 46 new wrong cases across 14 titles, root cause is title_anchored's generic-noun collision, remediation is retitling
+    sha256: f7023dd0ca69965d685a3fe43d9261ea3412d67563ada55d87b366d17f7f79b2
+inputs:
+  - >-
+    READ FIRST: `src/foss_mcp/mcp/tools/relevance.py`'s `title_anchored` and
+    `TITLE_ANCHOR_GRADUATED_MAX_TERMS` (a query of at most 4 distinctive terms answers if even ONE
+    is a stemmed/synonym word of the example's title - this is the exact mechanism every collision
+    below exploits). Read `docs/DECISION_LOG.md`'s cited 2026-11-11 entry in full before touching
+    anything.
+  - >-
+    FOR EACH ROW BELOW: `pilot | exact current title | colliding query(ies) | word(s) to drop`.
+    Change ONLY that one example's `title` field (and, only if it reads awkwardly afterward, its
+    `description`) to a new title that keeps the example's real meaning but does not share a
+    stemmed/synonym word with ANY colliding query listed. Do not touch `code`, `symbols`, or
+    `code_sha256` for this or any other example in the file.
+
+    - cells_net | "Configure worksheet protection, layout, and merged cells" | "filter rows in a
+      sheet", "set a number format on a cell", "delete a worksheet from the workbook", "protect
+      the whole workbook" | sheet, cell, worksheet, protect
+    - cells_java | "Set a row's outline group level and collapsed flag and read them back after a
+      reload" | "filter rows in a sheet", "set a number format on a cell", "set the tab color of a
+      worksheet" | row, sheet, cell, worksheet
+    - cells_java | "Add a hyperlink with a screen tip and read it back after a save and reload" |
+      "add a picture to a sheet", "add a new sheet" | sheet, add (keep "add" only if no other
+      collision results - prefer rewording the opening verb if needed)
+    - cells_java | "Merge a block of cells and read the merged region's coordinates back after a
+      reload" | "how do I read the value of a cell" | cell, read
+    - cells_java | "Add a workbook-scoped defined name with a comment, then read it back after a
+      reload" | "delete a worksheet from the workbook" | workbook
+    - cells_go | "Add and remove data validation rules on a worksheet" | "add a picture to a
+      sheet", "add a new sheet" | sheet, worksheet, add
+    - cells_cpp | "Merge a Cell Range and Set a Row Height and Column Width" | "filter rows in a
+      sheet" | row, cell
+    - cells_rust | "Add list and decimal range data validations" | "create a chart from my data" |
+      data
+    - cells_typescript | "Write typed values and a formula, then reload and read the values back" |
+      "put a formula in a cell" | formula
+    - cells_typescript | "Add, rename and remove worksheets, then read the final names back after a
+      reload" | "filter rows in a sheet" | worksheet
+    - cells_typescript | "Export a workbook's data as JSON and Markdown text" | "export a worksheet
+      to csv" | export, workbook
+    - cells_typescript | "Set hyperlinks of different kinds on cells and read them back" | "how do
+      I read the value of a cell" | cell, read
+    - pdf_go | "Search a document for text across pages" | "add a watermark to every page", "write
+      some text on a page", "number the pages" | page, text
+    - pdf_cpp | "Add a Highlight Annotation and Read Its Contents and Color Back After Save and
+      Reload" | "add a watermark to every page" | add, page (if "page" is not literally in this
+      title, the collision is via a synonym/stem of "annotation"/"every" - verify with the probe
+      method below before concluding no change is needed)
+    - pdf_cpp | "Encrypt a Document With AES-256 and Open It Back With the Correct Password" | "set
+      the title and author of the document" | document
+    - pdf_java | "Build a table row on a page and read its cell text back after a reload" | "add a
+      watermark to every page", "extract tables from pdf" | page, table
+    - pdf_net | "Embed files with metadata and read them back by name" | "read the document
+      metadata" | metadata
+    - pdf_net | "Build a nested bookmark outline with OutlineBuilder and read it back" | "create an
+      outline entry for a chapter" | outline
+    - pdf_python | "Draw an Invoice Table on a Page and Verify Its Text Order on Reload" | "write
+      some text on a page" | page, text
+    - email_cpp | "Build a CFB Container From Scratch and Read It Back With cfb_reader" | "read the
+      attachment file name", "read the message class" | read
+    - email_cpp | "Dump the Low-Level MSG Storage Tree of a Saved Message" | "does the attachment
+      hold another message" | message
+    - email_net | "Add an embedded message as an attachment and read it back from memory" | "read
+      the message class", "does the attachment hold another message" | message, attachment, read
+    - email_python | "Set Sender and Transport Header Properties by PropertyId and Read Them Back
+      After Reload" | "get the sender and subject of an email", "read the message class" | sender,
+      read
+    - email_python | "Count Recipient and Attachment Storages in a Saved MSG with MsgReader" |
+      "read the attachment file name", "list the properties of a recipient" | attachment, recipient
+    - 3d_typescript | "Attach a directional light and a perspective camera to one node" | "attach a
+      child to a node" | attach, node
+    - 3d_typescript | "Create and read back a diffuse UV layer on a triangle mesh" | "set the uv
+      coordinates", "read the vertex normals" | uv, read
+    - slides_java | "Give a shape a solid fill colour and read its fill type and colour back after a
+      reload" | "give a shape a name" | give, shape
+    - slides_java | "Remove a middle slide and confirm the remaining order after a save and reload" |
+      "remove a slide" | remove, slide
+    - slides_python | "Group Two Auto Shapes and Lock the Group Against Ungrouping" | "give a shape
+      a name" | shape
+    - slides_python | "Set Core and Custom Document Properties and Remove One" | "remove a slide" |
+      remove
+    - words_net | "Build a two-row table with DocumentBuilder and read it back" | "add a table of
+      contents" | table
+  - >-
+    SELF-VERIFY (not a hard gate, but required due diligence before committing): for each change,
+    reload the real committed corpus directly - `Corpus(DEMO_MANIFESTS_DIR)` via
+    `tests/mcp/tools/test_round3_retrieval_corpus.py`'s own `Corpus`/`DEMO_MANIFESTS` - find the one
+    document whose `FQN:` line equals `Example: <old title>`, make an IN-MEMORY copy of that
+    document's text with ONLY the title line replaced by the new title (the served chunk's body
+    and every other line stay byte-identical; a real re-ingest changes only that one line too, so
+    this is a faithful proxy), substitute it back into the loaded corpus, and re-run
+    `find_examples` for every colliding query listed for that pilot to confirm the example no
+    longer wins them. ALSO re-run `find_examples` for every OTHER real task query of that same
+    pilot (from the corpus's own task list) to confirm your new title does not introduce a NEW
+    collision. Report the before/after rank for every query you checked. This does not require any
+    toolchain, Docker, or network - it is pure Python against the already-committed fixtures.
+  - >-
+    Every title must stay <= `_MAX_TITLE_CHARS` (see `src/foss_mcp/indexing/authored_examples.py`),
+    stay unique within its own file, and still not collide with any of that pilot's README-derived
+    candidate titles (the existing sidecar test for each pilot already asserts both).
+  - >-
+    Run `ruff format` on nothing (no Python files are touched by this card).
+actions:
+  - >-
+    Retitle the 18 named authored examples across 18 pilot sidecars to remove the generic-noun
+    title-anchor collisions listed above, verified offline against the real committed corpus
+    before committing.
+checks:
+  - command: '{python} -m pytest tests/indexing/test_authored_examples.py tests/indexing/test_authored_examples_cells_net.py tests/indexing/test_authored_examples_cells_java.py tests/indexing/test_authored_examples_cells_go.py tests/indexing/test_authored_examples_cells_cpp.py tests/indexing/test_authored_examples_cells_rust.py tests/indexing/test_authored_examples_cells_typescript.py tests/indexing/test_authored_examples_pdf_go.py tests/indexing/test_authored_examples_pdf_cpp.py tests/indexing/test_authored_examples_pdf_java.py tests/indexing/test_authored_examples_pdf_net.py tests/indexing/test_authored_examples_pdf_python.py tests/indexing/test_authored_examples_email_cpp.py tests/indexing/test_authored_examples_email_net.py tests/indexing/test_authored_examples_email_python.py tests/indexing/test_authored_examples_3d_typescript.py tests/indexing/test_authored_examples_slides_java.py tests/indexing/test_authored_examples_slides_python.py tests/indexing/test_authored_examples_words_net.py tests/infra/test_authored_examples_fixtures.py -q -rfE -p no:cacheprovider'
+    expect: 'exit 0'
+    timeout_seconds: 600
+    junitxml: true
+    proves:
+      - REQ-G3-014
+min_tests: 100
+requires:
+  - python
+network: false
+negative_control:
+  mutate: |
+    python -X utf8 -c "import pathlib; p = pathlib.Path('tests/fixtures/furnished/cells_net/authored_examples.yaml'); s = p.read_text(encoding='utf-8'); old = 'code_sha256:'; count = s.count(old); assert count >= 1, 'no code_sha256 field found - the file does not match the expected schema'; import re; s2 = re.sub(r'code_sha256: [0-9a-f]{64}', 'code_sha256: ' + '0'*64, s, count=1); assert s2 != s; p.write_text(s2, encoding='utf-8')"
+  rationale: >-
+    Corrupts cells/net's first example's own `code_sha256`, which must make `load_authored_
+    examples`'s own validation reject the whole sidecar file - a pure data mutation that never
+    touches any code path, confirming the aggregated check command genuinely re-validates every
+    file this card lists, not merely the ones a worker happened to touch. The retitles' own
+    semantic correctness is proven separately by the supervisor's post-integration re-bake and the
+    fleet-wide ratchet, not by this negative control.
+evidence:
+  - evidence/build/G3/TC-760/receipt.json
+closeout:
+  - >-
+    18 authored examples across 18 pilots are retitled to remove the generic-noun title-anchor
+    collisions this session's authored-examples campaign introduced. A supervisor re-ingest of all
+    18 pilots and a re-run of the fleet-wide find_examples ratchet follow integration.
+recovery: Re-run from a clean tree.
