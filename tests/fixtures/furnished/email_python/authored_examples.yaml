@@ -1,0 +1,193 @@
+schema_version: 1
+pilot: email_python
+library_repository: aspose-email-foss/Aspose.Email-FOSS-for-Python
+library_commit: 10a906b48c0c11005c4d93b524e4431901c9717c
+language: python
+examples:
+- title: Attach Two Files, Save as MSG and Verify Names, MIME Types and Bytes on Reload
+  description: Builds a message with two attachments, one text and one binary, saves it to a temporary MSG file, reopens it and confirms each attachment's filename, MIME type and exact bytes survived the round trip. Local file only; no network.
+  symbols:
+  - MapiMessage.create
+  - MapiMessage.add_attachment
+  - MapiMessage.iter_attachments_info
+  - MapiMessage.save
+  - MapiMessage.from_file
+  - MapiAttachment.filename
+  - MapiAttachment.mime_type
+  - MapiAttachment.data
+  code: |
+    # Authored example: attach two files to a message, save it as MSG, reopen it and confirm each attachment's name, MIME type and bytes survive the round trip.
+    import os
+    import tempfile
+
+    from aspose.email_foss import msg
+
+    message = msg.MapiMessage.create("Attachment round trip", "See the attached files.")
+    message.add_attachment("figures.txt", b"quarterly figures\n", mime_type="text/plain")
+    message.add_attachment("report.bin", b"\x00\x01\x02\x03", mime_type="application/octet-stream")
+    print("attachments before save:", len(list(message.iter_attachments_info())))
+
+    path = os.path.join(tempfile.gettempdir(), "authored_attachments_example.msg")
+    message.save(path)
+
+    with msg.MapiMessage.from_file(path) as reloaded:
+        attachments = {att.filename: att for att in reloaded.iter_attachments_info()}
+        print("reloaded attachments:", sorted(attachments))
+        assert sorted(attachments) == ["figures.txt", "report.bin"]
+        assert attachments["figures.txt"].mime_type == "text/plain"
+        assert attachments["figures.txt"].data == b"quarterly figures\n"
+        assert attachments["report.bin"].data == b"\x00\x01\x02\x03"
+
+    os.remove(path)
+    print("OK")
+  code_sha256: d737d72c1ee394902e38d9d82484444afdf568e1d5b30d67dcf78ea14ff0ca64
+- title: Address To, CC and BCC Recipients and Verify Their Roles After a Save
+  description: Adds one To, one CC and one BCC recipient to a message, saves it as MSG, reopens it and confirms every recipient's address and recipient type survived the round trip, using the library's RECIPIENT_TYPE constants.
+  symbols:
+  - MapiMessage.create
+  - MapiMessage.add_recipient
+  - MapiMessage.recipients
+  - MapiMessage.save
+  - MapiMessage.from_file
+  - MapiRecipient.email_address
+  - MapiRecipient.recipient_type
+  code: |
+    # Authored example: address one To, one CC and one BCC recipient, save the message as MSG, reopen it and confirm each recipient's role and address survive the round trip.
+    import os
+    import tempfile
+
+    from aspose.email_foss import msg
+
+    message = msg.MapiMessage.create("Recipient roles round trip", "Three recipients, three roles.")
+    message.add_recipient("alice@example.com", display_name="Alice Example")
+    message.add_recipient("carol@example.com", display_name="Carol Example", recipient_type=msg.RECIPIENT_TYPE_CC)
+    message.add_recipient("archive@example.com", display_name="Ops Archive", recipient_type=msg.RECIPIENT_TYPE_BCC)
+    print("recipients before save:", len(message.recipients))
+    assert len(message.recipients) == 3
+
+    path = os.path.join(tempfile.gettempdir(), "authored_recipient_roles_example.msg")
+    message.save(path)
+
+    with msg.MapiMessage.from_file(path) as reloaded:
+        roles = {recipient.email_address: recipient.recipient_type for recipient in reloaded.recipients}
+        print("reloaded roles:", roles)
+        assert len(reloaded.recipients) == 3
+        assert roles["alice@example.com"] == msg.RECIPIENT_TYPE_TO
+        assert roles["carol@example.com"] == msg.RECIPIENT_TYPE_CC
+        assert roles["archive@example.com"] == msg.RECIPIENT_TYPE_BCC
+
+    os.remove(path)
+    print("OK")
+  code_sha256: 659df97c26c63d1420308db0b723f7b405005c65db4fd4ed0850be5b3b41ccae
+- title: Set Sender and Transport Header Properties by PropertyId and Read Them Back After Reload
+  description: Sets the sender name, sender address and transport message headers on a message through PropertyId, saves it as MSG and reads each value back with get_property_value from the reopened file, checking the values are unchanged.
+  symbols:
+  - MapiMessage.create
+  - MapiMessage.set_property
+  - MapiMessage.get_property_value
+  - MapiMessage.save
+  - MapiMessage.from_file
+  - PropertyId
+  code: |
+    # Authored example: set sender and transport-header properties by PropertyId, save the message as MSG and confirm each value is read back unchanged after a reload.
+    import os
+    import tempfile
+
+    from aspose.email_foss import msg
+
+    message = msg.MapiMessage.create("Property round trip", "Body text.")
+    message.set_property(msg.PropertyId.SENDER_NAME, "Build Agent")
+    message.set_property(msg.PropertyId.SENDER_EMAIL_ADDRESS, "build.agent@example.com")
+    message.set_property(msg.PropertyId.TRANSPORT_MESSAGE_HEADERS, "X-Workflow: property-round-trip\n")
+
+    path = os.path.join(tempfile.gettempdir(), "authored_property_round_trip_example.msg")
+    message.save(path)
+
+    with msg.MapiMessage.from_file(path) as reloaded:
+        sender = reloaded.get_property_value(msg.PropertyId.SENDER_NAME)
+        address = reloaded.get_property_value(msg.PropertyId.SENDER_EMAIL_ADDRESS)
+        headers = reloaded.get_property_value(msg.PropertyId.TRANSPORT_MESSAGE_HEADERS)
+        print("sender:", sender, "address:", address)
+        print("transport headers:", headers)
+        assert sender == "Build Agent"
+        assert address == "build.agent@example.com"
+        assert "X-Workflow: property-round-trip" in headers
+
+    os.remove(path)
+    print("OK")
+  code_sha256: 608bef910f315b0ed697600793be5011be5537b05834f423105c319076664177
+- title: Build an EmailMessage in Memory, Convert to MSG and Project Back to EmailMessage
+  description: Builds an EmailMessage in memory with a subject, plain-text body and a text attachment, converts it with from_email_message, saves and reopens the MSG, then projects it back with to_email_message and confirms the subject, body text and attachment filename survived.
+  symbols:
+  - MapiMessage.from_email_message
+  - MapiMessage.save
+  - MapiMessage.from_file
+  - MapiMessage.to_email_message
+  code: |
+    # Authored example: build an EmailMessage in memory with a text attachment, convert it to MSG, reopen the MSG and project it back to EmailMessage, then confirm the subject, body and attachment name survive.
+    import os
+    import tempfile
+    from email.message import EmailMessage
+
+    from aspose.email_foss import msg
+
+    source = EmailMessage()
+    source["From"] = "Build Agent <build.agent@example.com>"
+    source["To"] = "Alice Example <alice@example.com>"
+    source["Subject"] = "Nightly build report"
+    source.set_content("All checks passed.\n")
+    source.add_attachment(b"build log\n", maintype="text", subtype="plain", filename="build.log")
+
+    message = msg.MapiMessage.from_email_message(source)
+    path = os.path.join(tempfile.gettempdir(), "authored_eml_round_trip_example.msg")
+    message.save(path)
+
+    with msg.MapiMessage.from_file(path) as reloaded:
+        projected = reloaded.to_email_message()
+        body = projected.get_body(preferencelist=("plain",)).get_content()
+        names = [part.get_filename() for part in projected.iter_attachments()]
+        print("subject:", projected["Subject"])
+        print("body:", body.strip())
+        print("attachments:", names)
+        assert projected["Subject"] == "Nightly build report"
+        assert "All checks passed." in body
+        assert names == ["build.log"]
+
+    os.remove(path)
+    print("OK")
+  code_sha256: 4c8720ad53ff84c8028947361b9579cbafd472c87fc67893db0ad21045038d93
+- title: Count Recipient and Attachment Storages in a Saved MSG with MsgReader
+  description: Writes a message with two recipients and one attachment to a temporary MSG file, then opens it with MsgReader and confirms the recipient and attachment storage counts match what was written.
+  symbols:
+  - MsgReader.from_file
+  - MsgReader.iter_recipient_storages
+  - MsgReader.iter_attachment_storages
+  - MapiMessage.create
+  - MapiMessage.add_recipient
+  - MapiMessage.add_attachment
+  - MapiMessage.save
+  code: |
+    # Authored example: write a message with two recipients and one attachment, then open it with MsgReader and confirm the recipient and attachment storage counts agree with what was written.
+    import os
+    import tempfile
+
+    from aspose.email_foss import msg
+
+    message = msg.MapiMessage.create("Storage layout check", "Two recipients, one attachment.")
+    message.add_recipient("alice@example.com", display_name="Alice Example")
+    message.add_recipient("bob@example.com", display_name="Bob Example")
+    message.add_attachment("notes.txt", b"storage check\n", mime_type="text/plain")
+
+    path = os.path.join(tempfile.gettempdir(), "authored_storage_counts_example.msg")
+    message.save(path)
+
+    with msg.MsgReader.from_file(path) as reader:
+        recipients = list(reader.iter_recipient_storages())
+        attachments = list(reader.iter_attachment_storages())
+        print("recipient storages:", len(recipients), "attachment storages:", len(attachments))
+        assert len(recipients) == 2
+        assert len(attachments) == 1
+
+    os.remove(path)
+    print("OK")
+  code_sha256: 741af9f6580565eda6b5aa2daa2753978f7291bb248383d30361aa7c818cbce6
