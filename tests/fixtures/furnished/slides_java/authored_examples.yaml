@@ -1,0 +1,284 @@
+schema_version: 1
+pilot: slides_java
+library_repository: aspose-slides-foss/Aspose.Slides-FOSS-for-Java
+library_commit: 620a2614418854b4a18966a361e6907ddc88c7cb
+language: java
+examples:
+- title: Connect two shapes with a connector and read the connection back after a save and reload
+  description: Adds two named rectangles and a bent connector on one slide, joins the connector's start and end to them with setStartShapeConnectedTo and setEndShapeConnectedTo, saves the presentation to memory, reloads it and reads back the names of the shapes the connector starts and ends at.
+  symbols:
+  - Presentation
+  - Presentation.save
+  - IShapeCollection.addAutoShape
+  - IShapeCollection.addConnector
+  - IConnector.setStartShapeConnectedTo
+  - IConnector.setEndShapeConnectedTo
+  - IShape.setName
+  - IShape.getName
+  code: |
+    // Authored example: connect two shapes with a connector, then read the connection back after a save and reload
+    import java.io.ByteArrayInputStream;
+    import java.io.ByteArrayOutputStream;
+    import org.aspose.slides.foss.IAutoShape;
+    import org.aspose.slides.foss.IConnector;
+    import org.aspose.slides.foss.IShape;
+    import org.aspose.slides.foss.ISlide;
+    import org.aspose.slides.foss.Presentation;
+    import org.aspose.slides.foss.ShapeType;
+    import org.aspose.slides.foss.export.SaveFormat;
+
+    public class ConnectorRoundtripExample {
+        public static void main(String[] args) throws Exception {
+            ByteArrayOutputStream savedBytes = new ByteArrayOutputStream();
+            try (Presentation pres = new Presentation()) {
+                ISlide slide = pres.getSlides().get(0);
+                slide.getShapes().clear();
+                IAutoShape source = slide.getShapes().addAutoShape(ShapeType.RECTANGLE, 50, 50, 100, 60);
+                source.setName("SourceBox");
+                IAutoShape target = slide.getShapes().addAutoShape(ShapeType.RECTANGLE, 350, 200, 100, 60);
+                target.setName("TargetBox");
+                IConnector connector = slide.getShapes().addConnector(ShapeType.BENT_CONNECTOR3, 0, 0, 1, 1);
+                connector.setStartShapeConnectedTo(source);
+                connector.setEndShapeConnectedTo(target);
+                pres.save(savedBytes, SaveFormat.PPTX);
+            }
+
+            try (Presentation reloaded = new Presentation(new ByteArrayInputStream(savedBytes.toByteArray()))) {
+                IConnector found = null;
+                for (IShape shape : reloaded.getSlides().get(0).getShapes().toArray()) {
+                    if (shape instanceof IConnector) {
+                        found = (IConnector) shape;
+                    }
+                }
+                if (found == null) {
+                    throw new AssertionError("expected the reloaded slide to hold a connector");
+                }
+                String startName = found.getStartShapeConnectedTo().getName();
+                String endName = found.getEndShapeConnectedTo().getName();
+                System.out.println("start: " + startName);
+                System.out.println("end: " + endName);
+                if (!"SourceBox".equals(startName)) {
+                    throw new AssertionError("expected the connector to start at SourceBox, found " + startName);
+                }
+                if (!"TargetBox".equals(endName)) {
+                    throw new AssertionError("expected the connector to end at TargetBox, found " + endName);
+                }
+            }
+        }
+    }
+  code_sha256: e5f227b16acd9872948dc07c05d12476ff70fbf88500b0be96a24d9fb86f6240
+- title: Hide one slide of a deck and read every slide's hidden flag back after a reload
+  description: Adds two empty slides to a new presentation, hides the second one with setHidden, saves to memory, reloads and prints and asserts the hidden flag of each of the three slides.
+  symbols:
+  - Presentation
+  - Presentation.save
+  - IPresentation.getLayoutSlides
+  - ISlideCollection.addEmptySlide
+  - ISlide.setHidden
+  - ISlide.isHidden
+  code: |
+    // Authored example: hide one slide of a three-slide deck, then read every slide's hidden flag back after a save and reload
+    import java.io.ByteArrayInputStream;
+    import java.io.ByteArrayOutputStream;
+    import org.aspose.slides.foss.ISlide;
+    import org.aspose.slides.foss.Presentation;
+    import org.aspose.slides.foss.export.SaveFormat;
+
+    public class HiddenSlideRoundtripExample {
+        public static void main(String[] args) throws Exception {
+            ByteArrayOutputStream savedBytes = new ByteArrayOutputStream();
+            try (Presentation pres = new Presentation()) {
+                pres.getSlides().addEmptySlide(pres.getLayoutSlides().get(0));
+                pres.getSlides().addEmptySlide(pres.getLayoutSlides().get(0));
+                pres.getSlides().get(1).setHidden(true);
+                pres.save(savedBytes, SaveFormat.PPTX);
+            }
+
+            try (Presentation reloaded = new Presentation(new ByteArrayInputStream(savedBytes.toByteArray()))) {
+                int count = reloaded.getSlides().size();
+                System.out.println("slides: " + count);
+                if (count != 3) {
+                    throw new AssertionError("expected 3 slides after reload, found " + count);
+                }
+                for (int i = 0; i < count; i++) {
+                    ISlide slide = reloaded.getSlides().get(i);
+                    System.out.println("slide " + (i + 1) + " hidden: " + slide.isHidden());
+                }
+                if (reloaded.getSlides().get(0).isHidden()) {
+                    throw new AssertionError("expected slide 1 to stay visible");
+                }
+                if (!reloaded.getSlides().get(1).isHidden()) {
+                    throw new AssertionError("expected slide 2 to be hidden after reload");
+                }
+                if (reloaded.getSlides().get(2).isHidden()) {
+                    throw new AssertionError("expected slide 3 to stay visible");
+                }
+            }
+        }
+    }
+  code_sha256: fc72eef6f5ac90e38c0820b722a18b704eb0dfd4a3b9c639de7a4b65b367835c
+- title: Set a paragraph's alignment, margin and indent and read them back after a reload
+  description: Adds a rectangle with a text frame, sets the first paragraph's alignment to centre with a left margin and an indent through its paragraph format, saves to memory, reloads and reads the alignment, margin and indent back from the reloaded paragraph.
+  symbols:
+  - Presentation
+  - Presentation.save
+  - IShapeCollection.addAutoShape
+  - IAutoShape.addTextFrame
+  - IParagraphFormat.setAlignment
+  - IParagraphFormat.getAlignment
+  - IParagraphFormat.setMarginLeft
+  - IParagraphFormat.setIndent
+  code: |
+    // Authored example: set a paragraph's alignment, left margin and indent, then read them back after a save and reload
+    import java.io.ByteArrayInputStream;
+    import java.io.ByteArrayOutputStream;
+    import org.aspose.slides.foss.IAutoShape;
+    import org.aspose.slides.foss.IParagraph;
+    import org.aspose.slides.foss.IParagraphFormat;
+    import org.aspose.slides.foss.ISlide;
+    import org.aspose.slides.foss.Presentation;
+    import org.aspose.slides.foss.ShapeType;
+    import org.aspose.slides.foss.TextAlignment;
+    import org.aspose.slides.foss.export.SaveFormat;
+
+    public class ParagraphAlignmentRoundtripExample {
+        public static void main(String[] args) throws Exception {
+            ByteArrayOutputStream savedBytes = new ByteArrayOutputStream();
+            try (Presentation pres = new Presentation()) {
+                ISlide slide = pres.getSlides().get(0);
+                slide.getShapes().clear();
+                IAutoShape shape = slide.getShapes().addAutoShape(ShapeType.RECTANGLE, 50, 50, 400, 150);
+                shape.addTextFrame("Centred paragraph");
+                IParagraphFormat format = shape.getTextFrame().getParagraphs().get(0).getParagraphFormat();
+                format.setAlignment(TextAlignment.CENTER);
+                format.setMarginLeft(12.5);
+                format.setIndent(4.0);
+                pres.save(savedBytes, SaveFormat.PPTX);
+            }
+
+            try (Presentation reloaded = new Presentation(new ByteArrayInputStream(savedBytes.toByteArray()))) {
+                IAutoShape shape = (IAutoShape) reloaded.getSlides().get(0).getShapes().get(0);
+                IParagraph paragraph = shape.getTextFrame().getParagraphs().get(0);
+                IParagraphFormat format = paragraph.getParagraphFormat();
+                System.out.println("text: " + paragraph.getText());
+                System.out.println("alignment: " + format.getAlignment());
+                System.out.println("marginLeft: " + format.getMarginLeft());
+                System.out.println("indent: " + format.getIndent());
+                if (format.getAlignment() != TextAlignment.CENTER) {
+                    throw new AssertionError("expected the reloaded paragraph to be centred");
+                }
+                if (format.getMarginLeft() != 12.5) {
+                    throw new AssertionError("expected the reloaded left margin to be 12.5");
+                }
+                if (format.getIndent() != 4.0) {
+                    throw new AssertionError("expected the reloaded indent to be 4.0");
+                }
+            }
+        }
+    }
+  code_sha256: 00507e54a256bdf3b3304c936ca20f5d1594efb679503d45fbc3539f28ddf564
+- title: Give a shape a solid fill colour and read its fill type and colour back after a reload
+  description: Adds a rounded rectangle, sets its fill to solid with an opaque blue colour through IFillFormat, saves to memory, reloads and reads the fill type and the ARGB value of the solid colour back from the reloaded shape.
+  symbols:
+  - Presentation
+  - Presentation.save
+  - IShapeCollection.addAutoShape
+  - IAutoShape.getFillFormat
+  - IFillFormat.setFillType
+  - IFillFormat.getSolidFillColor
+  - FillType.SOLID
+  code: |
+    // Authored example: give a rectangle a solid fill colour, then read its fill type and colour back after a save and reload
+    import java.io.ByteArrayInputStream;
+    import java.io.ByteArrayOutputStream;
+    import org.aspose.slides.foss.FillType;
+    import org.aspose.slides.foss.IAutoShape;
+    import org.aspose.slides.foss.ISlide;
+    import org.aspose.slides.foss.Presentation;
+    import org.aspose.slides.foss.ShapeType;
+    import org.aspose.slides.foss.drawing.Color;
+    import org.aspose.slides.foss.export.SaveFormat;
+
+    public class ShapeFillRoundtripExample {
+        public static void main(String[] args) throws Exception {
+            ByteArrayOutputStream savedBytes = new ByteArrayOutputStream();
+            try (Presentation pres = new Presentation()) {
+                ISlide slide = pres.getSlides().get(0);
+                slide.getShapes().clear();
+                IAutoShape shape = slide.getShapes().addAutoShape(ShapeType.ROUND_RECTANGLE, 80, 80, 240, 120);
+                shape.getFillFormat().setFillType(FillType.SOLID);
+                shape.getFillFormat().getSolidFillColor().setColor(Color.fromArgb(255, 0, 112, 192));
+                pres.save(savedBytes, SaveFormat.PPTX);
+            }
+
+            try (Presentation reloaded = new Presentation(new ByteArrayInputStream(savedBytes.toByteArray()))) {
+                IAutoShape shape = (IAutoShape) reloaded.getSlides().get(0).getShapes().get(0);
+                FillType fillType = shape.getFillFormat().getFillType();
+                Color color = shape.getFillFormat().getSolidFillColor().getColor();
+                System.out.println("fillType: " + fillType);
+                System.out.println("argb: " + Integer.toHexString(color.toArgb()));
+                if (fillType != FillType.SOLID) {
+                    throw new AssertionError("expected the reloaded fill to be solid");
+                }
+                if (color.toArgb() != Color.fromArgb(255, 0, 112, 192).toArgb()) {
+                    throw new AssertionError("expected the reloaded fill colour to be 0070C0");
+                }
+            }
+        }
+    }
+  code_sha256: acf5045bc1bfae2d6b19225e267b2ce993918c5f1bb9fc827459a217d95fc8f6
+- title: Remove a middle slide and confirm the remaining order after a save and reload
+  description: Removes the default slide, adds three labelled slides, removes the middle one with removeAt, saves to memory, reloads and checks that two slides remain in order by reading each slide's marker text back.
+  symbols:
+  - Presentation
+  - Presentation.save
+  - ISlideCollection.addEmptySlide
+  - ISlideCollection.removeAt
+  - IShapeCollection.addAutoShape
+  - IAutoShape.addTextFrame
+  - ITextFrame.getText
+  code: |
+    // Authored example: remove the middle slide of a three-slide deck and confirm the remaining order after a save and reload
+    import java.io.ByteArrayInputStream;
+    import java.io.ByteArrayOutputStream;
+    import org.aspose.slides.foss.IAutoShape;
+    import org.aspose.slides.foss.ISlide;
+    import org.aspose.slides.foss.Presentation;
+    import org.aspose.slides.foss.ShapeType;
+    import org.aspose.slides.foss.export.SaveFormat;
+
+    public class SlideRemovalRoundtripExample {
+        public static void main(String[] args) throws Exception {
+            ByteArrayOutputStream savedBytes = new ByteArrayOutputStream();
+            try (Presentation pres = new Presentation()) {
+                pres.getSlides().removeAt(0);
+                String[] labels = {"Intro", "Draft", "Summary"};
+                for (String label : labels) {
+                    ISlide slide = pres.getSlides().addEmptySlide(pres.getLayoutSlides().get(0));
+                    IAutoShape marker = slide.getShapes().addAutoShape(ShapeType.RECTANGLE, 50, 50, 200, 60);
+                    marker.addTextFrame(label);
+                }
+                pres.getSlides().removeAt(1);
+                pres.save(savedBytes, SaveFormat.PPTX);
+            }
+
+            try (Presentation reloaded = new Presentation(new ByteArrayInputStream(savedBytes.toByteArray()))) {
+                int count = reloaded.getSlides().size();
+                System.out.println("slides: " + count);
+                if (count != 2) {
+                    throw new AssertionError("expected 2 slides after removing one, found " + count);
+                }
+                String first = ((IAutoShape) reloaded.getSlides().get(0).getShapes().get(0)).getTextFrame().getText();
+                String second = ((IAutoShape) reloaded.getSlides().get(1).getShapes().get(0)).getTextFrame().getText();
+                System.out.println("first: " + first);
+                System.out.println("second: " + second);
+                if (!"Intro".equals(first)) {
+                    throw new AssertionError("expected the first remaining slide to be Intro, found " + first);
+                }
+                if (!"Summary".equals(second)) {
+                    throw new AssertionError("expected the second remaining slide to be Summary, found " + second);
+                }
+            }
+        }
+    }
+  code_sha256: 3e5f6c8d6013de7a318054e6473d73790f2510c9a4420d4cb5fff1b3af288544
