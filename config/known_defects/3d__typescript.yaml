@@ -25,3 +25,51 @@ defects:
       version: 24.12.0
       date: '2026-10-29'
   status: open
+- id: 3D-TYPESCRIPT-STL-001
+  subject:
+    kind: method
+    refs:
+    - aspose.threed.Scene.Scene
+  applies_to:
+    package_versions:
+    - 24.12.0
+  summary: 'Scene.save to .stl writes polygon vertex indices instead of vertex coordinates
+    in @aspose/3d 24.12.0 (for example vertex 0 1 2): the file parses without error but
+    holds wrong geometry.'
+  user_action: Do not rely on Scene.save() with a .stl path for geometry in @aspose/3d
+    24.12.0. Export through another format, or check the vertex coordinates in the saved
+    file before using it.
+  evidence:
+    repro: 'Static read of src/aspose/threed/formats/stl/StlExporter.ts at commit 66cb26df3b031f0bf6976d4e88dc89721983afa4:
+      _writeAscii() writes each triangle as vertex index numbers with no coordinate lookup.
+      Recorded as reproduced on 2026-11-11 with a unit-square quad saved as STL; triangulating
+      first does not change the output.'
+    verified_on:
+      package: '@aspose/3d'
+      version: 24.12.0
+      date: '2026-11-11'
+  status: open
+- id: 3D-TYPESCRIPT-FBX-001
+  subject:
+    kind: method
+    refs:
+    - aspose.threed.Scene.Scene
+  applies_to:
+    package_versions:
+    - 24.12.0
+  summary: 'Scene.save to .fbx falls through to the OBJ exporter in @aspose/3d 24.12.0:
+    the output is OBJ text in a file named .fbx, or a 0-byte file for geometry under a
+    child node.'
+  user_action: Do not use Scene.save() with a .fbx path in @aspose/3d 24.12.0. Use another
+    supported format, and check the output file size and content before relying on it.
+  evidence:
+    repro: 'Static read of src/aspose/threed/Scene.ts save() at commit 66cb26df3b031f0bf6976d4e88dc89721983afa4:
+      the extension branches cover 3mf, stl, gltf, glb, dae and obj only; with no format
+      matched the fallback selects ObjFormat. Recorded as reproduced on 2026-11-11: root-level
+      geometry yields OBJ text in a .fbx file, and geometry under a child node yields a
+      0-byte file, with no error.'
+    verified_on:
+      package: '@aspose/3d'
+      version: 24.12.0
+      date: '2026-11-11'
+  status: open

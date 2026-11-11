@@ -276,8 +276,22 @@ def _real_round3_issues() -> list[dict[str, Any]]:
 #   both facts combined), chosen over a bare sequential ``SLIDES-JAVA-011`` so it reads as a
 #   deliberate split of ``SLIDES-JAVA-010``, never as an 11th independently audited finding that
 #   was never actually recorded.
+# - ``3D-TYPESCRIPT-STL-001`` / ``3D-TYPESCRIPT-FBX-001`` (G3/TC-758, REQ-G3-015, project-minted
+#   ids with no round-2/round-3 audit record): two previously undisclosed upstream defects of the
+#   pinned ``@aspose/3d`` 24.12.0 at ``66cb26df3b031f0bf6976d4e88dc89721983afa4``. STL-001:
+#   ``Scene.save`` to ``.stl`` writes polygon vertex indices instead of coordinates. FBX-001:
+#   ``Scene.save`` to ``.fbx`` falls through to the OBJ exporter. Both are disclosure-only and
+#   were recorded during the TC-756 verification (2026-11-11), not an audit round.
 _ADDITIONAL_DISCLOSABLE_IDS: frozenset[str] = frozenset(
-    {"3D-JAVA-001", "3D-NET-001", "WORDS-NET-001", "SLIDES-JAVA-010", "SLIDES-JAVA-010B"}
+    {
+        "3D-JAVA-001",
+        "3D-NET-001",
+        "WORDS-NET-001",
+        "SLIDES-JAVA-010",
+        "SLIDES-JAVA-010B",
+        "3D-TYPESCRIPT-STL-001",
+        "3D-TYPESCRIPT-FBX-001",
+    }
 )
 
 
@@ -377,15 +391,17 @@ def test_registry_entry_count_equals_upstream_library_bug_issue_count() -> None:
         f"issue count ({len(upstream_issue_ids)})"
     )
 
-    # Sanity anchor only, not a floor on the future: as of today (2026-11-09) this real union
-    # count is 58 (56 round2-union-round3-union-_ADDITIONAL_DISCLOSABLE_IDS as of TC-711, see this
+    # Sanity anchor only, not a floor on the future: as of TC-758 (2026-11-11) this real union
+    # count is 60 (58 as of TC-728, plus TC-758's own additive ``3D-TYPESCRIPT-STL-001`` and
+    # ``3D-TYPESCRIPT-FBX-001``); earlier, as of today (2026-11-09) the real union
+    # count was 58 (56 round2-union-round3-union-_ADDITIONAL_DISCLOSABLE_IDS as of TC-711, see this
     # module's docstring for that id list, plus TC-728's own additive ``_ADDITIONAL_DISCLOSABLE_IDS``
     # entries ``SLIDES-JAVA-010`` and ``SLIDES-JAVA-010B``, two registry ids for one round-3 finding
     # id, split because the underlying facts are two genuinely distinct causal chains). A future card
     # adding or retiring a confirmed upstream-library-bug finding (and its matching entry) is
     # expected to move both sides together and may need to update this comment and number; the
     # equality assertion above is the one that must hold forever.
-    assert len(upstream_issue_ids) == 58
+    assert len(upstream_issue_ids) == 60
 
 
 # --------------------------------------------------------------------------------------------
