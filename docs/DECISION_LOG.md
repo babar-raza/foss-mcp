@@ -4285,3 +4285,18 @@ scope) and used a hyperlinks example instead - no workaround or patch was applie
 or to any production code. A future card should add a `CELLS-TYPESCRIPT-0NN` entry to
 `config/known_defects/cells__typescript.yaml` once independently re-verified; not done here because
 it is outside `TC-745`'s own `write_paths` and this is a documentation-only entry.
+
+## 2026-11-11 — candidate undisclosed STL-export defect in 3d/typescript, found while authoring examples (TC-756), not yet verified or registered
+
+`TC-756`'s worker, while authoring 3d/typescript examples, reported a candidate silent-data-loss
+defect in the pinned library (`aspose-3d-foss/Aspose.3D-FOSS-for-TypeScript` @
+`66cb26df23b031f0bf6976d4e88dc89721983afa4`): `Scene.save('x.stl')` writes each polygon's vertex
+INDICES (e.g. `vertex 0 1 2`) instead of the vertex coordinates, producing a file that parses
+without error but holds wrong geometry. Reported as reproduced on a unit square; the README does not
+disclose it. Also noted but not investigated: FBX `save` to a `.fbx` path wrote no file.
+
+Status: a worker's report, not yet independently re-verified by the supervisor. Next step is a
+supervisor-directed verification (reproduce the STL output directly against the real pinned build),
+then, if confirmed, a `config/known_defects/3d__typescript.yaml` entry following the existing
+known-defect pattern. Per the "no pilot ever gets worse" rule, this is an undisclosed silent-data-loss
+class and must not be left unrecorded.
