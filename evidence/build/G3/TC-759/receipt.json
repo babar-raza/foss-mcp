@@ -1,0 +1,89 @@
+{
+  "schema_version": 1,
+  "card": "TC-759",
+  "gate": "G3",
+  "generated_by": "gatectl",
+  "generated_at": "2026-11-11T06:38:46Z",
+  "base_rev": "ba2b921c92b6faff5a1f6f2ce3a13bb3bf7fba2e",
+  "head_rev": "9f4949872bd83959ca34da7b3ba533d251ec126f",
+  "card_sha256": "664eddb8a5a77e1e77b3a0e5b60eeaae8d28438404140b9701b3d40ba9524001",
+  "fingerprint": {
+    "python": "3.13.2",
+    "platform": "Windows-11-10.0.26300-SP0",
+    "lock_sha256": "5c72e798a73c059a438e752e94a8d4c88c1bdf81a197f6e5c5fcecbc9466a691",
+    "env": {
+      "PYTHONHASHSEED": "0",
+      "PYTHONUTF8": "1",
+      "PYTHONDONTWRITEBYTECODE": "1",
+      "PYTHONIOENCODING": "utf-8",
+      "TZ": "UTC",
+      "LC_ALL": "C.UTF-8",
+      "SOURCE_DATE_EPOCH": "1700000000",
+      "verify_runner": "host"
+    }
+  },
+  "scope": {
+    "ok": true,
+    "changed_paths": [
+      "tests/fixtures/furnished/cells_python/authored_examples.yaml",
+      "tests/indexing/test_authored_examples_cells_python.py"
+    ],
+    "violations": [],
+    "evaluated": true
+  },
+  "runs": [
+    {
+      "run": 1,
+      "checks": [
+        {
+          "command": "{python} -m pytest tests/indexing/test_authored_examples.py tests/indexing/test_authored_examples_cells_python.py tests/infra/test_authored_examples_fixtures.py -q -rfE -p no:cacheprovider",
+          "exit_code": 0,
+          "duration_s": 14.045,
+          "stdout_sha256": "cac73f118526268205ef6b44e36f15d479a5ee6c50d0f14d7dfa4c52129a6cd3",
+          "tests": 210,
+          "skipped": 0,
+          "errors": 0,
+          "failures": 0
+        }
+      ],
+      "all_passed": true
+    },
+    {
+      "run": 2,
+      "checks": [
+        {
+          "command": "{python} -m pytest tests/indexing/test_authored_examples.py tests/indexing/test_authored_examples_cells_python.py tests/infra/test_authored_examples_fixtures.py -q -rfE -p no:cacheprovider",
+          "exit_code": 0,
+          "duration_s": 11.626,
+          "stdout_sha256": "cac73f118526268205ef6b44e36f15d479a5ee6c50d0f14d7dfa4c52129a6cd3",
+          "tests": 210,
+          "skipped": 0,
+          "errors": 0,
+          "failures": 0
+        }
+      ],
+      "all_passed": true
+    }
+  ],
+  "negative_control": {
+    "kind": "mutate",
+    "patch": "python -X utf8 -c \"import pathlib; p = pathlib.Path('tests/indexing/test_authored_examples_cells_python.py'); s = p.read_text(encoding='utf-8'); old = 'EXPECTED_EXAMPLES = 4'; assert s.count(old) == 1, 'the sidecar test must pin EXPECTED_EXAMPLES = 4 exactly once - the card has not been applied'; p.write_text(s.replace(old, 'EXPECTED_EXAMPLES = 5', 1), encoding='utf-8')\"\n",
+    "patch_sha256": "d040e1b6e31bc143db2748e3539d468ee433f2a2bbb2dec6aea815cbeaa1dc5b",
+    "applied": true,
+    "patch_applied_failed": true,
+    "exit_codes": [
+      1
+    ],
+    "tree_changed": [
+      "M tests/indexing/test_authored_examples_cells_python.py",
+      "?? .junit-0.xml"
+    ]
+  },
+  "holdout": {
+    "ran": false,
+    "passed": true,
+    "detail": "no holdout for this card"
+  },
+  "accepted": true,
+  "reason": "all gates passed"
+}
