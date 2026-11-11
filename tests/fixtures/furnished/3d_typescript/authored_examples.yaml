@@ -1,0 +1,211 @@
+schema_version: 1
+pilot: 3d_typescript
+library_repository: aspose-3d-foss/Aspose.3D-FOSS-for-TypeScript
+library_commit: 66cb26df3b031f0bf6976d4e88dc89721983afa4
+language: typescript
+examples:
+- title: Create and read back a diffuse UV layer on a triangle mesh
+  description: Adds a diffuse texture-coordinate layer to a triangle mesh with Mesh.createElementUV, fills
+    it with FVector2 coordinates through VertexElementUV.addData, attaches the mesh to a node, and reads
+    the same layer back with Mesh.getVertexElementOfUV and its uvData.
+  symbols:
+  - Mesh
+  - Mesh.createElementUV
+  - Mesh.getVertexElementOfUV
+  - Mesh.createPolygon
+  - VertexElementUV.addData
+  - VertexElementUV.uvData
+  code: |
+    // Authored example: attach a diffuse UV layer to a triangle mesh and read the same layer back by texture mapping.
+    import { Scene } from './dist/aspose/threed';
+    import { Mesh, MappingMode, ReferenceMode, TextureMapping } from './dist/aspose/threed/entities';
+    import { FVector2, Vector4 } from './dist/aspose/threed/utilities';
+
+    function main(): void {
+      const scene = new Scene();
+      const node = scene.rootNode.createChildNode('triangle');
+      const mesh = new Mesh();
+      mesh.addControlPoint(new Vector4(0, 0, 0, 1));
+      mesh.addControlPoint(new Vector4(1, 0, 0, 1));
+      mesh.addControlPoint(new Vector4(0, 1, 0, 1));
+      mesh.createPolygon(0, 1, 2);
+
+      const uv = mesh.createElementUV(TextureMapping.DIFFUSE, MappingMode.POLYGON_VERTEX, ReferenceMode.DIRECT);
+      uv.addData([new FVector2(0, 0), new FVector2(1, 0), new FVector2(0, 1)]);
+      node.addEntity(mesh);
+
+      const back = mesh.getVertexElementOfUV(TextureMapping.DIFFUSE);
+      if (back === null) throw new Error("expected the diffuse UV layer to be found on the mesh");
+      if (back !== uv) throw new Error("expected getVertexElementOfUV to return the same UV layer object");
+
+      const coords = back.uvData;
+      console.log("uv coordinates:", JSON.stringify(coords.map((c) => [c.x, c.y])));
+      if (coords.length !== 3) throw new Error(`expected 3 UV pairs, got ${coords.length}`);
+      if (coords[1].x !== 1 || coords[1].y !== 0) throw new Error("second UV pair did not read back as (1, 0)");
+      if (coords[2].x !== 0 || coords[2].y !== 1) throw new Error("third UV pair did not read back as (0, 1)");
+      console.log("cand1 OK");
+    }
+
+    main();
+  code_sha256: 7c79bebf84bbbf7f6b0986c716e58010b5a2ce73dee47b5dec82a33958a470dc
+- title: Assign a Phong material to a node and read its specular settings back
+  description: Creates a PhongMaterial with a shininess and a specular colour, assigns it to a scene node
+    through Node.material, and reads the material and its settings back from the node.
+  symbols:
+  - PhongMaterial
+  - PhongMaterial.shininess
+  - PhongMaterial.specularColor
+  - Node.material
+  - Node.materials
+  code: |
+    // Authored example: assign a Phong material to a scene node and read its specular settings back from the node.
+    import { Scene } from './dist/aspose/threed';
+    import { PhongMaterial } from './dist/aspose/threed/shading';
+    import { Vector3 } from './dist/aspose/threed/utilities';
+
+    function main(): void {
+      const scene = new Scene();
+      const node = scene.rootNode.createChildNode('polished');
+
+      const material = new PhongMaterial('polished-phong');
+      material.shininess = 0.25;
+      material.specularColor = new Vector3(1, 0.5, 0);
+      node.material = material;
+
+      const back = node.material as PhongMaterial | null;
+      if (back === null) throw new Error("expected the node to report its material");
+      if (back !== material) throw new Error("expected node.material to return the same PhongMaterial object");
+      if (node.materials.length !== 1) throw new Error(`expected 1 material on the node, got ${node.materials.length}`);
+
+      const specular = back.specularColor;
+      console.log("shininess:", back.shininess, "specular:", specular ? [specular.x, specular.y, specular.z] : null);
+      if (back.shininess !== 0.25) throw new Error(`expected shininess 0.25, got ${back.shininess}`);
+      if (specular === null || specular.x !== 1 || specular.y !== 0.5 || specular.z !== 0) {
+        throw new Error("specular colour did not read back as (1, 0.5, 0)");
+      }
+      console.log("cand2 OK");
+    }
+
+    main();
+  code_sha256: 7e7abda135dcaefb02965af163b549e696b7b58932147fe294f77aa8c8a6b693
+- title: Compose a child node's world translation from its parent
+  description: Sets a translation on a parent node and on a child node created beneath it with Node.createChildNode,
+    then reads the child's world-space translation from Node.globalTransform and checks the parent link.
+  symbols:
+  - Node.createChildNode
+  - Transform.setTranslation
+  - Node.globalTransform
+  - GlobalTransform.translation
+  - Node.parentNode
+  code: |
+    // Authored example: compose a child node's world translation from its parent's translation and its own local offset.
+    import { Scene } from './dist/aspose/threed';
+
+    function main(): void {
+      const scene = new Scene();
+      const parent = scene.rootNode.createChildNode('parent');
+      parent.transform.setTranslation(10, 0, 0);
+
+      const child = parent.createChildNode('child');
+      child.transform.setTranslation(0, 5, 0);
+
+      const world = child.globalTransform.translation;
+      console.log("child world translation:", world.x, world.y, world.z);
+      if (child.parentNode !== parent) throw new Error("expected the child's parentNode to be the parent node");
+      if (world.x !== 10 || world.y !== 5 || world.z !== 0) {
+        throw new Error(`expected world translation (10, 5, 0), got (${world.x}, ${world.y}, ${world.z})`);
+      }
+      console.log("cand3 OK");
+    }
+
+    main();
+  code_sha256: a119cea807c7f38dd9b212e6e52e6be704a603ac2540ea50baf397621f6e380d
+- title: Triangulate a rectangular quad in place and check the triangles cover its area
+  description: Builds a four-vertex rectangle with Mesh.createPolygon, triangulates it with Mesh.triangulate,
+    and checks that every polygon is a triangle and that the triangles' summed area equals the rectangle's
+    area, computed from Mesh.controlPoints.
+  symbols:
+  - Mesh.createPolygon
+  - Mesh.triangulate
+  - Mesh.polygons
+  - Mesh.controlPoints
+  code: |
+    // Authored example: triangulate a rectangular quad in place and check the triangles cover the same area.
+    import { Scene } from './dist/aspose/threed';
+    import { Mesh } from './dist/aspose/threed/entities';
+    import { Vector4 } from './dist/aspose/threed/utilities';
+
+    function triangleArea(a: Vector4, b: Vector4, c: Vector4): number {
+      const cross = (b.x - a.x) * (c.y - a.y) - (b.y - a.y) * (c.x - a.x);
+      return Math.abs(cross) / 2;
+    }
+
+    function main(): void {
+      const scene = new Scene();
+      const node = scene.rootNode.createChildNode('quad');
+      const mesh = new Mesh();
+      mesh.addControlPoint(new Vector4(0, 0, 0, 1));
+      mesh.addControlPoint(new Vector4(2, 0, 0, 1));
+      mesh.addControlPoint(new Vector4(2, 1, 0, 1));
+      mesh.addControlPoint(new Vector4(0, 1, 0, 1));
+      mesh.createPolygon(0, 1, 2, 3);
+      node.addEntity(mesh);
+
+      const triangulated = mesh.triangulate();
+      const polygons = triangulated.polygons;
+      console.log("triangles:", JSON.stringify(polygons));
+      if (polygons.length !== 2) throw new Error(`expected 2 triangles, got ${polygons.length}`);
+
+      const points = triangulated.controlPoints;
+      let area = 0;
+      for (const polygon of polygons) {
+        if (polygon.length !== 3) throw new Error(`expected every polygon to be a triangle, got ${polygon.length} vertices`);
+        area += triangleArea(points[polygon[0]], points[polygon[1]], points[polygon[2]]);
+      }
+      console.log("total triangle area:", area);
+      if (Math.abs(area - 2) > 1e-9) throw new Error(`expected triangles to cover area 2, got ${area}`);
+      console.log("cand4 OK");
+    }
+
+    main();
+  code_sha256: fdc2c6996ede3bd799a4c46b33f92af0f1f9cf69322207c2f8de5e11397b0d45
+- title: Attach a directional light and a perspective camera to one node
+  description: Creates a directional Light and a perspective Camera, adds both to one scene node with
+    Node.addEntity, and reads the entities and each entity's light type or projection type back from Node.entities.
+  symbols:
+  - Node.addEntity
+  - Node.entities
+  - Light.lightType
+  - Camera.projectionType
+  code: |
+    // Authored example: attach a directional light and a perspective camera to one scene node and read both back.
+    import { Scene } from './dist/aspose/threed';
+    import { Camera, Light, LightType, ProjectionType } from './dist/aspose/threed/entities';
+
+    function main(): void {
+      const scene = new Scene();
+      const rig = scene.rootNode.createChildNode('rig');
+
+      const sun = new Light('sun');
+      sun.lightType = LightType.DIRECTIONAL;
+      const camera = new Camera('main-camera');
+      camera.projectionType = ProjectionType.PERSPECTIVE;
+      rig.addEntity(sun);
+      rig.addEntity(camera);
+
+      const entities = rig.entities;
+      console.log("entities on rig:", entities.length);
+      if (entities.length !== 2) throw new Error(`expected 2 entities on the rig node, got ${entities.length}`);
+      const light = entities[0] as Light;
+      const cam = entities[1] as Camera;
+      if (!(light instanceof Light) || light.lightType !== LightType.DIRECTIONAL) {
+        throw new Error("expected the first entity to be the directional light");
+      }
+      if (!(cam instanceof Camera) || cam.projectionType !== ProjectionType.PERSPECTIVE) {
+        throw new Error("expected the second entity to be the perspective camera");
+      }
+      console.log("cand5 OK");
+    }
+
+    main();
+  code_sha256: 76f7cd2e04a9a6c729891703ca2aef997326c87d8ea0c0bcfd35b9945deb1a60
