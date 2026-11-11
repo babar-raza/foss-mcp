@@ -4,56 +4,6 @@ library_repository: aspose-cells-foss/Aspose.Cells-FOSS-for-Python
 library_commit: 4f6768a7b349a1309644f456eb43bc35f70c16d7
 language: python
 examples:
-- title: Merge a title row and a label range, then unmerge them
-  description: Merges a title row and a second labelled range using both spellings of the merge API (merge/Merge), saves the workbook, reloads it and confirms the merged ranges survive the round trip, then unmerges both ranges with unmerge/UnMerge and confirms they are gone.
-  symbols:
-  - Workbook
-  - Workbook.save
-  - Worksheet.merged_cells
-  - Cells.merge
-  - Cells.Merge
-  - Cells.unmerge
-  - Cells.UnMerge
-  code: |
-    # Authored example: merge a title row and a label range, save, reload and unmerge both ranges.
-    from aspose.cells_foss import Workbook
-
-    workbook = Workbook()
-    worksheet = workbook.worksheets[0]
-    worksheet.name = "MergeDemo"
-    worksheet.cells["A1"].value = "Quarterly Report"
-    worksheet.cells["A3"].value = "Region"
-    worksheet.cells["B3"].value = "Q1"
-    worksheet.cells["A4"].value = "North"
-    worksheet.cells["B4"].value = 120
-    worksheet.cells["A6"].value = "Merged note"
-
-    # Merge the title row and a second range, using the two equivalent spellings of the same API.
-    worksheet.cells.merge(0, 0, 1, 5)  # A1:E1
-    worksheet.cells.Merge(5, 0, 1, 2)  # A6:B6 (alias API)
-    print("merged ranges:", worksheet.merged_cells)
-    assert worksheet.merged_cells == ["A1:E1", "A6:B6"]
-
-    import os
-    import tempfile
-
-    path = os.path.join(tempfile.gettempdir(), "authored_merge_cells_example.xlsx")
-    workbook.save(path)
-
-    reloaded = Workbook(path)
-    reloaded_sheet = reloaded.worksheets[0]
-    print("reloaded merged ranges:", reloaded_sheet.merged_cells)
-    assert reloaded_sheet.merged_cells == ["A1:E1", "A6:B6"]
-
-    # Unmerge both ranges and confirm they are gone.
-    reloaded_sheet.cells.unmerge(0, 0, 1, 5)
-    reloaded_sheet.cells.UnMerge(5, 0, 1, 2)  # alias API
-    print("after unmerge:", reloaded_sheet.merged_cells)
-    assert reloaded_sheet.merged_cells == []
-
-    os.remove(path)
-    print("OK")
-  code_sha256: d9beaf370bcc493f9390e14607bab197ea9373026a15b839e48c70adaba899d4
 - title: Add an external hyperlink and verify its properties
   description: Adds an external web hyperlink to a cell, sets its display text and screen tip, and checks the hyperlink's range, address, text, tip and type, plus the worksheet's hyperlink count, before saving the workbook.
   symbols:

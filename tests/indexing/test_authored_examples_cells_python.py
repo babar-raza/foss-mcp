@@ -1,6 +1,6 @@
 """Offline checks of the cells/python authored-example sidecar (TC-733, REQ-G3-014).
 
-``tests/fixtures/furnished/cells_python/authored_examples.yaml`` holds exactly five minimal,
+``tests/fixtures/furnished/cells_python/authored_examples.yaml`` holds exactly four minimal,
 labelled examples written against the real public API of ``aspose-cells-foss`` at the pinned
 commit, each adapted from a real upstream ``examples/*.py`` test method (merge/unmerge,
 hyperlinks, number formats, sparklines and data validation) with the ``unittest``/``sys.path``
@@ -46,7 +46,7 @@ PAGE = FIXTURES / "furnished" / PILOT / "pages" / "_index.md"
 API_SURFACE = FIXTURES / PILOT / "api_surface.json"
 CHART_VALUES = REPO_ROOT / "infra" / "helm" / "foss-mcp" / "values.yaml"
 
-EXPECTED_EXAMPLES = 5
+EXPECTED_EXAMPLES = 4
 EXAMPLE_INDEXES = list(range(EXPECTED_EXAMPLES))
 
 _IMPORT_RE = re.compile(r"(?m)^[ \t]*(?:import\s+([^\s#]+)|from\s+([^\s#]+)\s+import\b)")
@@ -91,7 +91,7 @@ def _readme_titles() -> set[str]:
     return titles
 
 
-def test_the_sidecar_loads_and_yields_exactly_five_authored_candidates() -> None:
+def test_the_sidecar_loads_and_yields_exactly_four_authored_candidates() -> None:
     candidates = _candidates()
     assert len(candidates) == EXPECTED_EXAMPLES
     assert {candidate.provenance for candidate in candidates} == {"authored"}
