@@ -4324,3 +4324,26 @@ disclosure itself is still required (the STL index-export defect was independent
 2026-11-11), so it is re-authored as a successor card with non-colliding ids, every claimant ordered
 via `depends_on`, the two lock files in scope with the existing `_ADDITIONAL_DISCLOSABLE_IDS`
 allowlist pattern, offline-only checks, and a negative control that targets the new entry's own text.
+
+## 2026-11-11 — find_examples wrong-confident ratchet regression root-caused to one cells/python authored example
+
+`test_find_examples_non_empty_answers_that_miss_the_intended_api_stay_rare` fails on main. Measured:
+42/729 (0.0576, passes) at 084403ce, and 44/729 (0.0604, ceiling 0.059) at a885e499 (the cells/python
+re-ingest). The earlier 84/729 figure was an arithmetic slip, not a measurement; the true delta is
+two cases.
+
+The two new wrong cases are `cells__python` c11 ("filter rows in a sheet", intended AutoFilter) and
+c12 ("print the sheet in landscape on A4 paper", intended PageSetup.Orientation/PaperSize). In both,
+the top example is the cells/python authored example "Merge a title row and a label range, then
+unmerge them" (TC-733). Its title and body contain generic sheet/row/range words.
+
+Isolated by scratch generation variants: the parent generation plus only the five authored example
+documents reproduces the bad wrong-set exactly; the bad generation minus those five reproduces the
+parent's set exactly. The ~200 non-example fixture chunks changed by the same re-ingest have no effect
+on this metric.
+
+Remediation chosen: remove that single example from `tests/fixtures/furnished/cells_python/
+authored_examples.yaml` (leaving four), update its sidecar test's count, and re-bake cells_python so
+the served generation drops it. Removal rather than retitling keeps the change minimal and avoids a
+new retitle that would itself need a fresh ratchet pass. The other four authored examples are
+unaffected (several changed top-1 without becoming wrong, and none moved from right to wrong).
