@@ -1,0 +1,81 @@
+id: TC-759
+gate: G3
+lane: storage-retrieval
+purpose: >-
+  Remediate a fleet-wide find_examples regression introduced by the cells/python authored-examples
+  campaign (see `docs/DECISION_LOG.md`, 2026-11-11 "find_examples wrong-confident ratchet regression
+  root-caused to one cells/python authored example"). One authored cells/python example, "Merge a
+  title row and a label range, then unmerge them" (TC-733), is the only example admitted for two
+  unrelated queries ("filter rows in a sheet" and "print the sheet in landscape on A4 paper"), which
+  makes `test_find_examples_non_empty_answers_that_miss_the_intended_api_stay_rare` fail: wrong-confident
+  rate 44/729 against a 42/729 ceiling. Remove exactly that one example from the cells/python sidecar,
+  so four authored examples remain, and update the sidecar's own test to the new count. Other
+  authored examples in this sidecar must remain byte-for-byte unchanged. This card does NOT touch the
+  served generation: a supervisor re-bake of cells_python follows integration, and only then does the
+  ratchet measure the fix.
+depends_on:
+  - TC-733
+write_paths:
+  - tests/fixtures/furnished/cells_python/authored_examples.yaml
+  - tests/indexing/test_authored_examples_cells_python.py
+satisfies:
+  - REQ-G3-014
+source_refs:
+  - file: docs/DECISION_LOG.md
+    anchor: >-
+      ## 2026-11-11 — find_examples wrong-confident ratchet regression root-caused to one cells/python authored example
+    sha256: 0a8d99f428aedacacd09cf82737d50e25ee881be13dbb3253e419d0e47016a91
+inputs:
+  - >-
+    READ FIRST: `tests/fixtures/furnished/cells_python/authored_examples.yaml` in full (five examples,
+    indexes 0-4; index 0 is "Merge a title row and a label range, then unmerge them" and is the one to
+    remove) and `tests/indexing/test_authored_examples_cells_python.py` in full. Also read
+    `docs/DECISION_LOG.md`'s 2026-11-11 entry named in the source_refs.
+  - >-
+    REMOVE EXACTLY ONE EXAMPLE: delete the list item whose `title` is "Merge a title row and a label
+    range, then unmerge them" (the first item under `examples:`) and leave the other four items exactly
+    as they are, byte-for-byte, including their order. Keep the file's `schema_version`, `pilot`,
+    `library_repository`, `library_commit`, and `language` lines unchanged. The file must still parse as
+    valid YAML and must still pass `validate_authored_examples` with zero problems.
+  - >-
+    UPDATE THE SIDECAR TEST: `EXPECTED_EXAMPLES` goes from 5 to 4, and the test
+    `test_the_sidecar_loads_and_yields_exactly_five_authored_candidates` is renamed to
+    `..._exactly_four_...` with its docstring/comment updated from "five" to "four". Any other
+    assertion in that file that hard-codes 5 must become 4, and any title list pinned in that file must
+    drop the removed title. Do NOT weaken any check; the count must still be asserted exactly.
+  - >-
+    CLAIMANTS CHECK: run `grep -rn "cells_python" tests/ | grep -i "authored\|example"` and check
+    whether any OTHER test file pins cells_python's authored count (for example a cross-pilot
+    fixtures test). If one does, do NOT edit it (it is outside write_paths): report its path and the
+    exact assertion, and stop. The supervisor will widen write_paths.
+  - >-
+    Run `ruff format` and `ruff check` on the test file before committing.
+actions:
+  - >-
+    Remove the single offending authored example from the cells/python sidecar and update its own test
+    to the new exact count of four.
+checks:
+  - command: '{python} -m pytest tests/indexing/test_authored_examples.py tests/indexing/test_authored_examples_cells_python.py tests/infra/test_authored_examples_fixtures.py -q -rfE -p no:cacheprovider'
+    expect: 'exit 0'
+    timeout_seconds: 300
+    junitxml: true
+    proves:
+      - REQ-G3-014
+min_tests: 5
+requires:
+  - python
+network: false
+negative_control:
+  mutate: |
+    python -X utf8 -c "import pathlib; p = pathlib.Path('tests/indexing/test_authored_examples_cells_python.py'); s = p.read_text(encoding='utf-8'); old = 'EXPECTED_EXAMPLES = 4'; assert s.count(old) == 1, 'the sidecar test must pin EXPECTED_EXAMPLES = 4 exactly once - the card has not been applied'; p.write_text(s.replace(old, 'EXPECTED_EXAMPLES = 5', 1), encoding='utf-8')"
+  rationale: >-
+    Restores the old pinned count of five in the sidecar's own test. Against a sidecar that holds four
+    examples, the count assertions must then fail. This is a pure data mutation: it touches no code
+    path, and it proves the test really pins the count. Confirm by hand before trusting it.
+evidence:
+  - evidence/build/G3/TC-759/receipt.json
+closeout:
+  - >-
+    cells/python's authored sidecar holds four examples; the one example that caused the
+    find_examples wrong-confident regression is removed, and its test pins the new count exactly.
+recovery: Re-run from a clean tree.
