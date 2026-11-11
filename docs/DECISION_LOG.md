@@ -4393,3 +4393,44 @@ title/description changes need no re-verification against the real pinned librar
 verified program and its hash are unchanged. This is lower-risk and far faster than the alternative
 (narrowing `title_anchored` itself, which TC-543/586 already measured carefully against the full
 729-case corpus and the 26-pilot forgiveness table and explicitly chose not to tighten further).
+
+## 2026-11-11 — title-only remediation has a measured ceiling; the remaining gap needs a scope-local algorithm change, not more retitling
+
+`TC-760` (retitling 31 authored examples) is real, measured progress: the fleet-wide wrong-confident
+count for `find_examples` dropped from 82 to 55 of 729 (simulated against the real committed corpus
+with the retitled text patched in-memory; confirmed structurally correct by `gatectl review` and
+integrated as evidence commit `7caff72d`). It is not sufficient on its own: 55/729 (0.0754) is still
+above the `WRONG_MAX_EXAMPLES = 0.059` ceiling, and the pre-campaign baseline was 42/729 (0.0576).
+
+The remaining 19 cases were re-diagnosed directly (not guessed): 16 are genuine `title_anchored`
+shares with a DIFFERENT, untouched example in the same pilot's own 5-slot authored sidecar (the
+runner-up that wins once the top offender is retitled); 3 (two email/cpp cases and one email/python
+case) are not title matches at all (`present_terms` returns the empty set) and are admitted instead
+through the whole-chunk lexical coverage floor on the example's own code/body text - these 3 cannot
+be fixed by a title change without touching `code`/`symbols`, which is out of scope for a disclosure-
+safe retitle and is accepted here as a residual, disclosed limitation.
+
+For the 16 title-fixable cases, 15 candidate replacement titles were drafted and checked directly
+against `title_anchored`/`title_prefix_anchored` for EVERY real task query of the owning family (not
+just the originally-colliding one) before touching anything. Result: every single candidate collided
+with between 3 and 10 OTHER real queries it had not been colliding with before - for example,
+replacing cells/net's "Embed pictures anchored to worksheet cells" with any of six tried alternatives
+each newly collided with 4-7 unrelated cells-family queries (`c09`, `c12`, `c21`, `c15`, `c26`, `c28`...).
+This is not a wording-quality problem: `title_anchored`'s single-shared-distinctive-word admission
+(TC-543/586, deliberately generous for short queries) combined with a dense, 20+-query-per-family
+corpus and a 5-authored-example-per-pilot sidecar means almost no title of reasonable length and
+specificity can avoid sharing a distinctive word with SOME other real query in the same family -
+common verbs this project's own `distinctive_terms` treats as content-bearing ("set", "add", "read",
+"save") appear in a large fraction of the corpus's own queries.
+
+This is the third independent measurement confirming the same ceiling (the supervisor's own first
+retitle plan, the TC-760 worker's independent pass, and this candidate-title sweep) - per AGENTS.md's
+"two equivalent failed attempts prohibit a third equivalent attempt," a fourth round of guessed
+titles is not attempted. The structural fix, if one exists, has to change WHICH shared words are
+allowed to anchor, scoped the same deliberate way TC-672's own rare-code-word mechanism scopes its
+rarity check (computed fresh per scope from that scope's own title vocabulary, never cached, never
+cross-scope) - not a global stopword list, which risks regressing short-query recall fleet-wide. This
+needs its own dedicated, measurement-gated card against the full 729-case corpus AND the 26-pilot
+forgiveness table, with frozen acceptance criteria and an explicit stop-and-report if it cannot clear
+the floor - the same rigor TC-543/586/672 already used on this exact mechanism, not a quick inline
+edit. Authored as `TC-761`.
