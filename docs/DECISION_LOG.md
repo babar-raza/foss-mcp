@@ -4347,3 +4347,49 @@ authored_examples.yaml` (leaving four), update its sidecar test's count, and re-
 the served generation drops it. Removal rather than retitling keeps the change minimal and avoids a
 new retitle that would itself need a fresh ratchet pass. The other four authored examples are
 unaffected (several changed top-1 without becoming wrong, and none moved from right to wrong).
+
+## 2026-11-11 — find_examples wrong-confident regression, full scope: 46 new wrong cases across 14 titles, root cause is title_anchored's generic-noun collision, remediation is retitling
+
+Correcting and completing the earlier same-day entry ("root-caused to one cells/python authored
+example"): that entry measured only the FIRST bisected commit (cells/python) and significantly
+understated the real scope. The full regression, measured directly against the real committed
+`infra/demo-manifests` corpus with `find_examples` called for real (no mocking), compared case-by-case
+against the pre-campaign baseline (commit `084403ce`): 42 wrong-confident cases before this session's
+authored-examples campaign, 82 after - 46 newly wrong, 6 newly fixed (net +40, consistent with the
+42->82 jump `test_find_examples_non_empty_answers_that_miss_the_intended_api_stay_rare` measures).
+
+Mechanism (confirmed by reading `relevance.title_anchored`, not guessed): for a query with at most
+`TITLE_ANCHOR_GRADUATED_MAX_TERMS` (4) distinctive terms, an example answers if EVEN ONE distinctive
+term is a stemmed/synonym word of the example's own title - by design (TC-543/586), not a bug. Every
+one of the 46 new wrong cases is an authored example (added by this session's P4 campaign) whose title
+contains a generic domain noun - "sheet", "row(s)", "cell(s)", "page(s)", "table(s)", "shape",
+"message", "slide", "protect(ion)", "formula" - that coincidentally also appears in an unrelated query
+for the SAME pilot. Growing a pilot's example corpus necessarily grows the surface area for this kind
+of accidental title-word collision; this is a real, structural cost of the campaign under the
+EXISTING title-anchor design, not a cosmetic issue.
+
+14 distinct offending (pilot, title) pairs account for all 46 cases (several titles collide with 2-3
+different queries each): cells/net "Configure worksheet protection, layout, and merged cells";
+cells/java "Set a row's outline group level..." and "Add a hyperlink with a screen tip..." and "Merge
+a block of cells..." and "Add a workbook-scoped defined name..."; cells/go "Add and remove data
+validation rules on a worksheet"; cells/cpp "Merge a Cell Range and Set a Row Height and Column
+Width"; cells/rust "Add list and decimal range data validations"; cells/typescript "Write typed
+values and a formula..." and "Add, rename and remove worksheets..." and "Export a workbook's data as
+JSON..." and "Set hyperlinks of different kinds on cells..."; pdf/go "Search a document for text
+across pages"; pdf/cpp "Add a Highlight Annotation..." and "Encrypt a Document With AES-256...";
+pdf/java "Build a table row on a page..."; pdf/net "Embed files with metadata..." and "Build a nested
+bookmark outline..."; pdf/python "Draw an Invoice Table on a Page..."; email/cpp "Build a CFB
+Container From Scratch..." and "Dump the Low-Level MSG Storage Tree..."; email/net "Add an embedded
+message as an attachment..."; email/python "Set Sender and Transport Header Properties..." and "Count
+Recipient and Attachment Storages..."; 3d/typescript "Attach a directional light and a perspective
+camera to one node" and "Create and read back a diffuse UV layer..."; slides/java "Give a shape a
+solid fill colour..." and "Remove a middle slide..."; slides/python "Group Two Auto Shapes and Lock
+the Group Against Ungrouping" and "Set Core and Custom Document Properties and Remove One"; words/net
+"Build a two-row table with DocumentBuilder...".
+
+Remediation: retitle (and where helpful, lightly reword the description) each offending example to
+drop the single colliding generic noun, WITHOUT touching its `code`, `symbols`, or `code_sha256` -
+title/description changes need no re-verification against the real pinned library, since the
+verified program and its hash are unchanged. This is lower-risk and far faster than the alternative
+(narrowing `title_anchored` itself, which TC-543/586 already measured carefully against the full
+729-case corpus and the 26-pilot forgiveness table and explicitly chose not to tighten further).
