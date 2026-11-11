@@ -4300,3 +4300,27 @@ supervisor-directed verification (reproduce the STL output directly against the 
 then, if confirmed, a `config/known_defects/3d__typescript.yaml` entry following the existing
 known-defect pattern. Per the "no pilot ever gets worse" rule, this is an undisclosed silent-data-loss
 class and must not be left unrecorded.
+
+## 2026-11-11 — TC-757 retired before acceptance: its own write_paths and id choice were wrong; successor authored
+
+`TC-757` (disclose 3d/typescript's STL index-export and FBX fall-through) was dispatched, and its
+worker produced a correct, tested registry edit, but the card could not be delivered as authored:
+
+- Its `write_paths` overlapped unordered claimants: `config/known_defects/3d__typescript.yaml`
+  (TC-003, TC-644, TC-658) and the two known-defects lock tests (TC-001, TC-644, TC-649, TC-656,
+  TC-658, TC-660, TC-702, TC-706, TC-707, TC-711, TC-727, TC-728). `gatectl validate` correctly
+  rejected it.
+- Ids `3D-TYPESCRIPT-009`/`-010` were already used by round-2/round-3 audit findings about
+  unrelated issues (`docs/round2/issues.json`, `docs/round3/issues.json`). Reusing them would have
+  silently corrupted the audit cross-reference.
+- The completeness locks (`test_known_defects_completeness.py`, `test_known_defects_data_3d.py`)
+  are outside the card's write_paths and pin the registry-to-audit id equality and per-pilot counts.
+- Its negative control targeted the wrong entry (the word "indices" also appears in 3D-TYPESCRIPT-008).
+- Its `-k known_defect` check selected network-reaching tests despite `network: false`.
+
+Disposition: the worker's uncommitted diff was saved to the scratchpad for reference, the worktree and
+branch were discarded, and `plans/TC-757.yaml` was removed. Nothing from TC-757 was integrated. The
+disclosure itself is still required (the STL index-export defect was independently confirmed on
+2026-11-11), so it is re-authored as a successor card with non-colliding ids, every claimant ordered
+via `depends_on`, the two lock files in scope with the existing `_ADDITIONAL_DISCLOSABLE_IDS`
+allowlist pattern, offline-only checks, and a negative control that targets the new entry's own text.
