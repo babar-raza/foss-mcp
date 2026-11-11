@@ -1,0 +1,103 @@
+id: TC-757
+gate: G3
+lane: verification
+purpose: >-
+  P5 upstream-defect disclosure (REQ-G3-015): disclose a confirmed, previously undisclosed,
+  silent-data-loss defect in the 3d/typescript pilot's upstream library. Independently reproduced
+  by a verification agent at the pinned commit `66cb26df23b031f0bf6976d4e88dc89721983afa4`
+  (see `docs/DECISION_LOG.md`, 2026-11-11 entry "candidate undisclosed STL-export defect in
+  3d/typescript"): `Scene.save('x.stl')` writes each polygon's vertex INDICES (e.g. `vertex 0 1 2`)
+  instead of coordinates. The file parses without error and holds wrong geometry. Triangulating
+  first does not fix it, and the README does not disclose it. A second, related finding: saving a
+  `.fbx` path has no FBX branch in `Scene.save` and falls through to the OBJ exporter. For geometry
+  under a child node it writes 0 bytes silently, and for root-level geometry it writes OBJ text
+  inside a file named `.fbx`. Disclose the STL defect as its own entry, and the FBX fall-through as
+  a second entry. Disclosure only: do NOT patch the library, do NOT change any served README text,
+  do NOT touch the authored examples.
+depends_on: []
+write_paths:
+  - config/known_defects/3d__typescript.yaml
+  - tests/mcp/tools/test_known_defects_3d_typescript_stl.py
+satisfies:
+  - REQ-G3-015
+source_refs:
+  - file: docs/DECISION_LOG.md
+    anchor: >-
+      ## 2026-11-11 — candidate undisclosed STL-export defect in 3d/typescript
+    sha256: f183ed517dbfa4effe49e6e4afe31df6de7b04e985d4b2d237113df86ae4476a
+inputs:
+  - >-
+    READ FIRST: `config/known_defects/3d__typescript.yaml` (the existing entry 3D-TYPESCRIPT-008 is
+    your exact format template) and `schemas/product/known_defects.schema.json` (every required
+    field and allowed value - validate your final file against it). Read `docs/DECISION_LOG.md`'s
+    2026-11-11 STL entry in full.
+  - >-
+    READ the existing known-defects tests so your new entry follows their conventions and does not
+    break their exact-equality or completeness locks: `grep -rl "known_defects" tests/` and read
+    the files it returns, in particular any completeness or ledger test that pins the set of
+    defect ids per pilot. If such a lock counts entries, update its pinned count ONLY in the lock's
+    own data, and say so in your report.
+  - >-
+    VERIFY the pinned version and facts yourself before writing: confirm
+    `infra/helm/foss-mcp/values.yaml` pins `66cb26df23b031f0bf6976d4e88dc89721983afa4` for
+    3d/typescript; read the library's own `package.json` `version` at that commit and use it as
+    `applies_to.package_versions` (the existing entry's version is for the npm package, read the
+    real one at this pin; do not copy 24.12.0 blindly). Optionally re-run a quick repro if node is
+    available via `scripts/toolchain/activate.ps1` in PowerShell: an axis-free unit-square quad
+    saved as STL should show `vertex 0 1 2`-style index lines.
+  - >-
+    The `summary` field must be factual and <= 240 characters. The `user_action` field must tell
+    users what to do (for STL: do not rely on `save('.stl')` for geometry; export via another
+    format or verify coordinates after saving). Stay factual; do not claim a fix.
+  - >-
+    Use `status: open` and `evidence.verified_on` with `package: '@aspose/3d'`, the real version,
+    and today's date (2026-11-11).
+actions:
+  - >-
+    Add two entries to `config/known_defects/3d__typescript.yaml`: the STL silent-index defect
+    (subject `kind: method`, ref `aspose.threed.Scene.Scene.save` or the real FQN, verified against
+    `tests/fixtures/3d_typescript/api_surface.json`), and the FBX/save fall-through (subject
+    `kind: method`, same ref class, with a clear summary). Use the real ids `3D-TYPESCRIPT-009` and
+    `3D-TYPESCRIPT-010` if they are free across `config/known_defects/` (check first; pick the next
+    free ids if not).
+  - >-
+    Write `tests/mcp/tools/test_known_defects_3d_typescript_stl.py`. Required assertions: (1) the
+    file loads and validates against the schema; (2) a defect with the STL id exists, its summary
+    contains the word `indices` and mentions `.stl`; (3) the FBX entry exists and mentions `.fbx`;
+    (4) every new `subject.refs` value resolves to a real FQN in `tests/fixtures/3d_typescript/
+    api_surface.json`. Write at least 4 test functions (one per assertion above, plus one for the
+    schema-validation step) so `min_tests: 4` is met. The tests must NOT import or run the library.
+checks:
+  - command: '{python} -m pytest tests/mcp/tools/test_known_defects_3d_typescript_stl.py -q -rfE -p no:cacheprovider'
+    expect: 'exit 0'
+    timeout_seconds: 300
+    junitxml: true
+    proves:
+      - REQ-G3-015
+  - command: '{python} -m pytest tests/mcp/tools -q -rfE -p no:cacheprovider -k "known_defect"'
+    expect: 'exit 0'
+    timeout_seconds: 600
+    junitxml: true
+    proves:
+      - REQ-G3-015
+min_tests: 4
+requires:
+  - python
+network: false
+negative_control:
+  mutate: |
+    python -X utf8 -c "import pathlib; p = pathlib.Path('config/known_defects/3d__typescript.yaml'); s = p.read_text(encoding='utf-8'); old = 'indices'; assert s.count(old) >= 1, 'the STL defect summary must contain the word indices - the registry entry is missing or does not match this card'; p.write_text(s.replace(old, 'coordinates', 1), encoding='utf-8')"
+  rationale: >-
+    Replaces the word `indices` in the first new entry's text with `coordinates`, which makes the
+    summary describe the correct behaviour instead of the defect. The test that asserts the summary
+    contains `indices` must then fail. This is a pure data mutation that never touches code.
+    Confirm by hand that your test really asserts the word `indices` in the STL entry before
+    trusting it.
+evidence:
+  - evidence/build/G3/TC-757/receipt.json
+closeout:
+  - >-
+    3d/typescript's two previously undisclosed upstream defects (STL index-export silent data loss,
+    and the FBX-save fall-through) are disclosed in its known-defects registry, locked by a test,
+    and the completeness locks still pass.
+recovery: Re-run from a clean tree.
