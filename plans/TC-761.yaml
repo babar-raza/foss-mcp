@@ -123,15 +123,14 @@ requires:
 network: false
 negative_control:
   mutate: |
-    python -X utf8 -c "import pathlib; p = pathlib.Path('src/foss_mcp/mcp/tools/relevance.py'); s = p.read_text(encoding='utf-8'); old = 'def title_anchored('; assert s.count(old) == 1, 'title_anchored def not found exactly once - this card has not been applied yet'; import re; s2 = re.sub(r'(def title_anchored\([^)]*\) -> bool:\n(?:    .*\n|\n)*?    terms = distinctive_terms\(query, family\))', r'\1\n    return True  # TC-761 negative control: force every title to anchor unconditionally', s, count=1); assert s2 != s, 'the negative-control regex did not match title_anchored - re-anchor it on the real post-fix function body'; p.write_text(s2, encoding='utf-8')"
+    python -X utf8 -c "import pathlib; p = pathlib.Path('src/foss_mcp/mcp/tools/relevance.py'); s = p.read_text(encoding='utf-8'); old = 'def title_anchored(query: str, family: str, title: str) -> bool:'; assert s.count(old) == 1, 'title_anchored signature not found exactly once - re-anchor this mutate on the real post-fix signature line before trusting it'; new = old + chr(10) + '    return True  # TC-761 negative control: force every title to anchor unconditionally'; s2 = s.replace(old, new, 1); assert s2 != s; p.write_text(s2, encoding='utf-8')"
   rationale: >-
-    Forces title_anchored to return True unconditionally for every query, re-introducing the worst
-    possible version of the regression this card fixes (every example in every scope anchors every
-    query). The fleet-wide wrong-confident ratchet must then fail hard. Confirm by hand, against
-    the REAL post-fix function body (not this card's own guess of its shape), that the regex
-    actually matches and inserts the forced return before trusting this negative control - the
-    worker's own final function signature/body may differ from what this regex assumes, and the
-    worker must re-anchor it if so, never leaving a silently-vacuous falsifier.
+    Inserts an unconditional `return True` as the first statement of title_anchored, re-introducing
+    the worst possible version of the regression this card fixes (every example in every scope
+    anchors every query). The fleet-wide wrong-confident ratchet must then fail hard. The anchor is
+    the function's own public signature line, which must stay stable since other modules call it -
+    if the worker's own fix changes that signature, they must re-anchor this mutate and say so,
+    never leaving a silently-vacuous falsifier.
 evidence:
   - evidence/build/G3/TC-761/receipt.json
 closeout:
