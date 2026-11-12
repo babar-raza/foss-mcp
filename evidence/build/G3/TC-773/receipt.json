@@ -1,0 +1,111 @@
+{
+  "schema_version": 1,
+  "card": "TC-773",
+  "gate": "G3",
+  "generated_by": "gatectl",
+  "generated_at": "2026-11-12T14:44:23Z",
+  "base_rev": "0323b3d0cacb9fb97cffaea22fe811aebde8402a",
+  "head_rev": "ec2cbbc93aef95acff49ee66df84d7a3cd47c819",
+  "card_sha256": "bb041c009beeb91b01e29349236e431042dd35b2e7f36c04c9909c3211287984",
+  "fingerprint": {
+    "python": "3.13.2",
+    "platform": "Windows-11-10.0.26300-SP0",
+    "lock_sha256": "5c72e798a73c059a438e752e94a8d4c88c1bdf81a197f6e5c5fcecbc9466a691",
+    "env": {
+      "PYTHONHASHSEED": "0",
+      "PYTHONUTF8": "1",
+      "PYTHONDONTWRITEBYTECODE": "1",
+      "PYTHONIOENCODING": "utf-8",
+      "TZ": "UTC",
+      "LC_ALL": "C.UTF-8",
+      "SOURCE_DATE_EPOCH": "1700000000",
+      "verify_runner": "host"
+    }
+  },
+  "scope": {
+    "ok": true,
+    "changed_paths": [
+      "tests/fixtures/furnished/cells_java/authored_examples.yaml",
+      "tests/fixtures/furnished/pdf_python/authored_examples.yaml"
+    ],
+    "violations": [],
+    "evaluated": true
+  },
+  "runs": [
+    {
+      "run": 1,
+      "checks": [
+        {
+          "command": "{python} -m pytest tests/indexing/test_authored_examples.py tests/indexing/test_authored_examples_cells_java.py tests/indexing/test_authored_examples_pdf_python.py tests/infra/test_authored_examples_fixtures.py -q -rfE -p no:cacheprovider",
+          "exit_code": 0,
+          "duration_s": 17.067,
+          "stdout_sha256": "9870fe3334aac7cc5980d944d86ef6ec8c0b927a18aac43b2bab40ab3b955890",
+          "tests": 264,
+          "skipped": 0,
+          "errors": 0,
+          "failures": 0
+        },
+        {
+          "command": "{python} -m pytest tests/mcp/tools/test_round3_retrieval_corpus.py tests/mcp/tools/test_forgiveness_acceptance.py -q -rfE -p no:cacheprovider",
+          "exit_code": 0,
+          "duration_s": 159.059,
+          "stdout_sha256": "b53866f7a853267d7eca16c2faa2f71689f462d5b06ee572ef078a18d6b0409a",
+          "tests": 58,
+          "skipped": 0,
+          "errors": 0,
+          "failures": 0
+        }
+      ],
+      "all_passed": true
+    },
+    {
+      "run": 2,
+      "checks": [
+        {
+          "command": "{python} -m pytest tests/indexing/test_authored_examples.py tests/indexing/test_authored_examples_cells_java.py tests/indexing/test_authored_examples_pdf_python.py tests/infra/test_authored_examples_fixtures.py -q -rfE -p no:cacheprovider",
+          "exit_code": 0,
+          "duration_s": 11.896,
+          "stdout_sha256": "9870fe3334aac7cc5980d944d86ef6ec8c0b927a18aac43b2bab40ab3b955890",
+          "tests": 264,
+          "skipped": 0,
+          "errors": 0,
+          "failures": 0
+        },
+        {
+          "command": "{python} -m pytest tests/mcp/tools/test_round3_retrieval_corpus.py tests/mcp/tools/test_forgiveness_acceptance.py -q -rfE -p no:cacheprovider",
+          "exit_code": 0,
+          "duration_s": 157.469,
+          "stdout_sha256": "b53866f7a853267d7eca16c2faa2f71689f462d5b06ee572ef078a18d6b0409a",
+          "tests": 58,
+          "skipped": 0,
+          "errors": 0,
+          "failures": 0
+        }
+      ],
+      "all_passed": true
+    }
+  ],
+  "negative_control": {
+    "kind": "mutate",
+    "patch": "python -X utf8 -c \"import pathlib; p = pathlib.Path('tests/fixtures/furnished/cells_java/authored_examples.yaml'); s = p.read_text(encoding='utf-8'); assert s, 'the sidecar file is empty or missing'; old = 'code_sha256:'; count = s.count(old); assert count >= 1, 'no code_sha256 field found - the file does not match the expected schema'; import re; q = chr(34); s2 = re.sub('code_sha256: ' + q + '?[0-9a-f]{64}' + q + '?', 'code_sha256: ' + chr(48)*64, s, count=1); assert s2 != s; p.write_text(s2, encoding='utf-8')\"\n",
+    "patch_sha256": "54e1620fa1dffb7a51b50f211ca1a88c689715fc12daa74d477f5f3912b89b13",
+    "applied": true,
+    "patch_applied_failed": true,
+    "exit_codes": [
+      1,
+      0
+    ],
+    "tree_changed": [
+      "M tests/fixtures/furnished/cells_java/authored_examples.yaml",
+      "?? .junit-0.xml",
+      "?? .junit-1.xml"
+    ]
+  },
+  "holdout": {
+    "ran": false,
+    "passed": true,
+    "detail": "no holdout for this card"
+  },
+  "accepted": true,
+  "reason": "all gates passed"
+}
