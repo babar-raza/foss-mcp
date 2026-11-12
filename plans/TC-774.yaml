@@ -1,0 +1,126 @@
+id: TC-774
+gate: G3
+lane: storage-retrieval
+purpose: >-
+  Closes a real, previously-invisible gap found immediately after `TC-773` fixed the live
+  39-word sentence-rendering crash in `test_sentence_wrapped_retrieval_default_sample`:
+  `test_sentence_wrapped_retrieval.py::test_sentence_wrapped_retrieval_default_sample`'s
+  sampling loop asserts `12 <= word_count <= 35` INSIDE its per-case loop, BEFORE reaching its
+  own `assert_no_new_failures(load_baseline(BASELINE_PATH), observed_failures)` call at the end.
+  Because at least one over-length title has existed in the default sample for some time (the
+  two `TC-773` just fixed), that final `assert_no_new_failures` line has apparently never
+  actually been reached in a passing-the-word-count-gate run - so the committed baseline
+  (`tests/fixtures/conformance/baseline_sentence_wrapped_retrieval.json`, 97 `known_failures`,
+  `strict: false`) was never checked against the REAL observed failure set the current corpus
+  and sampler actually produce.
+
+  Confirmed directly by the supervisor (not inferred): with `TC-773`'s fix live, re-running the
+  test now reaches `assert_no_new_failures` for the first time and fails with "new failure(s)
+  not present in the baseline" naming ~70 `(pilot, case_id)` pairs never previously recorded.
+  Spot-checked all of them directly (a scratch script reproducing the test's own loop and
+  printing each failing case's real result type): every single one is a legitimate `Miss` or a
+  `TaskAnswer` that `_case_passes` judged as not matching the expected chunk - ZERO are Python
+  exceptions or crashes. This matches the test's own module docstring exactly ("Most of these
+  are expected to FAIL today... this test only proves the measured set of failures has not
+  grown beyond what is already pinned") - this is the test's OWN documented, `strict: false`
+  design tolerating known gaps, not a new regression. The same class of landmine the 2026-11-05
+  Q17 investigation already flagged for `baseline_symbol_self_retrieval.json` (dormant failures
+  an unreachable code path hid from ever being measured) - now confirmed to exist for THIS
+  baseline too, for a different reason (a crashing assertion ahead of it, not an unexercised
+  mode flag).
+
+  FIX: regenerate `baseline_sentence_wrapped_retrieval.json`'s `known_failures` list from a
+  REAL, fresh, reproducible measurement of the current `test_sentence_wrapped_retrieval_
+  default_sample` sampling loop (never hand-typed or guessed), keeping `strict: false` unchanged
+  (flipping it to `true` is explicitly NOT in scope - that is Q17's own much larger, separately
+  deferred closure work). This is additive/corrective to the baseline's own documented purpose,
+  not a weakening of the check: the check's real semantic (no NEW failure beyond what's pinned)
+  is completely unaffected; what changes is that the pinned set now actually reflects
+  measured reality for the first time.
+depends_on:
+  - TC-605
+write_paths:
+  - tests/fixtures/conformance/baseline_sentence_wrapped_retrieval.json
+satisfies:
+  - REQ-G3-010
+source_refs:
+  - file: docs/DECISION_LOG.md
+    anchor: >-
+      ## 2026-11-12 — P4 example-corpus program completed for every real, non-blocked pilot; two more new defects disclosed (3D-PYTHON-013, WORDS-PY-013)
+    sha256: 8374a9927e4865b951cc5b5b07b6a02ae72617f5bf7165f3bb33d3fdcdf32db7
+inputs:
+  - >-
+    READ FIRST: `tests/conformance/test_sentence_wrapped_retrieval.py` in full (the module
+    docstring, `_default_sample_cases`, `_render`, `_case_passes`, `BASELINE_PATH`,
+    `load_baseline`/`assert_no_new_failures` in `tests/conformance/baseline.py`), and the real
+    committed `tests/fixtures/conformance/baseline_sentence_wrapped_retrieval.json` (its exact
+    JSON shape - a top-level `strict: false` plus a `known_failures` list of `{pilot, case_id,
+    reason}` objects).
+  - >-
+    REPRODUCE FIRST, YOURSELF, FRESH: run `{python} -m pytest tests/conformance/
+    test_sentence_wrapped_retrieval.py::test_sentence_wrapped_retrieval_default_sample -q -rfE`
+    and confirm it currently fails with a "new failure(s) not present in the baseline" message
+    naming a real set of `(pilot, case_id)` pairs. Then write a small scratch script (not
+    committed) that directly calls the test module's own `_default_sample_cases`/`_render`/
+    `_case_passes` against a real `load_demo_manifests_corpus` corpus (see
+    `tests/conformance/corpus.py`) and the real `lookup()` entry point
+    (`foss_mcp.mcp.tools.lookup.lookup`), to get the FULL, exact real observed-failure set with
+    each case's real `reason` text (word-for-word what the test itself would record) - do not
+    hand-transcribe the pytest assertion's truncated "named" list, which only prints keys, not
+    reasons.
+  - >-
+    For every single one of the newly-observed failures, confirm the result type is a genuine
+    `Miss` or a non-matching `TaskAnswer` (never a raised exception or crash). If ANY case raises
+    an exception instead of returning a normal `Miss`/`TaskAnswer`/wrong-match result, STOP and
+    report it separately as a real bug - do not paper over a crash by pinning it into the
+    baseline as if it were an ordinary retrieval miss.
+  - >-
+    Regenerate the ENTIRE `known_failures` list in `tests/fixtures/conformance/
+    baseline_sentence_wrapped_retrieval.json` from this real, freshly measured set (the exact
+    `case_id`/`reason` text your scratch script produced, not retyped by hand) - replacing the
+    stale list wholesale, since the whole point is that it was never accurately measurable
+    before. Keep `strict: false` unchanged. Do NOT touch `tests/conformance/
+    test_sentence_wrapped_retrieval.py` itself, `baseline.py`, or any other file - this is a
+    pure data-fixture refresh.
+  - >-
+    After regenerating, re-run the real test twice and confirm it passes both times with the
+    new baseline. Also run the FULL `tests/conformance/test_sentence_wrapped_retrieval.py` suite
+    (not just the default-sample test) twice, to confirm no other test in that file regresses.
+  - >-
+    This card does NOT fix any of the underlying retrieval gaps (the real `Miss`/wrong-`TaskAnswer`
+    results themselves) - that is explicitly out of scope, deferred to Q17's own much larger,
+    already-tracked closure effort. Report the real final `known_failures` count honestly.
+actions:
+  - >-
+    Regenerate `baseline_sentence_wrapped_retrieval.json`'s `known_failures` list from a real,
+    freshly measured run of the sampling loop, now that `TC-773` cleared the crash that
+    previously made this baseline's final assertion unreachable.
+checks:
+  - command: '{python} -m pytest tests/conformance/test_sentence_wrapped_retrieval.py -q -rfE -p no:cacheprovider'
+    expect: 'exit 0'
+    timeout_seconds: 300
+    junitxml: true
+    proves:
+      - REQ-G3-010
+min_tests: 5
+requires:
+  - python
+network: false
+negative_control:
+  mutate: |
+    python -X utf8 -c "import pathlib, json; p = pathlib.Path('tests/fixtures/conformance/baseline_sentence_wrapped_retrieval.json'); d = json.loads(p.read_text(encoding='utf-8')); assert d.get('known_failures'), 'known_failures must be a non-empty list after this card regenerates it'; d['known_failures'] = []; p.write_text(json.dumps(d, indent=2) + chr(10), encoding='utf-8')"
+  rationale: >-
+    Empties the regenerated known_failures list entirely, which must make
+    `assert_no_new_failures` raise on every real observed failure (since none would be pinned
+    any more) - a pure JSON data mutation, immune to the lockstep-rename vacuousness class found
+    earlier this session, and it never touches any code path.
+evidence:
+  - evidence/build/G3/TC-774/receipt.json
+closeout:
+  - >-
+    `baseline_sentence_wrapped_retrieval.json` now reflects a real, freshly and directly
+    measured failure set (not stale/unreachable data), so
+    `test_sentence_wrapped_retrieval_default_sample` passes for a genuine reason rather than by
+    accident of an earlier crash. `strict` remains `false`; the underlying retrieval gaps
+    themselves remain open, tracked under Q17.
+recovery: Re-run from a clean tree.
