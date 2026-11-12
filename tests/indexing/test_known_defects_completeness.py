@@ -149,6 +149,23 @@ additive way, now seeded with ``{"3D-JAVA-001", "3D-NET-001", "WORDS-NET-001", "
 The real new union count is 58 (not 56): both equality assertions above still hold exactly, just
 against this slightly wider set; the real registry file count is now 27 (not 26): these two entries
 land in a brand-new ``slides__java.yaml`` file, this pilot's first known-defects entry.
+
+**Widened again (G3/TC-758, 2026-11-11, for the record):** ``3D-TYPESCRIPT-STL-001`` and
+``3D-TYPESCRIPT-FBX-001`` (project-minted ids, no round-2/round-3 audit record) were added to
+``_ADDITIONAL_DISCLOSABLE_IDS`` the same deliberate, additive way; see that frozenset's own
+in-code comment for the full detail. The real new union count became 60 (not 58); the real
+registry file count was unchanged at 27 (both entries land in the already-existing
+``3d__typescript.yaml``).
+
+**Widened again (G3/TC-767, 2026-11-12):** ``PAGE-PYTHON-011`` (project-minted id, no
+round-2/round-3 audit record - a previously undisclosed defect found while authoring TC-764's
+page/python examples) is added to ``_ADDITIONAL_DISCLOSABLE_IDS`` the same deliberate, additive
+way; see that frozenset's own in-code comment for the full detail of the independent
+re-reproduction against the real, currently-pinned ``aspose-page-foss`` 26.9.0 package. The real
+new union count is 61 (not 60): both equality assertions above still hold exactly, just against
+this slightly wider set; the real registry file count is unchanged at 27 (this entry lands in the
+already-existing ``page__python.yaml``, which already carried ``PAGE-PYTHON-006`` and
+``PAGE-PYTHON-010``).
 """
 
 from __future__ import annotations
@@ -282,6 +299,18 @@ def _real_round3_issues() -> list[dict[str, Any]]:
 #   ``Scene.save`` to ``.stl`` writes polygon vertex indices instead of coordinates. FBX-001:
 #   ``Scene.save`` to ``.fbx`` falls through to the OBJ exporter. Both are disclosure-only and
 #   were recorded during the TC-756 verification (2026-11-11), not an audit round.
+# - ``PAGE-PYTHON-011`` (G3/TC-767, REQ-G3-015, project-minted id with no round-2/round-3 audit
+#   record): a previously undisclosed defect found while authoring TC-764's page/python examples
+#   and independently re-reproduced here against the real, currently-pinned ``aspose-page-foss``
+#   26.9.0 package: ``PsDocument.to_pdf()``/``to_image()`` on an ``is_eps=True`` multi-page
+#   document silently merge every page's drawing commands onto a single output page with zero
+#   error - a real 3-page EPS document, built via the real installed package's own ``create()``/
+#   ``add_page()`` API with distinct real content per page, produced a PDF with ``/Count 1``. The
+#   identical real page-building API with ``is_eps=False`` and the same kind of per-page content
+#   was independently confirmed, in this same re-verification, to correctly serialize and render
+#   the real page count - isolating the defect to ``is_eps=True`` specifically, not to multi-page
+#   PostScript documents generally. This is disclosure-only, recorded during the TC-767
+#   verification (2026-11-12), not an audit round.
 _ADDITIONAL_DISCLOSABLE_IDS: frozenset[str] = frozenset(
     {
         "3D-JAVA-001",
@@ -291,6 +320,7 @@ _ADDITIONAL_DISCLOSABLE_IDS: frozenset[str] = frozenset(
         "SLIDES-JAVA-010B",
         "3D-TYPESCRIPT-STL-001",
         "3D-TYPESCRIPT-FBX-001",
+        "PAGE-PYTHON-011",
     }
 )
 
@@ -391,17 +421,19 @@ def test_registry_entry_count_equals_upstream_library_bug_issue_count() -> None:
         f"issue count ({len(upstream_issue_ids)})"
     )
 
-    # Sanity anchor only, not a floor on the future: as of TC-758 (2026-11-11) this real union
-    # count is 60 (58 as of TC-728, plus TC-758's own additive ``3D-TYPESCRIPT-STL-001`` and
-    # ``3D-TYPESCRIPT-FBX-001``); earlier, as of today (2026-11-09) the real union
-    # count was 58 (56 round2-union-round3-union-_ADDITIONAL_DISCLOSABLE_IDS as of TC-711, see this
-    # module's docstring for that id list, plus TC-728's own additive ``_ADDITIONAL_DISCLOSABLE_IDS``
-    # entries ``SLIDES-JAVA-010`` and ``SLIDES-JAVA-010B``, two registry ids for one round-3 finding
-    # id, split because the underlying facts are two genuinely distinct causal chains). A future card
-    # adding or retiring a confirmed upstream-library-bug finding (and its matching entry) is
-    # expected to move both sides together and may need to update this comment and number; the
-    # equality assertion above is the one that must hold forever.
-    assert len(upstream_issue_ids) == 60
+    # Sanity anchor only, not a floor on the future: as of G3/TC-767 (2026-11-12) this real union
+    # count is 61 (60 as of TC-758, plus TC-767's own additive ``PAGE-PYTHON-011``); earlier, as of
+    # TC-758 (2026-11-11) this real union count was 60 (58 as of TC-728, plus TC-758's own
+    # additive ``3D-TYPESCRIPT-STL-001`` and ``3D-TYPESCRIPT-FBX-001``); earlier, as of
+    # 2026-11-09, the real union count was 58 (56 round2-union-round3-union-
+    # _ADDITIONAL_DISCLOSABLE_IDS as of TC-711, see this module's docstring for that id list, plus
+    # TC-728's own additive ``_ADDITIONAL_DISCLOSABLE_IDS`` entries ``SLIDES-JAVA-010`` and
+    # ``SLIDES-JAVA-010B``, two registry ids for one round-3 finding id, split because the
+    # underlying facts are two genuinely distinct causal chains). A future card adding or retiring
+    # a confirmed upstream-library-bug finding (and its matching entry) is expected to move both
+    # sides together and may need to update this comment and number; the equality assertion above
+    # is the one that must hold forever.
+    assert len(upstream_issue_ids) == 61
 
 
 # --------------------------------------------------------------------------------------------

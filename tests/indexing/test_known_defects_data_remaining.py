@@ -43,6 +43,22 @@ directly: the real union is 16 ids, not 15 - ``PAGE-PYTHON-010``
 (``PsDocument.create(page_size=...)`` silently ignored by ``to_pdf()``/``to_image()``) is
 genuinely new in round3 and is this card's own addition; no other of these eight families' round-2
 ids are missing or reclassified in round3.
+
+**Widened again (G3/TC-767, 2026-11-12):** ``PAGE-PYTHON-011`` (a previously-undisclosed defect
+found and independently re-verified while authoring ``TC-764``'s page/python examples, with no
+round-2/round-3 audit record at all - a project-minted id, the same shape
+``test_known_defects_completeness.py``'s own ``_ADDITIONAL_DISCLOSABLE_IDS`` already established
+for ids such as ``3D-TYPESCRIPT-STL-001``/``3D-TYPESCRIPT-FBX-001``) is a real, independently
+reproduced silent-page-count-loss defect: ``PsDocument.to_pdf()``/``to_image()`` on an
+``is_eps=True`` multi-page document silently merge every page's drawing commands onto one output
+page with zero error (a real 3-page EPS document, built via the real installed package's own
+``create()``/``add_page()`` API with distinct real content per page, produced a PDF with
+``/Count 1``). This module's own ``_real_upstream_library_bug_ids`` is widened the same deliberate,
+additive way ``test_known_defects_completeness.py`` already uses: a small, hand-reviewed,
+comment-documented ``_ADDITIONAL_DISCLOSABLE_IDS`` frozenset, seeded with exactly
+``{"PAGE-PYTHON-011"}``, unioned into the returned id set - never a loosened filter, only an
+explicit addition to what this module admits. The real new union count is 17 (not 16); the real
+written entry count for page/python is now 3 (not 2).
 """
 
 from __future__ import annotations
@@ -85,20 +101,36 @@ _PILOTS: tuple[tuple[str, str], ...] = (
     ("words", "python"),
 )
 
-# The real entry count actually WRITTEN per pilot (1+3+1+5+2+2+1+1 = 16): the 15 real round-2
-# findings TC-647 wrote, plus TC-656's own PAGE-PYTHON-010 (page/python 1 -> 2).
+# The real entry count actually WRITTEN per pilot (1+3+1+5+2+3+1+1 = 17): the 15 real round-2
+# findings TC-647 wrote, plus TC-656's own PAGE-PYTHON-010 (page/python 1 -> 2), plus TC-767's own
+# project-minted PAGE-PYTHON-011 (page/python 2 -> 3).
 _EXPECTED_COUNTS: dict[tuple[str, str], int] = {
     ("barcode", "python"): 1,
     ("email", "cpp"): 3,
     ("email", "python"): 1,
     ("imaging", "net"): 5,
     ("note", "python"): 2,
-    ("page", "python"): 2,
+    ("page", "python"): 3,
     ("tex", "python"): 1,
     ("words", "python"): 1,
 }
 
 IMAGING_NET_COMMIT = "c5e77bdc7b4a5c19190b6dfae5ae9d420b5886fa"
+
+# G3/TC-767 (REQ-G3-015): a small, hand-reviewed, additive allowlist of real, independently
+# verified known-defects ids that this module's own round2/round3-category-filtered id source
+# would otherwise never admit, because they were never recorded by either audit round at all -
+# the same deliberate widening shape ``test_known_defects_completeness.py``'s own
+# ``_ADDITIONAL_DISCLOSABLE_IDS`` already established for its project-minted ids. Each id here
+# still traces to one real, independently reproduced defect, confirmed directly against the real
+# installed package's own source, never assumed from an earlier worker's report.
+#
+# - ``PAGE-PYTHON-011``: found and independently re-verified by TC-767 while authoring TC-764's
+#   page/python examples - ``PsDocument.to_pdf()``/``to_image()`` on an ``is_eps=True``
+#   multi-page document silently merge every page's content onto a single output page with zero
+#   error (a real 3-page EPS document produced a PDF with ``/Count 1``). No round-2/round-3 audit
+#   record names this id; it is a project-minted disclosure, not a reclassified audit finding.
+_ADDITIONAL_DISCLOSABLE_IDS: frozenset[str] = frozenset({"PAGE-PYTHON-011"})
 
 
 def _registry_path(family: str, platform: str) -> Path:
@@ -146,7 +178,7 @@ def _real_upstream_library_bug_ids() -> set[str]:
         for issue in pilot["issues"]
         if issue.get("category") == "upstream-library-bug"
     }
-    return round2_ids | round3_ids
+    return round2_ids | round3_ids | _ADDITIONAL_DISCLOSABLE_IDS
 
 
 def _all_written_defects() -> list:
@@ -184,7 +216,9 @@ def test_load_known_defects_returns_the_real_written_count_for_this_pilot(family
 
 
 def test_sixteen_entries_total_across_all_eight_pilots() -> None:
-    assert len(_all_written_defects()) == 16
+    # Name kept for the record (TC-767 adds a 17th entry additively; renaming would obscure the
+    # history of this module's own counts the way every other widening comment here documents).
+    assert len(_all_written_defects()) == 17
 
 
 def test_no_duplicate_ids_across_any_of_the_eight_registry_files() -> None:
@@ -215,16 +249,21 @@ def test_every_real_upstream_library_bug_finding_has_a_written_entry() -> None:
         f"real upstream-library-bug findings (round2 union round3) with no written entry: "
         f"{expected_ids - written_ids}"
     )
-    # Both sets equal, and both have exactly 16 members - the real union count as of 2026-11-02.
+    # Both sets equal, and both have exactly 17 members - the real union count as of G3/TC-767
+    # (2026-11-12): 16 as of TC-656 (2026-11-02), plus TC-767's own project-minted
+    # ``PAGE-PYTHON-011``.
     assert expected_ids == written_ids
-    assert len(expected_ids) == 16
+    assert len(expected_ids) == 17
 
 
 def test_every_written_defect_id_is_one_of_the_sixteen_named_ids() -> None:
-    """The exact 16 ids this card's own instructions named (the 15 original round-2 ids plus
-    TC-656's own ``PAGE-PYTHON-010``) - a second, independent cross-check against a hand-written
-    (not algorithmically derived) list, so a mistake in the algorithmic filter above cannot
-    silently hide a wrong id."""
+    """The exact 17 ids this module's own history named (the 15 original round-2 ids, plus
+    TC-656's own ``PAGE-PYTHON-010``, plus TC-767's own project-minted ``PAGE-PYTHON-011``; test
+    name kept for the record rather than renamed, the same way every other widening in this
+    module's sibling ``test_known_defects_completeness.py`` keeps its own prior counts visible in
+    comments/docstrings rather than rewriting history) - a second, independent cross-check
+    against a hand-written (not algorithmically derived) list, so a mistake in the algorithmic
+    filter above cannot silently hide a wrong id."""
     named_ids = {
         "BARCODE-PY-006",
         "EMAIL-CPP-001",
@@ -240,6 +279,7 @@ def test_every_written_defect_id_is_one_of_the_sixteen_named_ids() -> None:
         "NOTE-PY-008",
         "PAGE-PYTHON-006",
         "PAGE-PYTHON-010",
+        "PAGE-PYTHON-011",
         "TEX-PYTHON-001",
         "WORDS-PY-008",
     }

@@ -54,3 +54,49 @@ defects:
       version: 26.9.0
       date: '2026-11-02'
   status: open
+- id: PAGE-PYTHON-011
+  subject:
+    kind: method
+    refs:
+    - aspose.page.ps.PsDocument
+    - aspose.page.ps.document.PsDocument
+  applies_to:
+    package_versions:
+    - 26.9.0
+  summary: PsDocument.to_pdf()/to_image() on an is_eps=True multi-page document silently merge
+    every page onto one output page with zero error; a real 3-page EPS document yields a PDF
+    with /Count 1.
+  user_action: Do not add more than one page (add_page()/insert_page()) to a PsDocument created
+    or loaded with is_eps=True and expect to_pdf()/to_image() to preserve page boundaries; every
+    page's drawing commands are silently merged onto a single output page with no error. Use
+    is_eps=False for any document that needs more than one rendered page - that path was
+    independently confirmed in this entry's own repro to serialize and render the correct page
+    count.
+  evidence:
+    repro: 'Built a real 3-page PsDocument via PsDocument.create(is_eps=True) then add_page()
+      twice, each of the 3 pages given distinct real content (PsPage.canvas.set_fill_color +
+      rect + fill, at different positions/colors per page). doc.pages correctly reported 3, and
+      doc.as_bytes() correctly emitted "%%Pages: 3" and three separate "%%Page: N N" sections.
+      Calling to_pdf() returned a PDF whose /Count is 1, containing exactly one /Type /Page
+      object with all three rectangles'' drawing commands merged onto it, with zero exception or
+      warning raised. The identical page-building API with is_eps=False and the same kind of
+      real per-page content correctly produced /Count 3 in the same session, isolating the
+      defect to is_eps=True specifically. Root cause confirmed by reading the installed
+      package''s own source: ps/serializer.py''s serialize_document() only auto-appends a
+      "showpage" operator for non-EPS documents ("if not doc.is_eps and not _has_showpage(page)"),
+      so an EPS document''s serialized byte stream never contains "showpage" at all; ps/
+      graphics_ops.py''s _op_showpage (the only operator handler that flushes
+      RenderModelBuilder''s active page mid-stream, via builder.document()) therefore never
+      fires for any EPS page boundary; common/render_model.py''s RenderModelBuilder starts a new
+      page lazily on the first draw call only once its _active_page is None, and only closes the
+      active page via showpage or the single final builder.document() call the PS/EPS conversion
+      pipeline makes after interpreting the whole byte stream - so every EPS page''s draw
+      commands accumulate onto the one page that was lazily opened for page 1. to_image() calls
+      the identical ps/output.py pipeline.build_render_model() path and therefore shares the same
+      root cause. This is independently verified, real root cause, not an unverified hypothesis
+      carried over from a prior report.'
+    verified_on:
+      package: aspose-page-foss
+      version: 26.9.0
+      date: '2026-11-12'
+  status: open
