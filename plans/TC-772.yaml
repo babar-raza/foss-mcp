@@ -1,0 +1,114 @@
+id: TC-772
+gate: G3
+lane: storage-retrieval
+purpose: >-
+  P5 upstream-defect disclosure program (REQ-G3-015), closing a real, previously-undisclosed
+  defect found and confirmed live while authoring `TC-770`'s words/python examples (see that
+  card's own worker report, 2026-11-12): `Document.page_count` in the real pinned
+  `aspose-words-foss/Aspose.Words-FOSS-for-Python` package is a plain pydantic field
+  (`page_count: int = 0`) that nothing in the installed package ever sets - it stays `0` even
+  after a real save to PDF, a format whose whole point is pagination. This is a distinct defect
+  from the already-disclosed `WORDS-PY-008` (`get_text()` silently drops table/header/footer
+  text) - a different symbol, a different failure mode (always-zero rather than silently-missing
+  content).
+
+  CRITICAL ID-COLLISION CHECK ALREADY DONE BY THE SUPERVISOR - DO NOT REPEAT OR SECOND-GUESS
+  WITHOUT RE-VERIFYING: the highest real `WORDS-PY-NNN` id used anywhere in `docs/round2/
+  issues.json` or `docs/round3/issues.json` is `WORDS-PY-012` (confirmed by direct grep of both
+  files - round3 alone goes up to 012, one higher than round2's 011). This new entry MUST use
+  `WORDS-PY-013` - never reuse a lower number, which would silently collide with an unrelated,
+  already-real round-2/round-3 audit finding (this is exactly the TC-757 mistake this project has
+  already made once and retired a card over - re-verify this yourself with the same grep before
+  writing anything, do not trust this paragraph blindly if the files may have changed).
+
+  `config/known_defects/words__python.yaml` already exists (1 entry: `WORDS-PY-008`). This card
+  adds exactly one new entry, `WORDS-PY-013`, additive only.
+depends_on:
+  - TC-647
+  - TC-658
+  - TC-660
+  - TC-758
+  - TC-767
+  - TC-771
+write_paths:
+  - config/known_defects/words__python.yaml
+  - tests/indexing/test_known_defects_completeness.py
+  - tests/indexing/test_known_defects_data_remaining.py
+satisfies:
+  - REQ-G3-015
+source_refs:
+  - file: docs/DECISION_LOG.md
+    anchor: >-
+      ## 2026-11-12 — PAGE-PYTHON-011: PsDocument.to_pdf()/to_image() silently merges an EPS document's pages onto one output page, found while authoring page/python examples
+    sha256: eb07c383b8f27e9d8f307991753e6b99b807be80eade51f55175cdde9fe3ae75
+inputs:
+  - >-
+    READ FIRST: `config/known_defects/words__python.yaml` in full (its one existing entry's
+    exact schema shape), `schemas/product/known_defects.schema.json`, and
+    `tests/indexing/test_known_defects_data_remaining.py` / `tests/indexing/
+    test_known_defects_completeness.py` (their exact pinned id-set/count assertions and the
+    `_ADDITIONAL_DISCLOSABLE_IDS` widening pattern already used for `PAGE-PYTHON-011`, which this
+    same file/test pair just gained via `TC-767` - read that diff for the exact shape to follow).
+  - >-
+    RE-VERIFY THE ID NUMBER YOURSELF before writing anything: `grep -o '"WORDS-PY-[0-9]*"'
+    docs/round2/issues.json docs/round3/issues.json | sort -u` and confirm the highest is still
+    `WORDS-PY-012` (so this entry is `WORDS-PY-013`). If a higher number now exists, use the next
+    one above it instead - never guess.
+  - >-
+    REPRODUCE FIRST, YOURSELF, FRESH - do not trust `TC-770`'s worker report blindly: install the
+    real pinned `aspose-words-foss` package at the pinned commit (confirm from `infra/helm/
+    foss-mcp/values.yaml`), build or load a real multi-page document, save it to PDF (or another
+    format where pagination is meaningful), and confirm `document.page_count` reads `0` both
+    before and after the save. Read the installed package's own source
+    (`light_document_model.py` or wherever `page_count` is actually defined in the version you
+    install) to confirm it is genuinely never assigned anywhere in the real codebase, not just in
+    the one code path the sibling worker happened to try.
+  - >-
+    Verify the real FQN to cite in `subject.refs` against the REAL indexed corpus (live
+    `get_symbol`/`search_symbols` calls, or direct inspection of the committed `infra/
+    demo-manifests/words__python__self_extracted` generation JSON) - do not guess.
+  - >-
+    This entry must NOT weaken, remove, or contradict the existing `WORDS-PY-008` entry - it is
+    purely additive. Update `test_known_defects_data_remaining.py`'s id set and any pinned total
+    count arithmetically (old count + 1), and widen `test_known_defects_completeness.py`'s
+    `_ADDITIONAL_DISCLOSABLE_IDS` the same additive way its own docstring documents for prior
+    additions (most recently `PAGE-PYTHON-011` via `TC-767`), updating its own pinned total the
+    same way.
+  - >-
+    If you cannot reproduce the bug, or find the real root cause is different from what was
+    reported (e.g. `page_count` IS set under some other real API path this card's prose didn't
+    anticipate), say so honestly and do not force a disclosure entry that doesn't match what you
+    actually verified - accurate non-reproduction is a valid, honest outcome.
+actions:
+  - >-
+    Add one new known-defects registry entry (`WORDS-PY-013`) disclosing the real,
+    independently re-verified `Document.page_count` always-zero defect, wired into both
+    completeness locks additively.
+checks:
+  - command: '{python} -m pytest tests/indexing/test_known_defects.py tests/indexing/test_known_defects_completeness.py tests/indexing/test_known_defects_data_remaining.py -q -rfE -p no:cacheprovider'
+    expect: 'exit 0'
+    timeout_seconds: 300
+    junitxml: true
+    proves:
+      - REQ-G3-015
+min_tests: 5
+requires:
+  - python
+network: false
+negative_control:
+  mutate: |
+    python -X utf8 -c "import pathlib; p = pathlib.Path('config/known_defects/words__python.yaml'); s = p.read_text(encoding='utf-8'); old = 'WORDS-PY-013'; count = s.count(old); assert count >= 1, 'WORDS-PY-013 not found - this card must add it before this mutate can run'; s2 = s.replace(old, 'WORDS-PY-999', 1); assert s2 != s; p.write_text(s2, encoding='utf-8')"
+  rationale: >-
+    Renames the new entry's own id so it no longer matches what the completeness-lock tests
+    expect to find in the registry, which must make the completeness test(s) fail - a pure data
+    mutation, immune to the lockstep-rename vacuousness class found earlier this session (it
+    renames only the YAML id, never a Python symbol and its call site together), and it never
+    touches any code path.
+evidence:
+  - evidence/build/G3/TC-772/receipt.json
+closeout:
+  - >-
+    words/python gains a second, real, independently-verified known-defects disclosure
+    (`WORDS-PY-013`) for `Document.page_count`'s always-zero defect, additive to the existing
+    `WORDS-PY-008` entry, wired into both completeness locks.
+recovery: Re-run from a clean tree.

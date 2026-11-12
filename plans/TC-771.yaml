@@ -1,0 +1,110 @@
+id: TC-771
+gate: G3
+lane: storage-retrieval
+purpose: >-
+  P5 upstream-defect disclosure program (REQ-G3-015), closing a real, previously-undisclosed
+  defect found and confirmed live while authoring `TC-768`'s 3d/python examples (see that card's
+  own worker report, 2026-11-12): `Mesh.get_bounding_box()` in the real pinned
+  `aspose-3d-foss/Aspose.3D-FOSS-for-Python` package is a literal stub (`return BoundingBox()`)
+  that never computes real bounds from the mesh's own control points. This cascades: calling
+  `Node.get_bounding_box()` on a node holding such a mesh raises
+  `AttributeError: 'NoneType' object has no attribute 'x'` while trying to merge the always-empty
+  box - a confirmed crash, not merely a wrong-but-harmless value.
+
+  CRITICAL ID-COLLISION CHECK ALREADY DONE BY THE SUPERVISOR - DO NOT REPEAT OR SECOND-GUESS
+  WITHOUT RE-VERIFYING: the highest real `3D-PYTHON-NNN` id used anywhere in `docs/round2/
+  issues.json` or `docs/round3/issues.json` is `3D-PYTHON-012` (confirmed by direct grep of both
+  files). This new entry MUST use `3D-PYTHON-013` - never reuse a lower number, which would
+  silently collide with an unrelated, already-real round-2/round-3 audit finding (this is exactly
+  the TC-757 mistake this project has already made once and retired a card over - re-verify this
+  yourself with the same grep before writing anything, do not trust this paragraph blindly if the
+  files may have changed).
+
+  `config/known_defects/3d__python.yaml` already exists (5 entries: `3D-PYTHON-001/002/006/008/
+  010`). This card adds exactly one new entry, `3D-PYTHON-013`, additive only.
+depends_on:
+  - TC-658
+  - TC-660
+  - TC-644
+  - TC-707
+  - TC-727
+  - TC-758
+write_paths:
+  - config/known_defects/3d__python.yaml
+  - tests/indexing/test_known_defects_completeness.py
+  - tests/indexing/test_known_defects_data_3d.py
+satisfies:
+  - REQ-G3-015
+source_refs:
+  - file: docs/DECISION_LOG.md
+    anchor: >-
+      ## 2026-11-12 — PAGE-PYTHON-011: PsDocument.to_pdf()/to_image() silently merges an EPS document's pages onto one output page, found while authoring page/python examples
+    sha256: eb07c383b8f27e9d8f307991753e6b99b807be80eade51f55175cdde9fe3ae75
+inputs:
+  - >-
+    READ FIRST: `config/known_defects/3d__python.yaml` in full (all 5 existing entries, their
+    exact schema shape), `schemas/product/known_defects.schema.json`, and
+    `tests/indexing/test_known_defects_data_3d.py` / `tests/indexing/
+    test_known_defects_completeness.py` (their exact pinned id-set/count assertions and the
+    `_ADDITIONAL_DISCLOSABLE_IDS` widening pattern already used for `3D-TYPESCRIPT-STL-001`/
+    `PAGE-PYTHON-011`).
+  - >-
+    RE-VERIFY THE ID NUMBER YOURSELF before writing anything: `grep -o '"3D-PYTHON-[0-9]*"'
+    docs/round2/issues.json docs/round3/issues.json | sort -u` and confirm the highest is still
+    `3D-PYTHON-012` (so this entry is `3D-PYTHON-013`). If a higher number now exists, use the
+    next one above it instead - never guess.
+  - >-
+    REPRODUCE FIRST, YOURSELF, FRESH - do not trust `TC-768`'s worker report blindly: install the
+    real pinned `aspose-3d-foss` package at the pinned commit (confirm from `infra/helm/foss-mcp/
+    values.yaml`), build a real `Mesh` from a primitive (e.g. `Box(2,2,2).to_mesh()`), attach it
+    to a scene node, call both `mesh.get_bounding_box()` directly (confirm it returns an empty/
+    default `BoundingBox`, not real bounds) and `node.get_bounding_box()` (confirm the real
+    `AttributeError` crash). Read the installed package's own source for `Mesh.get_bounding_box`
+    to confirm the stub, and for `Node.get_bounding_box` to confirm exactly how it crashes.
+  - >-
+    Verify the real FQN(s) to cite in `subject.refs` against the REAL indexed corpus (live
+    `get_symbol`/`search_symbols` calls, or direct inspection of the committed `infra/
+    demo-manifests/3d__python__self_extracted` generation JSON) - do not guess.
+  - >-
+    This entry must NOT weaken, remove, or contradict any of the 5 existing 3d/python entries -
+    it is purely additive. Update `test_known_defects_data_3d.py`'s id set and any pinned total
+    count arithmetically (old count + 1), and widen `test_known_defects_completeness.py`'s
+    `_ADDITIONAL_DISCLOSABLE_IDS` the same additive way its own docstring documents for prior
+    additions, updating its own pinned total the same way.
+  - >-
+    If you cannot reproduce the bug, or find the real root cause is different from what was
+    reported, say so honestly and do not force a disclosure entry that doesn't match what you
+    actually verified - accurate non-reproduction is a valid, honest outcome.
+actions:
+  - >-
+    Add one new known-defects registry entry (`3D-PYTHON-013`) disclosing the real,
+    independently re-verified `Mesh.get_bounding_box()` stub / `Node.get_bounding_box()` crash
+    defect, wired into both completeness locks additively.
+checks:
+  - command: '{python} -m pytest tests/indexing/test_known_defects.py tests/indexing/test_known_defects_completeness.py tests/indexing/test_known_defects_data_3d.py -q -rfE -p no:cacheprovider'
+    expect: 'exit 0'
+    timeout_seconds: 300
+    junitxml: true
+    proves:
+      - REQ-G3-015
+min_tests: 5
+requires:
+  - python
+network: false
+negative_control:
+  mutate: |
+    python -X utf8 -c "import pathlib; p = pathlib.Path('config/known_defects/3d__python.yaml'); s = p.read_text(encoding='utf-8'); old = '3D-PYTHON-013'; count = s.count(old); assert count >= 1, '3D-PYTHON-013 not found - this card must add it before this mutate can run'; s2 = s.replace(old, '3D-PYTHON-999', 1); assert s2 != s; p.write_text(s2, encoding='utf-8')"
+  rationale: >-
+    Renames the new entry's own id so it no longer matches what the completeness-lock tests
+    expect to find in the registry, which must make the completeness test(s) fail - a pure data
+    mutation, immune to the lockstep-rename vacuousness class found earlier this session (it
+    renames only the YAML id, never a Python symbol and its call site together), and it never
+    touches any code path.
+evidence:
+  - evidence/build/G3/TC-771/receipt.json
+closeout:
+  - >-
+    3d/python gains a sixth, real, independently-verified known-defects disclosure
+    (`3D-PYTHON-013`) for the `Mesh.get_bounding_box()` stub / `Node.get_bounding_box()` crash,
+    additive to the five existing entries, wired into both completeness locks.
+recovery: Re-run from a clean tree.
