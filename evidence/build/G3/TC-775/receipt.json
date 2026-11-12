@@ -1,0 +1,89 @@
+{
+  "schema_version": 1,
+  "card": "TC-775",
+  "gate": "G3",
+  "generated_by": "gatectl",
+  "generated_at": "2026-11-12T15:40:06Z",
+  "base_rev": "6acabfaaf06d0f8e2d8fa521c7cf513c02afd479",
+  "head_rev": "7ad2d2de3c2dc57283a588aa7dd6581c3231003c",
+  "card_sha256": "5b028cb67908916a2dbb6cdc244db2f6e8de0638493dc12e036f66e3425e9906",
+  "fingerprint": {
+    "python": "3.13.2",
+    "platform": "Windows-11-10.0.26300-SP0",
+    "lock_sha256": "5c72e798a73c059a438e752e94a8d4c88c1bdf81a197f6e5c5fcecbc9466a691",
+    "env": {
+      "PYTHONHASHSEED": "0",
+      "PYTHONUTF8": "1",
+      "PYTHONDONTWRITEBYTECODE": "1",
+      "PYTHONIOENCODING": "utf-8",
+      "TZ": "UTC",
+      "LC_ALL": "C.UTF-8",
+      "SOURCE_DATE_EPOCH": "1700000000",
+      "verify_runner": "host"
+    }
+  },
+  "scope": {
+    "ok": true,
+    "changed_paths": [
+      "tests/conformance/test_index_honesty.py",
+      "tests/fixtures/conformance/baseline_index_honesty.json"
+    ],
+    "violations": [],
+    "evaluated": true
+  },
+  "runs": [
+    {
+      "run": 1,
+      "checks": [
+        {
+          "command": "{python} -m pytest tests/conformance/test_index_honesty.py -q -rfE -p no:cacheprovider",
+          "exit_code": 0,
+          "duration_s": 1.515,
+          "stdout_sha256": "7040371af15613c02e821ec0eecc1d1330f691ace4cef93a41bfa358822c4103",
+          "tests": 10,
+          "skipped": 0,
+          "errors": 0,
+          "failures": 0
+        }
+      ],
+      "all_passed": true
+    },
+    {
+      "run": 2,
+      "checks": [
+        {
+          "command": "{python} -m pytest tests/conformance/test_index_honesty.py -q -rfE -p no:cacheprovider",
+          "exit_code": 0,
+          "duration_s": 1.48,
+          "stdout_sha256": "7040371af15613c02e821ec0eecc1d1330f691ace4cef93a41bfa358822c4103",
+          "tests": 10,
+          "skipped": 0,
+          "errors": 0,
+          "failures": 0
+        }
+      ],
+      "all_passed": true
+    }
+  ],
+  "negative_control": {
+    "kind": "mutate",
+    "patch": "python -X utf8 -c \"import pathlib; p = pathlib.Path('tests/fixtures/conformance/baseline_index_honesty.json'); s = p.read_text(encoding='utf-8'); old = chr(123); count = s.count(old); assert count >= 1, 'the baseline file does not look like JSON'; import json; d = json.loads(s); assert isinstance(d, dict), 'expected a JSON object at the top level'; d2 = dict(d); d2['known_failures'] = []; p.write_text(json.dumps(d2, indent=2) + chr(10), encoding='utf-8')\"\n",
+    "patch_sha256": "79e0a7f1149eb691e087362ddc7686d16675313a28d9e9d3f443ded6cb0896f4",
+    "applied": true,
+    "patch_applied_failed": true,
+    "exit_codes": [
+      1
+    ],
+    "tree_changed": [
+      "M tests/fixtures/conformance/baseline_index_honesty.json",
+      "?? .junit-0.xml"
+    ]
+  },
+  "holdout": {
+    "ran": false,
+    "passed": true,
+    "detail": "no holdout for this card"
+  },
+  "accepted": true,
+  "reason": "all gates passed"
+}
