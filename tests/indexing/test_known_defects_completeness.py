@@ -176,6 +176,15 @@ real new union count is 62 (not 61): both equality assertions above still hold e
 against this slightly wider set; the real registry file count is unchanged at 27 (this entry
 lands in the already-existing ``3d__python.yaml``, which already carried ``3D-PYTHON-001/002/006/
 008/010``).
+
+**Widened again (G3/TC-772, 2026-11-12):** ``WORDS-PY-013`` (project-minted id, no round-2/round-3
+audit record - a previously undisclosed defect found while authoring TC-770's words/python
+examples) is added to ``_ADDITIONAL_DISCLOSABLE_IDS`` the same deliberate, additive way; see that
+frozenset's own in-code comment for the full detail of the independent re-reproduction, fresh,
+against the real, currently-pinned ``aspose-words-foss`` 26.7.0 package. The real new union count
+is 63 (not 62): both equality assertions above still hold exactly, just against this slightly
+wider set; the real registry file count is unchanged at 27 (this entry lands in the
+already-existing ``words__python.yaml``, which already carried ``WORDS-PY-008``).
 """
 
 from __future__ import annotations
@@ -333,6 +342,17 @@ def _real_round3_issues() -> list[dict[str, Any]]:
 #   box - raising a real, confirmed ``AttributeError: 'NoneType' object has no attribute 'x'``,
 #   reproduced directly with a real ``Box(2, 2, 2).to_mesh()`` attached to a scene node. This is
 #   disclosure-only, recorded during the TC-771 verification (2026-11-12), not an audit round.
+# - ``WORDS-PY-013`` (G3/TC-772, REQ-G3-015, project-minted id with no round-2/round-3 audit
+#   record): a previously undisclosed defect found while authoring TC-770's words/python examples
+#   and independently re-reproduced fresh here against the real, currently-pinned
+#   ``aspose-words-foss`` 26.7.0 package: ``Document.page_count`` is a one-line passthrough
+#   (``document.py``) to ``light_document_model.Document.page_count``, a plain pydantic field
+#   (``page_count: int = 0``) that no reader, writer, or converter module anywhere in the
+#   installed package's own source ever assigns - confirmed by a whole-package grep for the
+#   literal string ``page_count`` finding only those two sites. A real 400-paragraph document
+#   saved to PDF genuinely paginates (independently confirmed via ``pypdf`` to produce 26 real
+#   pages), yet ``page_count`` reads 0 both before and after ``save()``. This is disclosure-only,
+#   recorded during the TC-772 verification (2026-11-12), not an audit round.
 _ADDITIONAL_DISCLOSABLE_IDS: frozenset[str] = frozenset(
     {
         "3D-JAVA-001",
@@ -344,6 +364,7 @@ _ADDITIONAL_DISCLOSABLE_IDS: frozenset[str] = frozenset(
         "3D-TYPESCRIPT-FBX-001",
         "PAGE-PYTHON-011",
         "3D-PYTHON-013",
+        "WORDS-PY-013",
     }
 )
 
@@ -444,20 +465,22 @@ def test_registry_entry_count_equals_upstream_library_bug_issue_count() -> None:
         f"issue count ({len(upstream_issue_ids)})"
     )
 
-    # Sanity anchor only, not a floor on the future: as of G3/TC-771 (2026-11-12) this real union
-    # count is 62 (61 as of TC-767, plus TC-771's own additive ``3D-PYTHON-013``); earlier, as of
-    # TC-767 (2026-11-12) this real union count was 61 (60 as of TC-758, plus TC-767's own
-    # additive ``PAGE-PYTHON-011``); earlier, as of TC-758 (2026-11-11) this real union count was
-    # 60 (58 as of TC-728, plus TC-758's own additive ``3D-TYPESCRIPT-STL-001`` and
-    # ``3D-TYPESCRIPT-FBX-001``); earlier, as of 2026-11-09, the real union count was 58 (56
-    # round2-union-round3-union-_ADDITIONAL_DISCLOSABLE_IDS as of TC-711, see this module's
-    # docstring for that id list, plus TC-728's own additive ``_ADDITIONAL_DISCLOSABLE_IDS``
-    # entries ``SLIDES-JAVA-010`` and ``SLIDES-JAVA-010B``, two registry ids for one round-3
-    # finding id, split because the underlying facts are two genuinely distinct causal chains). A
-    # future card adding or retiring a confirmed upstream-library-bug finding (and its matching
-    # entry) is expected to move both sides together and may need to update this comment and
-    # number; the equality assertion above is the one that must hold forever.
-    assert len(upstream_issue_ids) == 62
+    # Sanity anchor only, not a floor on the future: as of G3/TC-772 (2026-11-12) this real union
+    # count is 63 (62 as of TC-771, plus TC-772's own additive ``WORDS-PY-013``); earlier, as of
+    # TC-771 (2026-11-12) this real union count was 62 (61 as of TC-767, plus TC-771's own
+    # additive ``3D-PYTHON-013``); earlier, as of TC-767 (2026-11-12) this real union count was 61
+    # (60 as of TC-758, plus TC-767's own additive ``PAGE-PYTHON-011``); earlier, as of TC-758
+    # (2026-11-11) this real union count was 60 (58 as of TC-728, plus TC-758's own additive
+    # ``3D-TYPESCRIPT-STL-001`` and ``3D-TYPESCRIPT-FBX-001``); earlier, as of 2026-11-09, the
+    # real union count was 58 (56 round2-union-round3-union-_ADDITIONAL_DISCLOSABLE_IDS as of
+    # TC-711, see this module's docstring for that id list, plus TC-728's own additive
+    # ``_ADDITIONAL_DISCLOSABLE_IDS`` entries ``SLIDES-JAVA-010`` and ``SLIDES-JAVA-010B``, two
+    # registry ids for one round-3 finding id, split because the underlying facts are two
+    # genuinely distinct causal chains). A future card adding or retiring a confirmed
+    # upstream-library-bug finding (and its matching entry) is expected to move both sides
+    # together and may need to update this comment and number; the equality assertion above is
+    # the one that must hold forever.
+    assert len(upstream_issue_ids) == 63
 
 
 # --------------------------------------------------------------------------------------------

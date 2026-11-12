@@ -25,3 +25,35 @@ defects:
       version: 26.7.0
       date: '2026-10-29'
   status: open
+- id: WORDS-PY-013
+  subject:
+    kind: method
+    refs:
+    - aspose.words_foss.Document
+    - aspose.words_foss.document.Document
+  applies_to:
+    package_versions:
+    - 26.7.0
+  summary: Document.page_count in aspose-words-foss 26.7.0 is a plain field (light_document_model.Document.page_count,
+    default 0) that nothing in the package ever assigns; it stays 0 even after a real multi-page save to PDF.
+  user_action: Do not rely on Document.page_count for the real number of pages a document will render to, before
+    or after save() - it is always 0 in this version. Render to PDF and count the real output pages (for example
+    with an independent PDF-page-counting library) if the real page count is needed.
+  evidence:
+    repro: 'Built a real 400-paragraph plain-text document (far more than fits on one rendered page), loaded it
+      via Document(path), and read page_count both before and after doc.save("out.pdf", SaveFormat.PDF): both
+      reads returned 0. Independently confirmed via pypdf that the real saved PDF has 26 pages, proving genuine
+      multi-page pagination occurred while page_count never reflected it. Root cause confirmed by reading the
+      installed package''s own source: document.py''s page_count property (docstring: "Estimated page count")
+      is a one-line passthrough, `return self.light_document_model.page_count`; light_document_model.py declares
+      `page_count: int = 0` as a plain pydantic field with no validator or computed-field decorator; a whole-package
+      grep for the literal string "page_count" across every installed .py file finds only these two sites - no
+      reader, writer, or converter module ever assigns to it. The real per-page pagination the PDF export genuinely
+      performs (pdf_writer/paragraph_renderer.py and page_bands.py call the underlying PDF library''s own
+      add_page()/page_no() repeatedly while laying out content) is tracked entirely inside the PDF writer''s own
+      state and is never written back onto the light document model''s page_count field.'
+    verified_on:
+      package: aspose-words-foss
+      version: 26.7.0
+      date: '2026-11-12'
+  status: open
