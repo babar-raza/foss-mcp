@@ -1,0 +1,125 @@
+id: TC-764
+gate: G3
+lane: storage-retrieval
+purpose: >-
+  P4 example-corpus program (REQ-G3-014), continuing the same real pilot-adoption pattern this
+  session has already proven on 22 other sibling pilots (zero file overlap with any of them -
+  do not touch anything any of them touch) via the EXISTING, already-wired
+  `authored_examples.yaml` mechanism (`TC-460`/`TC-565`/`TC-566`). Confirmed needing ZERO code
+  change: `infra/build_chunks.py`'s `_load_authored_candidates` auto-loads `tests/fixtures/
+  furnished/<pilot>/authored_examples.yaml`, merges it with README-derived candidates, and runs
+  every entry through `verify_python_example`, publishing only the ones that pass.
+
+  `page/python` currently serves only 4 real example chunks (the authoritative count - read
+  `payload.stats.examples` directly from the real committed `infra/demo-manifests/
+  page__python__self_extracted` generation JSON via `json.load`, NEVER by grepping a literal
+  string, which overstates the count roughly 2x). Its own real floor is 6-12 (Appendix C of the
+  foss-mcp unified plan). Its real pinned repository is `aspose-page-foss/
+  Aspose.Page-FOSS-for-Python` (re-confirm the exact pinned commit from `infra/helm/foss-mcp/
+  values.yaml` or `infra/demo-inputs/` - do not trust this card's own citation blindly;
+  `config/products/page/python.yaml` carries the repository name but not necessarily the pin).
+
+  Per the project's own Appendix-C accounting, page/python ships NO dedicated `examples/`-style
+  sample directory upstream (class C: none; 66 tests; the real verifier image is also noted as
+  missing `libEGL`, which may block any example that touches actual rendering/rasterization -
+  confirm this directly before planning an example around it, and prefer examples that avoid
+  rendering output entirely, e.g. document/page construction, metadata, text extraction, or
+  page-count/size inspection, if rendering proves blocked in this environment).
+
+  `_MAX_EXAMPLES = 5` is a hard ceiling. Up to 5 new, real, individually-verified authored
+  examples, each passing the real ingestion verifier before being trusted to publish.
+depends_on:
+  - TC-460
+  - TC-565
+  - TC-566
+write_paths:
+  - tests/fixtures/furnished/page_python/authored_examples.yaml
+  - tests/indexing/test_authored_examples_page_python.py
+satisfies:
+  - REQ-G3-014
+source_refs:
+  - file: docs/DECISION_LOG.md
+    anchor: >-
+      ## 2026-11-12 — find_examples wrong-confident regression fully closed: 41/729 (0.0562), under the 0.059 ceiling
+    sha256: 5219b62cf396bb5b22cdce6bdeb749d600c923e58388a4e682cc0236d3be9f76
+inputs:
+  - >-
+    READ FIRST: `tests/fixtures/furnished/email_python/authored_examples.yaml`/`tests/indexing/
+    test_authored_examples_email_python.py` (same-language sibling template, from `TC-755`).
+    Also read `src/foss_mcp/indexing/authored_examples.py` in full (every structural rule -
+    `_MAX_EXAMPLES`, `_MAX_TITLE_CHARS`, `FORBIDDEN_CODE_PATTERNS`, `code_sha256` must equal
+    `normalised_code_sha256(code)`, `symbols` must be real FQNs, `library_commit` must be the real
+    40-hex pinned commit, `LANGUAGE_BY_PLATFORM` maps `python` -> `python`),
+    `src/foss_mcp/indexing/example_verifier.py`'s `verify_python_example`, and
+    `infra/build_chunks.py`'s `_load_authored_candidates`.
+  - >-
+    REPRODUCE FIRST: confirm `page/python`'s real current served count (via
+    `payload.stats.examples`) and real pinned repository/commit yourself. Determine whether
+    rendering/rasterization is actually usable in this environment (the `libEGL` gap noted above)
+    before choosing example topics - do not assume either way.
+  - >-
+    CRITICAL - BEFORE TITLING ANY EXAMPLE: this session closed a real, severe fleet-wide
+    regression (see `docs/DECISION_LOG.md`'s 2026-11-10 through 2026-11-12 entries) caused by
+    earlier authored-example titles using common generic words (e.g. "page", "read", "set",
+    "add", "save") that collided with unrelated queries via `title_anchored`
+    (`src/foss_mcp/mcp/tools/relevance.py`). page/python's own family name is literally "page" -
+    be extremely deliberate: give each new example a SPECIFIC, multi-word, low-collision title
+    (name the concrete class/operation, not a generic verb+noun pair), and before finalizing any
+    title, grep `tests/mcp/tools/test_round3_retrieval_corpus.py`'s real page/python task queries
+    and this pilot's OWN existing example titles for the exact words you plan to use. If in doubt,
+    run the real `find_examples` corpus check locally after adding your titles (not just the
+    card's own listed check) to confirm you have not reintroduced a title-collision regression.
+  - >-
+    VERIFY EACH EXAMPLE YOURSELF before committing: install the real pinned package in a venv,
+    run each adapted script, confirm its real output matches what you claim. Do not submit an
+    example you have not personally run successfully.
+  - >-
+    `FORBIDDEN_CODE_PATTERNS` blocks environment/credential access, process spawning, raw network
+    clients, and interactive input. Confirm none of your examples trips them.
+  - >-
+    Run `ruff format` and `ruff check` on the new test file before committing.
+  - >-
+    This card does NOT claim `page/python`'s example-corpus work is complete. If fewer than 5
+    real candidates verify cleanly, submit the real number and say so honestly.
+actions:
+  - >-
+    Author up to 5 new, real, individually-verified examples for page/python via the existing
+    authored_examples.yaml mechanism, raising its served example count from 4 toward 9, with
+    titles deliberately checked against the fleet-wide title-anchor collision class this session
+    already closed once.
+checks:
+  - command: '{python} -m pytest tests/indexing/test_authored_examples.py tests/indexing/test_authored_examples_page_python.py tests/infra/test_authored_examples_fixtures.py -q -rfE -p no:cacheprovider'
+    expect: 'exit 0'
+    timeout_seconds: 300
+    junitxml: true
+    proves:
+      - REQ-G3-014
+  - command: '{python} -m pytest tests/mcp/tools/test_round3_retrieval_corpus.py tests/mcp/tools/test_forgiveness_acceptance.py -q -rfE -p no:cacheprovider'
+    expect: 'exit 0'
+    timeout_seconds: 900
+    junitxml: true
+    proves:
+      - REQ-G3-014
+min_tests: 5
+requires:
+  - python
+network: false
+negative_control:
+  mutate: |
+    python -X utf8 -c "import pathlib; p = pathlib.Path('tests/fixtures/furnished/page_python/authored_examples.yaml'); s = p.read_text(encoding='utf-8'); assert s, 'the sidecar file is empty or missing - this card must create it with real content before this mutate can run'; old = 'code_sha256:'; count = s.count(old); assert count >= 1, 'no code_sha256 field found - the file does not match the expected schema'; import re; s2 = re.sub(r'code_sha256: [0-9a-f]{64}', 'code_sha256: ' + '0'*64, s, count=1); assert s2 != s; p.write_text(s2, encoding='utf-8')"
+  rationale: >-
+    Corrupts the first example's own `code_sha256` to a value that cannot match the real code's
+    hash, which must make `load_authored_examples`'s own validation reject the whole sidecar file -
+    a pure data mutation, immune to the lockstep-rename vacuousness class found earlier this
+    session, and it never touches any code path. Confirm by hand that the check files named
+    actually exercise this validation path before trusting it.
+evidence:
+  - evidence/build/G3/TC-764/receipt.json
+closeout:
+  - >-
+    page/python gains up to 5 new, real, individually-verified authored examples via the
+    existing, already-wired authored_examples.yaml mechanism (zero code change), raising its
+    served example count from 4 toward 9 - real, bounded progress toward its own (6-12) floor,
+    with titles deliberately verified against the fleet-wide title-anchor regression class this
+    session already closed once, so as not to reopen it.
+recovery: Re-run from a clean tree.
