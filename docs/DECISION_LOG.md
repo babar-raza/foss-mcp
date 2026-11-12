@@ -4499,8 +4499,7 @@ content edits could fix, not a defect in the matching mechanism itself. The 41/7
 pre-existing/unrelated baseline noise (the pre-campaign floor was 42/729), not a residual of this
 campaign.
 
-## 2026-11-12 — PAGE-PYTHON-011: PsDocument.to_pdf()/to_image() silently merge every page of an
-## EPS document onto one output page, found while authoring page/python examples, now disclosed
+## 2026-11-12 — PAGE-PYTHON-011: PsDocument.to_pdf()/to_image() silently merges an EPS document's pages onto one output page, found while authoring page/python examples
 
 `TC-764`'s worker (authoring page/python's authored examples, continuing the P4 example-corpus
 program) found that a candidate example exercising `PsDocument.to_pdf()` on a 3-page document
