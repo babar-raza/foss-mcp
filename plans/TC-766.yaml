@@ -28,13 +28,39 @@ purpose: >-
 
   `_MAX_EXAMPLES = 5` is a hard ceiling. Up to 5 new, real, individually-verified authored
   examples, each passing the real ingestion verifier before being trusted to publish.
+
+  ADDED after attempt 1 (same card, widened and corrected - not a new card, since the real root
+  cause and fix mechanism are unchanged): attempt 1's worker correctly authored and personally
+  verified all 5 examples (compiled AND run against the real pinned package) and correctly found
+  a real, out-of-scope structural blocker rather than guessing past it: `3d_net` is one of exactly
+  two `_BUILTIN_PILOTS` (`src/foss_mcp/indexing/authored_examples.py`, alongside `3d_java`) whose
+  authored examples are currently hardcoded in that module rather than a sidecar file, specifically
+  so `tests/indexing/test_authored_examples.py::test_tc565_build_chunks_loads_the_builtin_
+  examples_for_a_pilot_without_a_sidecar` can prove the builtin-fallback path is genuinely
+  reachable (`TC-565`'s own integration-liveness proof). The moment a real sidecar exists for
+  `3d_net`, that test's own assertion ("no sidecar may exist for a builtin pilot") correctly fails
+  - this is the test doing its job, not a bug to work around.
+
+  `write_paths` is now widened to include both of those two files. The fix: drop the `"3d_net"`
+  entry from BOTH `_BUILTIN_PILOTS` dicts (`src/foss_mcp/indexing/authored_examples.py`'s own
+  dict, and `tests/indexing/test_authored_examples.py`'s own parallel `BUILTIN_PILOTS` dict at
+  line ~1195) while leaving `"3d_java"` untouched in both, so `TC-565`'s own liveness proof still
+  holds for the one pilot still genuinely on the builtin path. `build_chunks.py`'s
+  `_load_authored_candidates` already prefers a real sidecar over the builtin fallback whenever
+  one exists (`use_builtin = not sidecar.is_file() and has_builtin_authored_examples(...)`) - so
+  this is a pure, safe supersession: the 2 old builtin 3d_net examples are replaced by attempt 1's
+  5 new, individually-verified sidecar examples (a real net gain), and nothing about 3d_java's own
+  path changes at all.
 depends_on:
   - TC-460
+  - TC-530
   - TC-565
   - TC-566
 write_paths:
   - tests/fixtures/furnished/3d_net/authored_examples.yaml
   - tests/indexing/test_authored_examples_3d_net.py
+  - src/foss_mcp/indexing/authored_examples.py
+  - tests/indexing/test_authored_examples.py
 satisfies:
   - REQ-G3-014
 source_refs:
@@ -84,6 +110,15 @@ inputs:
     sibling cards this session correctly did (e.g. `TC-764` published 4 of 5 after finding and
     correctly dropping a candidate that exercised a real, previously-unknown upstream bug rather
     than shipping a wrong assertion).
+  - >-
+    ADDED after attempt 1: drop exactly the `"3d_net"` entry from `_BUILTIN_PILOTS`
+    (`src/foss_mcp/indexing/authored_examples.py`) and from the parallel `BUILTIN_PILOTS` dict in
+    `tests/indexing/test_authored_examples.py` - leave `"3d_java"` (and everything else in both
+    files) completely untouched. Re-run the full `tests/indexing/test_authored_examples.py` suite
+    (not just the one previously-failing test) to confirm nothing else keyed off the now-removed
+    `"3d_net"` entry breaks. If attempt 1's own two files (the sidecar YAML and its test) are
+    already correct and verified, do not redo that work - just make this one additional, narrowly
+    scoped change and re-run both of the card's required checks.
 actions:
   - >-
     Author up to 5 new, real, individually-verified examples for 3d/net via the existing
