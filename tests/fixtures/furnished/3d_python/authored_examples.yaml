@@ -1,0 +1,163 @@
+schema_version: 1
+pilot: 3d_python
+library_repository: aspose-3d-foss/Aspose.3D-FOSS-for-Python
+library_commit: 65b1f577c0f16d0d9112bb6c1153d3024543ac02
+language: python
+examples:
+- title: Assemble a custom polygon face from four raw indices with PolygonBuilder
+  description: Builds a quad face by hand with PolygonBuilder's begin/add_vertex/end calls over four raw control-point indices on a fresh Mesh, then confirms the mesh ends up with exactly one polygon spanning all four points.
+  symbols:
+  - PolygonBuilder
+  - PolygonBuilder.add_vertex
+  - Mesh.control_points
+  - Mesh.polygon_count
+  code: |
+    # Authored example: assemble a custom polygon face from four raw vertex indices with PolygonBuilder.
+    from aspose.threed.entities import Mesh, PolygonBuilder
+    from aspose.threed.utilities import Vector4
+
+    mesh = Mesh("Quad")
+    mesh.control_points.add(Vector4(0.0, 0.0, 0.0, 1.0))
+    mesh.control_points.add(Vector4(1.0, 0.0, 0.0, 1.0))
+    mesh.control_points.add(Vector4(1.0, 1.0, 0.0, 1.0))
+    mesh.control_points.add(Vector4(0.0, 1.0, 0.0, 1.0))
+
+    builder = PolygonBuilder(mesh)
+    builder.begin()
+    builder.add_vertex(0)
+    builder.add_vertex(1)
+    builder.add_vertex(2)
+    builder.add_vertex(3)
+    builder.end()
+
+    print("control points:", len(mesh.control_points))
+    print("polygon count:", mesh.polygon_count)
+    assert len(mesh.control_points) == 4
+    assert mesh.polygon_count == 1
+    print("OK")
+  code_sha256: "da811b4e146345b58f7b9147db00d2cc9c9dc93d7214216aa27f4876c0e3d4d8"
+- title: Interpolate between two orientations with Quaternion.slerp
+  description: Builds two quaternions from an angle-axis rotation, interpolates halfway between them with Quaternion.slerp, and converts the result back to an angle/axis pair to confirm it lands exactly at the expected midpoint angle.
+  symbols:
+  - Quaternion
+  - Quaternion.slerp
+  - Quaternion.from_angle_axis
+  - Quaternion.to_angle_axis
+  - Vector3
+  code: |
+    # Authored example: interpolate between two orientations with Quaternion.slerp.
+    import math
+
+    from aspose.threed.utilities import Quaternion, Vector3
+
+    start = Quaternion.from_angle_axis(0.0, Vector3(0.0, 1.0, 0.0))
+    end = Quaternion.from_angle_axis(math.pi / 2, Vector3(0.0, 1.0, 0.0))
+
+    midway = Quaternion.slerp(0.5, start, end)
+    print("midway:", midway.x, midway.y, midway.z, midway.w)
+
+    angle_out = [0.0]
+    axis_out = [None]
+    midway.to_angle_axis(angle_out, axis_out)
+    angle_degrees = math.degrees(angle_out[0])
+    print("midway angle (degrees):", angle_degrees, "axis:", axis_out[0])
+
+    assert math.isclose(angle_degrees, 45.0, abs_tol=1e-3)
+    assert math.isclose(axis_out[0].y, 1.0, abs_tol=1e-9)
+    print("OK")
+  code_sha256: "3e1f00d300031307a74063251d4fc2fec5100155a5b57c84bd8213cc7fbc0551"
+- title: Record a bind pose matrix for a skeletal joint
+  description: Creates a child node, builds a translated bind-pose matrix, and records it on a Pose object via add_bone_pose, then confirms the recorded BonePose entry carries the right node, locality flag and translation.
+  symbols:
+  - Pose.add_bone_pose
+  - Pose.bone_poses
+  - PoseType.BIND_POSE
+  - Matrix4.translate
+  - BonePose.matrix
+  code: |
+    # Authored example: record a bind pose matrix for a skeletal joint.
+    from aspose.threed import Pose, PoseType, Scene
+    from aspose.threed.utilities import Matrix4, Vector3
+
+    scene = Scene()
+    joint = scene.root_node.create_child_node("Forearm")
+
+    bind_matrix = Matrix4.get_identity().translate(Vector3(0.0, 2.5, 0.0))
+
+    bind_pose = Pose("ArmBindPose")
+    bind_pose.pose_type = PoseType.BIND_POSE
+    bind_pose.add_bone_pose(joint, bind_matrix, False)
+
+    print("pose type:", bind_pose.pose_type)
+    print("bone poses recorded:", len(bind_pose.bone_poses))
+
+    recorded = bind_pose.bone_poses[0]
+    print(
+        "recorded node:", recorded.node.name,
+        "is_local:", recorded.is_local,
+        "translation y:", recorded.matrix.m13,
+    )
+
+    assert bind_pose.pose_type == PoseType.BIND_POSE
+    assert len(bind_pose.bone_poses) == 1
+    assert recorded.node.name == "Forearm"
+    assert recorded.is_local is False
+    assert recorded.matrix.m13 == 2.5
+    print("OK")
+  code_sha256: "aefcc281d7025629f62689a05cb86dff1fbf6cf81dc068d2f8c7e1c9a7cdd928"
+- title: Record document title, author and revision metadata on a 3D asset
+  description: Sets title, author and revision metadata on a Scene's AssetInfo object and confirms each value round-trips through the same object.
+  symbols:
+  - AssetInfo
+  - AssetInfo.title
+  - AssetInfo.author
+  - AssetInfo.revision
+  - Scene.asset_info
+  code: |
+    # Authored example: record document title, author and revision metadata on a 3D asset.
+    from aspose.threed import AssetInfo, Scene
+
+    scene = Scene()
+    info = scene.asset_info
+    info.title = "Prototype Hull"
+    info.author = "Shipyard CAD Team"
+    info.revision = "3"
+
+    print("title:", info.title, "author:", info.author, "revision:", info.revision)
+
+    assert isinstance(info, AssetInfo)
+    assert info.title == "Prototype Hull"
+    assert info.author == "Shipyard CAD Team"
+    assert info.revision == "3"
+    print("OK")
+  code_sha256: "4e776ad3e7901027beb074e6a89720b6fdfe9530e8dbf83cb8b4ea994e1c9d49"
+- title: Compute the cross product and angle between two edge vectors
+  description: Computes the cross product, dot product and angle between two perpendicular edge vectors and confirms each matches the expected perpendicular-vector values.
+  symbols:
+  - Vector3
+  - Vector3.cross
+  - Vector3.dot
+  - Vector3.angle_between
+  code: |
+    # Authored example: compute the cross product and angle between two edge vectors.
+    import math
+
+    from aspose.threed.utilities import Vector3
+
+    edge_a = Vector3(1.0, 0.0, 0.0)
+    edge_b = Vector3(0.0, 1.0, 0.0)
+
+    normal = edge_a.cross(edge_b)
+    print("cross:", normal.x, normal.y, normal.z)
+
+    angle = edge_a.angle_between(edge_b)
+    print("angle (degrees):", math.degrees(angle))
+
+    dotted = edge_a.dot(edge_b)
+    print("dot:", dotted)
+
+    assert normal.x == 0.0 and normal.y == 0.0 and normal.z == 1.0
+    assert math.isclose(math.degrees(angle), 90.0, abs_tol=1e-6)
+    assert dotted == 0.0
+    print("OK")
+  code_sha256: "be11e42d2a916759a531d0b155c203d724a3d70c2e4caa39f06a86bad47e1075"
