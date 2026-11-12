@@ -4629,3 +4629,43 @@ structural `_MAX_TITLE_WORDS` guard `TC-773`'s attempt 1 correctly could not lan
 sentence frames' safe word bound today without yet breaking default CI. Neither blocks anything
 else; both are real, bounded, well-scoped work for whoever picks up the example-corpus program
 next.
+
+## 2026-11-12 — a third live CI break found the same day (`TC-775`), plus a real extraction defect flagged, not fixed
+
+A follow-up fork, checking whether the same "bare assert inside a measurement loop, ahead of
+that loop's own baseline comparison" bug shape (`TC-773`/`TC-774`) exists anywhere else under
+`tests/conformance/`, found it does, live, in `tests/conformance/test_index_honesty.py` -
+independently confirmed by the supervisor before carding (5 of 10 tests failing on `main`). Two
+unrelated real root causes, both closed by `TC-775`:
+
+- **The crash-masking shape itself**: `pdf__java`'s real symbol chunk for
+  `org.aspose.pdf.engine.xfa.model.template.Proto` carries zero `API-Coverage:` lines, tripping a
+  bare `assert len(lines) == 1` inside `_tautology_observations`'s loop before its own
+  `assert_no_new_failures` could ever run. Traced to the REAL root cause, not just the symptom:
+  `infra/build_chunks.py`'s `MAX_CHUNK_TEXT_CHARS = 24_000` truncation cap cuts off `Proto`'s
+  unusually large rendered body (hundreds of XFA child-element accessor pairs) before its
+  trailing `API-Coverage:` line, which `chunk_builder._format_type_text` always appends last -
+  so any sufficiently large type, on any pilot, can silently lose its coverage disclosure this
+  way. The real fix lives in `infra/build_chunks.py`, outside `TC-775`'s own `write_paths` -
+  correctly NOT forced in; instead all four bare asserts in the loop were converted to soft,
+  baseline-tracked checks (confirmed none of the other three ever fire on any of the 32 real
+  pilots today, so this changes nothing observable except removing the latent crash risk), the
+  one real finding was recorded in the baseline with its full root-cause text, and
+  `pdf__java` was honestly re-pinned as the one real exception to "every pilot is 100% nowhere
+  tautological" (32/32 -> 31/32).
+- **Stale pinned expectations from `TC-686`** (this session's own earlier alias-shell-thinning):
+  slides/python's duplicate-chunk tuple re-measured and re-pinned `(320, 764, 1023)` ->
+  `(53, 114, 1023)`; the at-or-below-threshold pilot count re-measured and re-pinned 15 -> 19;
+  the member-body smoke test's original premise (a shell+definition pair sharing a real,
+  non-empty body) was found to no longer hold ANYWHERE in the real corpus (0 of 1,379 real
+  Python alias shells now carry a non-empty body, by `TC-686`'s own design) and was replaced with
+  a different, still-real, independently-confirmed example (six distinct slides/python
+  collection-interface types that happen to render an identical trivial body).
+
+**Standing follow-ups, not yet carded**: (1) the real `infra/build_chunks.py` truncation-vs-
+coverage-line ordering defect `TC-775` found and correctly left unfixed (outside its scope);
+(2) `tests/conformance/test_reference_content.py` has the SAME crash-masking assert-inside-loop
+shape (`_collect_answers`'s `assert sidecar_path.is_file()` / `assert inputs is not None` ahead
+of its own `assert_no_new_failures`) but is confirmed DORMANT today (14/14 pass - every real
+pilot currently has a valid sidecar) - worth converting proactively before it becomes a fourth
+live break, but not urgent since nothing trips it right now.
