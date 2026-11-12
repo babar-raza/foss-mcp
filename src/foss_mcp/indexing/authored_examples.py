@@ -378,53 +378,6 @@ def _candidates_from_document(document: Mapping[str, Any]) -> tuple[CandidateExa
 # back), and are labelled as authored. Until the supervisor's closing run executes them, their
 # verification-cache entries carry ``ran`` unknown.
 _BUILTIN_PILOTS: Mapping[str, Mapping[str, Any]] = {
-    "3d_net": {
-        "library_repository": "aspose-3d-foss/Aspose.3D-FOSS-for-.NET",
-        "library_commit": "52b0f00ebf28a0b4173921725ff170685ec2c502",
-        "language": "csharp",
-        "examples": (
-            {
-                "title": "Save a box mesh as an STL file",
-                "description": (
-                    "Converts a Box primitive to a mesh with ToMesh, attaches the mesh to a child node of the "
-                    "scene root and saves the scene with Scene.Save to box.stl, the one format that is fully "
-                    "functional in this edition; the file's size is printed."
-                ),
-                "symbols": ["Scene", "Scene.Save", "Box", "Box.ToMesh", "Node.CreateChildNode"],
-                "code": """\
-// Authored example: save a box mesh as an STL file
-using Aspose.ThreeD;
-using Aspose.ThreeD.Entities;
-
-var scene = new Scene();
-Mesh mesh = new Box(2, 2, 2).ToMesh();
-scene.RootNode.CreateChildNode("box", mesh);
-scene.Save("box.stl");
-Console.WriteLine(new FileInfo("box.stl").Length);
-""",
-            },
-            {
-                "title": "Save a cylinder mesh as a binary STL with an explicit format",
-                "description": (
-                    "Converts a Cylinder primitive to a mesh, attaches it to a child node and saves the scene "
-                    "with Scene.Save and FileFormat.STLBinary, so the output format is stated rather than "
-                    "taken from the file extension."
-                ),
-                "symbols": ["Scene", "Scene.Save", "Cylinder", "Cylinder.ToMesh", "FileFormat.STLBinary"],
-                "code": """\
-// Authored example: save a cylinder mesh as a binary STL file
-using Aspose.ThreeD;
-using Aspose.ThreeD.Entities;
-
-var scene = new Scene();
-Mesh mesh = new Cylinder().ToMesh();
-scene.RootNode.CreateChildNode("cylinder", mesh);
-scene.Save("cylinder.stl", FileFormat.STLBinary);
-Console.WriteLine(new FileInfo("cylinder.stl").Length);
-""",
-            },
-        ),
-    },
     "3d_java": {
         "library_repository": "aspose-3d-foss/Aspose.3D-FOSS-for-Java",
         "library_commit": "3d2ed6be91f5abdd1c52ecbcfa192719883cb1b3",

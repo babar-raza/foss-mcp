@@ -1,0 +1,182 @@
+schema_version: 1
+pilot: 3d_net
+library_repository: aspose-3d-foss/Aspose.3D-FOSS-for-.NET
+library_commit: 52b0f00ebf28a0b4173921725ff170685ec2c502
+language: csharp
+examples:
+- title: Save a Box Mesh as an STL File
+  description: Converts a Box primitive to a mesh with ToMesh, attaches it to a child node of the scene root with Node.CreateChildNode and saves the scene with Scene.Save to box.stl using plain extension-based format detection, printing the written file's length.
+  symbols:
+  - Scene
+  - Scene.Save
+  - Box
+  - Box.ToMesh
+  - Node.CreateChildNode
+  code: |
+    // Authored example: save a box mesh as an STL file
+    using Aspose.ThreeD;
+    using Aspose.ThreeD.Entities;
+
+    var scene = new Scene();
+    Mesh mesh = new Box(2, 2, 2).ToMesh();
+    scene.RootNode.CreateChildNode("box", mesh);
+    scene.Save("box.stl");
+    Console.WriteLine(new FileInfo("box.stl").Length);
+  code_sha256: b59e0a9aae190601ccd59bf3440a628231d0a9b14b5fbe5d621085a4527f9894
+- title: Save a Cylinder Mesh as an STL File and Reload Its Polygon Count
+  description: Converts a Cylinder primitive to a mesh, attaches it to a child node, saves the scene to cylinder.stl with an explicit StlSaveOptions instance (the FileFormat.STL token alone throws NotImplementedException for Save options in this edition), then reopens the written file with Scene.FromFile and sums the reloaded Mesh.PolygonCount across every child node's entities to confirm real geometry survived the round trip.
+  symbols:
+  - Scene
+  - Scene.Save
+  - Scene.FromFile
+  - Cylinder
+  - Cylinder.ToMesh
+  - Node.CreateChildNode
+  - StlSaveOptions
+  - Node.ChildNodes
+  - Node.Entities
+  - Mesh.PolygonCount
+  code: |
+    // Authored example: save a cylinder mesh as an STL file and reload its polygon count
+    using Aspose.ThreeD;
+    using Aspose.ThreeD.Entities;
+    using Aspose.ThreeD.Formats;
+
+    var scene = new Scene();
+    Mesh mesh = new Cylinder().ToMesh();
+    scene.RootNode.CreateChildNode("cylinder", mesh);
+    scene.Save("cylinder.stl", new StlSaveOptions());
+    Console.WriteLine("file length: " + new FileInfo("cylinder.stl").Length);
+
+    var reloaded = Scene.FromFile("cylinder.stl");
+    int polygonCount = 0;
+    foreach (Node child in reloaded.RootNode.ChildNodes)
+    {
+        foreach (var entity in child.Entities)
+        {
+            if (entity is Mesh reloadedMesh)
+            {
+                polygonCount += reloadedMesh.PolygonCount;
+            }
+        }
+    }
+    Console.WriteLine("reloaded polygon count: " + polygonCount);
+
+    if (polygonCount <= 0)
+    {
+        throw new Exception("expected a positive reloaded polygon count");
+    }
+  code_sha256: a078b0e35ac2a8f570d98084ca2eaaf8bfee739b1e0ebaf24394a45626213685
+- title: Compose a Scale-Then-Translate Transform with TransformBuilder
+  description: Builds a TransformBuilder with ComposeOrder.Append, calls Scale then Translate on it, and reads the resulting Matrix4's own diagonal and translation fields directly, confirming the scale factors land on the diagonal and the later translate is appended unscaled - real, hands-on behavior of this compose order, verified because Matrix4.Decompose itself was found to always report translation (0,0,0), scale (1,1,1) and identity rotation regardless of the real matrix content in this edition (not used here for that reason).
+  symbols:
+  - TransformBuilder
+  - TransformBuilder.Scale
+  - TransformBuilder.Translate
+  - Matrix4
+  code: |
+    // Authored example: compose a scale-then-translate transform with TransformBuilder
+    using Aspose.ThreeD.Utilities;
+
+    var builder = new TransformBuilder(ComposeOrder.Append);
+    builder.Scale(2.0, 2.0, 2.0);
+    builder.Translate(5.0, 2.0, -3.0);
+
+    Matrix4 matrix = builder.Matrix;
+    Console.WriteLine("scale factors: " + matrix.m00 + ", " + matrix.m11 + ", " + matrix.m22);
+    Console.WriteLine("translation: " + matrix.m30 + ", " + matrix.m31 + ", " + matrix.m32);
+
+    if (matrix.m00 != 2.0 || matrix.m11 != 2.0 || matrix.m22 != 2.0)
+    {
+        throw new Exception("scale factors were not preserved on the diagonal");
+    }
+    if (matrix.m30 != 5.0 || matrix.m31 != 2.0 || matrix.m32 != -3.0)
+    {
+        throw new Exception("translation was not appended unscaled");
+    }
+  code_sha256: 96be8cb7b2ad577a113dfbd7ce24eaf41c29b7712359817fdff8e0c4b495cdcd
+- title: Recursively Count Every Descendant Across a Multi-Level Child Hierarchy
+  description: Builds a scene whose root has two child nodes, each of which itself gets its own child nodes (Node.CreateChildNode called at two levels), then recursively walks Node.ChildNodes from the scene root to count every descendant, confirming the real count matches the number of nodes actually created.
+  symbols:
+  - Scene
+  - Node
+  - Node.CreateChildNode
+  - Node.ChildNodes
+  code: |
+    // Authored example: recursively count every descendant across a multi-level child hierarchy
+    using Aspose.ThreeD;
+
+    var scene = new Scene();
+
+    var branchA = scene.RootNode.CreateChildNode("BranchA");
+    branchA.CreateChildNode("LeafA1");
+    branchA.CreateChildNode("LeafA2");
+
+    var branchB = scene.RootNode.CreateChildNode("BranchB");
+    branchB.CreateChildNode("LeafB1");
+
+    int CountDescendants(Node node)
+    {
+        int count = 0;
+        foreach (Node child in node.ChildNodes)
+        {
+            count += 1;
+            count += CountDescendants(child);
+        }
+        return count;
+    }
+
+    int total = CountDescendants(scene.RootNode);
+    Console.WriteLine("descendant count: " + total);
+
+    if (total != 5)
+    {
+        throw new Exception("expected exactly five descendants beneath the root");
+    }
+  code_sha256: 9c8684badcf803d66d17bddd7da1483f7450edea7f09ac5c5ca445e1fa92ffdc
+- title: Round-Trip a Multi-Entity Scene Through Microsoft 3MF
+  description: Attaches a Box mesh and a Sphere mesh to two child nodes of the scene root, saves the scene to a Microsoft 3MF file with plain extension-based Scene.Save, reopens it with Scene.FromFile and counts how many reloaded child nodes carry a Mesh entity with a positive Mesh.PolygonCount, confirming real geometry for both shapes survives the 3MF round trip (the format's own build-instruction metadata is separately known not implemented in this edition, but core geometry import/export is unaffected).
+  symbols:
+  - Scene
+  - Scene.Save
+  - Scene.FromFile
+  - Box
+  - Box.ToMesh
+  - Sphere
+  - Sphere.ToMesh
+  - Node.CreateChildNode
+  - Node.ChildNodes
+  - Node.Entities
+  - Mesh.PolygonCount
+  code: |
+    // Authored example: round-trip a multi-entity scene through Microsoft 3MF
+    using Aspose.ThreeD;
+    using Aspose.ThreeD.Entities;
+
+    var scene = new Scene();
+    var first = scene.RootNode.CreateChildNode("First", new Box(2, 2, 2).ToMesh());
+    var second = scene.RootNode.CreateChildNode("Second", new Sphere().ToMesh());
+
+    scene.Save("roundtrip.3mf");
+    Console.WriteLine("3mf file length: " + new FileInfo("roundtrip.3mf").Length);
+
+    var reloaded = Scene.FromFile("roundtrip.3mf");
+
+    int entityCount = 0;
+    foreach (Node child in reloaded.RootNode.ChildNodes)
+    {
+        foreach (var entity in child.Entities)
+        {
+            if (entity is Mesh mesh && mesh.PolygonCount > 0)
+            {
+                entityCount += 1;
+            }
+        }
+    }
+    Console.WriteLine("reloaded entity count: " + entityCount);
+
+    if (entityCount != 2)
+    {
+        throw new Exception("expected exactly two reloaded entities with real polygon data");
+    }
+  code_sha256: 49fe4be5c1ce3fabf384f1e3f747f42acaeef8708f3cda480e67572ec230760d

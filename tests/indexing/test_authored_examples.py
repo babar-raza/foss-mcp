@@ -1193,7 +1193,6 @@ def test_the_schema_document_is_not_mutated_by_validation() -> None:
 # ---------------------------------------------------------------------------------------------------
 
 BUILTIN_PILOTS = {
-    "3d_net": ("dotnet", "52b0f00ebf28a0b4173921725ff170685ec2c502", "csharp"),
     "3d_java": ("java", "3d2ed6be91f5abdd1c52ecbcfa192719883cb1b3", "java"),
 }
 
@@ -1285,13 +1284,18 @@ def test_tc565_a_builtin_example_naming_an_undeclared_symbol_is_rejected() -> No
         )
 
 
-def test_tc565_only_the_two_3d_pilots_carry_builtin_examples() -> None:
-    assert authored_examples.has_builtin_authored_examples("3d_net")
+def test_tc565_only_the_remaining_3d_pilot_carries_builtin_examples() -> None:
+    """TC-766 superseded 3d_net's builtin examples with a real sidecar file (``build_chunks.py``'s
+    ``_load_authored_candidates`` already prefers a sidecar over the builtin fallback whenever one
+    exists), so 3d_net no longer carries any; 3d_java is untouched and still does."""
+    assert not authored_examples.has_builtin_authored_examples("3d_net")
     assert authored_examples.has_builtin_authored_examples("3d_java")
     assert not authored_examples.has_builtin_authored_examples("pdf_net")
     assert not authored_examples.has_builtin_authored_examples("3d_python")
     with pytest.raises(KeyError):
         authored_examples.builtin_authored_document("pdf_net")
+    with pytest.raises(KeyError):
+        authored_examples.builtin_authored_document("3d_net")
 
 
 @pytest.mark.parametrize("pilot", sorted(BUILTIN_PILOTS))
