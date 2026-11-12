@@ -1,0 +1,140 @@
+id: TC-773
+gate: G3
+lane: storage-retrieval
+purpose: >-
+  URGENT, live CI break found immediately after closing the P4 example-corpus campaign
+  (`TC-764`-`TC-772`): `tests/conformance/test_sentence_wrapped_retrieval.py::
+  test_sentence_wrapped_retrieval_default_sample` FAILS on current `main` (confirmed directly by
+  the supervisor, not inferred): `cells__java:id_like_to_understand rendered a 39-word sentence
+  (want 12-35)` for the title "Attach a hyperlink with a screen tip to a cell and confirm it
+  after a save and reload" (18 title words).
+
+  ROOT CAUSE: `authored_examples.py`'s `_MAX_TITLE_CHARS = 120` (a character-count cap only) has
+  no WORD-count guard. `test_sentence_wrapped_retrieval.py`'s `FRAMES` (12 conversational
+  sentence templates, F5's own invariant) wrap every title and require the rendered sentence to
+  be 12-35 words; several frames are long by design (e.g. `FRAME_ID_LIKE_TO_UNDERSTAND`'s own
+  fixed wording plus `{platform}`/`{family}` leaves roughly 12-14 safe title words, depending on
+  the frame - compute this precisely from the real frame templates, do not hand-estimate). This
+  session's title-collision-avoidance discipline (TC-543/760/762/763/766/768, all deliberately
+  pushing toward longer, more specific titles to dodge `title_anchored` collisions) pushed two
+  authored-example titles over this previously-unenforced word bound.
+
+  SCOPE, DELIBERATELY NARROW: fix exactly the 2 titles that break the test's own DEFAULT (seeded)
+  sample TODAY - `cells/java`'s hyperlink title above, and `pdf/python`'s "Create an Input Field
+  and a Checkbox and Edit Their Values Across a Save/Reload Round Trip" (16 title words, also
+  confirmed over-length) - and add a structural guard to `validate_authored_examples` so no
+  future authored example can silently reintroduce this class. A broader fleet-wide sweep found
+  97 MORE latent violations across 12 other pilots (not currently failing default CI since
+  exhaustive mode is dormant - confirmed not wired into any automated path) - these are
+  explicitly OUT OF SCOPE for this card, left for a dedicated future sweep, same as this
+  session's own established "found but descoped" pattern.
+depends_on:
+  - TC-460
+  - TC-565
+  - TC-766
+  - TC-753
+  - TC-760
+  - TC-762
+  - TC-763
+  - TC-530
+write_paths:
+  - tests/fixtures/furnished/cells_java/authored_examples.yaml
+  - tests/fixtures/furnished/pdf_python/authored_examples.yaml
+  - src/foss_mcp/indexing/authored_examples.py
+  - tests/indexing/test_authored_examples.py
+satisfies:
+  - REQ-G3-014
+source_refs:
+  - file: docs/DECISION_LOG.md
+    anchor: >-
+      ## 2026-11-12 — P4 example-corpus program completed for every real, non-blocked pilot; two more new defects disclosed (3D-PYTHON-013, WORDS-PY-013)
+    sha256: 8374a9927e4865b951cc5b5b07b6a02ae72617f5bf7165f3bb33d3fdcdf32db7
+inputs:
+  - >-
+    READ FIRST: `tests/conformance/test_sentence_wrapped_retrieval.py` in full, especially the
+    `FRAMES` tuple (12 templates) and `_default_sample_cases`/`_render`. Reproduce the real
+    failure yourself first: `{python} -m pytest tests/conformance/
+    test_sentence_wrapped_retrieval.py::test_sentence_wrapped_retrieval_default_sample -q -rfE`.
+  - >-
+    For the structural guard: compute, for EACH of the 12 real frame templates, the fixed
+    (non-title) word count when `{platform}`/`{family}` are each substituted with a real,
+    representative 1-word value (e.g. "Java"/"Cells") AND check this holds for every real
+    scope's actual platform/family display strings (`_PLATFORM_DISPLAY`/`_FAMILY_DISPLAY` in the
+    test file) in case any are 2+ words. Derive the tightest (smallest) safe max-title-word-count
+    across all 12 frames and all real scopes - do not hand-estimate a single frame, compute
+    all 12 programmatically in a scratch script first and report the real tightest number before
+    hardcoding anything.
+  - >-
+    Implement the guard in `validate_authored_examples` (`src/foss_mcp/indexing/
+    authored_examples.py`, near the existing `_MAX_TITLE_CHARS` check at line ~202): add a new
+    module-level int constant named EXACTLY `_MAX_TITLE_WORDS` (the computed tightest safe bound
+    across all 12 frames and all real scopes), and reject a title whose word count exceeds it,
+    with a clear problem message. Cite the real frame file/module in a comment so a future
+    reader understands why the bound exists, but do NOT create an import dependency from
+    production `src/` code onto the `tests/` tree - the bound must be a plain, documented
+    constant/comment in the production module, derived from (and cross-referencing) the test's
+    frames, not imported from them.
+  - >-
+    Add one new, dedicated unit test to `tests/indexing/test_authored_examples.py` proving the
+    guard itself works in isolation (not only via the slower end-to-end sentence-wrapped test):
+    a synthetic title with word count `_MAX_TITLE_WORDS + 1` must be rejected by
+    `validate_authored_examples`, and one at exactly `_MAX_TITLE_WORDS` must be accepted
+    (holding every other field valid). This also gives the negative control below a concrete,
+    reliable target.
+  - >-
+    Retitle ONLY the 2 named examples (`cells/java`'s hyperlink title, `pdf/python`'s
+    input-field/checkbox title) to real titles under the new safe word bound. Before finalizing
+    either new title, re-verify collision-safety against `title_anchored`
+    (`src/foss_mcp/mcp/tools/relevance.py`) and this pilot's own real task queries in
+    `tests/mcp/tools/test_round3_retrieval_corpus.py` - the exact discipline `TC-760`/`TC-762`/
+    `TC-763` already established. Do not touch `code`/`symbols`/`code_sha256`/`library_commit` or
+    any other example in either file.
+  - >-
+    Do NOT touch the other 97 latent violations in the 12 other affected pilots named in this
+    card's `purpose` - they are explicitly out of scope. Do not weaken
+    `test_sentence_wrapped_retrieval.py`'s own 12-35 word bound or its default-sample mechanism in
+    any way.
+  - >-
+    Before committing: run BOTH `tests/conformance/test_sentence_wrapped_retrieval.py` in full AND
+    `tests/mcp/tools/test_round3_retrieval_corpus.py tests/mcp/tools/test_forgiveness_acceptance.py`
+    (the title-collision regression guard), each twice, and report the real results.
+actions:
+  - >-
+    Retitle the 2 specific authored examples that break the real, live
+    `test_sentence_wrapped_retrieval_default_sample` test today, and add a structural word-count
+    guard to `validate_authored_examples` so this class of break cannot silently recur.
+checks:
+  - command: '{python} -m pytest tests/conformance/test_sentence_wrapped_retrieval.py tests/indexing/test_authored_examples.py tests/indexing/test_authored_examples_cells_java.py tests/indexing/test_authored_examples_pdf_python.py tests/infra/test_authored_examples_fixtures.py -q -rfE -p no:cacheprovider'
+    expect: 'exit 0'
+    timeout_seconds: 300
+    junitxml: true
+    proves:
+      - REQ-G3-014
+  - command: '{python} -m pytest tests/mcp/tools/test_round3_retrieval_corpus.py tests/mcp/tools/test_forgiveness_acceptance.py -q -rfE -p no:cacheprovider'
+    expect: 'exit 0'
+    timeout_seconds: 900
+    junitxml: true
+    proves:
+      - REQ-G3-014
+min_tests: 5
+requires:
+  - python
+network: false
+negative_control:
+  mutate: |
+    python -X utf8 -c "import pathlib, re; p = pathlib.Path('src/foss_mcp/indexing/authored_examples.py'); s = p.read_text(encoding='utf-8'); m = re.search('_MAX_TITLE_WORDS = ([0-9]+)', s); assert m, '_MAX_TITLE_WORDS constant not found - this card must add it before this mutate can run'; old = m.group(0); s2 = s.replace(old, '_MAX_TITLE_WORDS = 9999', 1); assert s2 != s; p.write_text(s2, encoding='utf-8')"
+  rationale: >-
+    Widens the new word-count guard's own threshold to a value nothing can exceed, which must
+    make the new dedicated unit test (asserting a title of `_MAX_TITLE_WORDS + 1` words is
+    rejected) fail - a pure data-constant mutation, immune to the lockstep-rename vacuousness
+    class found earlier this session, and it never touches any other code path. Confirm by hand
+    that the new unit test actually exercises this exact constant before trusting the review.
+evidence:
+  - evidence/build/G3/TC-773/receipt.json
+closeout:
+  - >-
+    The real, live `test_sentence_wrapped_retrieval_default_sample` break is fixed; a structural
+    guard now prevents any future authored-example title from silently exceeding every F5 frame's
+    safe word bound. 97 other latent (non-default-sample) violations across 12 pilots remain,
+    explicitly deferred to a future sweep.
+recovery: Re-run from a clean tree.
