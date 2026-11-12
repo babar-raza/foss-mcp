@@ -301,7 +301,7 @@ def test_pruned_baseline_has_exactly_the_expected_known_failures_count() -> None
     this card deliberately did not touch."""
     baseline = load_baseline(BASELINE_PATH)
     assert baseline.strict is True
-    assert len(baseline.known_failures) == 119
+    assert len(baseline.known_failures) == 116
     by_subcase: dict[str, int] = {}
     for failure in baseline.known_failures:
         sub = failure.case_id.split(":", 1)[0]
@@ -311,7 +311,7 @@ def test_pruned_baseline_has_exactly_the_expected_known_failures_count() -> None
         "bare-namespace-word-false-exact": 32,
         "digit-stripped-family-findable": 23,
         "fabricated-fqn-false-exact": 4,
-        "prefix3-findable": 28,
+        "prefix3-findable": 25,
     }
 
 
