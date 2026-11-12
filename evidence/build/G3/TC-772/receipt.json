@@ -1,0 +1,90 @@
+{
+  "schema_version": 1,
+  "card": "TC-772",
+  "gate": "G3",
+  "generated_by": "gatectl",
+  "generated_at": "2026-11-12T13:44:52Z",
+  "base_rev": "6eb414dc9e78e3cb79c467e82d7315dd7f7485d5",
+  "head_rev": "f0bc1462e46a096d01e07c78242419086ef35053",
+  "card_sha256": "038bec0550b55c121cbc1182970dfda99ad689bc9141204a5b0366310c677a71",
+  "fingerprint": {
+    "python": "3.13.2",
+    "platform": "Windows-11-10.0.26300-SP0",
+    "lock_sha256": "5c72e798a73c059a438e752e94a8d4c88c1bdf81a197f6e5c5fcecbc9466a691",
+    "env": {
+      "PYTHONHASHSEED": "0",
+      "PYTHONUTF8": "1",
+      "PYTHONDONTWRITEBYTECODE": "1",
+      "PYTHONIOENCODING": "utf-8",
+      "TZ": "UTC",
+      "LC_ALL": "C.UTF-8",
+      "SOURCE_DATE_EPOCH": "1700000000",
+      "verify_runner": "host"
+    }
+  },
+  "scope": {
+    "ok": true,
+    "changed_paths": [
+      "config/known_defects/words__python.yaml",
+      "tests/indexing/test_known_defects_completeness.py",
+      "tests/indexing/test_known_defects_data_remaining.py"
+    ],
+    "violations": [],
+    "evaluated": true
+  },
+  "runs": [
+    {
+      "run": 1,
+      "checks": [
+        {
+          "command": "{python} -m pytest tests/indexing/test_known_defects.py tests/indexing/test_known_defects_completeness.py tests/indexing/test_known_defects_data_remaining.py -q -rfE -p no:cacheprovider",
+          "exit_code": 0,
+          "duration_s": 7.023,
+          "stdout_sha256": "5603b3bdbd979d86e8c62be43291039331c1f18d392c470cba56f4eba489b84d",
+          "tests": 57,
+          "skipped": 0,
+          "errors": 0,
+          "failures": 0
+        }
+      ],
+      "all_passed": true
+    },
+    {
+      "run": 2,
+      "checks": [
+        {
+          "command": "{python} -m pytest tests/indexing/test_known_defects.py tests/indexing/test_known_defects_completeness.py tests/indexing/test_known_defects_data_remaining.py -q -rfE -p no:cacheprovider",
+          "exit_code": 0,
+          "duration_s": 7.113,
+          "stdout_sha256": "5603b3bdbd979d86e8c62be43291039331c1f18d392c470cba56f4eba489b84d",
+          "tests": 57,
+          "skipped": 0,
+          "errors": 0,
+          "failures": 0
+        }
+      ],
+      "all_passed": true
+    }
+  ],
+  "negative_control": {
+    "kind": "mutate",
+    "patch": "python -X utf8 -c \"import pathlib; p = pathlib.Path('config/known_defects/words__python.yaml'); s = p.read_text(encoding='utf-8'); old = 'WORDS-PY-013'; count = s.count(old); assert count >= 1, 'WORDS-PY-013 not found - this card must add it before this mutate can run'; s2 = s.replace(old, 'WORDS-PY-999', 1); assert s2 != s; p.write_text(s2, encoding='utf-8')\"\n",
+    "patch_sha256": "03c260889987d45316f5e30c71e2172fd79bf92d409d1f5e2f0df31883ac61a8",
+    "applied": true,
+    "patch_applied_failed": true,
+    "exit_codes": [
+      1
+    ],
+    "tree_changed": [
+      "M config/known_defects/words__python.yaml",
+      "?? .junit-0.xml"
+    ]
+  },
+  "holdout": {
+    "ran": false,
+    "passed": true,
+    "detail": "no holdout for this card"
+  },
+  "accepted": true,
+  "reason": "all gates passed"
+}
