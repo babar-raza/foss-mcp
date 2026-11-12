@@ -1,0 +1,107 @@
+id: TC-767
+gate: G3
+lane: storage-retrieval
+purpose: >-
+  P5 upstream-defect disclosure program (REQ-G3-015), closing a real, previously-undisclosed
+  silent-data-loss defect found and confirmed live while authoring `TC-764`'s page/python
+  examples (see that card's own worker report, 2026-11-12): `PsDocument.to_pdf()` in the real
+  pinned `aspose-page-foss/Aspose.Page-FOSS-for-Python` package SILENTLY collapses a multi-page
+  PostScript document down to exactly one PDF page - a 3-page document produced a PDF with
+  `/Count 1`, with zero error or warning. This is DIFFERENT from the already-disclosed
+  `PAGE-PYTHON-010` (page SIZE ignored by `create(page_size=...)`) - this is page COUNT silently
+  lost, a strictly more severe class (the exact "no pilot ever gets worse" / silent-data-loss
+  class `AGENTS.md` singles out, same family as the cells/typescript `Workbook.save()` regression
+  that prompted that section).
+
+  `config/known_defects/page__python.yaml` already exists (2 entries: `PAGE-PYTHON-006`,
+  `PAGE-PYTHON-010`). This card adds exactly one new entry, `PAGE-PYTHON-011`, following the exact
+  same schema and the same `kind: method` / dual-FQN-form `refs` pattern `PAGE-PYTHON-010` already
+  uses (its own two refs are the class's shell and definition module paths - re-verify both
+  resolve against the real indexed corpus via a live `get_symbol`/`search_symbols` call before
+  reusing that pattern; do not assume it without checking).
+depends_on:
+  - TC-758
+  - TC-660
+  - TC-702
+write_paths:
+  - config/known_defects/page__python.yaml
+  - tests/indexing/test_known_defects_completeness.py
+  - tests/indexing/test_known_defects_data_remaining.py
+satisfies:
+  - REQ-G3-015
+source_refs:
+  - file: docs/DECISION_LOG.md
+    anchor: >-
+      ## 2026-11-12 — find_examples wrong-confident regression fully closed: 41/729 (0.0562), under the 0.059 ceiling
+    sha256: 5219b62cf396bb5b22cdce6bdeb749d600c923e58388a4e682cc0236d3be9f76
+inputs:
+  - >-
+    READ FIRST: `config/known_defects/page__python.yaml` in full (both existing entries, their
+    exact schema shape), `schemas/product/known_defects.schema.json`, and
+    `tests/indexing/test_known_defects_data_remaining.py` (the exact test asserting page/python's
+    known-id set, currently `{"PAGE-PYTHON-006", "PAGE-PYTHON-010"}` plus a pinned total count -
+    read the surrounding lines carefully, the count is a fleet-wide union total, not per-pilot).
+    Also read `tests/indexing/test_known_defects_completeness.py`'s `_ADDITIONAL_DISCLOSABLE_IDS`
+    frozenset and its own docstring explaining why/how it is widened.
+  - >-
+    REPRODUCE FIRST, YOURSELF, FRESH - do not trust `TC-764`'s worker report blindly: install the
+    real pinned `aspose-page-foss` package (confirm the exact pinned version/commit from
+    `infra/helm/foss-mcp/values.yaml` - the already-disclosed entries cite `26.9.0`, re-confirm
+    this is still current), create a real multi-page `PsDocument` (>= 3 pages, each with real
+    distinct drawing content so the bug is not confused with the separate empty-page-padding
+    behavior), call `to_pdf()`, and inspect the real output PDF's page count directly (e.g. via
+    a PDF page-count library or by reading the PDF's own `/Count` structure). Confirm the defect
+    reproduces exactly as reported before writing anything.
+  - >-
+    Identify the REAL root cause yourself by reading the installed package's own source (not by
+    trusting any one theory) - `TC-764`'s report hypothesizes the PostScript-level DSC marker
+    round-trip (`%%Page:`/`showpage`) losing page boundaries plus a blank-page-padding fallback;
+    confirm or correct this against the real installed code before writing the `summary`/
+    `evidence.repro` fields - they must describe what you yourself verified, not copy an
+    unverified hypothesis.
+  - >-
+    Verify the real FQN(s) to cite in `subject.refs` against the REAL indexed corpus (live
+    `get_symbol`/`search_symbols` calls, or direct inspection of the committed `infra/
+    demo-manifests/page__python__self_extracted` generation JSON) - do not guess or copy
+    `PAGE-PYTHON-010`'s refs without independently confirming they are still correct for `to_pdf`
+    specifically.
+  - >-
+    This entry must NOT weaken, remove, or contradict either existing page/python entry
+    (`PAGE-PYTHON-006`, `PAGE-PYTHON-010`) - it is purely additive. Update
+    `test_known_defects_data_remaining.py`'s id set and any pinned total count arithmetically
+    (old count + 1), and widen `test_known_defects_completeness.py`'s `_ADDITIONAL_DISCLOSABLE_IDS`
+    the same additive way its own docstring documents for prior additions, updating its own
+    pinned total the same way.
+actions:
+  - >-
+    Add one new known-defects registry entry (`PAGE-PYTHON-011`) disclosing the real, independently
+    re-verified `PsDocument.to_pdf()` page-count silent-loss defect, wired into both completeness
+    locks additively.
+checks:
+  - command: '{python} -m pytest tests/indexing/test_known_defects.py tests/indexing/test_known_defects_completeness.py tests/indexing/test_known_defects_data_remaining.py -q -rfE -p no:cacheprovider'
+    expect: 'exit 0'
+    timeout_seconds: 300
+    junitxml: true
+    proves:
+      - REQ-G3-015
+min_tests: 5
+requires:
+  - python
+network: false
+negative_control:
+  mutate: |
+    python -X utf8 -c "import pathlib; p = pathlib.Path('config/known_defects/page__python.yaml'); s = p.read_text(encoding='utf-8'); old = 'PAGE-PYTHON-011'; count = s.count(old); assert count >= 1, 'PAGE-PYTHON-011 not found - this card must add it before this mutate can run'; s2 = s.replace(old, 'PAGE-PYTHON-999', 1); assert s2 != s; p.write_text(s2, encoding='utf-8')"
+  rationale: >-
+    Renames the new entry's own id so it no longer matches what the completeness-lock tests
+    expect to find in the registry, which must make the completeness test(s) fail - a pure data
+    mutation, immune to the lockstep-rename vacuousness class found earlier this session (it
+    renames only the YAML id, never a Python symbol and its call site together), and it never
+    touches any code path.
+evidence:
+  - evidence/build/G3/TC-767/receipt.json
+closeout:
+  - >-
+    page/python gains a third, real, independently-verified known-defects disclosure
+    (`PAGE-PYTHON-011`) for `PsDocument.to_pdf()`'s silent page-count loss, additive to the two
+    existing entries, wired into both completeness locks.
+recovery: Re-run from a clean tree.
