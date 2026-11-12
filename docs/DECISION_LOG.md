@@ -4531,3 +4531,48 @@ directly and rigorously - re-verifying a reported defect from a fresh repro befo
 rather than transcribing the first report's theory, is what caught the real, narrower, EPS-only
 mechanism. A disclosure registry entry's `evidence.repro`/root-cause text should always describe
 what the disclosing worker itself verified, never an unverified upstream report.
+
+## 2026-11-12 — P4 example-corpus program completed for every real, non-blocked pilot; two more new defects disclosed (3D-PYTHON-013, WORDS-PY-013)
+
+`TC-764`/`TC-765`/`TC-766`/`TC-768`/`TC-769`/`TC-770` closed the authored-examples campaign
+(REQ-G3-014) for the last seven pilots that still lacked a `authored_examples.yaml` sidecar:
+page/python (+4/5), html/python (+5/5), 3d/net (+5/5, which also required dropping `3d_net` from
+both `_BUILTIN_PILOTS` dicts - see below), 3d/python (+5/5), note/python (+5/5), and words/python
+(+5/5). Of the 32 real pilots, only two remain deliberately untouched: `3d_java` (the one pilot
+still genuinely needed on the builtin-examples path, so `TC-565`'s own integration-liveness proof
+that the fallback is reachable still holds for at least one pilot) and `tex/python` (still
+`BLOCKED_UPSTREAM` - the pinned library fails to import at all).
+
+**Real structural gap found and fixed (`TC-766`, 2 attempts)**: `3d_net` was one of exactly two
+`_BUILTIN_PILOTS` whose authored examples lived in `src/foss_mcp/indexing/authored_examples.py`
+rather than a sidecar, specifically so a test could prove that fallback path is still reachable.
+The first attempt correctly found and honestly reported this (rather than guessing past it or
+weakening the check) instead of committing anything; the card was widened to include that module
+and its mirrored test file, and attempt 2 cleanly dropped `3d_net` from both dicts, leaving
+`3d_java` as the one pilot still proving the builtin path live.
+
+**Three more new, real, previously-undisclosed upstream defects found honestly along the way and
+now disclosed, none shipped as a wrong example assertion**:
+- `PAGE-PYTHON-011` (closed in the prior entry above): `PsDocument.to_pdf()`/`to_image()` silently
+  merge an EPS document's pages onto one output page.
+- `3D-PYTHON-013` (`TC-771`): `Mesh.get_bounding_box()` in `aspose-3d-foss` 26.1.0 is a literal
+  stub returning an empty box; `Node.get_bounding_box()` on a node holding such a mesh then
+  crashes with `AttributeError: 'NoneType' object has no attribute 'x'` while trying to merge it.
+  Independently re-reproduced and root-caused by `TC-771`'s own worker (not just transcribed from
+  `TC-768`'s report) by reading the installed package's own source for `Mesh.get_bounding_box`,
+  `Node.get_bounding_box`, and `BoundingBox.merge`.
+- `WORDS-PY-013` (`TC-772`): `Document.page_count` in `aspose-words-foss` 26.7.0 is a plain field
+  permanently fixed at `0` - never assigned anywhere in the installed package, confirmed by a
+  whole-package grep, even though the real PDF export genuinely paginates (confirmed with
+  `pypdf.PdfReader` against the real output). Distinct from the already-disclosed `WORDS-PY-008`.
+
+**Both new disclosure cards re-verified a real id-collision risk before writing anything**: the
+highest existing `3D-PYTHON-NNN`/`WORDS-PY-NNN` id in `docs/round2/issues.json` and
+`docs/round3/issues.json` was checked by direct grep (`012` for both families) before picking
+`013` for each - the same discipline that would have caught `TC-757`'s original id-collision
+mistake before it happened, now applied proactively rather than reactively.
+
+Every check across all eight cards (`TC-764`/`765`/`766`/`767`/`768`/`769`/`770`/`771`/`772`) ran
+green twice identically; the fleet-wide `find_examples` wrong-confident ratchet and every
+`test_forgiveness_acceptance.py` floor held throughout - no title-collision regression was
+reintroduced by any of the 34 new example titles added this wave.
