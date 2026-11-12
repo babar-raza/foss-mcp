@@ -34,12 +34,34 @@ purpose: >-
   session's many pilot re-bakes shifted sampled content), or (c) something else entirely. Never
   pin a "new failure" into the baseline without first confirming it is the SAME tolerated class
   as its sibling entries, not a fresh, different kind of problem.
+
+  ADDED after attempt 1 (same card, widened and corrected - not a new card, since the real root
+  cause and fix mechanism are unchanged): attempt 1's worker correctly refreshed the baseline
+  (119 -> 116 known_failures: 10 confirmed-stale entries pruned under BOTH default and exhaustive
+  mode, 7 genuinely new failures added, each individually investigated live and confirmed the
+  same tolerated false-positive class as an existing sibling entry - full reasoning in the
+  worker's own report) and correctly found a real, out-of-scope collateral problem rather than
+  forcing past it: `tests/conformance/test_symbol_self_retrieval.py::
+  test_pruned_baseline_has_exactly_the_expected_known_failures_count` hard-codes `TC-695`'s own
+  one-time historical delta (`len(baseline.known_failures) == 119`, `by_subcase["prefix3-
+  findable"] == 28`) with no allowance for a later, equally legitimate re-prune - this is now
+  false after attempt 1's correct refresh (confirmed by hand: 116 total, `prefix3-findable` == 25,
+  arithmetic ties out exactly: 28 - 6 removed + 3 added = 25).
+
+  `write_paths` is now widened to include that one test file. The fix: re-pin ONLY those two
+  literal numbers (`119` -> `116`, `prefix3-findable: 28` -> `prefix3-findable: 25`) in
+  `test_pruned_baseline_has_exactly_the_expected_known_failures_count`, exactly the same way
+  `TC-695` originally set them from its own measured delta - a pure re-pin of a historical
+  regression-guard's own literals to the new, correct reality this card establishes, not a
+  weakening of the check (the test's own purpose - pinning the real count - is unchanged; only
+  the number it pins changes, honestly, to match reality).
 depends_on:
   - TC-686
   - TC-695
   - TC-699
 write_paths:
   - tests/fixtures/conformance/baseline_symbol_self_retrieval.json
+  - tests/conformance/test_symbol_self_retrieval.py
 satisfies:
   - REQ-G3-011
 source_refs:
@@ -79,8 +101,12 @@ inputs:
     confirm both pass. Report the real final `known_failures` count and exactly which entries
     were added/removed, with your reasoning for each addition.
   - >-
-    Do NOT touch `tests/conformance/test_symbol_self_retrieval.py` itself, `baseline.py`, or any
-    other file - this is a pure data-fixture refresh, exactly like `TC-774`.
+    ADDED after attempt 1: if your own fresh measurement produces a different final
+    known_failures count or a different `prefix3-findable` sub-count than attempt 1's (116 and
+    25 respectively), re-pin `test_pruned_baseline_has_exactly_the_expected_known_failures_count`
+    to YOUR real measured numbers, not attempt 1's. Do not touch `baseline.py` or any other file
+    - this is still a narrowly-scoped data/test-literal refresh, just no longer confined to the
+    one JSON file.
 actions:
   - >-
     Refresh `baseline_symbol_self_retrieval.json`'s `known_failures` from a real, fresh,
