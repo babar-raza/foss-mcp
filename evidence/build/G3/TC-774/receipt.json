@@ -1,0 +1,88 @@
+{
+  "schema_version": 1,
+  "card": "TC-774",
+  "gate": "G3",
+  "generated_by": "gatectl",
+  "generated_at": "2026-11-12T15:15:53Z",
+  "base_rev": "385a7d68441966a8e9b84d2324c8cd3648978de0",
+  "head_rev": "b15beb6aa09c03945cea547d642fd67d1529d328",
+  "card_sha256": "2befe785fe52e883e64ab4d5ebe19397a815943503fd22888a936f4e844eebbd",
+  "fingerprint": {
+    "python": "3.13.2",
+    "platform": "Windows-11-10.0.26300-SP0",
+    "lock_sha256": "5c72e798a73c059a438e752e94a8d4c88c1bdf81a197f6e5c5fcecbc9466a691",
+    "env": {
+      "PYTHONHASHSEED": "0",
+      "PYTHONUTF8": "1",
+      "PYTHONDONTWRITEBYTECODE": "1",
+      "PYTHONIOENCODING": "utf-8",
+      "TZ": "UTC",
+      "LC_ALL": "C.UTF-8",
+      "SOURCE_DATE_EPOCH": "1700000000",
+      "verify_runner": "host"
+    }
+  },
+  "scope": {
+    "ok": true,
+    "changed_paths": [
+      "tests/fixtures/conformance/baseline_sentence_wrapped_retrieval.json"
+    ],
+    "violations": [],
+    "evaluated": true
+  },
+  "runs": [
+    {
+      "run": 1,
+      "checks": [
+        {
+          "command": "{python} -m pytest tests/conformance/test_sentence_wrapped_retrieval.py -q -rfE -p no:cacheprovider",
+          "exit_code": 0,
+          "duration_s": 35.075,
+          "stdout_sha256": "4d2df7a96ce4a667da3ccf295f2d16c728a65ed0e861a3baa919f7bb469b02b5",
+          "tests": 5,
+          "skipped": 0,
+          "errors": 0,
+          "failures": 0
+        }
+      ],
+      "all_passed": true
+    },
+    {
+      "run": 2,
+      "checks": [
+        {
+          "command": "{python} -m pytest tests/conformance/test_sentence_wrapped_retrieval.py -q -rfE -p no:cacheprovider",
+          "exit_code": 0,
+          "duration_s": 34.734,
+          "stdout_sha256": "4d2df7a96ce4a667da3ccf295f2d16c728a65ed0e861a3baa919f7bb469b02b5",
+          "tests": 5,
+          "skipped": 0,
+          "errors": 0,
+          "failures": 0
+        }
+      ],
+      "all_passed": true
+    }
+  ],
+  "negative_control": {
+    "kind": "mutate",
+    "patch": "python -X utf8 -c \"import pathlib, json; p = pathlib.Path('tests/fixtures/conformance/baseline_sentence_wrapped_retrieval.json'); d = json.loads(p.read_text(encoding='utf-8')); assert d.get('known_failures'), 'known_failures must be a non-empty list after this card regenerates it'; d['known_failures'] = []; p.write_text(json.dumps(d, indent=2) + chr(10), encoding='utf-8')\"\n",
+    "patch_sha256": "4d0fcd4902c26c7c3248bfa72c24ba39c8367e5649cf5e347cdd7dad1aca3671",
+    "applied": true,
+    "patch_applied_failed": true,
+    "exit_codes": [
+      1
+    ],
+    "tree_changed": [
+      "M tests/fixtures/conformance/baseline_sentence_wrapped_retrieval.json",
+      "?? .junit-0.xml"
+    ]
+  },
+  "holdout": {
+    "ran": false,
+    "passed": true,
+    "detail": "no holdout for this card"
+  },
+  "accepted": true,
+  "reason": "all gates passed"
+}
