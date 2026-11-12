@@ -1,0 +1,166 @@
+id: TC-762
+gate: G3
+lane: storage-retrieval
+purpose: >-
+  Close the remaining find_examples wrong-confident regression (see `docs/DECISION_LOG.md`,
+  2026-11-12 "TC-761 retired..." and 2026-11-11 "title-only remediation has a measured ceiling").
+  Current real state: 55/729 wrong-confident (0.0754), ceiling 0.059 (43/729), pre-campaign
+  baseline 42/729. TC-761 proved no safe, scope-local ALGORITHM change (two independent designs,
+  both measured against the real corpus) clears the ceiling without regressing
+  `test_forgiveness_acceptance.py`'s `MIN_CONCISE_HITS=23` floor - the one path that might (giving
+  one pinned pdf/java example a second anchor word) needs editing extracted README-fixture content
+  (`tests/fixtures/furnished/pdf_java/pages/_index.md`), which is out of scope for an algorithm
+  card and risks the same stale-fixture-vs-real-extraction divergence TC-727's saga already
+  warned about. This card returns to the SAME safe, content-only lever `TC-760` already proved
+  converges (retitling, zero code/symbols/hash change, zero re-verification needed against any
+  pinned library) - now applied to the much smaller remaining set TC-760 could not reach: its own
+  retitles exposed 16 "second-tier" cases where a DIFFERENT, untouched authored example (not the
+  one TC-760 retitled) now wins the same query via the identical `title_anchored` mechanism, plus
+  3 cases admitted through the whole-chunk coverage floor rather than the title at all (leave
+  those 3 alone - no title change can fix them, confirmed twice independently).
+
+  Frozen acceptance: the real fleet-wide wrong-confident rate must drop to 0.059 (43/729) or below,
+  verified by running the real `test_round3_retrieval_corpus.py`
+  (`test_find_examples_non_empty_answers_that_miss_the_intended_api_stay_rare`) directly, twice,
+  clean. `test_forgiveness_acceptance.py` must pass in full, twice, with no floor lowered (this
+  mechanism is untouched by a pure content edit, but verify it anyway - a title change elsewhere
+  could in principle perturb an unrelated pinned hit, and must be checked, not assumed). If full
+  convergence to 43/729 or below cannot be reached through title edits alone after a genuinely
+  careful, iterative attempt (each candidate verified against the WHOLE real corpus before being
+  finalized, not just the one case it targets), report the real best number reached and the
+  specific cases that could not be closed without introducing a worse trade elsewhere - that is an
+  acceptable outcome per AGENTS.md, preferred over a guessed title or a half-measure.
+depends_on:
+  - TC-760
+write_paths:
+  - tests/fixtures/furnished/cells_net/authored_examples.yaml
+  - tests/fixtures/furnished/cells_go/authored_examples.yaml
+  - tests/fixtures/furnished/cells_java/authored_examples.yaml
+  - tests/fixtures/furnished/cells_typescript/authored_examples.yaml
+  - tests/fixtures/furnished/pdf_java/authored_examples.yaml
+  - tests/fixtures/furnished/pdf_go/authored_examples.yaml
+  - tests/fixtures/furnished/pdf_python/authored_examples.yaml
+  - tests/fixtures/furnished/pdf_net/authored_examples.yaml
+  - tests/fixtures/furnished/slides_java/authored_examples.yaml
+  - tests/fixtures/furnished/3d_typescript/authored_examples.yaml
+  - tests/fixtures/furnished/email_net/authored_examples.yaml
+satisfies:
+  - REQ-G3-014
+source_refs:
+  - file: docs/DECISION_LOG.md
+    anchor: >-
+      ## 2026-11-12 — TC-761 retired: no safe algorithm change clears both floors; the fleet-wide ratchet is still a live regression
+    sha256: f52c7f2c06233c90261e0d46093c6c27289e3b70cea65531afca691b2ce61e29
+inputs:
+  - >-
+    READ FIRST, in full: the three prior DECISION_LOG entries this card's purpose cites, and
+    `tests/fixtures/furnished/pdf_cpp/authored_examples.yaml`/`TC-760`'s own real commit diff (`git
+    show 41b8826c`) to see exactly how a safe, verified retitle was written and self-checked -
+    your template.
+  - >-
+    REPRODUCE FIRST: run `tests/mcp/tools/test_round3_retrieval_corpus.py::
+    test_find_examples_non_empty_answers_that_miss_the_intended_api_stay_rare` yourself and confirm
+    the real current number before touching anything (state may have moved since this was
+    written - do not trust 55/729 blindly).
+  - >-
+    FOR EACH ROW BELOW: `pilot | the exact current title of the SECOND-TIER winning example (NOT
+    one TC-760 already retitled) | colliding query | word(s) known to anchor it`. You MUST verify
+    this list against the real current corpus first (it may have shifted since this card was
+    written) rather than trusting it blindly - treat it as a strong, well-measured starting point,
+    not gospel.
+
+    - cells_net | "Embed pictures anchored to worksheet cells" | "filter rows in a sheet" | sheet
+    - cells_go | "Convert a worksheet to and from an in-memory CSV grid" | "add a new sheet" |
+      sheet, worksheet
+    - cells_java | "Set a workbook's title, subject and company and read them back after a
+      reload" | "set a number format on a cell" | set
+    - cells_net | "Store document metadata in the core and extended property sets" | "set a
+      number format on a cell" | set
+    - cells_net | "Attach legacy comments to worksheet cells" | "set the tab color of a
+      worksheet" | worksheet (and possibly a synonym of "tab" - verify directly with
+      `present_terms`/`title_anchored`, do not guess which word)
+    - cells_typescript | "Apply font, fill and alignment style settings to a cell and read them
+      back" | "how do I read the value of a cell" | read
+    - cells_net | "Draw auto shapes anchored to worksheet cells" | "delete a worksheet from the
+      workbook" | worksheet
+    - pdf_java | "Add a text fragment to a page and read it back with TextAbsorber" | "add a
+      watermark to every page" | add, page
+    - pdf_go | "Build an AcroForm with a text field, checkbox and radio group" | "write some text
+      on a page" | text
+    - pdf_python | "Merge Three Documents and Confirm Their Pages Arrive in Order" | "write some
+      text on a page" | page
+    - pdf_net | "Build visible and hidden optional-content layers and read them back" | "read the
+      document metadata" | read
+    - slides_java | "Connect two shapes with a connector and read the connection back after a
+      save and reload" | "give a shape a name" | shape
+    - 3d_typescript | "Compose a child node's world translation from its parent" | "attach a
+      child to a node" | node, child
+    - email_net | "Set and read an arbitrary MAPI property beyond the strongly-typed ones" |
+      "read the message class" | read
+    - email_net | "Create and Save an MSG Message" | "does the attachment hold another message" |
+      message
+  - >-
+    DO NOT TOUCH the 3 cases admitted via the whole-chunk coverage floor, not title_anchored
+    (`email/cpp` "read the attachment file name"/"read the message class", `email/python` "read
+    the attachment file name") - confirmed twice that no title-only change reaches these; leave
+    them wrong and say so in your report.
+  - >-
+    MANDATORY ITERATIVE VERIFICATION, per change, BEFORE finalizing wording (this is what made
+    TC-760 converge and what a quick, untested guess will not): patch the real committed corpus
+    in-memory (temp copy of `infra/demo-manifests`, replace only the `FQN:` line of the one
+    document being retitled), reload via `Corpus`, and run `find_examples` for (a) the colliding
+    query named above, confirming the collision is gone, AND (b) every OTHER real task query for
+    that SAME family (not just that pilot - a title shared across sibling platforms of the same
+    family can collide cross-platform too, as TC-760's own worker found), confirming no new
+    collision appears anywhere in that family. If a first candidate fails step (b), try another
+    candidate - do not commit the first idea that merely passes (a).
+  - >-
+    cells_net has FOUR of its five authored examples implicated (rows 1, 4, 5, 7 above) - the
+    highest-risk pilot in this card. Fix the other, simpler, single-collision pilots first; spend
+    remaining effort on cells_net last, and if a fully clean set of four new titles cannot be
+    found for it, it is acceptable to leave the HARDEST one or two of its four unresolved and
+    report exactly which, with the real numbers - do not force a title that merely relocates the
+    collision to a different cells-family query.
+  - >-
+    Before committing: run both `test_round3_retrieval_corpus.py` and `test_forgiveness_
+    acceptance.py` in full, twice, and report the real final wrong_conf count and every floor in
+    `test_forgiveness_acceptance.py` (concise, verbose, per-pilot) alongside it.
+  - >-
+    Do not touch `code`, `symbols`, `code_sha256`, `library_commit`, or any example this card does
+    not explicitly name, in any of the 11 files.
+actions:
+  - >-
+    Retitle the second-tier offending authored examples (up to 15 named candidates across 11
+    pilots) to remove their remaining title-anchor collisions, iteratively verified against the
+    whole real corpus before each is finalized, aiming for the fleet-wide wrong-confident rate at
+    or below 0.059 with no existing floor regressed.
+checks:
+  - command: '{python} -m pytest tests/indexing/test_authored_examples.py tests/indexing/test_authored_examples_cells_net.py tests/indexing/test_authored_examples_cells_go.py tests/indexing/test_authored_examples_cells_java.py tests/indexing/test_authored_examples_cells_typescript.py tests/indexing/test_authored_examples_pdf_java.py tests/indexing/test_authored_examples_pdf_go.py tests/indexing/test_authored_examples_pdf_python.py tests/indexing/test_authored_examples_pdf_net.py tests/indexing/test_authored_examples_slides_java.py tests/indexing/test_authored_examples_3d_typescript.py tests/indexing/test_authored_examples_email_net.py tests/infra/test_authored_examples_fixtures.py -q -rfE -p no:cacheprovider'
+    expect: 'exit 0'
+    timeout_seconds: 600
+    junitxml: true
+    proves:
+      - REQ-G3-014
+min_tests: 100
+requires:
+  - python
+network: false
+negative_control:
+  mutate: |
+    python -X utf8 -c "import pathlib; p = pathlib.Path('tests/fixtures/furnished/cells_net/authored_examples.yaml'); s = p.read_text(encoding='utf-8'); old = 'code_sha256:'; count = s.count(old); assert count >= 1, 'no code_sha256 field found - the file does not match the expected schema'; import re; s2 = re.sub(r'code_sha256: [0-9a-f]{64}', 'code_sha256: ' + '0'*64, s, count=1); assert s2 != s; p.write_text(s2, encoding='utf-8')"
+  rationale: >-
+    Corrupts cells/net's first example's own `code_sha256`, which must make `load_authored_
+    examples`'s own validation reject the whole sidecar file - a pure data mutation that never
+    touches any code path, confirming the aggregated check command genuinely re-validates every
+    file this card lists. The retitles' own semantic effect on the fleet-wide ratchet is proven
+    separately by the supervisor's post-integration re-bake and a direct re-run of the real
+    ratchet test, not by this negative control.
+evidence:
+  - evidence/build/G3/TC-762/receipt.json
+closeout:
+  - >-
+    EITHER the fleet-wide find_examples wrong-confident rate is back at or below 0.059 with every
+    existing floor held, through title-only edits to the named second-tier authored examples; OR
+    the real best number reached is reported honestly along with exactly which cases could not be
+    closed without a worse trade-off, with no check weakened and no floor lowered.
+recovery: Re-run from a clean tree.
