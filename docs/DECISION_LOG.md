@@ -4434,3 +4434,41 @@ needs its own dedicated, measurement-gated card against the full 729-case corpus
 forgiveness table, with frozen acceptance criteria and an explicit stop-and-report if it cannot clear
 the floor - the same rigor TC-543/586/672 already used on this exact mechanism, not a quick inline
 edit. Authored as `TC-761`.
+
+## 2026-11-12 — TC-761 retired: no safe algorithm change clears both floors; the fleet-wide ratchet is still a live regression
+
+`TC-761` (scope-local title-rarity narrowing of `title_anchored`) is retired without a commit. Its
+worker tried two independently-designed mechanisms, each measured carefully against the REAL
+corpus twice (its first pass was invalidated by a stale worktree that predated a concurrent re-bake
+- caught and corrected mid-investigation, redone correctly):
+
+- Attempt A (title-only frequency within a scope's own ~5-19 titles, mirroring TC-672's
+  `code_example_frequency` literally): every threshold tried left wrong_conf at 0.068-0.078,
+  nowhere near the 0.059 ceiling - a scope's own title corpus is too sparse to separate a generic
+  word from a genuinely rare one by raw count.
+- Attempt B (scope-wide document-corpus word ubiquity, reusing TC-585's `_scope_document_fraction`
+  with a new threshold): came close. At threshold 0.22, wrong_conf clears the bar at 41/729 (0.0562)
+  but `test_forgiveness_acceptance.py`'s `MIN_CONCISE_HITS=23` regresses to 22 - pinned to one exact,
+  provable conflict: `pdf/java`'s "page" sits at scope fraction 0.2686, which is simultaneously the
+  ONLY anchor for a correct, pinned forgiveness-table hit ("get page size of pdf" -> the furnished
+  page's own README-derived "Inspect Document Page Dimensions" candidate) and the anchor for a real
+  wrong case ("add a watermark to every page"). No single scalar threshold can admit one and reject
+  the other; raising the threshold to protect the pinned hit (>=0.2686) un-rejects enough other
+  cases to push wrong_conf back to 0.0658 (48/729), 5 over the 43 allowed.
+
+The one path that might close this (giving the pinned `pdf/java` example a second, less ambiguous
+anchor word) needs editing `tests/fixtures/furnished/pdf_java/pages/_index.md` - extracted/furnished
+README-candidate fixture content, not authored content this project controls the wording of the way
+`authored_examples.yaml` is. Changing extracted-fixture text to make an algorithm converge risks the
+exact stale-fixture-vs-real-extraction divergence this project was already burned by once (TC-727
+saga) - correctly outside TC-761's own scope, not attempted.
+
+**This leaves a live regression on main right now**: `test_find_examples_non_empty_answers_that_
+miss_the_intended_api_stay_rare` fails (55/729, 0.0754) and is not merely a disclosed limitation -
+it is an enforced ratchet that blocks any future card whose own checks happen to exercise it. The
+pre-campaign baseline (42/729, 0.0576) passed; this is a real, caused-by-this-session regression
+that must be closed, not accepted as-is. Next: a further, carefully-scoped round of title-only edits
+to the SPECIFIC remaining second-tier authored examples (not an algorithm change, not touched
+README-fixture content), using the exact iterative patch-and-reverify discipline TC-760's own
+worker already proved converges, now applied to the much smaller remaining set (16 fixable cases,
+not 46) - authored as `TC-762`.
