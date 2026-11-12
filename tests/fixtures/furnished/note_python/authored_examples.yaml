@@ -1,0 +1,184 @@
+schema_version: 1
+pilot: note_python
+library_repository: aspose-note-foss/Aspose.Note-FOSS-for-Python
+library_commit: 0014dbeef9511af360b936d95d47947d6b1d8a4f
+language: python
+examples:
+- title: Read a Document's Revision History
+  description: Loads SimpleHistory.one with LoadOptions.LoadHistory enabled, fetches the page's
+    revision history via Document.GetPageHistory, confirms the current version is the loaded page
+    itself, and checks each stored revision's author and last-modified time.
+  symbols:
+  - Document
+  - Document.GetPageHistory
+  - LoadOptions
+  - LoadOptions.LoadHistory
+  - PageHistory
+  - PageHistory.Count
+  - PageHistory.Current
+  - Page.Author
+  - Page.LastModifiedTime
+  code: |
+    # Authored example: load a page's revision history and confirm the current version and its past versions.
+    from aspose.note import Document, LoadOptions, PageHistory
+
+    load_options = LoadOptions(LoadHistory=True)
+    doc = Document("SimpleHistory.one", load_options)
+    page = next(iter(doc))
+
+    history = doc.GetPageHistory(page)
+    assert isinstance(history, PageHistory)
+    print("history count:", history.Count)
+    assert history.Count == 3
+
+    print("current is this page:", history.Current is page)
+    assert history.Current is page
+
+    for index in range(history.Count):
+        revision = history[index]
+        print("revision", index, "author:", revision.Author, "modified:", revision.LastModifiedTime)
+        assert revision.Author == "Support User"
+        assert revision.LastModifiedTime is not None
+
+    print("OK")
+  code_sha256: 1b95490ee383b26e51355fb017a1d39a029c3318e5049581fc384d4567cead3a
+- title: Detect a Subpage From Its Nesting Level
+  description: Loads Issue1Subpages.one, confirms it holds exactly a top-level page followed by one
+    nested subpage, and reads each Page's Level to tell the two apart without relying on title text.
+  symbols:
+  - Document
+  - Page
+  - Page.Level
+  code: |
+    # Authored example: read each page's Level to tell a top-level page apart from its nested subpage.
+    from aspose.note import Document, Page
+
+    doc = Document("Issue1Subpages.one")
+    pages = list(doc)
+    print("page count:", len(pages))
+    assert len(pages) == 2
+    assert all(isinstance(page, Page) for page in pages)
+
+    levels = [page.Level for page in pages]
+    print("levels:", levels)
+    assert levels == [1, 2]
+    assert pages[0].Level < pages[1].Level
+    print("OK")
+  code_sha256: a055a0509ceafba65abd0fdd2e18be9612038f88144bc125c8df6623ee30ab96
+- title: Read OneNote Tags on an Attached File
+  description: Loads AttachedFileWithTag.one, finds its one AttachedFile node, and reads the OneNote
+    tags recorded on the attachment itself (its label and status), separately from any tags on the
+    surrounding page text.
+  symbols:
+  - Document
+  - AttachedFile
+  - AttachedFile.FileName
+  - AttachedFile.Tags
+  - NoteTag
+  - NoteTag.Label
+  - NoteTag.Status
+  code: |
+    # Authored example: read the OneNote tags attached directly to an attached file, not to its surrounding text.
+    import sys
+
+    from aspose.note import AttachedFile, Document, NoteTag
+
+    if hasattr(sys.stdout, "reconfigure"):
+        sys.stdout.reconfigure(encoding="utf-8", errors="replace")
+
+    doc = Document("AttachedFileWithTag.one")
+    attached_files = doc.GetChildNodes(AttachedFile)
+    print("attached file count:", len(attached_files))
+    assert len(attached_files) == 1
+
+    attached_file = attached_files[0]
+    print("file name:", attached_file.FileName)
+    assert attached_file.FileName == "TestOneNoteSaveAsTiffByFormat.tiff"
+
+    tags = attached_file.Tags
+    print("tag count:", len(tags))
+    assert len(tags) == 2
+    for tag in tags:
+        assert isinstance(tag, NoteTag)
+        print("tag label:", tag.Label, "status:", tag.Status)
+        assert tag.Label
+    print("OK")
+  code_sha256: 235eb88ed0846f20bbc99585b76c35e72d97fb692c7f5bef1b0a652868fe77be
+- title: Read OneNote Tags Attached to a Table
+  description: Loads TableWithTag.one and reads the OneNote tag recorded on the table itself (as
+    opposed to one on a row or a cell), alongside the table's own column count.
+  symbols:
+  - Document
+  - Table
+  - Table.Columns
+  - Table.Tags
+  - NoteTag
+  - NoteTag.Label
+  - NoteTag.Status
+  code: |
+    # Authored example: read the OneNote tags attached to a whole table rather than to one of its cells.
+    import sys
+
+    from aspose.note import Document, NoteTag, Table
+
+    if hasattr(sys.stdout, "reconfigure"):
+        sys.stdout.reconfigure(encoding="utf-8", errors="replace")
+
+    doc = Document("TableWithTag.one")
+    tables = doc.GetChildNodes(Table)
+    print("table count:", len(tables))
+    assert len(tables) == 1
+
+    table = tables[0]
+    print("column count:", len(table.Columns))
+    assert len(table.Columns) == 3
+
+    tags = table.Tags
+    print("tag count:", len(tags))
+    assert len(tags) == 1
+    tag = tags[0]
+    assert isinstance(tag, NoteTag)
+    print("tag label:", tag.Label, "status:", tag.Status)
+    assert tag.Label
+    print("OK")
+  code_sha256: 9d94c7027cf3cdc4f39cb5f5f86d2bace8fa3a3b677895c0c9c508b8626239e2
+- title: Read an Embedded Image's Dimensions and Tags
+  description: Loads ImageWithTag.one, finds its one embedded Image node, checks its real pixel
+    Width and Height, and reads the OneNote tags recorded on the image itself.
+  symbols:
+  - Document
+  - Image
+  - Image.Width
+  - Image.Height
+  - Image.Tags
+  - NoteTag
+  - NoteTag.Label
+  - NoteTag.Status
+  code: |
+    # Authored example: read an embedded image's pixel dimensions and the OneNote tags attached to it.
+    import sys
+
+    from aspose.note import Document, Image, NoteTag
+
+    if hasattr(sys.stdout, "reconfigure"):
+        sys.stdout.reconfigure(encoding="utf-8", errors="replace")
+
+    doc = Document("ImageWithTag.one")
+    images = doc.GetChildNodes(Image)
+    print("image count:", len(images))
+    assert len(images) == 1
+
+    image = images[0]
+    print("width:", image.Width, "height:", image.Height)
+    assert image.Width is not None and image.Width > 0
+    assert image.Height is not None and image.Height > 0
+
+    tags = image.Tags
+    print("tag count:", len(tags))
+    assert len(tags) == 2
+    for tag in tags:
+        assert isinstance(tag, NoteTag)
+        print("tag label:", tag.Label, "status:", tag.Status)
+        assert tag.Label
+    print("OK")
+  code_sha256: a3d8833b24c4c75934818649fe52b29afdbf56e6cbe25c83c7f2fb384318437d
