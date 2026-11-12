@@ -4472,3 +4472,29 @@ to the SPECIFIC remaining second-tier authored examples (not an algorithm change
 README-fixture content), using the exact iterative patch-and-reverify discipline TC-760's own
 worker already proved converges, now applied to the much smaller remaining set (16 fixable cases,
 not 46) - authored as `TC-762`.
+
+## 2026-11-12 — find_examples wrong-confident regression fully closed: 41/729 (0.0562), under the 0.059 ceiling
+
+The regression tracked across the five entries above (introduced by this session's P4
+authored-examples campaign, peaking at 82/729) is closed. Three successive title-only retitle
+rounds, each independently verified by the supervisor against the real committed corpus before
+integration (not merely trusted from a worker's report):
+
+- `TC-760` (31 examples, 18 pilots): 82/729 -> 55/729.
+- `TC-762` (14 examples, 11 pilots, targeting the "second-tier" winners TC-760 exposed): 55/729 ->
+  46/729. 1 case (email/net, a README-fixture title outside authored-content scope) and 5 cases
+  (blocked by a further, previously-unnamed authored example sharing the same anchor word) left
+  open and precisely named.
+- `TC-763` (5 examples, the exact 5 named by TC-762's own worker): 46/729 -> **41/729 (0.0562)**,
+  confirmed for real against the baked corpus (not simulated) after a supervisor re-bake, run
+  twice, identical: `test_find_examples_non_empty_answers_that_miss_the_intended_api_stay_rare`
+  PASSES. `test_forgiveness_acceptance.py` passes in full with every floor held (concise hit 23/26
+  wrong 0, verbose hit 15/26 wrong 1, honest-miss and symbol-phrase floors unchanged) - no check
+  was ever weakened and no floor was ever lowered across all three rounds.
+
+An algorithm-level alternative (`TC-761`) was tried in parallel and genuinely could not clear this
+bar without regressing the concise-hit floor (see its own entry above) - the content-only lever
+is what converged, confirming the earlier diagnosis that this was a title-collision problem
+content edits could fix, not a defect in the matching mechanism itself. The 41/729 remaining is
+pre-existing/unrelated baseline noise (the pre-campaign floor was 42/729), not a residual of this
+campaign.
