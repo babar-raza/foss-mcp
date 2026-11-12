@@ -166,6 +166,16 @@ new union count is 61 (not 60): both equality assertions above still hold exactl
 this slightly wider set; the real registry file count is unchanged at 27 (this entry lands in the
 already-existing ``page__python.yaml``, which already carried ``PAGE-PYTHON-006`` and
 ``PAGE-PYTHON-010``).
+
+**Widened again (G3/TC-771, 2026-11-12):** ``3D-PYTHON-013`` (project-minted id, no
+round-2/round-3 audit record - a previously undisclosed defect found while authoring TC-768's
+3d/python examples) is added to ``_ADDITIONAL_DISCLOSABLE_IDS`` the same deliberate, additive
+way; see that frozenset's own in-code comment for the full detail of the independent
+re-reproduction, fresh, against the real, currently-pinned ``aspose-3d-foss`` 26.1.0 package. The
+real new union count is 62 (not 61): both equality assertions above still hold exactly, just
+against this slightly wider set; the real registry file count is unchanged at 27 (this entry
+lands in the already-existing ``3d__python.yaml``, which already carried ``3D-PYTHON-001/002/006/
+008/010``).
 """
 
 from __future__ import annotations
@@ -311,6 +321,18 @@ def _real_round3_issues() -> list[dict[str, Any]]:
 #   the real page count - isolating the defect to ``is_eps=True`` specifically, not to multi-page
 #   PostScript documents generally. This is disclosure-only, recorded during the TC-767
 #   verification (2026-11-12), not an audit round.
+# - ``3D-PYTHON-013`` (G3/TC-771, REQ-G3-015, project-minted id with no round-2/round-3 audit
+#   record): a previously undisclosed defect found while authoring TC-768's 3d/python examples
+#   and independently re-reproduced fresh here against the real, currently-pinned
+#   ``aspose-3d-foss`` 26.1.0 package: ``Mesh.get_bounding_box()`` (``aspose/threed/entities/
+#   Mesh.py``) is a literal stub, ``return BoundingBox()``, that never reads the mesh's own
+#   control points and always returns a null/empty box; ``Node.get_bounding_box()`` (``aspose/
+#   threed/Node.py``) merges every attached entity's box via ``BoundingBox.merge()`` (``aspose/
+#   threed/utilities/BoundingBox.py``), whose null-self branch unconditionally reads
+#   ``arg._minimum.x``/``.y``/``.z`` off the incoming box - ``None`` for the stub's always-null
+#   box - raising a real, confirmed ``AttributeError: 'NoneType' object has no attribute 'x'``,
+#   reproduced directly with a real ``Box(2, 2, 2).to_mesh()`` attached to a scene node. This is
+#   disclosure-only, recorded during the TC-771 verification (2026-11-12), not an audit round.
 _ADDITIONAL_DISCLOSABLE_IDS: frozenset[str] = frozenset(
     {
         "3D-JAVA-001",
@@ -321,6 +343,7 @@ _ADDITIONAL_DISCLOSABLE_IDS: frozenset[str] = frozenset(
         "3D-TYPESCRIPT-STL-001",
         "3D-TYPESCRIPT-FBX-001",
         "PAGE-PYTHON-011",
+        "3D-PYTHON-013",
     }
 )
 
@@ -421,19 +444,20 @@ def test_registry_entry_count_equals_upstream_library_bug_issue_count() -> None:
         f"issue count ({len(upstream_issue_ids)})"
     )
 
-    # Sanity anchor only, not a floor on the future: as of G3/TC-767 (2026-11-12) this real union
-    # count is 61 (60 as of TC-758, plus TC-767's own additive ``PAGE-PYTHON-011``); earlier, as of
-    # TC-758 (2026-11-11) this real union count was 60 (58 as of TC-728, plus TC-758's own
-    # additive ``3D-TYPESCRIPT-STL-001`` and ``3D-TYPESCRIPT-FBX-001``); earlier, as of
-    # 2026-11-09, the real union count was 58 (56 round2-union-round3-union-
-    # _ADDITIONAL_DISCLOSABLE_IDS as of TC-711, see this module's docstring for that id list, plus
-    # TC-728's own additive ``_ADDITIONAL_DISCLOSABLE_IDS`` entries ``SLIDES-JAVA-010`` and
-    # ``SLIDES-JAVA-010B``, two registry ids for one round-3 finding id, split because the
-    # underlying facts are two genuinely distinct causal chains). A future card adding or retiring
-    # a confirmed upstream-library-bug finding (and its matching entry) is expected to move both
-    # sides together and may need to update this comment and number; the equality assertion above
-    # is the one that must hold forever.
-    assert len(upstream_issue_ids) == 61
+    # Sanity anchor only, not a floor on the future: as of G3/TC-771 (2026-11-12) this real union
+    # count is 62 (61 as of TC-767, plus TC-771's own additive ``3D-PYTHON-013``); earlier, as of
+    # TC-767 (2026-11-12) this real union count was 61 (60 as of TC-758, plus TC-767's own
+    # additive ``PAGE-PYTHON-011``); earlier, as of TC-758 (2026-11-11) this real union count was
+    # 60 (58 as of TC-728, plus TC-758's own additive ``3D-TYPESCRIPT-STL-001`` and
+    # ``3D-TYPESCRIPT-FBX-001``); earlier, as of 2026-11-09, the real union count was 58 (56
+    # round2-union-round3-union-_ADDITIONAL_DISCLOSABLE_IDS as of TC-711, see this module's
+    # docstring for that id list, plus TC-728's own additive ``_ADDITIONAL_DISCLOSABLE_IDS``
+    # entries ``SLIDES-JAVA-010`` and ``SLIDES-JAVA-010B``, two registry ids for one round-3
+    # finding id, split because the underlying facts are two genuinely distinct causal chains). A
+    # future card adding or retiring a confirmed upstream-library-bug finding (and its matching
+    # entry) is expected to move both sides together and may need to update this comment and
+    # number; the equality assertion above is the one that must hold forever.
+    assert len(upstream_issue_ids) == 62
 
 
 # --------------------------------------------------------------------------------------------

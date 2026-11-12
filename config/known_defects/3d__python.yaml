@@ -131,3 +131,31 @@ defects:
       version: 26.1.0
       date: '2026-10-29'
   status: open
+- id: 3D-PYTHON-013
+  subject:
+    kind: method
+    refs:
+    - aspose.threed.entities.Mesh
+    - aspose.threed.Node
+  applies_to:
+    package_versions:
+    - 26.1.0
+  summary: "Mesh.get_bounding_box() in aspose-3d-foss 26.1.0 is a stub returning an
+    empty BoundingBox; calling Node.get_bounding_box() on a node holding such a mesh
+    then raises AttributeError: 'NoneType' object has no attribute 'x'."
+  user_action: Do not rely on Mesh.get_bounding_box() for real bounds in aspose-3d-foss
+    26.1.0; it always returns an empty BoundingBox regardless of the mesh's own control
+    points. Do not call Node.get_bounding_box() on a node holding such a mesh either;
+    merging the always-empty box crashes with AttributeError.
+  evidence:
+    repro: "Built a Mesh via Box(2, 2, 2).to_mesh(), attached it to a scene node, then
+      called mesh.get_bounding_box() directly (returned BoundingBox(null) - entities/Mesh.py's
+      get_bounding_box is literally 'return BoundingBox()', never reading the mesh's
+      control points) and node.get_bounding_box() (raised AttributeError: 'NoneType'
+      object has no attribute 'x' from utilities/BoundingBox.py's merge(), which assumes
+      a null box being merged in still has real minimum/maximum Vector3 attributes)."
+    verified_on:
+      package: aspose-3d-foss
+      version: 26.1.0
+      date: '2026-11-12'
+  status: open

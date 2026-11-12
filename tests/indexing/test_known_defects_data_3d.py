@@ -77,7 +77,24 @@ file (4 -> 5).
 pinned ``@aspose/3d`` 24.12.0 (``Scene.save`` to ``.stl`` writes vertex indices; ``Scene.save`` to
 ``.fbx`` falls through to the OBJ exporter). They are added to ``_ADDITIONAL_DISCLOSABLE_3D_IDS``
 the same deliberate, additive way, and the typescript pilot file goes 1 -> 3 entries, so the 3d
-family total goes 17 -> 19."""
+family total goes 17 -> 19.
+
+**Widened again (G3/TC-771, 2026-11-12):** ``3D-PYTHON-013`` (project-minted id, no
+round-2/round-3 audit record - a previously undisclosed defect found while authoring TC-768's
+3d/python examples) is independently re-reproduced here, fresh, against the real, currently-pinned
+``aspose-3d-foss`` 26.1.0 package: ``Mesh.get_bounding_box()`` (``aspose/threed/entities/Mesh.py``)
+is a literal stub, ``return BoundingBox()``, that never reads the mesh's own control points and
+always returns a null/empty box; ``Node.get_bounding_box()`` (``aspose/threed/Node.py``) calls
+``entity.get_bounding_box()`` for each attached entity and merges the result via
+``BoundingBox.merge()`` (``aspose/threed/utilities/BoundingBox.py``), whose null-self branch
+unconditionally reads ``arg._minimum.x``/``.y``/``.z`` off the incoming box - which is ``None`` for
+the stub's always-null box - raising the real, confirmed ``AttributeError: 'NoneType' object has no
+attribute 'x'``. Reproduced with a real ``Box(2, 2, 2).to_mesh()`` attached to a scene node: calling
+``mesh.get_bounding_box()`` directly returns an empty ``BoundingBox(null)`` with no error, and
+``node.get_bounding_box()`` crashes with the exact AttributeError above - a confirmed crash, not
+merely a wrong-but-harmless value. It is added to ``_ADDITIONAL_DISCLOSABLE_3D_IDS`` the same
+deliberate, additive way, and the python pilot file goes 5 -> 6 entries, so the 3d family total
+goes 19 -> 20."""
 
 from __future__ import annotations
 
@@ -115,11 +132,12 @@ _FILES_BY_PLATFORM = {
     "python": "3d__python.yaml",
     "typescript": "3d__typescript.yaml",
 }
-# The real entry count actually WRITTEN per pilot (6 + 5 + 5 + 3 = 19): the 14 real round-2
+# The real entry count actually WRITTEN per pilot (6 + 5 + 6 + 3 = 20): the 14 real round-2
 # findings TC-644 wrote, plus TC-656's own 3D-JAVA-014 (java 4 -> 5), plus TC-706's own
 # 3D-JAVA-001 (java 5 -> 6), plus TC-707's own 3D-NET-001 (net 4 -> 5), plus TC-758's own
-# 3D-TYPESCRIPT-STL-001 and 3D-TYPESCRIPT-FBX-001 (typescript 1 -> 3).
-_EXPECTED_COUNTS = {"java": 6, "net": 5, "python": 5, "typescript": 3}
+# 3D-TYPESCRIPT-STL-001 and 3D-TYPESCRIPT-FBX-001 (typescript 1 -> 3), plus TC-771's own
+# 3D-PYTHON-013 (python 5 -> 6).
+_EXPECTED_COUNTS = {"java": 6, "net": 5, "python": 6, "typescript": 3}
 
 # TC-706 (G3, workstream J, REQ-G3-015): an explicit, hand-reviewed, additive allowlist of real,
 # cited, committed audit findings that this module's own category-filtered id source would
@@ -146,8 +164,18 @@ _EXPECTED_COUNTS = {"java": 6, "net": 5, "python": 5, "typescript": 3}
 #   NOT broken (``Scene.Save("x.ply")`` succeeds); PLY is deliberately excluded from this entry.
 # TC-758 (REQ-G3-015): ``3D-TYPESCRIPT-STL-001`` and ``3D-TYPESCRIPT-FBX-001`` are project-minted
 # disclosures of two defects of the pinned ``@aspose/3d`` 24.12.0 that no audit round recorded.
+# TC-771 (REQ-G3-015): ``3D-PYTHON-013`` is a project-minted disclosure of
+# ``Mesh.get_bounding_box()``'s stub / ``Node.get_bounding_box()``'s crash in the pinned
+# ``aspose-3d-foss`` 26.1.0, independently re-reproduced fresh against the real installed
+# package - see this module's own docstring for the full detail.
 _ADDITIONAL_DISCLOSABLE_3D_IDS: frozenset[str] = frozenset(
-    {"3D-JAVA-001", "3D-NET-001", "3D-TYPESCRIPT-STL-001", "3D-TYPESCRIPT-FBX-001"}
+    {
+        "3D-JAVA-001",
+        "3D-NET-001",
+        "3D-TYPESCRIPT-STL-001",
+        "3D-TYPESCRIPT-FBX-001",
+        "3D-PYTHON-013",
+    }
 )
 
 
@@ -211,11 +239,11 @@ def test_load_known_defects_returns_the_real_written_count_for_this_pilot(platfo
     )
 
 
-def test_nineteen_entries_total_across_all_four_3d_pilots() -> None:
+def test_twenty_entries_total_across_all_four_3d_pilots() -> None:
     total = sum(
         len(load_known_defects("3d", platform)) for platform in ("java", "net", "python", "typescript")
     )
-    assert total == 19
+    assert total == 20
 
 
 def test_no_duplicate_ids_across_the_entire_3d_family() -> None:
@@ -258,11 +286,12 @@ def test_every_real_3d_upstream_library_bug_finding_has_a_written_entry() -> Non
         f"real 3d upstream-library-bug findings (round2 union round3) with no written entry: "
         f"{expected_ids - written_ids}"
     )
-    # Both sets equal, and both have exactly 19 members - the real union count as of 2026-11-11
-    # (15 as of 2026-11-02, plus TC-706's additive 3D-JAVA-001, plus TC-707's additive
-    # 3D-NET-001, plus TC-758's additive 3D-TYPESCRIPT-STL-001 and 3D-TYPESCRIPT-FBX-001).
+    # Both sets equal, and both have exactly 20 members - the real union count as of 2026-11-12
+    # (19 as of 2026-11-11: 15 as of 2026-11-02, plus TC-706's additive 3D-JAVA-001, plus
+    # TC-707's additive 3D-NET-001, plus TC-758's additive 3D-TYPESCRIPT-STL-001 and
+    # 3D-TYPESCRIPT-FBX-001; plus TC-771's own additive 3D-PYTHON-013).
     assert expected_ids == written_ids
-    assert len(expected_ids) == 19
+    assert len(expected_ids) == 20
 
 
 # --------------------------------------------------------------------------------------------
@@ -469,3 +498,53 @@ def test_search_symbols_end_to_end_surfaces_the_real_written_3d_java_001_defect(
     assert len(result) == 1
     assert len(result[0].known_defects) == 1
     assert "absent from the published org.aspose:aspose-3d-foss 26.5.0 jar" in result[0].known_defects[0]
+
+
+# --------------------------------------------------------------------------------------------
+# TC-771 (3D-PYTHON-013): real end-to-end coverage against the REAL, committed
+# ``infra/demo-manifests`` corpus for the ``3d/python`` pilot (the same fixture the TC-706 tests
+# above already load, which carries every pilot's real manifests, not just java's). Both
+# ``get_symbol`` and ``search_symbols`` must surface the real, committed ``3D-PYTHON-013`` entry
+# for each of its two real subject.refs (``aspose.threed.entities.Mesh`` via get_symbol,
+# ``aspose.threed.Node`` via search_symbols), independently re-reproduced fresh against the real
+# installed ``aspose-3d-foss`` 26.1.0 package (see this module's own docstring for the full
+# repro detail).
+# --------------------------------------------------------------------------------------------
+
+
+def test_get_symbol_end_to_end_surfaces_the_real_written_3d_python_013_defect(_real_3d_java_corpus) -> None:
+    """``aspose.threed.entities.Mesh`` is one of ``3D-PYTHON-013``'s two real ``subject.refs``;
+    ``get_symbol`` against the real, committed ``3d__python.yaml`` this card wrote must surface
+    its real disclosure text for it."""
+    pilot = _real_3d_java_corpus.pilots["3d__python"]
+
+    result = get_symbol(_real_3d_java_corpus.store, pilot.scope, "aspose.threed.entities.Mesh")
+
+    assert isinstance(result, SymbolSignature)
+    assert result.found is True
+    assert len(result.known_defects) == 1
+    assert (
+        "Mesh.get_bounding_box() in aspose-3d-foss 26.1.0 is a stub returning an empty BoundingBox"
+        in result.known_defects[0]
+    )
+    assert "AttributeError: 'NoneType' object has no attribute 'x'" in result.known_defects[0]
+
+
+def test_search_symbols_end_to_end_surfaces_the_real_written_3d_python_013_defect(
+    _real_3d_java_corpus,
+) -> None:
+    """``aspose.threed.Node`` is ``3D-PYTHON-013``'s other real ``subject.refs`` entry; through
+    ``search_symbols`` instead of ``get_symbol`` - proving the disclosure surfaces through BOTH
+    tools and for BOTH refs, per this card's own instructions."""
+    pilot = _real_3d_java_corpus.pilots["3d__python"]
+
+    result = search_symbols(_real_3d_java_corpus.store, pilot.scope, "aspose.threed.Node")
+
+    assert isinstance(result, list), f"expected a real symbol hit, got a Miss: {result!r}"
+    assert len(result) == 1
+    assert len(result[0].known_defects) == 1
+    assert (
+        "Mesh.get_bounding_box() in aspose-3d-foss 26.1.0 is a stub returning an empty BoundingBox"
+        in result[0].known_defects[0]
+    )
+    assert "AttributeError: 'NoneType' object has no attribute 'x'" in result[0].known_defects[0]
