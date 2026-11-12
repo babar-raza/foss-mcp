@@ -1,0 +1,116 @@
+id: TC-776
+gate: G3
+lane: storage-retrieval
+purpose: >-
+  URGENT, a FOURTH real live CI break found the same day, while scoping Q17's own closure (the
+  reconciliation found Q7/Q8/Q10/Q16 are all already built, contrary to a stale earlier note -
+  Q17's real remaining blocker is just baseline staleness across its 3 required baselines).
+  Confirmed directly by the supervisor: `python -m pytest tests/conformance/
+  test_symbol_self_retrieval.py` fails 2 tests on `main` right now, in `baseline_symbol_
+  self_retrieval.json` (`strict: true`, flipped by `TC-695`, 119 `known_failures`), for TWO
+  simultaneous, unrelated real gaps:
+
+  **(1) Stale entries** (`test_strict_baseline_has_zero_stale_entries_under_default_mode` fails):
+  many `known_failures` entries no longer reproduce as real failures under today's real
+  default-mode measurement - the baseline is "ahead" of reality, which `strict: true` correctly
+  flags as needing tightening. Expected drift given how many Q-series/QV-series fixes have
+  landed since `TC-695` (2026-11-06) without anyone re-pruning this baseline since.
+
+  **(2) Genuinely NEW, previously-unrecorded failures**
+  (`test_symbol_self_retrieval_matches_the_committed_baseline` fails): 7 `(pilot, case_id)`
+  pairs - `barcode__python:bare-member-word-false-exact:code128`,
+  `cells__python:bare-namespace-word-false-exact:AVG_COL_WIDTH_PT`,
+  `email__python:bare-member-word-false-exact:compare_directory_entry_names`,
+  `html__python:bare-member-word-false-exact:element_matches`,
+  `html__python:prefix3-findable:aspose_html.dom.html.HTMLAreaElement`,
+  `pdf__net:prefix3-findable:Aspose.Pdf.Forms.Signature`,
+  `pdf__python:prefix3-findable:aspose_pdf.engine.image_export.decode_indices` - are observed as
+  real failures today but are NOT in the committed baseline at all. These must be investigated
+  before pinning: determine whether each is (a) a genuine new regression (something this
+  session's own re-bakes or fixes broke), (b) an already-known false-positive CLASS
+  (`bare-member-word-false-exact`/`bare-namespace-word-false-exact`/`prefix3-findable` are all
+  pre-existing, already-tolerated case-shapes in this baseline - these 7 may simply be new
+  SPECIFIC symbol names the seeded sample never happened to draw before, now drawn because this
+  session's many pilot re-bakes shifted sampled content), or (c) something else entirely. Never
+  pin a "new failure" into the baseline without first confirming it is the SAME tolerated class
+  as its sibling entries, not a fresh, different kind of problem.
+depends_on:
+  - TC-686
+  - TC-695
+  - TC-699
+write_paths:
+  - tests/fixtures/conformance/baseline_symbol_self_retrieval.json
+satisfies:
+  - REQ-G3-011
+source_refs:
+  - file: docs/DECISION_LOG.md
+    anchor: >-
+      ## 2026-11-12 — a third live CI break found the same day (`TC-775`), plus a real extraction defect flagged, not fixed
+    sha256: 5a0d1b4be0ea0c368372748306e5ef5ce4cc8ee992273a64e0445a2282a4410a
+inputs:
+  - >-
+    READ FIRST: `tests/conformance/test_symbol_self_retrieval.py` in full, especially
+    `_measure_pilot`, `exhaustive_enabled`, both currently-failing tests, and the real committed
+    `tests/fixtures/conformance/baseline_symbol_self_retrieval.json`. Also read `TC-695`'s own
+    commit (the `strict: true` flip) and `TC-773`/`TC-774`/`TC-775`'s commits as the precedent
+    for a careful, measured baseline refresh this session has already proven out twice today.
+  - >-
+    REPRODUCE FIRST, YOURSELF, FRESH: run `{python} -m pytest tests/conformance/
+    test_symbol_self_retrieval.py -q -rfE` and confirm both failures reproduce exactly as
+    described, with the exact same stale/new sets (they may have shifted further since this
+    card was written - always trust your own fresh measurement over this card's own numbers).
+  - >-
+    For the 7 (or however many you measure) genuinely new failures: investigate EACH one
+    individually via a live `search_symbols`/`get_symbol` call against the real corpus (not
+    guessed) to confirm it is the same tolerated false-positive class as its sibling baseline
+    entries sharing the same `case_id` prefix (e.g. compare `barcode__python:bare-member-word-
+    false-exact:code128` against other `bare-member-word-false-exact:*` entries already in the
+    baseline - same mechanism, same shape, just a different symbol name the sample now draws).
+    If ANY of them is a genuinely different kind of problem (not matching its sibling class's
+    shape), STOP and report it separately as a possible real regression - do not pin it into
+    the baseline as if it were ordinary.
+  - >-
+    Prune every entry confirmed stale under BOTH default AND exhaustive mode (not default mode
+    alone - `TC-695`'s own precedent: an entry that looks stale under one mode but still
+    genuinely reproduces under the other must NOT be pruned). Measure this yourself, do not
+    assume.
+  - >-
+    After pruning and adding the confirmed-same-class new entries, re-run both tests twice and
+    confirm both pass. Report the real final `known_failures` count and exactly which entries
+    were added/removed, with your reasoning for each addition.
+  - >-
+    Do NOT touch `tests/conformance/test_symbol_self_retrieval.py` itself, `baseline.py`, or any
+    other file - this is a pure data-fixture refresh, exactly like `TC-774`.
+actions:
+  - >-
+    Refresh `baseline_symbol_self_retrieval.json`'s `known_failures` from a real, fresh,
+    individually-investigated measurement: prune confirmed-stale entries, add confirmed-same-
+    class new failures, flag (don't pin) anything that looks like a genuinely different problem.
+checks:
+  - command: '{python} -m pytest tests/conformance/test_symbol_self_retrieval.py -q -rfE -p no:cacheprovider'
+    expect: 'exit 0'
+    timeout_seconds: 300
+    junitxml: true
+    proves:
+      - REQ-G3-011
+min_tests: 5
+requires:
+  - python
+network: false
+negative_control:
+  mutate: |
+    python -X utf8 -c "import pathlib, json; p = pathlib.Path('tests/fixtures/conformance/baseline_symbol_self_retrieval.json'); d = json.loads(p.read_text(encoding='utf-8')); assert d.get('known_failures'), 'known_failures must be a non-empty list after this card refreshes it'; d2 = dict(d); d2['known_failures'] = []; p.write_text(json.dumps(d2, indent=2) + chr(10), encoding='utf-8')"
+  rationale: >-
+    Empties the refreshed known_failures list entirely, which must make
+    `assert_no_new_failures` raise on every real observed failure (since none would be pinned
+    any more) - a pure JSON data mutation, immune to the lockstep-rename vacuousness class found
+    earlier this session, and it never touches any code path.
+evidence:
+  - evidence/build/G3/TC-776/receipt.json
+closeout:
+  - >-
+    `baseline_symbol_self_retrieval.json` reflects real, individually-investigated current
+    reality: stale entries pruned, genuinely new same-class failures added, anything
+    ambiguous flagged separately rather than silently pinned. `strict: true` remains unchanged -
+    this is the evidence base Q17's own closure needs for this one baseline.
+recovery: Re-run from a clean tree.
