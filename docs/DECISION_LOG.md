@@ -4498,3 +4498,37 @@ is what converged, confirming the earlier diagnosis that this was a title-collis
 content edits could fix, not a defect in the matching mechanism itself. The 41/729 remaining is
 pre-existing/unrelated baseline noise (the pre-campaign floor was 42/729), not a residual of this
 campaign.
+
+## 2026-11-12 — PAGE-PYTHON-011: PsDocument.to_pdf()/to_image() silently merge every page of an
+## EPS document onto one output page, found while authoring page/python examples, now disclosed
+
+`TC-764`'s worker (authoring page/python's authored examples, continuing the P4 example-corpus
+program) found that a candidate example exercising `PsDocument.to_pdf()` on a 3-page document
+produced a PDF with `/Count 1`, with zero error. The candidate was correctly dropped rather than
+shipped with a wrong assertion, and reported honestly rather than silently worked around - exactly
+per `AGENTS.md` rule 5 and the "no pilot ever gets worse" disclosure discipline.
+
+`TC-767` (dispatched immediately after, same gate run) independently re-reproduced the defect from
+a fresh install of the real pinned `aspose-page-foss 26.9.0` and found the real root cause is
+narrower and more precise than the original hypothesis: it is **EPS-specific** (`is_eps=True`),
+not a general multi-page defect. An ordinary (`is_eps=False`) multi-page document round-trips its
+page count correctly through `to_pdf()` - confirmed directly, not assumed. For an EPS document,
+`aspose/page/ps/serializer.py::serialize_document()` only auto-appends the `showpage` operator for
+non-EPS documents; `aspose/page/ps/graphics_ops.py::_op_showpage` is the only operator handler that
+flushes `RenderModelBuilder`'s active page mid-stream; with `showpage` never present, every page's
+draw commands accumulate onto the single page `RenderModelBuilder` lazily opens for page 1, and
+`to_pdf()`/`to_image()` both inherit this because they share the same
+`pipeline.build_render_model()` path. This is a genuine, severe, previously-undisclosed
+silent-data-loss defect (the same class `AGENTS.md`'s "no pilot ever gets worse" section singles
+out, alongside the cells/typescript `Workbook.save()` regression that prompted that section) - now
+disclosed as `PAGE-PYTHON-011` in `config/known_defects/page__python.yaml`, additive to the two
+existing page/python entries (`PAGE-PYTHON-006`, `PAGE-PYTHON-010`, neither touched), wired into
+both completeness locks (`test_known_defects_completeness.py`, `test_known_defects_data_
+remaining.py`), schema-validated, checks green twice identically on both review runs.
+
+Process note worth keeping: the ORIGINAL hypothesis reported by `TC-764`'s worker (a general
+PostScript DSC-marker round-trip problem) did not reproduce when `TC-767`'s worker tried it
+directly and rigorously - re-verifying a reported defect from a fresh repro before disclosing it,
+rather than transcribing the first report's theory, is what caught the real, narrower, EPS-only
+mechanism. A disclosure registry entry's `evidence.repro`/root-cause text should always describe
+what the disclosing worker itself verified, never an unverified upstream report.
