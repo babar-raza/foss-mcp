@@ -1,0 +1,95 @@
+
+===== CLEAN RUN 1 (host) =====
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-5c72e798a73c059a\Scripts\python.exe -m pytest tests/indexing/test_known_defects.py tests/indexing/test_known_defects_completeness.py tests/indexing/test_known_defects_data_3d.py -q -rfE -p no:cacheprovider "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-y0zcrrle\.junit-0.xml"
+--- stdout ---
+....................................................                     [100%]
+
+--- stderr ---
+
+
+===== CLEAN RUN 2 (host) =====
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-5c72e798a73c059a\Scripts\python.exe -m pytest tests/indexing/test_known_defects.py tests/indexing/test_known_defects_completeness.py tests/indexing/test_known_defects_data_3d.py -q -rfE -p no:cacheprovider "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-y0zcrrle\.junit-0.xml"
+--- stdout ---
+....................................................                     [100%]
+
+--- stderr ---
+
+
+===== NEGATIVE CONTROL (checks MUST now fail) =====
+mutated: M config/known_defects/3d__python.yaml, ?? .junit-0.xml
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-5c72e798a73c059a\Scripts\python.exe -m pytest tests/indexing/test_known_defects.py tests/indexing/test_known_defects_completeness.py tests/indexing/test_known_defects_data_3d.py -q -rfE -p no:cacheprovider "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-y0zcrrle\.junit-0.xml"
+--- stdout ---
+.......................F................FF..........                     [100%]
+================================== FAILURES ===================================
+___ test_registry_ids_exactly_equal_the_real_upstream_library_bug_issue_ids ___
+
+    def test_registry_ids_exactly_equal_the_real_upstream_library_bug_issue_ids() -> None:
+        expected_ids = _real_upstream_library_bug_ids()
+        written_ids = set(_all_registry_ids())
+    
+        missing_entries = expected_ids - written_ids
+        orphan_entries = written_ids - expected_ids
+    
+>       assert expected_ids == written_ids, (
+            "config/known_defects/*.yaml drifted from docs/round2/issues.json's upstream-library-bug "
+            f"category. Real round-2 upstream-library-bug issues with NO registry entry: "
+            f"{sorted(missing_entries) or 'none'}. Registry entries with NO matching real round-2 "
+            f"upstream-library-bug issue: {sorted(orphan_entries) or 'none'}."
+        )
+E       AssertionError: config/known_defects/*.yaml drifted from docs/round2/issues.json's upstream-library-bug category. Real round-2 upstream-library-bug issues with NO registry entry: ['3D-PYTHON-013']. Registry entries with NO matching real round-2 upstream-library-bug issue: ['3D-PYTHON-999'].
+E       assert {'3D-JAVA-001...AVA-014', ...} == {'3D-JAVA-001...AVA-014', ...}
+E         
+E         Extra items in the left set:
+E         '3D-PYTHON-013'
+E         Extra items in the right set:
+E         '3D-PYTHON-999'
+E         Use -v to get more diff
+
+tests\indexing\test_known_defects_completeness.py:384: AssertionError
+___ test_every_written_defect_id_is_a_real_3d_upstream_library_bug_finding ____
+
+    def test_every_written_defect_id_is_a_real_3d_upstream_library_bug_finding() -> None:
+        expected_ids = _real_3d_upstream_library_bug_ids()
+        written_ids = {
+            defect.id
+            for platform in ("java", "net", "python", "typescript")
+            for defect in load_known_defects("3d", platform)
+        }
+>       assert written_ids <= expected_ids, (
+            f"written ids not found among real 3d upstream-library-bug findings (round2 union round3): "
+            f"{written_ids - expected_ids}"
+        )
+E       AssertionError: written ids not found among real 3d upstream-library-bug findings (round2 union round3): {'3D-PYTHON-999'}
+E       assert {'3D-JAVA-001...AVA-014', ...} <= {'3D-JAVA-001...AVA-014', ...}
+E         
+E         Extra items in the left set:
+E         '3D-PYTHON-999'
+
+tests\indexing\test_known_defects_data_3d.py:272: AssertionError
+_____ test_every_real_3d_upstream_library_bug_finding_has_a_written_entry _____
+
+    def test_every_real_3d_upstream_library_bug_finding_has_a_written_entry() -> None:
+        expected_ids = _real_3d_upstream_library_bug_ids()
+        written_ids = {
+            defect.id
+            for platform in ("java", "net", "python", "typescript")
+            for defect in load_known_defects("3d", platform)
+        }
+>       assert expected_ids <= written_ids, (
+            f"real 3d upstream-library-bug findings (round2 union round3) with no written entry: "
+            f"{expected_ids - written_ids}"
+        )
+E       AssertionError: real 3d upstream-library-bug findings (round2 union round3) with no written entry: {'3D-PYTHON-013'}
+E       assert {'3D-JAVA-001...AVA-014', ...} <= {'3D-JAVA-001...AVA-014', ...}
+E         
+E         Extra items in the left set:
+E         '3D-PYTHON-013'
+
+tests\indexing\test_known_defects_data_3d.py:285: AssertionError
+=========================== short test summary info ===========================
+FAILED tests/indexing/test_known_defects_completeness.py::test_registry_ids_exactly_equal_the_real_upstream_library_bug_issue_ids
+FAILED tests/indexing/test_known_defects_data_3d.py::test_every_written_defect_id_is_a_real_3d_upstream_library_bug_finding
+FAILED tests/indexing/test_known_defects_data_3d.py::test_every_real_3d_upstream_library_bug_finding_has_a_written_entry
+
+--- stderr ---
+
