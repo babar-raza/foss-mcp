@@ -4669,3 +4669,32 @@ shape (`_collect_answers`'s `assert sidecar_path.is_file()` / `assert inputs is 
 of its own `assert_no_new_failures`) but is confirmed DORMANT today (14/14 pass - every real
 pilot currently has a valid sidecar) - worth converting proactively before it becomes a fourth
 live break, but not urgent since nothing trips it right now.
+
+## 2026-11-12 — a FOURTH live CI break found and closed the same day (`TC-776`), while scoping Q17's real remaining work; whole `tests/conformance/` suite now green
+
+While scoping Q17's own closure (the reconciliation earlier today found `Q7`/`Q8`/`Q10`/`Q16` are
+all already built, contrary to a stale prior note - Q17's real remaining blocker was always just
+baseline staleness, not missing mechanism), `test_symbol_self_retrieval.py` was found failing on
+`main` right now: its `strict: true` baseline (flipped by `TC-695`, 2026-11-06) had drifted in
+BOTH directions since - 10 entries gone stale (no longer reproduce, expected given how many
+Q-series/QV-series fixes landed since without anyone re-pruning), and 7 genuinely new failures
+never recorded. `TC-776` (2 attempts) fixed this with the same rigor as `TC-773`/`774`/`775`:
+every one of the 7 new failures was individually investigated live (`search_symbols`/`get_symbol`
+against the real corpus) and confirmed the SAME tolerated false-positive class as an existing
+sibling baseline entry before being pinned - none were a genuinely different kind of problem.
+Every pruned entry was confirmed stale under BOTH default and exhaustive mode (3 more entries
+that are stale only under exhaustive, matching `TC-695`'s own precedent, were correctly left in
+place). Net: 119 -> 116 known_failures, `strict: true` unchanged.
+
+Attempt 1 correctly found and honestly reported one more real collateral problem rather than
+forcing past it: a sibling regression-guard test hard-coded `TC-695`'s own one-time historical
+delta (`== 119`, `prefix3-findable: 28`) with no allowance for a later, equally legitimate
+re-prune. Widened (attempt 2) to re-pin those two literals to the new, correct reality (`116`,
+`25`) - a pure re-pin, not a weakening; the test's own purpose (pinning the real count) is
+unchanged.
+
+**The whole `tests/conformance/` suite is now fully green**, confirmed independently by the
+supervisor directly on `main` (not merely trusted from either worker's report) - all four of
+today's live breaks (`TC-773`-`776`) closed the same day they were found, each via the identical
+disciplined technique: measure real current reality directly, verify every change against that
+measurement, never guess or weaken a check to make it pass.
