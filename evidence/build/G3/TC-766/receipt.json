@@ -1,0 +1,113 @@
+{
+  "schema_version": 1,
+  "card": "TC-766",
+  "gate": "G3",
+  "generated_by": "gatectl",
+  "generated_at": "2026-11-12T12:13:36Z",
+  "base_rev": "5efe3dbf72c19b12553399389f74ccb13e4c6cdf",
+  "head_rev": "6c636950d3b64f65d2fd1ec68ba98bc617f5db8e",
+  "card_sha256": "ade9b0f41caf92378914028ac520f0c68343624ae57efa891da0f03cbac68e2e",
+  "fingerprint": {
+    "python": "3.13.2",
+    "platform": "Windows-11-10.0.26300-SP0",
+    "lock_sha256": "5c72e798a73c059a438e752e94a8d4c88c1bdf81a197f6e5c5fcecbc9466a691",
+    "env": {
+      "PYTHONHASHSEED": "0",
+      "PYTHONUTF8": "1",
+      "PYTHONDONTWRITEBYTECODE": "1",
+      "PYTHONIOENCODING": "utf-8",
+      "TZ": "UTC",
+      "LC_ALL": "C.UTF-8",
+      "SOURCE_DATE_EPOCH": "1700000000",
+      "verify_runner": "host"
+    }
+  },
+  "scope": {
+    "ok": true,
+    "changed_paths": [
+      "src/foss_mcp/indexing/authored_examples.py",
+      "tests/fixtures/furnished/3d_net/authored_examples.yaml",
+      "tests/indexing/test_authored_examples.py",
+      "tests/indexing/test_authored_examples_3d_net.py"
+    ],
+    "violations": [],
+    "evaluated": true
+  },
+  "runs": [
+    {
+      "run": 1,
+      "checks": [
+        {
+          "command": "{python} -m pytest tests/indexing/test_authored_examples.py tests/indexing/test_authored_examples_3d_net.py tests/infra/test_authored_examples_fixtures.py -q -rfE -p no:cacheprovider",
+          "exit_code": 0,
+          "duration_s": 14.222,
+          "stdout_sha256": "cac73f118526268205ef6b44e36f15d479a5ee6c50d0f14d7dfa4c52129a6cd3",
+          "tests": 210,
+          "skipped": 0,
+          "errors": 0,
+          "failures": 0
+        },
+        {
+          "command": "{python} -m pytest tests/mcp/tools/test_round3_retrieval_corpus.py tests/mcp/tools/test_forgiveness_acceptance.py -q -rfE -p no:cacheprovider",
+          "exit_code": 0,
+          "duration_s": 110.27,
+          "stdout_sha256": "b53866f7a853267d7eca16c2faa2f71689f462d5b06ee572ef078a18d6b0409a",
+          "tests": 58,
+          "skipped": 0,
+          "errors": 0,
+          "failures": 0
+        }
+      ],
+      "all_passed": true
+    },
+    {
+      "run": 2,
+      "checks": [
+        {
+          "command": "{python} -m pytest tests/indexing/test_authored_examples.py tests/indexing/test_authored_examples_3d_net.py tests/infra/test_authored_examples_fixtures.py -q -rfE -p no:cacheprovider",
+          "exit_code": 0,
+          "duration_s": 9.096,
+          "stdout_sha256": "cac73f118526268205ef6b44e36f15d479a5ee6c50d0f14d7dfa4c52129a6cd3",
+          "tests": 210,
+          "skipped": 0,
+          "errors": 0,
+          "failures": 0
+        },
+        {
+          "command": "{python} -m pytest tests/mcp/tools/test_round3_retrieval_corpus.py tests/mcp/tools/test_forgiveness_acceptance.py -q -rfE -p no:cacheprovider",
+          "exit_code": 0,
+          "duration_s": 139.314,
+          "stdout_sha256": "b53866f7a853267d7eca16c2faa2f71689f462d5b06ee572ef078a18d6b0409a",
+          "tests": 58,
+          "skipped": 0,
+          "errors": 0,
+          "failures": 0
+        }
+      ],
+      "all_passed": true
+    }
+  ],
+  "negative_control": {
+    "kind": "mutate",
+    "patch": "python -X utf8 -c \"import pathlib; p = pathlib.Path('tests/fixtures/furnished/3d_net/authored_examples.yaml'); s = p.read_text(encoding='utf-8'); assert s, 'the sidecar file is empty or missing - this card must create it with real content before this mutate can run'; old = 'code_sha256:'; count = s.count(old); assert count >= 1, 'no code_sha256 field found - the file does not match the expected schema'; import re; s2 = re.sub(r'code_sha256: [0-9a-f]{64}', 'code_sha256: ' + '0'*64, s, count=1); assert s2 != s; p.write_text(s2, encoding='utf-8')\"\n",
+    "patch_sha256": "12c839e6c78a6e0f6db2c41b689d0c94e3c32428ca094a10fff9a83cc0c6a8a1",
+    "applied": true,
+    "patch_applied_failed": true,
+    "exit_codes": [
+      1,
+      0
+    ],
+    "tree_changed": [
+      "M tests/fixtures/furnished/3d_net/authored_examples.yaml",
+      "?? .junit-0.xml",
+      "?? .junit-1.xml"
+    ]
+  },
+  "holdout": {
+    "ran": false,
+    "passed": true,
+    "detail": "no holdout for this card"
+  },
+  "accepted": true,
+  "reason": "all gates passed"
+}
