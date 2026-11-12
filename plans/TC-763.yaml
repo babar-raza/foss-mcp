@@ -1,0 +1,110 @@
+id: TC-763
+gate: G3
+lane: storage-retrieval
+purpose: >-
+  Third and (if it converges) final round closing the find_examples wrong-confident regression
+  (see `docs/DECISION_LOG.md`'s 2026-11-11/2026-11-12 entries cited below). Current real state
+  after `TC-760`+`TC-762`: 46/729 wrong-confident (0.0631), ceiling 0.059 (43/729). `TC-762`'s own
+  worker individually cleared 9 of its 15 named collisions and, for 5 more, cleared the NAMED
+  collision cleanly but found that a SECOND, different, previously-unnamed authored example in the
+  same pilot's own sidecar also shares the anchoring word and now wins instead - exactly the same
+  `title_anchored` mechanism, one layer deeper. Those 5 specific second-tier examples are named
+  below, precisely, with the query each still wrongly wins and the word responsible.
+
+  Frozen acceptance: the real fleet-wide wrong-confident rate must drop to 0.059 (43/729) or below
+  (need 3 or more of these 5 to close cleanly), verified by running the real
+  `test_round3_retrieval_corpus.py` test directly, twice, clean, PLUS `test_forgiveness_
+  acceptance.py` in full, twice, with no floor lowered. Exactly as `TC-762` found: after fixing
+  each named case, check EVERY other real task query in that pilot's family before finalizing a
+  title - a third layer (a fourth example sharing the same word) is possible and must be caught
+  the same way, not assumed absent. If full convergence cannot be reached through title edits
+  alone, report the real best number and the specific cases left open - an accepted outcome per
+  AGENTS.md, never a weakened check or a guessed title.
+depends_on:
+  - TC-762
+write_paths:
+  - tests/fixtures/furnished/cells_typescript/authored_examples.yaml
+  - tests/fixtures/furnished/pdf_java/authored_examples.yaml
+  - tests/fixtures/furnished/pdf_python/authored_examples.yaml
+  - tests/fixtures/furnished/pdf_net/authored_examples.yaml
+  - tests/fixtures/furnished/3d_typescript/authored_examples.yaml
+satisfies:
+  - REQ-G3-014
+source_refs:
+  - file: docs/DECISION_LOG.md
+    anchor: >-
+      ## 2026-11-12 — TC-761 retired: no safe algorithm change clears both floors; the fleet-wide ratchet is still a live regression
+    sha256: f52c7f2c06233c90261e0d46093c6c27289e3b70cea65531afca691b2ce61e29
+inputs:
+  - >-
+    READ FIRST: `TC-762`'s own real commit (`git show 30c61d21`) to see the exact retitle
+    discipline that converged 9 of 15 cases, and this card's own 5 named rows below.
+  - >-
+    REPRODUCE FIRST: run `tests/mcp/tools/test_round3_retrieval_corpus.py::
+    test_find_examples_non_empty_answers_that_miss_the_intended_api_stay_rare` yourself and confirm
+    the real current number before touching anything (state may have moved - a supervisor re-bake
+    of TC-762's own retitles may have already landed; do not trust 46/729 blindly, re-measure).
+  - >-
+    FOR EACH ROW: `pilot | exact current title of the SECOND-TIER example | colliding query |
+    word responsible`. Verify each against the real current corpus first.
+
+    - cells_typescript | "Add, rename and remove workbook pages, then read the final names back
+      after a reload" | "how do I read the value of a cell" | read
+    - pdf_java | "Render a PDF page to a PNG image and verify its signature" | "add a watermark
+      to every page" | page
+    - pdf_python | "Create a Text Field and a Checkbox and Edit Their Values Across a Save/Reload
+      Round Trip" | "write some text on a page" | text
+    - pdf_net | "Add an AcroForm text box field, fill it, and read the value back" | "read the
+      document metadata" | read
+    - 3d_typescript | "Assign a Phong material to a node and read its specular settings back" |
+      "attach a child to a node" | node
+  - >-
+    MANDATORY ITERATIVE VERIFICATION, per change, BEFORE finalizing wording: patch the real
+    committed corpus in-memory (temp copy of `infra/demo-manifests`, replace only the `FQN:` line
+    of the one document being retitled), reload via `Corpus`, and run `find_examples` for (a) the
+    colliding query named above, confirming the collision is gone, AND (b) every OTHER real task
+    query for that same family, confirming no new collision appears anywhere in that family
+    (including a possible THIRD-tier example sharing the same word - check explicitly, do not
+    assume these 5 are the last layer). If a first candidate fails, try another.
+  - >-
+    Do not touch `code`, `symbols`, `code_sha256`, `library_commit`, or any example this card does
+    not name, in any of the 5 files.
+  - >-
+    Before committing: run both `test_round3_retrieval_corpus.py` and
+    `test_forgiveness_acceptance.py` in full, twice, and report the real final wrong_conf count
+    alongside every floor in `test_forgiveness_acceptance.py`.
+actions:
+  - >-
+    Retitle the 5 named third-tier offending authored examples to remove their remaining
+    title-anchor collisions, iteratively verified against the whole real corpus, aiming for the
+    fleet-wide wrong-confident rate at or below 0.059 with no existing floor regressed.
+checks:
+  - command: '{python} -m pytest tests/indexing/test_authored_examples.py tests/indexing/test_authored_examples_cells_typescript.py tests/indexing/test_authored_examples_pdf_java.py tests/indexing/test_authored_examples_pdf_python.py tests/indexing/test_authored_examples_pdf_net.py tests/indexing/test_authored_examples_3d_typescript.py tests/infra/test_authored_examples_fixtures.py -q -rfE -p no:cacheprovider'
+    expect: 'exit 0'
+    timeout_seconds: 600
+    junitxml: true
+    proves:
+      - REQ-G3-014
+min_tests: 100
+requires:
+  - python
+network: false
+negative_control:
+  mutate: |
+    python -X utf8 -c "import pathlib; p = pathlib.Path('tests/fixtures/furnished/pdf_java/authored_examples.yaml'); s = p.read_text(encoding='utf-8'); old = 'code_sha256:'; count = s.count(old); assert count >= 1, 'no code_sha256 field found - the file does not match the expected schema'; import re; s2 = re.sub(r'code_sha256: [0-9a-f]{64}', 'code_sha256: ' + '0'*64, s, count=1); assert s2 != s; p.write_text(s2, encoding='utf-8')"
+  rationale: >-
+    Corrupts pdf/java's first example's own `code_sha256`, which must make `load_authored_
+    examples`'s own validation reject the whole sidecar file - a pure data mutation that never
+    touches any code path, confirming the aggregated check command genuinely re-validates every
+    file this card lists. The retitles' own semantic effect on the fleet-wide ratchet is proven
+    separately by the supervisor's post-integration re-bake and a direct re-run of the real
+    ratchet test, not by this negative control.
+evidence:
+  - evidence/build/G3/TC-763/receipt.json
+closeout:
+  - >-
+    EITHER the fleet-wide find_examples wrong-confident rate is back at or below 0.059 with every
+    existing floor held, through title-only edits to the 5 named third-tier authored examples; OR
+    the real best number reached is reported honestly with exactly which remain unresolved, with
+    no check weakened and no floor lowered.
+recovery: Re-run from a clean tree.
