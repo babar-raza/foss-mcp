@@ -1,0 +1,171 @@
+schema_version: 1
+pilot: html_python
+library_repository: aspose-html-foss/Aspose.HTML-FOSS-for-Python
+library_commit: bf0f1e7a6d29ca9e14de576fe3ff1aa49ddbaf11
+language: python
+examples:
+- title: Track Live Mutations to a Subtree with an Observer Callback
+  description: Attaches a MutationObserver to a container with child_list and subtree enabled, appends a child and a grandchild, confirms two childList records were delivered in order with the right added_nodes, then disconnects the observer and confirms a further mutation produces no more records.
+  symbols:
+  - MutationObserver
+  - MutationObserver.observe
+  - MutationObserver.disconnect
+  - MutationRecord
+  - Document.create_element
+  - Node.append_child
+  code: |
+    # Authored example: track live mutations to a subtree with an observer callback
+    from aspose_html.dom import Document, MutationObserver, MutationRecord
+
+    document = Document()
+    root = document.create_element("div")
+    document.append_child(root)
+
+    records = []
+    observer = MutationObserver(lambda recs, obs: records.extend(recs))
+    observer.observe(root, child_list=True, subtree=True)
+
+    child = document.create_element("span")
+    root.append_child(child)
+    grandchild = document.create_element("em")
+    child.append_child(grandchild)
+
+    print("mutation count:", len(records))
+    print("mutation types:", [record.type for record in records])
+    assert len(records) == 2
+    assert all(isinstance(record, MutationRecord) for record in records)
+    assert all(record.type == "childList" for record in records)
+    assert records[0].added_nodes[0] is child
+    assert records[1].added_nodes[0] is grandchild
+
+    observer.disconnect()
+    later = document.create_element("p")
+    child.append_child(later)
+    print("records after disconnect:", len(records))
+    assert len(records) == 2
+    print("OK")
+  code_sha256: 97a5e946d1940b5a599f700e1dc88f7f92e8a343a3dbfde5eb52284470f4d9cf
+- title: Toggle Membership of a Live Token Set and Confirm Containment
+  description: Toggles a token on and off a fresh element's class_list with no explicit force argument, then forces a second token on, confirming membership with both containment checks and the backing attribute value at each step.
+  symbols:
+  - DOMTokenList
+  - DOMTokenList.toggle
+  - DOMTokenList.contains
+  - Element.class_list
+  code: |
+    # Authored example: toggle membership of a live token set and confirm containment
+    from aspose_html.dom import DOMTokenList, Document
+
+    document = Document()
+    widget = document.create_element("div")
+    assert isinstance(widget.class_list, DOMTokenList)
+
+    turned_on = widget.class_list.toggle("active")
+    print("turned on:", turned_on)
+    assert turned_on is True
+    assert "active" in widget.class_list
+
+    turned_off = widget.class_list.toggle("active")
+    print("turned off:", turned_off)
+    assert turned_off is False
+    assert "active" not in widget.class_list
+
+    forced_on = widget.class_list.toggle("pinned", force=True)
+    print("forced on:", forced_on)
+    assert forced_on is True
+    assert widget.class_list.contains("pinned")
+    assert widget.get_attribute("class") == "pinned"
+    print("OK")
+  code_sha256: c676826e64f87cfaed850051990da1495b2b1adfd522cdb703fc9226d625dac2
+- title: Collect Name and Value Pairs into a Form Snapshot Object
+  description: Builds a FormData snapshot by hand, appends two values under the same name, confirms get_all returns both in order, replaces the other name's single value with set, then deletes one name and confirms what remains.
+  symbols:
+  - FormData
+  - FormData.append
+  - FormData.get_all
+  - FormData.set
+  - FormData.delete
+  code: |
+    # Authored example: collect name and value pairs into a form snapshot object
+    from aspose_html.dom import FormData
+
+    submission = FormData()
+    submission.append("username", "alice")
+    submission.append("role", "admin")
+    submission.append("role", "editor")
+
+    print("has username:", submission.has("username"))
+    print("all roles:", submission.get_all("role"))
+    assert submission.has("username")
+    assert submission.get_all("role") == ["admin", "editor"]
+
+    submission.set("username", "bob")
+    print("first username:", submission.get("username"))
+    assert submission.get("username") == "bob"
+
+    submission.delete("role")
+    print("entries after delete:", list(submission.entries()))
+    assert list(submission.entries()) == [("username", "bob")]
+    print("OK")
+  code_sha256: e6bba77f2b038557ce57cdf03401e38991ca5d5330470378661ab984e57e4bd7
+- title: Dispatch a Custom Event and Observe Its Payload Through a Listener
+  description: Registers a capturing listener on a document for a custom event type, dispatches a CustomEvent carrying a dict payload from a child element, and confirms the listener received the exact payload and the dispatch was not cancelled.
+  symbols:
+  - CustomEvent
+  - EventTarget.add_event_listener
+  - EventTarget.dispatch_event
+  - Event.type
+  code: |
+    # Authored example: dispatch a custom event and observe its payload through a listener
+    from aspose_html.dom import CustomEvent, Document
+
+    document = Document()
+    widget = document.create_element("div")
+    document.append_child(widget)
+
+    received = []
+    document.add_event_listener(
+        "widget-ready", lambda evt: received.append(evt.detail), capture=True
+    )
+
+    event = CustomEvent("widget-ready", bubbles=True, detail={"count": 3})
+    not_cancelled = widget.dispatch_event(event)
+
+    print("not cancelled:", not_cancelled)
+    print("received payload:", received)
+    assert not_cancelled is True
+    assert received == [{"count": 3}]
+    assert event.type == "widget-ready"
+    print("OK")
+  code_sha256: de89ce2a4bcad4a0a2858372883b96fea222363939c59694edc281518cc797d1
+- title: Round-Trip a CamelCase Dataset Key Through Its Hyphenated Storage Form
+  description: Writes two camelCase dataset keys on an element, confirms each is stored under its hyphenated data-* attribute name, reads the keys back out of the live dataset view, then deletes one key and confirms it is gone.
+  symbols:
+  - DOMStringMap
+  - Element.dataset
+  - DOMStringMap.keys
+  - Element.get_attribute
+  code: |
+    # Authored example: round-trip a camelCase dataset key through its hyphenated storage form
+    from aspose_html.dom import DOMStringMap, Document
+
+    document = Document()
+    card = document.create_element("div")
+    assert isinstance(card.dataset, DOMStringMap)
+
+    card.dataset["userId"] = "42"
+    card.dataset["sortOrder"] = "3"
+
+    print("stored as:", card.get_attribute("data-user-id"), card.get_attribute("data-sort-order"))
+    assert card.get_attribute("data-user-id") == "42"
+    assert card.get_attribute("data-sort-order") == "3"
+
+    print("keys back out:", sorted(card.dataset.keys()))
+    assert sorted(card.dataset.keys()) == ["sortOrder", "userId"]
+    assert card.dataset["userId"] == "42"
+
+    del card.dataset["sortOrder"]
+    print("has sortOrder after delete:", "sortOrder" in card.dataset)
+    assert "sortOrder" not in card.dataset
+    print("OK")
+  code_sha256: 7f105dc6a742ba78a19a497571831bfb11390d1e40f3f95fe7b23fce1feb8854
