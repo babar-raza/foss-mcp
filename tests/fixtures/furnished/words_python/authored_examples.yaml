@@ -1,0 +1,175 @@
+schema_version: 1
+pilot: words_python
+library_repository: aspose-words-foss/Aspose.Words-FOSS-for-Python
+library_commit: 2d2efee2787cb9e56d071d17f8d7b740dce8b784
+language: python
+examples:
+- title: Export a document to UTF-16 Markdown and confirm its byte-order mark
+  description: Saves a loaded document to Markdown with MarkdownSaveOptions.encoding set to "utf-16", then reads the saved file's raw bytes back to confirm it carries a UTF-16 little-endian byte-order mark and decodes to the original heading text.
+  symbols:
+  - Document
+  - Document.save
+  - MarkdownSaveOptions
+  - MarkdownSaveOptions.encoding
+  code: |
+    # Authored example: export a document to UTF-16 Markdown and confirm the saved file's byte-order mark.
+    import os
+    import tempfile
+
+    import aspose.words_foss as aw
+
+    doc = aw.Document("test_full_article.docx")
+
+    save_options = aw.saving.MarkdownSaveOptions()
+    save_options.encoding = "utf-16"
+
+    output_path = os.path.join(tempfile.gettempdir(), "authored_markdown_utf16_example.md")
+    doc.save(output_path, save_options)
+
+    with open(output_path, "rb") as handle:
+        raw = handle.read()
+    print("first two bytes:", raw[:2])
+    assert raw[:2] == b"\xff\xfe"
+
+    text = raw.decode("utf-16")
+    print("decoded length:", len(text))
+    assert len(text) > 0
+    assert "Introduction" in text
+
+    os.remove(output_path)
+    print("OK")
+  code_sha256: 41f75edbaadf5e3b0e22f4aafeceb7161488c8dea7a77eccaa2d61fe81bd1df3
+- title: Preserve blank lines when loading Markdown with MarkdownLoadOptions
+  description: Loads the same short Markdown source twice, once with default MarkdownLoadOptions and once with preserve_empty_lines set to True, and confirms the second load keeps the blank paragraphs the first one collapses away.
+  symbols:
+  - Document
+  - MarkdownLoadOptions
+  - MarkdownLoadOptions.preserve_empty_lines
+  - Section.body
+  - Paragraph.get_text
+  code: |
+    # Authored example: preserve blank lines when loading Markdown with MarkdownLoadOptions.
+    import io
+
+    import aspose.words_foss as aw
+
+    source = "# Title\n\n\nParagraph after two blank lines.\n"
+
+    default_doc = aw.Document(io.BytesIO(source.encode("utf-8")), aw.loading.MarkdownLoadOptions())
+    default_texts = [paragraph.get_text().strip() for paragraph in default_doc.sections[0].body.paragraphs]
+    print("default paragraphs:", default_texts)
+
+    load_options = aw.loading.MarkdownLoadOptions()
+    load_options.preserve_empty_lines = True
+    preserved_doc = aw.Document(io.BytesIO(source.encode("utf-8")), load_options)
+    preserved_texts = [paragraph.get_text().strip() for paragraph in preserved_doc.sections[0].body.paragraphs]
+    print("preserved paragraphs:", preserved_texts)
+
+    assert preserved_texts[-4:] == ["Title", "", "", "Paragraph after two blank lines."]
+    assert len(preserved_texts) > len(default_texts)
+    print("OK")
+  code_sha256: ed825ea3c2874459e2a6405a7938b46bd17957941ae21fd637925bd897575ca3
+- title: Compare DOCX package sizes across OOXML compression levels
+  description: Saves the same loaded document twice with OoxmlSaveOptions.compression_level set to NORMAL and then MAXIMUM, confirms the MAXIMUM output is never larger on disk, and reloads it to confirm the document's text is unchanged.
+  symbols:
+  - Document
+  - Document.save
+  - Document.get_text
+  - OoxmlSaveOptions
+  - OoxmlSaveOptions.compression_level
+  - CompressionLevel.MAXIMUM
+  code: |
+    # Authored example: compare DOCX package sizes across OOXML compression levels and confirm the text survives.
+    import os
+    import tempfile
+
+    import aspose.words_foss as aw
+
+    doc = aw.Document("test_full_article.docx")
+
+    normal_options = aw.saving.OoxmlSaveOptions()
+    normal_options.compression_level = aw.saving.CompressionLevel.NORMAL
+    normal_path = os.path.join(tempfile.gettempdir(), "authored_compression_normal_example.docx")
+    doc.save(normal_path, normal_options)
+
+    maximum_options = aw.saving.OoxmlSaveOptions()
+    maximum_options.compression_level = aw.saving.CompressionLevel.MAXIMUM
+    maximum_path = os.path.join(tempfile.gettempdir(), "authored_compression_maximum_example.docx")
+    doc.save(maximum_path, maximum_options)
+
+    normal_size = os.path.getsize(normal_path)
+    maximum_size = os.path.getsize(maximum_path)
+    print("normal size:", normal_size, "maximum size:", maximum_size)
+    assert maximum_size <= normal_size
+
+    reloaded = aw.Document(maximum_path)
+    print("reloaded text matches:", reloaded.get_text().strip() == doc.get_text().strip())
+    assert reloaded.get_text().strip() == doc.get_text().strip()
+
+    os.remove(normal_path)
+    os.remove(maximum_path)
+    print("OK")
+  code_sha256: dda43458bffe03cfebe75518e505223518ca8a5143cca9bc35e4a5e6f05bc251
+- title: Confirm an embedded image survives a DOCX round trip
+  description: Finds the embedded image shape in a loaded document with get_child_nodes(NodeType.SHAPE), records its raw image bytes, saves the document back to DOCX, reloads it and confirms the reloaded shape's image bytes are byte-for-byte identical.
+  symbols:
+  - Document
+  - Document.get_child_nodes
+  - Document.save
+  - NodeType.SHAPE
+  - Shape.has_image
+  - Shape.image_data
+  - ImageData.image_bytes
+  code: |
+    # Authored example: confirm an embedded image survives a DOCX round trip.
+    import os
+    import tempfile
+
+    import aspose.words_foss as aw
+
+    doc = aw.Document("image_in_header.docx")
+    shapes = [node.as_shape() for node in doc.get_child_nodes(aw.NodeType.SHAPE, True)]
+    image_shapes = [shape for shape in shapes if shape.has_image]
+    print("image shapes found:", len(image_shapes))
+    assert len(image_shapes) >= 1
+    original_bytes = image_shapes[0].image_data.image_bytes
+    assert len(original_bytes) > 0
+
+    docx_path = os.path.join(tempfile.gettempdir(), "authored_header_image_example.docx")
+    doc.save(docx_path, aw.SaveFormat.DOCX)
+
+    reloaded = aw.Document(docx_path)
+    reloaded_shapes = [node.as_shape() for node in reloaded.get_child_nodes(aw.NodeType.SHAPE, True)]
+    reloaded_images = [shape for shape in reloaded_shapes if shape.has_image]
+    print("reloaded image shapes found:", len(reloaded_images))
+    assert len(reloaded_images) >= 1
+    assert reloaded_images[0].image_data.image_bytes == original_bytes
+
+    os.remove(docx_path)
+    print("OK")
+  code_sha256: f79aced3d04c9deabede0c5717b7ffe1d61b85815cd22c7fe5725d4e8fc15af9
+- title: Confirm a legacy DOC file's extracted text matches its DOCX and RTF twins
+  description: Loads the same article content from its .docx, .doc (Word 97-2003 binary) and .rtf twin files and confirms Document.get_text() returns identical, non-empty text from all three readers.
+  symbols:
+  - Document
+  - Document.get_text
+  code: |
+    # Authored example: confirm a legacy DOC file's extracted text matches its DOCX twin.
+    import aspose.words_foss as aw
+
+    docx_document = aw.Document("test_full_article.docx")
+    doc_document = aw.Document("test_full_article.doc")
+
+    docx_text = docx_document.get_text().strip()
+    doc_text = doc_document.get_text().strip()
+    print("docx length:", len(docx_text), "doc length:", len(doc_text))
+    assert len(docx_text) > 0
+    assert len(doc_text) > 0
+    assert docx_text == doc_text
+
+    rtf_document = aw.Document("test_full_article.rtf")
+    rtf_text = rtf_document.get_text().strip()
+    print("rtf length:", len(rtf_text))
+    assert rtf_text == docx_text
+    print("OK")
+  code_sha256: ca414659403f846002d57d8a0ea20ba3c0ec1b6bb288d8a174f9db94f1684f22
