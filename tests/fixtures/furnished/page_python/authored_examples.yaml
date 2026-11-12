@@ -1,0 +1,169 @@
+schema_version: 1
+pilot: page_python
+library_repository: aspose-page-foss/Aspose.Page-FOSS-for-Python
+library_commit: 43cef367cd0b2cf00cc03064ca9d29d1ff507967
+language: python
+examples:
+- title: Insert and Remove PostScript Document Pages by Index While Tracking Each Page's Size
+  description: Creates a PostScript document with one page from PsDocument.create, appends a second page with an explicit size, inserts a third page at a specific index, and removes the first page, confirming the page count and each remaining page's width and height after every step. In-memory only; no file I/O.
+  symbols:
+  - PsDocument.create
+  - PsDocument.add_page
+  - PsDocument.insert_page
+  - PsDocument.remove_page
+  - PsDocument.get_page
+  - PsDocument.pages
+  code: |
+    # Authored example: insert and remove PostScript document pages by index while tracking each page's size
+    from aspose.page.ps.document import PsDocument
+
+    document = PsDocument.create(is_eps=False, page_size=(200.0, 300.0))
+    print("pages right after create:", len(document.pages))
+    assert len(document.pages) == 1
+    assert (document.pages[0].width, document.pages[0].height) == (200.0, 300.0)
+
+    document.add_page(size=(400.0, 500.0))
+    print("pages after one add_page:", len(document.pages))
+    assert len(document.pages) == 2
+
+    inserted = document.insert_page(1, size=(100.0, 150.0))
+    print("sizes after insert:", [(page.width, page.height) for page in document.pages])
+    assert len(document.pages) == 3
+    assert document.get_page(1) is inserted
+    assert (inserted.width, inserted.height) == (100.0, 150.0)
+
+    document.remove_page(0)
+    print("sizes after removing the first page:", [(page.width, page.height) for page in document.pages])
+    assert len(document.pages) == 2
+    assert (document.pages[0].width, document.pages[0].height) == (100.0, 150.0)
+    assert (document.pages[1].width, document.pages[1].height) == (400.0, 500.0)
+    print("OK")
+  code_sha256: 0e4e5edda2b637d67f4f265e428b7574de2f7d8ec35887390be53deb6d5fda21
+- title: Round-Trip an XMP Packet Through a Saved and Reloaded PostScript Document
+  description: Creates an EPS PostScript document, sets an XMP metadata packet on it, saves it to a temporary file, reopens the file and confirms the packet reads back unchanged, then removes the packet and confirms the removal survives on the reopened document. Local file only; no network.
+  symbols:
+  - PsDocument.create
+  - PsDocument.set_xmp
+  - PsDocument.get_xmp
+  - PsDocument.remove_xmp
+  - PsDocument.save
+  - PsDocument.from_file
+  code: |
+    # Authored example: round-trip an XMP packet through a saved and reloaded PostScript document
+    import os
+    import tempfile
+
+    from aspose.page.ps.document import PsDocument
+
+    document = PsDocument.create(is_eps=True, page_size=(300.0, 300.0))
+    document.set_xmp(
+        "<x:xmpmeta xmlns:x='adobe:ns:meta/'>"
+        "<rdf:RDF xmlns:rdf='http://example.com/rdf-syntax-ns'/>"
+        "</x:xmpmeta>"
+    )
+    print("xmp set before save:", document.get_xmp() is not None)
+    assert document.get_xmp() is not None
+
+    path = os.path.join(tempfile.gettempdir(), "authored_xmp_roundtrip_example.ps")
+    document.save(path)
+
+    reloaded = PsDocument.from_file(path)
+    packet = reloaded.get_xmp()
+    print("xmp after reload:", packet)
+    assert packet is not None
+    assert "xmpmeta" in packet
+
+    reloaded.remove_xmp()
+    print("xmp after remove:", reloaded.get_xmp())
+    assert reloaded.get_xmp() is None
+
+    os.remove(path)
+    print("OK")
+  code_sha256: 10334a0f13c3b9c3e84f226cd5378e991266eeceebe842ce17f2592a19170d1c
+- title: Attach and Remove a Print Ticket Scoped to One XPS Fixed Page
+  description: Creates an XPS document with two fixed pages, saves it so the pages exist as real package parts, attaches a print ticket scoped to the second page, confirms it is retrievable both before and after the document is saved and reloaded, then removes it and confirms the removal. Local file only; no network.
+  symbols:
+  - XpsDocument.create
+  - XpsDocument.add_page
+  - XpsDocument.set_print_ticket
+  - XpsDocument.get_print_tickets
+  - XpsDocument.remove_print_ticket
+  - PrintTicketScope
+  code: |
+    # Authored example: attach and remove a print ticket scoped to one XPS fixed page
+    import os
+    import tempfile
+
+    from aspose.page.xps.document import XpsDocument
+    from aspose.page.xps.print_tickets import PrintTicketScope
+
+    document = XpsDocument.create(title="Print ticket example")
+    document.add_page(400.0, 300.0)
+    document.add_page(400.0, 300.0)
+
+    path = os.path.join(tempfile.gettempdir(), "authored_print_ticket_example.xps")
+    document.save(path)
+
+    document.set_print_ticket("page", "<PrintTicket xmlns='ns'/>", 1)
+    tickets_before_reload = document.get_print_tickets()
+    print("tickets before reload:", len(tickets_before_reload))
+    assert len(tickets_before_reload) == 1
+    assert tickets_before_reload[0].scope == PrintTicketScope.PAGE
+
+    document.save(path)
+
+    reloaded = XpsDocument.from_file(path)
+    tickets_after_reload = reloaded.get_print_tickets()
+    print("tickets after reload:", len(tickets_after_reload))
+    assert len(tickets_after_reload) == 1
+
+    reloaded.remove_print_ticket("page", 1)
+    print("tickets after remove:", reloaded.get_print_tickets())
+    assert reloaded.get_print_tickets() == []
+
+    os.remove(path)
+    print("OK")
+  code_sha256: a8f022666c102d361fe3ccc5b50a566dfd8f40285c68950e6c7413a0a6ef7062
+- title: Reorder XPS Fixed Pages by Inserting and Removing Them by Index
+  description: Builds an XPS document with two fixed pages, inserts a third page in between them and removes the first page, confirming each page's size and position after every step, then saves and reloads the document to confirm the final page count survives the round trip. Local file only; no network.
+  symbols:
+  - XpsDocument.create
+  - XpsDocument.add_page
+  - XpsDocument.insert_page
+  - XpsDocument.remove_page
+  - XpsFixedPage
+  - XpsDocument.save
+  code: |
+    # Authored example: reorder XPS fixed pages by inserting and removing them by index
+    import os
+    import tempfile
+
+    from aspose.page.xps.document import XpsDocument
+    from aspose.page.xps.editing import XpsFixedPage
+
+    document = XpsDocument.create(title="Reorder example")
+    document.add_page(200.0, 200.0)
+    document.add_page(300.0, 300.0)
+
+    middle_page = XpsFixedPage(width=150.0, height=150.0)
+    document.insert_page(1, middle_page)
+    print("sizes after insert:", [(page.width, page.height) for page in document.builder.pages])
+    assert len(document.builder.pages) == 3
+    assert (document.builder.pages[1].width, document.builder.pages[1].height) == (150.0, 150.0)
+
+    document.remove_page(0)
+    print("sizes after removing the first page:", [(page.width, page.height) for page in document.builder.pages])
+    assert len(document.builder.pages) == 2
+    assert (document.builder.pages[0].width, document.builder.pages[0].height) == (150.0, 150.0)
+    assert (document.builder.pages[1].width, document.builder.pages[1].height) == (300.0, 300.0)
+
+    path = os.path.join(tempfile.gettempdir(), "authored_xps_reorder_example.xps")
+    document.save(path)
+
+    reloaded = XpsDocument.from_file(path)
+    print("page count after reload:", len(reloaded.builder.pages))
+    assert len(reloaded.builder.pages) == 2
+
+    os.remove(path)
+    print("OK")
+  code_sha256: ce0619ad555c471e6a6c11a673eb9fd230d88550fa5b995167e5072adc429bea
