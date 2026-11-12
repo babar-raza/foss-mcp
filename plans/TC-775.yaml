@@ -1,0 +1,135 @@
+id: TC-775
+gate: G3
+lane: storage-retrieval
+purpose: >-
+  URGENT, a THIRD real live CI break found the same day as `TC-773`/`TC-774`, via a follow-up
+  scoping fork that checked whether the same "bare assert inside a measurement loop, ahead of
+  that loop's own baseline comparison" bug shape exists elsewhere in `tests/conformance/`. It
+  does, live, in `tests/conformance/test_index_honesty.py` - confirmed directly by the
+  supervisor (not inferred): `python -m pytest tests/conformance/test_index_honesty.py` fails 5
+  tests right now, for TWO unrelated real root causes:
+
+  **(A) The crash-masking bug shape** (same class as `TC-773`/`TC-774`): `_tautology_
+  observations()` (lines ~136-174) has three bare `assert` statements inside its per-pilot loop
+  (line 142 `assert len(lines) == 1`, line 145 `assert "API-Coverage:" not in chunk["text"]`,
+  line 146 `assert lines_seen`, line 151 `assert parsed is not None`), all ahead of
+  `assert_no_new_failures(baseline, failures)` at line 181. Right now, `pdf__java` has a real
+  symbol chunk - `FQN: org.aspose.pdf.engine.xfa.model.template.Proto` (an XFA template model
+  class) - carrying ZERO `API-Coverage:` lines, confirmed directly by the supervisor via a
+  scratch script against the real baked corpus. This trips line 142 and crashes the whole loop
+  before `assert_no_new_failures` is ever reached, failing
+  `test_tautology_sub_case_matches_the_committed_baseline` and `test_tautology_sub_case_pins_
+  todays_real_count_of_fully_tautological_pilots`.
+
+  **(B) Stale pinned expectations, unrelated to (A), apparently from this session's own earlier
+  `TC-686`** (I4+I5, alias-shell-thinning - Python re-export shells became thin pointers instead
+  of full-duplicate-content chunks): `test_alias_duplication_sub_case_confirms_slides_python_is_
+  the_worst_case` still expects slides/python's `(groups, chunks, total)` tuple to be `(320, 764,
+  1023)`; it now measures `(53, 114, 1023)` - a large, expected DROP in duplication, exactly what
+  thinning alias shells should produce. `test_alias_duplication_sub_case_most_pilots_are_zero_or_
+  a_handful` still expects exactly 15 of 32 pilots at-or-below the duplicate-chunk threshold; it
+  now measures 19. `test_member_body_recovers_the_real_shared_section_from_a_shell_and_its_
+  definition` expected slides/python's `Presentation` shell+definition pair to yield >= 2 chunks
+  with a real `_member_body` - it now yields exactly 1, because the shell chunk (post-`TC-686`)
+  no longer carries a full duplicate body at all.
+
+  Both root causes must be investigated and fixed at their real source - never by just deleting
+  or weakening the failing assertions. Decide (A)'s fix per-assertion: an assertion checking a
+  genuine STRUCTURAL invariant that should never be violated (e.g. a malformed/unparsable
+  coverage line) may reveal a real extraction-side bug needing investigation and a real fix; one
+  that is better treated as a tolerable, baseline-tracked measurement (matching `TC-773`/`774`'s
+  precedent for the sentence-wrapped test) should be converted to a soft, non-crashing check so
+  the loop can complete and `assert_no_new_failures` becomes reachable - decide this per
+  assertion from first principles, not by rote imitation. For (B), re-measure the real current
+  values and either re-pin them (if the new, lower numbers are a correct, honest consequence of
+  `TC-686`'s already-accepted change) or find a different real multi-body example for the
+  member-body smoke test if slides/python's `Presentation` no longer qualifies.
+depends_on:
+  - TC-607
+write_paths:
+  - tests/conformance/test_index_honesty.py
+  - tests/fixtures/conformance/baseline_index_honesty.json
+satisfies:
+  - REQ-G3-010
+source_refs:
+  - file: docs/DECISION_LOG.md
+    anchor: >-
+      ## 2026-11-12 — a second, real live CI break found and closed the same day (`TC-773`/`TC-774`), plus a dormant baseline landmine it uncovered
+    sha256: e575f2c1a1240d03c7ffc444b9015d6b8c9db899588d717ab0b5083dba80a3df
+inputs:
+  - >-
+    READ FIRST: `tests/conformance/test_index_honesty.py` in full, especially `_tautology_
+    observations`, `_alias_duplication_observations`, and the 5 currently-failing tests named
+    above. Also read `TC-773`/`TC-774`'s own two commits (`git log --all --grep TC-773 --grep
+    TC-774` or similar) as the precedent for how a crash-masking assertion was converted to a
+    soft, baseline-tracked check without weakening the test's real purpose.
+  - >-
+    REPRODUCE FIRST, YOURSELF, FRESH: run `{python} -m pytest tests/conformance/
+    test_index_honesty.py -q -rfE` and confirm all 5 named failures reproduce exactly as
+    described.
+  - >-
+    For root cause (A): investigate WHY `org.aspose.pdf.engine.xfa.model.template.Proto` (and
+    check whether any OTHER real symbol chunk, in pdf/java or any other pilot, has the same gap -
+    do not assume it is isolated) carries no `API-Coverage:` line. Read
+    `src/foss_mcp/indexing/chunk_builder.py` (or wherever this line is emitted) to understand
+    under what real condition a symbol chunk could legitimately lack it. If this is a genuine
+    extraction/chunk-builder bug affecting production chunks (not just this test), that is the
+    real fix and belongs in THIS card's scope only if it stays inside `write_paths` - if the real
+    fix requires touching chunk_builder.py or extraction code outside `write_paths`, STOP and
+    report this precisely (which file, why) rather than forcing an unscoped fix; the test-side
+    assertions may instead need converting to soft/baseline-tracked checks (matching `TC-773`/
+    `774`) so this measured reality is tracked rather than crashing, while the real extraction
+    gap (if confirmed real) gets flagged for a focused follow-up card.
+  - >-
+    For root cause (B): re-measure slides/python's real current `(groups, chunks, total)` tuple
+    and the real current count of pilots at-or-below `DUPLICATE_CHUNK_THRESHOLD`, confirm these
+    are genuine, honest consequences of `TC-686`'s already-accepted alias-shell-thinning (not a
+    NEW, unrelated regression), and re-pin both tests to the real measured values with an updated
+    docstring citing this card and `TC-686`. For the member-body test, find a different real
+    pilot/symbol pair that still has >= 2 real chunks sharing a body (do not invent one) and use
+    that, OR if no such pair exists anywhere in the real corpus any more, report that honestly -
+    it may mean this specific smoke test's premise no longer holds anywhere and needs a different
+    real example entirely.
+  - >-
+    Before committing: run the full `tests/conformance/test_index_honesty.py` suite twice,
+    confirm it is completely green, and report the real final state of every one of the 5
+    previously-failing tests.
+actions:
+  - >-
+    Fix the real, live break in `tests/conformance/test_index_honesty.py` by converting any
+    crash-masking assertion whose root cause is a tolerable, baseline-tracked measurement into a
+    soft check (matching `TC-773`/`774`'s precedent), investigating and separately flagging any
+    genuine extraction-side bug found along the way, and re-pinning the two stale
+    alias-duplication/member-body expectations to real, freshly measured values consistent with
+    `TC-686`'s already-accepted change.
+checks:
+  - command: '{python} -m pytest tests/conformance/test_index_honesty.py -q -rfE -p no:cacheprovider'
+    expect: 'exit 0'
+    timeout_seconds: 300
+    junitxml: true
+    proves:
+      - REQ-G3-010
+min_tests: 5
+requires:
+  - python
+network: false
+negative_control:
+  mutate: |
+    python -X utf8 -c "import pathlib; p = pathlib.Path('tests/fixtures/conformance/baseline_index_honesty.json'); s = p.read_text(encoding='utf-8'); old = chr(123); count = s.count(old); assert count >= 1, 'the baseline file does not look like JSON'; import json; d = json.loads(s); assert isinstance(d, dict), 'expected a JSON object at the top level'; d2 = dict(d); d2['known_failures'] = []; p.write_text(json.dumps(d2, indent=2) + chr(10), encoding='utf-8')"
+  rationale: >-
+    Empties the baseline's known_failures list entirely, which must make the tautology
+    sub-case's baseline-comparison test fail once it is reachable (pure JSON data mutation,
+    never touches code). Confirm by hand this actually exercises the fixed, reachable
+    `assert_no_new_failures` call before trusting the review - if the production code path this
+    card changes does not route through this exact file, re-anchor the mutate on whatever file
+    actually governs the fixed check instead.
+evidence:
+  - evidence/build/G3/TC-775/receipt.json
+closeout:
+  - >-
+    `tests/conformance/test_index_honesty.py` is fully green again, for real, verified reasons:
+    the tautology sub-case's baseline comparison is reachable and accurate; the
+    alias-duplication and member-body expectations reflect real, freshly measured post-`TC-686`
+    reality. Any genuine extraction-side bug found along the way is flagged precisely for a
+    focused follow-up, not silently absorbed into this card.
+recovery: Re-run from a clean tree.
