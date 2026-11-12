@@ -1,0 +1,153 @@
+
+===== CLEAN RUN 1 (host) =====
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-5c72e798a73c059a\Scripts\python.exe -m pytest tests/indexing/test_authored_examples.py tests/indexing/test_authored_examples_3d_python.py tests/infra/test_authored_examples_fixtures.py -q -rfE -p no:cacheprovider "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-2mfndn5n\.junit-0.xml"
+--- stdout ---
+........................................................................ [ 33%]
+........................................................................ [ 66%]
+........................................................................ [100%]
+
+--- stderr ---
+
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-5c72e798a73c059a\Scripts\python.exe -m pytest tests/mcp/tools/test_round3_retrieval_corpus.py tests/mcp/tools/test_forgiveness_acceptance.py -q -rfE -p no:cacheprovider "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-2mfndn5n\.junit-1.xml"
+--- stdout ---
+..........................................................               [100%]
+
+--- stderr ---
+
+
+===== CLEAN RUN 2 (host) =====
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-5c72e798a73c059a\Scripts\python.exe -m pytest tests/indexing/test_authored_examples.py tests/indexing/test_authored_examples_3d_python.py tests/infra/test_authored_examples_fixtures.py -q -rfE -p no:cacheprovider "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-2mfndn5n\.junit-0.xml"
+--- stdout ---
+........................................................................ [ 33%]
+........................................................................ [ 66%]
+........................................................................ [100%]
+
+--- stderr ---
+
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-5c72e798a73c059a\Scripts\python.exe -m pytest tests/mcp/tools/test_round3_retrieval_corpus.py tests/mcp/tools/test_forgiveness_acceptance.py -q -rfE -p no:cacheprovider "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-2mfndn5n\.junit-1.xml"
+--- stdout ---
+..........................................................               [100%]
+
+--- stderr ---
+
+
+===== NEGATIVE CONTROL (checks MUST now fail) =====
+mutated: M tests/fixtures/furnished/3d_python/authored_examples.yaml, ?? .junit-0.xml, ?? .junit-1.xml
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-5c72e798a73c059a\Scripts\python.exe -m pytest tests/indexing/test_authored_examples.py tests/indexing/test_authored_examples_3d_python.py tests/infra/test_authored_examples_fixtures.py -q -rfE -p no:cacheprovider "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-2mfndn5n\.junit-0.xml"
+--- stdout ---
+........................................................................ [ 33%]
+........................................................................ [ 66%]
+...................F.F..F.......................................F....... [100%]
+================================== FAILURES ===================================
+_____ test_the_sidecar_loads_and_yields_exactly_five_authored_candidates ______
+
+    def test_the_sidecar_loads_and_yields_exactly_five_authored_candidates() -> None:
+>       candidates = _candidates()
+                     ^^^^^^^^^^^^^
+
+tests\indexing\test_authored_examples_3d_python.py:113: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+tests\indexing\test_authored_examples_3d_python.py:87: in _candidates
+    return load_authored_examples(
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+path = WindowsPath('E:/Users/prora/OneDrive/Documents/GitHub/foss-mcp/.gatectl-worktrees/wt-2mfndn5n/tests/fixtures/furnished/3d_python/authored_examples.yaml')
+pilot = '3d_python', library_platform = 'python'
+library_commit = '65b1f577c0f16d0d9112bb6c1153d3024543ac02'
+api_types = [{'bases': [], 'canonical_namespace': 'aspose.threed.PropertyCollection', 'class_import': 'aspose.threed.PropertyColle...space': 'aspose.threed.entities', 'class_import': 'aspose.threed.entities.MappingMode', 'deprecated': False, ...}, ...]
+
+    def load_authored_examples(
+        path: Path,
+        *,
+        pilot: str,
+        library_platform: str,
+        library_commit: str,
+        api_types: Sequence[Mapping[str, object]],
+    ) -> tuple[CandidateExample, ...]:
+        """Load and validate the sidecar at ``path``; one authored ``CandidateExample`` per example.
+    
+        The candidates are in file order, with ``provenance`` ``"authored"``, ``source`` ``"sidecar"``,
+        ``starts_example`` True, ``imports_only`` False, an empty ``import_prefix``, a ``page_code``
+        holding only their own code and the sidecar's ``code_sha256``. Raises ``AuthoredExamplesError``
+        whose message lists every problem when the file cannot be read or parsed or any rule of
+        ``validate_authored_examples`` fails. The code is never imported, compiled or run here.
+        """
+        try:
+            text = Path(path).read_bytes().decode("utf-8")
+        except (OSError, UnicodeDecodeError) as exc:
+            raise AuthoredExamplesError(f"cannot read {SIDECAR_NAME}: {type(exc).__name__}") from exc
+        try:
+            document = yaml.safe_load(text)
+        except yaml.YAMLError as exc:
+            raise AuthoredExamplesError(f"{SIDECAR_NAME} is not valid YAML: {type(exc).__name__}") from exc
+    
+        problems = validate_authored_examples(
+            document,
+            pilot=pilot,
+            library_platform=library_platform,
+            library_commit=library_commit,
+            api_types=api_types,
+        )
+        if problems:
+>           raise AuthoredExamplesError("; ".join(problems))
+E           foss_mcp.indexing.authored_examples.AuthoredExamplesError: rule 1 (structure): example 1: code_sha256 must be 64 lowercase hex characters
+
+src\foss_mcp\indexing\authored_examples.py:343: AuthoredExamplesError
+_________________ test_the_sidecar_has_no_validation_problems _________________
+
+    def test_the_sidecar_has_no_validation_problems() -> None:
+        library = _pilot_library()
+        problems = validate_authored_examples(
+            _document(),
+            pilot=PILOT,
+            library_platform=library["platform"],
+            library_commit=library["commit"],
+            api_types=_api_types(),
+        )
+>       assert problems == []
+E       AssertionError: assert ['rule 1 (str...x characters'] == []
+E         
+E         Left contains one more item: 'rule 1 (structure): example 1: code_sha256 must be 64 lowercase hex characters'
+E         Use -v to get more diff
+
+tests\indexing\test_authored_examples_3d_python.py:139: AssertionError
+________________________ test_the_code_hash_matches[0] ________________________
+
+index = 0
+
+    @pytest.mark.parametrize("index", EXAMPLE_INDEXES)
+    def test_the_code_hash_matches(index: int) -> None:
+        example = _example(index)
+>       assert example["code_sha256"] == normalised_code_sha256(example["code"])
+E       assert 0 == 'da811b4e146345b58f7b9147db00d2cc9c9dc93d7214216aa27f4876c0e3d4d8'
+E        +  where 'da811b4e146345b58f7b9147db00d2cc9c9dc93d7214216aa27f4876c0e3d4d8' = normalised_code_sha256('# Authored example: assemble a custom polygon face from four raw vertex indices with PolygonBuilder.\nfrom aspose.thr...ygon count:", mesh.polygon_count)\nassert len(mesh.control_points) == 4\nassert mesh.polygon_count == 1\nprint("OK")\n')
+
+tests\indexing\test_authored_examples_3d_python.py:170: AssertionError
+_____________ test_every_committed_sidecar_is_valid_for_its_pilot _____________
+
+    def test_every_committed_sidecar_is_valid_for_its_pilot() -> None:
+        failures: list[str] = []
+        for path in sorted(FURNISHED.glob(f"*/{SIDECAR_NAME}")):
+            pilot_name = path.parent.name
+            failures += [f"{pilot_name}: {problem}" for problem in sidecar_problems(path, pilot_name)]
+>       assert not failures, "invalid authored-example sidecars:\n" + "\n".join(failures)
+E       AssertionError: invalid authored-example sidecars:
+E         3d_python: schema: examples/0/code_sha256: 0 is not of type 'string'
+E         3d_python: rule 1 (structure): example 1: code_sha256 must be 64 lowercase hex characters
+E       assert not ["3d_python: schema: examples/0/code_sha256: 0 is not of type 'string'", '3d_python: rule 1 (structure): example 1: code_sha256 must be 64 lowercase hex characters']
+
+tests\infra\test_authored_examples_fixtures.py:98: AssertionError
+=========================== short test summary info ===========================
+FAILED tests/indexing/test_authored_examples_3d_python.py::test_the_sidecar_loads_and_yields_exactly_five_authored_candidates
+FAILED tests/indexing/test_authored_examples_3d_python.py::test_the_sidecar_has_no_validation_problems
+FAILED tests/indexing/test_authored_examples_3d_python.py::test_the_code_hash_matches[0]
+FAILED tests/infra/test_authored_examples_fixtures.py::test_every_committed_sidecar_is_valid_for_its_pilot
+
+--- stderr ---
+
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-5c72e798a73c059a\Scripts\python.exe -m pytest tests/mcp/tools/test_round3_retrieval_corpus.py tests/mcp/tools/test_forgiveness_acceptance.py -q -rfE -p no:cacheprovider "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-2mfndn5n\.junit-1.xml"
+--- stdout ---
+..........................................................               [100%]
+
+--- stderr ---
+
