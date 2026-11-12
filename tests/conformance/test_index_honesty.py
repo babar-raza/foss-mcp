@@ -11,11 +11,16 @@ sections 1.1/M2 and 2.1/F7):
    production regex (``foss_mcp.mcp.tools.coverage_note.parse_api_coverage`` - the exact parser
    ``get_symbol``/``report_index_freshness`` already use), and records how many of the 32 pilots
    show 100% everywhere today.
-2. **Alias duplication**: a Python re-export shell and its definition are rendered as two separate
-   symbol chunks that share a byte-identical ``Methods:``/``Properties:`` body (confirmed below by
-   reading the real chunk text: see ``_member_body``). This sub-case groups each pilot's symbol
-   chunks by that body and flags a pilot whose duplicate-body chunk count exceeds a documented
-   threshold.
+2. **Alias duplication**: a Python re-export shell and its definition used to be rendered as two
+   separate symbol chunks that share a byte-identical ``Methods:``/``Properties:`` body (confirmed
+   below by reading the real chunk text: see ``_member_body``) - ``TC-686`` (I4+I5, REQ-G3-012)
+   thinned every real shell's body to empty, so this specific alias pattern no longer reproduces
+   anywhere (confirmed, G3/TC-775: 0 of 1,379 real shell chunks across the 11 real Python pilots
+   carry a nonempty body any more). The underlying duplicate-body grouping this sub-case measures
+   is broader than that one pattern, though, and still finds real, COINCIDENTAL duplication
+   (unrelated types that happen to render an identical trivial body) in every pilot that had it
+   before. This sub-case groups each pilot's symbol chunks by that body and flags a pilot whose
+   duplicate-body chunk count exceeds a documented threshold.
 3. **Parse-failure undercount**: the ``API-Coverage:`` line's "N source files could not be parsed"
    clause is the POST-REPAIR count (``run_extraction.python_parse_health``'s ``failed``), which can
    understate the AS-WRITTEN count (``as_written_failed``) - already confirmed for tex/python
@@ -127,28 +132,87 @@ def _python_pilot_names() -> list[str]:
 def _tautology_observations(corpus: ConformanceCorpus) -> tuple[list[dict[str, str]], dict[str, bool]]:
     """``(observed_failures, {pilot: is_100_percent_everywhere})`` over every real pilot.
 
-    A "failure" here is reserved for the sanity check the card asks for: the SAME line's own
-    numerator exceeding its denominator (or a functions clause doing the same) - an internally
-    inconsistent claim no honest accounting explains. A genuine, honestly-disclosed <100% case is
-    never a failure (the card calls that a good sign); it only flips that pilot's own
-    ``is_100_percent_everywhere`` entry to ``False`` for the closeout's own count.
+    A "failure" here covers two things: the sanity check the card asks for (the SAME line's own
+    numerator exceeding its denominator, or a functions clause doing the same - an internally
+    inconsistent claim no honest accounting explains), and - G3/TC-775 - a structural gap in the
+    disclosure itself (a symbol chunk with zero or more than one ``API-Coverage:`` line, a
+    non-symbol chunk that carries one, an unparsable line, or a pilot with no disclosed line at
+    all). These structural checks used to be bare ``assert`` statements here, which crashed this
+    whole function (and every one of this test module's three sub-cases, since they share one
+    pytest collection) before ``assert_no_new_failures`` was ever reached - exactly the same
+    crash-masking shape `TC-773`/`TC-774` found and fixed in `test_sentence_wrapped_retrieval.py`.
+    They are real findings now, not crashes: confirmed, G3/TC-775, against the real baked corpus,
+    exactly one of them fires today - `pdf__java`'s real
+    `org.aspose.pdf.engine.xfa.model.template.Proto` symbol chunk carries ZERO ``API-Coverage:``
+    lines, because its rendered text (hundreds of XFA child-element accessor methods) exceeds
+    ``infra/build_chunks.py``'s ``MAX_CHUNK_TEXT_CHARS`` (24,000) cap and ``_sanitize_chunk_text``'s
+    truncation cuts the text before reaching the trailing ``API-Coverage:`` line
+    ``chunk_builder._format_type_text`` always appends last. That is a real, genuine
+    extraction/build-pipeline defect (any sufficiently large chunk can silently lose its coverage
+    disclosure the same way) - its real fix lives in ``infra/build_chunks.py``, outside this card's
+    ``write_paths``, so it is flagged here for a focused follow-up card rather than forced into this
+    one's scope; this test only ensures the real gap is tracked, not silently absorbed or allowed to
+    crash the rest of this module's measurements. A genuine, honestly-disclosed <100% case is never
+    a failure (the card calls that a good sign); it only flips that pilot's own
+    ``is_100_percent_everywhere`` entry to ``False`` for the closeout's own count - and so does a
+    structural gap, since "100% everywhere" cannot honestly be claimed for a pilot with a symbol
+    chunk that discloses no coverage at all.
     """
     failures: list[dict[str, str]] = []
     all_100_percent: dict[str, bool] = {}
     for name, pilot in sorted(corpus.pilots.items()):
         lines_seen: set[str] = set()
+        has_structural_gap = False
         for chunk in pilot.symbol_chunks():
             lines = _coverage_lines(chunk["text"])
-            assert len(lines) == 1, f"{name}: a symbol chunk carries {len(lines)} API-Coverage lines"
+            if len(lines) != 1:
+                has_structural_gap = True
+                failures.append(
+                    {
+                        "pilot": name,
+                        "case_id": f"tautology:{name}",
+                        "reason": (
+                            f"a symbol chunk ({chunk.get('chunk_id')!r}) carries {len(lines)} "
+                            "API-Coverage lines instead of exactly 1"
+                        ),
+                    }
+                )
+                continue
             lines_seen.add(lines[0])
         for chunk in [*pilot.doc_chunks(), *pilot.example_chunks()]:
-            assert "API-Coverage:" not in chunk["text"], f"{name}: a non-symbol chunk carries the line"
-        assert lines_seen, f"{name}: no symbol chunk carries an API-Coverage line"
+            if "API-Coverage:" in chunk["text"]:
+                has_structural_gap = True
+                failures.append(
+                    {
+                        "pilot": name,
+                        "case_id": f"tautology:{name}",
+                        "reason": f"a non-symbol chunk ({chunk.get('chunk_id')!r}) carries the API-Coverage line",
+                    }
+                )
+        if not lines_seen:
+            has_structural_gap = True
+            failures.append(
+                {
+                    "pilot": name,
+                    "case_id": f"tautology:{name}",
+                    "reason": "no symbol chunk carries an API-Coverage line",
+                }
+            )
 
-        pilot_is_100_percent = True
+        pilot_is_100_percent = not has_structural_gap
         for line in lines_seen:
             parsed = parse_api_coverage(line)
-            assert parsed is not None, f"{name}: unparsable API-Coverage line {line!r}"
+            if parsed is None:
+                has_structural_gap = True
+                pilot_is_100_percent = False
+                failures.append(
+                    {
+                        "pilot": name,
+                        "case_id": f"tautology:{name}",
+                        "reason": f"unparsable API-Coverage line {line!r}",
+                    }
+                )
+                continue
             if parsed.indexed > parsed.total:
                 failures.append(
                     {
@@ -188,12 +252,24 @@ def test_tautology_sub_case_pins_todays_real_count_of_fully_tautological_pilots(
     coverage everywhere today, naming any exception. Measured 2026-10-30: all 32 (no exception) -
     the tautology this card's purpose describes reproduces on every real baked pilot, every symbol
     chunk, with no doc/example chunk ever carrying the line and no symbol chunk ever missing it.
+
+    Re-measured G3/TC-775 (2026-11-12): 31 of 32, with exactly one real, confirmed exception -
+    `pdf__java`. Its real `org.aspose.pdf.engine.xfa.model.template.Proto` symbol chunk discloses NO
+    ``API-Coverage:`` line at all (not merely a <100% one): the chunk's rendered text is large enough
+    (hundreds of XFA child-element accessor methods) to exceed ``infra/build_chunks.py``'s 24,000-
+    character cap, and that script's ``_sanitize_chunk_text`` truncation cuts the text before it
+    reaches the trailing coverage line `chunk_builder._format_type_text` always appends last - a
+    real extraction/build-pipeline defect (see `_tautology_observations`'s own docstring), flagged
+    for a focused follow-up card since its fix lives outside this card's `write_paths`. This is not
+    the "genuine, honestly-disclosed <100%" case this docstring's prior paragraph calls a good sign
+    - it is an outright missing disclosure - so it is named here as the one real exception rather
+    than silently folded back into "no exception".
     """
     _, all_100_percent = _tautology_observations(corpus)
     assert len(all_100_percent) == EXPECTED_PILOT_COUNT, sorted(all_100_percent)
     exceptions = sorted(name for name, is_full in all_100_percent.items() if not is_full)
-    assert exceptions == [], (
-        f"a genuine, honestly-disclosed <100% pilot now exists: {exceptions} (not a failure - update this test's own pinned count and name it in the next card's closeout)"
+    assert exceptions == ["pdf__java"], (
+        f"the set of pilots with a real coverage exception changed: {exceptions} (update this test's own pinned list and name the change in the next card's closeout)"
     )
 
 
@@ -247,6 +323,15 @@ def test_alias_duplication_sub_case_confirms_slides_python_is_the_worst_case(
     (764 of 1023 symbol chunks, 74.7%) of any of the 32 pilots. (3d/python and html/python each have
     a larger SINGLE group - 62 chunks sharing one body, vs. slides/python's largest group of 12 -
     but far fewer groups overall, so they do not overtake slides/python on either headline metric.)
+
+    Re-measured G3/TC-775 (2026-11-12), after `TC-686` (I4+I5) thinned every real Python re-export
+    shell's body to empty: slides/python drops to (53, 114, 1023) - a large, expected DROP (320->53
+    groups, 764->114 chunks) consistent with removing the shell+definition alias pattern while
+    leaving its coincidental, non-alias duplicate-body groups untouched. It is STILL the worst case
+    by both metrics (confirmed directly, not assumed): no other pilot overtakes it on groups or
+    chunks. 3d/python and html/python still each have the largest SINGLE group of any pilot (31
+    chunks sharing one body, down from the pre-TC-686 62, since their own shell-pattern groups
+    thinned too) - comfortably larger than slides/python's own largest group, now 6.
     """
     _, measurements = _alias_duplication_observations(corpus)
     worst_by_groups = max(measurements, key=lambda name: measurements[name][0])
@@ -254,19 +339,28 @@ def test_alias_duplication_sub_case_confirms_slides_python_is_the_worst_case(
     assert worst_by_groups == "slides__python", measurements
     assert worst_by_chunks == "slides__python", measurements
     groups, chunks, total = measurements["slides__python"]
-    assert (groups, chunks, total) == (320, 764, 1023), measurements["slides__python"]
+    assert (groups, chunks, total) == (53, 114, 1023), measurements["slides__python"]
 
 
 def test_alias_duplication_sub_case_most_pilots_are_zero_or_a_handful(corpus: ConformanceCorpus) -> None:
     """The card's own expectation: "most pilots should have zero or very few" duplicate-body
     chunks. Measured 2026-10-30: 15 of the 32 pilots are at or below the threshold (9 of those have
-    zero duplicate-body groups at all); this baseline exists to measure the other 17."""
+    zero duplicate-body groups at all); this baseline exists to measure the other 17.
+
+    Re-measured G3/TC-775 (2026-11-12), after `TC-686` (I4+I5) thinned every real Python re-export
+    shell's body to empty: 19 of the 32 pilots are now at or below the threshold - a real, expected
+    RISE (15->19) from removing shell+definition alias duplication in several Python pilots whose
+    remaining (coincidental) duplication alone no longer exceeds it (`barcode__python`, `email__
+    python`, `note__python`, `page__python`, `tex__python`). ``zero_groups`` is unchanged at 9 -
+    every pilot that had zero duplicate-body groups before `TC-686` still has zero now; `TC-686`
+    only shrinks pilots that already had some duplication, it never introduces a new zero.
+    """
     _, measurements = _alias_duplication_observations(corpus)
     at_or_below_threshold = [
         name for name, (_, chunks, _) in measurements.items() if chunks <= DUPLICATE_CHUNK_THRESHOLD
     ]
     zero_groups = [name for name, (groups, _, _) in measurements.items() if groups == 0]
-    assert len(at_or_below_threshold) == 15, sorted(at_or_below_threshold)
+    assert len(at_or_below_threshold) == 19, sorted(at_or_below_threshold)
     assert len(zero_groups) == 9, sorted(zero_groups)
 
 
@@ -376,17 +470,42 @@ def test_member_body_excludes_an_empty_methods_and_properties_section() -> None:
     assert _member_body(text) == ""
 
 
-def test_member_body_recovers_the_real_shared_section_from_a_shell_and_its_definition(
+def test_member_body_recovers_a_real_shared_section_from_two_unrelated_duplicate_types(
     corpus: ConformanceCorpus,
 ) -> None:
-    """A real (non-synthetic) smoke test: the known slides/python shell+definition pair for
-    ``Presentation`` renders the same ``_member_body`` text from two different chunks."""
+    """A real (non-synthetic) smoke test of ``_member_body``.
+
+    G3/TC-775: this test's original subject - the slides/python ``Presentation`` Python re-export
+    shell and its definition sharing a ``_member_body`` - no longer exists anywhere in the real
+    corpus. ``TC-686`` (I4+I5, REQ-G3-012) thinned every real Python re-export shell's body to
+    empty; confirmed directly (this card's own worker, by scanning all 1,379 real shell chunks
+    across the 11 real Python pilots): 0 of them carry a nonempty body any more, so no
+    shell+definition pair can ever again satisfy this test's original premise anywhere in the
+    corpus - this is a correct, honest consequence of ``TC-686``'s already-accepted change, not a
+    new regression.
+
+    The real, still-reproducing duplicate-body case used instead: six distinct, UNRELATED
+    slides/python collection-interface types (``IAdjustValueCollection``, ``IFillFormatCollection``,
+    ``IExtraColorSchemeCollection``, ``ITextAnimationCollection``, ``IEffectStyleCollection``,
+    ``ILineFormatCollection``) that coincidentally render the exact same trivial two-property body -
+    the kind of coincidental, non-alias duplication ``_alias_duplication_observations`` above
+    already measures regardless of what causes it.
+    """
     pilot = corpus.pilots["slides__python"]
+    target_type_names = {
+        "IAdjustValueCollection",
+        "IFillFormatCollection",
+        "IExtraColorSchemeCollection",
+        "ITextAnimationCollection",
+        "IEffectStyleCollection",
+        "ILineFormatCollection",
+    }
     bodies_by_fqn = {}
     for chunk in pilot.symbol_chunks():
-        if "aspose.slides_foss.Presentation" in chunk["text"].splitlines()[0]:
+        first_line = chunk["text"].splitlines()[0]
+        if first_line.rsplit(".", 1)[-1] in target_type_names:
             body = _member_body(chunk["text"])
             if body:
-                bodies_by_fqn[chunk["text"].splitlines()[0]] = body
+                bodies_by_fqn[first_line] = body
     assert len(bodies_by_fqn) >= 2, bodies_by_fqn.keys()
-    assert len(set(bodies_by_fqn.values())) == 1, "the shell and the definition should share one body"
+    assert len(set(bodies_by_fqn.values())) == 1, "these unrelated types should share one coincidental body"

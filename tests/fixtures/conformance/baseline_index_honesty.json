@@ -2,6 +2,11 @@
   "strict": false,
   "known_failures": [
     {
+      "pilot": "pdf__java",
+      "case_id": "tautology:pdf__java",
+      "reason": "the real org.aspose.pdf.engine.xfa.model.template.Proto symbol chunk carries 0 API-Coverage lines instead of exactly 1. G3/TC-775: confirmed real, not a measurement artifact - Proto's rendered text (hundreds of XFA child-element accessor methods) exceeds infra/build_chunks.py's MAX_CHUNK_TEXT_CHARS (24,000) cap, and that script's _sanitize_chunk_text truncation cuts the text before it reaches the trailing API-Coverage line chunk_builder._format_type_text always appends last. A genuine extraction/build-pipeline defect (any sufficiently large chunk can silently lose its coverage disclosure the same way); its real fix lives in infra/build_chunks.py, outside this card's write_paths, so it is recorded here and flagged for a focused follow-up card rather than forced into this one's scope. Confirmed isolated: this is the only such gap across every symbol chunk of all 32 real baked pilots."
+    },
+    {
       "pilot": "slides__python",
       "case_id": "alias_duplication:slides__python",
       "reason": "320 duplicate-body group(s) across 764 of 1023 symbol chunks (byte-identical rendered Methods:/Properties: sections, i.e. Python re-export shell + definition pairs) exceed the >10-duplicate-chunk threshold. Measured 2026-10-30: the known worst case by BOTH group count and chunk count (confirms the slides/python citation; 74.7% of its symbol chunks are duplicate-body)."
