@@ -1,0 +1,113 @@
+{
+  "schema_version": 1,
+  "card": "TC-758",
+  "gate": "G3",
+  "generated_by": "gatectl",
+  "generated_at": "2026-11-12T05:48:18Z",
+  "base_rev": "de7fd5ae843d257846ac817b9380c6c346f0c8c6",
+  "head_rev": "84729809631c3b648287f76bfee94d5e73d25f95",
+  "card_sha256": "af5541c2cf226d1b595e6331c8e1607137f007e96af649b25f8558413fed4d0a",
+  "fingerprint": {
+    "python": "3.13.2",
+    "platform": "Windows-11-10.0.26300-SP0",
+    "lock_sha256": "5c72e798a73c059a438e752e94a8d4c88c1bdf81a197f6e5c5fcecbc9466a691",
+    "env": {
+      "PYTHONHASHSEED": "0",
+      "PYTHONUTF8": "1",
+      "PYTHONDONTWRITEBYTECODE": "1",
+      "PYTHONIOENCODING": "utf-8",
+      "TZ": "UTC",
+      "LC_ALL": "C.UTF-8",
+      "SOURCE_DATE_EPOCH": "1700000000",
+      "verify_runner": "host"
+    }
+  },
+  "scope": {
+    "ok": true,
+    "changed_paths": [
+      "config/known_defects/3d__typescript.yaml",
+      "tests/indexing/test_known_defects_completeness.py",
+      "tests/indexing/test_known_defects_data_3d.py",
+      "tests/mcp/tools/test_known_defects_3d_typescript_stl.py"
+    ],
+    "violations": [],
+    "evaluated": true
+  },
+  "runs": [
+    {
+      "run": 1,
+      "checks": [
+        {
+          "command": "{python} -m pytest tests/mcp/tools/test_known_defects_3d_typescript_stl.py -q -rfE -p no:cacheprovider",
+          "exit_code": 0,
+          "duration_s": 0.85,
+          "stdout_sha256": "700bc0322b00f8e8db3ce495047983b54ab27ab59ed1fedac05f3aeba47dae24",
+          "tests": 6,
+          "skipped": 0,
+          "errors": 0,
+          "failures": 0
+        },
+        {
+          "command": "{python} -m pytest tests/indexing/test_known_defects_completeness.py tests/indexing/test_known_defects_data_3d.py -q -rfE -p no:cacheprovider",
+          "exit_code": 0,
+          "duration_s": 7.774,
+          "stdout_sha256": "a82a0b51cd86fa0131904e08c34ef556963104f0e3677f688117e093ebf2d3fe",
+          "tests": 27,
+          "skipped": 0,
+          "errors": 0,
+          "failures": 0
+        }
+      ],
+      "all_passed": true
+    },
+    {
+      "run": 2,
+      "checks": [
+        {
+          "command": "{python} -m pytest tests/mcp/tools/test_known_defects_3d_typescript_stl.py -q -rfE -p no:cacheprovider",
+          "exit_code": 0,
+          "duration_s": 0.524,
+          "stdout_sha256": "700bc0322b00f8e8db3ce495047983b54ab27ab59ed1fedac05f3aeba47dae24",
+          "tests": 6,
+          "skipped": 0,
+          "errors": 0,
+          "failures": 0
+        },
+        {
+          "command": "{python} -m pytest tests/indexing/test_known_defects_completeness.py tests/indexing/test_known_defects_data_3d.py -q -rfE -p no:cacheprovider",
+          "exit_code": 0,
+          "duration_s": 6.869,
+          "stdout_sha256": "a82a0b51cd86fa0131904e08c34ef556963104f0e3677f688117e093ebf2d3fe",
+          "tests": 27,
+          "skipped": 0,
+          "errors": 0,
+          "failures": 0
+        }
+      ],
+      "all_passed": true
+    }
+  ],
+  "negative_control": {
+    "kind": "mutate",
+    "patch": "python -X utf8 -c \"import pathlib; p = pathlib.Path('config/known_defects/3d__typescript.yaml'); s = p.read_text(encoding='utf-8'); old = 'Scene.save to .stl writes polygon vertex indices instead of vertex coordinates'; assert s.count(old) == 1, 'the STL-001 summary sentence must appear exactly once - the registry entry is missing or does not match this card'; p.write_text(s.replace(old, 'Scene.save to .stl writes vertex coordinates', 1), encoding='utf-8')\"\n",
+    "patch_sha256": "d961831ed8f8b998fb58e47d482d7bc48898e8203b9a90d6d3a8c145e6582656",
+    "applied": true,
+    "patch_applied_failed": true,
+    "exit_codes": [
+      1,
+      0
+    ],
+    "tree_changed": [
+      "M config/known_defects/3d__typescript.yaml",
+      "?? .junit-0.xml",
+      "?? .junit-1.xml"
+    ]
+  },
+  "holdout": {
+    "ran": false,
+    "passed": true,
+    "detail": "no holdout for this card"
+  },
+  "accepted": true,
+  "reason": "all gates passed"
+}
