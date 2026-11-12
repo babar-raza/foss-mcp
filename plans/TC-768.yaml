@@ -1,0 +1,133 @@
+id: TC-768
+gate: G3
+lane: storage-retrieval
+purpose: >-
+  P4 example-corpus program (REQ-G3-014), continuing the same real pilot-adoption pattern this
+  session has already proven on 26 other sibling pilots (zero file overlap with any of them -
+  do not touch anything any of them touch) via the EXISTING, already-wired
+  `authored_examples.yaml` mechanism (`TC-460`/`TC-565`/`TC-566`). Confirmed needing ZERO code
+  change: `infra/build_chunks.py`'s `_load_authored_candidates` auto-loads `tests/fixtures/
+  furnished/<pilot>/authored_examples.yaml`, merges it with README-derived candidates, and runs
+  every entry through `verify_python_example`, publishing only the ones that pass.
+
+  `3d/python` currently serves only 9 real example chunks (the authoritative count - read
+  `payload.stats.examples` directly from the real committed `infra/demo-manifests/
+  3d__python__self_extracted` generation JSON via `json.load`, NEVER by grepping a literal
+  string, which overstates the count roughly 2x). Its own real floor is 12-22 (Appendix C of the
+  foss-mcp unified plan). Its real pinned repository is `aspose-3d-foss/
+  Aspose.3D-FOSS-for-Python` (re-confirm the exact pinned commit from `infra/helm/foss-mcp/
+  values.yaml` or `infra/demo-inputs/` - do not trust this card's own citation blindly).
+
+  IMPORTANT: `3d_python` is NOT one of the two existing `_BUILTIN_PILOTS` entries (only `3d_net`
+  and `3d_java` are/were - `3d_net` was just removed from that dict by `TC-766`, leaving only
+  `3d_java`). Confirm this yourself (`grep '"3d_python"' src/foss_mcp/indexing/
+  authored_examples.py tests/indexing/test_authored_examples.py` should return nothing) before
+  starting - 3d/python genuinely needs a fresh sidecar file with zero special-case code gap,
+  unlike `3d_net`'s TC-766 which needed two extra files in its write_paths.
+
+  Per the project's own Appendix-C accounting, 3d/python ships NO dedicated `examples/`-style
+  sample directory upstream (class C: none; 34 tests) - seed from the library's own test suite /
+  API surface instead. Note `3d/python`'s own known upstream limits already disclosed in
+  `config/known_defects/3d__python.yaml` - read it first; do not author an example that exercises
+  any already-disclosed broken path.
+
+  `_MAX_EXAMPLES = 5` is a hard ceiling. Up to 5 new, real, individually-verified authored
+  examples, each passing the real ingestion verifier before being trusted to publish.
+depends_on:
+  - TC-460
+  - TC-565
+  - TC-566
+write_paths:
+  - tests/fixtures/furnished/3d_python/authored_examples.yaml
+  - tests/indexing/test_authored_examples_3d_python.py
+satisfies:
+  - REQ-G3-014
+source_refs:
+  - file: docs/DECISION_LOG.md
+    anchor: >-
+      ## 2026-11-12 — PAGE-PYTHON-011: PsDocument.to_pdf()/to_image() silently merges an EPS document's pages onto one output page, found while authoring page/python examples
+    sha256: eb07c383b8f27e9d8f307991753e6b99b807be80eade51f55175cdde9fe3ae75
+inputs:
+  - >-
+    READ FIRST: `tests/fixtures/furnished/cells_python/authored_examples.yaml` and its sibling
+    test file (same-language Python template, from this session's earlier pilots). Also read
+    `src/foss_mcp/indexing/authored_examples.py` in full (every structural rule -
+    `_MAX_EXAMPLES`, `_MAX_TITLE_CHARS`, `FORBIDDEN_CODE_PATTERNS`, `code_sha256` must equal
+    `normalised_code_sha256(code)`, `symbols` must be real FQNs, `library_commit` must be the real
+    40-hex pinned commit, `LANGUAGE_BY_PLATFORM` maps `python` -> `python`),
+    `src/foss_mcp/indexing/example_verifier.py`'s `verify_python_example`, and
+    `infra/build_chunks.py`'s `_load_authored_candidates`.
+  - >-
+    REPRODUCE FIRST: confirm `3d/python`'s real current served count (via
+    `payload.stats.examples`) and real pinned repository/commit yourself. Read
+    `config/known_defects/3d__python.yaml` in full so you do not accidentally author an example
+    around an already-disclosed broken feature.
+  - >-
+    CRITICAL - BEFORE TITLING ANY EXAMPLE: this session closed a real, severe fleet-wide
+    regression (see `docs/DECISION_LOG.md`'s 2026-11-10 through 2026-11-12 entries) caused by
+    earlier authored-example titles using common generic words (e.g. "page", "read", "set", "add",
+    "save", "node") that collided with unrelated queries via `title_anchored`
+    (`src/foss_mcp/mcp/tools/relevance.py`). `3d/python`'s own sibling `3d/typescript` was one of
+    the pilots this regression hit hardest (via the word "node" - see `TC-763`), and `3d/net`'s
+    own `TC-766` deliberately avoided "node" too. Give each new example a SPECIFIC, multi-word,
+    low-collision title, and before finalizing any title, grep `tests/mcp/tools/
+    test_round3_retrieval_corpus.py`'s real 3d/python task queries and this pilot's OWN existing
+    example titles for the exact words you plan to use. Run the real `find_examples` corpus check
+    locally after adding your titles (not just the card's own listed check) to confirm you have
+    not reintroduced a title-collision regression.
+  - >-
+    VERIFY EACH EXAMPLE YOURSELF before committing: install the real pinned package in a venv,
+    run each adapted script, confirm its real output matches what you claim. Do not submit an
+    example you have not personally run successfully.
+  - >-
+    `FORBIDDEN_CODE_PATTERNS` blocks environment/credential access, process spawning, raw network
+    clients, and interactive input. Confirm none of your examples trips them.
+  - >-
+    Run `ruff format` and `ruff check` on the new test file before committing.
+  - >-
+    This card does NOT claim `3d/python`'s example-corpus work is complete. If fewer than 5 real
+    candidates verify cleanly, submit the real number and say so honestly - as several prior
+    sibling cards this session correctly did when a candidate exercised a real, previously-unknown
+    upstream bug rather than shipping a wrong assertion.
+actions:
+  - >-
+    Author up to 5 new, real, individually-verified examples for 3d/python via the existing
+    authored_examples.yaml mechanism, raising its served example count from 9 toward 14, with
+    titles deliberately checked against the fleet-wide title-anchor collision class this session
+    already closed once, and none exercising an already-disclosed broken upstream feature.
+checks:
+  - command: '{python} -m pytest tests/indexing/test_authored_examples.py tests/indexing/test_authored_examples_3d_python.py tests/infra/test_authored_examples_fixtures.py -q -rfE -p no:cacheprovider'
+    expect: 'exit 0'
+    timeout_seconds: 300
+    junitxml: true
+    proves:
+      - REQ-G3-014
+  - command: '{python} -m pytest tests/mcp/tools/test_round3_retrieval_corpus.py tests/mcp/tools/test_forgiveness_acceptance.py -q -rfE -p no:cacheprovider'
+    expect: 'exit 0'
+    timeout_seconds: 900
+    junitxml: true
+    proves:
+      - REQ-G3-014
+min_tests: 5
+requires:
+  - python
+network: false
+negative_control:
+  mutate: |
+    python -X utf8 -c "import pathlib; p = pathlib.Path('tests/fixtures/furnished/3d_python/authored_examples.yaml'); s = p.read_text(encoding='utf-8'); assert s, 'the sidecar file is empty or missing - this card must create it with real content before this mutate can run'; old = 'code_sha256:'; count = s.count(old); assert count >= 1, 'no code_sha256 field found - the file does not match the expected schema'; import re; s2 = re.sub(r'code_sha256: [0-9a-f]{64}', 'code_sha256: ' + '0'*64, s, count=1); assert s2 != s; p.write_text(s2, encoding='utf-8')"
+  rationale: >-
+    Corrupts the first example's own `code_sha256` to a value that cannot match the real code's
+    hash, which must make `load_authored_examples`'s own validation reject the whole sidecar file -
+    a pure data mutation, immune to the lockstep-rename vacuousness class found earlier this
+    session, and it never touches any code path. Confirm by hand that the check files named
+    actually exercise this validation path before trusting it.
+evidence:
+  - evidence/build/G3/TC-768/receipt.json
+closeout:
+  - >-
+    3d/python gains up to 5 new, real, individually-verified authored examples via the existing,
+    already-wired authored_examples.yaml mechanism (zero code change), raising its served example
+    count from 9 toward 14 - real, bounded progress toward its own (12-22) floor, with titles
+    deliberately verified against the fleet-wide title-anchor regression class this session
+    already closed once, so as not to reopen it.
+recovery: Re-run from a clean tree.
