@@ -1,0 +1,89 @@
+{
+  "schema_version": 1,
+  "card": "TC-776",
+  "gate": "G3",
+  "generated_by": "gatectl",
+  "generated_at": "2026-11-12T17:28:11Z",
+  "base_rev": "ad29b6aad920440f12cc2aa6e4cf48a624de3668",
+  "head_rev": "cd56593fc6dd25a941b3f346ef2f7621fc1c5861",
+  "card_sha256": "43c91af968a1d5d3f97f91c393c5ecb3ca7cea09ad8c60f50d2842cc06b7d015",
+  "fingerprint": {
+    "python": "3.13.2",
+    "platform": "Windows-11-10.0.26300-SP0",
+    "lock_sha256": "5c72e798a73c059a438e752e94a8d4c88c1bdf81a197f6e5c5fcecbc9466a691",
+    "env": {
+      "PYTHONHASHSEED": "0",
+      "PYTHONUTF8": "1",
+      "PYTHONDONTWRITEBYTECODE": "1",
+      "PYTHONIOENCODING": "utf-8",
+      "TZ": "UTC",
+      "LC_ALL": "C.UTF-8",
+      "SOURCE_DATE_EPOCH": "1700000000",
+      "verify_runner": "host"
+    }
+  },
+  "scope": {
+    "ok": true,
+    "changed_paths": [
+      "tests/conformance/test_symbol_self_retrieval.py",
+      "tests/fixtures/conformance/baseline_symbol_self_retrieval.json"
+    ],
+    "violations": [],
+    "evaluated": true
+  },
+  "runs": [
+    {
+      "run": 1,
+      "checks": [
+        {
+          "command": "{python} -m pytest tests/conformance/test_symbol_self_retrieval.py -q -rfE -p no:cacheprovider",
+          "exit_code": 0,
+          "duration_s": 92.89,
+          "stdout_sha256": "7040371af15613c02e821ec0eecc1d1330f691ace4cef93a41bfa358822c4103",
+          "tests": 10,
+          "skipped": 0,
+          "errors": 0,
+          "failures": 0
+        }
+      ],
+      "all_passed": true
+    },
+    {
+      "run": 2,
+      "checks": [
+        {
+          "command": "{python} -m pytest tests/conformance/test_symbol_self_retrieval.py -q -rfE -p no:cacheprovider",
+          "exit_code": 0,
+          "duration_s": 89.599,
+          "stdout_sha256": "7040371af15613c02e821ec0eecc1d1330f691ace4cef93a41bfa358822c4103",
+          "tests": 10,
+          "skipped": 0,
+          "errors": 0,
+          "failures": 0
+        }
+      ],
+      "all_passed": true
+    }
+  ],
+  "negative_control": {
+    "kind": "mutate",
+    "patch": "python -X utf8 -c \"import pathlib, json; p = pathlib.Path('tests/fixtures/conformance/baseline_symbol_self_retrieval.json'); d = json.loads(p.read_text(encoding='utf-8')); assert d.get('known_failures'), 'known_failures must be a non-empty list after this card refreshes it'; d2 = dict(d); d2['known_failures'] = []; p.write_text(json.dumps(d2, indent=2) + chr(10), encoding='utf-8')\"\n",
+    "patch_sha256": "a3579fc134834a03f7583229be8530df953d55490f2b7bc2029cbbbef2c115af",
+    "applied": true,
+    "patch_applied_failed": true,
+    "exit_codes": [
+      1
+    ],
+    "tree_changed": [
+      "M tests/fixtures/conformance/baseline_symbol_self_retrieval.json",
+      "?? .junit-0.xml"
+    ]
+  },
+  "holdout": {
+    "ran": false,
+    "passed": true,
+    "detail": "no holdout for this card"
+  },
+  "accepted": true,
+  "reason": "all gates passed"
+}
