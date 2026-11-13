@@ -393,6 +393,27 @@ the oracle covers, and the real result of covering it, is now stated here rather
   files are already fully green under their current, correct, non-strict checks and nothing is being masked by
   leaving them non-strict. This card deliberately does not attempt that refactor; B5 and B6 stay `strict: false`
   until a future card funnels their sub-case tests the way B4's own test already does.
+- **`report_index_freshness`'s drift fields structurally cannot resolve beyond `unknown` for several
+  `self_extracted` pilots** (G3/TC-780, I14's own closure action, investigated directly, not carded - see
+  `docs/DECISION_LOG.md`'s 2026-11-07 "CELLS-CPP-006" entry and this card's own live re-verification).
+  `report_index_freshness.py`'s own tri-state verdict can only reach a confident `freshness_state` other than
+  `unknown` through one of `current_source_commit`, `releases`, or `registry_served_version` - none of which a
+  `self_extracted` pilot with no live upstream repository/registry this project tracks can supply by itself; the
+  one already-computed, real signal that DOES exist for these pilots (`pinned_matches_symbols`) is not wired into
+  the verdict today. This is not one universal code defect: live-checking the real baked
+  `infra/demo-manifests/recent_releases_*.json` sidecars directly, `3d/net`'s is a literal empty list (zero
+  releases, hence zero drift-ancestry records to compare against) while every one of seven other pilots checked
+  the same way (`cells/net`, `pdf/net`, `slides/java`, `cells/cpp`, `pdf/go`, `cells/python`, plus others this
+  card's own ledger rows touch) carries real release-and-drift data - `3d/net`'s own upstream repository has
+  simply never had a GitHub Release fetched for it, a per-pilot baked-data gap, not a shared bug. Together these
+  two real, structural causes are why `docs/ROUND2_REVIEW.md` rows RD2-017 (`3D-NET-007`), RD2-057
+  (`CELLS-CPP-006`), RD2-064 (`CELLS-GO-004`), RD2-081 (`CELLS-NET-006`), RD2-091 (`CELLS-PY-009`), RD2-170
+  (`PAGE-PYTHON-004`), RD2-206 (`PDF-NET-005`), and RD2-238 (`SLIDES-JAVA-004`) stay `OPEN` rather than `FIXED` or
+  `DISCLOSED` after this card's own individual, live re-verification of each: the gap each one names is real and
+  still live today, not stale prose. A future card should either add a new, explicitly-graded `freshness_basis`
+  (e.g. `self_extracted_verified`, driven by `pinned_matches_symbols`) that never masquerades as a live registry
+  comparison that was never actually made, or extend the release-fetching pipeline to also record tags (not only
+  GitHub Releases) for repositories like `3d/net`'s that never publish the latter - neither is attempted here.
 
 ### Kubernetes chart (not part of the standalone release)
 
