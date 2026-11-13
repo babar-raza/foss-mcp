@@ -2,34 +2,39 @@ id: TC-781
 gate: G3
 lane: storage-retrieval
 purpose: >-
-  Closes O10 ("oracle closure", REQ-G3-012), the third of the plan's 8 named closure stages,
-  continuing the same day as Q17 (`TC-777`) and I14 (`TC-780`). A dedicated scoping investigation
-  confirmed this card is NOT another large ledger-dispositioning pass like its two predecessors:
-  `O1`-`O9` are already genuinely done (`O9` via `TC-694`; the real per-pilot C++ oracle
-  root-causing via `docs/ORACLE_TRIAGE.md`, written by `TC-691`, and its own prep card `TC-732`;
-  the oracle snapshot/ratchet mechanism via `tests/fixtures/oracle/snapshot.json`, `TC-693`), and
-  I14 (this card's other dependency) landed today. Of `docs/ROUND2_REVIEW.md`'s 286 rows, exactly
-  19 name an O-series card in their `Cards` column - but ALL 19 collapse into the SAME 2 row
-  clusters `TC-780`'s own I14 pass already individually investigated and correctly left `OPEN`
-  minutes ago (real, still-broken findings or deliberately deferred work). Re-touching them here
-  would be redundant, not real new work - **do not re-disposition any row `TC-780` already
-  touched**.
+  Closes O10 (REQ-G3-012, "oracle closure"), the third of the plan's 8 named closure stages,
+  continuing the methodology that just closed Q17 (`TC-777`) and I14 (`TC-780`) today. A
+  dedicated scoping investigation confirmed O10's own real dependencies (`O9`, `I14`) are both
+  genuinely satisfied: O9 landed via `TC-694` (oracle enumerators run in pinned containers), and
+  I14 landed via `TC-780` today.
 
-  O10's real, distinct job is the formal closure wrapper the plan's own "Notes that govern
-  several cards" section describes for every closure stage: confirm the oracle program (`O1`-
-  `O9`) is genuinely complete end to end, write the closing `DECISION_LOG`/`RELEASE.md` summary
-  recording that state, and confirm the real oracle test suite is green. If, while confirming
-  this, you find any genuinely NEW row (not already touched by `TC-777`/`TC-780`) that
-  legitimately belongs to O10's own closure, disposition it the same individually-live-verified
-  way - but the expectation, confirmed by the scoping investigation, is that none remain.
+  UNLIKE Q17/I14, O10 is confirmed NOT primarily a ledger-dispositioning task. Of the 286
+  `docs/ROUND2_REVIEW.md` rows, only 19 remain `OPEN` naming an O-series card in their `Cards`
+  column - and all 19 are the SAME rows `TC-780`'s own I14 pass individually investigated minutes
+  earlier and correctly left honestly `OPEN` (confirmed real, still-broken findings or
+  deliberately deferred work - re-touching them again under O10 would be redundant, not real new
+  work). O10's genuine, distinct substance already exists, built by two prior cards: `docs/
+  ORACLE_TRIAGE.md` (`TC-691`) classifies every real Go/Rust/C++ oracle-disagreement pilot, and
+  `TC-732` ("O10 prep") finished the real individual root-causing for the 3 previously-untraced
+  C++ pilots (`cells/cpp`, `slides/cpp`, `email/cpp`) against their real pinned source, explicitly
+  closing out with "O10... still separately waits on I14" - now resolved. The real oracle test
+  suite (`tests/release/test_source_differential.py`, `test_oracle_shell_resolution.py`,
+  `test_oracle_inherited_verification.py`) is confirmed green by the supervisor directly, with
+  Docker running.
+
+  This card's real job: confirm the oracle program (`O1`-`O10`) is genuinely, fully complete per
+  the master plan's own closure rule ("an oracle class may end only FIXED or DEFINITIONAL -
+  'disclosed limitation' is NOT an allowed closure" - verify every real oracle-disagreement
+  bucket this project ever classified actually ends in one of those two states, not a third,
+  unresolved state masquerading as closed), write the formal closure summary into `docs/
+  RELEASE.md` section 8 and `docs/DECISION_LOG.md`, and do NOT re-touch the 19 ledger rows I14
+  already correctly left open.
 depends_on:
-  - TC-780
   - TC-694
+  - TC-780
   - TC-691
   - TC-732
-  - TC-693
 write_paths:
-  - docs/ROUND2_REVIEW.md
   - docs/RELEASE.md
 satisfies:
   - REQ-G3-012
@@ -40,51 +45,46 @@ source_refs:
     sha256: 10dfc1f5b3843a42e1538b5ffa95001e50b8f263a02772cef0d0670add8c5bf9
 inputs:
   - >-
-    READ FIRST: `docs/ORACLE_TRIAGE.md` in full (the real per-pilot oracle classification `TC-691`
-    wrote), `tests/fixtures/oracle/snapshot.json` (the real O8 snapshot/ratchet mechanism), and
-    `docs/ROUND2_REVIEW.md`'s own 19 rows naming an O-series card (confirm yourself they are the
-    exact same rows `TC-780` already dispositioned or correctly left OPEN - do not re-touch them
-    unless your own fresh investigation finds a genuinely different, previously-unconsidered
-    angle).
+    READ FIRST: `docs/ORACLE_TRIAGE.md` in full (all 7 real Go/Rust/C++ oracle-disagreement
+    pilots and their real classification), `plans/TC-732.yaml`'s own closeout, and the master
+    plan's own closure rule for the oracle program (section 2.3 of `C:\Users\babar\.claude\
+    plans\steady-wobbling-meteor.md`: "an oracle class may end only FIXED or DEFINITIONAL").
   - >-
-    REPRODUCE FIRST, YOURSELF, FRESH (needs Docker running - confirm `docker info` succeeds
-    first, start Docker Desktop if not): run `{python} -m pytest tests/release/
-    test_source_differential.py tests/release/test_oracle_shell_resolution.py tests/release/
-    test_oracle_inherited_verification.py -q -rfE` and confirm the real oracle test suite is
-    fully green. This is the real evidence O10 closes on, not assumed.
+    REPRODUCE FIRST: re-run `{python} -m pytest tests/release/test_source_differential.py
+    tests/release/test_oracle_shell_resolution.py tests/release/test_oracle_inherited_
+    verification.py tests/release/test_oracle_triage_doc.py -q -rfE` yourself (Docker must be
+    running - confirm with `docker info` first; use PowerShell with `.\scripts\toolchain\
+    activate.ps1` run first in the same invocation if you need helm/go/cargo/docker on PATH) and
+    confirm every test passes before claiming closure.
   - >-
-    Writing a closing entry in `docs/DECISION_LOG.md` is NOT this card's job (that file is never
-    a worker's write_paths - the supervisor adds that separately after integration). This card's
-    real, concrete deliverable in `docs/RELEASE.md` is a NEW, genuine completeness record (not
-    padding): read the file's own structure first and add a note, in whichever existing section
-    best fits (or a new small one if none fits), stating the oracle program's real final,
-    measured state - cite the real total oracle-disagreement reconciliation achieved across
-    `O1`-`O9` (pull the real numbers from `docs/ORACLE_TRIAGE.md` and the earlier oracle-program
-    cards' own closeout text, re-verified by you, not copied blindly) and the real test suite
-    result you just measured. This is genuine release documentation a reader would want, not
-    filler - if, after really looking, you find this exact content is ALREADY fully present
-    elsewhere in `docs/RELEASE.md` verbatim, say so precisely (cite the section) rather than
-    duplicating it, but do not skip this step without that specific verification.
+    Verify every real oracle-disagreement bucket this project has ever classified (the 2
+    cross-cutting buckets in `ORACLE_TRIAGE.md` - inheritance-flattening, bare-name/overload
+    collision - plus Go's struct-embedding-promotion variant found by `TC-691`, plus whatever
+    `TC-732` concluded for the 3 C++ pilots) genuinely ends in `FIXED` or `DEFINITIONAL`, per the
+    plan's own rule. If you find any bucket still effectively "disclosed limitation only" with
+    no real fix or definitional resolution, report this honestly rather than silently calling it
+    closed - that would be a real gap worth flagging for its own follow-up, not papering over.
   - >-
-    Do NOT re-disposition any of the 19 O-series `docs/ROUND2_REVIEW.md` rows unless your own
-    fresh investigation finds one is genuinely NOT the same row `TC-780` already correctly
-    touched - verify this precisely before changing anything, citing the exact row id and why it
-    differs from what `TC-780`'s own report already covered.
+    Do NOT re-touch any row in `docs/ROUND2_REVIEW.md` - the 19 remaining O-series rows were
+    already individually investigated and correctly left `OPEN` by `TC-780`'s own I14 pass
+    minutes earlier; re-touching them is explicitly out of scope and would be redundant work, not
+    real progress.
   - >-
-    Do NOT touch `tests/deploy/test_round2_ledger.py`, `docs/ORACLE_TRIAGE.md`, `tests/fixtures/
-    oracle/snapshot.json`, any `tests/conformance/*.py` file, or any extraction/oracle test or
-    fixture file - this card confirms the real state of all of these, it does not change them.
+    Add the formal O10 closure summary to `docs/RELEASE.md` section 8 in the existing format
+    (matching `TC-777`'s/`TC-780`'s own entries there), stating plainly what IS closed (O1-O9,
+    the oracle-disagreement classification/root-causing program) and naming the 19 real,
+    still-open findings honestly rather than implying they're resolved.
   - >-
-    Before committing: run `{python} -m pytest tests/deploy/test_round2_ledger.py tests/conformance/ -q -rfE -p no:cacheprovider`
-    twice to confirm no regression, and report the real result alongside the oracle suite's own
-    real result.
+    This card's write_paths is deliberately `docs/RELEASE.md` ONLY - the DECISION_LOG entry
+    itself is written by the supervisor directly after acceptance, matching the established
+    pattern for every closure card this session (Q17, I14). Do not attempt to write
+    `docs/DECISION_LOG.md` yourself.
 actions:
   - >-
-    Confirm the oracle program (O1-O9) is genuinely complete, record its real closure state in
-    `docs/RELEASE.md` if anything is genuinely missing there, and verify (without redundantly
-    re-touching) that no O-series ledger row needs a disposition `TC-780` did not already give it.
+    Confirm the oracle program (O1-O10) is genuinely complete per the plan's own closure rule,
+    and write the formal closure summary into `docs/RELEASE.md` section 8.
 checks:
-  - command: '{python} -m pytest tests/deploy/test_round2_ledger.py tests/conformance/ -q -rfE -p no:cacheprovider'
+  - command: '{python} -m pytest tests/release/test_source_differential.py tests/release/test_oracle_shell_resolution.py tests/release/test_oracle_inherited_verification.py tests/release/test_oracle_triage_doc.py tests/deploy/test_release_known_limitations.py -q -rfE -p no:cacheprovider'
     expect: 'exit 0'
     timeout_seconds: 600
     junitxml: true
@@ -93,21 +93,27 @@ checks:
 min_tests: 5
 requires:
   - python
-network: false
+  - docker
+network: true
 negative_control:
   mutate: |
-    python -X utf8 -c "import pathlib; p = pathlib.Path('docs/ROUND2_REVIEW.md'); s = p.read_text(encoding='utf-8'); old = '| RD2-003 |'; count = s.count(old); assert count == 1, 'the expected RD2-003 row marker was not found exactly once - the card needs re-anchoring'; idx = s.index(old); line_end = s.index(chr(10), idx); line = s[idx:line_end]; parts = line.rsplit('|', 2); assert len(parts) == 3; corrupted = parts[0] + '|BOGUS_STATUS' + '|' + parts[2]; s2 = s[:idx] + corrupted + s[line_end:]; assert s2 != s; p.write_text(s2, encoding='utf-8')"
+    python -X utf8 -c "import pathlib; p = pathlib.Path('docs/RELEASE.md'); s = p.read_text(encoding='utf-8'); old = '**L-022**'; count = s.count(old); assert count == 1, 'the expected L-022 bold marker was not found exactly once - the card needs re-anchoring'; s2 = s.replace(old, 'L-022', 1); assert s2 != s; p.write_text(s2, encoding='utf-8')"
   rationale: >-
-    Corrupts row RD2-003's own Status cell to a value that is not any real disposition, which
-    must make the permanent test_every_row_status_is_a_real_disposition_value check (added by
-    TC-777) fail - a pure data mutation, immune to the lockstep-rename vacuousness class found
-    earlier this session, and it never touches any code path.
+    Strips the bold markup from the existing, already-committed L-022 limitation entry, which
+    must make tests/deploy/test_release_known_limitations.py fail (it explicitly asserts every
+    ACCEPTED_LEDGER_IDS entry "must each appear exactly once, in bold") - this proves the
+    required check command's own aggregated test suite genuinely reads docs/RELEASE.md's real
+    content, since this card's own new closure prose has no dedicated automated consumer of its
+    specific wording. A pure text mutation, immune to the lockstep-rename vacuousness class
+    found earlier this session, and it never touches any code path.
 evidence:
   - evidence/build/G3/TC-781/receipt.json
 closeout:
   - >-
-    O10 (oracle closure) is closed: the real oracle test suite confirmed green, the oracle
-    program's real end-to-end completeness recorded, and the 19 O-series ledger rows confirmed
-    to need no redundant re-disposition beyond what TC-780 already gave them (or, if a genuinely
-    new one was found, dispositioned the same individually-verified way).
+    O10 (oracle closure) is closed: the oracle program (O1-O10) is confirmed genuinely complete
+    per the plan's own closure rule (every classified bucket ends FIXED or DEFINITIONAL, never
+    merely "disclosed"), the real oracle test suite confirmed green, and the formal closure
+    summary written into docs/RELEASE.md. The 19 remaining real open findings in
+    docs/ROUND2_REVIEW.md (already individually investigated by I14) are named honestly, not
+    silently absorbed.
 recovery: Re-run from a clean tree.
