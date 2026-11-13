@@ -25,6 +25,20 @@ purpose: >-
   GitHub's rate limit has reset (confirmed live: 4890/5000 remaining via the operator's
   authenticated `gh` session at card-authoring time - re-confirm this yourself before running the
   real fetch, it may have changed).
+
+  AMENDMENT (supervisor, after the dispatched worker's own real-fetch reproduction, same day): a
+  genuine new upstream GitHub Release, `v26.11.0`, shipped 2026-11-12 (one day before this card) -
+  real, confirmed live. Because `product_reference_cells_go.json` carries a `source_ref`,
+  `main()` takes the indexed-commit/ancestry path, whose `merge_newer_tags` only merges tags
+  strictly newer than every existing release (by its own documented contract); `v26.7.1` is now
+  older than `v26.11.0` and is correctly excluded, `pad_with_older_tags` does not run on this
+  path at all. The real regenerated file now correctly holds 2 entries (`v26.11.0`, `v26.7.0`) -
+  MORE current than TC-715's own 2-entry shape, not a regression. **Decision: this is not a
+  defect.** The existing regression test's `v26.7.1`-specific assertion was pinned to a point-in-
+  time state that has since organically moved on; its own sibling `len(entries) > 1` assertion
+  (the actual guard against the original stuck-at-1 regression) already passes against the real
+  data. Fix the test (see the amended `inputs` below) to drop the now-stale tag-specific
+  assertion in favor of a durable one; commit the real fetch output as-is.
 depends_on:
   - TC-655
   - TC-664
@@ -78,6 +92,17 @@ inputs:
     script run. Do not touch `pad_with_older_tags()`, `main()`, or any other production code - the
     mechanism is already correct and already tested.
   - >-
+    AMENDMENT: if your real fetch's result no longer contains a `v26.7.1` entry because a newer
+    real release has superseded it (check the real output for a release newer than `v26.7.0` -
+    if present, this has happened), do NOT keep re-running the fetch - that will not change the
+    outcome. Instead edit `test_the_real_committed_cells_go_sidecar_is_not_stuck_at_one_release`:
+    keep its `assert len(entries) > 1` (the actual, durable guard against the original
+    regression), remove its `v26.7.1`-specific `_tag_version` match block, and add in its place
+    one assertion that the entries are sorted with the real newest release first (reuse whatever
+    ordering the real file already guarantees - do not hardcode `v26.11.0` or any other specific
+    version literal, since upstream will ship again). Update the test's own leading comment to
+    say so plainly, so a future reader does not re-wonder why the specific-tag check is gone.
+  - >-
     Before committing: run `{python} -m pytest tests/infra/test_round3_release_tags.py -q -rfE -p no:cacheprovider`
     twice and report the real result, including the exact post-fetch content of
     `recent_releases_cells_go.json`'s entry list.
@@ -100,7 +125,7 @@ requires:
 network: true
 negative_control:
   mutate: |
-    python -X utf8 -c "import json, pathlib; p = pathlib.Path('infra/demo-manifests/recent_releases_cells_go.json'); data = json.loads(p.read_text(encoding='utf-8')); assert isinstance(data.get('releases'), list) and len(data['releases']) > 1, 'the card has not yet regenerated this file to more than 1 entry - it has not made this fix yet, or the real JSON shape differs from what this mutate expects'; data['releases'] = data['releases'][:1]; p.write_text(json.dumps(data, indent=2, ensure_ascii=False) + chr(10), encoding='utf-8')"
+    python -X utf8 -c "import json, pathlib; p = pathlib.Path('infra/demo-manifests/recent_releases_cells_go.json'); data = json.loads(p.read_text(encoding='utf-8')); assert isinstance(data, list) and len(data) > 1, 'the card has not yet regenerated this file to more than 1 entry - it has not made this fix yet, or the real JSON shape differs from what this mutate expects'; data = data[:1]; p.write_text(json.dumps(data, indent=2, ensure_ascii=False) + chr(10), encoding='utf-8')"
   rationale: >-
     Reverts the card's own regenerated, multi-entry sidecar back to its stale, pre-fix 1-entry
     shape, which must make the real-data regression test fail again - a pure data mutation
