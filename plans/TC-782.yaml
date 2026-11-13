@@ -1,0 +1,115 @@
+id: TC-782
+gate: G3
+lane: storage-retrieval
+purpose: >-
+  Closes C11 (REQ-G3-013, "content-truth closure"), the fourth of the plan's 8 named closure
+  stages, continuing the exact methodology that closed Q17 (`TC-777`), I14 (`TC-780`) and O10
+  (`TC-781`) earlier today - see `docs/DECISION_LOG.md`'s three 2026-11-13 entries for the full
+  shape of each. A dedicated scoping investigation confirmed C11's own real dependencies
+  (`C9`,`C10`,`C12`,`F8`,`I14`,`O10`) are ALL genuinely satisfied: C9 via `TC-648`, C12 via
+  `TC-687`, F8 via `TC-608` (its own `tests/conformance/test_reference_content.py` invariant
+  confirmed still green, 14/14, and still genuinely DORMANT for the same crash-masking
+  assert-inside-loop shape found elsewhere today - do not "fix" it pre-emptively, it is out of
+  scope for this card), C10 needed no card (confirmed closed, 2026-11-06 follow-up), and I14/O10
+  both landed today.
+
+  UNLIKE O10, C11 IS primarily a large ledger-dispositioning pass, the biggest one this session -
+  **80 real `docs/ROUND2_REVIEW.md` rows name a C-series card (`C1`-`C12`) in their `Cards`
+  column, and NONE have been touched by any prior closure pass** (confirmed: Q17/I14/O10 each
+  only ever touched Q-series/I-series/O-series rows). They collapse into 2 real clusters: the
+  bulk (~63 issues, workstream G - false/misleading README claims, install guidance, agent
+  guidance, version facts) and a smaller group (~17 issues, workstream I - empty documentation
+  categories needing a real chunk or an honest reason). `TC-731`'s own "C11 prep" closeout
+  already flipped `baseline_reference_content.json`'s `strict` to `true` (46 `known_failures`,
+  confirmed live) and explicitly deferred full closure only on I14/O10 - both now satisfied.
+depends_on:
+  - TC-780
+  - TC-781
+  - TC-648
+  - TC-687
+  - TC-608
+  - TC-731
+satisfies:
+  - REQ-G3-013
+write_paths:
+  - docs/ROUND2_REVIEW.md
+  - docs/RELEASE.md
+source_refs:
+  - file: docs/DECISION_LOG.md
+    anchor: >-
+      ## 2026-11-13 — O10 (oracle closure) lands: the third of the plan's 8 named closure stages, plus a governance incident caught and contained
+    sha256: 8dc4f2027c8ed29c0ebf296bc2b61cc51a4aa8ecd390251143dd2831814452b4
+inputs:
+  - >-
+    READ FIRST: `docs/ROUND2_REVIEW.md` in full (all 286 rows - find the real 80 OPEN rows
+    naming a C-series card yourself, do not trust this card's "80" count blindly, it may have
+    shifted), `tests/deploy/test_round2_ledger.py`'s `test_every_row_status_is_a_real_
+    disposition_value` (the permanent enum check `TC-777` added - your dispositions must use
+    exactly one of its valid values), `docs/RELEASE.md` section 8 for the existing limitation-
+    entry format, and `plans/TC-731.yaml`'s own closeout for the real current `baseline_
+    reference_content.json` state.
+  - >-
+    For EACH of the real OPEN rows naming a C-series card: re-verify the finding's real current
+    status yourself, live, against the real 32-pilot corpus - call the real `get_product_
+    reference`/`search_docs`/`lookup` functions as appropriate to the row's own workstream
+    (primarily G and I per the plan's own Appendix A letters). Use the row's own `Evidence`
+    column as a starting repro; if it no longer applies to the current corpus, say so and
+    re-derive a fresh repro before dispositioning. Do not transcribe old prose.
+  - >-
+    Mark each row's `Status` with exactly one of the real enum values
+    `test_every_row_status_is_a_real_disposition_value` defines (`OPEN`/`FIXED`/`DISCLOSED`/
+    `NOT_REPRODUCED`/`DEFINITIONAL`/`ACCEPTED(P3)`/`BLOCKED_UPSTREAM`). Every disposition must
+    cite the real evidence you personally gathered. Per the plan's own rule for this program's
+    rows specifically: "P0-P2 rows may end only FIXED, DISCLOSED (with a registry entry or
+    L-id), NOT_REPRODUCED or DEFINITIONAL" - `ACCEPTED(P3)` is reserved for genuinely low-
+    severity P3 findings only, matching the one precedent `TC-780` already set.
+  - >-
+    If a row cannot be honestly dispositioned, leave it `OPEN` and say so explicitly - matching
+    `TC-777`'s precedent (39 of 73 left open) and `TC-780`'s (38 of 57 left open). Do not force a
+    disposition to make the count look complete. Given this is the largest ledger pass this
+    session (80 rows vs. 73/57 before), budget real time for it - this is substantial,
+    individually-verified work, not a rubber stamp.
+  - >-
+    If `docs/RELEASE.md` section 8 needs a new limitation entry for anything you find along the
+    way, add it in the existing format - do not invent a new structure.
+  - >-
+    Do NOT touch `tests/deploy/test_round2_ledger.py`, `tests/conformance/test_reference_
+    content.py` or its baseline JSON (confirmed dormant, not live, out of scope for this card),
+    or any production source file - this card is pure ledger/docs dispositioning.
+  - >-
+    Before committing: run `{python} -m pytest tests/deploy/test_round2_ledger.py tests/conformance/ -q -rfE -p no:cacheprovider`
+    twice to confirm your dispositions don't break the permanent enum check or anything in
+    `tests/conformance/`, and report the real result.
+actions:
+  - >-
+    Disposition the real OPEN C-series rows in `docs/ROUND2_REVIEW.md` (confirmed around 80, but
+    re-measure yourself) to their individually re-verified current status, and add any real
+    limitation entry `docs/RELEASE.md` section 8 needs as a result.
+checks:
+  - command: '{python} -m pytest tests/deploy/test_round2_ledger.py tests/conformance/ -q -rfE -p no:cacheprovider'
+    expect: 'exit 0'
+    timeout_seconds: 600
+    junitxml: true
+    proves:
+      - REQ-G3-013
+min_tests: 5
+requires:
+  - python
+network: false
+negative_control:
+  mutate: |
+    python -X utf8 -c "import pathlib; p = pathlib.Path('docs/ROUND2_REVIEW.md'); s = p.read_text(encoding='utf-8'); old = '| RD2-004 |'; count = s.count(old); assert count == 1, 'the expected RD2-004 row marker was not found exactly once - the card needs re-anchoring'; idx = s.index(old); line_end = s.index(chr(10), idx); line = s[idx:line_end]; parts = line.rsplit('|', 2); assert len(parts) == 3; corrupted = parts[0] + '|BOGUS_STATUS' + '|' + parts[2]; s2 = s[:idx] + corrupted + s[line_end:]; assert s2 != s; p.write_text(s2, encoding='utf-8')"
+  rationale: >-
+    Corrupts row RD2-004's own Status cell to a value that is not any real disposition, which
+    must make the permanent test_every_row_status_is_a_real_disposition_value check (added by
+    TC-777) fail - a pure data mutation, immune to the lockstep-rename vacuousness class found
+    earlier this session, and it never touches any code path.
+evidence:
+  - evidence/build/G3/TC-782/receipt.json
+closeout:
+  - >-
+    C11 (content-truth closure) is closed: all real OPEN C-series `docs/ROUND2_REVIEW.md` rows
+    individually re-verified and dispositioned (or honestly left OPEN where ambiguous), any real
+    limitation documented in `docs/RELEASE.md` section 8, `tests/conformance/` confirmed
+    unaffected.
+recovery: Re-run from a clean tree.
