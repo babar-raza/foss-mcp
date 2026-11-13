@@ -1,0 +1,84 @@
+
+===== CLEAN RUN 1 (host) =====
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-5c72e798a73c059a\Scripts\python.exe -m pytest tests/infra/test_fetch_product_reference.py tests/conformance/test_conformance_core.py tests/conformance/test_example_integrity.py tests/conformance/test_index_honesty.py tests/conformance/test_precision_and_size_budget.py tests/conformance/test_sentence_wrapped_retrieval.py tests/conformance/test_symbol_self_retrieval.py -q -rfE -p no:cacheprovider "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-b6a9x1cl\.junit-0.xml"
+--- stdout ---
+........................................................................ [ 98%]
+.                                                                        [100%]
+
+--- stderr ---
+
+
+===== CLEAN RUN 2 (host) =====
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-5c72e798a73c059a\Scripts\python.exe -m pytest tests/infra/test_fetch_product_reference.py tests/conformance/test_conformance_core.py tests/conformance/test_example_integrity.py tests/conformance/test_index_honesty.py tests/conformance/test_precision_and_size_budget.py tests/conformance/test_sentence_wrapped_retrieval.py tests/conformance/test_symbol_self_retrieval.py -q -rfE -p no:cacheprovider "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-b6a9x1cl\.junit-0.xml"
+--- stdout ---
+........................................................................ [ 98%]
+.                                                                        [100%]
+
+--- stderr ---
+
+
+===== NEGATIVE CONTROL (checks MUST now fail) =====
+mutated: M infra/fetch_product_reference.py, ?? .junit-0.xml
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-5c72e798a73c059a\Scripts\python.exe -m pytest tests/infra/test_fetch_product_reference.py tests/conformance/test_conformance_core.py tests/conformance/test_example_integrity.py tests/conformance/test_index_honesty.py tests/conformance/test_precision_and_size_budget.py tests/conformance/test_sentence_wrapped_retrieval.py tests/conformance/test_symbol_self_retrieval.py -q -rfE -p no:cacheprovider "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-b6a9x1cl\.junit-0.xml"
+--- stdout ---
+............F........................................................... [ 98%]
+.                                                                        [100%]
+================================== FAILURES ===================================
+________ test_load_manifest_sidecar_round_trips_the_family_main_writes ________
+
+tmp_path = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-3084/test_load_manifest_sidecar_rou1')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x000002B9E7B76510>
+
+    def test_load_manifest_sidecar_round_trips_the_family_main_writes(tmp_path: Path, monkeypatch) -> None:
+        """G3/TC-783: main() has written sidecar["family"] = family since TC-511, but
+        load_manifest_sidecar never read it back - every sidecar-loaded pilot got family=None,
+        silently disabling get_product_reference.py's TC-641 known-defects merge. This exercises the
+        real build_sidecar -> main()'s family write -> load_manifest_sidecar chain end to end, not
+        just a hand-built dict, so a regression in any of the three links fails this test."""
+        import sys
+    
+        _install_fake_urlopen(
+            monkeypatch,
+            {
+                "": _listing_payload(*_ROOT_ENTRIES),
+                "CONTRIBUTING.md": _contents_payload(
+                    path="CONTRIBUTING.md", sha="c" * 40, content="# Contributing\n"
+                ),
+                "AGENTS.md": _contents_payload(path="AGENTS.md", sha="a" * 40, content="# Agents\n"),
+            },
+        )
+    
+        output_path = tmp_path / "product_reference_pdf_net.json"
+        argv = [
+            "fetch_product_reference.py",
+            "--repository",
+            REPOSITORY,
+            "--platform",
+            "net",
+            "--output",
+            str(output_path),
+        ]
+        monkeypatch.setattr(sys, "argv", argv)
+    
+        fetch_product_reference.main()
+    
+        # The real CLI parsed "family" from the --output file name (no --family given): confirm the
+        # write side actually recorded it before asserting anything about the read side.
+        written = json.loads(output_path.read_text(encoding="utf-8"))
+        assert written["family"] == "pdf"
+    
+        inputs = fetch_product_reference.load_manifest_sidecar(output_path)
+    
+        assert inputs is not None
+>       assert inputs.family == "pdf"
+E       AssertionError: assert None == 'pdf'
+E        +  where None = ProductReferenceInputs(manifest_text=None, contributing=DocumentPresent(path='CONTRIBUTING.md', sha='ccccccccccccccccc...None, drift=None, readme_document=None, manifest_path=None, install_served_version=None, known_hazards=(), family=None).family
+
+tests\infra\test_fetch_product_reference.py:615: AssertionError
+---------------------------- Captured stdout call -----------------------------
+wrote product reference inputs for aspose-pdf-foss/Aspose.PDF-FOSS-for-.NET (net) -> C:\Users\babar\AppData\Local\Temp\pytest-of-babar\pytest-3084\test_load_manifest_sidecar_rou1\product_reference_pdf_net.json
+=========================== short test summary info ===========================
+FAILED tests/infra/test_fetch_product_reference.py::test_load_manifest_sidecar_round_trips_the_family_main_writes
+
+--- stderr ---
+

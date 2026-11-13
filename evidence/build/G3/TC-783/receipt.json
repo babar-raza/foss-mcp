@@ -1,0 +1,89 @@
+{
+  "schema_version": 1,
+  "card": "TC-783",
+  "gate": "G3",
+  "generated_by": "gatectl",
+  "generated_at": "2026-11-13T17:30:31Z",
+  "base_rev": "3a3cd9411ee4c1db441d2920c2d9c742e63664e3",
+  "head_rev": "e2600a671335bcca348ef18065d4f5a30381cb68",
+  "card_sha256": "931fa74e00b8750587b028e92e778d77d9536338b40ab06c38e0150bc44c6778",
+  "fingerprint": {
+    "python": "3.13.2",
+    "platform": "Windows-11-10.0.26300-SP0",
+    "lock_sha256": "5c72e798a73c059a438e752e94a8d4c88c1bdf81a197f6e5c5fcecbc9466a691",
+    "env": {
+      "PYTHONHASHSEED": "0",
+      "PYTHONUTF8": "1",
+      "PYTHONDONTWRITEBYTECODE": "1",
+      "PYTHONIOENCODING": "utf-8",
+      "TZ": "UTC",
+      "LC_ALL": "C.UTF-8",
+      "SOURCE_DATE_EPOCH": "1700000000",
+      "verify_runner": "host"
+    }
+  },
+  "scope": {
+    "ok": true,
+    "changed_paths": [
+      "infra/fetch_product_reference.py",
+      "tests/infra/test_fetch_product_reference.py"
+    ],
+    "violations": [],
+    "evaluated": true
+  },
+  "runs": [
+    {
+      "run": 1,
+      "checks": [
+        {
+          "command": "{python} -m pytest tests/infra/test_fetch_product_reference.py tests/conformance/test_conformance_core.py tests/conformance/test_example_integrity.py tests/conformance/test_index_honesty.py tests/conformance/test_precision_and_size_budget.py tests/conformance/test_sentence_wrapped_retrieval.py tests/conformance/test_symbol_self_retrieval.py -q -rfE -p no:cacheprovider",
+          "exit_code": 0,
+          "duration_s": 292.949,
+          "stdout_sha256": "19da9087d92935b2064df20f632357e22786ce3e50fd7075c1f2ef56c47433ca",
+          "tests": 73,
+          "skipped": 0,
+          "errors": 0,
+          "failures": 0
+        }
+      ],
+      "all_passed": true
+    },
+    {
+      "run": 2,
+      "checks": [
+        {
+          "command": "{python} -m pytest tests/infra/test_fetch_product_reference.py tests/conformance/test_conformance_core.py tests/conformance/test_example_integrity.py tests/conformance/test_index_honesty.py tests/conformance/test_precision_and_size_budget.py tests/conformance/test_sentence_wrapped_retrieval.py tests/conformance/test_symbol_self_retrieval.py -q -rfE -p no:cacheprovider",
+          "exit_code": 0,
+          "duration_s": 312.199,
+          "stdout_sha256": "19da9087d92935b2064df20f632357e22786ce3e50fd7075c1f2ef56c47433ca",
+          "tests": 73,
+          "skipped": 0,
+          "errors": 0,
+          "failures": 0
+        }
+      ],
+      "all_passed": true
+    }
+  ],
+  "negative_control": {
+    "kind": "mutate",
+    "patch": "python -X utf8 -c \"import pathlib; p = pathlib.Path('infra/fetch_product_reference.py'); s = p.read_text(encoding='utf-8'); old = 'family=_optional_text(data.get(' + chr(34) + 'family' + chr(34) + ')),'; count = s.count(old); assert count == 1, 'the expected family read-back line was not found exactly once - the card has not added it yet, or the exact text differs from what this mutate expects'; s2 = s.replace(old, 'family=None,  # mutated', 1); assert s2 != s; p.write_text(s2, encoding='utf-8')\"\n",
+    "patch_sha256": "632f2b9735569f5e3788263296186e4230bb03b3c18344f61a1234840abf187e",
+    "applied": true,
+    "patch_applied_failed": true,
+    "exit_codes": [
+      1
+    ],
+    "tree_changed": [
+      "M infra/fetch_product_reference.py",
+      "?? .junit-0.xml"
+    ]
+  },
+  "holdout": {
+    "ran": false,
+    "passed": true,
+    "detail": "no holdout for this card"
+  },
+  "accepted": true,
+  "reason": "all gates passed"
+}
