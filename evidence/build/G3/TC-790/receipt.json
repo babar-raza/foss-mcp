@@ -1,0 +1,89 @@
+{
+  "schema_version": 1,
+  "card": "TC-790",
+  "gate": "G3",
+  "generated_by": "gatectl",
+  "generated_at": "2026-11-13T20:09:36Z",
+  "base_rev": "14ed163f65bee9903b41e0d5d5babaf18ba7d7db",
+  "head_rev": "81d117edfb0de0dbfb9c3dbaa16ed39a71b727b4",
+  "card_sha256": "ad08962f748fa6faab81176562ea71902915b36d1890c960fb07fc1c45c890a1",
+  "fingerprint": {
+    "python": "3.13.2",
+    "platform": "Windows-11-10.0.26300-SP0",
+    "lock_sha256": "5c72e798a73c059a438e752e94a8d4c88c1bdf81a197f6e5c5fcecbc9466a691",
+    "env": {
+      "PYTHONHASHSEED": "0",
+      "PYTHONUTF8": "1",
+      "PYTHONDONTWRITEBYTECODE": "1",
+      "PYTHONIOENCODING": "utf-8",
+      "TZ": "UTC",
+      "LC_ALL": "C.UTF-8",
+      "SOURCE_DATE_EPOCH": "1700000000",
+      "verify_runner": "host"
+    }
+  },
+  "scope": {
+    "ok": true,
+    "changed_paths": [
+      "infra/build_chunks.py",
+      "tests/infra/test_build_chunks_sanitize.py"
+    ],
+    "violations": [],
+    "evaluated": true
+  },
+  "runs": [
+    {
+      "run": 1,
+      "checks": [
+        {
+          "command": "{python} -m pytest tests/infra/test_build_chunks_sanitize.py -q -rfE -p no:cacheprovider",
+          "exit_code": 0,
+          "duration_s": 0.89,
+          "stdout_sha256": "6dd786dc72d45e02d32f9a2c96fbee7f0ea69261b610e86a41d1a671dd0186ef",
+          "tests": 48,
+          "skipped": 0,
+          "errors": 0,
+          "failures": 0
+        }
+      ],
+      "all_passed": true
+    },
+    {
+      "run": 2,
+      "checks": [
+        {
+          "command": "{python} -m pytest tests/infra/test_build_chunks_sanitize.py -q -rfE -p no:cacheprovider",
+          "exit_code": 0,
+          "duration_s": 1.64,
+          "stdout_sha256": "6dd786dc72d45e02d32f9a2c96fbee7f0ea69261b610e86a41d1a671dd0186ef",
+          "tests": 48,
+          "skipped": 0,
+          "errors": 0,
+          "failures": 0
+        }
+      ],
+      "all_passed": true
+    }
+  ],
+  "negative_control": {
+    "kind": "mutate",
+    "patch": "python -X utf8 -c \"import pathlib; p = pathlib.Path('infra/build_chunks.py'); s = p.read_text(encoding='utf-8'); old = '_API_COVERAGE_TAIL_RE.search(text)'; count = s.count(old); assert count == 1, 'the mandated _API_COVERAGE_TAIL_RE.search(text) call was not found exactly once - the card has not made this fix yet, or used different literal text than mandated'; s2 = s.replace(old, 'None', 1); assert s2 != s; p.write_text(s2, encoding='utf-8')\"\n",
+    "patch_sha256": "3714487f131c5b6d095abac8b3709e64efd450b93e3da4cf7ee7519ef24d70b2",
+    "applied": true,
+    "patch_applied_failed": true,
+    "exit_codes": [
+      1
+    ],
+    "tree_changed": [
+      "M infra/build_chunks.py",
+      "?? .junit-0.xml"
+    ]
+  },
+  "holdout": {
+    "ran": false,
+    "passed": true,
+    "detail": "no holdout for this card"
+  },
+  "accepted": true,
+  "reason": "all gates passed"
+}

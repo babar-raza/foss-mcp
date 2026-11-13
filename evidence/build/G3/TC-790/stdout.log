@@ -1,0 +1,59 @@
+
+===== CLEAN RUN 1 (host) =====
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-5c72e798a73c059a\Scripts\python.exe -m pytest tests/infra/test_build_chunks_sanitize.py -q -rfE -p no:cacheprovider "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-4krbe550\.junit-0.xml"
+--- stdout ---
+................................................                         [100%]
+
+--- stderr ---
+
+
+===== CLEAN RUN 2 (host) =====
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-5c72e798a73c059a\Scripts\python.exe -m pytest tests/infra/test_build_chunks_sanitize.py -q -rfE -p no:cacheprovider "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-4krbe550\.junit-0.xml"
+--- stdout ---
+................................................                         [100%]
+
+--- stderr ---
+
+
+===== NEGATIVE CONTROL (checks MUST now fail) =====
+mutated: M infra/build_chunks.py, ?? .junit-0.xml
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-5c72e798a73c059a\Scripts\python.exe -m pytest tests/infra/test_build_chunks_sanitize.py -q -rfE -p no:cacheprovider "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-4krbe550\.junit-0.xml"
+--- stdout ---
+.....................................FF.........                         [100%]
+================================== FAILURES ===================================
+_ test_a_trailing_api_coverage_line_survives_truncation_instead_of_being_dropped _
+
+    def test_a_trailing_api_coverage_line_survives_truncation_instead_of_being_dropped() -> None:
+        # Regression guard for the real defect TC-775 found: on the unfixed function this line was
+        # silently absent from the result entirely - not truncated, GONE - whenever the body alone
+        # was large enough to push the whole text past the cap.
+        body = "member line\n" * 2_000
+        text = _with_coverage_tail(f"FQN: Big\nKind: class\n\n{body}")
+        assert len(text) > LIMIT
+        result = _sanitize(text)
+>       assert result.count("API-Coverage: ") == 1
+E       AssertionError: assert 0 == 1
+E        +  where 0 = <built-in method count of str object at 0x0000027322154030>('API-Coverage: ')
+E        +    where <built-in method count of str object at 0x0000027322154030> = 'FQN: Big\nKind: class\n\nmember line\nmember line\nmember line\nmember line\nmember line\nmember line\nmember line\nm...r line\nmember line\nmember line\nmember line\nmember line\nmember line\nmember line\nTruncated: 71 characters omitted'.count
+
+tests\infra\test_build_chunks_sanitize.py:186: AssertionError
+_ test_body_over_the_cap_on_its_own_is_truncated_and_the_coverage_line_is_still_kept _
+
+    def test_body_over_the_cap_on_its_own_is_truncated_and_the_coverage_line_is_still_kept() -> None:
+        # Even when the body ALONE (excluding the coverage tail) is already over the cap, the body is
+        # truncated correctly and the coverage tail is still appended afterward, never dropped.
+        body = "x" * (LIMIT + 5_000)
+        text = _with_coverage_tail(body)
+        result = _sanitize(text)
+>       assert result.endswith(API_COVERAGE_TAIL)
+E       AssertionError: assert False
+E        +  where False = <built-in method endswith of str object at 0x0000027322345190>('\n\nAPI-Coverage: 12/40 members documented (30%)')
+E        +    where <built-in method endswith of str object at 0x0000027322345190> = 'xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx...xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nTruncated: 5046 characters omitted'.endswith
+
+tests\infra\test_build_chunks_sanitize.py:197: AssertionError
+=========================== short test summary info ===========================
+FAILED tests/infra/test_build_chunks_sanitize.py::test_a_trailing_api_coverage_line_survives_truncation_instead_of_being_dropped
+FAILED tests/infra/test_build_chunks_sanitize.py::test_body_over_the_cap_on_its_own_is_truncated_and_the_coverage_line_is_still_kept
+
+--- stderr ---
+
