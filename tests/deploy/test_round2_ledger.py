@@ -287,7 +287,9 @@ def test_every_row_status_is_a_real_disposition_value():
     dispositions its own rows is held to the same real enum, not a weaker one scoped to this
     card's own cards."""
     bad = [(row["Id"], row["Status"]) for row in REGISTER_ROWS if row["Status"] not in VALID_STATUSES]
-    assert not bad, f"register rows with a Status outside the real defined enum {sorted(VALID_STATUSES)}: {bad}"
+    assert not bad, (
+        f"register rows with a Status outside the real defined enum {sorted(VALID_STATUSES)}: {bad}"
+    )
 
 
 def test_every_register_row_has_a_known_workstream_letter():
