@@ -4762,3 +4762,27 @@ behaviour when omitted. The test was simply never updated to match what `TC-729`
 fixed. Verified directly for all 11 pilots before carding: recomputing WITH identities matches
 each fixture's real stored value exactly, zero exceptions. `TC-779` fixed all 3 stale assertions
 (2 files) accordingly - no fixture or production code touched, confirmed by diff.
+
+## 2026-11-13 — I14 (index-truth closure) lands: the second of the plan's 8 named closure stages
+
+`TC-780` closes I14, continuing the exact methodology `TC-777` proved for Q17 the same day. Its
+own real dependencies (`I5`/`I8`/`I10`/`I13`/`F7`/`Q17`) were all confirmed genuinely satisfied
+first. The remaining 57 `docs/ROUND2_REVIEW.md` rows naming an I-series/O-series card (73 had
+already been dispositioned incidentally by `TC-777`'s own Q-series pass, where a row's `Cards`
+column names both) were each individually live-verified - cross-checked four ways (direct
+`get_symbol`/`search_symbols`/`list_members`/`report_index_freshness`/`lookup` calls against the
+real corpus; `config/known_defects/*.yaml`/`config/products/*.yaml` grep for a verbatim-cited
+disclosure; cross-reference against this log's own 2026-11-07/09 dated investigations; `docs/
+round3/issues.json` as a corroborating, never-authoritative, prior snapshot) rather than
+transcribed from any row's own old prose.
+
+**Real final counts (57 total): 5 FIXED, 8 DISCLOSED, 3 NOT_REPRODUCED, 2 DEFINITIONAL, 1
+ACCEPTED(P3), 38 left honestly OPEN** - several specific, confirmed-still-broken findings (e.g.
+`CellMerge`'s top-level FQN still failing for words/python, a real, deliberately-deferred
+`__all__`-authoritative design tension) were not forced closed just to raise the count. A new
+`docs/RELEASE.md` §8 entry documents a real structural finding surfaced along the way:
+`report_index_freshness`'s drift fields cannot resolve beyond `"unknown"` for several
+`self_extracted` pilots missing the inputs needed to compute them, and separately, `3d/net`'s own
+baked `recent_releases` sidecar is a literal empty list while 7 other pilots checked the same way
+all carry real data - a per-pilot baked-data gap, not a shared code bug. This explains 8 of the
+38 rows left open.
