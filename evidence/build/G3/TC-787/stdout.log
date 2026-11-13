@@ -1,0 +1,76 @@
+
+===== CLEAN RUN 1 (host) =====
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-5c72e798a73c059a\Scripts\python.exe -m pytest tests/infra/test_fetch_product_reference.py -q -rfE -p no:cacheprovider "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-rhlm75fy\.junit-0.xml"
+--- stdout ---
+.....................                                                    [100%]
+
+--- stderr ---
+
+
+===== CLEAN RUN 2 (host) =====
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-5c72e798a73c059a\Scripts\python.exe -m pytest tests/infra/test_fetch_product_reference.py -q -rfE -p no:cacheprovider "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-rhlm75fy\.junit-0.xml"
+--- stdout ---
+.....................                                                    [100%]
+
+--- stderr ---
+
+
+===== NEGATIVE CONTROL (checks MUST now fail) =====
+mutated: M infra/demo-manifests/product_reference_pdf_net.json, ?? .junit-0.xml
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-5c72e798a73c059a\Scripts\python.exe -m pytest tests/infra/test_fetch_product_reference.py -q -rfE -p no:cacheprovider "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-rhlm75fy\.junit-0.xml"
+--- stdout ---
+.................F..F                                                    [100%]
+================================== FAILURES ===================================
+__ test_tc_787_completed_pilots_carry_a_family_matching_their_own_file_name ___
+
+    def test_tc_787_completed_pilots_carry_a_family_matching_their_own_file_name() -> None:
+        """Every real, committed sidecar TC-787 actually regenerated has a non-null "family" that
+        matches the <family> segment of its own file name - the same write-side check TC-786 already
+        applied to its own 12 completed pilots, now covering the 19 of the remaining 20 this card
+        completed."""
+        assert _TC_787_COMPLETED_PILOTS, "the completed-pilot list must name at least one real pilot"
+        for name in _TC_787_COMPLETED_PILOTS:
+            path = _DEMO_MANIFESTS_DIR / name
+            assert path.is_file(), f"{name} must exist in infra/demo-manifests"
+            data = json.loads(path.read_text(encoding="utf-8"))
+            expected_family = fetch_product_reference._family_from_output(path)
+            assert expected_family is not None, (
+                f"{name} must match the product_reference_<family>_<platform> pattern"
+            )
+>           assert data.get("family") == expected_family, (name, data.get("family"), expected_family)
+E           AssertionError: ('product_reference_pdf_net.json', None, 'pdf')
+E           assert None == 'pdf'
+E            +  where None = <built-in method get of dict object at 0x0000025A938765C0>('family')
+E            +    where <built-in method get of dict object at 0x0000025A938765C0> = {'manifest_text': '<Project Sdk="Microsoft.NET.Sdk">\n\n  <PropertyGroup>\n    <TargetFramework>net8.0</TargetFramewor...tus': 'not_present', 'path': 'CONTRIBUTING.md'}, 'agent_guidance': {'status': 'not_present', 'path': 'AGENTS.md'}, ...}.get
+
+tests\infra\test_fetch_product_reference.py:818: AssertionError
+_ test_every_real_pilot_is_now_accounted_for_by_exactly_one_tc_786_or_tc_787_list _
+
+    def test_every_real_pilot_is_now_accounted_for_by_exactly_one_tc_786_or_tc_787_list() -> None:
+        """After both cards, every real product_reference_*.json file in infra/demo-manifests is
+        accounted for by exactly one of: TC-786-completed, TC-786-skipped-but-TC-787-completed,
+        or still-honestly-skipped (pdf/go only) - no file is silently missing from every list, and no
+        file appears on more than one."""
+        completed = set(_TC_786_COMPLETED_PILOTS) | set(_TC_787_COMPLETED_PILOTS)
+        still_skipped = set(_TC_787_SKIPPED_PILOTS)
+        assert not (completed & still_skipped), "a pilot cannot be both completed and still-skipped"
+        on_disk = {p.name for p in _DEMO_MANIFESTS_DIR.glob("product_reference_*.json")}
+        assert on_disk == completed | still_skipped, (
+            on_disk - (completed | still_skipped),
+            (completed | still_skipped) - on_disk,
+        )
+        for name in completed:
+            data = json.loads((_DEMO_MANIFESTS_DIR / name).read_text(encoding="utf-8"))
+>           assert data.get("family") is not None, f"{name} is listed as completed but has no family"
+E           AssertionError: product_reference_pdf_net.json is listed as completed but has no family
+E           assert None is not None
+E            +  where None = <built-in method get of dict object at 0x0000025A93767F00>('family')
+E            +    where <built-in method get of dict object at 0x0000025A93767F00> = {'manifest_text': '<Project Sdk="Microsoft.NET.Sdk">\n\n  <PropertyGroup>\n    <TargetFramework>net8.0</TargetFramewor...tus': 'not_present', 'path': 'CONTRIBUTING.md'}, 'agent_guidance': {'status': 'not_present', 'path': 'AGENTS.md'}, ...}.get
+
+tests\infra\test_fetch_product_reference.py:863: AssertionError
+=========================== short test summary info ===========================
+FAILED tests/infra/test_fetch_product_reference.py::test_tc_787_completed_pilots_carry_a_family_matching_their_own_file_name
+FAILED tests/infra/test_fetch_product_reference.py::test_every_real_pilot_is_now_accounted_for_by_exactly_one_tc_786_or_tc_787_list
+
+--- stderr ---
+
