@@ -214,7 +214,10 @@ def test_a_sidecar_added_later_is_served_on_the_next_request_and_the_warning_cle
     # releases published upstream since the old pin (v0.12.0, v0.13.0).
     # G3/TC-578: re-pinned 14 -> 15; the real upstream repository published one more real tagged
     # release since then (v0.14.0).
-    assert len(oracle_releases) == 15
+    # G3/TC-778: re-pinned 15 -> 18; the real baked sidecar now carries three more real tagged
+    # releases published upstream since the TC-578 pin (v0.15.0, v0.15.1, v0.16.0), re-measured
+    # directly from infra/demo-manifests/recent_releases_pdf_go.json.
+    assert len(oracle_releases) == 18
     with TestClient(make_app(root)) as client:
         session = open_session(client)
         assert call_tool(client, session, "list_recent_changes")["isError"] is True

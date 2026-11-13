@@ -447,9 +447,12 @@ def test_real_tree_pdf_net_is_pinned_to_the_measured_chunks(real_ledger: dict[st
     # re-pinned by TC-536: 901 -> 915 (the supervisor's 2026-10-21 re-ingest at rev-9993ea85 bakes TC-558's
     # regenerated pdf/net fixture; measured by reading the committed generation directly: 915 symbol,
     # 25 documentation, 3 example chunks)
+    # re-pinned by TC-778: served_chunks 3 -> 8 (this session's own authored-examples campaign,
+    # TC-760/TC-762/TC-763, added 5 new verified examples to pdf/net; re-measured directly from the
+    # committed generation: symbols and documentation are unchanged at 915/25)
     assert p["symbols"]["total"] == 915
     assert p["documentation"]["total"] == 25
-    assert p["examples"]["served_chunks"] == 3
+    assert p["examples"]["served_chunks"] == 8
     # TC-558: fixture symbol_counts types 901 -> 915; the re-ingest above now makes the baked chunk figures agree.
     assert p["fixture"]["symbol_counts"] == {"functions": 0, "types": 915}
 
