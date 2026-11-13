@@ -1,0 +1,108 @@
+
+===== CLEAN RUN 1 (host) =====
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-5c72e798a73c059a\Scripts\python.exe -m pytest tests/release/test_source_differential.py tests/release/test_oracle_shell_resolution.py tests/release/test_oracle_inherited_verification.py tests/release/test_oracle_triage_doc.py tests/deploy/test_release_known_limitations.py -q -rfE -p no:cacheprovider "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-zesk74yv\.junit-0.xml"
+--- stdout ---
+........................................................................ [ 21%]
+........................................................................ [ 42%]
+........................................................................ [ 63%]
+........................................................................ [ 84%]
+......................................................                   [100%]
+
+--- stderr ---
+
+
+===== CLEAN RUN 2 (host) =====
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-5c72e798a73c059a\Scripts\python.exe -m pytest tests/release/test_source_differential.py tests/release/test_oracle_shell_resolution.py tests/release/test_oracle_inherited_verification.py tests/release/test_oracle_triage_doc.py tests/deploy/test_release_known_limitations.py -q -rfE -p no:cacheprovider "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-zesk74yv\.junit-0.xml"
+--- stdout ---
+........................................................................ [ 21%]
+........................................................................ [ 42%]
+........................................................................ [ 63%]
+........................................................................ [ 84%]
+......................................................                   [100%]
+
+--- stderr ---
+
+
+===== NEGATIVE CONTROL (checks MUST now fail) =====
+mutated: M docs/RELEASE.md, ?? .junit-0.xml
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-5c72e798a73c059a\Scripts\python.exe -m pytest tests/release/test_source_differential.py tests/release/test_oracle_shell_resolution.py tests/release/test_oracle_inherited_verification.py tests/release/test_oracle_triage_doc.py tests/deploy/test_release_known_limitations.py -q -rfE -p no:cacheprovider "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-zesk74yv\.junit-0.xml"
+--- stdout ---
+........................................................................ [ 21%]
+........................................................................ [ 42%]
+....................................F................................... [ 63%]
+..............F.................................................F....... [ 84%]
+..........................................F..........F                   [100%]
+================================== FAILURES ===================================
+______ test_accepted_id_appears_in_bold_exactly_once_in_section_8[L-022] ______
+
+ledger_id = 'L-022'
+
+    @pytest.mark.parametrize("ledger_id", ACCEPTED_LEDGER_IDS)
+    def test_accepted_id_appears_in_bold_exactly_once_in_section_8(ledger_id: str):
+        found = _BOLD_ID.findall(_section_8())
+>       assert found.count(ledger_id) == 1, (
+            f"{ledger_id} appears in bold {found.count(ledger_id)} times in section 8"
+        )
+E       AssertionError: L-022 appears in bold 0 times in section 8
+E       assert 0 == 1
+E        +  where 0 = <built-in method count of list object at 0x000001195F25AC80>('L-022')
+E        +    where <built-in method count of list object at 0x000001195F25AC80> = ['L-054', 'L-071', 'L-072', 'L-080', 'L-089', 'L-090', ...].count
+
+tests\deploy\test_release_known_limitations.py:231: AssertionError
+_____________ test_accepted_id_has_a_bullet_with_a_reason[L-022] ______________
+
+ledger_id = 'L-022'
+
+    @pytest.mark.parametrize("ledger_id", ACCEPTED_LEDGER_IDS)
+    def test_accepted_id_has_a_bullet_with_a_reason(ledger_id: str):
+        bullets = _bullets(_section_8())
+>       assert ledger_id in bullets, f"{ledger_id} has no bullet that opens with its bold id"
+E       AssertionError: L-022 has no bullet that opens with its bold id
+E       assert 'L-022' in {'L-054': 'A `find_examples` query of one or two distinctive words is answered only by an example whose title contains...deployment), so a near-empty or wrong-scope generation is reported not ready instead of masquerading as healthy.', ...}
+
+tests\deploy\test_release_known_limitations.py:239: AssertionError
+_______ test_standalone_id_sits_under_the_standalone_subsection[L-022] ________
+
+ledger_id = 'L-022'
+
+    @pytest.mark.parametrize("ledger_id", STANDALONE_IDS)
+    def test_standalone_id_sits_under_the_standalone_subsection(ledger_id: str):
+>       assert ledger_id in _bullets(_subsection(STANDALONE_HEADING))
+E       assert 'L-022' in {'L-054': 'A `find_examples` query of one or two distinctive words is answered only by an example whose title contains...deployment), so a near-empty or wrong-scope generation is reported not ready instead of masquerading as healthy.', ...}
+E        +  where {'L-054': 'A `find_examples` query of one or two distinctive words is answered only by an example whose title contains...deployment), so a near-empty or wrong-scope generation is reported not ready instead of masquerading as healthy.', ...} = _bullets("\n- L-022 A request whose `MCP-Protocol-Version` header is `2026-07-28` is rejected. The server accepts only the\n  p...(`docs/DECISION_LOG.md`'s\n  2026-11-13 I14 entry) - O10 does not re-touch, re-count, or re-disposition any of them.\n")
+E        +    where "\n- L-022 A request whose `MCP-Protocol-Version` header is `2026-07-28` is rejected. The server accepts only the\n  p...(`docs/DECISION_LOG.md`'s\n  2026-11-13 I14 entry) - O10 does not re-touch, re-count, or re-disposition any of them.\n" = _subsection('### Standalone image')
+
+tests\deploy\test_release_known_limitations.py:246: AssertionError
+____________ test_bullet_contains_its_key_phrase[L-022-2026-07-28] ____________
+
+ledger_id = 'L-022', phrase = '2026-07-28'
+
+    @pytest.mark.parametrize("ledger_id, phrase", sorted(KEY_PHRASES.items()))
+    def test_bullet_contains_its_key_phrase(ledger_id: str, phrase: str):
+        bullets = _bullets(_section_8())
+>       assert ledger_id in bullets, f"{ledger_id} has no bullet that opens with its bold id"
+E       AssertionError: L-022 has no bullet that opens with its bold id
+E       assert 'L-022' in {'L-054': 'A `find_examples` query of one or two distinctive words is answered only by an example whose title contains...deployment), so a near-empty or wrong-scope generation is reported not ready instead of masquerading as healthy.', ...}
+
+tests\deploy\test_release_known_limitations.py:262: AssertionError
+____________ test_section_8_has_exactly_one_bullet_per_accepted_id ____________
+
+    def test_section_8_has_exactly_one_bullet_per_accepted_id():
+        openers = re.findall(r"^- \*\*(L-\d+)\*\*", _section_8(), re.M)
+>       assert sorted(openers) == sorted(ACCEPTED_LEDGER_IDS)
+E       AssertionError: assert ['L-054', 'L-... 'L-090', ...] == ['L-022', 'L-... 'L-089', ...]
+E         
+E         At index 0 diff: 'L-054' != 'L-022'
+E         Right contains one more item: 'L-142'
+E         Use -v to get more diff
+
+tests\deploy\test_release_known_limitations.py:281: AssertionError
+=========================== short test summary info ===========================
+FAILED tests/deploy/test_release_known_limitations.py::test_accepted_id_appears_in_bold_exactly_once_in_section_8[L-022]
+FAILED tests/deploy/test_release_known_limitations.py::test_accepted_id_has_a_bullet_with_a_reason[L-022]
+FAILED tests/deploy/test_release_known_limitations.py::test_standalone_id_sits_under_the_standalone_subsection[L-022]
+FAILED tests/deploy/test_release_known_limitations.py::test_bullet_contains_its_key_phrase[L-022-2026-07-28]
+FAILED tests/deploy/test_release_known_limitations.py::test_section_8_has_exactly_one_bullet_per_accepted_id
+
+--- stderr ---
+
