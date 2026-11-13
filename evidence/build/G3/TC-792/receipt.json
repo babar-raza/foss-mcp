@@ -1,0 +1,88 @@
+{
+  "schema_version": 1,
+  "card": "TC-792",
+  "gate": "G3",
+  "generated_by": "gatectl",
+  "generated_at": "2026-11-13T20:06:04Z",
+  "base_rev": "1f298d60a05173f67c5ac4715f2b45491862eb17",
+  "head_rev": "b67ab71827a6caaf7ca22bf1443456211b8a9bae",
+  "card_sha256": "75e66cecd45cabf70d3aedd5dd769eaf228ea03111fa33f7bdde8a5e315a60e0",
+  "fingerprint": {
+    "python": "3.13.2",
+    "platform": "Windows-11-10.0.26300-SP0",
+    "lock_sha256": "5c72e798a73c059a438e752e94a8d4c88c1bdf81a197f6e5c5fcecbc9466a691",
+    "env": {
+      "PYTHONHASHSEED": "0",
+      "PYTHONUTF8": "1",
+      "PYTHONDONTWRITEBYTECODE": "1",
+      "PYTHONIOENCODING": "utf-8",
+      "TZ": "UTC",
+      "LC_ALL": "C.UTF-8",
+      "SOURCE_DATE_EPOCH": "1700000000",
+      "verify_runner": "host"
+    }
+  },
+  "scope": {
+    "ok": true,
+    "changed_paths": [
+      "tests/fixtures/verified_examples/words_python.json"
+    ],
+    "violations": [],
+    "evaluated": true
+  },
+  "runs": [
+    {
+      "run": 1,
+      "checks": [
+        {
+          "command": "{python} -m pytest tests/infra/test_verification_cache_committed.py -q -rfE -p no:cacheprovider",
+          "exit_code": 0,
+          "duration_s": 5.625,
+          "stdout_sha256": "3d671003f3db5e1802f451e3671e4612726d7b6764553203c7954413f7eb3403",
+          "tests": 105,
+          "skipped": 0,
+          "errors": 0,
+          "failures": 0
+        }
+      ],
+      "all_passed": true
+    },
+    {
+      "run": 2,
+      "checks": [
+        {
+          "command": "{python} -m pytest tests/infra/test_verification_cache_committed.py -q -rfE -p no:cacheprovider",
+          "exit_code": 0,
+          "duration_s": 1.292,
+          "stdout_sha256": "3d671003f3db5e1802f451e3671e4612726d7b6764553203c7954413f7eb3403",
+          "tests": 105,
+          "skipped": 0,
+          "errors": 0,
+          "failures": 0
+        }
+      ],
+      "all_passed": true
+    }
+  ],
+  "negative_control": {
+    "kind": "mutate",
+    "patch": "python -X utf8 -c \"import json, pathlib; p = pathlib.Path('tests/fixtures/verified_examples/words_python.json'); data = json.loads(p.read_text(encoding='utf-8')); entries = data if isinstance(data, list) else data.get('entries', data); assert isinstance(entries, list), 'unexpected cache file shape - re-anchor this mutate against the real structure'; code = '5220fe11256e08251c3e0db6318d811cf84e5b58b412237fea7455c654d91b02'; commit = '2d2efee2787cb9e56d071d17f8d7b740dce8b784'; present = any(e.get('code_sha256') == code and e.get('library_commit') == commit for e in entries); assert not present, 'this triple is still present in the cache - the card has not removed it yet, or chose a different entry'; entries.append({'provenance': 'readme', 'title': 'Extract Plain Text', 'code_sha256': code, 'library_commit': commit, 'platform': 'python', 'toolchain': 'cpython-3.12', 'verified': False, 'output': 'mutated: re-introduced stale entry'}); p.write_text(json.dumps(data, indent=2, ensure_ascii=False, sort_keys=True) + chr(10), encoding='utf-8')\"\n",
+    "patch_sha256": "52938dbc6711451161363a3c92162097570491d973f6a68220face3fb28423d5",
+    "applied": true,
+    "patch_applied_failed": true,
+    "exit_codes": [
+      1
+    ],
+    "tree_changed": [
+      "M tests/fixtures/verified_examples/words_python.json",
+      "?? .junit-0.xml"
+    ]
+  },
+  "holdout": {
+    "ran": false,
+    "passed": true,
+    "detail": "no holdout for this card"
+  },
+  "accepted": true,
+  "reason": "all gates passed"
+}

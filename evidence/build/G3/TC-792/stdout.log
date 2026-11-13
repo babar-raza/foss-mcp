@@ -1,0 +1,68 @@
+
+===== CLEAN RUN 1 (host) =====
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-5c72e798a73c059a\Scripts\python.exe -m pytest tests/infra/test_verification_cache_committed.py -q -rfE -p no:cacheprovider "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-1qsl5rko\.junit-0.xml"
+--- stdout ---
+........................................................................ [ 68%]
+.................................                                        [100%]
+
+--- stderr ---
+
+
+===== CLEAN RUN 2 (host) =====
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-5c72e798a73c059a\Scripts\python.exe -m pytest tests/infra/test_verification_cache_committed.py -q -rfE -p no:cacheprovider "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-1qsl5rko\.junit-0.xml"
+--- stdout ---
+........................................................................ [ 68%]
+.................................                                        [100%]
+
+--- stderr ---
+
+
+===== NEGATIVE CONTROL (checks MUST now fail) =====
+mutated: M tests/fixtures/verified_examples/words_python.json, ?? .junit-0.xml
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-5c72e798a73c059a\Scripts\python.exe -m pytest tests/infra/test_verification_cache_committed.py -q -rfE -p no:cacheprovider "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-1qsl5rko\.junit-0.xml"
+--- stdout ---
+.....................................F.................................. [ 68%]
+.............................F...                                        [100%]
+================================== FAILURES ===================================
+_ test_the_committed_cache_has_no_contradiction_with_the_served_examples[words_python] _
+
+name = 'words_python.json'
+
+    @pytest.mark.parametrize("name", _cache_cases())
+    def test_the_committed_cache_has_no_contradiction_with_the_served_examples(name: str) -> None:
+        entries = build_chunks.load_verification_cache(CACHE_DIR / name)
+        served = served_examples(name)
+>       assert contradictions(entries, served) == [], (
+            f"{name}: a cache entry says verified=false for an example the pilot serves as verified"
+        )
+E       AssertionError: words_python.json: a cache entry says verified=false for an example the pilot serves as verified
+E       assert [('readme', '...740dce8b784')] == []
+E         
+E         Left contains one more item: ('readme', '5220fe11256e08251c3e0db6318d811cf84e5b58b412237fea7455c654d91b02', '2d2efee2787cb9e56d071d17f8d7b740dce8b784')
+E         Use -v to get more diff
+
+tests\infra\test_verification_cache_committed.py:201: AssertionError
+_______ test_the_committed_cache_is_canonical_and_sorted[words_python] ________
+
+name = 'words_python.json'
+
+    @pytest.mark.parametrize("name", _cache_cases())
+    def test_the_committed_cache_is_canonical_and_sorted(name: str) -> None:
+        entries = build_chunks.load_verification_cache(CACHE_DIR / name)
+>       assert entries == build_chunks.merge_verification_cache([], entries), (
+            f"{name}: entries are not unique and in merge_verification_cache's order"
+        )
+E       AssertionError: words_python.json: entries are not unique and in merge_verification_cache's order
+E       assert [{'code_sha25...python', ...}] == [{'code_sha25...python', ...}]
+E         
+E         At index 2 diff: {'code_sha256': 'e467a260af06f09270be09e4c767d972eb8491be6633e498e59fd0a18f405808', 'library_commit': '2d2efee2787cb9e56d071d17f8d7b740dce8b784', 'output': '[foss-mcp] assembly: python staged-files=none\nRelease Notes\nThis build adds bold and italic support.\n\n', 'platform': 'python', 'provenance': 'readme', 'title': 'Load Markdown From In-Memory Content', 'toolchain': 'Python 3.13.16', 'verified': True} != {'code_sha256': '5220fe11256e08251c3e0db6318d811cf84e5b58b412237fea7455c654d91b02', 'library_commit': '2d2efee2787cb9e56d071d17f8d7b740dce8b784', ...
+E         
+E         ...Full output truncated (2 lines hidden), use '-vv' to show
+
+tests\infra\test_verification_cache_committed.py:217: AssertionError
+=========================== short test summary info ===========================
+FAILED tests/infra/test_verification_cache_committed.py::test_the_committed_cache_has_no_contradiction_with_the_served_examples[words_python]
+FAILED tests/infra/test_verification_cache_committed.py::test_the_committed_cache_is_canonical_and_sorted[words_python]
+
+--- stderr ---
+
