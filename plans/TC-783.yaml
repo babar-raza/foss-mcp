@@ -93,15 +93,16 @@ requires:
 network: false
 negative_control:
   mutate: |
-    python -X utf8 -c "import pathlib; p = pathlib.Path('infra/fetch_product_reference.py'); s = p.read_text(encoding='utf-8'); old = 'manifest_path=_optional_text(data.get(' + chr(34) + 'manifest_path' + chr(34) + ')),'; count = s.count(old); assert count == 1, 'the expected manifest_path read-back line was not found exactly once - the card needs re-anchoring, confirm the real anchor line and update this mutate'; s2 = s.replace(old, 'manifest_path=None,  # mutated', 1); assert s2 != s; p.write_text(s2, encoding='utf-8')"
+    python -X utf8 -c "import pathlib; p = pathlib.Path('infra/fetch_product_reference.py'); s = p.read_text(encoding='utf-8'); old = 'family=_optional_text(data.get(' + chr(34) + 'family' + chr(34) + ')),'; count = s.count(old); assert count == 1, 'the expected family read-back line was not found exactly once - the card has not added it yet, or the exact text differs from what this mutate expects'; s2 = s.replace(old, 'family=None,  # mutated', 1); assert s2 != s; p.write_text(s2, encoding='utf-8')"
   rationale: >-
-    Disables an adjacent, already-working optional-field read-back (manifest_path) rather than
-    the new family field itself, proving the required check command's own round-trip test suite
-    genuinely exercises this function's real behavior end to end - if this specific anchor line
-    does not match the real file, re-anchor the mutate directly on whatever line this card's own
-    new family= addition sits next to instead. A pure literal-text mutation, immune to the
-    lockstep-rename vacuousness class found earlier this session, and it never touches any other
-    code path.
+    Reverts the new `family=...` read-back this card adds back to `None`, which must make the
+    new round-trip test (asserting `inputs.family == "pdf"` after a real write-then-read cycle)
+    fail - a pure literal-text mutation, immune to the lockstep-rename vacuousness class found
+    earlier this session, and it never touches any other code path. (A prior version of this
+    negative control targeted the adjacent, pre-existing `manifest_path` read-back instead, on
+    the assumption an existing test already covered its round-trip value - that assumption was
+    wrong, confirmed vacuous by a real review run, and is corrected here to target this card's
+    own new code directly.)
 evidence:
   - evidence/build/G3/TC-783/receipt.json
 closeout:
