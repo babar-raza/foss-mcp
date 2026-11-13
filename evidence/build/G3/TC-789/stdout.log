@@ -1,0 +1,63 @@
+
+===== CLEAN RUN 1 (host) =====
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-5c72e798a73c059a\Scripts\python.exe -m pytest tests/infra/test_serve_sidecar_tolerance.py -q -rfE -p no:cacheprovider "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-wznz9hjs\.junit-0.xml"
+--- stdout ---
+........................................................                 [100%]
+============================== warnings summary ===============================
+..\venv-5c72e798a73c059a\Lib\site-packages\starlette\testclient.py:53
+  E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-5c72e798a73c059a\Lib\site-packages\starlette\testclient.py:53: DeprecationWarning: The anyio.abc.BlockingPortal alias is deprecated, use anyio.from_thread.BlockingPortal instead.
+    _PortalFactoryType = Callable[[], AbstractContextManager[anyio.abc.BlockingPortal]]
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+
+--- stderr ---
+
+
+===== CLEAN RUN 2 (host) =====
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-5c72e798a73c059a\Scripts\python.exe -m pytest tests/infra/test_serve_sidecar_tolerance.py -q -rfE -p no:cacheprovider "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-wznz9hjs\.junit-0.xml"
+--- stdout ---
+........................................................                 [100%]
+============================== warnings summary ===============================
+..\venv-5c72e798a73c059a\Lib\site-packages\starlette\testclient.py:53
+  E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-5c72e798a73c059a\Lib\site-packages\starlette\testclient.py:53: DeprecationWarning: The anyio.abc.BlockingPortal alias is deprecated, use anyio.from_thread.BlockingPortal instead.
+    _PortalFactoryType = Callable[[], AbstractContextManager[anyio.abc.BlockingPortal]]
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+
+--- stderr ---
+
+
+===== NEGATIVE CONTROL (checks MUST now fail) =====
+mutated: M tests/infra/test_serve_sidecar_tolerance.py, ?? .junit-0.xml
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-5c72e798a73c059a\Scripts\python.exe -m pytest tests/infra/test_serve_sidecar_tolerance.py -q -rfE -p no:cacheprovider "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-wznz9hjs\.junit-0.xml"
+--- stdout ---
+................F.......................................                 [100%]
+================================== FAILURES ===================================
+_________ test_a_good_sidecar_without_fetched_at_is_present_with_none _________
+
+tmp_path = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-3121/test_a_good_sidecar_without_fe0')
+
+    def test_a_good_sidecar_without_fetched_at_is_present_with_none(tmp_path: Path) -> None:
+        manifests = _stage(tmp_path)
+        data = _good_product_reference()
+        data.pop("fetched_at", None); data["fetched_at"] = "2099-01-01T00:00:00Z"
+        (manifests / PRODUCT_REFERENCE).write_bytes(_dumps(data))
+        inputs = serve_http._serving_product_reference_inputs(manifests, CONFIG)
+        assert inputs is not None
+        assert inputs.sidecar_state == SIDECAR_PRESENT
+>       assert inputs.sidecar_fetched_at is None
+E       AssertionError: assert '2099-01-01T00:00:00Z' is None
+E        +  where '2099-01-01T00:00:00Z' = ProductReferenceInputs(manifest_text='module github.com/aspose-pdf-foss/aspose-pdf-foss-for-go\n\ngo 1.24\n', contribu...error=None), readme_document=None, manifest_path=None, install_served_version='v0.16.0', known_hazards=(), family=None).sidecar_fetched_at
+
+tests\infra\test_serve_sidecar_tolerance.py:212: AssertionError
+============================== warnings summary ===============================
+..\venv-5c72e798a73c059a\Lib\site-packages\starlette\testclient.py:53
+  E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-5c72e798a73c059a\Lib\site-packages\starlette\testclient.py:53: DeprecationWarning: The anyio.abc.BlockingPortal alias is deprecated, use anyio.from_thread.BlockingPortal instead.
+    _PortalFactoryType = Callable[[], AbstractContextManager[anyio.abc.BlockingPortal]]
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+=========================== short test summary info ===========================
+FAILED tests/infra/test_serve_sidecar_tolerance.py::test_a_good_sidecar_without_fetched_at_is_present_with_none
+
+--- stderr ---
+

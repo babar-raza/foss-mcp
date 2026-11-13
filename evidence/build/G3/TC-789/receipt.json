@@ -1,0 +1,88 @@
+{
+  "schema_version": 1,
+  "card": "TC-789",
+  "gate": "G3",
+  "generated_by": "gatectl",
+  "generated_at": "2026-11-13T19:10:55Z",
+  "base_rev": "62892612ad369a3791042488892925fb382f839a",
+  "head_rev": "6802aa36846a03eb5843a7dfc3dda15a7f46fc4b",
+  "card_sha256": "51bc2b862f3ac56df2fab96d2e0f79b23db5691cedf1689edcd7c380c101ce5f",
+  "fingerprint": {
+    "python": "3.13.2",
+    "platform": "Windows-11-10.0.26300-SP0",
+    "lock_sha256": "5c72e798a73c059a438e752e94a8d4c88c1bdf81a197f6e5c5fcecbc9466a691",
+    "env": {
+      "PYTHONHASHSEED": "0",
+      "PYTHONUTF8": "1",
+      "PYTHONDONTWRITEBYTECODE": "1",
+      "PYTHONIOENCODING": "utf-8",
+      "TZ": "UTC",
+      "LC_ALL": "C.UTF-8",
+      "SOURCE_DATE_EPOCH": "1700000000",
+      "verify_runner": "host"
+    }
+  },
+  "scope": {
+    "ok": true,
+    "changed_paths": [
+      "tests/infra/test_serve_sidecar_tolerance.py"
+    ],
+    "violations": [],
+    "evaluated": true
+  },
+  "runs": [
+    {
+      "run": 1,
+      "checks": [
+        {
+          "command": "{python} -m pytest tests/infra/test_serve_sidecar_tolerance.py -q -rfE -p no:cacheprovider",
+          "exit_code": 0,
+          "duration_s": 7.051,
+          "stdout_sha256": "0d637b7cb89d26726b835ea8d3a751ada6c9e12911c4b41d9210b924bf394d31",
+          "tests": 56,
+          "skipped": 0,
+          "errors": 0,
+          "failures": 0
+        }
+      ],
+      "all_passed": true
+    },
+    {
+      "run": 2,
+      "checks": [
+        {
+          "command": "{python} -m pytest tests/infra/test_serve_sidecar_tolerance.py -q -rfE -p no:cacheprovider",
+          "exit_code": 0,
+          "duration_s": 5.449,
+          "stdout_sha256": "0d637b7cb89d26726b835ea8d3a751ada6c9e12911c4b41d9210b924bf394d31",
+          "tests": 56,
+          "skipped": 0,
+          "errors": 0,
+          "failures": 0
+        }
+      ],
+      "all_passed": true
+    }
+  ],
+  "negative_control": {
+    "kind": "mutate",
+    "patch": "python -X utf8 -c \"import pathlib; p = pathlib.Path('tests/infra/test_serve_sidecar_tolerance.py'); s = p.read_text(encoding='utf-8'); old = 'data.pop(' + chr(34) + 'fetched_at' + chr(34) + ', None)'; count = s.count(old); assert count == 1, 'the expected data.pop(' + chr(34) + 'fetched_at' + chr(34) + ', None) call was not found exactly once - the card has not made this fix yet, or used different literal text'; new = old + '; data[' + chr(34) + 'fetched_at' + chr(34) + '] = ' + chr(34) + '2099-01-01T00:00:00Z' + chr(34); s2 = s.replace(old, new, 1); assert s2 != s; p.write_text(s2, encoding='utf-8')\"\n",
+    "patch_sha256": "a2155b0a2f5b2bdd82fde2e8a4f66e9f8f60cee689e82f3438b4c51e831263e6",
+    "applied": true,
+    "patch_applied_failed": true,
+    "exit_codes": [
+      1
+    ],
+    "tree_changed": [
+      "M tests/infra/test_serve_sidecar_tolerance.py",
+      "?? .junit-0.xml"
+    ]
+  },
+  "holdout": {
+    "ran": false,
+    "passed": true,
+    "detail": "no holdout for this card"
+  },
+  "accepted": true,
+  "reason": "all gates passed"
+}
