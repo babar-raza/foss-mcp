@@ -110,7 +110,7 @@ requires:
 network: false
 negative_control:
   mutate: |
-    python -X utf8 -c "import pathlib; p = pathlib.Path('infra/build_chunks.py'); s = p.read_text(encoding='utf-8'); old = 'MAX_CHUNK_TEXT_CHARS = 24_000'; count = s.count(old); assert count == 1, 'the expected constant line was not found exactly once'; s2 = s.replace(old, 'MAX_CHUNK_TEXT_CHARS = 24_000\n\n\ndef _tc790_disable_coverage_preservation(text): return None', 1); assert s2 != s; p.write_text(s2, encoding='utf-8')"
+    python -X utf8 -c "import pathlib; p = pathlib.Path('infra/build_chunks.py'); s = p.read_text(encoding='utf-8'); old = 'MAX_CHUNK_TEXT_CHARS = 24_000'; count = s.count(old); assert count == 1, 'the expected constant line was not found exactly once'; nl = chr(10); s2 = s.replace(old, old + nl + nl + nl + 'def _tc790_disable_coverage_preservation(text): return None', 1); assert s2 != s; p.write_text(s2, encoding='utf-8')"
   rationale: >-
     This mutate is a placeholder shape only - the worker's own real fix introduces new, specific
     function/variable names the supervisor cannot predict in advance. Before dispatching, the
