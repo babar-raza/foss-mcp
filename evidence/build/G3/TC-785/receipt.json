@@ -1,0 +1,90 @@
+{
+  "schema_version": 1,
+  "card": "TC-785",
+  "gate": "G3",
+  "generated_by": "gatectl",
+  "generated_at": "2026-11-13T17:12:44Z",
+  "base_rev": "24039fc9dcefdb265136a7676955d65c033f31db",
+  "head_rev": "b9cb3a469b4ddfd2ad687a4f5497f5702507a09b",
+  "card_sha256": "6c6c044040c79e586e730d0721b300d769862b793945044a18d1806fd9403cd0",
+  "fingerprint": {
+    "python": "3.13.2",
+    "platform": "Windows-11-10.0.26300-SP0",
+    "lock_sha256": "5c72e798a73c059a438e752e94a8d4c88c1bdf81a197f6e5c5fcecbc9466a691",
+    "env": {
+      "PYTHONHASHSEED": "0",
+      "PYTHONUTF8": "1",
+      "PYTHONDONTWRITEBYTECODE": "1",
+      "PYTHONIOENCODING": "utf-8",
+      "TZ": "UTC",
+      "LC_ALL": "C.UTF-8",
+      "SOURCE_DATE_EPOCH": "1700000000",
+      "verify_runner": "host"
+    }
+  },
+  "scope": {
+    "ok": true,
+    "changed_paths": [
+      "infra/demo-manifests/product_reference_cells_go.json",
+      "infra/demo-manifests/recent_releases_cells_go.json",
+      "tests/infra/test_round3_release_tags.py"
+    ],
+    "violations": [],
+    "evaluated": true
+  },
+  "runs": [
+    {
+      "run": 1,
+      "checks": [
+        {
+          "command": "{python} -m pytest tests/infra/test_round3_release_tags.py -q -rfE -p no:cacheprovider",
+          "exit_code": 0,
+          "duration_s": 11.384,
+          "stdout_sha256": "325b7cf7b0d6ead544ebb7e833a08009fa10cf90ce29b8f9021e2ede461488f5",
+          "tests": 47,
+          "skipped": 0,
+          "errors": 0,
+          "failures": 0
+        }
+      ],
+      "all_passed": true
+    },
+    {
+      "run": 2,
+      "checks": [
+        {
+          "command": "{python} -m pytest tests/infra/test_round3_release_tags.py -q -rfE -p no:cacheprovider",
+          "exit_code": 0,
+          "duration_s": 5.656,
+          "stdout_sha256": "325b7cf7b0d6ead544ebb7e833a08009fa10cf90ce29b8f9021e2ede461488f5",
+          "tests": 47,
+          "skipped": 0,
+          "errors": 0,
+          "failures": 0
+        }
+      ],
+      "all_passed": true
+    }
+  ],
+  "negative_control": {
+    "kind": "mutate",
+    "patch": "python -X utf8 -c \"import json, pathlib; p = pathlib.Path('infra/demo-manifests/recent_releases_cells_go.json'); data = json.loads(p.read_text(encoding='utf-8')); assert isinstance(data, list) and len(data) > 1, 'the card has not yet regenerated this file to more than 1 entry - it has not made this fix yet, or the real JSON shape differs from what this mutate expects'; data = data[:1]; p.write_text(json.dumps(data, indent=2, ensure_ascii=False) + chr(10), encoding='utf-8')\"\n",
+    "patch_sha256": "f6fd18142ed5b484b5284132c50367e07144ef4709d1f7e9ec24dff8724a9178",
+    "applied": true,
+    "patch_applied_failed": true,
+    "exit_codes": [
+      1
+    ],
+    "tree_changed": [
+      "M infra/demo-manifests/recent_releases_cells_go.json",
+      "?? .junit-0.xml"
+    ]
+  },
+  "holdout": {
+    "ran": false,
+    "passed": true,
+    "detail": "no holdout for this card"
+  },
+  "accepted": true,
+  "reason": "all gates passed"
+}
