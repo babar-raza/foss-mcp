@@ -566,3 +566,78 @@ def test_load_manifest_sidecar_round_trips_what_build_sidecar_recorded(tmp_path:
     assert inputs is not None
     assert inputs.source_repository == REPOSITORY
     assert inputs.source_ref == _NEW_REF
+
+
+# --- load_manifest_sidecar reads family back (G3/TC-783) -----------------------------------------
+
+
+def test_load_manifest_sidecar_round_trips_the_family_main_writes(tmp_path: Path, monkeypatch) -> None:
+    """G3/TC-783: main() has written sidecar["family"] = family since TC-511, but
+    load_manifest_sidecar never read it back - every sidecar-loaded pilot got family=None,
+    silently disabling get_product_reference.py's TC-641 known-defects merge. This exercises the
+    real build_sidecar -> main()'s family write -> load_manifest_sidecar chain end to end, not
+    just a hand-built dict, so a regression in any of the three links fails this test."""
+    import sys
+
+    _install_fake_urlopen(
+        monkeypatch,
+        {
+            "": _listing_payload(*_ROOT_ENTRIES),
+            "CONTRIBUTING.md": _contents_payload(
+                path="CONTRIBUTING.md", sha="c" * 40, content="# Contributing\n"
+            ),
+            "AGENTS.md": _contents_payload(path="AGENTS.md", sha="a" * 40, content="# Agents\n"),
+        },
+    )
+
+    output_path = tmp_path / "product_reference_pdf_net.json"
+    argv = [
+        "fetch_product_reference.py",
+        "--repository",
+        REPOSITORY,
+        "--platform",
+        "net",
+        "--output",
+        str(output_path),
+    ]
+    monkeypatch.setattr(sys, "argv", argv)
+
+    fetch_product_reference.main()
+
+    # The real CLI parsed "family" from the --output file name (no --family given): confirm the
+    # write side actually recorded it before asserting anything about the read side.
+    written = json.loads(output_path.read_text(encoding="utf-8"))
+    assert written["family"] == "pdf"
+
+    inputs = fetch_product_reference.load_manifest_sidecar(output_path)
+
+    assert inputs is not None
+    assert inputs.family == "pdf"
+
+
+def test_load_manifest_sidecar_of_a_sidecar_with_no_family_key_leaves_it_none(tmp_path: Path) -> None:
+    """Every one of the 32 real, already-committed product_reference_*.json sidecars predates the
+    sidecar["family"] = family write and has no "family" key at all (confirmed directly against
+    infra/demo-manifests: 32 files, 0 with the key) - this fix must be additive and never raise a
+    KeyError for any of them. A sidecar missing the key still loads with family=None, exactly like
+    every pilot's own real, currently-unmigrated sidecar does today."""
+    path = tmp_path / "product_reference.json"
+    path.write_text(json.dumps(_sidecar_dict()), encoding="utf-8")
+
+    inputs = fetch_product_reference.load_manifest_sidecar(path)
+
+    assert inputs is not None
+    assert inputs.family is None
+
+
+def test_load_manifest_sidecar_reads_a_null_family_as_none(tmp_path: Path) -> None:
+    """main() writes sidecar["family"] = family, and family is None whenever --family is omitted
+    and the --output file name does not match the product_reference_<family>_<platform>.json
+    pattern - a literal JSON null, not an absent key. That must read back as None too, not raise."""
+    path = tmp_path / "product_reference.json"
+    path.write_text(json.dumps(_sidecar_dict(family=None)), encoding="utf-8")
+
+    inputs = fetch_product_reference.load_manifest_sidecar(path)
+
+    assert inputs is not None
+    assert inputs.family is None

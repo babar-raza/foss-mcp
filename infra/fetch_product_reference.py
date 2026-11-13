@@ -53,6 +53,12 @@ listing whatever its case), the repository path of the manifest (``manifest_path
 SOURCE_SUBDIR of a library that lives in a subdirectory) and, when the repository has no AGENTS.md, its CLAUDE.md
 as the agent guidance. ``infra/verify_product_reference_install.py`` later adds ``install_served_version``. A
 sidecar written before the card has none of these and loads with None for each.
+
+G3/TC-783: ``main()`` has written ``sidecar["family"] = family`` since TC-511, but ``load_manifest_sidecar``
+never read it back into ``ProductReferenceInputs.family`` - every sidecar-loaded pilot got ``family=None``,
+silently and unconditionally disabling ``get_product_reference.py``'s TC-641 known-defects merge for every
+real pilot. Fixed here, additively: a sidecar without the key (every one of the 32 real, already-committed
+sidecars today, all written before this line existed) still loads with ``family=None``, exactly as before.
 """
 
 from __future__ import annotations
@@ -255,6 +261,12 @@ def load_manifest_sidecar(path: Path) -> ProductReferenceInputs | None:
         readme_document=_optional_document(data.get("readme_document")),
         manifest_path=_optional_text(data.get("manifest_path")),
         install_served_version=_optional_text(data.get("install_served_version")),
+        # G3/TC-783: main()'s own ``sidecar["family"] = family`` write (G3/TC-511) was never read
+        # back here, so every sidecar-loaded pilot's ``inputs.family`` was unconditionally None,
+        # silently disabling the TC-641 known-defects merge regardless of what the sidecar on
+        # disk actually recorded. Absent in every sidecar written before this card - reads as None,
+        # not an error, exactly like every other optional field above.
+        family=_optional_text(data.get("family")),
     )
 
 
