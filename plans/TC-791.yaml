@@ -74,7 +74,7 @@ requires:
 network: false
 negative_control:
   mutate: |
-    python -X utf8 -c "import pathlib; p = pathlib.Path('tests/mcp/tools/test_coverage_note.py'); s = p.read_text(encoding='utf-8'); old = '(14, 14)'; count = s.count(old); assert count == 1, 'the expected re-pinned literal was not found exactly once - the card has not made this fix yet, or used different literal text'; s2 = s.replace(old, '(14, 21)', 1); assert s2 != s; p.write_text(s2, encoding='utf-8')"
+    python -X utf8 -c "import pathlib; p = pathlib.Path('tests/mcp/tools/test_coverage_note.py'); s = p.read_text(encoding='utf-8'); old = 'assert (report.indexed_types, report.total_types) == (14, 14)'; count = s.count(old); assert count == 1, 'the expected re-pinned assertion line was not found exactly once - the card has not made this fix yet, or used different literal text'; new = 'assert (report.indexed_types, report.total_types) == (14, 21)'; s2 = s.replace(old, new, 1); assert s2 != s; p.write_text(s2, encoding='utf-8')"
   rationale: >-
     Reverts the card's own re-pinned literal back to the stale value, which must make the check
     fail again - a pure literal-text mutation targeting this card's own new committed content
