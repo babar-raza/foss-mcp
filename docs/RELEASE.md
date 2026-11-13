@@ -414,6 +414,58 @@ the oracle covers, and the real result of covering it, is now stated here rather
   (e.g. `self_extracted_verified`, driven by `pinned_matches_symbols`) that never masquerades as a live registry
   comparison that was never actually made, or extend the release-fetching pipeline to also record tags (not only
   GitHub Releases) for repositories like `3d/net`'s that never publish the latter - neither is attempted here.
+- **The independent extraction-fidelity oracle program (`O1`-`O10`, REQ-G3-012) is closed** (G3/TC-781, O10's own
+  closure action; every figure below re-verified directly against `docs/ORACLE_TRIAGE.md` and the real commits
+  named, not transcribed from any card's prose). Nine implementation cards each fixed one real, distinct
+  oracle-engine or extractor gap, confirmed `FIXED` by this card's own fresh, twice-green run of the suite named
+  below: `TC-623`/`TC-624` (O1, resolving shell/definition same-name collisions and verifying inherited members
+  against their named ancestor in the diff engine), `TC-676` (O2, the schema-validated Python public-API
+  definition), `TC-679` (O3, wiring `excluded_dirs` into `enumerate_python`'s own directory check), `TC-682` (O4,
+  Python kw-only/`*args`/`**kwargs`/`enum.auto()` signature completeness), `TC-689` (O5, Java enum-constant
+  constructor arguments), `TC-690` (O6, synthesized public TypeScript constructor-parameter properties), `TC-691`
+  (O7, the real Go/Rust/C++ disagreement classification that became `docs/ORACLE_TRIAGE.md`), `TC-692`/`TC-693`
+  (O8, the hollow-pass guard and the per-pilot regression ratchet committed at `tests/fixtures/oracle/
+  snapshot.json`), and `TC-694` (O9, resolving `TYPESCRIPT_NPM_PACKAGE_DIR` from `NPM_CONFIG_PREFIX`).
+
+  Every real oracle-disagreement classification this project has ever made now ends in one of the plan's two
+  allowed closure states for an oracle class - `FIXED` or `DEFINITIONAL` - never a third "disclosed limitation
+  only" state. The two cross-cutting buckets confirmed three times independently (`OQ-020` Java, `OQ-021` .NET,
+  `OQ-022` C++) are classified `DEFINITIONAL` here, for the first time by name, because each is a direct,
+  confirmed consequence of what the oracle and its diff engine are deliberately defined to measure, not a
+  correctness gap in either side's real extracted data: ancestor-member flattening (a member really declared only
+  on a base class, which the oracle's parse-phase-only design, by deliberate scope, never replicates onto a
+  served subclass - `pdf/cpp`'s `Annotation : BaseParagraph`; `email/cpp`'s `cfb_storage`/`cfb_stream` : `cfb_node`,
+  24 promoted members, 0 remainder; `slides/cpp`'s `SimpleColorFormat : ColorFormat` and `Slide : BaseSlide`; and
+  `pdf/go`'s own Go-specific struct-embedding-promotion variant, 480 promoted members, 0 remainder) and bare-name/
+  overload-unaware matching (`diff_symbol`'s own bare-name comparison merges every real overload of one name into
+  a single comparison, so `cells/cpp`'s 13, `email/cpp`'s 7, and `slides/cpp`'s 37 `signature` findings are each
+  confirmed, individually, to be real overload sets colliding under one name, not a real signature disagreement
+  in either side's extraction). `TC-732`'s own individual root-causing of the three previously-"by inspection
+  alone" C++ pilots (`cells/cpp`, `slides/cpp`, `email/cpp`) landed exactly these two buckets and no new,
+  unresolved third class.
+- **Two real oracle *measurement* gaps `TC-732` found are named here honestly, not silently absorbed into O10's
+  closure** (G3/TC-781). These are not disagreement classifications - they are header-resolution failures that
+  leave real fixture content entirely unmeasured, so additional, currently-invisible `extra`/`missing` findings
+  may exist behind them: `cells/cpp`'s real upstream repository nests its public headers one level deeper
+  (`Aspose.Cells.Foss.Cpp/include/...`) than the oracle's C++ enumerator's own "`include/` directly under the
+  repo root" fallback assumes, failing 110 of 186 headers; `slides/cpp`'s real upstream `#include <pugixml.hpp>`
+  has no vendored copy available to the enumerator in the tested environment, failing 63 of 234 headers (and,
+  once fetched, contaminating the count with 24 unrelated `pugixml` symbols - also not a real `slides/cpp`
+  finding). Neither is `FIXED` (no `source_differential.py`/enumerator change has been made) nor `DEFINITIONAL`
+  (a tooling coverage gap is not a by-design scope boundary) - naming them here precisely means a future card
+  inherits them as real, bounded follow-up work, not an invisible gap behind an apparently-fully-closed oracle
+  program.
+- **The real oracle test suite closing this program was re-run fresh by this card, with Docker running, twice
+  identically** (G3/TC-781): `tests/release/test_source_differential.py`, `test_oracle_shell_resolution.py`,
+  `test_oracle_inherited_verification.py`, `test_oracle_triage_doc.py`, and `tests/deploy/
+  test_release_known_limitations.py` together collect 342 tests; both runs reported 342 passed, 0 failed, exit
+  code 0.
+- **19 `docs/ROUND2_REVIEW.md` rows naming an O-series card stay honestly `OPEN`, not silently implied resolved
+  by this closure** (`RD2-017`, `RD2-034`, `RD2-041`, `RD2-057`, `RD2-064`, `RD2-081`, `RD2-091`, `RD2-123`,
+  `RD2-130`, `RD2-160`, `RD2-164`, `RD2-170`, `RD2-191`, `RD2-206`, `RD2-208`, `RD2-210`, `RD2-220`, `RD2-238`,
+  `RD2-269`). Each was already individually investigated and correctly left `OPEN` by `TC-780`'s own I14 pass
+  minutes before this card ran, for its own distinct, already-recorded reason (`docs/DECISION_LOG.md`'s
+  2026-11-13 I14 entry) - O10 does not re-touch, re-count, or re-disposition any of them.
 
 ### Kubernetes chart (not part of the standalone release)
 
