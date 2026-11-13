@@ -1,0 +1,107 @@
+id: TC-792
+gate: G3
+lane: verification
+purpose: >-
+  Unblocks `TC-790`'s review, which fails on "related offline tests at head" against
+  `tests/infra/test_verification_cache_committed.py::test_the_committed_cache_has_no_contradiction_with_the_served_examples[words_python]`
+  - confirmed, via a dedicated 2026-11-14 investigation plus direct supervisor verification, to
+  be unrelated to `TC-790`'s own change: a STALE verification cache, not a regression.
+
+  `tests/fixtures/verified_examples/words_python.json` (last refreshed at commit `4d75a4c9`)
+  carries 8 entries recording `verified: false` for the `readme`/"Extract Plain Text" example
+  (and siblings), each with a recorded `FileNotFoundError: report.docx` - at the time that cache
+  was written, no `docx` fixture generator existed, so the example genuinely could not be
+  verified. `TC-701` (XA8, since landed) added a real `_generate_docx()` fixture generator to
+  `src/foss_mcp/indexing/example_fixtures.py` specifically because words/python needs `docx`
+  fixtures - confirmed live in source. The real, currently-served generation
+  (`infra/demo-manifests/words__python__self_extracted/`) now marks this exact example (same
+  `code_sha256`, same `library_commit` - not an upstream version bump) as a genuinely verified
+  example, via a later re-ingest that ran after `TC-701` landed. The committed cache file was
+  never refreshed to match, so it still asserts a failure that current reality has already
+  disproven - this is the "cache must never contradict what the pilot actually serves" invariant
+  being violated by stale data, not by a defect in anything that produces or checks it.
+depends_on:
+  - TC-547
+  - TC-548
+  - TC-551
+  - TC-553
+  - TC-701
+write_paths:
+  - tests/fixtures/verified_examples/words_python.json
+satisfies:
+  - REQ-G3-014
+source_refs:
+  - file: docs/DECISION_LOG.md
+    anchor: >-
+      ## 2026-11-13/14 — The known-defects merge thread (C11 → `TC-783`/`786`/`787`/`788`/`789`) closes, verified live end-to-end
+    sha256: 41e4b2533cdbf203f7cdcc85c970f7b6a8779586eeb28a5a21c54606206a439d
+inputs:
+  - >-
+    READ FIRST: `tests/infra/test_verification_cache_committed.py` in full, especially
+    `contradictions()`, `served_examples()`, `_generation_path()`, and the module's own
+    docstring (what this cache is for, and its "never contradicting the verified examples the
+    pilot actually serves" invariant). `src/foss_mcp/indexing/example_fixtures.py`'s
+    `_generate_docx()` to confirm `TC-701` really did add it.
+  - >-
+    REPRODUCE FIRST, YOURSELF, FRESH: run the failing test with `-v` and get the exact list of
+    all 8 contradicting `(provenance, code_sha256, library_commit)` triples. For EACH ONE,
+    independently confirm via `served_examples("words_python.json")` that the pilot's real,
+    currently-committed generation genuinely marks that exact triple as a verified example today
+    (not assumed from this card's prose - re-derive it yourself). Also confirm, for each, that
+    the cache entry's own recorded `output` field shows the `FileNotFoundError: report.docx` (or
+    an equivalent now-fixed-by-`TC-701` cause) - if any of the 8 shows a DIFFERENT failure reason
+    unrelated to the missing `docx` fixture, STOP and report that one separately rather than
+    treating it the same way.
+  - >-
+    Fix: for every contradicting entry you independently re-confirmed is both (a) now served as
+    verified by the real current generation and (b) recorded with the now-fixed `report.docx`
+    cause, REMOVE that entry from the committed `tests/fixtures/verified_examples/words_python.json`
+    cache (do not flip it to `verified: true` - this card does not claim to have re-run real
+    verification, only that a stale false claim should stop being asserted; removing it is the
+    conservative, honest action, matching the module's own framing of this cache as an advisory
+    record, not a mandatory ledger). Keep every other entry in the file byte-for-byte unchanged.
+    Keep the file's existing canonical/sorted shape (re-read how the file is normally written -
+    likely via `build_chunks.py`'s own cache-writing helper - and match it, do not hand-format).
+  - >-
+    If any of the 8 entries does NOT independently re-confirm as described above, leave it in
+    the cache untouched and report it honestly - do not remove an entry you have not personally
+    verified is stale.
+  - >-
+    Do NOT touch `infra/build_chunks.py`, `infra/demo-manifests/`, or any other file - this is a
+    narrow, single-file cache correction.
+  - >-
+    Before committing: run `{python} -m pytest tests/infra/test_verification_cache_committed.py -q -rfE -p no:cacheprovider`
+    twice and report the real result, including the exact 8 (or fewer) triples you removed and
+    your independent confirmation for each.
+actions:
+  - >-
+    Remove stale `verified: false` cache entries that now contradict the pilot's real, currently
+    served verification status - independently re-confirmed per entry, never a blanket removal.
+checks:
+  - command: '{python} -m pytest tests/infra/test_verification_cache_committed.py -q -rfE -p no:cacheprovider'
+    expect: 'exit 0'
+    timeout_seconds: 300
+    junitxml: true
+    proves:
+      - REQ-G3-014
+min_tests: 20
+requires:
+  - python
+network: false
+negative_control:
+  mutate: |
+    python -X utf8 -c "import json, pathlib; p = pathlib.Path('tests/fixtures/verified_examples/words_python.json'); data = json.loads(p.read_text(encoding='utf-8')); entries = data if isinstance(data, list) else data.get('entries', data); assert isinstance(entries, list), 'unexpected cache file shape - re-anchor this mutate against the real structure'; code = '5220fe11256e08251c3e0db6318d811cf84e5b58b412237fea7455c654d91b02'; commit = '2d2efee2787cb9e56d071d17f8d7b740dce8b784'; present = any(e.get('code_sha256') == code and e.get('library_commit') == commit for e in entries); assert not present, 'this triple is still present in the cache - the card has not removed it yet, or chose a different entry'; entries.append({'provenance': 'readme', 'title': 'Extract Plain Text', 'code_sha256': code, 'library_commit': commit, 'platform': 'python', 'toolchain': 'cpython-3.12', 'verified': False, 'output': 'mutated: re-introduced stale entry'}); p.write_text(json.dumps(data, indent=2, ensure_ascii=False, sort_keys=True) + chr(10), encoding='utf-8')"
+  rationale: >-
+    Re-introduces the exact real, known-stale `(readme, 5220fe11..., 2d2efee2...)` entry this
+    card removes, with `verified: false` - since the real, current generation genuinely serves
+    this triple as verified (independently confirmed during this card's own authoring), its
+    reappearance in the cache must trip `contradictions()` again, directly falsifying the fix. A
+    literal-text mutation anchored on real, already-known data, immune to the lockstep-rename
+    vacuousness class found earlier this session.
+evidence:
+  - evidence/build/G3/TC-792/receipt.json
+closeout:
+  - >-
+    The committed verification cache for words/python no longer contradicts the pilot's real,
+    current served verification status; `TC-790`'s review gate no longer blocks on this file.
+recovery: Re-run from a clean tree.

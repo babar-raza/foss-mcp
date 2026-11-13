@@ -1,0 +1,88 @@
+id: TC-791
+gate: G3
+lane: verification
+purpose: >-
+  Unblocks `TC-790`'s review, which fails on "related offline tests at head" against
+  `tests/mcp/tools/test_coverage_note.py::test_report_index_freshness_states_the_same_note` -
+  confirmed, via a dedicated 2026-11-14 investigation fork plus direct supervisor verification,
+  to be unrelated to `TC-790`'s own change and to be the same "stale pin, not a regression"
+  class this session has hit repeatedly (`TC-775`, `TC-778`, `TC-779`, `TC-784`).
+
+  The test's own comment already documents 2 prior re-pins of this exact literal
+  (`# TC-555: (4, 4) -> (21, 21); TC-614 (I2, dedup): (21, 21) -> (14, 21)`), and now needs a
+  third: it currently asserts `(report.indexed_types, report.total_types) == (14, 21)` but the
+  real value is `(14, 14)`. Root cause: `_tex_store()` reads the real committed
+  `tests/fixtures/tex_python/api_surface.json` directly - that file's most recent change
+  (`d9d498fa`, "backfill symbol_counts dedup onto 11 pre-TC-620 Python fixtures, G3/TC-729") is
+  the SAME identity-aware dedup fix class `TC-779` already corrected 3 other stale test
+  assertions for elsewhere this session - `report_index_freshness`'s `total_types` is parsed
+  from the real `API-Coverage:` text baked from this fixture's own (now correctly deduped)
+  `symbol_counts`, and tex/python's real total correctly dropped from 21 to 14 after `TC-729`'s
+  backfill. This is a pure test-literal correction; the real code and the real fixture are both
+  already correct.
+depends_on:
+  - TC-520
+  - TC-555
+  - TC-614
+  - TC-729
+write_paths:
+  - tests/mcp/tools/test_coverage_note.py
+satisfies:
+  - REQ-G3-010
+source_refs:
+  - file: docs/DECISION_LOG.md
+    anchor: >-
+      ## 2026-11-13/14 — The known-defects merge thread (C11 → `TC-783`/`786`/`787`/`788`/`789`) closes, verified live end-to-end
+    sha256: 41e4b2533cdbf203f7cdcc85c970f7b6a8779586eeb28a5a21c54606206a439d
+inputs:
+  - >-
+    READ FIRST: `tests/mcp/tools/test_coverage_note.py`'s `test_report_index_freshness_states_the_same_note`
+    and `_tex_store()` in full; the real committed `tests/fixtures/tex_python/api_surface.json`;
+    `src/foss_mcp/mcp/tools/coverage_note.py`'s `parse_api_coverage`/`ApiCoverage` (how
+    `indexed`/`total` are derived from text); `git show d9d498fa -- tests/fixtures/tex_python/api_surface.json`
+    for the real TC-729 change to this exact fixture.
+  - >-
+    REPRODUCE FIRST, YOURSELF, FRESH: run the failing test and confirm the real observed value is
+    `(14, 14)`, not `(14, 21)`. Confirm directly that `total_types` traces back to this fixture's
+    own `symbol_counts`/coverage text, not a hardcoded value anywhere in test or production code.
+  - >-
+    Fix: re-pin the one assertion to the real, current, correct value - `(14, 14)`. Update the
+    test's own leading comment to add this third re-pin to its documented history (in the same
+    style as the existing `TC-555`/`TC-614` notes), so a future reader understands why the number
+    keeps moving and that each move has had a real, legitimate cause.
+  - >-
+    Do NOT touch any production code (`report_index_freshness.py`, `coverage_note.py`) or any
+    fixture file - this is a test-literal-only fix; the real code and data are both already
+    correct.
+  - >-
+    Before committing: run `{python} -m pytest tests/mcp/tools/test_coverage_note.py -q -rfE -p no:cacheprovider`
+    twice and report the real result.
+actions:
+  - >-
+    Re-pin one stale literal to match the real, current, correctly-deduped type count for
+    tex/python - no production code or data change.
+checks:
+  - command: '{python} -m pytest tests/mcp/tools/test_coverage_note.py -q -rfE -p no:cacheprovider'
+    expect: 'exit 0'
+    timeout_seconds: 300
+    junitxml: true
+    proves:
+      - REQ-G3-010
+min_tests: 15
+requires:
+  - python
+network: false
+negative_control:
+  mutate: |
+    python -X utf8 -c "import pathlib; p = pathlib.Path('tests/mcp/tools/test_coverage_note.py'); s = p.read_text(encoding='utf-8'); old = '(14, 14)'; count = s.count(old); assert count == 1, 'the expected re-pinned literal was not found exactly once - the card has not made this fix yet, or used different literal text'; s2 = s.replace(old, '(14, 21)', 1); assert s2 != s; p.write_text(s2, encoding='utf-8')"
+  rationale: >-
+    Reverts the card's own re-pinned literal back to the stale value, which must make the check
+    fail again - a pure literal-text mutation targeting this card's own new committed content
+    directly, immune to the lockstep-rename vacuousness class found earlier this session.
+evidence:
+  - evidence/build/G3/TC-791/receipt.json
+closeout:
+  - >-
+    The one stale literal now matches real, current, correctly-deduped data; `TC-790`'s review
+    gate no longer blocks on this file.
+recovery: Re-run from a clean tree.
