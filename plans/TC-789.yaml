@@ -78,13 +78,15 @@ requires:
 network: false
 negative_control:
   mutate: |
-    python -X utf8 -c "import pathlib; p = pathlib.Path('tests/infra/test_serve_sidecar_tolerance.py'); s = p.read_text(encoding='utf-8'); old = chr(34) + 'fetched_at' + chr(34) + ', None)'; count = s.count(old); assert count >= 1, 'the expected pop(' + chr(34) + 'fetched_at' + chr(34) + ', None) call was not found - the card has not made this fix yet, or used different literal text'; s2 = s.replace(old, chr(34) + 'fetched_at_MUTATED' + chr(34) + ', None)', 1); assert s2 != s; p.write_text(s2, encoding='utf-8')"
+    python -X utf8 -c "import pathlib; p = pathlib.Path('tests/infra/test_serve_sidecar_tolerance.py'); s = p.read_text(encoding='utf-8'); old = 'data.pop(' + chr(34) + 'fetched_at' + chr(34) + ', None)'; count = s.count(old); assert count == 1, 'the expected data.pop(' + chr(34) + 'fetched_at' + chr(34) + ', None) call was not found exactly once - the card has not made this fix yet, or used different literal text'; new = old + '; data[' + chr(34) + 'fetched_at' + chr(34) + '] = ' + chr(34) + '2099-01-01T00:00:00Z' + chr(34); s2 = s.replace(old, new, 1); assert s2 != s; p.write_text(s2, encoding='utf-8')"
   rationale: >-
-    Renames the key this card's fix pops from `"fetched_at"` to a key that never exists on the
-    staged dict, so the pop becomes a silent no-op and the real, now-present `fetched_at` value
-    flows through unpopped - the fixed test's `assert inputs.sidecar_fetched_at is None` must then
-    fail again (it will see the real file's real timestamp instead), proving the new doctoring
-    line is what the test actually depends on, not an incidental pass. A pure literal-text
+    Appends a second statement right after this card's own new `data.pop("fetched_at", None)`
+    line, forcibly re-inserting a non-None `fetched_at` value into the doctored dict before it is
+    written - this must make the fixed test's `assert inputs.sidecar_fetched_at is None` fail
+    regardless of whatever the real `pdf/go` sidecar's own `fetched_at` state happens to be on
+    `main` at falsifier time, which a mutate that only corrupts the pop's own key name would not
+    reliably do (if the real file on `main` already lacks `fetched_at`, corrupting the pop is a
+    no-op and the check passes anyway - confirmed vacuous once, fixed here). A pure literal-text
     mutation anchored on this card's own instructed fix text, immune to the lockstep-rename
     vacuousness class found earlier this session.
 evidence:
