@@ -1,0 +1,96 @@
+id: TC-789
+gate: G3
+lane: verification
+purpose: >-
+  Unblocks `TC-788`'s review, which fails on "related offline tests at head" against
+  `tests/infra/test_serve_sidecar_tolerance.py::test_a_good_sidecar_without_fetched_at_is_present_with_none`
+  - unrelated to `TC-788`'s own change, the same "stale pin vs. real accumulated content" class
+  this session has hit repeatedly. This test file's own module docstring documents its deliberate
+  design: it builds the real serving path over "doctored copies of the baked `pdf/go` sidecars in
+  `tmp_path`" (`G3/TC-507`). The one failing test never actually doctors anything for the
+  "without fetched_at" case - it stages the RAW real `product_reference_pdf_go.json` file as-is
+  and asserts `sidecar_fetched_at is None`, relying on the real file happening to lack a
+  `fetched_at` key rather than deliberately constructing that absence. That incidental fact was
+  true for all 32 real pilots before this session's `TC-786`/`TC-787`/`TC-788` (every real
+  sidecar lacked `fetched_at` - confirmed earlier this session) and is no longer true for `pdf/go`
+  specifically now that `TC-788` fetched it for real (every fetch always writes
+  `sidecar["fetched_at"]`). Since all 32 real pilots have now been fetched at least once, there
+  is no remaining real pilot this test could switch to that still incidentally lacks the field -
+  the only durable fix is to make the "without fetched_at" case deliberately constructed, exactly
+  as its sibling tests in the same file already do (e.g.
+  `test_a_wrongly_typed_manifest_text_degrades_to_fetch_failed` uses `_good_product_reference()`
+  + an explicit mutation + `_dumps`, never the raw file).
+depends_on:
+  - TC-507
+  - TC-551
+  - TC-553
+write_paths:
+  - tests/infra/test_serve_sidecar_tolerance.py
+satisfies:
+  - REQ-G3-015
+source_refs:
+  - file: docs/DECISION_LOG.md
+    anchor: >-
+      ## 2026-11-13 — TC-787 completes 19/20; `pdf/go`'s own `agent_guidance` fallback is ratified, not a surprise
+    sha256: 5ffbdf83722efda32c39d7570cea3b68aa4fa3eb76271c4bd58fb777ec03670d
+inputs:
+  - >-
+    READ FIRST: `tests/infra/test_serve_sidecar_tolerance.py` in full, especially its module
+    docstring, `_stage`/`_good`/`_good_product_reference`/`_dumps` helpers, and the failing test
+    `test_a_good_sidecar_without_fetched_at_is_present_with_none`, plus at least one sibling test
+    that already doctors a copy (`test_a_wrongly_typed_manifest_text_degrades_to_fetch_failed`)
+    as your template.
+  - >-
+    REPRODUCE FIRST, YOURSELF, FRESH: confirm the real committed
+    `infra/demo-manifests/product_reference_pdf_go.json` now has a real `fetched_at` key (it was
+    fetched for real by `TC-788` earlier today) - this is why the test fails, not a code
+    regression in `serve_http.py`.
+  - >-
+    Fix the ONE failing test to deliberately construct the "fetched_at absent" case: load
+    `_good_product_reference()`, explicitly `data.pop("fetched_at", None)`, write it via
+    `_dumps(data)` into the staged manifests directory (reusing the exact pattern its own sibling
+    tests already use - do not invent a new helper if an existing one fits), then run the same
+    assertions. Do not touch `_stage`/`_good`/`_good_product_reference`/`_dumps` themselves, and
+    do not touch any other test in this file - every other test in it must remain byte-for-byte
+    unchanged.
+  - >-
+    Do NOT touch `infra/serve_http.py`, `infra/serve_stdio.py`, or any other production code -
+    this is a pure test-construction fix; the production behavior (`sidecar_fetched_at is None`
+    when the sidecar genuinely has no `fetched_at` key) is already correct and unchanged.
+  - >-
+    Before committing: run `{python} -m pytest tests/infra/test_serve_sidecar_tolerance.py -q -rfE -p no:cacheprovider`
+    twice and report the real result.
+actions:
+  - >-
+    Make the one failing test deliberately construct its "fetched_at absent" fixture instead of
+    relying on the real `pdf/go` sidecar happening to lack the field - a fact no real pilot now
+    has, since all 32 have been fetched at least once this session.
+checks:
+  - command: '{python} -m pytest tests/infra/test_serve_sidecar_tolerance.py -q -rfE -p no:cacheprovider'
+    expect: 'exit 0'
+    timeout_seconds: 300
+    junitxml: true
+    proves:
+      - REQ-G3-015
+min_tests: 15
+requires:
+  - python
+network: false
+negative_control:
+  mutate: |
+    python -X utf8 -c "import pathlib; p = pathlib.Path('tests/infra/test_serve_sidecar_tolerance.py'); s = p.read_text(encoding='utf-8'); old = chr(34) + 'fetched_at' + chr(34) + ', None)'; count = s.count(old); assert count >= 1, 'the expected pop(' + chr(34) + 'fetched_at' + chr(34) + ', None) call was not found - the card has not made this fix yet, or used different literal text'; s2 = s.replace(old, chr(34) + 'fetched_at_MUTATED' + chr(34) + ', None)', 1); assert s2 != s; p.write_text(s2, encoding='utf-8')"
+  rationale: >-
+    Renames the key this card's fix pops from `"fetched_at"` to a key that never exists on the
+    staged dict, so the pop becomes a silent no-op and the real, now-present `fetched_at` value
+    flows through unpopped - the fixed test's `assert inputs.sidecar_fetched_at is None` must then
+    fail again (it will see the real file's real timestamp instead), proving the new doctoring
+    line is what the test actually depends on, not an incidental pass. A pure literal-text
+    mutation anchored on this card's own instructed fix text, immune to the lockstep-rename
+    vacuousness class found earlier this session.
+evidence:
+  - evidence/build/G3/TC-789/receipt.json
+closeout:
+  - >-
+    The one stale test now deliberately constructs its fixture instead of depending on real
+    `pdf/go` data's incidental shape; `TC-788`'s review gate no longer blocks on this file.
+recovery: Re-run from a clean tree.
