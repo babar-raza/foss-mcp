@@ -62,16 +62,19 @@ inputs:
     line is silently absent from the result (not truncated - entirely gone). This is the real bug,
     reproduced directly, not assumed from the card's own prose.
   - >-
-    Fix `_sanitize_chunk_text`: before cutting, check whether the text ends with a real
-    `API-Coverage:` tail block (matching `_format_type_text`'s own exact emission shape - a blank
-    line then `API-Coverage: <value>` with no further trailing content). If so, reserve its exact
-    length out of the budget, truncate only the preceding body, and reassemble as
-    `<truncated body>\nTruncated: <N> characters omitted<preserved coverage tail>`. If the already-
-    truncated-once short-circuit (the existing `_TRUNCATION_LINE_RE` check) applies, it must still
-    work correctly on text that now also carries a preserved coverage tail - verify this
-    explicitly, do not assume it. Texts with no trailing coverage line must truncate IDENTICALLY
-    to today's behavior - prove this with your own before/after diff on at least 2 of the existing
-    test file's own non-coverage-line cases.
+    Fix `_sanitize_chunk_text` using exactly this shape (the supervisor's own negative control
+    below is anchored on these literal names - use them verbatim, not a renamed equivalent):
+    add a module-level `_API_COVERAGE_TAIL_RE = re.compile(r"\n\nAPI-Coverage: [^\n]*\Z")`
+    constant near `_TRUNCATION_LINE_RE`. Inside the truncation branch, after the existing
+    already-truncated-once short-circuit, add `coverage_tail_match = _API_COVERAGE_TAIL_RE.search(text)`
+    and derive `coverage_tail = coverage_tail_match.group(0) if coverage_tail_match else ""`.
+    Reserve `len(coverage_tail)` out of the budget, truncate only the body portion preceding that
+    tail, and reassemble as `<truncated body>` + the `Truncated: <N> characters omitted` marker +
+    the preserved `coverage_tail`. If the already-truncated-once short-circuit (the existing
+    `_TRUNCATION_LINE_RE` check) applies, it must still work correctly on text that now also
+    carries a preserved coverage tail - verify this explicitly, do not assume it. Texts with no
+    trailing coverage line must truncate IDENTICALLY to today's behavior - prove this with your
+    own before/after diff on at least 2 of the existing test file's own non-coverage-line cases.
   - >-
     Add new tests to `tests/infra/test_build_chunks_sanitize.py` proving: (1) the real defect
     reproduces on the unfixed shape (a regression guard, not just the fix's own positive case -
@@ -110,16 +113,14 @@ requires:
 network: false
 negative_control:
   mutate: |
-    python -X utf8 -c "import pathlib; p = pathlib.Path('infra/build_chunks.py'); s = p.read_text(encoding='utf-8'); old = 'MAX_CHUNK_TEXT_CHARS = 24_000'; count = s.count(old); assert count == 1, 'the expected constant line was not found exactly once'; nl = chr(10); s2 = s.replace(old, old + nl + nl + nl + 'def _tc790_disable_coverage_preservation(text): return None', 1); assert s2 != s; p.write_text(s2, encoding='utf-8')"
+    python -X utf8 -c "import pathlib; p = pathlib.Path('infra/build_chunks.py'); s = p.read_text(encoding='utf-8'); old = '_API_COVERAGE_TAIL_RE.search(text)'; count = s.count(old); assert count == 1, 'the mandated _API_COVERAGE_TAIL_RE.search(text) call was not found exactly once - the card has not made this fix yet, or used different literal text than mandated'; s2 = s.replace(old, 'None', 1); assert s2 != s; p.write_text(s2, encoding='utf-8')"
   rationale: >-
-    This mutate is a placeholder shape only - the worker's own real fix introduces new, specific
-    function/variable names the supervisor cannot predict in advance. Before dispatching, the
-    supervisor MUST replace this mutate with one that directly disables the worker's own new
-    coverage-preservation logic (e.g. reverting a new helper call back to the old unconditional
-    cut, or corrupting the new tail-detection regex/condition) once the real diff is known -
-    exactly as happened for `TC-783`'s own negative control this session, which started vacuous
-    and was corrected against the real committed code before being trusted. Do not accept this
-    card's review on the placeholder mutate as written.
+    Replaces the fix's own tail-detection call with a bare `None`, so `coverage_tail_match` is
+    always `None` and `coverage_tail` is always `""` - the preservation mechanism is fully
+    disabled and the function degrades exactly back to today's buggy behavior (silently dropping
+    a trailing `API-Coverage:` line on a large-enough text). A pure literal-text mutation
+    targeting this card's own mandated new code directly, immune to the lockstep-rename
+    vacuousness class found earlier this session.
 evidence:
   - evidence/build/G3/TC-790/receipt.json
 closeout:
