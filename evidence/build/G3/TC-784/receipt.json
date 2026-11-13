@@ -1,0 +1,89 @@
+{
+  "schema_version": 1,
+  "card": "TC-784",
+  "gate": "G3",
+  "generated_by": "gatectl",
+  "generated_at": "2026-11-13T17:09:18Z",
+  "base_rev": "3a3cd9411ee4c1db441d2920c2d9c742e63664e3",
+  "head_rev": "7a325f1a7bf78513b202f971c15539615fafb106",
+  "card_sha256": "dc57e59365679a533a3387a9b34c9491aff07632ecb7b4b7c4ebe944f8e56b3b",
+  "fingerprint": {
+    "python": "3.13.2",
+    "platform": "Windows-11-10.0.26300-SP0",
+    "lock_sha256": "5c72e798a73c059a438e752e94a8d4c88c1bdf81a197f6e5c5fcecbc9466a691",
+    "env": {
+      "PYTHONHASHSEED": "0",
+      "PYTHONUTF8": "1",
+      "PYTHONDONTWRITEBYTECODE": "1",
+      "PYTHONIOENCODING": "utf-8",
+      "TZ": "UTC",
+      "LC_ALL": "C.UTF-8",
+      "SOURCE_DATE_EPOCH": "1700000000",
+      "verify_runner": "host"
+    }
+  },
+  "scope": {
+    "ok": true,
+    "changed_paths": [
+      "tests/mcp/tools/test_product_reference_known_hazards.py",
+      "tests/mcp/tools/test_release_index_baked.py"
+    ],
+    "violations": [],
+    "evaluated": true
+  },
+  "runs": [
+    {
+      "run": 1,
+      "checks": [
+        {
+          "command": "{python} -m pytest tests/mcp/tools/test_product_reference_known_hazards.py tests/mcp/tools/test_release_index_baked.py -q -rfE -p no:cacheprovider",
+          "exit_code": 0,
+          "duration_s": 8.879,
+          "stdout_sha256": "302c481d0476715670506a6664542c2cdca3bcb6f6be63ec67b5ba0dde493cf4",
+          "tests": 71,
+          "skipped": 0,
+          "errors": 0,
+          "failures": 0
+        }
+      ],
+      "all_passed": true
+    },
+    {
+      "run": 2,
+      "checks": [
+        {
+          "command": "{python} -m pytest tests/mcp/tools/test_product_reference_known_hazards.py tests/mcp/tools/test_release_index_baked.py -q -rfE -p no:cacheprovider",
+          "exit_code": 0,
+          "duration_s": 5.692,
+          "stdout_sha256": "302c481d0476715670506a6664542c2cdca3bcb6f6be63ec67b5ba0dde493cf4",
+          "tests": 71,
+          "skipped": 0,
+          "errors": 0,
+          "failures": 0
+        }
+      ],
+      "all_passed": true
+    }
+  ],
+  "negative_control": {
+    "kind": "mutate",
+    "patch": "python -X utf8 -c \"import pathlib; p = pathlib.Path('tests/mcp/tools/test_product_reference_known_hazards.py'); s = p.read_text(encoding='utf-8'); old = 'assert len(OTHER_PILOT_MANIFEST_PATHS) == 19, OTHER_PILOT_MANIFEST_PATHS'; count = s.count(old); assert count == 1, 'the expected re-pinned count line was not found exactly once - the card has not made this fix yet, or the exact text differs from what this mutate expects'; s2 = s.replace(old, 'assert len(OTHER_PILOT_MANIFEST_PATHS) == 25, OTHER_PILOT_MANIFEST_PATHS  # mutated', 1); assert s2 != s; p.write_text(s2, encoding='utf-8')\"\n",
+    "patch_sha256": "6f30c440a51737aea1ae83b898b28fd56f8d994c31d9b478614d7034820a10fe",
+    "applied": true,
+    "patch_applied_failed": true,
+    "exit_codes": [
+      2
+    ],
+    "tree_changed": [
+      "M tests/mcp/tools/test_product_reference_known_hazards.py",
+      "?? .junit-0.xml"
+    ]
+  },
+  "holdout": {
+    "ran": false,
+    "passed": true,
+    "detail": "no holdout for this card"
+  },
+  "accepted": true,
+  "reason": "all gates passed"
+}
