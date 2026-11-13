@@ -1,0 +1,177 @@
+id: TC-786
+gate: G3
+lane: transport-deployment
+purpose: >-
+  Completes the write-side half of the dead known-defects merge fix `TC-783` (KD4/REQ-G3-015)
+  landed on the READ side, 2026-11-13: `load_manifest_sidecar` now correctly reads back a
+  sidecar's `family` field, but all 32 real, already-committed
+  `infra/demo-manifests/product_reference_<family>_<platform>.json` sidecars currently have ZERO
+  `"family"` key at all (confirmed, not guessed - `TC-783` itself verified this directly before
+  fixing the read side). Until these 32 real files are regenerated, `get_product_reference`'s
+  `family is None` guard still silently short-circuits the known_defects merge for every real
+  pilot in production, exactly as before `TC-783` - the read-side fix is correct but inert
+  against today's real data, the same "fix is correct, data hasn't caught up" shape this session
+  saw repeatedly (`TC-785`).
+
+  This card re-fetches all 32 sidecars via the already-correct, already-tested
+  `infra/fetch_product_reference.py` CLI, at EACH PILOT'S OWN ALREADY-INDEXED COMMIT (the real
+  `source_ref` value already recorded in that pilot's own current sidecar - never a newer
+  commit), so the fetch is a true no-content-change refresh: the only field that should change is
+  the newly-added `family` (plus the `fetched_at` timestamp and possibly `drift`, which the CLI's
+  own `_existing_drift_for` already preserves/recomputes safely, exactly as `TC-715`/`TC-785`
+  already proved for the sibling `fetch_recent_releases.py` tool). This is DATA regeneration, not
+  a code or test change - `fetch_product_reference.py`'s own mechanism needs no change.
+
+  KNOWN HAZARD, stated explicitly because it bit this exact family of card twice already this
+  session (`TC-659`'s CELLS-CPP-010 finding; `TC-785`'s real-new-release finding): re-fetching
+  LIVE data can legitimately surface MORE than just the `family` field changing, if anything
+  about the pinned commit's own content was previously fetched with a wrong path, or if a
+  dependent field (like `fetch_recent_releases.py`'s drift) has independently moved since the
+  last fetch. This card's own verification gate (see `inputs`) requires a per-pilot diff check
+  BEFORE committing anything, and treats any unexpected diff as a reason to skip that one pilot
+  and report it - never to force, guess, or silently accept a wider change than intended.
+depends_on:
+  - TC-427
+  - TC-511
+  - TC-560
+  - TC-561
+  - TC-783
+write_paths:
+  - infra/demo-manifests/product_reference_3d_java.json
+  - infra/demo-manifests/product_reference_3d_net.json
+  - infra/demo-manifests/product_reference_3d_python.json
+  - infra/demo-manifests/product_reference_3d_typescript.json
+  - infra/demo-manifests/product_reference_barcode_python.json
+  - infra/demo-manifests/product_reference_cells_cpp.json
+  - infra/demo-manifests/product_reference_cells_go.json
+  - infra/demo-manifests/product_reference_cells_java.json
+  - infra/demo-manifests/product_reference_cells_net.json
+  - infra/demo-manifests/product_reference_cells_python.json
+  - infra/demo-manifests/product_reference_cells_rust.json
+  - infra/demo-manifests/product_reference_cells_typescript.json
+  - infra/demo-manifests/product_reference_email_cpp.json
+  - infra/demo-manifests/product_reference_email_net.json
+  - infra/demo-manifests/product_reference_email_python.json
+  - infra/demo-manifests/product_reference_html_python.json
+  - infra/demo-manifests/product_reference_imaging_net.json
+  - infra/demo-manifests/product_reference_note_python.json
+  - infra/demo-manifests/product_reference_page_python.json
+  - infra/demo-manifests/product_reference_pdf_cpp.json
+  - infra/demo-manifests/product_reference_pdf_go.json
+  - infra/demo-manifests/product_reference_pdf_java.json
+  - infra/demo-manifests/product_reference_pdf_net.json
+  - infra/demo-manifests/product_reference_pdf_python.json
+  - infra/demo-manifests/product_reference_pdf_typescript.json
+  - infra/demo-manifests/product_reference_slides_cpp.json
+  - infra/demo-manifests/product_reference_slides_java.json
+  - infra/demo-manifests/product_reference_slides_net.json
+  - infra/demo-manifests/product_reference_slides_python.json
+  - infra/demo-manifests/product_reference_tex_python.json
+  - infra/demo-manifests/product_reference_words_net.json
+  - infra/demo-manifests/product_reference_words_python.json
+  - tests/infra/test_fetch_product_reference.py
+satisfies:
+  - REQ-G3-015
+source_refs:
+  - file: docs/DECISION_LOG.md
+    anchor: >-
+      ## 2026-11-13 — TC-783 blocked on 2 pre-existing stale-fixture breaks; TC-785's own worker finds a third, real-world-moved-on layer (supervisor)
+    sha256: 7c5848719cd4c65c0abfe1ec4397e72e41182eab65b0a2fddd02529900d2e9ef
+inputs:
+  - >-
+    READ FIRST: `infra/fetch_product_reference.py` in full (`main()`, `build_sidecar()`,
+    `_family_from_output()`, `_existing_drift_for()`); `plans/TC-715.yaml` and `plans/TC-785.yaml`
+    for the sibling tool's own "pure data regeneration, same ref, verify before committing"
+    precedent; `docs/DECISION_LOG.md`'s `TC-783` entry for exactly what is and is not wrong today.
+  - >-
+    REPRODUCE FIRST, YOURSELF, FRESH, for ALL 32 real files: confirm each currently has no
+    `"family"` key (a quick script, not 32 manual reads). For each pilot, read its OWN current
+    `source_repository` and `source_ref` fields directly - these are the exact `--repository` and
+    `--ref` values to pass; never substitute a branch name, a newer commit, or any value not
+    already present in that pilot's own current file. Cross-check each `source_repository` against
+    the matching `config/products/<family>/<platform>.yaml`'s own `repository:` field (they must
+    agree - if they do not, STOP for that pilot and report, do not proceed).
+  - >-
+    For each pilot, determine its real manifest path (the file `--manifest-path` must point at,
+    e.g. `pyproject.toml`/`setup.py` for python, a `.csproj` for net, `pom.xml` for java,
+    `go.mod` for go, `Cargo.toml` for rust, `package.json` for typescript, `CMakeLists.txt` for
+    cpp) by inspecting the real repository tree at the pinned `source_ref` (via `gh api` or
+    `gh repo view`, not by guessing a convention) - confirm it reproduces the EXACT
+    `build_props_text`/`install_served_version` already present in the pilot's current committed
+    sidecar before trusting the path. If a pilot's current sidecar has no `build_props_text` at
+    all, that pilot was fetched with no `--manifest-path` (or a path that yields nothing) -
+    reproduce that exactly, do not invent a manifest path where none was used before.
+  - >-
+    Run each pilot's fetch into a SCRATCH output path first (never the real committed path
+    directly): `{python} infra/fetch_product_reference.py --repository <source_repository>
+    --platform <platform> --ref <source_ref> --manifest-path <discovered path, or omit>
+    --output <scratch path> --force`. Diff the scratch result against the real committed file.
+    THE ONLY ACCEPTABLE DIFFS are: the new `"family"` key appearing, `"fetched_at"` changing, and
+    `"drift"` changing (drift is independently time-sensitive, already proven safe by
+    `TC-715`/`TC-785` for the sibling tool - but if the new `drift` value contains an `"error"`
+    key where the old one did not, treat that as unacceptable too, matching `TC-785`'s own rule).
+    If ANY other field differs (`manifest_text`, `contributing`, `agent_guidance`,
+    `license_document`, `build_props_text`, `install_served_version`, `source_repository`,
+    `source_ref`, `platform`) for a given pilot, DO NOT commit that one pilot's real file - leave
+    it exactly as it was, note it in your closeout as skipped with the reason, and move on to the
+    next pilot. Partial completion (most pilots fixed, a few honestly skipped) is the correct,
+    expected outcome if any pilot's diff is not clean - never force one through.
+  - >-
+    Only once a pilot's scratch diff is confirmed clean, re-run the identical command with
+    `--output infra/demo-manifests/product_reference_<family>_<platform>.json --force` to
+    regenerate that real file in place. Never hand-edit any JSON file - every committed byte must
+    be the literal output of the real script run.
+  - >-
+    Add ONE new, permanent test to `tests/infra/test_fetch_product_reference.py` (or a focused
+    new test function in that file) that reads every real committed
+    `infra/demo-manifests/product_reference_*.json` file directly and asserts each one that
+    exists has a non-null `"family"` key whose value matches the `<family>` segment of its own
+    filename - for whichever pilots this card actually completes. If you must honestly skip any
+    pilot (per the diff-gate above), the test must reflect reality: either it asserts only on the
+    pilots you completed (naming them explicitly, with a comment explaining which were skipped
+    and why), or - preferably - keep trying skipped pilots with a corrected manifest path before
+    giving up on them, since a mostly-green but silently-incomplete test is worse than an honest,
+    narrower one.
+  - >-
+    Before committing: run `{python} -m pytest tests/infra/test_fetch_product_reference.py -q -rfE -p no:cacheprovider`
+    twice and report the real result, including exactly which of the 32 pilots were regenerated,
+    which (if any) were skipped and why, and the real GitHub rate-limit headroom you observed
+    before and after (32 real calls plus manifest-discovery calls could use a few hundred of your
+    request budget - check `gh api rate_limit --jq '.rate'` before starting and stop early,
+    reporting partial progress, if you are running low).
+actions:
+  - >-
+    Regenerate all 32 real `product_reference_<family>_<platform>.json` sidecars at their own
+    already-indexed commit so each carries the `family` field `TC-783`'s read-back fix needs,
+    verifying each pilot's diff is clean (family/fetched_at/drift only) before committing it, and
+    honestly skipping (not forcing) any pilot whose diff is not clean.
+checks:
+  - command: '{python} -m pytest tests/infra/test_fetch_product_reference.py -q -rfE -p no:cacheprovider'
+    expect: 'exit 0'
+    timeout_seconds: 600
+    junitxml: true
+    proves:
+      - REQ-G3-015
+min_tests: 15
+requires:
+  - python
+network: true
+negative_control:
+  mutate: |
+    python -X utf8 -c "import json, pathlib; p = pathlib.Path('infra/demo-manifests/product_reference_pdf_net.json'); data = json.loads(p.read_text(encoding='utf-8')); assert 'family' in data and data['family'], 'the card has not yet added a real family value to this pilot - it has not made this fix yet, or chose a different pilot to verify with'; data['family'] = None; p.write_text(json.dumps(data, indent=2, ensure_ascii=False) + chr(10), encoding='utf-8')"
+  rationale: >-
+    Reverts one real, regenerated pilot's new `family` value back to `None`, which must make the
+    card's new completeness test fail for that pilot - a pure data mutation targeting this card's
+    own new committed content directly, immune to the lockstep-rename vacuousness class found
+    earlier this session. (If `pdf/net` happens to be one of the rare pilots this card honestly
+    skips, re-anchor this mutate on whichever completed pilot the worker's own closeout names
+    first - do not leave it pointed at a pilot the card never touched.)
+evidence:
+  - evidence/build/G3/TC-786/receipt.json
+closeout:
+  - >-
+    As many of the 32 real `product_reference_*.json` sidecars as could be safely, cleanly
+    regenerated now carry a correct `family` field, completing the write side of `TC-783`'s known-
+    defects merge fix for those pilots in production. Any honestly-skipped pilot is named with its
+    reason, not silently left stale.
+recovery: Re-run from a clean tree.
