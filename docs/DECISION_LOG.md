@@ -4993,3 +4993,28 @@ already-tested `TC-561` fallback - this is the mechanism working exactly as buil
 unexpected side effect. Ratified: a follow-up card completes `pdf/go` the same way, with
 `agent_guidance`'s present-CLAUDE.md-where-absent-was-recorded-before added to the acceptable-diff
 list for that one pilot specifically (not a blanket widening - no other pilot showed this shape).
+
+## 2026-11-13/14 — The known-defects merge thread (C11 → `TC-783`/`786`/`787`/`788`/`789`) closes, verified live end-to-end
+
+`TC-782` (C11 closure) found the dead wiring; `TC-783` fixed the read side; `TC-786`/`787`/`788`
+regenerated all 32 real `product_reference_*.json` sidecars with a correct `family` field;
+`TC-784`/`785`/`789` cleared 4 unrelated pre-existing stale-fixture breaks the review gate
+surfaced along the way. **Verified directly just now, not assumed**: calling the real
+`get_product_reference(inputs, "limitations")` against the real, newly-regenerated
+`product_reference_3d_java.json` sidecar now genuinely includes the library-level
+`3D-JAVA-004` known-defects entry in its rendered answer ("Known hazard (verified by this
+project), 2026-10-29: Known defect (org.aspose:aspose-3d-foss): 0 of the ~37 documented
+FileFormat export constants...") - the exact merge `TC-641`/KD4 built and `TC-782` found
+silently inert in every real deployment. A first probe against `cells/go` showed no merged text
+and briefly looked like a regression; re-reading `_known_defects_for_limitations`'s own docstring
+clarified this merge is deliberately scoped to `subject.kind in {"package", "commit"}` only
+(library-level defects) - `cells/go`'s own entries are `kind: method` (disclosed instead via
+`get_symbol`/`search_symbols`), so showing nothing there is correct, not a gap. This is the first
+time this session an "integration and liveness" fix was proven with a real production call
+rather than left as "the data now has the field" - closing the loop AGENTS.md's own "Integration
+and liveness" section asks for.
+
+All 720+ cards are `ACCEPTED`/`SUPERSEDED`, `gatectl validate` clean (724 cards). The master
+plan's 4 remaining closure stages (`XA19`, `KD11`, `RT5`, `R7`) remain genuinely blocked (unbuilt
+`XA2-19`/`AD-*` infrastructure; `OWNER-17`'s Cloudflare account) - unchanged from the
+2026-11-12 reconciliation. No other actionable, un-blocked work was found in this pass.
