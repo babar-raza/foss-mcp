@@ -1,0 +1,89 @@
+{
+  "schema_version": 1,
+  "card": "TC-782",
+  "gate": "G3",
+  "generated_by": "gatectl",
+  "generated_at": "2026-11-13T15:07:53Z",
+  "base_rev": "426197964b7b273ff3bc51d6fa6de90315370498",
+  "head_rev": "10e075eb2de747af52146a0c0d742316d2efa534",
+  "card_sha256": "a26203dc37e0dd375d16a35a05e86b467f5f6e24c139b3e992f7f50a64db64c3",
+  "fingerprint": {
+    "python": "3.13.2",
+    "platform": "Windows-11-10.0.26300-SP0",
+    "lock_sha256": "5c72e798a73c059a438e752e94a8d4c88c1bdf81a197f6e5c5fcecbc9466a691",
+    "env": {
+      "PYTHONHASHSEED": "0",
+      "PYTHONUTF8": "1",
+      "PYTHONDONTWRITEBYTECODE": "1",
+      "PYTHONIOENCODING": "utf-8",
+      "TZ": "UTC",
+      "LC_ALL": "C.UTF-8",
+      "SOURCE_DATE_EPOCH": "1700000000",
+      "verify_runner": "host"
+    }
+  },
+  "scope": {
+    "ok": true,
+    "changed_paths": [
+      "docs/RELEASE.md",
+      "docs/ROUND2_REVIEW.md"
+    ],
+    "violations": [],
+    "evaluated": true
+  },
+  "runs": [
+    {
+      "run": 1,
+      "checks": [
+        {
+          "command": "{python} -m pytest tests/deploy/test_round2_ledger.py tests/conformance/ -q -rfE -p no:cacheprovider",
+          "exit_code": 0,
+          "duration_s": 299.211,
+          "stdout_sha256": "4bed8cc624113743771e380f4fea7f09ec8586d03d46684c5c3a9889a2038305",
+          "tests": 82,
+          "skipped": 0,
+          "errors": 0,
+          "failures": 0
+        }
+      ],
+      "all_passed": true
+    },
+    {
+      "run": 2,
+      "checks": [
+        {
+          "command": "{python} -m pytest tests/deploy/test_round2_ledger.py tests/conformance/ -q -rfE -p no:cacheprovider",
+          "exit_code": 0,
+          "duration_s": 321.62,
+          "stdout_sha256": "4bed8cc624113743771e380f4fea7f09ec8586d03d46684c5c3a9889a2038305",
+          "tests": 82,
+          "skipped": 0,
+          "errors": 0,
+          "failures": 0
+        }
+      ],
+      "all_passed": true
+    }
+  ],
+  "negative_control": {
+    "kind": "mutate",
+    "patch": "python -X utf8 -c \"import pathlib; p = pathlib.Path('docs/ROUND2_REVIEW.md'); s = p.read_text(encoding='utf-8'); old = '| RD2-004 |'; count = s.count(old); assert count == 1, 'the expected RD2-004 row marker was not found exactly once - the card needs re-anchoring'; idx = s.index(old); line_end = s.index(chr(10), idx); line = s[idx:line_end]; parts = line.rsplit('|', 2); assert len(parts) == 3; corrupted = parts[0] + '|BOGUS_STATUS' + '|' + parts[2]; s2 = s[:idx] + corrupted + s[line_end:]; assert s2 != s; p.write_text(s2, encoding='utf-8')\"\n",
+    "patch_sha256": "44511ae46c276f7e45b31ba0bead89202db8dbb4a97f13915ab066c3a24e3f57",
+    "applied": true,
+    "patch_applied_failed": true,
+    "exit_codes": [
+      1
+    ],
+    "tree_changed": [
+      "M docs/ROUND2_REVIEW.md",
+      "?? .junit-0.xml"
+    ]
+  },
+  "holdout": {
+    "ran": false,
+    "passed": true,
+    "detail": "no holdout for this card"
+  },
+  "accepted": true,
+  "reason": "all gates passed"
+}

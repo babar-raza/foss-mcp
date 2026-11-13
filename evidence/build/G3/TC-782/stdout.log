@@ -1,0 +1,51 @@
+
+===== CLEAN RUN 1 (host) =====
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-5c72e798a73c059a\Scripts\python.exe -m pytest tests/deploy/test_round2_ledger.py tests/conformance/ -q -rfE -p no:cacheprovider "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-pxx8g80r\.junit-0.xml"
+--- stdout ---
+........................................................................ [ 87%]
+..........                                                               [100%]
+
+--- stderr ---
+
+
+===== CLEAN RUN 2 (host) =====
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-5c72e798a73c059a\Scripts\python.exe -m pytest tests/deploy/test_round2_ledger.py tests/conformance/ -q -rfE -p no:cacheprovider "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-pxx8g80r\.junit-0.xml"
+--- stdout ---
+........................................................................ [ 87%]
+..........                                                               [100%]
+
+--- stderr ---
+
+
+===== NEGATIVE CONTROL (checks MUST now fail) =====
+mutated: M docs/ROUND2_REVIEW.md, ?? .junit-0.xml
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-5c72e798a73c059a\Scripts\python.exe -m pytest tests/deploy/test_round2_ledger.py tests/conformance/ -q -rfE -p no:cacheprovider "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-pxx8g80r\.junit-0.xml"
+--- stdout ---
+.......F................................................................ [ 87%]
+..........                                                               [100%]
+================================== FAILURES ===================================
+______________ test_every_row_status_is_a_real_disposition_value ______________
+
+    def test_every_row_status_is_a_real_disposition_value():
+        """G3/TC-777 (Q17): this card dispositions the 73 real Q-series rows away from `OPEN` to their
+        individually live-verified current status, so the precondition snapshot this test replaces
+        (`test_all_286_rows_start_open`, which asserted literally no row may be non-OPEN) no longer
+        holds. What must hold instead, permanently, is that every row's `Status` cell is one of the
+        real, defined disposition values a closure card is allowed to write - never a typo, a stray
+        value, or free text. This is deliberately a total check over all 286 rows (not just the 73
+        Q-series ones): any later closure card (`I14`, `O10`, `C11`, `XA19`, `KD11`, `RT5`, `R7`) that
+        dispositions its own rows is held to the same real enum, not a weaker one scoped to this
+        card's own cards."""
+        bad = [(row["Id"], row["Status"]) for row in REGISTER_ROWS if row["Status"] not in VALID_STATUSES]
+>       assert not bad, (
+            f"register rows with a Status outside the real defined enum {sorted(VALID_STATUSES)}: {bad}"
+        )
+E       AssertionError: register rows with a Status outside the real defined enum ['ACCEPTED(P3)', 'BLOCKED_UPSTREAM', 'DEFINITIONAL', 'DISCLOSED', 'FIXED', 'NOT_REPRODUCED', 'OPEN']: [('RD2-004', 'BOGUS_STATUS')]
+E       assert not [('RD2-004', 'BOGUS_STATUS')]
+
+tests\deploy\test_round2_ledger.py:290: AssertionError
+=========================== short test summary info ===========================
+FAILED tests/deploy/test_round2_ledger.py::test_every_row_status_is_a_real_disposition_value
+
+--- stderr ---
+
