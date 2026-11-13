@@ -1,0 +1,42 @@
+
+===== CLEAN RUN 1 (host) =====
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-5c72e798a73c059a\Scripts\python.exe -m pytest tests/mcp/tools/test_coverage_note.py -q -rfE -p no:cacheprovider "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-lluja1jh\.junit-0.xml"
+--- stdout ---
+.................                                                        [100%]
+
+--- stderr ---
+
+
+===== CLEAN RUN 2 (host) =====
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-5c72e798a73c059a\Scripts\python.exe -m pytest tests/mcp/tools/test_coverage_note.py -q -rfE -p no:cacheprovider "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-lluja1jh\.junit-0.xml"
+--- stdout ---
+.................                                                        [100%]
+
+--- stderr ---
+
+
+===== NEGATIVE CONTROL (checks MUST now fail) =====
+mutated: M tests/mcp/tools/test_coverage_note.py, ?? .junit-0.xml
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-5c72e798a73c059a\Scripts\python.exe -m pytest tests/mcp/tools/test_coverage_note.py -q -rfE -p no:cacheprovider "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-lluja1jh\.junit-0.xml"
+--- stdout ---
+.............F...                                                        [100%]
+================================== FAILURES ===================================
+______________ test_report_index_freshness_states_the_same_note _______________
+
+    def test_report_index_freshness_states_the_same_note() -> None:
+        store = _tex_store()
+        report = report_index_freshness(store, SCOPE, SOURCE_KIND, _COMMIT)  # type: ignore[arg-type]
+        # TC-555: (4, 4) -> (21, 21); TC-614 (I2, dedup): (21, 21) -> (14, 21);
+        # TC-791 (TC-729 backfill dedup onto pre-TC-620 fixtures): (14, 21) -> (14, 14)
+>       assert (report.indexed_types, report.total_types) == (14, 21)
+E       assert (14, 14) == (14, 21)
+E         
+E         At index 1 diff: 14 != 21
+E         Use -v to get more diff
+
+tests\mcp\tools\test_coverage_note.py:184: AssertionError
+=========================== short test summary info ===========================
+FAILED tests/mcp/tools/test_coverage_note.py::test_report_index_freshness_states_the_same_note
+
+--- stderr ---
+
