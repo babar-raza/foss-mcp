@@ -836,28 +836,93 @@ def test_tc_787_completed_pilots_also_carry_their_restored_install_served_versio
         )
 
 
-def test_tc_787_skipped_pilot_is_named_and_still_unmigrated() -> None:
-    """pdf/go, the one pilot TC-787 honestly skipped, must still have no "family" - this card
-    never force-committed it despite the real CLAUDE.md fallback diff found while running the
-    pipeline (see the comment above _TC_787_SKIPPED_PILOTS)."""
-    for name in _TC_787_SKIPPED_PILOTS:
-        data = json.loads((_DEMO_MANIFESTS_DIR / name).read_text(encoding="utf-8"))
-        assert data.get("family") is None, f"{name} was skipped and must not carry a family value"
+def test_tc_787_skipped_pilot_was_later_completed_by_tc_788() -> None:
+    """pdf/go, the one pilot TC-787 honestly skipped (see the comment above
+    _TC_787_SKIPPED_PILOTS), is no longer in that state - G3/TC-788 completed it once
+    docs/DECISION_LOG.md's 2026-11-13 entry ratified its CLAUDE.md agent_guidance fallback diff as
+    expected, designed behavior rather than unauthorized drift. This pins TC-787's own historical
+    skip (it really did skip it, for the reason it recorded) without asserting a now-false claim
+    about today's disk state - see _TC_788_COMPLETED_PILOTS below for the current, true state."""
+    assert set(_TC_787_SKIPPED_PILOTS) == set(_TC_788_COMPLETED_PILOTS), (
+        "TC-788 is defined as completing exactly the pilot(s) TC-787 left skipped"
+    )
 
 
-def test_every_real_pilot_is_now_accounted_for_by_exactly_one_tc_786_or_tc_787_list() -> None:
-    """After both cards, every real product_reference_*.json file in infra/demo-manifests is
-    accounted for by exactly one of: TC-786-completed, TC-786-skipped-but-TC-787-completed,
-    or still-honestly-skipped (pdf/go only) - no file is silently missing from every list, and no
-    file appears on more than one."""
-    completed = set(_TC_786_COMPLETED_PILOTS) | set(_TC_787_COMPLETED_PILOTS)
-    still_skipped = set(_TC_787_SKIPPED_PILOTS)
+# G3/TC-788: completes the one pilot TC-787 honestly held back - pdf/go. TC-787's own worker found a
+# real content diff beyond its pre-authorized set (pdf/go's agent_guidance fallback reading a present
+# CLAUDE.md document instead of the committed not_present AGENTS.md result) and correctly declined to
+# force it through without explicit ratification. docs/DECISION_LOG.md's 2026-11-13 entry ratifies
+# that diff as expected, designed behavior: infra/fetch_product_reference.py's own G3/TC-561
+# _AGENT_GUIDANCE_FALLBACK mechanism names pdf/go, in a source comment, as its own motivating
+# example. This card re-ran the identical two-step pipeline for pdf/go alone, with agent_guidance's
+# present-where-absent-was-recorded diff added to the acceptable-diff list for pdf/go specifically
+# (not a blanket widening for any other pilot). pdf/go now carries both a correct "family" and its
+# original "install_served_version" ("v0.16.0", unchanged - confirmed byte-identical to the value the
+# real file carried before this card touched it, since pdf/go's own package_registry_pdf_go.json
+# sidecar was still within its 24-hour freshness window and so was read back rather than re-checked
+# live), closing out all 32 real pilots with zero remaining skips.
+_TC_788_COMPLETED_PILOTS = ("product_reference_pdf_go.json",)
+
+
+def test_tc_788_completed_pilot_carries_a_family_matching_its_own_file_name() -> None:
+    """pdf/go, the one pilot TC-787 left skipped, now carries a correct "family" - the same
+    write-side check TC-786/TC-787 already applied to their own completed pilots."""
+    assert _TC_788_COMPLETED_PILOTS, "the completed-pilot list must name at least one real pilot"
+    for name in _TC_788_COMPLETED_PILOTS:
+        path = _DEMO_MANIFESTS_DIR / name
+        assert path.is_file(), f"{name} must exist in infra/demo-manifests"
+        data = json.loads(path.read_text(encoding="utf-8"))
+        expected_family = fetch_product_reference._family_from_output(path)
+        assert expected_family is not None, (
+            f"{name} must match the product_reference_<family>_<platform> pattern"
+        )
+        assert data.get("family") == expected_family, (name, data.get("family"), expected_family)
+
+
+def test_tc_788_completed_pilot_also_carries_its_restored_install_served_version() -> None:
+    """pdf/go's own package_registry_pdf_go.json sidecar carries a real served_version (confirmed
+    directly before this card touched anything), so after both pipeline steps ran, the real sidecar
+    must still carry a non-null install_served_version - the same guarantee TC-787 already checked
+    for its own 19 completed pilots."""
+    for name in _TC_788_COMPLETED_PILOTS:
+        path = _DEMO_MANIFESTS_DIR / name
+        data = json.loads(path.read_text(encoding="utf-8"))
+        served = data.get("install_served_version")
+        assert isinstance(served, str) and served, (
+            f"{name} must carry a non-null install_served_version restored by step 2",
+            served,
+        )
+
+
+def test_tc_788_completed_pilot_carries_the_ratified_present_claude_md_agent_guidance() -> None:
+    """The whole reason TC-787 held this pilot back: pdf/go's real repository has no AGENTS.md but
+    does have a real CLAUDE.md at the pinned commit, and infra/fetch_product_reference.py's own
+    G3/TC-561 fallback (build_sidecar's own module docstring names pdf/go explicitly as its
+    motivating example) correctly reads it. This card's own closeout ratifies that as the designed,
+    expected diff it exists to commit - not an incidental side effect to leave unchecked."""
+    for name in _TC_788_COMPLETED_PILOTS:
+        path = _DEMO_MANIFESTS_DIR / name
+        data = json.loads(path.read_text(encoding="utf-8"))
+        guidance = data.get("agent_guidance") or {}
+        assert guidance.get("status") == "present", (name, guidance)
+        assert guidance.get("path") == "CLAUDE.md", (name, guidance)
+
+
+def test_every_real_pilot_is_now_accounted_for_by_exactly_one_tc_786_787_or_788_list() -> None:
+    """After all three cards, every real product_reference_*.json file in infra/demo-manifests is
+    accounted for by exactly one of: TC-786-completed, TC-786-skipped-but-TC-787-completed, or
+    TC-787-skipped-but-TC-788-completed - no file is silently missing from every list, no file
+    appears on more than one, and (now that TC-788 has landed) zero real pilots remain in any
+    "still honestly skipped" state: all 32 carry a correct, non-null "family"."""
+    completed = set(_TC_786_COMPLETED_PILOTS) | set(_TC_787_COMPLETED_PILOTS) | set(_TC_788_COMPLETED_PILOTS)
+    still_skipped: set[str] = set()
     assert not (completed & still_skipped), "a pilot cannot be both completed and still-skipped"
     on_disk = {p.name for p in _DEMO_MANIFESTS_DIR.glob("product_reference_*.json")}
     assert on_disk == completed | still_skipped, (
         on_disk - (completed | still_skipped),
         (completed | still_skipped) - on_disk,
     )
+    assert not still_skipped, "zero real pilots should remain honestly skipped after G3/TC-788"
     for name in completed:
         data = json.loads((_DEMO_MANIFESTS_DIR / name).read_text(encoding="utf-8"))
         assert data.get("family") is not None, f"{name} is listed as completed but has no family"
