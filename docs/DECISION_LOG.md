@@ -5018,3 +5018,44 @@ All 720+ cards are `ACCEPTED`/`SUPERSEDED`, `gatectl validate` clean (724 cards)
 plan's 4 remaining closure stages (`XA19`, `KD11`, `RT5`, `R7`) remain genuinely blocked (unbuilt
 `XA2-19`/`AD-*` infrastructure; `OWNER-17`'s Cloudflare account) - unchanged from the
 2026-11-12 reconciliation. No other actionable, un-blocked work was found in this pass.
+
+## 2026-11-14 — TC-790 (chunk-truncation API-Coverage preservation) lands, plus 2 more pre-existing stale-fixture breaks
+
+Closed the latent defect `TC-775` found and correctly left unfixed, 2026-11-12:
+`infra/build_chunks.py`'s `_sanitize_chunk_text` can silently drop a chunk's trailing
+`API-Coverage:` line entirely when a type's body is large enough to push the cut past it, rather
+than truncating around it. Fixed via a mandated `_API_COVERAGE_TAIL_RE` tail-detection constant
+(mandated so the negative control - refused once by `gatectl preflight` as a placeholder - could
+target real, predictable literals); the worker also found and fixed a real idempotence edge case
+the card hadn't anticipated (the already-truncated-once short-circuit needed to strip a preserved
+coverage tail before checking for its own marker, or re-sanitizing an already-fixed text would
+silently recompute a wrong `Truncated: N` count). No production chunk data was regenerated -
+`pdf/java`'s real `Proto` chunk still needs a future re-ingest to pick this up in production;
+flagged, not carded.
+
+TC-790's own review found 2 more pre-existing, unrelated breaks, closed the same way as every
+other one today: `TC-791` re-pinned `test_coverage_note.py`'s tex/python type-count literal
+(`(14,21)` -> `(14,14)`, a third re-pin after `TC-555`/`TC-614`, caused by `TC-729`'s real dedup
+backfill); `TC-792` removed 8 of 9 stale `verified: false` cache entries for words/python,
+individually re-confirmed against the real served generation before removal (the 9th genuinely
+still fails today - `legacy.doc`/`notes.rtf` fixtures still don't exist - and was correctly left
+untouched, not swept in with the rest).
+
+**Session tally for this whole batch (`TC-783` through `TC-792`, 2026-11-13/14)**: 10 cards,
+all accepted on review (2 needed a corrected negative control after an initial vacuous/refused
+attempt; 0 needed rework on the worker's own code). Real defects found and fixed: 1 dead
+production-wiring bug (known-defects merge, verified live end-to-end), 1 latent data-loss class
+avoided twice (`install_served_version`, `TC-786`/`787`), 1 latent honesty-disclosure defect
+(`API-Coverage` truncation). Stale-fixture/stale-pin breaks found and fixed along the way: 6
+(`TC-784`x2, `TC-785`, `TC-789`, `TC-791`, `TC-792`). Zero checks weakened, skipped, or deleted;
+every negative control that started wrong was corrected against real evidence before being
+trusted, never worked around.
+
+`gatectl validate`: 727 cards, clean. `gatectl next`: `NONE` - the backlog is fully drained again.
+Remaining known, deliberately-deferred items (none newly found this session): the master plan's
+4 blocked closure stages (`XA19`/`KD11`/`RT5`/`R7`); regenerating `pdf/java`'s real `Proto` chunk
+(and auditing any other pilot for the same shape) to pick up `TC-790`'s fix in production;
+`test_reference_content.py`'s dormant crash-masking assert shape (confirmed still dormant,
+14/14 passing - converting it proactively is low-priority, not urgent); the ~141 latent
+authored-example titles flagged by `TC-773` as possibly exceeding a sentence-frame's word bound
+(not yet swept - no evidence any of them are live-failing today).
