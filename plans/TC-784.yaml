@@ -1,0 +1,125 @@
+id: TC-784
+gate: G3
+lane: verification
+purpose: >-
+  Unblocks `TC-783`'s review, which fails on "related offline tests at head" against 2 stale test
+  files - both confirmed, via a dedicated 2026-11-13 investigation fork, to be pinning now-stale
+  expectations against real data that other, already-accepted cards legitimately changed since
+  each test was last touched. Neither failure has anything to do with TC-783's own change
+  (`load_manifest_sidecar`'s `family` read-back) - this is the same "stale pin vs. real
+  accumulated content" class this session has hit repeatedly (TC-775, TC-778, TC-779).
+
+  (1) `tests/mcp/tools/test_product_reference_known_hazards.py`'s `PILOTS_WITH_KNOWN_HAZARDS`
+  frozenset (and its 2 derived pinned counts, 32/25) lists only 7 pilots as carrying a real
+  `known_hazards:` manifest entry (`cells/go`, `3d/net`, `html/python`, `pdf/java`,
+  `slides/java`, `slides/python`, `words/net`). Confirmed live against the real committed
+  `config/products/*/*.yaml` manifests: 6 MORE pilots now carry a real, dated (2026-11-07)
+  `known_hazards:` entry that this set does not yet know about - `3d/typescript`, `cells/python`,
+  `cells/rust`, `email/cpp`, `page/python`, `slides/cpp` - added by later, already-accepted
+  disclosure work this session. `test_other_pilots_manifest_carries_no_known_hazards` fails for
+  all 6 (asserting zero hazards on a manifest that genuinely has one); a 2nd test,
+  `test_other_pilot_limitations_answer_is_unchanged_by_the_known_hazards_field`, also still
+  parametrizes on 2 of those 6 (`slides/cpp`, `3d/typescript`) under the stale "has no
+  known_hazards field" assumption.
+
+  (2) `tests/mcp/tools/test_release_index_baked.py`'s 2 freshness tests
+  (`test_freshness_of_cells_python_and_pdf_net_without_a_commit_is_stale_by_version`'s
+  `pdf-net` case, and `test_freshness_of_cells_net_without_a_commit_is_unknown`) load the REAL
+  committed `infra/demo-manifests/product_reference_pdf_net.json` /
+  `product_reference_cells_net.json` sidecars and assert on `report_index_freshness`'s resulting
+  `freshness_basis`/`freshness_state`. Confirmed live: both real sidecars now carry a resolved
+  `"drift"` block (`status: "behind"`, concrete `ahead_by`/`behind_by`) added by later re-ingests
+  - `report_index_freshness`'s fallback chain correctly short-circuits to `git_ancestry` basis /
+  `stale` state the moment `drift_state` is resolved (non-unknown), which is MORE informative and
+  MORE correct than the weaker `latest_release_version`/`unknown` literals these 2 tests still
+  pin. (The sibling `cells-python` parametrize case does NOT fail, because that pilot's own drift
+  record happens to still carry `"error": "RateLimited"` rather than a resolved status, so it
+  still falls through to the old fallback exactly as pinned - strong corroborating evidence this
+  theory is correct, not guessed.)
+
+  Both are pure test-literal corrections to match real, current, already-correct production
+  behavior - no production code changes, in either mechanism.
+depends_on:
+  - TC-650
+  - TC-653
+  - TC-560
+write_paths:
+  - tests/mcp/tools/test_product_reference_known_hazards.py
+  - tests/mcp/tools/test_release_index_baked.py
+satisfies:
+  - REQ-G3-015
+source_refs:
+  - file: docs/DECISION_LOG.md
+    anchor: >-
+      ## 2026-11-13 — C11 (content-truth closure) lands: the fourth of the plan's 8 named closure stages, the largest ledger pass this session
+    sha256: 0124137a464adbccafdb361b7d768c95144dc83e168da2b0034f6a6ed0268839
+inputs:
+  - >-
+    READ FIRST: both full test files, especially `PILOTS_WITH_KNOWN_HAZARDS` and
+    `OTHER_PILOT_MANIFEST_PATHS` in `test_product_reference_known_hazards.py`, and `_freshness`/
+    `_store` plus `report_index_freshness.py`'s drift-based fallback-chain branch in
+    `test_release_index_baked.py`.
+  - >-
+    REPRODUCE FIRST, YOURSELF, FRESH: for (1), read the real committed
+    `config/products/3d/typescript.yaml`, `config/products/cells/python.yaml`,
+    `config/products/cells/rust.yaml`, `config/products/email/cpp.yaml`,
+    `config/products/page/python.yaml`, `config/products/slides/cpp.yaml` directly and confirm
+    each genuinely has a `known_hazards:` entry dated `2026-11-07` (do not trust this card's own
+    list blindly - re-derive it by running the failing parametrized tests with `-v` first and
+    reading each assertion's real left-hand value). For (2), read the real committed
+    `infra/demo-manifests/product_reference_pdf_net.json` and `product_reference_cells_net.json`
+    and confirm each has a resolved (non-error, non-unknown) `"drift"` block, and that
+    `product_reference_cells_python.json`'s own drift block still carries
+    `"error": "RateLimited"` (confirming why that sibling case does NOT fail today).
+  - >-
+    Fix (1): widen `PILOTS_WITH_KNOWN_HAZARDS` to include all 6 newly-confirmed pilots (13 total),
+    re-pin both derived counts (32 stays 32; 25 becomes 19), and replace
+    `test_other_pilot_limitations_answer_is_unchanged_by_the_known_hazards_field`'s parametrize
+    list's 2 now-stale entries (`slides/cpp`, `3d/typescript`) with 2 pilots independently
+    confirmed to still genuinely have NO `known_hazards:` field at all (verify directly, do not
+    assume any specific replacement pilot is clean).
+  - >-
+    Fix (2): update the 2 failing assertions in `test_release_index_baked.py` to the real,
+    current, correctly-more-informative values your own reproduction observed
+    (`freshness_basis == "git_ancestry"` and the matching `freshness_state`, for both cases) -
+    copy the exact real observed values into the test, do not guess them. Do not touch the
+    `cells-python` parametrize case or any other passing assertion in either file.
+  - >-
+    Do NOT touch any production code (`report_index_freshness.py`, `known_defects.py`, or any
+    `src/` file) - both fixes are test-literal-only, matching their already-correct, already-
+    tested production mechanisms.
+  - >-
+    Before committing: run `{python} -m pytest tests/mcp/tools/test_product_reference_known_hazards.py tests/mcp/tools/test_release_index_baked.py -q -rfE -p no:cacheprovider`
+    twice and report the real result, including the exact replacement pilots you chose for the
+    2nd fix and why you confirmed them clean.
+actions:
+  - >-
+    Update 2 stale test files' pinned expectations to match real, current, already-correct
+    production behavior on 8 real pilots' data - no production code change.
+checks:
+  - command: '{python} -m pytest tests/mcp/tools/test_product_reference_known_hazards.py tests/mcp/tools/test_release_index_baked.py -q -rfE -p no:cacheprovider'
+    expect: 'exit 0'
+    timeout_seconds: 300
+    junitxml: true
+    proves:
+      - REQ-G3-015
+min_tests: 25
+requires:
+  - python
+network: false
+negative_control:
+  mutate: |
+    python -X utf8 -c "import pathlib; p = pathlib.Path('tests/mcp/tools/test_product_reference_known_hazards.py'); s = p.read_text(encoding='utf-8'); old = 'assert len(OTHER_PILOT_MANIFEST_PATHS) == 19, OTHER_PILOT_MANIFEST_PATHS'; count = s.count(old); assert count == 1, 'the expected re-pinned count line was not found exactly once - the card has not made this fix yet, or the exact text differs from what this mutate expects'; s2 = s.replace(old, 'assert len(OTHER_PILOT_MANIFEST_PATHS) == 25, OTHER_PILOT_MANIFEST_PATHS  # mutated', 1); assert s2 != s; p.write_text(s2, encoding='utf-8')"
+  rationale: >-
+    Reverts the card's own re-pinned 19-pilot count back to the stale 25-pilot count, which must
+    make the suite fail again (either an assertion-count mismatch or one of the 6 newly-widened
+    parametrize cases reverting to its original failure) - a pure literal-text mutation targeting
+    this card's own new code directly, immune to the lockstep-rename vacuousness class found
+    earlier this session.
+evidence:
+  - evidence/build/G3/TC-784/receipt.json
+closeout:
+  - >-
+    Both stale test files now match real, current, already-correct production behavior; TC-783's
+    review gate no longer blocks on either. No production code touched.
+recovery: Re-run from a clean tree.

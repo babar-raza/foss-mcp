@@ -1,0 +1,116 @@
+id: TC-785
+gate: G3
+lane: transport-deployment
+purpose: >-
+  Unblocks `TC-783`'s review, which fails on "related offline tests at head" against
+  `tests/infra/test_round3_release_tags.py::test_the_real_committed_cells_go_sidecar_is_not_stuck_at_one_release`
+  - confirmed, via a dedicated 2026-11-13 investigation fork, to be a real regression in BAKED
+  DATA, not in code or the test. `TC-715` (commit `2206a0f9`, 2026-11-07) correctly regenerated
+  `infra/demo-manifests/recent_releases_cells_go.json` to 2 entries (the real GitHub Release
+  `v26.7.0` plus the real plain tag `v26.7.1`) and added this exact regression test to guard it.
+  A later, unrelated commit (`6053716b`, "re-ingest 25 pilots' baked generations for TC-727's
+  doc-suffix") ran a live cluster re-ingest to pick up an unrelated `chunk_builder.py` fix, and
+  that re-ingest's own live GitHub fetch for `cells/go` hit `"error": "RateLimited"` partway
+  through - silently collapsing the sidecar back to its original, pre-TC-715, 1-entry shape and
+  clobbering the earlier point-fix with no error surfaced anywhere. Confirmed directly via
+  `git show 2206a0f9:infra/demo-manifests/recent_releases_cells_go.json` vs
+  `git show 6053716b:infra/demo-manifests/recent_releases_cells_go.json`: byte-identical except
+  the lost `v26.7.1` entry. This is the exact "a later unrelated re-ingest silently clobbers an
+  earlier point-fix" class `TC-659` already flagged as a one-off risk worth auditing - this is
+  that risk materializing for real, a second time.
+
+  The fix mechanism itself needs no change - `pad_with_older_tags()`/`infra/fetch_recent_releases.py`
+  are already correct and already tested (`TC-655`/`TC-664`/`TC-715`'s own tests). This card is a
+  pure DATA regeneration, exactly repeating `TC-715`'s own already-proven command, now that
+  GitHub's rate limit has reset (confirmed live: 4890/5000 remaining via the operator's
+  authenticated `gh` session at card-authoring time - re-confirm this yourself before running the
+  real fetch, it may have changed).
+depends_on:
+  - TC-655
+  - TC-664
+  - TC-713
+  - TC-715
+write_paths:
+  - infra/demo-manifests/recent_releases_cells_go.json
+  - infra/demo-manifests/product_reference_cells_go.json
+  - tests/infra/test_round3_release_tags.py
+satisfies:
+  - REQ-G3-017
+source_refs:
+  - file: docs/DECISION_LOG.md
+    anchor: >-
+      ## 2026-11-13 — C11 (content-truth closure) lands: the fourth of the plan's 8 named closure stages, the largest ledger pass this session
+    sha256: 0124137a464adbccafdb361b7d768c95144dc83e168da2b0034f6a6ed0268839
+inputs:
+  - >-
+    READ FIRST: `infra/fetch_recent_releases.py` in full (`pad_with_older_tags()`, `main()`,
+    `_record_drift_in_product_reference()`); `plans/TC-715.yaml` in full (your exact template -
+    same pilot, same mechanism, already proven once); the real existing regression test in
+    `tests/infra/test_round3_release_tags.py` (search "cells_go" / "CELLS-GO-004") - it is already
+    correct and already committed, you are not writing a new one, you are making the real data it
+    checks true again.
+  - >-
+    REPRODUCE FIRST, YOURSELF, FRESH: confirm the real committed
+    `infra/demo-manifests/recent_releases_cells_go.json` currently has exactly 1 entry (the
+    `v26.7.0` GitHub Release). Confirm the real repository identity from
+    `config/products/cells/go.yaml`'s own comment (`aspose-cells-foss/Aspose.Cells-FOSS-for-Go`).
+    Check the live GitHub rate limit yourself (`gh api rate_limit --jq '.rate'`) before running
+    anything - if remaining is near 0, STOP and report rather than risk a second silent
+    rate-limited collapse.
+  - >-
+    Run `{python} infra/fetch_recent_releases.py --repository aspose-cells-foss/Aspose.Cells-FOSS-for-Go
+    --limit 20 --output <a scratch path, NOT the real demo-manifests path> --family cells
+    --platform go` first (a real network call) and confirm the scratch output has MORE than 1
+    entry, including a `v26.7.1` entry with `"source": "tag"` and no error field anywhere in the
+    output. Report the exact real output you observed, verbatim, in your closeout.
+  - >-
+    Only once the scratch run is confirmed clean (no `"error"` key anywhere in it), re-run the
+    identical command with `--output infra/demo-manifests/recent_releases_cells_go.json --force`
+    to regenerate the real, served file in place.
+  - >-
+    Check whether `infra/demo-manifests/product_reference_cells_go.json` changed as a side effect
+    of the run (only a `drift` key is expected to change, if anything, via
+    `_record_drift_in_product_reference` - read that function first). If anything else in that
+    file changed, or if the new `drift` value itself contains an `"error"` key, STOP and report
+    rather than committing it - do not repeat the exact failure this card exists to fix.
+  - >-
+    Never hand-edit either JSON file - the committed state must be the literal output of the real
+    script run. Do not touch `pad_with_older_tags()`, `main()`, or any other production code - the
+    mechanism is already correct and already tested.
+  - >-
+    Before committing: run `{python} -m pytest tests/infra/test_round3_release_tags.py -q -rfE -p no:cacheprovider`
+    twice and report the real result, including the exact post-fetch content of
+    `recent_releases_cells_go.json`'s entry list.
+actions:
+  - >-
+    Re-run the already-correct, already-tested `infra/fetch_recent_releases.py --force` for
+    cells/go to restore the real committed sidecar's 2-entry shape after a later, unrelated
+    re-ingest silently clobbered it via a GitHub rate-limit failure - pure data regeneration, no
+    code or test change.
+checks:
+  - command: '{python} -m pytest tests/infra/test_round3_release_tags.py -q -rfE -p no:cacheprovider'
+    expect: 'exit 0'
+    timeout_seconds: 300
+    junitxml: true
+    proves:
+      - REQ-G3-017
+min_tests: 15
+requires:
+  - python
+network: true
+negative_control:
+  mutate: |
+    python -X utf8 -c "import json, pathlib; p = pathlib.Path('infra/demo-manifests/recent_releases_cells_go.json'); data = json.loads(p.read_text(encoding='utf-8')); assert isinstance(data.get('releases'), list) and len(data['releases']) > 1, 'the card has not yet regenerated this file to more than 1 entry - it has not made this fix yet, or the real JSON shape differs from what this mutate expects'; data['releases'] = data['releases'][:1]; p.write_text(json.dumps(data, indent=2, ensure_ascii=False) + chr(10), encoding='utf-8')"
+  rationale: >-
+    Reverts the card's own regenerated, multi-entry sidecar back to its stale, pre-fix 1-entry
+    shape, which must make the real-data regression test fail again - a pure data mutation
+    targeting this card's own new committed content directly, immune to the lockstep-rename
+    vacuousness class found earlier this session.
+evidence:
+  - evidence/build/G3/TC-785/receipt.json
+closeout:
+  - >-
+    The real committed cells/go recent-releases sidecar correctly reflects the real upstream tag
+    list again; TC-783's review gate no longer blocks on this file. No code change - the fix was
+    already correct and tested, only the baked data needed restoring.
+recovery: Re-run from a clean tree.
