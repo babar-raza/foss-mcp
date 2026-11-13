@@ -18,6 +18,7 @@ import pytest
 import yaml
 
 from foss_mcp.extraction import run_extraction
+from foss_mcp.indexing import symbol_identity
 from foss_mcp.indexing.chunk_builder import build_chunks_from_api_surface
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
@@ -144,7 +145,9 @@ def test_the_fixture_is_the_current_extraction_at_the_chart_pin(pilot: str) -> N
 def test_the_counts_agree_with_the_entries(pilot: str) -> None:
     data = fixture(pilot)
     assert data["counts"] == run_extraction.api_counts(data["types"])
-    assert data["symbol_counts"] == run_extraction.summarize_symbols(data["types"])
+    assert data["symbol_counts"] == run_extraction.summarize_symbols(
+        data["types"], identities=symbol_identity.compute_canonical_identities(data["types"])
+    )
 
 
 @pytest.mark.parametrize("pilot", PILOTS)
@@ -430,7 +433,7 @@ def test_tex_reports_the_files_that_do_not_parse() -> None:
     health = fixture("tex_python")["parse_failures"]
     assert (health["engine"], health["failed"], health["total"]) == ("ast", 11, 45)
     assert health["examples"]
-    assert fixture("tex_python")["symbol_counts"]["types"] == 21
+    assert fixture("tex_python")["symbol_counts"]["types"] == 14
 
 
 # --------------------------------------------------------------------------- the chunks
