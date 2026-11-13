@@ -1,0 +1,99 @@
+id: TC-788
+gate: G3
+lane: transport-deployment
+purpose: >-
+  Completes the one pilot `TC-787` honestly held back: `pdf/go`. Its scratch diff showed
+  `agent_guidance` going from `{"status": "not_present", "path": "AGENTS.md"}` to a real, present
+  260KB `CLAUDE.md` document - a field `TC-787`'s own text never pre-authorized as an acceptable
+  diff, so its worker correctly declined to force it through. Verified directly (not trusted
+  blindly) and ratified in `docs/DECISION_LOG.md`'s 2026-11-13 entry: `infra/fetch_product_reference.py`'s
+  own `_AGENT_GUIDANCE_FALLBACK = "CLAUDE.md"` mechanism (`TC-561`) names `pdf/go` as its OWN
+  motivating example in a source comment - "a repository whose guidance file for coding agents is
+  CLAUDE.md (pdf/go) is not one without guidance." This is the already-designed, already-tested
+  fallback working exactly as built, not a surprise or a defect. This card runs the identical
+  two-step pipeline `TC-786`/`TC-787` already proved out, for this one remaining pilot, with
+  `agent_guidance`'s present-where-absent-was-recorded shape added to the acceptable-diff list
+  for `pdf/go` specifically (not a blanket widening for any other pilot).
+depends_on:
+  - TC-427
+  - TC-511
+  - TC-560
+  - TC-561
+  - TC-786
+  - TC-787
+write_paths:
+  - infra/demo-manifests/product_reference_pdf_go.json
+  - tests/infra/test_fetch_product_reference.py
+satisfies:
+  - REQ-G3-015
+source_refs:
+  - file: docs/DECISION_LOG.md
+    anchor: >-
+      ## 2026-11-13 — TC-787 completes 19/20; `pdf/go`'s own `agent_guidance` fallback is ratified, not a surprise
+    sha256: 5ffbdf83722efda32c39d7570cea3b68aa4fa3eb76271c4bd58fb777ec03670d
+inputs:
+  - >-
+    READ FIRST: `plans/TC-787.yaml` and `plans/TC-786.yaml` in full for the exact per-pilot
+    methodology (manifest-path discovery, scratch-then-real diff gate, the two-step pipeline);
+    `infra/fetch_product_reference.py` lines ~295-305 for the real `CLAUDE.md` fallback
+    mechanism; `docs/DECISION_LOG.md`'s matching 2026-11-13 entry for the ratification.
+  - >-
+    REPRODUCE FIRST, YOURSELF, FRESH: confirm `pdf/go`'s real committed sidecar currently has no
+    `family` key and a non-null `install_served_version`. Confirm its `source_repository`/
+    `source_ref`, cross-checked against `config/products/pdf/go.yaml`. Confirm a matching
+    `package_registry_pdf_go.json` sidecar exists with a real `served_version`.
+  - >-
+    Run the fetch into a SCRATCH path first with `--ref <source_ref> --manifest-path go.mod
+    --force` (already confirmed correct by `TC-787`'s own worker). Diff against the real
+    committed file. The acceptable diffs for THIS pilot are: `family`, `fetched_at`, `drift`,
+    `manifest_path`, `readme_document` (the already-ratified `TC-561` schema completion),
+    `install_served_version` temporarily missing (step 2 restores it), AND `agent_guidance`
+    changing from `{"status": "not_present", ...}` to a present `CLAUDE.md` document (ratified
+    this card, for `pdf/go` specifically). If ANY other field differs, stop and report - do not
+    force it even now.
+  - >-
+    Once confirmed clean against that list: re-run with `--output
+    infra/demo-manifests/product_reference_pdf_go.json --force`, then immediately run
+    `{python} infra/verify_product_reference_install.py --family pdf --platform go
+    --manifests-dir infra/demo-manifests` to restore `install_served_version`. Confirm both fields
+    are correct in the final real file before committing.
+  - >-
+    Extend the existing TC-786/787 completeness tests in `tests/infra/test_fetch_product_reference.py`
+    so `pdf/go` moves from the "skipped" list to the "completed" list, and the cross-card
+    completeness test (`test_every_real_pilot_is_now_accounted_for_by_exactly_one_tc_786_or_tc_787_list`
+    or whatever it is now named) reflects that all 32 real pilots are complete, with zero pilots
+    left in any "skipped" list - if that is not actually true, say so honestly instead of editing
+    the test to look done.
+  - >-
+    Before committing: run `{python} -m pytest tests/infra/test_fetch_product_reference.py -q -rfE -p no:cacheprovider`
+    twice and report the real result.
+actions:
+  - >-
+    Complete `pdf/go`, the one pilot `TC-787` held back, via the same real two-step pipeline, with
+    its real `CLAUDE.md` agent-guidance fallback ratified as an expected, designed diff for this
+    pilot specifically.
+checks:
+  - command: '{python} -m pytest tests/infra/test_fetch_product_reference.py -q -rfE -p no:cacheprovider'
+    expect: 'exit 0'
+    timeout_seconds: 300
+    junitxml: true
+    proves:
+      - REQ-G3-015
+min_tests: 17
+requires:
+  - python
+network: true
+negative_control:
+  mutate: |
+    python -X utf8 -c "import json, pathlib; p = pathlib.Path('infra/demo-manifests/product_reference_pdf_go.json'); data = json.loads(p.read_text(encoding='utf-8')); assert data.get('family') == 'pdf', 'the card has not yet added the real family value to pdf/go - it has not made this fix yet'; data['family'] = None; p.write_text(json.dumps(data, indent=2, ensure_ascii=False) + chr(10), encoding='utf-8')"
+  rationale: >-
+    Reverts `pdf/go`'s new `family` value back to `None`, which must make this card's own
+    completeness test fail for that pilot - a pure data mutation targeting this card's own new
+    committed content directly.
+evidence:
+  - evidence/build/G3/TC-788/receipt.json
+closeout:
+  - >-
+    `pdf/go` now carries both a correct `family` and its restored `install_served_version`,
+    completing the write side of `TC-783`'s known-defects merge fix for all 32 real pilots.
+recovery: Re-run from a clean tree.

@@ -4975,3 +4975,21 @@ run the SECOND step (`verify_product_reference_install.py --family <f> --platfor
 --manifests-dir infra/demo-manifests`) immediately after each `fetch_product_reference.py
 --force` - exactly what the real ingestion pipeline (`infra/helm/*/ingestion-job.yaml`) already
 does in sequence. Tracked as a follow-up card completing the same backfill, not a defect fix.
+
+## 2026-11-13 — TC-787 completes 19/20; `pdf/go`'s own `agent_guidance` fallback is ratified, not a surprise
+
+`TC-787` ran the real two-step pipeline (`fetch_product_reference.py --force` then
+`verify_product_reference_install.py`) for the 20 pilots `TC-786` left untouched, with the same
+per-pilot scratch-then-real diff gate. 19 completed cleanly; `pdf/go` was honestly held back
+because its scratch diff showed `agent_guidance` going from `{"status": "not_present"}` to a real,
+present 260KB `CLAUDE.md` document - a field the card's own text never pre-authorized, so the
+worker correctly declined to force it through unilaterally.
+
+**Verified directly, not trusted blindly**: `infra/fetch_product_reference.py` lines 300-301
+(`_AGENT_GUIDANCE_FALLBACK = "CLAUDE.md"`, `build_sidecar()`) read: "a repository whose guidance
+file for coding agents is CLAUDE.md (pdf/go) is not one without guidance. AGENTS.md wins when
+both exist." `pdf/go` is the comment's OWN motivating example for this exact, already-designed,
+already-tested `TC-561` fallback - this is the mechanism working exactly as built, not an
+unexpected side effect. Ratified: a follow-up card completes `pdf/go` the same way, with
+`agent_guidance`'s present-CLAUDE.md-where-absent-was-recorded-before added to the acceptable-diff
+list for that one pilot specifically (not a blanket widening - no other pilot showed this shape).
