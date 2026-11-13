@@ -1,4 +1,5 @@
-"""G3/TC-597: structural checks for docs/ROUND2_REVIEW.md, the round-2 32-pilot portfolio audit register.
+"""G3/TC-597 (structural checks), extended by G3/TC-777 (Q17 closure): checks for
+docs/ROUND2_REVIEW.md, the round-2 32-pilot portfolio audit register.
 
 This module parses docs/ROUND2_REVIEW.md's "## 3. Register" table and proves, programmatically (never by
 eyeballing the table), that:
@@ -16,7 +17,10 @@ eyeballing the table), that:
       repository and this test must stay offline and hermetic - see AGENTS.md's S9 authoring rule: no card test
       reads live external state);
   (d) row 286 (``RD2-286``) carries the fixed LONGQ-001 fields the card specifies;
-  (e) every row's Status starts ``OPEN``;
+  (e) every row's Status is one of the real, defined disposition values (`OPEN`/`FIXED`/`DISCLOSED`/
+      `NOT_REPRODUCED`/`DEFINITIONAL`/`ACCEPTED(P3)`/`BLOCKED_UPSTREAM`) - this replaces TC-597's own original
+      precondition snapshot ("every row starts OPEN"), which TC-777 (Q17) necessarily broke by live-verifying
+      and dispositioning the 73 real Q-series rows away from OPEN;
   (f) the baked Appendix A mapping itself is total and disjoint over the real 285 issue ids (a self-check on the
       baked copy, independent of the committed register).
 
@@ -259,9 +263,31 @@ def test_no_row_duplicates_a_real_issue_position():
     )
 
 
-def test_all_286_rows_start_open():
-    non_open = [row["Id"] for row in REGISTER_ROWS if row["Status"] != "OPEN"]
-    assert not non_open, f"this card closes nothing; rows not marked OPEN: {non_open}"
+VALID_STATUSES = frozenset(
+    {
+        "OPEN",
+        "FIXED",
+        "DISCLOSED",
+        "NOT_REPRODUCED",
+        "DEFINITIONAL",
+        "ACCEPTED(P3)",
+        "BLOCKED_UPSTREAM",
+    }
+)
+
+
+def test_every_row_status_is_a_real_disposition_value():
+    """G3/TC-777 (Q17): this card dispositions the 73 real Q-series rows away from `OPEN` to their
+    individually live-verified current status, so the precondition snapshot this test replaces
+    (`test_all_286_rows_start_open`, which asserted literally no row may be non-OPEN) no longer
+    holds. What must hold instead, permanently, is that every row's `Status` cell is one of the
+    real, defined disposition values a closure card is allowed to write - never a typo, a stray
+    value, or free text. This is deliberately a total check over all 286 rows (not just the 73
+    Q-series ones): any later closure card (`I14`, `O10`, `C11`, `XA19`, `KD11`, `RT5`, `R7`) that
+    dispositions its own rows is held to the same real enum, not a weaker one scoped to this
+    card's own cards."""
+    bad = [(row["Id"], row["Status"]) for row in REGISTER_ROWS if row["Status"] not in VALID_STATUSES]
+    assert not bad, f"register rows with a Status outside the real defined enum {sorted(VALID_STATUSES)}: {bad}"
 
 
 def test_every_register_row_has_a_known_workstream_letter():

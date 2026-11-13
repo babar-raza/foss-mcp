@@ -375,6 +375,24 @@ the oracle covers, and the real result of covering it, is now stated here rather
   66, so no example that imports `aspose_tex` can run and none can be verified. The rest of the tex/python content is
   documentation and API symbols. The fix is upstream; the acceptance test holds this one pilot to its measured count
   and requires every other pilot to serve at least two.
+- **Two conformance baselines cannot safely take `strict: true` yet** (G3/TC-777, Q17's own closure action,
+  investigated and declined - see `docs/DECISION_LOG.md`'s 2026-11-05 "Q-program status recorded" entry).
+  `tests/fixtures/conformance/baseline_symbol_self_retrieval.json` (B4) already carries `strict: true`, set by
+  TC-695, because `tests/conformance/test_symbol_self_retrieval.py` checks it through exactly one unified
+  measure-then-compare call site, so `assert_no_new_failures` can see every `known_failures` entry that stopped
+  reproducing and flag it as stale. `baseline_sentence_wrapped_retrieval.json` (B5,
+  `tests/conformance/test_sentence_wrapped_retrieval.py`) and `baseline_precision_and_size_budget.json` (B6,
+  `tests/conformance/test_precision_and_size_budget.py`) each have MULTIPLE independent test functions calling
+  `assert_no_new_failures` against the SAME shared baseline, each with its own smaller, partial subset of
+  observed failures (one sampled sweep, one exhaustive sweep gated behind `FOSS_MCP_CONFORMANCE_EXHAUSTIVE`, one
+  precision-side check, and so on). Flipping `strict: true` on either file today would make every sub-case test
+  that does not itself observe the FULL known-failure set wrongly report entries it was never in a position to
+  observe as "stale", failing cards that never touched the mechanism in question. Fixing this for real means
+  funnelling every sub-case's observations into one combined check per baseline (the same structural shape B4
+  already has) - a real code change to the test files themselves, with no functional gain today, since both
+  files are already fully green under their current, correct, non-strict checks and nothing is being masked by
+  leaving them non-strict. This card deliberately does not attempt that refactor; B5 and B6 stay `strict: false`
+  until a future card funnels their sub-case tests the way B4's own test already does.
 
 ### Kubernetes chart (not part of the standalone release)
 
