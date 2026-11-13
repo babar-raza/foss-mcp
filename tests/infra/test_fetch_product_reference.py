@@ -616,11 +616,13 @@ def test_load_manifest_sidecar_round_trips_the_family_main_writes(tmp_path: Path
 
 
 def test_load_manifest_sidecar_of_a_sidecar_with_no_family_key_leaves_it_none(tmp_path: Path) -> None:
-    """Every one of the 32 real, already-committed product_reference_*.json sidecars predates the
-    sidecar["family"] = family write and has no "family" key at all (confirmed directly against
-    infra/demo-manifests: 32 files, 0 with the key) - this fix must be additive and never raise a
-    KeyError for any of them. A sidecar missing the key still loads with family=None, exactly like
-    every pilot's own real, currently-unmigrated sidecar does today."""
+    """At TC-783 time, every one of the 32 real, already-committed product_reference_*.json
+    sidecars predated the sidecar["family"] = family write and had no "family" key at all
+    (confirmed directly against infra/demo-manifests: 32 files, 0 with the key) - this fix must be
+    additive and never raise a KeyError for any of them. A sidecar missing the key still loads
+    with family=None, exactly like every pilot's own real sidecar did at TC-783 time (TC-786 later
+    regenerated 12 of the 32 with a real family; see test_tc_786_completed_pilots_carry_a_family_
+    matching_their_own_file_name / test_tc_786_skipped_pilots_are_named_and_still_unmigrated)."""
     path = tmp_path / "product_reference.json"
     path.write_text(json.dumps(_sidecar_dict()), encoding="utf-8")
 
@@ -641,3 +643,103 @@ def test_load_manifest_sidecar_reads_a_null_family_as_none(tmp_path: Path) -> No
 
     assert inputs is not None
     assert inputs.family is None
+
+
+# G3/TC-786: write side of the TC-783 fix. TC-783 fixed load_manifest_sidecar to read "family"
+# back, but every one of the 32 real, committed infra/demo-manifests/product_reference_*.json
+# sidecars had zero "family" key at all - confirmed directly before this card touched anything,
+# the same way the comment above (test_load_manifest_sidecar_of_a_sidecar_with_no_family_key_
+# leaves_it_none) confirmed it for TC-783. TC-786 re-fetched each pilot at its OWN already-
+# indexed source_ref (never a newer commit) via this module's own CLI, verifying a clean scratch
+# diff before committing, and only committed a pilot when the diff was clean.
+#
+# 12 of the 32 pilots below were regenerated and now carry a correct "family": 3d/typescript,
+# barcode/python, cells/cpp, cells/rust, cells/typescript, email/cpp, html/python, imaging/net,
+# pdf/cpp, pdf/typescript, slides/cpp, tex/python.
+#
+# The other 20 pilots were honestly SKIPPED - not forced through - for a real, measured reason
+# found while running this card, not a guess: infra/fetch_product_reference.py's own build_sidecar()
+# never writes an "install_served_version" key at all (only infra/verify_product_reference_
+# install.py's own, separate script does, after the fact) - so main()'s own atomic_write_json
+# replaces the whole file and unconditionally drops any existing "install_served_version" the
+# moment a pilot is re-fetched with --force, for every pilot that currently has one. That field is
+# explicitly named in TC-786's own diff gate as one that must never differ, so every pilot whose
+# current real sidecar carries a non-null "install_served_version" was skipped rather than have
+# that real, previously-verified data silently discarded: 3d/java, 3d/net, 3d/python, cells/go,
+# cells/java, cells/net, cells/python, email/net, email/python, note/python, page/python, pdf/go,
+# pdf/java, pdf/net, pdf/python, slides/java, slides/net, slides/python, words/net, words/python.
+#
+# (TC-786's own closeout also treats the new "readme_document"/"manifest_path" keys that
+# build_sidecar() unconditionally adds - absent from literally all 32 real sidecars, which all
+# predate TC-561 - as an acceptable additive backfill of a schema TC-786 already depends on,
+# not as disqualifying drift; that is a worker judgment call recorded for gatectl/the supervisor
+# to confirm, not a verdict this test or this card issues itself.)
+_TC_786_COMPLETED_PILOTS = (
+    "product_reference_3d_typescript.json",
+    "product_reference_barcode_python.json",
+    "product_reference_cells_cpp.json",
+    "product_reference_cells_rust.json",
+    "product_reference_cells_typescript.json",
+    "product_reference_email_cpp.json",
+    "product_reference_html_python.json",
+    "product_reference_imaging_net.json",
+    "product_reference_pdf_cpp.json",
+    "product_reference_pdf_typescript.json",
+    "product_reference_slides_cpp.json",
+    "product_reference_tex_python.json",
+)
+_TC_786_SKIPPED_PILOTS = (
+    "product_reference_3d_java.json",
+    "product_reference_3d_net.json",
+    "product_reference_3d_python.json",
+    "product_reference_cells_go.json",
+    "product_reference_cells_java.json",
+    "product_reference_cells_net.json",
+    "product_reference_cells_python.json",
+    "product_reference_email_net.json",
+    "product_reference_email_python.json",
+    "product_reference_note_python.json",
+    "product_reference_page_python.json",
+    "product_reference_pdf_go.json",
+    "product_reference_pdf_java.json",
+    "product_reference_pdf_net.json",
+    "product_reference_pdf_python.json",
+    "product_reference_slides_java.json",
+    "product_reference_slides_net.json",
+    "product_reference_slides_python.json",
+    "product_reference_words_net.json",
+    "product_reference_words_python.json",
+)
+_DEMO_MANIFESTS_DIR = Path(__file__).resolve().parents[2] / "infra" / "demo-manifests"
+
+
+def test_tc_786_completed_pilots_carry_a_family_matching_their_own_file_name() -> None:
+    """Every real, committed sidecar TC-786 actually regenerated has a non-null "family" that
+    matches the <family> segment of its own file name - the write-side half of TC-783's fix,
+    for the 12 pilots whose scratch diff was confirmed clean before being committed."""
+    assert _TC_786_COMPLETED_PILOTS, "the completed-pilot list must name at least one real pilot"
+    for name in _TC_786_COMPLETED_PILOTS:
+        path = _DEMO_MANIFESTS_DIR / name
+        assert path.is_file(), f"{name} must exist in infra/demo-manifests"
+        data = json.loads(path.read_text(encoding="utf-8"))
+        expected_family = fetch_product_reference._family_from_output(path)
+        assert expected_family is not None, (
+            f"{name} must match the product_reference_<family>_<platform> pattern"
+        )
+        assert data.get("family") == expected_family, (name, data.get("family"), expected_family)
+
+
+def test_tc_786_skipped_pilots_are_named_and_still_unmigrated() -> None:
+    """The 20 pilots TC-786 honestly skipped (see the comment above
+    _TC_786_SKIPPED_PILOTS) are named explicitly, every real file in infra/demo-manifests is
+    accounted for by exactly one of the two TC-786 lists, and a skipped pilot's real file still
+    has no "family" - TC-786 never force-committed one of these, so none of them silently
+    gained a fabricated or guessed family value."""
+    completed = set(_TC_786_COMPLETED_PILOTS)
+    skipped = set(_TC_786_SKIPPED_PILOTS)
+    assert not (completed & skipped), "a pilot cannot be both completed and skipped"
+    on_disk = {p.name for p in _DEMO_MANIFESTS_DIR.glob("product_reference_*.json")}
+    assert on_disk == completed | skipped, (on_disk - (completed | skipped), (completed | skipped) - on_disk)
+    for name in _TC_786_SKIPPED_PILOTS:
+        data = json.loads((_DEMO_MANIFESTS_DIR / name).read_text(encoding="utf-8"))
+        assert data.get("family") is None, f"{name} was skipped and must not carry a family value"
