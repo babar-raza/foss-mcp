@@ -1,0 +1,136 @@
+id: TC-778
+gate: G3
+lane: storage-retrieval
+purpose: >-
+  Fixes the remaining real, pre-existing failures found while trying to accept `TC-777` (Q17
+  closure) - `gatectl review`'s own "related offline tests at head" check correctly caught 3
+  more stale/wrong assumptions that have nothing to do with `TC-777`'s own content and reproduce
+  independently on `main` right now, confirmed directly by the supervisor. Two of the original 5
+  (`infra/demo-manifests` compaction drift for `cells_java`/`pdf_python`) were already fixed as
+  a separate, direct supervisor action (a mechanical re-compaction, matching this session's
+  established precedent that `infra/demo-manifests/**` regeneration is always a supervisor
+  action, never a worker's). This card closes the three that remain, all genuine stale-pin/
+  stale-assumption fixes, none a production regression:
+
+  **(1) `test_real_tree_every_kept_vector_point_is_an_example_chunk_and_keeps_its_fields`
+  (`tests/deploy/test_compact_demo_manifests.py`) has a WRONG hardcoded assumption, not a
+  production bug.** It asserts `vector_index["dimension"] == 4096` for every one of the 32 real
+  pilots - but confirmed directly (`src/foss_mcp/indexing/gateway_embedding_provider.py`'s
+  `_DEFAULT_DIMENSION = 4096` vs `hashing_embedding_provider.py`'s local offline fallback
+  `dimension: int = 64`) that 31 of 32 real pilots are genuinely, legitimately served with the
+  64-dimension hashing fallback (only `imaging/net` happens to carry real 4096-dim gateway
+  vectors) - this has apparently been true for a while, not something this session broke. The
+  test's own NEXT line (`assert len(point["vector"]) == vector_index["dimension"]`) already
+  enforces the real invariant that matters (internal self-consistency); the `== 4096` literal is
+  simply too strict and must be relaxed to accept either real, legitimate dimension.
+
+  **(2) `test_real_tree_is_within_the_lean_budget` - genuine organic growth, needs
+  investigation, not a blind budget bump.** `pdf/java`'s real generation file is now 7,031,594
+  bytes against a `LARGEST_FILE_BYTES_BUDGET = 6_060_000` ceiling. Determine whether this growth
+  is legitimate (more real symbols/examples/content added by many cards since the budget was
+  last set) or genuine bloat (duplicate content, an oversized chunk like the one `TC-775` already
+  found and correctly left unfixed in `infra/build_chunks.py`) before deciding whether to raise
+  the budget (with the real measured justification cited) or flag a real bloat issue for its own
+  follow-up card.
+
+  **(3) Two independently stale pinned counts, each from real, already-accepted work landing
+  since the pin was last set** - `tests/infra/test_round3_serving_robustness.py`'s
+  `oracle_releases` pin (15, real count now 18 - 3 more real GitHub releases published upstream
+  since `TC-578`) and `tests/release/test_claims_ledger.py`'s pdf/net `served_chunks` pin (3,
+  real count now 8 - this session's own authored-examples campaign, `TC-760`/`762`/`763`, added
+  5 new verified examples to pdf/net). Re-measure both directly and re-pin to the real value.
+depends_on:
+  - TC-354
+  - TC-503
+  - TC-536
+  - TC-551
+  - TC-553
+  - TC-564
+  - TC-572
+  - TC-578
+  - TC-581
+  - TC-558
+  - TC-559
+  - TC-568
+write_paths:
+  - tests/deploy/test_compact_demo_manifests.py
+  - tests/infra/test_round3_serving_robustness.py
+  - tests/release/test_claims_ledger.py
+satisfies:
+  - REQ-G3-010
+source_refs:
+  - file: docs/DECISION_LOG.md
+    anchor: >-
+      ## 2026-11-12 — a FOURTH live CI break found and closed the same day (`TC-776`), while scoping Q17's real remaining work; whole `tests/conformance/` suite now green
+    sha256: 820d8222d81db41958cd842df35fc36c9abc7537f38b9141c51aa3c34cdcadb9
+inputs:
+  - >-
+    READ FIRST: `tests/deploy/test_compact_demo_manifests.py` (especially
+    `test_real_tree_is_within_the_lean_budget`, `test_real_tree_every_kept_vector_point_is_an_
+    example_chunk_and_keeps_its_fields`, the `TREE_BYTES_BUDGET`/`LARGEST_FILE_BYTES_BUDGET`
+    constants and their own prior re-pin history in comments), `src/foss_mcp/indexing/
+    gateway_embedding_provider.py` and `hashing_embedding_provider.py` (confirm the real
+    64-vs-4096 dimension split yourself), `tests/infra/test_round3_serving_robustness.py`'s
+    `test_a_sidecar_added_later_is_served_on_the_next_request_and_the_warning_clears`, and
+    `tests/release/test_claims_ledger.py`'s `test_real_tree_pdf_net_is_pinned_to_the_measured_
+    chunks`.
+  - >-
+    REPRODUCE FIRST, YOURSELF, FRESH: run all 5 of these tests (the 2 already fixed by the
+    supervisor's direct compaction commit should now pass; confirm this) and the 3 remaining
+    failures exactly as described. Do not trust this card's own numbers blindly - re-measure.
+  - >-
+    For (1): relax the `== 4096` assertion to accept either real dimension legitimately present
+    in the corpus (compute the real set of distinct dimensions across all 32 pilots yourself,
+    don't assume it's only {64, 4096} forever) - the point is proving every vector matches its
+    OWN declared dimension, not that every pilot shares one universal value.
+  - >-
+    For (2): measure whether pdf/java's real size growth is explained by legitimate added
+    content (count its real symbol/doc/example chunks and compare against history in nearby
+    comments/git log) before deciding. If legitimate, raise `LARGEST_FILE_BYTES_BUDGET` to a
+    real measured value with headroom, citing this card and the real measured size in a comment
+    (matching the file's own existing re-pin-history comment style). If you find real,
+    fixable bloat instead, do NOT silently trim it yourself - report it precisely (pilot,
+    mechanism, estimated savings) as a flag for a dedicated follow-up card, and raise the budget
+    only enough to unblock this check honestly in the meantime.
+  - >-
+    For (3): re-fetch/re-measure both real current values yourself (a live GitHub releases
+    count for the real pinned repository; the real pdf/net generation file's own
+    `payload.stats.examples` or equivalent) and re-pin both literals, following each file's own
+    existing comment-history style (cite this card, the old and new values, and why).
+  - >-
+    Do NOT touch `infra/demo-manifests/**`, `src/foss_mcp/indexing/*.py`, or any other file -
+    this card is test-literal-only, exactly like several siblings today (`TC-774`/`776`).
+actions:
+  - >-
+    Fix the wrong `== 4096` universal dimension assumption, resolve pdf/java's real budget
+    overage (raise the budget with real justification, or flag real bloat separately), and
+    re-pin the two stale GitHub-releases/pdf-net-example-count literals - all from real, fresh
+    measurement.
+checks:
+  - command: '{python} -m pytest tests/deploy/test_compact_demo_manifests.py tests/infra/test_round3_serving_robustness.py tests/release/test_claims_ledger.py -q -rfE -p no:cacheprovider'
+    expect: 'exit 0'
+    timeout_seconds: 600
+    junitxml: true
+    proves:
+      - REQ-G3-010
+min_tests: 10
+requires:
+  - python
+network: true
+negative_control:
+  mutate: |
+    python -X utf8 -c "import pathlib; p = pathlib.Path('tests/deploy/test_compact_demo_manifests.py'); s = p.read_text(encoding='utf-8'); old = 'LARGEST_FILE_BYTES_BUDGET ='; count = s.count(old); assert count == 1, 'the expected budget constant was not found exactly once'; import re; s2 = re.sub(old + ' [0-9_]+', old + ' 1', s, count=1); assert s2 != s; p.write_text(s2, encoding='utf-8')"
+  rationale: >-
+    Shrinks the file-size budget to an impossible 1 byte, which must make
+    test_real_tree_is_within_the_lean_budget fail - a pure literal-constant mutation, immune to
+    the lockstep-rename vacuousness class found earlier this session, and it never touches any
+    code path.
+evidence:
+  - evidence/build/G3/TC-778/receipt.json
+closeout:
+  - >-
+    All three real, pre-existing stale-assumption failures found while accepting Q17 are fixed
+    from real, fresh measurement: the wrong universal vector-dimension assumption relaxed, the
+    pdf/java budget overage resolved with real justification (or flagged separately if genuine
+    bloat), and the two stale GitHub-releases/pdf-net-example-count pins refreshed.
+recovery: Re-run from a clean tree.
