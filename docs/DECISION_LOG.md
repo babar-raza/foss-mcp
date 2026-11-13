@@ -4698,3 +4698,51 @@ supervisor directly on `main` (not merely trusted from either worker's report) -
 today's live breaks (`TC-773`-`776`) closed the same day they were found, each via the identical
 disciplined technique: measure real current reality directly, verify every change against that
 measurement, never guess or weaken a check to make it pass.
+
+## 2026-11-13 — Q17 (findability closure) lands: the first of the plan's 8 named closure stages
+
+`TC-777` closes Q17, confirmed via a dedicated scoping investigation that its real named
+dependencies (`Q7`/`Q8`/`Q10`/`Q16`/`F1`/`F4`/`F5`/`F6`) are ALL genuinely satisfied and the
+whole `tests/conformance/` suite is green (see the prior four entries). `docs/ROUND2_REVIEW.md`'s
+73 rows naming a Q-series card were each individually, live-re-verified against the real 32-pilot
+corpus (never transcribed from the row's own old prose) and dispositioned: **26 FIXED, 5
+NOT_REPRODUCED, 1 DISCLOSED, 1 DEFINITIONAL, 1 BLOCKED_UPSTREAM, 39 left honestly OPEN** (not
+forced to look complete - several specific findings, e.g. `search_symbols` still resolving
+`IHyperlinkContainer` at false `match_quality: "exact"` for an unsupported "hyperlink" concept,
+and the literal `LONGQ-001` sentence still only reaching `match_quality: "partial"`, were
+re-verified live and genuinely still open). `docs/RELEASE.md` section 8 gained one new
+limitation entry documenting a real, structural reason `baseline_sentence_wrapped_retrieval.json`
+and `baseline_precision_and_size_budget.json` cannot safely flip to `strict: true` the way
+`baseline_symbol_self_retrieval.json` already has (`TC-695`): both have multiple independent test
+functions sharing one baseline with partial per-call observed-failure subsets, so a bare flip
+would make sub-cases wrongly report "stale" entries they were never positioned to observe -
+fixing that needs a real test-structure refactor, deliberately deferred, not attempted here.
+
+A collateral fix was required and built into the same card from the start (caught before
+dispatch, not after): `tests/deploy/test_round2_ledger.py::test_all_286_rows_start_open` would
+have broken the moment any row's status changed - replaced with
+`test_every_row_status_is_a_real_disposition_value`, a permanent total check over all 286 rows
+against the real defined enum, so later closure cards (I14/O10/C11/XA19/KD11/RT5/R7) inherit a
+correct check rather than a stale one.
+
+**`TC-777`'s own review surfaced a SECOND wave of real, pre-existing, unrelated drift** via
+`gatectl review`'s "related offline tests at head" gate - none caused by `TC-777`, none a
+production regression: `infra/demo-manifests` compaction drift for `cells_java`/`pdf_python`
+(fixed directly by the supervisor, a mechanical re-compaction); and, closed by `TC-778`, a
+genuinely WRONG test assumption (`tests/deploy/test_compact_demo_manifests.py` asserted every
+pilot's vector dimension is universally `4096`, but 31 of 32 real pilots legitimately use a
+64-dimension local hashing fallback - only `imaging/net` has real gateway vectors - confirmed
+against `gateway_embedding_provider.py`'s `_DEFAULT_DIMENSION = 4096` vs
+`hashing_embedding_provider.py`'s `dimension: int = 64`), a real organic-growth budget overage
+(`pdf/java`'s generation file grew from 5.2MB to 7.0MB because its own generation was stale and
+only recently caught up to `TC-536`'s per-member-doc rendering rule everywhere else - confirmed
+by diffing old vs. new text per symbol, not guessed; budget raised with the real measurement
+cited), and two independently stale pinned counts (a GitHub-releases count and pdf/net's
+authored-example-count, both moved by real, already-accepted work landing since each pin was
+last set).
+
+A process note worth keeping: this review ran across a session restart. The receipt on disk
+(`evidence/build/G3/TC-777/receipt.json`) already showed `"accepted": true` by the time the
+session resumed - `gatectl accept` read it directly rather than re-running anything, matching
+this project's own established "check the receipt before assuming a long-running review is
+stuck" lesson.
