@@ -1,0 +1,62 @@
+
+===== CLEAN RUN 1 (host) =====
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-5c72e798a73c059a\Scripts\python.exe -m pytest tests/deploy/test_compact_demo_manifests.py tests/infra/test_round3_serving_robustness.py tests/release/test_claims_ledger.py -q -rfE -p no:cacheprovider "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-lxjtx8wa\.junit-0.xml"
+--- stdout ---
+........................................................................ [ 54%]
+.............................................................            [100%]
+============================== warnings summary ===============================
+..\venv-5c72e798a73c059a\Lib\site-packages\starlette\testclient.py:53
+  E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-5c72e798a73c059a\Lib\site-packages\starlette\testclient.py:53: DeprecationWarning: The anyio.abc.BlockingPortal alias is deprecated, use anyio.from_thread.BlockingPortal instead.
+    _PortalFactoryType = Callable[[], AbstractContextManager[anyio.abc.BlockingPortal]]
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+
+--- stderr ---
+
+
+===== CLEAN RUN 2 (host) =====
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-5c72e798a73c059a\Scripts\python.exe -m pytest tests/deploy/test_compact_demo_manifests.py tests/infra/test_round3_serving_robustness.py tests/release/test_claims_ledger.py -q -rfE -p no:cacheprovider "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-lxjtx8wa\.junit-0.xml"
+--- stdout ---
+........................................................................ [ 54%]
+.............................................................            [100%]
+============================== warnings summary ===============================
+..\venv-5c72e798a73c059a\Lib\site-packages\starlette\testclient.py:53
+  E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-5c72e798a73c059a\Lib\site-packages\starlette\testclient.py:53: DeprecationWarning: The anyio.abc.BlockingPortal alias is deprecated, use anyio.from_thread.BlockingPortal instead.
+    _PortalFactoryType = Callable[[], AbstractContextManager[anyio.abc.BlockingPortal]]
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+
+--- stderr ---
+
+
+===== NEGATIVE CONTROL (checks MUST now fail) =====
+mutated: M tests/deploy/test_compact_demo_manifests.py, ?? .junit-0.xml
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-5c72e798a73c059a\Scripts\python.exe -m pytest tests/deploy/test_compact_demo_manifests.py tests/infra/test_round3_serving_robustness.py tests/release/test_claims_ledger.py -q -rfE -p no:cacheprovider "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-lxjtx8wa\.junit-0.xml"
+--- stdout ---
+.............F.......................................................... [ 54%]
+.............................................................            [100%]
+================================== FAILURES ===================================
+__________________ test_real_tree_is_within_the_lean_budget ___________________
+
+    def test_real_tree_is_within_the_lean_budget() -> None:
+        sizes = [real_generation_file(d).stat().st_size for d in real_scope_dirs()]
+        total = sum(p.stat().st_size for p in DEMO_MANIFESTS.rglob("*") if p.is_file())
+    
+        assert total <= TREE_BYTES_BUDGET, (total, TREE_BYTES_BUDGET)
+>       assert max(sizes) <= LARGEST_FILE_BYTES_BUDGET, (max(sizes), LARGEST_FILE_BYTES_BUDGET)
+E       AssertionError: (7031594, 1)
+E       assert 7031594 <= 1
+E        +  where 7031594 = max([1365606, 1179121, 1194711, 446427, 143537, 645118, ...])
+
+tests\deploy\test_compact_demo_manifests.py:365: AssertionError
+============================== warnings summary ===============================
+..\venv-5c72e798a73c059a\Lib\site-packages\starlette\testclient.py:53
+  E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-5c72e798a73c059a\Lib\site-packages\starlette\testclient.py:53: DeprecationWarning: The anyio.abc.BlockingPortal alias is deprecated, use anyio.from_thread.BlockingPortal instead.
+    _PortalFactoryType = Callable[[], AbstractContextManager[anyio.abc.BlockingPortal]]
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+=========================== short test summary info ===========================
+FAILED tests/deploy/test_compact_demo_manifests.py::test_real_tree_is_within_the_lean_budget
+
+--- stderr ---
+

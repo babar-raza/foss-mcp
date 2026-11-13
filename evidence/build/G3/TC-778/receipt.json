@@ -1,0 +1,90 @@
+{
+  "schema_version": 1,
+  "card": "TC-778",
+  "gate": "G3",
+  "generated_by": "gatectl",
+  "generated_at": "2026-11-13T07:48:24Z",
+  "base_rev": "d25ed563efd07eaa5822af7eea8380bcaf1b837d",
+  "head_rev": "cdc71bcda7cf7b1ad2e0c766d0a1546201549887",
+  "card_sha256": "2a8d3ea5627d244d4c5b270dd90c6e1018d4bed443508c5447b6e5535292a56f",
+  "fingerprint": {
+    "python": "3.13.2",
+    "platform": "Windows-11-10.0.26300-SP0",
+    "lock_sha256": "5c72e798a73c059a438e752e94a8d4c88c1bdf81a197f6e5c5fcecbc9466a691",
+    "env": {
+      "PYTHONHASHSEED": "0",
+      "PYTHONUTF8": "1",
+      "PYTHONDONTWRITEBYTECODE": "1",
+      "PYTHONIOENCODING": "utf-8",
+      "TZ": "UTC",
+      "LC_ALL": "C.UTF-8",
+      "SOURCE_DATE_EPOCH": "1700000000",
+      "verify_runner": "host"
+    }
+  },
+  "scope": {
+    "ok": true,
+    "changed_paths": [
+      "tests/deploy/test_compact_demo_manifests.py",
+      "tests/infra/test_round3_serving_robustness.py",
+      "tests/release/test_claims_ledger.py"
+    ],
+    "violations": [],
+    "evaluated": true
+  },
+  "runs": [
+    {
+      "run": 1,
+      "checks": [
+        {
+          "command": "{python} -m pytest tests/deploy/test_compact_demo_manifests.py tests/infra/test_round3_serving_robustness.py tests/release/test_claims_ledger.py -q -rfE -p no:cacheprovider",
+          "exit_code": 0,
+          "duration_s": 32.827,
+          "stdout_sha256": "f1ebe0b1f8f2e48a79b4276300e1225e9cbc577fb3706d349f7e3baa0b47f3fc",
+          "tests": 133,
+          "skipped": 0,
+          "errors": 0,
+          "failures": 0
+        }
+      ],
+      "all_passed": true
+    },
+    {
+      "run": 2,
+      "checks": [
+        {
+          "command": "{python} -m pytest tests/deploy/test_compact_demo_manifests.py tests/infra/test_round3_serving_robustness.py tests/release/test_claims_ledger.py -q -rfE -p no:cacheprovider",
+          "exit_code": 0,
+          "duration_s": 22.734,
+          "stdout_sha256": "f1ebe0b1f8f2e48a79b4276300e1225e9cbc577fb3706d349f7e3baa0b47f3fc",
+          "tests": 133,
+          "skipped": 0,
+          "errors": 0,
+          "failures": 0
+        }
+      ],
+      "all_passed": true
+    }
+  ],
+  "negative_control": {
+    "kind": "mutate",
+    "patch": "python -X utf8 -c \"import pathlib; p = pathlib.Path('tests/deploy/test_compact_demo_manifests.py'); s = p.read_text(encoding='utf-8'); old = 'LARGEST_FILE_BYTES_BUDGET ='; count = s.count(old); assert count == 1, 'the expected budget constant was not found exactly once'; import re; s2 = re.sub(old + ' [0-9_]+', old + ' 1', s, count=1); assert s2 != s; p.write_text(s2, encoding='utf-8')\"\n",
+    "patch_sha256": "1cdf4b3c3cbc634f74cb1388da33ea34b426e3bf47fea2053187f60f46ea8c04",
+    "applied": true,
+    "patch_applied_failed": true,
+    "exit_codes": [
+      1
+    ],
+    "tree_changed": [
+      "M tests/deploy/test_compact_demo_manifests.py",
+      "?? .junit-0.xml"
+    ]
+  },
+  "holdout": {
+    "ran": false,
+    "passed": true,
+    "detail": "no holdout for this card"
+  },
+  "accepted": true,
+  "reason": "all gates passed"
+}
