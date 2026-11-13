@@ -1,0 +1,150 @@
+id: TC-777
+gate: G3
+lane: storage-retrieval
+purpose: >-
+  Closes Q17 (REQ-G3-011, "findability closure"), the first of the master plan's 8 named
+  closure stages to actually land. Scoped precisely by a dedicated investigation (not guessed):
+  Q17's own named dependencies (`Q10`,`Q16`,`F1`,`F4`,`F5`,`F6`) are ALL genuinely satisfied -
+  `Q7`/`Q8`/`Q10`/`Q16` are already built (contrary to a stale earlier plan note), and all four
+  real live CI breaks found in `F4`/`F5`/`F6`'s own conformance suite today (`TC-773`-`776`) are
+  fixed; the whole `tests/conformance/` suite is confirmed fully green by the supervisor
+  directly on `main`.
+
+  A real, structural blocker was found and must NOT be worked around: `baseline_symbol_
+  self_retrieval.json` (B4) is already `strict: true` (set by `TC-695`) because that file has
+  exactly one unified measure-then-compare call site. `baseline_sentence_wrapped_retrieval.json`
+  (B5) and `baseline_precision_and_size_budget.json` (B6) each have MULTIPLE independent test
+  functions calling `assert_no_new_failures` against the SAME shared baseline with different,
+  smaller observed-failure subsets per call - flipping `strict: true` on either would make every
+  sub-case test that doesn't itself observe the full known set wrongly report "stale" entries it
+  was never in a position to observe. Refactoring that test structure (to funnel every sub-case's
+  observations into one combined check) is a real code change with no functional gain - both
+  files are ALREADY fully green under their current, correct, non-strict checks; nothing is
+  being masked. This card does NOT attempt that refactor - it closes Q17 with B4 `strict: true`
+  (unchanged, already correct) and B5/B6 deliberately left `strict: false`, this exact
+  architectural reason documented honestly in `docs/RELEASE.md` section 8 ("Known limitations"),
+  not glossed over.
+
+  The real substantive work Q17 closes: `docs/ROUND2_REVIEW.md` (the real round-2 ledger, 286
+  rows, every row currently `Status: OPEN`, whose own header text names Q17 by name as the card
+  that dispositions Q-series rows) has **73 rows with a Q-series card (`Q1`-`Q17`) named in their
+  `Cards` column** - these are real findings this session's Q-series work has addressed (or, for
+  some, genuinely has not). Disposition every one of these 73 rows to its real, individually
+  verified current status (`FIXED`/`DISCLOSED`/`NOT_REPRODUCED`/`DEFINITIONAL`/`ACCEPTED(P3)`/
+  `BLOCKED_UPSTREAM`), never guessed from the row's own old prose - re-check each finding against
+  live current behavior.
+depends_on:
+  - TC-595
+  - TC-597
+  - TC-605
+  - TC-606
+  - TC-774
+  - TC-776
+write_paths:
+  - docs/ROUND2_REVIEW.md
+  - docs/RELEASE.md
+  - tests/deploy/test_round2_ledger.py
+satisfies:
+  - REQ-G3-011
+source_refs:
+  - file: docs/DECISION_LOG.md
+    anchor: >-
+      ## 2026-11-12 — a FOURTH live CI break found and closed the same day (`TC-776`), while scoping Q17's real remaining work; whole `tests/conformance/` suite now green
+    sha256: 820d8222d81db41958cd842df35fc36c9abc7537f38b9141c51aa3c34cdcadb9
+inputs:
+  - >-
+    READ FIRST: `docs/ROUND2_REVIEW.md` in full (all 286 rows, its own header text describing
+    closure-card dispositioning), `docs/RELEASE.md` section 8 ("Known limitations", read its
+    existing entries as the style/format template), and the plan's own Appendix A workstream
+    descriptions (A=docs/lookup precision, B=symbol search, C=example matching) for context on
+    what each Q-series card was meant to fix.
+  - >-
+    For EACH of the 73 real rows naming a `Q1`-`Q17` card in its `Cards` column: re-verify the
+    finding's real current status yourself, live, against the real corpus/tools (`lookup`/
+    `search_symbols`/`search_docs`/`find_examples` as appropriate to the row's own workstream) -
+    do not transcribe the row's own old prose or assume a card landing means the finding closed.
+    Use the exact repro the row's own `Evidence` column names where one exists; if a row's own
+    evidence no longer applies to the current corpus (re-baked, retitled, etc. by this session's
+    many later cards), say so and re-derive a fresh repro before dispositioning.
+  - >-
+    Mark each row's `Status` column with exactly one of: `FIXED` (confirmed resolved by a named
+    Q-series card, live-verified), `DISCLOSED` (a real limitation now documented somewhere a
+    caller can find it - name where), `NOT_REPRODUCED` (the original finding no longer
+    reproduces on the current corpus, for a reason you identify), `DEFINITIONAL` (resolved by a
+    definition/convention change, not a behavior fix), `ACCEPTED(P3)` (a real, low-severity gap
+    knowingly left open), or `BLOCKED_UPSTREAM` (the real underlying library, not this project,
+    is the cause). Every disposition must cite the real evidence you personally gathered, not
+    the row's own prior text.
+  - >-
+    If any of the 73 rows cannot be honestly dispositioned (genuinely ambiguous, or the Q-series
+    card named did not actually address it), leave it `OPEN` and say so explicitly in your
+    report - do not force a disposition to make the count look complete. Report the real final
+    count of each disposition category.
+  - >-
+    In `docs/RELEASE.md` section 8, add ONE new limitation entry (matching the existing
+    entries' format and evidence style) documenting the B5/B6 strict-flip architectural
+    limitation exactly as described in this card's `purpose` - real, cited, not vague.
+  - >-
+    Do NOT touch `tests/fixtures/conformance/baseline_sentence_wrapped_retrieval.json`,
+    `baseline_precision_and_size_budget.json`, `baseline_symbol_self_retrieval.json`, or any
+    test file under `tests/conformance/` - this card is documentation/ledger-only except for the
+    one deliberate exception named next. Do NOT attempt the B5/B6 test-structure refactor
+    described in `purpose` - it is explicitly out of scope.
+  - >-
+    READ `tests/deploy/test_round2_ledger.py` BEFORE editing `docs/ROUND2_REVIEW.md` - it is a
+    required collateral fix, not optional. `test_all_286_rows_start_open` (line ~262) asserts
+    "this card closes nothing; rows not marked OPEN" - written by `TC-597` as a precondition
+    snapshot of the register's own initial state, before any closure card existed. Since THIS
+    card's entire purpose is to disposition real rows away from `OPEN`, that test must be
+    replaced with one that validates every row's `Status` is one of the real, defined
+    disposition values (`OPEN`/`FIXED`/`DISCLOSED`/`NOT_REPRODUCED`/`DEFINITIONAL`/
+    `ACCEPTED(P3)`/`BLOCKED_UPSTREAM`) - never "no row may be non-OPEN". Also check
+    `test_row_286_is_longq_001_with_fixed_fields` (line ~243, asserts
+    `row["Status"] == "OPEN"` for the LONGQ-001 row specifically) - per the plan's own Appendix A,
+    LONGQ-001 is closed by `Q1`,`Q5`-`Q8` (+`Q9` if needed), proof in `F5`/`AU3`; if your own live
+    re-verification confirms it is genuinely fixed (the real `test_sentence_wrapped_retrieval.py`
+    already carries a dedicated LONGQ-001 literal-query test - check whether IT currently
+    passes), update this one literal to the real disposition you found, with the same live-
+    verification rigor as every other row. Change ONLY what each test's own purpose requires to
+    stay correct - do not touch `test_findings_are_non_empty_and_reasonably_bounded`,
+    `test_every_register_row_has_a_known_workstream_letter`, or any other test in this file.
+  - >-
+    Before committing: run `{python} -m pytest tests/deploy/test_round2_ledger.py tests/conformance/ -q -rfE -p no:cacheprovider`
+    twice to confirm this card's changes are internally consistent and caused zero regression
+    elsewhere, and report the real result.
+actions:
+  - >-
+    Disposition all 73 real Q-series rows in `docs/ROUND2_REVIEW.md` to their individually
+    re-verified current status, and document the B5/B6 strict-flip architectural limitation in
+    `docs/RELEASE.md` section 8.
+checks:
+  - command: '{python} -m pytest tests/deploy/test_round2_ledger.py tests/conformance/ -q -rfE -p no:cacheprovider'
+    expect: 'exit 0'
+    timeout_seconds: 600
+    junitxml: true
+    proves:
+      - REQ-G3-011
+min_tests: 5
+requires:
+  - python
+network: false
+negative_control:
+  mutate: |
+    python -X utf8 -c "import pathlib; p = pathlib.Path('docs/ROUND2_REVIEW.md'); s = p.read_text(encoding='utf-8'); old = '| RD2-001 |'; count = s.count(old); assert count == 1, 'the expected RD2-001 row marker was not found exactly once - the card needs re-anchoring'; idx = s.index(old); line_end = s.index(chr(10), idx); line = s[idx:line_end]; assert '|' in line; parts = line.rsplit('|', 2); assert len(parts) == 3; corrupted = parts[0] + '|BOGUS_STATUS' + '|' + parts[2]; s2 = s[:idx] + corrupted + s[line_end:]; assert s2 != s; p.write_text(s2, encoding='utf-8')"
+  rationale: >-
+    Corrupts row RD2-001's own Status cell to a value that is not any real disposition
+    (`OPEN`/`FIXED`/`DISCLOSED`/`NOT_REPRODUCED`/`DEFINITIONAL`/`ACCEPTED(P3)`/`BLOCKED_UPSTREAM`),
+    which must make `tests/deploy/test_round2_ledger.py`'s own replacement validity test (the one
+    this card writes in place of `test_all_286_rows_start_open`) fail - a pure data mutation,
+    immune to the lockstep-rename vacuousness class found earlier this session, and it never
+    touches any code path. Confirm by hand that the replacement test actually validates every
+    row's Status against the real enum (not just a subset) before trusting this.
+evidence:
+  - evidence/build/G3/TC-777/receipt.json
+closeout:
+  - >-
+    Q17 (findability closure) is closed: all 73 real Q-series `docs/ROUND2_REVIEW.md` rows
+    dispositioned to individually re-verified current status (or left honestly `OPEN` where
+    ambiguous), the B5/B6 strict-flip architectural limitation documented in
+    `docs/RELEASE.md` section 8, `tests/conformance/` confirmed unaffected (still fully green).
+recovery: Re-run from a clean tree.
