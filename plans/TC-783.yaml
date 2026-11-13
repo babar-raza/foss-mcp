@@ -1,0 +1,114 @@
+id: TC-783
+gate: G3
+lane: storage-retrieval
+purpose: >-
+  Fixes a real production wiring defect found by `TC-782` (C11 closure, 2026-11-13): `TC-641`'s
+  (KD4, REQ-G3-015) library-level `known_defects` merge into `get_product_reference`'s
+  "limitations" answer (`ProductReferenceInputs.family` -> `load_known_defects(family,
+  platform)`, `src/foss_mcp/mcp/tools/get_product_reference.py:785-787`) is correctly WRITTEN by
+  `infra/fetch_product_reference.py`'s CLI (`sidecar["family"] = family` at line ~426, confirmed
+  live in the source) but never READ BACK: `load_manifest_sidecar` (the function `infra/
+  serve_http.py` actually calls at real server start to rebuild `ProductReferenceInputs`) never
+  passes `family=...` into its `ProductReferenceInputs(...)` constructor call - every real,
+  sidecar-loaded pilot gets `family=None`, which `get_product_reference.py`'s own line 785-786
+  (`if inputs.family is None: return ()`) silently and unconditionally short-circuits. Confirmed
+  this is the sole real gap: `load_manifest_sidecar` already correctly reads back every other
+  field `build_sidecar`'s caller writes (`source_repository`, `source_ref`, `drift`, etc.) via
+  the identical pattern this card's fix needs.
+
+  A SECOND, separate, larger finding (confirmed, NOT this card's scope): the 32 real, already-
+  committed `infra/demo-manifests/product_reference_<family>_<platform>.json` sidecar files
+  currently have ZERO `"family"` key at all (not even `null`) - they predate the `sidecar
+  ["family"] = family` line being added to the CLI. This means even after this card's read-side
+  fix lands, the real served answer will not actually change until those 32 sidecars are
+  regenerated via a real, live GitHub re-fetch (network-touching, broader blast radius than this
+  card - it also refreshes `contributing`/`agent_guidance`/`manifest_text` content, not just
+  adds one field) - explicitly deferred to its own future card, not attempted here. This card
+  only fixes the read-side function so that ANY future re-fetch (for this or any other reason)
+  immediately starts working correctly, and proves it with a new, dedicated round-trip test.
+depends_on:
+  - TC-353
+  - TC-427
+  - TC-511
+  - TC-560
+  - TC-561
+write_paths:
+  - infra/fetch_product_reference.py
+  - tests/infra/test_fetch_product_reference.py
+satisfies:
+  - REQ-G3-015
+source_refs:
+  - file: docs/DECISION_LOG.md
+    anchor: >-
+      ## 2026-11-13 — C11 (content-truth closure) lands: the fourth of the plan's 8 named closure stages, the largest ledger pass this session
+    sha256: 0124137a464adbccafdb361b7d768c95144dc83e168da2b0034f6a6ed0268839
+inputs:
+  - >-
+    READ FIRST: `infra/fetch_product_reference.py` in full, especially `load_manifest_sidecar`
+    (the read-back function) and `main()`'s own `sidecar["family"] = family` write (confirm this
+    write-side line yourself, do not trust this card blindly), and `src/foss_mcp/mcp/tools/
+    get_product_reference.py` lines ~250-260 and ~780-790 (the `ProductReferenceInputs.family`
+    field and its consuming `if inputs.family is None: return ()` guard).
+  - >-
+    REPRODUCE FIRST, YOURSELF, FRESH: confirm directly that none of the 32 real committed
+    `infra/demo-manifests/product_reference_*.json` sidecars currently have a `"family"` key
+    (so you understand this fix alone does not change today's served answers - only future
+    re-fetches). Then construct a small synthetic sidecar JSON WITH a real `"family"` value
+    (matching the real write-side shape) and confirm `load_manifest_sidecar` currently drops it
+    (round-trips to `None`).
+  - >-
+    Fix `load_manifest_sidecar` to read `family=_optional_text(data.get("family"))` (or
+    equivalent) into the `ProductReferenceInputs(...)` call, matching the exact pattern every
+    other optional field already uses in that same function.
+  - >-
+    Add a new, dedicated round-trip test to `tests/infra/test_fetch_product_reference.py`
+    proving `build_sidecar`'s write path + the CLI's `sidecar["family"] = family` assignment +
+    `load_manifest_sidecar`'s read-back now agree for a real, non-None family value - and a
+    second test confirming a sidecar JSON with NO `"family"` key (matching every real committed
+    sidecar today) still loads with `family=None` (not a KeyError), so this fix is additive and
+    does not break loading any of the 32 real, currently-unmigrated sidecars.
+  - >-
+    Do NOT attempt to regenerate any of the 32 real `infra/demo-manifests/product_reference_*.json`
+    files, and do NOT touch `src/foss_mcp/mcp/tools/get_product_reference.py` - both are
+    explicitly out of scope (the live re-fetch is real, separate, larger future work; the
+    consuming code's own `family is None` guard is already correct and needs no change).
+  - >-
+    Before committing: run `{python} -m pytest tests/infra/test_fetch_product_reference.py tests/conformance/ -q -rfE -p no:cacheprovider`
+    twice and report the real result.
+actions:
+  - >-
+    Fix `load_manifest_sidecar` to read the already-written `family` field back into
+    `ProductReferenceInputs`, with a new round-trip test proving it, additive to every
+    already-committed sidecar's own loading behavior.
+checks:
+  - command: '{python} -m pytest tests/infra/test_fetch_product_reference.py tests/conformance/ -q -rfE -p no:cacheprovider'
+    expect: 'exit 0'
+    timeout_seconds: 600
+    junitxml: true
+    proves:
+      - REQ-G3-015
+min_tests: 12
+requires:
+  - python
+network: false
+negative_control:
+  mutate: |
+    python -X utf8 -c "import pathlib; p = pathlib.Path('infra/fetch_product_reference.py'); s = p.read_text(encoding='utf-8'); old = 'manifest_path=_optional_text(data.get(' + chr(34) + 'manifest_path' + chr(34) + ')),'; count = s.count(old); assert count == 1, 'the expected manifest_path read-back line was not found exactly once - the card needs re-anchoring, confirm the real anchor line and update this mutate'; s2 = s.replace(old, 'manifest_path=None,  # mutated', 1); assert s2 != s; p.write_text(s2, encoding='utf-8')"
+  rationale: >-
+    Disables an adjacent, already-working optional-field read-back (manifest_path) rather than
+    the new family field itself, proving the required check command's own round-trip test suite
+    genuinely exercises this function's real behavior end to end - if this specific anchor line
+    does not match the real file, re-anchor the mutate directly on whatever line this card's own
+    new family= addition sits next to instead. A pure literal-text mutation, immune to the
+    lockstep-rename vacuousness class found earlier this session, and it never touches any other
+    code path.
+evidence:
+  - evidence/build/G3/TC-783/receipt.json
+closeout:
+  - >-
+    `load_manifest_sidecar` now correctly reads the `family` field back, proven by a new round-
+    trip test; every already-committed sidecar (none of which yet carry the field) still loads
+    correctly with `family=None`, unaffected. The real production merge still won't surface
+    until the 32 real sidecars are regenerated via a live GitHub re-fetch - explicitly flagged
+    as separate, future, network-touching work, not attempted here.
+recovery: Re-run from a clean tree.
