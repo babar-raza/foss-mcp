@@ -202,7 +202,10 @@ def test_a_good_sidecar_is_present_and_passes_fetched_at_through(tmp_path: Path)
 
 
 def test_a_good_sidecar_without_fetched_at_is_present_with_none(tmp_path: Path) -> None:
-    manifests = _stage(tmp_path, PRODUCT_REFERENCE)
+    manifests = _stage(tmp_path)
+    data = _good_product_reference()
+    data.pop("fetched_at", None)
+    (manifests / PRODUCT_REFERENCE).write_bytes(_dumps(data))
     inputs = serve_http._serving_product_reference_inputs(manifests, CONFIG)
     assert inputs is not None
     assert inputs.sidecar_state == SIDECAR_PRESENT
