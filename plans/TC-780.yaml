@@ -1,0 +1,116 @@
+id: TC-780
+gate: G3
+lane: storage-retrieval
+purpose: >-
+  Closes I14 (REQ-G3-012, "index-truth closure"), continuing the exact methodology that just
+  closed Q17 (`TC-777`, see `docs/DECISION_LOG.md`'s 2026-11-13 entry for the full shape of that
+  closure). A dedicated scoping investigation confirmed I14's own named dependencies (`I5`,`I8`,
+  `I10`,`I13`,`F7`,`Q17`) are ALL genuinely satisfied: I5 (combined with I4) landed via `TC-686`,
+  I8 via `TC-622`, F7 via `TC-607` (and its own live breaks, found and fixed today via `TC-774`/
+  `TC-775`/`TC-776`, are confirmed still green), I10 and I13 were investigated (2026-11-05) and
+  found already correct with one test-coverage gap each, closed via `TC-700` and `TC-697`
+  respectively, and Q17 landed today via `TC-777`.
+
+  `docs/ROUND2_REVIEW.md` carries 76 real rows naming an I-series or O-series card (`I1`-`I14`,
+  `O1`-`O10`) in their `Cards` column. `TC-777`'s own Q-series pass already dispositioned 19 of
+  these incidentally (rows whose `Cards` column names both a Q-series and an I/O-series card
+  together) - **57 remain genuinely `OPEN`** and are this card's real substance. They cluster
+  into roughly 4 recurring `Cards` groupings per the plan's own Appendix A workstream letters
+  (C=example matching, E=identity/honesty, F=extractor fidelity - I14's own real domain; O-series
+  rows that ALSO name an I-series card are fair game here too, since I14 structurally precedes
+  O10). Disposition every one of these 57 rows individually, live-verified against the real
+  32-pilot corpus - never transcribed from the row's own old prose, exactly matching `TC-777`'s
+  own discipline.
+
+  A real, live break was ALSO found and already fixed in this same scoping pass, independent of
+  this card's own ledger work: `tests/extraction/test_round3_python_fidelity.py`/`test_tex_
+  python_extraction.py` had 3 stale assertions pinned against a formula `TC-729` had already
+  legitimately obsoleted - fixed via `TC-780`'s own immediate predecessor, `TC-779` (already
+  integrated). This card does NOT need to touch extraction test files again; confirm they are
+  still green as part of your own reproduce-first step, nothing more.
+depends_on:
+  - TC-597
+  - TC-777
+  - TC-579
+  - TC-595
+satisfies:
+  - REQ-G3-012
+write_paths:
+  - docs/ROUND2_REVIEW.md
+  - docs/RELEASE.md
+source_refs:
+  - file: docs/DECISION_LOG.md
+    anchor: >-
+      ## 2026-11-13 — `TC-779`: 11-pilot Python fidelity break was a stale test, not a stale fixture
+    sha256: af5e5cd4601dbdc4185eb1f0a90c8e28d57fd4cdd9e5ee7e7da98e68d470c101
+inputs:
+  - >-
+    READ FIRST: `docs/ROUND2_REVIEW.md` in full (all 286 rows - note `TC-777` already changed
+    73 of them; find the real REMAINING `OPEN` rows naming an I-series or O-series card in their
+    `Cards` column yourself, do not trust this card's "57" count blindly, it may have shifted),
+    `tests/deploy/test_round2_ledger.py`'s `test_every_row_status_is_a_real_disposition_value`
+    (the permanent enum check `TC-777` added - your dispositions must use exactly one of its
+    valid values), and `docs/RELEASE.md` section 8 for the existing limitation-entry format.
+  - >-
+    For EACH remaining OPEN row naming an I-series/O-series card: re-verify the finding's real
+    current status yourself, live, against the real 32-pilot corpus - call the real
+    `get_symbol`/`search_symbols`/`report_index_freshness`/`list_members`/`lookup` functions as
+    appropriate to the row's own workstream (C/E/F primarily). Use the row's own `Evidence`
+    column as a starting repro; if it no longer applies to the current corpus (re-baked,
+    retitled, re-ingested by later cards), say so and re-derive a fresh repro before
+    dispositioning. Do not transcribe old prose.
+  - >-
+    Mark each row's `Status` with exactly one of the real enum values
+    `test_every_row_status_is_a_real_disposition_value` defines (`OPEN`/`FIXED`/`DISCLOSED`/
+    `NOT_REPRODUCED`/`DEFINITIONAL`/`ACCEPTED(P3)`/`BLOCKED_UPSTREAM`). Every disposition must
+    cite the real evidence you personally gathered.
+  - >-
+    If a row cannot be honestly dispositioned, leave it `OPEN` and say so explicitly - matching
+    `TC-777`'s own precedent (it left 39 of 73 rows honestly open). Do not force a disposition to
+    make the count look complete.
+  - >-
+    If `docs/RELEASE.md` section 8 needs a new limitation entry for anything you find along the
+    way (a real, structural reason some finding stays open), add it in the existing format - do
+    not invent a new structure.
+  - >-
+    Do NOT touch `tests/deploy/test_round2_ledger.py`, any `tests/conformance/*.py` file, any
+    baseline JSON, or any extraction test/fixture file (`TC-779` already closed the one real
+    break in that area today) - this card is pure ledger/docs dispositioning.
+  - >-
+    Before committing: run `{python} -m pytest tests/deploy/test_round2_ledger.py tests/conformance/ -q -rfE -p no:cacheprovider`
+    twice to confirm your dispositions don't break the permanent enum check or anything in
+    `tests/conformance/`, and report the real result.
+actions:
+  - >-
+    Disposition the 57 remaining real I-series/O-series rows in `docs/ROUND2_REVIEW.md` to
+    their individually re-verified current status, and add any real limitation entry
+    `docs/RELEASE.md` section 8 needs as a result.
+checks:
+  - command: '{python} -m pytest tests/deploy/test_round2_ledger.py tests/conformance/ -q -rfE -p no:cacheprovider'
+    expect: 'exit 0'
+    timeout_seconds: 600
+    junitxml: true
+    proves:
+      - REQ-G3-012
+min_tests: 5
+requires:
+  - python
+network: false
+negative_control:
+  mutate: |
+    python -X utf8 -c "import pathlib; p = pathlib.Path('docs/ROUND2_REVIEW.md'); s = p.read_text(encoding='utf-8'); old = '| RD2-002 |'; count = s.count(old); assert count == 1, 'the expected RD2-002 row marker was not found exactly once - the card needs re-anchoring'; idx = s.index(old); line_end = s.index(chr(10), idx); line = s[idx:line_end]; parts = line.rsplit('|', 2); assert len(parts) == 3; corrupted = parts[0] + '|BOGUS_STATUS' + '|' + parts[2]; s2 = s[:idx] + corrupted + s[line_end:]; assert s2 != s; p.write_text(s2, encoding='utf-8')"
+  rationale: >-
+    Corrupts row RD2-002's own Status cell to a value that is not any real disposition, which
+    must make the permanent `test_every_row_status_is_a_real_disposition_value` check (added by
+    `TC-777`) fail - a pure data mutation, immune to the lockstep-rename vacuousness class found
+    earlier this session, and it never touches any code path. Confirm by hand that this check
+    still exists and still validates every row before trusting this.
+evidence:
+  - evidence/build/G3/TC-780/receipt.json
+closeout:
+  - >-
+    I14 (index-truth closure) is closed: all 57 remaining real I-series/O-series
+    `docs/ROUND2_REVIEW.md` rows individually re-verified and dispositioned (or honestly left
+    OPEN where ambiguous), any real structural limitation documented in `docs/RELEASE.md`
+    section 8, `tests/conformance/` confirmed unaffected.
+recovery: Re-run from a clean tree.
