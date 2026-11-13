@@ -466,6 +466,30 @@ the oracle covers, and the real result of covering it, is now stated here rather
   `RD2-269`). Each was already individually investigated and correctly left `OPEN` by `TC-780`'s own I14 pass
   minutes before this card ran, for its own distinct, already-recorded reason (`docs/DECISION_LOG.md`'s
   2026-11-13 I14 entry) - O10 does not re-touch, re-count, or re-disposition any of them.
+- **The TC-641 (KD4) library-level `known_defects` merge into `get_product_reference`'s "limitations" answer
+  is wired but structurally dead for every deployment, because `inputs.family` is never populated** (G3/TC-782,
+  found while live-verifying C11's own 80 real `docs/ROUND2_REVIEW.md` C-series rows, not carded separately since
+  the fix is a production-source change out of this pure-ledger card's own scope). `_known_defects_for_limitations`
+  (`src/foss_mcp/mcp/tools/get_product_reference.py`) reads `inputs.family` and returns `()` - no hazard, no
+  behavior change - whenever it is `None`; `infra.fetch_product_reference.load_manifest_sidecar`, the ONLY function
+  that builds a served `ProductReferenceInputs` from a pilot's sidecar (used both by the real serving path,
+  `infra/serve_http.py`'s `_serving_product_reference_inputs_without_known_hazards`, and by this project's own
+  `tests/conformance/test_reference_content.py`), never sets `family=` at all - confirmed live, directly against
+  the real serving wiring (`infra.serve_http._serving_product_reference_inputs`, not a mock): every real
+  `subject.kind: package`/`commit` entry checked (`3D-JAVA-004`, `CELLS-RUST-011`, `PAGE-PYTHON-006`,
+  `TEX-PYTHON-001`, `SLIDES-PY-001`, `IMAGING-NET-004`) returns zero merged hazards despite being a live, `open`
+  registry entry naming exactly that pilot. `3D-NET-001` (`docs/ROUND2_REVIEW.md` row `RD2-011`) only reaches the
+  served "limitations" answer today by a coincidence: the SAME real finding was independently, separately
+  disclosed via the older, still-working TC-582 mechanism (`config/products/3d/net.yaml`'s own manifest-authored
+  `known_hazards:` block, read directly by `infra/serve_http.py`'s `_with_deployment_known_hazards` with no
+  dependency on `inputs.family`) - its presence is not evidence the newer KD4 path works. `method`/`class`-kind
+  `known_defects` entries (KD2, `get_symbol`/`list_members`) are unaffected: confirmed live that `get_symbol` still
+  correctly surfaces `SLIDES-JAVA-010`/`SLIDES-JAVA-010B` for `slides/java`, since that path never reads
+  `inputs.family` either. Not fixed here (a production-source change, out of this card's `write_paths`); a future
+  card should either have `load_manifest_sidecar` read the sidecar's own already-written `"family"` JSON field
+  (`infra/fetch_product_reference.py` already writes it at ingestion time) into `ProductReferenceInputs.family`,
+  or have `infra/serve_http.py` pass `deployment_config.family` through explicitly before calling
+  `_known_defects_for_limitations`.
 
 ### Kubernetes chart (not part of the standalone release)
 
