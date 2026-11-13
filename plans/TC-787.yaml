@@ -1,0 +1,152 @@
+id: TC-787
+gate: G3
+lane: transport-deployment
+purpose: >-
+  Completes `TC-786`'s own 20 honestly-skipped pilots, now that the real reason they were
+  skipped turned out to be a misunderstanding, not a defect (`docs/DECISION_LOG.md`'s
+  2026-11-13 "CORRECTION" entry): `TC-786`'s dispatched worker correctly refused to run a bare
+  `fetch_product_reference.py --force` for any pilot whose real sidecar currently carries a
+  non-null `install_served_version`, because that alone drops the field (it is written by a
+  SEPARATE, second step). `infra/verify_product_reference_install.py`'s own module docstring
+  (`G2/TC-275`) documents the real, already-existing, two-step ingestion pipeline exactly: step 1
+  (`fetch_product_reference.py`) writes the product-reference sidecar; step 2
+  (`verify_product_reference_install.py`) runs immediately after and merges
+  `install_served_version` back in via a targeted read-modify-write, from its OWN separate,
+  persistent `package_registry_<family>_<platform>.json` sidecar (28 of these already exist,
+  confirmed untouched by any product-reference fetch) - matching exactly what the real Helm
+  `ingestion-job.yaml` already does in sequence for every pilot in production. No code change is
+  needed anywhere; this card runs BOTH steps, per pilot, for the 20 pilots `TC-786` left
+  untouched, with the identical per-pilot diff-gate discipline `TC-786` already proved out.
+
+  The 20 pilots: `3d_java`, `3d_net`, `3d_python`, `cells_go`, `cells_java`, `cells_net`,
+  `cells_python`, `email_net`, `email_python`, `note_python`, `page_python`, `pdf_go`, `pdf_java`,
+  `pdf_net`, `pdf_python`, `slides_java`, `slides_net`, `slides_python`, `words_net`,
+  `words_python`.
+depends_on:
+  - TC-427
+  - TC-511
+  - TC-560
+  - TC-561
+  - TC-713
+  - TC-715
+  - TC-783
+  - TC-785
+  - TC-786
+write_paths:
+  - infra/demo-manifests/product_reference_3d_java.json
+  - infra/demo-manifests/product_reference_3d_net.json
+  - infra/demo-manifests/product_reference_3d_python.json
+  - infra/demo-manifests/product_reference_cells_go.json
+  - infra/demo-manifests/product_reference_cells_java.json
+  - infra/demo-manifests/product_reference_cells_net.json
+  - infra/demo-manifests/product_reference_cells_python.json
+  - infra/demo-manifests/product_reference_email_net.json
+  - infra/demo-manifests/product_reference_email_python.json
+  - infra/demo-manifests/product_reference_note_python.json
+  - infra/demo-manifests/product_reference_page_python.json
+  - infra/demo-manifests/product_reference_pdf_go.json
+  - infra/demo-manifests/product_reference_pdf_java.json
+  - infra/demo-manifests/product_reference_pdf_net.json
+  - infra/demo-manifests/product_reference_pdf_python.json
+  - infra/demo-manifests/product_reference_slides_java.json
+  - infra/demo-manifests/product_reference_slides_net.json
+  - infra/demo-manifests/product_reference_slides_python.json
+  - infra/demo-manifests/product_reference_words_net.json
+  - infra/demo-manifests/product_reference_words_python.json
+  - tests/infra/test_fetch_product_reference.py
+satisfies:
+  - REQ-G3-015
+source_refs:
+  - file: docs/DECISION_LOG.md
+    anchor: >-
+      ## 2026-11-13 — TC-786 (write side of the known-defects merge fix) lands partially: 12/32, a real `install_served_version`-loss defect found in the fetch tool itself
+    sha256: 20cb654751ecee7616b756aeb5588a8ef83fc68a35ed2a98db18441d8115eb64
+inputs:
+  - >-
+    READ FIRST: `infra/verify_product_reference_install.py` in full (its own module docstring is
+    the whole explanation of why this card exists and is safe); `plans/TC-786.yaml` in full,
+    including its AMENDMENT and the worker's own closeout naming exactly which 12 pilots it
+    completed and which 20 it left untouched (and why); `docs/DECISION_LOG.md`'s two 2026-11-13
+    entries about `TC-786` (the original finding and the same-day correction) - read both, the
+    correction is the one to trust.
+  - >-
+    REPRODUCE FIRST, YOURSELF, FRESH: confirm, for each of the 20 named pilots, that its real
+    committed `product_reference_<family>_<platform>.json` currently has no `family` key and a
+    non-null `install_served_version`. Confirm a matching `package_registry_<family>_<platform>.json`
+    exists for each (if one is genuinely missing for any pilot, treat that pilot like `TC-786`
+    did - skip it and report why, do not force).
+  - >-
+    For each pilot, exactly as `TC-786`'s own inputs describe: read its current
+    `source_repository`/`source_ref` from its own sidecar, discover its real manifest path from
+    the live repository tree (verify it reproduces the exact stored `manifest_text` byte-for-byte
+    before trusting it), run the fetch into a SCRATCH path first with `--ref <source_ref>
+    --force`, and diff against the real committed file. The acceptable diffs now include
+    `family`, `fetched_at`, `drift`, and the LOSS of `install_served_version` at this scratch
+    stage specifically (since step 2 restores it next) - but no other field may differ. If any
+    other field differs, skip that pilot and report why, same as `TC-786`.
+  - >-
+    Only once a pilot's scratch diff is confirmed clean on every OTHER field: re-run the fetch
+    with `--output infra/demo-manifests/product_reference_<family>_<platform>.json --force` to
+    write the real file, THEN immediately run `{python} infra/verify_product_reference_install.py
+    --family <family> --platform <platform> --manifests-dir infra/demo-manifests` (the real
+    second pipeline step) to restore `install_served_version`. Confirm, after both steps, that the
+    real file now has BOTH a correct `family` AND an `install_served_version` value - if the
+    second step leaves it null/absent where the pilot's `package_registry_*.json` sidecar clearly
+    has a `served_version`, STOP for that pilot and report the discrepancy rather than committing
+    an incomplete result.
+  - >-
+    Never hand-edit any JSON file - every committed byte must be the literal output of the two
+    real script runs, in sequence. The second script may make a real, live registry network call
+    (NuGet/PyPI/crates.io/npm/Maven, per pilot) if its own 24-hour freshness cache has expired -
+    this is expected and within this card's `network: true` scope.
+  - >-
+    Extend the permanent test `TC-786` added to `tests/infra/test_fetch_product_reference.py`
+    (or add a sibling one) so it covers these 20 pilots the same way - asserting each one you
+    complete now carries both `family` and (where its `package_registry_*.json` sidecar has a
+    served version) `install_served_version`, and that every one of the 32 real pilots is now
+    accounted for by exactly one of: completed-with-family, or honestly-still-skipped-with-reason
+    (there should be very few or none of the latter left after this card, but do not force one
+    through just to make that true).
+  - >-
+    Check your GitHub/registry rate limits before starting and periodically during the run; stop
+    early and report partial progress if you are running low, exactly as `TC-786` did.
+  - >-
+    Before committing: run `{python} -m pytest tests/infra/test_fetch_product_reference.py -q -rfE -p no:cacheprovider`
+    twice and report the real result, including exactly which of the 20 pilots were completed,
+    which (if any) remain skipped and why.
+actions:
+  - >-
+    Complete the 20 pilots `TC-786` left untouched by running the real, already-existing two-step
+    pipeline (`fetch_product_reference.py --force` then `verify_product_reference_install.py`)
+    per pilot, verifying each diff is clean before committing, and honestly skipping (not
+    forcing) any pilot whose diff is not clean even after both steps.
+checks:
+  - command: '{python} -m pytest tests/infra/test_fetch_product_reference.py -q -rfE -p no:cacheprovider'
+    expect: 'exit 0'
+    timeout_seconds: 900
+    junitxml: true
+    proves:
+      - REQ-G3-015
+min_tests: 17
+requires:
+  - python
+network: true
+negative_control:
+  mutate: |
+    python -X utf8 -c "import json, pathlib; p = pathlib.Path('infra/demo-manifests/product_reference_pdf_net.json'); data = json.loads(p.read_text(encoding='utf-8')); assert 'family' in data and data['family'], 'the card has not yet added a real family value to this pilot - it has not made this fix yet, or chose a different pilot to verify with'; data['family'] = None; p.write_text(json.dumps(data, indent=2, ensure_ascii=False) + chr(10), encoding='utf-8')"
+  rationale: >-
+    Reverts one real, newly-completed pilot's (`pdf/net`, named explicitly in this card's own
+    purpose as one of the 20) `family` value back to `None`, which must make this card's own
+    widened completeness test fail for that pilot - a pure data mutation targeting this card's own
+    new committed content directly. (If `pdf/net` turns out to be one the worker must honestly
+    skip for a reason this card did not anticipate, re-anchor this mutate on whichever completed
+    pilot the worker's own closeout names first, exactly as `TC-786`'s own review required.)
+evidence:
+  - evidence/build/G3/TC-787/receipt.json
+closeout:
+  - >-
+    As many of the remaining 20 real pilots as could be safely, cleanly completed now carry both
+    a correct `family` and (where available) `install_served_version`, finishing the write side of
+    `TC-783`'s known-defects merge fix for production. Any pilot still skipped is named with its
+    real reason.
+recovery: Re-run from a clean tree.
