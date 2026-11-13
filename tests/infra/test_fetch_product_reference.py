@@ -734,12 +734,130 @@ def test_tc_786_skipped_pilots_are_named_and_still_unmigrated() -> None:
     _TC_786_SKIPPED_PILOTS) are named explicitly, every real file in infra/demo-manifests is
     accounted for by exactly one of the two TC-786 lists, and a skipped pilot's real file still
     has no "family" - TC-786 never force-committed one of these, so none of them silently
-    gained a fabricated or guessed family value."""
+    gained a fabricated or guessed family value.
+
+    NOTE: this assertion is intentionally against the TC-786-era lists, not against today's disk
+    state - TC-787 later completed 19 of these 20 (see _TC_787_COMPLETED_PILOTS below), so by the
+    time TC-787 lands most of _TC_786_SKIPPED_PILOTS DO carry a family. This test exists to pin
+    TC-786's own historical completeness claim (every real file accounted for by exactly one of
+    ITS two lists), not to assert the current family value - that is what the TC-787 tests below
+    check on the files TC-787 itself touched."""
     completed = set(_TC_786_COMPLETED_PILOTS)
     skipped = set(_TC_786_SKIPPED_PILOTS)
     assert not (completed & skipped), "a pilot cannot be both completed and skipped"
     on_disk = {p.name for p in _DEMO_MANIFESTS_DIR.glob("product_reference_*.json")}
     assert on_disk == completed | skipped, (on_disk - (completed | skipped), (completed | skipped) - on_disk)
-    for name in _TC_786_SKIPPED_PILOTS:
+
+
+# G3/TC-787: completes 19 of the 20 pilots TC-786 left untouched, by running the real, already-
+# existing two-step pipeline per pilot (fetch_product_reference.py --force, then
+# verify_product_reference_install.py) - exactly what the real Helm ingestion-job.yaml already does
+# in sequence, per infra/verify_product_reference_install.py's own module docstring (G2/TC-275).
+# No code change was needed; TC-786's own "CORRECTION" DECISION_LOG entry (2026-11-13) explains why
+# the bare fetch-only approach TC-786 used was the wrong comparison for these 20 pilots - they all
+# carry a non-null install_served_version that only the SECOND step restores, from each pilot's own
+# separate, persistent package_registry_<family>_<platform>.json sidecar.
+#
+# 19 of the 20 were completed cleanly: 3d/java, 3d/net, 3d/python, cells/go, cells/java, cells/net,
+# cells/python, email/net, email/python, note/python, page/python, pdf/java, pdf/net, pdf/python,
+# slides/java, slides/net, slides/python, words/net, words/python. Each now carries a correct
+# "family" (restored by step 1) AND its original "install_served_version" (restored by step 2,
+# read back from that pilot's own package_registry sidecar, verified byte-identical to the value
+# the real file carried before this card touched it).
+#
+# pdf/go was honestly SKIPPED - not forced through - for a real, measured reason found while
+# running this card: pdf/go's repository has no AGENTS.md but DOES have a real CLAUDE.md at the
+# pinned commit (confirmed live), and infra/fetch_product_reference.py's own G3/TC-561 fallback
+# (build_sidecar's own module docstring names pdf/go explicitly as its motivating example) reads
+# that CLAUDE.md as agent_guidance instead of the pilot's currently-committed not_present AGENTS.md
+# result. That is a real content diff beyond the family/fetched_at/drift/install_served_version set
+# this card's own diff gate names as acceptable, so - exactly as the gate requires - pdf/go was left
+# untouched rather than force a diff this card's own text did not pre-authorize. (Worker judgment
+# call recorded for gatectl/the supervisor to confirm, same as TC-786's own manifest_path/
+# readme_document ratification call: this looks like another real, additive, already-designed-for
+# schema completion rather than data loss, but this card's text did not name it, so it was not
+# treated as pre-ratified.)
+_TC_787_COMPLETED_PILOTS = (
+    "product_reference_3d_java.json",
+    "product_reference_3d_net.json",
+    "product_reference_3d_python.json",
+    "product_reference_cells_go.json",
+    "product_reference_cells_java.json",
+    "product_reference_cells_net.json",
+    "product_reference_cells_python.json",
+    "product_reference_email_net.json",
+    "product_reference_email_python.json",
+    "product_reference_note_python.json",
+    "product_reference_page_python.json",
+    "product_reference_pdf_java.json",
+    "product_reference_pdf_net.json",
+    "product_reference_pdf_python.json",
+    "product_reference_slides_java.json",
+    "product_reference_slides_net.json",
+    "product_reference_slides_python.json",
+    "product_reference_words_net.json",
+    "product_reference_words_python.json",
+)
+_TC_787_SKIPPED_PILOTS = ("product_reference_pdf_go.json",)
+
+
+def test_tc_787_completed_pilots_carry_a_family_matching_their_own_file_name() -> None:
+    """Every real, committed sidecar TC-787 actually regenerated has a non-null "family" that
+    matches the <family> segment of its own file name - the same write-side check TC-786 already
+    applied to its own 12 completed pilots, now covering the 19 of the remaining 20 this card
+    completed."""
+    assert _TC_787_COMPLETED_PILOTS, "the completed-pilot list must name at least one real pilot"
+    for name in _TC_787_COMPLETED_PILOTS:
+        path = _DEMO_MANIFESTS_DIR / name
+        assert path.is_file(), f"{name} must exist in infra/demo-manifests"
+        data = json.loads(path.read_text(encoding="utf-8"))
+        expected_family = fetch_product_reference._family_from_output(path)
+        assert expected_family is not None, (
+            f"{name} must match the product_reference_<family>_<platform> pattern"
+        )
+        assert data.get("family") == expected_family, (name, data.get("family"), expected_family)
+
+
+def test_tc_787_completed_pilots_also_carry_their_restored_install_served_version() -> None:
+    """The whole reason this card exists: TC-786 left these 20 pilots untouched because a bare
+    fetch_product_reference.py --force would have dropped their real install_served_version. This
+    card's own second pipeline step (verify_product_reference_install.py) must have restored it -
+    every one of the 19 completed pilots has a matching package_registry_<family>_<platform>.json
+    sidecar with a real served_version (confirmed directly before this card touched anything), so
+    every one of the 19 completed pilots must still have a non-null install_served_version after
+    both steps ran."""
+    for name in _TC_787_COMPLETED_PILOTS:
+        path = _DEMO_MANIFESTS_DIR / name
+        data = json.loads(path.read_text(encoding="utf-8"))
+        served = data.get("install_served_version")
+        assert isinstance(served, str) and served, (
+            f"{name} must carry a non-null install_served_version restored by step 2",
+            served,
+        )
+
+
+def test_tc_787_skipped_pilot_is_named_and_still_unmigrated() -> None:
+    """pdf/go, the one pilot TC-787 honestly skipped, must still have no "family" - this card
+    never force-committed it despite the real CLAUDE.md fallback diff found while running the
+    pipeline (see the comment above _TC_787_SKIPPED_PILOTS)."""
+    for name in _TC_787_SKIPPED_PILOTS:
         data = json.loads((_DEMO_MANIFESTS_DIR / name).read_text(encoding="utf-8"))
         assert data.get("family") is None, f"{name} was skipped and must not carry a family value"
+
+
+def test_every_real_pilot_is_now_accounted_for_by_exactly_one_tc_786_or_tc_787_list() -> None:
+    """After both cards, every real product_reference_*.json file in infra/demo-manifests is
+    accounted for by exactly one of: TC-786-completed, TC-786-skipped-but-TC-787-completed,
+    or still-honestly-skipped (pdf/go only) - no file is silently missing from every list, and no
+    file appears on more than one."""
+    completed = set(_TC_786_COMPLETED_PILOTS) | set(_TC_787_COMPLETED_PILOTS)
+    still_skipped = set(_TC_787_SKIPPED_PILOTS)
+    assert not (completed & still_skipped), "a pilot cannot be both completed and still-skipped"
+    on_disk = {p.name for p in _DEMO_MANIFESTS_DIR.glob("product_reference_*.json")}
+    assert on_disk == completed | still_skipped, (
+        on_disk - (completed | still_skipped),
+        (completed | still_skipped) - on_disk,
+    )
+    for name in completed:
+        data = json.loads((_DEMO_MANIFESTS_DIR / name).read_text(encoding="utf-8"))
+        assert data.get("family") is not None, f"{name} is listed as completed but has no family"
