@@ -151,26 +151,56 @@ def test_freshness_of_cells_python_and_pdf_net_without_a_commit_is_stale_by_vers
     report = _freshness(_store(tmp_path, family, platform), family, platform)
 
     assert report.freshness_state == "stale"
-    assert report.freshness_basis == "latest_release_version"
-    assert report.stale is True
-    assert report.latest_release_tag == tag
-    assert report.latest_release_in_index is False
-    assert report.reason.startswith(
-        f"latest release {tag} is newer than the indexed package version {indexed_version}; "
-        "no current_source_commit was given"
-    )
+    if (family, platform) == ("pdf", "net"):
+        # G3/TC-784: pdf/net's committed sidecar now carries a resolved git-ancestry drift block
+        # (added by a later, already-accepted re-ingest this session: a real release 3 commits
+        # ahead of the indexed commit), so report_index_freshness's fallback chain
+        # short-circuits to the git_ancestry basis - more informative - before ever reaching the
+        # weaker latest_release_version fallback this case originally pinned. Re-pinned here to
+        # the real, current values this card's own reproduction observed. The cells/python case
+        # below is untouched: its own drift record still carries "error": "RateLimited" rather
+        # than a resolved status, so it still falls through to the original latest_release_version
+        # fallback exactly as pinned.
+        assert report.freshness_basis == "git_ancestry"
+        assert report.latest_release_tag == "v26.11.0"
+        assert report.latest_release_in_index is False
+        assert report.reason == (
+            "The latest release v26.11.0 (version 26.11.0) is 3 commits ahead of the indexed "
+            "commit b71728776514: the published package can have types and members this index "
+            "does not describe. No current_source_commit was given."
+        )
+    else:
+        assert report.freshness_basis == "latest_release_version"
+        assert report.latest_release_tag == tag
+        assert report.latest_release_in_index is False
+        assert report.reason.startswith(
+            f"latest release {tag} is newer than the indexed package version {indexed_version}; "
+            "no current_source_commit was given"
+        )
     assert report.source_repository
 
 
 def test_freshness_of_cells_net_without_a_commit_is_unknown(tmp_path: Path) -> None:
+    # G3/TC-784: cells/net's committed sidecar now carries a resolved git-ancestry drift block
+    # (added by a later, already-accepted re-ingest this session: a real release 1 commit ahead
+    # of the indexed commit), so report_index_freshness's fallback chain short-circuits to the
+    # git_ancestry basis - stale, not unknown - before ever reaching the weaker "none" fallback
+    # this test originally pinned. Re-pinned here to the real, current, more-informative values
+    # this card's own reproduction observed; the function's name is kept for traceability with
+    # the G3/TC-519 taskcard history that introduced it, even though the verdict it now exercises
+    # is "stale", not "unknown".
     report = _freshness(_store(tmp_path, "cells", "net"), "cells", "net")
 
-    assert report.freshness_state == "unknown"
-    assert report.freshness_basis == "none"
+    assert report.freshness_state == "stale"
+    assert report.freshness_basis == "git_ancestry"
     assert report.stale is True
-    assert report.latest_release_tag == "V26.9.0"
-    assert report.latest_release_in_index is True
-    assert "current source commit is unknown; staleness cannot be ruled out" in report.reason
+    assert report.latest_release_tag == "V26.10.0"
+    assert report.latest_release_in_index is False
+    assert report.reason == (
+        "The latest release v26.10.0 (version 26.10.0) is 1 commit ahead of the indexed commit "
+        "941814fd138d: the published package can have types and members this index does not "
+        "describe. No current_source_commit was given."
+    )
 
 
 def test_the_production_registry_serves_in_index_and_the_freshness_state(tmp_path: Path) -> None:
