@@ -4746,3 +4746,19 @@ A process note worth keeping: this review ran across a session restart. The rece
 session resumed - `gatectl accept` read it directly rather than re-running anything, matching
 this project's own established "check the receipt before assuming a long-running review is
 stuck" lesson.
+
+## 2026-11-13 — `TC-779`: 11-pilot Python fidelity break was a stale test, not a stale fixture
+
+While scoping I14 (index-truth closure, the next stage Q17's landing unblocks), a scoping fork
+found `tests/extraction/test_round3_python_fidelity.py::test_the_counts_agree_with_the_entries`
+failing for ALL 11 real Python pilots, plus two sibling tests. Independently confirmed by the
+supervisor before carding: the real root cause is the INVERSE of every prior fix today - here the
+committed fixtures are correct and the tests are stale. `TC-729` (2026-11-09) had already fixed
+these same 11 fixtures' `symbol_counts.types` field to store the identity-aware, deduped count
+(matching `chunk_builder._coverage_line`'s own real dedup), but `test_the_counts_agree_with_the_
+entries`'s own assertion called `run_extraction.summarize_symbols` WITHOUT the `identities=`
+argument - which, per that function's own docstring, deliberately preserves the OLD non-deduped
+behaviour when omitted. The test was simply never updated to match what `TC-729` had already
+fixed. Verified directly for all 11 pilots before carding: recomputing WITH identities matches
+each fixture's real stored value exactly, zero exceptions. `TC-779` fixed all 3 stale assertions
+(2 files) accordingly - no fixture or production code touched, confirmed by diff.
