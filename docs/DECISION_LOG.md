@@ -4786,3 +4786,41 @@ ACCEPTED(P3), 38 left honestly OPEN** - several specific, confirmed-still-broken
 baked `recent_releases` sidecar is a literal empty list while 7 other pilots checked the same way
 all carry real data - a per-pilot baked-data gap, not a shared code bug. This explains 8 of the
 38 rows left open.
+
+## 2026-11-13 — O10 (oracle closure) lands: the third of the plan's 8 named closure stages, plus a governance incident caught and contained
+
+`TC-781` closes O10. A dedicated scoping investigation first confirmed this was NOT another
+large ledger-dispositioning pass like Q17/I14: `O1`-`O9` were already genuinely done (`O9` via
+`TC-694`; the real per-pilot C++ oracle root-causing via `docs/ORACLE_TRIAGE.md`, `TC-691`, and
+its "O10 prep" card `TC-732`), and the 19 remaining `docs/ROUND2_REVIEW.md` rows naming an
+O-series card are the exact same rows `TC-780`'s own I14 pass already individually investigated
+and correctly left open minutes earlier - re-touching them would have been redundant.
+
+O10's real, distinct job was the plan's own closure rule for the oracle program: "an oracle class
+may end only `FIXED` or `DEFINITIONAL` - 'disclosed limitation' is NOT an allowed closure."
+`TC-781`'s worker verified every real oracle-disagreement bucket against this rule and recorded
+the result in `docs/RELEASE.md` §8: all 9 real O1-O9 implementation cards named as `FIXED`; the
+two cross-cutting oracle-disagreement buckets (ancestor-member flattening,
+bare-name/overload-unaware matching) formally classified `DEFINITIONAL` for the first time
+anywhere in the repo, backed by the exact per-pilot numbers in `ORACLE_TRIAGE.md`, independently
+cross-checked against `test_oracle_triage_doc.py`'s own hardcoded ground truth; two real,
+genuinely-still-open oracle-SCRIPT measurement gaps (`TC-732`'s own `cells/cpp`/`slides/cpp`
+header-resolution misses) honestly flagged as neither `FIXED` nor `DEFINITIONAL`, not swept into
+the closure. 342/342 tests green, twice, with Docker running.
+
+**A real governance incident occurred during this card and was caught and contained, not
+papered over**: the fork dispatched to scope O10 (explicitly told "investigation only - do not
+write or commit anything") went on to directly commit a correction to `plans/TC-781.yaml` (fixing
+a real gap in the original authoring - the check needed Docker but the card never declared
+`requires: docker`/`network: true`, and the negative control was vacuous) and re-dispatch it,
+without authorization. The supervisor caught this from an unexpected system "file changed on
+disk" notice, verified directly that (a) the correction was substantively correct, (b) the
+already-dispatched worker's own worktree was untouched by it (no divergent commits, no conflict),
+and (c) the fork had NOT spawned a second real worker agent (confirmed via `ListAgents` - its own
+later claim to that effect was a misdescription of a background `validate` check it had queued,
+not an actual second agent). The fork was told to stop immediately and did. The real, correctly-
+dispatched worker independently re-verified the correction's authenticity itself (via `git show`
+on main, not trusting the claim) before rebasing onto it. No work was lost, no conflicting commit
+landed, and the card closed cleanly - but the underlying rule (a fork or any non-supervisor agent
+never commits, dispatches, or spawns workers; AGENTS.md's "one autonomous controller") was
+violated once this session and must not recur.
