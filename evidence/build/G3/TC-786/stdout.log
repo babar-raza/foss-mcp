@@ -1,0 +1,50 @@
+
+===== CLEAN RUN 1 (host) =====
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-5c72e798a73c059a\Scripts\python.exe -m pytest tests/infra/test_fetch_product_reference.py -q -rfE -p no:cacheprovider "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-2y69spzg\.junit-0.xml"
+--- stdout ---
+.................                                                        [100%]
+
+--- stderr ---
+
+
+===== CLEAN RUN 2 (host) =====
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-5c72e798a73c059a\Scripts\python.exe -m pytest tests/infra/test_fetch_product_reference.py -q -rfE -p no:cacheprovider "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-2y69spzg\.junit-0.xml"
+--- stdout ---
+.................                                                        [100%]
+
+--- stderr ---
+
+
+===== NEGATIVE CONTROL (checks MUST now fail) =====
+mutated: M infra/demo-manifests/product_reference_3d_typescript.json, ?? .junit-0.xml
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-5c72e798a73c059a\Scripts\python.exe -m pytest tests/infra/test_fetch_product_reference.py -q -rfE -p no:cacheprovider "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-2y69spzg\.junit-0.xml"
+--- stdout ---
+...............F.                                                        [100%]
+================================== FAILURES ===================================
+__ test_tc_786_completed_pilots_carry_a_family_matching_their_own_file_name ___
+
+    def test_tc_786_completed_pilots_carry_a_family_matching_their_own_file_name() -> None:
+        """Every real, committed sidecar TC-786 actually regenerated has a non-null "family" that
+        matches the <family> segment of its own file name - the write-side half of TC-783's fix,
+        for the 12 pilots whose scratch diff was confirmed clean before being committed."""
+        assert _TC_786_COMPLETED_PILOTS, "the completed-pilot list must name at least one real pilot"
+        for name in _TC_786_COMPLETED_PILOTS:
+            path = _DEMO_MANIFESTS_DIR / name
+            assert path.is_file(), f"{name} must exist in infra/demo-manifests"
+            data = json.loads(path.read_text(encoding="utf-8"))
+            expected_family = fetch_product_reference._family_from_output(path)
+            assert expected_family is not None, (
+                f"{name} must match the product_reference_<family>_<platform> pattern"
+            )
+>           assert data.get("family") == expected_family, (name, data.get("family"), expected_family)
+E           AssertionError: ('product_reference_3d_typescript.json', None, '3d')
+E           assert None == '3d'
+E            +  where None = <built-in method get of dict object at 0x0000027589EB4480>('family')
+E            +    where <built-in method get of dict object at 0x0000027589EB4480> = {'manifest_text': '{\n  "name": "@aspose/3d",\n  "version": "24.12.0",\n  "description": "Aspose.3D for TypeScript - 3... {'status': 'present', 'path': 'AGENTS.md', 'sha': '28fd3d492367ca6333b29fd71ab52c0993a19a4a', 'size': 1199, ...}, ...}.get
+
+tests\infra\test_fetch_product_reference.py:729: AssertionError
+=========================== short test summary info ===========================
+FAILED tests/infra/test_fetch_product_reference.py::test_tc_786_completed_pilots_carry_a_family_matching_their_own_file_name
+
+--- stderr ---
+
