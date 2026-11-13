@@ -115,9 +115,10 @@ def test_the_fixture_counts_the_functions_and_the_types_separately() -> None:
     assert {entry["name"] for entry in functions} == {"create_input_source"}
     assert data["symbol_counts"]["functions"] == len(functions) > 0
     identities = symbol_identity.compute_canonical_identities(data["types"])
-    assert data["symbol_counts"]["types"] == run_extraction.summarize_symbols(
-        data["types"], identities=identities
-    )["types"]
+    assert (
+        data["symbol_counts"]["types"]
+        == run_extraction.summarize_symbols(data["types"], identities=identities)["types"]
+    )
     # TC-555: reduced == total, nothing was cut: the whole surface is in the fixture.
     assert data["reduced_type_count"] == data["type_count"] == len(data["types"])
     assert data["truncated"] is False
