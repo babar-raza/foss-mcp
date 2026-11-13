@@ -664,17 +664,28 @@ def test_the_real_committed_cells_go_sidecar_is_not_stuck_at_one_release() -> No
     # TC-655/TC-664; this reads the REAL file infra/serve_http.py actually bakes into the demo
     # image, so a future re-staling of that file fails here instead of silently reproducing
     # CELLS-GO-004 again.
+    #
+    # G3/TC-785 (amendment, 2026-11-13): this test used to also assert a `v26.7.1`-specific,
+    # source=tag entry - the exact shape TC-715 produced at its own point in time, when `v26.7.1`
+    # was the newest tag beside the single real release `v26.7.0`. That assertion was pinned to a
+    # moment, not a contract: a genuine new upstream GitHub Release (`v26.11.0`) has since shipped,
+    # and `merge_newer_tags` correctly - by its own documented contract - only merges tags strictly
+    # newer than every existing release, so `v26.7.1` (now older than `v26.11.0`) is correctly
+    # excluded; `pad_with_older_tags` does not run on this indexed-commit/ancestry path at all. That
+    # is real upstream progress, not a regression, so re-asserting a specific tag here would just
+    # make this test fail again the next time upstream ships - the actual, durable guard is that
+    # the sidecar never collapses back to a single stale entry, and that it stays ordered with the
+    # newest release first (not that any particular historical tag survives).
     entries = json.loads(REAL_CELLS_GO_SIDECAR.read_text(encoding="utf-8"))
 
     assert len(entries) > 1
 
-    # _tag_version drops trailing-zero version components (its own documented contract), so the
-    # newer tag is compared via the same parser rather than a hardcoded tuple - this stays correct
-    # even if _tag_version's normalization, or the tag's own spelling, changes later.
-    newer_tag_version = _tag_version("v26.7.1")
-    matching = [
-        entry
-        for entry in entries
-        if _tag_version(entry.get("tag_name", "")) == newer_tag_version and entry.get("source") == "tag"
-    ]
-    assert matching, f"expected a source=tag entry resolving to {newer_tag_version} among {entries!r}"
+    # Ordering, not identity: whichever tags are really present, each must parse to a version no
+    # newer than the one before it (never hardcoding a specific version literal, since upstream
+    # will ship again). _tag_version drops trailing-zero version components (its own documented
+    # contract), so this stays correct even as _tag_version's normalization evolves.
+    versions = [_tag_version(entry.get("tag_name", "")) for entry in entries]
+    parsed_versions = [version for version in versions if version is not None]
+    assert parsed_versions == sorted(parsed_versions, reverse=True), (
+        f"expected releases ordered newest-first by tag version, got {entries!r}"
+    )
