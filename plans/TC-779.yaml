@@ -1,0 +1,108 @@
+id: TC-779
+gate: G3
+lane: extraction
+purpose: >-
+  Fixes a real, live break found while scoping I14's closure: `tests/extraction/
+  test_round3_python_fidelity.py::test_the_counts_agree_with_the_entries` fails for ALL 11
+  real Python pilots, plus two sibling tests (`test_tex_reports_the_files_that_do_not_parse` in
+  the same file, and `tests/extraction/test_tex_python_extraction.py::test_the_fixture_counts_
+  the_functions_and_the_types_separately`). All three share ONE real root cause, confirmed
+  directly by the supervisor (not inferred) - the TESTS are stale, not the fixtures:
+
+  `TC-729` (2026-11-09) correctly fixed 5 real Python-pilot fixtures' `symbol_counts.types`
+  field to store the identity-aware, deduped count
+  (`run_extraction.summarize_symbols(types, symbol_identity.compute_canonical_identities(types))`
+  - the same dedup `chunk_builder._coverage_line` already applies when rendering the real served
+  `API-Coverage:` line). But `test_the_counts_agree_with_the_entries`'s own assertion
+  (`data["symbol_counts"] == run_extraction.summarize_symbols(data["types"])`) calls
+  `summarize_symbols` WITHOUT the `identities=` argument - which, per that function's own
+  docstring, deliberately "preserves the EXACT prior (non-deduped) behaviour" when `identities`
+  is omitted. The test was simply never updated to match what `TC-729` actually fixed the
+  fixtures to contain - confirmed directly: recomputing `summarize_symbols(types,
+  compute_canonical_identities(types))` (WITH identities) for all 11 real pilots matches each
+  one's real stored `symbol_counts` exactly, with zero exceptions. This also explains the other
+  2 failures the same way: `test_tex_reports_the_files_that_do_not_parse` hardcodes a stale
+  literal (`== 21`, should be `14`, the real deduped count) and `test_tex_python_extraction.py`'s
+  own test uses the same non-deduped formula (`len(types) - len(functions)`) directly.
+depends_on:
+  - TC-532
+  - TC-686
+  - TC-234
+  - TC-324
+  - TC-401
+  - TC-555
+write_paths:
+  - tests/extraction/test_round3_python_fidelity.py
+  - tests/extraction/test_tex_python_extraction.py
+satisfies:
+  - REQ-G3-012
+source_refs:
+  - file: docs/DECISION_LOG.md
+    anchor: >-
+      ## 2026-11-13 — Q17 (findability closure) lands: the first of the plan's 8 named closure stages
+    sha256: 9e8d69fffb48e20661a7882f8c96cd70733f02fdb76b85be1974b67a726aa90a
+inputs:
+  - >-
+    READ FIRST: `plans/TC-729.yaml` in full (the real root-cause diagnosis and fix it already
+    performed on the fixtures), `src/foss_mcp/extraction/run_extraction.py`'s `summarize_symbols`
+    (its own docstring explains the `identities=None` vs identity-aware behavior precisely), and
+    `src/foss_mcp/indexing/symbol_identity.py`'s `compute_canonical_identities`.
+  - >-
+    REPRODUCE FIRST, YOURSELF, FRESH: run `{python} -m pytest tests/extraction/
+    test_round3_python_fidelity.py tests/extraction/test_tex_python_extraction.py -q -rfE` and
+    confirm the real failures reproduce. Then, for all 11 real Python pilots, confirm directly
+    (a small scratch script is fine, not committed) that
+    `run_extraction.summarize_symbols(fixture["types"],
+    symbol_identity.compute_canonical_identities(fixture["types"]))` matches each fixture's real
+    stored `symbol_counts` exactly - this is the evidence that the FIXTURES are correct and the
+    TESTS are what needs fixing, not the other way around.
+  - >-
+    Fix `test_the_counts_agree_with_the_entries` to call `summarize_symbols` WITH
+    `identities=symbol_identity.compute_canonical_identities(data["types"])`, matching what
+    `TC-729` actually established as correct. Fix `test_tex_reports_the_files_that_do_not_parse`'s
+    hardcoded `== 21` literal to the real current value (confirm it yourself, likely `14`, but
+    re-measure - do not assume). Fix `test_the_fixture_counts_the_functions_and_the_types_
+    separately` in `test_tex_python_extraction.py` the same way (use the identity-aware
+    computation, not the raw `len(types) - len(functions)` formula).
+  - >-
+    Do NOT touch any `tests/fixtures/<pilot>/api_surface.json` file, `run_extraction.py`,
+    `symbol_identity.py`, or `chunk_builder.py` - the fixtures and the production code are
+    already correct; this card is test-assertion-only.
+  - >-
+    Before committing: run both test files in full, twice, and confirm every test passes
+    (not just the ones named above - confirm nothing else in either file was pinned against the
+    old non-deduped formula and would now need the same fix).
+actions:
+  - >-
+    Fix 3 stale test assertions (in 2 files) across 11 Python pilots to use the real,
+    identity-aware deduped symbol-count computation that `TC-729` already established as
+    correct in the fixtures themselves.
+checks:
+  - command: '{python} -m pytest tests/extraction/test_round3_python_fidelity.py tests/extraction/test_tex_python_extraction.py -q -rfE -p no:cacheprovider'
+    expect: 'exit 0'
+    timeout_seconds: 300
+    junitxml: true
+    proves:
+      - REQ-G3-012
+min_tests: 10
+requires:
+  - python
+network: false
+negative_control:
+  mutate: |
+    python -X utf8 -c "import pathlib; p = pathlib.Path('tests/extraction/test_round3_python_fidelity.py'); s = p.read_text(encoding='utf-8'); old = 'compute_canonical_identities'; count = s.count(old); assert count >= 1, 'the expected compute_canonical_identities call was not found - this card must add it before this mutate can run'; s2 = s.replace(old, 'compute_canonical_identities_DISABLED', 1); assert s2 != s; p.write_text(s2, encoding='utf-8')"
+  rationale: >-
+    Renames the first real call to compute_canonical_identities this card's own fix adds, to a
+    name that does not exist, which must make test_the_counts_agree_with_the_entries raise a
+    NameError/AttributeError and fail for every pilot - a pure literal-text mutation, immune to
+    the lockstep-rename vacuousness class found earlier this session (it renames only the call
+    site, never the real function definition it calls), and it never touches any production
+    code path.
+evidence:
+  - evidence/build/G3/TC-779/receipt.json
+closeout:
+  - >-
+    All 3 stale test assertions (spanning 11 Python pilots) are fixed to use the real,
+    identity-aware deduped symbol-count computation `TC-729` already established as correct in
+    the fixtures. No fixture or production code touched - the bug was entirely in the tests.
+recovery: Re-run from a clean tree.
