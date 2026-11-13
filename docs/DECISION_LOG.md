@@ -4956,3 +4956,22 @@ none, or (b) `main()` calls `infra/verify_product_reference_install.py`'s own co
 so every fetch produces a complete, current value rather than relying on a separate later step.
 Once fixed, the remaining 20 pilots can safely complete the same `family` backfill `TC-786`
 already proved out on the other 12.
+
+**CORRECTION (supervisor, same day, before any card acted on the "defect" claim above)**: the
+claim that `infra/fetch_product_reference.py` has a real data-loss defect was wrong - re-read
+immediately after, rather than carded on. `infra/verify_product_reference_install.py`'s own
+module docstring (`G2/TC-275`) documents this as a deliberate, already-existing TWO-STEP
+ingestion pipeline: `fetch_product_reference.py` writes the product-reference sidecar (and,
+correctly, does not know about `install_served_version`), then
+`verify_product_reference_install.py` runs second and merges `install_served_version` back in
+via `_record_served_version` - a targeted read-modify-write on the existing file, never a full
+overwrite - from its OWN separate, persistent `package_registry_<family>_<platform>.json`
+sidecar (confirmed live: 28 of these exist, untouched by any product-reference fetch, e.g.
+`package_registry_pdf_net.json` already holds `served_version: "26.11.0"`). The verification
+script's own code comment anticipates this exact situation verbatim: "A re-fetched product
+sidecar has lost the served version; the fresh verification still holds it." No code fix is
+needed. The correct completion for the remaining 20 pilots `TC-786` left untouched is simply to
+run the SECOND step (`verify_product_reference_install.py --family <f> --platform <p>
+--manifests-dir infra/demo-manifests`) immediately after each `fetch_product_reference.py
+--force` - exactly what the real ingestion pipeline (`infra/helm/*/ingestion-job.yaml`) already
+does in sequence. Tracked as a follow-up card completing the same backfill, not a defect fix.

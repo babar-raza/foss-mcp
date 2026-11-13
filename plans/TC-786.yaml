@@ -149,17 +149,23 @@ inputs:
     backfilled) - their appearance on a clean re-fetch is RATIFIED as an acceptable additive diff,
     alongside `family`/`fetched_at`/`drift`: real repository content completing an already-
     accepted schema, never a loss of anything `load_manifest_sidecar` previously served. (2) a
-    real, confirmed code defect in `infra/fetch_product_reference.py`: `build_sidecar()` never
-    writes `install_served_version` (only the separate `infra/verify_product_reference_install.py`
-    does, after the fact), and `main()`'s `atomic_write_json` of `build_sidecar()`'s return is a
-    full overwrite with no merge - so ANY `--force` re-fetch unconditionally drops
-    `install_served_version` for every pilot that currently has one. This is correctly outside
-    this card's own `write_paths` (it is a defect in the fetch tool itself, not in the 32 data
-    files) - do not fix it here. If you are a NEW worker picking this card back up after the
-    first worker's partial run (12/32 completed, 20/32 correctly skipped for this exact reason),
-    do not attempt the remaining 20 again until a separate fix card (watch for one named after
-    this one) lands; re-verify the 12 already-completed pilots are still clean and committed, and
-    stop there.
+    `--force` re-fetch through `fetch_product_reference.py` alone drops `install_served_version`
+    for every pilot that currently has one - correctly treated as unacceptable data loss by the
+    worker, who left 20 pilots untouched rather than force it. **CORRECTION, found immediately
+    after, before any card acted on it as a defect**: this is NOT a code defect -
+    `infra/verify_product_reference_install.py`'s own module docstring documents this as a
+    deliberate two-step pipeline (`G2/TC-275`): that script runs SECOND and merges
+    `install_served_version` back in from its own separate, persistent
+    `package_registry_<family>_<platform>.json` sidecar (28 of which already exist, confirmed
+    untouched by any product-reference fetch) - its own code comment anticipates this exact
+    situation verbatim. The remaining 20 pilots are completed by a follow-up card that runs BOTH
+    steps per pilot (`fetch_product_reference.py --force` then
+    `verify_product_reference_install.py --family <f> --platform <p> --manifests-dir
+    infra/demo-manifests`), exactly as the real ingestion pipeline already does - no code change
+    needed anywhere. If you are a NEW worker picking this card back up after the first worker's
+    partial run (12/32 completed, 20/32 correctly left untouched pending the follow-up card),
+    re-verify the 12 already-completed pilots are still clean and committed, and stop there - the
+    remaining 20 belong to the follow-up card, not this one.
 actions:
   - >-
     Regenerate all 32 real `product_reference_<family>_<platform>.json` sidecars at their own
