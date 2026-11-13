@@ -142,6 +142,24 @@ inputs:
     before and after (32 real calls plus manifest-discovery calls could use a few hundred of your
     request budget - check `gh api rate_limit --jq '.rate'` before starting and stop early,
     reporting partial progress, if you are running low).
+  - >-
+    AMENDMENT (supervisor, after the dispatched worker's own real run): the worker's run found
+    two real things this card's text did not anticipate. (1) `manifest_path`/`readme_document`
+    are absent from all 32 real sidecars (they predate `TC-561`'s schema addition, never
+    backfilled) - their appearance on a clean re-fetch is RATIFIED as an acceptable additive diff,
+    alongside `family`/`fetched_at`/`drift`: real repository content completing an already-
+    accepted schema, never a loss of anything `load_manifest_sidecar` previously served. (2) a
+    real, confirmed code defect in `infra/fetch_product_reference.py`: `build_sidecar()` never
+    writes `install_served_version` (only the separate `infra/verify_product_reference_install.py`
+    does, after the fact), and `main()`'s `atomic_write_json` of `build_sidecar()`'s return is a
+    full overwrite with no merge - so ANY `--force` re-fetch unconditionally drops
+    `install_served_version` for every pilot that currently has one. This is correctly outside
+    this card's own `write_paths` (it is a defect in the fetch tool itself, not in the 32 data
+    files) - do not fix it here. If you are a NEW worker picking this card back up after the
+    first worker's partial run (12/32 completed, 20/32 correctly skipped for this exact reason),
+    do not attempt the remaining 20 again until a separate fix card (watch for one named after
+    this one) lands; re-verify the 12 already-completed pilots are still clean and committed, and
+    stop there.
 actions:
   - >-
     Regenerate all 32 real `product_reference_<family>_<platform>.json` sidecars at their own
@@ -155,20 +173,20 @@ checks:
     junitxml: true
     proves:
       - REQ-G3-015
-min_tests: 15
+min_tests: 17
 requires:
   - python
 network: true
 negative_control:
   mutate: |
-    python -X utf8 -c "import json, pathlib; p = pathlib.Path('infra/demo-manifests/product_reference_pdf_net.json'); data = json.loads(p.read_text(encoding='utf-8')); assert 'family' in data and data['family'], 'the card has not yet added a real family value to this pilot - it has not made this fix yet, or chose a different pilot to verify with'; data['family'] = None; p.write_text(json.dumps(data, indent=2, ensure_ascii=False) + chr(10), encoding='utf-8')"
+    python -X utf8 -c "import json, pathlib; p = pathlib.Path('infra/demo-manifests/product_reference_3d_typescript.json'); data = json.loads(p.read_text(encoding='utf-8')); assert 'family' in data and data['family'], 'the card has not yet added a real family value to this pilot - it has not made this fix yet, or chose a different pilot to verify with'; data['family'] = None; p.write_text(json.dumps(data, indent=2, ensure_ascii=False) + chr(10), encoding='utf-8')"
   rationale: >-
-    Reverts one real, regenerated pilot's new `family` value back to `None`, which must make the
-    card's new completeness test fail for that pilot - a pure data mutation targeting this card's
-    own new committed content directly, immune to the lockstep-rename vacuousness class found
-    earlier this session. (If `pdf/net` happens to be one of the rare pilots this card honestly
-    skips, re-anchor this mutate on whichever completed pilot the worker's own closeout names
-    first - do not leave it pointed at a pilot the card never touched.)
+    Reverts one real, regenerated pilot's (`3d/typescript`, the first of the 12 real pilots the
+    dispatched worker completed - `pdf/net` turned out to be one of the 20 correctly-skipped
+    pilots, so the original anchor was re-pointed here per the card's own fallback instruction)
+    new `family` value back to `None`, which must make the card's new completeness test fail for
+    that pilot - a pure data mutation targeting this card's own new committed content directly,
+    immune to the lockstep-rename vacuousness class found earlier this session.
 evidence:
   - evidence/build/G3/TC-786/receipt.json
 closeout:

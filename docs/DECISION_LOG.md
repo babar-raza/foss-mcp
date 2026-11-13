@@ -4915,3 +4915,44 @@ Resuming the same worker (full context preserved) with instructions to commit th
 output as-is and correct the test to drop the now-stale tag-specific assertion, keeping only the
 durable invariant plus a check that the newest entry really is the current real release - not to
 hardcode the next one either, so this doesn't recur a third time as upstream keeps shipping.
+
+## 2026-11-13 — TC-786 (write side of the known-defects merge fix) lands partially: 12/32, a real `install_served_version`-loss defect found in the fetch tool itself
+
+`TC-786` set out to regenerate all 32 real `infra/demo-manifests/product_reference_*.json`
+sidecars so each carries the `family` field `TC-783`'s read-back fix needs, re-fetching each at
+its own already-indexed commit with a strict per-pilot diff gate (only `family`/`fetched_at`/
+`drift` may change) before committing anything - learning directly from `TC-785`'s "verify before
+forcing" lesson earlier the same day.
+
+**A real, confirmed defect in `infra/fetch_product_reference.py` itself, found by the dispatched
+worker, not guessed**: `build_sidecar()` never writes an `install_served_version` key at all -
+only the separate `infra/verify_product_reference_install.py` script computes it, after the fact,
+as a later, independent step. `main()`'s `atomic_write_json` of `build_sidecar()`'s return (plus
+`fetched_at`/`family`/kept `drift`) is a full-file overwrite with no merge of the pre-existing
+file. The consequence: ANY `--force` re-fetch through the current tool unconditionally drops
+`install_served_version` for every pilot that currently carries one - a real, silent data-loss
+defect, not a hypothetical. Verified empirically against a real scratch run before being trusted,
+then confirmed by reading `build_sidecar`/`main` directly.
+
+**Result**: the worker correctly refused to force any of the 20 pilots whose real sidecar
+currently has a non-null `install_served_version` through this defect, leaving them exactly as
+they were (`family` still absent, nothing else touched) rather than silently losing a real,
+already-disclosed fact for 20 pilots to gain one new field - exactly the discipline "no pilot ever
+gets worse" demands. 12 pilots that have no `install_served_version` to lose were cleanly
+regenerated (`3d/typescript`, `barcode/python`, `cells/cpp`, `cells/rust`, `cells/typescript`,
+`email/cpp`, `html/python`, `imaging/net`, `pdf/cpp`, `pdf/typescript`, `slides/cpp`, `tex/python`),
+each with its manifest path independently rediscovered from the real repository tree and verified
+byte-identical against the pilot's own already-stored `manifest_text` before being trusted - no
+guessing. A second real, additive finding, ratified rather than treated as a diff violation: all
+32 real sidecars also lack `manifest_path`/`readme_document` (fields `TC-561`'s own schema
+addition introduced but never backfilled into the real files) - their appearance on a clean
+re-fetch is real repository content completing an already-accepted schema, not data loss, and was
+folded into the card's own acceptable-diff list for the remaining pilots too.
+
+**Not yet fixed, flagged for the next card**: the `install_served_version` merge-on-refetch defect
+itself, in `infra/fetch_product_reference.py` - the natural fix is either (a) `main()` reads the
+pre-existing file's `install_served_version` forward when the new `build_sidecar()` result has
+none, or (b) `main()` calls `infra/verify_product_reference_install.py`'s own computation inline
+so every fetch produces a complete, current value rather than relying on a separate later step.
+Once fixed, the remaining 20 pilots can safely complete the same `family` backfill `TC-786`
+already proved out on the other 12.
