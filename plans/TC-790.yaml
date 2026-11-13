@@ -1,0 +1,130 @@
+id: TC-790
+gate: G3
+lane: storage-retrieval
+purpose: >-
+  Fixes the real, latent truncation-vs-coverage-line-ordering defect `TC-775` found and
+  correctly left unfixed (outside its own `write_paths`), 2026-11-12: `infra/build_chunks.py`'s
+  `_sanitize_chunk_text` caps any chunk text over `MAX_CHUNK_TEXT_CHARS` (24,000) by cutting at
+  the last newline at or before that length and appending a `Truncated: N characters omitted`
+  line - but `src/foss_mcp/indexing/chunk_builder.py`'s `_format_type_text` always appends the
+  `API-Coverage:` line LAST, after a blank line, as the true tail of a type's rendered text. When
+  a type's body is large enough to push the whole text past the cap, the cut lands inside the
+  body and the trailing `API-Coverage:` line is silently dropped entirely - not truncated, GONE -
+  taking with it the one disclosure this project relies on to avoid a false "fully covered"
+  impression (`pdf/java`'s real `Proto` type, with its hundreds of XFA child-element accessor
+  pairs, is the one real pilot this already bites today, per `TC-775`'s own investigation; any
+  sufficiently large type on any pilot can hit the identical shape).
+
+  Fix: `_sanitize_chunk_text` must detect a trailing `API-Coverage:` block before truncating,
+  reserve its length out of the budget, truncate only the body portion that precedes it, and
+  re-append the coverage line (with the `Truncated:` marker placed between the cut body and the
+  preserved tail) - so the ONE line this project depends on for honest coverage disclosure
+  survives truncation on every pilot, not just the ones small enough to never hit the cap. Texts
+  with no trailing `API-Coverage:` line keep today's exact behavior, byte for byte.
+
+  OUT OF SCOPE, explicitly: regenerating any real committed `infra/demo-manifests/` chunk data
+  (including `pdf/java`'s own `Proto` chunk) to pick up this fix - that is separate, larger,
+  network/ingestion-touching future work, matching the read-fix/write-fix separation this session
+  already used for `TC-783`/`TC-786`. This card only fixes the function itself, with a direct,
+  offline, reproduced-first test proving the real defect and the real fix - never regenerated
+  production data.
+depends_on:
+  - TC-385
+  - TC-530
+  - TC-561
+  - TC-565
+  - TC-775
+write_paths:
+  - infra/build_chunks.py
+  - tests/infra/test_build_chunks_sanitize.py
+satisfies:
+  - REQ-G3-010
+source_refs:
+  - file: docs/DECISION_LOG.md
+    anchor: >-
+      ## 2026-11-13/14 — The known-defects merge thread (C11 → `TC-783`/`786`/`787`/`788`/`789`) closes, verified live end-to-end
+    sha256: 41e4b2533cdbf203f7cdcc85c970f7b6a8779586eeb28a5a21c54606206a439d
+inputs:
+  - >-
+    READ FIRST: `infra/build_chunks.py`'s `_sanitize_chunk_text` and `MAX_CHUNK_TEXT_CHARS` (near
+    line 355-400); `src/foss_mcp/indexing/chunk_builder.py`'s `_format_type_text`, specifically
+    where it unconditionally appends `""` then `f"API-Coverage: {coverage}"` as the LAST two
+    lines when `coverage is not None` (near line 520); `tests/infra/test_build_chunks_sanitize.py`
+    in full for the existing test shape and helpers (`LIMIT = 24_000`, built-with-`chr()`
+    convention); `docs/DECISION_LOG.md`'s 2026-11-12 `TC-775` entry for the full original finding,
+    including the real `pdf/java`/`Proto` repro it used (do not necessarily need to touch real
+    fixture data to reproduce the SHAPE of the bug - a synthetic text well over the 24,000-char
+    cap with a trailing `\n\nAPI-Coverage: <value>` block reproduces it exactly offline).
+  - >-
+    REPRODUCE FIRST, YOURSELF, FRESH: construct a synthetic text (well over `MAX_CHUNK_TEXT_CHARS`,
+    ending in a real `\n\nAPI-Coverage: <value>` tail, matching `_format_type_text`'s exact
+    convention) and confirm, on the CURRENT, unfixed `_sanitize_chunk_text`, that the coverage
+    line is silently absent from the result (not truncated - entirely gone). This is the real bug,
+    reproduced directly, not assumed from the card's own prose.
+  - >-
+    Fix `_sanitize_chunk_text`: before cutting, check whether the text ends with a real
+    `API-Coverage:` tail block (matching `_format_type_text`'s own exact emission shape - a blank
+    line then `API-Coverage: <value>` with no further trailing content). If so, reserve its exact
+    length out of the budget, truncate only the preceding body, and reassemble as
+    `<truncated body>\nTruncated: <N> characters omitted<preserved coverage tail>`. If the already-
+    truncated-once short-circuit (the existing `_TRUNCATION_LINE_RE` check) applies, it must still
+    work correctly on text that now also carries a preserved coverage tail - verify this
+    explicitly, do not assume it. Texts with no trailing coverage line must truncate IDENTICALLY
+    to today's behavior - prove this with your own before/after diff on at least 2 of the existing
+    test file's own non-coverage-line cases.
+  - >-
+    Add new tests to `tests/infra/test_build_chunks_sanitize.py` proving: (1) the real defect
+    reproduces on the unfixed shape (a regression guard, not just the fix's own positive case -
+    you may need to express this as "the fixed function keeps the coverage line" rather than
+    literally testing old code, use your own judgment on the clearest way to pin this durably);
+    (2) a text whose body ALONE (excluding the coverage tail) is still over the cap truncates the
+    body correctly AND keeps the coverage line; (3) a text just at or under the cap with a
+    coverage tail is completely unchanged (no truncation marker at all); (4) every existing test
+    in the file still passes unchanged - do not weaken or remove any of them.
+  - >-
+    Do NOT touch `chunk_builder.py`, `_format_type_text`, or any other production code outside
+    `infra/build_chunks.py` - the coverage-line EMISSION is already correct; only its SURVIVAL
+    through truncation is broken.
+  - >-
+    Do NOT regenerate or touch any file under `infra/demo-manifests/` - this card fixes the
+    function only; the real `pdf/java` `Proto` chunk (and any other pilot this may affect) stays
+    exactly as it is today until a separate, future, explicitly-scoped re-ingest card picks it up.
+  - >-
+    Before committing: run `{python} -m pytest tests/infra/test_build_chunks_sanitize.py -q -rfE -p no:cacheprovider`
+    twice and report the real result.
+actions:
+  - >-
+    Fix `_sanitize_chunk_text` to preserve a trailing `API-Coverage:` line through truncation
+    instead of silently dropping it, with tests proving both the real defect and the fix - no
+    production data regenerated.
+checks:
+  - command: '{python} -m pytest tests/infra/test_build_chunks_sanitize.py -q -rfE -p no:cacheprovider'
+    expect: 'exit 0'
+    timeout_seconds: 300
+    junitxml: true
+    proves:
+      - REQ-G3-010
+min_tests: 18
+requires:
+  - python
+network: false
+negative_control:
+  mutate: |
+    python -X utf8 -c "import pathlib; p = pathlib.Path('infra/build_chunks.py'); s = p.read_text(encoding='utf-8'); old = 'MAX_CHUNK_TEXT_CHARS = 24_000'; count = s.count(old); assert count == 1, 'the expected constant line was not found exactly once'; s2 = s.replace(old, 'MAX_CHUNK_TEXT_CHARS = 24_000\n\n\ndef _tc790_disable_coverage_preservation(text): return None', 1); assert s2 != s; p.write_text(s2, encoding='utf-8')"
+  rationale: >-
+    This mutate is a placeholder shape only - the worker's own real fix introduces new, specific
+    function/variable names the supervisor cannot predict in advance. Before dispatching, the
+    supervisor MUST replace this mutate with one that directly disables the worker's own new
+    coverage-preservation logic (e.g. reverting a new helper call back to the old unconditional
+    cut, or corrupting the new tail-detection regex/condition) once the real diff is known -
+    exactly as happened for `TC-783`'s own negative control this session, which started vacuous
+    and was corrected against the real committed code before being trusted. Do not accept this
+    card's review on the placeholder mutate as written.
+evidence:
+  - evidence/build/G3/TC-790/receipt.json
+closeout:
+  - >-
+    `_sanitize_chunk_text` now preserves a trailing `API-Coverage:` line through truncation on
+    every pilot, closing the latent defect `TC-775` found; no production data was touched - a
+    future re-ingest is needed to pick this up for `pdf/java`'s real `Proto` chunk specifically.
+recovery: Re-run from a clean tree.
