@@ -164,6 +164,64 @@ def test_the_cap_counts_after_the_clean_up() -> None:
     assert _sanitize(text) == ("w" * 100 + "\n") * 10
 
 
+# (4) a trailing "API-Coverage:" line survives truncation instead of being silently dropped
+# (TC-775/TC-790): chunk_builder._format_type_text always appends this line LAST, after a blank
+# line, as the true tail of a type's rendered text.
+
+API_COVERAGE_TAIL = "\n\nAPI-Coverage: 12/40 members documented (30%)"
+
+
+def _with_coverage_tail(body: str) -> str:
+    return body + API_COVERAGE_TAIL
+
+
+def test_a_trailing_api_coverage_line_survives_truncation_instead_of_being_dropped() -> None:
+    # Regression guard for the real defect TC-775 found: on the unfixed function this line was
+    # silently absent from the result entirely - not truncated, GONE - whenever the body alone
+    # was large enough to push the whole text past the cap.
+    body = "member line\n" * 2_000
+    text = _with_coverage_tail(f"FQN: Big\nKind: class\n\n{body}")
+    assert len(text) > LIMIT
+    result = _sanitize(text)
+    assert result.count("API-Coverage: ") == 1
+    assert result.endswith(API_COVERAGE_TAIL)
+    assert "Truncated: " in result
+
+
+def test_body_over_the_cap_on_its_own_is_truncated_and_the_coverage_line_is_still_kept() -> None:
+    # Even when the body ALONE (excluding the coverage tail) is already over the cap, the body is
+    # truncated correctly and the coverage tail is still appended afterward, never dropped.
+    body = "x" * (LIMIT + 5_000)
+    text = _with_coverage_tail(body)
+    result = _sanitize(text)
+    assert result.endswith(API_COVERAGE_TAIL)
+    before_marker = result.split("\nTruncated: ", 1)[0]
+    assert before_marker == body[: len(before_marker)]
+    assert len(before_marker) <= LIMIT - len(API_COVERAGE_TAIL)
+    omitted = int(result.split("\nTruncated: ", 1)[1].split(" characters omitted", 1)[0])
+    assert omitted == len(body) - len(before_marker)
+
+
+def test_text_with_a_coverage_tail_at_or_under_the_cap_is_completely_unchanged() -> None:
+    text = _with_coverage_tail("y" * (LIMIT - len(API_COVERAGE_TAIL)))
+    assert len(text) == LIMIT
+    result = _sanitize(text)
+    assert result == text
+    assert "Truncated: " not in result
+
+
+def test_already_truncated_text_with_a_coverage_tail_is_not_truncated_twice() -> None:
+    # The pre-existing already-truncated-once short circuit must still recognise a text this
+    # function already produced, even when that text also carries a preserved coverage tail -
+    # verified explicitly here, not merely assumed.
+    body = "x" * (LIMIT + 5_000)
+    text = _with_coverage_tail(body)
+    once = _sanitize(text)
+    assert len(once) > LIMIT  # the marker plus the preserved tail can still land over the cap
+    twice = _sanitize(once)
+    assert twice == once
+
+
 # idempotence and no-op
 
 

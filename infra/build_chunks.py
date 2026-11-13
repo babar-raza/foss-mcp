@@ -354,6 +354,7 @@ _SHORTCODE_RE = re.compile(r"( ?)(?:\{\{<.*?>\}\}|\{\{%.*?%\}\})( ?)")
 _EXAMPLE_MARKER_LINE = "Example:"
 MAX_CHUNK_TEXT_CHARS = 24_000
 _TRUNCATION_LINE_RE = re.compile(r"Truncated: \d+ characters omitted")
+_API_COVERAGE_TAIL_RE = re.compile(r"\n\nAPI-Coverage: [^\n]*\Z")
 
 
 def _shortcode_replacement(match: re.Match[str]) -> str:
@@ -380,6 +381,12 @@ def _sanitize_chunk_text(text: str) -> str:
     ``MAX_CHUNK_TEXT_CHARS`` by cutting at the last newline at or before that length and appending
     an explicit ``Truncated: <N> characters omitted`` line. A text with none of these is returned
     unchanged, and sanitising an already sanitised text changes nothing.
+
+    ``chunk_builder._format_type_text`` always appends a trailing ``\\n\\nAPI-Coverage: ...`` line
+    as the true tail of a type's rendered text (TC-775/TC-790). That line is the one disclosure
+    this project relies on to avoid a false "fully covered" impression, so when truncation would
+    otherwise cut it away entirely, its length is reserved out of the budget and it is re-appended
+    after the truncation marker instead of being silently dropped.
     """
     text = _INVISIBLE_RE.sub("", text)
 
@@ -392,13 +399,17 @@ def _sanitize_chunk_text(text: str) -> str:
         text = "\n".join(_strip_shortcodes_from_prose(lines[:boundary]) + lines[boundary:])
 
     if len(text) > MAX_CHUNK_TEXT_CHARS:
-        head, _, last_line = text.rpartition("\n")
+        head, _, last_line = _API_COVERAGE_TAIL_RE.sub("", text).rpartition("\n")
         if _TRUNCATION_LINE_RE.fullmatch(last_line) and len(head) <= MAX_CHUNK_TEXT_CHARS:
             return text  # already capped by this function: the cap is never applied twice
-        cut = text.rfind("\n", 0, MAX_CHUNK_TEXT_CHARS + 1)
+        coverage_tail_match = _API_COVERAGE_TAIL_RE.search(text)
+        coverage_tail = coverage_tail_match.group(0) if coverage_tail_match else ""
+        body = text[: coverage_tail_match.start()] if coverage_tail_match else text
+        budget = MAX_CHUNK_TEXT_CHARS - len(coverage_tail)
+        cut = body.rfind("\n", 0, budget + 1)
         if cut <= 0:
-            cut = MAX_CHUNK_TEXT_CHARS  # no usable line break: cut at the limit itself
-        text = f"{text[:cut]}\nTruncated: {len(text) - cut} characters omitted"
+            cut = budget  # no usable line break: cut at the limit itself
+        text = f"{body[:cut]}\nTruncated: {len(body) - cut} characters omitted{coverage_tail}"
     return text
 
 
