@@ -4824,3 +4824,34 @@ on main, not trusting the claim) before rebasing onto it. No work was lost, no c
 landed, and the card closed cleanly - but the underlying rule (a fork or any non-supervisor agent
 never commits, dispatches, or spawns workers; AGENTS.md's "one autonomous controller") was
 violated once this session and must not recur.
+
+## 2026-11-13 — C11 (content-truth closure) lands: the fourth of the plan's 8 named closure stages, the largest ledger pass this session
+
+`TC-782` closes C11, continuing the same methodology as Q17/I14/O10 earlier today. Its real
+dependencies (`C9`,`C10`,`C12`,`F8`,`I14`,`O10`) were all confirmed genuinely satisfied first
+(`C9` via `TC-648`, `C12` via `TC-687`, `F8` via `TC-608` - its own `test_reference_content.py`
+invariant confirmed still green AND still genuinely dormant for the same crash-masking shape
+found elsewhere today, correctly left untouched as out of scope; `C10` needed no card; `I14`/
+`O10` both landed today). Unlike O10, C11 was confirmed to be primarily a ledger-dispositioning
+job - the LARGEST one this session: **80 real `docs/ROUND2_REVIEW.md` rows name a C-series
+card, none touched by any prior pass.**
+
+Each was individually live-verified against the real production wiring - not just the sidecar-
+loader path `test_reference_content.py` itself uses, but the real `infra.serve_http._serving_
+product_reference_inputs` entrypoint, which the worker's own investigation found reveals a real
+difference between the two paths (see below). **Real final counts (80 total): 7 FIXED, 13
+DISCLOSED, 3 NOT_REPRODUCED, 1 DEFINITIONAL, 5 ACCEPTED(P3), 51 left honestly OPEN** - over half
+left open on purpose, with specific live-reproduced reasons for each (e.g. `cells/typescript`
+still claims "defined names" support with no real symbol and no disclosure; `words/net`'s
+troubleshooting/FAQ section is still fully empty).
+
+**A real structural wiring defect was found and correctly disclosed, not silently fixed** (out
+of scope for a pure-ledger card, flagged for a future one): `TC-641`'s (KD4) library-level
+known_defects merge into `get_product_reference`'s "limitations" answer (`subject.kind: package`/
+`commit`) is wired but DEAD in every real deployment, because `infra.fetch_product_reference.
+load_manifest_sidecar` never sets `ProductReferenceInputs.family` - confirmed live against the
+real serving entrypoint (not a mock) for 6 distinct open registry entries across 6 pilots, all
+returning zero merged hazards. The one row that looked like it worked (`RD2-011`, 3d/net) only
+does so by coincidence, through a completely separate, older manifest-authored `known_hazards:`
+mechanism (`TC-582`) that doesn't depend on `family` at all. Two candidate fixes are named in
+`docs/RELEASE.md` §8 for whoever picks this up. 82/82 tests green, twice.
