@@ -1,0 +1,95 @@
+{
+  "schema_version": 1,
+  "card": "TC-820",
+  "gate": "G3",
+  "generated_by": "gatectl",
+  "generated_at": "2026-11-14T09:01:38Z",
+  "base_rev": "7d90e913c3091eb5fa91b4ae0cc6a77ce3c1704f",
+  "head_rev": "be20c5cf0ed7c2d3a08babe5a4353bddaaddbf99",
+  "card_sha256": "d6a9f7184363cf80e378c7c75d0d735e2e977275dbf837a5b76bec65200474ee",
+  "fingerprint": {
+    "python": "3.13.2",
+    "platform": "Windows-11-10.0.26300-SP0",
+    "lock_sha256": "5c72e798a73c059a438e752e94a8d4c88c1bdf81a197f6e5c5fcecbc9466a691",
+    "env": {
+      "PYTHONHASHSEED": "0",
+      "PYTHONUTF8": "1",
+      "PYTHONDONTWRITEBYTECODE": "1",
+      "PYTHONIOENCODING": "utf-8",
+      "TZ": "UTC",
+      "LC_ALL": "C.UTF-8",
+      "SOURCE_DATE_EPOCH": "1700000000",
+      "verify_runner": "host"
+    }
+  },
+  "scope": {
+    "ok": true,
+    "changed_paths": [
+      "config/products/pdf/cpp.yaml",
+      "src/foss_mcp/indexing/chunk_builder.py",
+      "src/foss_mcp/mcp/tools/coverage_note.py",
+      "tests/deploy/test_served_coverage_matches_fixtures.py",
+      "tests/extraction/test_reextracted_uncapped.py",
+      "tests/indexing/test_coverage_line_clause_split.py"
+    ],
+    "violations": [],
+    "evaluated": true
+  },
+  "runs": [
+    {
+      "run": 1,
+      "checks": [
+        {
+          "command": "{python} -m pytest tests/indexing/test_coverage_line_clause_split.py tests/indexing/test_chunk_builder_coverage_line.py tests/mcp/tools/test_coverage_note.py tests/mcp/tools/test_miss_coverage_note.py tests/deploy/test_served_coverage_matches_fixtures.py tests/conformance/test_index_honesty.py -q -rfE -p no:cacheprovider",
+          "exit_code": 0,
+          "duration_s": 27.101,
+          "stdout_sha256": "eb97cba55195f478699a8c4226b13c2887cbbed89a2a00a0c3383ccc7aa78582",
+          "tests": 411,
+          "skipped": 0,
+          "errors": 0,
+          "failures": 0
+        }
+      ],
+      "all_passed": true
+    },
+    {
+      "run": 2,
+      "checks": [
+        {
+          "command": "{python} -m pytest tests/indexing/test_coverage_line_clause_split.py tests/indexing/test_chunk_builder_coverage_line.py tests/mcp/tools/test_coverage_note.py tests/mcp/tools/test_miss_coverage_note.py tests/deploy/test_served_coverage_matches_fixtures.py tests/conformance/test_index_honesty.py -q -rfE -p no:cacheprovider",
+          "exit_code": 0,
+          "duration_s": 18.82,
+          "stdout_sha256": "eb97cba55195f478699a8c4226b13c2887cbbed89a2a00a0c3383ccc7aa78582",
+          "tests": 411,
+          "skipped": 0,
+          "errors": 0,
+          "failures": 0
+        }
+      ],
+      "all_passed": true
+    }
+  ],
+  "negative_control": {
+    "kind": "mutate",
+    "patch": "python -X utf8 -c \"import subprocess; paths = ['src/foss_mcp/indexing/chunk_builder.py', 'src/foss_mcp/mcp/tools/coverage_note.py', 'config/products/pdf/cpp.yaml']; patch = subprocess.run(['git', 'show', '--format=', 'HEAD', '--'] + paths, capture_output=True, check=True).stdout; assert patch.strip(), 'the worker commit changes none of the production paths - the fix is missing'; subprocess.run(['git', 'apply', '-R', '--whitespace=nowarn', '-'], input=patch, check=True)\"\n",
+    "patch_sha256": "924be1a1b53a19f79a7709d136548cc590cda74a1f93080df8c44a1ce04c31bc",
+    "applied": true,
+    "patch_applied_failed": true,
+    "exit_codes": [
+      2
+    ],
+    "tree_changed": [
+      "M config/products/pdf/cpp.yaml",
+      "M src/foss_mcp/indexing/chunk_builder.py",
+      "M src/foss_mcp/mcp/tools/coverage_note.py",
+      "?? .junit-0.xml"
+    ]
+  },
+  "holdout": {
+    "ran": false,
+    "passed": true,
+    "detail": "no holdout for this card"
+  },
+  "accepted": true,
+  "reason": "all gates passed"
+}
