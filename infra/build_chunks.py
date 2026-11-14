@@ -127,7 +127,7 @@ from foss_mcp.indexing.example_verifier import (
     verify_typescript_example,
 )
 from foss_mcp.normalization.chunker import Chunk, chunk_document
-from foss_mcp.normalization.document_schema import Provenance, SourceKind, make_document
+from foss_mcp.normalization.document_schema import NormalizedDocument, Provenance, SourceKind, make_document
 
 # REQ-G2-048 (TC-184): exit status when the verifier hits an environment failure (a toolchain
 # that could not reach its package registry). 75 is EX_TEMPFAIL from sysexits.h: a retryable
@@ -892,6 +892,30 @@ class _CandidatePlan:
     key_candidate: CandidateExample
 
 
+def _single_example_chunk(doc: NormalizedDocument) -> Chunk:
+    """TC-800 (REQ-G3-014): a verified example is published as exactly ONE chunk, for every provenance.
+
+    ``chunk_document`` cuts a body at every ``#`` line that is not inside a fence, and an example's
+    body is deliberately unfenced (the ``Example:`` marker line, then the program as written): a
+    column-0 ``#`` comment in a Python program was read as a markdown heading, which cut the code
+    away from the FQN / Kind lines (a headerless orphan chunk) and served a truncated "verified"
+    snippet. So the document is not handed to the chunker: the chunk is the whole body after its own
+    ``# Example: <title>`` heading line, with that heading as its section title - the text a README
+    example without such a comment always had, and what TC-460 already did for authored ones.
+    ``_sanitize_chunk_text`` (the size cap) still applies to it in ``main``.
+    """
+    heading, _, section_text = doc.body.partition("\n")
+    return Chunk(
+        section_title=heading.lstrip("#").strip(),
+        text=section_text.strip(),
+        source_kind=doc.source_kind,
+        content_type=doc.content_type,
+        provenance=doc.provenance,
+        trust_tier=doc.trust_tier,
+        evidence_refs=doc.evidence_refs,
+    )
+
+
 def _build_verified_example_chunks(
     args: argparse.Namespace,
     verification_records: list[dict] | None = None,
@@ -1195,16 +1219,7 @@ def _build_verified_example_chunks(
                     f"Example:\n{plan.program}"
                 ),
             )
-            example_chunks = chunk_document(doc)
-            if candidate.provenance == "authored" and len(example_chunks) > 1:
-                # TC-460: a Python authored example must open with a ``#`` comment (sidecar rule 7), and
-                # the chunker reads a column-0 ``#`` line as a markdown heading: it would cut the
-                # code away from the FQN / Kind / Provenance lines and drop that comment. An authored
-                # example is published as ONE chunk, the whole body after its own title heading. A
-                # README example is never touched, so its chunk text and id do not move.
-                _, _, section_text = doc.body.partition("\n")
-                example_chunks = [dataclasses.replace(example_chunks[0], text=section_text.strip())]
-            verified_chunks.extend(example_chunks)
+            verified_chunks.append(_single_example_chunk(doc))
 
     cache_suffix = f" ({cached_count} from cache)" if cache_active else ""
     print(f"verified {verified_count}/{len(active)} candidate examples{cache_suffix}")

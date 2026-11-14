@@ -240,11 +240,27 @@ def test_furnished_page_adds_real_compile_verified_example_chunks(
     # produces exactly one example chunk (the Watermark candidate is the only one of
     # the 3 real candidates that compile-verifies today), and its single text contains
     # both the description prose and the real 'AddWatermarkAnnotation' code.
-    assert len(example_chunks) == len(ground_truth_verified_titles), (
-        "expected exactly ONE chunk per real verified candidate (chunk fragmentation "
-        f"regression), got {len(example_chunks)} chunks for verified titles "
-        f"{sorted(ground_truth_verified_titles)}: {[c['text'] for c in example_chunks]}"
+    #
+    # TC-800: since the authored examples of TC-460/TC-565 the pilot also publishes its authored
+    # examples (each marked ``Provenance: authored``), so the README candidates are counted apart
+    # from them: exactly one chunk per compile-verified README candidate, one chunk per authored
+    # example, and nothing else.
+    authored_chunks = [c for c in example_chunks if "\nProvenance: authored\n" in c["text"]]
+    readme_chunks = [c for c in example_chunks if c not in authored_chunks]
+    assert len(readme_chunks) == len(ground_truth_verified_titles), (
+        "expected exactly ONE chunk per real verified README candidate (chunk fragmentation "
+        f"regression), got {len(readme_chunks)} chunks for verified titles "
+        f"{sorted(ground_truth_verified_titles)}: {[c['text'] for c in readme_chunks]}"
     )
+    readme_titles = {c["text"].splitlines()[0] for c in readme_chunks}
+    assert readme_titles == {f"FQN: Example: {title}" for title in ground_truth_verified_titles}
+    assert authored_chunks, "expected the pdf_net authored examples to be published too"
+    authored_titles = [c["text"].splitlines()[0] for c in authored_chunks]
+    assert len(set(authored_titles)) == len(authored_titles), (
+        f"an authored example was published as more than one chunk: {authored_titles}"
+    )
+    assert all(c["text"].splitlines()[1] == "Kind: verified_example" for c in authored_chunks)
+    assert len(readme_chunks) + len(authored_chunks) == len(example_chunks)
     for candidate in candidates:
         if candidate.title not in ground_truth_verified_titles:
             continue
