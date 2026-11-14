@@ -158,3 +158,155 @@ def test_pilots_txt_and_compose_pilot_services_match_exactly():
         "pilots.txt and compose.yaml pilot services must match exactly; "
         f"mismatched entries: {sorted(symmetric_difference)}"
     )
+
+
+# --- TC-833: two-segment /{family}/{platform}/ routing ------------------------
+
+# One two-segment location per pilot, e.g.
+#   location ~ ^/3d/java(?:/(?<rest>mcp/?)?)?$ { set $pilot 3d-java; ... }
+TWO_SEGMENT_LOCATION_RE = re.compile(
+    r"^\s*location\s+~\s+(?P<regex>\^/(?P<family>[a-z0-9]+)/(?P<platform>[a-z0-9]+)\S*\$)\s*\{(?P<body>[^}]*)\}",
+    re.MULTILINE,
+)
+HYPHENATED_LOCATION_RE = re.compile(
+    r"^\s*location\s+~\s+(?P<regex>\^/\(\?<pilot>\[a-z0-9\]\+-\[a-z0-9\]\+\)/\S*\$)\s*\{(?P<body>[^}]*)\}",
+    re.MULTILINE,
+)
+SET_PILOT_RE = re.compile(r"set\s+\$pilot\s+(?P<pilot>[a-z0-9]+-[a-z0-9]+)\s*;")
+PROXY_PASS_RE = re.compile(r"proxy_pass\s+(?P<target>\S+)\s*;")
+HOST_HEADER_RE = re.compile(r"proxy_set_header\s+Host\s+(?P<host>\S+)\s*;")
+
+
+def _two_segment_locations() -> dict[str, dict[str, str]]:
+    content = NGINX_CONF.read_text(encoding="utf-8")
+    found: dict[str, dict[str, str]] = {}
+    for m in TWO_SEGMENT_LOCATION_RE.finditer(content):
+        pilot = f"{m.group('family')}/{m.group('platform')}"
+        assert pilot not in found, f"duplicate two-segment location for {pilot}"
+        body = m.group("body")
+        set_m = SET_PILOT_RE.search(body)
+        pass_m = PROXY_PASS_RE.search(body)
+        host_m = HOST_HEADER_RE.search(body)
+        assert set_m and pass_m and host_m, f"two-segment location for {pilot} is incomplete: {body!r}"
+        found[pilot] = {
+            "regex": m.group("regex"),
+            "pilot_var": set_m.group("pilot"),
+            "proxy_pass": pass_m.group("target"),
+            "host": host_m.group("host"),
+        }
+    return found
+
+
+def _hyphenated_location() -> dict[str, str]:
+    content = NGINX_CONF.read_text(encoding="utf-8")
+    m = HYPHENATED_LOCATION_RE.search(content)
+    assert m, "the hyphenated /{family}-{platform}/ location must still be present"
+    body = m.group("body")
+    pass_m = PROXY_PASS_RE.search(body)
+    host_m = HOST_HEADER_RE.search(body)
+    assert pass_m and host_m
+    return {"proxy_pass": pass_m.group("target"), "host": host_m.group("host")}
+
+
+def _nginx_regex_to_python(regex: str) -> re.Pattern[str]:
+    # nginx (PCRE) named groups `(?<name>` -> Python `(?P<name>`.
+    return re.compile(re.sub(r"\(\?<([a-z]+)>", r"(?P<\1>", regex))
+
+
+def test_every_pilot_has_both_location_forms():
+    pilots = _load_pilots()
+    two_segment = _two_segment_locations()
+    assert set(two_segment) == set(pilots), (
+        "every pilot in pilots.txt needs a two-segment location and no others; "
+        f"missing={sorted(set(pilots) - set(two_segment))}, extra={sorted(set(two_segment) - set(pilots))}"
+    )
+    # The hyphenated form is the generic regex location; it must still serve every
+    # `family-platform` pilot identifier.
+    hyphenated = _hyphenated_location()
+    assert hyphenated["proxy_pass"].startswith("http://mcp-$pilot:8080/")
+    content = NGINX_CONF.read_text(encoding="utf-8")
+    hy = _nginx_regex_to_python(HYPHENATED_LOCATION_RE.search(content).group("regex"))
+    for pilot in pilots:
+        hyphenated_id = pilot.replace("/", "-")
+        m = hy.match(f"/{hyphenated_id}/mcp")
+        assert m and m.group("pilot") == hyphenated_id, f"hyphenated form does not route {hyphenated_id}"
+
+
+def test_both_forms_resolve_to_the_same_upstream():
+    hyphenated = _hyphenated_location()
+    for pilot, loc in _two_segment_locations().items():
+        family, platform = pilot.split("/")
+        assert loc["pilot_var"] == f"{family}-{platform}", f"{pilot}: wrong $pilot value {loc['pilot_var']!r}"
+        # Identical proxy settings to the hyphenated location.
+        assert loc["proxy_pass"] == hyphenated["proxy_pass"], pilot
+        assert loc["host"] == hyphenated["host"], pilot
+        # ...and with $pilot = family-platform that is the compose service/container name.
+        assert (
+            loc["proxy_pass"]
+            .replace("$pilot", loc["pilot_var"])
+            .startswith(f"http://mcp-{family}-{platform}:8080/")
+        )
+    compose_services = set(_load_compose()["services"])
+    for pilot in _load_pilots():
+        assert f"mcp-{pilot.replace('/', '-')}" in compose_services
+
+
+def test_two_segment_form_cannot_shadow_another_pilot_and_family_alone_is_not_routed():
+    pilots = _load_pilots()
+    assert len(pilots) == len(set(pilots)), "pilots.txt family/platform pairs must be unique"
+    # Hyphenated ids must be unique too, or two pilots would share one upstream.
+    assert len({p.replace("/", "-") for p in pilots}) == len(pilots)
+
+    patterns = {p: _nginx_regex_to_python(loc["regex"]) for p, loc in _two_segment_locations().items()}
+    for pilot in pilots:
+        for path in (f"/{pilot}", f"/{pilot}/", f"/{pilot}/mcp", f"/{pilot}/mcp/"):
+            matching = [p for p, rx in patterns.items() if rx.match(path)]
+            assert matching == [pilot], f"{path} must be routed to exactly {pilot}, got {matching}"
+        family, platform = pilot.split("/")
+        for path in (
+            f"/{family}",
+            f"/{family}/",
+            f"/{family}/{platform}x/mcp",
+            f"/{family}/{platform}/mcp/x",
+        ):
+            if path.rstrip("/") == f"/{pilot}":
+                continue
+            assert not any(rx.match(path) for rx in patterns.values()), f"{path} must not be routed"
+    for path in ("/3d/", "/3d", "/cells/", "/pdf/", "/unknown/pilot/mcp", "/"):
+        assert not any(rx.match(path) for rx in patterns.values()), f"{path} must not be routed"
+
+
+def test_two_segment_locations_do_not_overlap_the_hyphenated_location():
+    content = NGINX_CONF.read_text(encoding="utf-8")
+    hy = _nginx_regex_to_python(HYPHENATED_LOCATION_RE.search(content).group("regex"))
+    for pilot in _load_pilots():
+        for path in (f"/{pilot}", f"/{pilot}/", f"/{pilot}/mcp"):
+            assert not hy.match(path), f"hyphenated location would shadow two-segment {path}"
+
+
+def test_no_location_exposes_metrics_or_readiness_paths():
+    content = NGINX_CONF.read_text(encoding="utf-8")
+    for pilot, loc in _two_segment_locations().items():
+        rx = _nginx_regex_to_python(loc["regex"])
+        for tail in ("metrics", "readyz", "healthz", "livez", "mcp/../metrics"):
+            assert not rx.match(f"/{pilot}/{tail}"), f"/{pilot}/{tail} must not be routed"
+    # The nginx config itself never names an exposure location for them.
+    assert not re.search(r"^\s*location[^{\n]*(metrics|readyz|healthz|livez)", content, re.MULTILINE)
+    # The only exact-match location is the root banner.
+    assert re.findall(r"location\s+=\s+(\S+)", content) == ["/"]
+
+
+def test_nginx_conf_remains_structurally_balanced_and_keeps_shared_proxy_settings():
+    content = NGINX_CONF.read_text(encoding="utf-8")
+    assert content.count("{") == content.count("}"), "nginx.conf braces must balance"
+    assert re.search(r"^\s*proxy_http_version 1\.1;", content, re.MULTILINE)
+    assert re.search(r'^\s*proxy_set_header Connection "";', content, re.MULTILINE)
+    assert re.search(r"^\s*proxy_buffering off;", content, re.MULTILINE)
+    assert re.search(r"^\s*proxy_read_timeout 3600s;", content, re.MULTILINE)
+    # The two-segment locations must not override the shared proxy settings.
+    for m in TWO_SEGMENT_LOCATION_RE.finditer(content):
+        for directive in ("proxy_http_version", "proxy_buffering", "proxy_read_timeout", "Connection"):
+            assert directive not in m.group("body")
+    # Hyphenated location is unchanged.
+    assert "location ~ ^/(?<pilot>[a-z0-9]+-[a-z0-9]+)/(?<rest>.*)$ {" in content
+    assert "proxy_pass http://mcp-$pilot:8080/$rest$is_args$args;" in content
