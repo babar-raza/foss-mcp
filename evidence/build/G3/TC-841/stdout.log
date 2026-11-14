@@ -1,0 +1,772 @@
+
+===== CLEAN RUN 1 (host) =====
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-5c72e798a73c059a\Scripts\python.exe -m pytest tests/extraction tests/deploy/test_served_coverage_matches_fixtures.py -q -rfE -p no:cacheprovider "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-4gq1ntgb\.junit-0.xml"
+--- stdout ---
+........................................................................ [  3%]
+........................................................................ [  6%]
+........................................................................ [  9%]
+........................................................................ [ 12%]
+........................................................................ [ 15%]
+........................................................................ [ 18%]
+........................................................................ [ 21%]
+........................................................................ [ 25%]
+........................................................................ [ 28%]
+........................................................................ [ 31%]
+........................................................................ [ 34%]
+........................................................................ [ 37%]
+........................................................................ [ 40%]
+........................................................................ [ 43%]
+........................................................................ [ 47%]
+........................................................................ [ 50%]
+........................................................................ [ 53%]
+........................................................................ [ 56%]
+........................................................................ [ 59%]
+........................................................................ [ 62%]
+........................................................................ [ 65%]
+........................................................................ [ 69%]
+........................................................................ [ 72%]
+........................................................................ [ 75%]
+........................................................................ [ 78%]
+........................................................................ [ 81%]
+........................................................................ [ 84%]
+........................................................................ [ 87%]
+........................................................................ [ 91%]
+........................................................................ [ 94%]
+........................................................................ [ 97%]
+..............................................................           [100%]
+2 live test(s) deselected; set FOSS_MCP_NETWORK_TESTS=1 to run them
+
+--- stderr ---
+
+
+===== CLEAN RUN 2 (host) =====
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-5c72e798a73c059a\Scripts\python.exe -m pytest tests/extraction tests/deploy/test_served_coverage_matches_fixtures.py -q -rfE -p no:cacheprovider "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-4gq1ntgb\.junit-0.xml"
+--- stdout ---
+........................................................................ [  3%]
+........................................................................ [  6%]
+........................................................................ [  9%]
+........................................................................ [ 12%]
+........................................................................ [ 15%]
+........................................................................ [ 18%]
+........................................................................ [ 21%]
+........................................................................ [ 25%]
+........................................................................ [ 28%]
+........................................................................ [ 31%]
+........................................................................ [ 34%]
+........................................................................ [ 37%]
+........................................................................ [ 40%]
+........................................................................ [ 43%]
+........................................................................ [ 47%]
+........................................................................ [ 50%]
+........................................................................ [ 53%]
+........................................................................ [ 56%]
+........................................................................ [ 59%]
+........................................................................ [ 62%]
+........................................................................ [ 65%]
+........................................................................ [ 69%]
+........................................................................ [ 72%]
+........................................................................ [ 75%]
+........................................................................ [ 78%]
+........................................................................ [ 81%]
+........................................................................ [ 84%]
+........................................................................ [ 87%]
+........................................................................ [ 91%]
+........................................................................ [ 94%]
+........................................................................ [ 97%]
+..............................................................           [100%]
+2 live test(s) deselected; set FOSS_MCP_NETWORK_TESTS=1 to run them
+
+--- stderr ---
+
+
+===== NEGATIVE CONTROL (checks MUST now fail) =====
+mutated: M tests/fixtures/3d_typescript/api_surface.json, M tests/fixtures/barcode_python/api_surface.json, M tests/fixtures/email_python/api_surface.json, M tests/fixtures/html_python/api_surface.json, M tests/fixtures/note_python/api_surface.json, M tests/fixtures/page_python/api_surface.json, M tests/fixtures/pdf_python/api_surface.json, M tests/fixtures/pdf_typescript/api_surface.json, M tests/fixtures/slides_python/api_surface.json, M tests/fixtures/tex_python/api_surface.json, M tests/fixtures/words_python/api_surface.json, ?? .junit-0.xml
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-5c72e798a73c059a\Scripts\python.exe -m pytest tests/extraction tests/deploy/test_served_coverage_matches_fixtures.py -q -rfE -p no:cacheprovider "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-4gq1ntgb\.junit-0.xml"
+--- stdout ---
+........................................................................ [  3%]
+........................................................................ [  6%]
+........................................................................ [  9%]
+...................................F.................................... [ 12%]
+........................................................................ [ 15%]
+................................................................F....... [ 18%]
+....................................F................................... [ 21%]
+........................................................................ [ 25%]
+........................................................................ [ 28%]
+........................................................................ [ 31%]
+.........FF.....F....................................................... [ 34%]
+........................................................................ [ 37%]
+........................................................................ [ 40%]
+........................................................................ [ 43%]
+........................................................................ [ 47%]
+...........................................................F............ [ 50%]
+....................................F.........F......................... [ 53%]
+..............................F.F....................................... [ 56%]
+....F................................................................... [ 59%]
+...........................................................F............ [ 62%]
+..................................F..................................... [ 65%]
+.....F.................................................................. [ 69%]
+........................................................................ [ 72%]
+........................................................................ [ 75%]
+........................................................................ [ 78%]
+........................................................................ [ 81%]
+........................................................................ [ 84%]
+........................................................................ [ 87%]
+........................................................................ [ 91%]
+.......................................................F.....F.......F.. [ 94%]
+F.....F......F.F.....F.......F..F.....F......F.......................... [ 97%]
+.......F.....F.......F..F.....F......F........................           [100%]
+================================== FAILURES ===================================
+_______________ test_every_entry_is_a_real_python_surface_kind ________________
+
+    def test_every_entry_is_a_real_python_surface_kind() -> None:
+        data = _load_fixture()
+        kinds = {entry["kind"] for entry in data["types"]}
+        # Observed directly from the live pure-ast reader's output for this repository - not
+        # a tree-sitter grammar's node-type vocabulary, and not guessed. Unlike slides/python's
+        # reduced 300-entry fixture, this repository's unreduced 63-entry surface includes a
+        # top-level function alongside classes and enums.
+        # TC-841: regenerated with the current extractor, whose module-level constants (TC-700) are entries of kind "constant".
+>       assert kinds == {"class", "constant", "enum", "function"}
+E       AssertionError: assert {'class', 'enum', 'function'} == {'class', 'co...', 'function'}
+E         
+E         Extra items in the right set:
+E         'constant'
+E         Use -v to get more diff
+
+tests\extraction\test_email_python_extraction.py:137: AssertionError
+_______________ test_every_entry_is_a_real_python_surface_kind ________________
+
+    def test_every_entry_is_a_real_python_surface_kind() -> None:
+        data = _load_fixture()
+        kinds = {entry["kind"] for entry in data["types"]}
+        # Observed directly from the live pure-ast reader's output for this repository - not
+        # a tree-sitter grammar's node-type vocabulary, and not guessed. Like barcode/python,
+        # this reduced surface retains top-level module functions alongside classes and enums.
+        # TC-841: regenerated with the current extractor, whose module-level constants (TC-700) are entries of kind "constant".
+>       assert kinds == {"class", "constant", "enum", "function"}
+E       AssertionError: assert {'class', 'enum', 'function'} == {'class', 'co...', 'function'}
+E         
+E         Extra items in the right set:
+E         'constant'
+E         Use -v to get more diff
+
+tests\extraction\test_page_python_extraction.py:102: AssertionError
+_______________ test_every_entry_is_a_real_python_surface_kind ________________
+
+    def test_every_entry_is_a_real_python_surface_kind() -> None:
+        data = _load_fixture()
+        kinds = {entry["kind"] for entry in data["types"]}
+        # Observed directly from the live pure-ast reader's output for this repository - not
+        # a tree-sitter grammar's node-type vocabulary, and not guessed. TC-401's own re-run
+        # (TC-394's must-keep selection, keeping every class the furnished page's examples use,
+        # plus TC-394's own-group-per-re-export-pair accounting) now keeps 82 top-level
+        # "function" entries alongside "class"/"enum" - unlike the pre-TC-394 fixture this
+        # replaces, where no top-level function scored highly enough to survive the cut.
+        # TC-841: regenerated with the current extractor, whose module-level constants (TC-700) are entries of kind "constant".
+>       assert kinds == {"class", "constant", "enum", "function"}
+E       AssertionError: assert {'class', 'enum', 'function'} == {'class', 'co...', 'function'}
+E         
+E         Extra items in the right set:
+E         'constant'
+E         Use -v to get more diff
+
+tests\extraction\test_pdf_python_extraction.py:93: AssertionError
+___________ test_surface_is_complete_and_not_truncated[pdf_python] ____________
+
+key = 'pdf_python'
+
+    @pytest.mark.parametrize("key", PILOTS)
+    def test_surface_is_complete_and_not_truncated(key: str) -> None:
+        fixture = rc.load_fixture(key)
+        assert fixture["truncated"] is False
+        assert fixture["type_count"] == fixture["reduced_type_count"] == len(fixture["types"])
+>       assert rc.chart_max_types(key) == max(fixture["type_count"], 300)
+E       AssertionError: assert 914 == 867
+E        +  where 914 = <function chart_max_types at 0x000002382DDD0680>('pdf_python')
+E        +    where <function chart_max_types at 0x000002382DDD0680> = rc.chart_max_types
+E        +  and   867 = max(867, 300)
+
+tests\extraction\test_reextracted_uncapped.py:405: AssertionError
+__________ test_surface_is_complete_and_not_truncated[slides_python] __________
+
+key = 'slides_python'
+
+    @pytest.mark.parametrize("key", PILOTS)
+    def test_surface_is_complete_and_not_truncated(key: str) -> None:
+        fixture = rc.load_fixture(key)
+        assert fixture["truncated"] is False
+        assert fixture["type_count"] == fixture["reduced_type_count"] == len(fixture["types"])
+>       assert rc.chart_max_types(key) == max(fixture["type_count"], 300)
+E       AssertionError: assert 1025 == 1023
+E        +  where 1025 = <function chart_max_types at 0x000002382DDD0680>('slides_python')
+E        +    where <function chart_max_types at 0x000002382DDD0680> = rc.chart_max_types
+E        +  and   1023 = max(1023, 300)
+
+tests\extraction\test_reextracted_uncapped.py:405: AssertionError
+__________ test_surface_is_complete_and_not_truncated[words_python] ___________
+
+key = 'words_python'
+
+    @pytest.mark.parametrize("key", PILOTS)
+    def test_surface_is_complete_and_not_truncated(key: str) -> None:
+        fixture = rc.load_fixture(key)
+        assert fixture["truncated"] is False
+        assert fixture["type_count"] == fixture["reduced_type_count"] == len(fixture["types"])
+>       assert rc.chart_max_types(key) == max(fixture["type_count"], 300)
+E       AssertionError: assert 637 == 391
+E        +  where 637 = <function chart_max_types at 0x000002382DDD0680>('words_python')
+E        +    where <function chart_max_types at 0x000002382DDD0680> = rc.chart_max_types
+E        +  and   391 = max(391, 300)
+
+tests\extraction\test_reextracted_uncapped.py:405: AssertionError
+________________ test_tex_reports_the_files_that_do_not_parse _________________
+
+    def test_tex_reports_the_files_that_do_not_parse() -> None:
+        health = fixture("tex_python")["parse_failures"]
+        assert (health["engine"], health["failed"], health["total"]) == ("ast", 11, 45)
+        assert health["examples"]
+        # TC-841: 14 -> 16 after regenerating with the current extractor (TC-818 package-root re-export shells recover
+        # ``FontManager`` and ``InputSource``, the two new type entries).
+>       assert fixture("tex_python")["symbol_counts"]["types"] == 16
+E       assert 14 == 16
+
+tests\extraction\test_round3_python_fidelity.py:441: AssertionError
+_____ test_no_member_is_a_phantom_of_an_inline_object_type[3d_typescript] _____
+
+pilot = '3d_typescript'
+
+    @pytest.mark.parametrize("pilot", sorted(CLASS_PROPERTY_COUNT))
+    def test_no_member_is_a_phantom_of_an_inline_object_type(pilot: str) -> None:
+        """A class's properties are the ones its body declares (the compiler's count over the same files)."""
+        classes = [
+            t for t in fixture(pilot)["types"] if t["kind"] in ("class_declaration", "abstract_class_declaration")
+        ]
+        wanted_classes, wanted_names = CLASS_PROPERTY_COUNT[pilot]
+        assert len(classes) == wanted_classes
+>       assert sum(len({p["name"] for p in own(t["properties"])}) for t in classes) == wanted_names
+E       assert 499 == 500
+E        +  where 499 = sum(<generator object test_no_member_is_a_phantom_of_an_inline_object_type.<locals>.<genexpr> at 0x000002383C296A40>)
+
+tests\extraction\test_round3_typescript_fidelity.py:263: AssertionError
+_____________________ test_3d_matches_the_compiler_counts _____________________
+
+    def test_3d_matches_the_compiler_counts() -> None:
+>       assert measured("3d_typescript") == D3_ORACLE
+E       AssertionError: assert {'interface_r...es': 104, ...} == {'interface_r...es': 104, ...}
+E         
+E         Omitting 8 identical items, use -vv to show
+E         Differing items:
+E         {'class_properties': 104} != {'class_properties': 105}
+E         Use -v to get more diff
+
+tests\extraction\test_round3_typescript_fidelity.py:354: AssertionError
+______ test_slides_python_denominator_drops_from_the_old_inflated_count _______
+
+    def test_slides_python_denominator_drops_from_the_old_inflated_count() -> None:
+        """The real regression TC-614's own closeout predicted but deliberately left open: run
+        `summarize_symbols` with real `compute_canonical_identities` output against the real,
+        committed `slides_python` extraction fixture, and confirm the real denominator drops from the
+        old, inflated count to the real, deduplicated one.
+    
+        Measured (stated here, not assumed): the OLD, un-deduplicated `types` count, recomputed fresh
+        from the fixture's own `types` array with the one-argument (no-identities) form, is 1022 - this
+        was the fixture's own stored `symbol_counts` value before TC-729 backfilled it (TC-729, 2026-11-
+        09: this pilot's fixture predated TC-620 and carried this stale value until then). The NEW,
+        canonically-deduplicated count is 516 - the exact same number TC-614 already measured for the
+        numerator of this same pilot ("516 of 1022 types") - and TC-729 backfilled that NEW value
+        directly onto the fixture's own committed `symbol_counts`, so the pilot's own denominator and
+        numerator now agree in the fixture itself, not only at render time.
+        """
+        fixture = _slides_python_fixture()
+        types = fixture["types"]
+    
+        old = run_extraction.summarize_symbols(types)
+        # TC-841: 1022 -> 1024 and 516 -> 518 below: the fixture was regenerated with the current extractor, which adds the two
+        # module-level constants of the package (C15_EXT_URI, C15_NS; TC-700) as entries; both are canonical, so both counts move by 2.
+>       assert old == {"types": 1024, "functions": 1}
+E       AssertionError: assert {'types': 102...functions': 1} == {'types': 102...functions': 1}
+E         
+E         Omitting 1 identical items, use -vv to show
+E         Differing items:
+E         {'types': 1022} != {'types': 1024}
+E         Use -v to get more diff
+
+tests\extraction\test_run_extraction_canonical_counts.py:170: AssertionError
+_____ test_slides_python_combined_numerator_and_denominator_coverage_line _____
+
+    def test_slides_python_combined_numerator_and_denominator_coverage_line() -> None:
+        """End-to-end: with BOTH I2's already-landed numerator fix (`chunk_builder._coverage_line`,
+        reached through the real `build_chunks_from_api_surface`) and this card's denominator fix
+        combined (the `symbol_counts` a real `extract_pinned_repository` run would now produce),
+        the SAME slides/python pilot's rendered `API-Coverage:` line is measured fresh here, not
+        assumed to be exactly "N of N" for every pilot in general.
+    
+        Measured: "API-Coverage: 516 of 516 types; 1 of 1 functions" - for this specific pilot the
+        combined numerator (I2, chunk_builder's own dedup over the post-slot-cut entries) and the
+        combined denominator (I3, this card's dedup over the full raw list) land on the exact same
+        516, so the line is fully honest end to end. (The card's own contract warns the two dedup
+        rules are similar but not byte-identical in every edge case - this is what is actually
+        measured for slides_python, not an assumption generalized from TC-614's numerator alone.)
+    
+        TC-729 (2026-11-09): the real, committed fixture's own `symbol_counts` is now ALREADY this
+        backfilled value (TC-729 landed it directly onto the fixture, closing the gap this test
+        originally demonstrated as still-open) - confirmed below before building on it, so
+        `combined_fixture` is proven identical to the real committed data, not a fabrication. The I2-alone
+        contrast is reconstructed from the one-argument recount instead, since the real committed fixture
+        no longer carries the old, un-deduplicated value to contrast against directly.
+        """
+        fixture = _slides_python_fixture()
+        types = fixture["types"]
+        identities = compute_canonical_identities(types)
+        new_symbol_counts = run_extraction.summarize_symbols(types, identities=identities)
+        # TC-841: 516 -> 518 (see the first test of this section).
+>       assert fixture["symbol_counts"] == new_symbol_counts == {"types": 518, "functions": 1}
+E       AssertionError: assert {'types': 516, 'functions': 1} == {'types': 518, 'functions': 1}
+E         
+E         Omitting 1 identical items, use -vv to show
+E         Differing items:
+E         {'types': 516} != {'types': 518}
+E         Use -v to get more diff
+
+tests\extraction\test_run_extraction_canonical_counts.py:218: AssertionError
+____________________ test_recommended_max_types_are_valid _____________________
+
+    def test_recommended_max_types_are_valid() -> None:
+        values = yaml.safe_load(VALUES.read_text(encoding="utf-8"))
+        pilots = {(p["family"], p["platform"]): p for p in values["ingestion"]["pilots"]}
+        assert len(run_extraction.RECOMMENDED_MAX_TYPES) == 13
+        for key, cap in run_extraction.RECOMMENDED_MAX_TYPES.items():
+            family, platform = key.split("/")
+            assert (family, platform) in pilots, key
+            # re-extracted by TC-550: `300 <= cap <= 1250` and `cap <= type_count` -> the cap is the measured total
+            # (300 when the total is below the default), and every one of the 13 fixtures is complete.
+            assert cap >= 300, key
+            fixture_dir = Path(pilots[(family, platform)]["apiSurface"]).parent.name
+            fixture = json.loads((FIXTURES / fixture_dir / "api_surface.json").read_text(encoding="utf-8"))
+>           assert cap == max(fixture["type_count"], 300), (
+                f"{key}: cap {cap}, {fixture['type_count']} types upstream"
+            )
+E           AssertionError: pdf/python: cap 914, 867 types upstream
+E           assert 914 == 867
+E            +  where 867 = max(867, 300)
+
+tests\extraction\test_run_extraction_coverage_policy.py:418: AssertionError
+_______________ test_every_entry_is_a_real_python_surface_kind ________________
+
+    def test_every_entry_is_a_real_python_surface_kind() -> None:
+        data = _load_fixture()
+        kinds = {entry["kind"] for entry in data["types"]}
+        # Observed directly from the live pure-ast reader's output for this repository - not
+        # a tree-sitter grammar's node-type vocabulary, and not guessed.
+        # re-extracted by TC-550: {class, enum} -> {class, enum, function}: the whole surface includes the
+        # one module-level function of the package.
+        # TC-841: regenerated with the current extractor, whose module-level constants (TC-700) are entries of kind "constant".
+>       assert kinds == {"class", "constant", "enum", "function"}
+E       AssertionError: assert {'class', 'enum', 'function'} == {'class', 'co...', 'function'}
+E         
+E         Extra items in the right set:
+E         'constant'
+E         Use -v to get more diff
+
+tests\extraction\test_slides_python_extraction.py:105: AssertionError
+_________ test_the_two_repaired_files_are_the_only_unresolved_entries _________
+
+    def test_the_two_repaired_files_are_the_only_unresolved_entries() -> None:
+        # TC-555: 2 syntax-error + 12 unresolved-reexport -> 2 repaired-syntax. A name that stays
+        # unresolved is a finding, so this list is exact, not a lower bound.
+        unresolved = _load_fixture()["unresolved"]
+        # TC-841: regenerated with the current extractor, whose repair also closes the header lines of
+        # ``src/aspose_tex/_fonts/font_manager.py`` (48 header lines closed with pass), so the exact list is now 3 repaired
+        # files, still no syntax-error or unresolved-reexport entry.
+>       assert sorted(unresolved) == [
+            "aspose_tex._fonts.font_manager:47:repaired-syntax:src/aspose_tex/_fonts/font_manager.py:48 header lines closed with pass",
+            "aspose_tex._input.reader:52:repaired-syntax:src/aspose_tex/_input/reader.py:42 header lines closed with pass",
+            "aspose_tex.presentation:107:repaired-syntax:src/aspose_tex/presentation/__init__.py:36 header lines closed with pass",
+        ]
+E       AssertionError: assert ['aspose_tex....ed with pass'] == ['aspose_tex....ed with pass']
+E         
+E         At index 0 diff: 'aspose_tex._input.reader:52:repaired-syntax:src/aspose_tex/_input/reader.py:42 header lines closed with pass' != 'aspose_tex._fonts.font_manager:47:repaired-syntax:src/aspose_tex/_fonts/font_manager.py:48 header lines closed with pass'
+E         Right contains one more item: 'aspose_tex.presentation:107:repaired-syntax:src/aspose_tex/presentation/__init__.py:36 header lines closed with pass'
+E         Use -v to get more diff
+
+tests\extraction\test_tex_python_extraction.py:200: AssertionError
+_______________ test_every_entry_is_a_real_python_surface_kind ________________
+
+    def test_every_entry_is_a_real_python_surface_kind() -> None:
+        data = _load_fixture()
+        kinds = {entry["kind"] for entry in data["types"]}
+        # Observed directly from the live pure-ast reader's output for this repository - not
+        # a tree-sitter grammar's node-type vocabulary, and not guessed. Unlike slides/python's
+        # reduced fixture, this repository's truncated top 300 entries do include top-level
+        # functions.
+        # TC-841: regenerated with the current extractor, whose module-level constants (TC-700) are entries of kind "constant".
+>       assert kinds == {"class", "constant", "enum", "function"}
+E       AssertionError: assert {'class', 'enum', 'function'} == {'class', 'co...', 'function'}
+E         
+E         Extra items in the right set:
+E         'constant'
+E         Use -v to get more diff
+
+tests\extraction\test_words_python_extraction.py:79: AssertionError
+_______ test_served_type_chunks_equal_the_fixture_types[slides_python] ________
+
+key = 'slides_python'
+
+    @pytest.mark.parametrize("key", PILOT_KEYS)
+    def test_served_type_chunks_equal_the_fixture_types(key: str) -> None:
+        served_types, _ = served_counts(active_documents(key))
+        if key in stale_baked_pilots():
+            line, problems = shared_coverage(symbol_texts(active_documents(key)))
+            assert not problems, problems
+            assert line is not None
+            # TC-841: by the full (non-thin) chunks - the line's N is the deduped numerator (see stale_coverage_problems).
+            assert (
+                full_type_chunks_served(active_documents(key)) == line.all_indexed
+                or line.functions_indexed is None
+            )
+>           assert is_really_stale(key), f"{key} is not stale: delete it from the table"
+E           AssertionError: slides_python is not stale: delete it from the table
+E           assert False
+E            +  where False = is_really_stale('slides_python')
+
+tests\deploy\test_served_coverage_matches_fixtures.py:485: AssertionError
+________ test_served_type_chunks_equal_the_fixture_types[words_python] ________
+
+key = 'words_python'
+
+    @pytest.mark.parametrize("key", PILOT_KEYS)
+    def test_served_type_chunks_equal_the_fixture_types(key: str) -> None:
+        served_types, _ = served_counts(active_documents(key))
+        if key in stale_baked_pilots():
+            line, problems = shared_coverage(symbol_texts(active_documents(key)))
+            assert not problems, problems
+            assert line is not None
+            # TC-841: by the full (non-thin) chunks - the line's N is the deduped numerator (see stale_coverage_problems).
+            assert (
+                full_type_chunks_served(active_documents(key)) == line.all_indexed
+                or line.functions_indexed is None
+            )
+>           assert is_really_stale(key), f"{key} is not stale: delete it from the table"
+E           AssertionError: words_python is not stale: delete it from the table
+E           assert False
+E            +  where False = is_really_stale('words_python')
+
+tests\deploy\test_served_coverage_matches_fixtures.py:485: AssertionError
+_________ test_served_type_chunks_equal_the_fixture_types[pdf_python] _________
+
+key = 'pdf_python'
+
+    @pytest.mark.parametrize("key", PILOT_KEYS)
+    def test_served_type_chunks_equal_the_fixture_types(key: str) -> None:
+        served_types, _ = served_counts(active_documents(key))
+        if key in stale_baked_pilots():
+            line, problems = shared_coverage(symbol_texts(active_documents(key)))
+            assert not problems, problems
+            assert line is not None
+            # TC-841: by the full (non-thin) chunks - the line's N is the deduped numerator (see stale_coverage_problems).
+            assert (
+                full_type_chunks_served(active_documents(key)) == line.all_indexed
+                or line.functions_indexed is None
+            )
+>           assert is_really_stale(key), f"{key} is not stale: delete it from the table"
+E           AssertionError: pdf_python is not stale: delete it from the table
+E           assert False
+E            +  where False = is_really_stale('pdf_python')
+
+tests\deploy\test_served_coverage_matches_fixtures.py:485: AssertionError
+________ test_served_type_chunks_equal_the_fixture_types[email_python] ________
+
+key = 'email_python'
+
+    @pytest.mark.parametrize("key", PILOT_KEYS)
+    def test_served_type_chunks_equal_the_fixture_types(key: str) -> None:
+        served_types, _ = served_counts(active_documents(key))
+        if key in stale_baked_pilots():
+            line, problems = shared_coverage(symbol_texts(active_documents(key)))
+            assert not problems, problems
+            assert line is not None
+            # TC-841: by the full (non-thin) chunks - the line's N is the deduped numerator (see stale_coverage_problems).
+            assert (
+                full_type_chunks_served(active_documents(key)) == line.all_indexed
+                or line.functions_indexed is None
+            )
+>           assert is_really_stale(key), f"{key} is not stale: delete it from the table"
+E           AssertionError: email_python is not stale: delete it from the table
+E           assert False
+E            +  where False = is_really_stale('email_python')
+
+tests\deploy\test_served_coverage_matches_fixtures.py:485: AssertionError
+________ test_served_type_chunks_equal_the_fixture_types[page_python] _________
+
+key = 'page_python'
+
+    @pytest.mark.parametrize("key", PILOT_KEYS)
+    def test_served_type_chunks_equal_the_fixture_types(key: str) -> None:
+        served_types, _ = served_counts(active_documents(key))
+        if key in stale_baked_pilots():
+            line, problems = shared_coverage(symbol_texts(active_documents(key)))
+            assert not problems, problems
+            assert line is not None
+            # TC-841: by the full (non-thin) chunks - the line's N is the deduped numerator (see stale_coverage_problems).
+            assert (
+                full_type_chunks_served(active_documents(key)) == line.all_indexed
+                or line.functions_indexed is None
+            )
+>           assert is_really_stale(key), f"{key} is not stale: delete it from the table"
+E           AssertionError: page_python is not stale: delete it from the table
+E           assert False
+E            +  where False = is_really_stale('page_python')
+
+tests\deploy\test_served_coverage_matches_fixtures.py:485: AssertionError
+_________ test_served_type_chunks_equal_the_fixture_types[tex_python] _________
+
+key = 'tex_python'
+
+    @pytest.mark.parametrize("key", PILOT_KEYS)
+    def test_served_type_chunks_equal_the_fixture_types(key: str) -> None:
+        served_types, _ = served_counts(active_documents(key))
+        if key in stale_baked_pilots():
+            line, problems = shared_coverage(symbol_texts(active_documents(key)))
+            assert not problems, problems
+            assert line is not None
+            # TC-841: by the full (non-thin) chunks - the line's N is the deduped numerator (see stale_coverage_problems).
+            assert (
+                full_type_chunks_served(active_documents(key)) == line.all_indexed
+                or line.functions_indexed is None
+            )
+>           assert is_really_stale(key), f"{key} is not stale: delete it from the table"
+E           AssertionError: tex_python is not stale: delete it from the table
+E           assert False
+E            +  where False = is_really_stale('tex_python')
+
+tests\deploy\test_served_coverage_matches_fixtures.py:485: AssertionError
+___ test_served_function_chunks_equal_the_fixture_functions[slides_python] ____
+
+key = 'slides_python'
+
+    @pytest.mark.parametrize("key", PILOT_KEYS)
+    def test_served_function_chunks_equal_the_fixture_functions(key: str) -> None:
+        _, served_functions = served_counts(active_documents(key))
+        if key in stale_baked_pilots():
+            problems = stale_coverage_problems(active_documents(key))
+            assert not problems, problems
+>           assert is_really_stale(key), f"{key} is not stale: delete it from the table"
+E           AssertionError: slides_python is not stale: delete it from the table
+E           assert False
+E            +  where False = is_really_stale('slides_python')
+
+tests\deploy\test_served_coverage_matches_fixtures.py:503: AssertionError
+____ test_served_function_chunks_equal_the_fixture_functions[words_python] ____
+
+key = 'words_python'
+
+    @pytest.mark.parametrize("key", PILOT_KEYS)
+    def test_served_function_chunks_equal_the_fixture_functions(key: str) -> None:
+        _, served_functions = served_counts(active_documents(key))
+        if key in stale_baked_pilots():
+            problems = stale_coverage_problems(active_documents(key))
+            assert not problems, problems
+>           assert is_really_stale(key), f"{key} is not stale: delete it from the table"
+E           AssertionError: words_python is not stale: delete it from the table
+E           assert False
+E            +  where False = is_really_stale('words_python')
+
+tests\deploy\test_served_coverage_matches_fixtures.py:503: AssertionError
+_____ test_served_function_chunks_equal_the_fixture_functions[pdf_python] _____
+
+key = 'pdf_python'
+
+    @pytest.mark.parametrize("key", PILOT_KEYS)
+    def test_served_function_chunks_equal_the_fixture_functions(key: str) -> None:
+        _, served_functions = served_counts(active_documents(key))
+        if key in stale_baked_pilots():
+            problems = stale_coverage_problems(active_documents(key))
+            assert not problems, problems
+>           assert is_really_stale(key), f"{key} is not stale: delete it from the table"
+E           AssertionError: pdf_python is not stale: delete it from the table
+E           assert False
+E            +  where False = is_really_stale('pdf_python')
+
+tests\deploy\test_served_coverage_matches_fixtures.py:503: AssertionError
+____ test_served_function_chunks_equal_the_fixture_functions[email_python] ____
+
+key = 'email_python'
+
+    @pytest.mark.parametrize("key", PILOT_KEYS)
+    def test_served_function_chunks_equal_the_fixture_functions(key: str) -> None:
+        _, served_functions = served_counts(active_documents(key))
+        if key in stale_baked_pilots():
+            problems = stale_coverage_problems(active_documents(key))
+            assert not problems, problems
+>           assert is_really_stale(key), f"{key} is not stale: delete it from the table"
+E           AssertionError: email_python is not stale: delete it from the table
+E           assert False
+E            +  where False = is_really_stale('email_python')
+
+tests\deploy\test_served_coverage_matches_fixtures.py:503: AssertionError
+____ test_served_function_chunks_equal_the_fixture_functions[page_python] _____
+
+key = 'page_python'
+
+    @pytest.mark.parametrize("key", PILOT_KEYS)
+    def test_served_function_chunks_equal_the_fixture_functions(key: str) -> None:
+        _, served_functions = served_counts(active_documents(key))
+        if key in stale_baked_pilots():
+            problems = stale_coverage_problems(active_documents(key))
+            assert not problems, problems
+>           assert is_really_stale(key), f"{key} is not stale: delete it from the table"
+E           AssertionError: page_python is not stale: delete it from the table
+E           assert False
+E            +  where False = is_really_stale('page_python')
+
+tests\deploy\test_served_coverage_matches_fixtures.py:503: AssertionError
+_____ test_served_function_chunks_equal_the_fixture_functions[tex_python] _____
+
+key = 'tex_python'
+
+    @pytest.mark.parametrize("key", PILOT_KEYS)
+    def test_served_function_chunks_equal_the_fixture_functions(key: str) -> None:
+        _, served_functions = served_counts(active_documents(key))
+        if key in stale_baked_pilots():
+            problems = stale_coverage_problems(active_documents(key))
+            assert not problems, problems
+>           assert is_really_stale(key), f"{key} is not stale: delete it from the table"
+E           AssertionError: tex_python is not stale: delete it from the table
+E           assert False
+E            +  where False = is_really_stale('tex_python')
+
+tests\deploy\test_served_coverage_matches_fixtures.py:503: AssertionError
+_______ test_served_coverage_line_states_the_same_counts[slides_python] _______
+
+key = 'slides_python'
+
+    @pytest.mark.parametrize("key", PILOT_KEYS)
+    def test_served_coverage_line_states_the_same_counts(key: str) -> None:
+        texts = active_documents(key)
+        if key in stale_baked_pilots():
+            problems = stale_coverage_problems(texts)
+            assert not problems, problems
+>           assert is_really_stale(key), f"{key} is not stale: delete it from the table"
+E           AssertionError: slides_python is not stale: delete it from the table
+E           assert False
+E            +  where False = is_really_stale('slides_python')
+
+tests\deploy\test_served_coverage_matches_fixtures.py:530: AssertionError
+_______ test_served_coverage_line_states_the_same_counts[words_python] ________
+
+key = 'words_python'
+
+    @pytest.mark.parametrize("key", PILOT_KEYS)
+    def test_served_coverage_line_states_the_same_counts(key: str) -> None:
+        texts = active_documents(key)
+        if key in stale_baked_pilots():
+            problems = stale_coverage_problems(texts)
+            assert not problems, problems
+>           assert is_really_stale(key), f"{key} is not stale: delete it from the table"
+E           AssertionError: words_python is not stale: delete it from the table
+E           assert False
+E            +  where False = is_really_stale('words_python')
+
+tests\deploy\test_served_coverage_matches_fixtures.py:530: AssertionError
+________ test_served_coverage_line_states_the_same_counts[pdf_python] _________
+
+key = 'pdf_python'
+
+    @pytest.mark.parametrize("key", PILOT_KEYS)
+    def test_served_coverage_line_states_the_same_counts(key: str) -> None:
+        texts = active_documents(key)
+        if key in stale_baked_pilots():
+            problems = stale_coverage_problems(texts)
+            assert not problems, problems
+>           assert is_really_stale(key), f"{key} is not stale: delete it from the table"
+E           AssertionError: pdf_python is not stale: delete it from the table
+E           assert False
+E            +  where False = is_really_stale('pdf_python')
+
+tests\deploy\test_served_coverage_matches_fixtures.py:530: AssertionError
+_______ test_served_coverage_line_states_the_same_counts[email_python] ________
+
+key = 'email_python'
+
+    @pytest.mark.parametrize("key", PILOT_KEYS)
+    def test_served_coverage_line_states_the_same_counts(key: str) -> None:
+        texts = active_documents(key)
+        if key in stale_baked_pilots():
+            problems = stale_coverage_problems(texts)
+            assert not problems, problems
+>           assert is_really_stale(key), f"{key} is not stale: delete it from the table"
+E           AssertionError: email_python is not stale: delete it from the table
+E           assert False
+E            +  where False = is_really_stale('email_python')
+
+tests\deploy\test_served_coverage_matches_fixtures.py:530: AssertionError
+________ test_served_coverage_line_states_the_same_counts[page_python] ________
+
+key = 'page_python'
+
+    @pytest.mark.parametrize("key", PILOT_KEYS)
+    def test_served_coverage_line_states_the_same_counts(key: str) -> None:
+        texts = active_documents(key)
+        if key in stale_baked_pilots():
+            problems = stale_coverage_problems(texts)
+            assert not problems, problems
+>           assert is_really_stale(key), f"{key} is not stale: delete it from the table"
+E           AssertionError: page_python is not stale: delete it from the table
+E           assert False
+E            +  where False = is_really_stale('page_python')
+
+tests\deploy\test_served_coverage_matches_fixtures.py:530: AssertionError
+________ test_served_coverage_line_states_the_same_counts[tex_python] _________
+
+key = 'tex_python'
+
+    @pytest.mark.parametrize("key", PILOT_KEYS)
+    def test_served_coverage_line_states_the_same_counts(key: str) -> None:
+        texts = active_documents(key)
+        if key in stale_baked_pilots():
+            problems = stale_coverage_problems(texts)
+            assert not problems, problems
+>           assert is_really_stale(key), f"{key} is not stale: delete it from the table"
+E           AssertionError: tex_python is not stale: delete it from the table
+E           assert False
+E            +  where False = is_really_stale('tex_python')
+
+tests\deploy\test_served_coverage_matches_fixtures.py:530: AssertionError
+2 live test(s) deselected; set FOSS_MCP_NETWORK_TESTS=1 to run them
+=========================== short test summary info ===========================
+FAILED tests/extraction/test_email_python_extraction.py::test_every_entry_is_a_real_python_surface_kind
+FAILED tests/extraction/test_page_python_extraction.py::test_every_entry_is_a_real_python_surface_kind
+FAILED tests/extraction/test_pdf_python_extraction.py::test_every_entry_is_a_real_python_surface_kind
+FAILED tests/extraction/test_reextracted_uncapped.py::test_surface_is_complete_and_not_truncated[pdf_python]
+FAILED tests/extraction/test_reextracted_uncapped.py::test_surface_is_complete_and_not_truncated[slides_python]
+FAILED tests/extraction/test_reextracted_uncapped.py::test_surface_is_complete_and_not_truncated[words_python]
+FAILED tests/extraction/test_round3_python_fidelity.py::test_tex_reports_the_files_that_do_not_parse
+FAILED tests/extraction/test_round3_typescript_fidelity.py::test_no_member_is_a_phantom_of_an_inline_object_type[3d_typescript]
+FAILED tests/extraction/test_round3_typescript_fidelity.py::test_3d_matches_the_compiler_counts
+FAILED tests/extraction/test_run_extraction_canonical_counts.py::test_slides_python_denominator_drops_from_the_old_inflated_count
+FAILED tests/extraction/test_run_extraction_canonical_counts.py::test_slides_python_combined_numerator_and_denominator_coverage_line
+FAILED tests/extraction/test_run_extraction_coverage_policy.py::test_recommended_max_types_are_valid
+FAILED tests/extraction/test_slides_python_extraction.py::test_every_entry_is_a_real_python_surface_kind
+FAILED tests/extraction/test_tex_python_extraction.py::test_the_two_repaired_files_are_the_only_unresolved_entries
+FAILED tests/extraction/test_words_python_extraction.py::test_every_entry_is_a_real_python_surface_kind
+FAILED tests/deploy/test_served_coverage_matches_fixtures.py::test_served_type_chunks_equal_the_fixture_types[slides_python]
+FAILED tests/deploy/test_served_coverage_matches_fixtures.py::test_served_type_chunks_equal_the_fixture_types[words_python]
+FAILED tests/deploy/test_served_coverage_matches_fixtures.py::test_served_type_chunks_equal_the_fixture_types[pdf_python]
+FAILED tests/deploy/test_served_coverage_matches_fixtures.py::test_served_type_chunks_equal_the_fixture_types[email_python]
+FAILED tests/deploy/test_served_coverage_matches_fixtures.py::test_served_type_chunks_equal_the_fixture_types[page_python]
+FAILED tests/deploy/test_served_coverage_matches_fixtures.py::test_served_type_chunks_equal_the_fixture_types[tex_python]
+FAILED tests/deploy/test_served_coverage_matches_fixtures.py::test_served_function_chunks_equal_the_fixture_functions[slides_python]
+FAILED tests/deploy/test_served_coverage_matches_fixtures.py::test_served_function_chunks_equal_the_fixture_functions[words_python]
+FAILED tests/deploy/test_served_coverage_matches_fixtures.py::test_served_function_chunks_equal_the_fixture_functions[pdf_python]
+FAILED tests/deploy/test_served_coverage_matches_fixtures.py::test_served_function_chunks_equal_the_fixture_functions[email_python]
+FAILED tests/deploy/test_served_coverage_matches_fixtures.py::test_served_function_chunks_equal_the_fixture_functions[page_python]
+FAILED tests/deploy/test_served_coverage_matches_fixtures.py::test_served_function_chunks_equal_the_fixture_functions[tex_python]
+FAILED tests/deploy/test_served_coverage_matches_fixtures.py::test_served_coverage_line_states_the_same_counts[slides_python]
+FAILED tests/deploy/test_served_coverage_matches_fixtures.py::test_served_coverage_line_states_the_same_counts[words_python]
+FAILED tests/deploy/test_served_coverage_matches_fixtures.py::test_served_coverage_line_states_the_same_counts[pdf_python]
+FAILED tests/deploy/test_served_coverage_matches_fixtures.py::test_served_coverage_line_states_the_same_counts[email_python]
+FAILED tests/deploy/test_served_coverage_matches_fixtures.py::test_served_coverage_line_states_the_same_counts[page_python]
+FAILED tests/deploy/test_served_coverage_matches_fixtures.py::test_served_coverage_line_states_the_same_counts[tex_python]
+
+--- stderr ---
+
