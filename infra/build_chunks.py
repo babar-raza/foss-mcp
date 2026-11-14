@@ -93,6 +93,7 @@ from foss_mcp.indexing.example_candidates import (
 from foss_mcp.indexing.example_candidates import normalised_code_sha256 as _candidate_code_sha256
 from foss_mcp.indexing.example_fixtures import input_literals
 from foss_mcp.indexing.example_verifier import (
+    _GO_MAIN_FUNCTION_RE,
     CPP_COMPAT_NAMES,
     RUNTIME_FAILED,
     RUNTIME_NO_OUTPUT,
@@ -108,6 +109,7 @@ from foss_mcp.indexing.example_verifier import (
     cpp_compat_compile_options,
     entry_counts_as_verified,
     is_environmental_verdict,
+    java_program_source,
     legacy_verification_level,
     prepare_cpp_library_linux,
     prepare_go_library,
@@ -560,6 +562,10 @@ _CACHE_ENTRY_FIELDS = frozenset(
 #
 # TC-802 (REQ-G3-014): ``verification_level`` (one of ``VERIFICATION_LEVELS``) is optional too - the level the
 # verifier achieved. An entry without it is read through ``legacy_verification_level``.
+#
+# TC-803 (REQ-G3-014): ``assembled_source`` (go: the ``main.go`` that was compiled), ``target_framework`` (dotnet)
+# and ``fixtures`` (each staged input file's ``literal``, ``origin`` and ``source``) are optional too, written
+# only when the verifier stated them. A hit publishes them; an entry without them republishes as it always did.
 _CACHE_RUNTIME_FIELDS = frozenset(
     {
         "compiled",
@@ -569,6 +575,9 @@ _CACHE_RUNTIME_FIELDS = frozenset(
         "runtime_error",
         "verifier_version",
         "verification_level",
+        "assembled_source",
+        "target_framework",
+        "fixtures",
     }
 )
 # The last N characters of a verifier's output kept in a cache entry - the FULL output stays in the
@@ -823,15 +832,30 @@ def _published_program(
     - dotnet: the verifier's assembled source (the page's using directives the block lacks).
     - rust: the verifier's assembled source (``fn main`` wrapper, the page's ``use`` statements).
     - cpp: the page ``#include`` lines the block lacks in front, then the ``int main`` wrapper.
-    - go, java: ``effective.code``; their assembly needs the built library and stays in the
-      verification report.
+    - java (TC-803): the Java file ``javac`` is handed (``java_program_source``: the block itself when it
+      declares a public class, else the ``Candidate`` wrapper), a pure function of the code and the pilot's
+      configuration, so it is built here without compiling anything.
+    - go: ``effective.code`` here; its assembly needs the built library, so the verifier returns the
+      ``main.go`` it compiled (``VerificationResult.assembled_source``) and ``_published_assembly`` swaps it in.
     """
     platform = args.library_platform
     code = effective.code
     program = code
     parts: list[str] = []
 
-    if platform in CHAIN_PREFIX_PLATFORMS:
+    if platform == "java":
+        packages = getattr(args, "library_java_packages", None)
+        _, program = java_program_source(
+            code,
+            _page_java_imports(getattr(args, "furnished_page", None)),
+            _java_packages_tuple(packages) if packages else None,
+        )
+        if program != code:
+            parts.append(
+                "wrapped by the verifier in `public class Candidate` with `public static void main(String[] args) "
+                "throws Exception`, the import lines at the top added by the verifier"
+            )
+    elif platform in CHAIN_PREFIX_PLATFORMS:
         if applied_prefix:
             parts.append(
                 f"import lines prepended from earlier examples on this page: {_display_units(applied_prefix)}"
@@ -876,11 +900,157 @@ def _published_program(
         names = input_literals(program, platform)
         if names:
             parts.append(
-                "input files named in the code are placed in the working directory by the verifier when it "
+                f"{_INPUT_FILES_PART_START}"
                 "can (kept if already there, otherwise copied by name from the pinned repository or "
                 f"generated as a minimal file): {', '.join(names)}"
             )
     return program, parts
+
+
+# The start of the generic Harness part that names the input files a block opens. ``_published_assembly`` replaces
+# it with one that says where each file came from, once the verifier (or a cache entry) says what it supplied.
+_INPUT_FILES_PART_START = (
+    "input files named in the code are placed in the working directory by the verifier when it "
+)
+
+
+def _go_assembly_parts(code: str, assembled: str) -> list[str]:
+    """TC-803 (REQ-G3-014): the Harness parts that say how the verifier turned a go block into ``assembled``.
+
+    ``assembled`` is the ``main.go`` ``go build`` was handed. A block that is already a complete file comes back
+    unchanged and needs no part; otherwise the part says whether the block was wrapped in ``func main()`` or
+    only given its package clause and imports, and which ``_ = name`` lines the verifier appended so a fragment
+    with a variable a reader would use later still compiles.
+    """
+    if not assembled or assembled == code:
+        return []
+    if _GO_MAIN_FUNCTION_RE.search(code):
+        parts = ["package clause and imports added by the verifier (the block has its own func main)"]
+    else:
+        parts = ["wrapped by the verifier in package main, the imports it needs and func main()"]
+    own = {line.strip() for line in code.splitlines()}
+    blanked = [name for name in re.findall(r"(?m)^\t_ = (\w+)$", assembled) if f"_ = {name}" not in own]
+    if blanked:
+        parts.append(
+            f"variables the compiler reported declared and not used are kept with `_ = name`: {', '.join(blanked)}"
+        )
+    return parts
+
+
+def _staged_inputs_part(
+    fixtures: list[dict], literals: tuple[str, ...], repository: str | None, commit: str | None
+) -> str:
+    """TC-803 (RD2-163): the Harness part naming where each input file a block opens came from.
+
+    A file copied from the pinned repository is named by its repository path and commit
+    (``testfiles/SimpleTable.one @ <commit>``); a generated one says it is a minimal generated file, not a
+    repository file; one already in the working directory says so; a named file the verifier supplied
+    nothing for says it was not supplied.
+    """
+    by_literal = {str(f.get("literal", "")): f for f in fixtures if isinstance(f, dict)}
+    items: list[str] = []
+    for literal in dict.fromkeys([*by_literal, *literals]):
+        record = by_literal.get(literal)
+        if record is None:
+            items.append(f"{literal} not supplied")
+            continue
+        origin = record.get("origin")
+        source = str(record.get("source") or literal)
+        if origin == "repository":
+            where = f"{source} @ {commit}" if source == literal else f"{literal} from {source} @ {commit}"
+            items.append(where)
+        elif origin == "generated":
+            extension = literal.rsplit(".", 1)[-1].lower()
+            items.append(
+                f"{literal} generated by the verifier as a minimal {extension} file, not from the repository"
+            )
+        else:
+            items.append(
+                f"{literal} already in the working directory (left by an earlier example on this page)"
+            )
+    source_name = f" ({repository})" if repository else ""
+    return (
+        f"input files named in the code are placed in the working directory by the verifier{source_name}: "
+        + ", ".join(items)
+    )
+
+
+def _cache_assembly_fields(result: Any) -> dict:
+    """TC-803: the cache-entry keys that let a later hit publish what this run published - the program the
+    verifier assembled (go), the .NET target framework and where each staged input file came from. Each only
+    when the verifier stated it; a stand-in verifier states none, so its entry is unchanged."""
+    fields: dict = {}
+    assembled = getattr(result, "assembled_source", "")
+    if isinstance(assembled, str) and assembled:
+        fields["assembled_source"] = assembled
+    target_framework = getattr(result, "target_framework", "")
+    if isinstance(target_framework, str) and target_framework:
+        fields["target_framework"] = target_framework
+    fixtures = [
+        {"literal": f.literal, "origin": f.origin, "source": f.source}
+        for f in getattr(result, "fixtures", ())
+    ]
+    if fixtures:
+        fields["fixtures"] = fixtures
+    return fields
+
+
+def _published_assembly(
+    plan: _CandidatePlan,
+    args: argparse.Namespace,
+    result: Any,
+    hit_entry: dict | None,
+    real_verifier: bool,
+    staged_earlier: dict[str, dict],
+) -> tuple[str, str]:
+    """TC-803 (REQ-G3-014): the program an example is published as, and its ``Harness:`` text, once the
+    candidate was verified for real (``result``) or its verdict came from the cache (``hit_entry``).
+
+    ``plan.program`` / ``plan.parts`` are what is known before anything runs. What only the toolchain run knows
+    is added from the verifier's result or from the cache entry that recorded it: the go ``main.go`` it compiled
+    (published instead of the block), the .NET target framework (one part naming ``ImplicitUsings=enable`` and
+    it), and where each staged input file came from. A cache entry written before this card carries none of
+    them and publishes exactly what it did.
+
+    ``staged_earlier`` maps an input file name to the record of how an earlier example on the same page got it.
+    Python examples of a page share one working directory, so a later example finds the file an earlier one
+    already staged (the verifier then records it only as "present"); that record is replaced by the earlier
+    one, so the repository path and commit are still named. It is updated here, for every candidate in order.
+    """
+    platform = args.library_platform
+    program = plan.program
+    parts = list(plan.parts)
+    if hit_entry is not None:
+        assembled = hit_entry.get("assembled_source")
+        target_framework = hit_entry.get("target_framework")
+        fixtures = hit_entry.get("fixtures")
+    else:
+        assembled = getattr(result, "assembled_source", "")
+        target_framework = getattr(result, "target_framework", "")
+        fixtures = [fixture.as_dict() for fixture in getattr(result, "fixtures", ())]
+    if platform == "go" and isinstance(assembled, str) and assembled:
+        program = assembled
+        parts.extend(_go_assembly_parts(plan.effective.code, assembled))
+    if platform == "dotnet" and ((isinstance(target_framework, str) and target_framework) or real_verifier):
+        tfm = f", {target_framework}" if isinstance(target_framework, str) and target_framework else ""
+        parts.append(f"built in a console project with ImplicitUsings=enable{tfm}")
+    if isinstance(fixtures, list) and fixtures:
+        fixtures = [f for f in fixtures if isinstance(f, dict)]
+        for position, record in enumerate(fixtures):
+            literal = str(record.get("literal", ""))
+            if record.get("origin") == "present" and literal in staged_earlier:
+                fixtures[position] = staged_earlier[literal]
+            elif record.get("origin") != "present":
+                staged_earlier[literal] = record
+        for position, part in enumerate(parts):
+            if part.startswith(_INPUT_FILES_PART_START):
+                parts[position] = _staged_inputs_part(
+                    fixtures,
+                    input_literals(program, platform),
+                    getattr(args, "library_repository", None),
+                    getattr(args, "library_commit", None),
+                )
+    return program, "; ".join(parts).replace("Example:", "Example :")
 
 
 _MARKDOWN_HEADING_RE = re.compile(r"^#{1,6}[ \t]+", re.MULTILINE)
@@ -957,6 +1127,7 @@ class _CandidatePlan:
     program: str
     harness: str
     key_candidate: CandidateExample
+    parts: tuple[str, ...] = ()
 
 
 def _single_example_chunk(doc: NormalizedDocument) -> Chunk:
@@ -1034,6 +1205,14 @@ def _build_verified_example_chunks(
     ``legacy_verification_level``) and ``Verified-With:`` (``toolchain``, else ``toolchain_id`` probed once). A candidate
     whose run failed or produced nothing is kept in ``verification_records`` (``not_published``) and is NOT
     published as a ``verified_example``.
+
+    TC-803 (REQ-G3-014): the chunk publishes the program that was compiled. A java block is published as the
+    file ``javac`` is handed (``_published_program``); a go block as the ``main.go`` the verifier assembled and
+    returned (a cache entry stores it, so a hit republishes it); a .NET example says it was built with
+    ``ImplicitUsings=enable`` for its target framework; and the input files a python or cpp block opens are traced
+    to the repository path and commit they were copied from (or said to be generated). ``_published_assembly`` adds
+    these once the verifier's result or the cache entry is known; a cache entry that recorded none republishes
+    as it always did.
     """
     page = _load_furnished_page(args.furnished_page)
     platform = args.library_platform
@@ -1081,7 +1260,9 @@ def _build_verified_example_chunks(
             effective, code=key_text, code_sha256=normalised_code_sha256(key_text)
         )
         harness = "; ".join(parts).replace("Example:", "Example :")
-        plans.append(_CandidatePlan(index, candidate, False, effective, program, harness, key_candidate))
+        plans.append(
+            _CandidatePlan(index, candidate, False, effective, program, harness, key_candidate, tuple(parts))
+        )
     active = [plan for plan in plans if not plan.skipped]
 
     cache_active = verification_cache is not None
@@ -1166,6 +1347,8 @@ def _build_verified_example_chunks(
     # Only the real verifier stamps a level; a stand-in (test double) states none and is never read as having one.
     real_verifier = verify is _REAL_VERIFIERS.get(platform)
     probed_toolchain: list[str | None] = []
+    # TC-803: how each input file an earlier example on this page got staged (the python page shares one workdir).
+    staged_earlier: dict[str, dict] = {}
 
     def verified_with_toolchain() -> str | None:
         if toolchain:
@@ -1245,6 +1428,10 @@ def _build_verified_example_chunks(
             if hit_entry is not None
             else counts_as_verified(runtime.status)
         )
+        # TC-803: what the toolchain run (or the cache entry that recorded it) adds to the program and its harness.
+        published_program, published_harness = _published_assembly(
+            plan, args, verification_result, hit_entry, real_verifier, staged_earlier
+        )
         rejected = compiled and rejected_for_unimplemented_format(
             runtime, candidate.code, unimplemented_formats
         )
@@ -1278,7 +1465,7 @@ def _build_verified_example_chunks(
                 record["toolchain"] = toolchain
             record["source"] = candidate.source
             record["starts_example"] = candidate.starts_example
-            record["harness"] = plan.harness
+            record["harness"] = published_harness
             if level:
                 record["verification_level"] = level
             if not_published:
@@ -1310,6 +1497,7 @@ def _build_verified_example_chunks(
                     "output": output[-_CACHE_OUTPUT_TAIL_CHARS:],
                     **(runtime.as_cache_fields() if runtime.ran is not None else {}),
                     **({"verification_level": level} if level else {}),
+                    **_cache_assembly_fields(verification_result),
                     "verifier_version": VERIFIER_VERSION,
                 }
             )
@@ -1324,7 +1512,7 @@ def _build_verified_example_chunks(
         ):
             # TC-802: only an example that compiled and did not fail or come out empty at runtime is published;
             # an authored one only when verified. ``Verification-Level`` / ``Verified-With`` say how far it went.
-            harness_line = f"Harness: {plan.harness}\n" if plan.harness else ""
+            harness_line = f"Harness: {published_harness}\n" if published_harness else ""
             authored_lines = ""
             runtime_lines = _runtime_chunk_lines(runtime)
             level_lines = _verification_level_lines(level, verified_with_toolchain() if level else None)
@@ -1357,7 +1545,7 @@ def _build_verified_example_chunks(
                     f"{harness_line}"
                     f"{header_end}"
                     f"{_chunkable_description(candidate.description)}\n\n"
-                    f"Example:\n{plan.program}"
+                    f"Example:\n{published_program}"
                 ),
             )
             verified_chunks.append(_single_example_chunk(doc))

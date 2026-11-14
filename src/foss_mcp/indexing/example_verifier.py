@@ -82,6 +82,7 @@ __all__ = [
     "RUNTIME_RUN_REQUIRED_FOR_VERIFIED",
     "VERIFICATION_LEVELS",
     "VERIFIER_VERSION",
+    "java_program_source",
     "RunOutcome",
     "RuntimeRecord",
     "classify_runtime",
@@ -445,6 +446,11 @@ class VerificationResult:
     ``level`` (TC-802) is the verification level the verifier itself achieved - one of
     ``VERIFICATION_LEVELS`` - set only when ``verified`` is True and excluded from equality, so it never
     changes what a result compares equal to. A stand-in verifier that sets nothing leaves it empty.
+
+    TC-803 (REQ-G3-014): ``assembled_source`` is the exact program the toolchain was handed when the verifier
+    assembled one around the README block (the go ``main.go``); empty when it did not or cannot say.
+    ``target_framework`` is the .NET target framework the candidate project was built for. Both are excluded
+    from equality like ``level``.
     """
 
     candidate: CandidateExample
@@ -453,6 +459,8 @@ class VerificationResult:
     status: str = ""
     fixtures: tuple[FixtureRecord, ...] = field(default=(), compare=False)
     level: str = field(default="", compare=False)
+    assembled_source: str = field(default="", compare=False)
+    target_framework: str = field(default="", compare=False)
 
 
 # TC-456 (REQ-G3-007): words/net's packages/ (Aspose.JavaAttributes, Aspose.CodePorting) are
@@ -741,7 +749,11 @@ def verify_dotnet_example(
 
     # A successful ``dotnet build`` proves the block builds; running it is a separate step (run_compiled_candidate).
     return VerificationResult(
-        candidate=candidate, verified=verified, output=output, level=LEVEL_BUILT if verified else ""
+        candidate=candidate,
+        verified=verified,
+        output=output,
+        level=LEVEL_BUILT if verified else "",
+        target_framework=target_framework,
     )
 
 
@@ -2252,6 +2264,7 @@ def verify_go_example(
 
     plan = _plan_go_assembly(candidate.code, module_path, candidate.page_code, library_dir)
     blank_uses: list[str] = []
+    assembled: list[str] = []
 
     def write_main_go() -> None:
         main_go = _wrap_go_fragment_if_needed(
@@ -2262,6 +2275,8 @@ def verify_go_example(
             blank_uses=tuple(blank_uses),
         )
         (project_dir / "main.go").write_text(main_go, encoding="utf-8")
+        # TC-803: the file ``go build`` is handed, kept so the example is published as the program that was compiled.
+        assembled[:] = [main_go]
 
     def finish(verified: bool, tidy_returncode: int | None, *outputs: str) -> VerificationResult:
         assembly = _go_assembly_line(plan, blank_uses, tidy_returncode)
@@ -2272,6 +2287,7 @@ def verify_go_example(
             verified=verified,
             output=f"{assembly}\n{_truncate(joined)}",
             level=LEVEL_BUILT if verified else "",
+            assembled_source=assembled[0] if assembled else "",
         )
 
     write_main_go()
@@ -2408,6 +2424,25 @@ def _java_wrapper_source(
         "    }\n"
         "}\n"
     )
+
+
+def java_program_source(
+    code: str,
+    page_imports: tuple[str, ...] = (),
+    java_packages: tuple[str, ...] | None = None,
+) -> tuple[str, str]:
+    """TC-803 (REQ-G3-014): ``(class name, source)`` - the exact Java file ``javac`` is handed for ``code``.
+
+    A candidate that declares its own public class is compiled as given, named after that class. Any
+    other candidate is wrapped by ``_java_wrapper_source`` in a ``Candidate`` class. It is a pure function of
+    the code and the pilot's configuration (``page_imports``, ``java_packages``), so the program an example
+    is published as can be built without compiling anything, and is the program that was compiled.
+    """
+    match = _JAVA_PUBLIC_CLASS_RE.search(code)
+    if match is not None:
+        return match.group(1), code
+    class_name = "Candidate"
+    return class_name, _java_wrapper_source(code, class_name, page_imports, base_packages=java_packages)
 
 
 def _find_or_download_maven(workdir: Path) -> Path:
@@ -2599,13 +2634,7 @@ def verify_java_example(
     project_dir = workdir / "candidate_project"
     project_dir.mkdir(parents=True, exist_ok=True)
 
-    match = _JAVA_PUBLIC_CLASS_RE.search(candidate.code)
-    if match is not None:
-        class_name = match.group(1)
-        source = candidate.code
-    else:
-        class_name = "Candidate"
-        source = _java_wrapper_source(candidate.code, class_name, page_imports, base_packages=java_packages)
+    class_name, source = java_program_source(candidate.code, page_imports, java_packages)
 
     source_path = project_dir / f"{class_name}.java"
     source_path.write_text(source, encoding="utf-8")

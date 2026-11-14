@@ -33,6 +33,7 @@ from foss_mcp.indexing.example_verifier import (
     _assemble_dotnet_source,
     _assemble_rust_source,
     _wrap_cpp_fragment_if_needed,
+    java_program_source,
 )
 from foss_mcp.normalization.chunker import chunk_document
 from foss_mcp.normalization.document_schema import Provenance, SourceKind, make_document
@@ -582,9 +583,10 @@ def test_a_go_candidate_is_published_unchanged_without_a_harness_line(
         assert text == _expected_text(page_path, title, f"Prose for {title}.", code)
 
 
-def test_a_java_candidate_is_published_unchanged_without_a_harness_line(
+def test_a_java_candidate_is_published_as_the_javac_wrapper_source_with_a_harness_part(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
+    # TC-803: the program javac is handed (the Candidate wrapper), not the bare fragment, and the harness says so.
     code = "import java.util.List;\nSystem.out.println(List.of());"
     page_path = _write_page(tmp_path / "_index.md", "java", [("Body", code)])
     Harness(monkeypatch, "java")
@@ -592,8 +594,11 @@ def test_a_java_candidate_is_published_unchanged_without_a_harness_line(
     _build(monkeypatch, tmp_path, page_path, "java")
 
     text = _example_text(tmp_path, "Body")
-    assert "Harness:" not in text
-    assert text == _expected_text(page_path, "Body", "Prose for Body.", code)
+    _, wrapper = java_program_source(code, build_chunks._page_java_imports(page_path), None)
+    assert wrapper != code and "public class Candidate" in wrapper
+    harness = _harness_line(text)
+    assert harness is not None and "wrapped by the verifier in `public class Candidate`" in harness
+    assert text == _expected_text(page_path, "Body", "Prose for Body.", wrapper, harness[len("Harness: ") :])
 
 
 # --- a README content block's prose holds markdown headings ------------------------------------------------------------
