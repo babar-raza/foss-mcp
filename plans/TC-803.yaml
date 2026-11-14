@@ -1,0 +1,116 @@
+id: TC-803
+gate: G3
+lane: storage-retrieval
+purpose: >-
+  XA4a - publish the program that was verified (RD2-190, live) and name where staged inputs came
+  from (RD2-163). Measured: README snippets for java (19 of 22) and go (12 of 14) are served as
+  FRAGMENTS with no `Harness:` line although the verifier added imports/a class/`main` (java
+  `_java_wrapper_source`) or `package main`, imports, `func main(){...}` and `_ = x` (go
+  `_wrap_go_fragment_if_needed`): a caller pasting pdf/go's snippet gets `undefined: pdf`. A
+  generic note admits 'the verifier may have added imports or an entry point' but nothing is
+  specific. Build: java - publish the wrapper source (a pure function of config); go - the
+  verifier returns its assembled `main.go` (`VerificationResult.assembled_source`) which is stored
+  in the cache entry (today only a summary) so a cache hit republishes it; dotnet - add one
+  `Harness:` part naming `ImplicitUsings=enable, net<TFM>`. RD2-163 (note/python): the harness
+  line must state the repo path and commit each staged input file came from (e.g.
+  `testfiles/SimpleTable.one @ <commit>`), same for every pilot that stages named repository files
+  (words/python `report.docx` is generated - say so). Authored examples are already complete
+  programs and stay unaffected. Not fixing RD2-273 (stray page-wide using, P3).
+depends_on:
+  - TC-802
+  - TC-801
+  - TC-800
+  - TC-701
+  - TC-565
+  - TC-561
+  - TC-458
+write_paths:
+  - src/foss_mcp/indexing/example_verifier.py
+  - infra/build_chunks.py
+  - tests/indexing/test_published_program_is_verified_program.py
+satisfies:
+  - REQ-G3-014
+source_refs:
+  - file: docs/DECISION_LOG.md
+    anchor: >-
+      ## 2026-11-14 — TC-790 (chunk-truncation API-Coverage preservation) lands, plus 2 more pre-existing stale-fixture breaks
+    sha256: 13bbc08926dd377f4940bfa06350eeff74eb1c324787a81d3a2d8b8bdd76e3da
+inputs:
+  - >-
+    Evidence for the ledger rows this card closes was gathered by a read-only 2026-11-14 triage:
+    per-row record (id, pilot, evidence, proposed fix) in
+    C:\Users\babar\AppData\Local\Temp\claude\ba7a97aae65a293e\697bcd44-50ef-4b4a-9cc0-f2541ed92371\scratchpad\all_triage.json
+    (JSON list; filter by `id`, e.g. RD2-190). It is a LEAD, not truth: REPRODUCE everything
+    yourself first; if something no longer reproduces, say so and do not invent a fix.
+  - >-
+    The measured design record for this stage is in
+    C:\Users\babar\AppData\Local\Temp\claude\ba7a97aae65a293e\697bcd44-50ef-4b4a-9cc0-f2541ed92371\scratchpad\infra_decision\decision.md
+    (section 2 for your stage, section 3 for the card breakdown; per-pilot corpus table in
+    C:\Users\babar\AppData\Local\Temp\claude\ba7a97aae65a293e\697bcd44-50ef-4b4a-9cc0-f2541ed92371\scratchpad\infra_decision\per_pilot_table.md).
+    Its numbers were measured on 2026-11-14 - re-measure what you rely on. Where the record and the
+    code disagree, the code wins; say so in your report.
+  - >-
+    READ FIRST: `_java_wrapper_source`, `_wrap_go_fragment_if_needed`, `_assemble_dotnet_source`,
+    the `Harness:` line construction and `_stage_named_repository_files` (TC-701) in
+    example_verifier.py / infra/build_chunks.py; tests/indexing/test_go_verifier_assembly.py (28),
+    test_go_verifier_major_version.py (24), test_java_verifier_pilots.py (40),
+    test_dotnet_verifier_assembly.py (38), test_java_page_imports.py (3).
+  - >-
+    REPRODUCE FIRST: for 2 real go and 2 real java README candidates (e.g. pdf/go, cells/go,
+    pdf/java) show the served program is a fragment while the verified program is the assembled
+    source; and for note/python show the harness line does not name the staged `.one` files' repo
+    path/commit.
+  - >-
+    BUILD as in the purpose. REAL-TOOLCHAIN PROOF (go and JDK+Maven are installed; use PowerShell
+    with scripts/toolchain/activate.ps1): copy-paste the NEW published program of 2 go and 2 java
+    candidates into a temp dir OUTSIDE the repo and compile it with the real toolchain - it must
+    compile as published. Record the commands and results. Keep the committed caches valid (cache
+    entries gain the assembled source additively; legacy entries republish as before).
+  - >-
+    TESTS tests/indexing/test_published_program_is_verified_program.py: java published text == the
+    wrapper source javac was given (golden); go published text == the assembled main.go (and a cache
+    hit republishes it); dotnet Harness part names ImplicitUsings/TFM; the staged-input provenance
+    wording for a named repo file and for a generated fixture; authored examples unchanged.
+  - >-
+    Do NOT regenerate or touch anything under infra/demo-manifests/ or
+    tests/fixtures/verified_examples/ - a single coordinated regeneration of all pilots happens in a
+    later card; this card changes code and tests only. Chunk text produced by the new code will
+    therefore differ from the committed generations - tests must exercise the code path directly,
+    never rely on the committed generations being regenerated.
+  - >-
+    Commit EXACTLY ONE commit (the supervisor's negative control reverse-applies that commit's
+    production-code part). Before committing run `ruff format` and `ruff check` on changed Python
+    files, then run the card's check command twice and report the real results. Keep every
+    pre-existing test unchanged unless a test pinned the now-corrected behavior as 'correct' - then
+    change only that assertion and say so.
+actions:
+  - >-
+    Publish exactly the program the verifier compiled (java wrapper, go assembled source, dotnet
+    usings/TFM) and say where staged input files came from.
+checks:
+  - command: '{python} -m pytest tests/indexing/test_published_program_is_verified_program.py tests/indexing/test_go_verifier_assembly.py tests/indexing/test_go_verifier_major_version.py tests/indexing/test_java_verifier_pilots.py tests/indexing/test_dotnet_verifier_assembly.py tests/indexing/test_java_page_imports.py tests/indexing/test_example_verifier.py tests/infra/test_build_chunks_candidate_chains.py tests/infra/test_build_chunks_verification_cache.py -q -rfE -p no:cacheprovider'
+    expect: 'exit 0'
+    timeout_seconds: 1800
+    junitxml: true
+    proves:
+      - REQ-G3-014
+min_tests: 214
+requires:
+  - python
+network: true
+negative_control:
+  mutate: |
+    python -X utf8 -c "import subprocess; paths = ['src/foss_mcp/indexing/example_verifier.py', 'infra/build_chunks.py']; patch = subprocess.run(['git', 'show', '--format=', 'HEAD', '--'] + paths, capture_output=True, check=True).stdout; assert patch.strip(), 'the worker commit changes none of the production paths - the fix is missing'; subprocess.run(['git', 'apply', '-R', '--whitespace=nowarn', '-'], input=patch, check=True)"
+  rationale: >-
+    Reverse-applies the worker's own commit restricted to this card's production (non-test) paths,
+    i.e. removes the fix itself while keeping the card's new tests; the suite must then fail.
+    Anchored on the real committed diff, so it cannot be vacuous or literal-fragile. The worker must
+    therefore commit exactly ONE commit for this card.
+evidence:
+  - evidence/build/G3/TC-803/receipt.json
+closeout:
+  - >-
+    A pasted java/go README snippet is the program that was compiled; staged input files are traced
+    to their source; RD2-190 and RD2-163 are fixed in code and reach the data at the coordinated
+    regeneration.
+recovery: Re-run from a clean tree.

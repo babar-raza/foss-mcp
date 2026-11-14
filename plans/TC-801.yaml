@@ -1,0 +1,109 @@
+id: TC-801
+gate: G3
+lane: storage-retrieval
+purpose: >-
+  XA7a - honest verification-cache hit. `infra/build_chunks.py::_cache_hit` accepts ANY `verified:
+  true` entry; an entry written before TC-565 has no run facts, classifies as RUNTIME_UNKNOWN, and
+  `counts_as_verified` treats an unknown run as verified. Measured consequence (2026-11-14): 54
+  java/dotnet examples (51 README, 3 imaging/net) are served 'compiled only (run not verified)'
+  although the verifier would now run them (this includes RD2-237, slides/java 'Clone a Slide').
+  Fix: (a) for platforms in `_RUNNABLE_VERIFIERS`, a cache entry lacking the run record is a MISS;
+  (b) add a `VERIFIER_VERSION` constant (bumped when run semantics change) stored in every entry
+  and part of the hit test; (c) never write timeout / fixture-unavailable (environmental) verdicts
+  into the cache file. Entries without the new field are read as 'legacy' and count as misses only
+  for runnable platforms, so the committed caches under tests/fixtures/verified_examples keep
+  validating.
+depends_on:
+  - TC-800
+  - TC-441
+  - TC-530
+  - TC-565
+  - TC-502
+  - TC-552
+  - TC-548
+  - TC-551
+  - TC-553
+write_paths:
+  - infra/build_chunks.py
+  - src/foss_mcp/indexing/example_verifier.py
+  - tests/infra/test_build_chunks_verification_cache.py
+  - tests/infra/test_build_chunks_cache_run_facts.py
+satisfies:
+  - REQ-G3-014
+source_refs:
+  - file: docs/DECISION_LOG.md
+    anchor: >-
+      ## 2026-11-14 — TC-790 (chunk-truncation API-Coverage preservation) lands, plus 2 more pre-existing stale-fixture breaks
+    sha256: 13bbc08926dd377f4940bfa06350eeff74eb1c324787a81d3a2d8b8bdd76e3da
+inputs:
+  - >-
+    The measured design record for this stage is in
+    C:\Users\babar\AppData\Local\Temp\claude\ba7a97aae65a293e\697bcd44-50ef-4b4a-9cc0-f2541ed92371\scratchpad\infra_decision\decision.md
+    (section 2 for your stage, section 3 for the card breakdown; per-pilot corpus table in
+    C:\Users\babar\AppData\Local\Temp\claude\ba7a97aae65a293e\697bcd44-50ef-4b4a-9cc0-f2541ed92371\scratchpad\infra_decision\per_pilot_table.md).
+    Its numbers were measured on 2026-11-14 - re-measure what you rely on. Where the record and the
+    code disagree, the code wins; say so in your report.
+  - >-
+    READ FIRST: `_cache_hit` (~line 994), `merge_verification_cache`, `parse_verification_cache`,
+    `load_verification_cache`, `_RUNNABLE_VERIFIERS` in infra/build_chunks.py; `counts_as_verified`,
+    `RuntimeRecord`, `VerificationResult` and the run classification in example_verifier.py;
+    tests/infra/test_build_chunks_verification_cache.py (42),
+    tests/infra/test_verification_cache_committed.py (105) and test_verification_cache_seed_files.py
+    (69) - the committed caches must still pass the latter two unchanged.
+  - >-
+    REPRODUCE FIRST: construct a pre-TC-565-style cache entry (verified:true, no run record) for a
+    java candidate and show the unfixed `_cache_hit` returns a hit; then show the same for a go
+    candidate (go is NOT runnable today, so a hit must stay a hit). Count, over the committed caches
+    (read-only), the verified:true entries lacking run facts on runnable platforms (expect ~54).
+  - >-
+    FIX as in the purpose. Schema/shape of cache entries must remain backward compatible: add the
+    new field additively; `parse_verification_cache` must accept legacy entries; do not rewrite any
+    committed cache file. Do not change `counts_as_verified` semantics for any platform.
+  - >-
+    TESTS in tests/infra/test_build_chunks_cache_run_facts.py (new) and additions to
+    tests/infra/test_build_chunks_verification_cache.py: legacy java entry = miss; legacy go/python
+    entry = hit; entry with run record and current VERIFIER_VERSION = hit; entry with an older
+    VERIFIER_VERSION on a runnable platform = miss; timeout/fixture-unavailable verdicts are not
+    persisted.
+  - >-
+    Do NOT regenerate or touch anything under infra/demo-manifests/ or
+    tests/fixtures/verified_examples/ - a single coordinated regeneration of all pilots happens in a
+    later card; this card changes code and tests only. Chunk text produced by the new code will
+    therefore differ from the committed generations - tests must exercise the code path directly,
+    never rely on the committed generations being regenerated.
+  - >-
+    Commit EXACTLY ONE commit (the supervisor's negative control reverse-applies that commit's
+    production-code part). Before committing run `ruff format` and `ruff check` on changed Python
+    files, then run the card's check command twice and report the real results. Keep every
+    pre-existing test unchanged unless a test pinned the now-corrected behavior as 'correct' - then
+    change only that assertion and say so.
+actions:
+  - >-
+    Stop the verification cache from serving stale unrun 'verified' verdicts for runnable platforms,
+    add a verifier version to the hit test, and keep environmental failures out of the cache.
+checks:
+  - command: '{python} -m pytest tests/infra/test_build_chunks_cache_run_facts.py tests/infra/test_build_chunks_verification_cache.py tests/infra/test_verification_cache_committed.py tests/infra/test_verification_cache_seed_files.py tests/indexing/test_example_verifier.py tests/indexing/test_example_verifier_classification.py tests/indexing/test_example_verifier_toolchain.py tests/indexing/test_round3_example_runtime_truth.py tests/infra/test_build_chunks_candidate_chains.py -q -rfE -p no:cacheprovider'
+    expect: 'exit 0'
+    timeout_seconds: 1500
+    junitxml: true
+    proves:
+      - REQ-G3-014
+min_tests: 364
+requires:
+  - python
+network: true
+negative_control:
+  mutate: |
+    python -X utf8 -c "import subprocess; paths = ['infra/build_chunks.py', 'src/foss_mcp/indexing/example_verifier.py']; patch = subprocess.run(['git', 'show', '--format=', 'HEAD', '--'] + paths, capture_output=True, check=True).stdout; assert patch.strip(), 'the worker commit changes none of the production paths - the fix is missing'; subprocess.run(['git', 'apply', '-R', '--whitespace=nowarn', '-'], input=patch, check=True)"
+  rationale: >-
+    Reverse-applies the worker's own commit restricted to this card's production (non-test) paths,
+    i.e. removes the fix itself while keeping the card's new tests; the suite must then fail.
+    Anchored on the real committed diff, so it cannot be vacuous or literal-fragile. The worker must
+    therefore commit exactly ONE commit for this card.
+evidence:
+  - evidence/build/G3/TC-801/receipt.json
+closeout:
+  - >-
+    Runnable-platform examples are re-run instead of trusted from stale unrun cache entries; the
+    cache key carries a verifier version.
+recovery: Re-run from a clean tree.

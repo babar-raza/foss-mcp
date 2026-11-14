@@ -1,0 +1,106 @@
+id: TC-806
+gate: G3
+lane: storage-retrieval
+purpose: >-
+  XA5R - Rust run step. Today Rust examples are only compiled/type-checked, never executed: 6
+  served rust examples are `cargo build` only. The authored sidecar examples for this language are
+  SELF-CHECKING programs (assert/throw/fatal) whose checks never run in the pipeline, so
+  'Verification: passed' means 'it compiles'. Add a run step (`cargo run --quiet`) recorded
+  through the existing `RuntimeRecord`/`execute_in_sandbox` machinery (60 s, fixtures staged by
+  `provide_fixtures`), classified like java/dotnet (non-zero exit => failed => not published as
+  verified; empty output recorded, NOT demoted: do not change `counts_as_verified`). New
+  per-language code goes in the NEW module `src/foss_mcp/indexing/example_runtime.py` (rust
+  command builder) with only one-line hooks in example_verifier.py /
+  `infra/build_chunks.py::_RUNNABLE_VERIFIERS` (decision: no verifier split - see the infra
+  decision record).
+depends_on:
+  - TC-805
+  - TC-803
+  - TC-802
+  - TC-801
+  - TC-565
+  - TC-502
+  - TC-552
+write_paths:
+  - src/foss_mcp/indexing/example_runtime.py
+  - src/foss_mcp/indexing/example_verifier.py
+  - infra/build_chunks.py
+  - tests/indexing/test_example_run_step_rust.py
+satisfies:
+  - REQ-G3-014
+source_refs:
+  - file: docs/DECISION_LOG.md
+    anchor: >-
+      ## 2026-11-14 — TC-790 (chunk-truncation API-Coverage preservation) lands, plus 2 more pre-existing stale-fixture breaks
+    sha256: 13bbc08926dd377f4940bfa06350eeff74eb1c324787a81d3a2d8b8bdd76e3da
+inputs:
+  - >-
+    The measured design record for this stage is in
+    C:\Users\babar\AppData\Local\Temp\claude\ba7a97aae65a293e\697bcd44-50ef-4b4a-9cc0-f2541ed92371\scratchpad\infra_decision\decision.md
+    (section 2 for your stage, section 3 for the card breakdown; per-pilot corpus table in
+    C:\Users\babar\AppData\Local\Temp\claude\ba7a97aae65a293e\697bcd44-50ef-4b4a-9cc0-f2541ed92371\scratchpad\infra_decision\per_pilot_table.md).
+    Its numbers were measured on 2026-11-14 - re-measure what you rely on. Where the record and the
+    code disagree, the code wins; say so in your report.
+  - >-
+    READ FIRST: `runtime_command()`, `RUNNABLE_PLATFORMS`, `execute_in_sandbox`, `provide_fixtures`,
+    `RuntimeRecord` in example_verifier.py and `_RUNNABLE_VERIFIERS` / `_PLATFORM_DISPATCH` in
+    infra/build_chunks.py (how java/dotnet runs are wired); the Rust verifier tests:
+    tests/indexing/test_rust_verifier_assembly.py tests/indexing/test_rust_reference_env_failure.py.
+  - >-
+    REPRODUCE FIRST: show a Rust authored example whose self-check would FAIL (write a tiny
+    deliberately wrong program in a temp dir) is currently reported 'verified' because only the
+    build runs. Then implement the run step and show the same program is now `failed`.
+  - >-
+    REAL-TOOLCHAIN PROOF (installed toolchains; PowerShell + scripts/toolchain/activate.ps1; temp
+    dirs OUTSIDE the repo; network may be needed for modules): run the pipeline's Rust verification
+    path over the committed authored Rust examples of at least 3 pilots
+    (tests/fixtures/furnished/<pilot>/authored_examples.yaml) and report how many pass/fail/empty
+    with the run step - a failure of a committed authored example is a REAL finding: report it, do
+    not weaken anything.
+  - >-
+    TESTS: tests/indexing/test_example_run_step_rust.py with a FAKE runner (no toolchain): exit 1 =>
+    failed and not published; exit 0 => `ran-exit0` recorded; timeout => environmental (not cached,
+    see XA7a); the wiring proof that the run step is reachable from the real `build_chunks`
+    verification entrypoint (source grep / import graph, AGENTS.md 'Integration and liveness').
+  - >-
+    Do NOT regenerate or touch anything under infra/demo-manifests/ or
+    tests/fixtures/verified_examples/ - a single coordinated regeneration of all pilots happens in a
+    later card; this card changes code and tests only. Chunk text produced by the new code will
+    therefore differ from the committed generations - tests must exercise the code path directly,
+    never rely on the committed generations being regenerated.
+  - >-
+    Commit EXACTLY ONE commit (the supervisor's negative control reverse-applies that commit's
+    production-code part). Before committing run `ruff format` and `ruff check` on changed Python
+    files, then run the card's check command twice and report the real results. Keep every
+    pre-existing test unchanged unless a test pinned the now-corrected behavior as 'correct' - then
+    change only that assertion and say so.
+actions:
+  - >-
+    Execute Rust examples in the verification pipeline and record the result so a failing self-check
+    can no longer be published as verified.
+checks:
+  - command: '{python} -m pytest tests/indexing/test_example_run_step_rust.py tests/indexing/test_rust_verifier_assembly.py tests/indexing/test_rust_reference_env_failure.py tests/indexing/test_example_verifier.py tests/indexing/test_example_verifier_classification.py tests/infra/test_build_chunks_platforms.py tests/infra/test_build_chunks_candidate_chains.py -q -rfE -p no:cacheprovider'
+    expect: 'exit 0'
+    timeout_seconds: 1800
+    junitxml: true
+    proves:
+      - REQ-G3-014
+min_tests: 112
+requires:
+  - python
+network: true
+negative_control:
+  mutate: |
+    python -X utf8 -c "import subprocess; paths = ['src/foss_mcp/indexing/example_runtime.py', 'src/foss_mcp/indexing/example_verifier.py', 'infra/build_chunks.py']; patch = subprocess.run(['git', 'show', '--format=', 'HEAD', '--'] + paths, capture_output=True, check=True).stdout; assert patch.strip(), 'the worker commit changes none of the production paths - the fix is missing'; subprocess.run(['git', 'apply', '-R', '--whitespace=nowarn', '-'], input=patch, check=True)"
+  rationale: >-
+    Reverse-applies the worker's own commit restricted to this card's production (non-test) paths,
+    i.e. removes the fix itself while keeping the card's new tests; the suite must then fail.
+    Anchored on the real committed diff, so it cannot be vacuous or literal-fragile. The worker must
+    therefore commit exactly ONE commit for this card.
+evidence:
+  - evidence/build/G3/TC-806/receipt.json
+closeout:
+  - >-
+    Rust examples are executed by the verification pipeline; committed authored Rust examples were
+    run for real and the result is reported.
+recovery: Re-run from a clean tree.

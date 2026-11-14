@@ -1,0 +1,148 @@
+id: TC-796
+gate: G3
+lane: verification
+purpose: >-
+  Closes the undisclosed-upstream-behavior / capability-gap rows of the cells family found by the
+  2026-11-14 ledger triage: RD2-055 (CELLS-CPP-004: saved formulas are never calculated, no cached
+  <v>), RD2-105 (CELLS-TYPESCRIPT-001: formulas write-only - leading '=' baked into <f>, never
+  calculated, never read back), RD2-110 (CELLS-TYPESCRIPT-006: toCsv()/toMarkdown() export only
+  the first worksheet), RD2-113 (CELLS-TYPESCRIPT-009: Workbook.save(path) with an unrecognised
+  extension silently writes XLSX), RD2-069 (CELLS-GO-009: merged cells, named ranges, number
+  formats, multi-sheet creation, PDF export, charts are not in the API and nothing says so),
+  RD2-116 (CELLS-TYPESCRIPT-012: README/MCP docs claim 'defined names' but no named-range API
+  exists) and RD2-099 (CELLS-RUST-006: merge() row/column arguments are COUNTS not end indices,
+  and 0-based). Each is an honest-disclosure gap: the project's rule is 'disclose, never patch'
+  (Decision A). Route per precedent: method-scoped, symbol-reachable defects -> a
+  `config/known_defects/<family>__<platform>.yaml` entry whose `id` EQUALS the ledger issue id
+  (006, 009 - their categories are not upstream-library-bug, so add the ids to
+  `_ADDITIONAL_DISCLOSABLE_IDS` in tests/indexing/test_known_defects_completeness.py exactly as
+  TC-706/707/711/728 did); capability/limitation statements -> a verified `known_hazards`
+  paragraph in the pilot's `config/products/<family>/<platform>.yaml` (the TC-721/TC-725
+  precedent; it renders in get_product_reference limitations). Every claim must be re-verified
+  against the real upstream code at the pinned/indexed commit BEFORE it is written.
+depends_on:
+  - TC-767
+  - TC-771
+  - TC-772
+  - TC-650
+  - TC-653
+  - TC-784
+  - TC-724
+  - TC-725
+  - TC-726
+  - TC-656
+  - TC-658
+  - TC-702
+  - TC-162
+  - TC-093
+  - TC-161
+  - TC-582
+write_paths:
+  - config/known_defects/cells__typescript.yaml
+  - config/products/cells/cpp.yaml
+  - config/products/cells/typescript.yaml
+  - config/products/cells/go.yaml
+  - config/products/cells/rust.yaml
+  - tests/indexing/test_known_defects_completeness.py
+  - tests/mcp/tools/test_product_reference_known_hazards.py
+  - tests/mcp/tools/test_known_hazards_round2_disclosures.py
+  - tests/indexing/test_known_defects_data_cells_round2_gaps.py
+satisfies:
+  - REQ-G3-015
+source_refs:
+  - file: docs/DECISION_LOG.md
+    anchor: >-
+      ## 2026-11-14 — TC-790 (chunk-truncation API-Coverage preservation) lands, plus 2 more pre-existing stale-fixture breaks
+    sha256: 13bbc08926dd377f4940bfa06350eeff74eb1c324787a81d3a2d8b8bdd76e3da
+inputs:
+  - >-
+    Evidence for the ledger rows this card closes was gathered by a read-only 2026-11-14 triage:
+    per-row record (id, pilot, evidence, proposed fix) in
+    C:\Users\babar\AppData\Local\Temp\claude\ba7a97aae65a293e\697bcd44-50ef-4b4a-9cc0-f2541ed92371\scratchpad\all_triage.json
+    (JSON list; filter by `id`, e.g. RD2-190). It is a LEAD, not truth: REPRODUCE everything
+    yourself first; if something no longer reproduces, say so and do not invent a fix.
+  - >-
+    READ FIRST: the existing registry file config/known_defects/cells__typescript.yaml (entry shape:
+    id, subject{kind,refs}, applies_to, summary<=240 chars, user_action,
+    evidence{ledger_row,repro,verified_on{package,version,date}}, status),
+    schemas/product/known_defects.schema.json, tests/indexing/test_known_defects_completeness.py
+    (the lock and `_ADDITIONAL_DISCLOSABLE_IDS`), the known_hazards blocks added by TC-721/TC-725 in
+    config/products/cells/python.yaml and cells/rust.yaml and their tests in
+    tests/mcp/tools/test_known_hazards_round2_disclosures.py, and
+    tests/mcp/tools/test_product_reference_known_hazards.py (its `PILOTS_WITH_KNOWN_HAZARDS`
+    allowlist and its derived counts are a KNOWN stale-pin trap - adding hazards to cells/cpp and
+    cells/typescript means extending that set and re-pinning its two derived counts; verify with the
+    real manifests).
+  - >-
+    VERIFY EACH CLAIM against real upstream code at the pinned commit (the commit named in each
+    pilot's infra/demo-manifests/product_reference_<f>_<p>.json `source_ref`, and in the served
+    chunks' `Source-Commit:`): clone read-only into a temp dir OUTSIDE the repo (`gh repo clone
+    <source_repository> <tmp> -- --depth 50`, then `git checkout <source_ref>`; the repository
+    identity is in config/products/<f>/<p>.yaml) and read the implementing source; where a tiny
+    repro is cheap with the installed toolchains (node for cells/typescript, cargo for cells/rust,
+    go for cells/go) RUN it. Record, per entry, exactly what you ran/read and the observed result in
+    `evidence.repro` (or the hazard's evidence text). If a claim is NOT confirmed at the pinned
+    commit, DO NOT write it - report it instead. If the upstream HEAD has since changed
+    (cells/typescript was rewritten upstream on 2026-11-12), scope the entry to the INDEXED
+    commit/version and say so.
+  - >-
+    WRITE: (a) registry entries CELLS-TYPESCRIPT-006 and CELLS-TYPESCRIPT-009 (subject kind method,
+    refs = the real indexed FQN of Workbook as the served chunk spells it - check with get_symbol on
+    the real corpus; the lock validates refs against the real corpus); (b) `known_hazards`
+    paragraphs (dated verified_at 2026-11-14) in cells/cpp.yaml (CELLS-CPP-004 formula never
+    calculated), cells/typescript.yaml (CELLS-TYPESCRIPT-001 formulas write-only;
+    CELLS-TYPESCRIPT-012 no defined-names API), cells/go.yaml (CELLS-GO-009 missing capabilities -
+    state ONLY the gaps you confirmed in the pinned source), cells/rust.yaml (CELLS-RUST-006 merge
+    counts/0-based - ONLY if confirmed). Keep each statement factual, short, and phrased as what the
+    library does and what a caller must do instead (no speculation, no marketing).
+  - >-
+    TESTS: new tests/indexing/test_known_defects_data_cells_round2_gaps.py (schema-valid entries,
+    ids equal the ledger issue ids, refs resolve in the real corpus, user_action present) and
+    additions in tests/mcp/tools/test_known_hazards_round2_disclosures.py (each hazard text appears
+    in the real `get_product_reference(limitations)` answer for its pilot; every OTHER pilot's
+    limitations text is unchanged). Update tests/mcp/tools/test_product_reference_known_hazards.py
+    only as needed for the two newly hazarded pilots (cells/cpp, cells/typescript), verifying counts
+    against the real manifests.
+  - >-
+    Also run tests/indexing/test_known_defects.py, tests/indexing/test_known_defects_data_cells.py,
+    test_known_defects_data_cells_typescript_013.py, tests/config/test_cells_cpp_manifest.py,
+    test_cells_rust_manifest.py, test_product_manifests.py and
+    tests/schemas/test_product_manifest_schema.py - all must stay green.
+  - >-
+    Commit EXACTLY ONE commit (the supervisor's negative control reverse-applies that commit's
+    production-code part). Before committing run `ruff format` and `ruff check` on changed Python
+    files, then run the card's check command twice and report the real results. Keep every
+    pre-existing test unchanged unless a test pinned the now-corrected behavior as 'correct' - then
+    change only that assertion and say so.
+actions:
+  - >-
+    Add verified, pinned-commit-scoped disclosures for the seven cells-family rows (registry entries
+    for the symbol-scoped ones, known_hazards for the capability statements), each re-verified
+    against upstream source before it is written.
+checks:
+  - command: '{python} -m pytest tests/indexing/test_known_defects_data_cells_round2_gaps.py tests/indexing/test_known_defects_completeness.py tests/indexing/test_known_defects.py tests/indexing/test_known_defects_data_cells.py tests/indexing/test_known_defects_data_cells_typescript_013.py tests/mcp/tools/test_product_reference_known_hazards.py tests/mcp/tools/test_known_hazards_round2_disclosures.py tests/config/test_cells_cpp_manifest.py tests/config/test_cells_rust_manifest.py tests/config/test_product_manifests.py tests/schemas/test_product_manifest_schema.py -q -rfE -p no:cacheprovider'
+    expect: 'exit 0'
+    timeout_seconds: 1200
+    junitxml: true
+    proves:
+      - REQ-G3-015
+min_tests: 167
+requires:
+  - python
+network: true
+negative_control:
+  mutate: |
+    python -X utf8 -c "import subprocess; paths = ['config/known_defects/cells__typescript.yaml', 'config/products/cells/cpp.yaml', 'config/products/cells/typescript.yaml', 'config/products/cells/go.yaml', 'config/products/cells/rust.yaml']; patch = subprocess.run(['git', 'show', '--format=', 'HEAD', '--'] + paths, capture_output=True, check=True).stdout; assert patch.strip(), 'the worker commit changes none of the production paths - the fix is missing'; subprocess.run(['git', 'apply', '-R', '--whitespace=nowarn', '-'], input=patch, check=True)"
+  rationale: >-
+    Reverse-applies the worker's own commit restricted to this card's production (non-test) paths,
+    i.e. removes the fix itself while keeping the card's new tests; the suite must then fail.
+    Anchored on the real committed diff, so it cannot be vacuous or literal-fragile. The worker must
+    therefore commit exactly ONE commit for this card.
+evidence:
+  - evidence/build/G3/TC-796/receipt.json
+closeout:
+  - >-
+    The cells-family undisclosed behaviors/gaps (RD2-055/069/099/105/110/113/116) are disclosed
+    through the registry or known_hazards, each backed by pinned-commit verification; no other
+    pilot's answers changed.
+recovery: Re-run from a clean tree.

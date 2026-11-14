@@ -1,0 +1,109 @@
+id: TC-800
+gate: G3
+lane: storage-retrieval
+purpose: >-
+  XA1b - closes RD2-030 (P1, live): every verified-example must be exactly ONE chunk. Today
+  `infra/build_chunks.py` writes example bodies UNFENCED, so the fence-aware chunker (TC-611)
+  never engages and the plain chunker splits a README example at a column-0 `#` comment (a python
+  comment), producing headerless orphan chunks and truncated 'verified' snippets - 12 orphan
+  chunks in the committed data (3d/python 8, pdf/python 2, slides/python 2; e.g. 3d/python 'Build
+  a Mesh and Export It to STL' ends at `stream = io.StringIO()`).
+  `tests/fixtures/conformance/baseline_example_integrity.json` pins them (and 4 mislabelled
+  chunks) as known failures. TC-460 already collapses AUTHORED examples to one chunk (a
+  `provenance == "authored"` special case); extend the same guarantee to every provenance and
+  delete the special case.
+depends_on:
+  - TC-561
+  - TC-565
+  - TC-790
+  - TC-460
+  - TC-611
+write_paths:
+  - infra/build_chunks.py
+  - tests/infra/test_example_chunk_never_split.py
+satisfies:
+  - REQ-G3-014
+source_refs:
+  - file: docs/DECISION_LOG.md
+    anchor: >-
+      ## 2026-11-14 — TC-790 (chunk-truncation API-Coverage preservation) lands, plus 2 more pre-existing stale-fixture breaks
+    sha256: 13bbc08926dd377f4940bfa06350eeff74eb1c324787a81d3a2d8b8bdd76e3da
+inputs:
+  - >-
+    Evidence for the ledger rows this card closes was gathered by a read-only 2026-11-14 triage:
+    per-row record (id, pilot, evidence, proposed fix) in
+    C:\Users\babar\AppData\Local\Temp\claude\ba7a97aae65a293e\697bcd44-50ef-4b4a-9cc0-f2541ed92371\scratchpad\all_triage.json
+    (JSON list; filter by `id`, e.g. RD2-190). It is a LEAD, not truth: REPRODUCE everything
+    yourself first; if something no longer reproduces, say so and do not invent a fix.
+  - >-
+    The measured design record for this stage is in
+    C:\Users\babar\AppData\Local\Temp\claude\ba7a97aae65a293e\697bcd44-50ef-4b4a-9cc0-f2541ed92371\scratchpad\infra_decision\decision.md
+    (section 2 for your stage, section 3 for the card breakdown; per-pilot corpus table in
+    C:\Users\babar\AppData\Local\Temp\claude\ba7a97aae65a293e\697bcd44-50ef-4b4a-9cc0-f2541ed92371\scratchpad\infra_decision\per_pilot_table.md).
+    Its numbers were measured on 2026-11-14 - re-measure what you rely on. Where the record and the
+    code disagree, the code wins; say so in your report.
+  - >-
+    READ FIRST: the example-chunk construction in infra/build_chunks.py
+    (`_build_verified_example_chunks` and the authored-only single-chunk branch near `provenance ==
+    "authored"`; `chunk_document`), src/foss_mcp/normalization/chunker.py (fence-aware chunker,
+    TC-611), tests/infra/test_build_chunks*.py, tests/conformance/test_example_integrity.py and
+    tests/fixtures/conformance/baseline_example_integrity.json (read only).
+  - >-
+    REPRODUCE FIRST through the REAL build_chunks code path with a fake verifier: a README python
+    candidate containing two column-0 `#` comment lines must today yield 3 chunks (2nd/3rd
+    headerless) - capture that. Also scan the committed generations (read-only) and count example
+    chunks lacking an FQN/Kind header (expect 12) to prove the live impact.
+  - >-
+    FIX: every verified example becomes exactly one chunk with FQN + Kind + the FULL code, for all
+    provenances (readme, authored, and any other); delete the provenance special case rather than
+    adding another branch. The existing size cap `_sanitize_chunk_text` (TC-385/TC-790 truncation
+    with preserved API-Coverage) must still apply to the single chunk.
+  - >-
+    TESTS tests/infra/test_example_chunk_never_split.py: the reproduction case yields exactly 1
+    chunk carrying FQN, Kind and the complete code for readme AND authored provenance; a very long
+    example still yields 1 chunk (truncated with the explicit marker, never split); a WIRING proof
+    per AGENTS.md 'Integration and liveness' - assert by reading infra/build_chunks.py source that
+    the single-chunk path is the one the example-building entrypoint calls (grep/import-graph
+    assertion on committed source, not merely that a helper's own test passes).
+  - >-
+    Do NOT regenerate or touch anything under infra/demo-manifests/ or
+    tests/fixtures/verified_examples/ - a single coordinated regeneration of all pilots happens in a
+    later card; this card changes code and tests only. Chunk text produced by the new code will
+    therefore differ from the committed generations - tests must exercise the code path directly,
+    never rely on the committed generations being regenerated.
+  - >-
+    Commit EXACTLY ONE commit (the supervisor's negative control reverse-applies that commit's
+    production-code part). Before committing run `ruff format` and `ruff check` on changed Python
+    files, then run the card's check command twice and report the real results. Keep every
+    pre-existing test unchanged unless a test pinned the now-corrected behavior as 'correct' - then
+    change only that assertion and say so.
+actions:
+  - >-
+    Make every verified example exactly one chunk for every provenance so a README example can no
+    longer be split into headerless fragments or served truncated.
+checks:
+  - command: '{python} -m pytest tests/infra/test_example_chunk_never_split.py tests/infra/test_build_chunks.py tests/infra/test_build_chunks_candidate_chains.py tests/infra/test_build_chunks_degradation.py tests/infra/test_build_chunks_extraction_notice.py tests/infra/test_build_chunks_platforms.py tests/infra/test_build_chunks_sanitize.py tests/infra/test_build_chunks_verification_cache.py tests/conformance/test_example_integrity.py -q -rfE -p no:cacheprovider'
+    expect: 'exit 0'
+    timeout_seconds: 1500
+    junitxml: true
+    proves:
+      - REQ-G3-014
+min_tests: 182
+requires:
+  - python
+network: true
+negative_control:
+  mutate: |
+    python -X utf8 -c "import subprocess; paths = ['infra/build_chunks.py']; patch = subprocess.run(['git', 'show', '--format=', 'HEAD', '--'] + paths, capture_output=True, check=True).stdout; assert patch.strip(), 'the worker commit changes none of the production paths - the fix is missing'; subprocess.run(['git', 'apply', '-R', '--whitespace=nowarn', '-'], input=patch, check=True)"
+  rationale: >-
+    Reverse-applies the worker's own commit restricted to this card's production (non-test) paths,
+    i.e. removes the fix itself while keeping the card's new tests; the suite must then fail.
+    Anchored on the real committed diff, so it cannot be vacuous or literal-fragile. The worker must
+    therefore commit exactly ONE commit for this card.
+evidence:
+  - evidence/build/G3/TC-800/receipt.json
+closeout:
+  - >-
+    Example chunks can no longer be split or served truncated at a column-0 comment; the committed
+    data is corrected by the later coordinated regeneration.
+recovery: Re-run from a clean tree.
