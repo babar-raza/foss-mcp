@@ -1,0 +1,123 @@
+
+===== CLEAN RUN 1 (host) =====
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-5c72e798a73c059a\Scripts\python.exe -m pytest tests/mcp/tools/test_member_note_ordering.py tests/mcp/tools/test_round3_unsupported_markers.py tests/mcp/tools/test_net_member_tag_convention.py tests/mcp/tools/test_member_lookup.py tests/mcp/tools/test_member_lookup_baked.py tests/mcp/tools/test_symbol_tools.py tests/mcp/tools/test_get_symbol_shell_resolution.py tests/mcp/tools/test_known_defects_alias_aware.py -q -rfE -p no:cacheprovider "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-7ub80vs1\.junit-0.xml"
+--- stdout ---
+........................................................................ [ 39%]
+........................................................................ [ 78%]
+........................................                                 [100%]
+
+--- stderr ---
+
+
+===== CLEAN RUN 2 (host) =====
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-5c72e798a73c059a\Scripts\python.exe -m pytest tests/mcp/tools/test_member_note_ordering.py tests/mcp/tools/test_round3_unsupported_markers.py tests/mcp/tools/test_net_member_tag_convention.py tests/mcp/tools/test_member_lookup.py tests/mcp/tools/test_member_lookup_baked.py tests/mcp/tools/test_symbol_tools.py tests/mcp/tools/test_get_symbol_shell_resolution.py tests/mcp/tools/test_known_defects_alias_aware.py -q -rfE -p no:cacheprovider "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-7ub80vs1\.junit-0.xml"
+--- stdout ---
+........................................................................ [ 39%]
+........................................................................ [ 78%]
+........................................                                 [100%]
+
+--- stderr ---
+
+
+===== NEGATIVE CONTROL (checks MUST now fail) =====
+mutated: M src/foss_mcp/mcp/tools/list_members.py, ?? .junit-0.xml
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-5c72e798a73c059a\Scripts\python.exe -m pytest tests/mcp/tools/test_member_note_ordering.py tests/mcp/tools/test_round3_unsupported_markers.py tests/mcp/tools/test_net_member_tag_convention.py tests/mcp/tools/test_member_lookup.py tests/mcp/tools/test_member_lookup_baked.py tests/mcp/tools/test_symbol_tools.py tests/mcp/tools/test_get_symbol_shell_resolution.py tests/mcp/tools/test_known_defects_alias_aware.py -q -rfE -p no:cacheprovider "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-7ub80vs1\.junit-0.xml"
+--- stdout ---
+FF.F.F...........F...................................................... [ 39%]
+........................................................................ [ 78%]
+........................................                                 [100%]
+================================== FAILURES ===================================
+___ test_list_members_puts_limitation_and_known_defect_before_the_tag_note ____
+
+store = <tests.mcp.tools.test_member_note_ordering._Store object at 0x000001EA81E61BE0>
+registry_dir = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-3800/test_list_members_puts_limitat0/known_defects')
+
+    def test_list_members_puts_limitation_and_known_defect_before_the_tag_note(
+        store: _Store, registry_dir: Path
+    ) -> None:
+        _write_defect(registry_dir, _FQN)
+        members = list_members(store, NET, _FQN)  # type: ignore[arg-type]
+        assert not isinstance(members, NotFound)
+>       assert members[0].startswith("Limitation: " + NOT_IMPLEMENTED_PHRASE)
+E       AssertionError: assert False
+E        +  where False = <built-in method startswith of str object at 0x000001EA81E64E40>(('Limitation: ' + 'not implemented in this build'))
+E        +    where <built-in method startswith of str object at 0x000001EA81E64E40> = 'Note: [event] = event; [static, readonly] = static readonly field; they are listed with the properties.'.startswith
+
+tests\mcp\tools\test_member_note_ordering.py:125: AssertionError
+___________ test_list_members_limitation_only_still_leads_the_note ____________
+
+store = <tests.mcp.tools.test_member_note_ordering._Store object at 0x000001EA81E3AC10>
+
+    def test_list_members_limitation_only_still_leads_the_note(store: _Store) -> None:
+        members = list_members(store, NET, _FQN)  # type: ignore[arg-type]
+        assert not isinstance(members, NotFound)
+>       assert members[0].startswith("Limitation: " + NOT_IMPLEMENTED_PHRASE)
+E       AssertionError: assert False
+E        +  where False = <built-in method startswith of str object at 0x000001EA81E65470>(('Limitation: ' + 'not implemented in this build'))
+E        +    where <built-in method startswith of str object at 0x000001EA81E65470> = 'Note: [event] = event; [static, readonly] = static readonly field; they are listed with the properties.'.startswith
+
+tests\mcp\tools\test_member_note_ordering.py:134: AssertionError
+_ test_a_tagged_member_that_is_not_implemented_keeps_its_own_line_ahead_of_the_note _
+
+store = <tests.mcp.tools.test_member_note_ordering._Store object at 0x000001EA822C69E0>
+
+    def test_a_tagged_member_that_is_not_implemented_keeps_its_own_line_ahead_of_the_note(store: _Store) -> None:
+        tagged = get_symbol(store, NET, "FlaggedEvent.OnStub")  # type: ignore[arg-type]
+        assert isinstance(tagged, NotedResolvedSignature)
+        assert tagged.member_lines == (_FLAGGED_EVENT,)
+>       assert list_members(store, NET, "FlaggedEvent.OnStub") == (_FLAGGED_EVENT, tagged.notes[0])  # type: ignore[arg-type]
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       AssertionError: assert ('Note: [even...ever raised)') == ('OnStub: Stu... properties.')
+E         
+E         At index 0 diff: 'Note: [event] = event; they are listed with the properties.' != 'OnStub: StubHandler? [event]  (not implemented in this build: never raised)'
+E         Use -v to get more diff
+
+tests\mcp\tools\test_member_note_ordering.py:155: AssertionError
+__ test_real_3d_net_unsupported_types_lead_with_the_limitation_in_both_tools __
+
+real_3d_net_store = <tests.mcp.tools.test_member_note_ordering._Store object at 0x000001EA81F1B9B0>
+
+    def test_real_3d_net_unsupported_types_lead_with_the_limitation_in_both_tools(
+        real_3d_net_store: _Store,
+    ) -> None:
+        scope = Scope(family="3d", platform="net")
+        for fqn in ("Aspose.ThreeD.Entities.PolygonModifier", "Aspose.ThreeD.Formats.PdfFormat"):
+            answer = get_symbol(real_3d_net_store, scope, fqn)  # type: ignore[arg-type]
+            assert isinstance(answer, SymbolSignature)
+            assert answer.limitations[0].startswith("Limitation: " + NOT_IMPLEMENTED_PHRASE)
+            members = list_members(real_3d_net_store, scope, fqn)  # type: ignore[arg-type]
+            assert not isinstance(members, NotFound)
+>           assert members[0] == answer.limitations[0]
+E           AssertionError: assert 'Note: [stati...e properties.' == 'Limitation: ...t implemented'
+E             
+E             - Limitation: not implemented in this build: the scope documentation lists it as not implemented
+E             + Note: [static, readonly] = static readonly field; they are listed with the properties.
+
+tests\mcp\tools\test_member_note_ordering.py:189: AssertionError
+____ test_real_data_a_type_the_scope_page_names_is_flagged_for_every_tool _____
+
+real_3d_net_store = <tests.mcp.tools.test_round3_unsupported_markers._Store object at 0x000001EAB29134D0>
+
+    def test_real_data_a_type_the_scope_page_names_is_flagged_for_every_tool(real_3d_net_store: _Store) -> None:
+        for fqn in ("Aspose.ThreeD.Entities.PolygonModifier", "Aspose.ThreeD.Formats.PdfFormat"):
+            result = get_symbol(real_3d_net_store, SCOPE, fqn)  # type: ignore[arg-type]
+            assert isinstance(result, SymbolSignature)
+            assert result.limitations[0].startswith("Limitation: " + NOT_IMPLEMENTED_PHRASE)
+            members = list_members(real_3d_net_store, SCOPE, fqn)  # type: ignore[arg-type]
+>           assert not isinstance(members, NotFound) and members[0] == result.limitations[0]
+E           assert (not False and 'Note: [stati...e properties.' == 'Limitation: ...t implemented'
+E            +  where False = isinstance(('Note: [static, readonly] = static readonly field; they are listed with the properties.', 'Limitation: not implemente...plemented in this build: throws NotImplementedException: "PDF scene extraction not implemented in FOSS version")', ...), NotFound)
+E             
+E             - Limitation: not implemented in this build: the scope documentation lists it as not implemented
+E             + Note: [static, readonly] = static readonly field; they are listed with the properties.)
+
+tests\mcp\tools\test_round3_unsupported_markers.py:255: AssertionError
+=========================== short test summary info ===========================
+FAILED tests/mcp/tools/test_member_note_ordering.py::test_list_members_puts_limitation_and_known_defect_before_the_tag_note
+FAILED tests/mcp/tools/test_member_note_ordering.py::test_list_members_limitation_only_still_leads_the_note
+FAILED tests/mcp/tools/test_member_note_ordering.py::test_a_tagged_member_that_is_not_implemented_keeps_its_own_line_ahead_of_the_note
+FAILED tests/mcp/tools/test_member_note_ordering.py::test_real_3d_net_unsupported_types_lead_with_the_limitation_in_both_tools
+FAILED tests/mcp/tools/test_round3_unsupported_markers.py::test_real_data_a_type_the_scope_page_names_is_flagged_for_every_tool
+
+--- stderr ---
+
