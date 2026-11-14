@@ -1,0 +1,91 @@
+{
+  "schema_version": 1,
+  "card": "TC-808",
+  "gate": "G3",
+  "generated_by": "gatectl",
+  "generated_at": "2026-11-14T20:27:28Z",
+  "base_rev": "c1eabd59c007acc27904e6a4ba9a49f4af80a05e",
+  "head_rev": "044db06cc9c7c24ad6465fb97481cca65e762a74",
+  "card_sha256": "ce99c6e0b5ad096d3e5edbf3b21154756cea6f96d8e49d6c593598dddae04b49",
+  "fingerprint": {
+    "python": "3.13.2",
+    "platform": "Windows-11-10.0.26300-SP0",
+    "lock_sha256": "5c72e798a73c059a438e752e94a8d4c88c1bdf81a197f6e5c5fcecbc9466a691",
+    "env": {
+      "PYTHONHASHSEED": "0",
+      "PYTHONUTF8": "1",
+      "PYTHONDONTWRITEBYTECODE": "1",
+      "PYTHONIOENCODING": "utf-8",
+      "TZ": "UTC",
+      "LC_ALL": "C.UTF-8",
+      "SOURCE_DATE_EPOCH": "1700000000",
+      "verify_runner": "host"
+    }
+  },
+  "scope": {
+    "ok": true,
+    "changed_paths": [
+      "src/foss_mcp/indexing/example_artifacts.py",
+      "src/foss_mcp/indexing/example_verifier.py",
+      "tests/indexing/test_example_artifact_validators.py"
+    ],
+    "violations": [],
+    "evaluated": true
+  },
+  "runs": [
+    {
+      "run": 1,
+      "checks": [
+        {
+          "command": "{python} -m pytest tests/indexing/test_example_artifact_validators.py tests/indexing/test_example_verifier.py tests/indexing/test_example_verifier_classification.py tests/indexing/test_example_fixtures.py -q -rfE -p no:cacheprovider",
+          "exit_code": 0,
+          "duration_s": 484.569,
+          "stdout_sha256": "22a580bf3eae5b81637785a52a6b19ddfece4633ab6dc2923175803d5192cd91",
+          "tests": 203,
+          "skipped": 0,
+          "errors": 0,
+          "failures": 0
+        }
+      ],
+      "all_passed": true
+    },
+    {
+      "run": 2,
+      "checks": [
+        {
+          "command": "{python} -m pytest tests/indexing/test_example_artifact_validators.py tests/indexing/test_example_verifier.py tests/indexing/test_example_verifier_classification.py tests/indexing/test_example_fixtures.py -q -rfE -p no:cacheprovider",
+          "exit_code": 0,
+          "duration_s": 332.513,
+          "stdout_sha256": "22a580bf3eae5b81637785a52a6b19ddfece4633ab6dc2923175803d5192cd91",
+          "tests": 203,
+          "skipped": 0,
+          "errors": 0,
+          "failures": 0
+        }
+      ],
+      "all_passed": true
+    }
+  ],
+  "negative_control": {
+    "kind": "mutate",
+    "patch": "python -X utf8 -c \"import subprocess; paths = ['src/foss_mcp/indexing/example_artifacts.py', 'src/foss_mcp/indexing/example_verifier.py']; patch = subprocess.run(['git', 'show', '--format=', 'HEAD', '--'] + paths, capture_output=True, check=True).stdout; assert patch.strip(), 'the worker commit changes none of the production paths - the fix is missing'; subprocess.run(['git', 'apply', '-R', '--whitespace=nowarn', '-'], input=patch, check=True)\"\n",
+    "patch_sha256": "58c58f99944a9c5f1b9ffbaf26bd1c58772be18be6801a154426ba897a692987",
+    "applied": true,
+    "patch_applied_failed": true,
+    "exit_codes": [
+      2
+    ],
+    "tree_changed": [
+      "D src/foss_mcp/indexing/example_artifacts.py",
+      "M src/foss_mcp/indexing/example_verifier.py",
+      "?? .junit-0.xml"
+    ]
+  },
+  "holdout": {
+    "ran": false,
+    "passed": true,
+    "detail": "no holdout for this card"
+  },
+  "accepted": true,
+  "reason": "all gates passed"
+}
