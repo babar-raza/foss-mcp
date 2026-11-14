@@ -1,0 +1,120 @@
+
+===== CLEAN RUN 1 (host) =====
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-5c72e798a73c059a\Scripts\python.exe -m pytest tests/conformance/test_reference_content.py -q -rfE -p no:cacheprovider "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-rv2t36to\.junit-0.xml"
+--- stdout ---
+..............                                                           [100%]
+
+--- stderr ---
+
+
+===== CLEAN RUN 2 (host) =====
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-5c72e798a73c059a\Scripts\python.exe -m pytest tests/conformance/test_reference_content.py -q -rfE -p no:cacheprovider "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-rv2t36to\.junit-0.xml"
+--- stdout ---
+..............                                                           [100%]
+
+--- stderr ---
+
+
+===== NEGATIVE CONTROL (checks MUST now fail) =====
+mutated: M tests/conformance/test_reference_content.py, M tests/fixtures/conformance/baseline_reference_content.json, ?? .junit-0.xml
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-5c72e798a73c059a\Scripts\python.exe -m pytest tests/conformance/test_reference_content.py -q -rfE -p no:cacheprovider "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-rv2t36to\.junit-0.xml"
+--- stdout ---
+.F.......F...F                                                           [100%]
+================================== FAILURES ===================================
+__ test_real_sidecars_lack_readme_document_and_manifest_path_tc561_staleness __
+
+    def test_real_sidecars_lack_readme_document_and_manifest_path_tc561_staleness() -> None:
+        """Direct confirmation, from the committed sidecar JSON itself (not citing the plan's prior
+        claim), that TC-561's ``readme_document``/``manifest_path`` fields are absent. The card requires
+        checking at least 3 real pilots; this checks all 32 and reports exactly how many lack both,
+        because the real number is the honest baseline this card exists to pin, not an assumption."""
+        sidecars = sorted(DEMO_MANIFESTS.glob("product_reference_*.json"))
+        assert len(sidecars) >= 3
+        missing_both = [
+            path.name
+            for path in sidecars
+            if "readme_document" not in (payload := json.loads(path.read_text(encoding="utf-8")))
+            and "manifest_path" not in payload
+        ]
+>       assert len(missing_both) >= 3, (
+            f"expected at least 3 real pilot sidecars to lack readme_document/manifest_path; "
+            f"only found {missing_both}"
+        )
+E       AssertionError: expected at least 3 real pilot sidecars to lack readme_document/manifest_path; only found []
+E       assert 0 >= 3
+E        +  where 0 = len([])
+
+tests\conformance\test_reference_content.py:324: AssertionError
+____________ test_reference_content_matches_the_committed_baseline ____________
+
+measured = Measurement(answers=(_SectionAnswer(pilot='3d__java', section='install', result=ReferenceContent(section='install', te...et_product_reference.py) has no structured field distinguishing 'upstream genuinely has none' from 'not extracted'."}))
+
+    def test_reference_content_matches_the_committed_baseline(measured: Measurement) -> None:
+        baseline = load_baseline(BASELINE_PATH)
+>       assert_no_new_failures(baseline, measured.failures)
+
+tests\conformance\test_reference_content.py:419: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+baseline = Baseline(strict=True, known_failures=(KnownFailure(pilot='3d__java', case_id='empty-no-reason:3d__java:contributing', ...et_product_reference.py) has no structured field distinguishing 'upstream genuinely has none' from 'not extracted'.")))
+observed_failures = ({'pilot': '3d__java', 'case_id': 'empty-no-reason:3d__java:contributing', 'reason': "contributing answered absent/emp...roduct_reference.py) has no structured field distinguishing 'upstream genuinely has none' from 'not extracted'."}, ...)
+
+    def assert_no_new_failures(baseline: Baseline, observed_failures: Iterable[Any]) -> None:
+        """Raise ``AssertionError`` if *observed_failures* contains a ``(pilot, case_id)`` the baseline does
+        not already know about, naming exactly which case(s) are new. When ``baseline.strict`` is ``True``,
+        also raise if a baseline entry is NOT present in *observed_failures* (i.e. it now passes and the
+        baseline must be tightened); when ``baseline.strict`` is ``False`` (the default), that same absence
+        never fails - a baseline may always be ahead of what is currently observed."""
+        observed_keys = frozenset(_observed_key(failure) for failure in observed_failures)
+        known_keys = baseline.known_keys()
+    
+        new_failures = observed_keys - known_keys
+        if new_failures:
+            named = ", ".join(f"{pilot}:{case_id}" for pilot, case_id in sorted(new_failures))
+            raise AssertionError(f"new failure(s) not present in the baseline: {named}")
+    
+        if baseline.strict:
+            stale = known_keys - observed_keys
+            if stale:
+                named = ", ".join(f"{pilot}:{case_id}" for pilot, case_id in sorted(stale))
+>               raise AssertionError(
+                    f"baseline entry/entries no longer fail and the strict baseline must be tightened: {named}"
+                )
+E               AssertionError: baseline entry/entries no longer fail and the strict baseline must be tightened: cells__cpp:empty-no-reason:cells__cpp:formats, cells__cpp:empty-no-reason:cells__cpp:limitations, imaging__net:empty-no-reason:imaging__net:formats, imaging__net:empty-no-reason:imaging__net:limitations, pdf__go:empty-no-reason:pdf__go:agent_guidance, pdf__typescript:empty-no-reason:pdf__typescript:formats, pdf__typescript:empty-no-reason:pdf__typescript:limitations, slides__net:empty-no-reason:slides__net:limitations, words__net:empty-no-reason:words__net:limitations
+
+tests\conformance\baseline.py:86: AssertionError
+_______ test_cpp_single_recipe_install_answer_gets_no_added_disclosure ________
+
+corpus = <tests.conformance.corpus.ConformanceCorpus object at 0x00000182C3C467B0>
+
+    def test_cpp_single_recipe_install_answer_gets_no_added_disclosure(corpus: ConformanceCorpus) -> None:
+        """``cells__cpp`` - a real cpp pilot measured to carry exactly 1 fenced install-recipe block,
+        the already-correct, single-route case - must get NO added multi-route disclosure sentence:
+        this card closes a real undisclosed-multiplicity gap, it must not add noise to a pilot that
+        never had that gap."""
+        pilot_name = "cells__cpp"
+        pilot = corpus.pilots[pilot_name]
+        sidecar_path = DEMO_MANIFESTS / fetch_product_reference.sidecar_name(
+            pilot.scope.family, pilot.scope.platform
+        )
+        assert sidecar_path.is_file(), sidecar_path
+        inputs = fetch_product_reference.load_manifest_sidecar(sidecar_path)
+        assert inputs is not None
+        readme = read_readme_sections(corpus.store, pilot.scope)
+        result = get_product_reference(inputs, "install", readme=readme)
+        assert isinstance(result, ReferenceContent), (pilot_name, result)
+        assert result.notice is not None, (pilot_name, result)
+    
+        oracle_count = _install_recipe_block_count(result.text)
+>       assert oracle_count == 1, (pilot_name, oracle_count, "expected a real single-recipe cpp pilot")
+E       AssertionError: ('cells__cpp', 3, 'expected a real single-recipe cpp pilot')
+E       assert 3 == 1
+
+tests\conformance\test_reference_content.py:480: AssertionError
+=========================== short test summary info ===========================
+FAILED tests/conformance/test_reference_content.py::test_real_sidecars_lack_readme_document_and_manifest_path_tc561_staleness
+FAILED tests/conformance/test_reference_content.py::test_reference_content_matches_the_committed_baseline
+FAILED tests/conformance/test_reference_content.py::test_cpp_single_recipe_install_answer_gets_no_added_disclosure
+
+--- stderr ---
+

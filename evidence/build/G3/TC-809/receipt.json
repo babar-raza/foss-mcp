@@ -1,0 +1,90 @@
+{
+  "schema_version": 1,
+  "card": "TC-809",
+  "gate": "G3",
+  "generated_by": "gatectl",
+  "generated_at": "2026-11-14T07:25:27Z",
+  "base_rev": "be24cc15b18515bc5384e32769c966748c420b7f",
+  "head_rev": "a4b174aa2946d3cd9a80e012eb4f2429e1d0fae4",
+  "card_sha256": "db4d5f705e11a3964e8f737540cd51653740e7d86aeff12e847601c3473b5631",
+  "fingerprint": {
+    "python": "3.13.2",
+    "platform": "Windows-11-10.0.26300-SP0",
+    "lock_sha256": "5c72e798a73c059a438e752e94a8d4c88c1bdf81a197f6e5c5fcecbc9466a691",
+    "env": {
+      "PYTHONHASHSEED": "0",
+      "PYTHONUTF8": "1",
+      "PYTHONDONTWRITEBYTECODE": "1",
+      "PYTHONIOENCODING": "utf-8",
+      "TZ": "UTC",
+      "LC_ALL": "C.UTF-8",
+      "SOURCE_DATE_EPOCH": "1700000000",
+      "verify_runner": "host"
+    }
+  },
+  "scope": {
+    "ok": true,
+    "changed_paths": [
+      "tests/conformance/test_reference_content.py",
+      "tests/fixtures/conformance/baseline_reference_content.json"
+    ],
+    "violations": [],
+    "evaluated": true
+  },
+  "runs": [
+    {
+      "run": 1,
+      "checks": [
+        {
+          "command": "{python} -m pytest tests/conformance/test_reference_content.py -q -rfE -p no:cacheprovider",
+          "exit_code": 0,
+          "duration_s": 8.728,
+          "stdout_sha256": "fe9dca0451129aaabdd76ea13e310b61a52091a146a1f9fe5b72b851eb33547f",
+          "tests": 14,
+          "skipped": 0,
+          "errors": 0,
+          "failures": 0
+        }
+      ],
+      "all_passed": true
+    },
+    {
+      "run": 2,
+      "checks": [
+        {
+          "command": "{python} -m pytest tests/conformance/test_reference_content.py -q -rfE -p no:cacheprovider",
+          "exit_code": 0,
+          "duration_s": 6.196,
+          "stdout_sha256": "fe9dca0451129aaabdd76ea13e310b61a52091a146a1f9fe5b72b851eb33547f",
+          "tests": 14,
+          "skipped": 0,
+          "errors": 0,
+          "failures": 0
+        }
+      ],
+      "all_passed": true
+    }
+  ],
+  "negative_control": {
+    "kind": "mutate",
+    "patch": "python -X utf8 -c \"import subprocess; paths = ['tests/conformance/test_reference_content.py', 'tests/fixtures/conformance/baseline_reference_content.json']; patch = subprocess.run(['git', 'show', '--format=', 'HEAD', '--'] + paths, capture_output=True, check=True).stdout; assert patch.strip(), 'the worker commit changes none of the production paths - the fix is missing'; subprocess.run(['git', 'apply', '-R', '--whitespace=nowarn', '-'], input=patch, check=True)\"\n",
+    "patch_sha256": "6ab63a6240b0f9c4de30f401eac3d7a063467164a83efaa28cf9d6e8d4c94c8b",
+    "applied": true,
+    "patch_applied_failed": true,
+    "exit_codes": [
+      1
+    ],
+    "tree_changed": [
+      "M tests/conformance/test_reference_content.py",
+      "M tests/fixtures/conformance/baseline_reference_content.json",
+      "?? .junit-0.xml"
+    ]
+  },
+  "holdout": {
+    "ran": false,
+    "passed": true,
+    "detail": "no holdout for this card"
+  },
+  "accepted": true,
+  "reason": "all gates passed"
+}
