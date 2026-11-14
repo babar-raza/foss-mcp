@@ -69,47 +69,61 @@ examples:
     assert len(preserved_texts) > len(default_texts)
     print("OK")
   code_sha256: ed825ea3c2874459e2a6405a7938b46bd17957941ae21fd637925bd897575ca3
-- title: Compare DOCX package sizes across OOXML compression levels
-  description: Saves the same loaded document twice with OoxmlSaveOptions.compression_level set to NORMAL and then MAXIMUM, confirms the MAXIMUM output is never larger on disk, and reloads it to confirm the document's text is unchanged.
+- title: Create a document from scratch with a table using LdmDocxWriter
+  description: Builds a document from scratch with light_document_model classes (a Section and Body holding two Paragraph nodes and a Table of Row and Cell nodes), writes it to DOCX with LdmDocxWriter, reloads it and confirms the paragraph and table-cell text.
   symbols:
   - Document
-  - Document.save
-  - Document.get_text
-  - OoxmlSaveOptions
-  - OoxmlSaveOptions.compression_level
-  - CompressionLevel.MAXIMUM
+  - Document.light_document_model
+  - Section
+  - Body
+  - Table
+  - Row
+  - Cell
+  - Paragraph
+  - LdmDocxWriter
+  - LdmDocxWriter.write
   code: |
-    # Authored example: compare DOCX package sizes across OOXML compression levels and confirm the text survives.
+    # Authored example: create a document from scratch with a paragraph and a table, write it as DOCX and reload it.
+    import io
     import os
     import tempfile
 
     import aspose.words_foss as aw
+    import aspose.words_foss.light_document_model as ldm
+    from aspose.words_foss.docx_writer import LdmDocxWriter
 
-    doc = aw.Document("test_full_article.docx")
 
-    normal_options = aw.saving.OoxmlSaveOptions()
-    normal_options.compression_level = aw.saving.CompressionLevel.NORMAL
-    normal_path = os.path.join(tempfile.gettempdir(), "authored_compression_normal_example.docx")
-    doc.save(normal_path, normal_options)
+    def paragraphs_from_text(text):
+        # Paragraph(children=[...]) is a private idiom, so ready-made Paragraph nodes come from the public Markdown loader.
+        seed = aw.Document(io.BytesIO(text.encode("utf-8")), aw.loading.MarkdownLoadOptions())
+        return [paragraph for paragraph in seed.light_document_model.all_paragraphs if paragraph.text]
 
-    maximum_options = aw.saving.OoxmlSaveOptions()
-    maximum_options.compression_level = aw.saving.CompressionLevel.MAXIMUM
-    maximum_path = os.path.join(tempfile.gettempdir(), "authored_compression_maximum_example.docx")
-    doc.save(maximum_path, maximum_options)
 
-    normal_size = os.path.getsize(normal_path)
-    maximum_size = os.path.getsize(maximum_path)
-    print("normal size:", normal_size, "maximum size:", maximum_size)
-    assert maximum_size <= normal_size
+    heading, note = paragraphs_from_text("Quarterly report\n\nAll figures are final.\n")
+    table = ldm.Table(
+        rows=[
+            ldm.Row(cells=[ldm.Cell(paragraphs=paragraphs_from_text(text)) for text in row_texts])
+            for row_texts in (("Item", "Qty"), ("Widgets", "3"))
+        ]
+    )
+    model = ldm.Document(sections=[ldm.Section(body=ldm.Body(children=[heading, note, table]))])
 
-    reloaded = aw.Document(maximum_path)
-    print("reloaded text matches:", reloaded.get_text().strip() == doc.get_text().strip())
-    assert reloaded.get_text().strip() == doc.get_text().strip()
+    output_path = os.path.join(tempfile.gettempdir(), "authored_scratch_document_example.docx")
+    LdmDocxWriter().write(model, output_path)
 
-    os.remove(normal_path)
-    os.remove(maximum_path)
+    reloaded = aw.Document(output_path)
+    body = reloaded.sections[0].body
+    texts = [paragraph.text for paragraph in body.paragraphs]
+    print("paragraphs:", texts)
+    assert texts == ["Quarterly report", "All figures are final."]
+
+    rows = [[cell.paragraphs[0].text for cell in row.cells] for row in body.tables[0].rows]
+    print("table rows:", rows)
+    assert rows == [["Item", "Qty"], ["Widgets", "3"]]
+
+    os.remove(output_path)
     print("OK")
-  code_sha256: dda43458bffe03cfebe75518e505223518ca8a5143cca9bc35e4a5e6f05bc251
+  code_sha256: d6e60c7b0bd7f9d7129668f87a7684f0e3561c7ec3e4ad09dde7864d75db5377
 - title: Confirm an embedded image survives a DOCX round trip
   description: Finds the embedded image shape in a loaded document with get_child_nodes(NodeType.SHAPE), records its raw image bytes, saves the document back to DOCX, reloads it and confirms the reloaded shape's image bytes are byte-for-byte identical.
   symbols:
