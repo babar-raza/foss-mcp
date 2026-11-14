@@ -1,0 +1,89 @@
+{
+  "schema_version": 1,
+  "card": "TC-831",
+  "gate": "G3",
+  "generated_by": "gatectl",
+  "generated_at": "2026-11-14T09:49:04Z",
+  "base_rev": "983d6e3760ccb9008baf17ddb316ed5ea2f86e3f",
+  "head_rev": "0e04c419d3aac4c88fe9edf8b026b528ef33121c",
+  "card_sha256": "f2af892020ef8efae8912c4b4bd2c57ef9b6563ec61a3bb8b338b9808e3664f2",
+  "fingerprint": {
+    "python": "3.13.2",
+    "platform": "Windows-11-10.0.26300-SP0",
+    "lock_sha256": "5c72e798a73c059a438e752e94a8d4c88c1bdf81a197f6e5c5fcecbc9466a691",
+    "env": {
+      "PYTHONHASHSEED": "0",
+      "PYTHONUTF8": "1",
+      "PYTHONDONTWRITEBYTECODE": "1",
+      "PYTHONIOENCODING": "utf-8",
+      "TZ": "UTC",
+      "LC_ALL": "C.UTF-8",
+      "SOURCE_DATE_EPOCH": "1700000000",
+      "verify_runner": "host"
+    }
+  },
+  "scope": {
+    "ok": true,
+    "changed_paths": [
+      "scripts/release/answer_diff.py",
+      "tests/deploy/test_answer_diff.py"
+    ],
+    "violations": [],
+    "evaluated": true
+  },
+  "runs": [
+    {
+      "run": 1,
+      "checks": [
+        {
+          "command": "{python} -m pytest tests/deploy/test_answer_diff.py -q -rfE -p no:cacheprovider",
+          "exit_code": 0,
+          "duration_s": 67.552,
+          "stdout_sha256": "cfc14fd2dc11c362cccf5421245ca5ab0e9d286b54a604a80bd2dd5522f6feb9",
+          "tests": 13,
+          "skipped": 0,
+          "errors": 0,
+          "failures": 0
+        }
+      ],
+      "all_passed": true
+    },
+    {
+      "run": 2,
+      "checks": [
+        {
+          "command": "{python} -m pytest tests/deploy/test_answer_diff.py -q -rfE -p no:cacheprovider",
+          "exit_code": 0,
+          "duration_s": 65.422,
+          "stdout_sha256": "cfc14fd2dc11c362cccf5421245ca5ab0e9d286b54a604a80bd2dd5522f6feb9",
+          "tests": 13,
+          "skipped": 0,
+          "errors": 0,
+          "failures": 0
+        }
+      ],
+      "all_passed": true
+    }
+  ],
+  "negative_control": {
+    "kind": "mutate",
+    "patch": "python -X utf8 -c \"import subprocess; paths = ['scripts/release/answer_diff.py']; patch = subprocess.run(['git', 'show', '--format=', 'HEAD', '--'] + paths, capture_output=True, check=True).stdout; assert patch.strip(), 'the worker commit changes none of the production paths - the fix is missing'; subprocess.run(['git', 'apply', '-R', '--whitespace=nowarn', '-'], input=patch, check=True)\"\n",
+    "patch_sha256": "a0e054e8a707864479b2d09e56ff43f7324f6d6e61ffcaf4a3c3c6e9e2fc2655",
+    "applied": true,
+    "patch_applied_failed": true,
+    "exit_codes": [
+      2
+    ],
+    "tree_changed": [
+      "D scripts/release/answer_diff.py",
+      "?? .junit-0.xml"
+    ]
+  },
+  "holdout": {
+    "ran": false,
+    "passed": true,
+    "detail": "no holdout for this card"
+  },
+  "accepted": true,
+  "reason": "all gates passed"
+}
