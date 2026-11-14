@@ -1,0 +1,120 @@
+id: TC-832
+gate: G3
+lane: verification
+purpose: >-
+  Disclosure wave C (found by the TC-796 and TC-815 workers while verifying other rows,
+  2026-11-14, plus one carried triage row). (1) 3d/python (aspose-3d-foss 26.1.0, indexed commit
+  65b1f577): `Scene.save('x.fbx')` and `Scene.save('x.dae')` raise `NotImplementedError:
+  supports_format is not implemented`; `Scene.save('x.3mf')` writes a 0-byte file;
+  `FileFormat.FBX7400ASCII()` returns a real format object but saving with it raises the same
+  NotImplementedError. FIRST check which of these the existing 3d/python registry entries
+  (3D-PYTHON-001..013) and the 3d/python known_hazards already cover
+  (config/known_defects/3d__python.yaml, config/products/3d/python.yaml) and add ONLY what is not
+  covered, as registry entries (kind method/class, refs = real indexed FQNs of Scene.save and the
+  relevant classes; ids follow the file's numbering and are added to
+  `_ADDITIONAL_DISCLOSABLE_IDS`/`_ADDITIONAL_DISCLOSABLE_3D_IDS` as TC-815 did) or a known_hazards
+  sentence - each re-verified by running it. (2) cells/go (excel-cells Go library, pinned
+  fa4e890e): `CalculateFormula("=SUM(A1:A1)")` with a LEADING '=' returns `unsupported function
+  "=SUM"` and `"=IF(A1>0,1,2)"` returns `cell "A1>0" not found`; the README's CalculateFormula
+  limitation never says formula text must omit the leading '='. Add one verified known_hazards
+  paragraph to config/products/cells/go.yaml (after the existing two) stating exactly what you
+  reproduce, with the working spelling. (3) RD2-210 (pdf/python, triage group
+  'unconfirmed-pin-vs-package-gap'): clone the pdf/python repository read-only at the pilot's
+  pinned commit (c391ee72 per the triage - confirm in
+  infra/demo-manifests/product_reference_pdf_python.json) and grep for `class Permissions` / the
+  documented symbol the row names (read the RD2-210 row in the triage and docs/ROUND2_REVIEW.md).
+  If the symbol is ABSENT at the pin but present in the published package, write a verified
+  drift/disclosure statement (known_hazards in config/products/pdf/python.yaml or a registry entry
+  as the evidence supports); if it is present at the pin, report that the row is NOT_REPRODUCED
+  and change nothing for it. Disclose, never patch (Decision A). Every claim must be reproduced by
+  you before it is written; a claim that does not reproduce is reported and omitted.
+depends_on:
+  - TC-815
+  - TC-796
+  - TC-828
+  - TC-811
+write_paths:
+  - config/known_defects/3d__python.yaml
+  - config/products/3d/python.yaml
+  - config/products/cells/go.yaml
+  - config/products/pdf/python.yaml
+  - config/known_defects/pdf__python.yaml
+  - tests/indexing/test_known_defects_completeness.py
+  - tests/indexing/test_known_defects_data_3d.py
+  - tests/mcp/tools/test_product_reference_known_hazards.py
+  - tests/mcp/tools/test_known_hazards_round2_disclosures.py
+  - tests/schemas/test_product_manifest_schema.py
+  - tests/infra/test_serve_http.py
+  - tests/indexing/test_known_defects_data_wave_c.py
+satisfies:
+  - REQ-G3-015
+source_refs:
+  - file: docs/DECISION_LOG.md
+    anchor: >-
+      ## 2026-11-14 — TC-790 (chunk-truncation API-Coverage preservation) lands, plus 2 more pre-existing stale-fixture breaks
+    sha256: 13bbc08926dd377f4940bfa06350eeff74eb1c324787a81d3a2d8b8bdd76e3da
+inputs:
+  - >-
+    Evidence for the ledger rows this card closes was gathered by a read-only 2026-11-14 triage:
+    per-row record in
+    C:\Users\babar\AppData\Local\Temp\claude\ba7a97aae65a293e\697bcd44-50ef-4b4a-9cc0-f2541ed92371\scratchpad\all_triage.json
+    (JSON list; filter by `id`). It is a LEAD, not truth: REPRODUCE everything yourself first; if
+    something no longer reproduces, say so and do not invent a fix.
+  - >-
+    READ FIRST: how TC-796 (cells hazards) and TC-815 (3d/python FileFormat entry 3D-PYTHON-009 and
+    hazard) wrote and tested their disclosures - git show those commits (`git log --oneline --grep
+    TC-796`/`TC-815`), their data tests
+    (tests/indexing/test_known_defects_data_cells_round2_gaps.py,
+    test_known_defects_data_wave_b.py), the lock in
+    tests/indexing/test_known_defects_completeness.py, and tests/infra/test_serve_http.py (it pins
+    the number of cells/go hazards: now 2, your paragraph makes it 3 - re-pin it).
+  - >-
+    VERIFY EACH CLAIM by running it: for 3d/python install `aspose-3d-foss==26.1.0` (the pilot's
+    pinned version - confirm in the manifest) in a throwaway venv OUTSIDE the repo and run the
+    Scene.save cases; for cells/go clone the library read-only at its pinned commit into a temp dir
+    outside the repo and `go run` a small program (the TC-796 worker's scripts are under the session
+    scratchpad r796/ for the method). Record exact outputs in your report.
+  - >-
+    NEW TEST tests/indexing/test_known_defects_data_wave_c.py: every new entry/hazard is
+    schema-valid, ids equal ledger/finding ids where applicable, refs resolve in the real corpus,
+    the hazard text appears in the real get_product_reference(limitations) answer for its pilot, and
+    every other pilot's limitations answer is unchanged.
+  - >-
+    Commit EXACTLY ONE commit (the supervisor's negative control reverse-applies that commit's
+    production-data part). Before committing run `ruff format` and `ruff check` on changed Python
+    files, then run the card's check command twice and report the real results. If a related test
+    outside write_paths fails because of your change, do not edit it: stop and report it with the
+    exact failure (known stale-pin traps: tests that pin exact registry-entry counts,
+    PILOTS_WITH_KNOWN_HAZARDS in tests/mcp/tools/test_product_reference_known_hazards.py and
+    tests/schemas/test_product_manifest_schema.py, tests/indexing/test_known_defects_data_*.py).
+actions:
+  - >-
+    Add verified disclosures for the uncovered 3d/python save-format failures, the cells/go
+    CalculateFormula leading-'=' behaviour, and (if it reproduces) the pdf/python pin-vs-package
+    gap.
+checks:
+  - command: '{python} -m pytest tests/indexing/test_known_defects_data_wave_c.py tests/indexing/test_known_defects_completeness.py tests/indexing/test_known_defects.py tests/indexing/test_known_defects_data_3d.py tests/mcp/tools/test_product_reference_known_hazards.py tests/mcp/tools/test_known_hazards_round2_disclosures.py tests/schemas/test_product_manifest_schema.py -q -rfE -p no:cacheprovider'
+    expect: 'exit 0'
+    timeout_seconds: 900
+    junitxml: true
+    proves:
+      - REQ-G3-015
+min_tests: 139
+requires:
+  - python
+network: true
+negative_control:
+  mutate: |
+    python -X utf8 -c "import subprocess; paths = ['config/known_defects/3d__python.yaml', 'config/products/3d/python.yaml', 'config/products/cells/go.yaml', 'config/products/pdf/python.yaml', 'config/known_defects/pdf__python.yaml']; patch = subprocess.run(['git', 'show', '--format=', 'HEAD', '--'] + paths, capture_output=True, check=True).stdout; assert patch.strip(), 'the worker commit changes none of the production paths - the fix is missing'; subprocess.run(['git', 'apply', '-R', '--whitespace=nowarn', '-'], input=patch, check=True)"
+  rationale: >-
+    Reverse-applies the worker's own commit restricted to this card's production (non-test) paths,
+    i.e. removes the fix itself while keeping the card's new tests; the suite must then fail.
+    Anchored on the real committed diff, so it cannot be vacuous or literal-fragile. The worker must
+    therefore commit exactly ONE commit for this card.
+evidence:
+  - evidence/build/G3/TC-832/receipt.json
+closeout:
+  - >-
+    The verified, previously undisclosed behaviours of 3d/python, cells/go and pdf/python are
+    disclosed; no other pilot's answers changed.
+recovery: Re-run from a clean tree.

@@ -1,0 +1,82 @@
+id: TC-833
+gate: G3
+lane: transport-deployment
+purpose: >-
+  URL restructuring carried from the 2026-11-03 investigation (docs/DECISION_LOG.md and plan
+  section 'URL path restructuring'): serve every pilot at the two-segment path
+  `/{family}/{platform}/` in addition to the existing hyphenated `/{family}-{platform}/mcp`. The
+  server is already path-shape-agnostic (src/foss_mcp/mcp/routing.py derives the scope from
+  deploy-time env vars only). TC-669 already added the two-segment `/demo/{family}/{platform}`
+  Ingress path to infra/helm/foss-mcp/templates/demo-ingress.yaml. What remains is the operator's
+  local gateway config that TC-685 versioned into infra/hosting/ (nginx.conf, pilots.txt,
+  compose.yaml): add a second `location` form for the two-segment paths (map
+  `/{family}/{platform}/` and `/{family}/{platform}/mcp` to the same per-pilot upstream the
+  hyphenated location uses, with identical proxy settings, `proxy_http_version 1.1`, keepalive and
+  buffering rules, no behaviour change for the existing hyphenated paths), generated for all 32
+  pilots exactly as the existing locations are (use the same source of truth: pilots.txt), keeping
+  `/metrics`, `/readyz` etc. NOT exposed. Add tests to tests/infra/test_hosting_config.py (extend;
+  real-content tests like the existing ones): every pilot in pilots.txt has BOTH location forms;
+  both resolve to the same upstream; the two-segment form cannot shadow another pilot
+  (family/platform pairs are unique and `/{family}/` alone is not routed); no location exposes
+  /metrics; nginx.conf still parses structurally with the checks the file already has. Offline
+  only: if an `nginx -t` binary exists use it via docker only in a note, do not require it in
+  tests.
+depends_on:
+  - TC-685
+  - TC-669
+write_paths:
+  - infra/hosting/nginx.conf
+  - infra/hosting/pilots.txt
+  - tests/infra/test_hosting_config.py
+satisfies:
+  - REQ-G3-016
+source_refs:
+  - file: docs/DECISION_LOG.md
+    anchor: >-
+      ## 2026-11-14 — TC-790 (chunk-truncation API-Coverage preservation) lands, plus 2 more pre-existing stale-fixture breaks
+    sha256: 13bbc08926dd377f4940bfa06350eeff74eb1c324787a81d3a2d8b8bdd76e3da
+inputs:
+  - >-
+    READ FIRST: infra/hosting/nginx.conf, pilots.txt, compose.yaml and
+    tests/infra/test_hosting_config.py (TC-685), infra/helm/foss-mcp/templates/demo-ingress.yaml
+    (TC-669's two-segment path), src/foss_mcp/mcp/routing.py.
+  - >-
+    Do not change compose.yaml, the Helm chart, or any server code. If pilots.txt needs no change,
+    do not edit it.
+  - >-
+    Commit EXACTLY ONE commit (the supervisor's negative control reverse-applies that commit's
+    production-data part). Before committing run `ruff format` and `ruff check` on changed Python
+    files, then run the card's check command twice and report the real results. If a related test
+    outside write_paths fails because of your change, do not edit it: stop and report it with the
+    exact failure (known stale-pin traps: tests that pin exact registry-entry counts,
+    PILOTS_WITH_KNOWN_HAZARDS in tests/mcp/tools/test_product_reference_known_hazards.py and
+    tests/schemas/test_product_manifest_schema.py, tests/indexing/test_known_defects_data_*.py).
+actions:
+  - >-
+    Serve every pilot at /{family}/{platform}/ in the versioned gateway config as well as the
+    hyphenated form, with real-content tests.
+checks:
+  - command: '{python} -m pytest tests/infra/test_hosting_config.py tests/infra/test_helm_manifest_step.py -q -rfE -p no:cacheprovider'
+    expect: 'exit 0'
+    timeout_seconds: 900
+    junitxml: true
+    proves:
+      - REQ-G3-016
+min_tests: 30
+requires:
+  - python
+network: false
+negative_control:
+  mutate: |
+    python -X utf8 -c "import subprocess; paths = ['infra/hosting/nginx.conf', 'infra/hosting/pilots.txt']; patch = subprocess.run(['git', 'show', '--format=', 'HEAD', '--'] + paths, capture_output=True, check=True).stdout; assert patch.strip(), 'the worker commit changes none of the production paths - the fix is missing'; subprocess.run(['git', 'apply', '-R', '--whitespace=nowarn', '-'], input=patch, check=True)"
+  rationale: >-
+    Reverse-applies the worker's own commit restricted to this card's production (non-test) paths,
+    i.e. removes the fix itself while keeping the card's new tests; the suite must then fail.
+    Anchored on the real committed diff, so it cannot be vacuous or literal-fragile. The worker must
+    therefore commit exactly ONE commit for this card.
+evidence:
+  - evidence/build/G3/TC-833/receipt.json
+closeout:
+  - >-
+    The versioned gateway config routes both URL shapes for all 32 pilots.
+recovery: Re-run from a clean tree.
