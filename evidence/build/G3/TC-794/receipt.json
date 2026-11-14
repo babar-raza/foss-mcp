@@ -1,0 +1,92 @@
+{
+  "schema_version": 1,
+  "card": "TC-794",
+  "gate": "G3",
+  "generated_by": "gatectl",
+  "generated_at": "2026-11-14T07:45:19Z",
+  "base_rev": "d09b2428ce9e54cc66b00190b2e56f6106f83fb0",
+  "head_rev": "836928093fe98abc1a25e0dd98275c476cc9b52f",
+  "card_sha256": "a5cbbee87d08ead26137d95a8472d92a2f526d160157a3560eec08aa5ea4e555",
+  "fingerprint": {
+    "python": "3.13.2",
+    "platform": "Windows-11-10.0.26300-SP0",
+    "lock_sha256": "5c72e798a73c059a438e752e94a8d4c88c1bdf81a197f6e5c5fcecbc9466a691",
+    "env": {
+      "PYTHONHASHSEED": "0",
+      "PYTHONUTF8": "1",
+      "PYTHONDONTWRITEBYTECODE": "1",
+      "PYTHONIOENCODING": "utf-8",
+      "TZ": "UTC",
+      "LC_ALL": "C.UTF-8",
+      "SOURCE_DATE_EPOCH": "1700000000",
+      "verify_runner": "host"
+    }
+  },
+  "scope": {
+    "ok": true,
+    "changed_paths": [
+      "src/foss_mcp/mcp/tools/get_symbol.py",
+      "src/foss_mcp/mcp/tools/list_members.py",
+      "tests/mcp/tools/test_get_symbol_shell_resolution.py",
+      "tests/mcp/tools/test_member_lookup_baked.py"
+    ],
+    "violations": [],
+    "evaluated": true
+  },
+  "runs": [
+    {
+      "run": 1,
+      "checks": [
+        {
+          "command": "{python} -m pytest tests/mcp/tools/test_get_symbol_shell_resolution.py tests/mcp/tools/test_get_symbol_canonical_identity_dedup.py tests/mcp/tools/test_get_symbol_raw_text_opt_in.py tests/mcp/tools/test_known_defects_in_get_symbol.py tests/mcp/tools/test_member_lookup.py tests/mcp/tools/test_member_lookup_baked.py tests/mcp/tools/test_symbol_tools.py tests/conformance/test_symbol_self_retrieval.py -q -rfE -p no:cacheprovider",
+          "exit_code": 0,
+          "duration_s": 211.446,
+          "stdout_sha256": "1f517b15a77919b7c444fd206994b14152a4ee7e41fdb88f20d8a7a9ea38652a",
+          "tests": 137,
+          "skipped": 0,
+          "errors": 0,
+          "failures": 0
+        }
+      ],
+      "all_passed": true
+    },
+    {
+      "run": 2,
+      "checks": [
+        {
+          "command": "{python} -m pytest tests/mcp/tools/test_get_symbol_shell_resolution.py tests/mcp/tools/test_get_symbol_canonical_identity_dedup.py tests/mcp/tools/test_get_symbol_raw_text_opt_in.py tests/mcp/tools/test_known_defects_in_get_symbol.py tests/mcp/tools/test_member_lookup.py tests/mcp/tools/test_member_lookup_baked.py tests/mcp/tools/test_symbol_tools.py tests/conformance/test_symbol_self_retrieval.py -q -rfE -p no:cacheprovider",
+          "exit_code": 0,
+          "duration_s": 167.24,
+          "stdout_sha256": "1f517b15a77919b7c444fd206994b14152a4ee7e41fdb88f20d8a7a9ea38652a",
+          "tests": 137,
+          "skipped": 0,
+          "errors": 0,
+          "failures": 0
+        }
+      ],
+      "all_passed": true
+    }
+  ],
+  "negative_control": {
+    "kind": "mutate",
+    "patch": "python -X utf8 -c \"import subprocess; paths = ['src/foss_mcp/mcp/tools/get_symbol.py', 'src/foss_mcp/mcp/tools/list_members.py']; patch = subprocess.run(['git', 'show', '--format=', 'HEAD', '--'] + paths, capture_output=True, check=True).stdout; assert patch.strip(), 'the worker commit changes none of the production paths - the fix is missing'; subprocess.run(['git', 'apply', '-R', '--whitespace=nowarn', '-'], input=patch, check=True)\"\n",
+    "patch_sha256": "6bd5e9369b33c1278d5f2c3c8e884bb535425c10675c565587669d755c955582",
+    "applied": true,
+    "patch_applied_failed": true,
+    "exit_codes": [
+      1
+    ],
+    "tree_changed": [
+      "M src/foss_mcp/mcp/tools/get_symbol.py",
+      "M src/foss_mcp/mcp/tools/list_members.py",
+      "?? .junit-0.xml"
+    ]
+  },
+  "holdout": {
+    "ran": false,
+    "passed": true,
+    "detail": "no holdout for this card"
+  },
+  "accepted": true,
+  "reason": "all gates passed"
+}

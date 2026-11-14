@@ -1,0 +1,196 @@
+
+===== CLEAN RUN 1 (host) =====
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-5c72e798a73c059a\Scripts\python.exe -m pytest tests/mcp/tools/test_get_symbol_shell_resolution.py tests/mcp/tools/test_get_symbol_canonical_identity_dedup.py tests/mcp/tools/test_get_symbol_raw_text_opt_in.py tests/mcp/tools/test_known_defects_in_get_symbol.py tests/mcp/tools/test_member_lookup.py tests/mcp/tools/test_member_lookup_baked.py tests/mcp/tools/test_symbol_tools.py tests/conformance/test_symbol_self_retrieval.py -q -rfE -p no:cacheprovider "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-jggmxk2x\.junit-0.xml"
+--- stdout ---
+........................................................................ [ 52%]
+.................................................................        [100%]
+
+--- stderr ---
+
+
+===== CLEAN RUN 2 (host) =====
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-5c72e798a73c059a\Scripts\python.exe -m pytest tests/mcp/tools/test_get_symbol_shell_resolution.py tests/mcp/tools/test_get_symbol_canonical_identity_dedup.py tests/mcp/tools/test_get_symbol_raw_text_opt_in.py tests/mcp/tools/test_known_defects_in_get_symbol.py tests/mcp/tools/test_member_lookup.py tests/mcp/tools/test_member_lookup_baked.py tests/mcp/tools/test_symbol_tools.py tests/conformance/test_symbol_self_retrieval.py -q -rfE -p no:cacheprovider "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-jggmxk2x\.junit-0.xml"
+--- stdout ---
+........................................................................ [ 52%]
+.................................................................        [100%]
+
+--- stderr ---
+
+
+===== NEGATIVE CONTROL (checks MUST now fail) =====
+mutated: M src/foss_mcp/mcp/tools/get_symbol.py, M src/foss_mcp/mcp/tools/list_members.py, ?? .junit-0.xml
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-5c72e798a73c059a\Scripts\python.exe -m pytest tests/mcp/tools/test_get_symbol_shell_resolution.py tests/mcp/tools/test_get_symbol_canonical_identity_dedup.py tests/mcp/tools/test_get_symbol_raw_text_opt_in.py tests/mcp/tools/test_known_defects_in_get_symbol.py tests/mcp/tools/test_member_lookup.py tests/mcp/tools/test_member_lookup_baked.py tests/mcp/tools/test_symbol_tools.py tests/conformance/test_symbol_self_retrieval.py -q -rfE -p no:cacheprovider "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-jggmxk2x\.junit-0.xml"
+--- stdout ---
+FFFFF.F................................................................. [ 52%]
+.............F...................................................        [100%]
+================================== FAILURES ===================================
+_ test_a_shell_answers_with_its_definitions_signature_under_the_requested_fqn _
+
+    def test_a_shell_answers_with_its_definitions_signature_under_the_requested_fqn() -> None:
+        store = _InMemoryStore(
+            (
+                _thin_shell("pkg.Facade", defined_in="pkg.facades.Facade"),
+                _definition("pkg.facades.Facade", exported_as="pkg.Facade"),
+            )
+        )
+        answer = get_symbol(store, SCOPE, "pkg.Facade")  # type: ignore[arg-type]
+        assert isinstance(answer, SymbolSignature)
+        assert answer.found is True
+        assert not isinstance(answer, ResolvedSignature)
+        assert answer.fqn == "pkg.Facade"  # still the name that was asked for
+>       assert answer.canonical_fqn == "pkg.facades.Facade"
+               ^^^^^^^^^^^^^^^^^^^^
+E       AttributeError: 'SymbolSignature' object has no attribute 'canonical_fqn'
+
+tests\mcp\tools\test_get_symbol_shell_resolution.py:106: AttributeError
+______ test_raw_text_stays_opt_in_and_is_the_definitions_when_asked_for _______
+
+    def test_raw_text_stays_opt_in_and_is_the_definitions_when_asked_for() -> None:
+        store = _InMemoryStore(
+            (
+                _thin_shell("pkg.Facade", defined_in="pkg.facades.Facade"),
+                _definition("pkg.facades.Facade", exported_as="pkg.Facade"),
+            )
+        )
+        default = get_symbol(store, SCOPE, "pkg.Facade")  # type: ignore[arg-type]
+        assert isinstance(default, SymbolSignature)
+        assert not isinstance(default.raw_text, str)  # still omitted by default (TC-688)
+        opted_in = get_symbol(store, SCOPE, "pkg.Facade", include_raw_text=True)  # type: ignore[arg-type]
+        assert isinstance(opted_in, SymbolSignature)
+>       assert isinstance(opted_in.raw_text, str) and "FQN: pkg.facades.Facade" in opted_in.raw_text
+E       AssertionError: assert (True and 'FQN: pkg.facades.Facade' in 'FQN: pkg.Facade\nKind: class\nDefined-In: pkg.facades.Facade')
+E        +  where True = isinstance('FQN: pkg.Facade\nKind: class\nDefined-In: pkg.facades.Facade', str)
+E        +    where 'FQN: pkg.Facade\nKind: class\nDefined-In: pkg.facades.Facade' = SymbolSignature(scope=Scope(family='pkg', platform='python', source_kind='self_extracted'), generation_id='gen-tc794',... raw_text='FQN: pkg.Facade\nKind: class\nDefined-In: pkg.facades.Facade', found=True, limitations=(), known_defects=()).raw_text
+E        +  and   'FQN: pkg.Facade\nKind: class\nDefined-In: pkg.facades.Facade' = SymbolSignature(scope=Scope(family='pkg', platform='python', source_kind='self_extracted'), generation_id='gen-tc794',... raw_text='FQN: pkg.Facade\nKind: class\nDefined-In: pkg.facades.Facade', found=True, limitations=(), known_defects=()).raw_text
+
+tests\mcp\tools\test_get_symbol_shell_resolution.py:136: AssertionError
+_________ test_list_members_on_a_shell_lists_its_definitions_members __________
+
+    def test_list_members_on_a_shell_lists_its_definitions_members() -> None:
+        store = _InMemoryStore(
+            (
+                _thin_shell("pkg.Facade", defined_in="pkg.facades.Facade"),
+                _definition("pkg.facades.Facade", exported_as="pkg.Facade"),
+            )
+        )
+        members = list_members(store, SCOPE, "pkg.Facade")  # type: ignore[arg-type]
+>       assert members == ("bind(path: str) -> None", "close() -> None", "name: str")
+E       AssertionError: assert () == ('bind(path: ..., 'name: str')
+E         
+E         Right contains 3 more items, first extra item: 'bind(path: str) -> None'
+E         Use -v to get more diff
+
+tests\mcp\tools\test_get_symbol_shell_resolution.py:147: AssertionError
+___ test_a_shell_whose_definition_is_not_indexed_behaves_exactly_as_before ____
+
+    def test_a_shell_whose_definition_is_not_indexed_behaves_exactly_as_before() -> None:
+        store = _InMemoryStore((_thin_shell("pkg.Orphan", defined_in="pkg.gone.Orphan"),))
+        answer = get_symbol(store, SCOPE, "pkg.Orphan")  # type: ignore[arg-type]
+        assert type(answer) is SymbolSignature  # nothing to resolve to
+>       assert answer.canonical_fqn is None
+               ^^^^^^^^^^^^^^^^^^^^
+E       AttributeError: 'SymbolSignature' object has no attribute 'canonical_fqn'
+
+tests\mcp\tools\test_get_symbol_shell_resolution.py:155: AttributeError
+___________ test_a_chain_of_pointers_is_followed_and_a_cycle_is_not ___________
+
+    def test_a_chain_of_pointers_is_followed_and_a_cycle_is_not() -> None:
+        chain = _InMemoryStore(
+            (
+                _thin_shell("pkg.A", defined_in="pkg.mid.A"),
+                _thin_shell("pkg.mid.A", defined_in="pkg.real.A"),
+                _definition("pkg.real.A", exported_as="pkg.A"),
+            )
+        )
+        answer = get_symbol(chain, SCOPE, "pkg.A")  # type: ignore[arg-type]
+        assert isinstance(answer, SymbolSignature)
+>       assert (answer.fqn, answer.canonical_fqn) == ("pkg.A", "pkg.real.A")
+                            ^^^^^^^^^^^^^^^^^^^^
+E       AttributeError: 'SymbolSignature' object has no attribute 'canonical_fqn'
+
+tests\mcp\tools\test_get_symbol_shell_resolution.py:171: AttributeError
+_____ test_every_real_python_shell_answers_with_its_definitions_signature _____
+
+corpus = <tests.conformance.corpus.ConformanceCorpus object at 0x0000018964B7D7F0>
+
+    def test_every_real_python_shell_answers_with_its_definitions_signature(corpus: ConformanceCorpus) -> None:
+        python_pilots = sorted(name for name in corpus.pilots if name.endswith("__python"))
+        assert len(python_pilots) == 11, python_pilots
+        swept = 0
+        for name in python_pilots:
+            pilot = corpus.pilots[name]
+            definitions: set[str] = set()
+            shells: list[tuple[str, str]] = []
+            for document in pilot.documents:
+                fqn = extract_fqn(document["text"])
+                if fqn is None or fqn.startswith(("Doc:", "Example:")):
+                    continue
+                defined_in = extract_defined_in(document["text"])
+                if defined_in is None:
+                    definitions.add(fqn)
+                else:
+                    shells.append((fqn, defined_in))
+            assert shells, f"{name} has no re-export shell at all - the sweep would be vacuous"
+            pilot_swept = pilot_non_empty = 0
+            for shell_fqn, definition_fqn in shells:
+                if definition_fqn not in definitions:
+                    continue  # a shell with no indexed definition keeps answering from its own text
+                answer = get_symbol(corpus.store, pilot.scope, shell_fqn)
+                definition = get_symbol(corpus.store, pilot.scope, definition_fqn)
+                assert isinstance(answer, SymbolSignature), (name, shell_fqn)
+                assert isinstance(definition, SymbolSignature), (name, definition_fqn)
+>               assert (answer.fqn, answer.canonical_fqn) == (shell_fqn, definition_fqn)
+                                    ^^^^^^^^^^^^^^^^^^^^
+E               AttributeError: 'SymbolSignature' object has no attribute 'canonical_fqn'
+
+tests\mcp\tools\test_get_symbol_shell_resolution.py:243: AttributeError
+____ test_a_python_reexport_shell_and_its_definition_resolve_by_short_name ____
+
+baked = <tests.mcp.tools.test_member_lookup_baked._Baked object at 0x0000018964B7D7F0>
+
+    def test_a_python_reexport_shell_and_its_definition_resolve_by_short_name(baked: _Baked) -> None:
+        """Since TC-686 a re-export shell is a thin pointer (``Defined-In:`` and no members), so the case
+        is built from a shell that points at a definition, in the same generation, that DOES declare
+        members; the shell itself declares none. Counted as one type (TC-686) the short name resolves to
+        the DEFINITION's fqn and lines, and (TC-794) the shell's own exact FQN answers with that same
+        definition's signature under the requested name, naming the definition in ``canonical_fqn``."""
+        cases: list[tuple[str, _Type, _Type]] = []
+        for pilot in PILOTS:
+            if not pilot.endswith("__python__self_extracted"):
+                continue
+            types = baked.types(pilot)
+            for shell in types:
+                if not shell.defined_in:
+                    continue
+                carriers = [
+                    kind for kind in types if kind.fqn == shell.short or kind.fqn.endswith((f".{shell.short}",))
+                ]
+                definition = next((kind for kind in carriers if kind.fqn == shell.defined_in), None)
+                if definition is not None and len(carriers) == 2 and definition.members:
+                    assert not shell.members, (pilot, shell.fqn)  # a shell is a pointer, never a copy
+                    cases.append((pilot, shell, definition))
+        assert cases, "no baked Python pilot carries a re-export shell next to a definition that declares members"
+        for pilot, shell, definition in cases[:: max(1, len(cases) // 20)]:
+            member = next(iter(definition.members))
+            answer = baked.call(pilot, "get_symbol", f"{shell.short}.{member}")
+            assert _is_resolved(answer), (pilot, shell.fqn, member, answer)
+            assert answer["fqn"] == definition.fqn  # counted as one type, answered with the definition
+            assert answer["member_lines"] == definition.members[member]
+            # TC-794: the shell's own exact FQN is no longer an empty class - it carries the definition's members.
+            exact = baked.call(pilot, "get_symbol", shell.fqn)
+>           assert exact["fqn"] == shell.fqn and exact["canonical_fqn"] == definition.fqn, (pilot, shell.fqn)
+                                                 ^^^^^^^^^^^^^^^^^^^^^^
+E           KeyError: 'canonical_fqn'
+
+tests\mcp\tools\test_member_lookup_baked.py:236: KeyError
+=========================== short test summary info ===========================
+FAILED tests/mcp/tools/test_get_symbol_shell_resolution.py::test_a_shell_answers_with_its_definitions_signature_under_the_requested_fqn
+FAILED tests/mcp/tools/test_get_symbol_shell_resolution.py::test_raw_text_stays_opt_in_and_is_the_definitions_when_asked_for
+FAILED tests/mcp/tools/test_get_symbol_shell_resolution.py::test_list_members_on_a_shell_lists_its_definitions_members
+FAILED tests/mcp/tools/test_get_symbol_shell_resolution.py::test_a_shell_whose_definition_is_not_indexed_behaves_exactly_as_before
+FAILED tests/mcp/tools/test_get_symbol_shell_resolution.py::test_a_chain_of_pointers_is_followed_and_a_cycle_is_not
+FAILED tests/mcp/tools/test_get_symbol_shell_resolution.py::test_every_real_python_shell_answers_with_its_definitions_signature
+FAILED tests/mcp/tools/test_member_lookup_baked.py::test_a_python_reexport_shell_and_its_definition_resolve_by_short_name
+
+--- stderr ---
+
