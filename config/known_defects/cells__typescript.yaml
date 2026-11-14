@@ -74,6 +74,36 @@ defects:
       version: 1.0.0
       date: '2026-10-29'
   status: open
+- id: CELLS-TYPESCRIPT-006
+  subject:
+    kind: method
+    refs:
+    - aspose_cells.workbook.Workbook
+  applies_to:
+    package_versions:
+    - 1.0.0
+  summary: 'Workbook.toCsv() and toMarkdown() in excel-cells 1.0.0 export only the first worksheet
+    (this._sheets.worksheets[0]); every other sheet is silently omitted, while toJson() includes
+    every sheet.'
+  user_action: Do not use Workbook.toCsv() or toMarkdown() in excel-cells 1.0.0 to export a workbook
+    that has more than one worksheet; both read only worksheets[0] and silently drop the rest with
+    no error or warning, and worksheets[0] can be an empty default sheet. Use toJson(), which
+    iterates every worksheet, or build one CSV/Markdown string per worksheet yourself from each
+    worksheet's cells.
+  evidence:
+    repro: 'Read aspose_cells/workbook.ts at the indexed commit fc186507: toCsv() and toMarkdown()
+      each start with const sheet = this._sheets.worksheets[0] and never loop over the other
+      sheets, while toJson() loops over every sheet in this._sheets.worksheets. Ran a node/tsx
+      script against that source: a new Workbook with A1=first-sheet on Sheet1 and, on a second
+      worksheet added with worksheets.addWorksheet(''Data''), A1=second-sheet and B2=5 gave
+      toCsv() = "first-sheet" and toMarkdown() = "| first-sheet |" (nothing from the second
+      sheet), while toJson() listed both sheets (Sheet1: A1; Data: A1, B2). Verified against the
+      indexed commit; upstream HEAD 9ff8ec01 (2026-11-12) was rewritten and was not re-tested.'
+    verified_on:
+      package: excel-cells
+      version: 1.0.0
+      date: '2026-11-14'
+  status: open
 - id: CELLS-TYPESCRIPT-008
   subject:
     kind: method
@@ -100,6 +130,37 @@ defects:
       package: excel-cells
       version: 1.0.0
       date: '2026-10-29'
+  status: open
+- id: CELLS-TYPESCRIPT-009
+  subject:
+    kind: method
+    refs:
+    - aspose_cells.workbook.Workbook
+  applies_to:
+    package_versions:
+    - 1.0.0
+  summary: 'Workbook.save(path) in excel-cells 1.0.0 writes an XLSX zip for every path except .html/.htm,
+    including .pdf, .txt, .xls and even .csv/.json/.md, with no error: the extension never changes
+    the output format.'
+  user_action: Do not expect Workbook.save(path) in excel-cells 1.0.0 to honour the file extension;
+    only .html/.htm produce non-XLSX output, so a path ending .pdf, .csv, .json, .md or any other
+    extension still receives XLSX (zip) bytes under that name. For CSV, JSON or Markdown, write
+    the string returned by toCsv(), toJson() or toMarkdown() to a file yourself, and re-open or
+    byte-check a saved file instead of trusting its extension.
+  evidence:
+    repro: 'Read aspose_cells/workbook.ts at the indexed commit fc186507: save() branches only on
+      format === SaveFormat.HTML and otherwise always calls writeToZip(); detectFormat() maps
+      html/htm/csv/json/md/markdown and falls through to SaveFormat.XLSX for any other extension,
+      but no code path outside the HTML branch writes CSV, JSON or Markdown. Ran a node/tsx script
+      against that source saving one Workbook to e.xlsx, e.txt, e.pdf, e.xls, e.bin, g.csv, g.json,
+      g.md and g.markdown: every file was written without error and began with the ZIP signature
+      bytes "PK". Verified against the indexed commit; upstream HEAD 9ff8ec01 (2026-11-12) now maps
+      .pdf to a PDF exporter and still falls through to XLSX for unrecognised extensions, which
+      is not served by this project.'
+    verified_on:
+      package: excel-cells
+      version: 1.0.0
+      date: '2026-11-14'
   status: open
 - id: CELLS-TYPESCRIPT-011
   subject:

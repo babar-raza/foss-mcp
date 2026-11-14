@@ -201,6 +201,17 @@ class _InMemoryStore:
         return self._manifest
 
 
+def _line_for(lines: tuple[str, ...], marker: str) -> str:
+    """The one rendered known-defect line carrying *marker*. G3/TC-796 added two more
+    Workbook-scoped entries (``CELLS-TYPESCRIPT-006`` and ``CELLS-TYPESCRIPT-009``) beside this
+    card's ``CELLS-TYPESCRIPT-013``, and known-defect lines are matched on the OWNING type's fqn, so
+    ``Workbook`` now surfaces three lines; ``CELLS-TYPESCRIPT-013`` is picked out by its own
+    distinctive wording ("past the 2nd"), not by position or by assuming it is the only one."""
+    matching = [line for line in lines if marker in line.lower()]
+    assert len(matching) == 1, (marker, lines)
+    return matching[0]
+
+
 def _workbook_symbol_body() -> str:
     lines = [
         "## Workbook",
@@ -227,8 +238,10 @@ def test_get_symbol_end_to_end_surfaces_the_real_written_defect(store: _InMemory
 
     assert isinstance(result, SymbolSignature)
     assert result.fqn == "aspose_cells.workbook.Workbook"
-    assert len(result.known_defects) == 1
-    line = result.known_defects[0]
+    # G3/TC-796: three Workbook-scoped entries now (013, plus 006 and 009); 013 is still there,
+    # exactly once.
+    assert len(result.known_defects) == 3
+    line = _line_for(result.known_defects, "past the 2nd")
     assert "save" in line.lower()
     assert "worksheet" in line.lower()
 
@@ -240,8 +253,8 @@ def test_get_symbol_resolved_member_save_also_surfaces_the_real_defect(store: _I
 
     assert isinstance(result, ResolvedSignature)
     assert result.fqn == "aspose_cells.workbook.Workbook"
-    assert len(result.known_defects) == 1
-    assert "save" in result.known_defects[0].lower()
+    assert len(result.known_defects) == 3
+    assert "save" in _line_for(result.known_defects, "past the 2nd").lower()
 
 
 def test_search_symbols_end_to_end_surfaces_the_real_written_defect(store: _InMemoryStore) -> None:
@@ -254,8 +267,8 @@ def test_search_symbols_end_to_end_surfaces_the_real_written_defect(store: _InMe
     assert isinstance(result, list), f"expected a real symbol hit, got a Miss: {result!r}"
     matches: list[SymbolMatch] = result
     assert len(matches) == 1
-    assert len(matches[0].known_defects) == 1
-    line = matches[0].known_defects[0]
+    assert len(matches[0].known_defects) == 3
+    line = _line_for(matches[0].known_defects, "past the 2nd")
     assert "save" in line.lower()
     assert "worksheet" in line.lower()
 

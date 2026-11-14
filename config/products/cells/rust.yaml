@@ -54,3 +54,17 @@ known_hazards:
       dependency changes, and re-supply it via put_formula_with_cached_value; never assume this
       library will recalculate anything on your behalf.
     verified_at: "2026-11-07"
+  - text: >-
+      In cells/rust (pinned commit 1a6004af), the arguments of CellsMut::merge() and
+      merge_or_cells_exception() are merge(first_row, first_column, total_rows, total_columns):
+      the last two are COUNTS of rows and columns, not end indices, and all four are zero-based.
+      The source computes end_row = first_row + total_rows - 1 and end_column = first_column +
+      total_columns - 1, and rejects a negative first_row or first_column and any total_rows or
+      total_columns of zero or less. Verified by running the crate: merge(0, 0, 1, 3) merged
+      A1:C1 (not A1:D1); merge(5, 0, 5, 2), written as if the last two were end indices, merged
+      A6:B10 (5 rows by 2 columns), a different range from the intended one, with no error; and
+      merge(9, 0, 0, 2) returned an InvalidCellReference error. To merge A1:C1 call
+      merge(0, 0, 1, 3). To merge rows r1..r2 and columns c1..c2 (zero-based, inclusive) call
+      merge(r1, c1, r2 - r1 + 1, c2 - c1 + 1), and read merged_cells() back to confirm the
+      range.
+    verified_at: "2026-11-14"

@@ -96,6 +96,18 @@ distinct from the other 7 entries' shared ``ROUND2_VERIFIED_AT`` (2026-10-29) - 
 findings before it, it is layered on top of the existing ``PAGE_PYTHON_PILOT`` tuple's issue-id
 list (not a new ``ALL_PILOTS`` entry, since ``page/python`` already has one from ``TC-720``).
 
+G3/TC-796 adds 5 more disclosures for the cells family's remaining undisclosed-behavior and
+capability-gap rows, each re-verified on 2026-11-14 against the real upstream source at the
+pinned/indexed commit (reading it, and running a small program built from it with the pilot's own
+toolchain where cheap): ``CELLS-CPP-004`` (config/products/cells/cpp.yaml - formulas are never
+calculated or cached), ``CELLS-TYPESCRIPT-001`` and ``CELLS-TYPESCRIPT-012``
+(config/products/cells/typescript.yaml - write-only formulas; no defined-names API despite the
+README claim), ``CELLS-GO-009`` (config/products/cells/go.yaml - missing capabilities) and
+``CELLS-RUST-006`` (config/products/cells/rust.yaml - merge() takes counts, not end indices, and is
+zero-based). The first three and ``CELLS-RUST-006`` are layered into ``ALL_PILOTS`` (cells/rust gains
+a second id); ``CELLS-GO-009`` is covered by its own tests at the end of this module, because
+cells/go's first, pre-existing hazard has no round-2 issue id.
+
 This file proves, per pilot: (1) the manifest's new ``known_hazards`` entries validate against
 the real schema; (2) a real end-to-end ``get_product_reference(section="limitations")`` call
 against the REAL baked sidecar (``infra/demo-manifests``, the exact way the live server loads a
@@ -123,6 +135,7 @@ import pytest
 import yaml
 
 from foss_mcp.indexing.generation_manifest import GenerationManifestStore
+from foss_mcp.indexing.known_defects import load_known_defects
 from foss_mcp.mcp.routing import Scope
 from foss_mcp.mcp.tools.get_product_reference import (
     ReferenceContent,
@@ -237,10 +250,32 @@ ALL_ISSUE_IDS = ALL_ISSUE_IDS + THREED_TYPESCRIPT_PILOT[2]
 # the schema-validation and verified_at-date tests below (which assume one shared date) stay
 # scoped to the original 7, unchanged, while the per-entry disclosure tests ("for each pilot" and
 # "trace tokens") extend to cover this 13th entry via ALL_PILOTS/ALL_ISSUE_IDS.
-CELLS_RUST_PILOT: tuple[str, str, tuple[str, ...]] = ("cells", "rust", ("CELLS-RUST-003",))
+#
+# G3/TC-796 adds a SECOND entry on the same pilot, CELLS-RUST-006 (merge() counts vs end indices),
+# via the identical multi-id-per-pilot pattern PAGE_PYTHON_PILOT already uses.
+CELLS_RUST_PILOT: tuple[str, str, tuple[str, ...]] = (
+    "cells",
+    "rust",
+    ("CELLS-RUST-003", "CELLS-RUST-006"),
+)
 ALL_PILOTS = ALL_PILOTS + (CELLS_RUST_PILOT,)
 ALL_PILOT_IDS = ALL_PILOT_IDS + ["cells/rust"]
 ALL_ISSUE_IDS = ALL_ISSUE_IDS + CELLS_RUST_PILOT[2]
+
+# G3/TC-796: three more round-2-sourced entries on two more pilots - CELLS-CPP-004 (cells/cpp) and
+# CELLS-TYPESCRIPT-001 + CELLS-TYPESCRIPT-012 (cells/typescript) - layered on top of ALL_PILOTS
+# the same way, for the identical reason: their real verified_at (2026-11-14, this card's own
+# direct verification against the real pinned source) differs from the 7 original entries' shared
+# ROUND2_VERIFIED_AT (2026-10-29).
+CELLS_CPP_PILOT: tuple[str, str, tuple[str, ...]] = ("cells", "cpp", ("CELLS-CPP-004",))
+CELLS_TYPESCRIPT_PILOT: tuple[str, str, tuple[str, ...]] = (
+    "cells",
+    "typescript",
+    ("CELLS-TYPESCRIPT-001", "CELLS-TYPESCRIPT-012"),
+)
+ALL_PILOTS = ALL_PILOTS + (CELLS_CPP_PILOT, CELLS_TYPESCRIPT_PILOT)
+ALL_PILOT_IDS = ALL_PILOT_IDS + ["cells/cpp", "cells/typescript"]
+ALL_ISSUE_IDS = ALL_ISSUE_IDS + CELLS_CPP_PILOT[2] + CELLS_TYPESCRIPT_PILOT[2]
 
 
 def _schema() -> dict[str, Any]:
@@ -280,6 +315,15 @@ def _load_baked(tmp_path: Path, family: str, platform: str) -> tuple[Any, Readme
     return inputs, readme
 
 
+def _library_level_defect_count(family: str, platform: str) -> int:
+    """How many of this pilot's real ``known_defects`` registry entries ``get_product_reference``
+    merges into "limitations" (``subject.kind`` "package" or "commit" - method/class-scoped
+    entries surface through get_symbol instead)."""
+    return sum(
+        1 for defect in load_known_defects(family, platform) if defect.subject.kind in ("package", "commit")
+    )
+
+
 # --------------------------------------------------------------------- (1) schema validation
 
 
@@ -296,8 +340,11 @@ def test_manifest_known_hazards_entries_validate_against_the_real_schema(
         assert hazard.verified_at == ROUND2_VERIFIED_AT
 
 
-def test_total_known_hazards_entries_match_the_fourteen_round2_findings() -> None:
-    """Exactly 14 entries across the 11 pilots - one per round-2 issue id this card (plus G3/TC-720's
+def test_total_known_hazards_entries_match_the_eighteen_round2_findings() -> None:
+    """Exactly 18 entries across the 13 pilots (G3/TC-796 added 4 more: CELLS-RUST-006,
+    CELLS-CPP-004, CELLS-TYPESCRIPT-001, CELLS-TYPESCRIPT-012; CELLS-GO-009 is on cells/go, whose
+    first hazard has no round-2 issue id, and is counted by its own test below) - one per round-2
+    issue id this card (plus G3/TC-720's
     PAGE-PYTHON-003, G3/TC-721's CELLS-PY-004, G3/TC-722's EMAIL-CPP-004, G3/TC-723's
     SLIDES-CPP-003, G3/TC-724's 3D-TYPESCRIPT-006, G3/TC-725's CELLS-RUST-003, and G3/TC-726's
     PAGE-PYTHON-005, the latter a second entry on page/python alongside PAGE-PYTHON-003) closes,
@@ -306,8 +353,8 @@ def test_total_known_hazards_entries_match_the_fourteen_round2_findings() -> Non
         len(known_hazards_from_manifest(_real_manifest(family, platform)))
         for family, platform, _ in ALL_PILOTS
     )
-    assert total == 14
-    assert len(ALL_ISSUE_IDS) == 14
+    assert total == 18
+    assert len(ALL_ISSUE_IDS) == 18
 
 
 # ------------------------------------------------------------- (2) end-to-end, real baked pilot
@@ -335,7 +382,13 @@ def test_get_product_reference_limitations_surfaces_the_real_hazard_for_each_pil
     assert isinstance(result, ReferenceContent)
     assert result.section == "limitations"
     assert result.untrusted_upstream_content is False
-    assert result.text.count(KNOWN_HAZARD_LEAD) == len(issue_ids)
+    # get_product_reference merges a pilot's library-level (package/commit-kind) known_defects
+    # registry entries into "limitations" through the SAME paragraph mechanism and lead as
+    # known_hazards (G3/TC-641), so the real expected lead count is this pilot's hazards PLUS
+    # those registry entries - computed from the real registry, never hardcoded.
+    assert result.text.count(KNOWN_HAZARD_LEAD) == len(issue_ids) + _library_level_defect_count(
+        family, platform
+    )
     for hazard in hazards:
         assert hazard.verified_at in result.text
 
@@ -382,6 +435,12 @@ _HAZARD_TRACE_TOKENS: dict[str, tuple[str, ...]] = {
         "recalculate/evaluate/calculate_formula",
         "declares no member named calculate",
     ),
+    # G3/TC-796: each token below is present both in the real docs/round2/issues.json record and in
+    # the new manifest hazard text.
+    "CELLS-RUST-006": ("total_columns", "merge(0, 0, 1, 3)", "a1:c1"),
+    "CELLS-CPP-004": ("setformula()", "getformula()", "calculation engine"),
+    "CELLS-TYPESCRIPT-001": ("loadworksheetdata", "toxml", "write-only"),
+    "CELLS-TYPESCRIPT-012": ("generateworkbook", "defined names", "definednames"),
     "PAGE-PYTHON-005": (
         "font_uri accepts any string, including a path",
         "font_uri: str (writable)",
@@ -428,13 +487,128 @@ def test_known_hazards_verified_at_is_a_real_valid_calendar_date(
         assert parsed <= datetime.date(2026, 11, 1)
 
 
-def test_round2_issues_json_actually_contains_the_fourteen_claimed_ids() -> None:
-    """Every one of the 14 issue ids this card (plus G3/TC-720's PAGE-PYTHON-003, G3/TC-721's
+def test_round2_issues_json_actually_contains_the_claimed_ids() -> None:
+    """Every one of the issue ids in ALL_ISSUE_IDS (18 today) this card (plus G3/TC-720's PAGE-PYTHON-003, G3/TC-721's
     CELLS-PY-004, G3/TC-722's EMAIL-CPP-004, G3/TC-723's SLIDES-CPP-003, G3/TC-724's
-    3D-TYPESCRIPT-006, G3/TC-725's CELLS-RUST-003, and G3/TC-726's PAGE-PYTHON-005) closes is a
+    3D-TYPESCRIPT-006, G3/TC-725's CELLS-RUST-003, G3/TC-726's PAGE-PYTHON-005, and G3/TC-796's
+    CELLS-RUST-006, CELLS-CPP-004, CELLS-TYPESCRIPT-001 and CELLS-TYPESCRIPT-012) closes is a
     real record in docs/round2/issues.json - the source this card's hazard text must be
     traceable to."""
     issues = json.loads(ROUND2_ISSUES_PATH.read_text(encoding="utf-8"))
     ids_present = {issue["id"] for issue in issues}
     for issue_id in ALL_ISSUE_IDS:
         assert issue_id in ids_present, issue_id
+
+
+# ---------------------------------------------------------------------------------------------
+# G3/TC-796: CELLS-GO-009 (cells/go), the 5th TC-796 disclosure, plus "nothing else changed"
+# ---------------------------------------------------------------------------------------------
+
+TC796_VERIFIED_AT = "2026-11-14"
+# The TC-582 concurrency hazard stays first and unchanged; CELLS-GO-009 is appended second.
+GO_TC582_VERIFIED_AT = "2026-10-24"
+# Each token appears in BOTH the real docs/round2/issues.json CELLS-GO-009 record and the cells/go
+# manifest's hazard text.
+GO_009_TRACE_TOKENS = ("importfromcsv", "addworksheet", "numfmtid")
+# A distinctive fragment of each TC-796 hazard, used to prove each text appears only on its own
+# pilot's manifest and nowhere else.
+TC796_HAZARD_FRAGMENTS: dict[tuple[str, str], tuple[str, ...]] = {
+    ("cells", "cpp"): ("has no formula-calculation engine",),
+    ("cells", "typescript"): ("Formulas are write-only in excel-cells", "has no defined-name or"),
+    ("cells", "go"): ("has no API for several commonly expected spreadsheet",),
+    ("cells", "rust"): ("the last two are COUNTS of rows and columns",),
+}
+
+
+def _manifest_text(family: str, platform: str) -> str:
+    return _WHITESPACE_RE.sub(
+        " ", (CONFIG_PRODUCTS / family / f"{platform}.yaml").read_text(encoding="utf-8")
+    )
+
+
+def test_cells_go_carries_the_original_hazard_first_and_the_new_cells_go_009_hazard_second() -> None:
+    hazards = known_hazards_from_manifest(_real_manifest("cells", "go"))
+    assert len(hazards) == 2
+    assert hazards[0].verified_at == GO_TC582_VERIFIED_AT
+    assert "goroutine" in hazards[0].text.lower()
+    assert hazards[1].verified_at == TC796_VERIFIED_AT
+    text = hazards[1].text
+    # Only gaps confirmed in the pinned source are stated: merge, defined names, number format,
+    # PDF, chart, and the lack of an AddWorksheet.
+    for fragment in ("merged-cells", "defined-name", "number-format", "PDF export", "chart", "ImportFromCSV"):
+        assert fragment in text, fragment
+    assert "numFmtId 0" in text
+    assert "fa4e890e" in text  # scoped to the pinned commit, never presented as current upstream
+
+
+def test_cells_go_009_text_is_traceable_to_the_real_round2_record() -> None:
+    issue = _real_issue("CELLS-GO-009")
+    assert issue["pilot"] == "cells/go"
+    issue_text = _WHITESPACE_RE.sub(" ", json.dumps(issue).lower())
+    manifest_text = _WHITESPACE_RE.sub(" ", yaml.safe_dump(_real_manifest("cells", "go")).lower())
+    for token in GO_009_TRACE_TOKENS:
+        assert token in issue_text, (token, "token not even in the real issue record")
+        assert token in manifest_text, (token, "token missing from the manifest's hazard text")
+
+
+def test_cells_go_manifest_still_validates_against_the_real_schema() -> None:
+    jsonschema.Draft202012Validator(_schema()).validate(_real_manifest("cells", "go"))
+
+
+def test_get_product_reference_limitations_for_cells_go_surfaces_both_hazards(tmp_path: Path) -> None:
+    inputs, readme = _load_baked(tmp_path, "cells", "go")
+    hazards = known_hazards_from_manifest(_real_manifest("cells", "go"))
+    inputs = dataclasses.replace(inputs, known_hazards=hazards)
+
+    result = get_product_reference(inputs, "limitations", readme=readme)
+
+    assert isinstance(result, ReferenceContent)
+    assert result.untrusted_upstream_content is False
+    assert result.text.count(KNOWN_HAZARD_LEAD) == 2 + _library_level_defect_count("cells", "go")
+    assert "ImportFromCSV" in result.text
+    assert "numFmtId 0" in result.text
+    for hazard in hazards:
+        assert hazard.verified_at in result.text
+    # The original concurrency hazard is still there, and still comes before the new one.
+    assert result.text.index("goroutine") < result.text.index("no API for several commonly expected")
+
+
+def test_every_tc796_hazard_text_appears_only_on_its_own_pilots_manifest() -> None:
+    """Each TC-796 hazard fragment is present on its own pilot's manifest and on NO other
+    config/products manifest - proving no other pilot's served disclosure changed."""
+    for (family, platform), fragments in TC796_HAZARD_FRAGMENTS.items():
+        own = _manifest_text(family, platform)
+        for fragment in fragments:
+            assert fragment in own, (family, platform, fragment)
+    for path in sorted(CONFIG_PRODUCTS.glob("*/*.yaml")):
+        key = (path.parent.name, path.stem)
+        other = _WHITESPACE_RE.sub(" ", path.read_text(encoding="utf-8"))
+        for owner, fragments in TC796_HAZARD_FRAGMENTS.items():
+            if owner == key:
+                continue
+            for fragment in fragments:
+                assert fragment not in other, (key, "carries a TC-796 hazard belonging to", owner)
+
+
+@pytest.mark.parametrize(
+    "family,platform",
+    [("cells", "java"), ("cells", "net"), ("cells", "python")],
+    ids=["cells/java", "cells/net", "cells/python"],
+)
+def test_other_cells_pilots_limitations_carry_none_of_the_tc796_text(
+    tmp_path: Path, family: str, platform: str
+) -> None:
+    """The three cells siblings TC-796 did not touch: their real limitations answers (own
+    manifest hazards merged exactly as the live server does) contain none of the new hazard text,
+    and cells/python's own CELLS-PY-004 hazard is byte-for-byte what its manifest says."""
+    inputs, readme = _load_baked(tmp_path, family, platform)
+    hazards = known_hazards_from_manifest(_real_manifest(family, platform))
+    result = get_product_reference(
+        dataclasses.replace(inputs, known_hazards=hazards), "limitations", readme=readme
+    )
+    text = result.text if isinstance(result, ReferenceContent) else ""
+    for fragments in TC796_HAZARD_FRAGMENTS.values():
+        for fragment in fragments:
+            assert fragment not in _WHITESPACE_RE.sub(" ", text), (family, platform, fragment)
+    assert text.count(KNOWN_HAZARD_LEAD) == len(hazards) + _library_level_defect_count(family, platform)
+    assert all(hazard.verified_at != TC796_VERIFIED_AT for hazard in hazards)

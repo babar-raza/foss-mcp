@@ -24,6 +24,15 @@ working around it (AGENTS.md worker rule 5) and left the two id-set-equality ass
 failing, correctly, on that one id. Attempt 3 added ``config/known_defects/cells__go.yaml`` to this
 card's ``write_paths`` and disclosed it for real; both assertions now pass with zero gaps.
 
+**Widened again (G3/TC-796, 2026-11-14):** ``CELLS-TYPESCRIPT-006`` and ``CELLS-TYPESCRIPT-009``
+are real, cited round-2 findings whose ``category`` is ``"mcp-content-missing"`` /
+``"mcp-error-handling"`` rather than ``"upstream-library-bug"``; TC-796 independently re-verified
+both against the real indexed ``excel-cells`` 1.0.0 source and disclosed them through
+``config/known_defects/cells__typescript.yaml``. They are therefore written entries that are NOT in
+the category-filtered union - listed explicitly in ``_ROUND2_GAP_DISCLOSURE_IDS`` below (each still
+checked against the real ledger), so the written set equals the union PLUS exactly those two ids.
+The written total is now 16 (typescript 8), the category-filtered union stays 14.
+
 ``CELLS-CPP-001`` is deliberately excluded: its real ``category`` in ``docs/round2/issues.json``
 is ``"honesty"`` (a false FAQ claim this project's own content got wrong), not
 ``"upstream-library-bug"`` - a different program's job entirely (content-truth, not disclosure).
@@ -84,7 +93,11 @@ _ALL_PLATFORMS = ("go", "java", "net", "python", "rust", "typescript")
 # and CELLS-GO-012 (go 2 -> 3, round-3 rework attempt 3). This written-registry total now equals
 # the "findings that need an entry" union total below (both 14) - TC-656 attempt 3 closed the
 # CELLS-GO-012 gap attempt 2 found and reported rather than working around.
-_EXPECTED_COUNTS = {"go": 3, "java": 1, "net": 1, "python": 2, "rust": 1, "typescript": 6}
+_EXPECTED_COUNTS = {"go": 3, "java": 1, "net": 1, "python": 2, "rust": 1, "typescript": 8}
+# G3/TC-796: two more written typescript entries (typescript 6 -> 8, total 14 -> 16) whose real
+# ledger category is not "upstream-library-bug", so they are not in the category-filtered union
+# below; see this module's docstring.
+_ROUND2_GAP_DISCLOSURE_IDS = frozenset({"CELLS-TYPESCRIPT-006", "CELLS-TYPESCRIPT-009"})
 
 
 def _load_schema() -> dict:
@@ -175,13 +188,15 @@ def test_load_known_defects_returns_the_real_written_count_for_this_pilot(platfo
     )
 
 
-def test_fourteen_entries_total_across_all_six_cells_pilots() -> None:
-    """14 real written entries as of TC-656 attempt 3 (the 12 round-2 findings TC-645 wrote, plus
-    ``CELLS-TYPESCRIPT-013`` and ``CELLS-GO-012``) - now equal to the real "findings needing an
+def test_sixteen_entries_total_across_all_six_cells_pilots() -> None:
+    """16 real written entries: 14 as of TC-656 attempt 3 (the 12 round-2 findings TC-645 wrote,
+    plus ``CELLS-TYPESCRIPT-013`` and ``CELLS-GO-012``) - equal to the real "findings needing an
     entry" union total (also 14, see
-    ``test_every_real_cells_upstream_library_bug_finding_has_a_written_entry`` below)."""
+    ``test_every_real_cells_upstream_library_bug_finding_has_a_written_entry`` below) - plus G3/TC-796's
+    two ``_ROUND2_GAP_DISCLOSURE_IDS`` entries."""
     total = sum(len(load_known_defects("cells", platform)) for platform in _ALL_PLATFORMS)
-    assert total == 14
+    assert total == 16
+    assert total == len(_real_cells_upstream_library_bug_ids()) + len(_ROUND2_GAP_DISCLOSURE_IDS)
 
 
 def test_no_duplicate_ids_across_the_entire_cells_family() -> None:
@@ -201,9 +216,16 @@ def test_every_written_defect_id_is_a_real_cells_upstream_library_bug_finding() 
     written_ids = {
         defect.id for platform in _ALL_PLATFORMS for defect in load_known_defects("cells", platform)
     }
-    assert written_ids <= expected_ids, (
-        f"written ids not found among real cells upstream-library-bug findings (round2 union round3): "
-        f"{written_ids - expected_ids}"
+    # G3/TC-796: the explicit round-2-gap disclosure ids are admitted too, but each must itself be
+    # a real round-2 ledger id for a cells pilot - never an invented id.
+    ledger_ids = {
+        issue["id"] for issue in _real_round2_issues() if str(issue.get("pilot", "")).startswith("cells/")
+    }
+    assert _ROUND2_GAP_DISCLOSURE_IDS <= ledger_ids
+    assert written_ids <= expected_ids | _ROUND2_GAP_DISCLOSURE_IDS, (
+        f"written ids not found among real cells upstream-library-bug findings (round2 union round3) "
+        f"or the explicit round-2-gap disclosure ids: "
+        f"{written_ids - expected_ids - _ROUND2_GAP_DISCLOSURE_IDS}"
     )
 
 
@@ -223,8 +245,9 @@ def test_every_real_cells_upstream_library_bug_finding_has_a_written_entry() -> 
         f"real cells upstream-library-bug findings (round2 union round3) with no written entry: "
         f"{expected_ids - written_ids}"
     )
-    # Both sets equal, and both have exactly 14 members - the real union count as of 2026-11-02.
-    assert expected_ids == written_ids
+    # The written set equals the union (14 members, the real count as of 2026-11-02) PLUS exactly
+    # the two G3/TC-796 round-2-gap disclosure ids - nothing more, nothing less.
+    assert expected_ids | _ROUND2_GAP_DISCLOSURE_IDS == written_ids
     assert len(expected_ids) == 14
 
 

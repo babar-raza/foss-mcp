@@ -185,6 +185,16 @@ against the real, currently-pinned ``aspose-words-foss`` 26.7.0 package. The rea
 is 63 (not 62): both equality assertions above still hold exactly, just against this slightly
 wider set; the real registry file count is unchanged at 27 (this entry lands in the
 already-existing ``words__python.yaml``, which already carried ``WORDS-PY-008``).
+
+**Widened again (G3/TC-796, 2026-11-14):** ``CELLS-TYPESCRIPT-006`` (round-2/round-3, category
+``"mcp-content-missing"``) and ``CELLS-TYPESCRIPT-009`` (round-2/round-3, category
+``"mcp-error-handling"``) are real, cited, committed audit findings this module's own
+category-filtered id source would otherwise never admit; both are added to
+``_ADDITIONAL_DISCLOSABLE_IDS`` the same deliberate, additive way (see that frozenset's own in-code
+comment for the independent re-verification against the real indexed ``excel-cells`` 1.0.0 source
+at ``fc186507``). The real new union count is 65 (not 63): both equality assertions above still
+hold exactly, just against this slightly wider set; the real registry file count is unchanged at
+27 (both entries land in the already-existing ``cells__typescript.yaml``).
 """
 
 from __future__ import annotations
@@ -353,6 +363,16 @@ def _real_round3_issues() -> list[dict[str, Any]]:
 #   saved to PDF genuinely paginates (independently confirmed via ``pypdf`` to produce 26 real
 #   pages), yet ``page_count`` reads 0 both before and after ``save()``. This is disclosure-only,
 #   recorded during the TC-772 verification (2026-11-12), not an audit round.
+# - ``CELLS-TYPESCRIPT-006`` / ``CELLS-TYPESCRIPT-009`` (G3/TC-796, REQ-G3-015, round-2/round-3
+#   audit findings, categories ``"mcp-content-missing"`` / ``"mcp-error-handling"`` rather than
+#   ``"upstream-library-bug"``): independently re-verified on 2026-11-14 against the real indexed
+#   ``excel-cells`` 1.0.0 source at ``fc186507`` by reading ``aspose_cells/workbook.ts`` and by
+#   running a node/tsx script against it. 006: ``Workbook.toCsv()``/``toMarkdown()`` read only
+#   ``this._sheets.worksheets[0]`` (a second sheet's A1/B2 never appeared in either output, while
+#   ``toJson()`` listed both sheets). 009: ``Workbook.save(path)`` branches only on
+#   ``SaveFormat.HTML`` and otherwise always writes an XLSX zip - ``.pdf``, ``.txt``, ``.xls``,
+#   ``.bin`` and even ``.csv``/``.json``/``.md``/``.markdown`` paths all produced files beginning
+#   with the ZIP signature ``PK`` with no error. Disclosure-only.
 _ADDITIONAL_DISCLOSABLE_IDS: frozenset[str] = frozenset(
     {
         "3D-JAVA-001",
@@ -365,6 +385,8 @@ _ADDITIONAL_DISCLOSABLE_IDS: frozenset[str] = frozenset(
         "PAGE-PYTHON-011",
         "3D-PYTHON-013",
         "WORDS-PY-013",
+        "CELLS-TYPESCRIPT-006",
+        "CELLS-TYPESCRIPT-009",
     }
 )
 
@@ -465,8 +487,10 @@ def test_registry_entry_count_equals_upstream_library_bug_issue_count() -> None:
         f"issue count ({len(upstream_issue_ids)})"
     )
 
-    # Sanity anchor only, not a floor on the future: as of G3/TC-772 (2026-11-12) this real union
-    # count is 63 (62 as of TC-771, plus TC-772's own additive ``WORDS-PY-013``); earlier, as of
+    # Sanity anchor only, not a floor on the future: as of G3/TC-796 (2026-11-14) this real union
+    # count is 65 (63 as of TC-772, plus TC-796's own additive ``CELLS-TYPESCRIPT-006`` and
+    # ``CELLS-TYPESCRIPT-009``); earlier, as of G3/TC-772 (2026-11-12) this real union
+    # count was 63 (62 as of TC-771, plus TC-772's own additive ``WORDS-PY-013``); earlier, as of
     # TC-771 (2026-11-12) this real union count was 62 (61 as of TC-767, plus TC-771's own
     # additive ``3D-PYTHON-013``); earlier, as of TC-767 (2026-11-12) this real union count was 61
     # (60 as of TC-758, plus TC-767's own additive ``PAGE-PYTHON-011``); earlier, as of TC-758
@@ -480,7 +504,7 @@ def test_registry_entry_count_equals_upstream_library_bug_issue_count() -> None:
     # upstream-library-bug finding (and its matching entry) is expected to move both sides
     # together and may need to update this comment and number; the equality assertion above is
     # the one that must hold forever.
-    assert len(upstream_issue_ids) == 63
+    assert len(upstream_issue_ids) == 65
 
 
 # --------------------------------------------------------------------------------------------

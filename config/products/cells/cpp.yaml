@@ -34,3 +34,26 @@ schedule:
   cron: "0 18 * * *"
   timezone: UTC
 storage_topology: embedded
+
+# G3/TC-796: a project-verified absence of any formula-calculation engine in this library (round-2
+# finding CELLS-CPP-004), re-verified 2026-11-14 against the pinned commit 9f852d0f by reading
+# src/aspose/cells_foss/Cell.cpp and XlsxWorkbookSerializerCommon.cpp and by building and running
+# a small program against that commit. Keep this the LAST top-level key.
+known_hazards:
+  - text: >-
+      cells/cpp has no formula-calculation engine: Cell::SetFormula() and Workbook::Save() never
+      compute or cache a formula result. Verified against pinned commit 9f852d0f by reading the
+      source and by running a small program built from it. After SetFormula("=SUM(B2:B3)") on an
+      otherwise empty cell, GetValue() is empty and GetStringValue() and GetDisplayStringValue()
+      both return an empty string, and the saved sheet XML for that cell is
+      <c r="B4"><f>SUM(B2:B3)</f></c> with no <v> cached value (the leading '=' is stripped when
+      writing and added back by GetFormula()). The upstream README's comment that
+      GetDisplayStringValue() returns a "formatted formula result" does not hold for such a cell.
+      A cached result exists only if the caller stores one: calling PutValue() BEFORE SetFormula()
+      on the same cell keeps that value and writes it as <v> next to <f>, while calling PutValue()
+      AFTER SetFormula() erases the formula. The stored value is never refreshed - after
+      A1 changed from 2 to 10, the cached 5 stored next to the formula =A1+A2 on B1 stayed 5.
+      The safe pattern: compute each formula's result in your own code, store it with PutValue()
+      and then SetFormula() on the same cell (in that order), recompute and re-store it whenever an
+      input changes, and never rely on this library to produce or update a formula's result.
+    verified_at: "2026-11-14"

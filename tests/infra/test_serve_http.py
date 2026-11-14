@@ -508,11 +508,14 @@ def test_serving_product_reference_inputs_discloses_known_hazard_with_no_sidecar
 
     assert result is not None
     assert result.manifest_text is None  # unaffected: still exactly what the None case always was
-    assert len(result.known_hazards) == 1
+    # G3/TC-796 appended a SECOND entry (CELLS-GO-009's missing-capabilities disclosure) after
+    # the original TC-582 concurrency hazard, which stays first and unchanged.
+    assert len(result.known_hazards) == 2
     hazard = result.known_hazards[0]
     assert "goroutine" in hazard.text.lower()
     assert "workbook" in hazard.text.lower()
     assert hazard.verified_at == "2026-10-24"
+    assert result.known_hazards[1].verified_at == "2026-11-14"
 
 
 def test_serving_product_reference_inputs_discloses_known_hazard_with_a_real_sidecar_present(
@@ -527,7 +530,7 @@ def test_serving_product_reference_inputs_discloses_known_hazard_with_a_real_sid
 
     assert result is not None
     assert result.manifest_text == manifest_text  # untouched by the known_hazards merge
-    assert len(result.known_hazards) == 1
+    assert len(result.known_hazards) == 2  # G3/TC-796: the TC-582 hazard plus CELLS-GO-009
     assert "workbook" in result.known_hazards[0].text.lower()
 
 
@@ -569,7 +572,7 @@ def test_cells_go_live_limitations_answer_discloses_the_hazard_via_the_real_serv
 
     inputs = serve_http._serving_product_reference_inputs(manifests_dir, CELLS_GO_CONFIG)
     assert inputs is not None
-    assert len(inputs.known_hazards) == 1
+    assert len(inputs.known_hazards) == 2  # G3/TC-796: the TC-582 hazard plus CELLS-GO-009
 
     store = GenerationManifestStore(scopes_dir)
     readme = read_readme_sections(store, Scope(family="cells", platform="go"))

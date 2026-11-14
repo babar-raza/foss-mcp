@@ -40,3 +40,18 @@ known_hazards:
       through a single goroutine or a mutex - never mutate one shared Workbook from more than
       one goroutine at a time.
     verified_at: "2026-10-24"
+  - text: >-
+      cells/go (pinned commit fa4e890e) has no API for several commonly expected spreadsheet
+      features, confirmed by reading the non-test Go source under aspose/cells_foss and by running
+      a small Go program against it. There is no merged-cells API and no defined-name or
+      named-range API: no function, method or field mentioning merge, definedName or namedRange
+      exists. There is no number-format setting: Style has only Font, Fill, Alignment and Border
+      fields, and every saved cell format is written with numFmtId 0 (General). There is no
+      PDF export and no chart API. There is no Workbook.AddWorksheet or NewWorksheet: the only
+      way to append a worksheet is Workbook.ImportFromCSV(path, sheetName, delimiter), which
+      adds a new sheet filled from CSV data (a two-sheet save was confirmed to write both
+      sheets), while a Worksheet built directly with &cells_foss.Worksheet{} has a nil Cells()
+      and Cells().Set panics with a nil pointer dereference. Do not plan on any of these in this
+      library; if you need one of them, use another tool for that step rather than expecting the
+      call to exist or to be a silent no-op.
+    verified_at: "2026-11-14"

@@ -21,3 +21,36 @@ schedule:
   cron: "0 13 * * *"
   timezone: UTC
 storage_topology: embedded
+
+# G3/TC-796: two project-verified gaps in the pinned excel-cells 1.0.0 source (round-2 findings
+# CELLS-TYPESCRIPT-001 and CELLS-TYPESCRIPT-012), re-verified 2026-11-14 against the indexed commit
+# fc186507 by reading aspose_cells/cell.ts and aspose_cells/workbook.ts and by running node/tsx
+# scripts against that source. Keep this the LAST top-level key.
+known_hazards:
+  - text: >-
+      Formulas are write-only in excel-cells 1.0.0 (indexed commit fc186507). Cell.setFormula()
+      stores the text verbatim and Cell.toXml() writes it as <f> exactly as given, including a
+      leading '=' - setFormula("=SUM(A1:A2)") is saved as <c r="A3"><f>=SUM(A1:A2)</f></c>, while
+      setFormula("SUM(A1:A2)") is saved as <f>SUM(A1:A2)</f>. Nothing in the library calculates a
+      formula, so no <v> cached value is written unless you also store a value on the same cell
+      yourself (a cell with both a value and a formula is saved as <f>..</f><v>..</v>, and that
+      value is never refreshed). Workbook.load() never reads <f> (loadWorksheetData reads only <v>
+      and inline strings), so a formula cell reloaded from a saved file has formula undefined and
+      value null, or only its cached value if one was stored. Workbook.save() does write
+      <calcPr fullCalcOnLoad="1"/>, which asks Excel-class readers to recalculate on open, but a
+      reader that does not calculate sees no value. The safe pattern: compute any result you need in
+      your own code, pass formula text without a leading '=', keep your own record of formulas
+      instead of expecting to read them back from a loaded workbook, and do not expect this
+      library to evaluate or return formula results.
+    verified_at: "2026-11-14"
+  - text: >-
+      The upstream README and the served developer_guide claim this library can "add hyperlinks and
+      defined names", but excel-cells 1.0.0 (indexed commit fc186507) has no defined-name or
+      named-range API. A search of the whole repository for definedName, defined name, namedRange
+      and named range finds only that README wording and a hardcoded, always-empty <definedNames />
+      element written by Workbook.generateWorkbook() in aspose_cells/workbook.ts; Workbook has no
+      member whose name contains name, define or range, and the indexed generation for this
+      pilot contains no DefinedName symbol. A script confirmed that a saved workbook contains only
+      <definedNames />. Do not plan on creating or reading defined names or named ranges with
+      this library; use plain A1 cell references instead.
+    verified_at: "2026-11-14"
