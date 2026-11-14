@@ -85,7 +85,12 @@ def test_the_fixture_contains_real_python_type_names() -> None:
     # the concrete classes ("AutoShape", "Presentation", ...) a reader would expect - neither of
     # those two survives this real cut, for the same real reason (see module docstring).
     assert {"IPresentationComponent", "ISlideComponent", "NullableBool"} <= names
-    assert all(entry["class_import"].startswith("aspose.slides_foss") for entry in data["types"])
+    # TC-841: a module-level constant (TC-700) is a fixture entry of kind "constant" with no class_import.
+    assert all(
+        entry["class_import"].startswith("aspose.slides_foss")
+        for entry in data["types"]
+        if entry["kind"] != "constant"
+    )
     assert all(entry["file"].endswith(".py") for entry in data["types"])
 
 
@@ -96,7 +101,8 @@ def test_every_entry_is_a_real_python_surface_kind() -> None:
     # a tree-sitter grammar's node-type vocabulary, and not guessed.
     # re-extracted by TC-550: {class, enum} -> {class, enum, function}: the whole surface includes the
     # one module-level function of the package.
-    assert kinds == {"class", "enum", "function"}
+    # TC-841: regenerated with the current extractor, whose module-level constants (TC-700) are entries of kind "constant".
+    assert kinds == {"class", "constant", "enum", "function"}
 
 
 def test_the_highest_centrality_type_survives_the_cut() -> None:

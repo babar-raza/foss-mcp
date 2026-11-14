@@ -60,19 +60,21 @@ EXTRACTOR_VERSION = 5
 # helm ``maxTypes`` and the docker-compose ``--max-types`` carry the same numbers. The extraction cap and
 # the ingestion ``--max-types`` must be EQUAL: otherwise the second slice in ``infra/build_chunks.py``
 # cuts what the first one kept. A pilot whose total is below the default of 300 keeps 300.
+# TC-841: pdf/python 867->914, slides/python 1023->1025, words/python 391->637 after the python fixtures were regenerated with
+# the current extractor (module-level constants TC-700, package-root shells TC-818 add entries).
 # A higher cap raises ingestion memory, so a re-ingest must re-measure Job memory and image size.
 RECOMMENDED_MAX_TYPES: dict[str, int] = {
     "pdf/net": 915,
     "pdf/java": 1239,
     "words/net": 615,
-    "pdf/python": 867,
+    "pdf/python": 914,
     "pdf/cpp": 300,
     "cells/cpp": 300,
     "slides/cpp": 326,
     "html/python": 323,
     "3d/python": 697,
-    "slides/python": 1023,
-    "words/python": 391,
+    "slides/python": 1025,
+    "words/python": 637,
     "pdf/go": 383,
     "pdf/typescript": 541,
 }

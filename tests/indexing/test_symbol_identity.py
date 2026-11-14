@@ -151,10 +151,20 @@ def test_slides_python_real_fixture_canonical_ids_significantly_fewer_than_raw_e
     # groups across 764 of 1023 symbol chunks" finding (TC-607 measured duplication via rendered-body
     # hashing; this module measures it via the real pairing engine's own fields, so the two numbers are
     # related, not required to be identical).
-    assert raw_entry_count == served_symbol_chunk_count, (
-        "the fixture's raw entry count should match the real generation's served symbol-chunk count "
-        f"for this pilot - got {raw_entry_count} raw entries vs {served_symbol_chunk_count} served chunks"
-    )
+    # TC-841: slides_python's fixture was regenerated (1023 -> 1025 entries: 2 module-level constants) ahead of its baked
+    # generation, which tests/deploy/test_fleet_consistency.py lists in STALE_BAKED_PILOTS until the next cohort cards
+    # re-bake it. While listed, the baked chunk count may only be BELOW the fixture's (the 2 constants it lacks); the
+    # equality is restored the moment the entry is removed, and this check then fails closed.
+    import importlib
+
+    stale = importlib.import_module("tests.deploy.test_fleet_consistency").STALE_BAKED_PILOTS
+    if "slides_python" in stale:
+        assert served_symbol_chunk_count == raw_entry_count - 2, (served_symbol_chunk_count, raw_entry_count)
+    else:
+        assert raw_entry_count == served_symbol_chunk_count, (
+            "the fixture's raw entry count should match the real generation's served symbol-chunk count "
+            f"for this pilot - got {raw_entry_count} raw entries vs {served_symbol_chunk_count} served chunks"
+        )
     assert len(canonical_ids) < raw_entry_count * 0.75, (
         f"expected a significant reduction, got {len(canonical_ids)} canonical ids "
         f"from {raw_entry_count} raw entries"

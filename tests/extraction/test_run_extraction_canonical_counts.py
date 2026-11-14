@@ -165,11 +165,13 @@ def test_slides_python_denominator_drops_from_the_old_inflated_count() -> None:
     types = fixture["types"]
 
     old = run_extraction.summarize_symbols(types)
-    assert old == {"types": 1022, "functions": 1}
+    # TC-841: 1022 -> 1024 and 516 -> 518 below: the fixture was regenerated with the current extractor, which adds the two
+    # module-level constants of the package (C15_EXT_URI, C15_NS; TC-700) as entries; both are canonical, so both counts move by 2.
+    assert old == {"types": 1024, "functions": 1}
 
     identities = compute_canonical_identities(types)
     new = run_extraction.summarize_symbols(types, identities=identities)
-    assert new == fixture["symbol_counts"] == {"types": 516, "functions": 1}
+    assert new == fixture["symbol_counts"] == {"types": 518, "functions": 1}
     assert new["types"] < old["types"]
     assert new["functions"] == old["functions"]  # functions are never touched by the dedup
 
@@ -212,7 +214,8 @@ def test_slides_python_combined_numerator_and_denominator_coverage_line() -> Non
     types = fixture["types"]
     identities = compute_canonical_identities(types)
     new_symbol_counts = run_extraction.summarize_symbols(types, identities=identities)
-    assert fixture["symbol_counts"] == new_symbol_counts == {"types": 516, "functions": 1}
+    # TC-841: 516 -> 518 (see the first test of this section).
+    assert fixture["symbol_counts"] == new_symbol_counts == {"types": 518, "functions": 1}
 
     # Exactly what a real extract_pinned_repository run now produces for this fixture's own types -
     # identical to the real, committed fixture already has it (confirmed above).
@@ -222,7 +225,9 @@ def test_slides_python_combined_numerator_and_denominator_coverage_line() -> Non
         combined_fixture, title="Slides Python", max_types=10_000
     )
     coverage_lines = {match for chunk in chunks for match in re.findall(r"API-Coverage: [^\n]+", chunk.text)}
-    assert coverage_lines == {"API-Coverage: 516 of 516 types; 1 of 1 functions"}
+    # TC-841: 516 of 516 types; 1 of 1 functions -> the regenerated fixture's 2 module-level constants (TC-820 grammar) are
+    # named apart: 516 types + 2 constants/variables = the 518 canonical symbols of ``symbol_counts.types``; still honest end to end.
+    assert coverage_lines == {"API-Coverage: 516 of 516 types; 2 of 2 constants/variables; 1 of 1 functions"}
 
     # Contrast: I2 alone (the OLD, un-deduplicated denominator TC-614 deliberately left open, before
     # TC-620/TC-729 backfilled it onto this fixture) still shows the inflated denominator -
@@ -235,4 +240,7 @@ def test_slides_python_combined_numerator_and_denominator_coverage_line() -> Non
     coverage_lines_i2_alone = {
         match for chunk in chunks_i2_alone for match in re.findall(r"API-Coverage: [^\n]+", chunk.text)
     }
-    assert coverage_lines_i2_alone == {"API-Coverage: 516 of 1022 types; 1 of 1 functions"}
+    # TC-841: the un-deduplicated 1024 entries are 1022 types + the 2 constants/variables, which the line names apart.
+    assert coverage_lines_i2_alone == {
+        "API-Coverage: 516 of 1022 types; 2 of 2 constants/variables; 1 of 1 functions"
+    }

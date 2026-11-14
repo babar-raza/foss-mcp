@@ -83,7 +83,12 @@ def test_the_fixture_contains_real_python_type_names() -> None:
     # empty or synthetic fixture. Matrix/Path come from common/render_model.py;
     # AxialShading from common/color_resources.py.
     assert {"AxialShading", "Matrix", "Path"} <= names
-    assert all(entry["class_import"].startswith("aspose.page") for entry in data["types"])
+    # TC-841: a module-level constant (TC-700) is a fixture entry of kind "constant" with no class_import.
+    assert all(
+        entry["class_import"].startswith("aspose.page")
+        for entry in data["types"]
+        if entry["kind"] != "constant"
+    )
     assert all(entry["file"].endswith(".py") for entry in data["types"])
 
 
@@ -93,7 +98,8 @@ def test_every_entry_is_a_real_python_surface_kind() -> None:
     # Observed directly from the live pure-ast reader's output for this repository - not
     # a tree-sitter grammar's node-type vocabulary, and not guessed. Like barcode/python,
     # this reduced surface retains top-level module functions alongside classes and enums.
-    assert kinds == {"class", "enum", "function"}
+    # TC-841: regenerated with the current extractor, whose module-level constants (TC-700) are entries of kind "constant".
+    assert kinds == {"class", "constant", "enum", "function"}
 
 
 def test_a_real_top_level_function_is_present() -> None:
@@ -111,7 +117,7 @@ def test_a_real_type_now_carries_a_non_empty_bases_list() -> None:
     # concrete class that extends ClipperBase, observed directly in this run, not guessed.
     data = _load_fixture()
     clipper = next(
-        entry for entry in data["types"] if entry["class_import"] == "aspose.page.ps.clipper.Clipper"
+        entry for entry in data["types"] if entry.get("class_import") == "aspose.page.ps.clipper.Clipper"
     )
     assert clipper["bases"] == ["ClipperBase"]
     # Real, observed inheritance evidence across the fixture - not a single coincidence:
@@ -130,7 +136,7 @@ def test_a_real_subclass_carries_correct_inherited_from_provenance() -> None:
     # ClipperBase's own real methods, observed directly in this run.
     data = _load_fixture()
     clipper = next(
-        entry for entry in data["types"] if entry["class_import"] == "aspose.page.ps.clipper.Clipper"
+        entry for entry in data["types"] if entry.get("class_import") == "aspose.page.ps.clipper.Clipper"
     )
     assert "ClipperBase" in clipper["bases"]
     add_path_entries = [m for m in clipper["methods"] if m["name"] == "add_path"]
@@ -161,7 +167,8 @@ def test_the_ps_error_chain_now_carries_real_inherited_properties() -> None:
     # "Exception" is still a Python builtin, never itself a type present in this fixture,
     # so PsError's own constructor still carries no "inherited_from" tag.
     data = _load_fixture()
-    by_import = {entry["class_import"]: entry for entry in data["types"]}
+    # TC-841: a module-level constant entry (PNG_SIGNATURE, TC-700) has no class_import.
+    by_import = {entry["class_import"]: entry for entry in data["types"] if "class_import" in entry}
     ps_error = by_import["aspose.page.ps.errors.PsError"]
     assert ps_error["bases"] == ["Exception"]
     assert [m["name"] for m in ps_error["methods"]] == ["__init__"]

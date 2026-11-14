@@ -113,7 +113,9 @@ def test_main_on_the_committed_tex_fixture_ends_symbol_chunks_with_the_coverage_
     symbols = [c for c in chunks if c["text"].startswith("FQN: ") and not c["text"].startswith("FQN: Doc:")]
     # TC-555: 4 -> 23 symbol chunks (21 types and 2 functions); the line carries the measured
     # parse_failures of the committed fixture instead of "at least 2 source files".
-    assert len(symbols) == 23
+    # TC-841: 23 -> 25 (23 types and 2 functions) and 14 of 14 -> 16 of 16 after the fixture was regenerated with the current
+    # extractor (TC-818 recovers the two classes FontManager and InputSource).
+    assert len(symbols) == 25
     # TC-667: 21 of 21 -> 14 of 21 (TC-614's canonical-identity dedup, left stale by that card as
     # a named follow-up). tex/python has 7 real shell/definition pairs (a re-export stub in
     # src/aspose_tex/__init__.py paired with its real definition in
@@ -123,7 +125,9 @@ def test_main_on_the_committed_tex_fixture_ends_symbol_chunks_with_the_coverage_
     # numerator changes.
     # TC-729 (2026-11-09): 14 of 21 -> 14 of 14 - the fixture's own `symbol_counts.types` denominator
     # was backfilled to the identical dedup count, closing the gap TC-667's comment named above.
-    expected = "API-Coverage: 14 of 14 types; 2 of 2 functions; 11 of 45 source files could not be parsed"
+    # TC-841: the regenerated fixture records parse_failures.as_written_failed (TC-561), and build_chunks.main renders the
+    # AS-WRITTEN count (35 of 45 do not parse as written) in the coverage line, not the 11 left after the repair.
+    expected = "API-Coverage: 16 of 16 types; 2 of 2 functions; 35 of 45 source files could not be parsed"
     for chunk in symbols:
         lines = chunk["text"].splitlines()
         assert lines[-2] == expected

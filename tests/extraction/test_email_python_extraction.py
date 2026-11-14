@@ -117,7 +117,12 @@ def test_the_fixture_contains_real_python_type_names() -> None:
     # Real Aspose.Email-FOSS-for-Python classes/functions, not placeholders - would not
     # survive an empty or synthetic fixture.
     assert {"CFBDocument", "CFBReader", "DirectoryEntry"} <= names
-    assert all(entry["class_import"].startswith("aspose.email_foss") for entry in data["types"])
+    # TC-841: a module-level constant (TC-700) is a fixture entry of kind "constant" with no class_import.
+    assert all(
+        entry["class_import"].startswith("aspose.email_foss")
+        for entry in data["types"]
+        if entry["kind"] != "constant"
+    )
     assert all(entry["file"].endswith(".py") for entry in data["types"])
 
 
@@ -128,7 +133,8 @@ def test_every_entry_is_a_real_python_surface_kind() -> None:
     # a tree-sitter grammar's node-type vocabulary, and not guessed. Unlike slides/python's
     # reduced 300-entry fixture, this repository's unreduced 63-entry surface includes a
     # top-level function alongside classes and enums.
-    assert kinds == {"class", "enum", "function"}
+    # TC-841: regenerated with the current extractor, whose module-level constants (TC-700) are entries of kind "constant".
+    assert kinds == {"class", "constant", "enum", "function"}
 
 
 def test_real_bases_are_populated_for_the_stdlib_derived_types() -> None:

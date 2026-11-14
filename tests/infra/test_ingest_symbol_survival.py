@@ -114,7 +114,10 @@ def test_every_api_symbol_chunk_of_a_real_fixture_is_published(pilot: str) -> No
 )
 def test_named_symbols_that_used_to_be_dropped_are_published(pilot: str, names: tuple[str, ...]) -> None:
     fixture = _load_fixture(pilot)
-    chunks = build_chunks_from_api_surface(fixture, title=pilot)
+    # TC-841: the regenerated words_python fixture holds 637 entries (constants TC-700, shells TC-818), more than the
+    # builder's default slot cap of 300, which would drop LoadFormat by centrality rank; ingestion uses the pilot's own cap
+    # (chart maxTypes == the fixture's entry count), so the chunks are built with the whole surface as the chart does.
+    chunks = build_chunks_from_api_surface(fixture, title=pilot, max_types=len(fixture["types"]))
 
     published, _ = ingest.select_publishable_chunks(chunks, fixture)
 

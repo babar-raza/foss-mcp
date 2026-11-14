@@ -71,7 +71,12 @@ def test_the_fixture_contains_real_python_type_names() -> None:
     # Real Aspose-PDF-FOSS-for-Python classes/enums, not placeholders - would not
     # survive an empty or synthetic fixture.
     assert {"Action", "Annotation", "AnnotationFlags", "DuplexMode"} <= names
-    assert all(entry["class_import"].startswith("aspose_pdf") for entry in data["types"])
+    # TC-841: a module-level constant (TC-700) is a fixture entry of kind "constant" with no class_import.
+    assert all(
+        entry["class_import"].startswith("aspose_pdf")
+        for entry in data["types"]
+        if entry["kind"] != "constant"
+    )
     assert all(entry["file"].endswith(".py") for entry in data["types"])
 
 
@@ -84,7 +89,8 @@ def test_every_entry_is_a_real_python_surface_kind() -> None:
     # plus TC-394's own-group-per-re-export-pair accounting) now keeps 82 top-level
     # "function" entries alongside "class"/"enum" - unlike the pre-TC-394 fixture this
     # replaces, where no top-level function scored highly enough to survive the cut.
-    assert kinds == {"class", "enum", "function"}
+    # TC-841: regenerated with the current extractor, whose module-level constants (TC-700) are entries of kind "constant".
+    assert kinds == {"class", "constant", "enum", "function"}
 
 
 def test_the_fixture_keeps_page_after_centrality_ranking() -> None:

@@ -265,7 +265,18 @@ def test_every_pilots_line_names_what_each_count_counts(pilot: str) -> None:
 
 def test_exactly_the_pilots_with_constants_or_variables_changed_their_wording() -> None:
     changed = {pilot for pilot in PILOT_KEYS if "constants/variables" in _served_line(pilot)}
-    assert changed == {"cells_go", "cells_python", "pdf_go", "pdf_typescript"}
+    # TC-841: + email, page, pdf, slides, words python - their regenerated fixtures now hold module-level constants (TC-700).
+    assert changed == {
+        "cells_go",
+        "cells_python",
+        "email_python",
+        "page_python",
+        "pdf_go",
+        "pdf_python",
+        "pdf_typescript",
+        "slides_python",
+        "words_python",
+    }
 
 
 def test_cells_go_states_14_types_20_constants_and_15_functions() -> None:

@@ -205,8 +205,10 @@ def test_committed_tex_python_fixture_states_the_unparsed_files_in_every_chunk()
     # TC-729 (2026-11-09): tex_python's own `symbol_counts.types` was backfilled to the identical
     # dedup count (21 -> 14), so the denominator now agrees with the numerator: 14 of 14, not 14 of
     # 21.
-    assert len(texts) == 23
-    expected = "API-Coverage: 14 of 14 types; 2 of 2 functions; 11 of 45 source files could not be parsed"
+    # TC-841: 23 chunks -> 25 and 14 of 14 -> 16 of 16 after the fixture was regenerated with the current extractor, whose
+    # package-root re-export recovery adds the two classes FontManager and InputSource (TC-818).
+    assert len(texts) == 25
+    expected = "API-Coverage: 16 of 16 types; 2 of 2 functions; 11 of 45 source files could not be parsed"
     assert all(text.splitlines()[-1] == expected for text in texts)
 
 
@@ -242,9 +244,11 @@ def test_the_line_stays_the_last_line_before_the_source_commit_is_appended() -> 
     fixture = _real("tex_python")
     for text in _texts(fixture):
         appended = f"{text}\nSource-Commit: {fixture['source_commit']}"
-        assert appended.splitlines()[-2].startswith(
-            "API-Coverage: 14 of 14 types"
-        )  # TC-555: 4 of 4 -> 21 of 21; TC-614: 21 of 21 -> 14 of 21 (dedup); TC-729: 14 of 21 -> 14 of 14
+        assert appended.splitlines()[
+            -2
+        ].startswith(
+            "API-Coverage: 16 of 16 types"
+        )  # TC-841: 14 of 14 -> 16 of 16 (FontManager, InputSource recovered); TC-555: 4 of 4 -> 21 of 21; TC-614: 21 of 21 -> 14 of 21 (dedup); TC-729: 14 of 21 -> 14 of 14
         # (denominator backfilled to the identical dedup)
 
 
@@ -350,7 +354,8 @@ def test_c_real_slides_python_regression_numerator_drops_with_identities() -> No
     """
     fixture = _real("slides_python")
     after_lines = _last_lines(fixture)
-    assert after_lines == {"API-Coverage: 516 of 516 types; 1 of 1 functions"}
+    # TC-841: the regenerated fixture's 2 module-level constants (TC-700) are named apart (TC-820 grammar).
+    assert after_lines == {"API-Coverage: 516 of 516 types; 2 of 2 constants/variables; 1 of 1 functions"}
 
     # The BEFORE rendering (pre-TC-614: `identities=None`; pre-TC-729: the fixture's own
     # un-backfilled `symbol_counts`), reconstructed against the same, real, non-test-filtered
@@ -362,7 +367,8 @@ def test_c_real_slides_python_regression_numerator_drops_with_identities() -> No
         "symbol_counts": {"types": len(candidates) - functions, "functions": functions},
     }
     before = _coverage_line(old_fixture, candidates)
-    assert before == "1022 of 1022 types; 1 of 1 functions"
+    # TC-841: 1022 -> 1024 entries, of which the 2 constants/variables are named apart.
+    assert before == "1022 of 1022 types; 2 of 2 constants/variables; 1 of 1 functions"
 
 
 def test_d_coverage_note_from_text_now_fires_for_slides_python_after_the_fix() -> None:

@@ -194,7 +194,11 @@ def test_the_two_repaired_files_are_the_only_unresolved_entries() -> None:
     # TC-555: 2 syntax-error + 12 unresolved-reexport -> 2 repaired-syntax. A name that stays
     # unresolved is a finding, so this list is exact, not a lower bound.
     unresolved = _load_fixture()["unresolved"]
+    # TC-841: regenerated with the current extractor, whose repair also closes the header lines of
+    # ``src/aspose_tex/_fonts/font_manager.py`` (48 header lines closed with pass), so the exact list is now 3 repaired
+    # files, still no syntax-error or unresolved-reexport entry.
     assert sorted(unresolved) == [
+        "aspose_tex._fonts.font_manager:47:repaired-syntax:src/aspose_tex/_fonts/font_manager.py:48 header lines closed with pass",
         "aspose_tex._input.reader:52:repaired-syntax:src/aspose_tex/_input/reader.py:42 header lines closed with pass",
         "aspose_tex.presentation:107:repaired-syntax:src/aspose_tex/presentation/__init__.py:36 header lines closed with pass",
     ]

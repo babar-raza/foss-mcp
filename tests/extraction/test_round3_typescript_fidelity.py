@@ -129,7 +129,7 @@ CELLS_ORACLE = {
 D3_ORACLE = {
     "interface_readonly": 1,
     "interface_optional": 27,
-    "class_properties": 104,
+    "class_properties": 105,
     "class_static_properties": 104,
     "static_methods": 68,
     "async_methods": 0,
@@ -246,7 +246,10 @@ def test_every_type_alias_keeps_its_right_hand_side_and_every_base_is_balanced(p
 
 # classes and the number of their DISTINCT own property and accessor names, per the compiler: for every class of the
 # fixture the compiler's list of public, non-`_` property declarations and accessors was identical to the fixture's.
-CLASS_PROPERTY_COUNT = {"cells_typescript": (28, 121), "3d_typescript": (134, 499)}
+# TC-841: 3d_typescript 499 -> 500 and D3_ORACLE ``class_properties`` 104 -> 105 below: regenerating with the current extractor
+# adds ``FbxElement.properties``, the ``public`` constructor parameter property of ``constructor(public properties:
+# FbxProperty[])`` (src/aspose/threed/formats/fbx/parser.ts:8 at the pin, TC-690), which the compiler counts as a property.
+CLASS_PROPERTY_COUNT = {"cells_typescript": (28, 121), "3d_typescript": (134, 500)}
 
 
 @pytest.mark.parametrize("pilot", sorted(CLASS_PROPERTY_COUNT))

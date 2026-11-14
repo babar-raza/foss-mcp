@@ -181,7 +181,9 @@ def test_report_index_freshness_states_the_same_note() -> None:
     report = report_index_freshness(store, SCOPE, SOURCE_KIND, _COMMIT)  # type: ignore[arg-type]
     # TC-555: (4, 4) -> (21, 21); TC-614 (I2, dedup): (21, 21) -> (14, 21);
     # TC-791 (TC-729 backfill dedup onto pre-TC-620 fixtures): (14, 21) -> (14, 14)
-    assert (report.indexed_types, report.total_types) == (14, 14)
+    # TC-841: (14, 14) -> (16, 16) after the tex fixture was regenerated with the current extractor (FontManager and
+    # InputSource recovered, TC-818).
+    assert (report.indexed_types, report.total_types) == (16, 16)
     assert report.coverage_note is not None
     assert "could not be parsed" in report.coverage_note
     assert "Extraction notice" in report.coverage_note

@@ -453,12 +453,17 @@ def test_parse_failure_undercount_sub_case_names_what_could_and_could_not_be_ver
 
     verifiable = [name for name, info in measured.items() if info["has_as_written_field"]]
     nonzero_failed = [name for name, info in measured.items() if info["failed"]]
-    assert verifiable == [], (
-        f"a fixture now exposes as_written_failed - update this test and the baseline: {verifiable}"
+    # TC-841: tex/python was regenerated with the current extractor (TC-561), so its fixture now exposes as_written_failed
+    # (35 of 45) next to the repaired failed count (11 of 45): exactly one of the 11 pilots can be cross-checked offline, and
+    # that cross-check CONFIRMS the undercount. No other pilot may expose the field without this test and the baseline
+    # being updated.
+    assert verifiable == ["tex__python"], (
+        f"the set of fixtures exposing as_written_failed changed - update this test and the baseline: {verifiable}"
     )
     assert nonzero_failed == ["tex__python"], nonzero_failed
     assert measured["tex__python"]["failed"] == 11
     assert measured["tex__python"]["total"] == 45
+    assert measured["tex__python"]["as_written_failed"] == 35
 
 
 def test_member_body_excludes_an_empty_methods_and_properties_section() -> None:

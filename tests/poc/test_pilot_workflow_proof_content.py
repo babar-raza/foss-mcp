@@ -340,9 +340,11 @@ def test_load_pilot_type_count_equals_the_served_total_types_for_every_pilot_wit
             # supervisor's re-ingest, TC-536, removes the exception): the fixture loads, and the loaded type count is the
             # fixture's own count of non-function entries, not its type_count (which also counts the functions).
             own_types = sum(1 for entry in surface["types"] if entry.get("kind") != "function")
-            assert (
-                loaded.type_count == surface["symbol_counts"]["types"] == own_types != surface["type_count"]
-            ), pilot
+            # TC-841: `== own_types` -> `<= own_types`: a regenerated python fixture (email/pdf/slides/words) counts its
+            # types by canonical identity (a re-export shell and its definition are one unit, TC-620/TC-729), which is
+            # at or below the raw count of its non-function entries.
+            assert loaded.type_count == surface["symbol_counts"]["types"] <= own_types, pilot
+            assert loaded.type_count != surface["type_count"], pilot
             assert surface["type_count"] == len(surface["types"]), pilot
             continue
         assert loaded.type_count == _served_total_types(pilot), pilot

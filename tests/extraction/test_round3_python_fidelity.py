@@ -41,18 +41,21 @@ PILOTS = (
 
 # Measured on the regenerated fixtures: parameters with a default, keyword-only parameters, and methods marked
 # static or classmethod, over every method of every entry. Ratchets.
+# TC-841: note/page/pdf/words_python re-pinned DOWN by 6/2/10/2 after regenerating with the current extractor: TC-819
+# drops the private (underscore) fields of a dataclass from the generated ``__init__`` (``_children``, ``_items``, ...)
+# so those defaulted parameters are no longer listed - the only parameters that disappeared (verified one by one).
 DEFAULTS_FLOOR = {
     "3d_python": 517,
     "barcode_python": 119,
     "cells_python": 253,
     "email_python": 126,
     "html_python": 3785,
-    "note_python": 138,
-    "page_python": 227,
-    "pdf_python": 2057,
+    "note_python": 132,
+    "page_python": 225,
+    "pdf_python": 2047,
     "slides_python": 16,
     "tex_python": 11,
-    "words_python": 252,
+    "words_python": 250,
 }
 KEYWORD_ONLY_FLOOR = {
     "3d_python": 0,
@@ -433,7 +436,9 @@ def test_tex_reports_the_files_that_do_not_parse() -> None:
     health = fixture("tex_python")["parse_failures"]
     assert (health["engine"], health["failed"], health["total"]) == ("ast", 11, 45)
     assert health["examples"]
-    assert fixture("tex_python")["symbol_counts"]["types"] == 14
+    # TC-841: 14 -> 16 after regenerating with the current extractor (TC-818 package-root re-export shells recover
+    # ``FontManager`` and ``InputSource``, the two new type entries).
+    assert fixture("tex_python")["symbol_counts"]["types"] == 16
 
 
 # --------------------------------------------------------------------------- the chunks

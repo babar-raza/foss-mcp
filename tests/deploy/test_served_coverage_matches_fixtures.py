@@ -375,14 +375,18 @@ def stale_coverage_problems(texts: Sequence[str]) -> list[str]:
     if line is None:
         return problems or ["the generation has no symbol chunk"]
     types, functions = served_counts(texts)
+    # TC-841: the line's N is chunk_builder's DEDUPED numerator (one full chunk per canonical definition, TC-614/TC-730), so a
+    # generation with real re-export shells is compared by its full (non-thin) type chunks, as coverage_problems does; a
+    # generation without shells has full == raw and compares exactly as before.
+    full_types = full_type_chunks_served(texts)
     if line.functions_indexed is None:
-        if line.all_indexed != types + functions:
+        if line.all_indexed != full_types + functions:
             problems.append(
-                f"the line says {line.all_indexed} types, the generation serves {types + functions} symbol chunks"
+                f"the line says {line.all_indexed} types, the generation serves {full_types + functions} symbol chunks"
             )
     else:
-        if line.all_indexed != types:
-            problems.append(f"the line says {line.all_indexed} types, the generation serves {types}")
+        if line.all_indexed != full_types:
+            problems.append(f"the line says {line.all_indexed} types, the generation serves {full_types}")
         if line.functions_indexed != functions:
             problems.append(
                 f"the line says {line.functions_indexed} functions, the generation serves {functions}"
@@ -473,7 +477,11 @@ def test_served_type_chunks_equal_the_fixture_types(key: str) -> None:
         line, problems = shared_coverage(symbol_texts(active_documents(key)))
         assert not problems, problems
         assert line is not None
-        assert served_types == line.types_indexed or line.functions_indexed is None
+        # TC-841: by the full (non-thin) chunks - the line's N is the deduped numerator (see stale_coverage_problems).
+        assert (
+            full_type_chunks_served(active_documents(key)) == line.all_indexed
+            or line.functions_indexed is None
+        )
         assert is_really_stale(key), f"{key} is not stale: delete it from the table"
         return
     # TC-730: this test's own intent is "nothing silently dropped" - it needs the RAW recount of the
