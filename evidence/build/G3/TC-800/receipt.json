@@ -1,0 +1,90 @@
+{
+  "schema_version": 1,
+  "card": "TC-800",
+  "gate": "G3",
+  "generated_by": "gatectl",
+  "generated_at": "2026-11-14T08:12:52Z",
+  "base_rev": "d78f24bca8c0d910016ba806c70772c120a67782",
+  "head_rev": "cd4cfaa27a8e845747c4254dc0c473f70d4e9388",
+  "card_sha256": "bd15eca6f461ae7f7e1adee7df0383e4ab192b4ce4fb1b15da48930ebd284d4d",
+  "fingerprint": {
+    "python": "3.13.2",
+    "platform": "Windows-11-10.0.26300-SP0",
+    "lock_sha256": "5c72e798a73c059a438e752e94a8d4c88c1bdf81a197f6e5c5fcecbc9466a691",
+    "env": {
+      "PYTHONHASHSEED": "0",
+      "PYTHONUTF8": "1",
+      "PYTHONDONTWRITEBYTECODE": "1",
+      "PYTHONIOENCODING": "utf-8",
+      "TZ": "UTC",
+      "LC_ALL": "C.UTF-8",
+      "SOURCE_DATE_EPOCH": "1700000000",
+      "verify_runner": "host"
+    }
+  },
+  "scope": {
+    "ok": true,
+    "changed_paths": [
+      "infra/build_chunks.py",
+      "tests/infra/test_build_chunks.py",
+      "tests/infra/test_example_chunk_never_split.py"
+    ],
+    "violations": [],
+    "evaluated": true
+  },
+  "runs": [
+    {
+      "run": 1,
+      "checks": [
+        {
+          "command": "{python} -m pytest tests/infra/test_example_chunk_never_split.py tests/infra/test_build_chunks.py tests/infra/test_build_chunks_candidate_chains.py tests/infra/test_build_chunks_degradation.py tests/infra/test_build_chunks_extraction_notice.py tests/infra/test_build_chunks_platforms.py tests/infra/test_build_chunks_sanitize.py tests/infra/test_build_chunks_verification_cache.py tests/conformance/test_example_integrity.py -q -rfE -p no:cacheprovider",
+          "exit_code": 0,
+          "duration_s": 279.142,
+          "stdout_sha256": "e12193f87802a78bf78bf74d6b281dec5ac486bb0f90b910a8943ce24d84a691",
+          "tests": 186,
+          "skipped": 0,
+          "errors": 0,
+          "failures": 0
+        }
+      ],
+      "all_passed": true
+    },
+    {
+      "run": 2,
+      "checks": [
+        {
+          "command": "{python} -m pytest tests/infra/test_example_chunk_never_split.py tests/infra/test_build_chunks.py tests/infra/test_build_chunks_candidate_chains.py tests/infra/test_build_chunks_degradation.py tests/infra/test_build_chunks_extraction_notice.py tests/infra/test_build_chunks_platforms.py tests/infra/test_build_chunks_sanitize.py tests/infra/test_build_chunks_verification_cache.py tests/conformance/test_example_integrity.py -q -rfE -p no:cacheprovider",
+          "exit_code": 0,
+          "duration_s": 226.736,
+          "stdout_sha256": "e12193f87802a78bf78bf74d6b281dec5ac486bb0f90b910a8943ce24d84a691",
+          "tests": 186,
+          "skipped": 0,
+          "errors": 0,
+          "failures": 0
+        }
+      ],
+      "all_passed": true
+    }
+  ],
+  "negative_control": {
+    "kind": "mutate",
+    "patch": "python -X utf8 -c \"import subprocess; paths = ['infra/build_chunks.py']; patch = subprocess.run(['git', 'show', '--format=', 'HEAD', '--'] + paths, capture_output=True, check=True).stdout; assert patch.strip(), 'the worker commit changes none of the production paths - the fix is missing'; subprocess.run(['git', 'apply', '-R', '--whitespace=nowarn', '-'], input=patch, check=True)\"\n",
+    "patch_sha256": "c9696947182e2f361d62aadaf920838a0ee9c7250ac970115d1e46a38dc94e05",
+    "applied": true,
+    "patch_applied_failed": true,
+    "exit_codes": [
+      1
+    ],
+    "tree_changed": [
+      "M infra/build_chunks.py",
+      "?? .junit-0.xml"
+    ]
+  },
+  "holdout": {
+    "ran": false,
+    "passed": true,
+    "detail": "no holdout for this card"
+  },
+  "accepted": true,
+  "reason": "all gates passed"
+}

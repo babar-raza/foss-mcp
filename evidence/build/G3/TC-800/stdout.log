@@ -1,0 +1,175 @@
+
+===== CLEAN RUN 1 (host) =====
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-5c72e798a73c059a\Scripts\python.exe -m pytest tests/infra/test_example_chunk_never_split.py tests/infra/test_build_chunks.py tests/infra/test_build_chunks_candidate_chains.py tests/infra/test_build_chunks_degradation.py tests/infra/test_build_chunks_extraction_notice.py tests/infra/test_build_chunks_platforms.py tests/infra/test_build_chunks_sanitize.py tests/infra/test_build_chunks_verification_cache.py tests/conformance/test_example_integrity.py -q -rfE -p no:cacheprovider "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-rc4b56p0\.junit-0.xml"
+--- stdout ---
+........................................................................ [ 38%]
+........................................................................ [ 77%]
+..........................................                               [100%]
+
+--- stderr ---
+
+
+===== CLEAN RUN 2 (host) =====
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-5c72e798a73c059a\Scripts\python.exe -m pytest tests/infra/test_example_chunk_never_split.py tests/infra/test_build_chunks.py tests/infra/test_build_chunks_candidate_chains.py tests/infra/test_build_chunks_degradation.py tests/infra/test_build_chunks_extraction_notice.py tests/infra/test_build_chunks_platforms.py tests/infra/test_build_chunks_sanitize.py tests/infra/test_build_chunks_verification_cache.py tests/conformance/test_example_integrity.py -q -rfE -p no:cacheprovider "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-rc4b56p0\.junit-0.xml"
+--- stdout ---
+........................................................................ [ 38%]
+........................................................................ [ 77%]
+..........................................                               [100%]
+
+--- stderr ---
+
+
+===== NEGATIVE CONTROL (checks MUST now fail) =====
+mutated: M infra/build_chunks.py, ?? .junit-0.xml
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-5c72e798a73c059a\Scripts\python.exe -m pytest tests/infra/test_example_chunk_never_split.py tests/infra/test_build_chunks.py tests/infra/test_build_chunks_candidate_chains.py tests/infra/test_build_chunks_degradation.py tests/infra/test_build_chunks_extraction_notice.py tests/infra/test_build_chunks_platforms.py tests/infra/test_build_chunks_sanitize.py tests/infra/test_build_chunks_verification_cache.py tests/conformance/test_example_integrity.py -q -rfE -p no:cacheprovider "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-rc4b56p0\.junit-0.xml"
+--- stdout ---
+F.FFFFF................................................................. [ 38%]
+........................................................................ [ 77%]
+..........................................                               [100%]
+================================== FAILURES ===================================
+______ test_a_readme_example_with_column_0_comments_is_exactly_one_chunk ______
+
+tmp_path = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-3329/test_a_readme_example_with_col0')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x000001B541CB2190>
+
+    def test_a_readme_example_with_column_0_comments_is_exactly_one_chunk(
+        tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        page_path = _write_page(tmp_path / "_index.md", "Comment Heavy", COMMENTED_PROGRAM)
+    
+        example_chunks = _build_example_chunks(monkeypatch, tmp_path, page_path)
+    
+        # Before TC-800 this was 3 chunks: the first with the header and `import foo`, the others headerless.
+>       assert len(example_chunks) == 1, [chunk["text"] for chunk in example_chunks]
+E       AssertionError: ['FQN: Example: Comment Heavy
+E         Kind: verified_example
+E         Prose for Comment Heavy.
+E         
+E         Example:
+E         import foo
+E         Source-Commit...it: 3333333333333333333333333333333333333333', 'print(thing)
+E         Source-Commit: 3333333333333333333333333333333333333333']
+E       assert 3 == 1
+E        +  where 3 = len([{'section_title': 'Example: Comment Heavy', 'text': 'FQN: Example: Comment Heavy\nKind: verified_example\nProse for C...nSource-Commit: 3333333333333333333333333333333333333333', 'source_kind': 'furnished', 'content_type': 'example', ...}])
+
+tests\infra\test_example_chunk_never_split.py:131: AssertionError
+---------------------------- Captured stdout call -----------------------------
+candidate supply: 1 candidates for python (1 from example blocks, 0 from content blocks; dropped 0 duplicates and 0 fences in other languages; 0 import-only blocks)
+verified 1/1 candidate examples
+built 0 doc chunks from 0 doc candidates
+wrote 303 chunks to C:\Users\babar\AppData\Local\Temp\pytest-of-babar\pytest-3329\test_a_readme_example_with_col0\chunks.json
+______ test_a_readme_and_an_authored_example_together_are_one_chunk_each ______
+
+tmp_path = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-3329/test_a_readme_and_an_authored_0')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x000001B541C52D50>
+
+    def test_a_readme_and_an_authored_example_together_are_one_chunk_each(
+        tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        page_path = _write_page(tmp_path / "_index.md", "Comment Heavy", COMMENTED_PROGRAM)
+        authored = (_authored_candidate("Authored One", AUTHORED_PROGRAM),)
+    
+        example_chunks = _build_example_chunks(monkeypatch, tmp_path, page_path, authored=authored)
+    
+        fqns = sorted(chunk["text"].splitlines()[0] for chunk in example_chunks)
+>       assert fqns == ["FQN: Example: Authored One", "FQN: Example: Comment Heavy"]
+E       AssertionError: assert ['FQN: Exampl... foo.Thing()'] == ['FQN: Exampl...omment Heavy']
+E         
+E         Left contains 2 more items, first extra item: 'print(thing)'
+E         Use -v to get more diff
+
+tests\infra\test_example_chunk_never_split.py:170: AssertionError
+---------------------------- Captured stdout call -----------------------------
+candidate supply: 2 candidates for python (1 from example blocks, 0 from content blocks; dropped 0 duplicates and 0 fences in other languages; 0 import-only blocks)
+verified 2/2 candidate examples
+authored examples: 1 of 1 verified
+built 0 doc chunks from 0 doc candidates
+wrote 304 chunks to C:\Users\babar\AppData\Local\Temp\pytest-of-babar\pytest-3329\test_a_readme_and_an_authored_0\chunks.json
+_ test_an_example_without_comments_keeps_the_text_the_chunker_always_gave_it __
+
+    def test_an_example_without_comments_keeps_the_text_the_chunker_always_gave_it() -> None:
+        """The change is invisible to an example the chunker never split: same section title, same text."""
+        doc = make_document(
+            source_kind=SourceKind.FURNISHED,
+            content_type="example",
+            provenance=Provenance(repository=REPOSITORY, commit=COMMIT, path="page.md"),
+            evidence_refs=(f"{REPOSITORY}@{COMMIT}",),
+            title="Plain",
+            body="# Example: Plain\n\nFQN: Example: Plain\nKind: verified_example\nProse.\n\nExample:\nimport foo\nprint(foo)",
+        )
+        (via_chunker,) = chunk_document(doc)
+    
+>       assert build_chunks._single_example_chunk(doc) == via_chunker
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       AttributeError: module 'infra.build_chunks' has no attribute '_single_example_chunk'
+
+tests\infra\test_example_chunk_never_split.py:186: AttributeError
+_________ test_a_very_long_example_is_one_truncated_chunk_never_split _________
+
+tmp_path = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-3329/test_a_very_long_example_is_on0')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x000001B541CD7350>
+
+    def test_a_very_long_example_is_one_truncated_chunk_never_split(
+        tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        body = "\n".join(f"# step {n} at column 0\nvalue_{n} = foo.step({n})" for n in range(1500))
+        program = "import foo\n" + body
+        assert len(program) > build_chunks.MAX_CHUNK_TEXT_CHARS
+        page_path = _write_page(tmp_path / "_index.md", "Very Long", program)
+    
+        example_chunks = _build_example_chunks(monkeypatch, tmp_path, page_path)
+    
+>       assert len(example_chunks) == 1, len(example_chunks)
+E       AssertionError: 1501
+E       assert 1501 == 1
+E        +  where 1501 = len([{'section_title': 'Example: Very Long', 'text': 'FQN: Example: Very Long\nKind: verified_example\nProse for Very Long...ce-Commit: 3333333333333333333333333333333333333333', 'source_kind': 'furnished', 'content_type': 'example', ...}, ...])
+
+tests\infra\test_example_chunk_never_split.py:202: AssertionError
+---------------------------- Captured stdout call -----------------------------
+candidate supply: 1 candidates for python (1 from example blocks, 0 from content blocks; dropped 0 duplicates and 0 fences in other languages; 0 import-only blocks)
+verified 1/1 candidate examples
+built 0 doc chunks from 0 doc candidates
+wrote 1801 chunks to C:\Users\babar\AppData\Local\Temp\pytest-of-babar\pytest-3329\test_a_very_long_example_is_on0\chunks.json
+______ test_the_entrypoint_builds_examples_through_the_single_chunk_path ______
+
+    def test_the_entrypoint_builds_examples_through_the_single_chunk_path() -> None:
+        tree = ast.parse(BUILD_CHUNKS_SOURCE.read_text(encoding="utf-8"))
+    
+        # main() calls the example-building function ...
+        assert "_build_verified_example_chunks" in _called_names(_function(tree, "main"))
+    
+        # ... which hands every document to _single_example_chunk and never to the section-splitting chunker.
+        builder_calls = _called_names(_function(tree, "_build_verified_example_chunks"))
+>       assert "_single_example_chunk" in builder_calls
+E       AssertionError: assert '_single_example_chunk' in ['_load_furnished_page', '_load_authored_candidates', 'extract_candidate_supply', 'enumerate', 'any', 'scope_unimplemented_formats', ...]
+
+tests\infra\test_example_chunk_never_split.py:239: AssertionError
+____ test_there_is_no_provenance_special_case_left_in_the_example_builder _____
+
+    def test_there_is_no_provenance_special_case_left_in_the_example_builder() -> None:
+        """One path for every provenance: the authored-only collapse of TC-460 is gone, not duplicated."""
+        source = _function(
+            ast.parse(BUILD_CHUNKS_SOURCE.read_text(encoding="utf-8")), "_build_verified_example_chunks"
+        )
+        for node in ast.walk(source):
+            if isinstance(node, ast.If):
+                test_source = ast.unparse(node.test)
+>               assert "len(example_chunks)" not in test_source, test_source
+E               AssertionError: candidate.provenance == 'authored' and len(example_chunks) > 1
+E               assert 'len(example_chunks)' not in 'candidate.p..._chunks) > 1'
+E                 
+E                 'len(example_chunks)' is contained here:
+E                   candidate.provenance == 'authored' and len(example_chunks) > 1
+E                 ?                                        +++++++++++++++++++
+
+tests\infra\test_example_chunk_never_split.py:256: AssertionError
+=========================== short test summary info ===========================
+FAILED tests/infra/test_example_chunk_never_split.py::test_a_readme_example_with_column_0_comments_is_exactly_one_chunk
+FAILED tests/infra/test_example_chunk_never_split.py::test_a_readme_and_an_authored_example_together_are_one_chunk_each
+FAILED tests/infra/test_example_chunk_never_split.py::test_an_example_without_comments_keeps_the_text_the_chunker_always_gave_it
+FAILED tests/infra/test_example_chunk_never_split.py::test_a_very_long_example_is_one_truncated_chunk_never_split
+FAILED tests/infra/test_example_chunk_never_split.py::test_the_entrypoint_builds_examples_through_the_single_chunk_path
+FAILED tests/infra/test_example_chunk_never_split.py::test_there_is_no_provenance_special_case_left_in_the_example_builder
+
+--- stderr ---
+
