@@ -27,3 +27,39 @@ defects:
       version: 26.10.0
       date: '2026-11-02'
   status: open
+- id: PDF-NET-009
+  subject:
+    kind: class
+    refs:
+    - Aspose.Pdf.OcspSettings
+    - Aspose.Pdf.Forms.Signature
+  applies_to:
+    package_versions:
+    - 26.9.0
+    - 26.10.0
+    - 26.11.0
+  summary: Signature.OcspSettings (ServerUrl, RequestTimeout) is accepted but never read by anything
+    in Aspose.PDF.FOSS; OCSP/CRL revocation checking is not implemented, so a configured OCSP
+    responder is silently ignored.
+  user_action: Do not rely on OcspSettings to make signing or verification contact an OCSP
+    responder or check revocation; setting ServerUrl or RequestTimeout has no effect and raises
+    no error or warning. With ValidationMode.Strict and a non-Auto ValidationMethod, Verify
+    reports an Unknown status rather than a revocation result. Run revocation checking outside
+    this library (for example against the certificate's own OCSP responder or CRL) and treat
+    revocation as unchecked.
+  evidence:
+    repro: In the upstream source (aspose-pdf-foss/Aspose.PDF-FOSS-for-.NET at b7172877, package
+      26.9.0, and unchanged at tags v26.10.0 and v26.11.0) a grep of all of src for OcspSettings,
+      ServerUrl and RequestTimeout finds only the declarations - src/Security/OcspSettings.cs and
+      the Signature.OcspSettings property in src/Forms/Signature.cs, documented as 'honoured by the
+      signer when set' - and no read of them anywhere; the only ServerUrl read in the signing
+      path (Facades/PdfFileSignature/Sign.cs) is TimestampSettings.ServerUrl. Signature.cs states
+      'revocation validation (OCSP/CRL) is not implemented in this FOSS build'. Reflection over
+      the published Aspose.PDF.FOSS 26.9.0, 26.10.0 and 26.11.0 NuGet packages confirms
+      Aspose.Pdf.OcspSettings (ServerUrl, RequestTimeout) and Aspose.Pdf.Forms.Signature.OcspSettings
+      exist, so the configuration compiles and is accepted with no diagnostic.
+    verified_on:
+      package: Aspose.PDF.FOSS
+      version: 26.11.0
+      date: '2026-11-14'
+  status: open

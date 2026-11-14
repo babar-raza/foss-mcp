@@ -99,7 +99,7 @@ def test_pdf_net_registry_file_parses_and_validates_against_schema() -> None:
     assert errors == [], f"pdf/net registry file failed schema validation: {errors}"
     assert document["schema_version"] == 1
     assert document["pilot"] == "pdf_net"
-    assert len(document["defects"]) == 1
+    assert len(document["defects"]) == 2
 
 
 # --------------------------------------------------------------------------------------------
@@ -118,7 +118,7 @@ def test_load_known_defects_returns_eml_net_003_with_the_real_shape() -> None:
 
 
 def test_load_known_defects_returns_pdf_net_003_with_the_real_shape() -> None:
-    (defect,) = load_known_defects("pdf", "net")
+    (defect,) = [d for d in load_known_defects("pdf", "net") if d.id == "PDF-NET-003"]
     assert defect.id == "PDF-NET-003"
     assert defect.subject.kind == "method"
     # TC-811 added the sibling ``Table`` (the type whose borderless instances TableAbsorber misses).
@@ -170,7 +170,7 @@ def test_eml_net_003_disclosure_does_not_overstate_the_defect() -> None:
 
 
 def test_pdf_net_003_disclosure_does_not_overstate_the_defect() -> None:
-    (defect,) = load_known_defects("pdf", "net")
+    (defect,) = [d for d in load_known_defects("pdf", "net") if d.id == "PDF-NET-003"]
     full_text = " ".join((defect.summary, defect.user_action, defect.evidence.repro)).lower()
     # Only a BORDERLESS table is affected - a table with a visible border is detected correctly.
     # Reject phrasing that claims TableAbsorber never finds any table at all.

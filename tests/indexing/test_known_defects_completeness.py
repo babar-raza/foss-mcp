@@ -206,6 +206,16 @@ re-verified on 2026-11-14 against the real upstream source and the real publishe
 per-framework assemblies). The real new union count is 67 (not 65): both equality assertions above
 still hold exactly, just against this slightly wider set; the real registry file count is unchanged
 at 27 (the entries land in the already-existing ``3d__python.yaml`` and ``words__net.yaml``).
+
+**Widened again (G3/TC-828, 2026-11-14):** ``PDF-NET-009`` (round-3, category
+``"mcp-content-missing"``, ``round3_verdict: "NEW"``: "known_defects schema present but empty in
+every check, including the clearest candidate (OcspSettings)") is a real, cited, committed audit
+finding this module's own category-filtered id source would otherwise never admit; it is added to
+``_ADDITIONAL_DISCLOSABLE_IDS`` the same deliberate, additive way. Re-verified on 2026-11-14 against
+the real upstream source (``b7172877``, and tags ``v26.10.0``/``v26.11.0``) and the real published
+``Aspose.PDF.FOSS`` 26.9.0/26.10.0/26.11.0 NuGet packages. The real new union count is 68 (not 67):
+both equality assertions above still hold exactly, just against this slightly wider set; the real
+registry file count is unchanged at 27 (the entry lands in the already-existing ``pdf__net.yaml``).
 """
 
 from __future__ import annotations
@@ -384,6 +394,14 @@ def _real_round3_issues() -> list[dict[str, Any]]:
 #   ``SaveFormat.HTML`` and otherwise always writes an XLSX zip - ``.pdf``, ``.txt``, ``.xls``,
 #   ``.bin`` and even ``.csv``/``.json``/``.md``/``.markdown`` paths all produced files beginning
 #   with the ZIP signature ``PK`` with no error. Disclosure-only.
+# - ``PDF-NET-009`` (G3/TC-828, REQ-G3-015, round-3 audit finding, category
+#   ``"mcp-content-missing"``): ``Signature.OcspSettings`` (``Aspose.Pdf.OcspSettings`` with
+#   ``ServerUrl``/``RequestTimeout``) is documented as "honoured by the signer when set", yet a grep
+#   of all of ``src`` in the real indexed ``Aspose.PDF-FOSS-for-.NET`` source (``b7172877``, 26.9.0;
+#   unchanged at tags ``v26.10.0`` and ``v26.11.0``) finds no read of it outside the declarations, and
+#   ``Forms/Signature.cs`` states revocation validation (OCSP/CRL) is not implemented in this FOSS
+#   build; reflection over the published 26.9.0/26.10.0/26.11.0 packages confirms the properties
+#   exist. A silently ignored configuration. Disclosure-only.
 _ADDITIONAL_DISCLOSABLE_IDS: frozenset[str] = frozenset(
     {
         "3D-JAVA-001",
@@ -400,6 +418,7 @@ _ADDITIONAL_DISCLOSABLE_IDS: frozenset[str] = frozenset(
         "CELLS-TYPESCRIPT-009",
         "3D-PYTHON-009",
         "WORDS-NET-005",
+        "PDF-NET-009",
     }
 )
 
@@ -500,8 +519,9 @@ def test_registry_entry_count_equals_upstream_library_bug_issue_count() -> None:
         f"issue count ({len(upstream_issue_ids)})"
     )
 
-    # Sanity anchor only, not a floor on the future: as of G3/TC-815 (2026-11-14) this real union
-    # count is 67 (65 as of TC-796, plus TC-815's own additive ``3D-PYTHON-009`` and
+    # Sanity anchor only, not a floor on the future: as of G3/TC-828 (2026-11-14) this real union
+    # count is 68 (67 as of TC-815, plus TC-828's own additive ``PDF-NET-009``); earlier, as of
+    # G3/TC-815 (2026-11-14) this real union count was 67 (65 as of TC-796, plus TC-815's own additive ``3D-PYTHON-009`` and
     # ``WORDS-NET-005``); earlier, as of G3/TC-796 (2026-11-14) it was 65 (63 as of TC-772, plus
     # TC-796's own additive ``CELLS-TYPESCRIPT-006`` and ``CELLS-TYPESCRIPT-009``); earlier, as of G3/TC-772 (2026-11-12) this real union
     # count was 63 (62 as of TC-771, plus TC-772's own additive ``WORDS-PY-013``); earlier, as of
@@ -518,7 +538,7 @@ def test_registry_entry_count_equals_upstream_library_bug_issue_count() -> None:
     # upstream-library-bug finding (and its matching entry) is expected to move both sides
     # together and may need to update this comment and number; the equality assertion above is
     # the one that must hold forever.
-    assert len(upstream_issue_ids) == 67
+    assert len(upstream_issue_ids) == 68
 
 
 # --------------------------------------------------------------------------------------------
