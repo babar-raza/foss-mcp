@@ -1,0 +1,71 @@
+
+===== CLEAN RUN 1 (host) =====
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-5c72e798a73c059a\Scripts\python.exe -m pytest tests/infra/test_hosting_config.py tests/infra/test_helm_manifest_step.py -q -rfE -p no:cacheprovider "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-3pcrv2r5\.junit-0.xml"
+--- stdout ---
+....................................                                     [100%]
+
+--- stderr ---
+
+
+===== CLEAN RUN 2 (host) =====
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-5c72e798a73c059a\Scripts\python.exe -m pytest tests/infra/test_hosting_config.py tests/infra/test_helm_manifest_step.py -q -rfE -p no:cacheprovider "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-3pcrv2r5\.junit-0.xml"
+--- stdout ---
+....................................                                     [100%]
+
+--- stderr ---
+
+
+===== NEGATIVE CONTROL (checks MUST now fail) =====
+mutated: M infra/hosting/nginx.conf, ?? .junit-0.xml
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-5c72e798a73c059a\Scripts\python.exe -m pytest tests/infra/test_hosting_config.py tests/infra/test_helm_manifest_step.py -q -rfE -p no:cacheprovider "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-3pcrv2r5\.junit-0.xml"
+--- stdout ---
+....F.F.............................                                     [100%]
+================================== FAILURES ===================================
+__________________ test_every_pilot_has_both_location_forms ___________________
+
+    def test_every_pilot_has_both_location_forms():
+        pilots = _load_pilots()
+        two_segment = _two_segment_locations()
+>       assert set(two_segment) == set(pilots), (
+            "every pilot in pilots.txt needs a two-segment location and no others; "
+            f"missing={sorted(set(pilots) - set(two_segment))}, extra={sorted(set(two_segment) - set(pilots))}"
+        )
+E       AssertionError: every pilot in pilots.txt needs a two-segment location and no others; missing=['3d/java', '3d/net', '3d/python', '3d/typescript', 'barcode/python', 'cells/cpp', 'cells/go', 'cells/java', 'cells/net', 'cells/python', 'cells/rust', 'cells/typescript', 'email/cpp', 'email/net', 'email/python', 'html/python', 'imaging/net', 'note/python', 'page/python', 'pdf/cpp', 'pdf/go', 'pdf/java', 'pdf/net', 'pdf/python', 'pdf/typescript', 'slides/cpp', 'slides/java', 'slides/net', 'slides/python', 'tex/python', 'words/net', 'words/python'], extra=[]
+E       assert set() == {'3d/java', '...lls/cpp', ...}
+E         
+E         Extra items in the right set:
+E         'slides/net'
+E         'imaging/net'
+E         '3d/java'
+E         'cells/java'
+E         'email/cpp'...
+E         
+E         ...Full output truncated (28 lines hidden), use '-vv' to show
+
+tests\infra\test_hosting_config.py:219: AssertionError
+_ test_two_segment_form_cannot_shadow_another_pilot_and_family_alone_is_not_routed _
+
+    def test_two_segment_form_cannot_shadow_another_pilot_and_family_alone_is_not_routed():
+        pilots = _load_pilots()
+        assert len(pilots) == len(set(pilots)), "pilots.txt family/platform pairs must be unique"
+        # Hyphenated ids must be unique too, or two pilots would share one upstream.
+        assert len({p.replace("/", "-") for p in pilots}) == len(pilots)
+    
+        patterns = {p: _nginx_regex_to_python(loc["regex"]) for p, loc in _two_segment_locations().items()}
+        for pilot in pilots:
+            for path in (f"/{pilot}", f"/{pilot}/", f"/{pilot}/mcp", f"/{pilot}/mcp/"):
+                matching = [p for p, rx in patterns.items() if rx.match(path)]
+>               assert matching == [pilot], f"{path} must be routed to exactly {pilot}, got {matching}"
+E               AssertionError: /3d/java must be routed to exactly 3d/java, got []
+E               assert [] == ['3d/java']
+E                 
+E                 Right contains one more item: '3d/java'
+E                 Use -v to get more diff
+
+tests\infra\test_hosting_config.py:264: AssertionError
+=========================== short test summary info ===========================
+FAILED tests/infra/test_hosting_config.py::test_every_pilot_has_both_location_forms
+FAILED tests/infra/test_hosting_config.py::test_two_segment_form_cannot_shadow_another_pilot_and_family_alone_is_not_routed
+
+--- stderr ---
+

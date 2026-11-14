@@ -1,0 +1,89 @@
+{
+  "schema_version": 1,
+  "card": "TC-833",
+  "gate": "G3",
+  "generated_by": "gatectl",
+  "generated_at": "2026-11-14T09:42:01Z",
+  "base_rev": "983d6e3760ccb9008baf17ddb316ed5ea2f86e3f",
+  "head_rev": "c5752226627a4c3de3071f683978c57873087d8e",
+  "card_sha256": "63e5f53d2333cab05d5b785c4882e6817ac7631196bd04b122353f623cd39464",
+  "fingerprint": {
+    "python": "3.13.2",
+    "platform": "Windows-11-10.0.26300-SP0",
+    "lock_sha256": "5c72e798a73c059a438e752e94a8d4c88c1bdf81a197f6e5c5fcecbc9466a691",
+    "env": {
+      "PYTHONHASHSEED": "0",
+      "PYTHONUTF8": "1",
+      "PYTHONDONTWRITEBYTECODE": "1",
+      "PYTHONIOENCODING": "utf-8",
+      "TZ": "UTC",
+      "LC_ALL": "C.UTF-8",
+      "SOURCE_DATE_EPOCH": "1700000000",
+      "verify_runner": "host"
+    }
+  },
+  "scope": {
+    "ok": true,
+    "changed_paths": [
+      "infra/hosting/nginx.conf",
+      "tests/infra/test_hosting_config.py"
+    ],
+    "violations": [],
+    "evaluated": true
+  },
+  "runs": [
+    {
+      "run": 1,
+      "checks": [
+        {
+          "command": "{python} -m pytest tests/infra/test_hosting_config.py tests/infra/test_helm_manifest_step.py -q -rfE -p no:cacheprovider",
+          "exit_code": 0,
+          "duration_s": 7.196,
+          "stdout_sha256": "12a9a4a8915fb8d2bb5b4227220247cde267c1a0620203589fe47280d5be4a7f",
+          "tests": 36,
+          "skipped": 0,
+          "errors": 0,
+          "failures": 0
+        }
+      ],
+      "all_passed": true
+    },
+    {
+      "run": 2,
+      "checks": [
+        {
+          "command": "{python} -m pytest tests/infra/test_hosting_config.py tests/infra/test_helm_manifest_step.py -q -rfE -p no:cacheprovider",
+          "exit_code": 0,
+          "duration_s": 6.333,
+          "stdout_sha256": "12a9a4a8915fb8d2bb5b4227220247cde267c1a0620203589fe47280d5be4a7f",
+          "tests": 36,
+          "skipped": 0,
+          "errors": 0,
+          "failures": 0
+        }
+      ],
+      "all_passed": true
+    }
+  ],
+  "negative_control": {
+    "kind": "mutate",
+    "patch": "python -X utf8 -c \"import subprocess; paths = ['infra/hosting/nginx.conf', 'infra/hosting/pilots.txt']; patch = subprocess.run(['git', 'show', '--format=', 'HEAD', '--'] + paths, capture_output=True, check=True).stdout; assert patch.strip(), 'the worker commit changes none of the production paths - the fix is missing'; subprocess.run(['git', 'apply', '-R', '--whitespace=nowarn', '-'], input=patch, check=True)\"\n",
+    "patch_sha256": "7e06203e70c815f1ea161469f8e511b0fe2809ca888756531e742c236543c660",
+    "applied": true,
+    "patch_applied_failed": true,
+    "exit_codes": [
+      1
+    ],
+    "tree_changed": [
+      "M infra/hosting/nginx.conf",
+      "?? .junit-0.xml"
+    ]
+  },
+  "holdout": {
+    "ran": false,
+    "passed": true,
+    "detail": "no holdout for this card"
+  },
+  "accepted": true,
+  "reason": "all gates passed"
+}
