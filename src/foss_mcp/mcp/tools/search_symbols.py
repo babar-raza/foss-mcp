@@ -1628,6 +1628,24 @@ def search_symbols(
         doc_id: _tier_match_kind(tier, inherits)
         for tier, _memberless, inherits, _bm25_score, doc_id in admitted
     }
+    # TC-838: a plural/inflected EXACT type name ("workbooks" -> ``Workbook``) outranks prefix-only evidence. TC-799's
+    # whole-fragment prefix route admits ``WorkbookSettings`` for "workbooks" (the string IS a prefix of
+    # "workbooksettings"), so ``ordered`` is no longer empty and the inflected-name stage below never ran, demoting
+    # the type the plural names beneath longer names that merely start with it. When any prefix-only (tier 4) hit
+    # exists the inflected names are therefore placed after every stronger tier and before the first prefix hit.
+    # Nothing changes when there is no prefix hit: a stronger-tier hit still stands alone, as before.
+    first_prefix = next((index for index, item in enumerate(admitted) if item[0] == 4), None)
+    if first_prefix is not None:
+        # Case-folded: the inflection stripping is case-sensitive ("WORKBOOKS" has no lower-case plural "s").
+        inflected = _inflected_name_ids(documents, query.casefold())
+        head = ordered[:first_prefix]
+        promoted = [doc_id for doc_id in inflected if doc_id not in head]
+        if promoted:
+            tail = [doc_id for doc_id in ordered[first_prefix:] if doc_id not in promoted]
+            ordered = [*head, *promoted, *tail]
+            for doc_id in promoted:
+                qualities[doc_id] = MATCH_EXACT
+                kinds[doc_id] = "inflected_name"
     unmatched: dict[str, tuple[str, ...]] = {}
     if not ordered:
         ordered = _inflected_name_ids(documents, query)
