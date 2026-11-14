@@ -1,0 +1,776 @@
+
+===== CLEAN RUN 1 (host) =====
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-5c72e798a73c059a\Scripts\python.exe -m pytest tests/infra/test_docs_bucket_readme_headings.py tests/infra/test_generate_furnished_page.py tests/indexing/test_doc_candidates.py tests/infra/test_furnished_chunk_quality.py tests/infra/test_furnished_chunk_survival.py tests/mcp/tools/test_search_docs_content_type_counts.py tests/mcp/tools/test_search_docs_title_classification.py -q -rfE -p no:cacheprovider "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-v2eg5cgl\.junit-0.xml"
+--- stdout ---
+........................................................................ [ 17%]
+........................................................................ [ 34%]
+........................................................................ [ 51%]
+........................................................................ [ 68%]
+........................................................................ [ 85%]
+...........................................................              [100%]
+
+--- stderr ---
+
+
+===== CLEAN RUN 2 (host) =====
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-5c72e798a73c059a\Scripts\python.exe -m pytest tests/infra/test_docs_bucket_readme_headings.py tests/infra/test_generate_furnished_page.py tests/indexing/test_doc_candidates.py tests/infra/test_furnished_chunk_quality.py tests/infra/test_furnished_chunk_survival.py tests/mcp/tools/test_search_docs_content_type_counts.py tests/mcp/tools/test_search_docs_title_classification.py -q -rfE -p no:cacheprovider "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-v2eg5cgl\.junit-0.xml"
+--- stdout ---
+........................................................................ [ 17%]
+........................................................................ [ 34%]
+........................................................................ [ 51%]
+........................................................................ [ 68%]
+........................................................................ [ 85%]
+...........................................................              [100%]
+
+--- stderr ---
+
+
+===== NEGATIVE CONTROL (checks MUST now fail) =====
+mutated: M infra/generate_furnished_page.py, M src/foss_mcp/indexing/doc_candidates.py, ?? .junit-0.xml
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-5c72e798a73c059a\Scripts\python.exe -m pytest tests/infra/test_docs_bucket_readme_headings.py tests/infra/test_generate_furnished_page.py tests/indexing/test_doc_candidates.py tests/infra/test_furnished_chunk_quality.py tests/infra/test_furnished_chunk_survival.py tests/mcp/tools/test_search_docs_content_type_counts.py tests/mcp/tools/test_search_docs_title_classification.py -q -rfE -p no:cacheprovider "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-v2eg5cgl\.junit-0.xml"
+--- stdout ---
+FFFFFFFFFFFFFFFFFFFFFFF......FF..FFF.FF................................. [ 17%]
+........................................................................ [ 34%]
+........................................................................ [ 51%]
+........................................................................ [ 68%]
+........................................................................ [ 85%]
+...........................................................              [100%]
+================================== FAILURES ===================================
+____ test_a_not_included_section_becomes_its_own_troubleshooting_candidate ____
+
+    def test_a_not_included_section_becomes_its_own_troubleshooting_candidate() -> None:
+        page = _page({"title_left": "Key Capabilities and API Reference", "content_left": _CAPABILITIES})
+    
+        candidates = extract_doc_sections(page)
+    
+>       assert [c.title for c in candidates] == [
+            "Key Capabilities and API Reference",
+            "Scope and Limitations: What's not included (and where to get it)",
+        ]
+E       assert ['Key Capabil...PI Reference'] == ['Key Capabil...e to get it)']
+E         
+E         Right contains one more item: "Scope and Limitations: What's not included (and where to get it)"
+E         Use -v to get more diff
+
+tests\infra\test_docs_bucket_readme_headings.py:101: AssertionError
+___ test_limitation_headings_classify_as_troubleshooting[What it cannot do] ___
+
+heading = 'What it cannot do'
+
+    @pytest.mark.parametrize(
+        "heading",
+        [
+            "What it cannot do",
+            "What it can't do",
+            "What it can’t do",
+            "Not supported",
+            "Not yet implemented",
+            "Features that are not available",
+            "What this library does not support",
+            "What the library doesn't include",
+            "Out of scope",
+            "What is missing",
+            "Unsupported formats",
+            "Known limitations",
+            "Known issues",
+        ],
+    )
+    def test_limitation_headings_classify_as_troubleshooting(heading: str) -> None:
+        body = f"### Overview of features\n\nIt does many things.\n\n### {heading}\n\n{_DETAIL}"
+        candidates = extract_doc_sections(_page({"title_left": "Key Capabilities", "content_left": body}))
+    
+        assert [c.title for c in candidates][0] == "Key Capabilities"
+>       assert len(candidates) == 2
+E       AssertionError: assert 1 == 2
+E        +  where 1 = len([DocCandidate(title='Key Capabilities', body='### Overview of features\n\nIt does many things.\n\n### What it cannot d...ction are set out in full right here. The details of this section are set out in full right here. ', origin='content')])
+
+tests\infra\test_docs_bucket_readme_headings.py:140: AssertionError
+___ test_limitation_headings_classify_as_troubleshooting[What it can't do] ____
+
+heading = "What it can't do"
+
+    @pytest.mark.parametrize(
+        "heading",
+        [
+            "What it cannot do",
+            "What it can't do",
+            "What it can’t do",
+            "Not supported",
+            "Not yet implemented",
+            "Features that are not available",
+            "What this library does not support",
+            "What the library doesn't include",
+            "Out of scope",
+            "What is missing",
+            "Unsupported formats",
+            "Known limitations",
+            "Known issues",
+        ],
+    )
+    def test_limitation_headings_classify_as_troubleshooting(heading: str) -> None:
+        body = f"### Overview of features\n\nIt does many things.\n\n### {heading}\n\n{_DETAIL}"
+        candidates = extract_doc_sections(_page({"title_left": "Key Capabilities", "content_left": body}))
+    
+        assert [c.title for c in candidates][0] == "Key Capabilities"
+>       assert len(candidates) == 2
+E       assert 1 == 2
+E        +  where 1 = len([DocCandidate(title='Key Capabilities', body="### Overview of features\n\nIt does many things.\n\n### What it can't do...ction are set out in full right here. The details of this section are set out in full right here. ", origin='content')])
+
+tests\infra\test_docs_bucket_readme_headings.py:140: AssertionError
+_ test_limitation_headings_classify_as_troubleshooting[What it can\u2019t do] _
+
+heading = 'What it can’t do'
+
+    @pytest.mark.parametrize(
+        "heading",
+        [
+            "What it cannot do",
+            "What it can't do",
+            "What it can’t do",
+            "Not supported",
+            "Not yet implemented",
+            "Features that are not available",
+            "What this library does not support",
+            "What the library doesn't include",
+            "Out of scope",
+            "What is missing",
+            "Unsupported formats",
+            "Known limitations",
+            "Known issues",
+        ],
+    )
+    def test_limitation_headings_classify_as_troubleshooting(heading: str) -> None:
+        body = f"### Overview of features\n\nIt does many things.\n\n### {heading}\n\n{_DETAIL}"
+        candidates = extract_doc_sections(_page({"title_left": "Key Capabilities", "content_left": body}))
+    
+        assert [c.title for c in candidates][0] == "Key Capabilities"
+>       assert len(candidates) == 2
+E       AssertionError: assert 1 == 2
+E        +  where 1 = len([DocCandidate(title='Key Capabilities', body='### Overview of features\n\nIt does many things.\n\n### What it can’t do...ction are set out in full right here. The details of this section are set out in full right here. ', origin='content')])
+
+tests\infra\test_docs_bucket_readme_headings.py:140: AssertionError
+_____ test_limitation_headings_classify_as_troubleshooting[Not supported] _____
+
+heading = 'Not supported'
+
+    @pytest.mark.parametrize(
+        "heading",
+        [
+            "What it cannot do",
+            "What it can't do",
+            "What it can’t do",
+            "Not supported",
+            "Not yet implemented",
+            "Features that are not available",
+            "What this library does not support",
+            "What the library doesn't include",
+            "Out of scope",
+            "What is missing",
+            "Unsupported formats",
+            "Known limitations",
+            "Known issues",
+        ],
+    )
+    def test_limitation_headings_classify_as_troubleshooting(heading: str) -> None:
+        body = f"### Overview of features\n\nIt does many things.\n\n### {heading}\n\n{_DETAIL}"
+        candidates = extract_doc_sections(_page({"title_left": "Key Capabilities", "content_left": body}))
+    
+        assert [c.title for c in candidates][0] == "Key Capabilities"
+>       assert len(candidates) == 2
+E       AssertionError: assert 1 == 2
+E        +  where 1 = len([DocCandidate(title='Key Capabilities', body='### Overview of features\n\nIt does many things.\n\n### Not supported\n\...ction are set out in full right here. The details of this section are set out in full right here. ', origin='content')])
+
+tests\infra\test_docs_bucket_readme_headings.py:140: AssertionError
+__ test_limitation_headings_classify_as_troubleshooting[Not yet implemented] __
+
+heading = 'Not yet implemented'
+
+    @pytest.mark.parametrize(
+        "heading",
+        [
+            "What it cannot do",
+            "What it can't do",
+            "What it can’t do",
+            "Not supported",
+            "Not yet implemented",
+            "Features that are not available",
+            "What this library does not support",
+            "What the library doesn't include",
+            "Out of scope",
+            "What is missing",
+            "Unsupported formats",
+            "Known limitations",
+            "Known issues",
+        ],
+    )
+    def test_limitation_headings_classify_as_troubleshooting(heading: str) -> None:
+        body = f"### Overview of features\n\nIt does many things.\n\n### {heading}\n\n{_DETAIL}"
+        candidates = extract_doc_sections(_page({"title_left": "Key Capabilities", "content_left": body}))
+    
+        assert [c.title for c in candidates][0] == "Key Capabilities"
+>       assert len(candidates) == 2
+E       AssertionError: assert 1 == 2
+E        +  where 1 = len([DocCandidate(title='Key Capabilities', body='### Overview of features\n\nIt does many things.\n\n### Not yet implemen...ction are set out in full right here. The details of this section are set out in full right here. ', origin='content')])
+
+tests\infra\test_docs_bucket_readme_headings.py:140: AssertionError
+_ test_limitation_headings_classify_as_troubleshooting[Features that are not available] _
+
+heading = 'Features that are not available'
+
+    @pytest.mark.parametrize(
+        "heading",
+        [
+            "What it cannot do",
+            "What it can't do",
+            "What it can’t do",
+            "Not supported",
+            "Not yet implemented",
+            "Features that are not available",
+            "What this library does not support",
+            "What the library doesn't include",
+            "Out of scope",
+            "What is missing",
+            "Unsupported formats",
+            "Known limitations",
+            "Known issues",
+        ],
+    )
+    def test_limitation_headings_classify_as_troubleshooting(heading: str) -> None:
+        body = f"### Overview of features\n\nIt does many things.\n\n### {heading}\n\n{_DETAIL}"
+        candidates = extract_doc_sections(_page({"title_left": "Key Capabilities", "content_left": body}))
+    
+        assert [c.title for c in candidates][0] == "Key Capabilities"
+>       assert len(candidates) == 2
+E       AssertionError: assert 1 == 2
+E        +  where 1 = len([DocCandidate(title='Key Capabilities', body='### Overview of features\n\nIt does many things.\n\n### Features that ar...ction are set out in full right here. The details of this section are set out in full right here. ', origin='content')])
+
+tests\infra\test_docs_bucket_readme_headings.py:140: AssertionError
+_ test_limitation_headings_classify_as_troubleshooting[What this library does not support] _
+
+heading = 'What this library does not support'
+
+    @pytest.mark.parametrize(
+        "heading",
+        [
+            "What it cannot do",
+            "What it can't do",
+            "What it can’t do",
+            "Not supported",
+            "Not yet implemented",
+            "Features that are not available",
+            "What this library does not support",
+            "What the library doesn't include",
+            "Out of scope",
+            "What is missing",
+            "Unsupported formats",
+            "Known limitations",
+            "Known issues",
+        ],
+    )
+    def test_limitation_headings_classify_as_troubleshooting(heading: str) -> None:
+        body = f"### Overview of features\n\nIt does many things.\n\n### {heading}\n\n{_DETAIL}"
+        candidates = extract_doc_sections(_page({"title_left": "Key Capabilities", "content_left": body}))
+    
+        assert [c.title for c in candidates][0] == "Key Capabilities"
+>       assert len(candidates) == 2
+E       AssertionError: assert 1 == 2
+E        +  where 1 = len([DocCandidate(title='Key Capabilities', body='### Overview of features\n\nIt does many things.\n\n### What this librar...ction are set out in full right here. The details of this section are set out in full right here. ', origin='content')])
+
+tests\infra\test_docs_bucket_readme_headings.py:140: AssertionError
+_ test_limitation_headings_classify_as_troubleshooting[What the library doesn't include] _
+
+heading = "What the library doesn't include"
+
+    @pytest.mark.parametrize(
+        "heading",
+        [
+            "What it cannot do",
+            "What it can't do",
+            "What it can’t do",
+            "Not supported",
+            "Not yet implemented",
+            "Features that are not available",
+            "What this library does not support",
+            "What the library doesn't include",
+            "Out of scope",
+            "What is missing",
+            "Unsupported formats",
+            "Known limitations",
+            "Known issues",
+        ],
+    )
+    def test_limitation_headings_classify_as_troubleshooting(heading: str) -> None:
+        body = f"### Overview of features\n\nIt does many things.\n\n### {heading}\n\n{_DETAIL}"
+        candidates = extract_doc_sections(_page({"title_left": "Key Capabilities", "content_left": body}))
+    
+        assert [c.title for c in candidates][0] == "Key Capabilities"
+>       assert len(candidates) == 2
+E       assert 1 == 2
+E        +  where 1 = len([DocCandidate(title='Key Capabilities', body="### Overview of features\n\nIt does many things.\n\n### What the library...ction are set out in full right here. The details of this section are set out in full right here. ", origin='content')])
+
+tests\infra\test_docs_bucket_readme_headings.py:140: AssertionError
+_____ test_limitation_headings_classify_as_troubleshooting[Out of scope] ______
+
+heading = 'Out of scope'
+
+    @pytest.mark.parametrize(
+        "heading",
+        [
+            "What it cannot do",
+            "What it can't do",
+            "What it can’t do",
+            "Not supported",
+            "Not yet implemented",
+            "Features that are not available",
+            "What this library does not support",
+            "What the library doesn't include",
+            "Out of scope",
+            "What is missing",
+            "Unsupported formats",
+            "Known limitations",
+            "Known issues",
+        ],
+    )
+    def test_limitation_headings_classify_as_troubleshooting(heading: str) -> None:
+        body = f"### Overview of features\n\nIt does many things.\n\n### {heading}\n\n{_DETAIL}"
+        candidates = extract_doc_sections(_page({"title_left": "Key Capabilities", "content_left": body}))
+    
+        assert [c.title for c in candidates][0] == "Key Capabilities"
+>       assert len(candidates) == 2
+E       AssertionError: assert 1 == 2
+E        +  where 1 = len([DocCandidate(title='Key Capabilities', body='### Overview of features\n\nIt does many things.\n\n### Out of scope\n\n...ction are set out in full right here. The details of this section are set out in full right here. ', origin='content')])
+
+tests\infra\test_docs_bucket_readme_headings.py:140: AssertionError
+____ test_limitation_headings_classify_as_troubleshooting[What is missing] ____
+
+heading = 'What is missing'
+
+    @pytest.mark.parametrize(
+        "heading",
+        [
+            "What it cannot do",
+            "What it can't do",
+            "What it can’t do",
+            "Not supported",
+            "Not yet implemented",
+            "Features that are not available",
+            "What this library does not support",
+            "What the library doesn't include",
+            "Out of scope",
+            "What is missing",
+            "Unsupported formats",
+            "Known limitations",
+            "Known issues",
+        ],
+    )
+    def test_limitation_headings_classify_as_troubleshooting(heading: str) -> None:
+        body = f"### Overview of features\n\nIt does many things.\n\n### {heading}\n\n{_DETAIL}"
+        candidates = extract_doc_sections(_page({"title_left": "Key Capabilities", "content_left": body}))
+    
+        assert [c.title for c in candidates][0] == "Key Capabilities"
+>       assert len(candidates) == 2
+E       AssertionError: assert 1 == 2
+E        +  where 1 = len([DocCandidate(title='Key Capabilities', body='### Overview of features\n\nIt does many things.\n\n### What is missing\...ction are set out in full right here. The details of this section are set out in full right here. ', origin='content')])
+
+tests\infra\test_docs_bucket_readme_headings.py:140: AssertionError
+__ test_limitation_headings_classify_as_troubleshooting[Unsupported formats] __
+
+heading = 'Unsupported formats'
+
+    @pytest.mark.parametrize(
+        "heading",
+        [
+            "What it cannot do",
+            "What it can't do",
+            "What it can’t do",
+            "Not supported",
+            "Not yet implemented",
+            "Features that are not available",
+            "What this library does not support",
+            "What the library doesn't include",
+            "Out of scope",
+            "What is missing",
+            "Unsupported formats",
+            "Known limitations",
+            "Known issues",
+        ],
+    )
+    def test_limitation_headings_classify_as_troubleshooting(heading: str) -> None:
+        body = f"### Overview of features\n\nIt does many things.\n\n### {heading}\n\n{_DETAIL}"
+        candidates = extract_doc_sections(_page({"title_left": "Key Capabilities", "content_left": body}))
+    
+        assert [c.title for c in candidates][0] == "Key Capabilities"
+>       assert len(candidates) == 2
+E       AssertionError: assert 1 == 2
+E        +  where 1 = len([DocCandidate(title='Key Capabilities', body='### Overview of features\n\nIt does many things.\n\n### Unsupported form...ction are set out in full right here. The details of this section are set out in full right here. ', origin='content')])
+
+tests\infra\test_docs_bucket_readme_headings.py:140: AssertionError
+___ test_limitation_headings_classify_as_troubleshooting[Known limitations] ___
+
+heading = 'Known limitations'
+
+    @pytest.mark.parametrize(
+        "heading",
+        [
+            "What it cannot do",
+            "What it can't do",
+            "What it can’t do",
+            "Not supported",
+            "Not yet implemented",
+            "Features that are not available",
+            "What this library does not support",
+            "What the library doesn't include",
+            "Out of scope",
+            "What is missing",
+            "Unsupported formats",
+            "Known limitations",
+            "Known issues",
+        ],
+    )
+    def test_limitation_headings_classify_as_troubleshooting(heading: str) -> None:
+        body = f"### Overview of features\n\nIt does many things.\n\n### {heading}\n\n{_DETAIL}"
+        candidates = extract_doc_sections(_page({"title_left": "Key Capabilities", "content_left": body}))
+    
+        assert [c.title for c in candidates][0] == "Key Capabilities"
+>       assert len(candidates) == 2
+E       AssertionError: assert 1 == 2
+E        +  where 1 = len([DocCandidate(title='Key Capabilities', body='### Overview of features\n\nIt does many things.\n\n### Known limitation...ction are set out in full right here. The details of this section are set out in full right here. ', origin='content')])
+
+tests\infra\test_docs_bucket_readme_headings.py:140: AssertionError
+_____ test_limitation_headings_classify_as_troubleshooting[Known issues] ______
+
+heading = 'Known issues'
+
+    @pytest.mark.parametrize(
+        "heading",
+        [
+            "What it cannot do",
+            "What it can't do",
+            "What it can’t do",
+            "Not supported",
+            "Not yet implemented",
+            "Features that are not available",
+            "What this library does not support",
+            "What the library doesn't include",
+            "Out of scope",
+            "What is missing",
+            "Unsupported formats",
+            "Known limitations",
+            "Known issues",
+        ],
+    )
+    def test_limitation_headings_classify_as_troubleshooting(heading: str) -> None:
+        body = f"### Overview of features\n\nIt does many things.\n\n### {heading}\n\n{_DETAIL}"
+        candidates = extract_doc_sections(_page({"title_left": "Key Capabilities", "content_left": body}))
+    
+        assert [c.title for c in candidates][0] == "Key Capabilities"
+>       assert len(candidates) == 2
+E       AssertionError: assert 1 == 2
+E        +  where 1 = len([DocCandidate(title='Key Capabilities', body='### Overview of features\n\nIt does many things.\n\n### Known issues\n\n...ction are set out in full right here. The details of this section are set out in full right here. ', origin='content')])
+
+tests\infra\test_docs_bucket_readme_headings.py:140: AssertionError
+________ test_setup_headings_classify_as_getting_started[Installation] ________
+
+heading = 'Installation'
+
+    @pytest.mark.parametrize(
+        "heading",
+        ["Installation", "Installing on Linux", "Quick start", "Quickstart", "Getting started", "Install"],
+    )
+    def test_setup_headings_classify_as_getting_started(heading: str) -> None:
+        body = (
+            f"### Overview of features\n\nIt does many things.\n\n### {heading}\n\nRun the installer. {_DETAIL}"
+        )
+        candidates = extract_doc_sections(_page({"title_left": "Key Capabilities", "content_left": body}))
+    
+>       assert len(candidates) == 2
+E       AssertionError: assert 1 == 2
+E        +  where 1 = len([DocCandidate(title='Key Capabilities', body='### Overview of features\n\nIt does many things.\n\n### Installation\n\n...ction are set out in full right here. The details of this section are set out in full right here. ', origin='content')])
+
+tests\infra\test_docs_bucket_readme_headings.py:155: AssertionError
+____ test_setup_headings_classify_as_getting_started[Installing on Linux] _____
+
+heading = 'Installing on Linux'
+
+    @pytest.mark.parametrize(
+        "heading",
+        ["Installation", "Installing on Linux", "Quick start", "Quickstart", "Getting started", "Install"],
+    )
+    def test_setup_headings_classify_as_getting_started(heading: str) -> None:
+        body = (
+            f"### Overview of features\n\nIt does many things.\n\n### {heading}\n\nRun the installer. {_DETAIL}"
+        )
+        candidates = extract_doc_sections(_page({"title_left": "Key Capabilities", "content_left": body}))
+    
+>       assert len(candidates) == 2
+E       AssertionError: assert 1 == 2
+E        +  where 1 = len([DocCandidate(title='Key Capabilities', body='### Overview of features\n\nIt does many things.\n\n### Installing on Li...ction are set out in full right here. The details of this section are set out in full right here. ', origin='content')])
+
+tests\infra\test_docs_bucket_readme_headings.py:155: AssertionError
+________ test_setup_headings_classify_as_getting_started[Quick start] _________
+
+heading = 'Quick start'
+
+    @pytest.mark.parametrize(
+        "heading",
+        ["Installation", "Installing on Linux", "Quick start", "Quickstart", "Getting started", "Install"],
+    )
+    def test_setup_headings_classify_as_getting_started(heading: str) -> None:
+        body = (
+            f"### Overview of features\n\nIt does many things.\n\n### {heading}\n\nRun the installer. {_DETAIL}"
+        )
+        candidates = extract_doc_sections(_page({"title_left": "Key Capabilities", "content_left": body}))
+    
+>       assert len(candidates) == 2
+E       AssertionError: assert 1 == 2
+E        +  where 1 = len([DocCandidate(title='Key Capabilities', body='### Overview of features\n\nIt does many things.\n\n### Quick start\n\nR...ction are set out in full right here. The details of this section are set out in full right here. ', origin='content')])
+
+tests\infra\test_docs_bucket_readme_headings.py:155: AssertionError
+_________ test_setup_headings_classify_as_getting_started[Quickstart] _________
+
+heading = 'Quickstart'
+
+    @pytest.mark.parametrize(
+        "heading",
+        ["Installation", "Installing on Linux", "Quick start", "Quickstart", "Getting started", "Install"],
+    )
+    def test_setup_headings_classify_as_getting_started(heading: str) -> None:
+        body = (
+            f"### Overview of features\n\nIt does many things.\n\n### {heading}\n\nRun the installer. {_DETAIL}"
+        )
+        candidates = extract_doc_sections(_page({"title_left": "Key Capabilities", "content_left": body}))
+    
+>       assert len(candidates) == 2
+E       AssertionError: assert 1 == 2
+E        +  where 1 = len([DocCandidate(title='Key Capabilities', body='### Overview of features\n\nIt does many things.\n\n### Quickstart\n\nRu...ction are set out in full right here. The details of this section are set out in full right here. ', origin='content')])
+
+tests\infra\test_docs_bucket_readme_headings.py:155: AssertionError
+______ test_setup_headings_classify_as_getting_started[Getting started] _______
+
+heading = 'Getting started'
+
+    @pytest.mark.parametrize(
+        "heading",
+        ["Installation", "Installing on Linux", "Quick start", "Quickstart", "Getting started", "Install"],
+    )
+    def test_setup_headings_classify_as_getting_started(heading: str) -> None:
+        body = (
+            f"### Overview of features\n\nIt does many things.\n\n### {heading}\n\nRun the installer. {_DETAIL}"
+        )
+        candidates = extract_doc_sections(_page({"title_left": "Key Capabilities", "content_left": body}))
+    
+>       assert len(candidates) == 2
+E       AssertionError: assert 1 == 2
+E        +  where 1 = len([DocCandidate(title='Key Capabilities', body='### Overview of features\n\nIt does many things.\n\n### Getting started\...ction are set out in full right here. The details of this section are set out in full right here. ', origin='content')])
+
+tests\infra\test_docs_bucket_readme_headings.py:155: AssertionError
+__________ test_setup_headings_classify_as_getting_started[Install] ___________
+
+heading = 'Install'
+
+    @pytest.mark.parametrize(
+        "heading",
+        ["Installation", "Installing on Linux", "Quick start", "Quickstart", "Getting started", "Install"],
+    )
+    def test_setup_headings_classify_as_getting_started(heading: str) -> None:
+        body = (
+            f"### Overview of features\n\nIt does many things.\n\n### {heading}\n\nRun the installer. {_DETAIL}"
+        )
+        candidates = extract_doc_sections(_page({"title_left": "Key Capabilities", "content_left": body}))
+    
+>       assert len(candidates) == 2
+E       AssertionError: assert 1 == 2
+E        +  where 1 = len([DocCandidate(title='Key Capabilities', body='### Overview of features\n\nIt does many things.\n\n### Install\n\nRun t...ction are set out in full right here. The details of this section are set out in full right here. ', origin='content')])
+
+tests\infra\test_docs_bucket_readme_headings.py:155: AssertionError
+_________ test_a_carved_section_keeps_its_nested_subheadings_and_text _________
+
+    def test_a_carved_section_keeps_its_nested_subheadings_and_text() -> None:
+        body = (
+            "### Overview of features\n\nIt does many things.\n\n"
+            "### What it cannot do\n\nIntro line.\n\n"
+            f"#### Not in the public API\n\nINNER-A {_DETAIL}\n\n"
+            "#### Save formats\n\nINNER-B\n\n"
+            "### Choosing an edition\n\nPick one."
+        )
+        candidates = extract_doc_sections(_page({"title_left": "Key Capabilities", "content_left": body}))
+    
+>       assert [c.title for c in candidates] == ["Key Capabilities", "Scope and Limitations: What it cannot do"]
+E       AssertionError: assert ['Key Capabilities'] == ['Key Capabil...it cannot do']
+E         
+E         Right contains one more item: 'Scope and Limitations: What it cannot do'
+E         Use -v to get more diff
+
+tests\infra\test_docs_bucket_readme_headings.py:170: AssertionError
+__ test_several_sections_are_carved_in_body_order_and_a_right_hand_block_too __
+
+    def test_several_sections_are_carved_in_body_order_and_a_right_hand_block_too() -> None:
+        body = (
+            f"### Intro\n\nHello.\n\n### Not supported\n\nA. {_DETAIL}\n\n### Middle\n\nB.\n\n"
+            f"### Quick start\n\nC. {_DETAIL}"
+        )
+        page = _page(
+            {"title_left": "Overview", "content_left": "plain", "title_right": "Reference", "content_right": body}
+        )
+    
+>       assert [c.title for c in extract_doc_sections(page)] == [
+            "Overview",
+            "Reference",
+            "Scope and Limitations: Not supported",
+            "Quick start",
+        ]
+E       AssertionError: assert ['Overview', 'Reference'] == ['Overview', ...'Quick start']
+E         
+E         Right contains 2 more items, first extra item: 'Scope and Limitations: Not supported'
+E         Use -v to get more diff
+
+tests\infra\test_docs_bucket_readme_headings.py:188: AssertionError
+__ test_a_block_that_is_only_a_limitation_section_leaves_no_empty_remainder ___
+
+    def test_a_block_that_is_only_a_limitation_section_leaves_no_empty_remainder() -> None:
+        page = _page({"title_left": "Reference", "content_left": f"### Not supported\n\nOnly this. {_DETAIL}"})
+    
+        candidates = extract_doc_sections(page)
+    
+>       assert [(c.title, c.body) for c in candidates] == [
+            ("Scope and Limitations: Not supported", f"Only this. {_DETAIL}")
+        ]
+E       AssertionError: assert [('Reference'...ight here. ')] == [('Scope and ...ight here. ')]
+E         
+E         At index 0 diff: ('Reference', '### Not supported\n\nOnly this. The details of this section are set out in full right here. The details of this section are set out in full right here. The details of this section are set out in full right here. The details of this section are set out in full right here. The details of this section are set out in full right here. ') != ('Scope and Limitations: Not supported', 'Only this. The details of this section are set out in full right here. The details of this section are set out in full right here. The details of this section are s...
+E         
+E         ...Full output truncated (2 lines hidden), use '-vv' to show
+
+tests\infra\test_docs_bucket_readme_headings.py:201: AssertionError
+_ test_the_committed_words_net_page_now_serves_its_not_included_section_as_troubleshooting _
+
+    def test_the_committed_words_net_page_now_serves_its_not_included_section_as_troubleshooting() -> None:
+        page = _load_committed_page("words_net")
+    
+        titles = [c.title for c in extract_doc_sections(page)]
+>       assert "Scope and Limitations: What's not included (and where to get it)" in titles
+E       assert "Scope and Limitations: What's not included (and where to get it)" in ['Aspose.Words FOSS for .NET', 'Installation and Dependencies', 'Key Capabilities and API Reference']
+
+tests\infra\test_docs_bucket_readme_headings.py:290: AssertionError
+_ test_words_net_readme_through_the_generator_files_not_included_as_troubleshooting _
+
+    def test_words_net_readme_through_the_generator_files_not_included_as_troubleshooting() -> None:
+        candidates = extract_doc_sections(_readme_page("words_net"))
+    
+        carved = [c for c in candidates if "not included" in c.title]
+>       assert [c.title for c in carved] == ["Scope and Limitations: What's not included (and where to get it)"]
+E       assert [] == ['Scope and L...e to get it)']
+E         
+E         Right contains one more item: "Scope and Limitations: What's not included (and where to get it)"
+E         Use -v to get more diff
+
+tests\infra\test_docs_bucket_readme_headings.py:304: AssertionError
+________ test_only_the_expected_committed_pages_have_a_carved_section _________
+
+    def test_only_the_expected_committed_pages_have_a_carved_section() -> None:
+        carved = {pilot: _carved_titles(_load_committed_page(pilot)) for pilot in _pilots_with_pages()}
+    
+>       assert {pilot for pilot, titles in carved.items() if titles} == _CARVED_COMMITTED_PAGES
+E       AssertionError: assert set() == {'words_net'}
+E         
+E         Extra items in the right set:
+E         'words_net'
+E         Use -v to get more diff
+
+tests\infra\test_docs_bucket_readme_headings.py:361: AssertionError
+________ test_only_the_expected_sidecar_readmes_have_a_carved_section _________
+
+    def test_only_the_expected_sidecar_readmes_have_a_carved_section() -> None:
+        carved = {
+            path.parent.name: _carved_titles(_readme_page(path.parent.name))
+            for path in sorted(README_DIR.glob("*/README.md"))
+        }
+    
+        assert len(carved) >= 16
+>       assert {pilot for pilot, titles in carved.items() if titles} == _CARVED_SIDECAR_READMES
+E       AssertionError: assert set() == {'slides_net', 'words_net'}
+E         
+E         Extra items in the right set:
+E         'slides_net'
+E         'words_net'
+E         Use -v to get more diff
+
+tests\infra\test_docs_bucket_readme_headings.py:372: AssertionError
+_ test_slides_net_readme_carves_what_it_cannot_do_with_all_of_its_nested_sections _
+
+    def test_slides_net_readme_carves_what_it_cannot_do_with_all_of_its_nested_sections() -> None:
+        candidates = extract_doc_sections(_readme_page("slides_net"))
+    
+>       [carved] = [c for c in candidates if c.title == "Scope and Limitations: What it cannot do"]
+        ^^^^^^^^
+E       ValueError: not enough values to unpack (expected 1, got 0)
+
+tests\infra\test_docs_bucket_readme_headings.py:380: ValueError
+_______ test_demote_headings_goes_one_level_deeper_outside_fences_only ________
+
+    def test_demote_headings_goes_one_level_deeper_outside_fences_only() -> None:
+        text = (
+            "intro\n\n### Child\n\n```bash\n### not a heading\n```\n\n###### Deepest\n\n  ## Indented\n\n#hashtag"
+        )
+    
+>       assert gen._demote_headings(text) == (
+               ^^^^^^^^^^^^^^^^^^^^
+            "intro\n\n#### Child\n\n```bash\n### not a heading\n```\n\n###### Deepest\n\n  ### Indented\n\n#hashtag"
+        )
+E       AttributeError: module 'infra.generate_furnished_page' has no attribute '_demote_headings'
+
+tests\infra\test_docs_bucket_readme_headings.py:411: AttributeError
+_____ test_a_kept_section_keeps_its_children_nested_below_its_own_heading _____
+
+    def test_a_kept_section_keeps_its_children_nested_below_its_own_heading() -> None:
+        detail = "A line of detail about what is missing today. " * 8
+        readme = (
+            "# Widgets\n\nA widget library for everyone.\n\n## Features\n\nMake widgets.\n\n"
+            "## What it cannot do\n\nLead-in sentence that says what follows.\n\n"
+            f"### Not in the public API\n\n{detail}\n\n### Save formats\n\n{detail}\n\n"
+            "## Contributing\n\nPlease do.\n\n"
+            + "```python\nprint(1)\n```\n\n" * 3
+            + "\n".join(f"Filler line {n} so the README is long enough to be documentation." for n in range(45))
+        )
+        fields = gen.parse_readme("org/widgets", "c0ffee", readme)
+    
+        body = fields.sections["Key Capabilities"]
+        assert "### What it cannot do" in body
+>       assert "#### Not in the public API" in body and "#### Save formats" in body
+E       AssertionError: assert ('#### Not in the public API' in 'Make widgets.\n\n### What it cannot do\n\nLead-in sentence that says what follows.\n\n### Not in the public API\n\nA ...out what is missing today. A line of detail about what is missing today. A line of detail about what is missing today.')
+
+tests\infra\test_docs_bucket_readme_headings.py:430: AssertionError
+=========================== short test summary info ===========================
+FAILED tests/infra/test_docs_bucket_readme_headings.py::test_a_not_included_section_becomes_its_own_troubleshooting_candidate
+FAILED tests/infra/test_docs_bucket_readme_headings.py::test_limitation_headings_classify_as_troubleshooting[What it cannot do]
+FAILED tests/infra/test_docs_bucket_readme_headings.py::test_limitation_headings_classify_as_troubleshooting[What it can't do]
+FAILED tests/infra/test_docs_bucket_readme_headings.py::test_limitation_headings_classify_as_troubleshooting[What it can\u2019t do]
+FAILED tests/infra/test_docs_bucket_readme_headings.py::test_limitation_headings_classify_as_troubleshooting[Not supported]
+FAILED tests/infra/test_docs_bucket_readme_headings.py::test_limitation_headings_classify_as_troubleshooting[Not yet implemented]
+FAILED tests/infra/test_docs_bucket_readme_headings.py::test_limitation_headings_classify_as_troubleshooting[Features that are not available]
+FAILED tests/infra/test_docs_bucket_readme_headings.py::test_limitation_headings_classify_as_troubleshooting[What this library does not support]
+FAILED tests/infra/test_docs_bucket_readme_headings.py::test_limitation_headings_classify_as_troubleshooting[What the library doesn't include]
+FAILED tests/infra/test_docs_bucket_readme_headings.py::test_limitation_headings_classify_as_troubleshooting[Out of scope]
+FAILED tests/infra/test_docs_bucket_readme_headings.py::test_limitation_headings_classify_as_troubleshooting[What is missing]
+FAILED tests/infra/test_docs_bucket_readme_headings.py::test_limitation_headings_classify_as_troubleshooting[Unsupported formats]
+FAILED tests/infra/test_docs_bucket_readme_headings.py::test_limitation_headings_classify_as_troubleshooting[Known limitations]
+FAILED tests/infra/test_docs_bucket_readme_headings.py::test_limitation_headings_classify_as_troubleshooting[Known issues]
+FAILED tests/infra/test_docs_bucket_readme_headings.py::test_setup_headings_classify_as_getting_started[Installation]
+FAILED tests/infra/test_docs_bucket_readme_headings.py::test_setup_headings_classify_as_getting_started[Installing on Linux]
+FAILED tests/infra/test_docs_bucket_readme_headings.py::test_setup_headings_classify_as_getting_started[Quick start]
+FAILED tests/infra/test_docs_bucket_readme_headings.py::test_setup_headings_classify_as_getting_started[Quickstart]
+FAILED tests/infra/test_docs_bucket_readme_headings.py::test_setup_headings_classify_as_getting_started[Getting started]
+FAILED tests/infra/test_docs_bucket_readme_headings.py::test_setup_headings_classify_as_getting_started[Install]
+FAILED tests/infra/test_docs_bucket_readme_headings.py::test_a_carved_section_keeps_its_nested_subheadings_and_text
+FAILED tests/infra/test_docs_bucket_readme_headings.py::test_several_sections_are_carved_in_body_order_and_a_right_hand_block_too
+FAILED tests/infra/test_docs_bucket_readme_headings.py::test_a_block_that_is_only_a_limitation_section_leaves_no_empty_remainder
+FAILED tests/infra/test_docs_bucket_readme_headings.py::test_the_committed_words_net_page_now_serves_its_not_included_section_as_troubleshooting
+FAILED tests/infra/test_docs_bucket_readme_headings.py::test_words_net_readme_through_the_generator_files_not_included_as_troubleshooting
+FAILED tests/infra/test_docs_bucket_readme_headings.py::test_only_the_expected_committed_pages_have_a_carved_section
+FAILED tests/infra/test_docs_bucket_readme_headings.py::test_only_the_expected_sidecar_readmes_have_a_carved_section
+FAILED tests/infra/test_docs_bucket_readme_headings.py::test_slides_net_readme_carves_what_it_cannot_do_with_all_of_its_nested_sections
+FAILED tests/infra/test_docs_bucket_readme_headings.py::test_demote_headings_goes_one_level_deeper_outside_fences_only
+FAILED tests/infra/test_docs_bucket_readme_headings.py::test_a_kept_section_keeps_its_children_nested_below_its_own_heading
+
+--- stderr ---
+

@@ -1,0 +1,91 @@
+{
+  "schema_version": 1,
+  "card": "TC-817",
+  "gate": "G3",
+  "generated_by": "gatectl",
+  "generated_at": "2026-11-14T09:32:04Z",
+  "base_rev": "4824cf69c9acd9b679d8d16cd192ff0e31644068",
+  "head_rev": "0ae06609a68247c9ba10209e81e54924a23b240d",
+  "card_sha256": "ad0d9adef78b0e18819fd982f86fb0b3a1c2c767de42e802a10e82e4fc9e1114",
+  "fingerprint": {
+    "python": "3.13.2",
+    "platform": "Windows-11-10.0.26300-SP0",
+    "lock_sha256": "5c72e798a73c059a438e752e94a8d4c88c1bdf81a197f6e5c5fcecbc9466a691",
+    "env": {
+      "PYTHONHASHSEED": "0",
+      "PYTHONUTF8": "1",
+      "PYTHONDONTWRITEBYTECODE": "1",
+      "PYTHONIOENCODING": "utf-8",
+      "TZ": "UTC",
+      "LC_ALL": "C.UTF-8",
+      "SOURCE_DATE_EPOCH": "1700000000",
+      "verify_runner": "host"
+    }
+  },
+  "scope": {
+    "ok": true,
+    "changed_paths": [
+      "infra/generate_furnished_page.py",
+      "src/foss_mcp/indexing/doc_candidates.py",
+      "tests/infra/test_docs_bucket_readme_headings.py"
+    ],
+    "violations": [],
+    "evaluated": true
+  },
+  "runs": [
+    {
+      "run": 1,
+      "checks": [
+        {
+          "command": "{python} -m pytest tests/infra/test_docs_bucket_readme_headings.py tests/infra/test_generate_furnished_page.py tests/indexing/test_doc_candidates.py tests/infra/test_furnished_chunk_quality.py tests/infra/test_furnished_chunk_survival.py tests/mcp/tools/test_search_docs_content_type_counts.py tests/mcp/tools/test_search_docs_title_classification.py -q -rfE -p no:cacheprovider",
+          "exit_code": 0,
+          "duration_s": 17.506,
+          "stdout_sha256": "03caceaeccc9745ccac2e6e6db2c3348b3197df1b369cb0780d35a10e2f95b9b",
+          "tests": 419,
+          "skipped": 0,
+          "errors": 0,
+          "failures": 0
+        }
+      ],
+      "all_passed": true
+    },
+    {
+      "run": 2,
+      "checks": [
+        {
+          "command": "{python} -m pytest tests/infra/test_docs_bucket_readme_headings.py tests/infra/test_generate_furnished_page.py tests/indexing/test_doc_candidates.py tests/infra/test_furnished_chunk_quality.py tests/infra/test_furnished_chunk_survival.py tests/mcp/tools/test_search_docs_content_type_counts.py tests/mcp/tools/test_search_docs_title_classification.py -q -rfE -p no:cacheprovider",
+          "exit_code": 0,
+          "duration_s": 11.918,
+          "stdout_sha256": "03caceaeccc9745ccac2e6e6db2c3348b3197df1b369cb0780d35a10e2f95b9b",
+          "tests": 419,
+          "skipped": 0,
+          "errors": 0,
+          "failures": 0
+        }
+      ],
+      "all_passed": true
+    }
+  ],
+  "negative_control": {
+    "kind": "mutate",
+    "patch": "python -X utf8 -c \"import subprocess; paths = ['infra/generate_furnished_page.py', 'src/foss_mcp/indexing/doc_candidates.py']; patch = subprocess.run(['git', 'show', '--format=', 'HEAD', '--'] + paths, capture_output=True, check=True).stdout; assert patch.strip(), 'the worker commit changes none of the production paths - the fix is missing'; subprocess.run(['git', 'apply', '-R', '--whitespace=nowarn', '-'], input=patch, check=True)\"\n",
+    "patch_sha256": "0b6686a27e7fa6741fc4dc15306714e919cb890d4b6833e34886cb26f7497db0",
+    "applied": true,
+    "patch_applied_failed": true,
+    "exit_codes": [
+      1
+    ],
+    "tree_changed": [
+      "M infra/generate_furnished_page.py",
+      "M src/foss_mcp/indexing/doc_candidates.py",
+      "?? .junit-0.xml"
+    ]
+  },
+  "holdout": {
+    "ran": false,
+    "passed": true,
+    "detail": "no holdout for this card"
+  },
+  "accepted": true,
+  "reason": "all gates passed"
+}
