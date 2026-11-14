@@ -29,6 +29,7 @@ from foss_mcp.mcp.tools.search_symbols import (
     NOT_IMPLEMENTED_PHRASE,
     SOURCE_KIND,
     _member_name,
+    member_suggestion_index,
     scope_key,
     suggest_similar_fqns,
 )
@@ -826,7 +827,8 @@ def _lookup_symbol(
     return NotFound(
         scope,
         fqn,
-        suggestions=suggest_similar_fqns(known_fqns, fqn),
+        # TC-799 (RD2-067): a bare name that is a declared member suggests its owner (Owner.member).
+        suggestions=suggest_similar_fqns(known_fqns, fqn, member_owners=member_suggestion_index(documents)),
         coverage_note=coverage_note,
     )
 

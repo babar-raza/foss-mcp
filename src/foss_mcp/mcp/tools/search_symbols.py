@@ -269,7 +269,7 @@ import string
 from collections import OrderedDict
 from collections.abc import Collection, Iterable, Mapping, Sequence
 from dataclasses import dataclass
-from difflib import get_close_matches
+from difflib import SequenceMatcher, get_close_matches
 from typing import TYPE_CHECKING
 
 from foss_mcp.indexing.generation_manifest import GenerationManifestStore
@@ -444,17 +444,38 @@ def _match_tier(query: str, fqn: str | None) -> int | None:
     fqn_words = _symbol_words(fqn)
     run_length = len(query_words)
     window_count = len(fqn_words) - run_length + 1
+    # TC-799 (RD2-161): a single identifier-shaped token (no whitespace) of at least ``_PREFIX_MIN_LENGTH``
+    # characters is a name FRAGMENT, and its trailing camel word may be any length (``TableCe`` ->
+    # ``TableCell``): the 3-character floor is applied to the whole fragment, not to each word of it.
+    fragment = len(needle) >= _PREFIX_MIN_LENGTH and not any(char.isspace() for char in needle)
+    final_segment = _FINAL_SEGMENT.split(full)[-1]
+    prefix_hit = fragment and final_segment.startswith(needle)
     if window_count < 1:
-        return None
-    prefix_hit = False
+        return 3 if prefix_hit else None
+    # The short trailing word of a fragment must sit inside the FQN's own final segment (``NoteT`` is
+    # ``NoteTag``, never the namespace word ``note`` followed by ``Title``); an undotted fragment must
+    # lie wholly inside it, a dotted one (``aspose.note.TableCe``) only its last word.
+    final_start = len(fqn_words) - len(_symbol_words(final_segment))
+    dotted = "." in needle or "::" in needle
     for start in range(window_count):
         window = fqn_words[start : start + run_length]
         if window == query_words:
             return 2
         if not prefix_hit and all(
             query_word == fqn_word
-            or (len(query_word) >= _PREFIX_MIN_LENGTH and fqn_word.startswith(query_word))
-            for query_word, fqn_word in zip(query_words, window, strict=True)
+            or (
+                fqn_word.startswith(query_word)
+                and (
+                    len(query_word) >= _PREFIX_MIN_LENGTH
+                    or (
+                        fragment
+                        and position == run_length - 1
+                        and start + position >= final_start
+                        and (dotted or start >= final_start)
+                    )
+                )
+            )
+            for position, (query_word, fqn_word) in enumerate(zip(query_words, window, strict=True))
         ):
             prefix_hit = True
     return 3 if prefix_hit else None
@@ -620,7 +641,52 @@ def _word_aware_suggestions(known: Sequence[str], target_segment: str, limit: in
     return tuple(sorted(matches)[:limit])
 
 
-def suggest_similar_fqns(known_fqns: Iterable[str], target: str, *, limit: int = 3) -> tuple[str, ...]:
+def member_suggestion_index(documents: Mapping[str, Mapping[str, str]]) -> dict[str, tuple[str, ...]]:
+    """TC-799 (RD2-067): casefolded member name -> every ``Owner.member`` (``Owner::member`` for a ``::``
+    scoped owner) the index DECLARES, read from the symbol chunks' own Methods:/Properties:/Members:
+    blocks (an item marked ``(inherited from ...)`` or ``(promoted from ...)`` does not declare). Each
+    value is sorted, so the order never depends on dict insertion or hash order."""
+    from foss_mcp.mcp.tools.get_symbol import _declared_members, extract_fqn
+
+    found: dict[str, set[str]] = {}
+    for document in documents.values():
+        text = document["text"]
+        owner = extract_fqn(text)
+        if owner is None or owner.startswith(_NON_SYMBOL_FQN_PREFIXES):
+            continue
+        separator = "::" if "::" in owner else "."
+        for name, lines in _declared_members(text).items():
+            if any(not _is_non_declaring_item(line) for line in lines):
+                found.setdefault(name.casefold(), set()).add(f"{owner}{separator}{name}")
+    return {key: tuple(sorted(values)) for key, values in found.items()}
+
+
+def _final_segment_matches(known: Sequence[str], target_segment: str, target: str) -> list[str]:
+    """TC-799 (RD2-023/090): every known FQN whose final segment EQUALS *target_segment* - case-sensitively
+    first, then differing only in case - each group ordered by closeness of the whole FQN to *target*
+    (``difflib`` ratio, descending) and then alphabetically, so the order never depends on input order."""
+    exact: set[str] = set()
+    folded: set[str] = set()
+    for fqn in known:
+        segment = _FINAL_SEGMENT.split(fqn.strip())[-1]
+        if segment == target_segment:
+            exact.add(fqn)
+        elif segment.casefold() == target_segment.casefold():
+            folded.add(fqn)
+
+    def closeness(fqn: str) -> tuple[float, str]:
+        return (-SequenceMatcher(None, target, fqn).ratio(), fqn)
+
+    return sorted(exact, key=closeness) + sorted(folded, key=closeness)
+
+
+def suggest_similar_fqns(
+    known_fqns: Iterable[str],
+    target: str,
+    *,
+    limit: int = 3,
+    member_owners: Mapping[str, Sequence[str]] | None = None,
+) -> tuple[str, ...]:
     """Fuzzy "did you mean" suggestions for *target*, drawn only from *known_fqns*.
 
     *known_fqns* must be the real FQNs published in the exact generation a Miss/NotFound was
@@ -629,6 +695,14 @@ def suggest_similar_fqns(known_fqns: Iterable[str], target: str, *, limit: int =
     standard library's own ``difflib.get_close_matches``, never a new dependency or a network
     call. Purely additive - callers attach the result to a Miss/NotFound's own ``suggestions``
     field; it never changes whether a query is a miss or a real match.
+
+    TC-799 (RD2-023/067/090): candidates are ranked, deduplicated and cut to *limit* in this order:
+    (1) every known FQN whose FINAL segment equals *target*'s final segment, case-sensitively and then
+    differing only in case (``Aspose.ThreeD.Utilities.Property`` -> ``Aspose.ThreeD.Property``,
+    ``aspose.cells_foss.ConditionalFormat`` -> ``aspose.cells_foss.conditional_format.ConditionalFormat``);
+    (2) when *target* is a bare name (no ``.``/``::``) that is a real declared member of some type and
+    *member_owners* (``member_suggestion_index``) is given, ``Owner.member`` for each such type
+    (``ExportToCSV`` -> ``Workbook.ExportToCSV``); (3) the tiers below, exactly as before.
 
     The full-FQN comparison (cutoff 0.6) is tried first and its result is returned whenever it is
     non-empty. Only when it is empty (TC-386) is *target*'s final segment (split on ``.`` and
@@ -644,10 +718,30 @@ def suggest_similar_fqns(known_fqns: Iterable[str], target: str, *, limit: int =
     for exactly which word-order swaps this does and does not catch.
     """
     known = list(known_fqns)
+    target_segment = _FINAL_SEGMENT.split(target.strip())[-1]
+    leading: list[str] = []
+    if target_segment:
+        leading.extend(_final_segment_matches(known, target_segment, target))
+        if member_owners and target_segment == target.strip():
+            owners = member_owners.get(target_segment.casefold(), ())
+            leading.extend(
+                sorted(
+                    owners,
+                    key=lambda candidate: (_FINAL_SEGMENT.split(candidate)[-1] != target_segment, candidate),
+                )
+            )
+    merged: list[str] = []
+    for candidate in (*leading, *_tiered_suggestions(known, target, target_segment, limit)):
+        if candidate not in merged:
+            merged.append(candidate)
+    return tuple(merged[:limit])
+
+
+def _tiered_suggestions(known: list[str], target: str, target_segment: str, limit: int) -> tuple[str, ...]:
+    """The pre-TC-799 fallback (full-FQN, then final-segment fuzzy, then word-set), unchanged."""
     by_full = tuple(get_close_matches(target, known, n=limit, cutoff=0.6))
     if by_full:
         return by_full
-    target_segment = _FINAL_SEGMENT.split(target.strip())[-1]
     if not target_segment:
         return ()
     by_segment: dict[str, list[str]] = {}
@@ -1571,7 +1665,9 @@ def search_symbols(
             scope,
             original_query,
             f"no symbol matches {original_query!r}",
-            suggestions=suggest_similar_fqns(known_fqns, original_query),
+            suggestions=suggest_similar_fqns(
+                known_fqns, original_query, member_owners=member_suggestion_index(documents)
+            ),
             coverage_note=generation_coverage_note(documents),
         )
 

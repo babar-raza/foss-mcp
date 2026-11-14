@@ -298,10 +298,12 @@ def test_pruned_baseline_has_exactly_the_expected_known_failures_count() -> None
     leaving 119. Every other sub-case, including all 4 ``fabricated-fqn-false-exact`` entries and all
     64 case-(g) entries (``bare-namespace-word-false-exact``/``bare-member-word-false-exact``), is
     left untouched - a regression here means a future edit silently pruned (or re-grew) something
-    this card deliberately did not touch."""
+    this card deliberately did not touch. TC-799 then pruned 10 more (6 ``prefix3-findable`` + 4
+    ``digit-stripped-family-findable``), each re-verified fixed under BOTH default and exhaustive mode:
+    a short camel fragment now resolves, so 116 -> 106 (25 -> 19 and 23 -> 19)."""
     baseline = load_baseline(BASELINE_PATH)
     assert baseline.strict is True
-    assert len(baseline.known_failures) == 116
+    assert len(baseline.known_failures) == 106
     by_subcase: dict[str, int] = {}
     for failure in baseline.known_failures:
         sub = failure.case_id.split(":", 1)[0]
@@ -309,9 +311,9 @@ def test_pruned_baseline_has_exactly_the_expected_known_failures_count() -> None
     assert by_subcase == {
         "bare-member-word-false-exact": 32,
         "bare-namespace-word-false-exact": 32,
-        "digit-stripped-family-findable": 23,
+        "digit-stripped-family-findable": 19,
         "fabricated-fqn-false-exact": 4,
-        "prefix3-findable": 25,
+        "prefix3-findable": 19,
     }
 
 
