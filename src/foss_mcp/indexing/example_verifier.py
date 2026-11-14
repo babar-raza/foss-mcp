@@ -44,6 +44,7 @@ from collections.abc import Callable, Iterable, Mapping, Sequence
 from dataclasses import dataclass, field, replace
 from pathlib import Path
 
+from foss_mcp.indexing.example_artifacts import artifact_is_valid, artifact_problems
 from foss_mcp.indexing.example_candidates import CandidateExample
 from foss_mcp.indexing.example_fixtures import (
     FIXTURE_UNAVAILABLE,
@@ -3700,6 +3701,8 @@ def classify_runtime(record: RuntimeRecord) -> str:
         record.ran is False
         or record.exit_code not in (None, 0)
         or (record.exit_code is None and record.error)
+        # TC-808: a run that exited 0 but left an invalid artefact records why (``execute_in_sandbox``).
+        or (record.exit_code == 0 and record.error)
     ):
         return RUNTIME_FAILED
     if not record.produced_output and not record.output_optional:
@@ -3843,8 +3846,12 @@ def obj_vertex_count(data: bytes) -> int:
 def artefact_payload_bytes(name: str, data: bytes) -> int:
     """The bytes of a produced file that count as output: its size when its own format reader finds
     content (an STL with a facet, a valid glTF, an OBJ with a vertex, any other non-empty file), else 0.
-    A file the reader judges empty or invalid counts for nothing, whatever its size on disk."""
+    A file the reader judges empty or invalid counts for nothing, whatever its size on disk. TC-808: a file of
+    a container kind ``example_artifacts`` judges (OOXML, zip, PDF, PNG/JPEG, EML, MSG) counts only when it is
+    structurally valid."""
     extension = name.rsplit(".", 1)[-1].lower() if "." in name else ""
+    if not artifact_is_valid(name, data):
+        return 0
     if extension == "stl":
         return len(data) if (stl_facet_count(data) or 0) > 0 else 0
     if extension in ("gltf", "glb"):
@@ -3913,8 +3920,11 @@ def execute_in_sandbox(
         extensions = tuple(
             sorted({name.rsplit(".", 1)[-1].lower() for name in written if "." in name.rsplit("/", 1)[-1]})
         )
+        invalid_artefacts: list[str] = []
         if written:
-            produced = sum(artefact_payload_bytes(name, path.read_bytes()) for name, path in written.items())
+            contents = {name: path.read_bytes() for name, path in written.items()}
+            produced = sum(artefact_payload_bytes(name, data) for name, data in contents.items())
+            invalid_artefacts = artifact_problems(contents)
         else:
             produced = len(outcome.stdout.encode("utf-8", errors="replace"))
         error = ""
@@ -3924,6 +3934,10 @@ def execute_in_sandbox(
             # TC-807: node's ``Error: message`` line, not the source line printed above it.
             node_line = node_error_line(outcome.stderr, outcome.stdout) if platform == "typescript" else ""
             error = node_line[:_RUNTIME_ERROR_CHARS] or _runtime_error_text(outcome)
+        elif invalid_artefacts:
+            # TC-808: exit 0 is not success when the file it left is not a valid file (a 0-byte PDF, a
+            # truncated PNG, a corrupt zip): the run is ``failed`` and says which file and why.
+            error = f"invalid artefact: {'; '.join(invalid_artefacts)}"[:_RUNTIME_ERROR_CHARS]
         return RuntimeRecord(
             compiled=True,
             ran=True,
