@@ -97,6 +97,7 @@ from foss_mcp.indexing.example_verifier import (
     RUNTIME_FAILED,
     RUNTIME_NO_OUTPUT,
     RUNTIME_RAN_OK,
+    VERIFIER_VERSION,
     ExampleEnvironmentError,
     RuntimeRecord,
     _assemble_dotnet_source,
@@ -105,6 +106,7 @@ from foss_mcp.indexing.example_verifier import (
     counts_as_verified,
     cpp_compat_compile_options,
     entry_counts_as_verified,
+    is_environmental_verdict,
     prepare_cpp_library_linux,
     prepare_go_library,
     prepare_java_library,
@@ -543,7 +545,13 @@ _CACHE_ENTRY_FIELDS = frozenset(
 # TC-565 (REQ-G3-009): the run verdict, recorded separately from the compile verdict. ``verified`` keeps
 # its meaning (the compile verdict), so an entry written before this card stays valid and is read as
 # ``ran`` unknown; an entry written after it may carry these keys, each only when the fact is known.
-_CACHE_RUNTIME_FIELDS = frozenset({"compiled", "ran", "exit_code", "produced_output", "runtime_error"})
+#
+# TC-801 (REQ-G3-014): ``verifier_version`` (an int, ``VERIFIER_VERSION`` when written) is optional too - an
+# entry without it is LEGACY. Legacy entries still parse and still hit, except on a platform whose compiled
+# candidate is run (``_RUNNABLE_VERIFIERS``), where they are misses: such an entry cannot say the example ran.
+_CACHE_RUNTIME_FIELDS = frozenset(
+    {"compiled", "ran", "exit_code", "produced_output", "runtime_error", "verifier_version"}
+)
 # The last N characters of a verifier's output kept in a cache entry - the FULL output stays in the
 # .verification.json report; the cache is meant to be read by a person skimming a diff, not to
 # reproduce a rejection from scratch.
@@ -640,6 +648,29 @@ def _cache_entry_key(entry: dict) -> tuple[str, str, str, str, str]:
         entry["platform"],
         entry["toolchain"],
     )
+
+
+def cache_entry_is_current(entry: dict, platform: str, run_expected: bool | None = None) -> bool:
+    """Whether a ``verified: true`` cache entry may be served instead of verifying again (TC-801).
+
+    On a platform in ``_RUNNABLE_VERIFIERS`` (java, dotnet) the entry must carry the run record (``ran``)
+    AND ``verifier_version == VERIFIER_VERSION``: a legacy entry (no run facts, no version) classifies as
+    RUNTIME_UNKNOWN and ``counts_as_verified`` would serve it as verified although the example was never
+    run, so it is a miss and gets re-run. On any other platform a legacy entry (no ``verifier_version``)
+    still hits, but an entry that names a different version is stale and misses.
+
+    ``run_expected`` says whether a fresh verdict for this platform WOULD carry a run record; ``None`` means
+    "the platform is in ``_RUNNABLE_VERIFIERS``". ``_build_verified_example_chunks`` passes whether the
+    verifier in use is the real runnable one - the very condition under which a verdict is run - so a
+    stand-in verifier (which compiles nothing, hence runs nothing) is not held to a record it can never write.
+    """
+    version = entry.get("verifier_version")
+    versioned = isinstance(version, int) and not isinstance(version, bool)
+    if run_expected is None:
+        run_expected = platform in _RUNNABLE_VERIFIERS
+    if run_expected:
+        return versioned and version == VERIFIER_VERSION and isinstance(entry.get("ran"), bool)
+    return "verifier_version" not in entry or (versioned and version == VERIFIER_VERSION)
 
 
 def parse_verification_cache(text: str) -> list[dict]:
@@ -1018,7 +1049,11 @@ def _build_verified_example_chunks(
         def _cache_hit(candidate: Any) -> dict | None:
             key = verification_cache_key(candidate, library_commit, platform, resolved_toolchain)
             entry = cache.get(key)
-            return entry if entry is not None and entry.get("verified") is True else None
+            if entry is None or entry.get("verified") is not True:
+                return None
+            # TC-801: a stale or unrun verdict is a miss, not a hit.
+            run_expected = platform_dispatch["verify"] is _RUNNABLE_VERIFIERS.get(platform)
+            return entry if cache_entry_is_current(entry, platform, run_expected) else None
 
         for plan in active:
             hit_entries[plan.index] = _cache_hit(plan.key_candidate)
@@ -1170,7 +1205,14 @@ def _build_verified_example_chunks(
             ]
             verification_records.append(record)
 
-        if cache_active and new_cache_entries is not None and not cached:
+        # TC-801: a timeout / unavailable fixture / could-not-start verdict is the machine's, not the
+        # example's; persisting it would pin the failure (or a stale pass) across runs.
+        if (
+            cache_active
+            and new_cache_entries is not None
+            and not cached
+            and not is_environmental_verdict(verification_result, runtime)
+        ):
             new_cache_entries.append(
                 {
                     "provenance": candidate.provenance,
@@ -1183,6 +1225,7 @@ def _build_verified_example_chunks(
                     "verified": compiled,
                     "output": output[-_CACHE_OUTPUT_TAIL_CHARS:],
                     **(runtime.as_cache_fields() if runtime.ran is not None else {}),
+                    "verifier_version": VERIFIER_VERSION,
                 }
             )
 

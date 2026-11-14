@@ -893,3 +893,46 @@ def test_tc565_a_run_entry_survives_a_write_and_a_read_byte_for_byte(tmp_path: P
     assert build_chunks.write_verification_cache_if_changed(path, entries) is True
     assert build_chunks.load_verification_cache(path) == entries
     assert build_chunks.write_verification_cache_if_changed(path, entries) is False
+
+
+# ---------------------------------------------------------------------------------------------------
+# TC-801 (REQ-G3-014): the verifier version, additive and optional
+# ---------------------------------------------------------------------------------------------------
+
+
+def test_tc801_the_verifier_version_is_an_optional_field_that_survives_a_round_trip(tmp_path: Path) -> None:
+    path = tmp_path / "cache.json"
+    entries = [_runtime_entry(ran=True, verifier_version=1)]
+    assert build_chunks.write_verification_cache_if_changed(path, entries) is True
+    assert build_chunks.load_verification_cache(path) == entries
+
+
+def test_tc801_a_legacy_entry_without_the_verifier_version_is_still_valid() -> None:
+    (entry,) = build_chunks.parse_verification_cache(
+        build_chunks.verification_cache_document([_runtime_entry(**_RUNTIME_KEYS)])
+    )
+    assert "verifier_version" not in entry
+
+
+def test_tc801_a_legacy_python_entry_is_still_a_hit(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(build_chunks, "toolchain_id", lambda platform: PY_TOOLCHAIN)
+    _, verify_calls = _install_tracking_python(monkeypatch, verified_titles={FIRST_TITLE, SECOND_TITLE})
+    page_path = _write_python_page(tmp_path / "_index.md")
+    cache_path = tmp_path / "cache.json"
+    _write_cache(
+        cache_path,
+        [
+            _entry(
+                title=title,
+                code_sha256=build_chunks.normalised_code_sha256(code),
+                library_commit=PY_LIBRARY_COMMIT,
+                platform="python",
+                toolchain=PY_TOOLCHAIN,
+                verified=True,
+                output="cached",
+            )
+            for title, code in ((FIRST_TITLE, FIRST_CODE), (SECOND_TITLE, SECOND_CODE))
+        ],
+    )
+    _run_main(_argv_python(tmp_path, page_path, ["--verification-cache", str(cache_path)]))
+    assert verify_calls == []

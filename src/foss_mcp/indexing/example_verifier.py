@@ -74,12 +74,14 @@ __all__ = [
     "prepare_cpp_library_linux",
     "verify_cpp_example_linux",
     "RUNTIME_RUN_REQUIRED_FOR_VERIFIED",
+    "VERIFIER_VERSION",
     "RunOutcome",
     "RuntimeRecord",
     "classify_runtime",
     "counts_as_verified",
     "entry_counts_as_verified",
     "execute_in_sandbox",
+    "is_environmental_verdict",
     "run_compiled_candidate",
     "runtime_record_from_entry",
 ]
@@ -3497,6 +3499,14 @@ def verify_cpp_example_linux(
 # example that compiled counts as verified exactly as before this card.
 RUNTIME_RUN_REQUIRED_FOR_VERIFIED = True
 
+# TC-801 (REQ-G3-014): the version of the run semantics a cached verdict was produced under. A verification
+# cache entry stores it as ``verifier_version``; for a platform whose compiled candidate is run (java, dotnet)
+# an entry is reused only when it carries this exact version. BUMP IT whenever the way an example is run or
+# classified changes (the runner, a timeout, the status rules, a fixture set), so verdicts produced under the
+# old semantics are re-verified instead of being trusted. An entry written before this constant has no
+# ``verifier_version`` and is read as legacy.
+VERIFIER_VERSION = 1
+
 RUNTIME_NOT_COMPILED = "not_compiled"
 RUNTIME_UNKNOWN = "unknown"
 RUNTIME_RAN_OK = "ran"
@@ -3604,6 +3614,26 @@ def runtime_record_from_entry(entry: Mapping[str, object]) -> RuntimeRecord:
         produced_output=produced if isinstance(produced, int) and not isinstance(produced, bool) else None,
         error=error if isinstance(error, str) else "",
     )
+
+
+_ENVIRONMENTAL_OUTPUT_RE = re.compile(r"\[foss-mcp\] TIMEOUT|run exceeded \d+s and was stopped")
+
+
+def is_environmental_verdict(result: object, runtime: RuntimeRecord | None = None) -> bool:
+    """Whether a verdict reflects the machine, not the example (TC-801): a timeout (compile step, run step or a
+    cpp run), a fixture the sandbox could not supply, or a run that could not even be started. Such a verdict
+    says nothing durable about the candidate and is never written to the verification cache - the next run must
+    try again. ``result`` is the ``VerificationResult`` of the compile step, ``runtime`` the run's record."""
+    if getattr(result, "status", "") == FIXTURE_UNAVAILABLE:
+        return True
+    if _ENVIRONMENTAL_OUTPUT_RE.search(str(getattr(result, "output", "") or "")):
+        return True
+    if runtime is not None:
+        if runtime.ran is False:
+            return True
+        if runtime.exit_code == _TIMEOUT_EXIT_CODE and runtime.error.startswith("timed out after"):
+            return True
+    return False
 
 
 def entry_counts_as_verified(entry: Mapping[str, object]) -> bool:
