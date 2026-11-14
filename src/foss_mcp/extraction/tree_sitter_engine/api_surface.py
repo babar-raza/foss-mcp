@@ -1777,6 +1777,65 @@ def _ts_raw_jsdoc_comment(node) -> str:
     return txt if txt.startswith("/**") else ""
 
 
+_TS_CLASS_DOC_MAX_SENTENCES = 3
+_TS_CLASS_DOC_MAX_CHARS = 400
+_TS_CLASS_DOC_NODE_TYPES = frozenset(
+    {"class_declaration", "abstract_class_declaration", "interface_declaration"}
+)
+_SENTENCE_RE = re.compile(r"^(.+?[.!?])(?:\s+|$)", re.DOTALL)
+
+
+def _jsdoc_first_paragraph(raw: str) -> str:
+    """The first paragraph of a raw ``/** ... */`` block as one line: the text lines up to the first
+    blank line or the first ``@tag`` line, whichever comes first. ``""`` when there is none."""
+    body = raw.strip()
+    if body.startswith("/**"):
+        body = body[3:]
+    if body.endswith("*/"):
+        body = body[:-2]
+    lines: list[str] = []
+    for line in body.replace("\r\n", "\n").replace("\r", "\n").split("\n"):
+        text = line.strip()
+        if text.startswith("*"):
+            text = text[1:].strip()
+        if not text:
+            if lines:
+                break  # a blank line ends the first paragraph
+            continue
+        if text.startswith("@"):
+            break  # the first block tag ends the description
+        lines.append(text)
+    return " ".join(lines)
+
+
+def _ts_class_doc(node, old_summary: str) -> str:
+    """TC-821 (RD2-220): the doc of a TypeScript class/interface keeps its first paragraph, bounded to
+    ``_TS_CLASS_DOC_MAX_SENTENCES`` sentences / ``_TS_CLASS_DOC_MAX_CHARS`` characters at a sentence
+    boundary, instead of only its first sentence (which can be a bare title fragment).
+
+    *old_summary* is the first-sentence summary ``_extract_doc_comment`` produced; it is returned
+    unchanged when the first paragraph is a single sentence (or has none), so those docs stay
+    byte-identical.
+    """
+    paragraph = _jsdoc_first_paragraph(_ts_raw_jsdoc_comment(node))
+    sentences: list[str] = []
+    rest = paragraph
+    while rest:
+        m = _SENTENCE_RE.match(rest)
+        if m is None:
+            break  # the tail carries no sentence terminator: not a sentence of its own
+        sentences.append(m.group(1).strip())
+        rest = rest[m.end() :].strip()
+    if len(sentences) < 2:
+        return old_summary
+    kept = [sentences[0]]
+    for sentence in sentences[1:_TS_CLASS_DOC_MAX_SENTENCES]:
+        if len(" ".join([*kept, sentence])) > _TS_CLASS_DOC_MAX_CHARS:
+            break
+        kept.append(sentence)
+    return " ".join(kept)
+
+
 def _is_real_typescript_property_signature(node) -> bool:
     """TC-051: True iff a TypeScript ``property_signature`` node is a genuine
     direct member of an ``interface_declaration`` or ``type_alias_declaration``
@@ -6020,6 +6079,9 @@ def extract_api_surface(
             # not the type_spec itself; doc_anchor() redirects to the parent
             # so this call site no longer needs its own special case).
             cdoc = _extract_doc_comment(cnode, language)
+            # TC-821 (RD2-220): a TypeScript class/interface keeps its first paragraph, not only its first sentence.
+            if language == "typescript" and cnode.type in _TS_CLASS_DOC_NODE_TYPES:
+                cdoc = _ts_class_doc(cnode, cdoc)
             # TC-533: a TypeScript base list is split at top-level commas only (``Omit<A, 'x'>`` is one base).
             bases = _ts_bases(cnode) if language == "typescript" else _extract_bases(cnode, language)
             # TC-535 (RD3-033): a Rust item inherits nothing: a derived trait is not a base. The derives are
