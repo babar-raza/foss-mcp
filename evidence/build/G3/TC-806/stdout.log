@@ -1,0 +1,384 @@
+
+===== CLEAN RUN 1 (host) =====
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-5c72e798a73c059a\Scripts\python.exe -m pytest tests/indexing/test_example_run_step_rust.py tests/indexing/test_rust_verifier_assembly.py tests/indexing/test_rust_reference_env_failure.py tests/indexing/test_example_verifier.py tests/indexing/test_example_verifier_classification.py tests/infra/test_build_chunks_platforms.py tests/infra/test_build_chunks_candidate_chains.py -q -rfE -p no:cacheprovider "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-tv57hw04\.junit-0.xml"
+--- stdout ---
+........................................................................ [ 54%]
+.............................................................            [100%]
+
+--- stderr ---
+
+
+===== CLEAN RUN 2 (host) =====
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-5c72e798a73c059a\Scripts\python.exe -m pytest tests/indexing/test_example_run_step_rust.py tests/indexing/test_rust_verifier_assembly.py tests/indexing/test_rust_reference_env_failure.py tests/indexing/test_example_verifier.py tests/indexing/test_example_verifier_classification.py tests/infra/test_build_chunks_platforms.py tests/infra/test_build_chunks_candidate_chains.py -q -rfE -p no:cacheprovider "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-tv57hw04\.junit-0.xml"
+--- stdout ---
+........................................................................ [ 54%]
+.............................................................            [100%]
+
+--- stderr ---
+
+
+===== NEGATIVE CONTROL (checks MUST now fail) =====
+mutated: M infra/build_chunks.py, M src/foss_mcp/indexing/example_runtime.py, M src/foss_mcp/indexing/example_verifier.py, ?? .junit-0.xml
+$ E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\venv-5c72e798a73c059a\Scripts\python.exe -m pytest tests/indexing/test_example_run_step_rust.py tests/indexing/test_rust_verifier_assembly.py tests/indexing/test_rust_reference_env_failure.py tests/indexing/test_example_verifier.py tests/indexing/test_example_verifier_classification.py tests/infra/test_build_chunks_platforms.py tests/infra/test_build_chunks_candidate_chains.py -q -rfE -p no:cacheprovider "--junitxml=E:\Users\prora\OneDrive\Documents\GitHub\foss-mcp\.gatectl-worktrees\wt-tv57hw04\.junit-0.xml"
+--- stdout ---
+FFFFFFFFFFFFFF.FFFFFFF.FF............................................... [ 54%]
+.............................................................            [100%]
+================================== FAILURES ===================================
+___ test_a_failing_assertion_is_a_failed_run_and_does_not_count_as_verified ___
+
+tmp_path = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-4000/test_a_failing_assertion_is_a_0')
+
+    def test_a_failing_assertion_is_a_failed_run_and_does_not_count_as_verified(tmp_path: Path) -> None:
+        record = run_rust(tmp_path, fake_runner(exit_code=101, stderr=PANIC_STDERR))
+>       assert record.status == RUNTIME_FAILED
+E       AssertionError: assert 'unknown' == 'failed'
+E         
+E         - failed
+E         + unknown
+
+tests\indexing\test_example_run_step_rust.py:107: AssertionError
+_____________ test_the_panic_message_lands_in_the_recorded_error ______________
+
+tmp_path = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-4000/test_the_panic_message_lands_i0')
+
+    def test_the_panic_message_lands_in_the_recorded_error(tmp_path: Path) -> None:
+        """``thread 'main' panicked at <where>:`` names the place, the NEXT line says what failed: both are kept."""
+        record = run_rust(tmp_path, fake_runner(exit_code=101, stderr=PANIC_STDERR))
+>       assert "panicked at src/main.rs:3:5:" in record.error
+E       AssertionError: assert 'panicked at src/main.rs:3:5:' in ''
+E        +  where '' = RuntimeRecord(compiled=True, ran=None, exit_code=None, produced_output=None, error='', artefact_extensions=(), output_optional=False).error
+
+tests\indexing\test_example_run_step_rust.py:116: AssertionError
+________ test_a_panic_header_with_no_following_line_is_still_recorded _________
+
+tmp_path = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-4000/test_a_panic_header_with_no_fo0')
+
+    def test_a_panic_header_with_no_following_line_is_still_recorded(tmp_path: Path) -> None:
+        stderr = "thread 'main' panicked at src/main.rs:3:5:"
+        record = run_rust(tmp_path, fake_runner(exit_code=101, stderr=stderr))
+>       assert record.status == RUNTIME_FAILED and record.error == stderr
+E       AssertionError: assert ('unknown' == 'failed'
+E         
+E         - failed
+E         + unknown)
+
+tests\indexing\test_example_run_step_rust.py:124: AssertionError
+________________ test_a_main_that_returns_err_is_a_failed_run _________________
+
+tmp_path = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-4000/test_a_main_that_returns_err_i0')
+
+    def test_a_main_that_returns_err_is_a_failed_run(tmp_path: Path) -> None:
+        record = run_rust(
+            tmp_path, fake_runner(exit_code=1, stderr='Error: Custom { kind: NotFound, error: "x" }\n')
+        )
+>       assert record.status == RUNTIME_FAILED and record.exit_code == 1
+E       AssertionError: assert ('unknown' == 'failed'
+E         
+E         - failed
+E         + unknown)
+
+tests\indexing\test_example_run_step_rust.py:131: AssertionError
+__________ test_an_explicit_exit_one_with_no_message_is_a_failed_run __________
+
+tmp_path = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-4000/test_an_explicit_exit_one_with0')
+
+    def test_an_explicit_exit_one_with_no_message_is_a_failed_run(tmp_path: Path) -> None:
+        record = run_rust(tmp_path, fake_runner(exit_code=1))
+>       assert record.status == RUNTIME_FAILED and record.exit_code == 1
+E       AssertionError: assert ('unknown' == 'failed'
+E         
+E         - failed
+E         + unknown)
+
+tests\indexing\test_example_run_step_rust.py:137: AssertionError
+____ test_exit_zero_with_output_is_recorded_as_ran_with_the_bytes_printed _____
+
+tmp_path = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-4000/test_exit_zero_with_output_is_0')
+
+    def test_exit_zero_with_output_is_recorded_as_ran_with_the_bytes_printed(tmp_path: Path) -> None:
+        record = run_rust(tmp_path, fake_runner(exit_code=0, stdout="ok 42\n"))
+>       assert record.status == RUNTIME_RAN_OK
+E       AssertionError: assert 'unknown' == 'ran'
+E         
+E         - ran
+E         + unknown
+
+tests\indexing\test_example_run_step_rust.py:143: AssertionError
+___ test_exit_zero_with_no_output_is_recorded_as_ran_exit0_and_not_demoted ____
+
+tmp_path = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-4000/test_exit_zero_with_no_output_0')
+
+    def test_exit_zero_with_no_output_is_recorded_as_ran_exit0_and_not_demoted(tmp_path: Path) -> None:
+        """A self-checking program prints nothing when every check holds: that is a pass, level ``ran-exit0``."""
+        record = run_rust(tmp_path, fake_runner(exit_code=0))
+>       assert record.ran is True and record.exit_code == 0 and record.produced_output == 0
+E       AssertionError: assert (None is True)
+E        +  where None = RuntimeRecord(compiled=True, ran=None, exit_code=None, produced_output=None, error='', artefact_extensions=(), output_optional=False).ran
+
+tests\indexing\test_example_run_step_rust.py:152: AssertionError
+_ test_the_no_output_demotion_stays_java_and_dotnets_and_counts_as_verified_is_untouched _
+
+    def test_the_no_output_demotion_stays_java_and_dotnets_and_counts_as_verified_is_untouched() -> None:
+        empty = RuntimeRecord(compiled=True, ran=True, exit_code=0, produced_output=0)
+        assert empty.status == RUNTIME_NO_OUTPUT and ev.counts_as_verified(empty.status) is False
+        entry = {"platform": "java", "verified": True, "compiled": True, "ran": True, "exit_code": 0}
+        assert ev.runtime_record_from_entry({**entry, "produced_output": 0}).status == RUNTIME_NO_OUTPUT
+        rust_entry = {**entry, "platform": "rust", "produced_output": 0}
+>       assert ev.runtime_record_from_entry(rust_entry).status == RUNTIME_RAN_OK
+E       AssertionError: assert 'no_output' == 'ran'
+E         
+E         - ran
+E         + no_output
+
+tests\indexing\test_example_run_step_rust.py:164: AssertionError
+____ test_a_timeout_is_a_failed_run_that_is_environmental_and_never_cached ____
+
+tmp_path = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-4000/test_a_timeout_is_a_failed_run0')
+
+    def test_a_timeout_is_a_failed_run_that_is_environmental_and_never_cached(tmp_path: Path) -> None:
+        record = run_rust(tmp_path, fake_runner(exit_code=124, stderr="[foss-mcp] TIMEOUT: killed after 60s"))
+>       assert record.status == RUNTIME_FAILED
+E       AssertionError: assert 'unknown' == 'failed'
+E         
+E         - failed
+E         + unknown
+
+tests\indexing\test_example_run_step_rust.py:172: AssertionError
+_ test_the_binary_is_ensured_first_then_started_in_a_sandbox_not_in_the_crate_directory _
+
+tmp_path = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-4000/test_the_binary_is_ensured_fir0')
+
+    def test_the_binary_is_ensured_first_then_started_in_a_sandbox_not_in_the_crate_directory(
+        tmp_path: Path,
+    ) -> None:
+        seen: list = []
+        run_rust(tmp_path, fake_runner(seen=seen))
+        project_dir = tmp_path / "candidate_project"
+>       (build_argv, build_cwd, _), (run_argv, run_cwd, run_timeout) = seen
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       ValueError: not enough values to unpack (expected 2, got 0)
+
+tests\indexing\test_example_run_step_rust.py:185: ValueError
+____________ test_the_runtime_command_for_rust_is_the_built_binary ____________
+
+tmp_path = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-4000/test_the_runtime_command_for_r0')
+
+    def test_the_runtime_command_for_rust_is_the_built_binary(tmp_path: Path) -> None:
+        argv = ev.runtime_command("rust", candidate(), workdir=tmp_path, library=None)
+>       assert argv == runtime_module.rust_run_command(tmp_path / "candidate_project")
+                       ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       AttributeError: module 'foss_mcp.indexing.example_runtime' has no attribute 'rust_run_command'. Did you mean: 'go_run_command'?
+
+tests\indexing\test_example_run_step_rust.py:197: AttributeError
+_ test_the_binary_is_where_cargo_puts_it_even_when_cargo_target_dir_moves_the_target _
+
+tmp_path = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-4000/test_the_binary_is_where_cargo0')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x00000264C603B2B0>
+
+    def test_the_binary_is_where_cargo_puts_it_even_when_cargo_target_dir_moves_the_target(
+        tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        monkeypatch.delenv("CARGO_TARGET_DIR", raising=False)
+>       default = runtime_module.rust_binary_path(tmp_path)
+                  ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       AttributeError: module 'foss_mcp.indexing.example_runtime' has no attribute 'rust_binary_path'. Did you mean: 'go_binary_path'?
+
+tests\indexing\test_example_run_step_rust.py:205: AttributeError
+_ test_a_binary_that_cannot_be_built_is_the_machines_failure_and_nothing_is_run _
+
+tmp_path = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-4000/test_a_binary_that_cannot_be_b0')
+
+    def test_a_binary_that_cannot_be_built_is_the_machines_failure_and_nothing_is_run(tmp_path: Path) -> None:
+        seen: list = []
+        record = run_rust(tmp_path, fake_runner(seen=seen, build_exit_code=1))
+>       assert [call[0][:2] for call in seen] == [["cargo", "build"]], "the program is never started"
+E       AssertionError: the program is never started
+E       assert [] == [['cargo', 'build']]
+E         
+E         Right contains one more item: ['cargo', 'build']
+E         Use -v to get more diff
+
+tests\indexing\test_example_run_step_rust.py:214: AssertionError
+_________ test_a_runner_that_cannot_start_the_binary_is_environmental _________
+
+tmp_path = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-4000/test_a_runner_that_cannot_star0')
+
+    def test_a_runner_that_cannot_start_the_binary_is_environmental(tmp_path: Path) -> None:
+        record = run_rust(tmp_path, fake_runner(raises=OSError("no such file")))
+>       assert record.ran is False and record.status == RUNTIME_FAILED
+E       AssertionError: assert (None is False)
+E        +  where None = RuntimeRecord(compiled=True, ran=None, exit_code=None, produced_output=None, error='', artefact_extensions=(), output_optional=False).ran
+
+tests\indexing\test_example_run_step_rust.py:222: AssertionError
+__________ test_legacy_rust_entry_levels_are_read_from_the_run_facts __________
+
+    def test_legacy_rust_entry_levels_are_read_from_the_run_facts() -> None:
+        built_only = RuntimeRecord(compiled=True)
+        assert ev.legacy_verification_level("rust", built_only) == LEVEL_BUILT
+        ran = RuntimeRecord(compiled=True, ran=True, exit_code=0, produced_output=0, output_optional=True)
+>       assert ev.legacy_verification_level("rust", ran) == LEVEL_RAN_EXIT0
+E       AssertionError: assert 'built' == 'ran-exit0'
+E         
+E         - ran-exit0
+E         + built
+
+tests\indexing\test_example_run_step_rust.py:238: AssertionError
+___________ test_the_panic_detail_helper_reads_only_a_panic_header ____________
+
+    def test_the_panic_detail_helper_reads_only_a_panic_header() -> None:
+        panic = ["thread 'main' panicked at src/main.rs:1:1:", "boom", "note: run with `RUST_BACKTRACE=1`"]
+>       assert runtime_module.panic_detail_line(panic, 0) == "boom"
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       AttributeError: module 'foss_mcp.indexing.example_runtime' has no attribute 'panic_detail_line'
+
+tests\indexing\test_example_run_step_rust.py:243: AttributeError
+______ test_a_failing_self_check_is_not_published_as_a_verified_example _______
+
+tmp_path = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-4000/test_a_failing_self_check_is_n0')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x00000264C620D3B0>
+
+    def test_a_failing_self_check_is_not_published_as_a_verified_example(
+        tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        rust = _RustPipeline(monkeypatch)
+        rust.exit_code, rust.stderr = 101, PANIC_STDERR
+        out = rust.build(tmp_path, "failing")
+>       assert "Check the sum" not in _example_texts(out)
+E       assert 'Check the sum' not in {'Check the sum': 'FQN: Example: Check the sum\nKind: verified_example\nVerification-Level: built\nVerified-With: carg...  let sum = 1 + 1;\n    assert_eq!(sum, 2, "self-check");\n}\nSource-Commit: 5555555555555555555555555555555555555555'}
+E        +  where {'Check the sum': 'FQN: Example: Check the sum\nKind: verified_example\nVerification-Level: built\nVerified-With: carg...  let sum = 1 + 1;\n    assert_eq!(sum, 2, "self-check");\n}\nSource-Commit: 5555555555555555555555555555555555555555'} = _example_texts(WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-4000/test_a_failing_self_check_is_n0/failing'))
+
+tests\indexing\test_example_run_step_rust.py:357: AssertionError
+---------------------------- Captured stdout call -----------------------------
+candidate supply: 1 candidates for rust (1 from example blocks, 0 from content blocks; dropped 0 duplicates and 0 fences in other languages; 0 import-only blocks)
+verified 1/1 candidate examples
+built 0 doc chunks from 0 doc candidates
+wrote 301 chunks to C:\Users\babar\AppData\Local\Temp\pytest-of-babar\pytest-4000\test_a_failing_self_check_is_n0\failing\chunks.json
+___ test_a_passing_silent_self_check_is_published_with_the_ran_exit0_level ____
+
+tmp_path = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-4000/test_a_passing_silent_self_che0')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x00000264C636F6E0>
+
+    def test_a_passing_silent_self_check_is_published_with_the_ran_exit0_level(
+        tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        rust = _RustPipeline(monkeypatch)
+        out = rust.build(tmp_path, "silent")
+        text = _example_texts(out)["Check the sum"]
+>       assert "Verification-Level: ran-exit0\n" in text
+E       assert 'Verification-Level: ran-exit0\n' in 'FQN: Example: Check the sum\nKind: verified_example\nVerification-Level: built\nVerified-With: cargo 1.98.1 (test)\n\...   let sum = 1 + 1;\n    assert_eq!(sum, 2, "self-check");\n}\nSource-Commit: 5555555555555555555555555555555555555555'
+
+tests\indexing\test_example_run_step_rust.py:371: AssertionError
+---------------------------- Captured stdout call -----------------------------
+candidate supply: 1 candidates for rust (1 from example blocks, 0 from content blocks; dropped 0 duplicates and 0 fences in other languages; 0 import-only blocks)
+verified 1/1 candidate examples
+built 0 doc chunks from 0 doc candidates
+wrote 301 chunks to C:\Users\babar\AppData\Local\Temp\pytest-of-babar\pytest-4000\test_a_passing_silent_self_che0\silent\chunks.json
+____ test_a_passing_program_that_prints_is_published_with_its_output_bytes ____
+
+tmp_path = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-4000/test_a_passing_program_that_pr0')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x00000264C73E6FD0>
+
+    def test_a_passing_program_that_prints_is_published_with_its_output_bytes(
+        tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        rust = _RustPipeline(monkeypatch)
+        rust.stdout = "ok\n"
+        out = rust.build(tmp_path, "printing")
+        text = _example_texts(out)["Check the sum"]
+>       assert "Verification-Level: ran-produced-output\n" in text
+E       assert 'Verification-Level: ran-produced-output\n' in 'FQN: Example: Check the sum\nKind: verified_example\nVerification-Level: built\nVerified-With: cargo 1.98.1 (test)\n\...   let sum = 1 + 1;\n    assert_eq!(sum, 2, "self-check");\n}\nSource-Commit: 5555555555555555555555555555555555555555'
+
+tests\indexing\test_example_run_step_rust.py:385: AssertionError
+---------------------------- Captured stdout call -----------------------------
+candidate supply: 1 candidates for rust (1 from example blocks, 0 from content blocks; dropped 0 duplicates and 0 fences in other languages; 0 import-only blocks)
+verified 1/1 candidate examples
+built 0 doc chunks from 0 doc candidates
+wrote 301 chunks to C:\Users\babar\AppData\Local\Temp\pytest-of-babar\pytest-4000\test_a_passing_program_that_pr0\printing\chunks.json
+_______ test_a_timeout_is_not_published_and_is_not_written_to_the_cache _______
+
+tmp_path = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-4000/test_a_timeout_is_not_publishe0')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x00000264C62A4C50>
+
+    def test_a_timeout_is_not_published_and_is_not_written_to_the_cache(
+        tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        rust = _RustPipeline(monkeypatch)
+        rust.exit_code, rust.stderr = 124, "[foss-mcp] TIMEOUT: run exceeded 60s and was stopped"
+        cache_out = tmp_path / "cache.json"
+        out = rust.build(tmp_path, "timeout", ["--verification-cache-out", str(cache_out)])
+>       assert "Check the sum" not in _example_texts(out)
+E       assert 'Check the sum' not in {'Check the sum': 'FQN: Example: Check the sum\nKind: verified_example\nVerification-Level: built\nVerified-With: carg...  let sum = 1 + 1;\n    assert_eq!(sum, 2, "self-check");\n}\nSource-Commit: 5555555555555555555555555555555555555555'}
+E        +  where {'Check the sum': 'FQN: Example: Check the sum\nKind: verified_example\nVerification-Level: built\nVerified-With: carg...  let sum = 1 + 1;\n    assert_eq!(sum, 2, "self-check");\n}\nSource-Commit: 5555555555555555555555555555555555555555'} = _example_texts(WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-4000/test_a_timeout_is_not_publishe0/timeout'))
+
+tests\indexing\test_example_run_step_rust.py:396: AssertionError
+---------------------------- Captured stdout call -----------------------------
+candidate supply: 1 candidates for rust (1 from example blocks, 0 from content blocks; dropped 0 duplicates and 0 fences in other languages; 0 import-only blocks)
+verified 1/1 candidate examples (0 from cache)
+built 0 doc chunks from 0 doc candidates
+wrote 301 chunks to C:\Users\babar\AppData\Local\Temp\pytest-of-babar\pytest-4000\test_a_timeout_is_not_publishe0\timeout\chunks.json
+__ test_the_recorded_run_is_cached_and_a_hit_serves_it_without_running_again __
+
+tmp_path = WindowsPath('C:/Users/babar/AppData/Local/Temp/pytest-of-babar/pytest-4000/test_the_recorded_run_is_cache0')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x00000264C5EF1320>
+
+    def test_the_recorded_run_is_cached_and_a_hit_serves_it_without_running_again(
+        tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        rust = _RustPipeline(monkeypatch)
+        cache = tmp_path / "cache.json"
+        first = rust.build(tmp_path, "first", ["--verification-cache-out", str(cache)])
+        (entry,) = json.loads(cache.read_text(encoding="utf-8"))["entries"]
+>       assert entry["platform"] == "rust" and entry["ran"] is True and entry["exit_code"] == 0
+                                               ^^^^^^^^^^^^
+E       KeyError: 'ran'
+
+tests\indexing\test_example_run_step_rust.py:409: KeyError
+---------------------------- Captured stdout call -----------------------------
+candidate supply: 1 candidates for rust (1 from example blocks, 0 from content blocks; dropped 0 duplicates and 0 fences in other languages; 0 import-only blocks)
+verified 1/1 candidate examples (0 from cache)
+built 0 doc chunks from 0 doc candidates
+wrote 301 chunks to C:\Users\babar\AppData\Local\Temp\pytest-of-babar\pytest-4000\test_the_recorded_run_is_cache0\first\chunks.json
+_ test_the_real_rust_verifier_is_registered_as_runnable_in_the_production_entrypoint _
+
+    def test_the_real_rust_verifier_is_registered_as_runnable_in_the_production_entrypoint() -> None:
+>       assert "rust" in ev.RUNNABLE_PLATFORMS
+E       AssertionError: assert 'rust' in frozenset({'dotnet', 'go', 'java'})
+E        +  where frozenset({'dotnet', 'go', 'java'}) = ev.RUNNABLE_PLATFORMS
+
+tests\indexing\test_example_run_step_rust.py:439: AssertionError
+_____ test_the_verifier_reaches_the_rust_run_builders_in_example_runtime ______
+
+    def test_the_verifier_reaches_the_rust_run_builders_in_example_runtime() -> None:
+        source = VERIFIER_SOURCE.read_text(encoding="utf-8")
+        assert "from foss_mcp.indexing.example_runtime import" in source
+>       assert "rust_run_command(project_dir)" in source and "build_rust_run_binary(" in source
+E       assert ('rust_run_command(project_dir)' in '"""Real, isolated compile/execute-verification sandbox for candidate\nexamples (REQ-G2-048).\n\nThis module never tru... implemented."""\n    return record.status == RUNTIME_NO_OUTPUT and bool(code_file_extensions(code) & unimplemented)\n')
+
+tests\indexing\test_example_run_step_rust.py:451: AssertionError
+=========================== short test summary info ===========================
+FAILED tests/indexing/test_example_run_step_rust.py::test_a_failing_assertion_is_a_failed_run_and_does_not_count_as_verified
+FAILED tests/indexing/test_example_run_step_rust.py::test_the_panic_message_lands_in_the_recorded_error
+FAILED tests/indexing/test_example_run_step_rust.py::test_a_panic_header_with_no_following_line_is_still_recorded
+FAILED tests/indexing/test_example_run_step_rust.py::test_a_main_that_returns_err_is_a_failed_run
+FAILED tests/indexing/test_example_run_step_rust.py::test_an_explicit_exit_one_with_no_message_is_a_failed_run
+FAILED tests/indexing/test_example_run_step_rust.py::test_exit_zero_with_output_is_recorded_as_ran_with_the_bytes_printed
+FAILED tests/indexing/test_example_run_step_rust.py::test_exit_zero_with_no_output_is_recorded_as_ran_exit0_and_not_demoted
+FAILED tests/indexing/test_example_run_step_rust.py::test_the_no_output_demotion_stays_java_and_dotnets_and_counts_as_verified_is_untouched
+FAILED tests/indexing/test_example_run_step_rust.py::test_a_timeout_is_a_failed_run_that_is_environmental_and_never_cached
+FAILED tests/indexing/test_example_run_step_rust.py::test_the_binary_is_ensured_first_then_started_in_a_sandbox_not_in_the_crate_directory
+FAILED tests/indexing/test_example_run_step_rust.py::test_the_runtime_command_for_rust_is_the_built_binary
+FAILED tests/indexing/test_example_run_step_rust.py::test_the_binary_is_where_cargo_puts_it_even_when_cargo_target_dir_moves_the_target
+FAILED tests/indexing/test_example_run_step_rust.py::test_a_binary_that_cannot_be_built_is_the_machines_failure_and_nothing_is_run
+FAILED tests/indexing/test_example_run_step_rust.py::test_a_runner_that_cannot_start_the_binary_is_environmental
+FAILED tests/indexing/test_example_run_step_rust.py::test_legacy_rust_entry_levels_are_read_from_the_run_facts
+FAILED tests/indexing/test_example_run_step_rust.py::test_the_panic_detail_helper_reads_only_a_panic_header
+FAILED tests/indexing/test_example_run_step_rust.py::test_a_failing_self_check_is_not_published_as_a_verified_example
+FAILED tests/indexing/test_example_run_step_rust.py::test_a_passing_silent_self_check_is_published_with_the_ran_exit0_level
+FAILED tests/indexing/test_example_run_step_rust.py::test_a_passing_program_that_prints_is_published_with_its_output_bytes
+FAILED tests/indexing/test_example_run_step_rust.py::test_a_timeout_is_not_published_and_is_not_written_to_the_cache
+FAILED tests/indexing/test_example_run_step_rust.py::test_the_recorded_run_is_cached_and_a_hit_serves_it_without_running_again
+FAILED tests/indexing/test_example_run_step_rust.py::test_the_real_rust_verifier_is_registered_as_runnable_in_the_production_entrypoint
+FAILED tests/indexing/test_example_run_step_rust.py::test_the_verifier_reaches_the_rust_run_builders_in_example_runtime
+
+--- stderr ---
+
