@@ -338,14 +338,29 @@ def _is_command(result: ReferenceContent | NotAvailable) -> bool:
 def test_a_real_command_answer_names_the_pilots_indexed_commit(pilot: dict) -> None:
     result = _pilot_install(pilot)
 
+    commit = pilot["library"]["commit"]
     if _is_command(result):
         assert isinstance(result, ReferenceContent)
         assert result.notice is not None
-        assert pilot["library"]["commit"] in result.notice
-        assert "older or newer" in result.notice
-        assert pilot["library"]["commit"] not in result.text
+        if pilot["platform"] == "cpp":
+            # G3/TC-816 re-pin: a C++ pilot has no registry command; since TC-561 its sidecar README fills the
+            # install section, so the answer is the generated source-build recipe whose text names the full
+            # indexed commit (and the README-section notice names its short form). "older or newer" is the
+            # registry-release caveat and does not apply to a build-from-source recipe.
+            assert commit in result.text or commit in result.notice
+            assert commit[:12] in result.notice or commit in result.notice
+        else:
+            assert commit in result.notice
+            assert "older or newer" in result.notice
+            assert commit not in result.text
     elif isinstance(result, ReferenceContent):
-        assert result.notice is None  # the unresolved prose already names the commit
+        # The unresolved prose names the exact commit. G3/TC-816 re-pin: since TC-561 the sidecar's README
+        # also fills the install section, so the answer carries the README-section notice (which names the
+        # commit's short form) instead of no notice; a pilot with no README install section still has none.
+        assert commit in result.text
+        if result.notice is not None:
+            assert result.notice.startswith("Verbatim README section 'Installation'")
+            assert commit[:12] in result.notice
     else:
         assert isinstance(result, NotAvailable)
 
@@ -358,7 +373,12 @@ def test_at_least_eighteen_pilots_serve_a_command_answer_with_the_pinned_commit(
         if _is_command(result):
             assert isinstance(result, ReferenceContent)
             assert result.notice is not None
-            assert pilot["library"]["commit"] in result.notice
+            commit = pilot["library"]["commit"]
+            if pilot["platform"] == "cpp":
+                # G3/TC-816 re-pin: a C++ recipe (no registry command) names the commit in its text or notice.
+                assert commit in result.text or commit in result.notice
+            else:
+                assert commit in result.notice
             pinned += 1
     # re-pinned by TC-551: 20 -> 18
     assert pinned >= 18

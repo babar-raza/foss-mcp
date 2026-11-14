@@ -40,6 +40,7 @@ from foss_mcp.mcp.tools.release_alignment import (
     drift_from_record,
     generation_indexed_at,
     package_version,
+    parse_release_version,
 )
 from foss_mcp.mcp.tools.search_docs import CONTENT_TYPES
 from foss_mcp.mcp.tools.search_symbols import scope_key
@@ -450,6 +451,64 @@ def _registry_version_drift(
     }
 
 
+def _version_text(version: tuple[int, ...]) -> str:
+    return ".".join(str(part) for part in version)
+
+
+def _padded_pair(first: tuple[int, ...], second: tuple[int, ...]) -> tuple[tuple[int, ...], tuple[int, ...]]:
+    """*first* and *second* padded with trailing zeros to one width (the TC-629 comparison rule)."""
+    width = max(len(first), len(second))
+    return first + (0,) * (width - len(first)), second + (0,) * (width - len(second))
+
+
+def _registry_differs_from_indexed(
+    registry_served_version: tuple[int, ...] | None, indexed_version: tuple[int, ...] | None
+) -> tuple[tuple[int, ...], tuple[int, ...]] | None:
+    """The padded ``(registry, indexed)`` pair when the registry serves a version that differs from the
+    manifest's declared one, else None (G3/TC-816). Subject to TC-657's major-version guard: a manifest
+    version whose major disagrees with the registry's (a generic placeholder such as ``0.1.0``) is not a
+    trustworthy comparand, so it yields None here exactly as the ``registry_served_version`` branch
+    withholds its verdict for it."""
+    if registry_served_version is None or indexed_version is None:
+        return None
+    if registry_served_version[0] != indexed_version[0]:
+        return None
+    registry, indexed = _padded_pair(registry_served_version, indexed_version)
+    return None if registry == indexed else (registry, indexed)
+
+
+def _registry_has_no_tag_notice(
+    registry_served_version: tuple[int, ...] | None,
+    indexed_version: tuple[int, ...] | None,
+    releases: Sequence[Release],
+) -> str | None:
+    """G3/TC-816 (RD2-170): the sentence saying the registry serves a version newer than every release tag
+    (so git ancestry, which only knows tags, cannot place it against the indexed commit), or None.
+
+    Only when the registry's version differs from the manifest's declared one (a pilot whose registry
+    version equals the manifest's is unchanged), the registry's major version agrees with the manifest's
+    when the manifest declares one, and every release tag that carries a version is older than the
+    registry's. With no release tag that carries a version there is nothing to compare, so None."""
+    if registry_served_version is None:
+        return None
+    if indexed_version is not None:
+        if registry_served_version[0] != indexed_version[0]:
+            return None
+        if _registry_differs_from_indexed(registry_served_version, indexed_version) is None:
+            return None
+    tag_versions = [parsed for release in releases if (parsed := parse_release_version(release.tag_name))]
+    if not tag_versions:
+        return None
+    for tag_version in tag_versions:
+        registry, tag = _padded_pair(registry_served_version, tag_version)
+        if registry <= tag:
+            return None
+    return (
+        f"The package registry serves version {_version_text(registry_served_version)}, which has no "
+        "release tag and cannot be compared to the indexed commit."
+    )
+
+
 def report_index_freshness(
     store: GenerationManifestStore,
     scope: Scope,
@@ -502,6 +561,12 @@ def report_index_freshness(
     ``indexed_version`` to compare against, or that mismatch, the verdict falls through to the
     legacy ``"unknown"`` fallback unchanged. Wiring a live registry fetch into
     *registry_served_version* is a separate card's job; this function only consumes it.
+
+    G3/TC-816: a registry version that differs from the manifest's is no longer silent in the two branches
+    above it. The ``latest_release_version`` verdict carries ``drift``/``drift_message`` built from the
+    registry version when it is newer than the manifest's (same major only), and the ``git_ancestry`` verdict
+    adds "the registry serves X, which has no release tag and cannot be compared to the indexed commit" when X
+    is newer than every release tag. ``freshness_state``, ``freshness_basis`` and ``stale`` are unchanged.
     """
     key = scope_key(scope, source_kind)
     defects = load_known_defects(scope.family, scope.platform)
@@ -609,8 +674,16 @@ def report_index_freshness(
         # G3/TC-560: the direction comes from git ancestry, not from "the commits differ": an index
         # that is AHEAD of the latest release tag is not stale, a package that is ahead of the index is.
         state = "fresh" if drift_state in (INDEX_AHEAD, DRIFT_IN_SYNC) else "stale"
+        # G3/TC-816 (RD2-170): git ancestry only knows release TAGS. When the registry serves a version
+        # newer than every tag it cannot be placed against the indexed commit, so say that in the drift
+        # message and the reason - and do not claim "nothing newer than the index was found". The
+        # verdict (state/basis) is exactly what it was.
+        no_tag = _registry_has_no_tag_notice(registry_served_version, indexed_version, releases)
+        if no_tag is not None:
+            drift = {**drift, "message": f"{drift['message']} {no_tag}"}
+            drift_warnings = (drift["message"],)
         reason = f"{drift['message']} No current_source_commit was given."
-        if drift_state == INDEX_AHEAD:
+        if drift_state == INDEX_AHEAD and no_tag is None:
             reason += " Nothing newer than the index was found."
         return build(state, reason, "git_ancestry")
     if latest is not None and latest.target_commit is not None:
@@ -622,11 +695,23 @@ def report_index_freshness(
         return build(state, reason, "latest_release_tag_commit", compared_against=latest.target_commit)
     if latest is not None and latest_in_index is False and indexed_version is not None:
         indexed_text = ".".join(str(part) for part in indexed_version)
+        # G3/TC-816 (RD2-091): when the registry serves a version newer than the manifest's declared one
+        # (same major, TC-657's guard), the drift fields say so from the version comparison itself, the
+        # way the registry_served_version branch does - never "unknown" with no message. A registry
+        # version that is not newer leaves the fields as they were (the verdict here is "a newer release
+        # exists", which a registry that is not ahead does not contradict but must not be reworded as).
+        differing = _registry_differs_from_indexed(registry_served_version, indexed_version)
+        registry_drift = None
+        if differing is not None and differing[0] > differing[1] and registry_served_version is not None:
+            registry_drift = _registry_version_drift(
+                differing[0], differing[1], _version_text(registry_served_version), indexed_text
+            )
         return build(
             "stale",
             f"latest release {latest.tag_name} is newer than the indexed package version {indexed_text}; "
             "no current_source_commit was given",
             "latest_release_version",
+            version_drift=registry_drift,
         )
     if (
         registry_served_version is not None

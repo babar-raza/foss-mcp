@@ -444,7 +444,80 @@ def _install_pin_notice(
     return notice
 
 
+def _untagged_registry_version_notice(
+    inputs: ProductReferenceInputs, served: tuple[int, ...] | None
+) -> str | None:
+    """G3/TC-816 (RD2-170): for a manifest that declares no version (a dynamic ``version``), the sentence
+    saying the registry serves a version newer than the latest release tag the sidecar's drift record names -
+    a version with no tag, which cannot be compared to the indexed commit - or None."""
+    from foss_mcp.mcp.tools.release_alignment import (  # noqa: PLC0415 - release_alignment imports this module.
+        parse_release_version,
+    )
+
+    if served is None or inputs.drift is None or not inputs.drift.tag:
+        return None
+    tag = parse_release_version(inputs.drift.tag)
+    if tag is None:
+        return None
+    width = max(len(served), len(tag))
+    if served + (0,) * (width - len(served)) <= tag + (0,) * (width - len(tag)):
+        return None
+    served_text = ".".join(str(part) for part in served)
+    return (
+        f"The package registry serves version {served_text}, newer than the latest release tag "
+        f"{inputs.drift.tag}: that version has no tag and cannot be compared to the indexed commit."
+    )
+
+
+def _registry_version_notice(inputs: ProductReferenceInputs) -> str | None:
+    """G3/TC-816 (RD2-083/084/091): the one sentence that says the registry serves a different version than
+    the manifest at the indexed commit declares, or None.
+
+    Reads the served version the sidecars already hold (``install_served_version``, else the registry
+    verification's ``install_verified_served_version``) and the manifest's own declared version - nothing is
+    fetched. A manifest that declares no version falls to ``_untagged_registry_version_notice``. None when
+    either is absent or unparseable, when they are equal (compared padded with trailing
+    zeros, as ``release_alignment.release_in_index`` does), or when their major versions disagree: a
+    manifest that declares a generic placeholder (``0.1.0`` next to a registry's ``26.7.0``) is not a version
+    the registry's can be set against (TC-657's guard), and no claim is made from it."""
+    from foss_mcp.mcp.tools.release_alignment import (  # noqa: PLC0415 - release_alignment imports this module.
+        parse_release_version,
+    )
+
+    served_raw = inputs.install_served_version or inputs.install_verified_served_version
+    if not served_raw or inputs.manifest_text is None:
+        return None
+    declared_raw = _manifest_version(inputs.platform, inputs.manifest_text)
+    served = parse_release_version(served_raw)
+    if not declared_raw:
+        return _untagged_registry_version_notice(inputs, served)
+    declared = parse_release_version(declared_raw)
+    if served is None or declared is None or served[0] != declared[0]:
+        return None
+    width = max(len(served), len(declared))
+    if served + (0,) * (width - len(served)) == declared + (0,) * (width - len(declared)):
+        return None
+    served_text = ".".join(str(part) for part in served)
+    return (
+        f"The package registry serves version {served_text} while the manifest at the indexed commit "
+        f"declares {declared_raw}, so the requirements, supported file formats and limitations of the "
+        "installed package can differ from what this index describes."
+    )
+
+
 def _drift_notice(
+    inputs: ProductReferenceInputs, ecosystem: str, *, embedding_broken: bool = False
+) -> str | None:
+    """G3/TC-560 ``_ancestry_drift_notice`` (index-versus-package drift from git ancestry) followed by
+    G3/TC-816's registry-version sentence (``_registry_version_notice``) when the registry serves a version
+    other than the manifest's. Either part may be absent; with neither this is None."""
+    return _join_notice(
+        _ancestry_drift_notice(inputs, ecosystem, embedding_broken=embedding_broken),
+        _registry_version_notice(inputs),
+    )
+
+
+def _ancestry_drift_notice(
     inputs: ProductReferenceInputs, ecosystem: str, *, embedding_broken: bool = False
 ) -> str | None:
     """G3/TC-560: the sentences that disclose index-versus-package drift in an install notice, or None.
@@ -1206,6 +1279,20 @@ def _version_sentence(platform: str, manifest_text: str) -> str:
 def _join_notice(*parts: str | None) -> str | None:
     joined = " ".join(part for part in parts if part)
     return joined or None
+
+
+def _with_registry_version_notice(
+    result: ReferenceContent | NotAvailable, inputs: ProductReferenceInputs
+) -> ReferenceContent | NotAvailable:
+    """G3/TC-816: *result* with the registry-version sentence (``_registry_version_notice``) appended to its
+    ``notice`` when the registry serves a version other than the manifest's; any other result, and a pilot
+    with no such difference, is returned unchanged."""
+    if not isinstance(result, ReferenceContent):
+        return result
+    sentence = _registry_version_notice(inputs)
+    if sentence is None:
+        return result
+    return dataclasses.replace(result, notice=_join_notice(result.notice, sentence))
 
 
 def _minimum_platform(platform: str) -> str | None:
@@ -2272,13 +2359,16 @@ def _answer(
     if section in ("formats", "limitations"):
         if readme is not None:
             if section == "limitations" and readme.limitations is not None:
-                return _with_known_hazards(
-                    _limitations_from_readme(readme.limitations), _hazards_for_limitations(inputs)
+                return _with_registry_version_notice(
+                    _with_known_hazards(
+                        _limitations_from_readme(readme.limitations), _hazards_for_limitations(inputs)
+                    ),
+                    inputs,
                 )
             if section == "formats":
                 formats = _formats_from_readme(readme)
                 if formats is not None:
-                    return formats
+                    return _with_registry_version_notice(formats, inputs)
         if isinstance(inputs.readme_document, DocumentPresent):
             # G3/TC-561: the README was read and holds no such section; say so instead of "no data source".
             absent = NotAvailable(
