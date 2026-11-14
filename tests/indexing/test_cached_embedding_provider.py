@@ -77,39 +77,30 @@ def _pilots_whose_baked_dimension_equals_the_cache_dimension() -> list[str]:
 # 4096-dimension pilot). The regeneration cards (REGEN-1) shrink this set to empty; when the last
 # one lands, replace the explicit list with the empty set and flip the assertion below to "no
 # pilot has 64-dimension baked vectors" - do not delete the test.
+# TC-848: cohort C1 (the 11 python pilots slides, words, cells, pdf, email, barcode, note, html, page, 3d, tex) was
+# regenerated at 4096 dimensions and left this set: 31 -> 20 pilots.
 _PILOTS_WITH_64_DIM_BAKED_VECTORS = frozenset(
     {
         "3d__java",
         "3d__net",
-        "3d__python",
         "3d__typescript",
-        "barcode__python",
         "cells__cpp",
         "cells__go",
         "cells__java",
         "cells__net",
-        "cells__python",
         "cells__rust",
         "cells__typescript",
         "email__cpp",
         "email__net",
-        "email__python",
-        "html__python",
-        "note__python",
-        "page__python",
         "pdf__cpp",
         "pdf__go",
         "pdf__java",
         "pdf__net",
-        "pdf__python",
         "pdf__typescript",
         "slides__cpp",
         "slides__java",
         "slides__net",
-        "slides__python",
-        "tex__python",
         "words__net",
-        "words__python",
     }
 )
 
@@ -124,7 +115,7 @@ def test_current_set_of_pilots_with_64_dim_baked_vectors_is_pinned_explicitly() 
         pilot for pilot in cache_pilots if _active_generation_points(f"{pilot}__self_extracted")[0] == 64
     }
 
-    assert len(_PILOTS_WITH_64_DIM_BAKED_VECTORS) == 31
+    assert len(_PILOTS_WITH_64_DIM_BAKED_VECTORS) == 20
     assert sixty_four == _PILOTS_WITH_64_DIM_BAKED_VECTORS
     # every pilot is either 64-dimension or agrees with the cache (nothing is a third dimension)
     assert set(cache_pilots) - sixty_four == set(_pilots_whose_baked_dimension_equals_the_cache_dimension())

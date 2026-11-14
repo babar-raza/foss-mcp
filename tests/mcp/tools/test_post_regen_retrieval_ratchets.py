@@ -183,7 +183,11 @@ def test_the_readme_derived_examples_stay_as_committed_apart_from_the_verificati
         assert simulated.keys() == committed.keys(), pilot
         for title, text in simulated.items():
             kept = [line for line in text.splitlines() if line.strip() and not line.startswith(stamp)]
-            assert kept == [line for line in committed[title].splitlines() if line.strip()], (pilot, title)
+            # TC-848: a regenerated pilot's committed example chunks carry the stamp themselves, so it is
+            # dropped from the committed side too: the two must agree on everything but the stamp.
+            assert kept == [
+                line for line in committed[title].splitlines() if line.strip() and not line.startswith(stamp)
+            ], (pilot, title)
 
 
 # ---- relevance.example_lead_in knows every chunk header line the ingestion writes --------------------------------

@@ -339,7 +339,9 @@ def test_alias_duplication_sub_case_confirms_slides_python_is_the_worst_case(
     assert worst_by_groups == "slides__python", measurements
     assert worst_by_chunks == "slides__python", measurements
     groups, chunks, total = measurements["slides__python"]
-    assert (groups, chunks, total) == (53, 114, 1023), measurements["slides__python"]
+    # TC-848: total 1023 -> 1025 (cohort C1 regeneration added the two module-level constants C15_EXT_URI and C15_NS as
+    # symbol chunks); the duplicate-body groups (53) and chunks (114) are unchanged, and slides/python is still the worst case.
+    assert (groups, chunks, total) == (53, 114, 1025), measurements["slides__python"]
 
 
 def test_alias_duplication_sub_case_most_pilots_are_zero_or_a_handful(corpus: ConformanceCorpus) -> None:

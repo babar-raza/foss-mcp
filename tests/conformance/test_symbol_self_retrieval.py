@@ -300,10 +300,16 @@ def test_pruned_baseline_has_exactly_the_expected_known_failures_count() -> None
     left untouched - a regression here means a future edit silently pruned (or re-grew) something
     this card deliberately did not touch. TC-799 then pruned 10 more (6 ``prefix3-findable`` + 4
     ``digit-stripped-family-findable``), each re-verified fixed under BOTH default and exhaustive mode:
-    a short camel fragment now resolves, so 116 -> 106 (25 -> 19 and 23 -> 19)."""
+    a short camel fragment now resolves, so 116 -> 106 (25 -> 19 and 23 -> 19).
+
+    TC-848 (DG-1, 2026-11-19) re-recorded the six regenerated cohort-C1 python pilots (cells, email, page, pdf,
+    slides, words) to their new default-sample failure set - 19 entries added, 13 removed, 106 -> 112 - as ranking
+    churn plus probe artefacts of the newly served module-level constants (see the baseline's ``tc848_rationale``):
+    ``digit-stripped-family-findable`` 19 -> 23, ``fabricated-fqn-false-exact`` 4 -> 5, ``prefix3-findable`` 19 -> 20,
+    the two case-(g) classes stay at 32 each."""
     baseline = load_baseline(BASELINE_PATH)
     assert baseline.strict is True
-    assert len(baseline.known_failures) == 106
+    assert len(baseline.known_failures) == 112
     by_subcase: dict[str, int] = {}
     for failure in baseline.known_failures:
         sub = failure.case_id.split(":", 1)[0]
@@ -311,9 +317,9 @@ def test_pruned_baseline_has_exactly_the_expected_known_failures_count() -> None
     assert by_subcase == {
         "bare-member-word-false-exact": 32,
         "bare-namespace-word-false-exact": 32,
-        "digit-stripped-family-findable": 19,
-        "fabricated-fqn-false-exact": 4,
-        "prefix3-findable": 19,
+        "digit-stripped-family-findable": 23,
+        "fabricated-fqn-false-exact": 5,
+        "prefix3-findable": 20,
     }
 
 

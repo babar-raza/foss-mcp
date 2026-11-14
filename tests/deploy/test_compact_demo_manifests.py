@@ -47,7 +47,12 @@ EXPECTED_SCOPES = 32
 # every pilot, not only the 13 pilots TC-553 already measured. Each budget is the measurement x 1.05 rounded up to
 # the next 10,000, same rule as TC-503 and TC-553.
 # re-pinned by TC-536: 43_780_000 -> 43_820_000
-TREE_BYTES_BUDGET = 43_820_000
+# re-pinned by TC-848: 43_820_000 -> 44_470_000. Cohort C1 (11 python pilots) was regenerated with gateway 4096-dim example vectors
+# (they were 64-dim hashing vectors): the committed tree measured 44_463_527 bytes (generation files, pointers and sidecars; the
+# compaction's own scope-only total is 41_804_884). The usual measurement x 1.05 would be 46_686_703 and would exceed the operator's
+# 45_000_000 lean ceiling, which a worker never raises, so this budget is the measurement rounded up to the next 10_000 and stays
+# under the ceiling with 530_000 bytes of room. Pilots still holding 64-dim vectors will add vector bytes when they are regenerated.
+TREE_BYTES_BUDGET = 44_470_000
 # re-pinned by TC-778: 6_060_000 -> 7_390_000 (the largest generation file is pdf/java again, now
 # 7_031_594 bytes, after the supervisor's TC-743/TC-744/TC-748 authored-examples re-ingest finally
 # caught pdf/java's own generation up to the per-member documentation rendering already present on

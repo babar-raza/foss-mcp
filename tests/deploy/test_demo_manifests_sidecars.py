@@ -51,7 +51,12 @@ NO_REGISTRY_PLATFORM = "cpp"
 # because Round 3 renders per-member documentation text for every pilot, not only the 13 pilots TC-553 already measured.
 # Same rule (measurement x 1.05 rounded up to the next 10,000) and the same value as test_compact_demo_manifests.py.
 # re-pinned by TC-536: 43_780_000 -> 43_820_000
-TREE_BYTES_BUDGET = 43_820_000
+# re-pinned by TC-848: 43_820_000 -> 44_470_000. Cohort C1 (11 python pilots) was regenerated with gateway 4096-dim example vectors
+# (they were 64-dim hashing vectors): the committed tree measured 44_463_527 bytes (generation files, pointers and sidecars; the
+# compaction's own scope-only total is 41_804_884). The usual measurement x 1.05 would be 46_686_703 and would exceed the operator's
+# 45_000_000 lean ceiling, which a worker never raises, so this budget is the measurement rounded up to the next 10_000 and stays
+# under the ceiling with 530_000 bytes of room. Pilots still holding 64-dim vectors will add vector bytes when they are regenerated.
+TREE_BYTES_BUDGET = 44_470_000
 
 # The same credential shapes ops/secretscan.py refuses in a commit.
 CREDENTIAL_SHAPES: dict[str, re.Pattern[str]] = {

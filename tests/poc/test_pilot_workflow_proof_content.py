@@ -296,6 +296,9 @@ REPO_ROOT = Path(__file__).resolve().parents[2]
 REAL_FIXTURES = REPO_ROOT / "tests" / "fixtures"
 DEMO_MANIFESTS = REPO_ROOT / "infra" / "demo-manifests"
 _TYPES_CLAUSE = re.compile(r"^API-Coverage: (\d+) of (\d+) types", re.MULTILINE)
+# TC-820 / TC-848: a regenerated line names package-level constants/variables apart from the types
+# (``N of N types; M of M constants/variables``), while the fixture's symbol_counts.types counts both.
+_CONSTANTS_CLAUSE = re.compile(r"^API-Coverage: [^\n]*?; (\d+) of (\d+) constants/variables", re.MULTILINE)
 
 
 def _pilots_with_functions() -> list[str]:
@@ -308,7 +311,8 @@ def _pilots_with_functions() -> list[str]:
 
 
 def _served_total_types(pilot: str) -> int:
-    """Mt of the API-Coverage line of the pilot's baked generation: the value report_index_freshness serves."""
+    """Mt of the API-Coverage line of the pilot's baked generation (plus its constants/variables total, which the fixture's
+    symbol_counts.types counts with the types): the value report_index_freshness serves."""
     family, _, platform = pilot.partition("_")
     scope_dir = DEMO_MANIFESTS / f"{family}__{platform}__self_extracted"
     generation = json.loads(next(scope_dir.glob("generation__*.json")).read_text(encoding="utf-8"))
@@ -319,7 +323,8 @@ def _served_total_types(pilot: str) -> int:
         if first.startswith("FQN:") and not first.startswith(("FQN: Doc: ", "FQN: Example: ")):
             match = _TYPES_CLAUSE.search(text)
             assert match is not None, (pilot, first)
-            totals.add(int(match.group(2)))
+            constants = _CONSTANTS_CLAUSE.search(text)
+            totals.add(int(match.group(2)) + (int(constants.group(2)) if constants is not None else 0))
     assert len(totals) == 1, (pilot, totals)
     return totals.pop()
 

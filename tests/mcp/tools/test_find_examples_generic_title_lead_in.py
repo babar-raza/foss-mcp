@@ -362,11 +362,17 @@ def test_a_multi_term_query_sharing_one_lead_in_word_does_not_admit_the_example(
 # --- RD2-143 / RD2-203 against the real, committed corpora --------------------------------------
 
 
+# TC-848: the regenerated html/python chunk is titled by its real subject instead of the README heading "Quick Start (2)".
+CASCADE_TITLE = (
+    "Attach a stylesheet and resolve the computed style — the ID selector wins over the class rule"
+)
+
+
 @pytest.mark.parametrize("query", ["stylesheet", "computed style", "attach stylesheet"])
 def test_rd2_143_html_python_css_cascade_example_is_found_by_its_subject(tmp_path: Path, query: str) -> None:
     store = _real_store(tmp_path, "html__python")
     result = find_examples(store, HTML_SCOPE, query)
-    assert _titles(result)[0] == "Quick Start (2)", query
+    assert _titles(result)[0] == CASCADE_TITLE, query
     assert "attach_style_sheet" in result[0].snippet
     assert result[0].match_basis == MATCH_BASIS_TITLE_WORD
     assert result[0].confidence == "confident"
@@ -375,12 +381,12 @@ def test_rd2_143_html_python_css_cascade_example_is_found_by_its_subject(tmp_pat
 def test_rd2_143_a_three_word_query_finds_it_too_judged_by_the_coverage_floor(tmp_path: Path) -> None:
     store = _real_store(tmp_path, "html__python")
     result = find_examples(store, HTML_SCOPE, "resolve the computed style")
-    assert _titles(result) == ["Quick Start (2)"]
+    assert _titles(result) == [CASCADE_TITLE]
 
 
 def test_rd2_143_css_still_finds_the_cascade_example(tmp_path: Path) -> None:
     store = _real_store(tmp_path, "html__python")
-    assert _titles(find_examples(store, HTML_SCOPE, "css")) == ["Quick Start (2)"]
+    assert _titles(find_examples(store, HTML_SCOPE, "css")) == [CASCADE_TITLE]
 
 
 def test_rd2_143_the_other_html_python_generic_example_and_specific_titles_still_answer_as_before(
@@ -447,16 +453,19 @@ def _all_example_chunks(tmp_path: Path) -> list[tuple[str, str, str]]:
 
 def test_the_real_corpus_census_of_generic_titled_examples(tmp_path: Path) -> None:
     rows = _all_example_chunks(tmp_path)
-    assert len(rows) == 280
+    # TC-848 re-pin (cohort C1 regenerated: authored/real titles replaced 12 README placeholders such as "Quick Start (2)" and
+    # "Additional Examples (3)" in 8 pilots, and the cohort gained 24 examples): 280 -> 304 examples, 46 -> 34 generic titled,
+    # 24 -> 22 pilots (email/python and note/python have none left), 40 -> 28 that can anchor on a short lead-in.
+    assert len(rows) == 304
     generic = [r for r in rows if is_generic_example_title((extract_fqn(r[2]) or "")[len(EXAMPLE_PREFIX) :])]
-    assert len(generic) == 46
-    assert len({(family, platform) for family, platform, _ in generic}) == 24
+    assert len(generic) == 34
+    assert len({(family, platform) for family, platform, _ in generic}) == 22
     # Every generic-titled example the corpus holds has a lead-in sentence but one (slides/net "Quick start").
     without = [r for r in generic if not example_lead_in(r[2])]
     assert [(f, p) for f, p, _ in without] == [("slides", "net")]
-    # 40 of the 46 name one subject in at most LEAD_IN_MAX_WORDS words and can anchor.
+    # 28 of the 34 (was 40 of 46) name one subject in at most LEAD_IN_MAX_WORDS words and can anchor.
     short = [r for r in generic if 0 < len(example_lead_in(r[2]).split()) <= LEAD_IN_MAX_WORDS]
-    assert len(short) == 40
+    assert len(short) == 28
 
 
 QUERIES = (

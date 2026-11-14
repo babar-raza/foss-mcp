@@ -36,6 +36,7 @@ from pathlib import Path
 import pytest
 
 from foss_mcp.indexing.gateway_embedding_provider import _API_KEY_ENV, _ENDPOINT_ENV
+from foss_mcp.mcp.routing import Scope
 from foss_mcp.mcp.tools.find_examples import _extract_example, _runtime_fields, is_verified_example_text
 from foss_mcp.mcp.tools.get_symbol import extract_fqn
 from tests.conformance.baseline import assert_no_new_failures, load_baseline
@@ -52,7 +53,12 @@ ORPHAN_CASE_PREFIX = "orphan_fragment"
 MISLABELLED_VERIFIED_CASE_PREFIX = "mislabelled_verified"
 
 # Already confirmed by this plan's prior research, before this card re-measured them for real.
-KNOWN_ORPHAN_PILOTS = frozenset({"3d__python", "pdf__python", "slides__python"})
+# TC-848: cohort C1 was regenerated with one chunk per example (a column-0 ``#`` comment inside an example's code no longer
+# splits it), so the three pilots that exhibited the orphan-fragment defect (3d/python 8 orphan chunks, pdf/python 2,
+# slides/python 2, confirmed against the previously committed generations) now have none: the defect is FIXED there and no
+# pilot is known to exhibit it any more.
+PREVIOUSLY_KNOWN_ORPHAN_PILOTS = frozenset({"3d__python", "pdf__python", "slides__python"})
+KNOWN_ORPHAN_PILOTS: frozenset[str] = frozenset()
 KNOWN_MISLABELLED_VERIFIED_PILOTS = frozenset({"3d__java", "3d__net", "pdf__cpp"})
 
 
@@ -153,14 +159,34 @@ def test_every_real_pilot_has_at_least_one_example_chunk_to_check(corpus: Confor
 # ---- orphan-fragment sub-case (3d/python, pdf/python, slides/python) ---------------------------------
 
 
-def test_the_three_already_known_orphan_pilots_still_exhibit_the_defect(corpus: ConformanceCorpus) -> None:
-    found = {
-        finding["pilot"] for pilot in corpus.pilots.values() for finding in _orphan_fragment_findings(pilot)
-    }
-    missing = KNOWN_ORPHAN_PILOTS - found
-    assert not missing, (
-        f"previously-confirmed orphan-fragment pilot(s) no longer reproduce: {sorted(missing)}"
+def test_the_three_previously_known_orphan_pilots_no_longer_exhibit_the_defect(
+    corpus: ConformanceCorpus,
+) -> None:
+    """TC-848: 3d/python, pdf/python and slides/python were regenerated with one chunk per example; each still
+    has real example chunks (so this is not vacuous) and none has a headerless orphan fragment any more."""
+    for name in sorted(PREVIOUSLY_KNOWN_ORPHAN_PILOTS):
+        pilot = corpus.pilots[name]
+        assert pilot.example_chunks(), name
+        assert _orphan_fragment_findings(pilot) == [], name
+
+
+def test_the_orphan_fragment_detector_still_flags_a_headerless_chunk_carrying_a_source_commit() -> None:
+    """The detector itself keeps its coverage now that no real pilot exhibits the defect."""
+    commit = "0123456789abcdef0123456789abcdef01234567"
+    pilot = ConformancePilot(
+        name="synthetic__python",
+        scope=Scope(family="synthetic", platform="python"),
+        documents=[
+            {
+                "chunk_id": "whole",
+                "text": f"FQN: Example: Whole\nKind: verified_example\nx = 1\nSource-Commit: {commit}",
+            },
+            {"chunk_id": "orphan", "text": f"y = 2\nSource-Commit: {commit}"},
+            {"chunk_id": "prose", "text": "Some documentation with no commit line."},
+        ],
     )
+    findings = _orphan_fragment_findings(pilot)
+    assert [finding["case_id"] for finding in findings] == [f"{ORPHAN_CASE_PREFIX}:orphan"]
 
 
 def test_no_other_pilot_newly_exhibits_the_orphan_fragment_defect(corpus: ConformanceCorpus) -> None:
