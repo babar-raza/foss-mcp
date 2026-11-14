@@ -1007,6 +1007,12 @@ def _synthesized_init(
     fields = _init_fields(node, context)
     if fields is None:
         return None
+    # TC-819: a field whose name starts with '_' is private by Python convention (note/python's
+    # ``_children: list[Node] = field(default_factory=list)``); the synthesized public constructor
+    # must not advertise it as a parameter. Only this synthesized path is filtered: ``_init_fields``
+    # still reports every field (inherited ones included), and hand-written ``__init__`` signatures
+    # are untouched.
+    fields = [item for item in fields if not item.name.startswith("_")]
     ordered = [f for f in fields if not f.keyword_only] + [f for f in fields if f.keyword_only]
     parts = ["self"]
     star_done = False
