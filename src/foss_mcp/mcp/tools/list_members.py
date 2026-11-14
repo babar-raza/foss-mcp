@@ -8,6 +8,7 @@ is the identical explicit ``NotFound`` in both tools, never a near match invente
 
 from __future__ import annotations
 
+from foss_mcp.indexing.chunk_builder import NOT_IMPLEMENTED_PHRASE
 from foss_mcp.indexing.generation_manifest import GenerationManifestStore
 from foss_mcp.mcp.routing import Scope
 from foss_mcp.mcp.tools.get_symbol import (
@@ -44,20 +45,26 @@ def list_members(store: GenerationManifestStore, scope: Scope, fqn: str) -> tupl
     if isinstance(signature, NotFound):
         return signature
     # TC-822 (RD2-208): a .NET answer with ``[event]`` / ``[readonly]`` / ``[static, readonly]`` members
-    # leads with the one line that explains those tags (same prepend precedent as TC-559 / TC-639).
+    # carries one line that explains those tags. TC-840: it is an explanatory convention note, so it never
+    # precedes a ``Limitation:`` / known-defect / "not implemented" line - it sits right after them, ahead of
+    # the member lines.
     tag_note = signature.notes if isinstance(signature, NotedSignature | NotedResolvedSignature) else ()
     if isinstance(signature, ResolvedSignature) and signature.member:
         # TC-540: "<Type>.<member>" returns just that member's lines (all its overloads).
-        return tag_note + signature.member_lines
+        if not tag_note:
+            return signature.member_lines
+        flagged = tuple(line for line in signature.member_lines if NOT_IMPLEMENTED_PHRASE in line.lower())
+        rest = tuple(line for line in signature.member_lines if line not in flagged)
+        return flagged + tag_note + rest
     # TC-559: a type that is not implemented says so first (``Limitation: not implemented in this build ...``);
     # a member that is not implemented carries the same phrase on its own line. A working type adds nothing.
     type_limitation = tuple(
         line for line in signature.limitations if line.startswith(_TYPE_LIMITATION_PREFIX)
     )
     return (
-        tag_note
-        + type_limitation
+        type_limitation
         + signature.known_defects
+        + tag_note
         + signature.methods
         + signature.properties
         + signature.members
